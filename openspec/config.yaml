@@ -1,0 +1,33 @@
+schema: spec-driven
+
+# Project context: constraints that guide OpenSpec artifacts and workflows.
+context: |
+  Write all artifacts in English.
+  Requirements: docs/prd-askboard-2026-10-25/prd.md (FR, NFR, SM, R IDs) and its addendum.md. Each proposal cites the IDs it serves.
+  Architecture: AD-1 to AD-22 in docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md bind every change; each design cites the AD IDs it relies on. SOLUTION-DESIGN.md explains them; where the two differ, the spine wins.
+  A change that alters a requirement or an architecture decision updates the PRD or the spine in the same change. AD IDs stay stable: amend in place, add the next AD-n, never renumber.
+  Capabilities follow the units in SOLUTION-DESIGN.md §3.1. Epics are OpenSpec changes. The spikes in SOLUTION-DESIGN.md §10 run as changes before the decisions they gate.
+  AskBoard depends on nothing in AXFX. The contract AXFX requires of AskBoard lives in the AXFX PRD (§5.10, §6, §7) in the planning repository; changes to it are requested there.
+  Designs and tasks cover macOS and Linux, including devcontainers and CI runners; Windows only through WSL (NFR-7).
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
