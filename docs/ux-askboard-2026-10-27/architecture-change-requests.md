@@ -1,0 +1,66 @@
+---
+title: AskBoard architecture change requests from the UX run
+source_run: ux-askboard-2026-10-27 (.memlog.md)
+target: architecture-askboard-2026-10-27/ (ARCHITECTURE-SPINE.md, SOLUTION-DESIGN.md) as at commit 73d5cb6, now owned by the askboard repository (docs/)
+applied_with: prd-change-requests.md, in one pass in askboard
+status: final
+created: 2026-10-27
+updated: 2026-10-28
+---
+
+# AskBoard architecture change requests from the UX run
+
+The AskBoard architecture is final and moved to the askboard repository on 2026-10-27. It lives under the askboard repository's `docs/` with the same folder name; agentxema_prd removed its copy on 2026-10-28 and keeps the original in git history at commit 73d5cb6. When the UX spines were distilled, nine UX decisions turned out to conflict with the architecture. The user settled each one: in some the UX yields, in the others the UX keeps its decision and the architecture is asked to change. Decisions taken later in the run, on agent cost, declining a question, delivery receipts and component choices, added ACR-08 to ACR-10 and the spike checks. The validation of the UX spines (`validation-report.md`, group B, approved by the user) added ACR-11 to ACR-13 and S-8, and refined ACR-07 to ACR-09.
+
+This file lists the changes the architecture is asked to make. It is an input for the askboard repository, not an architecture edit: the wording and the AD placement are that repository's call. Every AD reference is to `architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` as at commit 73d5cb6.
+
+## Requested changes
+
+| ID | UX decision | AD | Requested change |
+|---|---|---|---|
+| ACR-01 | *Withdrawn.* The user removed translation and the language-switch interaction entirely. The agent sets the language per ask; for another language it closes the ask and opens a new one. AD-20 needs no `translation` update kind. | — | — |
+| ACR-02 | Changing theme, density or context placement on a board saves it as the user setting, and it applies at once. The behavioural settings (default language, asking rules, Snapshot folder, editor) are shown read-only on the board. | AD-14 | Add a write path from the board, through the session process, to the user configuration for presentation preferences only: `theme`, `density`, `contextPlacement`. Apply them live. Behavioural settings keep the next-session semantics and are never written by the board, so the board never writes a command to run. Add the keys, plus a `defaultLanguage` key (`en-US` or `it-IT`), to the configuration schema in `contract`. Also name the keys of the asking rule (FR-30, AD-16) and of the Snapshot folder (FR-27, AD-14) in that schema, so the settings panel can show every read-only setting with its file and key. |
+| ACR-03 | A project-file reference opens in a reading panel inside the board, at the referenced location. | AD-8 | Let the board page of the same origin frame the token-gated source view: `frame-ancestors 'self'` instead of `'none'`. Everything else stays as AD-8 states it: text-only rendering, `nosniff`, `default-src 'none'`. |
+| ACR-04 | The reading panel offers "Open in editor", which opens the file at that line in the editor set in the settings. | AD-8, AD-12, AD-14 | Add a rule for launching the editor:<br>• only on an explicit user click, never on agent content;<br>• the command comes from the user's settings;<br>• it starts with an argument vector, never through a shell;<br>• the path is confined by AD-12.<br>Add an `editor` key to the configuration schema. |
+| ACR-05 | In immediate delivery, the user can undo a postpone that has already been delivered. | AD-20, AD-10 | Add an event, "question reopened by the user", that the agent receives through `collect` and the mod like any other. In submitted delivery the undo stays in the draft record until submit, so no event is needed. |
+| ACR-06 | The board and the notification show the ask's title and the agent's display name ("Subagent code-reviewer · Retry review"). The tab is labelled "<title> · AskBoard". Both are optional, to keep a plain ask cheap. | AD-7 | Add an optional `ask.title` and an optional agent display name to the ask schema. When they are missing, AskBoard derives the title from the first question and the name from the agent type that Claude Code reports. |
+| ACR-07 | The agent may declare the language and locale per ask. The sales estimate review can carry a minimum margin. Diff review compares two alternative fixes (fix A / fix B), given as two patch files under the ask's root. All of these are optional. | AD-7, AD-8, AD-9, AD-12, AD-14 | Add the following:<br>• an optional `language` (`en-US` or `it-IT`, the user's preferred language) and `locale` to the ask schema, falling back to the configured `defaultLanguage`, then `en-US`;<br>• an optional `minimumMargin` to the sales-estimate-review molecule's input format, falling back to a project configuration default; with neither, the board shows no margin warning;<br>• alternatives to Diff review's input format, as two patch files under the ask's root, with the base they apply to named in the item. AskBoard reads them at send time under AD-12, parses them and computes the diffs itself, so the agent never writes the diff text (it writes the patch files with a redirect) and AskBoard needs no git access, which AD-8 does not provide. Branches and commits are not taken in v1: a worktree's object store lies outside the ask's root. A patch file that does not resolve is reported as unresolved, with a warning (AD-6). |
+| ACR-08 | The user can decline a question: "Decline" closes it as declined, with an optional reason, and the agent learns not to ask it again. A decline follows the delivery mode and can be revised or undone like an answer. | AD-10, AD-20, AD-14 | Add the following:<br>• a `declined` answer kind, carrying the optional reason from the question's free-text field; like an answer, it closes the question, and it follows the delivery mode (held until submit in submitted delivery);<br>• `declined` as a terminal question state beside AD-10's `open`, `answered` and `postponed`; the ask is answered when every question that is not postponed is answered or declined;<br>• revision and undo as for an answer: a later answer or decline supersedes it, and undoing it uses ACR-05's "question reopened by the user" event.<br>"The agent learns" means only that the declined event carries the reason and that the shipped skills tell the agent not to ask the question again within its task. Nothing is persisted (AD-14, FR-25). |
+| ACR-09 | Each delivered answer shows "sent", then "delivered to the agent" once the agent has received it. | AD-3, AD-4 | Tell the board when an answer's event passes the ask's `received` watermark (AD-3: returned by `collect`, carried in a `SubagentStop` block, or reported delivered by the mod), so the board can mark it "delivered to the agent". The receipt claims delivery only, never that the agent read or acted on the answer, so it does not use the acknowledgement cursor. |
+| ACR-10 | Graph auto-layout uses `@dagrejs/dagre` 3.1.3 (technical choices, decision 12). | §9 | Add dagre to the component table and the Stack pins after an adoption check. elkjs stays excluded. |
+| ACR-11 | A reload brings the board back in its state (L57): each question's context placement ("Beside \| Inline"), the text in the follow-up composers, the user's notes on options, and the open tab or the question in view come back too. | AD-20 | Extend the per-ask draft record with those four. Like the rest of the record, they are mirrored by the board page, restored on a reload or a takeover, and never exposed to `collect`, `fetch`, Snapshots, the mod or the local API. The board's language is not among them: the agent sets it per ask (ACR-07). |
+| ACR-12 | A new board comes to the front only when the user is not working on another board of the same session. When the user is, AskBoard does not open the board, and the system notification or the terminal link opens it. | AD-2, AD-8, board protocol (AD-7) | Add a "working" signal: a board of the session counts as working while it has focus and has had a user input in the last 60 seconds, reported by the board page over the board protocol (presence only, never content). While any board of the session is working, AskBoard does not call the browser opener for a new ask, since the opener is an OS command that cannot open a background tab; the notification and the terminal link open the board instead. |
+| ACR-13 | Elements the user adds in a widget, such as a work package in a split, a tree node or a Graph state, get IDs that the view creates, and they must never collide with IDs the agent adds later. | AD-7 | Reserve an ID prefix for elements the view creates, which agent-chosen IDs may not use. View-made IDs still match AD-7's `[A-Za-z0-9_-]{1,64}`, prefix included. |
+
+## Conflicts where the UX yielded (no change requested)
+
+These are listed so that askboard doesn't reopen them:
+- **Drafts (AD-20).** Drafts never leave the board. The language-switch event that once tested this rule was removed with the feature.
+- **"Select recommended" (AD-10).** The board-level action only preselects options on questions where the user has chosen nothing, never replaces a choice, and sends nothing. Every answer still comes from an explicit act on its question, its "Answer" or its "Accept recommended" (which selects the recommended option and answers that question), or from Submit in submitted delivery.
+- **Snapshot after a discard (AD-21).** A Snapshot is possible from a board the agent closed, never from a discarded one.
+- **Bring to front (AD-2).** The rule "not while the user works on another board" holds only among boards of the same session; across sessions the browser behaves as usual. Within a session it needs the working signal of ACR-12.
+- **Reconnection (AD-21).** "Connection lost, retrying" covers drops within the grace period. After the session process exits, the board shows the ask as discarded.
+
+## Checks for the renderer spike (SOLUTION-DESIGN §10.3)
+
+While choosing components for the UX (technical choices proposal, approved by the user), seven facts came up that contradict SOLUTION-DESIGN §9's status table or the view CSP (S-1 to S-7). The validation of the spines added S-8. They are not changes the UX requests. They are things the spike in askboard should verify and settle.
+
+- **S-1, Mermaid 12.2.0.** It lists elkjs as a direct dependency, and §9 names elkjs as an excluded trap. A possible fix: strip elkjs from the view build and check its absence in CI.
+- **S-2, react-arborist 4.0.1.** It needs react-dnd 16 as a peer, and react-dnd's last release was 2022-06-25, which fails the activity criterion. The UX chose TanStack Table tree mode with Pragmatic drag and drop instead.
+- **S-3, vis-timeline 8.5.6.** It depends on `@egjs/hammerjs`, whose repository was last pushed 2021-02-01 and has 45 stars. The UX chose its own Timeline.
+- **S-4, form validation.** No schema validator compatible with the view CSP passes the adoption rule:
+  - Ajv compiles code at run time;
+  - `@rjsf/validator-cfworker` rests on `@cfworker/json-schema` (704 stars, last release 2025-01-31);
+  - `ata-validator` has 389 stars.
+
+  The UX chose a no-op validator, with field checks computed by AskBoard.
+- **S-5, cmdk and next-themes.** Both fail the activity criterion. cmdk is used by `@rjsf/shadcn` and by shadcn's Command component. next-themes, used by shadcn's dark-mode recipe and its Sonner wrapper, also uses localStorage, which throws in the sandboxed view. The UX drives the dark theme with a `.dark` class instead.
+- **S-6, Radix Dialog and Alert Dialog.** They inject a scroll-lock `<style>` at run time, which a hash-only `style-src` blocks. This affects the mode-switch confirmation if it is modal. The settings panel is a non-modal side sheet on the board page (L204), so it is not affected.
+- **S-7, no `allow-forms` in the sandbox.** A `<form>` submission is blocked, so RJSF must render with `tagName="div"`.
+- **S-8, Form picks and `pattern`.** The user settled how Form pick fields are built: as `enum`, with their labels in `ui:enumNames`, not as `oneOf` of `const`. The spike verifies that such picks render and return their values under the approved Form library (`@rjsf/core` 6.11.0 with the AskBoard theme, S-4's no-op validator and S-7's `tagName="div"`), and that the safe `pattern` subset (no backreferences, lookaround or nested quantifiers) can be checked when the ask is sent, refusing a pattern outside it with an error naming the item.
+
+Further spike items from the proposal (its §2.5): `@pierre/diffs` syntax highlighting under the CSP, Mermaid text measurement when its injected styles are blocked, and PlantUML render time in the golden single-question case (it counts towards SM-3 and SM-C2).
+
+## Related PRD change requests
+
+ACR-01 is withdrawn, like PCR-18 and PCR-19; ACR-02 relates to PCR-17 and PCR-20, ACR-03 and ACR-04 to PCR-14, ACR-05 to PCR-06 and PCR-29, ACR-06 to PCR-02, PCR-03 and PCR-16, ACR-07 to PCR-17 and PCR-23, ACR-08 to PCR-07 and PCR-29, ACR-09 to PCR-30, ACR-11 to PCR-09, and ACR-12 to PCR-01; ACR-10 and ACR-13 have no PRD counterpart (all in `prd-change-requests.md`).

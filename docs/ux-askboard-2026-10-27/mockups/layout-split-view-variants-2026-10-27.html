@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Split view variants</title>
+<style>
+/*
+  AskBoard - structural layout mock: split-view variants A / B / C (FR-13), grayscale, no brand.
+  Purpose: compare the three split-view variants still open in .memlog.md (entry "split view (FR-13) deferred
+  by user to a mock comparison of three variants"). One board DOM; the variant switcher (CSS-only radios,
+  outside the browser frame) changes only how questions and excerpts are arranged.
+
+  Governing decisions (.memlog.md, line numbers as of updated 2026-10-27T17:19):
+   L25 form factor: desktop/laptop, 1280px floor        L36 density: compact by default, switch to comfortable
+   L24 theme: system + manual toggle                     L26/L33/L35 language EN/IT, header toggle, saved as user setting
+   L40 settings panel opened from the board chrome       L42 areas as tabs or stacked sections (agent's choice: sections here)
+   L44 split view: three variants under comparison       L45 follow-ups inline under the question, collapsible, composer at foot
+   L46 sticky context header + sticky bottom action bar  L47 header chip, per-option description, per-option annotations
+   L49 annotations: agent's shown, user can add own      L50 outline navigator + next-unanswered jump, count in header
+   L55 ask state with postponed count when any           L61 'Recommended' badge, nothing preselected, 'Accept recommended'
+   L63 one free-text field per question                  L69 Diff review scope (A vs B, split/unified, per-line, per-file)
+   L70 Graph scope (edit, cycle checks, pinned comments, auto-layout, changes vs original)
+   L76 change highlighting (display only)                L79 project-file reference -> reading panel + 'Open in editor'
+   L86 who asked: type + name                             L87 expected answerer shown only when not the git user (omitted)
+  PRD (extract-prd.md): FR-2 areas, FR-3 options, FR-4 postpone, FR-7 open prompt, FR-8 excerpts, FR-9 references,
+  FR-10 follow-ups, FR-11 widgets, FR-13 split view, FR-22 delivery mode, FR-24 context header, FR-26 Snapshot; UJ-1 content.
+  Everything placed without a memlog entry carries a visible [ASSUMPTION] tag.
+  SAMPLE DATA: project 'payments', branch 'fix/payment-retry', worktree 'payments-worktrees/fix-payment-retry',
+  directory, ask ID, port, PR number, file paths, code and ADR text are illustrative sample data.
+*/
+:root{--ink:#1c1c1c;--ink2:#555;--ink3:#8c8c8c;--line:#d4d4d4;--line2:#e7e7e7;--bg:#e4e4e4;--board:#f6f6f6;--card:#fff;--fill:#f0f0f0;--acc:#2a2a2a;--hh:64px;--bb:46px;--vh:800px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.mono,code,.diff{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+button{font:inherit;font-size:12px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:4px;padding:2px 8px;cursor:pointer;white-space:nowrap}
+button:focus-visible,a:focus-visible,textarea:focus-visible,label:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+button[disabled]{opacity:.45;cursor:not-allowed}
+button.lnk{border:0;background:none;padding:0;color:var(--ink2);text-decoration:underline}
+textarea{font:inherit;font-size:12px;width:100%;border:1px solid var(--line);border-radius:4px;padding:5px 7px;resize:vertical;background:#fff;color:var(--ink)}
+.muted{color:var(--ink3)}.sp{flex:1}
+.k{color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:#fff}
+.seg b{font-weight:400;font-size:11.5px;padding:2px 8px;border-left:1px solid var(--line);white-space:nowrap}
+.seg b:first-child{border-left:0}.seg b.on{background:var(--acc);color:#fff}
+.asm{display:inline-block;font:10.5px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3a3a3a;background:#fff;border:1px dashed #7a7a7a;border-radius:3px;padding:1px 5px;vertical-align:middle}
+div.asm{display:block;margin-top:6px}
+.vn{display:none;font-size:11.5px;background:var(--acc);color:#fff;border-radius:3px;padding:3px 8px;margin:0 0 8px}
+.vn b{letter-spacing:.03em}.vn .asm{margin-left:6px}
+/* page + switcher */
+.vr{position:absolute;opacity:0;pointer-events:none}
+.page{width:1280px;margin:0 auto;padding:16px 0 40px}
+.switch{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.switch h1{font-size:14px;margin:0 8px 0 0}
+.switch label{border:1px solid #999;border-radius:4px;padding:4px 10px;background:#fff;cursor:pointer;font-size:12.5px}
+.vd{display:none;margin:0 0 10px;color:var(--ink2);font-size:12.5px}
+.legend{margin-top:12px;font-size:11.5px;color:var(--ink2)}
+.legend .vn{display:inline-block;margin:0 4px 0 0}
+#v-a:checked~.page label[for=v-a],#v-b:checked~.page label[for=v-b],#v-c:checked~.page label[for=v-c]{background:var(--acc);color:#fff;border-color:var(--acc)}
+#v-a:checked~.page .vd-a,#v-b:checked~.page .vd-b,#v-c:checked~.page .vd-c{display:block}
+#v-a:checked~.page .vn-a,#v-b:checked~.page .vn-b,#v-c:checked~.page .vn-c{display:block}
+/* browser frame */
+.browser{border:1px solid #9a9a9a;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.chrome{background:#dcdcdc;border-bottom:1px solid #bdbdbd}
+.tabs{display:flex;align-items:flex-end;gap:8px;padding:6px 10px 0}
+.dots{display:flex;gap:6px;padding:0 6px 8px 0}.dots i{width:11px;height:11px;border-radius:50%;background:#b3b3b3;display:block}
+.tab{background:#f3f3f3;border:1px solid #bdbdbd;border-bottom:0;border-radius:6px 6px 0 0;padding:5px 14px;font-size:12px}
+.tabs .asm{margin-bottom:5px}
+.url{background:#f3f3f3;padding:5px 10px}.url span{display:block;background:#fff;border:1px solid #c7c7c7;border-radius:12px;padding:2px 12px;font-size:11.5px;color:#555}
+.vp{height:var(--vh);overflow:auto;background:var(--board);position:relative}
+/* context header */
+.ch{position:sticky;top:0;z-index:5;height:var(--hh);background:#fff;border-bottom:1px solid var(--line);padding:6px 14px;display:flex;flex-direction:column;gap:5px}
+.ch .r{display:flex;align-items:center;gap:12px;min-width:0}
+.who{font-size:13.5px;white-space:nowrap}
+.where{display:flex;gap:12px;margin:0;font-size:12px;min-width:0}
+.where div{display:flex;gap:4px;white-space:nowrap}.where dt{color:var(--ink3)}.where dd{margin:0}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--acc);display:inline-block}
+.cnt{font-weight:600;font-size:12px;white-space:nowrap}
+.vsep{width:1px;height:16px;background:var(--line)}
+/* board body */
+.bd{display:grid;grid-template-columns:212px minmax(0,1fr);align-items:start}
+.ol{position:sticky;top:var(--hh);height:calc(var(--vh) - var(--hh) - var(--bb));overflow:auto;border-right:1px solid var(--line);background:#fafafa;padding:10px}
+.ol-h{margin-bottom:6px}
+.ol-a{font-weight:600;font-size:12px;margin:10px 0 4px}
+.ol-q{display:block;text-decoration:none;color:var(--ink);border:1px solid var(--line2);background:#fff;border-radius:4px;padding:5px 6px;font-size:12px}
+.ol-q .t{display:block;margin:3px 0}.ol-q .s{font-size:11px;color:var(--ink2)}
+.ct{padding:12px 18px 24px;min-width:0}
+.area{margin-bottom:18px}
+.area-h{display:flex;align-items:baseline;gap:8px;font-size:14px;margin:0 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+/* question card */
+.q{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.q-main{display:flex;flex-direction:column;gap:10px;min-width:0}
+.q-head{display:flex;align-items:center;gap:8px;order:1}
+.hchip{display:inline-block;font-size:11px;font-weight:600;border:1px solid #9a9a9a;border-radius:10px;padding:0 8px;background:var(--fill);white-space:nowrap}
+.q-text{font-size:15px;font-weight:600;order:2}
+.q-opts{order:4}.q-w{order:5}.q-foot{order:6}.q-th{order:7}
+.ob{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.opt{display:flex;gap:9px;border:1px solid var(--line2);border-radius:4px;padding:7px 9px;margin-bottom:5px}
+.rd{flex:none;width:13px;height:13px;border:1.5px solid #777;border-radius:50%;margin-top:2px}
+.ot{font-weight:600}.od{display:block;color:var(--ink2);margin-top:1px}
+.badge{font-size:10.5px;font-weight:600;border:1px solid var(--acc);border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:1px}
+.ann{display:block;margin-top:5px;padding:4px 7px;background:var(--fill);border-left:3px solid #8a8a8a;font-size:12px}
+.addn{display:inline-block;margin-top:3px;font-size:11.5px;color:var(--ink2);text-decoration:underline}
+/* widgets */
+.w{border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.wb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;background:var(--fill);border-bottom:1px solid var(--line)}
+.wn{font-weight:600;font-size:12px}
+.fh{display:flex;align-items:center;gap:8px;padding:4px 8px;border-bottom:1px solid var(--line2);background:#fafafa;font-size:12px}
+.fh button{font-size:11px;padding:0 6px}
+.dx{overflow-x:auto}
+.diff{width:100%;border-collapse:collapse;font-size:11.5px;line-height:1.55}
+.diff td{padding:0 6px;white-space:pre;vertical-align:top}
+.diff .n{width:30px;text-align:right;color:var(--ink3);background:#fafafa}
+.diff .g{width:16px;padding:0;text-align:center;color:#fff}
+.diff .c{width:100%}
+.diff .a{width:118px;text-align:right;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.a button{font-size:10.5px;padding:0 5px;line-height:1.4}
+.a .on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.a em{font-style:normal;font-size:10.5px;color:var(--ink2);margin-right:4px}
+tr.hk td{background:#f3f3f3;color:var(--ink3)}
+tr.ad td.c,tr.ad td.sg{background:#e6e6e6}
+tr.dl td.c,tr.dl td.sg{background:#f7f7f7;color:#777}
+tr.rj td.c{text-decoration:line-through;color:#888}
+.diff .sg{width:12px;padding:0 0 0 4px;color:#555}
+.gp{background:var(--acc);border-radius:3px;font-size:10px;padding:0 3px;color:#fff}
+tr.cm td{background:#fff;white-space:normal;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:12px}
+.lc{margin:3px 0 4px;border:1px solid var(--line);border-radius:4px;padding:4px 8px;background:#fafafa}
+.gr{padding:8px;background:#fff}
+.gr svg{display:block;width:100%;max-width:820px;height:auto}
+.gr text{font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#333}
+.gr .nl{font:600 11.5px ui-monospace,Menlo,monospace;fill:#1c1c1c}
+.gr .el{paint-order:stroke;stroke:#fff;stroke-width:3px;fill:#555}
+.chk{display:flex;gap:16px;padding:5px 8px;border-top:1px solid var(--line2);background:#fafafa;font-size:12px}
+/* foot + thread */
+.q-foot{display:flex;gap:10px;align-items:flex-end}
+.q-foot .fld{flex:1}.q-foot label{display:block;font-size:12px;font-weight:600;margin-bottom:3px}
+.q-th{border:1px solid var(--line);border-radius:5px;background:#fbfbfb}
+.thh{display:flex;align-items:center;gap:8px;padding:5px 9px;border-bottom:1px solid var(--line2);font-size:12px}
+.msg{padding:6px 10px;border-bottom:1px solid var(--line2)}
+.msg .mh{display:flex;gap:8px;font-size:11.5px;color:var(--ink2);margin-bottom:2px}.msg .mh b{color:var(--ink)}
+.msg p{margin:0}.msg.ag{background:#f2f2f2}
+.cmp{display:flex;gap:8px;align-items:flex-end;padding:7px 9px}
+.q-th.cl .thh{border-bottom:0}
+/* context column (excerpts + references) */
+.q-ctx{order:3;min-width:0}
+.cxh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.cxc{display:none}
+.ex{margin:0;border:1px solid var(--line);border-radius:5px;background:#fff}
+.ex figcaption{padding:5px 8px;border-bottom:1px solid var(--line2);background:var(--fill)}
+.ex figcaption b{display:block;font-size:12.5px}.ex figcaption span{font-size:11px;color:var(--ink2)}
+.exb{padding:7px 9px;font-size:12px}.exb h4{margin:0 0 4px;font-size:12px}.exb p{margin:0 0 5px}.exb ul{margin:0 0 5px;padding-left:16px}
+.refs{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.ref{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:4px;padding:4px 7px;background:#fff;color:var(--ink);text-decoration:none;font-size:12px}
+.rt{font-size:10px;font-weight:600;border:1px solid #9a9a9a;border-radius:3px;padding:0 4px;text-transform:uppercase}
+.rh{margin-left:auto;font-size:11px;color:var(--ink3);white-space:nowrap}
+/* variant A (default) and C: split when the question has excerpts */
+.q.split{display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:14px}
+.q.split .q-ctx{border-left:1px solid var(--line);padding-left:14px;align-self:start}
+#v-c:checked~.page .cxc{display:inline-block}
+/* variant B: no split unless the agent asks; the excerpt block stacks under the question text */
+#v-b:checked~.page .q.split{display:flex;flex-direction:column;gap:10px}
+#v-b:checked~.page .q.split .q-main{display:contents}
+#v-b:checked~.page .q.split .q-ctx{align-self:stretch;border:1px solid var(--line);border-radius:5px;background:var(--fill);padding:8px}
+#v-b:checked~.page .q.split .refs{flex-direction:row;flex-wrap:wrap}
+#v-b:checked~.page .sp-only{display:none}
+/* bottom action bar */
+.bar{position:sticky;bottom:0;z-index:5;height:var(--bb);display:flex;align-items:center;gap:10px;padding:0 14px;background:#fff;border-top:1px solid var(--line)}
+.bar>*{flex:none}.bar>.sp{flex:1}
+.bar .hint{font-size:11.5px;color:var(--ink2)}
+/* variant C alternate state (below the frame) */
+.alt{display:none;margin-top:14px;background:#fff;border:1px solid #9a9a9a;border-radius:8px;padding:10px 14px}
+#v-c:checked~.page .alt{display:block}
+.alt-h{font-weight:600;margin-bottom:8px}
+.alt-c{display:grid;grid-template-columns:minmax(0,1fr) 34px;border:1px solid var(--line);border-radius:6px;max-width:980px}
+.alt-m{padding:10px 12px;display:flex;flex-direction:column;gap:7px}.alt-m>*{order:0}
+.ph{border:1px dashed #aaa;border-radius:4px;padding:6px 8px;color:var(--ink2);font-size:12px;background:#fafafa}.ph.tl{height:90px}
+.rail{border-left:1px solid var(--line);background:var(--fill);display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0}
+.rail button{padding:0 4px}.rail span{writing-mode:vertical-rl;font-size:11.5px;color:var(--ink2)}
+</style>
+</head>
+<body>
+<input class="vr" type="radio" name="v" id="v-a" checked>
+<input class="vr" type="radio" name="v" id="v-b">
+<input class="vr" type="radio" name="v" id="v-c">
+<div class="page">
+
+<div class="switch">
+  <h1>Split view (FR-13)</h1>
+  <label for="v-a" tabindex="0">A · Split by default</label>
+  <label for="v-b" tabindex="0">B · Split only when the agent asks</label>
+  <label for="v-c" tabindex="0">C · Split by default + per-question collapse</label>
+</div>
+<p class="vd vd-a"><b>Variant A.</b> A question with excerpts always renders split: the question on the left, its excerpt and references in a context column on the right. A question without excerpts renders full width.</p>
+<p class="vd vd-b"><b>Variant B.</b> A question renders split only when the agent asks for it in the ask. Here the agent did not, so Q1's excerpt stacks under the question; Q2 has none and is unchanged.</p>
+<p class="vd vd-c"><b>Variant C.</b> As A, plus a per-question control that collapses the context column so the question takes the full card width. The collapsed state is shown below the frame.</p>
+
+<div class="browser">
+  <div class="chrome">
+    <div class="tabs">
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span class="tab">Choose the retry fix · AskBoard</span>
+      <span class="asm">[ASSUMPTION] tab label = the ask title written by the agent (memlog L66 says only "likely")</span>
+    </div>
+    <div class="url"><span>http://127.0.0.1:47130/b/pay-retry-01#t=••••••••••••</span></div>
+  </div>
+
+  <div class="vp">
+    <!-- sticky context header: memlog L46, L86, L87 (no "For:"), L50 count, L40 settings, L24/L33/L36 toggles; FR-24 fields -->
+    <header class="ch">
+      <div class="r">
+        <span class="who"><b>Main agent</b> · Payment retry fix</span>
+        <span class="vsep"></span>
+        <dl class="where">
+          <div><dt>Project</dt><dd>payments</dd></div>
+          <div><dt>Directory</dt><dd class="mono">~/src/payments-worktrees/fix-payment-retry</dd></div>
+          <div><dt>Branch</dt><dd class="mono">fix/payment-retry</dd></div>
+          <div><dt>Worktree</dt><dd class="mono">payments-worktrees/fix-payment-retry</dd></div>
+        </dl>
+      </div>
+      <div class="r">
+        <span class="st"><span class="k">Ask</span> Waiting</span>
+        <span class="st"><span class="k">Agent</span><span class="dot"></span> Working</span>
+        <span class="vsep"></span>
+        <span class="cnt">2 unanswered</span>
+        <button>Next unanswered ↓</button>
+        <span class="sp"></span>
+        <span class="asm">[ASSUMPTION] header in two rows</span>
+        <button title="Theme: follows the system; click to override">◐ Theme</button>
+        <span class="seg" title="Language"><b class="on">EN</b><b>IT</b></span>
+        <span class="seg" title="Density"><b class="on">Compact</b><b>Comfortable</b></span>
+        <button>⚙ Settings</button>
+      </div>
+    </header>
+
+    <div class="bd">
+      <!-- outline navigator: memlog L50 -->
+      <nav class="ol" aria-label="Outline">
+        <div class="ol-h k">Outline</div>
+        <div class="ol-a">Fix</div>
+        <a class="ol-q" href="#q1"><span class="hchip">Retry fix</span><span class="t">Which of the two fixes should we keep?</span><span class="s">○ Unanswered</span></a>
+        <div class="ol-a">State machine</div>
+        <a class="ol-q" href="#q2"><span class="hchip">Retry states</span><span class="t">Should we change the retry state machine?</span><span class="s">○ Unanswered</span></a>
+        <div class="asm">[ASSUMPTION] outline as a sticky left rail; the memlog fixes its content (areas, questions, per-question state, jump on click or key), not its position</div>
+      </nav>
+
+      <main class="ct">
+        <!-- areas as stacked sections: memlog L42, FR-2 -->
+        <section class="area">
+          <h2 class="area-h"><span class="k">Area</span>Fix</h2>
+          <div class="vn vn-a"><b>VARIANT A</b> · Q1 has an excerpt, so it renders split.</div>
+          <div class="vn vn-b"><b>VARIANT B</b> · The agent did not ask for a split on Q1, so its excerpt stacks under the question.<span class="asm">[ASSUMPTION] stacked right under the question text, before the options</span></div>
+          <div class="vn vn-c"><b>VARIANT C</b> · Split by default; "Collapse" in the context column folds it for this question only (collapsed state below the frame).</div>
+
+          <article class="q split" id="q1">
+            <div class="q-main">
+              <div class="q-head">
+                <span class="hchip">Retry fix</span>
+                <span class="sp"></span>
+                <span class="asm">[ASSUMPTION] order inside the card: chip, question, options, widget, note + postpone, follow-up thread</span>
+              </div>
+              <div class="q-text">Which of the two fixes should we keep?</div>
+
+              <div class="q-opts">
+                <div class="ob"><span class="k">Options · pick one</span></div>
+                <div class="opt"><span class="rd"></span><div>
+                  <span class="ot">Fix A · Cap attempts in RetryScheduler</span>
+                  <span class="od">One file. Stops after the 6th attempt and moves the payment to the dead-letter queue; the queue code is untouched.</span>
+                  <a class="addn" href="#q1">+ Add your note to this option</a> <span class="asm">[ASSUMPTION] per-option link for the user's own annotation</span>
+                </div></div>
+                <div class="opt"><span class="rd"></span><div>
+                  <span class="ot">Fix B · Cap attempts and re-enqueue idempotently</span>
+                  <span class="od">Two files. Same cap as fix A, plus PaymentQueue drops a second enqueue with the same retry key.</span>
+                  <a class="addn" href="#q1">+ Add your note to this option</a>
+                </div></div>
+              </div>
+
+              <!-- Diff review: memlog L69 (A vs B, split/unified, per-line, per-file, line comments), L76 -->
+              <div class="q-w w">
+                <div class="wb">
+                  <span class="wn">Diff review</span>
+                  <span class="seg"><b>Fix A</b><b class="on">Fix B</b><b>A vs B</b></span>
+                  <span class="seg"><b>Split</b><b class="on">Unified</b></span>
+                  <span class="muted">2 files · +19 −3</span>
+                  <span class="sp"></span>
+                  <span class="asm">[ASSUMPTION] A vs B as a source switch in the widget toolbar</span>
+                </div>
+                <div class="fh">
+                  <span>▾</span><span class="mono">src/payments/retry/RetryScheduler.ts</span><span class="muted">+4 −2</span>
+                  <span class="sp"></span><button>Accept file</button><button>Reject file</button>
+                </div>
+                <div class="dx"><table class="diff">
+                  <tr class="hk"><td class="n"></td><td class="n"></td><td class="g"></td><td class="sg"></td><td class="c">@@ -41,8 +41,10 @@ async retry(p: Payment, attempt: number)</td><td class="a"></td></tr>
+                  <tr><td class="n">41</td><td class="n">41</td><td class="g"></td><td class="sg"> </td><td class="c">  const delay = this.backoff.next(attempt);</td><td class="a"></td></tr>
+                  <tr class="dl"><td class="n">42</td><td class="n"></td><td class="g"></td><td class="sg">−</td><td class="c">  if (attempt &gt; this.maxAttempts) {</td><td class="a"><em>Accepted</em><button class="on">✓</button> <button>✕</button></td></tr>
+                  <tr class="ad"><td class="n"></td><td class="n">42</td><td class="g"></td><td class="sg">+</td><td class="c">  if (attempt &gt;= this.maxAttempts) {</td><td class="a"><em>Accepted</em><button class="on">✓</button> <button>✕</button></td></tr>
+                  <tr class="ad"><td class="n"></td><td class="n">43</td><td class="g"></td><td class="sg">+</td><td class="c">    await this.queue.deadLetter(p.id, 'max_attempts');</td><td class="a"><button>✓</button> <button>✕</button></td></tr>
+                  <tr><td class="n">43</td><td class="n">44</td><td class="g"></td><td class="sg"> </td><td class="c">    return RetryOutcome.Exhausted;</td><td class="a"></td></tr>
+                  <tr><td class="n">44</td><td class="n">45</td><td class="g"></td><td class="sg"> </td><td class="c">  }</td><td class="a"></td></tr>
+                  <tr><td class="n">45</td><td class="n">46</td><td class="g"></td><td class="sg"> </td><td class="c">  await sleep(delay);</td><td class="a"></td></tr>
+                  <tr class="dl"><td class="n">46</td><td class="n"></td><td class="g"></td><td class="sg">−</td><td class="c">  this.queue.push(p);</td><td class="a"><button>✓</button> <button>✕</button></td></tr>
+                  <tr class="ad"><td class="n"></td><td class="n">47</td><td class="g"><span class="gp" title="Comment on this line">+</span></td><td class="sg">+</td><td class="c">  await this.queue.reenqueue(p.id, p.retryKey);</td><td class="a"><button>✓</button> <button>✕</button></td></tr>
+                  <tr class="ad rj"><td class="n"></td><td class="n">48</td><td class="g"></td><td class="sg">+</td><td class="c">  log.debug('re-enqueued', p);</td><td class="a"><em>Rejected</em><button>✓</button> <button class="on">✕</button></td></tr>
+                  <tr class="cm"><td class="n"></td><td class="n"></td><td class="g"></td><td></td><td class="c" colspan="2"><div class="lc"><b>Luca</b> · line 48 · Don't log the whole payment object: it carries the card fingerprint. <button class="lnk">Edit</button></div></td></tr>
+                  <tr><td class="n">47</td><td class="n">49</td><td class="g"></td><td class="sg"> </td><td class="c">  return RetryOutcome.Scheduled;</td><td class="a"></td></tr>
+                </table></div>
+                <div class="fh" style="border-bottom:0;border-top:1px solid var(--line2)">
+                  <span>▸</span><span class="mono">src/payments/queue/PaymentQueue.ts</span><span class="muted">+15 −1</span>
+                  <span class="sp"></span><button>Accept file</button><button>Reject file</button>
+                </div>
+              </div>
+
+              <!-- one free-text field per question (memlog L63) + postpone (FR-4) -->
+              <div class="q-foot">
+                <div class="fld"><label for="n1">Note to the agent</label><textarea id="n1" rows="2" placeholder="Optional. Feedback on this question, returned with your answer."></textarea></div>
+                <button>Postpone</button>
+              </div>
+
+              <!-- follow-up thread inline under the question, collapsible, composer at foot (memlog L45) -->
+              <div class="q-th">
+                <div class="thh"><b>▾ Follow-up</b><span class="muted">2 messages</span><span class="sp"></span><button class="lnk">Collapse</button></div>
+                <div class="msg"><div class="mh"><b>Luca</b><span>17:42</span></div><p>Why does the second fix touch the queue?</p></div>
+                <div class="msg ag"><div class="mh"><b>Main agent · Payment retry fix</b><span>17:43</span></div><p>Fix B moves the re-enqueue into PaymentQueue so that every retry carries the payment's retry key and a second enqueue with the same key is dropped. Fix A only caps the attempts, so a worker that crashes after charging and before acking can still queue the same payment twice. ADR-012 asks for idempotent re-enqueue, which is why fix B touches the queue.</p></div>
+                <div class="cmp"><textarea rows="1" placeholder="Ask the agent a follow-up about this question…"></textarea><button>Send</button></div>
+              </div>
+            </div>
+
+            <!-- excerpts + references: FR-8, FR-9, memlog L79; placement per variant (memlog L44) -->
+            <aside class="q-ctx">
+              <div class="cxh">
+                <span class="k">Excerpt and references</span><span class="sp"></span>
+                <button class="cxc">Collapse ▸</button>
+              </div>
+              <div class="asm sp-only" style="margin:0 0 6px">[ASSUMPTION] context column fixed at 360px (about a third of the card)</div>
+              <figure class="ex">
+                <figcaption><b>ADR-012 Retry policy</b><span class="mono">docs/adr/ADR-012-retry-policy.md · Decision · lines 18–29</span></figcaption>
+                <div class="exb">
+                  <h4>Decision</h4>
+                  <p>Failed payment attempts are retried with bounded exponential backoff: base delay 2 s, factor 2, jitter ±20%, each wait capped at 5 minutes.</p>
+                  <ul>
+                    <li>A payment is retried at most 6 times; after the last attempt it moves to the dead-letter queue and raises PAYMENT_RETRY_EXHAUSTED.</li>
+                    <li>Re-enqueueing must be idempotent: every retry carries the payment's retry key, and the queue drops a second enqueue with the same key.</li>
+                    <li>A retry never changes the amount, currency or customer of a payment.</li>
+                  </ul>
+                  <h4>Consequences</h4>
+                  <p>A worker may crash between charge and ack without charging the customer twice.</p>
+                </div>
+              </figure>
+              <div class="refs">
+                <a class="ref" href="#q1"><span class="rt">File</span><span class="mono">docs/adr/ADR-012-retry-policy.md#decision</span><span class="rh">opens in a reading panel</span></a>
+                <a class="ref" href="#q1"><span class="rt">GitHub</span><span>payments#482 · Retry storm on gateway timeouts</span><span class="rh">opens in browser ↗</span></a>
+              </div>
+              <div class="asm">[ASSUMPTION] references sit with the excerpts (context column in A and C, stacked block in B)</div>
+            </aside>
+          </article>
+        </section>
+
+        <section class="area">
+          <h2 class="area-h"><span class="k">Area</span>State machine</h2>
+          <div class="vn vn-a"><b>VARIANT A</b> · Q2 has no excerpt, so it renders full width.</div>
+          <div class="vn vn-b"><b>VARIANT B</b> · Q2 has no excerpt: nothing stacks; identical to A.</div>
+          <div class="vn vn-c"><b>VARIANT C</b> · Q2 has no excerpt: full width, no collapse control.</div>
+
+          <article class="q" id="q2">
+            <div class="q-main">
+              <div class="q-head"><span class="hchip">Retry states</span></div>
+              <div class="q-text">Should we change the retry state machine?</div>
+
+              <div class="q-opts">
+                <div class="ob"><span class="k">Options · pick one</span><span class="sp"></span><button>Accept recommended</button></div>
+                <div class="opt"><span class="rd"></span><div>
+                  <span class="ot">Keep as is</span>
+                  <span class="od">RETRYING can go back to PENDING: a re-queued payment re-enters the normal flow and its attempt counter starts again from zero.</span>
+                  <a class="addn" href="#q2">+ Add your note to this option</a>
+                </div></div>
+                <div class="opt"><span class="rd"></span><div>
+                  <span class="ot">Remove RETRYING → PENDING</span><span class="badge">Recommended</span>
+                  <span class="od">RETRYING keeps retrying with backoff until SUCCEEDED, FAILED or DEAD_LETTER; the attempt counter is never reset.</span>
+                  <span class="ann"><b>Agent:</b> with this transition in place the 6-attempt cap of ADR-012 never triggers; this loop is what caused the retry storm in payments#482.</span>
+                  <a class="addn" href="#q2">+ Add your note to this option</a>
+                </div></div>
+              </div>
+
+              <!-- Graph: memlog L70 (edit nodes/edges, cycle checks, pinned comments, auto-layout, changes vs original) -->
+              <div class="q-w w">
+                <div class="wb">
+                  <span class="wn">Graph · state machine</span>
+                  <button>Add state</button><button>Add transition</button><button>Delete</button><button>Comment</button><button>Auto-layout</button>
+                  <span class="sp"></span>
+                  <span class="asm">[ASSUMPTION] Graph toolbar layout</span>
+                </div>
+                <div class="gr">
+                  <svg viewBox="0 0 780 228" role="img" aria-label="Retry state machine: PENDING, RETRYING, SUCCEEDED, DEAD_LETTER, FAILED">
+                    <defs><marker id="ar" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#555"/></marker></defs>
+                    <g fill="none" stroke="#555" stroke-width="1.3" marker-end="url(#ar)">
+                      <path d="M85,95 V33 H596"/>
+                      <path d="M150,106 H286"/>
+                      <path d="M290,122 H154" stroke-width="2.2"/>
+                      <path d="M338,95 C334,58 376,58 372,92"/>
+                      <path d="M420,104 L596,40"/>
+                      <path d="M420,113 H596"/>
+                      <path d="M420,122 L596,186"/>
+                      <path d="M85,131 V193 H596"/>
+                    </g>
+                    <g>
+                      <text class="el" x="250" y="27">charge ok</text>
+                      <text class="el" x="218" y="100" text-anchor="middle">transient error</text>
+                      <text class="el" x="222" y="138" text-anchor="middle" font-weight="600">re-queued</text>
+                      <text class="el" x="355" y="54" text-anchor="middle">backoff, attempt ≤ 6</text>
+                      <text class="el" x="470" y="72">charge ok</text>
+                      <text class="el" x="508" y="108" text-anchor="middle">6th attempt fails</text>
+                      <text class="el" x="472" y="166">hard decline</text>
+                      <text class="el" x="250" y="187">hard decline</text>
+                    </g>
+                    <g fill="#fff" stroke="#444" stroke-width="1.2">
+                      <rect x="20" y="95" width="130" height="36" rx="4"/>
+                      <rect x="290" y="95" width="130" height="36" rx="4"/>
+                      <rect x="600" y="15" width="150" height="36" rx="4"/>
+                      <rect x="600" y="95" width="150" height="36" rx="4"/>
+                      <rect x="600" y="175" width="150" height="36" rx="4"/>
+                    </g>
+                    <g text-anchor="middle">
+                      <text class="nl" x="85" y="117">PENDING</text>
+                      <text class="nl" x="355" y="117">RETRYING</text>
+                      <text class="nl" x="675" y="37">SUCCEEDED</text>
+                      <text class="nl" x="675" y="117">DEAD_LETTER</text>
+                      <text class="nl" x="675" y="197">FAILED</text>
+                    </g>
+                  </svg>
+                </div>
+                <div class="chk">
+                  <span><span class="k">Checks</span> 1 cycle: PENDING → RETRYING → PENDING</span>
+                  <span><span class="k">Changes vs agent's original</span> none yet</span>
+                </div>
+              </div>
+
+              <div class="q-foot">
+                <div class="fld"><label for="n2">Note to the agent</label><textarea id="n2" rows="2" placeholder="Optional. Feedback on this question, returned with your answer."></textarea></div>
+                <button>Postpone</button>
+              </div>
+
+              <div class="q-th cl">
+                <div class="thh"><b>▸ Follow-up</b><span class="muted">no messages yet</span><span class="sp"></span><button class="lnk">Ask a follow-up</button></div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <!-- sticky bottom action bar: memlog L46 (delivery mode, Submit, Snapshot), FR-22, FR-26 -->
+    <div class="bar">
+      <span class="k">Delivery</span>
+      <span class="seg"><b class="on">Immediate</b><b>Submitted</b></span>
+      <span class="hint">Answers go to the agent as you give them.</span>
+      <span class="vsep"></span>
+      <button>Accept all recommended</button>
+      <span class="asm">[ASSUMPTION] position</span>
+      <span class="sp"></span>
+      <button>Snapshot</button>
+      <button class="pri" disabled>Submit</button>
+      <span class="asm">[ASSUMPTION] disabled in immediate</span>
+    </div>
+  </div>
+</div>
+
+<section class="alt">
+  <div class="alt-h">Variant C · alternate state: Q1 with its context column collapsed (same board, same moment)</div>
+  <div class="alt-c">
+    <div class="alt-m">
+      <div class="q-head"><span class="hchip">Retry fix</span></div>
+      <div class="q-text">Which of the two fixes should we keep?</div>
+      <div class="ph">Options · Fix A, Fix B</div>
+      <div class="ph tl">Diff review, now across the full card width (room for the Split view)</div>
+      <div class="ph">Note to the agent · Postpone · Follow-up (2 messages)</div>
+    </div>
+    <div class="rail"><button title="Expand context">◂</button><span>Context · 1 excerpt · 2 references</span></div>
+  </div>
+  <div class="asm">[ASSUMPTION] collapsed form: a narrow rail per question with counts and an expand control</div>
+</section>
+
+<p class="legend"><span class="vn" style="display:inline-block">VARIANT</span> marks what differs between A, B and C. <span class="asm">[ASSUMPTION]</span> marks a placement with no memlog entry. Not shown in this state: reading panel, settings panel, agent-change notice, postponed question and count, ended or disconnected board, Italian locale, dark theme, comfortable density.</p>
+</div>
+</body>
+</html>

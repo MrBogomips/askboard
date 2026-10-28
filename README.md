@@ -12,6 +12,7 @@ Design complete, no code yet. Next: the spikes defined in the solution design (Â
 
 - Requirements: `docs/prd-askboard-2026-10-25/prd.md` and `addendum.md`
 - Architecture: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` (binding decisions AD-1 to AD-22) and `SOLUTION-DESIGN.md` (why, facts, spikes)
+- UX: `docs/ux-askboard-2026-10-27/DESIGN.md` (how it looks) and `EXPERIENCE.md` (how it works), with the mockups in `mockups/`
 - Where they come from and how they change: `docs/README.md`
 
 ## Development workflow

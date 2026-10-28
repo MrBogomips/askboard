@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AskBoard - Payment Retry Fix</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-tertiary-fixed": "#001a41",
+            "tertiary-container": "#0969da",
+            "primary-fixed": "#d9e2ff",
+            "secondary-container": "#8856e5",
+            "surface": "#f9f9ff",
+            "tertiary-fixed-dim": "#adc6ff",
+            "on-tertiary-fixed-variant": "#004493",
+            "surface-container-lowest": "#ffffff",
+            "primary-container": "#0c66e4",
+            "surface-variant": "#d7e2ff",
+            "background": "#f9f9ff",
+            "error-container": "#ffdad6",
+            "on-background": "#041b3c",
+            "surface-tint": "#0058ca",
+            "on-secondary-fixed": "#250059",
+            "surface-bright": "#f9f9ff",
+            "inverse-primary": "#b0c6ff",
+            "on-primary-fixed-variant": "#00429b",
+            "on-secondary-container": "#fffbff",
+            "tertiary": "#0051ad",
+            "on-surface": "#041b3c",
+            "on-secondary": "#ffffff",
+            "on-surface-variant": "#424654",
+            "on-error-container": "#93000a",
+            "surface-container-high": "#e0e8ff",
+            "on-secondary-fixed-variant": "#581cb4",
+            "error": "#ba1a1a",
+            "secondary-fixed": "#ebddff",
+            "surface-container": "#e8edff",
+            "inverse-on-surface": "#edf0ff",
+            "on-primary": "#ffffff",
+            "secondary": "#6e3aca",
+            "primary-fixed-dim": "#b0c6ff",
+            "tertiary-fixed": "#d8e2ff",
+            "on-tertiary": "#ffffff",
+            "surface-container-highest": "#d7e2ff",
+            "inverse-surface": "#1d3052",
+            "on-error": "#ffffff",
+            "surface-container-low": "#f1f3ff",
+            "on-primary-container": "#ecefff",
+            "on-primary-fixed": "#001945",
+            "primary": "#004fb6",
+            "outline-variant": "#c2c6d7",
+            "on-tertiary-container": "#ecefff",
+            "secondary-fixed-dim": "#d3bbff",
+            "surface-dim": "#cadaff",
+            "outline": "#727786"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "margin": "1rem",
+            "space-lg": "1rem",
+            "space-md": "0.75rem",
+            "gutter": "0.5rem",
+            "space-xs": "0.25rem",
+            "space-xl": "1.5rem",
+            "space-sm": "0.5rem"
+          },
+          "fontFamily": {
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-sm": ["Inter"],
+            "headline-sm": ["Inter"],
+            "label-code-lg": ["JetBrains Mono"],
+            "label-code-sm": ["JetBrains Mono"],
+            "headline-md": ["Inter"],
+            "label-badge": ["Inter"],
+            "label-code-md": ["JetBrains Mono"]
+          },
+          "fontSize": {
+            "headline-lg": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-md": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "body-lg": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "headline-sm": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "label-code-lg": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "label-code-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+            "headline-md": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "label-badge": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+            "label-code-md": ["12px", { "lineHeight": "16px", "fontWeight": "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f1f3ff;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #c2c6d7;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased font-body-md text-body-md select-none">
+<!-- TOP STICKY CONTEXT HEADER -->
+<header class="w-full sticky top-0 z-40 bg-surface-container-lowest border-b border-outline-variant">
+<!-- Row 1: Workspace Breadcrumb & Metadata -->
+<div class="h-10 px-4 flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest text-body-sm font-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">terminal</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">AskBoard</span>
+<span class="text-outline">/</span>
+<span class="font-body-md text-on-surface font-medium">Main agent</span>
+<span class="text-outline">/</span>
+<span class="font-body-md text-on-surface-variant font-medium">Payment retry fix</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5">
+<span class="text-outline font-label-badge text-label-badge">Project:</span>
+<span class="font-label-code-sm text-label-code-sm bg-surface-container px-1.5 py-0.5 rounded text-on-surface">payments</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-outline font-label-badge text-label-badge">Directory:</span>
+<span class="font-label-code-sm text-label-code-sm bg-surface-container px-1.5 py-0.5 rounded text-on-surface">~/src/payments-worktrees/fix-payment-retry</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[15px]">commit</span>
+<span class="font-label-code-sm text-label-code-sm text-primary font-semibold">fix/payment-retry</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="font-label-code-sm text-label-code-sm text-on-surface-variant">payments-worktrees/fix-payment-retry</span>
+</div>
+</div>
+</div>
+<!-- Row 2: Status Controls & Utility Switchers -->
+<div class="h-10 px-4 flex items-center justify-between bg-surface-container-low text-body-sm font-body-sm">
+<div class="flex items-center gap-2.5">
+<span class="bg-surface-variant text-primary border border-outline-variant font-headline-sm text-[11px] px-2 py-0.5 rounded flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+          Ask: Waiting
+        </span>
+<span class="bg-surface-container-lowest text-tertiary-container border border-outline-variant font-label-code-sm text-label-code-sm px-2 py-0.5 rounded flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container animate-ping"></span>
+          Agent: ● Working
+        </span>
+<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded font-label-badge text-label-badge border border-outline-variant font-medium">
+          2 unanswered
+        </span>
+<button class="px-2.5 py-1 bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-outline-variant rounded font-headline-sm text-headline-sm flex items-center gap-1 transition-colors active:scale-[0.98]">
+<span>Next unanswered</span>
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-7 h-7 flex items-center justify-center rounded border border-outline-variant bg-surface-container-lowest hover:bg-surface-container text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[15px]">contrast</span>
+</button>
+<!-- Segmented: Lang -->
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded p-0.5">
+<button class="px-2 py-0.5 text-[11px] font-semibold bg-surface-container text-primary rounded">EN</button>
+<button class="px-2 py-0.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface">IT</button>
+</div>
+<!-- Segmented: Density -->
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded p-0.5">
+<button class="px-2 py-0.5 text-[11px] font-semibold bg-surface-container text-primary rounded">Compact</button>
+<button class="px-2 py-0.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface">Comfortable</button>
+</div>
+<button class="flex items-center gap-1 px-2 py-1 bg-surface-container-lowest hover:bg-surface-container border border-outline-variant rounded text-body-sm text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[14px]">settings</span>
+<span class="text-[11px] font-medium">Settings</span>
+</button>
+</div>
+</div>
+</header>
+<!-- WORKSPACE BODY WITH TWO-COLUMN SPLIT -->
+<div class="flex min-h-[calc(100vh-80px)]">
+<!-- LEFT STICKY RAIL (OUTLINE NAV) -->
+<aside class="w-[220px] shrink-0 border-r border-outline-variant bg-surface-container-low p-3 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto custom-scroll">
+<div class="font-label-code-sm text-[11px] tracking-wider font-semibold text-outline uppercase mb-3 flex items-center justify-between">
+<span>OUTLINE</span>
+<span class="material-symbols-outlined text-[14px] text-outline">segment</span>
+</div>
+<!-- Section Group 1: Fix -->
+<div class="mb-4">
+<div class="text-[10px] font-bold text-outline-variant uppercase tracking-wider mb-1 px-1">Fix</div>
+<a class="block p-2 rounded bg-surface-container border-l-2 border-primary text-primary hover:bg-surface-container-high transition-colors" href="#fix-section">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-code-sm text-[10px] px-1.5 py-0.2 bg-surface-container-lowest rounded text-primary font-medium border border-outline-variant">Retry fix</span>
+<span class="text-[10px] text-on-surface-variant font-label-code-sm">● Unanswered</span>
+</div>
+<p class="font-headline-sm text-[11px] text-on-surface font-medium leading-snug line-clamp-2">Which of the two fixes should we keep?</p>
+</a>
+</div>
+<!-- Section Group 2: State Machine -->
+<div class="mb-4">
+<div class="text-[10px] font-bold text-outline-variant uppercase tracking-wider mb-1 px-1">State machine</div>
+<a class="block p-2 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors border border-transparent" href="#state-machine-section">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-code-sm text-[10px] px-1.5 py-0.2 bg-surface-container-lowest rounded text-secondary font-medium border border-outline-variant">Retry states</span>
+<span class="text-[10px] text-on-surface-variant font-label-code-sm">● Unanswered</span>
+</div>
+<p class="font-headline-sm text-[11px] text-on-surface font-medium leading-snug line-clamp-2">Should we change the retry state machine?</p>
+</a>
+</div>
+<!-- Sticky rail bottom diagnostics jump -->
+<div class="pt-4 border-t border-outline-variant text-[11px] text-outline font-label-code-sm flex items-center justify-between">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">terminal</span>
+<span>CLI bridge</span>
+</span>
+<span class="text-tertiary-container font-semibold">Active</span>
+</div>
+</aside>
+<!-- MAIN CONTENT COLUMN -->
+<main class="flex-1 p-6 space-y-8 bg-surface max-w-[1220px] pb-24 overflow-y-auto">
+<!-- SECTION 1: Fix -->
+<section class="space-y-3" id="fix-section">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span>Fix</span>
+<span class="font-label-code-sm text-label-code-sm text-outline font-normal">#q1-fix-decision</span>
+</h2>
+<span class="font-label-badge text-label-badge text-outline">Branch diff: +19 −3 across 2 files</span>
+</div>
+<!-- Two-column question card wrapper -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm grid grid-cols-12 overflow-hidden">
+<!-- Left Main Question Column -->
+<div class="col-span-8 p-5 border-r border-outline-variant space-y-5">
+<!-- Question Heading -->
+<div>
+<div class="flex items-center gap-2 mb-1.5">
+<span class="font-label-code-sm text-[11px] font-semibold bg-surface-container text-primary px-2 py-0.5 rounded border border-outline-variant">Retry fix</span>
+<span class="text-outline font-label-badge text-[11px] uppercase tracking-wider font-semibold">Options · pick one</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg text-on-surface">Which of the two fixes should we keep?</h3>
+</div>
+<!-- Radio Option Cards -->
+<div class="space-y-2.5">
+<!-- Option 1 -->
+<label class="block p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-start gap-3">
+<input class="mt-0.5 text-primary focus:ring-primary border-outline rounded-full w-3.5 h-3.5" name="fix_option" type="radio"/>
+<div class="space-y-1">
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">Fix A · Cap attempts in RetryScheduler</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">one file; stops after the 6th attempt and moves the payment to the dead-letter queue; the queue code is untouched.</p>
+<a class="inline-block text-[11px] text-primary hover:underline font-medium pt-1" href="javascript:void(0)">+ Add your note to this option</a>
+</div>
+</div>
+</label>
+<!-- Option 2 (Selected Candidate) -->
+<label class="block p-3 border-2 border-primary bg-surface-container-low rounded transition-colors cursor-pointer">
+<div class="flex items-start gap-3">
+<input checked="" class="mt-0.5 text-primary focus:ring-primary border-outline rounded-full w-3.5 h-3.5" name="fix_option" type="radio"/>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Fix B · Cap attempts and re-enqueue idempotently</span>
+<span class="font-label-badge text-[10px] bg-surface-container text-primary px-1.5 py-0.5 rounded font-semibold border border-outline-variant">Agent recommended</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">two files; same cap as fix A, plus PaymentQueue drops a second enqueue with the same retry key.</p>
+<a class="inline-block text-[11px] text-primary hover:underline font-medium pt-1" href="javascript:void(0)">+ Add your note to this option</a>
+</div>
+</div>
+</label>
+</div>
+<!-- DIFF REVIEW WIDGET -->
+<div class="border border-outline-variant rounded overflow-hidden text-body-sm">
+<!-- Diff Toolbar -->
+<div class="bg-surface-container-low border-b border-outline-variant p-2 flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1 bg-surface-container-lowest border border-outline-variant rounded p-0.5">
+<button class="px-2 py-0.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface">Fix A</button>
+<button class="px-2 py-0.5 text-[11px] font-semibold bg-surface-container text-primary rounded">Fix B</button>
+<button class="px-2 py-0.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface">A vs B</button>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 bg-surface-container-lowest border border-outline-variant rounded p-0.5">
+<button class="px-2 py-0.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface">Split</button>
+<button class="px-2 py-0.5 text-[11px] font-semibold bg-surface-container text-primary rounded">Unified</button>
+</div>
+<span class="font-label-code-sm text-label-code-sm text-tertiary-container font-semibold">2 files · +19 −3</span>
+</div>
+</div>
+<!-- File Header -->
+<div class="bg-surface-container px-3 py-1.5 flex items-center justify-between font-label-code-sm text-label-code-sm border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">description</span>
+<span class="text-on-surface font-semibold">src/payments/retry/RetryScheduler.ts</span>
+<span class="text-tertiary-container">+4</span>
+<span class="text-error">−2</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-2 py-0.5 bg-surface-container-lowest text-tertiary-container border border-outline-variant rounded hover:bg-surface-container text-[11px] font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">check</span>
+<span>Accept file</span>
+</button>
+<button class="px-2 py-0.5 bg-surface-container-lowest text-error border border-outline-variant rounded hover:bg-surface-container text-[11px] font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">close</span>
+<span>Reject file</span>
+</button>
+</div>
+</div>
+<!-- Unified Diff Code View -->
+<div class="font-label-code-sm text-label-code-sm bg-surface-container-lowest overflow-x-auto divide-y divide-outline-variant/30">
+<!-- Context line -->
+<div class="flex items-center hover:bg-surface-container-low group">
+<div class="w-10 px-2 py-0.5 text-right text-outline select-none border-r border-outline-variant bg-surface-container-low text-[10px]">44</div>
+<div class="w-10 px-2 py-0.5 text-right text-outline select-none border-r border-outline-variant bg-surface-container-low text-[10px]">44</div>
+<div class="w-5 text-center text-outline select-none"> </div>
+<div class="px-2 py-0.5 text-on-surface font-normal whitespace-pre">const backoffMs = calculateExponentialBackoff(attempt, ADR_POLICY);</div>
+</div>
+<!-- Removed line -->
+<div class="flex items-center bg-error-container/40 group border-l-2 border-error">
+<div class="w-10 px-2 py-0.5 text-right text-error select-none border-r border-outline-variant bg-error-container/60 text-[10px]">45</div>
+<div class="w-10 px-2 py-0.5 text-right text-outline select-none border-r border-outline-variant bg-error-container/20 text-[10px]"> </div>
+<div class="w-5 text-center text-error font-bold select-none">-</div>
+<div class="px-2 py-0.5 text-on-surface font-normal whitespace-pre flex-1">- if (attempt > 10) {</div>
+<div class="px-2">
+<span class="bg-surface-container-lowest border border-error text-error text-[9px] px-1 py-0.2 rounded font-bold">✕ Rejected</span>
+</div>
+</div>
+<!-- Added line 1 -->
+<div class="flex items-center bg-surface-variant/30 group border-l-2 border-primary">
+<div class="w-10 px-2 py-0.5 text-right text-outline select-none border-r border-outline-variant bg-surface-variant/20 text-[10px]"> </div>
+<div class="w-10 px-2 py-0.5 text-right text-primary select-none border-r border-outline-variant bg-surface-variant/50 text-[10px]">46</div>
+<div class="w-5 text-center text-primary font-bold select-none">+</div>
+<div class="px-2 py-0.5 text-on-surface font-normal whitespace-pre flex-1">+ if (attempt >= MAX_RETRY_ATTEMPTS) { // Cap at 6 per ADR-012</div>
+<div class="px-2">
+<span class="bg-surface-container-lowest border border-primary text-primary text-[9px] px-1 py-0.2 rounded font-bold">✓ Accepted</span>
+</div>
+</div>
+<!-- Added line 2 -->
+<div class="flex items-center bg-surface-variant/30 group border-l-2 border-primary">
+<div class="w-10 px-2 py-0.5 text-right text-outline select-none border-r border-outline-variant bg-surface-variant/20 text-[10px]"> </div>
+<div class="w-10 px-2 py-0.5 text-right text-primary select-none border-r border-outline-variant bg-surface-variant/50 text-[10px]">47</div>
+<div class="w-5 text-center text-primary font-bold select-none">+</div>
+<div class="px-2 py-0.5 text-on-surface font-normal whitespace-pre flex-1">+   await deadLetterQueue.enqueue(paymentId, 'PAYMENT_RETRY_EXHAUSTED');</div>
+<div class="px-2">
+<span class="bg-surface-container-lowest border border-primary text-primary text-[9px] px-1 py-0.2 rounded font-bold">✓ Accepted</span>
+</div>
+</div>
+<!-- Inline Line Comment Box -->
+<div class="bg-surface-container-high border-y border-outline-variant px-4 py-2.5 flex items-start gap-2.5">
+<span class="material-symbols-outlined text-outline text-[16px] mt-0.5">warning</span>
+<div class="flex-1 text-body-sm">
+<div class="flex items-center justify-between mb-1">
+<span class="font-headline-sm text-headline-sm text-on-surface">Luca <span class="font-normal text-outline">· line 48</span></span>
+<div class="flex items-center gap-2">
+<button class="text-primary hover:underline text-[11px] font-medium">Reply</button>
+<span class="text-outline">·</span>
+<button class="text-on-surface-variant hover:text-on-surface text-[11px]">Resolve</button>
+</div>
+</div>
+<p class="text-on-surface">Don't log the whole payment object: it carries the card fingerprint.</p>
+</div>
+</div>
+<!-- Added line 3 with logger -->
+<div class="flex items-center bg-surface-variant/30 group border-l-2 border-primary">
+<div class="w-10 px-2 py-0.5 text-right text-outline select-none border-r border-outline-variant bg-surface-variant/20 text-[10px]"> </div>
+<div class="w-10 px-2 py-0.5 text-right text-primary select-none border-r border-outline-variant bg-surface-variant/50 text-[10px]">49</div>
+<div class="w-5 text-center text-primary font-bold select-none">+</div>
+<div class="px-2 py-0.5 text-on-surface font-normal whitespace-pre flex-1">+   logger.warn({ paymentId, attempt }, 'Payment moved to DLQ');</div>
+<div class="px-2 flex items-center gap-1 opacity-0 group-hover:opacity-100">
+<button class="w-4 h-4 rounded bg-surface-container text-primary flex items-center justify-center text-[10px]">✓</button>
+<button class="w-4 h-4 rounded bg-surface-container text-error flex items-center justify-center text-[10px]">✕</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Note Field for Agent -->
+<div class="flex items-center gap-2">
+<input class="flex-1 h-8 px-3 text-body-sm bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Note for the agent (optional)..." type="text"/>
+<button class="px-3 h-8 border border-outline-variant rounded text-on-surface-variant hover:bg-surface-container font-headline-sm text-body-sm transition-colors">
+                Postpone
+              </button>
+</div>
+<!-- INLINE FOLLOW-UP THREAD -->
+<div class="border border-outline-variant rounded p-3 bg-surface-container-low space-y-3">
+<div class="font-headline-sm text-[11px] uppercase tracking-wide text-outline font-semibold">Agent Conversation Log</div>
+<!-- User Message -->
+<div class="flex items-start gap-2.5 bg-surface-container-lowest p-2.5 rounded border border-outline-variant">
+<div class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center font-bold text-[10px] text-primary">L</div>
+<div class="flex-1 space-y-0.5">
+<div class="flex items-center justify-between text-[11px]">
+<span class="font-semibold text-on-surface">Luca</span>
+<span class="text-outline">10:42 AM</span>
+</div>
+<p class="text-on-surface text-body-sm">Why does the second fix touch the queue?</p>
+</div>
+</div>
+<!-- Agent Message -->
+<div class="flex items-start gap-2.5 bg-surface-container-high p-2.5 rounded border border-outline-variant">
+<div class="w-5 h-5 rounded-full bg-primary flex items-center justify-center font-bold text-[10px] text-on-primary">
+<span class="material-symbols-outlined text-[13px]">smart_toy</span>
+</div>
+<div class="flex-1 space-y-0.5">
+<div class="flex items-center justify-between text-[11px]">
+<span class="font-semibold text-primary">AskBoard Agent</span>
+<span class="text-outline">10:42 AM</span>
+</div>
+<p class="text-on-surface text-body-sm leading-relaxed">
+                    The retry re-enqueues the payment, and without a deduplication key a crash between charge and acknowledgement could enqueue it twice. Fix B guarantees idempotency at the queue level.
+                  </p>
+</div>
+</div>
+<!-- Follow-up Composer -->
+<div class="flex items-center gap-2 pt-1">
+<input class="flex-1 h-8 px-3 text-body-sm bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Ask the agent a follow-up…" type="text"/>
+<button class="px-3 h-8 bg-primary hover:bg-surface-tint text-on-primary rounded font-headline-sm text-body-sm transition-colors">
+                  Send
+                </button>
+</div>
+</div>
+</div>
+<!-- Right Context Column -->
+<div class="col-span-4 p-5 bg-surface-container-low space-y-4">
+<div class="font-label-code-sm text-[11px] font-semibold text-outline uppercase tracking-wider">
+              Excerpt and references
+            </div>
+<!-- Excerpt Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 space-y-2">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">ADR-012 Retry policy</span>
+<span class="font-label-code-sm text-[10px] text-primary bg-surface-container px-1 py-0.5 rounded">Active ADR</span>
+</div>
+<div class="font-label-code-sm text-[10px] text-outline">docs/adr/ADR-012-retry-policy.md · Decision · lines 18–29</div>
+<div class="border-l-2 border-primary pl-2.5 py-1 text-on-surface text-body-sm space-y-1.5 bg-surface-container-low/50 rounded-r">
+<p class="leading-relaxed">
+                  "Bounded exponential backoff: base delay 2 s, factor 2, jitter ±20%, each wait capped at 5 minutes; at most 6 attempts then dead-letter queue and PAYMENT_RETRY_EXHAUSTED; re-enqueueing must be idempotent by retry key; a retry never changes amount, currency or customer."
+                </p>
+</div>
+<div class="text-[11px] text-outline italic pt-1 border-t border-outline-variant/50">
+                Consequences: Prevents retry storm on downstream gateways while preserving strict debit auditability.
+              </div>
+</div>
+<!-- Reference Chips -->
+<div class="space-y-2 pt-1">
+<a class="border border-outline-variant bg-surface-container-lowest p-2 rounded flex items-center gap-2 text-primary hover:border-primary transition-colors cursor-pointer group" href="javascript:void(0)">
+<span class="material-symbols-outlined text-[15px]">description</span>
+<div class="flex-1 truncate">
+<div class="font-label-code-sm text-[11px] text-primary truncate group-hover:underline">ADR-012-retry-policy.md#decision</div>
+<div class="text-[10px] text-outline">opens in reading panel</div>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline">open_in_new</span>
+</a>
+<a class="border border-outline-variant bg-surface-container-lowest p-2 rounded flex items-center gap-2 text-primary hover:border-primary transition-colors cursor-pointer group" href="javascript:void(0)">
+<span class="material-symbols-outlined text-[15px]">link</span>
+<div class="flex-1 truncate">
+<div class="font-label-code-sm text-[11px] text-primary truncate group-hover:underline">payments#482 · Retry storm on timeouts</div>
+<div class="text-[10px] text-outline">opens in browser</div>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline">north_east</span>
+</a>
+</div>
+<!-- Audit trail snippet -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-1 text-body-sm">
+<span class="font-label-code-sm text-[10px] uppercase font-bold text-outline">State verification</span>
+<p class="text-[11px] text-on-surface-variant leading-snug">Branch passes 42/42 unit specs in PaymentSchedulerTest with Fix B active.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: State Machine -->
+<section class="space-y-3" id="state-machine-section">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span>State machine</span>
+<span class="font-label-code-sm text-label-code-sm text-outline font-normal">#q2-state-transitions</span>
+</h2>
+<!-- Full-width question card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm p-5 space-y-4">
+<!-- Card Header -->
+<div class="flex items-center gap-2">
+<span class="font-label-code-sm text-[11px] font-semibold bg-secondary-fixed text-secondary px-2 py-0.5 rounded border border-outline-variant">Retry states</span>
+<h3 class="font-headline-lg text-headline-lg text-on-surface">Should we change the retry state machine?</h3>
+</div>
+<!-- STATE MACHINE GRAPH WIDGET -->
+<div class="border border-outline-variant rounded overflow-hidden">
+<!-- Graph Toolbar -->
+<div class="flex items-center justify-between text-body-sm py-1.5 px-3 bg-surface-container-low border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<button class="px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-[11px] font-medium text-on-surface hover:bg-surface-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">add</span> Add node
+                </button>
+<button class="px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-[11px] font-medium text-on-surface hover:bg-surface-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">alt_route</span> Connect
+                </button>
+<button class="px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-[11px] font-medium text-on-surface hover:bg-surface-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">comment</span> Comment
+                </button>
+<button class="px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-[11px] font-medium text-on-surface hover:bg-surface-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">fullscreen</span> Auto-layout
+                </button>
+</div>
+<div class="font-label-code-sm text-[11px] text-outline">Changes vs agent's original: none yet</div>
+</div>
+<!-- Graph Canvas View -->
+<div class="bg-surface-container-lowest relative h-64 p-4 overflow-hidden border-b border-outline-variant">
+<!-- Grid background pattern -->
+<div class="absolute inset-0 bg-[radial-gradient(#c2c6d7_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+<!-- SVG Diagram -->
+<svg class="w-full h-full relative z-10" fill="none" viewbox="0 0 900 220" xmlns="http://www.w3.org/2000/svg">
+<!-- Node: PENDING -->
+<rect fill="#d9e2ff" height="42" rx="4" stroke="#004fb6" stroke-width="1.5" width="110" x="50" y="85"></rect>
+<text fill="#001945" font-family="JetBrains Mono" font-size="12" font-weight="600" text-anchor="middle" x="105" y="110">PENDING</text>
+<!-- Transition arrow: PENDING -> RETRYING -->
+<path d="M160 106 H 260" marker-end="url(#arrow)" stroke="#727786" stroke-width="1.5"></path>
+<text fill="#424654" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="210" y="98">schedule_retry</text>
+<!-- Node: RETRYING -->
+<rect fill="#fff0b5" height="42" rx="4" stroke="#7a4d00" stroke-width="1.5" width="120" x="270" y="85"></rect>
+<text fill="#7a4d00" font-family="JetBrains Mono" font-size="12" font-weight="600" text-anchor="middle" x="330" y="110">RETRYING</text>
+<!-- Transition: RETRYING -> PENDING (Hazard Loop - Highlighted) -->
+<path d="M 330 85 C 330 35, 105 35, 105 85" stroke="#ba1a1a" stroke-dasharray="4 3" stroke-width="1.5"></path>
+<rect fill="#ffdad6" height="18" rx="2" stroke="#ba1a1a" width="130" x="155" y="24"></rect>
+<text fill="#ba1a1a" font-family="JetBrains Mono" font-size="8" font-weight="600" text-anchor="middle" x="220" y="36">hazard: infinite loop</text>
+<!-- Transition arrow: RETRYING -> SUCCEEDED -->
+<path d="M 390 95 L 530 60" marker-end="url(#arrow)" stroke="#0051ad" stroke-width="1.5"></path>
+<text fill="#0051ad" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="460" y="70">success</text>
+<!-- Transition arrow: RETRYING -> FAILED -->
+<path d="M 390 115 L 530 150" marker-end="url(#arrow)" stroke="#727786" stroke-width="1.5"></path>
+<text fill="#424654" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="460" y="142">failure</text>
+<!-- Node: SUCCEEDED -->
+<rect fill="#dcfce7" height="42" rx="4" stroke="#1f883d" stroke-width="1.5" width="120" x="540" y="40"></rect>
+<text fill="#1f883d" font-family="JetBrains Mono" font-size="12" font-weight="600" text-anchor="middle" x="600" y="65">SUCCEEDED</text>
+<!-- Node: FAILED -->
+<rect fill="#ebedf0" height="42" rx="4" stroke="#727786" stroke-width="1.5" width="120" x="540" y="130"></rect>
+<text fill="#041b3c" font-family="JetBrains Mono" font-size="12" font-weight="600" text-anchor="middle" x="600" y="155">FAILED</text>
+<!-- Transition arrow: FAILED -> DEAD_LETTER -->
+<path d="M 660 151 H 740" marker-end="url(#arrow-red)" stroke="#ba1a1a" stroke-width="1.5"></path>
+<text fill="#ba1a1a" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="700" y="143">attempts >= 6</text>
+<!-- Node: DEAD_LETTER -->
+<rect fill="#ffdad6" height="42" rx="4" stroke="#ba1a1a" stroke-width="1.5" width="120" x="750" y="130"></rect>
+<text fill="#93000a" font-family="JetBrains Mono" font-size="12" font-weight="600" text-anchor="middle" x="810" y="155">DEAD_LETTER</text>
+<!-- Arrow markers -->
+<defs>
+<marker id="arrow" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="6" refy="5" viewbox="0 0 10 10">
+<path d="M 0 1 L 8 5 L 0 9 z" fill="#727786"></path>
+</marker>
+<marker id="arrow-red" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="6" refy="5" viewbox="0 0 10 10">
+<path d="M 0 1 L 8 5 L 0 9 z" fill="#ba1a1a"></path>
+</marker>
+</defs>
+</svg>
+</div>
+</div>
+<!-- Options Block -->
+<div class="space-y-3 pt-2">
+<!-- Option 1 -->
+<label class="block p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-start gap-3">
+<input class="mt-0.5 text-primary focus:ring-primary border-outline rounded-full w-3.5 h-3.5" name="state_option" type="radio"/>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">Keep as is</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Maintains backwards compatibility with v1 retry loop architecture.</p>
+</div>
+</div>
+</label>
+<!-- Option 2 (Recommended) -->
+<label class="block p-3 border border-outline-variant bg-surface-container-lowest rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-start gap-3">
+<input class="mt-0.5 text-primary focus:ring-primary border-outline rounded-full w-3.5 h-3.5" name="state_option" type="radio"/>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Remove RETRYING → PENDING</span>
+<span class="font-label-badge text-[10px] bg-surface-variant text-primary px-1.5 py-0.5 rounded font-semibold border border-outline-variant">Recommended</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant italic">
+                    Agent: this transition is what lets a timed-out retry loop forever.
+                  </p>
+<div class="flex items-center gap-4 pt-1">
+<a class="text-[11px] text-primary hover:underline font-medium" href="javascript:void(0)">+ Add your note</a>
+<a class="text-[11px] text-primary hover:underline font-semibold" href="javascript:void(0)">Accept recommended</a>
+</div>
+</div>
+</div>
+</label>
+</div>
+<!-- Question Footer / Free Text Field -->
+<div class="flex items-center gap-2 pt-2">
+<input class="flex-1 h-8 px-3 text-body-sm bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Note for the agent (optional)..." type="text"/>
+<button class="px-3 h-8 border border-outline-variant rounded text-on-surface-variant hover:bg-surface-container font-headline-sm text-body-sm transition-colors">
+              Postpone
+            </button>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- STICKY BOTTOM ACTION BAR -->
+<footer class="fixed bottom-0 left-0 right-0 h-12 bg-surface-container-lowest border-t border-outline-variant px-6 flex items-center justify-between z-50 text-body-sm shadow-[0_-2px_6px_rgba(0,0,0,0.04)]">
+<!-- Left: Delivery Controls -->
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Delivery:</span>
+<div class="flex items-center bg-surface-container-low border border-outline-variant rounded p-0.5">
+<button class="px-2.5 py-0.5 text-[11px] font-semibold bg-surface-container text-primary rounded">Immediate</button>
+<button class="px-2.5 py-0.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface">Submitted</button>
+</div>
+<span class="text-outline text-[11px] ml-2">Answers go to the agent as you give them.</span>
+</div>
+<!-- Right: Batch Actions -->
+<div class="flex items-center gap-2.5">
+<button class="bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant px-3 py-1.5 rounded font-headline-sm text-[12px] transition-colors active:scale-[0.98]">
+        Accept all recommended
+      </button>
+<button class="bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant px-3 py-1.5 rounded font-headline-sm text-[12px] transition-colors active:scale-[0.98]">
+        Snapshot
+      </button>
+<button class="bg-surface-container-high text-outline cursor-not-allowed px-4 py-1.5 rounded font-headline-sm text-[12px] border border-outline-variant/60 font-semibold" disabled="">
+        Submit
+      </button>
+</div>
+</footer>
+</body></html>
