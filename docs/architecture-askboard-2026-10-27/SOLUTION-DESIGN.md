@@ -2,11 +2,11 @@
 title: 'Solution design: AskBoard'
 status: final
 created: '2026-10-27'
-updated: '2026-10-27'
+updated: '2026-10-28'
 companions: ['ARCHITECTURE-SPINE.md']
 sources:
-  - 'ARCHITECTURE-SPINE.md: AD-1 to AD-22, conventions, stack, Deferred (draft, 2026-10-27)'
-  - 'AskBoard PRD, prd-askboard-2026-10-25/prd.md (final, 2026-10-26), and its addendum.md (final)'
+  - 'ARCHITECTURE-SPINE.md: AD-1 to AD-22, conventions, stack, Deferred (final, 2026-10-28)'
+  - 'AskBoard PRD, prd-askboard-2026-10-25/prd.md (final, updated 2026-10-28), and its addendum.md (final)'
   - 'AXFX PRD §5.10, §6 and §7: what AXFX requires of AskBoard'
   - 'research-cc-delivery-2026-10-27.md: Claude Code 2.1.311 delivery paths (checked 2026-10-27)'
   - 'research-stack-2026-10-27.md: platform, formula engines, components, distribution (checked 2026-10-27)'
@@ -21,8 +21,8 @@ sources:
 This document explains AskBoard's architecture to whoever builds it, people or agents, in the OpenSpec solution project. It travels with `ARCHITECTURE-SPINE.md`, the two research files, the PRD and its addendum, and the UX documents, and restates the rationale, facts and spike definitions kept in the planning repository.
 
 - **The spine binds; this document explains** why its rules exist, what was weighed, which facts they rest on (§13) and how open items close (§10, §12). It adds no rules; where the two seem to differ, the spine wins. AD-9 and AD-14 have no section of their own: they are explained within §4.4, §4.6, §5.6 and §8.
-- **The PRD** (final, 2026-10-26) is cited by FR, NFR, SM, R and OQ IDs. §11 lists the PRD changes the architecture requests; a refused request reopens the ADs that rest on it (AD-19 states its fallback).
-- **The UX documents** (`DESIGN.md`, `EXPERIENCE.md`) were still in progress when this document was written, with nothing settled. UX owns atoms and layouts, widget components, the forms library and visual design (Google Stitch), within AD-7 to AD-9 and the adoption rule (§9).
+- **The PRD** (final, updated 2026-10-28) is cited by FR, NFR, SM, R and OQ IDs. §11 lists the PRD changes the architecture requested, with the status of each; a refused request reopens the ADs that rest on it (AD-19 states its fallback).
+- **The UX documents** (`DESIGN.md`, `EXPERIENCE.md` in `ux-askboard-2026-10-27/`) are final (2026-10-28). They settle atoms and layouts, widget components, the forms library and visual design, within AD-7 to AD-9 and the adoption rule (§9).
 - **OpenSpec.** Units group into capabilities; specs and changes cite the stable AD IDs; epics are OpenSpec changes, and the spikes (§10) run there. §3.1 maps capabilities to units.
 - **Terms** follow the PRD glossary, plus §14.
 
@@ -91,6 +91,8 @@ The architecture run named the first eleven capabilities; how the finer units gr
 
 A's price is coordination through shared files, the executable cache and a port range (AD-2). One complication: the SDK's stdio client probes the protocol revision on a short-lived sibling process (the probe sibling) [F15], which would leave stale state if start-up had side effects. So nothing happens before the first request other than `server/discover` (AD-2), and the mod delivery spike counts processes (§10.1).
 
+The session process also decides when a new board comes to the front. The browser opener is an OS command that cannot open a background tab, so calling it while the user works on another board would take the front from them. A board is **working** while it has focus and has had a user input in the last 60 s, as its board page reports over the board protocol, presence only (AD-2, AD-7). For a new ask, the session process calls the opener only when no board of its session is working; otherwise the notification and the terminal link open the board (FR-23). Boards of other sessions never count, since under A each session process knows only its own boards: across sessions the browser behaves as usual.
+
 ### 3.3 Dependency rules (AD-1)
 
 The import rules are the spine's, and CI fails on any import that crosses them. Their reasons: `compute` and `ask-core` avoid DOM, Node-only and Bun-only APIs because `compute` runs in both the browser and the session process, and the session process must also run on Node (§4.10). `mod`, `hooks` and `bench` run out of process and speak only `contract` schemas, so CI can run the conformance suite with the mod and the hooks, without the mod, and without the hooks; that tests that the mod costs latency, never correctness.
@@ -129,6 +131,7 @@ Push goes only to the ask's owner, attributed to the mod and never `asUser`, so 
 - **Idempotence.** Any path may repeat an event; the skills teach agents to ignore a seen `seq`. That is cheaper than exact coordination.
 - **The received watermark** (`received`), per ask, is the highest `seq` collected, carried in a stop block or reported as pushed; the guard and the mod act only above it. Without it, a subagent that had collected would be blocked again with answers it already had.
 - **The agent's own changes are not events,** so the mod never wakes a conversation for news it caused.
+- **The delivery receipt.** When `received` passes an answer's event, `board-host` tells the board, which marks the answer "delivered to the agent" (FR-22). `received` already records delivery by every path, so the receipt needs no path of its own; without the mod it waits for `collect` or the `SubagentStop` guard (AD-4). It claims delivery only, never that the agent read or acted on the answer, so it never reads the cursor the agent acknowledges. It travels over the board protocol and is not an event, so it never reaches the agent.
 - **Epoch.** A restarted process has a new epoch, and an old cursor returns `discarded`; hence FR-5's no-reuse rule holds per process (§11).
 
 ### 4.3 Ownership and agent records (AD-5)
@@ -150,7 +153,17 @@ A review found unit pairs that obeyed every rule of an earlier draft yet did not
 - No HTML, CSS, script, layout geometry or AXFX term in either format (NFR-5, FR-18, FR-31).
 - Positions relative to content are data, because Image annotation answers are regions: media-fragment selectors in one shape modelled on the W3C Web Annotation Data Model [F32]. Diagram anchors use source IDs, because generated SVG IDs change with renderer version and render order.
 - Dates are `full-date` strings, durations integer days, money a decimal string with an ISO 4217 code: local-time conversion shifts dates west of UTC, and floats add noise to margins.
+- **Optional ask fields.** `title`, `agentName`, `language` and `locale` are each optional, so a plain ask stays cheap (NFR-1). Without them AskBoard derives the title from the first question and the name from the agent type Claude Code reports (AD-5); the language comes from `defaultLanguage` (AD-14), then `en-US`, and the locale from the language. The language holds for the whole ask and governs display only: values keep the formats above, and AskBoard translates nothing (FR-34). A molecule parameter can follow the same pattern: the sales-estimate-review molecule's optional `minimumMargin` falls back to the project's `defaultMinimumMargin`, and with neither the board shows no margin warning (AD-9).
+- **Diff review alternatives** are two patch files under the ask's root, with the base they apply to, never diff text. The agent writes the files with a redirect, so the diff never passes through its output (NFR-1). The base is the files under the root as they stand at send time, never a git revision: AskBoard reads and parses the patches then and computes the diffs itself (§4.6), with no git access. Branches and commits are not accepted in the first version, since a worktree's object store lies outside the ask's root.
 - IDs match `[A-Za-z0-9_-]{1,64}` and so never clash with `[item-id.field]`; required element IDs let the core diff by ID (§4.8).
+- **View-made IDs.** Elements the user adds in a widget (a work package in a split, a tree node, a Graph state) get IDs the view makes, with a prefix reserved in `contract` that agent-chosen IDs may not use, so an element the agent adds later never collides with one the user added. Prefix included, they match the same grammar.
+
+**Settings (AD-14).** The configuration schema in `contract` names the keys the board's settings panel shows (FR-35): the presentation keys `theme`, `density` and `contextPlacement`, and the behavioural keys `defaultLanguage`, `askingRule`, `snapshotFolder` and `editor`; it also names the molecule default `defaultMinimumMargin`.
+
+- **Presentation keys** are the only ones the board writes. The board page sends a change over the board protocol, and the session process applies it at once to that board. It writes the change by re-reading the user configuration, changing only that key and replacing the file atomically, so a hand edit or another session's write made since start is never reverted.
+- **Later boards.** The user configuration is shared by every session (AD-2), so a session process reads the presentation keys from it again each time it opens a board: later boards of any running session open with the change (FR-35). A presentation key set in the project configuration wins and shows read-only.
+- **Behavioural keys** show read-only, with their file and key, and keep the next-session rule, since the session process reads them once, at start.
+- **Enforcement.** The session process accepts a settings write only for `theme`, `density` and `contextPlacement`, with a value the configuration schema allows, and refuses any other key. It cannot tell a click on the board from a request by another holder of the board token (§6), so the refusal, not the board page, keeps a command to run or a behavioural key from being written; `editor` is read only from the user configuration (§4.5).
 
 ### 4.5 View isolation (AD-8)
 
@@ -161,7 +174,10 @@ Agent and file content are untrusted, and the board page holds the token (AD-8, 
 - **Diagrams** show as `<img src="blob:…">`: hash-only styles block the `style` attributes and `<style>` elements that SVG markup uses [F30], and an image's internal styles escape the page CSP.
 - **Not an MCP Apps host.** The view uses the ext-apps 2.x message set and classes, which accept an opaque iframe [F28]. A conforming web host needs a sandbox proxy on another origin [F28], and so a second port to serve and forward; besides, the CLI renders no MCP Apps [F24]. Rendering in Claude hosts stays Deferred.
 - **Board-origin pages** show content only as text; AskBoard builds any source view itself, because a served HTML or SVG file would run on the board origin and read the token.
-- **Exits.** Links leave as open-link messages, `http:` and `https:` only, with `noopener` and `noreferrer`; OS commands get an argument vector, never a shell.
+- **Reading panel.** A project-file reference opens in a reading panel on the board page, which frames the token-gated source view at the anchor, confined by AD-12. The source view's CSP therefore has `frame-ancestors 'self'` instead of `'none'`, so only a board page of the same origin may frame it, and the board page's CSP adds `frame-src 'self'`, which serves only that frame. Nothing else changes: the source view is still text only, with `nosniff` and `default-src 'none'`.
+- **Editor launch.** The reading panel's "Open in editor" asks `board-host` to open the file at that line in the user's editor. Only an explicit click on the board page launches it, never agent content. The command comes only from the `editor` key of the user configuration, never from an ask: an agent can write a project file, so a project-level `editor` is ignored, with a warning, and agent content never chooses the command a click runs.
+- **Editor arguments.** The file enters the argument vector as its absolute real path, resolved and confined again under AD-12 at the click: a file swapped for a symlink after the send cannot open outside the root, and a file name starting with `-` cannot pass as an option. The line enters as an integer AskBoard derives. Neither is truncated, since a truncated path would open another file, and no other agent text enters the vector. Only where the two sit in the user's command is left to implementation (§12).
+- **Exits.** Links leave as open-link messages, `http:` and `https:` only, with `noopener` and `noreferrer`; the notifier, the browser opener and the editor launch start OS commands with an argument vector, never a shell.
 
 ### 4.6 The board document, resolved at send time (AD-12)
 
@@ -169,6 +185,7 @@ At each send, `ask-core` resolves pointers, images and molecules into that revis
 
 - **Root.** The owning agent's git worktree when it belongs to the project, else the realpath of `CLAUDE_PROJECT_DIR` [F14], so agents in worktrees get their own files and distinct board headers (FR-24). Pointers that escape the root through `..` or symlinks count as unresolved.
 - **Images** only by pointer, saved by agents under `.askboard/media/`: base64 would cost output tokens (NFR-1), remote URLs would leave the machine (NFR-9).
+- **Patch files** for Diff review (§4.4) resolve the same way, and so does every path a patch names: at send time `ask-core` reads them read-only and inside the root, parses each patch and computes its diff against the base the item names, the files as they stand then. A patch's paths come from content the agent wrote, so without this a path that escapes through `..` or a symlink would put a file from outside the root on the board and in Snapshots. A patch that does not resolve, names such a path, does not parse or does not apply is unresolved, with a warning (AD-6).
 
 ### 4.7 Compute graph and formula language (AD-13)
 
@@ -194,8 +211,10 @@ The spike picks the lighter passing candidate (§10.2); meanwhile molecules use 
 - **Stale answers** are refused unless the log holds the user's `ignore` choice for them, so the agent sees the choice first (FR-6).
 - **Answered questions are protected:** changing one is refused unless the agent reopens it as a new revision, so a recorded gate verdict (AXFX FR-40) never silently changes. A later user answer names the `seq` it replaces.
 - **Full value in, generic diff out.** The view sends the full edited value; `ask-core` alone diffs by element ID (`add`, `remove`, `move`, `set`). Widget-specific diffs would put widget semantics in the core; index patches break on reorder.
-- **Delivery modes.** Submitted delivery holds answers, postponements and prompt text; follow-ups and edit choices go at once (FR-10, FR-6). A submit is one atomic append. Prompt text goes only on an explicit send, so typing never wakes the agent.
-- **Drafts survive a reload,** the product owner's choice: in UJ-2 a PM edits a WBS for a long time. The board mirrors a draft record to `ask-core`, separate from the log and invisible to agents, and restores it on reconnect or takeover. Drafts use no Web Storage or cookies: the opaque view has none, and loopback cookies are shared across ports. Nothing survives a discard (FR-25).
+- **A decline is an answer kind,** not a path of its own: it carries the optional reason from the open prompt, names the question's `rev`, closes the question (§4.9), follows the delivery mode and is superseded by a later answer or decline. So revising or undoing a decline works as for an answer (FR-4). The shipped skills tell the agent not to ask a declined question again within its task, and nothing about it outlives the ask (FR-25).
+- **Reopening.** Undoing a postpone or a decline that has been sent, and so is in the log, appends the event "question reopened by the user", delivered like any other. Events are immutable, so without it the agent would still collect, or keep acting on, a choice the user took back. In submitted delivery the undo is held in the draft record until the submit; undoing a postpone or decline still held only removes it from the draft record, and no event is needed.
+- **Delivery modes.** Submitted delivery holds answers, declines, postponements, their undos and prompt text; follow-ups and edit choices go at once (FR-10, FR-6). A submit is one atomic append. Prompt text goes only on an explicit send, so typing never wakes the agent.
+- **Drafts survive a reload,** the product owner's choice: in UJ-2 a PM edits a WBS for a long time. The board mirrors a draft record to `ask-core`, separate from the log and invisible to agents, and restores it on reconnect or takeover. Besides unsent work, the record keeps what a reload must bring back: each question's context placement, the text in its follow-up composers and the user's notes on options, and the board's open tab or question in view. Drafts use no Web Storage or cookies: the opaque view has none, and loopback cookies are shared across ports. Nothing survives a discard (FR-25).
 
 ### 4.9 Fail closed (AD-10)
 
@@ -203,6 +222,7 @@ AskBoard never reports an answer the user did not give, and never lets a missing
 
 - Widgets start empty regardless of what the agent recommends; otherwise one submit would send every default the user skipped. Untouched review content reports as unchanged.
 - Every result carries the epoch, and an unknown ask is `discarded`.
+- **Declined is terminal.** Question states are `open`, `answered`, `postponed` and `declined`. A decline closes its question like an answer, so the agent reads it as the user's choice, never as an answer still to come. An ask is `answered` when every question that is not postponed is answered or declined, and returns to `partly-answered` when the agent adds or reopens a question, or when the user reopens a postponed or declined question: the state never claims more than the user has given.
 - **The `SubagentStop` guard** blocks only for owned events above `received`, only when `stop_hook_active` is false, never twice per event. Its reason, delivered as the subagent's next instruction [F3], carries the events and lists the open asks. When the guard lets a stop through, the session process closes the subagent's asks as `agent-finished`. Before 2.1.311 the hook fired about twice a minute during work [F2] and would have used up the cap of 8 consecutive continuations [F3]: one reason for the 2.1.311 minimum.
 - **Benchmark mode** needs a per-run secret matching `bench`'s run file, because a plain flag could leak from a user's shell. The scripted AskUserQuestion answerer lives only in the run's settings.
 
@@ -245,12 +265,12 @@ A `PreToolUse` hook on AskUserQuestion, not the mod, enforces FR-30's asking rul
 2. The session process first checks that a board can be shown; if not, it returns `unavailable` and creates nothing. It refuses a client known to be below the minimum version (AD-18).
 3. `ask-core` validates against `contract`, binds the owner and origin, resolves the rev-1 board documents and runs `buildGraph` for warnings. On the session's first ask it creates `.askboard/` and its `.gitignore`.
 4. The result returns at once: board link, epoch, state `waiting`, warnings.
-5. The notifier opens the tab and shows a notification; the `PostToolUse` hook shows the link to the user, for subagents too; the mod lists pending asks (FR-23).
+5. The notifier opens the tab, unless a board of the same session is working (§3.2), and shows a notification; the `PostToolUse` hook shows the link to the user, for subagents too; the mod lists pending asks (FR-23).
 6. The board connects with its token and builds the view through `assemble`. A question is visible once all its items have settled and been laid out (AD-9).
 
 ### 5.2 Delivery, follow-up and reply
 
-In immediate delivery, the board sends each answer's full value; `ask-core` diffs and appends, waking a `collect` on that item, and the mod pushes the events above `received` and reports them as pushed. When the agent collects first, the mod has nothing to push. In submitted delivery the draft record holds answers until a submit appends them atomically, in the user's order; follow-ups still go at once.
+In immediate delivery, the board sends each answer's full value; `ask-core` diffs and appends, waking a `collect` on that item, and the mod pushes the events above `received` and reports them as pushed. That report raises `received`, and the board marks the answer delivered to the agent (§4.2). When the agent collects first, the mod has nothing to push, and the `collect` raises `received` instead. In submitted delivery the draft record holds answers, declines, postpones and their undos until a submit appends them atomically, in the user's order; follow-ups still go at once.
 
 ```mermaid
 sequenceDiagram
@@ -265,6 +285,7 @@ sequenceDiagram
   S-->>D: event seq 4, cursor e.4
   D->>A: prompt.submit when idle, starts a turn
   D->>S: delivered up to seq 4
+  S->>B: q1 delivered to the agent
   Note over B: user switches to submitted delivery
   B->>S: draft record mirrored, q2 and q3 held
   B->>S: follow-up on q3, sent at once
@@ -277,9 +298,12 @@ sequenceDiagram
   S->>S: append seq 6 and seq 7 atomically
   A->>S: collect(after e.5)
   S-->>A: events seq 6 and 7, cursor e.7
+  S->>B: q2 and q3 delivered to the agent
 ```
 
 A follow-up reaches the agent through a waiting `collect`, a push or the next `collect`. The reply leaves the question's `rev` unchanged, so unsent work on it triggers no edit choice, and rounds repeat until the user answers (FR-10).
+
+Revising, declining and reopening take the same path. A revised answer, or a decline after an answer, is a new answer event that names the `seq` it replaces; a decline closes its question like an answer (§4.8). Undoing a postpone or a decline that has been sent, and so is in the log, appends "question reopened by the user", which `collect` and the mod deliver like any other event, and an answered ask becomes partly answered again (§4.9). In submitted delivery each of these waits in the draft record for the submit, and undoing a postpone or decline still held only changes the draft record.
 
 ### 5.3 Agent update with an edit conflict
 
@@ -352,7 +376,7 @@ stateDiagram-v2
 
 ## 6. Security model (AD-11)
 
-**Protected against:** other web pages in the browser (reading or answering a board, CSRF, DNS rebinding); other machines; untrusted agent and file content (script injection, reaching tokens, boards or AskBoard, remote loads, command injection through notices); data leaving the machine.
+**Protected against:** other web pages in the browser (reading or answering a board, CSRF, DNS rebinding); other machines; untrusted agent and file content (script injection, reaching tokens, boards or AskBoard, remote loads, command injection through notices or the editor launch); data leaving the machine.
 
 **Out of scope:** processes running as the same OS user, which can read the session file, project and transcripts anyway. Two review proposals were declined on that ground: a single-use launch code, proposed to guard against the token showing in a process list; and stripping the token from the address bar, because a reload must reconnect and no page uses storage.
 
@@ -368,7 +392,7 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 
 **Residual risks.**
 
-- **The agent holds the board token.** The product owner chose to return the tokenized link in the `ask` result, because it is simpler. An agent able to send HTTP requests could therefore, in principle, answer its own question, even approve its own AXFX gate (AXFX FR-40). Only the shipped skills mitigate it: they forbid agents from opening or answering boards. A token-less result, with the link passed to the hook and notifier through the local API, was declined.
+- **The agent holds the board token.** The product owner chose to return the tokenized link in the `ask` result, because it is simpler. An agent able to send HTTP requests could therefore, in principle, answer its own question, even approve its own AXFX gate (AXFX FR-40). Only the shipped skills mitigate it: they forbid agents from opening or answering boards. A token-less result, with the link passed to the hook and notifier through the local API, was declined. A token holder could also launch the user's configured editor on a file under the root, or change a presentation setting. It could never choose the command or write a behavioural key: the command comes only from the user configuration, and the session process refuses any other settings write (§4.4, §4.5).
 - The tokenized URL appears in a process list while the browser opener runs.
 - A Snapshot the user shares carries the board's data off the machine, by the user's choice (FR-27).
 - With the devcontainer opt-in, the container network can reach the board listener, still guarded by the token.
@@ -432,6 +456,7 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 | Drag and drop | `@dnd-kit/react` 0.5.1 (0.x); Pragmatic drag and drop 4.0.0 | `@dnd-kit/core`: last release 2024-12-05 |
 | Tree, Table, Spreadsheet grid | react-arborist 4.0.1; TanStack Table 9.3.1 | — |
 | Graph | `@xyflow/react` 12.12.0 | — |
+| Graph auto-layout | `@dagrejs/dagre` 3.1.3 (MIT, 5,841 stars, push and npm release 2026-10-24, checked 2026-10-28), with its dependency `@dagrejs/graphlib` 4.0.6 (MIT, 1,748 stars) | — |
 | Diagram | Mermaid 12.2.0; `@plantuml/core` 1.2026.9 (MIT npm tarball) | — |
 | LaTeX | KaTeX 0.19.1; MathLive 0.111.1 | — |
 | Diff review | `@pierre/diffs` 1.6.2 | git-diff-view: 743 stars |
@@ -518,6 +543,23 @@ All spikes run in the solution project, and each ends in a spine update through 
 5. PlantUML's sponsored-message images are suppressed.
 6. Bundle size and Snapshot size, inlining only the chunks a board uses.
 
+**Checks from the UX run.** Choosing components for the final UX documents turned up facts that contradict §9's status table or the view CSP (S-1 to S-7), and the validation of the UX spines added S-8 (`ux-askboard-2026-10-27/architecture-change-requests.md`). They are not decided changes: the spike verifies each and settles it.
+
+- **S-1, Mermaid 12.2.0** lists elkjs, an excluded trap (§9), as a direct dependency. A possible fix: strip elkjs from the view build and check its absence in CI.
+- **S-2, react-arborist 4.0.1** needs react-dnd 16 as a peer, and react-dnd's last release (2022-06-25) fails the activity criterion. The UX chose TanStack Table's tree mode with Pragmatic drag and drop instead.
+- **S-3, vis-timeline 8.5.6** depends on `@egjs/hammerjs`, whose repository was last pushed on 2021-02-01 and has 45 stars. The UX chose its own Timeline.
+- **S-4, form validation.** No schema validator that fits the view CSP passes the adoption rule: Ajv compiles code at run time; `@rjsf/validator-cfworker` rests on `@cfworker/json-schema` (704 stars, last release 2025-01-31); `ata-validator` has 389 stars. The UX chose a no-op validator, with field checks computed by AskBoard.
+- **S-5, cmdk and next-themes** fail the activity criterion. cmdk is used by `@rjsf/shadcn` and by shadcn's Command component. next-themes, used by shadcn's dark-mode recipe and its Sonner wrapper, also uses localStorage, which throws in the sandboxed view. The UX drives the dark theme with a `.dark` class instead.
+- **S-6, Radix Dialog and Alert Dialog** inject a scroll-lock `<style>` at run time, which a hash-only `style-src` blocks [F30]. This affects the confirmation of a delivery-mode switch if it is modal. The settings panel is a non-modal side sheet on the board page, so it is not affected.
+- **S-7, no `allow-forms` in the sandbox** (§4.5): a `<form>` submission is blocked, so RJSF must render with `tagName="div"`.
+- **S-8, Form picks and `pattern`.** The UX run settled that Form pick fields are built as `enum`, with their labels in `ui:enumNames`, not as `oneOf` of `const`. The spike verifies that such picks render and return their values under the approved Form library (`@rjsf/core` 6.11.0 with the AskBoard theme, S-4's no-op validator and S-7's `tagName="div"`). It also verifies that the safe `pattern` subset (no backreferences, lookaround or nested quantifiers) can be checked when the ask is sent, refusing a pattern outside it with an error naming the item.
+
+Further items for the spike:
+
+- `@pierre/diffs` syntax highlighting under the CSP;
+- Mermaid text measurement when its injected styles are blocked;
+- PlantUML render time in the golden single-question case, which counts towards SM-3 and SM-C2.
+
 **What changes.** The renderer row closes and the Stack gains a pin, unless AskBoard's own wins; a component failing the CSP is out.
 
 ### 10.4 Packaging spike
@@ -546,18 +588,20 @@ All spikes run in the solution project, and each ends in a spine update through 
 
 ## 11. Changes requested to the PRDs
 
-| # | Target | Change requested | AD |
-| --- | --- | --- | --- |
-| 1 | NFR-3 | In a devcontainer, the container interface is bound only on explicit opt-in, with the port published only to the host's loopback; that still counts as the local machine | AD-11 |
-| 2 | R1; addendum "How answers reach a working agent" | Out of date at 2.1.311: mods have been on by default since 2.1.287 and reach running subagents; Monitor and background Bash reach background subagents. R1 becomes "the chosen push path (the mod) may fail the delivery spike or be disabled by an organization", mitigated by pull | AD-4 |
-| 3 | FR-25; Glossary "Ask" | An ask also closes when its subagent finishes (`agent-finished`), after the guard delivers pending events; its board accepts no more answers | AD-10 |
-| 4 | FR-5 | ID no-reuse holds within one session process; after a restart in the same session, old asks are reported discarded (new epoch) | AD-2, AD-3 |
-| 5 | PRD §11 Assumptions | Both settled: FR-21 through pull plus the mod; FR-10 follow-ups as events, replies appended to the question's thread, never driving the session | AD-4, AD-20 |
-| 6 | FR-25 | An answer counts as delivered once in the log; on discard, unacknowledged events still reach the agent, `discarded` last. Complements entry 3 | AD-21 |
-| 7 | NFR-6; adoption rule | The exception covers Bun's patched JavaScriptCore/WebKit (LGPL-2, `oven-sh/WebKit` at `WEBKIT_VERSION`) and tinycc (LGPL-2.1) if present, obligations met; otherwise named exceptions waive only stars. Until applied, or if refused: the plain bundle on Node 24.22.1+ | AD-19 |
-| 8 | AXFX NFR-1 (contract change) | Confirm that LGPL runtime components that AskBoard links unmodified into its executable, with obligations met, fit the MIT release; otherwise the plain bundle on Node | AD-19 |
-| 9 | FR-29; NFR-8 | A subagent that gets `unavailable` ends its turn and returns the question to its caller; remote hosts (SSH, Codespaces) are out of the first version and return `unavailable` | AD-18, AD-22 |
-| 10 | FR-19 | When the agent names no one and the project has no git user name, "who" falls back to the OS login name, so the rule holds in any project (FR-31) | Conventions |
+The architecture run requested these changes to the AskBoard PRD and, for entry 8, to the AXFX PRD. On 2026-10-28 the OpenSpec change `apply-design-change-requests` applied entries 1 to 6, 9 and 10; entries 7 and 8 are pending.
+
+| # | Target | Change requested | AD | Status |
+| --- | --- | --- | --- | --- |
+| 1 | NFR-3 | In a devcontainer, the container interface is bound only on explicit opt-in, with the port published only to the host's loopback; that still counts as the local machine | AD-11 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 2 | R1; addendum "How answers reach a working agent" | Out of date at 2.1.311: mods have been on by default since 2.1.287 and reach running subagents; Monitor and background Bash reach background subagents. R1 becomes "the chosen push path (the mod) may fail the delivery spike or be disabled by an organization", mitigated by pull | AD-4 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 3 | FR-25; Glossary "Ask" | An ask also closes when its subagent finishes (`agent-finished`), after the guard delivers pending events; its board accepts no more answers | AD-10 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 4 | FR-5 | ID no-reuse holds within one session process; after a restart in the same session, old asks are reported discarded (new epoch) | AD-2, AD-3 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 5 | PRD §11 Assumptions | Both settled: FR-21 through pull plus the mod; FR-10 follow-ups as events, replies appended to the question's thread, never driving the session | AD-4, AD-20 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 6 | FR-25 | An answer counts as delivered once in the log; on discard, unacknowledged events still reach the agent, `discarded` last. Complements entry 3 | AD-21 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 7 | NFR-6; adoption rule | The exception covers Bun's patched JavaScriptCore/WebKit (LGPL-2, `oven-sh/WebKit` at `WEBKIT_VERSION`) and tinycc (LGPL-2.1) if present, obligations met; otherwise named exceptions waive only stars. Until applied, or if refused: the plain bundle on Node 24.22.1+ | AD-19 | Pending: the product owner decides after the packaging spike (§10.4); until then the plain bundle on Node (AD-19) |
+| 8 | AXFX NFR-1 (contract change) | Confirm that LGPL runtime components that AskBoard links unmodified into its executable, with obligations met, fit the MIT release; otherwise the plain bundle on Node | AD-19 | Pending in the planning repository (AXFX NFR-1) |
+| 9 | FR-29; NFR-8 | A subagent that gets `unavailable` ends its turn and returns the question to its caller; remote hosts (SSH, Codespaces) are out of the first version and return `unavailable` | AD-18, AD-22 | Applied on 2026-10-28 by `apply-design-change-requests` |
+| 10 | FR-19 | When the agent names no one and the project has no git user name, "who" falls back to the OS login name, so the rule holds in any project (FR-31) | Conventions | Applied on 2026-10-28 by `apply-design-change-requests` |
 
 **Narrower readings, not logged as requests.** These do not contradict the PRD, but a reader comparing texts will notice them:
 
@@ -574,10 +618,9 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 | --- | --- |
 | Architecture spikes (§10) | Push transport, with the minimum Claude Code version and the session-file key (mod delivery); formula engine and whitelist (formula); catalog renderer with Mermaid and PlantUML (renderer, with UX); Bun packaging and "no reachable browser" detection (packaging) |
 | Product owner | Latency target (OQ2), after the mod delivery spike; A2UI inbound translator (OQ5); molecule registry, export and repository (FR-16, FR-17) and full benchmark settings; MCP Apps in Claude hosts, other surfaces, native Windows, remote hosts |
-| UX (Google Stitch) | Atoms and layouts, widget components, forms library, visual design |
-| Implementation | Default port range, container opt-in setting, host-side link address, grace period, record timeout |
+| Implementation | Default port range, container opt-in setting, host-side link address, grace period, record timeout, where the file path and line sit in the user's `editor` command |
 | Benchmark | `alwaysLoad` for `ask` and the result representation (first run); final question set and browser driver (benchmark epic) |
-| Product owner, outside the Deferred table | The PRD and AXFX change requests (§11), until PRD reconciliation |
+| Product owner, outside the Deferred table | The licence exception for the Bun executable (§11 entry 7), after the packaging spike; the AXFX contract change (§11 entry 8), pending in the planning repository |
 
 ## 13. Facts the architecture rests on
 
@@ -633,10 +676,13 @@ These add to the PRD glossary (PRD §3).
 - **Event**—An immutable log entry for something the user or AskBoard caused, with a per-ask `seq` (AD-3).
 - **Cursor**—`<epoch>.<seq>` for one ask, carried with every event; agents pass the latest they received (AD-3).
 - **Received watermark**—Per ask (`received`), the highest `seq` known to have reached the agent by `collect`, stop block or push; it only increases (AD-3).
+- **Delivery receipt**—The board's mark that an answer was delivered to the agent, set when `received` passes the answer's event; it never claims the agent read it, and it is not an event (AD-3).
 - **Agent record**—What the `PreToolUse` hook sends for each AskBoard call; it decides ownership and routing (AD-5).
 - **Board document**—The resolved form of one revision, with excerpt text, image bytes and expanded molecules; the only input of the view, `fetch` and Snapshots (AD-12).
 - **Revision**—The `rev` of a question, or of a top-level item outside one; every change except a follow-up reply increments it (AD-20).
-- **Draft record**—Per-ask unsent work, mirrored to `ask-core` and restored on reload, never shown to the agent (AD-20).
+- **Draft record**—Per-ask unsent work, with what a reload brings back (context placement, follow-up composer text, notes on options, the open tab or question in view), mirrored to `ask-core` and restored on reload, never shown to the agent (AD-20).
 - **Board protocol**—The schema set between the board page and `board-host` (AD-7).
+- **Working signal**—A board page's report, over the board protocol, that it has focus and has had a user input in the last 60 s; presence only. While a board of the session is working, a new board does not come to the front (AD-2, AD-7).
+- **Reading panel**—The panel on the board page where a project-file reference opens; it frames the token-gated source view and offers "Open in editor" (AD-8).
 - **Local API**—The token-gated loopback API through which `mod` and `hooks` reach the session process; the only schema set with Claude Code identifiers (AD-5, AD-7, AD-11).
 - **Hook mode**—The AskBoard executable run as `askboard hook <event>` (AD-19).
