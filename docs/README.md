@@ -1,6 +1,6 @@
 # AskBoard design documents
 
-This repository owns AskBoard's requirements and architecture. They were written in the AXFX planning repository (`agentxema_prd`, local, BMad Method) and transferred here on 2026-10-27 from its commit `73d5cb6`. The copies are byte-identical to the originals; the originals are frozen there and no longer change.
+This repository owns AskBoard's requirements and architecture. They were written in the AXFX planning repository (`agentxema_prd`, local, BMad Method) and transferred here on 2026-10-27 from its commit `73d5cb6`. The copies are byte-identical to the originals, which were removed from the planning repository on 2026-10-28 and remain in its git history (PRD at `cf5ac80`, architecture at `73d5cb6`).
 
 ## Contents
 
@@ -10,7 +10,7 @@ This repository owns AskBoard's requirements and architecture. They were written
 | `architecture-askboard-2026-10-27/` | `ARCHITECTURE-SPINE.md`, `SOLUTION-DESIGN.md`, `research-cc-delivery-2026-10-27.md`, `research-stack-2026-10-27.md`, `reviews/review-web-verification.md`, `.memlog.md` | final (2026-10-27) |
 | `ux-askboard-2026-10-27/` | `DESIGN.md`, `EXPERIENCE.md` | not yet transferred: the UX run was still in progress |
 
-The folder names are the original run names, so the references between documents (for example `prd-askboard-2026-10-25/prd.md` in the spine) still resolve. Each `.memlog.md` is the append-only decision record of its run: settled decisions, deferred items with owner and revisit condition, and the requested PRD changes. The intermediate working files (extracts, reconciliations, review reports other than the web verification) stay frozen in the planning repository.
+The folder names are the original run names, so the references between documents (for example `prd-askboard-2026-10-25/prd.md` in the spine) still resolve. Each `.memlog.md` is the append-only decision record of its run: settled decisions, deferred items with owner and revisit condition, and the requested PRD changes. The intermediate working files (extracts, reconciliations, review reports other than the web verification) remain only in the planning repository's git history, at the same commits.
 
 ## How these documents relate
 
