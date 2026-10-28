@@ -8,14 +8,14 @@ This file guides Claude Code when working in this repository.
 
 AskBoard is a local web board where a Claude Code agent asks the user structured questions through widgets and gets typed answers back. It ships as one Claude Code plugin and works in any Claude Code project.
 
-**Status (2026-10-28): design complete, no code.** Next: the four spikes in `SOLUTION-DESIGN.md` §10 (mod delivery, formula, renderer with the final UX documents, packaging); each runs as an OpenSpec change and ends in a spine update. Pending: the PRD changes the architecture requested (§11, logged as `PRD-CHANGE:` in the architecture `.memlog.md`) and the UX run's change requests (`docs/ux-askboard-2026-10-27/prd-change-requests.md` and `architecture-change-requests.md`), not yet applied to the PRD and the spine. Build order: the widgets AXFX needs come first (§3.1).
+**Status (2026-10-28): design complete, no code.** Next: the four spikes in `SOLUTION-DESIGN.md` §10 (mod delivery, formula, renderer with the final UX documents, packaging); each runs as an OpenSpec change and ends in a spine update. The PRD changes the architecture requested (§11) and the UX run's change requests were applied on 2026-10-28 (OpenSpec change `apply-design-change-requests`). Still pending: the NFR-6 licence exception, decided after the packaging spike, and the AXFX NFR-1 contract change (§11 entries 7 and 8). Build order: the widgets AXFX needs come first (§3.1).
 
 ## Design documents
 
 - `docs/prd-askboard-2026-10-25/prd.md` (FR, NFR, SM, R IDs) and `addendum.md` (adoption rule, security model, benchmark protocol).
 - `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`: AD-1 to AD-22 bind every change; also Consistency Conventions, Stack, Structural Seed (planned source tree) and Deferred.
-- `SOLUTION-DESIGN.md` beside it explains the spine and adds no rules: §3.1 capabilities and units, §10 spikes, §11 pending PRD changes, §12 open items and owners, §13 verified facts.
-- `docs/ux-askboard-2026-10-27/DESIGN.md` (how it looks: tokens, components) and `EXPERIENCE.md` (how it works: information architecture, states, interactions, accessibility, key flows); both win over the mockups in `mockups/`. Beside them, the UX run's change requests to the PRD (PCR) and the architecture (ACR), with the renderer spike checks S-1 to S-8.
+- `SOLUTION-DESIGN.md` beside it explains the spine and adds no rules: §3.1 capabilities and units, §10 spikes, §11 PRD changes and their status, §12 open items and owners, §13 verified facts.
+- `docs/ux-askboard-2026-10-27/DESIGN.md` (how it looks: tokens, components) and `EXPERIENCE.md` (how it works: information architecture, states, interactions, accessibility, key flows); both win over the mockups in `mockups/`. Beside them are the UX run's change requests to the PRD (PCR) and to the architecture (ACR), together with the renderer spike checks S-1 to S-8. All were applied on 2026-10-28.
 - `docs/README.md`: provenance and how the documents relate.
 
 How they change:

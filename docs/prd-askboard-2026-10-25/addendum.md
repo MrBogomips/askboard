@@ -1,7 +1,7 @@
 ---
 title: "PRD addendum: AskBoard"
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-28
 ---
 
 # PRD addendum: AskBoard
@@ -34,7 +34,7 @@ Against spec churn (research risk R5): pin versions, put the renderer behind an 
 
 ## Widget building blocks (architecture, UX; PRD FR-11, FR-12, NFR-6)
 
-The visual-companion research lists candidate open-source components per widget (Gantt, timeline, tree and table, diagram, LaTeX, document and diff review, charts) with licence, version and activity; see extract-research-visual-companion.md §5. The visual design of the widgets is to be done with Google Stitch.
+The visual-companion research lists candidate open-source components per widget (Gantt, timeline, tree and table, diagram, LaTeX, document and diff review, charts) with licence, version and activity; see extract-research-visual-companion.md §5. The visual design of the widgets is in ../ux-askboard-2026-10-27/ (DESIGN.md, EXPERIENCE.md).
 
 **Adoption rule.** AskBoard's own rule under its MIT licence (NFR-6), restated from the research's proposal (../prd-agentxema-2026-10-21/research-visual-companion.md §7.1, §7.2, §8):
 
@@ -47,25 +47,28 @@ The visual-companion research lists candidate open-source components per widget 
 
 ## How answers reach a working agent (architecture; PRD FR-21, FR-22, FR-10)
 
-The PRD requires that an agent keeps working after sending an ask, and that answers and follow-ups reach it while it works, without it asking AskBoard for them. Claude Code 2.1.310 offers several candidate paths; none is chosen here.
+The PRD requires that an agent keeps working after sending an ask, and that answers and follow-ups reach it while it works, without it asking AskBoard for them. The candidate paths below were found at Claude Code 2.1.310 and corrected at 2.1.311.
 
-**No candidate today is both generally available and able to reach subagents** (PRD Risks, R1): subagent calls are never backgrounded, MCP Tasks are a main-conversation beta, channels a research preview, mods in early access, and URL-mode elicitation blocks backgrounding. A background task notification also carries one result per call, so several answers over time need repeated calls or a push path. (reconcile-research-visual-companion.md G-2)
+**Chosen path** (../architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md AD-4; ../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1). Pull is authoritative: every capability works through AskBoard's MCP tools, and the agent collects the answers when it needs them. The Claude Code mod is the push path. The remaining risk (PRD Risks, R1) is that the mod fails the delivery spike or that an organization disables mods; pull mitigates it.
+
+**The mod reaches subagents.** Mods have been on by default since 2.1.287, and a mod reaches a running subagent, foreground or background, where the paths below fall short: subagent calls are never backgrounded, MCP Tasks are a main-conversation beta, channels a research preview, URL-mode elicitation blocks backgrounding, and Monitor and background Bash reach only background subagents. A background task notification also carries one result per call, so several answers over time need repeated calls or a push path. (reconcile-research-visual-companion.md G-2; ../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §13, F8, F9)
 
 - **Blocking call moved to the background.** A main-conversation MCP call still running after 2 minutes becomes a background task, and its result arrives as a task notification. Subagent calls never move to the background. Idle limits: 5 minutes over HTTP, 30 over stdio, unless the server sends progress notifications; over HTTP the first byte must arrive within 60 seconds. (research-mcp-performance.md §3.2)
 - **MCP Tasks.** Public beta since Claude Code 2.1.304; main conversation only; CLI, Agent SDK and GitHub Actions only. Statuses include `input_required`. (research-mcp-performance.md §3.1–3.2)
 - **Channels.** Research preview; custom channels need `--dangerously-load-development-channels` and are not registered on MCP 2026-07-28 connections. (extract-research-visual-companion.md §2.4)
 - **URL-mode elicitation** (since 2.1.281). A consent prompt on each open; the URL is capped at about 8,000 characters; "the dialog keeps the call from being backgrounded". Fit: a launcher carrying a short token, never the payload; the consent click adds a step to FR-23's notice. Subagent support is unverified. (extract-research-visual-companion.md §2.3, §2.5; research-mcp-performance.md §3.2; reconcile-addendum-competitive.md G5)
-- **Plugin message.** Plannotator's Claude Code mod runs a non-blocking review "whose decision reaches the model later as a plugin message". Mods (since 2.1.287) are in early access, so the research keeps them optional: the "core works through MCP alone". (extract-research-visual-companion.md §2.4, §3, §6.3)
-- **Other paths to evaluate.** A hook that adds new answers to the agent's context on its next turn; a tool the agent calls to collect answers when it reaches a point where it needs them, for which Plannotator's inbox tools (`send_message`, `submit_guide`, `wait_for_reply`) are prior art. (extract-research-visual-companion.md §3)
+- **Plugin message.** Plannotator's Claude Code mod runs a non-blocking review "whose decision reaches the model later as a plugin message". The research took mods to be in early access and kept them optional: the "core works through MCP alone" (extract-research-visual-companion.md §2.4, §3, §6.3). In fact mods have been on by default since 2.1.287; `allowManagedModsOnly` or `disableAllHooks` stop them, and they are absent in Desktop WSL sessions. A mod's `$.session.send` reaches a running subagent, and `$.prompt.submit` wakes an idle main conversation. The core still works through MCP alone. (../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1, §13 F8, F9)
+- **Monitor and background Bash.** Both reach background subagents only, and Monitor's routing to them is unverified (F25). Monitor notifies once per output line, with a 5-minute default deadline (30 at most), under Bash permissions; background Bash notifies once, on exit. The architecture keeps a Monitor watch as a fallback adapter and sets background Bash aside. (same §4.1, §13 F25)
+- **Other paths.** A hook that adds new answers to the agent's context on its next turn, which the architecture keeps as a fallback adapter; a tool the agent calls to collect answers when it reaches a point where it needs them, which became the pull path, and for which Plannotator's inbox tools (`send_message`, `submit_guide`, `wait_for_reply`) are prior art. (extract-research-visual-companion.md §3; ../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1)
 
-Constraints to respect whichever path is chosen: AskBoard replies to the session that asked; it never drives a Claude Code session from outside. Subagents need a path too, since AskUserQuestion is unavailable to them while MCP tools are.
+Constraints the chosen paths respect: AskBoard replies to the session that asked; it never drives a Claude Code session from outside. Subagents need a path too, since AskUserQuestion is unavailable to them while MCP tools are.
 
 ## Enforcing asking rules (architecture; PRD FR-30)
 
 FR-30's asking rule "always use AskBoard" is a guarantee that skills (FR-29) cannot enforce (reconcile-research-visual-companion.md G-10).
 
-- **Candidate path: a `PreToolUse` hook on AskUserQuestion.** Since Claude Code 2.1.85 such a hook can answer AskUserQuestion, returning `allow` with `updatedInput` `{questions, answers}` (extract-research-visual-companion.md §2.1). Inferred, not yet verified: it could therefore redirect the question to AskBoard, or show it on a board and return the answers (reconcile-research-visual-companion.md G-10; the research documents only that the hook can answer AskUserQuestion). The benchmark uses the same hook.
-- **Optional: a mod** that intercepts (`tool.call`) or redraws (`ui.render`) the dialog; in early access (same §2.1).
+- **Chosen path: a `PreToolUse` hook on AskUserQuestion** (../architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md AD-16). The hook refuses AskUserQuestion, with a reason pointing to AskBoard, whenever the rule sends the question there. Answering AskUserQuestion from a board is not in the first version (PRD §8.2). Background from the research: since Claude Code 2.1.85 such a hook can answer AskUserQuestion, returning `allow` with `updatedInput` `{questions, answers}` (extract-research-visual-companion.md §2.1); inferred, not verified, it could therefore redirect the question to AskBoard, or show it on a board and return the answers (reconcile-research-visual-companion.md G-10; the research documents only that the hook can answer AskUserQuestion). The benchmark answers AskUserQuestion with the same kind of hook.
+- **Not in the first version (PRD §8.2): a mod** that intercepts (`tool.call`) or redraws (`ui.render`) the dialog (same §2.1).
 - **Subagents cannot use AskUserQuestion at all**: it is "removed from every subagent's tools" (same §2.1). AskBoard is their only way to ask, so there is nothing to enforce (PRD FR-30).
 
 ## Security model from the research (architecture; PRD NFR-3 to NFR-5)
@@ -145,11 +148,9 @@ Sensitivities: answers after a 5-minute expiry at 60k context add $28.80 on Opus
 Plannotator features the PRD neither matches nor rejects (reconcile-addendum-competitive.md §3, G8), with the status the owner's decisions imply. The competitive risk is PRD Risks, R3.
 
 - **Ruled out:** Inbox mode, which persists pending reviews (asks are transient, FR-25); multi-harness reach across nine harnesses (Claude Code only, §6); delivery in VS Code (CLI only, NFR-8); encrypted share links (local machine only, NFR-3; Snapshots are the sharing path).
-- **Covered:** Mermaid and KaTeX annotation, as separate widgets: Diagram (Mermaid) and LaTeX (FR-11).
+- **Covered:** Mermaid and KaTeX annotation, as separate widgets: Diagram (Mermaid) and LaTeX (FR-11); question-card "Accept recommended", as "Accept recommended" on a question and "Select recommended" on the board (FR-3); question-card "skip", as declining a question (FR-4).
 - **Not in scope for the first version, revisit later:**
   - plan-mode review, through a `PermissionRequest` hook on `ExitPlanMode` with a 345,600 s timeout (extract-research-visual-companion.md §3); AskBoard opens only when an agent asks;
-  - question-card "Accept recommended", one click for every recommended option;
-  - question-card "skip", declining to answer (FR-4 only postpones);
   - labels on annotated passages;
   - review of Markdown, HTML and URLs as named document formats;
   - Graphviz (DOT) diagrams;
