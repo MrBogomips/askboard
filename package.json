@@ -12,7 +12,8 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "bun test --coverage",
-    "check:imports": "bun tools/check-imports.ts"
+    "check:imports": "bun tools/check-imports.ts",
+    "check:licences": "bun tools/check-licences.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",

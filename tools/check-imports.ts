@@ -225,7 +225,8 @@ export const main = async (
   const { files, violations } = await checkImports(root);
   for (const violation of violations) log(formatViolation(violation));
   const where = relative(process.cwd(), root).split(sep).join("/") || ".";
-  const outcome = violations.length === 0 ? "no violations" : `${violations.length} violations`;
+  const outcome =
+    violations.length === 1 ? "1 violation" : `${violations.length || "no"} violations`;
   log(`check:imports: ${files} files under ${where}/packages, ${outcome}`);
   return violations.length === 0 ? 0 : 1;
 };
