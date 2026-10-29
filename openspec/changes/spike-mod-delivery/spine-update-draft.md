@@ -343,7 +343,7 @@ Current (spine):
 Replacement:
 
 ```text
-    - The local API listens on a Unix socket (0600) in the session-file folder (0700), never on a network interface. The socket's path stays within the platform limit (104 bytes on macOS).
+    - The local API listens on a Unix socket, set to 0600 explicitly rather than left to the umask, in the session-file folder (0700), never on a network interface. The socket's path stays within the platform limit (104 bytes on macOS).
 ```
 
 ### 7.2 Spine, AD-11, Rule, Local API requests
