@@ -2,7 +2,8 @@
 
 ## 1. Counting method
 
-- [ ] 1.1 Choose the counting method of design decision 3: check whether an API key for the token-counting endpoint is available, else prepare the Claude Code fallback. Verify by counting one short fixed text twice with the chosen method and getting the same number both times, and record the method, model and date in `measurements.md`.
+- [x] 1.1 Choose the counting method of design decision 3: check whether an API key for the token-counting endpoint is available, else prepare the Claude Code fallback. Verify by counting one short fixed text twice with the chosen method and getting the same number both times, and record the method, model and date in `measurements.md`.
+  - Note (2026-10-29): no API key, so the Claude Code fallback counts by input, with a copy count as cross-check (design decision 3, amended the same day). Model `claude-opus-5-5`. A fixed 135-character text counted 53 tokens twice by input and 53 by copy. Method, model and date are in `measurements.md`.
 
 ## 2. What the model reads before the first ask
 
