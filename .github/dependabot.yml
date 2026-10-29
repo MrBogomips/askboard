@@ -8,3 +8,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Follows the Bun pin in packageManager, which Dependabot does not bump: bump both by hand
+      # (tools/workspace.test.ts fails if they differ).
+      - dependency-name: "@types/bun"

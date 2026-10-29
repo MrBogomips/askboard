@@ -101,7 +101,7 @@ bun run format                                       # Biome: format and apply s
 
 ## CI (GitHub Actions, private repository on GitHub Free)
 
-- `ci.yml` has two Linux jobs, on push to `main` and on every pull request: OpenSpec strict validation, with `OPENSPEC_TELEMETRY=0`, and `check` (`bun install --frozen-lockfile`, then `bun run check` with `GITHUB_TOKEN`). Actions are pinned by commit SHA with the version as a comment; Dependabot bumps them and the Bun dependencies weekly.
+- `ci.yml` has two Linux jobs, on push to `main` and on every pull request: OpenSpec strict validation, with `OPENSPEC_TELEMETRY=0`, and `check` (`bun install --frozen-lockfile`, then `bun run check` with `GITHUB_TOKEN`). Actions are pinned by commit SHA with the version as a comment; Dependabot bumps them and the Bun dependencies weekly, except `@types/bun`, which is bumped by hand together with the Bun pin in `packageManager` (a workspace test fails if they differ).
 - 2,000 included Actions minutes per month, and macOS runners cost about 10x Linux minutes. The spine's CI plan covers macOS and Linux: run macOS jobs selectively (on `main` or a release), not on every pull request.
 - When the minutes are used up, Actions usage is blocked.
 - Branch rulesets and CodeQL code scanning are not available on private repositories with GitHub Free: a failing check does not block a merge, so check CI before merging.

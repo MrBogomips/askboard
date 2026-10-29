@@ -101,6 +101,13 @@ describe("workspace layout", () => {
     }
   });
 
+  // Design decision 8: Dependabot ignores @types/bun, which is bumped by hand with the Bun pin.
+  test("@types/bun has the version of the Bun pin in packageManager", async () => {
+    const { packageManager, devDependencies } = await readJson(join(root, "package.json"));
+    expect(packageManager).toMatch(/^bun@\d/);
+    expect(devDependencies["@types/bun"]).toBe(packageManager.slice("bun@".length));
+  });
+
   // The import check resolves only @askboard/* and relative specifiers, so nothing may alias them.
   test("no configuration aliases imports", async () => {
     for (const path of configPaths) {
