@@ -12,7 +12,8 @@ import { shimMarkupIn } from "./_markup-shim.ts";
 // - `css-classes`: the same with `useCSSClasses: true`, which the package declares (D10);
 // - `css-variables`: a theme whose token colours are CSS variables, mapped onto DESIGN.md's five
 //   `syntax-*` tokens by the chunk's own stylesheet;
-// - `plain`: files named `.txt`, so nothing is highlighted.
+// - `plain`: files named `.txt`, so nothing is highlighted;
+// - `plain-variables`: the same with the CSS-variables theme, highlighting off (group 5).
 // `props.shim` adds the markup shim (`_markup-shim.ts`).
 
 // DESIGN.md, Syntax highlighting: keywords, strings, numbers and constants, function and type
@@ -41,7 +42,7 @@ const DiffReview = ({ item, ready }: ItemProps) => {
   const config = text(item.props?.config, "default");
   if (item.props?.shim === true) shimMarkupIn("DIFFS-CONTAINER");
   const rename = (file: FileText): FileText =>
-    config === "plain" ? { ...file, name: file.name.replace(/\.[a-z]+$/, ".txt") } : file;
+    config.startsWith("plain") ? { ...file, name: file.name.replace(/\.[a-z]+$/, ".txt") } : file;
   const oldFile = rename(item.props?.oldFile as FileText);
   const newFile = rename(item.props?.newFile as FileText);
   // Ready once the shadow root holds highlighted or plain lines and the fonts settled.
@@ -52,6 +53,9 @@ const DiffReview = ({ item, ready }: ItemProps) => {
       const lines = host?.shadowRoot?.querySelectorAll("[data-line]").length ?? 0;
       if (lines === 0 && performance.now() - started < 10_000) return;
       clearInterval(timer);
+      // No line after 10 s is a failure the verdict rule must see (group 5: a build without the
+      // theme or the grammar the configuration asks for renders nothing).
+      if (lines === 0) reportError(new Error("diff-review: no line rendered in 10 s"));
       const spans = host?.shadowRoot?.querySelectorAll("[data-line] span") ?? [];
       const classes = new Set<string>();
       const colours = new Set<string>();
@@ -78,7 +82,7 @@ const DiffReview = ({ item, ready }: ItemProps) => {
     diffStyle: "unified" as const,
     disableWorkerPool: true,
     ...(config === "css-classes" ? { useCSSClasses: true } : {}),
-    ...(config === "css-variables" ? { theme: "askboard-syntax" } : {}),
+    ...(config === "css-variables" || config === "plain-variables" ? { theme: "askboard-syntax" } : {}),
   };
   return (
     <div ref={ref} className="ab-diff w-[720px] rounded-md border border-border" data-diff={item.id}>

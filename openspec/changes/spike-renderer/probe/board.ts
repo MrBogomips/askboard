@@ -6,13 +6,15 @@
 // Query: `renderer=own|json-render` (default own), `control=1` (no CSP, no sandbox),
 // `theme=light|dark|system`, `variants=a,b` (candidate amendments of AD-8, csp.ts).
 // `/v/<fixture>` is the assembled view, `/s/<fixture>` the Snapshot file, `/leak/*` records any
-// request that escapes the view, `/leaks` lists them.
+// request that escapes the view, `/leaks` lists them. `/s/<fixture>?renders=<run>` is a Snapshot
+// that carries the diagram renders `bun drive.ts <run> --script renders` kept, in place of the
+// diagram renderers (task 5.2).
 //
 // Usage: bun board.ts [--port N] [--json]   (prints the URLs; --json prints one line for drive.ts)
 
 import { readdir } from "node:fs/promises";
-import { basename, join } from "node:path";
-import { type AssembleOptions, type Assembled, assemble, loadBuild } from "./assemble.ts";
+import { basename, join, resolve } from "node:path";
+import { type AssembleOptions, type Assembled, assemble, loadBuild, type Renders } from "./assemble.ts";
 import { boardPolicy } from "./csp.ts";
 import type { BoardDocument, Draft } from "./port/index.ts";
 
@@ -116,6 +118,10 @@ export const loadFixtures = async (): Promise<Map<string, Fixture>> => {
   return new Map(entries as [string, Fixture][]);
 };
 
+// The renders a run kept for a fixture (`--script renders` in drive.ts).
+export const rendersFile = (run: string, fixture: string): string =>
+  join(PROBE, "runs", run, "renders", `${fixture}.json`);
+
 const optionsOf = (url: URL, fixture: Fixture): AssembleOptions => ({
   renderer: url.searchParams.get("renderer") ?? "own",
   csp: url.searchParams.get("control") !== "1",
@@ -125,14 +131,17 @@ const optionsOf = (url: URL, fixture: Fixture): AssembleOptions => ({
 });
 
 export const startBoard = async (port = 0) => {
-  const build = await loadBuild(join(PROBE, "dist"));
+  // `PROBE_DIST` serves a size variant of the build (group 5, `tools/sizes.ts`).
+  const build = await loadBuild(resolve(PROBE, process.env.PROBE_DIST ?? "dist"));
   const fixtures = await loadFixtures();
   const leaks: { method: string; path: string; t: number }[] = [];
   const cache = new Map<string, Assembled>();
-  const assembled = (name: string, url: URL): Assembled => {
+  const assembled = async (name: string, url: URL): Promise<Assembled> => {
     const fixture = fixtures.get(name) as Fixture;
-    const options = optionsOf(url, fixture);
-    const key = JSON.stringify([name, options.renderer, options.csp, options.theme, options.variants]);
+    const rendersRun = url.searchParams.get("renders");
+    const renders = rendersRun ? ((await Bun.file(rendersFile(rendersRun, name)).json()) as Renders) : undefined;
+    const options = { ...optionsOf(url, fixture), renders };
+    const key = JSON.stringify([name, options.renderer, options.csp, options.theme, options.variants, rendersRun]);
     const hit = cache.get(key);
     if (hit) return hit;
     const result = assemble(fixture.board, build, options);
@@ -145,7 +154,7 @@ export const startBoard = async (port = 0) => {
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port,
-    fetch(request) {
+    async fetch(request) {
       const url = new URL(request.url);
       const [, route, name = ""] = url.pathname.split("/");
       if (route === "leak") {
@@ -162,7 +171,7 @@ export const startBoard = async (port = 0) => {
       }
       const fixture = fixtures.get(name);
       if (!fixture) return new Response(`no fixture ${name}`, { status: 404 });
-      const view = assembled(name, url);
+      const view = await assembled(name, url);
       if (route === "v") return html(view.html);
       if (route === "s") {
         return html(view.html, { "content-disposition": `attachment; filename="${name}.html"` });

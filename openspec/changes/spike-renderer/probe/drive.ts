@@ -6,7 +6,13 @@
 //   bun drive.ts versions
 //   bun drive.ts <run> [--fixtures a,b] [--engines chromium,firefox,webkit,chrome,msedge]
 //       [--renderers own,json-render] [--repeat N] [--repeat-only a,b] [--control] [--snapshot]
-//       [--color-scheme light|dark] [--variants a,b] [--script loads|compare|c2|measure|golden]
+//       [--color-scheme light|dark] [--variants a,b] [--renders <run>]
+//       [--script loads|compare|c2|measure|golden|renders|snapshot]
+//
+// Group 5: `--script renders` keeps each diagram's light and dark SVG in runs/<run>/renders/;
+// `--script snapshot --renders <that run>` opens every fixture as a Snapshot from file://, once
+// with the diagram renderer chunks inlined and once with those renders only, in the light and
+// the dark colour scheme, and checks that the view follows the scheme.
 //
 // Writes runs/<run>/<engine>/<fixture>.<renderer>[.<n>].json and .png, and runs/<run>/summary.json.
 // The Playwright engines come from PLAYWRIGHT_BROWSERS_PATH (the spike's scratch directory).
@@ -14,7 +20,7 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { type Browser, type BrowserType, chromium, firefox, type Page, webkit } from "playwright";
-import type { Action, Fixture } from "./board.ts";
+import { type Action, type Fixture, rendersFile } from "./board.ts";
 
 const PROBE = import.meta.dir;
 const ENGINES: Record<string, { type: BrowserType; channel?: string }> = {
@@ -45,6 +51,8 @@ type Options = {
   script: string;
   // Added to the file names of a load, so two modes of one fixture keep separate records.
   suffix?: string;
+  // A run of `--script renders` whose renders a Snapshot carries instead of the diagram chunks.
+  renders?: string;
 };
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -67,6 +75,7 @@ const parseArgs = (argv: string[]): Options => {
     colorScheme: value("--color-scheme", "light") as "light" | "dark",
     variants: list("--variants", ""),
     script: value("--script", "loads"),
+    renders: value("--renders", "") || undefined,
   };
 };
 
@@ -179,14 +188,16 @@ const command = async (session: Session, name: string, args: object = {}) => {
 const viewLocator = (session: Session, selector: string) =>
   session.snapshot ? session.page.locator(selector) : session.page.frameLocator("#view").locator(selector);
 
-// Requests other than the stand-in's own board page and view document. `blob:` URLs are the
-// view's own diagram images, made in memory.
+// Requests other than the stand-in's own board page and view document, or the Snapshot file
+// itself. `blob:` URLs are the view's own diagram images, made in memory. Any other `file:` URL
+// counts (group 5): a Snapshot loads nothing beside itself.
+const isSnapshotFile = (url: string) => url.startsWith("file:") && /\/snapshots\/[^/]+\.html$/.test(url);
 const foreign = (requests: Recorded["requests"], base: string) =>
   requests.filter(
     (r) =>
       !r.url.startsWith(`${base}/b/`) &&
       !r.url.startsWith(`${base}/v/`) &&
-      !r.url.startsWith("file:") &&
+      !isSnapshotFile(r.url) &&
       !r.url.startsWith("about:") &&
       !r.url.startsWith("data:") &&
       !r.url.startsWith("blob:"),
@@ -208,6 +219,8 @@ type Load = {
   steps: Step[];
   computed: Record<string, unknown> | null;
   bridge: unknown[];
+  // Snapshots (group 5): the colour scheme the browser asked for, and what the view shows.
+  scheme: { expected: "light" | "dark"; dark: boolean; background: string } | null;
 } & Recorded & { verdict: string; reasons: string[]; signals?: unknown };
 
 // Group 4: one user action and the view's state after it (shell command `state`).
@@ -223,8 +236,11 @@ const loadUrl = (base: string, fixture: string, renderer: string, options: Optio
 const snapshotFile = async (base: string, fixture: string, renderer: string, options: Options) => {
   const query = new URLSearchParams({ renderer });
   if (options.variants.length > 0) query.set("variants", options.variants.join(","));
-  const html = await (await fetch(`${base}/s/${fixture}?${query}`)).text();
-  const file = join(PROBE, "runs", options.run, "snapshots", `${fixture}.${renderer}.html`);
+  if (options.renders) query.set("renders", options.renders);
+  const response = await fetch(`${base}/s/${fixture}?${query}`);
+  if (!response.ok) throw new Error(`snapshot ${fixture}: ${response.status} ${await response.text()}`);
+  const html = await response.text();
+  const file = join(PROBE, "runs", options.run, "snapshots", `${fixture}.${renderer}${options.suffix ?? ""}.html`);
   await Bun.write(file, html);
   return `file://${file}`;
 };
@@ -387,6 +403,20 @@ const groupFourReasons = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixt
   return reasons;
 };
 
+// A Snapshot follows the colour scheme (EXPERIENCE.md, Board page or view, Theme): the `.dark`
+// class and every diagram's latest render match it (group 5).
+const schemeReasons = (load: Omit<Load, "verdict" | "reasons">): string[] => {
+  if (!load.scheme) return [];
+  const { expected, dark } = load.scheme;
+  const reasons = dark === (expected === "dark") ? [] : [`colour scheme ${expected}, the view is ${dark ? "dark" : "light"}`];
+  const latest = new Map<string, ProbeEvent>();
+  for (const e of load.probe.events) if (e.kind === "diagram-render") latest.set(String(e.id), e);
+  for (const [id, render] of latest) {
+    if (render.theme !== expected) reasons.push(`diagram ${id}: last render ${String(render.theme)}, scheme ${expected}`);
+  }
+  return reasons;
+};
+
 // Design decision 2's verdict rule; a negative fixture passes when every expected signal shows.
 const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: string) => {
   const reasons: string[] = [];
@@ -417,6 +447,7 @@ const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: 
   if (fixture.check && load.check?.ok !== true) reasons.push(`check failed: ${JSON.stringify(load.check)}`);
   reasons.push(...diagramReasons(events, fixture));
   reasons.push(...groupFourReasons(load, fixture));
+  reasons.push(...schemeReasons(load));
   // The ready rule (AD-9): nothing moves once the question counts as visible.
   const visible = events.find((e) => e.kind === "visible");
   const after = events.find((e) => e.kind === "boxes" && e.generation === visible?.generation);
@@ -520,6 +551,15 @@ const loadOnce = async (
       : null;
     const dump = await command(session, "dump");
     const bridge = fixture.bridge ? await readBridge(session) : [];
+    const scheme = options.snapshot
+      ? {
+          expected: options.colorScheme,
+          ...(await session.page.evaluate(() => ({
+            dark: document.documentElement.classList.contains("dark"),
+            background: getComputedStyle(document.documentElement).backgroundColor,
+          }))),
+        }
+      : null;
     if (keep) await keep(session);
     const probe = await readProbe(session);
     const dir = join(PROBE, "runs", options.run, engine);
@@ -557,6 +597,7 @@ const loadOnce = async (
       steps,
       computed,
       bridge,
+      scheme,
       console: session.console,
       requests: session.requests,
       pageErrors: session.pageErrors,
@@ -960,6 +1001,64 @@ const versions = async () => {
   }
 };
 
+// Group 5, task 5.2: each diagram's light and dark SVG, as the view rendered it on the board, kept
+// in runs/<run>/renders/<fixture>.json for a Snapshot that carries renders instead of renderers.
+// The light render comes first (the context's colour scheme), then the shell's `.dark` switch
+// (S-5) re-renders every diagram dark.
+const runRenders = async (browser: Browser, engine: string, ctx: Context) => {
+  if (ctx.options.engines.length !== 1) throw new Error("--script renders takes one engine");
+  const rows = [];
+  for (const name of ctx.options.fixtures) {
+    const fixture = ctx.fixtures.get(name) as Fixture;
+    const ids = fixture.expectDiagrams ?? [];
+    const renders: Record<string, { light: string; dark: string }> = {};
+    const load = await loadOnce(browser, ctx.base, engine, name, fixture, "own", 1, ctx.options, async (s) => {
+      await command(s, "theme", { dark: true });
+      for (const id of ids) {
+        await waitFor(s, (e) => e.kind === "diagram-render" && e.id === id && e.theme === "dark", 15_000);
+      }
+      const events = (await readProbe(s)).events;
+      const svg = (id: string, theme: string) =>
+        events.filter((e) => e.kind === "diagram-render" && e.id === id && e.theme === theme).at(-1)?.svg;
+      for (const id of ids) {
+        const light = svg(id, "light");
+        const dark = svg(id, "dark");
+        if (typeof light === "string" && typeof dark === "string") renders[id] = { light, dark };
+      }
+    });
+    const missing = ids.filter((id) => !renders[id]);
+    if (missing.length === 0) await Bun.write(rendersFile(ctx.options.run, name), JSON.stringify(renders));
+    const sizes = Object.fromEntries(
+      Object.entries(renders).map(([id, r]) => [id, { light: r.light.length, dark: r.dark.length }]),
+    );
+    console.log(`${engine.padEnd(8)} ${name.padEnd(20)} ${load.verdict.padEnd(5)} renders ${JSON.stringify(sizes)} ${missing.length ? `missing ${missing.join(",")}` : ""}`);
+    rows.push({ fixture: name, verdict: load.verdict, reasons: load.reasons, renders: sizes, missing });
+  }
+  return rows;
+};
+
+// Group 5, task 5.2: every fixture as a Snapshot opened from file://, with the diagram renderer
+// chunks inlined (`chunks`) and with the renders of run `--renders` only (`svg`), each in the
+// light and the dark colour scheme.
+const runSnapshot = async (browser: Browser, engine: string, ctx: Context) => {
+  if (!ctx.options.renders) throw new Error("--script snapshot needs --renders <run>");
+  const results = [];
+  for (const mode of ["chunks", "svg"] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      const options: Options = {
+        ...ctx.options,
+        snapshot: true,
+        colorScheme: scheme,
+        renders: mode === "svg" ? ctx.options.renders : undefined,
+        suffix: `.${mode}.${scheme}`,
+      };
+      const loads = await runLoads(browser, engine, { ...ctx, options });
+      results.push(...loads.map((load) => ({ ...load, snapshotMode: mode, scheme })));
+    }
+  }
+  return results;
+};
+
 const main = async () => {
   const argv = process.argv.slice(2);
   if (argv[0] === "versions") return versions();
@@ -993,7 +1092,15 @@ const main = async () => {
         continue;
       }
       try {
-        const runner = { loads: runLoads, compare: runCompare, c2: runC2, measure: runMeasure, golden: runGolden }[
+        const runner = {
+          loads: runLoads,
+          compare: runCompare,
+          c2: runC2,
+          measure: runMeasure,
+          golden: runGolden,
+          renders: runRenders,
+          snapshot: runSnapshot,
+        }[
           options.script
         ];
         if (!runner) throw new Error(`unknown script ${options.script}`);

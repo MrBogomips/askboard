@@ -17,7 +17,12 @@ export type AssembleOptions = {
   theme?: "light" | "dark" | "system";
   // Candidate amendments of AD-8 (csp.ts, VARIANTS); none by default.
   variants?: string[];
+  // A Snapshot that carries its diagrams' renders instead of their renderers (task 5.2): per
+  // diagram item ID, the light and dark SVG text. Each such item becomes a `DiagramSvg`.
+  renders?: Renders;
 };
+
+export type Renders = Record<string, { light: string; dark: string }>;
 
 export type Assembled = {
   html: string;
@@ -71,6 +76,18 @@ export const chunksFor = (board: BoardDocument, manifest: Manifest, renderer: st
   );
 };
 
+// The board with each rendered diagram swapped for a `DiagramSvg` that holds its renders, so
+// the diagram renderer chunks are not inlined. A new document; the input is left as it is.
+export const withRenders = (board: BoardDocument, renders: Renders): BoardDocument => {
+  const swap = (items: readonly Item[]): Item[] =>
+    items.map((item) => {
+      const svg = renders[item.id];
+      if (svg) return { id: item.id, type: "DiagramSvg", props: { label: item.props?.label, svg } };
+      return item.children ? { ...item, children: swap(item.children) } : item;
+    });
+  return { ...board, items: swap(board.items) };
+};
+
 // `<` is escaped so no string in the board document can end the data block.
 const dataBlock = (data: unknown): string => JSON.stringify(data).replaceAll("<", "\\u003c");
 
@@ -78,10 +95,11 @@ const escapeHtml = (text: string): string =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 export const assemble = (
-  board: BoardDocument,
+  input: BoardDocument,
   build: Build,
   options: AssembleOptions,
 ): Assembled => {
+  const board = options.renders ? withRenders(input, options.renders) : input;
   const chunks = chunksFor(board, build.manifest, options.renderer);
   const text = (file: string): string => {
     const value = build.texts.get(file);

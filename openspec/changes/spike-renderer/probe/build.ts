@@ -7,7 +7,8 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import type { BunPlugin } from "bun";
 
 const PROBE = import.meta.dir;
-const DIST = join(PROBE, "dist");
+// `PROBE_DIST` builds a variant elsewhere (group 5, `tools/sizes.ts`); the default is `dist/`.
+const DIST = resolve(PROBE, process.env.PROBE_DIST ?? "dist");
 const DESIGN = resolve(PROBE, "../../../../docs/ux-askboard-2026-10-27/DESIGN.md");
 const PORT_FILE = join(PROBE, "port/index.ts");
 const TAILWIND = join(PROBE, "node_modules/@tailwindcss/cli/dist/index.mjs");
@@ -102,6 +103,16 @@ const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 const KEEP_IMPORT_META = process.env.PROBE_KEEP_IMPORT_META === "1";
 
+// Size variants measured by `tools/sizes.ts` (group 5), each into its own `PROBE_DIST`:
+// - `PROBE_CATCH_ALL_RESOLVE=1`: the globals plugin's `onResolve` matches every import, as it did
+//   up to group 4. In Bun 1.4.4 that defeats `sideEffects` tree-shaking (the chart chunk doubles);
+// - `PROBE_COPY_LIBRARIES=1`: no library chunks; each component chunk carries its own copy;
+// - `PROBE_SHIKI_LANGS=a,b` (or empty): the Diff review chunk carries only these Shiki grammars,
+//   and none of the theme catalogs or engines it never uses (`shikiTrim`, below).
+const CATCH_ALL_RESOLVE = process.env.PROBE_CATCH_ALL_RESOLVE === "1";
+const COPY_LIBRARIES = process.env.PROBE_COPY_LIBRARIES === "1";
+const SHIKI_LANGS = process.env.PROBE_SHIKI_LANGS;
+
 const sha256 = (text: string): string =>
   new Bun.CryptoHasher("sha256").update(text).digest("base64");
 
@@ -117,10 +128,18 @@ const globals = (own: string, needs: Set<string>): BunPlugin => ({
   name: "askboard-globals",
   setup(build) {
     const provider = new Map<string, string>(SHELL_MODULES.map((m) => [m, "shell"]));
-    for (const [chunk, library] of Object.entries(LIBRARIES)) {
-      for (const module of Object.keys(library.modules)) provider.set(module, chunk);
+    if (!COPY_LIBRARIES) {
+      for (const [chunk, library] of Object.entries(LIBRARIES)) {
+        for (const module of Object.keys(library.modules)) provider.set(module, chunk);
+      }
     }
-    build.onResolve({ filter: /.*/ }, (args) => {
+    // Only the mapped modules and the port: a filter that matches every import makes Bun ignore
+    // the packages' `sideEffects` and keep their unused modules (group 5, § Criterion 6).
+    const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+    const filter = CATCH_ALL_RESOLVE
+      ? /.*/
+      : new RegExp(`^(${[...provider.keys()].map(escape).join("|")})$|(^|/)port/index\\.ts$`);
+    build.onResolve({ filter }, (args) => {
       const chunk = provider.get(args.path);
       if (chunk && chunk !== own) {
         needs.add(chunk);
@@ -157,6 +176,51 @@ const stubs: BunPlugin = {
     }));
   },
 };
+
+// `PROBE_SHIKI_LANGS` (group 5): Shiki's language list keeps only the named grammars; the theme
+// catalogs (Shiki's, `@pierre/theming`'s and `@pierre/highlights`') are left empty, since Diff
+// review registers its own CSS-variables theme; the inlined Oniguruma WASM (Shiki's other engine)
+// and `@pierre/diffs`' second backend, Highlights, refuse to start. `onLoad` only: an `onResolve`
+// that matched relative imports would defeat tree-shaking (above).
+const EMPTIED: [RegExp, string][] = [
+  [
+    /@pierre\/theming\/dist\/themes\.js$/,
+    "export const themes = { getTheme: () => undefined };\n" +
+      "export const createTheme = undefined, pierreThemes = undefined, shikiThemes = undefined;\n",
+  ],
+  [/@pierre\/highlights\/dist\/themes\/loader\.js$/, "export const themes = {};\n"],
+  [
+    /@pierre\/diffs\/dist\/highlighter\/backends\/highlights\.js$/,
+    'export class HighlightsHighlighter { constructor() { throw new Error("no Highlights backend in this build"); } }\n',
+  ],
+  [
+    /@shikijs\/engine-oniguruma\/dist\/wasm-inlined\.mjs$/,
+    'const refuse = async () => { throw new Error("no Oniguruma in this build"); };\n' +
+      "const wasmBinary = new Uint8Array(0);\n" +
+      "export { refuse as default, refuse as getWasmInstance, wasmBinary };\n",
+  ],
+];
+
+const shikiTrim = (langs: string): BunPlugin => ({
+  name: "askboard-shiki-trim",
+  setup(build) {
+    const wanted = new Set(langs.split(",").filter(Boolean));
+    // The list's entries hold no braces: `{ "id": …, "aliases": […], "import": (() => import(…)) }`.
+    const keep = (text: string, test: (entry: string) => boolean) =>
+      text.replace(/\t\{[^{}]*\},?\n/g, (entry) => (test(entry) ? entry : ""));
+    build.onLoad({ filter: /node_modules\/shiki\/dist\/langs-bundle-full-[^/]+\.mjs$/ }, async (args) => ({
+      contents: keep(await Bun.file(args.path).text(), (entry) => wanted.has(/"id": "([^"]+)"/.exec(entry)?.[1] ?? "")),
+      loader: "js",
+    }));
+    build.onLoad({ filter: /node_modules\/shiki\/dist\/themes\.mjs$/ }, async (args) => ({
+      contents: keep(await Bun.file(args.path).text(), () => false),
+      loader: "js",
+    }));
+    for (const [filter, contents] of EMPTIED) {
+      build.onLoad({ filter }, () => ({ contents, loader: "js" }));
+    }
+  },
+});
 
 // Fonts a library's stylesheet names (KaTeX's, MathLive's) are inlined as `data:` URLs, the only
 // font source AD-8 allows. Bun's CSS bundler leaves `url()` paths as they are, so the stylesheet
@@ -380,7 +444,12 @@ const buildChunk = async (def: ChunkDef): Promise<Chunk> => {
       "process.env.NODE_ENV": '"production"',
       ...(KEEP_IMPORT_META ? {} : { "import.meta.env": "undefined" }),
     },
-    plugins: [globals(def.name, needs), stubs, inlineFonts],
+    plugins: [
+      globals(def.name, needs),
+      stubs,
+      inlineFonts,
+      ...(SHIKI_LANGS !== undefined ? [shikiTrim(SHIKI_LANGS)] : []),
+    ],
   });
   if (!result.success) throw new AggregateError(result.logs, `build of ${def.name} failed`);
   const script = result.outputs.find((o) => o.kind === "entry-point");

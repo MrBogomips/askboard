@@ -902,3 +902,174 @@ Runs `drag-slider` and `drag-slider-control` (all five engines), and `drag-slide
 - Every load passes the verdict rule, with 0 violations; the control run gives the same draft records.
 - **Native drag works in the sandboxed frame** in every engine Playwright drives. Pragmatic drag and drop needs no permission the sandbox withholds. A person's drag in the installed Chrome and in Safari is task 6.2, awaiting PO.
 - **A click on an unset Slider's track sets no value**, in every engine and in the control run, so it is Radix's behaviour, not the CSP's. Radix finds the thumb nearest the click (`getClosestValueIndex`, `@radix-ui/react-slider` `dist/index.mjs:655-660`). With no value there is no thumb, the index is -1, and `getNextSortedValues` (`:632-636`) writes the value at index -1, which the sorted array drops. The same click on a set Slider moves it to 92. The track is 208 px wide at the view's 13 px root size, so 192 px is 92%. To set a value on the first click, AskBoard's Slider would have to handle the track's `pointerdown` itself while unset: a `widgets` epic decision.
+
+## Sizes: what group 5 added to the harness
+
+- **The build kept code it should have dropped.** Up to group 4, the globals plugin's `onResolve` matched every import (`filter: /.*/`) and returned nothing for most of them. In Bun 1.4.4 a plugin like that makes the bundler ignore the packages' `sideEffects` field, so modules no one uses stay in the chunk. Built alone, `components/chart.tsx` is 504,703 bytes; with a catch-all `onResolve` that returns nothing, 1,072,623 (a check made while writing the fix, not kept). The plugin now matches only the modules it maps and the port (`build.ts`, `globals`). Chunks that shrank, script and style together, before and after:
+  - chart 1,075,115 → 507,148;
+  - form 396,928 → 257,948: Ajv and `@rjsf/validator-ajv8` are gone, so § Form's note "the `form` chunk carries Ajv" holds only for the group 4 build;
+  - json-render (jitless) 194,962 → 159,717; ext-apps `App` 353,456 → 313,693;
+  - mermaid 3,958,186 → 3,803,165; markdown 148,324 → 136,335; diff-review 11,607,925 → 11,483,932;
+  - the board page's bridge (probe only) 351,299 → 311,507.
+
+  The byte counts in the sections of groups 2 to 4 are those of the group 4 build. `PROBE_CATCH_ALL_RESOLVE=1` rebuilds it (variant `catch-all`), so both builds are measured below.
+- **The fix changed no verdict.** The fixtures of the earlier runs ran again on the new build, all five engines, on 2026-10-30, and `bun tools/compare-runs.ts` compared each load with its earlier one:
+  - run `regress-g5` (the fixtures of runs `matrix`, `form`, `dialog`, `drag-slider`, `diffs` and `pattern`): 260 loads, the same verdict and the same number of violations in each;
+  - `regress-g5-blob` (variant `board-img-blob`): the 20 loads of run `mermaid-shim` the same; `golden` and `golden-smetana` pass in all five engines, as in run `golden-time`;
+  - `regress-g5-renderers` (`hello`, `atoms`, `delayed` and `throws` through the three renderers): the 60 loads of run `renderers` the same;
+  - `regress-g5-theme` (variant `board-media`): the 5 loads of run `theme` the same.
+- **Size variants** (`build.ts`): `PROBE_DIST` builds into another folder, and `tools/sizes.ts` builds four variants under `dist/variants/`:
+  - `catch-all`: the group 4 build;
+  - `copy` (`PROBE_COPY_LIBRARIES=1`): no library chunks, each component chunk carries its own copy;
+  - `trim` (`PROBE_SHIKI_LANGS=<list>`): Diff review with only the listed Shiki grammars (below);
+  - `plain` (`PROBE_SHIKI_LANGS=`): Diff review with no grammar, for highlighting off.
+
+  `board.ts` serves any of them with `PROBE_DIST`, so a variant's chunks can be run.
+- **Diff review trimmed** (`shikiTrim` in `build.ts`, `onLoad` only, since an `onResolve` on relative imports would defeat tree-shaking again). Shiki's language list keeps the named grammars. Its theme list and the theme catalogs of `@pierre/theming` and `@pierre/highlights` become empty, since the measured configuration registers its own CSS-variables theme (§ Diff highlighting). The inlined Oniguruma WebAssembly and `@pierre/diffs`' second backend, Highlights, become stubs that refuse to start: Shiki's JavaScript engine is the one that runs. DESIGN.md names no language list, so the spike chose 17 grammars: TypeScript, TSX, JavaScript, JSX, JSON, Markdown, YAML, TOML, CSS, HTML, shell, Python, Go, Rust, Java, SQL and diff (`LANGS` in `tools/sizes.ts`).
+  - Run `sizes-diffs-trim` (`PROBE_DIST=dist/variants/trim`, all five engines): the highlighted TypeScript diff (`c-diff-vars-shim`) and highlighting off (`c-diff-plain-vars-shim`) pass, with 0 violations. The token colours are DESIGN.md's light `syntax-*` values, as in run `diffs`. `c-diff-plain-shim`, which asks for the package's default themes, fails as expected: "no line rendered in 10 s".
+  - Run `sizes-diffs-plain` (`PROBE_DIST=dist/variants/plain`): highlighting off passes in all five engines; the TypeScript diff fails, as it must with no grammar.
+- **A gap in the verdict rule, closed.** Diff review reported ready after 10 s even when it had drawn no line, and such a load passed. Run `diffs-trim` (the `trim` build) showed it: `c-diff-plain-shim` asks for the package's default themes, which the trimmed build lacks, and it "passed" in all five engines at about 10,050 ms, with "No valid theme loader registered for "pierre-dark"" only in the console. The component now raises an error when it has no line after 10 s (`components/diff-review.tsx`). Its new configuration `plain-variables` is highlighting off with the CSS-variables theme (fixture `c-diff-plain-vars-shim`).
+- **Snapshots that carry renders instead of renderers** (design decision 5's second option):
+  - `assemble` takes the renders as an option and swaps each rendered diagram item for a `DiagramSvg` that holds its light and dark SVG text; the diagram renderer chunks are then not inlined (`withRenders` in `assemble.ts`);
+  - `components/diagram-svg.tsx` (5,023 bytes) shows the render the `.dark` class picks as a `blob:` image, through the same `DiagramView` as the renderers, with no hit map;
+  - `bun drive.ts <run> --script renders --engines chromium` loads each fixture on the board, keeps every diagram's light render, switches the shell's `.dark` class (S-5) and keeps the dark render, in `runs/<run>/renders/<fixture>.json`. In the product the view would hand its renders to the board page; the spike only measures the option;
+  - `/s/<fixture>?renders=<run>` on the stand-in, and `--renders <run>` in the driver, assemble such a Snapshot.
+- **The Snapshot run** (`--script snapshot --renders <run>`) opens every fixture as a Snapshot from `file://` four times: with the renderer chunks and with the renders only, each in the light and the dark colour scheme. In Snapshot loads the verdict rule gains a check: the view's `.dark` class, and every diagram's latest render, follow the colour scheme. A `file:` request other than the Snapshot itself now counts as a request; before, every `file:` URL was left out.
+- **Fixtures** (`bun tools/size-fixtures.ts`, from the group 2 to 4 fixtures): `size-uj1`, a UJ-1-like board (Diff review beside a Markdown excerpt of a decision record, a Choice, a Graph of the retry state machine, a TextField); `size-all`, every component the spike built, each in the configuration it passed with (§ Criterion 1), 40 items; `c-diff-plain-vars-shim`. The golden board is group 3's `golden`. Not built by the spike, so in no board: Image, MoneyField, Approval, Gantt, Timeline and Image annotation, which are AskBoard's own code with no library of their own.
+- **Tools:** `tools/sizes.ts` (below); `tools/compare-runs.ts <new> <old>,…` compares verdicts per engine, fixture and renderer.
+
+## Criterion 6: bundle and Snapshot size (tasks 5.1 and 5.2)
+
+`bun run build && bun tools/sizes.ts --renders snapshot-renders` on 2026-10-30 writes `evidence/sizes.json`. It reads `probe/dist/manifest.json` (built 2026-10-29T23:31:16Z, Bun 1.4.4) and the four variant builds of § Sizes, and assembles every board with the one `assemble` the board and the Snapshot share. Bytes are raw / gzip (level 9). A chunk's gzip is its script's and its style's, each compressed alone; a board's is the whole file's, as a server or an archive would send it. Board and Snapshot files leave out the probe's instrumentation (2,367 bytes; its hash stays in the view policy). No board here holds the ext-apps `App` (below).
+
+### Chunks
+
+The chunks the boards use, and the alternatives measured; the probe's own chunks are left out (`probeOnly` in `evidence/sizes.json`). Script and style together:
+
+| Chunk | What it holds | Raw / gzip | Group 4 build, raw | Boards |
+| --- | --- | --- | --- | --- |
+| `diff-review` | `@pierre/diffs`, Shiki, every Shiki grammar (7,991,212 bytes) and theme (1,333,572), `@pierre/highlights` (650,847), the Oniguruma WebAssembly (629,400) | 11,483,932 / 2,061,499 | 11,607,925 | UJ-1, all |
+| `diff-review`, `trim` build | the same with 17 grammars (1,126,814) and no theme catalog, Oniguruma or Highlights | 1,644,861 / 278,790 | — | — |
+| `diff-review`, `plain` build | no grammar: highlighting off | 516,571 / 148,672 | — | — |
+| `plantuml` | `plantuml.js` and `viz-global.js` (Graphviz) | 4,645,742 / 1,665,332 | 4,645,742 | golden, all |
+| `mermaid` | Mermaid, its parser, cytoscape, KaTeX 0.18 | 3,803,165 / 1,040,639 | 3,958,186 | all |
+| `plantuml-smetana` | `plantuml.js` only | 3,187,912 / 1,053,047 | 3,187,912 | golden with Smetana |
+| `mathlive` | MathLive, its 20 fonts (346,972 / 267,241) | 1,179,504 / 495,903 | 1,179,504 | all |
+| `math` | KaTeX 0.19, its 20 fonts (346,972 / 267,213) | 646,503 / 350,363 | 646,503 | all |
+| `chart` | ECharts' bar chart, grid, tooltip and canvas renderer, zrender | 507,148 / 171,464 | 1,075,115 | all |
+| `app-channel-jitless` | ext-apps `App` with the MCP client and zod | 313,693 / 83,574 | 353,456 | none (below) |
+| `form` | RJSF core and utils, markdown-to-jsx | 257,948 / 87,738 | 396,928 | all |
+| `graph` | xyflow, dagre, xyflow's stylesheet | 251,625 / 80,312 | 251,625 | UJ-1, all |
+| `shell` | React, ReactDOM, the port, the tokens and base styles | 235,753 / 73,853 | 235,753 | every board |
+| `renderer-json-render-jitless` | json-render and zod | 159,717 / 47,019 | 194,962 | — |
+| `lib-radix` | ten Radix primitives | 145,266 / 47,208 | 145,318 | every board |
+| `markdown` | markdown-it, DOMPurify | 136,335 / 55,188 | 148,324 | UJ-1, all |
+| `date-picker` | react-day-picker, date-fns | 90,420 / 24,326 | 90,420 | all |
+| `lib-table` | TanStack Table | 41,185 / 13,162 | 41,197 | all |
+| `lib-dnd` | Pragmatic drag and drop | 22,880 / 7,123 | 22,880 | all |
+| `diagram-svg` | a Snapshot's diagram from its renders | 7,123 / 3,290 | — | Snapshots with renders |
+| the 20 other chunks | the atoms, layouts and own widgets, `renderer-own` (1,476), and `select`, `popover` and `scroll-lock`, which no board uses | 75,750 / 32,839 together; 857 to 8,358 each | the same | — |
+
+### Boards and Snapshots
+
+Each board through `assemble`, as srcdoc and as Snapshot, in the build and in its variants. The srcdoc and the Snapshot with the renderer chunks are one file: the same `assemble` writes both (AD-9). The Snapshot with renders only carries each diagram's light and dark SVG from run `snapshot-renders` and the `diagram-svg` chunk instead of the renderers.
+
+| Board | Build | srcdoc, and Snapshot with the renderer chunks | Snapshot with renders only |
+| --- | --- | --- | --- |
+| **Golden** (6 items: Group, Row, PlantUML, Text, Choice, TextField; 9 chunks) | build | **5,044,979 / 1,789,603** | **429,393 / 129,730** |
+| | `copy` | 4,935,506 / 1,753,829 | 319,920 / 94,637 |
+| | `catch-all` (group 4) | 5,045,031 / 1,789,637 | 429,445 / 129,758 |
+| Golden, `plantuml-smetana` chunk | build | 3,587,156 / 1,177,296 | as golden: the renders replace either chunk |
+| **UJ-1-like** (8 items: Diff review, Markdown, Choice, Graph, TextField, layouts; 10 chunks) | build | **12,269,536 / 2,318,676** | the same: it has no diagram |
+| | `trim` (17 grammars) | 2,430,465 / 537,102 | the same |
+| | `plain` (highlighting off) | 1,302,175 / 406,461 | the same |
+| | `copy` | 12,160,063 / 2,283,808 | the same |
+| | `catch-all` (group 4) | 12,405,570 / 2,355,779 | the same |
+| **Every component** (40 items; 31 chunks) | build | **23,519,941 / 6,180,832** | **15,142,527 / 3,484,794** |
+| | `trim` | 13,680,870 / 4,397,811 | 5,303,456 / 1,703,089 |
+| | `plain` | 12,552,580 / 4,267,123 | 4,175,166 / 1,572,735 |
+| | `copy` | 23,745,730 / 6,256,029 | 15,368,316 / 3,560,464 |
+| | `catch-all` (group 4) | 24,517,955 / 6,496,927 | 15,985,520 / 3,748,587 |
+
+- **Inlining only the chunks a board uses works** (criterion 6's condition): `assemble` inlines the shell, the renderer and the closure of the board's item types, and no other chunk (`chunks` per board in `evidence/sizes.json`).
+- **Three chunks set every size.** Diff review is 94% of the UJ-1-like board. The PlantUML chunk is 92% of the golden board, and the golden case's time to visible follows it (§ Golden case time). On the every-component board, Diff review, PlantUML and Mermaid are 85%.
+- **A Snapshot that carries renders is 12 times smaller for the golden case**: 429,393 bytes against 5,044,979, gzip 129,730 against 1,789,603. On the every-component board the renders save 8,377,414 bytes, the two diagram renderers less the two diagrams' four SVG renders (57,376 bytes of SVG text, escaped in the data block). The SVG renders also open without parsing a renderer (§ Run `snapshot`).
+- **Diff review is the next lever.** With the 17 grammars the UJ-1-like board is 2,430,465 bytes, a fifth of the build's; with highlighting off, 1,302,175. Highlighting is a PO decision (§ Diff highlighting); the grammar list is a `widgets` epic decision. Either way the theme catalogs, the Oniguruma WebAssembly and the Highlights backend can go: Diff review uses none of them.
+
+### Library chunks against a copy per chunk
+
+The `copy` build bundles each component's own copy of the library code it imports. A copy holds only what that component uses, while a library chunk holds every primitive any component uses:
+
+| Library chunk | Shared, script bytes | The copies in its users' chunks, together | Per user |
+| --- | --- | --- | --- |
+| `lib-radix` | 145,266 | 513,780 | form 104,749; select 91,541; popover 70,102; date-picker 70,010; dialog 44,322; choice 35,865; slider 29,398; tabs 28,203; toggle-group 25,947; toggle 13,643 |
+| `lib-table` | 41,185 | 40,164 | table (Table, Tree and Spreadsheet are one chunk) |
+| `lib-dnd` | 22,880 | 43,035 | ranking 21,541; kanban 21,494 |
+
+- **Per board** the trade-off goes both ways. The golden and UJ-1-like boards use one Radix primitive, through Choice, and are 109,473 bytes smaller with copies. The every-component board is 225,789 bytes larger with copies.
+- **Either way the difference is under 1% of a board with Diff review or a diagram, and 2% of the golden board.** The library chunks are the right default once a board holds two or more Radix components. `lib-table` is used by one chunk, so it could fold into `table`.
+
+### Fonts
+
+- **The build inlines KaTeX's fonts twice.** KaTeX's 20 faces are 346,972 bytes raw (267,213 gzip) of the `math` chunk's 369,894-byte stylesheet. MathLive's 20 faces are the same 20 files, byte for byte (SHA-256 of each `data:` URL), in the `mathlive` chunk. The every-component board carries both: 693,944 bytes, 3.0% of it. A font chunk the two share, like a library chunk, would save 346,972 bytes on a board with both.
+- **DESIGN.md's faces are not in the build.** Inter (400, 500, 600) and JetBrains Mono (400) are to be inlined into every board and every Snapshot (DESIGN.md, Typography), but their `@fontsource` packages are not installed: their licence and source are open (design.md, decision 1; task 8.1). `tools/sizes.ts` therefore fetches `@fontsource/inter`, `@fontsource/jetbrains-mono` and `@fontsource-variable/inter`, all 5.3.0, from the npm registry, checks each tarball's integrity, and builds what the shell's stylesheet would carry: each package's own `@font-face` rules, woff2 only, as `data:` URLs. What that adds to every board and Snapshot:
+
+  | Subsets | Inter static 400, 500, 600 and JetBrains Mono 400: woff2; CSS raw / gzip | Inter variable and JetBrains Mono 400: woff2; CSS raw / gzip |
+  | --- | --- | --- |
+  | latin | 93,556; 126,053 / 96,935 | 69,424; 93,240 / 71,751 |
+  | latin and latin-ext | 208,176; 280,298 / 215,987 | 161,828; 217,172 / 167,522 |
+  | every subset (with Cyrillic, Greek, Vietnamese) | 332,496; 450,722 / 344,540 | 261,656; 352,599 / 270,797 |
+
+  Base64 makes the CSS a third larger than the woff2 files, and gzip takes most of that back. With latin and latin-ext, the faces add 5.6% to the golden board as built, but 65% to its Snapshot with renders only (429,393 bytes), where they would be 40% of the file. The UI ships in English and Italian (EXPERIENCE.md, Languages), which the latin subset covers; agent content in other scripts would fall back to a system font. The subset choice is a `view` epic decision; the licence is the product owner's (task 8.1).
+
+### What the pending decisions change
+
+| Decision (owner) | Size effect, raw bytes |
+| --- | --- |
+| Radix Select out of the view (§ Criterion 1, PO) | `@radix-ui/react-select` is 20,742 bytes of `lib-radix`'s 145,266; the `select` chunk, 6,776, is in no board. Small either way |
+| The style-element and markup shims (§ S-6, § Diff highlighting, PO) | 846 and 1,602 bytes minified, 405 and 712 gzip (`shims` in `evidence/sizes.json`); the diagram style shim lives in the diagram chunks |
+| Board policy `img-src blob:`, `font-src data:` (AD-8, PO) | None: policy text only |
+| Highlighting on or off (§ Diff highlighting, PO) | Diff review 11,483,932 as built; 1,644,861 with 17 grammars and no unused theme or engine; 516,571 off. The UJ-1-like board: 12,269,536; 2,430,465; 1,302,175 |
+| Graphviz (`viz-global.js`) in or out (§ PlantUML, PO) | 1,457,830 on every board with a PlantUML diagram: the golden board is 5,044,979 with it and 3,587,156 without |
+| The view's message set on ext-apps' `App` (§ Criterion 1) | 313,693 on every board, more than the shell's 235,753: zod (101,475) and the MCP client (163,992). A Snapshot has no host, so it needs none of it. Not in the boards above |
+| json-render rather than AskBoard's own renderer (§ Renderer comparison, PO) | 158,241 more on every board (159,717 against 1,476) |
+| DESIGN.md's fonts (task 8.1, PO) | 93,240 to 450,722 on every board and every Snapshot, by subsets (above) |
+
+### Budget
+
+None is named. SOLUTION-DESIGN §10.3 asks for the bundle and Snapshot sizes "inlining only the chunks a board uses", and design.md (Open Questions) leaves an absolute budget for the board's share of SM-3 to the `view` epic and the benchmark. The PRD sets SM-3 as a time, not a size, and no NFR names a size. The sizes above are therefore reported against no budget; the time they cost the golden case is in § Golden case time, and the time to open the Snapshots is below.
+
+### Run `snapshot` (task 5.2)
+
+First `bun drive.ts snapshot-renders --script renders --engines chromium --variants board-media --fixtures golden,size-uj1,size-all` keeps the renders: 3 loads, all pass. Then `bun drive.ts snapshot --script snapshot --renders snapshot-renders --fixtures golden,size-uj1,size-all` opens each board as a Snapshot file from `file://`, with the renderer chunks and with the renders only, each in the light and the dark colour scheme: 60 loads, on 2026-10-30, with the engines of § Method. Verdict and time to visible in ms from the navigation's start (`performance.timeOrigin`), one load each:
+
+| Board | Diagrams | Scheme | Chromium | Firefox | WebKit | Chrome | Edge |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| golden | renderer chunks | light | pass 224.7 | pass 491 | pass 333 | pass 249.2 | pass 292.1 |
+| | | dark | pass 216.7 | pass 478 | pass 276 | pass 224.5 | pass 233.7 |
+| | renders only | light | pass 42.4 | pass 115 | pass 65 | pass 60.5 | pass 48.7 |
+| | | dark | pass 43 | pass 111 | pass 68 | pass 62.9 | pass 48.3 |
+| UJ-1-like | renderer chunks (no diagram) | light | pass 253.2 | pass 543 | pass 1374 | pass 263.2 | pass 286.5 |
+| | | dark | pass 254.6 | pass 541 | pass 1370 | pass 260.6 | pass 267 |
+| | renders only (the same file) | light | pass 252.7 | pass 545 | pass 1359 | pass 246.2 | pass 261.3 |
+| | | dark | pass 253.2 | pass 548 | pass 1331 | pass 259.1 | pass 278 |
+| every component | renderer chunks | light | pass 704.3 | pass 1873 | **fail** 1938 | pass 697.5 | pass 757.3 |
+| | | dark | pass 686.8 | pass 1823 | **fail** 1929 | pass 693.8 | pass 686.9 |
+| | renders only | light | pass 404.1 | pass 974 | **fail** 1520 | pass 399.5 | pass 427 |
+| | | dark | pass 420.5 | pass 953 | **fail** 1518 | pass 413 | pass 411.6 |
+
+- **Every Snapshot renders, makes no request and follows the colour scheme.** No load requested anything besides the file itself (`file:` URLs included). In each load the view's `.dark` class matched the scheme and every diagram's latest render had the scheme's theme. The screenshots are in `probe/runs/snapshot/<engine>/`.
+- **The four failures are Radix Select's, not the Snapshot's.** Each WebKit load of the every-component board has one `style-src-attr` violation, which the script reports from ReactDOM's line. ReactDOM is creating the hidden native `<select>` Radix renders for the Form's single pick from a list, and WebKit reports any native `<select>` under a hash-only `style-src` (§ Criterion 1). Run `snapshot-radios` opens the same board with that pick shown as radios (`size-all-radios`), with its own renders run, `snapshot-renders-radios`: all 20 loads pass, in every engine, mode and scheme.
+- **Renders open faster.** The golden Snapshot with renders only is visible in 42 to 115 ms, against 217 to 491 ms with the PlantUML chunk, which the browser no longer parses. On the every-component board: 400 to 974 ms against 687 to 1,873 ms, leaving WebKit's failing loads aside.
+- **WebKit is slow on Diff review**: 1.33 to 1.37 s to visible for the UJ-1-like board, against 246 to 548 ms elsewhere, as § Diff highlighting found for the highlighted diff on the board.
+- **The files** are the sizes of § Boards and Snapshots plus the probe's instrumentation, 2,385 bytes: `probe/runs/snapshot/snapshots/`, from 431,778 bytes (golden, renders only) to 23,522,326 (every component, renderer chunks). Firefox opened the 23.5 MB file in 1.8 s.
+
+**Task 5.1 is done; task 5.2 stays open, awaiting PO.** Task 5.2's runs are complete, and the Snapshot sizes are in the table above. Its verification asks for no violation, and the every-component Snapshot shows one in WebKit, from the Form's Radix Select. The board passes everywhere with that pick shown as radios (run `snapshot-radios`). The task closes when the product owner decides Radix Select (task 8.3): with radios for single picks it passes as run; with Select kept, the violation is the one § Criterion 1 already records.
+
+**For group 8** (proposed outcomes and the spine update):
+- **How Snapshots carry diagrams:** propose the renders, with no renderer chunk: 12 times smaller for the golden case (429,393 bytes against 5,044,979), visible in 42 to 115 ms, and passing in every engine and scheme. The alternative, the renderer chunks inlined, also passes. DESIGN.md already says a Snapshot carries a light and a dark render of every diagram. What the spine lacks is how the renders reach `snapshot`, which assembles from the board document and the log (AD-15, AD-20), not from the view; that is a `view` and `snapshot` epic item, or an AD-9 sentence.
+- **AD-9's manifest and `assemble`:** the measured shape holds: library chunks, each board inlining the closure of its item types. Two additions to propose: a font chunk shared by KaTeX and MathLive (346,972 bytes saved where both are used), and the build rule that a bundler plugin's resolve filter names only what it maps, with a CI size check per chunk against the previous build, since a filter that matched every import doubled the chart chunk with no visible failure.
+- **Diff review:** if highlighting stays on, propose a fixed grammar list in the `widgets` epic, and drop the theme catalogs, the Oniguruma WebAssembly and the Highlights backend from the chunk: 11,483,932 → 1,644,861 bytes with 17 grammars. Off: 516,571.
+- **Fonts:** the faces add 93,240 to 450,722 bytes to every board and Snapshot, by subset and by static or variable Inter. The PO decides the licence and source (task 8.1); the `view` epic decides the subsets.
+- **ext-apps `App`:** 313,693 bytes on every board if the view's message set is built on it. That is more than React; a Snapshot needs none of it.
+- **No size budget exists** to amend; if the PO wants one, SM-3's benchmark is where it would be set.

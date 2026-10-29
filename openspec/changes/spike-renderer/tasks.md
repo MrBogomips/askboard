@@ -39,7 +39,7 @@ Commands run from `openspec/changes/spike-renderer/probe/` unless they name the 
 
 ## 5. Bundle and Snapshot size (exit criterion 6)
 
-- [ ] 5.1 Measure sizes with `bun tools/sizes.ts`: each chunk raw and gzip; the golden, UJ-1-like and all-components boards as srcdoc; library chunks against a copy per chunk; the fonts' share. Verify that `evidence/sizes.json` exists and that `findings.md`, § Criterion 6, gives the table with the manifest it was read from.
+- [x] 5.1 Measure sizes with `bun tools/sizes.ts`: each chunk raw and gzip; the golden, UJ-1-like and all-components boards as srcdoc; library chunks against a copy per chunk; the fonts' share. Verify that `evidence/sizes.json` exists and that `findings.md`, § Criterion 6, gives the table with the manifest it was read from.
 - [ ] 5.2 Assemble the three boards as Snapshot files, once with the diagram renderer chunks inlined and once with the light and dark SVG renders only, and open each from `file://` in every engine with the light and the dark colour scheme (run `snapshot`). Verify that each renders, makes no request, shows no violation and follows the colour scheme, and that the Snapshot sizes are in the criterion 6 table.
 
 ## 6. Checks the product owner makes
