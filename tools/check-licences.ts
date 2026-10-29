@@ -303,9 +303,11 @@ const readTree = async (root: string): Promise<Tree> => {
 
   const tree: Tree = { packages: [], skipped: [], direct: [], patched, problems: [] };
   const byId = new Map<string, Installed>();
+  const seen = new Set<string>();
   for (const [id, , meta = {}] of Object.values(lock.packages ?? {})) {
     const { name, version } = splitId(id);
-    if (version.startsWith("workspace:") || byId.has(id)) continue;
+    if (version.startsWith("workspace:") || seen.has(id)) continue;
+    seen.add(id);
     const stem = `${name.replaceAll("/", "+")}@${version.replaceAll("/", "+")}`;
     const directory = directories.find((entry) => entry === stem || entry.startsWith(`${stem}+`));
     if (directory === undefined) {

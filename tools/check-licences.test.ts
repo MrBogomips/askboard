@@ -335,6 +335,8 @@ describe("the installed tree and the command", () => {
     workspaceDirect?: Record<string, string>;
     patched?: string[];
     overrides?: string;
+    // Nested lockfile keys that repeat a package, as Bun writes them, mapped to its name.
+    nested?: Record<string, string>;
   }) => {
     root = mkdtempSync(join(tmpdir(), "check-licences-"));
     const patchedDependencies = Object.fromEntries(
@@ -355,6 +357,9 @@ describe("the installed tree and the command", () => {
         `node_modules/.bun/${directory}/node_modules/${fake.name}/package.json`,
         JSON.stringify({ name: fake.name, version: fake.version, ...fake.manifest }),
       );
+    }
+    for (const [key, name] of Object.entries(options.nested ?? {})) {
+      entries[key] = entries[name] ?? [];
     }
     const lock = {
       lockfileVersion: 2,
@@ -451,10 +456,11 @@ describe("the installed tree and the command", () => {
       ],
       direct: { a: "1.0.0" },
       overrides: "[]",
+      nested: { "x/native-other": "native-other", "x/a": "a" },
     });
     const skipped = await run({ GITHUB_TOKEN: "t0ken" });
     expect(skipped.code).toBe(0);
-    expect(skipped.output).toContain("1 not installed on this platform");
+    expect(skipped.output).toContain("1 packages (1 not installed on this platform)");
     rmSync(root, { recursive: true, force: true });
 
     makeTree({
