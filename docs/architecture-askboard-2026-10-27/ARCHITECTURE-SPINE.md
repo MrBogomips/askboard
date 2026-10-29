@@ -222,7 +222,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The local API is the only schema set where Claude Code identifiers appear, and agents never see it.
     - The board protocol carries each board page's working signal (AD-2): whether the board has focus and has had a user input in the last 60 s. It is presence only and never carries content.
     - Every unit validates with the one validator pinned in Stack.
-  - **Wire format:** the input format is AskBoard's own lean format, not A2UI. Any A2UI support comes later, as an inbound translator adapter to the input format.
+  - **Wire format:** the input format is AskBoard's own lean JSON, not A2UI, written as the tools' native JSON arguments: descriptive camelCase keys, every record a keyed object, no positional rows and no abbreviated keys. The agent writes content and structure: questions, widgets with their data, excerpts and images by pointer, formulas and molecule references. AskBoard owns the layout. Any A2UI support comes later, as an inbound translator adapter to the input format.
   - **Optional ask fields:** the ask may carry the following, and each is optional so that a plain ask stays cheap (NFR-1):
     - `title` and `agentName`, the agent's display name. Without them, AskBoard derives the title from the first question and the name from the agent type that Claude Code reports (AD-5).
     - `language` (`en-US` or `it-IT`, the user's preferred language) and `locale` (`en-US` or `it-IT`, the formats AskBoard ships, FR-34). Without `language`, the board uses the configured `defaultLanguage` (AD-14), then `en-US`. Without `locale`, the ask's language decides it. The language holds for the whole ask, and AskBoard translates nothing (FR-34). Language and locale govern display only; values keep the formats below (AD-13).
@@ -776,5 +776,6 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | `alwaysLoad` for the `ask` tool | No context budget in the PRD; decided by data | First benchmark run |
 | Final benchmark question set (seed in `SOLUTION-DESIGN.md`) and the benchmark's browser driver on the user's machine | AD-17 fixes what is measured; AD-19 requires prerequisites to be declared | Benchmark epic |
 | A2UI inbound translator | Preference, not requirement (PRD OQ5) | A2UI v1.0 final with renderers and a table |
+| Table encoding for long lists in the input format (column names once, rows as arrays) | Lean JSON is simpler and more robust; the review of the model contract measured its cost on a 200-node WBS (AD-7) | The benchmark shows rich questions over the SM-1 target |
 | Molecule registry, export and repository (FR-16, FR-17); full benchmark settings | Out of the first version | Next version planning |
 | MCP Apps rendering inside Claude hosts (needs a conforming host with a sandbox proxy); Claude Code surfaces other than the CLI; native Windows; remote hosts | Out of the first version (NFR-7, NFR-8, AD-22) | The Claude Code CLI renders MCP Apps, or the product adds a surface |
