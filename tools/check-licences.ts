@@ -1,6 +1,7 @@
-// Licence check (AD-19): fails on an installed dependency whose licence is outside the adoption
+// Licence check (AD-19): fails on a package in bun.lock whose licence is outside the adoption
 // rule of docs/prd-askboard-2026-10-25/addendum.md, and on a direct dependency whose repository
-// is archived. Repository tooling, not a shipped unit: it may use Bun APIs.
+// is archived. Licences come from the installed package.json, or from the npm registry for
+// packages meant for another platform. Repository tooling, not a shipped unit: it may use Bun APIs.
 //
 // Usage: GITHUB_TOKEN=<token> bun tools/check-licences.ts [root]
 // Without a token a local run skips the archive lookups and says so; a CI run fails instead.
@@ -44,6 +45,7 @@ const DEPENDENCY_FIELDS = [
 const OVERRIDE_FIELDS = ["package", "version", "licence", "evidence"] as const;
 const OVERRIDES_FILE = "tools/licence-overrides.json";
 const GITHUB_API = "https://api.github.com/repos";
+const NPM_REGISTRY = "https://registry.npmjs.org";
 
 const best = (a: Verdict, b: Verdict): Verdict => (RANK[a] >= RANK[b] ? a : b);
 const worst = (a: Verdict, b: Verdict): Verdict => (RANK[a] <= RANK[b] ? a : b);
@@ -272,7 +274,7 @@ export const checkArchives = async (
 
 type Tree = {
   packages: Installed[];
-  skipped: string[];
+  otherPlatforms: string[];
   direct: Direct[];
   patched: Set<string>;
   problems: string[];
@@ -298,6 +300,15 @@ const lockfileOf = (parsed: unknown): Lockfile => {
   const { workspaces, packages } = parsed;
   if (!isRecord(packages) || !isRecord(workspaces) || !isRecord(workspaces[""])) {
     throw new Error("bun.lock: packages, workspaces and the root workspace expected");
+  }
+  for (const [key, entry] of Object.entries(packages)) {
+    if (!Array.isArray(entry) || typeof entry[0] !== "string" || entry[0].lastIndexOf("@") < 1) {
+      throw new Error(`bun.lock: malformed entry for ${key}`);
+    }
+  }
+  const ids = Object.values(packages).map((entry) => (entry as LockEntry)[0]);
+  if (ids.every((id) => id.includes("@workspace:"))) {
+    throw new Error("bun.lock: no packages besides the workspaces");
   }
   return parsed as unknown as Lockfile;
 };
@@ -347,7 +358,7 @@ const readTree = async (root: string): Promise<Tree> => {
   const store = join(root, "node_modules", ".bun");
   const directories = await readdir(store).catch(() => [] as string[]);
 
-  const tree: Tree = { packages: [], skipped: [], direct: [], patched, problems: [] };
+  const tree: Tree = { packages: [], otherPlatforms: [], direct: [], patched, problems: [] };
   const byId = new Map<string, Installed>();
   const seen = new Set<string>();
   for (const [id, , meta = {}] of Object.values(lock.packages)) {
@@ -357,7 +368,7 @@ const readTree = async (root: string): Promise<Tree> => {
     const stem = `${name.replaceAll("/", "+")}@${version.replaceAll("/", "+")}`;
     const directory = directories.find((entry) => entry === stem || entry.startsWith(`${stem}+`));
     if (directory === undefined) {
-      if (forAnotherPlatform(meta)) tree.skipped.push(id);
+      if (forAnotherPlatform(meta)) tree.otherPlatforms.push(id);
       else tree.problems.push(`${id}: listed in bun.lock but not installed; run bun install`);
       continue;
     }
@@ -384,11 +395,49 @@ const readTree = async (root: string): Promise<Tree> => {
     const id = lock.packages[name]?.[0];
     const pkg = id === undefined ? undefined : byId.get(id);
     if (pkg) tree.direct.push({ name, repository: pkg.repository });
-    else if (id === undefined || !tree.skipped.includes(id)) {
+    else if (id === undefined || !tree.otherPlatforms.includes(id)) {
       tree.problems.push(`${name}: a direct dependency that is not installed; run bun install`);
     }
   }
   return tree;
+};
+
+const readFromRegistry = async (
+  id: string,
+  fetcher: typeof fetch,
+): Promise<{ pkg?: Installed; problems: string[] }> => {
+  const { name, version } = splitId(id);
+  const where = `${id}: npm registry lookup`;
+  try {
+    const response = await fetcher(`${NPM_REGISTRY}/${name}/${version}`, {
+      headers: { accept: "application/json" },
+    });
+    if (response.status !== 200) return { problems: [`${where} returned ${response.status}`] };
+    const manifest: unknown = await response.json();
+    if (!isRecord(manifest)) return { problems: [`${where}: the reply is not a package manifest`] };
+    const pkg = { name, version, licence: licenceOf(manifest), repository: manifest.repository };
+    const problems = bundles(manifest)
+      ? [`${id}: bundles dependencies, which this check cannot see`]
+      : [];
+    return { pkg, problems };
+  } catch (error) {
+    return {
+      problems: [`${where} failed: ${error instanceof Error ? error.message : String(error)}`],
+    };
+  }
+};
+
+// Packages for another platform are not installed here, so their licences come from the npm
+// registry's metadata for the exact version.
+export const readRegistry = async (
+  ids: readonly string[],
+  fetcher: typeof fetch,
+): Promise<{ packages: Installed[]; problems: string[] }> => {
+  const results = await Promise.all(ids.map((id) => readFromRegistry(id, fetcher)));
+  return {
+    packages: results.flatMap((result) => (result.pkg ? [result.pkg] : [])),
+    problems: results.flatMap((result) => result.problems),
+  };
 };
 
 const readOverrides = async (
@@ -420,6 +469,7 @@ export const main = async (
     return 1;
   }
   const { overrides, errors } = await readOverrides(root);
+  const remote = await readRegistry(tree.otherPlatforms, fetcher);
   const token = env.GITHUB_TOKEN || undefined;
   const archive = await checkArchives(tree.direct, {
     token,
@@ -429,14 +479,15 @@ export const main = async (
   const problems = [
     ...tree.problems,
     ...errors,
-    ...checkPackages(tree.packages, overrides, tree.patched),
+    ...remote.problems,
+    ...checkPackages([...tree.packages, ...remote.packages], overrides, tree.patched),
     ...archive.problems,
   ];
   for (const problem of problems) log(problem);
   const archiveStep = token ? "checked" : archive.skipped ? "skipped (no GITHUB_TOKEN)" : "not run";
   const outcome = problems.length === 1 ? "1 problem" : `${problems.length || "no"} problems`;
   log(
-    `check:licences: ${tree.packages.length} packages (${tree.skipped.length} not installed on this platform), ${tree.direct.length} direct dependencies, archive step: ${archiveStep}, ${outcome}`,
+    `check:licences: ${tree.packages.length} installed packages, ${tree.otherPlatforms.length} for other platforms read from the npm registry, ${tree.direct.length} direct dependencies, archive step: ${archiveStep}, ${outcome}`,
   );
   return problems.length === 0 ? 0 : 1;
 };

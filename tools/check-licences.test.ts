@@ -11,6 +11,7 @@ import {
   main,
   type Override,
   parseOverrides,
+  readRegistry,
   repositoryOf,
   type Verdict,
 } from "./check-licences.ts";
@@ -320,6 +321,63 @@ describe("the archive step", () => {
   });
 });
 
+const NPM = "https://registry.npmjs.org/";
+
+describe("the registry step (packages for other platforms)", () => {
+  const replying = (reply: () => Promise<Response>) => reply as unknown as typeof fetch;
+
+  test("reads the licence of the exact version", async () => {
+    const urls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      urls.push(String(input));
+      return new Response(JSON.stringify({ license: "Apache-2.0", repository: "github:o/r" }));
+    }) as unknown as typeof fetch;
+    const result = await readRegistry(["@scope/native-x64@2.0.0"], fetcher);
+    expect(urls).toEqual([`${NPM}@scope/native-x64/2.0.0`]);
+    expect(result).toEqual({
+      packages: [
+        {
+          name: "@scope/native-x64",
+          version: "2.0.0",
+          licence: "Apache-2.0",
+          repository: "github:o/r",
+        },
+      ],
+      problems: [],
+    });
+  });
+
+  test("a failed request, an error status or a reply that is not a manifest fails", async () => {
+    const down = await readRegistry(
+      ["a@1.0.0"],
+      replying(async () => {
+        throw new Error("offline");
+      }),
+    );
+    expect(down.problems[0]).toContain("offline");
+    const missing = await readRegistry(
+      ["a@1.0.0"],
+      replying(async () => new Response("{}", { status: 404 })),
+    );
+    expect(missing.problems[0]).toContain("404");
+    const odd = await readRegistry(
+      ["a@1.0.0"],
+      replying(async () => new Response('"text"')),
+    );
+    expect(odd.problems[0]).toContain("not a package manifest");
+    expect(odd.packages).toEqual([]);
+  });
+
+  test("a registry manifest that bundles dependencies fails", async () => {
+    const reply = JSON.stringify({ license: "MIT", bundleDependencies: ["g"] });
+    const result = await readRegistry(
+      ["a@1.0.0"],
+      replying(async () => new Response(reply)),
+    );
+    expect(result.problems[0]).toContain("bundles");
+  });
+});
+
 describe("the installed tree and the command", () => {
   type Fake = {
     name: string;
@@ -383,13 +441,21 @@ describe("the installed tree and the command", () => {
     write("bun.lock", JSON.stringify(shaped, null, 2).replace(/\n(\s*)([}\]])/g, ",\n$1$2"));
     if (options.overrides !== undefined) write("tools/licence-overrides.json", options.overrides);
   };
-  const live = { status: 200, body: { archived: false } };
-  const run = async (env: Record<string, string | undefined>, archived = false) => {
+  // The npm registry replies with `registry[<name>/<version>]`, MIT when unlisted, 404 when null;
+  // GitHub replies with `archived`.
+  const run = async (
+    env: Record<string, string | undefined>,
+    archived = false,
+    registry: Record<string, unknown> = {},
+  ) => {
     const lines: string[] = [];
-    const fetcher = (async () =>
-      new Response(JSON.stringify({ archived }), {
-        status: live.status,
-      })) as unknown as typeof fetch;
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (!url.startsWith(NPM)) return new Response(JSON.stringify({ archived }), { status: 200 });
+      const key = url.slice(NPM.length);
+      const manifest = key in registry ? registry[key] : { license: "MIT" };
+      return new Response(JSON.stringify(manifest), { status: manifest === null ? 404 : 200 });
+    }) as unknown as typeof fetch;
     const code = await main([root], { env, fetch: fetcher, log: (line) => lines.push(line) });
     return { code, output: lines.join("\n") };
   };
@@ -414,7 +480,7 @@ describe("the installed tree and the command", () => {
     });
     const { code, output } = await run({ GITHUB_TOKEN: "t0ken" });
     expect(code).toBe(0);
-    expect(output).toContain("3 packages");
+    expect(output).toContain("3 installed packages, 0 for other platforms");
     expect(output).toContain("2 direct dependencies");
     expect(output).toContain("archive step: checked");
   });
@@ -482,7 +548,25 @@ describe("the installed tree and the command", () => {
     });
     const skipped = await run({ GITHUB_TOKEN: "t0ken" });
     expect(skipped.code).toBe(0);
-    expect(skipped.output).toContain("1 packages (1 not installed on this platform)");
+    expect(skipped.output).toContain("1 installed packages, 1 for other platforms");
+    rmSync(root, { recursive: true, force: true });
+
+    makeTree({
+      packages: [
+        permissive("a"),
+        { name: "native-other", version: "1.0.0", meta: { os: "aix" }, installed: false },
+      ],
+      direct: { a: "1.0.0" },
+      overrides: "[]",
+    });
+    const gpl = await run({ GITHUB_TOKEN: "t0ken" }, false, {
+      "native-other/1.0.0": { license: "GPL-3.0-only" },
+    });
+    expect(gpl.code).toBe(1);
+    expect(gpl.output).toContain("native-other@1.0.0: licence GPL-3.0-only");
+    const unknown = await run({ GITHUB_TOKEN: "t0ken" }, false, { "native-other/1.0.0": null });
+    expect(unknown.code).toBe(1);
+    expect(unknown.output).toContain("404");
     rmSync(root, { recursive: true, force: true });
 
     makeTree({
@@ -548,6 +632,15 @@ describe("the installed tree and the command", () => {
     ["no packages", ({ packages: _packages, ...lock }) => lock],
     ["no workspaces", ({ workspaces: _workspaces, ...lock }) => lock],
     ["no root workspace", (lock) => ({ ...lock, workspaces: {} })],
+    ["an empty package map", (lock) => ({ ...lock, packages: {} })],
+    ["a malformed entry", (lock) => ({ ...lock, packages: { a: "a@1.0.0" } })],
+    [
+      "workspace packages only",
+      (lock) => ({
+        ...lock,
+        packages: { "@askboard/core": ["@askboard/core@workspace:packages/core"] },
+      }),
+    ],
   ])("a lockfile with %s fails the command", async (_case, reshape) => {
     makeTree({ packages: [permissive("a")], direct: { a: "1.0.0" }, overrides: "[]", reshape });
     const { code, output } = await run({ GITHUB_TOKEN: "t0ken" });
