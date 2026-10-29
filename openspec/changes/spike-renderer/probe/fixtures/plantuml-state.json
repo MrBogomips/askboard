@@ -1,0 +1,24 @@
+{
+  "description": "PlantUML state diagram, with viz-global.js (task 3.2)",
+  "board": {
+    "id": "p1",
+    "title": "PlantUML state diagram, with viz-global.js (task 3.2)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\n[*] --> Open\nOpen --> Answered : answer\nOpen --> Discarded : discard\nAnswered --> [*]\nDiscarded --> [*]\n@enduml"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

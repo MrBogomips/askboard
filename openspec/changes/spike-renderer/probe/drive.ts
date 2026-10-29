@@ -6,7 +6,7 @@
 //   bun drive.ts versions
 //   bun drive.ts <run> [--fixtures a,b] [--engines chromium,firefox,webkit,chrome,msedge]
 //       [--renderers own,json-render] [--repeat N] [--repeat-only a,b] [--control] [--snapshot]
-//       [--color-scheme light|dark] [--script loads|compare|c2]
+//       [--color-scheme light|dark] [--variants a,b] [--script loads|compare|c2|measure|golden]
 //
 // Writes runs/<run>/<engine>/<fixture>.<renderer>[.<n>].json and .png, and runs/<run>/summary.json.
 // The Playwright engines come from PLAYWRIGHT_BROWSERS_PATH (the spike's scratch directory).
@@ -40,7 +40,11 @@ type Options = {
   control: boolean;
   snapshot: boolean;
   colorScheme: "light" | "dark";
+  // Candidate amendments of AD-8 (csp.ts, VARIANTS), applied to both policies.
+  variants: string[];
   script: string;
+  // Added to the file names of a load, so two modes of one fixture keep separate records.
+  suffix?: string;
 };
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -61,6 +65,7 @@ const parseArgs = (argv: string[]): Options => {
     control: argv.includes("--control"),
     snapshot: argv.includes("--snapshot"),
     colorScheme: value("--color-scheme", "light") as "light" | "dark",
+    variants: list("--variants", ""),
     script: value("--script", "loads"),
   };
 };
@@ -174,7 +179,8 @@ const command = async (session: Session, name: string, args: object = {}) => {
 const viewLocator = (session: Session, selector: string) =>
   session.snapshot ? session.page.locator(selector) : session.page.frameLocator("#view").locator(selector);
 
-// Requests other than the stand-in's own board page and view document.
+// Requests other than the stand-in's own board page and view document. `blob:` URLs are the
+// view's own diagram images, made in memory.
 const foreign = (requests: Recorded["requests"], base: string) =>
   requests.filter(
     (r) =>
@@ -182,7 +188,8 @@ const foreign = (requests: Recorded["requests"], base: string) =>
       !r.url.startsWith(`${base}/v/`) &&
       !r.url.startsWith("file:") &&
       !r.url.startsWith("about:") &&
-      !r.url.startsWith("data:"),
+      !r.url.startsWith("data:") &&
+      !r.url.startsWith("blob:"),
   );
 
 type Load = {
@@ -203,11 +210,14 @@ type Load = {
 const loadUrl = (base: string, fixture: string, renderer: string, options: Options): string => {
   const query = new URLSearchParams({ renderer });
   if (options.control) query.set("control", "1");
+  if (options.variants.length > 0) query.set("variants", options.variants.join(","));
   return `${base}/b/${fixture}?${query}`;
 };
 
 const snapshotFile = async (base: string, fixture: string, renderer: string, options: Options) => {
-  const html = await (await fetch(`${base}/s/${fixture}?renderer=${renderer}`)).text();
+  const query = new URLSearchParams({ renderer });
+  if (options.variants.length > 0) query.set("variants", options.variants.join(","));
+  const html = await (await fetch(`${base}/s/${fixture}?${query}`)).text();
   const file = join(PROBE, "runs", options.run, "snapshots", `${fixture}.${renderer}.html`);
   await Bun.write(file, html);
   return `file://${file}`;
@@ -264,6 +274,54 @@ const signalsOf = (load: Omit<Load, "verdict" | "reasons">) => ({
   outcome: load.probe.events.find((e) => e.kind === "emit")?.message,
 });
 
+// The latest render of each diagram item shows as a loaded `blob:` image, and its hit map holds
+// the anchors the fixture expects.
+const diagramReasons = (events: ProbeEvent[], fixture: Fixture): string[] => {
+  const reasons: string[] = [];
+  const last = (kind: string, id: string) => events.filter((e) => e.kind === kind && e.id === id).at(-1);
+  for (const id of fixture.expectDiagrams ?? []) {
+    const image = last("diagram-image", id);
+    const error = last("diagram-error", id);
+    if (error && (!image || Number(error.generation) > Number(image.generation))) {
+      reasons.push(`diagram ${id}: render error: ${String(error.message).slice(0, 200)}`);
+    } else if (!image) reasons.push(`diagram ${id}: no image`);
+    else if (image.loaded !== true) reasons.push(`diagram ${id}: the ${image.scheme} image did not load`);
+    else if (image.scheme !== "blob:") reasons.push(`diagram ${id}: image scheme ${image.scheme}`);
+  }
+  for (const id of fixture.expectDiagramErrors ?? []) {
+    if (!last("diagram-error", id)) reasons.push(`diagram ${id}: rendered, expected an error`);
+    if (last("diagram-image", id)) reasons.push(`diagram ${id}: an image shows`);
+  }
+  for (const [id, keys] of Object.entries(fixture.expectAnchors ?? {})) {
+    const render = last("diagram-render", id);
+    const found = new Set(((render?.anchors ?? []) as { key: string }[]).map((a) => a.key));
+    const missing = keys.filter((key) => !found.has(key));
+    if (missing.length) reasons.push(`diagram ${id}: no anchor for ${missing.join(", ")}`);
+  }
+  return reasons;
+};
+
+// Criterion 5: what a renderer's SVG carries besides the drawing. Embedded images, and text that
+// advertises, asks for money or support, or names PlantUML's sites.
+const SPONSOR = /sponsor|advert|patreon|liberapay|paypal|professional|donat|plantuml\.com|plantuml@|upgrad|qrcode/gi;
+const contentOf = (svg: string) => ({
+  svgBytes: svg.length,
+  embeddedImages: (svg.match(/<image\b/g) ?? []).length,
+  dataImages: (svg.match(/data:image\//g) ?? []).length,
+  sponsorText: [...new Set((svg.replace(/<\?plantuml-src[^?]*\?>/g, "").match(SPONSOR) ?? []).map((m) => m.toLowerCase()))],
+  firstLines: [...svg.matchAll(/<text\b[^>]*>([^<]*)<\/text>/g)].slice(0, 3).map((m) => m[1]),
+});
+
+// The diagram events of a load, without the SVG text and with the anchors counted.
+const diagramsOf = (events: ProbeEvent[]) =>
+  events
+    .filter((e) => e.kind.startsWith("diagram-"))
+    .map(({ svg, anchors, ...rest }) => ({
+      ...rest,
+      ...(Array.isArray(anchors) ? { anchors: anchors.length } : {}),
+      ...(typeof svg === "string" ? contentOf(svg) : {}),
+    }));
+
 // Design decision 2's verdict rule; a negative fixture passes when every expected signal shows.
 const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: string) => {
   const reasons: string[] = [];
@@ -292,6 +350,13 @@ const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: 
   }
   if (!load.visible) reasons.push("never visible");
   if (fixture.check && load.check?.ok !== true) reasons.push(`check failed: ${JSON.stringify(load.check)}`);
+  reasons.push(...diagramReasons(events, fixture));
+  // The ready rule (AD-9): nothing moves once the question counts as visible.
+  const visible = events.find((e) => e.kind === "visible");
+  const after = events.find((e) => e.kind === "boxes" && e.generation === visible?.generation);
+  if (visible && after && JSON.stringify(visible.boxes) !== JSON.stringify(after.boxes)) {
+    reasons.push("boxes moved after visible");
+  }
   if (reasons.length > 0) return { verdict: "fail", reasons };
   if (probes.length > 0) {
     return { verdict: "probe", reasons: [`${probes.length} blocked eval probe(s), caught by the library`] };
@@ -323,9 +388,20 @@ const loadOnce = async (
     const probe = await readProbe(session);
     const dir = join(PROBE, "runs", options.run, engine);
     await mkdir(dir, { recursive: true });
-    const stem = `${name}.${renderer}${repeat > 1 || options.repeat > 1 ? `.${repeat}` : ""}`;
+    const stem = `${name}.${renderer}${options.suffix ?? ""}${repeat > 1 || options.repeat > 1 ? `.${repeat}` : ""}`;
     session.setPhase("screenshot");
     await session.page.screenshot({ path: join(dir, `${stem}.png`), caret: "initial" });
+    // Each diagram whole, for the product owner (tasks 3.5 and 3.6); not in repeated loads.
+    if (repeat === 1 && options.repeat === 1) {
+      for (const id of fixture.expectDiagrams ?? []) {
+        // The image with its overlay; the figure itself spans the column.
+        const figure = viewLocator(session, `[data-item-id=${id}] figure > div`);
+        if ((await figure.count()) === 0) continue;
+        await figure
+          .screenshot({ path: join(dir, `${stem}.${id}.png`), caret: "initial" })
+          .catch((error) => console.log(`${engine} ${stem}: no screenshot of ${id}: ${String(error).split("\n")[0]}`));
+      }
+    }
     const ok = visible?.kind === "visible";
     const load = {
       engine,
@@ -397,6 +473,7 @@ const runLoads = async (browser: Browser, engine: string, ctx: Context) => {
     browserFavicon: probe.board.filter(isFavicon).length > 0,
     storage: probe.events.filter((e) => e.kind.startsWith("storage") || e.kind.startsWith("worker")),
     emits: probe.events.filter((e) => e.kind === "emit").map((e) => e.message),
+    diagrams: diagramsOf(probe.events),
     consoleErrors: c.filter((m) => (m.type === "error" || m.type === "warning") && m.phase === "load"),
     foreignRequests: foreign(requests, ctx.base),
   }));
@@ -545,6 +622,192 @@ const runC2 = async (browser: Browser, engine: string, ctx: Context) => {
   return results;
 };
 
+// Task 3.5: a diagram's final SVG measured in a page with no CSP, in the same engine, where its
+// own `<style>` applies as it does inside the image, drawn at one pixel per user unit. A label overflows when its text extends past
+// its box: a node's shape, an edge label's background, a participant's or a note's rectangle, or
+// for a message the span between its two lifelines.
+const overflowIn = (page: Page, svg: string) =>
+  page.evaluate((markup) => {
+    document.body.innerHTML = markup;
+    const root = document.querySelector("svg") as SVGSVGElement;
+    // One pixel per user unit in every engine: Mermaid's root says `width="100%"`.
+    const view = root.viewBox.baseVal;
+    root.style.maxWidth = "none";
+    root.setAttribute("width", String(view.width));
+    root.setAttribute("height", String(view.height));
+    const box = (element: Element) => element.getBoundingClientRect();
+    const round = (n: number) => Math.round(n * 10) / 10;
+    const labels: { kind: string; label: string; text: number[]; box: number[]; overflow: number }[] = [];
+    const push = (kind: string, text: Element, shape: Element) => {
+      const t = box(text);
+      const b = box(shape);
+      const overflow = Math.max(0, b.left - t.left, t.right - b.right, b.top - t.top, t.bottom - b.bottom);
+      labels.push({
+        kind,
+        label: (text.textContent ?? "").trim().slice(0, 60),
+        text: [round(t.width), round(t.height)],
+        box: [round(b.width), round(b.height)],
+        overflow: round(overflow),
+      });
+    };
+    for (const node of root.querySelectorAll("g.node")) {
+      const text = node.querySelector("text");
+      const shape = node.querySelector(".label-container, polygon, circle, rect");
+      if (text?.textContent?.trim() && shape) push("node", text, shape);
+    }
+    for (const edge of root.querySelectorAll("g.edgeLabel")) {
+      const text = edge.querySelector("text");
+      const background = edge.querySelector("rect");
+      if (text?.textContent?.trim() && background) push("edge label", text, background);
+    }
+    for (const kind of ["participant", "note"]) {
+      for (const group of root.querySelectorAll(`[data-et=${kind}]`)) {
+        const text = group.querySelector("text");
+        const shape = group.querySelector("rect");
+        if (text && shape) push(kind, text, shape);
+      }
+    }
+    const texts = [...root.querySelectorAll("text.messageText")];
+    [...root.querySelectorAll("[data-et=message]")].forEach((line, index) => {
+      const text = texts[index];
+      const span = box(line).width;
+      if (!text || span < 1) return;
+      const width = box(text).width;
+      labels.push({
+        kind: "message",
+        label: (text.textContent ?? "").trim().slice(0, 60),
+        text: [round(width)],
+        box: [round(span)],
+        overflow: round(Math.max(0, width - span)),
+      });
+    });
+    return labels;
+  }, svg);
+
+const lastRender = (events: ProbeEvent[], id: string) =>
+  events.filter((e) => e.kind === "diagram-render" && e.id === id).at(-1);
+
+type BoardItem = { id: string; props?: Record<string, unknown>; children?: BoardItem[] };
+const findItem = (items: BoardItem[], id: string): BoardItem | undefined => {
+  for (const item of items) {
+    const found = item.id === id ? item : findItem(item.children ?? [], id);
+    if (found) return found;
+  }
+  return undefined;
+};
+
+// The measurement mitigation of a Mermaid item (`props.measure`, or the style shim).
+const measureOf = (fixture: Fixture, id: string): string => {
+  const props = findItem(fixture.board.items as BoardItem[], id)?.props ?? {};
+  if ((props.probe as { shim?: boolean } | undefined)?.shim) return "shim";
+  return typeof props.measure === "string" ? props.measure : "none";
+};
+
+const runMeasure = async (browser: Browser, engine: string, ctx: Context) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const results = [];
+  try {
+    for (const name of ctx.options.fixtures) {
+      const fixture = ctx.fixtures.get(name) as Fixture;
+      for (const mode of ["board", "control"] as const) {
+        const options = { ...ctx.options, control: mode === "control", suffix: mode === "control" ? ".control" : "" };
+        const load = await loadOnce(browser, ctx.base, engine, name, fixture, "own", 1, options);
+        for (const id of fixture.expectDiagrams ?? []) {
+          const render = lastRender(load.probe.events, id);
+          const item = measureOf(fixture, id);
+          const labels = typeof render?.svg === "string" ? await overflowIn(page, render.svg) : [];
+          const overflowing = labels.filter((l) => l.overflow > 0.5);
+          const worst = Math.max(0, ...labels.map((l) => l.overflow));
+          results.push({
+            fixture: name,
+            mode,
+            id,
+            measure: item,
+            verdict: load.verdict,
+            violations: violationsOf(load.probe).length,
+            labels: labels.length,
+            overflowing: overflowing.length,
+            worst,
+            details: overflowing,
+          });
+          console.log(
+            `${engine.padEnd(8)} ${name.padEnd(18)} ${mode.padEnd(7)} ${id} ${item.padEnd(10)} labels ${labels.length} overflowing ${overflowing.length} worst ${worst} px  (${load.verdict}, ${violationsOf(load.probe).length} violations)`,
+          );
+        }
+      }
+    }
+  } finally {
+    await context.close();
+  }
+  return results;
+};
+
+// Task 3.7: cold loads of the golden board. Per load: the times from t0 to the renderer's mount,
+// to the PlantUML render's start and end, to the image loaded, to the diagram item's ready and to
+// the question visible; then the golden flow's source edit, written to the draft record, and the
+// time from that render's start to its image.
+type GoldenRow = { fixture: string; n: number; [metric: string]: unknown };
+
+const runGolden = async (browser: Browser, engine: string, ctx: Context) => {
+  const rows: GoldenRow[] = [];
+  for (const name of ctx.options.fixtures) {
+    const fixture = ctx.fixtures.get(name) as Fixture;
+    const id = fixture.rerender?.item ?? fixture.expectDiagrams?.[0] ?? "";
+    for (let n = 1; n <= ctx.options.repeat; n += 1) {
+      const load = await loadOnce(browser, ctx.base, engine, name, fixture, "own", n, ctx.options, async (s) => {
+        if (!fixture.rerender) return;
+        await command(s, "setDraft", { id, value: fixture.rerender.source });
+        await waitFor(s, (e) => e.kind.startsWith("diagram-") && e.id === id && e.generation === 2, 15_000);
+        await sleep(200);
+      });
+      const events = load.probe.events;
+      const t0 = load.probe.t0 ?? 0;
+      const at = (e: ProbeEvent | undefined) => (e ? Math.round((e.t - t0) * 10) / 10 : null);
+      const find = (kind: string, generation?: number) =>
+        events.find((e) => e.kind === kind && (e.id === undefined || e.id === id) && (generation === undefined || e.generation === generation));
+      const render1 = find("diagram-render", 1);
+      const render2 = find("diagram-render", 2);
+      const image2 = find("diagram-image", 2);
+      const labelY = (render: ProbeEvent | undefined, key: string) =>
+        ((render?.anchors ?? []) as { key: string; box: { y: number } }[]).find((a) => a.key === key)?.box.y ?? null;
+      const row = {
+        fixture: name,
+        n,
+        verdict: load.verdict,
+        reasons: load.reasons,
+        mount: at(find("mount")),
+        renderStart: render1 ? Math.round((Number(render1.t0) - t0) * 10) / 10 : null,
+        renderEnd: at(render1),
+        renderMs: render1?.renderMs ?? null,
+        imageLoaded: at(find("diagram-image", 1)),
+        diagramReady: at(events.find((e) => e.kind === "ready" && e.id === id)),
+        visible: load.timeToVisibleMs,
+        rerenderMs: render2 && image2 ? Math.round((image2.t - Number(render2.t0)) * 10) / 10 : null,
+        rerenderRenderMs: render2?.renderMs ?? null,
+        // The pin's element after the source edit: by label it re-attaches to the moved message.
+        createOrderY: [labelY(render1, "message:label:create order#1"), labelY(render2, "message:label:create order#1")],
+      };
+      console.log(
+        `${engine.padEnd(8)} ${name.padEnd(14)} ${String(n).padStart(2)} ${load.verdict.padEnd(5)} mount ${row.mount} render ${row.renderStart}->${row.renderEnd} (${row.renderMs}) image ${row.imageLoaded} ready ${row.diagramReady} visible ${row.visible} rerender ${row.rerenderMs} create order y ${row.createOrderY.join("->")}`,
+      );
+      rows.push(row);
+    }
+  }
+  const stats = (values: (number | null)[]) => {
+    const present = values.filter((v): v is number => typeof v === "number");
+    return present.length ? { n: present.length, median: median(present), max: Math.max(...present) } : null;
+  };
+  const metrics = ["mount", "renderStart", "renderEnd", "renderMs", "imageLoaded", "diagramReady", "visible", "rerenderMs", "rerenderRenderMs"] as const;
+  const byFixture = Object.fromEntries(
+    ctx.options.fixtures.map((name) => {
+      const mine = rows.filter((r) => r.fixture === name);
+      return [name, Object.fromEntries(metrics.map((m) => [m, stats(mine.map((r) => r[m] as number | null))]))];
+    }),
+  );
+  return { rows, stats: byFixture };
+};
+
 const versions = async () => {
   for (const engine of Object.keys(ENGINES)) {
     try {
@@ -590,7 +853,9 @@ const main = async () => {
         continue;
       }
       try {
-        const runner = { loads: runLoads, compare: runCompare, c2: runC2 }[options.script];
+        const runner = { loads: runLoads, compare: runCompare, c2: runC2, measure: runMeasure, golden: runGolden }[
+          options.script
+        ];
         if (!runner) throw new Error(`unknown script ${options.script}`);
         const results = await runner(browser, engine, ctx);
         (summary.engines as Record<string, unknown>)[engine] = { version: browser.version(), results };

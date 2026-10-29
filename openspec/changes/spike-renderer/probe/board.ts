@@ -4,8 +4,9 @@
 // `sandbox="allow-scripts"`, and keeps the view's messages for the driver.
 //
 // Query: `renderer=own|json-render` (default own), `control=1` (no CSP, no sandbox),
-// `theme=light|dark|system`. `/v/<fixture>` is the assembled view, `/s/<fixture>` the Snapshot
-// file, `/leak/*` records any request that escapes the view, `/leaks` lists them.
+// `theme=light|dark|system`, `variants=a,b` (candidate amendments of AD-8, csp.ts).
+// `/v/<fixture>` is the assembled view, `/s/<fixture>` the Snapshot file, `/leak/*` records any
+// request that escapes the view, `/leaks` lists them.
 //
 // Usage: bun board.ts [--port N] [--json]   (prints the URLs; --json prints one line for drive.ts)
 
@@ -26,6 +27,14 @@ export type Fixture = {
   omitFromBoardPolicy?: string[];
   edits?: { action: "fill" | "click"; selector: string; value?: string }[];
   delayed?: { item: string; ms: number };
+  // Diagram items whose latest render must show as a loaded `blob:` image.
+  expectDiagrams?: string[];
+  // Per diagram item, the anchor keys its hit map must hold (task 3.6).
+  expectAnchors?: Record<string, string[]>;
+  // The golden flow's source edit (task 3.7): the corrected source, written to the draft record.
+  rerender?: { item: string; source: string };
+  // Diagram items whose source must not render: an error shows, and no image (task 3.4).
+  expectDiagramErrors?: string[];
 };
 
 const BOARD_STYLE =
@@ -80,6 +89,7 @@ const optionsOf = (url: URL, fixture: Fixture): AssembleOptions => ({
   csp: url.searchParams.get("control") !== "1",
   draft: fixture.draft,
   theme: (url.searchParams.get("theme") as AssembleOptions["theme"]) ?? "system",
+  variants: (url.searchParams.get("variants") ?? "").split(",").filter(Boolean),
 });
 
 export const startBoard = async (port = 0) => {
@@ -90,7 +100,7 @@ export const startBoard = async (port = 0) => {
   const assembled = (name: string, url: URL): Assembled => {
     const fixture = fixtures.get(name) as Fixture;
     const options = optionsOf(url, fixture);
-    const key = JSON.stringify([name, options.renderer, options.csp, options.theme]);
+    const key = JSON.stringify([name, options.renderer, options.csp, options.theme, options.variants]);
     const hit = cache.get(key);
     if (hit) return hit;
     const result = assemble(fixture.board, build, options);
@@ -132,6 +142,7 @@ export const startBoard = async (port = 0) => {
       const policy = boardPolicy(
         [sha256(BOARD_SCRIPT), ...view.scripts.filter((s) => !omit.has(s.chunk)).map((s) => s.sha256)],
         [sha256(BOARD_STYLE), ...view.styles.filter((s) => !omit.has(s.chunk)).map((s) => s.sha256)],
+        optionsOf(url, fixture).variants,
       );
       return html(boardPage(false), { "content-security-policy": policy });
     },

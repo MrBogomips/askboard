@@ -1,0 +1,48 @@
+{
+  "description": "The golden diagram with its hit regions drawn, with the style shim (task 3.6)",
+  "board": {
+    "id": "p1",
+    "title": "The golden diagram with its hit regions drawn, with the style shim (task 3.6)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nactor Customer\nparticipant \"Web app\" as Web\nparticipant \"Checkout API\" as API\nparticipant \"Order service\" as Orders\nparticipant \"Payment gateway\" as Gateway\nCustomer -> Web : Place order\nWeb -> API : POST /checkout\nAPI -> Orders : create order\nAPI -> Gateway : authorize payment\nGateway --> API : authorized\nAPI --> Web : order confirmed\n@enduml",
+          "showHits": true,
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ],
+  "expectAnchors": {
+    "p1": [
+      "participant:id:Customer#1",
+      "participant:id:Customer#2",
+      "participant:id:Web#1",
+      "participant:id:Web#2",
+      "participant:id:API#1",
+      "participant:id:API#2",
+      "participant:id:Orders#1",
+      "participant:id:Orders#2",
+      "participant:id:Gateway#1",
+      "participant:id:Gateway#2",
+      "message:label:Place order#1",
+      "message:label:POST /checkout#1",
+      "message:label:create order#1",
+      "message:label:authorize payment#1",
+      "message:label:authorized#1",
+      "message:label:order confirmed#1"
+    ]
+  }
+}

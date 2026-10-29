@@ -31,9 +31,17 @@ export type Chunk = {
   components: string[];
   script: Asset;
   style: Asset | null;
-  inputs: { local: string[]; localBytesInOutput: number; packages: PackageInput[] };
+  inputs: {
+    local: string[];
+    localBytesInOutput: number;
+    packages: PackageInput[];
+    stubbed: string[];
+    // Node built-ins a package imports, with Bun's browser stand-in (`node:url` in viz-global.js).
+    builtins: string[];
+  };
   notices: string;
   escapedScriptEnds: number;
+  escapedCommentOpens: number;
 };
 export type Manifest = { builtAt: string; bun: string; chunks: Chunk[] };
 
@@ -90,6 +98,23 @@ const globals = (own: string, needs: Set<string>): BunPlugin => ({
   },
 });
 
+// Modules replaced by an empty one in every chunk. elkjs (EPL-2.0) is an excluded trap (§9);
+// Mermaid imports it for its ELK layouts (S-1, D1), and the Mermaid chunk renders with dagre.
+export const STUBBED = [/^elkjs(\/|$)/];
+
+const stubs: BunPlugin = {
+  name: "askboard-stubs",
+  setup(build) {
+    for (const filter of STUBBED) {
+      build.onResolve({ filter }, (args) => ({ path: args.path, namespace: "askboard-stub" }));
+    }
+    build.onLoad({ filter: /.*/, namespace: "askboard-stub" }, () => ({
+      contents: "module.exports = {};",
+      loader: "js",
+    }));
+  },
+};
+
 const definitions = async (): Promise<ChunkDef[]> => {
   const entries = join(DIST, ".entries");
   await mkdir(entries, { recursive: true });
@@ -127,14 +152,22 @@ const definitions = async (): Promise<ChunkDef[]> => {
 };
 
 // Inline scripts end at the first `</script`; in a string or regex `<\/script` is the same text.
-const escapeScriptEnds = (code: string): { code: string; count: number } => {
+// `<!--` changes how the HTML parser reads the rest of a script; in a string, a template or a
+// regex `\x3C!--` is the same text. Minified chunks carry these only in strings, templates and
+// regexes (Mermaid's marked and DOMPurify, PlantUML's Brotli dictionary).
+const escapeScriptEnds = (code: string): { code: string; count: number; comments: number } => {
   let count = 0;
-  const escaped = code.replace(/<\/(script)/gi, (_, word: string) => {
-    count += 1;
-    return `<\\/${word}`;
-  });
-  if (/<!--/.test(escaped)) throw new Error("a chunk contains `<!--`, which changes script parsing");
-  return { code: escaped, count };
+  let comments = 0;
+  const escaped = code
+    .replace(/<\/(script)/gi, (_, word: string) => {
+      count += 1;
+      return `<\\/${word}`;
+    })
+    .replace(/<!--/g, () => {
+      comments += 1;
+      return "\\x3C!--";
+    });
+  return { code: escaped, count, comments };
 };
 
 type Tokens = {
@@ -263,14 +296,20 @@ const buildChunk = async (def: ChunkDef): Promise<Chunk> => {
     minify: true,
     metafile: true,
     define: { "process.env.NODE_ENV": '"production"' },
-    plugins: [globals(def.name, needs)],
+    plugins: [globals(def.name, needs), stubs],
   });
   if (!result.success) throw new AggregateError(result.logs, `build of ${def.name} failed`);
   const script = result.outputs.find((o) => o.kind === "entry-point");
   if (!script) throw new Error(`build of ${def.name}: no script output`);
-  const { code, count } = escapeScriptEnds(await script.text());
+  const { code, count, comments } = escapeScriptEnds(await script.text());
   const metaInputs = (result.metafile?.inputs ?? {}) as Record<string, { bytes: number }>;
-  const files = Object.keys(metaInputs).filter((f) => !f.includes("askboard-global:"));
+  const stubbed = Object.keys(metaInputs)
+    .filter((f) => f.startsWith("askboard-stub:"))
+    .map((f) => f.slice("askboard-stub:".length));
+  const builtins = Object.keys(metaInputs).filter((f) => f.startsWith("node:"));
+  const files = Object.keys(metaInputs).filter(
+    (f) => !f.includes("askboard-global:") && !f.startsWith("askboard-stub:") && !f.startsWith("node:"),
+  );
   const local = files.map((f) => resolve(f)).filter((f) => !f.includes("/node_modules/"));
   const inputs = Object.fromEntries(files.map((f) => [f, metaInputs[f] as { bytes: number }]));
   const outputs = (result.metafile?.outputs ?? {}) as Record<
@@ -317,9 +356,12 @@ const buildChunk = async (def: ChunkDef): Promise<Chunk> => {
       local: local.map((f) => relative(PROBE, f)).sort(),
       localBytesInOutput,
       packages: notices.map(({ text: _, ...rest }) => rest),
+      stubbed,
+      builtins,
     },
     notices: `notices/${def.name}.txt`,
     escapedScriptEnds: count,
+    escapedCommentOpens: comments,
   };
 };
 

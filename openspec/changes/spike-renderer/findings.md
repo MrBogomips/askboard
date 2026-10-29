@@ -260,3 +260,393 @@ Sources for the churn row: `gh api repos/vercel-labs/json-render/releases --pagi
   It also brings zod, two thirds of its chunk, which needs `jitless` to keep the CSP clean.
 - **A failing component** is contained differently. json-render hides it, and the board page cannot tell. The own renderer, as written, loses the whole view, but the board page receives the error. Either way the question never counts as visible, so nothing is answered on a partial board (AD-10). A product renderer should wrap each item in an error boundary that renders an error state and reports it to the board page. That is a few lines in the own renderer; with json-render it means replacing its boundary (`ElementErrorBoundary` is internal).
 - The choice between the renderers belongs to the product owner (task 8.3); the proposed outcome goes in group 8.
+
+## Diagrams: what group 3 added to the harness
+
+- **Components.** `components/mermaid.tsx` registers `Mermaid`; `components/plantuml.tsx` registers `PlantUML`, with Graphviz (`viz-global.js`); `components/plantuml-smetana.tsx` registers `PlantUMLSmetana`, without it. They share `_diagram.tsx` and `_plantuml.tsx`.
+  - `_diagram.tsx` renders the source to an SVG string and takes the hit map from that string. It shows the SVG as `<img src="blob:…">`, under an SVG overlay of hit regions. Each render carries a generation, and only the latest is applied. A failed render keeps the last good one and shows the renderer's message. The corrected source lives in the draft record.
+  - The item reports ready once its image has loaded or failed, or its render has failed. The port's probe-only `trace()` hands the render time, the SVG text, the hit map and the image's outcome to the instrumentation.
+- **Hit map without violations.** The hit map is measured on an off-screen copy of the SVG in the view. A document made by `DOMParser` takes the view's CSP, and Chromium reports every `style` attribute and `<style>` element it parses: 44 violations for one Mermaid flowchart, in a trial run made before this design and not kept. So the copy is parsed from the text with those removed, along with scripts, foreign objects and image sources, and measuring it reports nothing. The blob is made from the renderer's own text, unchanged.
+- **Policy variants** (`csp.ts`, `VARIANTS`; `--variants` in the driver, `variants=` on the stand-in). Each is a candidate amendment of AD-8, measured as input to a proposed outcome, never the default:
+  - `board-img-blob` adds `img-src blob:` to the board page's policy;
+  - `wasm` adds `'wasm-unsafe-eval'` to `script-src` in both policies.
+- **The verdict rule gains three checks** (`drive.ts`, `judge`):
+  - each `expectDiagrams` item's latest render shows as a loaded `blob:` image;
+  - each `expectAnchors` key is in the item's hit map;
+  - no item's box moves between "visible" and 1 s later. This check ran only in `--script c2` until now; it now applies to every load.
+- **Earlier verdicts hold** (run `regress-g3`, Chromium, Firefox and WebKit). `hello`, `atoms`, `delayed` and `pos-cssom-style` still pass, and `neg-style-element`, `neg-fetch` and `neg-chunk` are still caught. `delayed-early`, the ready rule's negative control, now fails in an ordinary load with "boxes moved after visible". No group 3 load failed that check.
+- **Scripts.** `--script measure` (task 3.5) and `--script golden` (task 3.7). After any single load, each diagram's image and overlay are also screenshotted whole (`<fixture>.<renderer>.<item>.png`), since the 1280×800 viewport cuts tall boards.
+- **Build** (`build.ts`):
+  - `STUBBED` replaces `elkjs` with an empty module; the manifest lists it under `inputs.stubbed`.
+  - Node built-ins a package imports are listed under `inputs.builtins`.
+  - `<!--` is written as `\x3C!--` and counted in `escapedCommentOpens`; before, the build stopped on it. Mermaid has 3 occurrences (marked's regex, DOMPurify's strings) and PlantUML 15 (its Brotli dictionary), all in strings, templates or regexes.
+- **Tools:**
+  - `tools/diagram-fixtures.ts` writes the diagram fixtures;
+  - `tools/diagram-report.ts <run>` summarises a run per fixture and engine;
+  - `tools/check-elkjs.ts` is S-1's check;
+  - `tools/check-file-scripts.ts` checks whether a page opened from `file://` runs a script tag with a relative URL (§ Criteria 3 and 4).
+
+## S-1: Mermaid without elkjs (task 3.1)
+
+**Build.** `bun run build` makes the `mermaid` chunk from `components/mermaid.tsx`. Every import of `elkjs` resolves to `module.exports = {}`. Mermaid's own ELK glue, `elk-QONTBCTQ.mjs` (MIT, Mermaid's code), stays in the chunk.
+
+| | `mermaid` chunk | Control: `mermaid.core.mjs` built with elkjs |
+| --- | --- | --- |
+| Script, raw / gzip | 3,955,799 / 1,093,862 bytes | 5,304,290 bytes raw |
+| Style, raw / gzip | 2,387 / 947 bytes (`_diagram.tsx`'s classes) | — |
+| elkjs among the inputs | none; `inputs.stubbed: ["elkjs/lib/elk.bundled.js"]` | `elk.bundled.js` |
+| `org.eclipse.elk` | 0 | 342 |
+| `Eclipse Layout Kernel` | 0 | 3 |
+| `workerUrl` | 0 | 3 |
+| `knownLayoutAlgorithms` | 0 | 1 |
+
+- Source: `bun tools/check-elkjs.ts`, which prints "elkjs check: 0 problem(s)".
+- The four identifiers occur in elkjs 0.9.3's `lib/elk.bundled.js` and survive minification. Mermaid's own glue uses option keys such as `elk.layered…` and the type name `ElkNode`, so those are not searched for.
+- The control build shows that the search finds elkjs when it is there. Leaving elkjs out saves about 1.35 MB raw.
+- **The licence check does not catch elkjs.** It admits EPL-2.0 for unmodified packages (§ Adoption), so S-1's CI check must name elkjs itself. `tools/check-elkjs.ts` is a model: no elkjs input in the manifest, no elkjs identifier in the chunk, and a control build that proves the search works.
+
+**What `layout: elk` does** (run `mermaid`, every engine). AskBoard's configuration sets `layout: 'dagre'` and adds `layout` to `secure` (D1, D3).
+
+| Fixture | Source | Result |
+| --- | --- | --- |
+| `mermaid-elk-secure` | the flowchart, with front matter `config: layout: elk` | The front matter's `layout` is dropped. The diagram renders with dagre, and its SVG is the flowchart fixture's, character for character (18,600 bytes, Chromium) |
+| `mermaid-elk-open` | the same, under Mermaid's own `secure` list (`probe.secure: false`) | Mermaid loads its ELK glue, which calls `new ELK()` on the empty module. The render fails: "FFe.default is not a constructor" in Chromium, Chrome, Edge and Firefox; "Object is not a constructor (evaluating 'new FFe.default')" in WebKit. The Diagram shows the message and no image |
+
+- Mermaid's default layout is `elk` (D1). Without `layout: 'dagre'` in the configuration, every flowchart of a stripped build would take the path `mermaid-elk-open` takes and fail (an inference from that run). Without `layout` in `secure`, an agent's front matter makes one fail (measured).
+
+**The four fixtures render in every engine.** In all five engines Mermaid makes the SVG of the flowchart, sequence, class and state fixtures, under each of these policies:
+
+| Run | Policy | What shows | Verdict |
+| --- | --- | --- | --- |
+| `mermaid` | AD-8 as written | The board policy blocks the image (`img-src`, § Criteria 3 and 4) | fail |
+| `mermaid-blob` | variant `board-img-blob` | The image loads. Mermaid's style writes are still blocked (§ Diagram style writes) | fail |
+| `mermaid-shim` | variant `board-img-blob`, with the style shim | The image loads, with 0 violations | pass, 5 engines × 4 fixtures |
+
+Render time in run `mermaid-shim`: Mermaid's own work, from the call to the SVG text, in ms, one load each.
+
+| Fixture | Chromium | Firefox | WebKit | Chrome | Edge |
+| --- | --- | --- | --- | --- | --- |
+| flowchart | 50.1 | 38 | 55 | 43.6 | 60.7 |
+| sequence | 25.7 | 18 | 24 | 26.2 | 27.0 |
+| class | 50.2 | 36 | 50 | 50.3 | 49.6 |
+| state | 48.7 | 34 | 45 | 48.8 | 46.1 |
+
+**The chunk's inputs and their licences** (`dist/manifest.json`). Bytes are each package's share of the minified chunk.
+
+| Licence | Packages | Members, the largest first |
+| --- | --- | --- |
+| MIT | 22 | `mermaid` 12.2.0 (1,713,538), `@mermaid-js/parser` 2.0.1 (662,594), `cytoscape` 3.34.4 (455,796), **`katex` 0.18.10 (278,683)**, `lodash-es` 4.18.1 (121,141), `layout-base` 1.0.2 and 2.0.1, `cose-base` 1.0.3 and 2.2.0, `marked` 16.4.2, `dagre-d3-es` 7.0.14, `roughjs`, `es-toolkit`, `@upsetjs/venn.js`, `cytoscape-fcose`, `cytoscape-cose-bilkent`, `dayjs`, `@iconify/utils`, `stylis`, `@braintree/sanitize-url`, `uuid`, `ts-dedent` |
+| ISC | 32 | the d3 modules (`d3-selection`, `d3-shape`, `d3-scale-chromatic` and others) |
+| Apache-2.0 | 5 | `chevrotain` 13.2.0 and its four `@chevrotain/*` packages (112,391 together) |
+| BSD-3-Clause | 5 | `d3-sankey`, `d3-path` 1.0.9, `d3-ease`, `d3-shape` 1.3.7, `d3-array` 2.12.1 |
+| MPL-2.0 OR Apache-2.0 | 1 | `dompurify` 3.4.17 (33,418) |
+| none in `package.json` | 1 | `khroma` 2.1.0 (12,460); its `license` file is the MIT licence |
+| **Unlicense** | 1 | **`robust-predicates` 3.0.3 (1,962)**, through `d3-delaunay` and `delaunator` |
+
+- **Two KaTeX versions.** Mermaid brings its own KaTeX 0.18.10 for math in labels (D5): 278,683 bytes in this chunk. The LaTeX widget pins 0.19.1, so a board with both carries both.
+- **Unlicense reaches the chunk.** `robust-predicates`, flagged by task 1.3's licence check, is in the Mermaid chunk and so ships with it. The product owner decides (task 8.1).
+- The chunk's notices (`dist/notices/mermaid.txt`) carry each package's licence file; `khroma`'s comes from its `license` file.
+- What else makes the chunk large, for criterion 6: Mermaid's own code (1.71 MB), its Langium parsers (`@mermaid-js/parser`, 0.66 MB) and cytoscape (0.46 MB, for the mindmap and architecture diagrams).
+
+## PlantUML (task 3.2)
+
+**Build.** Both chunks come from the npm tarball of `@plantuml/core` 1.2026.9 (`bun run build`, `dist/manifest.json`):
+
+| Chunk | Holds | Script, raw / gzip | Style, raw / gzip |
+| --- | --- | --- | --- |
+| `plantuml` | `plantuml.js` and `viz-global.js`, the latter handed to the engine as `PLANTUML_VIZ` (bundled, the UMD attaches `Viz` to its exports, as the README says) | 4,643,642 / 1,664,453 | 2,100 / 879 |
+| `plantuml-smetana` | `plantuml.js` only | 3,185,812 / 1,052,168 | 2,100 / 879 |
+
+- `viz-global.js` adds 1,457,830 bytes raw and 612,285 gzip.
+- Its UMD has a Node branch that calls `require("url")`. That branch never runs in a document, yet Bun bundles its browser stand-in for `node:url`: 8,126 bytes, listed under `inputs.builtins`, with no licence notice. A build plugin can replace it with an empty module, as for elkjs.
+
+**The files of the tarball and their licences.** "Inlined" means the file is in a chunk.
+
+| File | Inlined | What it holds | Licence and source |
+| --- | --- | --- | --- |
+| `plantuml.js` (3.2 MB) | both chunks | PlantUML compiled by TeaVM. It carries TeaVM's runtime (`teavm_meta`, "TeaVM") and the code the LICENSE credits: a Brotli decoder (its dictionary is in the file), CafeUndZopfli and ASCIIMathML | MIT: the tarball's `LICENSE`; the README says versions from 1.2026.6 on are MIT, earlier ones GPL-3.0-or-later. The repository `plantuml/plantuml` is LGPL-3.0 (GitHub API). The vendored parts: TeaVM Apache-2.0 (`konsoletyper/teavm`), Brotli MIT (`google/brotli`), CafeUndZopfli Apache-2.0 (`eustas/CafeUndZopfli`, 83 stars, last push 2019-11-25), ASCIIMathML MIT (`asciimath/asciimathml`). **The tarball carries none of their licence texts**, only credits for Brotli, CafeUndZopfli and ASCIIMathML |
+| `viz-global.js` (1.4 MB) | `plantuml` only | Viz.js 3.24.0 with "Graphviz" and "Expat" "in object code form" (its header): Graphviz 14.1.1 (`Viz.graphvizVersion`) compiled to WebAssembly, embedded as base64 | Viz.js MIT (`mdaines/viz-js`, 4,356 stars). **Graphviz EPL-2.0** (`gitlab.com/graphviz/graphviz`, GitLab API). Expat MIT (`libexpat/libexpat`). The tarball carries no licence text for any of the three |
+| `vendor/fflate-0.8.2.min.js` | no: only the demo page's `main.js` uses it | fflate 0.8.2 | MIT, `vendor/fflate-LICENSE.txt` |
+| `emoji.js` (1.8 MB) | no | Twemoji's SVG paths | Twemoji: code MIT, **graphics CC-BY 4.0** (`twitter/twemoji` README); CC-BY-4.0 is not in the adoption rule's list |
+| `themes.js` (319 KB) | no: AskBoard themes diagrams with skinparams | The `!theme` definitions, whose `author:` fields name Brett Schwarz (22 themes), Drakemor (8), Matthew Leather (6), future-architect (3) and others | The LICENSE credits "Themes (c) by Brett Schwarz" (`bschwarz/puml-themes`, MIT, 273 stars); the other authors' themes carry no licence |
+| `openiconic.js` | no | Open Iconic's icons | MIT for the SVG markup (`iconic/open-iconic` README) |
+
+- Graphviz is EPL-2.0, the licence of elkjs, which §9 excludes as a trap. The adoption rule admits EPL-2.0 only unmodified, and whether Viz.js's build of Graphviz is unmodified is not stated in the tarball. Keeping `viz-global.js` is therefore a licence decision as well as a CSP one (below). The product owner decides (task 8.1); the PRD addendum changes only if they do.
+- The chunk notices (`dist/notices/plantuml*.txt`) hold the tarball's MIT `LICENSE` only. A product build must add the licence texts of TeaVM, Brotli, CafeUndZopfli and ASCIIMathML, and for the `plantuml` chunk those of Viz.js, Graphviz and Expat, from their repositories.
+
+**What renders without `viz-global.js`, and whether it needs `'wasm-unsafe-eval'`.** Five fixtures (sequence, class, activity, component, state), each through both chunks, in every engine:
+
+| Diagram | `plantuml-smetana`, AD-8 as written (runs `plantuml`, `plantuml-shim`) | `plantuml`, AD-8 as written (same runs) | `plantuml`, variant `wasm` (run `plantuml-wasm`) |
+| --- | --- | --- | --- |
+| sequence | renders | renders | renders |
+| activity | renders | renders | renders |
+| class | renders (Smetana) | **fails**: Graphviz cannot start | renders (Graphviz) |
+| component | renders (Smetana) | **fails** | renders (Graphviz) |
+| state | renders (Smetana) | **fails** | renders (Graphviz) |
+
+- **`viz-global.js` needs `'wasm-unsafe-eval'`.** Under AD-8 as written, Graphviz's `WebAssembly.instantiate` is refused, and PlantUML answers with its crash image: "For some reason, dot/GraphViz has crashed. RootCause … CompileError … 'unsafe-eval' is not an allowed source of script". AskBoard turns that image into a render error (§ Criterion 5).
+- **The smallest policy change** is `'wasm-unsafe-eval'` in `script-src` of both policies: the board page's inherited policy blocks WebAssembly too. AD-8 admits it only for a WASM formula engine. With it (run `plantuml-wasm`, with the style shim and `board-img-blob`), the five types pass in all five engines.
+- **WebKit reports nothing.** Chromium, Chrome, Edge and Firefox fire a `script-src` violation with blocked URI `wasm-eval`, one per policy. WebKit fires none and only logs "Refused to create a WebAssembly object because 'unsafe-eval' or 'wasm-unsafe-eval' is not an allowed source of script". A CI check that relies on violation events misses it in WebKit. The error-image filter catches it in every engine.
+- **Without `viz-global.js`, nothing needs WebAssembly.** PlantUML logs "falling back to the Smetana layout engine", and the three Graphviz types render. Of the five fixtures, only the class, component and state diagrams differ in layout; screenshots of both layouts are in `evidence/diagrams/` (task 6.1).
+
+Render time in ms, PlantUML's own work from `renderToString` to the SVG text, one load each, the first render after the chunk loads:
+
+| Diagram, chunk | Chromium | Firefox | WebKit | Chrome | Edge | Run |
+| --- | --- | --- | --- | --- | --- | --- |
+| sequence, `plantuml` | 82.7 | 93 | 112 | 76.9 | 99 | `plantuml-wasm` |
+| sequence, `plantuml-smetana` | 79.5 | 97 | 101 | 73.3 | 117.9 | `plantuml-shim` |
+| class, Graphviz | 107.5 | 121 | 138 | 109.3 | 113.6 | `plantuml-wasm` |
+| class, Smetana | 103.7 | 119 | 131 | 101.3 | 99.1 | `plantuml-shim` |
+| state, Graphviz | 107.6 | 130 | 137 | 107 | 109.7 | `plantuml-wasm` |
+| state, Smetana | 107.2 | 120 | 133 | 107.4 | 102.4 | `plantuml-shim` |
+
+- **Anchors** (run `plantuml-shim`). PlantUML marks participants and entities with their source name (`data-qualified-name`), and messages and links with their ends (`data-entity-1`, `data-entity-2`). The hit map finds 16 anchors in the sequence diagram, 5 in the class and component diagrams, and 10 in the state diagram (5 entities, 5 links).
+- **Activity diagrams carry no such marks**, so the hit map finds no anchor there. The annotation overlay would need label-and-occurrence anchors taken from the text, a `view` epic item.
+
+## Diagram style writes under the view CSP (criterion 1, the diagrams' share)
+
+Both renderers set styles while they draw, and AD-8's hash-only `style-src` blocks every such write. Per render, counted once per policy (each blocked write fires one event under the view's policy and one under the board's):
+
+| Where the write comes from | Mermaid flowchart, Chromium, Chrome, Edge | Mermaid flowchart, Firefox | Mermaid flowchart, WebKit | PlantUML golden sequence, every engine |
+| --- | --- | --- | --- | --- |
+| A script sets a `style` attribute in the live DOM: d3's `.attr("style", …)` in Mermaid's temporary SVG; PlantUML's `setAttribute("style", "white-space: pre")` on each text and a `style` on its root `<svg>` | 39 | 37 | 39 | 17 |
+| Mermaid's `<style>` with the theme rules, inserted into its temporary SVG (D4) | 1 | 1 | 1 | — |
+| DOMPurify parses the serialized SVG with `DOMParser` (`securityLevel: 'strict'`), and Chromium reports each `style` attribute and `<style>` element the parsed document holds | 44 + 1 | — | — | — |
+
+Sources:
+- The sites: `bun tools/diagram-report.ts mermaid-blob --sites chromium mermaid-flowchart` and `bun tools/diagram-report.ts plantuml --sites chromium plantuml-sequence` map each violation's line and column in the srcdoc onto the chunk. They find d3's `setAttribute`, Mermaid's `document.createElement("style")` then `insertBefore`, DOMPurify's `parseFromString`, and PlantUML's two `setAttribute("style", …)`.
+- The counts come from runs `mermaid-blob` and `plantuml`, through `bun tools/diagram-report.ts`. Per fixture and engine, a Mermaid render fires 4 events (the sequence diagram, Firefox) to 202 (the class diagram, Chromium), a PlantUML render 13 to 52.
+
+**The output does not change.** A blocked write still sets the attribute, so it stays in the SVG text. The text of `mermaid-blob`'s flowchart holds 44 `style` attributes and its `<style>` element, as the shimmed one does, and the image applies them, because an image's own styles are outside the page's CSP (AD-8). What the blocks do affect is Mermaid's measurement of labels in its temporary SVG (§ Mermaid text measurement).
+
+**The style shim** (`props.probe.shim`; `withCssomStyles` in `_diagram.tsx`, `renderShimmed` in `mermaid.tsx`) is AskBoard code around the render. It does three things:
+1. While a diagram renders, `Element.prototype.setAttribute("style", v)` becomes `element.style.cssText = v`. That is a CSSOM write, which the CSP allows. A `style` attribute in parsed markup is still blocked; only a script's own writes change route, and a script can already make them through the CSSOM.
+2. Mermaid's `<style>` is not inserted. Its rules are applied as a constructed stylesheet through `document.adoptedStyleSheets`, which the CSP allowed in every engine (this settles D11's open question for constructed sheets). After the render, its text goes back into the SVG text.
+3. Before DOMPurify parses the SVG text, ` style="` is renamed ` data-ab-style="`, and renamed back after. DOMPurify keeps `data-` attributes.
+
+With the shim and the `board-img-blob` variant, every diagram fixture passes with 0 violations in all five engines:
+- runs `mermaid-shim` (4 Mermaid fixtures);
+- `plantuml-shim` (the 5 Smetana fixtures, and the sequence and activity diagrams through the Graphviz chunk);
+- `plantuml-wasm` (the 5 Graphviz fixtures, with the `wasm` variant as well).
+
+The shim is 77 lines, comments included: 26 in `_diagram.tsx` and 51 in `mermaid.tsx`.
+
+- **The policy alternative** would be `'unsafe-inline'` for `style-src-attr` and `style-src-elem`, which AD-8 and criterion 1 forbid. Without the shim or that, Mermaid and PlantUML fail criterion 1 in every engine.
+- **What the shim's third step means.** The renaming hides `style` attributes from DOMPurify's parse. DOMPurify allows `style` attributes by default anyway and never parses their CSS, and the SVG is only ever shown as an image, where no style can load anything. The product owner decides whether AskBoard carries the shim, or Mermaid's sanitizing step is dropped (`securityLevel: 'loose'`) as a smaller change. That alternative was not measured.
+
+## Criteria 3 and 4: rendering inside the bundle, shown as `blob:` images (task 3.3)
+
+Fixtures:
+- four diagrams with the style shim: the Mermaid flowchart and sequence diagrams, the PlantUML golden sequence diagram, and the Smetana class diagram;
+- `plantuml-resources`: a source that asks for a theme (`!theme cerulean`), a standard-library include (`!include <C4/C4_Context>`), an emoji and an icon, with AskBoard's refusing loader;
+- `plantuml-resources-default`: the same source with the engine's own script-tag loader.
+
+Each fixture loaded in every engine, 30 loads per run:
+
+| Run | Where | Requests | `connect-src` violations | `img-src` violations | Image source per diagram | Verdict of the four diagrams |
+| --- | --- | --- | --- | --- | --- | --- |
+| `c3c4` | board, AD-8 as written | 0 | 0 | 24: one per diagram load, two in WebKit, all from the **board page's policy** | `blob:`, blocked | fail, 5 engines |
+| `c3c4-snapshot` | Snapshot opened from `file://` | 0 | 0 | 0 | `blob:`, loaded | pass, 5 engines |
+| `c3c4-blob` | board, variant `board-img-blob` | 0 | 0 | 0 | `blob:`, loaded | pass, 5 engines |
+
+"Requests" counts any request besides the stand-in's own board page and view document. The `plantuml-resources-default` loader's attempts, below, are listed apart.
+
+**Criterion 3 passes.** Mermaid and PlantUML render inside the view's bundle, with no Java, no server and no request, in every engine, on the board and in a Snapshot. Across the 330 loads of runs `mermaid`, `mermaid-blob`, `mermaid-shim`, `plantuml`, `plantuml-shim`, `plantuml-wasm`, `c3c4`, `c3c4-snapshot`, `c3c4-blob`, `sponsor`, `anchors` and `anchors-dark`, the view made no request (besides the blocked script tags of the engine's own loader, below), no worker and no storage access, and fired no `connect-src` or `worker-src` violation.
+
+**Criterion 4 fails on the board under AD-8 as written.** Every diagram is an `<img>` whose `src` is a `blob:` URL (`blob:null/…`, made in the opaque view). The board page's policy names no `img-src`, so `default-src 'none'` blocks the image. The srcdoc inherits that policy, and the view's own `img-src data: blob:` cannot widen it (the hand-off's risk, now measured).
+- **The smallest change** is `img-src blob:` in the board page's policy (variant `board-img-blob`). With it the four diagrams pass in all five engines (run `c3c4-blob`).
+- A Snapshot has no board page, so its diagrams load as written (run `c3c4-snapshot`).
+- **The same gap applies to `data:` images and `data:` fonts in the view** (an inference, not measured here). The board policy names no `font-src` either, so the fonts AD-8 inlines as `data:` URLs (KaTeX's, the bundled families) would be blocked the same way. Group 4's components that inline fonts should be run with and without the variant.
+
+**PlantUML's script-tag loader** (`plantuml-resources-default`; D7). The engine makes `<script src="themes.js">` and `<script src="c4.min.js">`.
+- **On the board** the relative URLs resolve against the board page's URL: `/b/themes.js` and `/b/c4.min.js` on the session process's origin. Both policies block them (`script-src-elem`, two events per script in every engine). Chromium, Chrome and Edge record each as a request that failed with "csp"; Firefox and WebKit record none. Had the policy allowed scripts by URL, these would have reached the session process.
+- **In a Snapshot** they resolve to `file:` URLs in the Snapshot's own folder.
+  - Chromium, Chrome and Edge block them under the view's policy.
+  - WebKit refuses with "Not allowed to load local resource".
+  - **Firefox does not apply `script-src` to them.** In the Snapshot run it only logged "Loading failed for the <script>", because no such file was there. `bun tools/check-file-scripts.ts` puts a `themes.js` beside a page opened from `file://` whose only allowed script is hashed. In Playwright's Firefox 157 the script runs ("script ran: true", no violation); in Chromium and WebKit it is blocked. The installed Firefox 124.0.2 runs it too (`--firefox`; its headless screenshot reads "SCRIPT RAN", `evidence/file-scripts/installed-firefox-124.png`). So in Firefox, a file placed next to a Snapshot runs if any code in the view makes a script tag with a relative URL.
+- **AskBoard's refusing loader** (`plantuml-resources`): `PLANTUML_STDLIB_LOADER` answers every library, theme, emoji and icon load with an error. No script tag is made in any engine, on the board or in a Snapshot. PlantUML answers with its error image, and the Diagram shows "cannot include <C4/C4_Context> (line 14)" (§ Criterion 5). The refusing loader is therefore required, not a nicety: without it, a source the agent writes makes the view request the session process on the board, and run a local file from a Snapshot in Firefox.
+- PlantUML's `!include` of a local file goes to `PLANTUML_FILE_LOADER`, which AskBoard does not set, so such an include fails in the same way (README).
+
+**Task 3.3 stays open, awaiting PO.** Its runs are complete, but its verification asks for no `img-src` violation on the board, and under AD-8 as written there is one per diagram. It holds only with the board policy's `img-src blob:`, an AD-8 amendment the product owner decides (task 8.3).
+
+## Criterion 5: PlantUML's sponsored messages (task 3.4)
+
+Run `sponsor`, in every engine, with the style shim and the `board-img-blob` variant. AskBoard's filter (below) is on. The search runs on each SVG as PlantUML returned it, before the filter (`drive.ts`, `contentOf`): embedded `<image>` elements, `data:image/` URLs, and the text pattern `sponsor|advert|patreon|liberapay|paypal|professional|donat|plantuml.com|plantuml@|upgrad|qrcode`, with the `<?plantuml-src …?>` instruction left out.
+
+| Fixture | Source | What PlantUML returns, through its success callback | Embedded images | Matches of the pattern | Shown |
+| --- | --- | --- | --- | --- | --- |
+| `sponsor-empty` | an empty source | An error image: "PlantUML version $version$ … [From textarea (line 1)] … Empty description (Assumed diagram type: sequence)", green on black | 0 | none | no: "Empty description (Assumed diagram type: sequence) (line 1)" |
+| `sponsor-empty-diagram` | `@startuml` and `@enduml` only | the same, line 2 | 0 | none | no |
+| `sponsor-error` | a syntax error | An error image: the source echoed, then "Syntax Error? (Assumed diagram type: sequence)" | 0 | none | no: "Syntax Error? (Assumed diagram type: sequence) (line 3)" |
+| `sponsor-crash` | a class diagram while Graphviz cannot start | A crash image: "An error has occurred!", **a random quote** ("Reality is the only thing that's real" in Firefox, "Therese, c'est une catastrophe" in Chrome, a different one each load), the Java stack, then "You should send this diagram and this image to plantuml@gmail.com or post to https://plantuml.com/qa" and "Please go to https://plantuml.com/graphviz-dot" | 0 | `plantuml.com`, `plantuml@` | no: "For some reason, dot/GraphViz has crashed." |
+| `sponsor-golden` | the golden source | the diagram | 0 | none | yes |
+
+The table is the same in all five engines. The crash fixture's verdict is "fail" in Chromium, Chrome, Edge and Firefox because of the blocked WebAssembly (§ PlantUML), not because of anything shown.
+
+**What 1.2026.9 holds.**
+- No welcome image: an empty source gives "Empty description".
+- No sponsored or advertising message on any image, and no embedded image. Text searches of `plantuml.js` find "sponsor", "advert", "professional" and "welcome" only inside its Brotli dictionary. They find no "patreon", "liberapay", "paypal" or "donat". The strings "Diagram source: (Use http://zxing.org/w/decode.jspx to decode the qrcode)" and "This version of PlantUML is … days old, so you should consider upgrading from https://plantuml.com/download" are in the code, and none of these runs produced either.
+- The LICENSE's warning ("can occasionally display sponsored or advertising messages … on welcome or error images") matches the build only in that error images carry text AskBoard does not want shown: the random quote, the request to mail the diagram, and links to plantuml.com.
+
+**The suppression** (`errorImage` in `_plantuml.tsx`). No renderer option suppresses these images (D8), so the filter works on the SVG before it becomes a blob:
+- an SVG whose first text line starts with "PlantUML version " (empty source, syntax error, a refused include) or "An error has occurred" (crash) is an error image;
+- it becomes a render error carrying PlantUML's message and line;
+- the Diagram shows that message and keeps its last good render, as EXPERIENCE.md asks for a source that does not render (F-07).
+
+Run `sponsor` shows no image for the four error fixtures, and the golden diagram shown, in every engine. So no PlantUML welcome, error or crash image reaches the board.
+
+**Where the images come from.**
+- PlantUML returns error and crash images through `renderToString`'s success callback; the error callback is kept for its own limits ("Diagram too large for browser rendering").
+- The images carry no attribute that tells them from a diagram. Sequence, class, component and state diagrams carry `data-source-line` attributes and an error image has none, but neither do activity diagrams. The filter therefore relies on the first line's text, which a later PlantUML version may change. The `view` epic should pin a check of it, rendering an empty source and a syntax error in CI.
+
+## Anchors and diagram theme (task 3.6)
+
+Runs `anchors` (light) and `anchors-dark` (`--color-scheme dark`), with the style shim and the `board-img-blob` variant. Fixtures:
+- `anchors-plantuml`: the golden PlantUML source;
+- `anchors-mermaid`: the four Mermaid fixtures on one board.
+
+Hit regions are drawn as dashed outlines (`props.showHits`). Each fixture lists the anchors its source calls for (`expectAnchors`, written by `tools/diagram-fixtures.ts` from the source, not from the output). The verdict fails on a missing one.
+
+**Result:** both fixtures pass in all five engines, light and dark, with 0 violations. Every expected anchor is in the hit map (10 runs × 2 fixtures).
+
+**How an anchor is keyed** (`<kind>:id:<source id>#<n>` or `<kind>:label:<label>#<occurrence>`; AD-7, F-62):
+
+| Diagram | Anchors (Chromium; the same keys in every engine) | Taken from |
+| --- | --- | --- |
+| Golden, PlantUML | `participant:id:Customer#1`, `Web#1`, `API#1`, `Orders#1`, `Gateway#1` (the heads) and `#2` of each (the feet); `message:label:Place order#1`, `POST /checkout#1`, `create order#1`, `authorize payment#1`, `authorized#1`, `order confirmed#1` | `data-qualified-name` on `g.participant`; each drawn `g.message` group and its text |
+| Mermaid flowchart | `node:id:A#1` to `E#1`; `edge:id:L_A_B_0#1`, `L_B_C_0#1` ("yes"), `L_B_D_0#1` ("no"), `L_D_C_0#1`, `L_C_E_0#1` | the node's element ID, `<render id>-flowchart-A-0`, with the source ID inside; `data-id` on the edge path |
+| Mermaid sequence | `participant:id:Agent#1`, `Board#1`, `User#1` and `#2` of each; `message:label:ask(question)#1`, `show question#1`, `answer#1`, `answer delivered#1`; `note:label:draft record holds edits#1` | `data-et="participant"` and `rect.actor-bottom[name]`; `data-et="message"` with its `messageText`; `data-et="note"` |
+| Mermaid class | `node:id:Ask#1`, `Answer#1`, `FollowUp#1`; `edge:id:id_Ask_Answer_1#1` ("receives"), `id_Ask_FollowUp_2#1` | as the flowchart (`…-classId-Ask-0`) |
+| Mermaid state | `node:id:root_start#1`, `Open#1`, `Answered#1`, `Discarded#1`, `root_end#1`; `edge:id:edge0#1` to `edge4#1` | as the flowchart (`…-state-Open-2`); `data-id` on the edge path |
+
+What the hit maps show:
+- **Messages are keyed by label, never by the renderer's number.**
+  - PlantUML numbers messages by position (`msg1` to `msg6`); Mermaid does too (`i0` to `i3`).
+  - The golden flow's source edit moves "create order" from third to fifth place, so a pin keyed to `msg3` would land on "authorize payment".
+  - Keyed by label, the pin follows its message: run `golden-time` reads `message:label:create order#1` at y = 149 before the edit and y = 205 after it, in every load (§ Golden case time).
+- **Mermaid's state edges are positional too** (`edge0` to `edge4`), and the unlabelled ones have no label to fall back on. A reordered state source would move their pins. Keying them by their ends needs the source's transitions, which the SVG does not carry: a `view` epic item.
+- **PlantUML draws each message twice**: an empty `g.message` placeholder first, then the drawn group, both with the same ID. Only the drawn one is an anchor. Its box joins the arrow and the label, and hit regions are at least 8 units across, so a straight edge stays clickable.
+- **Hit regions sit on the drawn shapes.** The overlay is an SVG with the diagram's own `viewBox`, absolutely placed over the `<img>`. In the screenshots below, at the image's natural size, the outlines sit on the shapes. A scaled image was not measured; the overlay scales with the same `viewBox`.
+
+**Diagram theme** (DESIGN.md, Diagram theme). At each render, the component reads the `diagram` tokens from the CSS variables (`--card`, `--foreground`, `--muted`, `--border-strong`, `--foreground-secondary`), so the `.dark` class re-points them.
+- **Mermaid**: the `base` theme with the mapped `themeVariables`, `darkMode` for dark, and the sequence message font `--ab-font-mono` at 12px.
+- **PlantUML**: the mapped skinparams after the `@start…` line, with `DefaultFontName sans-serif` and `ArrowFontName monospace`, because a CSS font stack does not fit a skinparam. Dark adds PlantUML's own `{ dark: true }`.
+- With no parent host, the view follows `prefers-color-scheme` (`theme: system`), as a Snapshot does.
+- A switch of the `.dark` class while a board is open re-renders each diagram (the component watches the class). That switch is task 4.6's run `theme`.
+
+**Screenshots for the product owner** (task 6.1), each diagram whole with its hit regions drawn, in Chromium, Firefox and WebKit:
+- `evidence/diagrams/light/<engine>/` and `evidence/diagrams/dark/<engine>/`: `plantuml-golden.png`, `mermaid-flowchart.png`, `mermaid-sequence.png`, `mermaid-class.png`, `mermaid-state.png`;
+- `evidence/diagrams/layout/`: the PlantUML class, component and state fixtures laid out by Graphviz (`*-graphviz.png`, run `plantuml-wasm`) and by Smetana (`*-smetana.png`, run `plantuml-shim`), in Chromium, light.
+
+**Awaiting PO** (task 6.1): the light and dark diagram themes, the hit regions, and the Smetana layouts against Graphviz.
+- Seen by the probe, not judged: Mermaid 12 draws nodes in its `neo` look (`data-look="neo"`), with a soft shadow that shows as a light halo in dark. AskBoard's configuration does not set `look`, and `look` is in `secure`.
+
+## Mermaid text measurement (task 3.5)
+
+Run `measure` (`--script measure`, with the `board-img-blob` variant), in every engine. Two label-heavy fixtures, each holding the same source five times, once per way of measuring:
+- `measure-flow`: a top-down flowchart with long node and edge labels;
+- `measure-sequence`: three participants with long names, four long messages and a note.
+
+Each board loads under the CSP and in the control page (no CSP, no sandbox). The method:
+- The final SVG of each item is drawn in a page with no CSP, in the same engine, at one pixel per user unit. Its own `<style>` applies there, as it does inside the image.
+- A label overflows when its text extends more than 0.5 px past its box: a node's shape, an edge label's background, a participant's or a note's rectangle, or for a message the span between its two lifelines.
+- Each fixture has 8 labels per item.
+
+Overflowing labels, out of 8:
+
+| Way of measuring (`props.measure`) | flowchart, CSP | sequence, CSP | both, control |
+| --- | --- | --- | --- |
+| `none`: Mermaid as configured, the font Mermaid's default (`"trebuchet ms", verdana, arial, sans-serif`, 16px) | **2** in every engine | 0 | 0 |
+| `shell-rule`: a rule in the hashed shell stylesheet gives Mermaid's temporary container (`div[id^="dmermaid-shell-rule-"]`, `styles/base.css`) that font and size | 0 | 0 | 0 |
+| `cssom`: the same rule inserted through the CSSOM (`insertRule` on a hashed sheet) | 0 | 0 | 0 |
+| `config`: Mermaid's `fontFamily` and `fontSize` set to the page's own (the shell's sans stack, 13px) | 0 | 0 | 0 |
+| `shim`: the style shim, which applies Mermaid's own `<style>` as a constructed stylesheet (§ Diagram style writes) | 0 | 0 | 0 |
+
+The two overflowing labels under `none` are both edge labels: text width against its background's width, overflow in px.
+
+| Engine | "yes, within the time limit" | "no, or the gateway timed out" |
+| --- | --- | --- |
+| Chromium, Chrome, Edge | 183.2 against 150.2, 16.5 | 211.1 against 177.3, 16.9 |
+| Firefox | 189.4 against 154.4, 17.5 | 217.3 against 181.5, 17.9 |
+| WebKit | 183.3 against 150.5, 16.4 | 211.2 against 177.9, 16.6 |
+
+**Why.** Under the CSP, Mermaid measures a label in its temporary SVG while its `<style>` is blocked (D4), so the text takes the page's font: the shell's sans stack at 13px. The image then draws the same text in the theme's font at 16px. The `config` item confirms it: drawn in the page's font, it has exactly the geometry of the `none` item.
+- Flowchart labels are sized from that measurement: the edge-label backgrounds come out about 18% too narrow, and the diagram is laid out too wide and too short (491 × 586 user units, against 449 × 698 in the control run, Chromium).
+- The sequence diagram is not affected: 0 overflows under the CSP. Mermaid sizes sequence text from its own font settings, written through the CSSOM (D4), so the blocked `<style>` does not change them (an inference from the code D4 cites).
+
+**The chosen mitigation is the first in design decision 5's order, the shell rule: 0 overflowing labels in all five engines.**
+- Its cost is one hashed rule in the shell stylesheet, which must name the same font and size as Mermaid's configuration.
+- The CSSOM variant does the same at run time.
+- `config` also reaches 0, by drawing the labels at the page's 13px. It changes how the diagrams look, and the product owner judges it on the screenshots.
+
+**How close each comes to an unrestricted render** (viewBox of the flowchart; the same proportions in every engine):
+- Chromium: shim 449.3 × 698.2, exactly the control's; shell rule and CSSOM 475.2 × 698.2; `config` 491.4 × 586.4.
+- Firefox: shim 456.4 × 703.2, again the control's.
+- WebKit: shim 449.3 × 696.2, again the control's.
+
+With the shim, Mermaid lays out under the CSP as it does without one. If the product owner adopts the shim for criterion 1, the shell rule is not needed. The shell rule's diagram is 6% wider than the control's because other theme rules, such as edge-label padding, are still missing during measurement. No label overflows.
+
+**Screenshots** (task 6.1), each item whole, in Chromium, Firefox and WebKit, in `evidence/measure/<engine>/`:
+- `flow-none.png`, where the "yes" label runs past the left edge of the image and both edge labels run past their backgrounds;
+- `flow-shell-rule.png`, `flow-cssom.png`, `flow-config.png`, `flow-shim.png`;
+- `flow-control.png`, the same source with no CSP;
+- the same six for `sequence-…`.
+
+**Awaiting PO** (task 6.1): the Mermaid labels after the mitigation.
+
+## Golden case time (task 3.7)
+
+Run `golden-time` (`--script golden --repeat 20`, with the `board-img-blob` variant): 20 loads per fixture and engine, 300 loads, every one "pass". Each load opens a fresh browser context and assembles the view again; the browser process stays up. Fixtures:
+- `golden`: the golden board with the PlantUML chunk that holds `viz-global.js`;
+- `golden-smetana`: the same board with the chunk without it;
+- `golden-text`: the same board with a Text in the diagram's place, the baseline.
+
+The diagram carries the style shim. Times are from `t0`, when the board page sets the srcdoc, in ms: median (maximum).
+
+| Engine | Fixture | Renderer's mount | PlantUML render starts | Render, its own time | Image loaded | Diagram ready | **Question visible** |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Chromium | `golden` | 134.7 (139.6) | 140.3 (145.4) | 83.7 (93.0) | 233.8 (252.3) | 235.7 (271.6) | **235.8 (271.6)** |
+| | `golden-smetana` | 116.4 (120.5) | 121.8 (126.3) | 83.2 (86.9) | 215.0 (221.5) | 221.3 (225.3) | **221.3 (225.4)** |
+| | `golden-text` | 18.7 (20.0) | — | — | — | — | **32.1 (34.6)** |
+| Firefox | `golden` | 386 (427) | 390 (431) | 102.5 (123) | 498.5 (558) | 504 (566) | **504 (566)** |
+| | `golden-smetana` | 312.5 (328) | 316.5 (332) | 103 (111) | 426.5 (446) | 433.5 (464) | **433.5 (464)** |
+| | `golden-text` | 25 (27) | — | — | — | — | **37.5 (53)** |
+| WebKit | `golden` | 116.5 (130) | 127.5 (142) | 105.5 (119) | 242 (273) | 274.5 (298) | **274.5 (299)** |
+| | `golden-smetana` | 108.5 (112) | 119 (123) | 106 (110) | 234.5 (242) | 263 (275) | **263 (275)** |
+| | `golden-text` | 11 (13) | — | — | — | — | **39.5 (48)** |
+| Chrome | `golden` | 137.4 (168.5) | 143.1 (174.5) | 84.8 (87.8) | 234.6 (266.7) | 240.2 (271.6) | **240.3 (271.6)** |
+| | `golden-smetana` | 122.3 (127.1) | 128.2 (132.9) | 84.7 (87.5) | 218.4 (224.9) | 225.6 (232.4) | **225.7 (232.5)** |
+| | `golden-text` | 13.9 (24.9) | — | — | — | — | **33.1 (40.9)** |
+| Edge | `golden` | 132 (162.2) | 137.8 (171.3) | 83.3 (110.1) | 226.5 (291.4) | 233.5 (304.2) | **233.5 (304.3)** |
+| | `golden-smetana` | 115.1 (118.6) | 120.6 (124.4) | 82.4 (85.7) | 209.5 (214.8) | 217 (222.8) | **217.1 (222.9)** |
+| | `golden-text` | 14.7 (22.8) | — | — | — | — | **30 (37.4)** |
+
+**The PlantUML share of the time to visible**, from the medians:
+
+| Engine | `golden` minus `golden-text` | Share of `golden`'s time to visible | Of which: parsing the chunks (mount, `golden` minus `golden-text`) | PlantUML's render and image (render start to diagram ready) |
+| --- | --- | --- | --- | --- |
+| Chromium | 203.7 | 86% | 116.0 | 95.4 |
+| Firefox | 466.5 | 93% | 361.0 | 114.0 |
+| WebKit | 235.0 | 86% | 105.5 | 147.0 |
+| Chrome | 207.2 | 86% | 123.5 | 97.2 |
+| Edge | 203.5 | 87% | 117.4 | 95.7 |
+
+- **The PlantUML diagram is most of the golden case's time to visible**, in every engine: 86 to 93%.
+  - About half of it is parsing and compiling the 4.6 MB chunk before anything mounts. In Firefox it is three quarters: 361 ms.
+  - The rest is PlantUML's first render (83 to 106 ms), then loading the image and laying it out once.
+- **The Smetana chunk is faster to visible**, from 11.5 ms (WebKit) to 70.5 ms (Firefox), because it is 1.46 MB smaller to parse. Its render time is the same.
+- **WebKit takes about 30 ms from the image's load to the diagram's ready**, against 2 to 7 ms elsewhere. Ready waits for one layout and an animation frame after the image loads.
+- **The golden flow's source edit** (step 4) is written to the draft record, and the diagram re-renders in place. From the render's start to the new image loaded, the median (maximum) is:
+
+  | Engine | `golden` | `golden-smetana` |
+  | --- | --- | --- |
+  | Chromium | 14.3 (20.0) | 14.6 (21.4) |
+  | Firefox | 28.5 (39) | 30.5 (36) |
+  | WebKit | 25.5 (41) | 26 (34) |
+  | Chrome | 16.3 (19.9) | 17.3 (19.1) |
+  | Edge | 15.6 (18.1) | 16.3 (19.6) |
+
+  PlantUML's own part is 9 to 25 ms once the engine is warm.
+- **The pin follows "create order".** In each of the 200 loads with a diagram, `message:label:create order#1` is at y = 149 before the edit and at y = 205 after it (207 in Firefox; 148.8 and 204.8 in WebKit), where the message moved (§ Anchors).
+- These are the board's own times on this machine (macOS, arm64), with the view served by the stand-in. SM-3's budget and the question-loading limit are set elsewhere (design.md, Open Questions); this gives the PlantUML part of them.
+- Screenshots of the golden board, light and dark, in Chromium, Firefox and WebKit (run `golden-look` and `golden-look-dark`, single loads, both fixtures): `evidence/golden/<engine>-light.png`, `evidence/golden/<engine>-dark.png`, for task 6.1.

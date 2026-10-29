@@ -1,0 +1,24 @@
+{
+  "description": "A theme, a stdlib include, an emoji and an icon, with AskBoard's refusing loader (task 3.3)",
+  "board": {
+    "id": "p1",
+    "title": "A theme, a stdlib include, an emoji and an icon, with AskBoard's refusing loader (task 3.3)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\n!theme cerulean\n!include <C4/C4_Context>\nAlice -> Bob : <:1f600:> hello <&heart>\n@enduml"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

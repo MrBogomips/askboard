@@ -13,7 +13,10 @@ const PORT = "../port/index.ts";
 
 // Each component file's own library; later groups add theirs.
 export const OWN_LIBRARIES: Record<string, string[]> = {
+  "_plantuml.tsx": ["@plantuml/core"],
   "choice.tsx": ["radix-ui"],
+  "mermaid.tsx": ["mermaid", "dompurify"],
+  "plantuml.tsx": ["@plantuml/core/viz-global.js"],
   "tabs.tsx": ["radix-ui"],
   "toggle.tsx": ["radix-ui"],
 };

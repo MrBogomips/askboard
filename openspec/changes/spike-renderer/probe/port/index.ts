@@ -107,6 +107,13 @@ export const useReadyAfterLayout = (ready: () => void, settled = true): void => 
   }, [settled, ready]);
 };
 
+// Probe only, not part of the product port: hands a measurement (a render time, a hit map, an
+// image's outcome) to the harness instrumentation when it is present.
+export const trace = (kind: string, data: Record<string, unknown> = {}): void => {
+  const probe = (globalThis as { __probe?: { post: (k: string, d: object) => void } }).__probe;
+  probe?.post(kind, data);
+};
+
 // The element both renderers put around every item: it carries the ID the tracker measures.
 export const ItemFrame = ({ item, children }: { item: Item; children?: ReactNode }) =>
   createElement(

@@ -13,3 +13,11 @@
     padding: 16px;
   }
 }
+
+/* Task 3.5, mitigation "shell-rule": Mermaid measures labels in a temporary SVG inside
+   `body > div#d<render id>`, and the CSP blocks the `<style>` it injects there. This rule gives
+   that container Mermaid's diagram font, so the labels are measured as they will be drawn. */
+div[id^="dmermaid-shell-rule-"] {
+  font-family: "trebuchet ms", verdana, arial, sans-serif;
+  font-size: 16px;
+}

@@ -1,0 +1,24 @@
+{
+  "description": "PlantUML activity diagram, with viz-global.js (task 3.2)",
+  "board": {
+    "id": "p1",
+    "title": "PlantUML activity diagram, with viz-global.js (task 3.2)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nstart\n:Agent sends the ask;\nif (Board open?) then (yes)\n  :Show the question;\nelse (no)\n  :Open the board;\nendif\n:User answers;\nstop\n@enduml"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

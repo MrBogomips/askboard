@@ -1,0 +1,27 @@
+{
+  "description": "PlantUML sequence diagram, with viz-global.js and the style shim (criterion 1)",
+  "board": {
+    "id": "p1",
+    "title": "PlantUML sequence diagram, with viz-global.js and the style shim (criterion 1)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nactor Customer\nparticipant \"Web app\" as Web\nparticipant \"Checkout API\" as API\nparticipant \"Order service\" as Orders\nparticipant \"Payment gateway\" as Gateway\nCustomer -> Web : Place order\nWeb -> API : POST /checkout\nAPI -> Orders : create order\nAPI -> Gateway : authorize payment\nGateway --> API : authorized\nAPI --> Web : order confirmed\n@enduml",
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

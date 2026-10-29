@@ -1,0 +1,83 @@
+{
+  "description": "The golden single-question case (EXPERIENCE.md, Key Flows), the diagram's item a PlantUML",
+  "board": {
+    "id": "golden",
+    "title": "Is the checkout flow correct as drawn?",
+    "items": [
+      {
+        "id": "q1",
+        "type": "Group",
+        "props": {
+          "title": "Is the checkout flow correct as drawn?"
+        },
+        "children": [
+          {
+            "id": "r1",
+            "type": "Row",
+            "props": {
+              "widths": [
+                3,
+                2
+              ]
+            },
+            "children": [
+              {
+                "id": "p1",
+                "type": "PlantUML",
+                "props": {
+                  "label": "Checkout flow",
+                  "source": "@startuml\nactor Customer\nparticipant \"Web app\" as Web\nparticipant \"Checkout API\" as API\nparticipant \"Order service\" as Orders\nparticipant \"Payment gateway\" as Gateway\nCustomer -> Web : Place order\nWeb -> API : POST /checkout\nAPI -> Orders : create order\nAPI -> Gateway : authorize payment\nGateway --> API : authorized\nAPI --> Web : order confirmed\n@enduml",
+                  "probe": {
+                    "shim": true
+                  }
+                }
+              },
+              {
+                "id": "x1",
+                "type": "Text",
+                "props": {
+                  "text": "Checkout spec · Order creation (docs/specs/checkout.md · §3.2 · lines 40–52): an order is created only after the payment gateway authorizes the payment."
+                }
+              }
+            ]
+          },
+          {
+            "id": "c1",
+            "type": "Choice",
+            "props": {
+              "label": "Is the checkout flow correct as drawn?",
+              "options": [
+                {
+                  "value": "correct",
+                  "label": "Correct"
+                },
+                {
+                  "value": "changes",
+                  "label": "Needs changes"
+                }
+              ]
+            }
+          },
+          {
+            "id": "n1",
+            "type": "TextField",
+            "props": {
+              "label": "Note for the agent (optional)"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ],
+  "rerender": {
+    "item": "p1",
+    "source": "@startuml\nactor Customer\nparticipant \"Web app\" as Web\nparticipant \"Checkout API\" as API\nparticipant \"Order service\" as Orders\nparticipant \"Payment gateway\" as Gateway\nCustomer -> Web : Place order\nWeb -> API : POST /checkout\nAPI -> Gateway : authorize payment\nGateway --> API : authorized\nAPI -> Orders : create order\nAPI --> Web : order confirmed\n@enduml"
+  }
+}

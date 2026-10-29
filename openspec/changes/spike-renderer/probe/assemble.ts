@@ -15,6 +15,8 @@ export type AssembleOptions = {
   csp?: boolean;
   draft?: Draft;
   theme?: "light" | "dark" | "system";
+  // Candidate amendments of AD-8 (csp.ts, VARIANTS); none by default.
+  variants?: string[];
 };
 
 export type Assembled = {
@@ -95,6 +97,7 @@ export const assemble = (
       : viewPolicy(
           scripts.map((s) => s.sha256),
           styles.map((s) => s.sha256),
+          options.variants,
         );
   const [instrument, ...rest] = chunks;
   if (instrument?.name !== "instrument") throw new Error("assemble: instrument must come first");

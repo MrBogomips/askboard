@@ -1,0 +1,72 @@
+{
+  "description": "The golden single-question case (EXPERIENCE.md, Key Flows), the diagram's item a Text",
+  "board": {
+    "id": "golden",
+    "title": "Is the checkout flow correct as drawn?",
+    "items": [
+      {
+        "id": "q1",
+        "type": "Group",
+        "props": {
+          "title": "Is the checkout flow correct as drawn?"
+        },
+        "children": [
+          {
+            "id": "r1",
+            "type": "Row",
+            "props": {
+              "widths": [
+                3,
+                2
+              ]
+            },
+            "children": [
+              {
+                "id": "p1",
+                "type": "Text",
+                "props": {
+                  "text": "(the diagram's place)"
+                }
+              },
+              {
+                "id": "x1",
+                "type": "Text",
+                "props": {
+                  "text": "Checkout spec · Order creation (docs/specs/checkout.md · §3.2 · lines 40–52): an order is created only after the payment gateway authorizes the payment."
+                }
+              }
+            ]
+          },
+          {
+            "id": "c1",
+            "type": "Choice",
+            "props": {
+              "label": "Is the checkout flow correct as drawn?",
+              "options": [
+                {
+                  "value": "correct",
+                  "label": "Correct"
+                },
+                {
+                  "value": "changes",
+                  "label": "Needs changes"
+                }
+              ]
+            }
+          },
+          {
+            "id": "n1",
+            "type": "TextField",
+            "props": {
+              "label": "Note for the agent (optional)"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=x1]",
+    "text": "Checkout spec"
+  }
+}

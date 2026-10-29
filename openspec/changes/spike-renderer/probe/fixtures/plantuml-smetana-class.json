@@ -1,0 +1,24 @@
+{
+  "description": "PlantUML class diagram, without viz-global.js (task 3.2)",
+  "board": {
+    "id": "p1",
+    "title": "PlantUML class diagram, without viz-global.js (task 3.2)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUMLSmetana",
+        "props": {
+          "label": "PlantUMLSmetana diagram",
+          "source": "@startuml\nclass Ask {\n  +id: String\n  +send()\n}\nclass Answer {\n  +value: String\n}\nclass FollowUp\nAsk \"1\" --> \"*\" Answer : receives\nAsk <|-- FollowUp\n@enduml"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}
