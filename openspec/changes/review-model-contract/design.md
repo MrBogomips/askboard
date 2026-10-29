@@ -53,7 +53,9 @@ Each example applies the lean-JSON rule:
 ### 3. Token counting: the token-counting API first, Claude Code runs as the fallback
 
 - **Primary:** count each document with the Messages token-counting endpoint for the model the benchmark uses, as the text of a user message, minus the count of an empty message. The counts are exact for that model's tokenizer.
-- **Fallback, with no API key:** `claude -p --output-format json` runs that ask the model to reproduce the document verbatim. Each count is `usage.output_tokens` minus a baseline run's. These counts are approximate; `measurements.md` says which method produced each number.
+- **Fallback, with no API key:** `claude -p --output-format json` runs with the model the benchmark uses, low effort and an isolated configuration (`--setting-sources ""`, `--strict-mcp-config`, `--tools ""`, a one-line system prompt). Each document is sent as the user message, and its count is the run's input tokens (`input_tokens` plus cache creation and cache reads) minus those of a baseline run whose message is `.`, plus one for that `.`. This is the tokenizer's count of the text, as the primary method gives it.
+- **Cross-check:** on a few documents, a run asks the model to copy the document verbatim, and the count is `usage.output_tokens` minus a baseline copy run's. `measurements.md` says which method produced each number and reports both on the cross-checked files.
+- **Decided on 2026-10-29:** no API key is available, so the counts use the fallback. A probe of a 135-character JSON text gave 53 tokens by input and by copy, the same on repeated runs.
 
 Only the example documents are sent; they hold no project or personal data.
 
