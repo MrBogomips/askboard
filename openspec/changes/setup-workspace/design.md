@@ -72,7 +72,7 @@ No dependency to add. Unit tests of runtime-neutral code can run on Bun because 
 | `widgets` | `contract`, `compute`, `view/catalog` |
 | `mod`, `hooks`, `bench` | `contract` |
 
-It extracts each file's import specifiers with Bun's transpiler and resolves `@askboard/*` specifiers and relative paths to a unit. It reports every disallowed edge with the file, the specifier and the rule broken, and fails. It also fails on Node built-ins and on `bun` or `bun:*` imports in the source files of `core` and `compute`; test files are exempt from that ban, but not from the unit boundaries. Fixtures cover each rule, in both directions.
+It extracts each file's import specifiers with Bun's transpiler and resolves `@askboard/*` specifiers and relative paths to a unit. A relative path that leaves the importing package fails: another package is reached only through `@askboard/<name>`, so its `exports` and the importer's dependency declaration both apply (decided on 2026-10-29, review finding L3). Inside `packages/server`, a relative path into another unit folder stays in the package and resolves to that unit. Absolute paths, `file:` URLs and `#` subpath imports fail too: the check cannot resolve them. It reports every disallowed edge with the file, the specifier and the rule broken, and fails. It also fails on Node built-ins and on `bun` or `bun:*` imports in the source files of `core` and `compute`; test files are exempt from that ban, but not from the unit boundaries. Fixtures cover each rule, in both directions.
 
 `tools/` is repository tooling, not a shipped unit, so it may use Bun APIs; AD-19's ban applies to shipped units.
 
@@ -80,11 +80,11 @@ It extracts each file's import specifiers with Bun's transpiler and resolves `@a
 
 ### 7. Licence check: a small tested script in `tools/`
 
-`tools/check-licences.ts` enumerates every package in the lockfile and reads its licence from the installed `package.json`:
+`tools/check-licences.ts` enumerates every package in the lockfile and reads its licence from the installed `package.json`. A package the lockfile lists for another platform (its `os` or `cpu` excludes this machine, or it names a `libc`) is not installed, so its manifest is read from the npm registry (`https://registry.npmjs.org/<name>/<version>`) and goes through the same rule and overrides. A failed lookup fails the check, and so does a missing package meant for this platform. The check therefore needs network access to the npm registry, locally and in CI.
 
 - **Passes:** MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD. The addendum names MIT, Apache-2.0 and BSD as its examples of OSI-approved permissive licences; ISC and 0BSD are the same kind.
 - **Passes, unmodified only:** MPL-2.0 and EPL-2.0. The check fails if such a package is patched.
-- **Fails:** anything else, including GPL, AGPL, LGPL, a missing licence, `UNLICENSED` and "SEE LICENSE IN". The LGPL exception concerns Bun's runtime, not an npm package, and is still pending.
+- **Fails:** anything else, including GPL, AGPL, LGPL, a missing licence, `UNLICENSED` and "SEE LICENSE IN"; also a package that declares bundled dependencies, whose licences the lockfile does not list. The LGPL exception concerns Bun's runtime, not an npm package, and is still pending.
 - **SPDX expressions:** `OR` passes when one alternative passes; `AND` needs all.
 - **Archived:** for each direct dependency, the check reads the repository from its `package.json` and asks the GitHub API whether it is archived. It fails if it is archived, or if no repository can be found.
 - **Without a token:** a local run reports that it skipped the archive step. CI always has a token, so CI never skips it.
@@ -94,17 +94,20 @@ It extracts each file's import specifiers with Bun's transpiler and resolves `@a
 
 A `check` job on `ubuntu-24.04`:
 
-1. `actions/checkout` and `oven-sh/setup-bun`, both pinned by commit SHA. `setup-bun` is the official action of the pinned toolchain, as `setup-node` is for Node.
+1. `actions/checkout` and `actions/setup-node`, both pinned by commit SHA, the latter with Node from the Volta pin; then `npm install --global bun@<version>`, with the version read from `packageManager`, so Bun is pinned in one place. The npm `bun` package is the Bun team's (MIT, from `oven-sh/bun`).
 2. `bun install --frozen-lockfile`.
 3. `bun run check`, which runs the type check, Biome, `bun test --coverage`, the import check and the licence check, with `GITHUB_TOKEN` set.
 
-The job uses `permissions: contents: read`. Dependabot gains the Bun ecosystem, weekly.
+The job uses `permissions: contents: read`. Dependabot gains the Bun ecosystem, weekly, ignoring `@types/bun`: its version follows the Bun pin in `packageManager`, which Dependabot does not bump, so the two are bumped together by hand, and a test in `tools/workspace.test.ts` fails if they differ.
+
+*Alternative:* `oven-sh/setup-bun`, the Bun team's action. Rejected on 2026-10-29: it fails the adoption rule (730 stars; last push and last release 2026-03-14).
 
 ## Risks / Trade-offs
 
 - [TypeScript 7.0.2's npm package, CLI name or build mode differ from what this design assumes] → The first task checks them; the fallback is one `tsc -p` per package from a root script.
 - [Bun 1.4.4's isolated linker behaves differently in a workspace than expected] → A task verifies that an undeclared import fails to resolve; if it doesn't, the import check still catches it.
 - [Package licence metadata is wrong or missing] → The check fails loudly; a reviewed override with evidence fixes metadata, never the rule.
+- [The npm registry is unreachable] → The licence check fails; it has no offline pass.
 - [The rules table drifts from the spine's diagram] → One table citing the spine section. A change to the diagram updates the table in the same OpenSpec change (CLAUDE.md, "How they change").
 - [A custom check misses a form of import, such as dynamic `import()` or `export … from`] → Fixtures cover static imports, re-exports, dynamic imports with literal specifiers and type-only imports.
 

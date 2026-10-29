@@ -12,7 +12,7 @@ AskBoard has a finished design and no code. Every spike and epic on the roadmap 
 - **Format, lint and tests.** Biome for formatting and linting; `bun test` with coverage.
 - **Import-boundary check (AD-1).** A repository check that fails on any import crossing the spine's dependency diagram, between packages and between the units inside `packages/server`, and on Node or Bun built-ins in `core` and `compute`. It has its own tests.
 - **Licence check (AD-19).** A repository check that fails on an installed dependency whose licence is outside the addendum's adoption rule, and on a direct dependency whose repository is archived. It has its own tests.
-- **CI.** A second Linux job runs install, type check, lint, tests, the import check and the licence check on every push to `main` and every pull request. The OpenSpec job stays. Dependabot also bumps the Bun dependencies weekly.
+- **CI.** A second Linux job runs install, type check, lint, tests, the import check and the licence check on every push to `main` and every pull request. The OpenSpec job stays. Dependabot also bumps the Bun dependencies weekly, except `@types/bun`, which moves with the Bun pin.
 - **Spine.** The Structural Seed's source tree gains `packages/hooks/`, which the layer table already lists, and `tools/` for the repository checks. The Stack gains the pins of the tooling this change adopts, each after its adoption check.
 - **Repository records.** `CLAUDE.md` and `README.md` list the new commands and the new status.
 - **Not in this change:** the plugin manifest, `hooks/hooks.json`, `skills/`, `agents/`, the launcher under `scripts/`, any schema, and the browser and conformance test set-ups. They arrive with the spikes and epics that need them.

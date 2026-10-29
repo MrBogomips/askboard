@@ -38,8 +38,9 @@
   - Review M1 (fixed by rejection): absolute paths, `file:` URLs and `#` subpath imports fail with "the check cannot resolve …"; `tools/workspace.test.ts` fails if a tsconfig sets `paths`, `baseUrl` or `rootDirs` or a package.json sets `imports`, so no alias can point into another unit.
   - Review L1 (fixed before the scope was set): type-only imports with comments between the keywords or without spaces, import attributes in type queries, and `import.meta.require` are seen.
   - Review L2 (fixed before the scope was set): dot folders are walked and symbolic links under `packages/` fail the check.
-  - Review L3 (recorded, not fixed): a relative import into another package (`../../view/src/catalog/internal/x.ts` from widgets) passes when the unit rule allows the target unit, bypassing that package's `exports` and its dependency declaration; decision 6 allows relative paths across packages. Option: fail any relative path that leaves the importing package.
+  - Review L3 (recorded; forbidden by the product owner on 2026-10-29, task 4.3): a relative import into another package (`../../view/src/catalog/internal/x.ts` from widgets) passes when the unit rule allows the target unit, bypassing that package's `exports` and its dependency declaration; decision 6 allows relative paths across packages. Option: fail any relative path that leaves the importing package.
   - After the review: 103 tests, line coverage of `tools/check-imports.ts` 99.0%.
+- [ ] 4.3 Forbid relative imports that leave the importing package (design decision 6, review L3). First change the tests: a relative path into another package fails with a message that names `@askboard/<name>`, and relative paths between server unit folders still resolve to their unit; verify that they fail. Then implement. Verify that the tests pass with at least 80% coverage of `tools/check-imports.ts`, that `bun run check:imports` passes on the tree, and that `CLAUDE.md` states the rule.
 
 ## 5. Licence check (AD-19)
 
@@ -58,8 +59,9 @@
 
 - [x] 6.1 Add the root `check` script that runs `typecheck`, `lint`, `test`, `check:imports` and `check:licences` in that order and stops at the first failure. Verify that `bun run check` passes locally.
   - Note (2026-10-29): `bun run check` passes locally (exit status 0), and also in a clean copy after `bun install --frozen-lockfile` with `CI=true` and a token; with a lint error it stops at `lint` and `test` does not run.
-- [ ] 6.2 Add the `check` job to `.github/workflows/ci.yml` as in design decision 8, with each action pinned by commit SHA and the version as a comment, and add the Bun ecosystem to `.github/dependabot.yml`. Verify on the pull request that both CI jobs pass.
+- [ ] 6.2 Add the `check` job to `.github/workflows/ci.yml` as in design decision 8 (Bun from npm through `actions/setup-node`), with each action pinned by commit SHA and the version as a comment, and add the Bun ecosystem to `.github/dependabot.yml`. Verify on the pull request that both CI jobs pass.
   - Note (2026-10-29): awaiting CI on the pull request. The `check` job and the Dependabot `bun` entry are in place; `actionlint` passes on `ci.yml`. Pins: `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` (v7.0.1, as in the OpenSpec job) and `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` (v2.2.0, latest release, resolved with `gh api repos/oven-sh/setup-bun/git/ref/tags/v2.2.0`), which reads the Bun version from `packageManager`. `oven-sh/setup-bun` on 2026-10-29: MIT, 730 stars, last push and last release 2026-03-14, not archived.
+- [ ] 6.3 Make Dependabot ignore `@types/bun`, and add a test to `tools/workspace.test.ts` that fails when its version differs from the Bun version in `packageManager` (design decision 8). Verify that the test fails with a mismatched version, then passes, and that `CLAUDE.md` says the two are bumped together.
 
 ## 7. Spine and repository records
 
