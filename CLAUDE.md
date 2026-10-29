@@ -95,7 +95,7 @@ bun run format                                       # Biome: format and apply s
 
 - `tools/check-imports.ts` holds the rules table transcribed from the spine's dependency diagram and AD-1: a change to the diagram updates the table in the same OpenSpec change. Files in `packages/server/src` outside the six server unit folders may import no AskBoard unit until a change gives them a rule.
 - `core` and `compute` compile without DOM, Node or Bun types; the import check fails on a `/// <reference types>` or non-ECMAScript `/// <reference lib>` in their sources or in `contract`'s, and the workspace test fails on import aliases (`paths`, `baseUrl`, `rootDirs`, a package.json `imports` field). Tests are `*.test.ts` files or files under `packages/<name>/test/`; they and `tools/` compile under `tsconfig.test.json`, with `@types/bun`.
-- Without `GITHUB_TOKEN`, `check:licences` skips the archive lookups and says so; with `CI` set it fails instead. `tools/licence-overrides.json` corrects wrong package metadata only, with evidence, and never admits a licence outside the adoption rule.
+- `check:licences` needs network access: packages in `bun.lock` meant for another platform are not installed, so their licences come from the npm registry. Without `GITHUB_TOKEN` it skips the archive lookups and says so; with `CI` set it fails instead. `tools/licence-overrides.json` corrects wrong package metadata only, with evidence, and never admits a licence outside the adoption rule.
 - Biome leaves Markdown, `docs/`, `drafts/`, `openspec/` and `.claude/` alone.
 - The checks still to come are listed in the spine's Consistency Conventions (Tests).
 

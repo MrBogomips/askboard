@@ -34,7 +34,7 @@ GITHUB_TOKEN=$(gh auth token) bun run check    # what CI runs: type check, lint,
 bun run format                                 # format with Biome and apply safe fixes
 ```
 
-Without `GITHUB_TOKEN`, the licence check skips its lookup of archived repositories and says so.
+The licence check needs network access: it reads the licences of other platforms' packages from the npm registry. Without `GITHUB_TOKEN`, it skips its lookup of archived repositories and says so.
 
 ## Licence
 
