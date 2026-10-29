@@ -76,6 +76,8 @@ const RULE_OUTSIDE = "resolves outside packages/: not an AskBoard unit (AD-1)";
 const RULE_UNKNOWN = "not an AskBoard package of the spine's layer table (AD-1)";
 const RULE_UNRESOLVED =
   "the check cannot resolve absolute paths, file URLs or subpath imports: use @askboard/<unit>, or a relative path inside the package (AD-1)";
+const RULE_NODE_MODULES =
+  "a relative path into node_modules, where the isolated linker links other packages: import @askboard/<unit> or a third-party package by name (AD-1)";
 const RULE_REFERENCE =
   "contract, core and compute reference no type package and no library beyond ECMAScript outside their tests: core and compute compile without DOM, Node or Bun types (AD-1)";
 const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
@@ -85,6 +87,7 @@ type Target =
   // A relative path into another package: it would bypass that package's exports and the
   // importer's dependency declaration (setup-workspace decision 6, review finding L3).
   | { kind: "other-package"; unit: string }
+  | { kind: "node-modules" }
   | { kind: "built-in" }
   | { kind: "outside" }
   | { kind: "unknown" }
@@ -126,6 +129,8 @@ const targetOf = (file: string, specifier: string): Target => {
   }
   if (specifier.startsWith(".")) {
     const resolved = posix.normalize(posix.join(posix.dirname(file), specifier));
+    // The text of such a path may stay inside the package while its target lies in another one.
+    if (resolved.split("/").includes("node_modules")) return { kind: "node-modules" };
     const target = unitOfPath(resolved, true);
     const leaves = resolved.split("/")[1] !== file.split("/")[1];
     return target.kind === "unit" && leaves ? { kind: "other-package", unit: target.unit } : target;
@@ -194,6 +199,8 @@ const violationOf = (file: string, unit: string, specifier: string): Violation |
       return { file, specifier, target: "unknown", rule: RULE_UNKNOWN };
     case "unresolved":
       return { file, specifier, target: "unresolved", rule: RULE_UNRESOLVED };
+    case "node-modules":
+      return { file, specifier, target: "node_modules", rule: RULE_NODE_MODULES };
     case "built-in":
       if (!RUNTIME_NEUTRAL.has(unit) || isTestFile(file)) return undefined;
       return { file, specifier, target: "built-in", rule: RULE_BUILT_IN };
@@ -213,7 +220,9 @@ const referenceViolations = (file: string, unit: string, source: string): Violat
   [...source.matchAll(REFERENCE)].flatMap(([, kind = "", , value = ""]) => {
     const specifier = `/// <reference ${kind}="${value}" />`;
     if (kind === "path") {
-      const violation = violationOf(file, unit, value.startsWith(".") ? value : `./${value}`);
+      // A bare path is relative to the file; absolute paths and file URLs stay as written and fail.
+      const path = /^(\.|\/|file:)/.test(value) ? value : `./${value}`;
+      const violation = violationOf(file, unit, path);
       return violation ? [{ ...violation, specifier }] : [];
     }
     if (!TYPE_ISOLATED.has(unit) || isTestFile(file)) return [];

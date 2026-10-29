@@ -159,6 +159,18 @@ describe("unit boundaries (AD-1)", () => {
     expect(violations[0]?.rule).toContain("cannot resolve");
   });
 
+  // The isolated linker links each declared @askboard/* dependency into the package's own
+  // node_modules, so such a path leaves the package although its text stays inside it.
+  test.each([
+    ["packages/widgets/src/a.ts", "../node_modules/@askboard/view/src/assemble/x.ts"],
+    ["packages/widgets/src/a.ts", "../node_modules/@askboard/view/src/catalog/x.ts"],
+    ["packages/core/src/a.ts", "./node_modules/x.ts"],
+  ])("%s may not import %s through node_modules", (file, specifier) => {
+    const violations = checkSource(file, importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.rule).toContain("node_modules");
+  });
+
   test("files in packages/server/src outside the six unit folders import no AskBoard unit", () => {
     expect(checkSource("packages/server/src/index.ts", importOf("@askboard/core"))).toHaveLength(1);
     expect(
@@ -251,7 +263,24 @@ describe("triple-slash references (AD-1)", () => {
     );
     expect(outside.map((violation) => violation.target)).toEqual(["core"]);
     expect(checkSource("packages/core/src/a.ts", reference("path", "local.d.ts"))).toEqual([]);
+    const allowed = checkSource(
+      "packages/widgets/src/a.ts",
+      reference("path", "../../view/src/catalog/x.d.ts"),
+    );
+    expect(allowed.map((violation) => violation.rule)).toEqual([
+      expect.stringContaining("import @askboard/view/catalog"),
+    ]);
   });
+
+  test.each(["/repo/packages/core/src/x.d.ts", "file:///repo/packages/core/src/x.d.ts"])(
+    "the absolute path reference %s fails",
+    (path) => {
+      const violations = checkSource("packages/core/src/a.ts", reference("path", path));
+      expect(violations.map((violation) => violation.rule)).toEqual([
+        expect.stringContaining("cannot resolve"),
+      ]);
+    },
+  );
 });
 
 describe("import forms", () => {
