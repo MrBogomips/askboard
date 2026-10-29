@@ -43,8 +43,10 @@
 
 ## 6. One command, CI and Dependabot
 
-- [ ] 6.1 Add the root `check` script that runs `typecheck`, `lint`, `test`, `check:imports` and `check:licences` in that order and stops at the first failure. Verify that `bun run check` passes locally.
+- [x] 6.1 Add the root `check` script that runs `typecheck`, `lint`, `test`, `check:imports` and `check:licences` in that order and stops at the first failure. Verify that `bun run check` passes locally.
+  - Note (2026-10-29): `bun run check` passes locally (exit status 0), and also in a clean copy after `bun install --frozen-lockfile` with `CI=true` and a token; with a lint error it stops at `lint` and `test` does not run.
 - [ ] 6.2 Add the `check` job to `.github/workflows/ci.yml` as in design decision 8, with each action pinned by commit SHA and the version as a comment, and add the Bun ecosystem to `.github/dependabot.yml`. Verify on the pull request that both CI jobs pass.
+  - Note (2026-10-29): awaiting CI on the pull request. The `check` job and the Dependabot `bun` entry are in place; `actionlint` passes on `ci.yml`. Pins: `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` (v7.0.1, as in the OpenSpec job) and `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` (v2.2.0, latest release, resolved with `gh api repos/oven-sh/setup-bun/git/ref/tags/v2.2.0`), which reads the Bun version from `packageManager`. `oven-sh/setup-bun` on 2026-10-29: MIT, 730 stars, last push and last release 2026-03-14, not archived.
 
 ## 7. Spine and repository records
 

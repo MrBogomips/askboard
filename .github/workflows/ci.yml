@@ -27,3 +27,22 @@ jobs:
         with:
           node-version: 24
       - run: npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive
+
+  check:
+    name: Type check, lint, tests, import and licence checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+        env:
+          # The licence check asks the GitHub API whether direct dependencies are archived.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

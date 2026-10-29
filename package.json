@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "check": "bun run typecheck && bun run lint && bun run test && bun run check:imports && bun run check:licences",
     "typecheck": "for p in packages/*/; do tsc -p \"$p\" || exit 1; done && tsc -p tsconfig.test.json",
     "lint": "biome check .",
     "format": "biome check --write .",
