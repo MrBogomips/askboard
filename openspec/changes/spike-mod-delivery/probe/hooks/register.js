@@ -3,7 +3,7 @@
 
 const FINISHED = new Set(['completed', 'failed', 'killed'])
 
-let config = { runDir: undefined, pollMs: 1000, transport: 'tcp', envKey: undefined, mainVia: 'submit', pushVia: 'send' }
+let config = { runDir: undefined, pollMs: 1000, transport: 'tcp', envKey: undefined, mainVia: 'submit', pushVia: 'send', showLink: false }
 let lastSeq = 0
 let isPolling = false
 let matchedBy = undefined
@@ -14,7 +14,11 @@ let claudePid = undefined
 // Main conversation, PROBE_MAIN_VIA=hybrid: append while a turn runs, submit when idle.
 let isMainBusy = false
 let lastMainStepAt = 0
+let mainStepsThisTurn = 0
 let appendedThisTurn = []
+// Main answers no request carried: dropped submits (D6) and appends after the last request.
+// Appended at the next main turn.start, submitted at turn.complete.
+let pendingAnswers = []
 
 async function now($) {
   return await $.clock.now()
@@ -127,10 +131,7 @@ async function deliver($, session, event, t1) {
   if (event.owner === null) {
     const draft = await $.prompt.read()
     const t2 = await now($)
-    $.prompt.submit({ text }).then(
-      async result => log($, { kind: 'submit-started', seq: event.seq, nonce: event.nonce, drop: result?.drop ?? null }),
-      async error => log($, { kind: 'submit-error', seq: event.seq, message: String(error?.message ?? error) }),
-    )
+    submitAnswer($, { seq: event.seq, nonce: event.nonce, text })
     await report($, session, { seq: event.seq, via: 'prompt.submit', agentId: null, result: { draftLength: draft.text.length }, t1, t2 })
     return true
   }
@@ -139,6 +140,35 @@ async function deliver($, session, event, t1) {
   const result = await $.session.send({ to: { agentId: event.owner }, text })
   await report($, session, { seq: event.seq, via: 'session.send', agentId: event.owner, result, t1, t2 })
   return result.isDelivered === true
+}
+
+// Resolves when the woken turn starts. After a user interruption it resolves { drop } and queues nothing (D6):
+// the answer goes to the pending answers.
+function submitAnswer($, answer) {
+  $.prompt.submit({ text: answer.text }).then(
+    async result => {
+      if (result?.drop) pendingAnswers = [...pendingAnswers.filter(p => p.seq !== answer.seq), answer]
+      await log($, { kind: 'submit-started', seq: answer.seq, nonce: answer.nonce, drop: result?.drop ?? null })
+    },
+    async error => log($, { kind: 'submit-error', seq: answer.seq, message: String(error?.message ?? error) }),
+  )
+}
+
+// A main turn has started. Its first request was built before this hook ran (d-esc2-312), so only a
+// second request carries what is appended now; with one request, turn.complete submits it.
+async function appendPending($) {
+  const retry = pendingAnswers
+  pendingAnswers = []
+  for (const answer of retry) {
+    try {
+      const stored = await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: answer.text }] } })
+      appendedThisTurn = [...appendedThisTurn, { ...answer, t: await now($), fromStep: 2 }]
+      await log($, { kind: 'retry-append', seq: answer.seq, nonce: answer.nonce, uuid: stored?.uuid ?? null })
+    } catch (error) {
+      pendingAnswers = [...pendingAnswers, answer]
+      await log($, { kind: 'retry-append-error', seq: answer.seq, message: String(error?.message ?? error) })
+    }
+  }
 }
 
 async function isRunning($, event) {
@@ -152,6 +182,26 @@ async function isRunning($, event) {
     return false
   }
   return true
+}
+
+// Criterion 8 with mods on (PROBE_SHOW_LINK=1): show a subagent's board link to the user, since its
+// PostToolUse systemMessage stays in the subagent's transcript. Never throws: the tool call has run.
+async function showLink($, e) {
+  try {
+    const session = currentSession ?? (await findSession($))
+    if (!session) throw new Error('no session file')
+    const state = await request($, session, 'GET', '/state')
+    const ask = state.asks.find(a => a.askId === e.askId)
+    if (!ask) throw new Error(`no ask ${e.askId} in /state`)
+    const deliveredSeqs = new Set(state.deliveries.map(d => d.seq))
+    const answered = new Set(state.events.filter(ev => deliveredSeqs.has(ev.seq)).map(ev => ev.askId))
+    const open = state.asks.filter(a => !answered.has(a.askId)).length
+    $.ui.toast(`AskBoard: ${ask.link}`)
+    $.ui.status(`AskBoard: ${open} open`)
+    await log($, { kind: 'show-link', askId: e.askId, agentId: e.agentId, link: ask.link, open })
+  } catch (error) {
+    await log($, { kind: 'show-link-error', askId: e.askId ?? null, message: String(error?.message ?? error) })
+  }
 }
 
 async function poll($) {
@@ -181,7 +231,8 @@ export function register(on) {
     const envKey = await $.env.get('CLAUDE_CODE_SESSION_ID')
     const mainVia = (await $.env.get('PROBE_MAIN_VIA')) ?? 'submit'
     const pushVia = (await $.env.get('PROBE_PUSH_VIA')) ?? 'send'
-    config = { runDir, pollMs, transport, envKey, mainVia, pushVia }
+    const showLink = (await $.env.get('PROBE_SHOW_LINK')) === '1'
+    config = { runDir, pollMs, transport, envKey, mainVia, pushVia, showLink }
     const version = await $.session.version()
     // Criterion 13: the Claude Code process's PID, as a session key that survives --continue and /clear.
     const pidRun = await $.process.run(['sh', '-c', 'echo $PPID']).catch(error => ({ stdout: `error: ${String(error?.message ?? error)}` }))
@@ -208,13 +259,17 @@ export function register(on) {
 
   on('tool.call', async ($, e, next) => {
     if (String(e.tool).includes('probe_')) await log($, { kind: 'tool.call', tool: e.tool, agentId: e.agentId ?? null, fields: Object.keys(e) })
-    return next(e)
+    const result = await next(e)
+    if (config.showLink && String(e.tool).endsWith('__probe_ask') && e.agentId !== undefined) await showLink($, e)
+    return result
   }).catch(($, e, next) => next(e))
 
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
       isMainBusy = true
+      mainStepsThisTurn = 0
       appendedThisTurn = []
+      await appendPending($)
     }
     await log($, { kind: 'turn.start', agentId: e.agentId ?? null })
     return next(e)
@@ -222,7 +277,10 @@ export function register(on) {
 
   // Rows appended before this hook fires go into this request; later ones wait for the next request.
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId === undefined) lastMainStepAt = await now($)
+    if (e.agentId === undefined) {
+      lastMainStepAt = await now($)
+      mainStepsThisTurn = mainStepsThisTurn + 1
+    }
     return yield* next(e)
   })
 
@@ -230,12 +288,16 @@ export function register(on) {
     await log($, { kind: 'turn.complete', agentId: e.agentId ?? null })
     if (e.agentId !== undefined) return next(e)
     isMainBusy = false
-    // An answer appended after the last request was sent was never read: wake the conversation with it.
-    const unread = appendedThisTurn.filter(a => a.t >= lastMainStepAt)
+    // An answer appended after the last request was sent was never read, and a pending one never arrived:
+    // wake the conversation with them. A submit dropped again stays pending.
+    const isUnread = a => (a.fromStep === undefined ? a.t >= lastMainStepAt : mainStepsThisTurn < a.fromStep)
+    const unread = appendedThisTurn.filter(a => isUnread(a) && !pendingAnswers.some(p => p.seq === a.seq))
     appendedThisTurn = []
-    for (const a of unread) {
+    const retry = [...pendingAnswers, ...unread]
+    pendingAnswers = []
+    for (const a of retry) {
       await log($, { kind: 'catch-up-submit', seq: a.seq, nonce: a.nonce })
-      $.prompt.submit({ text: a.text }).catch(async error => log($, { kind: 'submit-error', seq: a.seq, message: String(error?.message ?? error) }))
+      submitAnswer($, a)
     }
     return next(e)
   })

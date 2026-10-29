@@ -25,7 +25,7 @@ type AgentRecord = {
   t: number;
   boundTo?: string;
 };
-type Ask = { askId: string; owner: string | null; ownerType: string | null; cwd: string | null; createdAt: number; boundBy: string };
+type Ask = { askId: string; owner: string | null; ownerType: string | null; cwd: string | null; createdAt: number; boundBy: string; link: string };
 type ProbeEvent = { seq: number; askId: string; owner: string | null; nonce: string; text: string; t0: number };
 type Delivery = { seq: number; via: string; agentId: string | null; result: unknown; t1?: number; t2: number; at: number };
 
@@ -164,9 +164,10 @@ function buildServer(): McpServer {
         cwd: record?.cwd ?? null,
         createdAt: Date.now(),
         boundBy: record ? "record" : "unbound",
+        link: `${api?.tcp.url.href}b/${askId}`,
       };
       if (!asks.has(askId)) asks.set(askId, ask);
-      const result = { askId, epoch, link: `${api?.tcp.url.href}b/${askId}`, owner: ask.owner ?? "main", bound: ask.boundBy };
+      const result = { askId, epoch, link: ask.link, owner: ask.owner ?? "main", bound: ask.boundBy };
       return { content: [{ type: "text", text: JSON.stringify(result) }] };
     },
   );

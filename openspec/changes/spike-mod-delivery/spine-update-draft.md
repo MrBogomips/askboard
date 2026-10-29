@@ -53,7 +53,7 @@ Current (spine):
 Replacement:
 
 ```text
-- **Prevents:** a capability that works only when the mod runs; agents stalled where mods are disabled; a wait that blocks follow-ups; agent status mistaken for a user event; a push that auto mode refuses; a push that resumes a finished subagent; a failed report causing repeated wake-ups.
+- **Prevents:** a capability that works only when the mod runs; agents stalled where mods are disabled; a wait that blocks follow-ups; agent status mistaken for a user event; a push that auto mode refuses; a push that resumes a finished subagent; a failed report causing repeated wake-ups; an answer lost to push when the user interrupts a turn.
 ```
 
 ### 1.2 Spine, AD-4, Rule, Push, first bullet
@@ -68,11 +68,11 @@ Replacement (three bullets):
 
 ```text
     - The Claude Code **mod** is the default push transport. It appends with `$.session.append` to a running subagent, and to the main conversation while its turn runs; the agent reads the row at its next model request. It wakes an idle main conversation with `$.prompt.submit`. When a main turn completes, it submits again every event it appended after that turn's last model request, since no request carried it. It does not use `$.session.send`, which auto mode refuses for a mod.
-    - It pushes only to an agent that is still running: never to a subagent that `$.agent.list()` no longer lists or shows as `completed`, `failed` or `killed`, since a message would resume it. A submit that Claude Code drops after the user interrupts a turn is kept and retried at the next `turn.complete` or `turn.start`.
+    - It pushes only to an agent that is still running: never to a subagent that `$.agent.list()` no longer lists or shows as `completed`, `failed` or `killed`, since a message would resume it. After the user interrupts a turn, Claude Code drops every submit until the user's next input. The mod keeps each event so dropped and appends it when the next main turn starts; that turn reads it only from its second model request, so if the turn makes only one, the mod submits the event when the turn completes. Until then the event reaches the agent only through `collect`.
     - It pushes only events above `received` (AD-3) and reports what it delivered, which raises `received` and so the board's delivery receipt. An event counts as pushed once the push call is made: a report that fails is retried on its own and never causes another push. Its absence costs latency, never correctness: an answer's receipt then waits for `collect` or the `SubagentStop` guard.
 ```
 
-The interrupt sentence waits for run `d-esc-312`; if that run shows a retry is not needed or does not work, the sentence changes with it.
+The interrupt sentences rest on runs `d-esc-312` and `d-esc2-312` (`findings.md`, "Interrupt, then push (D6)"): Claude Code dropped both submits, and rows appended at `turn.start` were not in that turn's only request. The rule written here is the corrected one, which no run has tested yet. Run `d-esc3-312` before applying, and change the sentences if it fails.
 
 ### 1.3 Spine, AD-4, Rule, Push, second bullet
 
@@ -551,7 +551,7 @@ Before 2.1.311 the hook fired during work, about twice a minute by the changelog
 
 ## Row 12: a subagent's board link (FR-21 to FR-25, F6)
 
-Applies only if the PO accepts row 12. The mod's toast and status entry wait for run `c8-toast-312`; if it shows they do not appear, these blocks change before they apply. `ux-askboard-2026-10-27/EXPERIENCE.md` ("Terminal link and pending-asks list") may need the same distinction; that is for the UX owner, and no text is drafted here.
+Applies only if the PO accepts row 12. Run `c8-toast-312` showed both: the toast for 2 to 4 s, and the status entry until the run ended. A status entry the mod does not update keeps counting asks that have closed, so the blocks say the mod keeps it current. `ux-askboard-2026-10-27/EXPERIENCE.md` ("Terminal link and pending-asks list") may need the same distinction; that is for the UX owner, and no text is drafted here.
 
 ### 12.1 Spine, Consistency Conventions, Board link and notice
 
@@ -564,7 +564,7 @@ Current (spine):
 Replacement:
 
 ```text
-| Board link and notice | `http://<loopback host>:<port>/b/<ask-id>?t=<token>`, computed once by a `BoardAddress` port that `board-host` implements and `ask-core` holds. The `ask` result returns it. A `PostToolUse` hook on `ask` shows it to the user as a system message for the main conversation's asks, with or without the mod; for a subagent's ask, Claude Code files that message in the subagent's transcript, out of the user's sight. The mod shows a subagent's link as a toast when the ask arrives, and keeps the list of pending asks in a status entry (FR-23). With mods off, a subagent's ask has the browser and the system notification only. The shipped skills forbid agents from opening or answering boards. |
+| Board link and notice | `http://<loopback host>:<port>/b/<ask-id>?t=<token>`, computed once by a `BoardAddress` port that `board-host` implements and `ask-core` holds. The `ask` result returns it. A `PostToolUse` hook on `ask` shows it to the user as a system message for the main conversation's asks, with or without the mod; for a subagent's ask, Claude Code files that message in the subagent's transcript, out of the user's sight. The mod shows a subagent's link as a toast when the ask arrives, and keeps the list of pending asks in a status entry, updated whenever an ask is answered or closes (FR-23). With mods off, a subagent's ask has the browser and the system notification only. The shipped skills forbid agents from opening or answering boards. |
 ```
 
 ### 12.2 Solution design, §5.1, step 5
@@ -912,7 +912,7 @@ Insert after (solution design):
 Text (drop each `[row N]` tag; replace or drop a sentence whose row was not accepted):
 
 ```text
-**Outcome (OpenSpec change `spike-mod-delivery`, 2026-10-29).** On Claude Code 2.1.311 and 2.1.312 the mod reaches every kind of agent, in every permission mode tested, through `$.session.append` and `$.prompt.submit`; auto mode refuses its `$.session.send`, so AD-4 no longer uses it, and no fallback adapter is needed [row 1]. The session file is keyed by the Claude Code PID, because `CLAUDE_CODE_SESSION_ID` diverges on `--continue` and after `/clear` (AD-5) [row 2]. The session process also exits on SIGINT (AD-2) [row 5]. AD-10's condition holds from 2.1.311, while 2.1.308 fires `SubagentStop` during work, so the minimum stays 2.1.311 (AD-18) [row 11]. Criterion 8 fails: a subagent's board link reaches the user only through the mod (FR-23) [row 12]. The benchmark leaves out `--strict-mcp-config` (AD-17) [row 9]. The change's findings hold the latency and token measurements; OQ2's target was set on <decision date> [row 13]. Criteria 10, 12 and 13 on Linux: <task 4.1's result>.
+**Outcome (OpenSpec change `spike-mod-delivery`, 2026-10-29).** On Claude Code 2.1.311 and 2.1.312 the mod reaches every kind of agent, in every permission mode tested, under load and 31 minutes after an ask, through `$.session.append` and `$.prompt.submit`; auto mode refuses its `$.session.send`, so AD-4 no longer uses it, and no fallback adapter is needed. After the user interrupts a turn, an answer waits for the user's next turn or for `collect` [row 1]. The session file is keyed by the Claude Code PID, because `CLAUDE_CODE_SESSION_ID` diverges on `--continue` and after `/clear` (AD-5) [row 2]. The session process also exits on SIGINT (AD-2) [row 5]. AD-10's condition holds from 2.1.311, while 2.1.308 fires `SubagentStop` during work, so the minimum stays 2.1.311 (AD-18) [row 11]. Criterion 8 fails: a subagent's board link reaches the user only through the mod, as a toast and a status entry (FR-23) [row 12]. The benchmark leaves out `--strict-mcp-config` (AD-17) [row 9]. The change's findings hold the latency and token measurements; OQ2's target was set on <decision date> [row 13]. Criteria 10, 12 and 13 on Linux: <task 4.1's result>.
 ```
 
 ### 18.6 Front matter

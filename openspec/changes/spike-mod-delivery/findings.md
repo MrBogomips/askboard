@@ -4,18 +4,18 @@ The exit criteria are in SOLUTION-DESIGN §10.1, and the approach is in `design.
 
 ## Verdicts
 
-One row per exit criterion. `latest` is 2.1.312. Verdicts: **pass** (holds as the design assumed), **pass with change** (holds once a rule or path changes, named in the proposed outcomes), **fail**, **untested**, **pending** (a Phase 1 run still in progress). Linux: task 4.1 reruns criteria 10, 12 and 13 in a devcontainer; the other criteria are not planned on Linux (`design.md`, Non-Goals).
+One row per exit criterion. `latest` is 2.1.312. Verdicts: **pass** (holds as the design assumed), **pass with change** (holds once a rule or path changes, named in the proposed outcomes), **fail**, **untested**, **pending** (a run still to come). Linux: task 4.1 reruns criteria 10, 12 and 13 in a devcontainer; the other criteria are not planned on Linux (`design.md`, Non-Goals).
 
 | # | Criterion | 2.1.311 | `latest` (2.1.312) | 2.1.308 | Linux | Verdict | Section |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | The right agent is reached | pass by append and the hybrid: subagents 5/5 (`c1-fg-append-311`) and 3/3 (`d-bg-auto-append-311`), main 3/3 and 5/5 (`d-main-auto-append-311`, `d-main-hybrid-311`); `session.send` 5/5 in default mode (`d-*-default-311`), refused under auto mode (D13) | the same (`c1-fg-append-312`, `d-bg-auto-append-312`, `d-main-auto-append-312`, `d-main-hybrid-312`, `d-*-default-312`); D13 in `d-fg-312`, `d-bg-312` | pass by append and the hybrid (`c1-fg-append-308`, `d-bg-append-308`, `d-main-hybrid-308`) | — | pass with change: append and submit replace `session.send` (row 1); load and interrupt checks pending | [§ Criterion 1](#criterion-1-every-kind-of-agent-is-reached) |
+| 1 | The right agent is reached | pass by append and the hybrid: subagents 5/5 (`c1-fg-append-311`) and 3/3 (`d-bg-auto-append-311`), main 3/3 and 5/5 (`d-main-auto-append-311`, `d-main-hybrid-311`); under load 40/40 (`d-stress-311`); `session.send` 5/5 in default mode (`d-*-default-311`), refused under auto mode (D13); interrupt: not run | the same (`c1-fg-append-312`, `d-bg-auto-append-312`, `d-main-auto-append-312`, `d-main-hybrid-312`, `d-stress-312`, `d-*-default-312`); D13 in `d-fg-312`, `d-bg-312`; after an interrupt, 0 of 2 answers read by push, without and with the first retry (`d-esc-312`, `d-esc2-312`) | pass by append and the hybrid (`c1-fg-append-308`, `d-bg-append-308`, `d-main-hybrid-308`) | — | pass with change: append and submit replace `session.send` (row 1), under load too; after an interrupt: fail, the corrected retry untested (row 1) | [§ Criterion 1](#criterion-1-every-kind-of-agent-is-reached) |
 | 2 | An idle main conversation is woken without disturbing a draft | wake: pass (`c7-311`, `c13i-311`); draft: not run | pass, the draft stays unsent and unchanged (`c2-idle-312`; `c2-po-312` with the PO at the keyboard) | — | — | pass (draft checked on `latest` only) | [§ Criterion 2](#criterion-2-an-idle-main-conversation-with-a-draft) |
 | 3 | Latency per kind of agent | `session.send` to subagents: median 8.9 s and 8.1 s; hybrid main: median 6.1 s, max 14.6 s (`d-*-default-311`, `d-main-hybrid-311`) | the same order at a 1 s poll; a 5 s poll adds at most its length (`d-main-hybrid-5s-312`, `d-bg-append-5s-312`) | hybrid main: max 12.5 s (`d-main-hybrid-308`) | — | pass: measured; the target is OQ2 (row 13) | [§ Criterion 3](#criterion-3-latency) |
 | 4 | Extra tokens per answer | append: the same growth as on `latest` (`d-bg-auto-append-311`); send and pull not measured | append about +38 input; send about +108 input and +80 output; pull about +95 input, +89 output and one request (`tokens.py`, `c4-pull-312`) | — | — | pass: measured (row 14) | [§ Criterion 4](#criterion-4-tokens) |
 | 5 | No permission prompt after installation | not run | pass (`c5-installed-312`) | — | — | pass (`latest` only) | [§ Criterion 5](#criterion-5-a-real-install-no-permission-prompt-task-34-with-the-pos-agreement) |
 | 6 | `-p` with `--max-turns` | as on `latest` (`c6-during-max3-311`) | `-p` ends with the turn: a late answer is never pushed, and past `--max-turns` a queued submit is dropped (`c6-*-312`) | — | — | pass with change: F11 narrowed, append under `-p` (row 10) | [§ Criterion 6](#criterion-6--p-and---max-turns) |
-| 7 | An ask open 30 minutes or more | main: pass (`c7-311`); background subagent: pending: Phase 1 run `c7b-311` | main: pass (`c7-312`); background subagent: pending: Phase 1 run `c7b-312` | — | — | pending (main conversation: pass) | [§ Criterion 7](#criterion-7-an-ask-open-30-minutes-or-more-task-36-partial) |
-| 8 | The board link is visible for a subagent's ask with mods disabled | fail (`c8-nomod-311`) | fail (`c8-nomod-312`); with the mod on: pending: Phase 1 run `c8-toast-312` | — | — | fail (row 12) | [§ Criterion 8](#criterion-8-the-board-link-for-a-subagents-ask) |
+| 7 | An ask open 30 minutes or more | main: pass (`c7-311`, `c7b-311`); background subagent: pass, still running when answered 30 m 49 s after its ask (`c7b-311`) | main: pass (`c7-312`, `c7b-312`); background subagent: pass, answered after 30 m 51 s (`c7b-312`) | — | — | pass | [§ Criterion 7](#criterion-7-an-ask-open-30-minutes-or-more-task-36) |
+| 8 | The board link is visible for a subagent's ask with mods disabled | fail (`c8-nomod-311`); with the mod on: not run | fail (`c8-nomod-312`); with the mod on: shown, a toast for 2 to 4 s and a status entry that stays (`c8-toast-312`) | — | — | fail with mods off; with the mod on, shown (row 12) | [§ Criterion 8](#criterion-8-the-board-link-for-a-subagents-ask) |
 | 9 | The hook's `agent_id` is the ID `$.session.send` accepts | pass (`c9-fg-311`) | pass (`c9-fg-312`, `c1-bg-312`) | pass (`c9-fg-308`) | — | pass | [§ Criterion 9](#criterion-9-the-hooks-agent_id-is-the-id-sessionsend-accepts) |
 | 10 | `$.http.fetch` reaches `127.0.0.1`, and whether it sends `Origin` | pass, no `Origin`; a Unix socket too (`c9-fg-311`, `c10-unix-311`) | the same (`c9-fg-312`, `c1-bg-312`, `c10-unix-312`) | — | pending, 4.1 | pass (row 7) | [§ Criterion 10](#criterion-10-httpfetch-reaches-127001-and-whether-it-sends-origin) |
 | 11 | A fallback when policy refuses `$.http.fetch` | pass by `$.process.run` (`c11-block-tcp-311`, `c11-block-process-311`) | pass (`c11-block-tcp-312`, `c11-block-process2-312`) | — | — | pass (rows 1 and 4) | [§ Criterion 11](#criterion-11-a-fallback-when-policy-refuses-httpfetch) |
@@ -27,7 +27,7 @@ One row per exit criterion. `latest` is 2.1.312. Verdicts: **pass** (holds as th
 | 17 | The hook `cwd` for `isolation: worktree` subagents | pass (`c17-worktree-311`) | pass (`c17-worktree-312`) | — | — | pass (row 8) | [§ Criterion 17](#criterion-17-the-hook-cwd-of-isolation-worktree-subagents) |
 | 18 | The minimum version that passes all of the above | the minimum: every criterion run on it behaves as on `latest` | — | ruled out by criterion 15 (`d-bg-append-308`) | — | pass: 2.1.311 confirmed (row 11) | [§ Criterion 18](#criterion-18-the-minimum-version-task-42) |
 
-**Summary:** 12 pass, 4 pass with change (1, 6, 12, 13), 1 fail (8), 1 pending (7), none untested. On `latest` only: the draft half of criterion 2, criterion 5, and the send and pull tokens of criterion 4. Pending Phase 1 runs: criterion 7's subagent half (`c7b-312`, `c7b-311`), criterion 8 with the mod on (`c8-toast-312`), and two risk checks for criterion 1 (`d-stress-312`, `d-stress-311`, `d-esc-312`).
+**Summary:** 13 pass, 4 pass with change (1, 6, 12, 13), 1 fail (8), none pending or untested on macOS. Criterion 1's interrupt case fails (D6: `d-esc-312`, `d-esc2-312`), and its corrected retry is untested. On `latest` only: the draft half of criterion 2, criterion 5, the send and pull tokens of criterion 4, criterion 1's interrupt case, and criterion 8 with the mod on. Linux: criteria 10, 12 and 13 wait for task 4.1.
 
 ## Failures and consequences
 
@@ -38,10 +38,15 @@ SOLUTION-DESIGN §10.1 has an "If it fails" row only for criteria 9 to 17. For t
 - **§10.1:** no row for criterion 1. Its "What changes otherwise" reads: "If criterion 1 fails for a kind of agent, a Monitor or `PostToolUse` adapter serves that kind (AD-4)."
 - **What applies:** not that clause, because no kind of agent is left without push. `$.session.append` reached every kind of agent in every mode tested, on 2.1.308, 2.1.311 and `latest`, so no fallback adapter is needed (task 3.8). The mod's push paths change instead (row 1), and D13 goes upstream (row 15).
 
+### D6: an answer pushed after an interrupt is lost (criterion 1)
+
+- **§10.1:** no row. Its "What changes otherwise" reads: "If criterion 1 fails for a kind of agent, a Monitor or `PostToolUse` adapter serves that kind (AD-4)."
+- **What applies:** not that clause. The failure is a state of the main conversation, not a kind of agent: after the user presses Esc, Claude Code drops every `$.prompt.submit` until the user's next input (D6), and an appended row is read only by a later model request. In `d-esc-312` and `d-esc2-312` both answers were lost to push. AD-4 gains an interrupt rule instead (row 1): after Esc, a pushed answer is read only once a turn makes a second model request, or through a later submit, and the mod keeps the answer until then. The corrected retry is untested ([Interrupt, then push](#interrupt-then-push-d6)). Pull stays authoritative: until the user's next input, `collect` and the board are the only paths.
+
 ### Criterion 8: a subagent's board link is not shown to the user
 
 - **§10.1:** no row. The criterion reads "The board link is visible for a subagent's ask with mods disabled [F6]". The spine's Consistency Conventions assume it: "A `PostToolUse` hook on `ask` shows it to the user as a system message, for the main conversation and subagents, with or without the mod."
-- **What applies:** F6 is refuted for subagents. With mods off, a subagent's ask has no terminal link: the browser and the system notification remain. In a devcontainer, where "the terminal link is the notice that always works" (SOLUTION-DESIGN §8), a subagent's ask has no notice that always works. The mod can show the link (row 12; confirm with `c8-toast-312`).
+- **What applies:** F6 is refuted for subagents. With mods off, a subagent's ask has no terminal link: the browser and the system notification remain. In a devcontainer, where "the terminal link is the notice that always works" (SOLUTION-DESIGN §8), a subagent's ask has no notice that always works. With the mod on, the link is shown (`c8-toast-312`): a toast that stays 2 to 4 s, and a status entry that stays until the mod changes it (row 12).
 
 ### Criterion 6: `-p` ends with the turn
 
@@ -69,7 +74,7 @@ Each row is a proposal until the PO records a decision. The replacement texts fo
 
 | # | Item | Evidence | Proposed decision | Alternative | PO decision |
 | --- | --- | --- | --- | --- | --- |
-| 1 | AD-4: the mod's push paths | Criterion 1 (D13, D14, the hybrid runs on 2.1.308, 2.1.311 and `latest`), criterion 3, D1, D6, O7 | The mod pushes by `$.session.append` to a running subagent, and to the main conversation while its turn runs; by `$.prompt.submit` when the main conversation is idle; and at `turn.complete` it submits again every answer appended after the turn's last request (`turn.step`). It drops `$.session.send` (D13). It never pushes to a subagent that has finished (D1). It keeps a submit dropped after an interrupt and retries it (D6). An event counts as pushed once the push call is made (O7). Pull stays authoritative. Confirm with `d-stress-312`, `d-stress-311` and `d-esc-312`. | Keep `$.session.send` for subagents outside auto mode: two paths, and send costs about +108 input and +80 output tokens against +38 for append. Or reach the main conversation by submit alone: about 70 s while a turn runs. | |
+| 1 | AD-4: the mod's push paths | Criterion 1 (D13, D14, the hybrid runs on 2.1.308, 2.1.311 and `latest`; `d-stress-*`; `d-esc-312`, `d-esc2-312`), criterion 3, criterion 7 (`c7b-*`), D1, D6, O7 | The mod pushes by `$.session.append` to a running subagent, and to the main conversation while its turn runs; by `$.prompt.submit` when the main conversation is idle; and at `turn.complete` it submits again every answer appended after the turn's last request (`turn.step`). It drops `$.session.send` (D13). It never pushes to a subagent that has finished (D1). After an interrupt, Claude Code drops its submits until the user's next input (D6): the mod keeps each dropped answer, appends it when the next main turn starts, and counts it as read only once that turn makes a second model request; otherwise it submits it at that turn's `turn.complete`. So after Esc a pushed answer is read only once a turn makes a second request, or through that later submit; pull covers the wait. The retry as first written lost both answers (`d-esc2-312`); the corrected rule is untested. An event counts as pushed once the push call is made (O7). Pull stays authoritative. Under load, and 31 minutes after the ask, every answer reached its owner (`d-stress-*`, `c7b-*`). | Keep `$.session.send` for subagents outside auto mode: two paths, and send costs about +108 input and +80 output tokens against +38 for append. Or reach the main conversation by submit alone: about 70 s while a turn runs. | |
 | 2 | AD-5: the session-file key and the mod's session ID | Criterion 13 (`c13-clean-*`, `c13i-*`), O5 | Name the session file by the PID of the Claude Code process: the parent PID of the session process and of each hook; the mod gets it once, at `session.start`, with one `$.process.run`. The launcher keeps Claude Code as the parent (it `exec`s the executable). The mod takes any session ID from `$.session.id()`, never from its environment. Confirm on Linux (task 4.1). | Keep `CLAUDE_CODE_SESSION_ID`, and lose push, ownership checks and the guard after `--continue` and `/clear` (pull covers it). Or look up by session ID first, then by PID. | |
 | 3 | AD-5: binding a record to its call | Criterion 14 (O2); no `traceparent` in `_meta` in any run checked | No change to the rule: every call carried `tool_use_id` in `_meta["claudecode/toolUseId"]`, and the next-call rule stays as the fallback. SOLUTION-DESIGN §4.3, §7 and the addendum's K3 stop calling it unverified. | Drop the next-call rule: a call without `tool_use_id` stays unbound and unchecked. | |
 | 4 | AD-5: the mod when `$.http.fetch` is refused | Criterion 11 (`c11-block-*`) | When `$.http.fetch` is refused, the mod sends everything through the AskBoard executable run as a client by `$.process.run`: polls, delivery reports and the version report. E1 chooses between one process per poll (3,600 an hour at a 1 s poll) and one `$.process.spawn` client per session, on the numbers. | AskBoard runs on pull alone where `$.http.fetch` is refused. | |
@@ -80,7 +85,7 @@ Each row is a proposal until the PO records a decision. The replacement texts fo
 | 9 | AD-17 and SOLUTION-DESIGN §7: `--strict-mcp-config` | Task 1.4 (`smoke-strict`) | Drop the flag from the isolated configuration: with it, `--plugin-dir` loads no plugin server. The account's connectors then still connect, behind tool search and alike in every arm: the report lists the servers connected, and arms are compared by difference. Amend AD-17, §7 and the addendum's measurement protocol. | Keep the flag and load the server with `--mcp-config` beside `--plugin-dir` (hooks and mod from the plugin; tools named `mcp__askboard__*`, which the hook matchers accept). Untested. | |
 | 10 | Criterion 6: `-p` and `--max-turns` (F11, AD-17, SOLUTION-DESIGN §7 and §8) | Criterion 6 (`c6-*-312`, `c6-during-max3-311`), D7 | Keep `--max-turns` in benchmark and CI runs as a bound on the turns the mod may start, no longer "because `$.prompt.submit` can keep a `-p` run alive". The benchmark reads transcripts, never `-p`'s JSON `result`, which a woken turn replaces. Headless agents wait for answers in their turn with `collect`. | — | |
 | 11 | AD-18: the minimum version | Criterion 18 (the `*-308` runs), criterion 16 | Confirm 2.1.311: 2.1.308 fires `SubagentStop` while a background subagent works. `stable` was still 2.1.308 on 2026-10-29, so the release gate holds. The version comes from client information, present on every request; the mod's report stays the fallback. The Stack row drops "provisional". | — | |
-| 12 | FR-21 to FR-25, F6: a subagent's board link | Criterion 8 (`c8-nomod-*`); no subagent's link on the main screen in any `d-bg-*` or `d-fg-*` run | The mod shows a subagent's board link: a toast when the ask arrives and a status entry with the open asks (`$.ui.toast`, `$.ui.status`; confirm with `c8-toast-312`). The `PostToolUse` system message stays for the main conversation's asks. With mods off, a subagent's ask has the browser and the system notification only; FR-23 and the Consistency Conventions say so. | With mods off, a main-conversation hook (for example on `UserPromptSubmit`) lists open boards at the user's next prompt (untested). Or the subagent passes the link in its report (late). | |
+| 12 | FR-21 to FR-25, F6: a subagent's board link | Criterion 8 (`c8-nomod-*`, `c8-toast-312`); no subagent's link on the main screen in any `d-bg-*` or `d-fg-*` run | The mod shows a subagent's board link: a toast when the ask arrives and a status entry with the open asks (`$.ui.toast`, `$.ui.status`). In `c8-toast-312` the toast stayed 2 to 4 s, and the status entry stayed until the run ended, still counting an ask whose agent had finished: the mod updates the entry whenever an ask is answered or closes, and clears it when none is open. The `PostToolUse` system message stays for the main conversation's asks. With mods off, a subagent's ask has the browser and the system notification only; FR-23 and the Consistency Conventions say so. | With mods off, a main-conversation hook (for example on `UserPromptSubmit`) lists open boards at the user's next prompt (untested). Or the subagent passes the link in its report (late). | |
 | 13 | PRD OQ2: the latency target | Criterion 3, per kind of agent, at 1 s and 5 s polls | Set it now: an idle main conversation within 2 s of the answer (measured 0.4–0.8 s); a working agent, main conversation or subagent, at its next model request after the answer, plus at most the poll interval (hybrid median 6.1 s, max 14.6 s, with 15 s tool steps). The early benchmark checks it. | Set it after the early benchmark; the Deferred row stays, reworded. | |
 | 14 | The cost model's X for push (criterion 4, SOLUTION-DESIGN §7) | Criterion 4 (`tokens.py`; `c4-pull-312`, `c9-fg-312`, `d-bg-auto-append-*`) | Record in §7: by append, about +38 input tokens per answer and no extra request (the output reaction was not measured; for `session.send` it was about 80 tokens); by `collect`, about +95 input, +89 output and one extra request. The cost model's 100-question figures stay as they are, on the pull assumption. | Recompute the cost model with push. | |
 | 15 | PRD R1 and the addendum: D13 | D13 and D14 (criterion 1) | Reword R1: the mod passed the spike; what remains is an organization disabling mods, and behaviour the mod relies on that is observed, not documented (D13 shows it can change). Mitigation unchanged, plus CI on the minimum, `stable` and `latest`. The addendum's "Plugin message" names append and submit. D13 is reported upstream: a plugin-originated `$.session.send` gives the auto-mode classifier no request to judge. | Leave R1 as it is until upstream answers D13. | |
@@ -110,7 +115,7 @@ Each row is a proposal until the PO records a decision. The replacement texts fo
 
 | Spine Deferred row, or other text | Proposed | Condition | PO decision |
 | --- | --- | --- | --- |
-| "Push transport confirmed (…); else Monitor watch or a `PostToolUse` hook as further adapters" | Close: the mod reaches every kind of agent with append and submit (row 1); no further adapter | Runs `c7b-*`, `d-stress-*` and `d-esc-312` confirm | |
+| "Push transport confirmed (…); else Monitor watch or a `PostToolUse` hook as further adapters" | Close: the mod reaches every kind of agent with append and submit (row 1); no further adapter | Confirmed by `c7b-*` and `d-stress-*`. The interrupt case (D6, `d-esc-312`, `d-esc2-312`) stays with row 1's retry rule and pull | |
 | "Latency target for answers reaching a working agent (PRD OQ2, product owner)" | Close if row 13 sets the target now; otherwise reword: measured per kind of agent, revisited at the first benchmark run | Row 13 | |
 | "Minimum Claude Code version; behaviour of the session-file key after `/clear`, `--continue` and `/resume`" | Close: 2.1.311 confirmed (row 11); key by the Claude Code PID (row 2) | The Linux run of criterion 13 (task 4.1) | |
 | SOLUTION-DESIGN §12, "Architecture spikes" and "Product owner" | Drop the mod delivery items; drop the latency target if row 13 sets it | Rows 13 and 18 | |
@@ -131,6 +136,7 @@ Each row is a proposal until the PO records a decision. The replacement texts fo
 - **Configuration:** a throwaway git project in the scratch directory, which Claude Code is told to trust. The probe loads with `--plugin-dir`, with settings sources limited to the scratch project. No user plugins and no MCP server other than the probe (task 1.4 records the exact flags).
 - **Proof of delivery:** every pushed message carries a nonce. An agent counts as reached only when the nonce shows up in its own transcript as a message attributed to the mod. A nonce in another agent's transcript is a routing failure.
 - **Model:** `claude-opus-5-5`, as in the review of the model contract.
+- **Times:** clock times are UTC, as the probe's logs and the transcripts stamp them, except in criterion 2 (`c2-po-312`) and criterion 7, which give local time (CET, UTC+1) from the screen and the run scripts.
 
 ## Loading mode (task 1.4, 2026-10-29)
 
@@ -214,11 +220,62 @@ Interactive runs drive Claude Code in tmux (`run-i.sh`, `deliver-i.sh`), with a 
 
 #### Append under load
 
-Pending: runs `d-stress-312`, `d-stress-311`.
+Pass on both versions. Runs `d-stress-312` and `d-stress-311` (`deliver-i.sh`), interactive, auto mode, hybrid main path and append, probe copy `probe-p1`. The main conversation asks (`stress-main`), starts a background probe-worker that asks (`stress-bg`) and runs `sleep 3` twelve times, then runs `sleep 3` eight times itself. The auto-answerer gives 20 answers to each ask, 2 s apart per ask, so about one answer a second for 44 s.
+
+| Run | Answers | Main: paths | Main: read | Subagent: paths | Subagent: read | Skipped (D1) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `d-stress-312` | 40 | 15 append, 5 submit (its turn had ended) | 20/20: 15 in its `NONCES` line, 5 as `GOT` 2.0–2.2 s after the answer | 20 append | 20/20 in its `NONCES` line | 0 |
+| `d-stress-311` | 40 | 20 append, 3 of them caught up by submit | 20/20: 17 in its `NONCES` line, 3 as `GOT` after the catch-up | 20 append | 20/20 in its `NONCES` line | 0 |
+
+- **No API error.** `grep -i 'error\|400\|invalid'` finds 24 lines in `d-stress-312/debug.log` and 22 in `d-stress-311`, none from the API: the `claude-artifacts` connector failing at start (`Error POSTing to endpoint: not found`), a version lock at start (`NON-FATAL: Lock acquisition failed … (expected in multi-process scenarios)`), terminal and stream errors when tmux closed the session (`restoreTerminalModes write failed: Error: EIO`, `SSETransport: Stream read error: The operation was aborted.`), `is_error=false` results and tool IDs that contain `400`. No transcript row has `isApiErrorMessage`. The runs made 47 and 41 API requests.
+- **Every nonce reached its owner, once.** Each one is a `user` row in its owner's transcript, with `isMeta: true` and `origin: {"kind": "plugin", "name": "probe"}`. No nonce is a pushed row in another transcript. The subagent's nonces reach the main transcript only inside its report ("Message from @probe-probe-worker"), as they should.
+- **Rows between `tool_use` and `tool_result`.** In the transcript file most appended rows land inside a tool call:
+
+  | Run | Transcript | Appended rows inside a pair | Pairs | Most in one pair | Next request |
+  | --- | --- | --- | --- | --- | --- |
+  | `d-stress-312` | main | 14 of 15 | 7 | 2 | sent and answered every time |
+  | `d-stress-312` | subagent | 14 of 20 | 9 | 2 | the same |
+  | `d-stress-311` | main | 11 of 20 | 8 | 2 | the same |
+  | `d-stress-311` | subagent | 14 of 20 | 9 | 2 | the same |
+
+  The file order does not reach the API. The engine sends the `tool_result` first and the appended answers after it, in the same user message: 9 request blobs in `d-stress-312`'s main transcript read `[tool_result, text (answer), text (answer)]`. AD-4's risk of an appended row between `tool_use` and `tool_result` does not occur on either version.
+- **Push:** t0 to push median 0.5 s, max 1.0 s on both versions (1 s poll).
+- **The submit path under load.** On 2.1.312 the main turn ended at 19:39:31.7, before the last 5 main answers. Each was submitted while idle and woke a turn of about 1 s of its own: 5 woken turns in 10 s, one per answer, because each turn ended before the next answer came.
+- **Catch-up under load.** On 2.1.311 the main turn ended at 19:39:42.9. Answer seq 33 was appended at 19:39:41.18, after the last request (19:39:40.62), and was submitted at `turn.complete`. Seq 35 and 36 were appended during that woken turn, after its only request, and were submitted together at its `turn.complete`, which queued two more turns. The model quoted three nonces twice (the appended row and the submitted prompt). Nothing was lost or altered, but each catch-up costs a turn.
+- **Skipped by design (D1): none.** The subagent finished after its last answer on both versions (2.1.312: finished 19:39:52.3, last answer pushed 19:39:45.1; 2.1.311: 19:40:03.4 and 19:39:51.2), so no `skip-finished` line was logged.
 
 #### Interrupt, then push (D6)
 
-Pending: run `d-esc-312`.
+Fail on 2.1.312: both runs lost both answers to push, without a retry (`d-esc-312`) and with the first retry (`d-esc2-312`). The corrected retry is in the mod, untested, awaiting the PO. 2.1.311 not run.
+
+`d-esc.sh`, interactive, auto mode, hybrid main path and append. The main conversation asks (`esc-main`) and runs `sleep 24`. Esc comes at ask+10 s, during the sleep, and answers at ask+15 s and ask+40 s. At about ask+62 s the user asks "Did any message with a nonce reach you? … or NONE."
+
+| | `d-esc-312` (`probe-p1`, no retry) | `d-esc2-312` (`probe-p2`, retry as first written) |
+| --- | --- | --- |
+| Ask | 19:38:59.8 | 19:44:06.6 |
+| Esc | `turn.complete` fires at 19:39:10.678; the transcript gets the rejected `tool_result` and "[Request interrupted by user for tool use]" | the same, 19:44:17.167 |
+| Answer 1 (ask+15 s) | idle, so submit; resolved at once with `drop: "the session was stopped and nobody has sent input since"` | the same |
+| Answer 2 (ask+40 s) | submit, the same `drop` | the same |
+| Catch-up submits | none (nothing was appended) | none |
+| User's next input | 19:40:02.712; the model replies `NONE` | 19:45:09.178; the mod appends both answers at `turn.start` (`retry-append`, 19:45:09.191 and .208, both stored); the model replies `NONE` |
+| Nonce in the main transcript | never | only as the two appended rows, which no request carried |
+| Answers lost | 2 of 2 | 2 of 2 |
+
+- **D6 confirmed on 2.1.312.** After Esc, `$.prompt.submit` resolves `{ drop }` and queues nothing. The user's next input does not replay a dropped submit either. The mod's watermark had moved past both answers (a push counts once the call is made, O7), so without a retry they are gone. Only pull (`probe_collect`) or the board would still show them.
+- **`turn.complete` fires on the interrupt.** The mod marks the conversation idle, so answers that come after Esc take the submit path, which is the one Esc drops.
+- **What the `d-esc2-312` version did** (`probe-p2`, the first retry in `probe/hooks/register.js`):
+  - `submitAnswer($, answer)` replaces the two inline submits (the idle push and the catch-up). A submit that resolves with `drop` puts the answer on a `pendingAnswers` list. Catch-ups now also log `submit-started` with `drop`.
+  - `appendPending($)` runs at every main `turn.start`. It appends each pending answer and logs `retry-append`; if the append throws, it logs `retry-append-error` and keeps the answer pending. It adds the appended answers to the turn's appended list, stamped with the time of the append.
+  - At `turn.complete` the mod submits every answer still pending and every appended answer it takes as unread (appended at or after the turn's last `turn.step`). An answer dropped again goes back on the list.
+- **Why it still lost both answers: rows appended at `turn.start` are not in that turn's first request.** Both rows sit in the transcript's parent chain after the user's prompt, and the reply's parent is the second one. But the turn's only request (19:45:09.243) ends with the user's prompt. Its blob reads `[tool_result (rejected), text "[Request interrupted by user for tool use]", text "Did any message with a nonce reach you? …"]`: the engine built that request before the hook's rows existed. `turn.complete` then took both answers as carried, because they were appended before the turn's `turn.step`, so it made no catch-up submit. The turn ended after that one request.
+- **Corrected rule (untested, awaiting the PO).** It is in `probe/hooks/register.js` and passes `claude plugin validate`. `turn.step` counts the main turn's requests (`mainStepsThisTurn`). An answer appended at `turn.start` counts as carried only once the turn has made a second request; otherwise `turn.complete` submits it. That submit should not be dropped, because the user has sent input since the stop. Expected: an answer dropped after Esc is read in the user's next turn if that turn makes a second request (a tool call), and otherwise in a turn woken right after it. To verify, from the change folder:
+
+  ```sh
+  rm -rf <scratch>/probe-p3 && cp -R probe <scratch>/probe-p3 && sh <scratch>/d-esc.sh claude d-esc3-312 <scratch>/probe-p3
+  ```
+
+  Pass: both nonces quoted in the main transcript after the user's input, through `retry-append` or a `catch-up-submit` with `drop: null`.
+- **Consequence for AD-4.** After an Esc, a pushed answer is not read until the user's input starts a turn that makes a second request, or until a later submit, which the mod can make only once that turn ends. Before the user types, neither submit nor append reaches the model. A `turn.start` hook cannot add to the request that the user's own input starts. Pull (`probe_collect`) stays authoritative (row 1).
 
 ### Criterion 2: an idle main conversation with a draft
 
@@ -253,7 +310,8 @@ Measured on latest from per-request usage (`tokens.py`), main and subagent trans
 
 - `claude plugin marketplace add <scratch>/mp --scope local` and `claude plugin install probe@askboard-spike-mp --scope local`, from the scratch project, on 2.1.312: both succeeded; the project's `settings.local.json` gained `extraKnownMarketplaces` and `enabledPlugins` entries.
 - Session `c5-installed-312`: the installed probe (no `--plugin-dir`), `--setting-sources project,local`, auto mode, no allow rule for the probe's tools, hybrid main path and append. One ask from the main conversation and one from a background subagent: **no permission prompt** on any of the twelve screen captures, and 4 answers pushed by append, each reported by its agent (main: `N-4a0bc357`, `N-10a06a8f`; subagent: `N-ef751fb1`, `N-8123b79f`).
-- Cleanup: `claude plugin uninstall probe@askboard-spike-mp --scope local` and `claude plugin marketplace remove askboard-spike-mp`. The user's `known_marketplaces.json` and `installed_plugins.json` are byte-identical to the copies taken before the install, and no user file names the marketplace.
+- Cleanup: `claude plugin uninstall probe@askboard-spike-mp --scope local` and `claude plugin marketplace remove askboard-spike-mp`. The user's `known_marketplaces.json` and `installed_plugins.json` are byte-identical to the copies taken before the install, and no user configuration file names the marketplace.
+- **Left behind:** the plugin's cache, `~/.claude/plugins/cache/askboard-spike-mp/probe/0.1.0`. Claude Code keeps cached plugin folders on purpose: its debug log reads `Keeping …/plugins/cache/askboard-spike-mp/probe: it still holds a directory, a symlink, a versioned archive or an entry of unknown type`. It was left in place for the PO to remove.
 
 ## Criterion 6: `-p` and `--max-turns`
 
@@ -273,14 +331,40 @@ Headless runs (`c6.sh`, `c6b.sh`), main conversation, push by `$.prompt.submit`.
 - **The JSON result changes.** With a woken turn, `result` is the woken turn's text and `num_turns` counts that turn only, so a caller parsing `-p` output loses the original turn's answer. The benchmark (AD-17) must not rely on it.
 - **Under `-p`, append is the better path.** An answer appended during a tool step is read inside the same turn (criterion 1), with no extra turn and no `--max-turns` exposure. An ask that must be answered in a headless run needs the agent to stay in its turn (wait with `probe_collect` or a sleep loop) until the answer arrives.
 
-## Criterion 7: an ask open 30 minutes or more (task 3.6, partial)
+## Criterion 7: an ask open 30 minutes or more (task 3.6)
+
+Pass on both versions, for the main conversation and for a background subagent (local time, CET).
+
+### First runs
 
 Runs `c7-312` and `c7-311`, interactive, auto mode, hybrid main path and append. Asked at 18:24:35, answered at 18:54:35 (30 minutes).
 
 - **Main conversation: pass on both versions.** Before the answer, the stub (the same PID since 18:23:27) was alive and its session file present and unchanged (`-rw-------`, 542 bytes). The idle conversation was woken by submit and replied `GOT N-81974b84` (2.1.312) and `GOT N-3ce1bd34` (2.1.311). The stub exited only at shutdown (SIGINT, 18:58:35).
 - **Background subagent: inconclusive, to rerun.** When the answer came, the subagent was no longer in `$.agent.list()` (`skip-finished`, status `absent`), so the mod correctly did not push, and the agent reported `NONCES: none`. Its 17 steps of `sleep 110` should have lasted past the answer. The rerun needs a subagent that is shown to be running when the answer arrives (log `$.agent.list()` just before, or answer at 25 minutes).
 - **Why the subagent had finished: Claude Code refused its steps, not the push.** On both versions it refused the worker's `sleep 110` steps (`Blocked: standalone sleep 110 …` in both subagent transcripts): the 2.1.312 binary refuses a standalone `sleep` of 25 s or more (constant `mLr=25`). Each subagent finished after about 12 s (11.99 s on 2.1.311, 12.65 s on 2.1.312, from its first to its last transcript row). Push did not fail. The rerun chains four `sleep 24` per step.
-- **Rerun:** pending: runs `c7b-312`, `c7b-311`.
+
+### Rerun: a subagent that outlives the answer
+
+Runs `c7b-312` and `c7b-311` (`c7b.sh`), interactive, auto mode, hybrid main path and append, probe copy `probe-p1`. The main conversation asks `c7-main`, then starts a background probe-worker that asks `c7-bg` and runs 24 steps of `sleep 24 && sleep 24 && sleep 24 && sleep 24` (about 98 s each). Both asks are answered about 31 minutes after the main ask. Just before answering, the script records the session folder, the stub's PID and elapsed time (`ps`), the stub's state and the screen.
+
+| | `c7b-312` | `c7b-311` |
+| --- | --- | --- |
+| Stub start | 20:38:37.2 | 20:38:38.9 |
+| Ask `c7-main`, ask `c7-bg` | 20:38:47.4, 20:38:53.3 | 20:38:50.5, 20:38:56.8 |
+| Before the answer: stub | alive, same PID, elapsed 31:07 | alive, same PID, elapsed 31:08 |
+| Before the answer: session file | present, `-rw-------`, 543 bytes, written 20:38 | the same |
+| Before the answer: subagent on screen | "Running sleep step 18", 30m 52s | "Running sleep step 18 of 24", 30m 51s |
+| Both answers given | 21:09:44.3: 30 m 57 s after `c7-main`, 30 m 51 s after `c7-bg` | 21:09:46.3: 30 m 56 s and 30 m 49 s |
+| `c7-bg`: push | append at 21:09:44.8, delivered; no `skip-finished` | append at 21:09:46.9, delivered; no `skip-finished` |
+| `c7-bg`: nonce row in the subagent's transcript | `user`, `isMeta: true`, `origin` the probe plugin, 21:09:44.8 | the same, 21:09:46.9 |
+| `c7-bg`: request that carried it | 21:09:48.0, when the running step ended: `[tool_result, text (answer)]` | 21:09:54.1, the same |
+| `c7-main`: push | submit, woken turn at 21:09:44.8; `GOT` and the nonce at 21:09:46.4 (2.1 s) | the same at 21:09:46.9; `GOT` at 21:09:48.6 (2.3 s) |
+| Stub exit | SIGINT at shutdown, 21:13:44.4; session folder empty | the same, 21:13:46.3 |
+
+- **The subagent was running when its answer came.** The mod checked `$.agent.list()` before appending and logged no `skip-finished`. The screen showed the worker at step 18, and its transcript has steps 19 to 22 after the answer. Neither transcript has a refused step (`Blocked`) or an API error row.
+- **The stub held for 31 minutes.** One `start` line in the stub's log, and every line through `exit` has the same PID. `ps` gives an elapsed time that matches the start. The session file was unchanged from start to answer, and was removed at exit.
+- **Each nonce reached only its owner.** The `c7-bg` nonce is in the subagent's transcript only; the `c7-main` nonce is in the main transcript only.
+- **No report from the worker.** The session was closed 4 minutes after the answers, with the worker at step 22 of 24, so it never wrote its `NONCES` line. The proof of delivery is the nonce row and the request that carried it.
 
 ## Criterion 8: the board link for a subagent's ask
 
@@ -294,7 +378,27 @@ Probe variant with no hooks module (`hooks.json` without `modules`, D4), interac
 
 ### With the mod on
 
-Pending: run `c8-toast-312`.
+Pass with change on 2.1.312: with mods on, the mod shows a subagent's link (`c8-toast-312`). 2.1.311 not run. Without mods it still fails (`c8-nomod-*`).
+
+Run `c8-toast-312` (`c8-toast.sh`), interactive, auto mode, `PROBE_SHOW_LINK=1`, probe copy `probe-p1`. A background probe-worker asks once (`c8-toast`) and runs `sleep 5` four times; nobody answers. After a subagent's `probe_ask`, the mod's `tool.call` hook reads the ask's link from the stub's `/state`, then calls `$.ui.toast('AskBoard: <link>')` and `$.ui.status('AskBoard: <n> open')`. The pane is captured every 2 s for 20 s from the ask, then once more 30 s later.
+
+- **The mod's side:** `tool.call` for `probe_ask` with `agentId` at 19:39:03.775, then `show-link` 52 ms later (`"link":"http://127.0.0.1:<port>/b/c8-toast","open":1`). No `show-link-error`.
+- **Toast: shown, briefly.** It appears only in capture 1, 2.2 s after the call, at the right end of the footer row, after the mode indicator:
+
+  ```text
+  ⏵⏵ auto mode on (shift+tab to cycle) · ↓ to manage        probe: AskBoard: http://127.0.0.1:<port>/b/c8-toast
+  ```
+
+  By capture 2 (4.2 s) it is gone. It stayed on screen between 2 and 4 s, so a user looking elsewhere misses it.
+- **Status: shown, and it stays.** From capture 1 to the end of the run (about 50 s later, after the subagent had finished), a footer line above the mode indicator reads:
+
+  ```text
+  ⚠ probe: AskBoard: 1 open
+  ```
+
+  The engine adds the plugin's name as a prefix to both toast and status, and draws the status with a ⚠ sign (the call passed only the text). The status never changed. It still said "1 open" after the agent finished, when AD-10 would have closed the ask with `agent-finished`. The mod must update or clear it whenever an ask closes or is answered.
+- **Without the mod, the link reaches the user only late.** The subagent's `PostToolUse` `systemMessage` again stayed in its own transcript (one `hook_system_message` there, no `PostToolUse` line on the main screen), as in `c8-nomod-*`. The main conversation gave the link only when it relayed the subagent's report, 33 s after the ask (19:39:36.6, on screen: "It sent the question for c8-toast and got back the link http://127.0.0.1:<port>/b/c8-toast …").
+- **For FR-21 to FR-25 and F6:** with mods on, a toast plus a status entry shows a subagent's board link when the ask is made. The status entry is the part that lasts; the toast is only a short notice. Neither was tested for whether the link can be clicked. With mods off the gap stays, and the candidates under "Without mods" still apply (row 12).
 
 ## Criteria 9 to 17: identifiers, loopback and protocol facts
 
@@ -406,7 +510,7 @@ The pages read were the mods overview, API, reference and admin pages under `htt
 | D3 | `$.http.fetch` takes `socketPath`, which sends the request over a Unix socket instead of TCP. | Not mentioned; AD-5 and AD-11 assume a loopback TCP listener | api, "Reach files, processes, and the network"; types `HttpInit` | Gives a candidate local API on a 0600 Unix socket in the session-file folder: the hooks can use it too, and no `Origin` and no port are involved. Probed beside the loopback check (task 2.2) as input to AD-11. |
 | D4 | User-level switches: disabling the plugin stops all of it; `disableAllHooks` in user settings stops mods **and** settings hooks; `--safe-mode` stops every customization. Only managed `allowManagedModsOnly` stops mods while keeping settings hooks. | Design decision 7 looked for a user-level switch that stops only mods | overview, "Turn mods on or off"; admin, "Choose how much to allow" | Criterion 8 uses the probe variant with no hooks module, the fallback decision 7 already names. |
 | D5 | A `/clear` fires `session.end` with `reason: 'clear'`, and no `session.start` follows. Timers started in `session.start` stop only when the module reloads. | §9 described polling with `$.clock.every` from `session.start` only | reference, "Session"; `plugin-authoring` reference | Whether the mod's poll survives `/clear`, and under which session ID, is part of criterion 13 (task 2.4). |
-| D6 | `$.prompt.submit` waits until the session is idle, starts a new turn and resolves when that turn starts. After a user interruption it resolves `{ drop }` and queues nothing, until the user's next input (2.1.304+). | §9: "waits until the session is idle and then starts a new turn" | api, "Start a turn from a background job", "Calls and background work after the user interrupts a turn" | A push after Esc is dropped, not delayed. The mod must keep it and retry from `turn.complete`. The pull path covers it in the meantime. Recorded for AD-4 (task 5.1). |
+| D6 | `$.prompt.submit` waits until the session is idle, starts a new turn and resolves when that turn starts. After a user interruption it resolves `{ drop }` and queues nothing, until the user's next input (2.1.304+). | §9: "waits until the session is idle and then starts a new turn" | api, "Start a turn from a background job", "Calls and background work after the user interrupts a turn" | A push after Esc is dropped, not delayed. The mod must keep it and retry from `turn.complete`. The pull path covers it in the meantime. Recorded for AD-4 (task 5.1). Confirmed on 2.1.312, where a retry appended at `turn.start` was not read either ([Interrupt, then push](#interrupt-then-push-d6)). |
 | D7 | Under `-p`, a mod's `$.prompt.submit` is refused once `--max-turns` is reached (2.1.299+), and subagent turns started by a mod count toward it (2.1.304+). | F11: "`$.prompt.submit` can keep a run alive" | api, "Calls refused in `claude -p` runs" | Criterion 6 checks the refusal (`{ drop: 'the run reached its --max-turns limit' }`) on 2.1.311 and `latest`. |
 | D8 | `$.prompt.read()` returns the draft in the prompt box and the cursor. | Not mentioned | types `prompt.read` | Criterion 2 can check from inside the mod that the user's draft survives a wake. The mod can also hold a push while the user is typing. |
 | D9 | `$.session.id()` is asynchronous and returns the transcript file's name. `$.session.version()` returns the engine's version. | §9: `$.session.id` | types `session.id`, `session.version` | The mod can report the client version (criterion 16) without a protocol field. |

@@ -15,7 +15,7 @@ chmod 700 "$PROBE_RUN_DIR"
 PROJECT=${PROBE_PROJECT:-$SCRATCH/project}
 tmux kill-session -t "$RUN" 2>/dev/null
 tmux new-session -d -s "$RUN" -x 160 -y 50 -c "$PROJECT" \
-  env PROBE_RUN_DIR="$PROBE_RUN_DIR" PROBE_POLL_MS="${PROBE_POLL_MS:-1000}" PROBE_TRANSPORT="${PROBE_TRANSPORT:-tcp}" PROBE_MAIN_VIA="${PROBE_MAIN_VIA:-submit}" PROBE_SELF_ALLOW="${PROBE_SELF_ALLOW:-0}" PROBE_PUSH_VIA="${PROBE_PUSH_VIA:-send}" \
+  env PROBE_RUN_DIR="$PROBE_RUN_DIR" PROBE_POLL_MS="${PROBE_POLL_MS:-1000}" PROBE_TRANSPORT="${PROBE_TRANSPORT:-tcp}" PROBE_MAIN_VIA="${PROBE_MAIN_VIA:-submit}" PROBE_SELF_ALLOW="${PROBE_SELF_ALLOW:-0}" PROBE_PUSH_VIA="${PROBE_PUSH_VIA:-send}" PROBE_SHOW_LINK="${PROBE_SHOW_LINK:-0}" \
   "$SCRATCH/clean.sh" "$CLAUDE_BIN" \
   --plugin-dir "$PROBE" --setting-sources project \
   --allowedTools "mcp__plugin_probe_probe__probe_ask,mcp__plugin_probe_probe__probe_collect,Bash(sleep:*),Agent" \
