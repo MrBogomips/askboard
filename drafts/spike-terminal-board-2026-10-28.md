@@ -1,6 +1,6 @@
 # AskBoard boards in a Claude Code mod pane: research spike (2026-10-28)
 
-**Status:** draft for the product owner's decision, not yet taken. It is not authoritative: where it differs from the PRD, the spine or the UX documents under `docs/`, those win. If the idea is adopted, it goes through an OpenSpec change.
+**Status:** decided on 2026-10-29: boards in a pane are not in the first version and are re-evaluated later. The first-version band (option M4, §6) and the D1–D4 probes (§5.4) are settled when the mod delivery spike is proposed. This report is not authoritative: where it differs from the PRD, the spine or the UX documents under `docs/`, those win. If the idea is adopted, it goes through an OpenSpec change.
 
 **Scope.** The product owner confirmed that "terminal-browser mod" means a Claude Code mod. Terminal browsers and terminals are covered only where the mod would rely on them.
 
