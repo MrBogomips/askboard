@@ -1,0 +1,5 @@
+{
+  "name": "probe",
+  "version": "0.1.0",
+  "description": "Mod delivery spike probe: stub MCP server, settings hooks and a push mod. Not shipped."
+}

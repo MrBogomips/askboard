@@ -1,0 +1,5 @@
+{
+  "name": "probe-fetch-block",
+  "version": "0.1.0",
+  "description": "Mod delivery spike: stands in for an organization's policy that refuses mods' network requests (criterion 11). Not shipped."
+}

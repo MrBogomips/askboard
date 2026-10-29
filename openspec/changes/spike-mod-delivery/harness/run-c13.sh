@@ -1,0 +1,33 @@
+#!/bin/sh
+# Criterion 13, headless part: session IDs across a first run, --continue and --resume <id>.
+# Usage: run-c13.sh <claude-binary> <run-name>
+set -u
+SCRATCH=/private/tmp/claude-501/-Users-mr-git-MrBogomips-askboard/c62fdf42-198f-4102-861b-31731cc74555/scratchpad
+PROBE=/Users/mr/git/MrBogomips/askboard/.claude/worktrees/feature-spike-mod-delivery/openspec/changes/spike-mod-delivery/probe
+CLAUDE_BIN=$1
+RUN=$2
+export PROBE_RUN_DIR="$SCRATCH/runs/$RUN"
+PROJECT="$SCRATCH/project-$RUN"
+rm -rf "$PROBE_RUN_DIR" "$PROJECT"
+mkdir -p "$PROBE_RUN_DIR" "$PROJECT"
+chmod 700 "$PROBE_RUN_DIR"
+cd "$PROJECT"
+git init -q -b main
+printf 'c13\n' > README.md
+git add README.md
+git -c user.name=probe -c user.email=probe@example.invalid commit -q -m "chore: c13 project"
+run() {
+  step=$1
+  shift
+  "$SCRATCH/clean.sh" "$CLAUDE_BIN" -p "Call probe_ask with askId c13-$step and question '$step', then reply done." \
+    --plugin-dir "$PROBE" --setting-sources project \
+    --allowedTools "mcp__plugin_probe_probe__probe_ask" \
+    --model claude-opus-5-5 --output-format json --max-turns 4 \
+    --debug-file "$PROBE_RUN_DIR/debug-$step.log" "$@" > "$PROBE_RUN_DIR/result-$step.json" 2> "$PROBE_RUN_DIR/stderr-$step.txt"
+  echo "$step exit $? session $(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['session_id'])" "$PROBE_RUN_DIR/result-$step.json")"
+}
+run first
+FIRST=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['session_id'])" "$PROBE_RUN_DIR/result-first.json")
+run continue --continue
+run resume --resume "$FIRST"
+run fork --resume "$FIRST" --fork-session
