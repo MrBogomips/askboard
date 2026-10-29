@@ -1,0 +1,22 @@
+{
+  "description": "Negative probe: A <form> submission (requestSubmit).",
+  "board": {
+    "id": "neg-form",
+    "title": "neg-form",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegForm"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "no-request",
+      "path": "/leak/form"
+    },
+    {
+      "kind": "alive"
+    }
+  ]
+}

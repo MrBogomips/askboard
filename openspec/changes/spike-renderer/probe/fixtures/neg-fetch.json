@@ -1,0 +1,25 @@
+{
+  "description": "Negative probe: A fetch to the board origin.",
+  "board": {
+    "id": "neg-fetch",
+    "title": "neg-fetch",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegFetch"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "connect-src"
+      ]
+    },
+    {
+      "kind": "no-request",
+      "path": "/leak/fetch"
+    }
+  ]
+}

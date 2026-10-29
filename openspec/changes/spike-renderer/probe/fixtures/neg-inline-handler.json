@@ -1,0 +1,22 @@
+{
+  "description": "Negative probe: An inline event handler attribute, then a click.",
+  "board": {
+    "id": "neg-inline-handler",
+    "title": "neg-inline-handler",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegInlineHandler"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "script-src-attr",
+        "script-src"
+      ]
+    }
+  ]
+}

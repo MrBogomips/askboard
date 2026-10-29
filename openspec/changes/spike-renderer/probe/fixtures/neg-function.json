@@ -1,0 +1,22 @@
+{
+  "description": "Negative probe: new Function, the feature probe zod uses.",
+  "board": {
+    "id": "neg-function",
+    "title": "neg-function",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegFunction"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "script-src"
+      ],
+      "blocked": "eval"
+    }
+  ]
+}

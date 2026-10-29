@@ -1,0 +1,33 @@
+{
+  "description": "Negative probe: a chunk hashed in the view's policy but left out of the board page's.",
+  "board": {
+    "id": "neg-chunk",
+    "title": "neg-chunk",
+    "items": [
+      {
+        "id": "h1",
+        "type": "Hello",
+        "props": {
+          "text": "The shell still runs"
+        }
+      },
+      {
+        "id": "p1",
+        "type": "NegChunk"
+      }
+    ]
+  },
+  "omitFromBoardPolicy": [
+    "neg-chunk"
+  ],
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "script-src-elem",
+        "script-src"
+      ],
+      "policyIncludes": "connect-src 'self'"
+    }
+  ]
+}

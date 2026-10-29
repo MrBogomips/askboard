@@ -1,0 +1,22 @@
+{
+  "description": "Negative probe: Indirect eval.",
+  "board": {
+    "id": "neg-eval",
+    "title": "neg-eval",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegEval"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "script-src"
+      ],
+      "blocked": "eval"
+    }
+  ]
+}

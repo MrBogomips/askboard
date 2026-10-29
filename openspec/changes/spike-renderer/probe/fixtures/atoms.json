@@ -1,0 +1,192 @@
+{
+  "description": "Every atom and layout of task 2.1, once, under a Stack.",
+  "board": {
+    "id": "atoms",
+    "title": "Atoms and layouts",
+    "items": [
+      {
+        "id": "s1",
+        "type": "Stack",
+        "children": [
+          {
+            "id": "t1",
+            "type": "Text",
+            "props": {
+              "text": "Which retry policy should the client use?"
+            }
+          },
+          {
+            "id": "v1",
+            "type": "Value",
+            "props": {
+              "label": "Expected effort",
+              "value": 12.5
+            }
+          },
+          {
+            "id": "tf1",
+            "type": "TextField",
+            "props": {
+              "label": "Reason"
+            }
+          },
+          {
+            "id": "nf1",
+            "type": "NumberField",
+            "props": {
+              "label": "Attempts",
+              "decimal": "."
+            }
+          },
+          {
+            "id": "c1",
+            "type": "Choice",
+            "props": {
+              "label": "Policy",
+              "options": [
+                {
+                  "value": "fixed",
+                  "label": "Fixed delay"
+                },
+                {
+                  "value": "expo",
+                  "label": "Exponential backoff"
+                }
+              ]
+            }
+          },
+          {
+            "id": "c2",
+            "type": "Choice",
+            "props": {
+              "label": "Apply to",
+              "multiple": true,
+              "options": [
+                {
+                  "value": "get",
+                  "label": "GET"
+                },
+                {
+                  "value": "post",
+                  "label": "POST"
+                }
+              ]
+            }
+          },
+          {
+            "id": "tg1",
+            "type": "Toggle",
+            "props": {
+              "label": "Retry on timeout"
+            }
+          },
+          {
+            "id": "r1",
+            "type": "Row",
+            "props": {
+              "widths": [
+                2,
+                1
+              ]
+            },
+            "children": [
+              {
+                "id": "t2",
+                "type": "Text",
+                "props": {
+                  "text": "Wide column"
+                }
+              },
+              {
+                "id": "t3",
+                "type": "Text",
+                "props": {
+                  "text": "Narrow column"
+                }
+              }
+            ]
+          },
+          {
+            "id": "g1",
+            "type": "Group",
+            "props": {
+              "title": "Limits"
+            },
+            "children": [
+              {
+                "id": "tf2",
+                "type": "TextField",
+                "props": {
+                  "label": "Maximum delay"
+                }
+              }
+            ]
+          },
+          {
+            "id": "tb1",
+            "type": "Tabs",
+            "props": {
+              "label": "Views",
+              "tabs": [
+                "Summary",
+                "Details"
+              ]
+            },
+            "children": [
+              {
+                "id": "t4",
+                "type": "Text",
+                "props": {
+                  "text": "Summary tab"
+                }
+              },
+              {
+                "id": "tg2",
+                "type": "Toggle",
+                "props": {
+                  "label": "Show details"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=t1]",
+    "text": "retry policy"
+  },
+  "edits": [
+    {
+      "action": "fill",
+      "selector": "#tf1-input",
+      "value": "Flaky upstream"
+    },
+    {
+      "action": "fill",
+      "selector": "#nf1-input",
+      "value": "3"
+    },
+    {
+      "action": "click",
+      "selector": "#c1-expo"
+    },
+    {
+      "action": "click",
+      "selector": "#c2-get"
+    },
+    {
+      "action": "click",
+      "selector": "#tg1-switch"
+    },
+    {
+      "action": "click",
+      "selector": "[data-item-id=tb1] [role=tab]:nth-child(2)"
+    },
+    {
+      "action": "click",
+      "selector": "#tg2-switch"
+    }
+  ]
+}

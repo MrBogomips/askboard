@@ -1,0 +1,20 @@
+{
+  "description": "Smoke run: one harness item, no library.",
+  "board": {
+    "id": "hello",
+    "title": "Hello",
+    "items": [
+      {
+        "id": "h1",
+        "type": "Hello",
+        "props": {
+          "text": "Hello from the view"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=h1]",
+    "text": "Hello from the view"
+  }
+}
