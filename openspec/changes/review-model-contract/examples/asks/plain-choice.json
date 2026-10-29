@@ -1,0 +1,19 @@
+{
+  "versions": { "request": "1.0", "input": "1.0" },
+  "askId": "order-db-choice-x7k2",
+  "items": [
+    {
+      "type": "question",
+      "id": "database",
+      "props": {
+        "text": "Which database should the order service use?",
+        "header": "Database",
+        "options": [
+          { "label": "PostgreSQL", "description": "Relational, already run by the platform team; needs a managed instance." },
+          { "label": "SQLite", "description": "Embedded file, no server to run; one writer at a time." },
+          { "label": "DynamoDB", "description": "Managed key-value store that scales without tuning; no joins." }
+        ]
+      }
+    }
+  ]
+}

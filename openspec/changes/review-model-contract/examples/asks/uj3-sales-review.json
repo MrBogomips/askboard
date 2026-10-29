@@ -1,0 +1,34 @@
+{
+  "versions": { "request": "1.0", "input": "1.0" },
+  "askId": "acme-offer-review-h6p3",
+  "title": "Acme offer: estimate review",
+  "expectedUser": "Marco Rossi",
+  "items": [
+    {
+      "type": "question",
+      "id": "offer",
+      "props": {
+        "text": "Review the estimate for the Acme offer, then approve it.",
+        "header": "Offer",
+        "items": [
+          {
+            "type": "molecule",
+            "id": "estimate",
+            "props": {
+              "molecule": "sales-estimate-review",
+              "data": {
+                "currency": "EUR",
+                "lines": [
+                  { "id": "pm", "role": "Project manager", "days": 12, "dailyCost": "420.00", "dailyRate": "650.00" },
+                  { "id": "dev", "role": "Developer", "days": 40, "dailyCost": "380.00", "dailyRate": "560.00" },
+                  { "id": "qa", "role": "Tester", "days": 15, "dailyCost": "320.00", "dailyRate": "480.00" },
+                  { "id": "training", "role": "Trainer", "days": 4, "dailyCost": "350.00", "dailyRate": "600.00", "optional": true }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

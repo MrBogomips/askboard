@@ -1,0 +1,18 @@
+{
+  "versions": { "result": "1.0", "output": "1.0" },
+  "epoch": "k3x9",
+  "asks": [{ "askId": "order-db-choice-x7k2", "state": "answered", "cursor": "k3x9.2" }],
+  "events": [
+    {
+      "askId": "order-db-choice-x7k2",
+      "cursor": "k3x9.1",
+      "type": "answer",
+      "itemId": "database",
+      "rev": 1,
+      "who": "Paola Greco",
+      "when": "2026-10-29T09:41:27Z",
+      "choice": ["PostgreSQL"]
+    },
+    { "askId": "order-db-choice-x7k2", "cursor": "k3x9.2", "type": "state", "state": "answered" }
+  ]
+}

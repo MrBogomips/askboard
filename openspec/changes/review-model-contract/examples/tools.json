@@ -1,0 +1,137 @@
+{
+  "tools": [
+    {
+      "name": "ask",
+      "description": "Show questions to the user on a local web board and keep working: the answers come later, through collect. `items` holds the questions (`type: \"question\"`); a question's `props.items` holds its widgets, excerpts and molecules. Every item is `{type, id, props}`, with an ID of your choosing that matches [A-Za-z0-9_-]{1,64} and is unique in the ask. Write content and data only: no HTML, CSS, script, colours or positions, since AskBoard lays the board out. Point to project files instead of copying them (`path#Heading`, `path#L10-L40`). Never compute totals, estimates, dates or margins: AskBoard derives them. The askboard skill lists every item type and its props. Returns the board link and the ask's first cursor.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "versions": { "type": "object", "additionalProperties": { "type": "string" } },
+          "askId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "title": { "type": "string" },
+          "agentName": { "type": "string" },
+          "expectedUser": { "type": "string" },
+          "language": { "enum": ["en-US", "it-IT"] },
+          "locale": { "enum": ["en-US", "it-IT"] },
+          "presentation": { "enum": ["sections", "tabs", "one-per-view"] },
+          "delivery": { "enum": ["immediate", "submitted"] },
+          "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/item" } }
+        },
+        "required": ["versions", "askId", "items"],
+        "additionalProperties": false,
+        "$defs": {
+          "item": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+              "props": { "type": "object" }
+            },
+            "required": ["type", "id"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "annotations": { "idempotentHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "update",
+      "description": "Change an open ask by item ID: add, change, delete or reopen an item; record an answer the user gave you outside the board; reply to a follow-up, naming its cursor; or close the ask. A question that already has an answer can only be reopened, which starts a new revision.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "versions": { "type": "object", "additionalProperties": { "type": "string" } },
+          "askId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "enum": ["add", "change", "delete", "reopen", "answer", "reply", "close"] },
+                "itemId": { "type": "string" },
+                "parentId": { "type": "string" },
+                "after": { "type": "string" },
+                "item": { "type": "object" },
+                "props": { "type": "object" },
+                "answer": { "type": "object" },
+                "followUp": { "type": "string" },
+                "text": { "type": "string" }
+              },
+              "required": ["action"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["versions", "askId", "actions"],
+        "additionalProperties": false
+      },
+      "annotations": { "openWorldHint": false }
+    },
+    {
+      "name": "collect",
+      "description": "Return what happened on your asks after the cursors you pass: answers (only what changed, with derived values), declines, postpones, follow-ups, notes and state changes. Pass the latest cursor you received for each ask, and ignore an event whose cursor you have already seen. With `wait`, return as soon as that item has an event, or after 20 minutes. A `discarded` ask is gone and its answers will not come.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "versions": { "type": "object", "additionalProperties": { "type": "string" } },
+          "asks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "askId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+                "after": { "type": "string" }
+              },
+              "required": ["askId", "after"],
+              "additionalProperties": false
+            }
+          },
+          "wait": {
+            "type": "object",
+            "properties": {
+              "askId": { "type": "string" },
+              "itemId": { "type": "string" }
+            },
+            "required": ["askId", "itemId"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["versions", "asks"],
+        "additionalProperties": false
+      },
+      "annotations": { "readOnlyHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "fetch",
+      "description": "Return the full current value of one item, as the user left it, when an answer's changes are not enough. A long item comes in pages: pass the `continuation` of the previous result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "versions": { "type": "object", "additionalProperties": { "type": "string" } },
+          "askId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "itemId": { "type": "string" },
+          "continuation": { "type": "string" }
+        },
+        "required": ["versions", "askId", "itemId"],
+        "additionalProperties": false
+      },
+      "annotations": { "readOnlyHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "snapshot",
+      "description": "Save the ask's board as one self-contained HTML file in the project, with its data embedded, and return the file's path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "versions": { "type": "object", "additionalProperties": { "type": "string" } },
+          "askId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" }
+        },
+        "required": ["versions", "askId"],
+        "additionalProperties": false
+      },
+      "annotations": { "destructiveHint": false, "openWorldHint": false }
+    }
+  ]
+}

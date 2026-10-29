@@ -1,0 +1,50 @@
+{
+  "versions": { "result": "1.0", "output": "1.0" },
+  "epoch": "k3x9",
+  "asks": [{ "askId": "portal-sow-plan-t2v6", "state": "answered", "cursor": "k3x9.3" }],
+  "events": [
+    {
+      "askId": "portal-sow-plan-t2v6",
+      "cursor": "k3x9.1",
+      "type": "answer",
+      "itemId": "plan",
+      "rev": 1,
+      "who": "Sara Conti",
+      "when": "2026-10-29T14:05:12Z",
+      "changes": [
+        { "op": "set", "target": "wbs__tree.portal.label", "value": "Customer portal: accounts" },
+        { "op": "set", "target": "wbs__tree.portal.optimistic", "value": 4 },
+        { "op": "set", "target": "wbs__tree.portal.mostLikely", "value": 6 },
+        { "op": "set", "target": "wbs__tree.portal.pessimistic", "value": 10 },
+        {
+          "op": "add",
+          "target": "wbs__tree.u-1",
+          "parent": "build",
+          "after": "portal",
+          "value": { "label": "Customer portal: dashboards", "optimistic": 4, "mostLikely": 7, "pessimistic": 12 }
+        },
+        { "op": "set", "target": "schedule__gantt.u-1.dependencies", "value": ["architecture", "prototype"] },
+        { "op": "set", "target": "wbs__tree.billing.pessimistic", "value": 21 },
+        { "op": "set", "target": "wbs__tree.ux.mostLikely", "value": 4 }
+      ],
+      "derived": {
+        "wbs__tree.ux.expected": 4.83,
+        "wbs__tree.portal.expected": 6.33,
+        "wbs__tree.portal.spread": 1,
+        "wbs__tree.u-1.expected": 7.33,
+        "wbs__tree.u-1.spread": 1.33,
+        "wbs__tree.billing.expected": 9.67,
+        "wbs__tree.billing.spread": 2.67,
+        "wbs__tree.design.expected": 13.33,
+        "wbs__tree.build.expected": 28.67,
+        "wbs__tree.build.spread": 3.3,
+        "wbs__tree.expected": 42,
+        "wbs__tree.spread": 3.66,
+        "schedule__gantt.finish": "2026-12-02",
+        "schedule__gantt.criticalPath": ["ux", "prototype", "portal", "reporting"]
+      }
+    },
+    { "askId": "portal-sow-plan-t2v6", "cursor": "k3x9.2", "type": "postponed", "itemId": "erp-export", "rev": 1 },
+    { "askId": "portal-sow-plan-t2v6", "cursor": "k3x9.3", "type": "state", "state": "answered" }
+  ]
+}
