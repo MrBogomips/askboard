@@ -1,5 +1,4 @@
 {
-  "versions": { "request": "1.0", "input": "1.0" },
   "askId": "acme-offer-review-h6p3",
   "title": "Acme offer: estimate review",
   "expectedUser": "Marco Rossi",

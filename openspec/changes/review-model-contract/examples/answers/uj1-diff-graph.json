@@ -1,40 +1,42 @@
 {
   "versions": { "result": "1.0", "output": "1.0" },
   "epoch": "k3x9",
-  "asks": [{ "askId": "payment-retry-fix-q4m8", "state": "answered", "cursor": "k3x9.5" }],
-  "events": [
+  "asks": [
     {
       "askId": "payment-retry-fix-q4m8",
-      "cursor": "k3x9.2",
-      "type": "answer",
-      "itemId": "fix",
-      "rev": 1,
-      "who": "Luca Ferri",
-      "when": "2026-10-29T10:14:03Z",
-      "choice": ["Fix A"],
-      "results": {
-        "fix-diff": {
-          "decisions": [
-            { "fix": "a", "file": "src/payments/retry.ts", "side": "new", "line": 42, "decision": "accept" },
-            { "fix": "a", "file": "src/payments/retry.ts", "side": "new", "line": 57, "decision": "reject" }
-          ],
-          "undecided": [{ "fix": "a", "file": "src/payments/worker.ts", "side": "new", "line": 18 }]
+      "state": "answered",
+      "cursor": "k3x9.3",
+      "events": [
+        {
+          "cursor": "k3x9.2",
+          "type": "answer",
+          "itemId": "fix",
+          "rev": 1,
+          "who": "Luca Ferri",
+          "when": "2026-10-29T10:14:03Z",
+          "choice": ["Fix A"],
+          "results": {
+            "fix-diff": {
+              "decisions": [
+                { "fix": "a", "file": "src/payments/retry.ts", "side": "new", "line": 42, "decision": "accept" },
+                { "fix": "a", "file": "src/payments/retry.ts", "side": "new", "line": 57, "decision": "reject" }
+              ],
+              "undecided": [{ "fix": "a", "file": "src/payments/worker.ts", "side": "new", "line": 18 }]
+            }
+          }
+        },
+        {
+          "cursor": "k3x9.3",
+          "type": "answer",
+          "itemId": "state-machine",
+          "rev": 1,
+          "who": "Luca Ferri",
+          "when": "2026-10-29T10:16:48Z",
+          "choice": ["Remove RETRYING → PENDING"],
+          "changes": [{ "op": "remove", "target": "retry-states.requeue" }],
+          "derived": { "retry-states.cycles": [["PROCESSING", "RETRYING"]] }
         }
-      }
-    },
-    { "askId": "payment-retry-fix-q4m8", "cursor": "k3x9.3", "type": "state", "state": "partly-answered" },
-    {
-      "askId": "payment-retry-fix-q4m8",
-      "cursor": "k3x9.4",
-      "type": "answer",
-      "itemId": "state-machine",
-      "rev": 1,
-      "who": "Luca Ferri",
-      "when": "2026-10-29T10:16:48Z",
-      "choice": ["Remove RETRYING → PENDING"],
-      "changes": [{ "op": "remove", "target": "retry-states.requeue" }],
-      "derived": { "retry-states.cycles": [["PROCESSING", "RETRYING"]] }
-    },
-    { "askId": "payment-retry-fix-q4m8", "cursor": "k3x9.5", "type": "state", "state": "answered" }
+      ]
+    }
   ]
 }

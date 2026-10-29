@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # PRD: AskBoard
@@ -251,7 +251,7 @@ AskBoard ships the following widgets. An agent can put any of them in a question
 | Media | Image annotation | Places pins, boxes and comments on a screenshot or a mockup | — |
 
 The "What the user does" column is each widget's first-version minimum. The widgets and molecules that the journeys reach (UJ-1 to UJ-3) have this further scope in the first version:
-- **Diff review:** a split or a unified view; two alternative fixes, compared one by one and against each other, which the agent gives as two patch files naming the base they apply to and AskBoard diffs itself; accepting or rejecting a whole file at once.
+- **Diff review:** a split or a unified view; two alternative fixes, compared one by one and against each other, which the agent gives as two patch files that apply to the project's files as they stand, and AskBoard diffs itself; accepting or rejecting a whole file at once.
 - **Graph:** comments pinned to nodes and edges; a layout that AskBoard computes when the graph opens, and again when the user asks.
 - **WBS with PERT (FR-15):** branches that expand and collapse; an excerpt per work package.
 - **Gantt plan (FR-15):** day, week and month zoom; the agent's original plan shown as a baseline; the critical path always highlighted.

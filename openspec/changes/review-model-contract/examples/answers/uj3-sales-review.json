@@ -1,28 +1,32 @@
 {
   "versions": { "result": "1.0", "output": "1.0" },
   "epoch": "k3x9",
-  "asks": [{ "askId": "acme-offer-review-h6p3", "state": "answered", "cursor": "k3x9.2" }],
-  "events": [
+  "asks": [
     {
       "askId": "acme-offer-review-h6p3",
+      "state": "answered",
       "cursor": "k3x9.1",
-      "type": "answer",
-      "itemId": "offer",
-      "rev": 1,
-      "who": "Marco Rossi",
-      "when": "2026-10-29T15:42:10Z",
-      "note": "The offer must show the training line as an optional extra.",
-      "results": { "estimate__approval": { "decision": "approve-with-changes" } },
-      "changes": [
-        { "op": "set", "target": "estimate__lines.dev.dailyRate", "value": "520.00" },
-        { "op": "set", "target": "estimate__lines.training.included", "value": false }
-      ],
-      "derived": {
-        "estimate__lines.revenue": "35800.00",
-        "estimate__lines.cost": "25040.00",
-        "estimate__lines.margin": "30.06"
-      }
-    },
-    { "askId": "acme-offer-review-h6p3", "cursor": "k3x9.2", "type": "state", "state": "answered" }
+      "events": [
+        {
+          "cursor": "k3x9.1",
+          "type": "answer",
+          "itemId": "offer",
+          "rev": 1,
+          "who": "Marco Rossi",
+          "when": "2026-10-29T15:42:10Z",
+          "note": "The offer must show the training line as an optional extra.",
+          "results": { "estimate": { "decision": "approve-with-changes" } },
+          "changes": [
+            { "op": "set", "target": "estimate.dev.dailyRate", "value": "520.00" },
+            { "op": "set", "target": "estimate.training.included", "value": false }
+          ],
+          "derived": {
+            "estimate.revenue": "35800.00",
+            "estimate.cost": "25040.00",
+            "estimate.margin": "30.06"
+          }
+        }
+      ]
+    }
   ]
 }

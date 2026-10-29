@@ -1,5 +1,4 @@
 {
-  "versions": { "request": "1.0", "input": "1.0" },
   "askId": "payment-retry-fix-q4m8",
   "title": "Payment retry fix",
   "items": [

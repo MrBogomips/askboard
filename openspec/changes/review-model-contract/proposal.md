@@ -37,7 +37,7 @@ None.
 
 ## Impact
 
-- **Changed:** `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` (AD-7, Deferred, `updated:`).
+- **Changed:** `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` (AD-7, Deferred, `updated:`). After the product owner approved the review's findings (2026-10-29, `measurements.md`), also AD-3, AD-6, AD-9, AD-12, AD-14, AD-20 and the Excerpts and media convention, with PRD FR-11, `SOLUTION-DESIGN.md` §5 and `EXPERIENCE.md` (Diff review, UJ-1) aligned.
 - **New, in this change:** `examples/` (tool definitions, server instructions, asks, results, answers, the AskUserQuestion equivalent), `measurements.md`.
 - **No code, no dependency.** Counting tokens uses the token-counting API, or Claude Code runs as the fallback (design).
 - **Requirements and decisions served:** NFR-1, SM-1, SM-2, R5; FR-13, FR-15, FR-18 to FR-20; AD-6, AD-7, AD-9, AD-12, AD-13, AD-20.
