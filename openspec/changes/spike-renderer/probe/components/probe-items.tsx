@@ -1,6 +1,6 @@
 // Harness items, not catalog components: `Hello` for the smoke run, `Delayed` for the ready
-// rule (AD-9), and `DelayedEarly`, its negative control, which reports ready before its async
-// work has settled, so its box changes after ready.
+// rule (AD-9), `DelayedEarly`, its negative control, which reports ready before its async work
+// has settled, so its box changes after ready, and `Throws`, a component that fails.
 
 import { useEffect, useState } from "react";
 import { type ItemProps, register, useReadyAfterLayout } from "../port/index.ts";
@@ -46,6 +46,12 @@ const DelayedEarly = ({ item, ready }: ItemProps) => {
   return <Loaded lines={lines} />;
 };
 
+// Throws while rendering: how each renderer contains a failing component (AD-10).
+const Throws = (_: ItemProps): never => {
+  throw new Error("probe: this component always throws");
+};
+
 register("Hello", Hello);
+register("Throws", Throws);
 register("Delayed", Delayed);
 register("DelayedEarly", DelayedEarly);

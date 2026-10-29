@@ -137,6 +137,12 @@ const commands: Record<string, (args: Record<string, unknown>) => Record<string,
     values: formValues(),
     draft: context?.draft.get(),
   }),
+  // The board page writes the draft record directly; a renderer holding a copy would not show it.
+  setDraft: ({ id, value }) => {
+    if (!context) return { ok: false };
+    context.draft.replace(port.withValue(context.draft.get(), String(id), value));
+    return { ok: true };
+  },
   remount: () => {
     unmount();
     mount();

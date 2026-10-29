@@ -172,3 +172,91 @@ The citations of D1, D4, D6, D8, D10, D20 and D21 were re-read by hand; the othe
 | React `style` prop (`pos-cssom-style`, positive control) | none: CSSOM writes are allowed | pass |
 
 **Control run `negative-control`** (`--control`, the same fixtures without CSP or sandbox): every probe ran in every engine. Each negative fixture is "missed" there and `pos-cssom-style` passes. The stand-in logged five `GET /leak/fetch` and five `POST /leak/form`, one per engine. Each probe therefore does what it claims, and the CSP run is what stops it.
+
+## The renderer: the port, the two candidates and the atoms (task 2.1)
+
+- **The port stand-in** (`port/index.ts`, 125 lines with the draft store and helpers). A component receives `{ item, draft, ui, graph, emit, ready }`:
+  - `item`: its item from the board document;
+  - `draft` and `ui`: its slices of the draft record (`values`, and view state such as the open tab);
+  - `graph`: the compute graph's values (static here);
+  - `emit`: typed view messages (`draft.set`, `ui.set`);
+  - `ready()`: called once its work has settled.
+
+  Components register with `register(type, component)`. Both renderers put the same `ItemFrame` (`<div data-item-id data-item-type>`) around every item; the ready tracker measures its box.
+- **Own renderer** (`renderers/own.tsx`, 46 lines): a recursive render of the item tree through the registry. Each item reads its slice of the draft record with `useSyncExternalStore`.
+- **json-render adapter** (`renderers/_json-render-adapter.tsx`, 125 lines, plus a 7-line entry per variant):
+  - It maps the item tree to json-render's flat spec (`root`, `elements`), with a synthetic root element for the board's top-level list.
+  - It wraps every registered component once into json-render's registry.
+  - It mounts `JSONUIProvider` with `store`, a `createStoreAdapter` over the draft record. Reads go through `useStateValue`, writes through `useStateStore().set`.
+  - Only the item ID passes through json-render's props (D19).
+  - Two variants: `json-render`, as documented, and `json-render-jitless`, which sets zod's `config({ jitless: true })` before json-render builds its schemas (`renderers/_zod-jitless.ts`, imported first).
+- **Atoms and layouts**, registered once, one chunk each: Text, Value, TextField, NumberField, Choice, Toggle, Stack, Row, Group and Tabs.
+  - Choice is built on Radix Radio Group (single) and Checkbox (multiple), Toggle on Radix Switch, and Tabs on Radix Tabs (EXPERIENCE.md, Atoms). The four come from the `lib-radix` library chunk (43,965 bytes, 13,756 gzip), which the three chunks need.
+  - NumberField is a text input with a locale parser, never `type="number"`.
+  - Row sets relative widths through React's `style` prop, which writes through the CSSOM.
+  - Tabs keeps the open tab in the draft record (`ui`). It mounts every panel (`forceMount`) and hides the inactive ones with a class. Without that, the items of an inactive tab never mount, never report ready, and the question never counts as visible. **The `view` epic needs the same rule for any container that hides items.**
+- **Imports** (AD-1's rule for `widgets`): `bun tools/imports.ts --self-test` prints "a renderer import and a shell import are flagged, the port is not" and "14 files in components/, 0 violation(s)". A component imports only React, the port, files of `components/` and its own library (`radix-ui` for Choice, Toggle and Tabs).
+- **Run `atoms`** (`bun drive.ts atoms --script compare --fixtures atoms --renderers own,json-render,json-render-jitless`). The `atoms` fixture holds every atom and layout above under a Stack: 16 items. In all five engines, both json-render variants give a DOM identical to the own renderer's, character for character, without normalising: 7,228 characters, or 7,232 in WebKit's serialisation. The verdicts: own **pass**, json-render-jitless **pass**, and json-render **probe**: zod's blocked `new Function`, 2 events in the view, or 1 on the board page in WebKit. Radix Radio Group, Checkbox, Switch and Tabs therefore run under the view CSP with no violation, and group 4 extends this to the full matrix.
+
+## Criterion 2 (task 2.2)
+
+Run `c2`: `bun drive.ts c2 --script c2 --renderers own,json-render,json-render-jitless`, in every engine. Per renderer and engine it makes six loads under the CSP: `atoms` twice, `atoms` with edits, `delayed`, and `delayed-early`.
+
+| Check | How | own | json-render | json-render-jitless |
+| --- | --- | --- | --- | --- |
+| Determinism | Two fresh loads of `atoms` give the same DOM, raw | pass ×5 | pass ×5 | pass ×5 |
+| No edit state | Edits: a text field, a number field, a radio, a checkbox, two switches and a tab. Then unmount and remount from the draft record. The values, the draft record and the DOM are the same (the DOM after the Radix bookkeeping below is set aside) | pass ×5 | pass ×5 | pass ×5 |
+| Reads the draft record | After the remount, the board page writes `tf1` into the draft record (`setDraft`); the field shows it | pass ×5 | pass ×5 | pass ×5 |
+| No network | No request other than the stand-in's own, and no `connect-src` violation, in any of the loads | pass ×5 | pass ×5 | pass ×5 |
+| Ready after async work | `delayed`: the item settles 700 ms after mount and reports ready 712–741 ms after mount. The boxes of all items are unchanged 1 s after the question counts as visible | pass ×5 | pass ×5 | pass ×5 |
+| CSP verdict of the loads | design decision 2 | pass | probe (zod's eval probe) | pass |
+
+×5: Chromium, Firefox, WebKit, Chrome and Edge.
+
+- **The draft record after the edits:** `{"values": {"tf1": "Flaky upstream", "nf1": "3", "c1": "expo", "c2": ["get"], "tg1": true, "tg2": true}, "ui": {"tb1": "1"}}`. It is identical before and after the remount in every engine and renderer.
+- **json-render's state can be bound to the draft record.** Through `StateProvider`'s controlled mode (`store`), json-render holds none of its own: the remount restores every value from the draft record, and a write to the draft record from outside shows at once. Without `store` it keeps an internal store (D18).
+- **What the strict comparison found** (`runs/c2/<engine>/c2.<renderer>.edited.html` against `.remounted.html`). The DOM differs only in Radix bookkeeping that a remount resets and that is not an edit:
+  - Roving focus keeps the last-clicked radio and tab as the tab stop (`tabindex="0"`; after a remount, `-1`).
+  - React's `useId` values (`_r_2_` against `_r_7_`).
+  - Radix Presence's `animation-duration: 0s`, set through the CSSOM on a panel's first mount.
+
+  The comparison sets these aside by name (`drive.ts`, `withoutTabStops`). Focus position is not in the draft record. If a reload must restore the keyboard tab stop too, that is a `view` epic decision; ACR-11 names only the open tab and the question in view.
+- **The ready check has teeth.** The negative control `delayed-early` reports ready 10–32 ms after mount, before its work settles. Its boxes then change after "visible" in every engine and renderer (`boxesStable: false`), so the check catches a component that reports ready too early. The general verdict rule of design decision 2 does not include this box check: it runs in `c2`, and group 3 should apply it to the diagrams.
+
+## Renderer comparison (task 2.3)
+
+Run `renderers`: `bun drive.ts renderers --fixtures hello,atoms,delayed,throws,items-200 --renderers own,json-render,json-render-jitless --repeat 10 --repeat-only items-200`, in every engine. That is 42 loads per engine: the first four fixtures once per renderer, and `items-200` ten times per renderer. Bytes come from `dist/manifest.json` (`bun run build`, which records each package's bytes in the minified output from Bun's metafile).
+
+| | own | json-render | json-render-jitless |
+| --- | --- | --- | --- |
+| **Criterion 1, view CSP** (`hello`, `atoms`, `delayed`, `items-200`; run `renderers`) | pass in all 5 engines, 0 violations | **probe** in all 5 engines: zod's blocked `new Function`, 2 events per load (28 in 14 loads), or 1 per load in WebKit, on the board page (14) | pass in all 5 engines, 0 violations |
+| **Criterion 2** (run `c2`, § Criterion 2) | pass ×5 | pass ×5 | pass ×5 |
+| **Same DOM as own** (run `atoms`) | — | yes, raw, ×5 | yes, raw, ×5 |
+| **Renderer chunk, raw / gzip bytes** | 1,476 / 765 | 194,933 / 56,347 | 194,962 / 56,366 |
+| What the chunk holds (bytes in the minified output) | the renderer, 637 | zod 130,440; `@json-render/core` 40,239; `@json-render/react` 21,767; the adapter 1,461 | the same, plus the `jitless` line |
+| **Adapter lines** (`wc -l`) | 46 (`renderers/own.tsx`) | 125 (`_json-render-adapter.tsx`) + 7 (entry) | 125 + 7 + 6 (`_zod-jitless.ts`) |
+| **A component that throws** (`throws`, run `renderers`, every engine) | React unmounts the whole view. The view receives an `error` event, which reaches the board page. Never visible | The failing item disappears and the two others render. The error goes only to the console ("[json-render] Rendering error in <Throws>"), so the board page learns nothing. Never visible (D20) | same as json-render |
+| **API churn** (0.x) | — | 18 minors in 8.5 months, from 0.4.0 (2026-02-05) to 0.21.3 (2026-10-24). 20 entries are labelled breaking: 0.4 (3), 0.5 (5), 0.6 (10), 0.9 (1), 0.20 (1). The repository was created on 2026-01-14, so the 12-month window covers its whole history | same |
+| **Adoption** (§ Adoption) | own code | Apache-2.0, 18,843 stars, pass (0.x) | same |
+
+Sources for the churn row: `gh api repos/vercel-labs/json-render/releases --paginate`, whose notes contain "breaking" for 0.4.0, core 0.5.0, 0.6.0, 0.9.0 and 0.20.0, and the root `CHANGELOG.md` from 0.16 on. The entries were counted from those notes.
+
+**Render time of `items-200`** (one Stack with 199 atoms, 200 items): the median of 10 loads per engine, with the maximum in brackets, in ms. "From t0" runs from the board page setting the srcdoc to the question counting as visible, so it includes parsing every chunk. "From mount" runs from the renderer's mount to visible: the renderer's own work.
+
+| Engine | own, from t0 | json-render, from t0 | jitless, from t0 | own, from mount | json-render, from mount | jitless, from mount |
+| --- | --- | --- | --- | --- | --- | --- |
+| `chromium` | 61.4 (62.3) | 79.7 (81.0) | 73.6 (75.6) | 42.5 (43.3) | 45.7 (47.3) | 45.6 (46.7) |
+| `firefox` | 83 (87) | 107.5 (113) | 111 (114) | 56.5 (60) | 66 (69) | 66.5 (70) |
+| `webkit` | 59.5 (62) | 73 (76) | 71.5 (73) | 47.5 (49) | 52.5 (56) | 51 (54) |
+| `chrome` | 67.6 (70.0) | 74.7 (84.7) | 73.6 (79.2) | 53.0 (54.5) | 48.6 (49.3) | 47.3 (49.7) |
+| `msedge` | 66.3 (67.4) | 83.1 (85.0) | 77.3 (80.1) | 50.6 (51.7) | 46.5 (47.2) | 46.3 (47.7) |
+
+- **From t0**, json-render costs 6 to 28 ms more per load in every engine: it has 193 KB more script to parse. **From mount**, the two are within 10 ms of each other. json-render is slower by 3 to 10 ms in Chromium, Firefox and WebKit, and faster by 4 to 6 ms in Chrome and Edge.
+- **What json-render contributes in this adapter:** the tree walk and a state context. The adapter switches off or bypasses everything else, for the reasons recorded above:
+  - its props expressions, since agent content must stay data (D19);
+  - its own state, replaced by the draft record (D18);
+  - actions, watchers and validation, which AskBoard has elsewhere: the board protocol, the compute graph, field checks.
+
+  It also brings zod, two thirds of its chunk, which needs `jitless` to keep the CSP clean.
+- **A failing component** is contained differently. json-render hides it, and the board page cannot tell. The own renderer, as written, loses the whole view, but the board page receives the error. Either way the question never counts as visible, so nothing is answered on a partial board (AD-10). A product renderer should wrap each item in an error boundary that renders an error state and reports it to the board page. That is a few lines in the own renderer; with json-render it means replacing its boundary (`ElementErrorBoundary` is internal).
+- The choice between the renderers belongs to the product owner (task 8.3); the proposed outcome goes in group 8.

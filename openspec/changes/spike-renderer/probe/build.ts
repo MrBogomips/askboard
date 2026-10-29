@@ -16,7 +16,14 @@ export type Kind = "probe" | "shell" | "library" | "renderer" | "component";
 type ChunkDef = { name: string; kind: Kind; entry: string };
 
 export type Asset = { file: string; sha256: string; bytes: number; gzip: number };
-export type PackageInput = { name: string; version: string; licence: string; bytes: number };
+// `bytes`: the package's source bytes read; `bytesInOutput`: what it adds to the minified chunk.
+export type PackageInput = {
+  name: string;
+  version: string;
+  licence: string;
+  bytes: number;
+  bytesInOutput: number;
+};
 export type Chunk = {
   name: string;
   kind: Kind;
@@ -24,7 +31,7 @@ export type Chunk = {
   components: string[];
   script: Asset;
   style: Asset | null;
-  inputs: { local: string[]; packages: PackageInput[] };
+  inputs: { local: string[]; localBytesInOutput: number; packages: PackageInput[] };
   notices: string;
   escapedScriptEnds: number;
 };
@@ -211,7 +218,10 @@ const packageOf = (file: string): { name: string; dir: string } | null => {
 
 type Notice = PackageInput & { text: string };
 
-const noticesOf = async (inputs: Record<string, { bytes: number }>): Promise<Notice[]> => {
+const noticesOf = async (
+  inputs: Record<string, { bytes: number }>,
+  inOutput: Record<string, number>,
+): Promise<Notice[]> => {
   const found = new Map<string, Notice>();
   for (const [file, { bytes }] of Object.entries(inputs)) {
     const pkg = packageOf(resolve(file));
@@ -219,6 +229,7 @@ const noticesOf = async (inputs: Record<string, { bytes: number }>): Promise<Not
     const existing = found.get(pkg.dir);
     if (existing) {
       existing.bytes += bytes;
+      existing.bytesInOutput += inOutput[file] ?? 0;
       continue;
     }
     const manifest = await Bun.file(join(pkg.dir, "package.json")).json();
@@ -231,6 +242,7 @@ const noticesOf = async (inputs: Record<string, { bytes: number }>): Promise<Not
       version: manifest.version,
       licence,
       bytes,
+      bytesInOutput: inOutput[file] ?? 0,
       text: texts.join("\n\n") || `(no licence file; package.json says ${licence})`,
     });
   }
@@ -261,7 +273,20 @@ const buildChunk = async (def: ChunkDef): Promise<Chunk> => {
   const files = Object.keys(metaInputs).filter((f) => !f.includes("askboard-global:"));
   const local = files.map((f) => resolve(f)).filter((f) => !f.includes("/node_modules/"));
   const inputs = Object.fromEntries(files.map((f) => [f, metaInputs[f] as { bytes: number }]));
-  const notices = await noticesOf(inputs);
+  const outputs = (result.metafile?.outputs ?? {}) as Record<
+    string,
+    { inputs?: Record<string, { bytesInOutput: number }> }
+  >;
+  const inOutput: Record<string, number> = {};
+  for (const output of Object.values(outputs)) {
+    for (const [file, { bytesInOutput }] of Object.entries(output.inputs ?? {})) {
+      inOutput[file] = (inOutput[file] ?? 0) + bytesInOutput;
+    }
+  }
+  const notices = await noticesOf(inputs, inOutput);
+  const localBytesInOutput = files
+    .filter((f) => !resolve(f).includes("/node_modules/"))
+    .reduce((sum, f) => sum + (inOutput[f] ?? 0), 0);
 
   const libraryCss = await Promise.all(
     result.outputs.filter((o) => o.path.endsWith(".css")).map((o) => o.text()),
@@ -290,6 +315,7 @@ const buildChunk = async (def: ChunkDef): Promise<Chunk> => {
     style: css ? asset(`chunks/${def.name}.css`, css) : null,
     inputs: {
       local: local.map((f) => relative(PROBE, f)).sort(),
+      localBytesInOutput,
       packages: notices.map(({ text: _, ...rest }) => rest),
     },
     notices: `notices/${def.name}.txt`,

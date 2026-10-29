@@ -5,7 +5,7 @@
 //
 //   bun drive.ts versions
 //   bun drive.ts <run> [--fixtures a,b] [--engines chromium,firefox,webkit,chrome,msedge]
-//       [--renderers own,json-render] [--repeat N] [--control] [--snapshot]
+//       [--renderers own,json-render] [--repeat N] [--repeat-only a,b] [--control] [--snapshot]
 //       [--color-scheme light|dark] [--script loads|compare|c2]
 //
 // Writes runs/<run>/<engine>/<fixture>.<renderer>[.<n>].json and .png, and runs/<run>/summary.json.
@@ -35,6 +35,8 @@ type Options = {
   engines: string[];
   renderers: string[];
   repeat: number;
+  // Fixtures the repeat applies to; the others load once. Empty: all of them.
+  repeatOnly: string[];
   control: boolean;
   snapshot: boolean;
   colorScheme: "light" | "dark";
@@ -55,6 +57,7 @@ const parseArgs = (argv: string[]): Options => {
     engines: list("--engines", "chromium,firefox,webkit,chrome,msedge"),
     renderers: list("--renderers", "own"),
     repeat: Number(value("--repeat", "1")),
+    repeatOnly: list("--repeat-only", ""),
     control: argv.includes("--control"),
     snapshot: argv.includes("--snapshot"),
     colorScheme: value("--color-scheme", "light") as "light" | "dark",
@@ -190,6 +193,8 @@ type Load = {
   mode: "board" | "control" | "snapshot";
   visible: boolean;
   timeToVisibleMs: number | null;
+  // From the renderer's mount to visible: the renderer's own work, without parsing the chunks.
+  mountToVisibleMs: number | null;
   probe: Snapshot;
   check: Record<string, unknown> | null;
   dump: Record<string, unknown> | null;
@@ -318,7 +323,7 @@ const loadOnce = async (
     const probe = await readProbe(session);
     const dir = join(PROBE, "runs", options.run, engine);
     await mkdir(dir, { recursive: true });
-    const stem = `${name}.${renderer}${options.repeat > 1 ? `.${repeat}` : ""}`;
+    const stem = `${name}.${renderer}${repeat > 1 || options.repeat > 1 ? `.${repeat}` : ""}`;
     session.setPhase("screenshot");
     await session.page.screenshot({ path: join(dir, `${stem}.png`), caret: "initial" });
     const ok = visible?.kind === "visible";
@@ -330,6 +335,10 @@ const loadOnce = async (
       mode: (options.snapshot ? "snapshot" : options.control ? "control" : "board") as Load["mode"],
       visible: ok,
       timeToVisibleMs: ok && probe.t0 !== null ? Math.round((visible.t - probe.t0) * 10) / 10 : null,
+      mountToVisibleMs: (() => {
+        const mount = probe.events.find((e) => e.kind === "mount");
+        return ok && mount ? Math.round((visible.t - mount.t) * 10) / 10 : null;
+      })(),
       probe,
       check,
       dump,
@@ -345,8 +354,9 @@ const loadOnce = async (
   }
 };
 
-// Item IDs from React's useId differ between mounts; everything else must match exactly.
-export const normalize = (html: string): string => html.replace(/(«|_)r[0-9a-z]+(»|_)/g, "«id»");
+// IDs from React's useId (19.3 writes `_r_2_`) differ between mounts; the rest must match.
+export const normalize = (html: string): string =>
+  html.replace(/«r[0-9a-z]+»|_r_[0-9a-z]+_|:r[0-9a-z]+:/g, "«id»");
 
 const firstDifference = (a: string, b: string): string | null => {
   if (a === b) return null;
@@ -367,8 +377,10 @@ type Context = { base: string; fixtures: Map<string, Fixture>; options: Options 
 const runLoads = async (browser: Browser, engine: string, ctx: Context) => {
   const loads: Load[] = [];
   for (const name of ctx.options.fixtures) {
+    const { repeat, repeatOnly } = ctx.options;
+    const times = repeatOnly.length > 0 && !repeatOnly.includes(name) ? 1 : repeat;
     for (const renderer of ctx.options.renderers) {
-      for (let n = 1; n <= ctx.options.repeat; n += 1) {
+      for (let n = 1; n <= times; n += 1) {
         const fixture = ctx.fixtures.get(name) as Fixture;
         const load = await loadOnce(browser, ctx.base, engine, name, fixture, renderer, n, ctx.options);
         loads.push(load);
@@ -390,27 +402,32 @@ const runLoads = async (browser: Browser, engine: string, ctx: Context) => {
   }));
 };
 
-// Task 2.1: the same fixture through both renderers gives the same DOM.
+// Task 2.1: the same fixture through each renderer gives the same DOM as the first renderer.
 const runCompare = async (browser: Browser, engine: string, ctx: Context) => {
   const results = [];
+  const [first, ...others] = ctx.options.renderers as [string, ...string[]];
   for (const name of ctx.options.fixtures) {
     const fixture = ctx.fixtures.get(name) as Fixture;
-    const [own, json] = [
-      await loadOnce(browser, ctx.base, engine, name, fixture, "own", 1, ctx.options),
-      await loadOnce(browser, ctx.base, engine, name, fixture, "json-render", 1, ctx.options),
-    ];
-    const a = String(own.dump?.html ?? "");
-    const b = String(json.dump?.html ?? "");
-    const result = {
-      fixture: name,
-      verdicts: { own: own.verdict, "json-render": json.verdict },
-      rawEqual: a === b,
-      normalizedEqual: normalize(a) === normalize(b),
-      difference: firstDifference(normalize(a), normalize(b)),
-      bytes: { own: a.length, "json-render": b.length },
-    };
-    console.log(`${engine.padEnd(8)} ${name.padEnd(12)} same DOM: ${result.normalizedEqual} (raw ${result.rawEqual}) ${result.difference ?? ""}`);
-    results.push(result);
+    const base = await loadOnce(browser, ctx.base, engine, name, fixture, first, 1, ctx.options);
+    const a = String(base.dump?.html ?? "");
+    for (const renderer of others) {
+      const other = await loadOnce(browser, ctx.base, engine, name, fixture, renderer, 1, ctx.options);
+      const b = String(other.dump?.html ?? "");
+      const result = {
+        fixture: name,
+        renderers: [first, renderer],
+        verdicts: [base.verdict, other.verdict],
+        rawEqual: a === b,
+        normalizedEqual: normalize(a) === normalize(b),
+        difference: firstDifference(normalize(a), normalize(b)),
+        bytes: [a.length, b.length],
+      };
+      console.log(
+        `${engine.padEnd(8)} ${name.padEnd(12)} ${first} vs ${renderer}: same DOM ${result.rawEqual} ` +
+          `(${a.length} chars) ${result.difference ?? ""}`,
+      );
+      results.push(result);
+    }
   }
   return results;
 };
@@ -438,6 +455,7 @@ const runC2 = async (browser: Browser, engine: string, ctx: Context) => {
     let edited: Record<string, unknown> | null = null;
     let remounted: Record<string, unknown> | null = null;
     let generation2 = false;
+    let external = "";
     const editLoad = await loadOnce(browser, ctx.base, engine, "atoms", atoms, renderer, 3, ctx.options, async (s) => {
       await applyEdits(s, atoms);
       edited = await command(s, "dump");
@@ -445,16 +463,30 @@ const runC2 = async (browser: Browser, engine: string, ctx: Context) => {
       generation2 = (await waitFor(s, (e) => e.kind === "visible" && e.generation === 2)) !== null;
       await sleep(300);
       remounted = await command(s, "dump");
+      await command(s, "setDraft", { id: "tf1", value: "Set by the board page" });
+      await sleep(300);
+      external = await viewLocator(s, "#tf1-input").inputValue();
     });
     const e = edited as Record<string, unknown> | null;
     const r = remounted as Record<string, unknown> | null;
-    const noEditState =
+    // Radix bookkeeping that a remount resets and that is not an edit, reported apart: roving
+    // focus keeps the last-focused radio as the tab stop (tabindex 0), and Presence sets
+    // `animation-duration: 0s` through the CSSOM on a panel's first mount.
+    const withoutTabStops = (html: string) =>
+      normalize(html)
+        .replace(/<[^>]*data-radix-collection-item[^>]*>/g, (tag) =>
+          tag.replace(/ tabindex="(0|-1)"/, ""),
+        )
+        .replace(/ style="(animation-duration: 0s;)?"/g, "");
+    const sameValues =
       generation2 &&
       e !== null &&
       r !== null &&
-      normalize(String(e.html)) === normalize(String(r.html)) &&
       JSON.stringify(e.values) === JSON.stringify(r.values) &&
       JSON.stringify(e.draft) === JSON.stringify(r.draft);
+    const strictDom = normalize(String(e?.html)) === normalize(String(r?.html));
+    const domWithoutTabStops = withoutTabStops(String(e?.html)) === withoutTabStops(String(r?.html));
+    const noEditState = sameValues && domWithoutTabStops;
 
     const delayed = ctx.fixtures.get("delayed") as Fixture;
     const early = ctx.fixtures.get("delayed-early") as Fixture;
@@ -480,11 +512,23 @@ const runC2 = async (browser: Browser, engine: string, ctx: Context) => {
         foreign(l.requests, ctx.base).length === 0 &&
         !l.probe.events.some((x) => x.kind === "violation" && x.directive === "connect-src"),
     );
+    const dir = join(PROBE, "runs", ctx.options.run, engine);
+    await Bun.write(join(dir, `c2.${renderer}.edited.html`), String(e?.html ?? ""));
+    await Bun.write(join(dir, `c2.${renderer}.remounted.html`), String(r?.html ?? ""));
+    const remountDifference = {
+      html: firstDifference(withoutTabStops(String(e?.html ?? "")), withoutTabStops(String(r?.html ?? ""))),
+      values: JSON.stringify(e?.values) === JSON.stringify(r?.values) ? null : [e?.values, r?.values],
+      draft: JSON.stringify(e?.draft) === JSON.stringify(r?.draft) ? null : [e?.draft, r?.draft],
+    };
     const result = {
       renderer,
       determinism,
       noEditState,
+      strictDom,
+      remountDifference,
       editedDraft: e?.draft ?? null,
+      // The draft record written from outside shows in the field: the renderer holds no copy.
+      readsDraftRecord: external === "Set by the board page",
       noNetwork: network,
       readyAfterAsync: ready.settledBeforeReady && ready.boxesStable,
       ready,
@@ -492,9 +536,9 @@ const runC2 = async (browser: Browser, engine: string, ctx: Context) => {
       verdicts: all.map((l) => l.verdict),
     };
     console.log(
-      `${engine.padEnd(8)} ${renderer.padEnd(11)} determinism ${determinism}  no edit state ${noEditState}  ` +
+      `${engine.padEnd(8)} ${renderer.padEnd(11)} determinism ${determinism}  no edit state ${noEditState} (strict DOM ${strictDom})  ` +
         `no network ${network}  ready after async ${result.readyAfterAsync} (${ready.readyAfterMs} ms)  ` +
-        `control boxes stable ${control.boxesStable}`,
+        `control boxes stable ${control.boxesStable}  reads draft record ${result.readsDraftRecord}`,
     );
     results.push(result);
   }
@@ -554,7 +598,7 @@ const main = async () => {
         await browser.close();
       }
     }
-    if (options.script === "loads") summary.timing = timing(summary.engines as Record<string, { results?: { fixture: string; renderer: string; timeToVisibleMs: number | null }[] }>);
+    if (options.script === "loads") summary.timing = timing(summary.engines as Record<string, { results?: Timed[] }>);
     await mkdir(join(PROBE, "runs", options.run), { recursive: true });
     await Bun.write(join(PROBE, "runs", options.run, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
   } finally {
@@ -562,22 +606,31 @@ const main = async () => {
   }
 };
 
-// Median and maximum time to visible per engine, fixture and renderer.
-const timing = (
-  engines: Record<string, { results?: { fixture: string; renderer: string; timeToVisibleMs: number | null }[] }>,
-) =>
+type Timed = { fixture: string; renderer: string; timeToVisibleMs: number | null; mountToVisibleMs: number | null };
+
+// Median and maximum time to visible (from t0, and from the renderer's mount) per engine,
+// fixture and renderer.
+const timing = (engines: Record<string, { results?: Timed[] }>) =>
   Object.fromEntries(
     Object.entries(engines).map(([engine, { results = [] }]) => {
-      const groups = new Map<string, number[]>();
+      const groups = new Map<string, Timed[]>();
       for (const r of results) {
         if (r.timeToVisibleMs === null) continue;
         const key = `${r.fixture}.${r.renderer}`;
-        groups.set(key, [...(groups.get(key) ?? []), r.timeToVisibleMs]);
+        groups.set(key, [...(groups.get(key) ?? []), r]);
       }
+      const stats = (values: number[]) => ({ median: median(values), max: Math.max(...values) });
       return [
         engine,
         Object.fromEntries(
-          [...groups].map(([key, values]) => [key, { n: values.length, median: median(values), max: Math.max(...values) }]),
+          [...groups].map(([key, rows]) => [
+            key,
+            {
+              n: rows.length,
+              fromT0: stats(rows.map((r) => r.timeToVisibleMs as number)),
+              fromMount: stats(rows.map((r) => r.mountToVisibleMs as number)),
+            },
+          ]),
         ),
       ];
     }),

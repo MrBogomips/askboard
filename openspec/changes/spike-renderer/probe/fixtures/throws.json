@@ -1,0 +1,13 @@
+{
+  "description": "A component that throws while rendering, between two that render: how each renderer contains it (AD-10).",
+  "board": {
+    "id": "throws",
+    "title": "Throws",
+    "items": [
+      { "id": "t1", "type": "Text", "props": { "text": "Before the failing item" } },
+      { "id": "x1", "type": "Throws" },
+      { "id": "t2", "type": "Text", "props": { "text": "After the failing item" } }
+    ]
+  },
+  "check": { "selector": "[data-item-id=t2]", "text": "After the failing item" }
+}
