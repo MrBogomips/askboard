@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-10-28'
+updated: '2026-10-29'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -593,6 +593,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | TypeScript | 7.0.2 |
 | `@typescript/typescript6` (npm alias for tools that need a compiler API) | 6.0.2 |
 | Bun (toolchain, runtime, `bun build --compile`, build-time bundler) | 1.4.4 |
+| Biome (formatting and linting) | 2.6.4 |
 | Node.js (fallback runtime; CI runs 24 and 26) | 24.22.1 or later |
 | MCP specification revision | 2026-07-28 |
 | `@modelcontextprotocol/server` (MCP TypeScript SDK v2) | 2.4.0 |
@@ -603,6 +604,8 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | Ajv (the one validator; standalone validators generated at build for the view) | 8.20.0 |
 | `@ironcalc/wasm` (formula engine candidate, spike) | 0.9.1 |
 | Claude Code minimum (provisional, confirmed by the spike; above `stable` 2.1.308 at authoring, so release waits) | 2.1.311 |
+
+`@types/bun`, which only tests and repository tools use, follows the Bun pin.
 
 ## Structural Seed
 
@@ -730,10 +733,12 @@ askboard/
     widgets/             # the 18 catalogue widgets as catalog components
     molecules/           # ready-made molecules as input-format data
     mod/                 # Claude Code mod: push transport, pending-asks status
+    hooks/               # Claude Code hooks: out-of-process client of the local API (AD-1, AD-16)
     bench/               # benchmark runner, scripted answerer, report, cost model
   skills/                # Agent Skills, reference files generated from contract
   agents/                # shipped agents
   scripts/               # launcher: platform executable fetch, checksum, rename
+  tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)
 ```
 
 ## Capability → Architecture Map

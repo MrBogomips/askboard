@@ -50,8 +50,9 @@
 
 ## 7. Spine and repository records
 
-- [ ] 7.1 Amend the spine: add `packages/hooks/` and `tools/` to the Structural Seed's source tree, add the Biome pin to the Stack with a note that `@types/bun` follows the Bun pin, and set `updated: 2026-10-29`. Verify that `openspec validate --all --strict --no-interactive` passes, and that the source tree and the layer table list the same packages.
-- [ ] 7.2 Update `CLAUDE.md` (status; commands replacing "No build, lint or test commands exist yet"; `tools/` and `packages/` in the Working documents table if needed) and `README.md` (status, development commands). Verify that every documented command runs as written.
+- [x] 7.1 Amend the spine: add `packages/hooks/` and `tools/` to the Structural Seed's source tree, add the Biome pin to the Stack with a note that `@types/bun` follows the Bun pin, and set `updated: 2026-10-29`. Verify that `openspec validate --all --strict --no-interactive` passes, and that the source tree and the layer table list the same packages.
+- [x] 7.2 Update `CLAUDE.md` (status; commands replacing "No build, lint or test commands exist yet"; `tools/` and `packages/` in the Working documents table if needed) and `README.md` (status, development commands). Verify that every documented command runs as written.
+  - Note (2026-10-29): every documented command exits with status 0: `bun install`, `bun run check` (with and without `GITHUB_TOKEN=$(gh auth token)`), `typecheck`, `lint`, `test`, `check:imports`, `check:licences` with a token, `format` (no changes), `openspec list`, `openspec validate --all --strict` (with and without `--no-interactive`). CLAUDE.md also gains `packages/` and `tools/` rows in the Working documents table, and its CI section now describes the two jobs.
 
 ## Workflow follow-up
 
