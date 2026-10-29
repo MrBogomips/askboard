@@ -1,0 +1,42 @@
+{
+  "description": "MathLive math-field, keyboard policy sandboxed",
+  "board": {
+    "id": "c-mathlive-sandboxed",
+    "title": "MathLive math-field, keyboard policy sandboxed",
+    "items": [
+      {
+        "id": "ml1",
+        "type": "MathField",
+        "props": {
+          "label": "Formula",
+          "initial": "",
+          "sandboxedKeyboard": true
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "math-field"
+    },
+    {
+      "do": "press",
+      "key": "x",
+      "ms": 300
+    },
+    {
+      "do": "press",
+      "key": "^",
+      "ms": 300
+    },
+    {
+      "do": "press",
+      "key": "2",
+      "ms": 300
+    }
+  ],
+  "expectDraft": {
+    "ml1": "x^2"
+  }
+}

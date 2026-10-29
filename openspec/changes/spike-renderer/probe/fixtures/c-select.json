@@ -1,0 +1,43 @@
+{
+  "description": "Radix Select, item-aligned (its default position)",
+  "board": {
+    "id": "c-select",
+    "title": "Radix Select, item-aligned (its default position)",
+    "items": [
+      {
+        "id": "se1",
+        "type": "Select",
+        "props": {
+          "label": "Size",
+          "options": [
+            {
+              "value": "s",
+              "label": "Small"
+            },
+            {
+              "value": "m",
+              "label": "Medium"
+            },
+            {
+              "value": "l",
+              "label": "Large"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "#se1-trigger"
+    },
+    {
+      "do": "click",
+      "selector": "[role=option]:has-text('Medium')"
+    }
+  ],
+  "expectDraft": {
+    "se1": "m"
+  }
+}

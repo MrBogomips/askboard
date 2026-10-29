@@ -14,7 +14,7 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { type Browser, type BrowserType, chromium, firefox, type Page, webkit } from "playwright";
-import type { Fixture } from "./board.ts";
+import type { Action, Fixture } from "./board.ts";
 
 const PROBE = import.meta.dir;
 const ENGINES: Record<string, { type: BrowserType; channel?: string }> = {
@@ -205,7 +205,13 @@ type Load = {
   probe: Snapshot;
   check: Record<string, unknown> | null;
   dump: Record<string, unknown> | null;
+  steps: Step[];
+  computed: Record<string, unknown> | null;
+  bridge: unknown[];
 } & Recorded & { verdict: string; reasons: string[]; signals?: unknown };
+
+// Group 4: one user action and the view's state after it (shell command `state`).
+type Step = { action: Action; error: string | null; state: Record<string, unknown> | null };
 
 const loadUrl = (base: string, fixture: string, renderer: string, options: Options): string => {
   const query = new URLSearchParams({ renderer });
@@ -251,10 +257,15 @@ const matches = (expect: Record<string, unknown>, load: Omit<Load, "verdict" | "
         (e) => e.kind === "storage" && e.api === expect.api && e.outcome === expect.outcome,
       );
     case "no-request":
-      return !load.requests.some((r) => r.url.startsWith(`${base}${expect.path}`));
+      return !load.requests.some((r) =>
+        expect.exact ? r.url === `${base}${expect.path}` : r.url.startsWith(`${base}${expect.path}`),
+      );
     // The view still answers commands: nothing navigated it away.
     case "alive":
       return load.dump !== null;
+    // A key of the draft record holds a value after the actions (group 4).
+    case "draft":
+      return sameJson(draftValue(load, String(expect.key)), expect.equals ?? null);
     default:
       return false;
   }
@@ -322,6 +333,60 @@ const diagramsOf = (events: ProbeEvent[]) =>
       ...(typeof svg === "string" ? contentOf(svg) : {}),
     }));
 
+// CSP refusals the console reports. WebKit logs some blocks without a violation event (group 4
+// hand-off), so every engine's lines count, apart from Firefox's favicon for the board page,
+// blocked eval probes (judged as probes) and the lines Playwright's screenshot causes in WebKit.
+const CSP_LINE = /Content Security Policy|Content-Security-Policy|Refused to/i;
+export const cspConsoleLines = (lines: Recorded["console"]) =>
+  lines.filter(
+    (m) =>
+      m.phase !== "screenshot" &&
+      CSP_LINE.test(m.text) &&
+      !/favicon\.ico/.test(m.text) &&
+      !/eval/i.test(m.text),
+  );
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+// A key of the draft record after the actions: `<id>` in `values`, `ui:<id>` in `ui`; null when
+// absent.
+const draftValue = (load: Omit<Load, "verdict" | "reasons">, key: string): unknown => {
+  const draft = (load.dump?.draft ?? {}) as { values?: Record<string, unknown>; ui?: Record<string, unknown> };
+  const [branch, id] = key.startsWith("ui:") ? [draft.ui, key.slice(3)] : [draft.values, key];
+  return branch?.[id] ?? null;
+};
+
+// Group 4: the actions ran, the draft holds what the fixture expects, the computed styles match,
+// and the bridge received the expected methods.
+const groupFourReasons = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture): string[] => {
+  const reasons: string[] = [];
+  load.steps.forEach((step, index) => {
+    if (step.error) reasons.push(`action ${index + 1} (${step.action.do} ${step.action.selector ?? ""}): ${step.error}`);
+  });
+  for (const [key, expected] of Object.entries(fixture.expectDraft ?? {})) {
+    const actual = draftValue(load, key);
+    if (!sameJson(actual, expected)) {
+      reasons.push(`draft ${key}: ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`);
+    }
+  }
+  for (const [id, theme] of Object.entries(fixture.expectThemes ?? {})) {
+    const render = load.probe.events.filter((e) => e.kind === "diagram-render" && e.id === id).at(-1);
+    if (render?.theme !== theme) reasons.push(`diagram ${id}: last render ${String(render?.theme)}, expected ${theme}`);
+  }
+  const computed = (load.computed?.values ?? []) as (string | null)[];
+  (fixture.expectComputed ?? []).forEach((c, index) => {
+    if (computed[index] !== c.equals) {
+      reasons.push(`computed ${c.selector} ${c.property}: ${JSON.stringify(computed[index])}, expected ${c.equals}`);
+    }
+  });
+  const methods = new Set(load.bridge.map((m) => (m as { method?: string }).method));
+  const missing = (fixture.expectBridge ?? []).filter((m) => !methods.has(m));
+  if (missing.length) reasons.push(`bridge never received ${missing.join(", ")}`);
+  const lines = cspConsoleLines(load.console);
+  if (lines.length) reasons.push(`${lines.length} CSP console line(s)`);
+  return reasons;
+};
+
 // Design decision 2's verdict rule; a negative fixture passes when every expected signal shows.
 const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: string) => {
   const reasons: string[] = [];
@@ -351,6 +416,7 @@ const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: 
   if (!load.visible) reasons.push("never visible");
   if (fixture.check && load.check?.ok !== true) reasons.push(`check failed: ${JSON.stringify(load.check)}`);
   reasons.push(...diagramReasons(events, fixture));
+  reasons.push(...groupFourReasons(load, fixture));
   // The ready rule (AD-9): nothing moves once the question counts as visible.
   const visible = events.find((e) => e.kind === "visible");
   const after = events.find((e) => e.kind === "boxes" && e.generation === visible?.generation);
@@ -363,6 +429,71 @@ const judge = (load: Omit<Load, "verdict" | "reasons">, fixture: Fixture, base: 
   }
   return { verdict: "pass", reasons };
 };
+
+const sleepAfter = (action: Action) => sleep(action.ms ?? 200);
+
+const runAction = async (session: Session, action: Action): Promise<void> => {
+  const at = (selector: string) =>
+    action.board ? session.page.locator(selector) : viewLocator(session, selector);
+  const target = () => at(action.selector as string).first();
+  switch (action.do) {
+    case "click":
+      await target().click(action.at ? { position: action.at, timeout: 5_000 } : { timeout: 5_000 });
+      return;
+    case "fill":
+      await target().fill(action.value ?? "", { timeout: 5_000 });
+      return;
+    case "type":
+      await target().click({ timeout: 5_000 });
+      await session.page.keyboard.type(action.value ?? "", { delay: 20 });
+      return;
+    case "press":
+      if (action.selector) await target().press(action.key ?? "Enter", { timeout: 5_000 });
+      else await session.page.keyboard.press(action.key ?? "Enter");
+      return;
+    case "focus":
+      await target().focus({ timeout: 5_000 });
+      return;
+    case "hover":
+      await target().hover({ timeout: 5_000 });
+      return;
+    case "drag":
+      await target().dragTo(at(action.to as string).first(), { timeout: 10_000 });
+      return;
+    case "wheel":
+      if (action.selector) await target().hover({ timeout: 5_000, force: true });
+      await session.page.mouse.wheel(action.delta?.x ?? 0, action.delta?.y ?? 400);
+      return;
+    case "command":
+      await command(session, action.command as string, action.args ?? {});
+      return;
+    case "wait":
+      return;
+  }
+};
+
+const runActions = async (session: Session, fixture: Fixture): Promise<Step[]> => {
+  const steps: Step[] = [];
+  session.setPhase("action");
+  for (const action of fixture.actions ?? []) {
+    let error: string | null = null;
+    try {
+      await runAction(session, action);
+    } catch (e) {
+      error = String(e).split("\n")[0] as string;
+    }
+    await sleepAfter(action);
+    steps.push({ action, error, state: await command(session, "state") });
+  }
+  session.setPhase("load");
+  return steps;
+};
+
+// The JSON-RPC messages the board page's bridge received (`bridge` fixtures).
+const readBridge = (session: Session): Promise<unknown[]> =>
+  session.snapshot
+    ? Promise.resolve([])
+    : session.page.evaluate(() => (window as unknown as { __bridgeLog?: unknown[] }).__bridgeLog ?? []);
 
 const loadOnce = async (
   browser: Browser,
@@ -382,8 +513,13 @@ const loadOnce = async (
   try {
     const visible = await waitFor(session, visibleEvent);
     await sleep(SETTLE_MS);
+    const steps = visible?.kind === "visible" ? await runActions(session, fixture) : [];
     const check = fixture.check ? await command(session, "check", fixture.check) : null;
+    const computed = fixture.expectComputed
+      ? await command(session, "computed", { checks: fixture.expectComputed })
+      : null;
     const dump = await command(session, "dump");
+    const bridge = fixture.bridge ? await readBridge(session) : [];
     if (keep) await keep(session);
     const probe = await readProbe(session);
     const dir = join(PROBE, "runs", options.run, engine);
@@ -418,6 +554,9 @@ const loadOnce = async (
       probe,
       check,
       dump,
+      steps,
+      computed,
+      bridge,
       console: session.console,
       requests: session.requests,
       pageErrors: session.pageErrors,
@@ -474,7 +613,8 @@ const runLoads = async (browser: Browser, engine: string, ctx: Context) => {
     storage: probe.events.filter((e) => e.kind.startsWith("storage") || e.kind.startsWith("worker")),
     emits: probe.events.filter((e) => e.kind === "emit").map((e) => e.message),
     diagrams: diagramsOf(probe.events),
-    consoleErrors: c.filter((m) => (m.type === "error" || m.type === "warning") && m.phase === "load"),
+    consoleErrors: c.filter((m) => (m.type === "error" || m.type === "warning") && m.phase !== "screenshot"),
+    cspConsole: cspConsoleLines(c).map((m) => m.text.slice(0, 300)),
     foreignRequests: foreign(requests, ctx.base),
   }));
 };

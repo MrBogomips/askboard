@@ -1,0 +1,7 @@
+/* S-6, the measured change: react-remove-scroll-bar marks the body with `data-scroll-locked`
+   and injects this rule at run time, which the view CSP blocks. As a static rule in a hashed
+   stylesheet it applies without the injection (the scrollbar gap it also computes is left out). */
+body[data-scroll-locked] {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}

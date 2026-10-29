@@ -1,0 +1,28 @@
+{
+  "description": "Radix Popover, modal, with the style-element shim",
+  "board": {
+    "id": "c-popover-modal-shim",
+    "title": "Radix Popover, modal, with the style-element shim",
+    "items": [
+      {
+        "id": "po1",
+        "type": "Popover",
+        "props": {
+          "label": "Why?",
+          "text": "Modal popover.",
+          "modal": true,
+          "styleShim": true
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-item-id=po1] button"
+    }
+  ],
+  "expectDraft": {
+    "ui:po1": true
+  }
+}

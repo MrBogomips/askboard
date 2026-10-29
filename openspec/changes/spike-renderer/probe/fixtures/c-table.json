@@ -1,0 +1,53 @@
+{
+  "description": "TanStack Table, sortable table",
+  "board": {
+    "id": "c-table",
+    "title": "TanStack Table, sortable table",
+    "items": [
+      {
+        "id": "ta1",
+        "type": "Table",
+        "props": {
+          "columns": [
+            {
+              "key": "name",
+              "label": "Name"
+            },
+            {
+              "key": "owner",
+              "label": "Owner"
+            }
+          ],
+          "rows": [
+            {
+              "name": "retry",
+              "owner": "Ada"
+            },
+            {
+              "name": "cache",
+              "owner": "Lin"
+            },
+            {
+              "name": "auth",
+              "owner": "Sam"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "th button:has-text('Name')"
+    }
+  ],
+  "expectDraft": {
+    "ui:ta1": [
+      {
+        "id": "name",
+        "desc": false
+      }
+    ]
+  }
+}

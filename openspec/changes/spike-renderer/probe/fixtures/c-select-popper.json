@@ -1,0 +1,44 @@
+{
+  "description": "Radix Select, popper position",
+  "board": {
+    "id": "c-select-popper",
+    "title": "Radix Select, popper position",
+    "items": [
+      {
+        "id": "se1",
+        "type": "Select",
+        "props": {
+          "label": "Size",
+          "options": [
+            {
+              "value": "s",
+              "label": "Small"
+            },
+            {
+              "value": "m",
+              "label": "Medium"
+            },
+            {
+              "value": "l",
+              "label": "Large"
+            }
+          ],
+          "position": "popper"
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "#se1-trigger"
+    },
+    {
+      "do": "click",
+      "selector": "[role=option]:has-text('Large')"
+    }
+  ],
+  "expectDraft": {
+    "se1": "l"
+  }
+}

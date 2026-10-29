@@ -650,3 +650,255 @@ The diagram carries the style shim. Times are from `t0`, when the board page set
 - **The pin follows "create order".** In each of the 200 loads with a diagram, `message:label:create order#1` is at y = 149 before the edit and at y = 205 after it (207 in Firefox; 148.8 and 204.8 in WebKit), where the message moved (§ Anchors).
 - These are the board's own times on this machine (macOS, arm64), with the view served by the stand-in. SM-3's budget and the question-loading limit are set elsewhere (design.md, Open Questions); this gives the PlantUML part of them.
 - Screenshots of the golden board, light and dark, in Chromium, Firefox and WebKit (run `golden-look` and `golden-look-dark`, single loads, both fixtures): `evidence/golden/<engine>-light.png`, `evidence/golden/<engine>-dark.png`, for task 6.1.
+
+## Components: what group 4 added to the harness
+
+- **Fixtures.** `bun tools/component-fixtures.ts` writes group 4's 53 fixtures: one component per fixture, with one user action and the draft value it must leave (design decision 6). The JSON files in `fixtures/` are the record.
+- **User actions** (`actions` in a fixture; `runActions` in `drive.ts`): click (at a position if given), fill, type, press, focus, hover, drag (Playwright's `dragTo`), wheel and a shell command. They run after "visible" in every load. After each, the shell's `state` command records the draft record, the scroll position, the focused element, the body's computed `overflow`, the scroll-lock attribute and the open dialogs (`steps` in the load's JSON).
+- **The verdict rule gains four checks** (`judge` in `drive.ts`):
+  - each action ran without error;
+  - the draft record holds what the fixture expects (`expectDraft`; `ui:<id>` for view state);
+  - computed styles match (`expectComputed`) and each diagram's last render has the expected theme (`expectThemes`);
+  - **no CSP line in the console** outside the screenshot. WebKit logs some blocks without firing a violation event (group 3), so every engine's lines count. Firefox's favicon line and blocked `eval` probes, which are judged as probes, are left out.
+- **Negative fixtures** gain a `draft` signal (a key of the draft record holds a value after the actions) and exact-URL `no-request`.
+- **Policy variants** (`csp.ts`): `board-font-data` adds `font-src data:` to the board page's policy, and `board-media` adds `img-src data: blob:` and `font-src data:`, the view policy's own media sources. As with `board-img-blob`, each is a candidate amendment of AD-8, never the default.
+- **The board page can host an ext-apps `AppBridge`** (`bridge` fixtures). `shell/bridge.ts` is built as a probe chunk (`bridge`), inlined into the board page by hash before the page script and never into a view. It logs every request and notification from the view in `__bridgeLog`. The board page now keeps only the view's probe events (`askboardProbe`), so the view's JSON-RPC messages no longer reach the driver's event list.
+- **Build** (`build.ts`):
+  - Library chunks take several modules: `lib-radix` (ten Radix primitives), `lib-table` (TanStack Table's names used by Table, Tree and Spreadsheet) and `lib-dnd` (Pragmatic drag and drop's adapter, `combine` and `reorder`). `lib-radix` grew from 43,965 to 145,318 bytes (47,238 gzip) with Select, Slider, Toggle Group, Popover, Dialog and Alert Dialog.
+  - **Fonts inline as `data:` URLs.** Bun's CSS bundler leaves a stylesheet's `url()` paths as they are, even with a `dataurl` loader (checked on `mathlive-fonts.css`), so the build rewrites each `.woff2` URL of a package stylesheet into a `data:font/woff2` URL when the file loads. KaTeX lists each face as woff2, woff and ttf; the woff and ttf entries are dropped. KaTeX's stylesheet becomes 369,894 bytes, MathLive's 352,196.
+  - **`import.meta` stops the build.** zustand, xyflow's store, reads `import.meta.env`. A classic inline script that holds `import.meta` does not parse at all: in run `graph-import-meta` (built with `PROBE_KEEP_IMPORT_META=1`) the whole Graph chunk fails in every engine, and the item shows as unknown (§ Criterion 1). The build now defines `import.meta.env` as `undefined` and fails on any `import.meta` left in a chunk.
+  - **Tailwind's `dark:` variant follows the `.dark` class** (`@custom-variant dark (&:where(.dark, .dark *))`), measured in § S-5.
+- **Tools:** `tools/component-report.ts <run> [--steps]` lists each load's violations by directive and policy, and the state after each action; `tools/matrix-table.ts <run>…` prints the component-by-engine table, or the storage and worker accesses with `--storage`.
+- **Imports:** `bun tools/imports.ts` checks the 47 files in `components/` against each one's own libraries (0 violations); the Pattern probe imports `../pattern-check.ts`, AskBoard's own check.
+
+## Criterion 1: components under the view CSP (task 4.1)
+
+Three runs of the same 33 fixtures in all five engines (165 loads each), on 2026-10-29, with the engines of § Method:
+- `matrix`: `bun drive.ts matrix --fixtures <the 33 c-* fixtures>`, AD-8's policies as written;
+- `matrix-media`: the same with `--variants board-media` (the board page's policy allows the view's own `img-src data: blob:` and `font-src data:`);
+- `matrix-control`: the same with `--control`, no CSP and no sandbox.
+
+`bun tools/matrix-table.ts matrix matrix-media matrix-control` prints the tables below from the runs' summaries. Counts are violations **per policy**: every blocked write fires one event under the view's policy and one under the board's, except the board-only `font-src` blocks. A fixture holds one component, so its violations are the component's.
+
+| Component (fixture) | Chromium | Firefox | WebKit | Chrome | Edge |
+| --- | --- | --- | --- | --- | --- |
+| Radix Radio Group, Choice single (`c-radio`) | pass | pass | pass | pass | pass |
+| Radix Checkbox, Choice multiple (`c-checkbox`) | pass | pass | pass | pass | pass |
+| Radix Switch, Toggle (`c-switch`) | pass | pass | pass | pass | pass |
+| Radix Tabs (`c-tabs`) | pass | pass | pass | pass | pass |
+| Radix Select (`c-select`; `c-select-popper` the same) | fail: 2 `style-src-elem` | fail: 2 `style-src-elem` | fail: 2 `style-src-elem`, 1 `style-src-attr` | fail: 2 `style-src-elem` | fail: 2 `style-src-elem` |
+| Radix Select with the style-element shim (`c-select-shim`) | fail: 1 `style-src-elem` | **pass with change** | fail: 1 `style-src-attr` | fail: 1 `style-src-elem` | fail: 1 `style-src-elem` |
+| Radix Slider (`c-slider`) | pass | pass | pass | pass | pass |
+| Radix Toggle Group (`c-toggle-group`) | pass | pass | pass | pass | pass |
+| Radix Popover, non-modal (`c-popover`) | pass | pass | pass | pass | pass |
+| Radix Popover, modal (`c-popover-modal`) | fail: 1 `style-src-elem` | fail: 1 | fail: 1 | fail: 1 | fail: 1 |
+| Radix Popover, modal, style-element shim (`c-popover-modal-shim`) | pass with change | pass with change | pass with change | pass with change | pass with change |
+| Date Picker: react-day-picker in a Radix Popover (`c-date-picker`) | pass | pass | pass | pass | pass |
+| markdown-it with DOMPurify (`c-markdown`) | fail: 12 `style-src-attr` | fail: 6 | fail: 6 | fail: 12 | fail: 12 |
+| markdown-it, alignment as classes (`c-markdown-classes`) | pass with change | pass with change | pass with change | pass with change | pass with change |
+| KaTeX through its DOM API (`c-katex`) | fail: 20 `font-src`, board policy | fail: 23 | fail: 20 | fail: 20 | fail: 20 |
+| the same with `board-media` (run `matrix-media`) | pass with change | pass with change | pass with change | pass with change | pass with change |
+| KaTeX `renderToString` into `innerHTML`, negative control (`c-katex-string`) | caught: 37 `style-src-attr` | caught | caught | caught | caught |
+| MathLive (`c-mathlive`) | fail: `postMessage` throws, no edit reaches the draft; 20 `font-src` | fail: the same | fail: the same | fail: the same | fail: the same |
+| MathLive, keyboard in the frame (`c-mathlive-sandboxed`) | fail: 24 `style-src-attr`, 20 `font-src` | fail: 23, 22 | fail: 23, 20 | fail: 24, 20 | fail: 24, 20 |
+| MathLive, keyboard in the frame and the markup shim (`c-mathlive-shim`) | fail: 20 `font-src` | fail: 22 | fail: 20 | fail: 20 | fail: 20 |
+| the same with `board-media` (run `matrix-media`) | pass with change | pass with change | pass with change | pass with change | pass with change |
+| TanStack Table, table (`c-table`) | pass | pass | pass | pass | pass |
+| TanStack Table, tree (`c-tree`) | pass | pass | pass | pass | pass |
+| TanStack Table, A1 grid (`c-spreadsheet`) | pass | pass | pass | pass | pass |
+| Pragmatic drag and drop, Ranking (`c-ranking`) | pass | pass | pass | pass | pass |
+| Pragmatic drag and drop, Kanban (`c-kanban`) | pass | pass | pass | pass | pass |
+| ECharts, canvas renderer (`c-chart`) | fail: 14 `style-src-attr` | fail: 14 | fail: 14 | fail: 14 | fail: 14 |
+| ECharts, tooltip drawn on the canvas (`c-chart-rich`) | pass with change | pass with change | pass with change | pass with change | pass with change |
+| xyflow with dagre (`c-graph`) | pass with change (build) | pass with change | pass with change | pass with change | pass with change |
+| `@pierre/diffs` (`c-diff`) | fail: 52 `style-src-attr`, 1 `style-src-elem` | fail: the same | fail: the same | fail: the same | fail: the same |
+| `@pierre/diffs`, CSS-variables theme and the markup shim (`c-diff-vars-shim`) | pass with change | pass with change | pass with change | pass with change | pass with change |
+| ext-apps `App` to the board page's `AppBridge` (`c-app`) | probe: zod's `new Function`, 1 per policy | probe: the same, and 1 from the bridge on the board page | probe: 2 on the board page | probe | probe |
+| the same with zod's `jitless` set when the chunk loads (`c-app-jitless`) | pass with change | probe: 1, from the bridge on the board page | probe: 1, the same | pass with change | pass with change |
+| Tailwind stylesheets (`c-tailwind`) | pass | pass | pass | pass | pass |
+
+**The control run** (`matrix-control`): every fixture passes in all five engines, MathLive's three variants and the default `@pierre/diffs` included, and the negative control renders ("missed"). Each failure above is therefore the CSP or the sandbox, not the component. No load in the three runs made a request, touched storage or made a worker (§ S-5).
+
+What fails, with the violation and the change measured:
+- **Radix Select.** Opening it fires two blocked `<style>` elements: the scroll lock's (react-remove-scroll-bar, as in § S-6) and the viewport's, a `<style>` React renders in Select's portal (`[data-radix-select-viewport]{scrollbar-width:none;…}`, `lib-radix`). In WebKit a third block comes from the hidden native `<select>` Radix renders for forms: **WebKit reports a `style-src-attr` violation for any native `<select>` it creates**, whatever its styles. `bun tools/check-native-select.ts` shows it on a standalone page with a hash-only `style-src`: 2 violations for 2 `<select>` elements in WebKit, none in Chromium or Firefox. With the style-element shim (§ S-6), only Firefox passes. Chromium, Chrome and Edge still block the viewport's `<style>`: they check the CSP when a `<style>` is connected, whatever its `type` (a trial run made while writing the shim, not kept: with only the non-CSS `type`, they still reported the head's scroll-lock `<style>` too, which is why the shim moves that one into a detached holder). WebKit still reports the native `<select>`. Popper position (`c-select-popper`) changes nothing. Select works in every engine (the picked value reaches the draft record); the failure is the CSP's.
+- **Radix Popover, modal**: the scroll lock's `<style>`, 1 per policy; the style-element shim passes it in all five engines. The non-modal Popover, which is what the Date Picker uses, passes as written.
+- **markdown-it**: a table column's alignment becomes `style="text-align:…"` on each cell, 6 cells in the fixture. Chromium reports each twice per policy, once when DOMPurify parses the HTML and once when it is inserted. A renderer rule that writes the alignment as a class (`props.alignClasses` in `components/markdown.tsx`, a dozen lines) passes in all five engines. DOMPurify kept the escaped `<script>` and `<img onerror>` text as text, since markdown-it runs with `html: false`.
+- **KaTeX**: the 20 fonts inlined as `data:` URLs are blocked by the **board page's** policy, which names no `font-src`. The view's own `font-src data:` cannot widen it, as for `img-src blob:` (§ Criteria 3 and 4). With `board-media` it passes in all five engines. Its styles go through the CSSOM: no style violation.
+- **MathLive** needs three changes:
+  1. In a frame, MathLive makes `window.mathVirtualKeyboard` a proxy that posts to `window.top` with `window.origin` as the target origin. That is `"null"` in the sandbox, and every engine's `postMessage` throws ("Invalid target origin 'null'" in Chromium; "An invalid or illegal string was specified" in Firefox; "The string did not match the expected pattern" in WebKit), so typing never reaches the draft record. The change removes the proxy and mounts the keyboard in the frame (`initVirtualKeyboardInCurrentBrowsingContext`, MathLive's own export) with the `sandboxed` keyboard policy.
+  2. It then writes the formula as markup with `style` attributes into the field's shadow root: 23 to 25 per policy. The markup shim (§ Diff highlighting) passes it.
+  3. Its fonts need `font-src data:` on the board page, as KaTeX's do.
+
+  With the three, `x^2` typed key by key reaches the draft record as `x^2` in all five engines. Playwright's `keyboard.type` right after the click loses keys in MathLive, in the control run too, so the fixtures type one key at a time.
+- **ECharts**: its HTML tooltip is set with `innerHTML` and inline `style` attributes when the pointer is over a bar (the click hovers it first): 14 per policy. ECharts' own `tooltip.renderMode: "richText"` draws the tooltip on the canvas and passes in all five engines. The chart itself writes styles through the CSSOM.
+- **xyflow** passes as written once the build defines `import.meta.env`; without that the chunk does not parse in any engine (run `graph-import-meta`, built with `PROBE_KEEP_IMPORT_META=1`: "Cannot use 'import.meta' outside a module" in Chromium, Chrome and Edge; "import.meta may only appear in a module" in Firefox; "import.meta is only valid inside modules" in WebKit). The change is in the build, not the component (§ Components: what group 4 added). The attribution link is hidden with xyflow's `proOptions.hideAttribution`; it is a link, not a request.
+- **`@pierre/diffs`**: § Diff highlighting.
+- **ext-apps**: the view's `App` connects to the board page's `AppBridge` over `postMessage` with target origin `*`. It sends `ui/update-model-context`, and the bridge logs `ui/notifications/initialized` and `ui/update-model-context`, in all five engines. `App` sets zod's `jitless` in its constructor (its own documentation), but zod has already probed `new Function` once by then. Setting `jitless` before ext-apps loads (`components/_zod-jitless.ts`, imported first) removes the view's probe. The probe left in Firefox and WebKit is the board page's own: the stand-in's `AppBridge` bundles zod without `jitless`, and those two engines report its probe to the board page. A product board page needs the same `jitless` line.
+- **Tailwind**: the hashed chunk stylesheets apply in every engine: a token colour (`rgb(11, 110, 127)`), `rounded-md` (4px), the `question` type scale (20px, 600), an arbitrary width (137px), `grid` and a `data-[state=on]` variant. Tailwind's `dark:` variant needed a build change (§ S-5).
+
+What this means under §10.3's "What changes" ("a component failing the CSP is out"), as input to the proposed outcomes of task 8.1:
+- **Pass as written** in every engine: Radix Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group and the non-modal Popover; the Date Picker; TanStack Table as table, tree and grid; Pragmatic drag and drop; the Tailwind stylesheets.
+- **Pass with a change named above**, in every engine: KaTeX (board policy `font-src data:`), markdown-it (alignment classes), ECharts (`richText` tooltip), xyflow (the build's `import.meta.env`), ext-apps (`jitless` first, on both pages), the modal Popover (the style-element shim), MathLive (three changes), `@pierre/diffs` (the markup shim).
+- **Fail with every change measured:** Radix Select, in Chromium, Chrome, Edge and WebKit, and with it the Form's single pick from a list (§ Form). Untested alternatives: a native `<select>` (which WebKit reports too, see above), a Radix Popover with a listbox, or Select without its `Viewport` part.
+
+## Diff highlighting (task 4.2)
+
+Run `diffs`: seven configurations of `components/diff-review.tsx` in all five engines; run `diffs-dark`: the two shimmed configurations with `--color-scheme dark` in Chromium, Firefox and WebKit. The fixture is a five-line TypeScript change shown unified, with `disableWorkerPool` (no worker). Each load reports what the shadow root holds: the highlighted spans, their classes and their computed colours.
+
+| Configuration (fixture) | Violations per policy, every engine | Classes on the token spans | Token colours (computed) | Verdict |
+| --- | --- | --- | --- | --- |
+| Its default themes, Shiki's JavaScript engine (`c-diff`) | 52 `style-src-attr`, 1 `style-src-elem` | none | all `rgb(0, 0, 0)`: the blocked `style` attributes carry them | fail |
+| `useCSSClasses: true` (`c-diff-classes`) | the same | none: the option is declared but not read (D10) | the same | fail |
+| A CSS-variables theme on the five `syntax-*` tokens (`c-diff-vars`) | 51, 1 | none | the same | fail |
+| No highlighting: the files named `.txt` (`c-diff-plain`) | 2, 1 | none | the same | fail |
+| Default themes and the markup shim (`c-diff-shim`) | 0 | none | Pierre's palette | pass with change |
+| **CSS-variables theme and the markup shim (`c-diff-vars-shim`)** | **0** | none | exactly DESIGN.md's tokens: light `#6b3fa0`, `#1d6b52`, `#9a4a0b`, `#2b5c8a`, `#6b6358` and the foreground `#2b2722`; the `-dark` values under `.dark` | pass with change |
+| No highlighting and the markup shim (`c-diff-plain-shim`) | 0 | none | foreground | pass with change |
+
+- **What the CSP blocks.** `@pierre/diffs` builds its rows as HTML strings (`hastToHtml`) and writes them with `innerHTML` and `insertAdjacentHTML`, often into elements not yet attached. Token colours, the `grid-row` spans and a CSS variable on `<pre>` are `style` attributes in that markup, and a theme `<style>` goes into its shadow root (`hostTheme.js`). Turning highlighting off removes the token styles but not the other three (`c-diff-plain`).
+- **No configuration gives token classes.** No span carries a class in any configuration, so the task's first branch cannot be met: as the task says, **highlighting off in the first version** is recorded, with the violations above. **But off is not enough:** the component fails the CSP without highlighting too.
+- **The measured alternative is the markup shim** (`components/_markup-shim.ts`, 81 lines, shared with MathLive). It is in scope inside a listed host's shadow root, or in a detached element:
+  - before markup is parsed, its `style` attributes become `data-ab-style`, and they are applied through the CSSOM after;
+  - `setAttribute("style", v)` becomes `style.cssText = v`;
+  - a `<style>` appended to the shadow root becomes a constructed stylesheet.
+
+  The CSS-variables theme (`registerCustomCSSVariableTheme`, the package's own export) then maps Shiki's scopes onto `var(--syntax-keyword)` and the four others, so the `.dark` switch re-points them with no re-render. Its scope map sends `number`, `boolean`, `constant` and `property` to the number token, and `function`, `constructor`, `type` and `attribute` to the function token, as DESIGN.md's table groups them.
+- **The decision is the product owner's** (tasks 6.1 and 8.3): the shim with highlighting, or the shim with highlighting off. Either way, Diff review needs the shim or a different library. Screenshots, light and dark, of `c-diff-vars-shim` in Chromium, Firefox and WebKit: `evidence/diffs/<engine>-light.png` and `<engine>-dark.png`; for comparison, `evidence/diffs/chromium-default-no-shim.png` (as written: no colour) and `chromium-pierre-theme-shim.png` (Pierre's own palette).
+- **For group 5:** the chunk is 11,604,703 bytes (2,091,962 gzip). Shiki's grammars are 7,991,265 bytes of it: `import("shiki/langs")` bundles every language into the classic script. Its themes are 1,333,572, `@pierre/highlights` 650,847 and the Oniguruma engine 629,400, unused here. Time to visible is about 300 ms in Chromium, 600 ms in Firefox and 1,330 ms in WebKit; with `.txt` files in WebKit, 195 ms.
+
+## S-6: Radix Dialog and Alert Dialog (task 4.3)
+
+Runs `dialog` and `dialog-control`, all five engines. Each fixture holds the trigger, then a 2,400 px block, so the view has a page to scroll. The actions, with the view's state recorded after each:
+1. open the dialog;
+2. wheel 600 px over the page;
+3. press PageDown;
+4. press Tab four times;
+5. press Escape;
+6. wheel 600 px again.
+
+**The blocked `<style>`**, one per opening and per policy, in every engine (`style-src-elem`). The instrumentation's record of it begins:
+
+```css
+.with-scroll-bars-hidden { overflow: hidden !important; padding-right: 0px !important; }
+body[data-scroll-locked] { overflow: hidden !important …
+```
+
+It is react-remove-scroll-bar's, appended to `document.head` through react-style-singleton. Chromium logs "Applying inline style violates the following Content Security Policy directive 'style-src …'"; WebKit "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive".
+
+| Fixture | Violations per policy | Body `overflow` while open | Wheel while open | PageDown while open (scrollY) | Focus after each Tab | Esc |
+| --- | --- | --- | --- | --- | --- | --- |
+| Modal Dialog as written (`s6-dialog`) | 1 | `visible` | blocked (scrollY 0) | **scrolls**: 760 in Chromium, Chrome, Edge; 640 in WebKit; 0 in Firefox, where focus is in the text field | stays in the dialog, 4 of 4 | closes; focus returns to the trigger |
+| Alert Dialog as written (`s6-alert`) | 1 | `visible` | blocked | **scrolls**: 760; 639 in WebKit; 768 in Firefox | stays in, 4 of 4 | closes; focus to the trigger |
+| Modal Dialog with the static rule (`s6-dialog-rule`) | 1 | `hidden` | blocked | 0 | stays in | closes |
+| Modal Dialog, style-element shim (`s6-dialog-shim`) | **0** | `hidden` | blocked | 0 | stays in | closes |
+| Alert Dialog, style-element shim (`s6-alert-shim`) | **0** | `hidden` | blocked | 0 | stays in | closes |
+| Non-modal Dialog (`s6-nonmodal`) | **0** | `visible`, no lock by design | scrolls 600 | scrolls (1,360; 600 in Firefox) | stays in, 4 of 4 | closes; focus to the trigger |
+| Control, modal and alert (`dialog-control`) | 0 | `hidden` | blocked | 0 | stays in | closes |
+
+After Escape the page scrolls again in every case (600).
+
+- **What the block breaks:** only the keyboard half of the scroll lock. The wheel is still stopped by react-remove-scroll's own event handler (script), the focus trap and Esc work in every engine, and focus returns to the trigger. The page behind a modal scrolls with PageDown, and the scrollbar gap is not compensated.
+- **Two measured changes:**
+  1. **The static rule** (`styles/scroll-lock.css` as the `scroll-lock` chunk's hashed stylesheet: `body[data-scroll-locked] { overflow: hidden !important; overscroll-behavior: contain }`) restores the lock in every engine, but the blocked `<style>` still fires its violation.
+  2. **The style-element shim** (`components/_style-shim.ts`, 50 lines) passes with 0 violations and the full lock in every engine. A `<style>` appended to `document.head` goes into a detached holder and its rules become a constructed stylesheet in `document.adoptedStyleSheets`, which the CSP allows (D11). Removing it removes the sheet. A `<style>` inserted anywhere else gets a non-CSS `type` and the same treatment, which is enough in Firefox only (§ Criterion 1, Radix Select).
+- **The non-modal variant passes as written.** The settings side sheet is non-modal (S-6's own text), so it is not affected. For the mode-switch confirmation, the product owner chooses between non-modal, a modal with the shim, and a modal with the static rule plus a tolerated violation (task 8.1).
+
+## Form (task 4.4)
+
+Runs `form` and `form-control`, all five engines. The Form is RJSF 6.11.0 with:
+- the AskBoard theme stand-in (`components/_form.tsx`): RJSF widgets on the atoms' parts, a text input, Radix Radio Group, Select and Checkbox;
+- `tagName="div"`, no submit button (`ui:submitButtonOptions.norender`) and `showErrorList={false}`;
+- the no-op validator (`validateFormData`, `isValid`, `rawValidation`, `reset`);
+- `extraErrors` on the name field, standing in for AskBoard's field check.
+
+The schema has a name with a `pattern`; a colour as `enum` with `ui:enumNames` shown as radios; a size, the same, shown as a Select; and tags, an array of `enum` items with the items' `ui:enumNames`, shown as checkboxes (S-8).
+
+| Check | Chromium | Firefox | WebKit | Chrome | Edge |
+| --- | --- | --- | --- | --- | --- |
+| Values after the picks (`form`): `{"name":"Ada","colour":"g","size":"m","tags":["a","c"]}` in the draft record; the labels Red, Green, Blue, Medium, Alpha, Beta, Gamma shown | yes | yes | yes | yes | yes |
+| Enter in the name field submits nothing (`ui:f1` stays empty) | yes | yes | yes | yes | yes |
+| The field error from `extraErrors` shows ("Use a capitalised name …") | yes | yes | yes | yes | yes |
+| Violations in `form` (all from Radix Select, § Criterion 1) | 2 `style-src-elem` | 2 | 2, and 1 `style-src-attr` | 2 | 2 |
+| `form-shim`, with the style-element shim | 1 `style-src-elem`: fail | **pass with change** | 1 `style-src-attr`: fail | 1: fail | 1: fail |
+| S-7 negative control, a `<form>` with its submit button (`form-tag`): Enter, then the button | blocked: "Blocked form submission to '' because the form's frame is sandboxed and the 'allow-forms' permission is not set", twice; no submit event | blocked silently; no submit event | **the submit event fires on Enter: RJSF's `onSubmit` ran**; no request | blocked, as Chromium | blocked, as Chromium |
+| S-4 negative control, `@rjsf/validator-ajv8` validating live (`form-ajv`) | caught: `script-src`, blocked URI `eval`, at Ajv's first compile | caught | caught (reported to the board page) | caught | caught |
+
+- **The control run** (`form-control`, no sandbox and no CSP) shows each negative probe does what it claims: the `<form>` submits (RJSF's `onSubmit` runs) and Ajv compiles with no violation, in all five engines. `form` passes there too.
+- **S-7 holds, and more strongly than its text.** WebKit fires the submit event in a sandboxed frame without `allow-forms`: only the navigation is blocked. A `<form>` there runs RJSF's submit handler on Enter. `tagName="div"` is what keeps Enter from submitting, in every engine.
+- **S-4 holds.** The no-op validator with `extraErrors` shows AskBoard's errors and compiles nothing, and Ajv's compile is blocked as expected.
+- **S-8's picks hold.** `enum` with `ui:enumNames` returns the `enum` values (`g`, `m`, `["a","c"]`) and shows the labels, for radios, Select and checkboxes.
+- **The Form fails criterion 1 only through Radix Select** (single pick from a list). With radios for single picks, the Form's violations would be those of the atoms, which pass. That is a design choice the product owner makes with Select's verdict (task 8.1).
+- **For group 5:** the `form` chunk carries Ajv (103,550 bytes) and `@rjsf/validator-ajv8` although the Form never uses them. `@rjsf/core`'s index re-exports `getTestRegistry`, which imports `@rjsf/validator-ajv8`, and the bundle keeps it; markdown-to-jsx adds 78,632 bytes (D15). The chunk is 393,146 bytes (129,062 gzip). The Ajv instance it constructs at load compiles nothing: no `eval` violation in `form`.
+
+## S-8: the safe `pattern` subset (task 4.5)
+
+- **`pattern-check.ts`** (probe root, 110 lines) implements the subset as a send-time check, `checkPattern(itemId, pattern)`. A pattern is refused when:
+  - it does not compile as an ECMAScript regular expression with the `u` flag;
+  - it holds a backreference (`\1` to `\9`, `\k<name>`);
+  - it holds a lookahead (`(?=`, `(?!`) or a lookbehind (`(?<=`, `(?<!`);
+  - a group that holds a quantifier is itself repeated by `*`, `+` or a braced quantifier other than `{0}` and `{1}` (`?` is allowed).
+
+  Each refusal names the item: "item r-nested-plus: pattern "^(a+)+$" nests quantifiers (a repeated group holds a quantifier), outside the safe subset (S-8)".
+- **`bun pattern-check.ts`** runs the fixture list and prints "8 accepted, 11 refused, all as listed". It accepts 8 patterns: a name, a phone number, an email shape, an optional subdomain (a quantified group made optional with `?`), named groups, an alternation, a class holding `(+*)]` and a ticket key. It refuses 11:
+  - a backreference and a named backreference;
+  - a lookahead and a negative lookahead;
+  - a lookbehind and a negative lookbehind;
+  - four nested quantifiers: `(a+)+`, `(?:\w*\s?)*`, `(\d{2,})+` and `((ab)*c)+`;
+  - one invalid pattern.
+- **No DOM, Node-only or Bun-only API:** `tsc` 7.0.2 compiles it with `--lib es2022 --types ''` (no DOM, Node or Bun types). The same command on a control file that reads `document`, `process` and `Bun` fails with TS2584, TS2591 and TS2868. The runner reads `import.meta.main`, which Bun and Deno set on the entry module; the check itself does not.
+- **Run `pattern`**, all five engines: the Pattern probe checks the 8 accepted patterns again in the view, then evaluates them with `RegExp` (`u` flag) against 9 strings that must match and 9 that must not. It shows "all patterns behave as listed", with 0 violations: **pass** in every engine.
+
+## S-5: storage, workers and the `.dark` switch (task 4.6)
+
+**Storage and worker accesses.** `bun tools/matrix-table.ts matrix matrix-media form diffs dialog theme pattern drag-slider --storage` reads every load's `storage` and `worker` records: the shell's wrappers on `localStorage`, `sessionStorage`, `indexedDB`, `caches`, `document.cookie`, `Worker` and `SharedWorker` (§ Harness).
+
+| Component | API | Outcome |
+| --- | --- | --- |
+| Every group 4 fixture: 33 in `matrix` and `matrix-media`, 4 in `form`, 7 in `diffs`, 6 in `dialog`, `theme`, `pattern` and 3 in `drag-slider`, in all five engines | any of the seven | **no access** |
+| cmdk 1.1.1 (S-5, `evidence/adoption.json`) | not installed | fails the adoption rule: last push 2025-10-29, last release 2025-03-14 |
+| next-themes 0.4.6 (S-5, `evidence/adoption.json`) | not installed | fails the adoption rule: last push 2026-02-25, last release 2025-03-11; its `localStorage` would throw in the view (§ Harness, `neg-local-storage`) |
+
+`@pierre/diffs` ran with `disableWorkerPool`, so it made no worker. Its worker pool runs only through a host `workerFactory` (D12), and a `blob:` worker is blocked by `worker-src` (§ Harness).
+
+**The `.dark` switch** (fixture `theme`: the Tailwind swatches, a Mermaid flowchart and a PlantUML Smetana diagram, both with the style shim; the action is the shell's `theme` command, which sets the `.dark` class; the `board-media` variant, so the diagrams' `blob:` images load):
+
+| Run | Tokens re-point (page background `rgb(27, 25, 22)`; `bg-primary` `rgb(95, 180, 194)`) | Diagrams re-render dark (last render's theme) | Tailwind `dark:` utility under `.dark` (`#tw-dark`, expected the dark primary `rgb(95, 180, 194)`) | Verdict |
+| --- | --- | --- | --- | --- |
+| `theme-media-query`, the build before the change | yes, five engines | yes, Mermaid and PlantUML, five engines | **no**: `rgb(235, 230, 221)`, the dark foreground | fail |
+| `theme`, with `@custom-variant dark (&:where(.dark, .dark *))` in each chunk's Tailwind input | yes | yes | yes | **pass**, five engines |
+
+- **The tokens follow the class** as built (§ Harness): `.dark` re-points the CSS variables, and the diagrams re-render dark through their theme subscription.
+- **Tailwind's `dark:` variant needs one line**: by default it follows `prefers-color-scheme`, not the class the UX drives. The build now carries `@custom-variant dark (&:where(.dark, .dark *))`.
+- **S-5's conclusion holds:** no component reads storage, and the `.dark` class does what next-themes would, with no dependency.
+
+## S-2 and S-3 (task 4.7)
+
+From `evidence/adoption.json` (task 1.2, run on 2026-10-29: the npm registry for versions, dependencies and publish dates, the GitHub API for stars and pushes), against the adoption rule on that date (a push since 2026-04-29, a release since 2025-10-29, at least 1,000 stars):
+
+| Package | Fact | Source, date | Rule |
+| --- | --- | --- | --- |
+| `react-arborist` 4.0.1 | Peer dependencies `react-dnd` ^16 and `react-dnd-html5-backend` ^16 (its own dependencies are `redux`, `react-window`) | npm registry, `react-arborist@4.0.1`, read 2026-10-29 | The package passes (MIT, 3,714 stars, pushed 2026-10-11, released 2026-10-11) |
+| `react-dnd` 16.0.1 | Last release 2022-04-19 (16.0.1, `latest`); last push 2025-07-06; 21,628 stars | npm registry and GitHub `react-dnd/react-dnd`, 2026-10-29 | **Fails**: release older than 12 months, push older than 6 months |
+| `vis-timeline` 8.5.6 | `@egjs/hammerjs` ^2.0.0 is a **peer** dependency, with `propagating-hammerjs` and seven others; vis-timeline itself declares no direct dependency | npm registry, `vis-timeline@8.5.6`, 2026-10-29 | The package passes ((Apache-2.0 OR MIT), 2,573 stars, pushed 2026-10-29, released 2026-10-26) |
+| `@egjs/hammerjs` 2.0.17 | Repository `naver/hammer.js`: last push 2021-02-01, 45 stars; last release 2019-12-16 | GitHub and npm registry, 2026-10-29 | **Fails**: stars, push and release |
+
+- **Differences from the ACR's wording:** react-dnd's last release is 2022-04-19, not 2022-06-25 (§ Adoption), and hammer.js is a peer of vis-timeline, not a dependency. Neither changes the conclusion: installing either component brings in a package that fails the rule.
+- **Verdict on S-2's replacement, TanStack Table tree mode with Pragmatic drag and drop: holds.** Both pass the adoption rule (§ Adoption). Under the view CSP, the Tree fixture (TanStack Table's expanding feature, from `lib-table`) and the Ranking and Kanban fixtures (Pragmatic drag and drop's native drag, from `lib-dnd`) are in § Criterion 1 and § UX spike items. The two were run apart: a tree whose rows are dragged is the `widgets` epic's to build.
+- **Verdict on S-3's replacement, AskBoard's own Timeline: holds, untested here.** It removes the failing peer. The spike built no Timeline fixture: it would be React and CSS with no library of its own, which the atoms already show pass (§ The renderer).
+
+## UX spike items (task 4.8)
+
+Runs `drag-slider` and `drag-slider-control` (all five engines), and `drag-slider-set` (the comparison click). Drags use Playwright's `dragTo`, which drives the native HTML5 drag events Pragmatic drag and drop listens to, inside the sandboxed frame. The draft record after each action:
+
+| Fixture: action | Chromium | Firefox | WebKit | Chrome | Edge |
+| --- | --- | --- | --- | --- | --- |
+| `ux-ranking`: drag C onto A | `["c","a","b"]` | the same | the same | the same | the same |
+| `ux-ranking`: then drag A onto B | `["c","b","a"]` | the same | the same | the same | the same |
+| `ux-kanban`: drag k1 onto the Done lane | todo `[k2]`, doing `[k3]`, done `[k1]` | the same | the same | the same | the same |
+| `ux-kanban`: then drag k3 onto card k2 | todo `[k3,k2]`, doing `[]`, done `[k1]` | the same | the same | the same | the same |
+| `ux-slider-unset`: click the track at 192 px of 208, no value set | **no value** | no value | no value | no value | no value |
+| `ux-slider-set`: the same click with the value 30 | 92 | 92 | 92 | 92 | 92 |
+
+- Every load passes the verdict rule, with 0 violations; the control run gives the same draft records.
+- **Native drag works in the sandboxed frame** in every engine Playwright drives. Pragmatic drag and drop needs no permission the sandbox withholds. A person's drag in the installed Chrome and in Safari is task 6.2, awaiting PO.
+- **A click on an unset Slider's track sets no value**, in every engine and in the control run, so it is Radix's behaviour, not the CSP's. Radix finds the thumb nearest the click (`getClosestValueIndex`, `@radix-ui/react-slider` `dist/index.mjs:655-660`). With no value there is no thumb, the index is -1, and `getNextSortedValues` (`:632-636`) writes the value at index -1, which the sorted array drops. The same click on a set Slider moves it to 92. The track is 208 px wide at the view's 13 px root size, so 192 px is 92%. To set a value on the first click, AskBoard's Slider would have to handle the track's `pointerdown` itself while unset: a `widgets` epic decision.

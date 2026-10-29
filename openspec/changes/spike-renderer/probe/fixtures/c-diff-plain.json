@@ -1,0 +1,28 @@
+{
+  "description": "@pierre/diffs with no highlighting (.txt files)",
+  "board": {
+    "id": "c-diff-plain",
+    "title": "@pierre/diffs with no highlighting (.txt files)",
+    "items": [
+      {
+        "id": "df1",
+        "type": "DiffReview",
+        "props": {
+          "oldFile": {
+            "name": "retry.ts",
+            "contents": "// Retry with a fixed delay.\nexport function delay(attempt: number): number {\n  const base = \"fixed\";\n  return 1000;\n}\n"
+          },
+          "newFile": {
+            "name": "retry.ts",
+            "contents": "// Retry with exponential backoff, capped.\nexport function delay(attempt: number): number {\n  const base = \"exponential\";\n  return Math.min(30_000, 2 ** attempt * 100);\n}\n"
+          },
+          "config": "plain"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=df1]",
+    "text": ""
+  }
+}

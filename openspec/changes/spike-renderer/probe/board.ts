@@ -35,6 +35,33 @@ export type Fixture = {
   rerender?: { item: string; source: string };
   // Diagram items whose source must not render: an error shows, and no image (task 3.4).
   expectDiagramErrors?: string[];
+  // Group 4: user actions run after "visible" in every load, each followed by a record of the
+  // view's state; the draft values and computed styles the fixture expects afterwards.
+  actions?: Action[];
+  expectDraft?: Record<string, unknown>;
+  expectComputed?: { selector: string; property: string; equals: string }[];
+  // The board page hosts an ext-apps `AppBridge` for the view's `App` (task 4.1).
+  bridge?: boolean;
+  // JSON-RPC methods the bridge must have received from the view.
+  expectBridge?: string[];
+  // Per diagram item, the theme of its latest render (task 4.6).
+  expectThemes?: Record<string, "light" | "dark">;
+};
+
+export type Action = {
+  do: "click" | "fill" | "type" | "press" | "drag" | "hover" | "wheel" | "focus" | "command" | "wait";
+  selector?: string;
+  // `drag`: the drop target; `click`: a position inside the element ({ x, y } in pixels).
+  to?: string;
+  at?: { x: number; y: number };
+  value?: string;
+  key?: string;
+  delta?: { x: number; y: number };
+  command?: string;
+  args?: Record<string, unknown>;
+  ms?: number;
+  // Locate in the board page rather than in the view.
+  board?: boolean;
 };
 
 const BOARD_STYLE =
@@ -46,7 +73,7 @@ const BOARD_SCRIPT = `(async () => {
   const now = () => performance.timeOrigin + performance.now();
   const probe = (window.__probe = { events: [], board: [], t0: null });
   window.addEventListener("message", (e) => {
-    if (e.source === frame.contentWindow) probe.events.push(e.data);
+    if (e.source === frame.contentWindow && e.data && e.data.askboardProbe) probe.events.push(e.data);
   });
   document.addEventListener("securitypolicyviolation", (e) => {
     probe.board.push({ kind: "violation", directive: e.effectiveDirective,
@@ -55,6 +82,7 @@ const BOARD_SCRIPT = `(async () => {
   });
   window.__probeSend = (command, args, id) =>
     frame.contentWindow.postMessage({ askboardProbeCommand: command, args, id }, "*");
+  if (window.__askboardBridge) window.__askboardBridge(frame).catch(() => undefined);
   const response = await fetch(location.pathname.replace(/^\\/b\\//, "/v/") + location.search);
   const html = await response.text();
   probe.t0 = now();
@@ -64,16 +92,20 @@ const BOARD_SCRIPT = `(async () => {
 const sha256 = (text: string): string =>
   new Bun.CryptoHasher("sha256").update(text).digest("base64");
 
-const boardPage = (control: boolean): string =>
+// `bridge`: the AppBridge chunk's script, inlined before the page script for fixtures that ask.
+const boardPage = (control: boolean, bridge?: string): string =>
   [
     "<!doctype html>",
     '<html lang="en">',
     '<head><meta charset="utf-8"><title>AskBoard board stand-in</title>',
     `<style>${BOARD_STYLE}</style></head>`,
     `<body><iframe id="view" ${control ? "" : 'sandbox="allow-scripts" '}title="AskBoard view"></iframe>`,
+    bridge ? `<script>${bridge}</script>` : "",
     `<script>${BOARD_SCRIPT}</script></body>`,
     "</html>",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
 export const loadFixtures = async (): Promise<Map<string, Fixture>> => {
   const dir = join(PROBE, "fixtures");
@@ -137,14 +169,20 @@ export const startBoard = async (port = 0) => {
       }
       if (route !== "b") return new Response("not found", { status: 404 });
       const control = url.searchParams.get("control") === "1";
-      if (control) return html(boardPage(true));
+      const bridge = fixture.bridge ? build.texts.get("chunks/bridge.js") : undefined;
+      if (fixture.bridge && bridge === undefined) return new Response("no bridge chunk: run bun run build", { status: 500 });
+      if (control) return html(boardPage(true, bridge));
       const omit = new Set(fixture.omitFromBoardPolicy ?? []);
       const policy = boardPolicy(
-        [sha256(BOARD_SCRIPT), ...view.scripts.filter((s) => !omit.has(s.chunk)).map((s) => s.sha256)],
+        [
+          sha256(BOARD_SCRIPT),
+          ...(bridge ? [sha256(bridge)] : []),
+          ...view.scripts.filter((s) => !omit.has(s.chunk)).map((s) => s.sha256),
+        ],
         [sha256(BOARD_STYLE), ...view.styles.filter((s) => !omit.has(s.chunk)).map((s) => s.sha256)],
         optionsOf(url, fixture).variants,
       );
-      return html(boardPage(false), { "content-security-policy": policy });
+      return html(boardPage(false, bridge), { "content-security-policy": policy });
     },
   });
   return { server, url: `http://127.0.0.1:${server.port}`, fixtures };

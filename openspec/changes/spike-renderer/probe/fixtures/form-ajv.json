@@ -1,0 +1,100 @@
+{
+  "description": "S-4 negative control: RJSF with @rjsf/validator-ajv8, validating live",
+  "board": {
+    "id": "form-ajv",
+    "title": "S-4 negative control: RJSF with @rjsf/validator-ajv8, validating live",
+    "items": [
+      {
+        "id": "f1",
+        "type": "FormAjv",
+        "props": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "pattern": "^[A-Z][a-z]+$"
+              },
+              "colour": {
+                "type": "string",
+                "title": "Colour",
+                "enum": [
+                  "r",
+                  "g",
+                  "b"
+                ]
+              },
+              "size": {
+                "type": "string",
+                "title": "Size",
+                "enum": [
+                  "s",
+                  "m",
+                  "l"
+                ]
+              },
+              "tags": {
+                "type": "array",
+                "title": "Tags",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "a",
+                    "b",
+                    "c"
+                  ]
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "colour": {
+              "ui:widget": "radio",
+              "ui:enumNames": [
+                "Red",
+                "Green",
+                "Blue"
+              ]
+            },
+            "size": {
+              "ui:widget": "select",
+              "ui:enumNames": [
+                "Small",
+                "Medium",
+                "Large"
+              ]
+            },
+            "tags": {
+              "ui:widget": "checkboxes",
+              "items": {
+                "ui:enumNames": [
+                  "Alpha",
+                  "Beta",
+                  "Gamma"
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "fill",
+      "selector": "#root_name",
+      "value": "ada"
+    }
+  ],
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "script-src"
+      ],
+      "blocked": "eval"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "description": "The Tailwind stylesheets: token, radius, type scale, arbitrary value and data variant",
+  "board": {
+    "id": "c-tailwind",
+    "title": "The Tailwind stylesheets: token, radius, type scale, arbitrary value and data variant",
+    "items": [
+      {
+        "id": "tw1",
+        "type": "Swatches"
+      }
+    ]
+  },
+  "expectComputed": [
+    {
+      "selector": "#tw-token",
+      "property": "background-color",
+      "equals": "rgb(11, 110, 127)"
+    },
+    {
+      "selector": "#tw-token",
+      "property": "color",
+      "equals": "rgb(255, 255, 255)"
+    },
+    {
+      "selector": "#tw-radius",
+      "property": "border-top-left-radius",
+      "equals": "4px"
+    },
+    {
+      "selector": "#tw-type",
+      "property": "font-size",
+      "equals": "20px"
+    },
+    {
+      "selector": "#tw-type",
+      "property": "font-weight",
+      "equals": "600"
+    },
+    {
+      "selector": "#tw-arbitrary",
+      "property": "width",
+      "equals": "137px"
+    },
+    {
+      "selector": "#tw-grid",
+      "property": "display",
+      "equals": "grid"
+    },
+    {
+      "selector": "#tw-data",
+      "property": "font-weight",
+      "equals": "600"
+    }
+  ]
+}

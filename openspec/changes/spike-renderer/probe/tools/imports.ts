@@ -13,11 +13,34 @@ const PORT = "../port/index.ts";
 
 // Each component file's own library; later groups add theirs.
 export const OWN_LIBRARIES: Record<string, string[]> = {
+  "_dnd.tsx": ["@atlaskit/pragmatic-drag-and-drop/combine", "@atlaskit/pragmatic-drag-and-drop/element/adapter"],
+  "_form.tsx": ["@rjsf/core", "@rjsf/utils", "radix-ui"],
   "_plantuml.tsx": ["@plantuml/core"],
+  "_app-channel.tsx": ["@modelcontextprotocol/ext-apps"],
+  "_zod-jitless.ts": ["zod"],
+  "chart.tsx": ["echarts/charts", "echarts/components", "echarts/core", "echarts/renderers"],
   "choice.tsx": ["radix-ui"],
+  "date-picker.tsx": ["radix-ui", "react-day-picker", "react-day-picker/style.css"],
+  "dialog.tsx": ["radix-ui"],
+  "diff-review.tsx": ["@pierre/diffs", "@pierre/diffs/react"],
+  "form-ajv.tsx": ["@rjsf/validator-ajv8"],
+  "graph.tsx": ["@dagrejs/dagre", "@xyflow/react", "@xyflow/react/dist/style.css"],
+  "kanban.tsx": ["@atlaskit/pragmatic-drag-and-drop/element/adapter"],
+  "markdown.tsx": ["dompurify", "markdown-it"],
+  "math.tsx": ["katex", "katex/dist/katex.min.css"],
+  "mathlive.tsx": ["mathlive", "mathlive/fonts.css"],
   "mermaid.tsx": ["mermaid", "dompurify"],
+  // The safe pattern subset is AskBoard's own check, shared with ask-core (S-8).
+  "pattern.tsx": ["../pattern-check.ts"],
   "plantuml.tsx": ["@plantuml/core/viz-global.js"],
+  "popover.tsx": ["radix-ui"],
+  "ranking.tsx": ["@atlaskit/pragmatic-drag-and-drop/element/adapter", "@atlaskit/pragmatic-drag-and-drop/reorder"],
+  "scroll-lock.tsx": ["../styles/scroll-lock.css"],
+  "select.tsx": ["radix-ui"],
+  "slider.tsx": ["radix-ui"],
+  "table.tsx": ["@tanstack/react-table"],
   "tabs.tsx": ["radix-ui"],
+  "toggle-group.tsx": ["radix-ui"],
   "toggle.tsx": ["radix-ui"],
 };
 

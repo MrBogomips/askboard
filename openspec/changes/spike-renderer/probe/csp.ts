@@ -10,6 +10,10 @@ type Directives = Record<string, string[]>;
 export const VARIANTS: Record<string, { view?: Directives; board?: Directives }> = {
   // The board page's policy allows `blob:` images, so the view's diagram images can load.
   "board-img-blob": { board: { "img-src": ["blob:"] } },
+  // The board page's policy allows `data:` fonts, so the fonts the view inlines can load (group 4).
+  "board-font-data": { board: { "font-src": ["data:"] } },
+  // The board page's policy allows what the view's allows for images and fonts (group 4).
+  "board-media": { board: { "img-src": ["data:", "blob:"], "font-src": ["data:"] } },
   // Both policies allow WebAssembly, for Graphviz in PlantUML's `viz-global.js`.
   wasm: {
     view: { "script-src": ["'wasm-unsafe-eval'"] },

@@ -148,6 +148,40 @@ const commands: Record<string, (args: Record<string, unknown>) => Record<string,
     mount();
     return { generation };
   },
+  // Group 4: what a user action changed. The draft record, the document's scroll position, the
+  // focused element, the scroll lock (S-6) and the open dialogs.
+  state: () => {
+    const active = document.activeElement;
+    const body = document.body;
+    return {
+      draft: context?.draft.get(),
+      scrollY: Math.round(window.scrollY),
+      scrollMax: document.documentElement.scrollHeight - window.innerHeight,
+      focus: active
+        ? {
+            tag: active.tagName.toLowerCase(),
+            role: active.getAttribute("role"),
+            text: (active.textContent ?? "").trim().slice(0, 40),
+            inDialog: active.closest("[role=dialog],[role=alertdialog]") !== null,
+          }
+        : null,
+      bodyOverflow: getComputedStyle(body).overflow,
+      scrollLocked: body.getAttribute("data-scroll-locked"),
+      dialogs: document.querySelectorAll("[role=dialog],[role=alertdialog]").length,
+      styles: { elements: document.querySelectorAll("style").length, applied: document.styleSheets.length },
+    };
+  },
+  computed: ({ checks }) => ({
+    values: (Array.isArray(checks) ? checks : []).map((c: { selector: string; property: string }) => {
+      const element = document.querySelector(c.selector);
+      return element ? getComputedStyle(element).getPropertyValue(c.property) : null;
+    }),
+  }),
+  // Group 4, S-5: the `.dark` switch the UX drives the theme with.
+  theme: ({ dark }) => {
+    document.documentElement.classList.toggle("dark", dark === true);
+    return { background: getComputedStyle(document.documentElement).backgroundColor };
+  },
   // Also whether every hashed <style> applied, and the token-driven page background.
   check: ({ selector, text }) => {
     const element = document.querySelector(String(selector));

@@ -1,0 +1,28 @@
+{
+  "description": "UX spike: a click on an unset Slider's track",
+  "board": {
+    "id": "ux-slider-unset",
+    "title": "UX spike: a click on an unset Slider's track",
+    "items": [
+      {
+        "id": "sl1",
+        "type": "Slider",
+        "props": {
+          "label": "Budget",
+          "min": 0,
+          "max": 100
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-item-id=sl1] [data-orientation=horizontal] > span",
+      "at": {
+        "x": 192,
+        "y": 2
+      }
+    }
+  ]
+}

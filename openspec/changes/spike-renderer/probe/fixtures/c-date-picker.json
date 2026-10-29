@@ -1,0 +1,30 @@
+{
+  "description": "Date Picker on react-day-picker in a Radix Popover",
+  "board": {
+    "id": "c-date-picker",
+    "title": "Date Picker on react-day-picker in a Radix Popover",
+    "items": [
+      {
+        "id": "dp1",
+        "type": "DatePicker",
+        "props": {
+          "label": "Due",
+          "month": "2026-11-01"
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "#dp1-date"
+    },
+    {
+      "do": "click",
+      "selector": "button:has-text('12')"
+    }
+  ],
+  "expectDraft": {
+    "dp1": "2026-11-12"
+  }
+}

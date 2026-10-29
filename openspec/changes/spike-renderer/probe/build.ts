@@ -54,12 +54,53 @@ const SHELL_MODULES = [
   "react/jsx-runtime",
   "react/jsx-dev-runtime",
 ];
-export const LIBRARIES: Record<string, { module: string; names: string[] }> = {
-  "lib-radix": { module: "radix-ui", names: ["Checkbox", "RadioGroup", "Switch", "Tabs"] },
+export const LIBRARIES: Record<string, { modules: Record<string, string[]> }> = {
+  "lib-radix": {
+    modules: {
+      "radix-ui": [
+        "AlertDialog",
+        "Checkbox",
+        "Dialog",
+        "Popover",
+        "RadioGroup",
+        "Select",
+        "Slider",
+        "Switch",
+        "Tabs",
+        "ToggleGroup",
+      ],
+    },
+  },
+  "lib-table": {
+    modules: {
+      "@tanstack/react-table": [
+        "createExpandedRowModel",
+        "createSortedRowModel",
+        "rowExpandingFeature",
+        "rowSortingFeature",
+        "sortFn_alphanumeric",
+        "tableFeatures",
+        "useTable",
+      ],
+    },
+  },
+  "lib-dnd": {
+    modules: {
+      "@atlaskit/pragmatic-drag-and-drop/combine": ["combine"],
+      "@atlaskit/pragmatic-drag-and-drop/element/adapter": [
+        "draggable",
+        "dropTargetForElements",
+        "monitorForElements",
+      ],
+      "@atlaskit/pragmatic-drag-and-drop/reorder": ["reorder"],
+    },
+  },
 };
 
 const SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+const KEEP_IMPORT_META = process.env.PROBE_KEEP_IMPORT_META === "1";
 
 const sha256 = (text: string): string =>
   new Bun.CryptoHasher("sha256").update(text).digest("base64");
@@ -76,7 +117,9 @@ const globals = (own: string, needs: Set<string>): BunPlugin => ({
   name: "askboard-globals",
   setup(build) {
     const provider = new Map<string, string>(SHELL_MODULES.map((m) => [m, "shell"]));
-    for (const [chunk, library] of Object.entries(LIBRARIES)) provider.set(library.module, chunk);
+    for (const [chunk, library] of Object.entries(LIBRARIES)) {
+      for (const module of Object.keys(library.modules)) provider.set(module, chunk);
+    }
     build.onResolve({ filter: /.*/ }, (args) => {
       const chunk = provider.get(args.path);
       if (chunk && chunk !== own) {
@@ -115,18 +158,48 @@ const stubs: BunPlugin = {
   },
 };
 
+// Fonts a library's stylesheet names (KaTeX's, MathLive's) are inlined as `data:` URLs, the only
+// font source AD-8 allows. Bun's CSS bundler leaves `url()` paths as they are, so the stylesheet
+// is rewritten when it loads. KaTeX lists each face as woff2, woff and ttf; every supported
+// browser takes woff2, so the others are dropped (group 4).
+const inlineFonts: BunPlugin = {
+  name: "askboard-inline-fonts",
+  setup(build) {
+    build.onLoad({ filter: /node_modules\/.*\.css$/ }, async (args) => {
+      const text = (await Bun.file(args.path).text()).replace(
+        /,\s*url\([^)]*\.(woff|ttf)\)\s*format\("(woff|truetype)"\)/g,
+        "",
+      );
+      const parts = await Promise.all(
+        text.split(/(url\(["']?[^"')]+\.woff2["']?\))/).map(async (part) => {
+          const match = /^url\(["']?([^"')]+\.woff2)["']?\)$/.exec(part);
+          if (!match?.[1] || match[1].startsWith("data:")) return part;
+          const bytes = await Bun.file(resolve(dirname(args.path), match[1])).bytes();
+          return `url(data:font/woff2;base64,${Buffer.from(bytes).toString("base64")})`;
+        }),
+      );
+      return { contents: parts.join(""), loader: "css" };
+    });
+  },
+};
+
 const definitions = async (): Promise<ChunkDef[]> => {
   const entries = join(DIST, ".entries");
   await mkdir(entries, { recursive: true });
   const libraries = await Promise.all(
-    Object.entries(LIBRARIES).map(async ([name, { module, names }]) => {
+    Object.entries(LIBRARIES).map(async ([name, { modules }]) => {
       const entry = join(entries, `${name}.ts`);
-      const list = names.join(", ");
-      await Bun.write(
-        entry,
-        `import { ${list} } from ${JSON.stringify(module)};\n` +
-          `(globalThis as any).__askboard.modules[${JSON.stringify(module)}] = { ${list} };\n`,
-      );
+      const source = Object.entries(modules)
+        .map(([module, names], index) => {
+          const list = names.map((n) => `${n} as m${index}_${n}`).join(", ");
+          const object = names.map((n) => `${n}: m${index}_${n}`).join(", ");
+          return (
+            `import { ${list} } from ${JSON.stringify(module)};\n` +
+            `(globalThis as any).__askboard.modules[${JSON.stringify(module)}] = { ${object} };\n`
+          );
+        })
+        .join("");
+      await Bun.write(entry, source);
       return { name, kind: "library" as const, entry };
     }),
   );
@@ -144,6 +217,8 @@ const definitions = async (): Promise<ChunkDef[]> => {
   }));
   return [
     { name: "instrument", kind: "probe", entry: join(PROBE, "shell/instrument.ts") },
+    // The board page's AppBridge (task 4.1); board.ts inlines it, never assemble.ts.
+    { name: "bridge", kind: "probe", entry: join(PROBE, "shell/bridge.ts") },
     { name: "shell", kind: "shell", entry: join(PROBE, "shell/shell.tsx") },
     ...libraries,
     ...renderers,
@@ -229,6 +304,9 @@ const tailwind = async (name: string, sources: string[], shell: boolean): Promis
       : []),
     '@import "tailwindcss/utilities.css" layer(utilities) source(none);',
     '@import "../theme.css";',
+    // The UX drives the dark theme with the `.dark` class (S-5); Tailwind's `dark:` variant
+    // follows `prefers-color-scheme` unless told otherwise (run `theme-media-query`).
+    "@custom-variant dark (&:where(.dark, .dark *));",
     ...sources.map((source) => `@source ${JSON.stringify(source)};`),
   ];
   await Bun.write(input, `${lines.join("\n")}\n`);
@@ -295,13 +373,21 @@ const buildChunk = async (def: ChunkDef): Promise<Chunk> => {
     target: "browser",
     minify: true,
     metafile: true,
-    define: { "process.env.NODE_ENV": '"production"' },
-    plugins: [globals(def.name, needs), stubs],
+    // A classic script cannot hold `import.meta`; zustand (xyflow's store) reads `import.meta.env`
+    // (group 4: without this the graph chunk fails to parse; `PROBE_KEEP_IMPORT_META=1` leaves it
+    // in, and skips the check below, to measure that in run `graph-import-meta`).
+    define: {
+      "process.env.NODE_ENV": '"production"',
+      ...(KEEP_IMPORT_META ? {} : { "import.meta.env": "undefined" }),
+    },
+    plugins: [globals(def.name, needs), stubs, inlineFonts],
   });
   if (!result.success) throw new AggregateError(result.logs, `build of ${def.name} failed`);
   const script = result.outputs.find((o) => o.kind === "entry-point");
   if (!script) throw new Error(`build of ${def.name}: no script output`);
   const { code, count, comments } = escapeScriptEnds(await script.text());
+  // A classic inline script that holds `import.meta` does not parse at all.
+  if (!KEEP_IMPORT_META && /\bimport\.meta\b/.test(code)) throw new Error(`${def.name}: the chunk holds import.meta`);
   const metaInputs = (result.metafile?.inputs ?? {}) as Record<string, { bytes: number }>;
   const stubbed = Object.keys(metaInputs)
     .filter((f) => f.startsWith("askboard-stub:"))

@@ -1,0 +1,71 @@
+{
+  "description": "UX spike: native drag in the Kanban, across lanes and onto a card",
+  "board": {
+    "id": "ux-kanban",
+    "title": "UX spike: native drag in the Kanban, across lanes and onto a card",
+    "items": [
+      {
+        "id": "kb1",
+        "type": "Kanban",
+        "props": {
+          "label": "Triage",
+          "lanes": [
+            {
+              "id": "todo",
+              "label": "To do",
+              "cards": [
+                {
+                  "id": "k1",
+                  "label": "Flaky test"
+                },
+                {
+                  "id": "k2",
+                  "label": "Slow build"
+                }
+              ]
+            },
+            {
+              "id": "doing",
+              "label": "Doing",
+              "cards": [
+                {
+                  "id": "k3",
+                  "label": "Upgrade Bun"
+                }
+              ]
+            },
+            {
+              "id": "done",
+              "label": "Done",
+              "cards": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "drag",
+      "selector": "[data-drag-id=k1]",
+      "to": "[data-lane-id=done]"
+    },
+    {
+      "do": "drag",
+      "selector": "[data-drag-id=k3]",
+      "to": "[data-drag-id=k2]"
+    }
+  ],
+  "expectDraft": {
+    "kb1": {
+      "todo": [
+        "k3",
+        "k2"
+      ],
+      "doing": [],
+      "done": [
+        "k1"
+      ]
+    }
+  }
+}

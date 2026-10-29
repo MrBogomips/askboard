@@ -1,0 +1,61 @@
+{
+  "description": "xyflow with dagre",
+  "board": {
+    "id": "c-graph",
+    "title": "xyflow with dagre",
+    "items": [
+      {
+        "id": "gr1",
+        "type": "Graph",
+        "props": {
+          "label": "Dependencies",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "contract"
+            },
+            {
+              "id": "b",
+              "label": "compute"
+            },
+            {
+              "id": "c",
+              "label": "view"
+            },
+            {
+              "id": "d",
+              "label": "widgets"
+            }
+          ],
+          "edges": [
+            {
+              "from": "a",
+              "to": "b"
+            },
+            {
+              "from": "a",
+              "to": "c"
+            },
+            {
+              "from": "b",
+              "to": "d"
+            },
+            {
+              "from": "c",
+              "to": "d"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": ".react-flow__node[data-id=c]"
+    }
+  ],
+  "expectDraft": {
+    "gr1": "c"
+  }
+}

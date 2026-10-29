@@ -1,0 +1,41 @@
+{
+  "description": "MathLive math-field",
+  "board": {
+    "id": "c-mathlive",
+    "title": "MathLive math-field",
+    "items": [
+      {
+        "id": "ml1",
+        "type": "MathField",
+        "props": {
+          "label": "Formula",
+          "initial": ""
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "math-field"
+    },
+    {
+      "do": "press",
+      "key": "x",
+      "ms": 300
+    },
+    {
+      "do": "press",
+      "key": "^",
+      "ms": 300
+    },
+    {
+      "do": "press",
+      "key": "2",
+      "ms": 300
+    }
+  ],
+  "expectDraft": {
+    "ml1": "x^2"
+  }
+}
