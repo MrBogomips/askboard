@@ -8,7 +8,7 @@ This file guides Claude Code when working in this repository.
 
 AskBoard is a local web board where a Claude Code agent asks the user structured questions through widgets and gets typed answers back. It ships as one Claude Code plugin and works in any Claude Code project.
 
-**Status (2026-10-29): design complete; workspace and repository checks set up (OpenSpec change `setup-workspace`), no product code yet.** Next: the four spikes in `SOLUTION-DESIGN.md` §10 (mod delivery, formula, renderer with the final UX documents, packaging); each runs as an OpenSpec change and ends in a spine update. The PRD changes the architecture requested (§11) and the UX run's change requests were applied on 2026-10-28 (OpenSpec change `apply-design-change-requests`). Still pending: the NFR-6 licence exception, decided after the packaging spike, and the AXFX NFR-1 contract change (§11 entries 7 and 8). Build order: the widgets AXFX needs come first (§3.1).
+**Status (2026-10-29): design complete; workspace and repository checks set up (OpenSpec change `setup-workspace`); model contract approved (`review-model-contract`, whose `examples/` seed the `contract` package in E1); no product code yet.** Next: the four spikes in `SOLUTION-DESIGN.md` §10 (mod delivery, formula, renderer with the final UX documents, packaging); each runs as an OpenSpec change and ends in a spine update. The PRD changes the architecture requested (§11) and the UX run's change requests were applied on 2026-10-28 (OpenSpec change `apply-design-change-requests`). Still pending: the NFR-6 licence exception, decided after the packaging spike, and the AXFX NFR-1 contract change (§11 entries 7 and 8). Build order: the widgets AXFX needs come first (§3.1).
 
 ## Design documents
 
