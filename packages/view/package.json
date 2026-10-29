@@ -1,0 +1,12 @@
+{
+  "name": "@askboard/view",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./assemble": "./src/assemble/index.ts",
+    "./catalog": "./src/catalog/index.ts"
+  }
+}
