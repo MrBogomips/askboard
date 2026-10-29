@@ -2,6 +2,120 @@
 
 The exit criteria are in SOLUTION-DESIGN §10.1, and the approach is in `design.md`. Raw logs stay in the spike's scratch directory. Only excerpts appear here, with tokens and session IDs redacted.
 
+## Verdicts
+
+One row per exit criterion. `latest` is 2.1.312. Verdicts: **pass** (holds as the design assumed), **pass with change** (holds once a rule or path changes, named in the proposed outcomes), **fail**, **untested**, **pending** (a Phase 1 run still in progress). Linux: task 4.1 reruns criteria 10, 12 and 13 in a devcontainer; the other criteria are not planned on Linux (`design.md`, Non-Goals).
+
+| # | Criterion | 2.1.311 | `latest` (2.1.312) | 2.1.308 | Linux | Verdict | Section |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | The right agent is reached | pass by append and the hybrid: subagents 5/5 (`c1-fg-append-311`) and 3/3 (`d-bg-auto-append-311`), main 3/3 and 5/5 (`d-main-auto-append-311`, `d-main-hybrid-311`); `session.send` 5/5 in default mode (`d-*-default-311`), refused under auto mode (D13) | the same (`c1-fg-append-312`, `d-bg-auto-append-312`, `d-main-auto-append-312`, `d-main-hybrid-312`, `d-*-default-312`); D13 in `d-fg-312`, `d-bg-312` | pass by append and the hybrid (`c1-fg-append-308`, `d-bg-append-308`, `d-main-hybrid-308`) | — | pass with change: append and submit replace `session.send` (row 1); load and interrupt checks pending | [§ Criterion 1](#criterion-1-every-kind-of-agent-is-reached) |
+| 2 | An idle main conversation is woken without disturbing a draft | wake: pass (`c7-311`, `c13i-311`); draft: not run | pass, the draft stays unsent and unchanged (`c2-idle-312`; `c2-po-312` with the PO at the keyboard) | — | — | pass (draft checked on `latest` only) | [§ Criterion 2](#criterion-2-an-idle-main-conversation-with-a-draft) |
+| 3 | Latency per kind of agent | `session.send` to subagents: median 8.9 s and 8.1 s; hybrid main: median 6.1 s, max 14.6 s (`d-*-default-311`, `d-main-hybrid-311`) | the same order at a 1 s poll; a 5 s poll adds at most its length (`d-main-hybrid-5s-312`, `d-bg-append-5s-312`) | hybrid main: max 12.5 s (`d-main-hybrid-308`) | — | pass: measured; the target is OQ2 (row 13) | [§ Criterion 3](#criterion-3-latency) |
+| 4 | Extra tokens per answer | append: the same growth as on `latest` (`d-bg-auto-append-311`); send and pull not measured | append about +38 input; send about +108 input and +80 output; pull about +95 input, +89 output and one request (`tokens.py`, `c4-pull-312`) | — | — | pass: measured (row 14) | [§ Criterion 4](#criterion-4-tokens) |
+| 5 | No permission prompt after installation | not run | pass (`c5-installed-312`) | — | — | pass (`latest` only) | [§ Criterion 5](#criterion-5-a-real-install-no-permission-prompt-task-34-with-the-pos-agreement) |
+| 6 | `-p` with `--max-turns` | as on `latest` (`c6-during-max3-311`) | `-p` ends with the turn: a late answer is never pushed, and past `--max-turns` a queued submit is dropped (`c6-*-312`) | — | — | pass with change: F11 narrowed, append under `-p` (row 10) | [§ Criterion 6](#criterion-6--p-and---max-turns) |
+| 7 | An ask open 30 minutes or more | main: pass (`c7-311`); background subagent: pending: Phase 1 run `c7b-311` | main: pass (`c7-312`); background subagent: pending: Phase 1 run `c7b-312` | — | — | pending (main conversation: pass) | [§ Criterion 7](#criterion-7-an-ask-open-30-minutes-or-more-task-36-partial) |
+| 8 | The board link is visible for a subagent's ask with mods disabled | fail (`c8-nomod-311`) | fail (`c8-nomod-312`); with the mod on: pending: Phase 1 run `c8-toast-312` | — | — | fail (row 12) | [§ Criterion 8](#criterion-8-the-board-link-for-a-subagents-ask) |
+| 9 | The hook's `agent_id` is the ID `$.session.send` accepts | pass (`c9-fg-311`) | pass (`c9-fg-312`, `c1-bg-312`) | pass (`c9-fg-308`) | — | pass | [§ Criterion 9](#criterion-9-the-hooks-agent_id-is-the-id-sessionsend-accepts) |
+| 10 | `$.http.fetch` reaches `127.0.0.1`, and whether it sends `Origin` | pass, no `Origin`; a Unix socket too (`c9-fg-311`, `c10-unix-311`) | the same (`c9-fg-312`, `c1-bg-312`, `c10-unix-312`) | — | pending, 4.1 | pass (row 7) | [§ Criterion 10](#criterion-10-httpfetch-reaches-127001-and-whether-it-sends-origin) |
+| 11 | A fallback when policy refuses `$.http.fetch` | pass by `$.process.run` (`c11-block-tcp-311`, `c11-block-process-311`) | pass (`c11-block-tcp-312`, `c11-block-process2-312`) | — | — | pass (rows 1 and 4) | [§ Criterion 11](#criterion-11-a-fallback-when-policy-refuses-httpfetch) |
+| 12 | AskBoard processes per session, nothing left behind | one process, no sibling; nothing left once SIGINT is handled (`c9-fg-311`, `c1-bg-311`) | the same (`smoke-1` left its files without a SIGINT handler; `smoke-2`, `c9-fg-312`, `c1-bg-312`) | — | pending, 4.1 | pass with change: AD-2 adds SIGINT (row 5) | [§ Criteria 12, 14, 16](#criteria-12-14-16-processes-tool_use_id-in-_meta-client-version) |
+| 13 | `CLAUDE_CODE_SESSION_ID` after `/clear`, `--continue` and `/resume` | the session-ID key is lost on `--continue` and after `/clear`; the PID key finds the file in every step (`c13-clean-311`, `c13i-311`) | the same (`c13-clean-312`, `c13i-312`) | — | pending, 4.1 | pass with change: key by the Claude Code PID (row 2) | [§ Criterion 13](#criterion-13-claude_code_session_id-after-clear---continue-and-resume) |
+| 14 | `tool_use_id` in the MCP call's `_meta` | pass (`c9-fg-311`, `c1-bg-311`) | pass (`smoke-2`, `c9-fg-312`, `c1-bg-312`, `c1-main-submit-312`, `c10-unix-312`) | — | — | pass (row 3) | [§ Criteria 12, 14, 16](#criteria-12-14-16-processes-tool_use_id-in-_meta-client-version) |
+| 15 | `stop_hook_active` in the `SubagentStop` input | pass (`c15-stop-311`) | pass (`c15-stop-312`) | the field: pass (`c15-stop2-308`); the hook fires while a background subagent works: fail (`d-bg-append-308`) | — | pass from 2.1.311 (row 6) | [§ Criterion 15](#criterion-15-stop_hook_active-in-the-subagentstop-input) |
+| 16 | The client version in the protocol's client information | pass (`c9-fg-311`, `c1-bg-311`) | pass (the runs of criterion 14) | — | — | pass (row 11) | [§ Criteria 12, 14, 16](#criteria-12-14-16-processes-tool_use_id-in-_meta-client-version) |
+| 17 | The hook `cwd` for `isolation: worktree` subagents | pass (`c17-worktree-311`) | pass (`c17-worktree-312`) | — | — | pass (row 8) | [§ Criterion 17](#criterion-17-the-hook-cwd-of-isolation-worktree-subagents) |
+| 18 | The minimum version that passes all of the above | the minimum: every criterion run on it behaves as on `latest` | — | ruled out by criterion 15 (`d-bg-append-308`) | — | pass: 2.1.311 confirmed (row 11) | [§ Criterion 18](#criterion-18-the-minimum-version-task-42) |
+
+**Summary:** 12 pass, 4 pass with change (1, 6, 12, 13), 1 fail (8), 1 pending (7), none untested. On `latest` only: the draft half of criterion 2, criterion 5, and the send and pull tokens of criterion 4. Pending Phase 1 runs: criterion 7's subagent half (`c7b-312`, `c7b-311`), criterion 8 with the mod on (`c8-toast-312`), and two risk checks for criterion 1 (`d-stress-312`, `d-stress-311`, `d-esc-312`).
+
+## Failures and consequences
+
+SOLUTION-DESIGN §10.1 has an "If it fails" row only for criteria 9 to 17. For the other failures, the quote is the text that assumed the opposite.
+
+### D13: auto mode refuses the mod's `$.session.send` (criterion 1)
+
+- **§10.1:** no row for criterion 1. Its "What changes otherwise" reads: "If criterion 1 fails for a kind of agent, a Monitor or `PostToolUse` adapter serves that kind (AD-4)."
+- **What applies:** not that clause, because no kind of agent is left without push. `$.session.append` reached every kind of agent in every mode tested, on 2.1.308, 2.1.311 and `latest`, so no fallback adapter is needed (task 3.8). The mod's push paths change instead (row 1), and D13 goes upstream (row 15).
+
+### Criterion 8: a subagent's board link is not shown to the user
+
+- **§10.1:** no row. The criterion reads "The board link is visible for a subagent's ask with mods disabled [F6]". The spine's Consistency Conventions assume it: "A `PostToolUse` hook on `ask` shows it to the user as a system message, for the main conversation and subagents, with or without the mod."
+- **What applies:** F6 is refuted for subagents. With mods off, a subagent's ask has no terminal link: the browser and the system notification remain. In a devcontainer, where "the terminal link is the notice that always works" (SOLUTION-DESIGN §8), a subagent's ask has no notice that always works. The mod can show the link (row 12; confirm with `c8-toast-312`).
+
+### Criterion 6: `-p` ends with the turn
+
+- **§10.1:** no row. SOLUTION-DESIGN §7 assumed the opposite: "`claude -p` loads AskBoard with `--plugin-dir` in an isolated configuration (…) with `--max-turns`, because `$.prompt.submit` can keep a `-p` run alive" [F11].
+- **What applies:** F11 narrows. Only a submit queued before the turn ends keeps the run alive, for one woken turn, and `--max-turns` drops it. Pull covers headless runs: an agent that needs an answer waits in its turn with `collect`. The benchmark keeps `--max-turns` for another reason and reads transcripts, not the JSON `result` (row 10).
+
+### Criterion 13: the session-ID key is lost on `--continue` and after `/clear`
+
+- **§10.1, row 13:** "AD-5's key changes (a review suggested the PID of the Claude Code process, which is the parent of both the session process and the hook)".
+- **What applies:** the row as written. The parent PID matched across the server, the hooks and the mod in every step on both versions (row 2). Linux: task 4.1.
+
+### `--strict-mcp-config` drops plugin servers (task 1.4)
+
+- **§10.1:** no row. SOLUTION-DESIGN §7 names the flag in the benchmark's "isolated configuration (`--setting-sources ""`, `--strict-mcp-config`, restricted `--tools`)", and AD-17 rests on that configuration: "Its server, hooks and mod are then the only extensions loaded".
+- **What applies:** the benchmark cannot use the flag with `--plugin-dir`, and without it the account's connectors still load (row 9). The addendum's measurement protocol names the flag too.
+
+### Other changes the criteria forced
+
+- **Criterion 12, §10.1 row:** "—". The stub left its session file and socket behind until it handled SIGINT (O1). AD-2 adds SIGINT (row 5).
+- **Criterion 15 on 2.1.308, §10.1 row:** "AD-10's condition changes". Not from 2.1.311, where the condition holds. It rules out 2.1.308 instead (criterion 18, row 11).
+
+## Proposed outcomes (awaiting the PO)
+
+Each row is a proposal until the PO records a decision. The replacement texts for each row are in `spine-update-draft.md`, beside this file; none applies before its row is accepted.
+
+| # | Item | Evidence | Proposed decision | Alternative | PO decision |
+| --- | --- | --- | --- | --- | --- |
+| 1 | AD-4: the mod's push paths | Criterion 1 (D13, D14, the hybrid runs on 2.1.308, 2.1.311 and `latest`), criterion 3, D1, D6, O7 | The mod pushes by `$.session.append` to a running subagent, and to the main conversation while its turn runs; by `$.prompt.submit` when the main conversation is idle; and at `turn.complete` it submits again every answer appended after the turn's last request (`turn.step`). It drops `$.session.send` (D13). It never pushes to a subagent that has finished (D1). It keeps a submit dropped after an interrupt and retries it (D6). An event counts as pushed once the push call is made (O7). Pull stays authoritative. Confirm with `d-stress-312`, `d-stress-311` and `d-esc-312`. | Keep `$.session.send` for subagents outside auto mode: two paths, and send costs about +108 input and +80 output tokens against +38 for append. Or reach the main conversation by submit alone: about 70 s while a turn runs. | |
+| 2 | AD-5: the session-file key and the mod's session ID | Criterion 13 (`c13-clean-*`, `c13i-*`), O5 | Name the session file by the PID of the Claude Code process: the parent PID of the session process and of each hook; the mod gets it once, at `session.start`, with one `$.process.run`. The launcher keeps Claude Code as the parent (it `exec`s the executable). The mod takes any session ID from `$.session.id()`, never from its environment. Confirm on Linux (task 4.1). | Keep `CLAUDE_CODE_SESSION_ID`, and lose push, ownership checks and the guard after `--continue` and `/clear` (pull covers it). Or look up by session ID first, then by PID. | |
+| 3 | AD-5: binding a record to its call | Criterion 14 (O2); no `traceparent` in `_meta` in any run checked | No change to the rule: every call carried `tool_use_id` in `_meta["claudecode/toolUseId"]`, and the next-call rule stays as the fallback. SOLUTION-DESIGN §4.3, §7 and the addendum's K3 stop calling it unverified. | Drop the next-call rule: a call without `tool_use_id` stays unbound and unchecked. | |
+| 4 | AD-5: the mod when `$.http.fetch` is refused | Criterion 11 (`c11-block-*`) | When `$.http.fetch` is refused, the mod sends everything through the AskBoard executable run as a client by `$.process.run`: polls, delivery reports and the version report. E1 chooses between one process per poll (3,600 an hour at a 1 s poll) and one `$.process.spawn` client per session, on the numbers. | AskBoard runs on pull alone where `$.http.fetch` is refused. | |
+| 5 | AD-2: exit signal and start | O1, O4, O6; criterion 12 | Add SIGINT to the exit signals: Claude Code stops the session process with it. Keep the start rule, and note that it fires at connection: Claude Code sends `subscriptions/listen` right after the handshake, so the local API is up before the first ask's `PreToolUse` record needs it. No probe sibling occurs (F15). | Defer side effects to the first `tools/call`: the first ask's record, sent by its `PreToolUse` hook before the call, would find no session file. | |
+| 6 | AD-10: the stop guard | Criterion 15 (`c15-stop-*`), criterion 18 (`d-bg-append-308`), criterion 13 (side agents) | No change to the condition from 2.1.311. Add: a stop from an agent with no record, such as Claude Code's side agents (empty `agent_type`), is let through without an error. | — | |
+| 7 | AD-11: `Origin` and the local API's address | Criterion 10 (`c9-fg-*`, `c1-bg-312`, `c10-unix-*`), D3 | Record that the mod sends no `Origin`. Move the local API to a Unix socket, 0600, in the 0700 session-file folder: no TCP port, and file permissions on top of the token. Hooks and the process client use it too. Conditions: the Linux run of criterion 10 (task 4.1), and a socket path within the platform limit (104 bytes on macOS). | Keep the local API on loopback TCP, which passed on both versions; only the `Origin` note changes. | |
+| 8 | AD-12: the root of a worktree subagent | Criterion 17 (`c17-worktree-*`) | No change to the root rule: the hook `cwd` is the subagent's own worktree (F5 settled). Add that Claude Code removes an unchanged subagent worktree when the subagent finishes; AskBoard reads files only at send time, so boards and Snapshots keep their content. | — | |
+| 9 | AD-17 and SOLUTION-DESIGN §7: `--strict-mcp-config` | Task 1.4 (`smoke-strict`) | Drop the flag from the isolated configuration: with it, `--plugin-dir` loads no plugin server. The account's connectors then still connect, behind tool search and alike in every arm: the report lists the servers connected, and arms are compared by difference. Amend AD-17, §7 and the addendum's measurement protocol. | Keep the flag and load the server with `--mcp-config` beside `--plugin-dir` (hooks and mod from the plugin; tools named `mcp__askboard__*`, which the hook matchers accept). Untested. | |
+| 10 | Criterion 6: `-p` and `--max-turns` (F11, AD-17, SOLUTION-DESIGN §7 and §8) | Criterion 6 (`c6-*-312`, `c6-during-max3-311`), D7 | Keep `--max-turns` in benchmark and CI runs as a bound on the turns the mod may start, no longer "because `$.prompt.submit` can keep a `-p` run alive". The benchmark reads transcripts, never `-p`'s JSON `result`, which a woken turn replaces. Headless agents wait for answers in their turn with `collect`. | — | |
+| 11 | AD-18: the minimum version | Criterion 18 (the `*-308` runs), criterion 16 | Confirm 2.1.311: 2.1.308 fires `SubagentStop` while a background subagent works. `stable` was still 2.1.308 on 2026-10-29, so the release gate holds. The version comes from client information, present on every request; the mod's report stays the fallback. The Stack row drops "provisional". | — | |
+| 12 | FR-21 to FR-25, F6: a subagent's board link | Criterion 8 (`c8-nomod-*`); no subagent's link on the main screen in any `d-bg-*` or `d-fg-*` run | The mod shows a subagent's board link: a toast when the ask arrives and a status entry with the open asks (`$.ui.toast`, `$.ui.status`; confirm with `c8-toast-312`). The `PostToolUse` system message stays for the main conversation's asks. With mods off, a subagent's ask has the browser and the system notification only; FR-23 and the Consistency Conventions say so. | With mods off, a main-conversation hook (for example on `UserPromptSubmit`) lists open boards at the user's next prompt (untested). Or the subagent passes the link in its report (late). | |
+| 13 | PRD OQ2: the latency target | Criterion 3, per kind of agent, at 1 s and 5 s polls | Set it now: an idle main conversation within 2 s of the answer (measured 0.4–0.8 s); a working agent, main conversation or subagent, at its next model request after the answer, plus at most the poll interval (hybrid median 6.1 s, max 14.6 s, with 15 s tool steps). The early benchmark checks it. | Set it after the early benchmark; the Deferred row stays, reworded. | |
+| 14 | The cost model's X for push (criterion 4, SOLUTION-DESIGN §7) | Criterion 4 (`tokens.py`; `c4-pull-312`, `c9-fg-312`, `d-bg-auto-append-*`) | Record in §7: by append, about +38 input tokens per answer and no extra request (the output reaction was not measured; for `session.send` it was about 80 tokens); by `collect`, about +95 input, +89 output and one extra request. The cost model's 100-question figures stay as they are, on the pull assumption. | Recompute the cost model with push. | |
+| 15 | PRD R1 and the addendum: D13 | D13 and D14 (criterion 1) | Reword R1: the mod passed the spike; what remains is an organization disabling mods, and behaviour the mod relies on that is observed, not documented (D13 shows it can change). Mitigation unchanged, plus CI on the minimum, `stable` and `latest`. The addendum's "Plugin message" names append and submit. D13 is reported upstream: a plugin-originated `$.session.send` gives the auto-mode classifier no request to judge. | Leave R1 as it is until upstream answers D13. | |
+| 16 | Packaging spike (SOLUTION-DESIGN §10.4): a failed start is cached | Criterion 13 (`~/.claude/mcp-needs-auth-cache.json`, about 15 minutes) | Add an exit criterion: a missing executable or a failed checksum reaches the user without Claude Code caching a failed start, which would leave later sessions without AskBoard's tools for about 15 minutes. Candidate: the launcher answers the handshake and reports the error, rather than exiting. | Leave it for the packaging spike to find. | |
+| 17 | SOLUTION-DESIGN §13: the facts the spike checked | [Fact statuses](#fact-statuses-row-17), below | Set each status as listed there. | Per fact, below. | |
+| 18 | The spine's Deferred rows, SOLUTION-DESIGN §12, and §10.1's outcome | [Deferred rows](#deferred-rows-row-18), below | Close or reword each row as listed there, and record the outcome in §10.1. | Per row, below. | |
+
+### Fact statuses (row 17)
+
+| Fact | Status now | Proposed status | Evidence | PO decision |
+| --- | --- | --- | --- | --- |
+| F1 | (primary source, 2026-10-27) | On 2026-10-29: `latest` 2.1.312, `stable` still 2.1.308 | Method | |
+| F2 | (primary source) | Confirmed: 2.1.308 fired `SubagentStop` about every 30 s while a background subagent worked; 2.1.311 and `latest` fire it once, at finish | Criterion 18 | |
+| F3 | `stop_hook_active` unverified | Verified on 2.1.311 and `latest`: false on a first stop, true after a block; the block's reason became the subagent's next input | Criterion 15 | |
+| F5 | partly unverified | Verified: an `isolation: worktree` subagent's hook `cwd` is its own worktree, removed when it finishes unchanged | Criterion 17 | |
+| F6 | partly unverified | Refuted for subagents: their message goes to the subagent's transcript, not to the user; shown for the main conversation | Criterion 8 | |
+| F9 | (primary source) | Narrowed: auto mode refuses a mod's `$.session.send` (D13); `$.session.append` reaches running agents, attributed to the plugin (D14) | Criterion 1 | |
+| F11 | (primary source) | Narrowed: a submit keeps a `-p` run alive only when queued before the turn ends, for one woken turn, within `--max-turns` | Criterion 6 | |
+| F12 | unverified | Verified: the hook's `agent_id` is the ID `$.session.send` takes (criterion 9); `$.http.fetch` reaches `127.0.0.1` without `Origin` (criterion 10). Narrowed: a `WebFetch` deny rule does not refuse `$.http.fetch`; an organization policy or a policy mod does (D2) | Criteria 9, 10, 11 | |
+| F13 | `/resume` unverified | Verified and extended: the server's ID diverges from the hooks' and the mod's on `--continue` and after `/clear`, and agrees after `/resume`; the Claude Code PID is common to all | Criterion 13 | |
+| F15 | unverified for Claude Code | Refuted for Claude Code: the SDK's probe arrives on the session's own process | Criterion 12 | |
+| F16 | unverified | Verified: `tool_use_id` in `_meta` as `claudecode/toolUseId`; no `traceparent` | Criterion 14 | |
+| F17 | presence unverified | Presence verified: `claude-code` and its version in every request | Criterion 16 | |
+| F25 | Monitor routing unverified | Unchanged: not probed; no fallback adapter needed | Task 3.8 | |
+
+### Deferred rows (row 18)
+
+| Spine Deferred row, or other text | Proposed | Condition | PO decision |
+| --- | --- | --- | --- |
+| "Push transport confirmed (…); else Monitor watch or a `PostToolUse` hook as further adapters" | Close: the mod reaches every kind of agent with append and submit (row 1); no further adapter | Runs `c7b-*`, `d-stress-*` and `d-esc-312` confirm | |
+| "Latency target for answers reaching a working agent (PRD OQ2, product owner)" | Close if row 13 sets the target now; otherwise reword: measured per kind of agent, revisited at the first benchmark run | Row 13 | |
+| "Minimum Claude Code version; behaviour of the session-file key after `/clear`, `--continue` and `/resume`" | Close: 2.1.311 confirmed (row 11); key by the Claude Code PID (row 2) | The Linux run of criterion 13 (task 4.1) | |
+| SOLUTION-DESIGN §12, "Architecture spikes" and "Product owner" | Drop the mod delivery items; drop the latency target if row 13 sets it | Rows 13 and 18 | |
+| SOLUTION-DESIGN §10.1 | Add an "Outcome" paragraph | The rows it cites | |
+
 ## Method
 
 - **Platform:** macOS (Darwin 25.6.0, arm64) for every criterion. Criteria 10, 12 and 13 run again on Linux in a devcontainer (task 4.1).
@@ -76,7 +190,7 @@ Interactive runs drive Claude Code in tmux (`run-i.sh`, `deliver-i.sh`), with a 
   | `d-main-auto-append-311` | main, turn running | 3/3 | quoted after 10.8, 15.4, 3.3 s |
   | `c2-idle-append-312` | main, idle | stored | **never**: no turn starts |
 
-  The appended row is a user text row in the target loop's transcript. It can sit between a `tool_use` and its `tool_result` in the file, and the engine still builds valid requests from it (every run completed). It is not subject to SendMessage's review, so it is the push path that works under auto mode.
+  The appended row is a user text row in the target loop's transcript. It carries `origin: {kind: "plugin", name: "probe"}` and `isMeta: true`, so it is attributed to the mod (`d-main-auto-append-312`, `c1-fg-append-311`, `d-bg-auto-append-311`). It can sit between a `tool_use` and its `tool_result` in the file, and the engine still builds valid requests from it (every run completed). It is not subject to SendMessage's review, so it is the push path that works under auto mode.
 - **Main conversation:** with `prompt.submit` alone, an answer given while the turn runs is read only after the turn ends: headless 30–42 s; interactive `d-main` runs median about 70 s, max about 94 s, on both versions, with several answers batched into one woken turn. With append while the turn runs, it is read within one tool step (3–15 s here, the steps being 15 s). Neither path alone covers both states: the mod needs append while a turn runs and submit when idle (the hybrid, below).
 - **The hybrid for the main conversation** (`PROBE_MAIN_VIA=hybrid`). The mod tracks the main turn with `turn.start` and `turn.complete` (no `agentId`) and the time of its last request with `turn.step`. While a turn runs it appends; when idle it submits. At `turn.complete` it submits again every answer appended after the last request was sent, because that request did not carry it and no later one will. `d-main-hybrid-312`, answers 8 s apart against a turn of a 10 s sleep and a 250-word reply:
 
@@ -97,6 +211,14 @@ Interactive runs drive Claude Code in tmux (`run-i.sh`, `deliver-i.sh`), with a 
 - **Interactive sessions start subagents in the background** even when the prompt asks for the foreground (`Backgrounded agent` on screen, `d-fg-*`). The foreground case is reached only under `-p` (criterion 9's runs).
 
 - **Fallback adapters (task 3.8): not needed.** The only failure was `session.send` to subagents under auto mode (D13), and `$.session.append` reaches every kind of agent in every mode tested, without a permission prompt or an allow rule. The Monitor watch and `PostToolUse` `additionalContext` adapters were not probed. Pull (`probe_collect`) stays the authoritative path (AD-4).
+
+#### Append under load
+
+Pending: runs `d-stress-312`, `d-stress-311`.
+
+#### Interrupt, then push (D6)
+
+Pending: run `d-esc-312`.
 
 ### Criterion 2: an idle main conversation with a draft
 
@@ -151,7 +273,18 @@ Headless runs (`c6.sh`, `c6b.sh`), main conversation, push by `$.prompt.submit`.
 - **The JSON result changes.** With a woken turn, `result` is the woken turn's text and `num_turns` counts that turn only, so a caller parsing `-p` output loses the original turn's answer. The benchmark (AD-17) must not rely on it.
 - **Under `-p`, append is the better path.** An answer appended during a tool step is read inside the same turn (criterion 1), with no extra turn and no `--max-turns` exposure. An ask that must be answered in a headless run needs the agent to stay in its turn (wait with `probe_collect` or a sleep loop) until the answer arrives.
 
-## Criterion 8: the board link for a subagent's ask, without mods
+## Criterion 7: an ask open 30 minutes or more (task 3.6, partial)
+
+Runs `c7-312` and `c7-311`, interactive, auto mode, hybrid main path and append. Asked at 18:24:35, answered at 18:54:35 (30 minutes).
+
+- **Main conversation: pass on both versions.** Before the answer, the stub (the same PID since 18:23:27) was alive and its session file present and unchanged (`-rw-------`, 542 bytes). The idle conversation was woken by submit and replied `GOT N-81974b84` (2.1.312) and `GOT N-3ce1bd34` (2.1.311). The stub exited only at shutdown (SIGINT, 18:58:35).
+- **Background subagent: inconclusive, to rerun.** When the answer came, the subagent was no longer in `$.agent.list()` (`skip-finished`, status `absent`), so the mod correctly did not push, and the agent reported `NONCES: none`. Its 17 steps of `sleep 110` should have lasted past the answer. The rerun needs a subagent that is shown to be running when the answer arrives (log `$.agent.list()` just before, or answer at 25 minutes).
+- **Why the subagent had finished: Claude Code refused its steps, not the push.** On both versions it refused the worker's `sleep 110` steps (`Blocked: standalone sleep 110 …` in both subagent transcripts): the 2.1.312 binary refuses a standalone `sleep` of 25 s or more (constant `mLr=25`). Each subagent finished after about 12 s (11.99 s on 2.1.311, 12.65 s on 2.1.312, from its first to its last transcript row). Push did not fail. The rerun chains four `sleep 24` per step.
+- **Rerun:** pending: runs `c7b-312`, `c7b-311`.
+
+## Criterion 8: the board link for a subagent's ask
+
+### Without mods
 
 Probe variant with no hooks module (`hooks.json` without `modules`, D4), interactive, auto mode: `c8-nomod-312`, `c8-nomod-311`. A background subagent asks once.
 
@@ -159,30 +292,9 @@ Probe variant with no hooks module (`hooks.json` without `modules`, D4), interac
 - **It is not caused by disabling mods.** No interactive run with the mod loaded showed a subagent's link on the main screen either (`d-bg-*`, `d-fg-*`, both versions; interactive sessions run every subagent in the background, criterion 1). For an ask from the main conversation the link does show (`c2-idle-312`: `PostToolUse:mcp__plugin_probe_probe__probe_ask says: probe board for c2-idle: …`).
 - **Consequence for F6 and FR-21 to FR-25:** a subagent's ask cannot rely on the hook's `systemMessage` to show the user its board. Candidates for the PO (task 5.1): the mod shows it (`$.ui.toast`, a status entry or a band, so only with mods on); the board's own notice in the browser of an already-open board; the subagent passes the link to the main conversation in its report (late); with mods off, a pull-only fallback where the main conversation lists open boards on its next turn.
 
-## Criterion 18: the minimum version (task 4.2)
+### With the mod on
 
-Criteria 1, 9 and 15 on `stable` 2.1.308, with the paths the spike recommends:
-
-| Run | Criterion | Result on 2.1.308 |
-| --- | --- | --- |
-| `c9-fg-308` | 9 | pass: hook `agent_id`, mod `agentId` and the `session.send` target are one ID; 2/2 delivered |
-| `c1-fg-append-308` (`-p`) | 1 | pass: 5/5 appended to a foreground subagent, all five in its report |
-| `d-bg-append-308` | 1 | pass: 5/5 appended to a background subagent |
-| `d-main-hybrid-308` | 1, 3 | pass: 5/5 read, max 12.5 s, one catch-up |
-| `c15-stop2-308` (60 s poll, so the answer is pending at the stop) | 15 | pass: `stop_hook_active` false, block; then true, allow; nonce reported |
-| `d-bg-append-308` | 15, AD-10 | **fail**: `SubagentStop` fired 6 times in 108 s while the background subagent was still working (17:29:44 to 17:31:35, about every 30 s) |
-
-- **What rules out 2.1.308:** AD-10 reads `SubagentStop` as "the subagent finished": the guard blocks once for pending events and then closes the agent's asks with `agent-finished`. On 2.1.308 the hook fires while the agent works, so asks would be closed under a running agent, and the guard's block would be injected mid-task. This is the 2.1.311 CHANGELOG fix ("`SubagentStop` hooks now run once per subagent, when it finishes"). A foreground subagent of 100 s fired it once (`c1-fg-append-308`), so the old behaviour shows on background subagents.
-- On 2.1.311 and `latest`, background subagents fire it only when they finish (the extra firing in some runs is the side agent of criterion 13, `agent_type` `''`).
-- **Minimum: 2.1.311**, confirmed. No version between 2.1.308 and 2.1.311 was tested; 2.1.309 and 2.1.310 predate the fix by its CHANGELOG entry. `stable` was still 2.1.308 on 2026-10-29, so AD-18's release gate holds.
-- `$.session.append`, `turn.step` and `$.prompt.read` all exist on 2.1.308, so the push paths set no higher minimum than the guard does.
-
-## Criterion 7: an ask open 30 minutes or more (task 3.6, partial)
-
-Runs `c7-312` and `c7-311`, interactive, auto mode, hybrid main path and append. Asked at 18:24:35, answered at 18:54:35 (30 minutes).
-
-- **Main conversation: pass on both versions.** Before the answer, the stub (the same PID since 18:23:27) was alive and its session file present and unchanged (`-rw-------`, 542 bytes). The idle conversation was woken by submit and replied `GOT N-81974b84` (2.1.312) and `GOT N-3ce1bd34` (2.1.311). The stub exited only at shutdown (SIGINT, 18:58:35).
-- **Background subagent: inconclusive, to rerun.** When the answer came, the subagent was no longer in `$.agent.list()` (`skip-finished`, status `absent`), so the mod correctly did not push, and the agent reported `NONCES: none`. Its 17 steps of `sleep 110` should have lasted past the answer. The rerun needs a subagent that is shown to be running when the answer arrives (log `$.agent.list()` just before, or answer at 25 minutes).
+Pending: run `c8-toast-312`.
 
 ## Criteria 9 to 17: identifiers, loopback and protocol facts
 
@@ -218,7 +330,7 @@ Runs are headless (`-p`) unless stated, with the auto-answerer (`driver.ts auto`
 Every run so far on both versions (`protocol-facts.py`; `smoke-2`, `c9-fg-312`, `c1-bg-312`, `c1-main-submit-312`, `c10-unix-312`, `c9-fg-311`, `c1-bg-311`):
 
 - **Criterion 12, processes per session:** one stub process per session. The SDK's protocol probe (`server/discover` with ID `server-discover-probe-1`) arrives on the session's own process, together with a regular `server/discover` (ID `0`), so F15's short-lived sibling does not occur in Claude Code. The method order is `server/discover`, `subscriptions/listen`, `server/discover`, `tools/list`, `tools/call`. Claude Code stops the server with SIGINT (O1). With SIGINT handled, no session file, socket or process was left behind after any run.
-- **Criterion 14, `tool_use_id` in `_meta`:** every `tools/call` carries `_meta["claudecode/toolUseId"]`, equal to the `PreToolUse` input's `tool_use_id`, beside `progressToken` and the 2026-07-28 envelope keys (`io.modelcontextprotocol/protocolVersion`, `clientInfo`, `clientCapabilities`). Every ask bound by `tool_use_id`. AD-5's next-call rule is a fallback the observed versions never needed.
+- **Criterion 14, `tool_use_id` in `_meta`:** every `tools/call` carries `_meta["claudecode/toolUseId"]`, equal to the `PreToolUse` input's `tool_use_id`, beside `progressToken` and the 2026-07-28 envelope keys (`io.modelcontextprotocol/protocolVersion`, `clientInfo`, `clientCapabilities`). Every ask bound by `tool_use_id`. AD-5's next-call rule is a fallback the observed versions never needed. No call in these runs carried `traceparent` (the stub logs the whole `params`).
 - **Criterion 16, client version:** every request's envelope carries `io.modelcontextprotocol/clientInfo` = `{name: "claude-code", version: "2.1.311" | "2.1.312", …}`. AD-18's protocol source is always present on these versions. The mod's report, through `$.session.version()`, gives the same value.
 
 ### Criterion 13: `CLAUDE_CODE_SESSION_ID` after `/clear`, `--continue` and `/resume`
@@ -264,6 +376,24 @@ Runs `c15-stop-312` and `c15-stop-311`: the mod's poll set to 10 minutes, so an 
 
 - The hook `cwd` is the subagent's own worktree, named after its agent ID, so AD-12 can keep the hook `cwd` as the root source. F5 is settled for these versions.
 - The worktree was gone after the run (`git worktree list` shows only the main checkout): Claude Code removes an unchanged subagent worktree when the subagent finishes. AD-12 already resolves excerpts at send time, so a board keeps its content. But a later `update` from another agent, or a Snapshot that reads files again, cannot rely on that root still existing. AD-15 builds Snapshots from board documents only, so it is unaffected.
+
+## Criterion 18: the minimum version (task 4.2)
+
+Criteria 1, 9 and 15 on `stable` 2.1.308, with the paths the spike recommends:
+
+| Run | Criterion | Result on 2.1.308 |
+| --- | --- | --- |
+| `c9-fg-308` | 9 | pass: hook `agent_id`, mod `agentId` and the `session.send` target are one ID; 2/2 delivered |
+| `c1-fg-append-308` (`-p`) | 1 | pass: 5/5 appended to a foreground subagent, all five in its report |
+| `d-bg-append-308` | 1 | pass: 5/5 appended to a background subagent |
+| `d-main-hybrid-308` | 1, 3 | pass: 5/5 read, max 12.5 s, one catch-up |
+| `c15-stop2-308` (60 s poll, so the answer is pending at the stop) | 15 | pass: `stop_hook_active` false, block; then true, allow; nonce reported |
+| `d-bg-append-308` | 15, AD-10 | **fail**: `SubagentStop` fired 6 times in 108 s while the background subagent was still working (17:29:44 to 17:31:35, about every 30 s) |
+
+- **What rules out 2.1.308:** AD-10 reads `SubagentStop` as "the subagent finished": the guard blocks once for pending events and then closes the agent's asks with `agent-finished`. On 2.1.308 the hook fires while the agent works, so asks would be closed under a running agent, and the guard's block would be injected mid-task. This is the 2.1.311 CHANGELOG fix ("`SubagentStop` hooks now run once per subagent, when it finishes"). A foreground subagent of 100 s fired it once (`c1-fg-append-308`), so the old behaviour shows on background subagents.
+- On 2.1.311 and `latest`, background subagents fire it only when they finish (the extra firing in some runs is the side agent of criterion 13, `agent_type` `''`).
+- **Minimum: 2.1.311**, confirmed. No version between 2.1.308 and 2.1.311 was tested; 2.1.309 and 2.1.310 predate the fix by its CHANGELOG entry. `stable` was still 2.1.308 on 2026-10-29, so AD-18's release gate holds.
+- `$.session.append`, `turn.step` and `$.prompt.read` all exist on 2.1.308, so the push paths set no higher minimum than the guard does.
 
 ## Documentation read (task 1.1, 2026-10-29)
 
