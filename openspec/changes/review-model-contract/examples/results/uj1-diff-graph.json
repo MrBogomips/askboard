@@ -1,0 +1,8 @@
+{
+  "versions": { "result": "1.0", "output": "1.0" },
+  "epoch": "k3x9",
+  "askId": "payment-retry-fix-q4m8",
+  "state": "waiting",
+  "cursor": "k3x9.0",
+  "board": "http://127.0.0.1:47213/b/payment-retry-fix-q4m8?t=Jd8sWq2LxN5vT0kRb7mPzA"
+}

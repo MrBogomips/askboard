@@ -1,0 +1,77 @@
+# Design
+
+## Context
+
+See proposal.md for the motivation and the two decisions already taken. The rules the examples must follow are spread across the spine:
+
+- **AD-6:** five tools in a fixed order, generic JSON Schema 2020-12 inputs with no root combinator, items as a `type` discriminator plus an object of props, per-widget shapes kept out of the tool definitions, results as one JSON text block under 30,000 characters.
+- **AD-7:** the input format, the optional ask fields, values, anchors, IDs.
+- **AD-9:** molecule references.
+- **AD-12:** pointers.
+- **AD-13:** formula references.
+- **AD-20:** revisions, answers and the generic diff.
+- **AD-3:** events and cursors.
+- **PRD:** FR-18 to FR-20 for answers, NFR-1 for defaults.
+
+Token baselines are in the addendum: AskUserQuestion averages 967 output tokens per question, thinking included.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- A complete, consistent worked example of the model contract, the agent's side of it only: what the model reads before asking, what it writes, what it reads back.
+- Token counts that tell the product owner what the format costs, before any code exists.
+- Every gap or contradiction the examples expose, recorded with a proposed resolution.
+
+**Non-Goals:**
+
+- JSON Schemas for `contract` (E1 writes them and validates these examples against them).
+- The board document, board protocol, local API and other schema sets the model never sees (AD-7).
+- The cost of composing an ask (thinking, SM-2) and the time to put a question up (SM-3): the early benchmark measures them with real agents.
+
+## Decisions
+
+### 1. The examples follow the spine; writing them is how the review tests it
+
+Each example uses the spine's rules as written. Where the rules leave a shape open, the example picks the simplest shape that fits them, and `measurements.md` lists the choice under Findings for the product owner. Points already visible from reading the spine:
+
+- **A widget inside a question.** AD-7 says a widget either sits in a question, and so has the open prompt, or is display-only. The examples fix how a question holds its widget and its excerpts.
+- **The molecule reference.** AD-9 writes it as `{type: "molecule", id, molecule, version, data}`, with fields beside `type`. AD-6 describes items as a `type` plus an object of props. The examples settle which form the input uses, and the spine is aligned to it.
+- **Answers to nested elements.** AD-20's generic diff (`add`, `remove`, `move`, `set`) addresses elements by ID. The examples fix how a change to a WBS node or a Gantt task names its path.
+
+Each example applies the lean-JSON rule:
+
+- descriptive camelCase keys;
+- keyed objects for records;
+- every optional field omitted unless the journey needs it (NFR-1);
+- values in the AD-7 forms: dates as `full-date`, durations as integer days, money as a decimal string plus an ISO 4217 code.
+
+### 2. Examples live in the change, not under `docs/`
+
+`examples/` in this change holds JSON files: one per tool definition set, per ask, per result and per answer, plus the AskUserQuestion equivalent. They are input to E1, which moves them into the `contract` package as fixtures and validates them against its schemas. They are not documentation: the spine stays the authority, and `docs/` gains nothing that could drift from it.
+
+### 3. Token counting: the token-counting API first, Claude Code runs as the fallback
+
+- **Primary:** count each document with the Messages token-counting endpoint for the model the benchmark uses, as the text of a user message, minus the count of an empty message. The counts are exact for that model's tokenizer.
+- **Fallback, with no API key:** `claude -p --output-format json` runs with the model the benchmark uses, low effort and an isolated configuration (`--setting-sources ""`, `--strict-mcp-config`, `--tools ""`, a one-line system prompt). Each document is sent as the user message, and its count is the run's input tokens (`input_tokens` plus cache creation and cache reads) minus those of a baseline run whose message is `.`, plus one for that `.`. This is the tokenizer's count of the text, as the primary method gives it.
+- **Cross-check:** on a few documents, a run asks the model to copy the document verbatim, and the count is `usage.output_tokens` minus a baseline copy run's. `measurements.md` says which method produced each number and reports both on the cross-checked files.
+- **Decided on 2026-10-29:** no API key is available, so the counts use the fallback. A probe of a 135-character JSON text gave 53 tokens by input and by copy, the same on repeated runs.
+
+Only the example documents are sent; they hold no project or personal data.
+
+### 4. What is compared
+
+- **Plain question:** the lean ask against the AskUserQuestion input for the same question. SM-1 allows +25% on output tokens; the document comparison is the part of that budget the format controls.
+- **Rich questions:** each journey's ask and answer, against SM-1's rich-question target (twice a plain AskUserQuestion question).
+- **Scale:** the UJ-2 WBS at 8 nodes and at 200 nodes, FR-20's example size. The 200-node document is generated by a script outside the repository; only its counts and the generator's description are kept.
+- **Context before the first ask:** the five tool definitions plus the server instructions, against R5's threshold of about 2,100 tokens. Claude Code's tool search can defer tool definitions (SOLUTION-DESIGN F19), so the count is reported both with everything loaded and with only what loads up front.
+
+### 5. Spine amendments are limited to what is decided
+
+AD-7 gains the wire-format statement, and Deferred gains the table-encoding row. A finding that needs any further AD or requirement change is amended in this change only when it is small and the product owner approves it; otherwise `measurements.md` assigns it to the epic that owns it.
+
+## Risks / Trade-offs
+
+- [The examples pick shapes the spine left open, and E1 may want different ones] → Every pick is listed under Findings and approved by the product owner before E1. E1 changes an example only through an OpenSpec change that says why.
+- [Counted document tokens differ from what the model emits as tool arguments, since tool-call framing adds tokens] → The framing is a fixed overhead per call, the same for AskBoard and AskUserQuestion. The early benchmark measures the real calls.
+- [Lean JSON makes very large tables expensive] → Accepted by the product owner. The 200-node count makes the cost visible, and the Deferred row names the trigger for revisiting it.

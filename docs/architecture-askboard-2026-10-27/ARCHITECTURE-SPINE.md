@@ -117,11 +117,11 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Writing:**
     - Only `ask-core` mutates asks, items, drafts and event logs; adapters and the board page submit commands.
-    - An **event** records what the user or AskBoard caused: answer (a decline included, AD-20), postponed, question reopened by the user, follow-up, open-prompt text, edit choice (reload or ignore, FR-6), a state change these cause, closed with reason `agent-finished`, discarded. A change made by the agent's own tool call is reported in that call's result and not logged.
+    - An **event** records what the user or AskBoard caused: answer (a decline included, AD-20), postponed, question reopened by the user, follow-up, open-prompt text, edit choice (reload or ignore, FR-6), closed with reason `agent-finished`, discarded. The ask state these events cause (AD-10) is not an event of its own: every `collect` result, push and block reason carries it beside the ask's events. A change made by the agent's own tool call is reported in that call's result and not logged.
     - Every event concerns one ask and at most one item. Events are immutable and carry a per-ask `seq`, strictly increasing.
   - **Reading:**
-    - A **cursor** is exactly `<epoch>.<seq>` and belongs to one ask.
-    - `collect` takes `{askId, after}` per ask and returns the events after it, plus one cursor per ask. Every event, in a `collect` result, a push or a `SubagentStop` block reason, carries its `askId` and the cursor that follows it.
+    - A **cursor** is exactly `<epoch>.<seq>` and belongs to one ask. An event carries its `seq` only inside its cursor.
+    - `collect` takes `{askId, after}` per ask and returns, for each ask, its ID, state and latest cursor and the events after `after`, each carrying the cursor that follows it. A push or a `SubagentStop` block reason carries, with every event, its `askId` and cursor.
     - Agents never build cursors: they pass the latest cursor they received for that ask. Acknowledgement is monotonic, so the highest cursor wins.
     - A cursor from another epoch returns `discarded` for the ask it was issued for, with no events.
   - **Delivery:**
@@ -181,7 +181,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - `ask`: idempotent (not relied upon over stdio);
       - `snapshot`: `destructiveHint: false`.
   - **Schemas and validation:**
-    - Input schemas are generic JSON Schema 2020-12. Items carry a `type` discriminator and an object of props. There is no root `anyOf`/`oneOf`/`allOf`, and top-level property names are 1–64 characters from `[A-Za-z0-9_.-]`.
+    - Input schemas are generic JSON Schema 2020-12. Every item is `{type, id, props}`: a `type` discriminator, the item's ID and an object of props. A molecule reference is such an item (AD-9). There is no root `anyOf`/`oneOf`/`allOf`, and top-level property names are 1–64 characters from `[A-Za-z0-9_.-]`.
     - Per-widget and per-molecule schemas, and the asking-rule predicates, exist only in `contract`. Tool definitions never include them.
     - The skills' reference files, examples and asking-rule texts are generated from `contract` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
@@ -218,13 +218,15 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       | Benchmark timing log | `bench` |
 
     - Only a change to a schema's owning unit alters it.
-    - Every document and message names its schema version. A receiver that gets an unsupported major refuses it, saying why, and falls back as its AD says: the mod does not push, the hooks let the call through.
+    - Every document and message names its schema version, except tool requests: the server and the skills that teach the input format ship in one plugin version, so a request cannot be skewed and names none, and every result names the versions it follows. A receiver that gets an unsupported major refuses it, saying why, and falls back as its AD says: the mod does not push, the hooks let the call through.
     - The local API is the only schema set where Claude Code identifiers appear, and agents never see it.
     - The board protocol carries each board page's working signal (AD-2): whether the board has focus and has had a user input in the last 60 s. It is presence only and never carries content.
     - Every unit validates with the one validator pinned in Stack.
-  - **Wire format:** the input format is AskBoard's own lean format, not A2UI. Any A2UI support comes later, as an inbound translator adapter to the input format.
+  - **Wire format:** the input format is AskBoard's own lean JSON, not A2UI, written as the tools' native JSON arguments: descriptive camelCase keys, every record a keyed object, no positional rows and no abbreviated keys. The agent writes content and structure: questions, widgets with their data, excerpts and images by pointer, formulas and molecule references. AskBoard owns the layout. Any A2UI support comes later, as an inbound translator adapter to the input format.
   - **Optional ask fields:** the ask may carry the following, and each is optional so that a plain ask stays cheap (NFR-1):
     - `title` and `agentName`, the agent's display name. Without them, AskBoard derives the title from the first question and the name from the agent type that Claude Code reports (AD-5).
+    - `expectedUser`, the user expected to answer (FR-19). Without it, `who` comes from the git user name, then the OS login name.
+    - `presentation` (`sections`, `tabs` or `one-per-view`, FR-2) and `delivery` (`immediate` or `submitted`, FR-22). Without them the board shows sections and starts in immediate delivery.
     - `language` (`en-US` or `it-IT`, the user's preferred language) and `locale` (`en-US` or `it-IT`, the formats AskBoard ships, FR-34). Without `language`, the board uses the configured `defaultLanguage` (AD-14), then `en-US`. Without `locale`, the ask's language decides it. The language holds for the whole ask, and AskBoard translates nothing (FR-34). Language and locale govern display only; values keep the formats below (AD-13).
   - **Content:**
     - **Excluded:** neither format contains HTML, CSS, script or the geometry of the board's layout, nor any AXFX term.
@@ -236,11 +238,12 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built.
     - **Values:**
       - calendar dates are RFC 3339 `full-date` strings;
-      - durations are integer days against a working calendar declared on the item;
-      - money is a decimal string plus an ISO 4217 code;
+      - durations are integer days against the item's working calendar, which is optional and defaults to Monday to Friday with no holidays;
+      - money is a decimal string plus an ISO 4217 code, which an item may declare once for all its amounts;
       - no unit converts a date through a zoned date-time.
+    - **Questions:** a question's props hold its `text`, an optional `header`, its `options` and `multiSelect`; its widgets, excerpts and molecules go in its `items`, each an item as in AD-6. The agent sends no layout: an excerpt goes beside its question because of its type (FR-13).
     - **Widgets and the open prompt:** a widget either sits in a question, and so has the open prompt (FR-7), or is display-only and returns no answer.
-    - **Diff review alternatives:** a Diff review item may give two alternative fixes as pointers to two patch files under the ask's root, naming the base they apply to. The base is the files under the ask's root as they stand at send time, never a git revision. The agent never writes diff text: AskBoard computes the diffs (AD-12). Branches and commits are not accepted in the first version, since a worktree's object store lies outside the ask's root.
+    - **Diff review alternatives:** a Diff review item may give two alternative fixes as pointers to two patch files under the ask's root. They apply to the files under the ask's root as they stand at send time, never to a git revision, so the item names no base. The agent never writes diff text: AskBoard computes the diffs (AD-12). Branches and commits are not accepted in the first version, since a worktree's object store lies outside the ask's root.
   - **IDs:**
     - Ask IDs, item IDs and the IDs of child elements (tree nodes, table rows, Gantt tasks) are chosen by the agent and match `[A-Za-z0-9_-]{1,64}`.
     - Elements the user adds in a widget (a work package in a split, a tree node, a Graph state) get IDs the view makes, with a prefix reserved in `contract` that agent-chosen IDs may not use. View-made IDs, prefix included, still match `[A-Za-z0-9_-]{1,64}`.
@@ -296,9 +299,9 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The view boots from the `askboard-data` block when there is one. It starts the view-protocol handshake only when it has a parent host.
   - **Molecules:**
     - Ready-made molecules are input-format data, not code.
-    - A molecule reference is an item `{type: "molecule", id, molecule, version, data}`. A molecule declares its parameters as JSON Schema and, for each parameter, the JSON Pointers in its composition that the parameter fills.
+    - A molecule reference is an item `{type: "molecule", id, props: {molecule, version, data}}`, with `version` optional. A molecule declares its parameters as JSON Schema and, for each parameter, the JSON Pointers in its composition that the parameter fills.
     - `ask-core` expands a reference when the ask or update is sent, through the `MoleculeSource` port. Expansion prefixes every internal item ID with `<id>__` and rewrites the molecule's references to match. It refuses an expansion whose IDs exceed 64 characters.
-    - Answers and warnings name the expanded IDs and carry `molecule: <id>`. A reference without `version` gets the highest shipped version of the current major.
+    - Answers and warnings address a molecule's content through the reference's ID and the child IDs of its data (`wbs.portal.label`), never through the expanded IDs, and carry no `molecule` field: `ask-core` maps between the two. A reference without `version` gets the highest shipped version of the current major.
     - The sales-estimate-review molecule takes an optional `minimumMargin`. Without it, the project default `defaultMinimumMargin` applies (AD-14); with neither, the board shows no margin warning.
 
 ### AD-10 — Fail closed [ADOPTED]
@@ -357,12 +360,12 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - When an ask or update is sent, `ask-core` resolves every excerpt pointer, media reference and molecule through its ports. It stores the result as that revision's **board document**, a `contract` schema.
     - In the board document, each excerpt carries its pointer, status (`resolved` or `unresolved`), source text, media type and line range. Each image carries its bytes, media type and pointer.
     - Paths resolve read-only, and only inside the root. A path that escapes through `..` or a symlink resolves as unresolved.
-    - Diff review's patch files (AD-7) resolve the same way: at send time `ask-core` reads them through its ports, parses them and computes each alternative's diff against the base named in the item, so AskBoard needs no git access. The base is the files under the root as they stand at send time, never a git revision.
+    - Diff review's patch files (AD-7) resolve the same way: at send time `ask-core` reads them through its ports, parses them and computes each alternative's diff against the files under the root as they stand at send time, never a git revision, so AskBoard needs no git access.
     - Every path a patch names resolves as a pointer does: read-only, only inside the root, unresolved through `..` or a symlink. A patch file that does not resolve, names such a path, does not parse or does not apply is unresolved, with a warning (AD-6).
     - AskBoard never searches for a bare ID (FR-9 out of scope).
   - **Reading:**
     - The view, `fetch` and Snapshots read only board documents. `board-host` ships them, image bytes included, over the board protocol. The view shows images only through `blob:` or `data:` URLs.
-  - **Images:** images enter a board only as a pointer to a file under the root. The shipped skills tell agents to save screenshots under `.askboard/media/`. No base64 image in tool input, no remote image URL.
+  - **Images:** images enter a board only as a pointer to a file under the root. The shipped skills tell agents to save screenshots under `.askboard/media/`, and Diff review patch files under `.askboard/patches/`. No base64 image in tool input, no remote image URL.
 
 ### AD-13 — One compute graph per board, built from the board document [ADOPTED]
 
@@ -414,10 +417,10 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `hooks` and `mod` read effective settings only through the local API.
     - An unknown key is a warning. A file with an unsupported major version is ignored, with a diagnostic.
   - **Project folders:**
-    - `.askboard/` holds `config.json`, `snapshots/` (the default Snapshot folder, changeable with `snapshotFolder`), `media/` (written by agents, only read by AskBoard) and `bench/` (benchmark mode only).
-    - At a session's first ask, the session process creates `.askboard/` and any missing subfolder. It writes `.askboard/.gitignore`, listing `snapshots/`, `media/` and `bench/`, only when it creates that file, so a user's choice to commit holds (FR-27).
+    - `.askboard/` holds `config.json`, `snapshots/` (the default Snapshot folder, changeable with `snapshotFolder`), `media/` and `patches/` (written by agents, only read by AskBoard) and `bench/` (benchmark mode only).
+    - At a session's first ask, the session process creates `.askboard/` and any missing subfolder. It writes `.askboard/.gitignore`, listing `snapshots/`, `media/`, `patches/` and `bench/`, only when it creates that file, so a user's choice to commit holds (FR-27).
   - **Roots:**
-    - Configuration, `snapshots/` and `bench/` resolve against the session project root; `media/` against the ask's root (AD-12).
+    - Configuration, `snapshots/` and `bench/` resolve against the session project root; `media/` and `patches/` against the ask's root (AD-12).
     - A configured Snapshot folder outside the project root is replaced by the default, with a warning.
   - **User folders:** the session-file runtime folder (AD-5) and the executable cache (AD-22).
   - **Later:** molecule storage (FR-16, FR-17) is decided with those features.
@@ -519,7 +522,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `ask-core` keeps every revision that an event names, until discard.
   - **Answers:**
     - A view answer message carries the item's full edited value in its input-format shape, plus its derived values.
-    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. Widgets never emit diffs.
+    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling. Widgets never emit diffs.
     - `ask-core` stores the full edited value; `fetch` and Snapshots read it.
     - A later answer to the same question is a new event that names the `seq` it replaces. The latest answer per question wins.
     - **Decline:** `declined` is an answer kind, carrying the optional reason from the question's open prompt. Like an answer, it closes the question (AD-10), names the question's `rev`, follows the delivery mode and is superseded by a later answer or decline. The shipped skills tell the agent not to ask a declined question again within its task; nothing about it outlives the ask (AD-14, FR-25).
@@ -581,7 +584,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | Errors, warnings, typed results | As in AD-6. |
 | Process output | Stdout carries only MCP protocol. Diagnostics go to stderr, without agent content by default and never with a token. |
 | Board link and notice | `http://<loopback host>:<port>/b/<ask-id>?t=<token>`, computed once by a `BoardAddress` port that `board-host` implements and `ask-core` holds. The `ask` result returns it. A `PostToolUse` hook on `ask` shows it to the user as a system message, for the main conversation and subagents, with or without the mod. The mod adds the list of pending asks (FR-23). The shipped skills forbid agents from opening or answering boards. |
-| Excerpts and media | Pointer = root-relative path plus an anchor (heading, line range or ID). Agent-written excerpts are text. Images by pointer only (AD-12). |
+| Excerpts and media | Pointer = one string: a root-relative path, `#` and an anchor, `L<start>-L<end>` for a line range, otherwise a heading, then an ID (`docs/prd.md#Billing`, `src/retry.ts#L40-L62`). Agent-written excerpts are text. Images by pointer only (AD-12). |
 | Shipped agents | Declare no frontmatter hooks, MCP servers or permission mode; the plugin's hooks cover them. |
 | Dependencies | Adoption rule from the PRD addendum, exceptions named in the solution design (AD-19). Versions pinned exactly. Tools that need a TypeScript compiler API use `@typescript/typescript6` as an npm alias, since TypeScript 7 ships none. |
 | Tests | **CI failures:** imports that cross the dependency diagram (AD-1); generated skill files that drift (AD-6); a tool description or the server instructions over 4,096 characters; a full tool name over 128; a schema that is not valid JSON Schema 2020-12 or has a root combinator; a changed `tools/list` order; a licence outside the adoption rule (AD-19). **CI runs:** the conformance suite with and without mod and hooks (AD-1); one live call per supported model that loads the five tool definitions; the legacy-negotiation run (AD-18); the timezone and locale fixtures (AD-13); browser tests in Chromium, Firefox and WebKit (cold load, reload, takeover, source view, `self.origin === "null"` inside the view, a view `fetch` that fails); a board and a Snapshot rendered in all three engines; macOS and Linux; Node 24 and 26. **CI reports:** per model, the token count of tool definitions, instructions, skill and agent descriptions, flagging anything above about 2,100 tokens (PRD R5). |
@@ -776,5 +779,6 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | `alwaysLoad` for the `ask` tool | No context budget in the PRD; decided by data | First benchmark run |
 | Final benchmark question set (seed in `SOLUTION-DESIGN.md`) and the benchmark's browser driver on the user's machine | AD-17 fixes what is measured; AD-19 requires prerequisites to be declared | Benchmark epic |
 | A2UI inbound translator | Preference, not requirement (PRD OQ5) | A2UI v1.0 final with renderers and a table |
+| Table encoding for long lists in the input format (column names once, rows as arrays) | Lean JSON is simpler and more robust; the review of the model contract measured its cost on a 200-node WBS (AD-7) | The benchmark shows rich questions over the SM-1 target |
 | Molecule registry, export and repository (FR-16, FR-17); full benchmark settings | Out of the first version | Next version planning |
 | MCP Apps rendering inside Claude hosts (needs a conforming host with a sandbox proxy); Claude Code surfaces other than the CLI; native Windows; remote hosts | Out of the first version (NFR-7, NFR-8, AD-22) | The Claude Code CLI renders MCP Apps, or the product adds a surface |
