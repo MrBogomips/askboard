@@ -7,6 +7,12 @@
   "workspaces": [
     "packages/*"
   ],
+  "scripts": {
+    "typecheck": "for p in packages/*/; do tsc -p \"$p\" || exit 1; done && tsc -p tsconfig.test.json",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "bun test --coverage"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
     "@types/bun": "1.4.4",

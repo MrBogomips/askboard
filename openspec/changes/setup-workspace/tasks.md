@@ -20,9 +20,12 @@
 
 ## 3. TypeScript, formatting, linting and tests
 
-- [ ] 3.1 Add `tsconfig.base.json` and per-package configurations as in design decision 3, with the test configuration that adds `@types/bun`, and a root `typecheck` script. Verify that `bun run typecheck` passes, and that a throwaway `document.title` or `process.env` use in `core` makes it fail; then remove it.
-- [ ] 3.2 Add `biome.json` and the `lint` and `format` scripts. Verify that `bun run lint` passes on the tree.
-- [ ] 3.3 Add the `test` script (`bun test --coverage`). Verify that it runs with zero failures.
+- [x] 3.1 Add `tsconfig.base.json` and per-package configurations as in design decision 3, with the test configuration that adds `@types/bun`, and a root `typecheck` script. Verify that `bun run typecheck` passes, and that a throwaway `document.title` or `process.env` use in `core` makes it fail; then remove it.
+  - Note (2026-10-29): with the fallback of 1.2, `typecheck` runs `tsc -p` on each `packages/*/` in turn, then on `tsconfig.test.json` (tests and `tools/`, with `@types/bun`), and stops at the first failure; a package without a `tsconfig.json` fails it. Throwaway uses failed it as expected: `document.title` in `core` (TS2584), `process.env` in `core` (TS2591), `Bun.version` in `compute` (TS2868).
+- [x] 3.2 Add `biome.json` and the `lint` and `format` scripts. Verify that `bun run lint` passes on the tree.
+  - Note (2026-10-29): Biome 2.6.4 also formats Markdown, so `biome.json` leaves out `**/*.md`, `.claude/`, `docs/`, `drafts/`, `openspec/` and `bun.lock`; the recommended rules and import sorting are Biome's defaults. `lint` is `biome check .`, `format` is `biome check --write .`.
+- [x] 3.3 Add the `test` script (`bun test --coverage`). Verify that it runs with zero failures.
+  - Note (2026-10-29): `bun test` fails when no test file exists, so this task adds `tools/workspace.test.ts`, which checks the layout of decision 2 (the ten packages, their manifests, entries and type configurations, view's two entries, the six server unit folders) and that every dependency is pinned exactly: 14 tests, 0 failures.
 
 ## 4. Import-boundary check (AD-1)
 

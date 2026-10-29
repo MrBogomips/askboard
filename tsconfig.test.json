@@ -1,0 +1,13 @@
+{
+  // Tests and repository tooling run on Bun: they add @types/bun, which the source configurations leave out.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["bun"]
+  },
+  "include": [
+    "packages/*/src/**/*.test.ts",
+    "packages/*/src/**/*.test.tsx",
+    "packages/*/test",
+    "tools"
+  ]
+}
