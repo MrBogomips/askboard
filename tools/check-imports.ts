@@ -1,7 +1,8 @@
 // Import-boundary check (AD-1): fails on any import that crosses the dependency diagram of
 // docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md (Invariants & Rules, AD-1), between
-// packages and between the server units, and on Node or Bun built-ins in the sources of core and
-// compute. Repository tooling, not a shipped unit: it may use Bun APIs.
+// packages and between the server units, on relative paths that leave their package, and on Node
+// or Bun built-ins in the sources of core and compute. Repository tooling, not a shipped unit: it
+// may use Bun APIs.
 //
 // Usage: bun tools/check-imports.ts [root]
 
@@ -74,13 +75,16 @@ const RULE_BUILT_IN =
 const RULE_OUTSIDE = "resolves outside packages/: not an AskBoard unit (AD-1)";
 const RULE_UNKNOWN = "not an AskBoard package of the spine's layer table (AD-1)";
 const RULE_UNRESOLVED =
-  "the check cannot resolve absolute paths, file URLs or subpath imports: use @askboard/<unit> or a relative path (AD-1)";
+  "the check cannot resolve absolute paths, file URLs or subpath imports: use @askboard/<unit>, or a relative path inside the package (AD-1)";
 const RULE_REFERENCE =
   "contract, core and compute reference no type package and no library beyond ECMAScript outside their tests: core and compute compile without DOM, Node or Bun types (AD-1)";
 const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
 
 type Target =
   | { kind: "unit"; unit: string }
+  // A relative path into another package: it would bypass that package's exports and the
+  // importer's dependency declaration (setup-workspace decision 6, review finding L3).
+  | { kind: "other-package"; unit: string }
   | { kind: "built-in" }
   | { kind: "outside" }
   | { kind: "unknown" }
@@ -122,7 +126,9 @@ const targetOf = (file: string, specifier: string): Target => {
   }
   if (specifier.startsWith(".")) {
     const resolved = posix.normalize(posix.join(posix.dirname(file), specifier));
-    return unitOfPath(resolved, true);
+    const target = unitOfPath(resolved, true);
+    const leaves = resolved.split("/")[1] !== file.split("/")[1];
+    return target.kind === "unit" && leaves ? { kind: "other-package", unit: target.unit } : target;
   }
   if (/^(\/|#|file:)/.test(specifier)) return { kind: "unresolved" };
   if (isBuiltIn(specifier)) return { kind: "built-in" };
@@ -139,6 +145,9 @@ const unitRule = (unit: string): string => {
   const where = unit === "server" ? " (files outside the six server unit folders)" : "";
   return `${unit}${where} may import ${may}${server} (spine Invariants & Rules, AD-1)`;
 };
+
+const relativeRule = (target: string): string =>
+  `a relative path may not leave its package: import @askboard/${target}, so its exports and the importer's declared dependencies apply (AD-1)`;
 
 // Type-only imports and exports leave no trace in Bun's scan, so they are rewritten as value ones
 // first; comments may sit between the keywords. A rewrite inside a string or comment changes
@@ -189,8 +198,14 @@ const violationOf = (file: string, unit: string, specifier: string): Violation |
       if (!RUNTIME_NEUTRAL.has(unit) || isTestFile(file)) return undefined;
       return { file, specifier, target: "built-in", rule: RULE_BUILT_IN };
     case "unit":
-      if (baseUnit(target.unit) === unit || ALLOWED[unit]?.includes(target.unit)) return undefined;
-      return { file, specifier, target: target.unit, rule: unitRule(unit) };
+    case "other-package": {
+      // The unit rule comes first, so a forbidden edge reports the boundary it crosses.
+      if (baseUnit(target.unit) !== unit && !ALLOWED[unit]?.includes(target.unit)) {
+        return { file, specifier, target: target.unit, rule: unitRule(unit) };
+      }
+      if (target.kind === "unit") return undefined;
+      return { file, specifier, target: target.unit, rule: relativeRule(target.unit) };
+    }
   }
 };
 

@@ -101,22 +101,46 @@ describe("unit boundaries (AD-1)", () => {
     expect(violations[0]?.rule).toContain("never another server unit");
   });
 
-  test("a relative path into another package counts as that package", () => {
-    expect(checkSource("packages/core/src/a.ts", importOf("../../contract/src/index.ts"))).toEqual(
+  test.each([
+    ["packages/core/src/a.ts", "../../contract/src/index.ts", "contract"],
+    ["packages/server/src/snapshot/a.ts", "../../../view/src/assemble/index.ts", "view/assemble"],
+    ["packages/widgets/src/a.ts", "../../view/src/catalog/internal/x.ts", "view/catalog"],
+    ["packages/core/test/a.test.ts", "../../compute/src/index.ts", "compute"],
+  ])("%s may not reach an allowed unit by the relative path %s", (file, specifier, unit) => {
+    const violations = checkSource(file, importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.target).toBe(unit);
+    expect(violations[0]?.rule).toContain(`import @askboard/${unit}`);
+  });
+
+  test("a relative path into a unit the rules forbid breaks the unit rule", () => {
+    const notifier = checkSource(
+      "packages/core/src/a.ts",
+      importOf("../../server/src/notifier/index.ts"),
+    );
+    expect(notifier.map((violation) => violation.rule)).toEqual([
+      expect.stringContaining("core may import only contract, compute"),
+    ]);
+    const assemble = checkSource(
+      "packages/widgets/src/a.ts",
+      importOf("../../view/src/assemble/index.ts"),
+    );
+    expect(assemble.map((violation) => violation.rule)).toEqual([
+      expect.stringContaining("widgets may import only"),
+    ]);
+  });
+
+  test("relative paths inside the importing package pass", () => {
+    expect(checkSource("packages/core/src/a.ts", importOf("./b.ts"))).toEqual([]);
+    expect(checkSource("packages/core/test/a.test.ts", importOf("../src/index.ts"))).toEqual([]);
+    expect(checkSource("packages/core/src/a.ts", importOf("../../core/src/b.ts"))).toEqual([]);
+    expect(checkSource("packages/view/src/assemble/a.ts", importOf("../catalog/index.ts"))).toEqual(
       [],
     );
-    expect(
-      checkSource("packages/core/src/a.ts", importOf("../../server/src/notifier/index.ts")),
-    ).toHaveLength(1);
-    expect(
-      checkSource(
-        "packages/server/src/snapshot/a.ts",
-        importOf("../../../view/src/assemble/index.ts"),
-      ),
-    ).toEqual([]);
-    expect(
-      checkSource("packages/widgets/src/a.ts", importOf("../../view/src/assemble/index.ts")),
-    ).toHaveLength(1);
+    expect(checkSource("packages/server/src/snapshot/a.ts", importOf("./b/c.ts"))).toEqual([]);
+    expect(checkSource("packages/server/src/snapshot/a.ts", importOf("../snapshot/b.ts"))).toEqual(
+      [],
+    );
   });
 
   test("a relative path that leaves packages/ fails", () => {
