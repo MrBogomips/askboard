@@ -49,7 +49,7 @@ Commands run from `openspec/changes/spike-renderer/probe/` unless they name the 
 
 ## 7. Linux (optional)
 
-- [ ] 7.1 Optional; skipping it does not block group 8. Build an image from `mcr.microsoft.com/playwright:v1.64.1-noble` with Bun 1.4.4, mount the probe read-only and a runs folder, and run the fixtures of runs `matrix`, `c3c4`, `golden-time` and `snapshot` in its Chromium, Firefox and WebKit (NFR-7). Verify with the Linux column of the verdict table in `findings.md`, naming the image digest and the runs.
+- [x] 7.1 Optional; skipping it does not block group 8. Build an image from `mcr.microsoft.com/playwright:v1.64.1-noble` with Bun 1.4.4, mount the probe read-only and a runs folder, and run the fixtures of runs `matrix`, `c3c4`, `golden-time` and `snapshot` in its Chromium, Firefox and WebKit (NFR-7). Verify with the Linux column of the verdict table in `findings.md`, naming the image digest and the runs.
 
 ## 8. Decisions and the spine
 

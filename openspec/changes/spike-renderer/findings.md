@@ -1073,3 +1073,30 @@ First `bun drive.ts snapshot-renders --script renders --engines chromium --varia
 - **Fonts:** the faces add 93,240 to 450,722 bytes to every board and Snapshot, by subset and by static or variable Inter. The PO decides the licence and source (task 8.1); the `view` epic decides the subsets.
 - **ext-apps `App`:** 313,693 bytes on every board if the view's message set is built on it. That is more than React; a Snapshot needs none of it.
 - **No size budget exists** to amend; if the PO wants one, SM-3's benchmark is where it would be set.
+
+## Linux (task 7.1)
+
+- **Image:** `askboard-spike-renderer:linux`, ID `sha256:e35be09d0e971a030bf7d75e44c305d084331514d597911de07eb8e33d5b8c6a`, built by `linux/Dockerfile` from Playwright's own image `mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea`, with Bun 1.4.4 copied from `oven/bun:1.4.4-debian@sha256:93d5032fe06d163427822dc1598f420363759bb18155c9cc90eb1be05a64a19e` (the mod delivery spike's pin).
+- **Platform:** Ubuntu 24.04.5 LTS, aarch64, in Docker Desktop's Linux VM on this Mac. The engines are the same Playwright builds as on macOS (`chromium-1248`, `firefox-1555`, `webkit-2370`): Chromium 156.0.8078.4, Firefox 157.0, WebKit 27.2. Chrome and Edge are not in the image ("Chromium distribution 'chrome' is not found"), so the Linux column covers the three CI engines. x86-64 Linux, the architecture of GitHub's hosted runners, is untested: this machine pulls the image's arm64 variant.
+- **How:** `sh linux/run-linux.sh <runs dir>`, from the change folder, after `bun run build` and the renders runs. The probe is mounted read-only, with its macOS `dist/` and `node_modules/`: the driver and the stand-in are JavaScript, and the build's native tools are not needed. A runs folder is mounted over `probe/runs`, the container runs with `--ipc=host` and is removed when it exits. The runs were made on 2026-10-30 and copied into `probe/runs/linux-*`. `linux-snapshot-radios` was run after the others, with the same image and mounts, and then added to the script.
+
+| Linux run (macOS run) | Loads | Against macOS |
+| --- | --- | --- |
+| `linux-matrix` (`matrix`) | 99 | The same verdict in all 99 (`bun tools/compare-runs.ts linux-matrix matrix`), and the same number of violations in 97. The MathLive variant with its keyboard in the frame and no shim (`c-mathlive-sandboxed`), which fails on both, makes 22 blocked style writes per policy in Firefox and WebKit, against 23 |
+| `linux-c3c4`, `linux-c3c4-blob`, `linux-c3c4-snapshot` (`c3c4`, `c3c4-blob`, `c3c4-snapshot`) | 18 each | The same verdicts and violation counts. Criterion 3 passes; criterion 4 fails on the board as written and passes with `board-img-blob` and in a Snapshot. Under group 5's request rule, Linux Chromium's Snapshot of `plantuml-resources-default` records the engine's four blocked `file:` script loads (`themes.js`, `c4.min.js`) as requests; that fixture fails on both platforms |
+| `linux-golden-time` (`golden-time`, with `--repeat 10` instead of 20) | 90 | All pass |
+| `linux-snapshot` (`snapshot`) | 36 | As on macOS: all pass except the every-component Snapshot in WebKit, with the same `style-src-attr` from Radix Select's native `<select>` |
+| `linux-snapshot-radios` (`snapshot-radios`) | 12 | All pass |
+
+Golden case time on Linux, in ms from `t0`, median (maximum) of 10 loads, beside macOS's 20 (§ Golden case time):
+
+| Engine | `golden`, Linux | `golden`, macOS | `golden-smetana`, Linux | `golden-text`, Linux | Source edit, render start to image, Linux |
+| --- | --- | --- | --- | --- | --- |
+| Chromium | 315.3 (341.9) | 235.8 (271.6) | 286.4 (307.1) | 38.6 (46.3) | 17.8 (20) |
+| Firefox | 555 (570) | 504 (566) | 477.5 (503) | 52 (56) | 27 (30) |
+| WebKit | 321 (346) | 274.5 (299) | 315.5 (337) | 33 (36) | 18 (23) |
+
+- **The PlantUML diagram is 88 to 91% of the golden case's time to visible on Linux** (`golden` minus `golden-text`: 276.7 ms in Chromium, 503 in Firefox, 288 in WebKit), as on macOS (86 to 93%). The VM's times are 10 to 34% above the Mac's and are not comparable to the millisecond; the engines rank the same.
+- **The pin follows "create order"** on Linux too: in every load with a diagram the anchor moves from y = 153 to 213 (Chromium), 155 to 215 (Firefox) and 154 to 214 (WebKit). The system fonts differ from macOS's, so the positions do too.
+- **Snapshots open on Linux** as on macOS: the golden Snapshot with renders only in 45 to 85 ms, against 282 to 489 ms with the PlantUML chunk.
+- **Not run on Linux** (task 7.1 names only the four runs above): criterion 2, criterion 5, the S-checks, Diff highlighting, the anchors, the Mermaid label measurement and the renderer comparison. Their Linux cells are untested.
