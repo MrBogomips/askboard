@@ -7,3 +7,7 @@ dist/
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Test coverage and TypeScript build state
+coverage/
+*.tsbuildinfo

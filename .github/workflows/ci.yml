@@ -27,3 +27,29 @@ jobs:
         with:
           node-version: 24
       - run: npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive
+
+  check:
+    name: Type check, lint, tests, import and licence checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: package.json
+      # Bun from npm at the packageManager version: oven-sh/setup-bun fails the adoption rule.
+      # Its postinstall links the binary, so that one script is allowed, and no other.
+      - name: Install Bun
+        run: |
+          version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
+          npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
+          bun --version
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+        env:
+          # The licence check asks the GitHub API whether direct dependencies are archived.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

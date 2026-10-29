@@ -6,7 +6,7 @@ AskBoard works in any Claude Code project and depends on nothing else.
 
 ## Status
 
-Design complete, no code yet. Next: the spikes defined in the solution design (§10), then the first OpenSpec changes.
+Design complete. The workspace and its checks are set up, with no product code yet. Next: the spikes defined in the solution design (§10), then the first OpenSpec changes.
 
 ## Documents
 
@@ -23,6 +23,18 @@ Changes are driven by [OpenSpec](https://github.com/Fission-AI/OpenSpec): propos
 openspec list                              # changes in flight
 openspec validate --all --strict           # what CI runs
 ```
+
+## Development
+
+Requirements: Bun 1.4.4, the version in `packageManager`, and Node 24, pinned for the repository with Volta. The code lives in the ten packages under `packages/`; `tools/` holds the repository checks.
+
+```sh
+bun install                                    # install the pinned dependencies
+GITHUB_TOKEN=$(gh auth token) bun run check    # what CI runs: type check, lint, tests, import and licence checks
+bun run format                                 # format with Biome and apply safe fixes
+```
+
+The licence check needs network access: it reads the licences of other platforms' packages from the npm registry. Without `GITHUB_TOKEN`, it skips its lookup of archived repositories and says so.
 
 ## Licence
 
