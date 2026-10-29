@@ -200,7 +200,9 @@ export const checkPackages = (
   return problems;
 };
 
-const GITHUB_URL = /github\.com[/:]([^/\s]+)\/([^/#?\s]+?)(?:\.git)?(?:[/#?].*)?$/;
+// github.com must be the host: git+https://, https://, git://, ssh:// or git@ forms.
+const GITHUB_URL =
+  /^(?:git\+)?(?:(?:https?|ssh|git):\/\/(?:[^@/\s]+@)?|[^@/\s]+@)github\.com[/:]([^/\s]+)\/([^/#?\s]+?)(?:\.git)?(?:[/#?].*)?$/;
 const GITHUB_SHORTHAND = /^(?:github:)?([\w.-]+)\/([\w.-]+?)(?:\.git)?$/;
 
 export const repositoryOf = (value: unknown): Repository | undefined => {
@@ -278,8 +280,47 @@ type Tree = {
 
 type LockEntry = [string, string?, Record<string, unknown>?, string?];
 type Lockfile = {
-  workspaces?: Record<string, Record<string, unknown>>;
-  packages?: Record<string, LockEntry>;
+  workspaces: Record<string, Record<string, unknown>>;
+  packages: Record<string, LockEntry>;
+};
+
+// The bun.lock format this check reads, written by Bun 1.4.4. Another format fails the check
+// rather than passing it with nothing to check.
+const LOCKFILE_VERSION = 2;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const lockfileOf = (parsed: unknown): Lockfile => {
+  if (!isRecord(parsed) || parsed.lockfileVersion !== LOCKFILE_VERSION) {
+    throw new Error(`bun.lock: lockfileVersion ${LOCKFILE_VERSION} expected`);
+  }
+  const { workspaces, packages } = parsed;
+  if (!isRecord(packages) || !isRecord(workspaces) || !isRecord(workspaces[""])) {
+    throw new Error("bun.lock: packages, workspaces and the root workspace expected");
+  }
+  return parsed as unknown as Lockfile;
+};
+
+// npm's os and cpu fields: values that admit a platform, or `!value` to exclude one.
+const admits = (constraint: unknown, current: string): boolean => {
+  if (constraint === undefined) return true;
+  const values = (Array.isArray(constraint) ? constraint : [constraint]).map(String);
+  if (values.includes(`!${current}`)) return false;
+  return values.includes(current) || values.every((value) => value.startsWith("!"));
+};
+
+// Whether a package missing from node_modules may be meant for another platform. This machine's
+// libc is not detected, so a package that names a libc may be.
+const forAnotherPlatform = (meta: Record<string, unknown>): boolean => {
+  if (meta.libc) return true;
+  if (!meta.os && !meta.cpu) return false;
+  return !(admits(meta.os, process.platform) && admits(meta.cpu, process.arch));
+};
+
+const bundles = (manifest: Record<string, unknown>): boolean => {
+  const bundled = manifest.bundleDependencies ?? manifest.bundledDependencies;
+  return bundled === true || (Array.isArray(bundled) && bundled.length > 0);
 };
 
 const splitId = (id: string): { name: string; version: string } => {
@@ -290,40 +331,48 @@ const splitId = (id: string): { name: string; version: string } => {
 // Every package in bun.lock, read from its installed package.json under Bun's isolated layout,
 // node_modules/.bun/<name with + for />@<version>/node_modules/<name>/.
 const readTree = async (root: string): Promise<Tree> => {
-  let lock: Lockfile;
+  let parsed: unknown;
   try {
-    lock = Bun.JSONC.parse(await Bun.file(join(root, "bun.lock")).text()) as Lockfile;
+    parsed = Bun.JSONC.parse(await Bun.file(join(root, "bun.lock")).text());
   } catch (error) {
     throw new Error(`cannot read bun.lock: ${error instanceof Error ? error.message : error}`);
   }
+  const lock = lockfileOf(parsed);
   const manifest = (await Bun.file(join(root, "package.json")).json()) as Record<string, unknown>;
-  const patched = new Set(Object.keys((manifest.patchedDependencies as object | null) ?? {}));
+  // A patch on any version of a package counts, whatever form its key takes.
+  const patchKeys = Object.keys((manifest.patchedDependencies as object | null) ?? {});
+  const patched = new Set(
+    patchKeys.flatMap((key) => [key, key.lastIndexOf("@") > 0 ? splitId(key).name : key]),
+  );
   const store = join(root, "node_modules", ".bun");
   const directories = await readdir(store).catch(() => [] as string[]);
 
   const tree: Tree = { packages: [], skipped: [], direct: [], patched, problems: [] };
   const byId = new Map<string, Installed>();
   const seen = new Set<string>();
-  for (const [id, , meta = {}] of Object.values(lock.packages ?? {})) {
+  for (const [id, , meta = {}] of Object.values(lock.packages)) {
     const { name, version } = splitId(id);
     if (version.startsWith("workspace:") || seen.has(id)) continue;
     seen.add(id);
     const stem = `${name.replaceAll("/", "+")}@${version.replaceAll("/", "+")}`;
     const directory = directories.find((entry) => entry === stem || entry.startsWith(`${stem}+`));
     if (directory === undefined) {
-      if (meta.os || meta.cpu || meta.libc) tree.skipped.push(id);
+      if (forAnotherPlatform(meta)) tree.skipped.push(id);
       else tree.problems.push(`${id}: listed in bun.lock but not installed; run bun install`);
       continue;
     }
     const path = join(store, directory, "node_modules", name, "package.json");
     const installed = (await Bun.file(path).json()) as Record<string, unknown>;
+    if (bundles(installed)) {
+      tree.problems.push(`${id}: bundles dependencies, which this check cannot see`);
+    }
     const pkg = { name, version, licence: licenceOf(installed), repository: installed.repository };
     byId.set(id, pkg);
     tree.packages.push(pkg);
   }
 
   const directNames = new Set<string>();
-  for (const workspace of Object.values(lock.workspaces ?? {})) {
+  for (const workspace of Object.values(lock.workspaces)) {
     for (const field of DEPENDENCY_FIELDS) {
       const dependencies = (workspace[field] ?? {}) as Record<string, string>;
       for (const [name, spec] of Object.entries(dependencies)) {
@@ -332,7 +381,7 @@ const readTree = async (root: string): Promise<Tree> => {
     }
   }
   for (const name of [...directNames].sort()) {
-    const id = lock.packages?.[name]?.[0];
+    const id = lock.packages[name]?.[0];
     const pkg = id === undefined ? undefined : byId.get(id);
     if (pkg) tree.direct.push({ name, repository: pkg.repository });
     else if (id === undefined || !tree.skipped.includes(id)) {

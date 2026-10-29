@@ -62,6 +62,8 @@ const PACKAGES = new Set([
   "bench",
 ]);
 const RUNTIME_NEUTRAL = new Set(["core", "compute"]);
+// core and compute compile contract's sources too, so its type references would reach them.
+const TYPE_ISOLATED = new Set(["contract", "core", "compute"]);
 const VIEW_ENTRIES = new Set(["assemble", "catalog"]);
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage"]);
@@ -71,12 +73,18 @@ const RULE_BUILT_IN =
   "core and compute use no Node-only or Bun-only API outside their tests (AD-1)";
 const RULE_OUTSIDE = "resolves outside packages/: not an AskBoard unit (AD-1)";
 const RULE_UNKNOWN = "not an AskBoard package of the spine's layer table (AD-1)";
+const RULE_UNRESOLVED =
+  "the check cannot resolve absolute paths, file URLs or subpath imports: use @askboard/<unit> or a relative path (AD-1)";
+const RULE_REFERENCE =
+  "contract, core and compute reference no type package and no library beyond ECMAScript outside their tests: core and compute compile without DOM, Node or Bun types (AD-1)";
+const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
 
 type Target =
   | { kind: "unit"; unit: string }
   | { kind: "built-in" }
   | { kind: "outside" }
   | { kind: "unknown" }
+  | { kind: "unresolved" }
   | { kind: "third-party" };
 
 const baseUnit = (target: string): string => target.split("/")[0] ?? target;
@@ -112,10 +120,11 @@ const targetOf = (file: string, specifier: string): Target => {
     if (pkg === "view" && VIEW_ENTRIES.has(entry)) return { kind: "unit", unit: `view/${entry}` };
     return { kind: "unit", unit: pkg };
   }
-  if (specifier.startsWith(".") || specifier.startsWith("/")) {
+  if (specifier.startsWith(".")) {
     const resolved = posix.normalize(posix.join(posix.dirname(file), specifier));
     return unitOfPath(resolved, true);
   }
+  if (/^(\/|#|file:)/.test(specifier)) return { kind: "unresolved" };
   if (isBuiltIn(specifier)) return { kind: "built-in" };
   return { kind: "third-party" };
 };
@@ -132,16 +141,26 @@ const unitRule = (unit: string): string => {
 };
 
 // Type-only imports and exports leave no trace in Bun's scan, so they are rewritten as value ones
-// first. A rewrite inside a string or comment changes nothing the scan reports.
+// first; comments may sit between the keywords. A rewrite inside a string or comment changes
+// nothing the scan reports.
+const GAP = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*\n)`;
+const TYPE_IMPORT = new RegExp(String.raw`\bimport${GAP}+type\b${GAP}*(?!from\b)(?=[\w$*{])`, "g");
+const TYPE_EXPORT = new RegExp(String.raw`\bexport${GAP}+type\b${GAP}*(?=[*{])`, "g");
+const INLINE_TYPE = new RegExp(
+  String.raw`([{,]${GAP}*)type${GAP}+(?=[\w$]+${GAP}*(?:,|}|as\b))`,
+  "g",
+);
 const asValueImports = (source: string): string =>
-  source
-    .replace(/\bimport\s+type\s+(?!from\b)(?=[\w$*{])/g, "import ")
-    .replace(/\bexport\s+type\s+(?=[*{])/g, "export ")
-    .replace(/([{,]\s*)type\s+(?=[\w$]+\s*(?:,|}|as\b))/g, "$1");
+  source.replace(TYPE_IMPORT, "import ").replace(TYPE_EXPORT, "export ").replace(INLINE_TYPE, "$1");
 
-// Import type queries such as `import("x").T` leave no trace either. This pattern also matches
-// inside strings and comments: such a match fails the check loudly rather than passing silently.
-const IMPORT_TYPE_QUERY = /\bimport\s*\(\s*(["'`])([^"'`$\n]+)\1\s*\)/g;
+// Import type queries such as `import("x").T`, with or without import attributes, and Bun's
+// `import.meta.require("x")` leave no trace either. This pattern also matches inside strings and
+// comments: such a match fails the check loudly rather than passing silently.
+const IMPORT_CALL = /\bimport(?:\.meta\.require)?\s*\(\s*(["'`])([^"'`$\n]+)\1\s*(?:,[^)]*)?\)/g;
+
+// Triple-slash references bring in type packages and libraries, or other files.
+const REFERENCE =
+  /^[ \t]*\/\/\/[ \t]*<reference[ \t]+(types|lib|path)[ \t]*=[ \t]*(["'])([^"'\n]*)\2/gm;
 
 const loaderOf = (file: string): "ts" | "tsx" | "js" => {
   if (/\.[jt]sx$/.test(file)) return "tsx";
@@ -151,7 +170,7 @@ const loaderOf = (file: string): "ts" | "tsx" | "js" => {
 const specifiersOf = (file: string, source: string): string[] => {
   const transpiler = new Bun.Transpiler({ loader: loaderOf(file) });
   const scanned = transpiler.scanImports(asValueImports(source)).map((entry) => entry.path);
-  const queried = [...source.matchAll(IMPORT_TYPE_QUERY)].map((match) => match[2] ?? "");
+  const queried = [...source.matchAll(IMPORT_CALL)].map((match) => match[2] ?? "");
   return [...new Set([...scanned, ...queried])];
 };
 
@@ -164,6 +183,8 @@ const violationOf = (file: string, unit: string, specifier: string): Violation |
       return { file, specifier, target: "outside packages/", rule: RULE_OUTSIDE };
     case "unknown":
       return { file, specifier, target: "unknown", rule: RULE_UNKNOWN };
+    case "unresolved":
+      return { file, specifier, target: "unresolved", rule: RULE_UNRESOLVED };
     case "built-in":
       if (!RUNTIME_NEUTRAL.has(unit) || isTestFile(file)) return undefined;
       return { file, specifier, target: "built-in", rule: RULE_BUILT_IN };
@@ -172,6 +193,18 @@ const violationOf = (file: string, unit: string, specifier: string): Violation |
       return { file, specifier, target: target.unit, rule: unitRule(unit) };
   }
 };
+
+const referenceViolations = (file: string, unit: string, source: string): Violation[] =>
+  [...source.matchAll(REFERENCE)].flatMap(([, kind = "", , value = ""]) => {
+    const specifier = `/// <reference ${kind}="${value}" />`;
+    if (kind === "path") {
+      const violation = violationOf(file, unit, value.startsWith(".") ? value : `./${value}`);
+      return violation ? [{ ...violation, specifier }] : [];
+    }
+    if (!TYPE_ISOLATED.has(unit) || isTestFile(file)) return [];
+    if (kind === "lib" && /^es/i.test(value)) return [];
+    return [{ file, specifier, target: "reference", rule: RULE_REFERENCE }];
+  });
 
 // Checks one file; `file` is its repository-relative path with forward slashes.
 export const checkSource = (file: string, source: string): Violation[] => {
@@ -186,32 +219,45 @@ export const checkSource = (file: string, source: string): Violation[] => {
     const message = error instanceof Error ? error.message : String(error);
     return [{ file, specifier: "", target: "-", rule: `could not parse: ${message}` }];
   }
-  return specifiers.flatMap((specifier) => violationOf(file, owner.unit, specifier) ?? []);
+  return [
+    ...specifiers.flatMap((specifier) => violationOf(file, owner.unit, specifier) ?? []),
+    ...referenceViolations(file, owner.unit, source),
+  ];
 };
 
-const sourceFiles = async (root: string, directory: string): Promise<string[]> => {
+type Walk = { files: string[]; links: string[] };
+
+const walk = async (root: string, directory: string): Promise<Walk> => {
   const entries = await readdir(join(root, directory), { withFileTypes: true });
   const nested = await Promise.all(
-    entries.map(async (entry) => {
+    entries.map(async (entry): Promise<Walk> => {
       const path = posix.join(directory, entry.name);
+      if (entry.isSymbolicLink()) return { files: [], links: [path] };
       if (entry.isDirectory()) {
-        const skipped = SKIPPED_DIRECTORIES.has(entry.name) || entry.name.startsWith(".");
-        return skipped ? [] : sourceFiles(root, path);
+        return SKIPPED_DIRECTORIES.has(entry.name) ? { files: [], links: [] } : walk(root, path);
       }
-      return entry.isFile() && SOURCE_FILE.test(entry.name) ? [path] : [];
+      const source = entry.isFile() && SOURCE_FILE.test(entry.name);
+      return { files: source ? [path] : [], links: [] };
     }),
   );
-  return nested.flat();
+  return {
+    files: nested.flatMap((result) => result.files),
+    links: nested.flatMap((result) => result.links),
+  };
 };
 
 export const checkImports = async (
   root: string,
 ): Promise<{ files: number; violations: Violation[] }> => {
-  const files = (await sourceFiles(root, "packages")).sort();
+  const { files, links } = await walk(root, "packages");
+  files.sort();
   const results = await Promise.all(
     files.map(async (file) => checkSource(file, await Bun.file(join(root, file)).text())),
   );
-  return { files: files.length, violations: results.flat() };
+  const linked = links
+    .sort()
+    .map((file) => ({ file, specifier: "", target: "-", rule: RULE_LINK }));
+  return { files: files.length, violations: [...results.flat(), ...linked] };
 };
 
 export const formatViolation = (violation: Violation): string =>

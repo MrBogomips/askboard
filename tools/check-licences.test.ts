@@ -207,12 +207,16 @@ describe("repositories", () => {
     expect(repository).toEqual({ owner: "DefinitelyTyped", repo: "DefinitelyTyped" });
   });
 
-  test.each([undefined, "", "gitlab:owner/repo", "https://gitlab.com/owner/repo", { type: "git" }])(
-    "%p has no GitHub repository",
-    (value) => {
-      expect(repositoryOf(value)).toBeUndefined();
-    },
-  );
+  test.each([
+    undefined,
+    "",
+    "gitlab:owner/repo",
+    "https://gitlab.com/owner/repo",
+    "https://gitlab.com/owner/github.com/live/repo",
+    { type: "git" },
+  ])("%p has no GitHub repository", (value) => {
+    expect(repositoryOf(value)).toBeUndefined();
+  });
 });
 
 describe("the archive step", () => {
@@ -337,6 +341,8 @@ describe("the installed tree and the command", () => {
     overrides?: string;
     // Nested lockfile keys that repeat a package, as Bun writes them, mapped to its name.
     nested?: Record<string, string>;
+    // Rewrites the lockfile before it is written, to model other formats.
+    reshape?: (lock: Record<string, unknown>) => Record<string, unknown>;
   }) => {
     root = mkdtempSync(join(tmpdir(), "check-licences-"));
     const patchedDependencies = Object.fromEntries(
@@ -361,7 +367,7 @@ describe("the installed tree and the command", () => {
     for (const [key, name] of Object.entries(options.nested ?? {})) {
       entries[key] = entries[name] ?? [];
     }
-    const lock = {
+    const lock: Record<string, unknown> = {
       lockfileVersion: 2,
       workspaces: {
         "": { name: "fake", devDependencies: options.direct },
@@ -373,7 +379,8 @@ describe("the installed tree and the command", () => {
       packages: entries,
     };
     // bun.lock is JSON with trailing commas.
-    write("bun.lock", JSON.stringify(lock, null, 2).replace(/\n(\s*)([}\]])/g, ",\n$1$2"));
+    const shaped = options.reshape ? options.reshape(lock) : lock;
+    write("bun.lock", JSON.stringify(shaped, null, 2).replace(/\n(\s*)([}\]])/g, ",\n$1$2"));
     if (options.overrides !== undefined) write("tools/licence-overrides.json", options.overrides);
   };
   const live = { status: 200, body: { archived: false } };
@@ -424,6 +431,21 @@ describe("the installed tree and the command", () => {
     const { code, output } = await run({ GITHUB_TOKEN: "t0ken" }, true);
     expect(code).toBe(1);
     expect(output).toContain("archived");
+  });
+
+  test("a patch on any version of an MPL-2.0 package counts", async () => {
+    makeTree({
+      packages: [
+        permissive("a"),
+        { name: "mpl", version: "1.0.0", manifest: { license: "MPL-2.0" } },
+      ],
+      direct: { a: "1.0.0" },
+      patched: ["mpl@^1.0.0"],
+      overrides: "[]",
+    });
+    const { code, output } = await run({ GITHUB_TOKEN: "t0ken" });
+    expect(code).toBe(1);
+    expect(output).toContain("patched");
   });
 
   test("a package outside the rule, or a patched MPL-2.0 one, fails the command", async () => {
@@ -491,5 +513,82 @@ describe("the installed tree and the command", () => {
     const { code, output } = await run({ GITHUB_TOKEN: "t0ken" });
     expect(code).toBe(1);
     expect(output).toContain("bun.lock");
+  });
+
+  test("a package for this platform that is not installed fails; another platform's is skipped", async () => {
+    const native = (meta: Record<string, unknown>): Fake => ({
+      name: "native",
+      version: "1.0.0",
+      meta,
+      installed: false,
+    });
+    const outcome = async (meta: Record<string, unknown>) => {
+      makeTree({
+        packages: [permissive("a"), native(meta)],
+        direct: { a: "1.0.0" },
+        overrides: "[]",
+      });
+      const result = await run({ GITHUB_TOKEN: "t0ken" });
+      rmSync(root, { recursive: true, force: true });
+      return result;
+    };
+    const here = await outcome({ os: process.platform, cpu: process.arch });
+    expect(here.code).toBe(1);
+    expect(here.output).toContain("native@1.0.0");
+    expect((await outcome({ os: [process.platform], cpu: [process.arch] })).code).toBe(1);
+    expect((await outcome({ os: "!aix", cpu: process.arch })).code).toBe(1);
+    expect((await outcome({ os: `!${process.platform}`, cpu: process.arch })).code).toBe(0);
+    expect((await outcome({ os: process.platform, cpu: "none" })).code).toBe(0);
+    // The libc of this machine is not detected, so a libc-specific package is skipped.
+    expect((await outcome({ os: process.platform, cpu: process.arch, libc: "musl" })).code).toBe(0);
+  });
+
+  test.each<[string, (lock: Record<string, unknown>) => Record<string, unknown>]>([
+    ["another lockfile version", (lock) => ({ ...lock, lockfileVersion: 3 })],
+    ["no packages", ({ packages: _packages, ...lock }) => lock],
+    ["no workspaces", ({ workspaces: _workspaces, ...lock }) => lock],
+    ["no root workspace", (lock) => ({ ...lock, workspaces: {} })],
+  ])("a lockfile with %s fails the command", async (_case, reshape) => {
+    makeTree({ packages: [permissive("a")], direct: { a: "1.0.0" }, overrides: "[]", reshape });
+    const { code, output } = await run({ GITHUB_TOKEN: "t0ken" });
+    expect(code).toBe(1);
+    expect(output).toContain("bun.lock");
+  });
+
+  test("a package that bundles dependencies fails the command", async () => {
+    const bundler = (field: string, value: unknown): Fake =>
+      permissive("bundler", {
+        manifest: { license: "MIT", repository: "github:owner/bundler", [field]: value },
+      });
+    for (const [field, value] of [
+      ["bundleDependencies", ["g"]],
+      ["bundledDependencies", ["g"]],
+      ["bundleDependencies", true],
+    ] as const) {
+      makeTree({
+        packages: [permissive("a"), bundler(field, value)],
+        direct: { a: "1.0.0" },
+        overrides: "[]",
+      });
+      const { code, output } = await run({ GITHUB_TOKEN: "t0ken" });
+      expect(code).toBe(1);
+      expect(output).toContain("bundles");
+      rmSync(root, { recursive: true, force: true });
+    }
+    makeTree({
+      packages: [permissive("a"), bundler("bundleDependencies", [])],
+      direct: { a: "1.0.0" },
+      overrides: "[]",
+    });
+    expect((await run({ GITHUB_TOKEN: "t0ken" })).code).toBe(0);
+  });
+
+  test("a CI run without a token fails the command", async () => {
+    makeTree({ packages: [permissive("a")], direct: { a: "1.0.0" }, overrides: "[]" });
+    const { code, output } = await run({ CI: "true" });
+    expect(code).toBe(1);
+    expect(output).toContain("GITHUB_TOKEN");
+    expect(output).toContain("archive step: not run");
+    expect((await run({ CI: "false" })).code).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { checkImports, checkSource, formatViolation, main } from "./check-imports.ts";
@@ -125,6 +125,16 @@ describe("unit boundaries (AD-1)", () => {
     expect(violations[0]?.rule).toContain("outside packages/");
   });
 
+  test.each([
+    "/repo/packages/core/src/index.ts",
+    "file:///repo/packages/core/src/index.ts",
+    "#core",
+  ])("%s, which the check cannot resolve to a unit, fails", (specifier) => {
+    const violations = checkSource("packages/contract/src/a.ts", importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.rule).toContain("cannot resolve");
+  });
+
   test("files in packages/server/src outside the six unit folders import no AskBoard unit", () => {
     expect(checkSource("packages/server/src/index.ts", importOf("@askboard/core"))).toHaveLength(1);
     expect(
@@ -177,6 +187,49 @@ describe("runtime-specific imports in core and compute (AD-1)", () => {
   });
 });
 
+describe("triple-slash references (AD-1)", () => {
+  const reference = (kind: string, value: string) =>
+    `/// <reference ${kind}="${value}" />\nexport {};\n`;
+
+  test.each(["contract", "core", "compute"])(
+    "%s sources may not reference type packages or non-ECMAScript libraries",
+    (unit) => {
+      for (const [kind, value] of [
+        ["types", "bun"],
+        ["types", "node"],
+        ["lib", "dom"],
+        ["lib", "webworker"],
+      ]) {
+        const violations = checkSource(
+          `packages/${unit}/src/a.ts`,
+          reference(kind ?? "", value ?? ""),
+        );
+        expect(violations).toHaveLength(1);
+        expect(violations[0]?.rule).toContain("reference no type package");
+      }
+    },
+  );
+
+  test("ECMAScript libraries, test files and other units are allowed", () => {
+    expect(checkSource("packages/core/src/a.ts", reference("lib", "es2024"))).toEqual([]);
+    expect(checkSource("packages/core/src/a.ts", reference("lib", "esnext.disposable"))).toEqual(
+      [],
+    );
+    expect(checkSource("packages/core/src/a.test.ts", reference("types", "bun"))).toEqual([]);
+    expect(checkSource("packages/view/src/a.ts", reference("lib", "dom"))).toEqual([]);
+    expect(checkSource(fileOf("board-host"), reference("types", "node"))).toEqual([]);
+  });
+
+  test("a path reference counts as an import", () => {
+    const outside = checkSource(
+      "packages/contract/src/a.ts",
+      reference("path", "../../core/src/globals.d.ts"),
+    );
+    expect(outside.map((violation) => violation.target)).toEqual(["core"]);
+    expect(checkSource("packages/core/src/a.ts", reference("path", "local.d.ts"))).toEqual([]);
+  });
+});
+
 describe("import forms", () => {
   const FORMS: [string, string][] = [
     ["static import", 'import { x } from "@askboard/core";\nexport const y = x;'],
@@ -188,12 +241,27 @@ describe("import forms", () => {
     ["literal dynamic import", 'export const m = await import("@askboard/core");'],
     ["template dynamic import", "export const m = import(`@askboard/core`);"],
     ["require call", 'export const m = require("@askboard/core");'],
+    ["import.meta.require call", 'export const m = import.meta.require("@askboard/core");'],
     ["type-only import", 'import type { X } from "@askboard/core";\nexport type Y = X;'],
     ["inline type import", 'import { type X } from "@askboard/core";\nexport type Y = X;'],
     ["unused import", 'import { x } from "@askboard/core";'],
     ["type-only re-export", 'export type { X } from "@askboard/core";'],
     ["type-only star re-export", 'export type * from "@askboard/core";'],
     ["import type query", 'export type Y = import("@askboard/core").X;'],
+    [
+      "type-only import with a comment",
+      'import /* c */ type { X } from "@askboard/core";\nexport type Y = X;',
+    ],
+    [
+      "inline type import with a comment",
+      'import { /* c */ type X } from "@askboard/core";\nexport type Y = X;',
+    ],
+    ["unspaced type-only import", 'import type{X}from"@askboard/core";\nexport type Y = X;'],
+    ["unspaced type-only re-export", 'export type{X}from"@askboard/core";'],
+    [
+      "import type query with attributes",
+      'export type Y = import("@askboard/core", { with: { "resolution-mode": "import" } }).X;',
+    ],
   ];
 
   test.each(FORMS)("a %s is seen", (_form, source) => {
@@ -206,9 +274,11 @@ describe("import forms", () => {
     expect(checkSource("packages/widgets/src/a.tsx", source)).toHaveLength(1);
   });
 
-  test("a default import named type is a value import", () => {
+  test("a default import named type, or starting with type, is a value import", () => {
     const source = 'import type from "@askboard/core";\nexport const y = type;';
     expect(checkSource("packages/contract/src/a.ts", source)).toHaveLength(1);
+    const prefixed = 'import typeX from "@askboard/core";\nexport const y = typeX;';
+    expect(checkSource("packages/contract/src/a.ts", prefixed)).toHaveLength(1);
   });
 
   test("specifiers in strings and line comments are not imports", () => {
@@ -267,6 +337,19 @@ describe("the tree and the command", () => {
     lines.length = 0;
     expect(await main([root], log)).toBe(1);
     expect(lines.join("\n")).toContain('packages/compute/src/index.ts: "@askboard/core"');
+  });
+
+  test("files in dot folders are checked; symbolic links fail", async () => {
+    write("packages/core/src/.internal/a.ts", importOf("@askboard/server"));
+    symlinkSync(
+      join(root, "packages/contract/src/index.ts"),
+      join(root, "packages/contract/src/link.ts"),
+    );
+    const { violations } = await checkImports(root);
+    const files = violations.map((violation) => violation.file);
+    expect(files).toContain("packages/core/src/.internal/a.ts");
+    const link = violations.find((violation) => violation.file === "packages/contract/src/link.ts");
+    expect(link?.rule).toContain("symbolic link");
   });
 
   test("a violation prints the file, the specifier and the rule", () => {

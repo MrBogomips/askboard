@@ -35,6 +35,19 @@ const DEPENDENCY_FIELDS = [
 const root = join(import.meta.dir, "..");
 const packageDir = (name: string) => join(root, "packages", name);
 const readJson = (path: string) => Bun.file(path).json();
+const readConfig = async (path: string) =>
+  Bun.JSONC.parse(await Bun.file(join(root, path)).text()) as {
+    compilerOptions?: Record<string, unknown>;
+  };
+const manifestPaths = [
+  "package.json",
+  ...PACKAGES.map((name) => join("packages", name, "package.json")),
+];
+const configPaths = [
+  "tsconfig.base.json",
+  "tsconfig.test.json",
+  ...PACKAGES.map((name) => join("packages", name, "tsconfig.json")),
+];
 const subdirectories = (path: string) =>
   readdirSync(path, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name !== "node_modules")
@@ -74,11 +87,7 @@ describe("workspace layout", () => {
   });
 
   test("every dependency is pinned exactly", async () => {
-    const manifests = [
-      "package.json",
-      ...PACKAGES.map((name) => join("packages", name, "package.json")),
-    ];
-    for (const path of manifests) {
+    for (const path of manifestPaths) {
       const manifest = await readJson(join(root, path));
       for (const field of DEPENDENCY_FIELDS) {
         for (const [dependency, version] of Object.entries<string>(manifest[field] ?? {})) {
@@ -91,4 +100,33 @@ describe("workspace layout", () => {
       }
     }
   });
+
+  // The import check resolves only @askboard/* and relative specifiers, so nothing may alias them.
+  test("no configuration aliases imports", async () => {
+    for (const path of configPaths) {
+      const { paths, baseUrl, rootDirs } = (await readConfig(path)).compilerOptions ?? {};
+      expect({ path, paths, baseUrl, rootDirs }).toEqual({
+        path,
+        paths: undefined,
+        baseUrl: undefined,
+        rootDirs: undefined,
+      });
+    }
+    for (const path of manifestPaths) {
+      const { imports } = await readJson(join(root, path));
+      expect({ path, imports }).toEqual({ path, imports: undefined });
+    }
+  });
+
+  // Design decision 3 and AD-1: no DOM, Node or Bun types in core and compute.
+  test.each(["core", "compute"])(
+    "%s compiles with ECMAScript libraries and no types",
+    async (name) => {
+      const base = (await readConfig("tsconfig.base.json")).compilerOptions ?? {};
+      const own = (await readConfig(join("packages", name, "tsconfig.json"))).compilerOptions ?? {};
+      const lib = (own.lib ?? base.lib) as string[];
+      expect(lib.every((entry) => /^es/i.test(entry))).toBe(true);
+      expect(own.types ?? base.types).toEqual([]);
+    },
+  );
 });
