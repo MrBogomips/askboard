@@ -25,60 +25,83 @@ export type ReadyTracker = {
   subscribe(listener: () => void): () => void;
 };
 
-export const createReadyTracker = (
-  questions: readonly QuestionItems[],
-  events: ReadyEvents,
-): ReadyTracker => {
+// Which question each item belongs to, and each question's items.
+const indexItems = (questions: readonly QuestionItems[]) => {
   const questionOf = new Map<string, string>();
   const itemsOf = new Map<string, readonly string[]>();
   for (const { questionId, itemIds } of questions) {
     itemsOf.set(questionId, itemIds);
     for (const itemId of itemIds) questionOf.set(itemId, questionId);
   }
+  return { questionOf, itemsOf };
+};
+
+type Statuses = Pick<ReadyTracker, "itemStatus" | "questionStatus"> & {
+  /** Marks a pending item ready; false when that changes nothing. */
+  ready(itemId: string): boolean;
+  /** Marks an item failed; false when that changes nothing. */
+  fail(itemId: string, error: string): boolean;
+};
+
+// The items' and the questions' statuses, each question's outcome reported once.
+const createStatuses = (questions: readonly QuestionItems[], events: ReadyEvents): Statuses => {
+  const { questionOf, itemsOf } = indexItems(questions);
   const items = new Map<string, ItemStatus>();
   const settled = new Map<string, QuestionStatus>();
-  const callbacks = new Map<string, () => void>();
-  const listeners = new Set<() => void>();
-
   const itemStatus = (itemId: string): ItemStatus => items.get(itemId) ?? "pending";
   const questionStatus = (questionId: string): QuestionStatus =>
     settled.get(questionId) ?? "loading";
-  const changed = () => {
-    for (const listener of listeners) listener();
-  };
-
-  const ready = (itemId: string) => {
-    const questionId = questionOf.get(itemId);
-    if (questionId === undefined || itemStatus(itemId) !== "pending") return;
-    items.set(itemId, "ready");
-    const all = itemsOf.get(questionId) ?? [];
-    if (questionStatus(questionId) === "loading" && all.every((id) => itemStatus(id) === "ready")) {
-      settled.set(questionId, "visible");
-      events.onVisible(questionId);
-    }
-    changed();
-  };
-
   return {
-    readyFor: (itemId) => {
-      const existing = callbacks.get(itemId);
-      if (existing !== undefined) return existing;
-      const callback = () => ready(itemId);
-      callbacks.set(itemId, callback);
-      return callback;
+    itemStatus,
+    questionStatus,
+    ready: (itemId) => {
+      const questionId = questionOf.get(itemId);
+      if (questionId === undefined || itemStatus(itemId) !== "pending") return false;
+      items.set(itemId, "ready");
+      const all = itemsOf.get(questionId) ?? [];
+      if (
+        questionStatus(questionId) === "loading" &&
+        all.every((id) => itemStatus(id) === "ready")
+      ) {
+        settled.set(questionId, "visible");
+        events.onVisible(questionId);
+      }
+      return true;
     },
     fail: (itemId, error) => {
       const questionId = questionOf.get(itemId);
-      if (questionId === undefined || itemStatus(itemId) === "failed") return;
+      if (questionId === undefined || itemStatus(itemId) === "failed") return false;
       items.set(itemId, "failed");
       if (questionStatus(questionId) !== "failed") {
         settled.set(questionId, "failed");
         events.onFailed(questionId, itemId, error);
       }
-      changed();
+      return true;
     },
-    itemStatus,
-    questionStatus,
+  };
+};
+
+export const createReadyTracker = (
+  questions: readonly QuestionItems[],
+  events: ReadyEvents,
+): ReadyTracker => {
+  const statuses = createStatuses(questions, events);
+  const callbacks = new Map<string, () => void>();
+  const listeners = new Set<() => void>();
+  const notify = (changed: boolean) => {
+    if (changed) for (const listener of listeners) listener();
+  };
+  return {
+    readyFor: (itemId) => {
+      const existing = callbacks.get(itemId);
+      if (existing !== undefined) return existing;
+      const callback = () => notify(statuses.ready(itemId));
+      callbacks.set(itemId, callback);
+      return callback;
+    },
+    fail: (itemId, error) => notify(statuses.fail(itemId, error)),
+    itemStatus: statuses.itemStatus,
+    questionStatus: statuses.questionStatus,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {

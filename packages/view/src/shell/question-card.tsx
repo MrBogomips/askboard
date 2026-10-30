@@ -14,7 +14,7 @@ import { questionTextId } from "../catalog/port.ts";
 import { type PendingAnswer, readAnswerReply } from "../view-protocol.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import type { ViewChannel } from "./channel.ts";
-import { answerOf, cardState, statusOf } from "./question-state.ts";
+import { answerOf, type CardState, cardState, statusOf } from "./question-state.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 
 export type CardContext = RenderContext & {
@@ -32,48 +32,72 @@ const ANSWER =
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring " +
   "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50";
 
-export const QuestionCard = ({
-  question,
-  state,
-  locked,
-  held,
-  context,
-}: {
+type CardProps = {
   readonly question: BoardQuestion;
   readonly state: BoardState;
   readonly locked: boolean;
   /** The answer the board page holds for this question, if any. */
   readonly held: PendingAnswer | undefined;
   readonly context: CardContext;
-}) => {
-  const { tracker, draft, channel, acts } = context;
+};
+
+// What the card shows, from the stores it follows: its loading, its draft value and its act.
+const useCard = ({ question, state, locked, held, context }: CardProps) => {
+  const { tracker, draft, acts } = context;
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(question.id));
   const act = useSyncExternalStore(acts.subscribe, () => acts.of(question.id));
   const card = cardState(statusOf(state, question.id), value, act, load, locked, held);
+  return { load, value, card };
+};
+
+// Sends the answer at once, stamped with the click's time; the act follows the board page's reply.
+const sendAnswer = (
+  question: BoardQuestion,
+  value: readonly string[],
+  { channel, acts }: CardContext,
+): void => {
+  const message = answerOf(question, value, new Date());
+  acts.start(question.id, message.choice, message.when);
+  channel.send(message).then(
+    (reply) => {
+      const read = readAnswerReply(reply);
+      if (read?.outcome === "sent" || read?.outcome === "queued") {
+        acts.replied(question.id, message.when, read.outcome);
+        return;
+      }
+      acts.drop(question.id, message.when);
+      const detail = read?.outcome === "refused" ? read.detail : "no reply";
+      console.error(`askboard: the board page did not send the answer: ${detail}`);
+    },
+    (error: unknown) => {
+      acts.drop(question.id, message.when);
+      console.error("askboard: the answer did not reach the board page:", error);
+    },
+  );
+};
+
+const AnswerRow = ({
+  card,
+  onAnswer,
+}: {
+  readonly card: CardState;
+  readonly onAnswer: () => void;
+}) => (
+  <div className="flex items-center justify-end gap-3">
+    {card.receipt === undefined ? null : (
+      <span className="text-badge text-muted-foreground">{card.receipt}</span>
+    )}
+    <button type="button" disabled={!card.canAnswer} onClick={onAnswer} className={ANSWER}>
+      Answer
+    </button>
+  </div>
+);
+
+export const QuestionCard = (props: CardProps) => {
+  const { question, context } = props;
+  const { load, value, card } = useCard(props);
   const { header, text, multiSelect } = question.props;
-
-  const answer = () => {
-    const message = answerOf(question, value, new Date());
-    acts.start(question.id, message.choice, message.when);
-    channel.send(message).then(
-      (reply) => {
-        const read = readAnswerReply(reply);
-        if (read?.outcome === "sent" || read?.outcome === "queued") {
-          acts.replied(question.id, message.when, read.outcome);
-          return;
-        }
-        acts.drop(question.id, message.when);
-        const detail = read?.outcome === "refused" ? read.detail : "no reply";
-        console.error(`askboard: the board page did not send the answer: ${detail}`);
-      },
-      (error: unknown) => {
-        acts.drop(question.id, message.when);
-        console.error("askboard: the answer did not reach the board page:", error);
-      },
-    );
-  };
-
   return (
     <section
       data-askboard-question={question.id}
@@ -90,14 +114,7 @@ export const QuestionCard = ({
       </p>
       <RenderItem item={question} context={context} disabled={card.readOnly} shown={card.shown} />
       {load === "failed" ? null : (
-        <div className="flex items-center justify-end gap-3">
-          {card.receipt === undefined ? null : (
-            <span className="text-badge text-muted-foreground">{card.receipt}</span>
-          )}
-          <button type="button" disabled={!card.canAnswer} onClick={answer} className={ANSWER}>
-            Answer
-          </button>
-        </div>
+        <AnswerRow card={card} onAnswer={() => sendAnswer(question, value, context)} />
       )}
     </section>
   );
