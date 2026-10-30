@@ -44,7 +44,7 @@ Each board SHALL have its own random token of at least 128 bits. It SHALL travel
 
 #### Scenario: The served policy
 - **WHEN** a board page is loaded with its token
-- **THEN** its CSP header holds the hashes of the board page script and of every view chunk, and no `'unsafe-inline'`, `'unsafe-eval'` or `'unsafe-hashes'`
+- **THEN** its CSP header holds the hashes of the board page script and of every view chunk, and no `'wasm-unsafe-eval'`, `'unsafe-inline'`, `'unsafe-eval'` or `'unsafe-hashes'`
 
 ### Requirement: Invalid-link page
 A link that opens no board, because it has no token, a wrong token or the ID of an ask unknown or discarded, SHALL get a short page that says why and what to do, with no board content (NFR-4, AD-21).

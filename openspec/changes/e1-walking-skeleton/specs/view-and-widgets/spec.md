@@ -18,7 +18,7 @@ The board page SHALL build the view's iframe from `srcdoc` through `assemble`, w
 - **THEN** the request fails and the session process receives nothing
 
 ### Requirement: The view's policy
-The view's srcdoc SHALL carry a CSP meta tag with `default-src 'none'`, scripts and styles only by the hashes of its inlined chunks, `img-src data: blob:`, `font-src data:`, and `connect-src`, `object-src`, `frame-src`, `form-action` and `base-uri` all `'none'`. Neither the view nor the board page SHALL raise a CSP violation (AD-8).
+The view's srcdoc SHALL carry a CSP meta tag with `default-src 'none'`, scripts and styles only by the hashes of its inlined chunks, `img-src data: blob:`, `font-src data:`, and `connect-src`, `object-src`, `frame-src`, `form-action` and `base-uri` all `'none'`, and never `'wasm-unsafe-eval'`, `'unsafe-eval'`, `'unsafe-inline'` or `'unsafe-hashes'`. Neither the view nor the board page SHALL raise a CSP violation (AD-8).
 
 #### Scenario: A board loads in each engine
 - **WHEN** a board is loaded in Chromium, Firefox and WebKit
