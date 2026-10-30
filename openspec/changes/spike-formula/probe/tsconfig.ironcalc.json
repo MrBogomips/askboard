@@ -1,6 +1,6 @@
 {
   // Task 2.4: the IronCalc adapter under compute's settings (lib es2024, no types).
-  // `tsc -p tsconfig.ironcalc.json`; findings-parts/ironcalc.md records the result.
+  // `tsc -p tsconfig.ironcalc.json`; findings.md (The IronCalc adapter) records the result.
   "extends": "./tsconfig.compute.json",
   "files": [
     "src/ironcalc/engine.ts",

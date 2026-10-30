@@ -1,6 +1,6 @@
 // Bundle sizes for task 5.2: what mathjs's `parse` alone adds to a view chunk, against the
 // own parser and the whole own engine. Each entry is built with `bun build --minify` and
-// measured raw and with `gzip -9`, the same measure findings-parts/own.md uses.
+// measured raw and with `gzip -9`, the same measure findings.md uses for the own engine.
 
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
