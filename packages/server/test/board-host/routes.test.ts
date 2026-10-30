@@ -77,6 +77,14 @@ describe("the board page", () => {
     );
     expect(policy).not.toContain("unsafe-");
     expect(policy).not.toContain("frame-src");
+    // The page's own `<base href="/">` is allowed, an off-origin base is not.
+    expect(parts.get("base-uri")).toEqual(["'self'"]);
+  });
+
+  test("the invalid-link page keeps base-uri 'none'", async () => {
+    const answer = await request(port, `/b/${askId}`);
+    const policy = String(answer.headers["content-security-policy"]);
+    expect(directives(policy).get("base-uri")).toEqual(["'none'"]);
   });
 });
 

@@ -35,8 +35,11 @@ describe("the board page's policy", () => {
         "style-src",
       ].sort(),
     );
-    // Only restrictions besides: no base URL, no form posts (AD-11), no page framing the board.
-    for (const name of ["base-uri", "form-action", "frame-ancestors"]) {
+    // Only restrictions besides: a base URL of the board's own origin only, for the page's static
+    // `<base href="/">`, which gives the srcdoc view a base without the token (Track B's request 2);
+    // no form posts (AD-11); no page framing the board.
+    expect(parts.get("base-uri")).toEqual(["'self'"]);
+    for (const name of ["form-action", "frame-ancestors"]) {
       expect(parts.get(name)).toEqual(["'none'"]);
     }
     expect(parts.get("default-src")).toEqual(["'none'"]);
