@@ -1,0 +1,1051 @@
+{
+  "description": "Whitelist fixtures with Excel's values, adapted from the formula spike's probe (openspec/changes/spike-formula/probe/fixtures/whitelist.json): every case verbatim. The input sets become the fields and children of one item x; the list set's members are renamed (l.a to la) so that child IDs are unique within x, and formulas read them only through wildcards. A case loads item x from the sets it uses plus its own inputs, then item t with the field r: its formula, of `type` (default number). `expected` is Excel's documented value; `excel` and `js` note where Excel and JavaScript differ. Cases of the seven dropped functions keep their Excel values as a record, and the test expects them refused.",
+  "inputSets": {
+    "misc": {
+      "fields": {
+        "e": {
+          "type": "number",
+          "value": null
+        },
+        "b": {
+          "type": "boolean",
+          "value": true
+        },
+        "t": {
+          "type": "text",
+          "value": "5"
+        },
+        "s": {
+          "type": "text",
+          "value": "abc"
+        },
+        "zero": {
+          "type": "number",
+          "value": 0
+        }
+      }
+    },
+    "dates": {
+      "fields": {
+        "mon": {
+          "type": "date",
+          "value": "2026-11-02"
+        },
+        "fri": {
+          "type": "date",
+          "value": "2026-11-06"
+        },
+        "sat": {
+          "type": "date",
+          "value": "2026-11-07"
+        },
+        "dec31": {
+          "type": "date",
+          "value": "2026-12-31"
+        },
+        "leap": {
+          "type": "date",
+          "value": "2028-02-28"
+        }
+      }
+    },
+    "list": {
+      "children": [
+        {
+          "id": "l",
+          "children": [
+            {
+              "id": "la",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 1
+                },
+                "w": {
+                  "type": "number",
+                  "value": 4
+                },
+                "u": {
+                  "type": "text",
+                  "value": "n/a"
+                }
+              }
+            },
+            {
+              "id": "lb",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 2
+                },
+                "w": {
+                  "type": "number",
+                  "value": 5
+                },
+                "u": {
+                  "type": "number",
+                  "value": 2
+                }
+              }
+            },
+            {
+              "id": "lc",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 3
+                },
+                "w": {
+                  "type": "number",
+                  "value": 6
+                },
+                "u": {
+                  "type": "number",
+                  "value": 3
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "children": [
+            {
+              "id": "ma",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 1
+                }
+              }
+            },
+            {
+              "id": "mb",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 2
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "k",
+          "children": [
+            {
+              "id": "ka",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 1
+                }
+              }
+            },
+            {
+              "id": "kb",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "formula": "1/0"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "add",
+      "op": "+",
+      "formula": "1+2",
+      "expected": 3
+    },
+    {
+      "id": "add-float",
+      "op": "+",
+      "formula": "0.1+0.2",
+      "expected": 0.3,
+      "excel": "0.3 shown; 0.30000000000000004 stored",
+      "js": 0.30000000000000004,
+      "note": "binary floating point in both engines: passes at 1e-9, counted as an exact mismatch"
+    },
+    {
+      "id": "add-bool",
+      "op": "+",
+      "formula": "TRUE+TRUE",
+      "expected": 2
+    },
+    {
+      "id": "add-text-number",
+      "op": "+",
+      "formula": "\"3\"+1",
+      "expected": 4,
+      "note": "numeric text converts; plain decimal only, whatever the locale"
+    },
+    {
+      "id": "add-text",
+      "op": "+",
+      "formula": "\"abc\"+1",
+      "expected": {
+        "error": "value"
+      },
+      "excel": "#VALUE!",
+      "js": "abc1"
+    },
+    {
+      "id": "add-text-comma",
+      "op": "+",
+      "formula": "\"1,5\"+1",
+      "expected": {
+        "error": "value"
+      },
+      "note": "locale-independent: Excel in de-DE would read 1,5 as 1.5"
+    },
+    {
+      "id": "add-empty",
+      "op": "+",
+      "formula": "[x.e]+1",
+      "expected": 1,
+      "use": ["misc"],
+      "js": "null+1 = 1, undefined+1 = NaN"
+    },
+    {
+      "id": "sub",
+      "op": "-",
+      "formula": "5-7",
+      "expected": -2
+    },
+    {
+      "id": "sub-left-assoc",
+      "op": "-",
+      "formula": "10-2-3",
+      "expected": 5
+    },
+    {
+      "id": "neg-bool",
+      "op": "-",
+      "formula": "-TRUE",
+      "expected": -1
+    },
+    {
+      "id": "neg-double",
+      "op": "-",
+      "formula": "--3",
+      "expected": 3
+    },
+    {
+      "id": "mul",
+      "op": "*",
+      "formula": "6*7",
+      "expected": 42
+    },
+    {
+      "id": "mul-empty",
+      "op": "*",
+      "formula": "[x.e]*5",
+      "expected": 0,
+      "use": ["misc"]
+    },
+    {
+      "id": "mul-bool",
+      "op": "*",
+      "formula": "TRUE*5",
+      "expected": 5
+    },
+    {
+      "id": "div",
+      "op": "/",
+      "formula": "7/2",
+      "expected": 3.5
+    },
+    {
+      "id": "div-left-assoc",
+      "op": "/",
+      "formula": "12/3/2",
+      "expected": 2
+    },
+    {
+      "id": "div-zero",
+      "op": "/",
+      "formula": "1/0",
+      "expected": {
+        "error": "division-by-zero"
+      },
+      "excel": "#DIV/0!",
+      "js": "Infinity"
+    },
+    {
+      "id": "div-zero-zero",
+      "op": "/",
+      "formula": "0/0",
+      "expected": {
+        "error": "division-by-zero"
+      },
+      "excel": "#DIV/0!",
+      "js": "NaN"
+    },
+    {
+      "id": "div-empty",
+      "op": "/",
+      "formula": "1/[x.e]",
+      "expected": {
+        "error": "division-by-zero"
+      },
+      "use": ["misc"]
+    },
+    {
+      "id": "overflow",
+      "op": "*",
+      "formula": "1E308*10",
+      "expected": {
+        "error": "value"
+      },
+      "excel": "#NUM!",
+      "js": "Infinity"
+    },
+    {
+      "id": "pow",
+      "op": "^",
+      "formula": "2^10",
+      "expected": 1024
+    },
+    {
+      "id": "pow-left-assoc",
+      "op": "^",
+      "formula": "2^3^2",
+      "expected": 64,
+      "excel": "64: ^ is left-associative",
+      "js": "2**3**2 = 512"
+    },
+    {
+      "id": "pow-unary-minus",
+      "op": "^",
+      "formula": "-2^2",
+      "expected": 4,
+      "excel": "4: negation binds tighter than ^",
+      "js": "-(2**2) = -4"
+    },
+    {
+      "id": "pow-binary-minus",
+      "op": "^",
+      "formula": "0-2^2",
+      "expected": -4
+    },
+    {
+      "id": "pow-neg-exponent",
+      "op": "^",
+      "formula": "2^-1",
+      "expected": 0.5
+    },
+    {
+      "id": "pow-zero-zero",
+      "op": "^",
+      "formula": "0^0",
+      "expected": {
+        "error": "value"
+      },
+      "excel": "#NUM!",
+      "js": "1"
+    },
+    {
+      "id": "precedence-mul",
+      "op": "*",
+      "formula": "1+2*3",
+      "expected": 7
+    },
+    {
+      "id": "precedence-paren",
+      "op": "*",
+      "formula": "(1+2)*3",
+      "expected": 9
+    },
+    {
+      "id": "precedence-pow",
+      "op": "^",
+      "formula": "2*3^2",
+      "expected": 18
+    },
+    {
+      "id": "eq",
+      "op": "=",
+      "formula": "1=1",
+      "expected": true
+    },
+    {
+      "id": "eq-float",
+      "op": "=",
+      "formula": "0.1+0.2=0.3",
+      "expected": true,
+      "excel": "TRUE: compared at 15 significant digits",
+      "js": "false"
+    },
+    {
+      "id": "eq-text-case",
+      "op": "=",
+      "formula": "\"a\"=\"A\"",
+      "expected": true,
+      "excel": "TRUE: text compares case-insensitively",
+      "js": "false"
+    },
+    {
+      "id": "eq-number-text",
+      "op": "=",
+      "formula": "1=\"1\"",
+      "expected": false
+    },
+    {
+      "id": "eq-empty-zero",
+      "op": "=",
+      "formula": "[x.e]=0",
+      "expected": true,
+      "use": ["misc"]
+    },
+    {
+      "id": "eq-empty-text",
+      "op": "=",
+      "formula": "[x.e]=\"\"",
+      "expected": true,
+      "use": ["misc"]
+    },
+    {
+      "id": "eq-empty-false",
+      "op": "=",
+      "formula": "[x.e]=FALSE",
+      "expected": true,
+      "use": ["misc"]
+    },
+    {
+      "id": "ne",
+      "op": "<>",
+      "formula": "1<>2",
+      "expected": true
+    },
+    {
+      "id": "ne-empty",
+      "op": "<>",
+      "formula": "[x.e]<>\"\"",
+      "expected": false,
+      "use": ["misc"]
+    },
+    {
+      "id": "lt",
+      "op": "<",
+      "formula": "1<2",
+      "expected": true
+    },
+    {
+      "id": "lt-number-text",
+      "op": "<",
+      "formula": "1<\"a\"",
+      "expected": true,
+      "excel": "numbers < text < booleans"
+    },
+    {
+      "id": "lt-text-bool",
+      "op": "<",
+      "formula": "\"z\"<TRUE",
+      "expected": true
+    },
+    {
+      "id": "lt-chain",
+      "op": "<",
+      "formula": "1<2<3",
+      "expected": false,
+      "excel": "(1<2)<3 is TRUE<3, FALSE: booleans sort after numbers"
+    },
+    {
+      "id": "le",
+      "op": "<=",
+      "formula": "2<=2",
+      "expected": true
+    },
+    {
+      "id": "gt",
+      "op": ">",
+      "formula": "\"b\">\"a\"",
+      "expected": true
+    },
+    {
+      "id": "ge",
+      "op": ">=",
+      "formula": "FALSE>=TRUE",
+      "expected": false
+    },
+    {
+      "id": "text-literal",
+      "op": "=",
+      "formula": "\"\"\"\"=\"\"\"\"",
+      "expected": true,
+      "note": "doubled quotes escape a quote"
+    },
+    {
+      "id": "sum",
+      "op": "SUM",
+      "formula": "SUM(1,2,3)",
+      "expected": 6
+    },
+    {
+      "id": "sum-wildcard",
+      "op": "SUM",
+      "formula": "SUM([x.l.*.v])",
+      "expected": 6,
+      "use": ["list"]
+    },
+    {
+      "id": "sum-ref-bool",
+      "op": "SUM",
+      "formula": "SUM([x.b])",
+      "expected": 0,
+      "use": ["misc"],
+      "excel": "0: a boolean inside a reference is ignored"
+    },
+    {
+      "id": "sum-direct-bool",
+      "op": "SUM",
+      "formula": "SUM(TRUE,1)",
+      "expected": 2,
+      "excel": "2: a boolean typed directly counts"
+    },
+    {
+      "id": "sum-ref-text",
+      "op": "SUM",
+      "formula": "SUM([x.t])",
+      "expected": 0,
+      "use": ["misc"],
+      "excel": "0: text inside a reference is ignored"
+    },
+    {
+      "id": "sum-direct-text",
+      "op": "SUM",
+      "formula": "SUM(\"5\",1)",
+      "expected": 6
+    },
+    {
+      "id": "sum-bad-text",
+      "op": "SUM",
+      "formula": "SUM(\"abc\")",
+      "expected": {
+        "error": "value"
+      }
+    },
+    {
+      "id": "sum-empty",
+      "op": "SUM",
+      "formula": "SUM([x.e])",
+      "expected": 0,
+      "use": ["misc"]
+    },
+    {
+      "id": "sum-error",
+      "op": "SUM",
+      "formula": "SUM([x.k.*.v])",
+      "expected": {
+        "error": "division-by-zero"
+      },
+      "use": ["list"]
+    },
+    {
+      "id": "min",
+      "op": "MIN",
+      "formula": "MIN(3,1,2)",
+      "expected": 1
+    },
+    {
+      "id": "min-empty",
+      "op": "MIN",
+      "formula": "MIN([x.e])",
+      "expected": 0,
+      "use": ["misc"],
+      "excel": "0 when there is no number"
+    },
+    {
+      "id": "max",
+      "op": "MAX",
+      "formula": "MAX([x.l.*.v])",
+      "expected": 3,
+      "use": ["list"]
+    },
+    {
+      "id": "max-negative",
+      "op": "MAX",
+      "formula": "MAX(-1,-5)",
+      "expected": -1
+    },
+    {
+      "id": "if-true",
+      "op": "IF",
+      "formula": "IF(TRUE,1,2)",
+      "expected": 1
+    },
+    {
+      "id": "if-zero",
+      "op": "IF",
+      "formula": "IF(0,1,2)",
+      "expected": 2
+    },
+    {
+      "id": "if-no-else",
+      "op": "IF",
+      "formula": "IF(1>2,1)",
+      "expected": false
+    },
+    {
+      "id": "if-lazy",
+      "op": "IF",
+      "formula": "IF(TRUE,1,1/0)",
+      "expected": 1,
+      "excel": "1: only the chosen branch is evaluated"
+    },
+    {
+      "id": "if-text",
+      "op": "IF",
+      "formula": "IF(\"abc\",1,2)",
+      "expected": {
+        "error": "value"
+      }
+    },
+    {
+      "id": "if-empty-cond",
+      "op": "IF",
+      "formula": "IF([x.e],1,2)",
+      "expected": 2,
+      "use": ["misc"]
+    },
+    {
+      "id": "if-empty-result",
+      "op": "IF",
+      "formula": "IF(TRUE,[x.e],1)",
+      "expected": 0,
+      "use": ["misc"]
+    },
+    {
+      "id": "round-half",
+      "op": "ROUND",
+      "formula": "ROUND(2.5,0)",
+      "expected": 3
+    },
+    {
+      "id": "round-half-negative",
+      "op": "ROUND",
+      "formula": "ROUND(-2.5,0)",
+      "expected": -3,
+      "excel": "-3: half away from zero",
+      "js": "Math.round(-2.5) = -2"
+    },
+    {
+      "id": "round-2675",
+      "op": "ROUND",
+      "formula": "ROUND(2.675,2)",
+      "expected": 2.68,
+      "excel": "2.68",
+      "js": "Math.round(2.675*100)/100 = 2.67; (2.675).toFixed(2) = 2.67"
+    },
+    {
+      "id": "round-1005",
+      "op": "ROUND",
+      "formula": "ROUND(1.005,2)",
+      "expected": 1.01,
+      "excel": "1.01",
+      "js": "Math.round(1.005*100)/100 = 1"
+    },
+    {
+      "id": "round-1005-negative",
+      "op": "ROUND",
+      "formula": "ROUND(-1.005,2)",
+      "expected": -1.01
+    },
+    {
+      "id": "round-negative-digits",
+      "op": "ROUND",
+      "formula": "ROUND(1234.5678,-2)",
+      "expected": 1200
+    },
+    {
+      "id": "round-145",
+      "op": "ROUND",
+      "formula": "ROUND(1.45,1)",
+      "expected": 1.5
+    },
+    {
+      "id": "round-digits-truncated",
+      "op": "ROUND",
+      "formula": "ROUND(2.5,0.9)",
+      "expected": 3,
+      "excel": "digits are truncated to 0"
+    },
+    {
+      "id": "round-huge",
+      "op": "ROUND",
+      "formula": "ROUND(1E21,2)",
+      "expected": 1e21,
+      "note": "String(1e23) is exponential: scaling by string concatenation must go through the exponent"
+    },
+    {
+      "id": "round-tiny",
+      "op": "ROUND",
+      "formula": "ROUND(1.5E-7,7)",
+      "expected": 2e-7
+    },
+    {
+      "id": "roundup",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP(5.5,0)",
+      "expected": 6
+    },
+    {
+      "id": "roundup-negative",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP(-5.5,0)",
+      "expected": -6,
+      "excel": "-6: away from zero",
+      "js": "Math.ceil(-5.5) = -5"
+    },
+    {
+      "id": "roundup-integer",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP(4,0)",
+      "expected": 4
+    },
+    {
+      "id": "roundup-pert",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP(76/6,0)",
+      "expected": 13
+    },
+    {
+      "id": "roundup-float",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP(0.1+0.2,1)",
+      "expected": 0.3,
+      "excel": "0.3: the value at 15 digits is 0.3",
+      "js": "Math.ceil(0.30000000000000004*10)/10 = 0.4"
+    },
+    {
+      "id": "roundup-near-integer",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP((0.1+0.2)*10,0)",
+      "expected": 3,
+      "excel": "3: the value at 15 digits is 3",
+      "js": "Math.ceil(3.0000000000000004) = 4"
+    },
+    {
+      "id": "roundup-digits",
+      "op": "ROUNDUP",
+      "formula": "ROUNDUP(3.14159,3)",
+      "expected": 3.142
+    },
+    {
+      "id": "and",
+      "op": "AND",
+      "formula": "AND(TRUE,1)",
+      "expected": true
+    },
+    {
+      "id": "and-false",
+      "op": "AND",
+      "formula": "AND(TRUE,0)",
+      "expected": false
+    },
+    {
+      "id": "and-text-only",
+      "op": "AND",
+      "formula": "AND([x.t])",
+      "expected": {
+        "error": "value"
+      },
+      "use": ["misc"],
+      "excel": "#VALUE!: no logical value"
+    },
+    {
+      "id": "and-empty",
+      "op": "AND",
+      "formula": "AND([x.e]<>\"\",TRUE)",
+      "expected": false,
+      "use": ["misc"]
+    },
+    {
+      "id": "or",
+      "op": "OR",
+      "formula": "OR(1,0)",
+      "expected": true
+    },
+    {
+      "id": "or-false",
+      "op": "OR",
+      "formula": "OR(FALSE,0)",
+      "expected": false
+    },
+    {
+      "id": "not",
+      "op": "NOT",
+      "formula": "NOT(0)",
+      "expected": true
+    },
+    {
+      "id": "abs",
+      "op": "ABS",
+      "formula": "ABS(-3)",
+      "expected": 3
+    },
+    {
+      "id": "sqrt",
+      "op": "SQRT",
+      "formula": "SQRT(16)",
+      "expected": 4
+    },
+    {
+      "id": "sqrt-negative",
+      "op": "SQRT",
+      "formula": "SQRT(-1)",
+      "expected": {
+        "error": "value"
+      },
+      "excel": "#NUM!",
+      "js": "NaN"
+    },
+    {
+      "id": "sumsq",
+      "op": "SUMSQ",
+      "formula": "SUMSQ(3,4)",
+      "expected": 25
+    },
+    {
+      "id": "sumsq-wildcard",
+      "op": "SUMSQ",
+      "formula": "SUMSQ([x.l.*.v])",
+      "expected": 14,
+      "use": ["list"]
+    },
+    {
+      "id": "sumproduct",
+      "op": "SUMPRODUCT",
+      "formula": "SUMPRODUCT([x.l.*.v],[x.l.*.w])",
+      "expected": 32,
+      "use": ["list"]
+    },
+    {
+      "id": "sumproduct-text",
+      "op": "SUMPRODUCT",
+      "formula": "SUMPRODUCT([x.l.*.u],[x.l.*.w])",
+      "expected": 28,
+      "use": ["list"],
+      "excel": "text counts as 0"
+    },
+    {
+      "id": "sumproduct-length",
+      "op": "SUMPRODUCT",
+      "formula": "SUMPRODUCT([x.l.*.v],[x.m.*.v])",
+      "expected": {
+        "error": "value"
+      },
+      "use": ["list"]
+    },
+    {
+      "id": "ceiling",
+      "op": "CEILING",
+      "formula": "CEILING(2.5,1)",
+      "expected": 3
+    },
+    {
+      "id": "ceiling-negative",
+      "op": "CEILING",
+      "formula": "CEILING(-2.5,-2)",
+      "expected": -4
+    },
+    {
+      "id": "ceiling-mixed",
+      "op": "CEILING",
+      "formula": "CEILING(-2.5,2)",
+      "expected": -2
+    },
+    {
+      "id": "ceiling-bad",
+      "op": "CEILING",
+      "formula": "CEILING(2.5,-2)",
+      "expected": {
+        "error": "value"
+      },
+      "excel": "#NUM!"
+    },
+    {
+      "id": "average",
+      "op": "AVERAGE",
+      "formula": "AVERAGE(1,2,3,4)",
+      "expected": 2.5
+    },
+    {
+      "id": "average-none",
+      "op": "AVERAGE",
+      "formula": "AVERAGE([x.e])",
+      "expected": {
+        "error": "division-by-zero"
+      },
+      "use": ["misc"]
+    },
+    {
+      "id": "count",
+      "op": "COUNT",
+      "formula": "COUNT([x.l.*.u])",
+      "expected": 2,
+      "use": ["list"]
+    },
+    {
+      "id": "count-direct",
+      "op": "COUNT",
+      "formula": "COUNT(1,\"a\",TRUE)",
+      "expected": 2
+    },
+    {
+      "id": "workday",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.fri],1)",
+      "expected": "2026-11-09",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "workday-zero-weekend",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.sat],0)",
+      "expected": "2026-11-07",
+      "use": ["dates"],
+      "type": "date",
+      "excel": "the date itself, even on a weekend"
+    },
+    {
+      "id": "workday-from-weekend",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.sat],1)",
+      "expected": "2026-11-09",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "workday-back",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.mon],-1)",
+      "expected": "2026-10-30",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "workday-week",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.mon],5)",
+      "expected": "2026-11-09",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "workday-fraction",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.mon],2.7)",
+      "expected": "2026-11-04",
+      "use": ["dates"],
+      "type": "date",
+      "excel": "days truncated to 2"
+    },
+    {
+      "id": "workday-first-day-sat",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.sat]-1,1)",
+      "expected": "2026-11-09",
+      "use": ["dates"],
+      "type": "date",
+      "note": "first working day on or after a Saturday start"
+    },
+    {
+      "id": "workday-first-day-mon",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.mon]-1,1)",
+      "expected": "2026-11-02",
+      "use": ["dates"],
+      "type": "date",
+      "note": "first working day on or after a Monday start"
+    },
+    {
+      "id": "workday-year",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.dec31],1)",
+      "expected": "2027-01-01",
+      "use": ["dates"],
+      "type": "date",
+      "note": "no holidays"
+    },
+    {
+      "id": "workday-leap",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.leap],1)",
+      "expected": "2028-02-29",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "workday-year-of-days",
+      "op": "WORKDAY",
+      "formula": "WORKDAY([x.mon],260)",
+      "expected": "2027-11-01",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "networkdays",
+      "op": "NETWORKDAYS",
+      "formula": "NETWORKDAYS([x.mon],[x.fri])",
+      "expected": 5,
+      "use": ["dates"]
+    },
+    {
+      "id": "networkdays-reverse",
+      "op": "NETWORKDAYS",
+      "formula": "NETWORKDAYS([x.fri],[x.mon])",
+      "expected": -5,
+      "use": ["dates"]
+    },
+    {
+      "id": "networkdays-weekend",
+      "op": "NETWORKDAYS",
+      "formula": "NETWORKDAYS([x.sat],[x.sat])",
+      "expected": 0,
+      "use": ["dates"]
+    },
+    {
+      "id": "date-difference",
+      "op": "-",
+      "formula": "[x.fri]-[x.mon]",
+      "expected": 4,
+      "use": ["dates"]
+    },
+    {
+      "id": "date-plus",
+      "op": "+",
+      "formula": "[x.mon]+7",
+      "expected": "2026-11-09",
+      "use": ["dates"],
+      "type": "date"
+    },
+    {
+      "id": "date-invalid",
+      "op": "+",
+      "formula": "[x.bad]+1",
+      "expected": {
+        "error": "value"
+      },
+      "warnings": [
+        {
+          "error": "value",
+          "address": "x.bad"
+        }
+      ],
+      "inputs": {
+        "bad": {
+          "type": "date",
+          "value": "2026-02-30"
+        }
+      }
+    }
+  ]
+}
