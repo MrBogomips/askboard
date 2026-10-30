@@ -8,12 +8,17 @@
 // down, every request and upgrade failing, until `restore`.
 
 import { BOARD_HOST, boardLink, parseBoardRoute } from "@askboard/contract";
-import type { Server, ServerWebSocket } from "bun";
+import type { Server, WebSocketHandler } from "bun";
 import { answerHttp, type BoardAccess, toResponse } from "./http.ts";
 import { Replay } from "./replay.ts";
 import type { BoardSession, Scenario } from "./session.ts";
+import type { ReplayTranscript } from "./transcripts.ts";
+import type { ViewBuild } from "./view-build.ts";
 
 type SocketData = { number: number };
+
+/** What the session-side steps change, and the requests that reached the server. */
+type ServerState = { access: BoardAccess; networkUp: boolean; readonly requests: string[] };
 
 const text = (status: number, body: string) =>
   new Response(`${body}\n`, {
@@ -28,74 +33,88 @@ const text = (status: number, body: string) =>
 const isUpgrade = (request: Request) =>
   request.headers.get("upgrade")?.toLowerCase() === "websocket";
 
-export const startTestServer = async ({ transcript, view }: Scenario): Promise<BoardSession> => {
-  let access: BoardAccess = { askId: transcript.askId, token: transcript.token, state: "open" };
-  let networkUp = true;
-  let closed = false;
-  const requests: string[] = [];
-  const replay = new Replay(transcript.steps, {
+// The replay of the transcript's host half, whose session-side steps change the state.
+const replayOf = ({ steps }: ReplayTranscript, state: ServerState): Replay =>
+  new Replay(steps, {
     onExit: () => {
-      access = { ...access, state: "discarded" };
+      state.access = { ...state.access, state: "discarded" };
     },
     onRestart: () => {
-      access = { ...access, state: "unknown" };
+      state.access = { ...state.access, state: "unknown" };
     },
     onDrop: () => {
-      networkUp = false;
+      state.networkUp = false;
     },
   });
 
-  // The upgrade passes the checks `board-host` makes before the token: its route and its Origin
-  // (AD-11). The token itself is the replay's business, in the first message.
-  const upgrade = (request: Request, server: Server<SocketData>): Response | undefined => {
-    const url = new URL(request.url);
-    if (parseBoardRoute(url.pathname)?.kind !== "socket") return text(404, "Not found.");
-    if (request.headers.get("origin") !== `http://${request.headers.get("host")}`) {
-      return text(403, "The upgrade's Origin is not the board's.");
-    }
-    if (access.state === "discarded") return text(503, "The session process has exited.");
-    if (server.upgrade(request, { data: { number: 0 } })) return undefined;
-    return text(400, "Not a WebSocket upgrade.");
-  };
+// The upgrade passes the checks `board-host` makes before the token: its route and its Origin
+// (AD-11). The token itself is the replay's business, in the first message.
+const upgrade = (
+  request: Request,
+  server: Server<SocketData>,
+  access: BoardAccess,
+): Response | undefined => {
+  const url = new URL(request.url);
+  if (parseBoardRoute(url.pathname)?.kind !== "socket") return text(404, "Not found.");
+  if (request.headers.get("origin") !== `http://${request.headers.get("host")}`) {
+    return text(403, "The upgrade's Origin is not the board's.");
+  }
+  if (access.state === "discarded") return text(503, "The session process has exited.");
+  if (server.upgrade(request, { data: { number: 0 } })) return undefined;
+  return text(400, "Not a WebSocket upgrade.");
+};
 
-  const server: Server<SocketData> = Bun.serve<SocketData>({
+// Each socket the replay attaches gets its number, by which it sends and reads that socket.
+const socketsOf = (replay: Replay): WebSocketHandler<SocketData> => ({
+  open(socket) {
+    socket.data.number = replay.attach({
+      send: (message) => socket.send(message),
+      close: (code) => socket.close(code),
+      terminate: () => socket.terminate(),
+    });
+  },
+  message(socket, message) {
+    replay.receive(socket.data.number, String(message));
+  },
+  close(socket) {
+    replay.detach(socket.data.number);
+  },
+});
+
+const serve = (view: ViewBuild, state: ServerState, replay: Replay): Server<SocketData> =>
+  Bun.serve<SocketData>({
     hostname: BOARD_HOST,
     port: 0,
     fetch(request, server) {
-      const url = new URL(request.url);
-      requests.push(`${request.method} ${url.pathname}`);
-      if (!networkUp) return text(503, "The network is down.");
-      if (isUpgrade(request)) return upgrade(request, server);
-      const { method, headers } = request;
-      return toResponse(answerHttp({ method, url: request.url, headers }, view, access), method);
+      const { method, headers, url } = request;
+      state.requests.push(`${method} ${new URL(url).pathname}`);
+      if (!state.networkUp) return text(503, "The network is down.");
+      if (isUpgrade(request)) return upgrade(request, server, state.access);
+      return toResponse(answerHttp({ method, url, headers }, view, state.access), method);
     },
-    websocket: {
-      open(socket: ServerWebSocket<SocketData>) {
-        socket.data.number = replay.attach({
-          send: (message) => socket.send(message),
-          close: (code) => socket.close(code),
-          terminate: () => socket.terminate(),
-        });
-      },
-      message(socket: ServerWebSocket<SocketData>, message: string | Buffer) {
-        replay.receive(socket.data.number, String(message));
-      },
-      close(socket: ServerWebSocket<SocketData>) {
-        replay.detach(socket.data.number);
-      },
-    },
+    websocket: socketsOf(replay),
   });
 
+export const startTestServer = async ({ transcript, view }: Scenario): Promise<BoardSession> => {
+  const { askId, token } = transcript;
+  const state: ServerState = {
+    access: { askId, token, state: "open" },
+    networkUp: true,
+    requests: [],
+  };
+  const replay = replayOf(transcript, state);
+  const server = serve(view, state, replay);
+  let closed = false;
   return {
-    link: boardLink({ port: server.port ?? 0, askId: transcript.askId, token: transcript.token }),
+    link: boardLink({ port: server.port ?? 0, askId, token }),
     collected: () => replay.trigger("collected"),
     exit: () => replay.trigger("exit"),
     drop: () => replay.trigger("drop"),
     restore: async () => {
-      networkUp = true;
+      state.networkUp = true;
     },
     restart: () => replay.trigger("restart"),
-    requests: () => [...requests],
+    requests: () => [...state.requests],
     problems: () => replay.problems(),
     close: async () => {
       if (closed) return;
