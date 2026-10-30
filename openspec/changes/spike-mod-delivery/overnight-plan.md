@@ -83,4 +83,25 @@ Append to the log below: per phase, done / partial / skipped with the reason; co
 
 ## Log
 
-(empty)
+### 2026-10-30, morning report
+
+Phases:
+- 1 done. c7b-312 and c7b-311 pass: asks open 30 m 50 s, same stub PID, the append read at step 18 of 24. d-stress passes on both versions (40 answers each, each reaching its owner once). d-esc-312 and d-esc2-312 fail: answers given after an Esc are lost (D6); the corrected retry in `probe/hooks/register.js` is not run (no third run under the spend rule). c8-toast-312 passes with a change: the toast shows for 2–4 s, the status entry stays and must be updated when an ask closes.
+- 2 done. 13 pass, 4 pass with change (1, 6, 12, 13), 1 fail (8 with mods off); 18 proposed-outcome rows; `spine-update-draft.md`. Task 5.1 stays open for the decisions.
+- 3 done. No bug changes a recorded measurement, so no fix. For E1: stamp the append time before the append; count only `isDelivered: true` as delivered; use `readlat.py`, not `latency.py`, for append runs.
+- 4 done up to the PO. `spike-renderer` is at 26 of 32 tasks: 10 pass, 8 pass with change, 1 fail (Radix Select), 3 await the PO; 25 proposed-outcome rows; `spine-update-draft.md`. Linux arm64 matches macOS; x86-64 is untested. Group 5 fixed a build bug that disabled tree-shaking; the earlier runs were repeated on the new build and no verdict changed.
+- 5 done for the stub. Image `askboard-spike-mod-delivery:linux`; the stub-only part of criterion 12 passes; the model runs (4.1) need a token.
+
+Deviations: the c7b runs answered at 31 min, not 25 (task 3.6 needs 30 or more). Claude Code refuses a standalone `sleep` of 25 s or more, so steps chain `sleep 24`. Phase 5 ran in parallel with Phases 1–4. No third d-esc run. Cleanup: no run tmux session, process or container is left.
+
+Commits (`git log --oneline origin/main..HEAD`), neither branch pushed:
+- `worktree-feature-spike-mod-delivery`: 9d76abf, 5493dbc, 059fab6, 0b66806, b147bdc, and this log.
+- `worktree-feature-spike-renderer`: b6ed474, 9d4f48a, 2536af0, 9a971df, 6fc11af, d75c13f, eaf7db4, 622e2de.
+
+What the PO does next:
+1. Decide both "Proposed outcomes (awaiting the PO)" tables: `spike-mod-delivery/findings.md` (18 rows) and `spike-renderer/findings.md` (25 rows). Then apply each `spine-update-draft.md` to `docs/` (mod delivery 5.2, renderer 8.4). The drafts overlap at SOLUTION-DESIGN §12 and the §13 introduction; the renderer draft's blocks say how to apply them in either order.
+2. Renderer tasks awaiting the PO: 3.3 (board policy `img-src` and `font-src`, row 4), 5.2 (Select, row 6), 6.1 (screenshots), 6.2 (drag by hand in Chrome and Safari; steps in findings § Product owner checks), 8.3, 8.4.
+3. Mod delivery 4.1: `claude setup-token`, then `CLAUDE_CODE_OAUTH_TOKEN=<token> sh openspec/changes/spike-mod-delivery/linux/run-linux.sh`.
+4. D6: verify the corrected retry with the command in findings.md § Interrupt, then push (D6). The harness scripts hard-code `SCRATCH` to this run's `/private/tmp` folder: edit that line if the folder is gone.
+5. Remove the criterion 5 leftover `~/.claude/plugins/cache/askboard-spike-mp/probe/0.1.0`.
+6. Open the two PRs once the decisions are applied.
