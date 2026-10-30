@@ -46,7 +46,7 @@ An answer event SHALL come only from the board's answer command for an open ques
 - **THEN** one answer event is appended, carrying that choice, and the ask becomes `answered`
 
 #### Scenario: An answer the question cannot hold
-- **WHEN** an answer names a label that is not an option, two labels on a single-choice question, an empty choice or a `rev` that is not current
+- **WHEN** an answer names a label that is not an option, two labels on a single-choice question, an empty choice, a `rev` that is not current, or a `when` that is no real time, such as `2026-02-30T10:00:00Z`
 - **THEN** it is refused and the log is unchanged
 
 #### Scenario: A second answer to an answered question

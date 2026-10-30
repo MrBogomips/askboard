@@ -79,8 +79,12 @@ A receiver of a document or message that names a major version of its schema set
 - **WHEN** a board-protocol message names major version 2 of the board protocol and the receiver supports 1
 - **THEN** the receiver refuses it with a reason that names version 1
 
+#### Scenario: A field of a newer minor
+- **WHEN** a receiver that supports board protocol 1.0 gets a 1.1 message carrying a field 1.0 does not define
+- **THEN** it refuses the message as a schema error naming the field, so a minor's new field is sent only once every receiver of the set accepts it
+
 ### Requirement: Shared constants
-The contract SHALL hold the constants that more than one unit reads: `collect`'s longest wait (20 minutes) and progress interval (60 s), the result limit (30,000 characters), the error-text limit (4,000 characters), the cut length of a derived title, the default board port range, the board token's minimum length (128 bits), and the board routes and token header.
+The contract SHALL hold the constants that more than one unit reads: `collect`'s longest wait (20 minutes) and progress interval (60 s), the result limit (30,000 characters), the error-text limit (4,000 characters), the cut length of a derived title and the longest title, the default board port range, the board token's minimum length (128 bits), the board routes and token header with what each route answers, and the board WebSocket's close codes.
 
 #### Scenario: Units read the constants from the contract
 - **WHEN** `collect` waits, a result is paged or a token is made

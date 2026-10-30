@@ -24,6 +24,10 @@ Each board SHALL have its own random token of at least 128 bits. It SHALL travel
 - **WHEN** a board page or WebSocket presents the token of another ask
 - **THEN** it is refused, and no content of either ask is returned
 
+#### Scenario: The view's files without the token
+- **WHEN** the manifest at `/m` or a chunk at `/c/<sha256>` is requested without the token header, or with a token that opens no board of this session process
+- **THEN** it is refused with status 403, and nothing of the manifest or the chunks is returned
+
 #### Scenario: No cookies
 - **WHEN** any board response is inspected
 - **THEN** it sets no cookie
@@ -68,12 +72,16 @@ The board page and `board-host` SHALL talk over one WebSocket per board, whose f
 - **WHEN** a board page opens its WebSocket and sends its token first
 - **THEN** it receives the ask's board document and current state
 
+#### Scenario: A socket that does not start with its token
+- **WHEN** the first message on a board's WebSocket is not `connect` with the board's token
+- **THEN** `board-host` refuses it, closes the socket with the contract's close code for a refusal, and sends nothing of the ask
+
 ### Requirement: One live board per ask
 Each ask SHALL have at most one live board connection. A new connection for the same ask SHALL take over, and the older tab SHALL be told that the board moved; closing it discards nothing (AD-21).
 
 #### Scenario: The link is opened in a second tab
 - **WHEN** a board is open and its link is opened in another tab
-- **THEN** the new tab holds the live board and the older one shows that the board moved
+- **THEN** the new tab holds the live board, and the older one is told that the board moved, its socket is closed, and it shows that the board moved without reconnecting on its own
 
 ### Requirement: Delivery receipt
 When the `received` watermark passes an answer's event, `board-host` SHALL tell the ask's board that the answer was delivered to the agent. The receipt SHALL claim delivery only, never that the agent read the answer (AD-3, FR-22).

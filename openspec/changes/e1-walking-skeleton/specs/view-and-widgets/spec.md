@@ -122,7 +122,7 @@ A sent answer SHALL show "sent", then "delivered to the agent" once the board is
 
 #### Scenario: Answering while disconnected
 - **WHEN** the user answers while the connection is lost and the ask is still open when it returns
-- **THEN** the answer shows "not sent yet", is sent on reconnect, and is logged once
+- **THEN** the answer shows "not sent yet", is sent on reconnect once the board has the new connection's state, and is logged once
 
 ### Requirement: Board banners
 The board page SHALL show EXPERIENCE's board banners: "Connection lost, retrying" while it reconnects, resuming if the ask is still open; Discarded, locking the board read-only; and Board moved, with "Continue here" to take the board back (AD-21, NFR-10, FR-25).
