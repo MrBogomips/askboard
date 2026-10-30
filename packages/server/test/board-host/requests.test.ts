@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { connect } from "node:net";
 import {
   BOARD_CLOSE_CODES,
   BOARD_PROTOCOL_VERSION,
@@ -270,3 +271,50 @@ const everyKindOfAnswer = async (): Promise<Answer[]> => [
   await request(port, "/", { host: "attacker.example" }),
   await request(port, "/m", { method: "POST" }),
 ];
+
+describe("request targets that are not URLs", () => {
+  // `new URL` throws on these: a backslash is a slash to it, and `[` starts an IPv6 host.
+  const targets = ["/\\[", "/\\\\[x", "/b/\\[?t=x"];
+
+  test("name no route over HTTP, and fail nothing", async () => {
+    for (const target of targets) {
+      const answer = await request(port, target);
+      expect(answer.status).toBe(BOARD_RESPONSES.notFound.status);
+    }
+    expect(fixture.reported).toEqual([]);
+  });
+
+  test("are refused as upgrades, and the listener keeps serving", async () => {
+    for (const target of targets) {
+      expect(await rawUpgradeStatus(port, target)).toBe(404);
+    }
+    expect((await request(port, boardPath(one.askId, one.token))).status).toBe(200);
+    expect(fixture.reported).toEqual([]);
+  });
+});
+
+// The status line of an upgrade sent byte for byte, so the request target reaches the host as is.
+const rawUpgradeStatus = (to: number, target: string): Promise<number> =>
+  new Promise((resolve, reject) => {
+    const host = `127.0.0.1:${to}`;
+    const socket = connect({ host: "127.0.0.1", port: to }, () => {
+      socket.write(
+        [
+          `GET ${target} HTTP/1.1`,
+          `Host: ${host}`,
+          `Origin: http://${host}`,
+          "Upgrade: websocket",
+          "Connection: Upgrade",
+          "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+          "Sec-WebSocket-Version: 13",
+          "",
+          "",
+        ].join("\r\n"),
+      );
+    });
+    socket.once("data", (data) => {
+      socket.destroy();
+      resolve(Number(/^HTTP\/1\.1 (\d{3})/.exec(String(data))?.[1] ?? 0));
+    });
+    socket.once("error", reject);
+  });

@@ -67,6 +67,9 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
       ),
     );
     const port = await listen(server, range);
+    // A failure of the listening server, such as on accepting a connection, is reported: with no
+    // listener it would end the session process.
+    server.on("error", options.report);
     const unsubscribe = core.subscribe((event) => boards.hear(event));
     return { port, server, boards, unsubscribe };
   };

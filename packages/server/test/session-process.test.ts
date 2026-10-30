@@ -143,6 +143,25 @@ describe("the composed session process", () => {
     expect(stderr).not.toContain(question.props.text);
   });
 
+  test("SIGINT with a board connected tells the board, closes the listener and exits 0", async () => {
+    const { script } = recorder("sigint");
+    const run = await start({ BROWSER: script });
+    const asked = await run.call("ask", plainChoiceAsk("sigint-board"));
+    const link = new URL(asked.board);
+    const port = Number(link.port);
+    const board = await openSocket(port, asked.askId);
+    board.send({ version, type: "connect", token: link.searchParams.get("t") });
+    await board.next();
+    await board.next();
+    run.emit("SIGINT");
+    expect(await run.session.ended).toBe(0);
+    expect(await board.next()).toEqual({ version, type: "discarded", reason: "session-exit" });
+    expect(await board.closed()).toBe(BOARD_CLOSE_CODES.discarded);
+    expect(run.exits).toEqual([0]);
+    await expect(request(port, "/m")).rejects.toThrow();
+    expect(run.stderr).toEqual(["askboard: session ending (SIGINT): 1 open ask discarded"]);
+  });
+
   test("reports a browser that cannot start on stderr, with neither the link nor its token", async () => {
     const run = await start({ BROWSER: join(folder, "no-such-browser") });
     const asked = await run.call("ask", plainChoiceAsk("browser-missing"));

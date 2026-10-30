@@ -33,6 +33,12 @@ import type { BoardTokens } from "./tokens.ts";
  */
 export const MESSAGE_MAX_BYTES = CHOICE_LABELS_MAX_CHARS * 3 + 4 * 1024;
 
+/**
+ * The most a board's socket may hold unsent: a peer that keeps sending without reading the replies
+ * is ended at this point, rather than growing the session process's memory.
+ */
+export const SEND_BUFFER_MAX_BYTES = 1024 * 1024;
+
 /** How long closing the host waits for the boards' sockets to finish their close handshake. */
 export const CLOSE_GRACE_MS = 500;
 
@@ -92,6 +98,8 @@ export class Boards {
   readonly #report: (error: unknown) => void;
   readonly #live = new Map<string, Connection>();
   readonly #sockets = new Set<WebSocket>();
+  // Set when the host starts closing: no socket is accepted or heard from then.
+  #closing = false;
 
   constructor(deps: BoardsDeps) {
     this.#core = deps.core;
@@ -131,6 +139,7 @@ export class Boards {
    * closing included, within `CLOSE_GRACE_MS`; any socket still open then is ended.
    */
   async closeAll(): Promise<void> {
+    this.#closing = true;
     const sockets = [...this.#sockets];
     const closed = sockets.map(
       (socket) =>
@@ -160,7 +169,7 @@ export class Boards {
   }
 
   #receive(connection: Connection, data: RawData, binary: boolean): void {
-    if (connection.phase === "closed") return;
+    if (connection.phase === "closed" || this.#closing) return;
     const value = parse(data, binary);
     if (connection.phase === "waiting") this.#connect(connection, value);
     else this.#command(connection, value);
@@ -249,9 +258,14 @@ export class Boards {
   }
 
   #send(connection: Connection, message: HostMessage): void {
-    if (connection.socket.readyState === WebSocket.OPEN) {
-      connection.socket.send(JSON.stringify(message));
+    const { socket } = connection;
+    if (socket.readyState !== WebSocket.OPEN) return;
+    if (socket.bufferedAmount > SEND_BUFFER_MAX_BYTES) {
+      connection.phase = "closed";
+      socket.terminate();
+      return;
     }
+    socket.send(JSON.stringify(message));
   }
 
   #close(connection: Connection, code: number): void {

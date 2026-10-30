@@ -16,14 +16,20 @@ export class NoFreePortError extends Error {
   }
 }
 
+// One attempt, which leaves no listener behind whichever way it ends.
 const listenOn = (server: Server, port: number): Promise<void> =>
   new Promise((resolve, reject) => {
-    const failed = (error: Error) => reject(error);
-    server.once("error", failed);
-    server.listen({ port, host: BOARD_HOST, exclusive: true }, () => {
+    const failed = (error: Error) => {
+      server.off("listening", listened);
+      reject(error);
+    };
+    const listened = () => {
       server.off("error", failed);
       resolve();
-    });
+    };
+    server.once("error", failed);
+    server.once("listening", listened);
+    server.listen({ port, host: BOARD_HOST, exclusive: true });
   });
 
 const inUse = (error: unknown): boolean =>

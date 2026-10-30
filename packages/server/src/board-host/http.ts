@@ -61,12 +61,22 @@ const send = (request: IncomingMessage, response: ServerResponse, reply: Reply):
   response.end(request.method === "HEAD" ? undefined : bytes);
 };
 
-/** The request target's route and query; only an origin-form target names one. */
+const NO_ROUTE = { query: new URLSearchParams() } as const;
+
+/**
+ * The request target's route and query. Only an origin-form target names one; a backslash, which
+ * the URL parser reads as a slash, or a target it cannot parse names none.
+ */
 const targetOf = (url: string | undefined): { route?: BoardRoute; query: URLSearchParams } => {
-  if (url === undefined || !url.startsWith("/") || url.startsWith("//")) {
-    return { query: new URLSearchParams() };
+  if (url === undefined || !url.startsWith("/") || url.startsWith("//") || url.includes("\\")) {
+    return NO_ROUTE;
   }
-  const parsed = new URL(url, "http://127.0.0.1");
+  let parsed: URL;
+  try {
+    parsed = new URL(url, "http://127.0.0.1");
+  } catch {
+    return NO_ROUTE;
+  }
   const route = parseBoardRoute(parsed.pathname);
   return { ...(route ? { route } : {}), query: parsed.searchParams };
 };
@@ -165,17 +175,17 @@ export const handleUpgrade = (
   accept: (askId: string) => void,
 ): void => {
   socket.on("error", (error) => deps.report(error));
-  const { route: target } = targetOf(request.url);
-  if (gateOf(request, true) !== undefined) {
-    refuseUpgrade(socket, 403);
-  } else if (target?.kind !== "socket" || deps.closed()) {
-    refuseUpgrade(socket, 404);
-  } else {
-    try {
-      accept(target.askId);
-    } catch (error) {
-      deps.report(error);
-      socket.destroy();
+  try {
+    if (gateOf(request, true) !== undefined) {
+      refuseUpgrade(socket, 403);
+      return;
     }
+    const { route: target } = targetOf(request.url);
+    if (target?.kind !== "socket" || deps.closed()) refuseUpgrade(socket, 404);
+    else accept(target.askId);
+  } catch (error) {
+    // A throw here would escape the listener's event and end the session process.
+    deps.report(error);
+    socket.destroy();
   }
 };

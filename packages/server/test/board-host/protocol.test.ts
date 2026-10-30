@@ -480,3 +480,42 @@ describe("a failure inside board-host", () => {
     }
   });
 });
+
+describe("a peer that sends without reading", () => {
+  // A masked text frame, as a client sends it; payloads under 126 bytes only.
+  const frame = (text: string) => {
+    const payload = Buffer.from(text);
+    const mask = Buffer.from([1, 2, 3, 4]);
+    const masked = payload.map((byte, at) => byte ^ (mask[at % 4] ?? 0));
+    return Buffer.concat([Buffer.from([0x81, 0x80 | payload.length]), mask, masked]);
+  };
+
+  test("is ended once its socket holds too much unsent, and the host keeps serving", async () => {
+    const fixture = startHost({ ports: await freeRange(1), tokens: [token] });
+    try {
+      const { port } = await fixture.ask(askId);
+      const peer = await silentSocket(port, askId);
+      let ended = false;
+      peer.on("close", () => {
+        ended = true;
+      });
+      peer.on("error", () => undefined);
+      peer.pause();
+      peer.write(frame(JSON.stringify({ version, type: "connect", token })));
+      const refused = frame("x");
+      for (let sent = 0; sent < 40_000 && !ended; sent += 1) {
+        if (!peer.write(refused)) await Bun.sleep(1);
+      }
+      // Reading again drains what reached the peer: an ended socket then closes, an open one stays.
+      await Bun.sleep(100);
+      peer.resume();
+      for (let tries = 0; tries < 200 && !ended; tries += 1) await Bun.sleep(10);
+      expect(ended).toBe(true);
+      const tab = await openSocket(port, askId);
+      tab.send({ version, type: "connect", token });
+      expect(await tab.next()).toMatchObject({ type: "board" });
+    } finally {
+      await fixture.host.close();
+    }
+  });
+});
