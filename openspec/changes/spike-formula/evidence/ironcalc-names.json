@@ -1,0 +1,302 @@
+{
+  "run": "names",
+  "command": "bun tools/names.ts names",
+  "env": {
+    "runtime": "bun 1.4.4",
+    "date": "2026-10-30T10:03:27.080Z",
+    "command": "bun tools/names.ts names"
+  },
+  "encoding": "n_ + per character: a-z 0-9 . kept; A-Z -> _ + lower case; _ -> _0; - -> _1; * -> _2; : -> _3",
+  "generatedIds": {
+    "count": 2053,
+    "roundTripFailures": [],
+    "encoded": {
+      "ids": 2053,
+      "accepted": 2053,
+      "collisions": 0,
+      "msPerName": 0.741,
+      "failures": {}
+    },
+    "raw": {
+      "ids": 2053,
+      "accepted": 1036,
+      "collisions": 20,
+      "msPerName": 0.334,
+      "failureCount": 1017,
+      "byReason": {
+        "isValidDefinedName refused: Error: Name: Invalid defined nam": 987,
+        "collides with another ID (case)": 20,
+        "=ID reads 0, not the named cell": 10
+      },
+      "fixedIds": [
+        [
+          "-x",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "--",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "a-b",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "-",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "_",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "__",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "_xlfn",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "_xlnm",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "123",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "1a",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "0",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "ab12",
+          "=ab12 reads 0, not the named cell"
+        ],
+        [
+          "AB12",
+          "same name as ab12 under case-insensitivity"
+        ],
+        [
+          "A1",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "a1",
+          "same name as A1 under case-insensitivity"
+        ],
+        [
+          "xfd1048576",
+          "=xfd1048576 reads 0, not the named cell"
+        ],
+        [
+          "XFD1048576",
+          "same name as xfd1048576 under case-insensitivity"
+        ],
+        [
+          "XFE1",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "r1c1",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "R1C1",
+          "same name as r1c1 under case-insensitivity"
+        ],
+        [
+          "rc",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "RC",
+          "same name as rc under case-insensitivity"
+        ],
+        [
+          "R",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "C",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "r",
+          "same name as R under case-insensitivity"
+        ],
+        [
+          "c",
+          "same name as C under case-insensitivity"
+        ],
+        [
+          "R1",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "C1",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "r2c",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "R1C",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "TRUE",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "FALSE",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "true",
+          "same name as TRUE under case-insensitivity"
+        ],
+        [
+          "false",
+          "same name as FALSE under case-insensitivity"
+        ],
+        [
+          "True",
+          "same name as TRUE under case-insensitivity"
+        ],
+        [
+          "SUM",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "sum",
+          "same name as SUM under case-insensitivity"
+        ],
+        [
+          "IF",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "N",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "T",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "ROUND",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "WORKDAY",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "NA",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "INDIRECT",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "constructor",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "__proto__",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "toString",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "hasOwnProperty",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "prototype",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "same name as AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA under case-insensitivity"
+        ],
+        [
+          "________________________________________________________________",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "----------------------------------------------------------------",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_Z9-_",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "Ab",
+          "accepted; =ID reads the named cell"
+        ],
+        [
+          "aB",
+          "same name as Ab under case-insensitivity"
+        ],
+        [
+          "AB",
+          "same name as Ab under case-insensitivity"
+        ],
+        [
+          "ab",
+          "same name as Ab under case-insensitivity"
+        ],
+        [
+          "Wp-1",
+          "isValidDefinedName refused: Error: Name: Invalid defined name"
+        ],
+        [
+          "wp-1",
+          "same name as Wp-1 under case-insensitivity"
+        ],
+        [
+          "WP-1",
+          "same name as Wp-1 under case-insensitivity"
+        ]
+      ]
+    }
+  },
+  "fixtures": {
+    "graphs": 141,
+    "references": 11536,
+    "longestName": 74,
+    "addresses": 11581,
+    "problems": []
+  },
+  "suite": {
+    "cells": {
+      "passed": 1454,
+      "failed": 3,
+      "exactMismatches": 2,
+      "hash": "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228"
+    },
+    "names": {
+      "passed": 1454,
+      "failed": 3,
+      "exactMismatches": 2,
+      "hash": "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228"
+    },
+    "sameResults": true,
+    "differences": []
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "run": "ironcalc",
+  "command": "bun run.ts ironcalc --engine ironcalc",
+  "env": {
+    "runtime": "bun 1.4.4",
+    "platform": "darwin arm64",
+    "tz": null,
+    "lang": "C.UTF-8",
+    "lcAll": null,
+    "resolvedTimeZone": "Europe/Rome",
+    "date": "2026-10-30T10:06:16.566Z",
+    "command": "bun run.ts ironcalc --engine ironcalc"
+  },
+  "engine": "ironcalc",
+  "suite": {
+    "passed": 1454,
+    "failed": 3,
+    "exactMismatches": 2,
+    "hash": "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228",
+    "failures": [
+      {
+        "fixture": "error:mixed-currencies",
+        "address": "estimate.belowMinimum",
+        "expected": {
+          "error": "mixed-currencies"
+        },
+        "actual": false
+      },
+      {
+        "fixture": "error:hostile-size",
+        "address": "@warnings",
+        "expected": "syntax@z.calls syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary",
+        "actual": "syntax@z.calls syntax@z.flat syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary"
+      },
+      {
+        "fixture": "error:hostile-size",
+        "address": "z.flat",
+        "expected": 4001,
+        "actual": {
+          "error": "syntax"
+        }
+      }
+    ]
+  },
+  "latency": {
+    "repeats": 50,
+    "leaves": "default",
+    "nodes": 926,
+    "loadMs": 14.701,
+    "fullRecalcMs": 1.349,
+    "editMedianMs": 1.03,
+    "editP95Ms": 1.138
+  }
+}
