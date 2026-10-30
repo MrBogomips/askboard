@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:ask-unavailable",
+  "title": "Ask unavailable",
+  "description": "What ask returns when no board can be shown (AD-18, NFR-8): the outcome unavailable with its reason and a message for the agent. No ask was created.",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "outcome": {
+      "const": "unavailable"
+    },
+    "reason": {
+      "$ref": "urn:askboard:output:unavailable-reason"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": ["versions", "epoch", "askId", "outcome", "reason", "message"],
+  "additionalProperties": false
+}

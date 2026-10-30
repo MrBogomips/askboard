@@ -1,0 +1,71 @@
+{
+  "askId": "payment-retry-fix-q4m8",
+  "title": "Payment retry fix",
+  "items": [
+    {
+      "type": "question",
+      "id": "fix",
+      "props": {
+        "text": "Which fix should I keep for the failing payment retry?",
+        "header": "Fix",
+        "options": [
+          { "label": "Fix A", "description": "Retries inside the payment worker, with backoff; touches only retry.ts." },
+          { "label": "Fix B", "description": "Requeues the payment on failure; also changes the queue's visibility timeout." }
+        ],
+        "items": [
+          { "type": "excerpt", "id": "retry-adr", "props": { "pointer": "docs/adr/0012-payment-retries.md#Decision" } },
+          {
+            "type": "diff-review",
+            "id": "fix-diff",
+            "props": {
+              "alternatives": [
+                { "id": "a", "label": "Fix A", "patch": ".askboard/patches/retry-fix-a.patch" },
+                { "id": "b", "label": "Fix B", "patch": ".askboard/patches/retry-fix-b.patch" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "question",
+      "id": "state-machine",
+      "props": {
+        "text": "Should the retry state machine change?",
+        "header": "States",
+        "options": [
+          {
+            "label": "Remove RETRYING → PENDING",
+            "description": "A retry never goes back to the queue; it ends in FAILED after the last attempt.",
+            "recommended": true
+          },
+          { "label": "Keep it as it is" }
+        ],
+        "items": [
+          {
+            "type": "graph",
+            "id": "retry-states",
+            "props": {
+              "kind": "state-machine",
+              "nodes": [
+                { "id": "PENDING" },
+                { "id": "PROCESSING" },
+                { "id": "RETRYING" },
+                { "id": "SUCCEEDED" },
+                { "id": "FAILED" }
+              ],
+              "edges": [
+                { "id": "submit", "from": "PENDING", "to": "PROCESSING" },
+                { "id": "succeed", "from": "PROCESSING", "to": "SUCCEEDED" },
+                { "id": "fail", "from": "PROCESSING", "to": "RETRYING", "label": "transient error" },
+                { "id": "retry", "from": "RETRYING", "to": "PROCESSING", "label": "backoff elapsed" },
+                { "id": "requeue", "from": "RETRYING", "to": "PENDING", "label": "requeue" },
+                { "id": "give-up", "from": "RETRYING", "to": "FAILED", "label": "attempts exhausted" }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

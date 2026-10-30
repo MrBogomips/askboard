@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:outcome",
+  "title": "Outcome",
+  "description": "The typed results that are not errors and that E1 returns (AD-6): unavailable when no board can be shown (AD-18), open when a waiting collect ends after its longest wait (AD-4).",
+  "enum": ["unavailable", "open"]
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:unavailable-reason",
+  "title": "Unavailable reason",
+  "description": "Why no board can be shown, in the order of AD-18's detection rule: a remote host, a container, a CI runner without BROWSER, or no browser opener.",
+  "enum": ["remote-host", "container", "ci", "no-browser"]
+}

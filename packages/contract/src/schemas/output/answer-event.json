@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:answer-event",
+  "title": "Answer event",
+  "description": "An answer the user gave on the board (AD-10), naming its item and the question's revision, who answered and when the user acted (FR-18, FR-19). Its content fields are those of finding F4, each optional: choice (the chosen options, by label), note (the open-prompt text), changes (AD-20's generic diff of agent content the user edited), results (per item ID, what a widget produces that is not an edit) and derived (derived values, by reference). results and derived stay open until each widget's epic narrows them (F7). A Choice answer carries only choice.",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "type": {
+      "const": "answer"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "who": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "when": {
+      "$ref": "urn:askboard:output:time"
+    },
+    "choice": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/change"
+      }
+    },
+    "results": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "urn:askboard:input:id"
+      }
+    },
+    "derived": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/reference"
+      }
+    }
+  },
+  "required": ["cursor", "type", "itemId", "rev", "who", "when"],
+  "additionalProperties": false,
+  "$defs": {
+    "reference": {
+      "description": "AD-13's reference syntax without brackets: the item ID, then child IDs or a field, separated by dots; never an array index.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}(\\.[A-Za-z0-9_-]{1,64})*$"
+    },
+    "change": {
+      "description": "One operation of AD-20's generic diff, addressing elements by ID: add and move name the parent and, unless the element goes first, the preceding sibling.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/add"
+        },
+        {
+          "$ref": "#/$defs/remove"
+        },
+        {
+          "$ref": "#/$defs/move"
+        },
+        {
+          "$ref": "#/$defs/set"
+        }
+      ]
+    },
+    "add": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "add"
+        },
+        "target": {
+          "$ref": "#/$defs/reference"
+        },
+        "parent": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "after": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "value": {}
+      },
+      "required": ["op", "target", "parent", "value"],
+      "additionalProperties": false
+    },
+    "remove": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "remove"
+        },
+        "target": {
+          "$ref": "#/$defs/reference"
+        }
+      },
+      "required": ["op", "target"],
+      "additionalProperties": false
+    },
+    "move": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "move"
+        },
+        "target": {
+          "$ref": "#/$defs/reference"
+        },
+        "parent": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "after": {
+          "$ref": "urn:askboard:input:id"
+        }
+      },
+      "required": ["op", "target", "parent"],
+      "additionalProperties": false
+    },
+    "set": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "set"
+        },
+        "target": {
+          "$ref": "#/$defs/reference"
+        },
+        "value": {}
+      },
+      "required": ["op", "target", "value"],
+      "additionalProperties": false
+    }
+  }
+}

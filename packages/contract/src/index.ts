@@ -26,6 +26,12 @@ export {
 } from "./constants.ts";
 export { cspHashSource, SHA256_HEX_PATTERN } from "./hash.ts";
 export {
+  CHOICE_LABELS_MAX_CHARS,
+  CURSOR_PATTERN,
+  EPOCH_PATTERN,
+  NAME_MAX_CHARS,
+} from "./limits.ts";
+export {
   BOARD_RESPONSES,
   BOARD_ROUTES,
   BOARD_TOKEN_HEADER,
@@ -67,12 +73,40 @@ export {
   type StateMessage,
 } from "./schemas/board-protocol/index.ts";
 export {
+  type AskInput,
   type ChoiceOption,
   INPUT_FORMAT_VERSION,
   inputFormat,
   type QuestionItem,
   type QuestionProps,
 } from "./schemas/input/index.ts";
+export {
+  type AnswerEvent,
+  type AskState,
+  type Change,
+  type DiscardedEvent,
+  type DiscardReason,
+  OUTPUT_FORMAT_VERSION,
+  type Outcome,
+  type OutputEvent,
+  outputFormat,
+  type UnavailableReason,
+  type Warning,
+} from "./schemas/output/index.ts";
+export {
+  type AskRequest,
+  type AskResult,
+  type AskUnavailableResult,
+  type CollectAskEntry,
+  type CollectRequest,
+  type CollectResult,
+  RESULT_VERSIONS,
+  type ResultVersions,
+  TOOL_DEFINITIONS,
+  TOOL_ENVELOPES_VERSION,
+  type ToolDefinition,
+  toolEnvelopes,
+} from "./schemas/tool-envelopes/index.ts";
 export {
   type LicenceNotice,
   type ManifestChunk,
@@ -81,6 +115,7 @@ export {
   type ViewManifest,
   viewManifestSet,
 } from "./schemas/view-manifest/index.ts";
+export { SERVER_INSTRUCTIONS } from "./server-instructions.ts";
 export { SCHEMA_IDS, SCHEMA_SETS } from "./sets.ts";
 export {
   majorOf,

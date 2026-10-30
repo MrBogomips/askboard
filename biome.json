@@ -6,7 +6,16 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/*.md", "!.claude", "!docs", "!drafts", "!openspec", "!bun.lock"]
+    "includes": [
+      "**",
+      "!**/*.md",
+      "!.claude",
+      "!docs",
+      "!drafts",
+      "!openspec",
+      "!bun.lock",
+      "!packages/contract/test/fixtures"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
