@@ -28,13 +28,13 @@
 
 ## 4. Linux and the minimum version
 
-- [ ] 4.1 Repeat criteria 10, 12 and 13 on Linux in a devcontainer on `latest`. Verify with the same evidence as 2.2 to 2.4 and record the verdicts beside the macOS ones.
+- [ ] 4.1 Repeat criteria 10, 12 and 13 on Linux in a devcontainer on `latest`. Verify with the same evidence as 2.2 to 2.4 and record the verdicts beside the macOS ones. Awaiting the PO: the model runs need the PO's token, and run after the merge (`findings.md`, Linux harness).
 - [x] 4.2 Run criteria 1, 9 and 15 on 2.1.308 to show what fails below the provisional minimum, and derive criterion 18, the lowest version that passes all criteria. Verify that `findings.md` states the minimum and the criterion that rules out each lower version tested.
 
 ## 5. Decisions and the spine
 
-- [ ] 5.1 Complete `findings.md`: the per-criterion verdict table, the latency and token tables, the failures with their consequence from §10.1's table, and a proposed outcome for each AD, fact and Deferred row. Present them to the product owner. Verify that every criterion has a verdict on both versions, and that every proposed outcome has the product owner's decision recorded beside it.
-- [ ] 5.2 Apply the decisions: amend the ADs concerned in place (AD-4, AD-5, AD-10, AD-11, AD-12, AD-18, as decided), update the Stack's Claude Code minimum, close or reword the three Deferred rows, set `updated:`, update SOLUTION-DESIGN §10.1 (outcome), §12 and §13 (status of F3, F5, F6, F12, F13, F15, F16, F17, F25), and the PRD (OQ2, R1) if the product owner decided changes there. Verify with `openspec validate --all --strict --no-interactive` and `bun run check`, and with a grep showing that no Deferred row still names the mod delivery spike as pending.
+- [x] 5.1 Complete `findings.md`: the per-criterion verdict table, the latency and token tables, the failures with their consequence from §10.1's table, and a proposed outcome for each AD, fact and Deferred row. Present them to the product owner. Verify that every criterion has a verdict on both versions, and that every proposed outcome has the product owner's decision recorded beside it.
+- [x] 5.2 Apply the decisions: amend the ADs concerned in place (AD-4, AD-5, AD-10, AD-11, AD-12, AD-18, as decided), update the Stack's Claude Code minimum, close or reword the three Deferred rows, set `updated:`, update SOLUTION-DESIGN §10.1 (outcome), §12 and §13 (status of F3, F5, F6, F12, F13, F15, F16, F17, F25), and the PRD (OQ2, R1) if the product owner decided changes there. Verify with `openspec validate --all --strict --no-interactive` and `bun run check`, and with a grep showing that no Deferred row still names the mod delivery spike as pending.
 
 ## Workflow follow-up
 

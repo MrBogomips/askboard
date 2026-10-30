@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-10-29'
+updated: '2026-10-30'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -17,6 +17,7 @@ sources:
   - 'research-stack-2026-10-27.md (platform, formula engines, components, distribution)'
   - 'reviews/review-web-verification.md (52 claims checked against primary sources, 2026-10-27)'
   - 'prd-askboard-2026-10-25/research-mcp-performance.md (cost model, measurement protocol)'
+  - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -103,12 +104,12 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The stdio MCP server that Claude Code starts for a session (the **session process**) is the only AskBoard runtime for that session. It hosts `ask-core` and serves that session's boards.
     - Every session process has its own `epoch`. Ask IDs are scoped to it, and FR-5's no-reuse rule holds within it.
   - **What session processes share:** files under `.askboard/`, the user configuration folder, the session-file folder, the executable cache and the port range (AD-14, AD-22). On a port collision, a session process tries the next port in the range.
-  - **Start:** the session process has no side effects (no port, no session file, no notifier, no download) until it receives its first request other than `server/discover`.
+  - **Start:** the session process has no side effects (no port, no session file, no notifier, no download) until it receives its first request other than `server/discover`. Claude Code sends `subscriptions/listen` right after the handshake, so the local API and the session file exist from connection, before the first ask's `PreToolUse` record needs them.
   - **Bringing a new board to the front:**
     - A board of the session is **working** while it has focus and has had a user input in the last 60 s, as its board page reports (AD-7).
     - For a new ask, the session process calls the browser opener only when no board of the same session is working. Otherwise it does not open the board, since the opener is an OS command that cannot open a background tab; the notification and the terminal link open it (FR-23).
     - Boards of other sessions never count: across sessions the browser behaves as usual.
-  - **Exit:** it exits when its stdin closes or on SIGTERM or SIGHUP, after sending `discarded` to every live board. All its asks are then discarded (FR-25).
+  - **Exit:** it exits when its stdin closes or on SIGINT, SIGTERM or SIGHUP, after sending `discarded` to every live board, and removes its session file and its socket. Claude Code stops it with SIGINT. All its asks are then discarded (FR-25).
 
 ### AD-3 — Single writer, one append-only event log per ask [ADOPTED]
 
@@ -132,15 +133,17 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 ### AD-4 — Pull is authoritative, the mod is the push transport [ADOPTED]
 
 - **Binds:** `mcp-tools`, `mod`, `skills`, `board-host`, `contract`; FR-10, FR-21, FR-22, FR-24, PRD R1.
-- **Prevents:** a capability that works only when the mod runs; agents stalled where mods are disabled; a wait that blocks follow-ups; agent status mistaken for a user event.
+- **Prevents:** a capability that works only when the mod runs; agents stalled where mods are disabled; a wait that blocks follow-ups; agent status mistaken for a user event; a push that auto mode refuses; a push that resumes a finished subagent; a failed report causing repeated wake-ups; an answer lost to push when the user interrupts a turn.
 - **Rule:**
   - **Pull:**
     - Every capability works through the MCP tools alone (AD-6).
     - `collect` can wait for a given item. It returns as soon as the log gains any event for that item, or an event that changes the ask's state.
     - While waiting it sends progress at least every 60 s. It waits at most 20 minutes, then returns `open`. Both values live in `contract`.
   - **Push:**
-    - The Claude Code **mod** is the default push transport: `$.session.send` to a running subagent, `$.prompt.submit` to wake an idle main conversation. It pushes only events above `received` (AD-3) and reports what it delivered, which raises `received` and so the board's delivery receipt. Its absence costs latency, never correctness: an answer's receipt then waits for `collect` or the `SubagentStop` guard.
-    - Push goes only to the agent that owns the ask, in its own session, as a message attributed to the mod and never with `asUser`. `$.prompt.submit` carries only events of asks owned by the main conversation.
+    - The Claude Code **mod** is the default push transport. It appends with `$.session.append` to a running subagent, and to the main conversation while its turn runs; the agent reads the row at its next model request. It wakes an idle main conversation with `$.prompt.submit`. When a main turn completes, it submits again every event it appended after that turn's last model request, since no request carried it. It does not use `$.session.send`, which auto mode refuses for a mod.
+    - It pushes only to an agent that is still running: never to a subagent that `$.agent.list()` no longer lists or shows as `completed`, `failed` or `killed`, since a message would resume it. After the user interrupts a turn, Claude Code drops every submit until the user's next input. The mod keeps each event so dropped and appends it when the next main turn starts; that turn reads it only from its second model request, so if the turn makes only one, the mod submits the event when the turn completes. Until then the event reaches the agent only through `collect`.
+    - It pushes only events above `received` (AD-3) and reports what it delivered, which raises `received` and so the board's delivery receipt. An event counts as pushed once the push call is made: a report that fails is retried on its own and never causes another push. Its absence costs latency, never correctness: an answer's receipt then waits for `collect` or the `SubagentStop` guard.
+    - Push goes only to the agent that owns the ask, in its own session, as a message attributed to the mod and never with `asUser`: an appended row names the plugin as its origin. `$.prompt.submit`, and an append without an agent ID, carry only events of asks owned by the main conversation.
     - Another push transport is added only as a further adapter over the same log.
   - **Agent status:**
     - Agent status (`agent-working`, `agent-waiting`) is presence, never an ask state or an event. `mcp-tools` sets `agent-waiting` while a waiting `collect` is pending, except once Claude Code has moved a main-conversation call to the background. When the mod runs, the agent's turn state decides.
@@ -163,9 +166,11 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The hook never blocks the call.
     - An `ask` that arrives with no record means the session runs without hooks. Its result says that push, ownership checks and the stop guard are unavailable, and that the agent must collect before it finishes.
   - **Reaching the session process:**
-    - `mod` and `hooks` reach the session process only through its local API (AD-11), found through the session file.
-    - The session file is a `contract` module and schema: `{format, key, pid, epoch, apiAddress, sessionToken, projectDir, startedAt}`. It sits in a user-only runtime folder (0700, file 0600) and is named by `CLAUDE_CODE_SESSION_ID`. No unit computes its path itself. A client that finds no candidate file, or more than one, reaches none and falls back as above.
-    - The local API answers at once, with no long-poll. Each response body stays under 1 MiB and is paged by `seq`. The mod polls it with `$.clock.every`, started at `session.start`.
+    - `mod` and `hooks` reach the session process only through its local API (AD-11), found through the session file. When `$.http.fetch` is refused (an organization's policy, or a policy mod that hooks it), the mod reaches the same API through the AskBoard executable run as a client with `$.process.run`, for everything it sends: polls, delivery reports and the version report. Whether that client starts once per poll or stays up for the session is an implementation choice.
+    - The session file is a `contract` module and schema: `{format, key, pid, epoch, apiAddress, sessionToken, projectDir, startedAt}`. It sits in a user-only runtime folder (0700, file 0600) and is named by its `key`, the PID of the Claude Code process. That process is the parent of the session process and of every hook; the mod learns its PID once, at `session.start`, from one `$.process.run` of a command that prints its parent's PID. `CLAUDE_CODE_SESSION_ID` is not the key: after `--continue` or `/clear` the session process and the hooks see different values. No unit computes its path itself. A client that finds no candidate file, or more than one, reaches none and falls back as above.
+    - The launcher keeps Claude Code as the parent: it replaces itself with the executable (AD-19).
+    - Wherever the mod needs the session ID, it takes it from `$.session.id()`, never from its environment, which holds the launching session's ID when Claude Code runs inside another session.
+    - The local API answers at once, with no long-poll. Each response body stays under 1 MiB and is paged by `seq`. The mod polls it with `$.clock.every`, started at `session.start`; the poll survives `/clear`, which fires `session.end` and no new `session.start`.
 
 ### AD-6 — Five consolidated tools with generic schemas [ADOPTED]
 
@@ -323,7 +328,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - A `SubagentStop` hook blocks a subagent from finishing only while an open ask it owns holds events above `received`, and only when the hook input's `stop_hook_active` is false. It never blocks twice for the same event.
     - The block's reason carries those events with their cursor and lists the subagent's open asks.
     - Whenever the guard lets a stop through, it tells the session process, which closes the subagent's open asks with reason `agent-finished`. Their boards show it and accept no more answers.
-    - A stop is let through for an ask with no bound owner.
+    - A stop is let through for an ask with no bound owner, and, without an error, for an agent the session process has no record of, such as Claude Code's own side agents (empty `agent_type`).
   - **Benchmark mode:**
     - Benchmark mode starts only when the session process finds a per-run secret in its environment that matches the run file `bench` writes under `.askboard/bench/`. Its answers are marked as scripted.
     - The scripted AskUserQuestion answerer is registered only in `bench`'s run settings, never in the plugin's `hooks.json`.
@@ -336,13 +341,13 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Binding:**
     - The board listener binds `127.0.0.1` only, on a port from a configurable range.
     - In a devcontainer, binding the container interface happens only on explicit opt-in. The devcontainer guide publishes the port as `127.0.0.1:<port>:<port>`, and the session process warns on stderr whenever it binds a non-loopback interface.
-    - The local API listens on `127.0.0.1` on a port of its own and is never bound to a container interface.
+    - The local API listens on a Unix socket, set to 0600 explicitly rather than left to the umask, in the session-file folder (0700), never on a network interface. The socket's path stays within the platform limit (104 bytes on macOS).
   - **Board requests:**
     - Each board has its own random token of at least 128 bits. The token travels in the page URL, and on every other request only in a request header or the first WebSocket message. AskBoard sets no cookies.
     - `Host` must be a loopback name, on any port.
     - When a request carries `Origin`, it must equal `http://` plus its `Host`. WebSocket upgrades and every request other than GET or HEAD must carry a matching `Origin`. A GET or HEAD without `Origin` is served only with a valid token.
     - The board page sends changes only through `fetch` or WebSocket, never as form posts. Responses send `Referrer-Policy: no-referrer`.
-  - **Local API requests:** the local API has its own session token of at least 128 bits, held only in the session file. It refuses requests that carry a browser `Origin`.
+  - **Local API requests:** the local API has its own session token of at least 128 bits, held only in the session file, and the socket's file permissions admit only the user. It refuses requests that carry a browser `Origin`; the mod's `$.http.fetch` sends none.
   - **Credential separation:** a board token never opens the local API, and the session token never opens a board. Diagnostics never print a token.
   - **No outbound traffic:**
     - AskBoard's own code makes no outbound network connection: no telemetry, and no fetching of references. Web, GitHub and Atlassian references open in the user's browser.
@@ -355,6 +360,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **The root:**
     - An ask's root is the git worktree of the owning agent's `cwd` (AD-5) when that worktree belongs to the project's repository. Otherwise it is the session project root, the realpath of `CLAUDE_PROJECT_DIR`.
+    - For an `isolation: worktree` subagent, that `cwd` is its own worktree, which Claude Code removes when the subagent finishes with no change. AskBoard reads files under a root only at send time, so its boards and Snapshots keep their content.
     - `packaging` also passes `CLAUDE_PROJECT_DIR` in the server entry's `env`. On a host that does not set it, pointers resolve as unresolved and project settings are not read.
   - **Resolving:**
     - When an ask or update is sent, `ask-core` resolves every excerpt pointer, media reference and molecule through its ports. It stores the result as that revision's **board document**, a `contract` schema.
@@ -458,7 +464,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** a time-to-show that ends before the whole question is visible; timing keys that cannot be joined; two scripted-answer paths; measurement leaking into normal use.
 - **Rule:**
   - **Setup:**
-    - A benchmark run loads AskBoard with `--plugin-dir` as the plugin under test, inside the isolated configuration, and passes `--max-turns`. Its server, hooks and mod are then the only extensions loaded, and the report says how AskBoard was loaded.
+    - A benchmark run loads AskBoard with `--plugin-dir` as the plugin under test, inside the isolated configuration, and passes `--max-turns`. The isolated configuration leaves out `--strict-mcp-config`, which drops plugin servers. AskBoard's server, hooks and mod are then the only plugin extensions loaded; the account's connectors may still connect, behind tool search. The report says how AskBoard was loaded and lists the MCP servers connected, and arms are compared by their differences.
     - In the AskUserQuestion arm, the scripted answerer from `bench`'s run settings answers AskUserQuestion (AD-10). The run sets the asking rule so that AD-16's hook lets AskUserQuestion through, and the report states both.
   - **Scripted answers:**
     - The headless browser only loads boards, and in benchmark mode the view mounts every area.
@@ -583,7 +589,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | Versions | Packages, plugin and every schema set follow semantic versioning (AD-7). |
 | Errors, warnings, typed results | As in AD-6. |
 | Process output | Stdout carries only MCP protocol. Diagnostics go to stderr, without agent content by default and never with a token. |
-| Board link and notice | `http://<loopback host>:<port>/b/<ask-id>?t=<token>`, computed once by a `BoardAddress` port that `board-host` implements and `ask-core` holds. The `ask` result returns it. A `PostToolUse` hook on `ask` shows it to the user as a system message, for the main conversation and subagents, with or without the mod. The mod adds the list of pending asks (FR-23). The shipped skills forbid agents from opening or answering boards. |
+| Board link and notice | `http://<loopback host>:<port>/b/<ask-id>?t=<token>`, computed once by a `BoardAddress` port that `board-host` implements and `ask-core` holds. The `ask` result returns it. A `PostToolUse` hook on `ask` shows it to the user as a system message for the main conversation's asks, with or without the mod; for a subagent's ask, Claude Code files that message in the subagent's transcript, out of the user's sight. The mod shows a subagent's link as a toast when the ask arrives, and keeps the list of pending asks in a status entry, updated whenever an ask is answered or closes (FR-23). With mods off, a subagent's ask has the browser and the system notification only. The shipped skills forbid agents from opening or answering boards. |
 | Excerpts and media | Pointer = one string: a root-relative path, `#` and an anchor, `L<start>-L<end>` for a line range, otherwise a heading, then an ID (`docs/prd.md#Billing`, `src/retry.ts#L40-L62`). Agent-written excerpts are text. Images by pointer only (AD-12). |
 | Shipped agents | Declare no frontmatter hooks, MCP servers or permission mode; the plugin's hooks cover them. |
 | Dependencies | Adoption rule from the PRD addendum, exceptions named in the solution design (AD-19). Versions pinned exactly. Tools that need a TypeScript compiler API use `@typescript/typescript6` as an npm alias, since TypeScript 7 ships none. |
@@ -606,7 +612,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | JSON Schema dialect | 2020-12 |
 | Ajv (the one validator; standalone validators generated at build for the view) | 8.20.0 |
 | `@ironcalc/wasm` (formula engine candidate, spike) | 0.9.1 |
-| Claude Code minimum (provisional, confirmed by the spike; above `stable` 2.1.308 at authoring, so release waits) | 2.1.311 |
+| Claude Code minimum (confirmed by the mod delivery spike: 2.1.308 fires `SubagentStop` while a subagent works; `stable` was still 2.1.308 on 2026-10-29, so release waits) | 2.1.311 |
 
 `@types/bun`, which only tests and repository tools use, follows the Bun pin.
 
@@ -647,8 +653,8 @@ flowchart LR
   page <-->|"ext-apps message set"| viewA
   hooksU -->|"local API, session token"| hostA
   modU -->|"local API, session token"| hostA
-  modU -.->|"session.send"| sub
-  modU -.->|"prompt.submit"| main
+  modU -.->|"session.append"| sub
+  modU -.->|"session.append, or prompt.submit when idle"| main
 ```
 
 **Answer delivery to a subagent (AD-3, AD-4, AD-5, AD-20)**
@@ -670,7 +676,7 @@ sequenceDiagram
   B->>S: user answers q1 (rev 1, full value)
   S->>S: diff, append event seq 1
   M->>S: poll events above received
-  M-->>A: session.send(event seq 1, cursor e.1)
+  M-->>A: session.append(event seq 1, cursor e.1)
   M->>S: delivered up to seq 1
   A->>S: collect(askId, after e.1, wait q2)
   B->>S: user writes a follow-up on q2
@@ -768,9 +774,7 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 
 | Item | Why it can wait | Revisit when |
 | --- | --- | --- |
-| Push transport confirmed (the mod reaches every kind of agent, wakes an idle conversation, and its identifiers and loopback fetch work); else Monitor watch or a `PostToolUse` hook as further adapters | AD-3, AD-4 and AD-5 hold for any transport | Mod delivery spike |
-| Latency target for answers reaching a working agent (PRD OQ2, product owner) | Needs the spike's measurements | After the mod delivery spike |
-| Minimum Claude Code version; behaviour of the session-file key after `/clear`, `--continue` and `/resume` | Provisionally 2.1.311; AD-5 and AD-18 fix the rules | Mod delivery spike |
+| The session-file key (the Claude Code PID) on Linux | Passed on macOS; AD-5 fixes the rule | Task 4.1 of the mod delivery spike, in a devcontainer |
 | Formula engine (IronCalc or own restricted evaluator) and the content of the function whitelist | AD-13 fixes the port, the grammar and the interim function set | Formula spike |
 | Catalog renderer behind `CatalogRenderer` (json-render 0.21 or own); Mermaid and PlantUML rendering inside the view bundle | AD-9 isolates widgets from it; AD-8's CSP constrains it | Renderer spike, with UX final |
 | Bun packaging: executable size, delivery through a plugin `command` source or the launcher, offline installation, tinycc in the output, the native Windows message | AD-19 and AD-22 fix the shape | Packaging spike |

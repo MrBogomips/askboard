@@ -2,7 +2,7 @@
 title: 'Solution design: AskBoard'
 status: final
 created: '2026-10-27'
-updated: '2026-10-29'
+updated: '2026-10-30'
 companions: ['ARCHITECTURE-SPINE.md']
 sources:
   - 'ARCHITECTURE-SPINE.md: AD-1 to AD-22, conventions, stack, Deferred (final, 2026-10-28)'
@@ -12,6 +12,7 @@ sources:
   - 'research-stack-2026-10-27.md: platform, formula engines, components, distribution (checked 2026-10-27)'
   - 'Web verification of 52 spine claims against primary sources (2026-10-27), restated in §13'
   - 'The architecture run decision record and its input and gate reviews (2026-10-27), restated in §4, §6, §10 and §11'
+  - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
 ---
 
 # Solution design: AskBoard
@@ -103,16 +104,16 @@ The import rules are the spine's, and CI fails on any import that crosses them. 
 
 Answers and follow-ups must reach a working agent where Claude Code allows it, else the agent collects them (FR-21). Subagents need this most: they cannot use AskUserQuestion [F7]. When the PRD was written, no path was both generally available and able to reach subagents (PRD R1).
 
-**Decision (AD-4).** Every capability works through the MCP tools alone, with `collect` as the authoritative pull path. For push, the product owner chose the Claude Code mod (OQ1), because it is cleaner and faster than a Monitor watch or a hook: `$.session.send` reaches a running subagent, `$.prompt.submit` wakes an idle main conversation [F9]. Pull stays authoritative because organizations can switch mods off, mods skip Desktop WSL sessions [F8], and three facts the mod relies on are undocumented [F12].
+**Decision (AD-4).** Every capability works through the MCP tools alone, with `collect` as the authoritative pull path. For push, the product owner chose the Claude Code mod (OQ1), because it is cleaner and faster than a Monitor watch or a hook. The mod delivery spike (§10.1) settled its paths: `$.session.append` reaches a running subagent, and the main conversation while its turn runs, at the agent's next model request; `$.prompt.submit` wakes an idle main conversation; `$.session.send` is not used, because auto mode refuses it for a mod [F9]. Pull stays authoritative because organizations can switch mods off, mods skip Desktop WSL sessions [F8], and the mod relies on behaviour the spike observed but no documentation states [F9, F12].
 
 A waiting `collect` returns when an event arrives for its item or the ask state changes, sends progress at least every 60 s, and returns `open` after 20 minutes. The reasons: a subagent's call is never backgrounded, so a wait blocks it; idle stdio calls time out after 30 minutes unless progress resets them [F18]; and a wait that ended only on the answer would deadlock follow-ups.
 
 | Candidate (2026-10-27) | Reaches a subagent | Outcome |
 | --- | --- | --- |
 | `collect` with a wait | Yes, blocking it | Kept, bounded, as pull |
-| Mod: `$.session.send`, `$.prompt.submit` | Yes, while running [F9] | **Chosen push;** on by default since 2.1.287 [F8] |
-| Monitor watch (`askboard watch`) | Background subagents have it; routing implied [F25] | Fallback adapter; re-arm after 5 min (30 max); Bash permissions |
-| `PostToolUse` `additionalContext` | Yes, with `agent_id` [F4] | Fallback adapter; lands only at the next tool call |
+| Mod: `$.session.append`, `$.prompt.submit` | Yes, while running [F9]; `$.session.send` refused under auto mode | **Chosen push;** on by default since 2.1.287 [F8]; confirmed by the mod delivery spike (§10.1) |
+| Monitor watch (`askboard watch`) | Background subagents have it; routing implied [F25] | Fallback adapter, not built: the mod reaches every kind of agent (§10.1); re-arm after 5 min (30 max); Bash permissions |
+| `PostToolUse` `additionalContext` | Yes, with `agent_id` [F4] | Fallback adapter, not built (§10.1); lands only at the next tool call |
 | Background Bash `askboard wait` | Background only [F25] | Set aside: one notification per exit |
 | `asyncRewake` hook | Undocumented [F26] | Set aside: exit-code-2 failure semantics |
 | `SubagentStop` block | Yes [F3] | Stop guard only (AD-10): fires only at stop |
@@ -138,10 +139,10 @@ Push goes only to the ask's owner, attributed to the mod and never `asUser`, so 
 
 MCP calls carry no agent identity, and a session's subagents share one process. Yet two subagents running one skill may pick the same ask ID, and the mod needs a subagent's ID, the guard an owner, and the board header a `cwd` (FR-24). One source feeds them all (AD-5).
 
-- **Record.** A `PreToolUse` hook on every AskBoard tool posts `agent_id`, agent type, `cwd`, `tool_use_id`, tool, ask ID and time; hooks receive these fields for MCP tools, in subagents too [F4]. The record binds to its call by `tool_use_id` when the call carries one (unverified over stdio [F16]), otherwise to the next matching call within the record timeout.
+- **Record.** A `PreToolUse` hook on every AskBoard tool posts `agent_id`, agent type, `cwd`, `tool_use_id`, tool, ask ID and time; hooks receive these fields for MCP tools, in subagents too [F4]. The record binds to its call by `tool_use_id`, which Claude Code puts in every call's `_meta` as `claudecode/toolUseId` [F16], otherwise to the next matching call within the record timeout.
 - **Owner.** The first bound `ask` makes its agent the owner; other agents' `update`, `collect`, `fetch` and `snapshot` are refused. `ask-core` sees only an opaque `ownerKey`.
 - **No hooks.** The hook never blocks. An `ask` without a record means hooks are off, and its result says that push, ownership checks and the guard are unavailable.
-- **Session file,** named by `CLAUDE_CODE_SESSION_ID`, which the session process, hooks and mods all know; after `/clear` or `--continue`, the IDs the session process and the hooks see may differ [F13]. No file, or several, means pull only: a mismatch costs push, never misroutes an answer.
+- **Session file,** named by the PID of the Claude Code process, the parent of the session process and of every hook; the mod reads it once with `$.process.run`. `CLAUDE_CODE_SESSION_ID` cannot be the key: on `--continue` the session process gets a new ID while the hooks keep the old one, and after `/clear` the hooks move to a new ID while the session process keeps its own [F13]. No file, or several, means pull only: a mismatch costs push, never misroutes an answer.
 - **Local API** answers at once in pages under 1 MiB, within the limits of a mod hook (10 s) and `$.http.fetch` (30 s, 4 MiB) [F10].
 
 ### 4.4 The contract and its schema sets (AD-7)
@@ -183,7 +184,7 @@ Agent and file content are untrusted, and the board page holds the token (AD-8, 
 
 At each send, `ask-core` resolves pointers, images and molecules into that revision's board document, the only thing the view, `fetch` and Snapshots read (AD-12). The reasons: offline Snapshots (FR-27) cannot call `excerpts`, the opaque view cannot load token-gated images, and Markdown must render in one place. The cost: a board shows a file as it was at send time.
 
-- **Root.** The owning agent's git worktree when it belongs to the project, else the realpath of `CLAUDE_PROJECT_DIR` [F14], so agents in worktrees get their own files and distinct board headers (FR-24). Pointers that escape the root through `..` or symlinks count as unresolved.
+- **Root.** The owning agent's git worktree when it belongs to the project, else the realpath of `CLAUDE_PROJECT_DIR` [F14], so agents in worktrees get their own files and distinct board headers (FR-24). An `isolation: worktree` subagent's hook `cwd` is its own worktree, gone once it finishes unchanged [F5]: board documents already hold what was read. Pointers that escape the root through `..` or symlinks count as unresolved.
 - **Images** only by pointer, saved by agents under `.askboard/media/`: base64 would cost output tokens (NFR-1), remote URLs would leave the machine (NFR-9).
 - **Patch files** for Diff review (§4.4) resolve the same way, and so does every path a patch names: at send time `ask-core` reads them read-only and inside the root, parses each patch and computes its diff against the base the item names, the files as they stand then. A patch's paths come from content the agent wrote, so without this a path that escapes through `..` or a symlink would put a file from outside the root on the board and in Snapshots. A patch that does not resolve, names such a path, does not parse or does not apply is unresolved, with a warning (AD-6).
 
@@ -223,7 +224,7 @@ AskBoard never reports an answer the user did not give, and never lets a missing
 - Widgets start empty regardless of what the agent recommends; otherwise one submit would send every default the user skipped. Untouched review content reports as unchanged.
 - Every result carries the epoch, and an unknown ask is `discarded`.
 - **Declined is terminal.** Question states are `open`, `answered`, `postponed` and `declined`. A decline closes its question like an answer, so the agent reads it as the user's choice, never as an answer still to come. An ask is `answered` when every question that is not postponed is answered or declined, and returns to `partly-answered` when the agent adds or reopens a question, or when the user reopens a postponed or declined question: the state never claims more than the user has given.
-- **The `SubagentStop` guard** blocks only for owned events above `received`, only when `stop_hook_active` is false, never twice per event. Its reason, delivered as the subagent's next instruction [F3], carries the events and lists the open asks. When the guard lets a stop through, the session process closes the subagent's asks as `agent-finished`. Before 2.1.311 the hook fired about twice a minute during work [F2] and would have used up the cap of 8 consecutive continuations [F3]: one reason for the 2.1.311 minimum.
+- **The `SubagentStop` guard** blocks only for owned events above `received`, only when `stop_hook_active` is false, never twice per event. Its reason, delivered as the subagent's next instruction [F3], carries the events and lists the open asks. When the guard lets a stop through, the session process closes the subagent's asks as `agent-finished`. Before 2.1.311 the hook fired during work, about twice a minute by the changelog and about every 30 s for a background subagent on 2.1.308 in the mod delivery spike [F2], and would have used up the cap of 8 consecutive continuations [F3]: one reason for the 2.1.311 minimum.
 - **Benchmark mode** needs a per-run secret matching `bench`'s run file, because a plain flag could leak from a user's shell. The scripted AskUserQuestion answerer lives only in the run's settings.
 
 ### 4.10 Runtime and distribution (AD-19)
@@ -265,7 +266,7 @@ A `PreToolUse` hook on AskUserQuestion, not the mod, enforces FR-30's asking rul
 2. The session process first checks that a board can be shown; if not, it returns `unavailable` and creates nothing. It refuses a client known to be below the minimum version (AD-18).
 3. `ask-core` validates against `contract`, binds the owner and origin, resolves the rev-1 board documents and runs `buildGraph` for warnings. On the session's first ask it creates `.askboard/` and its `.gitignore`.
 4. The result returns at once: board link, epoch, state `waiting`, warnings.
-5. The notifier opens the tab, unless a board of the same session is working (§3.2), and shows a notification; the `PostToolUse` hook shows the link to the user, for subagents too; the mod lists pending asks (FR-23).
+5. The notifier opens the tab, unless a board of the same session is working (§3.2), and shows a notification; the `PostToolUse` hook shows the link to the user for the main conversation's asks; for a subagent's ask the mod shows it as a toast; the mod lists pending asks (FR-23).
 6. The board connects with its token and builds the view through `assemble`. A question is visible once all its items have settled and been laid out (AD-9).
 
 ### 5.2 Delivery, follow-up and reply
@@ -364,7 +365,7 @@ stateDiagram-v2
 2. If there are events above `received` and `stop_hook_active` is false, the hook blocks with those events, their cursors and the list of open asks; `received` moves up.
 3. The subagent handles them and stops again.
 4. With nothing new, the hook lets the stop through, and the session process closes the subagent's asks as `agent-finished`; their boards accept no more answers.
-5. An ask with no owner never blocks a stop. Without hooks there is no guard, and the `ask` result already said so.
+5. An ask with no owner never blocks a stop, nor does an agent with no record, such as Claude Code's own side agents. Without hooks there is no guard, and the `ask` result already said so.
 
 ### 5.6 Snapshot (AD-15)
 
@@ -382,7 +383,7 @@ stateDiagram-v2
 
 | NFR | Controls | AD |
 | --- | --- | --- |
-| NFR-3 Local only | `127.0.0.1` bind from a port range; the container interface only on opt-in, published to the host's loopback, with a stderr warning; the local API never on a container interface; remote hosts get `unavailable` | AD-11, AD-22 |
+| NFR-3 Local only | `127.0.0.1` bind from a port range; the container interface only on opt-in, published to the host's loopback, with a stderr warning; the local API on a user-only Unix socket, never on a network interface; remote hosts get `unavailable` | AD-11, AD-22 |
 | NFR-4 Token | A token of at least 128 bits per board, in the URL, then only in a header or the first WebSocket message; no cookies; loopback `Host`; `Origin` must match when present and is required on WebSocket and non-GET/HEAD requests; no form posts; no referrer; a separate session token for the local API, which refuses browser `Origin`; tokens never printed | AD-11 |
 | NFR-5 Content as data | Opaque srcdoc view and its CSP; sanitized Markdown only in the view; text-only pages on the board origin; built source views with `nosniff`; molecules carrying code refused; remote URLs as links; argument-vector commands | AD-8, AD-9, AD-12 |
 | NFR-9 No telemetry | No outbound traffic except the launcher fetch; view `connect-src 'none'`; references open in the browser; benchmark output stays local | AD-11, AD-17 |
@@ -403,15 +404,15 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 
 **Keeping asks cheap:** data, not markup (AD-7); several questions per ask (FR-1); excerpts, images and molecules by pointer or name (AD-9, AD-12); derived values computed by AskBoard and only changes returned (AD-13, AD-20); a small, fixed tool surface (AD-6); no blocking wait during which the prompt cache expires.
 
-**Cost model** (addendum). Per question: output K1, thinking K2, extra output X to collect, answer tokens A, all re-read later; per session: tool definitions T. On Opus 5.5 with a 5-minute TTL, 100 questions cost $5.02 with the data contract, $58.55 as freehand HTML and $3.49 as plain AskUserQuestion; answers after a cache expiry at 60k context add $28.80 in every case. The TTL is 1 hour for a subscription's main conversation, 5 minutes on an API key and for subagents. The mod delivery spike (§10.1) measures X for push.
+**Cost model** (addendum). Per question: output K1, thinking K2, extra output X to collect, answer tokens A, all re-read later; per session: tool definitions T. On Opus 5.5 with a 5-minute TTL, 100 questions cost $5.02 with the data contract, $58.55 as freehand HTML and $3.49 as plain AskUserQuestion; answers after a cache expiry at 60k context add $28.80 in every case. The TTL is 1 hour for a subscription's main conversation, 5 minutes on an API key and for subagents. The mod delivery spike (§10.1) measured X for push: by append, about 38 input tokens per answer and no extra request; by `collect`, about 89 output tokens, 95 input tokens and one extra request. The figures above keep the `collect` assumption.
 
 **R5.** The plain-question +25% cost target holds only while T stays below about 2,100 tokens. The PRD sets no budget; CI reports these tokens per model and flags any T above that.
 
 **The benchmark (AD-17).**
 
-- `claude -p` loads AskBoard with `--plugin-dir` in an isolated configuration (`--setting-sources ""`, `--strict-mcp-config`, restricted `--tools`) with `--max-turns`, because `$.prompt.submit` can keep a `-p` run alive; managed `disableSideloadFlags` would reject `--plugin-dir` [F11].
+- `claude -p` loads AskBoard with `--plugin-dir` in an isolated configuration (`--setting-sources ""` and restricted `--tools`, without `--strict-mcp-config`, which drops plugin servers; the account's connectors still connect, and the report lists them) with `--max-turns`, which bounds the turns the mod may start: `-p` ends with the turn, and a submit queued past the limit is dropped. The benchmark reads transcripts, never the JSON `result`, which a woken turn replaces. Managed `disableSideloadFlags` would reject `--plugin-dir` [F11].
 - A headless browser only loads boards; every area mounts, and once a question is visible `ask-core` appends its scripted answer through the board's command port. The AskUserQuestion arm uses `bench`'s scripted answerer, with an asking rule that lets AskUserQuestion through.
-- K1 is the ask's non-thinking output plus every preparing response; K2 is billed thinking; usage is deduplicated by `requestId`. K3 (time to put a question up, SM-3) runs from the request's start (t0) to the moment the question is visible (t3), or to the tool call (t1) for AskUserQuestion; t2 is the moment AskBoard receives the call, after dispatch, permissions and hooks (addendum, "Measurement protocol"). The hook's `tool_use_id` joins t2 and t3 to the transcript; trace context over stdio is unverified [F16].
+- K1 is the ask's non-thinking output plus every preparing response; K2 is billed thinking; usage is deduplicated by `requestId`. K3 (time to put a question up, SM-3) runs from the request's start (t0) to the moment the question is visible (t3), or to the tool call (t1) for AskUserQuestion; t2 is the moment AskBoard receives the call, after dispatch, permissions and hooks (addendum, "Measurement protocol"). The hook's `tool_use_id`, which every call also carries in its `_meta`, joins t2 and t3 to the transcript; calls over stdio carry no trace context [F16].
 - Five runs per case, reported as medians with their spread; cold, warm and subagent runs reported separately; the context AskBoard adds before the first ask also reported.
 
 **Seed question set,** refined by the benchmark epic:
@@ -431,10 +432,10 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 - **Installation.** One GitHub-marketplace plugin carries the server, skills, agents and `hooks/hooks.json` (settings hooks plus the mod). Scopes are user, project and local [F23]; FR-28 uses the first two. Hooks match `mcp__plugin_askboard_askboard__<tool>` and, for `--mcp-config` loading, `mcp__askboard__<tool>`. The server entry passes `CLAUDE_PROJECT_DIR` and sets no `timeout` shorter than `collect`'s 20 minutes. Shipped agents declare no frontmatter hooks, servers or permission mode, which plugin agents ignore [F4].
 - **Platforms.** macOS and Linux, x64 and arm64, glibc and musl, where Claude Code runs [F34]. Browsers: current and previous major versions of Chrome, Edge, Firefox and Safari.
 - **WSL** is the only Windows route (NFR-7) [F34]; the packaging spike checks notices and `$BROWSER` there.
-- **CI** runs `claude -p --plugin-dir --max-turns`; mods and hooks run under `-p` [F11], where calls are not backgrounded by default [F18].
-- **Versions and the release gate.** One minimum for all units, provisionally 2.1.311 (AD-18): that release made `SubagentStop` fire only when a subagent finishes and let subagents use MCP servers that connect late [F2], which a cold start makes likely. On 2026-10-27 `stable` was 2.1.308 and `latest` 2.1.311 [F1], so release waits until `stable` reaches the minimum. The version comes from client information, else from the mod's report. An unknown version is allowed with a warning; a known one below the minimum is refused with the reason, and only then, because the specification discourages changing behaviour based on client information [F17]. CI covers the minimum, `stable` and `latest`, and on `latest` checks AskUserQuestion's input against FR-3.
+- **CI** runs `claude -p --plugin-dir --max-turns`; mods and hooks run under `-p` [F11], where calls are not backgrounded by default [F18]. A `-p` run ends with its turn, so a CI case that needs an answer waits for it with `collect`.
+- **Versions and the release gate.** One minimum for all units, 2.1.311 (AD-18), confirmed by the mod delivery spike (§10.1): that release made `SubagentStop` fire only when a subagent finishes, which 2.1.308 failed in the spike, and let subagents use MCP servers that connect late [F2], which a cold start makes likely. On 2026-10-29 `stable` was still 2.1.308 and `latest` 2.1.312 [F1], so release waits until `stable` reaches the minimum. The version comes from client information, which every request carried on 2.1.311 and 2.1.312, else from the mod's report. An unknown version is allowed with a warning; a known one below the minimum is refused with the reason, and only then, because the specification discourages changing behaviour based on client information [F17]. CI covers the minimum, `stable` and `latest`, and on `latest` checks AskUserQuestion's input against FR-3.
 - **MCP.** Protocol revision 2026-07-28 through SDK v2, keeping the SDK's default of also serving 2025-revision handshakes, because users can force the old handshake [F27]; CI runs `MCP_PROTOCOL_NEGOTIATION=legacy`. A proposal to refuse old handshakes with an error was declined in favour of this approach.
-- **Devcontainers, upgrades, diagnostics, uninstall.** Container binding is opt-in, and the terminal link is the notice that always works there (FR-23, §6). Each session keeps the version pinned at its start, `askboard doctor` reports state without ever printing a token, and uninstalling leaves `.askboard/`, the session-file folder, and the executable cache; the documentation lists all three (AD-22). Sessions on mixed versions share `.askboard/` under the versioned configuration schema (AD-14).
+- **Devcontainers, upgrades, diagnostics, uninstall.** Container binding is opt-in, and the terminal link is the notice that always works there, for a subagent's ask only when the mod runs (FR-23, §6). Each session keeps the version pinned at its start, `askboard doctor` reports state without ever printing a token, and uninstalling leaves `.askboard/`, the session-file folder, and the executable cache; the documentation lists all three (AD-22). Sessions on mixed versions share `.askboard/` under the versioned configuration schema (AD-14).
 - **Unsupported.** Remote hosts (SSH, Codespaces) get `unavailable`; native Windows gets a message naming WSL (mechanism: packaging spike); other Claude Code surfaces and MCP Apps rendering are out of scope (NFR-8, PRD §6). On `unavailable`, the main conversation uses AskUserQuestion and a subagent returns the question to its caller.
 
 ## 9. Stack and component adoption
@@ -508,6 +509,8 @@ All spikes run in the solution project, and each ends in a spine update through 
 
 **What changes otherwise.** If all pass, the push and minimum-version Deferred rows close. If criterion 1 fails for a kind of agent, a Monitor or `PostToolUse` adapter serves that kind (AD-4). Then the product owner sets OQ2's target from criterion 3.
 
+**Outcome (OpenSpec change `spike-mod-delivery`, 2026-10-29).** On Claude Code 2.1.311 and 2.1.312 the mod reaches every kind of agent, in every permission mode tested, under load and 31 minutes after an ask, through `$.session.append` and `$.prompt.submit`; auto mode refuses its `$.session.send`, so AD-4 no longer uses it, and no fallback adapter is needed. After the user interrupts a turn, an answer waits for the user's next turn or for `collect`. The session file is keyed by the Claude Code PID, because `CLAUDE_CODE_SESSION_ID` diverges on `--continue` and after `/clear` (AD-5). The session process also exits on SIGINT (AD-2). AD-10's condition holds from 2.1.311, while 2.1.308 fires `SubagentStop` during work, so the minimum stays 2.1.311 (AD-18). Criterion 8 fails: a subagent's board link reaches the user only through the mod, as a toast and a status entry (FR-23). The benchmark leaves out `--strict-mcp-config` (AD-17). The change's findings hold the latency and token measurements; OQ2's target was set on 2026-10-30. Criteria 10, 12 and 13 on Linux are still to run (the spike's task 4.1, in the spine's Deferred table).
+
 ### 10.2 Formula spike
 
 **Question.** Which engine goes behind `FormulaEngine`, IronCalc or AskBoard's own restricted evaluator, and what does the whitelist contain (AD-13)?
@@ -573,7 +576,7 @@ Further items for the spike:
 1. Executable size per target.
 2. Cold start, first fetch included, within `MCP_TIMEOUT` (30 s), or the fetch moved out of session-process start.
 3. Plugin `command` source compared with the launcher.
-4. Temporary-name download and rename under a lock, safe with concurrent sessions and the probe sibling.
+4. Temporary-name download and rename under a lock, safe with concurrent sessions (Claude Code starts no probe sibling, §10.1).
 5. Offline installation.
 6. tinycc present or absent in the compiled output.
 7. The `oven-sh/WebKit` commit Bun 1.4.4 pins, and Bun's relink steps, documented.
@@ -583,6 +586,7 @@ Further items for the spike:
 11. Native Windows: how the user sees the message naming WSL, because a POSIX launcher cannot run there.
 12. "No reachable browser" detected per platform (no `open`, `xdg-open` or `$BROWSER`; no published port).
 13. A background board tab not discarded after an hour [F33].
+14. A failed start (missing executable, checksum failure) reaches the user without Claude Code caching it: a cached failed start leaves later sessions without AskBoard's tools for about 15 minutes (§10.1). Candidate: the launcher answers the handshake and reports the error, rather than exiting.
 
 **What changes.** AD-19 and AD-22 record the delivery path; unmet LGPL obligations mean the Node bundle (AD-19); AD-18 gains the detection rule behind `unavailable`; tab discarding would reopen AD-21's grace rule.
 
@@ -616,35 +620,35 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 
 | Owner | Items |
 | --- | --- |
-| Architecture spikes (§10) | Push transport, with the minimum Claude Code version and the session-file key (mod delivery); formula engine and whitelist (formula); catalog renderer with Mermaid and PlantUML (renderer, with UX); Bun packaging and "no reachable browser" detection (packaging) |
-| Product owner | Latency target (OQ2), after the mod delivery spike; A2UI inbound translator (OQ5); molecule registry, export and repository (FR-16, FR-17) and full benchmark settings; MCP Apps in Claude hosts, other surfaces, native Windows, remote hosts |
+| Architecture spikes (§10) | The session-file key on Linux (mod delivery, task 4.1); formula engine and whitelist (formula); catalog renderer with Mermaid and PlantUML (renderer, with UX); Bun packaging and "no reachable browser" detection (packaging) |
+| Product owner | A2UI inbound translator (OQ5); molecule registry, export and repository (FR-16, FR-17) and full benchmark settings; MCP Apps in Claude hosts, other surfaces, native Windows, remote hosts |
 | Implementation | Default port range, container opt-in setting, host-side link address, grace period, record timeout, where the file path and line sit in the user's `editor` command |
 | Benchmark | `alwaysLoad` for `ask` and the result representation (first run); final question set and browser driver (benchmark epic) |
 | Product owner, outside the Deferred table | The licence exception for the Bun executable (§11 entry 7), after the packaging spike; the AXFX contract change (§11 entry 8), pending in the planning repository |
 
 ## 13. Facts the architecture rests on
 
-All facts were checked on 2026-10-27. Status is empty when a primary source states the fact; otherwise it marks a secondary source, or an unverified fact with the spike that checks it. "research-cc" and "research-stack" are the research files that travel with the spine.
+All facts were checked on 2026-10-27. Status is empty when a primary source states the fact; otherwise it marks a secondary source, or an unverified fact with the spike that checks it. "research-cc" and "research-stack" are the research files that travel with the spine. The mod delivery spike checked F1, F2, F3, F5, F6, F9, F11, F12, F13, F15, F16, F17 and F25 again on 2026-10-29, on Claude Code 2.1.311 and 2.1.312, and its status says so; its findings are in the archived OpenSpec change `spike-mod-delivery`.
 
 | ID | Fact | AD | Source | Status |
 | --- | --- | --- | --- | --- |
-| F1 | Claude Code `latest` 2.1.311 (2026-10-26), `stable` 2.1.308 (2026-10-22) | AD-18 | https://www.npmjs.com/package/@anthropic-ai/claude-code | |
-| F2 | 2.1.311: `SubagentStop` runs once, at finish (before, about twice a minute while working); subagents reach MCP servers that connect late | AD-10, AD-18 | https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md | |
-| F3 | A `SubagentStop` block's reason becomes the subagent's next instruction; cap of 8 consecutive continuations, reset at each tool call | AD-10 | https://code.claude.com/docs/en/hooks | `stop_hook_active` unverified: mod spike |
+| F1 | Claude Code `latest` 2.1.311 (2026-10-26), `stable` 2.1.308 (2026-10-22) | AD-18 | https://www.npmjs.com/package/@anthropic-ai/claude-code | On 2026-10-29 `latest` was 2.1.312 and `stable` still 2.1.308: mod delivery spike |
+| F2 | 2.1.311: `SubagentStop` runs once, at finish (before, about twice a minute while working); subagents reach MCP servers that connect late | AD-10, AD-18 | https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md | Confirmed by the mod delivery spike: 2.1.308 fired it about every 30 s during a background subagent's work |
+| F3 | A `SubagentStop` block's reason becomes the subagent's next instruction; cap of 8 consecutive continuations, reset at each tool call | AD-10 | https://code.claude.com/docs/en/hooks | `stop_hook_active` verified: mod delivery spike |
 | F4 | `PreToolUse` input for MCP tools has `tool_use_id`, `cwd`, `agent_id`, `agent_type` (absent in the main conversation); hooks fire in subagents; plugin agents ignore frontmatter hooks | AD-5, AD-17 | https://code.claude.com/docs/en/hooks | |
-| F5 | Hook `cwd` follows session worktrees; `isolation: worktree` subagents not stated | AD-5, AD-12 | https://code.claude.com/docs/en/worktrees | partly unverified: mod spike |
-| F6 | A `PostToolUse` `systemMessage` is shown to the user; for a subagent's call, not stated | Board notice | https://code.claude.com/docs/en/hooks | partly unverified: mod spike |
+| F5 | Hook `cwd` follows session worktrees; an `isolation: worktree` subagent's is its own worktree, which Claude Code removes when the subagent finishes unchanged | AD-5, AD-12 | https://code.claude.com/docs/en/worktrees | subagents: mod delivery spike |
+| F6 | A `PostToolUse` `systemMessage` is shown to the user for a main-conversation call; for a subagent's call it goes to the subagent's transcript, unseen by the user | Board notice | https://code.claude.com/docs/en/hooks | subagents: mod delivery spike |
 | F7 | A `PreToolUse` hook can deny or answer AskUserQuestion (2.1.85); subagents lack AskUserQuestion | AD-16, AD-17 | https://code.claude.com/docs/en/sub-agents | |
 | F8 | Mods on by default since 2.1.287; `allowManagedModsOnly` or `disableAllHooks` stop them; absent in Desktop WSL; a mod is a plugin, `hooks/hooks.json` holds module and hooks | AD-4, AD-19 | https://code.claude.com/docs/en/plugins/mods/overview | |
-| F9 | `$.session.send({ to: { agentId } })` reaches a running subagent; `$.prompt.submit` starts a turn once idle, attributed to the mod unless `asUser` | AD-4 | https://code.claude.com/docs/en/plugins/mods/api | |
+| F9 | `$.session.send({ to: { agentId } })` reaches a running subagent, but auto mode refuses it for a mod; `$.session.append` adds a row, attributed to the plugin, that a running subagent or main conversation reads at its next request; `$.prompt.submit` starts a turn once idle, attributed to the mod unless `asUser` | AD-4 | https://code.claude.com/docs/en/plugins/mods/api | auto-mode refusal and append: mod delivery spike |
 | F10 | Mod limits: 10 s per hook; `$.http.fetch` 30 s and 4 MiB; polling with `$.clock.every` | AD-5 | https://code.claude.com/docs/en/plugins/mods/reference | |
-| F11 | Mods run under `-p`, where `$.prompt.submit` can keep a run alive; `--plugin-dir` loads a plugin for one session, and managed `disableSideloadFlags` rejects it | AD-17 | https://code.claude.com/docs/en/cli-reference | |
-| F12 | Whether the hook's `agent_id` is the ID `$.session.send` takes, and whether `$.http.fetch` reaches `127.0.0.1` without `Origin`; policy that disallows WebFetch refuses `$.http.fetch` (confirmed) | AD-4, AD-5, AD-11 | https://code.claude.com/docs/en/plugins/mods/admin | unverified: mod spike |
-| F13 | `CLAUDE_CODE_SESSION_ID` reaches stdio servers and hooks, `$.session.id` mods; the IDs diverge after `/clear` and may on `--continue` | AD-5 | https://code.claude.com/docs/en/env-vars | `/resume`: mod spike |
+| F11 | Mods run under `-p`, where a `$.prompt.submit` queued before the turn ends keeps the run alive for one woken turn, within `--max-turns`; `--plugin-dir` loads a plugin for one session, and managed `disableSideloadFlags` rejects it | AD-17 | https://code.claude.com/docs/en/cli-reference | narrowed: mod delivery spike |
+| F12 | The hook's `agent_id` is the ID `$.session.send` takes; `$.http.fetch` reaches `127.0.0.1`, and a Unix socket through `socketPath`, without `Origin`; an organization policy that disallows WebFetch, or a policy mod that hooks `http.fetch`, refuses it, and a `WebFetch` deny rule does not | AD-4, AD-5, AD-11 | https://code.claude.com/docs/en/plugins/mods/admin | verified: mod delivery spike |
+| F13 | `CLAUDE_CODE_SESSION_ID` reaches stdio servers and hooks, `$.session.id` mods; the server's ID diverges from the hooks' and the mod's on `--continue` and after `/clear`, and agrees after `/resume`; the Claude Code process is the parent of the server and the hooks in every case | AD-5 | https://code.claude.com/docs/en/env-vars | mod delivery spike |
 | F14 | `CLAUDE_PROJECT_DIR` is set for every stdio server (2.1.139+); it and `${CLAUDE_PLUGIN_DATA}` are substituted in a plugin server's `env` | AD-12, AD-22 | https://code.claude.com/docs/en/mcp | |
-| F15 | The SDK's stdio client probes the protocol revision on a short-lived sibling process; Claude Code's v2 runtime uses that SDK | AD-2 | https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/protocol-versions.md | unverified for Claude Code: mod spike |
-| F16 | Whether MCP calls over stdio carry `tool_use_id` or `traceparent` in `_meta` | AD-5, AD-17 | none found | unverified: mod spike |
-| F17 | `clientInfo` is optional, and servers SHOULD NOT change behaviour on it | AD-18 | https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.ts | presence: mod spike |
+| F15 | The SDK's stdio client probes the protocol revision on a short-lived sibling process; Claude Code's v2 runtime uses that SDK | AD-2 | https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/protocol-versions.md | refuted for Claude Code: the probe arrives on the session's own process (mod delivery spike) |
+| F16 | MCP calls over stdio carry `tool_use_id` in `_meta` as `claudecode/toolUseId`, and no `traceparent` | AD-5, AD-17 | mod delivery spike (observed) | observed on 2.1.311 and 2.1.312 |
+| F17 | `clientInfo` is optional, and servers SHOULD NOT change behaviour on it | AD-18 | https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.ts | presence verified: mod delivery spike |
 | F18 | Main-conversation calls go to the background after 120 s, subagent and `-p` calls never; idle timeout 30 min on stdio, 5 on HTTP, reset by progress; HTTP first byte within max(60 s, tool timeout); `MCP_TIMEOUT` 30 s | AD-2, AD-4, AD-19 | https://code.claude.com/docs/en/mcp | |
 | F19 | Results: warning at 10k tokens, cap 25k, over 50,000 characters saved to a file, errors over about 11k characters trimmed; upfront descriptions cut at 4,096; tool search by default, `alwaysLoad` honoured; tool names up to 128 | AD-6 | https://code.claude.com/docs/en/mcp; https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools | |
 | F20 | Read-only calls run in parallel; idempotent calls repeat only for HTTP servers and connectors; spec defaults are destructive and open-world | AD-3, AD-6 | https://code.claude.com/docs/en/mcp | |
@@ -652,7 +656,7 @@ All facts were checked on 2026-10-27. Status is empty when a primary source stat
 | F22 | `structuredContent` SHOULD be repeated as text; which one the model reads is undocumented | AD-6 | https://modelcontextprotocol.io/specification/2026-07-28/server/tools | model side unverified: first benchmark |
 | F23 | Plugin tool naming and scopes; `${CLAUDE_PLUGIN_DATA}` survives updates; official plugins ship servers via `npx`, `uvx`, `docker`, `bun run` or HTTP, none as a binary; some surfaces skip plugins with `bin/` | AD-19, AD-22 | https://code.claude.com/docs/en/plugins-reference | |
 | F24 | The CLI renders no MCP Apps; MCP Tasks are a beta for the main conversation only, absent from SDK v2; channels are a preview, unregistered on 2026-07-28 | AD-4, AD-8 | https://modelcontextprotocol.io/extensions/client-matrix; https://code.claude.com/docs/en/channels-reference | |
-| F25 | Monitor: a notification per line, 5-minute default deadline (30 max), Bash permissions, available to background subagents; background Bash notifies on exit and dies with a foreground subagent | AD-4 | https://code.claude.com/docs/en/sub-agents; research-cc §7 | Monitor routing unverified |
+| F25 | Monitor: a notification per line, 5-minute default deadline (30 max), Bash permissions, available to background subagents; background Bash notifies on exit and dies with a foreground subagent | AD-4 | https://code.claude.com/docs/en/sub-agents; research-cc §7 | Monitor routing unverified; not needed (mod delivery spike) |
 | F26 | Elicitation: consent per URL open, about 8,000-character cap, no backgrounding, nothing on subagents; the inbox socket is session-wide with an undocumented format; `asyncRewake` in subagents undocumented | AD-4 | https://code.claude.com/docs/en/mcp; research-cc §3, §8, §10 | partly unverified, not pursued |
 | F27 | MCP 2026-07-28 is current, schemas default to 2020-12; Claude Code negotiates it on stdio from 2.1.292; `MCP_PROTOCOL_NEGOTIATION=legacy` forces the old handshake, which SDK v2 serves by default | AD-6, AD-18 | schema.ts (F17); protocol-versions.md (F15) | |
 | F28 | ext-apps 2.0.4 has no supported host; a web host MUST use a sandbox proxy on another origin; its classes accept an opaque-origin view | AD-8 | https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx | |

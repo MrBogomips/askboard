@@ -1,7 +1,7 @@
 ---
 title: "PRD addendum: AskBoard"
 created: 2026-10-25
-updated: 2026-10-28
+updated: 2026-10-30
 ---
 
 # PRD addendum: AskBoard
@@ -47,7 +47,7 @@ The visual-companion research lists candidate open-source components per widget 
 
 ## How answers reach a working agent (architecture; PRD FR-21, FR-22, FR-10)
 
-The PRD requires that an agent keeps working after sending an ask, and that answers and follow-ups reach it while it works, without it asking AskBoard for them. The candidate paths below were found at Claude Code 2.1.310 and corrected at 2.1.311.
+The PRD requires that an agent keeps working after sending an ask, and that answers and follow-ups reach it while it works, without it asking AskBoard for them. The candidate paths below were found at Claude Code 2.1.310 and corrected at 2.1.311; the mod delivery spike checked the mod's paths on 2.1.311 and 2.1.312.
 
 **Chosen path** (../architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md AD-4; ../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1). Pull is authoritative: every capability works through AskBoard's MCP tools, and the agent collects the answers when it needs them. The Claude Code mod is the push path. The remaining risk (PRD Risks, R1) is that the mod fails the delivery spike or that an organization disables mods; pull mitigates it.
 
@@ -57,7 +57,7 @@ The PRD requires that an agent keeps working after sending an ask, and that answ
 - **MCP Tasks.** Public beta since Claude Code 2.1.304; main conversation only; CLI, Agent SDK and GitHub Actions only. Statuses include `input_required`. (research-mcp-performance.md §3.1–3.2)
 - **Channels.** Research preview; custom channels need `--dangerously-load-development-channels` and are not registered on MCP 2026-07-28 connections. (extract-research-visual-companion.md §2.4)
 - **URL-mode elicitation** (since 2.1.281). A consent prompt on each open; the URL is capped at about 8,000 characters; "the dialog keeps the call from being backgrounded". Fit: a launcher carrying a short token, never the payload; the consent click adds a step to FR-23's notice. Subagent support is unverified. (extract-research-visual-companion.md §2.3, §2.5; research-mcp-performance.md §3.2; reconcile-addendum-competitive.md G5)
-- **Plugin message.** Plannotator's Claude Code mod runs a non-blocking review "whose decision reaches the model later as a plugin message". The research took mods to be in early access and kept them optional: the "core works through MCP alone" (extract-research-visual-companion.md §2.4, §3, §6.3). In fact mods have been on by default since 2.1.287; `allowManagedModsOnly` or `disableAllHooks` stop them, and they are absent in Desktop WSL sessions. A mod's `$.session.send` reaches a running subagent, and `$.prompt.submit` wakes an idle main conversation. The core still works through MCP alone. (../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1, §13 F8, F9)
+- **Plugin message.** Plannotator's Claude Code mod runs a non-blocking review "whose decision reaches the model later as a plugin message". The research took mods to be in early access and kept them optional: the "core works through MCP alone" (extract-research-visual-companion.md §2.4, §3, §6.3). In fact mods have been on by default since 2.1.287; `allowManagedModsOnly` or `disableAllHooks` stop them, and they are absent in Desktop WSL sessions. A mod's `$.session.append` reaches a running subagent, and the main conversation while its turn runs, and `$.prompt.submit` wakes an idle main conversation; auto mode refuses a mod's `$.session.send`, so AskBoard does not use it. The core still works through MCP alone. (../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1, §10.1, §13 F8, F9)
 - **Monitor and background Bash.** Both reach background subagents only, and Monitor's routing to them is unverified (F25). Monitor notifies once per output line, with a 5-minute default deadline (30 at most), under Bash permissions; background Bash notifies once, on exit. The architecture keeps a Monitor watch as a fallback adapter and sets background Bash aside. (same §4.1, §13 F25)
 - **Other paths.** A hook that adds new answers to the agent's context on its next turn, which the architecture keeps as a fallback adapter; a tool the agent calls to collect answers when it reaches a point where it needs them, which became the pull path, and for which Plannotator's inbox tools (`send_message`, `submit_guide`, `wait_for_reply`) are prior art. (extract-research-visual-companion.md §3; ../architecture-askboard-2026-10-27/SOLUTION-DESIGN.md §4.1)
 
@@ -110,10 +110,10 @@ From the research (§5, §7); the counting rules are those the PRD adopts in FR-
 - **K1:** non-thinking output (`output_tokens − thinking_tokens`) of the response that emits the ask, plus every response that only prepares it: tool search, skill load, failed or repeated attempts.
 - **K2:** billed `thinking_tokens` of the same responses, never estimated from visible thinking.
 - **Data source:** transcript `usage` deduplicated by `requestId`, since one response is stored as one entry per content block; `claude -p` JSON and OTel metrics do not split out thinking.
-- **K3:** from t0, the start of the model request that emits the ask, to t3, AskBoard's render beacon once the whole question is visible (FR-33, SM-C2); split at t1 (tool call emitted) and t2 (AskBoard receives the call, after dispatch, permissions and hooks). Join keys: `traceparent` over HTTP, or the `tool_use_id` a `PreToolUse` hook logs; stdio `_meta` is unverified.
+- **K3:** from t0, the start of the model request that emits the ask, to t3, AskBoard's render beacon once the whole question is visible (FR-33, SM-C2); split at t1 (tool call emitted) and t2 (AskBoard receives the call, after dispatch, permissions and hooks). Join keys: `traceparent` over HTTP, or the `tool_use_id` a `PreToolUse` hook logs, which calls over stdio also carry in `_meta` as `claudecode/toolUseId` (mod delivery spike).
 - **K3 for AskUserQuestion** (FR-32): K3 ends at t1, when the AskUserQuestion tool call is emitted, since AskUserQuestion has no board and in the benchmark a hook answers it, so it is never shown.
 - **Counting:** the first ask of a session counts as it happens, tool search included; retries count. For a batched ask, K1 and K2 per question are the ask's figures divided by its question count, and K3 is the ask's own time (FR-32). Arms are compared at equal batch sizes, at most 4 questions per AskUserQuestion call.
-- **Pinned settings:** model, effort, Claude Code version, cache TTL, tool-search mode (`ENABLE_TOOL_SEARCH`), and an isolated configuration (`--setting-sources ""`, `--strict-mcp-config`, restricted `--tools`); one model per comparison, as tokenizers differ (§1.3).
+- **Pinned settings:** model, effort, Claude Code version, cache TTL, tool-search mode (`ENABLE_TOOL_SEARCH`), and an isolated configuration (`--setting-sources ""` and restricted `--tools`, without `--strict-mcp-config`, which drops plugin servers); one model per comparison, as tokenizers differ (§1.3).
 - **Scripted answerer:** an AskBoard test mode or a headless browser; AskUserQuestion is answered by a `PreToolUse` hook or the SDK's `canUseTool`, with a permission host under `-p`.
 - **Runs:** 5 per case, medians compared (FR-32); the research also reports p90.
 

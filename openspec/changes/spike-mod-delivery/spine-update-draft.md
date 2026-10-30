@@ -1,6 +1,8 @@
 # Spine update draft: mod delivery spike
 
-Replacement texts for task 5.2, drafted before the PO's decisions. Each block belongs to one row of "Proposed outcomes (awaiting the PO)" in `findings.md` and applies only if the PO accepts that row. Each block quotes the current text exactly, then gives the replacement. AD IDs stay stable: every AD is amended in place, and no AD is added.
+Replacement texts for task 5.2, drafted before the PO's decisions. Each block belongs to one row of "Proposed outcomes and the PO's decisions" in `findings.md` and applies only if the PO accepts that row. Each block quotes the current text exactly, then gives the replacement. AD IDs stay stable: every AD is amended in place, and no AD is added.
+
+**Applied on 2026-10-30.** The PO accepted every row, so every block applied, with its conditions resolved this way: 1.2 as written, because the verify run `d-esc3b-314` passed; 5.2 with "and its socket" (row 7); 7.A not applied; 18.2 reworded, not removed, because task 4.1 has not run; 18.3 removed (row 13); 13.1 and 18.5 with their placeholders filled and 18.5's tags dropped. SOLUTION-DESIGN §12 keeps the Linux check under the mod delivery spike, to match the reworded 18.2 row.
 
 Files, all under `docs/`:
 
@@ -72,7 +74,7 @@ Replacement (three bullets):
     - It pushes only events above `received` (AD-3) and reports what it delivered, which raises `received` and so the board's delivery receipt. An event counts as pushed once the push call is made: a report that fails is retried on its own and never causes another push. Its absence costs latency, never correctness: an answer's receipt then waits for `collect` or the `SubagentStop` guard.
 ```
 
-The interrupt sentences rest on runs `d-esc-312` and `d-esc2-312` (`findings.md`, "Interrupt, then push (D6)"): Claude Code dropped both submits, and rows appended at `turn.start` were not in that turn's only request. The rule written here is the corrected one, which no run has tested yet. Run `d-esc3-312` before applying, and change the sentences if it fails.
+The interrupt sentences rest on runs `d-esc-312` and `d-esc2-312` (`findings.md`, "Interrupt, then push (D6)"): Claude Code dropped both submits, and rows appended at `turn.start` were not in that turn's only request. The rule written here is the corrected one. Its verify run, `d-esc3b-314` on 2.1.314, passed before the apply: both answers were read after the user's next input, one of them twice, so the sentences stand.
 
 ### 1.3 Spine, AD-4, Rule, Push, second bullet
 
