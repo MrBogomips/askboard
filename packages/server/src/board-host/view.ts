@@ -1,13 +1,13 @@
 // The view build `board-host` serves (design decision 7): the manifest the view build wrote, every
 // file it names read once and checked against its digest and size, and the board page's policy
-// computed once from it (AD-8).
+// computed once from it by the contract's rule, which the view's test server shares (AD-8).
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   BOARD_RESPONSES,
-  cspHashSource,
+  boardPagePolicy,
   type ManifestFile,
   VIEW_MANIFEST_FILE,
   type ViewManifest,
@@ -22,7 +22,7 @@ export type LoadedView = {
   readonly manifest: Buffer;
   /** The board page as served, its script and styles inline. */
   readonly boardPage: Buffer;
-  /** The board page's Content-Security-Policy. */
+  /** The board page's Content-Security-Policy: the contract's `boardPagePolicy` of the manifest. */
   readonly policy: string;
   /** Every chunk's script and styles, by SHA-256 in lowercase hex. */
   readonly chunks: ReadonlyMap<string, ChunkFile>;
@@ -42,34 +42,6 @@ export class ViewBuildError extends Error {
     this.code = code;
   }
 }
-
-const sources = (files: readonly ManifestFile[]): string => {
-  const hashes = [...new Set(files.map((file) => cspHashSource(file.sha256)))];
-  return hashes.length === 0 ? "'none'" : hashes.join(" ");
-};
-
-/**
- * The board page's policy (AD-8): scripts and styles only by the hashes of the board page's code
- * and of every view chunk, which the view's srcdoc inherits; `connect-src 'self'` for its socket and
- * the manifest and chunk fetches; the view's media sources. Everything else is `'none'`.
- * `frame-src 'self'` waits for the reading panel (E5).
- */
-export const boardPagePolicy = (manifest: ViewManifest): string => {
-  const chunks = Object.values(manifest.chunks);
-  const scripts = [manifest.boardPage.script, ...chunks.map((chunk) => chunk.script)];
-  const styles = [...manifest.boardPage.styles, ...chunks.flatMap((chunk) => chunk.styles)];
-  return [
-    "default-src 'none'",
-    `script-src ${sources(scripts)}`,
-    `style-src ${sources(styles)}`,
-    "connect-src 'self'",
-    "img-src data: blob:",
-    "font-src data:",
-    "base-uri 'none'",
-    "form-action 'none'",
-    "frame-ancestors 'none'",
-  ].join("; ");
-};
 
 const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
 

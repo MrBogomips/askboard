@@ -24,7 +24,7 @@ export {
   VIEW_ID_PREFIX,
   VIEW_MANIFEST_FILE,
 } from "./constants.ts";
-export { cspHashSource, SHA256_HEX_PATTERN } from "./hash.ts";
+export { boardPagePolicy, cspHashSource, SHA256_HEX_PATTERN } from "./hash.ts";
 export {
   CHOICE_LABELS_MAX_CHARS,
   COLLECT_ASKS_MAX,

@@ -2,11 +2,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   BOARD_RESPONSES,
   BOARD_TOKEN_HEADER,
+  boardPagePolicy,
   cspHashSource,
   VIEW_MANIFEST_FILE,
 } from "@askboard/contract";
 import { fixtureViewFiles, fixtureViewManifest } from "@askboard/contract/fixtures";
-import { boardPagePolicy, loadView } from "../../src/board-host/view.ts";
+import { loadView } from "../../src/board-host/view.ts";
 import { freeRange, removeViews, request, startHost, type TestHost, writeView } from "./helpers.ts";
 
 // Board-host spec, The board page and its policy, and the routes of the view's files (task 6.3):
@@ -60,9 +61,10 @@ describe("the board page", () => {
     expect(head.headers["content-length"]).toBe(get.headers["content-length"]);
   });
 
-  test("its policy names the board page's and every chunk's hashes, and nothing unsafe", async () => {
+  test("its policy is the contract's board page policy for the manifest it serves", async () => {
     const answer = await request(port, `/b/${askId}?t=${token}`);
     const policy = String(answer.headers["content-security-policy"]);
+    expect(policy).toBe(boardPagePolicy(manifest));
     const parts = directives(policy);
     const hashes = (files: readonly { sha256: string }[]) =>
       files.map((file) => cspHashSource(file.sha256)).sort();
@@ -72,40 +74,8 @@ describe("the board page", () => {
     expect([...(parts.get("style-src") ?? [])].sort()).toEqual(
       hashes([...manifest.boardPage.styles, ...styles]),
     );
-    expect(parts.get("default-src")).toEqual(["'none'"]);
-    expect(parts.get("connect-src")).toEqual(["'self'"]);
-    expect(parts.get("img-src")).toEqual(["data:", "blob:"]);
-    expect(parts.get("font-src")).toEqual(["data:"]);
-    // Only restrictions besides: what the page may not be framed by, post to or base on.
-    expect([...parts.keys()].sort()).toEqual(
-      [
-        "base-uri",
-        "connect-src",
-        "default-src",
-        "font-src",
-        "form-action",
-        "frame-ancestors",
-        "img-src",
-        "script-src",
-        "style-src",
-      ].sort(),
-    );
-    for (const name of ["base-uri", "form-action", "frame-ancestors"]) {
-      expect(parts.get(name)).toEqual(["'none'"]);
-    }
     expect(policy).not.toContain("unsafe-");
-    expect(policy).not.toContain("*");
-  });
-
-  test("a policy with no style names 'none' for styles", () => {
-    const bare = {
-      ...manifest,
-      boardPage: { ...manifest.boardPage, styles: [] },
-      chunks: Object.fromEntries(
-        Object.entries(manifest.chunks).map(([name, chunk]) => [name, { ...chunk, styles: [] }]),
-      ),
-    };
-    expect(directives(boardPagePolicy(bare)).get("style-src")).toEqual(["'none'"]);
+    expect(policy).not.toContain("frame-src");
   });
 });
 
@@ -178,6 +148,8 @@ describe("any other path", () => {
       `/ws/${askId}`,
       "//127.0.0.1/m",
       "/m/",
+      // The real board page names a `data:` icon; a browser that asks anyway gets the unknown path's answer.
+      "/favicon.ico",
     ]) {
       const answer = await request(port, path, withToken());
       expect(answer.status).toBe(BOARD_RESPONSES.notFound.status);
@@ -199,6 +171,21 @@ describe("loading the view build", () => {
     const view = await loadView(writeView());
     expect(view.chunks.size).toBe(scripts.length + styles.length);
     expect(view.boardPage.toString()).toBe(fixtureViewFiles[manifest.boardPage.html.path] ?? "");
+  });
+
+  test("serves whatever needs the manifest declares, as the real build's", async () => {
+    const choice = manifest.chunks.choice;
+    if (choice === undefined) throw new Error("fixture changed");
+    // In the real build the choice chunk also needs the shell, which holds the CatalogRenderer port.
+    const real = {
+      ...manifest,
+      chunks: { ...manifest.chunks, choice: { ...choice, needs: ["shell", ...choice.needs] } },
+    };
+    const view = await loadView(
+      writeView({ ...fixtureViewFiles, [VIEW_MANIFEST_FILE]: JSON.stringify(real) }),
+    );
+    expect(view.chunks.size).toBe(scripts.length + styles.length);
+    expect(view.policy).toBe(boardPagePolicy(real));
   });
 
   test("fails on a missing manifest, a manifest that is not JSON or not valid", async () => {
