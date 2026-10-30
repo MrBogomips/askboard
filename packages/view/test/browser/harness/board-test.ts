@@ -29,7 +29,7 @@ export type BoardRun = {
   readonly session: BoardSession;
   readonly browser: BoardContext;
   readonly scenario: Scenario;
-  /** A new tab at the board link, once the view shows the question done loading. */
+  /** A new tab at the board link, once the view shows the question loaded. */
   open(): Promise<Board>;
   /** A new tab at the board link, without waiting for the view. */
   openTab(): Promise<Board>;
@@ -60,7 +60,7 @@ const diagnosis = async (board: Board, run: BoardRun): Promise<string> => {
   return parts.join("; ");
 };
 
-/** Waits until the view shows the question with its loading state ended. */
+/** Waits until the view shows the question loaded: its options shown, no alert in its card. */
 export const waitForQuestion = async (
   board: Board,
   run: BoardRun,
@@ -71,7 +71,7 @@ export const waitForQuestion = async (
   } catch (error) {
     const first = String(error).split("\n")[0];
     throw new Error(
-      `the view did not show the question done loading within ${timeout / 1000} s (${await diagnosis(board, run)}): ${first}`,
+      `the view did not show the question loaded, with its options and no alert, within ${timeout / 1000} s (${await diagnosis(board, run)}): ${first}`,
     );
   }
 };

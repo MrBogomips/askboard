@@ -6,7 +6,8 @@
 //   in every frame, beyond the reach of either policy. WebKit reports a blocked `eval` in the view
 //   to the board page only, so violations count wherever they land (renderer row 17).
 // - Console lines, of which those reporting a CSP block count too: WebKit logs some blocks only
-//   there. Page errors and dialogs.
+//   there. Page errors. Not dialogs: the view's sandbox has no `allow-modals`, so an `alert()` in
+//   it opens nothing, and Playwright dismisses any other.
 // - Every WebSocket the board page opens, with each frame it sent or received, in order.
 
 import {
@@ -66,7 +67,6 @@ export class BoardContext {
   readonly violations: Violation[] = [];
   readonly console: ConsoleLine[] = [];
   readonly errors: string[] = [];
-  readonly dialogs: string[] = [];
   readonly #sockets: MutableSocket[] = [];
   readonly #context: BrowserContext;
 
@@ -127,10 +127,6 @@ export class BoardContext {
       });
     });
     page.on("pageerror", (error) => this.errors.push(String(error)));
-    page.on("dialog", (dialog) => {
-      this.dialogs.push(dialog.message());
-      void dialog.dismiss();
-    });
     page.on("websocket", (socket) => {
       const record: MutableSocket = { url: socket.url(), frames: [] };
       this.#sockets.push(record);

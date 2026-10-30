@@ -27,7 +27,10 @@ export type Board = {
   readonly view: FrameLocator;
   readonly header: Locator;
   question(itemId: string): Locator;
-  /** The question card once its loading state has ended. */
+  /**
+   * The question card once it has loaded: not busy, with its options and no alert. A failed item
+   * also ends the loading state, so `aria-busy` alone would match a board whose component crashed.
+   */
   loaded(itemId: string): Locator;
   option(label: string): Locator;
   readonly options: Locator;
@@ -50,7 +53,10 @@ export const boardOf = (page: Page): Board => {
     header: view.getByRole("banner"),
     question: (itemId) => view.locator(`[data-askboard-question="${itemId}"]`),
     loaded: (itemId) =>
-      view.locator(`[data-askboard-question="${itemId}"]:not([aria-busy="true"])`),
+      view
+        .locator(`[data-askboard-question="${itemId}"]:not([aria-busy="true"])`)
+        .filter({ has: view.getByRole("radio").or(view.getByRole("checkbox")) })
+        .filter({ hasNot: view.getByRole("alert") }),
     option: (label) => view.getByRole("radio", { name: label }),
     options: view.getByRole("radio"),
     answer: view.getByRole("button", { name: "Answer", exact: true }),

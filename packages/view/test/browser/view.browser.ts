@@ -156,7 +156,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         expect(created).toEqual([]);
         expect(await board.page.title()).toBe(`${markupBoardDocument.title} · AskBoard`);
-        expect(run.browser.dialogs).toEqual([]);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
