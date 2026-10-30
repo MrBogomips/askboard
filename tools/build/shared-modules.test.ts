@@ -17,6 +17,25 @@ import {
 
 const modules: SharedModules = sharedModules(["register", "componentFor"]);
 
+const NAMED_IMPORT = /import\s+\{([^}]*)\}\s+from\s+"([^"]+)"/g;
+
+// The value names the view's sources import from each module, as `<module>:<name>`.
+const namedImports = async (): Promise<Set<string>> => {
+  const found = new Set<string>();
+  for await (const path of new Bun.Glob("**/*.{ts,tsx}").scan(VIEW_SRC)) {
+    if (/\.test\.tsx?$/.test(path)) continue;
+    const source = await Bun.file(join(VIEW_SRC, path)).text();
+    for (const [, names = "", module] of source.matchAll(NAMED_IMPORT)) {
+      const values = names
+        .split(",")
+        .map((name) => name.trim().split(/\s+as\s+/)[0] ?? "")
+        .filter((name) => name !== "" && !name.startsWith("type "));
+      for (const name of values) found.add(`${module}:${name}`);
+    }
+  }
+  return found;
+};
+
 describe("the shared modules and the chunks that provide them", () => {
   test("React and React DOM come from the react chunk, Radix from radix, ext-apps from ext-apps", () => {
     expect(modules.get("react")?.chunk).toBe("react");
@@ -35,6 +54,16 @@ describe("the shared modules and the chunks that provide them", () => {
 
   test("the library chunks are React, Radix and ext-apps", () => {
     expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual(["ext-apps", "radix", "react"]);
+  });
+
+  test("every name a library chunk lists is imported by a view source, so none ships unused", async () => {
+    const imported = await namedImports();
+    const unused = Object.values(LIBRARY_CHUNKS).flatMap(({ modules }) =>
+      Object.entries(modules).flatMap(([module, names]) =>
+        names === "*" ? [] : names.filter((name) => !imported.has(`${module}:${name}`)),
+      ),
+    );
+    expect(unused).toEqual([]);
   });
 });
 

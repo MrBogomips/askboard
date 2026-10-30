@@ -36,7 +36,7 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
   // the MCP client and core, which ext-apps imports.
   "ext-apps": {
     first: [ZOD_JITLESS_FILE],
-    modules: { "@modelcontextprotocol/ext-apps": ["App", "PostMessageTransport"] },
+    modules: { "@modelcontextprotocol/ext-apps": ["App"] },
   },
 };
 
