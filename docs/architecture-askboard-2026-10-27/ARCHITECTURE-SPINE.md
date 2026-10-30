@@ -19,6 +19,7 @@ sources:
   - 'prd-askboard-2026-10-25/research-mcp-performance.md (cost model, measurement protocol)'
   - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
   - 'OpenSpec change spike-renderer, findings.md: the view CSP, the catalog renderer and the diagram renderers in Chromium, Firefox, WebKit, Chrome and Edge (2026-10-29 and 2026-10-30)'
+  - 'OpenSpec change spike-formula, findings.md: IronCalc 0.9.1 and the own restricted evaluator in Bun, Node, Chromium, Firefox and WebKit, and the function whitelist (2026-10-30)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -272,7 +273,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - scripts and styles only by the hashes of the inlined chunks;
       - `img-src data: blob:`, `font-src data:`;
       - `connect-src`, `object-src`, `frame-src`, `form-action` and `base-uri` all `'none'`;
-      - `'wasm-unsafe-eval'` only if the formula engine is WASM, never `'unsafe-eval'`, `'unsafe-inline'` or `'unsafe-hashes'`;
+      - never `'wasm-unsafe-eval'`, `'unsafe-eval'`, `'unsafe-inline'` or `'unsafe-hashes'`;
       - no storage.
     - Diagram SVG is shown as `<img src="blob:…">`. The view never holds a token.
     - Styles reach the view only by hash or through the CSSOM: `style.cssText`, `insertRule` and constructed stylesheets (`adoptedStyleSheets`), which a hash-only `style-src` allows. Where a library writes a `style` attribute or adds a `<style>` element at run time, or parses markup that holds `style` attributes, AskBoard's view code routes the write through the CSSOM instead: the diagram renders, the modal dialogs and Diff review. The policy never gains `'unsafe-inline'` or `'unsafe-hashes'`.
@@ -386,19 +387,20 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Declarations in `contract`:** per widget type:
     - its addressable fields;
     - how its children are addressed;
-    - each built-in derived field, as an expression over whitelisted functions. The whitelist includes PERT, roll-ups, CPM scheduling and scores.
+    - each built-in derived field, as an expression over whitelisted functions. The whitelist is the operators `+ - * /`, unary minus, `^` and `= <> < <= > >=`, and the functions `SUM`, `MIN`, `MAX`, `IF`, `ROUND`, `AND`, `SQRT`, `SUMSQ`, `SUMPRODUCT`, `ROUNDUP` and `WORKDAY`, with Excel's semantics. `contract` holds the list, and `compute` holds fixtures for each entry. PERT, roll-ups, CPM scheduling and scores are written with them.
   - **References:**
-    - A reference is `[item-id(.child-id)*.field]`, where `*` stands for any one child level. Spreadsheet cells are `[item-id.A1]`, which no field name may match. The grammar lives in `contract`.
+    - A reference is the item ID, then at most one child ID, which is unique within its item (AD-7), then a `*` for each further child level, then the field: `[wbs.ux.optimistic]`, `[wbs.design.*.expected]`, `[wbs.*.expected]`. A `*` stands for the children of the node before it, in document order. A Tree move does not change a reference. Spreadsheet cells are `[item-id.A1]`, which no field name may match. A range of cells is `[item-id.A1:B3]`: it reads row by row and holds at most 65,536 cells. The grammar lives in `contract`.
   - **The graph:**
     - `compute` builds a board's whole graph from the board document alone, through `buildGraph(boardDocument)`. It is evaluated in the view on each edit.
     - Widgets read and write graph values and define no node. A node exists whether or not its widget is mounted.
-    - `ask-core`'s send-time check calls the same `buildGraph`. A missing reference or a cycle does not refuse the ask: the result lists it as a warning naming the item ID (AD-6), and the board shows that formula as an error (FR-14).
+    - `ask-core`'s send-time check calls the same `buildGraph`. A missing reference, a wildcard that matches no node, or a cycle does not refuse the ask: the result lists it as a warning naming the item ID (AD-6), and the board shows that formula as an error (FR-14).
   - **Formulas:**
     - Formulas are Excel-style expressions that use only the reference syntax and the function whitelist.
-    - The engine sits behind a `FormulaEngine` port and never sees ask or item IDs; the adapter maps each reference to an engine name.
-    - Until the formula spike closes, molecules use only arithmetic, `SUM`, `MIN`, `MAX`, `IF`, `ROUND` and the built-in derived fields.
+    - `contract` holds limits on a formula's length, its nesting depth and a range's size. The graph checks them, with the grammar and the whitelist, before any engine runs; a formula over a limit is a formula error.
+    - The engine is AskBoard's own restricted evaluator, in `compute`: its own parser, a topological sort, and the whitelisted functions written as code. It runs no `eval` or other dynamic code, and looks names up only in its own tables. It sits behind a `FormulaEngine` port and never sees ask or item IDs; the adapter maps each reference to an engine name.
+    - Molecules use only the whitelist and the built-in derived fields.
   - **Determinism:**
-    - Derived values ignore locale and timezone; money is rounded only for display, to the currency's minor unit.
+    - Derived values ignore locale and timezone; money is rounded only for display, to the currency's minor unit. The graph checks currencies before any engine runs: a formula over amounts in more than one currency is a formula error, and so is a formula that reads it.
     - CI runs the `compute` and `view` fixtures under `TZ=Pacific/Kiritimati` and `TZ=America/Adak`, and under the locales `en-US` and `de-DE`, and compares the results.
     - Answers carry derived values as they stood (FR-12).
   - **In-house computations:** critical path and rescheduling are AskBoard's own code.
@@ -598,7 +600,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | Excerpts and media | Pointer = one string: a root-relative path, `#` and an anchor, `L<start>-L<end>` for a line range, otherwise a heading, then an ID (`docs/prd.md#Billing`, `src/retry.ts#L40-L62`). Agent-written excerpts are text. Images by pointer only (AD-12). |
 | Shipped agents | Declare no frontmatter hooks, MCP servers or permission mode; the plugin's hooks cover them. |
 | Dependencies | Adoption rule from the PRD addendum, exceptions named in the solution design (AD-19). Versions pinned exactly. Tools that need a TypeScript compiler API use `@typescript/typescript6` as an npm alias, since TypeScript 7 ships none. |
-| Tests | **CI failures:** imports that cross the dependency diagram (AD-1); generated skill files that drift (AD-6); a tool description or the server instructions over 4,096 characters; a full tool name over 128; a schema that is not valid JSON Schema 2020-12 or has a root combinator; a changed `tools/list` order; a view chunk that grows past a set margin over the previous build without the change saying so, or that holds `import.meta`, an elkjs input or an elkjs identifier; a licence outside the adoption rule (AD-19); any CSP violation in a browser test, a caught `eval` probe included, collected from the view, the board page and the console's CSP lines (zod's `jitless` is set before any module that uses zod loads). **CI runs:** the conformance suite with and without mod and hooks (AD-1); one live call per supported model that loads the five tool definitions; the legacy-negotiation run (AD-18); the timezone and locale fixtures (AD-13); browser tests in Chromium, Firefox and WebKit (cold load, reload, takeover, source view, `self.origin === "null"` inside the view, a view `fetch` that fails, an item's box unchanged 1 s after its question is visible, and PlantUML's images for an empty source and a syntax error turned into render errors); a board and a Snapshot rendered in all three engines; macOS and Linux; Node 24 and 26. **CI reports:** per model, the token count of tool definitions, instructions, skill and agent descriptions, flagging anything above about 2,100 tokens (PRD R5). |
+| Tests | **CI failures:** imports that cross the dependency diagram (AD-1); generated skill files that drift (AD-6); a tool description or the server instructions over 4,096 characters; a full tool name over 128; a schema that is not valid JSON Schema 2020-12 or has a root combinator; a changed `tools/list` order; a view chunk that grows past a set margin over the previous build without the change saying so, or that holds `import.meta`, an elkjs input or an elkjs identifier; a licence outside the adoption rule (AD-19); any CSP violation in a browser test, a caught `eval` probe included, collected from the view, the board page and the console's CSP lines (zod's `jitless` is set before any module that uses zod loads). **CI runs:** the conformance suite with and without mod and hooks (AD-1); one live call per supported model that loads the five tool definitions; the legacy-negotiation run (AD-18); the formula fixtures, with Excel's values, and the timezone and locale fixtures (AD-13); browser tests in Chromium, Firefox and WebKit (cold load, reload, takeover, source view, `self.origin === "null"` inside the view, a view `fetch` that fails, an item's box unchanged 1 s after its question is visible, and PlantUML's images for an empty source and a syntax error turned into render errors); a board and a Snapshot rendered in all three engines; macOS and Linux; Node 24 and 26. **CI reports:** per model, the token count of tool definitions, instructions, skill and agent descriptions, flagging anything above about 2,100 tokens (PRD R5). |
 
 ## Stack
 
@@ -633,7 +635,6 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@fontsource-variable/inter` or `@fontsource/inter`, `@fontsource/jetbrains-mono` (DESIGN.md's faces; Fontsource's stars exception) | 5.3.0 |
 | JSON Schema dialect | 2020-12 |
 | Ajv (the one validator; standalone validators generated at build for the view) | 8.20.0 |
-| `@ironcalc/wasm` (formula engine candidate, spike) | 0.9.1 |
 | Claude Code minimum (confirmed by the mod delivery spike: 2.1.308 fires `SubagentStop` while a subagent works; `stable` was still 2.1.308 on 2026-10-29, so release waits) | 2.1.311 |
 
 `@types/bun`, which only tests and repository tools use, follows the Bun pin.
@@ -797,7 +798,6 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | Item | Why it can wait | Revisit when |
 | --- | --- | --- |
 | The session-file key (the Claude Code PID) on Linux | Passed on macOS; AD-5 fixes the rule | Task 4.1 of the mod delivery spike, in a devcontainer |
-| Formula engine (IronCalc or own restricted evaluator) and the content of the function whitelist | AD-13 fixes the port, the grammar and the interim function set | Formula spike |
 | Bun packaging: executable size, delivery through a plugin `command` source or the launcher, offline installation, tinycc in the output, the native Windows message | AD-19 and AD-22 fix the shape | Packaging spike |
 | Detecting "no reachable browser" per platform | AD-18 fixes the outcome (`unavailable`) | Packaging spike |
 | Default port range, the container opt-in setting, the host-side address in printed links, the reconnect grace period, the record timeout, where the file path and line sit in the user's `editor` command | AD-5, AD-8, AD-11 and AD-21 fix the rules; the keys are named in the configuration schema | Implementation |
