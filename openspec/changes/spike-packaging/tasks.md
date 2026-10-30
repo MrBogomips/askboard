@@ -41,7 +41,7 @@ Commands run from `openspec/changes/spike-packaging/probe/` unless they name the
 
 ## 6. The background tab (criterion 13)
 
-- [ ] 6.1 Write `tab.ts` (design decision 10) and run it for 65 minutes in Playwright's Chromium, Firefox and WebKit with a second tab in front. Verify with run `tab-hour`: per engine, the WebSocket disconnects, the longest heartbeat gap, the visibility state, and `freeze` or `wasDiscarded` events, in `findings.md`, § Criterion 13, with the modes the run covers.
+- [x] 6.1 Write `tab.ts` (design decision 10) and run it for 65 minutes in Playwright's Chromium, Firefox and WebKit with a second tab in front. Verify with run `tab-hour`: per engine, the WebSocket disconnects, the longest heartbeat gap, the visibility state, and `freeze` or `wasDiscarded` events, in `findings.md`, § Criterion 13, with the modes the run covers.
 
 ## 7. Runs the product owner makes
 
