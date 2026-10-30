@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:board-state",
+  "title": "Board state",
+  "description": "The ask state and, per question, its state and the answer the log holds with its receipt (AD-3, AD-10). E1's asks are waiting or answered.",
+  "type": "object",
+  "properties": {
+    "ask": {
+      "enum": ["waiting", "answered"]
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/openQuestion"
+          },
+          {
+            "$ref": "#/$defs/answeredQuestion"
+          }
+        ]
+      }
+    }
+  },
+  "required": ["ask", "questions"],
+  "additionalProperties": false,
+  "$defs": {
+    "openQuestion": {
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state": {
+          "const": "open"
+        }
+      },
+      "required": ["itemId", "rev", "state"],
+      "additionalProperties": false
+    },
+    "answeredQuestion": {
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state": {
+          "const": "answered"
+        },
+        "answer": {
+          "$ref": "#/$defs/answer"
+        }
+      },
+      "required": ["itemId", "rev", "state", "answer"],
+      "additionalProperties": false
+    },
+    "answer": {
+      "type": "object",
+      "properties": {
+        "choice": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "when": {
+          "$ref": "urn:askboard:board-protocol:time"
+        },
+        "receipt": {
+          "enum": ["sent", "delivered"]
+        }
+      },
+      "required": ["choice", "when", "receipt"],
+      "additionalProperties": false
+    }
+  }
+}

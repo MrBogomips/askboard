@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:moved",
+  "title": "Board moved",
+  "description": "board-host to the older board page when another tab takes the board over (AD-21). board-host closes the socket right after it, with close code 4409, and the page does not reconnect on its own: it shows Board moved, and only \"Continue here\" reconnects, which takes the board back.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "moved"
+    }
+  },
+  "required": ["version", "type"],
+  "additionalProperties": false
+}

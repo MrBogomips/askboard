@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:discarded",
+  "title": "Discarded",
+  "description": "board-host to board page: the ask is discarded and the board accepts no more answers (AD-21). board-host closes the socket right after it, with close code 4410, and the page does not reconnect: the board stays readable.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "discarded"
+    },
+    "reason": {
+      "enum": ["session-exit"]
+    }
+  },
+  "required": ["version", "type", "reason"],
+  "additionalProperties": false
+}

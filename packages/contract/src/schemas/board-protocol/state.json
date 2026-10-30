@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:state",
+  "title": "State",
+  "description": "board-host to board page: the ask's state, after the board document, on every change and after every answer refusal (AD-10).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "state"
+    },
+    "state": {
+      "$ref": "urn:askboard:board-protocol:board-state"
+    }
+  },
+  "required": ["version", "type", "state"],
+  "additionalProperties": false
+}

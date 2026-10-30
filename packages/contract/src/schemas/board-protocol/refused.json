@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:refused",
+  "title": "Refused",
+  "description": "board-host to board page: a message it refused and why (AD-7, AD-11). Before a socket's connect is accepted, a refusal (reason token, or version for a first message of another major) is followed at once by a close with code 4403, and the page does not reconnect on its own: it shows the ask as discarded. Once connect is accepted, a refusal leaves the socket open and the ask unchanged: reason message for a message outside the schema, version for a message of another major, answer for an answer command ask-core refuses, which names the item and is followed by a state message with the question's state. The detail is text for people, at most 1,000 characters, which board-host cuts to fit; no receiver acts on it.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "refused"
+    },
+    "reason": {
+      "enum": ["token", "message", "version", "answer"]
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    }
+  },
+  "required": ["version", "type", "reason", "detail"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "reason": {
+        "const": "answer"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "itemId": true
+    },
+    "required": ["itemId"]
+  },
+  "else": {
+    "properties": {
+      "itemId": false
+    }
+  }
+}

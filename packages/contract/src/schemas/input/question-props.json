@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:question-props",
+  "title": "Question props",
+  "description": "A plain question: its text, optional header chip, options and multiSelect (FR-3 in part; E1 defines no other field).",
+  "type": "object",
+  "properties": {
+    "text": { "type": "string", "minLength": 1 },
+    "header": { "type": "string", "minLength": 1 },
+    "options": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/option" }
+    },
+    "multiSelect": { "type": "boolean" }
+  },
+  "required": ["text", "options"],
+  "additionalProperties": false,
+  "$defs": {
+    "option": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      },
+      "required": ["label"],
+      "additionalProperties": false
+    }
+  }
+}

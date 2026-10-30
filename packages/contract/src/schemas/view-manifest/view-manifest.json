@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:view-manifest:view-manifest",
+  "title": "View manifest",
+  "description": "What the view build publishes (AD-9) and board-host reads to serve the chunks and build the board page's CSP (AD-8): the board page and every chunk, each file with its SHA-256 as lowercase hex, its styles, the chunks it needs and the licence notices of the code it contains. Paths are relative to the manifest's folder.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "The view manifest version, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). Every level refuses the fields it does not define, so a minor only adds optional fields, sent only once every receiver accepts them.",
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "boardPage": {
+      "$ref": "#/$defs/boardPage"
+    },
+    "chunks": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/chunk"
+      }
+    }
+  },
+  "required": ["version", "boardPage", "chunks"],
+  "additionalProperties": false,
+  "$defs": {
+    "file": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["path", "sha256", "bytes"],
+      "additionalProperties": false
+    },
+    "notice": {
+      "type": "object",
+      "properties": {
+        "package": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "licence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$"
+        }
+      },
+      "required": ["package", "version", "licence", "path"],
+      "additionalProperties": false
+    },
+    "boardPage": {
+      "type": "object",
+      "description": "The board page as served: html is the page with its script and styles inline, whose hashes are script's and styles'.",
+      "properties": {
+        "html": {
+          "$ref": "#/$defs/file"
+        },
+        "script": {
+          "$ref": "#/$defs/file"
+        },
+        "styles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        },
+        "licences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/notice"
+          }
+        }
+      },
+      "required": ["html", "script", "styles", "licences"],
+      "additionalProperties": false
+    },
+    "chunk": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": ["shell", "library", "component"]
+        },
+        "script": {
+          "$ref": "#/$defs/file"
+        },
+        "styles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        },
+        "needs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          }
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          }
+        },
+        "licences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/notice"
+          }
+        }
+      },
+      "required": ["kind", "script", "styles", "needs", "licences"],
+      "additionalProperties": false
+    }
+  }
+}

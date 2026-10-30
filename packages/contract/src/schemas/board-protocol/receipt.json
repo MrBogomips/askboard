@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:receipt",
+  "title": "Delivery receipt",
+  "description": "board-host to board page: the agent has received the question's answer, which claims delivery only, never reading (AD-3, FR-22).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "receipt"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "receipt": {
+      "const": "delivered"
+    }
+  },
+  "required": ["version", "type", "itemId", "receipt"],
+  "additionalProperties": false
+}
