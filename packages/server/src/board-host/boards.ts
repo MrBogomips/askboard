@@ -39,6 +39,28 @@ export const MESSAGE_MAX_BYTES = CHOICE_LABELS_MAX_CHARS * 3 + 4 * 1024;
  */
 export const SEND_BUFFER_MAX_BYTES = 1024 * 1024;
 
+/**
+ * How long a socket may wait before its first message. The board page sends `connect` as soon as
+ * its socket opens, from the open event, which a hidden tab does not throttle the way it throttles
+ * timers [F33]; a socket still silent then is refused like one whose first message is not `connect`.
+ */
+export const CONNECT_TIMEOUT_MS = 5_000;
+
+/**
+ * The most sockets that may wait for their first message at once, across every ask. A board page's
+ * socket waits only for as long as its `connect` takes to arrive.
+ */
+export const WAITING_SOCKETS_MAX = 64;
+
+/** What bounds the sockets that have not sent their first message yet. */
+export type SocketLimits = {
+  readonly connectTimeoutMs: number;
+  readonly waitingMax: number;
+};
+
+/** RFC 6455's "try again later": over the cap, the board page reconnects with backoff. */
+const TRY_AGAIN_LATER = 1013;
+
 /** How long closing the host waits for the boards' sockets to finish their close handshake. */
 export const CLOSE_GRACE_MS = 500;
 
@@ -56,6 +78,8 @@ type Connection = {
   phase: "waiting" | "live" | "closed";
   /** The questions this board has been told were delivered to the agent. */
   readonly delivered: Set<string>;
+  /** Cancels the first-message timer of a waiting socket. */
+  stopTimer: () => void;
 };
 
 const parse = (data: RawData, binary: boolean): unknown => {
@@ -89,6 +113,8 @@ export type BoardsDeps = {
   readonly core: HostCore;
   readonly tokens: BoardTokens;
   readonly report: (error: unknown) => void;
+  /** `CONNECT_TIMEOUT_MS` and `WAITING_SOCKETS_MAX` unless given. */
+  readonly limits?: Partial<SocketLimits>;
 };
 
 /** Every board socket of the session process, and each ask's live one. */
@@ -98,6 +124,8 @@ export class Boards {
   readonly #report: (error: unknown) => void;
   readonly #live = new Map<string, Connection>();
   readonly #sockets = new Set<WebSocket>();
+  readonly #waiting = new Set<Connection>();
+  readonly #limits: SocketLimits;
   // Set when the host starts closing: no socket is accepted or heard from then.
   #closing = false;
 
@@ -105,22 +133,46 @@ export class Boards {
     this.#core = deps.core;
     this.#tokens = deps.tokens;
     this.#report = deps.report;
+    this.#limits = {
+      connectTimeoutMs: deps.limits?.connectTimeoutMs ?? CONNECT_TIMEOUT_MS,
+      waitingMax: deps.limits?.waitingMax ?? WAITING_SOCKETS_MAX,
+    };
   }
 
-  /** Takes a socket opened at `/ws/<askId>`; it waits for its `connect`. */
+  /**
+   * Takes a socket opened at `/ws/<askId>`; it waits for its `connect` within the connect timeout.
+   * Over the cap on waiting sockets, it is closed at once with "try again later".
+   */
   attach(socket: WebSocket, askId: string): void {
-    const connection: Connection = { socket, askId, phase: "waiting", delivered: new Set() };
+    const connection: Connection = {
+      socket,
+      askId,
+      phase: "waiting",
+      delivered: new Set(),
+      stopTimer: () => undefined,
+    };
     this.#sockets.add(socket);
-    socket.on("message", (data, binary) =>
-      this.#guard(() => this.#receive(connection, data, binary)),
-    );
     socket.on("error", (error) => this.#report(error));
     socket.on("close", () => {
       this.#sockets.delete(socket);
+      this.#settle(connection);
       connection.phase = "closed";
       // Closing a board discards nothing (AD-21): only the live slot is freed.
       if (this.#live.get(askId) === connection) this.#live.delete(askId);
     });
+    if (this.#waiting.size >= this.#limits.waitingMax) {
+      this.#close(connection, TRY_AGAIN_LATER);
+      return;
+    }
+    this.#waiting.add(connection);
+    const timer = setTimeout(
+      () => this.#guard(() => this.#timedOut(connection)),
+      this.#limits.connectTimeoutMs,
+    );
+    connection.stopTimer = () => clearTimeout(timer);
+    socket.on("message", (data, binary) =>
+      this.#guard(() => this.#receive(connection, data, binary)),
+    );
   }
 
   /** ask-core's events, forwarded to the ask's live board. */
@@ -140,6 +192,8 @@ export class Boards {
    */
   async closeAll(): Promise<void> {
     this.#closing = true;
+    for (const connection of this.#waiting) connection.stopTimer();
+    this.#waiting.clear();
     const sockets = [...this.#sockets];
     const closed = sockets.map(
       (socket) =>
@@ -171,8 +225,26 @@ export class Boards {
   #receive(connection: Connection, data: RawData, binary: boolean): void {
     if (connection.phase === "closed" || this.#closing) return;
     const value = parse(data, binary);
-    if (connection.phase === "waiting") this.#connect(connection, value);
-    else this.#command(connection, value);
+    if (connection.phase === "waiting") {
+      this.#settle(connection);
+      this.#connect(connection, value);
+    } else {
+      this.#command(connection, value);
+    }
+  }
+
+  // A socket no longer waiting for its first message: its timer stops and its place frees.
+  #settle(connection: Connection): void {
+    connection.stopTimer();
+    this.#waiting.delete(connection);
+  }
+
+  // No first message in time: refused as a socket whose first message is not `connect`.
+  #timedOut(connection: Connection): void {
+    if (connection.phase !== "waiting" || this.#closing) return;
+    this.#settle(connection);
+    this.#send(connection, refusedMessage("token", FIRST_MESSAGE));
+    this.#close(connection, BOARD_CLOSE_CODES.refused);
   }
 
   // The board a first message opens, or why it opens none.

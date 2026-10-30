@@ -48,7 +48,7 @@ const recorder = (name: string) => {
   return { script, record };
 };
 
-const start = async (env: Readonly<Record<string, string>>) => {
+const start = async (env: Readonly<Record<string, string>>, view: string = writeView()) => {
   const handlers = new Map<ExitSignal, () => void>();
   const exits: number[] = [];
   const process: SessionProcess = {
@@ -61,7 +61,7 @@ const start = async (env: Readonly<Record<string, string>>) => {
     env: { PATH: globalThis.process.env.PATH ?? "", CLAUDE_PROJECT_DIR: project, ...env },
     platform: globalThis.process.platform,
     cwd: folder,
-    view: writeView(),
+    view,
     version: "0.0.0-test",
     process,
     stderr: (line) => stderr.push(line),
@@ -169,6 +169,19 @@ describe("the composed session process", () => {
     for (let tries = 0; tries < 200 && run.stderr.length === 0; tries += 1) await Bun.sleep(10);
     expect(run.stderr).toEqual(["askboard: opening the board failed: Error (ENOENT)"]);
     expect(run.stderr.join("\n")).not.toContain(token);
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
+  });
+
+  test("a missing view build fails the ask with its own error, at the ask and not at start", async () => {
+    const { script, record } = recorder("no-view");
+    const run = await start({ BROWSER: script }, writeView({}));
+    const result = await run.client.callTool({ name: "ask", arguments: plainChoiceAsk("no-view") });
+    expect(result.isError).toBe(true);
+    const [content] = result.content as { text: string }[];
+    expect(content?.text).toContain("view build is missing or damaged");
+    expect(existsSync(record)).toBe(false);
+    expect(run.stderr).toEqual(["askboard: ask failed: ViewBuildError (VIEW_MANIFEST_UNREADABLE)"]);
     run.emit("SIGTERM");
     expect(await run.session.ended).toBe(0);
   });

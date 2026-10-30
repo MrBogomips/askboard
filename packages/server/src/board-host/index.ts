@@ -6,7 +6,7 @@ import { createServer, type Server } from "node:http";
 import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
 import type { AskCore, BoardAddress } from "@askboard/core";
 import { WebSocketServer } from "ws";
-import { Boards, MESSAGE_MAX_BYTES } from "./boards.ts";
+import { Boards, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
 import { handleRequest, handleUpgrade } from "./http.ts";
 import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
@@ -26,6 +26,8 @@ export type BoardHostOptions = {
   readonly ports?: PortRange;
   /** Makes a board token; 16 random bytes in base64url by default. */
   readonly token?: () => string;
+  /** Bounds on sockets that have not sent their first message; `boards.ts`'s constants by default. */
+  readonly limits?: Partial<SocketLimits>;
 };
 
 export type BoardHost = {
@@ -57,7 +59,12 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
   const start = async (): Promise<Running> => {
     const view = await loadView(options.view);
     const core = options.core();
-    const boards = new Boards({ core, tokens, report: options.report });
+    const boards = new Boards({
+      core,
+      tokens,
+      report: options.report,
+      ...(options.limits ? { limits: options.limits } : {}),
+    });
     const sockets = new WebSocketServer({ noServer: true, maxPayload: MESSAGE_MAX_BYTES });
     const deps = { core, tokens, view, report: options.report, closed: () => closed };
     const server = createServer((request, response) => handleRequest(deps, request, response));

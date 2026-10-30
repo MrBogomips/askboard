@@ -7,6 +7,7 @@ import {
   VIEW_MANIFEST_FILE,
 } from "@askboard/contract";
 import { fixtureViewFiles, fixtureViewManifest } from "@askboard/contract/fixtures";
+import { BoardSetupError } from "@askboard/core";
 import { loadView } from "../../src/board-host/view.ts";
 import { freeRange, removeViews, request, startHost, type TestHost, writeView } from "./helpers.ts";
 
@@ -201,6 +202,8 @@ describe("loading the view build", () => {
     const codes = [];
     for (const files of cases) {
       const failed = await loadView(writeView(files)).catch((error: unknown) => error);
+      // ask-core's port names it, so the tools can tell the agent what to do (AD-1).
+      expect(failed).toBeInstanceOf(BoardSetupError);
       codes.push((failed as { code?: string }).code);
     }
     expect(codes).toEqual([
@@ -222,6 +225,46 @@ describe("loading the view build", () => {
       const failed = await loadView(writeView(files)).catch((error: unknown) => error);
       expect((failed as { code?: string }).code).toBe("VIEW_FILE_INVALID");
     }
+  });
+
+  // The page's policy names the script's and styles' hashes, which match only an element holding
+  // exactly those bytes: holding them anywhere else is not enough.
+  const withPage = (html: string) => {
+    const page = manifest.boardPage.html.path;
+    const sha256 = new Bun.CryptoHasher("sha256").update(html).digest("hex");
+    const edited = {
+      ...manifest,
+      boardPage: {
+        ...manifest.boardPage,
+        html: { path: page, sha256, bytes: Buffer.byteLength(html) },
+      },
+    };
+    return { ...fixtureViewFiles, [page]: html, [VIEW_MANIFEST_FILE]: JSON.stringify(edited) };
+  };
+  const original = fixtureViewFiles[manifest.boardPage.html.path] ?? "";
+  const script = fixtureViewFiles[manifest.boardPage.script.path] ?? "";
+  const style = fixtureViewFiles[manifest.boardPage.styles[0]?.path ?? ""] ?? "";
+
+  test("fails when the script's bytes are in the page but not as its script element's content", async () => {
+    const pages = [
+      // Elsewhere in the page, while the element holds one more statement.
+      original.replace(`<script>${script}</script>`, `<!--${script}--><script>${script};</script>`),
+      // In an element with attributes, whose content the hash still matches but which is not the
+      // build's form.
+      original.replace(`<script>${script}</script>`, `<script type="module">${script}</script>`),
+    ];
+    for (const html of pages) {
+      expect(html).toContain(script);
+      const failed = await loadView(writeView(withPage(html))).catch((error: unknown) => error);
+      expect((failed as { code?: string }).code).toBe("VIEW_FILE_INVALID");
+    }
+  });
+
+  test("fails when a style's bytes are in the page but not as a style element's content", async () => {
+    const html = original.replace(`<style>${style}</style>`, `<template>${style}</template>`);
+    expect(html).toContain(style);
+    const failed = await loadView(writeView(withPage(html))).catch((error: unknown) => error);
+    expect((failed as { code?: string }).code).toBe("VIEW_FILE_INVALID");
   });
 
   test("fails when the board page does not hold its script inline", async () => {

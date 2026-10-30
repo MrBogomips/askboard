@@ -93,6 +93,7 @@ export const startHost = (
     view?: string;
     ports?: { first: number; last: number };
     tokens?: readonly string[];
+    limits?: { connectTimeoutMs?: number; waitingMax?: number };
   } = {},
 ): TestHost => {
   const reported: unknown[] = [];
@@ -107,6 +108,7 @@ export const startHost = (
     view: options.view ?? writeView(),
     report: (error) => reported.push(error),
     ...(options.ports ? { ports: options.ports } : {}),
+    ...(options.limits ? { limits: options.limits } : {}),
     ...(options.tokens ? { token: () => tokens.shift() ?? `random-${crypto.randomUUID()}` } : {}),
   });
   const created = new AskCore({

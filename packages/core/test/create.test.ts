@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { EPOCH_PATTERN, TITLE_MAX_CHARS } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { validateBoardDocument } from "@askboard/contract/validate";
-import { AskCore, deriveTitle } from "../src/index.ts";
+import { AskCore, BoardSetupError, deriveTitle } from "../src/index.ts";
 import { askWith, coreWith, fakePorts, plainChoiceAsk } from "./fakes.ts";
 
 // Core spec: Epoch, Creating an ask, Derived title (task 4.1).
@@ -93,6 +93,25 @@ describe("creating an ask", () => {
     await expect(core.ask(plainChoiceAsk())).rejects.toThrow("no free port");
     expect(core.board("order-db-choice-x7k2")).toBeUndefined();
     expect(opened).toEqual([]);
+  });
+
+  test("a link that fails for the board's setup rejects with that failure, creating nothing", async () => {
+    const fakes = fakePorts();
+    const setup = new BoardSetupError("VIEW_MANIFEST_UNREADABLE", "cannot read manifest.json");
+    const core = new AskCore({
+      ...fakes.ports,
+      address: {
+        link: async () => {
+          throw setup;
+        },
+      },
+    });
+    const failed = await core.ask(plainChoiceAsk()).catch((error: unknown) => error);
+    expect(failed).toBe(setup);
+    expect(failed).toBeInstanceOf(Error);
+    expect(setup).toMatchObject({ name: "BoardSetupError", code: "VIEW_MANIFEST_UNREADABLE" });
+    expect(core.board("order-db-choice-x7k2")).toBeUndefined();
+    expect(fakes.opened).toEqual([]);
   });
 
   test("an opener that throws is reported, and the ask stands", async () => {

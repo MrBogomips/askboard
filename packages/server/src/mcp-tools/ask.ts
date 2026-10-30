@@ -9,7 +9,7 @@ import {
   type UnavailableReason,
   type Warning,
 } from "@askboard/contract";
-import type { AskOutcome } from "@askboard/core";
+import { type AskOutcome, BoardSetupError } from "@askboard/core";
 import { failure } from "./diagnostics.ts";
 import { errorResult, jsonResult, problemsResult } from "./results.ts";
 import type { ToolHandler } from "./server.ts";
@@ -45,15 +45,20 @@ const unavailable = (
   message: `No board can be shown: ${WHY[outcome.reason]} (${outcome.detail.slice(0, DETAIL_MAX_CHARS)}). Ask through AskUserQuestion instead; a subagent ends its turn and returns the question to its caller.`,
 });
 
+const FAILED_INSIDE =
+  "AskBoard failed inside and created nothing for this ask. Send it again, or ask through AskUserQuestion.";
+
+// Resending cannot help: every ask fails the same way until AskBoard is rebuilt or reinstalled.
+const SETUP_FAILED =
+  "AskBoard cannot show boards: its view build is missing or damaged, so nothing was created for this ask. Do not send it again: ask through AskUserQuestion, and tell the user to rebuild or reinstall AskBoard.";
+
 export const handleAsk: ToolHandler = async ({ core, diagnostics }, args) => {
   let outcome: AskOutcome;
   try {
     outcome = await core.ask(args ?? {});
   } catch (error) {
     diagnostics.write(failure("ask failed", error));
-    return errorResult(
-      "AskBoard failed inside and created nothing for this ask. Send it again, or ask through AskUserQuestion.",
-    );
+    return errorResult(error instanceof BoardSetupError ? SETUP_FAILED : FAILED_INSIDE);
   }
   switch (outcome.kind) {
     case "invalid":

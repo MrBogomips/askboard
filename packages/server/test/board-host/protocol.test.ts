@@ -519,3 +519,93 @@ describe("a peer that sends without reading", () => {
     }
   });
 });
+
+describe("sockets that do not send their first message", () => {
+  test("are refused with reason token and closed with 4403 once the connect timeout passes", async () => {
+    const fixture = startHost({
+      ports: await freeRange(1),
+      tokens: [token],
+      limits: { connectTimeoutMs: 100 },
+    });
+    try {
+      const { port } = await fixture.ask(askId);
+      const silent = await openSocket(port, askId);
+      expect(await silent.next()).toEqual({
+        version,
+        type: "refused",
+        reason: "token",
+        detail: "the first message on a board's socket is connect with its token",
+      });
+      expect(await silent.closed()).toBe(BOARD_CLOSE_CODES.refused);
+      expect(fixture.core.board(askId)?.state).toBe("waiting");
+    } finally {
+      await fixture.host.close();
+    }
+  });
+
+  test("a socket that connects in time is left alone by the timer", async () => {
+    const fixture = startHost({
+      ports: await freeRange(1),
+      tokens: [token],
+      limits: { connectTimeoutMs: 100 },
+    });
+    try {
+      const { port } = await fixture.ask(askId);
+      const tab = await openSocket(port, askId);
+      tab.send({ version, type: "connect", token });
+      await tab.next();
+      await tab.next();
+      await Bun.sleep(250);
+      expect(tab.pending).toEqual([]);
+      tab.send(answer);
+      expect(await tab.next()).toMatchObject({ type: "state", state: { ask: "answered" } });
+    } finally {
+      await fixture.host.close();
+    }
+  });
+
+  test("beyond the cap, a new socket is closed with 1013, and is taken again once one connects", async () => {
+    const fixture = startHost({
+      ports: await freeRange(1),
+      tokens: [token],
+      limits: { waitingMax: 2 },
+    });
+    try {
+      const { port } = await fixture.ask(askId);
+      const first = await openSocket(port, askId);
+      await openSocket(port, askId);
+      const third = await openSocket(port, askId);
+      // RFC 6455's "try again later": the board page reconnects with backoff after it.
+      expect(await third.closed()).toBe(1013);
+      expect(third.pending).toEqual([]);
+      first.send({ version, type: "connect", token });
+      expect(await first.next()).toMatchObject({ type: "board" });
+      await first.next();
+      const fourth = await openSocket(port, askId);
+      fourth.send({ version, type: "connect", token });
+      expect(await fourth.next()).toMatchObject({ type: "board" });
+    } finally {
+      await fixture.host.close();
+    }
+  });
+
+  test("a waiting socket that closes frees its place", async () => {
+    const fixture = startHost({
+      ports: await freeRange(1),
+      tokens: [token],
+      limits: { waitingMax: 1 },
+    });
+    try {
+      const { port } = await fixture.ask(askId);
+      const leaving = await openSocket(port, askId);
+      leaving.socket.close();
+      await leaving.closed();
+      await Bun.sleep(20);
+      const next = await openSocket(port, askId);
+      next.send({ version, type: "connect", token });
+      expect(await next.next()).toMatchObject({ type: "board" });
+    } finally {
+      await fixture.host.close();
+    }
+  });
+});

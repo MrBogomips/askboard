@@ -19,13 +19,14 @@ export {
   type ReadOutcome,
   UNKNOWN_USER,
 } from "./core.ts";
-export type {
-  BoardAddress,
-  BoardShowing,
-  CorePorts,
-  Identity,
-  Randomness,
-  Report,
-  Showing,
+export {
+  type BoardAddress,
+  BoardSetupError,
+  type BoardShowing,
+  type CorePorts,
+  type Identity,
+  type Randomness,
+  type Report,
+  type Showing,
 } from "./ports.ts";
 export { cursorOf, deriveTitle, EPOCH_LENGTH, isRealUtcTime, parseCursor } from "./text.ts";

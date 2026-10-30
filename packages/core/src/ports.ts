@@ -3,10 +3,27 @@
 
 import type { UnavailableReason } from "@askboard/contract";
 
-/** `board-host`: the link of an ask's board, which opens the board listener on first use (AD-2). */
+/**
+ * `board-host`: the link of an ask's board, which opens the board listener on first use (AD-2).
+ * It rejects with a `BoardSetupError` when this installation cannot serve a board at all.
+ */
 export type BoardAddress = {
   link(askId: string): Promise<string>;
 };
+
+/**
+ * No board can be served until AskBoard itself is rebuilt or reinstalled, such as when its view
+ * build is missing or damaged: sending the ask again changes nothing. The adapter that finds it
+ * subclasses it; its `code` is for diagnostics, and its message, which may name files, is not.
+ */
+export class BoardSetupError extends Error {
+  override readonly name: string = "BoardSetupError";
+  readonly code: string;
+  constructor(code: string, message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.code = code;
+  }
+}
 
 /** Whether a board can be shown, by AD-18's detection rule, and why not. */
 export type Showing =

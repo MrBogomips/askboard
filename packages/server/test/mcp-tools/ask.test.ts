@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ERROR_TEXT_MAX_CHARS, RESULT_VERSIONS, SCHEMA_IDS } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { type RequestProblem, validateAgainst } from "@askboard/contract/validate";
-import { AskCore } from "@askboard/core";
+import { AskCore, BoardSetupError } from "@askboard/core";
 import { ASK_ID, connect, depsWith, EPOCH, fakeCore, jsonOf, LINK, textOf } from "./helpers.ts";
 
 // MCP adapter spec: Validation errors, The ask result, A session without hooks, No board can be
@@ -138,6 +138,28 @@ describe("validation errors", () => {
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("created nothing");
     expect(written).toEqual(["askboard: ask failed: Error (EADDRINUSE)"]);
+  });
+});
+
+describe("a board setup that cannot serve boards", () => {
+  test("is its own error, which asks for a rebuild and not a resend, with class and code on stderr", async () => {
+    class ViewBuildError extends BoardSetupError {
+      override readonly name = "ViewBuildError";
+    }
+    const core = fakeCore({
+      ask: async () => {
+        throw new ViewBuildError("VIEW_MANIFEST_UNREADABLE", `cannot read ${LINK}`);
+      },
+    });
+    const { result, written } = await call(core, plainChoice);
+    expect(result.isError).toBe(true);
+    const text = textOf(result);
+    expect(text).toContain("view build is missing or damaged");
+    expect(text).toContain("rebuild or reinstall AskBoard");
+    expect(text).toContain("AskUserQuestion");
+    expect(text).not.toContain("Send it again");
+    expect(text).not.toContain(LINK);
+    expect(written).toEqual(["askboard: ask failed: ViewBuildError (VIEW_MANIFEST_UNREADABLE)"]);
   });
 });
 

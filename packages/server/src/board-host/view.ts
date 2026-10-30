@@ -13,6 +13,7 @@ import {
   type ViewManifest,
 } from "@askboard/contract";
 import { validateViewManifest } from "@askboard/contract/validate";
+import { BoardSetupError } from "@askboard/core";
 
 /** A chunk's script or style as `/c/` serves it. */
 export type ChunkFile = { readonly body: Buffer; readonly contentType: string };
@@ -33,14 +34,10 @@ export type ViewBuildCode =
   | "VIEW_MANIFEST_INVALID"
   | "VIEW_FILE_INVALID";
 
-/** The view build cannot be served; no board opens without it. */
-export class ViewBuildError extends Error {
+/** The view build cannot be served; no board opens without it until AskBoard is rebuilt. */
+export class ViewBuildError extends BoardSetupError {
   override readonly name = "ViewBuildError";
-  readonly code: ViewBuildCode;
-  constructor(code: ViewBuildCode, message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.code = code;
-  }
+  declare readonly code: ViewBuildCode;
 }
 
 const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
@@ -84,16 +81,21 @@ const readListed = async (folder: string, file: ManifestFile): Promise<Buffer> =
   return bytes;
 };
 
-// The board page holds its script and styles inline: their hashes in the policy are theirs only
-// if the page holds them exactly.
-const checkInline = (page: Buffer, inline: readonly Buffer[]): void => {
-  for (const part of inline) {
-    if (!page.includes(part)) {
-      throw new ViewBuildError(
-        "VIEW_FILE_INVALID",
-        "the board page does not hold its script and styles inline",
-      );
-    }
+// The page's policy names the script's and each style's hash, which a browser matches only against
+// the exact content of one element: the page must hold `<script>…</script>` and `<style>…</style>`
+// with exactly those bytes, as the view build writes them.
+const checkInline = (page: Buffer, script: Buffer, styles: readonly Buffer[]): void => {
+  const elements = [
+    Buffer.concat([Buffer.from("<script>"), script, Buffer.from("</script>")]),
+    ...styles.map((style) =>
+      Buffer.concat([Buffer.from("<style>"), style, Buffer.from("</style>")]),
+    ),
+  ];
+  if (!elements.every((element) => page.includes(element))) {
+    throw new ViewBuildError(
+      "VIEW_FILE_INVALID",
+      "the board page does not hold its script and styles as its elements' content",
+    );
   }
 };
 
@@ -103,10 +105,9 @@ export const loadView = async (folder: string): Promise<LoadedView> => {
   const { bytes, manifest } = await readManifest(root);
   const { boardPage } = manifest;
   const page = await readListed(root, boardPage.html);
-  const inline = await Promise.all(
-    [boardPage.script, ...boardPage.styles].map((file) => readListed(root, file)),
-  );
-  checkInline(page, inline);
+  const script = await readListed(root, boardPage.script);
+  const styles = await Promise.all(boardPage.styles.map((file) => readListed(root, file)));
+  checkInline(page, script, styles);
   const chunks = new Map<string, ChunkFile>();
   for (const chunk of Object.values(manifest.chunks)) {
     const listed = [
