@@ -14,14 +14,16 @@ export const clean15 = (x: number): number =>
 /** Plain decimal text only, whatever the locale: no grouping, no decimal comma. */
 const NUMERIC_TEXT = /^\s*[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\s*$/;
 
-/** An arithmetic operand: booleans 1 and 0, empty 0, numeric text converted, other text #VALUE!. */
+/**
+ * An arithmetic operand: booleans 1 and 0, empty 0, numeric text converted, other text #VALUE!.
+ * Numeric text past the largest number (`"1e400"`) is #VALUE! too, never Infinity.
+ */
 export const toNumber = (v: EngineValue, origin: number): number | EngineError => {
   if (typeof v === "number" || isEngineError(v)) return v;
   if (v === null) return 0;
   if (typeof v === "boolean") return v ? 1 : 0;
-  return NUMERIC_TEXT.test(v)
-    ? Number(v)
-    : err("value", origin, `text "${v.slice(0, 32)}" is not a number`);
+  const n = NUMERIC_TEXT.test(v) ? Number(v) : Number.NaN;
+  return Number.isFinite(n) ? n : err("value", origin, `text "${v.slice(0, 32)}" is not a number`);
 };
 
 /** A condition: numbers are TRUE unless 0, empty is FALSE, text only "TRUE" or "FALSE". */

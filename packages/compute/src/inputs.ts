@@ -29,7 +29,9 @@ const date = (value: unknown): Converted => {
 };
 
 const money = (value: unknown): Converted => {
-  if (typeof value === "string" && DECIMAL.test(value)) return { value: Number(value) };
+  if (typeof value === "string" && DECIMAL.test(value) && Number.isFinite(Number(value))) {
+    return { value: Number(value) };
+  }
   const given = typeof value === "string" ? JSON.stringify(value) : describe(value);
   return { reason: `money is a decimal string, not ${given}` };
 };

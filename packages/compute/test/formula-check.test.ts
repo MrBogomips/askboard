@@ -189,6 +189,19 @@ describe("the formula check", () => {
     expect(isProblem(checkFormula(`${"-".repeat(64)}1`))).toBe(false);
   });
 
+  test("counts unary signs before a parenthesis or a call until it closes, as the parser does", () => {
+    const groups = `${`${"-".repeat(32)}(`.repeat(33)}1${")".repeat(33)}`;
+    expect(problemOf(groups)).toEqual({
+      kind: "over-limit",
+      reason: `nesting of ${33 * 33} levels, over the limit of ${FORMULA_MAX_DEPTH}`,
+    });
+    expect(problemOf(`${"-(".repeat(33)}1${")".repeat(33)}`).reason).toContain(
+      "nesting of 66 levels",
+    );
+    expect(isProblem(checkFormula(`${"-(".repeat(32)}1${")".repeat(32)}`))).toBe(false);
+    expect(isProblem(checkFormula(`-SUM(${"-1,".repeat(100)}1)+-(-[x.a])`))).toBe(false);
+  });
+
   test("refuses a range over the cell limit without listing its cells", () => {
     expect(problemOf("SUM([z.A1:XFD1048576])")).toEqual({
       kind: "over-limit",

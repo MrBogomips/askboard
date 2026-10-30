@@ -159,6 +159,12 @@ describe("CPM scheduling", () => {
     [{ dependencies: { a: "b" } }, "item plan: the dependencies of a are not a list of task IDs"],
     [{ dependencies: { a: [1] } }, "item plan: the dependencies of a are not a list of task IDs"],
     [{ workPackages: 3 }, "item plan: workPackages is not an item ID"],
+    [
+      { dependencies: { b: ["a.ef]+100+[plan.a"] } },
+      "item plan: the dependencies of b are not a list of task IDs",
+    ],
+    [{ dependencies: { b: ["*"] } }, "item plan: the dependencies of b are not a list of task IDs"],
+    [{ dependencies: { "a b": ["a"] } }, 'item plan: "a b" in dependencies is not an ID'],
   ])("refuses the malformed plan %j", (extra, message) => {
     expect(() => build(plan(extra as unknown as Partial<GanttPlanItem>))).toThrow(GraphSourceError);
     expect(() => build(plan(extra as unknown as Partial<GanttPlanItem>))).toThrow(message);

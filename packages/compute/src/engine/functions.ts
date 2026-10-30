@@ -7,16 +7,21 @@ import { FORMULA_FUNCTIONS, type FunctionName } from "@askboard/contract";
 import { MAX_SERIAL, MIN_SERIAL, workday } from "../dates.ts";
 import type { Expression } from "../formula/expression.ts";
 import { type EngineError, type EngineValue, isEngineError } from "./port.ts";
-import { err, finite, toBoolean, toNumber } from "./values.ts";
+import { clean15, err, finite, toBoolean, toNumber } from "./values.ts";
 
 export type Ctx = {
   /** The engine name of the cell being evaluated: errors raised here name it. */
   readonly origin: number;
   scalar(expression: Expression): EngineValue;
   /** What a reference argument reads, or undefined when the argument is not a reference. */
-  reference(
-    expression: Expression,
-  ): { readonly list: boolean; readonly values: readonly EngineValue[] } | undefined;
+  reference(expression: Expression): Read | undefined;
+};
+
+/** A reference's `size` places; `cells` holds the non-empty ones as [place, value], the rest empty. */
+export type Read = {
+  readonly list: boolean;
+  readonly size: number;
+  readonly cells: readonly (readonly [number, EngineValue])[];
 };
 
 type Implementation = (args: readonly Expression[], ctx: Ctx) => EngineValue;
@@ -26,7 +31,7 @@ const numbers = (args: readonly Expression[], ctx: Ctx): number[] | EngineError 
   const out: number[] = [];
   for (const arg of args) {
     const read = ctx.reference(arg);
-    for (const v of read?.values ?? []) {
+    for (const [, v] of read?.cells ?? []) {
       if (isEngineError(v)) return v;
       if (typeof v === "number") out.push(v);
     }
@@ -45,7 +50,7 @@ const logicals = (args: readonly Expression[], ctx: Ctx): boolean[] | EngineErro
   const out: boolean[] = [];
   for (const arg of args) {
     const read = ctx.reference(arg);
-    for (const v of read?.values ?? []) {
+    for (const [, v] of read?.cells ?? []) {
       if (isEngineError(v)) return v;
       if (typeof v === "boolean") out.push(v);
       else if (typeof v === "number") out.push(v !== 0);
@@ -65,13 +70,14 @@ const number = (arg: Expression | undefined, ctx: Ctx): number | EngineError =>
     ? err("value", ctx.origin, "missing argument")
     : toNumber(ctx.scalar(arg), ctx.origin);
 
-const values = (arg: Expression, ctx: Ctx): readonly EngineValue[] =>
-  ctx.reference(arg)?.values ?? [ctx.scalar(arg)];
+/** An argument as places: a reference's, or one typed value. */
+const places = (arg: Expression, ctx: Ctx): Read =>
+  ctx.reference(arg) ?? { list: false, size: 1, cells: [[0, ctx.scalar(arg)]] };
 
-/** Splits a number at 15 significant digits so that scaling is exact in decimal. */
-const scaled = (x: number, digits: number): number => {
+/** A number at 15 significant digits, as mantissa text and exponent, so scaling is exact in decimal. */
+const digits15 = (x: number): [string, number] => {
   const [m, e] = Math.abs(x).toExponential(14).split("e");
-  return Number(`${m}e${Number(e) + digits}`);
+  return [m as string, Number(e)];
 };
 
 const unscaled = (v: number, digits: number, sign: number): number => {
@@ -91,7 +97,10 @@ const round =
     if (x === 0) return 0;
     const digits = Math.trunc(d);
     if (Math.abs(digits) > 300) return err("value", ctx.origin, "digits out of range");
-    const v = scaled(x, digits);
+    const [m, e] = digits15(x);
+    // Rounding below the 15th significant digit leaves the 15-digit value: ROUND(1E300,10) is 1E300.
+    if (e + digits >= 15) return clean15(x);
+    const v = Number(`${m}e${e + digits}`);
     return finite(
       unscaled(mode === "half" ? Math.floor(v + 0.5) : Math.ceil(v), digits, Math.sign(x)),
       ctx.origin,
@@ -114,20 +123,22 @@ const date = (arg: Expression | undefined, ctx: Ctx): number | EngineError => {
     : day;
 };
 
+/** Products place by place; an empty place or a non-number counts as 0, so only filled places add. */
 const sumproduct: Implementation = (args, ctx) => {
-  const lists = args.map((arg) => values(arg, ctx));
-  const length = lists[0]?.length ?? 0;
+  const lists = args.map((arg) => places(arg, ctx));
+  const size = lists[0]?.size ?? 0;
   for (const list of lists) {
-    for (const v of list) if (isEngineError(v)) return v;
-    if (list.length !== length)
+    for (const [, v] of list.cells) if (isEngineError(v)) return v;
+    if (list.size !== size)
       return err("value", ctx.origin, "SUMPRODUCT of lists of different length");
   }
+  const [first, ...rest] = lists.map((list) => new Map(list.cells));
   let sum = 0;
-  for (let i = 0; i < length; i++) {
-    let product = 1;
-    for (const list of lists) {
-      const v = list[i];
-      product *= typeof v === "number" ? v : 0;
+  for (const [at, v] of first ?? []) {
+    let product = typeof v === "number" ? v : 0;
+    for (const other of rest) {
+      const w = other.get(at);
+      product *= typeof w === "number" ? w : 0;
     }
     sum += product;
   }

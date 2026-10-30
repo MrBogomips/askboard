@@ -35,6 +35,13 @@ const sheet: GraphItem = {
   cells: { A1: num(1), B1: num(2), A2: num(3), C3: num(9) },
 };
 
+/** A list as a wildcard or range resolves: its size, and its non-empty places. */
+const list = (...addresses: (string | null)[]): ResolvedReference => ({
+  list: true,
+  size: addresses.length,
+  cells: addresses.flatMap((address, at) => (address === null ? [] : [[at, address] as const])),
+});
+
 const resolve = (text: string, items: readonly GraphItem[] = []): readonly ResolvedReference[] => {
   const source: GraphSource = {
     items: [
@@ -73,25 +80,20 @@ describe("flat references", () => {
 
   test("read a wildcard's nodes in document order", () => {
     expect(resolve("SUM([wbs.design.*.expected])")).toEqual([
-      { list: true, addresses: ["wbs.ux.expected", "wbs.architecture.expected"] },
+      list("wbs.ux.expected", "wbs.architecture.expected"),
     ]);
     expect(resolve("SUM([wbs.*.expected])")).toEqual([
-      { list: true, addresses: ["wbs.design.expected", "wbs.build.expected"] },
+      list("wbs.design.expected", "wbs.build.expected"),
     ]);
     expect(resolve("SUM([wbs.*.*.expected])")).toEqual([
-      {
-        list: true,
-        addresses: ["wbs.ux.expected", "wbs.architecture.expected", "wbs.portal.expected"],
-      },
+      list("wbs.ux.expected", "wbs.architecture.expected", "wbs.portal.expected"),
     ]);
-    expect(resolve("SUM([wbs.build.*.*.expected])")).toEqual([
-      { list: true, addresses: ["wbs.api.expected"] },
-    ]);
+    expect(resolve("SUM([wbs.build.*.*.expected])")).toEqual([list("wbs.api.expected")]);
   });
 
   test("skip nodes without the field", () => {
     expect(resolve("SUM([wbs.*.*.optimistic])")).toEqual([
-      { list: true, addresses: ["wbs.ux.optimistic", "wbs.architecture.optimistic"] },
+      list("wbs.ux.optimistic", "wbs.architecture.optimistic"),
     ]);
   });
 
@@ -119,13 +121,25 @@ describe("cells and ranges", () => {
   });
 
   test("read a range row by row, from either corner, empty cells as empty", () => {
-    const rows: ResolvedReference = {
-      list: true,
-      addresses: ["sheet.A1", "sheet.B1", "sheet.A2", null],
-    };
+    const rows = list("sheet.A1", "sheet.B1", "sheet.A2", null);
     expect(resolve("SUM([sheet.A1:B2])")).toEqual([rows]);
     expect(resolve("SUM([sheet.B2:A1])")).toEqual([rows]);
     expect(resolve("SUM([sheet.A2:B1])")).toEqual([rows]);
+  });
+
+  test("list only the cells that exist, so a large range costs nothing", () => {
+    expect(resolve("SUM([sheet.A1:C21845])")).toEqual([
+      {
+        list: true,
+        size: 3 * 21_845,
+        cells: [
+          [0, "sheet.A1"],
+          [1, "sheet.B1"],
+          [3, "sheet.A2"],
+          [8, "sheet.C3"],
+        ],
+      },
+    ]);
   });
 });
 

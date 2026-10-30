@@ -32,18 +32,34 @@ const startsOperand = (previous: Token | undefined): boolean =>
   previous.kind === "open" ||
   previous.kind === "comma";
 
-/** Nesting: open parentheses (calls included) plus the run of unary signs at each token. */
+/**
+ * Nesting as the parser counts it: each open parenthesis (calls included) and each unary sign
+ * whose operand is not finished. Signs before `(` or a call stay open until its `)`.
+ */
 const deepestNesting = (tokens: readonly Token[]): number => {
   let depth = 0;
-  let signs = 0;
+  let pending = 0;
+  const carried: number[] = [];
   let deepest = 0;
   let previous: Token | undefined;
   for (const token of tokens) {
-    if (token.kind === "open") depth++;
-    if (token.kind === "close") depth--;
     const sign = token.kind === "operator" && (token.symbol === "-" || token.symbol === "+");
-    signs = sign && startsOperand(previous) ? signs + 1 : 0;
-    deepest = Math.max(deepest, depth + signs);
+    if (sign && startsOperand(previous)) pending++;
+    if (token.kind === "open") {
+      depth += pending + 1;
+      carried.push(pending);
+      pending = 0;
+    }
+    deepest = Math.max(deepest, depth + pending);
+    if (token.kind === "close") depth -= (carried.pop() ?? 0) + 1;
+    if (
+      token.kind === "number" ||
+      token.kind === "text" ||
+      token.kind === "boolean" ||
+      token.kind === "reference"
+    ) {
+      pending = 0;
+    }
     previous = token;
   }
   return deepest;

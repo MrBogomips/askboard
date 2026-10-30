@@ -64,9 +64,10 @@ const evaluate = (expression: Expression, ctx: Ctx): EngineValue => {
       return expression.value;
     case "reference": {
       const read = ctx.reference(expression);
-      if (read?.list !== false)
+      if (read?.list !== false) {
         return err("value", ctx.origin, "a list where one value is expected");
-      return read.values[0] ?? null;
+      }
+      return read.cells[0]?.[1] ?? null;
     }
     case "negate": {
       const x = toNumber(evaluate(expression.operand, ctx), ctx.origin);
@@ -110,11 +111,14 @@ export const evaluateCell = (
     reference: (inner) => {
       if (inner.k !== "reference") return undefined;
       const reference = references[inner.index];
-      if (reference === undefined)
-        return { list: false, values: [err("syntax", origin, "unknown reference")] };
-      return reference.list
-        ? { list: true, values: reference.names.map(read) }
-        : { list: false, values: [read(reference.name)] };
+      if (reference === undefined) {
+        return { list: false, size: 1, cells: [[0, err("syntax", origin, "unknown reference")]] };
+      }
+      if (reference.list) {
+        const cells = reference.cells.map(([at, name]) => [at, read(name)] as const);
+        return { list: true, size: reference.size, cells };
+      }
+      return { list: false, size: 1, cells: reference.name < 0 ? [] : [[0, read(reference.name)]] };
     },
   };
   return evaluate(expression, ctx);

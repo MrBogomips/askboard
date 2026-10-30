@@ -3,6 +3,7 @@
 // wildcards. Child IDs are unique within their item (AD-7), so `item.child.field` names a node
 // wherever the child sits; walks use explicit stacks, so a deep tree costs no call stack.
 
+import { parseCell } from "@askboard/contract";
 import {
   cellsOf,
   checkCurrency,
@@ -21,10 +22,14 @@ import type { Address } from "../types.ts";
 
 export type NodeEntry = FieldInput & { readonly address: Address };
 
+export type ItemCell = { readonly column: number; readonly row: number; readonly address: Address };
+
 export type ItemIndex = {
   /** Each node's children in document order; the item's own top level is under "". */
   readonly children: ReadonlyMap<string, readonly string[]>;
   readonly childIds: ReadonlySet<string>;
+  /** The item's cells, row by row. */
+  readonly cells: readonly ItemCell[];
 };
 
 export type NodeIndex = {
@@ -36,7 +41,11 @@ export type NodeIndex = {
 /** The item's own top level in `ItemIndex.children`; no ID is empty. */
 export const ROOT = "";
 
-const indexChildren = (item: FieldsItem, where: string, entries: NodeEntry[]): ItemIndex => {
+const indexChildren = (
+  item: FieldsItem,
+  where: string,
+  entries: NodeEntry[],
+): Omit<ItemIndex, "cells"> => {
   const children = new Map<string, string[]>([[ROOT, []]]);
   const childIds = new Set<string>();
   const stack: { child: unknown; parent: string }[] = listOf<unknown>(
@@ -69,10 +78,13 @@ const indexItem = (item: FieldsItem, entries: NodeEntry[]): ItemIndex => {
   for (const [field, input] of fieldsOf(item.fields, where, currency)) {
     entries.push({ ...input, address: `${item.id}.${field}` });
   }
+  const cells: ItemCell[] = [];
   for (const [cell, input] of cellsOf(item.cells, where, currency)) {
-    entries.push({ ...input, address: `${item.id}.${cell}` });
+    const address = `${item.id}.${cell}`;
+    entries.push({ ...input, address });
+    cells.push({ ...(parseCell(cell) as { column: number; row: number }), address });
   }
-  return indexChildren(item, where, entries);
+  return { ...indexChildren(item, where, entries), cells };
 };
 
 /** Checks a source of `fields` items and indexes its nodes. */

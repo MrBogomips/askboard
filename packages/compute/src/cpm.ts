@@ -5,6 +5,7 @@
 // finish is the earliest latest start of the successors, or the plan's finish. A task is critical
 // at zero slack. Dates count working days from the first working day on or after the start.
 
+import { ID_PATTERN } from "@askboard/contract";
 import {
   type FieldInput,
   type Fields,
@@ -15,6 +16,8 @@ import {
   refuse,
 } from "./source.ts";
 import type { FormulaError } from "./types.ts";
+
+const ID = new RegExp(ID_PATTERN);
 
 export type ExpandedPlan = {
   readonly item: FieldsItem;
@@ -34,8 +37,10 @@ const dependenciesOf = (
   if (!isRecord(given)) return refuse(`${where}: dependencies is not an object`);
   const out = new Map<string, readonly string[]>();
   for (const task of Object.keys(given)) {
+    if (!ID.test(task)) refuse(`${where}: ${JSON.stringify(task)} in dependencies is not an ID`);
+    // Task IDs become formula text: anything but an ID is refused before it gets there.
     const list = given[task];
-    if (!Array.isArray(list) || !list.every((id) => typeof id === "string")) {
+    if (!Array.isArray(list) || !list.every((id) => typeof id === "string" && ID.test(id))) {
       refuse(`${where}: the dependencies of ${task} are not a list of task IDs`);
     }
     out.set(task, list as string[]);

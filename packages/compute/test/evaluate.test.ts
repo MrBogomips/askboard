@@ -57,7 +57,11 @@ describe("the adapter", () => {
     expect(engine.cells).toHaveLength(graph.nodes.length);
     expect(engine.cells.map((cell) => cell.kind)).toEqual(
       graph.nodes.map((node) =>
-        node.formula === undefined ? "input" : node.address === "plan.gone" ? "error" : "formula",
+        node.formula === undefined
+          ? "input"
+          : ["plan.gone", "plan.reader"].includes(node.address)
+            ? "error"
+            : "formula",
       ),
     );
     const text = JSON.stringify(engine.cells.filter((cell) => cell.kind !== "error"));
@@ -149,6 +153,63 @@ describe("the adapter", () => {
     expect(() => values.set("plan.cost", 1)).toThrow("plan.cost is not an input");
     expect(() => values.set("plan.gone", 1)).toThrow("plan.gone is not an input");
     expect(() => values.set("plan.nope", 1)).toThrow("no node plan.nope");
+  });
+
+  test("reads an empty cell of a known item as empty, with no warning", () => {
+    const graph = buildGraph({
+      items: [
+        {
+          kind: "fields",
+          id: "sheet",
+          cells: { A1: { type: "number", value: 1 }, B1: formula("[sheet.Z9]+1") },
+        },
+      ],
+    });
+    expect(graph.warnings).toEqual([]);
+    expect(evaluateGraph(graph).read("sheet.B1")).toBe(1);
+  });
+
+  test("makes a date result out of range an error that its readers see", () => {
+    const graph = buildGraph({
+      items: [
+        {
+          kind: "fields",
+          id: "x",
+          fields: {
+            d1: { type: "date", value: "2026-01-01" },
+            d2: formula("[x.d1]-50000", "date"),
+            n: formula("[x.d2]-[x.d1]"),
+            w: formula("WORKDAY([x.d2],1)", "date"),
+          },
+        },
+      ],
+    });
+    const values = evaluateGraph(graph);
+    const out: FormulaError = { error: "value", address: "x.d2", detail: "a date out of range" };
+    expect([values.read("x.d2"), values.read("x.n"), values.read("x.w")]).toEqual([out, out, out]);
+  });
+
+  test("builds and evaluates hundreds of full ranges in one formula without listing their cells", () => {
+    // Three SUMs of 194 ranges of 65,536 cells each: 38 million places, in 8,162 characters.
+    const sum = `SUM(${Array.from({ length: 194 }, () => "[z.A1:D16384]").join(",")})`;
+    const started = performance.now();
+    const graph = buildGraph({
+      items: [
+        {
+          kind: "fields",
+          id: "z",
+          cells: { A1: { type: "number", value: 1 }, D16384: { type: "number", value: 2 } },
+          fields: {
+            total: formula([sum, sum, sum].join("+")),
+            product: formula("SUMPRODUCT([z.A1:D16384],[z.A1:D16384])"),
+          },
+        },
+      ],
+    });
+    const values = evaluateGraph(graph);
+    expect(values.read("z.total")).toBe(582 * 3);
+    expect(values.read("z.product")).toBe(5);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   test("refuses a graph that buildGraph did not make", () => {

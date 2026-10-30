@@ -101,7 +101,8 @@ describe("formula problems", () => {
     expect(graph.warnings).toEqual([
       { error: "missing-reference", address: "x.b", detail: "reference [x.nope] names no node" },
     ]);
-    expect(Object.keys(errorsOf(graph))).toEqual(["x.b"]);
+    const missing = graph.warnings[0];
+    expect(errorsOf(graph)).toEqual({ "x.b": missing, "x.c": missing });
   });
 });
 
@@ -154,7 +155,11 @@ describe("currencies", () => {
       detail: "amounts in EUR, USD",
     };
     expect(graph.warnings).toEqual([origin]);
-    expect(errorsOf(graph)).toEqual({ "estimate.totalRevenue": origin, "estimate.margin": origin });
+    expect(errorsOf(graph)).toEqual({
+      "estimate.totalRevenue": origin,
+      "estimate.margin": origin,
+      "estimate.belowMinimum": origin,
+    });
   });
 
   test("give inputs their currency and money formulas the one they read or declare", () => {
@@ -282,7 +287,8 @@ describe("cycles", () => {
       { error: "cycle", address: "x.b" },
       { error: "cycle", address: "x.c" },
     ]);
-    expect(Object.keys(errorsOf(graph))).toEqual(["x.a", "x.b", "x.c"]);
+    expect(Object.keys(errorsOf(graph))).toEqual(["x.a", "x.b", "x.c", "x.d"]);
+    expect(errorsOf(graph)["x.d"]).toEqual({ error: "cycle", address: "x.c" });
   });
 
   test("find a node that reads itself", () => {
@@ -321,6 +327,31 @@ describe("cycles", () => {
     const graph = buildGraph({ items: [{ kind: "fields", id: "c", children }] });
     expect(graph.warnings).toEqual([]);
     expect(graph.nodes).toHaveLength(10_000);
+  });
+});
+
+describe("formula problems in a branch IF does not take", () => {
+  test("still reach the reader: a formula error never yields a number", () => {
+    const graph = buildGraph({
+      items: [
+        item("x", {
+          cyc: formula("[x.cyc]+1"),
+          gone: formula("[x.nope]"),
+          now: formula("NOW()"),
+          bad: { type: "number", value: "x" as unknown as number },
+          a: formula("IF(TRUE,1,[x.cyc])"),
+          b: formula("IF(FALSE,[x.gone],2)"),
+          c: formula("IF(FALSE,[x.now],3)"),
+          d: formula("IF(FALSE,[x.bad],4)"),
+        }),
+      ],
+    });
+    const errors = errorsOf(graph);
+    expect(errors["x.a"]).toEqual({ error: "cycle", address: "x.cyc" });
+    expect(errors["x.b"]).toMatchObject({ error: "missing-reference", address: "x.gone" });
+    expect(errors["x.c"]).toMatchObject({ error: "not-whitelisted", address: "x.now" });
+    // A bad input can be set right later, so it travels as a value, as in Excel.
+    expect(errors["x.d"]).toBeUndefined();
   });
 });
 

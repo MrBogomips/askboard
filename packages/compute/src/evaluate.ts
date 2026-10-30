@@ -39,7 +39,11 @@ const engineReference = (
   reference: ResolvedReference,
 ): EngineReference =>
   reference.list
-    ? { list: true, names: reference.addresses.map((address) => engineName(names, address)) }
+    ? {
+        list: true,
+        size: reference.size,
+        cells: reference.cells.map(([at, address]) => [at, engineName(names, address)] as const),
+      }
     : { list: false, name: engineName(names, reference.address) };
 
 const engineError = (
@@ -75,7 +79,10 @@ const engineCell = (
     return { kind: "error", error: engineError(names, node.error as FormulaError, name) };
   }
   const references = node.formula.references.map((reference) => engineReference(names, reference));
-  return { kind: "formula", expression: node.formula.expression, references };
+  const { expression } = node.formula;
+  return node.type === "date"
+    ? { kind: "formula", expression, references, date: true }
+    : { kind: "formula", expression, references };
 };
 
 const result = (

@@ -13,7 +13,7 @@ import type { Address, FormulaError, Scalar, ValueType } from "../types.ts";
 import { checkCurrencies } from "./currencies.ts";
 import { expandItems } from "./expand.ts";
 import { checkItems, indexSource, type NodeEntry, type NodeIndex } from "./nodes.ts";
-import { resolveReference } from "./resolve.ts";
+import { type Resolution, resolveReference } from "./resolve.ts";
 
 export type GraphNode = {
   readonly address: Address;
@@ -33,10 +33,8 @@ export type Graph = {
   readonly warnings: readonly FormulaError[];
 };
 
-/** What a reference reads: one node or a list, null where a cell has no node. */
-export type ResolvedReference =
-  | { readonly list: false; readonly address: Address | null }
-  | { readonly list: true; readonly addresses: readonly (Address | null)[] };
+/** What a reference reads: one node, null for an empty cell, or a list's size and its cells. */
+export type ResolvedReference = Exclude<Resolution, { readonly missing: string }>;
 
 export type CompiledNode = {
   readonly address: Address;
@@ -92,7 +90,9 @@ const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft
   }
   const reads = new Set<number>();
   for (const reference of references) {
-    const addresses = reference.list ? reference.addresses : [reference.address];
+    const addresses = reference.list
+      ? reference.cells.map(([, address]) => address)
+      : [reference.address];
     for (const address of addresses)
       if (address !== null) reads.add(index.positions.get(address) as number);
   }
@@ -117,6 +117,26 @@ const refuse = (draft: Draft, error: FormulaError, warnings: FormulaError[]): vo
   draft.formula = undefined;
   draft.reads = [];
   if (error.address === draft.entry.address) warnings.push(error);
+};
+
+/**
+ * A problem found in a formula reaches every node that reads it, in dependency order, even
+ * through a branch that IF does not take: a formula error never yields a number (design decision
+ * 5). An input's bad value is no such problem: it can be set right, and travels as a value.
+ */
+const propagate = (
+  drafts: readonly Draft[],
+  order: Iterable<number>,
+  warnings: FormulaError[],
+): void => {
+  for (const i of order) {
+    const draft = drafts[i] as Draft;
+    if (draft.formula === undefined) continue;
+    const refused = draft.reads
+      .map((j) => drafts[j] as Draft)
+      .find((read) => read.error !== undefined && read.entry.formula !== undefined);
+    if (refused?.error !== undefined) refuse(draft, refused.error, warnings);
+  }
 };
 
 const publicNode = (draft: Draft, currency: string | undefined): GraphNode => {
@@ -163,6 +183,7 @@ export const buildGraph = (source: GraphSource): Graph => {
     const error = errors.get(i);
     if (error !== undefined) refuse(draft, error, warnings);
   });
+  propagate(drafts, order, warnings);
   const graph: Graph = Object.freeze({
     nodes: Object.freeze(drafts.map((draft, i) => publicNode(draft, currencies[i]))),
     warnings: Object.freeze(warnings),

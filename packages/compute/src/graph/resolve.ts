@@ -7,10 +7,18 @@ import type { Cell, ReferenceSyntax } from "../formula/lexer.ts";
 import type { Address } from "../types.ts";
 import { type ItemIndex, type NodeIndex, ROOT } from "./nodes.ts";
 
-/** What a reference reads: one node or a list, null for an empty cell; or why it reads nothing. */
+/**
+ * What a reference reads: one node, null for an empty cell; or a list of `size` places of which
+ * `cells` holds the ones with a node, as [place, address] in order, the rest empty; or why it
+ * reads nothing. A range lists only the cells that exist, so its size costs nothing.
+ */
 export type Resolution =
   | { readonly list: false; readonly address: Address | null }
-  | { readonly list: true; readonly addresses: readonly (Address | null)[] }
+  | {
+      readonly list: true;
+      readonly size: number;
+      readonly cells: readonly (readonly [number, Address])[];
+    }
   | { readonly missing: string };
 
 /** A column number from 1 as letters: 1 is A, 27 is AA. */
@@ -40,19 +48,15 @@ export const referenceText = (reference: ReferenceSyntax): string => {
   }
 };
 
-const range = (index: NodeIndex, item: string, from: Cell, to: Cell): Resolution => {
-  const addresses: (Address | null)[] = [];
-  for (let row = Math.min(from.row, to.row); row <= Math.max(from.row, to.row); row++) {
-    for (
-      let column = Math.min(from.column, to.column);
-      column <= Math.max(from.column, to.column);
-      column++
-    ) {
-      const address = `${item}.${columnName(column)}${row}`;
-      addresses.push(index.positions.has(address) ? address : null);
-    }
-  }
-  return { list: true, addresses };
+/** A range row by row: its size, and the item's cells inside it at their row-major places. */
+const range = (item: ItemIndex, from: Cell, to: Cell): Resolution => {
+  const [top, bottom] = [Math.min(from.row, to.row), Math.max(from.row, to.row)];
+  const [left, right] = [Math.min(from.column, to.column), Math.max(from.column, to.column)];
+  const width = right - left + 1;
+  const cells = item.cells
+    .filter(({ column, row }) => row >= top && row <= bottom && column >= left && column <= right)
+    .map(({ column, row, address }) => [(row - top) * width + column - left, address] as const);
+  return { list: true, size: width * (bottom - top + 1), cells };
 };
 
 const wildcard = (
@@ -69,14 +73,18 @@ const wildcard = (
     .filter((address) => index.positions.has(address));
   if (addresses.length === 0)
     return { missing: `wildcard [${referenceText(reference)}] matches no node` };
-  return { list: true, addresses };
+  return {
+    list: true,
+    size: addresses.length,
+    cells: addresses.map((address, at) => [at, address] as const),
+  };
 };
 
 export const resolveReference = (index: NodeIndex, reference: ReferenceSyntax): Resolution => {
   const text = `reference [${referenceText(reference)}]`;
   const item = index.items.get(reference.item);
   if (item === undefined) return { missing: `${text} names no item ${reference.item}` };
-  if (reference.form === "range") return range(index, reference.item, reference.from, reference.to);
+  if (reference.form === "range") return range(item, reference.from, reference.to);
   if (reference.form === "cell") {
     const address = `${reference.item}.${reference.cell}`;
     return { list: false, address: index.positions.has(address) ? address : null };

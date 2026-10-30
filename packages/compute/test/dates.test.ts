@@ -67,6 +67,13 @@ describe("input conversion", () => {
     expect(convertInput("text", {} as never)).toEqual({ reason: "text, not an object" });
   });
 
+  test("refuses money past the largest number", () => {
+    const huge = `1${"0".repeat(400)}`;
+    expect(convertInput("money", huge)).toEqual({
+      reason: `money is a decimal string, not "${huge}"`,
+    });
+  });
+
   test("gives dates as serials and money as numbers", () => {
     expect(convertInput("date", "2026-11-02")).toEqual({ value: 46_328 });
     expect(convertInput("money", "-0.50")).toEqual({ value: -0.5 });

@@ -18,11 +18,15 @@ The compute unit builds a board's whole graph of typed values and formulas, chec
 - **THEN** both graphs have the same nodes in the same order and the same warnings
 
 ### Requirement: Malformed sources are refused
-Building SHALL fail with an error naming the problem, before any graph exists, when an item or child ID does not match `[A-Za-z0-9_-]{1,64}` or repeats (item IDs within the source, child IDs within their item), when a field name is not a field name or is a cell, when a cell key is not a cell, when a field holds both a value and a formula, when a type or item kind is unknown, or when a money input has no currency.
+Building SHALL fail with an error naming the problem, before any graph exists, when an item or child ID does not match `[A-Za-z0-9_-]{1,64}` or repeats (item IDs within the source, child IDs within their item), when a field name is not a field name or is a cell, when a cell key is not a cell, when a field holds both a value and a formula, when a type or item kind is unknown, or when a money input has no currency, or a Gantt plan's dependency is not an ID.
 
 #### Scenario: Two children with one ID
 - **WHEN** two children of item `wbs`, under different parents, both have the ID `ux`
 - **THEN** building fails, naming `wbs` and `ux`
+
+#### Scenario: A dependency that is not an ID
+- **WHEN** a plan's dependency names the task `t1.ef]+100+[p.t1`
+- **THEN** building fails, naming the plan: no ID reaches formula text unchecked
 
 #### Scenario: A field named like a cell
 - **WHEN** an item declares the field `A1`
@@ -156,14 +160,18 @@ Every whitelisted operator and function SHALL give Excel's value on the compute 
 - **THEN** the node reads as `not-whitelisted`, and the reason names the function
 
 ### Requirement: A formula error is never a number
-A node whose formula fails, or that reads a node in error, SHALL read as an error with a kind and the address of the node where the error arose; it SHALL never read as a number or any other value. A formula whose result is empty SHALL read as 0, as in Excel.
+A node whose formula fails, or that reads a node in error, SHALL read as an error with a kind and the address of the node where the error arose; it SHALL never read as a number or any other value. A problem found before any engine runs SHALL reach every formula that reads it, even through a branch that `IF` does not take. A formula whose result is empty SHALL read as 0, as in Excel.
+
+#### Scenario: A branch not taken
+- **WHEN** `x.a` is `IF(TRUE,1,[x.c])` with `x.c` on a cycle, and `x.b` is `IF(FALSE,[x.m],2)` with `x.m` a missing reference
+- **THEN** `x.a` reads as `cycle` and `x.b` as `missing-reference`, each with its origin's address
 
 #### Scenario: Division by zero downstream
 - **WHEN** `x.a` is `1/[x.zero]` with `x.zero` set to 0, and `x.c` is `[x.a]+1`
 - **THEN** both read as `division-by-zero` with the address `x.a`, and neither is a load warning
 
 ### Requirement: Dates, money and input values
-A date SHALL enter and leave the graph as an RFC 3339 `full-date` and be computed as a whole day, without a time zone; a date outside 1900-03-01 to 9999-12-31 SHALL be an error. A money input SHALL be a decimal string. An input that does not fit its node's type SHALL be a `value` warning at build time, and SHALL read as `value` when set later.
+A date SHALL enter and leave the graph as an RFC 3339 `full-date` and be computed as a whole day, without a time zone; a date outside 1900-03-01 to 9999-12-31 SHALL be an error, for the nodes that read it too. Numeric text past the largest number SHALL be `value`, never infinite. A money input SHALL be a decimal string. An input that does not fit its node's type SHALL be a `value` warning at build time, and SHALL read as `value` when set later.
 
 #### Scenario: A day that does not exist
 - **WHEN** a date input is `2026-02-30` and a formula adds 1 to it

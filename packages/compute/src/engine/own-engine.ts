@@ -3,10 +3,18 @@
 // functions as code. No `eval` or other dynamic code. `load` orders and evaluates every cell;
 // `set` and `recalc` re-evaluate only the cells downstream of the changed inputs.
 
+import { MAX_SERIAL, MIN_SERIAL } from "../dates.ts";
 import { orderNodes } from "../order.ts";
 import { evaluateCell } from "./interpreter.ts";
 import type { EngineCell, EngineValue, FormulaEngine } from "./port.ts";
 import { err } from "./values.ts";
+
+/** A date result out of range is an error here, so that cells that read it see the error. */
+const inDateRange = (value: EngineValue, name: number): EngineValue => {
+  if (typeof value !== "number") return value;
+  const day = Math.floor(value);
+  return day >= MIN_SERIAL && day <= MAX_SERIAL ? value : err("value", name, "a date out of range");
+};
 
 class OwnEngine implements FormulaEngine {
   #cells: readonly EngineCell[] = [];
@@ -19,7 +27,9 @@ class OwnEngine implements FormulaEngine {
   load(cells: readonly EngineCell[]): void {
     const reads = cells.map((cell) => {
       if (cell.kind !== "formula") return [];
-      const names = cell.references.flatMap((r) => (r.list ? r.names : [r.name]));
+      const names = cell.references.flatMap((r) =>
+        r.list ? r.cells.map(([, name]) => name) : [r.name],
+      );
       return [...new Set(names.filter((name) => name >= 0))];
     });
     const { order, onCycle } = orderNodes(reads);
@@ -88,7 +98,7 @@ class OwnEngine implements FormulaEngine {
         (n) => this.#values[n] ?? null,
       );
       // A formula that ends on an empty value reads 0, as in Excel.
-      this.#values[name] = value ?? 0;
+      this.#values[name] = cell.date === true ? inDateRange(value ?? 0, name) : (value ?? 0);
     }
   }
 }

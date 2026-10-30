@@ -12,7 +12,13 @@ const formula = (text: string, ...names: (number | readonly number[])[]): Engine
   const checked = checkFormula(text);
   if (isProblem(checked)) throw new Error(checked.reason);
   const references: EngineReference[] = names.map((name) =>
-    typeof name === "number" ? { list: false, name } : { list: true, names: name },
+    typeof name === "number"
+      ? { list: false, name }
+      : {
+          list: true,
+          size: name.length,
+          cells: name.flatMap((n, at) => (n < 0 ? [] : [[at, n] as const])),
+        },
   );
   return { kind: "formula", expression: checked.expression, references };
 };
@@ -46,6 +52,10 @@ describe("evaluation", () => {
       origin: 0,
       detail: 'text "abc" is not a number',
     });
+    // Numeric text past the largest number is no number, never Infinity.
+    for (const text of ['MAX("1e400")', 'SQRT("1e400")', 'MIN(1,"-1e400")', '"1e400"+0']) {
+      expect(only(text)).toMatchObject({ kind: "value", origin: 0 });
+    }
   });
 
   test("compares numbers at 15 digits, text without case, numbers below text below booleans", () => {
@@ -83,6 +93,11 @@ describe("evaluation", () => {
       origin: 0,
       detail: "digits out of range",
     });
+    // Nothing to round past the 15th significant digit.
+    expect(only("ROUND(1E300,10)")).toBe(1e300);
+    expect(only("ROUNDUP(2E307,2)")).toBe(2e307);
+    expect(only("ROUND(0.1+0.2,20)")).toBe(0.3);
+    expect(only("ROUNDUP(-1.5E20,3)")).toBe(-1.5e20);
   });
 
   test("counts working days on serials", () => {

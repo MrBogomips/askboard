@@ -16,10 +16,17 @@ export type EngineError = {
 
 export type EngineValue = EngineScalar | EngineError;
 
-/** What a formula's reference reads, by engine name; -1 is a cell with no node, read as empty. */
+/**
+ * What a formula's reference reads, by engine name: one cell, -1 for an empty one; or a list of
+ * `size` places, of which `cells` names the non-empty ones as [place, name], the rest empty.
+ */
 export type EngineReference =
   | { readonly list: false; readonly name: number }
-  | { readonly list: true; readonly names: readonly number[] };
+  | {
+      readonly list: true;
+      readonly size: number;
+      readonly cells: readonly (readonly [number, number])[];
+    };
 
 export type EngineCell =
   /** An input, which `set` may change; its value may be an error. */
@@ -29,6 +36,8 @@ export type EngineCell =
       readonly kind: "formula";
       readonly expression: Expression;
       readonly references: readonly EngineReference[];
+      /** Its result is a date: a number outside 1900-03-01 to 9999-12-31 reads as `value`. */
+      readonly date?: boolean;
     }
   /** A problem found before the engine: the cell reads as this error and is never evaluated. */
   | { readonly kind: "error"; readonly error: EngineError };
