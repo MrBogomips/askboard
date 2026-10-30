@@ -1,0 +1,5 @@
+[install]
+# Isolated installs: a package resolves only the dependencies it declares (design decision 1).
+linker = "isolated"
+# Dependencies are pinned exactly (spine, Consistency Conventions).
+exact = true
