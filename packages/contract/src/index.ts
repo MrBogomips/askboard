@@ -24,6 +24,29 @@ export {
   VIEW_ID_PREFIX,
   VIEW_MANIFEST_FILE,
 } from "./constants.ts";
+// The formula language (AD-13): grammar, whitelist, limits and error kinds.
+export {
+  BINARY_OPERATOR_PRECEDENCE,
+  type BinaryOperator,
+  CELL_PATTERN,
+  FIELD_NAME_PATTERN,
+  FORMULA_ERROR_KINDS,
+  FORMULA_FUNCTIONS,
+  FORMULA_MAX_CHARS,
+  FORMULA_MAX_DEPTH,
+  FORMULA_OPERATORS,
+  type FormulaErrorKind,
+  type FormulaFunction,
+  type FormulaOperator,
+  type FunctionName,
+  isFieldName,
+  parseCell,
+  RANGE_MAX_CELLS,
+  REFERENCE_WILDCARD,
+  REFUSED_OPERATORS,
+  SHEET_MAX_COLUMN,
+  SHEET_MAX_ROW,
+} from "./formula/index.ts";
 export { boardPagePolicy, cspHashSource, SHA256_HEX_PATTERN } from "./hash.ts";
 export {
   CHOICE_LABELS_MAX_CHARS,

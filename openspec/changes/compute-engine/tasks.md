@@ -4,8 +4,8 @@ Each group writes its tests first and sees them fail before it implements (the r
 
 ## 1. The formula module in `contract`
 
-- [ ] 1.1 Write `packages/contract/test/formula.test.ts` first: the whitelist is exactly AD-13's operators and functions, with arguments; the seven dropped functions and `&`, `%` are absent from it; `&` and `%` are the refused operators; the field name and cell patterns accept and refuse the spec's examples (`a1`, `Q1`, `xfd1048576`, `XFD1048576`, `XFE1`); the operator table's precedence order; the limits 8,192, 64 and 65,536; the eight error kinds. Verify that it fails.
-- [ ] 1.2 Add `packages/contract/src/formula/` (`grammar.ts`, `whitelist.ts`, `limits.ts`, `errors.ts`, `index.ts`) as design decision 1 says, and append its export block to `packages/contract/src/index.ts`. Verify that 1.1 passes and the checks pass; commit `feat(contract): formula grammar, whitelist and limits`.
+- [x] 1.1 Write `packages/contract/test/formula.test.ts` first: the whitelist is exactly AD-13's operators and functions, with arguments; the seven dropped functions and `&`, `%` are absent from it; `&` and `%` are the refused operators; the field name and cell patterns accept and refuse the spec's examples (`a1`, `Q1`, `xfd1048576`, `XFD1048576`, `XFE1`); the operator table's precedence order; the limits 8,192, 64 and 65,536; the eight error kinds. Verify that it fails.
+- [x] 1.2 Add `packages/contract/src/formula/` (`grammar.ts`, `whitelist.ts`, `limits.ts`, `errors.ts`, `index.ts`) as design decision 1 says, and append its export block to `packages/contract/src/index.ts`. Verify that 1.1 passes and the checks pass; commit `feat(contract): formula grammar, whitelist and limits`.
 
 ## 2. The formula front end in `compute`
 
