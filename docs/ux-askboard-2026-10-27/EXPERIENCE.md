@@ -11,7 +11,7 @@ sources:
   - .working/technical-choices-proposal.md
   - reconcile-prd.md
   - reconcile-research.md
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # AskBoard — Experience Spine
@@ -218,7 +218,7 @@ These are behavioural rules; the visual specs live in DESIGN.md, Components, und
 | **Reopened question** | When the agent reopens an answered question, it shows "Reopened by the agent" and starts from the agent's new revision, with nothing carried over (AD-10). The previous answer shows read-only for reference, and "Start from my previous answer" moves it into the draft as an explicit act. | AD-10, AD-20, F-18 |
 | **Board banner** | It renders on the board page in `{components.board-banner}`; for the Closed, Discarded and Board moved variants, the board page also locks the view (Board page or view). Variants:<br>• **Closed:** the open tab stays readable and locked, with a banner saying the ask is closed. The user can still take a Snapshot, and the ask's link reopens this locked board.<br>• **Discarded:** the open tab stays readable and locked, with a banner saying the ask was discarded. No Snapshot can be taken, since AskBoard has dropped the ask's data.<br>• **Unsent work:** on a closed or discarded board, the banner also says "Your unsent work was not sent". The draft stays visible and selectable in the locked board, and "Copy my unsent work" puts it on the clipboard as text.<br>• **Connection lost:** "Connection lost, retrying" covers a drop within the AD-21 grace period. Inputs stay editable, answers wait as "not sent yet" (Delivery receipt) and Submit is disabled. The board resumes if the ask is still open. After the session process exits, the board shows the ask as discarded.<br>• **Board moved:** the board opened in another tab, so this older tab shows that the board moved, and closing it discards nothing. "Continue here" takes the board back. A takeover restores the draft only once the old tab's last draft mirror has arrived. | L52, L85, L137, L139, AD-21, pending PCR-10, F-17, F-56, F-58, F-93 |
 | **Snapshot view** | How a Snapshot shows the board when it is opened: Snapshots, Snapshot view. | L83, F-69 |
-| **Mode-switch confirmation** | Shown only when the user switches from submitted to immediate delivery with held work. Confirming sends it now. Like Submit, it is blocked while an agent-change notice sits on a question with held work. Whether it is modal is not recorded; if it is, S-6 applies. | L56, S-6, F-16 |
+| **Mode-switch confirmation** | Shown only when the user switches from submitted to immediate delivery with held work. Confirming sends it now. Like Submit, it is blocked while an agent-change notice sits on a question with held work. It is a modal Alert Dialog. Its scroll lock runs under the view CSP through the view's style-element shim (S-6, settled by the renderer spike). | L56, S-6, F-16 |
 | **Invalid-link page** | Says why the link opens no board and what to do, and shows no board content. A discarded ask's board URL shows only that the ask was discarded (AD-21), and a request without the board's token is refused (NFR-4, AD-11). A closed ask's link opens its locked board, from which a Snapshot can still be taken, and a tab reopened within the grace period returns to its board (F-93). The page's wording is not recorded. | L41, AD-21, AD-11, NFR-4, F-93, pending PCR-12 |
 
 ### Primitives
@@ -274,7 +274,7 @@ Widgets come from the FR-11 catalogue. The molecules, which AskBoard expands int
 | **Approval** | Approve, approve with changes or reject. The decision buttons (`{components.button-decision}`) only select, and "Answer" sends the decision. Selecting "Approve with changes" relabels the open prompt "Reason for the changes (required)". "Answer" stays enabled: pressed with the reason empty, it sends nothing, shows a Field error under the reason and moves focus there. Rejecting needs no text. The Approval summary sits beside the decision buttons. With changes on the board, plain "Approve" is disabled and "Approve with changes" is the approving act, and "Reject" sends the edits as context. Revising a verdict the agent has received asks for confirmation. | FR-11, L74, L168, L198, F-04, F-63 |
 | **Approval summary** | Lists what the user changed on the board, built from the change highlight's diff (`{components.approval-summary}`), beside the decision buttons, before the answer is sent. | L74, F-04 |
 | **Choice** | The user picks one or several options, with previews: the Option, Other row and Option preview rules apply. | FR-11, FR-3 |
-| **Scale** | The user sets a value or a range on a slider, or a rating. It starts unset, and only a value the user sets counts (Interaction Primitives, Explicit acts). Whether a click on an unset slider's track sets a value is a spike item. | FR-11, L160, TC §2.5 |
+| **Scale** | The user sets a value or a range on a slider, or a rating. It starts unset, and only a value the user sets counts (Interaction Primitives, Explicit acts). A click on an unset slider's track sets the value at that point: Radix's Slider sets none there, so AskBoard's sets it itself (renderer spike). | FR-11, L160, TC §2.5 |
 | **Document review** | The user selects a passage to comment on it or to suggest an edit. Comments anchor to the quoted text or to its position (AD-7). | FR-11, L160 |
 | **LaTeX** | The user reads and edits one expression: a source field with a live preview, and the parse error shown while the source does not parse. | FR-11, L156, L160 |
 | **Table** | The user edits a grid with typed columns. Totals and formula columns follow from the compute graph (Derived value). | FR-11, FR-12, L160 |
@@ -337,7 +337,7 @@ Every counter on the board and in the notices follows this table (F-08). On the 
 
 | Surface | State | Treatment | Source |
 |---|---|---|---|
-| Board | Cold load | A question counts as visible only when all its items have loaded (AD-9 calls this "ready"); a partial board does not count as visible (SM-C2). Until then each question shows its loading state (Question loading). In the golden case, the PlantUML render is part of loading (a renderer spike item). | SM-C2, SM-3, FR-33, AD-9, F-38, F-07 |
+| Board | Cold load | A question counts as visible only when all its items have loaded (AD-9 calls this "ready"); a partial board does not count as visible (SM-C2). Until then each question shows its loading state (Question loading). In the golden case, the PlantUML render is part of loading: 86 to 93% of the time to visible in the renderer spike. | SM-C2, SM-3, FR-33, AD-9, F-38, F-07 |
 | Board | Ask state | The ask state pill (State pill; Ask states). | FR-24, L55 |
 | Board | Agent working, or waiting for an answer | The agent state pill. Changes show at once. | FR-24, AD-4 |
 | Board | Reload (F5) | The same board comes back in its state (What a reload keeps). A reload is not a close, although the leave-page prompt also shows on it when armed (Interaction Primitives, Close and reload). | L57, AD-20, AD-21, F-57 |
@@ -595,7 +595,7 @@ API --> Web : order confirmed
   - references that open in the reading panel, with no external-link mark;
   - "Answer" as the only primary action;
   - nothing preselected;
-  - the PlantUML render inside "visible" (SM-3, SM-C2), a renderer spike item.
+  - the PlantUML render inside "visible" (SM-3, SM-C2), measured by the renderer spike.
 
 ## Localization
 
@@ -712,7 +712,7 @@ Each atom's behaviour, purpose and typed answer are in Component Patterns, Primi
 | NumberField | TextField (`number`) | Field, Input Group, as a text input with AskBoard's locale parser, never `type="number"` |
 | MoneyField | None | Field, Input Group, as a text input with AskBoard's locale parser |
 | DateField | DateTimeInput (date) | Date Picker (Popover, Calendar, Input) |
-| Choice | ChoicePicker | Radio Group, Checkbox, Select (Form pick fields only) |
+| Choice | ChoicePicker | Radio Group, Checkbox. Not Select: it fails the view CSP (renderer spike), so a Form's single pick from a list is a radio group too |
 | Toggle | CheckBox | Switch |
 | Slider | Slider (single value) | Slider |
 | Divider (optional) | Divider | Separator |
@@ -738,18 +738,18 @@ The layouts the agent composes under FR-13; they return no answer. The board she
 |---|---|---|---|
 | Choice | The Choice atom on Radix Radio Group and Checkbox (`radix-ui` 1.8.1, pinned at init), with manual activation | Descriptions, header chip, Recommended badge, Accept recommended, option annotations, "Other…", previews, the filter field for long lists | — |
 | Ranking | Own sortable list on Pragmatic drag and drop 4.0.0 | "Move up" and "Move down", the drop indicator, "Keep this order" | Native drag in the sandboxed frame |
-| Scale | The Slider atom on Radix Slider; a rating mode on Toggle Group | The rating mode, the unset state, locale labels | The Slider's unset state |
+| Scale | The Slider atom on Radix Slider; a rating mode on Toggle Group | The rating mode, the unset state, locale labels | The Slider's unset state: AskBoard sets the first click's value (renderer spike) |
 | Form | `@rjsf/core` and `@rjsf/utils` 6.11.0, themed with the input atoms | Field checks, the money field, locale input, a no-op validator, picks as `enum` with `ui:enumNames` (Form library) | S-4, S-7, S-8 |
 | Approval | Own, from Button controls | The three decisions, which only select, the open-prompt requirement, the change summary built from the change highlight's diff | — |
 | Document review | Own, on the Markdown renderer, with text-quote anchors | Selecting a passage to comment or suggest a replacement; quote or position anchors (AD-7); inline marks through classes | — |
-| Diff review | `@pierre/diffs` 1.6.2 | The "Fix A \| Fix B \| A vs B" switch over three diffs AskBoard computes from the two patch files; per-line and per-file accept and reject; comment cards; status chips; collapsed context and files; virtualisation | Syntax highlighting under the CSP: class-based, with DESIGN.md's `syntax-` colour tokens, or off in v1 |
-| LaTeX | KaTeX 0.19.1 to render; a monospace TextField for the source, with a live preview. MathLive 0.111.1 optional | The edit loop, the parse-error display, KaTeX fonts inlined as `data:` URLs | — |
+| Diff review | `@pierre/diffs` 1.6.2 | The "Fix A \| Fix B \| A vs B" switch over three diffs AskBoard computes from the two patch files; per-line and per-file accept and reject; comment cards; status chips; collapsed context and files; virtualisation | Syntax highlighting under the CSP: on, through DESIGN.md's `syntax-` colour tokens as CSS variables and the view's markup shim, for a fixed list of languages (renderer spike) |
+| LaTeX | KaTeX 0.19.1 to render; a monospace TextField for the source, with a live preview. MathLive is not in the first version: in the sandboxed view it needs three changes (renderer spike) | The edit loop, the parse-error display, KaTeX fonts inlined as `data:` URLs | — |
 | Table | TanStack Table 9.3.1 (headless), with shadcn Table styling and atoms as cells | Typed cells, totals and formula columns from the compute graph, the change highlight | — |
 | Spreadsheet | TanStack Table 9.3.1 as an A1 grid | The cell editor, the formula bar, A1 addressing; values from the formula engine (AD-13) | — |
 | Chart | Apache ECharts 6.1.0, canvas renderer, rich-text tooltips | The mapping from AskBoard's chart format, selection in the draft record, a theme built from the tokens | — |
 | Tree | TanStack Table 9.3.1 tree mode, with Pragmatic drag and drop 4.0.0 | Add, move (up, down, indent, outdent), rename and delete; keyboard move actions; roll-ups from the compute graph; virtualised rows; view-made IDs (pending ACR-13) | S-2 (why not react-arborist) |
 | Graph | `@xyflow/react` 12.12.0, with `@dagrejs/dagre` 3.1.3 for the initial layout and auto-layout | Cycle checks from the compute graph, comments pinned by node or edge ID, the toolbar, the change highlight | Pending ACR-10 (dagre's adoption); elkjs never |
-| Diagram | Mermaid 12.2.0 and `@plantuml/core` 1.2026.9, rendered to SVG and shown as `blob:` images; Mermaid with `htmlLabels: false` | The annotation overlay (below), recolouring, "Diagram \| Source", re-render by generation, the last good render on a failure, anchors by source ID | S-1 (elkjs); Mermaid text measurement; PlantUML render time |
+| Diagram | Mermaid 12.2.0 and `@plantuml/core` 1.2026.9 (`plantuml.js` only, with its Smetana layout), rendered to SVG and shown as `blob:` images; Mermaid built without elkjs, with `layout: 'dagre'`, top-level `htmlLabels: false`, `securityLevel: 'strict'`, and its layout and theme keys in `secure`, so an agent's directive cannot change them | The annotation overlay (below), recolouring, "Diagram \| Source", re-render by generation, the last good render on a failure, anchors by source ID | S-1, Mermaid text measurement and PlantUML render time: settled by the renderer spike |
 | Gantt | Own SVG Gantt, with its grid on TanStack Table | Time axis at three zooms, bars, finish-to-start arrows, pointer drag and resize snapped to working days, baseline and critical path; dates and the critical path from the compute graph | — |
 | Timeline | Own, on the Gantt's time axis and drag code | Lanes, ranges and milestones | S-3 (why not vis-timeline) |
 | Kanban | Own columns of cards on Pragmatic drag and drop 4.0.0 | A keyboard "Move to…" menu; columns mapped to a field | Native drag in the sandboxed frame |
@@ -780,10 +780,12 @@ Diagram pins are an overlay keyed to element IDs, never to pixel regions. Image 
 
 The Form widget uses `@rjsf/core` 6.11.0 with `@rjsf/utils` 6.11.0, under an AskBoard theme that maps RJSF's widgets to the input atoms, so a Form looks and behaves like every other field on the board (L160, TC §3.3). Its constraints:
 1. A no-op validator. Field errors come from AskBoard's field checks and are passed in as `extraErrors` (S-4).
-2. `tagName="div"`, and the submit button is never rendered. Enter never submits (S-7).
+2. `tagName="div"`, and the submit button is never rendered. Enter never submits (S-7). The sandbox alone would not stop it: WebKit fires a `<form>`'s submit event inside the sandbox, which runs RJSF's `onSubmit` (renderer spike).
 3. Generated schemas carry no `default`, so nothing is prefilled (AD-10), and no `oneOf`, `anyOf`, `if` or `dependencies`. A pick field is an `enum`, with its labels in `ui:enumNames` (L183, L185, S-8).
 4. Markdown in descriptions stays off.
 5. Neither `@rjsf/shadcn` (it brings cmdk, S-5) nor `@rjsf/validator-ajv8` (it compiles with `eval`) is used.
+6. `showErrorList={false}`: errors show only under their fields.
+7. The draft record drives the Form's `formData` (AD-9). RJSF keeps its own copy in state, which AskBoard never reads as the value.
 
 The field model is text, number, money, date, a pick from a list (single or multiple) and on/off; the on/off field is a deliberate extension of FR-11's list (L165, Widget Scope). "List" is a pick, as in MCP elicitation; repeatable entries are out of the first version (L68). A flat elicitation form shows on a board with its titled enums converted to `enum` with `ui:enumNames`, and without its defaults, which AskBoard never prefills (F-46).
 
@@ -797,7 +799,7 @@ Ranking, Kanban and Tree use Pragmatic drag and drop 4.0.0. It has no keyboard d
 
 ### Dark theme
 
-No theme library. The DESIGN.md tokens, light and `-dark`, are CSS variables, and a `.dark` class on the view root switches them. The class follows the theme preference, System, Light or Dark, sent from the board page to the view; with no parent host, as in a Snapshot, the view follows `prefers-color-scheme` (Board page or view). next-themes is excluded: it uses browser storage, which throws in the opaque view (S-5). Canvas components such as the Chart rebuild their theme from the resolved variables on a switch. Diagrams re-render with the dark diagram theme: the `{components.diagram}` tokens resolved in dark, mapped to Mermaid `themeVariables` and PlantUML skinparams (L160, TC §2.2, F-06). Every component is audited for storage access at start-up (a spike item).
+No theme library. The DESIGN.md tokens, light and `-dark`, are CSS variables, and a `.dark` class on the view root switches them. Tailwind's `dark:` variant is set to follow that class (`@custom-variant dark (&:where(.dark, .dark *))`), since by default it follows `prefers-color-scheme` (renderer spike). The class follows the theme preference, System, Light or Dark, sent from the board page to the view; with no parent host, as in a Snapshot, the view follows `prefers-color-scheme` (Board page or view). next-themes is excluded: it uses browser storage, which throws in the opaque view (S-5). Canvas components such as the Chart rebuild their theme from the resolved variables on a switch. Diagrams re-render with the dark diagram theme: the `{components.diagram}` tokens resolved in dark, mapped to Mermaid `themeVariables` and PlantUML skinparams (L160, TC §2.2, F-06). No component the renderer spike ran reads browser storage or starts a worker (S-5).
 
 ## Depends on pending change requests
 

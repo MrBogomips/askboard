@@ -1,6 +1,6 @@
 # Spine update draft: renderer spike
 
-Replacement texts for task 8.4, drafted before the PO's decisions (task 8.2). Each block belongs to one row of "Proposed outcomes (awaiting the PO)" in `findings.md` and applies only if the PO accepts that row. Each block quotes the current text exactly, then gives the replacement. A block marked with a letter (`8.A`) applies only if the PO picks that row's alternative. AD IDs stay stable: every AD is amended in place, and no AD is added.
+Replacement texts for task 8.4, drafted before the PO's decisions (task 8.2). **Applied on 2026-10-30** (task 8.4): the PO accepted every row as recommended; `findings.md`, § Applying the decisions, names the blocks left out. Each block belongs to one row of "Proposed outcomes (awaiting the PO)" in `findings.md` and applies only if the PO accepts that row. Each block quotes the current text exactly, then gives the replacement. A block marked with a letter (`8.A`) applies only if the PO picks that row's alternative. AD IDs stay stable: every AD is amended in place, and no AD is added.
 
 Files, all under `docs/`:
 
