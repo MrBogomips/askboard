@@ -25,11 +25,11 @@ The contract SHALL name the Excel operators that formulas may not use, `&` and `
 - **THEN** they are `&` and `%`, and neither is in the whitelist
 
 ### Requirement: Formula grammar
-The contract SHALL hold the reference grammar's terminals: IDs as `[A-Za-z0-9_-]{1,64}`, field names as a letter then up to 63 letters or digits, cells as upper-case A1 addresses from `A1` to `XFD1048576`, and the operator precedence, from comparison (lowest) through `+ -` and `* /` to `^` (highest), every binary operator left-associative and unary minus above `^`.
+The contract SHALL hold the reference grammar's terminals: IDs as `[A-Za-z0-9_-]{1,64}`, field names as a letter then up to 63 letters or digits that is not a cell, cells as upper-case A1 addresses from `A1` to `XFD1048576`, and the operator precedence, from comparison (lowest) through `+ -` and `* /` to `^` (highest), every binary operator left-associative and unary minus above `^`.
 
-#### Scenario: A field name that looks like a cell
-- **WHEN** `a1`, `Q1` or `xfd1048576` is checked as a field name
-- **THEN** it is refused, because it matches the cell pattern in some case
+#### Scenario: A field name that is a cell
+- **WHEN** `A1`, `Q1` and `XFD1048576` are checked as field names, then `a1`, `q1` and `XFE1`
+- **THEN** the first three are refused, because each is a cell; the last three are accepted
 
 #### Scenario: Cells at the edge of the sheet
 - **WHEN** `XFD1048576` and `XFE1` are checked as cells

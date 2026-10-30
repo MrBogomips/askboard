@@ -79,9 +79,6 @@ const lastSegment = (
     if (middle.length > 0) return `reference [${body}]: a cell belongs to an item, not to a child`;
     return { form: "cell", item, cell: last };
   }
-  if (parseCell(last.toUpperCase()) !== undefined) {
-    return `reference [${body}]: cells are written in upper case (${last.toUpperCase()})`;
-  }
   if (!isFieldName(last)) return `reference [${body}]: field "${last}" is not a field name`;
   return { form: "field", item, levels: 0, field: last };
 };

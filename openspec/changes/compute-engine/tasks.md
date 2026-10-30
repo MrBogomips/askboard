@@ -4,7 +4,7 @@ Each group writes its tests first and sees them fail before it implements (the r
 
 ## 1. The formula module in `contract`
 
-- [x] 1.1 Write `packages/contract/test/formula.test.ts` first: the whitelist is exactly AD-13's operators and functions, with arguments; the seven dropped functions and `&`, `%` are absent from it; `&` and `%` are the refused operators; the field name and cell patterns accept and refuse the spec's examples (`a1`, `Q1`, `xfd1048576`, `XFD1048576`, `XFE1`); the operator table's precedence order; the limits 8,192, 64 and 65,536; the eight error kinds. Verify that it fails.
+- [x] 1.1 Write `packages/contract/test/formula.test.ts` first: the whitelist is exactly AD-13's operators and functions, with arguments; the seven dropped functions and `&`, `%` are absent from it; `&` and `%` are the refused operators; the field name and cell patterns accept and refuse the spec's examples (`A1`, `Q1`, `a1`, `q1`, `XFD1048576`, `XFE1`; revised during apply, proposal open question 6); the operator table's precedence order; the limits 8,192, 64 and 65,536; the eight error kinds. Verify that it fails.
 - [x] 1.2 Add `packages/contract/src/formula/` (`grammar.ts`, `whitelist.ts`, `limits.ts`, `errors.ts`, `index.ts`) as design decision 1 says, and append its export block to `packages/contract/src/index.ts`. Verify that 1.1 passes and the checks pass; commit `feat(contract): formula grammar, whitelist and limits`.
 
 ## 2. The formula front end in `compute`
@@ -15,10 +15,10 @@ Each group writes its tests first and sees them fail before it implements (the r
 
 ## 3. `buildGraph`
 
-- [ ] 3.1 Write the source tests first: every malformed source of the spec's "Malformed sources are refused" throws a `GraphSourceError` naming the item and the problem; addresses and document order for fields, cells and children of any depth. Then implement `src/source.ts` and the node index, and verify that they pass.
-- [ ] 3.2 Write the resolution tests first: a child at any depth, wildcards in document order at one and two levels, children without the field skipped, a moved node, ranges row by row with empty cells, missing nodes, children and items, and the empty wildcard as `missing-reference`. Then implement `src/graph/resolve.ts` and verify that they pass.
-- [ ] 3.3 Write the input, currency and cycle tests first: input type checks as `value` warnings (a date of 2026-02-30); money currencies from the field or the item; inference through money formulas; a number formula over two currencies; warnings only at the origin; direct, indirect, self and wildcard cycles with fixed errors downstream; a 10,000-node chain without recursion. Then implement `src/graph/currencies.ts`, `src/order.ts` and `src/graph/build.ts`, and verify that they pass.
-- [ ] 3.4 Adapt the probe's `errors.json` and hostile fixtures to flat `fields` sources under `packages/compute/test/fixtures/`, noting each changed expectation (design decision 11), and verify that every warning they list comes out of `buildGraph` alone, with no engine. Verify that the checks pass; commit `feat(compute): formula check and buildGraph`.
+- [x] 3.1 Write the source tests first: every malformed source of the spec's "Malformed sources are refused" throws a `GraphSourceError` naming the item and the problem; addresses and document order for fields, cells and children of any depth. Then implement `src/source.ts` and the node index, and verify that they pass.
+- [x] 3.2 Write the resolution tests first: a child at any depth, wildcards in document order at one and two levels, children without the field skipped, a moved node, ranges row by row with empty cells, missing nodes, children and items, and the empty wildcard as `missing-reference`. Then implement `src/graph/resolve.ts` and verify that they pass.
+- [x] 3.3 Write the input, currency and cycle tests first: input type checks as `value` warnings (a date of 2026-02-30); money currencies from the field or the item; inference through money formulas; a number formula over two currencies; warnings only at the origin; direct, indirect, self and wildcard cycles with fixed errors downstream; a 10,000-node chain without recursion. Then implement `src/graph/currencies.ts`, `src/order.ts` and `src/graph/build.ts`, and verify that they pass.
+- [x] 3.4 Adapt the probe's `errors.json` and hostile fixtures to flat `fields` sources under `packages/compute/test/fixtures/`, noting each changed expectation (design decision 11), and verify that every warning they list comes out of `buildGraph` alone, with no engine. Verify that the checks pass; commit `feat(compute): formula check and buildGraph`.
 
 ## 4. The engine and the adapter
 

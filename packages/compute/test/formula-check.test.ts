@@ -119,7 +119,6 @@ describe("the lexer", () => {
     [`[${"a".repeat(65)}.b.v]`, "item ID"],
     ["[wbs.design.ux.optimistic]", "at most one child ID"],
     ["[wbs.*.ux.optimistic]", "at most one child ID"],
-    ["[sheet.a1]", "upper case"],
     ["[sheet.child.A1]", "a cell belongs to an item"],
     ["[sheet.child.A1:B2]", "a range is item.A1:B3"],
     ["[x.a:b]", "a range is item.A1:B3"],

@@ -38,14 +38,12 @@ export const BINARY_OPERATOR_PRECEDENCE: Readonly<Record<BinaryOperator, number>
 });
 
 const CELL = new RegExp(CELL_PATTERN);
-const CELL_ANY_CASE = new RegExp(CELL_PATTERN, "i");
 const FIELD_NAME = new RegExp(FIELD_NAME_PATTERN);
 
 const cellWithin = (match: RegExpExecArray | null): { column: number; row: number } | undefined => {
   if (match === null) return undefined;
   let column = 0;
-  for (const letter of (match[1] ?? "").toUpperCase())
-    column = column * 26 + letter.charCodeAt(0) - 64;
+  for (const letter of match[1] ?? "") column = column * 26 + letter.charCodeAt(0) - 64;
   const row = Number(match[2]);
   return column <= SHEET_MAX_COLUMN && row <= SHEET_MAX_ROW ? { column, row } : undefined;
 };
@@ -55,8 +53,8 @@ export const parseCell = (text: string): { column: number; row: number } | undef
   cellWithin(CELL.exec(text));
 
 /**
- * Whether a name may be a field: it matches `FIELD_NAME_PATTERN` and is no cell in any case, so
- * `[item.A1]` is always a cell and `[item.a1]` never a field (AD-13).
+ * Whether a name may be a field: it matches `FIELD_NAME_PATTERN` and is no cell, so `[item.A1]` is
+ * always a cell (AD-13). Cells are upper case: `a1` or `q1` may be a field.
  */
 export const isFieldName = (name: string): boolean =>
-  FIELD_NAME.test(name) && cellWithin(CELL_ANY_CASE.exec(name)) === undefined;
+  FIELD_NAME.test(name) && parseCell(name) === undefined;

@@ -47,15 +47,15 @@ The two computed kinds are expanded into `fields` items first (decision 9). Stru
 3. Check each input against its type; a bad one is a fixed `value` error and a warning.
 4. Check each formula: length (`over-limit`), lexing (`syntax`), nesting depth counting parentheses and runs of unary signs, and range sizes from the two corners (`over-limit`), bare names (`syntax`), names and operators outside the whitelist and unary plus (`not-whitelisted`), then the parse (`syntax`, including each function's number of arguments). Range sizes come before any range is expanded, so `[z.A1:XFD1048576]` costs nothing.
 5. Resolve references (decision 4); a missing node, child or item, or an empty wildcard, is `missing-reference`.
-6. Check currencies (decision 7).
-7. Order the nodes and find cycles (decision 8).
+6. Order the nodes and find cycles (decision 8).
+7. Check currencies in that order (decision 7). Cycles come first: two money formulas on a cycle would otherwise each read the other's mix, and neither would be its origin.
 
 A node that fails a step keeps that step's error, is not checked further and is a warning. The result is a frozen `Graph` with `nodes` (address, type, input or formula, resolved currency) and `warnings`. The parsed expressions, reference lists and dependencies stay in a module-private `WeakMap` keyed by the graph, which `evaluateGraph` reads; a graph not made by `buildGraph` is refused.
 
 ### 4. Flat references and their resolution
 
-- **Lexing:** the inside of `[...]` splits on `.` into the item ID, an optional child ID in second place only, then only `*` segments, then the last segment: a field name, or, with no middle segment, an upper-case cell or a range `A1:B3`. Two concrete child IDs, a child ID after a `*`, a cell after a child, a lower-case cell and a malformed ID are `syntax`, each with its reason.
-- **Resolution:** no middle segment reads `item.last`; a child and no `*` reads `item.child.field`; otherwise the base is the child, or the item's root, and each `*` replaces the current list of nodes by their children in order. The result lists `item.node.field` for each node that has the field. A range lists `item.A1`-style addresses row by row and reads a cell without a node as empty.
+- **Lexing:** the inside of `[...]` splits on `.` into the item ID, an optional child ID in second place only, then only `*` segments, then the last segment: a field name, or, with no middle segment, an upper-case cell or a range `A1:B3`. Two concrete child IDs, a child ID after a `*`, a cell after a child and a malformed ID are `syntax`, each with its reason. A lower-case `a1` is a field name, as the spine allows (proposal, open question 6).
+- **Resolution:** no middle segment reads `item.last`; a child and no `*` reads `item.child.field`; otherwise the base is the child, or the item's root, and each `*` replaces the current list of nodes by their children in order. The result lists `item.node.field` for each node that has the field. A range lists `item.A1`-style addresses row by row. A cell of a known item without a node reads as empty, alone or in a range, as an empty cell does in Excel; the probe refused it alone as missing.
 - **Why flat:** spike row 3. Because child IDs are unique within their item, `item.child.field` is also AD-20's diff target, and a Tree move changes no reference.
 
 ### 5. Error kinds and propagation
@@ -73,12 +73,13 @@ A node that fails a step keeps that step's error, is not checked further and is 
 ### 7. Currencies
 
 - A money input's currency is its own, else its item's; without either the source is malformed.
-- A money formula's currency is its declared one, else inferred: a fixpoint over money formulas, bounded by their number, as in the probe.
-- For every formula, of any type, the currencies of the money nodes it reads directly (inputs, and money formulas with a single currency) plus its own declared currency: more than one makes it the origin of a `mixed-currencies` warning. A formula that reads a mixed node is a fixed `mixed-currencies` error with the origin's address and no warning, so a lazy `IF` cannot hide the mix (proposal, open question 7).
+- A money formula's currency is its declared one, else inferred from what it reads. One pass in dependency order (decision 8) replaces the probe's fixpoint: after the cycle check, what remains is acyclic.
+- For every formula, of any type, the currencies of the money nodes it reads directly (inputs, and money formulas with a single currency) plus its own declared currency: more than one makes it the origin of a `mixed-currencies` warning. A formula that reads a mixed money node is a fixed `mixed-currencies` error with the origin's address and no warning, so a lazy `IF` cannot hide the mix; a money formula that does so is mixed in turn (proposal, open question 7).
+- A mixed money formula has no currency; one refused by an earlier check keeps its declared one.
 
 ### 8. Order and cycles
 
-The probe's iterative Tarjan ordering, in `compute`'s own module: edges from a node to what it reads, components out in dependency order. `buildGraph` marks every node in a component of two or more, or reading itself, as a `cycle` warning; nodes that read them are fixed `cycle` errors. The engine runs the same ordering for its evaluation order, so a cycle that reached it would still read as `cycle`.
+The probe's iterative Tarjan ordering, in `compute`'s own module: edges from a node to what it reads, components out in dependency order. `buildGraph` marks every node in a component of two or more, or reading itself, as a fixed `cycle` error and a warning; nodes that read them inherit the error by value, like a missing reference. The engine runs the same ordering for its evaluation order, so a cycle that reached it would still read as `cycle`.
 
 ### 9. PERT and CPM as formulas
 

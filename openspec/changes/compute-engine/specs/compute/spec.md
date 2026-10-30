@@ -18,14 +18,14 @@ The compute unit builds a board's whole graph of typed values and formulas, chec
 - **THEN** both graphs have the same nodes in the same order and the same warnings
 
 ### Requirement: Malformed sources are refused
-Building SHALL fail with an error naming the problem, before any graph exists, when an item or child ID does not match `[A-Za-z0-9_-]{1,64}` or repeats (item IDs within the source, child IDs within their item), when a field name is not a field name or matches the cell pattern in any case, when a cell key is not a cell, when a field holds both a value and a formula, when a type or item kind is unknown, or when a money input has no currency.
+Building SHALL fail with an error naming the problem, before any graph exists, when an item or child ID does not match `[A-Za-z0-9_-]{1,64}` or repeats (item IDs within the source, child IDs within their item), when a field name is not a field name or is a cell, when a cell key is not a cell, when a field holds both a value and a formula, when a type or item kind is unknown, or when a money input has no currency.
 
 #### Scenario: Two children with one ID
 - **WHEN** two children of item `wbs`, under different parents, both have the ID `ux`
 - **THEN** building fails, naming `wbs` and `ux`
 
 #### Scenario: A field named like a cell
-- **WHEN** an item declares the field `a1`
+- **WHEN** an item declares the field `A1`
 - **THEN** building fails, naming the field
 
 ### Requirement: Formulas are checked before any engine runs
@@ -82,22 +82,26 @@ A reference SHALL be the item ID, then at most one child ID, unique within its i
 - **THEN** the node reads as `syntax`: a reference holds at most one child ID
 
 ### Requirement: Cells and ranges
-A spreadsheet cell SHALL be referenced as `[item.A1]`, upper case only, columns `A` to `XFD` and rows 1 to 1,048,576. A range `[item.A1:B3]` SHALL read every cell of its rectangle row by row, either corner first, and a cell with no node SHALL read as empty.
+A spreadsheet cell SHALL be referenced as `[item.A1]`, upper case only, columns `A` to `XFD` and rows 1 to 1,048,576. A range `[item.A1:B3]` SHALL read every cell of its rectangle row by row, either corner first. A cell of a known item with no node, alone or in a range, SHALL read as empty, as in Excel.
 
 #### Scenario: A range with an empty cell
 - **WHEN** cells A1 to A3 hold 10, 20 and 30, A4 text, A5 TRUE, A6 nothing, and a formula is `SUM([sheet.A1:A6])`
 - **THEN** it gives 60
 
+#### Scenario: An empty cell alone
+- **WHEN** cell Z9 of `sheet` has no node and a formula is `[sheet.Z9]+1`
+- **THEN** it gives 1, with no warning
+
 #### Scenario: Row-major order
 - **WHEN** a formula reads `[sheet.B2:A1]`
 - **THEN** it reads A1, B1, A2, B2 in that order
 
-#### Scenario: A lower-case cell
-- **WHEN** a formula reads `[sheet.a1]`
-- **THEN** the node reads as `syntax`, with a reason saying that cells are written in upper case
+#### Scenario: A lower-case name is a field
+- **WHEN** item `sheet` has a cell A1 and no field `a1`, and a formula reads `[sheet.a1]`
+- **THEN** the node reads as `missing-reference`: `a1` is a field name, not a cell
 
 ### Requirement: Missing references and empty wildcards
-A reference to a node, child or item that does not exist, and a wildcard or range over an item that does not exist, SHALL be a `missing-reference` warning naming the node and the reference. A wildcard that matches no node SHALL be one too. The node SHALL read as `missing-reference`, and nodes that read it SHALL read the same error without a warning of their own.
+A reference to a field, child or item that does not exist, and a cell, wildcard or range of an item that does not exist, SHALL be a `missing-reference` warning naming the node and the reference. A wildcard that matches no node SHALL be one too. The node SHALL read as `missing-reference`, and nodes that read it SHALL read the same error without a warning of their own.
 
 #### Scenario: A missing reference upstream
 - **WHEN** `x.b` is `[x.a]+[x.nope]` and `x.c` is `[x.b]*2`

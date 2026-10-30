@@ -116,13 +116,12 @@ describe("the grammar", () => {
     }
   });
 
-  test("refuses a field name that matches the cell pattern in any case", () => {
-    for (const name of ["a1", "Q1", "xfd1048576", "XFD1048576", "ab12", "Aa3"]) {
-      expect(isFieldName(name)).toBe(false);
+  test("refuses a field name that is a cell, and only that", () => {
+    for (const name of ["A1", "Q1", "XFD1048576", "AB12"]) expect(isFieldName(name)).toBe(false);
+    // Cells are upper case, and stop at the sheet's last column and row.
+    for (const name of ["a1", "q1", "f1", "xfd1048576", "Aa3", "XFE1", "A1048577"]) {
+      expect(isFieldName(name)).toBe(true);
     }
-    // Past the sheet's last column or row, a name is no cell, so it may be a field.
-    expect(isFieldName("xfe1")).toBe(true);
-    expect(isFieldName("a1048577")).toBe(true);
   });
 
   test("reads cells in upper case, from A1 to XFD1048576", () => {
