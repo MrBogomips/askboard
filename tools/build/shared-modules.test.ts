@@ -2,11 +2,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PORT_FILE, VIEW_SRC } from "./paths.ts";
+import { PORT_FILE, VIEW_DIR, VIEW_SRC } from "./paths.ts";
 import {
   CATALOG_PORT,
   LIBRARY_CHUNKS,
   libraryEntrySource,
+  portExports,
   providerOf,
   type SharedModules,
   sharedFilter,
@@ -16,6 +17,15 @@ import {
 } from "./shared-modules.ts";
 
 const modules: SharedModules = sharedModules(["register", "componentFor"]);
+
+// The value names `@askboard/view/catalog` exports: the file the package's `./catalog` maps to.
+const catalogEntryExports = async (): Promise<string[]> => {
+  const manifest = (await Bun.file(join(VIEW_DIR, "package.json")).json()) as {
+    exports: Record<string, string>;
+  };
+  const entry = join(VIEW_DIR, manifest.exports["./catalog"] ?? "");
+  return new Bun.Transpiler({ loader: "ts" }).scan(await Bun.file(entry).text()).exports;
+};
 
 const NAMED_IMPORT = /import\s+\{([^}]*)\}\s+from\s+"([^"]+)"/g;
 
@@ -155,7 +165,7 @@ describe("a chunk built with the plugin", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  const build = async (source: string) => {
+  const build = async (source: string, shared: SharedModules = modules) => {
     const entry = join(dir, `entry-${Math.random().toString(36).slice(2)}.tsx`);
     await Bun.write(entry, source);
     const needs = new Set<string>();
@@ -163,7 +173,7 @@ describe("a chunk built with the plugin", () => {
       entrypoints: [entry],
       format: "iife",
       target: "browser",
-      plugins: [sharedModulesPlugin("probe", modules, needs)],
+      plugins: [sharedModulesPlugin("probe", shared, needs)],
       throw: false,
     });
     return { result, needs };
@@ -178,6 +188,20 @@ describe("a chunk built with the plugin", () => {
     const code = (await result.outputs[0]?.text()) ?? "";
     expect(code).toContain('shared("radix-ui")');
     expect(code.length).toBeLessThan(5_000);
+  });
+
+  // A component outside `view`, such as a widget, imports the port by the package's entry (AD-9).
+  test("a component builds importing each name the package's catalog entry exports", async () => {
+    const real = sharedModules(await portExports());
+    const names = await catalogEntryExports();
+    expect(names).toContain("register");
+    const failing: string[] = [];
+    for (const name of names) {
+      const source = `import { ${name} } from "${CATALOG_PORT}";\n(globalThis as any).x = ${name};\n`;
+      const { result, needs } = await build(source, real);
+      if (!result.success || !needs.has("shell")) failing.push(name);
+    }
+    expect(failing).toEqual([]);
   });
 
   test("fails on a name the library chunk does not provide", async () => {

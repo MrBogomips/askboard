@@ -1,7 +1,8 @@
-// `@askboard/view/catalog`: the `CatalogRenderer` port catalog components register through (AD-9),
-// and which component renders each item.
+// `@askboard/view/catalog`: the `CatalogRenderer` port catalog components register through (AD-9).
+// It offers only what `port.ts` exports, since the view build maps a component chunk's import of
+// this entry to the shell's copy of that file; which component renders each item
+// (`components.ts`) is for the renderer and `assemble` inside `view`.
 
-export { CHOICE, componentOf, componentsOf } from "./components.ts";
 export {
   type CatalogComponent,
   componentFor,
