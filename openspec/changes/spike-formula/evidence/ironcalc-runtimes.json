@@ -1,0 +1,167 @@
+{
+  "runs": {
+    "rt-bun": {
+      "command": "bun run.ts rt-bun --engine ironcalc --only whitelist,boards,errors",
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "tz": null,
+        "lang": "C.UTF-8",
+        "lcAll": null,
+        "resolvedTimeZone": "Europe/Rome",
+        "date": "2026-10-30T10:02:40.315Z",
+        "command": "bun run.ts rt-bun --engine ironcalc --only whitelist,boards,errors"
+      },
+      "engine": "ironcalc",
+      "suite": {
+        "passed": 1454,
+        "failed": 3,
+        "exactMismatches": 2,
+        "hash": "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228",
+        "failures": [
+          {
+            "fixture": "error:mixed-currencies",
+            "address": "estimate.belowMinimum",
+            "expected": {
+              "error": "mixed-currencies"
+            },
+            "actual": false
+          },
+          {
+            "fixture": "error:hostile-size",
+            "address": "@warnings",
+            "expected": "syntax@z.calls syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary",
+            "actual": "syntax@z.calls syntax@z.flat syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary"
+          },
+          {
+            "fixture": "error:hostile-size",
+            "address": "z.flat",
+            "expected": 4001,
+            "actual": {
+              "error": "syntax"
+            }
+          }
+        ]
+      }
+    },
+    "rt-node": {
+      "command": "volta run --node 24.22.2 node run.ts rt-node --engine ironcalc --only whitelist,boards,errors",
+      "env": {
+        "runtime": "node 24.22.2",
+        "platform": "darwin arm64",
+        "tz": null,
+        "lang": "C.UTF-8",
+        "lcAll": null,
+        "resolvedTimeZone": "Europe/Rome",
+        "date": "2026-10-30T10:02:40.704Z",
+        "command": "node run.ts rt-node --engine ironcalc --only whitelist,boards,errors"
+      },
+      "engine": "ironcalc",
+      "suite": {
+        "passed": 1454,
+        "failed": 3,
+        "exactMismatches": 2,
+        "hash": "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228",
+        "failures": [
+          {
+            "fixture": "error:mixed-currencies",
+            "address": "estimate.belowMinimum",
+            "expected": {
+              "error": "mixed-currencies"
+            },
+            "actual": false
+          },
+          {
+            "fixture": "error:hostile-size",
+            "address": "@warnings",
+            "expected": "syntax@z.calls syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary",
+            "actual": "syntax@z.calls syntax@z.flat syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary"
+          },
+          {
+            "fixture": "error:hostile-size",
+            "address": "z.flat",
+            "expected": 4001,
+            "actual": {
+              "error": "syntax"
+            }
+          }
+        ]
+      }
+    },
+    "rt-exe": {
+      "command": "sh tools/rt-exe.sh <scratch dir>",
+      "ironcalc": {
+        "env": {
+          "runtime": "bun 1.4.4 (compiled executable)",
+          "platform": "darwin arm64",
+          "executable": "<scratch>/exe/rt-exe-ironcalc",
+          "cwd": "<scratch>/exe",
+          "tz": null,
+          "lang": "C.UTF-8",
+          "resolvedTimeZone": "Europe/Rome",
+          "date": "2026-10-30T10:02:42.755Z"
+        },
+        "engine": "ironcalc",
+        "wasmBytes": 2090515,
+        "suite": {
+          "passed": 1454,
+          "failed": 3,
+          "exactMismatches": 2,
+          "hash": "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228",
+          "failures": [
+            {
+              "fixture": "error:mixed-currencies",
+              "address": "estimate.belowMinimum",
+              "expected": {
+                "error": "mixed-currencies"
+              },
+              "actual": false
+            },
+            {
+              "fixture": "error:hostile-size",
+              "address": "@warnings",
+              "expected": "syntax@z.calls syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary",
+              "actual": "syntax@z.calls syntax@z.flat syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary"
+            },
+            {
+              "fixture": "error:hostile-size",
+              "address": "z.flat",
+              "expected": 4001,
+              "actual": {
+                "error": "syntax"
+              }
+            }
+          ]
+        }
+      },
+      "own": {
+        "env": {
+          "runtime": "bun 1.4.4 (compiled executable)",
+          "platform": "darwin arm64",
+          "executable": "<scratch>/exe/rt-exe-own",
+          "cwd": "<scratch>/exe",
+          "tz": null,
+          "lang": "C.UTF-8",
+          "resolvedTimeZone": "Europe/Rome",
+          "date": "2026-10-30T10:02:43.673Z"
+        },
+        "engine": "own",
+        "suite": {
+          "passed": 1457,
+          "failed": 0,
+          "exactMismatches": 1,
+          "hash": "7dbd69c8ebc2573a48c4b3c7e0b2cf101bafe245a0812b836a268eb70a3d283c",
+          "failures": []
+        }
+      }
+    }
+  },
+  "executableBytes": {
+    "rt-exe-ironcalc": 91438562,
+    "rt-exe-own": 89292002
+  },
+  "imagesLoadedOutsideSystem": [
+    "<scratch>/exe/rt-exe-ironcalc"
+  ],
+  "nodeAddonsInPackage": 0
+}
