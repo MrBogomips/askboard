@@ -43,7 +43,7 @@ The view build SHALL publish a manifest of a shell chunk, library chunks and one
 
 #### Scenario: The manifest
 - **WHEN** the view is built
-- **THEN** the manifest lists the shell, the Choice component and their library chunks, each with a hash that matches its content and its licence notices
+- **THEN** the manifest validates against the contract's view manifest schema and lists the board page script, the shell, the Choice component and their library chunks, each with a hash that matches its content and its licence notices
 
 #### Scenario: `import.meta` in a chunk
 - **WHEN** a chunk's output holds `import.meta`

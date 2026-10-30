@@ -7,7 +7,7 @@ The contract is AskBoard's one shared language: the versioned JSON Schema sets, 
 ## ADDED Requirements
 
 ### Requirement: Versioned schema sets
-Every message that crosses a unit boundary on E1's path SHALL have a JSON Schema 2020-12 schema in a set with its own semantic version and one owning unit: input format and output format (`contract`), tool envelopes (`mcp-tools`), board document (`ask-core`), board protocol (`board-host`). No schema SHALL have a root `anyOf`, `oneOf` or `allOf`.
+Every message that crosses a unit boundary on E1's path SHALL have a JSON Schema 2020-12 schema in a set with its own semantic version and one owning unit: input and output formats (`contract`), tool envelopes (`mcp-tools`), board document (`ask-core`), board protocol (`board-host`), view manifest (`view`). No schema SHALL have a root `anyOf`, `oneOf` or `allOf`.
 
 #### Scenario: Every schema is valid 2020-12
 - **WHEN** the contract's tests compile every schema with the pinned validator in strict mode
@@ -80,7 +80,7 @@ A receiver of a document or message that names a major version of its schema set
 - **THEN** the receiver refuses it with a reason that names version 1
 
 ### Requirement: Shared constants
-The contract SHALL hold the constants that more than one unit reads: `collect`'s longest wait (20 minutes) and progress interval (60 s), the result limit (30,000 characters), the error-text limit (4,000 characters), the cut length of a derived title, the default board port range and the board token's minimum length (128 bits).
+The contract SHALL hold the constants that more than one unit reads: `collect`'s longest wait (20 minutes) and progress interval (60 s), the result limit (30,000 characters), the error-text limit (4,000 characters), the cut length of a derived title, the default board port range, the board token's minimum length (128 bits), and the board routes and token header.
 
 #### Scenario: Units read the constants from the contract
 - **WHEN** `collect` waits, a result is paged or a token is made

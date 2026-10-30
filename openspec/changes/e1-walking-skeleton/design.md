@@ -68,7 +68,7 @@ E1's input format defines one question type, one question per ask and English on
 ### 5. `board-host` on `node:http` and `ws`
 
 - AD-19 rules out `Bun.serve` in a shipped unit, and Node has no WebSocket server. The listener is `node:http`, and the WebSocket server is the `ws` package, adopted after its adoption check and pinned. *Alternatives:* hand-written RFC 6455 framing (security-sensitive code AskBoard would own) or a streaming `fetch` response with POSTs (two channels where AD-11 assumes one).
-- Routes: `GET /b/<askId>?t=<token>` serves the board page; `GET /c/<sha256>` serves one view chunk's source, with the token in the `X-AskBoard-Token` header; the WebSocket upgrade at `/ws/<askId>` takes the token in its first message. Everything else is the invalid-link page or 404. Tokens are 16 random bytes in base64url (22 characters, as in the examples), compared in constant time.
+- Routes, held as contract constants because the board page uses them too: `GET /b/<askId>?t=<token>` serves the board page; `GET /c/<sha256>` serves one view chunk's source, with the token in the `X-AskBoard-Token` header; the WebSocket upgrade at `/ws/<askId>` takes the token in its first message. Everything else is the invalid-link page or 404. Tokens are 16 random bytes in base64url (22 characters, as in the examples), compared in constant time.
 - The board page's CSP is computed once from the manifest: the board page script's hash and every chunk's script and style hashes. `frame-src 'self'` is left out until the reading panel needs it (E5).
 - **Takeover:** a second WebSocket for one ask becomes the live one; the first receives `moved` and is closed. "Continue here" reconnects, which takes the board back.
 - No heartbeat: liveness comes from the WebSocket closing, and with no grace timer in E1 nothing waits on it. When E3 adds one, its timeout is at least 90 s (packaging spike row 10).
@@ -81,7 +81,8 @@ The detection rule is a pure function over the platform, the environment, two ma
 
 - A build script in `tools/build/` (repository tooling, so Bun APIs are allowed and it type-checks under `tsconfig.test.json`) builds each chunk with `Bun.build` as an IIFE. A bundler plugin maps the shared libraries to globals that their library chunks define: React and React DOM, `radix-ui`, and ext-apps with zod and the MCP client and core. Its resolve filters name only the modules they map (renderer row 18).
 - Each chunk's styles come from the Tailwind CLI over that chunk's sources, with DESIGN.md's tokens as CSS variables and `@custom-variant dark (&:where(.dark, .dark *))` (row 15).
-- The manifest records each chunk's SHA-256, styles, dependencies and licence notices, the notices collected from the license files of the packages the bundler's metafile lists for that chunk.
+- The manifest records the board page script and each chunk's SHA-256, styles, dependencies and licence notices, the notices collected from the license files of the packages the bundler's metafile lists for that chunk.
+- **The manifest is a contract schema set, owned by `view`.** `board-host` reads it at run time to serve the chunks and to put their hashes in the board page's CSP, so it crosses a unit boundary, and AD-7 asks a schema for every such message; AD-7's table has no row for it. E1 adds the row by amending AD-7 in place. *Alternative:* let the entry point read the manifest and hand `board-host` only hashes and sources; rejected because the entry point would then import `view`, which AD-1 allows only `snapshot`.
 - The build fails on `import.meta` in any chunk. `packages/view/chunk-sizes.json` records each chunk's size; the build fails when a chunk grows more than 10% over it, and a change that means the growth updates the file, so the diff says so.
 - Output goes to `dist/` at the repository root: `dist/askboard.mjs` (the session process) and `dist/view/` (board page, chunks, manifest, standalone validators). The session process finds `dist/view/` beside itself.
 - *Alternative:* Vite or Rollup for the view. Rejected: Bun is the Stack's bundler, and the renderer spike built every chunk with it.
@@ -114,6 +115,17 @@ The detection rule is a pure function over the platform, the environment, two ma
 ### 12. Licence check: the Tailwind part of renderer row 20
 
 Tailwind's CLI brings `@tailwindcss/oxide-wasm32-wasi`, which bundles dependencies meant for another platform; the check takes them for missing installs today. The check learns to treat the bundled dependencies of a package that is not for this platform as that package's, with tests first. `robust-predicates`, `khroma` and `argparse` come with Mermaid and markdown-it, so their corrections stay with the epic that adopts those (open question 8). Any other finding on E1's lockfile stops the work for the PO.
+
+### 13. Two parallel tracks after a shared Track 0
+
+The PO wants E1 built by two sessions at once, each in its own worktree. The seam that fits E1 is between the session process and the browser, and in E1 only contract data crosses it: the board document, the board protocol, the view manifest, and the board routes and token header. No `ask-core` port is used on the browser side, so the ports open Track A rather than Track 0.
+
+- **Track 0**, one session, first: every dependency (so `bun.lock` and the package manifests change once), the licence correction, the Stack and the AD-7 row, and the contract sets and fixtures both sides read, including a recorded board-protocol transcript of a plain-choice session and a fixture manifest.
+- **Track A**, session side: the rest of `contract`, `ask-core`, the server units, the entry point and the plugin.
+- **Track B**, browser side: `view` and its build.
+- **Before they meet,** each side tests against Track 0's fixtures: `board-host` replays the board page's half of the transcript and serves the fixture manifest; the view's test server replays the host's half, and the view build's manifest validates against the schema. **When they meet,** the conformance suite and the browser tests run the real board page against the real session process.
+
+The folders each track owns, the branches and the integration tests are in tasks.md, Parallel tracks.
 
 ## Risks / Trade-offs
 
