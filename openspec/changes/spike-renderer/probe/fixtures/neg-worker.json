@@ -1,0 +1,23 @@
+{
+  "description": "Negative probe: A Worker from a blob: URL.",
+  "board": {
+    "id": "neg-worker",
+    "title": "neg-worker",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegWorker"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "worker-src",
+        "script-src",
+        "child-src"
+      ]
+    }
+  ]
+}

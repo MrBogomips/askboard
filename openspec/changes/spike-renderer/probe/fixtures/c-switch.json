@@ -1,0 +1,25 @@
+{
+  "description": "Radix Switch (Toggle)",
+  "board": {
+    "id": "c-switch",
+    "title": "Radix Switch (Toggle)",
+    "items": [
+      {
+        "id": "s1",
+        "type": "Toggle",
+        "props": {
+          "label": "Retry on timeout"
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "#s1-switch"
+    }
+  ],
+  "expectDraft": {
+    "s1": true
+  }
+}

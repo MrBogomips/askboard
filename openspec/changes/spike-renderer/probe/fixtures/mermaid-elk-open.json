@@ -1,0 +1,27 @@
+{
+  "description": "Front matter asks for layout: elk, with Mermaid's default `secure` list (task 3.1)",
+  "board": {
+    "id": "m1",
+    "title": "Front matter asks for layout: elk, with Mermaid's default `secure` list (task 3.1)",
+    "items": [
+      {
+        "id": "m1",
+        "type": "Mermaid",
+        "props": {
+          "label": "Mermaid diagram",
+          "source": "---\nconfig:\n  layout: elk\n---\nflowchart LR\n  A[Agent asks] --> B{Board open?}\n  B -->|yes| C[Show question]\n  B -->|no| D[Open board]\n  D --> C\n  C --> E((Answer))",
+          "probe": {
+            "secure": false
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=m1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "m1"
+  ]
+}

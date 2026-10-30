@@ -1,0 +1,22 @@
+{
+  "description": "Negative probe: A style attribute set from script.",
+  "board": {
+    "id": "neg-style-attribute",
+    "title": "neg-style-attribute",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegStyleAttribute"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "style-src-attr",
+        "style-src"
+      ]
+    }
+  ]
+}

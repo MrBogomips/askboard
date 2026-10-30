@@ -1,0 +1,27 @@
+{
+  "description": "Radix Popover, modal",
+  "board": {
+    "id": "c-popover-modal",
+    "title": "Radix Popover, modal",
+    "items": [
+      {
+        "id": "po1",
+        "type": "Popover",
+        "props": {
+          "label": "Why?",
+          "text": "Modal popover.",
+          "modal": true
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-item-id=po1] button"
+    }
+  ],
+  "expectDraft": {
+    "ui:po1": true
+  }
+}

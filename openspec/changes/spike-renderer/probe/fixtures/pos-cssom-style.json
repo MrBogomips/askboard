@@ -1,0 +1,17 @@
+{
+  "description": "Positive control: React's style prop writes through the CSSOM, which a hash-only style-src allows.",
+  "board": {
+    "id": "pos-cssom-style",
+    "title": "pos-cssom-style",
+    "items": [
+      {
+        "id": "p1",
+        "type": "CssomStyle"
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1]",
+    "text": "Styled through the CSSOM"
+  }
+}

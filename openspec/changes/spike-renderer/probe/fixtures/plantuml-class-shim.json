@@ -1,0 +1,27 @@
+{
+  "description": "PlantUML class diagram, with viz-global.js and the style shim (criterion 1)",
+  "board": {
+    "id": "p1",
+    "title": "PlantUML class diagram, with viz-global.js and the style shim (criterion 1)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nclass Ask {\n  +id: String\n  +send()\n}\nclass Answer {\n  +value: String\n}\nclass FollowUp\nAsk \"1\" --> \"*\" Answer : receives\nAsk <|-- FollowUp\n@enduml",
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

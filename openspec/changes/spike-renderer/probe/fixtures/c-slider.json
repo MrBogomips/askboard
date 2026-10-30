@@ -1,0 +1,34 @@
+{
+  "description": "Radix Slider, set",
+  "board": {
+    "id": "c-slider",
+    "title": "Radix Slider, set",
+    "items": [
+      {
+        "id": "sl1",
+        "type": "Slider",
+        "props": {
+          "label": "Budget",
+          "min": 0,
+          "max": 100
+        }
+      }
+    ]
+  },
+  "draft": {
+    "values": {
+      "sl1": 30
+    },
+    "ui": {}
+  },
+  "actions": [
+    {
+      "do": "press",
+      "selector": "[role=slider]",
+      "key": "ArrowRight"
+    }
+  ],
+  "expectDraft": {
+    "sl1": 31
+  }
+}

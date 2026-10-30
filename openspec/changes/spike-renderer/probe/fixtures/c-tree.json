@@ -1,0 +1,56 @@
+{
+  "description": "TanStack Table, tree mode",
+  "board": {
+    "id": "c-tree",
+    "title": "TanStack Table, tree mode",
+    "items": [
+      {
+        "id": "tr1",
+        "type": "Tree",
+        "props": {
+          "columns": [
+            {
+              "key": "label",
+              "label": "Task"
+            }
+          ],
+          "rows": [
+            {
+              "id": "1",
+              "label": "Build",
+              "children": [
+                {
+                  "id": "1.1",
+                  "label": "View"
+                },
+                {
+                  "id": "1.2",
+                  "label": "Widgets"
+                }
+              ]
+            },
+            {
+              "id": "2",
+              "label": "Ship"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-row-id='1'] button"
+    }
+  ],
+  "expectDraft": {
+    "ui:tr1": {
+      "1": true
+    }
+  },
+  "check": {
+    "selector": "[data-item-id=tr1]",
+    "text": "Widgets"
+  }
+}

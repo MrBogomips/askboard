@@ -1,0 +1,27 @@
+{
+  "description": "PlantUML state diagram, without viz-global.js, with the style shim (criterion 1)",
+  "board": {
+    "id": "p1",
+    "title": "PlantUML state diagram, without viz-global.js, with the style shim (criterion 1)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUMLSmetana",
+        "props": {
+          "label": "PlantUMLSmetana diagram",
+          "source": "@startuml\n[*] --> Open\nOpen --> Answered : answer\nOpen --> Discarded : discard\nAnswered --> [*]\nDiscarded --> [*]\n@enduml",
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

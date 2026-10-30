@@ -1,0 +1,20 @@
+{
+  "description": "Negative probe: A localStorage read.",
+  "board": {
+    "id": "neg-local-storage",
+    "title": "neg-local-storage",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegLocalStorage"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "storage",
+      "api": "localStorage",
+      "outcome": "threw"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "description": "MathLive math-field, keyboard in the frame and the markup shim",
+  "board": {
+    "id": "c-mathlive-shim",
+    "title": "MathLive math-field, keyboard in the frame and the markup shim",
+    "items": [
+      {
+        "id": "ml1",
+        "type": "MathField",
+        "props": {
+          "label": "Formula",
+          "initial": "",
+          "sandboxedKeyboard": true,
+          "markupShim": true
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "math-field"
+    },
+    {
+      "do": "press",
+      "key": "x",
+      "ms": 300
+    },
+    {
+      "do": "press",
+      "key": "^",
+      "ms": 300
+    },
+    {
+      "do": "press",
+      "key": "2",
+      "ms": 300
+    }
+  ],
+  "expectDraft": {
+    "ml1": "x^2"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "description": "S-6: Radix Dialog, modal, with the static scroll-lock rule",
+  "board": {
+    "id": "s6-dialog-rule",
+    "title": "S-6: Radix Dialog, modal, with the static scroll-lock rule",
+    "items": [
+      {
+        "id": "dl1",
+        "type": "Dialog"
+      },
+      {
+        "id": "sp1",
+        "type": "Spacer",
+        "props": {
+          "text": "Long content behind the dialog"
+        }
+      },
+      {
+        "id": "lr1",
+        "type": "ScrollLockRule"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-open=dl1]"
+    },
+    {
+      "do": "wheel",
+      "selector": "body",
+      "delta": {
+        "x": 0,
+        "y": 600
+      }
+    },
+    {
+      "do": "press",
+      "key": "PageDown"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Escape"
+    },
+    {
+      "do": "wheel",
+      "selector": "body",
+      "delta": {
+        "x": 0,
+        "y": 600
+      }
+    }
+  ],
+  "expectDraft": {
+    "ui:dl1": false
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "description": "Negative control of the ready check: the item reports ready before its async work, so boxes change after ready.",
+  "board": {
+    "id": "delayed-early",
+    "title": "Delayed early",
+    "items": [
+      {
+        "id": "d1",
+        "type": "DelayedEarly",
+        "props": {
+          "ms": 700
+        }
+      },
+      {
+        "id": "t1",
+        "type": "Text",
+        "props": {
+          "text": "Below the early item"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=d1]",
+    "text": "Loaded line 3"
+  },
+  "delayed": {
+    "item": "d1",
+    "ms": 700
+  }
+}

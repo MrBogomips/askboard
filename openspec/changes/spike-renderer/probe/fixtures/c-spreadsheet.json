@@ -1,0 +1,29 @@
+{
+  "description": "TanStack Table, A1 grid",
+  "board": {
+    "id": "c-spreadsheet",
+    "title": "TanStack Table, A1 grid",
+    "items": [
+      {
+        "id": "ss1",
+        "type": "Spreadsheet",
+        "props": {
+          "columns": 4,
+          "rows": 5
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "fill",
+      "selector": "input[data-ref=B2]",
+      "value": "42"
+    }
+  ],
+  "expectDraft": {
+    "ss1": {
+      "B2": "42"
+    }
+  }
+}

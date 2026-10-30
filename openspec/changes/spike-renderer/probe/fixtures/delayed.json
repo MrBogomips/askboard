@@ -1,0 +1,31 @@
+{
+  "description": "Ready after async work (AD-9): the item settles 700 ms after mount.",
+  "board": {
+    "id": "delayed",
+    "title": "Delayed",
+    "items": [
+      {
+        "id": "d1",
+        "type": "Delayed",
+        "props": {
+          "ms": 700
+        }
+      },
+      {
+        "id": "t1",
+        "type": "Text",
+        "props": {
+          "text": "Below the delayed item"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=d1]",
+    "text": "Loaded line 3"
+  },
+  "delayed": {
+    "item": "d1",
+    "ms": 700
+  }
+}

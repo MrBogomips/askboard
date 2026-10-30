@@ -1,0 +1,545 @@
+{
+  "description": "Every component the spike built, each in its passing configuration (design decision 7)",
+  "board": {
+    "id": "size-all",
+    "title": "Every component",
+    "items": [
+      {
+        "id": "s1",
+        "type": "Stack",
+        "children": [
+          {
+            "id": "t1",
+            "type": "Text",
+            "props": {
+              "text": "Which retry policy should the client use?"
+            }
+          },
+          {
+            "id": "v1",
+            "type": "Value",
+            "props": {
+              "label": "Expected effort",
+              "value": 12.5
+            }
+          },
+          {
+            "id": "tf1",
+            "type": "TextField",
+            "props": {
+              "label": "Reason"
+            }
+          },
+          {
+            "id": "nf1",
+            "type": "NumberField",
+            "props": {
+              "label": "Attempts",
+              "decimal": "."
+            }
+          },
+          {
+            "id": "c1",
+            "type": "Choice",
+            "props": {
+              "label": "Policy",
+              "options": [
+                {
+                  "value": "fixed",
+                  "label": "Fixed delay"
+                },
+                {
+                  "value": "expo",
+                  "label": "Exponential backoff"
+                }
+              ]
+            }
+          },
+          {
+            "id": "c2",
+            "type": "Choice",
+            "props": {
+              "label": "Apply to",
+              "multiple": true,
+              "options": [
+                {
+                  "value": "get",
+                  "label": "GET"
+                },
+                {
+                  "value": "post",
+                  "label": "POST"
+                }
+              ]
+            }
+          },
+          {
+            "id": "tg1",
+            "type": "Toggle",
+            "props": {
+              "label": "Retry on timeout"
+            }
+          },
+          {
+            "id": "r1",
+            "type": "Row",
+            "props": {
+              "widths": [
+                2,
+                1
+              ]
+            },
+            "children": [
+              {
+                "id": "t2",
+                "type": "Text",
+                "props": {
+                  "text": "Wide column"
+                }
+              },
+              {
+                "id": "t3",
+                "type": "Text",
+                "props": {
+                  "text": "Narrow column"
+                }
+              }
+            ]
+          },
+          {
+            "id": "g1",
+            "type": "Group",
+            "props": {
+              "title": "Limits"
+            },
+            "children": [
+              {
+                "id": "tf2",
+                "type": "TextField",
+                "props": {
+                  "label": "Maximum delay"
+                }
+              }
+            ]
+          },
+          {
+            "id": "tb1",
+            "type": "Tabs",
+            "props": {
+              "label": "Views",
+              "tabs": [
+                "Summary",
+                "Details"
+              ]
+            },
+            "children": [
+              {
+                "id": "t4",
+                "type": "Text",
+                "props": {
+                  "text": "Summary tab"
+                }
+              },
+              {
+                "id": "tg2",
+                "type": "Toggle",
+                "props": {
+                  "label": "Show details"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sl1",
+        "type": "Slider",
+        "props": {
+          "label": "Budget",
+          "min": 0,
+          "max": 100
+        }
+      },
+      {
+        "id": "tgg1",
+        "type": "ToggleGroup",
+        "props": {
+          "label": "View",
+          "options": [
+            {
+              "value": "split",
+              "label": "Split"
+            },
+            {
+              "value": "unified",
+              "label": "Unified"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dp1",
+        "type": "DatePicker",
+        "props": {
+          "label": "Due",
+          "month": "2026-11-01"
+        }
+      },
+      {
+        "id": "rk1",
+        "type": "Ranking",
+        "props": {
+          "label": "Order the fixes",
+          "entries": [
+            {
+              "id": "a",
+              "label": "Fix A: cap the backoff"
+            },
+            {
+              "id": "b",
+              "label": "Fix B: jitter"
+            },
+            {
+              "id": "c",
+              "label": "Fix C: circuit breaker"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f1",
+        "type": "Form",
+        "props": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "pattern": "^[A-Z][a-z]+$"
+              },
+              "colour": {
+                "type": "string",
+                "title": "Colour",
+                "enum": [
+                  "r",
+                  "g",
+                  "b"
+                ]
+              },
+              "size": {
+                "type": "string",
+                "title": "Size",
+                "enum": [
+                  "s",
+                  "m",
+                  "l"
+                ]
+              },
+              "tags": {
+                "type": "array",
+                "title": "Tags",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "a",
+                    "b",
+                    "c"
+                  ]
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "colour": {
+              "ui:widget": "radio",
+              "ui:enumNames": [
+                "Red",
+                "Green",
+                "Blue"
+              ]
+            },
+            "size": {
+              "ui:widget": "select",
+              "ui:enumNames": [
+                "Small",
+                "Medium",
+                "Large"
+              ]
+            },
+            "tags": {
+              "ui:widget": "checkboxes",
+              "items": {
+                "ui:enumNames": [
+                  "Alpha",
+                  "Beta",
+                  "Gamma"
+                ]
+              }
+            }
+          },
+          "extraErrors": {
+            "name": {
+              "__errors": [
+                "Use a capitalised name (AskBoard's field check)"
+              ]
+            }
+          },
+          "styleShim": true
+        }
+      },
+      {
+        "id": "md1",
+        "type": "Markdown",
+        "props": {
+          "source": "## Why this question\n\nTwo fixes touch **`retry.ts`**; see [the issue](https://example.org/issue/12).\n\n- keep the *exponential* backoff\n- cap it at 30 s\n\n| Option | Cost |\n| :--- | ---: |\n| A | 2 |\n| B | 5 |\n\n```ts\nconst delay = Math.min(30_000, 2 ** attempt * 100);\n```\n\n<script>alert(1)</script> <img src=x onerror=alert(1)>",
+          "alignClasses": true
+        }
+      },
+      {
+        "id": "df1",
+        "type": "DiffReview",
+        "props": {
+          "oldFile": {
+            "name": "retry.ts",
+            "contents": "// Retry with a fixed delay.\nexport function delay(attempt: number): number {\n  const base = \"fixed\";\n  return 1000;\n}\n"
+          },
+          "newFile": {
+            "name": "retry.ts",
+            "contents": "// Retry with exponential backoff, capped.\nexport function delay(attempt: number): number {\n  const base = \"exponential\";\n  return Math.min(30_000, 2 ** attempt * 100);\n}\n"
+          },
+          "config": "css-variables",
+          "shim": true
+        }
+      },
+      {
+        "id": "mx1",
+        "type": "Math",
+        "props": {
+          "source": "\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}"
+        }
+      },
+      {
+        "id": "ml1",
+        "type": "MathField",
+        "props": {
+          "label": "Formula",
+          "initial": "",
+          "sandboxedKeyboard": true,
+          "markupShim": true
+        }
+      },
+      {
+        "id": "ta1",
+        "type": "Table",
+        "props": {
+          "columns": [
+            {
+              "key": "name",
+              "label": "Name"
+            },
+            {
+              "key": "owner",
+              "label": "Owner"
+            }
+          ],
+          "rows": [
+            {
+              "name": "retry",
+              "owner": "Ada"
+            },
+            {
+              "name": "cache",
+              "owner": "Lin"
+            },
+            {
+              "name": "auth",
+              "owner": "Sam"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ss1",
+        "type": "Spreadsheet",
+        "props": {
+          "columns": 4,
+          "rows": 5
+        }
+      },
+      {
+        "id": "tr1",
+        "type": "Tree",
+        "props": {
+          "columns": [
+            {
+              "key": "label",
+              "label": "Task"
+            }
+          ],
+          "rows": [
+            {
+              "id": "1",
+              "label": "Build",
+              "children": [
+                {
+                  "id": "1.1",
+                  "label": "View"
+                },
+                {
+                  "id": "1.2",
+                  "label": "Widgets"
+                }
+              ]
+            },
+            {
+              "id": "2",
+              "label": "Ship"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ch1",
+        "type": "Chart",
+        "props": {
+          "label": "Failures per fix",
+          "richTooltip": true,
+          "bars": [
+            {
+              "label": "A",
+              "value": 4
+            },
+            {
+              "label": "B",
+              "value": 9
+            },
+            {
+              "label": "C",
+              "value": 6
+            }
+          ]
+        }
+      },
+      {
+        "id": "gr1",
+        "type": "Graph",
+        "props": {
+          "label": "Dependencies",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "contract"
+            },
+            {
+              "id": "b",
+              "label": "compute"
+            },
+            {
+              "id": "c",
+              "label": "view"
+            },
+            {
+              "id": "d",
+              "label": "widgets"
+            }
+          ],
+          "edges": [
+            {
+              "from": "a",
+              "to": "b"
+            },
+            {
+              "from": "a",
+              "to": "c"
+            },
+            {
+              "from": "b",
+              "to": "d"
+            },
+            {
+              "from": "c",
+              "to": "d"
+            }
+          ]
+        }
+      },
+      {
+        "id": "m1",
+        "type": "Mermaid",
+        "props": {
+          "label": "Mermaid diagram",
+          "source": "flowchart LR\n  A[Agent asks] --> B{Board open?}\n  B -->|yes| C[Show question]\n  B -->|no| D[Open board]\n  D --> C\n  C --> E((Answer))",
+          "probe": {
+            "shim": true
+          }
+        }
+      },
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nactor Customer\nparticipant \"Web app\" as Web\nparticipant \"Checkout API\" as API\nparticipant \"Order service\" as Orders\nparticipant \"Payment gateway\" as Gateway\nCustomer -> Web : Place order\nWeb -> API : POST /checkout\nAPI -> Orders : create order\nAPI -> Gateway : authorize payment\nGateway --> API : authorized\nAPI --> Web : order confirmed\n@enduml",
+          "probe": {
+            "shim": true
+          }
+        }
+      },
+      {
+        "id": "kb1",
+        "type": "Kanban",
+        "props": {
+          "label": "Triage",
+          "lanes": [
+            {
+              "id": "todo",
+              "label": "To do",
+              "cards": [
+                {
+                  "id": "k1",
+                  "label": "Flaky test"
+                },
+                {
+                  "id": "k2",
+                  "label": "Slow build"
+                }
+              ]
+            },
+            {
+              "id": "doing",
+              "label": "Doing",
+              "cards": [
+                {
+                  "id": "k3",
+                  "label": "Upgrade Bun"
+                }
+              ]
+            },
+            {
+              "id": "done",
+              "label": "Done",
+              "cards": []
+            }
+          ]
+        }
+      },
+      {
+        "id": "dl1",
+        "type": "Dialog",
+        "props": {
+          "styleShim": true
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=t1]",
+    "text": "retry policy"
+  },
+  "expectDiagrams": [
+    "m1",
+    "p1"
+  ]
+}

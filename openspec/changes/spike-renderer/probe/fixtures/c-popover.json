@@ -1,0 +1,26 @@
+{
+  "description": "Radix Popover, non-modal",
+  "board": {
+    "id": "c-popover",
+    "title": "Radix Popover, non-modal",
+    "items": [
+      {
+        "id": "po1",
+        "type": "Popover",
+        "props": {
+          "label": "Why?",
+          "text": "The agent asks because two fixes touch the same file."
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-item-id=po1] button"
+    }
+  ],
+  "expectDraft": {
+    "ui:po1": true
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "description": "S-5: the .dark class switch, with diagrams and the Tailwind swatches",
+  "board": {
+    "id": "theme",
+    "title": "S-5: the .dark class switch",
+    "items": [
+      {
+        "id": "tw1",
+        "type": "Swatches"
+      },
+      {
+        "id": "m1",
+        "type": "Mermaid",
+        "props": {
+          "label": "Mermaid diagram",
+          "source": "flowchart LR\n  A[Ask] --> B[Answer]",
+          "probe": {
+            "shim": true
+          }
+        }
+      },
+      {
+        "id": "p1",
+        "type": "PlantUMLSmetana",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nAgent -> Board : ask\nBoard --> Agent : answer\n@enduml",
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "command",
+      "command": "theme",
+      "args": {
+        "dark": true
+      },
+      "ms": 2500
+    }
+  ],
+  "expectDiagrams": [
+    "m1",
+    "p1"
+  ],
+  "expectThemes": {
+    "m1": "dark",
+    "p1": "dark"
+  },
+  "expectComputed": [
+    {
+      "selector": "html",
+      "property": "background-color",
+      "equals": "rgb(27, 25, 22)"
+    },
+    {
+      "selector": "#tw-token",
+      "property": "background-color",
+      "equals": "rgb(95, 180, 194)"
+    },
+    {
+      "selector": "#tw-dark",
+      "property": "color",
+      "equals": "rgb(95, 180, 194)"
+    }
+  ]
+}

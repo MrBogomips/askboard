@@ -1,0 +1,23 @@
+/* The view's base layer: token-driven page colours and the system font stacks. The bundled
+   Inter and JetBrains Mono wait for the product owner's decision on the fonts (design.md, pins). */
+@layer base {
+  html {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--ab-font-sans);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  body {
+    margin: 0;
+    padding: 16px;
+  }
+}
+
+/* Task 3.5, mitigation "shell-rule": Mermaid measures labels in a temporary SVG inside
+   `body > div#d<render id>`, and the CSP blocks the `<style>` it injects there. This rule gives
+   that container Mermaid's diagram font, so the labels are measured as they will be drawn. */
+div[id^="dmermaid-shell-rule-"] {
+  font-family: "trebuchet ms", verdana, arial, sans-serif;
+  font-size: 16px;
+}

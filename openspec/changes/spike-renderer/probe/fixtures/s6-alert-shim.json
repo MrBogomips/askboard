@@ -1,0 +1,72 @@
+{
+  "description": "S-6: Radix Alert Dialog with the style-element shim",
+  "board": {
+    "id": "s6-alert-shim",
+    "title": "S-6: Radix Alert Dialog with the style-element shim",
+    "items": [
+      {
+        "id": "dl1",
+        "type": "AlertDialog",
+        "props": {
+          "styleShim": true
+        }
+      },
+      {
+        "id": "sp1",
+        "type": "Spacer",
+        "props": {
+          "text": "Long content behind the dialog"
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-open=dl1]"
+    },
+    {
+      "do": "wheel",
+      "selector": "body",
+      "delta": {
+        "x": 0,
+        "y": 600
+      }
+    },
+    {
+      "do": "press",
+      "key": "PageDown"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Tab"
+    },
+    {
+      "do": "press",
+      "key": "Escape"
+    },
+    {
+      "do": "wheel",
+      "selector": "body",
+      "delta": {
+        "x": 0,
+        "y": 600
+      }
+    }
+  ],
+  "expectDraft": {
+    "ui:dl1": false
+  }
+}

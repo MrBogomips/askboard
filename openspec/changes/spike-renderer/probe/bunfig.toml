@@ -1,0 +1,5 @@
+[install]
+# As at the repository root: a package resolves only the dependencies it declares.
+linker = "isolated"
+# Every dependency pinned exactly (spine, Consistency Conventions).
+exact = true

@@ -1,0 +1,21 @@
+{
+  "description": "markdown-it with DOMPurify, table alignment as classes",
+  "board": {
+    "id": "c-markdown-classes",
+    "title": "markdown-it with DOMPurify, table alignment as classes",
+    "items": [
+      {
+        "id": "md1",
+        "type": "Markdown",
+        "props": {
+          "source": "## Why this question\n\nTwo fixes touch **`retry.ts`**; see [the issue](https://example.org/issue/12).\n\n- keep the *exponential* backoff\n- cap it at 30 s\n\n| Option | Cost |\n| :--- | ---: |\n| A | 2 |\n| B | 5 |\n\n```ts\nconst delay = Math.min(30_000, 2 ** attempt * 100);\n```\n\n<script>alert(1)</script> <img src=x onerror=alert(1)>",
+          "alignClasses": true
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=md1] table",
+    "text": "Cost"
+  }
+}

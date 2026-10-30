@@ -1,0 +1,31 @@
+{
+  "description": "ext-apps App with zod's jitless set when the chunk loads",
+  "board": {
+    "id": "c-app-jitless",
+    "title": "ext-apps App with zod's jitless set when the chunk loads",
+    "items": [
+      {
+        "id": "ap1",
+        "type": "AppChannelJitless"
+      }
+    ]
+  },
+  "bridge": true,
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-item-id=ap1] button"
+    }
+  ],
+  "expectDraft": {
+    "ui:ap1": {
+      "connected": true,
+      "host": "askboard-board-stand-in",
+      "sent": true
+    }
+  },
+  "expectBridge": [
+    "ui/notifications/initialized",
+    "ui/update-model-context"
+  ]
+}
