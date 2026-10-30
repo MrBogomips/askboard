@@ -41,9 +41,9 @@ const hashSources = (files: readonly ManifestFile[]): string => {
  * The board page's Content-Security-Policy (AD-8, design decision 5): scripts and styles only by the
  * hashes of the board page's code and of every chunk the manifest lists, which the view's srcdoc
  * inherits; `connect-src 'self'` for its socket and its manifest and chunk fetches; the view's media
- * sources; nothing else. `frame-src 'self'` waits for the reading panel (E5). One rule for
- * `board-host` and the view's test server, so that the browser tests meet the policy the session
- * process sends.
+ * sources; nothing else, and no base URL, form post (AD-11) or page framing the board.
+ * `frame-src 'self'` waits for the reading panel (E5). One rule for `board-host` and the view's test
+ * server, so that the browser tests meet the policy the session process sends.
  */
 export const boardPagePolicy = (manifest: ViewManifest): string => {
   const chunks = Object.values(manifest.chunks);
@@ -56,5 +56,8 @@ export const boardPagePolicy = (manifest: ViewManifest): string => {
     "connect-src 'self'",
     "img-src data: blob:",
     "font-src data:",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
   ].join("; ");
 };

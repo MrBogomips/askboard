@@ -23,8 +23,22 @@ describe("the board page's policy", () => {
   test("names exactly AD-8's directives, scripts and styles by hash only", () => {
     const parts = directives(boardPagePolicy(manifest));
     expect([...parts.keys()].sort()).toEqual(
-      ["connect-src", "default-src", "font-src", "img-src", "script-src", "style-src"].sort(),
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "frame-ancestors",
+        "img-src",
+        "script-src",
+        "style-src",
+      ].sort(),
     );
+    // Only restrictions besides: no base URL, no form posts (AD-11), no page framing the board.
+    for (const name of ["base-uri", "form-action", "frame-ancestors"]) {
+      expect(parts.get(name)).toEqual(["'none'"]);
+    }
     expect(parts.get("default-src")).toEqual(["'none'"]);
     expect([...(parts.get("script-src") ?? [])].sort()).toEqual(
       hashes([manifest.boardPage.script, ...chunks.map((chunk) => chunk.script)]),
