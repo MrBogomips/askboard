@@ -219,6 +219,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       | Tool request and result envelopes | `mcp-tools` |
       | Board document (AD-12) | `ask-core` |
       | Board protocol: board page ↔ `board-host` | `board-host` |
+      | View manifest: the board page script and each chunk's SHA-256, styles, dependencies and licence notices, which `board-host` reads to serve the chunks and to build the board page's CSP (AD-8, AD-9) | `view` |
       | Local API: `mod` and `hooks` ↔ session process | `board-host` |
       | Session file | `board-host` |
       | Configuration | `ask-core` |
@@ -643,9 +644,14 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@fontsource-variable/inter` or `@fontsource/inter`, `@fontsource/jetbrains-mono` (DESIGN.md's faces; Fontsource's stars exception) | 5.3.0 |
 | JSON Schema dialect | 2020-12 |
 | Ajv (the one validator; standalone validators generated at build for the view) | 8.20.0 |
+| `ws` (`board-host`'s WebSocket server, on `node:http`) | 8.22.0 |
+| `playwright` (browser tests in Chromium, Firefox and WebKit; tests only) | 1.64.1 |
+| `@types/node` (`server`'s types, at the Node floor's major) | 24.19.2 |
+| `@types/react`, `@types/react-dom` | 19.3.0 |
+| `@types/ws` | 8.18.2 |
 | Claude Code minimum (confirmed by the mod delivery spike: 2.1.308 fires `SubagentStop` while a subagent works; `stable` was still 2.1.308 on 2026-10-29, so release waits) | 2.1.311 |
 
-`@types/bun`, which only tests and repository tools use, follows the Bun pin.
+`@types/bun`, which only tests and repository tools use, follows the Bun pin. The other `@types` packages follow their runtime: `@types/node` the major of the Node floor, `@types/react` and `@types/react-dom` React's minor, `@types/ws` the major of `ws`.
 
 ## Structural Seed
 
