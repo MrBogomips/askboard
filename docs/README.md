@@ -31,9 +31,9 @@ The change's `trace.md` records where each request landed. The UX spines were wr
 
 ## Still pending
 
-- **The licence exception** (`SOLUTION-DESIGN.md` §11, entry 7). NFR-6 stays unchanged until the packaging spike, and until then AskBoard ships the plain JavaScript bundle on Node (AD-19).
+- **The Bun executable** (`SOLUTION-DESIGN.md` §11, entries 7 and 8). The OpenSpec change `spike-packaging` granted the licence exception in NFR-6 and the addendum on 2026-10-30, subject to the AXFX NFR-1 contract change; until that change is accepted, AskBoard ships the plain JavaScript bundle on Node (AD-19).
 - **A UX refresh.** Applying the requests settled three points that `ux-askboard-2026-10-27/EXPERIENCE.md` does not yet reflect, and a later UX update should bring it in line:
   - `editor` is read only from the user configuration, so a project-level value is ignored, and the settings panel shows it as ignored (AD-8, AD-14);
   - an ask may declare its `locale` separately from its language (FR-34, AD-7);
   - the ask state follows what the user has sent, and the delivery receipt alone shows what the agent has received (FR-24, AD-3).
-- **The AXFX contract**: what AXFX requires of AskBoard (AXFX PRD §5.10, §6, §7) stays in the planning repository. AskBoard depends on nothing in AXFX; changes to that contract are requested there (`CONTRACT-CHANGE:` entries in the architecture memlog). One is still open: the AXFX NFR-1 licence confirmation (`SOLUTION-DESIGN.md` §11, entry 8).
+- **The AXFX contract**: what AXFX requires of AskBoard (AXFX PRD §5.10, §6, §7) stays in the planning repository. AskBoard depends on nothing in AXFX; changes to that contract are requested there (`CONTRACT-CHANGE:` entries in the architecture memlog). One is still open: the AXFX NFR-1 licence confirmation (`SOLUTION-DESIGN.md` §11, entry 8), which the product owner files with the text in the packaging spike's findings.
