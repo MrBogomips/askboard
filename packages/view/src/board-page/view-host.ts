@@ -1,13 +1,19 @@
 // The board page's side of the iframe channel (design decision 8, AD-8): ext-apps' `AppBridge`,
 // talking to the view's `App` over the frame transport. It answers the view's tool calls itself
 // and never forwards them: each must read as a view message, or it is refused and the board page
-// never acts on it. It sends the board state on as tool-result notifications, the latest one once
-// the view has finished its handshake and each new one after that.
+// never acts on it. It sends the board state and the lock on as tool-result notifications, the
+// latest one once the view has finished its handshake and each new one after that, and the theme
+// in the host context (EXPERIENCE.md, Dark theme), from which the view sets its `.dark` class.
 
-import type { BoardState } from "@askboard/contract";
 import { AppBridge } from "@modelcontextprotocol/ext-apps/app-bridge";
 import { type FramePeer, FrameTransport, type MessageEvents } from "../frame-transport.ts";
-import { readViewMessage, type ViewMessage, viewUpdateResult } from "../view-protocol.ts";
+import type { Theme } from "../theme.ts";
+import {
+  readViewMessage,
+  type ViewMessage,
+  type ViewUpdate,
+  viewUpdateResult,
+} from "../view-protocol.ts";
 
 const HOST_INFO = { name: "askboard-board-page", version: "0.0.0" };
 
@@ -15,8 +21,10 @@ const HOST_INFO = { name: "askboard-board-page", version: "0.0.0" };
 export type ViewReply = Record<string, unknown>;
 
 export type ViewHost = {
-  /** The board state the view shows: sent now if the view is connected, else once it is. */
-  update(state: BoardState): void;
+  /** What the view shows: sent now if the view is connected, else once it is. */
+  update(update: ViewUpdate): void;
+  /** The board's theme: in the host context at the handshake, then each change. */
+  setTheme(theme: Theme): void;
   close(): Promise<void>;
 };
 
@@ -30,13 +38,14 @@ export const hostView = async (
   peer: FramePeer,
   events: MessageEvents,
   handle: (message: ViewMessage) => Promise<ViewReply>,
+  theme: Theme,
 ): Promise<ViewHost> => {
-  const bridge = new AppBridge(null, HOST_INFO, { serverTools: {} });
+  const bridge = new AppBridge(null, HOST_INFO, { serverTools: {} }, { hostContext: { theme } });
   let initialized = false;
-  let latest: BoardState | undefined;
+  let latest: ViewUpdate | undefined;
   const send = () => {
     if (!initialized || latest === undefined) return;
-    void bridge.sendToolResult(viewUpdateResult({ type: "state", state: latest }));
+    void bridge.sendToolResult(viewUpdateResult(latest));
   };
   bridge.oninitialized = () => {
     initialized = true;
@@ -51,10 +60,12 @@ export const hostView = async (
   };
   await bridge.connect(new FrameTransport(peer, events));
   return {
-    update: (state) => {
-      latest = state;
+    update: (update) => {
+      latest = update;
       send();
     },
+    // Before the handshake the bridge only records it: the view reads it at initialize.
+    setTheme: (next) => bridge.setHostContext({ theme: next }),
     close: () => bridge.close(),
   };
 };

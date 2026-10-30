@@ -2,7 +2,9 @@
 // `CatalogRenderer` port to the component chunks, which run after it, and boots once the srcdoc
 // has parsed, when every chunk has run: it reads the `askboard-data` block, connects ext-apps'
 // `App` to the board page when it has a parent (a Snapshot has none, AD-9), and renders the board
-// through AskBoard's own renderer, with the draft record and the ready tracker.
+// through AskBoard's own renderer, with the draft record and the ready tracker. The theme starts
+// as the system's and then follows the board page's; with no parent it follows the system
+// (EXPERIENCE.md, Dark theme).
 
 import type { BoardDocument } from "@askboard/contract";
 import { App } from "@modelcontextprotocol/ext-apps";
@@ -11,8 +13,10 @@ import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
 import { FrameTransport } from "../frame-transport.ts";
 import { provide } from "../shared-modules.ts";
+import { applyTheme, DARK_QUERY, followSystemTheme, systemTheme, type Theme } from "../theme.ts";
 import type { ViewMessage } from "../view-protocol.ts";
-import { Board } from "./board.tsx";
+import { createAnswerActs } from "./answer-acts.ts";
+import { Board, type BoardView } from "./board.tsx";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { createReadyTracker, type QuestionItems } from "./ready-tracker.ts";
@@ -39,9 +43,19 @@ const boot = (): void => {
   const data = parseBootData(document.getElementById(BOOT_DATA_ID)?.textContent);
   const root = document.getElementById("root");
   if (root === null) throw new Error("the view has no #root element");
-  const channel = window.parent === window ? NO_CHANNEL : connectToBoardPage();
-  const state = createStore(data.state);
-  channel.onUpdate((update) => state.set(update.state));
+  const hosted = window.parent !== window;
+  const setTheme = (theme: Theme) => applyTheme(document.documentElement, theme);
+  const scheme = window.matchMedia(DARK_QUERY);
+  if (hosted) setTheme(systemTheme(scheme));
+  else followSystemTheme(scheme, setTheme);
+  const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
+  channel.onTheme(setTheme);
+  const view = createStore<BoardView>({ state: data.state });
+  const acts = createAnswerActs();
+  channel.onUpdate(({ state, lock, pending }) => {
+    view.set({ state, lock, pending });
+    acts.reconcile(pending ?? []);
+  });
   const report = (message: ViewMessage): void => {
     channel.send(message).catch((error: unknown) => {
       console.error(`askboard: the board page did not take the view's ${message.type}:`, error);
@@ -51,8 +65,8 @@ const boot = (): void => {
     onVisible: (questionId) => report({ type: "ready", itemId: questionId }),
     onFailed: (_questionId, itemId, error) => report({ type: "item-error", itemId, error }),
   });
-  const context = { draft: createDraftStore(), tracker, channel };
-  createRoot(root).render(<Board document={data.document} state={state} context={context} />);
+  const context = { draft: createDraftStore(), tracker, channel, acts };
+  createRoot(root).render(<Board document={data.document} view={view} context={context} />);
 };
 
 if (document.readyState === "loading") {

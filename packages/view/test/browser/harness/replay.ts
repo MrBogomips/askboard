@@ -2,8 +2,9 @@
 // numbered in the order they connect, as the transcripts number them. The replay runs each step in
 // order: it sends the host's messages and closes, and waits at the rest. A page step waits for that
 // socket's next message, which it compares with the transcript's; a session or network step waits
-// for the test to trigger it (`collected`, `exit`, `restart`, `drop`). A user step is the test's
-// own act on the page, so the replay passes it.
+// for the test to trigger it (`collected`, `exit`, `restart`, `drop`; `drop` also passes a network
+// step that closes the socket with a code). A user step is the test's own act on the page, so the
+// replay passes it.
 
 import type { PageMessage } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
@@ -95,7 +96,7 @@ export class Replay {
     const step = this.#steps[this.#at];
     if (step === undefined) return "nothing: the transcript is done";
     if (step.from === "session") return `the session step ${step.event}`;
-    if (step.from === "network") return `the network to drop socket ${step.socket}`;
+    if (step.from === "network") return `the network to end socket ${step.socket}`;
     const message = "message" in step ? step.message : "invalid" in step ? step.invalid : "";
     return `socket ${step.socket} to send ${summary(message)}`;
   }
@@ -180,7 +181,9 @@ export class Replay {
   // Runs one step; false when it has to wait.
   #run(step: ReplayStep): boolean {
     if (step.from === "session") return this.#pass(step.event);
-    if (step.from === "network") return this.#pass("drop", step.socket);
+    if (step.from === "network") {
+      return this.#pass("drop", step.socket, "close" in step ? step.close : undefined);
+    }
     if (step.from === "user") return true;
     const entry = this.#sockets.get(step.socket);
     if (step.from === "host") {
@@ -207,7 +210,7 @@ export class Replay {
     return `${line} (they differ in ${differing(message, step.message).join(", ")})`;
   }
 
-  #pass(gate: ReplayGate, socket?: number): boolean {
+  #pass(gate: ReplayGate, socket?: number, code?: number): boolean {
     if (!this.#latched.has(gate)) return false;
     this.#latched.delete(gate);
     if (gate === "exit") this.#hooks.onExit?.();
@@ -217,7 +220,7 @@ export class Replay {
     }
     if (gate === "drop" && socket !== undefined) {
       this.#hooks.onDrop?.();
-      this.#end(socket);
+      this.#end(socket, code);
     }
     const waiting = this.#waiters.filter((waiter) => waiter.gate === gate);
     this.#waiters = this.#waiters.filter((waiter) => waiter.gate !== gate);
@@ -225,10 +228,12 @@ export class Replay {
     return true;
   }
 
-  #end(number: number): void {
+  // With a code, a close frame carrying it; without, no close frame at all.
+  #end(number: number, code?: number): void {
     const entry = this.#sockets.get(number);
     if (entry?.open !== true) return;
     entry.open = false;
-    entry.socket.terminate();
+    if (code === undefined) entry.socket.terminate();
+    else entry.socket.close(code);
   }
 }

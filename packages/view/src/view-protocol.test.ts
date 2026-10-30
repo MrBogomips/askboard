@@ -125,8 +125,9 @@ describe("view messages, as App tool calls the board page answers itself (design
 });
 
 describe("the board page's reply to an answer", () => {
-  test("says the answer was sent, or why it was refused", () => {
+  test("says the answer was sent, queued while disconnected, or why it was refused", () => {
     expect(readAnswerReply({ outcome: "sent" })).toEqual({ outcome: "sent" });
+    expect(readAnswerReply({ outcome: "queued" })).toEqual({ outcome: "queued" });
     expect(readAnswerReply({ outcome: "refused", detail: "not open" })).toEqual({
       outcome: "refused",
       detail: "not open",
@@ -134,7 +135,7 @@ describe("the board page's reply to an answer", () => {
   });
 
   test("anything else is no reply", () => {
-    for (const reply of [undefined, {}, { outcome: "queued" }, { outcome: "refused" }]) {
+    for (const reply of [undefined, {}, { outcome: "read" }, { outcome: "refused" }]) {
       expect(readAnswerReply(reply)).toBeUndefined();
     }
   });
@@ -145,6 +146,46 @@ describe("what the board page tells the view after boot, as tool-result notifica
     const result = viewUpdateResult({ type: "state", state: waiting });
     expect(result.content).toEqual([]);
     expect(readViewUpdate(result.structuredContent)).toEqual({ type: "state", state: waiting });
+  });
+
+  test("the update says when the board page locked the view, and why (AD-21)", () => {
+    for (const lock of ["discarded", "moved"] as const) {
+      const result = viewUpdateResult({ type: "state", state: waiting, lock });
+      expect(readViewUpdate(result.structuredContent)).toEqual({
+        type: "state",
+        state: waiting,
+        lock,
+      });
+    }
+    expect(readViewUpdate({ type: "state", state: waiting, lock: "closed" })).toBeUndefined();
+  });
+
+  test("the update lists the answers the board page holds, sent or queued", () => {
+    const pending = [
+      {
+        itemId: "database",
+        choice: ["PostgreSQL"],
+        when: "2026-10-30T10:00:00Z",
+        outcome: "queued",
+      },
+    ] as const;
+    const result = viewUpdateResult({ type: "state", state: waiting, pending });
+    expect(readViewUpdate(result.structuredContent)).toEqual({
+      type: "state",
+      state: waiting,
+      pending,
+    });
+    const [held] = pending;
+    for (const wrong of [
+      "database",
+      [{ ...held, itemId: "x y" }],
+      [{ ...held, choice: [1] }],
+      [{ ...held, when: 5 }],
+      [{ ...held, outcome: "read" }],
+      [null],
+    ]) {
+      expect(readViewUpdate({ type: "state", state: waiting, pending: wrong })).toBeUndefined();
+    }
   });
 
   test("anything else is not an update", () => {

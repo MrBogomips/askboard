@@ -7,6 +7,7 @@ import {
   type BoardModel,
   bootDataOf,
   EMPTY_MODEL,
+  stateProblem,
   withHostMessage,
   withViewMessage,
 } from "./model.ts";
@@ -51,16 +52,53 @@ describe("what the board page knows of its board (design decision 8)", () => {
     expect(first.state).toBe(waiting);
   });
 
-  test("the messages task 8.6 handles leave the model as it is", () => {
+  test("moved, discarded and refused leave the model as it is: the board page's status has them", () => {
     const model = withHostMessage(EMPTY_MODEL, board);
     for (const message of [
       { version, type: "moved" },
       { version, type: "discarded", reason: "session-exit" },
-      { version, type: "receipt", itemId: "database", receipt: "delivered" },
       { version, type: "refused", reason: "token", detail: "no" },
     ] as const) {
       expect(withHostMessage(model, message)).toBe(model);
     }
+  });
+
+  test("a receipt marks the question's logged answer delivered to the agent (FR-22)", () => {
+    const sent: BoardState = {
+      ask: "answered",
+      questions: [
+        {
+          itemId: "database",
+          rev: 1,
+          state: "answered",
+          answer: { choice: ["PostgreSQL"], when: "2026-10-29T09:41:27Z", receipt: "sent" },
+        },
+      ],
+    };
+    const model = withHostMessage(withHostMessage(EMPTY_MODEL, board), {
+      version,
+      type: "state",
+      state: sent,
+    });
+    const receipt = { version, type: "receipt", itemId: "database", receipt: "delivered" } as const;
+    const delivered = withHostMessage(model, receipt);
+    expect(delivered.state?.questions[0]).toEqual({
+      itemId: "database",
+      rev: 1,
+      state: "answered",
+      answer: { choice: ["PostgreSQL"], when: "2026-10-29T09:41:27Z", receipt: "delivered" },
+    });
+    expect(delivered.state?.ask).toBe("answered");
+    expect(model.state).toBe(sent);
+  });
+
+  test("a receipt for no logged answer leaves the model as it is", () => {
+    const receipt = { version, type: "receipt", itemId: "database", receipt: "delivered" } as const;
+    const loaded = withHostMessage(withHostMessage(EMPTY_MODEL, board), state);
+    expect(withHostMessage(loaded, receipt)).toBe(loaded);
+    expect(withHostMessage(EMPTY_MODEL, receipt)).toBe(EMPTY_MODEL);
+    const other = { ...receipt, itemId: "cache" };
+    expect(withHostMessage(loaded, other)).toBe(loaded);
   });
 
   test("the view's ready and item-error messages are recorded per item (AD-9)", () => {
@@ -73,6 +111,32 @@ describe("what the board page knows of its board (design decision 8)", () => {
     });
     expect([...failed.failed]).toEqual([["database", "boom"]]);
     expect(EMPTY_MODEL.visible.size + EMPTY_MODEL.failed.size).toBe(0);
+  });
+});
+
+describe("a state the board page can act on (AD-10)", () => {
+  test("names each question of the board document at its revision, and nothing else", () => {
+    expect(stateProblem(plainChoiceBoardDocument, waiting)).toBeUndefined();
+    expect(stateProblem(undefined, waiting)).toBe("the state came before the board document");
+  });
+
+  test("a state with another question, a missing one or another revision is refused", () => {
+    const at = (questions: BoardState["questions"]): BoardState => ({ ask: "waiting", questions });
+    expect(
+      stateProblem(plainChoiceBoardDocument, at([{ itemId: "cache", rev: 1, state: "open" }])),
+    ).toBe('the state names "cache", which the board document does not hold at revision 1');
+    expect(
+      stateProblem(plainChoiceBoardDocument, at([{ itemId: "database", rev: 2, state: "open" }])),
+    ).toBe('the state names "database", which the board document does not hold at revision 2');
+    // E1's types hold one question; the check is written for more.
+    const two = {
+      ...plainChoiceBoardDocument,
+      items: [
+        ...plainChoiceBoardDocument.items,
+        { ...plainChoiceBoardDocument.items[0], id: "cache" },
+      ],
+    } as unknown as BoardDocument;
+    expect(stateProblem(two, waiting)).toBe('the state leaves out "cache"');
   });
 });
 

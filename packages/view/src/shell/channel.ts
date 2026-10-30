@@ -1,8 +1,10 @@
 // The view's side of the iframe channel (design decision 8): ext-apps' `App`, connected to the
 // board page's `AppBridge`. View messages leave as tool calls, sent once the handshake is done;
 // updates arrive as tool-result notifications, heard from before the handshake starts so that
-// none is missed. A Snapshot has no host and so no channel (AD-9).
+// none is missed. The theme comes in the host context, at the handshake and on each change
+// (EXPERIENCE.md, Dark theme). A Snapshot has no host and so no channel (AD-9).
 
+import { readTheme, type Theme } from "../theme.ts";
 import {
   readViewUpdate,
   toolCallOf,
@@ -24,12 +26,19 @@ export type ViewApp = {
     type: "toolresult",
     listener: (params: { structuredContent?: unknown }) => void,
   ): void;
+  addEventListener(
+    type: "hostcontextchanged",
+    listener: (params: { theme?: unknown }) => void,
+  ): void;
+  getHostContext(): { readonly theme?: unknown } | undefined;
 };
 
 export type ViewChannel = {
   /** Sends a view message; resolves to the board page's reply, and fails on its refusal. */
   send(message: ViewMessage): Promise<Record<string, unknown> | undefined>;
   onUpdate(listener: (update: ViewUpdate) => void): () => void;
+  /** The board page's theme, once connected and on each change. */
+  onTheme(listener: (theme: Theme) => void): () => void;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -51,7 +60,17 @@ export const openChannel = (app: ViewApp, connect: () => Promise<void>): ViewCha
     if (update === undefined) return;
     for (const listener of listeners) listener(update);
   });
+  const themes = new Set<(theme: Theme) => void>();
+  const tellTheme = (value: unknown) => {
+    const theme = readTheme(value);
+    if (theme !== undefined) for (const listener of themes) listener(theme);
+  };
+  app.addEventListener("hostcontextchanged", (params) => tellTheme(params.theme));
   const connected = connect();
+  connected.then(
+    () => tellTheme(app.getHostContext()?.theme),
+    () => {},
+  );
   return {
     send: async (message) => {
       await connected;
@@ -65,11 +84,18 @@ export const openChannel = (app: ViewApp, connect: () => Promise<void>): ViewCha
         listeners.delete(listener);
       };
     },
+    onTheme: (listener) => {
+      themes.add(listener);
+      return () => {
+        themes.delete(listener);
+      };
+    },
   };
 };
 
-/** No host, as in a Snapshot: nothing is sent and no update comes. */
+/** No host, as in a Snapshot: nothing is sent and no update or theme comes. */
 export const NO_CHANNEL: ViewChannel = {
   send: async () => undefined,
   onUpdate: () => () => {},
+  onTheme: () => () => {},
 };

@@ -4,6 +4,7 @@ import { plainChoiceBoardDocument, transcripts } from "@askboard/contract/fixtur
 import { validateBoardDocument, validateBoardMessage } from "@askboard/contract/validate";
 import { markupBoardDocument } from "../fixtures/markup-document.ts";
 import {
+  OVERLOADED_CLOSE_CODE,
   type ReplayStep,
   type ReplayTranscript,
   replayTranscripts,
@@ -14,7 +15,9 @@ import {
 const line = (step: ReplayStep): string => {
   if (step.from === "session") return `session ${step.event}`;
   if (step.from === "user") return `user ${step.event} ${step.choice.join(",")}`;
-  if (step.from === "network") return `${step.socket} drop`;
+  if (step.from === "network") {
+    return "close" in step ? `${step.socket} network close ${step.close}` : `${step.socket} drop`;
+  }
   if ("close" in step) return `${step.socket} host close ${step.close}`;
   if ("invalid" in step) return `${step.socket} page invalid`;
   const message = step.message;
@@ -89,6 +92,28 @@ describe("the transcripts the test server replays", () => {
       "2 page connect",
       "2 host refused",
       `2 host close ${BOARD_CLOSE_CODES.refused}`,
+    ]);
+  });
+
+  test("derive a socket turned away with 1013 before its connect is accepted", () => {
+    expect(lines(replayTranscripts.overloaded)).toEqual([
+      "1 page connect",
+      `1 network close ${OVERLOADED_CLOSE_CODE}`,
+      "2 page connect",
+      "2 host board",
+      "2 host state waiting",
+    ]);
+    expect(OVERLOADED_CLOSE_CODE).toBe(1013);
+  });
+
+  test("derive the way back after a takeover, the takeover's steps on the next socket", () => {
+    expect(lines(replayTranscripts.continueHere)).toEqual([
+      ...lines(replayTranscripts.reload),
+      "3 page connect",
+      "2 host moved",
+      `2 host close ${BOARD_CLOSE_CODES.moved}`,
+      "3 host board",
+      "3 host state answered delivered",
     ]);
   });
 

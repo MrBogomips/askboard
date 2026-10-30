@@ -1,6 +1,7 @@
 // What the board page knows of its board (design decision 8): the board document and the state as
-// `board-host` last sent them, each checked against the board protocol on arrival, and what the
-// view reported of its questions (AD-9). Each message makes a new model.
+// `board-host` last sent them, each checked against the board protocol on arrival, with the
+// receipts since, and what the view reported of its questions (AD-9). Each message makes a new
+// model. The connection's status, the held answers and the banners are the controller's.
 
 import {
   type AnswerCommand,
@@ -23,9 +24,24 @@ export type BoardModel = {
 
 export const EMPTY_MODEL: BoardModel = { visible: new Set(), failed: new Map() };
 
+// The state with the question's logged answer delivered to the agent (FR-22); the same state when
+// it logs no answer for the question.
+const withDelivered = (state: BoardState, itemId: string): BoardState => {
+  const at = state.questions.findIndex(
+    (question) => question.itemId === itemId && question.state === "answered",
+  );
+  const question = state.questions[at];
+  if (question?.state !== "answered" || question.answer.receipt === "delivered") return state;
+  const delivered = { ...question, answer: { ...question.answer, receipt: "delivered" as const } };
+  const questions: [...BoardState["questions"]] = [...state.questions];
+  questions[at] = delivered;
+  return { ...state, questions };
+};
+
 /**
- * The model after a message from `board-host`. Task 8.6 adds the receipt, the discard, the move
- * and the refusals; until then they leave the model as it is.
+ * The model after a message from `board-host`: the board document, the state, and a receipt,
+ * which marks the logged answer delivered. `moved`, `discarded` and `refused` change the board's
+ * status, not what it knows of the board.
  */
 export const withHostMessage = (model: BoardModel, message: HostMessage): BoardModel => {
   switch (message.type) {
@@ -33,9 +49,35 @@ export const withHostMessage = (model: BoardModel, message: HostMessage): BoardM
       return { ...model, document: message.document };
     case "state":
       return { ...model, state: message.state };
+    case "receipt": {
+      if (model.state === undefined) return model;
+      const state = withDelivered(model.state, message.itemId);
+      return state === model.state ? model : { ...model, state };
+    }
     default:
       return model;
   }
+};
+
+/**
+ * Why the board page cannot act on a state, if it cannot: it must name each question of the board
+ * document at its revision, and nothing else (AD-10). The schemas cannot see this, since the two
+ * come in separate messages.
+ */
+export const stateProblem = (
+  document: BoardDocument | undefined,
+  state: BoardState,
+): string | undefined => {
+  if (document === undefined) return "the state came before the board document";
+  for (const { itemId, rev } of state.questions) {
+    if (!document.items.some((item) => item.id === itemId && item.rev === rev)) {
+      return `the state names "${itemId}", which the board document does not hold at revision ${rev}`;
+    }
+  }
+  const missing = document.items.find(
+    (item) => !state.questions.some((question) => question.itemId === item.id),
+  );
+  return missing === undefined ? undefined : `the state leaves out "${missing.id}"`;
 };
 
 /** The model after the view reported a question visible or an item failing. */

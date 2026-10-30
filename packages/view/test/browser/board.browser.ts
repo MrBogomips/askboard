@@ -1,6 +1,7 @@
 // The view spec's scenarios about the single-question board and answering, in each engine
-// (specs/view-and-widgets): the plain-choice board, nothing chosen for the user, the draft, the
-// answer and its receipt, the keyboard path, no browser storage, and a reload.
+// (specs/view-and-widgets): the plain-choice board, nothing chosen for the user, keys ignored until
+// the user acts inside a new board, the draft, the answer and its receipt, the keyboard path, no
+// browser storage, and a reload.
 
 import { describe, expect, test } from "bun:test";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
@@ -10,6 +11,7 @@ import {
   enabledCount,
   eventually,
   expectNoCspProblem,
+  expectNoTokenInView,
   expectPageHalf,
   isFocused,
   linkToken,
@@ -104,6 +106,23 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await run.open();
         expect(await checkedCount(board)).toBe(0);
         expect(await board.answer.isDisabled()).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a newly opened board ignores keys until the user clicks or focuses inside it",
+      async () => {
+        const run = await start({ transcript: opening, view: dist });
+        const board = await run.open();
+        for (const key of ["Space", "Enter", "ArrowDown", "ArrowUp", "Home", "End", "1", "a"]) {
+          await board.page.keyboard.press(key);
+        }
+        expect(await checkedCount(board)).toBe(0);
+        expect(await board.answer.isDisabled()).toBe(true);
+        const view = await board.viewFrame();
+        expect(await view.evaluate(() => document.activeElement === document.body)).toBe(true);
+        await expectOnlyConnect(run);
       },
       TEST_TIMEOUT_MS,
     );
@@ -223,10 +242,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a reload: the board comes back answered, delivered to the agent, read-only",
+      "a reload: the board comes back answered, delivered to the agent, read-only, with no token in the view",
       async () => {
         const run = await start({ transcript: reload, view: dist });
         const board = await run.open();
+        await expectNoTokenInView(board, run);
         const clicked = await answerWith(board, "PostgreSQL");
         await visible(board.receipt("sent"));
         await run.session.collected();
@@ -239,6 +259,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await board.option("PostgreSQL").isChecked()).toBe(true);
         await expectReadOnly(board);
+        await expectNoTokenInView(board, run);
         await Bun.sleep(QUIET_MS);
         expect(await board.banner(/moved/i).count()).toBe(0);
         expectPageHalf(run, clicked);

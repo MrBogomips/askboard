@@ -6,6 +6,7 @@ import type { BoardState } from "@askboard/contract";
 import { App } from "@modelcontextprotocol/ext-apps";
 import { FrameTransport } from "../frame-transport.ts";
 import { openChannel, type ViewChannel } from "../shell/channel.ts";
+import type { Theme } from "../theme.ts";
 import type { ViewMessage, ViewUpdate } from "../view-protocol.ts";
 import { hostView, type ViewHost } from "./view-host.ts";
 
@@ -48,17 +49,27 @@ afterEach(async () => {
   for (const item of open.splice(0)) await item.close();
 });
 
-const setUp = async (handle = mock(async (_message: ViewMessage) => ({}))) => {
+const setUp = async (
+  handle = mock(async (_message: ViewMessage) => ({})),
+  theme: Theme = "light",
+) => {
   const { pageEvents, viewEvents, view, page } = windows();
-  const host: ViewHost = await hostView(view, pageEvents, handle);
+  const host: ViewHost = await hostView(view, pageEvents, handle, theme);
   open.push(host);
-  const connectView = (): { app: App; channel: ViewChannel; updates: ViewUpdate[] } => {
+  const connectView = (): {
+    app: App;
+    channel: ViewChannel;
+    updates: ViewUpdate[];
+    themes: Theme[];
+  } => {
     const app = new App({ name: "askboard-view", version: "0.0.0" }, {}, { autoResize: false });
     open.push(app);
     const updates: ViewUpdate[] = [];
+    const themes: Theme[] = [];
     const channel = openChannel(app, () => app.connect(new FrameTransport(page, viewEvents)));
     channel.onUpdate((update) => updates.push(update));
-    return { app, channel, updates };
+    channel.onTheme((theme) => themes.push(theme));
+    return { app, channel, updates, themes };
   };
   return { host, handle, connectView };
 };
@@ -86,17 +97,28 @@ describe("the board page hosting the view (design decision 8)", () => {
 
   test("the latest state reaches the view once it has connected, then each new one", async () => {
     const { host, connectView } = await setUp();
-    host.update(waiting);
-    host.update(answered);
+    host.update({ type: "state", state: waiting });
+    host.update({ type: "state", state: answered });
     const { updates } = connectView();
     await settled();
     expect(updates).toEqual([{ type: "state", state: answered }]);
-    host.update(waiting);
+    host.update({ type: "state", state: waiting, lock: "discarded" });
     await settled();
     expect(updates).toEqual([
       { type: "state", state: answered },
-      { type: "state", state: waiting },
+      { type: "state", state: waiting, lock: "discarded" },
     ]);
+  });
+
+  test("the view gets the board page's theme at connect, then each change (Dark theme)", async () => {
+    const { host, connectView } = await setUp(undefined, "dark");
+    const { themes } = connectView();
+    await settled();
+    expect(themes).toEqual(["dark"]);
+    host.setTheme("dark");
+    host.setTheme("light");
+    await settled();
+    expect(themes).toEqual(["dark", "light"]);
   });
 
   test("before any state, the view hears nothing", async () => {

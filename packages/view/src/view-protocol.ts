@@ -41,11 +41,12 @@ export type ViewItemError = {
 export type ViewMessage = ViewAnswer | ViewReady | ViewItemError;
 
 /**
- * The board page's reply to an answer: sent on the board's socket, or refused, saying why. Task
- * 8.6 adds the answer queued while the connection is lost ("not sent yet").
+ * The board page's reply to an answer: sent on the board's socket, queued while the connection is
+ * lost ("not sent yet", sent on reconnect), or refused, saying why.
  */
 export type AnswerReply =
   | { readonly outcome: "sent" }
+  | { readonly outcome: "queued" }
   | { readonly outcome: "refused"; readonly detail: string };
 
 export type ViewToolCall = {
@@ -53,8 +54,32 @@ export type ViewToolCall = {
   readonly arguments: Readonly<Record<string, unknown>>;
 };
 
-/** What the board page tells a booted view: the board state, as `board-host` last sent it. */
-export type ViewUpdate = { readonly type: "state"; readonly state: BoardState };
+/** Why the board page locked the view read-only: the ask was discarded, or the board moved (AD-21). */
+export type ViewLock = "discarded" | "moved";
+
+/**
+ * An answer the board page holds until a state shows it logged: sent on the socket, or queued
+ * until the board reconnects ("not sent yet").
+ */
+export type PendingAnswer = {
+  readonly itemId: string;
+  readonly choice: readonly string[];
+  readonly when: string;
+  readonly outcome: "sent" | "queued";
+};
+
+/**
+ * What the board page tells a booted view: the board state, as `board-host` last sent it with the
+ * receipts since; the lock, while there is one; and the answers it holds, when it holds any. An
+ * answer the board page no longer holds and the state does not show answered was dropped, and the
+ * question can be answered again (AD-10).
+ */
+export type ViewUpdate = {
+  readonly type: "state";
+  readonly state: BoardState;
+  readonly lock?: ViewLock;
+  readonly pending?: readonly PendingAnswer[];
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -144,7 +169,8 @@ export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
 /** The board page's reply to an answer, from the tool result's structured content. */
 export const readAnswerReply = (content: unknown): AnswerReply | undefined => {
   if (!isRecord(content)) return undefined;
-  if (content.outcome === "sent") return { outcome: "sent" };
+  if (content.outcome === "sent" || content.outcome === "queued")
+    return { outcome: content.outcome };
   if (content.outcome === "refused" && typeof content.detail === "string") {
     return { outcome: "refused", detail: content.detail };
   }
@@ -167,10 +193,30 @@ const isBoardState = (value: unknown): value is BoardState =>
   Array.isArray(value.questions) &&
   value.questions.every(isRecord);
 
+const LOCKS: readonly unknown[] = ["discarded", "moved"] satisfies ViewLock[];
+
+const isPendingAnswer = (value: unknown): value is PendingAnswer =>
+  isRecord(value) &&
+  itemId(value.itemId) === undefined &&
+  Array.isArray(value.choice) &&
+  value.choice.every((label) => typeof label === "string") &&
+  typeof value.when === "string" &&
+  (value.outcome === "sent" || value.outcome === "queued");
+
 /** A tool result's structured content, read as an update; undefined for anything else. */
 export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
   if (!isRecord(content) || content.type !== "state" || !isBoardState(content.state)) {
     return undefined;
   }
-  return { type: "state", state: content.state };
+  const { lock, pending } = content;
+  if (lock !== undefined && !LOCKS.includes(lock)) return undefined;
+  if (pending !== undefined && !(Array.isArray(pending) && pending.every(isPendingAnswer))) {
+    return undefined;
+  }
+  return {
+    type: "state",
+    state: content.state,
+    ...(lock === undefined ? {} : { lock: lock as ViewLock }),
+    ...(pending === undefined ? {} : { pending }),
+  };
 };

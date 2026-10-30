@@ -1,19 +1,22 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { HostMessage } from "@askboard/contract";
 import { PLAIN_CHOICE, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { connectBoard, type SocketLike } from "./socket.ts";
+import { boardLinkOf, connectBoard, type SocketLike, tokenState } from "./socket.ts";
+
+type SocketEvent = { data?: unknown; code?: number };
 
 class FakeSocket implements SocketLike {
   static readonly opened: FakeSocket[] = [];
   readonly sent: string[] = [];
   readyState = 0;
-  readonly #listeners = new Map<string, ((event: { data?: unknown }) => void)[]>();
+  closed = false;
+  readonly #listeners = new Map<string, ((event: SocketEvent) => void)[]>();
 
   constructor(readonly url: string) {
     FakeSocket.opened.push(this);
   }
 
-  addEventListener(type: string, listener: (event: { data?: unknown }) => void): void {
+  addEventListener(type: string, listener: (event: SocketEvent) => void): void {
     this.#listeners.set(type, [...(this.#listeners.get(type) ?? []), listener]);
   }
 
@@ -21,21 +24,29 @@ class FakeSocket implements SocketLike {
     this.sent.push(text);
   }
 
-  emit(type: string, event: { data?: unknown } = {}): void {
+  close(): void {
+    this.closed = true;
+  }
+
+  emit(type: string, event: SocketEvent = {}): void {
     if (type === "open") this.readyState = 1;
+    if (type === "close") this.readyState = 3;
     for (const listener of this.#listeners.get(type) ?? []) listener(event);
   }
 }
 
-const link = new URL(PLAIN_CHOICE.link);
+const location = new URL(PLAIN_CHOICE.link);
+const bare = new URL(`http://127.0.0.1:${PLAIN_CHOICE.port}/b/${PLAIN_CHOICE.askId}`);
+const link = { askId: PLAIN_CHOICE.askId, token: PLAIN_CHOICE.token };
 const board: HostMessage = { version: "1.0", type: "board", document: plainChoiceBoardDocument };
 
 const open = () => {
   FakeSocket.opened.length = 0;
   const onMessage = mock((_message: HostMessage) => {});
   const onInvalid = mock((_problems: readonly { path: string; message: string }[]) => {});
-  const connection = connectBoard(link, { onMessage, onInvalid }, FakeSocket);
-  return { connection, socket: FakeSocket.opened[0], onMessage, onInvalid };
+  const onClose = mock((_code: number) => {});
+  const connection = connectBoard(bare, link, { onMessage, onInvalid, onClose }, FakeSocket);
+  return { connection, socket: FakeSocket.opened[0], onMessage, onInvalid, onClose };
 };
 
 describe("the board's WebSocket (design decision 8)", () => {
@@ -76,15 +87,59 @@ describe("the board's WebSocket (design decision 8)", () => {
     expect(socket?.sent).toHaveLength(2);
   });
 
-  test("a page that is no board link with a token opens no socket", () => {
-    FakeSocket.opened.length = 0;
-    const handlers = { onMessage: () => {}, onInvalid: () => {} };
-    for (const href of [
-      `http://127.0.0.1:${PLAIN_CHOICE.port}/b/${PLAIN_CHOICE.askId}`,
-      `http://127.0.0.1:${PLAIN_CHOICE.port}/m?t=${PLAIN_CHOICE.token}`,
-    ]) {
-      expect(connectBoard(new URL(href), handlers, FakeSocket)).toBeUndefined();
+  test("reports the close with its code, once; a close without one counts as a drop (1006)", () => {
+    const { socket, onClose } = open();
+    socket?.emit("open");
+    socket?.emit("close", { code: 4409 });
+    socket?.emit("close", { code: 1000 });
+    expect(onClose.mock.calls).toEqual([[4409]]);
+    const other = open();
+    other.socket?.emit("close", {});
+    expect(other.onClose.mock.calls).toEqual([[1006]]);
+  });
+
+  test("sends nothing once closed, and closes the socket when asked", () => {
+    const { connection, socket } = open();
+    socket?.emit("open");
+    connection?.close();
+    expect(socket?.closed).toBe(true);
+    socket?.emit("close", { code: 1005 });
+    expect(connection?.send({ version: "1.0", type: "connect", token: "x" })).toBe(false);
+  });
+
+  test("a socket the browser will not create counts as a drop, reported after the call", async () => {
+    const onClose = mock((_code: number) => {});
+    class Refusing extends FakeSocket {
+      constructor(url: string) {
+        super(url);
+        throw new SyntaxError("blocked");
+      }
     }
-    expect(FakeSocket.opened).toEqual([]);
+    const connection = connectBoard(
+      bare,
+      link,
+      { onMessage: () => {}, onInvalid: () => {}, onClose },
+      Refusing,
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    await Bun.sleep(0);
+    expect(onClose.mock.calls).toEqual([[1006]]);
+    expect(connection?.send({ version: "1.0", type: "connect", token: "x" })).toBe(false);
+    connection?.close();
+  });
+
+  test("the token comes from the link's query, or from the history entry a reload keeps (AD-8)", () => {
+    expect(boardLinkOf(location, null)).toEqual(link);
+    expect(boardLinkOf(bare, tokenState(link))).toEqual(link);
+    expect(boardLinkOf(location, { token: "other" })).toEqual(link);
+    expect(tokenState(link)).toEqual({ token: PLAIN_CHOICE.token });
+  });
+
+  test("a page that is no board link, or has no token, is no board", () => {
+    for (const state of [undefined, null, {}, { token: 7 }, { token: "" }, "token"]) {
+      expect(boardLinkOf(bare, state)).toBeUndefined();
+    }
+    const manifest = new URL(`http://127.0.0.1:${PLAIN_CHOICE.port}/m?t=${PLAIN_CHOICE.token}`);
+    expect(boardLinkOf(manifest, tokenState(link))).toBeUndefined();
   });
 });

@@ -42,6 +42,72 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
     expect(cardState(open, [], { ...act, outcome: "sent" }, "visible").receipt).toBe("sent");
   });
 
+  test("an answer the board page queued while disconnected shows not sent yet (F-56)", () => {
+    const act = {
+      choice: ["PostgreSQL"],
+      when: "2026-10-30T09:41:27Z",
+      outcome: "queued" as const,
+    };
+    expect(cardState(open, [], act, "visible")).toEqual({
+      phase: "sending",
+      shown: ["PostgreSQL"],
+      receipt: "not sent yet",
+      readOnly: true,
+      canAnswer: false,
+    });
+  });
+
+  test("a locked board can be neither changed nor answered, and keeps what it shows (AD-21)", () => {
+    expect(cardState(open, ["PostgreSQL"], undefined, "visible", true)).toEqual({
+      phase: "open",
+      readOnly: true,
+      canAnswer: false,
+    });
+    const act = {
+      choice: ["PostgreSQL"],
+      when: "2026-10-30T09:41:27Z",
+      outcome: "queued" as const,
+    };
+    expect(cardState(open, [], act, "visible", true).receipt).toBe("not sent yet");
+    expect(cardState(answered("delivered"), [], undefined, "visible", true)).toMatchObject({
+      phase: "answered",
+      receipt: "delivered to the agent",
+      readOnly: true,
+    });
+  });
+
+  test("an answer the board page holds shows, read-only, with its receipt, act or not (M3)", () => {
+    const held = {
+      itemId: "database",
+      choice: ["SQLite"],
+      when: "2026-10-30T09:41:27Z",
+      outcome: "sent" as const,
+    };
+    expect(cardState(open, ["PostgreSQL"], undefined, "visible", false, held)).toEqual({
+      phase: "sending",
+      shown: ["SQLite"],
+      receipt: "sent",
+      readOnly: true,
+      canAnswer: false,
+    });
+    const act = { choice: ["PostgreSQL"], when: held.when, outcome: "sent" as const };
+    expect(
+      cardState(open, [], act, "visible", false, { ...held, outcome: "queued" }),
+    ).toMatchObject({
+      shown: ["SQLite"],
+      receipt: "not sent yet",
+    });
+    expect(cardState(answered("sent"), [], act, "visible", false, held).shown).toEqual(["SQLite"]);
+  });
+
+  test("once the board page holds no answer and the act is gone, the question is open again", () => {
+    expect(cardState(open, ["PostgreSQL"], undefined, "visible", false, undefined)).toEqual({
+      phase: "open",
+      readOnly: false,
+      canAnswer: true,
+    });
+  });
+
   test("an answered question shows the logged answer, read-only, with its receipt", () => {
     expect(cardState(answered("sent"), ["PostgreSQL"], undefined, "visible")).toEqual({
       phase: "answered",

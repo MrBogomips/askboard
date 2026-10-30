@@ -1,7 +1,8 @@
 // The transcripts the test server replays (design decision 13): Track 0's that the board page can
 // provoke, unchanged, and test-only parts of them for scenarios that need only a stretch of a
 // session. Each part is made of Track 0's steps, cut or renumbered, never of new messages; only
-// `withDocument` puts another board document in, for the view's test-only documents.
+// `withDocument` puts another board document in, for the view's test-only documents, and
+// `overloaded` closes a socket with a code no transcript records.
 
 import type { BoardDocument } from "@askboard/contract";
 import {
@@ -12,13 +13,22 @@ import {
 } from "@askboard/contract/fixtures";
 
 /**
- * A transcript step, or the session process restarting: every socket ends with no close frame and
- * the board's token opens nothing any more. The restart transcript starts after one; this step
- * puts it under an open board.
+ * The close code Track A's `board-host` turns a socket away with when more than 64 sockets wait
+ * for `connect` (WebSocket's "try again later"): to the board page an ordinary drop, after which it
+ * reconnects with backoff (task 8.6).
+ */
+export const OVERLOADED_CLOSE_CODE = 1013;
+
+/**
+ * A transcript step; the session process restarting, after which every socket ends with no close
+ * frame and the board's token opens nothing any more (the restart transcript starts after one;
+ * this step puts it under an open board); or a socket closed with a code outside the board
+ * protocol's, after which the network stays down until the test restores it, as after a drop.
  */
 export type ReplayStep =
   | TranscriptStep
-  | { readonly socket?: undefined; readonly from: "session"; readonly event: "restart" };
+  | { readonly socket?: undefined; readonly from: "session"; readonly event: "restart" }
+  | { readonly socket: number; readonly from: "network"; readonly close: number };
 
 export type ReplayTranscript = {
   readonly name: string;
@@ -55,10 +65,14 @@ const answeredState = (step: ReplayStep) =>
   step.message.type === "state" &&
   step.message.state.ask === "answered";
 const isExit = (step: ReplayStep) => step.from === "session" && step.event === "exit";
+const isSecondConnect = (step: ReplayStep) =>
+  step.socket === 2 && step.from === "page" && "message" in step && step.message.type === "connect";
 
 const opening = through(plain, (step) => isHost(step, "state"));
 const beforeExit = plain.slice(0, plain.findIndex(isExit));
 const fromExit = plain.slice(plain.findIndex(isExit));
+// The second tab's takeover: its connect, `moved` and 4409 to the first, its board and state.
+const takeover = plain.slice(plain.findIndex(isSecondConnect), plain.findIndex(isExit));
 // The resend transcript's steps until the second socket's state, without the user's answer.
 const shortDrop = through(
   resendAfterDropTranscript.steps,
@@ -91,6 +105,25 @@ export const replayTranscripts = {
   sessionEnd: named("sessionEnd", [...opening, ...renumbered(fromExit, () => 1)]),
   /** The connection drops and comes back with the ask still open. */
   shortDrop: named("shortDrop", shortDrop, resendAfterDropTranscript),
+  /**
+   * `board-host` turns the first socket away with 1013 before accepting its connect; the board
+   * page reconnects once the network is back, and the second socket opens as a first one would.
+   */
+  overloaded: named(
+    "overloaded",
+    [
+      ...opening.slice(0, 1),
+      { socket: 1, from: "network", close: OVERLOADED_CLOSE_CODE },
+      ...renumbered(opening, () => 2),
+    ],
+    resendAfterDropTranscript,
+  ),
+  /**
+   * After the reload part's takeover, "Continue here" in the first tab takes the board back: its
+   * new socket becomes the live one and the second tab's gets `moved` and 4409 (design decision 5),
+   * which no Track 0 transcript records; the takeover's steps, one socket on, play it.
+   */
+  continueHere: named("continueHere", [...beforeExit, ...renumbered(takeover, (n) => n + 1)]),
   /** The session process restarts under an open board, which reconnects with its old token. */
   restartAfterOpen: named(
     "restartAfterOpen",

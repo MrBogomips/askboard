@@ -1,94 +1,73 @@
-// The board page at run time (design decision 8): the WebSocket with the token first, every
-// message `board-host` sends checked before use, the tab titled after the ask, and, once the board
-// document and the state are in, the view loaded into its sandboxed frame and hosted through
-// ext-apps' `AppBridge`, with each later state sent on to it. An answer from the view goes on as
-// the board-protocol command once the board page has checked it (AD-10). Task 8.6 completes it:
-// the receipt states, the answer queue while disconnected, reconnecting and the close codes, the
-// banners and "Continue here", the theme and the takeover.
+// The board page at run time (design decision 8): the controller (`controller.ts`) given the real
+// things it drives. The WebSocket sends the token first; the view is loaded from the manifest and
+// the chunks `board-host` serves (`load-view.ts`), set as the srcdoc of the sandboxed frame and
+// hosted through ext-apps' `AppBridge` (`view-host.ts`), which listens before the srcdoc is set so
+// that it hears the view's handshake. The banners and a load error show above the frame
+// (`page-chrome.ts`); the tab is titled after the ask. The theme follows the system's preference,
+// on the board page's own root and, through the host context, in the view (EXPERIENCE.md, Dark
+// theme). Nothing is kept in Web Storage, IndexedDB or cookies (AD-20).
+//
+// The token leaves the URL before the view's frame exists (AD-8, NFR-4): a srcdoc document takes
+// its base URL from the board page, so the view's `document.baseURI` would hold the link with
+// `?t=`. Chromium and WebKit fix that base URL when the frame loads, but Firefox reads the board
+// page's URL each time, so the token stays out for the page's life. It lives on in memory, for
+// reconnects and "Continue here", and in the history entry's state, which a reload keeps (not Web
+// Storage, AD-20).
 
-import type { BootData } from "../boot-data.ts";
-import type { AnswerReply, ViewAnswer, ViewMessage } from "../view-protocol.ts";
+import { applyTheme, DARK_QUERY, followSystemTheme } from "../theme.ts";
+import { type BoardPage, runBoardPage } from "./controller.ts";
 import { loadView } from "./load-view.ts";
-import {
-  answerCommandFor,
-  bootDataOf,
-  EMPTY_MODEL,
-  withHostMessage,
-  withViewMessage,
-} from "./model.ts";
-import { type BoardConnection, boardLinkOf, connectBoard } from "./socket.ts";
-import { tabTitle } from "./tab-title.ts";
-import { hostView, type ViewHost, type ViewReply } from "./view-host.ts";
+import { createPageChrome } from "./page-chrome.ts";
+import { boardLinkOf, connectBoard, tokenState } from "./socket.ts";
+import { hostView, type ViewHost } from "./view-host.ts";
 
-/**
- * The view's iframe: exactly `sandbox="allow-scripts"`, so the view's origin is opaque and it
- * makes no request (AD-8). It fills the page.
- */
-export const createViewFrame = (document: Document): HTMLIFrameElement => {
-  const frame = document.createElement("iframe");
-  frame.setAttribute("sandbox", "allow-scripts");
-  frame.title = "AskBoard";
-  frame.className = "block h-screen w-full border-0";
-  return frame;
-};
+// For a board page that finds no token in its link or its history entry: the invalid-link page's
+// sense, since the page cannot connect.
+const NO_BOARD = "This link opens no board. Ask the agent for the board's link again.";
 
 export const startBoardPage = (window: Window): void => {
-  const frame = createViewFrame(window.document);
-  window.document.body.append(frame);
-  const link = boardLinkOf(window.location);
-  if (link === undefined) return;
-  let model = EMPTY_MODEL;
-  let view: ViewHost | undefined;
-  let loading = false;
-  let connection: BoardConnection | undefined;
-
-  // Task 8.6 queues the answer while the connection is lost; until then it is refused.
-  const answer = (message: ViewAnswer): AnswerReply => {
-    const command = answerCommandFor(model, message);
-    if (!command.ok) return { outcome: "refused", detail: command.detail };
-    if (connection?.send(command.value) !== true) {
-      return { outcome: "refused", detail: "the board is not connected" };
-    }
-    return { outcome: "sent" };
-  };
-
-  const onViewMessage = async (message: ViewMessage): Promise<ViewReply> => {
-    if (message.type === "answer") return answer(message);
-    model = withViewMessage(model, message);
-    if (message.type === "item-error") {
-      console.error(`askboard: the item "${message.itemId}" failed in the view: ${message.error}`);
-    }
-    return {};
-  };
-
-  // The bridge listens before the srcdoc is set, so it hears the view's handshake.
-  const openView = async (data: BootData): Promise<void> => {
-    const assembled = await loadView(data, link.token);
-    const peer = frame.contentWindow;
-    if (peer === null) throw new Error("the view's frame is not in the document");
-    view = await hostView(peer, window, onViewMessage);
-    view.update(bootDataOf(model)?.state ?? data.state);
-    frame.srcdoc = assembled.srcdoc;
-  };
-
-  connection = connectBoard(window.location, {
-    onMessage: (message) => {
-      model = withHostMessage(model, message);
-      if (message.type === "board") window.document.title = tabTitle(message.document.title);
-      const data = bootDataOf(model);
-      if (data === undefined) return;
-      if (view !== undefined) {
-        view.update(data.state);
-        return;
-      }
-      if (loading) return;
-      loading = true;
-      openView(data).catch((error: unknown) => {
-        console.error("askboard: the view did not load:", error);
-      });
+  const { document, history, location } = window;
+  const link = boardLinkOf(location, history.state);
+  if (link !== undefined) history.replaceState(tokenState(link), "", location.pathname);
+  let page: BoardPage | undefined;
+  const chrome = createPageChrome(document, () => page?.continueHere());
+  let host: ViewHost | undefined;
+  const theme = followSystemTheme(window.matchMedia(DARK_QUERY), (next) => {
+    applyTheme(document.documentElement, next);
+    host?.setTheme(next);
+  });
+  if (link === undefined) {
+    chrome.showLoadError(NO_BOARD);
+    return;
+  }
+  page = runBoardPage({
+    connect: (events) => connectBoard(location, link, events),
+    openView: async (data, handle) => {
+      const assembled = await loadView(data, link.token);
+      const peer = chrome.frame.contentWindow;
+      if (peer === null) throw new Error("the view's frame is not in the document");
+      host = await hostView(peer, window, handle, theme());
+      chrome.frame.srcdoc = assembled.srcdoc;
+      return host;
     },
-    onInvalid: (problems) => {
-      console.error("askboard: board-host sent a message the board protocol refuses:", problems);
+    schedule: (ms, run) => {
+      const timer = window.setTimeout(run, ms);
+      return () => window.clearTimeout(timer);
     },
+    showBanner: chrome.showBanner,
+    showLoadError: chrome.showLoadError,
+    // `document.title` is text: the agent's title never becomes markup (AD-8).
+    setTitle: (title) => {
+      document.title = title;
+    },
+    log: (text, detail) => {
+      if (detail === undefined) console.error(`askboard: ${text}`);
+      else console.error(`askboard: ${text}:`, detail);
+    },
+  });
+  // A page going away does not reconnect; one restored from the back-forward cache does.
+  window.addEventListener("pagehide", () => page?.suspend());
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) page?.resume();
   });
 };

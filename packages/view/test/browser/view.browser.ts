@@ -1,6 +1,6 @@
 // The view spec's scenarios about the view itself, in each engine (specs/view-and-widgets):
-// sandbox and origin, the view's `fetch`, the policy, agent content as text, question loading, an
-// item that throws, and the theme.
+// sandbox and origin, no token in the view, the view's `fetch`, the policy, agent content as text,
+// question loading, an item that throws, and the theme.
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
@@ -9,6 +9,7 @@ import { MARKUP_LABEL, markupBoardDocument } from "./fixtures/markup-document.ts
 import {
   enabledCount,
   expectNoCspProblem,
+  expectNoTokenInView,
   QUESTION,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -42,6 +43,16 @@ const background = () => getComputedStyle(document.documentElement).backgroundCo
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the view`, () => {
     const { start } = useEngine(engine);
+
+    test(
+      "the view holds no part of the token: not in its base URL, its referrer or its location",
+      async () => {
+        const run = await start({ transcript: opening, view: dist });
+        const board = await run.open();
+        await expectNoTokenInView(board, run);
+      },
+      TEST_TIMEOUT_MS,
+    );
 
     test(
       "the view's origin is opaque and its frame is sandboxed with allow-scripts only",

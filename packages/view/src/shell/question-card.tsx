@@ -4,17 +4,23 @@
 // options, then the delivery receipt and "Answer". It carries the question's ID and `aria-busy`
 // until all its items are ready (AD-9, SM-C2). "Answer" sends the question's answer at once,
 // stamped with the time of the click, as on the single-question board (FR-22); the card is then
-// read-only. Every agent string renders as text (AD-8).
+// read-only, at "not sent yet" while the board page holds the answer for a reconnect, until the
+// answer is logged, or open again if the board page drops it (`answer-acts.ts`). A locked board's
+// card is read-only (AD-21). Every agent string renders as text (AD-8).
 
 import type { BoardQuestion, BoardState } from "@askboard/contract";
-import { useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { questionTextId } from "../catalog/port.ts";
-import { readAnswerReply } from "../view-protocol.ts";
+import { type PendingAnswer, readAnswerReply } from "../view-protocol.ts";
+import type { AnswerActs } from "./answer-acts.ts";
 import type { ViewChannel } from "./channel.ts";
-import { type Act, answerOf, cardState, statusOf } from "./question-state.ts";
+import { answerOf, cardState, statusOf } from "./question-state.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 
-export type CardContext = RenderContext & { readonly channel: ViewChannel };
+export type CardContext = RenderContext & {
+  readonly channel: ViewChannel;
+  readonly acts: AnswerActs;
+};
 
 const CHIP =
   "self-start rounded-md border border-border bg-muted px-1.5 py-0.5 text-badge " +
@@ -29,34 +35,40 @@ const ANSWER =
 export const QuestionCard = ({
   question,
   state,
+  locked,
+  held,
   context,
 }: {
   readonly question: BoardQuestion;
   readonly state: BoardState;
+  readonly locked: boolean;
+  /** The answer the board page holds for this question, if any. */
+  readonly held: PendingAnswer | undefined;
   readonly context: CardContext;
 }) => {
-  const { tracker, draft, channel } = context;
+  const { tracker, draft, channel, acts } = context;
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(question.id));
-  const [act, setAct] = useState<Act>();
-  const card = cardState(statusOf(state, question.id), value, act, load);
+  const act = useSyncExternalStore(acts.subscribe, () => acts.of(question.id));
+  const card = cardState(statusOf(state, question.id), value, act, load, locked, held);
   const { header, text, multiSelect } = question.props;
 
   const answer = () => {
     const message = answerOf(question, value, new Date());
-    setAct({ choice: message.choice, when: message.when });
+    acts.start(question.id, message.choice, message.when);
     channel.send(message).then(
       (reply) => {
         const read = readAnswerReply(reply);
-        if (read?.outcome === "sent") {
-          setAct((current) => (current === undefined ? current : { ...current, outcome: "sent" }));
+        if (read?.outcome === "sent" || read?.outcome === "queued") {
+          acts.replied(question.id, message.when, read.outcome);
           return;
         }
-        setAct(undefined);
-        console.error(`askboard: the board page did not send the answer: ${read?.detail ?? "?"}`);
+        acts.drop(question.id, message.when);
+        const detail = read?.outcome === "refused" ? read.detail : "no reply";
+        console.error(`askboard: the board page did not send the answer: ${detail}`);
       },
       (error: unknown) => {
-        setAct(undefined);
+        acts.drop(question.id, message.when);
         console.error("askboard: the answer did not reach the board page:", error);
       },
     );

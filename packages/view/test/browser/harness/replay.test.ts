@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { BOARD_CLOSE_CODES, type PageMessage } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import { Replay, type ReplaySocket } from "./replay.ts";
-import { type ReplayTranscript, replayTranscripts } from "./transcripts.ts";
+import { OVERLOADED_CLOSE_CODE, type ReplayTranscript, replayTranscripts } from "./transcripts.ts";
 
 const connect: PageMessage = { version: "1.0", type: "connect", token: PLAIN_CHOICE.token };
 const answer: PageMessage = {
@@ -111,6 +111,23 @@ describe("Replay: the host's half of a transcript", () => {
     ]);
     expect(events).toEqual(["drop", "restart"]);
     expect(restart.replay.problems()).toEqual([]);
+  });
+
+  test("a network close ends the socket with its code and takes the network down", async () => {
+    const events: string[] = [];
+    const { replay, log, open, send } = start(replayTranscripts.overloaded, events);
+    open();
+    const dropped = replay.trigger("drop");
+    send(1, connect);
+    await dropped;
+    expect(log).toEqual([`s1 closed ${OVERLOADED_CLOSE_CODE}`]);
+    expect(events).toEqual(["drop"]);
+    replay.detach(1);
+    open();
+    send(2, connect);
+    expect(log.slice(1)).toEqual(["s2 <- board", "s2 <- state"]);
+    expect(replay.finished).toBe(true);
+    expect(replay.problems()).toEqual([]);
   });
 
   test("skips host steps for a socket the page has closed, as after a reload", async () => {
