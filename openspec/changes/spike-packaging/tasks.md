@@ -34,10 +34,10 @@ Commands run from `openspec/changes/spike-packaging/probe/` unless they name the
 
 ## 5. Linux (criteria 1, 8, 10 and 12 on Linux)
 
-- [ ] 5.1 Write `linux/run.sh` (design decision 8). Run the executables and the launcher in `debian:12-slim` and `alpine:3.22` on `linux/arm64`, and on `linux/amd64` where emulation works. Verify with run `linux-targets`: per image and architecture, `initialize` answered through the launcher, the target the launcher picked, and the time, in `findings.md`, § Linux; an image that cannot run is untested with the reason.
-- [ ] 5.2 Criterion 8: in a container, the stand-in with and without the opt-in binding, port published as `127.0.0.1:<port>:<port>`, link host from `ASKBOARD_LINK_HOST`. Verify with run `devcontainer`: the host fetches the board link only with the opt-in, the printed link works from the host, and the stand-in warns on stderr when it binds a non-loopback interface, in `findings.md`, § Criterion 8.
-- [ ] 5.3 Criterion 10 (stand-in): run the launcher and the `detect` mode in `ubuntu:24.04` with `CI=true` and `GITHUB_ACTIONS=true`, and prepare `ci/packaging-probe.yml` for a real runner. Verify with run `ci-sim` in `findings.md`, § Criterion 10.
-- [ ] 5.4 Criterion 12: run `detect` on macOS, in each container, and with each input of design decision 9 forced. Verify with the per-platform table in `findings.md`, § Criterion 12, each row naming its run.
+- [x] 5.1 Write `linux/run.sh` (design decision 8). Run the executables and the launcher in `debian:12-slim` and `alpine:3.22` on `linux/arm64`, and on `linux/amd64` where emulation works. Verify with run `linux-targets`: per image and architecture, `initialize` answered through the launcher, the target the launcher picked, and the time, in `findings.md`, § Linux; an image that cannot run is untested with the reason.
+- [x] 5.2 Criterion 8: in a container, the stand-in with and without the opt-in binding, port published as `127.0.0.1:<port>:<port>`, link host from `ASKBOARD_LINK_HOST`. Verify with run `devcontainer`: the host fetches the board link only with the opt-in, the printed link works from the host, and the stand-in warns on stderr when it binds a non-loopback interface, in `findings.md`, § Criterion 8.
+- [x] 5.3 Criterion 10 (stand-in): run the launcher and the `detect` mode in `ubuntu:24.04` with `CI=true` and `GITHUB_ACTIONS=true`, and prepare `ci/packaging-probe.yml` for a real runner. Verify with run `ci-sim` in `findings.md`, § Criterion 10.
+- [x] 5.4 Criterion 12: run `detect` on macOS, in each container, and with each input of design decision 9 forced. Verify with the per-platform table in `findings.md`, § Criterion 12, each row naming its run.
 
 ## 6. The background tab (criterion 13)
 
