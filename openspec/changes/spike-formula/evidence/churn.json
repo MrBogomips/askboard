@@ -1,0 +1,1325 @@
+{
+  "generatedAt": "2026-10-30T09:41:39.575Z",
+  "runDate": "2026-10-30",
+  "package": "@ironcalc/wasm",
+  "sources": {
+    "registry": "https://registry.npmjs.org/@ironcalc/wasm",
+    "releases": "https://api.github.com/repos/ironcalc/IronCalc/releases?per_page=100",
+    "changelog": "https://api.github.com/repos/ironcalc/IronCalc/contents/CHANGELOG.md",
+    "changelogHistory": "https://api.github.com/repos/ironcalc/IronCalc/commits?path=CHANGELOG.md"
+  },
+  "method": "Exported declarations of each release's wasm.d.ts, whitespace-normalised, diffed against the previous 0.x release. InitOutput (raw WebAssembly exports) is excluded; non-exported types are reported apart under localTypes. A changed callable is breaking when a required parameter is added, a parameter removed, an accepted type dropped or the return type changed; renamed parameters and widened types are compatible. A changed type or interface is counted as breaking without further analysis.",
+  "adapterMethods": {
+    "initSync": "function initSync",
+    "default init": "default",
+    "Model constructor": "Model.constructor",
+    "setUserInput": "Model.setUserInput",
+    "evaluate": "Model.evaluate",
+    "getCellContent": "Model.getCellContent",
+    "getFormattedCellValue": "Model.getFormattedCellValue",
+    "getCellType": "Model.getCellType",
+    "newDefinedName": "Model.newDefinedName",
+    "isValidDefinedName": "Model.isValidDefinedName",
+    "updateRangeStyle": "Model.updateRangeStyle",
+    "pauseEvaluation": "Model.pauseEvaluation",
+    "resumeEvaluation": "Model.resumeEvaluation",
+    "type SyncInitInput": "type SyncInitInput",
+    "interface Area": "interface Area"
+  },
+  "changelog": {
+    "presentOnMain": false,
+    "history": [
+      {
+        "sha": "f3be574e6982d08ae06f1281750b8b1e33cc8411",
+        "date": "2026-01-18T13:36:09Z",
+        "message": "FIX: Remove CHANGELOG.md since we are not using it"
+      },
+      {
+        "sha": "99125f1fea1c8c72c61f8cba94d847ed3471a4af",
+        "date": "2025-01-21T17:37:18Z",
+        "message": "UPDATE: Adds cell context menu"
+      },
+      {
+        "sha": "ec5714e3ec1a9e2be62eea3e87b24fae0ca1151d",
+        "date": "2024-12-31T17:49:32Z",
+        "message": "more style changes, changelog and locale"
+      },
+      {
+        "sha": "eee40c1b9a5b6449c0c263e7bc8c121fb3562ae1",
+        "date": "2024-12-10T23:07:06Z",
+        "message": "FIX: Prevent negative column width, row height (#167)"
+      },
+      {
+        "sha": "d6a462dbe367ecb4b801516f93ab645fed0f3b44",
+        "date": "2024-11-28T20:30:11Z",
+        "message": "FIX: Added changelog entry"
+      },
+      {
+        "sha": "c1df2cec0b1de92de94a930025cb212f39577c18",
+        "date": "2024-11-27T21:48:31Z",
+        "message": "FIX: Issues with paste"
+      },
+      {
+        "sha": "65b959cb1cb7a10281bf075cb82f5d476e3aca59",
+        "date": "2024-11-27T19:11:34Z",
+        "message": "FIX: Forgotten file :S, adds documentation and CHANGELOG"
+      },
+      {
+        "sha": "b3d4c479f608fd38d99ca1392cbadea7e31bb5c2",
+        "date": "2024-11-25T17:00:03Z",
+        "message": "UPDATE: CHANGELOG for the document server"
+      },
+      {
+        "sha": "7efdbede3c94c561cdd6fb3e3c4619451a285eff",
+        "date": "2024-11-17T16:06:44Z",
+        "message": "UPDATE: Add entry in CHANGELOG for UNICODE function"
+      },
+      {
+        "sha": "24dd63b2615abbbbce29240d5224c4d035a9c50a",
+        "date": "2024-11-15T00:07:02Z",
+        "message": "FIX: Correct tag number (oops)"
+      },
+      {
+        "sha": "861700cb452c183bde398045992734345503a12f",
+        "date": "2024-11-14T23:55:47Z",
+        "message": "UPDATE: Adds CHANGELOG"
+      }
+    ],
+    "lastContentRef": "99125f1fea1c8c72c61f8cba94d847ed3471a4af",
+    "lastContent": "# CHANGELOG\n\n## Unreleased\n\n### Added\n\n- New function UNICODE ([#128](https://github.com/ironcalc/IronCalc/pull/128))\n- New document server (Thanks Dani!)\n- New function FORMULATEXT\n- Name Manager ([#212](https://github.com/ironcalc/IronCalc/pull/212) [#220](https://github.com/ironcalc/IronCalc/pull/220))\n- Add context menu. We can now insert rows and columns. Freeze and unfreeze rows and columns. Delete rows and columns [#271]\n- Add nodejs bindings [#254]\n- Add python bindings for all platforms\n- Add is split into the product and widget\n- Add Python documentation [#260]\n\n### Fixed\n\n- Fixed several issues with pasting content\n- Fixed several issues with borders\n- Fixed bug where columns and rows could be resized to negative width and height, respectively\n- Undo/redo when add/delete sheet now works [#270]\n- Numerous small fixes\n- Multiple fixes to the documentation\n\n## [0.2.0] - 2024-11-06 (The HN release)\n\n### Added\n\n- Rust crate ironcalc_base\n- Rust crate ironcalc\n- Minimal Python bindings (only Linux)\n- JavaScript bindings\n- React WebApp\n\n[0.2.0]: https://github.com/IronCalc/ironcalc/releases/tag/v0.2.0\n"
+  },
+  "releases": [
+    {
+      "version": "0.0.4",
+      "date": "2023-11-23T13:44:44.488Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.0.4.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": true,
+      "exportedCount": 15,
+      "localCount": 0,
+      "initOutputMembers": 16,
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": null,
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": null,
+        "newDefinedName": null,
+        "isValidDefinedName": null,
+        "updateRangeStyle": null,
+        "pauseEvaluation": null,
+        "resumeEvaluation": null,
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": null
+      },
+      "notes": []
+    },
+    {
+      "version": "0.0.5",
+      "date": "2023-11-25T15:35:05.617Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.0.5.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 24,
+      "localCount": 0,
+      "initOutputMembers": 25,
+      "added": [
+        "Model.deleteColumns",
+        "Model.deleteRows",
+        "Model.getCellContent",
+        "Model.getColumnWidth",
+        "Model.getRowHeight",
+        "Model.insertColumns",
+        "Model.insertRows",
+        "Model.setColumnWidth",
+        "Model.setRowHeight"
+      ],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [
+        "getCellContent"
+      ],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": null,
+        "newDefinedName": null,
+        "isValidDefinedName": null,
+        "updateRangeStyle": null,
+        "pauseEvaluation": null,
+        "resumeEvaluation": null,
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": null
+      },
+      "notes": []
+    },
+    {
+      "version": "0.1.3",
+      "date": "2024-04-07T11:22:19.021Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.1.3.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 39,
+      "localCount": 0,
+      "initOutputMembers": 39,
+      "added": [
+        "Model.applyExternalDiffs",
+        "Model.canRedo",
+        "Model.canUndo",
+        "Model.deleteColumn",
+        "Model.deleteRow",
+        "Model.deleteSheet",
+        "Model.flushSendQueue",
+        "Model.getFrozenColumnsCount",
+        "Model.getFrozenRowsCount",
+        "Model.getWorksheetsProperties",
+        "Model.insertColumn",
+        "Model.insertRow",
+        "Model.pauseEvaluation",
+        "Model.rangeClearAll",
+        "Model.rangeClearContents",
+        "Model.redo",
+        "Model.renameSheet",
+        "Model.resumeEvaluation",
+        "Model.setFrozenColumnsCount",
+        "Model.setFrozenRowsCount",
+        "Model.undo",
+        "Model.updateRangeStyle"
+      ],
+      "removed": [
+        "Model.deleteColumns",
+        "Model.deleteRows",
+        "Model.getCellValue",
+        "Model.getSheetsInfo",
+        "Model.insertColumns",
+        "Model.insertRows",
+        "Model.static loadFromJson"
+      ],
+      "changed": [
+        {
+          "key": "Model.getCellStyle",
+          "from": "getCellStyle(sheet_index: number, row: number, column: number): any",
+          "to": "getCellStyle(sheet: number, row: number, column: number): any",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "Model.getColumnWidth",
+          "from": "getColumnWidth(sheet_index: number, column: number): number",
+          "to": "getColumnWidth(sheet: number, column: number): number",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "Model.getRowHeight",
+          "from": "getRowHeight(sheet_index: number, row: number): number",
+          "to": "getRowHeight(sheet: number, row: number): number",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "Model.setColumnWidth",
+          "from": "setColumnWidth(sheet_index: number, column: number, width: number): void",
+          "to": "setColumnWidth(sheet: number, column: number, width: number): void",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "Model.setRowHeight",
+          "from": "setRowHeight(sheet_index: number, row: number, height: number): void",
+          "to": "setRowHeight(sheet: number, row: number, height: number): void",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        }
+      ],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [
+        "updateRangeStyle",
+        "pauseEvaluation",
+        "resumeEvaluation"
+      ],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": null,
+        "newDefinedName": null,
+        "isValidDefinedName": null,
+        "updateRangeStyle": "updateRangeStyle(range: any, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": null
+      },
+      "notes": []
+    },
+    {
+      "version": "0.3.0",
+      "date": "2025-01-17T22:01:35.809Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.3.0.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 96,
+      "localCount": 14,
+      "initOutputMembers": 82,
+      "added": [
+        "Model.autoFillColumns",
+        "Model.autoFillRows",
+        "Model.copyToClipboard",
+        "Model.deleteDefinedName",
+        "Model.getCellType",
+        "Model.getDefinedNameList",
+        "Model.getName",
+        "Model.getScrollX",
+        "Model.getScrollY",
+        "Model.getSelectedCell",
+        "Model.getSelectedSheet",
+        "Model.getSelectedView",
+        "Model.getShowGridLines",
+        "Model.hideSheet",
+        "Model.newDefinedName",
+        "Model.onAreaSelecting",
+        "Model.onArrowDown",
+        "Model.onArrowLeft",
+        "Model.onArrowRight",
+        "Model.onArrowUp",
+        "Model.onExpandSelectedRange",
+        "Model.onPageDown",
+        "Model.onPageUp",
+        "Model.onPasteStyles",
+        "Model.pasteCsvText",
+        "Model.pasteFromClipboard",
+        "Model.setAreaWithBorder",
+        "Model.setName",
+        "Model.setSelectedCell",
+        "Model.setSelectedRange",
+        "Model.setSelectedSheet",
+        "Model.setSheetColor",
+        "Model.setShowGridLines",
+        "Model.setTopLeftVisibleCell",
+        "Model.setWindowHeight",
+        "Model.setWindowWidth",
+        "Model.static from_bytes",
+        "Model.toBytes",
+        "Model.unhideSheet",
+        "Model.updateDefinedName",
+        "enum BorderStyle",
+        "enum BorderType",
+        "function columnNameFromNumber",
+        "function getTokens",
+        "interface Area",
+        "interface BorderArea",
+        "interface BorderOptions",
+        "interface CellStyle",
+        "interface Clipboard",
+        "interface ClipboardCell",
+        "interface DefinedName",
+        "interface MarkedToken",
+        "interface SelectedView",
+        "interface WorksheetProperties",
+        "type HorizontalAlignment",
+        "type TokenType",
+        "type VerticalAlignment"
+      ],
+      "removed": [],
+      "changed": [
+        {
+          "key": "Model.applyExternalDiffs",
+          "from": "applyExternalDiffs(diffs: string): void",
+          "to": "applyExternalDiffs(diffs: Uint8Array): void",
+          "breaking": true,
+          "reason": "parameter 1 no longer accepts string"
+        },
+        {
+          "key": "Model.constructor",
+          "from": "constructor(locale: string, timezone: string)",
+          "to": "constructor(name: string, locale: string, timezone: string)",
+          "breaking": true,
+          "reason": "required parameters 2 -> 3"
+        },
+        {
+          "key": "Model.flushSendQueue",
+          "from": "flushSendQueue(): string",
+          "to": "flushSendQueue(): Uint8Array",
+          "breaking": true,
+          "reason": "return type string -> Uint8Array"
+        },
+        {
+          "key": "Model.getCellStyle",
+          "from": "getCellStyle(sheet: number, row: number, column: number): any",
+          "to": "getCellStyle(sheet: number, row: number, column: number): CellStyle",
+          "breaking": true,
+          "reason": "return type any -> CellStyle"
+        },
+        {
+          "key": "Model.getWorksheetsProperties",
+          "from": "getWorksheetsProperties(): any",
+          "to": "getWorksheetsProperties(): WorksheetProperties[]",
+          "breaking": true,
+          "reason": "return type any -> WorksheetProperties[]"
+        },
+        {
+          "key": "Model.updateRangeStyle",
+          "from": "updateRangeStyle(range: any, style_path: string, value: string): void",
+          "to": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+          "breaking": true,
+          "reason": "parameter 1 no longer accepts any"
+        }
+      ],
+      "localTypes": {
+        "added": [
+          "interface Alignment",
+          "interface BorderItem",
+          "interface CellStyleBorder",
+          "interface CellStyleFill",
+          "interface CellStyleFont",
+          "interface ParsedReferenceType",
+          "interface Range",
+          "interface Reference",
+          "interface ReferenceType",
+          "type ClipboardData",
+          "type ErrorType",
+          "type OpCompareType",
+          "type OpProductType",
+          "type OpSumType"
+        ],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [
+        {
+          "method": "Model constructor",
+          "change": "required parameters 2 -> 3",
+          "from": "constructor(locale: string, timezone: string)",
+          "to": "constructor(name: string, locale: string, timezone: string)"
+        },
+        {
+          "method": "updateRangeStyle",
+          "change": "parameter 1 no longer accepts any",
+          "from": "updateRangeStyle(range: any, style_path: string, value: string): void",
+          "to": "updateRangeStyle(range: Area, style_path: string, value: string): void"
+        }
+      ],
+      "adapterCompatible": [],
+      "adapterAdded": [
+        "getCellType",
+        "newDefinedName",
+        "interface Area"
+      ],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+        "isValidDefinedName": null,
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.3.0",
+          "publishedAt": "2025-01-27T17:02:51Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.3.0",
+          "apiLines": []
+        },
+        {
+          "tag": "v0.2.0",
+          "publishedAt": "2024-11-15T00:10:04Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.2.0",
+          "apiLines": [
+            "JavaScript bindings"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.3.2",
+      "date": "2025-02-06T20:01:12.765Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.3.2.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 97,
+      "localCount": 14,
+      "initOutputMembers": 83,
+      "added": [
+        "Model.rangeClearFormatting"
+      ],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+        "isValidDefinedName": null,
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.3.1",
+          "publishedAt": "2025-01-28T19:34:59Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.3.1",
+          "apiLines": []
+        }
+      ]
+    },
+    {
+      "version": "0.5.0",
+      "date": "2025-06-02T12:14:48.741Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.5.0.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 99,
+      "localCount": 14,
+      "initOutputMembers": 85,
+      "added": [
+        "Model.getColumnsWithData",
+        "Model.getRowsWithData",
+        "Model.setColumnsWidth",
+        "Model.setRowsHeight"
+      ],
+      "removed": [
+        "Model.setColumnWidth",
+        "Model.setRowHeight"
+      ],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+        "isValidDefinedName": null,
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.5.0",
+          "publishedAt": "2025-02-28T00:07:11Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.5.0",
+          "apiLines": [
+            "UPDATE: Exposes the model in UserModel (https://github.com/ironcalc/IronCalc/pull/263)"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.5.3",
+      "date": "2025-06-02T16:34:36.701Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.5.3.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 102,
+      "localCount": 14,
+      "initOutputMembers": 87,
+      "added": [
+        "Model.getUsers",
+        "Model.setUsers",
+        "interface WebUser"
+      ],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+        "isValidDefinedName": null,
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.5.1",
+          "publishedAt": "2025-02-28T11:28:26Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.5.1",
+          "apiLines": []
+        }
+      ]
+    },
+    {
+      "version": "0.5.4",
+      "date": "2025-06-03T18:09:05.343Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.5.4.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 103,
+      "localCount": 14,
+      "initOutputMembers": 88,
+      "added": [
+        "Model.getSheetMarkup"
+      ],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+        "isValidDefinedName": null,
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": []
+    },
+    {
+      "version": "0.7.0",
+      "date": "2026-01-21T20:30:05.853Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.7.0.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 117,
+      "localCount": 14,
+      "initOutputMembers": 105,
+      "added": [
+        "Model.[Symbol.dispose]",
+        "Model.deleteColumns",
+        "Model.deleteRows",
+        "Model.getFirstNonEmptyInRowAfterColumn",
+        "Model.getFmtSettings",
+        "Model.getLanguage",
+        "Model.getLastNonEmptyInRowBeforeColumn",
+        "Model.getLocale",
+        "Model.getTimezone",
+        "Model.insertColumns",
+        "Model.insertRows",
+        "Model.isValidDefinedName",
+        "Model.moveColumn",
+        "Model.moveRow",
+        "Model.onNavigateToEdgeInDirection",
+        "Model.setLanguage",
+        "Model.setLocale",
+        "Model.setTimezone",
+        "function getAllTimezones",
+        "function getSupportedLocales",
+        "function quoteName",
+        "interface FmtSettings"
+      ],
+      "removed": [
+        "Model.deleteColumn",
+        "Model.deleteRow",
+        "Model.getSheetMarkup",
+        "Model.getUsers",
+        "Model.insertColumn",
+        "Model.insertRow",
+        "Model.setUsers",
+        "interface WebUser"
+      ],
+      "changed": [
+        {
+          "key": "Model.constructor",
+          "from": "constructor(name: string, locale: string, timezone: string)",
+          "to": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+          "breaking": true,
+          "reason": "required parameters 3 -> 4"
+        },
+        {
+          "key": "Model.deleteDefinedName",
+          "from": "deleteDefinedName(name: string, scope?: number): void",
+          "to": "deleteDefinedName(name: string, scope?: number | null): void",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "Model.newDefinedName",
+          "from": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+          "to": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "Model.static from_bytes",
+          "from": "static from_bytes(bytes: Uint8Array): Model",
+          "to": "static from_bytes(bytes: Uint8Array, language_id: string): Model",
+          "breaking": true,
+          "reason": "required parameters 1 -> 2"
+        },
+        {
+          "key": "Model.updateDefinedName",
+          "from": "updateDefinedName(name: string, scope: number | undefined, new_name: string, new_scope: number | undefined, new_formula: string): void",
+          "to": "updateDefinedName(name: string, scope: number | null | undefined, new_name: string, new_scope: number | null | undefined, new_formula: string): void",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "default",
+          "from": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+          "to": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        },
+        {
+          "key": "function initSync",
+          "from": "function initSync(module: SyncInitInput): InitOutput",
+          "to": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+          "breaking": false,
+          "reason": "compatible: parameter names or widened types only"
+        }
+      ],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [
+        {
+          "method": "Model constructor",
+          "change": "required parameters 3 -> 4",
+          "from": "constructor(name: string, locale: string, timezone: string)",
+          "to": "constructor(name: string, locale: string, timezone: string, language_id: string)"
+        }
+      ],
+      "adapterCompatible": [
+        {
+          "method": "initSync",
+          "change": "compatible: parameter names or widened types only",
+          "from": "function initSync(module: SyncInitInput): InitOutput",
+          "to": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput"
+        },
+        {
+          "method": "default init",
+          "change": "compatible: parameter names or widened types only",
+          "from": "default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>",
+          "to": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>"
+        },
+        {
+          "method": "newDefinedName",
+          "change": "compatible: parameter names or widened types only",
+          "from": "newDefinedName(name: string, scope: number | undefined, formula: string): void",
+          "to": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void"
+        }
+      ],
+      "adapterAdded": [
+        "isValidDefinedName"
+      ],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.7.0",
+          "publishedAt": "2026-01-21T19:34:26Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.7.0",
+          "apiLines": []
+        },
+        {
+          "tag": "v0.6.0",
+          "publishedAt": "2025-10-19T16:38:24Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.6.0",
+          "apiLines": [
+            "FIX: There are two fills in every new Excel model (https://github.com/ironcalc/IronCalc/pull/363)",
+            "feat: use wasm-bindgen unchecked_return_type (https://github.com/ironcalc/IronCalc/pull/382)",
+            "Fix example in README to reference Model correctly. (https://github.com/ironcalc/IronCalc/pull/449)",
+            "FIX: Evaluate after deleting content in the user API (https://github.com/ironcalc/IronCalc/pull/455)"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.8.0",
+      "date": "2026-07-29T15:29:09.208Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.8.0.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 177,
+      "localCount": 14,
+      "initOutputMembers": 134,
+      "added": [
+        "Model.addConditionalFormatting",
+        "Model.createNamedStyle",
+        "Model.cycleReference",
+        "Model.deleteConditionalFormatting",
+        "Model.deleteNamedStyle",
+        "Model.duplicateSheet",
+        "Model.getBuiltinNamedStyles",
+        "Model.getCellArrayStructure",
+        "Model.getConditionalFormattingList",
+        "Model.getDxfForConditionalFormatting",
+        "Model.getFormulaCompletion",
+        "Model.getNamedStyle",
+        "Model.getNamedStyleIncludes",
+        "Model.getNamedStyleList",
+        "Model.getTheme",
+        "Model.lowerConditionalFormattingPriority",
+        "Model.moveColumns",
+        "Model.moveRows",
+        "Model.moveSheet",
+        "Model.onApplyNamedStyle",
+        "Model.raiseConditionalFormattingPriority",
+        "Model.resolveColor",
+        "Model.setColumnsHidden",
+        "Model.setRowsHidden",
+        "Model.setTheme",
+        "Model.setUserArrayFormula",
+        "Model.updateConditionalFormatting",
+        "Model.updateNamedStyle",
+        "function columnNumberFromName",
+        "function getThemeList",
+        "function hexWithTintToRgb",
+        "interface CfDataBar",
+        "interface CfIcon",
+        "interface CfRating",
+        "interface ColorScaleThreshold",
+        "interface CompletionContext",
+        "interface ConditionalFormatting",
+        "interface ConditionalFormattingView",
+        "interface Dxf",
+        "interface DxfAlignment",
+        "interface DxfBorder",
+        "interface DxfBorderItem",
+        "interface DxfFill",
+        "interface DxfFont",
+        "interface DxfNumFmt",
+        "interface ExtendedCellStyle",
+        "interface IconThreshold",
+        "interface IronCalcTheme",
+        "interface NamedStyle",
+        "interface StyleIncludes",
+        "type CellArrayStructure",
+        "type CfRule",
+        "type CfRuleInput",
+        "type Cfvo",
+        "type Color",
+        "type ExpectedTokens",
+        "type FontScheme",
+        "type Icon",
+        "type IconSetType",
+        "type PeriodType",
+        "type TextOperator",
+        "type ValueOperator"
+      ],
+      "removed": [
+        "Model.moveColumn",
+        "Model.moveRow"
+      ],
+      "changed": [
+        {
+          "key": "Model.getCellStyle",
+          "from": "getCellStyle(sheet: number, row: number, column: number): CellStyle",
+          "to": "getCellStyle(sheet: number, row: number, column: number): ExtendedCellStyle",
+          "breaking": true,
+          "reason": "return type CellStyle -> ExtendedCellStyle"
+        },
+        {
+          "key": "Model.setSheetColor",
+          "from": "setSheetColor(sheet: number, color: string): void",
+          "to": "setSheetColor(sheet: number, color: Color): void",
+          "breaking": true,
+          "reason": "parameter 2 no longer accepts string"
+        },
+        {
+          "key": "interface BorderOptions",
+          "from": "interface BorderOptions {color: string; style: BorderStyle; border: BorderType;}",
+          "to": "interface BorderOptions {color?: Color; style: BorderStyle; border: BorderType;}",
+          "breaking": true,
+          "reason": "type declaration changed (not analysed)"
+        },
+        {
+          "key": "interface FmtSettings",
+          "from": "interface FmtSettings {currency: string; short_date: string; short_date_example: string; long_date: string; long_date_example: string; number_fmt: string; number_example: string;}",
+          "to": "interface FmtSettings {currency: string; currency_format: string; short_date: string; short_date_example: string; long_date: string; long_date_example: string; number_fmt: string; number_example: string;}",
+          "breaking": true,
+          "reason": "type declaration changed (not analysed)"
+        },
+        {
+          "key": "interface WorksheetProperties",
+          "from": "interface WorksheetProperties {name: string; color: string; sheet_id: number; state: string;}",
+          "to": "interface WorksheetProperties {name: string; color?: Color; sheet_id: number; state: string;}",
+          "breaking": true,
+          "reason": "type declaration changed (not analysed)"
+        },
+        {
+          "key": "type TokenType",
+          "from": "type TokenType = | \"Illegal\" | \"Eof\" | {Ident: string} | {String: string} | {Boolean: boolean} | {Number: number} | {ERROR: ErrorType} | {COMPARE: OpCompareType} | {SUM: OpSumType} | {PRODUCT: OpProductType} | \"POWER\" | \"LPAREN\" | \"RPAREN\" | \"COLON\" | \"SEMICOLON\" | \"LBRACKET\" | \"RBRACKET\" | \"LBRACE\" | \"RBRACE\" | \"COMMA\" | \"BANG\" | \"PERCENT\" | \"AND\" | Reference | Range",
+          "to": "type TokenType = | \"Illegal\" | \"EOF\" | {Ident: string} | {String: string} | {Boolean: boolean} | {Number: number} | {Error: ErrorType} | {Compare: OpCompareType} | {Sum: OpSumType} | {Product: OpProductType} | \"Power\" | \"LeftParenthesis\" | \"RightParenthesis\" | \"Colon\" | \"Semicolon\" | \"LeftBracket\" | \"RightBracket\" | \"LeftBrace\" | \"RightBrace\" | \"Comma\" | \"Bang\" | \"Percent\" | \"And\" | \"Spill\" | \"Backslash\" | Reference | Range",
+          "breaking": true,
+          "reason": "type declaration changed (not analysed)"
+        }
+      ],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": [
+          "interface BorderItem",
+          "interface CellStyleBorder",
+          "interface CellStyleFill",
+          "interface CellStyleFont"
+        ]
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.8.0",
+          "publishedAt": "2026-07-29T14:33:22Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.8.0",
+          "apiLines": [
+            "UPDATE: Adds hide/show row/column to the API (https://github.com/ironcalc/IronCalc/pull/747)",
+            "FIX: Uses regex-lite in the wasm build (https://github.com/ironcalc/IronCalc/pull/905)",
+            "UPDATE: Use the browser's tz database in the wasm build (https://github.com/ironcalc/IronCalc/pull/906)",
+            "FIX: Add missing types to wasm bindings (https://github.com/ironcalc/IronCalc/pull/984)",
+            "UPDATE: Add apply* flags to the API for name styles (https://github.com/ironcalc/IronCalc/pull/1230)",
+            "feat(base): add UserModel::set_worksheet_index to reorder worksheets (https://github.com/ironcalc/IronCalc/pull/1257)",
+            "feat: add @ironcalc/wasm and @ironcalc/workbook to npm publish workflow (https://github.com/ironcalc/IronCalc/pull/750)"
+          ]
+        },
+        {
+          "tag": "v0.7.1",
+          "publishedAt": "2026-01-25T10:18:37Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.7.1",
+          "apiLines": [
+            "FIX: We can now rename sheets into a different case (https://github.com/ironcalc/IronCalc/pull/713)"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.8.1",
+      "date": "2026-07-29T20:21:33.402Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.8.1.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 177,
+      "localCount": 14,
+      "initOutputMembers": 134,
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": []
+    },
+    {
+      "version": "0.8.2",
+      "date": "2026-07-29T21:18:23.319Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.8.2.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 177,
+      "localCount": 14,
+      "initOutputMembers": 134,
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.8.2",
+          "publishedAt": "2026-07-29T21:27:27Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.8.2",
+          "apiLines": []
+        }
+      ]
+    },
+    {
+      "version": "0.8.3",
+      "date": "2026-07-31T18:14:09.936Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.8.3.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 177,
+      "localCount": 14,
+      "initOutputMembers": 134,
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.8.3",
+          "publishedAt": "2026-08-03T12:33:31Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.8.3",
+          "apiLines": []
+        }
+      ]
+    },
+    {
+      "version": "0.8.4",
+      "date": "2026-08-01T04:41:00.173Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.8.4.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 177,
+      "localCount": 14,
+      "initOutputMembers": 134,
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": []
+    },
+    {
+      "version": "0.9.0",
+      "date": "2026-10-15T15:43:30.997Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.9.0.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 190,
+      "localCount": 14,
+      "initOutputMembers": 144,
+      "added": [
+        "Model.deleteCellLink",
+        "Model.getCellLink",
+        "Model.getLinks",
+        "Model.getMergedCells",
+        "Model.mergeCells",
+        "Model.mergeCellsAcross",
+        "Model.mergeCellsCenter",
+        "Model.mergeCellsDown",
+        "Model.setCellLink",
+        "Model.static fromBytes",
+        "Model.unmergeCells",
+        "interface MergedCell",
+        "type CellLink",
+        "type Link"
+      ],
+      "removed": [
+        "Model.static from_bytes"
+      ],
+      "changed": [
+        {
+          "key": "interface ClipboardCell",
+          "from": "interface ClipboardCell {text: string; style: CellStyle;}",
+          "to": "interface ClipboardCell {text: string; style: CellStyle; link?: Link | null;}",
+          "breaking": true,
+          "reason": "type declaration changed (not analysed)"
+        }
+      ],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.9.0",
+          "publishedAt": "2026-10-15T15:34:49Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.9.0",
+          "apiLines": [
+            "FIX: Include snippets/ in the published @ironcalc/wasm package (https://github.com/ironcalc/IronCalc/pull/1317)",
+            "UPDATE: Bump wasm package to version v0.8.4 (https://github.com/ironcalc/IronCalc/pull/1318)",
+            "UPDATE: Adds typechecks and renames from_types => fromBytes in the js (https://github.com/ironcalc/IronCalc/pull/1357)",
+            "feat: publish xlsx import export as a second wasm package (https://github.com/ironcalc/IronCalc/pull/1363)",
+            "fix: keep named range scope when a sheet is renamed (https://github.com/ironcalc/IronCalc/pull/1511)"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.9.1",
+      "date": "2026-10-21T13:47:07.423Z",
+      "tarball": "https://registry.npmjs.org/@ironcalc/wasm/-/wasm-0.9.1.tgz",
+      "dtsPath": "package/wasm.d.ts",
+      "baseline": false,
+      "exportedCount": 190,
+      "localCount": 14,
+      "initOutputMembers": 144,
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "localTypes": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "adapterBreaking": [],
+      "adapterCompatible": [],
+      "adapterAdded": [],
+      "adapterPresent": {
+        "initSync": "function initSync(module: {module: SyncInitInput} | SyncInitInput): InitOutput",
+        "default init": "default function __wbg_init (module_or_path?: {module_or_path: InitInput | Promise<InitInput>} | InitInput | Promise<InitInput>): Promise<InitOutput>",
+        "Model constructor": "constructor(name: string, locale: string, timezone: string, language_id: string)",
+        "setUserInput": "setUserInput(sheet: number, row: number, column: number, input: string): void",
+        "evaluate": "evaluate(): void",
+        "getCellContent": "getCellContent(sheet: number, row: number, column: number): string",
+        "getFormattedCellValue": "getFormattedCellValue(sheet: number, row: number, column: number): string",
+        "getCellType": "getCellType(sheet: number, row: number, column: number): number",
+        "newDefinedName": "newDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "isValidDefinedName": "isValidDefinedName(name: string, scope: number | null | undefined, formula: string): void",
+        "updateRangeStyle": "updateRangeStyle(range: Area, style_path: string, value: string): void",
+        "pauseEvaluation": "pauseEvaluation(): void",
+        "resumeEvaluation": "resumeEvaluation(): void",
+        "type SyncInitInput": "type SyncInitInput = BufferSource | WebAssembly.Module",
+        "interface Area": "interface Area {sheet: number; row: number; column: number; width: number; height: number;}"
+      },
+      "notes": [
+        {
+          "tag": "v0.9.1",
+          "publishedAt": "2026-10-21T13:37:38Z",
+          "url": "https://github.com/ironcalc/IronCalc/releases/tag/v0.9.1",
+          "apiLines": [
+            "UPDATE: Remove views so the model no longer stores them (https://github.com/ironcalc/IronCalc/pull/1556)",
+            "FIX: Ensure loading a model never fails (https://github.com/ironcalc/IronCalc/pull/1570)"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "since": "2025-10-30",
+    "releasesTotal": 16,
+    "releasesLast12Months": 8,
+    "releasesWithAdapterBreakingLast12Months": 1,
+    "breakingLast12Months": 1,
+    "exportedRemovedLast12Months": 11,
+    "exportedChangedLast12Months": 14,
+    "exportedChangedBreakingLast12Months": 9,
+    "adapterCompatibleChangesLast12Months": 3
+  }
+}

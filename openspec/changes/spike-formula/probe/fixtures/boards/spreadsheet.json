@@ -1,0 +1,92 @@
+{
+  "name": "spreadsheet",
+  "source": "written for the probe; ranges use the proposed [item.A1:B3] form; A6 has no node (empty inside a range); expected values by hand",
+  "molecule": false,
+  "board": {
+    "askId": "sheet-probe-x1",
+    "title": "Spreadsheet",
+    "items": [
+      {
+        "type": "spreadsheet",
+        "id": "sheet",
+        "props": {
+          "cells": {
+            "A1": 10,
+            "A2": 20,
+            "A3": 30,
+            "A4": "n/a",
+            "A5": true,
+            "C1": 1,
+            "C2": 2,
+            "C3": 3,
+            "B1": {
+              "formula": "SUM([sheet.A1:A6])"
+            },
+            "B2": {
+              "formula": "[sheet.A1]*2"
+            },
+            "B3": {
+              "formula": "SUMPRODUCT([sheet.A1:A3],[sheet.C1:C3])"
+            },
+            "B4": {
+              "formula": "MAX([sheet.A1:C3])"
+            },
+            "B5": {
+              "formula": "ROUND([sheet.A3]/7,2)"
+            },
+            "B6": {
+              "formula": "SUM([sheet.A1:A3])/[sheet.B2]"
+            },
+            "D1": {
+              "value": "2026-11-06",
+              "type": "date"
+            },
+            "D2": {
+              "formula": "WORKDAY([sheet.D1],1)",
+              "type": "date"
+            },
+            "D3": {
+              "formula": "IF([sheet.A5],[sheet.A1]+[sheet.A2],0)"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "expected": {
+    "sheet.B1": 60,
+    "sheet.B2": 20,
+    "sheet.B3": 140,
+    "sheet.B4": 140,
+    "sheet.B5": 4.29,
+    "sheet.B6": 3,
+    "sheet.D2": "2026-11-09",
+    "sheet.D3": 30
+  },
+  "warnings": [],
+  "edits": [
+    {
+      "set": {
+        "sheet.A1": 15
+      },
+      "expected": {
+        "sheet.B1": 65,
+        "sheet.B2": 30,
+        "sheet.B3": 145,
+        "sheet.B4": 145,
+        "sheet.B5": 4.29,
+        "sheet.B6": 2.1666666666666665,
+        "sheet.D3": 35
+      }
+    },
+    {
+      "set": {
+        "sheet.A5": false
+      },
+      "expected": {
+        "sheet.B1": 65,
+        "sheet.D3": 0
+      }
+    }
+  ]
+}

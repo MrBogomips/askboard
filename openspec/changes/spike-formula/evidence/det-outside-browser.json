@@ -1,0 +1,130 @@
+{
+  "command": "sh tools/det.sh && bun tools/det-summary.ts",
+  "runs": [
+    {
+      "run": "det-bun-America_Adak-de_DE",
+      "runtime": "bun 1.4.4",
+      "tz": "America/Adak",
+      "lang": "de_DE.UTF-8",
+      "resolvedTimeZone": "America/Adak",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-bun-America_Adak-en_US",
+      "runtime": "bun 1.4.4",
+      "tz": "America/Adak",
+      "lang": "en_US.UTF-8",
+      "resolvedTimeZone": "America/Adak",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-bun-Pacific_Kiritimati-de_DE",
+      "runtime": "bun 1.4.4",
+      "tz": "Pacific/Kiritimati",
+      "lang": "de_DE.UTF-8",
+      "resolvedTimeZone": "Pacific/Kiritimati",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-bun-Pacific_Kiritimati-en_US",
+      "runtime": "bun 1.4.4",
+      "tz": "Pacific/Kiritimati",
+      "lang": "en_US.UTF-8",
+      "resolvedTimeZone": "Pacific/Kiritimati",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-bun-UTC-de_DE",
+      "runtime": "bun 1.4.4",
+      "tz": "UTC",
+      "lang": "de_DE.UTF-8",
+      "resolvedTimeZone": "UTC",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-bun-UTC-en_US",
+      "runtime": "bun 1.4.4",
+      "tz": "UTC",
+      "lang": "en_US.UTF-8",
+      "resolvedTimeZone": "UTC",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-node-America_Adak-de_DE",
+      "runtime": "node 24.22.2",
+      "tz": "America/Adak",
+      "lang": "de_DE.UTF-8",
+      "resolvedTimeZone": "America/Adak",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-node-America_Adak-en_US",
+      "runtime": "node 24.22.2",
+      "tz": "America/Adak",
+      "lang": "en_US.UTF-8",
+      "resolvedTimeZone": "America/Adak",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-node-Pacific_Kiritimati-de_DE",
+      "runtime": "node 24.22.2",
+      "tz": "Pacific/Kiritimati",
+      "lang": "de_DE.UTF-8",
+      "resolvedTimeZone": "Pacific/Kiritimati",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-node-Pacific_Kiritimati-en_US",
+      "runtime": "node 24.22.2",
+      "tz": "Pacific/Kiritimati",
+      "lang": "en_US.UTF-8",
+      "resolvedTimeZone": "Pacific/Kiritimati",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-node-UTC-de_DE",
+      "runtime": "node 24.22.2",
+      "tz": "UTC",
+      "lang": "de_DE.UTF-8",
+      "resolvedTimeZone": "UTC",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    },
+    {
+      "run": "det-node-UTC-en_US",
+      "runtime": "node 24.22.2",
+      "tz": "UTC",
+      "lang": "en_US.UTF-8",
+      "resolvedTimeZone": "UTC",
+      "own": "1457/0 7dbd69c8ebc2573a",
+      "ironcalc": "1454/3 0ea63fff6923bfcc"
+    }
+  ],
+  "ownHashes": [
+    "7dbd69c8ebc2573a48c4b3c7e0b2cf101bafe245a0812b836a268eb70a3d283c"
+  ],
+  "ironcalcHashes": [
+    "0ea63fff6923bfccff447f39e4512bb2642f91dfb1d0b2eba1aba03d1ffc8228"
+  ],
+  "ownVersusIronCalc": {
+    "same": 1453,
+    "exactMismatches": [
+      "whitelist:round-huge t.r: 1e+21 vs 999999999999999900000"
+    ],
+    "differences": [
+      "error:hostile-size @warnings: \"syntax@z.calls syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary\" vs \"syntax@z.calls syntax@z.flat syntax@z.megabyte syntax@z.parens syntax@z.range syntax@z.text syntax@z.unary\"",
+      "error:hostile-size z.flat: 4001 vs {\"error\":\"syntax\"}",
+      "error:mixed-currencies estimate.belowMinimum: {\"error\":\"mixed-currencies\"} vs false"
+    ]
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "name": "uj3-sales-review",
+  "source": "openspec/changes/archive/2026-10-29-review-model-contract/examples/asks/uj3-sales-review.json, unchanged (no minimum margin: belowMinimum is FALSE)",
+  "molecule": true,
+  "board": {
+    "askId": "acme-offer-review-h6p3",
+    "title": "Acme offer: estimate review",
+    "expectedUser": "Marco Rossi",
+    "items": [
+      {
+        "type": "question",
+        "id": "offer",
+        "props": {
+          "text": "Review the estimate for the Acme offer, then approve it.",
+          "header": "Offer",
+          "items": [
+            {
+              "type": "molecule",
+              "id": "estimate",
+              "props": {
+                "molecule": "sales-estimate-review",
+                "data": {
+                  "currency": "EUR",
+                  "lines": [
+                    {
+                      "id": "pm",
+                      "role": "Project manager",
+                      "days": 12,
+                      "dailyCost": "420.00",
+                      "dailyRate": "650.00"
+                    },
+                    {
+                      "id": "dev",
+                      "role": "Developer",
+                      "days": 40,
+                      "dailyCost": "380.00",
+                      "dailyRate": "560.00"
+                    },
+                    {
+                      "id": "qa",
+                      "role": "Tester",
+                      "days": 15,
+                      "dailyCost": "320.00",
+                      "dailyRate": "480.00"
+                    },
+                    {
+                      "id": "training",
+                      "role": "Trainer",
+                      "days": 4,
+                      "dailyCost": "350.00",
+                      "dailyRate": "600.00",
+                      "optional": true
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "expected": {
+    "estimate.pm.cost": 5040,
+    "estimate.pm.revenue": 7800,
+    "estimate.dev.cost": 15200,
+    "estimate.dev.revenue": 22400,
+    "estimate.qa.cost": 4800,
+    "estimate.qa.revenue": 7200,
+    "estimate.training.cost": 1400,
+    "estimate.training.revenue": 2400,
+    "estimate.totalCost": 26440,
+    "estimate.totalRevenue": 39800,
+    "estimate.margin": 0.335678391959799,
+    "estimate.belowMinimum": false
+  },
+  "warnings": [],
+  "edits": [
+    {
+      "set": {
+        "estimate.minMargin": 0.35
+      },
+      "expected": {
+        "estimate.pm.cost": 5040,
+        "estimate.pm.revenue": 7800,
+        "estimate.dev.cost": 15200,
+        "estimate.dev.revenue": 22400,
+        "estimate.qa.cost": 4800,
+        "estimate.qa.revenue": 7200,
+        "estimate.training.cost": 1400,
+        "estimate.training.revenue": 2400,
+        "estimate.totalCost": 26440,
+        "estimate.totalRevenue": 39800,
+        "estimate.margin": 0.335678391959799,
+        "estimate.belowMinimum": true
+      }
+    },
+    {
+      "set": {
+        "estimate.training.included": false
+      },
+      "expected": {
+        "estimate.pm.cost": 5040,
+        "estimate.pm.revenue": 7800,
+        "estimate.dev.cost": 15200,
+        "estimate.dev.revenue": 22400,
+        "estimate.qa.cost": 4800,
+        "estimate.qa.revenue": 7200,
+        "estimate.training.cost": 0,
+        "estimate.training.revenue": 0,
+        "estimate.totalCost": 25040,
+        "estimate.totalRevenue": 37400,
+        "estimate.margin": 0.3304812834224599,
+        "estimate.belowMinimum": true
+      }
+    },
+    {
+      "set": {
+        "estimate.dev.dailyRate": "600.00",
+        "estimate.qa.days": 0
+      },
+      "expected": {
+        "estimate.pm.cost": 5040,
+        "estimate.pm.revenue": 7800,
+        "estimate.dev.cost": 15200,
+        "estimate.dev.revenue": 24000,
+        "estimate.qa.cost": 0,
+        "estimate.qa.revenue": 0,
+        "estimate.training.cost": 0,
+        "estimate.training.revenue": 0,
+        "estimate.totalCost": 20240,
+        "estimate.totalRevenue": 31800,
+        "estimate.margin": 0.3635220125786163,
+        "estimate.belowMinimum": false
+      }
+    }
+  ]
+}
