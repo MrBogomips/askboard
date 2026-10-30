@@ -154,4 +154,4 @@ What the spikes and reviews left for E1 that this proposal moves to a later epic
 
 ## Open Questions
 
-None that change the specs or the tasks; the scope choices are in proposal.md for the PO.
+None. The PO accepted the nine scope choices of proposal.md as proposed on 2026-10-30.

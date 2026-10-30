@@ -42,14 +42,23 @@ None: `openspec/specs/` is empty.
 
 ## Open questions for the PO
 
-Where the documents leave E1's scope open, this proposal takes the narrowest reading that reaches working product soonest. Each choice below can be reversed before apply.
+Where the documents leave E1's scope open, this proposal takes the narrowest reading that reaches working product soonest. On 2026-10-30 the PO accepted all nine choices as proposed; each answer is recorded under its question.
 
 1. **Pull only.** The roadmap puts push and hooks in E4; the mod delivery spike's documents say "E1 builds `mod`, `hooks` and the local API". E1 follows the roadmap and runs without hooks, under AD-5's rule for that case. The spike's notes for the mod go to E4 (design.md, Handed on).
+   - **Answer (PO, 2026-10-30):** accepted as proposed. Pull only: the mod, hooks and local API go to E4.
 2. **One question per ask.** E1 builds EXPERIENCE's single-question board, which has no outline navigator, counts, delivery switch or Submit, and refuses an ask of two or more questions. FR-1's many questions come with E3, together with areas, presentations and the delivery mode.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. One question per ask.
 3. **FR-3 in part.** Single and multiple choice, option descriptions and the header chip. "Other…", the recommended option, previews, annotations and the open prompt (FR-7) fail validation until E3.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. FR-3 only in part.
 4. **Two tools.** `ask` and `collect` are listed, as reviewed; the server instructions keep only the lines about them. The early benchmark's count of what loads before the first ask then covers two tools. The alternative is to list all five, with three refusing until their epics.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. Only the two tools, `ask` and `collect`.
 5. **Lifecycle left to E3 and E4.** Every new board opens in the browser: holding one back while the user works on another board (AD-2) would leave it unseen until E4 brings the notification and the terminal link. Closing a tab discards nothing until E3's grace timer, and a reload loses an unsent choice until E3 mirrors the draft record.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. The board lifecycle as proposed.
 6. **Devcontainers get `unavailable`.** Container binding needs an opt-in setting, and E1 reads no configuration.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. Devcontainers return `unavailable`.
 7. **Contract scope.** F7 (derived values per widget), the formula grammar, whitelist and limits (formula spike) and the configuration schema come with E2 and E8, which use them.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. The formula grammar, limits and settings schema go to E2 and E8.
 8. **Fonts and licence fixes.** E1 uses DESIGN.md's tokens with the system font stacks. The bundled faces (renderer row 19) change the time to visible the early benchmark measures, so they could come in E1 instead. Of row 20, E1 applies only the Tailwind correction its lockfile needs.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. System fonts, and only the Tailwind licence fix.
 9. **Two spine gaps, amended in place.** The diagram gives no rule to the code that wires the units, so AD-1 lets the entry point import `ask-core`, `contract` and the server units, and nothing imports it. `board-host` reads the view's manifest at run time, which AD-7's table does not list, so the table gains a view manifest set owned by `view`.
+   - **Answer (PO, 2026-10-30):** accepted as proposed. The AD-1 and AD-7 amendments, amended in place.
