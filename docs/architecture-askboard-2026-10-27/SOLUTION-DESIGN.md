@@ -15,6 +15,7 @@ sources:
   - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
   - 'OpenSpec change spike-renderer, findings.md: the view CSP, the catalog renderer and the diagram renderers in Chromium, Firefox, WebKit, Chrome and Edge (2026-10-29 and 2026-10-30)'
   - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
+  - 'OpenSpec change spike-formula, findings.md: IronCalc 0.9.1 and the own restricted evaluator in Bun, Node, Chromium, Firefox and WebKit, and the function whitelist (2026-10-30)'
 ---
 
 # Solution design: AskBoard
@@ -173,7 +174,7 @@ A review found unit pairs that obeyed every rule of an earlier draft yet did not
 Agent and file content are untrusted, and the board page holds the token (AD-8, NFR-5).
 
 - **Sandbox.** The view is a `srcdoc` iframe with exactly `sandbox="allow-scripts"`. A srcdoc document takes its creator's origin unless sandboxed without `allow-same-origin` [F29]; sandboxing it that way makes the view opaque, tokenless and unable to call the session process. The view uses `srcdoc` because every board request needs the token (AD-11), and an inlined bundle needs no request.
-- **CSP.** The view's meta policy and the board page's inherited policy both apply [F29], so the board page lists the view's hashes and allows the view's media sources, `img-src data: blob:` and `font-src data:` [F39]. `'wasm-unsafe-eval'` appears only for a WASM formula engine; all target browsers support it [F30].
+- **CSP.** The view's meta policy and the board page's inherited policy both apply [F29], so the board page lists the view's hashes and allows the view's media sources, `img-src data: blob:` and `font-src data:` [F39]. Neither policy allows `'wasm-unsafe-eval'`: the formula engine is plain script (§4.7).
 - **Diagrams** show as `<img src="blob:…">`: hash-only styles block the `style` attributes and `<style>` elements that SVG markup uses [F30], and an image's internal styles escape the page CSP.
 - **Style writes.** Mermaid and PlantUML write styles while they render, Radix's modal dialogs add a scroll-lock `<style>`, and `@pierre/diffs` builds markup that holds `style` attributes; the hash-only policy blocks all of it. The view routes these writes through the CSSOM and constructed stylesheets, which the policy allows [F40]: three small shims in the view (77, 50 and 81 lines in the renderer spike). A style set this way loads nothing, since `img-src` and `font-src` still bound any `url()`.
 - **Not an MCP Apps host.** The view uses the ext-apps 2.x message set and classes, which accept an opaque iframe [F28]. A conforming web host needs a sandbox proxy on another origin [F28], and so a second port to serve and forward; besides, the CLI renders no MCP Apps [F24]. Rendering in Claude hosts stays Deferred.
@@ -195,19 +196,20 @@ At each send, `ask-core` resolves pointers, images and molecules into that revis
 
 `compute.buildGraph(boardDocument)` builds each board's whole graph; the view evaluates it on every edit and the send-time check calls the same function (AD-13). Widgets define no nodes, and nodes exist whether or not their widget is mounted; `contract` declares each widget's fields, child addressing and built-in derived fields (PERT, roll-ups, CPM, scores). So derived values need no agent (FR-12), the send-time report matches the board (FR-14), and hidden tabs still compute. Formula problems are warnings, because FR-14 shows them on the board. AskBoard implements critical path and rescheduling itself: they are paid features in the candidate Gantt components, and no MIT or Apache CPM library reaches 1,000 stars (R6, research-stack §C).
 
-Formulas are Excel-style, reference fields as `[item-id(.child-id)*.field]`, are limited to a whitelist, and run behind a `FormulaEngine` port that never sees AskBoard IDs. The product owner asked for something simple, lean and cheap, and the 2026 advisories show that sandboxes over JavaScript objects break, so "cannot run arbitrary code" (FR-14) favours WASM or a whitelist interpreter (research-stack §B):
+Formulas are Excel-style, reference fields as `[item-id.child-id.field]`, with a `*` for each further child level, are limited to a whitelist, and run behind a `FormulaEngine` port that never sees AskBoard IDs. The product owner asked for something simple, lean and cheap, and the 2026 advisories show that sandboxes over JavaScript objects break, so "cannot run arbitrary code" (FR-14) favours WASM or a whitelist interpreter (research-stack §B):
 
 | Candidate | Rule | Assessment |
 | --- | --- | --- |
-| IronCalc `@ironcalc/wasm` 0.9.1 | Pass (MIT OR Apache-2.0, 4,231 stars) | **Candidate.** Excel functions, dependency graph, cycle and reference errors, no path to JavaScript; 0.72 MB gzipped; docs "in its infancy" [F37] |
-| Own restricted evaluator | n/a | **Candidate.** Own parser, topological sort, any ID grammar; must build its functions |
+| IronCalc `@ironcalc/wasm` 0.9.1 | Pass on paper (MIT OR Apache-2.0, 4,231 stars; the `.wasm` also holds Unicode-3.0 and Apache-2.0 WITH LLVM-exception code) | **Not adopted** (formula spike). Excel functions, dependency graph, cycle and reference errors; formula text cannot reach JavaScript, but `NOW`, `TODAY` and `RAND` reach the host [F58]; 0.72 MB gzipped; docs "in its infancy" [F37] |
+| Own restricted evaluator | n/a | **Chosen** (formula spike). Own parser, topological sort, any ID grammar; about 1,000 lines, 8,914 bytes gzipped |
 | HyperFormula 3.5.0 | Fail | GPL-3.0-only or a licence key |
-| JSONata 2.2.2, mathjs 15.2.0 | Pass on paper | 2026 code-execution advisories (CVE-2026-77413, -77414, -77415; CVE-2026-40897, -41139); no graph |
+| JSONata 2.2.2 | Pass on paper | 2026 code-execution advisories (CVE-2026-77413, -77414, -77415); no graph |
+| mathjs 15.2.0 | Pass on paper | Advisories CVE-2026-40897 and -41139 in evaluation code, fixed in 15.2.0; no graph. The formula spike measured `parse()` alone as a parser and rejected it: at least 90 KB gzipped, and `=`, `<>`, `^`, unary minus and chained comparisons parse with a meaning other than Excel's |
 | expr-eval 2.0.2 | Fail | Unpatched code-execution CVEs (CVE-2025-12735, CVE-2025-13204, CVE-2026-12866) |
 | formulajs, fast-formula-parser, jexl, filtrex, cel-js, Formualizer, FortuneSheet | Fail | Stars, activity or archived |
 | Univer engine-formula | Open core | Pro features; 40.7 MB |
 
-The spike picks the lighter passing candidate (§10.2); meanwhile molecules use only arithmetic, `SUM`, `MIN`, `MAX`, `IF`, `ROUND` and built-in fields. CI checks determinism across extreme time zones and two locales.
+The formula spike chose the own evaluator on its measurements (§10.2). Each engine gave the same values in Bun, Node and the three browser engines, under every time zone and locale tried. The own evaluator adds 8,914 bytes gzipped to a board, IronCalc 994,668. It adds 5 to 8 ms to a board's time to visible, IronCalc 44 to 96 ms, and an edit on a 926-node board takes about 0.1 ms, against about 1 ms. IronCalc also needed `'wasm-unsafe-eval'` in the board page's policy, not only in the view's, and four adapter workarounds: shadow cells for exact reads [F55], a limit on operators against a parser crash [F56], a new module instance after a crash, and a grammar check for what its parser lets through. Molecules use only the whitelist in `contract` (AD-13) and built-in fields. CI checks determinism across extreme time zones and two locales. It also checks the formula fixtures against Excel's values.
 
 ### 4.8 Revisions, answers and drafts (AD-20)
 
@@ -540,6 +542,8 @@ All spikes run in the solution project, and each ends in a spine update through 
 
 **What changes.** The `@ironcalc/wasm` Stack row stays or goes; `'wasm-unsafe-eval'` applies only to a WASM engine (AD-8); the interim function set gives way to the whitelist in `contract`.
 
+**Outcome (OpenSpec change `spike-formula`, 2026-10-30).** The own evaluator passed every criterion with AD-8 as written; IronCalc passed only with `'wasm-unsafe-eval'` in the board page's policy as well, four adapter workarounds, and failed three fixture checks (`AND` stopping early, and the operator limit). The own evaluator is lighter (8,914 bytes gzipped against 994,668), starts faster and recalculates an edit about ten times faster, so it goes behind `FormulaEngine` (AD-13). The whitelist, flat references with ranges, and the limits are in AD-13. The PO decided every proposed outcome on 2026-10-30; the PO's check of the fixtures' values in Excel (task 8.1) follows the merge. The change's findings hold the measurements.
+
 ### 10.3 Renderer spike, with the final UX documents
 
 **Question.** json-render 0.21 or AskBoard's own renderer behind `CatalogRenderer`, and can Mermaid and PlantUML render inside the view bundle (AD-9)?
@@ -633,7 +637,7 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 
 | Owner | Items |
 | --- | --- |
-| Architecture spikes (§10) | The session-file key on Linux (mod delivery, task 4.1); formula engine and whitelist (formula) |
+| Architecture spikes (§10) | The session-file key on Linux (mod delivery, task 4.1) |
 | Product owner | A2UI inbound translator (OQ5); molecule registry, export and repository (FR-16, FR-17) and full benchmark settings; MCP Apps in Claude hosts, other surfaces, native Windows, remote hosts; the packaging checks left to the product owner (`spike-packaging` tasks 4.4 and 7.1 to 7.5) |
 | Implementation | Default port range, container opt-in setting, host-side link address and port, VS Code Dev Containers' `BROWSER` helper and port forwarding, grace period, record timeout, where the file path and line sit in the user's `editor` command |
 | Benchmark | `alwaysLoad` for `ask` and the result representation (first run); final question set and browser driver (benchmark epic) |
@@ -641,7 +645,7 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 
 ## 13. Facts the architecture rests on
 
-All facts were checked on 2026-10-27. Status is empty when a primary source states the fact; otherwise it marks a secondary source, or an unverified fact with the spike that checks it. "research-cc" and "research-stack" are the research files that travel with the spine. The mod delivery spike checked F1, F2, F3, F5, F6, F9, F11, F12, F13, F15, F16, F17 and F25 again on 2026-10-29, on Claude Code 2.1.311 and 2.1.312, and its status says so; its findings are in the archived OpenSpec change `spike-mod-delivery`. F39 to F47 come from the renderer spike's runs, on 2026-10-29 and 2026-10-30, which also checked F28 and F30; its findings are in the archived OpenSpec change `spike-renderer`. F48 to F53 come from the packaging spike's runs on 2026-10-30 (Claude Code 2.1.314) and the documentation it read, which also checked F18, F23, F33 and F35; its findings are in the archived OpenSpec change `spike-packaging`.
+All facts were checked on 2026-10-27. Status is empty when a primary source states the fact; otherwise it marks a secondary source, or an unverified fact with the spike that checks it. "research-cc" and "research-stack" are the research files that travel with the spine. The mod delivery spike checked F1, F2, F3, F5, F6, F9, F11, F12, F13, F15, F16, F17 and F25 again on 2026-10-29, on Claude Code 2.1.311 and 2.1.312, and its status says so; its findings are in the archived OpenSpec change `spike-mod-delivery`. F39 to F47 come from the renderer spike's runs, on 2026-10-29 and 2026-10-30, which also checked F28 and F30; its findings are in the archived OpenSpec change `spike-renderer`. F48 to F53 come from the packaging spike's runs on 2026-10-30 (Claude Code 2.1.314) and the documentation it read, which also checked F18, F23, F33 and F35; its findings are in the archived OpenSpec change `spike-packaging`. F54 to F59 come from the formula spike's runs and readings of 2026-10-30, and it checked F37 again; its findings are in the archived OpenSpec change `spike-formula`.
 
 | ID | Fact | AD | Source | Status |
 | --- | --- | --- | --- | --- |
@@ -681,7 +685,7 @@ All facts were checked on 2026-10-27. Status is empty when a primary source stat
 | F34 | Claude Code runs on macOS 13+, Ubuntu 20.04+, Debian 10+, Alpine 3.19+, Windows, WSL 1 and 2 | AD-19, AD-22 | research-cc §14 (setup documentation) | |
 | F35 | Bun 1.4.4 compiles for darwin and linux, x64 and arm64, glibc and musl, and links a patched WebKit (LGPL-2, `oven-sh/WebKit` at `d6375c72affe0f70222cdcb45012b10f0bf3a9d5`, set in `scripts/build/deps/webkit.ts`) and tinycc (LGPL-2.1, `oven-sh/tinycc` at `05f0fafaa3be31e31d7b4b5c17dc60f62c991171`); tinycc is in the output of all six targets | AD-19 | https://github.com/oven-sh/bun/blob/bun-v1.4.4/LICENSE.md; packaging spike, criteria 6 and 7 | |
 | F36 | Node 24 in maintenance since 2026-10-20, Node 26 LTS from 2026-10-28; TypeScript 7.0.2 has no compiler API; Ajv 8.20.0 builds standalone 2020-12 validators | AD-7, AD-19 | https://github.com/nodejs/Release/blob/main/schedule.json; https://devblogs.microsoft.com/typescript/?p=5246; https://www.npmjs.com/package/ajv | |
-| F37 | `@ironcalc/wasm` 0.9.1 fetches its `.wasm` file by default, offers `initSync`, and takes `locale` and `timezone`, resolved through the host's `Intl` | AD-13 | https://www.npmjs.com/package/@ironcalc/wasm | CSP fit: formula spike |
+| F37 | `@ironcalc/wasm` 0.9.1 fetches its `.wasm` file by default and offers `initSync`; it takes a locale and a time zone. The locale comes from CLDR data inside the `.wasm`, not from `Intl`; the time zone goes through the host's `Intl`, and only `NOW` and `TODAY` use it | AD-13 | https://www.npmjs.com/package/@ironcalc/wasm; `base/src/locale/mod.rs` and `base/src/tz/` at tag v0.9.1, https://github.com/ironcalc/IronCalc | `initSync` from inlined bytes runs in the view only with `'wasm-unsafe-eval'` in both the view's and the board page's policy (formula spike, runs `smoke`, `c1`, `c1-negative`) |
 | F38 | Agent Skills: `name` up to 64 characters, `description` up to 1,024 | AD-18 | https://agentskills.io/specification | |
 | F39 | The view's srcdoc inherits the board page's policy, so a `blob:` image or `data:` font that the view's policy allows is blocked unless the board page's policy allows it too | AD-8 | Renderer spike, runs `c3c4`, `c3c4-blob`, `matrix`, `matrix-media` | Verified |
 | F40 | A hash-only `style-src` lets CSSOM writes (`style.cssText`, `insertRule`) and constructed stylesheets (`adoptedStyleSheets`) through, in Chromium, Firefox and WebKit | AD-8 | Renderer spike, run `negative` and the shims' runs | Verified |
@@ -698,6 +702,12 @@ All facts were checked on 2026-10-27. Status is empty when a primary source stat
 | F51 | Bun 1.4.4 executables are 90.0 MB (darwin-arm64) to 110.0 MB (linux-arm64), 40.7 to 51.6 MB gzip; an empty program is 89.2 MB; `--minify` saves 0.4 MB | AD-19 | Packaging spike, `bun run build`, `dist/manifest.json` | |
 | F52 | Bun's musl executables need `libstdc++` and `libgcc`, which Alpine lacks by default | AD-22 | Packaging spike, run `linux-targets2` | |
 | F53 | Debian slim images have neither curl nor wget; Alpine's BusyBox provides `wget` and `sha256sum`; macOS has `shasum` and `openssl` but no `sha256sum` | AD-22 | Packaging spike, runs `linux-targets2` and `failures-fix` | |
+| F54 | `@ironcalc/wasm`: the `Model` constructor takes four arguments, `(name, locale, timezone, language_id)`, and `initSync` takes `{ module }`, both since 0.7.0; the package README still shows two arguments | AD-13 | `wasm.d.ts`, `wasm.js` and `README.md` in the 0.9.1 package; https://github.com/ironcalc/IronCalc/releases | Verified (formula spike, criterion 7) |
+| F55 | `@ironcalc/wasm` 0.9.1 has no getter for a cell's raw value, and its number formats stop at 15 significant digits | AD-13 | `wasm.d.ts` in the 0.9.1 package | Verified (formula spike, runs `ironcalc-quirks`, `precision`) |
+| F56 | IronCalc 0.9.1's parser overflows its WASM stack on one formula of about 1,190 binary operators; after the trap every call on that module instance fails | AD-13 | Formula spike, run `ironcalc-quirks` | Verified |
+| F57 | IronCalc 0.9.1's `AND` and `OR` stop at the first deciding argument: `AND(FALSE,1/0)` is FALSE, where the fixtures, following Excel, expect `#DIV/0!` | AD-13 | Formula spike, run `ironcalc` (fixture `error:mixed-currencies`) | Verified in IronCalc; Excel itself not run |
+| F58 | IronCalc 0.9.1 has impure and indirect functions, among them `INDIRECT`, `OFFSET`, `NOW`, `TODAY`, `RAND`, `INFO`, `CELL`, `HYPERLINK` and `LAMBDA`; it accepts them all, so only a check before the engine keeps them out | AD-13 | `base/src/functions/mod.rs` at tag v0.9.1, https://github.com/ironcalc/IronCalc | Verified (formula spike, fixture `not-whitelisted`) |
+| F59 | Excel evaluates operators of equal precedence left to right, so `^` is left-associative (`2^3^2` is 64), and negation binds tighter than `^` (`-2^2` is 4) | AD-13 | https://support.microsoft.com/en-us/office/calculation-operators-and-precedence-in-excel-48be406d-4975-4d31-b2b8-7af9e0e2878a | Verified in LibreOffice (formula spike, run `lo-check`) and in both engines; Excel itself not run |
 
 ## 14. Glossary additions
 
