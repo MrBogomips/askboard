@@ -9,9 +9,9 @@ Each group writes its tests first and sees them fail before it implements (the r
 
 ## 2. The formula front end in `compute`
 
-- [ ] 2.1 Declare `"@askboard/contract": "workspace:*"` in `packages/compute/package.json` and run `bun install`. Verify that `git diff bun.lock` shows only that line in `compute`'s workspace entry and that `bun install --frozen-lockfile` then succeeds.
-- [ ] 2.2 Write the lexer's and the formula check's tests first: tokens, strings with `""`, numbers, `TRUE` and `FALSE`, calls; flat reference syntax (one child ID at most, then only `*`; cells and ranges only on an item; a lower-case cell; malformed IDs); `over-limit` for length, depth (parentheses, calls, unary runs) and range size, with limit and size in the reason; `not-whitelisted` naming the function or operator, unary plus included; bare names as `syntax`. Then implement `src/formula/lexer.ts` and `src/formula/check.ts`, and verify that the tests pass.
-- [ ] 2.3 Write the parser's tests first: precedence, left-associative `^`, unary minus above `^`, chained comparisons, `chain` nodes for long runs, arity from the contract, the probe's syntax cases, and its own nesting guard. Then port the parser to `src/formula/parser.ts` with references as indexes (design decision 6), and verify that the tests pass and that the checks pass.
+- [x] 2.1 Declare `"@askboard/contract": "workspace:*"` in `packages/compute/package.json` and run `bun install`. Verify that `git diff bun.lock` shows only that line in `compute`'s workspace entry and that `bun install --frozen-lockfile` then succeeds.
+- [x] 2.2 Write the lexer's and the formula check's tests first: tokens, strings with `""`, numbers, `TRUE` and `FALSE`, calls; flat reference syntax (one child ID at most, then only `*`; cells and ranges only on an item; a lower-case cell; malformed IDs); `over-limit` for length, depth (parentheses, calls, unary runs) and range size, with limit and size in the reason; `not-whitelisted` naming the function or operator, unary plus included; bare names as `syntax`. Then implement `src/formula/lexer.ts` and `src/formula/check.ts`, and verify that the tests pass.
+- [x] 2.3 Write the parser's tests first: precedence, left-associative `^`, unary minus above `^`, chained comparisons, `chain` nodes for long runs, arity from the contract, the probe's syntax cases, and its own nesting guard. Then port the parser to `src/formula/parser.ts` with references as indexes (design decision 6), and verify that the tests pass and that the checks pass.
 
 ## 3. `buildGraph`
 
