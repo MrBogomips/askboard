@@ -1,0 +1,49 @@
+{
+  "description": "UX spike: native drag in the Ranking, two moves",
+  "board": {
+    "id": "ux-ranking",
+    "title": "UX spike: native drag in the Ranking, two moves",
+    "items": [
+      {
+        "id": "rk1",
+        "type": "Ranking",
+        "props": {
+          "label": "Order the fixes",
+          "entries": [
+            {
+              "id": "a",
+              "label": "Fix A: cap the backoff"
+            },
+            {
+              "id": "b",
+              "label": "Fix B: jitter"
+            },
+            {
+              "id": "c",
+              "label": "Fix C: circuit breaker"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "drag",
+      "selector": "[data-drag-id=c]",
+      "to": "[data-drag-id=a]"
+    },
+    {
+      "do": "drag",
+      "selector": "[data-drag-id=a]",
+      "to": "[data-drag-id=b]"
+    }
+  ],
+  "expectDraft": {
+    "rk1": [
+      "c",
+      "b",
+      "a"
+    ]
+  }
+}

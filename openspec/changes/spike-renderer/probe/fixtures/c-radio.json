@@ -1,0 +1,39 @@
+{
+  "description": "Radix Radio Group (Choice, single)",
+  "board": {
+    "id": "c-radio",
+    "title": "Radix Radio Group (Choice, single)",
+    "items": [
+      {
+        "id": "c1",
+        "type": "Choice",
+        "props": {
+          "label": "Policy",
+          "options": [
+            {
+              "value": "fixed",
+              "label": "Fixed delay"
+            },
+            {
+              "value": "expo",
+              "label": "Exponential backoff"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "label[for=c1-expo]"
+    }
+  ],
+  "expectDraft": {
+    "c1": "expo"
+  },
+  "check": {
+    "selector": "[data-item-id=c1]",
+    "text": "Exponential"
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "description": "S-7 negative control: RJSF with a <form> tag and its submit button",
+  "board": {
+    "id": "form-tag",
+    "title": "S-7 negative control: RJSF with a <form> tag and its submit button",
+    "items": [
+      {
+        "id": "f1",
+        "type": "Form",
+        "props": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name",
+                "pattern": "^[A-Z][a-z]+$"
+              },
+              "colour": {
+                "type": "string",
+                "title": "Colour",
+                "enum": [
+                  "r",
+                  "g",
+                  "b"
+                ]
+              },
+              "size": {
+                "type": "string",
+                "title": "Size",
+                "enum": [
+                  "s",
+                  "m",
+                  "l"
+                ]
+              },
+              "tags": {
+                "type": "array",
+                "title": "Tags",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "a",
+                    "b",
+                    "c"
+                  ]
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "colour": {
+              "ui:widget": "radio",
+              "ui:enumNames": [
+                "Red",
+                "Green",
+                "Blue"
+              ]
+            },
+            "size": {
+              "ui:widget": "select",
+              "ui:enumNames": [
+                "Small",
+                "Medium",
+                "Large"
+              ]
+            },
+            "tags": {
+              "ui:widget": "checkboxes",
+              "items": {
+                "ui:enumNames": [
+                  "Alpha",
+                  "Beta",
+                  "Gamma"
+                ]
+              }
+            }
+          },
+          "extraErrors": {
+            "name": {
+              "__errors": [
+                "Use a capitalised name (AskBoard's field check)"
+              ]
+            }
+          },
+          "asForm": true
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "fill",
+      "selector": "#root_name",
+      "value": "Ada"
+    },
+    {
+      "do": "press",
+      "selector": "#root_name",
+      "key": "Enter"
+    },
+    {
+      "do": "click",
+      "selector": "button[type=submit]"
+    }
+  ],
+  "negative": [
+    {
+      "kind": "draft",
+      "key": "ui:f1",
+      "equals": null
+    },
+    {
+      "kind": "no-request",
+      "path": "/b/form-tag?",
+      "exact": true
+    },
+    {
+      "kind": "no-request",
+      "path": "/b/form-tag?root"
+    },
+    {
+      "kind": "alive"
+    }
+  ]
+}

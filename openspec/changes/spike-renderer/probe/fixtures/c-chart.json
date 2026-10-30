@@ -1,0 +1,43 @@
+{
+  "description": "ECharts bar chart, canvas renderer",
+  "board": {
+    "id": "c-chart",
+    "title": "ECharts bar chart, canvas renderer",
+    "items": [
+      {
+        "id": "ch1",
+        "type": "Chart",
+        "props": {
+          "label": "Failures per fix",
+          "bars": [
+            {
+              "label": "A",
+              "value": 4
+            },
+            {
+              "label": "B",
+              "value": 9
+            },
+            {
+              "label": "C",
+              "value": 6
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-chart=ch1]",
+      "at": {
+        "x": 251,
+        "y": 120
+      }
+    }
+  ],
+  "expectDraft": {
+    "ch1": "B"
+  }
+}

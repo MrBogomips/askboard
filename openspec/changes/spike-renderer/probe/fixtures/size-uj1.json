@@ -1,0 +1,142 @@
+{
+  "description": "A UJ-1-like board: Diff review beside a Markdown excerpt, and a Graph (design decision 7)",
+  "board": {
+    "id": "size-uj1",
+    "title": "Payment retry fix",
+    "items": [
+      {
+        "id": "q1",
+        "type": "Group",
+        "props": {
+          "title": "Which fix should we keep?"
+        },
+        "children": [
+          {
+            "id": "r1",
+            "type": "Row",
+            "props": {
+              "widths": [
+                3,
+                2
+              ]
+            },
+            "children": [
+              {
+                "id": "df1",
+                "type": "DiffReview",
+                "props": {
+                  "oldFile": {
+                    "name": "retry.ts",
+                    "contents": "// Retry with a fixed delay.\nexport function delay(attempt: number): number {\n  const base = \"fixed\";\n  return 1000;\n}\n"
+                  },
+                  "newFile": {
+                    "name": "retry.ts",
+                    "contents": "// Retry with exponential backoff, capped.\nexport function delay(attempt: number): number {\n  const base = \"exponential\";\n  return Math.min(30_000, 2 ** attempt * 100);\n}\n"
+                  },
+                  "config": "css-variables",
+                  "shim": true
+                }
+              },
+              {
+                "id": "md1",
+                "type": "Markdown",
+                "props": {
+                  "source": "#### ADR-0007 · Retry policy (docs/adr/0007-retry.md · lines 12–24)\n\nPayment retries back off **exponentially** and stop after 30 s, so a slow gateway is not\nflooded. A fixed delay is kept only for the queue's own reconnects.\n\n| Attempt | Delay |\n| :--- | ---: |\n| 1 | 0.2 s |\n| 2 | 0.4 s |\n| 5 | 3.2 s |",
+                  "alignClasses": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "c1",
+            "type": "Choice",
+            "props": {
+              "label": "Which fix should we keep?",
+              "options": [
+                {
+                  "value": "a",
+                  "label": "Fix A: exponential backoff in retry.ts"
+                },
+                {
+                  "value": "b",
+                  "label": "Fix B: backoff in the queue"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "type": "Group",
+        "props": {
+          "title": "Change the retry state machine?"
+        },
+        "children": [
+          {
+            "id": "gr1",
+            "type": "Graph",
+            "props": {
+              "label": "Payment retry",
+              "nodes": [
+                {
+                  "id": "idle",
+                  "label": "idle"
+                },
+                {
+                  "id": "attempt",
+                  "label": "attempt"
+                },
+                {
+                  "id": "wait",
+                  "label": "wait"
+                },
+                {
+                  "id": "done",
+                  "label": "done"
+                },
+                {
+                  "id": "failed",
+                  "label": "failed"
+                }
+              ],
+              "edges": [
+                {
+                  "from": "idle",
+                  "to": "attempt"
+                },
+                {
+                  "from": "attempt",
+                  "to": "wait"
+                },
+                {
+                  "from": "wait",
+                  "to": "attempt"
+                },
+                {
+                  "from": "attempt",
+                  "to": "done"
+                },
+                {
+                  "from": "attempt",
+                  "to": "failed"
+                }
+              ]
+            }
+          },
+          {
+            "id": "n1",
+            "type": "TextField",
+            "props": {
+              "label": "Note for the agent (optional)"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=md1] table",
+    "text": "Delay"
+  }
+}

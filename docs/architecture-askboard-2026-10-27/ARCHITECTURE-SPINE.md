@@ -18,6 +18,7 @@ sources:
   - 'reviews/review-web-verification.md (52 claims checked against primary sources, 2026-10-27)'
   - 'prd-askboard-2026-10-25/research-mcp-performance.md (cost model, measurement protocol)'
   - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
+  - 'OpenSpec change spike-renderer, findings.md: the view CSP, the catalog renderer and the diagram renderers in Chromium, Firefox, WebKit, Chrome and Edge (2026-10-29 and 2026-10-30)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -262,7 +263,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Content:**
     - Agent content is rendered only as text and data through the catalog. Only the view renders Markdown, and only through a sanitizer. No raw agent HTML reaches any page.
-    - Script runs only in code bundled with AskBoard. A molecule or ask that carries code is refused.
+    - Script runs only in code bundled with AskBoard. A molecule or ask that carries code is refused. No view code creates a script element with a URL: a diagram renderer that loads resources that way gets a loader that refuses them, since Firefox runs a relative `<script src>` from a Snapshot opened from `file://` despite a hash-only `script-src`.
     - Remote URLs in agent content are shown as links, never loaded.
   - **The view sandbox:**
     - The board page builds the view's iframe from `srcdoc` through `assemble` (AD-9), with exactly `sandbox="allow-scripts"`: no `allow-same-origin`, `allow-popups`, `allow-top-navigation*`, `allow-forms` or `allow-modals`. The view therefore has an opaque origin and makes no request to the session process.
@@ -274,10 +275,11 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - `'wasm-unsafe-eval'` only if the formula engine is WASM, never `'unsafe-eval'`, `'unsafe-inline'` or `'unsafe-hashes'`;
       - no storage.
     - Diagram SVG is shown as `<img src="blob:…">`. The view never holds a token.
+    - Styles reach the view only by hash or through the CSSOM: `style.cssText`, `insertRule` and constructed stylesheets (`adoptedStyleSheets`), which a hash-only `style-src` allows. Where a library writes a `style` attribute or adds a `<style>` element at run time, or parses markup that holds `style` attributes, AskBoard's view code routes the write through the CSSOM instead: the diagram renders, the modal dialogs and Diff review. The policy never gains `'unsafe-inline'` or `'unsafe-hashes'`.
   - **Pages on the board origin:**
     - The board page and source views render agent and file content only as text (`textContent`, or highlighting built from text).
     - A source view is a page AskBoard builds, never the file served with its own content type. It is served with `X-Content-Type-Options: nosniff` and the CSP `default-src 'none'`, styles by hash, `img-src data:`, `frame-ancestors 'self'`: only a board page of the same origin may frame it, in its reading panel.
-    - The board page's CSP allows scripts and styles by hash, the view chunks' hashes, `connect-src 'self'` and `frame-src 'self'`, which serves only the reading panel's same-origin source view.
+    - The board page's CSP allows scripts and styles by hash, the view chunks' hashes, `connect-src 'self'` and `frame-src 'self'`, which serves only the reading panel's same-origin source view. It also allows the view's own media sources, `img-src data: blob:` and `font-src data:`: the srcdoc inherits this policy, which would otherwise block the view's diagram images and inlined fonts, and the view's own policy cannot widen it.
   - **Talking to the outside:**
     - The view talks to the board page with the ext-apps 2.x message set and its `App` and `AppBridge` classes. The board page is not a conforming MCP Apps host and implements no sandbox proxy.
     - A reference leaves the view only as an open-link message. The board page opens only `http:` and `https:` URLs, in a new tab with `noopener` and `noreferrer`.
@@ -294,14 +296,17 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** widgets coupled to one renderer library; widgets that fetch data, need a server, keep private state or can't be measured; board and Snapshot built differently; molecules expanded in two places or colliding on IDs.
 - **Rule:**
   - **Components:**
-    - Atoms, layouts and widgets are catalog components registered through one `CatalogRenderer` port. No widget imports the renderer library.
+    - Atoms, layouts and widgets are catalog components registered through one `CatalogRenderer` port. No widget imports the renderer behind the port, which is AskBoard's own.
     - A component renders from the board document, the draft record (AD-20) and the compute graph alone, with no network and no server call. It keeps no edit state of its own: every edit goes into the draft record.
     - User actions leave a component only as typed view messages, which the board page turns into board-protocol commands.
-    - A component is ready when its asynchronous work has settled and its content has been laid out once. A question counts as visible when all its items are ready.
+    - A component is ready when its asynchronous work has settled and its content has been laid out once. A question counts as visible when all its items are ready. A container that hides items, such as Tabs, still mounts them, hidden, so they report ready.
+    - Each item renders inside an error boundary. An item that throws shows an error state and reports the error to the board page, and its question never counts as visible (AD-10).
   - **Build and assembly:**
-    - At build time, `view` publishes a manifest: a shell chunk and one chunk per catalog component, each with its SHA-256, its styles and the licence notices of the code it contains. Nothing is bundled at run time.
-    - One pure function exported by `view`, `assemble(boardDocument, manifest)`, builds both a board's srcdoc (called by the board page) and every Snapshot (called by `snapshot`), with its CSP. It inlines the shell and the chunks the board uses.
-    - The view boots from the `askboard-data` block when there is one. It starts the view-protocol handshake only when it has a parent host.
+    - At build time, `view` publishes a manifest: a shell chunk, library chunks for code that several components use, and one chunk per catalog component, each with its SHA-256, its styles, the licence notices of the code it contains and the chunks it needs. Nothing is bundled at run time. Every chunk is a classic script, so a chunk that holds `import.meta` fails the build.
+    - One pure function exported by `view`, `assemble(boardDocument, manifest)`, builds both a board's srcdoc (called by the board page) and every Snapshot (called by `snapshot`), with its CSP. It inlines the shell and the chunks the board's items need, with the library chunks those need in turn.
+    - In a Snapshot, `assemble` carries each diagram that has a kept render as its light and dark SVG, which a small chunk shows as a `blob:` image, and leaves that diagram's renderer chunk out. A diagram with no kept render gets its renderer chunk.
+    - The view renders each diagram in both themes and sends the SVG text to the board page as a typed view message. `board-host` keeps the latest render per item and board revision, as data: it never serves one as a page (AD-8).
+    - The view boots from the `askboard-data` block when there is one. It starts the view-protocol handshake only when it has a parent host. A Snapshot, which has none, carries no view-protocol code (ext-apps' `App`).
   - **Molecules:**
     - Ready-made molecules are input-format data, not code.
     - A molecule reference is an item `{type: "molecule", id, props: {molecule, version, data}}`, with `version` optional. A molecule declares its parameters as JSON Schema and, for each parameter, the JSON Pointers in its composition that the parameter fills.
@@ -438,8 +443,8 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Content:**
     - A Snapshot is one HTML file built by `assemble` (AD-9).
-    - The `askboard-data` block, `<script type="application/json" id="askboard-data">`, comes first, with `<` escaped. It holds the board documents (AD-12) and every event in the ask's log, each answer carried with its full edited value on its own revision (AD-20).
-    - After the data block come the chunks the board uses, their styles, the view CSP as a meta tag and the licence notices of the inlined code.
+    - The `askboard-data` block, `<script type="application/json" id="askboard-data">`, comes first, with `<` escaped. It holds the board documents (AD-12) and every event in the ask's log, each answer carried with its full edited value on its own revision (AD-20), and the kept light and dark render of each diagram (AD-9).
+    - After the data block come the chunks the board uses, their styles, the view CSP as a meta tag and the licence notices of the inlined code. A diagram whose renders the data block holds needs no renderer chunk.
     - A Snapshot never includes a draft record. A Snapshot taken from the board says so when unsent work exists.
   - **Writing:**
     - The `snapshot` tool takes no path. AskBoard writes into the configured Snapshot folder (AD-14) under a name it chooses, `<ask-id>-<UTC timestamp>-<short random>.html`, and never overwrites a file.
@@ -593,7 +598,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | Excerpts and media | Pointer = one string: a root-relative path, `#` and an anchor, `L<start>-L<end>` for a line range, otherwise a heading, then an ID (`docs/prd.md#Billing`, `src/retry.ts#L40-L62`). Agent-written excerpts are text. Images by pointer only (AD-12). |
 | Shipped agents | Declare no frontmatter hooks, MCP servers or permission mode; the plugin's hooks cover them. |
 | Dependencies | Adoption rule from the PRD addendum, exceptions named in the solution design (AD-19). Versions pinned exactly. Tools that need a TypeScript compiler API use `@typescript/typescript6` as an npm alias, since TypeScript 7 ships none. |
-| Tests | **CI failures:** imports that cross the dependency diagram (AD-1); generated skill files that drift (AD-6); a tool description or the server instructions over 4,096 characters; a full tool name over 128; a schema that is not valid JSON Schema 2020-12 or has a root combinator; a changed `tools/list` order; a licence outside the adoption rule (AD-19). **CI runs:** the conformance suite with and without mod and hooks (AD-1); one live call per supported model that loads the five tool definitions; the legacy-negotiation run (AD-18); the timezone and locale fixtures (AD-13); browser tests in Chromium, Firefox and WebKit (cold load, reload, takeover, source view, `self.origin === "null"` inside the view, a view `fetch` that fails); a board and a Snapshot rendered in all three engines; macOS and Linux; Node 24 and 26. **CI reports:** per model, the token count of tool definitions, instructions, skill and agent descriptions, flagging anything above about 2,100 tokens (PRD R5). |
+| Tests | **CI failures:** imports that cross the dependency diagram (AD-1); generated skill files that drift (AD-6); a tool description or the server instructions over 4,096 characters; a full tool name over 128; a schema that is not valid JSON Schema 2020-12 or has a root combinator; a changed `tools/list` order; a view chunk that grows past a set margin over the previous build without the change saying so, or that holds `import.meta`, an elkjs input or an elkjs identifier; a licence outside the adoption rule (AD-19); any CSP violation in a browser test, a caught `eval` probe included, collected from the view, the board page and the console's CSP lines (zod's `jitless` is set before any module that uses zod loads). **CI runs:** the conformance suite with and without mod and hooks (AD-1); one live call per supported model that loads the five tool definitions; the legacy-negotiation run (AD-18); the timezone and locale fixtures (AD-13); browser tests in Chromium, Firefox and WebKit (cold load, reload, takeover, source view, `self.origin === "null"` inside the view, a view `fetch` that fails, an item's box unchanged 1 s after its question is visible, and PlantUML's images for an empty source and a syntax error turned into render errors); a board and a Snapshot rendered in all three engines; macOS and Linux; Node 24 and 26. **CI reports:** per model, the token count of tool definitions, instructions, skill and agent descriptions, flagging anything above about 2,100 tokens (PRD R5). |
 
 ## Stack
 
@@ -609,6 +614,23 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@modelcontextprotocol/ext-apps` (view message set, `App`, `AppBridge`) | 2.0.4 |
 | React (view and widgets) | 19.3.1 |
 | `@dagrejs/dagre` (Graph widget initial layout and auto-layout; elkjs stays excluded) | 3.1.3 |
+| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog; not Select) | 1.8.1 |
+| `react-day-picker` (the Date Picker's calendar) | 10.0.2 |
+| `markdown-it` (Markdown, `html: false`) | 15.0.3 |
+| `dompurify` (the Markdown sanitizer) | 3.4.17 |
+| `katex` (LaTeX) | 0.19.1 |
+| `@tanstack/react-table` (Table, Tree, Spreadsheet, the Gantt's grid) | 9.3.1 |
+| `@atlaskit/pragmatic-drag-and-drop` (Ranking, Kanban, Tree) | 4.0.0 |
+| `echarts` (Chart, canvas renderer) | 6.1.0 |
+| `@xyflow/react` (Graph) | 12.12.0 |
+| `mermaid` (Diagram; built without elkjs) | 12.2.0 |
+| `@plantuml/core` (Diagram; the MIT npm tarball, `plantuml.js` only) | 1.2026.9 |
+| `@pierre/diffs` (Diff review) | 1.6.2 |
+| `@rjsf/core`, `@rjsf/utils` (Form) | 6.11.0 |
+| `tailwindcss`, `@tailwindcss/cli` (build-time styles) | 4.3.3 |
+| `@modelcontextprotocol/core`, `@modelcontextprotocol/client` (ext-apps' peers) | 2.4.0 |
+| `zod` (ext-apps' peer, with `jitless` set first) | 4.6.7 |
+| `@fontsource-variable/inter` or `@fontsource/inter`, `@fontsource/jetbrains-mono` (DESIGN.md's faces; Fontsource's stars exception) | 5.3.0 |
 | JSON Schema dialect | 2020-12 |
 | Ajv (the one validator; standalone validators generated at build for the view) | 8.20.0 |
 | `@ironcalc/wasm` (formula engine candidate, spike) | 0.9.1 |
@@ -776,7 +798,6 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | --- | --- | --- |
 | The session-file key (the Claude Code PID) on Linux | Passed on macOS; AD-5 fixes the rule | Task 4.1 of the mod delivery spike, in a devcontainer |
 | Formula engine (IronCalc or own restricted evaluator) and the content of the function whitelist | AD-13 fixes the port, the grammar and the interim function set | Formula spike |
-| Catalog renderer behind `CatalogRenderer` (json-render 0.21 or own); Mermaid and PlantUML rendering inside the view bundle | AD-9 isolates widgets from it; AD-8's CSP constrains it | Renderer spike, with UX final |
 | Bun packaging: executable size, delivery through a plugin `command` source or the launcher, offline installation, tinycc in the output, the native Windows message | AD-19 and AD-22 fix the shape | Packaging spike |
 | Detecting "no reachable browser" per platform | AD-18 fixes the outcome (`unavailable`) | Packaging spike |
 | Default port range, the container opt-in setting, the host-side address in printed links, the reconnect grace period, the record timeout, where the file path and line sit in the user's `editor` command | AD-5, AD-8, AD-11 and AD-21 fix the rules; the keys are named in the configuration schema | Implementation |

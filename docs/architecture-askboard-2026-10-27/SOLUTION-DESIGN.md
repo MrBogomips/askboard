@@ -13,6 +13,7 @@ sources:
   - 'Web verification of 52 spine claims against primary sources (2026-10-27), restated in §13'
   - 'The architecture run decision record and its input and gate reviews (2026-10-27), restated in §4, §6, §10 and §11'
   - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
+  - 'OpenSpec change spike-renderer, findings.md: the view CSP, the catalog renderer and the diagram renderers in Chromium, Firefox, WebKit, Chrome and Edge (2026-10-29 and 2026-10-30)'
 ---
 
 # Solution design: AskBoard
@@ -171,8 +172,9 @@ A review found unit pairs that obeyed every rule of an earlier draft yet did not
 Agent and file content are untrusted, and the board page holds the token (AD-8, NFR-5).
 
 - **Sandbox.** The view is a `srcdoc` iframe with exactly `sandbox="allow-scripts"`. A srcdoc document takes its creator's origin unless sandboxed without `allow-same-origin` [F29]; sandboxing it that way makes the view opaque, tokenless and unable to call the session process. The view uses `srcdoc` because every board request needs the token (AD-11), and an inlined bundle needs no request.
-- **CSP.** The view's meta policy and the board page's inherited policy both apply [F29], so the board page lists the view's hashes. `'wasm-unsafe-eval'` appears only for a WASM formula engine; all target browsers support it [F30].
+- **CSP.** The view's meta policy and the board page's inherited policy both apply [F29], so the board page lists the view's hashes and allows the view's media sources, `img-src data: blob:` and `font-src data:` [F39]. `'wasm-unsafe-eval'` appears only for a WASM formula engine; all target browsers support it [F30].
 - **Diagrams** show as `<img src="blob:…">`: hash-only styles block the `style` attributes and `<style>` elements that SVG markup uses [F30], and an image's internal styles escape the page CSP.
+- **Style writes.** Mermaid and PlantUML write styles while they render, Radix's modal dialogs add a scroll-lock `<style>`, and `@pierre/diffs` builds markup that holds `style` attributes; the hash-only policy blocks all of it. The view routes these writes through the CSSOM and constructed stylesheets, which the policy allows [F40]: three small shims in the view (77, 50 and 81 lines in the renderer spike). A style set this way loads nothing, since `img-src` and `font-src` still bound any `url()`.
 - **Not an MCP Apps host.** The view uses the ext-apps 2.x message set and classes, which accept an opaque iframe [F28]. A conforming web host needs a sandbox proxy on another origin [F28], and so a second port to serve and forward; besides, the CLI renders no MCP Apps [F24]. Rendering in Claude hosts stays Deferred.
 - **Board-origin pages** show content only as text; AskBoard builds any source view itself, because a served HTML or SVG file would run on the board origin and read the token.
 - **Reading panel.** A project-file reference opens in a reading panel on the board page, which frames the token-gated source view at the anchor, confined by AD-12. The source view's CSP therefore has `frame-ancestors 'self'` instead of `'none'`, so only a board page of the same origin may frame it, and the board page's CSP adds `frame-src 'self'`, which serves only that frame. Nothing else changes: the source view is still text only, with `nosniff` and `default-src 'none'`.
@@ -370,7 +372,7 @@ stateDiagram-v2
 ### 5.6 Snapshot (AD-15)
 
 1. The owner calls `snapshot`, which takes no path.
-2. `assemble` writes the `askboard-data` block first (`<` escaped), with the board documents and the whole log, each answer's full value stored with its revision; then the chunks used, their styles, the view CSP and the licence notices.
+2. `assemble` writes the `askboard-data` block first (`<` escaped), with the board documents, the whole log, each answer's full value stored with its revision, and the light and dark render `board-host` kept for each diagram; then the chunks used, their styles, the view CSP and the licence notices. A diagram with a kept render needs no renderer chunk: the renderer spike's golden Snapshot was 429,393 bytes with renders against 5,044,979 with the PlantUML chunk.
 3. The file `<ask-id>-<UTC timestamp>-<short random>.html` goes into the Snapshot folder (by default `.askboard/snapshots/`, git-ignored, inside the project root) and never overwrites another.
 4. The tool returns the path (FR-26). An agent reads the data block without rendering the page (FR-27).
 5. A Snapshot taken from the board notes unsent work but never includes the draft record. Opened later, the view boots from the data block, offline, with no AskBoard running.
@@ -444,33 +446,35 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 
 **Adoption rule** (addendum, NFR-6), in brief:
 
-- **Licence:** permissive by default (MIT, Apache-2.0, BSD); MPL-2.0 or EPL-2.0 only unmodified; no GPL or AGPL in the bundle; no source-available, trial, licence-key or open-core feature AskBoard depends on.
+- **Licence:** permissive by default (MIT, Apache-2.0, BSD, and the like: ISC, 0BSD, the Unlicense); MPL-2.0 or EPL-2.0 only unmodified, and OFL-1.1 only for unmodified font files; no GPL or AGPL in the bundle; no source-available, trial, licence-key or open-core feature AskBoard depends on.
 - **Stars:** at least 1,000, or a named exception for an established team; an exception waives only this criterion.
 - **Activity:** a push within 6 months and a release within 12, not archived; on 2026-10-27, a push since 2026-04-27 and a release since 2025-10-27.
 - CI fails on a licence outside the rule or an archived dependency (AD-19).
 
-**Component status on 2026-10-27** (research-stack §C). The final UX documents choose the components; this table only shows what the rule admits today.
+**Component status on 2026-10-27, corrected by the renderer spike on 2026-10-29** (research-stack §C; the spike's `evidence/adoption.json`). The final UX documents choose the components; this table only shows what the rule admits.
 
 | Need | Passing | Failing today |
 | --- | --- | --- |
 | Markdown | markdown-it 15.0.3 with DOMPurify 3.4.17; streamdown 2.7.1 | react-markdown: no release since 2025-03-07 |
 | Drag and drop | `@dnd-kit/react` 0.5.1 (0.x); Pragmatic drag and drop 4.0.0 | `@dnd-kit/core`: last release 2024-12-05 |
-| Tree, Table, Spreadsheet grid | react-arborist 4.0.1; TanStack Table 9.3.1 | — |
+| Tree, Table, Spreadsheet grid | TanStack Table 9.3.1 | react-arborist 4.0.1: its peer react-dnd 16 last released on 2022-04-19 |
 | Graph | `@xyflow/react` 12.12.0 | — |
 | Graph auto-layout | `@dagrejs/dagre` 3.1.3 (MIT, 5,841 stars, push and npm release 2026-10-24, checked 2026-10-28), with its dependency `@dagrejs/graphlib` 4.0.6 (MIT, 1,748 stars) | — |
-| Diagram | Mermaid 12.2.0; `@plantuml/core` 1.2026.9 (MIT npm tarball) | — |
-| LaTeX | KaTeX 0.19.1; MathLive 0.111.1 | — |
+| Diagram | Mermaid 12.2.0, built without elkjs (checked in CI); `@plantuml/core` 1.2026.9 (MIT npm tarball), `plantuml.js` only, laid out by its Smetana engine (renderer spike) | — |
+| LaTeX | KaTeX 0.19.1; MathLive 0.111.1 (passes; not in the first version, renderer spike) | — |
 | Diff review | `@pierre/diffs` 1.6.2 | git-diff-view: 743 stars |
 | Chart | Apache ECharts 6.1.0; Vega-Lite 6.5.0 | — |
-| Gantt, Timeline | DHTMLX Gantt Community 10.0.3 (Community features); Frappe Gantt 1.2.2 (push window ends 2026-12-18); vis-timeline 8.5.6 | SVAR Gantt: 215 and 260 stars |
+| Gantt, Timeline | DHTMLX Gantt Community 10.0.3 (Community features); Frappe Gantt 1.2.2 (push window ends 2026-12-18) | SVAR Gantt: 215 and 260 stars; vis-timeline 8.5.6: its peer `@egjs/hammerjs` has 45 stars and was last pushed on 2021-02-01 |
 | Image annotation | — | Annotorious: 869 stars |
 | Document review | `@tiptap/core` 3.32.0, core only | — |
 | Forms | `@rjsf/core` 6.11.0; `@jsonforms/react` 3.8.0 | — |
-| Catalog renderer | json-render 0.21.3 (0.x), or AskBoard's own | `@json-render/mcp`: pins SDK v1 and ext-apps v1 |
+| Catalog renderer | AskBoard's own, chosen by the renderer spike; json-render 0.21.3 (0.x) passes the rule but was not adopted | `@json-render/mcp`: pins SDK v1 and ext-apps v1 |
 
-**Excluded traps:** DHTMLX export, which calls DHTMLX's online service; Tiptap Pro extensions; Univer Pro; the bpmn-js watermark; elkjs (EPL or GPL); BlockNote XL (GPL). `@plantuml/core` is used only as its MIT npm tarball (the repository is LGPL-3.0), with its sponsored-message images suppressed. The addendum's avoid list (tldraw, Bryntum, Highcharts Gantt and others) stands.
+**Excluded traps:** DHTMLX export, which calls DHTMLX's online service; Tiptap Pro extensions; Univer Pro; the bpmn-js watermark; elkjs (EPL or GPL; stripped from Mermaid's build, with `layout: 'dagre'` set, and checked in CI); BlockNote XL (GPL). `@plantuml/core` is used only as its MIT npm tarball (the repository is LGPL-3.0), with its loaders refusing every resource (themes, standard library, emoji, icons, files) and its error and crash images turned into render errors; 1.2026.9 shows no sponsored message (renderer spike). The addendum's avoid list (tldraw, Bryntum, Highcharts Gantt and others) stands.
 
-**Named exceptions.** Only one: the LGPL runtime components of the Bun executable (§4.10), conditional on the PRD change. No stars exception is named yet; Annotorious, git-diff-view or SVAR Gantt would need one if the final UX documents pick them.
+**Inside `@plantuml/core`** (renderer spike). Only `plantuml.js` is bundled: `viz-global.js` (Viz.js, MIT; Graphviz, EPL-2.0; Expat, MIT), `emoji.js` (Twemoji graphics, CC-BY-4.0) and `themes.js` never are. `plantuml.js` compiles in TeaVM (Apache-2.0), Brotli (MIT), CafeUndZopfli (Apache-2.0) and ASCIIMathML (MIT), whose licence texts the tarball lacks: the PlantUML chunk's notices carry them, taken from their repositories. The rule's stars and activity criteria apply to the package AskBoard adopts, not to code vendored inside it.
+
+**Named exceptions.** Licence exceptions: the LGPL runtime components of the Bun executable (§4.10), conditional on the PRD change; `argparse` (PSF-2.0), which markdown-it's command-line tool needs and no view chunk contains. A stars exception: Fontsource, whose packages `@fontsource/inter` and `@fontsource/jetbrains-mono` carry DESIGN.md's faces; their repository `fontsource/font-files` had 509 stars on 2026-10-30 and the Fontsource project 6,249, and both pass the activity criterion (renderer spike). Annotorious, git-diff-view or SVAR Gantt would need one if the final UX documents pick them.
 
 ## 10. Spikes
 
@@ -549,8 +553,8 @@ All spikes run in the solution project, and each ends in a spine update through 
 **Checks from the UX run.** Choosing components for the final UX documents turned up facts that contradict §9's status table or the view CSP (S-1 to S-7), and the validation of the UX spines added S-8 (`ux-askboard-2026-10-27/architecture-change-requests.md`). They are not decided changes: the spike verifies each and settles it.
 
 - **S-1, Mermaid 12.2.0** lists elkjs, an excluded trap (§9), as a direct dependency. A possible fix: strip elkjs from the view build and check its absence in CI.
-- **S-2, react-arborist 4.0.1** needs react-dnd 16 as a peer, and react-dnd's last release (2022-06-25) fails the activity criterion. The UX chose TanStack Table's tree mode with Pragmatic drag and drop instead.
-- **S-3, vis-timeline 8.5.6** depends on `@egjs/hammerjs`, whose repository was last pushed on 2021-02-01 and has 45 stars. The UX chose its own Timeline.
+- **S-2, react-arborist 4.0.1** needs react-dnd 16 as a peer, and react-dnd's last release (2022-04-19; the UX run read 2022-06-25) fails the activity criterion. The UX chose TanStack Table's tree mode with Pragmatic drag and drop instead.
+- **S-3, vis-timeline 8.5.6** has `@egjs/hammerjs` as a peer dependency, whose repository was last pushed on 2021-02-01 and has 45 stars. The UX chose its own Timeline.
 - **S-4, form validation.** No schema validator that fits the view CSP passes the adoption rule: Ajv compiles code at run time; `@rjsf/validator-cfworker` rests on `@cfworker/json-schema` (704 stars, last release 2025-01-31); `ata-validator` has 389 stars. The UX chose a no-op validator, with field checks computed by AskBoard.
 - **S-5, cmdk and next-themes** fail the activity criterion. cmdk is used by `@rjsf/shadcn` and by shadcn's Command component. next-themes, used by shadcn's dark-mode recipe and its Sonner wrapper, also uses localStorage, which throws in the sandboxed view. The UX drives the dark theme with a `.dark` class instead.
 - **S-6, Radix Dialog and Alert Dialog** inject a scroll-lock `<style>` at run time, which a hash-only `style-src` blocks [F30]. This affects the confirmation of a delivery-mode switch if it is modal. The settings panel is a non-modal side sheet on the board page, so it is not affected.
@@ -564,6 +568,8 @@ Further items for the spike:
 - PlantUML render time in the golden single-question case, which counts towards SM-3 and SM-C2.
 
 **What changes.** The renderer row closes and the Stack gains a pin, unless AskBoard's own wins; a component failing the CSP is out.
+
+**Outcome (OpenSpec change `spike-renderer`, 2026-10-29 and 2026-10-30).** AskBoard's own renderer stands behind `CatalogRenderer`: json-render 0.21.3 passed criteria 1 and 2 only with zod's `jitless`, and added about 158 KB to every board. Mermaid and PlantUML render inside the bundle with no request in Chromium, Firefox, WebKit, Chrome and Edge, on macOS and on Linux arm64, with PlantUML's loaders refusing every resource (AD-8). Diagram images and inlined fonts need the board page's policy to allow the view's media sources (AD-8). The libraries' own style writes go through the CSSOM, by three shims in the view, so the policy stays hash-only (AD-8). Radix Select fails the CSP in Chromium, Chrome, Edge and WebKit and is out: a Form's single pick is a radio group. PlantUML ships without Graphviz, laid out by Smetana, and Mermaid without elkjs, its configuration keys in `secure`. Diff review highlights through the `syntax-*` tokens as CSS variables, for a fixed list of languages; MathLive is not in the first version. A Snapshot carries each diagram's light and dark render instead of its renderer: the golden Snapshot is 429,393 bytes instead of 5,044,979 (AD-9, AD-15). In the golden case, PlantUML takes 86 to 93% of the time to visible, which was 235.8 to 504 ms (median, macOS). The S-checks hold, and S-2's react-dnd date is corrected. The PO decided every proposed outcome on 2026-10-30; the PO's screenshot verdicts and drag by hand in Chrome and Safari (tasks 6.1, 6.2) follow the merge. The change's findings hold the measurements.
 
 ### 10.4 Packaging spike
 
@@ -620,7 +626,7 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 
 | Owner | Items |
 | --- | --- |
-| Architecture spikes (§10) | The session-file key on Linux (mod delivery, task 4.1); formula engine and whitelist (formula); catalog renderer with Mermaid and PlantUML (renderer, with UX); Bun packaging and "no reachable browser" detection (packaging) |
+| Architecture spikes (§10) | The session-file key on Linux (mod delivery, task 4.1); formula engine and whitelist (formula); Bun packaging and "no reachable browser" detection (packaging) |
 | Product owner | A2UI inbound translator (OQ5); molecule registry, export and repository (FR-16, FR-17) and full benchmark settings; MCP Apps in Claude hosts, other surfaces, native Windows, remote hosts |
 | Implementation | Default port range, container opt-in setting, host-side link address, grace period, record timeout, where the file path and line sit in the user's `editor` command |
 | Benchmark | `alwaysLoad` for `ask` and the result representation (first run); final question set and browser driver (benchmark epic) |
@@ -628,7 +634,7 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 
 ## 13. Facts the architecture rests on
 
-All facts were checked on 2026-10-27. Status is empty when a primary source states the fact; otherwise it marks a secondary source, or an unverified fact with the spike that checks it. "research-cc" and "research-stack" are the research files that travel with the spine. The mod delivery spike checked F1, F2, F3, F5, F6, F9, F11, F12, F13, F15, F16, F17 and F25 again on 2026-10-29, on Claude Code 2.1.311 and 2.1.312, and its status says so; its findings are in the archived OpenSpec change `spike-mod-delivery`.
+All facts were checked on 2026-10-27. Status is empty when a primary source states the fact; otherwise it marks a secondary source, or an unverified fact with the spike that checks it. "research-cc" and "research-stack" are the research files that travel with the spine. The mod delivery spike checked F1, F2, F3, F5, F6, F9, F11, F12, F13, F15, F16, F17 and F25 again on 2026-10-29, on Claude Code 2.1.311 and 2.1.312, and its status says so; its findings are in the archived OpenSpec change `spike-mod-delivery`. F39 to F47 come from the renderer spike's runs, on 2026-10-29 and 2026-10-30, which also checked F28 and F30; its findings are in the archived OpenSpec change `spike-renderer`.
 
 | ID | Fact | AD | Source | Status |
 | --- | --- | --- | --- | --- |
@@ -659,9 +665,9 @@ All facts were checked on 2026-10-27. Status is empty when a primary source stat
 | F25 | Monitor: a notification per line, 5-minute default deadline (30 max), Bash permissions, available to background subagents; background Bash notifies on exit and dies with a foreground subagent | AD-4 | https://code.claude.com/docs/en/sub-agents; research-cc §7 | Monitor routing unverified; not needed (mod delivery spike) |
 | F26 | Elicitation: consent per URL open, about 8,000-character cap, no backgrounding, nothing on subagents; the inbox socket is session-wide with an undocumented format; `asyncRewake` in subagents undocumented | AD-4 | https://code.claude.com/docs/en/mcp; research-cc §3, §8, §10 | partly unverified, not pursued |
 | F27 | MCP 2026-07-28 is current, schemas default to 2020-12; Claude Code negotiates it on stdio from 2.1.292; `MCP_PROTOCOL_NEGOTIATION=legacy` forces the old handshake, which SDK v2 serves by default | AD-6, AD-18 | schema.ts (F17); protocol-versions.md (F15) | |
-| F28 | ext-apps 2.0.4 has no supported host; a web host MUST use a sandbox proxy on another origin; its classes accept an opaque-origin view | AD-8 | https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx | |
+| F28 | ext-apps 2.0.4 has no supported host; a web host MUST use a sandbox proxy on another origin; its classes accept an opaque-origin view | AD-8 | https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx | Opaque-origin view verified: `App` reaches `AppBridge` in every engine, with zod's `jitless` set first (renderer spike) |
 | F29 | An `about:srcdoc` document takes its initiator's origin unless sandboxed without `allow-same-origin`, and clones the parent's policy | AD-8 | https://html.spec.whatwg.org/multipage/browsers.html | |
-| F30 | Hash-only `style-src` blocks `style` attributes and injected `<style>`; `'wasm-unsafe-eval'` works in Chrome 97, Firefox 102, Safari 16 | AD-8, AD-13 | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy | |
+| F30 | Hash-only `style-src` blocks `style` attributes and injected `<style>`; `'wasm-unsafe-eval'` works in Chrome 97, Firefox 102, Safari 16 | AD-8, AD-13 | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy | Blocking verified in Chromium, Firefox and WebKit (renderer spike); CSSOM writes pass (F40) |
 | F31 | Browsers send no `Origin` on navigations or same-origin GET and HEAD | AD-11 | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin | |
 | F32 | W3C Web Annotation Data Model and Media Fragments selectors, `xywh=percent:` | AD-7 | https://www.w3.org/TR/annotation-model/ | |
 | F33 | Whether a browser discards a background board tab | AD-21 | none found | Not checked: packaging spike |
@@ -670,6 +676,15 @@ All facts were checked on 2026-10-27. Status is empty when a primary source stat
 | F36 | Node 24 in maintenance since 2026-10-20, Node 26 LTS from 2026-10-28; TypeScript 7.0.2 has no compiler API; Ajv 8.20.0 builds standalone 2020-12 validators | AD-7, AD-19 | https://github.com/nodejs/Release/blob/main/schedule.json; https://devblogs.microsoft.com/typescript/?p=5246; https://www.npmjs.com/package/ajv | |
 | F37 | `@ironcalc/wasm` 0.9.1 fetches its `.wasm` file by default, offers `initSync`, and takes `locale` and `timezone`, resolved through the host's `Intl` | AD-13 | https://www.npmjs.com/package/@ironcalc/wasm | CSP fit: formula spike |
 | F38 | Agent Skills: `name` up to 64 characters, `description` up to 1,024 | AD-18 | https://agentskills.io/specification | |
+| F39 | The view's srcdoc inherits the board page's policy, so a `blob:` image or `data:` font that the view's policy allows is blocked unless the board page's policy allows it too | AD-8 | Renderer spike, runs `c3c4`, `c3c4-blob`, `matrix`, `matrix-media` | Verified |
+| F40 | A hash-only `style-src` lets CSSOM writes (`style.cssText`, `insertRule`) and constructed stylesheets (`adoptedStyleSheets`) through, in Chromium, Firefox and WebKit | AD-8 | Renderer spike, run `negative` and the shims' runs | Verified |
+| F41 | Chromium checks a `<style>` against `style-src` when it is connected, whatever its `type`; WebKit reports a `style-src-attr` violation for every native `<select>` it creates, reports a blocked `eval` only to the parent page, and reports a refused WebAssembly compile only in the console; Firefox blocks a sandboxed `<form>` submission silently, and WebKit fires its submit event | AD-8 | Renderer spike, runs `matrix`, `negative`, `plantuml`, `form` | Verified |
+| F42 | Firefox runs a relative `<script src>` from a `file://` page despite a hash-only `script-src` (Firefox 157 and 124) | AD-8, AD-15 | Renderer spike, `tools/check-file-scripts.ts` | Verified |
+| F43 | Mermaid 12.2.0: ELK is the default layout; the default `secure` list leaves out `htmlLabels`, `layout`, `theme`, `themeVariables`, `themeCSS` and `fontFamily`; `securityLevel: 'sandbox'` frames a `data:` URL; it brings its own KaTeX 0.18 | AD-8 | Mermaid 12.2.0's `dist/config.type.d.ts` and chunks; renderer spike, run `mermaid` | Verified |
+| F44 | `@plantuml/core` 1.2026.9: Graphviz comes as Viz.js WebAssembly and needs `'wasm-unsafe-eval'`, and without it Smetana lays out; no sponsored message, but error and crash images; resources load by script tag unless the host supplies loaders; the tarball lacks the licence texts of the code compiled into it | AD-8, AD-19 | The tarball's `README.md`, `GITHUB_INTEGRATION.md`, `LICENSE`; renderer spike, runs `plantuml-wasm`, `sponsor`, `c3c4` | Verified |
+| F45 | `@pierre/diffs` 1.6.2 writes token colours and layout as `style` attributes into markup it parses; its `useCSSClasses` option is declared but not read | AD-8 | Its `dist/utils/tokenStyle.js`, `types.d.ts`; renderer spike, run `diffs` | Verified |
+| F46 | json-render 0.21.3: its store can be bound to an outside record; its error boundary renders nothing and tells only the console; zod 4 probes `new Function` unless `jitless` is set | AD-9 | `@json-render/react`'s README and `dist/index.mjs`; zod's `v4/core/util.js`; renderer spike, runs `c2`, `renderers` | Verified |
+| F47 | Bun 1.4.4: a bundler plugin whose `onResolve` matches every import makes the bundler ignore the packages' `sideEffects` | AD-9 | Renderer spike, `findings.md`, "Sizes" | Verified |
 
 ## 14. Glossary additions
 

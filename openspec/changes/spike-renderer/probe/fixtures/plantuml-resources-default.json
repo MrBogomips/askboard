@@ -1,0 +1,27 @@
+{
+  "description": "The same source with the engine's own script-tag loader (task 3.3)",
+  "board": {
+    "id": "p1",
+    "title": "The same source with the engine's own script-tag loader (task 3.3)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\n!theme cerulean\n!include <C4/C4_Context>\nAlice -> Bob : <:1f600:> hello <&heart>\n@enduml",
+          "probe": {
+            "loader": "default"
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "p1"
+  ]
+}

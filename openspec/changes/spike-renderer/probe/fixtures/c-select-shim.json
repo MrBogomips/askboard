@@ -1,0 +1,44 @@
+{
+  "description": "Radix Select, item-aligned, with the style-element shim",
+  "board": {
+    "id": "c-select-shim",
+    "title": "Radix Select, item-aligned, with the style-element shim",
+    "items": [
+      {
+        "id": "se1",
+        "type": "Select",
+        "props": {
+          "label": "Size",
+          "options": [
+            {
+              "value": "s",
+              "label": "Small"
+            },
+            {
+              "value": "m",
+              "label": "Medium"
+            },
+            {
+              "value": "l",
+              "label": "Large"
+            }
+          ],
+          "styleShim": true
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "#se1-trigger"
+    },
+    {
+      "do": "click",
+      "selector": "[role=option]:has-text('Medium')"
+    }
+  ],
+  "expectDraft": {
+    "se1": "m"
+  }
+}

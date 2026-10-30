@@ -1,0 +1,35 @@
+{
+  "description": "Radix Toggle Group",
+  "board": {
+    "id": "c-toggle-group",
+    "title": "Radix Toggle Group",
+    "items": [
+      {
+        "id": "tg1",
+        "type": "ToggleGroup",
+        "props": {
+          "label": "View",
+          "options": [
+            {
+              "value": "split",
+              "label": "Split"
+            },
+            {
+              "value": "unified",
+              "label": "Unified"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[role=radio]:has-text('Unified')"
+    }
+  ],
+  "expectDraft": {
+    "tg1": "unified"
+  }
+}

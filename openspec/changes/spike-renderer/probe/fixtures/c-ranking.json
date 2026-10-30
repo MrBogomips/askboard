@@ -1,0 +1,44 @@
+{
+  "description": "Pragmatic drag and drop, Ranking",
+  "board": {
+    "id": "c-ranking",
+    "title": "Pragmatic drag and drop, Ranking",
+    "items": [
+      {
+        "id": "rk1",
+        "type": "Ranking",
+        "props": {
+          "label": "Order the fixes",
+          "entries": [
+            {
+              "id": "a",
+              "label": "Fix A: cap the backoff"
+            },
+            {
+              "id": "b",
+              "label": "Fix B: jitter"
+            },
+            {
+              "id": "c",
+              "label": "Fix C: circuit breaker"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "drag",
+      "selector": "[data-drag-id=c]",
+      "to": "[data-drag-id=a]"
+    }
+  ],
+  "expectDraft": {
+    "rk1": [
+      "c",
+      "a",
+      "b"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "description": "KaTeX through its DOM API",
+  "board": {
+    "id": "c-katex",
+    "title": "KaTeX through its DOM API",
+    "items": [
+      {
+        "id": "mx1",
+        "type": "Math",
+        "props": {
+          "source": "\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}"
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=mx1] .katex",
+    "text": "π"
+  }
+}

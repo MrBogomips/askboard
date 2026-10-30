@@ -1,0 +1,74 @@
+{
+  "description": "Label-heavy Mermaid flow, one item per measurement mitigation (task 3.5)",
+  "board": {
+    "id": "measure-flow",
+    "title": "Mermaid flow labels",
+    "items": [
+      {
+        "id": "s1",
+        "type": "Stack",
+        "children": [
+          {
+            "id": "m1",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid flow, measure none",
+              "source": "flowchart TD\n  A[Customer places an order with several items] --> B{Payment authorized by the gateway?}\n  B -->|yes, within the time limit| C[Create the order and reserve the stock]\n  B -->|no, or the gateway timed out| D[Show the payment error and keep the basket]\n  C --> E[Send the order confirmation email to the customer]\n  D --> F[Customer retries with another payment method]\n  F --> B",
+              "measure": "none"
+            }
+          },
+          {
+            "id": "m2",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid flow, measure shell-rule",
+              "source": "flowchart TD\n  A[Customer places an order with several items] --> B{Payment authorized by the gateway?}\n  B -->|yes, within the time limit| C[Create the order and reserve the stock]\n  B -->|no, or the gateway timed out| D[Show the payment error and keep the basket]\n  C --> E[Send the order confirmation email to the customer]\n  D --> F[Customer retries with another payment method]\n  F --> B",
+              "measure": "shell-rule"
+            }
+          },
+          {
+            "id": "m3",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid flow, measure cssom",
+              "source": "flowchart TD\n  A[Customer places an order with several items] --> B{Payment authorized by the gateway?}\n  B -->|yes, within the time limit| C[Create the order and reserve the stock]\n  B -->|no, or the gateway timed out| D[Show the payment error and keep the basket]\n  C --> E[Send the order confirmation email to the customer]\n  D --> F[Customer retries with another payment method]\n  F --> B",
+              "measure": "cssom"
+            }
+          },
+          {
+            "id": "m4",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid flow, measure config",
+              "source": "flowchart TD\n  A[Customer places an order with several items] --> B{Payment authorized by the gateway?}\n  B -->|yes, within the time limit| C[Create the order and reserve the stock]\n  B -->|no, or the gateway timed out| D[Show the payment error and keep the basket]\n  C --> E[Send the order confirmation email to the customer]\n  D --> F[Customer retries with another payment method]\n  F --> B",
+              "measure": "config"
+            }
+          },
+          {
+            "id": "m5",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid flow, measure shim",
+              "source": "flowchart TD\n  A[Customer places an order with several items] --> B{Payment authorized by the gateway?}\n  B -->|yes, within the time limit| C[Create the order and reserve the stock]\n  B -->|no, or the gateway timed out| D[Show the payment error and keep the basket]\n  C --> E[Send the order confirmation email to the customer]\n  D --> F[Customer retries with another payment method]\n  F --> B",
+              "measure": "none",
+              "probe": {
+                "shim": true
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=m5] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "m1",
+    "m2",
+    "m3",
+    "m4",
+    "m5"
+  ]
+}

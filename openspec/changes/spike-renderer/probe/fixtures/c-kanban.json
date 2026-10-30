@@ -1,0 +1,67 @@
+{
+  "description": "Pragmatic drag and drop, Kanban",
+  "board": {
+    "id": "c-kanban",
+    "title": "Pragmatic drag and drop, Kanban",
+    "items": [
+      {
+        "id": "kb1",
+        "type": "Kanban",
+        "props": {
+          "label": "Triage",
+          "lanes": [
+            {
+              "id": "todo",
+              "label": "To do",
+              "cards": [
+                {
+                  "id": "k1",
+                  "label": "Flaky test"
+                },
+                {
+                  "id": "k2",
+                  "label": "Slow build"
+                }
+              ]
+            },
+            {
+              "id": "doing",
+              "label": "Doing",
+              "cards": [
+                {
+                  "id": "k3",
+                  "label": "Upgrade Bun"
+                }
+              ]
+            },
+            {
+              "id": "done",
+              "label": "Done",
+              "cards": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "drag",
+      "selector": "[data-drag-id=k1]",
+      "to": "[data-lane-id=done]"
+    }
+  ],
+  "expectDraft": {
+    "kb1": {
+      "todo": [
+        "k2"
+      ],
+      "doing": [
+        "k3"
+      ],
+      "done": [
+        "k1"
+      ]
+    }
+  }
+}

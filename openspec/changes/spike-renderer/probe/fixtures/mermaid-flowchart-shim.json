@@ -1,0 +1,27 @@
+{
+  "description": "Mermaid flowchart diagram with the style shim (criterion 1)",
+  "board": {
+    "id": "m1",
+    "title": "Mermaid flowchart diagram with the style shim (criterion 1)",
+    "items": [
+      {
+        "id": "m1",
+        "type": "Mermaid",
+        "props": {
+          "label": "Mermaid diagram",
+          "source": "flowchart LR\n  A[Agent asks] --> B{Board open?}\n  B -->|yes| C[Show question]\n  B -->|no| D[Open board]\n  D --> C\n  C --> E((Answer))",
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=m1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "m1"
+  ]
+}

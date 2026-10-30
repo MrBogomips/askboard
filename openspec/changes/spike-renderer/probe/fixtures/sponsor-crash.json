@@ -1,0 +1,29 @@
+{
+  "description": "A class diagram whose Graphviz cannot start under the written CSP: PlantUML's crash image (task 3.4)",
+  "board": {
+    "id": "p1",
+    "title": "A class diagram whose Graphviz cannot start under the written CSP: PlantUML's crash image (task 3.4)",
+    "items": [
+      {
+        "id": "p1",
+        "type": "PlantUML",
+        "props": {
+          "label": "PlantUML diagram",
+          "source": "@startuml\nclass Ask {\n  +id: String\n  +send()\n}\nclass Answer {\n  +value: String\n}\nclass FollowUp\nAsk \"1\" --> \"*\" Answer : receives\nAsk <|-- FollowUp\n@enduml",
+          "probe": {
+            "raw": true,
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=p1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [],
+  "expectDiagramErrors": [
+    "p1"
+  ]
+}

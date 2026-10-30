@@ -1,0 +1,24 @@
+{
+  "description": "Negative control: KaTeX renderToString set as markup",
+  "board": {
+    "id": "c-katex-string",
+    "title": "Negative control: KaTeX renderToString set as markup",
+    "items": [
+      {
+        "id": "mx1",
+        "type": "MathString",
+        "props": {
+          "source": "\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}"
+        }
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "style-src-attr"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "description": "S-8: the accepted patterns evaluated with RegExp in the view",
+  "board": {
+    "id": "pattern",
+    "title": "S-8: the accepted patterns evaluated with RegExp in the view",
+    "items": [
+      {
+        "id": "pt1",
+        "type": "PatternProbe",
+        "props": {
+          "cases": [
+            {
+              "pattern": "^[A-Z][a-z]+$",
+              "matches": [
+                "Ada"
+              ],
+              "misses": [
+                "ada",
+                "Ada1"
+              ]
+            },
+            {
+              "pattern": "^\\d{3}-\\d{4}$",
+              "matches": [
+                "555-1234"
+              ],
+              "misses": [
+                "5551234"
+              ]
+            },
+            {
+              "pattern": "^[\\w.+-]+@[\\w-]+\\.[a-z]{2,}$",
+              "matches": [
+                "a.b+c@x-y.org"
+              ],
+              "misses": [
+                "a@b"
+              ]
+            },
+            {
+              "pattern": "^(?:[a-z0-9-]+\\.)?example\\.org$",
+              "matches": [
+                "example.org",
+                "api.example.org"
+              ],
+              "misses": [
+                "example.com"
+              ]
+            },
+            {
+              "pattern": "^(?<year>\\d{4})-(?<month>0[1-9]|1[0-2])$",
+              "matches": [
+                "2026-10"
+              ],
+              "misses": [
+                "2026-13"
+              ]
+            },
+            {
+              "pattern": "^(?:red|green|blue)$",
+              "matches": [
+                "green"
+              ],
+              "misses": [
+                "grey"
+              ]
+            },
+            {
+              "pattern": "^[(+*)\\]]+$",
+              "matches": [
+                "(+)]"
+              ],
+              "misses": [
+                "a"
+              ]
+            },
+            {
+              "pattern": "^[A-Z]{2,5}-[0-9]+$",
+              "matches": [
+                "ASKB-12"
+              ],
+              "misses": [
+                "A-1"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=pt1]",
+    "text": "all patterns behave as listed"
+  }
+}

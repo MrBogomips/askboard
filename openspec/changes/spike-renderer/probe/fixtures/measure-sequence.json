@@ -1,0 +1,74 @@
+{
+  "description": "Label-heavy Mermaid sequence, one item per measurement mitigation (task 3.5)",
+  "board": {
+    "id": "measure-sequence",
+    "title": "Mermaid sequence labels",
+    "items": [
+      {
+        "id": "s1",
+        "type": "Stack",
+        "children": [
+          {
+            "id": "m1",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid sequence, measure none",
+              "source": "sequenceDiagram\n  participant Customer as Customer on the web app\n  participant API as Checkout API service\n  participant Gateway as Payment gateway provider\n  Customer->>API: POST /checkout with the basket and the address\n  API->>Gateway: authorize the payment for the full amount\n  Gateway-->>API: authorized, with a transaction reference\n  API-->>Customer: order confirmed, with the order number\n  Note over API,Gateway: the order is created only after the authorization",
+              "measure": "none"
+            }
+          },
+          {
+            "id": "m2",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid sequence, measure shell-rule",
+              "source": "sequenceDiagram\n  participant Customer as Customer on the web app\n  participant API as Checkout API service\n  participant Gateway as Payment gateway provider\n  Customer->>API: POST /checkout with the basket and the address\n  API->>Gateway: authorize the payment for the full amount\n  Gateway-->>API: authorized, with a transaction reference\n  API-->>Customer: order confirmed, with the order number\n  Note over API,Gateway: the order is created only after the authorization",
+              "measure": "shell-rule"
+            }
+          },
+          {
+            "id": "m3",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid sequence, measure cssom",
+              "source": "sequenceDiagram\n  participant Customer as Customer on the web app\n  participant API as Checkout API service\n  participant Gateway as Payment gateway provider\n  Customer->>API: POST /checkout with the basket and the address\n  API->>Gateway: authorize the payment for the full amount\n  Gateway-->>API: authorized, with a transaction reference\n  API-->>Customer: order confirmed, with the order number\n  Note over API,Gateway: the order is created only after the authorization",
+              "measure": "cssom"
+            }
+          },
+          {
+            "id": "m4",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid sequence, measure config",
+              "source": "sequenceDiagram\n  participant Customer as Customer on the web app\n  participant API as Checkout API service\n  participant Gateway as Payment gateway provider\n  Customer->>API: POST /checkout with the basket and the address\n  API->>Gateway: authorize the payment for the full amount\n  Gateway-->>API: authorized, with a transaction reference\n  API-->>Customer: order confirmed, with the order number\n  Note over API,Gateway: the order is created only after the authorization",
+              "measure": "config"
+            }
+          },
+          {
+            "id": "m5",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid sequence, measure shim",
+              "source": "sequenceDiagram\n  participant Customer as Customer on the web app\n  participant API as Checkout API service\n  participant Gateway as Payment gateway provider\n  Customer->>API: POST /checkout with the basket and the address\n  API->>Gateway: authorize the payment for the full amount\n  Gateway-->>API: authorized, with a transaction reference\n  API-->>Customer: order confirmed, with the order number\n  Note over API,Gateway: the order is created only after the authorization",
+              "measure": "none",
+              "probe": {
+                "shim": true
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=m5] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "m1",
+    "m2",
+    "m3",
+    "m4",
+    "m5"
+  ]
+}

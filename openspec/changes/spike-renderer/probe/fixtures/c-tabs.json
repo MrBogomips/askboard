@@ -1,0 +1,45 @@
+{
+  "description": "Radix Tabs",
+  "board": {
+    "id": "c-tabs",
+    "title": "Radix Tabs",
+    "items": [
+      {
+        "id": "tb1",
+        "type": "Tabs",
+        "props": {
+          "label": "Views",
+          "tabs": [
+            "Summary",
+            "Detail"
+          ]
+        },
+        "children": [
+          {
+            "id": "tb1a",
+            "type": "Text",
+            "props": {
+              "text": "Summary panel"
+            }
+          },
+          {
+            "id": "tb1b",
+            "type": "Text",
+            "props": {
+              "text": "Detail panel"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[role=tab]:has-text('Detail')"
+    }
+  ],
+  "expectDraft": {
+    "ui:tb1": "1"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "description": "ext-apps App in the view, AppBridge on the board page",
+  "board": {
+    "id": "c-app",
+    "title": "ext-apps App in the view, AppBridge on the board page",
+    "items": [
+      {
+        "id": "ap1",
+        "type": "AppChannel"
+      }
+    ]
+  },
+  "bridge": true,
+  "actions": [
+    {
+      "do": "click",
+      "selector": "[data-item-id=ap1] button"
+    }
+  ],
+  "expectDraft": {
+    "ui:ap1": {
+      "connected": true,
+      "host": "askboard-board-stand-in",
+      "sent": true
+    }
+  },
+  "expectBridge": [
+    "ui/notifications/initialized",
+    "ui/update-model-context"
+  ]
+}

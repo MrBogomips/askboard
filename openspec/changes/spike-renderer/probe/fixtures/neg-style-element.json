@@ -1,0 +1,22 @@
+{
+  "description": "Negative probe: A <style> element injected at run time.",
+  "board": {
+    "id": "neg-style-element",
+    "title": "neg-style-element",
+    "items": [
+      {
+        "id": "p1",
+        "type": "NegStyleElement"
+      }
+    ]
+  },
+  "negative": [
+    {
+      "kind": "violation",
+      "directives": [
+        "style-src-elem",
+        "style-src"
+      ]
+    }
+  ]
+}

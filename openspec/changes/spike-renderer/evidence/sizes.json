@@ -1,0 +1,2900 @@
+{
+  "date": "2026-10-29T23:37:14.136Z",
+  "bun": "1.4.4",
+  "manifest": {
+    "builtAt": "2026-10-29T23:31:16.530Z",
+    "file": "probe/dist/manifest.json"
+  },
+  "variants": {
+    "catch-all": {
+      "env": {
+        "PROBE_CATCH_ALL_RESOLVE": "1"
+      },
+      "builtAt": "2026-10-29T23:36:58.636Z"
+    },
+    "copy": {
+      "env": {
+        "PROBE_COPY_LIBRARIES": "1"
+      },
+      "builtAt": "2026-10-29T23:37:02.647Z"
+    },
+    "trim": {
+      "env": {
+        "PROBE_SHIKI_LANGS": "typescript,tsx,javascript,jsx,json,markdown,yaml,toml,css,html,shellscript,python,go,rust,java,sql,diff"
+      },
+      "builtAt": "2026-10-29T23:37:06.361Z"
+    },
+    "plain": {
+      "env": {
+        "PROBE_SHIKI_LANGS": ""
+      },
+      "builtAt": "2026-10-29T23:37:09.995Z"
+    }
+  },
+  "renders": "snapshot-renders",
+  "note": "srcdoc and Snapshot files without the probe's instrumentation; gzip at level 9 of the whole file",
+  "boards": [
+    {
+      "board": "golden",
+      "items": 6,
+      "main": {
+        "srcdoc": {
+          "raw": 5044979,
+          "gzip": 1789603,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 5044979,
+          "gzip": 1789603,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 429393,
+          "gzip": 129730,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diagram-svg",
+            "group",
+            "row",
+            "text",
+            "text-field"
+          ]
+        }
+      },
+      "catch-all": {
+        "srcdoc": {
+          "raw": 5045031,
+          "gzip": 1789637,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 5045031,
+          "gzip": 1789637,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 429445,
+          "gzip": 129758,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diagram-svg",
+            "group",
+            "row",
+            "text",
+            "text-field"
+          ]
+        }
+      },
+      "copy": {
+        "srcdoc": {
+          "raw": 4935506,
+          "gzip": 1753829,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 4935506,
+          "gzip": 1753829,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 319920,
+          "gzip": 94637,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "diagram-svg",
+            "group",
+            "row",
+            "text",
+            "text-field"
+          ]
+        }
+      },
+      "trim": {
+        "srcdoc": {
+          "raw": 5044979,
+          "gzip": 1789603,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 5044979,
+          "gzip": 1789603,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 429393,
+          "gzip": 129730,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diagram-svg",
+            "group",
+            "row",
+            "text",
+            "text-field"
+          ]
+        }
+      },
+      "plain": {
+        "srcdoc": {
+          "raw": 5044979,
+          "gzip": 1789603,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 5044979,
+          "gzip": 1789603,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 429393,
+          "gzip": 129730,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diagram-svg",
+            "group",
+            "row",
+            "text",
+            "text-field"
+          ]
+        }
+      }
+    },
+    {
+      "board": "golden-smetana",
+      "items": 6,
+      "main": {
+        "srcdoc": {
+          "raw": 3587156,
+          "gzip": 1177296,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 3587156,
+          "gzip": 1177296,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": "not measured: no --renders run"
+      },
+      "catch-all": {
+        "srcdoc": {
+          "raw": 3587208,
+          "gzip": 1177341,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 3587208,
+          "gzip": 1177341,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": "not measured: no --renders run"
+      },
+      "copy": {
+        "srcdoc": {
+          "raw": 3477683,
+          "gzip": 1141798,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 3477683,
+          "gzip": 1141798,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": "not measured: no --renders run"
+      },
+      "trim": {
+        "srcdoc": {
+          "raw": 3587156,
+          "gzip": 1177296,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 3587156,
+          "gzip": 1177296,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": "not measured: no --renders run"
+      },
+      "plain": {
+        "srcdoc": {
+          "raw": 3587156,
+          "gzip": 1177296,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 3587156,
+          "gzip": 1177296,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "group",
+            "plantuml-smetana",
+            "row",
+            "text",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": "not measured: no --renders run"
+      }
+    },
+    {
+      "board": "size-uj1",
+      "items": 8,
+      "main": {
+        "srcdoc": {
+          "raw": 12269536,
+          "gzip": 2318676,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 12269536,
+          "gzip": 2318676,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 12269536,
+          "gzip": 2318676,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        }
+      },
+      "catch-all": {
+        "srcdoc": {
+          "raw": 12405570,
+          "gzip": 2355779,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 12405570,
+          "gzip": 2355779,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 12405570,
+          "gzip": 2355779,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        }
+      },
+      "copy": {
+        "srcdoc": {
+          "raw": 12160063,
+          "gzip": 2283808,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 12160063,
+          "gzip": 2283808,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 12160063,
+          "gzip": 2283808,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        }
+      },
+      "trim": {
+        "srcdoc": {
+          "raw": 2430465,
+          "gzip": 537102,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 2430465,
+          "gzip": 537102,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 2430465,
+          "gzip": 537102,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        }
+      },
+      "plain": {
+        "srcdoc": {
+          "raw": 1302175,
+          "gzip": 406461,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 1302175,
+          "gzip": 406461,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 1302175,
+          "gzip": 406461,
+          "chunks": [
+            "shell",
+            "lib-radix",
+            "renderer-own",
+            "choice",
+            "diff-review",
+            "graph",
+            "group",
+            "markdown",
+            "row",
+            "text-field"
+          ]
+        }
+      }
+    },
+    {
+      "board": "size-all",
+      "items": 40,
+      "main": {
+        "srcdoc": {
+          "raw": 23519941,
+          "gzip": 6180832,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 23519941,
+          "gzip": 6180832,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 15142527,
+          "gzip": 3484794,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "diagram-svg",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "number-field",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        }
+      },
+      "catch-all": {
+        "srcdoc": {
+          "raw": 24517955,
+          "gzip": 6496927,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 24517955,
+          "gzip": 6496927,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 15985520,
+          "gzip": 3748587,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "diagram-svg",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "number-field",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        }
+      },
+      "copy": {
+        "srcdoc": {
+          "raw": 23745730,
+          "gzip": 6256029,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 23745730,
+          "gzip": 6256029,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 15368316,
+          "gzip": 3560464,
+          "chunks": [
+            "shell",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "diagram-svg",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "number-field",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        }
+      },
+      "trim": {
+        "srcdoc": {
+          "raw": 13680870,
+          "gzip": 4397811,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 13680870,
+          "gzip": 4397811,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 5303456,
+          "gzip": 1703089,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "diagram-svg",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "number-field",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        }
+      },
+      "plain": {
+        "srcdoc": {
+          "raw": 12552580,
+          "gzip": 4267123,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotChunks": {
+          "raw": 12552580,
+          "gzip": 4267123,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "mermaid",
+            "number-field",
+            "plantuml",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        },
+        "snapshotRenders": {
+          "raw": 4175166,
+          "gzip": 1572735,
+          "chunks": [
+            "shell",
+            "lib-dnd",
+            "lib-radix",
+            "lib-table",
+            "renderer-own",
+            "chart",
+            "choice",
+            "date-picker",
+            "diagram-svg",
+            "dialog",
+            "diff-review",
+            "form",
+            "graph",
+            "group",
+            "kanban",
+            "markdown",
+            "math",
+            "mathlive",
+            "number-field",
+            "ranking",
+            "row",
+            "slider",
+            "stack",
+            "table",
+            "tabs",
+            "text",
+            "text-field",
+            "toggle",
+            "toggle-group",
+            "value"
+          ]
+        }
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "name": "shell",
+      "kind": "shell",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 228537,
+        "gzip": 71346
+      },
+      "style": {
+        "raw": 7216,
+        "gzip": 2507
+      },
+      "total": {
+        "raw": 235753,
+        "gzip": 73853
+      },
+      "before": {
+        "raw": 235753,
+        "gzip": 73853
+      },
+      "largestPackages": [
+        {
+          "name": "react-dom",
+          "version": "19.3.1",
+          "bytesInOutput": 210473
+        },
+        {
+          "name": "react",
+          "version": "19.3.1",
+          "bytesInOutput": 8417
+        },
+        {
+          "name": "scheduler",
+          "version": "0.28.0",
+          "bytesInOutput": 3709
+        }
+      ]
+    },
+    {
+      "name": "lib-radix",
+      "kind": "library",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 145266,
+        "gzip": 47208
+      },
+      "style": null,
+      "total": {
+        "raw": 145266,
+        "gzip": 47208
+      },
+      "before": {
+        "raw": 145318,
+        "gzip": 47238
+      },
+      "largestPackages": [
+        {
+          "name": "@radix-ui/react-select",
+          "version": "2.4.1",
+          "bytesInOutput": 20742
+        },
+        {
+          "name": "@radix-ui/react-slider",
+          "version": "1.6.1",
+          "bytesInOutput": 10670
+        },
+        {
+          "name": "@radix-ui/react-collection",
+          "version": "1.2.0",
+          "bytesInOutput": 8565
+        },
+        {
+          "name": "@floating-ui/core",
+          "version": "1.8.0",
+          "bytesInOutput": 8020
+        }
+      ]
+    },
+    {
+      "name": "lib-table",
+      "kind": "library",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 41185,
+        "gzip": 13162
+      },
+      "style": null,
+      "total": {
+        "raw": 41185,
+        "gzip": 13162
+      },
+      "before": {
+        "raw": 41197,
+        "gzip": 13181
+      },
+      "largestPackages": [
+        {
+          "name": "@tanstack/table-core",
+          "version": "9.3.1",
+          "bytesInOutput": 31953
+        },
+        {
+          "name": "@tanstack/store",
+          "version": "0.11.2",
+          "bytesInOutput": 4573
+        },
+        {
+          "name": "use-sync-external-store",
+          "version": "1.7.0",
+          "bytesInOutput": 1664
+        },
+        {
+          "name": "@tanstack/react-table",
+          "version": "9.3.1",
+          "bytesInOutput": 1564
+        }
+      ]
+    },
+    {
+      "name": "lib-dnd",
+      "kind": "library",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 22880,
+        "gzip": 7123
+      },
+      "style": null,
+      "total": {
+        "raw": 22880,
+        "gzip": 7123
+      },
+      "before": {
+        "raw": 22880,
+        "gzip": 7123
+      },
+      "largestPackages": [
+        {
+          "name": "@atlaskit/pragmatic-drag-and-drop",
+          "version": "4.0.0",
+          "bytesInOutput": 18386
+        },
+        {
+          "name": "@babel/runtime",
+          "version": "7.29.10",
+          "bytesInOutput": 2085
+        },
+        {
+          "name": "bind-event-listener",
+          "version": "3.0.0",
+          "bytesInOutput": 1179
+        },
+        {
+          "name": "raf-schd",
+          "version": "4.0.3",
+          "bytesInOutput": 276
+        }
+      ]
+    },
+    {
+      "name": "renderer-json-render",
+      "kind": "renderer",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 159692,
+        "gzip": 47007
+      },
+      "style": null,
+      "total": {
+        "raw": 159692,
+        "gzip": 47007
+      },
+      "before": {
+        "raw": 194933,
+        "gzip": 56347
+      },
+      "largestPackages": [
+        {
+          "name": "zod",
+          "version": "4.6.7",
+          "bytesInOutput": 95422
+        },
+        {
+          "name": "@json-render/core",
+          "version": "0.21.3",
+          "bytesInOutput": 40233
+        },
+        {
+          "name": "@json-render/react",
+          "version": "0.21.3",
+          "bytesInOutput": 21707
+        }
+      ]
+    },
+    {
+      "name": "renderer-own",
+      "kind": "renderer",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 1476,
+        "gzip": 765
+      },
+      "style": null,
+      "total": {
+        "raw": 1476,
+        "gzip": 765
+      },
+      "before": {
+        "raw": 1476,
+        "gzip": 765
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "renderer-json-render-jitless",
+      "kind": "renderer",
+      "probeOnly": false,
+      "usedBy": [],
+      "script": {
+        "raw": 159717,
+        "gzip": 47019
+      },
+      "style": null,
+      "total": {
+        "raw": 159717,
+        "gzip": 47019
+      },
+      "before": {
+        "raw": 194962,
+        "gzip": 56366
+      },
+      "largestPackages": [
+        {
+          "name": "zod",
+          "version": "4.6.7",
+          "bytesInOutput": 95422
+        },
+        {
+          "name": "@json-render/core",
+          "version": "0.21.3",
+          "bytesInOutput": 40233
+        },
+        {
+          "name": "@json-render/react",
+          "version": "0.21.3",
+          "bytesInOutput": 21707
+        }
+      ]
+    },
+    {
+      "name": "group",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 1128,
+        "gzip": 645
+      },
+      "style": {
+        "raw": 1539,
+        "gzip": 656
+      },
+      "total": {
+        "raw": 2667,
+        "gzip": 1301
+      },
+      "before": {
+        "raw": 2667,
+        "gzip": 1301
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "diagram-svg",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [],
+      "script": {
+        "raw": 5023,
+        "gzip": 2411
+      },
+      "style": {
+        "raw": 2100,
+        "gzip": 879
+      },
+      "total": {
+        "raw": 7123,
+        "gzip": 3290
+      },
+      "before": {
+        "raw": 7123,
+        "gzip": 3290
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "kanban",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 3191,
+        "gzip": 1537
+      },
+      "style": {
+        "raw": 1724,
+        "gzip": 715
+      },
+      "total": {
+        "raw": 4915,
+        "gzip": 2252
+      },
+      "before": {
+        "raw": 4915,
+        "gzip": 2252
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "app-channel-jitless",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [],
+      "script": {
+        "raw": 312766,
+        "gzip": 83076
+      },
+      "style": {
+        "raw": 927,
+        "gzip": 498
+      },
+      "total": {
+        "raw": 313693,
+        "gzip": 83574
+      },
+      "before": {
+        "raw": 353456,
+        "gzip": 95055
+      },
+      "largestPackages": [
+        {
+          "name": "@modelcontextprotocol/client",
+          "version": "2.4.0",
+          "bytesInOutput": 163992
+        },
+        {
+          "name": "zod",
+          "version": "4.6.7",
+          "bytesInOutput": 101475
+        },
+        {
+          "name": "@modelcontextprotocol/ext-apps",
+          "version": "2.0.4",
+          "bytesInOutput": 28500
+        },
+        {
+          "name": "@modelcontextprotocol/core",
+          "version": "2.4.0",
+          "bytesInOutput": 16569
+        }
+      ]
+    },
+    {
+      "name": "tailwind",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 1842,
+        "gzip": 837
+      },
+      "style": {
+        "raw": 1600,
+        "gzip": 742
+      },
+      "total": {
+        "raw": 3442,
+        "gzip": 1579
+      },
+      "before": {
+        "raw": 3442,
+        "gzip": 1579
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "tabs",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 1824,
+        "gzip": 909
+      },
+      "style": {
+        "raw": 2025,
+        "gzip": 759
+      },
+      "total": {
+        "raw": 3849,
+        "gzip": 1668
+      },
+      "before": {
+        "raw": 3849,
+        "gzip": 1668
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "ranking",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 2813,
+        "gzip": 1366
+      },
+      "style": {
+        "raw": 1536,
+        "gzip": 678
+      },
+      "total": {
+        "raw": 4349,
+        "gzip": 2044
+      },
+      "before": {
+        "raw": 4349,
+        "gzip": 2044
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "slider",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 2056,
+        "gzip": 1032
+      },
+      "style": {
+        "raw": 1962,
+        "gzip": 812
+      },
+      "total": {
+        "raw": 4018,
+        "gzip": 1844
+      },
+      "before": {
+        "raw": 4018,
+        "gzip": 1844
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "popover",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [],
+      "script": {
+        "raw": 2444,
+        "gzip": 1160
+      },
+      "style": {
+        "raw": 3439,
+        "gzip": 996
+      },
+      "total": {
+        "raw": 5883,
+        "gzip": 2156
+      },
+      "before": {
+        "raw": 5883,
+        "gzip": 2156
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "text-field",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 1455,
+        "gzip": 804
+      },
+      "style": {
+        "raw": 1387,
+        "gzip": 632
+      },
+      "total": {
+        "raw": 2842,
+        "gzip": 1436
+      },
+      "before": {
+        "raw": 2842,
+        "gzip": 1436
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "diff-review",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 11480812,
+        "gzip": 2060577
+      },
+      "style": {
+        "raw": 3120,
+        "gzip": 922
+      },
+      "total": {
+        "raw": 11483932,
+        "gzip": 2061499
+      },
+      "before": {
+        "raw": 11607925,
+        "gzip": 2092935
+      },
+      "largestPackages": [
+        {
+          "name": "@shikijs/langs",
+          "version": "4.5.0",
+          "bytesInOutput": 7991212
+        },
+        {
+          "name": "@shikijs/themes",
+          "version": "4.5.0",
+          "bytesInOutput": 1333572
+        },
+        {
+          "name": "@pierre/highlights",
+          "version": "0.3.0",
+          "bytesInOutput": 650847
+        },
+        {
+          "name": "@shikijs/engine-oniguruma",
+          "version": "4.5.0",
+          "bytesInOutput": 629400
+        }
+      ]
+    },
+    {
+      "name": "date-picker",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 73298,
+        "gzip": 21601
+      },
+      "style": {
+        "raw": 17122,
+        "gzip": 2725
+      },
+      "total": {
+        "raw": 90420,
+        "gzip": 24326
+      },
+      "before": {
+        "raw": 90420,
+        "gzip": 24329
+      },
+      "largestPackages": [
+        {
+          "name": "react-day-picker",
+          "version": "10.0.2",
+          "bytesInOutput": 56650
+        },
+        {
+          "name": "date-fns",
+          "version": "4.4.0",
+          "bytesInOutput": 23098
+        },
+        {
+          "name": "@date-fns/tz",
+          "version": "1.5.0",
+          "bytesInOutput": 4928
+        }
+      ]
+    },
+    {
+      "name": "markdown",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 134927,
+        "gzip": 54548
+      },
+      "style": {
+        "raw": 1408,
+        "gzip": 640
+      },
+      "total": {
+        "raw": 136335,
+        "gzip": 55188
+      },
+      "before": {
+        "raw": 148324,
+        "gzip": 60735
+      },
+      "largestPackages": [
+        {
+          "name": "markdown-it",
+          "version": "15.0.3",
+          "bytesInOutput": 53074
+        },
+        {
+          "name": "dompurify",
+          "version": "3.4.17",
+          "bytesInOutput": 31899
+        },
+        {
+          "name": "entities",
+          "version": "8.1.0",
+          "bytesInOutput": 23922
+        },
+        {
+          "name": "linkify-it",
+          "version": "6.1.0",
+          "bytesInOutput": 11605
+        }
+      ]
+    },
+    {
+      "name": "chart",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 505678,
+        "gzip": 170793
+      },
+      "style": {
+        "raw": 1470,
+        "gzip": 671
+      },
+      "total": {
+        "raw": 507148,
+        "gzip": 171464
+      },
+      "before": {
+        "raw": 1075115,
+        "gzip": 355635
+      },
+      "largestPackages": [
+        {
+          "name": "echarts",
+          "version": "6.1.0",
+          "bytesInOutput": 322790
+        },
+        {
+          "name": "zrender",
+          "version": "6.1.0",
+          "bytesInOutput": 179222
+        },
+        {
+          "name": "tslib",
+          "version": "2.3.0",
+          "bytesInOutput": 1260
+        }
+      ]
+    },
+    {
+      "name": "value",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 1288,
+        "gzip": 722
+      },
+      "style": {
+        "raw": 1657,
+        "gzip": 702
+      },
+      "total": {
+        "raw": 2945,
+        "gzip": 1424
+      },
+      "before": {
+        "raw": 2945,
+        "gzip": 1424
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "probe-items",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 1821,
+        "gzip": 882
+      },
+      "style": {
+        "raw": 1530,
+        "gzip": 652
+      },
+      "total": {
+        "raw": 3351,
+        "gzip": 1534
+      },
+      "before": {
+        "raw": 3351,
+        "gzip": 1534
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "scroll-lock",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [],
+      "script": {
+        "raw": 777,
+        "gzip": 473
+      },
+      "style": {
+        "raw": 80,
+        "gzip": 92
+      },
+      "total": {
+        "raw": 857,
+        "gzip": 565
+      },
+      "before": {
+        "raw": 857,
+        "gzip": 565
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "pattern",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 2732,
+        "gzip": 1410
+      },
+      "style": {
+        "raw": 254,
+        "gzip": 194
+      },
+      "total": {
+        "raw": 2986,
+        "gzip": 1604
+      },
+      "before": {
+        "raw": 2986,
+        "gzip": 1604
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "plantuml-smetana",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden-smetana"
+      ],
+      "script": {
+        "raw": 3185812,
+        "gzip": 1052168
+      },
+      "style": {
+        "raw": 2100,
+        "gzip": 879
+      },
+      "total": {
+        "raw": 3187912,
+        "gzip": 1053047
+      },
+      "before": {
+        "raw": 3187912,
+        "gzip": 1053047
+      },
+      "largestPackages": [
+        {
+          "name": "@plantuml/core",
+          "version": "1.2026.9",
+          "bytesInOutput": 3176557
+        }
+      ]
+    },
+    {
+      "name": "neg-chunk",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 939,
+        "gzip": 553
+      },
+      "style": {
+        "raw": 273,
+        "gzip": 208
+      },
+      "total": {
+        "raw": 1212,
+        "gzip": 761
+      },
+      "before": {
+        "raw": 1212,
+        "gzip": 761
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "mermaid",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 3800778,
+        "gzip": 1039692
+      },
+      "style": {
+        "raw": 2387,
+        "gzip": 947
+      },
+      "total": {
+        "raw": 3803165,
+        "gzip": 1040639
+      },
+      "before": {
+        "raw": 3958186,
+        "gzip": 1094809
+      },
+      "largestPackages": [
+        {
+          "name": "mermaid",
+          "version": "12.2.0",
+          "bytesInOutput": 1711961
+        },
+        {
+          "name": "@mermaid-js/parser",
+          "version": "2.0.1",
+          "bytesInOutput": 661537
+        },
+        {
+          "name": "cytoscape",
+          "version": "3.34.4",
+          "bytesInOutput": 455191
+        },
+        {
+          "name": "katex",
+          "version": "0.18.10",
+          "bytesInOutput": 278393
+        }
+      ]
+    },
+    {
+      "name": "stack",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 928,
+        "gzip": 544
+      },
+      "style": {
+        "raw": 237,
+        "gzip": 198
+      },
+      "total": {
+        "raw": 1165,
+        "gzip": 742
+      },
+      "before": {
+        "raw": 1165,
+        "gzip": 742
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "toggle-group",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 1561,
+        "gzip": 822
+      },
+      "style": {
+        "raw": 1738,
+        "gzip": 714
+      },
+      "total": {
+        "raw": 3299,
+        "gzip": 1536
+      },
+      "before": {
+        "raw": 3299,
+        "gzip": 1536
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "graph",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 234114,
+        "gzip": 77175
+      },
+      "style": {
+        "raw": 17511,
+        "gzip": 3137
+      },
+      "total": {
+        "raw": 251625,
+        "gzip": 80312
+      },
+      "before": {
+        "raw": 251625,
+        "gzip": 80335
+      },
+      "largestPackages": [
+        {
+          "name": "@xyflow/react",
+          "version": "12.12.0",
+          "bytesInOutput": 96443
+        },
+        {
+          "name": "@dagrejs/dagre",
+          "version": "3.1.3",
+          "bytesInOutput": 49149
+        },
+        {
+          "name": "@xyflow/system",
+          "version": "0.0.83",
+          "bytesInOutput": 45942
+        },
+        {
+          "name": "d3-selection",
+          "version": "3.0.0",
+          "bytesInOutput": 12754
+        }
+      ]
+    },
+    {
+      "name": "mathlive",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 827308,
+        "gzip": 227011
+      },
+      "style": {
+        "raw": 352196,
+        "gzip": 268892
+      },
+      "total": {
+        "raw": 1179504,
+        "gzip": 495903
+      },
+      "before": {
+        "raw": 1179504,
+        "gzip": 495903
+      },
+      "largestPackages": [
+        {
+          "name": "mathlive",
+          "version": "0.111.1",
+          "bytesInOutput": 1172997
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 1218,
+        "gzip": 672
+      },
+      "style": {
+        "raw": 277,
+        "gzip": 217
+      },
+      "total": {
+        "raw": 1495,
+        "gzip": 889
+      },
+      "before": {
+        "raw": 1495,
+        "gzip": 889
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "math",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 276609,
+        "gzip": 78642
+      },
+      "style": {
+        "raw": 369894,
+        "gzip": 271721
+      },
+      "total": {
+        "raw": 646503,
+        "gzip": 350363
+      },
+      "before": {
+        "raw": 646503,
+        "gzip": 350363
+      },
+      "largestPackages": [
+        {
+          "name": "katex",
+          "version": "0.19.1",
+          "bytesInOutput": 643255
+        }
+      ]
+    },
+    {
+      "name": "form-ajv",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 392988,
+        "gzip": 129000
+      },
+      "style": {
+        "raw": 3782,
+        "gzip": 1111
+      },
+      "total": {
+        "raw": 396770,
+        "gzip": 130111
+      },
+      "before": {
+        "raw": 396800,
+        "gzip": 130103
+      },
+      "largestPackages": [
+        {
+          "name": "ajv",
+          "version": "8.20.0",
+          "bytesInOutput": 103550
+        },
+        {
+          "name": "markdown-to-jsx",
+          "version": "9.10.4",
+          "bytesInOutput": 78632
+        },
+        {
+          "name": "@rjsf/core",
+          "version": "6.11.0",
+          "bytesInOutput": 72853
+        },
+        {
+          "name": "@rjsf/utils",
+          "version": "6.11.0",
+          "bytesInOutput": 50964
+        }
+      ]
+    },
+    {
+      "name": "plantuml",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "size-all"
+      ],
+      "script": {
+        "raw": 4643642,
+        "gzip": 1664453
+      },
+      "style": {
+        "raw": 2100,
+        "gzip": 879
+      },
+      "total": {
+        "raw": 4645742,
+        "gzip": 1665332
+      },
+      "before": {
+        "raw": 4645742,
+        "gzip": 1665332
+      },
+      "largestPackages": [
+        {
+          "name": "@plantuml/core",
+          "version": "1.2026.9",
+          "bytesInOutput": 4625735
+        }
+      ]
+    },
+    {
+      "name": "dialog",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 3981,
+        "gzip": 1523
+      },
+      "style": {
+        "raw": 4377,
+        "gzip": 1208
+      },
+      "total": {
+        "raw": 8358,
+        "gzip": 2731
+      },
+      "before": {
+        "raw": 8358,
+        "gzip": 2731
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "choice",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-uj1",
+        "size-all"
+      ],
+      "script": {
+        "raw": 2594,
+        "gzip": 1113
+      },
+      "style": {
+        "raw": 1873,
+        "gzip": 781
+      },
+      "total": {
+        "raw": 4467,
+        "gzip": 1894
+      },
+      "before": {
+        "raw": 4467,
+        "gzip": 1894
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "negative",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 2606,
+        "gzip": 1238
+      },
+      "style": {
+        "raw": 252,
+        "gzip": 194
+      },
+      "total": {
+        "raw": 2858,
+        "gzip": 1432
+      },
+      "before": {
+        "raw": 2858,
+        "gzip": 1432
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "number-field",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 1816,
+        "gzip": 960
+      },
+      "style": {
+        "raw": 1557,
+        "gzip": 671
+      },
+      "total": {
+        "raw": 3373,
+        "gzip": 1631
+      },
+      "before": {
+        "raw": 3373,
+        "gzip": 1631
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "table",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 4568,
+        "gzip": 1732
+      },
+      "style": {
+        "raw": 1966,
+        "gzip": 760
+      },
+      "total": {
+        "raw": 6534,
+        "gzip": 2492
+      },
+      "before": {
+        "raw": 6534,
+        "gzip": 2492
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "toggle",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 1538,
+        "gzip": 847
+      },
+      "style": {
+        "raw": 2571,
+        "gzip": 932
+      },
+      "total": {
+        "raw": 4109,
+        "gzip": 1779
+      },
+      "before": {
+        "raw": 4109,
+        "gzip": 1779
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "text",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "golden",
+        "golden-smetana",
+        "size-all"
+      ],
+      "script": {
+        "raw": 986,
+        "gzip": 574
+      },
+      "style": {
+        "raw": 1387,
+        "gzip": 632
+      },
+      "total": {
+        "raw": 2373,
+        "gzip": 1206
+      },
+      "before": {
+        "raw": 2373,
+        "gzip": 1206
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "select",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [],
+      "script": {
+        "raw": 3231,
+        "gzip": 1443
+      },
+      "style": {
+        "raw": 3545,
+        "gzip": 1041
+      },
+      "total": {
+        "raw": 6776,
+        "gzip": 2484
+      },
+      "before": {
+        "raw": 6776,
+        "gzip": 2484
+      },
+      "largestPackages": []
+    },
+    {
+      "name": "app-channel",
+      "kind": "component",
+      "probeOnly": true,
+      "usedBy": [],
+      "script": {
+        "raw": 312742,
+        "gzip": 82981
+      },
+      "style": {
+        "raw": 927,
+        "gzip": 498
+      },
+      "total": {
+        "raw": 313669,
+        "gzip": 83479
+      },
+      "before": {
+        "raw": 353432,
+        "gzip": 94964
+      },
+      "largestPackages": [
+        {
+          "name": "@modelcontextprotocol/client",
+          "version": "2.4.0",
+          "bytesInOutput": 163992
+        },
+        {
+          "name": "zod",
+          "version": "4.6.7",
+          "bytesInOutput": 101475
+        },
+        {
+          "name": "@modelcontextprotocol/ext-apps",
+          "version": "2.0.4",
+          "bytesInOutput": 28500
+        },
+        {
+          "name": "@modelcontextprotocol/core",
+          "version": "2.4.0",
+          "bytesInOutput": 16569
+        }
+      ]
+    },
+    {
+      "name": "form",
+      "kind": "component",
+      "probeOnly": false,
+      "usedBy": [
+        "size-all"
+      ],
+      "script": {
+        "raw": 254166,
+        "gzip": 86627
+      },
+      "style": {
+        "raw": 3782,
+        "gzip": 1111
+      },
+      "total": {
+        "raw": 257948,
+        "gzip": 87738
+      },
+      "before": {
+        "raw": 396928,
+        "gzip": 130173
+      },
+      "largestPackages": [
+        {
+          "name": "markdown-to-jsx",
+          "version": "9.10.4",
+          "bytesInOutput": 78544
+        },
+        {
+          "name": "@rjsf/core",
+          "version": "6.11.0",
+          "bytesInOutput": 72703
+        },
+        {
+          "name": "@rjsf/utils",
+          "version": "6.11.0",
+          "bytesInOutput": 50102
+        },
+        {
+          "name": "fast-uri",
+          "version": "4.2.3",
+          "bytesInOutput": 24133
+        }
+      ]
+    }
+  ],
+  "libraries": [
+    {
+      "library": "lib-radix",
+      "shared": {
+        "raw": 145266,
+        "gzip": 47208
+      },
+      "users": [
+        {
+          "chunk": "tabs",
+          "copy": 28203
+        },
+        {
+          "chunk": "slider",
+          "copy": 29398
+        },
+        {
+          "chunk": "popover",
+          "copy": 70102
+        },
+        {
+          "chunk": "date-picker",
+          "copy": 70010
+        },
+        {
+          "chunk": "toggle-group",
+          "copy": 25947
+        },
+        {
+          "chunk": "dialog",
+          "copy": 44322
+        },
+        {
+          "chunk": "choice",
+          "copy": 35865
+        },
+        {
+          "chunk": "toggle",
+          "copy": 13643
+        },
+        {
+          "chunk": "select",
+          "copy": 91541
+        },
+        {
+          "chunk": "form",
+          "copy": 104749
+        }
+      ],
+      "copiesTotal": 513780
+    },
+    {
+      "library": "lib-table",
+      "shared": {
+        "raw": 41185,
+        "gzip": 13162
+      },
+      "users": [
+        {
+          "chunk": "table",
+          "copy": 40164
+        }
+      ],
+      "copiesTotal": 40164
+    },
+    {
+      "library": "lib-dnd",
+      "shared": {
+        "raw": 22880,
+        "gzip": 7123
+      },
+      "users": [
+        {
+          "chunk": "kanban",
+          "copy": 21494
+        },
+        {
+          "chunk": "ranking",
+          "copy": 21541
+        }
+      ],
+      "copiesTotal": 43035
+    }
+  ],
+  "fonts": {
+    "inlined": [
+      {
+        "chunk": "mathlive",
+        "faces": 20,
+        "fonts": {
+          "raw": 346972,
+          "gzip": 267241
+        },
+        "style": {
+          "raw": 352196,
+          "gzip": 268892
+        }
+      },
+      {
+        "chunk": "math",
+        "faces": 20,
+        "fonts": {
+          "raw": 346972,
+          "gzip": 267213
+        },
+        "style": {
+          "raw": 369894,
+          "gzip": 271721
+        }
+      }
+    ],
+    "design": {
+      "packages": [
+        "@fontsource/inter@5.3.0",
+        "@fontsource/jetbrains-mono@5.3.0",
+        "@fontsource-variable/inter@5.3.0"
+      ],
+      "rows": [
+        {
+          "subsets": "latin",
+          "inter": "static 400, 500, 600",
+          "woff2": 93556,
+          "css": {
+            "raw": 126053,
+            "gzip": 96935
+          }
+        },
+        {
+          "subsets": "latin",
+          "inter": "variable (wght)",
+          "woff2": 69424,
+          "css": {
+            "raw": 93240,
+            "gzip": 71751
+          }
+        },
+        {
+          "subsets": "latin + latin-ext",
+          "inter": "static 400, 500, 600",
+          "woff2": 208176,
+          "css": {
+            "raw": 280298,
+            "gzip": 215987
+          }
+        },
+        {
+          "subsets": "latin + latin-ext",
+          "inter": "variable (wght)",
+          "woff2": 161828,
+          "css": {
+            "raw": 217172,
+            "gzip": 167522
+          }
+        },
+        {
+          "subsets": "every subset",
+          "inter": "static 400, 500, 600",
+          "woff2": 332496,
+          "css": {
+            "raw": 450722,
+            "gzip": 344540
+          }
+        },
+        {
+          "subsets": "every subset",
+          "inter": "variable (wght)",
+          "woff2": 261656,
+          "css": {
+            "raw": 352599,
+            "gzip": 270797
+          }
+        }
+      ]
+    }
+  },
+  "shims": {
+    "_style-shim.ts": {
+      "raw": 846,
+      "gzip": 405
+    },
+    "_markup-shim.ts": {
+      "raw": 1602,
+      "gzip": 712
+    }
+  }
+}

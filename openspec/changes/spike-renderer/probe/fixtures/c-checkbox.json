@@ -1,0 +1,47 @@
+{
+  "description": "Radix Checkbox (Choice, multiple)",
+  "board": {
+    "id": "c-checkbox",
+    "title": "Radix Checkbox (Choice, multiple)",
+    "items": [
+      {
+        "id": "c2",
+        "type": "Choice",
+        "props": {
+          "label": "Targets",
+          "multiple": true,
+          "options": [
+            {
+              "value": "a",
+              "label": "Alpha"
+            },
+            {
+              "value": "b",
+              "label": "Beta"
+            },
+            {
+              "value": "c",
+              "label": "Gamma"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "actions": [
+    {
+      "do": "click",
+      "selector": "label[for=c2-a]"
+    },
+    {
+      "do": "click",
+      "selector": "label[for=c2-c]"
+    }
+  ],
+  "expectDraft": {
+    "c2": [
+      "a",
+      "c"
+    ]
+  }
+}

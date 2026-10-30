@@ -1,0 +1,27 @@
+{
+  "description": "Mermaid sequence diagram with the style shim (criterion 1)",
+  "board": {
+    "id": "m1",
+    "title": "Mermaid sequence diagram with the style shim (criterion 1)",
+    "items": [
+      {
+        "id": "m1",
+        "type": "Mermaid",
+        "props": {
+          "label": "Mermaid diagram",
+          "source": "sequenceDiagram\n  participant Agent\n  participant Board\n  participant User\n  Agent->>Board: ask(question)\n  Board->>User: show question\n  User-->>Board: answer\n  Board-->>Agent: answer delivered\n  Note over Board,User: draft record holds edits",
+          "probe": {
+            "shim": true
+          }
+        }
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=m1] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "m1"
+  ]
+}

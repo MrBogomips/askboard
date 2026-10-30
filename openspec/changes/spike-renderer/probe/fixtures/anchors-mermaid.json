@@ -1,0 +1,119 @@
+{
+  "description": "The four Mermaid fixtures with their hit regions drawn, with the style shim (task 3.6)",
+  "board": {
+    "id": "anchors-mermaid",
+    "title": "Mermaid anchors",
+    "items": [
+      {
+        "id": "s1",
+        "type": "Stack",
+        "children": [
+          {
+            "id": "m1",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid flowchart",
+              "source": "flowchart LR\n  A[Agent asks] --> B{Board open?}\n  B -->|yes| C[Show question]\n  B -->|no| D[Open board]\n  D --> C\n  C --> E((Answer))",
+              "showHits": true,
+              "probe": {
+                "shim": true
+              }
+            }
+          },
+          {
+            "id": "m2",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid sequence",
+              "source": "sequenceDiagram\n  participant Agent\n  participant Board\n  participant User\n  Agent->>Board: ask(question)\n  Board->>User: show question\n  User-->>Board: answer\n  Board-->>Agent: answer delivered\n  Note over Board,User: draft record holds edits",
+              "showHits": true,
+              "probe": {
+                "shim": true
+              }
+            }
+          },
+          {
+            "id": "m3",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid class",
+              "source": "classDiagram\n  class Ask {\n    +String id\n    +send()\n  }\n  class Answer {\n    +String value\n  }\n  Ask \"1\" --> \"*\" Answer : receives\n  Ask <|-- FollowUp",
+              "showHits": true,
+              "probe": {
+                "shim": true
+              }
+            }
+          },
+          {
+            "id": "m4",
+            "type": "Mermaid",
+            "props": {
+              "label": "Mermaid state",
+              "source": "stateDiagram-v2\n  [*] --> Open\n  Open --> Answered : answer\n  Open --> Discarded : discard\n  Answered --> [*]\n  Discarded --> [*]",
+              "showHits": true,
+              "probe": {
+                "shim": true
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "check": {
+    "selector": "[data-item-id=m4] figure",
+    "text": ""
+  },
+  "expectDiagrams": [
+    "m1",
+    "m2",
+    "m3",
+    "m4"
+  ],
+  "expectAnchors": {
+    "m1": [
+      "node:id:A#1",
+      "node:id:B#1",
+      "node:id:C#1",
+      "node:id:D#1",
+      "node:id:E#1",
+      "edge:id:L_A_B_0#1",
+      "edge:id:L_B_C_0#1",
+      "edge:id:L_B_D_0#1",
+      "edge:id:L_D_C_0#1",
+      "edge:id:L_C_E_0#1"
+    ],
+    "m2": [
+      "participant:id:Agent#1",
+      "participant:id:Agent#2",
+      "participant:id:Board#1",
+      "participant:id:Board#2",
+      "participant:id:User#1",
+      "participant:id:User#2",
+      "message:label:ask(question)#1",
+      "message:label:show question#1",
+      "message:label:answer#1",
+      "message:label:answer delivered#1",
+      "note:label:draft record holds edits#1"
+    ],
+    "m3": [
+      "node:id:Ask#1",
+      "node:id:Answer#1",
+      "node:id:FollowUp#1",
+      "edge:id:id_Ask_Answer_1#1",
+      "edge:id:id_Ask_FollowUp_2#1"
+    ],
+    "m4": [
+      "node:id:root_start#1",
+      "node:id:Open#1",
+      "node:id:Answered#1",
+      "node:id:Discarded#1",
+      "node:id:root_end#1",
+      "edge:id:edge0#1",
+      "edge:id:edge1#1",
+      "edge:id:edge2#1",
+      "edge:id:edge3#1",
+      "edge:id:edge4#1"
+    ]
+  }
+}
