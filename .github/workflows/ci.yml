@@ -78,10 +78,11 @@ jobs:
           npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
           bun --version
       - run: bun install --frozen-lockfile
+      # Before the engines' download, so that a missing piece fails the job first.
+      - run: bun run build
       # The pinned playwright's own binary, so the engines match its version.
       - name: Install Chromium, Firefox and WebKit with their system dependencies
         run: node_modules/.bin/playwright install --with-deps chromium firefox webkit
-      - run: bun run build
       - name: Browser tests and conformance suite on Bun
         run: bun run test:e2e
       # Task 9.2: the integration session replaces this step with the conformance suite on Node 24.
