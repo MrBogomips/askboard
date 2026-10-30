@@ -171,6 +171,49 @@ describe("exit", () => {
     expect(written).toContain("askboard: closing the board listener failed: RangeError");
   });
 
+  test("a diagnostics writer that throws does not keep the process from exiting", async () => {
+    const { ports } = recordingPorts();
+    const proc = fakeProcess();
+    const [, serverEnd] = InMemoryTransport.createLinkedPair();
+    const served = serveSession({
+      deps: {
+        core: new AskCore(ports),
+        timers: manualTimers().timers,
+        diagnostics: {
+          write: () => {
+            throw new Error("EPIPE");
+          },
+        },
+      },
+      process: proc.process,
+      transport: serverEnd,
+    });
+    proc.emit("SIGTERM");
+    expect(await served.ended).toBe(0);
+    expect(proc.exits).toEqual([0]);
+  });
+
+  test("a discard that fails is written to diagnostics, and the process still exits", async () => {
+    const { ports } = recordingPorts();
+    const core = new AskCore(ports);
+    Object.assign(core, {
+      discardAll: () => {
+        throw new TypeError("discard failed");
+      },
+    });
+    const proc = fakeProcess();
+    const written: string[] = [];
+    const [, serverEnd] = InMemoryTransport.createLinkedPair();
+    const served = serveSession({
+      deps: { core, timers: manualTimers().timers, diagnostics: { write: (l) => written.push(l) } },
+      process: proc.process,
+      transport: serverEnd,
+    });
+    proc.emit("SIGINT");
+    expect(await served.ended).toBe(0);
+    expect(written).toEqual(["askboard: ending the session failed: TypeError"]);
+  });
+
   test("stderr never holds a board token or question text", async () => {
     const { client, proc, served, written } = await session();
     await client.callTool({ name: "ask", arguments: plainChoice });

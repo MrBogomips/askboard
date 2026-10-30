@@ -97,6 +97,19 @@ describe("answers only from an explicit user action", () => {
     expect(core.board(ASK_ID)?.questions).toEqual([{ itemId: "database", rev: 1 }]);
   });
 
+  test.each([
+    ["a choice that is not a list", { choice: "PostgreSQL" }, "choice"],
+    ["a label that is not text", { choice: [5] }, "choice"],
+    ["a when that is not text", { when: ["2026-10-29T09:41:27Z"] }, "when"],
+    ["a rev that is not an integer", { rev: 1.5 }, "stale-rev"],
+    ["an item ID that is not text", { itemId: ["database"] }, "unknown-item"],
+  ])("a command with %s is refused without throwing", async (_, fields, refusal) => {
+    const fixture = await created();
+    const outcome = fixture.core.answer(ASK_ID, answer(fields as never));
+    expect(outcome).toMatchObject({ ok: false, refusal });
+    expect(logOf(fixture)).toEqual([]);
+  });
+
   test("February 29 of a leap year is a real time", async () => {
     const { core } = await created();
     expect(core.answer(ASK_ID, answer({ when: "2028-02-29T23:59:59.250Z" })).ok).toBe(true);

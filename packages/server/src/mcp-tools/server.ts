@@ -4,6 +4,7 @@
 
 import { SERVER_INSTRUCTIONS, TOOL_DEFINITIONS, type ToolDefinition } from "@askboard/contract";
 import { Server, type Tool } from "@modelcontextprotocol/server";
+import { failure } from "./diagnostics.ts";
 import type { CallContext, ToolDeps } from "./ports.ts";
 import { errorResult, type ToolResult } from "./results.ts";
 
@@ -78,12 +79,20 @@ export const createToolServer = (
   server.setRequestHandler("tools/call", async (request, ctx) => {
     const { name, arguments: args } = request.params;
     const handler = Object.hasOwn(handlers, name) ? handlers[name] : undefined;
-    const result =
-      handler === undefined
-        ? errorResult(
-            `AskBoard has no tool ${JSON.stringify(name.slice(0, 64))}: it lists ${TOOL_NAMES}.`,
-          )
-        : await handler(deps, args, contextOf(ctx));
+    let result: ToolResult;
+    if (handler === undefined) {
+      result = errorResult(
+        `AskBoard has no tool ${JSON.stringify(name.slice(0, 64))}: it lists ${TOOL_NAMES}.`,
+      );
+    } else {
+      try {
+        result = await handler(deps, args, contextOf(ctx));
+      } catch (error) {
+        // `name` is one of the listed tools here, so it is AskBoard's own text.
+        deps.diagnostics.write(failure(`${name} failed`, error));
+        result = errorResult(`AskBoard's ${name} failed inside. Send the call again.`);
+      }
+    }
     return server.projectCallToolResult({ ...result, content: [...result.content] }, undefined);
   });
   return server;

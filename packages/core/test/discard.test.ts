@@ -79,6 +79,29 @@ describe("discard at session exit", () => {
     expect(core.markRead(ASK_ID, `${core.epoch}.2`)).toBe(true);
   });
 
+  test("once the session ends, a new ask is refused and creates nothing", async () => {
+    const { core, opened } = coreWith();
+    core.discardAll("session-exit");
+    expect(await core.ask(plainChoiceAsk())).toEqual({ kind: "ending" });
+    expect(core.board(ASK_ID)).toBeUndefined();
+    expect(opened).toEqual([]);
+  });
+
+  test("an ask still being created when the session ends is not stored or opened", async () => {
+    const fixture = coreWith();
+    let release: (link: string) => void = () => undefined;
+    Object.assign(fixture.ports.address, {
+      link: () => new Promise<string>((resolve) => (release = resolve)),
+    });
+    const creating = fixture.core.ask(plainChoiceAsk());
+    await Bun.sleep(0);
+    fixture.core.discardAll("session-exit");
+    release(`http://127.0.0.1:47213/b/${ASK_ID}?t=pV3xK9qLmT2wR7nB4cYh8A`);
+    expect(await creating).toEqual({ kind: "ending" });
+    expect(fixture.core.board(ASK_ID)).toBeUndefined();
+    expect(fixture.opened).toEqual([]);
+  });
+
   test("with no ask, there is nothing to discard", () => {
     expect(coreWith().core.discardAll("session-exit")).toBe(0);
   });

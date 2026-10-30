@@ -34,7 +34,9 @@ export type AskOutcome =
     }
   | { readonly kind: "created" | "resent"; readonly ask: AskSummary }
   /** The ID is that of an ask of this epoch, and the request is not an identical resend. */
-  | { readonly kind: "in-use"; readonly askId: string };
+  | { readonly kind: "in-use"; readonly askId: string }
+  /** The session is ending: its asks were discarded, and it takes no new one. */
+  | { readonly kind: "ending" };
 
 /**
  * What the subscription carries: an event appended to an ask's log; the ask's `received`
@@ -79,6 +81,9 @@ export class AskCore {
   readonly #listeners = new Set<Listener>();
   // Creations under way, by ask ID, so that a second request for one ID waits for the first.
   readonly #creating = new Map<string, Promise<unknown>>();
+  // Set by the discard at session exit: no ask may be created after it, or it would never be
+  // discarded.
+  #ending = false;
 
   constructor(ports: CorePorts) {
     this.#ports = ports;
@@ -103,6 +108,7 @@ export class AskCore {
     }
     const existing = this.#asks.get(askId);
     if (existing !== undefined) return this.#resend(existing, canonical);
+    if (this.#ending) return { kind: "ending" };
     const creation = this.#create(checked.value, canonical);
     this.#creating.set(
       askId,
@@ -169,9 +175,11 @@ export class AskCore {
    * Discards every ask not discarded yet: each gains a final `discarded` event, and the
    * subscribers hear the event and the discard before this returns, so live boards are told before
    * the process ends (AD-2, AD-21). The asks stay as tombstones: their IDs stay in use and their
-   * events readable. Returns how many asks it discarded.
+   * events readable. From then on the core creates no ask, one still being created included.
+   * Returns how many asks it discarded.
    */
   discardAll(reason: DiscardReason): number {
+    this.#ending = true;
     let discarded = 0;
     for (const [askId, ask] of this.#asks) {
       const event = ask.discard(reason);
@@ -222,6 +230,7 @@ export class AskCore {
     }
     const who = await this.#who(input);
     const link = await this.#ports.address.link(askId);
+    if (this.#ending) return { kind: "ending" };
     const [question] = input.items;
     const title = input.title ?? deriveTitle(question.props.text);
     const ask = new Ask({ epoch: this.epoch, askId, request, title, question, link, who });

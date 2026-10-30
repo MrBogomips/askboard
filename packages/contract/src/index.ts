@@ -27,6 +27,7 @@ export {
 export { cspHashSource, SHA256_HEX_PATTERN } from "./hash.ts";
 export {
   CHOICE_LABELS_MAX_CHARS,
+  COLLECT_ASKS_MAX,
   CURSOR_PATTERN,
   EPOCH_PATTERN,
   NAME_MAX_CHARS,

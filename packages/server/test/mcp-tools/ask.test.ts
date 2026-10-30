@@ -114,6 +114,13 @@ describe("validation errors", () => {
     expect(text).toContain("props.options[1].label");
   });
 
+  test("once the session is ending, an ask is refused", async () => {
+    const core = fakeCore({ ask: async () => ({ kind: "ending" }) });
+    const { result } = await call(core, plainChoice);
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain("ending");
+  });
+
   test("an ID in use is refused, naming it", async () => {
     const core = fakeCore({ ask: async () => ({ kind: "in-use", askId: ASK_ID }) });
     const { result } = await call(core, plainChoice);

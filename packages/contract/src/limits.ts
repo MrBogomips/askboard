@@ -19,3 +19,10 @@ export const EPOCH_PATTERN = "^[a-z0-9]{4,16}$";
 
 /** A cursor, exactly `<epoch>.<seq>` (AD-3). */
 export const CURSOR_PATTERN = "^[a-z0-9]{4,16}\\.(0|[1-9][0-9]{0,15})$";
+
+/**
+ * The most asks one `collect` takes. With at most this many entries, the largest an entry can be
+ * and the largest answer event, a result stays under the result limit, so the first event always
+ * fits. E1's choice.
+ */
+export const COLLECT_ASKS_MAX = 40;

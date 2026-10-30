@@ -54,10 +54,14 @@ const watched = (inner: Transport, closed: () => void): Transport => {
   return outer;
 };
 
-const delay = (timers: Timers, ms: number) =>
-  new Promise<void>((resolve) => {
-    timers.after(ms, resolve);
+// A delay with its cancel, so that a bound that lost its race keeps no timer.
+const delay = (timers: Timers, ms: number) => {
+  let cancel: () => void = () => undefined;
+  const elapsed = new Promise<void>((resolve) => {
+    cancel = timers.after(ms, resolve);
   });
+  return { elapsed, cancel };
+};
 
 const asks = (count: number) => `${count} open ${count === 1 ? "ask" : "asks"} discarded`;
 
@@ -71,23 +75,34 @@ export const serveSession = (options: SessionOptions): Session => {
     finish = resolve;
   });
 
+  // Diagnostics must never stop the exit: a write that throws, such as on a closed stderr, has
+  // nowhere else to go.
+  const say = (line: string) => {
+    try {
+      diagnostics.write(line);
+    } catch {}
+  };
+
   const end = (why: string): Promise<number> => {
     shutdown ??= (async () => {
-      diagnostics.write(note(`session ending (${why}): ${asks(core.discardAll("session-exit"))}`));
-      const flushed = (async () => {
-        // One turn of the event loop, so that the waiting collects the discard woke send their
-        // answers before stdio closes.
-        await new Promise((resolve) => setImmediate(resolve));
-        await options.beforeExit?.();
-      })().catch((error: unknown) => {
-        diagnostics.write(failure("closing the board listener failed", error));
-      });
-      await Promise.race([flushed, delay(timers, EXIT_FLUSH_MS)]);
-      await handle.close().catch((error: unknown) => {
-        diagnostics.write(failure("closing stdio failed", error));
-      });
-      process.exit(0);
-      finish(0);
+      try {
+        say(note(`session ending (${why}): ${asks(core.discardAll("session-exit"))}`));
+        const flushed = (async () => {
+          // One turn of the event loop, so that the waiting collects the discard woke send their
+          // answers before stdio closes.
+          await new Promise((resolve) => setImmediate(resolve));
+          await options.beforeExit?.();
+        })().catch((error: unknown) => say(failure("closing the board listener failed", error)));
+        const bound = delay(timers, EXIT_FLUSH_MS);
+        await Promise.race([flushed, bound.elapsed]);
+        bound.cancel();
+        await handle.close().catch((error: unknown) => say(failure("closing stdio failed", error)));
+      } catch (error) {
+        say(failure("ending the session failed", error));
+      } finally {
+        process.exit(0);
+        finish(0);
+      }
       return 0;
     })();
     return shutdown;
@@ -98,7 +113,7 @@ export const serveSession = (options: SessionOptions): Session => {
   });
   const handle = serveStdio(() => createToolServer(deps, options.version), {
     transport,
-    onerror: (error) => diagnostics.write(failure("protocol error", error)),
+    onerror: (error) => say(failure("protocol error", error)),
   });
   for (const signal of EXIT_SIGNALS) process.onSignal(signal, () => void end(signal));
   return { ended };

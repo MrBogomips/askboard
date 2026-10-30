@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  type AnswerEvent,
+  CHOICE_LABELS_MAX_CHARS,
+  COLLECT_ASKS_MAX,
   type OutputEvent,
   RESULT_MAX_CHARS,
   RESULT_VERSIONS,
@@ -15,7 +18,7 @@ const A = "order-db-choice-x7k2";
 const B = "cache-choice-b5n1";
 const C = "queue-choice-m3d8";
 
-const answerEvent = (seq: number, choice: string[] = ["PostgreSQL"]): OutputEvent => ({
+const answerEvent = (seq: number, choice: string[] = ["PostgreSQL"]): AnswerEvent => ({
   cursor: `${EPOCH}.${seq}`,
   type: "answer",
   itemId: "database",
@@ -144,7 +147,55 @@ describe("collecting events", () => {
   });
 });
 
+describe("failures", () => {
+  test("a failure inside AskBoard is an error, and stderr names only its class", async () => {
+    const core = fakeCore({
+      read: () => {
+        throw new Error(`read ${A} failed`);
+      },
+    });
+    const { deps, written } = depsWith(core);
+    const { client, close } = await connect(deps);
+    const result = await client.callTool({
+      name: "collect",
+      arguments: { asks: [{ askId: A, after: `${EPOCH}.0` }] },
+    });
+    await close();
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain("failed inside");
+    expect(written).toEqual(["askboard: collect failed: Error"]);
+  });
+});
+
 describe("result size", () => {
+  test("the most asks a collect takes, with the largest event, fit under the limit", async () => {
+    const longest = (n: number) => `${String(n).padStart(2, "0")}${"a".repeat(62)}`;
+    const labels = Array.from({ length: 19 }, (_, n) => `${n}-${"\u0001".repeat(170)}`);
+    const event: OutputEvent = {
+      ...answerEvent(9_007_199_254_740_991),
+      cursor: `${EPOCH}.9007199254740991`,
+      itemId: "i".repeat(64),
+      rev: 9_007_199_254_740_991,
+      who: '"'.repeat(256),
+      when: "2026-10-29T09:41:27.123456789Z",
+      choice: labels,
+    };
+    expect(JSON.stringify(labels).length).toBeLessThanOrEqual(CHOICE_LABELS_MAX_CHARS);
+    const asks = Array.from({ length: COLLECT_ASKS_MAX }, (_, n) => ({
+      askId: longest(n),
+      after: n === 0 ? `${EPOCH}.0` : "zzzzzzzzzzzzzzzz.9007199254740991",
+    }));
+    const core = fakeCore({
+      read: (askId, after) =>
+        askId === longest(0)
+          ? { kind: "events", askId, state: "answered", cursor: event.cursor, events: [event] }
+          : { kind: "discarded", askId, cursor: after },
+    });
+    const text = textOf(await collect(core, { asks }));
+    expect(JSON.parse(text).more).toBeUndefined();
+    expect(text.length).toBeLessThan(RESULT_MAX_CHARS);
+  });
+
   const big = (seq: number, mark: string) => answerEvent(seq, [`${mark}${"x".repeat(12_000)}`]);
   const byAsk = { [A]: [big(1, "a")], [B]: [big(1, "b")], [C]: [big(1, "c")] };
   const all = (cursors: Record<string, string>) => ({

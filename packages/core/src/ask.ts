@@ -206,6 +206,13 @@ export class Ask {
    */
   answer(command: AnswerCommandInput): AnswerOutcome {
     if (this.#state === "discarded") return refused("discarded", "the ask was discarded");
+    // A command comes from outside the process: its shape is checked here too, not only typed.
+    const { choice, when } = command;
+    if (!Array.isArray(choice) || !choice.every((label) => typeof label === "string")) {
+      return refused("choice", "the choice is not a list of option labels");
+    }
+    if (typeof when !== "string") return refused("when", "the answer's time is not text");
+    if (!Number.isInteger(command.rev)) return refused("stale-rev", "the revision is not a number");
     const question = this.document.items.find((item) => item.id === command.itemId);
     if (question === undefined) return refused("unknown-item", "the ask has no such question");
     if (this.#answerTo(question.id)) return refused("answered", "the question is already answered");

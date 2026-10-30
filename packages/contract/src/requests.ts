@@ -5,7 +5,12 @@
 
 import { schemaErrors } from "./compiled.ts";
 import { ASK_TITLE_MAX_CHARS, ID_PATTERN, VIEW_ID_PREFIX } from "./constants.ts";
-import { CHOICE_LABELS_MAX_CHARS, CURSOR_PATTERN, NAME_MAX_CHARS } from "./limits.ts";
+import {
+  CHOICE_LABELS_MAX_CHARS,
+  COLLECT_ASKS_MAX,
+  CURSOR_PATTERN,
+  NAME_MAX_CHARS,
+} from "./limits.ts";
 import {
   expectedAt,
   inDocumentOrder,
@@ -176,7 +181,7 @@ const COLLECT: Wording = {
   root: "(the request)",
   expected: {
     "": "a collect request: an object {asks, wait?}",
-    asks: "a non-empty list of {askId, after}, one entry per ask",
+    asks: `a non-empty list of {askId, after}, one entry per ask, at most ${COLLECT_ASKS_MAX}`,
     "asks[]": "an entry {askId, after}",
     "asks[].askId": ID_SHAPE,
     "asks[].after": "the latest cursor <epoch>.<seq> you received for that ask",
@@ -197,6 +202,10 @@ const isCursor = (value: string): boolean =>
 const entryProblems = (request: unknown): RequestProblem[] => {
   const asks = isRecord(request) && Array.isArray(request.asks) ? request.asks : [];
   const problems: RequestProblem[] = [];
+  if (asks.length > COLLECT_ASKS_MAX) {
+    const message = `{where}: ${asks.length} asks, but a collect takes at most ${COLLECT_ASKS_MAX} asks; collect the others in another call`;
+    problems.push(problemAt(COLLECT, request, ["asks"], message, expectedAt(COLLECT, ["asks"])));
+  }
   const seen = new Set<string>();
   asks.forEach((entry, index) => {
     if (!isRecord(entry)) return;

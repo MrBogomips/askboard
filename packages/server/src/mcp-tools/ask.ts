@@ -67,6 +67,10 @@ export const handleAsk: ToolHandler = async ({ core, diagnostics }, args) => {
       );
     case "unavailable":
       return jsonResult(unavailable(core.epoch, outcome));
+    case "ending":
+      return errorResult(
+        "The session is ending: AskBoard takes no new ask. Ask through AskUserQuestion instead.",
+      );
     default: {
       const result: AskResult = {
         versions: RESULT_VERSIONS,

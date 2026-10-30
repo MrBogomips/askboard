@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { TOOL_DEFINITIONS, type ToolDefinition } from "../src/index.ts";
+import { COLLECT_ASKS_MAX, TOOL_DEFINITIONS, type ToolDefinition } from "../src/index.ts";
 import {
   type RequestProblem,
   toolInputProblems,
@@ -122,6 +122,16 @@ describe("the collect request", () => {
     const problems = problemsOf(validateCollectRequest(request));
     expect(problems.map((problem) => [problem.path, problem.field])).toEqual([[path, field]]);
     expect(problems[0]?.message).toStartWith(field);
+  });
+
+  test("at most COLLECT_ASKS_MAX asks per collect, so a result's entries always fit", () => {
+    const asks = (count: number) => ({
+      asks: Array.from({ length: count }, (_, n) => ({ askId: `ask-${n}`, after: "k3x9.0" })),
+    });
+    expect(validateCollectRequest(asks(COLLECT_ASKS_MAX)).ok).toBe(true);
+    const problems = problemsOf(validateCollectRequest(asks(COLLECT_ASKS_MAX + 1)));
+    expect(problems.map(({ path, field }) => [path, field])).toEqual([["/asks", "asks"]]);
+    expect(problems[0]?.message).toContain(`at most ${COLLECT_ASKS_MAX} asks`);
   });
 
   test("an ask passed twice is refused, naming the second entry", () => {
