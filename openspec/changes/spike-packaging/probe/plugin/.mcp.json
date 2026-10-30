@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "askboard": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/askboard",
+      "env": {
+        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}",
+        "CLAUDE_PLUGIN_DATA": "${CLAUDE_PLUGIN_DATA}"
+      }
+    }
+  }
+}

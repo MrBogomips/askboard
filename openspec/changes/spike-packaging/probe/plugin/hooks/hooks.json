@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__plugin_askboard_askboard__ask",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/askboard hook PostToolUse", "timeout": 5 }]
+      }
+    ]
+  }
+}
