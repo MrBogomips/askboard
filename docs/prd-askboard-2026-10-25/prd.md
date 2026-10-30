@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # PRD: AskBoard
@@ -407,10 +407,10 @@ The user chooses, for each board, whether answers go to the agent immediately as
 When an ask arrives, AskBoard brings its board to the front in the browser and shows a system notification, and the agent's Claude Code terminal shows a link to the board. AskBoard neither opens the board nor brings it to the front while the user is working on another board of the same Claude Code session, meaning that a board of that session has focus and has had input from the user in the last 60 seconds; the notification and the terminal link then open it. The notification names who asked, as the agent's type and name (FR-24), where it works (project, branch and worktree), the ask's title (FR-1) and its number of questions. Where AskBoard's push path runs (R1), the terminal notice also lists the pending asks.
 
 **Consequences (testable):**
-- On the user's machine, outside a container, a new ask produces all three notices, unless the user is working on another board of the same session.
+- On the user's machine, outside a container, a new ask produces all three notices, unless the user is working on another board of the same session. A subagent's ask shows its terminal link only where AskBoard's push path runs (R1); without it, the browser and system notices still appear.
 - While the user is working on a board of a Claude Code session, a new ask from that session produces the notification and the terminal link, and its board neither opens nor comes to the front; a new ask from another session is not held back.
 - The notification shows who asked, the project, branch and worktree, the ask's title and its number of questions.
-- When Claude Code runs in a devcontainer, the link in the terminal is the notice that always works; the browser and system notices appear where the host allows them.
+- When Claude Code runs in a devcontainer, the link in the terminal is the notice that always works, for a subagent's ask where AskBoard's push path runs; the browser and system notices appear where the host allows them.
 - The link in the terminal opens the board of that ask.
 - Where the push path runs, the terminal notice lists each pending ask on one line: its title, who asked, the number of questions still open and the link to its board.
 
@@ -633,7 +633,7 @@ Outside the first version, as confirmed in the UX work, so that they are not reo
 
 ## 9. Risks
 
-- **R1. The push path may fail or be disabled.** The architecture pushes answers and follow-ups to a working agent through a Claude Code mod: mods have been on by default since Claude Code 2.1.287 and reach a running subagent (addendum). The mod may fail the delivery spike, and an organization can disable mods. Either takes push delivery away, and with it part of the interactivity of FR-10, FR-21 and FR-22. Mitigation: every capability also works by pull, so the agent waits for or collects the answers and follow-ups at the point it needs them, and the board shows the user which answers have reached the agent (FR-22).
+- **R1. The push path may be disabled or change.** The architecture pushes answers and follow-ups to a working agent through a Claude Code mod: mods have been on by default since Claude Code 2.1.287, and the delivery spike showed the mod reaching the main conversation and running subagents, foreground and background, in every permission mode tested (addendum). An organization can disable mods, and part of what the mod relies on is observed rather than documented: one of the push calls Claude Code offers mods is already refused under auto mode. Either takes push delivery away, and with it part of the interactivity of FR-10, FR-21 and FR-22. Mitigation: every capability also works by pull, so the agent waits for or collects the answers and follow-ups at the point it needs them, and the board shows the user which answers have reached the agent (FR-22); CI runs against the minimum, `stable` and `latest` Claude Code.
 - **R2. Claude Code evolves.** It may render MCP Apps, extend AskUserQuestion, or change the limits AskBoard relies on: call timeouts, tool search, result size. Mitigation: keep the data contract independent of how a board is rendered, and track Claude Code releases; rendering inside Claude Code as an MCP App, which the CLI does not support today, would be an upside, not a prerequisite.
 - **R3. Plannotator closes the gap.** The closest competitor releases daily and already has follow-up threads and question cards; Document review and Diff review overlap with it. If it adds planning widgets or MCP App delivery, AskBoard's edge narrows. Mitigation: differentiate on planning widgets, molecules, typed answers and measured cost.
 - **R4. Widget scope grows.** All 18 widgets and four molecules are in the first version, and the research's "review-first" limit (show, annotate, approve, light edits) was not kept, so widgets could grow into planning tools in their own right. Mitigation: the UX work scoped each widget and molecule that the journeys (UJ-1 to UJ-3) reach to what they need, and kept every other widget and the decision matrix at its minimum, which is also its first-version ceiling (FR-11).
@@ -643,7 +643,7 @@ Outside the first version, as confirmed in the UX work, so that they are not reo
 ## 10. Open Questions
 
 1. How do answers and follow-ups reach an agent while it works, including from subagents? Settled by the architecture: by pull, which always works, and by push through a Claude Code mod where it runs; the delivery spike confirms the mod (`architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`, AD-4; FR-21, R1).
-2. How quickly must an answer reach a working agent to feel interactive? A target is needed once the mechanism is known (FR-21, FR-22).
+2. How quickly must an answer reach a working agent to feel interactive? Settled by the product owner on 2026-10-30, from the mod delivery spike's measurements: an idle main conversation receives an answer within 2 s; a working agent, main conversation or subagent, at its next model request after the answer, plus at most the mod's poll interval. The early benchmark checks it (FR-21, FR-22).
 3. Which questions make up the benchmark's fixed set, and in what mix of plain and rich questions (FR-32)?
 4. Which formula language? Architecture decision, informed by the research (FR-14). The widget components are chosen in `ux-askboard-2026-10-27/EXPERIENCE.md` (Composition and Components), subject to the renderer spike (FR-11).
 5. Is A2UI compatibility (an agent emitting A2UI can drive a board) a product requirement or only an architecture preference (addendum, "Technical references")?
