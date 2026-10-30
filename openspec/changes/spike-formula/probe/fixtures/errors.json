@@ -1,0 +1,1009 @@
+{
+ "description": "Error fixtures. `expected` compares the error kind only; `warnings` compares the set of kind@address from load(). Hostile input that is generated (deep nesting, 1 MB) is in fixtures/hostile.ts.",
+ "cases": [
+  {
+   "id": "missing-reference",
+   "note": "x.c reads x.b and inherits its error; only x.b is a warning",
+   "nodes": [
+    {
+     "address": "x.a",
+     "type": "number",
+     "value": 1
+    },
+    {
+     "address": "x.b",
+     "type": "number",
+     "formula": "[x.a]+[x.nope]"
+    },
+    {
+     "address": "x.c",
+     "type": "number",
+     "formula": "[x.b]*2"
+    }
+   ],
+   "expected": {
+    "x.b": {
+     "error": "missing-reference"
+    },
+    "x.c": {
+     "error": "missing-reference"
+    }
+   },
+   "warnings": [
+    {
+     "error": "missing-reference",
+     "address": "x.b"
+    }
+   ]
+  },
+  {
+   "id": "missing-item-wildcard",
+   "note": "a wildcard over an unknown item is missing; one that matches nothing in a known item is an empty list",
+   "nodes": [
+    {
+     "address": "x.a",
+     "type": "number",
+     "value": 1
+    },
+    {
+     "address": "x.s",
+     "type": "number",
+     "formula": "SUM([nope.*.v])"
+    },
+    {
+     "address": "x.t",
+     "type": "number",
+     "formula": "SUM([x.*.v])"
+    }
+   ],
+   "expected": {
+    "x.s": {
+     "error": "missing-reference"
+    },
+    "x.t": 0
+   },
+   "warnings": [
+    {
+     "error": "missing-reference",
+     "address": "x.s"
+    }
+   ]
+  },
+  {
+   "id": "path-not-flat",
+   "note": "path semantics: [wbs.ux.optimistic] does not find the grandchild ux, although child IDs are unique within the item",
+   "nodes": [
+    {
+     "address": "wbs.design.ux.optimistic",
+     "type": "number",
+     "value": 3
+    },
+    {
+     "address": "wbs.flat",
+     "type": "number",
+     "formula": "[wbs.ux.optimistic]"
+    },
+    {
+     "address": "wbs.path",
+     "type": "number",
+     "formula": "[wbs.design.ux.optimistic]"
+    }
+   ],
+   "expected": {
+    "wbs.flat": {
+     "error": "missing-reference"
+    },
+    "wbs.path": 3
+   },
+   "warnings": [
+    {
+     "error": "missing-reference",
+     "address": "wbs.flat"
+    }
+   ]
+  },
+  {
+   "id": "cycle-direct",
+   "nodes": [
+    {
+     "address": "x.a",
+     "type": "number",
+     "formula": "[x.a]+1"
+    },
+    {
+     "address": "x.b",
+     "type": "number",
+     "formula": "[x.a]*2"
+    }
+   ],
+   "expected": {
+    "x.a": {
+     "error": "cycle"
+    },
+    "x.b": {
+     "error": "cycle"
+    }
+   },
+   "warnings": [
+    {
+     "error": "cycle",
+     "address": "x.a"
+    }
+   ]
+  },
+  {
+   "id": "cycle-indirect",
+   "note": "every node on the cycle is a warning; x.d downstream reads as cycle; x.e is unaffected",
+   "nodes": [
+    {
+     "address": "x.a",
+     "type": "number",
+     "formula": "[x.c]+1"
+    },
+    {
+     "address": "x.b",
+     "type": "number",
+     "formula": "[x.a]*2"
+    },
+    {
+     "address": "x.c",
+     "type": "number",
+     "formula": "[x.b]-1"
+    },
+    {
+     "address": "x.d",
+     "type": "number",
+     "formula": "[x.c]+100"
+    },
+    {
+     "address": "x.e",
+     "type": "number",
+     "formula": "3+4"
+    }
+   ],
+   "expected": {
+    "x.a": {
+     "error": "cycle"
+    },
+    "x.b": {
+     "error": "cycle"
+    },
+    "x.c": {
+     "error": "cycle"
+    },
+    "x.d": {
+     "error": "cycle"
+    },
+    "x.e": 7
+   },
+   "warnings": [
+    {
+     "error": "cycle",
+     "address": "x.a"
+    },
+    {
+     "error": "cycle",
+     "address": "x.b"
+    },
+    {
+     "error": "cycle",
+     "address": "x.c"
+    }
+   ]
+  },
+  {
+   "id": "cycle-wildcard",
+   "nodes": [
+    {
+     "address": "w.a.v",
+     "type": "number",
+     "formula": "[w.total]/2"
+    },
+    {
+     "address": "w.b.v",
+     "type": "number",
+     "value": 4
+    },
+    {
+     "address": "w.total",
+     "type": "number",
+     "formula": "SUM([w.*.v])"
+    }
+   ],
+   "expected": {
+    "w.total": {
+     "error": "cycle"
+    },
+    "w.a.v": {
+     "error": "cycle"
+    }
+   },
+   "warnings": [
+    {
+     "error": "cycle",
+     "address": "w.total"
+    },
+    {
+     "error": "cycle",
+     "address": "w.a.v"
+    }
+   ]
+  },
+  {
+   "id": "not-whitelisted",
+   "note": "refused by refs.ts before any engine parses; the warning names the node, whose address starts with the item ID; x.dep inherits",
+   "nodes": [
+    {
+     "address": "x.a",
+     "type": "number",
+     "value": 1
+    },
+    {
+     "address": "x.f0",
+     "type": "number",
+     "formula": "INDIRECT(\"x.a\")"
+    },
+    {
+     "address": "x.f1",
+     "type": "number",
+     "formula": "OFFSET([x.a],1,0)"
+    },
+    {
+     "address": "x.f2",
+     "type": "number",
+     "formula": "HYPERLINK(\"https://example.com\")"
+    },
+    {
+     "address": "x.f3",
+     "type": "number",
+     "formula": "WEBSERVICE(\"https://example.com\")"
+    },
+    {
+     "address": "x.f4",
+     "type": "number",
+     "formula": "NOW()"
+    },
+    {
+     "address": "x.f5",
+     "type": "number",
+     "formula": "RAND()"
+    },
+    {
+     "address": "x.f6",
+     "type": "number",
+     "formula": "rand()"
+    },
+    {
+     "address": "x.f7",
+     "type": "number",
+     "formula": "SUM(1,RAND())"
+    },
+    {
+     "address": "x.f8",
+     "type": "number",
+     "formula": "TODAY()"
+    },
+    {
+     "address": "x.f9",
+     "type": "number",
+     "formula": "CONCATENATE(\"a\",\"b\")"
+    },
+    {
+     "address": "x.f10",
+     "type": "number",
+     "formula": "\"a\"&\"b\""
+    },
+    {
+     "address": "x.f11",
+     "type": "number",
+     "formula": "50%"
+    },
+    {
+     "address": "x.f12",
+     "type": "number",
+     "formula": "constructor(1)"
+    },
+    {
+     "address": "x.f13",
+     "type": "number",
+     "formula": "toString()"
+    },
+    {
+     "address": "x.f14",
+     "type": "number",
+     "formula": "__proto__(1)"
+    },
+    {
+     "address": "x.f15",
+     "type": "number",
+     "formula": "hasOwnProperty(\"x\")"
+    },
+    {
+     "address": "x.dep",
+     "type": "number",
+     "formula": "[x.f5]+1"
+    }
+   ],
+   "expected": {
+    "x.f0": {
+     "error": "not-whitelisted"
+    },
+    "x.f1": {
+     "error": "not-whitelisted"
+    },
+    "x.f2": {
+     "error": "not-whitelisted"
+    },
+    "x.f3": {
+     "error": "not-whitelisted"
+    },
+    "x.f4": {
+     "error": "not-whitelisted"
+    },
+    "x.f5": {
+     "error": "not-whitelisted"
+    },
+    "x.f6": {
+     "error": "not-whitelisted"
+    },
+    "x.f7": {
+     "error": "not-whitelisted"
+    },
+    "x.f8": {
+     "error": "not-whitelisted"
+    },
+    "x.f9": {
+     "error": "not-whitelisted"
+    },
+    "x.f10": {
+     "error": "not-whitelisted"
+    },
+    "x.f11": {
+     "error": "not-whitelisted"
+    },
+    "x.f12": {
+     "error": "not-whitelisted"
+    },
+    "x.f13": {
+     "error": "not-whitelisted"
+    },
+    "x.f14": {
+     "error": "not-whitelisted"
+    },
+    "x.f15": {
+     "error": "not-whitelisted"
+    },
+    "x.dep": {
+     "error": "not-whitelisted"
+    }
+   },
+   "warnings": [
+    {
+     "error": "not-whitelisted",
+     "address": "x.f0"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f1"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f2"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f3"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f4"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f5"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f6"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f7"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f8"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f9"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f10"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f11"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f12"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f13"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f14"
+    },
+    {
+     "error": "not-whitelisted",
+     "address": "x.f15"
+    }
+   ]
+  },
+  {
+   "id": "syntax",
+   "note": "grammar, arity and literal errors",
+   "nodes": [
+    {
+     "address": "x.a",
+     "type": "number",
+     "value": 1
+    },
+    {
+     "address": "x.s0",
+     "type": "number",
+     "formula": "1+"
+    },
+    {
+     "address": "x.s1",
+     "type": "number",
+     "formula": "(1+2"
+    },
+    {
+     "address": "x.s2",
+     "type": "number",
+     "formula": "1+2)"
+    },
+    {
+     "address": "x.s3",
+     "type": "number",
+     "formula": "SUM(1,,2)"
+    },
+    {
+     "address": "x.s4",
+     "type": "number",
+     "formula": "=1+2"
+    },
+    {
+     "address": "x.s5",
+     "type": "number",
+     "formula": "1;2"
+    },
+    {
+     "address": "x.s6",
+     "type": "number",
+     "formula": "[x.a"
+    },
+    {
+     "address": "x.s7",
+     "type": "number",
+     "formula": "A1+1"
+    },
+    {
+     "address": "x.s8",
+     "type": "number",
+     "formula": "ROUND(1)"
+    },
+    {
+     "address": "x.s9",
+     "type": "number",
+     "formula": "IF(1)"
+    },
+    {
+     "address": "x.s10",
+     "type": "number",
+     "formula": "\"open"
+    },
+    {
+     "address": "x.s11",
+     "type": "number",
+     "formula": "1 2"
+    },
+    {
+     "address": "x.s12",
+     "type": "number",
+     "formula": "SUM 1"
+    },
+    {
+     "address": "x.s13",
+     "type": "number",
+     "formula": "[x.a:b]"
+    },
+    {
+     "address": "x.s14",
+     "type": "number",
+     "formula": "[x..a]"
+    },
+    {
+     "address": "x.s15",
+     "type": "number",
+     "formula": "[*.a]"
+    },
+    {
+     "address": "x.s16",
+     "type": "number",
+     "formula": "[x.a.*]"
+    },
+    {
+     "address": "x.s17",
+     "type": "number",
+     "formula": "[x.A1:B]"
+    },
+    {
+     "address": "x.s18",
+     "type": "number",
+     "formula": "1e309"
+    },
+    {
+     "address": "x.s19",
+     "type": "number",
+     "formula": "{1,2}"
+    },
+    {
+     "address": "x.s20",
+     "type": "number",
+     "formula": "x!A1"
+    },
+    {
+     "address": "x.s21",
+     "type": "number",
+     "formula": "$A$1"
+    },
+    {
+     "address": "x.s22",
+     "type": "number",
+     "formula": "__proto__"
+    },
+    {
+     "address": "x.s23",
+     "type": "number",
+     "formula": "constructor"
+    },
+    {
+     "address": "x.s24",
+     "type": "number",
+     "formula": "#REF!"
+    },
+    {
+     "address": "x.s25",
+     "type": "number",
+     "formula": "@x"
+    }
+   ],
+   "expected": {
+    "x.s0": {
+     "error": "syntax"
+    },
+    "x.s1": {
+     "error": "syntax"
+    },
+    "x.s2": {
+     "error": "syntax"
+    },
+    "x.s3": {
+     "error": "syntax"
+    },
+    "x.s4": {
+     "error": "syntax"
+    },
+    "x.s5": {
+     "error": "syntax"
+    },
+    "x.s6": {
+     "error": "syntax"
+    },
+    "x.s7": {
+     "error": "syntax"
+    },
+    "x.s8": {
+     "error": "syntax"
+    },
+    "x.s9": {
+     "error": "syntax"
+    },
+    "x.s10": {
+     "error": "syntax"
+    },
+    "x.s11": {
+     "error": "syntax"
+    },
+    "x.s12": {
+     "error": "syntax"
+    },
+    "x.s13": {
+     "error": "syntax"
+    },
+    "x.s14": {
+     "error": "syntax"
+    },
+    "x.s15": {
+     "error": "syntax"
+    },
+    "x.s16": {
+     "error": "syntax"
+    },
+    "x.s17": {
+     "error": "syntax"
+    },
+    "x.s18": {
+     "error": "syntax"
+    },
+    "x.s19": {
+     "error": "syntax"
+    },
+    "x.s20": {
+     "error": "syntax"
+    },
+    "x.s21": {
+     "error": "syntax"
+    },
+    "x.s22": {
+     "error": "syntax"
+    },
+    "x.s23": {
+     "error": "syntax"
+    },
+    "x.s24": {
+     "error": "syntax"
+    },
+    "x.s25": {
+     "error": "syntax"
+    }
+   },
+   "warnings": [
+    {
+     "error": "syntax",
+     "address": "x.s0"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s1"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s2"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s3"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s4"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s5"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s6"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s7"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s8"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s9"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s10"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s11"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s12"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s13"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s14"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s15"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s16"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s17"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s18"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s19"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s20"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s21"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s22"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s23"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s24"
+    },
+    {
+     "error": "syntax",
+     "address": "x.s25"
+    }
+   ]
+  },
+  {
+   "id": "division-by-zero",
+   "note": "a runtime error: no load warning",
+   "nodes": [
+    {
+     "address": "x.zero",
+     "type": "number",
+     "value": 0
+    },
+    {
+     "address": "x.e",
+     "type": "number",
+     "value": null
+    },
+    {
+     "address": "x.a",
+     "type": "number",
+     "formula": "1/[x.zero]"
+    },
+    {
+     "address": "x.b",
+     "type": "number",
+     "formula": "[x.e]/[x.e]"
+    },
+    {
+     "address": "x.c",
+     "type": "number",
+     "formula": "[x.a]+1"
+    }
+   ],
+   "expected": {
+    "x.a": {
+     "error": "division-by-zero"
+    },
+    "x.b": {
+     "error": "division-by-zero"
+    },
+    "x.c": {
+     "error": "division-by-zero"
+    }
+   },
+   "warnings": []
+  },
+  {
+   "id": "mixed-currencies",
+   "note": "one line's rate in USD in a EUR review: the revenue total mixes currencies; the cost total does not",
+   "board": {
+    "askId": "mixed-x1",
+    "items": [
+     {
+      "type": "molecule",
+      "id": "estimate",
+      "props": {
+       "molecule": "sales-estimate-review",
+       "data": {
+        "currency": "EUR",
+        "lines": [
+         {
+          "id": "pm",
+          "role": "Project manager",
+          "days": 12,
+          "dailyCost": "420.00",
+          "dailyRate": "650.00"
+         },
+         {
+          "id": "dev",
+          "role": "Developer",
+          "days": 40,
+          "dailyCost": "380.00",
+          "dailyRate": {
+           "amount": "600.00",
+           "currency": "USD"
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "expected": {
+    "estimate.totalCost": 20240,
+    "estimate.totalRevenue": {
+     "error": "mixed-currencies"
+    },
+    "estimate.margin": {
+     "error": "mixed-currencies"
+    },
+    "estimate.belowMinimum": {
+     "error": "mixed-currencies"
+    },
+    "estimate.dev.revenue": 24000
+   },
+   "warnings": [
+    {
+     "error": "mixed-currencies",
+     "address": "estimate.totalRevenue"
+    }
+   ]
+  },
+  {
+   "id": "hostile-ids",
+   "note": "IDs named like prototype members, cells, R1C1, booleans and functions; case-sensitive IDs; a 64-character ID; IDs outside [A-Za-z0-9_-]{1,64} are a syntax error",
+   "nodes": [
+    {
+     "address": "constructor.__proto__.toString",
+     "type": "number",
+     "value": 5
+    },
+    {
+     "address": "__proto__.prototype.valueOf",
+     "type": "number",
+     "value": 7
+    },
+    {
+     "address": "toString.hasOwnProperty.constructor",
+     "type": "number",
+     "value": 1
+    },
+    {
+     "address": "ab12.r1c1.value",
+     "type": "number",
+     "value": 10
+    },
+    {
+     "address": "ab12.xfd1048576.value",
+     "type": "number",
+     "value": 20
+    },
+    {
+     "address": "ab12.TRUE.value",
+     "type": "number",
+     "value": 30
+    },
+    {
+     "address": "TRUE.FALSE.value",
+     "type": "number",
+     "value": 40
+    },
+    {
+     "address": "A1.B2",
+     "type": "number",
+     "value": 50
+    },
+    {
+     "address": "SUM.x",
+     "type": "number",
+     "value": 60
+    },
+    {
+     "address": "-x.--.value",
+     "type": "number",
+     "value": 70
+    },
+    {
+     "address": "123.456.value",
+     "type": "number",
+     "value": 80
+    },
+    {
+     "address": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b.value",
+     "type": "number",
+     "value": 90
+    },
+    {
+     "address": "x.Ab.value",
+     "type": "number",
+     "value": 1
+    },
+    {
+     "address": "x.aB.value",
+     "type": "number",
+     "value": 2
+    },
+    {
+     "address": "h.proto",
+     "type": "number",
+     "formula": "[constructor.__proto__.toString]+[__proto__.prototype.valueOf]+[toString.hasOwnProperty.constructor]"
+    },
+    {
+     "address": "h.cells",
+     "type": "number",
+     "formula": "[ab12.r1c1.value]+[ab12.xfd1048576.value]+[ab12.TRUE.value]+[TRUE.FALSE.value]"
+    },
+    {
+     "address": "h.odd",
+     "type": "number",
+     "formula": "[A1.B2]+[SUM.x]+[-x.--.value]+[123.456.value]+[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b.value]"
+    },
+    {
+     "address": "h.case",
+     "type": "number",
+     "formula": "[x.Ab.value]*10+[x.aB.value]"
+    },
+    {
+     "address": "h.wild",
+     "type": "number",
+     "formula": "SUM([ab12.*.value])"
+    },
+    {
+     "address": "h.notid",
+     "type": "number",
+     "formula": "[x.a b.value]"
+    },
+    {
+     "address": "h.long",
+     "type": "number",
+     "formula": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b.value]"
+    }
+   ],
+   "expected": {
+    "h.proto": 13,
+    "h.cells": 100,
+    "h.odd": 350,
+    "h.case": 12,
+    "h.wild": 60,
+    "h.notid": {
+     "error": "syntax"
+    },
+    "h.long": {
+     "error": "syntax"
+    }
+   },
+   "warnings": [
+    {
+     "error": "syntax",
+     "address": "h.notid"
+    },
+    {
+     "error": "syntax",
+     "address": "h.long"
+    }
+   ]
+  }
+ ]
+}

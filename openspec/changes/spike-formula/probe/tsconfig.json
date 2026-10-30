@@ -1,0 +1,17 @@
+{
+  // The probe's own settings; the repository's tsc does not cover it. `compute`'s
+  // settings are checked separately with tsconfig.compute.json (task 2.3).
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "lib": ["es2024", "DOM"],
+    "types": ["bun"]
+  }
+}

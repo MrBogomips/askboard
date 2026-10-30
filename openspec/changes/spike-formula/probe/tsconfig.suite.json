@@ -1,0 +1,5 @@
+{
+  // The shared suite under compute's settings too, since it runs in the view and in Node.
+  "extends": "./tsconfig.compute.json",
+  "files": ["src/suite.ts", "src/engines.ts", "src/reference.ts", "src/sha256.ts", "src/fixtures.ts", "src/checks.ts", "src/own-internals.ts", "fixtures/generate.ts", "fixtures/hostile.ts"]
+}

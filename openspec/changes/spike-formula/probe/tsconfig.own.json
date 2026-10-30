@@ -1,0 +1,19 @@
+{
+  // Task 2.3: the own evaluator, the port, refs and the graph under compute's settings
+  // (lib es2024, no types: no DOM, Node or Bun API). `tsc -p tsconfig.own.json`.
+  "extends": "./tsconfig.compute.json",
+  "files": [
+    "src/port.ts",
+    "src/refs.ts",
+    "src/graph.ts",
+    "src/whitelist.ts",
+    "src/precheck.ts",
+    "src/own/dates.ts",
+    "src/own/engine.ts",
+    "src/own/functions.ts",
+    "src/own/interp.ts",
+    "src/own/parser.ts",
+    "src/own/topo.ts",
+    "src/own/values.ts"
+  ]
+}
