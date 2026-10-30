@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { BoardState } from "@askboard/contract";
 import {
   ITEM_ERROR_MAX_CHARS,
+  readAnswerReply,
   readViewMessage,
   readViewUpdate,
   toolCallOf,
@@ -22,6 +23,13 @@ const problemsOf = (params: unknown) => {
 
 describe("view messages, as App tool calls the board page answers itself (design decision 8)", () => {
   const messages: ViewMessage[] = [
+    {
+      type: "answer",
+      itemId: "database",
+      rev: 1,
+      choice: ["PostgreSQL"],
+      when: "2026-10-30T09:41:27.123Z",
+    },
     { type: "ready", itemId: "database" },
     { type: "item-error", itemId: "database", error: "the component threw" },
   ];
@@ -85,9 +93,50 @@ describe("view messages, as App tool calls the board page answers itself (design
     }
   });
 
+  test("an answer's choice is a non-empty list of distinct, non-empty labels", () => {
+    const base = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z" };
+    for (const choice of [undefined, [], "PostgreSQL", ["a", "a"], [""], [1]]) {
+      const params = { name: "askboard.view.answer", arguments: { ...base, choice } };
+      expect(problemsOf(params)[0]?.path).toBe("/arguments/choice");
+    }
+  });
+
+  test("an answer names a revision from 1 and the time of the act in UTC (FR-19)", () => {
+    const base = { itemId: "q", choice: ["a"] };
+    for (const [field, value] of [
+      ["rev", 0],
+      ["rev", 1.5],
+      ["rev", "1"],
+      ["when", "2026-10-30 09:41:27"],
+      ["when", "2026-10-30T09:41:27+01:00"],
+      ["when", 1_761_817_287_000],
+    ] as const) {
+      const args = { rev: 1, when: "2026-10-30T09:41:27Z", ...base, [field]: value };
+      expect(problemsOf({ name: "askboard.view.answer", arguments: args })[0]?.path).toBe(
+        `/arguments/${field}`,
+      );
+    }
+  });
+
   test("an item error without its text is refused", () => {
     const params = { name: "askboard.view.item-error", arguments: { itemId: "q", error: 3 } };
     expect(problemsOf(params)[0]?.path).toBe("/arguments/error");
+  });
+});
+
+describe("the board page's reply to an answer", () => {
+  test("says the answer was sent, or why it was refused", () => {
+    expect(readAnswerReply({ outcome: "sent" })).toEqual({ outcome: "sent" });
+    expect(readAnswerReply({ outcome: "refused", detail: "not open" })).toEqual({
+      outcome: "refused",
+      detail: "not open",
+    });
+  });
+
+  test("anything else is no reply", () => {
+    for (const reply of [undefined, {}, { outcome: "queued" }, { outcome: "refused" }]) {
+      expect(readAnswerReply(reply)).toBeUndefined();
+    }
   });
 });
 

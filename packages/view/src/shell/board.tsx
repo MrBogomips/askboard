@@ -5,8 +5,7 @@
 import type { BoardDocument, BoardState } from "@askboard/contract";
 import { useSyncExternalStore } from "react";
 import { BoardHeader } from "./board-header.tsx";
-import { QuestionCard } from "./question-card.tsx";
-import type { RenderContext } from "./renderer.tsx";
+import { type CardContext, QuestionCard } from "./question-card.tsx";
 import type { Store } from "./store.ts";
 
 export const Board = ({
@@ -16,7 +15,7 @@ export const Board = ({
 }: {
   readonly document: BoardDocument;
   readonly state: Store<BoardState>;
-  readonly context: RenderContext;
+  readonly context: CardContext;
 }) => {
   const current = useSyncExternalStore(state.subscribe, state.get);
   return (
@@ -24,7 +23,7 @@ export const Board = ({
       <BoardHeader title={document.title} ask={current.ask} />
       <main className="flex flex-col gap-4 p-4">
         {document.items.map((question) => (
-          <QuestionCard key={question.id} question={question} context={context} />
+          <QuestionCard key={question.id} question={question} state={current} context={context} />
         ))}
       </main>
     </div>

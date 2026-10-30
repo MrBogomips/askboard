@@ -6,6 +6,7 @@ export {
   type CatalogComponent,
   componentFor,
   type ItemProps,
+  questionTextId,
   register,
   registeredComponents,
   useReadyAfterLayout,

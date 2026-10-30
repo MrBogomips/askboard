@@ -35,6 +35,12 @@ export const componentFor = (name: string): CatalogComponent | undefined => comp
 export const registeredComponents = (): string[] => [...components.keys()].sort();
 
 /**
+ * The ID of the element holding a question's text, which the question card renders and its
+ * component's controls are labelled by. `:` is in no item ID (ID_PATTERN), so no two items clash.
+ */
+export const questionTextId = (itemId: string): string => `${itemId}:text`;
+
+/**
  * The layout effect behind `useReadyAfterLayout`: once `settled`, it reports the item ready on the
  * next frame, by when its content has been laid out, unless the component is gone first.
  */

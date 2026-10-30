@@ -7,7 +7,7 @@
 // into a board-protocol command (AD-9, AD-10). Plain ECMAScript: the board page and the shell
 // both bundle it.
 
-import { type BoardState, ID_PATTERN } from "@askboard/contract";
+import { type BoardState, ID_PATTERN, UTC_TIME_PATTERN } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
 
 /** The tool-name prefix of every view message. */
@@ -15,6 +15,18 @@ export const VIEW_TOOL_PREFIX = "askboard.view.";
 
 /** An item error's text is cut to this many characters on its way to the board page. */
 export const ITEM_ERROR_MAX_CHARS = 1_000;
+
+/**
+ * The user pressed "Answer": the question's choice at its revision, stamped with the time of the
+ * act (FR-19, FR-22). The board page turns it into the board-protocol `answer` command.
+ */
+export type ViewAnswer = {
+  readonly type: "answer";
+  readonly itemId: string;
+  readonly rev: number;
+  readonly choice: readonly string[];
+  readonly when: string;
+};
 
 /** A question counts as visible: all its items are ready (AD-9, SM-C2). */
 export type ViewReady = { readonly type: "ready"; readonly itemId: string };
@@ -26,7 +38,15 @@ export type ViewItemError = {
   readonly error: string;
 };
 
-export type ViewMessage = ViewReady | ViewItemError;
+export type ViewMessage = ViewAnswer | ViewReady | ViewItemError;
+
+/**
+ * The board page's reply to an answer: sent on the board's socket, or refused, saying why. Task
+ * 8.6 adds the answer queued while the connection is lost ("not sent yet").
+ */
+export type AnswerReply =
+  | { readonly outcome: "sent" }
+  | { readonly outcome: "refused"; readonly detail: string };
 
 export type ViewToolCall = {
   readonly name: string;
@@ -40,6 +60,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const ID = new RegExp(ID_PATTERN);
+const UTC_TIME = new RegExp(UTC_TIME_PATTERN);
 
 /** A view message as the tool call `App.callServerTool` sends. */
 export const toolCallOf = (message: ViewMessage): ViewToolCall => {
@@ -56,6 +77,20 @@ type FieldCheck = (value: unknown) => string | undefined;
 const itemId: FieldCheck = (value) =>
   typeof value === "string" && ID.test(value) ? undefined : `is not an item ID (${ID_PATTERN})`;
 
+const revision: FieldCheck = (value) =>
+  Number.isInteger(value) && (value as number) >= 1 ? undefined : "is not a revision from 1";
+
+const choice: FieldCheck = (value) =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every((label) => typeof label === "string" && label !== "") &&
+  new Set(value).size === value.length
+    ? undefined
+    : "is not a list of one or more distinct option labels";
+
+const utcTime: FieldCheck = (value) =>
+  typeof value === "string" && UTC_TIME.test(value) ? undefined : "is not an RFC 3339 time in UTC";
+
 const errorText: FieldCheck = (value) =>
   typeof value === "string" && value.length <= ITEM_ERROR_MAX_CHARS
     ? undefined
@@ -63,6 +98,7 @@ const errorText: FieldCheck = (value) =>
 
 // Each message type's fields; a call's arguments hold exactly these.
 const FIELDS: Readonly<Record<ViewMessage["type"], Readonly<Record<string, FieldCheck>>>> = {
+  answer: { itemId, rev: revision, choice, when: utcTime },
   ready: { itemId },
   "item-error": { itemId, error: errorText },
 };
@@ -103,6 +139,16 @@ export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
   const problems = fieldProblems(FIELDS[type as ViewMessage["type"]], args);
   if (problems.length > 0) return { ok: false, reason: "schema", problems };
   return { ok: true, value: { type, ...args } as ViewMessage };
+};
+
+/** The board page's reply to an answer, from the tool result's structured content. */
+export const readAnswerReply = (content: unknown): AnswerReply | undefined => {
+  if (!isRecord(content)) return undefined;
+  if (content.outcome === "sent") return { outcome: "sent" };
+  if (content.outcome === "refused" && typeof content.detail === "string") {
+    return { outcome: "refused", detail: content.detail };
+  }
+  return undefined;
 };
 
 /** The tool result that carries an update to the view. */

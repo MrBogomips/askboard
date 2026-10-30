@@ -51,7 +51,7 @@ const boot = (): void => {
     onVisible: (questionId) => report({ type: "ready", itemId: questionId }),
     onFailed: (_questionId, itemId, error) => report({ type: "item-error", itemId, error }),
   });
-  const context = { draft: createDraftStore(), tracker };
+  const context = { draft: createDraftStore(), tracker, channel };
   createRoot(root).render(<Board document={data.document} state={state} context={context} />);
 };
 

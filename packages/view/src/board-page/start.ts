@@ -1,15 +1,23 @@
 // The board page at run time (design decision 8): the WebSocket with the token first, every
-// message `board-host` sends checked before use, and, once the board document and the state are
-// in, the view loaded into its sandboxed frame and hosted through ext-apps' `AppBridge`, with each
-// later state sent on to it. Task 8.6 completes it: the receipt states, the answer queue while
-// disconnected, reconnecting and the close codes, the banners and "Continue here", the theme and
-// the takeover.
+// message `board-host` sends checked before use, the tab titled after the ask, and, once the board
+// document and the state are in, the view loaded into its sandboxed frame and hosted through
+// ext-apps' `AppBridge`, with each later state sent on to it. An answer from the view goes on as
+// the board-protocol command once the board page has checked it (AD-10). Task 8.6 completes it:
+// the receipt states, the answer queue while disconnected, reconnecting and the close codes, the
+// banners and "Continue here", the theme and the takeover.
 
 import type { BootData } from "../boot-data.ts";
-import type { ViewMessage } from "../view-protocol.ts";
+import type { AnswerReply, ViewAnswer, ViewMessage } from "../view-protocol.ts";
 import { loadView } from "./load-view.ts";
-import { bootDataOf, EMPTY_MODEL, withHostMessage, withViewMessage } from "./model.ts";
-import { boardLinkOf, connectBoard } from "./socket.ts";
+import {
+  answerCommandFor,
+  bootDataOf,
+  EMPTY_MODEL,
+  withHostMessage,
+  withViewMessage,
+} from "./model.ts";
+import { type BoardConnection, boardLinkOf, connectBoard } from "./socket.ts";
+import { tabTitle } from "./tab-title.ts";
 import { hostView, type ViewHost, type ViewReply } from "./view-host.ts";
 
 /**
@@ -32,8 +40,20 @@ export const startBoardPage = (window: Window): void => {
   let model = EMPTY_MODEL;
   let view: ViewHost | undefined;
   let loading = false;
+  let connection: BoardConnection | undefined;
+
+  // Task 8.6 queues the answer while the connection is lost; until then it is refused.
+  const answer = (message: ViewAnswer): AnswerReply => {
+    const command = answerCommandFor(model, message);
+    if (!command.ok) return { outcome: "refused", detail: command.detail };
+    if (connection?.send(command.value) !== true) {
+      return { outcome: "refused", detail: "the board is not connected" };
+    }
+    return { outcome: "sent" };
+  };
 
   const onViewMessage = async (message: ViewMessage): Promise<ViewReply> => {
+    if (message.type === "answer") return answer(message);
     model = withViewMessage(model, message);
     if (message.type === "item-error") {
       console.error(`askboard: the item "${message.itemId}" failed in the view: ${message.error}`);
@@ -51,9 +71,10 @@ export const startBoardPage = (window: Window): void => {
     frame.srcdoc = assembled.srcdoc;
   };
 
-  connectBoard(window.location, {
+  connection = connectBoard(window.location, {
     onMessage: (message) => {
       model = withHostMessage(model, message);
+      if (message.type === "board") window.document.title = tabTitle(message.document.title);
       const data = bootDataOf(model);
       if (data === undefined) return;
       if (view !== undefined) {

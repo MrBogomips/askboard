@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import type { BoardState, HostMessage } from "@askboard/contract";
+import type { BoardDocument, BoardState, HostMessage } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { bootDataOf, EMPTY_MODEL, withHostMessage, withViewMessage } from "./model.ts";
+import type { ViewAnswer } from "../view-protocol.ts";
+import {
+  answerCommandFor,
+  type BoardModel,
+  bootDataOf,
+  EMPTY_MODEL,
+  withHostMessage,
+  withViewMessage,
+} from "./model.ts";
 
 const version = "1.0";
 const waiting: BoardState = {
@@ -65,5 +73,89 @@ describe("what the board page knows of its board (design decision 8)", () => {
     });
     expect([...failed.failed]).toEqual([["database", "boom"]]);
     expect(EMPTY_MODEL.visible.size + EMPTY_MODEL.failed.size).toBe(0);
+  });
+});
+
+describe("an answer from the view becomes a board-protocol command only if it can be (AD-10)", () => {
+  const answer: ViewAnswer = {
+    type: "answer",
+    itemId: "database",
+    rev: 1,
+    choice: ["PostgreSQL"],
+    when: "2026-10-30T09:41:27.123Z",
+  };
+  const ready = (document: BoardDocument = plainChoiceBoardDocument): BoardModel =>
+    withViewMessage(withHostMessage(withHostMessage(EMPTY_MODEL, { ...board, document }), state), {
+      type: "ready",
+      itemId: "database",
+    });
+  const detailOf = (model: BoardModel, message: ViewAnswer = answer) => {
+    const command = answerCommandFor(model, message);
+    return command.ok ? undefined : command.detail;
+  };
+
+  test("an answer to the open, visible question goes as the transcript's command", () => {
+    expect(answerCommandFor(ready(), answer)).toEqual({
+      ok: true,
+      value: {
+        version: "1.0",
+        type: "answer",
+        itemId: "database",
+        rev: 1,
+        choice: ["PostgreSQL"],
+        when: "2026-10-30T09:41:27.123Z",
+      },
+    });
+  });
+
+  test("not before the board has its document and state", () => {
+    expect(detailOf(EMPTY_MODEL)).toContain("no board");
+  });
+
+  test("not to an item the board does not hold, or at another revision", () => {
+    expect(detailOf(ready(), { ...answer, itemId: "other" })).toContain('"other"');
+    expect(detailOf(ready(), { ...answer, rev: 2 })).toContain("revision");
+  });
+
+  test("not to a question that is not open", () => {
+    const answered: BoardState = {
+      ask: "answered",
+      questions: [
+        {
+          itemId: "database",
+          rev: 1,
+          state: "answered",
+          answer: { choice: ["SQLite"], when: "2026-10-29T09:41:27Z", receipt: "sent" },
+        },
+      ],
+    };
+    const model = withHostMessage(ready(), { version, type: "state", state: answered });
+    expect(detailOf(model)).toContain("not open");
+  });
+
+  test("not to a question that never counted as visible, or whose item failed (AD-9)", () => {
+    const loaded = withHostMessage(withHostMessage(EMPTY_MODEL, board), state);
+    expect(detailOf(loaded)).toContain("visible");
+    const failed = withViewMessage(ready(), {
+      type: "item-error",
+      itemId: "database",
+      error: "boom",
+    });
+    expect(detailOf(failed)).toContain("failed");
+  });
+
+  test("not with a label the question does not offer", () => {
+    expect(detailOf(ready(), { ...answer, choice: ["Oracle"] })).toContain('"Oracle"');
+  });
+
+  test("one label, unless the question is multiSelect", () => {
+    const two = { ...answer, choice: ["PostgreSQL", "SQLite"] };
+    expect(detailOf(ready(), two)).toContain("one");
+    const [question] = plainChoiceBoardDocument.items;
+    const multiple: BoardDocument = {
+      ...plainChoiceBoardDocument,
+      items: [{ ...question, props: { ...question.props, multiSelect: true } }],
+    };
+    expect(answerCommandFor(ready(multiple), two).ok).toBe(true);
   });
 });
