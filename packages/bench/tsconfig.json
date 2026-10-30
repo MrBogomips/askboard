@@ -1,5 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // bench runs out of process on Bun today and uses Node's API and the globals Bun and Node share.
+    // @types/bun resolves through the root's development dependencies until bench declares its own
+    // (early-benchmark, open question 9); test/runtime.test.ts keeps Bun-only APIs out of src (AD-19).
+    "types": ["bun"]
+  },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }
