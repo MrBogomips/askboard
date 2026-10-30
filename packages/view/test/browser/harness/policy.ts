@@ -1,7 +1,9 @@
 // The board page's CSP as `board-host` computes it once from the manifest (AD-8, design decision
 // 5): scripts and styles only by the hashes of the board page's code and of every view chunk,
 // `connect-src 'self'` for the WebSocket, the view's media sources, which the srcdoc inherits,
-// and nothing else. `frame-src 'self'` is left out until the reading panel needs it (E5).
+// no base URL, form post or page framing the board (AD-11), and nothing else. `frame-src 'self'`
+// is left out until the reading panel needs it (E5). `board-host` sends the same nine directives;
+// once the contract's `boardPagePolicy` is merged, this copy goes (track-b-requests.md, 1).
 
 import { cspHashSource, type ViewManifest } from "@askboard/contract";
 
@@ -22,6 +24,9 @@ export const boardPagePolicy = (manifest: ViewManifest): string => {
     "connect-src 'self'",
     "img-src data: blob:",
     "font-src data:",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
   ].join("; ");
 };
 

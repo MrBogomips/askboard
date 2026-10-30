@@ -1,9 +1,11 @@
 // The session side the browser tests talk to, behind one small interface (design decision 11).
-// Until Integration, the test server stands in for the session process: it serves the view build
-// under the contract's routes and replays the host's half of a transcript. Task 9.3 implements
-// `StartSession` over the built session process and points `startSession` at it; the tests stay
-// as they are.
+// Two targets give it: the test server, which serves the view build under the contract's routes
+// and replays the host's half of a transcript, and the built session process (task 9.3), which
+// `ASKBOARD_E2E_TARGET=session-process` selects (the runner's `--target`). The tests stay as they
+// are.
 
+import { startSessionProcess } from "./session-process.ts";
+import { targetFrom } from "./target.ts";
 import { startTestServer } from "./test-server.ts";
 import type { ReplayTranscript } from "./transcripts.ts";
 import type { ViewBuild } from "./view-build.ts";
@@ -11,10 +13,14 @@ import type { ViewBuild } from "./view-build.ts";
 export type Scenario = {
   /**
    * The session the test plays: the ask is its board document, and the session-side steps a test
-   * triggers come in its order. The test server replays its host half.
+   * triggers come in its order. The test server replays its host half; the session process is
+   * asked the ask that gives its board document.
    */
   readonly transcript: ReplayTranscript;
-  /** The view build the session side serves: `dist/view/`, or a test-only variant of it. */
+  /**
+   * The view build the session side serves: `dist/view/`, or a test-only variant of it, which the
+   * session process serves from a copy of its bundle beside it.
+   */
   readonly view: ViewBuild;
 };
 
@@ -41,5 +47,8 @@ export type BoardSession = {
 
 export type StartSession = (scenario: Scenario) => Promise<BoardSession>;
 
-/** The session side the browser tests use. */
-export const startSession: StartSession = startTestServer;
+const TARGET = targetFrom(process.env.ASKBOARD_E2E_TARGET);
+
+/** The session side the browser tests use: the target the environment names. */
+export const startSession: StartSession = (scenario) =>
+  TARGET === "session-process" ? startSessionProcess(scenario) : startTestServer(scenario);

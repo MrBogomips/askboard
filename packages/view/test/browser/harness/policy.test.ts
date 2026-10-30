@@ -19,11 +19,20 @@ describe("the board page's CSP (AD-8, design decision 5)", () => {
       "connect-src",
       "img-src",
       "font-src",
+      "base-uri",
+      "form-action",
+      "frame-ancestors",
     ]);
     expect(directives.get("default-src")).toEqual(["'none'"]);
     expect(directives.get("connect-src")).toEqual(["'self'"]);
     expect(directives.get("img-src")).toEqual(["data:", "blob:"]);
     expect(directives.get("font-src")).toEqual(["data:"]);
+  });
+
+  test("sets no base URL, posts no form and is framed by no page (AD-11)", () => {
+    expect(directives.get("base-uri")).toEqual(["'none'"]);
+    expect(directives.get("form-action")).toEqual(["'none'"]);
+    expect(directives.get("frame-ancestors")).toEqual(["'none'"]);
   });
 
   test("allows scripts by the board page script's hash first, then every chunk's by name", () => {
