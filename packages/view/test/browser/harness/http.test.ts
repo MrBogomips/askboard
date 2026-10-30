@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { BOARD_RESPONSES, BOARD_TOKEN_HEADER } from "@askboard/contract";
+import { BOARD_RESPONSES, BOARD_TOKEN_HEADER, boardPagePolicy } from "@askboard/contract";
 import { fixtureViewManifest, PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import { answerHttp, type BoardAccess, toResponse } from "./http.ts";
-import { boardPagePolicy } from "./policy.ts";
 import { fixtureViewBuild } from "./view-build.ts";
 
 const view = fixtureViewBuild();

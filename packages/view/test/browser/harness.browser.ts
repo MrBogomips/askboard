@@ -3,6 +3,7 @@
 // negative controls that make "no violation" mean something (renderer row 17).
 
 import { describe, expect, test } from "bun:test";
+import { boardPagePolicy } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import {
   eventually,
@@ -14,7 +15,7 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { boardPagePolicy, policyDirectives } from "./harness/policy.ts";
+import { policyDirectives } from "./harness/policy.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import {
   assembledSrcdoc,

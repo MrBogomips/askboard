@@ -1,36 +1,6 @@
-// The board page's CSP as `board-host` computes it once from the manifest (AD-8, design decision
-// 5): scripts and styles only by the hashes of the board page's code and of every view chunk,
-// `connect-src 'self'` for the WebSocket, the view's media sources, which the srcdoc inherits, a
-// base URL only on its own origin (the board page's `<base href="/">`, which keeps the token out
-// of the view, AD-8), no form post or page framing the board (AD-11), and nothing else.
-// `frame-src 'self'` is left out until the reading panel needs it (E5). `board-host` sends the
-// same nine directives, with `base-uri 'none'` until Track A takes request 2 of
-// track-b-requests.md; once the contract's `boardPagePolicy` is merged, this copy goes (request 1).
-
-import { cspHashSource, type ViewManifest } from "@askboard/contract";
-
-const sources = (hashes: readonly string[]): string =>
-  hashes.length === 0 ? "'none'" : [...new Set(hashes)].map(cspHashSource).join(" ");
-
-/** The board page's policy: the board page's own hashes first, then the chunks' by name. */
-export const boardPagePolicy = (manifest: ViewManifest): string => {
-  const chunks = Object.entries(manifest.chunks)
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([, chunk]) => chunk);
-  const scripts = [manifest.boardPage.script, ...chunks.map((chunk) => chunk.script)];
-  const styles = [...manifest.boardPage.styles, ...chunks.flatMap((chunk) => chunk.styles)];
-  return [
-    "default-src 'none'",
-    `script-src ${sources(scripts.map((file) => file.sha256))}`,
-    `style-src ${sources(styles.map((file) => file.sha256))}`,
-    "connect-src 'self'",
-    "img-src data: blob:",
-    "font-src data:",
-    "base-uri 'self'",
-    "form-action 'none'",
-    "frame-ancestors 'none'",
-  ].join("; ");
-};
+// Reading a Content-Security-Policy as the browser tests compare it. The rule that computes the
+// board page's policy is the contract's `boardPagePolicy`, which `board-host` and the test server
+// both send.
 
 /** A policy's directives in order, each with its sources. */
 export const parsePolicy = (policy: string): Map<string, string[]> =>

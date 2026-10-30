@@ -7,9 +7,9 @@ import {
   BOARD_RESPONSES,
   BOARD_TOKEN_HEADER,
   BOARD_TOKEN_QUERY,
+  boardPagePolicy,
   parseBoardRoute,
 } from "@askboard/contract";
-import { boardPagePolicy } from "./policy.ts";
 import type { ViewBuild } from "./view-build.ts";
 
 /**
