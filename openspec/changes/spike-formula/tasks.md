@@ -20,9 +20,9 @@ Commands run from `openspec/changes/spike-formula/probe/` unless they name the r
 
 ## 3. Runtimes, determinism and recalculation (criteria 2, 4 and 5 outside the browser)
 
-- [ ] 3.1 Criterion 2: run the fixtures through IronCalc from the same `.wasm` bytes under Bun 1.4.4, under Node 24, and in a `bun build --compile` executable that embeds the bytes. Verify with runs `rt-bun`, `rt-node` and `rt-exe`: the same result hash in all three, and no native addon in the package or the executable's loaded files, in `findings.md`, § Criterion 2.
-- [ ] 3.2 Criterion 4 outside the browser: on the 1,000-cell board, measure start-up, full recalculation and a single-input edit (median and 95th percentile of 50) for both engines in Bun (run `latency-bun`). Verify that `findings.md`, § Criterion 4, gives the table with the run and the 16 ms threshold of design decision 7.
-- [ ] 3.3 Criterion 5 outside the browser: run every fixture for both engines under `TZ=UTC`, `TZ=Pacific/Kiritimati` and `TZ=America/Adak`, with `LANG` and `LC_ALL` at `en_US.UTF-8` and `de_DE.UTF-8`, in Bun and Node (runs `det-*`). Verify that each engine's result hash is the same in every combination, and that a date fixture (`WORKDAY`, `NETWORKDAYS`) gives the same dates; record any difference with its fixture in `findings.md`, § Criterion 5.
+- [x] 3.1 Criterion 2: run the fixtures through IronCalc from the same `.wasm` bytes under Bun 1.4.4, under Node 24, and in a `bun build --compile` executable that embeds the bytes. Verify with runs `rt-bun`, `rt-node` and `rt-exe`: the same result hash in all three, and no native addon in the package or the executable's loaded files, in `findings.md`, § Criterion 2.
+- [x] 3.2 Criterion 4 outside the browser: on the 1,000-cell board, measure start-up, full recalculation and a single-input edit (median and 95th percentile of 50) for both engines in Bun (run `latency-bun`). Verify that `findings.md`, § Criterion 4, gives the table with the run and the 16 ms threshold of design decision 7.
+- [x] 3.3 Criterion 5 outside the browser: run every fixture for both engines under `TZ=UTC`, `TZ=Pacific/Kiritimati` and `TZ=America/Adak`, with `LANG` and `LC_ALL` at `en_US.UTF-8` and `de_DE.UTF-8`, in Bun and Node (runs `det-*`). Verify that each engine's result hash is the same in every combination, and that a date fixture (`WORKDAY`, `NETWORKDAYS`) gives the same dates; record any difference with its fixture in `findings.md`, § Criterion 5.
 
 ## 4. The view (criteria 1, 3, 4 and 5 in the browser)
 

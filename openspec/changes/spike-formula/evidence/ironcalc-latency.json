@@ -1,0 +1,267 @@
+{
+  "commands": [
+    "bun tools/latency.ts latency-bun <own|ironcalc|ironcalc-approx> <64|200>",
+    "volta run --node 24.22.2 node tools/latency.ts latency-node <own|ironcalc> 64",
+    "for i in 1..10: bun tools/init-time.ts; volta run --node 24.22.2 node tools/init-time.ts"
+  ],
+  "runs": {
+    "latency-bun/ironcalc-64.json": {
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:50.027Z",
+        "command": "bun tools/latency.ts latency-bun ironcalc 64"
+      },
+      "engine": "ironcalc",
+      "leaves": 64,
+      "createMs": 5.551,
+      "startupMs": 53.237,
+      "nodes": 926,
+      "loadMs": 47.686,
+      "fullRecalcMs": 2.282,
+      "editMedianMs": 1.05,
+      "editP95Ms": 1.359,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-bun/own-64.json": {
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:49.851Z",
+        "command": "bun tools/latency.ts latency-bun own 64"
+      },
+      "engine": "own",
+      "leaves": 64,
+      "createMs": 0.017,
+      "startupMs": 6.121,
+      "nodes": 926,
+      "loadMs": 6.104,
+      "fullRecalcMs": 0.811,
+      "editMedianMs": 0.1,
+      "editP95Ms": 0.179,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-bun/own-200.json": {
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:49.898Z",
+        "command": "bun tools/latency.ts latency-bun own 200"
+      },
+      "engine": "own",
+      "leaves": 200,
+      "createMs": 0.016,
+      "startupMs": 14.49,
+      "nodes": 2864,
+      "loadMs": 14.474,
+      "fullRecalcMs": 1.273,
+      "editMedianMs": 0.228,
+      "editP95Ms": 0.53,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-bun/ironcalc-200.json": {
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:50.456Z",
+        "command": "bun tools/latency.ts latency-bun ironcalc 200"
+      },
+      "engine": "ironcalc",
+      "leaves": 200,
+      "createMs": 6.071,
+      "startupMs": 87.468,
+      "nodes": 2864,
+      "loadMs": 81.397,
+      "fullRecalcMs": 7.786,
+      "editMedianMs": 6.066,
+      "editP95Ms": 6.557,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-bun/ironcalc-approx-200.json": {
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:50.940Z",
+        "command": "bun tools/latency.ts latency-bun ironcalc-approx 200"
+      },
+      "engine": "ironcalc-approx",
+      "leaves": 200,
+      "createMs": 5.529,
+      "startupMs": 72.818,
+      "nodes": 2864,
+      "loadMs": 67.289,
+      "fullRecalcMs": 7.08,
+      "editMedianMs": 5.292,
+      "editP95Ms": 5.715,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-bun/ironcalc-approx-64.json": {
+      "env": {
+        "runtime": "bun 1.4.4",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:50.567Z",
+        "command": "bun tools/latency.ts latency-bun ironcalc-approx 64"
+      },
+      "engine": "ironcalc-approx",
+      "leaves": 64,
+      "createMs": 5.647,
+      "startupMs": 46.042,
+      "nodes": 926,
+      "loadMs": 40.394,
+      "fullRecalcMs": 3.188,
+      "editMedianMs": 0.793,
+      "editP95Ms": 1.08,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-node/ironcalc-64.json": {
+      "env": {
+        "runtime": "node 24.22.2",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:59.162Z",
+        "command": "node tools/latency.ts latency-node ironcalc 64"
+      },
+      "engine": "ironcalc",
+      "leaves": 64,
+      "createMs": 2.721,
+      "startupMs": 74.08,
+      "nodes": 926,
+      "loadMs": 71.359,
+      "fullRecalcMs": 2.68,
+      "editMedianMs": 1.639,
+      "editP95Ms": 1.804,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    },
+    "latency-node/own-64.json": {
+      "env": {
+        "runtime": "node 24.22.2",
+        "platform": "darwin arm64",
+        "date": "2026-10-30T09:59:58.913Z",
+        "command": "node tools/latency.ts latency-node own 64"
+      },
+      "engine": "own",
+      "leaves": 64,
+      "createMs": 0.025,
+      "startupMs": 8.849,
+      "nodes": 926,
+      "loadMs": 8.824,
+      "fullRecalcMs": 0.736,
+      "editMedianMs": 0.118,
+      "editP95Ms": 0.23,
+      "thresholdMs": 16,
+      "editWithinThreshold": true
+    }
+  },
+  "initTime": {
+    "bun": [
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.619,
+        "compileMedianMs": 3.849
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 6.726,
+        "compileMedianMs": 3.798
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 6.149,
+        "compileMedianMs": 3.7
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.651,
+        "compileMedianMs": 3.638
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.768,
+        "compileMedianMs": 3.717
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.592,
+        "compileMedianMs": 4.021
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.329,
+        "compileMedianMs": 3.739
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.032,
+        "compileMedianMs": 3.647
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 5.529,
+        "compileMedianMs": 3.796
+      },
+      {
+        "runtime": "bun 1.4.4",
+        "initSyncMs": 6.128,
+        "compileMedianMs": 3.755
+      }
+    ],
+    "node": [
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.9,
+        "compileMedianMs": 0.357
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.898,
+        "compileMedianMs": 0.354
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.715,
+        "compileMedianMs": 0.354
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.971,
+        "compileMedianMs": 0.375
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 3.144,
+        "compileMedianMs": 0.379
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.907,
+        "compileMedianMs": 0.351
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.956,
+        "compileMedianMs": 0.352
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.707,
+        "compileMedianMs": 0.32
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.776,
+        "compileMedianMs": 0.325
+      },
+      {
+        "runtime": "node 24.22.2",
+        "initSyncMs": 2.691,
+        "compileMedianMs": 0.355
+      }
+    ]
+  }
+}
