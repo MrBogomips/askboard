@@ -1,0 +1,86 @@
+# Packaging spike, criterion 10 (task 7.3): the probe on GitHub-hosted runners.
+# Kept in the change folder so nothing runs. To run it, the product owner copies it to
+# .github/workflows/packaging-probe.yml on a branch of their choice and starts it by hand.
+# macOS runners cost about 10x Linux minutes: the macOS job runs only when the input asks for it.
+name: Packaging probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run on macos-latest
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-24.04-arm is free only for public repositories; this one is private on GitHub Free.
+        os: ${{ fromJSON(inputs.macos && '["ubuntu-24.04","macos-latest"]' || '["ubuntu-24.04"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: openspec/changes/spike-packaging/probe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # Bun from npm at the repository's packageManager version, as in ci.yml.
+      - name: Install Bun
+        working-directory: .
+        run: |
+          version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
+          npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
+          bun --version
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Runner facts
+        run: |
+          uname -a
+          for t in curl wget sha256sum shasum openssl xdg-open open; do printf '%s: %s\n' "$t" "$(command -v $t || echo absent)"; done
+          env | grep -E '^(CI|GITHUB_ACTIONS|DISPLAY|WAYLAND_DISPLAY|BROWSER|RUNNER_OS|RUNNER_ARCH)=' || true
+          ls /.dockerenv /run/.containerenv 2>&1 || true
+      - name: Executable for this runner, direct
+        run: |
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64) exe=askboard-linux-x64 ;;
+            Linux-aarch64) exe=askboard-linux-arm64 ;;
+            Darwin-arm64) exe=askboard-darwin-arm64 ;;
+            Darwin-x86_64) exe=askboard-darwin-x64 ;;
+          esac
+          ./dist/$exe doctor
+          bun handshake.ts ./dist/$exe
+          ./dist/$exe detect
+      - name: Plain bundle on Node 24
+        run: bun handshake.ts node dist/askboard.mjs
+      - name: Launcher against the release server on 127.0.0.1, cold then warm
+        env:
+          CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/askboard-data
+          RUN: ci-runner
+        run: |
+          bun release-server.ts > release-server.out 2>&1 &
+          server=$!
+          sleep 2
+          cat release-server.out
+          bun handshake.ts plugin/scripts/askboard
+          bun handshake.ts plugin/scripts/askboard
+          ls -la "$CLAUDE_PLUGIN_DATA"/bin/*/
+          cat runs/ci-runner/release-server.jsonl
+          kill "$server"
+      - name: The ask tool on the runner (expects unavailable, reason ci-runner)
+        run: |
+          (printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ask","arguments":{"askId":"ci","question":"q"}}}'; sleep 3) \
+            | CLAUDE_PLUGIN_DATA="${{ runner.temp }}/askboard-data" plugin/scripts/askboard | tail -1

@@ -1,0 +1,107 @@
+{
+  "runDate": "2026-10-30",
+  "checkedAt": "2026-10-30T10:40:24.252Z",
+  "rule": "permissive licence; >= 1000 stars; push within 6 months and release within 12; not archived",
+  "rows": [
+    {
+      "name": "bun",
+      "version": "1.4.4",
+      "role": "toolchain and embedded runtime (AD-19)",
+      "repo": "oven-sh/bun",
+      "licence": "NOASSERTION",
+      "licenceFirstLine": "Bun itself is MIT-licensed.",
+      "repoLicence": "NOASSERTION",
+      "stars": 96468,
+      "pushedAt": "2026-10-30T10:37:25Z",
+      "lastRelease": "2026-10-22T10:11:32Z",
+      "versionPublished": null,
+      "archived": false,
+      "verdict": "review",
+      "failures": [
+        "licence file not classified by GitHub (\"Bun itself is MIT-licensed.\"): read it"
+      ]
+    },
+    {
+      "name": "node",
+      "version": "24.22.1",
+      "role": "fallback runtime for the plain bundle (AD-19)",
+      "repo": "nodejs/node",
+      "licence": "NOASSERTION",
+      "licenceFirstLine": "Node.js is licensed for use as follows:",
+      "repoLicence": "NOASSERTION",
+      "stars": 123097,
+      "pushedAt": "2026-10-30T09:54:05Z",
+      "lastRelease": "2026-10-29T18:36:37Z",
+      "versionPublished": null,
+      "archived": false,
+      "verdict": "review",
+      "failures": [
+        "licence file not classified by GitHub (\"Node.js is licensed for use as follows:\"): read it"
+      ]
+    },
+    {
+      "name": "deno",
+      "version": "2.9.8",
+      "role": "alternative compiler named in SOLUTION-DESIGN §4.10",
+      "repo": "denoland/deno",
+      "licence": "MIT",
+      "licenceFirstLine": null,
+      "repoLicence": "MIT",
+      "stars": 108771,
+      "pushedAt": "2026-10-29T08:03:10Z",
+      "lastRelease": "2026-10-21T15:28:53Z",
+      "versionPublished": null,
+      "archived": false,
+      "verdict": "pass",
+      "failures": []
+    },
+    {
+      "name": "@modelcontextprotocol/server",
+      "version": "2.4.0",
+      "role": "probe dependency (Stack)",
+      "repo": "modelcontextprotocol/typescript-sdk",
+      "licence": "Apache-2.0",
+      "licenceFirstLine": null,
+      "repoLicence": "NOASSERTION",
+      "stars": 13685,
+      "pushedAt": "2026-10-28T15:47:55Z",
+      "lastRelease": "2026-10-23T18:32:25Z",
+      "versionPublished": "2026-10-23T18:20:13.773Z",
+      "archived": false,
+      "verdict": "pass",
+      "failures": []
+    },
+    {
+      "name": "zod",
+      "version": "4.6.7",
+      "role": "probe dependency",
+      "repo": "colinhacks/zod",
+      "licence": "MIT",
+      "licenceFirstLine": null,
+      "repoLicence": "MIT",
+      "stars": 44230,
+      "pushedAt": "2026-10-29T21:12:58Z",
+      "lastRelease": "2026-10-12T16:30:32Z",
+      "versionPublished": "2026-10-12T16:29:37.778Z",
+      "archived": false,
+      "verdict": "pass",
+      "failures": []
+    },
+    {
+      "name": "playwright",
+      "version": "1.64.1",
+      "role": "probe dependency (browser driver)",
+      "repo": "microsoft/playwright",
+      "licence": "Apache-2.0",
+      "licenceFirstLine": null,
+      "repoLicence": "Apache-2.0",
+      "stars": 98860,
+      "pushedAt": "2026-10-30T00:01:40Z",
+      "lastRelease": "2026-10-14T11:51:33Z",
+      "versionPublished": "2026-10-14T11:54:49.998Z",
+      "archived": false,
+      "verdict": "pass",
+      "failures": []
+    }
+  ]
+}
