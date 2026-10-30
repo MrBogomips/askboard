@@ -1,7 +1,7 @@
 // `bun build.ts`: one classic-script (IIFE) chunk per engine, minified, in dist/chunks/, and
 // dist/manifest.json with each chunk's SHA-256 (base64, for the CSP), raw and gzip bytes.
 // IronCalc's chunk carries wasm_bg.wasm as base64; it goes through the adapter once
-// src/ironcalc/engine.ts and findings-parts/IRONCALC-READY exist, else IronCalc's API directly.
+// src/ironcalc/engine.ts exists, else IronCalc's API directly.
 
 import { existsSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
@@ -21,7 +21,7 @@ export const gzipBytes = (data: string | Uint8Array): number =>
   Bun.gzipSync(typeof data === "string" ? Buffer.from(data) : new Uint8Array(data), { level: 9 }).byteLength;
 
 export const adapterReady = (): boolean =>
-  existsSync(join(PROBE, "src/ironcalc/engine.ts")) && existsSync(join(PROBE, "../findings-parts/IRONCALC-READY"));
+  existsSync(join(PROBE, "src/ironcalc/engine.ts"));
 
 const wasmBase64: BunPlugin = {
   name: "probe-wasm-base64",
