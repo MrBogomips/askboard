@@ -36,8 +36,6 @@ const COMMON_HEADERS = {
   "Cache-Control": "no-store",
 } as const;
 
-const REFUSED: Answer = { status: 403, contentType: BOARD_RESPONSES.tokenRefused.contentType };
-
 /** What one request is answered with. */
 type Reply = {
   readonly answer: Answer;
@@ -121,7 +119,7 @@ const boardPage = (deps: HttpDeps, askId: string, query: URLSearchParams): Reply
 };
 
 const replyTo = (deps: HttpDeps, request: IncomingMessage): Reply => {
-  if (gateOf(request, false) !== undefined) return text(REFUSED);
+  if (gateOf(request, false) !== undefined) return text(BOARD_RESPONSES.refused);
   const { route: target, query } = targetOf(request.url);
   const readable = request.method === "GET" || request.method === "HEAD";
   if (target === undefined || !readable || target.kind === "socket") {
@@ -148,7 +146,7 @@ export const handleRequest = (
     reply = replyTo(deps, request);
   } catch (error) {
     deps.report(error);
-    reply = text({ status: 500, contentType: REFUSED.contentType });
+    reply = text({ status: 500, contentType: BOARD_RESPONSES.notFound.contentType });
   }
   send(request, response, reply);
 };
@@ -177,12 +175,15 @@ export const handleUpgrade = (
   socket.on("error", (error) => deps.report(error));
   try {
     if (gateOf(request, true) !== undefined) {
-      refuseUpgrade(socket, 403);
+      refuseUpgrade(socket, BOARD_RESPONSES.refused.status);
       return;
     }
     const { route: target } = targetOf(request.url);
-    if (target?.kind !== "socket" || deps.closed()) refuseUpgrade(socket, 404);
-    else accept(target.askId);
+    if (target?.kind !== "socket" || deps.closed()) {
+      refuseUpgrade(socket, BOARD_RESPONSES.notFound.status);
+    } else {
+      accept(target.askId);
+    }
   } catch (error) {
     // A throw here would escape the listener's event and end the session process.
     deps.report(error);

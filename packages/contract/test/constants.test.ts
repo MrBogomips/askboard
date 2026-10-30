@@ -201,6 +201,10 @@ describe("what each HTTP route answers (design decision 5)", () => {
     expect(BOARD_RESPONSES.tokenRefused).toEqual({ status: 403, contentType: text });
     expect(BOARD_RESPONSES.notFound).toEqual({ status: 404, contentType: text });
   });
+
+  test("a request the Host or Origin check refuses, on any route (Track A's request 1)", () => {
+    expect(BOARD_RESPONSES.refused).toEqual({ status: 403, contentType: text });
+  });
 });
 
 describe("WebSocket close codes (design decision 5)", () => {

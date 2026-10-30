@@ -64,6 +64,12 @@ export const BOARD_RESPONSES = {
   tokenRefused: { status: 403, contentType: TEXT },
   /** `/c/` with a hash no chunk of the manifest lists, and any path that names no route. */
   notFound: { status: 404, contentType: TEXT },
+  /**
+   * Any route, before anything else: a request whose `Host` is not a loopback name, whose `Origin`
+   * is not `http://` plus its `Host`, or that lacks the `Origin` an upgrade or a method other than
+   * GET or HEAD needs (AD-11). A WebSocket upgrade refused for it gets this status.
+   */
+  refused: { status: 403, contentType: TEXT },
 } as const;
 
 export type BoardRoute =

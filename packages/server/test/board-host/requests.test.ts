@@ -130,6 +130,23 @@ describe("Host and Origin", () => {
     }
   });
 
+  test("a request the gate refuses gets the contract's answer for it", async () => {
+    for (const options of [
+      { host: "attacker.example" },
+      { headers: { Origin: "http://attacker.example" } },
+      { method: "POST" },
+    ]) {
+      isAnswer(
+        await request(port, boardPath(one.askId, one.token), options),
+        BOARD_RESPONSES.refused,
+      );
+    }
+    const path = `/ws/${one.askId}`;
+    expect(await upgradeStatus(port, path, { Host: "attacker.example" })).toBe(
+      BOARD_RESPONSES.refused.status,
+    );
+  });
+
   test("a request without Host is refused", async () => {
     const answer = await request(port, boardPath(one.askId, one.token), { host: null });
     expect(answer.status).not.toBe(200);
