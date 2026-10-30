@@ -5,7 +5,7 @@ Commands run from `openspec/changes/spike-formula/probe/` unless they name the r
 ## 1. Probe and environment
 
 - [ ] 1.1 Read the documentation of the candidates: the `@ironcalc/wasm` 0.9.1 README, `wasm.d.ts`, `wasm.js` and `THIRD-PARTY-NOTICES.md`; IronCalc's documentation of supported functions and defined names; mathjs 15.2.0's `parse()` and its security page. In `findings.md`, write the method section (platform, runtimes and engines with their versions, the exact CSP strings, the verdict rule of design decision 4) and list every difference from SOLUTION-DESIGN §4.7, §10.2 and F37. Verify that each listed difference cites its documentation page or the file in the package.
-- [ ] 1.2 Write `tools/adoption.ts`: for every direct dependency of `package.json`, it reads the licence, stars, last push, last release and archived flag from the npm registry and the GitHub API. Verify that `GITHUB_TOKEN=$(gh auth token) bun tools/adoption.ts` writes `evidence/adoption.json` with a row per package and a pass or a named failure against the adoption rule, and that `findings.md` holds the table with the run date.
+- [x] 1.2 Write `tools/adoption.ts`: for every direct dependency of `package.json`, it reads the licence, stars, last push, last release and archived flag from the npm registry and the GitHub API. Verify that `GITHUB_TOKEN=$(gh auth token) bun tools/adoption.ts` writes `evidence/adoption.json` with a row per package and a pass or a named failure against the adoption rule, and that `findings.md` holds the table with the run date.
 - [x] 1.3 Create `package.json` with the pins of design decision 1, `bunfig.toml` (`linker = "isolated"`, `exact = true`), `tools/licence-overrides.json` (`[]`), `.gitignore` (`node_modules/`, `dist/`, `runs/`) and `tsconfig.json`, then `bun install` to write `bun.lock`. Verify that `bun install --frozen-lockfile` passes in `probe/`; that `GITHUB_TOKEN=$(gh auth token) bun tools/check-licences.ts openspec/changes/spike-formula/probe`, run from the repository root, completes, with its output in `findings.md` (a licence it flags is a finding, never an override); that `git diff --exit-code origin/main -- package.json bun.lock packages/` at the repository root is empty; and that the root `bun run check` passes.
 - [x] 1.4 Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory holding Playwright 1.64.1's Chromium, Firefox and WebKit (installing them there if missing). Verify with `bun drive.ts versions`, which opens each engine and prints its version, and record the versions in `findings.md`. An engine that cannot run is untested, with the reason.
 
@@ -33,12 +33,12 @@ Commands run from `openspec/changes/spike-formula/probe/` unless they name the r
 
 ## 5. API churn and the mathjs parser (criterion 7)
 
-- [ ] 5.1 Criterion 7: write `tools/churn.ts` (design decision 6) and run it over every 0.x release of `@ironcalc/wasm`. Verify that `evidence/churn.json` lists, per release, the date, the exported-surface diff and the breaking changes to the methods the adapter uses, and that `findings.md`, § Criterion 7, gives the table with the releases of the last 12 months and the GitHub release notes it read.
-- [ ] 5.2 The mathjs parser: run `bun src/mathjs-parse.ts` over every fixture formula, and build a bundle with only `parse` imported. Verify that `findings.md`, § mathjs as a parser, records which formulas parse and which do not (with the reason), the bundle's raw and gzip bytes against the own parser's, and the advisories of §4.7 that apply to `parse`.
+- [x] 5.1 Criterion 7: write `tools/churn.ts` (design decision 6) and run it over every 0.x release of `@ironcalc/wasm`. Verify that `evidence/churn.json` lists, per release, the date, the exported-surface diff and the breaking changes to the methods the adapter uses, and that `findings.md`, § Criterion 7, gives the table with the releases of the last 12 months and the GitHub release notes it read.
+- [x] 5.2 The mathjs parser: run `bun src/mathjs-parse.ts` over every fixture formula, and build a bundle with only `parse` imported. Verify that `findings.md`, § mathjs as a parser, records which formulas parse and which do not (with the reason), the bundle's raw and gzip bytes against the own parser's, and the advisories of §4.7 that apply to `parse`.
 
 ## 6. Linux (optional)
 
-- [ ] 6.1 Optional; skipping it does not block group 7. Run `bun run.ts` for both engines in a Linux container with Bun 1.4.4 and the probe mounted read-only (NFR-7). Verify that the result hashes match macOS, with the image digest and the runs in `findings.md`, § Linux.
+- [x] 6.1 Optional; skipping it does not block group 7. Run `bun run.ts` for both engines in a Linux container with Bun 1.4.4 and the probe mounted read-only (NFR-7). Verify that the result hashes match macOS, with the image digest and the runs in `findings.md`, § Linux.
 
 ## 7. Decisions and the spine
 

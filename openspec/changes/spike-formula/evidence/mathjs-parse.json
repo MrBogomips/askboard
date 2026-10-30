@@ -1,0 +1,623 @@
+{
+  "run": "mathjs-parse",
+  "date": "2026-10-30T09:45:24.280Z",
+  "command": "bun src/mathjs-parse.ts",
+  "runtime": "bun 1.4.4",
+  "mathjs": "15.2.0",
+  "import": "import { parse } from \"mathjs\"",
+  "parseMs": 917,
+  "bundleDir": "<dir> given with --bundle-dir",
+  "bundles": [
+    {
+      "name": "mathjs-parse",
+      "what": "mathjs 15.2.0, `import { parse } from \"mathjs\"` only",
+      "command": "bun build <dir>/mathjs-parse.entry.js --minify --format=iife --outfile <dir>/mathjs-parse.min.js",
+      "rawBytes": 681523,
+      "gzipBytes": 190728
+    },
+    {
+      "name": "mathjs-parse-factory",
+      "what": "mathjs 15.2.0, `create({ parseDependencies }).parse`",
+      "command": "bun build <dir>/mathjs-parse-factory.entry.js --minify --format=iife --outfile <dir>/mathjs-parse-factory.min.js",
+      "rawBytes": 323769,
+      "gzipBytes": 90412
+    },
+    {
+      "name": "own-parser",
+      "what": "own parser alone (src/own/parser.ts, which imports the function table for arity checks)",
+      "command": "bun build <dir>/own-parser.entry.js --minify --format=iife --outfile <dir>/own-parser.min.js",
+      "rawBytes": 11299,
+      "gzipBytes": 3930
+    },
+    {
+      "name": "own-parser-without-table",
+      "what": "own parser alone, with src/own/functions.ts left external",
+      "command": "Bun.build({ entrypoints: [entry], minify: true, format: \"esm\", plugin marking /\\/functions\\.ts$|^\\.\\/functions\\.ts$/ external })",
+      "rawBytes": 1743,
+      "gzipBytes": 901
+    },
+    {
+      "name": "own-lexer-and-parser",
+      "what": "own lexer and whitelist check (src/refs.ts) plus the parser: the like-for-like of mathjs's tokenizer and parser",
+      "command": "bun build <dir>/own-lexer-and-parser.entry.js --minify --format=iife --outfile <dir>/own-lexer-and-parser.min.js",
+      "rawBytes": 15317,
+      "gzipBytes": 5287
+    },
+    {
+      "name": "own-engine",
+      "what": "whole own engine (engine, parser, interpreter, functions, lexer, precheck, whitelist)",
+      "command": "bun build <dir>/own-engine.entry.js --minify --format=iife --outfile <dir>/own-engine.min.js",
+      "rawBytes": 25564,
+      "gzipBytes": 8891
+    },
+    {
+      "name": "mathjs-browser-full",
+      "what": "mathjs 15.2.0 lib/browser/math.js as shipped (everything)",
+      "command": "none (file in the package)",
+      "rawBytes": 649724,
+      "gzipBytes": 175065
+    }
+  ],
+  "summary": {
+    "occurrences": 11046,
+    "distinctFormulas": 11025,
+    "shapes": 193,
+    "bySource": {
+      "whitelist": 131,
+      "board": 99,
+      "errors": 10083,
+      "generated": 733
+    },
+    "precheckAccepted": {
+      "shapes": 151,
+      "parse": 138,
+      "fail": 13,
+      "failureReasons": {
+        "Excel = comparison is mathjs assignment": 4,
+        "Excel <> has no mathjs equivalent (!=)": 4,
+        "Excel \"\" text escape (mathjs uses \\\")": 1,
+        "a syntax error the fixture expects; mathjs refuses it too": 4
+      },
+      "failureExamples": {
+        "Excel = comparison is mathjs assignment": "1=1",
+        "Excel <> has no mathjs equivalent (!=)": "1<>2",
+        "Excel \"\" text escape (mathjs uses \\\")": "\"\"\"\"=\"\"\"\"",
+        "a syntax error the fixture expects; mathjs refuses it too": "1+"
+      },
+      "parseAfterTokenRewrite": 147,
+      "rewriteFailures": [
+        {
+          "formula": "1+",
+          "error": "SyntaxError: Unexpected end of expression (char 4)"
+        },
+        {
+          "formula": "SUM(1,,2)",
+          "error": "SyntaxError: Value expected (char 11)"
+        },
+        {
+          "formula": "=1+2",
+          "error": "SyntaxError: Value expected (char 1)"
+        },
+        {
+          "formula": "1 2",
+          "error": "SyntaxError: Unexpected part \"2\" (char 3)"
+        }
+      ],
+      "mismatchesAmongParsed": {
+        "TRUE/FALSE read as symbols, not booleans": 14,
+        "^ is right-associative in mathjs (Excel: left)": 1,
+        "unary sign binds looser than ^ in mathjs (Excel: tighter)": 1,
+        "= read as assignment (Excel: equality)": 3,
+        "chained comparison a<b<c is a and-chain in mathjs (Excel: (a<b)<c)": 1
+      },
+      "mismatchExamples": {
+        "TRUE/FALSE read as symbols, not booleans": "TRUE+TRUE",
+        "^ is right-associative in mathjs (Excel: left)": "2^3^2",
+        "unary sign binds looser than ^ in mathjs (Excel: tighter)": "-2^2",
+        "= read as assignment (Excel: equality)": "[x.e]=0",
+        "chained comparison a<b<c is a and-chain in mathjs (Excel: (a<b)<c)": "1<2<3"
+      },
+      "mismatchesAfterTokenRewrite": {
+        "^ is right-associative in mathjs (Excel: left)": 1,
+        "unary sign binds looser than ^ in mathjs (Excel: tighter)": 1,
+        "chained comparison a<b<c is a and-chain in mathjs (Excel: (a<b)<c)": 1
+      },
+      "expectedSyntaxButParses": [
+        {
+          "formula": "ROUND(1)",
+          "ast": "accepted by the AST walk"
+        },
+        {
+          "formula": "IF(1)",
+          "ast": "accepted by the AST walk"
+        },
+        {
+          "formula": "1e309",
+          "ast": "constant Infinity"
+        }
+      ],
+      "failuresBySource": {
+        "whitelist": 8,
+        "board": 1,
+        "errors": 4
+      },
+      "astWhitelistRefusals": {
+        "assignment": 3,
+        "chained comparison": 1,
+        "constant Infinity": 1
+      },
+      "astWhitelistRefusalsAfterRewrite": {
+        "chained comparison": 1,
+        "constant Infinity": 1
+      }
+    },
+    "moleculeFormulas": {
+      "shapes": 30,
+      "parse": 29,
+      "parseWithoutMismatch": 28,
+      "failing": [
+        {
+          "formula": "AND([estimate.minMargin]<>\"\",[estimate.margin]<[estimate.minMargin])",
+          "reason": "Excel <> has no mathjs equivalent (!=)"
+        }
+      ],
+      "functions": [
+        "IF",
+        "MAX",
+        "MIN",
+        "ROUND",
+        "ROUNDUP",
+        "SQRT",
+        "SUM",
+        "SUMPRODUCT",
+        "SUMSQ",
+        "WORKDAY"
+      ]
+    },
+    "precheckRefused": {
+      "shapes": 42,
+      "byKind": {
+        "not-whitelisted": 16,
+        "syntax": 26
+      },
+      "mathjsParses": 32,
+      "acceptedByAstWalk": [
+        {
+          "formula": "SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(… (501 characters)",
+          "precheck": "nesting deeper than 64 (100)"
+        },
+        {
+          "formula": "--------------------------------------------------------------------------------… (5001 characters)",
+          "precheck": "more than 64 nested unary signs and parentheses"
+        },
+        {
+          "formula": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+… (1048575 characters)",
+          "precheck": "formula longer than 8192 characters (1048575)"
+        },
+        {
+          "formula": "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa… (1048578 characters)",
+          "precheck": "formula longer than 8192 characters (1048578)"
+        }
+      ],
+      "notWhitelistedCaughtByAstWalk": 16,
+      "notWhitelistedParsing": 16,
+      "notWhitelisted": [
+        {
+          "formula": "INDIRECT(\"x.a\")",
+          "mathjs": "parses; AST walk: function INDIRECT"
+        },
+        {
+          "formula": "OFFSET([x.a],1,0)",
+          "mathjs": "parses; AST walk: function OFFSET"
+        },
+        {
+          "formula": "HYPERLINK(\"https://example.com\")",
+          "mathjs": "parses; AST walk: function HYPERLINK"
+        },
+        {
+          "formula": "WEBSERVICE(\"https://example.com\")",
+          "mathjs": "parses; AST walk: function WEBSERVICE"
+        },
+        {
+          "formula": "NOW()",
+          "mathjs": "parses; AST walk: function NOW"
+        },
+        {
+          "formula": "RAND()",
+          "mathjs": "parses; AST walk: function RAND"
+        },
+        {
+          "formula": "rand()",
+          "mathjs": "parses; AST walk: function rand"
+        },
+        {
+          "formula": "SUM(1,RAND())",
+          "mathjs": "parses; AST walk: function RAND"
+        },
+        {
+          "formula": "TODAY()",
+          "mathjs": "parses; AST walk: function TODAY"
+        },
+        {
+          "formula": "CONCATENATE(\"a\",\"b\")",
+          "mathjs": "parses; AST walk: function CONCATENATE"
+        },
+        {
+          "formula": "\"a\"&\"b\"",
+          "mathjs": "parses; AST walk: operator bitAnd"
+        },
+        {
+          "formula": "50%",
+          "mathjs": "parses; AST walk: operator % (percentage)"
+        },
+        {
+          "formula": "constructor(1)",
+          "mathjs": "parses; AST walk: function constructor"
+        },
+        {
+          "formula": "toString()",
+          "mathjs": "parses; AST walk: function toString"
+        },
+        {
+          "formula": "__proto__(1)",
+          "mathjs": "parses; AST walk: function __proto__"
+        },
+        {
+          "formula": "hasOwnProperty(\"x\")",
+          "mathjs": "parses; AST walk: function hasOwnProperty"
+        }
+      ],
+      "others": [
+        {
+          "formula": "(1+2",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Parenthesis ) expected (char 5)"
+        },
+        {
+          "formula": "1+2)",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Unexpected operator ) (char 4)"
+        },
+        {
+          "formula": "1;2",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 2)"
+        },
+        {
+          "formula": "[x.a",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: End of matrix ] expected (char 5)"
+        },
+        {
+          "formula": "A1+1",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 2)"
+        },
+        {
+          "formula": "\"open",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: End of string \" expected (char 6)"
+        },
+        {
+          "formula": "SUM 1",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 2)"
+        },
+        {
+          "formula": "[x.a:b]",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 5)"
+        },
+        {
+          "formula": "[x..a]",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Property name expected after dot (char 4)"
+        },
+        {
+          "formula": "[*.a]",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Value expected (char 2)"
+        },
+        {
+          "formula": "[x.a.*]",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Value expected (char 7)"
+        },
+        {
+          "formula": "[x.A1:B]",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 5)"
+        },
+        {
+          "formula": "{1,2}",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Symbol or string expected as object key (char 2)"
+        },
+        {
+          "formula": "x!A1",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 3)"
+        },
+        {
+          "formula": "$A$1",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 1)"
+        },
+        {
+          "formula": "__proto__",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 1)"
+        },
+        {
+          "formula": "constructor",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 1)"
+        },
+        {
+          "formula": "#REF!",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 1)"
+        },
+        {
+          "formula": "@x",
+          "precheck": "syntax",
+          "mathjs": "SyntaxError: Syntax error in part \"@x\" (char 1)"
+        },
+        {
+          "formula": "[x.a b.value]",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 5)"
+        },
+        {
+          "formula": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b.value]",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 5)"
+        },
+        {
+          "formula": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((… (20001 characters)",
+          "precheck": "syntax",
+          "mathjs": "RangeError: Maximum call stack size exceeded."
+        },
+        {
+          "formula": "SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(SUM(… (501 characters)",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 101)"
+        },
+        {
+          "formula": "--------------------------------------------------------------------------------… (5001 characters)",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 5001)"
+        },
+        {
+          "formula": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+… (1048575 characters)",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 524288)"
+        },
+        {
+          "formula": "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa… (1048578 characters)",
+          "precheck": "syntax",
+          "mathjs": "parses (depth 1)"
+        }
+      ]
+    },
+    "nodeTypes": {
+      "OperatorNode": 533394,
+      "ConstantNode": 528513,
+      "SymbolNode": 121,
+      "ParenthesisNode": 69,
+      "AssignmentNode": 3,
+      "RelationalNode": 1,
+      "FunctionNode": 195,
+      "BlockNode": 1,
+      "ArrayNode": 4,
+      "RangeNode": 2,
+      "AccessorNode": 6,
+      "IndexNode": 6
+    },
+    "tokenVersusAstDisagreements": [
+      {
+        "formula": "[x.e]=0",
+        "precheck": "ok",
+        "ast": "assignment"
+      },
+      {
+        "formula": "[x.e]=\"\"",
+        "precheck": "ok",
+        "ast": "assignment"
+      },
+      {
+        "formula": "[x.e]=FALSE",
+        "precheck": "ok",
+        "ast": "assignment"
+      },
+      {
+        "formula": "1<2<3",
+        "precheck": "ok",
+        "ast": "chained comparison"
+      },
+      {
+        "formula": "1e309",
+        "precheck": "ok",
+        "ast": "constant Infinity"
+      }
+    ]
+  },
+  "grammarExtras": [
+    {
+      "text": "r0;r1",
+      "parses": true,
+      "nodeTypes": [
+        "BlockNode",
+        "SymbolNode"
+      ],
+      "walk": "node BlockNode"
+    },
+    {
+      "text": "1+2 # comment",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "ConstantNode"
+      ],
+      "walk": "accepted"
+    },
+    {
+      "text": "2 r0",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode",
+        "ConstantNode"
+      ],
+      "walk": "implicit multiplication"
+    },
+    {
+      "text": "3!",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "ConstantNode"
+      ],
+      "walk": "operator factorial"
+    },
+    {
+      "text": "r0'",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode"
+      ],
+      "walk": "operator ctranspose"
+    },
+    {
+      "text": "r0 ? 1 : 2",
+      "parses": true,
+      "nodeTypes": [
+        "ConditionalNode",
+        "ConstantNode",
+        "SymbolNode"
+      ],
+      "walk": "node ConditionalNode"
+    },
+    {
+      "text": "[1,2]",
+      "parses": true,
+      "nodeTypes": [
+        "ArrayNode",
+        "ConstantNode"
+      ],
+      "walk": "node ArrayNode"
+    },
+    {
+      "text": "{a: 1}",
+      "parses": true,
+      "nodeTypes": [
+        "ObjectNode",
+        "ConstantNode"
+      ],
+      "walk": "node ObjectNode"
+    },
+    {
+      "text": "r0.b",
+      "parses": true,
+      "nodeTypes": [
+        "AccessorNode",
+        "IndexNode",
+        "ConstantNode",
+        "SymbolNode"
+      ],
+      "walk": "node AccessorNode"
+    },
+    {
+      "text": "1:3",
+      "parses": true,
+      "nodeTypes": [
+        "RangeNode",
+        "ConstantNode"
+      ],
+      "walk": "node RangeNode"
+    },
+    {
+      "text": "f(x) = x",
+      "parses": true,
+      "nodeTypes": [
+        "FunctionAssignmentNode",
+        "SymbolNode"
+      ],
+      "walk": "node FunctionAssignmentNode"
+    },
+    {
+      "text": "5 cm",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode",
+        "ConstantNode"
+      ],
+      "walk": "implicit multiplication"
+    },
+    {
+      "text": "2 to cm",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode",
+        "ConstantNode"
+      ],
+      "walk": "operator to"
+    },
+    {
+      "text": "r0 and r1",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode"
+      ],
+      "walk": "operator and"
+    },
+    {
+      "text": "not r0",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode"
+      ],
+      "walk": "operator not"
+    },
+    {
+      "text": "7 mod 2",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "ConstantNode"
+      ],
+      "walk": "operator mod"
+    },
+    {
+      "text": "r0 xor r1",
+      "parses": true,
+      "nodeTypes": [
+        "OperatorNode",
+        "SymbolNode"
+      ],
+      "walk": "operator xor"
+    },
+    {
+      "text": "0x1F",
+      "parses": true,
+      "nodeTypes": [
+        "ConstantNode"
+      ],
+      "walk": "accepted"
+    },
+    {
+      "text": "sum(r0)",
+      "parses": true,
+      "nodeTypes": [
+        "FunctionNode",
+        "SymbolNode"
+      ],
+      "walk": "accepted"
+    }
+  ]
+}

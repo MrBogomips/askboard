@@ -1,0 +1,130 @@
+{
+  "runDate": "2026-10-30",
+  "generatedAt": "2026-10-30T09:47:54.059Z",
+  "rule": {
+    "source": "docs/prd-askboard-2026-10-25/addendum.md, Adoption rule",
+    "licence": "permissive (MIT, Apache-2.0, BSD, ISC, 0BSD); MPL-2.0 or EPL-2.0 only unmodified",
+    "stars": "at least 1000, or a named exception",
+    "pushSince": "2026-04-30",
+    "releaseSince": "2025-10-30",
+    "archived": "not archived"
+  },
+  "rows": [
+    {
+      "package": "@ironcalc/wasm",
+      "pin": "0.9.1",
+      "kind": "dependency",
+      "npmLicence": "MIT OR Apache-2.0",
+      "githubLicence": "Apache-2.0",
+      "licenceVerdict": "permissive",
+      "repository": "ironcalc/IronCalc",
+      "stars": 4239,
+      "lastPush": "2026-10-29T23:24:39Z",
+      "lastRelease": {
+        "date": "2026-10-21T13:47:07.423Z",
+        "source": "npm publish of latest",
+        "name": "0.9.1"
+      },
+      "pinPublished": "2026-10-21T13:47:07.423Z",
+      "npmLatest": "0.9.1",
+      "archived": false,
+      "result": "pass",
+      "failures": [],
+      "notes": [
+        "0.x version: minor releases may break the API",
+        "GitHub reports Apache-2.0 for the repository; npm reports MIT OR Apache-2.0"
+      ]
+    },
+    {
+      "package": "mathjs",
+      "pin": "15.2.0",
+      "kind": "dependency",
+      "npmLicence": "Apache-2.0",
+      "githubLicence": "Apache-2.0",
+      "licenceVerdict": "permissive",
+      "repository": "josdejong/mathjs",
+      "stars": 15101,
+      "lastPush": "2026-10-30T04:57:16Z",
+      "lastRelease": {
+        "date": "2026-04-07T14:35:09.363Z",
+        "source": "npm publish of latest",
+        "name": "15.2.0"
+      },
+      "pinPublished": "2026-04-07T14:35:09.363Z",
+      "npmLatest": "15.2.0",
+      "archived": false,
+      "result": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "package": "@types/bun",
+      "pin": "1.4.4",
+      "kind": "devDependency",
+      "npmLicence": "MIT",
+      "githubLicence": "NOASSERTION",
+      "licenceVerdict": "permissive",
+      "repository": "DefinitelyTyped/DefinitelyTyped",
+      "stars": 51460,
+      "lastPush": "2026-10-30T01:36:45Z",
+      "lastRelease": {
+        "date": "2026-10-23T00:09:43.191Z",
+        "source": "npm publish of latest",
+        "name": "1.4.4"
+      },
+      "pinPublished": "2026-10-23T00:09:43.191Z",
+      "npmLatest": "1.4.4",
+      "archived": false,
+      "result": "pass",
+      "failures": [],
+      "notes": [
+        "GitHub reports NOASSERTION for the repository; npm reports MIT",
+        "stars, push and archived flag are DefinitelyTyped's, the repository holding every @types package"
+      ]
+    },
+    {
+      "package": "playwright",
+      "pin": "1.64.1",
+      "kind": "devDependency",
+      "npmLicence": "Apache-2.0",
+      "githubLicence": "Apache-2.0",
+      "licenceVerdict": "permissive",
+      "repository": "microsoft/playwright",
+      "stars": 98854,
+      "lastPush": "2026-10-30T00:01:40Z",
+      "lastRelease": {
+        "date": "2026-10-14T11:54:49.998Z",
+        "source": "npm publish of latest",
+        "name": "1.64.1"
+      },
+      "pinPublished": "2026-10-14T11:54:49.998Z",
+      "npmLatest": "1.64.1",
+      "archived": false,
+      "result": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "package": "typescript",
+      "pin": "7.0.2",
+      "kind": "devDependency",
+      "npmLicence": "Apache-2.0",
+      "githubLicence": "Apache-2.0",
+      "licenceVerdict": "permissive",
+      "repository": "microsoft/TypeScript",
+      "stars": 111673,
+      "lastPush": "2026-10-30T07:07:23Z",
+      "lastRelease": {
+        "date": "2026-10-20T17:38:20Z",
+        "source": "GitHub releases (pre-release)",
+        "name": "v7.1-beta"
+      },
+      "pinPublished": "2026-07-08T15:55:18.431Z",
+      "npmLatest": "7.0.2",
+      "archived": false,
+      "result": "pass",
+      "failures": [],
+      "notes": []
+    }
+  ]
+}
