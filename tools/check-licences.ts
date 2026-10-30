@@ -275,6 +275,8 @@ export const checkArchives = async (
 type Tree = {
   packages: Installed[];
   otherPlatforms: string[];
+  // Per package, the names of the bundled dependencies bun.lock lists under its key.
+  bundled: Map<string, Set<string>>;
   direct: Direct[];
   patched: Set<string>;
   problems: string[];
@@ -334,6 +336,22 @@ const bundles = (manifest: Record<string, unknown>): boolean => {
   return bundled === true || (Array.isArray(bundled) && bundled.length > 0);
 };
 
+// The names a manifest bundles: its list, or every dependency when the field is `true`.
+const bundledNames = (manifest: Record<string, unknown>): string[] => {
+  const bundled = manifest.bundleDependencies ?? manifest.bundledDependencies;
+  if (bundled === true)
+    return Object.keys(isRecord(manifest.dependencies) ? manifest.dependencies : {});
+  return Array.isArray(bundled) ? bundled.map(String) : [];
+};
+
+// Bun lists a bundled dependency under its parent's key, `<parent key>/<name>`, marked `bundled`.
+const bundledParentKey = (
+  key: string,
+  name: string,
+  meta: Record<string, unknown>,
+): string | undefined =>
+  meta.bundled === true && key.endsWith(`/${name}`) ? key.slice(0, -name.length - 1) : undefined;
+
 const splitId = (id: string): { name: string; version: string } => {
   const at = id.lastIndexOf("@");
   return { name: id.slice(0, at), version: id.slice(at + 1) };
@@ -357,18 +375,43 @@ const readTree = async (root: string): Promise<Tree> => {
   );
   const store = join(root, "node_modules", ".bun");
   const directories = await readdir(store).catch(() => [] as string[]);
+  const directoryOf = (name: string, version: string): string | undefined => {
+    const stem = `${name.replaceAll("/", "+")}@${version.replaceAll("/", "+")}`;
+    return directories.find((entry) => entry === stem || entry.startsWith(`${stem}+`));
+  };
+  // A package that is not installed may be meant for another platform by its own os, cpu or libc,
+  // or as a bundled dependency of such a package, which ships inside it (renderer spike, row 20).
+  const forAnotherPlatformAt = (key: string): boolean => {
+    const [id, , meta = {}] = lock.packages[key] ?? [];
+    if (id === undefined) return false;
+    const { name, version } = splitId(id);
+    if (directoryOf(name, version) !== undefined) return false;
+    if (forAnotherPlatform(meta)) return true;
+    const parent = bundledParentKey(key, name, meta);
+    return parent !== undefined && forAnotherPlatformAt(parent);
+  };
 
-  const tree: Tree = { packages: [], otherPlatforms: [], direct: [], patched, problems: [] };
+  const tree: Tree = {
+    packages: [],
+    otherPlatforms: [],
+    bundled: new Map(),
+    direct: [],
+    patched,
+    problems: [],
+  };
   const byId = new Map<string, Installed>();
   const seen = new Set<string>();
-  for (const [id, , meta = {}] of Object.values(lock.packages)) {
+  for (const [key, [id, , meta = {}]] of Object.entries(lock.packages)) {
     const { name, version } = splitId(id);
+    const parentId = lock.packages[bundledParentKey(key, name, meta) ?? ""]?.[0];
+    if (parentId !== undefined) {
+      tree.bundled.set(parentId, (tree.bundled.get(parentId) ?? new Set()).add(name));
+    }
     if (version.startsWith("workspace:") || seen.has(id)) continue;
     seen.add(id);
-    const stem = `${name.replaceAll("/", "+")}@${version.replaceAll("/", "+")}`;
-    const directory = directories.find((entry) => entry === stem || entry.startsWith(`${stem}+`));
+    const directory = directoryOf(name, version);
     if (directory === undefined) {
-      if (forAnotherPlatform(meta)) tree.otherPlatforms.push(id);
+      if (forAnotherPlatformAt(key)) tree.otherPlatforms.push(id);
       else tree.problems.push(`${id}: listed in bun.lock but not installed; run bun install`);
       continue;
     }
@@ -405,6 +448,7 @@ const readTree = async (root: string): Promise<Tree> => {
 const readFromRegistry = async (
   id: string,
   fetcher: typeof fetch,
+  listed: ReadonlySet<string>,
 ): Promise<{ pkg?: Installed; problems: string[] }> => {
   const { name, version } = splitId(id);
   const where = `${id}: npm registry lookup`;
@@ -416,9 +460,15 @@ const readFromRegistry = async (
     const manifest: unknown = await response.json();
     if (!isRecord(manifest)) return { problems: [`${where}: the reply is not a package manifest`] };
     const pkg = { name, version, licence: licenceOf(manifest), repository: manifest.repository };
-    const problems = bundles(manifest)
-      ? [`${id}: bundles dependencies, which this check cannot see`]
-      : [];
+    // What bun.lock lists is checked as a package of its own; anything else stays unseen.
+    const names = bundledNames(manifest);
+    const unseen = names.filter((bundled) => !listed.has(bundled));
+    const problems =
+      bundles(manifest) && (names.length === 0 || unseen.length > 0)
+        ? [
+            `${id}: bundles dependencies, which this check cannot see${unseen.length > 0 ? `: ${unseen.join(", ")}` : ""}`,
+          ]
+        : [];
     return { pkg, problems };
   } catch (error) {
     return {
@@ -428,12 +478,16 @@ const readFromRegistry = async (
 };
 
 // Packages for another platform are not installed here, so their licences come from the npm
-// registry's metadata for the exact version.
+// registry's metadata for the exact version. `bundled` holds, per package, the bundled
+// dependencies that bun.lock lists, which are read as packages of their own.
 export const readRegistry = async (
   ids: readonly string[],
   fetcher: typeof fetch,
+  bundled: ReadonlyMap<string, ReadonlySet<string>> = new Map(),
 ): Promise<{ packages: Installed[]; problems: string[] }> => {
-  const results = await Promise.all(ids.map((id) => readFromRegistry(id, fetcher)));
+  const results = await Promise.all(
+    ids.map((id) => readFromRegistry(id, fetcher, bundled.get(id) ?? new Set())),
+  );
   return {
     packages: results.flatMap((result) => (result.pkg ? [result.pkg] : [])),
     problems: results.flatMap((result) => result.problems),
@@ -469,7 +523,7 @@ export const main = async (
     return 1;
   }
   const { overrides, errors } = await readOverrides(root);
-  const remote = await readRegistry(tree.otherPlatforms, fetcher);
+  const remote = await readRegistry(tree.otherPlatforms, fetcher, tree.bundled);
   const token = env.GITHUB_TOKEN || undefined;
   const archive = await checkArchives(tree.direct, {
     token,
