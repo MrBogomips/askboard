@@ -125,7 +125,7 @@ The facts were proposed here as F39 to F49. In §13 they are numbered from F54: 
   - Block 14.3 (§12): #5 rewrote the mod delivery item as "The session-file key on Linux (mod delivery, task 4.1)"; only the formula phrase was removed, and the mod delivery and packaging items stay.
   - Blocks 6.1 and 14.1 (Stack, Deferred): #4 and #5 changed other rows of both tables; the formula rows were unchanged and were removed as written.
 - **Corrected in the draft's text:** blocks 1.3 and 14.2 gave IronCalc 994,556 bytes gzipped, the 10:48 build's size, and 43 to 95 ms; `docs/` carries run `c3`'s figures for the 11:10 build, 994,668 bytes and 44 to 96 ms, as the rest of this file does (§ Criterion 3).
-- **Fact numbers:** F54 onwards, because the packaging spike's pull request, merged first, takes F48 to F53; this branch has no F48 to F53 until then. The draft's F39 to F43 and F45 became F54 to F59, and the citations in blocks 1.2 ([F58]), 1.3 ([F55], [F56]) and 13.9 follow.
+- **Fact numbers:** F54 onwards, because the packaging spike's pull request, merged first, takes F48 to F53; this merge preserves both sets of facts and both front-matter `sources` lines, and drops the formula engine's Deferred row and §12 phrase. The draft's F39 to F43 and F45 became F54 to F59, and the citations in blocks 1.2 ([F58]), 1.3 ([F55], [F56]) and 13.9 follow.
 - **Open after the merge:** task 8.1, the PO's check of the fixtures' values in Excel (awaiting PO); and Linux on x86-64, untested (§ Linux).
 
 ## Product owner checks
