@@ -20,6 +20,7 @@ sources:
   - 'OpenSpec change spike-mod-delivery, findings.md: Claude Code 2.1.308, 2.1.311 and 2.1.312 (2026-10-29)'
   - 'OpenSpec change spike-renderer, findings.md: the view CSP, the catalog renderer and the diagram renderers in Chromium, Firefox, WebKit, Chrome and Edge (2026-10-29 and 2026-10-30)'
   - 'OpenSpec change spike-formula, findings.md: IronCalc 0.9.1 and the own restricted evaluator in Bun, Node, Chromium, Firefox and WebKit, and the function whitelist (2026-10-30)'
+  - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -170,7 +171,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Reaching the session process:**
     - `mod` and `hooks` reach the session process only through its local API (AD-11), found through the session file. When `$.http.fetch` is refused (an organization's policy, or a policy mod that hooks it), the mod reaches the same API through the AskBoard executable run as a client with `$.process.run`, for everything it sends: polls, delivery reports and the version report. Whether that client starts once per poll or stays up for the session is an implementation choice.
     - The session file is a `contract` module and schema: `{format, key, pid, epoch, apiAddress, sessionToken, projectDir, startedAt}`. It sits in a user-only runtime folder (0700, file 0600) and is named by its `key`, the PID of the Claude Code process. That process is the parent of the session process and of every hook; the mod learns its PID once, at `session.start`, from one `$.process.run` of a command that prints its parent's PID. `CLAUDE_CODE_SESSION_ID` is not the key: after `--continue` or `/clear` the session process and the hooks see different values. No unit computes its path itself. A client that finds no candidate file, or more than one, reaches none and falls back as above.
-    - The launcher keeps Claude Code as the parent: it replaces itself with the executable (AD-19).
+    - The launcher keeps Claude Code as the parent: it replaces itself with the executable (AD-22).
     - Wherever the mod needs the session ID, it takes it from `$.session.id()`, never from its environment, which holds the launching session's ID when Claude Code runs inside another session.
     - The local API answers at once, with no long-poll. Each response body stays under 1 MiB and is paged by `seq`. The mod polls it with `$.clock.every`, started at `session.start`; the poll survives `/clear`, which fires `session.end` and no new `session.start`.
 
@@ -346,7 +347,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Binding:**
     - The board listener binds `127.0.0.1` only, on a port from a configurable range.
-    - In a devcontainer, binding the container interface happens only on explicit opt-in. The devcontainer guide publishes the port as `127.0.0.1:<port>:<port>`, and the session process warns on stderr whenever it binds a non-loopback interface.
+    - In a devcontainer, binding the container interface happens only on explicit opt-in. The devcontainer guide publishes the port as `127.0.0.1:<port>:<port>`, and the session process warns on stderr whenever it binds a non-loopback interface. Without the `127.0.0.1:` prefix Docker publishes the port on every host interface, so the guide never drops it. The host-side address in printed links is configured as host and port, since the published port can differ from the container's.
     - The local API listens on a Unix socket, set to 0600 explicitly rather than left to the umask, in the session-file folder (0700), never on a network interface. The socket's path stays within the platform limit (104 bytes on macOS).
   - **Board requests:**
     - Each board has its own random token of at least 128 bits. The token travels in the page URL, and on every other request only in a request header or the first WebSocket message. AskBoard sets no cookies.
@@ -357,7 +358,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Credential separation:** a board token never opens the local API, and the session token never opens a board. Diagnostics never print a token.
   - **No outbound traffic:**
     - AskBoard's own code makes no outbound network connection: no telemetry, and no fetching of references. Web, GitHub and Atlassian references open in the user's browser.
-    - The one exception is the launcher fetching the pinned executable before the session process starts. The fetch carries no user data. The file is written under a temporary name, checked against a SHA-256 shipped in the plugin, and renamed into place under a lock. Hooks never fetch.
+    - The one exception is the launcher fetching the pinned executable before the session process starts; a first download that outlasts the launcher's 25 s budget continues detached and serves the next start. The fetch carries no user data. The file is written under a temporary name, checked against a SHA-256 shipped in the plugin, and renamed into place under a lock. Hooks never fetch.
 
 ### AD-12 — The board document: resolved and confined at send time [ADOPTED]
 
@@ -495,6 +496,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - CI runs against the declared minimum, `stable` and `latest`. On `latest` it checks that the AskUserQuestion input still matches FR-3's list.
   - **When no board can be shown:**
     - When AskBoard cannot show a board (no browser can reach it, or a remote host, AD-22), `ask` returns the typed result `unavailable` with its reason. That check is made before the ask is created.
+    - The check, in order: a remote host (`SSH_CONNECTION`, `SSH_TTY`, `CODESPACES`) is `unavailable`; a container (`/.dockerenv`, `/run/.containerenv`, `REMOTE_CONTAINERS`, `DEVCONTAINER`) is `unavailable` without the opt-in binding and gets the terminal link only with it; a CI runner (`CI`, `GITHUB_ACTIONS`) without `BROWSER` is `unavailable`; otherwise a board is reachable through `BROWSER`, `open` on macOS, `wslview` or `explorer.exe` under WSL, or `xdg-open` with `DISPLAY` or `WAYLAND_DISPLAY` on Linux, and `unavailable` when none is present.
     - On `unavailable`, or when AskBoard's tools are absent, the main conversation asks through AskUserQuestion. A subagent ends its turn and returns the question to its caller.
 
 ### AD-19 — One plugin, shipped as a Bun executable [ADOPTED]
@@ -514,7 +516,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Browsers:** the supported browsers are the current and previous major versions of Chrome, Edge, Firefox and Safari. The bundler targets that baseline.
   - **Dependencies:**
     - Every dependency meets the adoption rule in the PRD addendum, and CI fails on a licence outside it or an archived dependency. A named exception waives only the stars criterion.
-    - A licence exception exists only through a PRD change, and the first one rests on it: the LGPL components the Bun executable links. These are Bun's patched JavaScriptCore/WebKit (LGPL-2), and tinycc (LGPL-2.1) if it is present in the compiled output.
+    - A licence exception exists only through a PRD change, and the first one rests on it: the LGPL components the Bun executable links. These are Bun's patched JavaScriptCore/WebKit (LGPL-2) and tinycc (LGPL-2.1), both present in every compiled target.
     - Each release:
       - ships their licence texts and Bun's notices;
       - names the exact Bun version;
@@ -573,15 +575,21 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** stale executables or session files left behind; sessions running mixed versions mid-session; undeclared launcher prerequisites; support requests with no way to see AskBoard's state; unsupported environments failing silently.
 - **Rule:**
   - **Executables:**
-    - Executables are cached under `${CLAUDE_PLUGIN_DATA}/bin/<version>/`. Each session runs the version its plugin pinned when the session started.
+    - Executables are cached under `${CLAUDE_PLUGIN_DATA}/bin/<version>/`. When that variable is unset, empty or not substituted (a plugin loaded with `--plugin-dir` [F50]), the cache is `${XDG_CACHE_HOME:-$HOME/.cache}/askboard/bin/<version>/`. Each session runs the version its plugin pinned when the session started.
     - At start, versions the installed plugin no longer pins are pruned, along with session files whose process is gone.
-    - The launcher needs only POSIX `sh` and `curl` or `wget`.
+    - The launcher sits in `scripts/` and fetches the executable from the release the plugin pins. It takes a lock by `mkdir`, breaks a lock whose owner is gone, removes partial files left by killed launchers, downloads to a temporary name, checks the SHA-256 shipped in the plugin, renames the file into place and `exec`s it, so Claude Code stays the parent of the session process.
+    - Waiting for another session's download and downloading share one 25 s budget, so the handshake is always answered within `MCP_TIMEOUT`. A first download still running when the budget ends continues detached, holding the lock, and the launcher answers as on a failed start that AskBoard is downloading; the next start uses the file.
+    - Each release publishes every executable both raw and gzip-compressed; the launcher fetches the compressed asset when `gzip` is present.
+    - The launcher needs POSIX `sh`, `curl` or `wget`, and one SHA-256 tool (`sha256sum`, `shasum` or `openssl`). On musl Linux the executable also needs `libstdc++` and `libgcc`, which Claude Code requires there too. The launcher checks them before taking the lock and names the missing one.
+    - When the launcher cannot start the executable (no download tool or SHA-256 tool, a failed fetch, a checksum mismatch, an unsupported platform, native Windows), it does not exit: it answers the MCP handshake with the reason in its instructions and one `ask` tool that returns `unavailable` with that reason, until stdin closes. Claude Code skips a plugin server whose start failed for 15 minutes across sessions [F48].
+    - Offline, AskBoard starts from an executable copied into the cache, from a mirror named in configuration (`http` or `file://`, the checksum still checked), or as the plain bundle on Node 24.22.1 or later. Otherwise the launcher answers as on a failed start.
   - **Diagnostics:**
     - `askboard doctor` prints the AskBoard and Claude Code versions, the port, the session file and whether the session process is reachable, never a token.
     - Diagnostics go to stderr, at the log level set in configuration.
   - **Environments:**
     - Claude Code running on a remote host (SSH, Codespaces) is out of the first version, and `ask` returns `unavailable` there (AD-18).
-    - Uninstalling leaves `.askboard/` in projects, and the documentation lists it with the session-file folder and the executable cache.
+    - On native Windows, where Claude Code runs the launcher through a POSIX `sh` (Git Bash, MSYS2, Cygwin), the launcher answers the handshake with a message naming WSL, as on a failed start. Without one, Claude Code reports that the server failed to start, the shipped skills fall back to AskUserQuestion (AD-18), and the README names WSL.
+    - Uninstalling the plugin from its last scope deletes `${CLAUDE_PLUGIN_DATA}`, and the executable cache with it, unless `claude plugin uninstall --keep-data` [F49]. It leaves `.askboard/` in projects and the session-file folder. The documentation lists all three, with the `--keep-data` case.
 
 ## Consistency Conventions
 
@@ -798,9 +806,8 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | Item | Why it can wait | Revisit when |
 | --- | --- | --- |
 | The session-file key (the Claude Code PID) on Linux | Passed on macOS; AD-5 fixes the rule | Task 4.1 of the mod delivery spike, in a devcontainer |
-| Bun packaging: executable size, delivery through a plugin `command` source or the launcher, offline installation, tinycc in the output, the native Windows message | AD-19 and AD-22 fix the shape | Packaging spike |
-| Detecting "no reachable browser" per platform | AD-18 fixes the outcome (`unavailable`) | Packaging spike |
-| Default port range, the container opt-in setting, the host-side address in printed links, the reconnect grace period, the record timeout, where the file path and line sit in the user's `editor` command | AD-5, AD-8, AD-11 and AD-21 fix the rules; the keys are named in the configuration schema | Implementation |
+| Packaging checks left to the product owner: the WSL notices and `$BROWSER`, native Windows, a GitHub-hosted runner (x86-64 Linux, so far run only under emulation), Chrome's Memory Saver and Safari on a background board tab, model runs of a failed start and of the `command` source's background re-run | The packaging spike settled the delivery path and the detection rule (AD-18, AD-19, AD-22); these runs confirm them | The product owner's runs (`spike-packaging` tasks 4.4 and 7.1 to 7.5) |
+| Default port range, the container opt-in setting, the host-side address and port in printed links, whether VS Code Dev Containers' `BROWSER` helper and port forwarding make the container opt-in unnecessary there, the reconnect grace period, the record timeout, where the file path and line sit in the user's `editor` command | AD-5, AD-8, AD-11 and AD-21 fix the rules; the keys are named in the configuration schema | Implementation |
 | `alwaysLoad` for the `ask` tool | No context budget in the PRD; decided by data | First benchmark run |
 | Final benchmark question set (seed in `SOLUTION-DESIGN.md`) and the benchmark's browser driver on the user's machine | AD-17 fixes what is measured; AD-19 requires prerequisites to be declared | Benchmark epic |
 | A2UI inbound translator | Preference, not requirement (PRD OQ5) | A2UI v1.0 final with renderers and a table |

@@ -1,0 +1,155 @@
+#!/bin/sh
+# AskBoard launcher stand-in (design decision 3). POSIX sh plus curl or wget and one SHA-256 tool.
+# Starts the pinned executable from ${CLAUDE_PLUGIN_DATA}/bin/<version>/, fetching it first when missing:
+# temporary name, checksum, rename under a lock, then exec, so Claude Code stays the parent process.
+# When it cannot start the executable, it answers the MCP handshake itself with the reason, rather than
+# exiting, so Claude Code does not cache a failed start (ASKBOARD_LAUNCHER_ON_FAILURE=exit is the control).
+set -u
+
+ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+RELEASE=${ASKBOARD_RELEASE_FILE:-$ROOT/scripts/release.txt}
+VERSION=$(sed -n 's/^version //p' "$RELEASE")
+BASE_URL=${ASKBOARD_RELEASE_URL:-$(sed -n 's/^url //p' "$RELEASE")}
+DATA=${CLAUDE_PLUGIN_DATA:-${XDG_CACHE_HOME:-$HOME/.cache}/askboard}
+DIR=$DATA/bin/$VERSION
+BIN=$DIR/askboard
+LOCK=$DIR/.lock
+ON_FAILURE=${ASKBOARD_LAUNCHER_ON_FAILURE:-answer}
+# One budget, in seconds, for waiting on the lock and downloading, so the launcher always answers within
+# Claude Code's MCP_TIMEOUT (30 s): a waiter that takes over after a failed download gets only what is left.
+FETCH_TIMEOUT=${ASKBOARD_FETCH_TIMEOUT:-25}
+
+# Hooks never fetch (AD-11): no executable means exit 0 with one stderr line (AD-19).
+if [ "${1:-}" = hook ]; then
+  [ -x "$BIN" ] && exec "$BIN" "$@"
+  echo "askboard: executable $VERSION not installed yet; hook skipped" >&2
+  exit 0
+fi
+
+target() {
+  case $(uname -s) in
+    Darwin) os=darwin ;;
+    Linux) os=linux ;;
+    MINGW* | MSYS* | CYGWIN*) echo windows; return ;;
+    *) echo unsupported; return ;;
+  esac
+  case $(uname -m) in
+    x86_64 | amd64) arch=x64 ;;
+    arm64 | aarch64) arch=arm64 ;;
+    *) echo unsupported; return ;;
+  esac
+  libc=
+  if [ "$os" = linux ]; then
+    for f in /lib/ld-musl-*; do [ -e "$f" ] && libc=-musl; break; done
+  fi
+  echo "$os-$arch$libc"
+}
+
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+  elif command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 -r "$1" | cut -d' ' -f1
+  else echo no-sha256-tool
+  fi
+}
+
+# Runs only in a background subshell: exec makes the subshell the download itself, so one kill stops it.
+fetch() {
+  if command -v curl >/dev/null 2>&1; then exec curl -fsSL --connect-timeout 5 --max-time "$3" -o "$2" "$1"
+  elif command -v wget >/dev/null 2>&1; then exec wget -q -T "$3" -O "$2" "$1"
+  else echo "askboard: neither curl nor wget is installed" >&2; exit 2
+  fi
+}
+
+json_field() {
+  printf '%s' "$1" | sed -n -E "s/.*\"$2\"[[:space:]]*:[[:space:]]*(\"[^\"]*\"|[0-9]+).*/\\1/p"
+}
+
+# Answer the handshake with one tool, `ask`, that returns `unavailable` with the reason (AD-18), until stdin closes.
+serve_unavailable() {
+  reason=$(printf '%s' "$1" | sed 's/["\\]/ /g')
+  echo "askboard: $reason" >&2
+  while IFS= read -r line || [ -n "$line" ]; do
+    id=$(json_field "$line" id)
+    [ -n "$id" ] || continue
+    method=$(json_field "$line" method)
+    case $method in
+      '"initialize"')
+        pv=$(json_field "$line" protocolVersion)
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"protocolVersion":%s,"capabilities":{"tools":{}},"serverInfo":{"name":"askboard","version":"%s"},"instructions":"AskBoard cannot start: %s. Its ask tool returns unavailable; ask the user another way."}}\n' "$id" "${pv:-\"2025-11-25\"}" "$VERSION" "$reason" ;;
+      '"tools/list"')
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"tools":[{"name":"ask","description":"AskBoard cannot start: %s. Returns unavailable.","inputSchema":{"type":"object"}}]}}\n' "$id" "$reason" ;;
+      '"tools/call"')
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"content":[{"type":"text","text":"{\\"result\\":\\"unavailable\\",\\"reason\\":\\"%s\\"}"}]}}\n' "$id" "$reason" ;;
+      '"ping"')
+        printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id" ;;
+      *)
+        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32601,"message":"Method not found"}}\n' "$id" ;;
+    esac
+  done
+  exit 0
+}
+
+fail() {
+  rm -f "${TMP:-}"
+  [ "${LOCKED:-0}" = 1 ] && rm -rf "$LOCK"
+  if [ "$ON_FAILURE" = exit ]; then
+    echo "askboard: $1" >&2
+    exit 1
+  fi
+  serve_unavailable "$1"
+}
+
+T=$(target)
+case $T in
+  windows) fail "native Windows is not supported: install Claude Code in WSL and use AskBoard there" ;;
+  unsupported) fail "unsupported platform $(uname -s) $(uname -m)" ;;
+esac
+[ -x "$BIN" ] && exec "$BIN" "$@"
+
+EXPECTED=$(sed -n "s/^$T //p" "$RELEASE")
+[ -n "$EXPECTED" ] || fail "no executable is published for $T"
+command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || fail "neither curl nor wget is installed"
+[ "$(sha256 "$RELEASE")" != no-sha256-tool ] || fail "no SHA-256 tool is installed (sha256sum, shasum or openssl)"
+mkdir -p "$DIR" || fail "cannot create $DIR"
+
+# Lock: mkdir is atomic. A lock whose owner is gone is broken; a waiter that sees the file in place uses it.
+waited=0
+while ! mkdir "$LOCK" 2>/dev/null; do
+  [ -x "$BIN" ] && exec "$BIN" "$@"
+  owner=$(cat "$LOCK/pid" 2>/dev/null)
+  if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+    rm -rf "$LOCK"
+    continue
+  fi
+  waited=$((waited + 1))
+  [ "$waited" -lt "$((FETCH_TIMEOUT - 2))" ] || fail "timed out after ${waited}s waiting for another session's download of $VERSION"
+  sleep 1
+done
+LOCKED=1
+echo $$ >"$LOCK/pid"
+if [ -x "$BIN" ]; then
+  rm -rf "$LOCK"
+  exec "$BIN" "$@"
+fi
+# Remove partial files left by launchers that were killed (SIGKILL cannot be trapped).
+for f in "$DIR"/askboard.*.part; do
+  [ -e "$f" ] || continue
+  p=${f##*/askboard.}
+  kill -0 "${p%.part}" 2>/dev/null || rm -f "$f"
+done
+
+TMP=$DIR/askboard.$$.part
+URL=$BASE_URL/v$VERSION/askboard-$T
+# The download runs in the background so that SIGINT, SIGTERM or SIGHUP (a session closing mid-download)
+# stops it and releases the lock instead of leaving an orphaned download behind.
+fetch "$URL" "$TMP" "$((FETCH_TIMEOUT - waited))" &
+FETCH_PID=$!
+trap 'kill "$FETCH_PID" 2>/dev/null; rm -f "$TMP"; rm -rf "$LOCK"; exit 1' INT TERM HUP
+wait "$FETCH_PID" || fail "could not download AskBoard $VERSION from $URL"
+trap - INT TERM HUP
+ACTUAL=$(sha256 "$TMP")
+[ "$ACTUAL" = "$EXPECTED" ] || fail "checksum mismatch for the downloaded AskBoard $VERSION ($ACTUAL)"
+chmod 755 "$TMP" && mv -f "$TMP" "$BIN" || fail "cannot install $BIN"
+rm -rf "$LOCK"
+exec "$BIN" "$@"
