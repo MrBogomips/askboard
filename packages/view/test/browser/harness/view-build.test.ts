@@ -63,7 +63,7 @@ describe("readViewBuild", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  test("reads the manifest and every file it lists from a build folder", async () => {
+  test("reads the manifest and the files it serves from a build folder", async () => {
     const read = await readViewBuild(dir);
     expect(read.manifest).toEqual(fixtureViewManifest);
     expect(read.manifestText).toBe(fixtureViewFiles[VIEW_MANIFEST_FILE] ?? "");

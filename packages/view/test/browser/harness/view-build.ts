@@ -23,7 +23,7 @@ export type ViewBuild = {
   readonly manifest: ViewManifest;
   /** The manifest as `/m` serves it: the file's bytes, or a variant's manifest written the same way. */
   readonly manifestText: string;
-  /** Every file the manifest lists, by its path in the build folder. */
+  /** The files the session side serves (`servedFiles`), by their path in the build folder. */
   readonly files: ReadonlyMap<string, string>;
 };
 
@@ -51,7 +51,12 @@ const fileOf = (path: string, text: string): ManifestFile => ({
 
 const manifestTextOf = (manifest: ViewManifest): string => `${JSON.stringify(manifest, null, 2)}\n`;
 
-const listedFiles = (manifest: ViewManifest): ManifestFile[] => [
+/**
+ * The files the board page loads: its HTML, script and styles, and each chunk's script and
+ * styles. The manifest also lists licence notices, which no route serves; the view build's own
+ * `listedFiles` (`tools/build/manifest.ts`) includes them.
+ */
+const servedFiles = (manifest: ViewManifest): ManifestFile[] => [
   manifest.boardPage.html,
   manifest.boardPage.script,
   ...manifest.boardPage.styles,
@@ -65,7 +70,7 @@ export const fixtureViewBuild = (): ViewBuild => ({
   files: new Map(Object.entries(fixtureViewFiles)),
 });
 
-/** A build folder's manifest and every file it lists; fails when the folder holds no build. */
+/** A build folder's manifest and the files it serves; fails when the folder holds no build. */
 export const readViewBuild = async (dir: string = DIST_VIEW): Promise<ViewBuild> => {
   const manifestFile = Bun.file(join(dir, VIEW_MANIFEST_FILE));
   if (!(await manifestFile.exists())) {
@@ -78,7 +83,7 @@ export const readViewBuild = async (dir: string = DIST_VIEW): Promise<ViewBuild>
     throw new Error(`the view manifest in ${dir} is not valid: ${problems.join("; ")}`);
   }
   const files = new Map<string, string>();
-  for (const { path } of listedFiles(checked.value)) {
+  for (const { path } of servedFiles(checked.value)) {
     files.set(path, await Bun.file(join(dir, path)).text());
   }
   return { manifest: checked.value, manifestText, files };
