@@ -1,0 +1,106 @@
+{
+  "name": "decision-matrix",
+  "source": "written for the probe; partner has no risk rating (empty, counts as 0)",
+  "molecule": true,
+  "board": {
+    "askId": "vendor-choice-k2m8",
+    "title": "Reporting vendor",
+    "items": [
+      {
+        "type": "question",
+        "id": "choice",
+        "props": {
+          "text": "Which way do we take for reporting?",
+          "items": [
+            {
+              "type": "molecule",
+              "id": "dm",
+              "props": {
+                "molecule": "decision-matrix",
+                "data": {
+                  "criteria": [
+                    {
+                      "id": "cost",
+                      "label": "Cost",
+                      "weight": 3
+                    },
+                    {
+                      "id": "risk",
+                      "label": "Risk",
+                      "weight": 2
+                    },
+                    {
+                      "id": "fit",
+                      "label": "Fit",
+                      "weight": 5
+                    }
+                  ],
+                  "options": [
+                    {
+                      "id": "build",
+                      "label": "Build in-house",
+                      "ratings": {
+                        "cost": 2,
+                        "risk": 3,
+                        "fit": 5
+                      }
+                    },
+                    {
+                      "id": "buy",
+                      "label": "Buy a product",
+                      "ratings": {
+                        "cost": 4,
+                        "risk": 4,
+                        "fit": 3
+                      }
+                    },
+                    {
+                      "id": "partner",
+                      "label": "Partner",
+                      "ratings": {
+                        "cost": 3,
+                        "risk": null,
+                        "fit": 4
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "expected": {
+    "dm.options.build.score": 3.7,
+    "dm.options.buy.score": 3.5,
+    "dm.options.partner.score": 2.9,
+    "dm.best": 3.7
+  },
+  "warnings": [],
+  "edits": [
+    {
+      "set": {
+        "dm.criteria.fit.weight": 1
+      },
+      "expected": {
+        "dm.options.build.score": 2.8333333333333335,
+        "dm.options.buy.score": 3.8333333333333335,
+        "dm.options.partner.score": 2.1666666666666665,
+        "dm.best": 3.8333333333333335
+      }
+    },
+    {
+      "set": {
+        "dm.options.partner.risk.rating": 5
+      },
+      "expected": {
+        "dm.options.build.score": 2.8333333333333335,
+        "dm.options.buy.score": 3.8333333333333335,
+        "dm.options.partner.score": 3.8333333333333335,
+        "dm.best": 3.8333333333333335
+      }
+    }
+  ]
+}
