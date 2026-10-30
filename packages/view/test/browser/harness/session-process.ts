@@ -43,6 +43,8 @@ export type SessionProcessOptions = {
   readonly bundle?: string;
   /** Starts the process; a fake in unit tests. */
   readonly spawn?: SpawnChild;
+  /** Starts the proxy to the board listener at a port; a failing one in unit tests. */
+  readonly startProxy?: (upstreamPort: number) => Promise<BoardProxy>;
   /** The approved plain-choice ask; the contract's fixture by default. */
   readonly approvedAsk?: string;
   /** How long the board may take to reach `BROWSER` after `ask` returns. */
@@ -80,6 +82,14 @@ const within = async (exited: Promise<ChildExit>, ms: number): Promise<ChildExit
 const stderrNote = (stderr: { text: string }): string => {
   const tail = stderr.text.slice(-STDERR_TAIL_CHARS).trim();
   return tail === "" ? "" : `; its stderr: ${tail}`;
+};
+
+/** Ends a life as a crash does, with no discard: kills the process, then closes its MCP client. */
+const killLife = async (life: Pick<Life, "child" | "state"> & { agent?: Agent }): Promise<void> => {
+  life.state.ending = true;
+  life.child.kill("SIGKILL");
+  await life.child.exited;
+  await life.agent?.close();
 };
 
 class ProcessSession implements BoardSession {
@@ -157,10 +167,7 @@ class ProcessSession implements BoardSession {
     // The board is cut off until the new process listens, so that it cannot reach another
     // session process that takes the old port meanwhile.
     this.#proxy.drop();
-    old.state.ending = true;
-    old.child.kill("SIGKILL");
-    await old.child.exited;
-    await old.agent.close();
+    await killLife(old);
     const next = await this.#launch(this.#lives.length + 1);
     this.#lives.push(next);
     if (next.link.token === old.link.token) {
@@ -272,10 +279,7 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
     await checkOpened(context, n, result.board);
     return { child, agent, link, cursor: result.cursor, stderr, state };
   } catch (error) {
-    state.ending = true;
-    child.kill("SIGKILL");
-    await child.exited;
-    await agent?.close();
+    await killLife({ child, agent, state });
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${message}${stderrNote(stderr)}`, { cause: error });
   }
@@ -284,6 +288,24 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
 const cleanupOf = (stage: Stage, dir: string) => async () => {
   await stage.cleanup();
   await rm(dir, { recursive: true, force: true });
+};
+
+/** The first life and the proxy in front of it; a failure leaves nothing running or staged. */
+const startFirst = async (
+  context: LaunchContext,
+  proxyTo: (upstreamPort: number) => Promise<BoardProxy>,
+  cleanup: () => Promise<void>,
+): Promise<{ first: Life; proxy: BoardProxy }> => {
+  let first: Life | undefined;
+  try {
+    first = await launch(context, 1);
+    return { first, proxy: await proxyTo(first.link.port) };
+  } catch (error) {
+    // A failed launch has ended its own process already.
+    if (first !== undefined) await killLife(first);
+    await cleanup();
+    throw error;
+  }
 };
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
@@ -311,14 +333,7 @@ export const startSessionProcess = async (
     openTimeoutMs: options.openTimeoutMs ?? OPEN_TIMEOUT_MS,
     problems,
   };
-  let first: Life;
-  try {
-    first = await launch(context, 1);
-  } catch (error) {
-    await cleanup();
-    throw error;
-  }
-  const proxy = await startProxy(first.link.port);
+  const { first, proxy } = await startFirst(context, options.startProxy ?? startProxy, cleanup);
   return new ProcessSession({
     first,
     proxy,

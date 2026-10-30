@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { appendFileSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { exists, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { BOARD_HOST, BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/client/stdio";
@@ -305,6 +305,18 @@ describe("startSessionProcess refuses to start", () => {
     await expect(start(fake)).rejects.toThrow(
       `the ask result names ask other, not the scenario's ${askId}`,
     );
+  });
+
+  test("when the proxy cannot start, ending the process, its client and its stage", async () => {
+    const fake = fakeProcess();
+    const failing = () => Promise.reject(new Error("listen EADDRINUSE"));
+    await expect(start(fake, { startProxy: failing })).rejects.toThrow("listen EADDRINUSE");
+    // Killed, as launch's own failures are; its exit closes the MCP client's transport.
+    expect(child(fake).signals).toEqual(["SIGKILL"]);
+    const spawned = fake.spawned[0];
+    expect(await Bun.file(spawned?.args[0] ?? "").exists()).toBe(false);
+    const linksFile = spawned?.options.env[LINKS_VARIABLE] ?? "";
+    expect(await exists(dirname(linksFile))).toBe(false);
   });
 
   test("when BROWSER was not opened with the result's link as its one argument", async () => {
