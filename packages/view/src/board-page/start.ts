@@ -1,66 +1,73 @@
-// The board page at run time (design decision 8), as far as task 8.1 needs it to build: the
-// WebSocket with the token first, every message `board-host` sends checked before use, and the
-// view's sandboxed iframe hosted through ext-apps' `AppBridge`. Task 8.6 completes it: the
-// manifest and chunk fetches, `assemble`, the banners, the answer queue and reconnecting.
+// The board page at run time (design decision 8): the WebSocket with the token first, every
+// message `board-host` sends checked before use, and, once the board document and the state are
+// in, the view loaded into its sandboxed frame and hosted through ext-apps' `AppBridge`, with each
+// later state sent on to it. Task 8.6 completes it: the receipt states, the answer queue while
+// disconnected, reconnecting and the close codes, the banners and "Continue here", the theme and
+// the takeover.
 
-import {
-  BOARD_PROTOCOL_VERSION,
-  BOARD_TOKEN_QUERY,
-  type ConnectMessage,
-  type HostMessage,
-  parseBoardRoute,
-  socketPath,
-} from "@askboard/contract";
-import { AppBridge, PostMessageTransport } from "@modelcontextprotocol/ext-apps/app-bridge";
-import { readHostMessage } from "./host-messages.ts";
+import type { BootData } from "../boot-data.ts";
+import type { ViewMessage } from "../view-protocol.ts";
+import { loadView } from "./load-view.ts";
+import { bootDataOf, EMPTY_MODEL, withHostMessage, withViewMessage } from "./model.ts";
+import { boardLinkOf, connectBoard } from "./socket.ts";
+import { hostView, type ViewHost, type ViewReply } from "./view-host.ts";
 
-const HOST_INFO = { name: "askboard-board-page", version: "0.0.0" };
-
-/** The view's iframe: exactly `sandbox="allow-scripts"`, so the view's origin is opaque (AD-8). */
+/**
+ * The view's iframe: exactly `sandbox="allow-scripts"`, so the view's origin is opaque and it
+ * makes no request (AD-8). It fills the page.
+ */
 export const createViewFrame = (document: Document): HTMLIFrameElement => {
   const frame = document.createElement("iframe");
   frame.setAttribute("sandbox", "allow-scripts");
   frame.title = "AskBoard";
+  frame.className = "block h-screen w-full border-0";
   return frame;
-};
-
-/** Hosts the view's ext-apps `App` in the frame; the board page answers its calls itself. */
-export const bridgeView = async (frame: HTMLIFrameElement): Promise<AppBridge> => {
-  const target = frame.contentWindow;
-  if (target === null) throw new Error("the view's frame is not in the document");
-  const bridge = new AppBridge(null, HOST_INFO, {});
-  await bridge.connect(new PostMessageTransport(target, target));
-  return bridge;
-};
-
-const socketUrl = (location: Location, askId: string): string => {
-  const url = new URL(socketPath(askId), location.href);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.search = "";
-  return url.href;
-};
-
-/** Opens the board's WebSocket and hands on every message that passes the board protocol. */
-export const connectBoard = (
-  location: Location,
-  onMessage: (message: HostMessage) => void,
-): WebSocket | undefined => {
-  const route = parseBoardRoute(location.pathname);
-  const token = new URLSearchParams(location.search).get(BOARD_TOKEN_QUERY);
-  if (route?.kind !== "board" || token === null) return undefined;
-  const socket = new WebSocket(socketUrl(location, route.askId));
-  const connect: ConnectMessage = { version: BOARD_PROTOCOL_VERSION, type: "connect", token };
-  socket.addEventListener("open", () => socket.send(JSON.stringify(connect)));
-  socket.addEventListener("message", (event) => {
-    const checked = readHostMessage(event.data);
-    if (checked.ok) onMessage(checked.value);
-  });
-  return socket;
 };
 
 export const startBoardPage = (window: Window): void => {
   const frame = createViewFrame(window.document);
   window.document.body.append(frame);
-  void bridgeView(frame);
-  connectBoard(window.location, () => {});
+  const link = boardLinkOf(window.location);
+  if (link === undefined) return;
+  let model = EMPTY_MODEL;
+  let view: ViewHost | undefined;
+  let loading = false;
+
+  const onViewMessage = async (message: ViewMessage): Promise<ViewReply> => {
+    model = withViewMessage(model, message);
+    if (message.type === "item-error") {
+      console.error(`askboard: the item "${message.itemId}" failed in the view: ${message.error}`);
+    }
+    return {};
+  };
+
+  // The bridge listens before the srcdoc is set, so it hears the view's handshake.
+  const openView = async (data: BootData): Promise<void> => {
+    const assembled = await loadView(data, link.token);
+    const peer = frame.contentWindow;
+    if (peer === null) throw new Error("the view's frame is not in the document");
+    view = await hostView(peer, window, onViewMessage);
+    view.update(bootDataOf(model)?.state ?? data.state);
+    frame.srcdoc = assembled.srcdoc;
+  };
+
+  connectBoard(window.location, {
+    onMessage: (message) => {
+      model = withHostMessage(model, message);
+      const data = bootDataOf(model);
+      if (data === undefined) return;
+      if (view !== undefined) {
+        view.update(data.state);
+        return;
+      }
+      if (loading) return;
+      loading = true;
+      openView(data).catch((error: unknown) => {
+        console.error("askboard: the view did not load:", error);
+      });
+    },
+    onInvalid: (problems) => {
+      console.error("askboard: board-host sent a message the board protocol refuses:", problems);
+    },
+  });
 };

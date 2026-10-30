@@ -8,4 +8,5 @@ export {
   type ItemProps,
   register,
   registeredComponents,
+  useReadyAfterLayout,
 } from "./port.ts";

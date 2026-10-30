@@ -4,7 +4,7 @@
 
 import { Checkbox, RadioGroup } from "radix-ui";
 import { CHOICE } from "../components.ts";
-import { type ItemProps, register } from "../port.ts";
+import { type ItemProps, register, useReadyAfterLayout } from "../port.ts";
 
 const optionId = (itemId: string, index: number) => `${itemId}-option-${index}`;
 
@@ -22,7 +22,8 @@ const Label = ({ id, label, description }: { id: string; label: string; descript
   </label>
 );
 
-const Choice = ({ item, value, onValueChange }: ItemProps) => {
+const Choice = ({ item, value, onValueChange, disabled, ready }: ItemProps) => {
+  useReadyAfterLayout(ready);
   const { options, multiSelect, text } = item.props;
   if (multiSelect === true) {
     const toggle = (label: string, checked: boolean) =>
@@ -36,6 +37,7 @@ const Choice = ({ item, value, onValueChange }: ItemProps) => {
               id={optionId(item.id, index)}
               className={`${CONTROL} rounded-md`}
               checked={value.includes(option.label)}
+              disabled={disabled}
               onCheckedChange={(checked) => toggle(option.label, checked === true)}
             >
               <Checkbox.Indicator className="size-2 bg-primary" />
@@ -50,6 +52,7 @@ const Choice = ({ item, value, onValueChange }: ItemProps) => {
     <RadioGroup.Root
       className="flex flex-col gap-1"
       aria-label={text}
+      disabled={disabled}
       value={value[0] ?? ""}
       onValueChange={(label) => onValueChange([label])}
     >
