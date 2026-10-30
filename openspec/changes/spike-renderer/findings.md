@@ -2,6 +2,229 @@
 
 The exit criteria are in SOLUTION-DESIGN §10.3, the UX checks S-1 to S-8 in `docs/ux-askboard-2026-10-27/architecture-change-requests.md`, and the approach in `design.md`. Raw runs stay in `probe/runs/<run>/`, which git ignores: one JSON file and one screenshot per load, and `summary.json`. Every verdict below names its run. Commands run from `probe/` unless they say otherwise.
 
+## Verdicts
+
+One row per exit criterion of SOLUTION-DESIGN §10.3, S-check, further item and UX spike item, and one for the renderer comparison. Verdicts:
+
+- **pass:** holds as the design assumed;
+- **pass with change:** holds once the change named in "Proposed outcomes" is made;
+- **fail:** fails with every change measured;
+- **awaiting PO:** the runs are done, and the verdict needs the PO's judgement (tasks 6.1, 6.2 or 8.3);
+- **untested:** with the reason.
+
+"Chrome, Edge" are the installed browsers, driven through Playwright's channels. **Linux** is task 7.1: Ubuntu 24.04.5 on arm64, in Docker on this Mac, with Playwright's Chromium, Firefox and WebKit. Wherever a run went on Linux, it matched macOS. x86-64 Linux, and Chrome and Edge on Linux, are untested (§ Linux).
+
+| # | Item | Chromium | Firefox | WebKit | Chrome, Edge | Linux | Verdict | Section |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Criterion 1: everything under the view CSP, no `'unsafe-inline'` or `'unsafe-hashes'` | The own renderer, and json-render with `jitless`: pass (`renderers`). Every component but Radix Select: pass as written or with a named change (`matrix`, `matrix-media`). The diagrams: pass with the style shim (`mermaid-shim`, `plantuml-shim`) | as Chromium | as Chromium | as Chromium | the 33 component fixtures: the same verdicts in all 99 loads (`linux-matrix`) | pass with change (rows 4, 5, 12, 13, 14, 16, 17, 18) | [§ Criterion 1](#criterion-1-components-under-the-view-csp-task-41), [§ Diagram style writes](#diagram-style-writes-under-the-view-csp-criterion-1-the-diagrams-share) |
+| 1a | Criterion 1, Radix Select | fail: 2 `style-src-elem`; 1 with the style-element shim (`c-select`, `c-select-shim`) | fail as written; pass with the shim | fail: 1 more, a `style-src-attr` for its hidden native `<select>`; 1 left with the shim | fail, as Chromium | the same (`linux-matrix`) | **fail** (row 6) | [§ Criterion 1](#criterion-1-components-under-the-view-csp-task-41) |
+| 2 | Criterion 2: AD-9's rules for components | own, json-render, json-render-jitless: pass (`c2`) | pass | pass | pass | untested: not run on Linux | pass, for both renderers. The Form's RJSF was not put through it (row 23) | [§ Criterion 2](#criterion-2-task-22) |
+| 3 | Criterion 3: Mermaid and PlantUML inside the bundle, no Java, server or network | pass: no request in 330 loads (`c3c4`, `c3c4-snapshot`, `c3c4-blob` and the diagram runs), with AskBoard's refusing PlantUML loader | pass | pass | pass | pass (`linux-c3c4`, `linux-c3c4-blob`, `linux-c3c4-snapshot`) | pass with change: the refusing loader (row 10) | [§ Criteria 3 and 4](#criteria-3-and-4-rendering-inside-the-bundle-shown-as-blob-images-task-33) |
+| 4 | Criterion 4: diagram SVG shown as `blob:` images | on the board as written: fail, the board page's policy blocks the image (`c3c4`). With `img-src blob:` on the board page: pass (`c3c4-blob`). In a Snapshot: pass (`c3c4-snapshot`) | as Chromium | as Chromium, 2 violations per image | as Chromium | the same (`linux-c3c4*`) | pass with change: AD-8's board policy (row 4); task 3.3 awaiting PO | [§ Criteria 3 and 4](#criteria-3-and-4-rendering-inside-the-bundle-shown-as-blob-images-task-33) |
+| 5 | Criterion 5: PlantUML's sponsored-message images suppressed | pass: 1.2026.9 shows no sponsored message; error and crash images become render errors (`sponsor`) | pass | pass | pass | untested: not run on Linux | pass, with the filter and its CI check (rows 10, 18) | [§ Criterion 5](#criterion-5-plantumls-sponsored-messages-task-34) |
+| 6 | Criterion 6: bundle and Snapshot size, inlining only the chunks a board uses | measured (`evidence/sizes.json`); Snapshots pass (`snapshot`) | as Chromium | the every-component Snapshot fails on Radix Select's native `<select>` (`snapshot`) and passes with radios (`snapshot-radios`) | as Chromium | as macOS (`linux-snapshot`, `linux-snapshot-radios`) | pass: measured, against no budget; task 5.2 awaiting PO (rows 3, 6, 18) | [§ Criterion 6](#criterion-6-bundle-and-snapshot-size-tasks-51-and-52) |
+| S-1 | Mermaid 12.2.0 without elkjs | pass with `elkjs` stubbed, `layout: 'dagre'` and `layout` in `secure` (`mermaid`, `mermaid-shim`; `tools/check-elkjs.ts`) | as Chromium | as Chromium | as Chromium | the Mermaid fixtures of `linux-c3c4*` render; the `layout: elk` fixtures: untested | pass with change (row 11) | [§ S-1](#s-1-mermaid-without-elkjs-task-31) |
+| S-2 | react-arborist and react-dnd | registry facts (`evidence/adoption.json`); the replacement's `c-tree`, `c-ranking` and `c-kanban` pass (`matrix`, `drag-slider`) | as Chromium | as Chromium | as Chromium | `c-tree`, `c-ranking`, `c-kanban` pass (`linux-matrix`) | pass: react-dnd fails the rule (last release 2022-04-19); the UX's replacement holds (row 21) | [§ S-2 and S-3](#s-2-and-s-3-task-47) |
+| S-3 | vis-timeline and `@egjs/hammerjs` | no browser run: registry facts only, and no Timeline fixture | no browser run | no browser run | no browser run | no browser run | pass: hammer.js, a peer of vis-timeline, fails the rule. The own Timeline: untested (row 21) | [§ S-2 and S-3](#s-2-and-s-3-task-47) |
+| S-4 | Form validation under the CSP | pass: the no-op validator with `extraErrors`; Ajv's compile is blocked (`form`) | pass | pass; the blocked compile is reported to the board page | pass | untested: not run on Linux | pass | [§ Form](#form-task-44) |
+| S-5 | cmdk, next-themes and storage in the view | pass: no fixture touched storage or made a worker; the `.dark` switch works once Tailwind's `dark:` variant follows the class (`theme`) | pass | pass | pass | untested: run `theme` not run on Linux | pass with change: Tailwind's variant (row 15) | [§ S-5](#s-5-storage-workers-and-the-dark-switch-task-46) |
+| S-6 | Radix Dialog and Alert Dialog | as written: 1 `style-src-elem` per opening, and PageDown scrolls the page behind the modal; focus trap and Esc work. With the style-element shim: 0 violations and a full lock. Non-modal: pass (`dialog`) | as Chromium | as Chromium | as Chromium | untested: not run on Linux | pass with change (row 7) | [§ S-6](#s-6-radix-dialog-and-alert-dialog-task-43) |
+| S-7 | No `allow-forms`: RJSF with `tagName="div"` | pass: Enter submits nothing; a `<form>` submission is blocked (`form`) | pass; the `<form>` is blocked silently | pass; but with a `<form>`, the submit event fires on Enter inside the sandbox | pass | untested: not run on Linux | pass: `tagName="div"` is required, not only the sandbox (row 23) | [§ Form](#form-task-44) |
+| S-8 | Form picks as `enum` with `ui:enumNames`; the safe `pattern` subset | pass: picks return their `enum` values (`form`); `pattern-check.ts` accepts 8 and refuses 11 as listed; `pattern` shows 0 violations | pass | pass | pass | untested: not run on Linux | pass | [§ Form](#form-task-44), [§ S-8](#s-8-the-safe-pattern-subset-task-45) |
+| F1 | `@pierre/diffs` syntax highlighting under the CSP | as written and in every configuration without a shim: fail (52 `style-src-attr`, 1 `style-src-elem`). With the markup shim and the CSS-variables theme: pass, DESIGN.md's colours (`diffs`, `diffs-dark`). No configuration gives token classes | as Chromium | as Chromium | as Chromium | `c-diff` and `c-diff-vars-shim` as on macOS (`linux-matrix`); run `diffs` not run | **awaiting PO**: on or off, and the look (row 12, task 6.1) | [§ Diff highlighting](#diff-highlighting-task-42) |
+| F2 | Mermaid text measurement with its injected styles blocked | as configured: 2 of 8 flowchart labels overflow; 0 with the shell rule, the CSSOM rule, `config` or the style shim (`measure`) | as Chromium | as Chromium | as Chromium | untested: not run on Linux | pass with change (row 11); the look awaiting PO (task 6.1) | [§ Mermaid text measurement](#mermaid-text-measurement-task-35) |
+| F3 | PlantUML render time in the golden single-question case | visible at 235.8 ms (median of 20), 86% of it PlantUML's (`golden-time`) | 504 ms, 93% | 274.5 ms, 86% | 240.3 ms and 233.5 ms, 86% and 87% | 315.3, 555 and 321 ms (median of 10), 88% to 91% (`linux-golden-time`) | pass: measured. Smetana is 11.5 to 70.5 ms faster (row 8) | [§ Golden case time](#golden-case-time-task-37) |
+| U1 | Native drag of Pragmatic drag and drop inside the sandboxed frame | pass, automated (`drag-slider`) | pass | pass | pass | `c-ranking` and `c-kanban` pass (`linux-matrix`) | **awaiting PO**: by hand in Chrome and Safari (task 6.2, row 22) | [§ UX spike items](#ux-spike-items-task-48) |
+| U2 | A click on an unset Slider's track | sets no value (`drag-slider`); the same without CSP or sandbox (`drag-slider-control`) | as Chromium | as Chromium | as Chromium | untested: not run on Linux | pass with change: AskBoard's Slider sets it (row 22) | [§ UX spike items](#ux-spike-items-task-48) |
+| U3 | Storage access of every component at start-up | no access in any fixture (S-5) | as Chromium | as Chromium | as Chromium | untested: run `theme` not run on Linux | pass | [§ S-5](#s-5-storage-workers-and-the-dark-switch-task-46) |
+| R | The renderer comparison: json-render 0.21.3 or AskBoard's own | measured (`renderers`, `c2`, `atoms`) | measured | measured | measured | untested: not run on Linux | **awaiting PO** (row 1, task 8.3) | [§ Renderer comparison](#renderer-comparison-task-23) |
+
+**Summary:** of 22 rows, 10 pass (2, 5, 6, S-2, S-3, S-4, S-7, S-8, F3, U3), 8 pass with change (1, 3, 4, S-1, S-5, S-6, F2, U2), 1 fails (1a, Radix Select) and 3 await the PO (F1, U1, R). On Linux, every run of task 7.1 matched macOS (`linux-matrix`, `linux-c3c4*`, `linux-golden-time`, `linux-snapshot*`); the other rows are untested there.
+
+## Failures and consequences
+
+SOLUTION-DESIGN §10.3 has one rule for failures, in "What changes": "a component failing the CSP is out". Below, each failure and what applies.
+
+### Radix Select fails criterion 1 (row 1a)
+
+- **Measured:** opening it fires two blocked `<style>` elements, the scroll lock's and the viewport's. In WebKit, its hidden native `<select>` adds a `style-src-attr` violation. The style-element shim passes it in Firefox only (`c-select-shim`). Select still works in every engine: the picked value reaches the draft record.
+- **What applies:** the rule as written. Select is out, and with it the Form's single pick from a list as a dropdown (EXPERIENCE, Atoms and Form library; DESIGN.md, Components, Form). With radios for single picks, the every-component Snapshot passes in every engine (`snapshot-radios`). A native `<select>` is no fallback: WebKit reports every one (row 6).
+
+### Criterion 4 fails on the board under AD-8 as written (row 4)
+
+- **Measured:** every diagram image is blocked by the board page's policy, which names no `img-src`. The srcdoc inherits it, and the view's own `img-src data: blob:` cannot widen it (`c3c4`). KaTeX's inlined fonts are blocked the same way: 20 `font-src` violations (`matrix`).
+- **What applies:** not the component rule: the diagrams and KaTeX are not at fault, AD-8's two policies disagree. AD-8 changes instead (row 4).
+
+### Components that fail as written and pass with a change
+
+Under §10.3's rule, each is out if the PO refuses its change.
+
+| Component | Fails as written with | The change, measured | Row |
+| --- | --- | --- | --- |
+| Mermaid, PlantUML | `style` attributes and a `<style>` written while they render | the diagram style shim (`mermaid-shim`, `plantuml-shim`) | 5 |
+| PlantUML class, component and state diagrams | WebAssembly refused (Graphviz) | Smetana (`plantuml-shim`), or `'wasm-unsafe-eval'` (`plantuml-wasm`) | 8 |
+| `@pierre/diffs` | `style` attributes in its markup, highlighting on or off | the markup shim (`c-diff-vars-shim`). No other diff library passes the adoption rule (git-diff-view: 743 stars, §9) | 5, 12 |
+| MathLive | its keyboard proxy throws in the opaque frame; `style` attributes; blocked fonts | three changes (`c-mathlive-shim` with `board-media`) | 13 |
+| KaTeX | blocked fonts | the board page's `font-src data:` (`matrix-media`) | 4 |
+| Radix Dialog, Alert Dialog, modal Popover | the scroll lock's `<style>` | the style-element shim (`s6-dialog-shim`, `c-popover-modal-shim`) | 5, 7 |
+| markdown-it | table alignment as `style` attributes | alignment as classes (`c-markdown-classes`), as EXPERIENCE already says | 14 |
+| ECharts | its HTML tooltip's `style` attributes | `tooltip.renderMode: "richText"` (`c-chart-rich`), as EXPERIENCE already says | 14 |
+| xyflow | `import.meta` in a classic script does not parse | the build defines `import.meta.env` (`graph-import-meta`) | 18 |
+| json-render, ext-apps' `App` | zod's caught `new Function` probe | zod's `jitless` set first (`smoke`, `c-app-jitless`) | 1, 16, 17 |
+
+### Measurements that contradict a document
+
+- §10.3, S-2: react-dnd's last release is 2022-04-19, not 2022-06-25; S-3: hammer.js is a peer of vis-timeline, not a dependency (row 21).
+- EXPERIENCE, Diagram: "Mermaid with `htmlLabels: false`" is not enough. ELK is Mermaid's default layout, and Mermaid's `secure` list leaves its layout and theme keys open to the agent's directives (D1, D3; row 11).
+- DESIGN.md, Syntax highlighting: "through classes". No configuration of `@pierre/diffs` 1.6.2 gives token classes (D10); its CSS-variables theme does the same job (row 12).
+- AD-8: "`'wasm-unsafe-eval'` only if the formula engine is WASM". PlantUML's Graphviz needs it too, unless Smetana lays out (row 8).
+- AD-8: the board page's policy, as written, blocks the view's `blob:` images and `data:` fonts (row 4).
+
+## Proposed outcomes (awaiting the PO)
+
+Each row is a proposal until the PO records a decision (task 8.3). The replacement texts for each row are in `spine-update-draft.md`, beside this file; none applies before its row is accepted. Byte counts are those of the current build (§ Criterion 6).
+
+| # | Item | Evidence | Proposed decision | Alternative | What it changes | PO decision |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | The catalog renderer | `atoms`, `c2`, `renderers`, `smoke`; D18 to D21; § Renderer comparison | AskBoard's own renderer. Both candidates give the same DOM and pass criterion 2 in every engine (`atoms`, `c2`). json-render passes criterion 1 only with zod's `jitless` (`renderers`). In AskBoard's use it adds a tree walk and a state context: its props expressions, its own state, its actions and its validation are all switched off (D18, D19). It adds 158,241 bytes to every board (159,717 against 1,476). It hides a failing item from the board page (D20). Its releases labelled 20 changes breaking across 18 minors in 8.5 months. | json-render 0.21.3, with zod's `jitless` set first, its store bound to the draft record, and its error boundary replaced (row 2) | Spine Deferred (row 25), AD-9 (a phrase), Stack (pins only for the alternative); SOLUTION-DESIGN §9, §10.3 | |
+| 2 | AD-9: an item that throws, and items a container hides | `renderers` (`throws`), D20; § The renderer (Tabs); `c2` (`delayed-early`) | Each item renders inside an error boundary. It shows an error state and reports the error to the board page, and the question then never counts as visible, so nothing is answered on a partial board (AD-10). Neither renderer did this as measured: the own renderer lost the whole view, and json-render hid the item and told the board page nothing. A container that hides items, such as Tabs, still mounts them, hidden, so they report ready; otherwise the question never counts as visible. The boundary as written is untested. | Leave both to the `view` epic, with no AD text | Spine AD-9 | |
+| 3 | AD-9 and AD-15: how a Snapshot carries diagrams | `snapshot`, `snapshot-renders`, `snapshot-radios`, `linux-snapshot`, `linux-snapshot-radios`; § Boards and Snapshots | A Snapshot carries each diagram's light and dark SVG render as data, and the `diagram-svg` chunk (7,123 bytes) that shows the scheme's render as a `blob:` image. It carries no diagram renderer chunk. The golden Snapshot is 429,393 bytes against 5,044,979, and visible in 42 to 115 ms against 217 to 491 ms (`snapshot`). Every Snapshot passes in every engine and scheme, apart from Radix Select (row 6). How the renders reach `snapshot`, which assembles from the board document and the log (AD-15): the view renders each diagram in both themes and sends the SVG text to the board page as a typed view message; `board-host` keeps the latest per item and board revision as data, never served as a page (AD-8); `assemble` takes the renders it has, and inlines a diagram's renderer chunk when no render exists (a board never opened). The message path and the second theme's render time are untested. | Snapshots inline the renderer chunks, as boards do. It also passes (`snapshot`), and the golden Snapshot is 12 times larger | Spine AD-9, AD-15; SOLUTION-DESIGN §5.6 | |
+| 4 | AD-8: the board page's policy names the view's media sources | `c3c4`, `c3c4-blob`, `c3c4-snapshot`, `matrix`, `matrix-media`, `theme`, `linux-c3c4*`; § Criteria 3 and 4 | The board page's CSP adds `img-src data: blob:` and `font-src data:`, the view's own media sources (variant `board-media`). The srcdoc inherits the board page's policy, which names neither, so `default-src 'none'` blocks every diagram image (criterion 4) and every inlined font (KaTeX: 20 `font-src` violations), and the view's own policy cannot widen it. The view's meta policy still bounds the view. With the variant, the diagrams, KaTeX and MathLive pass in every engine (`c3c4-blob`, `matrix-media`). Closes task 3.3. | `img-src blob:` only (`board-img-blob`): the diagrams pass, while KaTeX, MathLive and the bundled faces stay blocked | Spine AD-8; SOLUTION-DESIGN §4.5, §13 | |
+| 5 | AD-8: style writes go through the CSSOM (three shims) | `negative` (`pos-cssom-style`), `mermaid-blob`, `mermaid-shim`, `plantuml-shim`, `plantuml-wasm`, `dialog`, `matrix` (`c-popover-modal-shim`, `c-diff-vars-shim`, `c-mathlive-shim`), `measure`; D4, D10, D11 | The policy stays hash-only, and the view carries three shims that route a library's own style writes through the CSSOM and constructed stylesheets (`adoptedStyleSheets`). Every engine allows both under a hash-only `style-src`. **Diagram style shim** (77 lines, in the diagram chunks): during a render, `setAttribute("style", v)` becomes `style.cssText = v`, Mermaid's `<style>` becomes a constructed sheet, and `style` attributes are renamed around DOMPurify's parse. **Style-element shim** (50 lines, 846 bytes minified): a `<style>` added at run time becomes a constructed sheet (modal Dialog, Alert Dialog, modal Popover). **Markup shim** (81 lines, 1,602 bytes minified): `style` attributes in markup a library parses are applied through the CSSOM (`@pierre/diffs`, MathLive). A style set this way loads nothing: `img-src` and `font-src` still bound any `url()` (an inference). Without the shims, Mermaid, PlantUML, Diff review, MathLive and the modal dialogs fail criterion 1 in every engine. | `'unsafe-inline'` for `style-src-attr` and `style-src-elem`, which AD-8 and criterion 1 forbid; or those components are out. For the diagram shim's third step alone: Mermaid's sanitizing pass off (`securityLevel: 'loose'`), not measured | Spine AD-8; SOLUTION-DESIGN §4.5, §13 | |
+| 6 | Radix Select | `matrix` (`c-select`, `c-select-popper`, `c-select-shim`), `form`, `form-shim`, `snapshot`, `snapshot-radios`, `linux-snapshot-radios`; `tools/check-native-select.ts` | Out, as §10.3 says of a component that fails the CSP: it fails in Chromium, Chrome, Edge and WebKit with every change measured. A Form's single pick from a list renders as the Choice atom's radios (Radix Radio Group), with its filter field for long lists. With radios, the every-component Snapshot passes in every engine (`snapshot-radios`), and task 5.2 closes as run. A native `<select>` is no way out: WebKit reports a `style-src-attr` violation for every one it creates. | A listbox on the non-modal Radix Popover, or Select without its `Viewport` part: both untested, to run under the CSP in the `widgets` epic before use | EXPERIENCE Atoms (Choice); DESIGN.md Components (Form) | |
+| 7 | S-6: the mode-switch confirmation | `dialog`, `dialog-control` | A modal Alert Dialog with the style-element shim (row 5): 0 violations, with scroll lock, focus trap and Esc in every engine. As written, its scroll-lock `<style>` is blocked and PageDown scrolls the page behind it. If row 5 is refused: non-modal. | Non-modal, which passes as written. Or modal with the static `body[data-scroll-locked]` rule, which restores the lock but leaves one violation per opening (against row 17) | EXPERIENCE Changes, values and board states; DESIGN.md Components | |
+| 8 | PlantUML: Smetana, or Graphviz with `'wasm-unsafe-eval'` | `plantuml`, `plantuml-shim`, `plantuml-wasm`, `golden-time`, `linux-golden-time`; `evidence/diagrams/layout/`; § Criterion 6 | Ship `plantuml.js` without `viz-global.js`. PlantUML lays out class, component and state diagrams with Smetana; nothing needs WebAssembly, AD-8 stays as written, and Graphviz's EPL-2.0 never ships (row 9). The chunk is 1,457,830 bytes smaller, and the golden case is visible 11.5 to 70.5 ms sooner (`golden-time`). Subject to the PO's view of the Smetana layouts (task 6.1). | Keep Graphviz. AD-8 admits `'wasm-unsafe-eval'` in both policies for PlantUML's Graphviz; CI checks PlantUML's crash image, since WebKit fires no violation when WebAssembly is refused; row 9's licence question is decided | Stack (row 14); SOLUTION-DESIGN §9; EXPERIENCE Component per widget (Diagram); AD-8 only for the alternative | |
+| 9 | Licences of the files inside `@plantuml/core` | § PlantUML (task 3.2), D9 | With row 8, `viz-global.js` (Viz.js MIT, Graphviz EPL-2.0, Expat MIT) never ships. Nor do `emoji.js` (Twemoji graphics, CC-BY-4.0) and `themes.js`, which no chunk inlines. The PlantUML chunk's notices add the licence texts the tarball lacks, taken from their repositories: TeaVM (Apache-2.0), Brotli (MIT), CafeUndZopfli (Apache-2.0) and ASCIIMathML (MIT), all compiled into `plantuml.js`. The adoption rule's stars and activity criteria apply to `@plantuml/core`, the package AskBoard adopts, not to code vendored inside it: CafeUndZopfli has 83 stars, last pushed on 2019-11-25. | If Graphviz is kept: the addendum admits Graphviz, as Viz.js builds it, as an unmodified EPL-2.0 dependency (the tarball does not say whether it is modified); its licence text ships; and the build replaces the `node:url` stand-in that Bun bundles for Viz's Node branch (8,126 bytes, no notice) with an empty module | SOLUTION-DESIGN §9; PRD addendum only for the alternative | |
+| 10 | PlantUML: resources and error images | `c3c4`, `c3c4-snapshot` (`plantuml-resources`, `plantuml-resources-default`); `tools/check-file-scripts.ts`; `evidence/file-scripts/installed-firefox-124.png`; `sponsor` | AD-8 adds: no view code creates a script element with a URL. PlantUML's `PLANTUML_STDLIB_LOADER` refuses every library, theme, emoji and icon load, and `PLANTUML_FILE_LOADER` stays unset. The reason: Firefox runs a relative `<script src>` from a `file://` Snapshot despite a hash-only `script-src` (Playwright's Firefox 157 and the installed 124). A source that asks for a resource (`!theme`, `!include <C4/…>`) shows PlantUML's message as a render error, and the shipped skills tell agents so. Error and crash images (first text line "PlantUML version " or "An error has occurred") become render errors; 1.2026.9 shows no sponsored message (criterion 5). The PO decides whether to report the Firefox behaviour to Mozilla. | — Without the refusing loader, an agent's source makes the view request the session process from the board, and run a local file from a Snapshot in Firefox | Spine AD-8; SOLUTION-DESIGN §9, §13; CI (row 18) | |
+| 11 | Mermaid's configuration (S-1; D1 to D5) | `mermaid`, `mermaid-shim`, `measure`, `anchors`, `anchors-dark`; `tools/check-elkjs.ts` | Mermaid 12.2.0 is built with `elkjs` replaced by an empty module, and CI checks its absence (S-1; about 1.35 MB raw saved, against the group 3 build). The configuration sets `layout: 'dagre'`, since ELK is Mermaid's default (D1); top-level `htmlLabels: false` (D2); and `securityLevel: 'strict'`, since `'sandbox'` frames a `data:` URL that `frame-src 'none'` blocks (D4). AskBoard adds `htmlLabels`, `layout`, `theme`, `themeVariables`, `themeCSS`, `fontFamily` and `look` to `secure`, so an agent's directive cannot change them: otherwise an agent's `layout: elk` fails the render (D3, `mermaid-elk-open`). Labels: with row 5's diagram shim, Mermaid lays out as with no CSP (`flow-shim`); without it, a hashed shell rule gives Mermaid's measuring container the theme font (0 overflows, `measure`). Mermaid's own KaTeX 0.18.10 (278,393 bytes) stays in its chunk. | For the labels: Mermaid's `fontFamily` set to the page's, which draws them at 13 px (`flow-config`); the PO judges `evidence/measure/` (task 6.1). For KaTeX: an empty module in Mermaid's chunk too, which drops math in labels (untested) | EXPERIENCE Component per widget (Diagram); SOLUTION-DESIGN §9; CI (row 18) | |
+| 12 | Diff review: highlighting on or off, and the grammars | `diffs`, `diffs-dark`, `diffs-trim`, `sizes-diffs-trim`, `sizes-diffs-plain`, `snapshot`; D10 to D12; `evidence/diffs/` | Highlighting on. The markup shim (row 5) with `@pierre/diffs`' CSS-variables theme, mapped onto DESIGN.md's five `syntax-*` tokens, passes in every engine with exactly DESIGN.md's colours, and the `.dark` class re-points them with no re-render (`c-diff-vars-shim`). No configuration gives token classes (D10), so DESIGN.md's "through classes" becomes "through the five tokens as CSS variables". Shiki's JavaScript engine, no worker, and a fixed grammar list: the spike's 17 grammars cut the chunk from 11,483,932 to 1,644,861 bytes, leaving out the theme catalogs, the Oniguruma WebAssembly and the Highlights backend (`sizes-diffs-trim`). The `widgets` epic may change the list. Subject to the PO's view of `evidence/diffs/` (task 6.1). WebKit took 1.33 to 1.37 s to show the UJ-1-like Snapshot with every grammar (`snapshot`); the trimmed build's time was not measured. | Highlighting off: 516,571 bytes (`sizes-diffs-plain`). The markup shim is still needed, because the layout writes `style` attributes too (`c-diff-plain`) | DESIGN.md Syntax highlighting; EXPERIENCE Component per widget (Diff review); Stack (row 14) | |
+| 13 | MathLive | `matrix`, `matrix-media` (`c-mathlive`, `c-mathlive-sandboxed`, `c-mathlive-shim`); § Fonts | Not in the first version; EXPERIENCE marks it optional. It needs three changes in the sandboxed view: its virtual keyboard mounted in the frame with the `sandboxed` policy (in a frame it posts to `window.top` with origin `"null"`, which throws in every engine); the markup shim; and `font-src data:` on the board page. Its chunk is 1,179,504 bytes. The LaTeX widget stays KaTeX, with a monospace source field and a live preview. | Adopt MathLive 0.111.1 with the three changes, and put the 20 font faces it shares byte for byte with KaTeX into one font chunk (AD-9's manifest): 346,972 bytes saved on a board with both | EXPERIENCE Component per widget (LaTeX); SOLUTION-DESIGN §9; Stack only for the alternative | |
+| 14 | Stack pins for the view's components | § Adoption, § Criterion 1, rows 1 to 13 | The spine's Stack gains the components that passed, pinned as run: [Stack pins](#stack-pins-row-14), below. React 19.3.1, `@dagrejs/dagre` 3.1.3 and ext-apps 2.0.4 are pinned already. | The `view` and `widgets` epics add each pin when they adopt the component | Spine Stack; SOLUTION-DESIGN §9 | |
+| 15 | Tailwind's `dark:` variant | `theme-media-query`, `theme`, `regress-g5-theme` | Each chunk's Tailwind input carries `@custom-variant dark (&:where(.dark, .dark *))`, so `dark:` utilities follow the `.dark` class the board page drives. By default they follow `prefers-color-scheme`: in `theme-media-query`, a `dark:` utility stayed light under `.dark`. | No `dark:` utilities: components read only the token variables, which the class re-points | EXPERIENCE Dark theme | |
+| 16 | ext-apps' `App` in the view | `matrix` (`c-app`, `c-app-jitless`); § What the pending decisions change | Keep AD-8's `App` and `AppBridge`. `App` reaches the board page's `AppBridge` from the opaque view in every engine, once zod's `jitless` is set before ext-apps loads, in the view and on the board page (row 17). It costs 313,693 bytes on every board (the MCP client 163,992, zod 101,475), more than React; `assemble` leaves it out of a Snapshot, which has no host. Its parse time was not measured: the `view` epic measures it against SM-3. | AskBoard's own channel for the ext-apps message set in the view, with `AppBridge` kept on the board page: no zod or MCP client in the view. Untested; AD-8's sentence changes | Spine AD-9 (a sentence); AD-8 only for the alternative | |
+| 17 | The caught-probe rule for CI | `smoke`, `renderers`, `matrix` (`c-app`, `c-app-jitless`), `negative`; design decision 2 | CI tolerates no caught probe: a blocked `eval` or `new Function` fails a browser test even when the library catches it. zod's `jitless` is set before any module that uses zod loads, in the view and on the board page; with it, json-render and ext-apps leave no probe. CI collects violations from both documents and counts CSP lines in the console, since WebKit reports a blocked `eval` only to the board page and a refused WebAssembly compile only in the console. | Tolerate caught probes, listed by library, as the spike's "probe" verdict did. A real `eval` behind a `try` then passes unseen | Spine Consistency Conventions (Tests) | |
+| 18 | CI checks of the view build, among them a per-chunk size check | § Sizes (the globals plugin), `graph-import-meta`, `tools/check-elkjs.ts`, `sponsor`, `c2` (`delayed-early`), `regress-g5*` | CI fails on: a chunk that grows past a margin over the previous build without the change saying so (a resolve filter that matched every import took the chart chunk from 507,148 to 1,075,115 bytes, and no test failed); `import.meta` left in a chunk (a classic script holding it does not parse: the Graph chunk failed in every engine); an `elkjs` input or identifier in a chunk, with a control build that proves the search (S-1); PlantUML's filter missing the error image of an empty source or of a syntax error; an item whose box moves between "visible" and 1 s later. A bundler plugin's resolve filter names only the modules it maps. The `view` epic sets the margin. No absolute size budget is proposed: none exists to amend (§ Budget). | Report sizes without failing, as the spike did | Spine Consistency Conventions (Tests) | |
+| 19 | Fonts: licence and source | § Adoption; § Fonts (`evidence/sizes.json`, `fonts.design`); `gh api` on 2026-10-30 for the upstream repositories; the SPDX licence list (release of 2026-10-28) for OSI approval | The addendum admits SIL OFL-1.1, which is OSI-approved, beside MPL-2.0 and EPL-2.0, for unmodified font files shipped with their licence text. DESIGN.md already chose two OFL-1.1 faces (L131). The files come from `@fontsource/inter` (or `@fontsource-variable/inter`) and `@fontsource/jetbrains-mono` 5.3.0, under a named stars exception: their repository `fontsource/font-files` has 509 stars, the Fontsource project 6,249, and both pass the activity criterion. The upstream repositories pass stars but fail activity: `rsms/inter` (20,012 stars) last released on 2024-11-16 and was last pushed on 2024-11-19; `JetBrains/JetBrainsMono` (13,134 stars) on 2023-01-14 and 2025-01-31. The `view` epic picks the subsets: latin and latin-ext with variable Inter add 217,172 bytes to every board and Snapshot. | No bundled faces: the system font stacks the probe used. DESIGN.md's Typography changes, and boards look different per platform | PRD addendum (adoption rule); SOLUTION-DESIGN §9 (named exceptions); Stack (row 14); DESIGN.md only for the alternative | |
+| 20 | The licence check on the probe's lockfile | Task 1.3 (`tools/check-licences.ts` on `probe/`); `probe/dist/manifest.json` (current build) and `probe/dist/variants/catch-all/manifest.json` (group 4 build); the SPDX licence list | The `view` epic's root lockfile fails `check:licences` on four findings unless they are settled. **`robust-predicates`** (the Unlicense, through Mermaid's d3-delaunay): 1,962 bytes in the group 4 build's Mermaid chunk, and in no chunk since group 5's tree-shaking fix. The Unlicense is OSI-approved and permissive, so the check's permissive set gains it, as it already holds ISC and 0BSD; the PO confirms that reading of the addendum. **`khroma`** has no `license` field, and its licence file is MIT: an override that cites the file. **The Tailwind WASI fallback's packages:** the check takes a bundled dependency of a package for another platform for a missing install; the check is corrected. **`argparse`** (PSF-2.0, markdown-it's command-line tool, in no chunk): PSF-2.0 is not OSI-approved, so the addendum names it as a licence exception, the only route the PRD allows. | The addendum names `robust-predicates` as a licence exception too, rather than the check reading the Unlicense as permissive | PRD addendum (`argparse`); the `view` epic changes `tools/check-licences.ts` and `tools/licence-overrides.json` | |
+| 21 | S-2 and S-3 facts, and §9's status table | `evidence/adoption.json` (2026-10-29); § S-2 and S-3 | §10.3's S-2 reads react-dnd's last release as 2022-04-19 (16.0.1, `latest`), not 2022-06-25; S-3 reads `@egjs/hammerjs` as a peer of vis-timeline, not a dependency. Neither changes the conclusion: the UX's replacements hold. The Tree, Ranking and Kanban fixtures pass; the own Timeline was not built. §9's status table, re-dated 2026-10-29, moves react-arborist and vis-timeline to "Failing today" for their peers, settles the catalog renderer row (row 1), and notes the Mermaid and PlantUML builds (rows 8, 11). The ACR file stays as the UX run's record. | Leave §9 as the 2026-10-27 snapshot, and record the corrections only in §10.3's outcome | SOLUTION-DESIGN §9, §10.3 | |
+| 22 | UX spike items: native drag, the unset Slider, the storage audit | `drag-slider`, `drag-slider-control`, `drag-slider-set`, `linux-matrix` (`c-ranking`, `c-kanban`); § S-5; task 6.2 | Native drag: Pragmatic drag and drop works inside the sandboxed frame in every engine Playwright drives; EXPERIENCE's spike item closes once the PO's drag by hand in Chrome and Safari passes (task 6.2). The unset Slider: Radix sets no value from a click on an unset track, because it moves the nearest thumb and there is none. AskBoard's Slider sets the value at the clicked point itself while unset (`widgets` epic), so a first click counts as an explicit act. The storage audit: no component touched storage or made a worker. | For the Slider: keep Radix's behaviour, and EXPERIENCE says how an unset Slider takes its first value (not measured) | EXPERIENCE Component Patterns (Scale); Composition and Components (Ranking, Scale, Kanban, Drag and drop, Dark theme) | |
+| 23 | The Form library's constraints | `form`, `form-control`, `form-shim`; D13 to D17 | EXPERIENCE's Form library gains three points. `tagName="div"` is required, not only the sandbox: WebKit fires the submit event inside the sandbox without `allow-forms`, so a `<form>` runs RJSF's `onSubmit` on Enter (S-7). `showErrorList={false}`: by default RJSF lists every error above the form (D13). The draft record drives the Form's `formData` (AD-9): RJSF keeps its own copy in state (D16), and the `widgets` epic runs criterion 2's remount check on the Form, which the spike did not. Noted: `markdown-to-jsx` ships in the chunk although Markdown stays off (78,544 bytes, D15). | — | EXPERIENCE Form library | |
+| 24 | SOLUTION-DESIGN §13: the facts the spike found | [Facts](#facts-row-24), below | Add each fact, or set each status, as listed there. | Per fact | SOLUTION-DESIGN §13 | |
+| 25 | The Deferred row, §12, §10.3's outcome, front matter | [Deferred and open items](#deferred-and-open-items-row-25), below | Close the catalog renderer row, and record the outcome in §10.3. | Per row | Spine Deferred; SOLUTION-DESIGN §10.3, §12 | |
+
+### Stack pins (row 14)
+
+Pins as the probe ran them (design decision 1; § Adoption, run on 2026-10-29). Shiki 4.5.0 comes with `@pierre/diffs`, and Radix's primitives with `radix-ui`.
+
+| Package | Pin | Role, as run | Condition | PO decision |
+| --- | --- | --- | --- | --- |
+| `radix-ui` | 1.8.1 | Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover (non-modal); Dialog and Alert Dialog with the style-element shim. Not Select | Rows 5, 6, 7 | |
+| `react-day-picker` | 10.0.2 | The Date Picker's calendar, in the non-modal Popover | — | |
+| `markdown-it` | 15.0.3 | Markdown, `html: false`, table alignment as classes | Row 20 (`argparse`) | |
+| `dompurify` | 3.4.17 | The Markdown sanitizer | — | |
+| `katex` | 0.19.1 | LaTeX, through its DOM API | Row 4 | |
+| `@tanstack/react-table` | 9.3.1 | Table, Tree, Spreadsheet, the Gantt's grid | — | |
+| `@atlaskit/pragmatic-drag-and-drop` | 4.0.0 | Ranking, Kanban, Tree | — | |
+| `echarts` | 6.1.0 | Chart, canvas renderer, `tooltip.renderMode: "richText"` | — | |
+| `@xyflow/react` | 12.12.0 | Graph; the build defines `import.meta.env` | Row 18 | |
+| `mermaid` | 12.2.0 | Diagram, built without elkjs | Row 11 | |
+| `@plantuml/core` | 1.2026.9 | Diagram, `plantuml.js` only | Rows 8, 9 | |
+| `@pierre/diffs` | 1.6.2 | Diff review | Rows 5, 12 | |
+| `@rjsf/core`, `@rjsf/utils` | 6.11.0 | Form | Row 23 | |
+| `tailwindcss`, `@tailwindcss/cli` | 4.3.3 | Build-time styles | Row 15 | |
+| `@modelcontextprotocol/core`, `@modelcontextprotocol/client` | 2.4.0 | ext-apps 2.0.4's peers, beside the pinned `@modelcontextprotocol/server` | Row 16 | |
+| `zod` | 4.6.7 | ext-apps' peer, with `jitless` | Rows 16, 17 | |
+| `@json-render/core`, `@json-render/react` | 0.21.3 | Only if row 1 picks json-render | Row 1 | |
+| `mathlive` | 0.111.1 | Only if row 13 keeps MathLive | Row 13 | |
+| `@fontsource/inter` or `@fontsource-variable/inter`, `@fontsource/jetbrains-mono` | 5.3.0 | Only if row 19 adopts them | Row 19 | |
+
+### Facts (row 24)
+
+New facts take the next free IDs after F38. "Verified" means a run of this change shows it, on 2026-10-29 or 2026-10-30.
+
+| Fact | Statement | AD | Evidence | Proposed status | PO decision |
+| --- | --- | --- | --- | --- | --- |
+| F28 | ext-apps 2.0.4's classes accept an opaque-origin view | AD-8 | `c-app`, `c-app-jitless` | Verified: `App` reaches `AppBridge` from the sandboxed view in every engine; zod needs `jitless` first | |
+| F30 | Hash-only `style-src` blocks `style` attributes and injected `<style>` | AD-8 | `negative` | Verified in every engine; see F40 for what it lets through | |
+| F39 (new) | The srcdoc inherits the board page's policy, so a `blob:` image or a `data:` font the view's policy allows is blocked unless the board page's policy allows it too | AD-8 | `c3c4`, `matrix`, `c3c4-blob`, `matrix-media` | Verified | |
+| F40 (new) | A hash-only `style-src` lets CSSOM writes (`style.cssText`, `insertRule`) and constructed stylesheets (`adoptedStyleSheets`) through, in Chromium, Firefox and WebKit | AD-8 | `negative` (`pos-cssom-style`), the shims' runs | Verified | |
+| F41 (new) | Chromium checks a `<style>` against `style-src` when it is connected, whatever its `type`. WebKit reports a `style-src-attr` violation for every native `<select>` it creates. WebKit reports a blocked `eval` only to the board page, and a refused WebAssembly compile only in the console. Firefox blocks a sandboxed `<form>` submission silently; WebKit fires its submit event | AD-8; Tests | `c-select-shim`, `tools/check-native-select.ts`, `negative`, `plantuml`, `form` | Verified | |
+| F42 (new) | Firefox runs a relative `<script src>` from a `file://` page despite a hash-only `script-src` | AD-8, AD-15 | `tools/check-file-scripts.ts` (Firefox 157 and the installed 124) | Verified | |
+| F43 (new) | Mermaid 12.2.0: ELK is the default layout; the default `secure` list leaves out `htmlLabels`, `layout`, `theme`, `themeVariables`, `themeCSS` and `fontFamily`; `securityLevel: 'sandbox'` frames a `data:` URL; it brings KaTeX 0.18 | AD-8 | D1 to D5; `mermaid` | Verified | |
+| F44 (new) | `@plantuml/core` 1.2026.9: Graphviz comes as Viz.js WebAssembly and needs `'wasm-unsafe-eval'`, and without it Smetana lays out; no sponsored message, but error and crash images; resources load by script tag unless the host supplies loaders; the tarball lacks the licence texts of the code compiled into it | AD-8, AD-19 | § PlantUML; `plantuml-wasm`, `sponsor`, `c3c4` | Verified | |
+| F45 (new) | `@pierre/diffs` 1.6.2 writes token colours and layout as `style` attributes in markup it parses; `useCSSClasses` is declared but not read | AD-8 | D10; `diffs` | Verified | |
+| F46 (new) | json-render 0.21.3: its store can be bound to an outside record; its error boundary renders `null` and tells only the console; zod 4 probes `new Function` unless `jitless` is set | AD-9 | D18 to D21; `c2`, `renderers` | Verified | |
+| F47 (new) | Bun 1.4.4: a bundler plugin whose `onResolve` matches every import makes the bundler ignore `sideEffects` | AD-9 | § Sizes | Verified | |
+
+### Deferred and open items (row 25)
+
+| Spine Deferred row, or other text | Proposed | Condition | PO decision |
+| --- | --- | --- | --- |
+| "Catalog renderer behind `CatalogRenderer` (json-render 0.21 or own); Mermaid and PlantUML rendering inside the view bundle" | Remove: the renderer is decided (row 1), and both diagram renderers run inside the bundle (criterion 3) | Rows 1, 4, 5 | |
+| A new Deferred row, "How diagram renders reach `snapshot`" | Add only if row 3 is accepted without its message path; revisit in the `view` and `snapshot` epics | Row 3 | |
+| SOLUTION-DESIGN §12, "Architecture spikes" | Drop "catalog renderer with Mermaid and PlantUML (renderer, with UX)" | — | |
+| SOLUTION-DESIGN §10.3 | Add an "Outcome" paragraph | The rows it cites | |
+
+### Not for the PO: left to the epics
+
+Each is recorded in its section; none needs a decision now.
+
+- **`view`:** label-and-occurrence anchors for PlantUML activity diagrams, and Mermaid state edges keyed by their ends (§ Anchors); hit regions on a scaled image (§ Anchors); whether a reload restores the keyboard tab stop (ACR-11; § Criterion 2); the fonts' subsets (row 19); folding `lib-table` into `table` (§ Library chunks); the board page's icon, since Firefox requests `/favicon.ico` and the board policy blocks it (§ Method); the second theme's render time for Snapshots (row 3).
+- **`widgets`:** the grammar list (row 12); the Slider's first click (row 22); the Form's remount check (row 23); a Tree whose rows are dragged (§ S-2 and S-3); the Timeline (S-3).
+- **Platforms:** x86-64 Linux, Chrome and Edge on Linux, and the browsers' previous majors are untested (§ Linux; design.md, Non-Goals). Safari is the PO's (task 6.2).
+
+## Product owner checks (tasks 6.1 and 6.2)
+
+Both tasks stay open, awaiting PO. Paths are relative to the change folder. The screenshots under `evidence/` are committed; `probe/runs/` and `probe/dist/` are git-ignored and present in this worktree on 2026-10-30.
+
+### 6.1 Screenshots to judge
+
+| Set | Files (runs) | What to look for | PO verdict |
+| --- | --- | --- | --- |
+| Golden case, light and dark | `evidence/golden/{chromium,firefox,webkit}-{light,dark}.png` (`golden-look`, `golden-look-dark`) | The golden board as the view draws it, with the PlantUML diagram in DESIGN.md's diagram theme (Colors, Diagram theme) in both schemes. The text is in the system font stacks: the bundled faces wait on row 19 | |
+| Diagram themes and hit regions | `evidence/diagrams/{light,dark}/{chromium,firefox,webkit}/`: `plantuml-golden.png`, `mermaid-flowchart.png`, `mermaid-sequence.png`, `mermaid-class.png`, `mermaid-state.png` (`anchors`, `anchors-dark`) | Colours against DESIGN.md's Diagram theme table, light and dark. The dashed outlines (hit regions) sit on each participant, message, node and edge. Seen, not judged: Mermaid's `neo` look leaves a light halo around nodes in dark | |
+| Smetana against Graphviz (row 8) | `evidence/diagrams/layout/plantuml-{class,component,state}-{graphviz,smetana}.png` (`plantuml-wasm`, `plantuml-shim`; Chromium, light) | Whether Smetana's layouts are acceptable for class, component and state diagrams | |
+| Mermaid labels (row 11) | `evidence/measure/{chromium,firefox,webkit}/flow-*.png` and `sequence-*.png` (`measure`) | `flow-none.png` shows the failure: the "yes" label runs past the image's left edge, and both edge labels past their backgrounds. Compare against `flow-control.png` (no CSP): `flow-shim.png` (the style shim, the control's layout), `flow-shell-rule.png` and `flow-cssom.png` (the shell rule, 6% wider), `flow-config.png` (labels at 13 px). The sequence diagrams are unaffected | |
+| Diff highlighting (row 12) | `evidence/diffs/{chromium,firefox,webkit}-{light,dark}.png` (`diffs`, `diffs-dark`); for comparison `chromium-default-no-shim.png` and `chromium-pierre-theme-shim.png` | The five `syntax-*` colours on the diff backgrounds, legible in both schemes. The comparison files show the diff as written (no colour) and in Pierre's own palette | |
+
+### 6.2 At the keyboard, in Chrome and Safari
+
+Playwright cannot drive Safari, and a person's drag can differ from Playwright's.
+
+1. In a terminal, from the change folder:
+
+   ```sh
+   cd probe
+   bun install --frozen-lockfile   # only if node_modules/ is missing
+   bun run build                   # only if dist/ is missing
+   bun board.ts --port 4610        # prints the board stand-in's URL and one URL per fixture
+   ```
+
+   Leave it running, and stop it with Ctrl+C at the end.
+2. In Safari, turn on Settings → Advanced → "Show features for web developers", to get Develop → Show JavaScript Console.
+3. In the installed Chrome, then in Safari, open each board below and act on it:
+
+   | Board | Do | Expected |
+   | --- | --- | --- |
+   | `http://127.0.0.1:4610/b/ux-ranking` | Drag C onto A, then A onto B | The order C, B, A |
+   | `http://127.0.0.1:4610/b/ux-kanban` | Drag k1 onto the Done lane, then k3 onto card k2 | To do: k3, k2; Doing: empty; Done: k1 |
+   | `http://127.0.0.1:4610/b/golden?variants=board-media` | Look, then answer the question | The diagram shows, and the question works. The variant is row 4's board policy: without it, the board page's policy blocks the diagram, as criterion 4 records |
+
+4. After each board, in the console of the board page (the top frame, not the view's):
+
+   ```js
+   __probeSend("state", {}, 1)
+   __probe.events.filter((e) => e.kind === "command").at(-1).result.draft      // the draft record
+   __probe.events.filter((e) => e.kind === "violation").length + __probe.board.length   // CSP violations: expect 0
+   ```
+
+5. Optional, Safari only: open the golden Snapshot from `file://`, `open -a Safari probe/runs/snapshot/snapshots/golden.own.svg.light.html` (renders only) and `golden.own.chunks.light.html` (with the PlantUML chunk). Expected: the diagram shows.
+
+| Browser | `ux-ranking` | `ux-kanban` | Golden board | Golden Snapshot (optional) | PO verdict |
+| --- | --- | --- | --- | --- | --- |
+| Chrome (installed) | | | | — | |
+| Safari 26.6.2 | | | | | |
+
 ## Method
 
 - **Platform:** macOS 26.6.2 (Darwin 25.6.0, arm64), on 2026-10-29. Linux is the optional group 7.
@@ -114,7 +337,7 @@ The citations of D1, D4, D6, D8, D10, D20 and D21 were re-read by hand; the othe
 | `@fontsource/inter`, `@fontsource/jetbrains-mono` | 5.3.0 | fonts | OFL-1.1 | 508 (fontsource/font-files) | 2026-10-25 | 2026-07-19 (5.3.0) | Fail: licence outside the rule, stars under 1,000 |
 
 - Every direct dependency of the probe passes.
-- The fonts fail, so the probe does not adopt them. The view uses the system font stacks (`styles/base.css`; `--ab-font-sans` and `--ab-font-mono` in `dist/tokens.css`). **Awaiting PO:** the fonts' licence and source (task 8.1).
+- The fonts fail, so the probe does not adopt them. The view uses the system font stacks (`styles/base.css`; `--ab-font-sans` and `--ab-font-mono` in `dist/tokens.css`). **Awaiting PO:** the fonts' licence and source (task 8.1, row 19).
 - **elkjs and the licence check.** The repository's licence check admits EPL-2.0 for unmodified dependencies, so it passes elkjs. Only the addendum's avoid list excludes it, and no check enforces that list. S-1's CI check has to name elkjs itself (task 3.1).
 - **Dates that differ from design.md's table:** the `react-dnd` release is 2022-04-19 here (16.0.1 is `latest`), not 2022-06-25; the Tailwind release is 2026-07-16 (4.3.3), not 2026-10-19.
 
@@ -133,7 +356,7 @@ The citations of D1, D4, D6, D8, D10, D20 and D21 were re-read by hand; the othe
   | `@tailwindcss/oxide-wasm32-wasi@4.3.3: bundles dependencies, which this check cannot see` | `@tailwindcss/cli` | The WASI fallback of Tailwind's engine (`cpu: none`) |
   | `@emnapi/core`, `@emnapi/runtime`, `@emnapi/wasi-threads`, `@napi-rs/wasm-runtime`, `@tybys/wasm-util`, `tslib@2.8.1`: "listed in bun.lock but not installed" | the same WASI package's bundled dependencies | The check takes these for missing installs. They carry no `os` or `cpu` field of their own |
 
-  Three of these (argparse, khroma, robust-predicates) concern view components the UX chose. The Tailwind ones concern the build tool. If these packages enter the root lockfile in the `view` epic, the root `check:licences` fails the same way. The product owner decides (task 8.1).
+  Three of these (argparse, khroma, robust-predicates) concern view components the UX chose. The Tailwind ones concern the build tool. If these packages enter the root lockfile in the `view` epic, the root `check:licences` fails the same way. The product owner decides (task 8.1, row 20).
 - `git diff --exit-code origin/main -- package.json bun.lock packages/` at the repository root is empty, and the root `bun run check` passes: 226 tests, import and licence checks clean.
 
 ## Harness (task 1.5)
@@ -191,7 +414,7 @@ The citations of D1, D4, D6, D8, D10, D20 and D21 were re-read by hand; the othe
   - Only the item ID passes through json-render's props (D19).
   - Two variants: `json-render`, as documented, and `json-render-jitless`, which sets zod's `config({ jitless: true })` before json-render builds its schemas (`renderers/_zod-jitless.ts`, imported first).
 - **Atoms and layouts**, registered once, one chunk each: Text, Value, TextField, NumberField, Choice, Toggle, Stack, Row, Group and Tabs.
-  - Choice is built on Radix Radio Group (single) and Checkbox (multiple), Toggle on Radix Switch, and Tabs on Radix Tabs (EXPERIENCE.md, Atoms). The four come from the `lib-radix` library chunk (43,965 bytes, 13,756 gzip), which the three chunks need.
+  - Choice is built on Radix Radio Group (single) and Checkbox (multiple), Toggle on Radix Switch, and Tabs on Radix Tabs (EXPERIENCE.md, Atoms). The four come from the `lib-radix` library chunk (43,965 bytes, 13,756 gzip, in the group 2 build; 145,266 and 47,208 in the current build, with the primitives group 4 added), which the three chunks need.
   - NumberField is a text input with a locale parser, never `type="number"`.
   - Row sets relative widths through React's `style` prop, which writes through the CSSOM.
   - Tabs keeps the open tab in the draft record (`ui`). It mounts every panel (`forceMount`) and hides the inactive ones with a class. Without that, the items of an inactive tab never mount, never report ready, and the question never counts as visible. **The `view` epic needs the same rule for any container that hides items.**
@@ -232,8 +455,8 @@ Run `renderers`: `bun drive.ts renderers --fixtures hello,atoms,delayed,throws,i
 | **Criterion 1, view CSP** (`hello`, `atoms`, `delayed`, `items-200`; run `renderers`) | pass in all 5 engines, 0 violations | **probe** in all 5 engines: zod's blocked `new Function`, 2 events per load (28 in 14 loads), or 1 per load in WebKit, on the board page (14) | pass in all 5 engines, 0 violations |
 | **Criterion 2** (run `c2`, § Criterion 2) | pass ×5 | pass ×5 | pass ×5 |
 | **Same DOM as own** (run `atoms`) | — | yes, raw, ×5 | yes, raw, ×5 |
-| **Renderer chunk, raw / gzip bytes** | 1,476 / 765 | 194,933 / 56,347 | 194,962 / 56,366 |
-| What the chunk holds (bytes in the minified output) | the renderer, 637 | zod 130,440; `@json-render/core` 40,239; `@json-render/react` 21,767; the adapter 1,461 | the same, plus the `jitless` line |
+| **Renderer chunk, raw / gzip bytes** (the build of these runs; the current build in brackets, § Criterion 6) | 1,476 / 765 (the same) | 194,933 / 56,347 (159,692 / 47,007) | 194,962 / 56,366 (159,717 / 47,019) |
+| What the chunk holds (bytes in the minified output; the current build in brackets) | the renderer, 637 | zod 130,440 (95,422); `@json-render/core` 40,239 (40,233); `@json-render/react` 21,767 (21,707); the adapter 1,461 | the same, plus the `jitless` line |
 | **Adapter lines** (`wc -l`) | 46 (`renderers/own.tsx`) | 125 (`_json-render-adapter.tsx`) + 7 (entry) | 125 + 7 + 6 (`_zod-jitless.ts`) |
 | **A component that throws** (`throws`, run `renderers`, every engine) | React unmounts the whole view. The view receives an `error` event, which reaches the board page. Never visible | The failing item disappears and the two others render. The error goes only to the console ("[json-render] Rendering error in <Throws>"), so the board page learns nothing. Never visible (D20) | same as json-render |
 | **API churn** (0.x) | — | 18 minors in 8.5 months, from 0.4.0 (2026-02-05) to 0.21.3 (2026-10-24). 20 entries are labelled breaking: 0.4 (3), 0.5 (5), 0.6 (10), 0.9 (1), 0.20 (1). The repository was created on 2026-01-14, so the 12-month window covers its whole history | same |
@@ -251,7 +474,7 @@ Sources for the churn row: `gh api repos/vercel-labs/json-render/releases --pagi
 | `chrome` | 67.6 (70.0) | 74.7 (84.7) | 73.6 (79.2) | 53.0 (54.5) | 48.6 (49.3) | 47.3 (49.7) |
 | `msedge` | 66.3 (67.4) | 83.1 (85.0) | 77.3 (80.1) | 50.6 (51.7) | 46.5 (47.2) | 46.3 (47.7) |
 
-- **From t0**, json-render costs 6 to 28 ms more per load in every engine: it has 193 KB more script to parse. **From mount**, the two are within 10 ms of each other. json-render is slower by 3 to 10 ms in Chromium, Firefox and WebKit, and faster by 4 to 6 ms in Chrome and Edge.
+- **From t0**, json-render costs 6 to 28 ms more per load in every engine: in the build these runs used it had 193 KB more script to parse (158 KB in the current build, § Criterion 6). **From mount**, the two are within 10 ms of each other. json-render is slower by 3 to 10 ms in Chromium, Firefox and WebKit, and faster by 4 to 6 ms in Chrome and Edge.
 - **What json-render contributes in this adapter:** the tree walk and a state context. The adapter switches off or bypasses everything else, for the reasons recorded above:
   - its props expressions, since agent content must stay data (D19);
   - its own state, replaced by the draft record (D18);
@@ -292,7 +515,7 @@ Sources for the churn row: `gh api repos/vercel-labs/json-render/releases --pagi
 
 | | `mermaid` chunk | Control: `mermaid.core.mjs` built with elkjs |
 | --- | --- | --- |
-| Script, raw / gzip | 3,955,799 / 1,093,862 bytes | 5,304,290 bytes raw |
+| Script, raw / gzip | 3,955,799 / 1,093,862 bytes (group 3 build; 3,800,778 / 1,039,692 in the current build, § Criterion 6) | 5,304,290 bytes raw |
 | Style, raw / gzip | 2,387 / 947 bytes (`_diagram.tsx`'s classes) | — |
 | elkjs among the inputs | none; `inputs.stubbed: ["elkjs/lib/elk.bundled.js"]` | `elk.bundled.js` |
 | `org.eclipse.elk` | 0 | 342 |
@@ -302,7 +525,7 @@ Sources for the churn row: `gh api repos/vercel-labs/json-render/releases --pagi
 
 - Source: `bun tools/check-elkjs.ts`, which prints "elkjs check: 0 problem(s)".
 - The four identifiers occur in elkjs 0.9.3's `lib/elk.bundled.js` and survive minification. Mermaid's own glue uses option keys such as `elk.layered…` and the type name `ElkNode`, so those are not searched for.
-- The control build shows that the search finds elkjs when it is there. Leaving elkjs out saves about 1.35 MB raw.
+- The control build shows that the search finds elkjs when it is there. Leaving elkjs out saves about 1.35 MB raw, against the group 3 build.
 - **The licence check does not catch elkjs.** It admits EPL-2.0 for unmodified packages (§ Adoption), so S-1's CI check must name elkjs itself. `tools/check-elkjs.ts` is a model: no elkjs input in the manifest, no elkjs identifier in the chunk, and a control build that proves the search works.
 
 **What `layout: elk` does** (run `mermaid`, every engine). AskBoard's configuration sets `layout: 'dagre'` and adds `layout` to `secure` (D1, D3).
@@ -331,7 +554,7 @@ Render time in run `mermaid-shim`: Mermaid's own work, from the call to the SVG 
 | class | 50.2 | 36 | 50 | 50.3 | 49.6 |
 | state | 48.7 | 34 | 45 | 48.8 | 46.1 |
 
-**The chunk's inputs and their licences** (`dist/manifest.json`). Bytes are each package's share of the minified chunk.
+**The chunk's inputs and their licences** (`dist/manifest.json`). Bytes are each package's share of the minified chunk, in the group 3 build. In the current build (§ Sizes) the four largest shares differ by less than 0.2%, `lodash-es` falls to 42,009, `khroma` to 11,740, and `robust-predicates` and `delaunator` are gone (below).
 
 | Licence | Packages | Members, the largest first |
 | --- | --- | --- |
@@ -344,7 +567,7 @@ Render time in run `mermaid-shim`: Mermaid's own work, from the call to the SVG 
 | **Unlicense** | 1 | **`robust-predicates` 3.0.3 (1,962)**, through `d3-delaunay` and `delaunator` |
 
 - **Two KaTeX versions.** Mermaid brings its own KaTeX 0.18.10 for math in labels (D5): 278,683 bytes in this chunk. The LaTeX widget pins 0.19.1, so a board with both carries both.
-- **Unlicense reaches the chunk.** `robust-predicates`, flagged by task 1.3's licence check, is in the Mermaid chunk and so ships with it. The product owner decides (task 8.1).
+- **Unlicense reaches the chunk** in the group 3 and 4 builds. `robust-predicates`, flagged by task 1.3's licence check, is in the Mermaid chunk and so ships with it. Since group 5's tree-shaking fix it is not: `robust-predicates` and `delaunator` are not among the current build's inputs, and `d3-delaunay` keeps 15 bytes (`dist/manifest.json`, built 2026-10-29T23:31:16Z, against `dist/variants/catch-all/manifest.json`). It stays in the lockfile, so the licence check still flags it. The product owner decides (row 20).
 - The chunk's notices (`dist/notices/mermaid.txt`) carry each package's licence file; `khroma`'s comes from its `license` file.
 - What else makes the chunk large, for criterion 6: Mermaid's own code (1.71 MB), its Langium parsers (`@mermaid-js/parser`, 0.66 MB) and cytoscape (0.46 MB, for the mindmap and architecture diagrams).
 
@@ -371,7 +594,7 @@ Render time in run `mermaid-shim`: Mermaid's own work, from the call to the SVG 
 | `themes.js` (319 KB) | no: AskBoard themes diagrams with skinparams | The `!theme` definitions, whose `author:` fields name Brett Schwarz (22 themes), Drakemor (8), Matthew Leather (6), future-architect (3) and others | The LICENSE credits "Themes (c) by Brett Schwarz" (`bschwarz/puml-themes`, MIT, 273 stars); the other authors' themes carry no licence |
 | `openiconic.js` | no | Open Iconic's icons | MIT for the SVG markup (`iconic/open-iconic` README) |
 
-- Graphviz is EPL-2.0, the licence of elkjs, which §9 excludes as a trap. The adoption rule admits EPL-2.0 only unmodified, and whether Viz.js's build of Graphviz is unmodified is not stated in the tarball. Keeping `viz-global.js` is therefore a licence decision as well as a CSP one (below). The product owner decides (task 8.1); the PRD addendum changes only if they do.
+- Graphviz is EPL-2.0, the licence of elkjs, which §9 excludes as a trap. The adoption rule admits EPL-2.0 only unmodified, and whether Viz.js's build of Graphviz is unmodified is not stated in the tarball. Keeping `viz-global.js` is therefore a licence decision as well as a CSP one (below). The product owner decides (task 8.1, row 9); the PRD addendum changes only if they do.
 - The chunk notices (`dist/notices/plantuml*.txt`) hold the tarball's MIT `LICENSE` only. A product build must add the licence texts of TeaVM, Brotli, CafeUndZopfli and ASCIIMathML, and for the `plantuml` chunk those of Viz.js, Graphviz and Expat, from their repositories.
 
 **What renders without `viz-global.js`, and whether it needs `'wasm-unsafe-eval'`.** Five fixtures (sequence, class, activity, component, state), each through both chunks, in every engine:
@@ -664,7 +887,7 @@ The diagram carries the style shim. Times are from `t0`, when the board page set
 - **Policy variants** (`csp.ts`): `board-font-data` adds `font-src data:` to the board page's policy, and `board-media` adds `img-src data: blob:` and `font-src data:`, the view policy's own media sources. As with `board-img-blob`, each is a candidate amendment of AD-8, never the default.
 - **The board page can host an ext-apps `AppBridge`** (`bridge` fixtures). `shell/bridge.ts` is built as a probe chunk (`bridge`), inlined into the board page by hash before the page script and never into a view. It logs every request and notification from the view in `__bridgeLog`. The board page now keeps only the view's probe events (`askboardProbe`), so the view's JSON-RPC messages no longer reach the driver's event list.
 - **Build** (`build.ts`):
-  - Library chunks take several modules: `lib-radix` (ten Radix primitives), `lib-table` (TanStack Table's names used by Table, Tree and Spreadsheet) and `lib-dnd` (Pragmatic drag and drop's adapter, `combine` and `reorder`). `lib-radix` grew from 43,965 to 145,318 bytes (47,238 gzip) with Select, Slider, Toggle Group, Popover, Dialog and Alert Dialog.
+  - Library chunks take several modules: `lib-radix` (ten Radix primitives), `lib-table` (TanStack Table's names used by Table, Tree and Spreadsheet) and `lib-dnd` (Pragmatic drag and drop's adapter, `combine` and `reorder`). `lib-radix` grew from 43,965 to 145,318 bytes (47,238 gzip; 145,266 and 47,208 in the current build) with Select, Slider, Toggle Group, Popover, Dialog and Alert Dialog.
   - **Fonts inline as `data:` URLs.** Bun's CSS bundler leaves a stylesheet's `url()` paths as they are, even with a `dataurl` loader (checked on `mathlive-fonts.css`), so the build rewrites each `.woff2` URL of a package stylesheet into a `data:font/woff2` URL when the file loads. KaTeX lists each face as woff2, woff and ttf; the woff and ttf entries are dropped. KaTeX's stylesheet becomes 369,894 bytes, MathLive's 352,196.
   - **`import.meta` stops the build.** zustand, xyflow's store, reads `import.meta.env`. A classic inline script that holds `import.meta` does not parse at all: in run `graph-import-meta` (built with `PROBE_KEEP_IMPORT_META=1`) the whole Graph chunk fails in every engine, and the item shows as unknown (§ Criterion 1). The build now defines `import.meta.env` as `undefined` and fails on any `import.meta` left in a chunk.
   - **Tailwind's `dark:` variant follows the `.dark` class** (`@custom-variant dark (&:where(.dark, .dark *))`), measured in § S-5.
@@ -764,7 +987,7 @@ Run `diffs`: seven configurations of `components/diff-review.tsx` in all five en
 
   The CSS-variables theme (`registerCustomCSSVariableTheme`, the package's own export) then maps Shiki's scopes onto `var(--syntax-keyword)` and the four others, so the `.dark` switch re-points them with no re-render. Its scope map sends `number`, `boolean`, `constant` and `property` to the number token, and `function`, `constructor`, `type` and `attribute` to the function token, as DESIGN.md's table groups them.
 - **The decision is the product owner's** (tasks 6.1 and 8.3): the shim with highlighting, or the shim with highlighting off. Either way, Diff review needs the shim or a different library. Screenshots, light and dark, of `c-diff-vars-shim` in Chromium, Firefox and WebKit: `evidence/diffs/<engine>-light.png` and `<engine>-dark.png`; for comparison, `evidence/diffs/chromium-default-no-shim.png` (as written: no colour) and `chromium-pierre-theme-shim.png` (Pierre's own palette).
-- **For group 5:** the chunk is 11,604,703 bytes (2,091,962 gzip). Shiki's grammars are 7,991,265 bytes of it: `import("shiki/langs")` bundles every language into the classic script. Its themes are 1,333,572, `@pierre/highlights` 650,847 and the Oniguruma engine 629,400, unused here. Time to visible is about 300 ms in Chromium, 600 ms in Firefox and 1,330 ms in WebKit; with `.txt` files in WebKit, 195 ms.
+- **For group 5:** in the group 4 build the chunk is 11,604,703 bytes (2,091,962 gzip; the current build's script is 11,480,812 and 2,060,577, § Criterion 6). Shiki's grammars are 7,991,265 bytes of it (7,991,212 in the current build): `import("shiki/langs")` bundles every language into the classic script. Its themes are 1,333,572, `@pierre/highlights` 650,847 and the Oniguruma engine 629,400, unused here. Time to visible is about 300 ms in Chromium, 600 ms in Firefox and 1,330 ms in WebKit; with `.txt` files in WebKit, 195 ms.
 
 ## S-6: Radix Dialog and Alert Dialog (task 4.3)
 
@@ -801,7 +1024,7 @@ After Escape the page scrolls again in every case (600).
 - **Two measured changes:**
   1. **The static rule** (`styles/scroll-lock.css` as the `scroll-lock` chunk's hashed stylesheet: `body[data-scroll-locked] { overflow: hidden !important; overscroll-behavior: contain }`) restores the lock in every engine, but the blocked `<style>` still fires its violation.
   2. **The style-element shim** (`components/_style-shim.ts`, 50 lines) passes with 0 violations and the full lock in every engine. A `<style>` appended to `document.head` goes into a detached holder and its rules become a constructed stylesheet in `document.adoptedStyleSheets`, which the CSP allows (D11). Removing it removes the sheet. A `<style>` inserted anywhere else gets a non-CSS `type` and the same treatment, which is enough in Firefox only (§ Criterion 1, Radix Select).
-- **The non-modal variant passes as written.** The settings side sheet is non-modal (S-6's own text), so it is not affected. For the mode-switch confirmation, the product owner chooses between non-modal, a modal with the shim, and a modal with the static rule plus a tolerated violation (task 8.1).
+- **The non-modal variant passes as written.** The settings side sheet is non-modal (S-6's own text), so it is not affected. For the mode-switch confirmation, the product owner chooses between non-modal, a modal with the shim, and a modal with the static rule plus a tolerated violation (task 8.1, row 7).
 
 ## Form (task 4.4)
 
@@ -827,8 +1050,8 @@ The schema has a name with a `pattern`; a colour as `enum` with `ui:enumNames` s
 - **S-7 holds, and more strongly than its text.** WebKit fires the submit event in a sandboxed frame without `allow-forms`: only the navigation is blocked. A `<form>` there runs RJSF's submit handler on Enter. `tagName="div"` is what keeps Enter from submitting, in every engine.
 - **S-4 holds.** The no-op validator with `extraErrors` shows AskBoard's errors and compiles nothing, and Ajv's compile is blocked as expected.
 - **S-8's picks hold.** `enum` with `ui:enumNames` returns the `enum` values (`g`, `m`, `["a","c"]`) and shows the labels, for radios, Select and checkboxes.
-- **The Form fails criterion 1 only through Radix Select** (single pick from a list). With radios for single picks, the Form's violations would be those of the atoms, which pass. That is a design choice the product owner makes with Select's verdict (task 8.1).
-- **For group 5:** the `form` chunk carries Ajv (103,550 bytes) and `@rjsf/validator-ajv8` although the Form never uses them. `@rjsf/core`'s index re-exports `getTestRegistry`, which imports `@rjsf/validator-ajv8`, and the bundle keeps it; markdown-to-jsx adds 78,632 bytes (D15). The chunk is 393,146 bytes (129,062 gzip). The Ajv instance it constructs at load compiles nothing: no `eval` violation in `form`.
+- **The Form fails criterion 1 only through Radix Select** (single pick from a list). With radios for single picks, the Form's violations would be those of the atoms, which pass. That is a design choice the product owner makes with Select's verdict (task 8.1, row 6).
+- **For group 5:** in the group 4 build, the `form` chunk carries Ajv (103,550 bytes) and `@rjsf/validator-ajv8` although the Form never uses them. The current build has neither: its `form` script is 254,166 bytes (86,627 gzip), markdown-to-jsx 78,544 of it (§ Sizes). `@rjsf/core`'s index re-exports `getTestRegistry`, which imports `@rjsf/validator-ajv8`, and the bundle keeps it; markdown-to-jsx adds 78,632 bytes (D15). The chunk is 393,146 bytes (129,062 gzip). The Ajv instance it constructs at load compiles nothing: no `eval` violation in `form`.
 
 ## S-8: the safe `pattern` subset (task 4.5)
 
