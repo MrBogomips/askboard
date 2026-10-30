@@ -80,4 +80,12 @@ describe("the board page", () => {
   test("leaves the style element out when there are no styles", () => {
     expect(boardPageHtml("1;", "")).not.toContain("<style>");
   });
+
+  test("fixes its base URL at the origin's root first in its head, so the view inherits no token (AD-8)", () => {
+    const html = boardPageHtml("1;", "body{margin:0}");
+    const head = html.slice(html.indexOf("<head>"), html.indexOf("</head>"));
+    expect(html.match(/<base /g)).toHaveLength(1);
+    expect(head).toContain('<base href="/">');
+    expect(head.indexOf("<base ")).toBeLessThan(head.indexOf("<link "));
+  });
 });

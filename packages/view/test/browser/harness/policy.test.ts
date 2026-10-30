@@ -29,8 +29,8 @@ describe("the board page's CSP (AD-8, design decision 5)", () => {
     expect(directives.get("font-src")).toEqual(["data:"]);
   });
 
-  test("sets no base URL, posts no form and is framed by no page (AD-11)", () => {
-    expect(directives.get("base-uri")).toEqual(["'none'"]);
+  test("sets a base URL only on its own origin, posts no form and is framed by no page (AD-11)", () => {
+    expect(directives.get("base-uri")).toEqual(["'self'"]);
     expect(directives.get("form-action")).toEqual(["'none'"]);
     expect(directives.get("frame-ancestors")).toEqual(["'none'"]);
   });

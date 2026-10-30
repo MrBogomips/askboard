@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { HostMessage } from "@askboard/contract";
 import { PLAIN_CHOICE, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { boardLinkOf, connectBoard, type SocketLike, tokenState } from "./socket.ts";
+import { boardLinkOf, connectBoard, type SocketLike } from "./socket.ts";
 
 type SocketEvent = { data?: unknown; code?: number };
 
@@ -128,18 +128,17 @@ describe("the board's WebSocket (design decision 8)", () => {
     connection?.close();
   });
 
-  test("the token comes from the link's query, or from the history entry a reload keeps (AD-8)", () => {
-    expect(boardLinkOf(location, null)).toEqual(link);
-    expect(boardLinkOf(bare, tokenState(link))).toEqual(link);
-    expect(boardLinkOf(location, { token: "other" })).toEqual(link);
-    expect(tokenState(link)).toEqual({ token: PLAIN_CHOICE.token });
+  test("the board is the link's ask, with the token from its query", () => {
+    expect(boardLinkOf(location)).toEqual(link);
   });
 
   test("a page that is no board link, or has no token, is no board", () => {
-    for (const state of [undefined, null, {}, { token: 7 }, { token: "" }, "token"]) {
-      expect(boardLinkOf(bare, state)).toBeUndefined();
+    for (const href of [
+      bare.href,
+      `${bare.href}?t=`,
+      `http://127.0.0.1:${PLAIN_CHOICE.port}/m?t=${PLAIN_CHOICE.token}`,
+    ]) {
+      expect(boardLinkOf(new URL(href))).toBeUndefined();
     }
-    const manifest = new URL(`http://127.0.0.1:${PLAIN_CHOICE.port}/m?t=${PLAIN_CHOICE.token}`);
-    expect(boardLinkOf(manifest, tokenState(link))).toBeUndefined();
   });
 });

@@ -153,8 +153,7 @@ export const expectPageHalf = (
 
 /**
  * The view holds no part of the board's token (AD-8): not in its base URL, which a srcdoc
- * document takes from the board page, its referrer or its location; nor does the board page's
- * URL, from which Firefox keeps reading that base URL.
+ * document takes from the board page (whose link keeps the token), its referrer or its location.
  */
 export const expectNoTokenInView = async (board: Board, run: BoardRun): Promise<void> => {
   const token = linkToken(run);
@@ -164,17 +163,9 @@ export const expectNoTokenInView = async (board: Board, run: BoardRun): Promise<
     referrer: document.referrer,
     href: location.href,
   }));
-  const pageUrl = board.page.url();
-  for (const [where, url] of [...Object.entries(seen), ["the board page's URL", pageUrl]]) {
-    expect({
-      where,
-      url,
-      token: url?.includes(token) === true || /[?&]t=/.test(url ?? ""),
-    }).toEqual({
-      where,
-      url,
-      token: false,
-    });
+  for (const [where, url] of Object.entries(seen)) {
+    const holdsToken = url.includes(token) || /[?&]t=/.test(url);
+    expect({ where, url, holdsToken }).toEqual({ where, url, holdsToken: false });
   }
 };
 

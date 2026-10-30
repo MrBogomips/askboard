@@ -50,6 +50,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start({ transcript: opening, view: dist });
         const board = await run.open();
         await expectNoTokenInView(board, run);
+        // Firefox reads the board page's base URL again whenever the page's URL changes.
+        await board.page.evaluate(() => history.replaceState(null, "", `${location.href}&x=1`));
+        await expectNoTokenInView(board, run);
       },
       TEST_TIMEOUT_MS,
     );

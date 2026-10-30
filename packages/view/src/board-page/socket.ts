@@ -55,24 +55,13 @@ export const ABNORMAL_CLOSE = 1006;
 /** The board the page shows: its ask's ID and its token. */
 export type BoardLink = { readonly askId: string; readonly token: string };
 
-/** The history entry's state the board page keeps the token in once it is out of the URL. */
-export const tokenState = (link: BoardLink): { readonly token: string } => ({ token: link.token });
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/**
- * The board the page is a link to: the ask's ID from its path and the token from its query, or,
- * once the board page has taken the token out of the URL so that the view cannot read it from its
- * base URL (AD-8), from the history entry's state, which a reload keeps (not Web Storage: AD-20).
- */
-export const boardLinkOf = (location: BoardLocation, state: unknown): BoardLink | undefined => {
+/** The board the page is a link to: the ask's ID from its path and the token from its query. */
+export const boardLinkOf = (location: BoardLocation): BoardLink | undefined => {
   const route = parseBoardRoute(location.pathname);
-  if (route?.kind !== "board") return undefined;
-  const fromQuery = new URLSearchParams(location.search).get(BOARD_TOKEN_QUERY);
-  const fromState = isRecord(state) ? state.token : undefined;
-  const token = fromQuery ?? (typeof fromState === "string" ? fromState : "");
-  return token === "" ? undefined : { askId: route.askId, token };
+  const token = new URLSearchParams(location.search).get(BOARD_TOKEN_QUERY);
+  return route?.kind === "board" && token !== null && token !== ""
+    ? { askId: route.askId, token }
+    : undefined;
 };
 
 const socketUrl = (location: BoardLocation, askId: string): string => {
