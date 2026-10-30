@@ -11,6 +11,7 @@ import { orderNodes } from "../order.ts";
 import type { GraphSource } from "../source.ts";
 import type { Address, FormulaError, Scalar, ValueType } from "../types.ts";
 import { checkCurrencies } from "./currencies.ts";
+import { expandItems } from "./expand.ts";
 import { checkItems, indexSource, type NodeEntry, type NodeIndex } from "./nodes.ts";
 import { resolveReference } from "./resolve.ts";
 
@@ -138,8 +139,9 @@ const compiledNode = ({ entry, formula, error }: Draft): CompiledNode =>
   });
 
 export const buildGraph = (source: GraphSource): Graph => {
-  const index = indexSource(checkItems(source));
-  const warnings: FormulaError[] = [];
+  const expanded = expandItems(checkItems(source));
+  const index = indexSource(expanded.items);
+  const warnings: FormulaError[] = [...expanded.warnings];
   const drafts = index.entries.map((entry) => draftNode(index, entry));
   for (const draft of drafts) if (draft.error !== undefined) warnings.push(draft.error);
   const { order, onCycle } = orderNodes(drafts.map((draft) => draft.reads));

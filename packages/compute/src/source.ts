@@ -35,7 +35,35 @@ export type FieldsItem = {
   readonly children?: readonly GraphChild[];
 };
 
-export type GraphItem = FieldsItem;
+/** A WBS node with three-point estimates, as the approved UJ-2 example writes it; other keys are ignored. */
+export type WbsNode = {
+  readonly id: string;
+  readonly optimistic?: number | null;
+  readonly mostLikely?: number | null;
+  readonly pessimistic?: number | null;
+  readonly children?: readonly WbsNode[];
+};
+
+/** A WBS with PERT estimates (FR-15): each leaf's estimates are inputs, the rest is derived. */
+export type WbsPertItem = {
+  readonly kind: "wbs-pert";
+  readonly id: string;
+  readonly nodes: readonly WbsNode[];
+};
+
+/** A Gantt plan over a WBS's leaves (FR-12, FR-15), as the approved UJ-2 example writes it. */
+export type GanttPlanItem = {
+  readonly kind: "gantt-plan";
+  readonly id: string;
+  /** The ID of the `wbs-pert` item whose leaves are the plan's tasks. */
+  readonly workPackages: string;
+  /** The plan's start, a `full-date`; work starts on the first working day on or after it. */
+  readonly start: string;
+  /** Each task's predecessors, finish to start, by task ID. */
+  readonly dependencies?: Readonly<Record<string, readonly string[]>>;
+};
+
+export type GraphItem = FieldsItem | WbsPertItem | GanttPlanItem;
 
 export type GraphSource = { readonly items: readonly GraphItem[] };
 

@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { FORMULA_FUNCTIONS, FORMULA_OPERATORS } from "@askboard/contract";
 import {
+  BOARD_FIXTURES,
   DROPPED,
+  editSource,
   runAll,
+  runBoards,
   runErrors,
   runWhitelist,
   Tally,
@@ -39,6 +42,25 @@ describe("the error and hostile fixtures", () => {
     runErrors(tally);
     expect(tally.failures).toEqual([]);
     expect(tally.exactMismatches).toEqual([]);
+  });
+});
+
+describe("the board fixtures", () => {
+  test("UJ-2's WBS and plan, and the spreadsheet, read as expected through every edit", () => {
+    const tally = new Tally();
+    runBoards(tally);
+    expect(tally.failures).toEqual([]);
+    expect(tally.exactMismatches).toEqual([]);
+    // Values: UJ-2's 75 at load and after each of three edits, the spreadsheet's 8, 7 and 2; then
+    // one warnings check per board and one fresh-build check per edit.
+    expect(tally.passed).toBe(75 * 4 + (8 + 7 + 2) + 2 + 5);
+  });
+
+  test("edit the source as the view would", () => {
+    const [board] = BOARD_FIXTURES;
+    const items = editSource(board?.items ?? [], "wbs.ux.pessimistic", 16);
+    expect(JSON.stringify(items)).toContain('"pessimistic":16');
+    expect(JSON.stringify(board?.items)).not.toContain('"pessimistic":16');
   });
 });
 

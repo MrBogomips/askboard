@@ -29,9 +29,9 @@ Each group writes its tests first and sees them fail before it implements (the r
 
 ## 5. PERT and CPM
 
-- [ ] 5.1 Write the PERT tests first: leaf and parent formulas, roll-ups at every level and on the item, a leaf split into two children, a parent's own estimates ignored, empty estimates. Then implement `src/pert.ts` and verify that they pass.
-- [ ] 5.2 Write the CPM tests first: the forward and backward passes, slack and the critical flag, dates from the first working day, a weekend start, a dependency cycle, a predecessor and a dependency key that name no task, work packages that name no WBS. Then implement `src/cpm.ts` and verify that they pass, and that every generated formula passes the formula check.
-- [ ] 5.3 Adapt the UJ-2 board fixture (75 values, three edits) and the spreadsheet fixture to flat addresses, and verify that every value and every edit passes, each edited graph equal to a fresh build of the edited source. Verify that the checks pass; commit `feat(compute): PERT and CPM scheduling`.
+- [x] 5.1 Write the PERT tests first: leaf and parent formulas, roll-ups at every level and on the item, a leaf split into two children, a parent's own estimates ignored, empty estimates. Then implement `src/pert.ts` and verify that they pass.
+- [x] 5.2 Write the CPM tests first: the forward and backward passes, slack and the critical flag, dates from the first working day, a weekend start, a dependency cycle, a predecessor and a dependency key that name no task, work packages that name no WBS. Then implement `src/cpm.ts` and verify that they pass, and that every generated formula passes the formula check.
+- [x] 5.3 Adapt the UJ-2 board fixture (75 values, three edits) and the spreadsheet fixture to flat addresses, and verify that every value and every edit passes, each edited graph equal to a fresh build of the edited source. Verify that the checks pass; commit `feat(compute): PERT and CPM scheduling`.
 
 ## 6. Determinism and review
 

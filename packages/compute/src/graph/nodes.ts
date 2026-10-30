@@ -11,6 +11,7 @@ import {
   type FieldsItem,
   fieldsOf,
   type GraphChild,
+  type GraphItem,
   type GraphSource,
   isRecord,
   listOf,
@@ -84,8 +85,10 @@ export const indexSource = (items: readonly FieldsItem[]): NodeIndex => {
   return { entries, items: indexed, positions };
 };
 
+const KINDS: ReadonlySet<unknown> = new Set(["fields", "wbs-pert", "gantt-plan"]);
+
 /** The source's items, each an object with a known kind and an ID used once. */
-export const checkItems = (source: GraphSource): readonly FieldsItem[] => {
+export const checkItems = (source: GraphSource): readonly GraphItem[] => {
   if (!isRecord(source) || !Array.isArray(source.items)) refuse("the source has no list of items");
   const seen = new Set<string>();
   return source.items.map((item: unknown) => {
@@ -93,8 +96,8 @@ export const checkItems = (source: GraphSource): readonly FieldsItem[] => {
     const id = checkId(item.id, "item", "");
     if (seen.has(id)) refuse(`item ID ${id} is used twice`);
     seen.add(id);
-    if (item.kind !== "fields")
+    if (!KINDS.has(item.kind))
       refuse(`item ${id} has the unknown kind ${JSON.stringify(item.kind)}`);
-    return item as FieldsItem;
+    return item as GraphItem;
   });
 };
