@@ -6,8 +6,8 @@
 import { createServer, type Server } from "node:http";
 import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
 import type { AskCore, BoardAddress } from "@askboard/core";
-import { WebSocketServer } from "ws";
-import { Boards, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
+import { type ServerOptions, WebSocketServer } from "ws";
+import { Boards, CLOSE_GRACE_MS, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
 import { handleRequest, handleUpgrade } from "./http.ts";
 import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
@@ -79,12 +79,20 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
       report: options.report,
       ...(options.limits ? { limits: options.limits } : {}),
     });
-    const sockets = new WebSocketServer({ noServer: true, maxPayload: MESSAGE_MAX_BYTES });
+    // A live board's largest message; before `connect`, `Boards` holds a socket to far less. A close
+    // handshake the peer does not finish ends the socket after `CLOSE_GRACE_MS`, not ws's 30 s:
+    // ws 8.22's `closeTimeout`, which its type declarations do not name yet.
+    const socketOptions: ServerOptions & { readonly closeTimeout: number } = {
+      noServer: true,
+      maxPayload: MESSAGE_MAX_BYTES,
+      closeTimeout: CLOSE_GRACE_MS,
+    };
+    const sockets = new WebSocketServer(socketOptions);
     const deps = { core, tokens, view, report: options.report, closed: () => closed };
     const server = createServer((request, response) => handleRequest(deps, request, response));
     server.on("upgrade", (request, socket, head) =>
       handleUpgrade(deps, request, socket, (askId) =>
-        sockets.handleUpgrade(request, socket, head, (open) => boards.attach(open, askId)),
+        sockets.handleUpgrade(request, socket, head, (open) => boards.attach(open, askId, socket)),
       ),
     );
     const port = await listen(server, range);

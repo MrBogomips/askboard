@@ -4,6 +4,7 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
+import { connect, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BOARD_HOST } from "@askboard/contract";
@@ -296,6 +297,76 @@ export const openSocket = async (
     send: (message) => socket.send(JSON.stringify(message)),
   };
 };
+
+/** A client's text frame of `payload`: masked, as RFC 6455 requires of a client, of any length. */
+export const clientFrame = (payload: string): Buffer => {
+  const data = Buffer.from(payload);
+  const mask = Buffer.from([1, 2, 3, 4]);
+  let header: Buffer;
+  if (data.length < 126) {
+    header = Buffer.from([0x81, 0x80 | data.length]);
+  } else if (data.length < 65_536) {
+    header = Buffer.from([0x81, 0x80 | 126, 0, 0]);
+    header.writeUInt16BE(data.length, 2);
+  } else {
+    header = Buffer.from([0x81, 0x80 | 127, 0, 0, 0, 0, 0, 0, 0, 0]);
+    header.writeBigUInt64BE(BigInt(data.length), 2);
+  }
+  const masked = data.map((byte, at) => byte ^ (mask[at % 4] ?? 0));
+  return Buffer.concat([header, mask, masked]);
+};
+
+/** A peer on raw TCP that has opened `/ws/<askId>`, and whether the host has ended it. */
+export type RawPeer = {
+  readonly socket: Socket;
+  /** Whether the host ended the TCP connection within `ms`. */
+  endedWithin(ms: number): Promise<boolean>;
+};
+
+/**
+ * Opens `/ws/<askId>` over raw TCP, writing `trailing` in the same write as the opening handshake,
+ * as a peer that does not wait for the answer may, and never answering a close frame.
+ */
+export const rawUpgrade = (
+  port: number,
+  askId: string,
+  trailing: Buffer = Buffer.alloc(0),
+): Promise<RawPeer> =>
+  new Promise((resolve, reject) => {
+    let ended = false;
+    const socket = connect({ host: BOARD_HOST, port }, () => {
+      const handshake = [
+        `GET /ws/${askId} HTTP/1.1`,
+        `Host: ${BOARD_HOST}:${port}`,
+        `Origin: http://${BOARD_HOST}:${port}`,
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+        "Sec-WebSocket-Version: 13",
+        "",
+        "",
+      ].join("\r\n");
+      socket.write(Buffer.concat([Buffer.from(handshake), trailing]));
+    });
+    socket.on("close", () => {
+      ended = true;
+    });
+    socket.on("error", () => undefined);
+    socket.once("data", (data) => {
+      if (!String(data).startsWith("HTTP/1.1 101")) {
+        reject(new Error(String(data).split("\r\n")[0]));
+        return;
+      }
+      resolve({
+        socket,
+        endedWithin: async (ms) => {
+          const until = Date.now() + ms;
+          while (!ended && Date.now() < until) await Bun.sleep(5);
+          return ended;
+        },
+      });
+    });
+  });
 
 /** The status an upgrade to `/ws/<askId>` is refused with, or "open" when it is accepted. */
 export const upgradeStatus = (

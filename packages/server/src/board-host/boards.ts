@@ -1,16 +1,20 @@
 // The board protocol over each board's WebSocket (design decision 5; AD-3, AD-10, AD-11, AD-21).
-// Until a socket's `connect` is accepted, nothing of the ask reaches it: a first message of another
-// major is refused with reason `version`, any other first message that is not `connect` with the
-// board's token with reason `token`, and the socket is closed. Once accepted, the socket is the
-// ask's live board: a newer one takes it over, refusals leave it open and the ask unchanged, and
-// ask-core's events reach it as state, receipts and the discard.
+// Until a socket's `connect` is accepted, nothing of the ask reaches it and it costs the host
+// little: a first message that is not `connect` with the board's token is refused with reason
+// `token` before the schema validator reads it, a `connect` with the token but of another major
+// with reason `version`, and the socket is closed; a socket that sends more than
+// `PRE_CONNECT_MAX_BYTES` before its `connect` is accepted is ended unanswered. Once accepted, the
+// socket is the ask's live board: a newer one takes it over, refusals leave it open and the ask
+// unchanged, and ask-core's events reach it as state, receipts and the discard.
 //
 // Protocol 1.1 (ask-lifecycle, design decision 5): accepting a board and the live board's close are
 // reported to ask-core, which runs the grace timer (AD-21); a takeover tells the older tab that
-// the board moved and takes its last draft for the takeover flush wait before the new tab opens;
-// act commands are acknowledged with `done` or refused, then the state; drafts are checked, then
-// held; agent changes reach the live board as a new board, a new state and `closed`.
+// the board moved, takes its last draft for the takeover flush wait and answers its acts meanwhile,
+// before the new tab opens; act commands are acknowledged with `done` or refused, then the state;
+// drafts are checked, then held; agent changes reach the live board as a new board, a new state
+// and `closed`.
 
+import type { Duplex } from "node:stream";
 import {
   type ActCommand,
   BOARD_CLOSE_CODES,
@@ -53,6 +57,14 @@ export const MESSAGE_MAX_BYTES =
   Math.max(CHOICE_LABELS_MAX_CHARS, DRAFT_RECORD_MAX_CHARS) * 3 + 4 * 1024;
 
 /**
+ * The most a socket may send before its `connect` is accepted, frames included: E1's bound on any
+ * board message, an answer's labels at three UTF-8 bytes per UTF-16 unit plus the envelope, far
+ * above what a `connect` takes. `MESSAGE_MAX_BYTES` holds only once `connect` is accepted, so a
+ * socket without the board's token cannot make the host read a live board's largest message.
+ */
+export const PRE_CONNECT_MAX_BYTES = CHOICE_LABELS_MAX_CHARS * 3 + 4 * 1024;
+
+/**
  * The most a board's socket may hold unsent: a peer that keeps sending without reading the replies
  * is ended at this point, rather than growing the session process's memory. It leaves room for the
  * largest message board-host sends, a restored draft record, beside the board and the state.
@@ -76,6 +88,8 @@ export const WAITING_SOCKETS_MAX = 64;
 export type SocketLimits = {
   readonly connectTimeoutMs: number;
   readonly waitingMax: number;
+  /** The most a socket may send before its `connect` is accepted: `PRE_CONNECT_MAX_BYTES`. */
+  readonly preConnectMaxBytes: number;
   /** How long a tab that lost the board may send its last draft: the contract's wait. */
   readonly takeoverFlushMs: number;
   /** The most a socket may hold unsent: `SEND_BUFFER_MAX_BYTES`. */
@@ -85,7 +99,10 @@ export type SocketLimits = {
 /** RFC 6455's "try again later": over the cap, the board page reconnects with backoff. */
 const TRY_AGAIN_LATER = 1013;
 
-/** How long closing the host waits for the boards' sockets to finish their close handshake. */
+/**
+ * How long a board's socket may take to finish a close handshake, when the host closes or
+ * board-host closes one socket, such as after a refusal before `connect`; past it, it is ended.
+ */
 export const CLOSE_GRACE_MS = 500;
 
 /** RFC 6455's "going away": the session process is closing the board listener. */
@@ -105,6 +122,8 @@ type Connection = {
   readonly delivered: Set<string>;
   /** Cancels the first-message timer of a waiting socket, or the flush wait of a moving one. */
   stopTimer: () => void;
+  /** Stops counting what the socket sends before its `connect` is accepted. */
+  stopCounting: () => void;
   /** Whether it has been sent the board, the state and the draft since it was accepted. */
   opened: boolean;
   /** The tab that took the board from this one, which opens once this one's flush ends. */
@@ -124,6 +143,12 @@ const parse = (data: RawData, binary: boolean): unknown => {
 };
 
 type PageCommand = Exclude<LifecyclePageMessage, ConnectMessage>;
+
+// The size of a message as it arrived, in bytes.
+const sizeOf = (data: RawData): number =>
+  Array.isArray(data)
+    ? data.reduce((total, chunk) => total + chunk.byteLength, 0)
+    : (data as Buffer | ArrayBuffer).byteLength;
 
 // The command a message on a live socket carries, or the refusal it gets: the socket stays open
 // and the ask unchanged.
@@ -149,6 +174,9 @@ export type BoardsDeps = {
   readonly limits?: Partial<SocketLimits>;
 };
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /** Every board socket of the session process, and each ask's live one. */
 export class Boards {
   readonly #core: HostCore;
@@ -172,28 +200,33 @@ export class Boards {
     this.#limits = {
       connectTimeoutMs: deps.limits?.connectTimeoutMs ?? CONNECT_TIMEOUT_MS,
       waitingMax: deps.limits?.waitingMax ?? WAITING_SOCKETS_MAX,
+      preConnectMaxBytes: deps.limits?.preConnectMaxBytes ?? PRE_CONNECT_MAX_BYTES,
       takeoverFlushMs: deps.limits?.takeoverFlushMs ?? TAKEOVER_FLUSH_WAIT_MS,
       sendBufferMaxBytes: deps.limits?.sendBufferMaxBytes ?? SEND_BUFFER_MAX_BYTES,
     };
   }
 
   /**
-   * Takes a socket opened at `/ws/<askId>`; it waits for its `connect` within the connect timeout.
-   * Over the cap on waiting sockets, it is closed at once with "try again later".
+   * Takes a socket opened at `/ws/<askId>` over the upgraded `stream`; it waits for its `connect`
+   * within the connect timeout. Over the cap on waiting sockets, it is closed at once with "try
+   * again later".
    */
-  attach(socket: WebSocket, askId: string): void {
+  attach(socket: WebSocket, askId: string, stream: Duplex): void {
     const connection: Connection = {
       socket,
       askId,
       phase: "waiting",
       delivered: new Set(),
       stopTimer: () => undefined,
+      stopCounting: () => undefined,
       opened: false,
     };
     this.#sockets.add(socket);
+    this.#countBeforeConnect(connection, stream);
     socket.on("error", (error) => this.#report(error));
     socket.on("close", () => {
       this.#sockets.delete(socket);
+      connection.stopCounting();
       this.#settle(connection);
       connection.phase = "closed";
       // A tab that lost the board and closes ends its flush: the tab that took it opens.
@@ -280,6 +313,33 @@ export class Boards {
     for (const socket of this.#sockets) socket.terminate();
   }
 
+  // What a socket sends before its `connect` is accepted is counted as it arrives, where the
+  // runtime's WebSocket reads the upgraded stream, as the `ws` package does: past the bound, the
+  // socket is ended mid-frame, before the rest is read. Where the runtime reads it natively, as
+  // Bun's own WebSocket does, `#receive` bounds each message before it is parsed.
+  #countBeforeConnect(connection: Connection, stream: Duplex): void {
+    let counting = true;
+    let received = 0;
+    const count = (chunk: Buffer) => {
+      if (!counting) return;
+      received += chunk.byteLength;
+      if (received > this.#limits.preConnectMaxBytes) this.#guard(() => this.#cutOff(connection));
+    };
+    stream.on("data", count);
+    connection.stopCounting = () => {
+      counting = false;
+      stream.off("data", count);
+    };
+  }
+
+  // A socket that sent too much before its `connect` was accepted is ended, unanswered.
+  #cutOff(connection: Connection): void {
+    connection.stopCounting();
+    this.#settle(connection);
+    connection.phase = "closed";
+    connection.socket.terminate();
+  }
+
   #guard(run: () => void): void {
     try {
       run();
@@ -290,11 +350,14 @@ export class Boards {
 
   #receive(connection: Connection, data: RawData, binary: boolean): void {
     if (connection.phase === "closed" || this.#closing) return;
-    const value = parse(data, binary);
     if (connection.phase === "waiting") {
       this.#settle(connection);
-      this.#connect(connection, value);
-    } else if (connection.phase === "moving") {
+      if (sizeOf(data) > this.#limits.preConnectMaxBytes) this.#cutOff(connection);
+      else this.#connect(connection, parse(data, binary));
+      return;
+    }
+    const value = parse(data, binary);
+    if (connection.phase === "moving") {
       this.#flush(connection, value);
     } else {
       this.#command(connection, value);
@@ -315,18 +378,20 @@ export class Boards {
     this.#close(connection, BOARD_CLOSE_CODES.refused);
   }
 
-  // The board a first message opens, or why it opens none.
+  // The board a first message opens, or why it opens none. Only a `connect` carrying the board's
+  // token reaches the schema validator, whose work grows with what it is given (AD-11, NFR-4).
   #opening(askId: string, value: unknown): OpenBoardView | Refusal {
+    if (!isRecord(value) || value.type !== "connect" || typeof value.token !== "string") {
+      return { reason: "token", detail: FIRST_MESSAGE };
+    }
+    if (!this.#tokens.opens(askId, value.token))
+      return { reason: "token", detail: NOT_THIS_SESSION };
     const checked = validateBoardMessage("toHost", value);
     if (!checked.ok && checked.reason === "version") {
       return { reason: "version", detail: problemsDetail(checked.problems) };
     }
-    if (!checked.ok || checked.value.type !== "connect") {
-      return { reason: "token", detail: FIRST_MESSAGE };
-    }
-    const board = this.#tokens.opens(askId, checked.value.token)
-      ? this.#core.lifecycleBoard(askId)
-      : undefined;
+    if (!checked.ok) return { reason: "token", detail: FIRST_MESSAGE };
+    const board = this.#core.lifecycleBoard(askId);
     // A discarded ask's token stops working (AD-21).
     if (board === undefined || board.state === "discarded") {
       return { reason: "token", detail: NOT_THIS_SESSION };
@@ -347,6 +412,7 @@ export class Boards {
   // The ask's live board is now this socket. ask-core hears of a board connecting when the ask had
   // none; a takeover hands the board from one tab to another, and it hears nothing (AD-21).
   #accept(connection: Connection, board: OpenBoardView): void {
+    connection.stopCounting();
     const previous = this.#live.get(connection.askId);
     this.#live.set(connection.askId, connection);
     connection.phase = "live";
@@ -384,10 +450,19 @@ export class Boards {
     if (view !== undefined) this.#open(next, view);
   }
 
-  // A tab that lost the board sends its last draft: it is checked and held, and the flush ends.
-  // Any other message from it goes nowhere.
+  // A tab that lost the board sends its last draft: it is checked and held, and the flush ends. An
+  // act command it sends meanwhile is one the user made before the tab saw `moved`: it is applied,
+  // once by its action ID, and answered on that tab as on the live board, with `done` or the
+  // refusal, then the state (board-host spec, Acknowledging commands). Any other message from it
+  // goes nowhere.
   #flush(connection: Connection, value: unknown): void {
-    if (typeof value !== "object" || value === null || !("type" in value)) return;
+    if (!isRecord(value)) return;
+    if (value.type === "act") {
+      const command = commandOf(value);
+      if (command.type === "act") this.#act(connection, command as ActCommand);
+      else this.#send(connection, command as LifecycleHostMessage);
+      return;
+    }
     if (value.type !== "draft") return;
     const checked = validateBoardMessage("toHost", value);
     if (checked.ok) this.#draft(connection, checked.value as unknown as DraftMessage);

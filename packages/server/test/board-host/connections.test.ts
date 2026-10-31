@@ -161,7 +161,9 @@ describe("the takeover flush", () => {
     }
   });
 
-  test("the older tab's acts during the wait go nowhere, and its close ends the wait", async () => {
+  // Board-host spec, Acknowledging commands: an act the user made before the tab saw `moved` is a
+  // genuine act, applied once by its action ID, and answered on the tab that sent it.
+  test("the older tab's act during the wait is applied and answered, and its close ends the wait", async () => {
     const fake = fakeHostCore();
     const { host, open } = await hostOf(fake);
     try {
@@ -169,15 +171,42 @@ describe("the takeover flush", () => {
       await types(first, 2);
       const second = await open();
       await first.next();
+      const actionId = "aX9kQ2mPz7RtLw4nB8cYhA";
+      const acts = [{ type: "postpone", itemId: "database", rev: 1 }];
+      first.send({ version, type: "act", actionId, acts });
+      expect(await first.next()).toEqual({ version, type: "done", actionId });
+      expect(await first.next()).toMatchObject({ type: "state" });
+      expect(fake.calls).toContainEqual(["act", plainAsk, { actionId, acts }]);
+      // One outside the schema is refused as on the live board.
+      first.send({ version, type: "act", acts });
+      expect(await first.next()).toMatchObject({ type: "refused", reason: "message" });
+      first.socket.close();
+      expect(await types(second, 2)).toEqual(["board", "state"]);
+    } finally {
+      await host.close();
+    }
+  });
+
+  test("the older tab's refused act during the wait is answered with its action ID", async () => {
+    const fake = fakeHostCore({
+      act: () => ({ ok: false, refusal: "state", detail: "the question is postponed", index: 0 }),
+    });
+    const { host, open } = await hostOf(fake);
+    try {
+      const first = await open();
+      await types(first, 2);
+      const second = await open();
+      await first.next();
+      const actionId = "bX9kQ2mPz7RtLw4nB8cYhA";
       first.send({
         version,
         type: "act",
-        actionId: "aX9kQ2mPz7RtLw4nB8cYhA",
+        actionId,
         acts: [{ type: "postpone", itemId: "database", rev: 1 }],
       });
-      await Bun.sleep(30);
-      expect(fake.calls.some(([kind]) => kind === "act")).toBe(false);
-      first.socket.close();
+      expect(await first.next()).toMatchObject({ type: "refused", reason: "act", actionId });
+      expect(await first.next()).toMatchObject({ type: "state" });
+      expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
       expect(await types(second, 2)).toEqual(["board", "state"]);
     } finally {
       await host.close();
