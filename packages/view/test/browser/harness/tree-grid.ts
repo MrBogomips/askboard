@@ -7,7 +7,9 @@
 //   per column;
 // - the chevron has no role, the row's `aria-expanded` saying what it shows, and is found by
 //   `data-chevron`;
-// - the cell editor is the one `textbox` in the Tree.
+// - the cell editor is the one `textbox` in the Tree;
+// - the toolbar above the grid is the view's one `toolbar`, its tools `button`s named by their
+//   labels.
 
 import type { Locator } from "playwright";
 import type { Board } from "./dom.ts";
@@ -21,11 +23,16 @@ export type TreeGrid = {
   cell(nodeId: string, cell: number): Locator;
   chevron(nodeId: string): Locator;
   readonly editor: Locator;
+  readonly toolbar: Locator;
+  /** The toolbar's tools, in order. */
+  readonly tools: Locator;
+  tool(label: string): Locator;
 };
 
 export const treeGridOf = (board: Board): TreeGrid => {
   const grid = board.view.getByRole("treegrid");
   const row = (nodeId: string) => grid.locator(`[data-node-id="${nodeId}"]`);
+  const toolbar = board.view.getByRole("toolbar");
   return {
     grid,
     headers: grid.getByRole("columnheader"),
@@ -34,6 +41,9 @@ export const treeGridOf = (board: Board): TreeGrid => {
     cell: (nodeId, cell) => row(nodeId).locator(`[data-cell="${cell}"]`),
     chevron: (nodeId) => row(nodeId).locator("[data-chevron]"),
     editor: grid.getByRole("textbox"),
+    toolbar,
+    tools: toolbar.getByRole("button"),
+    tool: (label) => toolbar.getByRole("button", { name: label, exact: true }),
   };
 };
 
@@ -68,6 +78,42 @@ export const tabIntoTree = async (board: Board, questionText: string): Promise<F
 export const pressIn = async (board: Board, key: string): Promise<FocusAt> => {
   await board.page.keyboard.press(key);
   return treeFocus(board);
+};
+
+/** The name of the toolbar's focused tool; `undefined` when no tool has the view's focus. */
+export const toolFocus = async (board: Board): Promise<string | undefined> =>
+  (await board.viewFrame()).evaluate(
+    () => document.activeElement?.closest('[role="toolbar"] button')?.textContent ?? undefined,
+  );
+
+/** Tabs into the Tree's toolbar from its question's text, as `tabIntoTree` does into the tree. */
+export const tabIntoToolbar = async (board: Board, questionText: string): Promise<string> => {
+  await board.view.getByRole("heading", { name: questionText }).click();
+  for (let presses = 0; presses < 5; presses += 1) {
+    await board.page.keyboard.press("Tab");
+    const tool = await toolFocus(board);
+    if (tool !== undefined) return tool;
+  }
+  throw new Error("five presses of Tab never reached the Tree's toolbar");
+};
+
+/** Presses `key` and returns the toolbar's focused tool then. */
+export const pressTool = async (board: Board, key: string): Promise<string | undefined> => {
+  await board.page.keyboard.press(key);
+  return toolFocus(board);
+};
+
+/** How many of the toolbar's tools are in the Tab order: its one Tab stop. */
+export const toolStops = (toolbar: Locator): Promise<number> =>
+  toolbar.locator('button:not([tabindex="-1"])').count();
+
+/** The names of the toolbar's enabled tools, in order. */
+export const enabledTools = async (tools: Locator): Promise<string[]> => {
+  const enabled: string[] = [];
+  for (const tool of await tools.all()) {
+    if (await tool.isEnabled()) enabled.push((await tool.textContent()) ?? "");
+  }
+  return enabled;
 };
 
 /** How many elements of the treegrid are in the Tab order: its one Tab stop. */

@@ -13,6 +13,19 @@ export const FRAME = "flex flex-col rounded-md border border-border bg-card";
 export const TOOLBAR =
   "flex h-[32px] items-center gap-2 rounded-t-md border-b border-border bg-muted px-2";
 
+/** The tools, on the toolbar row's left. */
+export const TOOLS = "flex items-center gap-[4px]";
+
+/**
+ * A tool: `button-secondary`, `spacing.control-height` high, with the focus ring; a disabled tool
+ * takes `button-disabled`'s look.
+ */
+export const TOOL =
+  "h-[28px] shrink-0 rounded-md border border-border bg-muted px-[12px] text-control " +
+  "text-foreground not-aria-disabled:hover:bg-card focus-visible:outline-2 " +
+  "focus-visible:outline-offset-1 focus-visible:outline-ring aria-disabled:text-muted-foreground " +
+  "aria-disabled:opacity-50";
+
 /** The grid: a fixed layout, so that the field columns keep their widths and the name takes the rest. */
 export const GRID = "w-full table-fixed border-collapse";
 

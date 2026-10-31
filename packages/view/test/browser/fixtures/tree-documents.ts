@@ -35,3 +35,25 @@ export const packagesTree = (packages: number, tasks: number): TreeProps => ({
 
 /** FR-20's example size: 10 packages of 19 tasks, 200 nodes. */
 export const largeTreeDocument: ViewDocument = treeDocumentWith(packagesTree(10, 19));
+
+/** A Tree with the fixture's columns and no node, which the contract allows. */
+export const emptyTreeDocument: ViewDocument = treeDocumentWith({
+  columns: wbs.props.columns,
+  nodes: [],
+});
+
+/** A Tree at the contract's node limit: 25 packages of 19 tasks, 500 nodes. */
+export const fullTreeDocument: ViewDocument = treeDocumentWith(packagesTree(25, 19));
+
+// The chain `l<level>` … `l<depth>`, each node the only child of the one before.
+const chain = (level: number, depth: number): TreeNode => ({
+  id: `l${level}`,
+  label: `Level ${level}`,
+  ...(level < depth ? { children: [chain(level + 1, depth)] } : {}),
+});
+
+/** A Tree at the contract's depth limit: `l1` to `l8`, each the only child of the one before. */
+export const deepTreeDocument: ViewDocument = treeDocumentWith({
+  columns: wbs.props.columns,
+  nodes: [chain(1, 8)],
+});
