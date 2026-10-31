@@ -1,0 +1,55 @@
+# Proposal
+
+## Why
+
+E1 puts one plain question through every layer by pull, and stops there by design: one question per ask, an answer that can never change, no way for the agent to touch an ask after sending it, and a board whose tab can close without the agent ever learning. E3 is the epic E1's proposal names for the rest of the ask lifecycle (E1 proposal, "Not in this change", and open questions 2, 3 and 5). With it an agent can put all its questions in one ask, keep working, change and close what it sent, answer follow-ups and read whole items back, while the user answers, postpones, declines, revises and submits on one board that survives a reload and is discarded when it is really gone. That is the asking half of the PRD's MVP (FR-1 to FR-7, FR-10, FR-18 to FR-22, FR-24 and FR-25 in part) and what the early benchmark's multi-question scenarios wait for (S2 to S5, S7).
+
+## What Changes
+
+- **`contract`**, as minor versions of E1's sets (design decision 2): the input format takes several questions, areas (FR-2), FR-3's remaining fields ("Other…", the recommended option, previews, the agent's option annotations) and `update`'s actions; the output format gains the events AD-3 lists (postponed, reopened, follow-up, note, edit choice), declines and revisions on the answer event, the states `partly-answered` and `closed`, and the `board-closed` discard; the tool envelopes gain `update` and `fetch` results and `collect`'s new outcomes; the board document holds several questions in areas; the board protocol gains acts with action IDs, atomic submit, the draft record and the closed ask. New constants: the grace period, text limits, the draft limit and `fetch` pages. Standalone schemas keep their own `$id`s; additions to `index.ts`, `validate.ts` and `fixtures/index.ts` are appended export blocks, and nothing registers at import time.
+- **`ask-core`**: question states and the ask states of AD-10 with their back transitions; the user's acts (answer with note, "Other…" text and option notes, decline, postpone, undo, note alone, follow-up, edit choice), each applied once per action ID, a submit appended atomically (AD-20); revisions per question, the agent's `update` (add, change, delete, reopen, record an answer, reply, close) and the edit choice that lets an answer to an older revision through (FR-6); the draft record held apart from the log; connection reports and the grace timer that discards an ask whose board is gone (AD-21), with its tombstone; the full current value of an item for `fetch` (FR-20).
+- **`mcp-tools`**: `update` and `fetch` join `ask` and `collect` in AD-6's order, with the approved definitions and the full approved server instructions; `collect` reports the new states and events and ends a wait at once on a postponed question or a closed or discarded ask; an ask unknown to the epoch is `discarded` in every tool (AD-10).
+- **`board-host`**: board protocol 1.1, the acts' acknowledgements, the draft mirror and its restore on reconnect and takeover, connections reported to `ask-core`, and a closed ask's link opening its locked board.
+- **`view`**: the full board of EXPERIENCE for an ask of any size: areas as sections, tabs or one question per view, the outline and question navigators, counts and the next-open jump; on each question the open prompt, "Other…", the recommended badge, "Accept recommended", previews, annotations and the user's option notes, Postpone, "More" with Explain and Decline, the follow-up thread, revisions and the agent-change notice; the bottom action bar with the delivery switch, "Select recommended" and Submit; the draft mirror, the leave-page prompt and the Closed and Unsent work banners. It builds on the tree-widget change's view seams (draft record, view document, `ViewAnswer.values`) and defines none of its own beside them.
+- **Checks**: unit tests at 80% or more, the conformance suite on Bun and Node 24 and the browser tests in Chromium, Firefox and WebKit, each over the new flows, with every place where answers, revisions and epochs meet failing closed (NFR-10, AD-10).
+- **Documents**: a spine update draft (`spine-update-draft.md`) for AD-7 (areas), AD-10 (recorded answers), AD-20 (action IDs) and the Deferred table (grace period), applied by the task that follows the PO's answers; no PRD change.
+- **Not in this change:** the `snapshot` tool and Snapshot files (E7, open question 1); the mod, hooks, local API, session file, ownership checks, the working-board rule, the system notification and the terminal link, the `SubagentStop` guard and the `agent-finished` close (E4, `push-delivery`); the context header's who-and-where row and the agent state pill (open question 6); widgets, the widget answer path (`values`, `derived`, `changes`) and molecules (the tree, gantt and widget follow-up changes, E2); excerpts, references and context placement (E5); configuration and it-IT (E8); the option filter for long lists.
+
+## Capabilities
+
+### New Capabilities
+
+None: every behaviour belongs to a unit E1 created.
+
+### Modified Capabilities
+
+- `contract`: several questions and areas, FR-3's fields, `update` requests, the lifecycle events and states, board document and board protocol 1.1, new constants.
+- `core`: question and ask states, acts and action IDs, revisions and agent changes, recorded answers, replies, closing, the draft record, the grace timer and tombstones.
+- `mcp-adapter`: four tools, the full instructions, `update`, `fetch`, and `collect`'s states, events and wait outcomes.
+- `board-host`: protocol 1.1, acknowledgements, the draft mirror, connection reports, closed boards.
+- `view-and-widgets`: presentations and navigation, the full question card, delivery modes and Submit, revisions and agent changes, follow-ups, draft restore and the leave-page prompt.
+
+The deltas modify E1's requirements, so this change is archived only after E1's (OpenSpec refuses MODIFIED and REMOVED operations on a spec that does not exist yet).
+
+## Impact
+
+- **Code:** `packages/contract`, `packages/core`, `packages/server` (`mcp-tools`, `board-host`, the entry point's wiring), `packages/view`; the view build only through new chunks' recorded sizes.
+- **Dependencies:** none new. The mode-switch confirmation uses Radix's Alert Dialog, already in `radix-ui`, with the view's style-element shim the renderer spike settled (S-6).
+- **Other changes:** builds on E1 at its integration head and on the tree-widget change's view seams (design decision 1); meets the widget follow-up at the contract's minor versions (design decision 2); hands seams to `push-delivery` (E4), the Snapshot epic (E7) and the early benchmark (design, Handed on).
+- **CI:** the e2e job grows with the new browser and conformance cases; no new job.
+- **Requirements served:** FR-1, FR-2, FR-3 (the rest of it, previews as text), FR-4, FR-5 (deleted and reused IDs), FR-6, FR-7, FR-10, FR-18, FR-19 (recorded answers), FR-20 (`fetch`), FR-21, FR-22, FR-24 (state, counts), FR-25 (reload, tab close, closed and discarded boards), NFR-1, NFR-4, NFR-5, NFR-10, NFR-12; AXFX FR-36 and FR-40 in part.
+
+## Open questions for the PO
+
+The documents leave these open. Each records the narrowest choice, which this change proceeds with; each can be reversed with `/opsx:update` before implementation starts (task 0.1).
+
+1. **No `snapshot` tool yet.** E1's proposal gives E3 "`update`, `fetch` and `snapshot`" and E7 "Snapshots". A `snapshot` tool cannot return a path until E7 writes the file, so E3 lists four tools, `ask`, `update`, `collect` and `fetch`, in AD-6's order, and E7 adds `snapshot` with its files. *Alternative:* list all five now, with `snapshot` refusing until E7; it costs its definition in every session for a call that cannot succeed.
+2. **Areas are container items.** AD-7 names "area" in the input format and nothing fixes its shape. An area is `{type: "area", id, props: {title, items}}` holding questions; either every top-level item of an ask is an area or none is. The agent adds a question to an area with `update`'s `parentId`. *Alternative:* an `area` label on each question.
+3. **Answers the agent records are not logged.** AD-3 keeps the agent's own changes out of the log; AD-10's wording calls a recorded answer an answer event. A recorded answer (`update` `answer`) is held by `ask-core` as the question's answer, marked recorded, with `who` and the core's time (FR-19), reported in the `update` result, and never pushed or collected back; the board shows the question answered. A later answer from the board is a new event without `replaces`. Block 2 of the spine draft words AD-10 to match. *Alternative:* log it as an answer event, which the `received` watermark cannot then skip without skipping earlier events.
+4. **Grace period of 120 seconds.** AD-21 and the Deferred table leave its length to implementation; SOLUTION-DESIGN §8 sets 90 s as the floor of any board liveness timeout, since a hidden Chrome tab runs its timers once a minute. E3 uses 120 s, a contract constant that E8's configuration may later expose.
+5. **`fetch` pages as slices of text.** AD-6 says `fetch` returns an item "or a range of it, with a continuation cursor". When an item's full value does not fit a result, `fetch` returns consecutive slices of its RFC 8785 JSON text; the continuation names the item's revision and the offset, and a page of a value that changed in between is refused. *Alternative:* element ranges per widget shape, which only the widget epics can define.
+6. **The context header's first row and the agent pill wait for E4.** No epic's line names them. Who asked, where it works, and whether the agent is working or waiting come from agent records and the mod (AD-4, AD-5), so E3 builds only the second row's ask state, counts, next-open jump, unread-reply count and agent-change flag, and leaves the rest to `push-delivery`.
+7. **An answered question cannot be deleted.** FR-6 lets the agent delete an item; AD-20 refuses changing a question whose answer or decline is in the log. A delete counts as a change: the agent reopens the question first. Postponed and open questions delete freely.
+8. **A deleted item disappears, unsent work and all.** FR-6 says the item disappears; EXPERIENCE assumes it turns read-only, "Removed by the agent", while it holds unsent work (Open Items 1). E3 follows FR-6: the item and its draft go, and one question per view says "Question removed by the agent".
+9. **FR-3's shapes, narrowly.** "Other…" is offered only when the question sets `allowOther`, as EXPERIENCE's "when the question offers one" reads; at most one option is recommended; a preview and an agent annotation are plain text. Markdown and image previews come with the Text and Image atoms.
+10. **No key bindings beyond the composer's.** EXPERIENCE leaves them open (Open Items 21). Every act is a focusable control, the follow-up composer sends with Ctrl+Enter or Cmd+Enter, and the next-open jump, Submit and the others get keys when EXPERIENCE records them.
