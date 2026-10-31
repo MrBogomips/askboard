@@ -16,9 +16,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { VIEW_DIRECTORY, VIEW_MANIFEST_FILE, type ViewManifest } from "@askboard/contract";
-import { fixtureViewFiles } from "@askboard/contract/fixtures";
 import {
   Client,
   type JSONRPCMessage,
@@ -31,9 +30,6 @@ const ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
 /** The session process's runtime, as the runner resolved it; this Bun when run directly. */
 export const RUNTIME = process.env.ASKBOARD_CONFORMANCE_RUNTIME ?? process.execPath;
-
-/** `dist`: the bundle in place with the real view build; `fixture`: Track 0's fixture view. */
-export const VIEW = process.env.ASKBOARD_CONFORMANCE_VIEW === "fixture" ? "fixture" : "dist";
 
 /** The git user name of every throwaway project: the approved examples' `who`. */
 export const GIT_USER = "Paola Greco";
@@ -55,15 +51,28 @@ const writeFiles = (into: string, files: Readonly<Record<string, string>>): void
 };
 
 /**
- * The bundle the suite runs, and the view build beside it. With the dist view it is
- * `dist/askboard.mjs` itself; otherwise a copy beside the given view files, none for a missing view.
+ * The bundle the suite runs, and the view build beside it: `dist/askboard.mjs` itself with the real
+ * `dist/view/`, or a copy beside the given view files, none for a missing view build.
  */
 export const bundleWith = (view?: Readonly<Record<string, string>>): string => {
-  if (view === undefined && VIEW === "dist") return join(ROOT, "dist", "askboard.mjs");
+  if (view === undefined) return join(ROOT, "dist", "askboard.mjs");
   const into = folder("bundle");
   cpSync(join(ROOT, "dist", "askboard.mjs"), join(into, "askboard.mjs"));
-  writeFiles(join(into, VIEW_DIRECTORY), view ?? fixtureViewFiles);
+  writeFiles(join(into, VIEW_DIRECTORY), view);
   return join(into, "askboard.mjs");
+};
+
+/** The real view build's files as text, by their path under `dist/view/`, to damage a copy. */
+export const distViewFiles = (): Record<string, string> => {
+  const view = join(ROOT, "dist", VIEW_DIRECTORY);
+  return Object.fromEntries(
+    readdirSync(view, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => {
+        const path = relative(view, join(entry.parentPath, entry.name));
+        return [path.split(sep).join("/"), readFileSync(join(view, path), "utf8")];
+      }),
+  );
 };
 
 /** The manifest of the view build a bundle serves. */

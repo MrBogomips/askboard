@@ -3,12 +3,13 @@
 // the built bundle, so it stays out of `bun run check`, which builds nothing: its file name matches
 // no test pattern, and only this runner names it.
 //
-// Usage: bun packages/server/test/conformance/run.ts --runtime bun|node [--view dist|fixture]
+// The session process is `dist/askboard.mjs` in place, serving the real `dist/view/`, and the plain
+// choice is answered on the real board page in Playwright's Chromium: run `bun run build` first, and
+// install the engine with `playwright install chromium`.
+//
+// Usage: bun packages/server/test/conformance/run.ts --runtime bun|node
 //   --runtime  the runtime of the session process: Bun (this one), or Node 24.22.1 or later found
 //              on PATH from the repository root.
-//   --view     dist (default): `dist/askboard.mjs` in place, serving the real `dist/view/`;
-//              fixture: a copy of the bundle beside Track 0's fixture view build, until the real
-//              view build is merged.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -31,12 +32,12 @@ const runtimeOf = (runtime: RunOptions["runtime"]): { path: string } | { error: 
 };
 
 // What the suite needs before it starts, or why it cannot run here.
-const missing = (options: RunOptions): string | undefined => {
+const missing = (): string | undefined => {
   if (!existsSync(join(ROOT, "dist", "askboard.mjs"))) {
     return "dist/askboard.mjs is missing: run bun run build:server first";
   }
-  if (options.view === "dist" && !existsSync(join(ROOT, "dist", "view", "manifest.json"))) {
-    return "dist/view/manifest.json is missing: run bun run build:view first, or pass --view fixture";
+  if (!existsSync(join(ROOT, "dist", "view", "manifest.json"))) {
+    return "dist/view/manifest.json is missing: run bun run build:view first";
   }
   if (existsSync("/.dockerenv") || existsSync("/run/.containerenv")) {
     return "this is a container, where AskBoard shows no board (AD-18): run the suite on the host";
@@ -53,22 +54,19 @@ export const main = async (
     log(options.error);
     return 2;
   }
-  const problem = missing(options);
+  const problem = missing();
   const runtime = runtimeOf(options.runtime);
   if (problem !== undefined || "error" in runtime) {
     log(`conformance: ${problem ?? ("error" in runtime ? runtime.error : "")}`);
     return 2;
   }
-  log(
-    `conformance: the session process on ${options.runtime} (${runtime.path}), ${options.view} view`,
-  );
+  log(`conformance: the session process on ${options.runtime} (${runtime.path})`);
   const suite = Bun.spawn([process.execPath, "test", SUITE, "--timeout", "60000"], {
     cwd: ROOT,
     stdio: ["inherit", "inherit", "inherit"],
     env: {
       ...process.env,
       ASKBOARD_CONFORMANCE_RUNTIME: runtime.path,
-      ASKBOARD_CONFORMANCE_VIEW: options.view,
     },
   });
   return await suite.exited;

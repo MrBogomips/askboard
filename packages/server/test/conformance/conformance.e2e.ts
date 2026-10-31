@@ -12,17 +12,17 @@ import {
   TOOL_DEFINITIONS,
 } from "@askboard/contract";
 import {
-  fixtureViewFiles,
-  fixtureViewManifest,
   plainChoiceBoardDocument,
   restartTranscript,
   transcripts,
 } from "@askboard/contract/fixtures";
 import { validateAgainst } from "@askboard/contract/validate";
 import { linkParts, openBoardSocket, replay } from "./board-page.ts";
+import { launchBrowser, openRealBoard } from "./real-board.ts";
 import {
   bundleWith,
   cleanUp,
+  distViewFiles,
   GIT_USER,
   isEmpty,
   isRunning,
@@ -30,13 +30,14 @@ import {
   RUNTIME,
   type Session,
   startSession,
-  VIEW,
 } from "./session.ts";
 
 // The conformance suite (task 9.2, design decision 11): the built session process on Bun or Node 24,
-// driven over stdio by the MCP client as Claude Code drives it, with a recorder script as BROWSER
-// and a scripted board page. It runs every recorded board exchange and the approved model-contract
-// examples E1 supports through ask, the board and collect. Run it with run.ts beside it.
+// serving the real `dist/view/`, driven over stdio by the MCP client as Claude Code drives it, with
+// a recorder script as BROWSER. The approved plain-choice example is answered on the real board
+// page, opened in Chromium at the link the recorder caught; a scripted board page replays every
+// recorded board exchange, the refusals the real page never sends among them. Run it with run.ts
+// beside it.
 
 const version = BOARD_PROTOCOL_VERSION;
 const FIXTURES = join(import.meta.dir, "..", "..", "..", "contract", "test", "fixtures");
@@ -49,7 +50,7 @@ const WHEN = "2026-10-29T09:41:27Z";
 
 afterEach(cleanUp);
 
-console.error(`conformance: ${RUNTIME}, ${VIEW} view`);
+console.error(`conformance: ${RUNTIME}, dist/view`);
 
 // A loopback port the range offers that no process listens on.
 const portIsFree = (port: number): boolean => {
@@ -102,6 +103,17 @@ const askAndConnect = async (session: Session, askId = ASK_ID) => {
   expect(await board.next()).toMatchObject({ type: "board" });
   expect(await board.next()).toMatchObject({ type: "state", state: { ask: "waiting" } });
   return { result, link, board };
+};
+
+// The answer event with the approved example's `when`, once the browser's is checked: a UTC time the
+// click stamped, so inside the click's window (to the second, which a log may keep alone).
+const withApprovedWhen = (collected: unknown, window: { from: number; to: number }): unknown => {
+  const [ask] = (collected as { asks: { events: { when: string }[] }[] }).asks;
+  const when = ask?.events[0]?.when ?? "";
+  expect(when).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
+  expect(Date.parse(when)).toBeGreaterThanOrEqual(Math.floor(window.from / 1000) * 1000);
+  expect(Date.parse(when)).toBeLessThanOrEqual(window.to);
+  return JSON.parse(JSON.stringify(collected).replace(`"when":"${when}"`, `"when":"${WHEN}"`));
 };
 
 const answerOf = (choice: readonly string[]) => ({
@@ -169,38 +181,47 @@ describe("the approved plain-choice example, end to end", () => {
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
     expect(page.headers.get("set-cookie")).toBeNull();
 
-    // The user answers on the board.
-    const board = await openBoardSocket(link.port, link.askId);
-    board.send({ version, type: "connect", token: link.token });
-    expect(await board.next()).toEqual({
-      version,
-      type: "board",
-      document: plainChoiceBoardDocument,
-    });
-    await board.next();
-    board.send(answerOf(["PostgreSQL"]));
-    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "answered" } });
+    // The user opens the link the recorder caught, picks PostgreSQL and presses Answer.
+    const browser = await launchBrowser();
+    try {
+      const board = await openRealBoard(browser, result.board);
+      await board.loaded(QUESTION.id);
+      const window = { from: Date.now(), to: 0 };
+      await board.option("PostgreSQL").click();
+      await board.answer.click();
+      window.to = Date.now();
+      await board.receipt("sent");
 
-    // The agent collects it, and the board is told it was delivered.
-    const collected = await collectAfterStart(session, result.epoch);
-    expect(validateAgainst(SCHEMA_IDS.collectResult, collected.json).ok).toBe(true);
-    expect(asExample(collected.json, result.epoch, result.board)).toMatchObject(
-      approved("answers", "plain-choice"),
-    );
-    expect(collected.json).toMatchObject({
-      asks: [{ unchecked: true, events: [{ who: GIT_USER }] }],
-    });
-    expect(await board.next()).toEqual({
-      version,
-      type: "receipt",
-      itemId: QUESTION.id,
-      receipt: "delivered",
-    });
+      // The agent collects it, and the board shows it delivered.
+      const collected = await collectAfterStart(session, result.epoch);
+      expect(validateAgainst(SCHEMA_IDS.collectResult, collected.json).ok).toBe(true);
+      expect(
+        asExample(withApprovedWhen(collected.json, window), result.epoch, result.board),
+      ).toMatchObject(approved("answers", "plain-choice"));
+      expect(collected.json).toMatchObject({
+        asks: [{ unchecked: true, events: [{ who: GIT_USER }] }],
+      });
+      await board.receipt("delivered to the agent");
+      expect(board.received).toContainEqual({
+        version,
+        type: "board",
+        document: plainChoiceBoardDocument,
+      });
+      expect(board.received).toContainEqual({
+        version,
+        type: "receipt",
+        itemId: QUESTION.id,
+        receipt: "delivered",
+      });
 
-    // stdin's end: the board hears the discard, and the process exits 0, leaving nothing.
-    expect(await session.end()).toBe(0);
-    expect(await board.next()).toEqual({ version, type: "discarded", reason: "session-exit" });
-    expect(await board.closed()).toBe(BOARD_CLOSE_CODES.discarded);
+      // stdin's end: the board shows the discard, and the process exits 0, leaving nothing.
+      expect(await session.end()).toBe(0);
+      await board.banner("This ask was discarded.");
+      expect(board.received.at(-1)).toEqual({ version, type: "discarded", reason: "session-exit" });
+      expect(board.errors).toEqual([]);
+    } finally {
+      await browser.close();
+    }
     expect(portIsFree(link.port)).toBe(true);
     const stderr = await session.stderr();
     expect(stderr).not.toContain(link.token);
@@ -382,14 +403,18 @@ describe("exit", () => {
 });
 
 describe("the view build", () => {
-  const shell = fixtureViewManifest.chunks.shell?.script.path ?? "";
+  // A copy of the real view build with its shell chunk changed after the manifest hashed it.
+  const damaged = (): Record<string, string> => {
+    const shell = manifestOf(bundleWith()).chunks.shell?.script.path ?? "";
+    return { ...distViewFiles(), [shell]: "/* changed */\n" };
+  };
   for (const [what, files, code] of [
-    ["missing", {}, "VIEW_MANIFEST_UNREADABLE"],
-    ["damaged", { ...fixtureViewFiles, [shell]: "/* changed */\n" }, "VIEW_FILE_INVALID"],
+    ["missing", () => ({}), "VIEW_MANIFEST_UNREADABLE"],
+    ["damaged", damaged, "VIEW_FILE_INVALID"],
   ] as const) {
     test(`a ${what} view build fails the ask with its own error, creating nothing`, async () => {
       const free = firstFreePort();
-      const session = await startSession({ bundle: bundleWith(files) });
+      const session = await startSession({ bundle: bundleWith(files()) });
       const asked = await session.call("ask", PLAIN_CHOICE);
       expect(asked.isError).toBe(true);
       expect(asked.text).toContain("view build is missing or damaged");

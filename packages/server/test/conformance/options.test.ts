@@ -1,28 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { meetsNodeFloor, parseOptions } from "./options.ts";
 
-// The conformance suite's runner (task 9.2): which runtime runs the session process, and which view
-// build it serves.
+// The conformance suite's runner (task 9.2): which runtime runs the session process, which serves
+// the real view build, `dist/view/`.
 
 describe("the runner's options", () => {
-  test("take the runtime, and the view build, dist by default", () => {
-    expect(parseOptions(["--runtime", "bun"])).toEqual({ runtime: "bun", view: "dist" });
-    expect(parseOptions(["--runtime", "node", "--view", "fixture"])).toEqual({
-      runtime: "node",
-      view: "fixture",
-    });
-    expect(parseOptions(["--view", "dist", "--runtime", "node"])).toEqual({
-      runtime: "node",
-      view: "dist",
-    });
+  test("take the runtime", () => {
+    expect(parseOptions(["--runtime", "bun"])).toEqual({ runtime: "bun" });
+    expect(parseOptions(["--runtime", "node"])).toEqual({ runtime: "node" });
   });
 
-  test("refuse a missing or unknown runtime, an unknown view and any other argument", () => {
+  test("refuse a missing or unknown runtime, a view build to choose and any other argument", () => {
     for (const args of [
       [],
       ["--runtime"],
       ["--runtime", "deno"],
-      ["--runtime", "bun", "--view", "real"],
+      ["--runtime", "bun", "--view", "fixture"],
+      ["--runtime", "bun", "--view", "dist"],
       ["--runtime", "bun", "--build"],
       ["bun"],
     ]) {

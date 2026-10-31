@@ -1,7 +1,9 @@
 // A scripted board page for the conformance suite (task 9.2): it opens a board's WebSocket from the
-// board's origin and speaks the board protocol as the real board page does in Track 0's recorded
-// exchanges: the token first, in `connect`, then answers. Until the real board page is merged it
-// stands in for it; the browser tests (9.3) drive the real one.
+// board's origin and speaks the board protocol as Track 0's recorded exchanges do: the token first,
+// in `connect`, then answers. It replays the exchanges the real board page never sends, such as a
+// wrong token, another major or an answer the protocol refuses, and drives the board where a test
+// needs exact timing; the plain choice end to end is answered on the real board page, and the
+// browser tests (9.3) drive it in the three engines.
 
 import { BOARD_HOST } from "@askboard/contract";
 import type { Transcript } from "@askboard/contract/fixtures";
