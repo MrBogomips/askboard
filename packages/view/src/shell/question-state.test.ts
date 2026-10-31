@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { BoardState, LifecycleQuestionStatus, QuestionStatus } from "@askboard/contract";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
 import type { ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { Flight } from "./answer-acts.ts";
 import {
@@ -13,6 +17,7 @@ import {
   draftAnswerOf,
   shownFor,
   statusOf,
+  withDerived,
 } from "./question-state.ts";
 
 const [question] = plainChoiceBoardDocument.items;
@@ -381,5 +386,69 @@ describe("Postpone, Decline and Explain on the card (FR-4, FR-10; task 6.5)", ()
 
   test("Explain is disabled until its reply arrives", () => {
     expect(actions({ explaining: true }).canExplain).toBe(false);
+  });
+});
+
+describe("the derived values an answer carries (gantt-widget design decision 10; AD-20, FR-12)", () => {
+  // The Gantt question, and a test-only `probe` widget item beside its Gantt (design decision 12).
+  const [schedule] = ganttBoardDocument.items;
+  const [release] = schedule.props.items;
+  const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
+  const both: ViewQuestion = {
+    ...schedule,
+    props: { ...schedule.props, items: [release, sketch] },
+  };
+  const finish = { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] };
+  const reports = new Map<string, Record<string, unknown>>([
+    ["release", finish],
+    ["sketch", { "sketch.area": 16 }],
+  ]);
+  const reported = (itemId: string) => reports.get(itemId);
+  const at = new Date("2026-10-31T09:41:27.123Z");
+
+  test("those of the items the answer carries a value for, as they last reported them", () => {
+    const record = new Map<string, unknown>([["release", ganttEditedValue]]);
+    const answer = withDerived(draftAnswerOf(both, record), reported);
+    expect(answer).toEqual({ values: { release: ganttEditedValue }, derived: finish });
+    expect(answerOf(both, answer, at)).toEqual({
+      type: "answer",
+      itemId: "schedule-review",
+      rev: 1,
+      values: { release: ganttEditedValue },
+      derived: finish,
+      when: "2026-10-31T09:41:27.123Z",
+    });
+  });
+
+  test("each changed item's, in the question's order", () => {
+    const record = new Map<string, unknown>([
+      ["sketch", { size: 4 }],
+      ["release", ganttEditedValue],
+    ]);
+    const { derived } = withDerived(draftAnswerOf(both, record), reported);
+    expect(Object.keys(derived ?? {})).toEqual([
+      "release.finish",
+      "release.criticalPath",
+      "sketch.area",
+    ]);
+  });
+
+  test("none for an untouched Gantt, and no field when no carried item reported any", () => {
+    const record = new Map<string, unknown>([["sketch", { size: 4 }]]);
+    expect(withDerived(draftAnswerOf(both, record), reported)).toEqual({
+      values: { sketch: { size: 4 } },
+      derived: { "sketch.area": 16 },
+    });
+    const quiet = withDerived(draftAnswerOf(both, record), () => undefined);
+    expect(quiet).toEqual({ values: { sketch: { size: 4 } } });
+    expect(Object.hasOwn(quiet, "derived")).toBe(false);
+    expect(withDerived({ choice: ["SQLite"] }, reported)).toEqual({ choice: ["SQLite"] });
+    expect(withDerived({}, reported)).toEqual({});
+  });
+
+  test("the act keeps them, and they enable nothing on their own", () => {
+    const sent = { values: { release: ganttEditedValue }, derived: finish };
+    expect(card({ flight: flightOf([answerAct(sent)], "sent") }).shown).toEqual(sent);
+    expect(card({ draft: { derived: finish } }).canAnswer).toBe(false);
   });
 });

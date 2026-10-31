@@ -33,9 +33,14 @@ export const VIEW_TOOL_PREFIX = "askboard.view.";
 /** An item error's text is cut to this many characters on its way to the board page. */
 export const ITEM_ERROR_MAX_CHARS = 1_000;
 
+/** AD-13's reference without brackets, as the output format's answer event writes it. */
+export const REFERENCE_PATTERN = "^[A-Za-z0-9_-]{1,64}(\\.[A-Za-z0-9_-]{1,64})*$";
+
 /**
  * What an answer carries: the question's choice, the full edited value of each widget item the
- * user changed (AD-20), or both (design decision 7). The view never computes `changes`.
+ * user changed (AD-20), or both (design decision 7), and beside those values the derived values
+ * of the items they belong to, as they stood (gantt-widget design decision 10, FR-12). The view
+ * never computes `changes`.
  */
 export type AnswerContent = {
   readonly choice?: readonly string[];
@@ -47,6 +52,8 @@ export type AnswerContent = {
   readonly optionNotes?: Readonly<Record<string, string>>;
   /** The open prompt's text, sent with the answer (FR-7). */
   readonly note?: string;
+  /** The derived values of the items `values` holds, by reference (AD-13), each a JSON value. */
+  readonly derived?: Readonly<Record<string, unknown>>;
 };
 
 /**
@@ -184,6 +191,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const ID = new RegExp(ID_PATTERN);
+const REFERENCE = new RegExp(REFERENCE_PATTERN);
 const UTC_TIME = new RegExp(UTC_TIME_PATTERN);
 const ACTION_ID = new RegExp(ACTION_ID_PATTERN);
 
@@ -220,6 +228,46 @@ const values: FieldCheck = (value) =>
   Object.entries(value).every(([key, entry]) => ID.test(key) && isRecord(entry))
     ? undefined
     : "is not an object of one or more widget item IDs, each to an object value";
+
+// A plain object or a list: a JSON object or array, not a date, map or class instance.
+const isContainer = (value: object): boolean => {
+  if (Array.isArray(value)) return true;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+
+/**
+ * A JSON value: text, a finite number, true, false, null, and lists and plain objects of them. It
+ * is walked with a list rather than recursion, so that a deep value cannot overflow the board
+ * page's stack, and an object reached twice, a cycle included, is refused: JSON shares no object,
+ * and the walk stays linear in the value's size.
+ */
+const isJsonValue = (root: unknown): boolean => {
+  const seen = new Set<object>();
+  const pending: unknown[] = [root];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (value === null || typeof value === "string" || typeof value === "boolean") continue;
+    if (typeof value === "number") {
+      if (Number.isFinite(value)) continue;
+      return false;
+    }
+    if (typeof value !== "object" || seen.has(value) || !isContainer(value)) return false;
+    seen.add(value);
+    // A list's holes read as undefined, which is refused.
+    for (const child of Array.isArray(value) ? value : Object.values(value)) pending.push(child);
+  }
+  return true;
+};
+
+// Checked structurally only, as `values` is: whoever can carry a widget's value checks its content.
+const derived: FieldCheck = (value) =>
+  isRecord(value) &&
+  Object.keys(value).length > 0 &&
+  Object.keys(value).every((key) => REFERENCE.test(key)) &&
+  isJsonValue(value)
+    ? undefined
+    : "is not an object of one or more references (AD-13), each to a JSON value";
 
 const utcTime: FieldCheck = (value) =>
   typeof value === "string" && UTC_TIME.test(value) ? undefined : "is not an RFC 3339 time in UTC";
@@ -266,14 +314,22 @@ const ANSWER: MessageFields = {
     rev: revision,
     choice,
     values,
+    derived,
     other: text(OTHER_MAX_CHARS),
     optionNotes,
     note: text(NOTE_MAX_CHARS),
     when: utcTime,
   },
   someOf: ["choice", "values", "other"],
-  optional: ["optionNotes", "note"],
+  optional: ["derived", "optionNotes", "note"],
 };
+
+// Derived values belong to the widget values they derive from (gantt-widget design decision 10):
+// without them, the board page would send the answer's choice and drop the derived values unsaid.
+const derivedAlone = (args: Record<string, unknown>, at = "/arguments"): Problem[] =>
+  Object.hasOwn(args, "derived") && !Object.hasOwn(args, "values")
+    ? [{ path: `${at}/derived`, message: 'comes only beside "values"' }]
+    : [];
 
 // Each act type's fields, as the board protocol's act command has them.
 const ACTS: Readonly<Record<ViewAct["type"], MessageFields>> = {
@@ -390,6 +446,7 @@ export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
   const args = isRecord(params) ? params.arguments : undefined;
   if (!isRecord(args)) return refused("/arguments", "a view message's arguments are an object");
   const problems = fieldProblems(FIELDS[type as ViewMessage["type"]], args);
+  if (type === "answer") problems.push(...derivedAlone(args));
   if (problems.length === 0 && type === "act") {
     problems.push(
       ...(args.acts as unknown[]).flatMap((act, index) =>

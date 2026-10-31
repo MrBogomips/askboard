@@ -14,7 +14,7 @@ import {
   type LifecycleHostMessage,
   type LifecyclePageMessage,
 } from "@askboard/contract";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import { ganttEditedValue, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { BootData } from "../boot-data.ts";
 import type { ViewAnswer, ViewMessage, ViewUpdate } from "../view-protocol.ts";
 import type { Banner } from "./board-status.ts";
@@ -307,6 +307,26 @@ describe("answers, as act commands with action IDs (FR-22, AD-10, AD-20)", () =>
     expect(run.updates.every((update) => update.pending === undefined)).toBe(true);
     expect(await run.view(answer)).toEqual(sent());
     expect(run.acts(1)).toEqual([command]);
+  });
+
+  test("an answer carrying a Gantt's value and derived values is refused, saying why, and nothing goes (gantt-widget design decision 10)", async () => {
+    const run = await opened();
+    const gantt = {
+      values: { release: ganttEditedValue },
+      derived: { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] },
+    };
+    const { choice: _, ...widgetOnly } = answer;
+    for (const message of [
+      { ...answer, ...gantt },
+      { ...widgetOnly, ...gantt },
+    ]) {
+      expect(await run.view(message)).toEqual({
+        outcome: "refused",
+        detail: "the board protocol carries no widget value yet",
+      });
+    }
+    expect(run.acts(1)).toEqual([]);
+    expect(run.updates.every((update) => update.pending === undefined)).toBe(true);
   });
 
   test("an act command from the view goes whole, in the user's order, under one action ID", async () => {
