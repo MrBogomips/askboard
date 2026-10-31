@@ -5,7 +5,6 @@
 
 import { join } from "node:path";
 import {
-  type BoardDocument,
   type BoardState,
   type ManifestFile,
   VIEW_DIRECTORY,
@@ -15,6 +14,7 @@ import {
 import { fixtureViewFiles, fixtureViewManifest } from "@askboard/contract/fixtures";
 import { validateViewManifest } from "@askboard/contract/validate";
 import { assemble, selectChunks, sourcesToFetch } from "../../../src/assemble/index.ts";
+import type { ViewDocument } from "../../../src/view-document.ts";
 import { THROWING_CHOICE_ERROR } from "../fixtures/throwing-choice-error.ts";
 
 export { THROWING_CHOICE_ERROR };
@@ -152,8 +152,11 @@ export const withBoardPageProbe = (build: ViewBuild): ViewBuild => {
   return withBoardPageScript(build, `${EVAL_PROBE}${script}`);
 };
 
-/** A test-only chunk entry bundled as the view build bundles chunks: one classic script. */
-const bundleTestChunk = async (entry: string): Promise<string> => {
+/**
+ * A test-only entry bundled as the view build bundles chunks: one classic script. A chunk, or the
+ * widget host's page script (`widget-host.ts`).
+ */
+export const bundleTestChunk = async (entry: string): Promise<string> => {
   const result = await Bun.build({ entrypoints: [entry], format: "iife", target: "browser" });
   const output = result.outputs[0];
   if (!result.success || output === undefined) {
@@ -168,20 +171,24 @@ const bundleTestChunk = async (entry: string): Promise<string> => {
 export const withThrowingChoice = async (build: ViewBuild): Promise<ViewBuild> =>
   withChunkScript(build, "choice", await bundleTestChunk(THROWING_CHOICE_ENTRY));
 
+/** The board state with the document's question open and the ask waiting. */
+export const openStateOf = (document: ViewDocument): BoardState => {
+  const [question] = document.items;
+  return {
+    ask: "waiting",
+    questions: [{ itemId: question.id, rev: question.rev, state: "open" }],
+  };
+};
+
 /**
  * The view's srcdoc for a board document with its question open, assembled from the build as the
  * board page assembles it (AD-9): for a harness check that needs the view before the board page
- * builds it.
+ * builds it, or for the widget host, whose documents the board page refuses (design decision 9).
  */
-export const assembledSrcdoc = (build: ViewBuild, document: BoardDocument): string => {
+export const assembledSrcdoc = (build: ViewBuild, document: ViewDocument): string => {
   const files = sourcesToFetch(selectChunks(document, build.manifest));
   const sources = Object.fromEntries(
     files.map((file) => [file.sha256, build.files.get(file.path) ?? ""]),
   );
-  const [question] = document.items;
-  const state: BoardState = {
-    ask: "waiting",
-    questions: [{ itemId: question.id, rev: question.rev, state: "open" }],
-  };
-  return assemble({ document, state }, build.manifest, sources).srcdoc;
+  return assemble({ document, state: openStateOf(document) }, build.manifest, sources).srcdoc;
 };
