@@ -1,0 +1,209 @@
+# Design
+
+## Context
+
+See proposal.md for why the molecules come now and what they leave out. What the code starts from:
+
+- **`main` at 92ca203** (this branch's base): E1 (d34422d), `compute-engine` (a670add) and the early benchmark. `compute` builds a graph from `fields`, `wbs-pert` and `gantt-plan` sources; `wbs-pert` (`pert.ts`) gives each leaf `expected` and `spread` and each parent and the item their roll-ups, ignoring a parent's own estimates; `gantt-plan` (`cpm.ts`) reads the molecule data's own shape (`workPackages`, `start`, `dependencies` as a map of lists). `packages/molecules/src/index.ts` and `packages/server/src/molecule-source/index.ts` are empty; `packages/core/src/ports.ts` has no `MoleculeSource`. The import table (`tools/check-imports.ts`) already allows `molecules` → `contract` and `molecule-source` → `core`, `contract`, `molecules`.
+- **The `tree-widget` change** (branch `worktree-feature-tree-widget`, groups 1 to 5 ticked, group 6, the component, under way): the widget-neutral seams (the generic element diff with list and keyed shapes, `widgetValidator`, the view document with widget items, `ItemProps<Item, Value>` and the draft record, `ViewAnswer.values`, widget chunk discovery, the widget host `useWidgetHost(engine).host(dist, document)`), then the Tree's contract (`tree-props.json`, `treePropsProblems(props, origin)`, `TREE_SHAPE`, `treeBoardDocument`), its model (`rows.ts`, `edits.ts` with `addAfter` and `addChild`, `marks.ts`, `keys.ts`, `focus.ts`), its chunk and component. A standalone Tree opens fully expanded, takes no depth prop and computes nothing (its open questions 3 and 8, accepted).
+- **The `gantt-widget` change** (branch `worktree-feature-gantt-widget`, groups 1 to 4 ticked): the Gantt's contract (`GANTT_PLAN_SHAPE`, `ganttShape(props)`, `ganttPlanLinkProblems(gantt, question)`, `GANTT_PLAN_ESTIMATES`, `GANTT_ANSWER_DERIVED`), `compute`'s `boardGraphSource` (`packages/compute/src/board.ts`), the board graph in the view (`packages/widgets/src/graph/board-graph.ts`: `liveGraph` and `sentGraph`, memoized by the identity of the items and the draft, "written to move behind the port, into a library chunk, when a second computing widget comes"), the Gantt's model (`edits.ts` with `setPredecessors`, keeping no empty entry and restoring a value equal to the sent one). Still to come there: the port's `board` and `onDerived`, the view answer's `derived`, the `compute` library chunk (group 5), the component (group 6) and the Gantt plan with `packages/molecules/src/gantt-plan/gantt-plan.json` (group 7). Its open question 11 left the WBS side of the link, and 20 the definition format, the expansion and the addressing, to this change.
+- **The approved examples** (`packages/contract/test/fixtures/{asks,answers}/uj2-wbs-gantt.json`): the ask's question `plan` holds two references, `wbs` (`wbs-pert`, `data.nodes` with three estimates and an `excerpt` per leaf) and `schedule` (`gantt-plan`, `data.workPackages: "wbs"`); the answer's eight operations, `schedule.u-1.dependencies` among them, and fourteen derived values: twelve `wbs.` keys, those that changed plus the item's totals, to two decimals (F7), and `schedule.finish` and `schedule.criticalPath`. F2 fixed the reference's form, F8 the units, F15 the reference addressing, F20 the split package's predecessors.
+
+ADs this design relies on: AD-1, AD-6, AD-7, AD-8, AD-9, AD-10, AD-12, AD-13, AD-20. UX sections it implements: EXPERIENCE Component Patterns (Molecules: WBS with PERT, Gantt plan; Widgets: Tree; Changes, values and board states: Change highlight, Derived value, Field error), Interaction Primitives (Explicit acts, Live computation), Accessibility Floor (Keyboard core: Tree), Key Flows (UJ-2, step 2). DESIGN.md: Components (Molecules: WBS with PERT; Widgets: Tree; Primitives: Input atoms, NumberField with a unit affix; Changes, values and board states: Change highlight, Field error), Layout & Spacing (Wide widgets).
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- One definition format that both ready-made molecules are written in, data only, checked by `contract`.
+- One expansion in `ask-core`, pure and deterministic, and one mapping back to the reference's addresses, checked end to end against the approved UJ-2 ask and answer.
+- The WBS with PERT on the board: PERT values live, opening depth, the rules that carry a WBS edit into its plan.
+- Every behaviour the specs name tested: pure logic under `bun test` at 80% per file, the rest in Chromium, Firefox and WebKit on the widget host.
+
+**Non-Goals:**
+
+- Anything proposal.md lists under "Not in this change", the wiring into the tools first.
+- A second copy of any seam: the element diff, `widgetValidator`, the view document, the widget host, the port's `board` and `onDerived`, the answer's `values` and `derived`.
+- Editing `docs/`, another change's folder or E1's schema sets; the spine and UX changes are drafted only.
+
+## Decisions
+
+### 1. The base comes first, in task group 0
+
+- **Task 0.1** waits until `tree-widget` and `gantt-widget` are merged to `main`, with every task of theirs ticked or handed on in their notes, then rebases this branch onto `main` (`git rebase origin/main`), which brings both under this change's single proposal commit.
+- **Task 0.2** checks every name this design uses from them, with `git grep` and their tests: the Context list above, plus `useWidgetHost`, `elementChanges`, `applyElementChanges`, `widgetValidator`, `ItemProps`'s `board` and `onDerived`, `ViewAnswer.derived`, `LIBRARY_CHUNKS.compute`, `READY_MOLECULES` and the shipped `gantt-plan.json`. A name or behaviour that differs stops the work: this design is revised with `/opsx:update` first, and no code works around it.
+- Nothing starts before group 0: every later group edits a file one of the two changes creates.
+
+*Alternative:* cherry-picking their commits now, as `gantt-widget` did with the seams (a second copy to drop at merge, and both changes are still moving).
+
+### 2. The molecule formats in `contract`, standalone, on the shared validator
+
+`packages/contract/src/molecules/` holds:
+
+- `molecule-props.json` (`urn:askboard:input:molecule-props`): `molecule` (`^[a-z][a-z0-9-]{0,63}$`), `version` (`^\d+\.\d+\.\d+$`), `data` (an object); `additionalProperties: false`; `required: ["molecule", "data"]`.
+- `molecule-definition.json` (`urn:askboard:input:molecule-definition`): `format` (`1.0.0` for now), `molecule`, `version`, `parameters` (an object; the checks say the rest), `items` (an array of exactly one `{type, id, props}`, `id` E1's ID schema), `fills` (an object from parameter name to a non-empty array of `{pointer, as?}`, `as` one of `"item"`, `{entries: <field name>}`, `{omit: [<key>…]}`).
+- `index.ts`: the types (`MoleculeProps`, `MoleculeDefinition`, `MoleculeFill`), `MOLECULE_FORMAT_VERSION` (`1.0.0`), `MOLECULE_FORMATS_SUPPORTED` (major 1), `EXPANDED_ID_SEPARATOR` (`__`), and `expandedItemId(reference, item)`.
+- `checks.ts`, plain ECMAScript: `moleculeDefinitionProblems(definition)`: `parameters` declares `$schema` 2020-12, its `$id` is `urn:askboard:molecule:<molecule>:<major of version>`, it has no root combinator and is an object schema; each `fills` key is one of its `properties`; each pointer's parent resolves in `items` (RFC 6901, `~0` and `~1` handled), and no two fills share a pointer; an `item` fill's target is a string slot or absent; no string anywhere holds `<` or a `javascript:` URL, case-insensitive.
+- `validate.ts`: `validateMoleculeProps(value)` and `validateMoleculeDefinition(value)`, each `widgetValidator` over its schema, then the checks; `moleculeDataValidator(definition)`, a `widgetValidator` over the definition's `parameters` beside every widget props schema `contract` defines (`tree-props`, `gantt-props`), so that the plan's parameters keep their `$ref`s into the Gantt's definitions. Problems name the path in the data; `ask-core` prefixes the reference's ID.
+
+Like the widgets' schemas, these are in no set (`sets.ts` unchanged), compile on first use, and register nothing at import time; the widening joins them to input format 1.1. One export block is appended to each of `index.ts` and `validate.ts`.
+
+**One version per major.** The parameters' `$id` carries only the major (as `gantt-widget` wrote it), and the one widget Ajv keeps the first schema with an `$id`; so AskBoard ships at most one version per major of a molecule, which the version rule (decision 5) needs anyway. `molecules`' tests check it.
+
+*Alternatives:* the parameters' `$id` with the full version (two schemas of one major in one Ajv, and the `gantt-widget` file changed for nothing); a set of its own for molecules (AD-7's table puts molecules in the input format).
+
+### 3. The fill forms, and one item per composition
+
+AD-9 says a definition declares, per parameter, the JSON Pointers it fills. A plain copy cannot turn the plan data's `dependencies`, a map of lists, into the plan's `tasks`, a map of entries, which the keyed diff needs to give `schedule.u-1.dependencies` (`gantt-widget` design decision 6). So format 1.0.0 has four forms, each a pure, declarative copy:
+
+| Form | What lands at the pointer | Used by |
+| --- | --- | --- |
+| copy (no `as`) | the value, deep-copied | `gantt-plan` `start`; `wbs-pert` `depth` → `openDepth` |
+| `item` | the expanded item's ID when the value names a molecule reference of the ask, else the value | `gantt-plan` `workPackages` |
+| `{entries: f}` | an object whose each value `v` becomes `{f: v}` | `gantt-plan` `dependencies` → `tasks` |
+| `{omit: keys}` | a deep copy without those keys in any object | `wbs-pert` `nodes` → `nodes` without `excerpt` |
+
+A fill whose parameter the data leaves out does nothing, so the composition's value stands (`openDepth: 2`, `tasks: {}`). Fills apply in the order of `fills`' keys, then of each list; a definition with two fills on one pointer is refused by the checks, so the order never matters for the result.
+
+**One item.** Answers address a molecule "through the reference's ID and the child IDs of its data" (AD-9). With one item, that address is the item's own address under the reference's ID, with no ambiguity; with several, two items could share a child ID, and the format would need to say which item an address means. The sales estimate review (a Table and an Approval) is the first molecule that needs several; it brings a minor version of the format with that rule and with internal references between its items.
+
+*Alternatives:* a JSONata-like expression per fill (code in a molecule, refused by AD-8 and FR-17); the plan's props taking `dependencies` as the data writes it (the keyed diff would then need a shape whose entries are lists, which the seam does not have); per-molecule expansion code in `ask-core` (AD-9: molecules are data, not code).
+
+### 4. Expansion in `ask-core`, pure and deterministic
+
+`packages/core/src/molecules/expand.ts`: `expandMolecules(items, source)` returns `{items, map, problems}`, with no Node, Bun or DOM API (AD-1), and changes none of its inputs.
+
+1. **IDs first.** For every molecule reference among the questions' items, its definition from the port (decision 5) and its expanded ID, `expandedItemId(reference.id, definition.items[0].id)`. A reference whose props fail `validateMoleculeProps`, or whose lookup fails, is a problem and is not expanded.
+2. **Data.** `moleculeDataValidator(definition)(reference.props.data)`; a failure is a problem naming the reference and the path.
+3. **Fill.** A deep copy of the definition's item, each fill applied (decision 3), its ID replaced by the expanded ID. The `item` form reads the IDs of step 1, so the order of the references in the ask does not matter.
+4. **Check.** Every expanded ID at most 64 characters and unique among the ask's item IDs; each expanded item through `widgetItemProblems(item, question, "agent")` (decision 6) in its question as expanded, so a plan whose Tree sits in another question fails its link there.
+5. **Result.** The questions with each reference replaced in place by its item; `map`, expanded ID to `{reference, molecule, version}`; problems in reference addressing (decision 7). With any problem, the caller refuses the request (AD-10); the expansion never returns a partial board.
+
+Only references in a question's `items` expand: E1's and E3's input formats hold no top-level reference, and AD-7 puts molecules in questions. A reference that is no object, or a type `molecule` with props of the wrong shape, is a problem, not an exception.
+
+**What the caller does with it.** The widening's `ask` and `update` call it before storing a revision's board document (AD-12) and keep `map` beside it in the ask's state; the send-time check builds the graph of the expanded items. This change tests the function and builds no caller (proposal, open question 1).
+
+### 5. `MoleculeSource` and `molecule-source`
+
+`packages/core/src/ports.ts` gains:
+
+```ts
+type MoleculeLookup =
+  | { readonly found: true; readonly definition: MoleculeDefinition }
+  | { readonly found: false; readonly reason: "unknown-molecule" | "unknown-version" | "broken";
+      readonly shipped: readonly string[]; readonly detail?: string };
+type MoleculeSource = { lookup(molecule: string, version?: string): MoleculeLookup };
+```
+
+`CorePorts` does not gain it yet: the widening, which calls the expansion, adds it there and composes it in `main.ts`.
+
+`packages/server/src/molecule-source/index.ts`: `createMoleculeSource(definitions = READY_MOLECULES)`. On the first lookup of a molecule it checks that molecule's definitions with `validateMoleculeDefinition` and the format major, and caches the outcome; a broken one gives `broken` with the problem, never a definition. The version rule: without `version`, the highest shipped version of the highest shipped major; with one, the shipped version of that major if it is at or above the requested one, else `unknown-version` naming what is shipped. The definitions are imported JSON, bundled into the executable: the adapter reads no file and opens no connection (AD-11, NFR-9), and nothing runs before the first lookup (AD-2). `packages/server/package.json` declares `@askboard/molecules` (`workspace:*`).
+
+### 6. `widgetItemProblems` and `elementShapeOf` in `contract`
+
+`packages/contract/src/widgets/items.ts`, plain ECMAScript:
+
+- `widgetItemProblems(item, question, origin)`: `tree` → the Tree's props check; `gantt` → the Gantt's props check and, with `workPackages`, `ganttPlanLinkProblems(item, question)`; any other type → a problem naming the item and its type. It runs the same checks the validators run, through them, and adds none.
+- `elementShapeOf(item)`: `TREE_SHAPE` for a Tree, `ganttShape(props)` for a Gantt, `undefined` otherwise.
+
+`ask-core` needs both now (expansion, and the fold's tests); the widening needs both for agent-sent widget items. Written once here, appended to `contract`'s `index.ts` block, and listed in "Handed on" for the widening.
+
+### 7. Reference addressing
+
+`packages/core/src/molecules/addressing.ts`: `referenceAddressing(map)` gives `toReference(address)`: when the part before the first `.` is an expanded ID in `map`, it becomes the reference's ID and the rest is kept (`wbs__tree.portal.label` → `wbs.portal.label`, `schedule__plan.finish` → `schedule.finish`, a bare `wbs__tree` → `wbs`); any other address is returned unchanged. Helpers apply it to:
+
+- an answer's `changes`: each `target`; `parent` and `after` are element IDs and stay (F3);
+- an answer's `derived`: each key, values untouched;
+- a problem or warning: its item ID and any address in it.
+
+`answerInReferenceAddressing(map, question, sentItems, editedValues, derived)` is the fold the widening's `collect` path will call: for each widget item of the question that has an edited value, in the question's order, `elementChanges(item.id, sent.props, edited, elementShapeOf(item))`, concatenated and mapped; `derived` mapped. A test runs it on the contract's molecule fixtures (decision 9) and compares the result with the approved answer: the changes as a set (the approved file lists them in the user's order, the diff in its own, as `tree-widget` open question 19 says), the derived values as a map.
+
+*Alternative:* calling the diff with the reference's ID as `itemId` (no rewrite for changes, but derived keys and warnings would still need one; one rewrite for all three keeps one rule).
+
+### 8. The Tree's PERT in `contract`
+
+In `packages/contract/src/widgets/tree/`: `tree-props.json` gains `pert` (`const: true`) and `openDepth` (integer 1 to 8); `treePropsProblems` gains the rules of the spec's "Tree PERT props", reading the estimates from `GANTT_PLAN_ESTIMATES`, the one list the plan's link check already reads; `index.ts` gains `TREE_PERT_DERIVED` (`expected`, `spread`, on nodes and item), `TREE_PERT_MAX_ESTIMATE` (100,000) and `TREE_PERT_ANSWER_DERIVED` (`{fields: ["expected", "spread"], decimals: 2, itemTotals: true, onlyChanged: true}`), which the view reads to report and the contract's tests check against the approved answer. A parent's own estimates stay valid and ignored, as `compute`'s PERT ignores them; an edited value where an indent made a leaf a parent is never refused for it.
+
+### 9. Molecule fixtures
+
+`packages/contract/src/fixtures/molecules.ts` (tests only), appended to `fixtures/index.ts`: `uj2ExpandedQuestion`, the UJ-2 question `plan` as the expansion gives it: the Tree `wbs__tree` (three estimate columns labelled as the spec says, `pert`, `openDepth` 2, the eight nodes without `excerpt`) and the plan `schedule__plan` (`workPackages: "wbs__tree"`, `start`, the four entries); `uj2ExpandedBoardDocument`, a board document holding it; `uj2ExpandedEditedValues`, both values after the approved edits, the plan with the entry `u-1` that the split gives (decision 12); `uj2ExpandedDerived`, the fourteen derived values under the expanded IDs. They build on `treeBoardDocument` and `ganttPlanBoardDocument` and repeat none of their data by hand where they can derive it. `ask-core`'s expansion test compares its output with `uj2ExpandedQuestion`; the browser's UJ-2 scenario compares the answer message with `uj2ExpandedEditedValues` and `uj2ExpandedDerived`; the fold test maps those to the approved answer. That chain checks the board end to end without the widening.
+
+### 10. `compute`: a Tree with `pert`
+
+`boardGraphSource` (`packages/compute/src/board.ts`) maps a Tree with `pert: true` to a `wbs-pert` source from its `nodes`, as it already maps the Tree a plan names; a Tree both is mapped once. `compute`'s index also exports the evaluator's own `ROUND` as `roundNumber(x, digits)`, so that the WBS rounds its answer's derived values exactly as a `ROUND` formula would, with no second rounding in the view (decision 14). Nothing else in `compute` changes: PERT's formulas, roll-ups and the plan's duration from `expected` are `compute-engine`'s.
+
+### 11. One new seam: `onValuesChange`
+
+`ItemProps` gains `onValuesChange(values: Readonly<Record<string, unknown>>)`: the draft values of several items, `undefined` removing one, applied by the shell in one draft update. The question card passes it, bound to the item's question: a key naming an item outside that question changes nothing and is reported through the item's error path, as a thrown render error is. The draft record's identity rules hold per item (an unchanged value keeps its identity), so `liveGraph`'s memo sees one new draft per update.
+
+Built in `packages/view/src/catalog/port.ts`, `shell/draft-store.ts` and `shell/question-card.tsx`, tests first, with test-only `probe` items, as the `tree-widget` seams were. No other change needs it; it is listed in Merge points.
+
+*Alternatives:* the plan's component inferring the edit from the Tree's value (it cannot tell a split from an "Add child" under the same parent, and a hidden plan would miss it); the Tree calling `onValueChange` and a second callback (two draft updates, two graph builds, a moment where the two items disagree).
+
+### 12. The plan-link rules: `packages/widgets/src/graph/plan-link.ts`
+
+Pure functions over the port's `board` (items as sent, draft values), used by the Tree's component:
+
+- `linkedPlans(board, treeId)`: the Gantt items of the Tree's question whose `workPackages` is the Tree's ID, with their current value (draft, else sent).
+- `predecessorsOf(plan, packageId)`: the entry's `dependencies`, or none.
+- `afterAdd(plan, added, anchor)`: the plan with `added` given `predecessorsOf(plan, anchor)`, through the Gantt model's `setPredecessors`, so no empty entry is kept and a value back to the sent one is restored. `anchor` is the focused package for "Add node", the parent for "Add child".
+- `dependentsOf(plans, packageIds)`: the tasks that list any of them, for the confirmation's count.
+- `afterDelete(plan, sentPlan, deleted)`: for each surviving task that names a deleted package, that name replaced by the package's predecessors, followed through other deleted packages, keeping the first occurrence of each and never the task itself; then each deleted package's entry set back to `sentPlan`'s entry for it, or removed when the agent sent none.
+
+The Tree's component calls them on the commit that names an added package (not on the insertion, which an empty name or Escape takes back) and on a confirmed delete, and puts the Tree's and the plans' values through `onValuesChange` in one update. A move, a rename, an indent or an outdent touches no plan (proposal, open question 13).
+
+The module sits in the `board-graph` library chunk (decision 13), beside `board-graph.ts`; it imports the Gantt's `setPredecessors` from `gantt/model/edits.ts`, so the plan's invariants have one implementation.
+
+### 13. `board-graph` as a library chunk
+
+`gantt-widget` built the board graph inside the Gantt's chunk and planned this move. `packages/widgets/src/graph/index.ts` becomes the entry of a library chunk `board-graph` in `LIBRARY_CHUNKS`, needing `compute`. `@askboard/compute` is a package and maps by name; `graph/index.ts` is a file inside `widgets`, so the shared-modules plugin maps it by path, as it already maps the port's file (`PORT_PATH`). The `tree` and `gantt` chunks then need `board-graph`, and one module instance per srcdoc holds the memo, so the Tree and the plan read one live graph per draft update and one sent graph per revision. `chunk-sizes.json` records `board-graph`, the `tree` chunk's growth and the `gantt` chunk's shrinkage, with `--record-sizes`.
+
+*Fallback:* if the plugin cannot map a path inside `widgets`, `packages/widgets/package.json` exports `./graph` and the chunk maps `@askboard/widgets/graph` by name; the task note records it.
+
+### 14. The WBS in the Tree: model and component
+
+Model, pure, in `packages/widgets/src/tree/model/`:
+
+- `pert.ts`: per visible row, the expected effort and spread read from the live graph (`<item>.<node>.expected`), or the formula error; the totals (`<item>.expected`, `<item>.spread`) and whether the Total row shows (more than one top-level node); the display text, one decimal in en-US with the `d` affix (`5.5 d`); the derived values to report, by `TREE_PERT_ANSWER_DERIVED`, comparing each node's values in the live and the sent graph rounded to two decimals with `compute`'s `roundNumber` (decision 10).
+- `rows.ts`: with `pert`, the expanded set opens with the nodes above `openDepth`; without it, fully expanded as before.
+- `edits.ts`: with `pert`, `setField` on an estimate refuses a negative value or one over the limit with a reason, and a parent's estimate cells are not editable (`can`).
+
+Component (`packages/widgets/src/tree/`): with `pert`, the header reads "Work package", the three estimates, "Expected effort" and "Spread"; estimate cells show the affix, and in edit mode the input keeps it as an Input Group affix (DESIGN.md Input atoms); the two value cells are right-aligned and never focusable for editing, though the arrow keys reach them; the Total row is a last, read-only row of the treegrid, with no `aria-level`, labelled "Total" (provisional). It reads the graph through `board-graph`, reports `onDerived` after each committed edit and on first layout, and calls the plan-link rules (decision 12). The inline delete confirmation, which a node with children already has, also opens when `dependentsOf` is not empty, and its text adds the count ("1 task in the plan depends on it", provisional). Change marks are the Tree's own; derived values take none.
+
+### 15. Tests
+
+- **Unit** (`bun test`, 80% per file): the two schemas and `moleculeDefinitionProblems` on each refused case; `moleculeDataValidator` on the approved data and each refused case; `widgetItemProblems` and `elementShapeOf`; the Tree's PERT props and its derived declarations; the fixtures agreeing; the two definitions (format, data only, one version per major, approved data, expansion of the approved data equal to the fixtures); `expandMolecules` on every scenario of the core spec, with a fake `MoleculeSource`; `referenceAddressing` and the fold against the approved answer; the adapter's lookups, version rule, lazy checks and broken definition; `boardGraphSource` on a Tree with `pert`, and `roundNumber`; the port's `onValuesChange` with `probe` items; `plan-link.ts` and the Tree's PERT model, module by module, the answer rule against the approved `wbs.` values among them; the build's `board-graph` chunk.
+- **Browser** (`packages/view/test/browser/wbs.browser.ts`, Chromium, Firefox and WebKit, on the widget host with `uj2ExpandedBoardDocument`): the layout and values, both opening depths, re-estimating, a refused negative estimate, the split with its plan predecessors, a child of a leaf, an addition taken back, the delete confirmation, cancel and confirm, a split taken back by a delete, read-only after "Answer", markup as text, and UJ-2's edits by keyboard giving one answer message equal to the fixtures; no CSP violation in any of them. `gantt.browser.ts`'s scenarios that linked `u-1` by hand are updated to F20 (spec, modified "Gantt predecessors"); E1's, the Tree's and the Gantt's suites keep passing.
+
+## Risks / Trade-offs
+
+- [The two changes merge with names or behaviour other than this design's] → Group 0 checks each name and stops; the design is revised with `/opsx:update` before any code.
+- [Ajv's strict mode refuses a definition's `parameters` beside the widget schemas, or the `$ref`s into `gantt-props`] → The first contract task compiles them; the fallback, as in `gantt-widget`'s design, is the definitions written into the parameters, with a test that both accept and refuse the same values.
+- [The widening wires the expansion differently from decision 4] → The function, its map and the fold have the inputs and outputs the core spec names, and "Handed on" lists them; the widening revises them through its own change if it must.
+- [A plan-link write lands while the plan's question is disabled] → The Tree and the plan share their question, so both are disabled together; the rules are called only from edits the Tree allows.
+- [`onValuesChange` lets one component write another's draft] → It is bound to the component's own question, an item outside it changes nothing and is reported, and only the Tree uses it, through `plan-link.ts`.
+- [The `tree` chunk now needs `board-graph` and `compute` on every board with a Tree] → The sizes are recorded; a later change can split a `wbs` component chunk if a plain Tree board's size matters (proposal, open question 15).
+- [Rounding to two decimals in the view differs from a `ROUND` formula] → The view calls the evaluator's own `ROUND` (`roundNumber`), which reads the value to 15 significant digits as Excel does; `compute`'s test checks it over the approved values and over halves such as 2.675 and 1.005.
+- [A leaf turned parent leaves its dependents in error] → It is visible and does not block the answer (AD-13); proposal, open question 13, offers the alternative.
+- [The fixtures and the approved answer differ in operation order] → Compared as a set, as `tree-widget` does; the diff's own order is checked separately.
+
+## Migration Plan
+
+None: nothing reaches an agent until the widening wires it. Reverting the change removes the formats, the two molecule definitions' new fields, the expansion, the adapter, the Tree's PERT and the plan-link rules; the `gantt-plan` file returns to `gantt-widget`'s three keys, which its own tests check.
+
+## Handed on
+
+- **The input format widening:** the molecule reference in the input format's question items and the two formats in the input set (1.1); `ask` and `update` calling `expandMolecules` before storing a board document, refusing on a problem, and keeping the map beside it; `CorePorts.molecules` composed with `createMoleculeSource()` in `main.ts`; the send-time graph check over the expanded items, its warnings through `referenceAddressing`; `collect` calling `answerInReferenceAddressing`; `fetch` of a reference giving its expanded item's value under the reference's ID; an `update` of a reference re-expanding it whole; `widgetItemProblems` and `elementShapeOf` reused for agent-sent widget items; the shipped skills' molecule references generated from `molecules` (spine draft, Block 1).
+- **E5:** the `excerpt` per work package resolved at send time, the leaf's chevron and row detail, and `wbs-pert` 1.1.0 filling it.
+- **E7:** whether a Snapshot's data block names expanded IDs or references.
+- **The Table and Approval epics:** the sales estimate review and the decision matrix, and the format's minor version for compositions of several items.
+- **A later Tree change:** roll-ups and formulas on a Tree without `pert`; splitting a `wbs` chunk if plain Tree boards need it.
+
+## Merge points
+
+- `contract`'s appended export blocks in `index.ts`, `validate.ts` and `fixtures/index.ts`, after the Tree's and the Gantt's: keep every line of each.
+- `packages/view/src/catalog/port.ts` and `shell/`, which the seams and the Gantt also edit: `onValuesChange` is one addition beside `board` and `onDerived`.
+- `tools/build/shared-modules.ts`'s `LIBRARY_CHUNKS`, after the Gantt's `compute`.
+- `packages/molecules/src/gantt-plan/gantt-plan.json`, created by `gantt-widget` and completed here.
+- `packages/server/package.json` and its `bun.lock` importer entry, regenerated with `bun install` on a conflict.
+- `packages/view/chunk-sizes.json`, re-recorded with `--record-sizes`.
