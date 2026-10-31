@@ -53,3 +53,40 @@ jobs:
         env:
           # The licence check asks the GitHub API whether direct dependencies are archived.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  e2e:
+    name: Browser tests and conformance suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      # With CI set and no BROWSER, no board can be shown (AD-18). The browser tests and the
+      # conformance suite name their own recorder; job-wide, the recorder opens nothing.
+      BROWSER: ${{ github.workspace }}/packages/view/test/browser/fixtures/record-link.sh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: package.json
+      # Bun from npm at the packageManager version, as in the check job.
+      - name: Install Bun
+        run: |
+          version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
+          npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
+          bun --version
+      - run: bun install --frozen-lockfile
+      # Before the engines' download, so that a missing piece fails the job first.
+      - run: bun run build
+      # The pinned playwright's own binary, so the engines match its version.
+      - name: Install Chromium, Firefox and WebKit with their system dependencies
+        run: node_modules/.bin/playwright install --with-deps chromium firefox webkit
+      - name: Browser tests and conformance suite on Bun
+        run: bun run test:e2e
+      # Task 9.2: the integration session replaces this step with the conformance suite on Node 24.
+      - name: Conformance suite on Node 24 (placeholder for task 9.2)
+        run: |
+          echo "::error::The conformance suite on Node 24 is not written yet (task 9.2)."
+          exit 1
