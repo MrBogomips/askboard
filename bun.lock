@@ -21,6 +21,9 @@
     "packages/compute": {
       "name": "@askboard/compute",
       "version": "0.0.0",
+      "dependencies": {
+        "@askboard/contract": "workspace:*",
+      },
     },
     "packages/contract": {
       "name": "@askboard/contract",

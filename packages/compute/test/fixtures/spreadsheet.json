@@ -1,0 +1,116 @@
+{
+  "name": "spreadsheet",
+  "source": "the formula spike's probe (fixtures/boards/spreadsheet.json), as a fields item with cells; expected values by hand; A6 has no node, so it reads as empty in a range",
+  "items": [
+    {
+      "kind": "fields",
+      "id": "sheet",
+      "cells": {
+        "A1": {
+          "type": "number",
+          "value": 10
+        },
+        "A2": {
+          "type": "number",
+          "value": 20
+        },
+        "A3": {
+          "type": "number",
+          "value": 30
+        },
+        "A4": {
+          "type": "text",
+          "value": "n/a"
+        },
+        "A5": {
+          "type": "boolean",
+          "value": true
+        },
+        "C1": {
+          "type": "number",
+          "value": 1
+        },
+        "C2": {
+          "type": "number",
+          "value": 2
+        },
+        "C3": {
+          "type": "number",
+          "value": 3
+        },
+        "B1": {
+          "type": "number",
+          "formula": "SUM([sheet.A1:A6])"
+        },
+        "B2": {
+          "type": "number",
+          "formula": "[sheet.A1]*2"
+        },
+        "B3": {
+          "type": "number",
+          "formula": "SUMPRODUCT([sheet.A1:A3],[sheet.C1:C3])"
+        },
+        "B4": {
+          "type": "number",
+          "formula": "MAX([sheet.A1:C3])"
+        },
+        "B5": {
+          "type": "number",
+          "formula": "ROUND([sheet.A3]/7,2)"
+        },
+        "B6": {
+          "type": "number",
+          "formula": "SUM([sheet.A1:A3])/[sheet.B2]"
+        },
+        "D1": {
+          "type": "date",
+          "value": "2026-11-06"
+        },
+        "D2": {
+          "type": "date",
+          "formula": "WORKDAY([sheet.D1],1)"
+        },
+        "D3": {
+          "type": "number",
+          "formula": "IF([sheet.A5],[sheet.A1]+[sheet.A2],0)"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "sheet.B1": 60,
+    "sheet.B2": 20,
+    "sheet.B3": 140,
+    "sheet.B4": 140,
+    "sheet.B5": 4.29,
+    "sheet.B6": 3,
+    "sheet.D2": "2026-11-09",
+    "sheet.D3": 30
+  },
+  "warnings": [],
+  "edits": [
+    {
+      "set": {
+        "sheet.A1": 15
+      },
+      "expected": {
+        "sheet.B1": 65,
+        "sheet.B2": 30,
+        "sheet.B3": 145,
+        "sheet.B4": 145,
+        "sheet.B5": 4.29,
+        "sheet.B6": 2.1666666666666665,
+        "sheet.D3": 35
+      }
+    },
+    {
+      "set": {
+        "sheet.A5": false
+      },
+      "expected": {
+        "sheet.B1": 65,
+        "sheet.D3": 0
+      }
+    }
+  ]
+}

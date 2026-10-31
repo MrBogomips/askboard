@@ -1,0 +1,1188 @@
+{
+  "description": "Error fixtures, adapted from the formula spike's probe (openspec/changes/spike-formula/probe/fixtures/errors.json): addresses and references rewritten to flat ones, a child addressed by its own ID. `expected` compares the error kind only; `warnings` compares the set of kind@address from buildGraph alone. `changed` says why an expectation differs from the probe's. Generated hostile input is in hostile.ts.",
+  "cases": [
+    {
+      "id": "missing-reference",
+      "note": "x.c reads x.b and inherits its error; only x.b is a warning",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "a": {
+              "type": "number",
+              "value": 1
+            },
+            "b": {
+              "type": "number",
+              "formula": "[x.a]+[x.nope]"
+            },
+            "c": {
+              "type": "number",
+              "formula": "[x.b]*2"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.b": {
+          "error": "missing-reference"
+        },
+        "x.c": {
+          "error": "missing-reference"
+        }
+      },
+      "warnings": [
+        {
+          "error": "missing-reference",
+          "address": "x.b"
+        }
+      ]
+    },
+    {
+      "id": "missing-item-wildcard",
+      "note": "a wildcard over an unknown item, or one that matches nothing in a known item, is a missing reference",
+      "changed": "AD-13 as applied: a wildcard that matches no node is a formula error and a warning; the probe gave 0 with no warning (spike row 8)",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "a": {
+              "type": "number",
+              "value": 1
+            },
+            "s": {
+              "type": "number",
+              "formula": "SUM([nope.*.v])"
+            },
+            "t": {
+              "type": "number",
+              "formula": "SUM([x.*.v])"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.s": {
+          "error": "missing-reference"
+        },
+        "x.t": {
+          "error": "missing-reference"
+        }
+      },
+      "warnings": [
+        {
+          "error": "missing-reference",
+          "address": "x.s"
+        },
+        {
+          "error": "missing-reference",
+          "address": "x.t"
+        }
+      ]
+    },
+    {
+      "id": "flat-not-path",
+      "note": "a child is addressed by its own ID, never by its path",
+      "changed": "spike row 3, flat references: [wbs.ux.optimistic] reads ux wherever it sits, and two child IDs in a reference are a syntax error; the probe implemented path references",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "wbs",
+          "fields": {
+            "flat": {
+              "type": "number",
+              "formula": "[wbs.ux.optimistic]"
+            },
+            "path": {
+              "type": "number",
+              "formula": "[wbs.design.ux.optimistic]"
+            }
+          },
+          "children": [
+            {
+              "id": "design",
+              "children": [
+                {
+                  "id": "ux",
+                  "fields": {
+                    "optimistic": {
+                      "type": "number",
+                      "value": 3
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "wbs.flat": 3,
+        "wbs.path": {
+          "error": "syntax"
+        }
+      },
+      "warnings": [
+        {
+          "error": "syntax",
+          "address": "wbs.path"
+        }
+      ]
+    },
+    {
+      "id": "cycle-direct",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "a": {
+              "type": "number",
+              "formula": "[x.a]+1"
+            },
+            "b": {
+              "type": "number",
+              "formula": "[x.a]*2"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.a": {
+          "error": "cycle"
+        },
+        "x.b": {
+          "error": "cycle"
+        }
+      },
+      "warnings": [
+        {
+          "error": "cycle",
+          "address": "x.a"
+        }
+      ]
+    },
+    {
+      "id": "cycle-indirect",
+      "note": "every node on the cycle is a warning; x.d downstream reads as cycle; x.e is unaffected",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "a": {
+              "type": "number",
+              "formula": "[x.c]+1"
+            },
+            "b": {
+              "type": "number",
+              "formula": "[x.a]*2"
+            },
+            "c": {
+              "type": "number",
+              "formula": "[x.b]-1"
+            },
+            "d": {
+              "type": "number",
+              "formula": "[x.c]+100"
+            },
+            "e": {
+              "type": "number",
+              "formula": "3+4"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.a": {
+          "error": "cycle"
+        },
+        "x.b": {
+          "error": "cycle"
+        },
+        "x.c": {
+          "error": "cycle"
+        },
+        "x.d": {
+          "error": "cycle"
+        },
+        "x.e": 7
+      },
+      "warnings": [
+        {
+          "error": "cycle",
+          "address": "x.a"
+        },
+        {
+          "error": "cycle",
+          "address": "x.b"
+        },
+        {
+          "error": "cycle",
+          "address": "x.c"
+        }
+      ]
+    },
+    {
+      "id": "cycle-wildcard",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "w",
+          "fields": {
+            "total": {
+              "type": "number",
+              "formula": "SUM([w.*.v])"
+            }
+          },
+          "children": [
+            {
+              "id": "a",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "formula": "[w.total]/2"
+                }
+              }
+            },
+            {
+              "id": "b",
+              "fields": {
+                "v": {
+                  "type": "number",
+                  "value": 4
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "w.total": {
+          "error": "cycle"
+        },
+        "w.a.v": {
+          "error": "cycle"
+        }
+      },
+      "warnings": [
+        {
+          "error": "cycle",
+          "address": "w.total"
+        },
+        {
+          "error": "cycle",
+          "address": "w.a.v"
+        }
+      ]
+    },
+    {
+      "id": "not-whitelisted",
+      "note": "refused by refs.ts before any engine parses; the warning names the node, whose address starts with the item ID; x.dep inherits",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "a": {
+              "type": "number",
+              "value": 1
+            },
+            "f0": {
+              "type": "number",
+              "formula": "INDIRECT(\"x.a\")"
+            },
+            "f1": {
+              "type": "number",
+              "formula": "OFFSET([x.a],1,0)"
+            },
+            "f2": {
+              "type": "number",
+              "formula": "HYPERLINK(\"https://example.com\")"
+            },
+            "f3": {
+              "type": "number",
+              "formula": "WEBSERVICE(\"https://example.com\")"
+            },
+            "f4": {
+              "type": "number",
+              "formula": "NOW()"
+            },
+            "f5": {
+              "type": "number",
+              "formula": "RAND()"
+            },
+            "f6": {
+              "type": "number",
+              "formula": "rand()"
+            },
+            "f7": {
+              "type": "number",
+              "formula": "SUM(1,RAND())"
+            },
+            "f8": {
+              "type": "number",
+              "formula": "TODAY()"
+            },
+            "f9": {
+              "type": "number",
+              "formula": "CONCATENATE(\"a\",\"b\")"
+            },
+            "f10": {
+              "type": "number",
+              "formula": "\"a\"&\"b\""
+            },
+            "f11": {
+              "type": "number",
+              "formula": "50%"
+            },
+            "f12": {
+              "type": "number",
+              "formula": "constructor(1)"
+            },
+            "f13": {
+              "type": "number",
+              "formula": "toString()"
+            },
+            "f14": {
+              "type": "number",
+              "formula": "__proto__(1)"
+            },
+            "f15": {
+              "type": "number",
+              "formula": "hasOwnProperty(\"x\")"
+            },
+            "dep": {
+              "type": "number",
+              "formula": "[x.f5]+1"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.f0": {
+          "error": "not-whitelisted"
+        },
+        "x.f1": {
+          "error": "not-whitelisted"
+        },
+        "x.f2": {
+          "error": "not-whitelisted"
+        },
+        "x.f3": {
+          "error": "not-whitelisted"
+        },
+        "x.f4": {
+          "error": "not-whitelisted"
+        },
+        "x.f5": {
+          "error": "not-whitelisted"
+        },
+        "x.f6": {
+          "error": "not-whitelisted"
+        },
+        "x.f7": {
+          "error": "not-whitelisted"
+        },
+        "x.f8": {
+          "error": "not-whitelisted"
+        },
+        "x.f9": {
+          "error": "not-whitelisted"
+        },
+        "x.f10": {
+          "error": "not-whitelisted"
+        },
+        "x.f11": {
+          "error": "not-whitelisted"
+        },
+        "x.f12": {
+          "error": "not-whitelisted"
+        },
+        "x.f13": {
+          "error": "not-whitelisted"
+        },
+        "x.f14": {
+          "error": "not-whitelisted"
+        },
+        "x.f15": {
+          "error": "not-whitelisted"
+        },
+        "x.dep": {
+          "error": "not-whitelisted"
+        }
+      },
+      "warnings": [
+        {
+          "error": "not-whitelisted",
+          "address": "x.f0"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f1"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f2"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f3"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f4"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f5"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f6"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f7"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f8"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f9"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f10"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f11"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f12"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f13"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f14"
+        },
+        {
+          "error": "not-whitelisted",
+          "address": "x.f15"
+        }
+      ]
+    },
+    {
+      "id": "syntax",
+      "note": "grammar, arity and literal errors",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "a": {
+              "type": "number",
+              "value": 1
+            },
+            "s0": {
+              "type": "number",
+              "formula": "1+"
+            },
+            "s1": {
+              "type": "number",
+              "formula": "(1+2"
+            },
+            "s2": {
+              "type": "number",
+              "formula": "1+2)"
+            },
+            "s3": {
+              "type": "number",
+              "formula": "SUM(1,,2)"
+            },
+            "s4": {
+              "type": "number",
+              "formula": "=1+2"
+            },
+            "s5": {
+              "type": "number",
+              "formula": "1;2"
+            },
+            "s6": {
+              "type": "number",
+              "formula": "[x.a"
+            },
+            "s7": {
+              "type": "number",
+              "formula": "A1+1"
+            },
+            "s8": {
+              "type": "number",
+              "formula": "ROUND(1)"
+            },
+            "s9": {
+              "type": "number",
+              "formula": "IF(1)"
+            },
+            "s10": {
+              "type": "number",
+              "formula": "\"open"
+            },
+            "s11": {
+              "type": "number",
+              "formula": "1 2"
+            },
+            "s12": {
+              "type": "number",
+              "formula": "SUM 1"
+            },
+            "s13": {
+              "type": "number",
+              "formula": "[x.a:b]"
+            },
+            "s14": {
+              "type": "number",
+              "formula": "[x..a]"
+            },
+            "s15": {
+              "type": "number",
+              "formula": "[*.a]"
+            },
+            "s16": {
+              "type": "number",
+              "formula": "[x.a.*]"
+            },
+            "s17": {
+              "type": "number",
+              "formula": "[x.A1:B]"
+            },
+            "s18": {
+              "type": "number",
+              "formula": "1e309"
+            },
+            "s19": {
+              "type": "number",
+              "formula": "{1,2}"
+            },
+            "s20": {
+              "type": "number",
+              "formula": "x!A1"
+            },
+            "s21": {
+              "type": "number",
+              "formula": "$A$1"
+            },
+            "s22": {
+              "type": "number",
+              "formula": "__proto__"
+            },
+            "s23": {
+              "type": "number",
+              "formula": "constructor"
+            },
+            "s24": {
+              "type": "number",
+              "formula": "#REF!"
+            },
+            "s25": {
+              "type": "number",
+              "formula": "@x"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.s0": {
+          "error": "syntax"
+        },
+        "x.s1": {
+          "error": "syntax"
+        },
+        "x.s2": {
+          "error": "syntax"
+        },
+        "x.s3": {
+          "error": "syntax"
+        },
+        "x.s4": {
+          "error": "syntax"
+        },
+        "x.s5": {
+          "error": "syntax"
+        },
+        "x.s6": {
+          "error": "syntax"
+        },
+        "x.s7": {
+          "error": "syntax"
+        },
+        "x.s8": {
+          "error": "syntax"
+        },
+        "x.s9": {
+          "error": "syntax"
+        },
+        "x.s10": {
+          "error": "syntax"
+        },
+        "x.s11": {
+          "error": "syntax"
+        },
+        "x.s12": {
+          "error": "syntax"
+        },
+        "x.s13": {
+          "error": "syntax"
+        },
+        "x.s14": {
+          "error": "syntax"
+        },
+        "x.s15": {
+          "error": "syntax"
+        },
+        "x.s16": {
+          "error": "syntax"
+        },
+        "x.s17": {
+          "error": "syntax"
+        },
+        "x.s18": {
+          "error": "syntax"
+        },
+        "x.s19": {
+          "error": "syntax"
+        },
+        "x.s20": {
+          "error": "syntax"
+        },
+        "x.s21": {
+          "error": "syntax"
+        },
+        "x.s22": {
+          "error": "syntax"
+        },
+        "x.s23": {
+          "error": "syntax"
+        },
+        "x.s24": {
+          "error": "syntax"
+        },
+        "x.s25": {
+          "error": "syntax"
+        }
+      },
+      "warnings": [
+        {
+          "error": "syntax",
+          "address": "x.s0"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s1"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s2"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s3"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s4"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s5"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s6"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s7"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s8"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s9"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s10"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s11"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s12"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s13"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s14"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s15"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s16"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s17"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s18"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s19"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s20"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s21"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s22"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s23"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s24"
+        },
+        {
+          "error": "syntax",
+          "address": "x.s25"
+        }
+      ]
+    },
+    {
+      "id": "division-by-zero",
+      "note": "a runtime error: no load warning",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "x",
+          "fields": {
+            "zero": {
+              "type": "number",
+              "value": 0
+            },
+            "e": {
+              "type": "number",
+              "value": null
+            },
+            "a": {
+              "type": "number",
+              "formula": "1/[x.zero]"
+            },
+            "b": {
+              "type": "number",
+              "formula": "[x.e]/[x.e]"
+            },
+            "c": {
+              "type": "number",
+              "formula": "[x.a]+1"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "x.a": {
+          "error": "division-by-zero"
+        },
+        "x.b": {
+          "error": "division-by-zero"
+        },
+        "x.c": {
+          "error": "division-by-zero"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "id": "mixed-currencies",
+      "note": "one line's rate in USD in a EUR review: the revenue total mixes currencies; the cost total does not; the margin reads the mix",
+      "changed": "the probe built this from the sales-estimate-review molecule, which is not in this change: here a fields item holds the same nodes and formulas",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "estimate",
+          "currency": "EUR",
+          "fields": {
+            "minMargin": {
+              "type": "number",
+              "value": null
+            },
+            "totalCost": {
+              "type": "money",
+              "formula": "SUM([estimate.*.cost])",
+              "currency": "EUR"
+            },
+            "totalRevenue": {
+              "type": "money",
+              "formula": "SUM([estimate.*.revenue])",
+              "currency": "EUR"
+            },
+            "margin": {
+              "type": "number",
+              "formula": "([estimate.totalRevenue]-[estimate.totalCost])/[estimate.totalRevenue]"
+            },
+            "belowMinimum": {
+              "type": "boolean",
+              "formula": "AND([estimate.minMargin]<>\"\",[estimate.margin]<[estimate.minMargin])"
+            }
+          },
+          "children": [
+            {
+              "id": "pm",
+              "fields": {
+                "days": {
+                  "type": "number",
+                  "value": 12
+                },
+                "dailyCost": {
+                  "type": "money",
+                  "value": "420.00"
+                },
+                "dailyRate": {
+                  "type": "money",
+                  "value": "650.00"
+                },
+                "cost": {
+                  "type": "money",
+                  "formula": "[estimate.pm.days]*[estimate.pm.dailyCost]"
+                },
+                "revenue": {
+                  "type": "money",
+                  "formula": "[estimate.pm.days]*[estimate.pm.dailyRate]"
+                }
+              }
+            },
+            {
+              "id": "dev",
+              "fields": {
+                "days": {
+                  "type": "number",
+                  "value": 40
+                },
+                "dailyCost": {
+                  "type": "money",
+                  "value": "380.00"
+                },
+                "dailyRate": {
+                  "type": "money",
+                  "value": "600.00",
+                  "currency": "USD"
+                },
+                "cost": {
+                  "type": "money",
+                  "formula": "[estimate.dev.days]*[estimate.dev.dailyCost]"
+                },
+                "revenue": {
+                  "type": "money",
+                  "formula": "[estimate.dev.days]*[estimate.dev.dailyRate]"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "estimate.totalCost": 20240,
+        "estimate.totalRevenue": {
+          "error": "mixed-currencies"
+        },
+        "estimate.margin": {
+          "error": "mixed-currencies"
+        },
+        "estimate.belowMinimum": {
+          "error": "mixed-currencies"
+        },
+        "estimate.dev.revenue": 24000
+      },
+      "warnings": [
+        {
+          "error": "mixed-currencies",
+          "address": "estimate.totalRevenue"
+        }
+      ]
+    },
+    {
+      "id": "hostile-ids",
+      "note": "IDs named like prototype members, cells, R1C1, booleans and functions; case-sensitive IDs; a 64-character ID; IDs outside [A-Za-z0-9_-]{1,64} are a syntax error",
+      "items": [
+        {
+          "kind": "fields",
+          "id": "constructor",
+          "children": [
+            {
+              "id": "__proto__",
+              "fields": {
+                "toString": {
+                  "type": "number",
+                  "value": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "__proto__",
+          "children": [
+            {
+              "id": "prototype",
+              "fields": {
+                "valueOf": {
+                  "type": "number",
+                  "value": 7
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "toString",
+          "children": [
+            {
+              "id": "hasOwnProperty",
+              "fields": {
+                "constructor": {
+                  "type": "number",
+                  "value": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "ab12",
+          "children": [
+            {
+              "id": "r1c1",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 10
+                }
+              }
+            },
+            {
+              "id": "xfd1048576",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 20
+                }
+              }
+            },
+            {
+              "id": "TRUE",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 30
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "TRUE",
+          "children": [
+            {
+              "id": "FALSE",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 40
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "A1",
+          "cells": {
+            "B2": {
+              "type": "number",
+              "value": 50
+            }
+          }
+        },
+        {
+          "kind": "fields",
+          "id": "SUM",
+          "fields": {
+            "x": {
+              "type": "number",
+              "value": 60
+            }
+          }
+        },
+        {
+          "kind": "fields",
+          "id": "-x",
+          "children": [
+            {
+              "id": "--",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 70
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "123",
+          "children": [
+            {
+              "id": "456",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 80
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "children": [
+            {
+              "id": "b",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 90
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "x",
+          "children": [
+            {
+              "id": "Ab",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 1
+                }
+              }
+            },
+            {
+              "id": "aB",
+              "fields": {
+                "value": {
+                  "type": "number",
+                  "value": 2
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "fields",
+          "id": "h",
+          "fields": {
+            "proto": {
+              "type": "number",
+              "formula": "[constructor.__proto__.toString]+[__proto__.prototype.valueOf]+[toString.hasOwnProperty.constructor]"
+            },
+            "cells": {
+              "type": "number",
+              "formula": "[ab12.r1c1.value]+[ab12.xfd1048576.value]+[ab12.TRUE.value]+[TRUE.FALSE.value]"
+            },
+            "odd": {
+              "type": "number",
+              "formula": "[A1.B2]+[SUM.x]+[-x.--.value]+[123.456.value]+[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b.value]"
+            },
+            "case": {
+              "type": "number",
+              "formula": "[x.Ab.value]*10+[x.aB.value]"
+            },
+            "wild": {
+              "type": "number",
+              "formula": "SUM([ab12.*.value])"
+            },
+            "notid": {
+              "type": "number",
+              "formula": "[x.a b.value]"
+            },
+            "long": {
+              "type": "number",
+              "formula": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b.value]"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "h.proto": 13,
+        "h.cells": 100,
+        "h.odd": 350,
+        "h.case": 12,
+        "h.wild": 60,
+        "h.notid": {
+          "error": "syntax"
+        },
+        "h.long": {
+          "error": "syntax"
+        }
+      },
+      "warnings": [
+        {
+          "error": "syntax",
+          "address": "h.notid"
+        },
+        {
+          "error": "syntax",
+          "address": "h.long"
+        }
+      ]
+    }
+  ]
+}

@@ -21,6 +21,7 @@ sources:
   - 'OpenSpec change spike-renderer, findings.md: the view CSP, the catalog renderer and the diagram renderers in Chromium, Firefox, WebKit, Chrome and Edge (2026-10-29 and 2026-10-30)'
   - 'OpenSpec change spike-formula, findings.md: IronCalc 0.9.1 and the own restricted evaluator in Bun, Node, Chromium, Firefox and WebKit, and the function whitelist (2026-10-30)'
   - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
+  - 'OpenSpec change compute-engine, proposal.md, open question 2: compute writes the PERT and CPM expressions (accepted by the PO, 2026-10-31)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -390,7 +391,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Declarations in `contract`:** per widget type:
     - its addressable fields;
     - how its children are addressed;
-    - each built-in derived field, as an expression over whitelisted functions. The whitelist is the operators `+ - * /`, unary minus, `^` and `= <> < <= > >=`, and the functions `SUM`, `MIN`, `MAX`, `IF`, `ROUND`, `AND`, `SQRT`, `SUMSQ`, `SUMPRODUCT`, `ROUNDUP` and `WORKDAY`, with Excel's semantics. `contract` holds the list, and `compute` holds fixtures for each entry. PERT, roll-ups, CPM scheduling and scores are written with them.
+    - each built-in derived field, as an expression over whitelisted functions. The whitelist is the operators `+ - * /`, unary minus, `^` and `= <> < <= > >=`, and the functions `SUM`, `MIN`, `MAX`, `IF`, `ROUND`, `AND`, `SQRT`, `SUMSQ`, `SUMPRODUCT`, `ROUNDUP` and `WORKDAY`, with Excel's semantics. `contract` holds the list, and `compute` holds fixtures for each entry. PERT, roll-ups, CPM scheduling and scores are written with them; `compute` writes the expressions of PERT and CPM scheduling, whose number of terms depends on the tree and the dependencies, and checks them against the whitelist like any other formula.
   - **References:**
     - A reference is the item ID, then at most one child ID, which is unique within its item (AD-7), then a `*` for each further child level, then the field: `[wbs.ux.optimistic]`, `[wbs.design.*.expected]`, `[wbs.*.expected]`. A `*` stands for the children of the node before it, in document order. A Tree move does not change a reference. Spreadsheet cells are `[item-id.A1]`, which no field name may match. A range of cells is `[item-id.A1:B3]`: it reads row by row and holds at most 65,536 cells. The grammar lives in `contract`.
   - **The graph:**
