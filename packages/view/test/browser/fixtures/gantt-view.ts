@@ -316,3 +316,55 @@ export const alignment = (gantt: GanttParts) =>
       };
     });
   });
+
+/** A task's predecessors panel. */
+export const panelOf = (gantt: GanttParts, task: string): Locator =>
+  gantt.root.locator(`[data-gantt-panel="${task}"]`);
+
+/** Each box of a predecessors panel: its task's name, whether it is checked or disabled, and why. */
+export const panelFacts = (panel: Locator) =>
+  panel.getByRole("checkbox").evaluateAll((boxes) =>
+    boxes.map((box) => {
+      const label = box.ownerDocument.querySelector(`label[for="${CSS.escape(box.id)}"]`);
+      const reasonId = box.getAttribute("aria-describedby");
+      const reason = reasonId === null ? null : box.ownerDocument.getElementById(reasonId);
+      return {
+        task: (label?.textContent ?? "").trim(),
+        checked: box.getAttribute("aria-checked") === "true",
+        disabled: (box as HTMLButtonElement).disabled,
+        reason: (reason?.textContent ?? "").trim(),
+      };
+    }),
+  );
+
+/** The name of the view's focused checkbox, by its label; undefined for anything else. */
+export const focusedBox = async (board: Board) => {
+  const view = await board.viewFrame();
+  return view.evaluate(() => {
+    const active = document.activeElement;
+    if (!document.hasFocus() || active?.getAttribute("role") !== "checkbox") return undefined;
+    const label = document.querySelector(`label[for="${CSS.escape(active.id)}"]`);
+    return (label?.textContent ?? "").trim();
+  });
+};
+
+/**
+ * A Gantt at both predecessor limits: fifty tasks depend on Source, so Source has fifty
+ * dependents, and Hub depends on those fifty; X depends on nothing.
+ */
+export const LIMITS_TASKS: readonly GanttOwnTask[] = [
+  { id: "src", label: "Source", duration: 1 },
+  ...Array.from({ length: 50 }, (_, index) => ({
+    id: `p${index + 1}`,
+    label: `P ${index + 1}`,
+    duration: 1,
+    dependencies: ["src"],
+  })),
+  {
+    id: "hub",
+    label: "Hub",
+    duration: 1,
+    dependencies: Array.from({ length: 50 }, (_, index) => `p${index + 1}`),
+  },
+  { id: "x", label: "X", duration: 1 },
+];

@@ -83,10 +83,10 @@ describe("bun run build:view (design decision 7)", () => {
     expect(manifest.boardPage.html.path).toBe("board-page.html");
   });
 
-  test("it lists the Gantt's chunk, needing the shell, React and compute, and compute's (gantt-widget design decisions 7 and 11)", () => {
-    // Radix joins the Gantt's needs with its first Radix control (task 6.4).
+  test("it lists the Gantt's chunk, needing the shell, React, Radix and compute, and compute's (gantt-widget design decisions 7 and 11)", () => {
+    // Radix joined the Gantt's needs with its first Radix control, the predecessors' Checkbox.
     expect(chunkNamed("gantt").components).toEqual(["gantt"]);
-    expect(chunkNamed("gantt").needs).toEqual(["compute", "react", "shell"]);
+    expect(chunkNamed("gantt").needs).toEqual(["compute", "radix", "react", "shell"]);
     expect(chunkNamed("compute").needs).toEqual([]);
   });
 
@@ -309,7 +309,15 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
   test("the selection takes them for a board holding a Gantt, and not for the plain Choice board", () => {
     const names = (document: ViewDocument) =>
       selectChunks(document, manifest).map(({ name }) => name);
-    expect(names(ganttBoardDocument)).toEqual(["compute", "ext-apps", "react", "shell", "gantt"]);
+    // Each chunk after the chunks it needs: Radix after React.
+    expect(names(ganttBoardDocument)).toEqual([
+      "compute",
+      "ext-apps",
+      "react",
+      "radix",
+      "shell",
+      "gantt",
+    ]);
     expect(names(plainChoiceBoardDocument)).toContain("choice");
     expect(names(plainChoiceBoardDocument)).not.toContain("gantt");
     expect(names(plainChoiceBoardDocument)).not.toContain("compute");

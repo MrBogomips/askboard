@@ -3,8 +3,8 @@
 // region that scrolls sideways, then the legend under them: task, critical path and "your change"
 // (colour page). The scrolling region keeps out of the Tab order, so that the grid stays the
 // Gantt's one Tab stop: the grid carries every keyboard path. The frame holds the grid's view
-// state, its focus and its editor, and lays the chart's rows out under the grid's, a note's line
-// included, so that each bar stays beside its row.
+// state, its focus, its editor and its predecessors panel, and lays the chart's rows out under the
+// grid's, a note's line included, so that each bar stays beside its row.
 
 import { useCallback, useMemo } from "react";
 import { Chart } from "./chart.tsx";
@@ -13,11 +13,11 @@ import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
 import { clearStart } from "./model/edits.ts";
-import type { EditedColumn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
 import type { Zoom } from "./model/scale.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
-import type { GanttOwnProps, GanttRow } from "./model/tasks.ts";
+import type { GanttColumn, GanttOwnProps, GanttRow } from "./model/tasks.ts";
+import { usePanelState } from "./panel-state.ts";
 
 const Swatch = ({ className }: { readonly className: string }) => (
   <span aria-hidden="true" className={`inline-block ${className}`} />
@@ -70,10 +70,16 @@ export const GanttFrame = (props: FrameProps) => {
   const focus = useGridFocus(rows);
   const { table } = focus;
   const focusCell = useCallback(
-    (taskId: string, column: EditedColumn) => cellElement(table.current, taskId, column)?.focus(),
+    (taskId: string, column: GanttColumn) => cellElement(table.current, taskId, column)?.focus(),
     [table],
   );
   const editing = useCellEditing({ current, sent, rows, schedules, onCommit, focusCell });
+  const panels = usePanelState({
+    current,
+    sent,
+    onCommit,
+    focusCell: (taskId) => focusCell(taskId, "dependencies"),
+  });
   const refused = editing.editing?.refusal;
   const notes = useMemo(
     () => new Map(refused === undefined ? [] : [[editing.editing?.taskId ?? "", refused] as const]),
@@ -86,6 +92,7 @@ export const GanttFrame = (props: FrameProps) => {
     focus,
     editing,
     onClear: (row) => onCommit(clearStart(current, sent, row.id)),
+    onOpenPanel: panels.open,
   });
   return (
     <div className="flex flex-col rounded-md border border-border bg-card">
@@ -98,6 +105,8 @@ export const GanttFrame = (props: FrameProps) => {
             schedules={schedules}
             notes={notes}
             editing={editing}
+            panels={panels}
+            current={current}
             table={table}
             stop={focus.stop}
             onKeyDown={onKeyDown}

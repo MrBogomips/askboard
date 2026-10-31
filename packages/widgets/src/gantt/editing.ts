@@ -14,7 +14,7 @@ import {
   startEntry,
 } from "./model/entries.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
-import type { GanttOwnProps, GanttRow } from "./model/tasks.ts";
+import type { GanttColumn, GanttOwnProps, GanttRow } from "./model/tasks.ts";
 
 export type Editing = {
   readonly taskId: string;
@@ -41,7 +41,7 @@ type EditingArgs = {
   /** Puts the Gantt's next value into the draft. */
   readonly onCommit: (value: GanttOwnProps) => void;
   /** Focuses a cell of the grid. */
-  readonly focusCell: (taskId: string, column: EditedColumn) => void;
+  readonly focusCell: (taskId: string, column: GanttColumn) => void;
 };
 
 const entryOf = (args: EditingArgs, editing: Editing): Entry => {

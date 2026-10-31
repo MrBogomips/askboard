@@ -3,9 +3,10 @@
 // question's text; a header row of 32px in `text-label` on `muted` ("Task", "Start", "Duration",
 // "Depends on"; provisional) and one row of 36px per task, lined up with its row of the chart: its
 // name, its start as the grid's date (`12/9/2026`), its duration in working days and its
-// predecessors' names; a note, such as a refused entry's reason, takes a line under its row. Every
-// agent string renders as text (AD-8). The grid is one Tab stop (`grid-focus.ts`); its keys are
-// read on its cells only, so that an editor inside a cell keeps its own (`grid-keys.ts`).
+// predecessors' names, over their panel while it is open; a note, such as a refused entry's reason,
+// takes a line under its row. Every agent string renders as text (AD-8). The grid is one Tab stop
+// (`grid-focus.ts`); its keys are read on its cells only, so that an editor or a panel inside a
+// cell keeps its own (`grid-keys.ts`).
 
 import { questionTextId } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
@@ -14,7 +15,14 @@ import type { CellEditing } from "./editing.ts";
 import { gridDate } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
-import { GANTT_COLUMNS, type GanttColumn, type GanttRow } from "./model/tasks.ts";
+import {
+  GANTT_COLUMNS,
+  type GanttColumn,
+  type GanttOwnProps,
+  type GanttRow,
+} from "./model/tasks.ts";
+import { PredecessorsPanel } from "./panel.tsx";
+import type { PanelState } from "./panel-state.ts";
 
 export const HEADERS: Readonly<Record<GanttColumn, string>> = {
   task: "Task",
@@ -76,9 +84,30 @@ type TaskRowProps = {
   /** The column of the cell that holds the grid's Tab stop, if it is in this row. */
   readonly stop: number | undefined;
   readonly editing: CellEditing;
+  readonly panels: PanelState;
+  /** The Gantt as it stands, which an open panel checks its boxes against. */
+  readonly current: GanttOwnProps;
 };
 
-const TaskRow = ({ itemId, row, schedule, names, stop, editing }: TaskRowProps) => {
+/** The predecessors panel of the row, if it is open, in its "Depends on" cell. */
+const RowPanel = ({ itemId, row, panels, current }: TaskRowProps) => {
+  const { panel } = panels;
+  if (panel?.taskId !== row.id) return null;
+  return (
+    <PredecessorsPanel
+      itemId={itemId}
+      row={row}
+      current={current}
+      panel={panel}
+      onToggle={panels.toggle}
+      onDone={panels.done}
+      onCancel={panels.cancel}
+    />
+  );
+};
+
+const TaskRow = (props: TaskRowProps) => {
+  const { itemId, row, schedule, names, stop, editing } = props;
   const edited = editing.editing?.taskId === row.id ? editing.editing : undefined;
   return (
     <tr
@@ -105,6 +134,7 @@ const TaskRow = ({ itemId, row, schedule, names, stop, editing }: TaskRowProps) 
           ) : (
             <span className="block truncate">{cellText(column, row, schedule, names)}</span>
           )}
+          {column === "dependencies" ? <RowPanel {...props} /> : null}
         </td>
       ))}
     </tr>
@@ -132,6 +162,8 @@ export type GridProps = {
   /** Each task's note, by task ID: what sits under its row. */
   readonly notes: ReadonlyMap<string, string>;
   readonly editing: CellEditing;
+  readonly panels: PanelState;
+  readonly current: GanttOwnProps;
   readonly table: Ref<HTMLTableElement>;
   /** The cell that holds the grid's Tab stop. */
   readonly stop: GridFocus | undefined;
@@ -167,6 +199,8 @@ export const Grid = (props: GridProps) => {
               names={names}
               stop={stop?.row === index ? stop.column : undefined}
               editing={props.editing}
+              panels={props.panels}
+              current={props.current}
             />
           );
           if (note === undefined) return [task];
