@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:gantt-changes",
+  "title": "Gantt changes",
+  "description": "A Gantt's changes (AD-20, FR-20): set operations of the one generic diff on a task's field, its duration, its requested start or its predecessors, addressed as item.task.field (AD-13's reference syntax without brackets). null clears a requested start or empties the predecessors. A Gantt never adds, removes or moves a task: a plan's tasks come from its Tree. Which field goes with which form, and value ranges, are the contract's checks.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/set"
+  },
+  "$defs": {
+    "set": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "set"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}\\.(duration|start|dependencies)$"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000
+            },
+            {
+              "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate"
+            },
+            {
+              "$ref": "urn:askboard:input:gantt-props#/$defs/predecessors"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["op", "target", "value"],
+      "additionalProperties": false
+    }
+  }
+}
