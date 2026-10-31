@@ -1,11 +1,12 @@
 // The end-to-end conformance suite's runner (task 9.2, design decision 11): checks what the suite
-// needs, then runs `conformance.e2e.ts` with the session process on one runtime. The suite drives
-// the built bundle, so it stays out of `bun run check`, which builds nothing: its file name matches
-// no test pattern, and only this runner names it.
+// needs, then runs `conformance.e2e.ts` and the ask lifecycle's `lifecycle.e2e.ts` (ask-lifecycle,
+// task 7.2) with the session process on one runtime. The suite drives the built bundle, so it stays
+// out of `bun run check`, which builds nothing: its file names match no test pattern, and only this
+// runner names them.
 //
 // The session process is `dist/askboard.mjs` in place, serving the real `dist/view/`, and the plain
-// choice is answered on the real board page in Playwright's Chromium: run `bun run build` first, and
-// install the engine with `playwright install chromium`.
+// choice and the ask with areas are answered on the real board page in Playwright's Chromium: run
+// `bun run build` first, and install the engine with `playwright install chromium`.
 //
 // Usage: bun packages/server/test/conformance/run.ts --runtime bun|node
 //   --runtime  the runtime of the session process: Bun (this one), or Node 24.22.1 or later found
@@ -16,7 +17,10 @@ import { join } from "node:path";
 import { meetsNodeFloor, parseOptions, type RunOptions } from "./options.ts";
 
 const ROOT = join(import.meta.dir, "..", "..", "..", "..");
-const SUITE = "./packages/server/test/conformance/conformance.e2e.ts";
+const SUITES = [
+  "./packages/server/test/conformance/conformance.e2e.ts",
+  "./packages/server/test/conformance/lifecycle.e2e.ts",
+];
 
 // The runtime's executable: Bun is this process; Node is the one the repository's PATH gives, its
 // real path, since a version manager's shim chooses by the working folder.
@@ -61,7 +65,7 @@ export const main = async (
     return 2;
   }
   log(`conformance: the session process on ${options.runtime} (${runtime.path})`);
-  const suite = Bun.spawn([process.execPath, "test", SUITE, "--timeout", "60000"], {
+  const suite = Bun.spawn([process.execPath, "test", ...SUITES, "--timeout", "60000"], {
     cwd: ROOT,
     stdio: ["inherit", "inherit", "inherit"],
     env: {
