@@ -3,7 +3,8 @@
 // own and never goes in the draft (open question 8), so expanding and collapsing change nothing an
 // answer carries. The treegrid has one Tab stop, the focused row or cell, and its keys and clicks
 // change the view through the model (`keys.ts`, `focus.ts`); the DOM focus follows the view's
-// after a key, and after a click that hides the focused row.
+// after a key, after a click that hides the focused row and after the cell editor closes by key
+// (`editing.tsx`), whose keys are its own while it is open.
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
 import {
@@ -15,11 +16,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
+import { treeKeyOf } from "./key-event.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction } from "./model/keys.ts";
 import { type TreeRow, visibleRows } from "./model/rows.ts";
-import { chevronNodeOf, focusTargetOf, treeKeyOf } from "./targets.ts";
+import { chevronNodeOf, focusTargetOf } from "./targets.ts";
 
 const NO_COLUMNS: readonly TreeColumn[] = [];
 
@@ -34,12 +37,22 @@ const shownView = (view: TreeView, rows: readonly TreeRow[]): TreeView => {
 };
 
 export const TreeWidget = ({
+  itemId,
+  sent,
   value,
   labelledBy,
+  disabled,
+  onValueChange,
 }: {
+  readonly itemId: string;
+  /** The agent's props, checked. */
+  readonly sent: TreeProps;
   readonly value: TreeProps;
   /** The ID of the question's text, which names the treegrid. */
   readonly labelledBy: string;
+  /** The question is answered, being sent or locked: the Tree edits nothing. */
+  readonly disabled: boolean;
+  readonly onValueChange: (value: TreeProps | undefined) => void;
 }) => {
   const [stored, setView] = useState(() => openView(value));
   const rows = useMemo(
@@ -61,13 +74,27 @@ export const TreeWidget = ({
     refocus.current = moveFocus;
     setView(next);
   };
+  const { editing, start } = useCellEditing({
+    itemId,
+    sent,
+    value,
+    rows,
+    disabled,
+    onValueChange,
+    onClosed: (moveFocus) => {
+      refocus.current = moveFocus;
+    },
+  });
 
-  // Every key the Tree binds has its default prevented, even when it changes nothing.
+  // Every key the Tree binds has its default prevented, even when it changes nothing. While a
+  // cell is edited, its editor handles the keys.
   const onKeyDown = (event: KeyboardEvent<HTMLTableElement>): void => {
+    if (editing !== undefined) return;
     const action = keyAction(treeKeyOf(event), "navigation");
     if (action === undefined) return;
     event.preventDefault();
     if (action.kind === "focus") show(navigate(view, action.move, value), true);
+    else if (action.kind === "startEdit" && view.focus !== undefined) start(view.focus);
   };
 
   // A row or cell focused by a click, or by the DOM focus moving to the Tab stop.
@@ -77,9 +104,10 @@ export const TreeWidget = ({
   };
 
   // A chevron is clicked without taking the focus; it keeps the focus on its row, or moves it to
-  // the node when the focused row is in the branch it hides.
+  // the node when the focused row is in the branch it hides. While a cell is edited, the click
+  // takes the focus, so that the editor commits first.
   const onMouseDown = (event: MouseEvent<HTMLTableElement>): void => {
-    if (chevronNodeOf(event.target) !== undefined) event.preventDefault();
+    if (editing === undefined && chevronNodeOf(event.target) !== undefined) event.preventDefault();
   };
   const onClick = (event: MouseEvent<HTMLTableElement>): void => {
     const nodeId = chevronNodeOf(event.target);
@@ -95,6 +123,7 @@ export const TreeWidget = ({
       columns={value.columns ?? NO_COLUMNS}
       rows={rows}
       focus={view.focus}
+      editing={editing}
       labelledBy={labelledBy}
       onKeyDown={onKeyDown}
       onFocus={onFocus}

@@ -5,6 +5,9 @@
 import type { TreeColumn, TreeNode } from "@askboard/contract";
 import { formatNumber } from "../shared/number.ts";
 
+/** The name column's header. The wording is not recorded in EXPERIENCE.md. */
+export const NAME_COLUMN = "Name";
+
 /** The text of the node's field in `column`: empty when the node has none. */
 export const fieldText = (node: TreeNode, column: TreeColumn): string => {
   const value = Object.hasOwn(node, column.field) ? node[column.field] : undefined;

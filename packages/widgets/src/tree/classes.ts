@@ -34,6 +34,12 @@ export const FIELD_CELL: Readonly<Record<TreeColumnType, string>> = {
   text: "w-48 truncate px-2",
 };
 
+/** A field's cell while it is edited: text cells no longer clip, so the editor's ring shows. */
+export const EDITED_FIELD_CELL: Readonly<Record<TreeColumnType, string>> = {
+  number: FIELD_CELL.number,
+  text: "w-48 px-2",
+};
+
 /** A field's column header, as wide and aligned as its cells. */
 export const FIELD_HEADER: Readonly<Record<TreeColumnType, string>> = {
   number: "w-36 px-2 text-right",
@@ -69,3 +75,25 @@ export const CHEVRON_OPEN = "rotate-90";
 export const NAME = "truncate";
 
 export const PARENT_NAME = "truncate font-semibold";
+
+// The input atoms' look (DESIGN.md, Input atoms) with the focus ring, as on every focusable
+// element, and the destructive border of a refused entry.
+const EDITOR_BASE =
+  "h-[28px] w-full min-w-0 rounded-md border border-input bg-card px-1.5 text-body " +
+  "text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 " +
+  "focus-visible:outline-ring aria-invalid:border-destructive";
+
+/** The cell editor and, under it, a number's echo; it takes the cell's width. */
+export const EDITOR_BOX = "flex min-w-0 flex-1 flex-col gap-0.5 py-1";
+
+/** A name's or a text's editor, in the input atoms' look, its border `field-error`'s when refused. */
+export const EDITOR = EDITOR_BASE;
+
+/** A number's editor: a text input, right-aligned in the code face as the cell's number is. */
+export const NUMBER_EDITOR = `${EDITOR_BASE} text-right font-mono text-code`;
+
+/** A number's parsed value, echoed in the code face (DESIGN.md, Input atoms). */
+export const ECHO = "text-right font-mono text-code text-muted-foreground";
+
+/** The `field-error` line under the edited row (DESIGN.md, Field error). */
+export const FIELD_ERROR = "px-2 pb-1.5 text-body text-destructive-text";

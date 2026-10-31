@@ -33,14 +33,21 @@ const checkedProps = (itemId: string, props: unknown): TreeProps => {
   throw new Error(`the Tree "${itemId}" refuses its props: ${listed}`);
 };
 
-const Tree = ({ item, questionId, value, ready }: TreeComponentProps) => {
+const Tree = ({ item, questionId, value, onValueChange, disabled, ready }: TreeComponentProps) => {
   // The check throws before the item can report ready.
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
   useReadyAfterLayout(ready);
   return (
     <div className={FRAME}>
       <div className={TOOLBAR} />
-      <TreeWidget value={value ?? sent} labelledBy={questionTextId(questionId)} />
+      <TreeWidget
+        itemId={item.id}
+        sent={sent}
+        value={value ?? sent}
+        labelledBy={questionTextId(questionId)}
+        disabled={disabled}
+        onValueChange={onValueChange}
+      />
     </div>
   );
 };

@@ -3,7 +3,6 @@
 // `data-chevron`. The grid handles its rows' events in one place (design decision 6).
 
 import type { TreeFocus } from "./model/focus.ts";
-import type { TreeKey } from "./model/keys.ts";
 
 const NODE = "data-node-id";
 const CELL = "data-cell";
@@ -22,20 +21,3 @@ export const chevronNodeOf = (target: EventTarget | null): string | undefined =>
   if (!(target instanceof Element)) return undefined;
   return target.closest("[data-chevron]")?.closest(`[${NODE}]`)?.getAttribute(NODE) ?? undefined;
 };
-
-/** The fields of a keyboard event the model's `keyAction` reads. */
-export const treeKeyOf = (event: {
-  readonly key: string;
-  readonly altKey: boolean;
-  readonly ctrlKey: boolean;
-  readonly metaKey: boolean;
-  readonly shiftKey: boolean;
-  readonly nativeEvent: { readonly isComposing: boolean };
-}): TreeKey => ({
-  key: event.key,
-  altKey: event.altKey,
-  ctrlKey: event.ctrlKey,
-  metaKey: event.metaKey,
-  shiftKey: event.shiftKey,
-  isComposing: event.nativeEvent.isComposing,
-});
