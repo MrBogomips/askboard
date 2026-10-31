@@ -4,8 +4,11 @@
 // (`components.ts`) is for the renderer and `assemble` inside `view`.
 
 export {
+  type BoardContent,
+  type BoardItem,
   type CatalogComponent,
   componentFor,
+  type DerivedValues,
   type ItemProps,
   questionTextId,
   register,

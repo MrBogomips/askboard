@@ -1,5 +1,9 @@
 import { describe, expect, mock, test } from "bun:test";
-import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  ganttBoardDocument,
+  lifecycleBoardDocument,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
 import type { ViewDocument, WidgetItem } from "../view-document.ts";
 import { createReadyTracker, type QuestionItems, questionItemsOf } from "./ready-tracker.ts";
 
@@ -147,5 +151,17 @@ describe("a board of several questions or of areas (ask-lifecycle, design decisi
     tracker.readyFor("b")();
     expect(tracker.questionStatus("b")).toBe("visible");
     expect(visible.mock.calls).toEqual([["a"], ["b"]]);
+  });
+});
+
+describe("a Gantt item, counted by its type like any widget item (gantt-widget design decision 10)", () => {
+  test("the Gantt question has its Gantt item, and is visible once it is ready", () => {
+    const questions = questionItemsOf(ganttBoardDocument);
+    expect(questions).toEqual([{ questionId: "schedule-review", itemIds: ["release"] }]);
+    const { tracker, onVisible } = setUp(questions);
+    expect(tracker.questionStatus("schedule-review")).toBe("loading");
+    tracker.readyFor("release")();
+    expect(tracker.questionStatus("schedule-review")).toBe("visible");
+    expect(onVisible.mock.calls).toEqual([["schedule-review"]]);
   });
 });

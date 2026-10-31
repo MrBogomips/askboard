@@ -1,10 +1,17 @@
 import { describe, expect, mock, test } from "bun:test";
-import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  lifecycleBoardDocument,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
 import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
 import { CHOICE, componentsOf, renderedOf } from "./components.ts";
 import {
+  type BoardContent,
   type CatalogComponent,
   componentFor,
+  type DerivedValues,
   type ItemProps,
   readyEffect,
   register,
@@ -59,6 +66,13 @@ describe("which component renders an item (AD-9, design decision 7)", () => {
     expect(renderedOf(holding)).toEqual([{ item: nested, component: "question" }]);
   });
 
+  test("a Gantt item renders with the component gantt, by its type (gantt-widget design decision 10)", () => {
+    const [schedule] = ganttBoardDocument.items;
+    const [release] = schedule.props.items;
+    expect(renderedOf(schedule)).toEqual([{ item: release, component: "gantt" }]);
+    expect(componentsOf(ganttBoardDocument)).toEqual(["gantt"]);
+  });
+
   test("a board needs each component once", () => {
     expect(componentsOf(plainChoiceBoardDocument)).toEqual(["choice"]);
     expect(componentsOf(withItems([sketch, { ...sketch, id: "second" }]))).toEqual([
@@ -109,6 +123,8 @@ describe("the port carries any item and any value (design decision 7)", () => {
       onValueChange: (value) => changes.push(value),
       disabled: false,
       ready: () => {},
+      board: { items: [], draft: new Map() },
+      onDerived: () => {},
     };
     componentFor("test-probe-props")?.(props);
     const [got] = seen;
@@ -118,6 +134,40 @@ describe("the port carries any item and any value (design decision 7)", () => {
     got?.onValueChange({ size: 4 });
     got?.onValueChange(undefined);
     expect(changes).toEqual([{ size: 4 }, undefined]);
+  });
+});
+
+describe("the port gives a component its board and takes its derived values (gantt-widget design decisions 7 and 10)", () => {
+  test("it gets the board's items as sent and the draft record, and reports derived values", () => {
+    const seen: ItemProps<WidgetItem>[] = [];
+    register<WidgetItem, unknown>("test-board", (props) => {
+      seen.push(props);
+      return null;
+    });
+    const [schedule] = ganttBoardDocument.items;
+    const [release] = schedule.props.items;
+    const board: BoardContent = {
+      items: [release],
+      draft: new Map([["release", ganttEditedValue]]),
+    };
+    const reports: DerivedValues[] = [];
+    componentFor("test-board")?.({
+      item: release,
+      questionId: schedule.id,
+      value: ganttEditedValue,
+      onValueChange: () => {},
+      disabled: false,
+      ready: () => {},
+      board,
+      onDerived: (values) => reports.push(values),
+    });
+    const [got] = seen;
+    expect(got?.board.items).toEqual([release]);
+    expect(got?.board.draft.get("release")).toBe(ganttEditedValue);
+    got?.onDerived({ "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] });
+    expect(reports).toEqual([
+      { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] },
+    ]);
   });
 });
 
