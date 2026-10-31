@@ -3,7 +3,10 @@
 // start, duration or predecessors, and Delete or Backspace on a start clears the request; in edit
 // mode, Enter commits and Escape cancels, and the field keeps every other key. A plan's toolbar is
 // a second Tab stop with roving focus. Each key acts with no modifier held; with one it does
-// nothing. A key with no action is left to the browser; one with an action prevents its default.
+// nothing. A key with an action prevents its default; so does each of the grid's own keys where it
+// has none, such as Backspace on a name or in a read-only Gantt, which WebKit would take for "go
+// back" (view spec, "Gantt keyboard": these keys trigger no browser action); any other key is left
+// to the browser.
 
 import type { GanttColumn } from "./tasks.ts";
 
@@ -72,6 +75,10 @@ const TOOLBAR_KEYS: ReadonlyMap<string, ToolMove> = new Map([
 
 const modified = (press: KeyPress): boolean =>
   press.shiftKey || press.ctrlKey || press.altKey || press.metaKey;
+
+/** Whether a key is one of the grid's own, with no modifier held, whatever it does where it is. */
+export const isGridKey = (press: KeyPress): boolean =>
+  !modified(press) && NAVIGATION_KEYS.has(press.key);
 
 /** What a key does in the grid, or undefined when it is not the grid's. */
 export const gridKeyAction = (press: KeyPress, context: GridKeyContext): GridAction | undefined => {

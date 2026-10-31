@@ -1,13 +1,16 @@
 // The Gantt's widget frame (design decision 9; DESIGN.md Base controls, Widget frame, and Widgets,
-// Gantt): a bordered box holding the body, the grid on the left and the chart on the right in a
-// region that scrolls sideways, then the legend under them: task, critical path and "your change"
-// (colour page). The scrolling region keeps out of the Tab order, so that the grid stays the
+// Gantt): a bordered box holding the toolbar row with the change counter, the body, the grid on
+// the left and the chart on the right in a region that scrolls sideways, then the legend under
+// them (`chrome.tsx`). A task the user changed takes the change outline on its bar and the change
+// fill on its changed cells (`model/marks.ts`); a read-only Gantt keeps its navigation and turns
+// its editors, its panel and its pointer edits off (AD-10, AD-21). The scrolling region keeps out of the Tab order, so that the grid stays the
 // Gantt's one Tab stop: the grid carries every keyboard path. The frame holds the grid's view
 // state, its focus, its editor and its predecessors panel, and lays the chart's rows out under the
 // grid's, a note's line included, so that each bar stays beside its row.
 
 import { useCallback, useMemo } from "react";
 import { Chart } from "./chart.tsx";
+import { Legend, Toolbar } from "./chrome.tsx";
 import { type Editing, useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
@@ -15,6 +18,7 @@ import { gridKeyHandler } from "./grid-keys.ts";
 import { clearStart, setDuration } from "./model/edits.ts";
 import { landOn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
+import { changeCount, ownTaskMarks } from "./model/marks.ts";
 import { scheduleNote } from "./model/notes.ts";
 import type { Zoom } from "./model/scale.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
@@ -47,27 +51,6 @@ const useNotes = (
   );
 };
 
-const Swatch = ({ className }: { readonly className: string }) => (
-  <span aria-hidden="true" className={`inline-block ${className}`} />
-);
-
-const Legend = () => (
-  <div className="flex items-center gap-4 border-t border-border px-2 py-1.5 text-badge text-muted-foreground">
-    <span className="inline-flex items-center gap-1.5">
-      <Swatch className="h-[8px] w-[16px] bg-gantt-bar" />
-      task
-    </span>
-    <span className="inline-flex items-center gap-1.5">
-      <Swatch className="h-[8px] w-[16px] bg-critical" />
-      critical path
-    </span>
-    <span className="inline-flex items-center gap-1.5">
-      <Swatch className="mx-0.5 h-[6px] w-[12px] outline-2 outline-offset-1 outline-change" />
-      your change
-    </span>
-  </div>
-);
-
 export type FrameProps = {
   readonly itemId: string;
   readonly questionId: string;
@@ -79,6 +62,8 @@ export type FrameProps = {
   /** Puts the Gantt's next value into the draft. */
   readonly onCommit: (value: GanttOwnProps) => void;
   readonly zoom: Zoom;
+  /** Whether the Gantt takes edits: false while its question is answered, sent or locked. */
+  readonly editable: boolean;
 };
 
 /** The axis's span: from the plan's start, or an earlier start, past the last finish. */
@@ -94,7 +79,7 @@ const spanOf = (start: string, schedules: readonly TaskSchedule[]) => {
 };
 
 export const GanttFrame = (props: FrameProps) => {
-  const { itemId, rows, schedules, current, sent, onCommit } = props;
+  const { itemId, rows, schedules, current, sent, onCommit, editable } = props;
   const focus = useGridFocus(rows);
   const { table } = focus;
   const focusCell = useCallback(
@@ -108,7 +93,9 @@ export const GanttFrame = (props: FrameProps) => {
     onCommit,
     focusCell: (taskId) => focusCell(taskId, "dependencies"),
   });
-  const notes = useNotes(itemId, rows, schedules, editing.editing);
+  // A read-only Gantt shows no editor, and no refusal of one.
+  const notes = useNotes(itemId, rows, schedules, editable ? editing.editing : undefined);
+  const marks = useMemo(() => ownTaskMarks(current, sent), [current, sent]);
   const layout = useMemo(() => rowBoxes(rows.map((row) => notes.has(row.id))), [rows, notes]);
   const span = useMemo(() => spanOf(current.start, schedules), [current.start, schedules]);
   const onKeyDown = gridKeyHandler({
@@ -117,9 +104,11 @@ export const GanttFrame = (props: FrameProps) => {
     editing,
     onClear: (row) => onCommit(clearStart(current, sent, row.id)),
     onOpenPanel: panels.open,
+    editable,
   });
   return (
     <div className="flex flex-col rounded-md border border-border bg-card">
+      <Toolbar count={changeCount(marks)} />
       <div className="flex">
         <div className="w-[480px] shrink-0 border-r border-border">
           <Grid
@@ -131,6 +120,8 @@ export const GanttFrame = (props: FrameProps) => {
             editing={editing}
             panels={panels}
             current={current}
+            marks={marks}
+            editable={editable}
             table={table}
             stop={focus.stop}
             onKeyDown={onKeyDown}
@@ -145,7 +136,8 @@ export const GanttFrame = (props: FrameProps) => {
             layout={layout}
             span={span}
             zoom={props.zoom}
-            editable={true}
+            marks={marks}
+            editable={editable}
             onMove={(taskId, day, earliest) =>
               onCommit(landOn(current, sent, taskId, day, earliest))
             }

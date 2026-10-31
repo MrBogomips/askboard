@@ -15,6 +15,7 @@ import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { AXIS_HEIGHT, arrowPath, type RowBoxes } from "./model/layout.ts";
+import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
 import { PIXELS_PER_DAY, ticks, type Zoom } from "./model/scale.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
@@ -130,6 +131,8 @@ export type ChartProps = {
   readonly layout: RowBoxes;
   readonly span: ChartSpan;
   readonly zoom: Zoom;
+  /** What the user changed, by task: a changed task's bar takes the change outline. */
+  readonly marks: ReadonlyMap<string, TaskMarks>;
   /** Whether the bars take pointer edits. */
   readonly editable: boolean;
   /** A bar dropped on a day: its task asks for it, or holds no request on its earliest start. */
@@ -190,6 +193,7 @@ export const Chart = (props: ChartProps) => {
             key={bar.id}
             bar={bar}
             drawn={bar === dragged && drag ? draggedBox(bar, drag, span, zoom) : bar.box}
+            changed={props.marks.get(bar.id)?.changed === true}
             draggable={props.editable}
             onPress={press}
             onMove={move}

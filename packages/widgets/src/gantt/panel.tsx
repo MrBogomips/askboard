@@ -66,7 +66,8 @@ export const PredecessorsPanel = (props: PanelProps) => {
     else if (press.key === "Escape") props.onCancel();
     else if (press.key === "ArrowDown") moveFrom(event.target, 1);
     else if (press.key === "ArrowUp") moveFrom(event.target, -1);
-    else return;
+    // Nothing to delete in the panel: no "go back" either.
+    else if (press.key !== "Backspace" && press.key !== "Delete") return;
     event.preventDefault();
   };
   return (

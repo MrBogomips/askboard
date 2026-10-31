@@ -4,6 +4,7 @@ import {
   type GridAction,
   type GridKeyContext,
   gridKeyAction,
+  isGridKey,
   type KeyPress,
   toolbarKeyMove,
 } from "./keys.ts";
@@ -110,6 +111,36 @@ describe("the grid's keys", () => {
   test("give frozen actions", () => {
     expect(Object.isFrozen(gridKeyAction(press("ArrowUp"), NAVIGATE_START))).toBe(true);
     expect(Object.isFrozen(gridKeyAction(press("Enter"), EDIT_START))).toBe(true);
+  });
+});
+
+describe("a key of the grid's", () => {
+  test.each([
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+    "Home",
+    "End",
+    "Enter",
+    "F2",
+    "Delete",
+    "Backspace",
+  ])("is %s, with no modifier, whatever it does there", (key) => {
+    expect(isGridKey(press(key))).toBe(true);
+  });
+
+  test.each([
+    ["Tab", {}],
+    ["Escape", {}],
+    ["a", {}],
+    ["PageDown", {}],
+    ["Backspace", { metaKey: true }],
+    ["ArrowLeft", { altKey: true }],
+    ["Home", { ctrlKey: true }],
+    ["End", { shiftKey: true }],
+  ] as const)("is not %s with %p", (key, modifiers) => {
+    expect(isGridKey(press(key, modifiers))).toBe(false);
   });
 });
 

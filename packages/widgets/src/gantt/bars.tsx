@@ -1,6 +1,7 @@
 // The chart's bars (design decision 9; DESIGN.md Widgets, Gantt): per task the graph scheduled, a
 // 14px bar in `gantt-bar`, or in `critical` on the critical path, with a 6px handle on its end
-// that resizes it in a Gantt with its own tasks; the press that drags either is `bar-drag.ts`'s.
+// that resizes it in a Gantt with its own tasks; the press that drags either is `bar-drag.ts`'s. A
+// task the user changed takes the 2px `change` outline, offset by 1px (`gantt-user-change`).
 // While a bar is dragged it is drawn where it would land (`model/preview.ts`), and a move shows
 // its earliest start as the guide, a 1px dashed line in `muted-foreground` over its row (proposal,
 // open question 7). Geometry as SVG attributes, colours and widths as token classes (AD-8).
@@ -55,6 +56,8 @@ type BarShapeProps = {
   readonly bar: DrawnBar;
   /** Where the bar is drawn while it is dragged; its own box otherwise. */
   readonly drawn: BarBox;
+  /** Whether the user changed the task: its bar takes the change outline. */
+  readonly changed: boolean;
   /** Whether the user may drag it; a read-only Gantt's bars do not move. */
   readonly draggable: boolean;
   readonly onPress: Press;
@@ -63,7 +66,10 @@ type BarShapeProps = {
   readonly onCancel: () => void;
 };
 
-export const BarShape = memo(({ bar, drawn, draggable, ...on }: BarShapeProps) => {
+/** The outline's inset from the bar: a 2px stroke centred 2px out leaves a 1px gap. */
+const OUTLINE = 2;
+
+export const BarShape = memo(({ bar, drawn, changed, draggable, ...on }: BarShapeProps) => {
   const pointer = (kind: DragKind) =>
     draggable
       ? {
@@ -88,6 +94,16 @@ export const BarShape = memo(({ bar, drawn, draggable, ...on }: BarShapeProps) =
         className={`${bar.critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
         {...pointer("move")}
       />
+      {changed ? (
+        <rect
+          data-gantt-change={bar.id}
+          x={drawn.x - OUTLINE}
+          y={drawn.y - OUTLINE}
+          width={drawn.width + 2 * OUTLINE}
+          height={drawn.height + 2 * OUTLINE}
+          className="pointer-events-none fill-none stroke-change stroke-2"
+        />
+      ) : null}
       {draggable ? (
         <rect
           data-gantt-handle={bar.id}

@@ -6,17 +6,19 @@
 // board it cannot schedule fails the item too; and reports ready once laid out (AD-9). A
 // standalone Gantt shows the week scale (proposal, open question 5). Each edit goes into the
 // draft record alone (AD-9, AD-20): the same value changes nothing, and a value back to the
-// agent's puts none, so that an edit undone by hand leaves the Gantt untouched.
+// agent's puts none, so that an edit undone by hand leaves the Gantt untouched. After each
+// rebuild it reports its declared derived values, which "Answer" carries; while its question is
+// answered, being sent or locked, it takes no edit.
 
 import type { GanttItem } from "@askboard/contract";
 import { type ItemProps, register, useReadyAfterLayout } from "@askboard/view/catalog";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { liveGraph } from "../graph/board-graph.ts";
 import { GanttFrame } from "./frame.tsx";
 import { sameGantt } from "./model/edits.ts";
 import { ownGanttOf } from "./model/props.ts";
 import type { Zoom } from "./model/scale.ts";
-import { scheduleOf } from "./model/schedule.ts";
+import { answerDerived, scheduleOf } from "./model/schedule.ts";
 import { type GanttOwnProps, ownTaskRows } from "./model/tasks.ts";
 
 /** A Gantt item as the board sent it: nothing reads its props before they are checked. */
@@ -31,8 +33,10 @@ const Gantt = ({
   questionId,
   value,
   onValueChange,
+  disabled,
   board,
   ready,
+  onDerived,
 }: ItemProps<SentGantt, GanttOwnProps>) => {
   const sent = useMemo(() => ownGanttOf(item), [item]);
   const current = value ?? sent;
@@ -48,6 +52,9 @@ const Gantt = ({
     },
     [current, sent, onValueChange],
   );
+  // The answer's derived values as they stand, reported after each rebuild (AD-20, FR-12).
+  const derived = useMemo(() => answerDerived(graph, item.id, rows), [graph, item.id, rows]);
+  useEffect(() => onDerived(derived), [derived, onDerived]);
   useReadyAfterLayout(ready);
   return (
     <GanttFrame
@@ -59,6 +66,7 @@ const Gantt = ({
       sent={sent}
       onCommit={commit}
       zoom={ZOOM}
+      editable={!disabled}
     />
   );
 };

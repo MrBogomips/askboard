@@ -14,7 +14,7 @@ import { join } from "node:path";
 import type { GanttOwnTask } from "@askboard/contract";
 import { ganttBoardDocument } from "@askboard/contract/fixtures";
 import type { Locator } from "playwright";
-import type { ViewDocument } from "../../../src/view-document.ts";
+import { questionsOf, type ViewDocument } from "../../../src/view-document.ts";
 import type { Board } from "../harness/dom.ts";
 
 const [schedule] = ganttBoardDocument.items;
@@ -212,14 +212,20 @@ export const tabStops = (gantt: GanttParts): Promise<number> =>
       ).length,
   );
 
-/** Presses Tab until a grid cell of the Gantt holds the focus, at most ten times. */
+/**
+ * Presses Tab until a grid cell of the Gantt holds the focus, at most ten times; or Shift+Tab when
+ * the view already holds the focus, after the grid, as the chart's region after a drag or "Answer"
+ * after a click: WebKit loses the focus for good once Tab leaves the view's last stop.
+ */
 export const tabIntoGrid = async (board: Board): Promise<string> => {
+  const view = await board.viewFrame();
+  const key = (await view.evaluate(() => document.hasFocus())) ? "Shift+Tab" : "Tab";
   for (let presses = 0; presses < 10; presses += 1) {
-    await board.page.keyboard.press("Tab");
+    await board.page.keyboard.press(key);
     const cell = await focusedCell(board);
     if (cell !== undefined) return cell;
   }
-  throw new Error("ten presses of Tab never reached the Gantt's grid");
+  throw new Error(`ten presses of ${key} never reached the Gantt's grid`);
 };
 
 /** The page's and the view's URL, history length and scroll, which the grid's keys never move. */
@@ -408,4 +414,59 @@ export const guideFacts = async (gantt: GanttParts) => {
     x: Math.floor(Number(await guide.getAttribute("x1"))),
     stroke: await guide.evaluate((line) => getComputedStyle(line).stroke),
   };
+};
+
+/** The toolbar's counter of the user's changes. */
+export const counterText = async (gantt: GanttParts): Promise<string> =>
+  ((await gantt.root.locator("[data-gantt-counter]").textContent()) ?? "").trim();
+
+/** Each change outline's task, stroke and width, in the chart's order. */
+export const changeOutlines = (gantt: GanttParts) =>
+  gantt.root.locator("[data-gantt-change]").evaluateAll((outlines) =>
+    outlines.map((outline) => ({
+      task: outline.getAttribute("data-gantt-change") ?? "",
+      stroke: getComputedStyle(outline).stroke,
+      width: getComputedStyle(outline).strokeWidth,
+    })),
+  );
+
+/** The body cells drawn in a background colour, as `task.column`, with their text's colour. */
+export const filledCells = (gantt: GanttParts, background: string) =>
+  gantt.grid.locator("[data-gantt-column]").evaluateAll(
+    (cells, fill) =>
+      cells
+        .filter((cell) => getComputedStyle(cell).backgroundColor === fill)
+        .map((cell) => ({
+          cell: `${cell.parentElement?.getAttribute("data-gantt-row")}.${cell.getAttribute("data-gantt-column")}`,
+          color: getComputedStyle(cell).color,
+        })),
+    background,
+  );
+
+/**
+ * The host page tells the view the board is locked, as the board page does when the board moved
+ * (AD-21): the widget host sends one open state, so the scenario posts the next update itself, as
+ * the board page's bridge would, from the view's parent window.
+ */
+export const sendLock = async (board: Board, document: ViewDocument): Promise<void> => {
+  const [question] = questionsOf(document);
+  if (question === undefined) throw new Error("the document holds no question");
+  const state = {
+    ask: "waiting",
+    questions: [{ itemId: question.id, rev: question.rev, state: "open" }],
+  };
+  await board.page.evaluate(
+    (update) => {
+      const frame = window.document.querySelector("iframe");
+      frame?.contentWindow?.postMessage(
+        {
+          jsonrpc: "2.0",
+          method: "ui/notifications/tool-result",
+          params: { content: [], structuredContent: update },
+        },
+        "*",
+      );
+    },
+    { type: "state", state, lock: "moved" },
+  );
 };

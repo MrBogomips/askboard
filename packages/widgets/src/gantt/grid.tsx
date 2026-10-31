@@ -14,6 +14,7 @@ import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing } from "./editing.ts";
 import { gridDate } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
+import type { TaskMarks } from "./model/marks.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
 import {
   GANTT_COLUMNS,
@@ -42,6 +43,13 @@ const COLUMN: Readonly<Record<GanttColumn, string>> = {
 /** A body cell: the anchor of its editor's echo, and the focus ring on keyboard focus. */
 const CELL =
   "relative focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+
+/** A cell the user changed: the change fill and text, with the change border (DESIGN.md). */
+const CHANGED = "bg-change-subtle text-change-text inset-ring inset-ring-change";
+
+/** Whether the user changed what a cell shows, by its column. */
+const changedIn = (column: GanttColumn, mark: TaskMarks | undefined): boolean =>
+  mark !== undefined && column !== "task" && mark[column];
 
 /** The face of each column's values: dates and numbers in the code face. */
 const FACE: Readonly<Record<GanttColumn, string>> = {
@@ -87,12 +95,16 @@ type TaskRowProps = {
   readonly panels: PanelState;
   /** The Gantt as it stands, which an open panel checks its boxes against. */
   readonly current: GanttOwnProps;
+  /** What the user changed in the task. */
+  readonly mark: TaskMarks | undefined;
+  /** Whether the Gantt takes edits: a read-only one opens no editor and no panel. */
+  readonly editable: boolean;
 };
 
 /** The predecessors panel of the row, if it is open, in its "Depends on" cell. */
-const RowPanel = ({ itemId, row, panels, current }: TaskRowProps) => {
+const RowPanel = ({ itemId, row, panels, current, editable }: TaskRowProps) => {
   const { panel } = panels;
-  if (panel?.taskId !== row.id) return null;
+  if (!editable || panel?.taskId !== row.id) return null;
   return (
     <PredecessorsPanel
       itemId={itemId}
@@ -107,8 +119,8 @@ const RowPanel = ({ itemId, row, panels, current }: TaskRowProps) => {
 };
 
 const TaskRow = (props: TaskRowProps) => {
-  const { itemId, row, schedule, names, stop, editing } = props;
-  const edited = editing.editing?.taskId === row.id ? editing.editing : undefined;
+  const { itemId, row, schedule, names, stop, editing, mark } = props;
+  const edited = props.editable && editing.editing?.taskId === row.id ? editing.editing : undefined;
   return (
     <tr
       data-gantt-row={row.id}
@@ -120,7 +132,7 @@ const TaskRow = (props: TaskRowProps) => {
           data-gantt-column={column}
           // While its editor is open, the editor holds the cell's Tab stop.
           tabIndex={index === stop && edited?.column !== column ? 0 : -1}
-          className={`${COLUMN[column]} ${FACE[column]} ${CELL}`}
+          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : ""}`}
         >
           {edited?.column === column ? (
             <CellEditor
@@ -164,6 +176,9 @@ export type GridProps = {
   readonly editing: CellEditing;
   readonly panels: PanelState;
   readonly current: GanttOwnProps;
+  /** What the user changed, by task. */
+  readonly marks: ReadonlyMap<string, TaskMarks>;
+  readonly editable: boolean;
   readonly table: Ref<HTMLTableElement>;
   /** The cell that holds the grid's Tab stop. */
   readonly stop: GridFocus | undefined;
@@ -201,6 +216,8 @@ export const Grid = (props: GridProps) => {
               editing={props.editing}
               panels={props.panels}
               current={props.current}
+              mark={props.marks.get(row.id)}
+              editable={props.editable}
             />
           );
           if (note === undefined) return [task];

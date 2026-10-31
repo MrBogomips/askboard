@@ -7,23 +7,32 @@
 // chunk is reported, the negative control that makes "no violation" mean something there. Then
 // the component (group 6): its grid beside its chart, the critical path and the legend; agent
 // strings as text; the grid's one Tab stop and its keys; starts and durations edited in the grid;
-// the predecessors panel; drags and resizes with the pointer; tasks the graph cannot schedule.
+// the predecessors panel; drags and resizes with the pointer; tasks the graph cannot schedule; the
+// change highlight and counter, the answer with its derived values, and the read-only Gantt.
 
 import { describe, expect, test } from "bun:test";
-import { type GanttOwnTask, ganttPropsProblems } from "@askboard/contract";
-import { ganttBoardDocument } from "@askboard/contract/fixtures";
+import {
+  elementChanges,
+  GANTT_SHAPE,
+  type GanttOwnTask,
+  ganttPropsProblems,
+} from "@askboard/contract";
+import { ganttBoardDocument, ganttEditedValue } from "@askboard/contract/fixtures";
 import type { ViewDocument } from "../../src/view-document.ts";
 import {
   alignment,
   arrowFacts,
   barDates,
   barFacts,
+  changeOutlines,
   colour,
+  counterText,
   criticalTasks,
   daysFrom,
   dragBy,
   editorFocused,
   endPoint,
+  filledCells,
   focusedBox,
   focusedCell,
   focusedItem,
@@ -41,6 +50,7 @@ import {
   RELEASE_TASKS,
   rowLines,
   rowTexts,
+  sendLock,
   tabIntoGrid,
   tabStops,
   withSecondGantt,
@@ -338,7 +348,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const before = { rows: await rowTexts(gantt), bars: await barFacts(gantt) };
         const page = await pageState(run.board);
         expect(await tabIntoGrid(run.board)).toBe("t1.task");
-        for (const key of ["End", "Home", "ArrowUp", "ArrowLeft", "ArrowDown", "End", "Home"]) {
+        // Then the keys that do nothing on a name: no "go back" for Backspace.
+        const keys = ["End", "Home", "ArrowUp", "ArrowLeft", "ArrowDown", "End", "Home"];
+        for (const key of [...keys, "Backspace", "Delete", "Enter", "F2"]) {
           await run.board.page.keyboard.press(key);
         }
         expect(await focusedCell(run.board)).toBe("t2.task");
@@ -790,6 +802,154 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, a changed task takes the change outline and its changed cells the change fill, a task moved only by a predecessor neither, and the counter counts each changed task once`,
+        async () => {
+          const run = await opened();
+          if (scheme === "dark") {
+            await run.board.page.emulateMedia({ colorScheme: "dark" });
+            await run.board.page.reload();
+            await eventually(
+              () => run.messages.filter((message) => message.type === "ready").length > 1,
+              "the reloaded question's ready message",
+              LOAD_TIMEOUT_MS,
+            );
+            const view = await run.board.viewFrame();
+            expect(await view.evaluate(() => document.querySelector(".dark") !== null)).toBe(true);
+          }
+          const gantt = ganttOf(run.board);
+          expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+          expect(await changeOutlines(gantt)).toEqual([]);
+          await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
+          expect(await counterText(gantt)).toBe("Your changes: 1");
+          await dragBy(run.board, await endPoint(gantt, "ux"), 2 * WEEK_PX);
+          await gantt.cell("billing", "dependencies").click();
+          await run.board.page.keyboard.press("Enter");
+          await panelOf(gantt, "billing").getByRole("checkbox", { name: "UX design" }).click();
+          await panelOf(gantt, "billing").getByRole("button", { name: "Done" }).click();
+          const change = { stroke: colour("change", scheme), width: "2px" };
+          expect(await changeOutlines(gantt)).toEqual(
+            ["ux", "billing", "reporting"].map((task) => ({ task, ...change })),
+          );
+          expect(await filledCells(gantt, colour("change-subtle", scheme))).toEqual(
+            ["ux.duration", "billing.dependencies", "reporting.start"].map((cell) => ({
+              cell,
+              color: colour("change-text", scheme),
+            })),
+          );
+          expect(await counterText(gantt)).toBe("Your changes: 3");
+          expect(run.messages.filter((message) => message.type !== "ready")).toEqual([]);
+          expect(run.browser.cspProblems()).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+
+    test(
+      "edits undone by hand disable Answer; Answer sends one message with the Gantt's edited value and derived values, whose diff gives the edits made",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        // Later, then back by typing its earliest start: no change is left.
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
+        expect(await run.board.answer.isEnabled()).toBe(true);
+        await keysTo(run.board, "reporting", "start");
+        await run.board.page.keyboard.press("Enter");
+        await run.board.page.keyboard.type("12/4/2026");
+        await run.board.page.keyboard.press("Enter");
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+        // The fixture's two edits, by keyboard.
+        await keysTo(run.board, "reporting", "start");
+        await run.board.page.keyboard.press("Enter");
+        await run.board.page.keyboard.type("12/9/2026");
+        await run.board.page.keyboard.press("Enter");
+        await keysTo(run.board, "billing", "duration");
+        await run.board.page.keyboard.press("F2");
+        await run.board.page.keyboard.type("11");
+        await run.board.page.keyboard.press("Enter");
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        await run.board.answer.click();
+        await eventually(() => run.messages.length > 1, "the answer message");
+        await Bun.sleep(QUIET_MS);
+        expect(run.messages).toEqual([
+          { type: "ready", itemId: schedule.id },
+          {
+            type: "answer",
+            itemId: schedule.id,
+            rev: schedule.rev,
+            values: { [GANTT_ID]: ganttEditedValue },
+            derived: { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] },
+            when: expect.any(String),
+          },
+        ]);
+        const answer = run.messages[1] as { values: Record<string, object> };
+        expect(
+          elementChanges(GANTT_ID, release.props, answer.values[GANTT_ID] ?? {}, GANTT_SHAPE),
+        ).toEqual([
+          { op: "set", target: "release.billing.duration", value: 11 },
+          { op: "set", target: "release.reporting.start", value: "2026-12-09" },
+        ]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // What a read-only Gantt takes: its keys move the focus, and nothing edits it.
+    const expectReadOnly = async (run: WidgetHostRun) => {
+      const gantt = ganttOf(run.board);
+      const before = { rows: await rowTexts(gantt), bars: await barFacts(gantt) };
+      expect(await gantt.root.locator("[data-gantt-handle]").count()).toBe(0);
+      await dragBy(run.board, await grabPoint(gantt, "portal"), 3 * WEEK_PX);
+      await dragBy(run.board, await grabPoint(gantt, "ux"), 2 * WEEK_PX);
+      await keysTo(run.board, "reporting", "start");
+      for (const key of ["Enter", "F2", "Delete", "Backspace"]) {
+        await run.board.page.keyboard.press(key);
+        expect(await gantt.grid.locator("input").count()).toBe(0);
+      }
+      await keysTo(run.board, "billing", "duration");
+      await run.board.page.keyboard.press("Enter");
+      await keysTo(run.board, "billing", "dependencies");
+      await run.board.page.keyboard.press("Enter");
+      expect(await gantt.root.locator("[data-gantt-panel]").count()).toBe(0);
+      expect(await gantt.grid.locator("input").count()).toBe(0);
+      expect({ rows: await rowTexts(gantt), bars: await barFacts(gantt) }).toEqual(before);
+      expect(run.browser.cspProblems()).toEqual([]);
+    };
+
+    test(
+      "after Answer, the Gantt stays readable and navigable, shows what was sent, and takes no edit",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
+        await run.board.answer.click();
+        await eventually(() => run.messages.length > 1, "the answer message");
+        await run.board.receipt("sent").waitFor();
+        expect((await barDates(gantt)).reporting).toBe("2026-12-09..2026-12-16");
+        await expectReadOnly(run);
+        expect(run.messages.map((message) => message.type)).toEqual(["ready", "answer"]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "while the host sends a lock, the Gantt stays readable and navigable and takes no edit",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        await sendLock(run.board, ganttBoardDocument);
+        await eventually(
+          async () => (await gantt.root.locator("[data-gantt-handle]").count()) === 0,
+          "the Gantt to turn read-only",
+        );
+        await expectReadOnly(run);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
       },
       TEST_TIMEOUT_MS,
     );
