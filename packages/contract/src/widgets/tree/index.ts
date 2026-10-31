@@ -50,5 +50,11 @@ export type TreeProps = {
   readonly nodes: readonly TreeNode[];
 };
 
+/**
+ * Who wrote a Tree's props: the agent, whose IDs may not start with the view's prefix `u-`, or the
+ * view, whose edited value may hold the nodes the user added (design decision 11).
+ */
+export type TreeOrigin = "agent" | "edited";
+
 /** A Tree item in a question. */
 export type TreeItem = { readonly type: "tree"; readonly id: string; readonly props: TreeProps };

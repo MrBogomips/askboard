@@ -155,3 +155,20 @@ export {
   type ElementShape,
   elementChanges,
 } from "./widgets/element-diff.ts";
+export { treeChangesProblems, treePropsProblems } from "./widgets/tree/checks.ts";
+// The Tree's contract (design decision 2): its types, limits and checks.
+export {
+  TREE_FIELD_PATTERN,
+  TREE_LABEL_MAX_CHARS,
+  TREE_MAX_COLUMNS,
+  TREE_MAX_DEPTH,
+  TREE_MAX_NODES,
+  TREE_TEXT_MAX_CHARS,
+  type TreeColumn,
+  type TreeColumnType,
+  type TreeFieldValue,
+  type TreeItem,
+  type TreeNode,
+  type TreeOrigin,
+  type TreeProps,
+} from "./widgets/tree/index.ts";
