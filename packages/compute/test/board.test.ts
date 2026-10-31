@@ -95,8 +95,16 @@ describe("the board's graph source", () => {
     expect(boardGraphSource([])).toEqual({ items: [] });
   });
 
-  test("returns a frozen source", () => {
-    const source = boardGraphSource([RELEASE]);
+  test("returns a frozen source that a caller's later change cannot reach", () => {
+    const predecessors = ["ux"];
+    const tasks = [
+      { id: "ux", label: "UX", duration: 6 },
+      { id: "prototype", label: "Prototype", duration: 5, dependencies: predecessors },
+      { id: "reporting", label: "Reporting", duration: 6, start: "2026-12-09" },
+    ];
+    const source = boardGraphSource([withTasks(tasks)]);
+    predecessors.push("reporting");
+    tasks.pop();
     expect(Object.isFrozen(source)).toBe(true);
     expect(Object.isFrozen(source.items)).toBe(true);
     const [item] = source.items;
@@ -105,6 +113,29 @@ describe("the board's graph source", () => {
     expect(Object.isFrozen(item.tasks)).toBe(true);
     expect(Object.isFrozen(item.tasks[0])).toBe(true);
     expect(Object.isFrozen(item.dependencies)).toBe(true);
+    expect(Object.isFrozen(item.dependencies?.prototype)).toBe(true);
+    expect(Object.isFrozen(item.starts)).toBe(true);
+    expect(item.dependencies).toEqual({ prototype: ["ux"] });
+    expect(item.tasks.map((task) => task.id)).toEqual(["ux", "prototype", "reporting"]);
+  });
+
+  test("takes every task ID as an own key, __proto__ included", () => {
+    const tasks = [
+      { id: "ux", label: "UX", duration: 6 },
+      { id: "__proto__", label: "Odd", duration: 3, dependencies: ["ux"], start: "2026-12-09" },
+    ];
+    const source = boardGraphSource([withTasks(tasks)]);
+    const [item] = source.items;
+    if (item?.kind !== "gantt") throw new Error("not a Gantt source");
+    expect(Object.keys(item.dependencies ?? {})).toEqual(["__proto__"]);
+    expect(Object.keys(item.starts ?? {})).toEqual(["__proto__"]);
+    const values = evaluateGraph(buildGraph(source));
+    expect(values.read("release.__proto__.startDate")).toBe("2026-12-09");
+    expect(values.read("release.__proto__.earliestDate")).toBe("2026-11-10");
+    const malformed = [tasks[0], { id: "__proto__", label: "Odd", duration: 3, dependencies: "x" }];
+    expect(() => buildGraph(boardGraphSource([withTasks(malformed)]))).toThrow(
+      "item release: the dependencies of __proto__ are not a list of task IDs",
+    );
   });
 
   test.each([

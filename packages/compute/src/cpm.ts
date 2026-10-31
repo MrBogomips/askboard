@@ -47,7 +47,8 @@ const formula = (text: string, type: FieldInput["type"] = "number"): FieldInput 
 });
 
 const dependenciesOf = (given: unknown, where: string): ReadonlyMap<string, readonly string[]> => {
-  if (given === undefined) return new Map();
+  // Absent or null is none, as compute-engine read `dependencies` before requests came.
+  if (given === undefined || given === null) return new Map();
   if (!isRecord(given)) return refuse(`${where}: dependencies is not an object`);
   const out = new Map<string, readonly string[]>();
   for (const task of Object.keys(given)) {
@@ -65,7 +66,7 @@ const dependenciesOf = (given: unknown, where: string): ReadonlyMap<string, read
 const DATE_RANGE = "a date from 1900-03-01 to 9999-12-31";
 
 const startsOf = (given: unknown, where: string): ReadonlyMap<string, number> => {
-  if (given === undefined) return new Map();
+  if (given === undefined || given === null) return new Map();
   if (!isRecord(given)) return refuse(`${where}: starts is not an object`);
   const out = new Map<string, number>();
   for (const task of Object.keys(given)) {

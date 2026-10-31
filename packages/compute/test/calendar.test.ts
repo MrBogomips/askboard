@@ -49,14 +49,27 @@ describe("the working-day calendar on full-date strings", () => {
     expect(workingDaysBetween(from, to)).toBe(expected);
   });
 
-  test("adds back what it counts, from every working day to every working day of a year", () => {
-    const from = "2026-11-02";
-    for (let n = -130; n <= 130; n++) {
-      const to = addWorkingDays(from, n);
-      expect({ n, back: workingDaysBetween(from, to) }).toEqual({ n, back: n });
-      expect(isWorkingDate(to)).toBe(true);
+  test("adds back what it counts, from each weekday to every working day of a year around it", () => {
+    for (const from of ["2026-11-02", "2026-11-04", "2026-11-06", "2028-02-29", "1900-03-01"]) {
+      for (let n = from === "1900-03-01" ? 0 : -130; n <= 130; n++) {
+        const to = addWorkingDays(from, n);
+        expect({ from, n, back: workingDaysBetween(from, to) }).toEqual({ from, n, back: n });
+        expect(isWorkingDate(to)).toBe(true);
+      }
     }
   });
+
+  test("counts no working day as zero, never as minus zero", () => {
+    expect(Object.is(workingDaysBetween("2026-11-15", "2026-11-14"), 0)).toBe(true);
+    expect(Object.is(workingDaysBetween("2026-11-14", "2026-11-15"), 0)).toBe(true);
+  });
+
+  test.each([9_007_199_254_740_991, -9_007_199_254_740_991, 7_000_000_000_000_000, 2_958_466])(
+    "refuses at once a count of %d working days, which no day can reach",
+    (n) => {
+      expect(() => addWorkingDays("2026-11-06", n)).toThrow(RangeError);
+    },
+  );
 
   test("works at the ends of the dates the graph holds", () => {
     expect(firstWorkingDateFrom("1900-03-03")).toBe("1900-03-05");

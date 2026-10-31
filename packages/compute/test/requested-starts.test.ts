@@ -92,6 +92,18 @@ describe("requested starts", () => {
     const { values } = build({ ...RELEASE, starts: { ux: "2026-10-01", reporting: "2026-11-30" } });
     expect(values.read("release.ux.startDate")).toBe("2026-11-02");
     expect(values.read("release.reporting.startDate")).toBe("2026-12-04");
+    const { graph } = build({ ...RELEASE, starts: { ux: "2026-10-01" } });
+    expect(node(graph, "release.ux.startOffset")).toMatchObject({ input: 0 });
+  });
+
+  test("read null maps as none, as compute-engine read null dependencies", () => {
+    const [wbs, plan] = UJ2;
+    const nulls = { dependencies: null, starts: null } as unknown as Partial<GanttPlanItem>;
+    const { graph, values } = build(wbs, { ...plan, ...nulls });
+    expect(graph.warnings).toEqual([]);
+    expect(values.read("schedule.prototype.startDate")).toBe("2026-11-02");
+    const own = build({ ...RELEASE, ...(nulls as Partial<GanttItem>) });
+    expect(own.values.read("release.reporting.startDate")).toBe("2026-11-02");
   });
 
   test("leave every task's earliest start, as a number and a date, beside its start", () => {

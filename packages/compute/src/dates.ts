@@ -71,7 +71,8 @@ export const firstWorkingDay = (serial: number): number => workday(Math.floor(se
  */
 export const countWorkingDays = (from: number, to: number): number => {
   const [start, end] = [Math.floor(from), Math.floor(to)];
-  if (end < start) return -countWorkingDays(end, start);
+  // `0 - n`, not `-n`: no working day between them is 0, never -0.
+  if (end < start) return 0 - countWorkingDays(end, start);
   // Any seven consecutive days hold exactly five working days.
   const weeks = Math.floor((end - start) / 7);
   let count = 5 * weeks;
@@ -126,6 +127,9 @@ export const firstWorkingDateFrom = (date: string): string =>
 /** The day `n` working days after `date`, before it when `n` is negative: Excel's WORKDAY. */
 export const addWorkingDays = (date: string, n: number): string => {
   if (!Number.isSafeInteger(n)) throw new RangeError(`${n} is not a whole number of working days`);
+  // As the engine's WORKDAY: no count past the graph's last serial reaches a day it holds, and a
+  // larger one would step past 2^53, where adding a day no longer changes the number.
+  if (Math.abs(n) > MAX_SERIAL) throw new RangeError(`${n} working days reach no date`);
   return dateFrom(workday(serialFrom(date), n));
 };
 

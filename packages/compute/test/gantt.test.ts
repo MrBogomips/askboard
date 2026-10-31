@@ -85,6 +85,15 @@ describe("a Gantt with its own tasks", () => {
     expect(values.read("release.finishDate")).toBe("2026-12-16");
   });
 
+  test("schedules from 1900-03-02, the first day the contract lets a Gantt start", () => {
+    const first = build(gantt({ start: "1900-03-02" }));
+    expect(first.values.read("release.firstDay")).toBe("1900-03-02");
+    expect(first.values.read("release.ux.startDate")).toBe("1900-03-02");
+    // The day before 1900-03-01 is no date the graph holds, so a plan cannot start then.
+    const before = build(gantt({ start: "1900-03-01" }));
+    expect(before.values.read("release.firstDay")).toMatchObject({ error: "value" });
+  });
+
   test("writes every scheduling field as a formula over the whitelist", () => {
     const { graph } = build(gantt());
     const formulas = graph.nodes.filter((node) => node.formula !== undefined);

@@ -19,29 +19,34 @@ export type BoardItem = { readonly type: string; readonly id: string; readonly p
 
 const ID = new RegExp(ID_PATTERN);
 
+/** A list the caller may still change, copied and frozen; anything else is left for the checks. */
+const settled = (value: unknown): unknown =>
+  Array.isArray(value) ? Object.freeze([...value]) : value;
+
 /** A Gantt with its own tasks: each task's duration, requested start and predecessors. */
 const ownTasks = (id: string, props: Record<string, unknown>): GanttItem => {
   const where = `item ${id}`;
-  const dependencies: Record<string, unknown> = {};
-  const starts: Record<string, unknown> = {};
+  const dependencies: [string, unknown][] = [];
+  const starts: [string, unknown][] = [];
   const tasks = listOf<unknown>(props.tasks, "tasks", where).map((task) => {
     if (!isRecord(task)) return refuse(`${where}: a task is not an object`);
     if (typeof task.id !== "string" || !ID.test(task.id)) {
       refuse(`${where}: task ID ${JSON.stringify(task.id)} is not ${ID_PATTERN}`);
     }
     const taskId = task.id as string;
-    if (task.dependencies !== undefined) dependencies[taskId] = task.dependencies;
-    if (task.start !== undefined) starts[taskId] = task.start;
+    if (task.dependencies !== undefined) dependencies.push([taskId, settled(task.dependencies)]);
+    if (task.start !== undefined) starts.push([taskId, task.start]);
     return Object.freeze({ id: taskId, duration: task.duration as number });
   });
-  // The expansion checks durations, predecessors and requested starts, naming the item.
+  // Entries, not assignments, so that every ID is an own key, `__proto__` included. The expansion
+  // checks durations, predecessors and requested starts, naming the item.
   return Object.freeze({
     kind: "gantt",
     id,
     start: props.start as string,
     tasks: Object.freeze(tasks),
-    dependencies: Object.freeze(dependencies) as GanttItem["dependencies"],
-    starts: Object.freeze(starts) as GanttItem["starts"],
+    dependencies: Object.freeze(Object.fromEntries(dependencies)) as GanttItem["dependencies"],
+    starts: Object.freeze(Object.fromEntries(starts)) as GanttItem["starts"],
   });
 };
 
