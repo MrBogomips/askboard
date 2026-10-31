@@ -125,7 +125,7 @@ Every Gantt edit SHALL go into the draft record and SHALL send nothing. A Gantt 
 
 #### Scenario: The UJ-2 edits by keyboard
 - **WHEN** the user makes the approved answer's edits with the keyboard, in the Tree and in the plan, and presses "Answer"
-- **THEN** one answer message leaves the view; the contract's diff of the sent and the edited plan is the fixture's diff form of the approved `schedule` edit, and its derived values are `schedule.finish` `2026-12-02` and `schedule.criticalPath` `ux`, `prototype`, `portal`, `reporting`
+- **THEN** one answer message leaves the view; the contract's diff of the sent and the edited plan equals the approved `schedule` operation, and its derived values are `schedule.finish` `2026-12-02` and `schedule.criticalPath` `ux`, `prototype`, `portal`, `reporting`
 
 #### Scenario: Nothing changed
 - **WHEN** a Gantt question opens and the user only zooms and moves the focus

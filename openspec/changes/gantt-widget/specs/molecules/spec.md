@@ -21,9 +21,9 @@ AskBoard SHALL ship the Gantt plan's parameters as data under the molecule name 
 - **WHEN** the shipped `gantt-plan` file is read
 - **THEN** it is JSON with exactly the keys `molecule`, `version` and `parameters`, and no string in it holds markup or a script
 
-### Requirement: The Gantt plan joins its work breakdown by ID
-The Gantt plan's expansion SHALL give one Gantt plan item over the named work breakdown, with the plan's `start`, whose tasks are that Tree's leaves in its order, each with the leaf's ID and, when the `dependencies` parameter names it, its predecessors; a key of `dependencies` that names no leaf SHALL be kept as a task, for the compute graph to report (AD-9, AD-13).
+### Requirement: The Gantt plan's expansion
+The Gantt plan's expansion SHALL give one Gantt plan item with the data's `workPackages` and `start` and a `tasks` map holding, for each key of `dependencies`, an entry with that task's predecessors, by task ID; the leaves of the named Tree are the plan's tasks, and a key that names no leaf is kept, for the compute graph to ignore (AD-9, AD-13).
 
-#### Scenario: Joining the UJ-2 data
-- **WHEN** the UJ-2 `schedule` data is joined with the UJ-2 work breakdown
-- **THEN** the result is the fixture plan: six tasks in the Tree's order, `prototype`, `portal`, `billing` and `reporting` with the approved predecessors, and props that validate as a Gantt plan's with its link to `wbs`
+#### Scenario: Expanding the UJ-2 data
+- **WHEN** the UJ-2 `schedule` data is expanded
+- **THEN** the result is the fixture plan: `workPackages` `wbs`, `start` 2026-11-02, and entries for `prototype`, `portal`, `billing` and `reporting` holding the approved predecessors, whose props validate as a Gantt plan's with its link to `wbs`

@@ -29,7 +29,7 @@ A task with a requested start SHALL start on the first working day on or after i
 - **THEN** it starts on Monday 2026-11-16
 
 ### Requirement: The board's graph source
-`compute` SHALL map a board's items onto its graph source: a Gantt with its own tasks becomes a Gantt source, a Gantt plan a plan source over the Tree it names, its tasks' starts and predecessors taken by task ID, and that Tree a WBS-with-PERT source whose leaves' `optimistic`, `mostLikely` and `pessimistic` fields are its estimates. A plan task that names no leaf SHALL add nothing; items that hold nothing to compute SHALL add nothing (AD-13).
+`compute` SHALL map a board's items onto its graph source: a Gantt with its own tasks becomes a Gantt source, a Gantt plan a plan source over the Tree it names, its entries' starts and predecessors taken by task ID, and that Tree a WBS-with-PERT source whose leaves' `optimistic`, `mostLikely` and `pessimistic` fields are its estimates. A plan entry that names no leaf SHALL add nothing; items that hold nothing to compute SHALL add nothing (AD-13).
 
 #### Scenario: The UJ-2 board
 - **WHEN** the UJ-2 question's Tree `wbs` and plan `schedule` are mapped and the graph is built and evaluated
