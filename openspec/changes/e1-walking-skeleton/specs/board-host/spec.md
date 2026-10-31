@@ -44,11 +44,18 @@ Each board SHALL have its own random token of at least 128 bits. It SHALL travel
 - **THEN** the upgrade is refused
 
 ### Requirement: The board page and its policy
-`board-host` SHALL serve a board's page at its link, with `X-Content-Type-Options: nosniff` and a CSP that allows scripts and styles only by the hashes of the board page's code and of the view's chunks, `connect-src 'self'`, `img-src data: blob:` and `font-src data:`, and nothing else (AD-8).
+`board-host` SHALL serve a board's page at its link, with `X-Content-Type-Options: nosniff` and a CSP of nine directives, the contract's `boardPagePolicy` of the view manifest: `default-src 'none'`; scripts and styles only by the hashes of the board page's code and of the view's chunks; `connect-src 'self'`; `img-src data: blob:` and `font-src data:`; `base-uri 'self'`; `form-action 'none'`; and `frame-ancestors 'none'`; and nothing else (AD-8, AD-11).
 
 #### Scenario: The served policy
 - **WHEN** a board page is loaded with its token
-- **THEN** its CSP header holds the hashes of the board page script and of every view chunk, and no `'wasm-unsafe-eval'`, `'unsafe-inline'`, `'unsafe-eval'` or `'unsafe-hashes'`
+- **THEN** its CSP header names exactly the nine directives, holds the hashes of the board page script and of every view chunk, and holds no `'wasm-unsafe-eval'`, `'unsafe-inline'`, `'unsafe-eval'` or `'unsafe-hashes'`
+
+### Requirement: The board page's base URL
+The board page SHALL carry a static `<base href="/">`, which its `base-uri 'self'` admits. A srcdoc document takes its base URL from the board page, whose link carries the token, so without that element the sandboxed view would inherit `?t=` (AD-8). The view's own policy keeps `base-uri 'none'`.
+
+#### Scenario: The view's base URL holds no token
+- **WHEN** a board page loaded with its token builds its view, and again after a reload
+- **THEN** the view's `document.baseURI` is the board origin's root, with no `t=`
 
 ### Requirement: Invalid-link page
 A link that opens no board, because it has no token, a wrong token or the ID of an ask unknown or discarded, SHALL get a short page that says why and what to do, with no board content (NFR-4, AD-21).

@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-10-30'
+updated: '2026-10-31'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -283,7 +283,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Pages on the board origin:**
     - The board page and source views render agent and file content only as text (`textContent`, or highlighting built from text).
     - A source view is a page AskBoard builds, never the file served with its own content type. It is served with `X-Content-Type-Options: nosniff` and the CSP `default-src 'none'`, styles by hash, `img-src data:`, `frame-ancestors 'self'`: only a board page of the same origin may frame it, in its reading panel.
-    - The board page's CSP allows scripts and styles by hash, the view chunks' hashes, `connect-src 'self'` and `frame-src 'self'`, which serves only the reading panel's same-origin source view. It also allows the view's own media sources, `img-src data: blob:` and `font-src data:`: the srcdoc inherits this policy, which would otherwise block the view's diagram images and inlined fonts, and the view's own policy cannot widen it.
+    - The board page's CSP allows scripts and styles by hash, the view chunks' hashes, `connect-src 'self'` and `frame-src 'self'`, which serves only the reading panel's same-origin source view. It also allows the view's own media sources, `img-src data: blob:` and `font-src data:`: the srcdoc inherits this policy, which would otherwise block the view's diagram images and inlined fonts, and the view's own policy cannot widen it. It allows a base URL only on its own origin, `base-uri 'self'`, for the board page's static `<base href="/">`: a srcdoc document takes its base URL from the board page, whose link carries the token, so without that element the view's `document.baseURI` would hold the token. It allows no form post (`form-action 'none'`) and no page framing the board (`frame-ancestors 'none'`); everything else falls to `default-src 'none'`.
   - **Talking to the outside:**
     - The view talks to the board page with the ext-apps 2.x message set and its `App` and `AppBridge` classes. The board page is not a conforming MCP Apps host and implements no sandbox proxy.
     - A reference leaves the view only as an open-link message. The board page opens only `http:` and `https:` URLs, in a new tab with `noopener` and `noreferrer`.
