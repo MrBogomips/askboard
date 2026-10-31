@@ -237,3 +237,82 @@ export const pageState = async (board: Board) => {
   }));
   return { page, view: inView };
 };
+
+const COLUMNS = ["task", "start", "duration", "dependencies"];
+
+/**
+ * Moves the grid's focus to a cell with the keyboard only: into the grid with Tab if the focus is
+ * elsewhere, to the first cell with Home and the up arrow, then down and right to the cell.
+ */
+export const keysTo = async (
+  board: Board,
+  task: string,
+  column: string,
+  tasks: readonly { readonly id: string }[] = RELEASE_TASKS,
+): Promise<void> => {
+  const row = tasks.findIndex((candidate) => candidate.id === task);
+  const right = COLUMNS.indexOf(column);
+  if (row < 0 || right < 0) throw new Error(`no cell ${task}.${column} in the scenario's Gantt`);
+  if ((await focusedCell(board)) === undefined) await tabIntoGrid(board);
+  const presses = [
+    "Home",
+    ...Array.from({ length: tasks.length }, () => "ArrowUp"),
+    ...Array.from({ length: row }, () => "ArrowDown"),
+    ...Array.from({ length: right }, () => "ArrowRight"),
+  ];
+  for (const key of presses) await board.page.keyboard.press(key);
+  const reached = await focusedCell(board);
+  if (reached !== `${task}.${column}`)
+    throw new Error(`the keys reached ${reached}, not ${task}.${column}`);
+};
+
+/** The tasks whose bars are drawn on the critical path, in the chart's order. */
+export const criticalTasks = async (gantt: GanttParts): Promise<string[]> =>
+  (await barFacts(gantt)).filter((bar) => bar.critical).map((bar) => bar.task);
+
+/** Each bar's start and finish, by task. */
+export const barDates = async (gantt: GanttParts): Promise<Record<string, string>> =>
+  Object.fromEntries(
+    (await barFacts(gantt)).map((bar) => [bar.task, `${bar.start}..${bar.finish}`]),
+  );
+
+/** Whether the view's focused element is the editor in a cell. */
+export const editorFocused = async (board: Board, task: string, column: string) => {
+  const view = await board.viewFrame();
+  return view.evaluate(
+    ([taskId, columnName]) => {
+      const active = document.activeElement;
+      return (
+        document.hasFocus() &&
+        active?.tagName === "INPUT" &&
+        active.closest(`[data-gantt-row="${taskId}"] > [data-gantt-column="${columnName}"]`) !==
+          null
+      );
+    },
+    [task, column] as const,
+  );
+};
+
+/**
+ * Each grid row's top under the grid's header and its bar's top in the chart, less the 11px a bar
+ * sits below its row's top: equal for every row that has a bar, so the two stay lined up.
+ */
+export const alignment = (gantt: GanttParts) =>
+  gantt.root.evaluate((root) => {
+    const grid = root.querySelector('[role="grid"]');
+    const chart = root.querySelector("svg");
+    if (grid === null || chart === null) return [];
+    const gridTop = grid.getBoundingClientRect().top;
+    const chartTop = chart.getBoundingClientRect().top;
+    return [...grid.querySelectorAll("[data-gantt-row]")].map((row) => {
+      const task = row.getAttribute("data-gantt-row") ?? "";
+      const bar = chart.querySelector(`[data-gantt-bar="${task}"]`);
+      const barTop = bar === null ? undefined : bar.getBoundingClientRect().top - chartTop - 11;
+      const rowTop = row.getBoundingClientRect().top - gridTop;
+      return {
+        task,
+        row: Math.round(rowTop),
+        bar: barTop === undefined ? undefined : Math.round(barTop),
+      };
+    });
+  });
