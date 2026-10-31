@@ -16,4 +16,11 @@ export {
   transcripts,
   versionRefusalTranscript,
 } from "./transcript.ts";
+// Widgets: the Tree's fixtures, the UJ-2 work breakdown (tree-widget design decision 4).
+export {
+  type TreeBoardDocument,
+  treeAnswer,
+  treeBoardDocument,
+  treeEditedValue,
+} from "./tree.ts";
 export { fixtureViewFiles, fixtureViewManifest } from "./view-build.ts";
