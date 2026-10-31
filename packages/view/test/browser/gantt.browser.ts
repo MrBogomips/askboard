@@ -7,7 +7,7 @@
 // chunk is reported, the negative control that makes "no violation" mean something there. Then
 // the component (group 6): its grid beside its chart, the critical path and the legend; agent
 // strings as text; the grid's one Tab stop and its keys; starts and durations edited in the grid;
-// the predecessors panel; drags and resizes with the pointer.
+// the predecessors panel; drags and resizes with the pointer; tasks the graph cannot schedule.
 
 import { describe, expect, test } from "bun:test";
 import { type GanttOwnTask, ganttPropsProblems } from "@askboard/contract";
@@ -103,6 +103,14 @@ const tallGantt = withTasks(
     ...(index === 0 ? {} : { dependencies: [`t${index}`] }),
   })),
 );
+
+// Two tasks that depend on each other, and one after a task the Gantt does not hold.
+const brokenGantt = withTasks([
+  ...RELEASE_TASKS,
+  { id: "qa", label: "QA sign-off", duration: 2, dependencies: ["docs"] },
+  { id: "docs", label: "Release notes", duration: 3, dependencies: ["qa"] },
+  { id: "launch", label: "Launch", duration: 1, dependencies: ["ghost"] },
+]);
 
 const markupGantt = withTasks(
   RELEASE_TASKS.map((task) => (task.id === "ux" ? { ...task, label: MARKUP } : task)),
@@ -727,6 +735,60 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "1",
         );
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "tasks on a cycle, or after a task the Gantt does not hold, show a field error under their rows and no bar, the others scheduled, and do not block Answer",
+      async () => {
+        const run = await opened(brokenGantt);
+        const gantt = ganttOf(run.board);
+        const cycle = "No dates: its predecessors form a cycle.";
+        for (const task of ["qa", "docs"]) {
+          expect(((await gantt.note(task).textContent()) ?? "").trim()).toBe(cycle);
+        }
+        expect(((await gantt.note("launch").textContent()) ?? "").trim()).toBe(
+          "No dates: its predecessor ghost names no task.",
+        );
+        expect(await gantt.root.locator("[data-gantt-note]").count()).toBe(3);
+        // The other tasks keep their dates; with the plan's end unknown, no path is critical.
+        expect(await barDates(gantt)).toEqual(
+          Object.fromEntries(UJ2.map(([task, start, finish]) => [task, `${start}..${finish}`])),
+        );
+        expect(await criticalTasks(gantt)).toEqual([]);
+        const rows = await rowTexts(gantt);
+        expect(rows.slice(6)).toEqual([
+          ["qa", "QA sign-off", "", "2", "Release notes"],
+          ["docs", "Release notes", "", "3", "QA sign-off"],
+          ["launch", "Launch", "", "1", "ghost"],
+        ]);
+        const lined = await alignment(gantt);
+        expect(lined.map(({ row }) => row)).toEqual([32, 68, 104, 140, 176, 212, 248, 304, 360]);
+        for (const { row, bar } of lined) if (bar !== undefined) expect(bar).toBe(row);
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        // A change elsewhere: the question can be answered, the errors standing.
+        await keysTo(run.board, "billing", "duration", [...RELEASE_TASKS]);
+        await run.board.page.keyboard.press("F2");
+        await run.board.page.keyboard.type("10");
+        await run.board.page.keyboard.press("Enter");
+        expect(await run.board.answer.isEnabled()).toBe(true);
+        expect(await gantt.root.locator("[data-gantt-note]").count()).toBe(3);
+        // The cycle broken in the panel: both tasks are scheduled again.
+        await gantt.cell("docs", "dependencies").click();
+        await run.board.page.keyboard.press("Enter");
+        await panelOf(gantt, "docs").getByRole("checkbox", { name: "QA sign-off" }).click();
+        await panelOf(gantt, "docs").getByRole("button", { name: "Done" }).click();
+        expect(await gantt.note("qa").count()).toBe(0);
+        expect(await gantt.note("docs").count()).toBe(0);
+        const dates = await barDates(gantt);
+        expect([dates.docs, dates.qa]).toEqual([
+          "2026-11-02..2026-11-04",
+          "2026-11-05..2026-11-06",
+        ]);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,

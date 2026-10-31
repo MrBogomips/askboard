@@ -8,17 +8,44 @@
 
 import { useCallback, useMemo } from "react";
 import { Chart } from "./chart.tsx";
-import { useCellEditing } from "./editing.ts";
+import { type Editing, useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
 import { clearStart, setDuration } from "./model/edits.ts";
 import { landOn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
+import { scheduleNote } from "./model/notes.ts";
 import type { Zoom } from "./model/scale.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
 import type { GanttColumn, GanttOwnProps, GanttRow } from "./model/tasks.ts";
 import { usePanelState } from "./panel-state.ts";
+
+/**
+ * The note under each row: a refused entry's reason for the row being edited, else the field
+ * error of a task the graph cannot schedule (`model/notes.ts`).
+ */
+const useNotes = (
+  itemId: string,
+  rows: readonly GanttRow[],
+  schedules: readonly TaskSchedule[],
+  editing: Editing | undefined,
+): ReadonlyMap<string, string> => {
+  const errors = useMemo(() => {
+    const labels = new Map(rows.map((row) => [row.id, row.label]));
+    return rows.flatMap((row, index) => {
+      const note = scheduleNote(itemId, row, schedules[index], labels);
+      return note === undefined ? [] : [[row.id, note] as const];
+    });
+  }, [itemId, rows, schedules]);
+  const refusal = editing?.refusal;
+  const taskId = editing?.taskId;
+  return useMemo(
+    () =>
+      new Map([...errors, ...(refusal === undefined ? [] : [[taskId ?? "", refusal] as const])]),
+    [errors, refusal, taskId],
+  );
+};
 
 const Swatch = ({ className }: { readonly className: string }) => (
   <span aria-hidden="true" className={`inline-block ${className}`} />
@@ -81,11 +108,7 @@ export const GanttFrame = (props: FrameProps) => {
     onCommit,
     focusCell: (taskId) => focusCell(taskId, "dependencies"),
   });
-  const refused = editing.editing?.refusal;
-  const notes = useMemo(
-    () => new Map(refused === undefined ? [] : [[editing.editing?.taskId ?? "", refused] as const]),
-    [refused, editing.editing?.taskId],
-  );
+  const notes = useNotes(itemId, rows, schedules, editing.editing);
   const layout = useMemo(() => rowBoxes(rows.map((row) => notes.has(row.id))), [rows, notes]);
   const span = useMemo(() => spanOf(current.start, schedules), [current.start, schedules]);
   const onKeyDown = gridKeyHandler({
