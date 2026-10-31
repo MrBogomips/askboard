@@ -6,7 +6,7 @@ File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
 How to apply: replace each quoted bullet, set `updated:` to the apply date and add a `sources` line for this change in the front matter, then run `openspec validate --all --strict --no-interactive` and `bun run check`. Since the apply, each block's replacement text stands in the spine word for word and its current text no longer does; task 7.1 checks that.
 
-Checked on 2026-10-31 against the spine on this branch, after E1's amendments of AD-1, AD-8 and AD-20 merged in d4a31c4 and 6b84e1c: Block 1's text is unchanged in the spine; Block 2 quotes AD-20's bullet as E1 amended it (ee10f3e), whose omitted `parent` and `after` replace the `null` clause this draft carried before.
+Checked on 2026-10-31 against the spine on `main` at d34422d, E1's squash merge (PR #8), which holds E1's amendments of AD-1, AD-8 and AD-20 (E1's integration head 21f62ec and its fix ee10f3e): Block 1's text is unchanged in the spine; Block 2 quotes AD-20's bullet as E1 amended it (ee10f3e), whose omitted `parent` and `after` replace the `null` clause this draft carried before.
 
 ## Block 1: AD-9, Rule, Build and assembly, first bullet
 
