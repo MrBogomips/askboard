@@ -2,6 +2,8 @@
 // output format (AD-7). Both schemas are standalone: they belong to no schema set until the input
 // format reaches 1.1, and nothing compiles them when this module loads. Its validators are in
 // `validate.ts`, on the seams' shared widget validator; its shapes for the one generic diff are here.
+// Each frozen constant is marked pure, so that a view chunk drops those it does not use, the
+// schema IDs among them.
 
 import type { ElementShape } from "../element-diff.ts";
 import ganttChanges from "./gantt-changes.json" with { type: "json" };
@@ -10,7 +12,7 @@ import ganttProps from "./gantt-props.json" with { type: "json" };
 export const ganttPropsSchema = ganttProps;
 export const ganttChangesSchema = ganttChanges;
 
-export const GANTT_SCHEMA_IDS = Object.freeze({
+export const GANTT_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
   props: "urn:askboard:input:gantt-props",
   changes: "urn:askboard:output:gantt-changes",
 } as const);
@@ -33,7 +35,7 @@ export const GANTT_FIRST_DATE = "1900-03-02";
 export const GANTT_LAST_DATE = "9999-12-31";
 
 /** The number fields of the Tree a Gantt plan's `workPackages` names: its PERT estimates. */
-export const GANTT_PLAN_ESTIMATES = Object.freeze([
+export const GANTT_PLAN_ESTIMATES = /* @__PURE__ */ Object.freeze([
   "optimistic",
   "mostLikely",
   "pessimistic",
@@ -44,7 +46,7 @@ export const GANTT_PLAN_ESTIMATES = Object.freeze([
  * as a `full-date`, is `<item>.finishDate`; `criticalPath`, the critical tasks' IDs in task order,
  * lists the tasks whose `<item>.<task>.critical` is true.
  */
-export const GANTT_ANSWER_DERIVED = Object.freeze({
+export const GANTT_ANSWER_DERIVED = /* @__PURE__ */ Object.freeze({
   finish: "finishDate",
   criticalPath: "critical",
 } as const);
@@ -93,10 +95,13 @@ export type GanttChange = {
 };
 
 /** A Gantt's own tasks for the one generic diff (AD-20): a flat list, every key but `id` a field. */
-export const GANTT_SHAPE: ElementShape = Object.freeze({ elements: "tasks" });
+export const GANTT_SHAPE: ElementShape = /* @__PURE__ */ Object.freeze({ elements: "tasks" });
 
 /** A plan's tasks: a map from task ID to an entry, which gives only `set`s. */
-export const GANTT_PLAN_SHAPE: ElementShape = Object.freeze({ elements: "tasks", keyed: true });
+export const GANTT_PLAN_SHAPE: ElementShape = /* @__PURE__ */ Object.freeze({
+  elements: "tasks",
+  keyed: true,
+});
 
 /** The shape of a Gantt's props: a plan's when they name its work packages. */
 export const ganttShape = (props: object): ElementShape =>
