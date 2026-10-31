@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-10-30'
+updated: '2026-10-31'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -92,6 +92,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Imports (code):**
     - `ask-core` imports only `contract` and `compute`.
     - Every adapter imports `ask-core` ports and `contract`, never another adapter.
+    - The session process entry point (`packages/server/src/main.ts`, with the files beside it outside the server unit folders) composes the units: it may import `ask-core`, `contract` and every server unit, and no unit imports it.
     - `view` imports only `contract` and `compute`. `widgets` imports only `contract`, `compute` and `view`'s `CatalogRenderer` port. A server unit imports `view` only for `assemble` (AD-9).
     - `compute` and `ask-core` use no DOM, Node-only or Bun-only API.
     - CI fails on any import that crosses the dependency diagram.
@@ -219,6 +220,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       | Tool request and result envelopes | `mcp-tools` |
       | Board document (AD-12) | `ask-core` |
       | Board protocol: board page ↔ `board-host` | `board-host` |
+      | View manifest: the board page script and each chunk's SHA-256, styles, dependencies and licence notices, which `board-host` reads to serve the chunks and to build the board page's CSP (AD-8, AD-9) | `view` |
       | Local API: `mod` and `hooks` ↔ session process | `board-host` |
       | Session file | `board-host` |
       | Configuration | `ask-core` |
@@ -281,7 +283,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Pages on the board origin:**
     - The board page and source views render agent and file content only as text (`textContent`, or highlighting built from text).
     - A source view is a page AskBoard builds, never the file served with its own content type. It is served with `X-Content-Type-Options: nosniff` and the CSP `default-src 'none'`, styles by hash, `img-src data:`, `frame-ancestors 'self'`: only a board page of the same origin may frame it, in its reading panel.
-    - The board page's CSP allows scripts and styles by hash, the view chunks' hashes, `connect-src 'self'` and `frame-src 'self'`, which serves only the reading panel's same-origin source view. It also allows the view's own media sources, `img-src data: blob:` and `font-src data:`: the srcdoc inherits this policy, which would otherwise block the view's diagram images and inlined fonts, and the view's own policy cannot widen it.
+    - The board page's CSP allows scripts and styles by hash, the view chunks' hashes, `connect-src 'self'` and `frame-src 'self'`, which serves only the reading panel's same-origin source view. It also allows the view's own media sources, `img-src data: blob:` and `font-src data:`: the srcdoc inherits this policy, which would otherwise block the view's diagram images and inlined fonts, and the view's own policy cannot widen it. It allows a base URL only on its own origin, `base-uri 'self'`, for the board page's static `<base href="/">`: a srcdoc document takes its base URL from the board page, whose link carries the token, so without that element the view's `document.baseURI` would hold the token. It allows no form post (`form-action 'none'`) and no page framing the board (`frame-ancestors 'none'`); everything else falls to `default-src 'none'`.
   - **Talking to the outside:**
     - The view talks to the board page with the ext-apps 2.x message set and its `App` and `AppBridge` classes. The board page is not a conforming MCP Apps host and implements no sandbox proxy.
     - A reference leaves the view only as an open-link message. The board page opens only `http:` and `https:` URLs, in a new tab with `noopener` and `noreferrer`.
@@ -537,7 +539,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `ask-core` keeps every revision that an event names, until discard.
   - **Answers:**
     - A view answer message carries the item's full edited value in its input-format shape, plus its derived values.
-    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling. Widgets never emit diffs.
+    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, each omitted when there is none: the top level, the first position. Widgets never emit diffs.
     - `ask-core` stores the full edited value; `fetch` and Snapshots read it.
     - A later answer to the same question is a new event that names the `seq` it replaces. The latest answer per question wins.
     - **Decline:** `declined` is an answer kind, carrying the optional reason from the question's open prompt. Like an answer, it closes the question (AD-10), names the question's `rev`, follows the delivery mode and is superseded by a later answer or decline. The shipped skills tell the agent not to ask a declined question again within its task; nothing about it outlives the ask (AD-14, FR-25).
@@ -643,9 +645,14 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@fontsource-variable/inter` or `@fontsource/inter`, `@fontsource/jetbrains-mono` (DESIGN.md's faces; Fontsource's stars exception) | 5.3.0 |
 | JSON Schema dialect | 2020-12 |
 | Ajv (the one validator; standalone validators generated at build for the view) | 8.20.0 |
+| `ws` (`board-host`'s WebSocket server, on `node:http`) | 8.22.0 |
+| `playwright` (browser tests in Chromium, Firefox and WebKit; tests only) | 1.64.1 |
+| `@types/node` (`server`'s types, at the Node floor's major) | 24.19.2 |
+| `@types/react`, `@types/react-dom` | 19.3.0 |
+| `@types/ws` | 8.18.2 |
 | Claude Code minimum (confirmed by the mod delivery spike: 2.1.308 fires `SubagentStop` while a subagent works; `stable` was still 2.1.308 on 2026-10-29, so release waits) | 2.1.311 |
 
-`@types/bun`, which only tests and repository tools use, follows the Bun pin.
+`@types/bun`, which only tests and repository tools use, follows the Bun pin. The other `@types` packages follow their runtime: `@types/node` the major of the Node floor, `@types/react` and `@types/react-dom` React's minor, `@types/ws` the major of `ws`.
 
 ## Structural Seed
 

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:board",
+  "title": "Board",
+  "description": "board-host to board page, on every connection: the ask's board document (AD-12).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "board"
+    },
+    "document": {
+      "$ref": "urn:askboard:board-document:board-document"
+    }
+  },
+  "required": ["version", "type", "document"],
+  "additionalProperties": false
+}

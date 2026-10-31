@@ -376,6 +376,33 @@ describe("the registry step (packages for other platforms)", () => {
     );
     expect(result.problems[0]).toContain("bundles");
   });
+
+  // Renderer spike, row 20: bun.lock lists what a package for another platform bundles.
+  test("a registry manifest whose bundled dependencies bun.lock lists passes", async () => {
+    const listed = new Map([["a@1.0.0", new Set(["g", "h"])]]);
+    const reply = (manifest: Record<string, unknown>) =>
+      replying(async () => new Response(JSON.stringify({ license: "MIT", ...manifest })));
+    const named = await readRegistry(
+      ["a@1.0.0"],
+      reply({ bundledDependencies: ["g", "h"] }),
+      listed,
+    );
+    expect(named.problems).toEqual([]);
+    const all = await readRegistry(
+      ["a@1.0.0"],
+      reply({ bundleDependencies: true, dependencies: { g: "^1.0.0" } }),
+      listed,
+    );
+    expect(all.problems).toEqual([]);
+    const unlisted = await readRegistry(
+      ["a@1.0.0"],
+      reply({ bundledDependencies: ["g", "hidden"] }),
+      listed,
+    );
+    expect(unlisted.problems).toEqual([
+      "a@1.0.0: bundles dependencies, which this check cannot see: hidden",
+    ]);
+  });
 });
 
 describe("the installed tree and the command", () => {
@@ -399,6 +426,9 @@ describe("the installed tree and the command", () => {
     overrides?: string;
     // Nested lockfile keys that repeat a package, as Bun writes them, mapped to its name.
     nested?: Record<string, string>;
+    // Lockfile keys `<parent key>/<name>` of bundled dependencies, as Bun writes them, mapped to
+    // their `<name>@<version>`.
+    bundled?: Record<string, string>;
     // Rewrites the lockfile before it is written, to model other formats.
     reshape?: (lock: Record<string, unknown>) => Record<string, unknown>;
   }) => {
@@ -424,6 +454,9 @@ describe("the installed tree and the command", () => {
     }
     for (const [key, name] of Object.entries(options.nested ?? {})) {
       entries[key] = entries[name] ?? [];
+    }
+    for (const [key, id] of Object.entries(options.bundled ?? {})) {
+      entries[key] = [id, "", { bundled: true }, "sha512-x"];
     }
     const lock: Record<string, unknown> = {
       lockfileVersion: 2,
@@ -674,6 +707,65 @@ describe("the installed tree and the command", () => {
       overrides: "[]",
     });
     expect((await run({ GITHUB_TOKEN: "t0ken" })).code).toBe(0);
+  });
+
+  // Renderer spike, row 20: Tailwind's WASI fallback (`cpu: none`) bundles its runtime.
+  test("a bundled dependency of a package for another platform counts as that package's", async () => {
+    const wasi = (bundled: Record<string, string>) =>
+      makeTree({
+        packages: [
+          permissive("a"),
+          permissive("tslib"),
+          { name: "wasi", version: "1.0.0", meta: { cpu: "none" }, installed: false },
+        ],
+        direct: { a: "1.0.0" },
+        overrides: "[]",
+        bundled,
+      });
+    const listed = {
+      "wasi/@emnapi/core": "@emnapi/core@1.11.3",
+      "wasi/@emnapi/core/@emnapi/wasi-threads": "@emnapi/wasi-threads@1.2.3",
+      "wasi/tslib": "tslib@1.0.0",
+    };
+    const manifest = {
+      license: "MIT",
+      bundledDependencies: ["@emnapi/core", "tslib"],
+    };
+    wasi(listed);
+    const clean = await run({ GITHUB_TOKEN: "t0ken" }, false, { "wasi/1.0.0": manifest });
+    expect(clean.output).not.toContain("not installed");
+    expect(clean.output).toContain("2 installed packages, 3 for other platforms");
+    expect(clean.code).toBe(0);
+    // Its licence is still checked, read from the npm registry like its parent's.
+    const gpl = await run({ GITHUB_TOKEN: "t0ken" }, false, {
+      "wasi/1.0.0": manifest,
+      "@emnapi/core/1.11.3": { license: "GPL-3.0-only" },
+    });
+    expect(gpl.code).toBe(1);
+    expect(gpl.output).toContain("@emnapi/core@1.11.3: licence GPL-3.0-only");
+    // A bundled dependency that bun.lock does not list stays unseen.
+    const hidden = await run({ GITHUB_TOKEN: "t0ken" }, false, {
+      "wasi/1.0.0": {
+        ...manifest,
+        bundledDependencies: [...manifest.bundledDependencies, "hidden"],
+      },
+    });
+    expect(hidden.code).toBe(1);
+    expect(hidden.output).toContain(
+      "wasi@1.0.0: bundles dependencies, which this check cannot see: hidden",
+    );
+    rmSync(root, { recursive: true, force: true });
+
+    // A bundled dependency of a package for this platform is not admitted that way.
+    makeTree({
+      packages: [permissive("a")],
+      direct: { a: "1.0.0" },
+      overrides: "[]",
+      bundled: { "a/g": "g@1.0.0" },
+    });
+    const here = await run({ GITHUB_TOKEN: "t0ken" });
+    expect(here.code).toBe(1);
+    expect(here.output).toContain("g@1.0.0: listed in bun.lock but not installed");
   });
 
   test("a CI run without a token fails the command", async () => {

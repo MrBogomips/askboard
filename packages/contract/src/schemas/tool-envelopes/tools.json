@@ -1,0 +1,116 @@
+{
+  "tools": [
+    {
+      "name": "ask",
+      "description": "Show questions to the user on a local web board and keep working: the answers come later, through collect. `items` holds the questions (`type: \"question\"`); a question's `props.items` holds its widgets, excerpts and molecules. Every item is `{type, id, props}`, with an ID of your choosing that matches [A-Za-z0-9_-]{1,64} and is unique in the ask. Write content and data only: no HTML, CSS, script, colours or positions, since AskBoard lays the board out. Point to project files instead of copying them (`path#Heading`, `path#L10-L40`). Never compute totals, estimates, dates or margins: AskBoard derives them. The askboard skill lists every item type and its props. Returns the board link and the ask's first cursor.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "askId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "agentName": {
+            "type": "string"
+          },
+          "expectedUser": {
+            "type": "string"
+          },
+          "language": {
+            "enum": ["en-US", "it-IT"]
+          },
+          "locale": {
+            "enum": ["en-US", "it-IT"]
+          },
+          "presentation": {
+            "enum": ["sections", "tabs", "one-per-view"]
+          },
+          "delivery": {
+            "enum": ["immediate", "submitted"]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/item"
+            }
+          }
+        },
+        "required": ["askId", "items"],
+        "additionalProperties": false,
+        "$defs": {
+          "item": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+              },
+              "props": {
+                "type": "object"
+              }
+            },
+            "required": ["type", "id"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "collect",
+      "description": "Return what happened on your asks after the cursors you pass: answers (only what changed, with derived values), declines, postpones, follow-ups, notes and state changes. Pass the latest cursor you received for each ask, and ignore an event whose cursor you have already seen. With `wait`, return as soon as that item has an event, or after 20 minutes. A `discarded` ask is gone and its answers will not come.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "asks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "askId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                },
+                "after": {
+                  "type": "string"
+                }
+              },
+              "required": ["askId", "after"],
+              "additionalProperties": false
+            }
+          },
+          "wait": {
+            "type": "object",
+            "properties": {
+              "askId": {
+                "type": "string"
+              },
+              "itemId": {
+                "type": "string"
+              }
+            },
+            "required": ["askId", "itemId"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["asks"],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

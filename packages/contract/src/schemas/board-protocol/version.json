@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:version",
+  "title": "Board protocol version",
+  "description": "The board protocol version a message follows, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). Every message refuses the fields it does not define, so a receiver still on an older minor refuses a newer minor's field as a schema error: a minor only adds optional fields, and a sender sends a new field only once both receivers, the board page and board-host, accept it.",
+  "type": "string",
+  "pattern": "^1\\.(0|[1-9][0-9]*)$"
+}

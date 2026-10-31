@@ -171,11 +171,42 @@ describe("unit boundaries (AD-1)", () => {
     expect(violations[0]?.rule).toContain("node_modules");
   });
 
-  test("files in packages/server/src outside the six unit folders import no AskBoard unit", () => {
-    expect(checkSource("packages/server/src/index.ts", importOf("@askboard/core"))).toHaveLength(1);
-    expect(
-      checkSource("packages/server/src/index.ts", importOf("./board-host/index.ts")),
-    ).toHaveLength(1);
+  // Design decision 9 (AD-1 as amended by E1): the session process entry point, the files of
+  // packages/server/src outside the six unit folders, composes the units, and nothing imports it.
+  test.each([
+    "@askboard/core",
+    "@askboard/contract",
+    "@askboard/contract/validate",
+    ...SERVER_UNITS.map((unit) => `./${unit}/index.ts`),
+    "./identity.ts",
+  ])("the session process entry point may import %s", (specifier) => {
+    expect(checkSource("packages/server/src/main.ts", importOf(specifier))).toEqual([]);
+  });
+
+  test.each([
+    "@askboard/compute",
+    "@askboard/view",
+    "@askboard/view/assemble",
+    "@askboard/widgets",
+    "@askboard/molecules",
+    "@askboard/mod",
+  ])("the session process entry point may not import %s", (specifier) => {
+    const violations = checkSource("packages/server/src/main.ts", importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.rule).toContain("entry point");
+  });
+
+  test.each([
+    ...SERVER_UNITS.flatMap((unit): [string, string][] => [
+      [`packages/server/src/${unit}/index.ts`, "../main.ts"],
+      [`packages/server/src/${unit}/index.ts`, "../identity.ts"],
+      [`packages/server/src/${unit}/index.ts`, "@askboard/server"],
+    ]),
+    ["packages/core/src/index.ts", "@askboard/server"],
+    ["packages/core/src/index.ts", "../../server/src/main.ts"],
+    ["packages/view/src/index.ts", "@askboard/server"],
+  ])("%s may not import the entry point as %s", (file, specifier) => {
+    expect(checkSource(file, importOf(specifier))).toHaveLength(1);
   });
 
   test("third-party packages are outside the unit rules", () => {

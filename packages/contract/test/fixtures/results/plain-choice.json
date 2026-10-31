@@ -1,0 +1,8 @@
+{
+  "versions": { "result": "1.0", "output": "1.0" },
+  "epoch": "k3x9",
+  "askId": "order-db-choice-x7k2",
+  "state": "waiting",
+  "cursor": "k3x9.0",
+  "board": "http://127.0.0.1:47213/b/order-db-choice-x7k2?t=pV3xK9qLmT2wR7nB4cYh8A"
+}

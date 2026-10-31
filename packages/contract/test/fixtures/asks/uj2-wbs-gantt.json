@@ -1,0 +1,75 @@
+{
+  "askId": "portal-sow-plan-t2v6",
+  "title": "Customer portal SOW plan",
+  "delivery": "submitted",
+  "items": [
+    {
+      "type": "question",
+      "id": "plan",
+      "props": {
+        "text": "Does this plan fit the SOW? Split, move or re-estimate work packages as needed.",
+        "header": "Plan",
+        "items": [
+          {
+            "type": "molecule",
+            "id": "wbs",
+            "props": {
+              "molecule": "wbs-pert",
+              "data": {
+                "nodes": [
+                  {
+                    "id": "design",
+                    "label": "Design",
+                    "children": [
+                      { "id": "ux", "label": "UX design", "optimistic": 3, "mostLikely": 5, "pessimistic": 10, "excerpt": "docs/prd-customer-portal.md#User experience" },
+                      { "id": "architecture", "label": "Architecture", "optimistic": 2, "mostLikely": 4, "pessimistic": 6, "excerpt": "docs/prd-customer-portal.md#Architecture constraints" },
+                      { "id": "prototype", "label": "Clickable prototype", "optimistic": 3, "mostLikely": 4, "pessimistic": 8, "excerpt": "docs/prd-customer-portal.md#Prototype" }
+                    ]
+                  },
+                  {
+                    "id": "build",
+                    "label": "Build",
+                    "children": [
+                      { "id": "portal", "label": "Customer portal", "optimistic": 8, "mostLikely": 12, "pessimistic": 20, "excerpt": "docs/prd-customer-portal.md#Customer portal" },
+                      { "id": "billing", "label": "Billing integration", "optimistic": 5, "mostLikely": 8, "pessimistic": 15, "excerpt": "docs/prd-customer-portal.md#Billing" },
+                      { "id": "reporting", "label": "Reporting", "optimistic": 3, "mostLikely": 5, "pessimistic": 9, "excerpt": "docs/prd-customer-portal.md#Reporting" }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "molecule",
+            "id": "schedule",
+            "props": {
+              "molecule": "gantt-plan",
+              "data": {
+                "workPackages": "wbs",
+                "start": "2026-11-02",
+                "dependencies": {
+                  "prototype": ["ux"],
+                  "portal": ["architecture", "prototype"],
+                  "billing": ["architecture"],
+                  "reporting": ["portal"]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "question",
+      "id": "erp-export",
+      "props": {
+        "text": "Must the billing integration also produce the legacy ERP export?",
+        "header": "ERP export",
+        "options": [
+          { "label": "Yes", "description": "Adds about five days to billing and needs the ERP team's file specification." },
+          { "label": "No", "description": "Billing posts to the new API only." }
+        ]
+      }
+    }
+  ]
+}

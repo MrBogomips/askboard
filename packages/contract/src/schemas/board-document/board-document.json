@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-document:board-document",
+  "title": "Board document",
+  "description": "What a board shows of an ask, as ask-core accepted it (AD-12): its ID, its title and its one question with the question's revision.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "The board document version, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). Every level refuses the fields it does not define, so a minor only adds optional fields, sent only once every receiver accepts them.",
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "#/$defs/question"
+      }
+    }
+  },
+  "required": ["version", "askId", "title", "items"],
+  "additionalProperties": false,
+  "$defs": {
+    "question": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "question"
+        },
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "props": {
+          "$ref": "urn:askboard:input:question-props"
+        }
+      },
+      "required": ["type", "id", "rev", "props"],
+      "additionalProperties": false
+    }
+  }
+}

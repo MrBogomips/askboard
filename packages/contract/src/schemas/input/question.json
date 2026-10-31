@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:question",
+  "title": "Question item",
+  "description": "An item of type question, as the agent sends it (AD-6, AD-7).",
+  "type": "object",
+  "properties": {
+    "type": { "const": "question" },
+    "id": { "$ref": "urn:askboard:input:id" },
+    "props": { "$ref": "urn:askboard:input:question-props" }
+  },
+  "required": ["type", "id", "props"],
+  "additionalProperties": false
+}

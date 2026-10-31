@@ -1,0 +1,15 @@
+{
+  "name": "askboard",
+  "version": "0.0.0",
+  "description": "A local board on which an agent asks you structured questions and gets typed answers back.",
+  "license": "MIT",
+  "mcpServers": {
+    "askboard": {
+      "command": "bun",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs"],
+      "env": {
+        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}

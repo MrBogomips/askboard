@@ -1,0 +1,17 @@
+/* The base layer of both documents, the board page and the view (DESIGN.md, Colors and Typography):
+   page colours from the token variables, which `.dark` re-points, and the body text on the system
+   font stack until the faces are adopted (design, Non-Goals). The view build adds it after
+   Tailwind's preflight and the tokens, in the shell's styles and the board page's. */
+@layer base {
+  html {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  body {
+    margin: 0;
+  }
+}

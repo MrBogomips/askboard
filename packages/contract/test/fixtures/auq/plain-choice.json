@@ -1,0 +1,14 @@
+{
+  "questions": [
+    {
+      "question": "Which database should the order service use?",
+      "header": "Database",
+      "multiSelect": false,
+      "options": [
+        { "label": "PostgreSQL", "description": "Relational, already run by the platform team; needs a managed instance." },
+        { "label": "SQLite", "description": "Embedded file, no server to run; one writer at a time." },
+        { "label": "DynamoDB", "description": "Managed key-value store that scales without tuning; no joins." }
+      ]
+    }
+  ]
+}

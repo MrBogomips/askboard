@@ -1,5 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // AD-19: the session process runs on Node 24.22.1 or later and on Bun through Node's API only,
+    // so it compiles with Node's types and never Bun's.
+    "types": ["node"]
+  },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

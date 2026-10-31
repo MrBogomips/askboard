@@ -1,0 +1,88 @@
+import { describe, expect, mock, test } from "bun:test";
+import { createReadyTracker, type QuestionItems } from "./ready-tracker.ts";
+
+const setUp = (questions: readonly QuestionItems[]) => {
+  const onVisible = mock((_questionId: string) => {});
+  const onFailed = mock((_questionId: string, _itemId: string, _error: string) => {});
+  const tracker = createReadyTracker(questions, { onVisible, onFailed });
+  return { tracker, onVisible, onFailed };
+};
+
+describe("ready tracking: a question is visible once all its items are ready (AD-9, SM-C2)", () => {
+  test("a question loads until its item is ready, then is visible, once", () => {
+    const { tracker, onVisible } = setUp([{ questionId: "q", itemIds: ["q"] }]);
+    expect(tracker.questionStatus("q")).toBe("loading");
+    expect(tracker.itemStatus("q")).toBe("pending");
+    tracker.readyFor("q")();
+    tracker.readyFor("q")();
+    expect(tracker.questionStatus("q")).toBe("visible");
+    expect(tracker.itemStatus("q")).toBe("ready");
+    expect(onVisible.mock.calls).toEqual([["q"]]);
+  });
+
+  test("each item's ready callback is one stable function", () => {
+    const { tracker } = setUp([{ questionId: "q", itemIds: ["q"] }]);
+    expect(tracker.readyFor("q")).toBe(tracker.readyFor("q"));
+  });
+
+  test("a question with two items is visible only after both", () => {
+    const { tracker, onVisible } = setUp([{ questionId: "q", itemIds: ["a", "b"] }]);
+    tracker.readyFor("a")();
+    expect(tracker.questionStatus("q")).toBe("loading");
+    expect(onVisible).not.toHaveBeenCalled();
+    tracker.readyFor("b")();
+    expect(tracker.questionStatus("q")).toBe("visible");
+  });
+
+  test("an item that fails makes its question failed, never visible (AD-10)", () => {
+    const { tracker, onVisible, onFailed } = setUp([{ questionId: "q", itemIds: ["a", "b"] }]);
+    tracker.readyFor("a")();
+    tracker.fail("b", "the component threw");
+    tracker.readyFor("b")();
+    expect(tracker.questionStatus("q")).toBe("failed");
+    expect(tracker.itemStatus("b")).toBe("failed");
+    expect(onVisible).not.toHaveBeenCalled();
+    expect(onFailed.mock.calls).toEqual([["q", "b", "the component threw"]]);
+  });
+
+  test("an item that fails after its question was visible still fails it, and says so once", () => {
+    const { tracker, onFailed } = setUp([{ questionId: "q", itemIds: ["q"] }]);
+    tracker.readyFor("q")();
+    tracker.fail("q", "later");
+    tracker.fail("q", "again");
+    expect(tracker.questionStatus("q")).toBe("failed");
+    expect(onFailed).toHaveBeenCalledTimes(1);
+  });
+
+  test("questions are tracked apart", () => {
+    const { tracker } = setUp([
+      { questionId: "q1", itemIds: ["q1"] },
+      { questionId: "q2", itemIds: ["q2"] },
+    ]);
+    tracker.readyFor("q1")();
+    expect(tracker.questionStatus("q1")).toBe("visible");
+    expect(tracker.questionStatus("q2")).toBe("loading");
+  });
+
+  test("an unknown item or question changes nothing and reads as loading", () => {
+    const { tracker, onVisible, onFailed } = setUp([{ questionId: "q", itemIds: ["q"] }]);
+    tracker.readyFor("nope")();
+    tracker.fail("nope", "x");
+    expect(tracker.questionStatus("nope")).toBe("loading");
+    expect(tracker.itemStatus("constructor")).toBe("pending");
+    expect(onVisible).not.toHaveBeenCalled();
+    expect(onFailed).not.toHaveBeenCalled();
+  });
+
+  test("subscribers hear each change", () => {
+    const { tracker } = setUp([{ questionId: "q", itemIds: ["q"] }]);
+    const listener = mock(() => {});
+    const unsubscribe = tracker.subscribe(listener);
+    tracker.readyFor("q")();
+    tracker.readyFor("q")();
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+    tracker.fail("q", "x");
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});

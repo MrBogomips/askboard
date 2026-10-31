@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:connect",
+  "title": "Connect",
+  "description": "Board page to board-host, first on every WebSocket: the board's token (AD-11). Nothing of the ask reaches the socket before board-host accepts it. A first message of another major is refused with reason version, any other first message that is not a valid connect with the board's token with reason token, and the socket is then closed (see refused).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "connect"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22,}$",
+      "maxLength": 256
+    }
+  },
+  "required": ["version", "type", "token"],
+  "additionalProperties": false
+}

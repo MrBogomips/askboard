@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:collect-result",
+  "title": "Collect result",
+  "description": "What collect returns, grouped by ask in the order of the request: each ask's ID, state and latest cursor and its events after the cursor passed, each with the cursor that follows it (AD-3). An ask of E1 is unchecked (AD-5). more is true when events did not fit under the result limit: a collect after the returned cursors gets the rest (AD-6). outcome open says that a waiting collect ended after its longest wait with nothing for its item (AD-4).",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "asks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ask"
+      }
+    },
+    "more": {
+      "const": true
+    },
+    "outcome": {
+      "const": "open"
+    }
+  },
+  "required": ["versions", "epoch", "asks"],
+  "additionalProperties": false,
+  "$defs": {
+    "ask": {
+      "type": "object",
+      "properties": {
+        "askId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "state": {
+          "$ref": "urn:askboard:output:ask-state"
+        },
+        "cursor": {
+          "$ref": "urn:askboard:output:cursor"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "unchecked": {
+          "const": true
+        }
+      },
+      "required": ["askId", "state", "cursor", "events"],
+      "additionalProperties": false
+    },
+    "event": {
+      "oneOf": [
+        {
+          "$ref": "urn:askboard:output:answer-event"
+        },
+        {
+          "$ref": "urn:askboard:output:discarded-event"
+        }
+      ]
+    }
+  }
+}

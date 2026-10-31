@@ -1,7 +1,10 @@
 {
   // Tests and repository tooling run on Bun: they add @types/bun, which the source configurations leave out.
+  // The DOM libraries and JSX serve the view's tests and the browser tests' page scripts.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
     "types": ["bun"]
   },
   "include": [

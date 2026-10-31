@@ -8,17 +8,25 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "bun run build:server && bun run build:view",
+    "build:server": "bun build packages/server/src/main.ts --target=node --format=esm --outfile=dist/askboard.mjs",
+    "build:view": "bun tools/build/view.ts",
     "check": "bun run typecheck && bun run lint && bun run test && bun run check:imports && bun run check:licences",
     "typecheck": "for p in packages/*/; do tsc -p \"$p\" || exit 1; done && tsc -p tsconfig.test.json",
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "bun test --coverage",
+    "test:e2e": "bun packages/view/test/browser/run.ts --no-build --target session-process && bun packages/server/test/conformance/run.ts --runtime bun",
     "check:imports": "bun tools/check-imports.ts",
     "check:licences": "bun tools/check-licences.ts"
   },
   "devDependencies": {
+    "@askboard/contract": "workspace:*",
     "@biomejs/biome": "2.6.4",
+    "@modelcontextprotocol/client": "2.4.0",
     "@types/bun": "1.4.4",
+    "ajv": "8.20.0",
+    "playwright": "1.64.1",
     "typescript": "7.0.2"
   },
   "volta": {
