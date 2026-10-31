@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:update-outcome",
+  "title": "Update outcome",
+  "description": "What update returns instead of applying its actions when the ask is closed, or discarded, which an ask ID unknown to this session's epoch counts as (AD-6, AD-10, AD-21). A typed result, not an error: nothing was changed.",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "outcome": {
+      "enum": ["closed", "discarded"]
+    }
+  },
+  "required": ["versions", "epoch", "askId", "outcome"],
+  "additionalProperties": false
+}

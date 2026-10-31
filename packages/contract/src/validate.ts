@@ -3,7 +3,8 @@
 // its CSP, so the view build generates standalone validators from `createAjv` instead.
 
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
-import { schemaErrors } from "./compiled.ts";
+import { AJV_OPTIONS, schemaErrors } from "./compiled.ts";
+import { DRAFT_RECORD_MAX_CHARS } from "./limits.ts";
 import { type BoardDocument, boardDocumentSet } from "./schemas/board-document/index.ts";
 import {
   BOARD_PROTOCOL_MESSAGES,
@@ -45,8 +46,18 @@ export {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-// A problem names the field it is about: an unknown or missing field joins the path.
+// A problem names the field it is about: an unknown or missing field joins the path, and so does
+// the property a discriminator picks a schema by (`type`, `action`).
 const problemOf = ({ keyword, instancePath, params, message }: ErrorObject): Problem => {
+  if (keyword === "discriminator") {
+    const field = String(params.tag);
+    const value = params.tagValue;
+    const why =
+      value === undefined
+        ? `missing field "${field}"`
+        : `${JSON.stringify(value)} is not a ${field} defined here`;
+    return { path: `${instancePath}/${field}`, message: why };
+  }
   if (keyword === "additionalProperties") {
     const field = String(params.additionalProperty);
     return { path: `${instancePath}/${field}`, message: `unknown field "${field}"` };
@@ -118,8 +129,17 @@ export function validateBoardMessage(
     const message = `${JSON.stringify(value.type ?? null)} is not a message ${SENDERS[direction]} sends`;
     return { ok: false, reason: "schema", problems: [{ path: "/type", message }] };
   }
-  return validateAgainst(id, value);
+  const checked = validateAgainst<PageMessage | HostMessage>(id, value);
+  return checked.ok && value.type === "draft" ? withinDraftLimit(checked, value.record) : checked;
 }
+
+// A draft message the schema accepts, unless its record's JSON is longer than the draft limit.
+const withinDraftLimit = <T>(checked: Checked<T>, record: unknown): Checked<T> => {
+  const size = JSON.stringify(record).length;
+  if (size <= DRAFT_RECORD_MAX_CHARS) return checked;
+  const message = `the draft record takes ${size} characters of JSON, more than the ${DRAFT_RECORD_MAX_CHARS} the board protocol accepts`;
+  return { ok: false, reason: "schema", problems: [{ path: "/record", message }] };
+};
 
 type Chunks = ViewManifest["chunks"];
 
@@ -247,7 +267,7 @@ const shapeProblems = (set: SchemaSet, schema: Record<string, unknown>): string[
  */
 export const schemaSetProblems = (sets: readonly SchemaSet[]): string[] => {
   const problems = sets.flatMap(setProblems);
-  const checker = new Ajv2020({ strict: true, allErrors: true });
+  const checker = new Ajv2020({ ...AJV_OPTIONS });
   const compilable: [SchemaSet, Record<string, unknown>][] = [];
   for (const set of sets) {
     for (const schema of set.schemas as Record<string, unknown>[]) {
@@ -274,6 +294,10 @@ export const schemaSetProblems = (sets: readonly SchemaSet[]): string[] => {
 
 // The Tree's validators, each its widget validator and then its checks.
 export { validateTreeChanges, validateTreeProps } from "./widgets/tree/validate.ts";
+// E3, the ask lifecycle (ask-lifecycle, design decision 2): the update and fetch requests, and a
+// draft record checked against its ask's board document.
+export { draftRecordProblems } from "./draft-record.ts";
+export { validateFetchRequest, validateUpdateRequest } from "./update-request.ts";
 // Widgets: E1's error mapping, and one standalone validator per widget schema.
 export { widgetValidator } from "./widgets/validator.ts";
 export { problemOf };

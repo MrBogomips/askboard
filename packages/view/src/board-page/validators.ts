@@ -24,9 +24,10 @@ const compiled = (id: string): SchemaCheck => {
   return check;
 };
 
-const { board, state, receipt, discarded, moved, refused } = BOARD_PROTOCOL_MESSAGES.toPage;
+const { board, state, receipt, discarded, moved, refused, done, draft, closed } =
+  BOARD_PROTOCOL_MESSAGES.toPage;
 
-/** One validator per message type `board-host` sends. */
+/** One validator per message type `board-host` sends; protocol 1.1's appended after E1's. */
 export const hostMessageSchemas: Readonly<Record<HostMessageType, SchemaCheck>> = {
   board: compiled(board),
   state: compiled(state),
@@ -34,4 +35,7 @@ export const hostMessageSchemas: Readonly<Record<HostMessageType, SchemaCheck>> 
   discarded: compiled(discarded),
   moved: compiled(moved),
   refused: compiled(refused),
+  done: compiled(done),
+  draft: compiled(draft),
+  closed: compiled(closed),
 };

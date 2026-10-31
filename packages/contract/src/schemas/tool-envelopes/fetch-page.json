@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:fetch-page",
+  "title": "Fetch page",
+  "description": "One page of an item's full value when it does not fit one result (proposal, open question 5): a consecutive slice of its RFC 8785 JSON text, at most 24,000 characters, with the continuation that fetches the next slice, and none on the last. The slices joined in order parse as the value fetch-result's item holds. An ask without an owner check is unchecked (AD-5).",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "part": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 24000
+    },
+    "continuation": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "unchecked": {
+      "const": true
+    }
+  },
+  "required": ["versions", "epoch", "askId", "itemId", "part"],
+  "additionalProperties": false
+}

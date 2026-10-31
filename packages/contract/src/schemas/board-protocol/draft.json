@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:draft",
+  "title": "Draft",
+  "description": "Both directions: the board's draft record, whole. The board page mirrors it after each change and when it is hidden; board-host passes the live board's to ask-core, and that of a board being moved within the takeover flush wait, and sends the held record back after the board document and the state on connect (AD-20, AD-21).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "draft"
+    },
+    "record": {
+      "$ref": "urn:askboard:board-protocol:draft-record"
+    }
+  },
+  "required": ["version", "type", "record"],
+  "additionalProperties": false
+}

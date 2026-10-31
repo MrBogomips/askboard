@@ -2,6 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:outcome",
   "title": "Outcome",
-  "description": "The typed results that are not errors and that E1 returns (AD-6): unavailable when no board can be shown (AD-18), open when a waiting collect ends after its longest wait (AD-4).",
-  "enum": ["unavailable", "open"]
+  "description": "The typed results that are not errors (AD-6): unavailable when no board can be shown (AD-18); open when a waiting collect ends after its longest wait with nothing for its item (AD-4), postponed when the item it waits for is postponed, closed when the ask is closed; closed and discarded when update or fetch meets an ask that is (AD-10, AD-21).",
+  "enum": ["unavailable", "open", "postponed", "closed", "discarded"]
 }

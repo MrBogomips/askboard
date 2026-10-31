@@ -4,6 +4,7 @@ import {
   duplicateAnswerTranscript,
   fixtureViewFiles,
   fixtureViewManifest,
+  lifecycleProtocolExamples,
   notConnectFirstTranscript,
   PLAIN_CHOICE,
   plainChoiceBoardDocument,
@@ -19,9 +20,9 @@ import {
 import {
   BOARD_CLOSE_CODES,
   BOARD_PROTOCOL_MESSAGES,
+  BOARD_PROTOCOL_VERSION,
   boardLink,
   type ManifestFile,
-  type PageMessage,
   VIEW_MANIFEST_FILE,
 } from "../src/index.ts";
 import {
@@ -120,7 +121,7 @@ describe.each(Object.entries(transcripts))("the %s transcript", (_name, transcri
         expect(first).toEqual({
           socket,
           from: "page",
-          message: { version: "1.0", type: "connect", token: transcript.token },
+          message: { version: BOARD_PROTOCOL_VERSION, type: "connect", token: transcript.token },
         });
         expect(kinds.slice(0, 2)).toEqual(["board", "state"]);
       } else {
@@ -272,7 +273,7 @@ describe("the error and resend transcripts", () => {
       "connect",
       "board",
       "state",
-      "invalid draft",
+      "invalid telemetry",
       "refused",
       "invalid answer",
       "refused",
@@ -297,9 +298,12 @@ describe("the error and resend transcripts", () => {
 });
 
 describe("board-protocol examples", () => {
-  test("one valid example of every message type, in each direction", () => {
+  test("one valid example of every message type, in each direction: E1's, then 1.1's", () => {
     for (const direction of ["toHost", "toPage"] as const) {
-      const examples: readonly PageMessage[] | readonly object[] = boardProtocolExamples[direction];
+      const examples: readonly object[] = [
+        ...boardProtocolExamples[direction],
+        ...lifecycleProtocolExamples[direction],
+      ];
       const types = examples.map((message) => (message as { type: string }).type);
       for (const type of Object.keys(BOARD_PROTOCOL_MESSAGES[direction])) {
         expect(types).toContain(type);

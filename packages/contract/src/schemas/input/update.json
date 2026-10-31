@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:update",
+  "title": "Update request",
+  "description": "update's request as the input format refines the tool's generic schema (AD-6, FR-6): the ask's ID and its actions, applied in order and all or none. Each action holds only the fields it uses: add (item, with parentId naming the area it goes in and after naming the sibling it follows, each omitted when there is none, as changes places elements), change (itemId, and props merged key by key), delete and reopen (itemId), answer (itemId, and the answer the user gave outside the board: choice, other and note), reply (itemId, followUp naming the follow-up event's cursor, and text) and close. Further checks run in the contract's validation function: an added item is checked as an ask's item is, and an area is added only at the top level.",
+  "type": "object",
+  "properties": {
+    "askId": { "$ref": "urn:askboard:input:id" },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/action" }
+    }
+  },
+  "required": ["askId", "actions"],
+  "additionalProperties": false,
+  "$defs": {
+    "action": {
+      "description": "An action, picked by its action field.",
+      "type": "object",
+      "discriminator": { "propertyName": "action" },
+      "oneOf": [
+        { "$ref": "#/$defs/add" },
+        { "$ref": "#/$defs/change" },
+        { "$ref": "#/$defs/delete" },
+        { "$ref": "#/$defs/reopen" },
+        { "$ref": "#/$defs/answer" },
+        { "$ref": "#/$defs/reply" },
+        { "$ref": "#/$defs/close" }
+      ]
+    },
+    "add": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "add" },
+        "item": { "$ref": "urn:askboard:input:ask#/$defs/item" },
+        "parentId": { "$ref": "urn:askboard:input:id" },
+        "after": { "$ref": "urn:askboard:input:id" }
+      },
+      "required": ["action", "item"],
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "change" },
+        "itemId": { "$ref": "urn:askboard:input:id" },
+        "props": { "type": "object" }
+      },
+      "required": ["action", "itemId", "props"],
+      "additionalProperties": false
+    },
+    "delete": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "delete" },
+        "itemId": { "$ref": "urn:askboard:input:id" }
+      },
+      "required": ["action", "itemId"],
+      "additionalProperties": false
+    },
+    "reopen": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "reopen" },
+        "itemId": { "$ref": "urn:askboard:input:id" }
+      },
+      "required": ["action", "itemId"],
+      "additionalProperties": false
+    },
+    "answer": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "answer" },
+        "itemId": { "$ref": "urn:askboard:input:id" },
+        "answer": {
+          "type": "object",
+          "properties": {
+            "choice": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "other": { "type": "string", "minLength": 1, "maxLength": 10000 },
+            "note": { "type": "string", "minLength": 1, "maxLength": 10000 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["action", "itemId", "answer"],
+      "additionalProperties": false
+    },
+    "reply": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "reply" },
+        "itemId": { "$ref": "urn:askboard:input:id" },
+        "followUp": { "$ref": "urn:askboard:output:cursor" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 10000 }
+      },
+      "required": ["action", "itemId", "followUp", "text"],
+      "additionalProperties": false
+    },
+    "close": {
+      "type": "object",
+      "properties": {
+        "action": { "const": "close" }
+      },
+      "required": ["action"],
+      "additionalProperties": false
+    }
+  }
+}

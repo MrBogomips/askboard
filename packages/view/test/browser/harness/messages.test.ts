@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AnswerCommand, PageMessage } from "@askboard/contract";
+import { type AnswerCommand, BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import {
   orderProblems,
@@ -11,9 +11,13 @@ import {
 } from "./messages.ts";
 import { replayTranscripts } from "./transcripts.ts";
 
-const connect: PageMessage = { version: "1.0", type: "connect", token: PLAIN_CHOICE.token };
+const connect: PageMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "connect",
+  token: PLAIN_CHOICE.token,
+};
 const answer: AnswerCommand = {
-  version: "1.0",
+  version: BOARD_PROTOCOL_VERSION,
   type: "answer",
   itemId: "database",
   rev: 1,
@@ -111,8 +115,8 @@ describe("orderProblems", () => {
     dir,
     text: JSON.stringify(message),
   });
-  const board = { version: "1.0", type: "board" };
-  const state = { version: "1.0", type: "state" };
+  const board = { version: BOARD_PROTOCOL_VERSION, type: "board" };
+  const state = { version: BOARD_PROTOCOL_VERSION, type: "state" };
   const first = {
     url: "ws://x/ws/a",
     frames: [frame("sent", connect), frame("received", board), frame("received", state)],

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { AnswerCommand, BoardState } from "@askboard/contract";
+import { type AnswerCommand, BOARD_PROTOCOL_VERSION, type BoardState } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewAnswer } from "../view-protocol.ts";
 import { type BoardModel, EMPTY_MODEL } from "./model.ts";
@@ -35,7 +35,7 @@ const model = (state: BoardState): BoardModel => ({
   visible: new Set(["database"]),
 });
 const command: AnswerCommand = {
-  version: "1.0",
+  version: BOARD_PROTOCOL_VERSION,
   type: "answer",
   itemId: "database",
   rev: 1,

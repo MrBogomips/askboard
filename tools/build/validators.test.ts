@@ -3,7 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
-import { boardProtocolExamples, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  boardProtocolExamples,
+  lifecycleProtocolExamples,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
 import { validateBoardMessage } from "@askboard/contract/validate";
 import { HOST_VALIDATORS_RUNTIME, hostValidatorsCode } from "./validators.ts";
 
@@ -66,5 +70,17 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
   test("each valid example passes and each invalid one fails", () => {
     expect(valid.every((message) => generated[message.type]?.(message))).toBe(true);
     expect(invalid.some((message) => generated[message.type]?.(message))).toBe(false);
+  });
+
+  test("accept what board protocol 1.1 adds, as the contract does (ask-lifecycle, task 1.4)", () => {
+    const added = lifecycleProtocolExamples.toPage as readonly { type: string }[];
+    expect(new Set(added.map((message) => message.type))).toEqual(
+      new Set(["board", "state", "done", "draft", "closed", "refused", "discarded"]),
+    );
+    for (const message of added) {
+      const check = generated[message.type];
+      expect({ message, ok: check?.(message) }).toEqual({ message, ok: true });
+      expect(validateBoardMessage("toPage", message).ok).toBe(true);
+    }
   });
 });

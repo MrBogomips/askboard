@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { BOARD_CLOSE_CODES, type PageMessage } from "@askboard/contract";
+import { BOARD_CLOSE_CODES, BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import { Replay, type ReplaySocket } from "./replay.ts";
 import { OVERLOADED_CLOSE_CODE, type ReplayTranscript, replayTranscripts } from "./transcripts.ts";
 
-const connect: PageMessage = { version: "1.0", type: "connect", token: PLAIN_CHOICE.token };
+const connect: PageMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "connect",
+  token: PLAIN_CHOICE.token,
+};
 const answer: PageMessage = {
-  version: "1.0",
+  version: BOARD_PROTOCOL_VERSION,
   type: "answer",
   itemId: "database",
   rev: 1,

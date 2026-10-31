@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:done",
+  "title": "Done",
+  "description": "board-host to board page: the act command with this action ID is applied, once, whether this is its first sending or a resend (AD-20). The state follows.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "done"
+    },
+    "actionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22}$"
+    }
+  },
+  "required": ["version", "type", "actionId"],
+  "additionalProperties": false
+}

@@ -8,6 +8,7 @@ import {
   BOARD_PROTOCOL_VERSION,
   BOARD_RESPONSES,
   boardPagePolicy,
+  RESULT_VERSIONS,
   SCHEMA_IDS,
   TOOL_DEFINITIONS,
 } from "@askboard/contract";
@@ -71,12 +72,19 @@ const firstFreePort = (): number => {
 
 const askOf = (askId: string) => ({ ...PLAIN_CHOICE, askId });
 
-// A session process's own words in a result, with its epoch and link put back as the approved
-// examples write them.
+// A session process's own words in a result, with its epoch, link and versions put back as the
+// approved examples write them: the examples name the contract's 1.0 sets.
 const asExample = (value: unknown, epoch: string, link: string): unknown => {
-  const example = approved("results", "plain-choice").board as string;
+  const { board: example, versions } = approved("results", "plain-choice") as {
+    board: string;
+    versions: unknown;
+  };
   return JSON.parse(
     JSON.stringify(value)
+      .replaceAll(
+        `"versions":${JSON.stringify(RESULT_VERSIONS)}`,
+        `"versions":${JSON.stringify(versions)}`,
+      )
       .replaceAll(link, example)
       .replaceAll(`"${epoch}"`, '"k3x9"')
       .replaceAll(`"${epoch}.`, '"k3x9.'),
@@ -141,11 +149,11 @@ describe("before the first ask", () => {
     onlyProtocol(session);
   });
 
-  test("tools/list gives ask then collect, as the contract defines them, on either negotiation", async () => {
+  test("tools/list gives ask, update, collect and fetch, as the contract defines them, on either negotiation", async () => {
     for (const negotiation of ["auto", "legacy"] as const) {
       const session = await startSession({ negotiation });
       const { tools } = await session.client.listTools();
-      expect(tools.map((tool) => tool.name)).toEqual(["ask", "collect"]);
+      expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
       for (const [at, tool] of tools.entries())
         expect(tool).toMatchObject(TOOL_DEFINITIONS[at] ?? {});
       expect(await session.end()).toBe(0);

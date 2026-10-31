@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   BOARD_CLOSE_CODES,
+  BOARD_PROTOCOL_VERSION,
   BOARD_RESPONSES,
   BOARD_TOKEN_HEADER,
   type HostMessage,
@@ -13,9 +14,13 @@ import { type ReplayTranscript, replayTranscripts } from "./transcripts.ts";
 import { fixtureViewBuild } from "./view-build.ts";
 
 const view = fixtureViewBuild();
-const connect: PageMessage = { version: "1.0", type: "connect", token: PLAIN_CHOICE.token };
+const connect: PageMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "connect",
+  token: PLAIN_CHOICE.token,
+};
 const answer: PageMessage = {
-  version: "1.0",
+  version: BOARD_PROTOCOL_VERSION,
   type: "answer",
   itemId: "database",
   rev: 1,

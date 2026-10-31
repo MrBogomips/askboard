@@ -22,7 +22,7 @@ describe("a request with many problems", () => {
         id: "database",
         props: {
           header: 7,
-          options: [{ label: "A", preview: "x" }, { label: "A" }, { description: "no label" }],
+          options: [{ label: "A", preview: 7 }, { label: "A" }, { description: "no label" }],
           multiSelect: "yes",
           recommended: "A",
         },
@@ -45,7 +45,8 @@ describe("a request with many problems", () => {
       "/items/0/props/options/2/label",
       "/items/0/props/multiSelect",
       "/items/0/props/recommended",
-      "/items/1",
+      "/items/1/props/text",
+      "/items/1/props/options",
       "/locale",
       "/colour",
     ]);
@@ -62,6 +63,10 @@ describe("a request with many problems", () => {
     expect(problems.filter((p) => p.path.startsWith("/items/0")).map((p) => p.itemId)).toEqual(
       Array(7).fill("database"),
     );
+    expect(problems.filter((p) => p.path.startsWith("/items/1")).map((p) => p.itemId)).toEqual([
+      "cache",
+      "cache",
+    ]);
     expect(problems.find((p) => p.path === "/items/0/props/text")).toMatchObject({
       field: "props.text",
       message: expect.stringContaining("props.text is required"),

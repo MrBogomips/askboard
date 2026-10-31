@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:edit-choice-event",
+  "title": "Edit choice event",
+  "description": "What the user chose when the agent changed a question they had unsent work on (FR-6, AD-20), at the question's current revision: reload, dropping the work, or ignore, keeping it, with keptRev naming the earlier revision an answer may then name.",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "type": {
+      "const": "edit-choice"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "edit": {
+      "enum": ["reload", "ignore"]
+    },
+    "keptRev": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": ["cursor", "type", "itemId", "rev", "edit"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "edit": {
+        "const": "ignore"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "keptRev": true
+    },
+    "required": ["keptRev"]
+  },
+  "else": {
+    "properties": {
+      "keptRev": false
+    }
+  }
+}

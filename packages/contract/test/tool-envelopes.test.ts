@@ -70,9 +70,20 @@ const pathsOf = (id: string, value: unknown) => {
 };
 
 describe("the tool definitions", () => {
-  test("are the approved ask and collect, in that order and unchanged", () => {
+  test("are the approved ask, update, collect and fetch, in that order and unchanged", () => {
     const byName = (name: string) => approved.tools.find((tool) => tool.name === name);
-    expect(TOOL_DEFINITIONS).toEqual([byName("ask"), byName("collect")] as never);
+    expect(TOOL_DEFINITIONS.map((tool) => tool.name)).toEqual([
+      "ask",
+      "update",
+      "collect",
+      "fetch",
+    ]);
+    expect(TOOL_DEFINITIONS).toEqual([
+      byName("ask"),
+      byName("update"),
+      byName("collect"),
+      byName("fetch"),
+    ] as never);
   });
 
   test("the request envelopes are the definitions' input schemas, and name no version", async () => {
@@ -82,6 +93,12 @@ describe("the tool definitions", () => {
     const collect = { asks: [{ askId: "order-db-choice-x7k2", after: "k3x9.0" }] };
     expect(validateAgainst(SCHEMA_IDS.collectRequest, collect).ok).toBe(true);
     expect(pathsOf(SCHEMA_IDS.collectRequest, { ...collect, versions })).toEqual(["/versions"]);
+    const update = { askId: "order-db-choice-x7k2", actions: [{ action: "close" }] };
+    expect(validateAgainst(SCHEMA_IDS.updateRequest, update).ok).toBe(true);
+    expect(pathsOf(SCHEMA_IDS.updateRequest, { ...update, versions })).toEqual(["/versions"]);
+    const fetch = { askId: "order-db-choice-x7k2", itemId: "database" };
+    expect(validateAgainst(SCHEMA_IDS.fetchRequest, fetch).ok).toBe(true);
+    expect(pathsOf(SCHEMA_IDS.fetchRequest, { ...fetch, versions })).toEqual(["/versions"]);
   });
 });
 
@@ -131,7 +148,8 @@ describe("the collect result", () => {
   });
 
   test.each([
-    ["an event of a type E1 does not return", { cursor: "k3x9.2", type: "postponed" }],
+    ["an event of a type the output format does not define", { cursor: "k3x9.2", type: "closed" }],
+    ["a postponed event without its item", { cursor: "k3x9.2", type: "postponed" }],
     ["an answer with an unknown field", { ...answerEvent, gate: true }],
   ])("%s is refused", (_, event) => {
     const [entry] = collectResult.asks;
@@ -145,34 +163,15 @@ describe("the collect result", () => {
 });
 
 describe("the server instructions", () => {
-  test("are the approved text, keeping only what applies to ask and collect", async () => {
+  test("are the approved text, whole", async () => {
     const text = await (await fixture("server-instructions.md")).text();
-    const kept = text
-      .replace(" Change items by ID with `update`.", "")
-      .replace(
-        " Answers carry only what changed; `fetch` returns a whole item.",
-        " Answers carry only what changed.",
-      )
-      .replace(
-        "- Reply to follow-ups at once with `update` (`reply`): the user is waiting for you.\n",
-        "",
-      )
-      .replace(
-        "- When the user answers a postponed question in the terminal, record it with `update` (`answer`).\n",
-        "",
-      )
-      .replace(
-        "- Do not ask a declined question again in this task. A `discarded`",
-        "- A `discarded`",
-      )
-      .trimEnd();
-    expect(SERVER_INSTRUCTIONS).toBe(kept);
+    expect(SERVER_INSTRUCTIONS).toBe(text.trimEnd());
   });
 
-  test("name no AskBoard tool other than ask and collect", () => {
-    expect(SERVER_INSTRUCTIONS).toContain("`ask`");
-    expect(SERVER_INSTRUCTIONS).toContain("`collect`");
-    expect(SERVER_INSTRUCTIONS).not.toMatch(/\b(update|fetch|snapshot)\b/);
-    expect(SERVER_INSTRUCTIONS).not.toMatch(/follow-up|postpone|declin/i);
+  test("name the four tools listed and no other AskBoard tool", () => {
+    for (const tool of ["ask", "update", "collect", "fetch"]) {
+      expect(SERVER_INSTRUCTIONS).toContain(`\`${tool}\``);
+    }
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/\bsnapshot\b/);
   });
 });

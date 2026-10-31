@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:question-props",
   "title": "Question props",
-  "description": "A plain question: its text, optional header chip, options and multiSelect (FR-3 in part; E1 defines no other field).",
+  "description": "A question: its text, optional header chip, options, multiSelect, and allowOther, which offers the \"Other…\" row (FR-3). An option is its label, unique within the question, an optional description, preview and annotation, each plain text, and recommended, which at most one option of a question sets (proposal, open question 9); the contract's validation function checks the uniqueness rules. A question's widget items (props.items) stay refused until the widget follow-up widens the input format.",
   "type": "object",
   "properties": {
     "text": { "type": "string", "minLength": 1 },
@@ -12,7 +12,8 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/option" }
     },
-    "multiSelect": { "type": "boolean" }
+    "multiSelect": { "type": "boolean" },
+    "allowOther": { "type": "boolean" }
   },
   "required": ["text", "options"],
   "additionalProperties": false,
@@ -21,7 +22,10 @@
       "type": "object",
       "properties": {
         "label": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "preview": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "annotation": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "recommended": { "const": true }
       },
       "required": ["label"],
       "additionalProperties": false

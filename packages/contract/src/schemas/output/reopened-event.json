@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:reopened-event",
+  "title": "Reopened event",
+  "description": "The user undid a sent postpone or decline (FR-4, AD-20): the question is open again at its revision.",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "type": {
+      "const": "reopened"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": ["cursor", "type", "itemId", "rev"],
+  "additionalProperties": false
+}

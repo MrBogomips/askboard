@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-document:board-document",
   "title": "Board document",
-  "description": "What a board shows of an ask, as ask-core accepted it (AD-12): its ID, its title and its one question with the question's revision.",
+  "description": "What a board shows of an ask, as ask-core holds it now (AD-12): its ID, its title, the presentation and delivery the ask requests, and its items as the input format places them: questions, or areas holding questions, never both at the top level and never an area in an area, each question with its current revision (AD-20). It holds no draft, no event and no token.",
   "type": "object",
   "properties": {
     "version": {
@@ -18,18 +18,71 @@
       "minLength": 1,
       "maxLength": 256
     },
+    "presentation": {
+      "enum": ["sections", "tabs", "one-per-view"]
+    },
+    "delivery": {
+      "enum": ["immediate", "submitted"]
+    },
     "items": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 1,
       "items": {
-        "$ref": "#/$defs/question"
+        "$ref": "#/$defs/item"
       }
     }
   },
   "required": ["version", "askId", "title", "items"],
   "additionalProperties": false,
+  "if": {
+    "properties": {
+      "items": {
+        "type": "array",
+        "contains": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "area"
+            }
+          },
+          "required": ["type"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "then": {
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "area"
+            }
+          },
+          "required": ["type"]
+        }
+      }
+    }
+  },
   "$defs": {
+    "item": {
+      "description": "An item, picked by its type: a question or an area.",
+      "type": "object",
+      "discriminator": {
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/question"
+        },
+        {
+          "$ref": "#/$defs/area"
+        }
+      ]
+    },
     "question": {
       "type": "object",
       "properties": {
@@ -48,6 +101,40 @@
         }
       },
       "required": ["type", "id", "rev", "props"],
+      "additionalProperties": false
+    },
+    "area": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "area"
+        },
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "props": {
+          "$ref": "#/$defs/areaProps"
+        }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "areaProps": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/question"
+          }
+        }
+      },
+      "required": ["title", "items"],
       "additionalProperties": false
     }
   }

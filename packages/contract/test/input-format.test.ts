@@ -28,7 +28,7 @@ const only = (value: unknown): RequestProblem => {
 };
 
 describe("the ask level of the input format", () => {
-  test("the approved plain-choice ask validates, with every optional field E1 accepts", () => {
+  test("the approved plain-choice ask validates, with every optional ask-level field", () => {
     const full = {
       ...ask(),
       title: "Order service database",
@@ -42,23 +42,25 @@ describe("the ask level of the input format", () => {
     expect(validateAskRequest(full)).toEqual({ ok: true, value: full as never });
   });
 
-  test("a second question is refused, naming its item ID and the one-question rule", () => {
+  test("a second question passes: input format 1.1 takes several questions", () => {
     const two = ask();
     two.items.push({ ...structuredClone(question(two)), id: "cache" });
-    const problem = only(two);
-    expect(problem).toMatchObject({ path: "/items/1", itemId: "cache", field: "items" });
-    expect(problem.message).toContain('item "cache"');
-    expect(problem.message).toContain("one question per ask");
+    expect(validateAskRequest(two)).toEqual({ ok: true, value: two as never });
   });
 
   test.each([
-    ["recommended", ["recommended"], "props.recommended", "text, header, options and multiSelect"],
-    ["items", ["items"], "props.items", "text, header, options and multiSelect"],
     [
-      "an option preview",
-      ["options", 0, "preview"],
-      "props.options[0].preview",
-      "label and description",
+      "recommended",
+      ["recommended"],
+      "props.recommended",
+      "text, header, options, multiSelect and allowOther",
+    ],
+    ["items", ["items"], "props.items", "text, header, options, multiSelect and allowOther"],
+    [
+      "an option colour",
+      ["options", 0, "colour"],
+      "props.options[0].colour",
+      "label, description, preview, annotation and recommended",
     ],
   ] as const)(
     "a question's %s is refused, naming the item ID and the field",

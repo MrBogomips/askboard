@@ -41,16 +41,28 @@ The deltas modify E1's requirements, so this change is archived only after E1's 
 
 ## Open questions for the PO
 
-The documents leave these open. Each records the narrowest choice, which this change proceeds with; each can be reversed with `/opsx:update` before implementation starts (task 0.1).
+The documents leave these open. Each records the narrowest choice, which this change proceeds with. The PO accepted questions 1 to 10 as proposed on 2026-10-31; question 11 came after the PO's review and stays open, with its default in force (task 0.1).
 
 1. **No `snapshot` tool yet.** E1's proposal gives E3 "`update`, `fetch` and `snapshot`" and E7 "Snapshots". A `snapshot` tool cannot return a path until E7 writes the file, so E3 lists four tools, `ask`, `update`, `collect` and `fetch`, in AD-6's order, and E7 adds `snapshot` with its files. *Alternative:* list all five now, with `snapshot` refusing until E7; it costs its definition in every session for a call that cannot succeed.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 2. **Areas are container items.** AD-7 names "area" in the input format and nothing fixes its shape. An area is `{type: "area", id, props: {title, items}}` holding questions; either every top-level item of an ask is an area or none is. The agent adds a question to an area with `update`'s `parentId`. *Alternative:* an `area` label on each question.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 3. **Answers the agent records are not logged.** AD-3 keeps the agent's own changes out of the log; AD-10's wording calls a recorded answer an answer event. A recorded answer (`update` `answer`) is held by `ask-core` as the question's answer, marked recorded, with `who` and the core's time (FR-19), reported in the `update` result, and never pushed or collected back; the board shows the question answered. A later answer from the board is a new event without `replaces`. Block 2 of the spine draft words AD-10 to match. *Alternative:* log it as an answer event, which the `received` watermark cannot then skip without skipping earlier events.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 4. **Grace period of 120 seconds.** AD-21 and the Deferred table leave its length to implementation; SOLUTION-DESIGN §8 sets 90 s as the floor of any board liveness timeout, since a hidden Chrome tab runs its timers once a minute. E3 uses 120 s, a contract constant that E8's configuration may later expose.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 5. **`fetch` pages as slices of text.** AD-6 says `fetch` returns an item "or a range of it, with a continuation cursor". When an item's full value does not fit a result, `fetch` returns consecutive slices of its RFC 8785 JSON text; the continuation names the item's revision and the offset, and a page of a value that changed in between is refused. *Alternative:* element ranges per widget shape, which only the widget epics can define.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 6. **The context header's first row and the agent pill wait for E4.** No epic's line names them. Who asked, where it works, and whether the agent is working or waiting come from agent records and the mod (AD-4, AD-5), so E3 builds only the second row's ask-state pill (ask states, the partly-answered count, the postponed and declined counts), open count, next-open jump, unread-reply count and agent-change flag, and leaves the rest to `push-delivery`.
    - **Resolved (team lead, 2026-10-31, with `push-delivery`):** E4 owns FR-24's who-and-where row and the agent pill: the pill shows E4's `presence`, and the row the agent identity from E4's hooks and agent records. E3 leaves both out and lists them as an E4 dependency of its header (design decisions 6 and 8).
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 7. **An answered question cannot be deleted.** FR-6 lets the agent delete an item; AD-20 refuses changing a question whose answer or decline is in the log. A delete counts as a change: the agent reopens the question first. Postponed and open questions delete freely.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 8. **A deleted item disappears, unsent work and all.** FR-6 says the item disappears; EXPERIENCE assumes it turns read-only, "Removed by the agent", while it holds unsent work (Open Items 1). E3 follows FR-6: the item and its draft go, and one question per view says "Question removed by the agent".
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 9. **FR-3's shapes, narrowly.** "Other…" is offered only when the question sets `allowOther`, as EXPERIENCE's "when the question offers one" reads; at most one option is recommended; a preview and an agent annotation are plain text. Markdown and image previews come with the Text and Image atoms.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
 10. **No key bindings beyond the composer's.** EXPERIENCE leaves them open (Open Items 21). Every act is a focusable control, the follow-up composer sends with Ctrl+Enter or Cmd+Enter, and the next-open jump, Submit and the others get keys when EXPERIENCE records them.
+   - **Answer (PO, 2026-10-31):** accepted as proposed.
+11. **No `after` means first in `update`'s `add`.** Since E1's `ee10f3e`, the generic diff omits `after` for the first position, so `update` reads an absent `after` the same way, and an agent appends by naming the last item as `after` (core spec, Adding an item). *Alternative:* `update` keeps "no `after` means last", the common case for an agent, since the agent's API and the answer's diff serve different readers; `ask-core` then translates the position, because in the diff form an appended item always names its preceding sibling.
+   - **Still open:** not on the PO's page of 2026-10-31; the default is in force until the PO answers.

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { BoardDocument, BoardState, HostMessage } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_VERSION,
+  type BoardDocument,
+  type BoardState,
+  type HostMessage,
+} from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewAnswer } from "../view-protocol.ts";
 import {
@@ -12,7 +17,7 @@ import {
   withViewMessage,
 } from "./model.ts";
 
-const version = "1.0";
+const version = BOARD_PROTOCOL_VERSION;
 const waiting: BoardState = {
   ask: "waiting",
   questions: [{ itemId: "database", rev: 1, state: "open" }],
@@ -162,7 +167,7 @@ describe("an answer from the view becomes a board-protocol command only if it ca
     expect(answerCommandFor(ready(), answer)).toEqual({
       ok: true,
       value: {
-        version: "1.0",
+        version,
         type: "answer",
         itemId: "database",
         rev: 1,

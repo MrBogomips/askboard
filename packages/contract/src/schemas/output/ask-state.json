@@ -2,6 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:ask-state",
   "title": "Ask state",
-  "description": "The ask states E1 reaches (AD-10): an ask is waiting until its question is answered, and discarded at session exit or when its cursor is of another epoch. A minor version adds partly-answered and closed with the epics that reach them.",
-  "enum": ["waiting", "answered", "discarded"]
+  "description": "The ask states (AD-10): waiting until the first answer, decline or postpone; answered while every question that is not postponed is answered or declined; partly-answered otherwise; closed by the agent; discarded at session exit, when its board is gone past the grace period, or when its cursor is of another epoch.",
+  "enum": ["waiting", "partly-answered", "answered", "closed", "discarded"]
 }

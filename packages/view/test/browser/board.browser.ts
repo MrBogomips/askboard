@@ -4,6 +4,7 @@
 // browser storage, and a reload.
 
 import { describe, expect, test } from "bun:test";
+import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import {
   answerWith,
@@ -47,7 +48,7 @@ const expectReadOnly = async (board: Board) => {
 const expectOnlyConnect = async (run: BoardRun) => {
   await Bun.sleep(300);
   expect(run.browser.pageMessages().map(({ message }) => message)).toEqual([
-    { version: "1.0", type: "connect", token: linkToken(run) },
+    { version: BOARD_PROTOCOL_VERSION, type: "connect", token: linkToken(run) },
   ]);
 };
 

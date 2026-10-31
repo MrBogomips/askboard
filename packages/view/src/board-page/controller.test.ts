@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import {
   type AnswerCommand,
   BOARD_CLOSE_CODES,
+  BOARD_PROTOCOL_VERSION,
   type BoardState,
   type HostMessage,
   type PageMessage,
@@ -17,7 +18,7 @@ import { type BoardPageDeps, runBoardPage } from "./controller.ts";
 import type { BoardSocketHandlers } from "./socket.ts";
 import type { ViewReply } from "./view-host.ts";
 
-const version = "1.0";
+const version = BOARD_PROTOCOL_VERSION;
 const waiting: BoardState = {
   ask: "waiting",
   questions: [{ itemId: "database", rev: 1, state: "open" }],

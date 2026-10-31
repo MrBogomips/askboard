@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:closed",
+  "title": "Closed",
+  "description": "board-host to board page: the ask is closed, and the board locks with the Closed banner; the socket stays open and every act is refused with reason closed (FR-6). E3 closes only for the agent; a later minor extends the reason.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "closed"
+    },
+    "reason": {
+      "enum": ["agent"]
+    }
+  },
+  "required": ["version", "type", "reason"],
+  "additionalProperties": false
+}
