@@ -16,6 +16,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "bun test --coverage",
+    "test:e2e": "bun packages/view/test/browser/run.ts --no-build --target session-process && bun packages/server/test/conformance/run.ts --runtime bun",
     "check:imports": "bun tools/check-imports.ts",
     "check:licences": "bun tools/check-licences.ts"
   },

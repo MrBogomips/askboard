@@ -83,10 +83,12 @@ jobs:
       # The pinned playwright's own binary, so the engines match its version.
       - name: Install Chromium, Firefox and WebKit with their system dependencies
         run: node_modules/.bin/playwright install --with-deps chromium firefox webkit
+      # The browser tests against the built session process, then the conformance suite.
       - name: Browser tests and conformance suite on Bun
         run: bun run test:e2e
-      # Task 9.2: the integration session replaces this step with the conformance suite on Node 24.
-      - name: Conformance suite on Node 24 (placeholder for task 9.2)
-        run: |
-          echo "::error::The conformance suite on Node 24 is not written yet (task 9.2)."
-          exit 1
+      # The same bundle on Node 24, the runtime AskBoard ships on until AXFX NFR-1 admits the
+      # executable (AD-19).
+      - name: Conformance suite on Node 24
+        run: bun packages/server/test/conformance/run.ts --runtime node
+      - name: Browser tests on Node 24
+        run: bun packages/view/test/browser/run.ts --no-build --target session-process --runtime node
