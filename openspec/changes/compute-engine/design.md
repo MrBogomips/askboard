@@ -107,7 +107,7 @@ The probe's iterative Tarjan ordering, in `compute`'s own module: edges from a n
 ## Risks / Trade-offs
 
 - [The graph source is not the board document] → its two computed kinds use the approved example's data shapes, so the widget changes map the board document onto it without changing `compute`'s checks.
-- [PERT and CPM in `compute` may disagree with AD-13's "declarations in `contract`"] → open question 2; the expressions are short and move as text if the PO decides so.
+- [PERT and CPM in `compute` may disagree with AD-13's "declarations in `contract`"] → open question 2, accepted as proposed on 2026-10-31: AD-13 now says that `compute` writes them (`spine-update-draft.md`, applied).
 - [The fixtures' Excel values are Excel's documented behaviour, not yet checked in Excel] → spike task 8.1 is the PO's; a different value changes the fixture and the evaluator together.
 - [`bun.lock` changes by one line while E1 freezes it] → the line is the workspace link `compute` → `contract`; recorded in the merge notes.
 - [A stricter currency rule than the probe's] → only formulas that read amounts in two currencies are affected, which the spine already calls errors.
@@ -122,4 +122,4 @@ Nothing is deployed. Merge after E1's integration, or before it with the notes b
 
 ## Open Questions
 
-None beyond the proposal's open questions for the PO.
+None. The PO accepted the proposal's thirteen open questions as proposed on 2026-10-31.

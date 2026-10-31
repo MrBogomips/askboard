@@ -2,6 +2,8 @@
 
 One block, for the proposal's open question 2 (where PERT and CPM are written). It applies only if the PO accepts the choice made there: `compute` writes the expressions of the PERT and CPM fields, only with whitelisted functions. If the PO decides instead that they move to `contract` with the widget declarations, nothing here applies and the spine stays as it is. The block quotes the current text exactly, then gives the replacement; AD-13 is amended in place.
 
+**Applied** on 2026-10-31, after the PO accepted open question 2 as proposed.
+
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
 How to apply: replace the quoted bullet, set `updated:` to the apply date and add a `sources` line for this change in the front matter, then run `openspec validate --all --strict --no-interactive` and `bun run check`.

@@ -43,5 +43,6 @@ Each group writes its tests first and sees them fail before it implements (the r
 ## Workflow follow-up
 
 - The PO reviews the proposal's open questions; `spine-update-draft.md` applies only if open question 2 is answered as proposed.
+  - Done (2026-10-31): the PO accepted every open question as proposed, none reversed (proposal.md); `spine-update-draft.md` is applied to AD-13 in `ARCHITECTURE-SPINE.md`.
 - Spike task 8.1, the PO's Excel check of the fixture values, still stands; a value it corrects changes the fixture and the evaluator together.
 - Archive after E1, so that `openspec/specs/contract/spec.md` exists and this change's requirements are added to it.

@@ -30,7 +30,7 @@ None: `openspec/specs/` is empty.
 
 - **Code:** `packages/compute` (new modules and tests); `packages/contract/src/formula/` and `packages/contract/test/formula.test.ts`, new; one export block appended to `packages/contract/src/index.ts`.
 - **Dependencies:** none added. `compute` declares its existing dependency on `@askboard/contract` (`workspace:*`, on the spine's diagram), which adds that line to `compute`'s entry in `bun.lock` and no package.
-- **Documents:** no PRD change. A spine clarification is drafted in `spine-update-draft.md`, to apply only if the PO accepts open question 2.
+- **Documents:** no PRD change. A spine clarification of AD-13, drafted in `spine-update-draft.md`, was applied after the PO accepted open question 2 (2026-10-31).
 - **Requirements served:** FR-12, FR-14, FR-15 (WBS with PERT and the Gantt plan's computation), NFR-5 (no agent code runs), NFR-10, AXFX FR-38 through the widgets it unblocks; PRD R6.
 
 ## Open questions for the PO
@@ -50,3 +50,5 @@ The PO is away and asked for the work to continue. Each question records the nar
 11. **The formula's JSON Schema** (a string of at most 8,192 characters) joins the input format with the first widget that carries a formula; this change leaves E1's sets untouched.
 12. **Determinism runs in Bun only:** the fixtures run under `TZ=Pacific/Kiritimati` and `TZ=America/Adak` with `en-US` and `de-DE` in the test suite. Node and the browser engines run them when `compute` reaches the view.
 13. **A formula problem found at build time reaches every reader, even through a branch that `IF` does not take** (added after the review, design decision 5): `IF(TRUE,1,[x.c])` with `x.c` on a cycle reads `cycle`, where Excel's lazy `IF` would give 1. Run-time errors stay Excel's: `IF(FALSE,1/0,2)` is 2. An input with a bad value also stays a run-time value, since the user can set it right.
+
+**Answer (PO, 2026-10-31):** accepted as proposed, all thirteen choices; none reversed.
