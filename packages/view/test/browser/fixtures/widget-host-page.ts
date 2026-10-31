@@ -3,19 +3,21 @@
 // view from any board document. It reads the srcdoc and the state from its JSON data block,
 // creates the view's frame with the board page's own chrome (exactly `sandbox="allow-scripts"`,
 // AD-8), connects the board page's own `hostView` before it sets the srcdoc, so that it hears the
-// view's handshake, and sends one update with the question open. Every view message goes to the
-// test through a Playwright binding; an answer is answered as sent, and nothing more follows, so
-// the card stays at "sent" (proposal, open question 5). zod's `jitless` comes first, as on the
-// board page (renderer rows 16 and 17).
+// view's handshake, and sends one update with the question open; a later one comes only from the
+// test, through a function on the page's window, as the board page sends each new state or lock.
+// Every view message goes to the test through a Playwright binding; an answer is answered as sent,
+// and nothing more follows unless the test sends it, so the card stays at "sent" (proposal, open
+// question 5). zod's `jitless` comes first, as on the board page (renderer rows 16 and 17).
 
 import "../../../src/zod-jitless.ts";
 import { createPageChrome } from "../../../src/board-page/page-chrome.ts";
 import { hostView, type ViewReply } from "../../../src/board-page/view-host.ts";
 import { DARK_QUERY, systemTheme } from "../../../src/theme.ts";
-import type { ViewMessage } from "../../../src/view-protocol.ts";
+import type { ViewMessage, ViewUpdate } from "../../../src/view-protocol.ts";
 import {
   WIDGET_HOST_BINDING,
   WIDGET_HOST_DATA_ID,
+  WIDGET_HOST_UPDATE,
   type WidgetHostData,
 } from "./widget-host-data.ts";
 
@@ -42,6 +44,8 @@ const start = async (): Promise<void> => {
   const peer = chrome.frame.contentWindow;
   if (peer === null) throw new Error("the view's frame is not in the document");
   const host = await hostView(peer, window, handle, systemTheme(window.matchMedia(DARK_QUERY)));
+  (globalThis as unknown as Record<string, unknown>)[WIDGET_HOST_UPDATE] = (update: ViewUpdate) =>
+    host.update(update);
   chrome.frame.srcdoc = data.srcdoc;
   host.update({ type: "state", state: data.state });
 };
