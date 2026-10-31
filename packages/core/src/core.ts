@@ -2,12 +2,15 @@
 // adapters hear what happened (design decision 3). Adapters submit commands; only this module
 // changes asks (AD-3).
 
-import type {
-  AskState,
-  DiscardReason,
-  LifecycleAskInput,
-  OutputEvent,
-  UnavailableReason,
+import {
+  type AskState,
+  type ClosedReason,
+  type DiscardReason,
+  type DraftRecord,
+  GRACE_PERIOD_MS,
+  type LifecycleAskInput,
+  type OutputEvent,
+  type UnavailableReason,
 } from "@askboard/contract";
 import {
   type RequestProblem,
@@ -22,12 +25,13 @@ import {
   Ask,
   type AskSummary,
   type BoardView,
+  type FullValue,
 } from "./ask.ts";
 import { canonicalize } from "./canonical.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
-import { cursorOf, deriveTitle, makeEpoch, nameOf, parseCursor } from "./text.ts";
+import { cursorOf, deriveTitle, makeEpoch, nameOf, parseCursor, timeOf } from "./text.ts";
 
 /** Who answers when neither the ask nor the machine names anyone. */
 export const UNKNOWN_USER = "unknown user";
@@ -51,8 +55,9 @@ export type AskOutcome =
  * notification; the ask's `received` watermark raised to a cursor, which `board-host` turns into
  * delivery receipts (AD-3); or the ask discarded, after its final event, which its live board is
  * told (AD-21). The ask lifecycle adds, for changes that append no event: `document`, the board
- * document changed; `state`, what the board's state shows changed (ask-lifecycle, design decision
- * 3). An update publishes each once, after it applies, `document` first.
+ * document changed; `state`, what the board's state shows changed, such as a recorded answer, a
+ * reopen, a delete or a reply; `closed`, the ask closed, which wakes its waiters (ask-lifecycle,
+ * design decision 3). An update publishes each once, after it applies, in that order.
  */
 export type CoreEvent =
   | {
@@ -66,7 +71,8 @@ export type CoreEvent =
   | { readonly type: "received"; readonly askId: string; readonly cursor: string }
   | { readonly type: "discarded"; readonly askId: string; readonly reason: DiscardReason }
   | { readonly type: "document"; readonly askId: string }
-  | { readonly type: "state"; readonly askId: string };
+  | { readonly type: "state"; readonly askId: string }
+  | { readonly type: "closed"; readonly askId: string; readonly reason: ClosedReason };
 
 /** An ask's events after a cursor (AD-3, AD-10). */
 export type ReadOutcome =
@@ -98,6 +104,12 @@ export type ReadOutcome =
   | { readonly kind: "malformed"; readonly askId: string; readonly cursor: string };
 
 export type Listener = (event: CoreEvent) => void;
+
+/** What closing an ask did (FR-6). */
+export type CloseOutcome = {
+  readonly kind: "closed" | "already-closed" | "discarded" | "unknown";
+  readonly askId: string;
+};
 
 /** What `update` did: the contract refused the request, or the ask's own outcome. */
 export type UpdateOutcome =
@@ -190,7 +202,17 @@ export class AskCore {
     const entries = ask.entriesAfter(cursor.seq);
     const events = entries.map((entry) => entry.event);
     const groups = entries.map((entry) => entry.group);
-    return { kind: "events", askId, state: ask.state, cursor: ask.cursor, events, groups };
+    const outcome: ReadOutcome = {
+      kind: "events",
+      askId,
+      state: ask.state,
+      cursor: ask.cursor,
+      events,
+      groups,
+    };
+    // The agent has the events up to `after`: a tombstone drops them (AD-21).
+    ask.acknowledge(cursor.seq);
+    return outcome;
   }
 
   /**
@@ -209,11 +231,11 @@ export class AskCore {
   }
 
   /**
-   * Discards every ask not discarded yet: each gains a final `discarded` event, and the
-   * subscribers hear the event and the discard before this returns, so live boards are told before
-   * the process ends (AD-2, AD-21). The asks stay as tombstones: their IDs stay in use and their
-   * events readable. From then on the core creates no ask, one still being created included.
-   * Returns how many asks it discarded.
+   * Discards every open ask: each gains a final `discarded` event, and the subscribers hear the
+   * event and the discard before this returns, so live boards are told before the process ends
+   * (AD-2, AD-21). The asks stay as tombstones: their IDs stay in use and their unacknowledged
+   * events readable. A closed ask is never discarded. From then on the core creates no ask, one
+   * still being created included. Returns how many asks it discarded.
    */
   discardAll(reason: DiscardReason): number {
     this.#ending = true;
@@ -267,10 +289,65 @@ export class AskCore {
     const ask = this.#asks.get(askId);
     if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
     if (ask.state === "closed") return { kind: "closed", askId };
-    const { outcome, effects } = ask.update(actions);
+    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()));
     if (effects?.document) this.#publish({ type: "document", askId });
     if (effects?.state) this.#publish({ type: "state", askId });
+    if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });
     return outcome;
+  }
+
+  /**
+   * Closes an open ask (FR-6): it refuses every later act and update and keeps its data until the
+   * session process exits; the subscribers hear `closed`, which wakes its waiters. The one closing
+   * path: `update`'s close gives the reason `agent`.
+   */
+  close(askId: string, reason: ClosedReason): CloseOutcome {
+    const ask = this.#asks.get(askId);
+    if (ask === undefined) return { kind: "unknown", askId };
+    if (ask.state === "discarded") return { kind: "discarded", askId };
+    if (!ask.close(reason)) return { kind: "already-closed", askId };
+    this.#publish({ type: "closed", askId, reason });
+    return { kind: "closed", askId };
+  }
+
+  /** Holds the ask's draft record from its live board, replacing the one before (AD-20). */
+  holdDraft(askId: string, record: DraftRecord): boolean {
+    return this.#asks.get(askId)?.holdDraft(record) ?? false;
+  }
+
+  /** The draft record to restore to the ask's board: only the restore path reads it (AD-20). */
+  draftToRestore(askId: string): DraftRecord | undefined {
+    return this.#asks.get(askId)?.draft;
+  }
+
+  /** `board-host` accepted a board's socket for the ask (AD-21). */
+  connected(askId: string): void {
+    this.#asks.get(askId)?.connected();
+  }
+
+  /**
+   * The ask's live board closed (AD-21): when no board is left on an open ask that has connected,
+   * the grace timer starts, and when it ends with no board back, the ask is discarded with
+   * `board-closed`.
+   */
+  disconnected(askId: string): void {
+    const ask = this.#asks.get(askId);
+    if (ask?.disconnected() !== true) return;
+    ask.armGrace(this.#ports.clock.after(GRACE_PERIOD_MS, () => this.#graceEnded(askId)));
+  }
+
+  /** An item's full value for `fetch` (FR-20); an ask this epoch does not hold is discarded. */
+  fullValue(askId: string, itemId: string): FullValue {
+    return this.#asks.get(askId)?.fullValue(itemId) ?? { kind: "discarded", askId };
+  }
+
+  #graceEnded(askId: string): void {
+    const ask = this.#asks.get(askId);
+    if (ask?.graceEnded() !== true) return;
+    const event = ask.discard("board-closed");
+    if (event === undefined) return;
+    this.#appended(askId, [event]);
+    this.#publish({ type: "discarded", askId, reason: "board-closed" });
   }
 
   /** What `board-host` shows of the ask (AD-12), or undefined for an ask this epoch does not hold. */

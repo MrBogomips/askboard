@@ -6,12 +6,13 @@ import type {
   AnswerEvent,
   ClosedReason,
   FetchAnswer,
+  FetchItem,
   LifecycleBoardDocument,
   QuestionState,
   ThreadReply,
 } from "@askboard/contract";
 import type { Entry } from "./log.ts";
-import type { AnswerContent, QuestionRecord } from "./model.ts";
+import type { AnswerContent, AreaRecord, BoardModel, QuestionRecord } from "./model.ts";
 import type { CurrentAnswer, QuestionStatus } from "./states.ts";
 
 /** An answer as the board shows it: its content, who and when, and how it reached the agent. */
@@ -131,3 +132,24 @@ export const questionView = (
     thread: threadOf(question, entries),
   };
 };
+
+/** A question's full value (FR-20): its revision, props, state, and answers in full. */
+export const questionValue = (
+  { question, status }: QuestionFacts,
+  model: BoardModel,
+): FetchItem => {
+  const answer = fullAnswer(question, status.answer);
+  return {
+    ...model.boardQuestion(question),
+    state: status.state,
+    ...(answer === undefined ? {} : { answer }),
+    ...(question.previous === undefined ? {} : { previous: question.previous }),
+  };
+};
+
+/** An area's full value: its title and its questions, with their revisions and props. */
+export const areaValue = (area: AreaRecord, model: BoardModel): FetchItem => ({
+  type: "area",
+  id: area.id,
+  props: { title: area.title, items: model.areaQuestions(area) },
+});

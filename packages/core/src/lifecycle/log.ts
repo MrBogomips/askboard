@@ -1,6 +1,7 @@
 // An ask's append-only event log (AD-3): each entry with its `seq` and the number of the command
 // that appended it, which `collect`'s pager keeps together and which never reaches the wire
-// (ask-lifecycle, design decision 4).
+// (ask-lifecycle, design decision 4). A tombstone drops the entries the agent has acknowledged
+// (AD-21); `seq` numbering never restarts.
 
 import type { OutputEvent } from "@askboard/contract";
 
@@ -64,6 +65,11 @@ export class EventLog {
     return this.#entries.slice(Math.max(seq - this.#dropped, 0));
   }
 
+  /** The entry at `seq`, unless it is dropped or not appended yet. */
+  at(seq: number): Entry | undefined {
+    return seq > this.#dropped ? this.#entries[seq - this.#dropped - 1] : undefined;
+  }
+
   /** A question's entries, in order. */
   ofItem(itemId: string): readonly Entry[] {
     return this.#byItem.get(itemId) ?? [];
@@ -72,5 +78,18 @@ export class EventLog {
   /** Whether any entry is an answer, a decline or a postpone: the ask is no longer waiting. */
   hasActed(): boolean {
     return this.#entries.some(({ event }) => event.type === "answer" || event.type === "postponed");
+  }
+
+  /** Drops every entry at or below `seq`, for a tombstone (AD-21). */
+  dropThrough(seq: number): void {
+    const count = Math.min(seq, this.latestSeq) - this.#dropped;
+    if (count <= 0) return;
+    this.#entries = this.#entries.slice(count);
+    this.#dropped += count;
+  }
+
+  /** Forgets the per-question index, which only a live ask reads. */
+  forgetItems(): void {
+    this.#byItem = new Map();
   }
 }

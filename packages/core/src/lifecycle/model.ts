@@ -90,6 +90,11 @@ const place = (list: string[], id: string, after: string | undefined): void => {
   list.splice(after === undefined ? 0 : list.indexOf(after) + 1, 0, id);
 };
 
+const without = (list: string[], id: string): void => {
+  const index = list.indexOf(id);
+  if (index !== -1) list.splice(index, 1);
+};
+
 // An area holds one or more questions, and an ask one or more items: the model keeps it so.
 const nonEmpty = <T>(list: T[]): [T, ...T[]] => {
   if (list.length === 0) throw new Error("an area or an ask holds at least one question");
@@ -170,6 +175,16 @@ export class BoardModel {
 
   isDeleted(id: string): boolean {
     return this.#deleted.has(id);
+  }
+
+  /** Held now or deleted earlier: an ID never reused (FR-5). */
+  inUse(id: string): boolean {
+    return this.#questions.has(id) || this.#areas.has(id) || this.#deleted.has(id);
+  }
+
+  /** The IDs of the siblings an item placed by `parentId` would sit among. */
+  siblings(parentId: string | undefined): readonly string[] {
+    return parentId === undefined ? this.#top : (this.#areas.get(parentId)?.questions ?? []);
   }
 
   /** Every question, in board order. */
@@ -267,6 +282,58 @@ export class BoardModel {
   retitle(area: AreaRecord, title: string): void {
     area.title = title;
     area.generation += 1;
+  }
+
+  /** The agent records the user's answer: no event (proposal, open question 3). */
+  record(question: QuestionRecord, answer: RecordedAnswer, at: number): void {
+    question.recorded = frozenCopy(answer);
+    question.mark = { at, kind: "recorded" };
+    question.generation += 1;
+    this.#recordedEver = true;
+  }
+
+  /** The agent reopens a question: a new revision with no answer, the old one kept as previous. */
+  reopen(question: QuestionRecord, previous: FetchAnswer | undefined, at: number): number {
+    question.previous = previous === undefined ? undefined : frozenCopy(previous);
+    question.mark = { at, kind: "reopened" };
+    return this.revise(question, this.propsOf(question));
+  }
+
+  /** Appends the agent's reply under a follow-up (FR-10); the revision stays. */
+  reply(question: QuestionRecord, followUp: string, reply: ThreadReply): void {
+    const replies = question.replies.get(followUp) ?? [];
+    question.replies.set(followUp, [...replies, frozenCopy(reply)]);
+  }
+
+  /**
+   * Removes an item and everything in it, remembering every ID; an area left with no question goes
+   * with its last one, since an area holds one or more (FR-2).
+   */
+  delete(id: string): void {
+    const area = this.#areas.get(id);
+    if (area !== undefined) {
+      for (const questionId of area.questions) this.#forget(questionId);
+      this.#areas.delete(id);
+      this.#deleted.add(id);
+      without(this.#top, id);
+      return;
+    }
+    const question = this.#questions.get(id);
+    if (question === undefined) return;
+    this.#forget(id);
+    const parent = question.area === undefined ? undefined : this.#areas.get(question.area);
+    if (parent === undefined) {
+      without(this.#top, id);
+      return;
+    }
+    without(parent.questions, id);
+    parent.generation += 1;
+    if (parent.questions.length === 0) this.delete(parent.id);
+  }
+
+  #forget(id: string): void {
+    this.#questions.delete(id);
+    this.#deleted.add(id);
   }
 
   /**

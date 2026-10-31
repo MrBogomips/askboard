@@ -10,11 +10,12 @@ export type {
   AnswerRefusal,
   AskSummary,
   BoardView,
+  FullValue,
   LoggedAnswerView,
   QuestionView,
 } from "./ask.ts";
 export { canonicalize } from "./canonical.ts";
-export type { UpdateOutcome } from "./core.ts";
+export type { CloseOutcome, UpdateOutcome } from "./core.ts";
 export {
   AskCore,
   type AskOutcome,

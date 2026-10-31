@@ -1,28 +1,57 @@
 // The Ask aggregate (design decision 3): the request as accepted, its items and their revisions,
 // the append-only event log, the `received` watermark and, for the ask lifecycle, the action IDs it
-// has applied and its stored state, `closed` or `discarded`; every other state is derived
-// (ask-lifecycle, design decision 3). Only its methods change it, and only ask-core holds it (AD-3).
+// has applied, the draft record, its board connections and its stored state, `closed` with its
+// reason or `discarded`; every other state is derived (ask-lifecycle, design decision 3). A discard
+// leaves a tombstone (AD-21). Only its methods change it, and only ask-core holds it (AD-3).
 
 import {
   ACTION_ID_PATTERN,
   type AnswerEvent,
   type AskState,
+  BOARD_DOCUMENT_VERSION,
   type BoardDocument,
+  type ClosedReason,
   type DiscardedEvent,
   type DiscardReason,
+  type DraftRecord,
+  type FetchItem,
   type LifecycleAskInput,
   type OutputEvent,
   type UpdateAction,
 } from "@askboard/contract";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
-import { type Entry, EventLog } from "./lifecycle/log.ts";
+import { Connections } from "./lifecycle/connections.ts";
+import { type Entry, EventLog, frozenCopy } from "./lifecycle/log.ts";
 import { BoardModel, type QuestionRecord } from "./lifecycle/model.ts";
 import { askStateOf, type QuestionStatus, questionStatus } from "./lifecycle/states.ts";
 import { applyActions, type UpdateEffects, type UpdateOutcome } from "./lifecycle/updates.ts";
-import { type LifecycleBoardView, type QuestionFacts, questionView } from "./lifecycle/views.ts";
+import {
+  areaValue,
+  type LifecycleBoardView,
+  type QuestionFacts,
+  questionValue,
+  questionView,
+} from "./lifecycle/views.ts";
 import { cursorOf } from "./text.ts";
 
 export { frozenCopy } from "./lifecycle/log.ts";
+
+/** An item's full value as ask-core holds it now (FR-20), or why there is none. */
+export type FullValue =
+  | {
+      readonly kind: "item";
+      readonly askId: string;
+      readonly state: AskState;
+      readonly item: FetchItem;
+      /** Raised whenever the item or its answer changes: `fetch`'s continuations name it. */
+      readonly generation: number;
+    }
+  /** The agent deleted it (FR-6). */
+  | { readonly kind: "deleted"; readonly askId: string; readonly itemId: string }
+  /** The ask never held it. */
+  | { readonly kind: "missing"; readonly askId: string; readonly itemId: string }
+  /** A discarded ask, or one this epoch does not hold (AD-10, AD-21). */
+  | { readonly kind: "discarded"; readonly askId: string };
 
 export type AskInit = {
   readonly epoch: string;
@@ -137,7 +166,8 @@ export class Ask {
   readonly link: string;
   readonly who: string;
   #request: string;
-  readonly #head: {
+  // The board document's head; only its ID once the ask is discarded (AD-21).
+  #head: {
     readonly askId: string;
     readonly title: string;
     readonly presentation?: LifecycleAskInput["presentation"];
@@ -150,6 +180,12 @@ export class Ask {
   #stored: "closed" | "discarded" | undefined;
   // The events each applied action ID appended, by action ID (AD-20).
   #actions = new Map<string, readonly OutputEvent[]>();
+  #closed: ClosedReason | undefined;
+  // The highest cursor a read named as already received: the agent has acknowledged up to it.
+  #acknowledged = 0;
+  // The board's unsent work, apart from the log; only the restore path reads it (AD-20).
+  #draft: DraftRecord | undefined;
+  readonly #connections = new Connections();
 
   constructor(init: AskInit) {
     this.epoch = init.epoch;
@@ -227,8 +263,8 @@ export class Ask {
 
   /** E1's board document type over the ask's document; a tombstone's holds no item (AD-21). */
   get document(): BoardDocument {
-    const document = this.#model?.document(this.#head) ?? { ...this.#head, items: [] };
-    return document as unknown as BoardDocument;
+    const tombstone = { version: BOARD_DOCUMENT_VERSION, ...this.#head, items: [] };
+    return (this.#model?.document(this.#head) ?? tombstone) as unknown as BoardDocument;
   }
 
   /** E1's view of the board, for `board-host` until it reads `lifecycleView` (task 5.1). */
@@ -256,7 +292,22 @@ export class Ask {
     const questions = model
       .questions()
       .map((question) => questionView(this.#facts(question), this.#received));
-    return { askId: this.askId, state, document: model.document(this.#head), questions };
+    const closed = this.#closed === undefined ? {} : { closed: this.#closed };
+    return { askId: this.askId, state, document: model.document(this.#head), questions, ...closed };
+  }
+
+  /** An item's full value (FR-20): an open or closed ask's, from its current board document. */
+  fullValue(itemId: string): FullValue {
+    const { askId } = this;
+    const model = this.#model;
+    if (model === undefined) return { kind: "discarded", askId };
+    const question = model.question(itemId);
+    if (question !== undefined) {
+      return this.#value(questionValue(this.#facts(question), model), question.generation);
+    }
+    const area = model.area(itemId);
+    if (area !== undefined) return this.#value(areaValue(area, model), area.generation);
+    return { kind: model.isDeleted(itemId) ? "deleted" : "missing", askId, itemId };
   }
 
   /**
@@ -321,15 +372,22 @@ export class Ask {
    * The agent's update (AD-6): every action applied in order to a copy of the items, kept only
    * when all apply. Appends no event (AD-3).
    */
-  update(actions: readonly UpdateAction[]): { outcome: UpdateOutcome; effects?: UpdateEffects } {
+  update(
+    actions: readonly UpdateAction[],
+    now: string,
+  ): { outcome: UpdateOutcome; effects?: UpdateEffects } {
     const model = this.#model?.clone();
-    if (model === undefined) throw new Error("update: the ask is discarded");
-    const applied = applyActions({ askId: this.askId, model, log: this.#log }, actions);
+    if (model === undefined || this.#stored !== undefined) {
+      throw new Error(`update: the ask is ${this.state}`);
+    }
+    const { askId, epoch, who } = this;
+    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
     if (!applied.ok) {
       const { ok: _, ...refusal } = applied;
       return { outcome: { kind: "refused", askId: this.askId, ...refusal } };
     }
     this.#model = model;
+    if (applied.effects.closed) this.close("agent");
     const outcome = {
       kind: "updated",
       askId: this.askId,
@@ -340,15 +398,79 @@ export class Ask {
   }
 
   /**
-   * Appends the final `discarded` event, after which the ask takes no answer (AD-21). Returns the
-   * event, or undefined when the ask was already discarded.
+   * Closes an open ask, the one closing path (FR-6, AD-10): it refuses every later act and update,
+   * keeps its data until the session process exits, and is never discarded. Returns whether it
+   * closed now. E3 closes for the agent; push delivery closes with its own reason.
+   */
+  close(reason: ClosedReason): boolean {
+    if (this.#stored !== undefined) return false;
+    this.#stored = "closed";
+    this.#closed = reason;
+    this.#connections.stop();
+    return true;
+  }
+
+  /**
+   * Appends the final `discarded` event, after which the ask takes no answer, and leaves the
+   * tombstone (AD-21): its ID, epoch, state, `received` and the events the agent has not
+   * acknowledged. Returns the event, or undefined for an ask already discarded or closed, which is
+   * never discarded.
    */
   discard(reason: DiscardReason): DiscardedEvent | undefined {
-    if (this.#stored === "discarded") return undefined;
+    if (this.#stored !== undefined) return undefined;
     const event: DiscardedEvent = { cursor: this.#nextCursor(), type: "discarded", reason };
     const [entry] = this.#log.append([event]);
     this.#stored = "discarded";
+    this.#connections.stop();
+    this.#model = undefined;
+    this.#head = { askId: this.askId, title: "" };
+    this.#request = "";
+    this.#draft = undefined;
+    this.#actions = new Map();
+    this.#log.forgetItems();
+    this.#log.dropThrough(this.#acknowledged);
     return entry?.event as DiscardedEvent;
+  }
+
+  /**
+   * A read named `seq` as received: the agent has acknowledged the events up to it, which a
+   * tombstone then drops (AD-21).
+   */
+  acknowledge(seq: number): void {
+    this.#acknowledged = Math.max(this.#acknowledged, Math.min(seq, this.latestSeq));
+    if (this.#stored === "discarded") this.#log.dropThrough(this.#acknowledged);
+  }
+
+  /** Holds the board's draft record, replacing the one before; none for a tombstone (AD-20). */
+  holdDraft(record: DraftRecord): boolean {
+    if (this.#stored === "discarded") return false;
+    this.#draft = frozenCopy(record);
+    return true;
+  }
+
+  /** The draft record, for the restore path alone (AD-20). */
+  get draft(): DraftRecord | undefined {
+    return this.#draft;
+  }
+
+  /** A board connected (AD-21); a running grace timer stops. */
+  connected(): void {
+    if (this.#stored !== "discarded") this.#connections.connected();
+  }
+
+  /** A live board closed. Returns whether the grace timer starts now. */
+  disconnected(): boolean {
+    return this.#connections.disconnected(this.#stored === undefined);
+  }
+
+  /** Keeps the cancel function of the grace timer that has just started. */
+  armGrace(cancel: () => void): void {
+    this.#connections.arm(cancel);
+  }
+
+  /** The grace timer ran out. Returns whether the ask is to be discarded now. */
+  graceEnded(): boolean {
+    return this.#connections.ended() && this.#stored === undefined;
   }
 
   // Checks the acts and appends their events in one step.
@@ -377,6 +499,11 @@ export class Ask {
   #facts(question: QuestionRecord): QuestionFacts {
     const entries = this.#log.ofItem(question.id);
     return { question, entries, status: questionStatus(question.mark, entries) };
+  }
+
+  #value(item: FetchItem, generation: number): FullValue {
+    const { askId, state } = this;
+    return { kind: "item", askId, state, item: frozenCopy(item), generation };
   }
 
   #nextCursor(): string {

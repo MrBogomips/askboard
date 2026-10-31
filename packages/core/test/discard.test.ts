@@ -76,7 +76,9 @@ describe("discard at session exit", () => {
     const { core } = await twoAsks();
     core.markRead(ASK_ID, `${core.epoch}.1`);
     core.discardAll("session-exit");
-    expect(core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(true);
+    // The tombstone keeps no question (ask-lifecycle, Tombstone), but `received` stays where it was.
+    expect(core.board(ASK_ID)?.questions).toEqual([]);
+    expect(core.markRead(ASK_ID, `${core.epoch}.1`)).toBe(false);
     expect(core.markRead(ASK_ID, `${core.epoch}.2`)).toBe(true);
   });
 
