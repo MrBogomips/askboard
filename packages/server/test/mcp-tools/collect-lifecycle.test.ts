@@ -244,12 +244,12 @@ const lifecycleCore = (options: { questionStates?: Record<string, QuestionState>
   };
 };
 
-const waiting = async (live: ReturnType<typeof lifecycleCore>, itemId = "q2") => {
+const waiting = async (live: ReturnType<typeof lifecycleCore>, itemId = "q2", after = at(0)) => {
   const clock = manualTimers();
   const { client, close } = await connect(depsWith(live.core, clock.timers).deps);
   const result = client.callTool({
     name: "collect",
-    arguments: { asks: [{ askId: A, after: at(0) }], wait: { askId: A, itemId } },
+    arguments: { asks: [{ askId: A, after }], wait: { askId: A, itemId } },
   });
   await Bun.sleep(5);
   return { result, close, clock };
@@ -338,10 +338,23 @@ describe("waiting for a question", () => {
     await close();
   });
 
-  test("another question's answer does not end it; the board's close past the grace period does", async () => {
+  test("another question's answer that changes the ask's state ends it (AD-4)", async () => {
     const live = lifecycleCore();
     const { result, close } = await waiting(live);
-    live.append([answer(1, "q1")]);
+    live.append([answer(1, "q1")], "partly-answered");
+    const json = jsonOf(await result) as Waited;
+    expect(json.outcome).toBeUndefined();
+    expect(json.asks[0]?.state).toBe("partly-answered");
+    expect(json.asks[0]?.events.map((event) => event.cursor)).toEqual([at(1)]);
+    expect(live.core.listeners.size).toBe(0);
+    await close();
+  });
+
+  test("another question's answer that leaves the ask's state does not end it; the discard does", async () => {
+    const live = lifecycleCore();
+    live.append([answer(1, "q1")], "partly-answered");
+    const { result, close } = await waiting(live, "q2", at(1));
+    live.append([answer(2, "q3")], "partly-answered");
     await Bun.sleep(5);
     expect(live.core.listeners.size).toBe(1);
     live.discard();

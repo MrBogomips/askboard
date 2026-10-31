@@ -208,7 +208,7 @@ describe("the composed session process", () => {
 // ask-lifecycle, task 5.3: the entry point's wiring of the Clock and the new subscriptions, with
 // the real units and a clock the test moves, so the grace period passes without a real wait.
 
-const twoQuestions = (askId: string) => ({
+const threeQuestions = (askId: string) => ({
   askId,
   items: [
     { type: "question", id: "database", props: question.props },
@@ -217,7 +217,19 @@ const twoQuestions = (askId: string) => ({
       id: "cache",
       props: { text: "Which cache?", options: [{ label: "Redis" }, { label: "None" }] },
     },
+    {
+      type: "question",
+      id: "queue",
+      props: { text: "Which queue?", options: [{ label: "SQS" }, { label: "None" }] },
+    },
   ],
+});
+
+const answerAct = (actionId: string, itemId: string, choice: string) => ({
+  version,
+  type: "act",
+  actionId,
+  acts: [{ type: "answer", itemId, rev: 1, choice: [choice], when: "2026-10-31T09:41:27Z" }],
 });
 
 const until = async (done: () => boolean) => {
@@ -230,38 +242,39 @@ describe("the ask lifecycle in the composed session process", () => {
     const { script } = recorder("grace");
     const time = manualClock();
     const run = await start({ BROWSER: script }, writeView(), time.clock);
-    const asked = await run.call("ask", twoQuestions("grace-board-k4p2"));
+    const asked = await run.call("ask", threeQuestions("grace-board-k4p2"));
     const link = new URL(asked.board);
     const board = await openSocket(Number(link.port), asked.askId);
     board.send({ version, type: "connect", token: link.searchParams.get("t") });
     expect(await board.next()).toMatchObject({ type: "board" });
     expect(await board.next()).toMatchObject({ type: "state", state: { ask: "waiting" } });
 
+    // A first answer makes the ask partly answered, and the agent collects it.
+    const first = "gR4c3PeriodAct10nId001";
+    board.send(answerAct(first, "database", "PostgreSQL"));
+    expect(await board.next()).toEqual({ version, type: "done", actionId: first });
+    expect(await board.next()).toMatchObject({ state: { ask: "partly-answered" } });
+    const before = await run.call("collect", {
+      asks: [{ askId: asked.askId, after: asked.cursor }],
+    });
+    const cursor = before.asks[0].cursor;
+    expect(cursor).toBe(`${asked.epoch}.1`);
+    expect(await board.next()).toMatchObject({ type: "receipt", itemId: "database" });
+
+    // The agent waits on queue; an answer to cache leaves the ask partly answered, so the wait goes
+    // on (AD-4).
     let returned = false;
     const waiting = run
       .call("collect", {
-        asks: [{ askId: asked.askId, after: asked.cursor }],
-        wait: { askId: asked.askId, itemId: "cache" },
+        asks: [{ askId: asked.askId, after: cursor }],
+        wait: { askId: asked.askId, itemId: "queue" },
       })
       .finally(() => {
         returned = true;
       });
-    const actionId = "gR4c3PeriodAct10nIdXyz";
-    board.send({
-      version,
-      type: "act",
-      actionId,
-      acts: [
-        {
-          type: "answer",
-          itemId: "database",
-          rev: 1,
-          choice: ["PostgreSQL"],
-          when: "2026-10-31T09:41:27Z",
-        },
-      ],
-    });
-    expect(await board.next()).toEqual({ version, type: "done", actionId });
+    const second = "gR4c3PeriodAct10nId002";
+    board.send(answerAct(second, "cache", "Redis"));
+    expect(await board.next()).toEqual({ version, type: "done", actionId: second });
     expect(await board.next()).toMatchObject({ state: { ask: "partly-answered" } });
     await Bun.sleep(30);
     expect(returned).toBe(false);
@@ -278,10 +291,10 @@ describe("the ask lifecycle in the composed session process", () => {
       {
         askId: asked.askId,
         state: "discarded",
-        cursor: `${asked.epoch}.2`,
+        cursor: `${asked.epoch}.3`,
         events: [
-          expect.objectContaining({ type: "answer", itemId: "database", choice: ["PostgreSQL"] }),
-          { cursor: `${asked.epoch}.2`, type: "discarded", reason: "board-closed" },
+          expect.objectContaining({ type: "answer", itemId: "cache", choice: ["Redis"] }),
+          { cursor: `${asked.epoch}.3`, type: "discarded", reason: "board-closed" },
         ],
         unchecked: true,
       },
