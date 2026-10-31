@@ -271,3 +271,7 @@ export const schemaSetProblems = (sets: readonly SchemaSet[]): string[] => {
   }
   return problems;
 };
+
+// Widgets: E1's error mapping, and one standalone validator per widget schema.
+export { widgetValidator } from "./widgets/validator.ts";
+export { problemOf };
