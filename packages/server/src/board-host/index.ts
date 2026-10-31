@@ -1,6 +1,7 @@
 // board-host: each ask's board on the local machine only, behind its own token (AD-8, AD-11), and
-// the board protocol between the board page and ask-core (AD-3, AD-21). It imports only ask-core
-// and the contract (AD-1). The listener opens at the first link ask-core asks for (AD-2).
+// the board protocol between the board page and ask-core (AD-3, AD-21), at 1.1 for the ask
+// lifecycle (ask-lifecycle, design decision 5). It imports only ask-core and the contract (AD-1).
+// The listener opens at the first link ask-core asks for (AD-2).
 
 import { createServer, type Server } from "node:http";
 import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
@@ -12,8 +13,21 @@ import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
 import { loadView } from "./view.ts";
 
-/** The part of ask-core `board-host` uses. */
-export type HostCore = Pick<AskCore, "board" | "answer" | "subscribe">;
+/**
+ * The part of ask-core `board-host` uses: what the board shows, E1's answers and the board's act
+ * commands, the draft record, the board's connections, and the subscription.
+ */
+export type HostCore = Pick<
+  AskCore,
+  | "answer"
+  | "subscribe"
+  | "lifecycleBoard"
+  | "act"
+  | "holdDraft"
+  | "draftToRestore"
+  | "connected"
+  | "disconnected"
+>;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */

@@ -87,9 +87,9 @@ const gateOf = (request: IncomingMessage, upgrade: boolean): string | undefined 
     upgrade,
   });
 
-// A board the session process serves and has not discarded.
+// A board the session process serves and has not discarded; a closed ask's board still is (FR-6).
 const isLive = (core: HostCore, askId: string): boolean => {
-  const board = core.board(askId);
+  const board = core.lifecycleBoard(askId);
   return board !== undefined && board.state !== "discarded";
 };
 
@@ -108,7 +108,7 @@ const boardPage = (deps: HttpDeps, askId: string, query: URLSearchParams): Reply
   if (token === null || token === "") {
     return { answer: BOARD_RESPONSES.invalidLink, body: INVALID_LINK_PAGES.incomplete };
   }
-  const board = deps.tokens.opens(askId, token) ? deps.core.board(askId) : undefined;
+  const board = deps.tokens.opens(askId, token) ? deps.core.lifecycleBoard(askId) : undefined;
   if (board === undefined) {
     return { answer: BOARD_RESPONSES.invalidLink, body: INVALID_LINK_PAGES.invalid };
   }

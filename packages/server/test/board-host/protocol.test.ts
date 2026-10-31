@@ -14,8 +14,10 @@ import {
   transcripts,
 } from "@askboard/contract/fixtures";
 import { validateBoardMessage } from "@askboard/contract/validate";
-import type { AnswerCommandInput, AnswerOutcome, BoardView, CoreEvent } from "@askboard/core";
+import type { AnswerCommandInput, AnswerOutcome } from "@askboard/core";
+import { MESSAGE_MAX_BYTES } from "../../src/board-host/boards.ts";
 import { createBoardHost, type HostCore } from "../../src/board-host/index.ts";
+import { fakeHostCore, REFUSING } from "./fake-core.ts";
 import {
   type BoardSocket,
   freeRange,
@@ -36,12 +38,6 @@ const itemId = plainChoiceBoardDocument.items[0].id;
 const when = "2026-10-29T09:41:27Z";
 const answer = { version, type: "answer", itemId, rev: 1, choice: ["PostgreSQL"], when };
 
-const REFUSING: AnswerOutcome = {
-  ok: false,
-  refusal: "answered",
-  detail: "the question is already answered",
-};
-
 afterAll(removeViews);
 
 // A refusal's detail is text for people: the replay checks that it is there, not its words.
@@ -60,9 +56,11 @@ const expectMessage = (received: unknown, expected: object) => {
 const replay = async (name: string, transcript: Transcript) => {
   // `restart` is a new session process: it holds another ask, never this one.
   const restarted = name === "restart";
+  // E1's board page sends no draft when it is told it moved: a short takeover flush wait.
   const fixture = startHost({
     ports: await freeRange(1),
     tokens: [restarted ? "nnnnnnnnnnnnnnnnnnnnnN" : transcript.token],
+    limits: { takeoverFlushMs: 50 },
   });
   const { port } = await fixture.ask(restarted ? "another-ask" : transcript.askId);
   const sockets = new Map<number, BoardSocket>();
@@ -135,23 +133,12 @@ describe("Track 0's transcripts, replayed from the board page's side", () => {
 // A board host around a fake core, with one plain-choice ask and the answers it was given.
 const fakeHost = async (outcome: AnswerOutcome) => {
   const commands: [string, AnswerCommandInput][] = [];
-  const listeners = new Set<(event: CoreEvent) => void>();
-  const view: BoardView = {
-    document: plainChoiceBoardDocument,
-    state: "waiting",
-    questions: [{ itemId, rev: 1 }],
-  };
-  const core: HostCore = {
-    board: (id) => (id === askId ? view : undefined),
+  const { core } = fakeHostCore({
     answer: (id, command) => {
       commands.push([id, command]);
       return outcome;
     },
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
+  });
   const reported: unknown[] = [];
   const host = createBoardHost({
     core: () => core,
@@ -262,7 +249,7 @@ describe("refusals on an accepted socket leave it open and the ask unchanged", (
   test("a message over the payload limit closes the socket, appending nothing", async () => {
     const { host, socket, commands } = await fakeHost(REFUSING);
     try {
-      socket.send({ ...answer, choice: ["x".repeat(200_000)] });
+      socket.send({ ...answer, choice: ["x".repeat(MESSAGE_MAX_BYTES)] });
       expect(await socket.closed()).toBe(1009);
       expect(commands).toEqual([]);
     } finally {
@@ -326,7 +313,11 @@ describe("before connect is accepted", () => {
 
 describe("one live board per ask", () => {
   test("the older tab is told the board moved and closed; its messages go nowhere", async () => {
-    const fixture = startHost({ ports: await freeRange(1), tokens: [token] });
+    const fixture = startHost({
+      ports: await freeRange(1),
+      tokens: [token],
+      limits: { takeoverFlushMs: 50 },
+    });
     try {
       const { port } = await fixture.ask(askId);
       const first = await openSocket(port, askId);
@@ -450,11 +441,10 @@ describe("a failure inside board-host", () => {
   test("is reported, answered with 500 over HTTP, and sends nothing over a socket", async () => {
     const failure = new Error("the core failed");
     const core: HostCore = {
-      board: () => {
+      ...fakeHostCore().core,
+      lifecycleBoard: () => {
         throw failure;
       },
-      answer: () => REFUSING,
-      subscribe: () => () => undefined,
     };
     const reported: unknown[] = [];
     const host = createBoardHost({
@@ -491,7 +481,11 @@ describe("a peer that sends without reading", () => {
   };
 
   test("is ended once its socket holds too much unsent, and the host keeps serving", async () => {
-    const fixture = startHost({ ports: await freeRange(1), tokens: [token] });
+    const fixture = startHost({
+      ports: await freeRange(1),
+      tokens: [token],
+      limits: { sendBufferMaxBytes: 1024 * 1024 },
+    });
     try {
       const { port } = await fixture.ask(askId);
       const peer = await silentSocket(port, askId);
