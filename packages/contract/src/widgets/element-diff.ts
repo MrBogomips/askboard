@@ -1,11 +1,21 @@
 // AD-20's generic diff (design decision 3): an item's `changes`, from its props as sent and as
-// edited, for elements that are objects keyed by `id`, in a flat list or a tree. A widget declares
-// only its shape; every key of an element but `id` and the children key is a field, compared as a
-// JSON value. Elements are addressed by ID, never by position. Plain ECMAScript: `ask-core` calls
-// it at run time, and `applyElementChanges`, its inverse, checks it.
+// edited, for elements that are objects keyed by `id`, in a flat list or a tree, or that are the
+// entries of an object keyed by element ID. A widget declares only its shape; every key of an
+// element but `id` and the children key is a field, compared as a JSON value. Elements are
+// addressed by ID, never by position. Plain ECMAScript: `ask-core` calls it at run time, and
+// `applyElementChanges`, its inverse, checks it.
 
-/** The props key holding an item's elements and, for a tree, the element key holding children. */
-export type ElementShape = { readonly elements: string; readonly children?: string };
+/** The props key holding the elements in a list, and for a tree the element key holding children. */
+type ListShape = { readonly elements: string; readonly children?: string; readonly keyed?: false };
+
+/**
+ * The props key holding an object from element ID to the element's fields. Its changes are only
+ * `set`s; an empty entry or a `null` field reads as absent, so the inverse rebuilds values whose
+ * entries are non-empty objects with no `null` field.
+ */
+type KeyedShape = { readonly elements: string; readonly keyed: true };
+
+export type ElementShape = ListShape | KeyedShape;
 
 /** `parent` and `after` are always given, `null` for the top level and for the first place. */
 type Position = { readonly parent: string | null; readonly after: string | null };
@@ -43,7 +53,7 @@ const jsonEqual = (a: unknown, b: unknown): boolean => {
   );
 };
 
-// Copies build objects with `fromEntries`, which defines every key, `__proto__` included.
+// Copies build objects with `fromEntries`, and writes define keys, so that `__proto__` stays a key.
 const copyOf = (value: unknown, freeze: boolean): unknown => {
   const done = <T extends object>(copy: T): T => (freeze ? Object.freeze(copy) : copy);
   if (Array.isArray(value)) return done(value.map((inner) => copyOf(inner, freeze)));
@@ -52,6 +62,15 @@ const copyOf = (value: unknown, freeze: boolean): unknown => {
 };
 const frozenCopy = <T>(value: T): T => copyOf(value, true) as T;
 const mutableCopy = <T>(value: T): T => copyOf(value, false) as T;
+const define = <T>(object: Json, key: string, value: T): T => {
+  Object.defineProperty(object, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+  return value;
+};
 
 const quoted = (id: string | null): string => (id === null ? "the top level" : `"${id}"`);
 
@@ -60,7 +79,7 @@ const quoted = (id: string | null): string => (id === null ? "the top level" : `
 // that are not a list. An empty children list counts as none.
 const visit = (
   props: object,
-  shape: ElementShape,
+  shape: ListShape,
   which: string,
   see: (element: Element, parent: string | null, at: number, siblings: readonly Element[]) => void,
 ): void => {
@@ -89,7 +108,7 @@ const visit = (
   walk(top, null);
 };
 
-const fieldsOf = (element: Json, shape: ElementShape): string[] =>
+const fieldsOf = (element: Json, shape: ListShape): string[] =>
   Object.keys(element).filter((key) => key !== "id" && key !== shape.children);
 
 type Placed = {
@@ -100,7 +119,7 @@ type Placed = {
 };
 
 // Every element by ID; a `Map` keeps them in document order.
-const indexOf = (props: object, shape: ElementShape, which: string): Map<string, Placed> => {
+const indexOf = (props: object, shape: ListShape, which: string): Map<string, Placed> => {
   const index = new Map<string, Placed>();
   visit(props, shape, which, (element, parent, at, siblings) => {
     index.set(element.id, { element, parent, at, previous: siblings[at - 1]?.id ?? null });
@@ -149,10 +168,17 @@ const stayers = (sent: Map<string, Placed>, edited: Map<string, Placed>): Set<st
 };
 
 // A kept element's `set`s, in field-name order (UTF-16 code units), `null` for an emptied field.
-const fieldSets = (target: string, sent: Json, edited: Json, shape: ElementShape) =>
-  [...new Set([...fieldsOf(sent, shape), ...fieldsOf(edited, shape)])]
+const fieldSets = (target: string, sent: Json, edited: Json, fields: (element: Json) => string[]) =>
+  [...new Set([...fields(sent), ...fields(edited)])]
     .sort()
-    .filter((field) => !(Object.hasOwn(sent, field) && jsonEqual(sent[field], edited[field])))
+    .filter(
+      (field) =>
+        !(
+          Object.hasOwn(sent, field) &&
+          Object.hasOwn(edited, field) &&
+          jsonEqual(sent[field], edited[field])
+        ),
+    )
     .map(
       (field): ElementChange => ({
         op: "set",
@@ -161,11 +187,38 @@ const fieldSets = (target: string, sent: Json, edited: Json, shape: ElementShape
       }),
     );
 
+// A keyed shape's entries by ID, refusing elements that are not an object of objects.
+const entriesOf = (props: object, shape: KeyedShape, which: string): Map<string, Json> => {
+  const entries = (props as Json)[shape.elements];
+  if (!isObject(entries)) {
+    throw new Error(`the ${which} props hold no object "${shape.elements}"`);
+  }
+  return new Map(
+    Object.entries(entries).map(([id, entry]) => {
+      if (!isObject(entry)) {
+        throw new Error(`the entry "${id}" of the ${which} value is not an object`);
+      }
+      return [id, entry];
+    }),
+  );
+};
+
+// A keyed shape's `set`s, by element ID and then by field; a field or an entry gone is `null`.
+const keyedChanges = (itemId: string, sent: object, edited: object, shape: KeyedShape) => {
+  const before = entriesOf(sent, shape, "sent");
+  const after = entriesOf(edited, shape, "edited");
+  return [...new Set([...before.keys(), ...after.keys()])]
+    .sort()
+    .flatMap((id) =>
+      fieldSets(`${itemId}.${id}`, before.get(id) ?? {}, after.get(id) ?? {}, Object.keys),
+    );
+};
+
 /**
- * The operations that, applied in order to `sent`, give `edited`: for each edited element in
- * document order, its `add` or `move`, then a kept element's `set`s; then one `remove` per
- * removed element whose parent stays, in sent document order. Its inputs stay untouched and its
- * output is frozen.
+ * The operations that, applied in order to `sent`, give `edited`. In a list: for each edited
+ * element in document order, its `add` or `move`, then a kept element's `set`s; then one `remove`
+ * per removed element whose parent stays, in sent document order. In a keyed shape: only `set`s,
+ * by element ID, then by field. Its inputs stay untouched and its output is frozen.
  */
 export const elementChanges = (
   itemId: string,
@@ -173,6 +226,7 @@ export const elementChanges = (
   edited: object,
   shape: ElementShape,
 ): readonly ElementChange[] => {
+  if (shape.keyed === true) return frozenCopy(keyedChanges(itemId, sent, edited, shape));
   const before = indexOf(sent, shape, "sent");
   const after = indexOf(edited, shape, "edited");
   const stay = stayers(before, after);
@@ -186,7 +240,7 @@ export const elementChanges = (
       continue;
     }
     if (!stay.has(id)) changes.push({ op: "move", target, parent, after: previous });
-    changes.push(...fieldSets(target, was.element, element, shape));
+    changes.push(...fieldSets(target, was.element, element, (kept) => fieldsOf(kept, shape)));
   }
   for (const [id, { parent }] of before) {
     if (!after.has(id) && (parent === null || after.has(parent))) {
@@ -203,7 +257,7 @@ class Placement {
 
   constructor(
     private readonly top: Json[],
-    private readonly shape: ElementShape,
+    private readonly shape: ListShape,
   ) {
     visit({ [shape.elements]: top }, shape, "sent", (element, parent) => {
       this.elements.set(element.id, element);
@@ -289,7 +343,7 @@ const addressOf = (itemId: string, target: unknown, field: boolean): [string, st
   return field ? [rest.slice(0, dot), rest.slice(dot + 1)] : [rest, ""];
 };
 
-const applyOne = (placement: Placement, itemId: string, change: Json, shape: ElementShape) => {
+const applyOne = (placement: Placement, itemId: string, change: Json, shape: ListShape) => {
   const reserved = (key: string) => key === "id" || key === shape.children;
   switch (change.op) {
     case "add": {
@@ -317,17 +371,8 @@ const applyOne = (placement: Placement, itemId: string, change: Json, shape: Ele
       const [id, field] = addressOf(itemId, change.target, true);
       if (reserved(field)) throw new Error(`"${field}" is not a field`);
       const element = placement.element(id);
-      if (change.value === null) {
-        delete element[field];
-        return;
-      }
-      // Defined, not assigned, so that a field named `__proto__` stays a field.
-      Object.defineProperty(element, field, {
-        value: mutableCopy(change.value),
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
+      if (change.value === null) delete element[field];
+      else define(element, field, mutableCopy(change.value));
       return;
     }
     default:
@@ -335,10 +380,41 @@ const applyOne = (placement: Placement, itemId: string, change: Json, shape: Ele
   }
 };
 
+type Applier = (itemId: string, change: Json) => void;
+
+const listApplier = (props: Json, shape: ListShape): Applier => {
+  const top = props[shape.elements];
+  if (!Array.isArray(top)) throw new Error(`the sent props hold no list "${shape.elements}"`);
+  const placement = new Placement(top, shape);
+  return (itemId, change) => applyOne(placement, itemId, change, shape);
+};
+
+// A `set` makes a missing entry; a `null` empties the field, and then an empty entry goes.
+const keyedApplier = (props: Json, shape: KeyedShape): Applier => {
+  entriesOf(props, shape, "sent");
+  const entries = props[shape.elements] as Json;
+  return (itemId, change) => {
+    if (change.op === "add" || change.op === "remove" || change.op === "move") {
+      throw new Error("a keyed shape takes only sets");
+    }
+    if (change.op !== "set") throw new Error(`"${String(change.op)}" is not an operation`);
+    const [id, field] = addressOf(itemId, change.target, true);
+    const entry = Object.hasOwn(entries, id) ? (entries[id] as Json) : undefined;
+    if (change.value !== null) {
+      define(entry ?? define(entries, id, {}), field, mutableCopy(change.value));
+      return;
+    }
+    if (entry === undefined) return;
+    delete entry[field];
+    if (Object.keys(entry).length === 0) delete entries[id];
+  };
+};
+
 /**
  * Applies `changes` in order to `sent`: the inverse of `elementChanges`. The props' other keys
- * are kept; an element whose last child leaves holds no children list. Throws, naming the
- * operation, on one that does not apply. Its inputs stay untouched and its output is frozen.
+ * are kept; an element whose last child leaves holds no children list, and a keyed entry left with
+ * no field goes. Throws, naming the operation, on one that does not apply. Its inputs stay
+ * untouched and its output is frozen.
  */
 export const applyElementChanges = <P extends object>(
   itemId: string,
@@ -347,12 +423,10 @@ export const applyElementChanges = <P extends object>(
   shape: ElementShape,
 ): P => {
   const props = mutableCopy(sent) as Json;
-  const top = props[shape.elements];
-  if (!Array.isArray(top)) throw new Error(`the sent props hold no list "${shape.elements}"`);
-  const placement = new Placement(top, shape);
+  const apply = shape.keyed === true ? keyedApplier(props, shape) : listApplier(props, shape);
   changes.forEach((change, at) => {
     try {
-      applyOne(placement, itemId, change as Json, shape);
+      apply(itemId, change as Json);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new Error(

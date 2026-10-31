@@ -9,9 +9,12 @@ import {
 // A seeded property test of the generic element diff (design decision 3): for random edit
 // sequences on test-only `probe` values, applying the diff in order to the sent value gives the
 // edited value. A failing seed is reported, so its run can be replayed.
+type ListShape = Extract<ElementShape, { readonly keyed?: false }>;
+
 const ITEM = "probe";
-const NESTED: ElementShape = { elements: "parts", children: "subparts" };
-const FLAT: ElementShape = { elements: "rows" };
+const NESTED: ListShape = { elements: "parts", children: "subparts" };
+const FLAT: ListShape = { elements: "rows" };
+const KEYED: ElementShape = { elements: "plan", keyed: true };
 const RUNS = 500;
 
 type Element = { id: string; [key: string]: unknown };
@@ -34,7 +37,7 @@ const generator = (seed: number) => {
 type Random = ReturnType<typeof generator>;
 
 // Each shape's fields: a text, a number, an array field and an object field.
-const fieldNames = (shape: ElementShape) => [
+const fieldNames = (shape: ListShape) => [
   "name",
   "size",
   shape.children === undefined ? "links" : "tags",
@@ -48,7 +51,7 @@ const randomField = (random: Random, field: string): unknown => {
   return Array.from({ length: random.int(3) }, () => `t${random.int(3)}`);
 };
 
-const randomFields = (random: Random, shape: ElementShape): Record<string, unknown> =>
+const randomFields = (random: Random, shape: ListShape): Record<string, unknown> =>
   Object.fromEntries(
     fieldNames(shape)
       .filter((field) => field === "name" || random.int(2) === 0)
@@ -57,7 +60,7 @@ const randomFields = (random: Random, shape: ElementShape): Record<string, unkno
 
 const randomList = (
   random: Random,
-  shape: ElementShape,
+  shape: ListShape,
   depth: number,
   nextId: () => string,
 ): Element[] =>
@@ -73,7 +76,7 @@ const randomList = (
 type Place = { readonly element: Element; readonly list: Element[]; readonly parent?: Element };
 
 // Every element with the list that holds it and its parent, in document order.
-const places = (value: Value, shape: ElementShape): Place[] => {
+const places = (value: Value, shape: ListShape): Place[] => {
   const found: Place[] = [];
   const walk = (list: Element[], parent?: Element) => {
     for (const element of list) {
@@ -87,12 +90,12 @@ const places = (value: Value, shape: ElementShape): Place[] => {
 };
 
 // Takes an element and its subtree out; an emptied children list goes with it, as a leaf holds none.
-const detach = ({ element, list, parent }: Place, shape: ElementShape): void => {
+const detach = ({ element, list, parent }: Place, shape: ListShape): void => {
   list.splice(list.indexOf(element), 1);
   if (parent !== undefined && list.length === 0) delete parent[shape.children as string];
 };
 
-const insert = (value: Value, shape: ElementShape, random: Random, element: Element): void => {
+const insert = (value: Value, shape: ListShape, random: Random, element: Element): void => {
   const parents = shape.children === undefined ? [] : places(value, shape);
   const parent = parents.length > 0 && random.int(3) > 0 ? random.pick(parents).element : undefined;
   let list = value[shape.elements] as Element[];
@@ -104,7 +107,7 @@ const insert = (value: Value, shape: ElementShape, random: Random, element: Elem
   list.splice(random.int(list.length + 1), 0, element);
 };
 
-type Edit = (value: Value, shape: ElementShape, random: Random, nextId: () => string) => void;
+type Edit = (value: Value, shape: ListShape, random: Random, nextId: () => string) => void;
 
 const EDITS: Record<string, Edit> = {
   add: (value, shape, random, nextId) =>
@@ -142,7 +145,7 @@ const EDITS: Record<string, Edit> = {
 
 type Run = { readonly sent: Value; readonly edited: Value };
 
-const randomRun = (seed: number, shape: ElementShape): Run => {
+const randomRun = (seed: number, shape: ListShape): Run => {
   const random = generator(seed);
   let sentIds = 0;
   let viewIds = 0;
@@ -159,11 +162,86 @@ const randomRun = (seed: number, shape: ElementShape): Run => {
   return { sent, edited };
 };
 
-const checkRuns = (shape: ElementShape) => {
+// A keyed shape's entries: at least one field each, never null, since an empty entry or a null
+// field reads as absent; an edit that empties an entry takes it away.
+type Entries = Record<string, Record<string, unknown>>;
+const KEYED_FIELDS = ["links", "start"];
+
+const keyedField = (random: Random, field: string): unknown =>
+  field === "start"
+    ? random.int(4)
+    : Array.from({ length: random.int(3) }, () => `t${random.int(3)}`);
+
+const randomEntry = (random: Random): Record<string, unknown> => {
+  const fields = KEYED_FIELDS.filter(() => random.int(2) === 0);
+  const kept = fields.length > 0 ? fields : [random.pick(KEYED_FIELDS)];
+  return Object.fromEntries(kept.map((field) => [field, keyedField(random, field)]));
+};
+
+const reversed = (object: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(object).reverse());
+
+type KeyedEdit = (value: Value, random: Random, nextId: () => string) => void;
+
+const KEYED_EDITS: Record<string, KeyedEdit> = {
+  add: (value, random, nextId) => {
+    (value.plan as Entries)[nextId()] = randomEntry(random);
+  },
+  remove: (value, random) => {
+    const plan = value.plan as Entries;
+    const ids = Object.keys(plan);
+    if (ids.length > 0) delete plan[random.pick(ids)];
+  },
+  set: (value, random) => {
+    const plan = value.plan as Entries;
+    const ids = Object.keys(plan);
+    if (ids.length === 0) return;
+    const id = random.pick(ids);
+    const entry = plan[id] as Record<string, unknown>;
+    const field = random.pick(KEYED_FIELDS);
+    const choice = random.int(3);
+    if (choice === 1) entry[field] = keyedField(random, field);
+    else if (choice === 2 && entry[field] !== undefined)
+      entry[field] = structuredClone(entry[field]);
+    else if (choice === 0) {
+      delete entry[field];
+      if (Object.keys(entry).length === 0) delete plan[id];
+    }
+  },
+  // The same entries and fields in another order: no change at all.
+  reorder: (value) => {
+    const plan = value.plan as Entries;
+    value.plan = Object.fromEntries(
+      Object.entries(plan)
+        .reverse()
+        .map(([id, e]) => [id, reversed(e)]),
+    );
+  },
+};
+
+const randomKeyedRun = (seed: number): Run => {
+  const random = generator(seed);
+  let sentIds = 0;
+  let viewIds = 0;
+  const entries = Array.from({ length: random.int(7) }, () => [
+    `t${++sentIds}`,
+    randomEntry(random),
+  ]);
+  const sent = { title: `run ${seed}`, plan: Object.fromEntries(entries) };
+  const edited = structuredClone(sent);
+  const steps = 1 + random.int(8);
+  for (let step = 0; step < steps; step += 1) {
+    const edit = KEYED_EDITS[random.pick(Object.keys(KEYED_EDITS))] as KeyedEdit;
+    edit(edited, random, () => `u-${++viewIds}`);
+  }
+  return { sent, edited };
+};
+
+const checkRuns = (shape: ElementShape, run: (seed: number) => Run) => {
   const failures: string[] = [];
   const counts: Record<string, number> = { add: 0, remove: 0, move: 0, set: 0 };
   for (let seed = 1; seed <= RUNS; seed += 1) {
-    const { sent, edited } = randomRun(seed, shape);
+    const { sent, edited } = run(seed);
     try {
       const changes: readonly ElementChange[] = elementChanges(ITEM, sent, edited, shape);
       for (const change of changes) counts[change.op] = (counts[change.op] ?? 0) + 1;
@@ -173,8 +251,12 @@ const checkRuns = (shape: ElementShape) => {
         failures.push(`seed ${seed}: changes for an equal value`);
       }
       const placed = changes.filter((change) => change.op === "add" || change.op === "move");
-      if (shape.children === undefined && placed.some((change) => change.parent !== null)) {
+      const flat = shape.keyed !== true && shape.children === undefined;
+      if (flat && placed.some((change) => change.parent !== null)) {
         failures.push(`seed ${seed}: a parent in a flat list`);
+      }
+      if (shape.keyed === true && changes.some((change) => change.op !== "set")) {
+        failures.push(`seed ${seed}: an operation other than set for a keyed shape`);
       }
     } catch (error) {
       failures.push(`seed ${seed}: ${error instanceof Error ? error.message : String(error)}`);
@@ -189,7 +271,7 @@ describe(`applying the diff in order rebuilds the edited value (${RUNS} seeded r
     ["a flat shape with an array field", FLAT],
   ] as const) {
     test(name, () => {
-      const { failures, counts } = checkRuns(shape);
+      const { failures, counts } = checkRuns(shape, (seed) => randomRun(seed, shape));
       expect(failures).toEqual([]);
       // Every operation kind occurs often enough for the runs to mean something.
       for (const op of ["add", "remove", "move", "set"]) {
@@ -197,4 +279,11 @@ describe(`applying the diff in order rebuilds the edited value (${RUNS} seeded r
       }
     });
   }
+
+  test("a keyed shape with an array field and a scalar field", () => {
+    const { failures, counts } = checkRuns(KEYED, randomKeyedRun);
+    expect(failures).toEqual([]);
+    expect(counts).toMatchObject({ add: 0, remove: 0, move: 0 });
+    expect(counts.set ?? 0).toBeGreaterThanOrEqual(500);
+  });
 });
