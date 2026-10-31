@@ -24,8 +24,11 @@ export const GANTT_MAX_DEPENDENTS = 50;
 export const GANTT_MIN_DURATION = 1;
 export const GANTT_MAX_DURATION = 2_000;
 export const GANTT_LABEL_MAX_CHARS = 200;
-/** The days a Gantt's dates may name: the range the compute graph's dates hold. */
-export const GANTT_FIRST_DATE = "1900-03-01";
+/**
+ * The days a Gantt's dates may name. The compute graph holds 1900-03-01 too, but finds a plan's
+ * first working day from the day before its start, which must be a day it holds.
+ */
+export const GANTT_FIRST_DATE = "1900-03-02";
 export const GANTT_LAST_DATE = "9999-12-31";
 
 /** The number fields of the Tree a Gantt plan's `workPackages` names: its PERT estimates. */

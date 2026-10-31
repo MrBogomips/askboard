@@ -9,7 +9,7 @@ describe("the Gantt's en-US date entry", () => {
     [" 12/09/2026 ", "2026-12-09"],
     ["1/1/2027", "2027-01-01"],
     ["2/29/2028", "2028-02-29"],
-    ["3/1/1900", "1900-03-01"],
+    ["3/2/1900", "1900-03-02"],
     ["12/31/9999", "9999-12-31"],
   ])("reads %j as %s", (text, date) => {
     expect(parseDateEntry(text)).toEqual({ kind: "date", date });
@@ -30,8 +30,9 @@ describe("the Gantt's en-US date entry", () => {
     ["12/9/26", "Write the date as month/day/year, as in 12/9/2026"],
     ["2026-12-9", "Write the date as month/day/year, as in 12/9/2026"],
     ["Dec 9", "Write the date as month/day/year, as in 12/9/2026"],
-    ["1899-12-31", "Pick a day from 3/1/1900 to 12/31/9999"],
-    ["2/28/1900", "Pick a day from 3/1/1900 to 12/31/9999"],
+    ["1899-12-31", "Pick a day from 3/2/1900 to 12/31/9999"],
+    ["2/28/1900", "Pick a day from 3/2/1900 to 12/31/9999"],
+    ["3/1/1900", "Pick a day from 3/2/1900 to 12/31/9999"],
   ])("refuses %j, saying why", (text, reason) => {
     expect(parseDateEntry(text)).toEqual({ kind: "refused", reason });
   });
@@ -40,7 +41,7 @@ describe("the Gantt's en-US date entry", () => {
     ["2026-12-09", "12/9/2026", "= Wed, Dec 9, 2026"],
     ["2026-11-02", "11/2/2026", "= Mon, Nov 2, 2026"],
     ["2028-02-29", "2/29/2028", "= Tue, Feb 29, 2028"],
-    ["1900-03-01", "3/1/1900", "= Thu, Mar 1, 1900"],
+    ["1900-03-02", "3/2/1900", "= Fri, Mar 2, 1900"],
     ["9999-12-31", "12/31/9999", "= Fri, Dec 31, 9999"],
   ])("shows %s as %s in the grid and echoes %s", (date, grid, echo) => {
     expect(gridDate(date)).toBe(grid);
@@ -55,7 +56,7 @@ describe("the Gantt's en-US date entry", () => {
     }
   });
 
-  test.each(["2026-02-30", "12/9/2026", "1899-12-31"])(
+  test.each(["2026-02-30", "12/9/2026", "1899-12-31", "1900-03-01"])(
     "refuses to show %s, no date it holds",
     (date) => {
       expect(() => gridDate(date)).toThrow(RangeError);

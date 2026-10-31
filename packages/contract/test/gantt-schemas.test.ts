@@ -9,7 +9,9 @@ import { SCHEMA_IDS, SCHEMA_SETS } from "../src/index.ts";
 import { createAjv, validateAgainst } from "../src/validate.ts";
 import {
   GANTT_ANSWER_DERIVED,
+  GANTT_FIRST_DATE,
   GANTT_LABEL_MAX_CHARS,
+  GANTT_LAST_DATE,
   GANTT_MAX_DEPENDENTS,
   GANTT_MAX_DURATION,
   GANTT_MAX_PREDECESSORS,
@@ -119,6 +121,7 @@ describe("the Gantt's schemas", () => {
       GANTT_MAX_DURATION,
       GANTT_LABEL_MAX_CHARS,
     ]).toEqual([500, 50, 50, 1, 2_000, 200]);
+    expect([GANTT_FIRST_DATE, GANTT_LAST_DATE]).toEqual(["1900-03-02", "9999-12-31"]);
     expect(GANTT_PLAN_ESTIMATES).toEqual(["optimistic", "mostLikely", "pessimistic"]);
     expect(GANTT_ANSWER_DERIVED).toEqual({ finish: "finishDate", criticalPath: "critical" });
   });

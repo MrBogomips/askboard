@@ -5,7 +5,7 @@
 // Dates are the Gantt's: this module moves to `shared/` when a second widget needs it.
 
 /** The days a Gantt may name, as the contract's `GANTT_FIRST_DATE` and `GANTT_LAST_DATE`. */
-const FIRST_DATE = "1900-03-01";
+const FIRST_DATE = "1900-03-02";
 const LAST_DATE = "9999-12-31";
 
 export type DateEntry =
