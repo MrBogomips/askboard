@@ -97,7 +97,7 @@ export const indexSource = (items: readonly FieldsItem[]): NodeIndex => {
   return { entries, items: indexed, positions };
 };
 
-const KINDS: ReadonlySet<unknown> = new Set(["fields", "wbs-pert", "gantt-plan"]);
+const KINDS: ReadonlySet<unknown> = new Set(["fields", "wbs-pert", "gantt-plan", "gantt"]);
 
 /** The source's items, each an object with a known kind and an ID used once. */
 export const checkItems = (source: GraphSource): readonly GraphItem[] => {

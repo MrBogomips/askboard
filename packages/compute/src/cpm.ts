@@ -1,18 +1,23 @@
 // CPM scheduling (FR-12, AD-13 "In-house computations"): a Gantt plan becomes a `fields` item whose
-// tasks are its WBS's leaves, scheduled in working days by formulas over the whitelist, so the
-// schedule recalculates with the rest of the graph. Dependencies are finish to start, without lag.
-// Forward: earliest start is the latest earliest finish of the predecessors. Backward: latest
-// finish is the earliest latest start of the successors, or the plan's finish. A task is critical
-// at zero slack. Dates count working days from the first working day on or after the start.
+// tasks are its WBS's leaves, and a Gantt with its own tasks one whose tasks are its list, both
+// scheduled in working days by formulas over the whitelist, so the schedule recalculates with the
+// rest of the graph. Dependencies are finish to start, without lag. Forward: earliest start is the
+// latest earliest finish of the predecessors, or later when the user requested a later start.
+// Backward: latest finish is the earliest latest start of the successors, or the plan's finish. A
+// task is critical at zero slack. Dates count working days from the first working day on or after
+// the start.
 
 import { ID_PATTERN } from "@askboard/contract";
+import { countWorkingDays, firstWorkingDay, serialOf } from "./dates.ts";
 import {
   type FieldInput,
   type Fields,
   type FieldsItem,
+  type GanttItem,
   type GanttPlanItem,
   type GraphChild,
   isRecord,
+  listOf,
   refuse,
 } from "./source.ts";
 import type { FormulaError } from "./types.ts";
@@ -24,16 +29,25 @@ export type ExpandedPlan = {
   readonly warnings: readonly FormulaError[];
 };
 
+/** What both kinds schedule: the item, its start, and each task with its duration's input. */
+type Schedule = {
+  readonly id: string;
+  readonly start: unknown;
+  /** Undefined when the plan's work packages name no WBS: there are no tasks to schedule. */
+  readonly tasks: readonly { readonly id: string; readonly duration: FieldInput }[] | undefined;
+  readonly dependencies: ReadonlyMap<string, readonly string[]>;
+  /** Each requested start, as a serial, by task ID. */
+  readonly starts: ReadonlyMap<string, number>;
+  readonly warnings: FormulaError[];
+};
+
 const formula = (text: string, type: FieldInput["type"] = "number"): FieldInput => ({
   type,
   formula: text,
 });
 
-const dependenciesOf = (
-  plan: GanttPlanItem,
-  where: string,
-): ReadonlyMap<string, readonly string[]> => {
-  const given: unknown = plan.dependencies ?? {};
+const dependenciesOf = (given: unknown, where: string): ReadonlyMap<string, readonly string[]> => {
+  if (given === undefined) return new Map();
   if (!isRecord(given)) return refuse(`${where}: dependencies is not an object`);
   const out = new Map<string, readonly string[]>();
   for (const task of Object.keys(given)) {
@@ -48,19 +62,62 @@ const dependenciesOf = (
   return out;
 };
 
+const DATE_RANGE = "a date from 1900-03-01 to 9999-12-31";
+
+const startsOf = (given: unknown, where: string): ReadonlyMap<string, number> => {
+  if (given === undefined) return new Map();
+  if (!isRecord(given)) return refuse(`${where}: starts is not an object`);
+  const out = new Map<string, number>();
+  for (const task of Object.keys(given)) {
+    if (!ID.test(task)) refuse(`${where}: ${JSON.stringify(task)} in starts is not an ID`);
+    const date = given[task];
+    const serial = typeof date === "string" ? serialOf(date) : undefined;
+    if (serial === undefined)
+      refuse(`${where}: the requested start of ${task} is not ${DATE_RANGE}`);
+    out.set(task, serial as number);
+  }
+  return out;
+};
+
+/**
+ * The working days from the plan's first working day to the first working day on or after a
+ * requested start, 0 when it comes no later. It is AskBoard's own code, since no whitelisted
+ * function counts working days between two dates; the graph is built again when a request or
+ * the plan's start changes.
+ */
+const offsetOf = (planStart: unknown, requested: number): number => {
+  const start = typeof planStart === "string" ? serialOf(planStart) : undefined;
+  if (start === undefined) return 0;
+  return Math.max(0, countWorkingDays(firstWorkingDay(start), firstWorkingDay(requested)));
+};
+
+// A task with no requested start keeps compute-engine's `es`, and its `earliest` reads it; a request
+// moves the predecessors' formula to `earliest` and makes `es` the later of it and the request.
 const taskFields = (
   plan: string,
-  wbs: string,
   task: string,
+  duration: FieldInput,
   before: readonly string[],
   after: readonly string[],
+  offset: number | undefined,
 ): Fields => {
   const r = (id: string, field: string): string => `[${plan}.${id}.${field}]`;
   const t = (field: string): string => r(task, field);
   const first = `[${plan}.firstDay]`;
+  const earliest = formula(
+    before.length > 0 ? `MAX(0,${before.map((id) => r(id, "ef")).join(",")})` : "0",
+  );
+  const requested: Fields =
+    offset === undefined
+      ? { earliest: formula(t("es")), es: earliest }
+      : {
+          earliest,
+          startOffset: { type: "number", value: offset },
+          es: formula(`MAX(${t("earliest")},${t("startOffset")})`),
+        };
   return {
-    duration: formula(`MAX(1,ROUNDUP([${wbs}.${task}.expected],0))`),
-    es: formula(before.length > 0 ? `MAX(0,${before.map((id) => r(id, "ef")).join(",")})` : "0"),
+    duration,
+    ...requested,
     ef: formula(`${t("es")}+${t("duration")}`),
     lf: formula(
       after.length > 0 ? `MIN(${after.map((id) => r(id, "ls")).join(",")})` : `[${plan}.finish]`,
@@ -70,12 +127,58 @@ const taskFields = (
     critical: formula(`${t("slack")}=0`, "boolean"),
     startDate: formula(`WORKDAY(${first},${t("es")})`, "date"),
     finishDate: formula(`WORKDAY(${first},${t("ef")}-1)`, "date"),
+    earliestDate: formula(`WORKDAY(${first},${t("earliest")})`, "date"),
   };
 };
 
+/** The schedule as a `fields` item; a dependency that names no task is a warning, never a refusal. */
+const scheduleItem = ({
+  id,
+  start,
+  tasks,
+  dependencies,
+  starts,
+  warnings,
+}: Schedule): ExpandedPlan => {
+  const known = new Set((tasks ?? []).map((task) => task.id));
+  const successors = new Map<string, string[]>([...known].map((task) => [task, []]));
+  const unknown = (task: string, what: string): boolean => {
+    if (known.has(task)) return false;
+    const detail = `the ${what} name ${task}, which is no task of the plan`;
+    warnings.push({ error: "missing-reference", address: `${id}.${task}`, detail });
+    return true;
+  };
+  // Without a WBS every task is unknown: the work packages' warning says it once.
+  if (tasks !== undefined) {
+    for (const [task, before] of dependencies) {
+      if (unknown(task, "dependencies")) continue;
+      for (const predecessor of before) successors.get(predecessor)?.push(task);
+    }
+    for (const task of starts.keys()) unknown(task, "requested starts");
+  }
+  const children: GraphChild[] = (tasks ?? []).map((task) => ({
+    id: task.id,
+    fields: taskFields(
+      id,
+      task.id,
+      task.duration,
+      dependencies.get(task.id) ?? [],
+      successors.get(task.id) ?? [],
+      starts.has(task.id) ? offsetOf(start, starts.get(task.id) as number) : undefined,
+    ),
+  }));
+  const fields: Fields = {
+    start: { type: "date", value: start as string },
+    firstDay: formula(`WORKDAY([${id}.start]-1,1)`, "date"),
+    finish: formula(`MAX([${id}.*.ef])`),
+    finishDate: formula(`WORKDAY([${id}.firstDay],[${id}.finish]-1)`, "date"),
+  };
+  return { item: { kind: "fields", id, fields, children }, warnings };
+};
+
 /**
- * The plan as a `fields` item. `leavesOf` gives a `wbs-pert` item's leaves, or undefined when the
- * ID names none. A dependency or work packages that name nothing are warnings, never refusals.
+ * A Gantt plan as a `fields` item. `leavesOf` gives a `wbs-pert` item's leaves, or undefined when
+ * the ID names none. Each task lasts its expected effort rounded up to whole working days.
  */
 export const expandGanttPlan = (
   plan: GanttPlanItem,
@@ -83,40 +186,49 @@ export const expandGanttPlan = (
 ): ExpandedPlan => {
   const where = `item ${plan.id}`;
   if (typeof plan.workPackages !== "string") refuse(`${where}: workPackages is not an item ID`);
-  const dependencies = dependenciesOf(plan, where);
+  const dependencies = dependenciesOf(plan.dependencies, where);
+  const starts = startsOf(plan.starts, where);
   const warnings: FormulaError[] = [];
-  const tasks = leavesOf(plan.workPackages);
-  if (tasks === undefined) {
+  const leaves = leavesOf(plan.workPackages);
+  if (leaves === undefined) {
     const detail = `the work packages ${plan.workPackages} name no WBS-with-PERT item`;
     warnings.push({ error: "missing-reference", address: `${plan.id}.workPackages`, detail });
   }
-  const known = new Set(tasks ?? []);
-  const successors = new Map<string, string[]>((tasks ?? []).map((task) => [task, []]));
-  for (const [task, before] of dependencies) {
-    // Without a WBS every task is unknown: the work packages' warning says it once.
-    if (tasks === undefined) break;
-    if (!known.has(task)) {
-      const detail = `the dependencies name ${task}, which is no task of the plan`;
-      warnings.push({ error: "missing-reference", address: `${plan.id}.${task}`, detail });
-      continue;
-    }
-    for (const id of before) successors.get(id)?.push(task);
-  }
-  const children: GraphChild[] = (tasks ?? []).map((task) => ({
+  const tasks = leaves?.map((task) => ({
     id: task,
-    fields: taskFields(
-      plan.id,
-      plan.workPackages,
-      task,
-      dependencies.get(task) ?? [],
-      successors.get(task) ?? [],
-    ),
+    duration: formula(`MAX(1,ROUNDUP([${plan.workPackages}.${task}.expected],0))`),
   }));
-  const fields: Fields = {
-    start: { type: "date", value: plan.start },
-    firstDay: formula(`WORKDAY([${plan.id}.start]-1,1)`, "date"),
-    finish: formula(`MAX([${plan.id}.*.ef])`),
-    finishDate: formula(`WORKDAY([${plan.id}.firstDay],[${plan.id}.finish]-1)`, "date"),
-  };
-  return { item: { kind: "fields", id: plan.id, fields, children }, warnings };
+  return scheduleItem({ id: plan.id, start: plan.start, tasks, dependencies, starts, warnings });
+};
+
+const isDuration = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+
+/** A Gantt with its own tasks as a `fields` item: each task's duration is a number input. */
+export const expandGantt = (gantt: GanttItem): ExpandedPlan => {
+  const where = `item ${gantt.id}`;
+  const seen = new Set<string>();
+  const tasks = listOf<unknown>(gantt.tasks, "tasks", where).map((task) => {
+    if (!isRecord(task)) return refuse(`${where}: a task is not an object`);
+    const id = task.id;
+    if (typeof id !== "string" || !ID.test(id)) {
+      return refuse(`${where}: task ID ${JSON.stringify(id)} is not ${ID_PATTERN}`);
+    }
+    if (seen.has(id)) refuse(`${where}: task ID ${id} is used twice`);
+    seen.add(id);
+    if (!isDuration(task.duration)) {
+      refuse(`${where}: the duration of ${id} is not a positive whole number`);
+    }
+    return { id, duration: { type: "number", value: task.duration as number } as FieldInput };
+  });
+  const dependencies = dependenciesOf(gantt.dependencies, where);
+  const starts = startsOf(gantt.starts, where);
+  return scheduleItem({
+    id: gantt.id,
+    start: gantt.start,
+    tasks,
+    dependencies,
+    starts,
+    warnings: [],
+  });
 };

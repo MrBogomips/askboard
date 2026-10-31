@@ -7,6 +7,7 @@ import { evaluateGraph } from "../../src/evaluate.ts";
 import { buildGraph } from "../../src/graph/build.ts";
 import type { Fields, GraphChild, GraphItem, GraphSource, WbsNode } from "../../src/source.ts";
 import { type Address, isFormulaError, type NodeResult, type Scalar } from "../../src/types.ts";
+import { GANTT_FIXTURES } from "./gantt.ts";
 import { ERROR_FIXTURES, type Expected } from "./index.ts";
 import spreadsheet from "./spreadsheet.json" with { type: "json" };
 import uj2 from "./uj2-wbs-gantt.json" with { type: "json" };
@@ -241,10 +242,20 @@ export const runBoards = (tally: Tally): void => {
   }
 };
 
+export const runGantt = (tally: Tally): void => {
+  for (const fixture of GANTT_FIXTURES) {
+    const graph = buildGraph({ items: fixture.items });
+    const values = evaluateGraph(graph);
+    tally.values(`gantt:${fixture.name}`, fixture.expected, (address) => values.read(address));
+    tally.warnings(`gantt:${fixture.name}`, [], graph.warnings);
+  }
+};
+
 export const runAll = (): Tally => {
   const tally = new Tally();
   runWhitelist(tally);
   runErrors(tally);
   runBoards(tally);
+  runGantt(tally);
   return tally;
 };

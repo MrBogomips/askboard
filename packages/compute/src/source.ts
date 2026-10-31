@@ -61,9 +61,28 @@ export type GanttPlanItem = {
   readonly start: string;
   /** Each task's predecessors, finish to start, by task ID. */
   readonly dependencies?: Readonly<Record<string, readonly string[]>>;
+  /** The start the user asked for, by task ID: the task starts then or as soon after as it can. */
+  readonly starts?: Readonly<Record<string, string>>;
 };
 
-export type GraphItem = FieldsItem | WbsPertItem | GanttPlanItem;
+/** A task of a Gantt with its own tasks: its duration in working days, a whole number from 1. */
+export type GanttTask = { readonly id: string; readonly duration: number };
+
+/** A Gantt with its own tasks (FR-11): scheduled as a plan is, each duration as given. */
+export type GanttItem = {
+  readonly kind: "gantt";
+  readonly id: string;
+  /** The plan's start, a `full-date`; work starts on the first working day on or after it. */
+  readonly start: string;
+  /** The tasks, in the agent's order. */
+  readonly tasks: readonly GanttTask[];
+  /** Each task's predecessors, finish to start, by task ID. */
+  readonly dependencies?: Readonly<Record<string, readonly string[]>>;
+  /** The start the user asked for, by task ID: the task starts then or as soon after as it can. */
+  readonly starts?: Readonly<Record<string, string>>;
+};
+
+export type GraphItem = FieldsItem | WbsPertItem | GanttPlanItem | GanttItem;
 
 export type GraphSource = { readonly items: readonly GraphItem[] };
 
