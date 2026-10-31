@@ -1,5 +1,6 @@
 // What the Tree model's modules share about a value's nodes: finding a node with its place, the
-// node count for the contract's limits, and the frozen copy every edit returns. Node IDs are
+// node count and a branch's height for the contract's limits, and the frozen copy every edit
+// returns. Node IDs are
 // unique at every level (design decision 11), so an ID names one node.
 
 import type { TreeNode, TreeProps } from "@askboard/contract";
@@ -37,6 +38,10 @@ export const locate = (nodes: Nodes, id: string): Located | undefined => {
 /** How many nodes `nodes` holds, at every level. */
 export const countNodes = (nodes: Nodes): number =>
   nodes.reduce((count, node) => count + 1 + countNodes(node.children ?? []), 0);
+
+/** How many levels the branch of `node` spans: 1 for a leaf. */
+export const heightOf = (node: TreeNode): number =>
+  1 + Math.max(0, ...(node.children ?? []).map(heightOf));
 
 /** Every node's ID, in document order. */
 export function* nodeIds(nodes: Nodes): Generator<string> {
