@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { startServer } from "../src/agent.ts";
@@ -12,6 +11,9 @@ import {
   permissionServer,
 } from "../src/answerer/permission-host.ts";
 import { answerPlan, CASES, QUESTIONS } from "../src/scenarios.ts";
+import { useScratch } from "./support/scratch.ts";
+
+const scratch = useScratch();
 
 const plan = answerPlan(CASES.S1);
 const auqQuestion = (index: number) => {
@@ -101,7 +103,7 @@ describe("the AskUserQuestion answerer", () => {
 
 describe("the entries", () => {
   const files = () => {
-    const dir = mkdtempSync(join(tmpdir(), "bench-auq-"));
+    const dir = scratch("bench-auq-");
     const planPath = join(dir, "plan.json");
     writeFileSync(planPath, JSON.stringify(plan));
     return { dir, planPath, records: join(dir, "answerer.jsonl") };

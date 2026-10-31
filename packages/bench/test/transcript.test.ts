@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { findTranscripts, parseInit, parseTranscript, projectsRoot } from "../src/transcript.ts";
+import { useScratch } from "./support/scratch.ts";
 import { TranscriptBuilder } from "./support/transcript-builder.ts";
+
+const scratch = useScratch();
 
 const T0 = Date.parse("2026-10-30T10:00:00.000Z");
 
@@ -130,7 +132,7 @@ describe("parseTranscript", () => {
 
 describe("finding transcripts", () => {
   test("by session ID under any project folder, with its subagents", () => {
-    const root = mkdtempSync(join(tmpdir(), "bench-projects-"));
+    const root = scratch("bench-projects-");
     mkdirSync(join(root, "-tmp-a", "sid-1", "subagents"), { recursive: true });
     mkdirSync(join(root, "-tmp-b"));
     writeFileSync(join(root, "-tmp-a", "sid-1.jsonl"), "");

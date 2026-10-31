@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startServer } from "../src/agent.ts";
 import { answerBoard, type BoardRecord } from "../src/answerer/board.ts";
 import { writeBrowserLauncher } from "../src/answerer/launcher.ts";
 import { answerPlan, CASES, QUESTIONS } from "../src/scenarios.ts";
 import { createStub, type Stub } from "./stub/stub.ts";
+import { useScratch } from "./support/scratch.ts";
+
+const scratch = useScratch();
 
 const STUB = join(import.meta.dir, "stub", "server.ts");
 const plan = answerPlan(CASES.S1);
@@ -219,7 +221,7 @@ describe("the board answerer", () => {
 
 describe("the BROWSER launcher", () => {
   test("the stub opens the board through browser.sh and the answer comes back", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "bench-launcher-"));
+    const dir = scratch("bench-launcher-");
     const planPath = join(dir, "plan.json");
     const records = join(dir, "answerer.jsonl");
     writeFileSync(planPath, JSON.stringify(plan));
@@ -263,7 +265,7 @@ describe("the board answerer's entry", () => {
 
   test("answers and appends its record, or records the error", async () => {
     const { main } = await import("../src/answerer/board-main.ts");
-    const dir = mkdtempSync(join(tmpdir(), "bench-main-"));
+    const dir = scratch("bench-main-");
     const planPath = join(dir, "plan.json");
     const records = join(dir, "answerer.jsonl");
     writeFileSync(planPath, JSON.stringify(plan));

@@ -8,24 +8,27 @@ import { fileURLToPath } from "node:url";
 
 export const BOARD_ANSWERER = fileURLToPath(new URL("./board-main.ts", import.meta.url));
 
-const quote = (text: string): string => `'${text.replaceAll("'", `'\\''`)}'`;
+export const quote = (text: string): string => `'${text.replaceAll("'", `'\\''`)}'`;
+
+export type LauncherPaths = { readonly plan: string; readonly records: string };
+
+export const browserScript = (paths: LauncherPaths, runtime: string = process.execPath): string => {
+  const command = [runtime, BOARD_ANSWERER, "--plan", paths.plan, "--records", paths.records];
+  return [
+    "#!/bin/sh",
+    "# BROWSER for one benchmark run: the scripted board answerer, once per board.",
+    `exec ${command.map(quote).join(" ")} "$1"`,
+    "",
+  ].join("\n");
+};
 
 export const writeBrowserLauncher = (
   dir: string,
-  paths: { readonly plan: string; readonly records: string },
+  paths: LauncherPaths,
   runtime: string = process.execPath,
 ): string => {
   const path = join(dir, "browser.sh");
-  const command = [runtime, BOARD_ANSWERER, "--plan", paths.plan, "--records", paths.records];
-  writeFileSync(
-    path,
-    [
-      "#!/bin/sh",
-      "# BROWSER for one benchmark run: the scripted board answerer, once per board.",
-      `exec ${command.map(quote).join(" ")} "$1"`,
-      "",
-    ].join("\n"),
-  );
+  writeFileSync(path, browserScript(paths, runtime));
   chmodSync(path, 0o755);
   return path;
 };

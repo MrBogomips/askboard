@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import { REDACTED, redact, redactTree } from "../src/redact.ts";
+import { useScratch } from "./support/scratch.ts";
+
+const scratch = useScratch();
 
 const { token, link } = PLAIN_CHOICE;
 
@@ -30,7 +32,7 @@ describe("redact", () => {
   });
 
   test("redactTree rewrites every file under a folder that held a token", () => {
-    const root = mkdtempSync(join(tmpdir(), "bench-redact-"));
+    const root = scratch("bench-redact-");
     mkdirSync(join(root, "transcripts"));
     writeFileSync(join(root, "transcripts", "main.jsonl"), `{"board":"${link}"}\n`);
     writeFileSync(join(root, "clean.txt"), "nothing here");
