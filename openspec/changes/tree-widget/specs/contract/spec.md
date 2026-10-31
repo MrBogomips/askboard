@@ -6,8 +6,37 @@ The contract is AskBoard's one shared language: the versioned JSON Schema sets, 
 
 ## ADDED Requirements
 
+### Requirement: Standalone widget schemas
+A widget's item props and its `changes` SHALL be schemas of their own in the contract, with the `$id`s `urn:askboard:input:<name>-props` and `urn:askboard:output:<name>-changes`, compiled in strict mode by that widget's validate function together with every contract schema they reference. Until the follow-up that takes the input format to 1.1, they SHALL belong to no schema set (AD-7).
+
+#### Scenario: The Tree's schemas compile
+- **WHEN** the Tree's props and changes schemas are compiled in strict mode with `createAjv`'s options and E1's ID schema
+- **THEN** both compile, both are JSON Schema 2020-12, their `$id`s are `urn:askboard:input:tree-props` and `urn:askboard:output:tree-changes`, and neither has a root combinator
+
+### Requirement: No import-time effects in the contract
+No module of the contract SHALL add a schema to a validator or write to a registry when it is imported. A widget's validate function SHALL compile its schemas on its first call, into a validator of its own.
+
+#### Scenario: Importing the contract
+- **WHEN** the contract's modules are imported and no widget validate function has run
+- **THEN** E1's schema sets and `SCHEMA_IDS` hold none of the Tree's schemas, and the contract's shared validator has no schema with the Tree's `$id`s
+
+### Requirement: Widget element IDs
+Every widget's element IDs SHALL match `[A-Za-z0-9_-]{1,64}` and be unique within their item, at every level. An element ID the agent chooses SHALL NOT start with the view-made prefix `u-`; an edited value from the view MAY hold elements whose IDs start with it, each `u-<n>`, `n` one more than the highest such number in the item's value when the view made it (AD-7, finding F10).
+
+#### Scenario: One ID at two levels
+- **WHEN** a Tree's parent and one of its grandchildren share the ID `design`
+- **THEN** validation fails, naming the repeated ID
+
+#### Scenario: The agent uses the view's prefix
+- **WHEN** the agent's Tree nodes hold one with the ID `u-1`
+- **THEN** validation fails, saying that the prefix `u-` is reserved for IDs the board makes
+
+#### Scenario: A node the user added
+- **WHEN** an edited Tree value from the view holds a node `u-1`
+- **THEN** it passes validation as an edited value
+
 ### Requirement: Tree item props
-The input format SHALL define a Tree item's props as optional `columns`, each `{field, label, type}` with `type` `text` or `number`, and `nodes`, each `{id, label, children?}` plus a value for any declared field: a string for `text`, a number for `number`, absent when empty. Any other key SHALL fail validation, naming the node and the key. No ask SHALL carry a Tree until the input format admits one in a question's items.
+The contract SHALL define a Tree item's props in the schema `urn:askboard:input:tree-props`, checked by `validateTreeProps`, as optional `columns`, each `{field, label, type}` with `type` `text` or `number`, and `nodes`, each `{id, label, children?}` plus a value for any declared field: a string for `text`, a number for `number`, absent when empty. Any other key SHALL fail validation, naming the node and the key. No ask SHALL carry a Tree until the input format admits one in a question's items.
 
 #### Scenario: The UJ-2 work breakdown as a Tree
 - **WHEN** the nodes of the approved `uj2-wbs-gantt` ask's `wbs` data, without their `excerpt` pointers, are validated as a Tree whose columns declare `optimistic`, `mostLikely` and `pessimistic` as numbers
@@ -20,21 +49,6 @@ The input format SHALL define a Tree item's props as optional `columns`, each `{
 #### Scenario: A value of the wrong type
 - **WHEN** a node holds the text `"five"` in a `number` column
 - **THEN** validation fails, naming the node's ID and the field
-
-### Requirement: Tree node IDs
-Node IDs SHALL match `[A-Za-z0-9_-]{1,64}` and be unique within their item, at every level. A node ID the agent chooses SHALL NOT start with the view-made prefix `u-`; an edited value from the view MAY hold nodes whose IDs start with it (AD-7, finding F10).
-
-#### Scenario: One ID at two levels
-- **WHEN** a parent and one of its grandchildren share the ID `design`
-- **THEN** validation fails, naming the repeated ID
-
-#### Scenario: The agent uses the view's prefix
-- **WHEN** the agent's nodes hold one with the ID `u-1`
-- **THEN** validation fails, saying that the prefix `u-` is reserved for IDs the board makes
-
-#### Scenario: A node the user added
-- **WHEN** an edited value from the view holds a node `u-1`
-- **THEN** it passes validation as an edited value
 
 ### Requirement: Tree field names
 A column's `field` SHALL match `^[a-z][A-Za-z0-9]{0,63}$`, SHALL NOT be `id`, `label` or `children`, and SHALL be unique within the item, so that every node field is addressable by AD-13's flat reference `item.node.field` and no field name is a spreadsheet cell.
@@ -55,7 +69,7 @@ A Tree SHALL hold at most 500 nodes, 8 levels and 8 columns; a name SHALL be 1 t
 - **THEN** validation fails, naming the node and the limit of 8 levels
 
 ### Requirement: Tree changes
-The output format SHALL define a Tree's `changes` as AD-20's generic diff: `add` and `move` with `target` `item.node`, `parent` and `after` each a node ID or `null`, and for `add` a `value` holding the node's name and fields without children; `remove` with `target` only; `set` with `target` `item.node.field`, `label` included, and a value of the field's type, or `null` to empty a field other than `label`.
+The contract SHALL define a Tree's `changes` in the schema `urn:askboard:output:tree-changes`, checked by `validateTreeChanges`, as AD-20's generic diff: `add` and `move` with `target` `item.node`, `parent` and `after` each a node ID or `null`, and for `add` a `value` holding the node's name and fields without children; `remove` with `target` only; `set` with `target` `item.node.field`, `label` included, and a value of the field's type, or `null` to empty a field other than `label`.
 
 #### Scenario: The approved UJ-2 answer
 - **WHEN** the operations of `answers/uj2-wbs-gantt.json` whose target starts with `wbs.` are validated as Tree changes
@@ -69,31 +83,45 @@ The output format SHALL define a Tree's `changes` as AD-20's generic diff: `add`
 - **WHEN** a `set` operation targets `wbs.build.children`
 - **THEN** validation fails, naming the target
 
-### Requirement: Computing a Tree's changes
-Given an item's props as sent and as edited, the contract's diff SHALL return the operations that, applied in order to the sent nodes, give the edited nodes. It SHALL address nodes by ID, never by position, list no operation for an untouched node or field, list one `remove` for a removed node and none for its removed descendants, and return no operation for a tree that ends as it was sent (AD-10, AD-20, FR-20).
+### Requirement: Computing element changes
+Given an item's props as sent and as edited, and the widget's element shape, the contract's diff SHALL return the operations that, applied in order to the sent value, give the edited value, addressing elements by ID, never by position. It SHALL list no operation for an untouched element or field, one `remove` for a removed element and none for its removed descendants, and no operation for a value that ends as it was sent (AD-10, AD-20, FR-20).
 
 #### Scenario: Nothing changed
 - **WHEN** the edited value equals the sent one
 - **THEN** the diff returns no operation
 
+#### Scenario: A removed branch
+- **WHEN** an element with three children is removed from a tree
+- **THEN** the diff returns one `remove` naming that element
+
+### Requirement: Element shapes and fields
+An element shape SHALL name the props key that holds the elements and, for a tree, the element key that holds its children; without a children key the elements SHALL form a flat list, every `add` and `move` with a `parent` of `null`. Every other key of an element but `id` SHALL be a field whose values compare as JSON values, so that a changed field of any type gets one `set` with its whole new value.
+
+#### Scenario: An array field in a flat list
+- **WHEN** one element of a flat list gets a different array in a field, and another gets an array equal to the one it had
+- **THEN** the diff returns one `set` holding the first element's whole new array, and no operation for the second
+
+#### Scenario: Moving an element to the front of a flat list
+- **WHEN** the last element of a flat list is moved to the front
+- **THEN** the diff returns one `move` for it, with `parent` and `after` `null`, and no operation for the others
+
+### Requirement: Order of element changes
+The diff SHALL list, for each element of the edited value in document order, its `add` or `move` and then, for a kept element, its `set`s in field-name order, and SHALL list the `remove`s last. Each `after` and `parent` SHALL name an element that exists at that point when the operations are applied in order.
+
+#### Scenario: Applying the changes in order
+- **WHEN** any sequence of adds, field edits, deletes and moves on a tree or on a flat list is diffed and the operations are applied in order to the sent value
+- **THEN** the result equals the edited value
+
+### Requirement: Computing a Tree's changes
+The Tree SHALL declare its element shape as `nodes` with `children`, and the diff of any two Tree values that pass validation SHALL pass validation as that Tree's `changes`.
+
 #### Scenario: Three changes in 200 nodes
 - **WHEN** the user renames one node, sets one field of another and moves a third in a 200-node Tree
-- **THEN** the diff returns exactly three operations
+- **THEN** the diff returns exactly three operations, and they validate as Tree changes
 
 #### Scenario: The UJ-2 edits
 - **WHEN** the diff runs on the UJ-2 work breakdown as sent and as the user in the approved answer left it
 - **THEN** it returns the approved answer's `wbs` operations, the same set in the diff's own order
-
-#### Scenario: A removed branch
-- **WHEN** the user deletes a node that has three children
-- **THEN** the diff returns one `remove` naming that node
-
-### Requirement: Order of a Tree's changes
-The diff SHALL list, for each node of the edited tree in document order, its `add` or `move` and then its `set`s, and SHALL list the `remove`s last. Each `after` and `parent` SHALL name a node that exists at that point when the operations are applied in order.
-
-#### Scenario: Applying the changes in order
-- **WHEN** any sequence of adds, renames, field edits, deletes and moves is diffed and the operations are applied in order to the sent nodes
-- **THEN** the result equals the edited nodes
 
 ### Requirement: Tree fixtures
 The contract SHALL provide, for tests only, a board document whose one question holds a Tree item built from the UJ-2 work breakdown, the edited value of that Tree after the approved answer's edits, and that answer's event with its `changes`. Each part SHALL validate against the Tree's schemas, and the answer's `changes` SHALL equal the diff of the two values.

@@ -4,7 +4,7 @@ Two blocks, each a clarification that changes no rule. Block 1 applies only if t
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
-How to apply: replace each quoted bullet, set `updated:` to the apply date and add a `sources` line for this change in the front matter, then run `openspec validate --all --strict --no-interactive` and `bun run check`. Task 8.1 checks that each quoted text still matches the spine; nothing here is applied by this change.
+How to apply: replace each quoted bullet, set `updated:` to the apply date and add a `sources` line for this change in the front matter, then run `openspec validate --all --strict --no-interactive` and `bun run check`. Task 7.1 checks that each quoted text still matches the spine; nothing here is applied by this change.
 
 ## Block 1: AD-9, Rule, Build and assembly, first bullet
 
@@ -31,5 +31,5 @@ Current:
 Replacement:
 
 ```text
-    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. `contract` holds both the format and the pure function that computes it from the sent and the edited value, generic over ID-keyed element trees, each widget declaring only its shape; `ask-core` is the only unit that calls it at run time. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, `null` for the top level or the first place. Widgets never emit diffs.
+    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. `contract` holds both the format and the pure function that computes it from the sent and the edited value, generic over ID-keyed elements in a flat list or a tree, each widget declaring only its shape; `ask-core` is the only unit that calls it at run time. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, `null` for the top level or the first place. Widgets never emit diffs.
 ```

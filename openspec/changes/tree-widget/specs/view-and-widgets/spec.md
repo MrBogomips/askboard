@@ -7,7 +7,7 @@ The view and its widgets show an ask's board in the user's browser: agent conten
 ## ADDED Requirements
 
 ### Requirement: Widget chunks
-Each widget in `packages/widgets` SHALL be built as a component chunk of the view's one manifest, with its hash, styles, licence notices and the chunks it needs, and SHALL register through the `CatalogRenderer` port, importing nothing else from `view` (AD-1, AD-9). `assemble` SHALL inline a widget's chunk only for a board whose items render with it.
+Each widget, a folder `packages/widgets/src/<name>/` holding an `index.tsx`, SHALL be built as a component chunk of the view's one manifest, with its hash, styles, licence notices and the chunks it needs, and SHALL register through the `CatalogRenderer` port, importing nothing else from `view` (AD-1, AD-9). `assemble` SHALL inline a widget's chunk only for a board whose items render with it.
 
 #### Scenario: The Tree's chunk
 - **WHEN** the view is built
@@ -20,6 +20,13 @@ Each widget in `packages/widgets` SHALL be built as a component chunk of the vie
 #### Scenario: A Tree board in each engine
 - **WHEN** a board holding a Tree is loaded and edited in Chromium, Firefox and WebKit
 - **THEN** no CSP violation is reported by the view, its host page or the console
+
+### Requirement: One chunk per component name
+A component chunk's name SHALL be unique across the widgets and the view's catalog: a name found in both SHALL fail the build (AD-9).
+
+#### Scenario: One name in two folders
+- **WHEN** a widget folder and a catalog folder of the view share a name, each holding an `index.tsx`
+- **THEN** the build fails, naming both folders
 
 ### Requirement: Widget items in a question
 A question SHALL render each widget item it holds, after its options if it has any, each in the item frame and error boundary, and SHALL count as visible only when its options and every widget item are ready. A widget item whose component throws, or that no chunk registers, SHALL fail its question (AD-9, AD-10).
