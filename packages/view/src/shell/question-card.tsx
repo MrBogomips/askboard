@@ -1,22 +1,31 @@
 // The question card (EXPERIENCE.md, Question card, Header chip, Answer, Delivery receipt and
-// Question loading; DESIGN.md, Question card): view chrome around the catalog item that shows the
-// question's options, in the card's order: header chip, question, the options' section label, the
-// options, then the delivery receipt and "Answer". It carries the question's ID and `aria-busy`
-// until all its items are ready (AD-9, SM-C2). "Answer" sends the question's answer at once,
-// stamped with the time of the click, as on the single-question board (FR-22); the card is then
-// read-only, at "not sent yet" while the board page holds the answer for a reconnect, until the
-// answer is logged, or open again if the board page drops it (`answer-acts.ts`). A locked board's
-// card is read-only (AD-21). Every agent string renders as text (AD-8).
+// Question loading; DESIGN.md, Question card): view chrome around the catalog items that show the
+// question, in the card's order: header chip, question, the options' section label and the
+// options, if it has any, then each widget item at the card's full width (design decision 7),
+// then the delivery receipt and "Answer". It carries the question's ID and `aria-busy` until all
+// its items are ready (AD-9, SM-C2). "Answer" sends the question's answer at once, its choice and
+// each changed widget item's full value, stamped with the time of the click, as on the
+// single-question board (FR-22, AD-20); the card is then read-only, at "not sent yet" while the
+// board page holds the answer for a reconnect, until the answer is logged, or open again if the
+// board page drops it (`answer-acts.ts`). A locked board's card is read-only (AD-21). Every agent
+// string renders as text (AD-8).
 
 import type { BoardState } from "@askboard/contract";
-import { useSyncExternalStore } from "react";
-import { CHOICE } from "../catalog/components.ts";
+import { Fragment, useSyncExternalStore } from "react";
+import { renderedOf } from "../catalog/components.ts";
 import { questionTextId } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
-import { type PendingAnswer, readAnswerReply } from "../view-protocol.ts";
+import { type AnswerContent, type PendingAnswer, readAnswerReply } from "../view-protocol.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import type { ViewChannel } from "./channel.ts";
-import { answerOf, type CardState, cardState, choiceOf, statusOf } from "./question-state.ts";
+import {
+  answerOf,
+  type CardState,
+  cardState,
+  draftAnswerOf,
+  shownFor,
+  statusOf,
+} from "./question-state.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 
 export type CardContext = RenderContext & {
@@ -43,24 +52,24 @@ type CardProps = {
   readonly context: CardContext;
 };
 
-// What the card shows, from the stores it follows: its loading, its draft value and its act.
+// What the card shows, from the stores it follows: its loading, its draft answer and its act.
 const useCard = ({ question, state, locked, held, context }: CardProps) => {
   const { tracker, draft, acts } = context;
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
-  const value = choiceOf(useSyncExternalStore(draft.subscribe, () => draft.valueOf(question.id)));
+  const answer = draftAnswerOf(question, useSyncExternalStore(draft.subscribe, draft.record));
   const act = useSyncExternalStore(acts.subscribe, () => acts.of(question.id));
-  const card = cardState(statusOf(state, question.id), value, act, load, locked, held);
-  return { load, value, card };
+  const card = cardState(statusOf(state, question.id), answer, act, load, locked, held);
+  return { load, answer, card };
 };
 
 // Sends the answer at once, stamped with the click's time; the act follows the board page's reply.
 const sendAnswer = (
   question: ViewQuestion,
-  value: readonly string[],
+  answer: AnswerContent,
   { channel, acts }: CardContext,
 ): void => {
-  const message = answerOf(question, value, new Date());
-  acts.start(question.id, value, message.when);
+  const message = answerOf(question, answer, new Date());
+  acts.start(question.id, message, message.when);
   channel.send(message).then(
     (reply) => {
       const read = readAnswerReply(reply);
@@ -96,9 +105,16 @@ const AnswerRow = ({
   </div>
 );
 
+// The options' section label, above the options of a question that has any.
+const OptionsLabel = ({ multiSelect }: { readonly multiSelect: boolean | undefined }) => (
+  <p className="text-label text-muted-foreground uppercase">
+    {multiSelect === true ? "Options" : "Options · pick one"}
+  </p>
+);
+
 export const QuestionCard = (props: CardProps) => {
   const { question, context } = props;
-  const { load, value, card } = useCard(props);
+  const { load, answer, card } = useCard(props);
   const { header, text, multiSelect } = question.props;
   return (
     <section
@@ -111,19 +127,21 @@ export const QuestionCard = (props: CardProps) => {
       <h2 id={questionTextId(question.id)} className="text-question text-foreground">
         {text}
       </h2>
-      <p className="text-label text-muted-foreground uppercase">
-        {multiSelect === true ? "Options" : "Options · pick one"}
-      </p>
-      <RenderItem
-        item={question}
-        component={CHOICE}
-        questionId={question.id}
-        context={context}
-        disabled={card.readOnly}
-        shown={card.shown}
-      />
+      {renderedOf(question).map(({ item, component }) => (
+        <Fragment key={item.id}>
+          {item === question ? <OptionsLabel multiSelect={multiSelect} /> : null}
+          <RenderItem
+            item={item}
+            component={component}
+            questionId={question.id}
+            context={context}
+            disabled={card.readOnly}
+            shown={shownFor(card.shown, question.id, item.id)}
+          />
+        </Fragment>
+      ))}
       {load === "failed" ? null : (
-        <AnswerRow card={card} onAnswer={() => sendAnswer(question, value, context)} />
+        <AnswerRow card={card} onAnswer={() => sendAnswer(question, answer, context)} />
       )}
     </section>
   );
