@@ -9,11 +9,10 @@
 // Everything else answers 404.
 
 import { join } from "node:path";
-import { BOARD_HOST, BOARD_RESPONSES } from "@askboard/contract";
+import { BOARD_HOST, BOARD_RESPONSES, boardPagePolicy } from "@askboard/contract";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import { WIDGET_HOST_DATA_ID, type WidgetHostData } from "../fixtures/widget-host-data.ts";
 import { type HttpAnswer, toResponse } from "./http.ts";
-import { boardPagePolicy } from "./policy.ts";
 import {
   assembledSrcdoc,
   bundleTestChunk,
