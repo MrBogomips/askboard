@@ -56,6 +56,10 @@ export const INDENT: readonly string[] = [
 export const indentOf = (level: number): string =>
   INDENT[Math.min(Math.max(level, 1), INDENT.length) - 1] ?? "";
 
+/** The focus ring on a focused row or cell (DESIGN.md, Focus ring): 2px of `ring`, offset 1px. */
+export const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+
 /** The chevron's box, in `muted-foreground`; it turns to point down when its node is open. */
 export const CHEVRON = "flex size-4 shrink-0 items-center justify-center text-muted-foreground";
 

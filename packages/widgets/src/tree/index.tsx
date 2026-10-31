@@ -15,7 +15,7 @@ import {
 } from "@askboard/view/catalog";
 import { useMemo } from "react";
 import { FRAME, TOOLBAR } from "./classes.ts";
-import { TreeGrid } from "./grid.tsx";
+import { TreeWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Tree item's type. */
 const TREE: TreeItem["type"] = "tree";
@@ -33,8 +33,6 @@ const checkedProps = (itemId: string, props: unknown): TreeProps => {
   throw new Error(`the Tree "${itemId}" refuses its props: ${listed}`);
 };
 
-const NOTHING_COLLAPSED: ReadonlySet<string> = new Set();
-
 const Tree = ({ item, questionId, value, ready }: TreeComponentProps) => {
   // The check throws before the item can report ready.
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
@@ -42,11 +40,7 @@ const Tree = ({ item, questionId, value, ready }: TreeComponentProps) => {
   return (
     <div className={FRAME}>
       <div className={TOOLBAR} />
-      <TreeGrid
-        value={value ?? sent}
-        collapsed={NOTHING_COLLAPSED}
-        labelledBy={questionTextId(questionId)}
-      />
+      <TreeWidget value={value ?? sent} labelledBy={questionTextId(questionId)} />
     </div>
   );
 };

@@ -3,7 +3,8 @@
 //
 // - the treegrid is labelled by its question's text; its header row holds `columnheader`s;
 // - each node's row carries `data-node-id`, the node's ID, since the spec names nodes by ID;
-// - each cell of a row, a `gridcell` in a treegrid, carries `data-cell`: 0 the name, then one per column;
+// - each cell of a row, a `gridcell` in a treegrid, carries `data-cell`: 0 the name, then one
+//   per column;
 // - the chevron has no role, the row's `aria-expanded` saying what it shows, and is found by
 //   `data-chevron`;
 // - the cell editor is the one `textbox` in the Tree.
@@ -47,6 +48,37 @@ export const treeFocus = async (board: Board): Promise<FocusAt> =>
     if (active === null || nodeId === null || nodeId === undefined) return undefined;
     const cell = active.closest("[data-cell]")?.getAttribute("data-cell");
     return cell === null || cell === undefined ? { nodeId } : { nodeId, cell: Number(cell) };
+  });
+
+/**
+ * Tabs into the Tree from its question's text, as a keyboard user does: a click on the text sets
+ * where Tab starts, then Tab is pressed until the focus is in the treegrid, at most five times.
+ */
+export const tabIntoTree = async (board: Board, questionText: string): Promise<FocusAt> => {
+  await board.view.getByRole("heading", { name: questionText }).click();
+  for (let presses = 0; presses < 5; presses += 1) {
+    await board.page.keyboard.press("Tab");
+    const at = await treeFocus(board);
+    if (at !== undefined) return at;
+  }
+  throw new Error("five presses of Tab never reached the Tree");
+};
+
+/** Presses `key` and returns where the focus is in the Tree then. */
+export const pressIn = async (board: Board, key: string): Promise<FocusAt> => {
+  await board.page.keyboard.press(key);
+  return treeFocus(board);
+};
+
+/** How many elements of the treegrid are in the Tab order: its one Tab stop. */
+export const tabStops = (grid: Locator): Promise<number> =>
+  grid.locator('[tabindex]:not([tabindex="-1"])').count();
+
+/** The outline of the view's focused element, as computed: the focus ring. */
+export const focusRing = async (board: Board) =>
+  (await board.viewFrame()).evaluate(() => {
+    const style = getComputedStyle(document.activeElement ?? document.body);
+    return { style: style.outlineStyle, width: style.outlineWidth, offset: style.outlineOffset };
   });
 
 /** The chevron's rotation in degrees, by `rotate` and `transform`: 0 points right, 90 down. */

@@ -14,7 +14,19 @@ import { MARKUP_NOTE, markupTreeDocument } from "./fixtures/markup-tree-document
 import { largeTreeDocument, treeDocumentWith } from "./fixtures/tree-documents.ts";
 import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { chevronAngle, nameLefts, rightGaps, treeGridOf } from "./harness/tree-grid.ts";
+import {
+  chevronAngle,
+  type FocusAt,
+  focusRing,
+  nameLefts,
+  pressIn,
+  rightGaps,
+  type TreeGrid,
+  tabIntoTree,
+  tabStops,
+  treeFocus,
+  treeGridOf,
+} from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
@@ -47,11 +59,39 @@ const FIXTURE_ROWS = [
   { id: "reporting", level: "2", posinset: "3", setsize: "3", expanded: null },
 ];
 
+/** DESIGN.md's focus ring: a 2px outline, offset by 1px. */
+const RING = { style: "solid", width: "2px", offset: "1px" };
+
 /** Waits for the question's first view message, which must be its `ready`. */
 const readyIn = async (run: WidgetHostRun): Promise<void> => {
   await eventually(() => run.messages.length > 0, "the question's ready message", LOAD_TIMEOUT_MS);
   expect(run.messages[0]).toEqual({ type: "ready", itemId: plan.id });
 };
+
+/** Nothing has changed: "Answer" is disabled and no view message but `ready` left the view. */
+const expectUnchanged = async (run: WidgetHostRun): Promise<void> => {
+  expect(await run.board.answer.isDisabled()).toBe(true);
+  await Bun.sleep(QUIET_MS);
+  expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
+};
+
+/** The IDs of the rows the Tree shows, in order. */
+const shownIds = (tree: TreeGrid): Promise<(string | null)[]> =>
+  tree.rows.evaluateAll((rows) => rows.map((row) => row.getAttribute("data-node-id")));
+
+/** Presses each key in turn, expecting the focus where the step says, with one Tab stop. */
+const expectSteps = async (
+  run: WidgetHostRun,
+  tree: TreeGrid,
+  steps: readonly (readonly [string, FocusAt])[],
+): Promise<void> => {
+  for (const [key, at] of steps) {
+    expect({ key, at: await pressIn(run.board, key) }).toEqual({ key, at });
+    expect(await tabStops(tree.grid)).toBe(1);
+  }
+};
+
+const FIXTURE_IDS = FIXTURE_ROWS.map((row) => row.id);
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the Tree`, () => {
@@ -192,6 +232,129 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(created).toEqual([]);
         expect(await run.board.page.title()).not.toContain("owned");
         expect(run.browser.errors).toEqual([]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the tree is one Tab stop, and the arrow keys, Home and End move the focus with the focus ring",
+      async () => {
+        const run = await host(dist, treeBoardDocument);
+        await readyIn(run);
+        const { board } = run;
+        const tree = treeGridOf(board);
+        const url = board.page.url();
+        expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await tabStops(tree.grid)).toBe(1);
+        expect(await focusRing(board)).toEqual(RING);
+        await expectSteps(run, tree, [
+          ["ArrowDown", { nodeId: "ux" }],
+          ["ArrowDown", { nodeId: "architecture" }],
+          ["End", { nodeId: "reporting" }],
+          ["ArrowDown", { nodeId: "reporting" }],
+          ["ArrowUp", { nodeId: "billing" }],
+          ["Home", { nodeId: "design" }],
+          ["ArrowUp", { nodeId: "design" }],
+          ["End", { nodeId: "reporting" }],
+        ]);
+        expect(await focusRing(board)).toEqual(RING);
+        // Tab never lands on another row or cell: it leaves the tree, which the view's document
+        // then no longer holds the focus in, except in Firefox, whose frame keeps its last focused
+        // element when the focus leaves it, and wraps back to the tree's one Tab stop when the host
+        // page has no other.
+        const afterTab = await pressIn(board, "Tab");
+        expect(afterTab === undefined ? "left the tree" : afterTab).toEqual(
+          engine === "firefox" ? { nodeId: "reporting" } : "left the tree",
+        );
+        expect(await tabStops(tree.grid)).toBe(1);
+        expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
+        expect(board.page.url()).toBe(url);
+        await expectUnchanged(run);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Right and Left expand and collapse a row, go to its parent, and move between the row and its cells",
+      async () => {
+        const run = await host(dist, treeBoardDocument);
+        await readyIn(run);
+        const { board } = run;
+        const tree = treeGridOf(board);
+        const url = board.page.url();
+        expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        // Left collapses an open row, Right expands it again; the focus stays on the row.
+        expect(await pressIn(board, "ArrowLeft")).toEqual({ nodeId: "design" });
+        expect(await tree.row("design").getAttribute("aria-expanded")).toBe("false");
+        expect(await chevronAngle(tree.chevron("design"))).toBe(0);
+        expect(await shownIds(tree)).toEqual(["design", "build", "portal", "billing", "reporting"]);
+        expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "build" });
+        expect(await pressIn(board, "ArrowUp")).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "design" });
+        expect(await tree.row("design").getAttribute("aria-expanded")).toBe("true");
+        expect(await chevronAngle(tree.chevron("design"))).toBe(90);
+        expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
+        // Right on an open row enters its cells; Left on the name goes back to the row.
+        await expectSteps(run, tree, [
+          ["ArrowRight", { nodeId: "design", cell: 0 }],
+          ["ArrowRight", { nodeId: "design", cell: 1 }],
+          ["End", { nodeId: "design", cell: 3 }],
+          ["ArrowRight", { nodeId: "design", cell: 3 }],
+          ["Home", { nodeId: "design", cell: 0 }],
+          ["ArrowLeft", { nodeId: "design" }],
+          // On a leaf, Right enters the cells, Up and Down keep the column, Left goes to the parent.
+          ["ArrowDown", { nodeId: "ux" }],
+          ["ArrowRight", { nodeId: "ux", cell: 0 }],
+          ["ArrowRight", { nodeId: "ux", cell: 1 }],
+          ["ArrowDown", { nodeId: "architecture", cell: 1 }],
+        ]);
+        expect(await focusRing(board)).toEqual(RING);
+        await expectSteps(run, tree, [
+          ["ArrowLeft", { nodeId: "architecture", cell: 0 }],
+          ["ArrowLeft", { nodeId: "architecture" }],
+          ["ArrowLeft", { nodeId: "design" }],
+        ]);
+        expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
+        expect(board.page.url()).toBe(url);
+        await expectUnchanged(run);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a click on a chevron collapses and expands its node, and a focus it hides moves to the node",
+      async () => {
+        const run = await host(dist, treeBoardDocument);
+        await readyIn(run);
+        const { board } = run;
+        const tree = treeGridOf(board);
+        expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "End")).toEqual({ nodeId: "reporting" });
+        await tree.chevron("build").click();
+        expect(await tree.row("build").getAttribute("aria-expanded")).toBe("false");
+        expect(await chevronAngle(tree.chevron("build"))).toBe(0);
+        expect(await shownIds(tree)).toEqual([
+          "design",
+          "ux",
+          "architecture",
+          "prototype",
+          "build",
+        ]);
+        expect(await treeFocus(board)).toEqual({ nodeId: "build" });
+        expect(await tabStops(tree.grid)).toBe(1);
+        await tree.chevron("build").click();
+        expect(await tree.row("build").getAttribute("aria-expanded")).toBe("true");
+        expect(await chevronAngle(tree.chevron("build"))).toBe(90);
+        expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
+        expect(await treeFocus(board)).toEqual({ nodeId: "build" });
+        // A chevron collapsing a branch that does not hold the focus leaves the focus alone.
+        await tree.chevron("design").click();
+        expect(await shownIds(tree)).toEqual(["design", "build", "portal", "billing", "reporting"]);
+        expect(await treeFocus(board)).toEqual({ nodeId: "build" });
+        await expectUnchanged(run);
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,
