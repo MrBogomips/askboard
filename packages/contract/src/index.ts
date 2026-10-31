@@ -148,3 +148,11 @@ export {
   type SchemaSet,
   unsupportedVersion,
 } from "./versions.ts";
+
+// Widgets: the generic element diff (AD-20).
+export {
+  applyElementChanges,
+  type ElementChange,
+  type ElementShape,
+  elementChanges,
+} from "./widgets/element-diff.ts";
