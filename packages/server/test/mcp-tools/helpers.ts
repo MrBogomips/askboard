@@ -1,7 +1,16 @@
 // Test helpers for mcp-tools: a fake core that records its calls, a manual clock, and an MCP client
 // linked to the tool server over an in-memory transport.
 
-import type { AskOutcome, Clock, CoreEvent, ReadOutcome } from "@askboard/core";
+import type { QuestionState } from "@askboard/contract";
+import type {
+  AskOutcome,
+  Clock,
+  CoreEvent,
+  FullValue,
+  LifecycleBoardView,
+  ReadOutcome,
+  UpdateOutcome,
+} from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
@@ -31,11 +40,43 @@ export type FakeCore = ToolCore & {
   emit(event: CoreEvent): void;
 };
 
+type FakeState = "waiting" | "partly-answered" | "answered" | "closed" | "discarded";
+
 type FakeCoreOptions = {
   readonly ask?: (request: unknown) => Promise<AskOutcome>;
   readonly read?: (askId: string, after: string) => ReadOutcome;
   readonly items?: Readonly<Record<string, readonly string[]>>;
-  readonly states?: Record<string, "waiting" | "answered" | "discarded">;
+  readonly states?: Record<string, FakeState>;
+  /** Each question's state by ask, then by item ID; `open` unless given. */
+  readonly questionStates?: Record<string, Record<string, QuestionState>>;
+  readonly update?: (request: unknown) => UpdateOutcome;
+  readonly fullValue?: (askId: string, itemId: string) => FullValue;
+  /** What `lifecycleBoard` shows; built from `items`, `states` and `questionStates` unless given. */
+  readonly lifecycle?: (askId: string) => LifecycleBoardView | undefined;
+};
+
+// A board document of plain questions at rev 1, by the fake's item IDs.
+const fakeView = (options: FakeCoreOptions, askId: string): LifecycleBoardView => {
+  const state = options.states?.[askId] ?? "waiting";
+  if (state === "discarded") return { askId, state };
+  const items = options.items?.[askId] ?? ["database"];
+  const props = { text: "Which?", options: [{ label: "A" }, { label: "B" }] };
+  return {
+    askId,
+    state,
+    document: {
+      version: "1.1",
+      askId,
+      title: "Which?",
+      items: items.map((id) => ({ type: "question", id, rev: 1, props })),
+    } as never,
+    questions: items.map((itemId) => ({
+      itemId,
+      rev: 1,
+      state: options.questionStates?.[askId]?.[itemId] ?? "open",
+      thread: [],
+    })),
+  };
 };
 
 export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
@@ -92,6 +133,20 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
       calls.push("discardAll");
       return 0;
     },
+    update: (request) => {
+      calls.push("update");
+      return (
+        options.update?.(request) ?? {
+          kind: "invalid",
+          problems: [],
+        }
+      );
+    },
+    fullValue: (askId, itemId) => {
+      calls.push(`fullValue ${askId} ${itemId}`);
+      return options.fullValue?.(askId, itemId) ?? { kind: "missing", askId, itemId };
+    },
+    lifecycleBoard: (askId) => options.lifecycle?.(askId) ?? fakeView(options, askId),
   };
 };
 

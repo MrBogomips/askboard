@@ -1,6 +1,7 @@
-// The MCP server of the session process (design decision 4): `ask` then `collect`, as the contract's
-// copy of the approved definitions, with the cut server instructions. Building it has no side
-// effect: `server/discover`, `initialize` and `tools/list` touch nothing (AD-2).
+// The MCP server of the session process (design decision 4): `ask`, `update`, `collect` and `fetch`,
+// in AD-6's order, as the contract's copy of the approved definitions, with the approved server
+// instructions whole (ask-lifecycle, design decision 2). Building it has no side effect:
+// `server/discover`, `initialize` and `tools/list` touch nothing (AD-2).
 
 import { SERVER_INSTRUCTIONS, TOOL_DEFINITIONS, type ToolDefinition } from "@askboard/contract";
 import { Server, type Tool } from "@modelcontextprotocol/server";
@@ -41,7 +42,11 @@ export const listingProblems = (
   return problems;
 };
 
-const TOOL_NAMES = TOOL_DEFINITIONS.map(({ name }) => name).join(" and ");
+// "ask, update, collect and fetch": the listed names in order, the last after "and".
+const listed = (names: readonly string[]): string =>
+  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+
+const TOOL_NAMES = listed(TOOL_DEFINITIONS.map(({ name }) => name));
 
 const contextOf = (ctx: {
   mcpReq: {

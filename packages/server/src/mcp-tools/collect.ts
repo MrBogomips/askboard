@@ -1,6 +1,8 @@
 // The `collect` tool (AD-3, AD-6): per ask, its state, latest cursor and the events after the cursor
-// passed, grouped by ask in the request's order; paged under the result limit with `more: true`.
-// What a result returns raises the ask's `received` watermark, never more (AD-3).
+// passed, grouped by ask in the request's order; paged under the result limit with `more: true`,
+// never splitting one board command's events (AD-20). What a result returns raises the ask's
+// `received` watermark, never more (AD-3). A wait names a question, and ends at once on a postponed
+// question or a closed or discarded ask (ask-lifecycle, design decision 4).
 
 import {
   type CollectAskEntry,
@@ -14,7 +16,7 @@ import { type RequestProblem, validateCollectRequest } from "@askboard/contract/
 import type { ToolCore } from "./ports.ts";
 import { errorResult, jsonResult, problemsResult, type ToolResult } from "./results.ts";
 import type { ToolHandler } from "./server.ts";
-import { waitForItem } from "./wait.ts";
+import { waitedOutcome, waitForItem, waitProblem } from "./wait.ts";
 
 const REFUSED = "The collect request was refused. Fix these problems and send it again:";
 
@@ -26,6 +28,8 @@ export type Gathered = {
   /** The ask's latest cursor, or the cursor passed when the ask is gone. */
   readonly cursor: string;
   readonly events: readonly OutputEvent[];
+  /** Each event's board command, as ask-core reads it; one command's events stay on one page. */
+  readonly groups?: readonly number[];
 };
 
 const problemAt = (index: number, field: "askId" | "after", message: string): RequestProblem => ({
@@ -51,7 +55,14 @@ export const gather = (
     const read = core.read(askId, after);
     switch (read.kind) {
       case "events":
-        asks.push({ askId, after, state: read.state, cursor: read.cursor, events: read.events });
+        asks.push({
+          askId,
+          after,
+          state: read.state,
+          cursor: read.cursor,
+          events: read.events,
+          ...(read.groups === undefined ? {} : { groups: read.groups }),
+        });
         return;
       case "discarded":
         asks.push({ askId, after, state: "discarded", cursor: after, events: [] });
@@ -83,6 +94,26 @@ export const gather = (
 
 type Page = { readonly result: CollectResult; readonly read: readonly [string, string][] };
 
+type Outcome = CollectResult["outcome"];
+
+/**
+ * An ask's events as the pager takes them: one board command's events together, in order (AD-20).
+ * Events without a command group, as from a reader that sets none, are each their own unit.
+ */
+export const unitsOf = (ask: Gathered): OutputEvent[][] => {
+  const units: OutputEvent[][] = [];
+  ask.events.forEach((event, index) => {
+    const group = ask.groups?.[index];
+    const last = units.at(-1);
+    if (last !== undefined && group !== undefined && ask.groups?.[index - 1] === group) {
+      last.push(event);
+    } else {
+      units.push([event]);
+    }
+  });
+  return units;
+};
+
 const entryOf = (ask: Gathered, events: readonly OutputEvent[]): CollectAskEntry => ({
   askId: ask.askId,
   state: ask.state,
@@ -96,7 +127,7 @@ const resultOf = (
   asks: readonly Gathered[],
   taken: readonly OutputEvent[][],
   more: boolean,
-  outcome?: "open",
+  outcome?: Outcome,
 ): CollectResult => ({
   versions: RESULT_VERSIONS,
   epoch,
@@ -107,10 +138,10 @@ const resultOf = (
 
 /**
  * The events that fit under the result limit, in order: every ask's events in the request's
- * order, cut at the first that does not fit (AD-6). The first event always goes, so a collect
- * always makes progress; the input format's limits keep any one event far below the limit.
+ * order, cut before the first command that does not fit whole (AD-6, AD-20). The first command
+ * always goes, alone on its page when it is larger than one, so a collect always makes progress.
  */
-export const page = (epoch: string, asks: readonly Gathered[], outcome?: "open"): Page => {
+export const page = (epoch: string, asks: readonly Gathered[], outcome?: Outcome): Page => {
   const total = asks.reduce((sum, ask) => sum + ask.events.length, 0);
   const taken: OutputEvent[][] = asks.map(() => []);
   const empty = asks.map(() => [] as OutputEvent[]);
@@ -118,17 +149,18 @@ export const page = (epoch: string, asks: readonly Gathered[], outcome?: "open")
   let count = 0;
   outer: for (const [index, ask] of asks.entries()) {
     const list = taken[index] as OutputEvent[];
-    for (const event of ask.events) {
+    for (const unit of unitsOf(ask)) {
       const previous = list.at(-1)?.cursor ?? ask.after;
+      const last = unit.at(-1)?.cursor ?? previous;
       const cost =
-        JSON.stringify(event).length +
-        (list.length > 0 ? 1 : 0) +
-        event.cursor.length -
+        unit.reduce((sum, event) => sum + JSON.stringify(event).length + 1, 0) -
+        (list.length > 0 ? 0 : 1) +
+        last.length -
         previous.length;
       if (count > 0 && size + cost >= RESULT_MAX_CHARS) break outer;
-      list.push(event);
+      list.push(...unit);
       size += cost;
-      count += 1;
+      count += unit.length;
     }
   }
   const result = resultOf(epoch, asks, taken, count < total, outcome);
@@ -143,29 +175,11 @@ export const page = (epoch: string, asks: readonly Gathered[], outcome?: "open")
 export const respond = (
   core: ToolCore,
   asks: readonly Gathered[],
-  outcome?: "open",
+  outcome?: Outcome,
 ): ToolResult => {
   const { result, read } = page(core.epoch, asks, outcome);
   for (const [askId, cursor] of read) core.markRead(askId, cursor);
   return jsonResult(result);
-};
-
-// A wait names an item of its ask, unless the ask is gone, which ends the wait at once.
-const waitProblem = (
-  core: ToolCore,
-  asks: readonly Gathered[],
-  wait: NonNullable<CollectRequest["wait"]>,
-): RequestProblem | undefined => {
-  const waited = asks.find((ask) => ask.askId === wait.askId);
-  if (waited?.state === "discarded") return undefined;
-  const items = core.board(wait.askId)?.questions ?? [];
-  if (items.some((question) => question.itemId === wait.itemId)) return undefined;
-  return {
-    path: "/wait/itemId",
-    field: "wait.itemId",
-    expected: "the ID of an item of that ask",
-    message: `wait.itemId: the ask "${wait.askId}" has no item "${wait.itemId}"`,
-  };
 };
 
 // Something to return at once: an event after a cursor passed, or the waited ask gone.
@@ -174,8 +188,9 @@ const hasNews = (asks: readonly Gathered[], askId: string): boolean =>
 
 /**
  * `collect`: validates the request, reads every ask it names and returns their events. With
- * `wait`, when nothing is new yet, it waits for the item first (AD-4) and returns `open` after the
- * longest wait; an aborted wait marks nothing read.
+ * `wait`, when nothing is new yet, it waits for the question first (AD-4) and returns `open` after
+ * the longest wait; an aborted wait marks nothing read. A postponed question or a closed ask ends
+ * the wait at once, saying so in `outcome`.
  */
 export const handleCollect: ToolHandler = async (deps, args, context) => {
   const { core } = deps;
@@ -186,12 +201,16 @@ export const handleCollect: ToolHandler = async (deps, args, context) => {
   if (!gathered.ok) return problemsResult(REFUSED, gathered.problems);
   const { wait } = request;
   if (wait === undefined) return respond(core, gathered.asks);
-  const problem = waitProblem(core, gathered.asks, wait);
+  const gone = gathered.asks.find((ask) => ask.askId === wait.askId)?.state === "discarded";
+  const problem = gone ? undefined : waitProblem(core, wait);
   if (problem !== undefined) return problemsResult(REFUSED, [problem]);
-  if (hasNews(gathered.asks, wait.askId)) return respond(core, gathered.asks);
+  const now = waitedOutcome(core, wait);
+  if (now !== undefined || hasNews(gathered.asks, wait.askId)) {
+    return respond(core, gathered.asks, now);
+  }
   const end = await waitForItem(deps, wait, context);
   if (end === "aborted") return errorResult("The collect was cancelled; nothing was marked read.");
   const again = gather(core, request);
   if (!again.ok) return problemsResult(REFUSED, again.problems);
-  return respond(core, again.asks, end === "timeout" ? "open" : undefined);
+  return respond(core, again.asks, end === "timeout" ? "open" : waitedOutcome(core, wait));
 };
