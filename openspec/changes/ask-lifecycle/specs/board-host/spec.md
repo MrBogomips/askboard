@@ -35,11 +35,11 @@ Each ask SHALL have at most one live board connection. A new connection for the 
 ## ADDED Requirements
 
 ### Requirement: Connections reported to the core
-`board-host` SHALL report to `ask-core` each board connection it accepts and each close of the live connection. The older socket of a takeover SHALL NOT count as a disconnection (AD-21).
+`board-host` SHALL report to `ask-core` when an ask gains a live board and when it loses it. A takeover, which only moves the live board from one socket to another, SHALL report neither (AD-21).
 
 #### Scenario: A takeover is no disconnection
 - **WHEN** a second tab takes the board over
-- **THEN** `ask-core` is told of one connection and of no disconnection, and starts no grace timer
+- **THEN** `ask-core` is told of no connection and no disconnection, and starts no grace timer
 
 #### Scenario: The tab closes for good
 - **WHEN** the live board's socket closes and no board connects within the grace period

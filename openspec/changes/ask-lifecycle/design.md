@@ -76,7 +76,7 @@ The worktree starts at E1's integration head. Before any view task, it takes the
 ### 5. `board-host`: protocol 1.1, connection reports, takeover flush
 
 - `Boards` answers `act` with `done` or `refused` plus `state`, passes `draft` to the core, and sends `board`, `state` and then `draft` (when held) on connect. The new page messages enter the dispatch as appended cases, after E1's, by the pattern of decision 8.
-- It reports `connected` when it accepts a socket and `disconnected` when the live socket closes; a socket closed by a takeover is not live by then, so it reports nothing.
+- It reports `connected` when an ask gains a live board and `disconnected` when it loses it; a takeover only moves the live board between sockets, so it reports neither, and `ask-core`'s count of live boards never stays above zero after one.
 - **Takeover.** It sends `moved` to the old socket and accepts that socket's `draft` for the contract's flush wait, then closes it with 4409 and sends the held record to the new tab. A draft from any other non-live socket is ignored.
 - **Closed asks.** The board link serves the page; the socket is accepted; every act is refused with reason `closed`. Discarded asks keep E1's behaviour, now also after a grace discard (410 page, 4410 close).
 
