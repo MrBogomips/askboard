@@ -6,7 +6,7 @@ AskBoard works in any Claude Code project and depends on nothing else.
 
 ## Status
 
-Design complete. The workspace and its checks are set up, with no product code yet. Next: the spikes defined in the solution design (§10), then the first OpenSpec changes.
+Design complete and its four spikes decided. E1, the walking skeleton, is implemented: an agent asks one plain choice question with `ask`, the user answers it on a board in the browser, and the agent reads the answer with `collect`. It awaits its first live run; nothing is released yet.
 
 ## Documents
 
@@ -32,9 +32,15 @@ Requirements: Bun 1.4.4, the version in `packageManager`, and Node 24, pinned fo
 bun install                                    # install the pinned dependencies
 GITHUB_TOKEN=$(gh auth token) bun run check    # what CI runs: type check, lint, tests, import and licence checks
 bun run format                                 # format with Biome and apply safe fixes
+bun run build                                  # dist/askboard.mjs (the session process) and dist/view/ (the board)
+bun run test:e2e                               # after a build: browser tests and the conformance suite
 ```
 
 The licence check needs network access: it reads the licences of other platforms' packages from the npm registry. Without `GITHUB_TOKEN`, it skips its lookup of archived repositories and says so.
+
+The end-to-end tests run the built session process with Playwright's Chromium, Firefox and WebKit; install them once with `node_modules/.bin/playwright install chromium firefox webkit`.
+
+To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a choice question with AskBoard (E1 shows one question per board, single or multiple choice). The board opens in your browser; answer it there, and the agent collects the answer.
 
 ## Licence
 
