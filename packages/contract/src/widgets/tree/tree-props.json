@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:tree-props",
+  "title": "Tree props",
+  "description": "A Tree item's props (FR-11, design decision 2): its columns and its nodes. A node holds its ID, its name, its children and a value for any field a column declares: a string for a text column, a number for a number column, absent when empty. What a schema cannot say (IDs unique across levels, the view's prefix, each field declared by a column and of its type, column fields unique, the node count and depth limits) is checked by treePropsProblems. In no schema set until the input format reaches 1.1.",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/column"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    }
+  },
+  "required": ["nodes"],
+  "additionalProperties": false,
+  "$defs": {
+    "column": {
+      "description": "A field every node may hold, addressed as item.node.field (AD-13): never id, label or children, never a spreadsheet cell.",
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^(?!(?:id|label|children)$)[a-z][A-Za-z0-9]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "enum": ["text", "number"]
+        }
+      },
+      "required": ["field", "label", "type"],
+      "additionalProperties": false
+    },
+    "node": {
+      "description": "A node: its ID (unique in the item, at every level), its name, its children if it has any, and its fields.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        }
+      },
+      "patternProperties": {
+        "^(?!(?:id|label|children)$)[a-z][A-Za-z0-9]{0,63}$": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": ["id", "label"],
+      "additionalProperties": false
+    },
+    "value": {
+      "description": "A field's value: text of 1 to 1,000 characters or a number, by its column's type.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        {
+          "type": "number"
+        }
+      ]
+    }
+  }
+}
