@@ -1,5 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createReadyTracker, type QuestionItems } from "./ready-tracker.ts";
+import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import type { ViewDocument, WidgetItem } from "../view-document.ts";
+import { createReadyTracker, type QuestionItems, questionItemsOf } from "./ready-tracker.ts";
 
 const setUp = (questions: readonly QuestionItems[]) => {
   const onVisible = mock((_questionId: string) => {});
@@ -84,5 +86,36 @@ describe("ready tracking: a question is visible once all its items are ready (AD
     unsubscribe();
     tracker.fail("q", "x");
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a question's items, as the ready tracker counts them (design decision 7)", () => {
+  // Test-only documents with a `probe` widget item (design decision 12).
+  const [question] = plainChoiceBoardDocument.items;
+  const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
+  const { options, ...props } = question.props;
+  const holding = (withOptions: boolean): ViewDocument => ({
+    ...plainChoiceBoardDocument,
+    items: [
+      { ...question, props: { ...props, ...(withOptions ? { options } : {}), items: [sketch] } },
+    ],
+  });
+
+  test("a question with options is its own item", () => {
+    expect(questionItemsOf(plainChoiceBoardDocument)).toEqual([
+      { questionId: "database", itemIds: ["database"] },
+    ]);
+  });
+
+  test("a question with only a widget item has that item", () => {
+    expect(questionItemsOf(holding(false))).toEqual([
+      { questionId: "database", itemIds: ["sketch"] },
+    ]);
+  });
+
+  test("a question with both has its own ID, then its widget items'", () => {
+    expect(questionItemsOf(holding(true))).toEqual([
+      { questionId: "database", itemIds: ["database", "sketch"] },
+    ]);
   });
 });

@@ -3,8 +3,9 @@
 // hash; `assemble` then selects again from the same input, so both agree. Names come from the
 // manifest and the catalog, and are looked up as own properties only.
 
-import type { BoardDocument, ManifestChunk, ManifestFile, ViewManifest } from "@askboard/contract";
+import type { ManifestChunk, ManifestFile, ViewManifest } from "@askboard/contract";
 import { componentsOf } from "../catalog/components.ts";
+import type { ViewDocument } from "../view-document.ts";
 
 export type SelectedChunk = { readonly name: string; readonly chunk: ManifestChunk };
 
@@ -16,8 +17,9 @@ const chunkNamed = (chunks: Chunks, name: string, why: string): ManifestChunk =>
   return chunk;
 };
 
-// The shell, and the chunk registering each component the board's items render with.
-const roots = (document: BoardDocument, chunks: Chunks): string[] => {
+// The shell, and the chunk registering each component the board's items render with, widget
+// items included (design decision 7).
+const roots = (document: ViewDocument, chunks: Chunks): string[] => {
   const entries = Object.entries(chunks);
   const shell = entries.find(([, chunk]) => chunk.kind === "shell")?.[0];
   if (shell === undefined) throw new Error("the manifest has no shell chunk");
@@ -58,7 +60,7 @@ const before = (a: SelectedChunk, b: SelectedChunk): number =>
  * by name within each kind. The order depends only on the input, so `assemble` is repeatable.
  */
 export const selectChunks = (
-  document: BoardDocument,
+  document: ViewDocument,
   manifest: ViewManifest,
 ): readonly SelectedChunk[] => {
   const selected = closure(roots(document, manifest.chunks), manifest.chunks);

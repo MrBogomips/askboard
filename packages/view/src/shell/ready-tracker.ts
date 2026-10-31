@@ -3,11 +3,24 @@
 // all its items are ready. An item that throws fails its question, which then never counts as
 // visible, so nothing is answered on a partial board (AD-10).
 
+import { renderedOf } from "../catalog/components.ts";
+import type { ViewDocument } from "../view-document.ts";
+
 export type ItemStatus = "pending" | "ready" | "failed";
 export type QuestionStatus = "loading" | "visible" | "failed";
 
-/** A question and the items it is visible with. E1's question is its own one item. */
+/** A question and the items it is visible with. */
 export type QuestionItems = { readonly questionId: string; readonly itemIds: readonly string[] };
+
+/**
+ * Each question's items, as it renders them: its own ID when it has options, then its widget
+ * items' IDs (design decision 7).
+ */
+export const questionItemsOf = (document: ViewDocument): QuestionItems[] =>
+  document.items.map((question) => ({
+    questionId: question.id,
+    itemIds: renderedOf(question).map(({ item }) => item.id),
+  }));
 
 export type ReadyEvents = {
   /** Once per question, when all its items are ready. */

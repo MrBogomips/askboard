@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { CHOICE, componentOf, componentsOf } from "./components.ts";
+import type { ViewDocument, WidgetItem } from "../view-document.ts";
+import { CHOICE, componentsOf, renderedOf } from "./components.ts";
 import {
   type CatalogComponent,
   componentFor,
@@ -21,15 +22,47 @@ type ProbeValue = { readonly size: number };
 const Probe: CatalogComponent<ProbeItem, ProbeValue> = ({ item, value }) =>
   `${item.id}:${value?.size ?? item.props.size}`;
 
-describe("which component renders an item (AD-9)", () => {
-  test("a plain question is shown by the Choice atom", () => {
-    const [question] = plainChoiceBoardDocument.items;
-    expect(componentOf(question)).toBe(CHOICE);
+// Test-only board documents: the plain question with a `probe` widget item, and a question that
+// holds only one (design decision 12).
+const [question] = plainChoiceBoardDocument.items;
+const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
+const withItems = (items: readonly WidgetItem[], options = true): ViewDocument => {
+  const { options: kept, ...props } = question.props;
+  return {
+    ...plainChoiceBoardDocument,
+    items: [{ ...question, props: { ...props, ...(options ? { options: kept } : {}), items } }],
+  };
+};
+
+describe("which component renders an item (AD-9, design decision 7)", () => {
+  test("a plain question renders its options with the Choice atom", () => {
+    expect(renderedOf(question)).toEqual([{ item: question, component: CHOICE }]);
     expect(CHOICE).toBe("choice");
+  });
+
+  test("a widget item renders with the component its type names, after the options", () => {
+    const [both] = withItems([sketch]).items;
+    expect(renderedOf(both)).toEqual([
+      { item: both, component: "choice" },
+      { item: sketch, component: "probe" },
+    ]);
+    const [only] = withItems([sketch], false).items;
+    expect(renderedOf(only)).toEqual([{ item: sketch, component: "probe" }]);
+  });
+
+  test("a widget item typed question is no question: its type names its component", () => {
+    const nested = { type: "question", id: "nested", props: {} };
+    const [holding] = withItems([nested], false).items;
+    expect(renderedOf(holding)).toEqual([{ item: nested, component: "question" }]);
   });
 
   test("a board needs each component once", () => {
     expect(componentsOf(plainChoiceBoardDocument)).toEqual(["choice"]);
+    expect(componentsOf(withItems([sketch, { ...sketch, id: "second" }]))).toEqual([
+      "choice",
+      "probe",
+    ]);
+    expect(componentsOf(withItems([sketch], false))).toEqual(["probe"]);
   });
 });
 

@@ -16,6 +16,21 @@ describe("the askboard-data block the view boots from (AD-9)", () => {
     expect(parseBootData(JSON.stringify(data))).toEqual(data);
   });
 
+  test("may hold a question with widget items, as the view document allows (design decision 7)", () => {
+    const [question] = plainChoiceBoardDocument.items;
+    const { options: _, ...props } = question.props;
+    const widgets: BootData = {
+      ...data,
+      document: {
+        ...plainChoiceBoardDocument,
+        items: [
+          { ...question, props: { ...props, items: [{ type: "probe", id: "sketch", props: {} }] } },
+        ],
+      },
+    };
+    expect(parseBootData(JSON.stringify(widgets))).toEqual(widgets);
+  });
+
   test("a missing or empty block fails", () => {
     expect(() => parseBootData(null)).toThrow("askboard-data");
     expect(() => parseBootData("")).toThrow("askboard-data");

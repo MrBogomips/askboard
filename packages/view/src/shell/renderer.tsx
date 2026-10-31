@@ -5,9 +5,8 @@
 // value from the draft record and write it back, of whatever type their item's is (design decision
 // 7); the renderer holds no other state.
 
-import type { BoardQuestion } from "@askboard/contract";
 import { Component, type ReactNode, useCallback, useSyncExternalStore } from "react";
-import { componentOf } from "../catalog/components.ts";
+import type { Rendered } from "../catalog/components.ts";
 import { type CatalogComponent, componentFor } from "../catalog/port.ts";
 import type { DraftStore } from "./draft-store.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
@@ -81,8 +80,7 @@ const ItemFrame = ({
   );
 };
 
-type RenderItemProps = {
-  readonly item: BoardQuestion;
+type RenderItemProps = Rendered & {
   /** The question the item sits in. */
   readonly questionId: string;
   readonly context: RenderContext;
@@ -93,7 +91,14 @@ type RenderItemProps = {
 };
 
 /** One item through the port, in its frame and its error boundary. */
-export const RenderItem = ({ item, questionId, context, disabled, shown }: RenderItemProps) => {
+export const RenderItem = ({
+  item,
+  component,
+  questionId,
+  context,
+  disabled,
+  shown,
+}: RenderItemProps) => {
   const { draft, tracker } = context;
   const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(item.id));
   const onValueChange = useCallback((next: unknown) => draft.set(item.id, next), [draft, item.id]);
@@ -101,7 +106,7 @@ export const RenderItem = ({ item, questionId, context, disabled, shown }: Rende
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
     [tracker, item.id],
   );
-  const Item = componentFor(componentOf(item)) ?? Unregistered;
+  const Item = componentFor(component) ?? Unregistered;
   return (
     <ItemFrame itemId={item.id} tracker={tracker}>
       <ItemErrorBoundary onError={onError}>

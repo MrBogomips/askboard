@@ -6,7 +6,8 @@
 // until the board page has replied to it. Nothing can be chosen or answered before the question is visible, once its item failed
 // (AD-9, AD-10), or on a board that moved or was discarded (AD-21).
 
-import type { BoardQuestion, BoardState, QuestionStatus } from "@askboard/contract";
+import type { BoardState, QuestionStatus } from "@askboard/contract";
+import type { ViewQuestion } from "../view-document.ts";
 import type { PendingAnswer, ViewAnswer } from "../view-protocol.ts";
 import type { QuestionStatus as Load } from "./ready-tracker.ts";
 
@@ -84,7 +85,7 @@ export const cardState = (
 
 /** The answer view message for the question's choice, stamped with the time of the act. */
 export const answerOf = (
-  question: BoardQuestion,
+  question: ViewQuestion,
   choice: readonly string[],
   at: Date,
 ): ViewAnswer => ({

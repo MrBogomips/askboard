@@ -13,6 +13,7 @@ import {
   plainChoiceBoardDocument,
 } from "@askboard/contract/fixtures";
 import type { BootData } from "../boot-data.ts";
+import type { ViewDocument, WidgetItem } from "../view-document.ts";
 import { assemble, type ChunkSources, selectChunks, sourcesToFetch, viewPolicy } from "./index.ts";
 
 const state: BoardState = {
@@ -68,6 +69,39 @@ const withUnusedSources: ChunkSources = {
   ["a".repeat(64)]: tableLibrary,
   ["b".repeat(64)]: tableScript,
 };
+
+// A test-only widget chunk registering `probe`, and documents whose question holds a `probe` item,
+// beside its options or alone (design decision 12).
+const probeScript = '(function(){"use strict";globalThis.askboardProbe={chunk:"probe"};})();\n';
+const withProbe: ViewManifest = {
+  ...fixtureViewManifest,
+  chunks: {
+    ...fixtureViewManifest.chunks,
+    probe: {
+      kind: "component",
+      script: file("chunks/probe.js", "c", probeScript),
+      styles: [],
+      needs: ["react", "shell"],
+      components: ["probe"],
+      licences: [],
+    },
+  },
+};
+const withProbeSources: ChunkSources = { ...sources, ["c".repeat(64)]: probeScript };
+const [plainQuestion] = plainChoiceBoardDocument.items;
+const holding = (items: readonly WidgetItem[], withOptions = true): ViewDocument => {
+  const { options, ...props } = plainQuestion.props;
+  return {
+    ...plainChoiceBoardDocument,
+    items: [
+      {
+        ...plainQuestion,
+        props: { ...props, ...(withOptions ? { options } : {}), items },
+      },
+    ],
+  };
+};
+const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
 
 const chunk = (name: string): ManifestChunk => {
   const found = fixtureViewManifest.chunks[name];
@@ -127,6 +161,33 @@ describe("the selection step (design decision 8)", () => {
     expect(() => selectChunks(plainChoiceBoardDocument, manifest)).toThrow("cycle");
   });
 
+  test("a widget's chunk is selected only for a board whose question holds its item", () => {
+    const names = (document: ViewDocument) =>
+      selectChunks(document, withProbe).map(({ name }) => name);
+    expect(names(plainChoiceBoardDocument)).toEqual([
+      "ext-apps",
+      "react",
+      "radix",
+      "shell",
+      "choice",
+    ]);
+    expect(names(holding([sketch]))).toEqual([
+      "ext-apps",
+      "react",
+      "radix",
+      "shell",
+      "choice",
+      "probe",
+    ]);
+    expect(names(holding([sketch], false))).toEqual(["ext-apps", "react", "shell", "probe"]);
+  });
+
+  test("a widget item whose type no chunk registers fails, naming the type", () => {
+    const gauge = { type: "gauge", id: "fuel", props: {} };
+    expect(() => selectChunks(holding([sketch, gauge]), withProbe)).toThrow('"gauge"');
+    expect(() => selectChunks(holding([sketch]), fixtureViewManifest)).toThrow('"probe"');
+  });
+
   test("a needed chunk named as an inherited property, such as constructor, is missing", () => {
     const manifest: ViewManifest = {
       ...fixtureViewManifest,
@@ -147,6 +208,16 @@ describe("assemble (AD-9)", () => {
     expect(srcdoc).not.toContain(tableScript);
     expect(srcdoc).not.toContain(tableLibrary);
     expect(inlineScripts(srcdoc)).toEqual(chunks.map(scriptOf));
+  });
+
+  test("inlines a widget's chunk only for a board whose question holds its item", () => {
+    const plain = assemble(data, withProbe, withProbeSources);
+    expect(plain.chunks).not.toContain("probe");
+    expect(plain.srcdoc).not.toContain(probeScript);
+    const widget = assemble({ document: holding([sketch]), state }, withProbe, withProbeSources);
+    expect(widget.chunks).toEqual(["ext-apps", "react", "radix", "shell", "choice", "probe"]);
+    expect(inlineScripts(widget.srcdoc).at(-1)).toBe(probeScript);
+    expect(widget.policy).toContain(cspHashSource("c".repeat(64)));
   });
 
   test("inlines each needed chunk's styles, in the same order", () => {
@@ -277,7 +348,13 @@ describe("assemble is pure ECMAScript (AD-9: the board page and snapshot both ca
 
   test("its modules import only the contract and each other", async () => {
     const transpiler = new Bun.Transpiler({ loader: "ts" });
-    const modules = ["index.ts", "select.ts", "../boot-data.ts", "../catalog/components.ts"];
+    const modules = [
+      "index.ts",
+      "select.ts",
+      "../boot-data.ts",
+      "../catalog/components.ts",
+      "../view-document.ts",
+    ];
     for (const path of modules) {
       const source = await Bun.file(join(import.meta.dir, path)).text();
       for (const { path: specifier } of transpiler.scanImports(source)) {

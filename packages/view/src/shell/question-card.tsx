@@ -8,9 +8,11 @@
 // answer is logged, or open again if the board page drops it (`answer-acts.ts`). A locked board's
 // card is read-only (AD-21). Every agent string renders as text (AD-8).
 
-import type { BoardQuestion, BoardState } from "@askboard/contract";
+import type { BoardState } from "@askboard/contract";
 import { useSyncExternalStore } from "react";
+import { CHOICE } from "../catalog/components.ts";
 import { questionTextId } from "../catalog/port.ts";
+import type { ViewQuestion } from "../view-document.ts";
 import { type PendingAnswer, readAnswerReply } from "../view-protocol.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import type { ViewChannel } from "./channel.ts";
@@ -33,7 +35,7 @@ const ANSWER =
   "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50";
 
 type CardProps = {
-  readonly question: BoardQuestion;
+  readonly question: ViewQuestion;
   readonly state: BoardState;
   readonly locked: boolean;
   /** The answer the board page holds for this question, if any. */
@@ -53,7 +55,7 @@ const useCard = ({ question, state, locked, held, context }: CardProps) => {
 
 // Sends the answer at once, stamped with the click's time; the act follows the board page's reply.
 const sendAnswer = (
-  question: BoardQuestion,
+  question: ViewQuestion,
   value: readonly string[],
   { channel, acts }: CardContext,
 ): void => {
@@ -114,6 +116,7 @@ export const QuestionCard = (props: CardProps) => {
       </p>
       <RenderItem
         item={question}
+        component={CHOICE}
         questionId={question.id}
         context={context}
         disabled={card.readOnly}
