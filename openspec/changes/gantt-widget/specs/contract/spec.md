@@ -37,11 +37,15 @@ The input format SHALL define a Gantt item's props as a `start` date and `tasks`
 - **THEN** validation fails, naming the key `calendar`
 
 ### Requirement: Gantt values
-A Gantt's `start` and every requested start SHALL be a real calendar day from 1900-03-01 to 9999-12-31, written as an RFC 3339 `full-date`. A task's `duration` SHALL be a whole number of working days from 1 to 2,000. A task's predecessors SHALL be task IDs, each listed once (AD-7, Values).
+A Gantt's `start` and every requested start SHALL be a real calendar day from 1900-03-02 to 9999-12-31, written as an RFC 3339 `full-date`: the compute graph holds 1900-03-01, but finds a plan's first working day from the day before its start. A task's `duration` SHALL be a whole number of working days from 1 to 2,000. A task's predecessors SHALL be task IDs, each listed once (AD-7, Values).
 
 #### Scenario: A day that does not exist
 - **WHEN** a requested start is `2026-02-30`
 - **THEN** validation fails, naming the task and the date
+
+#### Scenario: The graph's first day
+- **WHEN** a Gantt's `start` is `1900-03-01`
+- **THEN** validation fails, naming the start and the first day a Gantt may name, 1900-03-02
 
 #### Scenario: A fractional duration
 - **WHEN** a task's `duration` is `2.5`
