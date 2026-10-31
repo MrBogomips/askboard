@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import type { BoardState } from "@askboard/contract";
+import type { BoardState, DraftRecord } from "@askboard/contract";
+import { lifecycleBoardDocument, lifecycleDraftRecord } from "@askboard/contract/fixtures";
 import {
   ITEM_ERROR_MAX_CHARS,
+  readActReply,
   readAnswerReply,
   readViewMessage,
   readViewUpdate,
@@ -91,10 +93,10 @@ describe("view messages, as App tool calls the board page answers itself (design
     ]);
   });
 
-  test("an answer with neither a choice nor values is refused", () => {
-    const args = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z" };
+  test("an answer with neither a choice, values nor Other text is refused", () => {
+    const args = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z", note: "only a note" };
     expect(problemsOf({ name: "askboard.view.answer", arguments: args })).toEqual([
-      { path: "/arguments", message: 'holds none of "choice" and "values"' },
+      { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
     ]);
   });
 
@@ -221,8 +223,8 @@ describe("what the board page tells the view after boot, as tool-result notifica
     expect(readViewUpdate(result.structuredContent)).toEqual({ type: "state", state: waiting });
   });
 
-  test("the update says when the board page locked the view, and why (AD-21)", () => {
-    for (const lock of ["discarded", "moved"] as const) {
+  test("the update says when the board page locked the view, and why (AD-21, FR-6)", () => {
+    for (const lock of ["discarded", "moved", "closed"] as const) {
       const result = viewUpdateResult({ type: "state", state: waiting, lock });
       expect(readViewUpdate(result.structuredContent)).toEqual({
         type: "state",
@@ -230,18 +232,11 @@ describe("what the board page tells the view after boot, as tool-result notifica
         lock,
       });
     }
-    expect(readViewUpdate({ type: "state", state: waiting, lock: "closed" })).toBeUndefined();
+    expect(readViewUpdate({ type: "state", state: waiting, lock: "gone" })).toBeUndefined();
   });
 
-  test("the update lists the answers the board page holds, sent or queued", () => {
-    const pending = [
-      {
-        itemId: "database",
-        choice: ["PostgreSQL"],
-        when: "2026-10-30T10:00:00Z",
-        outcome: "queued",
-      },
-    ] as const;
+  test("the update lists the act commands the board page holds, sent or queued, by action ID", () => {
+    const pending = [{ actionId: ACTION_ID, outcome: "queued" }] as const;
     const result = viewUpdateResult({ type: "state", state: waiting, pending });
     expect(readViewUpdate(result.structuredContent)).toEqual({
       type: "state",
@@ -251,10 +246,9 @@ describe("what the board page tells the view after boot, as tool-result notifica
     const [held] = pending;
     for (const wrong of [
       "database",
-      [{ ...held, itemId: "x y" }],
-      [{ ...held, choice: [1] }],
-      [{ ...held, when: 5 }],
+      [{ ...held, actionId: "short" }],
       [{ ...held, outcome: "read" }],
+      [{ outcome: "sent" }],
       [null],
     ]) {
       expect(readViewUpdate({ type: "state", state: waiting, pending: wrong })).toBeUndefined();
@@ -272,6 +266,184 @@ describe("what the board page tells the view after boot, as tool-result notifica
       { type: "constructor", state: waiting },
     ]) {
       expect(readViewUpdate(content)).toBeUndefined();
+    }
+  });
+});
+
+const ACTION_ID = "Ab3dE5gH7jK9mN1pQ3sT5v";
+const WHEN = "2026-10-31T09:41:27.123Z";
+
+describe("the lifecycle's view messages (ask-lifecycle, design decision 6)", () => {
+  test("an answer carries the Other text, the option notes and the open prompt's note (FR-3, FR-7)", () => {
+    const message: ViewMessage = {
+      type: "answer",
+      itemId: "payment",
+      rev: 1,
+      other: "Mollie",
+      optionNotes: { Adyen: "Ask the shop team." },
+      note: "Cheaper for iDEAL.",
+      when: WHEN,
+    };
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+  });
+
+  test("an answer's Other text, option notes and note are non-empty texts within their limits", () => {
+    const base = { itemId: "q", rev: 1, when: WHEN, choice: ["a"] };
+    for (const [field, value] of [
+      ["other", ""],
+      ["other", "x".repeat(10_001)],
+      ["other", 3],
+      ["note", ""],
+      ["note", "x".repeat(10_001)],
+      ["optionNotes", {}],
+      ["optionNotes", { a: "" }],
+      ["optionNotes", { a: "x".repeat(2_001) }],
+      ["optionNotes", { "": "x" }],
+      ["optionNotes", ["x"]],
+    ] as const) {
+      const params = { name: "askboard.view.answer", arguments: { ...base, [field]: value } };
+      expect(problemsOf(params)[0]?.path).toBe(`/arguments/${field}`);
+    }
+  });
+
+  const acts = [
+    { type: "answer", itemId: "payment", rev: 1, choice: ["Stripe"], note: "Fine.", when: WHEN },
+    { type: "decline", itemId: "payment", rev: 1, note: "Not mine to decide.", when: WHEN },
+    { type: "decline", itemId: "payment", rev: 1, when: WHEN },
+    { type: "postpone", itemId: "payment", rev: 1 },
+    { type: "reopen", itemId: "payment" },
+    { type: "note", itemId: "payment", rev: 2, note: "Ask finance.", when: WHEN },
+    { type: "follow-up", itemId: "payment", rev: 1, text: "Why?", when: WHEN },
+    { type: "edit-choice", itemId: "payment", rev: 2, edit: "reload" },
+    { type: "edit-choice", itemId: "payment", rev: 2, edit: "ignore", keptRev: 1 },
+  ] as const;
+
+  test.each(acts.map((act) => [act.type, act] as const))(
+    "an act command of a %s act goes as a tool call and reads back",
+    (_, act) => {
+      const message: ViewMessage = { type: "act", acts: [act] };
+      expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    },
+  );
+
+  test("an act command holds its acts in the order the user made them", () => {
+    const message: ViewMessage = { type: "act", acts: [acts[3], acts[0], acts[1]] };
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+  });
+
+  test("an act command with no act, an unknown act or a malformed one is refused, naming it", () => {
+    const refusedAt = (list: unknown) =>
+      problemsOf({ name: "askboard.view.act", arguments: { acts: list } })[0]?.path;
+    expect(refusedAt([])).toBe("/arguments/acts");
+    expect(refusedAt("postpone")).toBe("/arguments/acts");
+    expect(refusedAt([acts[3], { type: "telemetry", itemId: "q" }])).toBe("/arguments/acts/1");
+    expect(refusedAt([{ type: "constructor", itemId: "q" }])).toBe("/arguments/acts/0");
+    expect(refusedAt([{ type: "postpone", itemId: "q" }])).toBe("/arguments/acts/0/rev");
+    expect(refusedAt([{ ...acts[3], extra: 1 }])).toBe("/arguments/acts/0/extra");
+    expect(refusedAt([{ type: "note", itemId: "q", rev: 1, note: "", when: WHEN }])).toBe(
+      "/arguments/acts/0/note",
+    );
+    expect(refusedAt([{ type: "follow-up", itemId: "q", rev: 1, text: "", when: WHEN }])).toBe(
+      "/arguments/acts/0/text",
+    );
+    expect(refusedAt([{ type: "answer", itemId: "q", rev: 1, when: WHEN }])).toBe(
+      "/arguments/acts/0",
+    );
+    expect(refusedAt([{ type: "edit-choice", itemId: "q", rev: 2, edit: "ignore" }])).toBe(
+      "/arguments/acts/0/keptRev",
+    );
+    expect(refusedAt([{ ...acts[7], keptRev: 1 }])).toBe("/arguments/acts/0/keptRev");
+    expect(refusedAt([{ type: "edit-choice", itemId: "q", rev: 2, edit: "merge" }])).toBe(
+      "/arguments/acts/0/edit",
+    );
+    expect(refusedAt([null])).toBe("/arguments/acts/0");
+  });
+
+  test("a draft message carries the whole draft record, checked only for its shape here", () => {
+    const message: ViewMessage = { type: "draft", record: lifecycleDraftRecord };
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    const empty: DraftRecord = { delivery: "immediate", questions: {} };
+    expect(readViewMessage(toolCallOf({ type: "draft", record: empty }))).toEqual({
+      ok: true,
+      value: { type: "draft", record: empty },
+    });
+    for (const record of [
+      null,
+      [],
+      { questions: {} },
+      { delivery: "later", questions: {} },
+      { delivery: "immediate" },
+      { delivery: "immediate", questions: [] },
+    ]) {
+      expect(problemsOf({ name: "askboard.view.draft", arguments: { record } })[0]?.path).toBe(
+        "/arguments/record",
+      );
+    }
+  });
+
+  test("the board page's reply names the action ID it gave the command", () => {
+    expect(readActReply({ outcome: "sent", actionId: ACTION_ID })).toEqual({
+      outcome: "sent",
+      actionId: ACTION_ID,
+    });
+    expect(readActReply({ outcome: "queued", actionId: ACTION_ID })).toEqual({
+      outcome: "queued",
+      actionId: ACTION_ID,
+    });
+    expect(readActReply({ outcome: "refused", detail: "closed" })).toEqual({
+      outcome: "refused",
+      detail: "closed",
+    });
+    for (const reply of [{ outcome: "sent" }, { outcome: "sent", actionId: "x" }, undefined]) {
+      expect(readActReply(reply)).toBeUndefined();
+    }
+    expect(readAnswerReply({ outcome: "sent", actionId: ACTION_ID })).toEqual({ outcome: "sent" });
+  });
+});
+
+describe("what the board page tells the view of the lifecycle (ask-lifecycle, design decision 6)", () => {
+  const lifecycleState = {
+    ask: "partly-answered",
+    questions: [
+      { itemId: "region", rev: 1, state: "postponed" },
+      {
+        itemId: "payment",
+        rev: 1,
+        state: "answered",
+        answer: { other: "Mollie", when: WHEN, receipt: "sent" },
+      },
+    ],
+  } as const;
+
+  test("the latest board document, the connection lost, settled commands and a draft to restore read back", () => {
+    const update = {
+      type: "state",
+      state: lifecycleState,
+      document: lifecycleBoardDocument,
+      connection: "lost",
+      pending: [{ actionId: ACTION_ID, outcome: "sent" }],
+      settled: [
+        { actionId: ACTION_ID, outcome: "done" },
+        { actionId: "Zz3dE5gH7jK9mN1pQ3sT5v", outcome: "refused" },
+        { actionId: "Yy3dE5gH7jK9mN1pQ3sT5v", outcome: "dropped" },
+      ],
+      restore: { id: 1, record: lifecycleDraftRecord },
+    } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("a malformed document, connection, settled list or restore is no update", () => {
+    for (const extra of [
+      { document: { items: "x" } },
+      { document: null },
+      { connection: "live" },
+      { settled: [{ actionId: ACTION_ID, outcome: "maybe" }] },
+      { settled: "done" },
+      { restore: { id: 0, record: lifecycleDraftRecord } },
+      { restore: { id: 1 } },
+      { restore: { id: 1, record: [] } },
+    ]) {
+      expect(readViewUpdate({ type: "state", state: lifecycleState, ...extra })).toBeUndefined();
     }
   });
 });

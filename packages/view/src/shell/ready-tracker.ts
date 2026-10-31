@@ -4,7 +4,7 @@
 // visible, so nothing is answered on a partial board (AD-10).
 
 import { renderedOf } from "../catalog/components.ts";
-import type { ViewDocument } from "../view-document.ts";
+import { questionsOf, type ViewDocument } from "../view-document.ts";
 
 export type ItemStatus = "pending" | "ready" | "failed";
 export type QuestionStatus = "loading" | "visible" | "failed";
@@ -14,10 +14,10 @@ export type QuestionItems = { readonly questionId: string; readonly itemIds: rea
 
 /**
  * Each question's items, as it renders them: its own ID when it has options, then its widget
- * items' IDs (design decision 7).
+ * items' IDs (design decision 7); every question of the board, areas' included, in board order.
  */
 export const questionItemsOf = (document: ViewDocument): QuestionItems[] =>
-  document.items.map((question) => ({
+  questionsOf(document).map((question) => ({
     questionId: question.id,
     itemIds: renderedOf(question).map(({ item }) => item.id),
   }));
@@ -33,6 +33,11 @@ export type ReadyTracker = {
   /** The item's ready callback: one stable function per item, safe to call more than once. */
   readyFor(itemId: string): () => void;
   fail(itemId: string, error: string): void;
+  /**
+   * Tracks the questions it does not track yet, such as one the agent added (ask-lifecycle); a
+   * question it tracks keeps its items and status.
+   */
+  include(questions: readonly QuestionItems[]): void;
   itemStatus(itemId: string): ItemStatus;
   questionStatus(questionId: string): QuestionStatus;
   subscribe(listener: () => void): () => void;
@@ -49,7 +54,7 @@ const indexItems = (questions: readonly QuestionItems[]) => {
   return { questionOf, itemsOf };
 };
 
-type Statuses = Pick<ReadyTracker, "itemStatus" | "questionStatus"> & {
+type Statuses = Pick<ReadyTracker, "itemStatus" | "questionStatus" | "include"> & {
   /** Marks a pending item ready; false when that changes nothing. */
   ready(itemId: string): boolean;
   /** Marks an item failed; false when that changes nothing. */
@@ -67,6 +72,14 @@ const createStatuses = (questions: readonly QuestionItems[], events: ReadyEvents
   return {
     itemStatus,
     questionStatus,
+    include: (more) => {
+      for (const { questionId, itemIds } of more) {
+        if (itemsOf.has(questionId)) continue;
+        itemsOf.set(questionId, itemIds);
+        for (const itemId of itemIds)
+          if (!questionOf.has(itemId)) questionOf.set(itemId, questionId);
+      }
+    },
     ready: (itemId) => {
       const questionId = questionOf.get(itemId);
       if (questionId === undefined || itemStatus(itemId) !== "pending") return false;
@@ -113,6 +126,7 @@ export const createReadyTracker = (
       return callback;
     },
     fail: (itemId, error) => notify(statuses.fail(itemId, error)),
+    include: statuses.include,
     itemStatus: statuses.itemStatus,
     questionStatus: statuses.questionStatus,
     subscribe: (listener) => {

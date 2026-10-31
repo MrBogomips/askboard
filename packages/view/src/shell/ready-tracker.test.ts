@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument, WidgetItem } from "../view-document.ts";
 import { createReadyTracker, type QuestionItems, questionItemsOf } from "./ready-tracker.ts";
 
@@ -117,5 +117,35 @@ describe("a question's items, as the ready tracker counts them (design decision 
     expect(questionItemsOf(holding(true))).toEqual([
       { questionId: "database", itemIds: ["database", "sketch"] },
     ]);
+  });
+});
+
+describe("a board of several questions or of areas (ask-lifecycle, design decision 6)", () => {
+  test("every question, areas' included, in board order", () => {
+    expect(questionItemsOf(lifecycleBoardDocument)).toEqual(
+      ["region", "payment", "analytics", "rollout", "erp-export"].map((id) => ({
+        questionId: id,
+        itemIds: [id],
+      })),
+    );
+  });
+
+  test("a question the agent adds later is tracked once included; one already tracked stays as it is", () => {
+    const visible = mock((_: string) => {});
+    const tracker = createReadyTracker([{ questionId: "a", itemIds: ["a"] }], {
+      onVisible: visible,
+      onFailed: () => {},
+    });
+    tracker.readyFor("a")();
+    tracker.readyFor("b")();
+    expect(tracker.questionStatus("b")).toBe("loading");
+    tracker.include([
+      { questionId: "a", itemIds: ["a", "late"] },
+      { questionId: "b", itemIds: ["b"] },
+    ]);
+    expect(tracker.questionStatus("a")).toBe("visible");
+    tracker.readyFor("b")();
+    expect(tracker.questionStatus("b")).toBe("visible");
+    expect(visible.mock.calls).toEqual([["a"], ["b"]]);
   });
 });

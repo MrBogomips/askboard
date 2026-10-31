@@ -2,7 +2,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chunkInputs, collectNotices, licencePath } from "./licences.ts";
+import {
+  chunkInputs,
+  collectNotices,
+  LICENCE_TEXTS,
+  licencePath,
+  staleLicenceTexts,
+} from "./licences.ts";
 
 let root = "";
 const write = (path: string, text: string) => Bun.write(join(root, path), text);
@@ -120,6 +126,67 @@ describe("licence notices per chunk", () => {
     await expect(collectNotices("radix", [input], root)).rejects.toThrow(
       'bare 1.0.0 in the chunk "radix" has no licence file',
     );
+  });
+
+  const recorded = {
+    "bare@1.0.0": {
+      licence: "MIT",
+      source:
+        "https://github.com/example/bare/blob/0123456789abcdef0123456789abcdef01234567/LICENSE",
+      date: "2025-05-21",
+      reason: "the package ships no licence file",
+      text: "MIT License\n\nCopyright (c) Bare\n",
+    },
+  };
+
+  test("a package without a licence file takes the text recorded for its exact version, under the licence its package.json names (ask-lifecycle, task 6.6)", async () => {
+    const input = at(`${store("bare", "1.0.0")}/index.js`);
+    const [notice] = await collectNotices("radix", [input], root, recorded);
+    expect(notice?.notice).toEqual({
+      package: "bare",
+      version: "1.0.0",
+      licence: "MIT",
+      path: "licences/bare-1.0.0.txt",
+    });
+    expect(notice?.text).toBe("MIT License\n\nCopyright (c) Bare");
+    expect(notice?.recorded).toBe("bare@1.0.0");
+  });
+
+  test("a recorded text under another licence, or for another version, does not stand in", async () => {
+    const input = at(`${store("bare", "1.0.0")}/index.js`);
+    const other = { "bare@1.0.0": { ...recorded["bare@1.0.0"], licence: "ISC" } };
+    await expect(collectNotices("radix", [input], root, other)).rejects.toThrow(
+      'bare 1.0.0 in the chunk "radix" has no licence file',
+    );
+    const older = { "bare@0.9.0": recorded["bare@1.0.0"] };
+    await expect(collectNotices("radix", [input], root, older)).rejects.toThrow("no licence file");
+  });
+
+  test("a package that ships its own licence file keeps it, and a text recorded for it is stale", async () => {
+    const input = at(`${store("react", "19.3.1")}/index.js`);
+    const stale = { "react@19.3.1": { ...recorded["bare@1.0.0"] } };
+    await expect(collectNotices("react", [input], root, stale)).rejects.toThrow(
+      'react 19.3.1 in the chunk "react" ships its own licence file: the text recorded for "react@19.3.1" in tools/licence-texts.json is stale',
+    );
+  });
+
+  test("a recorded text no chunk used is stale, and fails the build", () => {
+    expect(staleLicenceTexts(recorded, new Set(["bare@1.0.0"]))).toEqual([]);
+    expect(staleLicenceTexts(recorded, new Set())).toEqual([
+      'the text recorded for "bare@1.0.0" in tools/licence-texts.json is stale: no chunk holds that package without a licence file',
+    ]);
+  });
+
+  test("each recorded text names its licence, its source at a commit, its date and why, and is in the repository whole", () => {
+    expect(Object.keys(LICENCE_TEXTS)).toEqual(["react-remove-scroll-bar@2.3.8"]);
+    for (const entry of Object.values(LICENCE_TEXTS)) {
+      expect(entry.licence).toBe("MIT");
+      expect(entry.source).toMatch(/^https:\/\/github\.com\/.+\/blob\/[0-9a-f]{40}\/LICENSE$/);
+      expect(entry.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(entry.reason).not.toBe("");
+      expect(entry.text).toContain("Permission is hereby granted");
+      expect(entry.text).toContain("Copyright (c)");
+    }
   });
 
   test("a package without a licence field fails, naming it", async () => {

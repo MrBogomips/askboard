@@ -4,11 +4,14 @@
 // socket's next message, which it compares with the transcript's; a session or network step waits
 // for the test to trigger it (`collected`, `exit`, `restart`, `drop`; `drop` also passes a network
 // step that closes the socket with a code). A user step is the test's own act on the page, so the
-// replay passes it.
+// replay passes it. Since the ask lifecycle, a board page speaking protocol 1.1 answers with an
+// act command, which the replay takes for the transcript's answer and acknowledges with `done`
+// before the host's steps that follow, as `board-host` does; its draft records go nowhere, as
+// none of E1's transcripts holds one (ask-lifecycle, design decision 6).
 
-import type { PageMessage } from "@askboard/contract";
+import { BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
-import { samePageMessage, summary } from "./messages.ts";
+import { isDraft, samePageMessage, summary } from "./messages.ts";
 import type { ReplayStep } from "./transcripts.ts";
 
 /** The session-side steps a test triggers. */
@@ -118,8 +121,10 @@ export class Replay {
   /** A message the page sent on a socket. */
   receive(number: number, text: string): void {
     const read = parsed(text);
-    this.#inbox.get(number)?.push({ message: read.message });
-    this.#advance();
+    if (!isDraft(read.message)) {
+      this.#inbox.get(number)?.push({ message: read.message });
+      this.#advance();
+    }
     const refused = refusal(read);
     if (refused !== undefined) {
       this.#problems.push(
@@ -199,8 +204,19 @@ export class Replay {
     if (received === undefined) return false;
     if (!("message" in step) || !samePageMessage(received.message, step.message)) {
       this.#problems.push(this.#mismatch(step.socket, received.message, step));
+    } else {
+      this.#acknowledge(step.socket, received.message);
     }
     return true;
+  }
+
+  // An act command that stands for the transcript's answer is acknowledged, as board-host does.
+  #acknowledge(number: number, message: unknown): void {
+    const entry = this.#sockets.get(number);
+    if (entry?.open !== true || typeof message !== "object" || message === null) return;
+    const { type, actionId } = message as { type?: unknown; actionId?: unknown };
+    if (type !== "act") return;
+    entry.socket.send(JSON.stringify({ version: BOARD_PROTOCOL_VERSION, type: "done", actionId }));
   }
 
   #mismatch(number: number, message: unknown, step: PageStep): string {

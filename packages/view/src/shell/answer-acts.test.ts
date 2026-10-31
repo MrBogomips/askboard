@@ -1,68 +1,114 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { PendingAnswer } from "../view-protocol.ts";
+import type { ViewAct } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 
 const when = "2026-10-30T10:00:00.250Z";
-const pending = (outcome: PendingAnswer["outcome"], at = when): PendingAnswer => ({
+const A = "AAAAAAAAAAAAAAAAAAAAAA";
+const B = "BBBBBBBBBBBBBBBBBBBBBB";
+const answer: ViewAct = {
+  type: "answer",
   itemId: "database",
+  rev: 1,
   choice: ["PostgreSQL"],
-  when: at,
-  outcome,
-});
+  when,
+};
+const note: ViewAct = { type: "note", itemId: "cache", rev: 1, note: "Later.", when };
 
-describe("the answers the view has given and the board page has not settled (M3)", () => {
-  test("an act starts with no outcome and takes the board page's reply", () => {
+describe("the acts the view has sent and the board page has not settled (ask-lifecycle)", () => {
+  test("a command starts with no outcome and takes the board page's reply and action ID", () => {
     const acts = createAnswerActs();
     const heard = mock(() => {});
     acts.subscribe(heard);
-    acts.start("database", { choice: ["PostgreSQL"] }, when);
-    expect(acts.of("database")).toEqual({ choice: ["PostgreSQL"], when });
-    acts.replied("database", when, "queued");
-    expect(acts.of("database")).toEqual({ choice: ["PostgreSQL"], when, outcome: "queued" });
+    const key = acts.start([answer]);
+    expect(acts.of("database")).toEqual({ key, acts: [answer] });
+    acts.replied(key, { outcome: "queued", actionId: A });
+    expect(acts.of("database")).toEqual({ key, acts: [answer], actionId: A, outcome: "queued" });
     expect(heard).toHaveBeenCalledTimes(2);
   });
 
-  test("an act holds the widget values it sent, and only what it sent (design decision 7)", () => {
+  test("a command touches each question it holds an act for", () => {
     const acts = createAnswerActs();
-    // A test-only `probe` widget item's edited value (design decision 12).
-    const values = { sketch: { size: 4 } };
-    acts.start("plan", { values }, when);
-    expect(acts.of("plan")).toEqual({ values, when });
-    const sent = { type: "answer", itemId: "plan", rev: 1, choice: ["a"], values, when };
-    acts.start("plan", sent, when);
-    expect(acts.of("plan")).toEqual({ choice: ["a"], values, when });
+    acts.start([answer, note]);
+    expect(acts.of("database")?.acts).toEqual([answer, note]);
+    expect(acts.of("cache")?.acts).toEqual([answer, note]);
+    expect(acts.of("other")).toBeUndefined();
   });
 
-  test("a refused act is dropped at once, and a reply to an older act is ignored", () => {
+  test("a question's commands can be read for some act types only: a follow-up never holds the card (task 6.5)", () => {
     const acts = createAnswerActs();
-    acts.start("database", { choice: ["PostgreSQL"] }, when);
-    acts.replied("database", "2026-10-30T09:00:00Z", "sent");
-    expect(acts.of("database")?.outcome).toBeUndefined();
-    acts.drop("database", when);
+    const followUp: ViewAct = { type: "follow-up", itemId: "database", rev: 1, text: "Why?", when };
+    const first = acts.start([answer]);
+    acts.start([followUp]);
+    expect(acts.of("database")?.acts).toEqual([followUp]);
+    expect(acts.of("database", ["answer", "postpone"])?.key).toBe(first);
+    expect(acts.of("database", ["follow-up"])?.acts).toEqual([followUp]);
+    expect(acts.of("database", ["reopen"])).toBeUndefined();
+    expect(acts.of("cache", ["follow-up"])).toBeUndefined();
+  });
+
+  test("each change moves its version, so that a view of every command can follow it", () => {
+    const acts = createAnswerActs();
+    expect(acts.version()).toBe(0);
+    const key = acts.start([answer]);
+    expect(acts.version()).toBe(1);
+    acts.replied(key, { outcome: "sent", actionId: A });
+    expect(acts.version()).toBe(2);
+    acts.drop(99);
+    expect(acts.version()).toBe(2);
+  });
+
+  test("a refusal, or no reply, drops it: the question is open again", () => {
+    const acts = createAnswerActs();
+    const refused = acts.start([answer]);
+    acts.replied(refused, { outcome: "refused", detail: "not open" });
     expect(acts.of("database")).toBeUndefined();
-    acts.drop("database", when);
-  });
-
-  test("an update after the reply that no longer holds the answer drops the act", () => {
-    const acts = createAnswerActs();
-    acts.start("database", { choice: ["PostgreSQL"] }, when);
-    acts.reconcile([]);
-    expect(acts.of("database")).toBeDefined();
-    acts.replied("database", when, "sent");
-    acts.reconcile([pending("sent")]);
-    expect(acts.of("database")).toBeDefined();
-    acts.reconcile([pending("sent", "2026-10-30T09:00:00Z")]);
+    const lost = acts.start([answer]);
+    acts.replied(lost, undefined);
+    expect(acts.of("database")).toBeUndefined();
+    const failed = acts.start([answer]);
+    acts.drop(failed);
     expect(acts.of("database")).toBeUndefined();
   });
 
-  test("an update the act does not depend on leaves the listeners alone", () => {
+  test("an update moves its outcome, settles it once the board page no longer holds it, and returns those done", () => {
     const acts = createAnswerActs();
+    const first = acts.start([answer]);
+    acts.replied(first, { outcome: "queued", actionId: A });
+    expect(acts.reconcile([{ actionId: A, outcome: "sent" }], [])).toEqual([]);
+    expect(acts.of("database")?.outcome).toBe("sent");
+    const second = acts.start([note]);
+    acts.replied(second, { outcome: "sent", actionId: B });
+    const done = acts.reconcile(
+      [],
+      [
+        { actionId: A, outcome: "done" },
+        { actionId: B, outcome: "refused" },
+      ],
+    );
+    expect(done.map(({ acts: settled }) => settled)).toEqual([[answer]]);
+    expect(acts.of("database")).toBeUndefined();
+    expect(acts.of("cache")).toBeUndefined();
+  });
+
+  test("a command with no reply yet is left alone; one neither held nor settled was dropped", () => {
+    const acts = createAnswerActs();
+    acts.start([answer]);
+    expect(acts.reconcile([], [])).toEqual([]);
+    expect(acts.of("database")).toBeDefined();
+    const other = acts.start([note]);
+    acts.replied(other, { outcome: "sent", actionId: B });
+    expect(acts.reconcile([], [])).toEqual([]);
+    expect(acts.of("cache")).toBeUndefined();
+  });
+
+  test("a reply for a command no longer started changes nothing", () => {
+    const acts = createAnswerActs();
+    const key = acts.start([answer]);
+    acts.drop(key);
     const heard = mock(() => {});
-    const unsubscribe = acts.subscribe(heard);
-    acts.reconcile([]);
-    expect(heard).not.toHaveBeenCalled();
-    unsubscribe();
-    acts.start("database", { choice: ["PostgreSQL"] }, when);
+    acts.subscribe(heard);
+    acts.replied(key, { outcome: "sent", actionId: A });
+    acts.drop(key);
     expect(heard).not.toHaveBeenCalled();
   });
 });

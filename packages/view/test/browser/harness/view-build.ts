@@ -5,7 +5,7 @@
 
 import { join } from "node:path";
 import {
-  type BoardState,
+  type LifecycleBoardState,
   type ManifestFile,
   VIEW_DIRECTORY,
   VIEW_MANIFEST_FILE,
@@ -14,7 +14,7 @@ import {
 import { fixtureViewFiles, fixtureViewManifest } from "@askboard/contract/fixtures";
 import { validateViewManifest } from "@askboard/contract/validate";
 import { assemble, selectChunks, sourcesToFetch } from "../../../src/assemble/index.ts";
-import type { ViewDocument } from "../../../src/view-document.ts";
+import { questionsOf, type ViewDocument } from "../../../src/view-document.ts";
 import { THROWING_CHOICE_ERROR } from "../fixtures/throwing-choice-error.ts";
 
 export { THROWING_CHOICE_ERROR };
@@ -171,13 +171,15 @@ export const bundleTestChunk = async (entry: string): Promise<string> => {
 export const withThrowingChoice = async (build: ViewBuild): Promise<ViewBuild> =>
   withChunkScript(build, "choice", await bundleTestChunk(THROWING_CHOICE_ENTRY));
 
-/** The board state with the document's question open and the ask waiting. */
-export const openStateOf = (document: ViewDocument): BoardState => {
-  const [question] = document.items;
-  return {
-    ask: "waiting",
-    questions: [{ itemId: question.id, rev: question.rev, state: "open" }],
-  };
+/** The board state with every question of the document open and the ask waiting. */
+export const openStateOf = (document: ViewDocument): LifecycleBoardState => {
+  const [first, ...rest] = questionsOf(document).map((question) => ({
+    itemId: question.id,
+    rev: question.rev,
+    state: "open" as const,
+  }));
+  if (first === undefined) throw new Error("the board document holds no question");
+  return { ask: "waiting", questions: [first, ...rest] };
 };
 
 /**

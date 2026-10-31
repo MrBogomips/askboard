@@ -4,9 +4,9 @@
 // `*.test.ts`, and they need a build and the Playwright browsers.
 //
 // The tests talk to the test server, or with `--target session-process` to the built session
-// process `dist/askboard.mjs` (task 9.3), on Bun or with `--runtime node` on Node 24. The build is
-// `dist/view/` for the test server, and `bun run build` (the bundle and `dist/view/`) for the
-// session process; `--no-build` uses what `dist/` holds.
+// process `dist/askboard.mjs` (task 9.3), on Bun or with `--runtime node` on Node 24; the ask
+// lifecycle's scenarios talk to the session process on either target. The build is `bun run
+// build` (the bundle and `dist/view/`); `--no-build` uses what `dist/` holds.
 //
 // Usage: bun packages/view/test/browser/run.ts [--engines chromium,firefox,webkit]
 //          [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial]
@@ -64,9 +64,11 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
-// The session process serves the view beside its bundle, so its target builds both.
-const buildFor = async (target: Target): Promise<number> => {
-  const command = target === "session-process" ? ["run", "build"] : ["tools/build/view.ts"];
+// The session process serves the view beside its bundle, so its target builds both; so does the
+// test server's, since the lifecycle's scenarios run on the session process whatever the target
+// (ask-lifecycle, `Scenario.ask`).
+const buildFor = async (_target: Target): Promise<number> => {
+  const command = ["run", "build"];
   const child = Bun.spawn([process.execPath, ...command], {
     cwd: ROOT,
     stdout: "inherit",

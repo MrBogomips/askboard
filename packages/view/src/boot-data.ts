@@ -1,7 +1,7 @@
 // The `askboard-data` block of the view's srcdoc: what the view boots from (AD-9, design decision
 // 8). `assemble` writes it with `<` escaped; the board page built it from messages it validated.
 
-import type { BoardState } from "@askboard/contract";
+import type { LifecycleBoardState } from "@askboard/contract";
 import type { ViewDocument } from "./view-document.ts";
 
 /** The id of the `<script type="application/json">` element that holds the block. */
@@ -10,7 +10,7 @@ export const BOOT_DATA_ID = "askboard-data";
 export type BootData = {
   /** The board document, whose question may hold widget items as the view document allows. */
   readonly document: ViewDocument;
-  readonly state: BoardState;
+  readonly state: LifecycleBoardState;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

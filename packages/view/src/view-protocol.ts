@@ -6,9 +6,26 @@
 // side checks what it receives structurally: the board page turns only a checked view message
 // into a board-protocol command (AD-9, AD-10). Plain ECMAScript: the board page and the shell
 // both bundle it.
+//
+// The ask lifecycle (ask-lifecycle, design decision 6) adds the user's other acts, as one `act`
+// message per command, and the draft mirror, as `draft`; the answer gains its "Other…" text, the
+// option notes and the open prompt's note. The board page tells the view the latest board
+// document, the closed lock, whether the connection is lost, the commands it holds and settles by
+// action ID, and a draft record to restore.
 
-import { type BoardState, ID_PATTERN, UTC_TIME_PATTERN } from "@askboard/contract";
+import {
+  ACTION_ID_PATTERN,
+  type DraftRecord,
+  FOLLOW_UP_MAX_CHARS,
+  ID_PATTERN,
+  type LifecycleBoardState,
+  NOTE_MAX_CHARS,
+  OPTION_NOTE_MAX_CHARS,
+  OTHER_MAX_CHARS,
+  UTC_TIME_PATTERN,
+} from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
+import type { ViewDocument } from "./view-document.ts";
 
 /** The tool-name prefix of every view message. */
 export const VIEW_TOOL_PREFIX = "askboard.view.";
@@ -24,6 +41,12 @@ export type AnswerContent = {
   readonly choice?: readonly string[];
   /** Each changed widget item's full edited props, by item ID. */
   readonly values?: Readonly<Record<string, unknown>>;
+  /** The "Other…" row's text (FR-3). */
+  readonly other?: string;
+  /** The user's notes on options, by option label (FR-3, FR-18). */
+  readonly optionNotes?: Readonly<Record<string, string>>;
+  /** The open prompt's text, sent with the answer (FR-7). */
+  readonly note?: string;
 };
 
 /**
@@ -48,7 +71,52 @@ export type ViewItemError = {
   readonly error: string;
 };
 
-export type ViewMessage = ViewAnswer | ViewReady | ViewItemError;
+/** An answer act in a command: an answer's content, as `ViewAnswer` carries it. */
+export type ViewAnswerAct = Omit<ViewAnswer, "type"> & { readonly type: "answer" };
+
+/**
+ * One act of the user's, as the board protocol's act command carries it (AD-10, AD-20): an
+ * answer, a decline with its reason, a postpone, an undo of a sent postpone or decline, a note
+ * alone, a follow-up, or the choice about an agent change. The board page gives the command its
+ * action ID.
+ */
+export type ViewAct =
+  | ViewAnswerAct
+  | {
+      readonly type: "decline";
+      readonly itemId: string;
+      readonly rev: number;
+      readonly note?: string;
+      readonly when: string;
+    }
+  | { readonly type: "postpone"; readonly itemId: string; readonly rev: number }
+  | { readonly type: "reopen"; readonly itemId: string }
+  | {
+      readonly type: "note";
+      readonly itemId: string;
+      readonly rev: number;
+      readonly note: string;
+      readonly when: string;
+    }
+  | {
+      readonly type: "follow-up";
+      readonly itemId: string;
+      readonly rev: number;
+      readonly text: string;
+      readonly when: string;
+    }
+  | ({ readonly type: "edit-choice"; readonly itemId: string; readonly rev: number } & (
+      | { readonly edit: "reload" }
+      | { readonly edit: "ignore"; readonly keptRev: number }
+    ));
+
+/** One command of acts, applied once and whole, in this order (AD-20). */
+export type ViewActs = { readonly type: "act"; readonly acts: readonly [ViewAct, ...ViewAct[]] };
+
+/** The board's unsent work, mirrored after each change (AD-20); never sent to the agent. */
+export type ViewDraft = { readonly type: "draft"; readonly record: DraftRecord };
+
+export type ViewMessage = ViewAnswer | ViewReady | ViewItemError | ViewActs | ViewDraft;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -59,36 +127,57 @@ export type AnswerReply =
   | { readonly outcome: "queued" }
   | { readonly outcome: "refused"; readonly detail: string };
 
+/** The board page's reply to an answer or an act command, naming the action ID it gave it. */
+export type ActReply =
+  | { readonly outcome: "sent" | "queued"; readonly actionId: string }
+  | { readonly outcome: "refused"; readonly detail: string };
+
 export type ViewToolCall = {
   readonly name: string;
   readonly arguments: Readonly<Record<string, unknown>>;
 };
 
-/** Why the board page locked the view read-only: the ask was discarded, or the board moved (AD-21). */
-export type ViewLock = "discarded" | "moved";
+/**
+ * Why the board page locked the view read-only: the ask was discarded, the board moved (AD-21), or
+ * the agent closed the ask (FR-6).
+ */
+export type ViewLock = "discarded" | "moved" | "closed";
 
 /**
- * An answer the board page holds until a state shows it logged: sent on the socket, or queued
- * until the board reconnects ("not sent yet").
+ * An act command the board page holds until `board-host` acknowledges or refuses it: sent on the
+ * socket, or queued until the board reconnects ("not sent yet").
  */
-export type PendingAnswer = {
-  readonly itemId: string;
-  readonly choice: readonly string[];
-  readonly when: string;
-  readonly outcome: "sent" | "queued";
+export type PendingAct = { readonly actionId: string; readonly outcome: "sent" | "queued" };
+
+/**
+ * How a command the board page held ended: applied (`done`), refused by `board-host`, or dropped
+ * by the board page, since the board changed under it while it was not live (AD-10).
+ */
+export type SettledAct = {
+  readonly actionId: string;
+  readonly outcome: "done" | "refused" | "dropped";
 };
+
+/** A draft record to restore, numbered so that the view restores each once. */
+export type DraftRestore = { readonly id: number; readonly record: DraftRecord };
 
 /**
  * What the board page tells a booted view: the board state, as `board-host` last sent it with the
- * receipts since; the lock, while there is one; and the answers it holds, when it holds any. An
- * answer the board page no longer holds and the state does not show answered was dropped, and the
- * question can be answered again (AD-10).
+ * receipts since; the latest board document; the lock, while there is one; whether the connection
+ * is lost, which disables Submit; the commands it holds, and how the latest ones ended; and the
+ * draft record `board-host` restored, when the board page has none of its own (AD-20). A command
+ * the board page no longer holds that is not settled was dropped, and its question can be
+ * answered again (AD-10).
  */
 export type ViewUpdate = {
   readonly type: "state";
-  readonly state: BoardState;
+  readonly state: LifecycleBoardState;
+  readonly document?: ViewDocument;
   readonly lock?: ViewLock;
-  readonly pending?: readonly PendingAnswer[];
+  readonly connection?: "lost";
+  readonly pending?: readonly PendingAct[];
+  readonly settled?: readonly SettledAct[];
+  readonly restore?: DraftRestore;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -96,6 +185,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const ID = new RegExp(ID_PATTERN);
 const UTC_TIME = new RegExp(UTC_TIME_PATTERN);
+const ACTION_ID = new RegExp(ACTION_ID_PATTERN);
 
 /** A view message as the tool call `App.callServerTool` sends. */
 export const toolCallOf = (message: ViewMessage): ViewToolCall => {
@@ -139,20 +229,108 @@ const errorText: FieldCheck = (value) =>
     ? undefined
     : `is not a text of at most ${ITEM_ERROR_MAX_CHARS} characters`;
 
+const text =
+  (max: number): FieldCheck =>
+  (value) =>
+    typeof value === "string" && value !== "" && value.length <= max
+      ? undefined
+      : `is not a non-empty text of at most ${max} characters`;
+
+const optionNotes: FieldCheck = (value) =>
+  isRecord(value) &&
+  Object.keys(value).length > 0 &&
+  Object.entries(value).every(
+    ([label, note]) => label !== "" && text(OPTION_NOTE_MAX_CHARS)(note) === undefined,
+  )
+    ? undefined
+    : `is not an object of one or more option labels, each to a note of at most ${OPTION_NOTE_MAX_CHARS} characters`;
+
+const oneOf =
+  (...values: readonly unknown[]): FieldCheck =>
+  (value) =>
+    values.includes(value)
+      ? undefined
+      : `is not one of ${values.map((v) => JSON.stringify(v)).join(", ")}`;
+
 type MessageFields = {
   readonly checks: Readonly<Record<string, FieldCheck>>;
   /** Fields a message may leave out, of which it holds one at least. */
   readonly someOf?: readonly string[];
+  /** Fields a message may leave out. */
+  readonly optional?: readonly string[];
 };
 
-// Each message type's fields; a call's arguments hold only these, and all but `someOf`'s.
-const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
-  answer: {
-    checks: { itemId, rev: revision, choice, values, when: utcTime },
-    someOf: ["choice", "values"],
+const ANSWER: MessageFields = {
+  checks: {
+    itemId,
+    rev: revision,
+    choice,
+    values,
+    other: text(OTHER_MAX_CHARS),
+    optionNotes,
+    note: text(NOTE_MAX_CHARS),
+    when: utcTime,
   },
+  someOf: ["choice", "values", "other"],
+  optional: ["optionNotes", "note"],
+};
+
+// Each act type's fields, as the board protocol's act command has them.
+const ACTS: Readonly<Record<ViewAct["type"], MessageFields>> = {
+  answer: ANSWER,
+  decline: {
+    checks: { itemId, rev: revision, note: text(NOTE_MAX_CHARS), when: utcTime },
+    optional: ["note"],
+  },
+  postpone: { checks: { itemId, rev: revision } },
+  reopen: { checks: { itemId } },
+  note: { checks: { itemId, rev: revision, note: text(NOTE_MAX_CHARS), when: utcTime } },
+  "follow-up": {
+    checks: { itemId, rev: revision, text: text(FOLLOW_UP_MAX_CHARS), when: utcTime },
+  },
+  "edit-choice": {
+    checks: { itemId, rev: revision, edit: oneOf("reload", "ignore"), keptRev: revision },
+    optional: ["keptRev"],
+  },
+};
+
+const actProblems = (act: unknown, at: string): Problem[] => {
+  const type = isRecord(act) ? act.type : undefined;
+  if (!isRecord(act) || typeof type !== "string" || !Object.hasOwn(ACTS, type)) {
+    return [{ path: at, message: "is not an act of the board protocol" }];
+  }
+  const { type: _, ...fields } = act;
+  const problems = fieldProblems(ACTS[type as ViewAct["type"]], fields, at);
+  if (type === "edit-choice" && problems.length === 0) {
+    // `keptRev` with `ignore` only, which keeps that revision (FR-6, AD-20).
+    if (fields.edit === "ignore" && !Object.hasOwn(fields, "keptRev")) {
+      return [{ path: `${at}/keptRev`, message: 'missing field "keptRev"' }];
+    }
+    if (fields.edit === "reload" && Object.hasOwn(fields, "keptRev")) {
+      return [{ path: `${at}/keptRev`, message: 'a reload keeps no revision: no "keptRev"' }];
+    }
+  }
+  return problems;
+};
+
+const acts: FieldCheck = (value) =>
+  Array.isArray(value) && value.length > 0 ? undefined : "is not a list of one or more acts";
+
+const draftRecord: FieldCheck = (value) =>
+  isRecord(value) &&
+  (value.delivery === "immediate" || value.delivery === "submitted") &&
+  isRecord(value.questions)
+    ? undefined
+    : "is not a draft record: a delivery mode and the questions' work";
+
+// Each message type's fields; a call's arguments hold only these, and all but `someOf`'s and
+// `optional`'s.
+const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
+  answer: ANSWER,
   ready: { checks: { itemId } },
   "item-error": { checks: { itemId, error: errorText } },
+  act: { checks: { acts } },
+  draft: { checks: { record: draftRecord } },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -161,34 +339,44 @@ const refused = (path: string, message: string): Checked<ViewMessage> => ({
   problems: [{ path, message }],
 });
 
+// The fields as a list in words: `"a"`, `"a" and "b"`, `"a", "b" and "c"`.
+const listed = (fields: readonly string[]): string => {
+  const quoted = fields.map((field) => `"${field}"`);
+  return quoted.length < 2
+    ? quoted.join("")
+    : `${quoted.slice(0, -1).join(", ")} and ${quoted[quoted.length - 1]}`;
+};
+
 // A message that holds none of the fields it must hold one of.
-const noneOf = (someOf: readonly string[], args: Record<string, unknown>): Problem[] =>
+const noneOf = (
+  someOf: readonly string[],
+  args: Record<string, unknown>,
+  at = "/arguments",
+): Problem[] =>
   someOf.length === 0 || someOf.some((field) => Object.hasOwn(args, field))
     ? []
-    : [
-        {
-          path: "/arguments",
-          message: `holds none of ${someOf.map((field) => `"${field}"`).join(" and ")}`,
-        },
-      ];
+    : [{ path: at, message: `holds none of ${listed(someOf)}` }];
 
-const fieldProblems = (
-  { checks, someOf = [] }: MessageFields,
+function fieldProblems(
+  { checks, someOf = [], optional = [] }: MessageFields,
   args: Record<string, unknown>,
-): Problem[] => [
-  ...Object.keys(args)
-    .filter((field) => !Object.hasOwn(checks, field))
-    .map((field) => ({ path: `/arguments/${field}`, message: `unknown field "${field}"` })),
-  ...Object.entries(checks).flatMap(([field, check]) => {
-    if (!Object.hasOwn(args, field)) {
-      if (someOf.includes(field)) return [];
-      return [{ path: `/arguments/${field}`, message: `missing field "${field}"` }];
-    }
-    const problem = check(args[field]);
-    return problem === undefined ? [] : [{ path: `/arguments/${field}`, message: problem }];
-  }),
-  ...noneOf(someOf, args),
-];
+  at = "/arguments",
+): Problem[] {
+  return [
+    ...Object.keys(args)
+      .filter((field) => !Object.hasOwn(checks, field))
+      .map((field) => ({ path: `${at}/${field}`, message: `unknown field "${field}"` })),
+    ...Object.entries(checks).flatMap(([field, check]) => {
+      if (!Object.hasOwn(args, field)) {
+        if (someOf.includes(field) || optional.includes(field)) return [];
+        return [{ path: `${at}/${field}`, message: `missing field "${field}"` }];
+      }
+      const problem = check(args[field]);
+      return problem === undefined ? [] : [{ path: `${at}/${field}`, message: problem }];
+    }),
+    ...noneOf(someOf, args, at),
+  ];
+}
 
 /** A tool call from the view, read as a view message; anything else is refused, saying why. */
 export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
@@ -202,6 +390,13 @@ export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
   const args = isRecord(params) ? params.arguments : undefined;
   if (!isRecord(args)) return refused("/arguments", "a view message's arguments are an object");
   const problems = fieldProblems(FIELDS[type as ViewMessage["type"]], args);
+  if (problems.length === 0 && type === "act") {
+    problems.push(
+      ...(args.acts as unknown[]).flatMap((act, index) =>
+        actProblems(act, `/arguments/acts/${index}`),
+      ),
+    );
+  }
   if (problems.length > 0) return { ok: false, reason: "schema", problems };
   return { ok: true, value: { type, ...args } as ViewMessage };
 };
@@ -217,6 +412,17 @@ export const readAnswerReply = (content: unknown): AnswerReply | undefined => {
   return undefined;
 };
 
+/** The board page's reply to an answer or an act command, with the action ID it gave it. */
+export const readActReply = (content: unknown): ActReply | undefined => {
+  if (!isRecord(content)) return undefined;
+  const { outcome, actionId, detail } = content;
+  if ((outcome === "sent" || outcome === "queued") && typeof actionId === "string") {
+    return ACTION_ID.test(actionId) ? { outcome, actionId } : undefined;
+  }
+  if (outcome === "refused" && typeof detail === "string") return { outcome, detail };
+  return undefined;
+};
+
 /** The tool result that carries an update to the view. */
 export const viewUpdateResult = (
   update: ViewUpdate,
@@ -225,38 +431,64 @@ export const viewUpdateResult = (
   structuredContent: { ...update },
 });
 
-// The board page checked the state against the board protocol before it sent it on; the view
-// checks only that it can render from it.
-const isBoardState = (value: unknown): value is BoardState =>
+// The board page checked the state and the document against the board protocol before it sent
+// them on; the view checks only that it can render from them.
+const isBoardState = (value: unknown): value is LifecycleBoardState =>
   isRecord(value) &&
   typeof value.ask === "string" &&
   Array.isArray(value.questions) &&
   value.questions.every(isRecord);
 
-const LOCKS: readonly unknown[] = ["discarded", "moved"] satisfies ViewLock[];
+const isDocument = (value: unknown): value is ViewDocument =>
+  isRecord(value) && Array.isArray(value.items) && value.items.every(isRecord);
 
-const isPendingAnswer = (value: unknown): value is PendingAnswer =>
+const LOCKS: readonly unknown[] = ["discarded", "moved", "closed"] satisfies ViewLock[];
+
+const isActionId = (value: unknown): value is string =>
+  typeof value === "string" && ACTION_ID.test(value);
+
+const isPendingAct = (value: unknown): value is PendingAct =>
   isRecord(value) &&
-  itemId(value.itemId) === undefined &&
-  Array.isArray(value.choice) &&
-  value.choice.every((label) => typeof label === "string") &&
-  typeof value.when === "string" &&
+  isActionId(value.actionId) &&
   (value.outcome === "sent" || value.outcome === "queued");
+
+const isSettledAct = (value: unknown): value is SettledAct =>
+  isRecord(value) &&
+  isActionId(value.actionId) &&
+  (value.outcome === "done" || value.outcome === "refused" || value.outcome === "dropped");
+
+const isRestore = (value: unknown): value is DraftRestore =>
+  isRecord(value) &&
+  Number.isInteger(value.id) &&
+  (value.id as number) >= 1 &&
+  draftRecord(value.record) === undefined;
+
+const listOf =
+  <T>(is: (value: unknown) => value is T) =>
+  (value: unknown): value is readonly T[] =>
+    Array.isArray(value) && value.every(is);
+
+// Each optional field of an update, with its check.
+const UPDATE_FIELDS: Readonly<Record<string, (value: unknown) => boolean>> = {
+  document: isDocument,
+  lock: (value) => LOCKS.includes(value),
+  connection: (value) => value === "lost",
+  pending: listOf(isPendingAct),
+  settled: listOf(isSettledAct),
+  restore: isRestore,
+};
 
 /** A tool result's structured content, read as an update; undefined for anything else. */
 export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
   if (!isRecord(content) || content.type !== "state" || !isBoardState(content.state)) {
     return undefined;
   }
-  const { lock, pending } = content;
-  if (lock !== undefined && !LOCKS.includes(lock)) return undefined;
-  if (pending !== undefined && !(Array.isArray(pending) && pending.every(isPendingAnswer))) {
-    return undefined;
+  const update: Record<string, unknown> = { type: "state", state: content.state };
+  for (const [field, check] of Object.entries(UPDATE_FIELDS)) {
+    const value = content[field];
+    if (value === undefined) continue;
+    if (!check(value)) return undefined;
+    update[field] = value;
   }
-  return {
-    type: "state",
-    state: content.state,
-    ...(lock === undefined ? {} : { lock: lock as ViewLock }),
-    ...(pending === undefined ? {} : { pending }),
-  };
+  return update as ViewUpdate;
 };

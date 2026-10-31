@@ -141,6 +141,18 @@ class ProcessSession implements BoardSession {
     life.cursor = collected.cursor;
   }
 
+  async collect(): Promise<{ state: string; events: readonly Record<string, unknown>[] }> {
+    const life = this.#current;
+    const collected = await life.agent.collect(life.link.askId, life.cursor);
+    life.cursor = collected.cursor;
+    return { state: collected.state, events: collected.events };
+  }
+
+  update(actions: readonly unknown[]): Promise<unknown> {
+    const life = this.#current;
+    return life.agent.update(life.link.askId, actions);
+  }
+
   async exit(): Promise<void> {
     const exit = await this.#endThroughInput(this.#current);
     if (exit === undefined) {
@@ -310,10 +322,10 @@ const startFirst = async (
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
 export const startSessionProcess = async (
-  { transcript, view }: Scenario,
+  { transcript, view, ask }: Scenario,
   options: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
-  const input = await askInputFor(transcript, options.approvedAsk);
+  const input = ask ?? (await askInputFor(transcript, options.approvedAsk));
   const runtime = options.runtime ?? runtimeFrom(process.env.ASKBOARD_E2E_RUNTIME);
   const stage = await stageSession(view, options.bundle);
   const dir = await mkdtemp(join(tmpdir(), "askboard-e2e-links-"));
@@ -329,7 +341,7 @@ export const startSessionProcess = async (
     env: { ...getDefaultEnvironment(), BROWSER: LINK_RECORDER, [LINKS_VARIABLE]: linksFile },
     linksFile,
     input,
-    askId: transcript.askId,
+    askId: input.askId,
     openTimeoutMs: options.openTimeoutMs ?? OPEN_TIMEOUT_MS,
     problems,
   };

@@ -3,6 +3,7 @@ import { BOARD_CLOSE_CODES } from "@askboard/contract";
 import {
   type BoardStatus,
   bannerOf,
+  connectionOf,
   INITIAL_STATUS,
   lockOf,
   nextStatus,
@@ -109,7 +110,56 @@ describe("the board banners (EXPERIENCE.md, Board banner)", () => {
       variant: "discarded",
       text: "This ask was discarded. The board is read-only.",
       detail: "Your unsent work was not sent",
+      action: "Copy my unsent work",
       takesFocus: true,
     });
+  });
+});
+
+describe("a closed ask (ask-lifecycle: FR-6, Board banner, Closed)", () => {
+  const closedAsk: BoardStatus = { kind: "closed" };
+
+  test("the closed message, or a state of a closed ask, closes the board, live or not", () => {
+    for (const status of [INITIAL_STATUS, live, retrying]) {
+      expect(nextStatus(status, { type: "ask-closed" })).toEqual(closedAsk);
+    }
+  });
+
+  test("a closed board stays closed through drops and reconnects, and locks the view", () => {
+    for (const event of [closed(1006), closed(1013), { type: "accepted" } as const]) {
+      expect(nextStatus(closedAsk, event)).toBe(closedAsk);
+    }
+    expect(lockOf(closedAsk)).toBe("closed");
+  });
+
+  test("a closed ask can still be discarded, or its board taken by another tab", () => {
+    expect(nextStatus(closedAsk, { type: "discarded" })).toEqual(discarded);
+    expect(nextStatus(closedAsk, closed(BOARD_CLOSE_CODES.discarded))).toEqual(discarded);
+    expect(nextStatus(closedAsk, { type: "moved" })).toEqual(moved);
+    expect(nextStatus(discarded, { type: "ask-closed" })).toBe(discarded);
+    expect(nextStatus(moved, { type: "ask-closed" })).toBe(moved);
+  });
+
+  test("the Closed banner takes the focus; with unsent work it says so and offers the copy", () => {
+    expect(bannerOf(closedAsk)).toEqual({
+      variant: "closed",
+      text: "This ask was closed. The board is read-only.",
+      takesFocus: true,
+    });
+    expect(bannerOf(closedAsk, true)).toEqual({
+      variant: "closed",
+      text: "This ask was closed. The board is read-only.",
+      detail: "Your unsent work was not sent",
+      action: "Copy my unsent work",
+      takesFocus: true,
+    });
+  });
+
+  test("whether the connection is lost, as the view hears it to disable Submit", () => {
+    expect(connectionOf(retrying)).toBe("lost");
+    expect(connectionOf(INITIAL_STATUS)).toBe("lost");
+    for (const status of [live, moved, discarded, closedAsk]) {
+      expect(connectionOf(status)).toBeUndefined();
+    }
   });
 });

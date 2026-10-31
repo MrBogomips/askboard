@@ -3,11 +3,14 @@
 // is ready, and an error boundary, which turns an item that throws into an error state and
 // reports it, so that its question never counts as visible (AD-9, AD-10). Components read their
 // value from the draft record and write it back, of whatever type their item's is (design decision
-// 7); the renderer holds no other state.
+// 7); the renderer holds no other state. Since the ask lifecycle, a component may also get
+// `extras` beside the port's props: the Choice atom's "Other…" text and option notes, which the
+// lifecycle draft keeps (ask-lifecycle, design decision 6), and the shell may run a step before
+// each value goes into the draft record, such as the start of a revision (task 6.7).
 
 import { Component, type ReactNode, useCallback, useSyncExternalStore } from "react";
 import type { Rendered } from "../catalog/components.ts";
-import { type CatalogComponent, componentFor } from "../catalog/port.ts";
+import { type CatalogComponent, componentFor, type ItemProps } from "../catalog/port.ts";
 import type { DraftStore } from "./draft-store.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 
@@ -88,7 +91,14 @@ type RenderItemProps = Rendered & {
   readonly disabled: boolean;
   /** What the item shows in place of its draft value, such as the answer the log holds. */
   readonly shown?: unknown;
+  /** What the shell hands the component beside the port's props, such as Choice's extras. */
+  readonly extras?: unknown;
+  /** Runs before each value the component puts back, such as the start of a revision. */
+  readonly onBeforeChange?: () => void;
 };
+
+// A component as the renderer calls it: the port's props, and the extras the shell has for it.
+type Rendering = (props: ItemProps & { readonly extras?: unknown }) => ReactNode;
 
 /** One item through the port, in its frame and its error boundary. */
 export const RenderItem = ({
@@ -98,15 +108,23 @@ export const RenderItem = ({
   context,
   disabled,
   shown,
+  extras,
+  onBeforeChange,
 }: RenderItemProps) => {
   const { draft, tracker } = context;
   const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(item.id));
-  const onValueChange = useCallback((next: unknown) => draft.set(item.id, next), [draft, item.id]);
+  const onValueChange = useCallback(
+    (next: unknown) => {
+      onBeforeChange?.();
+      draft.set(item.id, next);
+    },
+    [draft, item.id, onBeforeChange],
+  );
   const onError = useCallback(
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
     [tracker, item.id],
   );
-  const Item = componentFor(component) ?? Unregistered;
+  const Item = (componentFor(component) ?? Unregistered) as Rendering;
   return (
     <ItemFrame itemId={item.id} tracker={tracker}>
       <ItemErrorBoundary onError={onError}>
@@ -117,6 +135,7 @@ export const RenderItem = ({
           onValueChange={onValueChange}
           disabled={disabled}
           ready={tracker.readyFor(item.id)}
+          {...(extras === undefined ? {} : { extras })}
         />
       </ItemErrorBoundary>
     </ItemFrame>

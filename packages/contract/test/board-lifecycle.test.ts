@@ -258,6 +258,21 @@ describe("the draft record", () => {
     expect(validateAgainst(SCHEMA_IDS.draftRecord, lifecycleDraftRecord).ok).toBe(true);
   });
 
+  // Submitted delivery holds a lone note and the undo of a sent postpone or decline until Submit
+  // (AD-20; ask-lifecycle, task 6.6): their kinds are appended to the held act's enum.
+  test.each(["answer", "decline", "postpone", "note", "reopen"])(
+    "a held %s validates in both directions",
+    (act) => {
+      const record = {
+        ...lifecycleDraftRecord,
+        questions: { payment: { rev: 1, note: "Later.", held: { act, order: 0 } } },
+      };
+      for (const direction of ["toHost", "toPage"] as const) {
+        expect(validateBoardMessage(direction, { ...draft, record }).ok).toBe(true);
+      }
+    },
+  );
+
   test("an oversized record is refused as a schema error, at the record", () => {
     const long = "x".repeat(DRAFT_RECORD_MAX_CHARS);
     const record = {
@@ -298,7 +313,7 @@ describe("the draft record", () => {
     ],
     [
       "a held act the board cannot hold",
-      { questions: { payment: { rev: 1, held: { act: "note", order: 1 } } } },
+      { questions: { payment: { rev: 1, held: { act: "follow-up", order: 1 } } } },
       "/record/questions/payment/held/act",
     ],
     ["a delivery mode it does not define", { delivery: "later" }, "/record/delivery"],

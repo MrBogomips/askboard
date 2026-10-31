@@ -22,6 +22,12 @@ export type Scenario = {
    * session process serves from a copy of its bundle beside it.
    */
   readonly view: ViewBuild;
+  /**
+   * An ask of the lifecycle (ask-lifecycle), sent as it is: its scenarios need ask-core's own
+   * behaviour, which no transcript records, so they run on the session process whatever the
+   * target, and the transcript only names the ask.
+   */
+  readonly ask?: { readonly askId: string } & Readonly<Record<string, unknown>>;
 };
 
 export type BoardSession = {
@@ -29,6 +35,13 @@ export type BoardSession = {
   readonly link: string;
   /** The agent's `collect` returns the answer, so the board is told it was delivered. */
   collected(): Promise<void>;
+  /** The agent's `collect` after the last cursor: every new event, with the ask's state. */
+  collect(): Promise<{
+    readonly state: string;
+    readonly events: readonly Record<string, unknown>[];
+  }>;
+  /** The agent's `update` of the ask with these actions: its result. */
+  update(actions: readonly unknown[]): Promise<unknown>;
   /** The session process exits with the board open; every open ask is discarded. */
   exit(): Promise<void>;
   /** The board's connection drops with no close frame; the network stays down until `restore`. */
@@ -51,4 +64,6 @@ const TARGET = targetFrom(process.env.ASKBOARD_E2E_TARGET);
 
 /** The session side the browser tests use: the target the environment names. */
 export const startSession: StartSession = (scenario) =>
-  TARGET === "session-process" ? startSessionProcess(scenario) : startTestServer(scenario);
+  TARGET === "session-process" || scenario.ask !== undefined
+    ? startSessionProcess(scenario)
+    : startTestServer(scenario);

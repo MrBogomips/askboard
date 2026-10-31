@@ -1,15 +1,21 @@
 // What a question card shows (EXPERIENCE.md, Question card, Answer and Delivery receipt): from the
 // question's status in the board state, its draft answer (the choice, and the value of each widget
-// item the user changed, design decision 7), the answer the user has just sent, if any, the answer
-// the board page holds for it, whether its items have loaded, and whether the board page locked
-// the board. The board state wins: once it says answered, the card shows the logged answer with
-// its receipt, read-only (FR-22); then what the board page holds; then the act until the board
-// page has replied to it. Nothing can be chosen or answered before the question is visible, once
-// one of its items failed (AD-9, AD-10), or on a board that moved or was discarded (AD-21).
+// item the user changed, design decision 7; since the ask lifecycle also the "Other…" text, the
+// option notes and the open prompt's note), the command the user has just sent touching it, if
+// any, whether its items have loaded, whether the board page locked the board, and whether its
+// answer is ready for Submit. A command on its way shows what it sent, read-only, with its receipt,
+// until the board page settles it. An answered or declined question shows its latest answer with
+// that answer's receipt, and stays editable while the ask is open: once the user edits it, the card
+// shows the draft as a revision, which "Answer" sends as the delivery mode says (ask-lifecycle,
+// task 6.7; FR-22). Nothing can be chosen or answered before the question is visible, once one of
+// its items failed (AD-9, AD-10), on a board that moved, was discarded or closed (AD-21, FR-6), and
+// nothing answered while an agent-change notice waits for the user's choice. Postpone, Decline and
+// Explain follow `cardActions` (task 6.5; FR-4, FR-10).
 
-import type { BoardState, QuestionStatus } from "@askboard/contract";
+import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import type { ViewQuestion } from "../view-document.ts";
-import type { AnswerContent, PendingAnswer, ViewAnswer } from "../view-protocol.ts";
+import type { AnswerContent, ViewAnswer, ViewLock } from "../view-protocol.ts";
+import type { Flight } from "./answer-acts.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import type { QuestionStatus as Load } from "./ready-tracker.ts";
 
@@ -22,20 +28,31 @@ const RECEIPTS = {
   delivered: "delivered to the agent",
 } as const;
 
-/** The answer the user sent from this card, until the board state shows it logged. */
-export type Act = AnswerContent & {
-  readonly when: string;
-  /** Set once the board page has replied: sent, or queued until the board reconnects. */
-  readonly outcome?: "sent" | "queued";
+export type CardInputs = {
+  readonly status: LifecycleQuestionStatus | undefined;
+  readonly draft: AnswerContent;
+  /** The latest command the user sent that holds an act on the question, until it settles. */
+  readonly flight?: Flight | undefined;
+  readonly load: Load;
+  readonly lock?: ViewLock | undefined;
+  /** In submitted delivery, the answer is marked ready for Submit. */
+  readonly ready: boolean;
+  /** The user has edited an answered or declined question: the draft is a revision. */
+  readonly editing?: boolean;
+  /** An agent-change notice waits for the user's choice (FR-6). */
+  readonly pending?: boolean;
 };
 
 export type CardState = {
-  readonly phase: "open" | "sending" | "answered";
-  /** What the card's items show in place of their draft values: an answer's content. */
+  readonly phase: "open" | "sending" | "answered" | "declined";
+  /** What the card's items and fields show in place of the draft: an answer's content. */
   readonly shown?: AnswerContent;
   readonly receipt?: ReceiptText;
   readonly readOnly: boolean;
   readonly canAnswer: boolean;
+  /** "Answer" would send the open prompt's note alone, leaving the question open (FR-7). */
+  readonly noteOnly: boolean;
+  readonly ready: boolean;
 };
 
 /** The question's choice: the option labels Choice put in the draft record, none while unset. */
@@ -73,57 +90,129 @@ export const shownFor = (
   return values !== undefined && Object.hasOwn(values, itemId) ? values[itemId] : undefined;
 };
 
-export const statusOf = (state: BoardState, itemId: string): QuestionStatus | undefined =>
+export const statusOf = (
+  state: LifecycleBoardState,
+  itemId: string,
+): LifecycleQuestionStatus | undefined =>
   state.questions.find((question) => question.itemId === itemId);
 
-export const cardState = (
-  status: QuestionStatus | undefined,
-  draft: AnswerContent,
-  act: Act | undefined,
-  load: Load,
-  locked = false,
-  held?: PendingAnswer,
-): CardState => {
-  if (status?.state === "answered") {
-    const { choice, receipt } = status.answer;
-    return {
-      phase: "answered",
-      shown: { choice },
-      receipt: RECEIPTS[receipt],
-      readOnly: true,
-      canAnswer: false,
-    };
-  }
-  if (held !== undefined) {
-    return {
-      phase: "sending",
-      shown: { choice: held.choice },
-      receipt: RECEIPTS[held.outcome],
-      readOnly: true,
-      canAnswer: false,
-    };
-  }
-  if (act !== undefined) {
+const closed = { canAnswer: false, noteOnly: false, readOnly: true } as const;
+
+// The flight's answer for this question, as its items show it while it is sent.
+const sentAnswer = (flight: Flight, questionId: string): AnswerContent | undefined => {
+  const act = flight.acts.find((each) => each.itemId === questionId && each.type === "answer");
+  return act?.type === "answer" ? contentOf(act) : undefined;
+};
+
+export const cardState = ({
+  status,
+  draft,
+  flight,
+  load,
+  lock,
+  ready,
+  editing = false,
+  pending = false,
+}: CardInputs): CardState => {
+  const logged = status?.state === "answered" || status?.state === "declined" ? status : undefined;
+  if (flight !== undefined) {
+    const shown = sentAnswer(flight, status?.itemId ?? "");
     return {
       phase: "sending",
-      shown: contentOf(act),
-      ...(act.outcome === undefined ? {} : { receipt: RECEIPTS[act.outcome] }),
-      readOnly: true,
-      canAnswer: false,
+      ...(shown === undefined ? {} : { shown }),
+      ...(flight.outcome === undefined ? {} : { receipt: RECEIPTS[flight.outcome] }),
+      ...closed,
+      ready: false,
     };
   }
-  const answerable = status?.state === "open" && load === "visible" && !locked;
-  const content = draft.choice !== undefined || draft.values !== undefined;
-  return { phase: "open", readOnly: !answerable, canAnswer: answerable && content };
+  const answerable = status !== undefined && load === "visible" && lock === undefined;
+  const receipt = logged === undefined ? {} : { receipt: RECEIPTS[logged.answer.receipt] };
+  if (logged !== undefined && !editing) {
+    return {
+      phase: logged.state,
+      shown: contentOf(logged.answer),
+      ...receipt,
+      readOnly: !answerable,
+      canAnswer: false,
+      noteOnly: false,
+      ready: false,
+    };
+  }
+  const answers =
+    draft.choice !== undefined || draft.values !== undefined || draft.other !== undefined;
+  // A note alone goes on an open or postponed question; on an answered one it is no revision.
+  const noted = draft.note !== undefined && logged === undefined;
+  return {
+    phase: "open",
+    ...receipt,
+    readOnly: !answerable,
+    canAnswer: answerable && !pending && (answers || noted),
+    noteOnly: !answers && noted,
+    ready,
+  };
+};
+
+/** What Postpone, Decline and Explain read (EXPERIENCE.md, Postpone, Decline and Explain). */
+export type ActionInputs = {
+  readonly status: LifecycleQuestionStatus | undefined;
+  /** The act held for Submit on the question, if any. */
+  readonly held: HeldAct["act"] | undefined;
+  /** A command of the card's acts is on its way. */
+  readonly sending: boolean;
+  readonly load: Load;
+  readonly lock?: ViewLock | undefined;
+  /** An agent-change notice waits for the user's choice. */
+  readonly pending: boolean;
+  /** An Explain follow-up waits for its reply. */
+  readonly explaining: boolean;
+};
+
+export type CardActions = {
+  /** Postpone shows pressed: the question is postponed, or a postpone is held, and no undo. */
+  readonly postponed: boolean;
+  readonly canPostpone: boolean;
+  /** Decline shows chosen: the question is declined, or a decline is held, and no undo. */
+  readonly declined: boolean;
+  readonly canDecline: boolean;
+  readonly canExplain: boolean;
+};
+
+/**
+ * Postpone and Decline undo when pressed again; Postpone is disabled on an answered, declined or
+ * ready question, Decline on an answered or ready one (FR-4, F-37); neither acts while the card's
+ * command is on its way or a notice waits. Explain is disabled until its reply arrives (F-103).
+ */
+export const cardActions = (inputs: ActionInputs): CardActions => {
+  const { status, held, sending, load, lock, pending, explaining } = inputs;
+  const state = status?.state;
+  const usable = status !== undefined && load === "visible" && lock === undefined;
+  const free = usable && !sending && !pending;
+  const ready = held === "answer" || held === "decline";
+  return {
+    postponed: (state === "postponed" && held !== "reopen") || held === "postpone",
+    canPostpone: free && state !== "answered" && state !== "declined" && !ready,
+    declined: (state === "declined" && held !== "reopen") || held === "decline",
+    canDecline: free && state !== "answered" && held !== "answer",
+    canExplain: usable && !explaining,
+  };
 };
 
 /**
  * An answer's content alone, with the choice copied: the fields it has, never one set to
  * undefined, since the view protocol refuses a field that is present and not valid.
  */
-export const contentOf = ({ choice, values }: AnswerContent): AnswerContent => ({
+export const contentOf = ({
+  choice,
+  values,
+  other,
+  optionNotes,
+  note,
+}: AnswerContent): AnswerContent => ({
   ...(choice === undefined ? {} : { choice: [...choice] }),
   ...(values === undefined ? {} : { values }),
+  ...(other === undefined ? {} : { other }),
+  ...(optionNotes === undefined ? {} : { optionNotes: { ...optionNotes } }),
+  ...(note === undefined ? {} : { note }),
 });
 
 /** The answer view message for the draft's answer, stamped with the time of the act. */

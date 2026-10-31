@@ -69,7 +69,8 @@ describe("bun run build:view (design decision 7)", () => {
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
     expect(manifest.chunks.tree?.components).toEqual(["tree"]);
-    expect(manifest.chunks.shell?.needs).toEqual(["ext-apps", "react"]);
+    // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2).
+    expect(manifest.chunks.shell?.needs).toEqual(["ext-apps", "radix", "react"]);
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
     expect(manifest.chunks.tree?.needs).toEqual(["react", "shell"]);
     expect(manifest.chunks.radix?.needs).toEqual(["react"]);

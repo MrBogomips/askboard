@@ -79,7 +79,7 @@ export const collectedAskOf = (json: unknown, askId: string): CollectedAsk => {
   return { ...fields, events: entry.events as CollectedEvent[] };
 };
 
-/** An MCP client connected to a session process, calling its two tools. */
+/** An MCP client connected to a session process, calling its tools. */
 export class Agent {
   readonly #client: Client;
 
@@ -97,6 +97,12 @@ export class Agent {
   async ask(input: Readonly<Record<string, unknown>>): Promise<AskResult> {
     const result = await this.#client.callTool({ name: "ask", arguments: { ...input } });
     return askResultOf(toolJson("ask", result));
+  }
+
+  /** The agent's `update` (ask-lifecycle): its result's JSON, or a failure quoting the error. */
+  async update(askId: string, actions: readonly unknown[]): Promise<unknown> {
+    const result = await this.#client.callTool({ name: "update", arguments: { askId, actions } });
+    return toolJson("update", result);
   }
 
   async collect(askId: string, after: string): Promise<CollectedAsk> {

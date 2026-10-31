@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:draft-record",
   "title": "Draft record",
-  "description": "The board's unsent work (AD-20), held apart from the log and never sent to the agent: the delivery mode, the question in view, and per question, by its item ID, the revision the work was made on, the values of its items by item ID as the view holds them, the \"Other…\" text, the option notes, the open prompt's text (note), the follow-up composer's text, and any act held for Submit with its order and whether \"Select recommended\" made it. Its keys are checked as IDs here, and as own properties naming the ask's questions where the board document is known (draftRecordProblems). A record longer than the contract's draft limit, as JSON, is refused.",
+  "description": "The board's unsent work (AD-20), held apart from the log and never sent to the agent: the delivery mode, the question in view, and per question, by its item ID, the revision the work was made on, the values of its items by item ID as the view holds them, the \"Other…\" text, the option notes, the open prompt's text (note), the follow-up composer's text, and any act held for Submit (an answer, a decline, a postpone, a note alone, or the undo of a sent postpone or decline as reopen) with its order and whether \"Select recommended\" made it. Its keys are checked as IDs here, and as own properties naming the ask's questions where the board document is known (draftRecordProblems). A record longer than the contract's draft limit, as JSON, is refused.",
   "type": "object",
   "properties": {
     "delivery": {
@@ -65,7 +65,7 @@
           "type": "object",
           "properties": {
             "act": {
-              "enum": ["answer", "decline", "postpone"]
+              "enum": ["answer", "decline", "postpone", "note", "reopen"]
             },
             "order": {
               "type": "integer",

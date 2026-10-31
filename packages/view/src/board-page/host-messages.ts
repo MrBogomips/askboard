@@ -2,7 +2,11 @@
 // parsed, the version checked first, then the message's own `type` picks its schema, as the
 // contract's `validateBoardMessage` does on the other side. A message that fails is never acted on.
 
-import { BOARD_PROTOCOL_VERSION, type HostMessage, unsupportedVersion } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_VERSION,
+  type LifecycleHostMessage,
+  unsupportedVersion,
+} from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
 import type { ErrorObject } from "ajv";
 import { hostMessageSchemas } from "./validators.ts";
@@ -10,7 +14,7 @@ import { hostMessageSchemas } from "./validators.ts";
 // The set as `unsupportedVersion` names it; the set itself would bring its schemas into the page.
 const BOARD_PROTOCOL = { title: "board protocol", version: BOARD_PROTOCOL_VERSION };
 
-const refused = (path: string, message: string): Checked<HostMessage> => ({
+const refused = (path: string, message: string): Checked<LifecycleHostMessage> => ({
   ok: false,
   reason: "schema",
   problems: [{ path, message }],
@@ -42,7 +46,7 @@ const parsed = (data: unknown): { ok: true; value: unknown } | { ok: false } => 
 };
 
 /** A WebSocket message from `board-host`, checked against the board protocol. */
-export const readHostMessage = (data: unknown): Checked<HostMessage> => {
+export const readHostMessage = (data: unknown): Checked<LifecycleHostMessage> => {
   const text = parsed(data);
   if (!text.ok) return refused("/", "a board-protocol message is JSON text");
   const value = text.value;
@@ -57,6 +61,6 @@ export const readHostMessage = (data: unknown): Checked<HostMessage> => {
     return refused("/type", `${JSON.stringify(type ?? null)} is not a message board-host sends`);
   }
   const check = hostMessageSchemas[type as keyof typeof hostMessageSchemas];
-  if (check(value)) return { ok: true, value: value as HostMessage };
+  if (check(value)) return { ok: true, value: value as LifecycleHostMessage };
   return { ok: false, reason: "schema", problems: (check.errors ?? []).map(problemOf) };
 };

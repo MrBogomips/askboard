@@ -2,7 +2,7 @@
 // data block, what the block holds, the binding the page reports each view message through, and
 // the function a test sends the view a later update through.
 
-import type { BoardState } from "@askboard/contract";
+import type { LifecycleBoardState } from "@askboard/contract";
 
 /** The id of the `<script type="application/json">` element the host page reads. */
 export const WIDGET_HOST_DATA_ID = "askboard-widget-host";
@@ -17,5 +17,5 @@ export type WidgetHostData = {
   /** The view's srcdoc, assembled from the build for the test's board document. */
   readonly srcdoc: string;
   /** The board state the host sends the view once, with the question open. */
-  readonly state: BoardState;
+  readonly state: LifecycleBoardState;
 };

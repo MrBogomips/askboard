@@ -245,9 +245,12 @@ export type ActCommand = {
   readonly acts: readonly [Act, ...Act[]];
 };
 
-/** An act held for Submit, in the order the user made it ready. */
+/**
+ * An act held for Submit, in the order the user made it ready: an answer, a decline, a postpone, a
+ * note alone, or the undo of a sent postpone or decline (`reopen`).
+ */
 export type HeldAct = {
-  readonly act: "answer" | "decline" | "postpone";
+  readonly act: "answer" | "decline" | "postpone" | "note" | "reopen";
   readonly order: number;
   /** Made by "Select recommended". */
   readonly byRecommended?: true;
