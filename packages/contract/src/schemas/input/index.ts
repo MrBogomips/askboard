@@ -47,9 +47,9 @@ export type QuestionItem = {
 };
 
 /**
- * An ask as E1's units read it: one plain question, in English. Input format 1.1 accepts several
- * questions and areas, `LifecycleAskInput`; this type keeps E1's shape until ask-core reads them
- * (ask-lifecycle, task 2.1).
+ * An ask as E1 defined it: one plain question, in English. Input format 1.1 accepts several
+ * questions and areas, `LifecycleAskInput`, which `validateAskRequest` returns and ask-core reads
+ * since ask-lifecycle's task 2.1.
  */
 export type AskInput = {
   readonly askId: string;

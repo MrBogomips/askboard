@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { AskCore } from "@askboard/core";
 import type { Transport } from "@modelcontextprotocol/server";
 import { createBoardHost } from "./board-host/index.ts";
+import { systemClock } from "./clock.ts";
 import { systemIdentity } from "./identity.ts";
 import {
   failure,
@@ -59,6 +60,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     }),
     randomness: { bytes: (count) => randomBytes(count) },
     report: reportAs("ask-core failed"),
+    clock: systemClock,
   });
   return serveSession({
     deps: { core, timers: systemTimers, diagnostics },

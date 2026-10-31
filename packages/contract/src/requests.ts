@@ -35,7 +35,7 @@ import {
   schemaProblem,
   type Wording,
 } from "./problems.ts";
-import type { AskInput } from "./schemas/input/index.ts";
+import type { LifecycleAskInput } from "./schemas/input/index.ts";
 import type { CollectRequest, ToolDefinition } from "./schemas/tool-envelopes/index.ts";
 import { SCHEMA_IDS } from "./sets.ts";
 
@@ -93,10 +93,10 @@ const ASK: Wording = {
 /**
  * Validates an `ask` request against the input format: the schema, then, over every item, the
  * checks it cannot express. The input format refines the `ask` tool's generic schema, so a request
- * it accepts passes that schema too. Typed as E1's `AskInput` until ask-core reads input format
- * 1.1: an ask that passes is a `LifecycleAskInput` (ask-lifecycle, task 2.1).
+ * it accepts passes that schema too. An ask that passes is input format 1.1's, which ask-core reads
+ * since ask-lifecycle's task 2.1.
  */
-export const validateAskRequest = (value: unknown): CheckedRequest<AskInput> => {
+export const validateAskRequest = (value: unknown): CheckedRequest<LifecycleAskInput> => {
   const items = itemsOf(value);
   const placed = placedItems(items, ["items"]);
   // An area inside an area is named once, as an area, not as the question the schema expects.
@@ -117,7 +117,7 @@ export const validateAskRequest = (value: unknown): CheckedRequest<AskInput> => 
     ...reservedPrefixProblems(ASK, value, [askId, ...placedIds(placed)]),
     ...labelProblems(ASK, value, placed),
   ];
-  if (problems.length === 0) return { ok: true, value: value as AskInput };
+  if (problems.length === 0) return { ok: true, value: value as LifecycleAskInput };
   return { ok: false, reason: "schema", problems: inDocumentOrder(value, problems) };
 };
 

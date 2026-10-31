@@ -9,7 +9,7 @@ import {
   type SessionProcess,
   serveSession,
 } from "../../src/mcp-tools/index.ts";
-import { ASK_ID, jsonOf, LINK, manualTimers } from "./helpers.ts";
+import { ASK_ID, jsonOf, LINK, manualTimers, runtimeClock } from "./helpers.ts";
 
 // MCP adapter spec: No side effect before the first request; Exit (design decision 4, task 5.5).
 
@@ -45,6 +45,7 @@ const recordingPorts = () => {
       loginName: async () => "paola",
     },
     report: (error) => calls.push(`report ${String(error)}`),
+    clock: runtimeClock,
   };
   return { ports, calls };
 };

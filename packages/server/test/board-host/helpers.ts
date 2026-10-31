@@ -8,13 +8,23 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BOARD_HOST } from "@askboard/contract";
 import { fixtureViewFiles, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { AskCore } from "@askboard/core";
+import { AskCore, type Clock } from "@askboard/core";
 import WebSocket from "ws";
 import { type BoardHost, createBoardHost } from "../../src/board-host/index.ts";
 
 const folders: string[] = [];
 
 /** Writes a view build's files to a new temporary folder and returns the folder. */
+
+// ask-core's Clock port over the runtime's timers, as the session entry point gives it.
+export const runtimeClock: Clock = {
+  now: () => Date.now(),
+  after: (ms, run) => {
+    const timer = setTimeout(run, ms);
+    return () => clearTimeout(timer);
+  },
+};
+
 export const writeView = (files: Readonly<Record<string, string>> = fixtureViewFiles): string => {
   const folder = mkdtempSync(join(tmpdir(), "askboard-view-"));
   folders.push(folder);
@@ -117,6 +127,7 @@ export const startHost = (
     identity: { gitUserName: async () => "Paola Greco", loginName: async () => "paola" },
     randomness: { bytes: (count) => crypto.getRandomValues(new Uint8Array(count)) },
     report: (error) => reported.push(error),
+    clock: runtimeClock,
   });
   core = created;
   return {

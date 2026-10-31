@@ -182,7 +182,7 @@ export class Boards {
     this.#guard(() => {
       if (event.type === "appended") this.#sendState(connection);
       else if (event.type === "received") this.#sendReceipts(connection);
-      else this.#discard(connection);
+      else if (event.type === "discarded") this.#discard(connection);
     });
   }
 

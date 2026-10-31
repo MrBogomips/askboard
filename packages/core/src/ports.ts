@@ -58,10 +58,24 @@ export type Randomness = {
 /** Where ask-core reports a failure it cannot hand to a caller, such as a listener that threw. */
 export type Report = (error: unknown) => void;
 
+/**
+ * The session process's clock (ask-lifecycle, design decision 3): the core's time, which the
+ * answers the agent records and its replies carry (FR-19), and the grace timer (AD-21). The session
+ * entry point implements it with `Date` and `setTimeout`, so ask-core stays runtime-neutral (AD-1).
+ */
+export type Clock = {
+  /** Milliseconds since the Unix epoch. */
+  now(): number;
+  /** Runs `run` once after `ms` milliseconds; the returned function cancels it. */
+  after(ms: number, run: () => void): () => void;
+};
+
 export type CorePorts = {
   readonly address: BoardAddress;
   readonly showing: BoardShowing;
   readonly identity: Identity;
   readonly randomness: Randomness;
   readonly report: Report;
+  /** The core's time and the grace timer (ask-lifecycle). */
+  readonly clock: Clock;
 };

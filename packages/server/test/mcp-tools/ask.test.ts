@@ -3,7 +3,17 @@ import { ERROR_TEXT_MAX_CHARS, RESULT_VERSIONS, SCHEMA_IDS } from "@askboard/con
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { type RequestProblem, validateAgainst } from "@askboard/contract/validate";
 import { AskCore, BoardSetupError } from "@askboard/core";
-import { ASK_ID, connect, depsWith, EPOCH, fakeCore, jsonOf, LINK, textOf } from "./helpers.ts";
+import {
+  ASK_ID,
+  connect,
+  depsWith,
+  EPOCH,
+  fakeCore,
+  jsonOf,
+  LINK,
+  runtimeClock,
+  textOf,
+} from "./helpers.ts";
 
 // MCP adapter spec: Validation errors, The ask result, A session without hooks, No board can be
 // shown (task 5.2).
@@ -185,6 +195,7 @@ describe("no board can be shown", () => {
       },
       identity: { gitUserName: async () => undefined, loginName: async () => "paola" },
       report: () => undefined,
+      clock: runtimeClock,
     });
     const { result } = await call(core, plainChoice);
     expect(result.isError).toBeFalsy();

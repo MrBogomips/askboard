@@ -1,7 +1,7 @@
 // Test helpers for mcp-tools: a fake core that records its calls, a manual clock, and an MCP client
 // linked to the tool server over an in-memory transport.
 
-import type { AskOutcome, CoreEvent, ReadOutcome } from "@askboard/core";
+import type { AskOutcome, Clock, CoreEvent, ReadOutcome } from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
@@ -11,6 +11,15 @@ import {
   type ToolCore,
   type ToolDeps,
 } from "../../src/mcp-tools/index.ts";
+
+/** ask-core's Clock port over the runtime's timers, as the session entry point gives it. */
+export const runtimeClock: Clock = {
+  now: () => Date.now(),
+  after: (ms, run) => {
+    const timer = setTimeout(run, ms);
+    return () => clearTimeout(timer);
+  },
+};
 
 export const EPOCH = "k3x9w2q7";
 export const ASK_ID = "order-db-choice-x7k2";
