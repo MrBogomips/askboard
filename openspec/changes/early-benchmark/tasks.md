@@ -71,4 +71,5 @@ Run from the repository root of a checkout with E1 merged and this change on top
 ## Workflow follow-up
 
 - Merge after E1's Integration; at that point declare `@askboard/contract` and `@types/bun` in `packages/bench/package.json` and regenerate the lockfile (proposal, open question 9), and add a root `bench` script if wanted.
+  - Done (2026-10-31), after rebasing onto E1's Integration: `packages/bench/package.json` declares `@askboard/contract` (`workspace:*`) in `dependencies` and `@types/bun` (`1.4.4`, the Bun pin) in `devDependencies`, and `bun install` regenerated `bun.lock`. No root `bench` script was added.
 - Archive the change after the PO's runs, which syncs the `benchmark` capability into `openspec/specs/`.

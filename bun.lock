@@ -17,6 +17,12 @@
     "packages/bench": {
       "name": "@askboard/bench",
       "version": "0.0.0",
+      "dependencies": {
+        "@askboard/contract": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "1.4.4",
+      },
     },
     "packages/compute": {
       "name": "@askboard/compute",
