@@ -1,6 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { echoDate, gridDate, parseDateEntry } from "./date.ts";
+import { GANTT_FIRST_DATE, GANTT_LAST_DATE } from "@askboard/contract";
+import {
+  calendarDay,
+  dateOfDay,
+  dayNumber,
+  echoDate,
+  FIRST_DAY,
+  gridDate,
+  isGanttDate,
+  LAST_DAY,
+  parseDateEntry,
+} from "./date.ts";
 
 describe("the Gantt's en-US date entry", () => {
   test.each([
@@ -81,5 +92,89 @@ console.log(JSON.stringify(["12/9/2026", "2/29/2028", "1/1/2027"].map((t) => {
       "= Fri, Jan 1, 2027",
     ]);
     expect(run("America/Adak")).toBe(here);
+  });
+
+  test("takes its range from the contract's GANTT_FIRST_DATE and GANTT_LAST_DATE", () => {
+    const range = `Pick a day from ${gridDate(GANTT_FIRST_DATE)} to ${gridDate(GANTT_LAST_DATE)}`;
+    expect(parseDateEntry("3/1/1900")).toEqual({ kind: "refused", reason: range });
+    expect(parseDateEntry(GANTT_FIRST_DATE)).toEqual({ kind: "date", date: GANTT_FIRST_DATE });
+    expect(parseDateEntry(GANTT_LAST_DATE)).toEqual({ kind: "date", date: GANTT_LAST_DATE });
+  });
+
+  test.each([
+    ["2026-12-09", true],
+    ["2028-02-29", true],
+    [GANTT_FIRST_DATE, true],
+    [GANTT_LAST_DATE, true],
+    ["1900-03-01", false],
+    ["2026-02-30", false],
+    ["2027-02-29", false],
+    ["12/9/2026", false],
+    ["2026-12-9", false],
+    [" 2026-12-09", false],
+    ["", false],
+  ])("tells whether %j is a full-date the Gantt may name: %p", (date, verdict) => {
+    expect(isGanttDate(date)).toBe(verdict);
+  });
+});
+
+describe("the Gantt's day numbers", () => {
+  test.each([
+    ["1970-01-01", 0],
+    ["1970-01-02", 1],
+    ["1969-12-31", -1],
+    ["2026-11-02", 20_759],
+    [GANTT_FIRST_DATE, -25_507],
+    [GANTT_LAST_DATE, 2_932_896],
+  ])("counts %s as day %i from 1970-01-01, and back", (date, day) => {
+    expect(dayNumber(date)).toBe(day);
+    expect(dateOfDay(day)).toBe(date);
+  });
+
+  test("holds the range's ends as FIRST_DAY and LAST_DAY", () => {
+    expect(FIRST_DAY).toBe(dayNumber(GANTT_FIRST_DATE));
+    expect(LAST_DAY).toBe(dayNumber(GANTT_LAST_DATE));
+  });
+
+  test("reads back every day over four years, a leap day among them", () => {
+    let previous = dayNumber("2026-12-31");
+    for (let day = previous + 1; day < previous + 4 * 366; day++) {
+      const date = dateOfDay(day);
+      expect(dayNumber(date)).toBe(day);
+      expect(isGanttDate(date)).toBe(true);
+    }
+    previous = dayNumber("2028-02-28");
+    expect(dateOfDay(previous + 1)).toBe("2028-02-29");
+    expect(dateOfDay(previous + 2)).toBe("2028-03-01");
+  });
+
+  test.each([FIRST_DAY - 1, LAST_DAY + 1, 0.5, Number.NaN])(
+    "refuses day %p, no day the Gantt may name",
+    (day) => {
+      expect(() => dateOfDay(day)).toThrow(RangeError);
+    },
+  );
+
+  test("refuses to count a date it cannot hold", () => {
+    expect(() => dayNumber("1900-03-01")).toThrow(RangeError);
+    expect(() => dayNumber("2026-02-30")).toThrow(RangeError);
+  });
+
+  test.each([
+    ["2026-11-02", 2026, 11, 2, 1, 30, "Nov", "Mon"],
+    ["2026-12-13", 2026, 12, 13, 0, 31, "Dec", "Sun"],
+    ["2028-02-29", 2028, 2, 29, 2, 29, "Feb", "Tue"],
+    ["2027-02-01", 2027, 2, 1, 1, 28, "Feb", "Mon"],
+    ["1900-03-02", 1900, 3, 2, 5, 31, "Mar", "Fri"],
+  ])("spells out %s", (date, year, month, day, weekday, daysInMonth, monthName, weekdayName) => {
+    expect(calendarDay(date)).toEqual({
+      year,
+      month,
+      day,
+      weekday,
+      daysInMonth,
+      monthName,
+      weekdayName,
+    });
   });
 });
