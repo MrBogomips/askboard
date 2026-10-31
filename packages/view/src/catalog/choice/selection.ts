@@ -5,10 +5,10 @@
 
 import type { ChoiceOption } from "@askboard/contract";
 
-/** The value with `label` checked or unchecked, in the options' order. */
+/** The value with `label` checked or unchecked, in the options' order; an unset value is none. */
 export const toggled = (
   options: readonly ChoiceOption[],
-  value: readonly string[],
+  value: readonly string[] | undefined,
   label: string,
   checked: boolean,
 ): string[] => {

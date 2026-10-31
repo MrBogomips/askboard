@@ -14,7 +14,7 @@ import { questionTextId } from "../catalog/port.ts";
 import { type PendingAnswer, readAnswerReply } from "../view-protocol.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import type { ViewChannel } from "./channel.ts";
-import { answerOf, type CardState, cardState, statusOf } from "./question-state.ts";
+import { answerOf, type CardState, cardState, choiceOf, statusOf } from "./question-state.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 
 export type CardContext = RenderContext & {
@@ -45,7 +45,7 @@ type CardProps = {
 const useCard = ({ question, state, locked, held, context }: CardProps) => {
   const { tracker, draft, acts } = context;
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
-  const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(question.id));
+  const value = choiceOf(useSyncExternalStore(draft.subscribe, () => draft.valueOf(question.id)));
   const act = useSyncExternalStore(acts.subscribe, () => acts.of(question.id));
   const card = cardState(statusOf(state, question.id), value, act, load, locked, held);
   return { load, value, card };
@@ -112,7 +112,13 @@ export const QuestionCard = (props: CardProps) => {
       <p className="text-label text-muted-foreground uppercase">
         {multiSelect === true ? "Options" : "Options · pick one"}
       </p>
-      <RenderItem item={question} context={context} disabled={card.readOnly} shown={card.shown} />
+      <RenderItem
+        item={question}
+        questionId={question.id}
+        context={context}
+        disabled={card.readOnly}
+        shown={card.shown}
+      />
       {load === "failed" ? null : (
         <AnswerRow card={card} onAnswer={() => sendAnswer(question, value, context)} />
       )}

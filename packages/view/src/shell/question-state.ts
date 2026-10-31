@@ -36,6 +36,9 @@ export type CardState = {
   readonly canAnswer: boolean;
 };
 
+/** The question's choice: the option labels Choice put in the draft record, none while unset. */
+export const choiceOf = (value: unknown): readonly string[] => (Array.isArray(value) ? value : []);
+
 export const statusOf = (state: BoardState, itemId: string): QuestionStatus | undefined =>
   state.questions.find((question) => question.itemId === itemId);
 

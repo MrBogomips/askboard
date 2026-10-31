@@ -4,10 +4,22 @@ import { CHOICE, componentOf, componentsOf } from "./components.ts";
 import {
   type CatalogComponent,
   componentFor,
+  type ItemProps,
   readyEffect,
   register,
   registeredComponents,
 } from "./port.ts";
+
+// A test-only widget item and its value, with arbitrary props, never a real widget's (design
+// decision 12).
+type ProbeItem = {
+  readonly type: "probe";
+  readonly id: string;
+  readonly props: { readonly size: number };
+};
+type ProbeValue = { readonly size: number };
+const Probe: CatalogComponent<ProbeItem, ProbeValue> = ({ item, value }) =>
+  `${item.id}:${value?.size ?? item.props.size}`;
 
 describe("which component renders an item (AD-9)", () => {
   test("a plain question is shown by the Choice atom", () => {
@@ -38,6 +50,38 @@ describe("the CatalogRenderer port", () => {
   test("a second registration of one name fails, naming it", () => {
     register("test-twice", component);
     expect(() => register("test-twice", component)).toThrow('"test-twice"');
+  });
+});
+
+describe("the port carries any item and any value (design decision 7)", () => {
+  test("a component typed by its own item and value registers", () => {
+    register("test-probe", Probe);
+    expect(componentFor("test-probe") as unknown).toBe(Probe);
+  });
+
+  test("it gets the item, its question's ID and its value, undefined while untouched", () => {
+    const seen: ItemProps<ProbeItem, ProbeValue>[] = [];
+    register<ProbeItem, ProbeValue>("test-probe-props", (props) => {
+      seen.push(props);
+      return null;
+    });
+    const changes: unknown[] = [];
+    const props: ItemProps = {
+      item: { type: "probe", id: "sketch", props: { size: 3 } },
+      questionId: "plan",
+      value: undefined,
+      onValueChange: (value) => changes.push(value),
+      disabled: false,
+      ready: () => {},
+    };
+    componentFor("test-probe-props")?.(props);
+    const [got] = seen;
+    expect(got?.item.props.size).toBe(3);
+    expect(got?.questionId).toBe("plan");
+    expect(got?.value).toBeUndefined();
+    got?.onValueChange({ size: 4 });
+    got?.onValueChange(undefined);
+    expect(changes).toEqual([{ size: 4 }, undefined]);
   });
 });
 

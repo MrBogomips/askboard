@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { BoardState, QuestionStatus } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { answerOf, cardState, statusOf } from "./question-state.ts";
+import { answerOf, cardState, choiceOf, statusOf } from "./question-state.ts";
 
 const [question] = plainChoiceBoardDocument.items;
 const open: QuestionStatus = { itemId: "database", rev: 1, state: "open" };
@@ -137,6 +137,13 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
     const state: BoardState = { ask: "waiting", questions: [open] };
     expect(statusOf(state, "database")).toBe(open);
     expect(statusOf(state, "other")).toBeUndefined();
+  });
+});
+
+describe("the question's choice in the draft record (design decision 7)", () => {
+  test("is the labels Choice put there, and none while unset", () => {
+    expect(choiceOf(["PostgreSQL"])).toEqual(["PostgreSQL"]);
+    expect(choiceOf(undefined)).toEqual([]);
   });
 });
 

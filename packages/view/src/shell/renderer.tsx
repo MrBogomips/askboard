@@ -2,7 +2,8 @@
 // the `CatalogRenderer` port inside an item frame, which shows the item's loading state until it
 // is ready, and an error boundary, which turns an item that throws into an error state and
 // reports it, so that its question never counts as visible (AD-9, AD-10). Components read their
-// value from the draft record and write it back; the renderer holds no other state.
+// value from the draft record and write it back, of whatever type their item's is (design decision
+// 7); the renderer holds no other state.
 
 import type { BoardQuestion } from "@askboard/contract";
 import { Component, type ReactNode, useCallback, useSyncExternalStore } from "react";
@@ -48,7 +49,7 @@ class ItemErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
 }
 
 // An item whose component no chunk registered fails like one that throws (AD-10).
-const Unregistered: CatalogComponent = ({ item }) => {
+const Unregistered: CatalogComponent<{ readonly id: string }> = ({ item }) => {
   throw new Error(`no catalog component is registered for the item "${item.id}"`);
 };
 
@@ -82,21 +83,20 @@ const ItemFrame = ({
 
 type RenderItemProps = {
   readonly item: BoardQuestion;
+  /** The question the item sits in. */
+  readonly questionId: string;
   readonly context: RenderContext;
   /** The item may not change. */
   readonly disabled: boolean;
   /** What the item shows in place of its draft value, such as the answer the log holds. */
-  readonly shown?: readonly string[];
+  readonly shown?: unknown;
 };
 
 /** One item through the port, in its frame and its error boundary. */
-export const RenderItem = ({ item, context, disabled, shown }: RenderItemProps) => {
+export const RenderItem = ({ item, questionId, context, disabled, shown }: RenderItemProps) => {
   const { draft, tracker } = context;
   const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(item.id));
-  const onValueChange = useCallback(
-    (next: readonly string[]) => draft.set(item.id, next),
-    [draft, item.id],
-  );
+  const onValueChange = useCallback((next: unknown) => draft.set(item.id, next), [draft, item.id]);
   const onError = useCallback(
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
     [tracker, item.id],
@@ -107,6 +107,7 @@ export const RenderItem = ({ item, context, disabled, shown }: RenderItemProps) 
       <ItemErrorBoundary onError={onError}>
         <Item
           item={item}
+          questionId={questionId}
           value={shown ?? value}
           onValueChange={onValueChange}
           disabled={disabled}
