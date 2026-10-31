@@ -1,7 +1,18 @@
-// The Tree's item contract (FR-11, design decision 2): its types and limits. Its schemas are
-// `tree-props.json` and `tree-changes.json`, standalone until the input format reaches 1.1; a
-// Tree's changes are the output format's `Change`, with no alias. Plain ECMAScript with no JSON
-// import, so that the Tree's chunk can bundle what it reads from here.
+// The Tree's item contract (FR-11, design decision 2): its types, limits and element shape. Its
+// schemas are `tree-props.json` and `tree-changes.json`, standalone until the input format reaches
+// 1.1; a Tree's changes are the output format's `Change`, with no alias. Plain ECMAScript with no
+// JSON import, so that the Tree's chunk can bundle what it reads from here.
+
+import type { ElementShape } from "../element-diff.ts";
+
+/**
+ * The Tree's element shape for the generic diff (AD-20, design decision 3): its nodes, each holding
+ * its children under `children`. Every other key of a node but `id` is a field, `label` included.
+ */
+export const TREE_SHAPE = {
+  elements: "nodes",
+  children: "children",
+} as const satisfies ElementShape;
 
 /** At most this many nodes, so that an unvirtualised tree stays responsive (open question 16). */
 export const TREE_MAX_NODES = 500;
