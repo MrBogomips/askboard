@@ -1,13 +1,15 @@
 // Test-only board documents holding a Tree (tree-widget design decision 9): the fixture Tree's
 // document with other props for its Tree `wbs`, which the Tree checks itself as an agent's, and
-// FR-20's 200-node Tree. Only the widget host shows them: the board page refuses a Tree for now.
+// FR-20's 200-node Tree; and the fixture Tree's value after an edit, as an answer carries it. Only
+// the widget host shows them: the board page refuses a Tree for now.
 
 import type { TreeNode, TreeProps } from "@askboard/contract";
 import { treeBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument } from "../../../src/view-document.ts";
 
-const [plan] = treeBoardDocument.items;
-const [wbs] = plan.props.items;
+/** The fixture's question `plan`, and the Tree `wbs` it holds. */
+export const [plan] = treeBoardDocument.items;
+export const [wbs] = plan.props.items;
 
 /** The fixture Tree's document, its question `plan` holding the Tree `wbs` with `props`. */
 export const treeDocumentWith = (props: unknown): ViewDocument => ({
@@ -62,4 +64,29 @@ export const deepTreeDocument: ViewDocument = treeDocumentWith({
 export const tallBranchTreeDocument: ViewDocument = treeDocumentWith({
   columns: wbs.props.columns,
   nodes: [{ id: "leaf", label: "Leaf" }, chain("b", 1, 8)],
+});
+
+/** The fixture Tree with `build`'s children as `change` makes them. */
+export const withBuild = (
+  change: (children: readonly TreeNode[]) => readonly TreeNode[],
+): TreeProps => ({
+  ...wbs.props,
+  nodes: wbs.props.nodes.map((node) =>
+    node.id === "build" ? { ...node, children: change(node.children ?? []) } : node,
+  ),
+});
+
+/** The fixture Tree with `portal`'s fields or name changed, as the answer's value must hold it. */
+export const withPortal = (change: Readonly<Record<string, string | number>>): TreeProps => ({
+  ...wbs.props,
+  nodes: wbs.props.nodes.map((node) =>
+    node.id === "build"
+      ? {
+          ...node,
+          children: node.children?.map((child) =>
+            child.id === "portal" ? { ...child, ...change } : child,
+          ),
+        }
+      : node,
+  ),
 });
