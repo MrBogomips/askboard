@@ -7,7 +7,7 @@ The contract is AskBoard's one shared language: the versioned JSON Schema sets, 
 ## ADDED Requirements
 
 ### Requirement: Standalone widget schemas
-A widget's item props and its `changes` SHALL be schemas of their own in the contract, with the `$id`s `urn:askboard:input:<name>-props` and `urn:askboard:output:<name>-changes`, compiled in strict mode by the contract's widget validator beside every contract schema they reference. A `changes` schema SHALL take its operations from the output format's change. Until the input format reaches 1.1, they SHALL belong to no schema set (AD-7).
+A widget's item props and its `changes` SHALL be schemas of their own in the contract, with the `$id`s `urn:askboard:input:<name>-props` and `urn:askboard:output:<name>-changes`, compiled in strict mode by the contract's widget validator beside every contract schema they reference. A `changes` schema SHALL take its operations from the output format's change. Until a later minor version of the input format admits widget items, they SHALL belong to no schema set (AD-7).
 
 #### Scenario: The Tree's schemas compile
 - **WHEN** the Tree's props and changes schemas are compiled in strict mode in a validator made by `createAjv`
