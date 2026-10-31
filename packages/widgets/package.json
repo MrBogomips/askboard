@@ -6,5 +6,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@askboard/compute": "workspace:*",
+    "@askboard/contract": "workspace:*",
+    "@askboard/view": "workspace:*",
+    "radix-ui": "1.8.1",
+    "react": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
   }
 }
