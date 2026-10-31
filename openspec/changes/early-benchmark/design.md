@@ -53,14 +53,16 @@ bench run ──spawn──▶ claude -p (clean env, scratch project, --session-
                       ├─ AskBoard arm: --plugin-dir <plugin> ──▶ session process (E1 or stub)
                       │        └─ opener: BROWSER=<case>/browser.sh <link> ──▶ board answerer
                       │                 └─ GET /b/<askId>?t=…, then WS /ws/<askId> (board protocol)
-                      └─ AskUserQuestion arm: --settings <case>/run-settings.json
-                               ├─ PreToolUse hook on AskUserQuestion ──▶ bench auq-hook
-                               └─ --permission-prompt-tool ──▶ bench permission host (stdio MCP)
+                      ├─ AskUserQuestion arm: --settings <case>/run-settings.json
+                      │        ├─ PreToolUse hook on AskUserQuestion ──▶ bench auq-hook
+                      │        └─ --permission-prompt-tool ──▶ bench permission host (stdio MCP)
+                      └─ baseline (S1): the AskBoard arm's command without --plugin-dir, --max-turns 1
 bench ◀── transcripts (<projects>/*/<uuid>.jsonl, subagents/) + answerer records + stream-json
 ```
 
 - Each run gets its own scratch project under the system temporary folder, outside any repository, so no `CLAUDE.md` of the AskBoard checkout loads. Its own folder is `.askboard/bench/<run>/cases/<case>-<arm>-<n>/`.
 - `--session-id` is a UUID that `bench` draws, so it finds the transcript under any project folder name, without assuming how Claude Code names it.
+- **The baseline** exists to measure what AskBoard adds before the first ask. The AskUserQuestion arm cannot serve: its first request also carries AskUserQuestion's own definition, which the AskBoard arm's `--tools` leaves out, so the difference between the arms would understate AskBoard's context by that definition. The baseline gets the AskBoard arm's prompt, `--tools` and allowed tools, without `--plugin-dir` and `BROWSER`, and `--max-turns 1`: one request, whose input is all it measures.
 
 ### 3. The pinned command
 
@@ -79,7 +81,7 @@ claude -p <prompt> --session-id <uuid> --model <model> --effort <effort>
   - `BROWSER` (AskBoard arm);
   - `MCP_PROTOCOL_NEGOTIATION=legacy` (AskUserQuestion arm with the permission host, decision 6).
 - **Tools.**
-  - AskBoard arm: `ToolSearch`, plus `Agent` for S6. Allowed tools: AskBoard's `ask` and `collect` under both of the names AD-19's hooks match.
+  - AskBoard arm and baseline: `ToolSearch`, plus `Agent` for S6. Allowed tools: AskBoard's `ask` and `collect` under both of the names AD-19's hooks match.
   - AskUserQuestion arm: `AskUserQuestion` and `ToolSearch`. AskUserQuestion is not in the allowed tools: the hook decides.
 - **`stream-json`** is kept only for its `system/init` message, which lists the MCP servers, plugins, model and tools the session started with (AD-17: "lists the MCP servers connected"). Figures come from transcripts, never from the `result` message (spike finding on woken turns).
 - **Preflight**, before any run: `claude --version` is read, and checked against `--claude-version` when the user pins one. The session's plugin manifest must exist. With `--session e1`, the server's script must be built (`dist/askboard.mjs`).
@@ -126,7 +128,7 @@ claude -p <prompt> --session-id <uuid> --model <model> --effort <effort>
 The permission host, the scripted MCP client of `smoke` and the stub share one small module: newline-delimited JSON-RPC 2.0 over a pair of streams, with request IDs, notifications, and errors for unknown methods.
 
 - The server side answers `initialize` with protocol version 2025-11-25, or the client's version when it is one of the 2025 versions SDK v2 serves. It also answers `notifications/initialized`, `ping`, `tools/list` and `tools/call`.
-- The client side sends `initialize` with 2025-11-25.
+- The client side sends `initialize` with 2025-11-25. A server that has not answered it within 30 s, Claude Code's own `MCP_TIMEOUT`, or that refuses it, is killed and the start fails with the reason.
 - E1's server, on SDK v2, serves 2025 openings by default (AD-18), so the smoke check reaches it.
 - *Alternative:* the MCP SDK. `bench` does not declare it, and the root carries only the client package.
 
@@ -147,22 +149,25 @@ The permission host, the scripted MCP client of `smoke` and the stub share one s
   - AskBoard: a call of `^mcp__(plugin_askboard_)?askboard__ask$` whose result parses as an `ask` result with a `board`.
   - AskUserQuestion: a call of `AskUserQuestion` whose result is not an error.
   - Any other call of the asking tool counts as a failed attempt.
+  - A successful call with the same ask ID, or the same question, as the ask before it is a retry of that ask (addendum: "retries count"): its request counts in that ask's K1, K2 and A, and its ask ID joins the ask's, for the answerer's record and the `collect` results. The next scenario question is the next ask that differs.
 - **Preparing responses.** Walking back from the emitting request, a request is preparing while every tool call it makes is `ToolSearch`, `Skill` or a failed attempt of the asking tool. The walk stops at the previous ask's emitting request and at any other request, a text-only one included. K1 and K2 sum over the preparing requests and the emitting one; per question, they are divided by the ask's question count.
 - **K3.**
   - AskBoard: t3′ − t0, joined to the answerer's record by ask ID, with the splits t1 − t0, t2′ − t1 and t3′ − t2′.
   - AskUserQuestion: t1 − t0.
   - Prep time: t0 of the emitting request minus t0 of the first preparing request.
-- **X:** the output tokens, thinking included, of the requests that call `collect` for the ask before the next ask. It is 0 for AskUserQuestion.
+- **X:** the output tokens, thinking included, of the requests that call `collect` for the ask before the next ask, and of a request between the ask and its last `collect` that only searches for tools: it loads `collect`, so it is part of collecting. It is 0 for AskUserQuestion. A tool search after the last `collect` is preparing for the next ask, so nothing counts twice.
 - **A:** for each tool result of the asking flow (the `ask` result and the `collect` results for AskBoard; the AskUserQuestion result), the growth (total input of the next request − total input of the calling request − output of the calling request), summed. With no next request, A is not measured.
-- **Context:** the total input of the session's first request, and the growth over each `ToolSearch` call that precedes the first ask.
+- **Context:** the total input of the session's first request, and the growth over every request of the session that calls `ToolSearch`: a definition loaded on first use stays in context like one loaded upfront.
 - **Answer to agent:** the timestamp of the user entry carrying the `collect` result with the answer, minus the answerer's `answered` stamp.
 - **Validity, in this order** (the first failure names the run's reason):
-  1. the run timed out;
-  2. the transcript is missing;
-  3. an expected ask is missing (S1 two, S6 one, in the subagent's transcript);
-  4. a question was asked with labels other than the scenario's (deviated);
-  5. the answer never reached the agent: no `collect` result carries the scripted choice, or the AskUserQuestion result does not name the label;
-  6. an AskBoard ask has no answerer record with `shown`.
+  1. the benchmark was stopped during the run (interrupted);
+  2. the run timed out;
+  3. the transcript is missing; for the baseline, also a transcript with no request, and nothing else;
+  4. an expected ask is missing (S1 two, S6 one, in the subagent's transcript);
+  5. a question was asked with labels other than the scenario's (deviated);
+  6. two asks were sent in one response: the scenario asks one at a time;
+  7. the answer never reached the agent: no `collect` result carries the scripted choice, or the AskUserQuestion result does not name the label;
+  8. an AskBoard ask has no answerer record with `shown`.
 
 ### 10. Statistics, cost and targets
 
@@ -172,7 +177,7 @@ The permission host, the scripted MCP client of `smoke` and the stub share one s
   - The cache-write price follows the run's TTL: the requested one, or the observed one when the transcripts disagree, flagged.
   - Defaults: 10 sessions of 10 questions, N_req 150, R 50, one write of T per session.
   - Per question: (1 × cold + 9 × warm) / 10 for each of K1, K2, X and A.
-  - T: AskBoard's is max(0, first-input difference) plus the tool-search growth; AskUserQuestion's is 0, as in the addendum's scenario (c).
+  - T: AskBoard's is max(0, the AskBoard arm's median first input minus the baseline's) plus the median tool-search growth; without a valid baseline it is not available. AskUserQuestion's is 0, as in the addendum's scenario (c).
   - The TTL line, answers after expiry at a 60k context, is shown apart.
 - **Targets.** For S1, the ratio of AskBoard's median to AskUserQuestion's for K1, K2, K3 and the cost, cold and warm, with "within +25%" or not (SM-1 to SM-4). The answer-to-agent time against 2 s (OQ2, pull).
 
@@ -183,7 +188,7 @@ The permission host, the scripted MCP client of `smoke` and the stub share one s
   - per case `cases/<case>-<arm>-<n>/`, holding `prompt.txt`, `command.json` (argv with the prompt elided, and the variable names `bench` set), `run-settings.json`, `mcp.json`, `browser.sh`, `plan.json`, `answerer.jsonl`, `stream.jsonl`, `stderr.txt`, `transcripts/` and `measure.json`;
   - `report.json` and `report.md`.
 - **Git.** `bench/` gets its own `.gitignore` holding `*`, so `.askboard/.gitignore` stays the session process's to create (AD-14).
-- **Redaction.** Every file a run writes passes a redaction that replaces the value of a `t=` query parameter and of a `connect` message's `token` with `<redacted>`.
+- **Redaction.** Each case folder is redacted as soon as its run ends, and the whole run folder again with the report: the value of a `t=` query parameter and of a `connect` message's `token` becomes `<redacted>`. A benchmark stopped midway keeps no token.
 
 ### 12. The commands
 
@@ -198,7 +203,8 @@ bun packages/bench/src/cli.ts report <run folder>
 ```
 
 - The root `package.json` belongs to E1's tracks, so no root script is added. Integration can add `bench`.
-- **Timeout.** On a run's timeout, `bench` sends SIGINT to `claude`, which stops its MCP servers with SIGINT (spike O1). Ten seconds later it sends SIGKILL to the process group it started `claude` in.
+- **Timeout.** On a run's timeout, `bench` sends SIGINT to `claude`'s process group, and `claude` stops its MCP servers with SIGINT (spike O1). Ten seconds later it sends SIGKILL to the group, and once more when `claude` has exited, for anything left in it.
+- **Stopping.** `claude` runs in its own process group, so a Ctrl-C to `bench` does not reach it. While it runs, `bench` handles SIGINT and SIGTERM: it stops the current run the way a timeout does, starts no other, lists the run as interrupted, writes the report of the runs that ended, and `run` exits 130. `report` rebuilds a case folder without `run.json`, a run stopped before it was recorded, as interrupted.
 
 ### 13. The stub session process (tests)
 
@@ -222,7 +228,7 @@ bun packages/bench/src/cli.ts report <run folder>
   - for S6, it writes the calls to a subagent transcript instead.
 - **AskUserQuestion arm.** It runs the `PreToolUse` hook command from `--settings` and records its answer.
 
-It lets the runner's tests cover the whole pipeline. Its transcript layout is checked against the format facts of decision 8, not against Claude Code.
+With `--max-turns 1`, the baseline's flag, it writes one request and stops, as Claude Code does at that limit. It lets the runner's tests cover the whole pipeline. Its transcript layout is checked against the format facts of decision 8, not against Claude Code.
 
 ### 15. Prompts
 
@@ -252,7 +258,8 @@ Text: Which database should the order service use?
 - [Claude Code's transcript format is undocumented] → Every field read is listed in decision 8. A field missing everywhere is reported as not observed. The fixtures follow the spike's observed rows.
 - [Answers through the board protocol are a second scripted-answer path, which AD-17 prevents] → Started only through the `BROWSER` of a run `bench` spawns, so normal use never reaches it. The spine update draft records it as interim until benchmark mode.
 - [Undeclared dependencies resolve through the root] → Proposal open question 9; the declaration lands with E1's Integration.
-- [The `claude` binary is updated between runs] → `DISABLE_AUTOUPDATER=1`, and every transcript's `version` field is compared with the preflight version. A difference is flagged in the report.
+- [The `claude` binary is updated between runs] → `DISABLE_AUTOUPDATER=1`, and every transcript's `version` field is compared with the preflight version. A difference is flagged in the report, as is a run whose transcripts wrote both 5-minute and 1-hour caches.
+- [The baseline's first request still differs from the AskBoard arm's by anything Claude Code loads late, such as a connector that connects after the first request] → The report lists each arm's MCP servers; arms are compared by difference, as AD-17 says.
 
 ## Migration Plan
 

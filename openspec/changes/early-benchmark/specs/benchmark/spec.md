@@ -7,11 +7,11 @@ The benchmark measures what asking costs an agent, through AskBoard and through 
 ## ADDED Requirements
 
 ### Requirement: Cases the early benchmark runs
-The benchmark SHALL run case S1 in both arms and case S6 in the AskBoard arm. S1 is one session that asks two plain single-choice questions, one after the other: its first ask is reported as cold and its second as warm. S6 has a subagent ask S1's first question. Each case and arm SHALL run 5 times unless the user sets another count.
+The benchmark SHALL run case S1 in both arms and in a baseline, and case S6 in the AskBoard arm. S1 asks two plain single-choice questions, one after the other: its first ask is cold, its second warm. The baseline runs the AskBoard arm's command without AskBoard and ends after one request. S6 has a subagent ask S1's first question. Each case and arm SHALL run 5 times unless the user sets another count.
 
 #### Scenario: A default run
 - **WHEN** the user runs the benchmark with no case or run count
-- **THEN** it runs S1 five times in each arm and S6 five times in the AskBoard arm, and reports S1 cold, S1 warm and S6 as separate rows
+- **THEN** it runs S1 five times in each arm and in the baseline and S6 five times in the AskBoard arm, and reports S1 cold, S1 warm and S6 as separate rows
 
 #### Scenario: The same questions in both arms
 - **WHEN** an S1 run starts in either arm
@@ -68,6 +68,10 @@ The benchmark SHALL compute K1 and K2 from transcript usage, deduplicated by `re
 - **WHEN** the transcript stores one response as several entries that repeat its usage
 - **THEN** that usage counts once
 
+#### Scenario: An ask sent again
+- **WHEN** the agent sends the same ask again right after it succeeded, with the same ask ID or the same question
+- **THEN** the second response counts in that ask's K1 and K2 as a retry, and the next scenario question is still the next ask
+
 ### Requirement: Time to put a question up
 The benchmark SHALL measure K3 from t0, the start of the request that emits the ask, to t3′ in the AskBoard arm or t1 in the AskUserQuestion arm. t3′ is when the board document and the open question state reached the scripted answerer. It SHALL report t1 and t2′ (answerer started) as splits, and the preparing responses' time beside K3. AskBoard rows SHALL say that they end at t3′.
 
@@ -80,7 +84,7 @@ The benchmark SHALL measure K3 from t0, the start of the request that emits the 
 - **THEN** its K3 ends at the tool call's entry
 
 ### Requirement: Fail-closed runs
-A run SHALL count only when it ended before its timeout, held every ask its case expects, asked each question with the scenario's options, and the scripted answer reached the agent. Any other run SHALL be excluded from the medians and listed with its reason.
+A run SHALL count only when it ended before its timeout and was not stopped, held every ask its case expects, asked each question with the scenario's options and one per response, and the scripted answer reached the agent. Any other run SHALL be excluded from the medians and listed with its reason.
 
 #### Scenario: An answer that never reached the agent
 - **WHEN** an AskBoard run's transcript holds no `collect` result carrying the scripted answer
@@ -90,12 +94,27 @@ A run SHALL count only when it ended before its timeout, held every ask its case
 - **WHEN** a run is still going at its timeout
 - **THEN** the benchmark stops it and every process it started, and lists the run as timed out
 
+#### Scenario: Two asks in one response
+- **WHEN** the agent sends both questions of S1 in one response
+- **THEN** the run is listed as invalid with that reason
+
+### Requirement: Stopping the benchmark
+When the user stops the benchmark with SIGINT or SIGTERM, it SHALL stop the running run and every process that run started, list that run as interrupted, write the report of the runs that ended, and exit with status 130.
+
+#### Scenario: Ctrl-C during a run
+- **WHEN** the user presses Ctrl-C while a run waits on Claude Code
+- **THEN** Claude Code's process group stops, the report lists that run as interrupted, no process of the run is left, and the command exits 130
+
 ### Requirement: Context added before the first ask
-The benchmark SHALL report the total input of each arm's first request. The difference between the arms' medians is the context AskBoard adds before the first ask (NFR-1). It SHALL also report what the tool search loads at the first ask.
+The benchmark SHALL report the total input of the first request of each arm and of the baseline. The AskBoard arm's median minus the baseline's is the context AskBoard adds before the first ask (NFR-1). It SHALL also report what tool search loads in the session.
 
 #### Scenario: Reporting the context
-- **WHEN** S1 has valid runs in both arms
-- **THEN** the report gives each arm's median first-request input, their difference, and the median input growth over the tool search
+- **WHEN** S1 has valid runs in the AskBoard arm and in the baseline
+- **THEN** the report gives each median first-request input, the AskBoard arm's difference from the baseline, and the median input growth over the session's tool searches
+
+#### Scenario: No baseline
+- **WHEN** the baseline has no valid run
+- **THEN** the context AskBoard adds is reported as not available, and so is AskBoard's cost, naming T
 
 ### Requirement: Cost of 100 questions
 The benchmark SHALL compute the cost of 100 questions per arm with the addendum's cost model, at list prices for the run's model and cache TTL. It SHALL use the measured K1, K2, X, A and T and the addendum's defaults. A 10-question session is one cold and nine warm asks. The cost of answers after the TTL SHALL be shown apart.
@@ -127,14 +146,14 @@ The benchmark SHALL report the time from the moment the scripted answerer sends 
 - **THEN** the report gives that ask's answer-to-agent time
 
 ### Requirement: A check without a model
-The benchmark SHALL offer a smoke check that runs no model. It starts the selected session process, asks S1's first question as a scripted MCP client, lets the board answerer answer it, and collects the answer. It succeeds only when the scripted answer comes back.
+The benchmark SHALL offer a smoke check that runs no model. It starts the selected session process, asks S1's first question as a scripted MCP client, lets the board answerer answer it, and collects the answer. It succeeds only when the scripted answer comes back, and fails, saying why, when the session process does not start or does not answer within its bounds.
 
 #### Scenario: The smoke check on the stub
 - **WHEN** the user runs the smoke check with the stub
 - **THEN** it prints the answer and the answerer's times and exits 0, leaving no process behind
 
 ### Requirement: Results stay local
-The benchmark SHALL write only under its output folder and the scratch projects it creates, and SHALL make no network connection of its own other than to the loopback board. Nothing it writes SHALL hold a board token: the transcript copies it keeps are redacted.
+The benchmark SHALL write only under its output folder and the scratch projects it creates, and SHALL make no network connection of its own other than to the loopback board. Nothing it keeps SHALL hold a board token: each run's folder is redacted as soon as that run ends.
 
 #### Scenario: Records without tokens
 - **WHEN** a run ends
