@@ -141,7 +141,11 @@ An edit-choice act SHALL name the question's current `rev` and append an `edit-c
 - **THEN** neither applies, and the refusal names action 1 and the answered question
 
 ### Requirement: Adding an item
-An `add` SHALL insert a question at the ask's top level or into the area `parentId` names, or an area at the top level, after the sibling `after` names, else last, keeping the all-or-none rule for areas. The new question SHALL start at `rev` 1, `open`. An item ID in use in the ask, deleted items included, SHALL be refused (FR-5, FR-6).
+An `add` SHALL insert a question into the area `parentId` names, or at the top level without `parentId`, and an area at the top level, after the sibling `after` names, or first without `after`, as `changes` places elements; the all-or-none rule for areas holds. A new question SHALL start at `rev` 1, `open`. An item ID in use in the ask, deleted ones included, SHALL be refused (FR-5, FR-6).
+
+#### Scenario: Adding first and adding last
+- **WHEN** the agent adds question `q0` with no `after`, and question `q9` with `after` naming the last question
+- **THEN** `q0` comes first and `q9` last in the board document
 
 #### Scenario: A question added to an answered ask
 - **WHEN** the agent adds a question to an `answered` ask

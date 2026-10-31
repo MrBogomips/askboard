@@ -9,7 +9,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Answer event in the output format
-The output format SHALL define the answer event as `cursor`, `type: "answer"`, `itemId`, `rev`, `who` and `when`, plus optional content: `choice` (chosen labels), `other` ("Other…" text), `optionNotes` (the user's notes by option label), `note`, `changes`, `results`, `derived`, `declined: true` for a decline and `replaces`, the cursor of the answer it replaces. It SHALL contain no AXFX term (FR-18).
+The output format SHALL define the answer event as `cursor`, `type: "answer"`, `itemId`, `rev`, `who` and `when`, plus optional content: `choice`, `other`, `optionNotes` (by label), `note`, `changes`, `results`, `derived`, `declined: true` and `replaces` (the replaced answer's cursor). In `changes`, `add` and `move` SHALL omit `parent` when there is none (the top level) and `after` when there is none (the first position). It SHALL contain no AXFX term (FR-18).
 
 #### Scenario: Every approved answer event validates
 - **WHEN** each `answer` event of the fixtures `answers/*.json` is validated against the answer event schema
@@ -18,6 +18,14 @@ The output format SHALL define the answer event as `cursor`, `type: "answer"`, `
 #### Scenario: A Choice answer
 - **WHEN** an answer to a question with options is built from a selection alone
 - **THEN** it carries `choice` as a list of option labels, and none of the other content fields
+
+#### Scenario: An element added or moved to the top level
+- **WHEN** a change adds or moves an element to the top level, first or after a sibling
+- **THEN** it omits `parent`, names `after` only when a sibling precedes it, and validates; a `parent` or `after` of `null` is refused
+
+#### Scenario: Other text and option notes
+- **WHEN** the user answers with "Other…" text "MariaDB" and a note on the option `DynamoDB`
+- **THEN** the answer carries `other: "MariaDB"` and `optionNotes` with that note under the label `DynamoDB`
 
 #### Scenario: A decline
 - **WHEN** a decline with a reason is built
@@ -75,7 +83,7 @@ A question's props SHALL be `text`, optional `header`, a non-empty `options` lis
 - **THEN** validation fails, naming the question's item ID and the repeated label
 
 ### Requirement: The update request
-The contract SHALL define `update`'s request as `askId` and a non-empty list of actions: `add` (`item`, optional `parentId` and `after`), `change` (`itemId`, `props`), `delete`, `reopen` (`itemId`), `answer` (`itemId`, `answer` of `choice`, `other` and `note`), `reply` (`itemId`, `followUp`, `text`) and `close`. A field the action does not use SHALL fail validation, naming the action's index.
+The contract SHALL define `update`'s request as `askId` and a non-empty list of actions: `add` (`item`, optional `parentId` and `after`, each omitted when there is none, as in `changes`), `change` (`itemId`, `props`), `delete`, `reopen` (`itemId`), `answer` (`itemId`, `answer` of `choice`, `other` and `note`), `reply` (`itemId`, `followUp`, `text`) and `close`. A field the action does not use SHALL fail validation, naming the action's index.
 
 #### Scenario: Adding a question to an area
 - **WHEN** an update adds a question with `parentId` naming an area of the ask
