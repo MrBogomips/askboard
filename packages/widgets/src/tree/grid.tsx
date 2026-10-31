@@ -24,7 +24,6 @@ export const TreeGrid = ({
   labelledBy,
   onKeyDown,
   onFocus,
-  onBlur,
   onMouseDown,
   onClick,
 }: {
@@ -39,7 +38,6 @@ export const TreeGrid = ({
   readonly labelledBy: string;
   readonly onKeyDown: KeyboardEventHandler<HTMLTableElement>;
   readonly onFocus: FocusEventHandler<HTMLTableElement>;
-  readonly onBlur: FocusEventHandler<HTMLTableElement>;
   readonly onMouseDown: MouseEventHandler<HTMLTableElement>;
   readonly onClick: MouseEventHandler<HTMLTableElement>;
 }) => (
@@ -51,7 +49,6 @@ export const TreeGrid = ({
     className={GRID}
     onKeyDown={onKeyDown}
     onFocus={onFocus}
-    onBlur={onBlur}
     onMouseDown={onMouseDown}
     onClick={onClick}
   >

@@ -14,7 +14,6 @@ import {
   useReadyAfterLayout,
 } from "@askboard/view/catalog";
 import { useMemo } from "react";
-import { FRAME } from "./classes.ts";
 import { TreeWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Tree item's type. */
@@ -38,16 +37,14 @@ const Tree = ({ item, questionId, value, onValueChange, disabled, ready }: TreeC
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
   useReadyAfterLayout(ready);
   return (
-    <div className={FRAME}>
-      <TreeWidget
-        itemId={item.id}
-        sent={sent}
-        value={value ?? sent}
-        labelledBy={questionTextId(questionId)}
-        disabled={disabled}
-        onValueChange={onValueChange}
-      />
-    </div>
+    <TreeWidget
+      itemId={item.id}
+      sent={sent}
+      value={value ?? sent}
+      labelledBy={questionTextId(questionId)}
+      disabled={disabled}
+      onValueChange={onValueChange}
+    />
   );
 };
 

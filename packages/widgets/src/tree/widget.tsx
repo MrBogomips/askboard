@@ -1,32 +1,32 @@
-// The Tree's state, its toolbar and its treegrid (design decisions 5 and 6). The value is the
-// draft, or the sent answer, else the agent's props; the view, the focus and the collapsed nodes,
-// is the component's own and never goes in the draft (open question 8), so expanding and
-// collapsing change nothing an answer carries. The treegrid has one Tab stop, the focused row or
-// cell, and its keys and clicks change the view through the model (`keys.ts`, `focus.ts`); the
-// DOM focus follows the view's after a key, after a click that hides the focused row and after
-// the cell editor closes by key (`editing.tsx`), whose keys are its own while it is open. The
-// toolbar's tools act on the focused node, which keeps its place in the view while the focus is
-// in the toolbar; each tool is enabled only where its edit is possible (`can`).
+// The Tree's state, and its frame of a toolbar row and a treegrid (design decisions 5 and 6). The
+// value is the draft, or the sent answer, else the agent's props; the view, the focus and the
+// collapsed nodes, is the component's own and never goes in the draft (open question 8), so
+// expanding and collapsing change nothing an answer carries. The treegrid has one Tab stop, the
+// focused row or cell, and its keys and clicks change the view through the model (`keys.ts`,
+// `focus.ts`); the DOM focus follows the view's after a key, after a click that hides the focused
+// row and after the cell editor closes by key (`editing.tsx`), whose keys are its own while it is
+// open, and is never lost (`tree-focus.ts`). The toolbar's tools act on the focused node, which
+// keeps its place in the view while the focus is in the toolbar; each tool is enabled only where
+// its edit is possible (`can`). An edit from a key brings the DOM focus with the node's focus;
+// from a tool, the focus stays on the tool. Every change of the value goes in the draft, or
+// `undefined` once the nodes are the agent's again (`sameNodes`).
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
-import {
-  type FocusEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FocusEvent, type KeyboardEvent, type MouseEvent, useState } from "react";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
+import { FRAME } from "./classes.ts";
+import { afterDelete, deleteQuestionOf } from "./deleting.ts";
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
 import { treeKeyOf } from "./key-event.ts";
 import { can, type TreeEdit } from "./model/edits.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
+import { sameNodes } from "./model/marks.ts";
 import type { TreeRow } from "./model/rows.ts";
 import { chevronNodeOf, focusTargetOf } from "./targets.ts";
 import { TreeToolbar } from "./toolbar.tsx";
+import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
 const NO_COLUMNS: readonly TreeColumn[] = [];
 
@@ -61,26 +61,9 @@ export const TreeWidget = ({
   readonly onValueChange: (value: TreeProps | undefined) => void;
 }) => {
   const [stored, setView] = useState(() => openView(value));
-  const grid = useRef<HTMLTableElement>(null);
-  const toolbar = useRef<HTMLDivElement>(null);
-  // Set when the DOM focus must move to the Tab stop once the next view is laid out.
-  const refocus = useRef(false);
-  // The treegrid's element that holds the focus, kept while the focus stays in the treegrid.
-  const held = useRef<EventTarget | null>(null);
-  // The focus moves to the Tab stop when asked, and when its element went while the focus was in
-  // the treegrid, as a new node taken away by Shift+Tab from its name does: the treegrid's Tab
-  // stop, or the toolbar's in an empty Tree.
-  useLayoutEffect(() => {
-    const lost = held.current instanceof Node && !held.current.isConnected;
-    if (!refocus.current && !lost) return;
-    refocus.current = false;
-    held.current = null;
-    const stop = '[tabindex="0"]';
-    const target =
-      grid.current?.querySelector<HTMLElement>(stop) ??
-      toolbar.current?.querySelector<HTMLElement>(stop);
-    target?.focus();
-  });
+  // The delete whose question is asked, and the part it was asked from.
+  const [asked, setAsked] = useState<{ readonly nodeId: string; readonly from: TreePart }>();
+  const focus = useTreeFocus();
 
   const { rows, editing, start, startAdd } = useCellEditing({
     itemId,
@@ -90,7 +73,7 @@ export const TreeWidget = ({
     disabled,
     onValueChange,
     onClosed: (moveFocus, takenAway) => {
-      refocus.current = moveFocus;
+      focus.moveFocusTo(moveFocus ? "grid" : undefined);
       if (takenAway !== undefined) setView(viewWithoutAdd(view, value, takenAway));
     },
   });
@@ -98,8 +81,11 @@ export const TreeWidget = ({
 
   const show = (next: TreeView, moveFocus: boolean): void => {
     if (next === view) return;
-    refocus.current = moveFocus;
+    focus.moveFocusTo(moveFocus ? "grid" : undefined);
     setView(next);
+  };
+  const change = (next: TreeProps): void => {
+    onValueChange(sameNodes(sent, next) ? undefined : next);
   };
 
   // The new node's name is entered in its row, whose editor takes the focus.
@@ -109,10 +95,44 @@ export const TreeWidget = ({
     setView(viewOfAdd(view, value, pending));
     startAdd(pending);
   };
-  const onTool = (edit: TreeEdit): void => {
+  // The node and its branch go, the focus moving off it (`deleting.ts`).
+  const remove = (nodeId: string, focusTo: TreePart | undefined): void => {
+    const deleted = afterDelete(value, view, nodeId);
+    focus.moveFocusTo(focusTo);
+    setView(deleted.view);
+    change(deleted.value);
+  };
+  // An edit of the focused node, from a key or a tool, where it is possible.
+  const act = (edit: TreeEdit, from: TreePart): void => {
+    const nodeId = view.focus?.nodeId;
+    if (disabled || !can(edit, value, nodeId)) return;
     if (isAdd(edit)) add(edit);
+    else if (nodeId === undefined) return;
+    else if (edit !== "remove") return;
+    else if (deleteQuestionOf(value, nodeId) !== undefined) setAsked({ nodeId, from });
+    else remove(nodeId, from === "grid" ? "grid" : undefined);
   };
   const enabled = TREE_TOOLS.map((tool) => !disabled && can(tool.edit, value, view.focus?.nodeId));
+  // The question shows while its node has children, from the value as it is, and while the Tree
+  // is editable; once it no longer applies it is dropped, never to show again unasked.
+  const question =
+    disabled || asked === undefined ? undefined : deleteQuestionOf(value, asked.nodeId);
+  if (asked !== undefined && question === undefined) setAsked(undefined);
+  const asking =
+    question === undefined || asked === undefined
+      ? undefined
+      : {
+          nodeId: asked.nodeId,
+          question,
+          onConfirm: () => {
+            setAsked(undefined);
+            remove(asked.nodeId, asked.from);
+          },
+          onCancel: () => {
+            focus.moveFocusTo(asked.from);
+            setAsked(undefined);
+          },
+        };
 
   // Every key the Tree binds has its default prevented, even when it changes nothing. While a
   // cell is edited, its editor handles the keys.
@@ -123,17 +143,13 @@ export const TreeWidget = ({
     event.preventDefault();
     if (action.kind === "focus") show(navigate(view, action.move, value), true);
     else if (action.kind === "startEdit" && view.focus !== undefined) start(view.focus);
+    else if (action.kind === "edit") act(action.edit, "grid");
   };
 
   // A row or cell focused by a click, or by the DOM focus moving to the Tab stop.
   const onFocus = (event: FocusEvent<HTMLTableElement>): void => {
-    held.current = event.target;
     const at = focusTargetOf(event.target);
     if (at !== undefined) show(focusOn(view, value, at.nodeId, at.cell), false);
-  };
-  const onBlur = (event: FocusEvent<HTMLTableElement>): void => {
-    const to = event.relatedTarget;
-    if (!(to instanceof Node && event.currentTarget.contains(to))) held.current = null;
   };
 
   // A chevron is clicked without taking the focus; it keeps the focus on its row, or moves it to
@@ -145,16 +161,22 @@ export const TreeWidget = ({
   const onClick = (event: MouseEvent<HTMLTableElement>): void => {
     const nodeId = chevronNodeOf(event.target);
     if (nodeId === undefined) return;
-    const table = grid.current;
+    const table = focus.grid.current;
     const holdsFocus = table?.contains(table.ownerDocument.activeElement) ?? false;
     show(toggle(view, nodeId, value), holdsFocus);
   };
 
   return (
-    <>
-      <TreeToolbar ref={toolbar} enabled={enabled} onTool={onTool} />
+    // biome-ignore lint/a11y/noStaticElementInteractions: the frame takes no input; its focus handlers follow the focus of its toolbar and treegrid, which bubbles to it.
+    <div className={FRAME} onFocus={focus.onFocus} onBlur={focus.onBlur}>
+      <TreeToolbar
+        ref={focus.toolbarRow}
+        enabled={enabled}
+        onTool={(edit) => act(edit, "toolbar")}
+        asking={asking}
+      />
       <TreeGrid
-        ref={grid}
+        ref={focus.grid}
         columns={value.columns ?? NO_COLUMNS}
         rows={rows}
         focus={view.focus}
@@ -162,10 +184,9 @@ export const TreeWidget = ({
         labelledBy={labelledBy}
         onKeyDown={onKeyDown}
         onFocus={onFocus}
-        onBlur={onBlur}
         onMouseDown={onMouseDown}
         onClick={onClick}
       />
-    </>
+    </div>
   );
 };

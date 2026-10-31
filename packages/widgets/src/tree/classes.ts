@@ -26,6 +26,16 @@ export const TOOL =
   "focus-visible:outline-offset-1 focus-visible:outline-ring aria-disabled:text-muted-foreground " +
   "aria-disabled:opacity-50";
 
+/** The question before a delete, in the toolbar row: a long name is cut, never the count. */
+export const QUESTION = "flex min-w-0 items-center gap-[4px] text-control text-foreground";
+
+export const QUESTION_NAME = "min-w-0 truncate";
+
+/** The toolbar row as a `fieldset`, which would otherwise keep its content's width. */
+export const QUESTION_ROW = "min-w-0";
+
+export const QUESTION_REST = "shrink-0";
+
 /** The grid: a fixed layout, so that the field columns keep their widths and the name takes the rest. */
 export const GRID = "w-full table-fixed border-collapse";
 

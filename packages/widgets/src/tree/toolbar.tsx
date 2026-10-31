@@ -3,10 +3,13 @@
 // Home and End among them, skipping disabled tools (`toolbarFocus`, `toolbarStop`). A disabled
 // tool is `aria-disabled` rather than `disabled`, so that a tool that turns disabled under the
 // focus, such as "Move up" once its node is first, keeps the focus and the next Enter does
-// nothing. Each tool with keys names them in `aria-keyshortcuts` and its title.
+// nothing. Each tool with keys names them in `aria-keyshortcuts` and its title. While a delete
+// asks first, its question takes the tools' place (`delete-question.tsx`).
 
-import { type KeyboardEvent, type Ref, useRef, useState } from "react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import { TOOL, TOOLBAR, TOOLS } from "./classes.ts";
+import { DeleteQuestion } from "./delete-question.tsx";
+import type { DeleteQuestion as Question } from "./deleting.ts";
 import { treeKeyOf } from "./key-event.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import { toolbarFocus, toolbarStop } from "./model/focus.ts";
@@ -19,16 +22,28 @@ const TOOLBAR_NAME = "Tree tools";
 const titleOf = ({ label, shortcut }: TreeTool): string | undefined =>
   shortcut === undefined ? undefined : `${label} (${shortcut.split(" ").join(" or ")})`;
 
+/** A delete's question, while it is asked, and its answers. */
+export type Asking = {
+  /** The node the question is about: a question about another node opens anew, on "Cancel". */
+  readonly nodeId: string;
+  readonly question: Question;
+  readonly onConfirm: () => void;
+  readonly onCancel: () => void;
+};
+
 export const TreeToolbar = ({
   ref,
   enabled,
   onTool,
+  asking,
 }: {
-  readonly ref: Ref<HTMLDivElement>;
+  /** The toolbar row's element, the tools' or the question's, for the Tree's focus. */
+  readonly ref: (row: HTMLElement | null) => void;
   /** Whether each of `TREE_TOOLS` is enabled, in order. */
   readonly enabled: readonly boolean[];
   /** An enabled tool was chosen, by a click, Enter or Space. */
   readonly onTool: (edit: TreeEdit) => void;
+  readonly asking: Asking | undefined;
 }) => {
   // The tool focused last, which keeps the Tab stop while it is enabled.
   const [current, setCurrent] = useState(0);
@@ -42,6 +57,10 @@ export const TreeToolbar = ({
     buttons.current[toolbarFocus(enabled, current, move)]?.focus();
   };
 
+  if (asking !== undefined) {
+    const { nodeId, ...answers } = asking;
+    return <DeleteQuestion key={nodeId} ref={ref} {...answers} />;
+  }
   return (
     <div
       ref={ref}

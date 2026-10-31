@@ -9,7 +9,9 @@
 //   `data-chevron`;
 // - the cell editor is the one `textbox` in the Tree;
 // - the toolbar above the grid is the view's one `toolbar`, its tools `button`s named by their
-//   labels.
+//   labels;
+// - the question before deleting a node with children replaces the tools in the toolbar row: a
+//   `group` named by its message, which ends "will be deleted.".
 
 import type { Locator } from "playwright";
 import type { Board } from "./dom.ts";
@@ -79,6 +81,10 @@ export const pressIn = async (board: Board, key: string): Promise<FocusAt> => {
   await board.page.keyboard.press(key);
   return treeFocus(board);
 };
+
+/** The question asked before deleting a node with children: `message`, or any such question. */
+export const deleteQuestion = (board: Board, message?: string): Locator =>
+  board.view.getByRole("group", { name: message ?? /will be deleted\.$/, exact: true });
 
 /** The name of the toolbar's focused tool; `undefined` when no tool has the view's focus. */
 export const toolFocus = async (board: Board): Promise<string | undefined> =>
