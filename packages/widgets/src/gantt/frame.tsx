@@ -12,7 +12,8 @@ import { useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
-import { clearStart } from "./model/edits.ts";
+import { clearStart, setDuration } from "./model/edits.ts";
+import { landOn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
 import type { Zoom } from "./model/scale.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
@@ -121,6 +122,11 @@ export const GanttFrame = (props: FrameProps) => {
             layout={layout}
             span={span}
             zoom={props.zoom}
+            editable={true}
+            onMove={(taskId, day, earliest) =>
+              onCommit(landOn(current, sent, taskId, day, earliest))
+            }
+            onResize={(taskId, duration) => onCommit(setDuration(current, sent, taskId, duration))}
           />
         </div>
       </div>

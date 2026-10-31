@@ -7,7 +7,7 @@
 // chunk is reported, the negative control that makes "no violation" mean something there. Then
 // the component (group 6): its grid beside its chart, the critical path and the legend; agent
 // strings as text; the grid's one Tab stop and its keys; starts and durations edited in the grid;
-// the predecessors panel.
+// the predecessors panel; drags and resizes with the pointer.
 
 import { describe, expect, test } from "bun:test";
 import { type GanttOwnTask, ganttPropsProblems } from "@askboard/contract";
@@ -21,18 +21,23 @@ import {
   colour,
   criticalTasks,
   daysFrom,
+  dragBy,
   editorFocused,
+  endPoint,
   focusedBox,
   focusedCell,
   focusedItem,
   focusRing,
   GANTT_ID,
   ganttOf,
+  grabPoint,
+  guideFacts,
   keysTo,
   LIMITS_TASKS,
   pageState,
   panelFacts,
   panelOf,
+  pressAndMove,
   RELEASE_TASKS,
   rowLines,
   rowTexts,
@@ -603,6 +608,125 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(others.filter((box) => box.disabled).length).toBe(1);
         await run.board.page.keyboard.press("Escape");
         expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "dragging a bar later moves it on the drop, and its dependents with it",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        // Three working days later: from Tuesday 11/17 to Friday 11/20, three calendar days.
+        await pressAndMove(run.board, await grabPoint(gantt, "portal"), 3 * WEEK_PX);
+        expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(
+          daysFrom(ORIGIN, "2026-11-20") * WEEK_PX,
+        );
+        expect((await barDates(gantt)).reporting).toBe("2026-12-04..2026-12-11");
+        await run.board.page.mouse.up();
+        const dates = await barDates(gantt);
+        expect([dates.portal, dates.reporting]).toEqual([
+          "2026-11-20..2026-12-08",
+          "2026-12-09..2026-12-16",
+        ]);
+        expect(await guideFacts(gantt)).toBeUndefined();
+        expect(await run.board.answer.isEnabled()).toBe(true);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a bar dragged before its predecessors allow stops at its earliest start, shown by the guide, and a drop there clears the request",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        const earliest = daysFrom(ORIGIN, "2026-12-04") * WEEK_PX;
+        await pressAndMove(run.board, await grabPoint(gantt, "reporting"), -10 * WEEK_PX);
+        expect(Number(await gantt.bar("reporting").getAttribute("x"))).toBe(earliest);
+        expect(await guideFacts(gantt)).toEqual({
+          date: "2026-12-04",
+          x: earliest,
+          stroke: colour("muted-foreground"),
+        });
+        await run.board.page.mouse.up();
+        expect((await barDates(gantt)).reporting).toBe("2026-12-04..2026-12-11");
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        // Later, then back onto the earliest start: the request is gone, and so is the draft.
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
+        expect((await barDates(gantt)).reporting).toBe("2026-12-09..2026-12-16");
+        expect(await run.board.answer.isEnabled()).toBe(true);
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), -10 * WEEK_PX);
+        expect((await barDates(gantt)).reporting).toBe("2026-12-04..2026-12-11");
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a bar dropped with its start over Saturday 12/12/2026 starts on Monday 12/14/2026",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), 8 * WEEK_PX);
+        expect((await barDates(gantt)).reporting).toBe("2026-12-14..2026-12-21");
+        expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
+          "12/14/2026",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Escape during a drag cancels it, and a press that travels under 3px is a click that changes nothing",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        const before = await barFacts(gantt);
+        const x = Number(await gantt.bar("portal").getAttribute("x"));
+        await pressAndMove(run.board, await grabPoint(gantt, "portal"), 3 * WEEK_PX);
+        expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(x + 3 * WEEK_PX);
+        await run.board.page.keyboard.press("Escape");
+        expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(x);
+        expect(await guideFacts(gantt)).toBeUndefined();
+        await run.board.page.mouse.up();
+        await dragBy(run.board, await grabPoint(gantt, "billing"), 2);
+        await gantt.bar("billing").click();
+        await dragBy(run.board, await endPoint(gantt, "billing"), -2);
+        expect(await barFacts(gantt)).toEqual(before);
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "dragging a bar's end resizes it, its dependents following, and never below one working day",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        // A 6-day task's end two working days to the right: Monday 11/9 to Wednesday 11/11.
+        await dragBy(run.board, await endPoint(gantt, "ux"), 2 * WEEK_PX);
+        const dates = await barDates(gantt);
+        expect([dates.ux, dates.prototype, dates.reporting]).toEqual([
+          "2026-11-02..2026-11-11",
+          "2026-11-12..2026-11-18",
+          "2026-12-08..2026-12-15",
+        ]);
+        expect(((await gantt.cell("ux", "duration").textContent()) ?? "").trim()).toBe("8");
+        await dragBy(run.board, await endPoint(gantt, "architecture"), -10 * WEEK_PX);
+        expect((await barDates(gantt)).architecture).toBe("2026-11-02..2026-11-02");
+        expect(((await gantt.cell("architecture", "duration").textContent()) ?? "").trim()).toBe(
+          "1",
+        );
+        await dragBy(run.board, await endPoint(gantt, "architecture"), -3 * WEEK_PX);
+        expect(((await gantt.cell("architecture", "duration").textContent()) ?? "").trim()).toBe(
+          "1",
+        );
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,

@@ -368,3 +368,44 @@ export const LIMITS_TASKS: readonly GanttOwnTask[] = [
   },
   { id: "x", label: "X", duration: 1 },
 ];
+
+/** A point on the page, as Playwright's mouse takes it. */
+type Point = { readonly x: number; readonly y: number };
+
+/** Where the pointer grabs a bar to move it: 4px in from its start, at its middle. */
+export const grabPoint = async (gantt: GanttParts, task: string): Promise<Point> => {
+  const box = await gantt.bar(task).boundingBox();
+  if (box === null) throw new Error(`the bar of ${task} is not shown`);
+  return { x: box.x + 4, y: box.y + box.height / 2 };
+};
+
+/** Where the pointer grabs a bar's end to resize it: the middle of its resize handle. */
+export const endPoint = async (gantt: GanttParts, task: string): Promise<Point> => {
+  const box = await gantt.root.locator(`[data-gantt-handle="${task}"]`).boundingBox();
+  if (box === null) throw new Error(`the bar of ${task} has no resize handle`);
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+};
+
+/** Presses the mouse at a point and moves it sideways by `dx` pixels, in steps, still pressed. */
+export const pressAndMove = async (board: Board, from: Point, dx: number): Promise<void> => {
+  await board.page.mouse.move(from.x, from.y);
+  await board.page.mouse.down();
+  await board.page.mouse.move(from.x + dx, from.y, { steps: 6 });
+};
+
+/** A whole drag: press, move sideways by `dx` pixels, release. */
+export const dragBy = async (board: Board, from: Point, dx: number): Promise<void> => {
+  await pressAndMove(board, from, dx);
+  await board.page.mouse.up();
+};
+
+/** The guide's day and x while a bar is dragged; undefined while none shows. */
+export const guideFacts = async (gantt: GanttParts) => {
+  const guide = gantt.root.locator("[data-gantt-guide]");
+  if ((await guide.count()) === 0) return undefined;
+  return {
+    date: await guide.getAttribute("data-date"),
+    x: Math.floor(Number(await guide.getAttribute("x1"))),
+    stroke: await guide.evaluate((line) => getComputedStyle(line).stroke),
+  };
+};

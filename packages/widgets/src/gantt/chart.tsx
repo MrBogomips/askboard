@@ -3,52 +3,24 @@
 // `muted` with its labels and gridlines; per task in a row of the grid a bar in `gantt-bar`, or in
 // `critical` on the critical path; finish-to-start elbow arrows, 1px in `gantt-bar`, or 2px in
 // `critical` between two critical tasks, each with its arrowhead. A task the graph cannot schedule
-// has no bar and no arrow. Geometry is written as SVG attributes and colours and widths as classes
-// built from DESIGN.md's tokens: no `style` attribute (AD-8).
+// has no bar and no arrow. The pointer drags a bar to move it, or its end to resize it
+// (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and the arrows
+// follow once the graph is rebuilt. Geometry is written as SVG attributes and colours and widths
+// as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
-import { memo } from "react";
+import { memo, useCallback, useMemo } from "react";
+import { type BarDrag, useBarDrag } from "./bar-drag.ts";
+import { BarShape, type DrawnBar, drawnBars, Guide } from "./bars.tsx";
 import { dayNumber } from "./model/date.ts";
+import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
-import { AXIS_HEIGHT, arrowPath, type BarBox, barBox, type RowBoxes } from "./model/layout.ts";
+import { AXIS_HEIGHT, arrowPath, type RowBoxes } from "./model/layout.ts";
+import { movedBox, resizedBox } from "./model/preview.ts";
 import { PIXELS_PER_DAY, ticks, type Zoom } from "./model/scale.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
-/** A drawn task: its bar and whether it is on the critical path. */
-export type DrawnBar = {
-  readonly id: string;
-  readonly box: BarBox;
-  readonly start: string;
-  readonly finish: string;
-  readonly critical: boolean;
-};
-
 type Arrow = { readonly from: DrawnBar; readonly to: DrawnBar; readonly critical: boolean };
-
-/** The bars of the tasks the graph scheduled, by task ID, in the rows' order. */
-export const drawnBars = (
-  rows: readonly GanttRow[],
-  schedules: readonly TaskSchedule[],
-  layout: RowBoxes,
-  span: ChartSpan,
-  zoom: Zoom,
-): ReadonlyMap<string, DrawnBar> => {
-  const bars = new Map<string, DrawnBar>();
-  rows.forEach((row, index) => {
-    const schedule = schedules[index];
-    const box = layout.boxes[index];
-    if (schedule?.kind !== "scheduled" || box === undefined) return;
-    const { startDate: start, finishDate: finish, critical } = schedule;
-    bars.set(row.id, {
-      id: row.id,
-      box: barBox(start, finish, span.origin, zoom, box),
-      start,
-      finish,
-      critical,
-    });
-  });
-  return bars;
-};
 
 const arrowsOf = (rows: readonly GanttRow[], bars: ReadonlyMap<string, DrawnBar>): Arrow[] =>
   rows.flatMap((row) => {
@@ -151,20 +123,6 @@ const ArrowPath = ({ itemId, arrow }: { readonly itemId: string; readonly arrow:
   />
 );
 
-const Bar = ({ bar }: { readonly bar: DrawnBar }) => (
-  <rect
-    data-gantt-bar={bar.id}
-    data-start={bar.start}
-    data-finish={bar.finish}
-    data-critical={bar.critical}
-    x={bar.box.x}
-    y={bar.box.y}
-    width={bar.box.width}
-    height={bar.box.height}
-    className={bar.critical ? "fill-critical" : "fill-gantt-bar"}
-  />
-);
-
 export type ChartProps = {
   readonly itemId: string;
   readonly rows: readonly GanttRow[];
@@ -172,11 +130,44 @@ export type ChartProps = {
   readonly layout: RowBoxes;
   readonly span: ChartSpan;
   readonly zoom: Zoom;
+  /** Whether the bars take pointer edits. */
+  readonly editable: boolean;
+  /** A bar dropped on a day: its task asks for it, or holds no request on its earliest start. */
+  readonly onMove: (taskId: string, day: string, earliest: string) => void;
+  /** A bar's end dropped: its task's new duration, in working days. */
+  readonly onResize: (taskId: string, duration: number) => void;
 };
 
-export const Chart = ({ itemId, rows, schedules, layout, span, zoom }: ChartProps) => {
+/** Where the dragged bar is drawn while the pointer moves, from `drag.ts`'s rules. */
+const draggedBox = (bar: DrawnBar, drag: BarDrag, span: ChartSpan, zoom: Zoom) => {
+  if (drag.kind === "resize") return resizedBox(bar.box, drag.dx, zoom);
+  const landing = moveDrop({ start: bar.start, earliest: bar.earliest, dx: drag.dx, zoom });
+  return movedBox(bar.box, landing, span.origin, zoom);
+};
+
+export const Chart = (props: ChartProps) => {
+  const { itemId, rows, schedules, layout, span, zoom, onMove, onResize } = props;
   const width = (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
-  const bars = drawnBars(rows, schedules, layout, span, zoom);
+  const bars = useMemo(
+    () => drawnBars(rows, schedules, layout, span, zoom),
+    [rows, schedules, layout, span, zoom],
+  );
+  const onDrop = useCallback(
+    ({ taskId, kind, dx }: BarDrag) => {
+      const bar = bars.get(taskId);
+      if (bar === undefined) return;
+      if (kind === "move") {
+        const landing = moveDrop({ start: bar.start, earliest: bar.earliest, dx, zoom });
+        if (landing.kind !== "click") onMove(taskId, landing.start, bar.earliest);
+        return;
+      }
+      const resized = resizeDrop({ start: bar.start, finish: bar.finish, dx, zoom });
+      if (resized.kind === "duration") onResize(taskId, resized.duration);
+    },
+    [bars, zoom, onMove, onResize],
+  );
+  const { drag, press, move, release, cancel } = useBarDrag(onDrop);
+  const dragged = drag === undefined ? undefined : bars.get(drag.taskId);
   return (
     <svg
       role="img"
@@ -184,7 +175,7 @@ export const Chart = ({ itemId, rows, schedules, layout, span, zoom }: ChartProp
       width={width}
       height={layout.height}
       viewBox={`0 0 ${width} ${layout.height}`}
-      className="block select-none"
+      className="block touch-none select-none"
     >
       <Markers itemId={itemId} />
       <Axis span={span} zoom={zoom} width={width} layout={layout} />
@@ -195,9 +186,21 @@ export const Chart = ({ itemId, rows, schedules, layout, span, zoom }: ChartProp
       </g>
       <g>
         {[...bars.values()].map((bar) => (
-          <Bar key={bar.id} bar={bar} />
+          <BarShape
+            key={bar.id}
+            bar={bar}
+            drawn={bar === dragged && drag ? draggedBox(bar, drag, span, zoom) : bar.box}
+            draggable={props.editable}
+            onPress={press}
+            onMove={move}
+            onRelease={release}
+            onCancel={cancel}
+          />
         ))}
       </g>
+      {dragged !== undefined && drag?.kind === "move" ? (
+        <Guide bar={dragged} span={span} zoom={zoom} />
+      ) : null}
     </svg>
   );
 };
