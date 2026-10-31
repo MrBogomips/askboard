@@ -1,8 +1,9 @@
 // The Gantt (FR-11, FR-15): its props, part of the input format, and its changes, part of the
 // output format (AD-7). Both schemas are standalone: they belong to no schema set until the input
-// format reaches 1.1, and nothing compiles them when this module loads. Its validators and its
-// shapes for the one generic diff come with the widget seams (gantt-widget, tasks 2.2 and 2.3).
+// format reaches 1.1, and nothing compiles them when this module loads. Its validators are in
+// `validate.ts`, on the seams' shared widget validator; its shapes for the one generic diff are here.
 
+import type { ElementShape } from "../element-diff.ts";
 import ganttChanges from "./gantt-changes.json" with { type: "json" };
 import ganttProps from "./gantt-props.json" with { type: "json" };
 
@@ -90,3 +91,15 @@ export type GanttChange = {
   readonly target: string;
   readonly value: number | string | readonly string[] | null;
 };
+
+/** A Gantt's own tasks for the one generic diff (AD-20): a flat list, every key but `id` a field. */
+export const GANTT_SHAPE: ElementShape = Object.freeze({ elements: "tasks" });
+
+/** A plan's tasks: a map from task ID to an entry, which gives only `set`s. */
+export const GANTT_PLAN_SHAPE: ElementShape = Object.freeze({ elements: "tasks", keyed: true });
+
+/** The shape of a Gantt's props: a plan's when they name its work packages. */
+export const ganttShape = (props: object): ElementShape =>
+  (props as { readonly workPackages?: unknown }).workPackages === undefined
+    ? GANTT_SHAPE
+    : GANTT_PLAN_SHAPE;

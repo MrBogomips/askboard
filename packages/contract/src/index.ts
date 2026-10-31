@@ -173,6 +173,35 @@ export {
   type TreeOrigin,
   type TreeProps,
 } from "./widgets/tree/index.ts";
+export {
+  type GanttOrigin,
+  ganttChangesProblems,
+  ganttPropsProblems,
+} from "./widgets/gantt/checks.ts";
+// Widgets: the Gantt (gantt-widget).
+export {
+  GANTT_ANSWER_DERIVED,
+  GANTT_FIRST_DATE,
+  GANTT_LABEL_MAX_CHARS,
+  GANTT_LAST_DATE,
+  GANTT_MAX_DEPENDENTS,
+  GANTT_MAX_DURATION,
+  GANTT_MAX_PREDECESSORS,
+  GANTT_MAX_TASKS,
+  GANTT_MIN_DURATION,
+  GANTT_PLAN_ESTIMATES,
+  GANTT_PLAN_SHAPE,
+  GANTT_SCHEMA_IDS,
+  GANTT_SHAPE,
+  type GanttChange,
+  type GanttItem,
+  type GanttOwnTask,
+  type GanttPlanEntry,
+  type GanttProps,
+  ganttChangesSchema,
+  ganttPropsSchema,
+  ganttShape,
+} from "./widgets/gantt/index.ts";
 
 // E3, the ask lifecycle: the 1.1 minors of the input format, the output format, the tool envelopes,
 // the board document and the board protocol, and their constants and limits (ask-lifecycle, design
