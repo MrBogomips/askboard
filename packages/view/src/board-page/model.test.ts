@@ -212,6 +212,24 @@ describe("an answer from the view becomes a board-protocol command only if it ca
     expect(detailOf(ready(), { ...answer, choice: ["Oracle"] })).toContain('"Oracle"');
   });
 
+  test("not with widget values, nor without a choice: the board protocol carries no widget value yet", () => {
+    // A test-only `probe` widget item's value (design decision 12).
+    const values = { sketch: { size: 4 } };
+    expect(detailOf(ready(), { ...answer, values })).toBe(
+      "the board protocol carries no widget value yet",
+    );
+    const { choice: _, ...widgetOnly } = answer;
+    expect(detailOf(ready(), { ...widgetOnly, values })).toBe(
+      "the board protocol carries no widget value yet",
+    );
+    expect(detailOf(ready(), widgetOnly)).toBe(
+      "the answer carries no choice, and the board protocol carries no widget value yet",
+    );
+    expect(detailOf(EMPTY_MODEL, { ...answer, values })).toBe(
+      "the board protocol carries no widget value yet",
+    );
+  });
+
   test("one label, unless the question is multiSelect", () => {
     const two = { ...answer, choice: ["PostgreSQL", "SQLite"] };
     expect(detailOf(ready(), two)).toContain("one");

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
-import { boardProtocolExamples } from "@askboard/contract/fixtures";
+import { boardProtocolExamples, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { readHostMessage } from "./host-messages.ts";
 import { hostMessageSchemas } from "./validators.ts";
 
@@ -60,5 +60,35 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
   test("a wrong value is refused at its path", () => {
     const message = { version: "1.0", type: "discarded", reason: "agent-finished" };
     expect(problemsOf(JSON.stringify(message))[0]?.path).toBe("/reason");
+  });
+
+  test("a board document whose question holds a widget item is refused as a schema error (design decision 7)", () => {
+    // A test-only `probe` widget item (design decision 12), beside the options and instead of them.
+    const [question] = plainChoiceBoardDocument.items;
+    const probe = { type: "probe", id: "sketch", props: { size: 3 } };
+    const boardWith = (props: object) =>
+      JSON.stringify({
+        version: "1.0",
+        type: "board",
+        document: { ...plainChoiceBoardDocument, items: [{ ...question, props }] },
+      });
+    const unknownItems = {
+      path: "/document/items/0/props/items",
+      message: 'unknown field "items"',
+    };
+    expect(readHostMessage(boardWith({ ...question.props, items: [probe] }))).toEqual({
+      ok: false,
+      reason: "schema",
+      problems: [unknownItems],
+    });
+    const { options: _, ...withoutOptions } = question.props;
+    const instead = readHostMessage(boardWith({ ...withoutOptions, items: [probe] }));
+    expect(instead).toMatchObject({ ok: false, reason: "schema" });
+    expect(problemsOf(boardWith({ ...withoutOptions, items: [probe] }))).toEqual(
+      expect.arrayContaining([
+        unknownItems,
+        { path: "/document/items/0/props/options", message: 'missing field "options"' },
+      ]),
+    );
   });
 });

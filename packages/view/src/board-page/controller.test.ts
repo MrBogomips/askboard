@@ -255,6 +255,26 @@ describe("answers (FR-22, AD-10)", () => {
     expect(run.socket(1).sent).toEqual([]);
   });
 
+  test("an answer carrying widget values is refused, saying why, and nothing goes (design decision 7)", async () => {
+    const run = await opened();
+    // A test-only `probe` widget item's value (design decision 12).
+    const values = { sketch: { size: 4 } };
+    const { choice: _, ...widgetOnly } = answer;
+    for (const message of [
+      { ...answer, values },
+      { ...widgetOnly, values },
+    ]) {
+      expect(await run.view(message)).toEqual({
+        outcome: "refused",
+        detail: "the board protocol carries no widget value yet",
+      });
+    }
+    expect(run.socket(1).sent).toEqual([]);
+    expect(run.updates.every((update) => update.pending === undefined)).toBe(true);
+    expect(await run.view(answer)).toEqual({ outcome: "sent" });
+    expect(run.socket(1).sent).toEqual([command]);
+  });
+
   test("while disconnected an answer is queued, then sent once the new socket's state shows it open", async () => {
     const run = await opened();
     run.socket(1).close(1006);

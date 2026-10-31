@@ -17,14 +17,18 @@ export const VIEW_TOOL_PREFIX = "askboard.view.";
 export const ITEM_ERROR_MAX_CHARS = 1_000;
 
 /**
- * The user pressed "Answer": the question's choice at its revision, stamped with the time of the
- * act (FR-19, FR-22). The board page turns it into the board-protocol `answer` command.
+ * The user pressed "Answer": the question's choice, the full edited value of each widget item the
+ * user changed (AD-20), or both, at the question's revision, stamped with the time of the act
+ * (FR-19, FR-22). The board page turns a choice into the board-protocol `answer` command; the
+ * board protocol carries no widget value yet (design decision 7).
  */
 export type ViewAnswer = {
   readonly type: "answer";
   readonly itemId: string;
   readonly rev: number;
-  readonly choice: readonly string[];
+  readonly choice?: readonly string[];
+  /** Each changed widget item's full edited props, by item ID. */
+  readonly values?: Readonly<Record<string, unknown>>;
   readonly when: string;
 };
 

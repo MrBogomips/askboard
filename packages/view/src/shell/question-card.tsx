@@ -60,7 +60,7 @@ const sendAnswer = (
   { channel, acts }: CardContext,
 ): void => {
   const message = answerOf(question, value, new Date());
-  acts.start(question.id, message.choice, message.when);
+  acts.start(question.id, value, message.when);
   channel.send(message).then(
     (reply) => {
       const read = readAnswerReply(reply);

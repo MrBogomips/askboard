@@ -35,11 +35,14 @@ export const settled = (outbox: Outbox, state: BoardState): Outbox =>
 
 export const hasUnsent = (outbox: Outbox): boolean => outbox.some((held) => !held.sent);
 
-/** The held answers as the view hears of them (M3: the view settles its acts on them). */
+/**
+ * The held answers as the view hears of them (M3: the view settles its acts on them). Each held
+ * answer became a command first, so it carries a choice (`answerCommandFor`).
+ */
 export const pendingOf = (outbox: Outbox): PendingAnswer[] =>
   outbox.map(({ answer, sent }) => ({
     itemId: answer.itemId,
-    choice: [...answer.choice],
+    choice: [...(answer.choice ?? [])],
     when: answer.when,
     outcome: sent ? "sent" : "queued",
   }));

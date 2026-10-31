@@ -105,13 +105,21 @@ export type CommandOrRefusal =
 
 const refuse = (detail: string): CommandOrRefusal => ({ ok: false, detail });
 
+// What the board protocol cannot carry yet: its answer command has a choice and no widget value
+// (design decision 7). The question stays open, since the view drops a refused act.
+const NO_WIDGET_VALUE = "the board protocol carries no widget value yet";
+
 /**
  * The board-protocol command for the view's answer, or why the board page refuses it: the answer
- * must name a question of the board at its revision, open in the state, visible and not failed,
- * with labels the question offers, one unless it is `multiSelect` (AD-9, AD-10). `board-host`
- * checks it again; this keeps the board page from sending what it knows cannot be an answer.
+ * must carry a choice and no widget value, and name a question of the board at its revision, open
+ * in the state, visible and not failed, with labels the question offers, one unless it is
+ * `multiSelect` (AD-9, AD-10). `board-host` checks it again; this keeps the board page from
+ * sending what it knows cannot be an answer.
  */
 export const answerCommandFor = (model: BoardModel, answer: ViewAnswer): CommandOrRefusal => {
+  if (answer.values !== undefined) return refuse(NO_WIDGET_VALUE);
+  const { choice } = answer;
+  if (choice === undefined) return refuse(`the answer carries no choice, and ${NO_WIDGET_VALUE}`);
   const { document, state } = model;
   if (document === undefined || state === undefined) return refuse("there is no board yet");
   const question = document.items.find((item) => item.id === answer.itemId);
@@ -124,9 +132,9 @@ export const answerCommandFor = (model: BoardModel, answer: ViewAnswer): Command
   if (model.failed.has(answer.itemId)) return refuse("the question's item failed in the view");
   if (!model.visible.has(answer.itemId)) return refuse("the question never counted as visible");
   const labels = new Set(question.props.options.map((option) => option.label));
-  const unknown = answer.choice.find((label) => !labels.has(label));
+  const unknown = choice.find((label) => !labels.has(label));
   if (unknown !== undefined) return refuse(`the question offers no option "${unknown}"`);
-  if (question.props.multiSelect !== true && answer.choice.length !== 1) {
+  if (question.props.multiSelect !== true && choice.length !== 1) {
     return refuse("the question takes one option");
   }
   return {
@@ -136,7 +144,7 @@ export const answerCommandFor = (model: BoardModel, answer: ViewAnswer): Command
       type: "answer",
       itemId: answer.itemId,
       rev: answer.rev,
-      choice: [...answer.choice],
+      choice: [...choice],
       when: answer.when,
     },
   };
