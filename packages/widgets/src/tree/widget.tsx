@@ -24,6 +24,7 @@ import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focu
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
 import { sameNodes } from "./model/marks.ts";
 import type { TreeRow } from "./model/rows.ts";
+import { afterMove, isMove, type MoveEdit } from "./moving.ts";
 import { chevronNodeOf, focusTargetOf } from "./targets.ts";
 import { TreeToolbar } from "./toolbar.tsx";
 import { type TreePart, useTreeFocus } from "./tree-focus.ts";
@@ -102,15 +103,23 @@ export const TreeWidget = ({
     setView(deleted.view);
     change(deleted.value);
   };
+  // The node moves with its branch, the focus following it (`moving.ts`).
+  const move = (edit: MoveEdit, nodeId: string, focusTo: TreePart | undefined): void => {
+    const moved = afterMove(edit, value, view, nodeId);
+    focus.moveFocusTo(focusTo);
+    setView(moved.view);
+    change(moved.value);
+  };
   // An edit of the focused node, from a key or a tool, where it is possible.
   const act = (edit: TreeEdit, from: TreePart): void => {
     const nodeId = view.focus?.nodeId;
+    const focusTo = from === "grid" ? "grid" : undefined;
     if (disabled || !can(edit, value, nodeId)) return;
     if (isAdd(edit)) add(edit);
     else if (nodeId === undefined) return;
-    else if (edit !== "remove") return;
+    else if (isMove(edit)) move(edit, nodeId, focusTo);
     else if (deleteQuestionOf(value, nodeId) !== undefined) setAsked({ nodeId, from });
-    else remove(nodeId, from === "grid" ? "grid" : undefined);
+    else remove(nodeId, focusTo);
   };
   const enabled = TREE_TOOLS.map((tool) => !disabled && can(tool.edit, value, view.focus?.nodeId));
   // The question shows while its node has children, from the value as it is, and while the Tree

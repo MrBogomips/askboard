@@ -82,6 +82,35 @@ export const pressIn = async (board: Board, key: string): Promise<FocusAt> => {
   return treeFocus(board);
 };
 
+/** The treegrid's Tab stop, which keeps the tree's focus while the DOM focus is elsewhere. */
+export const treeStop = (tree: TreeGrid): Promise<FocusAt> =>
+  tree.grid.locator('[tabindex="0"]').evaluate((stop) => {
+    const nodeId = stop.closest("[data-node-id]")?.getAttribute("data-node-id") ?? "";
+    const cell = stop.getAttribute("data-cell");
+    return cell === null ? { nodeId } : { nodeId, cell: Number(cell) };
+  });
+
+type KeyRecord = { askboardKeys?: string[] };
+
+/**
+ * Records each key press the view's window receives once its handlers ran, as "Alt+Shift+ArrowUp
+ * prevented": whether the Tree kept the browser from acting on it, which a headless page cannot
+ * show by navigating.
+ */
+export const recordKeys = async (board: Board): Promise<void> =>
+  (await board.viewFrame()).evaluate(() => {
+    const keys: string[] = [];
+    (window as KeyRecord).askboardKeys = keys;
+    window.addEventListener("keydown", (event) => {
+      const held = `${event.altKey ? "Alt+" : ""}${event.shiftKey ? "Shift+" : ""}`;
+      keys.push(`${held}${event.key}${event.defaultPrevented ? " prevented" : ""}`);
+    });
+  });
+
+/** The key presses `recordKeys` recorded, in order. */
+export const recordedKeys = async (board: Board): Promise<string[]> =>
+  (await board.viewFrame()).evaluate(() => [...((window as KeyRecord).askboardKeys ?? [])]);
+
 /** The question asked before deleting a node with children: `message`, or any such question. */
 export const deleteQuestion = (board: Board, message?: string): Locator =>
   board.view.getByRole("group", { name: message ?? /will be deleted\.$/, exact: true });

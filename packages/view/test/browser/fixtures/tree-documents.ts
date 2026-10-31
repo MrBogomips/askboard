@@ -45,15 +45,21 @@ export const emptyTreeDocument: ViewDocument = treeDocumentWith({
 /** A Tree at the contract's node limit: 25 packages of 19 tasks, 500 nodes. */
 export const fullTreeDocument: ViewDocument = treeDocumentWith(packagesTree(25, 19));
 
-// The chain `l<level>` … `l<depth>`, each node the only child of the one before.
-const chain = (level: number, depth: number): TreeNode => ({
-  id: `l${level}`,
+// The chain `<prefix><level>` … `<prefix><depth>`, each node the only child of the one before.
+const chain = (prefix: string, level: number, depth: number): TreeNode => ({
+  id: `${prefix}${level}`,
   label: `Level ${level}`,
-  ...(level < depth ? { children: [chain(level + 1, depth)] } : {}),
+  ...(level < depth ? { children: [chain(prefix, level + 1, depth)] } : {}),
 });
 
 /** A Tree at the contract's depth limit: `l1` to `l8`, each the only child of the one before. */
 export const deepTreeDocument: ViewDocument = treeDocumentWith({
   columns: wbs.props.columns,
-  nodes: [chain(1, 8)],
+  nodes: [chain("l", 1, 8)],
+});
+
+/** A leaf `leaf`, then the chain `b1` to `b8`, which an indent would take past the depth limit. */
+export const tallBranchTreeDocument: ViewDocument = treeDocumentWith({
+  columns: wbs.props.columns,
+  nodes: [{ id: "leaf", label: "Leaf" }, chain("b", 1, 8)],
 });
