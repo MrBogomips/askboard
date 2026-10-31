@@ -108,6 +108,19 @@ describe("workspace layout", () => {
     expect(devDependencies["@types/bun"]).toBe(packageManager.slice("bun@".length));
   });
 
+  test("every package that declares @types/bun has the version of the Bun pin", async () => {
+    const { packageManager } = await readJson(join(root, "package.json"));
+    const pin = packageManager.slice("bun@".length);
+    for (const path of manifestPaths) {
+      const manifest = await readJson(join(root, path));
+      for (const field of DEPENDENCY_FIELDS) {
+        const version = manifest[field]?.["@types/bun"];
+        if (version !== undefined)
+          expect({ path, field, version }).toEqual({ path, field, version: pin });
+      }
+    }
+  });
+
   // The import check resolves only @askboard/* and relative specifiers, so nothing may alias them.
   test("no configuration aliases imports", async () => {
     for (const path of configPaths) {

@@ -1,0 +1,12 @@
+{
+  "name": "askboard",
+  "version": "0.0.0",
+  "description": "Stub session process for bench's tests: speaks E1's contract over stdio and the board protocol. Not shipped.",
+  "mcpServers": {
+    "askboard": {
+      "command": "bun",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server.ts"],
+      "env": { "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}" }
+    }
+  }
+}
