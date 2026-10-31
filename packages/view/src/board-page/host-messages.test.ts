@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
-import { boardProtocolExamples, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  boardProtocolExamples,
+  plainChoiceBoardDocument,
+  treeBoardDocument,
+} from "@askboard/contract/fixtures";
 import { readHostMessage } from "./host-messages.ts";
 import { hostMessageSchemas } from "./validators.ts";
 
@@ -87,6 +91,18 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
     expect(problemsOf(boardWith({ ...withoutOptions, items: [probe] }))).toEqual(
       expect.arrayContaining([
         unknownItems,
+        { path: "/document/items/0/props/options", message: 'missing field "options"' },
+      ]),
+    );
+  });
+
+  test("a board message holding the fixture Tree's question is refused as a schema error (view spec)", () => {
+    // Until the input format admits a Tree, the board page never builds a view from one.
+    const board = JSON.stringify({ version: "1.0", type: "board", document: treeBoardDocument });
+    expect(readHostMessage(board)).toMatchObject({ ok: false, reason: "schema" });
+    expect(problemsOf(board)).toEqual(
+      expect.arrayContaining([
+        { path: "/document/items/0/props/items", message: 'unknown field "items"' },
         { path: "/document/items/0/props/options", message: 'missing field "options"' },
       ]),
     );
