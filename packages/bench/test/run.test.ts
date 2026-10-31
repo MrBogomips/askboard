@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PreflightError } from "../src/plugin.ts";
@@ -58,6 +66,11 @@ describe("runBenchmark on the stub with the stand-in claude", () => {
       ["S6", "askboard", 1, 1],
     ]);
     expect(report.rows[0]?.k3?.median).toBeGreaterThanOrEqual(0);
+    expect(existsSync(join(runDir, "cases", "S1-baseline-1", "transcripts", "main.jsonl"))).toBe(
+      true,
+    );
+    expect(report.context.baseline?.n).toBe(1);
+    expect(report.context.added).toBeNumber();
     expect(report.settings.claudeVersionInstalled).toBe("2.1.314");
     expect(report.cost.askboard.available).toBe(true);
     expect(existsSync(join(runDir, "report.json"))).toBe(true);
@@ -109,7 +122,7 @@ describe("runBenchmark's limits", () => {
     const path = join(root, "hang.sh");
     writeFileSync(
       path,
-      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "2.1.314 (Claude Code)"; exit 0; fi\nexec sleep 600\n',
+      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "2.1.314 (Claude Code)"; exit 0; fi\nexec sleep 6123\n',
     );
     chmodSync(path, 0o755);
     return path;
@@ -128,6 +141,42 @@ describe("runBenchmark's limits", () => {
     expect(Date.now() - started).toBeLessThan(10_000);
     expect(report.invalid).toEqual([{ caseId: "S1", arm: "auq", run: 1, reason: "timed out" }]);
   }, 20_000);
+
+  test("an interrupted benchmark stops its run, keeps a report and leaves no process", async () => {
+    const { root, options } = workspace();
+    const settings = settingsFor(root, {
+      claude: hanging(root),
+      cases: ["S1"],
+      arms: ["auq"],
+      runs: 3,
+    });
+    const stop = new AbortController();
+    setTimeout(() => stop.abort(), 800);
+    const started = Date.now();
+    const result = await runBenchmark(settings, {
+      ...options,
+      killGraceMs: 300,
+      signal: stop.signal,
+    });
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(result.interrupted).toBe(true);
+    expect(result.report.invalid).toEqual([
+      { caseId: "S1", arm: "auq", run: 1, reason: "interrupted" },
+    ]);
+    expect(existsSync(join(result.runDir, "report.md"))).toBe(true);
+    expect(Bun.spawnSync(["pgrep", "-f", "sleep 6123"]).stdout.toString().trim()).toBe("");
+  }, 20_000);
+
+  test("a run folder whose case never finished is rebuilt with that case invalid", async () => {
+    const { root, options } = workspace();
+    const { runDir } = await runBenchmark(
+      settingsFor(root, { cases: ["S1"], arms: ["auq"] }),
+      options,
+    );
+    mkdirSync(join(runDir, "cases", "S1-auq-2"));
+    const rebuilt = rebuildReport(runDir);
+    expect(rebuilt.invalid).toEqual([{ caseId: "S1", arm: "auq", run: 2, reason: "interrupted" }]);
+  }, 30_000);
 
   test("a pinned version that differs stops the run before it starts", async () => {
     const { root, options } = workspace();

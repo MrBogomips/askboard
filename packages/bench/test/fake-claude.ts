@@ -209,7 +209,20 @@ const auqArm = () => {
   }
 };
 
-if (pluginDir !== undefined) await askboardArm(pluginDir);
+// The baseline ends after its first request, as --max-turns 1 makes Claude Code do.
+const baselineArm = () => {
+  asker.request(
+    usage(120, 40),
+    [{ type: "tool_use", name: "ToolSearch", input: { query: "askboard ask" } }],
+    Date.now(),
+  );
+  writeFileSync(join(folder, `${sessionId}.jsonl`), main.text());
+  emit({ type: "result", subtype: "error_max_turns", is_error: true, num_turns: 1 });
+  process.exit(0);
+};
+
+if (flag("--max-turns") === "1") baselineArm();
+else if (pluginDir !== undefined) await askboardArm(pluginDir);
 else auqArm();
 
 asker.request(usage(20, 0), [{ type: "text", text: chosen.join(", ") }], Date.now());

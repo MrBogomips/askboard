@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { startServer } from "./agent.ts";
+import { type McpSession, startServer } from "./agent.ts";
 import type { BoardRecord } from "./answerer/board.ts";
 import { writeBrowserLauncher } from "./answerer/launcher.ts";
 import { cleanEnv } from "./command.ts";
@@ -68,11 +68,19 @@ const check = async (options: SmokeOptions, pluginDir: string, dir: string): Pro
   writeFileSync(paths.plan, JSON.stringify(plan));
   const browser = writeBrowserLauncher(dir, paths);
   const server = readPluginServer(pluginDir, project);
-  const session = await startServer({
-    ...server,
-    env: { ...cleanEnv(options.env), ...server.env, BROWSER: browser },
-    cwd: project,
-  });
+  let session: McpSession;
+  try {
+    session = await startServer({
+      ...server,
+      env: { ...cleanEnv(options.env), ...server.env, BROWSER: browser },
+      cwd: project,
+    });
+  } catch (error) {
+    options.err(
+      `cannot start the session process: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return 1;
+  }
   const askId = `smoke-${randomBytes(3).toString("hex")}`;
   const question = CASES.S1.asks[0]?.question;
   let choice: unknown;

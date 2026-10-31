@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { measureRun, type RunInput } from "../src/measure.ts";
 import { parseTranscript } from "../src/transcript.ts";
-import { askboardS1, auqS1, boardRecords, s6Main, T0 } from "./support/flows.ts";
+import { askboardS1, auqS1, baselineS1, boardRecords, s6Main, T0 } from "./support/flows.ts";
 
 const input = (overrides: Partial<RunInput>): RunInput => ({
   caseId: "S1",
@@ -137,8 +137,53 @@ describe("preparing responses", () => {
   });
 });
 
+describe("retries, batches and late tool searches", () => {
+  test("an identical ask sent again is a retry of the same ask, counted in its K1 and K2", () => {
+    const run = measureRun(input({ main: parseTranscript(askboardS1({ repeatCold: true })) }));
+    expect(run.valid).toBe(true);
+    expect(run.asks.map((ask) => ask.row)).toEqual(["S1-cold", "S1-warm"]);
+    expect(run.asks[0]).toMatchObject({
+      askId: "db-a1",
+      k1: 570,
+      k2: 230,
+      t0: T0 + 2_500,
+      t1: T0 + 3_100,
+    });
+  });
+
+  test("two asks in one response make the run invalid", () => {
+    const run = measureRun(
+      input({ arm: "auq", main: parseTranscript(auqS1({ batched: true })), records: [] }),
+    );
+    expect(run).toMatchObject({ valid: false, reason: "two asks were sent in one response" });
+  });
+
+  test("a tool search between an ask and its collect counts in X and in what tool search loads", () => {
+    const run = measureRun(
+      input({ main: parseTranscript(askboardS1({ searchBeforeCollect: true })) }),
+    );
+    expect(run.asks[0]?.x).toBe(150);
+    expect(run.toolSearchGrowth).toBe(1_800);
+  });
+});
+
+describe("the baseline", () => {
+  test("counts with its first request, and has no ask", () => {
+    const run = measureRun(
+      input({ arm: "baseline", main: parseTranscript(baselineS1()), records: [] }),
+    );
+    expect(run).toMatchObject({ valid: true, asks: [], firstInput: 19_210 });
+  });
+
+  test("without a request it is invalid", () => {
+    const run = measureRun(input({ arm: "baseline", main: parseTranscript(""), records: [] }));
+    expect(run).toMatchObject({ valid: false, reason: "the transcript holds no request" });
+  });
+});
+
 describe("validity, in order", () => {
   test.each([
+    [{ interrupted: true, timedOut: true }, "interrupted"],
     [{ timedOut: true }, "timed out"],
     [{ main: undefined }, "the transcript is missing"],
     [{ main: parseTranscript(auqS1()) }, "an expected ask is missing (found 0 of 2)"],

@@ -34,7 +34,7 @@ const execute = async (argv: readonly string[], io: Io): Promise<number> => {
       io.out(USAGE);
       return 0;
     case "run": {
-      const { runDir, report } = await runBenchmark(command.settings, {
+      const { runDir, report, interrupted } = await runBenchmark(command.settings, {
         cwd: io.cwd,
         env: io.env,
         home: io.home,
@@ -42,7 +42,8 @@ const execute = async (argv: readonly string[], io: Io): Promise<number> => {
       });
       for (const line of summary(report)) io.out(line);
       io.out(`run folder: ${runDir}`);
-      return 0;
+      // 128 + SIGINT, as a shell reports a command stopped by Ctrl-C.
+      return interrupted ? 130 : 0;
     }
     case "smoke":
       return smoke({

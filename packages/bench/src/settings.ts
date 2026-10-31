@@ -50,7 +50,7 @@ const TTLS: readonly CacheTtl[] = ["5m", "1h"];
 export const DEFAULTS: RunSettings = {
   session: "e1",
   cases: ["S1", "S6"],
-  arms: ["askboard", "auq"],
+  arms: ["askboard", "auq", "baseline"],
   runs: 5,
   model: "claude-opus-5-5",
   effort: "medium",
@@ -65,7 +65,8 @@ export const DEFAULTS: RunSettings = {
 };
 
 export const USAGE = `Usage:
-  bun packages/bench/src/cli.ts run    [--session e1|stub] [--cases S1,S6] [--arms askboard,auq]
+  bun packages/bench/src/cli.ts run    [--session e1|stub] [--cases S1,S6]
+                                       [--arms askboard,auq,baseline]
                                        [--runs 5] [--model claude-opus-5-5] [--effort medium]
                                        [--cache-ttl 5m|1h] [--tool-search true] [--max-turns 12]
                                        [--timeout 300] [--claude claude] [--claude-version x.y.z]

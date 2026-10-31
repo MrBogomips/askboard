@@ -24,8 +24,8 @@ describe("questions", () => {
 });
 
 describe("cases", () => {
-  test("S1 runs in both arms with a cold and a warm ask; S6 in AskBoard from a subagent", () => {
-    expect(CASES.S1.arms).toEqual(["askboard", "auq"]);
+  test("S1 runs in both arms and the baseline with a cold and a warm ask; S6 in AskBoard from a subagent", () => {
+    expect(CASES.S1.arms).toEqual(["askboard", "auq", "baseline"]);
     expect(CASES.S1.asks.map((ask) => ask.row)).toEqual(["S1-cold", "S1-warm"]);
     expect(CASES.S1.fromSubagent).toBe(false);
     expect(CASES.S6.arms).toEqual(["askboard"]);
@@ -70,6 +70,10 @@ describe("prompts", () => {
     expect(askboard).toContain("AskBoard's ask tool");
     expect(askboard).toContain("collect");
     expect(auq).toContain("AskUserQuestion");
+  });
+
+  test("the baseline gets the AskBoard arm's prompt, so their first requests differ only by AskBoard", () => {
+    expect(promptFor(CASES.S1, "baseline")).toBe(promptFor(CASES.S1, "askboard"));
   });
 
   test("S6 hands the first question to a subagent", () => {

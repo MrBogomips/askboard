@@ -6,7 +6,7 @@ describe("defaults", () => {
     expect(DEFAULTS).toMatchObject({
       session: "e1",
       cases: ["S1", "S6"],
-      arms: ["askboard", "auq"],
+      arms: ["askboard", "auq", "baseline"],
       runs: 5,
       model: "claude-opus-5-5",
       effort: "medium",
@@ -118,7 +118,7 @@ describe("parseCommand", () => {
     [["run", "--cases", "S1,S9"], "--cases must name cases among S1, S6"],
     [["run", "--cases", "S1,"], "--cases must name cases among S1, S6"],
     [["run", "--cases", ""], "--cases needs a value"],
-    [["run", "--arms", "html"], "--arms must name arms among askboard, auq"],
+    [["run", "--arms", "html"], "--arms must name arms among askboard, auq, baseline"],
     [["run", "--effort", "huge"], "--effort must be one of low, medium, high, xhigh, max"],
     [["run", "--cache-ttl", "2h"], "--cache-ttl must be one of 5m, 1h"],
     [

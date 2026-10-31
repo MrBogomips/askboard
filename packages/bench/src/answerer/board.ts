@@ -52,6 +52,7 @@ export type AnswerBoardOptions = {
 };
 
 const DEADLINE_MS = 60_000;
+const LOOPBACK: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
 // board-host refuses an upgrade without a matching Origin (E1 board-host spec). Bun and Node 24
 // take headers in the options; the DOM type of the test programs knows only protocols.
@@ -68,6 +69,10 @@ export const answerBoard = async (options: AnswerBoardOptions): Promise<BoardRec
   const token = url?.searchParams.get("t");
   if (url === undefined || route?.kind !== "board" || !token) {
     return { kind: "board", started, outcome: "error", problem: "not a board link" };
+  }
+  // Boards listen on loopback only (AD-11); the answerer connects nowhere else (NFR-9).
+  if (!LOOPBACK.has(url.hostname)) {
+    return { kind: "board", started, outcome: "error", problem: "not a loopback board link" };
   }
   const base: BoardRecord = { kind: "board", askId: route.askId, started, outcome: "timeout" };
   const page = await fetch(link, { signal: AbortSignal.timeout(deadlineMs) }).catch(

@@ -70,4 +70,35 @@ describe("the scripted MCP client", () => {
     expect(await session.close()).not.toBe(0);
     expect(isRunning(pid)).toBe(false);
   });
+
+  test("a server that never answers initialize is killed at the bound", async () => {
+    const started = Date.now();
+    await expect(
+      startServer(
+        {
+          command: process.execPath,
+          args: ["-e", "setInterval(() => {}, 1000)"],
+          env: { PATH: process.env.PATH ?? "" },
+        },
+        { openBoundMs: 300 },
+      ),
+    ).rejects.toThrow("did not answer initialize within 0.3 s");
+    expect(Date.now() - started).toBeLessThan(3_000);
+    expect(
+      Bun.spawnSync(["pgrep", "-f", "setInterval\\(\\(\\) => \\{\\}, 1000\\)"])
+        .stdout.toString()
+        .trim(),
+    ).toBe("");
+  });
+
+  test("a server that refuses initialize is killed", async () => {
+    const script = `process.stdin.on("data", (d) => { for (const line of String(d).split("\\n").filter(Boolean)) { const m = JSON.parse(line); process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: m.id, error: { code: -32600, message: "no" } }) + "\\n"); } }); setInterval(() => {}, 1000);`;
+    await expect(
+      startServer({
+        command: process.execPath,
+        args: ["-e", script],
+        env: { PATH: process.env.PATH ?? "" },
+      }),
+    ).rejects.toThrow("no");
+  });
 });

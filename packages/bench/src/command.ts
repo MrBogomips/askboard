@@ -76,6 +76,7 @@ const ASKBOARD_TOOLS = [
   "mcp__askboard__collect",
 ];
 
+// The baseline gets the AskBoard arm's tools, so that the two first requests differ only by AskBoard.
 const toolsOf = (run: CaseRun): { tools: string[]; allowed: string[] } => {
   if (run.arm === "auq") return { tools: [AUQ_TOOL, "ToolSearch"], allowed: ["ToolSearch"] };
   const agent = CASES[run.caseId].fromSubagent ? ["Agent"] : [];
@@ -132,7 +133,8 @@ export const buildLaunch = (
     "--allowedTools",
     allowed.join(","),
     "--max-turns",
-    String(settings.maxTurns),
+    // The baseline only needs its first request.
+    arm === "baseline" ? "1" : String(settings.maxTurns),
     "--output-format",
     "stream-json",
     "--verbose",

@@ -66,6 +66,8 @@ export type RunInput = {
   readonly records: readonly unknown[];
   readonly init: Init | undefined;
   readonly timedOut: boolean;
+  /** The user stopped the benchmark during this run. */
+  readonly interrupted?: boolean;
   readonly exitCode: number | null;
 };
 
@@ -126,6 +128,35 @@ const asksIn = (transcript: Transcript, arm: Arm): Found[] =>
       })),
   );
 
+/** One ask of the scenario: its first successful call and any identical ones sent again. */
+type LogicalAsk = { readonly first: Found; readonly repeats: readonly Found[] };
+
+const sortedLabels = (found: Found): string =>
+  JSON.stringify(found.labels.map((labels) => [...labels].sort()));
+
+// The addendum counts repeated attempts with the ask they repeat: a successful call of the same ask
+// ID or the same question right after it is a retry, not the next ask.
+const groupAsks = (found: readonly Found[]): LogicalAsk[] => {
+  const asks: { first: Found; repeats: Found[] }[] = [];
+  for (const call of found) {
+    const last = asks.at(-1);
+    const same =
+      last !== undefined &&
+      ((call.askId !== undefined && call.askId === last.first.askId) ||
+        sortedLabels(call) === sortedLabels(last.first));
+    if (last !== undefined && same) last.repeats.push(call);
+    else asks.push({ first: call, repeats: [] });
+  }
+  return asks;
+};
+
+const callsOf = (ask: LogicalAsk): Found[] => [ask.first, ...ask.repeats];
+const lastIndexOf = (ask: LogicalAsk): number =>
+  Math.max(...callsOf(ask).map((call) => call.request.index));
+
+const isToolSearchOnly = (request: Request): boolean =>
+  request.calls.length > 0 && request.calls.every((call) => call.name === "ToolSearch");
+
 const isPreparing = (transcript: Transcript, arm: Arm, request: Request): boolean =>
   request.calls.length > 0 &&
   request.calls.every(
@@ -158,7 +189,12 @@ const sumOrUndefined = (values: readonly (number | undefined)[]): number | undef
     ? undefined
     : values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
-const collectsFor = (transcript: Transcript, askId: string | undefined, from: number, to: number) =>
+const collectsFor = (
+  transcript: Transcript,
+  askIds: readonly string[],
+  from: number,
+  to: number,
+): Request[] =>
   transcript.requests
     .slice(from + 1, to)
     .filter((request) =>
@@ -167,16 +203,16 @@ const collectsFor = (transcript: Transcript, askId: string | undefined, from: nu
           ASKBOARD_COLLECT.test(call.name) &&
           isRecord(call.input) &&
           Array.isArray(call.input.asks) &&
-          call.input.asks.some((entry) => isRecord(entry) && entry.askId === askId),
+          call.input.asks.some((entry) => isRecord(entry) && askIds.includes(String(entry.askId))),
       ),
     );
 
-const boardRecordOf = (records: readonly unknown[], askId: string | undefined) =>
+const boardRecordOf = (records: readonly unknown[], askIds: readonly string[]) =>
   records.find(
     (record): record is BoardRecord =>
       isRecord(record) &&
       record.kind === "board" &&
-      record.askId === askId &&
+      askIds.includes(String(record.askId)) &&
       typeof record.shown === "number",
   );
 
@@ -184,7 +220,7 @@ const boardRecordOf = (records: readonly unknown[], askId: string | undefined) =
 const deliveredAt = (
   transcript: Transcript,
   collects: readonly Request[],
-  askId: string | undefined,
+  askIds: readonly string[],
   choice: readonly string[],
 ): number | undefined => {
   for (const request of collects) {
@@ -195,7 +231,7 @@ const deliveredAt = (
         isRecord(value) && Array.isArray(value.asks) ? value.asks.filter(isRecord) : [];
       const carries = entries.some(
         (entry) =>
-          entry.askId === askId &&
+          askIds.includes(String(entry.askId)) &&
           Array.isArray(entry.events) &&
           entry.events.some(
             (event) =>
@@ -220,17 +256,27 @@ type Measured = {
 const measureAsk = (
   input: RunInput,
   transcript: Transcript,
-  found: readonly Found[],
+  asks: readonly LogicalAsk[],
   index: number,
 ): Measured => {
   const { arm } = input;
-  const ask = found[index] as Found;
+  const logical = asks[index] as LogicalAsk;
+  const ask = logical.first;
   const scenario = CASES[input.caseId].asks[index];
   const emit = ask.request.index;
-  const floor = index === 0 ? -1 : (found[index - 1]?.request.index ?? -1);
-  const ceiling = found[index + 1]?.request.index ?? transcript.requests.length;
+  const previous = asks[index - 1];
+  const floor = previous === undefined ? -1 : lastIndexOf(previous);
+  const ceiling = asks[index + 1]?.first.request.index ?? transcript.requests.length;
   const prep = preparingOf(transcript, arm, emit, floor);
-  const counted = [...prep, ask.request];
+  const repeated = [
+    ...new Set(
+      logical.repeats.map((call) => call.request).filter((request) => request !== ask.request),
+    ),
+  ];
+  const counted = [...prep, ask.request, ...repeated];
+  const askIds = [
+    ...new Set(callsOf(logical).flatMap((call) => (call.askId === undefined ? [] : [call.askId]))),
+  ];
   const questions = Math.max(ask.labels.length, 1);
   const thinking = sumOrUndefined(counted.map((request) => request.thinking));
   const output = counted.reduce((sum, request) => sum + request.output, 0);
@@ -257,11 +303,15 @@ const measureAsk = (
     t1,
     prepMs,
   };
+  const resultGrowth = [ask.request, ...repeated].map((request) =>
+    growthOf(transcript, request.index),
+  );
   if (arm === "auq") {
-    const result = transcript.results.get(ask.call.id);
+    const last = callsOf(logical).at(-1) ?? ask;
+    const result = transcript.results.get(last.call.id);
     const answer = scenario?.question.answer ?? "";
     const delivered = result !== undefined && !result.isError && result.text.includes(answer);
-    const a = growthOf(transcript, emit);
+    const a = sumOrUndefined(resultGrowth);
     const measure: AskMeasure = {
       ...base,
       ...(t0 === undefined ? {} : { k3: t1 - t0, splits: { emit: t1 - t0 } }),
@@ -270,14 +320,20 @@ const measureAsk = (
     };
     return { measure, deviated, delivered, shown: true };
   }
-  const record = boardRecordOf(input.records, ask.askId);
-  const collects = collectsFor(transcript, ask.askId, emit, ceiling);
+  const record = boardRecordOf(input.records, askIds);
+  const collects = collectsFor(transcript, askIds, lastIndexOf(logical), ceiling);
   const choice = record?.choice ?? [scenario?.question.answer ?? ""];
-  const at = deliveredAt(transcript, collects, ask.askId, choice);
-  const a = sumOrUndefined(
-    [emit, ...collects.map((request) => request.index)].map((i) => growthOf(transcript, i)),
-  );
-  const x = collects.reduce((sum, request) => sum + request.output, 0);
+  const at = deliveredAt(transcript, collects, askIds, choice);
+  const a = sumOrUndefined([
+    ...resultGrowth,
+    ...collects.map((request) => growthOf(transcript, request.index)),
+  ]);
+  // A tool search between the ask and its last collect loads collect: it is part of collecting.
+  const lastCollect = collects.at(-1)?.index ?? emit;
+  const searches = transcript.requests
+    .slice(lastIndexOf(logical) + 1, lastCollect)
+    .filter(isToolSearchOnly);
+  const x = [...collects, ...searches].reduce((sum, request) => sum + request.output, 0);
   const t2 = record?.started;
   const t3 = record?.shown;
   const measure: AskMeasure = {
@@ -328,12 +384,14 @@ const targetOf = (input: RunInput): Transcript | undefined => {
   )[0];
 };
 
-const contextOf = (transcript: Transcript | undefined, firstAsk: number | undefined) => {
+// The first request's input, and what every tool search of the session loads: definitions loaded
+// on first use stay in context like those loaded upfront (design decision 9).
+const contextOf = (transcript: Transcript | undefined) => {
   if (transcript === undefined) return {};
   const firstInput = transcript.requests[0]?.totalInput;
-  const searches = transcript.requests
-    .slice(0, firstAsk ?? transcript.requests.length)
-    .filter((request) => request.calls.some((call) => call.name === "ToolSearch"));
+  const searches = transcript.requests.filter((request) =>
+    request.calls.some((call) => call.name === "ToolSearch"),
+  );
   const toolSearchGrowth = sumOrUndefined(
     searches.map((request) => growthOf(transcript, request.index)),
   );
@@ -347,12 +405,18 @@ const reasonOf = (
   input: RunInput,
   expected: number,
   found: number,
+  batched: boolean,
   measured: readonly Measured[],
 ) => {
+  if (input.interrupted) return "interrupted";
   if (input.timedOut) return "timed out";
   if (input.main === undefined) return "the transcript is missing";
+  if (input.arm === "baseline") {
+    return input.main.requests.length === 0 ? "the transcript holds no request" : undefined;
+  }
   if (found < expected) return `an expected ask is missing (found ${found} of ${expected})`;
   if (measured.some((ask) => ask.deviated)) return "a question deviated from the scenario";
+  if (batched) return "two asks were sent in one response";
   if (measured.some((ask) => !ask.delivered)) return "the answer never reached the agent";
   const unshown = measured.find((ask) => !ask.shown);
   if (unshown !== undefined)
@@ -361,18 +425,20 @@ const reasonOf = (
 };
 
 export const measureRun = (input: RunInput): RunMeasure => {
-  const expected = CASES[input.caseId].asks.length;
-  const target = targetOf(input);
+  const expected = input.arm === "baseline" ? 0 : CASES[input.caseId].asks.length;
+  const target = input.arm === "baseline" ? undefined : targetOf(input);
   const found = target === undefined ? [] : asksIn(target, input.arm);
+  // The scenario asks one question at a time: two asks in one response break it.
+  const batched = new Set(found.map((call) => call.request.index)).size < found.length;
+  const asks = groupAsks(found);
   const measured =
     target === undefined
       ? []
-      : found.slice(0, expected).map((_, index) => measureAsk(input, target, found, index));
-  const reason = reasonOf(input, expected, found.length, measured);
+      : asks.slice(0, expected).map((_, index) => measureAsk(input, target, asks, index));
+  const reason = reasonOf(input, expected, asks.length, batched, measured);
   const transcripts = [input.main, ...input.subagents].filter(
     (transcript): transcript is Transcript => transcript !== undefined,
   );
-  const firstAsk = CASES[input.caseId].fromSubagent ? undefined : found[0]?.request.index;
   return {
     caseId: input.caseId,
     arm: input.arm,
@@ -380,7 +446,7 @@ export const measureRun = (input: RunInput): RunMeasure => {
     valid: reason === undefined,
     ...(reason === undefined ? {} : { reason }),
     asks: measured.map((ask) => ask.measure),
-    ...contextOf(input.main, firstAsk),
+    ...contextOf(input.main),
     observed: mergeObserved(transcripts),
     ...(input.init === undefined ? {} : { init: input.init }),
     timedOut: input.timedOut,

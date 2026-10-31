@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { type Io, main, processIo } from "../src/cli.ts";
@@ -123,6 +123,26 @@ describe("the smoke check's failures", () => {
     return { code, out: out.join("\n"), err: err.join("\n") };
   };
 
+  test("a session process that cannot start", async () => {
+    const dir = scratch("bench-fake-plugin-");
+    mkdirSync(join(dir, ".claude-plugin"));
+    const server = { command: join(dir, "missing-server"), args: [] };
+    writeFileSync(
+      join(dir, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "askboard", mcpServers: { askboard: server } }),
+    );
+    const err: string[] = [];
+    const code = await smoke({
+      session: "stub",
+      pluginDir: dir,
+      env: { PATH: process.env.PATH },
+      out: () => undefined,
+      err: (text) => err.push(text),
+    });
+    expect(code).toBe(1);
+    expect(err.join("\n")).toContain("cannot start the session process: cannot start");
+  });
+
   test("an ask that fails", async () => {
     expect(await run("error")).toMatchObject({
       code: 1,
@@ -140,6 +160,57 @@ describe("the smoke check's failures", () => {
     expect(result.out).toContain("answer: none");
     expect(result.err).toBe("the answerer did not see the board: no record");
   }, 15_000);
+});
+
+describe("stopping a run", () => {
+  test("SIGINT to bench stops claude's group, writes the report and exits 130", async () => {
+    const root = scratch("bench-cli-");
+    const hang = join(root, "hang.sh");
+    writeFileSync(
+      hang,
+      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "2.1.314 (Claude Code)"; exit 0; fi\nexec sleep 6124\n',
+    );
+    chmodSync(hang, 0o755);
+    const out = join(root, "out");
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        join(import.meta.dir, "..", "src", "cli.ts"),
+        "run",
+        "--session",
+        "stub",
+        "--cases",
+        "S1",
+        "--arms",
+        "auq",
+        "--runs",
+        "2",
+        "--claude",
+        hang,
+        "--out",
+        out,
+      ],
+      {
+        cwd: root,
+        env: { PATH: process.env.PATH ?? "", HOME: root },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    for (let waited = 0; waited < 10_000; waited += 50) {
+      if (Bun.spawnSync(["pgrep", "-f", "sleep 6124"]).stdout.toString().trim() !== "") break;
+      await Bun.sleep(50);
+    }
+    child.kill("SIGINT");
+    expect(await child.exited).toBe(130);
+    const printed = await new Response(child.stdout).text();
+    expect(printed).toContain("interrupted");
+    expect(Bun.spawnSync(["pgrep", "-f", "sleep 6124"]).stdout.toString().trim()).toBe("");
+    const [runId] = readdirSync(out).filter((name) => name !== ".gitignore");
+    expect(JSON.parse(readFileSync(join(out, runId ?? "", "report.json"), "utf8")).invalid).toEqual(
+      [{ caseId: "S1", arm: "auq", run: 1, reason: "interrupted" }],
+    );
+  }, 30_000);
 });
 
 describe("processIo", () => {

@@ -96,6 +96,13 @@ describe("the board answerer", () => {
     expect(record).toMatchObject({ choice: ["Redis"], matched: false, outcome: "answered" });
   });
 
+  test("a board link off the loopback interface is refused before any connection", async () => {
+    const link = `http://192.0.2.1:47213/b/order-db-x1?t=${"x".repeat(22)}`;
+    const record = await answerBoard({ link, plan, started: Date.now(), deadlineMs: 500 });
+    expect(record).toMatchObject({ outcome: "error", problem: "not a loopback board link" });
+    expect(record.pageLoaded).toBeUndefined();
+  });
+
   test("a link that is no board link is an error", async () => {
     const record = await answerBoard({ link: "http://127.0.0.1:1/x", plan, started: Date.now() });
     expect(record).toMatchObject({ outcome: "error", problem: "not a board link" });

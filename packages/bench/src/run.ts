@@ -25,7 +25,7 @@ import { PreflightError, pluginDirOf, preflightPlugin } from "./plugin.ts";
 import { eventsOf, exitOf } from "./process.ts";
 import { redactTree } from "./redact.ts";
 import { buildReport, type Report, type ReportContext, renderMarkdown } from "./report.ts";
-import { type Arm, CASES, type CaseId, promptFor } from "./scenarios.ts";
+import { ARMS, type Arm, CASES, type CaseId, promptFor } from "./scenarios.ts";
 import type { RunSettings } from "./settings.ts";
 import { findTranscripts, parseInit, parseTranscript, projectsRoot } from "./transcript.ts";
 
@@ -37,6 +37,8 @@ export type RunOptions = {
   readonly log: (line: string) => void;
   /** After SIGINT at a timeout, SIGKILL follows this much later (design decision 12). */
   readonly killGraceMs?: number;
+  /** Stops the benchmark, as SIGINT or SIGTERM to bench does. */
+  readonly signal?: AbortSignal;
 };
 
 type RunRecord = {
@@ -45,6 +47,7 @@ type RunRecord = {
   readonly run: number;
   readonly sessionId: string;
   readonly timedOut: boolean;
+  readonly interrupted: boolean;
   readonly exitCode: number | null;
 };
 
@@ -94,7 +97,8 @@ const execute = async (
   dir: string,
   timeoutMs: number,
   killGraceMs: number,
-): Promise<{ timedOut: boolean; exitCode: number | null }> => {
+  signal: AbortSignal,
+): Promise<{ timedOut: boolean; interrupted: boolean; exitCode: number | null }> => {
   const out = openSync(join(dir, "stream.jsonl"), "w");
   const err = openSync(join(dir, "stderr.txt"), "w");
   const child = spawn(launch.command, [...launch.args], {
@@ -116,18 +120,31 @@ const execute = async (
       // The group has already gone.
     }
   };
+  let interrupted = false;
   let killer: ReturnType<typeof setTimeout> | undefined;
-  const timer = setTimeout(() => {
-    timedOut = true;
+  // claude has its own process group, so a Ctrl-C to bench reaches it only through here.
+  const stop = () => {
+    if (killer !== undefined) return;
     group("SIGINT");
     killer = setTimeout(() => group("SIGKILL"), killGraceMs);
+  };
+  const timer = setTimeout(() => {
+    timedOut = true;
+    stop();
   }, timeoutMs);
+  const onAbort = () => {
+    interrupted = true;
+    stop();
+  };
+  if (signal.aborted) onAbort();
+  else signal.addEventListener("abort", onAbort, { once: true });
   const exitCode = await Promise.race([exitOf(child), failed]);
   clearTimeout(timer);
+  signal.removeEventListener("abort", onAbort);
   if (killer !== undefined) clearTimeout(killer);
   // Whatever claude left in its group, its MCP servers included, goes with it.
   group("SIGKILL");
-  return { timedOut, exitCode };
+  return { timedOut, interrupted, exitCode };
 };
 
 const copyTranscripts = (root: string, sessionId: string, dir: string) => {
@@ -155,9 +172,25 @@ const readLines = (path: string): unknown[] =>
 const readText = (path: string): string | undefined =>
   existsSync(path) ? readFileSync(path, "utf8") : undefined;
 
+// A case folder without run.json is a run that never finished: bench was stopped during it.
+const recordOf = (dir: string): RunRecord => {
+  const path = join(dir, "run.json");
+  if (existsSync(path)) return JSON.parse(readFileSync(path, "utf8")) as RunRecord;
+  const [caseId = "S1", arm = "auq", run = "0"] = basename(dir).split("-");
+  return {
+    caseId: caseId as CaseId,
+    arm: arm as Arm,
+    run: Number(run),
+    sessionId: "",
+    timedOut: false,
+    interrupted: true,
+    exitCode: null,
+  };
+};
+
 /** Measures one run from what its folder keeps. */
 const measureCase = (dir: string): RunMeasure => {
-  const record = JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) as RunRecord;
+  const record = recordOf(dir);
   const main = readText(join(dir, "transcripts", "main.jsonl"));
   const subDir = join(dir, "transcripts", "subagents");
   const subagents = existsSync(subDir)
@@ -174,6 +207,7 @@ const measureCase = (dir: string): RunMeasure => {
     records: readLines(join(dir, "answerer.jsonl")),
     init: parseInit(readText(join(dir, "stream.jsonl")) ?? ""),
     timedOut: record.timedOut,
+    interrupted: record.interrupted === true,
     exitCode: record.exitCode,
   });
 };
@@ -182,6 +216,7 @@ const runCase = async (
   run: Omit<CaseRun, "project" | "sessionId">,
   runId: string,
   options: RunOptions,
+  signal: AbortSignal,
 ): Promise<RunMeasure> => {
   const { settings, dir } = run;
   mkdirSync(dir, { recursive: true });
@@ -207,6 +242,7 @@ const runCase = async (
     dir,
     settings.timeoutSeconds * 1_000,
     options.killGraceMs ?? KILL_GRACE_MS,
+    signal,
   );
   writeJson(join(dir, "run.json"), {
     caseId: run.caseId,
@@ -216,6 +252,8 @@ const runCase = async (
     ...outcome,
   });
   copyTranscripts(projectsRoot(options.env, options.home), sessionId, dir);
+  // Redacted at once, so that a benchmark stopped later leaves no token behind.
+  redactTree(dir);
   if (!settings.keepProjects) rmSync(project, { recursive: true, force: true });
   const measure = measureCase(dir);
   writeJson(join(dir, "measure.json"), measure);
@@ -227,10 +265,17 @@ const writeReport = (runDir: string, report: Report) => {
   writeFileSync(join(runDir, "report.md"), renderMarkdown(report));
 };
 
+export type RunOutcome = {
+  readonly runDir: string;
+  readonly report: Report;
+  /** The benchmark was stopped: the report covers the runs that ended. */
+  readonly interrupted: boolean;
+};
+
 export const runBenchmark = async (
   settings: RunSettings,
   options: RunOptions,
-): Promise<{ runDir: string; report: Report }> => {
+): Promise<RunOutcome> => {
   const pluginDir = pluginDirOf(settings.session, settings.pluginDir);
   if (settings.arms.includes("askboard")) preflightPlugin(settings.session, pluginDir);
   const claudeVersion = await preflightVersion(settings, {
@@ -250,27 +295,45 @@ export const runBenchmark = async (
     platform: `${process.platform}-${process.arch}`,
   };
   writeJson(join(runDir, "settings.json"), context);
+  const plan = settings.cases.flatMap((caseId) =>
+    CASES[caseId].arms
+      .filter((arm) => settings.arms.includes(arm))
+      .flatMap((arm) =>
+        Array.from({ length: settings.runs }, (_, index) => ({ caseId, arm, run: index + 1 })),
+      ),
+  );
+  const stop = new AbortController();
+  const onStop = () => stop.abort();
+  if (options.signal?.aborted) stop.abort();
+  options.signal?.addEventListener("abort", onStop, { once: true });
+  process.on("SIGINT", onStop);
+  process.on("SIGTERM", onStop);
   const measures: RunMeasure[] = [];
-  for (const caseId of settings.cases) {
-    for (const arm of CASES[caseId].arms.filter((candidate) => settings.arms.includes(candidate))) {
-      for (let run = 1; run <= settings.runs; run += 1) {
-        const dir = join(runDir, "cases", `${caseId}-${arm}-${run}`);
-        options.log(`${caseId} ${arm} run ${run} of ${settings.runs}`);
-        const measure = await runCase(
-          { caseId, arm, run, dir, pluginDir, settings },
-          runId,
-          options,
-        );
-        options.log(`  ${measure.valid ? "valid" : `invalid: ${measure.reason}`}`);
-        measures.push(measure);
-      }
+  try {
+    for (const { caseId, arm, run } of plan) {
+      if (stop.signal.aborted) break;
+      const dir = join(runDir, "cases", `${caseId}-${arm}-${run}`);
+      options.log(`${caseId} ${arm} run ${run} of ${settings.runs}`);
+      const measure = await runCase(
+        { caseId, arm, run, dir, pluginDir, settings },
+        runId,
+        options,
+        stop.signal,
+      );
+      options.log(`  ${measure.valid ? "valid" : `invalid: ${measure.reason}`}`);
+      measures.push(measure);
     }
+  } finally {
+    process.off("SIGINT", onStop);
+    process.off("SIGTERM", onStop);
+    options.signal?.removeEventListener("abort", onStop);
   }
   const report = buildReport(measures, context);
   writeReport(runDir, report);
   redactTree(runDir);
+  if (stop.signal.aborted) options.log("interrupted: the report covers the runs that ended");
   options.log(`report: ${join(runDir, "report.md")}`);
-  return { runDir, report };
+  return { runDir, report, interrupted: stop.signal.aborted };
 };
 
 /** Measures a finished run again from its folder and rewrites its reports. */
@@ -281,7 +344,7 @@ export const rebuildReport = (runDir: string): Report => {
     .sort()
     .map((name) => measureCase(join(casesDir, name)));
   const order = (measure: RunMeasure) =>
-    `${context.settings.cases.indexOf(measure.caseId)}-${measure.arm === "askboard" ? 0 : 1}-${String(measure.run).padStart(4, "0")}`;
+    `${context.settings.cases.indexOf(measure.caseId)}-${ARMS.indexOf(measure.arm)}-${String(measure.run).padStart(4, "0")}`;
   const report = buildReport(
     [...measures].sort((a, b) => order(a).localeCompare(order(b))),
     context,

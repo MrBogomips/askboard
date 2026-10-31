@@ -4,7 +4,7 @@ import { measureRun, type RunInput, type RunMeasure } from "../src/measure.ts";
 import { buildReport, type ReportContext, renderMarkdown } from "../src/report.ts";
 import { DEFAULTS } from "../src/settings.ts";
 import { parseTranscript } from "../src/transcript.ts";
-import { askboardS1, auqS1, boardRecords, s6Main } from "./support/flows.ts";
+import { askboardS1, auqS1, baselineS1, boardRecords, s6Main } from "./support/flows.ts";
 
 const price = (model: string) => {
   const found = pricesFor(model);
@@ -12,7 +12,7 @@ const price = (model: string) => {
   return found;
 };
 
-const init = (arm: "askboard" | "auq") => ({
+const init = (arm: "askboard" | "auq" | "baseline") => ({
   model: "claude-opus-5-5",
   version: "2.1.314",
   tools: arm === "askboard" ? ["ToolSearch"] : ["AskUserQuestion", "ToolSearch"],
@@ -54,6 +54,20 @@ const measures: RunMeasure[] = [
     caseId: "S6",
     main: parseTranscript(s6Main()),
     subagents: [parseTranscript(askboardS1({ agentId: "a" }))],
+  }),
+  run({
+    arm: "baseline",
+    run: 1,
+    main: parseTranscript(baselineS1()),
+    records: [],
+    init: init("baseline"),
+  }),
+  run({
+    arm: "baseline",
+    run: 2,
+    main: parseTranscript(baselineS1()),
+    records: [],
+    init: init("baseline"),
   }),
 ];
 
@@ -102,18 +116,28 @@ describe("buildReport", () => {
     expect(cold[2]).toMatchObject({ ratio: 1, within: true });
   });
 
-  test("the context AskBoard adds before the first ask, and the tool search", () => {
+  test("the context AskBoard adds before the first ask, against the baseline, and the tool search", () => {
     expect(report.context).toMatchObject({
       askboard: { median: 20_010 },
+      baseline: { median: 19_210 },
       auq: { median: 19_000 },
-      added: 1_010,
+      added: 800,
       toolSearch: { median: 1_500 },
     });
   });
 
+  test("without a baseline, the context added and AskBoard's T are not available", () => {
+    const without = buildReport(
+      measures.filter((measure) => measure.arm !== "baseline"),
+      context,
+    );
+    expect(without.context.added).toBeUndefined();
+    expect(without.cost.askboard).toMatchObject({ available: false, missing: ["T"] });
+  });
+
   test("the cost of 100 questions per arm from the mixed medians", () => {
     const prices = price("claude-opus-5-5");
-    const askboard = costOf100({ k1: 330, k2: 72, x: 85.5, a: 214.1, t: 2_510 }, prices, "5m");
+    const askboard = costOf100({ k1: 330, k2: 72, x: 85.5, a: 214.1, t: 2_300 }, prices, "5m");
     const auq = costOf100({ k1: 251, k2: 54, x: 0, a: 58.2, t: 0 }, prices, "5m");
     expect(report.cost.ttl).toBe("5m");
     expect(report.cost.askboard).toMatchObject({ available: true });
@@ -124,7 +148,7 @@ describe("buildReport", () => {
       k2: 72,
       x: 85.5,
       a: expect.closeTo(214.1, 9),
-      t: 2_510,
+      t: 2_300,
     });
     const target = report.targets.find((item) => item.kpi === "cost");
     expect(target?.ratio).toBeCloseTo(askboard.total / auq.total, 9);
@@ -164,6 +188,20 @@ describe("buildReport", () => {
       "effort: medium in the transcripts, high pinned",
       "Claude Code: 2.1.314 in the transcripts, 2.1.315 at preflight",
     ]);
+  });
+
+  test("a run that wrote both 5-minute and 1-hour caches is flagged", () => {
+    const [first, ...rest] = measures;
+    if (first === undefined) throw new Error("no measure");
+    const mixed = {
+      ...first,
+      observed: { ...first.observed, cacheWrites: { "5m": 10, "1h": 10 } },
+    };
+    const flagged = buildReport([mixed, ...rest], context);
+    expect(flagged.observed.ttl).toBe("mixed");
+    expect(flagged.differences).toContain(
+      "cache TTL: both 5m and 1h written in the transcripts; the cost uses the requested 5m",
+    );
   });
 
   test("an arm without valid runs has no figures and no cost", () => {

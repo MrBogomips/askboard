@@ -12,7 +12,7 @@ import {
   pricesFor,
 } from "./cost.ts";
 import type { AskMeasure, RunMeasure } from "./measure.ts";
-import { ARMS, type Arm, type CaseId, type RowId, rowsOf } from "./scenarios.ts";
+import { ARMS, type Arm, ASKING_ARMS, type CaseId, type RowId, rowsOf } from "./scenarios.ts";
 import type { CacheTtl, RunSettings } from "./settings.ts";
 import { type Spread, spreadOf } from "./stats.ts";
 
@@ -98,6 +98,9 @@ export type Report = {
   readonly targets: readonly Target[];
   readonly context: {
     readonly askboard?: Spread;
+    /** The AskBoard arm's command without AskBoard: the difference is what AskBoard adds. */
+    readonly baseline?: Spread;
+    /** For information: AskUserQuestion's own definition is in this arm's first request. */
     readonly auq?: Spread;
     readonly added?: number;
     readonly toolSearch?: Spread;
@@ -124,7 +127,11 @@ export type Report = {
   readonly notes: readonly string[];
 };
 
-const ARM_NAMES: Readonly<Record<Arm, string>> = { askboard: "AskBoard", auq: "AskUserQuestion" };
+const ARM_NAMES: Readonly<Record<Arm, string>> = {
+  askboard: "AskBoard",
+  auq: "AskUserQuestion",
+  baseline: "Baseline",
+};
 
 export const RULES: readonly string[] = [
   "Usage comes from the transcripts, deduplicated by requestId: one response stored as several entries counts once.",
@@ -135,7 +142,7 @@ export const RULES: readonly string[] = [
   "A run counts only when it ended before its timeout, held every expected ask, asked the scenario's questions, the scripted answer reached the agent, and, for AskBoard, the answerer saw each board.",
 ];
 
-const COST_MODEL = `Cost(100 q) = Σ_q [P_out·(K1+K2+X) + P_w·(K1+K2'+X+A) + P_r·R·(K1+K2'+X+A)] + Σ_sessions [T·(N_req·P_r + n_w·P_w)], with K2' = K2, ${COST_DEFAULTS.sessions} sessions of ${COST_DEFAULTS.questionsPerSession} questions, N_req = ${COST_DEFAULTS.requestsPerSession}, R = ${COST_DEFAULTS.reReads}, n_w = ${COST_DEFAULTS.writesOfT}, at the list prices checked on ${PRICES_CHECKED}. Per question, a session is 1 cold and 9 warm asks. X is the output of the requests that call collect; A the input growth over the asking flow's tool results; T, for AskBoard, the first-request difference between the arms plus the tool search's growth, and 0 for AskUserQuestion. Answers after the TTL, at a ${COST_DEFAULTS.contextAtExpiry.toLocaleString("en-US")}-token context, are shown apart.`;
+const COST_MODEL = `Cost(100 q) = Σ_q [P_out·(K1+K2+X) + P_w·(K1+K2'+X+A) + P_r·R·(K1+K2'+X+A)] + Σ_sessions [T·(N_req·P_r + n_w·P_w)], with K2' = K2, ${COST_DEFAULTS.sessions} sessions of ${COST_DEFAULTS.questionsPerSession} questions, N_req = ${COST_DEFAULTS.requestsPerSession}, R = ${COST_DEFAULTS.reReads}, n_w = ${COST_DEFAULTS.writesOfT}, at the list prices checked on ${PRICES_CHECKED}. Per question, a session is 1 cold and 9 warm asks. X is the output of the requests that call collect; A the input growth over the asking flow's tool results; T, for AskBoard, the first-request difference from the baseline plus what tool search loads in the session, and 0 for AskUserQuestion. Answers after the TTL, at a ${COST_DEFAULTS.contextAtExpiry.toLocaleString("en-US")}-token context, are shown apart.`;
 
 const NOTES: readonly string[] = [
   "AskBoard rows end K3 at t3′, not at a render beacon: E1 has no benchmark mode (proposal, open question 5).",
@@ -201,6 +208,7 @@ const contextOf = (measures: readonly RunMeasure[]): Report["context"] => {
       ),
     );
   const askboard = firsts("askboard");
+  const baseline = firsts("baseline");
   const auq = firsts("auq");
   const toolSearch = spreadOf(
     validS1(measures, "askboard").flatMap((measure) =>
@@ -209,8 +217,11 @@ const contextOf = (measures: readonly RunMeasure[]): Report["context"] => {
   );
   return {
     ...(askboard === undefined ? {} : { askboard }),
+    ...(baseline === undefined ? {} : { baseline }),
     ...(auq === undefined ? {} : { auq }),
-    ...(askboard === undefined || auq === undefined ? {} : { added: askboard.median - auq.median }),
+    ...(askboard === undefined || baseline === undefined
+      ? {}
+      : { added: askboard.median - baseline.median }),
     ...(toolSearch === undefined ? {} : { toolSearch }),
   };
 };
@@ -264,7 +275,7 @@ const armsOf = (measures: readonly RunMeasure[]): Report["arms"] => {
       tools: distinct(inits.flatMap((init) => init.tools)),
     };
   };
-  return { askboard: of("askboard"), auq: of("auq") };
+  return { askboard: of("askboard"), auq: of("auq"), baseline: of("baseline") };
 };
 
 const observedOf = (measures: readonly RunMeasure[]): Report["observed"] => {
@@ -315,6 +326,11 @@ const differencesOf = (observed: Report["observed"], context: ReportContext): st
           `cache TTL: ${observed.ttl} written in the transcripts, ${settings.cacheTtl} requested; the cost uses ${observed.ttl}`,
         ]
       : []),
+    ...(observed.ttl === "mixed"
+      ? [
+          `cache TTL: both 5m and 1h written in the transcripts; the cost uses the requested ${settings.cacheTtl}`,
+        ]
+      : []),
   ];
 };
 
@@ -323,13 +339,13 @@ const loadingOf = (context: ReportContext): string => {
   const host = settings.auqPermissionHost
     ? "with bench's permission host (mcp__bench__approve, MCP_PROTOCOL_NEGOTIATION=legacy)"
     : "without a permission host";
-  return `AskBoard arm: AskBoard loaded with --plugin-dir ${pluginDir} (session ${settings.session}), in the isolated configuration (--setting-sources "", restricted --tools, no --strict-mcp-config), BROWSER set to the scripted board answerer. AskUserQuestion arm: no AskBoard; AskUserQuestion answered by a PreToolUse hook in the run's settings, ${host}. E1 has no hooks, so no asking rule applies.`;
+  return `AskBoard arm: AskBoard loaded with --plugin-dir ${pluginDir} (session ${settings.session}), in the isolated configuration (--setting-sources "", restricted --tools, no --strict-mcp-config), BROWSER set to the scripted board answerer. AskUserQuestion arm: no AskBoard; AskUserQuestion answered by a PreToolUse hook in the run's settings, ${host}. E1 has no hooks, so no asking rule applies. Baseline: the AskBoard arm's command and prompt without --plugin-dir, ended after its first request.`;
 };
 
 export const buildReport = (measures: readonly RunMeasure[], context: ReportContext): Report => {
   const cases = distinct(measures.map((measure) => measure.caseId)) as CaseId[];
   const rows = rowsOf(cases).flatMap((row) =>
-    ARMS.flatMap((arm) => {
+    ASKING_ARMS.flatMap((arm) => {
       const found = rowOf(measures, row, arm);
       return found === undefined ? [] : [found];
     }),
@@ -520,7 +536,11 @@ const contextSection = (report: Report): string => {
     ["Figure", "Tokens (median)"],
     [
       ["First request, AskBoard arm", num(median(context.askboard))],
-      ["First request, AskUserQuestion arm", num(median(context.auq))],
+      [
+        "First request, baseline (the AskBoard arm without AskBoard)",
+        num(median(context.baseline)),
+      ],
+      ["First request, AskUserQuestion arm (its own tool included)", num(median(context.auq))],
       ["Added by AskBoard before the first ask", num(context.added)],
       ["Loaded by the tool search at the first ask", num(median(context.toolSearch))],
     ],
@@ -528,7 +548,7 @@ const contextSection = (report: Report): string => {
 };
 
 const costSection = (report: Report): string => {
-  const line = (arm: Arm) => {
+  const line = (arm: "askboard" | "auq") => {
     const found = report.cost[arm];
     if (!found.available || found.cost === undefined || found.inputs === undefined) {
       return [ARM_NAMES[arm], `not available: ${found.missing.join(", ")}`, "", "", "", "", "", ""];

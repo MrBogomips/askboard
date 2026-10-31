@@ -79,6 +79,10 @@ export type FlowOptions = {
   readonly textBetween?: boolean;
   readonly withoutThinking?: boolean;
   readonly agentId?: string;
+  /** The cold ask is sent again, identical, before its collect. */
+  readonly repeatCold?: boolean;
+  /** A tool search, for collect, between the cold ask and its collect. */
+  readonly searchBeforeCollect?: boolean;
 };
 
 /**
@@ -127,8 +131,29 @@ export const askboardS1 = (options: FlowOptions = {}) => {
     T0 + 3_000,
   );
   b.toolResult(ask1 ?? "", askResult("db-a1"), { at: T0 + 3_400 });
+  if (options.repeatCold) {
+    const [again] = b.request(
+      { input: 5, cacheRead: 22_225, output: 200, thinking: 50 },
+      blocks(askInput("db-a1", 0)),
+      T0 + 3_420,
+    );
+    b.toolResult(again ?? "", askResult("db-a1"), { at: T0 + 3_450 });
+  }
+  if (options.searchBeforeCollect) {
+    const [search2] = b.request(
+      { input: 5, cacheRead: 22_225, output: 60, thinking: 20 },
+      [{ type: "tool_use", name: "ToolSearch", input: { query: "select:collect" } }],
+      T0 + 3_420,
+    );
+    b.toolResult(search2 ?? "", "collect definition", { at: T0 + 3_450 });
+  }
   const [collect1] = b.request(
-    { input: 5, cacheRead: 22_225, output: 90, thinking: 10 },
+    {
+      input: 5,
+      cacheRead: options.searchBeforeCollect ? 22_585 : 22_225,
+      output: 90,
+      thinking: 10,
+    },
     blocks(collectInput("db-a1", 0), COLLECT),
     T0 + 3_500,
   );
@@ -197,13 +222,28 @@ export const auqResult = (index: number) =>
   `User has answered your questions: "${question(index).text}"="${question(index).answer}". You can now continue with the user's answers in mind.`;
 
 /** S1 in the AskUserQuestion arm: two AskUserQuestion calls and the final reply. */
-export const auqS1 = () => {
+export const auqS1 = (options: { readonly batched?: boolean } = {}) => {
   const b = new TranscriptBuilder({ start: T0, effort: "medium" });
   b.prompt("prompt", T0);
   const blocks = (index: number): Block[] => [
     { type: "thinking" },
     { type: "tool_use", name: "AskUserQuestion", input: auqInput(index) },
   ];
+  if (options.batched) {
+    const [one, two] = b.request(
+      { input: 10, cacheCreation: 18_990, output: 600, thinking: 120 },
+      [blocks(0)[1] as Block, blocks(1)[1] as Block],
+      T0 + 1_000,
+    );
+    b.toolResult(one ?? "", auqResult(0), { at: T0 + 1_500 });
+    b.toolResult(two ?? "", auqResult(1), { at: T0 + 1_510 });
+    b.request(
+      { input: 5, cacheRead: 19_700, output: 15, thinking: 0 },
+      [{ type: "text", text: "done" }],
+      T0 + 1_600,
+    );
+    return b.text();
+  }
   const [first] = b.request(
     { input: 10, cacheCreation: 18_990, output: 350, thinking: 90 },
     blocks(0),
@@ -244,6 +284,18 @@ export const s6Main = () => {
     { input: 5, cacheRead: 15_300, output: 10, thinking: 0 },
     [{ type: "text", text: "PostgreSQL" }],
     T0 + 20_100,
+  );
+  return b.text();
+};
+
+/** The baseline: the AskBoard arm's first request, without AskBoard, and nothing after it. */
+export const baselineS1 = () => {
+  const b = new TranscriptBuilder({ start: T0 });
+  b.prompt("prompt", T0);
+  b.request(
+    { input: 10, cacheCreation: 19_200, output: 120, thinking: 40 },
+    [{ type: "tool_use", name: "ToolSearch", input: { query: "askboard ask" } }],
+    T0 + 1_000,
   );
   return b.text();
 };

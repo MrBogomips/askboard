@@ -2,8 +2,14 @@
 // agent's prompts (early-benchmark design decision 15; SOLUTION-DESIGN §7, seed set). E1 runs one
 // plain question per ask by pull, so the cases are S1 and S6.
 
-export type Arm = "askboard" | "auq";
-export const ARMS: readonly Arm[] = ["askboard", "auq"];
+/**
+ * The baseline is the AskBoard arm's command without AskBoard, ended after its first request: the
+ * difference between the two first requests is what AskBoard adds before the first ask (NFR-1).
+ */
+export type Arm = "askboard" | "auq" | "baseline";
+export const ARMS: readonly Arm[] = ["askboard", "auq", "baseline"];
+/** The arms that ask, and so have report rows. */
+export const ASKING_ARMS: readonly Arm[] = ["askboard", "auq"];
 
 export type CaseId = "S1" | "S6";
 export const CASE_IDS: readonly CaseId[] = ["S1", "S6"];
@@ -75,7 +81,7 @@ export const QUESTIONS: readonly Question[] = [DATABASE, MIGRATIONS];
 export const CASES: Readonly<Record<CaseId, Case>> = {
   S1: {
     id: "S1",
-    arms: ["askboard", "auq"],
+    arms: ["askboard", "auq", "baseline"],
     asks: [
       { question: DATABASE, row: "S1-cold" },
       { question: MIGRATIONS, row: "S1-warm" },
@@ -127,7 +133,7 @@ const questionBlock = (question: Question, index: number): string =>
 
 // The sentences that name the tool are the only ones that differ between the arms, each on a line
 // of its own, so that the prompts can be compared line by line.
-const toolSentences = (arm: Arm, many: boolean): string[] =>
+const toolSentences = (arm: "askboard" | "auq", many: boolean): string[] =>
   arm === "askboard"
     ? [
         `Ask me ${many ? "the questions below, one at a time," : "the question below"} with AskBoard's ask tool: one question per ask.`,
@@ -138,7 +144,7 @@ const toolSentences = (arm: Arm, many: boolean): string[] =>
         "Wait for my answer before you go on.",
       ];
 
-const askingPrompt = (questions: readonly Question[], arm: Arm): string => {
+const askingPrompt = (questions: readonly Question[], arm: "askboard" | "auq"): string => {
   const many = questions.length > 1;
   return [
     ...toolSentences(arm, many),
@@ -156,12 +162,13 @@ export const promptFor = (benchCase: Case, arm: Arm): string => {
     throw new Error(`${benchCase.id} does not run in the ${arm} arm`);
   }
   const questions = benchCase.asks.map((ask) => ask.question);
-  if (!benchCase.fromSubagent) return askingPrompt(questions, arm);
+  const asking = arm === "baseline" ? "askboard" : arm;
+  if (!benchCase.fromSubagent) return askingPrompt(questions, asking);
   return [
     "Start one subagent with the Agent tool (subagent type general-purpose) and give it the task below, word for word. Do not ask the question yourself. When the subagent returns, reply with one line: the label it reports.",
     "",
     "Task for the subagent:",
     "",
-    askingPrompt(questions, arm),
+    askingPrompt(questions, asking),
   ].join("\n");
 };

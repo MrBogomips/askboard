@@ -26,13 +26,15 @@ export type McpSession = {
 
 const CLIENT = { name: "askboard-bench", version: "0.0.0" } as const;
 const CLOSE_BOUND_MS = 5_000;
+/** As Claude Code's MCP_TIMEOUT: a server that has not answered `initialize` by then failed to start. */
+const OPEN_BOUND_MS = 30_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 export const startServer = async (
   server: ServerCommand,
-  options: { readonly closeBoundMs?: number } = {},
+  options: { readonly closeBoundMs?: number; readonly openBoundMs?: number } = {},
 ): Promise<McpSession> => {
   const child = spawn(server.command, [...server.args], {
     env: { ...server.env },
@@ -42,7 +44,27 @@ export const startServer = async (
   const exited = exitOf(child);
   await spawnedOf(child, server.command);
   const peer = new RpcPeer(child.stdout, child.stdin);
-  const opened = await connectMcp(peer, CLIENT);
+  const bound = options.openBoundMs ?? OPEN_BOUND_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(new Error(`${server.command} did not answer initialize within ${bound / 1_000} s`)),
+      bound,
+    );
+  });
+  let opened: McpOpened;
+  try {
+    opened = await Promise.race([connectMcp(peer, CLIENT), expired]);
+  } catch (error) {
+    // A server that cannot open is not left running.
+    peer.close();
+    child.kill("SIGKILL");
+    await exited;
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const listTools = async () => {
     const result = await peer.request("tools/list");

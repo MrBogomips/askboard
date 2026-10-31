@@ -204,6 +204,27 @@ describe("buildLaunch", () => {
     expect(mcp.mcpServers.bench.args[0]).toBe(PERMISSION_HOST);
   });
 
+  test("the baseline: the AskBoard arm's tools without AskBoard, ended after one request", () => {
+    const launch = buildLaunch(
+      caseRun({ arm: "baseline", dir: "/runs/r1/cases/S1-baseline-1" }),
+      "p",
+      USER_ENV,
+    );
+    const askboard = buildLaunch(caseRun(), "p", USER_ENV);
+    const flag = (args: readonly string[], name: string) => args[args.indexOf(name) + 1];
+    expect(flag(launch.args, "--tools")).toBe(flag(askboard.args, "--tools"));
+    expect(flag(launch.args, "--allowedTools")).toBe(flag(askboard.args, "--allowedTools"));
+    expect(flag(launch.args, "--max-turns")).toBe("1");
+    expect(launch.args).not.toContain("--plugin-dir");
+    expect(launch.args).not.toContain("--permission-prompt-tool");
+    expect(launch.env.BROWSER).toBeUndefined();
+    expect(launch.env.MCP_PROTOCOL_NEGOTIATION).toBeUndefined();
+    expect(launch.files.map((file) => file.path).sort()).toEqual([
+      "/runs/r1/cases/S1-baseline-1/plan.json",
+      "/runs/r1/cases/S1-baseline-1/run-settings.json",
+    ]);
+  });
+
   test("without the permission host, no MCP configuration and no legacy handshake", () => {
     const run = caseRun({ arm: "auq", settings: { ...DEFAULTS, auqPermissionHost: false } });
     const launch = buildLaunch(run, "p", USER_ENV);
