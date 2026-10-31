@@ -1,7 +1,8 @@
 // The chunks the view build makes and how one is bundled (design decision 7): the shell, one
 // library chunk per entry of `LIBRARY_CHUNKS`, and one component chunk per folder under
-// `packages/view/src/catalog/` holding an `index.tsx`, named as the component it registers. Each
-// is a classic-script IIFE from `Bun.build`, and none may hold `import.meta` (AD-9).
+// `packages/view/src/catalog/` or `packages/widgets/src/` holding an `index.tsx`, named as the
+// component it registers (design decision 8). Each is a classic-script IIFE from `Bun.build`, and
+// none may hold `import.meta` (AD-9).
 
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -9,7 +10,7 @@ import type { ManifestChunk } from "@askboard/contract";
 import type { BunPlugin } from "bun";
 import { importMetaProblem } from "./checks.ts";
 import { chunkInputs } from "./licences.ts";
-import { CATALOG_DIR, SHELL_ENTRY } from "./paths.ts";
+import { CATALOG_DIR, SHELL_ENTRY, WIDGETS_SRC } from "./paths.ts";
 import { LIBRARY_CHUNKS, libraryEntrySource } from "./shared-modules.ts";
 import type { StylePlan } from "./styles.ts";
 
@@ -26,22 +27,47 @@ export type ChunkDefinition = {
 export const stylePlanOf = (kind: ChunkKind): StylePlan | undefined =>
   (({ shell: "document", component: "utilities", library: undefined }) as const)[kind];
 
-const componentChunks = async (): Promise<ChunkDefinition[]> => {
-  const folders = await readdir(CATALOG_DIR, { withFileTypes: true });
+/** Where component chunks are found: the view's catalog, then the widgets (design decision 8). */
+export const COMPONENT_ROOTS: readonly string[] = [CATALOG_DIR, WIDGETS_SRC];
+
+const entryOf = (root: string, name: string) => join(root, name, "index.tsx");
+
+// The folders of one root that hold an `index.tsx`.
+const chunkFolders = async (root: string): Promise<string[]> => {
+  const folders = await readdir(root, { withFileTypes: true });
   const named = folders.filter((folder) => folder.isDirectory()).map((folder) => folder.name);
   const withEntry = await Promise.all(
-    named.map(async (name) =>
-      (await Bun.file(join(CATALOG_DIR, name, "index.tsx")).exists()) ? [name] : [],
-    ),
+    named.map(async (name) => ((await Bun.file(entryOf(root, name)).exists()) ? [name] : [])),
   );
-  return withEntry
-    .flat()
-    .sort()
-    .map((name) => ({ name, kind: "component", entry: join(CATALOG_DIR, name, "index.tsx") }));
+  return withEntry.flat();
+};
+
+/** One component chunk per folder of the roots holding an `index.tsx`; a name in two fails. */
+export const componentChunks = async (
+  roots: readonly string[] = COMPONENT_ROOTS,
+): Promise<ChunkDefinition[]> => {
+  const found = new Map<string, string>();
+  for (const root of roots) {
+    for (const name of await chunkFolders(root)) {
+      const other = found.get(name);
+      if (other !== undefined) {
+        throw new Error(
+          `the component chunk "${name}" is in two folders: ${join(other, name)} and ${join(root, name)}`,
+        );
+      }
+      found.set(name, root);
+    }
+  }
+  return [...found]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([name, root]) => ({ name, kind: "component", entry: entryOf(root, name) }));
 };
 
 /** Every chunk, writing the library chunks' generated entries into `work`. */
-export const chunkDefinitions = async (work: string): Promise<ChunkDefinition[]> => {
+export const chunkDefinitions = async (
+  work: string,
+  roots: readonly string[] = COMPONENT_ROOTS,
+): Promise<ChunkDefinition[]> => {
   const libraries = await Promise.all(
     Object.keys(LIBRARY_CHUNKS).map(async (name): Promise<ChunkDefinition> => {
       const entry = join(work, "entries", `${name}.js`);
@@ -52,7 +78,7 @@ export const chunkDefinitions = async (work: string): Promise<ChunkDefinition[]>
   return [
     { name: "shell", kind: "shell", entry: SHELL_ENTRY },
     ...libraries,
-    ...(await componentChunks()),
+    ...(await componentChunks(roots)),
   ];
 };
 

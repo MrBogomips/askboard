@@ -26,6 +26,11 @@ export const SHARED_MODULES_FILE = join(VIEW_SRC, "shared-modules.ts");
 export const ZOD_JITLESS_FILE = join(VIEW_SRC, "zod-jitless.ts");
 export const VALIDATORS_FILE = join(VIEW_SRC, "board-page/validators.ts");
 export const BASE_CSS = join(VIEW_SRC, "styles/base.css");
+/**
+ * The widgets' sources: like the catalog, one folder per widget holding its chunk's entry, beside
+ * folders such as `shared/` that hold none (design decision 8).
+ */
+export const WIDGETS_SRC = join(ROOT, "packages/widgets/src");
 
 /** Packages the build resolves as the view does, from its folder (isolated linker). */
 export const resolveFromView = (specifier: string): string => Bun.resolveSync(specifier, VIEW_DIR);
