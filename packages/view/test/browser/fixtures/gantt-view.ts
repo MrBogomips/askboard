@@ -36,6 +36,17 @@ export const withTasks = (tasks: readonly GanttOwnTask[]): ViewDocument => ({
   ],
 });
 
+/** The fixture board document with a second Gantt after the first, its tasks the same. */
+export const withSecondGantt = (secondId: string): ViewDocument => ({
+  ...ganttBoardDocument,
+  items: [
+    {
+      ...schedule,
+      props: { ...schedule.props, items: [release, { ...release, id: secondId }] },
+    },
+  ],
+});
+
 // DESIGN.md's colours, as `getComputedStyle` gives them.
 const design = await Bun.file(
   join(import.meta.dir, "../../../../../docs/ux-askboard-2026-10-27/DESIGN.md"),
@@ -150,3 +161,79 @@ export const rowLines = (gantt: GanttParts) =>
       }),
     };
   });
+
+/**
+ * The task and column of the view's focused grid cell; undefined when focus is elsewhere, the
+ * view's document included once it has lost the focus, where Firefox keeps its active element.
+ */
+export const focusedCell = async (board: Board) => {
+  const view = await board.viewFrame();
+  return view.evaluate(() => {
+    if (!document.hasFocus()) return undefined;
+    const active = document.activeElement;
+    const cell = active?.closest("[data-gantt-column]");
+    if (active === null || cell === null || cell === undefined || cell !== active) return undefined;
+    const task = cell.closest("[data-gantt-row]")?.getAttribute("data-gantt-row") ?? "";
+    return `${task}.${cell.getAttribute("data-gantt-column")}`;
+  });
+};
+
+/** The item whose part holds the view's focus; undefined when focus is elsewhere. */
+export const focusedItem = async (board: Board) => {
+  const view = await board.viewFrame();
+  return view.evaluate(() =>
+    document.hasFocus()
+      ? (document.activeElement
+          ?.closest("[data-askboard-item]")
+          ?.getAttribute("data-askboard-item") ?? undefined)
+      : undefined,
+  );
+};
+
+/** The focused element's outline, as the focus ring draws it. */
+export const focusRing = async (board: Board) => {
+  const view = await board.viewFrame();
+  return view.evaluate(() => {
+    const style = getComputedStyle(document.activeElement ?? document.body);
+    return { style: style.outlineStyle, width: style.outlineWidth, color: style.outlineColor };
+  });
+};
+
+/** How many elements of the Gantt the Tab key can reach. */
+export const tabStops = (gantt: GanttParts): Promise<number> =>
+  gantt.root.evaluate(
+    (root) =>
+      [...root.querySelectorAll<HTMLElement>("*")].filter(
+        (element) =>
+          element.tabIndex >= 0 &&
+          !(element as HTMLButtonElement).disabled &&
+          (element.matches("a[href],button,input,select,textarea,[tabindex]") ||
+            element.isContentEditable),
+      ).length,
+  );
+
+/** Presses Tab until a grid cell of the Gantt holds the focus, at most ten times. */
+export const tabIntoGrid = async (board: Board): Promise<string> => {
+  for (let presses = 0; presses < 10; presses += 1) {
+    await board.page.keyboard.press("Tab");
+    const cell = await focusedCell(board);
+    if (cell !== undefined) return cell;
+  }
+  throw new Error("ten presses of Tab never reached the Gantt's grid");
+};
+
+/** The page's and the view's URL, history length and scroll, which the grid's keys never move. */
+export const pageState = async (board: Board) => {
+  const view = await board.viewFrame();
+  const page = await board.page.evaluate(() => ({
+    url: location.href,
+    history: history.length,
+    scroll: [scrollX, scrollY],
+  }));
+  const inView = await view.evaluate(() => ({
+    url: location.href,
+    history: history.length,
+    scroll: [scrollX, scrollY],
+  }));
+  return { page, view: inView };
+};

@@ -6,7 +6,7 @@
 // whose props fail the contract's checks fails its question (AD-10); and an eval in the `compute`
 // chunk is reported, the negative control that makes "no violation" mean something there. Then
 // the component (group 6): its grid beside its chart, the critical path and the legend; agent
-// strings as text.
+// strings as text; the grid's one Tab stop and its keys.
 
 import { describe, expect, test } from "bun:test";
 import { type GanttOwnTask, ganttPropsProblems } from "@askboard/contract";
@@ -17,10 +17,18 @@ import {
   barFacts,
   colour,
   daysFrom,
+  focusedCell,
+  focusedItem,
+  focusRing,
+  GANTT_ID,
   ganttOf,
+  pageState,
   RELEASE_TASKS,
   rowLines,
   rowTexts,
+  tabIntoGrid,
+  tabStops,
+  withSecondGantt,
   withTasks,
 } from "./fixtures/gantt-view.ts";
 import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
@@ -71,6 +79,16 @@ const ORIGIN = "2026-11-02";
 const WEEK_PX = 15;
 
 const MARKUP = "<img src=x onerror=alert(1)>";
+// A Gantt taller than the view, so that a key the grid did not stop would scroll it.
+const tallGantt = withTasks(
+  Array.from({ length: 30 }, (_, index) => ({
+    id: `t${index + 1}`,
+    label: `Task ${index + 1}`,
+    duration: 2,
+    ...(index === 0 ? {} : { dependencies: [`t${index}`] }),
+  })),
+);
+
 const markupGantt = withTasks(
   RELEASE_TASKS.map((task) => (task.id === "ux" ? { ...task, label: MARKUP } : task)),
 );
@@ -242,6 +260,70 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await gantt.cell("prototype", "dependencies").textContent()).toContain(MARKUP);
         expect(await run.board.view.locator("img").count()).toBe(0);
         expect(run.browser.errors).toEqual([]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the grid is one Tab stop whose arrow keys, Home and End move the focus, with the focus ring",
+      async () => {
+        // A second Gantt after the first, so that Tab has somewhere to go in every engine.
+        const run = await opened(withSecondGantt("second"));
+        const gantt = ganttOf(run.board);
+        expect(await tabStops(gantt)).toBe(1);
+        expect(await tabStops(ganttOf(run.board, "second"))).toBe(1);
+        expect(await tabIntoGrid(run.board)).toBe("ux.task");
+        expect(await focusedItem(run.board)).toBe(GANTT_ID);
+        const ring = colour("ring");
+        const moves = [
+          ["ArrowRight", "ux.start"],
+          ["ArrowDown", "architecture.start"],
+          ["End", "architecture.dependencies"],
+          ["Home", "architecture.task"],
+          ["ArrowUp", "ux.task"],
+          ["ArrowUp", "ux.task"],
+          ["ArrowLeft", "ux.task"],
+          ["End", "ux.dependencies"],
+          ["ArrowRight", "ux.dependencies"],
+          ...Array.from({ length: 6 }, () => ["ArrowDown", "reporting.dependencies"]),
+        ] as const;
+        for (const [key, cell] of moves.slice(0, 9)) {
+          await run.board.page.keyboard.press(key);
+          expect({ key, cell: await focusedCell(run.board) }).toEqual({ key, cell });
+          expect(await focusRing(run.board)).toEqual({ style: "solid", width: "2px", color: ring });
+        }
+        for (const [key] of moves.slice(9)) await run.board.page.keyboard.press(key);
+        expect(await focusedCell(run.board)).toBe("reporting.dependencies");
+        expect(await tabStops(gantt)).toBe(1);
+        await run.board.page.keyboard.press("Tab");
+        expect(await focusedItem(run.board)).toBe("second");
+        expect(await focusedCell(run.board)).toBe("ux.task");
+        await run.board.page.keyboard.press("Shift+Tab");
+        expect(await focusedItem(run.board)).toBe(GANTT_ID);
+        expect(await focusedCell(run.board)).toBe("reporting.dependencies");
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the grid's keys change no value, send nothing, and neither scroll nor navigate the page",
+      async () => {
+        const run = await opened(tallGantt);
+        const gantt = ganttOf(run.board);
+        const before = { rows: await rowTexts(gantt), bars: await barFacts(gantt) };
+        const page = await pageState(run.board);
+        expect(await tabIntoGrid(run.board)).toBe("t1.task");
+        for (const key of ["End", "Home", "ArrowUp", "ArrowLeft", "ArrowDown", "End", "Home"]) {
+          await run.board.page.keyboard.press(key);
+        }
+        expect(await focusedCell(run.board)).toBe("t2.task");
+        expect(await pageState(run.board)).toEqual(page);
+        expect({ rows: await rowTexts(gantt), bars: await barFacts(gantt) }).toEqual(before);
+        await Bun.sleep(QUIET_MS);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        expect(await run.board.answer.isDisabled()).toBe(true);
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,

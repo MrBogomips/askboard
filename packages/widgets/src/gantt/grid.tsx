@@ -3,10 +3,17 @@
 // question's text; a header row of 32px in `text-label` on `muted` ("Task", "Start", "Duration",
 // "Depends on"; provisional) and one row of 36px per task, lined up with its row of the chart: its
 // name, its start as the grid's date (`12/9/2026`), its duration in working days and its
-// predecessors' names. Every agent string renders as text (AD-8).
+// predecessors' names. Every agent string renders as text (AD-8). The grid is one Tab stop: one
+// body cell holds it (`grid-focus.ts`), and the arrow keys, Home and End move it between cells,
+// with the focus ring, their browser action prevented (proposal, open question 18).
 
 import { questionTextId } from "@askboard/view/catalog";
+import type { KeyboardEvent } from "react";
+import { isCellTarget, useGridFocus } from "./grid-focus.ts";
+import { keyPressOf } from "./key-press.ts";
 import { gridDate } from "./model/date.ts";
+import { moveFocus } from "./model/focus.ts";
+import { gridKeyAction } from "./model/keys.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
 import { GANTT_COLUMNS, type GanttColumn, type GanttRow } from "./model/tasks.ts";
 
@@ -24,6 +31,9 @@ const COLUMN: Readonly<Record<GanttColumn, string>> = {
   duration: "w-[80px] px-2 text-right",
   dependencies: "w-[150px] px-2 text-left",
 };
+
+/** A body cell: the focus ring on keyboard focus (DESIGN.md, Focus ring). */
+const CELL = "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 
 /** The face of each column's values: dates and numbers in the code face. */
 const FACE: Readonly<Record<GanttColumn, string>> = {
@@ -62,12 +72,19 @@ type TaskRowProps = {
   readonly row: GanttRow;
   readonly schedule: TaskSchedule | undefined;
   readonly names: ReadonlyMap<string, string>;
+  /** The column of the cell that holds the grid's Tab stop, if it is in this row. */
+  readonly stop: number | undefined;
 };
 
-const TaskRow = ({ row, schedule, names }: TaskRowProps) => (
+const TaskRow = ({ row, schedule, names, stop }: TaskRowProps) => (
   <tr data-gantt-row={row.id} className="h-[36px] border-t border-border text-body text-foreground">
-    {row.cells.map(({ column }) => (
-      <td key={column} data-gantt-column={column} className={`${COLUMN[column]} ${FACE[column]}`}>
+    {row.cells.map(({ column }, index) => (
+      <td
+        key={column}
+        data-gantt-column={column}
+        tabIndex={index === stop ? 0 : -1}
+        className={`${COLUMN[column]} ${FACE[column]} ${CELL}`}
+      >
         <span className="block truncate">{cellText(column, row, schedule, names)}</span>
       </td>
     ))}
@@ -82,19 +99,39 @@ export type GridProps = {
 
 export const Grid = ({ questionId, rows, schedules }: GridProps) => {
   const names = new Map(rows.map((row) => [row.id, row.label]));
+  const { table, stop, size, moveTo, onFocus } = useGridFocus(rows);
+  // Only a key on a cell itself is the grid's: a control inside a cell keeps its own keys.
+  const onKeyDown = (event: KeyboardEvent<HTMLTableElement>) => {
+    const press = keyPressOf(event);
+    if (stop === undefined || press === undefined || !isCellTarget(event.target)) return;
+    const column = GANTT_COLUMNS[stop.column] ?? "task";
+    const action = gridKeyAction(press, { mode: "navigate", column, editable: false });
+    if (action === undefined) return;
+    event.preventDefault();
+    if (action.kind === "move") moveTo(moveFocus(stop, action.move, size));
+  };
   return (
     <table
+      ref={table}
       // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: a grid is a table the user moves through (WAI-ARIA APG, Grid); the table gives its rows, cells and headers their roles.
       role="grid"
       aria-labelledby={questionTextId(questionId)}
       className="w-full table-fixed border-collapse"
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
     >
       <thead>
         <HeaderRow />
       </thead>
       <tbody>
         {rows.map((row, index) => (
-          <TaskRow key={row.id} row={row} schedule={schedules[index]} names={names} />
+          <TaskRow
+            key={row.id}
+            row={row}
+            schedule={schedules[index]}
+            names={names}
+            stop={stop?.row === index ? stop.column : undefined}
+          />
         ))}
       </tbody>
     </table>
