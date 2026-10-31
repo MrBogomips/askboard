@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyElementChanges,
-  type ElementChange,
+  type Change,
   type ElementShape,
   elementChanges,
+  SCHEMA_IDS,
 } from "../src/index.ts";
+import { validateAgainst } from "../src/validate.ts";
 
 // The generic element diff on a keyed shape (design decision 3): elements as an object from ID to
 // fields, on a test-only `probe` item with an array field and a scalar field. Only `set`s.
@@ -39,23 +41,37 @@ const deeplyFrozen = (value: unknown): boolean =>
   value === null ||
   (Object.isFrozen(value) && Object.values(value).every(deeplyFrozen));
 
+// Every operation the diff writes is one of the output format's changes (AD-20, finding F4).
+const CHANGE = `${SCHEMA_IDS.answerEvent}#/$defs/change`;
+const problemsOf = (change: Change) => {
+  const checked = validateAgainst(CHANGE, change);
+  return checked.ok ? [] : checked.problems;
+};
+const diff = (sent: Value, edited: Value): readonly Change[] => {
+  const changes = elementChanges(ITEM, sent, edited, KEYED);
+  for (const change of changes) {
+    expect({ change, problems: problemsOf(change) }).toEqual({ change, problems: [] });
+  }
+  return changes;
+};
+
 const roundTrip = (sent: Value, edited: Value) =>
-  applyElementChanges(ITEM, sent, elementChanges(ITEM, sent, edited, KEYED), KEYED);
+  applyElementChanges(ITEM, sent, diff(sent, edited), KEYED);
 
 describe("the diff of a keyed shape", () => {
   test("an equal value, an equal array in a new instance included, gives nothing", () => {
-    expect(elementChanges(ITEM, keyed(), keyed(), KEYED)).toEqual([]);
+    expect(diff(keyed(), keyed())).toEqual([]);
     const edited = edit(keyed(), (plan) => {
       plan.t1 = { start: 3, links: ["t0"] };
     });
-    expect(elementChanges(ITEM, keyed(), edited, KEYED)).toEqual([]);
+    expect(diff(keyed(), edited)).toEqual([]);
   });
 
   test("a new entry gives one set per field, and no add", () => {
     const edited = edit(keyed(), (plan) => {
       plan["u-1"] = { start: 1, links: ["t1", "t2"] };
     });
-    expect(elementChanges(ITEM, keyed(), edited, KEYED)).toEqual([
+    expect(diff(keyed(), edited)).toEqual([
       { op: "set", target: "probe.u-1.links", value: ["t1", "t2"] },
       { op: "set", target: "probe.u-1.start", value: 1 },
     ]);
@@ -65,7 +81,7 @@ describe("the diff of a keyed shape", () => {
     const edited = edit(keyed(), (plan) => {
       delete plan.t1;
     });
-    expect(elementChanges(ITEM, keyed(), edited, KEYED)).toEqual([
+    expect(diff(keyed(), edited)).toEqual([
       { op: "set", target: "probe.t1.links", value: null },
       { op: "set", target: "probe.t1.start", value: null },
     ]);
@@ -75,7 +91,7 @@ describe("the diff of a keyed shape", () => {
     const edited = edit(keyed(), (plan) => {
       plan.t1 = { links: ["t0", "t2"] };
     });
-    expect(elementChanges(ITEM, keyed(), edited, KEYED)).toEqual([
+    expect(diff(keyed(), edited)).toEqual([
       { op: "set", target: "probe.t1.links", value: ["t0", "t2"] },
       { op: "set", target: "probe.t1.start", value: null },
     ]);
@@ -88,7 +104,7 @@ describe("the diff of a keyed shape", () => {
       plan.Z9 = { links: [], start: 9 };
       plan.t1 = { links: ["t0"], start: 4 };
     });
-    expect(elementChanges(ITEM, keyed(), edited, KEYED).map((change) => change.target)).toEqual([
+    expect(diff(keyed(), edited).map((change) => change.target)).toEqual([
       "probe.Z9.links",
       "probe.Z9.start",
       "probe.a1.start",
@@ -102,7 +118,7 @@ describe("the diff of a keyed shape", () => {
     const edited = edit(keyed(), (plan) => {
       Object.assign(plan, { constructor: { start: 1 } });
     });
-    const changes = elementChanges(ITEM, keyed(), edited, KEYED);
+    const changes = diff(keyed(), edited);
     expect(changes).toEqual([{ op: "set", target: "probe.constructor.start", value: 1 }]);
     expect(roundTrip(keyed(), edited)).toEqual(edited);
   });
@@ -118,7 +134,7 @@ describe("the diff of a keyed shape", () => {
 
 describe("applying the sets of a keyed shape", () => {
   test("a set makes a missing entry, and a null set empties a field, then the entry", () => {
-    const changes: ElementChange[] = [
+    const changes: Change[] = [
       { op: "set", target: "probe.u-1.links", value: ["t1"] },
       { op: "set", target: "probe.t2.start", value: null },
       { op: "set", target: "probe.t1.start", value: null },
@@ -130,7 +146,7 @@ describe("applying the sets of a keyed shape", () => {
   });
 
   test("a null set on an entry that is not there changes nothing", () => {
-    const changes: ElementChange[] = [{ op: "set", target: "probe.u-9.start", value: null }];
+    const changes: Change[] = [{ op: "set", target: "probe.u-9.start", value: null }];
     expect(applyElementChanges(ITEM, keyed(), changes, KEYED)).toEqual(keyed());
   });
 
@@ -144,10 +160,10 @@ describe("applying the sets of a keyed shape", () => {
   });
 
   for (const change of [
-    { op: "add", target: "probe.u-2", parent: null, after: null, value: { start: 1 } },
+    { op: "add", target: "probe.u-2", value: { start: 1 } },
     { op: "remove", target: "probe.t1" },
-    { op: "move", target: "probe.t1", parent: null, after: "t2" },
-  ] satisfies ElementChange[]) {
+    { op: "move", target: "probe.t1", after: "t2" },
+  ] satisfies Change[]) {
     test(`refuses ${change.op}, naming the operation`, () => {
       const call = () => applyElementChanges(ITEM, keyed(), [change], KEYED);
       expect(call).toThrow(`the change 1 (${change.op} "${change.target}") does not apply`);
@@ -156,9 +172,9 @@ describe("applying the sets of a keyed shape", () => {
   }
 
   test("refuses an unknown kind and a target without a field, naming the operation", () => {
-    const rename = { op: "rename", target: "probe.t1" } as unknown as ElementChange;
+    const rename = { op: "rename", target: "probe.t1" } as unknown as Change;
     expect(() => applyElementChanges(ITEM, keyed(), [rename], KEYED)).toThrow('"rename"');
-    const whole: ElementChange = { op: "set", target: "probe.t1", value: {} };
+    const whole: Change = { op: "set", target: "probe.t1", value: {} };
     expect(() => applyElementChanges(ITEM, keyed(), [whole], KEYED)).toThrow("no field");
   });
 
@@ -170,7 +186,7 @@ describe("applying the sets of a keyed shape", () => {
       }),
     );
     const before = structuredClone([sent, edited]);
-    const changes = elementChanges(ITEM, sent, edited, KEYED);
+    const changes = diff(sent, edited);
     const applied = applyElementChanges(ITEM, sent, changes, KEYED);
     expect([sent, edited]).toEqual(before);
     expect(deeplyFrozen(changes)).toBe(true);

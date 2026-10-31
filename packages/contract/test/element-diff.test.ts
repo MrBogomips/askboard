@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyElementChanges,
-  type ElementChange,
+  type Change,
   type ElementShape,
   elementChanges,
+  SCHEMA_IDS,
 } from "../src/index.ts";
+import { validateAgainst } from "../src/validate.ts";
 
 // The generic element diff (design decision 3) on test-only `probe` items, never a widget's own
 // data: a nested shape and a flat shape whose elements carry an array field.
@@ -86,13 +88,29 @@ const deeplyFrozen = (value: unknown): boolean =>
   value === null ||
   (Object.isFrozen(value) && Object.values(value).every(deeplyFrozen));
 
+// Every operation the diff writes is one of the output format's changes (AD-20, finding F4).
+const CHANGE = `${SCHEMA_IDS.answerEvent}#/$defs/change`;
+const problemsOf = (change: Change) => {
+  const checked = validateAgainst(CHANGE, change);
+  return checked.ok ? [] : checked.problems;
+};
+const diff = (sent: Value, edited: Value, shape: ElementShape): readonly Change[] => {
+  const changes = elementChanges(ITEM, sent, edited, shape);
+  for (const change of changes) {
+    expect({ change, problems: problemsOf(change) }).toEqual({ change, problems: [] });
+  }
+  // `toEqual` takes a key holding `undefined` for an absent one; an omitted position is absent.
+  expect(JSON.parse(JSON.stringify(changes))).toStrictEqual(changes);
+  return changes;
+};
+
 const roundTrip = (sent: Value, edited: Value, shape: ElementShape) =>
-  applyElementChanges(ITEM, sent, elementChanges(ITEM, sent, edited, shape), shape);
+  applyElementChanges(ITEM, sent, diff(sent, edited, shape), shape);
 
 describe("the element diff: no operation for what did not change (AD-20)", () => {
   test("an equal value gives no operation, in either shape", () => {
-    expect(elementChanges(ITEM, nested(), nested(), NESTED)).toEqual([]);
-    expect(elementChanges(ITEM, flat(), flat(), FLAT)).toEqual([]);
+    expect(diff(nested(), nested(), NESTED)).toEqual([]);
+    expect(diff(flat(), flat(), FLAT)).toEqual([]);
   });
 
   test("keys in another order, in an element or in an object field, give no operation", () => {
@@ -100,30 +118,24 @@ describe("the element diff: no operation for what did not change (AD-20)", () =>
       list(copy, "parts")[0] = { subparts: at(copy, "a").subparts, size: 1, name: "A", id: "a" };
       at(copy, "c").meta = { weight: 2, owner: "ops" };
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([]);
+    expect(diff(nested(), edited, NESTED)).toEqual([]);
   });
 
   test("an empty children list counts as none", () => {
     const sent = edit(nested(), (copy) => {
       at(copy, "c").subparts = [];
     });
-    expect(elementChanges(ITEM, sent, nested(), NESTED)).toEqual([]);
+    expect(diff(sent, nested(), NESTED)).toEqual([]);
   });
 });
 
 describe("each operation kind alone", () => {
-  test("an element added at the top and first place has parent and after null", () => {
+  test("an element added first at the top level names neither a parent nor an after", () => {
     const edited = edit(nested(), (copy) => {
       list(copy, "parts").unshift({ id: "u-1", name: "New", size: 3 });
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      {
-        op: "add",
-        target: "probe.u-1",
-        parent: null,
-        after: null,
-        value: { name: "New", size: 3 },
-      },
+    expect(diff(nested(), edited, NESTED)).toEqual([
+      { op: "add", target: "probe.u-1", value: { name: "New", size: 3 } },
     ]);
   });
 
@@ -131,7 +143,7 @@ describe("each operation kind alone", () => {
     const edited = edit(nested(), (copy) => {
       kids(copy, "a").push({ id: "u-1", name: "New" });
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
+    expect(diff(nested(), edited, NESTED)).toEqual([
       { op: "add", target: "probe.u-1", parent: "a", after: "a3", value: { name: "New" } },
     ]);
   });
@@ -140,9 +152,9 @@ describe("each operation kind alone", () => {
     const edited = edit(nested(), (copy) => {
       list(copy, "parts").push({ id: "u-1", name: "New", subparts: [{ id: "u-2", name: "Kid" }] });
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      { op: "add", target: "probe.u-1", parent: null, after: "c", value: { name: "New" } },
-      { op: "add", target: "probe.u-2", parent: "u-1", after: null, value: { name: "Kid" } },
+    expect(diff(nested(), edited, NESTED)).toEqual([
+      { op: "add", target: "probe.u-1", after: "c", value: { name: "New" } },
+      { op: "add", target: "probe.u-2", parent: "u-1", value: { name: "Kid" } },
     ]);
   });
 
@@ -150,16 +162,14 @@ describe("each operation kind alone", () => {
     const edited = edit(nested(), (copy) => {
       list(copy, "parts").pop();
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      { op: "remove", target: "probe.c" },
-    ]);
+    expect(diff(nested(), edited, NESTED)).toEqual([{ op: "remove", target: "probe.c" }]);
   });
 
   test("an element moved under another parent names the parent and the previous sibling", () => {
     const edited = edit(nested(), (copy) => {
       kids(copy, "b").push(take(kids(copy, "a"), "a2"));
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
+    expect(diff(nested(), edited, NESTED)).toEqual([
       { op: "move", target: "probe.a2", parent: "b", after: "b1" },
     ]);
   });
@@ -168,7 +178,7 @@ describe("each operation kind alone", () => {
     const edited = edit(nested(), (copy) => {
       at(copy, "a").size = 5;
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
+    expect(diff(nested(), edited, NESTED)).toEqual([
       { op: "set", target: "probe.a.size", value: 5 },
     ]);
   });
@@ -177,7 +187,7 @@ describe("each operation kind alone", () => {
     const edited = edit(nested(), (copy) => {
       delete at(copy, "a1").size;
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
+    expect(diff(nested(), edited, NESTED)).toEqual([
       { op: "set", target: "probe.a1.size", value: null },
     ]);
   });
@@ -186,7 +196,7 @@ describe("each operation kind alone", () => {
     const edited = edit(nested(), (copy) => {
       at(copy, "a2").size = 0;
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
+    expect(diff(nested(), edited, NESTED)).toEqual([
       { op: "set", target: "probe.a2.size", value: 0 },
     ]);
   });
@@ -198,18 +208,14 @@ describe("the fewest operations", () => {
       const parts = list(copy, "parts");
       parts.unshift(take(parts, "c"));
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      { op: "move", target: "probe.c", parent: null, after: null },
-    ]);
+    expect(diff(nested(), edited, NESTED)).toEqual([{ op: "move", target: "probe.c" }]);
   });
 
   test("a removed branch gives one remove, none for the three children it held", () => {
     const edited = edit(nested(), (copy) => {
       list(copy, "parts").shift();
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      { op: "remove", target: "probe.a" },
-    ]);
+    expect(diff(nested(), edited, NESTED)).toEqual([{ op: "remove", target: "probe.a" }]);
   });
 
   test("a child kept out of a removed parent moves before the parent's remove", () => {
@@ -217,9 +223,9 @@ describe("the fewest operations", () => {
       const a = take(list(copy, "parts"), "a");
       list(copy, "parts").splice(1, 0, take(a.subparts as Element[], "a2"));
     });
-    const changes = elementChanges(ITEM, nested(), edited, NESTED);
+    const changes = diff(nested(), edited, NESTED);
     expect(changes).toEqual([
-      { op: "move", target: "probe.a2", parent: null, after: "b" },
+      { op: "move", target: "probe.a2", after: "b" },
       { op: "remove", target: "probe.a" },
     ]);
     expect(applyElementChanges(ITEM, nested(), changes, NESTED)).toEqual(edited);
@@ -230,12 +236,22 @@ describe("the fewest operations", () => {
       const a3 = at(copy, "a3");
       Object.assign(a3, { tags: ["y"], size: 4, name: "Renamed", Zone: "z", ärea: 1 });
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
+    const changes = elementChanges(ITEM, nested(), edited, NESTED);
+    expect(changes).toEqual([
       { op: "set", target: "probe.a3.Zone", value: "z" },
       { op: "set", target: "probe.a3.name", value: "Renamed" },
       { op: "set", target: "probe.a3.size", value: 4 },
       { op: "set", target: "probe.a3.tags", value: ["y"] },
       { op: "set", target: "probe.a3.ärea", value: 1 },
+    ]);
+    // `ärea` is outside AD-13's reference syntax, so the output format refuses its set: a widget's
+    // props schema keeps its field names to that syntax.
+    expect(changes.map((change) => problemsOf(change).length === 0)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
     ]);
   });
 
@@ -246,8 +262,8 @@ describe("the fewest operations", () => {
       c.name = "First";
       parts.unshift(c);
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      { op: "move", target: "probe.c", parent: null, after: null },
+    expect(diff(nested(), edited, NESTED)).toEqual([
+      { op: "move", target: "probe.c" },
       { op: "set", target: "probe.c.name", value: "First" },
     ]);
   });
@@ -259,8 +275,8 @@ describe("the fewest operations", () => {
       at(copy, "b1").name = "B one";
       kids(copy, "a").unshift({ id: "u-1", name: "New" });
     });
-    expect(elementChanges(ITEM, nested(), edited, NESTED)).toEqual([
-      { op: "add", target: "probe.u-1", parent: "a", after: null, value: { name: "New" } },
+    expect(diff(nested(), edited, NESTED)).toEqual([
+      { op: "add", target: "probe.u-1", parent: "a", value: { name: "New" } },
       { op: "set", target: "probe.b1.name", value: "B one" },
       { op: "remove", target: "probe.c" },
     ]);
@@ -273,37 +289,29 @@ describe("a flat list and its array fields", () => {
       at(copy, "r3").links = ["r1", "r2", "r4"];
       at(copy, "r2").links = ["r1"];
     });
-    expect(elementChanges(ITEM, flat(), edited, FLAT)).toEqual([
+    expect(diff(flat(), edited, FLAT)).toEqual([
       { op: "set", target: "probe.r3.links", value: ["r1", "r2", "r4"] },
     ]);
   });
 
-  test("the last element moved to the front gives one move with parent and after null", () => {
+  test("the last element moved to the front gives one move with neither parent nor after", () => {
     const edited = edit(flat(), (copy) => {
       const rows = list(copy, "rows");
       rows.unshift(take(rows, "r4"));
     });
-    expect(elementChanges(ITEM, flat(), edited, FLAT)).toEqual([
-      { op: "move", target: "probe.r4", parent: null, after: null },
-    ]);
+    expect(diff(flat(), edited, FLAT)).toEqual([{ op: "move", target: "probe.r4" }]);
   });
 
-  test("an add and a move in a flat list always have parent null", () => {
+  test("an add and a move in a flat list never name a parent", () => {
     const edited = edit(flat(), (copy) => {
       const rows = list(copy, "rows");
       const r1 = take(rows, "r1");
       rows.splice(2, 0, r1, { id: "u-1", name: "New", links: ["r1"] });
     });
-    const changes = elementChanges(ITEM, flat(), edited, FLAT);
+    const changes = diff(flat(), edited, FLAT);
     expect(changes).toEqual([
-      { op: "move", target: "probe.r1", parent: null, after: "r3" },
-      {
-        op: "add",
-        target: "probe.u-1",
-        parent: null,
-        after: "r1",
-        value: { name: "New", links: ["r1"] },
-      },
+      { op: "move", target: "probe.r1", after: "r3" },
+      { op: "add", target: "probe.u-1", after: "r1", value: { name: "New", links: ["r1"] } },
     ]);
     expect(applyElementChanges(ITEM, flat(), changes, FLAT)).toEqual(edited);
   });
@@ -312,9 +320,58 @@ describe("a flat list and its array fields", () => {
     const edited = edit(flat(), (copy) => {
       at(copy, "r4").subparts = ["x"];
     });
-    expect(elementChanges(ITEM, flat(), edited, FLAT)).toEqual([
+    expect(diff(flat(), edited, FLAT)).toEqual([
       { op: "set", target: "probe.r4.subparts", value: ["x"] },
     ]);
+  });
+});
+
+// AD-20 as the output format writes it: `parent` is omitted at the top level, so always in a flat
+// list, and `after` in the first position; neither is ever `null`.
+describe("positions omitted when there is none, never null", () => {
+  test("a top-level add after a sibling names no parent", () => {
+    const edited = edit(nested(), (copy) => {
+      list(copy, "parts").splice(1, 0, { id: "u-1", name: "New" });
+    });
+    expect(diff(nested(), edited, NESTED)).toEqual([
+      { op: "add", target: "probe.u-1", after: "a", value: { name: "New" } },
+    ]);
+  });
+
+  test("a top-level move after a sibling names no parent, a first child added no after", () => {
+    const edited = edit(nested(), (copy) => {
+      list(copy, "parts").splice(2, 0, take(kids(copy, "a"), "a1"));
+      kids(copy, "b").unshift({ id: "u-1", name: "Kid" });
+    });
+    expect(diff(nested(), edited, NESTED)).toEqual([
+      { op: "add", target: "probe.u-1", parent: "b", value: { name: "Kid" } },
+      { op: "move", target: "probe.a1", after: "b" },
+    ]);
+  });
+
+  test("a flat-list add names no parent, and no after in the first position", () => {
+    const edited = edit(flat(), (copy) => {
+      const rows = list(copy, "rows");
+      rows.unshift({ id: "u-1", name: "First" });
+      rows.splice(3, 0, { id: "u-2", name: "Middle" });
+    });
+    expect(diff(flat(), edited, FLAT)).toEqual([
+      { op: "add", target: "probe.u-1", value: { name: "First" } },
+      { op: "add", target: "probe.u-2", after: "r2", value: { name: "Middle" } },
+    ]);
+  });
+
+  test("applying reads no parent as the top level and no after as the first position", () => {
+    const changes: Change[] = [
+      { op: "add", target: "probe.u-1", value: { name: "First" } },
+      { op: "move", target: "probe.b1" },
+      { op: "add", target: "probe.u-2", parent: "a", value: { name: "Kid" } },
+      { op: "move", target: "probe.c", after: "u-1" },
+    ];
+    const applied = applyElementChanges(ITEM, nested(), changes, NESTED);
+    expect(list(applied, "parts").map(({ id }) => id)).toEqual(["b1", "u-1", "c", "a", "b"]);
+    expect(kids(applied, "a").map(({ id }) => id)).toEqual(["u-2", "a1", "a2", "a3"]);
+    expect(at(applied, "b")).toEqual({ id: "b", name: "B" });
   });
 });
 
@@ -348,55 +405,50 @@ describe("applying the changes in order", () => {
 });
 
 describe("an operation that does not apply fails, naming it", () => {
-  const cases: [string, ElementChange, ElementShape, string][] = [
+  const cases: [string, Change, ElementShape, string][] = [
     ["an unknown target", { op: "remove", target: "probe.zz" }, NESTED, '"zz"'],
     ["a target in another item", { op: "remove", target: "other.a" }, NESTED, "another item"],
     ["a target with no element", { op: "set", target: "probe.a", value: 1 }, NESTED, "no field"],
-    [
-      "an ID already there",
-      { op: "add", target: "probe.b1", parent: null, after: null, value: {} },
-      NESTED,
-      '"b1"',
-    ],
+    ["an ID already there", { op: "add", target: "probe.b1", value: {} }, NESTED, '"b1"'],
     [
       "an unknown parent",
-      { op: "add", target: "probe.u-1", parent: "zz", after: null, value: {} },
+      { op: "add", target: "probe.u-1", parent: "zz", value: {} },
       NESTED,
       '"zz"',
     ],
     [
       "a parent in a flat list",
-      { op: "add", target: "probe.u-1", parent: "r1", after: null, value: {} },
+      { op: "add", target: "probe.u-1", parent: "r1", value: {} },
       FLAT,
       "flat",
     ],
     [
       "an after that is not a sibling",
-      { op: "move", target: "probe.c", parent: null, after: "a1" },
+      { op: "move", target: "probe.c", after: "a1" },
       NESTED,
       '"a1"',
     ],
     [
       "an after that is the element itself",
-      { op: "move", target: "probe.c", parent: null, after: "c" },
+      { op: "move", target: "probe.c", after: "c" },
       NESTED,
       '"c"',
     ],
     [
       "a move into the element's own subtree",
-      { op: "move", target: "probe.a", parent: "a2", after: null },
+      { op: "move", target: "probe.a", parent: "a2" },
       NESTED,
       "own",
     ],
     [
       "an add whose value holds an ID",
-      { op: "add", target: "probe.u-1", parent: null, after: null, value: { id: "x" } },
+      { op: "add", target: "probe.u-1", value: { id: "x" } },
       NESTED,
       '"id"',
     ],
     [
       "an add whose value holds children",
-      { op: "add", target: "probe.u-1", parent: null, after: null, value: { subparts: [] } },
+      { op: "add", target: "probe.u-1", value: { subparts: [] } },
       NESTED,
       '"subparts"',
     ],
@@ -409,25 +461,49 @@ describe("an operation that does not apply fails, naming it", () => {
     ],
     [
       "an unknown kind",
-      { op: "rename", target: "probe.a" } as unknown as ElementChange,
+      { op: "rename", target: "probe.a" } as unknown as Change,
       NESTED,
       '"rename"',
     ],
     [
-      "an add without its after",
-      { op: "add", target: "probe.u-1", parent: null, value: {} } as unknown as ElementChange,
+      "an add whose parent is null",
+      { op: "add", target: "probe.u-1", parent: null, value: {} } as unknown as Change,
       NESTED,
-      "after",
+      "parent is null",
+    ],
+    [
+      "an add whose after is null",
+      { op: "add", target: "probe.u-1", parent: "a", after: null, value: {} } as unknown as Change,
+      NESTED,
+      "after is null",
+    ],
+    [
+      "a move whose parent is null",
+      { op: "move", target: "probe.c", parent: null } as unknown as Change,
+      NESTED,
+      "parent is null",
+    ],
+    [
+      "a move whose after is null",
+      { op: "move", target: "probe.r4", after: null } as unknown as Change,
+      FLAT,
+      "after is null",
+    ],
+    [
+      "a move whose after is not an ID",
+      { op: "move", target: "probe.c", after: 7 } as unknown as Change,
+      NESTED,
+      "not an ID",
     ],
     [
       "an add whose value is not an object",
-      { op: "add", target: "probe.u-1", parent: null, after: null, value: [] as unknown as object },
+      { op: "add", target: "probe.u-1", value: [] },
       NESTED,
       "not an object",
     ],
     [
       "a move whose target names a field",
-      { op: "move", target: "probe.a.name", parent: null, after: null },
+      { op: "move", target: "probe.a.name" },
       NESTED,
       "names a field",
     ],
@@ -437,7 +513,7 @@ describe("an operation that does not apply fails, naming it", () => {
     test(name, () => {
       const sent = shape === FLAT ? flat() : nested();
       const first = shape === FLAT ? "probe.r1.name" : "probe.c.name";
-      const ok: ElementChange = { op: "set", target: first, value: "renamed" };
+      const ok: Change = { op: "set", target: first, value: "renamed" };
       const call = () => applyElementChanges(ITEM, sent, [ok, change], shape);
       expect(call).toThrow(`the change 2 (${change.op} "${change.target}") does not apply`);
       expect(call).toThrow(detail);
@@ -449,7 +525,7 @@ describe("a field named __proto__", () => {
   test("stays a field, in the diff and in what applying it gives", () => {
     const sent = JSON.parse('{"rows":[{"id":"r1","__proto__":{"a":1}}]}');
     const edited = JSON.parse('{"rows":[{"id":"r1","__proto__":{"a":2}}]}');
-    const changes = elementChanges(ITEM, sent, edited, FLAT);
+    const changes = diff(sent, edited, FLAT);
     expect(changes).toEqual([{ op: "set", target: "probe.r1.__proto__", value: { a: 2 } }]);
     const [row] = list(applyElementChanges(ITEM, sent, changes, FLAT), "rows");
     expect(Object.getPrototypeOf(row)).toBe(Object.prototype);
@@ -496,7 +572,7 @@ describe("inputs untouched, outputs frozen", () => {
       }),
     );
     const before = structuredClone([sent, edited]);
-    const changes = elementChanges(ITEM, sent, edited, NESTED);
+    const changes = diff(sent, edited, NESTED);
     expect([sent, edited]).toEqual(before);
     expect(changes).toHaveLength(2);
     expect(deeplyFrozen(changes)).toBe(true);
@@ -504,10 +580,10 @@ describe("inputs untouched, outputs frozen", () => {
 
   test("applying leaves its inputs as they were and returns a frozen value", () => {
     const sent = deepFreeze(nested());
-    const changes = deepFreeze<ElementChange[]>([
+    const changes = deepFreeze<Change[]>([
       { op: "set", target: "probe.a3.tags", value: ["x", "y"] },
-      { op: "add", target: "probe.u-1", parent: "b", after: null, value: { meta: { k: 1 } } },
-      { op: "move", target: "probe.a1", parent: null, after: "c" },
+      { op: "add", target: "probe.u-1", parent: "b", value: { meta: { k: 1 } } },
+      { op: "move", target: "probe.a1", after: "c" },
       { op: "set", target: "probe.c.meta", value: null },
       { op: "remove", target: "probe.b1" },
     ]);

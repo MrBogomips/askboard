@@ -1,14 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyElementChanges,
-  type ElementChange,
+  type Change,
   type ElementShape,
   elementChanges,
+  SCHEMA_IDS,
 } from "../src/index.ts";
+import { validateAgainst } from "../src/validate.ts";
 
 // A seeded property test of the generic element diff (design decision 3): for random edit
-// sequences on test-only `probe` values, applying the diff in order to the sent value gives the
-// edited value. A failing seed is reported, so its run can be replayed.
+// sequences on test-only `probe` values, every operation is one of the output format's changes,
+// and applying the diff in order to the sent value gives the edited value. A failing seed is
+// reported, so its run can be replayed.
 type ListShape = Extract<ElementShape, { readonly keyed?: false }>;
 
 const ITEM = "probe";
@@ -16,6 +19,7 @@ const NESTED: ListShape = { elements: "parts", children: "subparts" };
 const FLAT: ListShape = { elements: "rows" };
 const KEYED: ElementShape = { elements: "plan", keyed: true };
 const RUNS = 500;
+const CHANGE = `${SCHEMA_IDS.answerEvent}#/$defs/change`;
 
 type Element = { id: string; [key: string]: unknown };
 type Value = Record<string, unknown>;
@@ -237,14 +241,26 @@ const randomKeyedRun = (seed: number): Run => {
   return { sent, edited };
 };
 
+// What the output format refuses in an operation, and an omitted position held as `undefined`.
+const refusalOf = (change: Change): string | undefined => {
+  const checked = validateAgainst(CHANGE, change);
+  if (!checked.ok) return checked.problems.map(({ path, message }) => `${path} ${message}`).join();
+  const held = Object.entries(change).find(([, value]) => value === undefined);
+  return held === undefined ? undefined : `"${held[0]}" holds undefined`;
+};
+
 const checkRuns = (shape: ElementShape, run: (seed: number) => Run) => {
   const failures: string[] = [];
   const counts: Record<string, number> = { add: 0, remove: 0, move: 0, set: 0 };
   for (let seed = 1; seed <= RUNS; seed += 1) {
     const { sent, edited } = run(seed);
     try {
-      const changes: readonly ElementChange[] = elementChanges(ITEM, sent, edited, shape);
-      for (const change of changes) counts[change.op] = (counts[change.op] ?? 0) + 1;
+      const changes: readonly Change[] = elementChanges(ITEM, sent, edited, shape);
+      for (const change of changes) {
+        counts[change.op] = (counts[change.op] ?? 0) + 1;
+        const refusal = refusalOf(change);
+        if (refusal !== undefined) failures.push(`seed ${seed}: ${change.target}: ${refusal}`);
+      }
       const applied = applyElementChanges(ITEM, sent, changes, shape);
       if (!Bun.deepEquals(applied, edited, true)) failures.push(`seed ${seed}: not rebuilt`);
       if (elementChanges(ITEM, edited, structuredClone(edited), shape).length > 0) {
@@ -252,7 +268,7 @@ const checkRuns = (shape: ElementShape, run: (seed: number) => Run) => {
       }
       const placed = changes.filter((change) => change.op === "add" || change.op === "move");
       const flat = shape.keyed !== true && shape.children === undefined;
-      if (flat && placed.some((change) => change.parent !== null)) {
+      if (flat && placed.some((change) => Object.hasOwn(change, "parent"))) {
         failures.push(`seed ${seed}: a parent in a flat list`);
       }
       if (shape.keyed === true && changes.some((change) => change.op !== "set")) {

@@ -4,6 +4,14 @@
 // element but `id` and the children key is a field, compared as a JSON value. Elements are
 // addressed by ID, never by position. Plain ECMAScript: `ask-core` calls it at run time, and
 // `applyElementChanges`, its inverse, checks it.
+//
+// The operations are the output format's `Change` (finding F4). A target is in AD-13's reference
+// syntax without brackets: `item.element` for `add`, `remove` and `move`, `item.element.field` for
+// `set`. An `add` holds the element's fields without its children. `add` and `move` omit `parent`
+// at the top level, so always in a flat list, and `after` in the first position; neither is ever
+// `null`. A `set` of `null` empties the field.
+
+import type { Change } from "../schemas/output/index.ts";
 
 /** The props key holding the elements in a list, and for a tree the element key holding children. */
 type ListShape = { readonly elements: string; readonly children?: string; readonly keyed?: false };
@@ -17,21 +25,9 @@ type KeyedShape = { readonly elements: string; readonly keyed: true };
 
 export type ElementShape = ListShape | KeyedShape;
 
-/** `parent` and `after` are always given, `null` for the top level and for the first place. */
+// A place inside this module: `null` for the top level and for the first position, where a change
+// omits `parent` or `after`.
 type Position = { readonly parent: string | null; readonly after: string | null };
-
-/**
- * One operation, its target in AD-13's reference syntax without brackets: `item.element` for
- * `add`, `remove` and `move`, `item.element.field` for `set`. An `add` holds the element's fields
- * without its children; a `set` of `null` empties the field.
- */
-export type ElementChange =
-  | ({ readonly op: "add"; readonly target: string } & Position & {
-        readonly value: Readonly<Record<string, unknown>>;
-      })
-  | { readonly op: "remove"; readonly target: string }
-  | ({ readonly op: "move"; readonly target: string } & Position)
-  | { readonly op: "set"; readonly target: string; readonly value: unknown };
 
 type Json = Record<string, unknown>;
 type Element = Json & { readonly id: string };
@@ -180,7 +176,7 @@ const fieldSets = (target: string, sent: Json, edited: Json, fields: (element: J
         ),
     )
     .map(
-      (field): ElementChange => ({
+      (field): Change => ({
         op: "set",
         target: `${target}.${field}`,
         value: Object.hasOwn(edited, field) ? edited[field] : null,
@@ -214,6 +210,13 @@ const keyedChanges = (itemId: string, sent: object, edited: object, shape: Keyed
     );
 };
 
+// An `add`'s or a `move`'s place as the output format writes it: each of `parent` and `after`
+// omitted when there is none.
+const placeOf = ({ parent, after }: Position) => ({
+  ...(parent === null ? {} : { parent }),
+  ...(after === null ? {} : { after }),
+});
+
 /**
  * The operations that, applied in order to `sent`, give `edited`. In a list: for each edited
  * element in document order, its `add` or `move`, then a kept element's `set`s; then one `remove`
@@ -225,21 +228,22 @@ export const elementChanges = (
   sent: object,
   edited: object,
   shape: ElementShape,
-): readonly ElementChange[] => {
+): readonly Change[] => {
   if (shape.keyed === true) return frozenCopy(keyedChanges(itemId, sent, edited, shape));
   const before = indexOf(sent, shape, "sent");
   const after = indexOf(edited, shape, "edited");
   const stay = stayers(before, after);
-  const changes: ElementChange[] = [];
+  const changes: Change[] = [];
   for (const [id, { element, parent, previous }] of after) {
     const target = `${itemId}.${id}`;
     const was = before.get(id);
+    const place = placeOf({ parent, after: previous });
     if (was === undefined) {
       const value = Object.fromEntries(fieldsOf(element, shape).map((k) => [k, element[k]]));
-      changes.push({ op: "add", target, parent, after: previous, value });
+      changes.push({ op: "add", target, ...place, value });
       continue;
     }
-    if (!stay.has(id)) changes.push({ op: "move", target, parent, after: previous });
+    if (!stay.has(id)) changes.push({ op: "move", target, ...place });
     changes.push(...fieldSets(target, was.element, element, (kept) => fieldsOf(kept, shape)));
   }
   for (const [id, { parent }] of before) {
@@ -322,13 +326,22 @@ class Placement {
   }
 }
 
-const isPlace = (id: unknown): id is string | null => typeof id === "string" || id === null;
+const NONE = { parent: "the top level", after: "the first position" } as const;
 
-const positionOf = ({ parent, after }: Json): Position => {
-  if (!isPlace(parent)) throw new Error("its parent is not an ID or null");
-  if (!isPlace(after)) throw new Error("its after is not an ID or null");
-  return { parent, after };
+// An absent `parent` is the top level and an absent `after` the first position; `null` is refused,
+// as the output format refuses it.
+const placeIn = (change: Json, key: keyof typeof NONE): string | null => {
+  const id = change[key];
+  if (id === undefined) return null;
+  if (id === null) throw new Error(`its ${key} is null, where ${NONE[key]} omits it`);
+  if (typeof id !== "string") throw new Error(`its ${key} is not an ID`);
+  return id;
 };
+
+const positionOf = (change: Json): Position => ({
+  parent: placeIn(change, "parent"),
+  after: placeIn(change, "after"),
+});
 
 // The element and, for a `set`, the field a target names, which must address this item.
 const addressOf = (itemId: string, target: unknown, field: boolean): [string, string] => {
@@ -419,7 +432,7 @@ const keyedApplier = (props: Json, shape: KeyedShape): Applier => {
 export const applyElementChanges = <P extends object>(
   itemId: string,
   sent: P,
-  changes: readonly ElementChange[],
+  changes: readonly Change[],
   shape: ElementShape,
 ): P => {
   const props = mutableCopy(sent) as Json;
