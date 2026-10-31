@@ -55,7 +55,7 @@ Option labels SHALL be unique within a question, since an answer names the chose
 - **THEN** validation fails, naming the question's item ID and the repeated label
 
 ### Requirement: Answer event in the output format
-The output format SHALL define the answer event as `cursor`, `type: "answer"`, `itemId`, `rev`, `who` and `when`, plus the answer's content fields of finding F4, each optional: `choice` (the chosen option labels), `note`, `changes` (AD-20's generic diff), `results` and `derived`. It SHALL contain no AXFX term (FR-18).
+The output format SHALL define the answer event as `cursor`, `type: "answer"`, `itemId`, `rev`, `who` and `when`, plus the answer's content fields of finding F4, each optional: `choice` (the chosen option labels), `note`, `changes` (AD-20's generic diff), `results` and `derived`. In `changes`, `add` and `move` SHALL omit `parent` when there is none (the top level) and `after` when there is none (the first position). It SHALL contain no AXFX term (FR-18).
 
 #### Scenario: Every approved answer event validates
 - **WHEN** each `answer` event of the fixtures `answers/*.json` is validated against the answer event schema
@@ -64,6 +64,10 @@ The output format SHALL define the answer event as `cursor`, `type: "answer"`, `
 #### Scenario: A Choice answer
 - **WHEN** an answer to a plain question is built
 - **THEN** it carries `choice` as a list of option labels, and none of the other content fields
+
+#### Scenario: An element added or moved to the top level
+- **WHEN** a change adds or moves an element to the top level, first or after a sibling
+- **THEN** it omits `parent`, names `after` only when a sibling precedes it, and validates; a `parent` or `after` of `null` is refused
 
 ### Requirement: Results name their versions
 Every tool result SHALL name both the version of its result envelope and the version of the output format it carries, as `versions: {result, output}` (finding F12). A tool request SHALL name no version (AD-7).

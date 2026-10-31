@@ -539,7 +539,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `ask-core` keeps every revision that an event names, until discard.
   - **Answers:**
     - A view answer message carries the item's full edited value in its input-format shape, plus its derived values.
-    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling. Widgets never emit diffs.
+    - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, each omitted when there is none: the top level, the first position. Widgets never emit diffs.
     - `ask-core` stores the full edited value; `fetch` and Snapshots read it.
     - A later answer to the same question is a new event that names the `seq` it replaces. The latest answer per question wins.
     - **Decline:** `declined` is an answer kind, carrying the optional reason from the question's open prompt. Like an answer, it closes the question (AD-10), names the question's `rev`, follows the delivery mode and is superseded by a later answer or decline. The shipped skills tell the agent not to ask a declined question again within its task; nothing about it outlives the ask (AD-14, FR-25).

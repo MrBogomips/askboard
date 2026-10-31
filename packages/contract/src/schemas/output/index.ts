@@ -35,12 +35,15 @@ export const outputFormat: SchemaSet = {
 
 export type AskState = "waiting" | "answered" | "discarded";
 
-/** One operation of AD-20's generic diff; a target is a reference without brackets (AD-13). */
+/**
+ * One operation of AD-20's generic diff; a target is a reference without brackets (AD-13). `add`
+ * and `move` omit `parent` at the top level and `after` in the first position.
+ */
 export type Change =
   | {
       readonly op: "add";
       readonly target: string;
-      readonly parent: string;
+      readonly parent?: string;
       readonly after?: string;
       readonly value: unknown;
     }
@@ -48,7 +51,7 @@ export type Change =
   | {
       readonly op: "move";
       readonly target: string;
-      readonly parent: string;
+      readonly parent?: string;
       readonly after?: string;
     }
   | { readonly op: "set"; readonly target: string; readonly value: unknown };

@@ -25,6 +25,49 @@ const pathsOf = (id: string, value: unknown) => {
   return checked.ok ? [] : checked.problems.map((problem) => problem.path);
 };
 
+// AD-20: `add` and `move` name the parent and the preceding sibling, each omitted when there is
+// none: the top level, the first position. No null or item ID stands in for either.
+describe("an add or a move at the top level or in the first position", () => {
+  const CHANGE = `${SCHEMA_IDS.answerEvent}#/$defs/change`;
+
+  test.each([
+    [
+      "an add of a new top-level element",
+      { op: "add", target: "tree.n-9", after: "n-1", value: {} },
+    ],
+    ["an add first at the top level", { op: "add", target: "tasks.t-9", value: { label: "x" } }],
+    ["a move to the top level", { op: "move", target: "tree.n-4", after: "n-1" }],
+    ["a move first at the top level", { op: "move", target: "tree.n-4" }],
+  ])("%s, without parent, passes", (_, change) => {
+    expect(validateAgainst(CHANGE, change).ok).toBe(true);
+    expect(validateAgainst(SCHEMA_IDS.answerEvent, { ...answer, changes: [change] }).ok).toBe(true);
+  });
+
+  test.each([
+    ["an add with a null parent", { op: "add", target: "tree.n-9", parent: null, value: {} }],
+    ["a move with a null parent", { op: "move", target: "tree.n-4", parent: null }],
+    ["an add with a null after", { op: "add", target: "tree.n-9", after: null, value: {} }],
+    ["a move with a null after", { op: "move", target: "tree.n-4", after: null }],
+  ])("%s is refused", (_, change) => {
+    expect(validateAgainst(CHANGE, change).ok).toBe(false);
+  });
+
+  test.each([
+    [
+      "an add with its parent and after",
+      { op: "add", target: "wbs.u-1", parent: "build", after: "portal", value: 1 },
+    ],
+    ["an add with its parent", { op: "add", target: "wbs.u-2", parent: "build", value: 1 }],
+    [
+      "a move with its parent and after",
+      { op: "move", target: "wbs.ux", parent: "design", after: "u-1" },
+    ],
+    ["a move with its parent", { op: "move", target: "wbs.ux", parent: "design" }],
+  ])("%s still passes", (_, change) => {
+    expect(validateAgainst(CHANGE, change).ok).toBe(true);
+  });
+});
+
 describe("the answer event", () => {
   test("a Choice answer validates", () => {
     expect(validateAgainst(SCHEMA_IDS.answerEvent, answer).ok).toBe(true);
@@ -65,7 +108,8 @@ describe("the answer event", () => {
 
   test.each([
     ["a set without its value", { op: "set", target: "a.b" }],
-    ["an add without its parent", { op: "add", target: "a.u-1", value: 1 }],
+    ["an add without its value", { op: "add", target: "a.u-1", parent: "b" }],
+    ["a move without its target", { op: "move", parent: "b" }],
     ["a remove with a value", { op: "remove", target: "a.b", value: 1 }],
     ["an unknown op", { op: "replace", target: "a.b", value: 1 }],
     ["a target by array index", { op: "set", target: "a[0]", value: 1 }],

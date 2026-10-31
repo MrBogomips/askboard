@@ -68,7 +68,7 @@
       "pattern": "^[A-Za-z0-9_-]{1,64}(\\.[A-Za-z0-9_-]{1,64})*$"
     },
     "change": {
-      "description": "One operation of AD-20's generic diff, addressing elements by ID: add and move name the parent and, unless the element goes first, the preceding sibling.",
+      "description": "One operation of AD-20's generic diff, addressing elements by ID: add and move name the parent and the preceding sibling, each omitted when there is none (the top level, the first position).",
       "oneOf": [
         {
           "$ref": "#/$defs/add"
@@ -101,7 +101,7 @@
         },
         "value": {}
       },
-      "required": ["op", "target", "parent", "value"],
+      "required": ["op", "target", "value"],
       "additionalProperties": false
     },
     "remove": {
@@ -133,7 +133,7 @@
           "$ref": "urn:askboard:input:id"
         }
       },
-      "required": ["op", "target", "parent"],
+      "required": ["op", "target"],
       "additionalProperties": false
     },
     "set": {
