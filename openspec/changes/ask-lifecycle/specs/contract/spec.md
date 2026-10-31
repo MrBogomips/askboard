@@ -111,6 +111,17 @@ Results and board-protocol messages SHALL report an ask state of `waiting`, `par
 - **WHEN** `answers/uj2-wbs-gantt.json`, an `answered` ask with a postponed question, is validated against the `collect` result envelope
 - **THEN** it passes
 
+### Requirement: Closed asks on the wire
+The ask state of results, the board state and `collect`'s ask entry SHALL admit `closed`. The board protocol's `closed` message SHALL carry `reason` as an enum holding `agent`, which a later minor may extend. The output format's closed event is not defined by this change: `push-delivery` defines it.
+
+#### Scenario: The agent closes an ask
+- **WHEN** the agent closes an ask with `update`
+- **THEN** `collect`'s entry for it validates with state `closed`, and the board's `closed` message with reason `agent`
+
+#### Scenario: A reason outside the enum
+- **WHEN** a `closed` message carries the reason `timeout`
+- **THEN** it fails validation, naming the field
+
 ### Requirement: Envelopes of update and fetch
 The tool envelopes SHALL define `update`'s and `fetch`'s results, and `collect`'s outcomes `postponed` and `closed` beside `open`. Every result SHALL name its versions (F12) and carry the epoch, and the typed results `closed` and `discarded` SHALL name the ask.
 
