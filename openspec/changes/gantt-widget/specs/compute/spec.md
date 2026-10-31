@@ -7,7 +7,7 @@ The compute unit builds a board's whole graph of typed values and formulas, chec
 ## ADDED Requirements
 
 ### Requirement: A Gantt's own tasks are scheduled
-A Gantt that lists its tasks SHALL be scheduled as a Gantt plan is, with each task's `duration` taken as given instead of from a WBS: the same forward and backward passes, slack, critical flag and working-day dates (FR-12, AD-13 "In-house computations").
+A Gantt with its own tasks SHALL be scheduled as a Gantt plan is, with each task's `duration` taken as given instead of from a WBS: the same forward and backward passes, slack, critical flag and working-day dates (FR-12, AD-13 "In-house computations").
 
 #### Scenario: The UJ-2 durations, listed
 - **WHEN** a Gantt lists UJ-2's six work packages with the durations the UJ-2 plan computes for them, its four dependencies and the start 2026-11-02
@@ -29,7 +29,7 @@ A task with a requested start SHALL start on the first working day on or after i
 - **THEN** it starts on Monday 2026-11-16
 
 ### Requirement: The board's graph source
-`compute` SHALL map a board's items onto its graph source: a Gantt that lists its tasks becomes a Gantt source, a Gantt plan a plan source over the Tree it names, and that Tree a WBS-with-PERT source whose leaves' `optimistic`, `mostLikely` and `pessimistic` fields are its estimates. Items that hold nothing to compute SHALL add nothing (AD-13).
+`compute` SHALL map a board's items onto its graph source: a Gantt with its own tasks becomes a Gantt source, a Gantt plan a plan source over the Tree it names, its tasks' starts and predecessors taken by task ID, and that Tree a WBS-with-PERT source whose leaves' `optimistic`, `mostLikely` and `pessimistic` fields are its estimates. A plan task that names no leaf SHALL add nothing; items that hold nothing to compute SHALL add nothing (AD-13).
 
 #### Scenario: The UJ-2 board
 - **WHEN** the UJ-2 question's Tree `wbs` and plan `schedule` are mapped and the graph is built and evaluated

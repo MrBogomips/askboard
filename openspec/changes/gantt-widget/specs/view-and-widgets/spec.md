@@ -40,7 +40,7 @@ A Gantt plan SHALL take its tasks from the leaves of the Tree it names, in the T
 - **THEN** the axis and the bars rescale each time, "Answer" stays disabled, and no message leaves the view
 
 #### Scenario: A standalone Gantt
-- **WHEN** a Gantt that lists its tasks opens
+- **WHEN** a Gantt with its own tasks opens
 - **THEN** it shows the week scale with no zoom control and no baseline, and its durations are editable
 
 ### Requirement: Gantt dates follow the edits
@@ -66,7 +66,7 @@ The user SHALL reschedule a task by dragging its bar with the pointer. The bar S
 - **THEN** reporting starts on Monday 12/14/2026
 
 ### Requirement: Gantt durations
-In a Gantt that lists its tasks, the user SHALL change a task's duration by dragging the end of its bar or by typing it in the grid, as whole working days, never below one (EXPERIENCE Widgets, Gantt).
+In a Gantt with its own tasks, the user SHALL change a task's duration by dragging the end of its bar or by typing it in the grid, as whole working days, never below one (EXPERIENCE Widgets, Gantt).
 
 #### Scenario: Resizing a bar
 - **WHEN** the user drags the end of a 6-day task's bar two working days to the right
@@ -77,7 +77,7 @@ In a Gantt that lists its tasks, the user SHALL change a task's duration by drag
 - **THEN** its duration stays 1 working day
 
 ### Requirement: Gantt editing in the grid
-The user SHALL edit a task's start and, in a Gantt that lists its tasks, its duration in the grid: Enter or F2 starts editing, Enter or leaving the field commits, Escape restores. A start SHALL be read by AskBoard's own en-US date parser, echoing the parsed day, and refused with a message when it is no date, not a working day, or before the earliest start; an empty start SHALL clear the request.
+The user SHALL edit a task's start and, in a Gantt with its own tasks, its duration in the grid: Enter or F2 starts editing, Enter or leaving the field commits, Escape restores. A start SHALL be read by AskBoard's own en-US date parser, echoing the parsed day, and refused with a message when it is no date, not a working day, or before the earliest start; an empty start SHALL clear the request.
 
 #### Scenario: Typing a start
 - **WHEN** the user types `12/9/2026` in reporting's start and presses Enter
@@ -125,7 +125,7 @@ Every Gantt edit SHALL go into the draft record and SHALL send nothing. A Gantt 
 
 #### Scenario: The UJ-2 edits by keyboard
 - **WHEN** the user makes the approved answer's edits with the keyboard, in the Tree and in the plan, and presses "Answer"
-- **THEN** one answer message leaves the view; the contract's diff of the sent and the edited plan equals the approved `schedule` operation, and its derived values are `schedule.finish` `2026-12-02` and `schedule.criticalPath` `ux`, `prototype`, `portal`, `reporting`
+- **THEN** one answer message leaves the view; the contract's diff of the sent and the edited plan is the fixture's diff form of the approved `schedule` edit, and its derived values are `schedule.finish` `2026-12-02` and `schedule.criticalPath` `ux`, `prototype`, `portal`, `reporting`
 
 #### Scenario: Nothing changed
 - **WHEN** a Gantt question opens and the user only zooms and moves the focus

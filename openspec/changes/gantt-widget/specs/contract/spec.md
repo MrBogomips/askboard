@@ -14,15 +14,15 @@ The Gantt's props and changes SHALL be standalone widget schemas, `urn:askboard:
 - **THEN** both compile, both are JSON Schema 2020-12 with those `$id`s, neither has a root combinator, and no schema set lists either
 
 ### Requirement: Gantt item props
-The input format SHALL define a Gantt item's props as a `start` date and exactly one task source: `tasks`, each `{id, label, duration}`, or `workPackages`, the ID of a Tree item whose leaves are the tasks (the Gantt plan). Both MAY hold `dependencies`, task ID to its predecessors' IDs, and `starts`, task ID to a requested start date. Any other key SHALL fail validation, naming it. No ask SHALL carry a Gantt until the input format admits one in a question's items.
+The input format SHALL define a Gantt item's props as a `start` date and a `tasks` list, with an optional `workPackages`, the ID of a Tree item whose leaves are the tasks (the Gantt plan). Every task SHALL hold an `id` and MAY hold a requested `start` and its `dependencies`, its predecessors' IDs. A Gantt's own task SHALL also hold a `label` and a `duration`; a plan's task SHALL hold neither. Any other key SHALL fail validation, naming it.
 
-#### Scenario: The UJ-2 plan as a Gantt
-- **WHEN** the `data` of the approved `uj2-wbs-gantt` ask's `schedule` molecule is validated as a Gantt's props
-- **THEN** it passes, as a Gantt plan over the item `wbs`
+#### Scenario: A Gantt's own tasks
+- **WHEN** a Gantt lists six tasks, each with an ID, a label and a duration, two of them with dependencies
+- **THEN** it passes
 
-#### Scenario: Both task sources
-- **WHEN** a Gantt's props hold both `tasks` and `workPackages`
-- **THEN** validation fails, saying that a Gantt takes exactly one of them
+#### Scenario: A plan task with a label
+- **WHEN** a plan's task holds a `label`
+- **THEN** validation fails, saying that a plan's tasks take their names from its Tree
 
 #### Scenario: An unknown key
 - **WHEN** a Gantt's props hold `calendar`
@@ -44,18 +44,18 @@ A Gantt's `start` and every requested start SHALL be a real calendar day from 19
 - **THEN** validation fails, naming the task and `design`
 
 ### Requirement: Gantt task IDs
-A Gantt's task IDs SHALL follow the widget element ID rule, and so SHALL every `dependencies` and `starts` key and every predecessor: in what the agent sends, none SHALL start with the view-made prefix `u-`; an edited value MAY name such tasks, since a plan's tasks are its Tree's leaves and keep their IDs (AD-7, F10).
+A Gantt's task IDs SHALL follow the widget element ID rule, and so SHALL every predecessor: in what the agent sends, none SHALL start with the view-made prefix `u-`; an edited value MAY name such tasks, since a plan's tasks are its Tree's leaves and keep their IDs (AD-7, F10).
 
 #### Scenario: One ID twice
-- **WHEN** two of a Gantt's `tasks` share the ID `review`
+- **WHEN** two of a Gantt's tasks share the ID `review`
 - **THEN** validation fails, naming the repeated ID
 
 #### Scenario: The agent names a view-made task
-- **WHEN** the agent's `dependencies` give `u-1` a predecessor
+- **WHEN** the agent's tasks give `u-1` as a predecessor
 - **THEN** validation fails, saying that the prefix `u-` is reserved for IDs the board makes
 
 #### Scenario: A package the user added
-- **WHEN** an edited plan's `dependencies` give `u-1` the predecessors `architecture` and `prototype`
+- **WHEN** an edited plan holds the task `u-1` with the predecessors `architecture` and `prototype`
 - **THEN** it passes validation as an edited value
 
 ### Requirement: Gantt plan link
@@ -70,10 +70,10 @@ A Gantt plan's `workPackages` SHALL name a Tree item in the same question whose 
 - **THEN** validation fails, naming the plan and `wbs`
 
 ### Requirement: Gantt references are not refused
-A predecessor or a `dependencies` or `starts` key that names no task of the Gantt, and a dependency cycle, SHALL pass validation: they are the compute graph's warnings, shown on the board, never refusals (AD-13, FR-14).
+A predecessor that names no task of the Gantt, a plan task that names no leaf of its Tree, and a dependency cycle SHALL pass validation: they are the compute graph's concern, shown on the board, never refusals (AD-13, FR-14).
 
 #### Scenario: A cycle
-- **WHEN** a Gantt's `dependencies` make `a` depend on `b` and `b` on `a`
+- **WHEN** a Gantt's tasks make `a` depend on `b` and `b` on `a`
 - **THEN** the props pass validation
 
 ### Requirement: Gantt limits
@@ -88,7 +88,7 @@ A Gantt SHALL hold at most 500 tasks; a task at most 50 predecessors; at most 50
 - **THEN** validation fails, naming the limit of 500 tasks
 
 ### Requirement: Gantt changes
-The output format SHALL define a Gantt's `changes` as `set` operations of AD-20's generic diff on a task's field: `item.task.duration`, a number of working days, only for a Gantt that lists its tasks; `item.task.start`, a date or `null` to clear the request; `item.task.dependencies`, the full list of predecessors. No other operation or field SHALL pass.
+The output format SHALL define a Gantt's `changes` as operations of AD-20's generic diff: `set` of `item.task.duration`, only on a Gantt's own task; `set` of `item.task.start`, a date or `null` to clear the request; `set` of `item.task.dependencies`, the full list, or `null` for none; and, in a plan only, `add` of `item.task` with `parent` `null`, its `after` and a `value` of the task's `start` and `dependencies`. No other operation or field SHALL pass.
 
 #### Scenario: The approved UJ-2 answer
 - **WHEN** the operation of `answers/uj2-wbs-gantt.json` whose target starts with `schedule.` is validated as a change of the plan `schedule`
@@ -102,30 +102,20 @@ The output format SHALL define a Gantt's `changes` as `set` operations of AD-20'
 - **WHEN** a Gantt's changes hold a `move` operation
 - **THEN** validation fails, naming the operation
 
-### Requirement: Keyed maps in the generic diff
-An element shape MAY also name maps keyed by element ID, each with the field it stands for. The diff SHALL compare them as JSON values: a key whose value differs SHALL give one `set` of `item.key.field` with the edited value, a key missing from the edited value a `set` to `null`, and an unchanged key no operation. An absent elements key SHALL read as an empty list (AD-20, FR-20).
-
-#### Scenario: A new key
-- **WHEN** a plan sent without a `u-1` key in `dependencies` is edited to give `u-1` the predecessors `architecture` and `prototype`
-- **THEN** the diff returns exactly `set schedule.u-1.dependencies` with that list
-
-#### Scenario: A cleared request
-- **WHEN** an edited Gantt leaves out a requested start the sent one held for `review`
-- **THEN** the diff returns exactly `set` of `review`'s `start` to `null`
-
-### Requirement: Order of keyed changes
-The diff SHALL list the `set`s of keyed maps after every operation on the element list, ordered by element ID and then by field name, each in UTF-16 code-unit order, whatever the order of keys in either value.
-
-#### Scenario: Two tasks changed
-- **WHEN** an edited Gantt requests a start for `review` and changes the predecessors of `build` and of `review`
-- **THEN** the diff lists `build.dependencies`, then `review.dependencies`, then `review.start`
-
 ### Requirement: Computing a Gantt's changes
-Given a Gantt's props as sent and as edited, the contract's diff, with the Gantt's shape (its `tasks` as a flat element list, `dependencies` and `starts` as keyed maps), SHALL return one `set` per task field the user changed and no other operation, and none for a Gantt that ends as it was sent.
+A Gantt's `changes` SHALL be those the contract's one generic element diff gives for the Gantt's shape, its `tasks` as a flat list whose fields are every task key but `id`; the Gantt SHALL have no diff of its own (AD-20, FR-20).
 
 #### Scenario: Nothing changed
 - **WHEN** the edited Gantt equals the sent one
 - **THEN** the diff returns no operation
+
+#### Scenario: A changed predecessor list
+- **WHEN** the user gives reporting the predecessors `portal` and `billing` in the fixture Gantt
+- **THEN** the diff returns exactly one `set` of `release.reporting.dependencies` with that list
+
+#### Scenario: The UJ-2 plan edit
+- **WHEN** the UJ-2 plan as sent is diffed with the plan after the approved answer's edit
+- **THEN** the diff returns exactly `add schedule.u-1` with `parent` `null`, `after` `portal` and a `value` whose `dependencies` are `architecture` and `prototype`, the edit the approved answer writes as `set schedule.u-1.dependencies`
 
 #### Scenario: Applying the changes
 - **WHEN** any sequence of duration, start and predecessor edits is diffed and the operations are applied to the sent props
@@ -139,8 +129,8 @@ The contract SHALL declare the derived values a Gantt's answer carries: `<item>.
 - **THEN** its declared derived values are `schedule.finish` `2026-12-02` and `schedule.criticalPath` `ux`, `prototype`, `portal`, `reporting`, as in the approved answer
 
 ### Requirement: Gantt fixtures
-The contract SHALL provide, for tests only, a board document whose question holds a Gantt that lists its tasks, a board document whose question holds the UJ-2 work breakdown as a Tree and the UJ-2 plan over it, each value after the approved answer's edits, and that answer's `changes` and Gantt derived values. Each part SHALL validate, and the `changes` SHALL equal the diff of the sent and the edited values.
+The contract SHALL provide, for tests only, a board document whose question holds a Gantt with its own tasks, a board document whose question holds the UJ-2 work breakdown as a Tree and the UJ-2 plan over it, each value after the approved answer's edits, the plan's `changes` in the diff's form and in the approved form, and the Gantt derived values. Each part SHALL validate, and the diff's form SHALL equal the diff of the sent and the edited plan.
 
 #### Scenario: The fixtures agree
 - **WHEN** the contract's tests run
-- **THEN** both fixture Gantts and their edited values validate, the plan's `changes` validate, and the diff of the sent and the edited plan gives exactly those `changes`
+- **THEN** both fixture Gantts and their edited values validate, both forms of the plan's `changes` validate and carry the same edit, and the diff of the sent and the edited plan gives exactly the diff's form
