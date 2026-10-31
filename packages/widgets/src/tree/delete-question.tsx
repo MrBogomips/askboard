@@ -5,19 +5,16 @@
 // and nothing is deleted before "Delete". The node's name is text, never markup (AD-8).
 
 import { type KeyboardEvent, useId, useLayoutEffect, useRef } from "react";
-import { QUESTION, QUESTION_NAME, QUESTION_REST, QUESTION_ROW, TOOL, TOOLBAR } from "./classes.ts";
+import { QUESTION, QUESTION_NAME, QUESTION_REST, QUESTION_ROW, TOOL } from "./classes.ts";
 import { deletedWith, type DeleteQuestion as Question } from "./deleting.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { keyAction } from "./model/keys.ts";
 
 export const DeleteQuestion = ({
-  ref,
   question,
   onConfirm,
   onCancel,
 }: {
-  /** The toolbar row's element, for the Tree's focus. */
-  readonly ref: (row: HTMLElement | null) => void;
   readonly question: Question;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
@@ -36,12 +33,7 @@ export const DeleteQuestion = ({
   };
 
   return (
-    <fieldset
-      ref={ref}
-      aria-labelledby={id}
-      className={`${TOOLBAR} ${QUESTION_ROW}`}
-      onKeyDown={onKeyDown}
-    >
+    <fieldset aria-labelledby={id} className={QUESTION_ROW} onKeyDown={onKeyDown}>
       <p id={id} className={QUESTION}>
         <span className={QUESTION_NAME}>“{question.label}”</span>{" "}
         <span className={QUESTION_REST}>{deletedWith(question.under)}</span>

@@ -11,7 +11,12 @@
 // - the toolbar above the grid is the view's one `toolbar`, its tools `button`s named by their
 //   labels;
 // - the question before deleting a node with children replaces the tools in the toolbar row: a
-//   `group` named by its message, which ends "will be deleted.".
+//   `group` named by its message, which ends "will be deleted.";
+// - the counter at the toolbar row's right is found by its text, "Changes vs agent's original ·
+//   none yet" or "Your changes: N";
+// - each change mark carries `data-change`: `renamed` on a renamed name's text, `field` on a
+//   changed field's cell, `added` on an added node's row and `moved` on the mark after a moved
+//   node's name.
 
 import type { Locator } from "playwright";
 import type { Board } from "./dom.ts";
@@ -29,7 +34,13 @@ export type TreeGrid = {
   /** The toolbar's tools, in order. */
   readonly tools: Locator;
   tool(label: string): Locator;
+  /** The counter of the user's changes, at the toolbar row's right. */
+  readonly counter: Locator;
+  /** The treegrid's change marks of one kind, or of every kind, in document order. */
+  marks(kind?: "renamed" | "field" | "added" | "moved"): Locator;
 };
+
+const COUNTER = /^(Your changes: \d+|Changes vs agent's original · none yet)$/;
 
 export const treeGridOf = (board: Board): TreeGrid => {
   const grid = board.view.getByRole("treegrid");
@@ -46,8 +57,22 @@ export const treeGridOf = (board: Board): TreeGrid => {
     toolbar,
     tools: toolbar.getByRole("button"),
     tool: (label) => toolbar.getByRole("button", { name: label, exact: true }),
+    counter: board.view.getByText(COUNTER),
+    marks: (kind) => grid.locator(kind === undefined ? "[data-change]" : `[data-change="${kind}"]`),
   };
 };
+
+/** The computed paint of an element: its fill, its text, its border and its shadows. */
+export const paintOf = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      color: style.color,
+      border: style.borderTopColor,
+      shadow: style.boxShadow,
+    };
+  });
 
 /** Where the view's focus is in the Tree: a row, or a cell of it; `undefined` outside the Tree. */
 export type FocusAt = { readonly nodeId: string; readonly cell?: number } | undefined;

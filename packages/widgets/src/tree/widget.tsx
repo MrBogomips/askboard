@@ -9,10 +9,12 @@
 // keeps its place in the view while the focus is in the toolbar; each tool is enabled only where
 // its edit is possible (`can`). An edit from a key brings the DOM focus with the node's focus;
 // from a tool, the focus stays on the tool. Every change of the value goes in the draft, or
-// `undefined` once the nodes are the agent's again (`sameNodes`).
+// `undefined` once the nodes are the agent's again (`sameNodes`). What the user changed against
+// the agent's value is marked per node and counted in the toolbar row (`marksOf`, open question
+// 14), the read-only Tree's included.
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
-import { type FocusEvent, type KeyboardEvent, type MouseEvent, useState } from "react";
+import { type FocusEvent, type KeyboardEvent, type MouseEvent, useMemo, useState } from "react";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
 import { FRAME } from "./classes.ts";
 import { afterDelete, deleteQuestionOf } from "./deleting.ts";
@@ -22,7 +24,7 @@ import { treeKeyOf } from "./key-event.ts";
 import { can, type TreeEdit } from "./model/edits.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
-import { sameNodes } from "./model/marks.ts";
+import { marksOf, sameNodes } from "./model/marks.ts";
 import type { TreeRow } from "./model/rows.ts";
 import { afterMove, isMove, type MoveEdit } from "./moving.ts";
 import { chevronNodeOf, focusTargetOf } from "./targets.ts";
@@ -66,7 +68,7 @@ export const TreeWidget = ({
   const [asked, setAsked] = useState<{ readonly nodeId: string; readonly from: TreePart }>();
   const focus = useTreeFocus();
 
-  const { rows, editing, start, startAdd } = useCellEditing({
+  const { rows, editing, start, startAdd, dropped } = useCellEditing({
     itemId,
     sent,
     value,
@@ -79,6 +81,10 @@ export const TreeWidget = ({
     },
   });
   const view = shownView(stored, rows);
+  // A new node the Tree dropped on turning read-only goes as if taken away: the focus goes back
+  // where its add started.
+  if (dropped !== undefined) setView(viewWithoutAdd(view, value, dropped));
+  const marks = useMemo(() => marksOf(sent, value), [sent, value]);
 
   const show = (next: TreeView, moveFocus: boolean): void => {
     if (next === view) return;
@@ -183,6 +189,7 @@ export const TreeWidget = ({
         enabled={enabled}
         onTool={(edit) => act(edit, "toolbar")}
         asking={asking}
+        changes={marks.count}
       />
       <TreeGrid
         ref={focus.grid}
@@ -190,6 +197,7 @@ export const TreeWidget = ({
         rows={rows}
         focus={view.focus}
         editing={editing}
+        marks={marks.byNode}
         labelledBy={labelledBy}
         onKeyDown={onKeyDown}
         onFocus={onFocus}

@@ -18,7 +18,10 @@ const STOP = '[tabindex="0"]';
 
 export const useTreeFocus = () => {
   const grid = useRef<HTMLTableElement>(null);
-  const toolbar = useRef<HTMLElement | null>(null);
+  // The toolbar row, which holds the tools or the delete question. A ref object, not a callback,
+  // so that it stays attached across renders: a question focusing its "Cancel" as it mounts, before
+  // a callback would be attached again, is then followed as in the toolbar.
+  const toolbar = useRef<HTMLDivElement>(null);
   // The Tab stop the focus moves to once the next render is laid out.
   const moveTo = useRef<TreePart | undefined>(undefined);
   // The element of the Tree that holds the focus, and the one it is moving to within the Tree.
@@ -47,10 +50,8 @@ export const useTreeFocus = () => {
 
   return {
     grid,
-    /** The toolbar row's element: the tools' or the delete question's. */
-    toolbarRow: (row: HTMLElement | null): void => {
-      toolbar.current = row;
-    },
+    /** The toolbar row's element, which holds the tools or the delete question. */
+    toolbarRow: toolbar,
     /** Moves the focus to `to`'s Tab stop after the next render; `undefined` moves it nowhere. */
     moveFocusTo: (to: TreePart | undefined): void => {
       moveTo.current = to;

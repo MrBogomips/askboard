@@ -1,8 +1,8 @@
-// The Tree's classes (DESIGN.md: Widget frame, Tree, Focus ring), from the design tokens as the
-// view's Choice uses them. Every class is written out in full, so that Tailwind finds it in the
-// chunk's own sources, and no element takes a `style` attribute (AD-8): the indent is one class
-// per level, for each of the contract's 8 levels. The view's root font is 13px, so the measures
-// DESIGN.md gives in pixels are written in pixels.
+// The Tree's classes (DESIGN.md: Widget frame, Tree, Focus ring, Change highlight), from the
+// design tokens as the view's Choice uses them. Every class is written out in full, so that
+// Tailwind finds it in the chunk's own sources, and no element takes a `style` attribute (AD-8):
+// the indent is one class per level, for each of the contract's 8 levels. The view's root font is
+// 13px, so the measures DESIGN.md gives in pixels are written in pixels.
 
 import type { TreeColumnType } from "@askboard/contract";
 
@@ -31,8 +31,15 @@ export const QUESTION = "flex min-w-0 items-center gap-[4px] text-control text-f
 
 export const QUESTION_NAME = "min-w-0 truncate";
 
-/** The toolbar row as a `fieldset`, which would otherwise keep its content's width. */
-export const QUESTION_ROW = "min-w-0";
+/** The question's `fieldset`, in the tools' place, which would otherwise keep its content's width. */
+export const QUESTION_ROW = "flex min-w-0 items-center gap-2";
+
+/** The counter of the user's changes, at the toolbar row's right; the question never pushes it out. */
+export const COUNTER =
+  "ml-auto flex shrink-0 items-center gap-[6px] text-control text-foreground-secondary";
+
+/** The change dot, `{colors.change}`: the counter's mark, and a moved row's after its name. */
+export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
 
 export const QUESTION_REST = "shrink-0";
 
@@ -98,6 +105,21 @@ export const CHEVRON_OPEN = "rotate-90";
 export const NAME = "truncate";
 
 export const PARENT_NAME = "truncate font-semibold";
+
+/**
+ * A renamed name (DESIGN.md, Change highlight): on the change fill in the change text, with the
+ * change border, which keeps the mark at 3:1 against its surface.
+ */
+export const RENAMED = "rounded-md border border-change bg-change-subtle px-[4px] text-change-text";
+
+/**
+ * A changed field's cell: the change fill and text, and the change border as an inset ring, which
+ * leaves the table's layout and the focus ring's outline as they are.
+ */
+export const CHANGED_FIELD = "bg-change-subtle text-change-text inset-ring inset-ring-change";
+
+/** An added row's 2px change bar on its left edge, drawn on its name's cell. */
+export const ADDED_BAR = "shadow-[inset_2px_0_0_0_var(--change)]";
 
 // The input atoms' look (DESIGN.md, Input atoms) with the focus ring, as on every focusable
 // element, and the destructive border of a refused entry.

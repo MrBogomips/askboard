@@ -5,7 +5,9 @@
 // `undefined` once the nodes are the agent's again (`sameNodes`), so that "Answer" turns off;
 // nothing leaves the view (AD-9). A refused entry on Enter keeps the editor, its focus and the
 // draft, and shows its reason under the row; leaving a refused entry closes the editor and changes
-// nothing, which takes a new node away. A read-only Tree edits nothing.
+// nothing, which takes a new node away. A read-only Tree edits nothing: when the Tree turns
+// read-only (answered, being sent or locked), the edit under way is dropped, a new node with it,
+// and nothing it held goes in the draft, so it does not come back if the Tree turns editable again.
 
 import type { TreeProps } from "@askboard/contract";
 import { useMemo, useState } from "react";
@@ -59,6 +61,8 @@ export const useCellEditing = ({
   readonly onClosed: (moveFocus: boolean, takenAway?: PendingAdd) => void;
 }) => {
   const [state, setState] = useState<Editing | undefined>(undefined);
+  // Dropped during this render, so the Tree never shows the edit once read-only.
+  if (disabled && state !== undefined) setState(undefined);
   const add = disabled ? undefined : state?.add;
   const shown = useMemo(() => withPending(value, add), [value, add]);
   const rows = useMemo(() => visibleRows(shown.nodes, collapsed), [shown.nodes, collapsed]);
@@ -121,5 +125,12 @@ export const useCellEditing = ({
             />
           ),
         };
-  return { rows, editing: grid, start, startAdd };
+  return {
+    rows,
+    editing: grid,
+    start,
+    startAdd,
+    /** The add whose new node the Tree, turned read-only, takes away in this render. */
+    dropped: disabled ? state?.add : undefined,
+  };
 };

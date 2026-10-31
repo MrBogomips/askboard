@@ -31,6 +31,9 @@ export const FIXTURE_ROWS = [
 
 export const FIXTURE_IDS = FIXTURE_ROWS.map((row) => row.id);
 
+/** The counter before the first change (EXPERIENCE, By surface: Widget). */
+export const NONE_YET = "Changes vs agent's original · none yet";
+
 /** DESIGN.md's focus ring: a 2px outline, offset by 1px. */
 export const RING = { style: "solid", width: "2px", offset: "1px" };
 
@@ -133,6 +136,17 @@ export const allPlaces = (tree: TreeGrid): Promise<string[]> =>
         .join(" "),
     ),
   );
+
+/** Each change mark of the treegrid as its node's ID and its kind, in document order. */
+export const markedIds = (tree: TreeGrid): Promise<string[]> =>
+  tree
+    .marks()
+    .evaluateAll((marks) =>
+      marks.map(
+        (mark) =>
+          `${mark.closest("[data-node-id]")?.getAttribute("data-node-id")} ${mark.getAttribute("data-change")}`,
+      ),
+    );
 
 /** The host page's URL and history length, which no key of the Tree may change. */
 export const pageOf = async (run: WidgetHostRun) => ({

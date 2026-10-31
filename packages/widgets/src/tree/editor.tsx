@@ -51,11 +51,16 @@ export const CellEditor = ({
 }: CellEditorProps) => {
   const [text, setText] = useState(initial);
   const input = useRef<HTMLInputElement>(null);
-  // Set once the editor has committed or cancelled, so that the blur of its removal does nothing.
+  // Set once the editor has committed or cancelled, or is being taken out, as when the Tree turns
+  // read-only, so that the blur of its removal commits nothing (AD-10).
   const closed = useRef(false);
   useLayoutEffect(() => {
+    closed.current = false;
     input.current?.focus();
     input.current?.select();
+    return () => {
+      closed.current = true;
+    };
   }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
