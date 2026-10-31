@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:ask",
+  "title": "Ask",
+  "description": "An ask as the agent sends it to the ask tool (AD-7): its ID, the optional fields, and exactly one plain question in E1, in English only. A presentation and a delivery mode are accepted: a board of one question is the single-question board whatever they say (EXPERIENCE, Presentations). Further checks the schema cannot express run in the contract's validation function: unique item IDs, the reserved view-made prefix, unique option labels and the room an answer needs.",
+  "type": "object",
+  "properties": {
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agentName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "expectedUser": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "presentation": {
+      "enum": ["sections", "tabs", "one-per-view"]
+    },
+    "delivery": {
+      "enum": ["immediate", "submitted"]
+    },
+    "language": {
+      "const": "en-US"
+    },
+    "locale": {
+      "const": "en-US"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "urn:askboard:input:question"
+      }
+    }
+  },
+  "required": ["askId", "items"],
+  "additionalProperties": false
+}

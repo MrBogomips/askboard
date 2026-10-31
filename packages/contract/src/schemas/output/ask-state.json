@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:ask-state",
+  "title": "Ask state",
+  "description": "The ask states E1 reaches (AD-10): an ask is waiting until its question is answered, and discarded at session exit or when its cursor is of another epoch. A minor version adds partly-answered and closed with the epics that reach them.",
+  "enum": ["waiting", "answered", "discarded"]
+}

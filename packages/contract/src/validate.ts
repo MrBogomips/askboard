@@ -2,7 +2,8 @@
 // compile once, at the first validation (design decision 2). The board page cannot compile under
 // its CSP, so the view build generates standalone validators from `createAjv` instead.
 
-import Ajv2020, { type ErrorObject, type Options } from "ajv/dist/2020";
+import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
+import { schemaErrors } from "./compiled.ts";
 import { type BoardDocument, boardDocumentSet } from "./schemas/board-document/index.ts";
 import {
   BOARD_PROTOCOL_MESSAGES,
@@ -16,7 +17,7 @@ import {
   type ViewManifest,
   viewManifestSet,
 } from "./schemas/view-manifest/index.ts";
-import { SCHEMA_IDS, SCHEMA_SETS } from "./sets.ts";
+import { SCHEMA_IDS } from "./sets.ts";
 import { majorOf, SCHEMA_SET_OWNERS, type SchemaSet, unsupportedVersion } from "./versions.ts";
 
 /** One problem, at a JSON Pointer into the value. */
@@ -31,20 +32,15 @@ export type Checked<T> =
       readonly problems: readonly Problem[];
     };
 
-/** An Ajv instance in strict mode holding every schema of every set, compiled on first use. */
-export const createAjv = (options: Options = {}): Ajv2020 => {
-  const ajv = new Ajv2020({ strict: true, allErrors: true, ...options });
-  for (const set of SCHEMA_SETS) {
-    for (const schema of set.schemas) ajv.addSchema(schema);
-  }
-  return ajv;
-};
-
-let shared: Ajv2020 | undefined;
-const ajv = (): Ajv2020 => {
-  shared ??= createAjv();
-  return shared;
-};
+export { createAjv } from "./compiled.ts";
+export {
+  type CheckedRequest,
+  type CollectWait,
+  type RequestProblem,
+  toolInputProblems,
+  validateAskRequest,
+  validateCollectRequest,
+} from "./requests.ts";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -64,10 +60,9 @@ const problemOf = ({ keyword, instancePath, params, message }: ErrorObject): Pro
 
 /** Validates a value against one contract schema, by its `$id`. */
 export const validateAgainst = <T = unknown>(id: string, value: unknown): Checked<T> => {
-  const validate = ajv().getSchema(id);
-  if (validate === undefined) throw new Error(`the contract has no schema ${id}`);
-  if (validate(value)) return { ok: true, value: value as T };
-  return { ok: false, reason: "schema", problems: (validate.errors ?? []).map(problemOf) };
+  const errors = schemaErrors(id, value);
+  if (errors.length === 0) return { ok: true, value: value as T };
+  return { ok: false, reason: "schema", problems: errors.map(problemOf) };
 };
 
 /** Refuses an unsupported major before the schema runs, saying which version is supported. */

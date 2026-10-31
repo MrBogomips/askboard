@@ -92,6 +92,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Imports (code):**
     - `ask-core` imports only `contract` and `compute`.
     - Every adapter imports `ask-core` ports and `contract`, never another adapter.
+    - The session process entry point (`packages/server/src/main.ts`, with the files beside it outside the server unit folders) composes the units: it may import `ask-core`, `contract` and every server unit, and no unit imports it.
     - `view` imports only `contract` and `compute`. `widgets` imports only `contract`, `compute` and `view`'s `CatalogRenderer` port. A server unit imports `view` only for `assemble` (AD-9).
     - `compute` and `ask-core` use no DOM, Node-only or Bun-only API.
     - CI fails on any import that crosses the dependency diagram.

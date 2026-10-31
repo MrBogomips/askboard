@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:epoch",
+  "title": "Epoch",
+  "description": "The session process's random epoch, which scopes its ask IDs and cursors (AD-2, AD-10). Every tool result carries it.",
+  "type": "string",
+  "pattern": "^[a-z0-9]{4,16}$"
+}

@@ -39,9 +39,19 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   "molecule-source": ["core", "contract", "molecules"],
   snapshot: ["core", "contract", "view/assemble"],
   notifier: ["core", "contract"],
-  // Files in packages/server/src outside the six unit folders. The diagram gives them no rule
-  // yet: where the session process entry point lives is an open question of setup-workspace.
-  server: [],
+  // The session process entry point: the files in packages/server/src outside the six unit
+  // folders, which compose the units (AD-1 as amended by E1, design decision 9). No unit lists
+  // `server`, so nothing imports it.
+  server: [
+    "core",
+    "contract",
+    "mcp-tools",
+    "board-host",
+    "excerpts",
+    "molecule-source",
+    "snapshot",
+    "notifier",
+  ],
   molecules: ["contract"],
   view: ["contract", "compute"],
   widgets: ["contract", "compute", "view/catalog"],
@@ -147,8 +157,11 @@ const unitRule = (unit: string): string => {
   const allowed = ALLOWED[unit] ?? [];
   const may = allowed.length === 0 ? "no AskBoard unit" : `only ${allowed.join(", ")}`;
   const server = SERVER_UNITS.has(unit) ? "; never another server unit" : "";
-  const where = unit === "server" ? " (files outside the six server unit folders)" : "";
-  return `${unit}${where} may import ${may}${server} (spine Invariants & Rules, AD-1)`;
+  const who =
+    unit === "server"
+      ? "the session process entry point (files in packages/server/src outside the six unit folders)"
+      : unit;
+  return `${who} may import ${may}${server} (spine Invariants & Rules, AD-1)`;
 };
 
 const relativeRule = (target: string): string =>

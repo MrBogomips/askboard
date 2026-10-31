@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:versions",
+  "title": "Result versions",
+  "description": "The two versions every result names (finding F12): its result envelope (owner mcp-tools) and the output format it carries (owner contract). A reader supports major 1 of each and accepts any of its minors.",
+  "type": "object",
+  "properties": {
+    "result": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "output": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    }
+  },
+  "required": ["result", "output"],
+  "additionalProperties": false
+}
