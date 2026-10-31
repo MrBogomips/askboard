@@ -2,7 +2,7 @@
 
 Replacement texts for the choices this change made where the spine and the addendum describe the full benchmark, which needs benchmark mode in the session process. Each block belongs to one open question of `proposal.md` and applies only if the PO accepts that choice. Each block quotes the current text exactly, then gives the replacement. AD IDs stay stable: AD-17 is amended in place, and no AD is added.
 
-**Not applied.** The PO decides each row, with task 8.4, after the first runs.
+**Not applied.** The PO decides each row, with task 8.4, after the first runs. The PO accepted the proposal's open questions as proposed on 2026-10-31; the rows still wait for 8.4.
 
 Files, all under `docs/`:
 
@@ -25,7 +25,7 @@ How to apply:
 | 4 | 1, 10: the cases and pinned defaults | Solution design §7 (seed set) |
 | 5 | Deferred: `alwaysLoad` and the result representation | Spine, Deferred |
 
-Not a spine change: the proposal's open question 9. `bench` imports only `contract`, as the dependency diagram already allows. Declaring `@askboard/contract` and `@types/bun` in `packages/bench/package.json`, and the lockfile entry that comes with it, lands with E1's Integration (tasks.md, Workflow follow-up).
+Not a spine change: the proposal's open question 9. `bench` imports only `contract`, as the dependency diagram already allows. Declaring `@askboard/contract` and `@types/bun` in `packages/bench/package.json`, and the lockfile entry that comes with it, landed after the rebase onto E1's Integration (tasks.md, Workflow follow-up).
 
 ## Row 1: AD-17, the interim scripted user
 

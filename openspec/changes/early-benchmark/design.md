@@ -257,7 +257,7 @@ Text: Which database should the order service use?
 - [The answerer's start-up adds tens of milliseconds to t2′ and t3′] → A user's browser start adds more. The report says the answerer's start-up is included.
 - [Claude Code's transcript format is undocumented] → Every field read is listed in decision 8. A field missing everywhere is reported as not observed. The fixtures follow the spike's observed rows.
 - [Answers through the board protocol are a second scripted-answer path, which AD-17 prevents] → Started only through the `BROWSER` of a run `bench` spawns, so normal use never reaches it. The spine update draft records it as interim until benchmark mode.
-- [Undeclared dependencies resolve through the root] → Proposal open question 9; the declaration lands with E1's Integration.
+- [Undeclared dependencies resolve through the root] → Proposal open question 9; declared after the rebase onto E1's Integration (2026-10-31).
 - [The `claude` binary is updated between runs] → `DISABLE_AUTOUPDATER=1`, and every transcript's `version` field is compared with the preflight version. A difference is flagged in the report, as is a run whose transcripts wrote both 5-minute and 1-hour caches.
 - [The baseline's first request still differs from the AskBoard arm's by anything Claude Code loads late, such as a connector that connects after the first request] → The report lists each arm's MCP servers; arms are compared by difference, as AD-17 says.
 
@@ -267,4 +267,4 @@ None: `bench` is new. When benchmark mode lands, its change replaces the board a
 
 ## Open Questions
 
-None that change what is built. The proposal's open questions are the PO's review of the choices made.
+None that change what is built. The PO accepted the proposal's thirteen open questions as proposed on 2026-10-31.

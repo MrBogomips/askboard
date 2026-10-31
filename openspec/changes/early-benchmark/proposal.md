@@ -45,9 +45,9 @@ None: `openspec/specs/` is empty, and E1's capabilities are still in flight.
 ## Impact
 
 - **Code:** `packages/bench` only: its sources, its tests, the stub session process and a stand-in `claude` for the runner's tests.
-- **Dependencies:** none added, and `bun.lock` is unchanged.
-  - `bench` imports `@askboard/contract`, as AD-1 allows. It type-checks with `@types/bun`. Both resolve through the root's development dependencies.
-  - Declaring them in `packages/bench/package.json` would change the frozen lockfile, so the declaration waits for E1's Integration (open question 9).
+- **Dependencies:** none added to the repository.
+  - `bench` imports `@askboard/contract`, as AD-1 allows. It type-checks with `@types/bun`. Until E1's Integration both resolved through the root's development dependencies, since declaring them would have changed the frozen lockfile (open question 9).
+  - After the rebase onto E1's Integration, `packages/bench/package.json` declares both, and `bun.lock` gains that entry only.
 - **Documents:** none edited. `spine-update-draft.md` in this change's folder carries the spine and addendum changes for the PO.
 - **Requirements served:** FR-32 and FR-33, as far as E1 reaches; NFR-1 (the context added before the first ask); NFR-9 (results stay on the machine); SM-1 to SM-4 for plain questions; R5; PRD OQ2 for the pull path.
 - **Runs:** each S1 run costs one Claude Code session with two plain questions; S6 adds a subagent. Five runs per case and arm: 15 sessions by default, plus 5 baseline sessions of one request each.
@@ -77,3 +77,5 @@ The PO asked for the work to continue without waiting. Where the documents leave
     - Per question, a 10-question session is 1 cold ask and 9 warm asks.
 12. **OQ2 on the pull path.** The report gives the time from the answer to the `collect` result in the transcript, against the 2 s target for an idle conversation. The push targets wait for E4.
 13. **Retries and batches.** An identical ask sent again right after the first (same ask ID or same question) is a retry: its response counts in that ask's K1 and K2, as the addendum's "retries count" says. Two asks in one response break the scenario's one-at-a-time order, so the run is invalid. *Alternative:* divide a shared response across its asks as a batched ask.
+
+**Answer (PO, 2026-10-31):** accepted as proposed, all thirteen choices; none reversed.
