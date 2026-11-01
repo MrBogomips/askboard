@@ -1,12 +1,12 @@
 # Spine update draft: molecules
 
-Three blocks for `ARCHITECTURE-SPINE.md` and one alignment of `SOLUTION-DESIGN.md`. Each amends a decision in place, its ID unchanged, and quotes the text it replaces word for word, then gives the replacement. Nothing here is applied by this change: each block applies only if the PO accepts the proposal's open question it names, and if the PO decides otherwise, the spine stays as it is.
+**Status: applied on 2026-11-01.** The PO accepted every open question of the proposal on 2026-11-01, among them 3 to 7, 11 and 14, which these blocks name, and the four blocks below were applied in place, their IDs unchanged (task 0.3). Three blocks for `ARCHITECTURE-SPINE.md` and one alignment of `SOLUTION-DESIGN.md`. Each amends a decision in place, its ID unchanged, and quotes the text it replaces word for word, then gives the replacement. The apply's tasks apply nothing here: each block applies only if the PO accepts the proposal's open question it names, and if the PO decides otherwise, the spine stays as it is.
 
 Files: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` (Blocks 1 to 3) and `docs/architecture-askboard-2026-10-27/SOLUTION-DESIGN.md` (Block 4).
 
-How to apply: replace each quoted text, set the spine's `updated:` to the apply date and add a `sources` line for this change in its front matter, then run `openspec validate --all --strict --no-interactive` and `bun run check`.
+How to apply: replace each quoted text, set the spine's `updated:` to the apply date and add a `sources` line for this change in its front matter, then run `openspec validate --all --strict --no-interactive` and `bun run check`. Applied that way on 2026-11-01, with SOLUTION-DESIGN's `updated:` set to the same date. Since the apply, each block's replacement text stands in its document word for word and its current text no longer does, except as the start of Block 3's replacement, which extends it; tasks 0.2 and 11.1 check that.
 
-Checked on 2026-10-31 against the spine on `main` at 92ca203. The `tree-widget` change amends AD-9's "Build and assembly" bullet and AD-20's "Answers" bullet, and the `gantt-widget` draft AD-13's "The graph" bullet; none of these blocks quotes those bullets, so they apply in any order. Task 9.1 checks the quoted text again after group 0's rebase.
+Checked on 2026-10-31 against the spine on `main` at 92ca203, and again on 2026-11-01, just before the apply, on this branch, whose `docs/` were still `main`'s at 92ca203: each current text stood once, word for word. The `tree-widget` change amends AD-9's "Build and assembly" bullet and AD-20's "Answers" bullet, and the `gantt-widget` draft AD-13's "The graph" bullet; none of these blocks quotes those bullets, so they apply in any order. Group 0's rebase brings their amendments under this one; the spine's front matter is a merge point (design, Merge points).
 
 ## Block 1: AD-6, Rule, Schemas and validation, second and third bullets
 

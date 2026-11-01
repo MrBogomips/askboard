@@ -11,7 +11,7 @@ sources:
   - .working/technical-choices-proposal.md
   - reconcile-prd.md
   - reconcile-research.md
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # AskBoard — Experience Spine
@@ -297,7 +297,7 @@ The component choices for the molecules build on this composition (TC §2.1).
 
 | Component | Behavioural rules | Source |
 |---|---|---|
-| **WBS with PERT** | The user adds, moves, renames and deletes work packages (Tree) and edits three-point estimates. Expected effort and spread roll up live; a parent's spread is the root-sum-square of its children's. Branches expand and collapse: a parent row's chevron shows its children, and a leaf row's chevron opens its excerpt. The WBS opens expanded to the depth the agent sets, or two levels. Each work package shows an excerpt of the feature it covers. A work package the user adds, as in a split, gets a Gantt task whose duration is its PERT expected effort, rounded up to whole working days, and whose predecessors are its parent's. Deleting a package that has Gantt dependents asks for confirmation, then connects them to the package's own predecessors. | FR-11, FR-15, L71, F-09, F-59, L199, L200 |
+| **WBS with PERT** | The user adds, moves, renames and deletes work packages (Tree) and edits three-point estimates. Expected effort and spread roll up live; a parent's spread is the root-sum-square of its children's. Branches expand and collapse: a parent row's chevron shows its children, and a leaf row's chevron opens its excerpt. The WBS opens expanded to the depth the agent sets, or two levels. Each work package shows an excerpt of the feature it covers. A work package the user adds gets a Gantt task whose duration is its PERT expected effort, rounded up to whole working days, and whose predecessors are those of the package it was added after, as in a split, or of its parent when it is added as a child. Deleting a package that has Gantt dependents asks for confirmation, then connects them to the package's own predecessors. | FR-11, FR-15, L71, F-09, F-59, L199, L200 |
 | **Gantt plan** | The user reschedules and edits durations and dependencies as in the Gantt. Dates and the critical path follow without the agent. The plan zooms by day, week or month, and the agent's original plan sits as a baseline under the bars, drawn by AskBoard. Each work package's duration is its PERT expected effort rounded up to whole working days, and parent packages get no summary bar. Packages added or deleted in the WBS carry into the plan (WBS with PERT). | FR-11, FR-12, L72, L73, L160, L200, F-09 |
 | **Sales estimate review** | The user changes rates, effort and scope lines, and totals and margin recompute. Optional lines switch on or off and are never deleted: a switched-off line stays visible in the table, muted, and is listed in the Approval summary (its look: DESIGN.md). A warning (`{components.status-chip-warning}`) shows when the margin falls below the minimum margin, which the agent may set (pending ACR-07) and which otherwise comes from the project default; with no minimum anywhere, there is no warning and no chip. It ends with an Approval. | FR-15, L75, L148, TC §2.1, F-87, F-98 |
 | **Decision matrix** | Each option's score recomputes as the user changes weights or ratings. Its FR-15 minimum is also its first-version ceiling (Widget Scope). | FR-15, L68 |
@@ -527,7 +527,7 @@ The PRD's journeys are mirrored with their names and steps verbatim (§2.4), and
 
 1. "The agent sends an ask with the WBS-with-PERT molecule linked to a Gantt plan, each work package showing an excerpt of the PRD feature it covers." *UX:* The WBS opens two levels deep, unless the agent sets another depth; branches expand and collapse, and each work package carries its excerpt (L71, F-59). [ASSUMPTION] The molecule composition is as in Component Patterns, Molecules (L78).
 2. **Climax.** "Sara splits a package and adjusts three-point estimates; totals and spreads roll up, and the Gantt dates and critical path move as Sara edits, without the agent." *UX:*
-   - Each work package Sara adds gets a Gantt task, with its PERT expected effort as its duration and its parent's predecessors (WBS with PERT; F-09).
+   - Each work package Sara adds gets a Gantt task, with its PERT expected effort as its duration and the predecessors of the package she split (WBS with PERT; F-09, F20).
    - Edited estimates are highlighted against the agent's values.
    - The critical path stays highlighted (`{components.gantt-critical}`), and the agent's original plan shows as a baseline (Gantt plan).
    - Derived values recompute in the view on each edit (L71, L72, L76, L160, AD-13).

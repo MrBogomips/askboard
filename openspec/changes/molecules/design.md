@@ -24,7 +24,7 @@ ADs this design relies on: AD-1, AD-6, AD-7, AD-8, AD-9, AD-10, AD-12, AD-13, AD
 
 - Anything proposal.md lists under "Not in this change", the wiring into the tools first.
 - A second copy of any seam: the element diff, `widgetValidator`, the view document, the widget host, the port's `board` and `onDerived`, the answer's `values` and `derived`.
-- Editing `docs/`, another change's folder or E1's schema sets; the spine and UX changes are drafted only.
+- Editing `docs/` in the apply, another change's folder or E1's schema sets; the spine and UX changes were drafted, then applied on 2026-11-01 once the PO had accepted the questions they name (task 0.3).
 
 ## Decisions
 
@@ -195,7 +195,7 @@ None: nothing reaches an agent until the widening wires it. Reverting the change
 
 - **The input format widening:** the molecule reference in the input format's question items and the two formats in the input set (1.1); `ask` and `update` calling `expandMolecules` before storing a board document, refusing on a problem, and keeping the map beside it; `CorePorts.molecules` composed with `createMoleculeSource()` in `main.ts`; the send-time graph check over the expanded items, its warnings through `referenceAddressing`; `collect` calling `answerInReferenceAddressing`; `fetch` of a reference giving its expanded item's value under the reference's ID; an `update` of a reference re-expanding it whole; `widgetItemProblems` and `elementShapeOf` reused for agent-sent widget items; the shipped skills' molecule references generated from `molecules` (spine draft, Block 1).
 - **E5:** the `excerpt` per work package resolved at send time, the leaf's chevron and row detail, and `wbs-pert` 1.1.0 filling it.
-- **E7:** whether a Snapshot's data block names expanded IDs or references.
+- **E7:** whether a Snapshot's data block names expanded IDs or references. Its gathering reads an ask's expansion map, which the widening keeps beside each board document, through the read-only accessor `expansionEntries(map)` (task 5.1), whose records `{itemId, reference, molecule, version}` are the Snapshot data's `molecules` entries; E7's design (decision 1) names no accessor, only "the expansion map beside each board document".
 - **The Table and Approval epics:** the sales estimate review and the decision matrix, and the format's minor version for compositions of several items.
 - **A later Tree change:** roll-ups and formulas on a Tree without `pert`; splitting a `wbs` chunk if plain Tree boards need it.
 
@@ -207,3 +207,4 @@ None: nothing reaches an agent until the widening wires it. Reverting the change
 - `packages/molecules/src/gantt-plan/gantt-plan.json`, created by `gantt-widget` and completed here.
 - `packages/server/package.json` and its `bun.lock` importer entry, regenerated with `bun install` on a conflict.
 - `packages/view/chunk-sizes.json`, re-recorded with `--record-sizes`.
+- The front matter of the spine, SOLUTION-DESIGN and EXPERIENCE, which task 0.3 changed and the `tree-widget` and `gantt-widget` applies may change too: keep every `sources` line, in merge order, and the latest `updated:`.

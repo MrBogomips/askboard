@@ -2,7 +2,7 @@
 title: 'Solution design: AskBoard'
 status: final
 created: '2026-10-27'
-updated: '2026-10-30'
+updated: '2026-11-01'
 companions: ['ARCHITECTURE-SPINE.md']
 sources:
   - 'ARCHITECTURE-SPINE.md: AD-1 to AD-22, conventions, stack, Deferred (final, 2026-10-28)'
@@ -254,7 +254,7 @@ The product owner asked to weigh Bun, for its coherence with the Claude Code har
 ### 4.11 Tool surface and cost (AD-6)
 
 - **Five fixed tools** (`ask`, `update`, `collect`, `fetch`, `snapshot`), never changing mid-session, so the tool list never breaks the prompt cache (AD-6).
-- **Generic schemas.** Per-widget and per-molecule schemas live only in `contract`, and the skills' references are generated from it. Tool definitions load every session, so their size counts against the plain-question target (R5, §7). Because the skills are generated, they never drift from validation; each drift would cost a refused call. Schemas use no root combinators and short property names [F21]; that evidence is secondary, so CI makes a live call per model.
+- **Generic schemas.** Per-widget schemas and the molecule formats live only in `contract`, each ready-made molecule's parameters in its definition in `molecules`, and the skills' references are generated from both. Tool definitions load every session, so their size counts against the plain-question target (R5, §7). Because the skills are generated, they never drift from validation; each drift would cost a refused call. Schemas use no root combinators and short property names [F21]; that evidence is secondary, so CI makes a live call per model.
 - **Annotations.** All five `openWorldHint: false`, against the default [F20]; `collect` and `fetch` read-only; `ask` idempotent, though Claude Code repeats only HTTP calls [F20]; `snapshot` not destructive.
 - **Errors** stay under 4,000 characters, most important problems first, because Claude Code trims long errors in the middle [F19]; item-local problems are warnings.
 - **Re-sending** an open ask returns its board only for an identical request from the owner: retries work (FR-5), colliding subagents never merge.
