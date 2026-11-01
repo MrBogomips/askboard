@@ -83,8 +83,11 @@ const startsOf = (given: unknown, where: string): ReadonlyMap<string, number> =>
 /**
  * The working days from the plan's first working day to the first working day on or after a
  * requested start, 0 when it comes no later. It is AskBoard's own code, since no whitelisted
- * function counts working days between two dates; the graph is built again when a request or
- * the plan's start changes.
+ * function counts working days between two dates. The offset is a number input, the task's
+ * `startOffset`: a first or a cleared request adds or drops that node, so the graph is built
+ * again, while a request that moves and stays is counted again and set in place by the view's
+ * recalculation (gantt-widget design decision 7). Every offset counts from the plan's start,
+ * which no edit changes, so none goes stale in use.
  */
 const offsetOf = (planStart: unknown, requested: number): number => {
   const start = typeof planStart === "string" ? serialOf(planStart) : undefined;
