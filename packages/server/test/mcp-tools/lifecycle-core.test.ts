@@ -26,7 +26,7 @@ const session = async () => {
   const { client, close } = await connect(depsWith(core).deps);
   const call = async (name: string, args: unknown) =>
     jsonOf(await client.callTool({ name, arguments: args as never })) as Record<string, unknown>;
-  return { core, call, close };
+  return { core, client, call, close };
 };
 
 let actions = 0;
@@ -127,6 +127,79 @@ describe("fetch over ask-core", () => {
     const typed = { versions: RESULT_VERSIONS, epoch: core.epoch, askId, outcome: "discarded" };
     expect(await call("update", { askId, actions: [{ action: "close" }] })).toEqual(typed);
     expect(await call("fetch", { askId, itemId: "database" })).toEqual(typed);
+    await close();
+  });
+});
+
+describe("a wait over ask-core (AD-4)", () => {
+  const askId = "wait-states-k4p2";
+  const when = "2026-10-31T14:05:12Z";
+  const questionOf = (id: string) => ({
+    type: "question",
+    id,
+    props: { text: `${id}?`, options: [{ label: "Yes" }, { label: "No" }] },
+  });
+  const answerOf = (itemId: string) => ({ type: "answer", itemId, rev: 1, choice: ["Yes"], when });
+  type Entry = { state: string; cursor: string; events: { itemId?: string }[] };
+
+  // An ask of q1 and q2, both answered and collected, and a collect waiting on q1 from there.
+  const answeredThenWaiting = async () => {
+    const opened = await session();
+    const { core, client, call } = opened;
+    const asked = await call("ask", { askId, items: [questionOf("q1"), questionOf("q2")] });
+    const acts = [answerOf("q1"), answerOf("q2")];
+    expect(core.act(askId, { actionId: actionId(), acts: acts as never }).ok).toBe(true);
+    const read = await call("collect", { asks: [{ askId, after: asked.cursor }] });
+    const [entry] = read.asks as Entry[];
+    expect(entry?.state).toBe("answered");
+    let ended = false;
+    const waited = client
+      .callTool({
+        name: "collect",
+        arguments: { asks: [{ askId, after: entry?.cursor }], wait: { askId, itemId: "q1" } },
+      })
+      .finally(() => {
+        ended = true;
+      });
+    await Bun.sleep(10);
+    expect(ended).toBe(false);
+    return { ...opened, waited, ended: () => ended };
+  };
+
+  const answer = (core: AskCore, itemId: string) =>
+    expect(core.act(askId, { actionId: actionId(), acts: [answerOf(itemId)] as never }).ok).toBe(
+      true,
+    );
+
+  test("an update that changes the state goes on; a command changing it back ends the wait", async () => {
+    const { core, call, close, waited, ended } = await answeredThenWaiting();
+    const added = { action: "add", item: questionOf("q3"), after: "q2" };
+    expect(await call("update", { askId, actions: [added] })).toMatchObject({
+      state: "partly-answered",
+    });
+    await Bun.sleep(10);
+    expect(ended()).toBe(false);
+    answer(core, "q3");
+    const [entry] = (jsonOf(await waited) as { asks: Entry[] }).asks;
+    expect(entry?.state).toBe("answered");
+    expect(entry?.events.map((event) => event.itemId)).toEqual(["q3"]);
+    await close();
+  });
+
+  test("a command that leaves the state as the waiter last heard it does not end the wait", async () => {
+    const { core, call, close, waited, ended } = await answeredThenWaiting();
+    const actions = [
+      { action: "add", item: questionOf("q3"), after: "q2" },
+      { action: "add", item: questionOf("q4"), after: "q3" },
+    ];
+    expect(await call("update", { askId, actions })).toMatchObject({ state: "partly-answered" });
+    answer(core, "q3");
+    await Bun.sleep(10);
+    expect(ended()).toBe(false);
+    answer(core, "q4");
+    const [entry] = (jsonOf(await waited) as { asks: Entry[] }).asks;
+    expect(entry?.state).toBe("answered");
+    expect(entry?.events.map((event) => event.itemId)).toEqual(["q3", "q4"]);
     await close();
   });
 });

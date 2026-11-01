@@ -60,6 +60,10 @@ const longQuestion = (): FetchItem => {
   };
 };
 
+// A continuation as `fetch` writes it, for this session's ask unless `at` says otherwise.
+const continuationOf = (at: Record<string, unknown>): string =>
+  Buffer.from(JSON.stringify({ askId: A, epoch: EPOCH, ...at }), "utf8").toString("base64url");
+
 const pagesOf = async (call: (args: unknown) => Promise<unknown>, itemId: string) => {
   const results: { text: string; json: Record<string, unknown> }[] = [];
   let continuation: string | undefined;
@@ -176,13 +180,15 @@ describe("fetch pages", () => {
     await close();
   });
 
-  test("the continuation is base64url of the item, its rev, the generation and the offset", async () => {
+  test("the continuation is base64url of the ask, the epoch, the item, its rev, the generation and the offset", async () => {
     const long = longQuestion();
     const { call, close } = await fetcher(holding({ item: long, generation: 5 }));
     const [first] = await pagesOf(call, long.id).then((pages) => pages.slice(0, 1));
     const continuation = first?.json.continuation as string;
     const decoded = JSON.parse(Buffer.from(continuation, "base64url").toString("utf8"));
     expect(decoded).toEqual({
+      askId: A,
+      epoch: EPOCH,
       itemId: long.id,
       rev: 2,
       generation: 5,
@@ -213,15 +219,41 @@ describe("fetch pages", () => {
     ["another item's", { itemId: "payment", rev: 2, generation: 5, offset: 10 }],
     ["an offset past the value's end", { itemId: "region", rev: 2, generation: 5, offset: 9e6 }],
     ["a negative offset", { itemId: "region", rev: 2, generation: 5, offset: -1 }],
+    ["another epoch's", { epoch: "older", itemId: "region", rev: 2, generation: 5, offset: 10 }],
+    ["an ask-less", { askId: undefined, itemId: "region", rev: 2, generation: 5, offset: 10 }],
     ["a malformed", "not json"],
   ])("%s continuation is refused, saying to fetch again", async (_what, payload) => {
     const long = longQuestion();
     const { call, close } = await fetcher(holding({ item: long, generation: 5 }));
-    const text = typeof payload === "string" ? payload : JSON.stringify(payload);
-    const continuation = Buffer.from(text, "utf8").toString("base64url");
+    const continuation =
+      typeof payload === "string"
+        ? Buffer.from(payload, "utf8").toString("base64url")
+        : continuationOf(payload);
     const result = await call({ askId: A, itemId: "region", continuation });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("fetch it again");
+    await close();
+  });
+
+  // Fail closed: ask B's item of the same ID, rev and generation is not the value ask A's
+  // continuation was a page of.
+  test("another ask's continuation for an item of the same ID, rev and generation is refused", async () => {
+    const B = "another-ask-b7";
+    const long = longQuestion();
+    const core = fakeCore({
+      fullValue: (askId, itemId) =>
+        itemId === long.id
+          ? { kind: "item", askId, state: "partly-answered", item: long, generation: 5 }
+          : { kind: "missing", askId, itemId },
+    });
+    const { call, close } = await fetcher(core);
+    const first = jsonOf(await call({ askId: A, itemId: long.id })) as { continuation: string };
+    const result = await call({ askId: B, itemId: long.id, continuation: first.continuation });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain("fetch it again");
+    // The same continuation still pages ask A's item.
+    const own = await call({ askId: A, itemId: long.id, continuation: first.continuation });
+    expect(own.isError).toBeFalsy();
     await close();
   });
 
@@ -230,9 +262,12 @@ describe("fetch pages", () => {
     const canonical = canonicalize(long);
     const inside = canonical.indexOf("𝄞") + 1;
     const { call, close } = await fetcher(holding({ item: long, generation: 5 }));
-    const continuation = Buffer.from(
-      JSON.stringify({ itemId: "region", rev: 2, generation: 5, offset: inside }),
-    ).toString("base64url");
+    const continuation = continuationOf({
+      itemId: "region",
+      rev: 2,
+      generation: 5,
+      offset: inside,
+    });
     const result = await call({ askId: A, itemId: "region", continuation });
     expect(result.isError).toBe(true);
     await close();
@@ -240,9 +275,7 @@ describe("fetch pages", () => {
 
   test("a continuation for a value that fits one result is refused, saying to fetch again", async () => {
     const { call, close } = await fetcher(holding({ item, generation: 3 }));
-    const continuation = Buffer.from(
-      JSON.stringify({ itemId: item.id, rev: 1, generation: 3, offset: 10 }),
-    ).toString("base64url");
+    const continuation = continuationOf({ itemId: item.id, rev: 1, generation: 3, offset: 10 });
     const result = await call({ askId: A, itemId: item.id, continuation });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("fetch it again");

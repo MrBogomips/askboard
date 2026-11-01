@@ -1,13 +1,16 @@
 // `fetch` pages (ask-lifecycle, design decision 4; proposal, open question 5): an item whose full
 // value does not fit one result comes as consecutive slices of its RFC 8785 JSON text, cut at
 // code-point boundaries, each within the contract's page size and each result under the result
-// limit once the slice is escaped into it. A continuation names the item, its rev, the generation
-// ask-core gave its value and the next offset, as base64url of that JSON.
+// limit once the slice is escaped into it. A continuation names the ask and the epoch, the item,
+// its rev, the generation ask-core gave its value and the next offset, as base64url of that JSON.
 
 import { FETCH_PAGE_MAX_CHARS, RESULT_MAX_CHARS } from "@askboard/contract";
 
 /** Where the next page of an item's value starts, and which value it is a page of. */
 export type Continuation = {
+  /** The ask and the session epoch: another ask's item of the same ID is another value. */
+  readonly askId: string;
+  readonly epoch: string;
   readonly itemId: string;
   /** The question's rev; an area has none. */
   readonly rev?: number;
@@ -16,9 +19,23 @@ export type Continuation = {
   readonly offset: number;
 };
 
-export const encodeContinuation = ({ itemId, rev, generation, offset }: Continuation): string =>
+export const encodeContinuation = ({
+  askId,
+  epoch,
+  itemId,
+  rev,
+  generation,
+  offset,
+}: Continuation): string =>
   Buffer.from(
-    JSON.stringify({ itemId, ...(rev === undefined ? {} : { rev }), generation, offset }),
+    JSON.stringify({
+      askId,
+      epoch,
+      itemId,
+      ...(rev === undefined ? {} : { rev }),
+      generation,
+      offset,
+    }),
     "utf8",
   ).toString("base64url");
 
@@ -34,12 +51,13 @@ export const decodeContinuation = (text: string): Continuation | undefined => {
     return undefined;
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  const { itemId, rev, generation, offset } = value as Record<string, unknown>;
-  if (typeof itemId !== "string" || !isCount(generation, 0) || !isCount(offset, 1)) {
+  const { askId, epoch, itemId, rev, generation, offset } = value as Record<string, unknown>;
+  if (typeof askId !== "string" || typeof epoch !== "string" || typeof itemId !== "string") {
     return undefined;
   }
+  if (!isCount(generation, 0) || !isCount(offset, 1)) return undefined;
   if (rev !== undefined && !isCount(rev, 1)) return undefined;
-  return { itemId, ...(rev === undefined ? {} : { rev }), generation, offset };
+  return { askId, epoch, itemId, ...(rev === undefined ? {} : { rev }), generation, offset };
 };
 
 const isHigh = (code: number) => code >= 0xd800 && code <= 0xdbff;

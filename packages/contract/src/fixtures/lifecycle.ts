@@ -285,8 +285,8 @@ export const lifecycleFetchResult: FetchResult = {
 
 /**
  * The first page of the same item when it does not fit one result: the first 120 characters of its
- * RFC 8785 JSON text, and a continuation naming the item, its rev, the core's generation and the
- * next offset, base64url-encoded (design decision 4).
+ * RFC 8785 JSON text, and a continuation naming the ask, the epoch, the item, its rev, the core's
+ * generation and the next offset, base64url-encoded (design decision 4).
  */
 export const lifecycleFetchPage: FetchPage = {
   versions,
@@ -294,7 +294,8 @@ export const lifecycleFetchPage: FetchPage = {
   askId,
   itemId: region.id,
   part: '{"answer":{"choice":["EU","US"],"cursor":"k3x9.1","optionNotes":{"US":"East coast only, at first."},"when":"2026-10-31T1',
-  continuation: "eyJpdGVtSWQiOiJyZWdpb24iLCJyZXYiOjEsImdlbmVyYXRpb24iOjMsIm9mZnNldCI6MTIwfQ",
+  continuation:
+    "eyJhc2tJZCI6ImNoZWNrb3V0LXBsYW4tcDhyMyIsImVwb2NoIjoiazN4OSIsIml0ZW1JZCI6InJlZ2lvbiIsInJldiI6MSwiZ2VuZXJhdGlvbiI6Mywib2Zmc2V0IjoxMjB9",
   unchecked: true,
 };
 

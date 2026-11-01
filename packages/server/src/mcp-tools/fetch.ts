@@ -49,12 +49,15 @@ const changed = (itemId: string) =>
     `The item "${itemId}" changed since that continuation was returned: fetch it again without a continuation, from its first page.`,
   );
 
-// The page of the held value that a continuation names, or why it names none.
+// The page of the held value that a continuation names, or why it names none. A continuation is
+// one fetch returned for this ask in this epoch, or none (fail closed, AD-10).
 const continued = (held: Held, epoch: string, text: string, continuation: string): ToolResult => {
   const { item } = held;
   const rev = item.type === "question" ? item.rev : undefined;
   const at = decodeContinuation(continuation);
-  if (at === undefined || at.itemId !== item.id) return unknownContinuation(item.id);
+  if (at === undefined || at.askId !== held.askId || at.epoch !== epoch || at.itemId !== item.id) {
+    return unknownContinuation(item.id);
+  }
   if (at.generation !== held.generation || at.rev !== rev) return changed(item.id);
   if (fits(held, epoch, text) || at.offset >= text.length || !atCodePoint(text, at.offset)) {
     return unknownContinuation(item.id);
@@ -74,7 +77,7 @@ const page = (held: Held, epoch: string, text: string, offset: number): ToolResu
     ...(continuation === undefined ? {} : { continuation }),
     unchecked: true,
   });
-  const next = { itemId: item.id, ...(rev === undefined ? {} : { rev }), generation };
+  const next = { askId, epoch, itemId: item.id, ...(rev === undefined ? {} : { rev }), generation };
   const { part, continuation } = pageOf(text, offset, next, envelope);
   return jsonResult(envelope(part, continuation));
 };

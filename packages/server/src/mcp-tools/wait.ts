@@ -1,9 +1,10 @@
 // A waiting `collect` (AD-4, design decision 4): a waiter on ask-core's subscription, raced against
 // the longest wait and the request's abort signal, with progress at the contract's interval when
 // the request carries a progress token. A wait names a question (ask-lifecycle, design decision 4):
-// as AD-4 says, it ends on any event of that question in a command, follow-ups included, and on an
-// event that changes the ask's state; also on the ask closing or being discarded, and on the agent's
-// own change to the question; at once when the question is postponed or the ask closed.
+// as AD-4 says, it ends on any event of that question in a command, follow-ups included, and on a
+// command whose events change the ask's state from the state the waiter last heard; also on the ask
+// closing or being discarded, and on the agent's own change to the question; at once when the
+// question is postponed or the ask closed.
 
 import {
   COLLECT_MAX_WAIT_MS,
@@ -92,28 +93,33 @@ export const waitedOutcome = (core: ToolCore, wait: Wait): CollectResult["outcom
   return questionState(core, wait) === "postponed" ? "postponed" : undefined;
 };
 
-// What the wait started from: the ask's state, and the waited question's.
-type Start = { readonly ask: string | undefined; readonly question: string };
+// The states the waiter last heard: the ask's and the waited question's, as of the wait's start or
+// the last event of the ask it heard, an agent change included.
+type Heard = { readonly ask: string | undefined; readonly question: string };
 
-// Whether a core event ends the wait (AD-4): an event of the question or a discard in the command,
-// or a command that changed the ask's state; the ask closed or discarded; or an agent change that
-// deleted the question or changed its state.
-const ends = (core: ToolCore, wait: Wait, start: Start, event: CoreEvent): boolean => {
-  if (event.askId !== wait.askId) return false;
+const heardNow = (core: ToolCore, wait: Wait): Heard => ({
+  ask: core.lifecycleBoard(wait.askId)?.state,
+  question: questionState(core, wait),
+});
+
+// Whether a core event of the ask ends the wait (AD-4): an event of the question or a discard in
+// the command, or a command that changed the ask's state from the one last heard; the ask closed
+// or discarded; or an agent change that deleted the question or changed its state.
+const ends = (core: ToolCore, wait: Wait, heard: Heard, event: CoreEvent): boolean => {
   switch (event.type) {
     case "appended":
       return (
         event.events.some(
           (logged) =>
             logged.type === "discarded" || ("itemId" in logged && logged.itemId === wait.itemId),
-        ) || core.lifecycleBoard(wait.askId)?.state !== start.ask
+        ) || core.lifecycleBoard(wait.askId)?.state !== heard.ask
       );
     case "closed":
     case "discarded":
       return true;
     case "document":
     case "state":
-      return questionState(core, wait) !== start.question;
+      return questionState(core, wait) !== heard.question;
     default:
       return false;
   }
@@ -130,10 +136,7 @@ export const waitForItem = (
   context: CallContext,
 ): Promise<WaitEnd> =>
   new Promise((resolve) => {
-    const start: Start = {
-      ask: core.lifecycleBoard(wait.askId)?.state,
-      question: questionState(core, wait),
-    };
+    let heard = heardNow(core, wait);
     const cancels: (() => void)[] = [];
     let ended = false;
     const end = (how: WaitEnd) => {
@@ -151,7 +154,9 @@ export const waitForItem = (
     context.signal.addEventListener("abort", aborted, { once: true });
     cancels.push(
       core.subscribe((event) => {
-        if (ends(core, wait, start, event)) end("event");
+        if (event.askId !== wait.askId) return;
+        if (ends(core, wait, heard, event)) end("event");
+        else heard = heardNow(core, wait);
       }),
     );
     cancels.push(timers.after(COLLECT_MAX_WAIT_MS, () => end("timeout")));
