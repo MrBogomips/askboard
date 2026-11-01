@@ -330,7 +330,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** an answer the user never gave reaching the agent; a missing answer read as "not yet"; answers sent to an agent that no longer exists; scripted answers in normal use.
 - **Rule:**
   - **What becomes an answer:**
-    - An answer event comes only from an explicit user action on its question on the board. An answer the agent records on the user's behalf with `update` (FR-19) is held by `ask-core` as that question's answer, marked recorded, with `who` and the core's time, and reported in that call's result; like every change the agent's own call makes, it is not logged (AD-3), so no path delivers it back to the agent.
+    - An answer event comes only from an explicit user action on its question on the board. An answer the agent records on the user's behalf with `update` (FR-19) is held by `ask-core` as that question's answer, marked recorded, with `who` and the core's time, and reported in that call's result; like every change the agent's own call makes, it is not logged (AD-3): no event carries it, so neither push nor `collect` delivers it; `fetch` returns it marked `recorded`.
     - Choice and input widgets start with nothing chosen and no value set, whatever the agent marks as recommended or default. A recommended option is only labelled.
     - Submit sends only answers created by user actions. A review widget (Table, Tree, Gantt, Form over agent content) reports untouched content as unchanged, never as a chosen value.
     - Unsent work never reaches the agent until the user sends it (AD-20).
