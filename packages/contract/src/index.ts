@@ -483,3 +483,13 @@ export type {
   FetchQuestion,
   FetchQuestionProps,
 } from "./schemas/tool-envelopes/index.ts";
+
+// Snapshots (E7, snapshot design decision 2): the file name and the JSON blocks' element IDs.
+
+export {
+  SNAPSHOT_DATA_ELEMENT,
+  SNAPSHOT_LICENCES_ELEMENT,
+  SNAPSHOT_NAME_PATTERN,
+  SNAPSHOT_NAME_TRIES,
+  SNAPSHOT_RANDOM,
+} from "./snapshot/constants.ts";
