@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { nodeSourceFs, type SourceFs } from "../../src/excerpts/fs.ts";
+import { nodeSourceFs, type SourceFs, type SourceHandle } from "../../src/excerpts/fs.ts";
 
 /** What the sentinel holds: a result that contains it read a file outside the root. */
 export const SENTINEL_TEXT = "SENTINEL 7f3a: outside the root, never read";
@@ -80,11 +80,43 @@ export const makeSandbox = (): Sandbox => {
 
 export type FsCall = { readonly call: string; readonly path?: string };
 
-export type SpyFs = { readonly fs: SourceFs; readonly calls: FsCall[] };
+/** What a test runs just before a call reaches the real file system, as a racing process would. */
+export type FsHooks = {
+  readonly beforeLstat?: (path: string) => void;
+  readonly beforeOpen?: (path: string) => void;
+};
 
-/** The real file system, recording every call. */
-export const spyFs = (real: SourceFs = nodeSourceFs): SpyFs => {
+export type SpyFs = {
+  readonly fs: SourceFs;
+  readonly calls: FsCall[];
+  /** Handles opened and not yet closed. */
+  openHandles(): number;
+  /** Bytes read through every handle. */
+  bytesRead(): number;
+};
+
+/** The real file system, recording every call, every open handle and every byte read. */
+export const spyFs = (hooks: FsHooks = {}, real: SourceFs = nodeSourceFs): SpyFs => {
   const calls: FsCall[] = [];
+  let openHandles = 0;
+  let bytesRead = 0;
+  const watched = (handle: SourceHandle): SourceHandle => ({
+    stat: () => {
+      calls.push({ call: "fstat" });
+      return handle.stat();
+    },
+    read: async (buffer, offset, length, position) => {
+      calls.push({ call: "read" });
+      const result = await handle.read(buffer, offset, length, position);
+      bytesRead += result.bytesRead;
+      return result;
+    },
+    close: async () => {
+      calls.push({ call: "close" });
+      openHandles -= 1;
+      await handle.close();
+    },
+  });
   const fs: SourceFs = {
     realpath: (path) => {
       calls.push({ call: "realpath", path });
@@ -92,12 +124,16 @@ export const spyFs = (real: SourceFs = nodeSourceFs): SpyFs => {
     },
     lstat: (path) => {
       calls.push({ call: "lstat", path });
+      hooks.beforeLstat?.(path);
       return real.lstat(path);
     },
-    open: (path, flags) => {
+    open: async (path, flags) => {
       calls.push({ call: "open", path });
-      return real.open(path, flags);
+      hooks.beforeOpen?.(path);
+      const handle = await real.open(path, flags);
+      openHandles += 1;
+      return watched(handle);
     },
   };
-  return { fs, calls };
+  return { fs, calls, openHandles: () => openHandles, bytesRead: () => bytesRead };
 };

@@ -9,6 +9,7 @@ export type SourceStats = {
   readonly ino: bigint;
   readonly size: bigint;
   isFile(): boolean;
+  isSymbolicLink(): boolean;
 };
 
 /** An open file. */
