@@ -18,7 +18,9 @@ import {
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { ASKBOARD_FOLDER } from "@askboard/contract";
+import { errorCode } from "./file-errors.ts";
 import type { Environment } from "./notifier/index.ts";
+import { ensureProjectFolders, type FolderResult } from "./project-folders.ts";
 
 /** The file's name, in the user's `askboard` folder and in the project's `.askboard/`. */
 const CONFIG_FILE = "config.json";
@@ -132,11 +134,6 @@ const MAX_CONFIG_BYTES = 1_048_576;
 /** Group and world write. */
 const WRITABLE_BY_OTHERS = 0o022;
 
-const codeOf = (error: unknown): string =>
-  typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
-    ? error.code
-    : "EIO";
-
 const fileSystemOf = (io: ConfigIo): ConfigFileSystem => ({ ...NODE_FILE_SYSTEM, ...io });
 
 /**
@@ -181,7 +178,7 @@ export const readConfigFile = async (
     const othersCanWrite = await writableByOthers(path, fs, io.uid ?? process.getuid?.() ?? -1);
     return { kind: "read", text, othersCanWrite };
   } catch (error) {
-    const code = codeOf(error);
+    const code = errorCode(error);
     return code === "ENOENT" ? { kind: "absent" } : { kind: "unreadable", code };
   }
 };
@@ -212,7 +209,7 @@ const writeTarget = async (path: string, fs: ConfigFileSystem): Promise<string> 
   try {
     return await fs.realpath(path);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
     const link = await fs.readlink(path).catch(() => undefined);
     return link === undefined ? path : resolve(dirname(path), link);
   }
@@ -231,7 +228,7 @@ const createTemporary = async (
     try {
       return { path, handle: await fs.open(path, "wx", mode) };
     } catch (error) {
-      if (codeOf(error) !== "EEXIST") throw error;
+      if (errorCode(error) !== "EEXIST") throw error;
       taken = error;
     }
   }
@@ -283,7 +280,7 @@ const replaceAtomically = async (
     return { kind: "written", path: target };
   } catch (error) {
     if (temporary !== undefined) await fs.unlink(temporary).catch(() => undefined);
-    return { kind: "failed", path: target, code: codeOf(error) };
+    return { kind: "failed", path: target, code: errorCode(error) };
   }
 };
 
@@ -303,7 +300,7 @@ export const replaceUserFile = async (
   try {
     target = await writeTarget(path, fs);
   } catch (error) {
-    return { kind: "failed", path, code: codeOf(error) };
+    return { kind: "failed", path, code: errorCode(error) };
   }
   const replace = change(await readConfigFile(target, io));
   if (replace.kind === "refuse") return { kind: "refused", reason: replace.reason };
@@ -317,11 +314,16 @@ export type ConfigFilesOptions = {
   readonly random?: () => string;
 };
 
-/** The adapter: both files' reads and the user file's replacement, at paths resolved once. */
+/**
+ * The adapter: both files' reads, the user file's replacement and the project folders, at paths
+ * resolved once.
+ */
 export type ConfigFiles = {
   userFile(): Promise<FileRead>;
   projectFile(): Promise<FileRead>;
   replaceUserFile(change: (current: FileRead) => Replace): Promise<WriteResult>;
+  /** Creates `.askboard/` under the session project root, at the first accepted ask. */
+  ensureProjectFolders(): Promise<FolderResult>;
   /** As the panel shows them. */
   readonly paths: { readonly user?: string; readonly project?: string };
 };
@@ -340,6 +342,7 @@ export const configFiles = ({
     userFile: async () => readConfigFile((await paths()).user, fs),
     projectFile: async () => readConfigFile((await paths()).project, fs),
     replaceUserFile: async (change) => replaceUserFile((await paths()).user, change, fs, random),
+    ensureProjectFolders: async () => ensureProjectFolders((await paths()).projectRoot),
     paths: displayPaths(env),
   };
 };
