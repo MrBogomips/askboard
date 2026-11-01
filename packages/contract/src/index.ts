@@ -488,6 +488,8 @@ export type {
 // folder and the configuration set.
 // Settings and languages (E8, settings-languages design decisions 2, 8 and 13): the locale
 // formats, the `.askboard/` folder and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 8, 12 and 13): the locale
+// formats, the `.askboard/` folder, the asking rule's references and the configuration set.
 
 export {
   type AxisZoom,
@@ -518,6 +520,11 @@ export {
   ASKBOARD_SUBFOLDERS,
   SNAPSHOT_FOLDER,
 } from "./project-folder.ts";
+export {
+  hasReference,
+  REFERENCE_PATTERNS,
+  WITH_REFERENCES_DESCRIPTION,
+} from "./push/references.ts";
 export {
   CONFIGURATION_DEFAULTS,
   CONFIGURATION_KEYS,
