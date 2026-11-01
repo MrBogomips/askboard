@@ -273,6 +273,9 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(plain.chunks).not.toContain("tree");
     expect(plain.srcdoc).not.toContain(tree);
     expect(plain.policy).not.toContain(cspHashSource(script.sha256));
+  });
+});
+
 describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec, The Gantt's chunks)", () => {
   test("they hold only AskBoard's own code, under the repository's MIT licence", async () => {
     // React and the port come from the react chunk and the shell; of `view`, each holds only the
