@@ -400,8 +400,9 @@ export {
   type TreePertProps,
   treeDerivedFields,
 } from "./widgets/tree/index.ts";
-// Context, E5 (excerpts, design decision 2): the pointer grammar and the context limits of
-// proposal B4, exported in one appended block.
+
+// Context, E5 (excerpts, design decision 2): the pointer grammar, the reasons a pointer stays
+// unresolved and the context limits of proposal B4, exported in one appended block.
 
 export {
   type InvalidPointer,
@@ -412,6 +413,7 @@ export {
   type PointerReading,
   readPointer,
 } from "./context/pointer.ts";
+export { UNRESOLVED_REASONS, type UnresolvedReason } from "./context/resolution.ts";
 export {
   ANCHOR_FILE_MAX_BYTES,
   ASK_IMAGES_MAX_BYTES,
