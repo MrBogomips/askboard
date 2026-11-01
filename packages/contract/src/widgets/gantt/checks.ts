@@ -1,8 +1,9 @@
 // The Gantt's checks (design decision 2): what its schemas cannot say. Which form `tasks` takes
 // beside `workPackages`, the widget element ID rule for tasks and predecessors, days that exist,
-// the dependents limit, and what a change may set. Problems name the task or the operation and
-// the field. Unknown tasks and cycles are no problem: they are the compute graph's warnings
-// (AD-13). Each check skips a part the schema refuses, so it runs on any value. Plain ECMAScript.
+// the dependents limit, a plan's link to its Tree, and what a change may set. Problems name the
+// task, the plan or the operation and the field. Unknown tasks and cycles are no problem: they are
+// the compute graph's warnings (AD-13). Each check skips a part the schema refuses, so it runs on
+// any value. Plain ECMAScript.
 
 import { VIEW_ID_PREFIX } from "../../constants.ts";
 import type { Problem } from "../../validate.ts";
@@ -13,6 +14,7 @@ import {
   GANTT_MAX_DURATION,
   GANTT_MAX_PREDECESSORS,
   GANTT_MIN_DURATION,
+  GANTT_PLAN_ESTIMATES,
 } from "./index.ts";
 
 /** Who wrote the value: the agent, or the view as the user edited it (AD-7, F10). */
@@ -156,6 +158,39 @@ export const ganttPropsProblems = (props: unknown, origin: GanttOrigin): readonl
     problems.push(...planEntryProblems(props.tasks, origin));
   }
   return problems;
+};
+
+/**
+ * A Gantt plan's link (AD-10): its `workPackages` names a Tree in its question whose columns declare
+ * the three estimates as numbers. `gantt` is the plan's item, `{type, id, props}`, and `question`
+ * the question that holds it; a Gantt with its own tasks has no link. Problems name the plan and
+ * the item, at the plan's `/workPackages`.
+ */
+export const ganttPlanLinkProblems = (gantt: unknown, question: unknown): readonly Problem[] => {
+  if (!isRecord(gantt) || !isRecord(gantt.props)) return [];
+  const name = gantt.props.workPackages;
+  if (typeof name !== "string") return [];
+  const refused = (message: string): readonly Problem[] => [
+    { path: "/workPackages", message: `plan ${String(gantt.id)}: ${message}` },
+  ];
+  const props = isRecord(question) && isRecord(question.props) ? question.props : {};
+  const items: readonly unknown[] = Array.isArray(props.items) ? props.items : [];
+  const item = items.find((candidate) => isRecord(candidate) && candidate.id === name);
+  if (!isRecord(item)) return refused(`its work packages ${name} name no item of its question`);
+  if (item.type !== "tree") {
+    return refused(`its work packages ${name} name a ${String(item.type)}, not a Tree`);
+  }
+  const columns =
+    isRecord(item.props) && Array.isArray(item.props.columns) ? item.props.columns : [];
+  const declares = (field: string) =>
+    columns.some(
+      (column) => isRecord(column) && column.field === field && column.type === "number",
+    );
+  const missing = GANTT_PLAN_ESTIMATES.filter((field) => !declares(field));
+  if (missing.length === 0) return [];
+  return refused(
+    `the Tree ${name} has no number column ${missing.join(", ")}: a plan's durations follow its estimates`,
+  );
 };
 
 /** The IDs of a Gantt's own tasks, or undefined for a plan, whose tasks its Tree holds. */

@@ -158,6 +158,7 @@ export {
 export {
   type GanttOrigin,
   ganttChangesProblems,
+  ganttPlanLinkProblems,
   ganttPropsProblems,
 } from "./widgets/gantt/checks.ts";
 // Widgets: the Gantt (gantt-widget).
