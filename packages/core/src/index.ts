@@ -125,3 +125,12 @@ export type {
 } from "./context/ports.ts";
 export { rootOf } from "./context/root.ts";
 export type { EditorLaunchTarget, Source } from "./context/source.ts";
+
+// Snapshots (E7, snapshot design decision 3): the port `snapshot` implements, and its error.
+
+export {
+  PROJECT_ROOT_VARIABLE,
+  SNAPSHOT_NO_PROJECT_ROOT,
+  SnapshotWriteError,
+  type SnapshotWriter,
+} from "./snapshot/writer.ts";
