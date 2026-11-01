@@ -7,10 +7,13 @@ export type Refused = { readonly refused: UnresolvedReason };
 export const isRefused = (value: unknown): value is Refused =>
   typeof value === "object" && value !== null && "refused" in value;
 
+// An errno name, such as `ENOENT` or `EOPNOTSUPP`; Node's own error codes, `ERR_…`, are no such name.
+const ERRNO_NAME = /^E[A-Z0-9]+$/;
+
 /** The `code` of a system error, such as `ENOENT`; undefined for any other error. */
 export const systemCode = (error: unknown): string | undefined => {
   const code = error instanceof Error ? (error as { code?: unknown }).code : undefined;
-  return typeof code === "string" ? code : undefined;
+  return typeof code === "string" && ERRNO_NAME.test(code) ? code : undefined;
 };
 
 /**

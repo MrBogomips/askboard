@@ -91,6 +91,18 @@ describe("files that are not there", () => {
     await expect(locate(fs, box.root, "docs/a.md#A")).rejects.toBe(fault);
   });
 
+  test("a Node error code that names no system error is thrown again (security review, L3)", async () => {
+    const fault = Object.assign(new TypeError("The path must be a string"), {
+      code: "ERR_INVALID_ARG_TYPE",
+    });
+    const fs = {
+      realpath: () => Promise.reject(fault),
+      lstat: () => Promise.reject(fault),
+      open: () => Promise.reject(fault),
+    };
+    await expect(locate(fs, box.root, "docs/a.md#A")).rejects.toBe(fault);
+  });
+
   test("a root that has vanished is not-found, and its real path is taken at each call", async () => {
     box.write("docs/a.md", "# A\n");
     const { fs } = spyFs();

@@ -124,7 +124,7 @@ describe("what is not a regular file (board-host spec, Only regular files are re
     expect(await reach("docs#L1-L1")).toEqual({ refused: "not-a-file" });
   });
 
-  // macOS's realpath(3) refuses a socket (EOPNOTSUPP), so its path is confined through its folder.
+  // Bun's realpath on macOS refuses a socket (EOPNOTSUPP), so its path is confined through its folder.
   const listening = (path: string) => Bun.listen({ unix: path, socket: { data: () => undefined } });
 
   test("a Unix socket, in the root or a folder of it, is not-a-file at once", async () => {

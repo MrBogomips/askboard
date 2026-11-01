@@ -9,8 +9,8 @@ import { caseInsensitive, makeSandbox, type Sandbox, spyFs } from "./helpers.ts"
 
 // Board-host spec, Pointers resolve only inside the root, "Case and Unicode forms on macOS"
 // (excerpts, task 2.3; proposal B3): no case folding and no normalisation of AskBoard's own. On
-// macOS's case-insensitive APFS, realpath(3) gives a name in the volume's own case and form, for
-// the root and the candidate alike, so an in-root name in another case or form stays under the
+// macOS's case-insensitive APFS, `realpath`, in Bun and in Node, gives a name in the volume's own
+// case and form, for the root and the candidate alike, so an in-root name in another case or form stays under the
 // real root while no form of a path outside does. On a case-sensitive volume, as Linux's are, two
 // names differing only by case are two files.
 

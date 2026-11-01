@@ -6,9 +6,9 @@
 // volume both real paths come from the same call, so an in-root name in another case still lies
 // under the real root, and a path outside has a different real prefix in any case.
 //
-// macOS's realpath(3) refuses a Unix socket (EOPNOTSUPP). Such a path is confined through its
-// folder's real path instead, and its own name must be no symbolic link, which could lead anywhere
-// unseen; the next step then finds that it is no regular file.
+// Bun's `realpath` on macOS refuses a Unix socket (EOPNOTSUPP), where Node's resolves it. Such a
+// path is confined through its folder's real path instead, and its own name must be no symbolic
+// link, which could lead anywhere unseen; the next step then finds that it is no regular file.
 
 import { isAbsolute } from "node:path";
 import { type Pointer, readPointer } from "@askboard/contract";
