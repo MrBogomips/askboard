@@ -91,7 +91,8 @@ describe("fetching an item", () => {
     const json = jsonOf(result);
     expect(json).toEqual({ ...lifecycleFetchResult, epoch: EPOCH });
     expect(validateAgainst(SCHEMA_IDS.fetchResult, json).ok).toBe(true);
-    expect(core.calls).toEqual([`fullValue ${A} ${item.id}`]);
+    // Push delivery binds the call and checks its owner first (task 3.7).
+    expect(core.calls).toEqual(["bind", `ownerRefusal ${A}`, `fullValue ${A} ${item.id}`]);
     await close();
   });
 

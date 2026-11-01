@@ -12,6 +12,7 @@ import {
   type FakeCore,
   fakeCore,
   jsonOf,
+  textOf,
 } from "./helpers.ts";
 
 // Push delivery's wiring of the tools (task 4.7; mcp-adapter spec, A session without hooks and
@@ -163,5 +164,77 @@ describe("the client version", () => {
       });
     }
     expect(core.versions).toEqual([]);
+  });
+});
+
+describe("only the owner updates or fetches an owned ask (task 3.7; core spec, Only the owner acts on an owned ask)", () => {
+  const update = { askId: ASK_ID, actions: [{ type: "close" }] };
+  const fetch = { askId: ASK_ID, itemId: "database" };
+  const meta = { "claudecode/toolUseId": TOOL_USE_ID };
+
+  test.each([
+    ["update", update],
+    ["fetch", fetch],
+  ] as const)(
+    "%s binds the call by its toolUseId, the tool and the ask's ID",
+    async (tool, args) => {
+      const core = fakeCore({ binding: OWNER, owners: { [ASK_ID]: OWNER } });
+      await callTool(core, tool, args, meta);
+      expect(core.identities).toEqual([{ toolUseId: TOOL_USE_ID, tool, askIds: [ASK_ID] }]);
+      expect(core.bindings).toEqual([OWNER]);
+    },
+  );
+
+  test.each([
+    ["update", update, "update"],
+    ["fetch", fetch, "fullValue"],
+  ] as const)(
+    "another agent's %s is refused, naming the ask, and reaches no ask",
+    async (tool, args, reached) => {
+      const core = fakeCore({ owners: { [ASK_ID]: OWNER }, refusals: { [ASK_ID]: "other-owner" } });
+      const result = await callTool(core, tool, args, meta);
+      expect(result.isError).toBe(true);
+      expect(textOf(result)).toBe(
+        `The ask "${ASK_ID}" belongs to another agent, so this ${tool} was refused: send ${tool} only for asks you sent.`,
+      );
+      expect(core.calls.some((call) => call.startsWith(reached))).toBe(false);
+    },
+  );
+
+  test.each([
+    ["update", update],
+    ["fetch", fetch],
+  ] as const)(
+    "%s with no agent record on an owned ask is refused, and may be sent again",
+    async (tool, args) => {
+      const core = fakeCore({ owners: { [ASK_ID]: OWNER }, refusals: { [ASK_ID]: "no-record" } });
+      const result = await callTool(core, tool, args);
+      expect(result.isError).toBe(true);
+      expect(textOf(result)).toBe(
+        `The ask "${ASK_ID}" belongs to an agent, and this call carried no agent record, so AskBoard cannot tell that it is yours. Send the ${tool} again.`,
+      );
+    },
+  );
+
+  test("an owned ask's update and fetch results carry no unchecked mark; an unchecked ask's do", async () => {
+    const applied = () =>
+      ({ kind: "updated", askId: ASK_ID, state: "closed", applied: [] }) as never;
+    const full = () =>
+      ({
+        kind: "item",
+        askId: ASK_ID,
+        state: "waiting",
+        item: { type: "question", id: "database", rev: 1, props: question.props },
+        generation: 1,
+      }) as never;
+    const ownerships: Readonly<Record<string, Binding>>[] = [{ [ASK_ID]: OWNER }, {}];
+    for (const owners of ownerships) {
+      const core = fakeCore({ owners, update: applied, fullValue: full });
+      const updated = jsonOf(await callTool(core, "update", update)) as Record<string, unknown>;
+      const fetched = jsonOf(await callTool(core, "fetch", fetch)) as Record<string, unknown>;
+      const unchecked = Object.keys(owners).length === 0;
+      expect(updated.unchecked).toBe(unchecked ? true : undefined);
+      expect(fetched.unchecked).toBe(unchecked ? true : undefined);
+    }
   });
 });

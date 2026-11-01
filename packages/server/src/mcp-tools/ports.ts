@@ -22,6 +22,7 @@ export type ToolCore = Pick<
   | "lifecycleBoard"
   | "bind"
   | "ownerOf"
+  | "ownerRefusal"
   | "setClientVersion"
 > &
   Partial<Pick<AskCore, "waitStarted">>;

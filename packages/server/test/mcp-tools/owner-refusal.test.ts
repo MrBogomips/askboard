@@ -26,10 +26,21 @@ describe("the owner refusal text", () => {
     );
   });
 
-  test("for another tool: the same as collect's, naming that tool", () => {
+  test("for update and fetch: the whole call is refused; a call with no record is sent again", () => {
     expect(ownerRefusalText("other-owner", ASK_ID, "update")).toBe(
+      `The ask "${ASK_ID}" belongs to another agent, so this update was refused: send update only for asks you sent.`,
+    );
+    expect(ownerRefusalText("no-record", ASK_ID, "fetch")).toBe(
+      `The ask "${ASK_ID}" belongs to an agent, and this call carried no agent record, so AskBoard cannot tell that it is yours. Send the fetch again.`,
+    );
+  });
+
+  test("for another tool: the same as collect's, naming that tool", () => {
+    expect(ownerRefusalText("other-owner", ASK_ID, "snapshot")).toBe(
       ownerRefusalText("other-owner", ASK_ID, "collect"),
     );
-    expect(ownerRefusalText("no-record", ASK_ID, "fetch")).toEndWith(": send the fetch again");
+    expect(ownerRefusalText("no-record", ASK_ID, "snapshot")).toEndWith(
+      ": send the snapshot again",
+    );
   });
 });

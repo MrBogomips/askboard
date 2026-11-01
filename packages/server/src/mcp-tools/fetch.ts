@@ -14,12 +14,14 @@ import {
 import { validateFetchRequest } from "@askboard/contract/validate";
 import { canonicalize, type FullValue } from "@askboard/core";
 import { atCodePoint, decodeContinuation, pageOf } from "./fetch-pages.ts";
+import { ownerCheck, uncheckedMark } from "./owner-refusal.ts";
 import { errorResult, jsonResult, problemsResult, type ToolResult } from "./results.ts";
 import type { ToolHandler } from "./server.ts";
 
 const REFUSED = "The fetch request was refused. Fix these problems and send it again:";
 
-type Held = Extract<FullValue, { kind: "item" }>;
+// The item ask-core holds, with the result's unchecked mark while the ask has no owner (AD-5).
+type Held = Extract<FullValue, { kind: "item" }> & { readonly unchecked?: true };
 
 const notHeld = (value: Exclude<FullValue, Held>, epoch: string): ToolResult => {
   if (value.kind === "discarded") {
@@ -75,7 +77,7 @@ const page = (held: Held, epoch: string, text: string, offset: number): ToolResu
     itemId: item.id,
     part,
     ...(continuation === undefined ? {} : { continuation }),
-    unchecked: true,
+    ...(held.unchecked ? { unchecked: true as const } : {}),
   });
   const next = { askId, epoch, itemId: item.id, ...(rev === undefined ? {} : { rev }), generation };
   const { part, continuation } = pageOf(text, offset, next, envelope);
@@ -88,7 +90,7 @@ const whole = (held: Held, epoch: string): FetchResult => ({
   askId: held.askId,
   state: held.state,
   item: held.item,
-  unchecked: true,
+  ...(held.unchecked ? { unchecked: true as const } : {}),
 });
 
 // Whether the value goes whole in one result: its text within a page, and the result under the
@@ -101,12 +103,16 @@ const fits = (held: Held, epoch: string, text: string): boolean =>
  * `fetch`: validates the request, then returns the item whole when its RFC 8785 JSON text fits a
  * page, else its first page, or the page a continuation names while the value is unchanged.
  */
-export const handleFetch: ToolHandler = async ({ core }, args) => {
+export const handleFetch: ToolHandler = async ({ core }, args, context) => {
   const checked = validateFetchRequest(args ?? {});
   if (!checked.ok) return problemsResult(REFUSED, checked.problems);
+  // Only the owner's call goes on (AD-5).
+  const refused = await ownerCheck(core, "fetch", args, context);
+  if (refused !== undefined) return refused;
   const { askId, itemId, continuation } = checked.value;
-  const value = core.fullValue(askId, itemId);
-  if (value.kind !== "item") return notHeld(value, core.epoch);
+  const full = core.fullValue(askId, itemId);
+  if (full.kind !== "item") return notHeld(full, core.epoch);
+  const value: Held = { ...full, ...uncheckedMark(core, askId) };
   const text = canonicalize(value.item);
   if (continuation !== undefined) return continued(value, core.epoch, text, continuation);
   if (fits(value, core.epoch, text)) return jsonResult(whole(value, core.epoch));

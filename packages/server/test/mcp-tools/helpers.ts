@@ -10,6 +10,7 @@ import type {
   CoreEvent,
   FullValue,
   LifecycleBoardView,
+  OwnerRefusal,
   ReadOutcome,
   UpdateOutcome,
 } from "@askboard/core";
@@ -56,6 +57,8 @@ type FakeCoreOptions = {
   readonly binding?: Binding;
   /** The owners of asks; every ask is unchecked by default, as without hooks. */
   readonly owners?: Readonly<Record<string, Binding>>;
+  /** Each ask's owner refusal of every call; none by default (AD-5). */
+  readonly refusals?: Readonly<Record<string, OwnerRefusal>>;
   readonly items?: Readonly<Record<string, readonly string[]>>;
   readonly states?: Record<string, FakeState>;
   /** Each question's state by ask, then by item ID; `open` unless given. */
@@ -172,6 +175,11 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
       return options.binding;
     },
     ownerOf: (askId) => options.owners?.[askId],
+    ownerRefusal: (askId, caller) => {
+      calls.push(`ownerRefusal ${askId}`);
+      bindings.push(caller);
+      return options.refusals?.[askId];
+    },
     setClientVersion: (source, version) => {
       versions.push(`${source} ${version}`);
     },

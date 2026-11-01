@@ -20,7 +20,7 @@ The session process SHALL take the client version from the protocol's client inf
 ## MODIFIED Requirements
 
 ### Requirement: A session without hooks
-An ask that arrives with no agent record SHALL be unchecked: its `ask` result SHALL say that push, ownership checks and the stop guard are unavailable and that the agent must collect before it finishes, and every `collect` result SHALL mark the ask as unchecked (AD-5). An ask bound to a record SHALL carry neither the warning nor the mark.
+An ask that arrives with no agent record SHALL be unchecked: its `ask` result SHALL say that push, ownership checks and the stop guard are unavailable and that the agent must collect before it finishes, and every `collect`, `update` and `fetch` result SHALL mark the ask as unchecked (AD-5). An ask bound to a record SHALL carry neither the warning nor the mark.
 
 #### Scenario: A session without hooks
 - **WHEN** an agent sends an ask in a session whose hooks do not run
