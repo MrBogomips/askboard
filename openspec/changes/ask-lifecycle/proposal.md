@@ -41,7 +41,7 @@ The deltas modify E1's requirements, so this change is archived only after E1's 
 
 ## Open questions for the PO
 
-The documents leave these open. Each records the narrowest choice, which this change proceeds with. The PO accepted questions 1 to 10 as proposed on 2026-10-31; questions 11 and 12 came after the PO's review and stay open, with their defaults in force (task 0.1).
+The documents leave these open. Each records the narrowest choice, which this change proceeds with. The PO accepted questions 1 to 10 as proposed on 2026-10-31, and question 11 on 2026-11-01; question 12 came after and stays open, with its default in force (task 0.1).
 
 1. **No `snapshot` tool yet.** E1's proposal gives E3 "`update`, `fetch` and `snapshot`" and E7 "Snapshots". A `snapshot` tool cannot return a path until E7 writes the file, so E3 lists four tools, `ask`, `update`, `collect` and `fetch`, in AD-6's order, and E7 adds `snapshot` with its files. *Alternative:* list all five now, with `snapshot` refusing until E7; it costs its definition in every session for a call that cannot succeed.
    - **Answer (PO, 2026-10-31):** accepted as proposed.
@@ -65,6 +65,6 @@ The documents leave these open. Each records the narrowest choice, which this ch
 10. **No key bindings beyond the composer's.** EXPERIENCE leaves them open (Open Items 21). Every act is a focusable control, the follow-up composer sends with Ctrl+Enter or Cmd+Enter, and the next-open jump, Submit and the others get keys when EXPERIENCE records them.
    - **Answer (PO, 2026-10-31):** accepted as proposed.
 11. **No `after` means first in `update`'s `add`.** Since E1's `ee10f3e`, the generic diff omits `after` for the first position, so `update` reads an absent `after` the same way, and an agent appends by naming the last item as `after` (core spec, Adding an item). *Alternative:* `update` keeps "no `after` means last", the common case for an agent, since the agent's API and the answer's diff serve different readers; `ask-core` then translates the position, because in the diff form an appended item always names its preceding sibling.
-   - **Still open:** not on the PO's page of 2026-10-31; the default is in force until the PO answers.
+   - **Answer (PO, 2026-11-01, decisions-4):** accepted as proposed: `update`'s `add` without `after` places the item first.
 12. **The "More" menu on Radix Dropdown Menu.** The Stack lists the Radix primitives the view uses, and Dropdown Menu is not among them; the review of the implementation found it (2026-11-01). The menu is built and tested in the three engines on Dropdown Menu, which gives arrow-key movement, typeahead and the `menuitemcheckbox` role. Default: keep it, and add Dropdown Menu to the Stack's `radix-ui` row (spine update draft, block 5, applied only on the PO's answer). It costs about 46 KB in the radix library chunk, which every board loads (design, Risks). *Alternatives:* a Popover with two buttons, which the Stack lists, about 13 KB smaller and without the menu's arrow keys; or a plain disclosure button that reveals Explain and Decline in the Question actions row, about 46 KB smaller.
    - **Open:** raised after the PO's answers of 2026-10-31.

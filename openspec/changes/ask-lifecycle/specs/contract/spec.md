@@ -83,7 +83,7 @@ A question's props SHALL be `text`, optional `header`, a non-empty `options` lis
 - **THEN** validation fails, naming the question's item ID and the repeated label
 
 ### Requirement: The update request
-The contract SHALL define `update`'s request as `askId` and a non-empty list of actions: `add` (`item`, optional `parentId` and `after`, each omitted when there is none, as in `changes`), `change` (`itemId`, `props`), `delete`, `reopen` (`itemId`), `answer` (`itemId`, `answer` of `choice`, `other` and `note`), `reply` (`itemId`, `followUp`, `text`) and `close`. A field the action does not use SHALL fail validation, naming the action's index.
+The contract SHALL define `update`'s request as `askId` and a non-empty list of actions: `add` (`item`, optional `parentId` and `after`: without `parentId` the item goes to the top level, without `after` first, as in `changes`), `change` (`itemId`, `props`), `delete`, `reopen` (`itemId`), `answer` (`itemId`, `answer` of `choice`, `other` and `note`), `reply` (`itemId`, `followUp`, `text`) and `close`. A field the action does not use SHALL fail validation, naming the action's index.
 
 #### Scenario: Adding a question to an area
 - **WHEN** an update adds a question with `parentId` naming an area of the ask
