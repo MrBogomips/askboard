@@ -486,7 +486,23 @@ export type {
 // Settings and languages (E8, settings-languages design decision 2): the configuration set.
 // Settings and languages (E8, settings-languages design decisions 2 and 13): the `.askboard/`
 // folder and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 8 and 13): the locale
+// formats, the `.askboard/` folder and the configuration set.
 
+export {
+  type AxisZoom,
+  type FractionDigits,
+  formatAxisLabel,
+  formatDate,
+  formatDateTime,
+  formatLongDate,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  formatTime,
+  LOCALES,
+  type Locale,
+} from "./locale/index.ts";
 export {
   ASKBOARD_FOLDER,
   ASKBOARD_GITIGNORE,
