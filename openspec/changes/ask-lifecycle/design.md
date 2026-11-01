@@ -117,7 +117,7 @@ A new board-protocol message type is added in four appended steps, which E3 foll
 1. **Schema.** A file in `packages/contract/src/schemas/board-protocol/` with the `$id` `urn:askboard:board-protocol:<name>`. A message that joins the set has its name appended at the end of its direction's list in `BOARD_PROTOCOL_MESSAGES` and of `SCHEMA_IDS`. A standalone message, as E4's `presence` is, stays outside the set until its change joins it.
 2. **Validation.** `validateBoardMessage(direction, value)` stays the set's one entry point. E3 changes neither its signature nor the order of E1's entries, so a standalone message checked ahead of it keeps working unchanged.
 3. **Dispatch.** In `board-host`, one case is appended to the page-message dispatch in `boards.ts`, after E1's `connect` and `answer`. In the board page, one validator is appended to the host-message validators and one case to the controller's handler, after E1's. Nothing existing is reordered.
-4. **Transcript.** The exchange is recorded in `packages/contract/src/fixtures/transcript.ts` and appended to `transcripts`.
+4. **Transcript.** The exchange is recorded in the change's own fixtures module beside E1's `transcript.ts` and listed in that module's record, never in E1's `transcripts`, whose replays type their steps as protocol 1.0's messages. E3's are in `packages/contract/src/fixtures/lifecycle-transcripts.ts`, listed in `lifecycleTranscripts`.
 
 Two changes that add messages then merge by keeping both sides' appended entries.
 
