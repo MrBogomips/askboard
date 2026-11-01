@@ -7,7 +7,8 @@
 // a call at its top level.
 
 import type { AnySchemaObject } from "ajv/dist/2020";
-import type { Checked } from "../validate.ts";
+import { createAjv } from "../compiled.ts";
+import type { Checked, Problem } from "../validate.ts";
 import treeProps from "../widgets/tree/tree-props.json" with { type: "json" };
 import { widgetValidator } from "../widgets/validator.ts";
 import { moleculeDefinitionProblems } from "./checks.ts";
@@ -56,7 +57,28 @@ const formatRefusal = (value: unknown): Checked<MoleculeDefinition> | undefined 
   return undefined;
 };
 
-/** Validates a molecule definition: its format, its schema, then its checks (design decision 2). */
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+// The parameters compile in strict mode beside the widget props schemas, as the data validator
+// will compile them, but in an Ajv of their own: parameters that fail never reach the shared
+// widget validator, which would keep their `$id` for the life of the process.
+const compileProblems = (parameters: AnySchemaObject): Problem[] => {
+  try {
+    const ajv = createAjv();
+    for (const schema of WIDGET_PROPS_SCHEMAS) ajv.addSchema(schema);
+    ajv.compile(parameters);
+    return [];
+  } catch (error) {
+    const message = `the parameters do not compile in strict mode beside the contract's widget schemas: ${messageOf(error)}`;
+    return [{ path: "/parameters", message }];
+  }
+};
+
+/**
+ * Validates a molecule definition: its format, its schema, its checks, then its parameters'
+ * compilation (design decision 2).
+ */
 export const validateMoleculeDefinition = (value: unknown): Checked<MoleculeDefinition> => {
   const refusal = formatRefusal(value);
   if (refusal !== undefined) return refusal;
@@ -66,7 +88,8 @@ export const validateMoleculeDefinition = (value: unknown): Checked<MoleculeDefi
   );
   const checked = definitionSchema(value);
   if (!checked.ok) return checked;
-  const problems = moleculeDefinitionProblems(checked.value);
+  const checks = moleculeDefinitionProblems(checked.value);
+  const problems = checks.length > 0 ? checks : compileProblems(checked.value.parameters);
   return problems.length === 0 ? checked : { ok: false, reason: "schema", problems };
 };
 

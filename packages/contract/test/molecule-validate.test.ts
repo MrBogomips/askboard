@@ -145,6 +145,30 @@ describe("validateMoleculeDefinition", () => {
     });
   });
 
+  test("parameters that do not compile in strict mode are refused at /parameters", () => {
+    const cases: [string, Record<string, unknown>][] = [
+      ["unknown-keyword", { type: "string", wobble: 1 }],
+      ["bad-type", { type: "bogus" }],
+      ["no-target", { $ref: "urn:askboard:input:nowhere" }],
+    ];
+    for (const [name, nodes] of cases) {
+      const definition = copyOf(probeWbs) as unknown as Json;
+      const parameters = definition.parameters as Json;
+      definition.molecule = `probe-${name}`;
+      parameters.$id = `urn:askboard:molecule:probe-${name}:1`;
+      (parameters.properties as Json).nodes = nodes;
+      const checked = validateMoleculeDefinition(definition);
+      expect(checked.ok).toBe(false);
+      const problems = checked.ok ? [] : checked.problems;
+      expect(problems).toHaveLength(1);
+      expect(problems[0]?.path).toBe("/parameters");
+      expect(problems[0]?.message).toStartWith(
+        "the parameters do not compile in strict mode beside the contract's widget schemas: ",
+      );
+      expect(validateMoleculeDefinition(definition)).toEqual(checked);
+    }
+  });
+
   test("never throws on what is no definition", () => {
     for (const value of [null, "definition", 1, [], { items: "none" }]) {
       expect(validateMoleculeDefinition(value)).toMatchObject({ ok: false, reason: "schema" });

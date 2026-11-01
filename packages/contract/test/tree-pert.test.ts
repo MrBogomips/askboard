@@ -186,6 +186,16 @@ describe("pert and openDepth themselves", () => {
     expect(treePropsProblems({ nodes: [] }, "agent")).toEqual([]);
   });
 
+  test("a Tree nested far past the depth limit is refused, not a stack overflow", () => {
+    let node: TreeNode = leaf({ optimistic: -1 });
+    for (let level = 0; level < 20_000; level += 1) {
+      node = { id: `n${level}`, label: "Level", children: [node] };
+    }
+    const problems = treePropsProblems(withNodes([node]), "agent");
+    expect(problems.some(({ message }) => message.includes("deeper than the limit"))).toBe(true);
+    expect(problems.some(({ message }) => message.includes("-1"))).toBe(false);
+  });
+
   test("garbage under pert is reported by the Tree's own checks and never throws", () => {
     const nodes = [
       null,

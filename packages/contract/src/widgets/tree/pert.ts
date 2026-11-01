@@ -34,9 +34,10 @@ const columnProblems = (columns: Columns): Problem[] =>
     return [{ path: "/pert", message }];
   });
 
-// Every node's estimates outside the range, in document order; a value that is no number is the
-// column type check's to report.
-const estimateProblems = (list: unknown, at: Path): Problem[] => {
+// Every node's estimates outside the range, in document order, down to the level below the depth
+// limit, as far as `treePropsProblems` walks; a value that is no number is the column type check's
+// to report.
+const estimateProblems = (list: unknown, at: Path, level: number): Problem[] => {
   if (!Array.isArray(list)) return [];
   return list.flatMap((node: unknown, index) => {
     if (!isObject(node)) return [];
@@ -48,7 +49,8 @@ const estimateProblems = (list: unknown, at: Path): Problem[] => {
       const message = `the estimate "${field}" of the node "${String(node.id)}" is ${value}, ${RANGE}`;
       return [{ path: pointerOf([...path, field]), message }];
     });
-    return [...own, ...estimateProblems(node.children, [...path, "children"])];
+    if (level > TREE_MAX_DEPTH) return own;
+    return [...own, ...estimateProblems(node.children, [...path, "children"], level + 1)];
   });
 };
 
@@ -77,5 +79,5 @@ export const treePertProblems = (props: Json, columns: Columns): Problem[] => {
     const message = "pert is true when given: a Tree without it computes nothing";
     return [{ path: "/pert", message }, ...problems];
   }
-  return [...problems, ...columnProblems(columns), ...estimateProblems(props.nodes, ["nodes"])];
+  return [...problems, ...columnProblems(columns), ...estimateProblems(props.nodes, ["nodes"], 1)];
 };
