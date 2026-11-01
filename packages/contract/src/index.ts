@@ -401,8 +401,9 @@ export {
   treeDerivedFields,
 } from "./widgets/tree/index.ts";
 
-// Context, E5 (excerpts, design decision 2): the pointer grammar, the reasons a pointer stays
-// unresolved and the context limits of proposal B4, exported in one appended block.
+// Context, E5 (excerpts, design decision 2): the pointer grammar, what resolving a pointer gives
+// (the reasons it stays unresolved, the media types) and the context limits of proposal B4,
+// exported in one appended block.
 
 export {
   ANCHOR_FILE_MAX_BYTES,
@@ -428,4 +429,11 @@ export {
   type PointerReading,
   readPointer,
 } from "./context/pointer.ts";
-export { UNRESOLVED_REASONS, type UnresolvedReason } from "./context/resolution.ts";
+export {
+  IMAGE_MEDIA_TYPES,
+  type ImageMediaType,
+  TEXT_MEDIA_TYPES,
+  type TextMediaType,
+  UNRESOLVED_REASONS,
+  type UnresolvedReason,
+} from "./context/resolution.ts";
