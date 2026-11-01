@@ -1,6 +1,13 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
-import { dirname, join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative } from "node:path";
 import {
   BOARD_CLOSE_CODES,
   BOARD_PORT_RANGE,
@@ -297,5 +304,22 @@ describe("the session project root (AD-12)", () => {
     const gone = join(dirname(project), "removed-project");
     mkdirSync(gone);
     expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: join(gone, "not-there") })).toBeUndefined();
+  });
+
+  // Review fix L2: a relative path would resolve against the working folder, which never stands in.
+  test("is absent for a relative path, even one naming the project from the working folder", () => {
+    const named = relative(process.cwd(), project);
+    expect(realpathSync(named)).toBe(realpathSync(project));
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: named })).toBeUndefined();
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: "." })).toBeUndefined();
+  });
+
+  test("is absent when the path, or the one its link points to, names a file", () => {
+    const file = join(dirname(project), "project-file.txt");
+    writeFileSync(file, "not a folder");
+    const linked = join(dirname(project), "linked-file");
+    symlinkSync(file, linked);
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: file })).toBeUndefined();
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: linked })).toBeUndefined();
   });
 });

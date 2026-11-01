@@ -4,8 +4,8 @@
 // as it is. ask-core takes `ports`, board-host the session project, mcp-tools `deps` and
 // `firstRequest`, at which the local API starts (AD-2); `close` ends what it started.
 
-import { realpathSync } from "node:fs";
-import { basename } from "node:path";
+import { realpathSync, statSync } from "node:fs";
+import { basename, isAbsolute } from "node:path";
 import { BACKGROUND_THRESHOLD_VARIABLE } from "@askboard/contract";
 import { type AskCore, backgroundThreshold, type CorePorts } from "@askboard/core";
 import { createLocalApi, createOrigins, RecordTable } from "./board-host/index.ts";
@@ -42,13 +42,15 @@ export type PushComposition = {
 
 /**
  * The session project root (AD-12): the real path of `CLAUDE_PROJECT_DIR`, and none when the
- * variable is not set or its real path cannot be read. The working folder never stands in for it.
+ * variable is not set, is not absolute, or its real path cannot be read or is not a folder. The
+ * working folder never stands in for it, nor resolves a relative path.
  */
 export const sessionProjectRoot = (env: Environment): string | undefined => {
   const named = env.CLAUDE_PROJECT_DIR;
-  if (!named) return undefined;
+  if (!named || !isAbsolute(named)) return undefined;
   try {
-    return realpathSync(named);
+    const real = realpathSync(named);
+    return statSync(real).isDirectory() ? real : undefined;
   } catch {
     return undefined;
   }
