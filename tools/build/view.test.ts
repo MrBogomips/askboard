@@ -11,6 +11,7 @@ import {
 } from "@askboard/contract";
 import {
   ganttBoardDocument,
+  ganttPlanBoardDocument,
   plainChoiceBoardDocument,
   treeBoardDocument,
 } from "@askboard/contract/fixtures";
@@ -324,6 +325,15 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
     expect(names(plainChoiceBoardDocument)).toContain("choice");
     expect(names(plainChoiceBoardDocument)).not.toContain("gantt");
     expect(names(plainChoiceBoardDocument)).not.toContain("compute");
+  });
+
+  test("the plan's board takes them with the Tree's chunk, and Radix carries the plan's zoom (design decision 10)", () => {
+    const names = selectChunks(ganttPlanBoardDocument, manifest).map(({ name }) => name);
+    expect(names).toEqual(["compute", "ext-apps", "react", "radix", "shell", "gantt", "tree"]);
+    // The zoom is a Radix Toggle Group, in the radix chunk with the toggle it is made of.
+    expect(packagesIn(chunkNamed("radix").licences)).toEqual(
+      expect.arrayContaining(["@radix-ui/react-toggle", "@radix-ui/react-toggle-group"]),
+    );
   });
 
   test("the Gantt board's srcdoc inlines both, and the plain Choice board's neither", async () => {

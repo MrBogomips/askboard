@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { dateOfDay, dayNumber } from "./date.ts";
-import { dateAt, PIXELS_PER_DAY, ticks, xOf, ZOOMS } from "./scale.ts";
+import { dateAt, isZoom, PIXELS_PER_DAY, ticks, xOf, ZOOMS } from "./scale.ts";
 
 const ORIGIN = "2026-11-02";
 
@@ -8,6 +8,12 @@ describe("the Gantt's time scale", () => {
   test("draws 32, 15 and 4 pixels per calendar day at day, week and month zoom", () => {
     expect(ZOOMS).toEqual(["day", "week", "month"]);
     expect(PIXELS_PER_DAY).toEqual({ day: 32, week: 15, month: 4 });
+  });
+
+  test("tells a zoom from any other text, such as the empty value of a toggle turned off", () => {
+    expect(ZOOMS.filter(isZoom)).toEqual([...ZOOMS]);
+    for (const text of ["", "Week", "year", "toString", "__proto__"])
+      expect(isZoom(text)).toBe(false);
   });
 
   test.each([

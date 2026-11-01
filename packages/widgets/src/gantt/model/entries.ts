@@ -4,53 +4,64 @@
 // allow; an empty start clears the request, and the earliest start itself holds none, as a drop
 // there does; a duration read by the shared number parser and refused unless whole and in range.
 // Each gives the Gantt's next value through `edits.ts`, the same value when nothing changes, or
-// the reason for its refusal. Plain ECMAScript: the working-day calendar is `compute`'s.
+// the reason for its refusal. A start goes into a Gantt's own task or a plan's entry alike; a
+// plan's durations follow its Tree's estimates, so a typed one is refused there. Plain
+// ECMAScript: the working-day calendar is `compute`'s.
 
 import { isWorkingDate } from "@askboard/compute";
-import { GANTT_MAX_DURATION, GANTT_MIN_DURATION } from "@askboard/contract";
+import { GANTT_MAX_DURATION, GANTT_MIN_DURATION, type GanttProps } from "@askboard/contract";
 import { numberEcho, parseNumber } from "../../shared/number.ts";
 import { echoDate, gridDate, parseDateEntry } from "./date.ts";
 import { clearStart, requestStart, setDuration } from "./edits.ts";
 import type { TaskSchedule } from "./schedule.ts";
-import type { GanttColumn, GanttOwnProps, GanttRow } from "./tasks.ts";
+import { type GanttColumn, type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
 
 /** The columns the grid edits in place; the predecessors open their panel instead. */
 export type EditedColumn = Extract<GanttColumn, "start" | "duration">;
 
-export type Entry =
-  | { readonly kind: "value"; readonly value: GanttOwnProps }
+export type Entry<V extends GanttProps = GanttProps> =
+  | { readonly kind: "value"; readonly value: V }
   | { readonly kind: "refused"; readonly reason: string };
 
-const accepted = (value: GanttOwnProps): Entry => ({ kind: "value", value });
+const accepted = <V extends GanttProps>(value: V): Entry<V> => ({ kind: "value", value });
 
-const refused = (reason: string): Entry => ({ kind: "refused", reason });
+const refused = (reason: string): Entry<never> => ({ kind: "refused", reason });
 
 const WHOLE = `A duration is a whole number of working days, from ${GANTT_MIN_DURATION} to ${GANTT_MAX_DURATION.toLocaleString("en-US")}.`;
+
+const PLAN_DURATION = "A plan's durations follow its work packages' estimates in its Tree.";
+
+/** The start the agent asked for a task, in its own task or in its plan's entry. */
+const agentStart = (sent: GanttProps, taskId: string): string | undefined =>
+  isOwnGantt(sent)
+    ? sent.tasks.find((task) => task.id === taskId)?.start
+    : planEntry(sent, taskId)?.start;
 
 /**
  * The task on a day: a request for it, or, on its earliest start, no request, unless the agent
  * itself asked for that day, whose request then comes back, so that a move undone holds no change.
  */
-export const landOn = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
+export const landOn = <V extends GanttProps>(
+  value: V,
+  sent: V,
   taskId: string,
   day: string,
   earliest: string | undefined,
-): GanttOwnProps => {
+): V => {
   if (day !== earliest) return requestStart(value, sent, taskId, day);
-  const agent = sent.tasks.find((task) => task.id === taskId)?.start;
-  return agent === day ? requestStart(value, sent, taskId, day) : clearStart(value, sent, taskId);
+  return agentStart(sent, taskId) === day
+    ? requestStart(value, sent, taskId, day)
+    : clearStart(value, sent, taskId);
 };
 
 /** What a typed start does to the task, scheduled as `schedule` says. */
-export const startEntry = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
+export const startEntry = <V extends GanttProps>(
+  value: V,
+  sent: V,
   taskId: string,
   schedule: TaskSchedule | undefined,
   text: string,
-): Entry => {
+): Entry<V> => {
   const parsed = parseDateEntry(text);
   if (parsed.kind === "refused") return refused(parsed.reason);
   if (parsed.kind === "empty") return accepted(clearStart(value, sent, taskId));
@@ -69,13 +80,14 @@ export const startEntry = (
   return accepted(landOn(value, sent, taskId, day, schedule.earliestDate));
 };
 
-/** What a typed duration does to the task. */
+/** What a typed duration does to one of a Gantt's own tasks; a plan refuses it. */
 export const durationEntry = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
+  value: GanttProps,
+  sent: GanttProps,
   taskId: string,
   text: string,
 ): Entry => {
+  if (!isOwnGantt(value) || !isOwnGantt(sent)) return refused(PLAN_DURATION);
   const parsed = parseNumber(text);
   if (parsed.kind === "refused") return refused(parsed.reason);
   if (parsed.kind === "empty") return refused(WHOLE);

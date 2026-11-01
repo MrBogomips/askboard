@@ -5,6 +5,7 @@
 // that leaves the editor gives the focus back to its cell, but leaving the field does not take it
 // back. The text and the refusal are view state: only a committed value reaches the draft.
 
+import type { GanttProps } from "@askboard/contract";
 import { useCallback, useRef, useState } from "react";
 import {
   durationEntry,
@@ -14,7 +15,7 @@ import {
   startEntry,
 } from "./model/entries.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
-import type { GanttColumn, GanttOwnProps, GanttRow } from "./model/tasks.ts";
+import type { GanttColumn, GanttRow } from "./model/tasks.ts";
 
 export type Editing = {
   readonly taskId: string;
@@ -34,12 +35,12 @@ export type CellEditing = {
 };
 
 type EditingArgs = {
-  readonly current: GanttOwnProps;
-  readonly sent: GanttOwnProps;
+  readonly current: GanttProps;
+  readonly sent: GanttProps;
   readonly rows: readonly GanttRow[];
   readonly schedules: readonly TaskSchedule[];
   /** Puts the Gantt's next value into the draft. */
-  readonly onCommit: (value: GanttOwnProps) => void;
+  readonly onCommit: (value: GanttProps) => void;
   /** Focuses a cell of the grid. */
   readonly focusCell: (taskId: string, column: GanttColumn) => void;
 };

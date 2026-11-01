@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { ganttBoardDocument } from "@askboard/contract/fixtures";
+import { ganttBoardDocument, ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import { durationEntry, entryEcho, entryText, landOn, startEntry } from "./entries.ts";
 import type { TaskSchedule } from "./schedule.ts";
-import { type GanttOwnProps, ownTaskRows } from "./tasks.ts";
+import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planEntry } from "./tasks.ts";
 
 const [question] = ganttBoardDocument.items;
 const [release] = question.props.items;
@@ -25,6 +25,11 @@ const IN_ERROR: TaskSchedule = {
 };
 
 const taskOf = (value: GanttOwnProps, id: string) => value.tasks.find((task) => task.id === id);
+
+const [planQuestion] = ganttPlanBoardDocument.items;
+const [, schedule] = planQuestion.props.items;
+// The fixture plan: reporting's entry holds its predecessor, the portal.
+const PLAN = schedule.props as GanttPlanProps;
 
 describe("a typed start", () => {
   test("requests a later working day", () => {
@@ -103,7 +108,9 @@ describe("landing on a day", () => {
 describe("a typed duration", () => {
   test("sets whole working days", () => {
     const entry = durationEntry(SENT, SENT, "billing", "30");
-    expect(entry.kind === "value" && taskOf(entry.value, "billing")?.duration).toBe(30);
+    expect(
+      entry.kind === "value" && taskOf(entry.value as GanttOwnProps, "billing")?.duration,
+    ).toBe(30);
   });
 
   test.each(["2.5", "0", "2001", ""])("refuses %p, saying a duration is whole", (text) => {
@@ -136,5 +143,47 @@ describe("an editor", () => {
     expect(entryEcho("start", "")).toBeUndefined();
     expect(entryEcho("duration", "1,200")).toBe("= 1200");
     expect(entryEcho("duration", "x")).toBeUndefined();
+  });
+});
+
+describe("in a Gantt plan (design decision 8)", () => {
+  test("a typed start requests the day in the task's entry, beside its predecessors", () => {
+    const entry = startEntry(PLAN, PLAN, "reporting", SCHEDULED, "12/9/2026");
+    expect(entry.kind === "value" && planEntry(entry.value, "reporting")).toEqual({
+      start: "2026-12-09",
+      dependencies: ["portal"],
+    });
+    expect(startEntry(PLAN, PLAN, "reporting", SCHEDULED, "11/20/2026").kind).toBe("refused");
+  });
+
+  test("a bar landed later requests the day; back on its earliest start, the agent's entry", () => {
+    const moved = landOn(PLAN, PLAN, "reporting", "2026-12-09", "2026-12-04");
+    expect(planEntry(moved, "reporting")?.start).toBe("2026-12-09");
+    expect(landOn(moved, PLAN, "reporting", "2026-12-04", "2026-12-04")).toEqual(PLAN);
+    expect(landOn(PLAN, PLAN, "reporting", "2026-12-04", "2026-12-04")).toBe(PLAN);
+  });
+
+  test("a task with no entry gets one with its request, and loses it on its earliest start", () => {
+    const moved = landOn(PLAN, PLAN, "ux", "2026-11-04", "2026-11-02");
+    expect(planEntry(moved, "ux")).toEqual({ start: "2026-11-04" });
+    expect(landOn(moved, PLAN, "ux", "2026-11-02", "2026-11-02")).toEqual(PLAN);
+  });
+
+  test("keeps the agent's own request when the agent asked for the earliest start", () => {
+    const agent: GanttPlanProps = {
+      ...PLAN,
+      tasks: { ...PLAN.tasks, ux: { start: "2026-11-02" } },
+    };
+    const moved = landOn(agent, agent, "ux", "2026-11-04", "2026-11-02");
+    expect(planEntry(landOn(moved, agent, "ux", "2026-11-02", "2026-11-02"), "ux")).toBe(
+      planEntry(agent, "ux"),
+    );
+  });
+
+  test("a typed duration is refused: a plan's durations follow its work packages' estimates", () => {
+    expect(durationEntry(PLAN, PLAN, "billing", "11")).toEqual({
+      kind: "refused",
+      reason: "A plan's durations follow its work packages' estimates in its Tree.",
+    });
   });
 });

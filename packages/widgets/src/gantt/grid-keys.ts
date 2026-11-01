@@ -20,8 +20,8 @@ type GridKeysArgs = {
   readonly editing: CellEditing;
   /** Clears a task's requested start. */
   readonly onClear: (row: GanttRow) => void;
-  /** Opens a task's predecessors panel. */
-  readonly onOpenPanel: (row: GanttRow) => void;
+  /** Opens a task's predecessors panel; undefined while the Gantt has none to open (a plan's). */
+  readonly onOpenPanel: ((row: GanttRow) => void) | undefined;
   /** Whether the Gantt takes edits; a read-only Gantt's keys only move the focus. */
   readonly editable: boolean;
 };
@@ -45,6 +45,6 @@ export const gridKeyHandler =
     if (action === undefined) return;
     if (action.kind === "move") focus.moveTo(moveFocus(stop, action.move, size));
     else if (action.kind === "edit" && isEditedColumn(column)) editing.begin(row, column);
-    else if (action.kind === "edit" && column === "dependencies") onOpenPanel(row);
+    else if (action.kind === "edit" && column === "dependencies") onOpenPanel?.(row);
     else if (action.kind === "clear") onClear(row);
   };

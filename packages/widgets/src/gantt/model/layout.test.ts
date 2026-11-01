@@ -3,7 +3,10 @@ import {
   AXIS_HEIGHT,
   arrowPath,
   BAR_HEIGHT,
+  BASELINE_GAP,
+  BASELINE_HEIGHT,
   barBox,
+  baselineBox,
   chartSpan,
   NOTE_HEIGHT,
   ROW_HEIGHT,
@@ -44,6 +47,36 @@ describe("a bar", () => {
     });
     expect(barBox("2026-11-10", "2026-11-16", ORIGIN, "week", row).x).toBe(120);
     expect(barBox("2026-11-10", "2026-11-10", ORIGIN, "day", row).width).toBe(32);
+  });
+});
+
+describe("a plan's baseline", () => {
+  const row = { top: 32, height: 36, middle: 50 };
+
+  test("is 4px high, 4px under its bar, past the change outline, and inside its row", () => {
+    expect([BASELINE_HEIGHT, BASELINE_GAP]).toEqual([4, 4]);
+    const bar = barBox("2026-11-02", "2026-11-09", ORIGIN, "week", row);
+    const baseline = baselineBox("2026-11-02", "2026-11-09", ORIGIN, "week", row);
+    expect(baseline).toEqual({ x: 0, y: 61, width: 120, height: 4 });
+    expect(baseline.y - (bar.y + bar.height)).toBe(4);
+    // The change outline, a 2px stroke 2px out from the bar, ends 3px under it.
+    expect(baseline.y).toBeGreaterThan(bar.y + bar.height + 3);
+    expect(baseline.y + baseline.height).toBeLessThanOrEqual(row.top + row.height);
+  });
+
+  test("spans the agent's days at each zoom, wherever the task's bar went", () => {
+    expect(baselineBox("2026-12-04", "2026-12-11", ORIGIN, "week", row)).toMatchObject({
+      x: 480,
+      width: 120,
+    });
+    expect(baselineBox("2026-12-04", "2026-12-11", ORIGIN, "day", row)).toMatchObject({
+      x: 1024,
+      width: 256,
+    });
+    expect(baselineBox("2026-12-04", "2026-12-11", ORIGIN, "month", row)).toMatchObject({
+      x: 128,
+      width: 32,
+    });
   });
 });
 

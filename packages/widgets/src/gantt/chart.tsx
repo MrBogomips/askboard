@@ -2,15 +2,23 @@
 // with its zoom and not focusable, since the grid carries every keyboard path. The time axis on
 // `muted` with its labels and gridlines; per task in a row of the grid a bar in `gantt-bar`, or in
 // `critical` on the critical path; finish-to-start elbow arrows, 1px in `gantt-bar`, or 2px in
-// `critical` between two critical tasks, each with its arrowhead. A task the graph cannot schedule
-// has no bar and no arrow. The pointer drags a bar to move it, or its end to resize it
-// (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and the arrows
-// follow once the graph is rebuilt. Geometry is written as SVG attributes and colours and widths
-// as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
+// `critical` between two critical tasks, each with its arrowhead; in a plan, the baselines under
+// the bars. A task the graph cannot schedule has no bar and no arrow. The pointer drags a bar to
+// move it, or, in a Gantt with its own tasks, its end to resize it (`bars.tsx`, `bar-drag.ts`);
+// the drop reschedules through `drag.ts` and the draft, and the arrows follow once the graph is
+// rebuilt. Geometry is written as SVG attributes and colours and widths as classes built from
+// DESIGN.md's tokens: no `style` attribute (AD-8).
 
 import { memo, useCallback, useMemo } from "react";
 import { type BarDrag, useBarDrag } from "./bar-drag.ts";
-import { BarShape, type DrawnBar, drawnBars, Guide } from "./bars.tsx";
+import {
+  BarShape,
+  BaselineShape,
+  type DrawnBar,
+  drawnBars,
+  drawnBaselines,
+  Guide,
+} from "./bars.tsx";
 import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
@@ -18,7 +26,7 @@ import { AXIS_HEIGHT, arrowPath, type RowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
 import { PIXELS_PER_DAY, ticks, type Zoom } from "./model/scale.ts";
-import type { TaskSchedule } from "./model/schedule.ts";
+import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
 type Arrow = { readonly from: DrawnBar; readonly to: DrawnBar; readonly critical: boolean };
@@ -128,6 +136,8 @@ export type ChartProps = {
   readonly itemId: string;
   readonly rows: readonly GanttRow[];
   readonly schedules: readonly TaskSchedule[];
+  /** A plan's baselines, in the rows' order; undefined for a Gantt with its own tasks. */
+  readonly baselines: readonly (Baseline | undefined)[] | undefined;
   readonly layout: RowBoxes;
   readonly span: ChartSpan;
   readonly zoom: Zoom;
@@ -137,8 +147,11 @@ export type ChartProps = {
   readonly editable: boolean;
   /** A bar dropped on a day: its task asks for it, or holds no request on its earliest start. */
   readonly onMove: (taskId: string, day: string, earliest: string) => void;
-  /** A bar's end dropped: its task's new duration, in working days. */
-  readonly onResize: (taskId: string, duration: number) => void;
+  /**
+   * A bar's end dropped: its task's new duration, in working days. Undefined in a plan, whose
+   * durations follow its Tree: its bars have no handle.
+   */
+  readonly onResize: ((taskId: string, duration: number) => void) | undefined;
 };
 
 /** Where the dragged bar is drawn while the pointer moves, from `drag.ts`'s rules. */
@@ -165,9 +178,13 @@ export const Chart = (props: ChartProps) => {
         return;
       }
       const resized = resizeDrop({ start: bar.start, finish: bar.finish, dx, zoom });
-      if (resized.kind === "duration") onResize(taskId, resized.duration);
+      if (resized.kind === "duration") onResize?.(taskId, resized.duration);
     },
     [bars, zoom, onMove, onResize],
+  );
+  const baselines = useMemo(
+    () => drawnBaselines(rows, props.baselines ?? [], layout, span, zoom),
+    [rows, props.baselines, layout, span, zoom],
   );
   const { drag, press, move, release, cancel } = useBarDrag(onDrop);
   const dragged = drag === undefined ? undefined : bars.get(drag.taskId);
@@ -183,6 +200,11 @@ export const Chart = (props: ChartProps) => {
       <Markers itemId={itemId} />
       <Axis span={span} zoom={zoom} width={width} layout={layout} />
       <g>
+        {baselines.map((baseline) => (
+          <BaselineShape key={baseline.id} baseline={baseline} />
+        ))}
+      </g>
+      <g>
         {arrowsOf(rows, bars).map((arrow) => (
           <ArrowPath key={`${arrow.from.id}>${arrow.to.id}`} itemId={itemId} arrow={arrow} />
         ))}
@@ -195,6 +217,7 @@ export const Chart = (props: ChartProps) => {
             drawn={bar === dragged && drag ? draggedBox(bar, drag, span, zoom) : bar.box}
             changed={props.marks.get(bar.id)?.changed === true}
             draggable={props.editable}
+            resizable={onResize !== undefined}
             onPress={press}
             onMove={move}
             onRelease={release}

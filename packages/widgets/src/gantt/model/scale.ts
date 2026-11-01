@@ -9,6 +9,9 @@ export const ZOOMS = Object.freeze(["day", "week", "month"] as const);
 
 export type Zoom = (typeof ZOOMS)[number];
 
+/** Whether a text names a zoom: a toggle group turned off gives the empty text. */
+export const isZoom = (text: string): text is Zoom => (ZOOMS as readonly string[]).includes(text);
+
 /** Pixels per calendar day: the week's matches the UJ-2 mock. */
 export const PIXELS_PER_DAY: Readonly<Record<Zoom, number>> = Object.freeze({
   day: 32,

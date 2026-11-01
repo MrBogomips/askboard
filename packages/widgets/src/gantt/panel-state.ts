@@ -3,10 +3,11 @@
 // Enter commits them through `edits.ts`, Escape restores, and either gives the focus back to the
 // task's "Depends on" cell. What the panel holds is view state until it commits.
 
+import type { GanttProps } from "@askboard/contract";
 import { useCallback, useRef, useState } from "react";
 import { setPredecessors } from "./model/edits.ts";
 import { toggled } from "./model/predecessors.ts";
-import type { GanttOwnProps, GanttRow } from "./model/tasks.ts";
+import type { GanttRow } from "./model/tasks.ts";
 
 export type Panel = {
   readonly taskId: string;
@@ -23,9 +24,9 @@ export type PanelState = {
 };
 
 type PanelArgs = {
-  readonly current: GanttOwnProps;
-  readonly sent: GanttOwnProps;
-  readonly onCommit: (value: GanttOwnProps) => void;
+  readonly current: GanttProps;
+  readonly sent: GanttProps;
+  readonly onCommit: (value: GanttProps) => void;
   /** Focuses a task's "Depends on" cell. */
   readonly focusCell: (taskId: string) => void;
 };

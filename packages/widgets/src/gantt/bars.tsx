@@ -4,14 +4,24 @@
 // task the user changed takes the 2px `change` outline, offset by 1px (`gantt-user-change`).
 // While a bar is dragged it is drawn where it would land (`model/preview.ts`), and a move shows
 // its earliest start as the guide, a 1px dashed line in `muted-foreground` over its row (proposal,
-// open question 7). Geometry as SVG attributes, colours and widths as token classes (AD-8).
+// open question 7). In a plan, each task the agent sent has its baseline under its bar: the dates
+// the agent's plan gave it, a 4px bar in `border-strong` (proposal, open question 7), which stays
+// where it is while the task moves. Geometry as SVG attributes, colours and widths as token
+// classes (AD-8).
 
 import { memo, type PointerEvent } from "react";
 import type { DragKind } from "./bar-drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
-import { type BarBox, barBox, ROW_HEIGHT, type RowBox, type RowBoxes } from "./model/layout.ts";
+import {
+  type BarBox,
+  barBox,
+  baselineBox,
+  ROW_HEIGHT,
+  type RowBox,
+  type RowBoxes,
+} from "./model/layout.ts";
 import { xOf, type Zoom } from "./model/scale.ts";
-import type { TaskSchedule } from "./model/schedule.ts";
+import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
 /** A drawn task: its bar, its row, its dates and whether it is on the critical path. */
@@ -49,6 +59,45 @@ export const drawnBars = (
   return bars;
 };
 
+/** A drawn baseline: its task, the agent's dates for it and its box under the task's bar. */
+export type DrawnBaseline = {
+  readonly id: string;
+  readonly start: string;
+  readonly finish: string;
+  readonly box: BarBox;
+};
+
+/** The baselines of the rows that have one, in the rows' order. */
+export const drawnBaselines = (
+  rows: readonly GanttRow[],
+  baselines: readonly (Baseline | undefined)[],
+  layout: RowBoxes,
+  span: ChartSpan,
+  zoom: Zoom,
+): readonly DrawnBaseline[] =>
+  rows.flatMap((task, index) => {
+    const baseline = baselines[index];
+    const row = layout.boxes[index];
+    if (baseline === undefined || row === undefined) return [];
+    const { startDate: start, finishDate: finish } = baseline;
+    return [
+      { id: task.id, start, finish, box: baselineBox(start, finish, span.origin, zoom, row) },
+    ];
+  });
+
+export const BaselineShape = memo(({ baseline }: { readonly baseline: DrawnBaseline }) => (
+  <rect
+    data-gantt-baseline={baseline.id}
+    data-start={baseline.start}
+    data-finish={baseline.finish}
+    x={baseline.box.x}
+    y={baseline.box.y}
+    width={baseline.box.width}
+    height={baseline.box.height}
+    className="pointer-events-none fill-border-strong"
+  />
+));
+
 /** Where the press lands: the bar, or its end's handle. */
 export type Press = (taskId: string, kind: DragKind, event: PointerEvent<SVGElement>) => void;
 
@@ -60,6 +109,8 @@ type BarShapeProps = {
   readonly changed: boolean;
   /** Whether the user may drag it; a read-only Gantt's bars do not move. */
   readonly draggable: boolean;
+  /** Whether its end resizes it: only a Gantt's own tasks take a duration. */
+  readonly resizable: boolean;
   readonly onPress: Press;
   readonly onMove: (event: PointerEvent<SVGElement>) => void;
   readonly onRelease: (event: PointerEvent<SVGElement>) => void;
@@ -69,7 +120,7 @@ type BarShapeProps = {
 /** The outline's inset from the bar: a 2px stroke centred 2px out leaves a 1px gap. */
 const OUTLINE = 2;
 
-export const BarShape = memo(({ bar, drawn, changed, draggable, ...on }: BarShapeProps) => {
+const Bar = ({ bar, drawn, changed, draggable, resizable, ...on }: BarShapeProps) => {
   const pointer = (kind: DragKind) =>
     draggable
       ? {
@@ -104,7 +155,7 @@ export const BarShape = memo(({ bar, drawn, changed, draggable, ...on }: BarShap
           className="pointer-events-none fill-none stroke-change stroke-2"
         />
       ) : null}
-      {draggable ? (
+      {draggable && resizable ? (
         <rect
           data-gantt-handle={bar.id}
           x={drawn.x + drawn.width - HANDLE_WIDTH}
@@ -117,7 +168,9 @@ export const BarShape = memo(({ bar, drawn, changed, draggable, ...on }: BarShap
       ) : null}
     </g>
   );
-});
+};
+
+export const BarShape = memo(Bar);
 
 /** The earliest start a moved bar may take, over its row. */
 export const Guide = ({

@@ -78,12 +78,15 @@ describe("the shared modules and the chunks that provide them", () => {
   });
 
   test("Radix provides the components that sources import, and no other yet", () => {
+    // Toggle Group joined with its first control, the Gantt plan's zoom (gantt-widget design
+    // decision 10).
     expect(LIBRARY_CHUNKS.radix?.modules["radix-ui"]).toEqual([
       "AlertDialog",
       "Checkbox",
       "DropdownMenu",
       "RadioGroup",
       "Tabs",
+      "ToggleGroup",
     ]);
   });
 

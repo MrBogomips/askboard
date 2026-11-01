@@ -1,8 +1,9 @@
 // The chart's geometry (design decision 9; the UJ-2 mock): rows of 36px under an axis of 32px, so
 // that each lines up with its grid row; a row with a field error under it, taller by one line;
-// bars of 14px centred in their row's first 36px, spanning their calendar days; finish-to-start
-// elbow arrows; and the axis's span, from the plan's start to two weeks past the last finish, room
-// to drag a task later. Plain numbers, which the chart writes as SVG attributes.
+// bars of 14px centred in their row's first 36px, spanning their calendar days; in a plan, the
+// baseline, a 4px bar under its task's bar; finish-to-start elbow arrows; and the axis's span,
+// from the plan's start to two weeks past the last finish, room to drag a task later. Plain
+// numbers, which the chart writes as SVG attributes.
 
 import { dateOfDay, dayNumber, LAST_DAY } from "./date.ts";
 import { PIXELS_PER_DAY, xOf, type Zoom } from "./scale.ts";
@@ -12,6 +13,10 @@ export const ROW_HEIGHT = 36;
 /** The line a field error takes under its row. */
 export const NOTE_HEIGHT = 20;
 export const BAR_HEIGHT = 14;
+/** A plan's baseline: 4px high (proposal, open question 7). */
+export const BASELINE_HEIGHT = 4;
+/** From the bottom of its task's bar to its top: clear of the change outline, which ends 3px under. */
+export const BASELINE_GAP = 4;
 /** Calendar days the axis runs past the last finish. */
 export const AXIS_TAIL_DAYS = 14;
 
@@ -57,6 +62,23 @@ export const barBox = (
     width: (dayNumber(finish) - dayNumber(start) + 1) * PIXELS_PER_DAY[zoom],
     height: BAR_HEIGHT,
   });
+
+/** A plan's baseline, the agent's dates for its task, under the task's bar in its row. */
+export const baselineBox = (
+  start: string,
+  finish: string,
+  origin: string,
+  zoom: Zoom,
+  row: RowBox,
+): BarBox => {
+  const bar = barBox(start, finish, origin, zoom, row);
+  return Object.freeze({
+    x: bar.x,
+    y: bar.y + BAR_HEIGHT + BASELINE_GAP,
+    width: bar.width,
+    height: BASELINE_HEIGHT,
+  });
+};
 
 // The mock's elbows: straight on to 16px before a successor that starts well after; else out 5px,
 // to 12px from the predecessor's middle, back to 9px before the successor, then to it.

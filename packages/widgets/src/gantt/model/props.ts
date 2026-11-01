@@ -2,8 +2,9 @@
 // their way to the view, since the input format does not admit a Gantt yet, so the component checks
 // them as the agent's. The view compiles no schema: Ajv compiles with `new Function`, which the
 // view's policy forbids, so these guards say in plain code what the props schema says of a Gantt's
-// own tasks, and the contract's `ganttPropsProblems` adds what no schema can. A Gantt plan waits
-// for task group 7. Plain ECMAScript.
+// own tasks and of a plan's entries, and the contract's `ganttPropsProblems` adds what no schema
+// can, such as which form of `tasks` goes with `workPackages`. A plan's link to its Tree is
+// `link.ts`'s. Plain ECMAScript.
 
 import {
   GANTT_LABEL_MAX_CHARS,
@@ -11,10 +12,10 @@ import {
   GANTT_MAX_PREDECESSORS,
   GANTT_MAX_TASKS,
   GANTT_MIN_DURATION,
+  type GanttProps,
   ganttPropsProblems,
   ID_PATTERN,
 } from "@askboard/contract";
-import type { GanttOwnProps } from "./tasks.ts";
 
 /** A problem with the props: where, as a JSON Pointer, and what. */
 export type PropsProblem = { readonly path: string; readonly message: string };
@@ -65,21 +66,33 @@ const predecessors: Check = (value) =>
     ? undefined
     : `is not a list of at most ${GANTT_MAX_PREDECESSORS} task IDs`;
 
-const taskList: Check = (value) =>
-  Array.isArray(value) && value.length <= GANTT_MAX_TASKS
+// A Gantt's own tasks are a list; a plan's entries, a map by task ID. Which goes with
+// `workPackages` is the contract's check.
+const tasks: Check = (value) => {
+  const count = Array.isArray(value)
+    ? value.length
+    : isRecord(value)
+      ? Object.keys(value).length
+      : Number.POSITIVE_INFINITY;
+  return count <= GANTT_MAX_TASKS
     ? undefined
-    : `is not a list of at most ${GANTT_MAX_TASKS} tasks`;
-
-const NOT_YET: Check = () => "names a Tree, and the view shows no Gantt plan yet";
+    : `is not a list of at most ${GANTT_MAX_TASKS} tasks, nor a map of at most ${GANTT_MAX_TASKS} entries by task ID`;
+};
 
 const PROPS: Fields = {
-  checks: { start: fullDate, workPackages: NOT_YET, tasks: taskList },
+  checks: { start: fullDate, workPackages: id, tasks },
   required: ["start", "tasks"],
 };
 
 const TASK: Fields = {
   checks: { id, label, duration, start: fullDate, dependencies: predecessors },
   required: ["id", "label", "duration"],
+};
+
+/** A plan's entry: what the plan says of a task its Tree names and orders. */
+const ENTRY: Fields = {
+  checks: { start: fullDate, dependencies: predecessors },
+  required: [],
 };
 
 // An object's fields against a table: unknown and missing fields, then each field's check.
@@ -105,29 +118,46 @@ const taskProblems = (task: unknown, index: number): PropsProblem[] => {
     : [{ path, message: "is not a task: an object with an ID, a name and a duration" }];
 };
 
+// The path as the contract's checks write it: the key itself, which a task ID needs no escape in.
+const entryProblems = ([key, entry]: [string, unknown]): PropsProblem[] => {
+  const path = `/tasks/${key}`;
+  const problems: PropsProblem[] = isId(key)
+    ? []
+    : [{ path, message: `is not a task ID (${ID_PATTERN})` }];
+  if (isRecord(entry)) return [...problems, ...fieldProblems(entry, path, ENTRY)];
+  const message = "is not a plan entry: an object with a requested start and predecessors";
+  return [...problems, { path, message }];
+};
+
+/** Each element's problems: a Gantt's own tasks by index, a plan's entries by task ID. */
+const elementProblems = (tasks: unknown): PropsProblem[] => {
+  if (Array.isArray(tasks)) return tasks.flatMap(taskProblems);
+  return isRecord(tasks) ? Object.entries(tasks).flatMap(entryProblems) : [];
+};
+
 /**
- * Everything wrong with a Gantt's own tasks as the agent's props: what the props schema refuses,
- * then the contract's checks. Empty for props the component can render.
+ * Everything wrong with a Gantt's props as the agent's, a Gantt's own tasks or a plan's entries:
+ * what the props schema refuses, then the contract's checks. Empty for props the component can
+ * render.
  */
-export const ownGanttProblems = (props: unknown): readonly PropsProblem[] => {
+export const ganttProblems = (props: unknown): readonly PropsProblem[] => {
   if (!isRecord(props)) return [{ path: "/", message: "the props are not an object" }];
-  const tasks = Array.isArray(props.tasks) ? props.tasks : [];
   return [
     ...fieldProblems(props, "", PROPS),
-    ...tasks.flatMap(taskProblems),
+    ...elementProblems(props.tasks),
     ...ganttPropsProblems(props, "agent"),
   ];
 };
 
 /** The item's props, once they have no problem; else it throws, naming the item and each one. */
-export const ownGanttOf = (item: {
+export const ganttPropsOf = (item: {
   readonly id: string;
   readonly props: unknown;
-}): GanttOwnProps => {
-  const problems = ownGanttProblems(item.props);
+}): GanttProps => {
+  const problems = ganttProblems(item.props);
   if (problems.length > 0) {
     const listed = problems.map(({ path, message }) => `${path}: ${message}`).join("; ");
     throw new Error(`the Gantt "${item.id}" refuses its props: ${listed}`);
   }
-  return item.props as GanttOwnProps;
+  return item.props as GanttProps;
 };
