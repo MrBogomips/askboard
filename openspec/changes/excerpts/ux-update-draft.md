@@ -2,7 +2,7 @@
 
 Six blocks for `docs/ux-askboard-2026-10-27/EXPERIENCE.md`, each for one of the proposal's open questions. A block applies only if the PO accepts the choice made there; a question the PO reverses leaves its block unapplied, and the change is revised with `/opsx:update`. Each block quotes the current text exactly, then gives the replacement. DESIGN.md is unchanged: open question A8 defers highlighting without changing what the first version ships, and every look E5 builds is already in DESIGN.md's Components.
 
-**Not applied yet.** Task 9.1 applies the accepted blocks.
+**Not applied yet.** The PO accepted every open question these blocks serve on 2026-11-01 (decisions-5), so all six apply; task 9.1 applies them, after E3 and E4 merge and this branch rebases. E8 (`settings-languages`) also edits the passages of blocks 4 and 6.2 (X2, seen by the PO); its UX draft says how its own blocks apply when these are applied first.
 
 How to apply: replace each quoted passage (or insert where a block says so), then run `openspec validate --all --strict --no-interactive`.
 

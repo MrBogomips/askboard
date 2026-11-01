@@ -2,7 +2,7 @@
 
 Six blocks, each for one of the proposal's open questions. A block applies only if the PO accepts the choice made there; a question the PO reverses leaves its block unapplied, and the change is revised with `/opsx:update`. Each block quotes the current text exactly, then gives the replacement. ADs are amended in place; none is added or renumbered.
 
-**Not applied yet.** Task 9.1 applies the accepted blocks.
+**Not applied yet.** The PO accepted every open question these blocks serve on 2026-11-01 (decisions-5), so all six apply; task 9.1 applies them, after E3 and E4 merge and this branch rebases.
 
 Files: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` (blocks 1 to 5 and 6.1) and `docs/architecture-askboard-2026-10-27/SOLUTION-DESIGN.md` (block 6.2 and 6.3), which the spine wins over and which must not contradict it.
 
@@ -122,7 +122,7 @@ Replacement:
 Add, as the last entry of `sources`:
 
 ```text
-  - 'OpenSpec change excerpts, proposal.md, open questions A1, A2, A4, A5, A6 and B1 (accepted by the PO, <date>)'
+  - 'OpenSpec change excerpts, proposal.md, open questions A1, A2, A4, A5, A6 and B1 (accepted by the PO, 2026-11-01)'
 ```
 
 ### 6.2 SOLUTION-DESIGN §4.5, "Editor arguments" (block 3)
