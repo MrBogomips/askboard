@@ -6,7 +6,7 @@
 // panel for a task it holds no entry for counts the entry it would create. Plain ECMAScript.
 
 import type { GanttProps } from "@askboard/contract";
-import { canPrecede } from "./edits.ts";
+import { precedenceIn } from "./edits.ts";
 import { type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
 
 export type PanelBox = {
@@ -48,12 +48,12 @@ export const panelBoxes = (
   taskId: string,
   held: readonly string[],
 ): readonly PanelBox[] => {
-  const pending = withHeld(value, taskId, held);
-  const pendingRows = rowsWithHeld(rows, taskId, held);
+  // The rows and the dependents counted once for every box, not once per box.
+  const precedes = precedenceIn(withHeld(value, taskId, held), rowsWithHeld(rows, taskId, held));
   return rows
     .filter((row) => row.id !== taskId)
     .map((row) => {
-      const verdict = canPrecede(pending, pendingRows, taskId, row.id);
+      const verdict = precedes(taskId, row.id);
       return {
         id: row.id,
         label: row.label,

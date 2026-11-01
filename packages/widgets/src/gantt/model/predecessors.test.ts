@@ -1,13 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { GANTT_MAX_DEPENDENTS, GANTT_MAX_PREDECESSORS } from "@askboard/contract";
+import { GANTT_MAX_DEPENDENTS, GANTT_MAX_PREDECESSORS, type GanttProps } from "@askboard/contract";
 import {
   ganttBoardDocument,
   ganttPlanBoardDocument,
   ganttPlanEditedValue,
   treeEditedValue,
 } from "@askboard/contract/fixtures";
+import { canPrecede, setPredecessors } from "./edits.ts";
 import { panelBoxes, toggled } from "./predecessors.ts";
-import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planTaskRows } from "./tasks.ts";
+import {
+  type GanttOwnProps,
+  type GanttPlanProps,
+  type GanttRow,
+  ownTaskRows,
+  planTaskRows,
+} from "./tasks.ts";
 
 const [question] = ganttBoardDocument.items;
 const [release] = question.props.items;
@@ -153,6 +160,75 @@ describe("a plan's panel", () => {
     // Billing's panel, Architecture unchecked: 49 left, so it may be checked again.
     expect(architecture("billing", [])).toBeUndefined();
     expect(architecture("billing", ["architecture"])).toBeUndefined();
+  });
+});
+
+describe("the boxes against canPrecede", () => {
+  /** Each box's reason, and `canPrecede`'s for its candidate over the Gantt holding `held`. */
+  const compared = (
+    value: GanttProps,
+    rows: readonly GanttRow[],
+    held: GanttProps,
+    heldRows: readonly GanttRow[],
+    taskId: string,
+  ) => {
+    const listed = heldRows.find((row) => row.id === taskId)?.dependencies ?? [];
+    return panelBoxes(value, rows, taskId, listed).map((box) => {
+      const verdict = canPrecede(held, heldRows, taskId, box.id);
+      return [box.id, box.reason, verdict.ok ? undefined : verdict.reason];
+    });
+  };
+
+  const expectSame = (pairs: readonly (readonly unknown[])[]) => {
+    for (const [id, box, check] of pairs) expect({ id, box }).toEqual({ id, box: check });
+  };
+
+  test("agree box for box on a Gantt's own tasks, each panel as it opens and with boxes changed", () => {
+    for (const value of [SENT, LIMITS]) {
+      const rows = ownTaskRows(value);
+      for (const row of rows) expectSame(compared(value, rows, value, rows, row.id));
+    }
+    const linked = setPredecessors(SENT, SENT, "billing", ["ux", "prototype"]);
+    expectSame(compared(SENT, ownTaskRows(SENT), linked, ownTaskRows(linked), "billing"));
+    const fewer = setPredecessors(LIMITS, LIMITS, "hub", ["p1", "p2"]);
+    expectSame(compared(LIMITS, ownTaskRows(LIMITS), fewer, ownTaskRows(fewer), "hub"));
+  });
+
+  test("agree box for box on a plan, a package added in its Tree included", () => {
+    for (const value of [PLAN, ganttPlanEditedValue]) {
+      const rows = editedRows(value);
+      for (const row of rows) expectSame(compared(value, rows, value, rows, row.id));
+    }
+    const linked = setPredecessors(PLAN, PLAN, "u-1", ["architecture", "prototype"]);
+    expectSame(compared(PLAN, editedRows(PLAN), linked, editedRows(linked), "u-1"));
+  });
+
+  test("are counted once per panel: 500 tasks at the limits take well under the time of a frame", () => {
+    // Ten layers of fifty, each task after the first layer after the fifty before it: fifty
+    // predecessors and fifty dependents each. The panel opens for the last task, which has none.
+    const tasks = Array.from({ length: 500 }, (_, index) => {
+      const layer = index === 499 ? 0 : Math.floor(index / 50);
+      const before = Array.from({ length: 50 }, (_, k) => `t${(layer - 1) * 50 + k}`);
+      return {
+        id: `t${index}`,
+        label: `Task ${index}`,
+        duration: 1,
+        ...(layer === 0 ? {} : { dependencies: before }),
+      };
+    });
+    const value: GanttOwnProps = { start: "2026-11-02", tasks };
+    const rows = ownTaskRows(value);
+    const from = performance.now();
+    const boxes = panelBoxes(value, rows, "t499", []);
+    const took = performance.now() - from;
+    expect(boxes).toHaveLength(499);
+    // The first eight layers are at the dependents limit; the ninth has 49, the last none.
+    expect(boxes.filter((box) => box.reason !== undefined).map((box) => box.id)).toEqual(
+      Array.from({ length: 400 }, (_, index) => `t${index}`),
+    );
+    // A bound far above what this machine gives (a few milliseconds): it catches a regression by
+    // an order of magnitude, as a count per candidate was (about 350 ms), not a busy machine.
+    expect(took).toBeLessThan(50);
   });
 });
 

@@ -261,9 +261,16 @@ const OK: Precedence = Object.freeze({ ok: true });
 
 const refused = (reason: string): Precedence => Object.freeze({ ok: false, reason });
 
+/** The rows by task ID, the first row of an ID kept. */
+const rowsById = (rows: readonly GanttRow[]): ReadonlyMap<string, GanttRow> => {
+  const byId = new Map<string, GanttRow>();
+  for (const row of rows) if (!byId.has(row.id)) byId.set(row.id, row);
+  return byId;
+};
+
 /** A task's row; a task that is no row is refused. */
-const rowOf = (rows: readonly GanttRow[], taskId: string): GanttRow => {
-  const row = rows.find((candidate) => candidate.id === taskId);
+const rowOf = (byId: ReadonlyMap<string, GanttRow>, taskId: string): GanttRow => {
+  const row = byId.get(taskId);
   if (row === undefined) throw new RangeError(`the Gantt has no task ${JSON.stringify(taskId)}`);
   return row;
 };
@@ -312,6 +319,39 @@ const walkFrom = (rows: readonly GanttRow[], taskId: string): ReadonlySet<string
 };
 
 /**
+ * `canPrecede` over one Gantt and its rows, for any task and candidate: the rows by ID and the
+ * dependents counted once, so that a panel asking for every other task in turn counts them once.
+ */
+export const precedenceIn = (
+  value: GanttProps,
+  rows: readonly GanttRow[],
+): ((taskId: string, candidateId: string) => Precedence) => {
+  const byId = rowsById(rows);
+  const dependents = dependentCounts(value);
+  return (taskId, candidateId) => {
+    const task = rowOf(byId, taskId);
+    const candidate = rowOf(byId, candidateId);
+    if (candidateId === taskId) return refused(`${task.label} cannot come before itself`);
+    const listed = task.dependencies;
+    if (listed.includes(candidateId)) return OK;
+    if (walkFrom(rows, taskId).has(candidateId)) {
+      return refused(`${candidate.label} already depends on ${task.label}`);
+    }
+    if (listed.length >= GANTT_MAX_PREDECESSORS) {
+      return refused(
+        `${task.label} already has ${GANTT_MAX_PREDECESSORS} predecessors, the most a task can have`,
+      );
+    }
+    if ((dependents.get(candidateId) ?? 0) >= GANTT_MAX_DEPENDENTS) {
+      return refused(
+        `${candidate.label} already has ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have`,
+      );
+    }
+    return OK;
+  };
+};
+
+/**
  * Whether the predecessors panel may check `candidate` for `task`, or why not: it would close a
  * cycle, or break the predecessor or the dependents limit. `rows` are the Gantt's tasks as the
  * grid shows them, a plan's its Tree's leaves, which name the tasks and give their predecessors;
@@ -323,24 +363,4 @@ export const canPrecede = (
   rows: readonly GanttRow[],
   taskId: string,
   candidateId: string,
-): Precedence => {
-  const task = rowOf(rows, taskId);
-  const candidate = rowOf(rows, candidateId);
-  if (candidateId === taskId) return refused(`${task.label} cannot come before itself`);
-  const listed = task.dependencies;
-  if (listed.includes(candidateId)) return OK;
-  if (walkFrom(rows, taskId).has(candidateId)) {
-    return refused(`${candidate.label} already depends on ${task.label}`);
-  }
-  if (listed.length >= GANTT_MAX_PREDECESSORS) {
-    return refused(
-      `${task.label} already has ${GANTT_MAX_PREDECESSORS} predecessors, the most a task can have`,
-    );
-  }
-  if ((dependentCounts(value).get(candidateId) ?? 0) >= GANTT_MAX_DEPENDENTS) {
-    return refused(
-      `${candidate.label} already has ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have`,
-    );
-  }
-  return OK;
-};
+): Precedence => precedenceIn(value, rows)(taskId, candidateId);
