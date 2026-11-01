@@ -125,6 +125,29 @@ describe("the Gantt's schemas", () => {
     expect(GANTT_PLAN_ESTIMATES).toEqual(["optimistic", "mostLikely", "pessimistic"]);
     expect(GANTT_ANSWER_DERIVED).toEqual({ finish: "finishDate", criticalPath: "critical" });
   });
+
+  test("write each limit as its constant says, in both schemas", () => {
+    const { $defs } = ganttPropsSchema;
+    const [duration] = ganttChangesSchema.$defs.set.properties.value.anyOf;
+    expect({
+      tasks: $defs.ownTasks.maxItems,
+      entries: $defs.planTasks.maxProperties,
+      predecessors: $defs.predecessors.maxItems,
+      label: $defs.ownTask.properties.label.maxLength,
+      duration: [
+        $defs.ownTask.properties.duration.minimum,
+        $defs.ownTask.properties.duration.maximum,
+      ],
+      changedDuration: [duration?.minimum, duration?.maximum],
+    }).toEqual({
+      tasks: GANTT_MAX_TASKS,
+      entries: GANTT_MAX_TASKS,
+      predecessors: GANTT_MAX_PREDECESSORS,
+      label: GANTT_LABEL_MAX_CHARS,
+      duration: [GANTT_MIN_DURATION, GANTT_MAX_DURATION],
+      changedDuration: [GANTT_MIN_DURATION, GANTT_MAX_DURATION],
+    });
+  });
 });
 
 describe("the Gantt's props", () => {

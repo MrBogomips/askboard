@@ -3,7 +3,8 @@
 // the dependents limit, a plan's link to its Tree, and what a change may set. Problems name the
 // task, the plan or the operation and the field. Unknown tasks and cycles are no problem: they are
 // the compute graph's warnings (AD-13). Each check skips a part the schema refuses, so it runs on
-// any value. Plain ECMAScript.
+// any value, except an operation of AD-20's other kinds, which the schema refuses without naming
+// it. Plain ECMAScript.
 
 import { VIEW_ID_PREFIX } from "../../constants.ts";
 import type { Problem } from "../../validate.ts";
@@ -201,6 +202,12 @@ const ownTaskIds = (props: unknown): ReadonlySet<unknown> | undefined => {
   return new Set(props.tasks.map((task) => (isRecord(task) ? task.id : undefined)));
 };
 
+/** The fields a change may set on a task. */
+const FIELDS: ReadonlySet<string> = new Set(["duration", "start", "dependencies"]);
+
+/** AD-20's operations a Gantt never takes: it adds, removes or moves no task. */
+const NOT_SET: ReadonlySet<unknown> = new Set(["add", "remove", "move"]);
+
 const valueProblem = (task: string, field: string, value: unknown): string | undefined => {
   if (field === "duration") {
     const whole = Number.isSafeInteger(value);
@@ -212,7 +219,7 @@ const valueProblem = (task: string, field: string, value: unknown): string | und
     if (value === null || isGanttDate(value)) return undefined;
     return `task ${task}: start takes ${DAYS} or null, not ${JSON.stringify(value)}`;
   }
-  if (value === null) return undefined;
+  if (field !== "dependencies" || value === null) return undefined;
   if (!Array.isArray(value) || !value.every((id) => typeof id === "string")) {
     return `task ${task}: dependencies takes a list of task IDs or null`;
   }
@@ -235,8 +242,19 @@ export const ganttChangesProblems = (
   const isPlan = isRecord(props) && props.workPackages !== undefined;
   const problems: Problem[] = [];
   changes.forEach((change, index) => {
+    if (isRecord(change) && NOT_SET.has(change.op)) {
+      const kind = `${change.op === "add" ? "an" : "a"} ${change.op}`;
+      problems.push({
+        path: `/${index}/op`,
+        message: `operation ${index} is ${kind}: a Gantt's changes are set operations only`,
+      });
+      return;
+    }
     if (!isRecord(change) || change.op !== "set" || typeof change.target !== "string") return;
-    const [item, task, field] = change.target.split(".") as [string, string, string];
+    const parts = change.target.split(".");
+    const [item, task, field] = parts as [string, string, string];
+    // A target of another form, or of another field, is the schema's.
+    if (parts.length !== 3 || !FIELDS.has(field)) return;
     const at = `/${index}/target`;
     if (item !== itemId) {
       problems.push({

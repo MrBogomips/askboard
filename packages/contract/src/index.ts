@@ -155,13 +155,13 @@ export {
   type ElementShape,
   elementChanges,
 } from "./widgets/element-diff.ts";
+// Widgets: the Gantt (gantt-widget).
 export {
   type GanttOrigin,
   ganttChangesProblems,
   ganttPlanLinkProblems,
   ganttPropsProblems,
 } from "./widgets/gantt/checks.ts";
-// Widgets: the Gantt (gantt-widget).
 export {
   GANTT_ANSWER_DERIVED,
   GANTT_FIRST_DATE,

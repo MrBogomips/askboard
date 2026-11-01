@@ -287,6 +287,33 @@ describe("validateGanttChanges", () => {
   test("refuses operations other than set through the schema", () => {
     const add = { op: "add", target: "schedule.u-1", value: {} };
     expect(validateGanttChanges("schedule", [add], PLAN).ok).toBe(false);
-    expect(ganttChangesProblems("schedule", [add], PLAN)).toEqual([]);
+  });
+
+  test("refuses a move, naming the operation and its kind", () => {
+    const move = { op: "move", target: "release.ux", parent: null, after: null };
+    const problems = problemsOf(
+      validateGanttChanges("release", [set("release.ux.start", null), move], OWN),
+    );
+    expect({ problems, found: says(problems, "/1/op", "operation 1", "move") }).toMatchObject({
+      found: true,
+    });
+    expect(ganttChangesProblems("schedule", [{ op: "add", target: "schedule.u-1" }], PLAN)).toEqual(
+      [
+        {
+          path: "/0/op",
+          message: "operation 0 is an add: a Gantt's changes are set operations only",
+        },
+      ],
+    );
+  });
+
+  test("leaves a field the schema refuses to the schema, saying nothing of another field", () => {
+    const problems = problemsOf(
+      validateGanttChanges("release", [set("release.ux.label", "UX")], OWN),
+    );
+    expect(problems.length).toBeGreaterThan(0);
+    // The schema's pattern lists the three fields; no problem reads the label as the predecessors.
+    expect(problems.filter((problem) => problem.message.includes("ux: dependencies"))).toEqual([]);
+    expect(ganttChangesProblems("release", [set("release.ux.label", "UX")], OWN)).toEqual([]);
   });
 });
