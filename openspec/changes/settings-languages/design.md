@@ -2,7 +2,7 @@
 
 ## Context
 
-Motivation and scope: proposal.md. The PO's open questions are in the proposal (A1 to A10, B1 to B17); each decision below names the ones it rests on.
+Motivation and scope: proposal.md. The PO's open questions are in the proposal (A1 to A10, B1 to B17), all accepted as proposed on 2026-11-01; each decision below names the ones it rests on.
 
 **What `main` holds at 92ca203** (E1, compute-engine, early benchmark):
 

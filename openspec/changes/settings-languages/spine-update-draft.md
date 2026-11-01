@@ -2,7 +2,7 @@
 
 Six blocks: five for the proposal's open questions A1 to A6, and the front matter. A block applies only if the PO accepts the choice made there; a question the PO reverses leaves its block unapplied, and the change is revised with `/opsx:update`. Each block quotes the current text exactly, then gives the replacement. ADs are amended in place; none is added or renumbered.
 
-**Not applied yet.** Task 11.1 applies the accepted blocks.
+**Accepted, not applied yet.** The PO accepted every block on 2026-11-01 (decisions-5: open questions A1 to A6, as proposed); task 11.1 applies them.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`. SOLUTION-DESIGN.md needs no change: its §4.4 "Settings (AD-14)" says nothing these blocks contradict.
 
@@ -134,5 +134,5 @@ updated: '<apply date>'
 And after the last `sources` entry, add:
 
 ```text
-  - 'OpenSpec change settings-languages, proposal.md, open questions A1 to A6: configuration files, the first-ask folders, `with-references` and locale formats (<the PO''s answer date>)'
+  - 'OpenSpec change settings-languages, proposal.md, open questions A1 to A6: configuration files, the first-ask folders, `with-references` and locale formats (accepted by the PO, 2026-11-01)'
 ```

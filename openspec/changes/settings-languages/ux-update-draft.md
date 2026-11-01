@@ -2,7 +2,7 @@
 
 Nine blocks, each for one of the proposal's open questions in group A. A block applies only if the PO accepts the choice made there; a question the PO reverses leaves its block unapplied, and the change is revised with `/opsx:update`. Each block quotes the current text exactly, then gives the replacement.
 
-**Not applied yet.** Task 11.2 applies the accepted blocks.
+**Accepted, not applied yet.** The PO accepted every block on 2026-11-01 (decisions-5: open questions A1 and A7 to A10, as proposed); task 11.2 applies them.
 
 Files: `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 8) and `docs/ux-askboard-2026-10-27/DESIGN.md` (block 9). Both win over the mockups, which are not changed: the settings mock's sample files and the missing key names are superseded by blocks 5 and 9.
 
