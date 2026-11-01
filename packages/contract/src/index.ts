@@ -400,3 +400,21 @@ export {
   type TreePertProps,
   treeDerivedFields,
 } from "./widgets/tree/index.ts";
+// Context, E5 (excerpts, design decision 2): the context limits of proposal B4, exported in one
+// appended block.
+
+export {
+  ANCHOR_FILE_MAX_BYTES,
+  ASK_IMAGES_MAX_BYTES,
+  CONTEXT_READS_MAX,
+  CONTEXT_RESOLVE_BUDGET_MS,
+  CONTEXT_TITLE_MAX_CHARS,
+  EXCERPT_MAX_BYTES,
+  EXCERPT_MAX_LINES,
+  IMAGE_ALT_MAX_CHARS,
+  IMAGE_MAX_BYTES,
+  POINTER_MAX_CHARS,
+  SOURCE_VIEW_MAX_BYTES,
+  SOURCE_VIEW_MAX_LINES,
+  URL_MAX_CHARS,
+} from "./limits.ts";
