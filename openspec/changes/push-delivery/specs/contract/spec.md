@@ -94,7 +94,7 @@ The contract SHALL provide `originMessage`, which builds the origin message from
 - **THEN** it compiles, and its message equals the one `board-host` sends for the same ask
 
 ### Requirement: New schemas are standalone
-E4's schemas SHALL be standalone: compiled only by the validate functions that use them, on first call, with the validator's strict options; listed in no existing schema set or ID table; and registered by no module when it is imported. Additions to the contract's entry modules SHALL be new export blocks only (AD-7).
+E4's schemas SHALL be standalone: compiled only by the validate functions that use them, on first call, with the validator's strict options; listed in no existing schema set or ID table; and registered by no module when it is imported. The closed event alone is the output format's, in its set and ID table at the ask lifecycle's minor 1.1 (task 14.5). Additions to the contract's entry modules SHALL be new export blocks only (AD-7).
 
 #### Scenario: Importing the contract
 - **WHEN** a module imports the contract's entry points and calls nothing
