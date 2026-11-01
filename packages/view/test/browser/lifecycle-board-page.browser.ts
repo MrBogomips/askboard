@@ -1,12 +1,13 @@
 // The board page of the ask lifecycle, in each engine (ask-lifecycle, task 6.1; view spec: Draft
 // mirror and restore, Leave-page prompt, Board banners): a reload and a takeover keep a ready
-// answer, a chosen option and a note; an act sent across a drop lands once, under one action ID;
+// answer, a chosen option and a note, and the question in view; an act sent across a drop lands
+// once, under one action ID;
 // the leave-page prompt is armed and disarmed; and the agent closing an ask with unsent work locks
 // the board with the Closed banner, whose copy puts the work on the clipboard as text. Every
 // scenario runs on the session process.
 
 import { describe, expect, test } from "bun:test";
-import { submittedAsk, twoAsk } from "./fixtures/lifecycle-asks.ts";
+import { onePerViewAsk, submittedAsk, twoAsk } from "./fixtures/lifecycle-asks.ts";
 import {
   enabledCount,
   eventually,
@@ -88,6 +89,28 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await first.banner(/moved/i).first().waitFor({ timeout: STEP_TIMEOUT_MS });
         await expectWork(second);
         expect(sentActs(run)).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the question in view comes back after a reload and after a takeover, and nothing was sent",
+      async () => {
+        const run = await start(lifecycleScenario(onePerViewAsk, dist));
+        const ids = ["q1", "q2", "q3", "q4", "q5"];
+        const first = await openBoard(run, ids);
+        await navigatorOf(first).getByRole("button", { name: "Next", exact: true }).click();
+        await navigatorOf(first).getByRole("button", { name: "Next", exact: true }).click();
+        await inView(first, "Question 3 of 5", "q3");
+        await mirrored(run, (record) => record.inView === "q3", "the question in view");
+        await first.page.reload();
+        await openBoardAgain(first, ids);
+        await inView(first, "Question 3 of 5", "q3");
+        const second = await openBoard(run, ids);
+        await first.banner(/moved/i).first().waitFor({ timeout: STEP_TIMEOUT_MS });
+        await inView(second, "Question 3 of 5", "q3");
+        expect(sentActs(run)).toEqual([]);
+        expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
     );
@@ -189,9 +212,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   });
 }
 
+// One question per view's navigator.
+const navigatorOf = (board: Board) =>
+  board.view.getByRole("navigation", { name: "Question navigator" });
+
+// The navigator names the question in view, and its card is the one shown.
+const inView = async (board: Board, position: string, id: string) => {
+  await navigatorOf(board)
+    .getByText(position, { exact: true })
+    .waitFor({ timeout: STEP_TIMEOUT_MS });
+  await card(board, id).waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+};
+
 // After a reload the same tab shows the board again.
-const openBoardAgain = async (board: Board) => {
-  for (const id of QUESTIONS) {
+const openBoardAgain = async (board: Board, ids: readonly string[] = QUESTIONS) => {
+  for (const id of ids) {
     await board.view
       .locator(`[data-askboard-question="${id}"]:not([aria-busy="true"])`)
       .waitFor({ state: "attached", timeout: STEP_TIMEOUT_MS * 2 });

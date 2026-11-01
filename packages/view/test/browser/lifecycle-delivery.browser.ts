@@ -217,6 +217,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .first()
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await barButton(board, "Submit").isDisabled()).toBe(true);
+        // The switch to immediate delivery waits as Submit does (Mode-switch confirmation).
+        expect(await mode(board, "Immediate").isDisabled()).toBe(true);
+        expect(await mode(board, "Submitted").isDisabled()).toBe(false);
         const updates = barButton(board, "1 update needs a choice");
         await updates.click();
         await eventually(() => focused(headingOf(board, "cache")), "focus on the changed question");

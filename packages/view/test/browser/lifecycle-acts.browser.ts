@@ -176,6 +176,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             note: "The compliance team decides this.",
           }),
         ]);
+        expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
     );
@@ -199,6 +200,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await menuItem(board, "Decline").getAttribute("aria-disabled")).toBe("true");
         expect(await buttonOf(board, "database", "Postpone").isDisabled()).toBe(true);
         await board.page.keyboard.press("Escape");
+        expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
     );
@@ -245,6 +247,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         for (const time of times) expect(time).toMatch(/^\d{1,2}:\d{2} [AP]M$/);
         expect(await viewText(board, "The agent updated this").count()).toBe(0);
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
+        expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
     );
