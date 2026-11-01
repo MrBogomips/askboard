@@ -26,6 +26,7 @@ sources:
   - 'OpenSpec change ask-lifecycle: areas as container items, answers the agent records, action IDs on board commands and the 120 s grace period (2026-10-31)'
   - 'OpenSpec change widget-answers: when the changes of an answer are computed, the answer too large for one result, and fetch in reference addressing (2026-11-01)'
   - 'OpenSpec change molecules, proposal.md, open questions 3 to 7, 11 and 14: the molecule definition format, the expansion and its map, where per-molecule schemas live, and linked edits in one draft update (accepted by the PO, 2026-11-01)'
+  - 'OpenSpec change gantt-widget, proposal.md, open question 6: the view builds the board graph from the board document with the values of the draft record, recalculated in place where an edit changes only input values, and the baseline of a Gantt plan from the document as sent (accepted by the PO, 2026-10-31; applied 2026-11-01)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -400,7 +401,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **References:**
     - A reference is the item ID, then at most one child ID, which is unique within its item (AD-7), then a `*` for each further child level, then the field: `[wbs.ux.optimistic]`, `[wbs.design.*.expected]`, `[wbs.*.expected]`. A `*` stands for the children of the node before it, in document order. A Tree move does not change a reference. Spreadsheet cells are `[item-id.A1]`, which no field name may match. A range of cells is `[item-id.A1:B3]`: it reads row by row and holds at most 65,536 cells. The grammar lives in `contract`.
   - **The graph:**
-    - `compute` builds a board's whole graph from the board document alone, through `buildGraph(boardDocument)`. It is evaluated in the view on each edit.
+    - `compute` builds a board's whole graph from the board document alone: `boardGraphSource` maps the board's items onto a graph source, which `buildGraph` reads. The view builds it from the board document with the draft record's values in place of the items the user edited, and after each edit builds it again or, where the edit changes only input values the graph already holds, recalculates it in place. The Gantt plan's baseline is the same graph built from the board document as sent.
     - Widgets read and write graph values and define no node. A node exists whether or not its widget is mounted.
     - `ask-core`'s send-time check calls the same `buildGraph`. A missing reference, a wildcard that matches no node, or a cycle does not refuse the ask: the result lists it as a warning naming the item ID (AD-6), and the board shows that formula as an error (FR-14).
   - **Formulas:**
