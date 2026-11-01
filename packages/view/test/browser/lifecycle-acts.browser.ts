@@ -1,6 +1,7 @@
 // Postpone, "More", Explain, Decline and the follow-up thread, in each engine (ask-lifecycle, task
 // 6.5; view spec: Postpone, Decline, Explain, Follow-up thread, Unread replies, Agent content as
-// text): undo in both delivery modes, focus to the question's heading, the composer's keys, replies
+// text): undo in both delivery modes, a decline held over the held undo of a sent postpone, which
+// gives the undo back when taken back, focus to the question's heading, the composer's keys, replies
 // with author and time, Explain disabled until its reply, a reply raising no agent-change notice,
 // and an off-screen reply counted in the header. Every scenario runs on the session process, and
 // the agent's side is read and written through `collect` and `update`.
@@ -244,6 +245,48 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         for (const time of times) expect(time).toMatch(/^\d{1,2}:\d{2} [AP]M$/);
         expect(await viewText(board, "The agent updated this").count()).toBe(0);
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "in submitted delivery Decline on a sent postpone whose undo is held holds a decline over the undo; chosen again, the undo is back; Submit sends the decline, which closes the postponed question (AD-20)",
+      async () => {
+        const run = await start(lifecycleScenario(submittedAsk, dist));
+        const board = await openBoard(run, ["database", "cache", "audit"]);
+        await buttonOf(board, "audit", "Postpone").click();
+        await barButton(board, "Submit").click();
+        await actsSent(run, 1);
+        // The postpone is sent and the board heard it: Postpone shows it, and can undo it.
+        await eventually(
+          async () =>
+            (await barButton(board, "Submit").isDisabled()) &&
+            !(await buttonOf(board, "audit", "Postpone").isDisabled()) &&
+            (await pressed(board, "audit")) === "true",
+          "the postpone sent",
+        );
+        await buttonOf(board, "audit", "Postpone").click();
+        await outlineSays(board, "audit", "Unanswered");
+        await chooseFromMore(board, "audit", "Decline");
+        await outlineSays(board, "audit", "Declined");
+        await chooseFromMore(board, "audit", "Decline");
+        await outlineSays(board, "audit", "Unanswered");
+        expect(await pressed(board, "audit")).toBe("false");
+        await chooseFromMore(board, "audit", "Decline");
+        await outlineSays(board, "audit", "Declined");
+        expect(sentActs(run)).toHaveLength(1);
+        await barButton(board, "Submit").click();
+        const commands = await actsSent(run, 2);
+        expect(commands[1]?.acts).toEqual([
+          { type: "decline", itemId: "audit", rev: 1, when: expect.stringMatching(/Z$/) },
+        ]);
+        await card(board, "audit").getByText("sent", { exact: true }).waitFor();
+        const { events } = await run.session.collect();
+        expect(events).toEqual([
+          expect.objectContaining({ type: "postponed", itemId: "audit" }),
+          expect.objectContaining({ type: "answer", itemId: "audit", declined: true }),
+        ]);
+        expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
     );

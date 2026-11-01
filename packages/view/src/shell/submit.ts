@@ -70,14 +70,34 @@ const actOf = ({ question, work }: HeldWork, values: DraftRecord, when: string):
   }
 };
 
-/** What Submit sends: each held act, in order, stamped with the time of the click (FR-19). */
+// The held undo of a sent postpone beneath a note alone, as its reopen at the undo's place: a note
+// leaves a postponed question postponed, so the undo must go too. An answer or a decline held over
+// an undo goes alone, since the core takes either on a postponed or declined question and either
+// closes it (AD-20).
+const undoOf = ({ question, work }: HeldWork): readonly Ordered[] =>
+  work.held.act === "note" && work.undo !== undefined
+    ? [{ order: work.undo.order, acts: [{ type: "reopen", itemId: question.id }] }]
+    : [];
+
+type Ordered = { readonly order: number; readonly acts: readonly ViewAct[] };
+
+/**
+ * What Submit sends: each held act, in the order the user produced them, stamped with the time of
+ * the click (FR-19).
+ */
 export const submitActsOf = (
   held: readonly HeldWork[],
   values: DraftRecord,
   at: Date,
 ): ViewAct[] => {
   const when = at.toISOString();
-  return held.flatMap((each) => actOf(each, values, when));
+  return held
+    .flatMap((each): Ordered[] => [
+      ...undoOf(each),
+      { order: each.work.held.order, acts: actOf(each, values, when) },
+    ])
+    .sort((a, b) => a.order - b.order)
+    .flatMap(({ acts }) => acts);
 };
 
 export type SubmitInputs = {

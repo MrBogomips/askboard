@@ -220,6 +220,26 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
     );
   });
 
+  test("a note held over the undo of a sent postpone leaves the question unanswered, as Submit will", () => {
+    const state = stateOf("partly-answered", [
+      { itemId: "region", rev: 1, state: "postponed" },
+      ...ids.slice(1).map((itemId) => ({ itemId, rev: 1, state: "open" })),
+    ]);
+    const work = new Map<string, QuestionWork>([
+      [
+        "region",
+        {
+          rev: 1,
+          note: "Ask ops.",
+          held: { act: "note", order: 1 },
+          undo: { act: "reopen", order: 0 },
+        },
+      ],
+    ]);
+    expect(markOf("region", state, work)).toBe("unanswered");
+    expect(postponedWarningOf(lifecycleBoardDocument, state, work)).toBeUndefined();
+  });
+
   test("the postponed warning counts the postponed questions still open", () => {
     expect(postponedWarningOf(lifecycleBoardDocument, allOpen, noWork)).toBeUndefined();
     const state = stateOf("partly-answered", [

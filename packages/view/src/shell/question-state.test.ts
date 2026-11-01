@@ -337,6 +337,16 @@ describe("Postpone, Decline and Explain on the card (FR-4, FR-10; task 6.5)", ()
     });
   });
 
+  test("an act held over the undo of a sent postpone or decline shows the question undone", () => {
+    expect(actions({ status: postponed, held: "note", undone: true })).toMatchObject({
+      postponed: false,
+      canPostpone: true,
+    });
+    expect(actions({ status: postponed, held: "answer", undone: true }).postponed).toBe(false);
+    expect(actions({ status: postponed, held: "note" }).postponed).toBe(true);
+    expect(actions({ status: declined, held: "answer", undone: true }).declined).toBe(false);
+  });
+
   test("Postpone is disabled on an answered, declined or ready question; Decline on an answered or ready one", () => {
     expect(actions({ status: answered("sent") })).toMatchObject({
       canPostpone: false,

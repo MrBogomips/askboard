@@ -60,8 +60,9 @@ type Work = ReadonlyMap<string, QuestionWork>;
 /**
  * The question's mark, as Submit will leave it: an answer held for Submit is ready, a revision's
  * included; a held decline is declined and a held postpone postponed; a held undo of a sent
- * postpone or decline is unanswered; a note held alone leaves the question as it is. Otherwise
- * what the state says, open being unanswered.
+ * postpone or decline is unanswered; a note held alone leaves the question as it is, or
+ * unanswered when it sits over such an undo. Otherwise what the state says, open being
+ * unanswered.
  */
 export const markOf = (questionId: string, state: LifecycleBoardState, work: Work): Mark => {
   const held = work.get(questionId)?.held?.act;
@@ -69,7 +70,7 @@ export const markOf = (questionId: string, state: LifecycleBoardState, work: Wor
   if (held === "answer") return "ready";
   if (held === "decline") return "declined";
   if (held === "postpone") return "postponed";
-  if (held === "reopen") return "unanswered";
+  if (held === "reopen" || work.get(questionId)?.undo !== undefined) return "unanswered";
   if (status === "answered" || status === "declined" || status === "postponed") return status;
   return "unanswered";
 };

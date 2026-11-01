@@ -98,6 +98,27 @@ describe("the lifecycle draft beside the draft record (ask-lifecycle, design dec
     expect(board.work("rollout")?.held).toEqual({ act: "reopen", order: 2 });
   });
 
+  test("an edit that makes an act held over the undo of a sent postpone not ready holds the undo again; the record holds the act alone", () => {
+    const { board, values, record } = setUp();
+    const undo = { act: "reopen", order: 0 } as const;
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 1 }, undo }));
+    values.set("region", ["EU"]);
+    expect(board.work("region")).toEqual({ rev: 1, held: undo });
+    board.edit("payment", 1, () => ({
+      rev: 1,
+      note: "Ask",
+      held: { act: "note", order: 2 },
+      undo,
+    }));
+    expect(record().questions.payment).toEqual({
+      rev: 1,
+      note: "Ask",
+      held: { act: "note", order: 2 },
+    });
+    board.edit("payment", 1, (work) => ({ ...work, note: "Ask ops" }));
+    expect(board.work("payment")).toEqual({ rev: 1, note: "Ask ops", held: undo });
+  });
+
   test("the composer's text does not touch a ready answer", () => {
     const { board } = setUp();
     board.edit("region", 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));

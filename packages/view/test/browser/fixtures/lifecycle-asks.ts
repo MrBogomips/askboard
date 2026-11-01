@@ -78,6 +78,13 @@ export const twoAsk: Ask = {
   items: [database(), plain("cache", "Should the order service cache reads?", "Cache")],
 };
 
+/** Two questions without areas, in submitted delivery: one delete leaves the single board. */
+export const submittedTwoAsk: Ask = {
+  ...twoAsk,
+  askId: "two-submitted-b8c9",
+  delivery: "submitted",
+};
+
 /** Three questions without areas, in submitted delivery. */
 export const submittedAsk: Ask = {
   askId: "submitted-g7h8",

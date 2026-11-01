@@ -157,6 +157,8 @@ export type ActionInputs = {
   readonly status: LifecycleQuestionStatus | undefined;
   /** The act held for Submit on the question, if any. */
   readonly held: HeldAct["act"] | undefined;
+  /** The held act sits over the held undo of the sent postpone or decline. */
+  readonly undone?: boolean;
   /** A command of the card's acts is on its way. */
   readonly sending: boolean;
   readonly load: Load;
@@ -183,15 +185,16 @@ export type CardActions = {
  * command is on its way or a notice waits. Explain is disabled until its reply arrives (F-103).
  */
 export const cardActions = (inputs: ActionInputs): CardActions => {
-  const { status, held, sending, load, lock, pending, explaining } = inputs;
+  const { status, held, undone = false, sending, load, lock, pending, explaining } = inputs;
   const state = status?.state;
   const usable = status !== undefined && load === "visible" && lock === undefined;
   const free = usable && !sending && !pending;
   const ready = held === "answer" || held === "decline";
+  const undo = held === "reopen" || undone;
   return {
-    postponed: (state === "postponed" && held !== "reopen") || held === "postpone",
+    postponed: (state === "postponed" && !undo) || held === "postpone",
     canPostpone: free && state !== "answered" && state !== "declined" && !ready,
-    declined: (state === "declined" && held !== "reopen") || held === "decline",
+    declined: (state === "declined" && !undo) || held === "decline",
     canDecline: free && state !== "answered" && held !== "answer",
     canExplain: usable && !explaining,
   };

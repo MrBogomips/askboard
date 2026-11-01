@@ -3,14 +3,16 @@
 // hidden on the single-question board, a ready question made not ready by an edit, Submit as one
 // command in the user's order, a note held alone until Submit, "Select recommended" never replacing
 // a choice, Submit blocked by an agent-change notice on held work, and the mode-switch confirmation
-// as a modal Alert Dialog whose scroll lock runs under the view's policy. Every scenario runs on the
-// session process.
+// as a modal Alert Dialog whose scroll lock runs under the view's policy; and a decline held before
+// the agent's deletes left the single-question board, taken back there without being sent. Every
+// scenario runs on the session process.
 
 import { describe, expect, test } from "bun:test";
 import {
   recommendedAsk,
   singleRequestingMoreAsk,
   submittedAsk,
+  submittedTwoAsk,
   twoAsk,
 } from "./fixtures/lifecycle-asks.ts";
 import {
@@ -28,13 +30,17 @@ import {
   barButton,
   buttonOf,
   card,
+  chooseFromMore,
   focused,
   headingOf,
   lifecycleScenario,
+  menuItem,
+  mirrored,
   noteOf,
   openBoard,
   optionOf,
   sentActs,
+  sentDrafts,
   viewText,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -252,6 +258,38 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "immediate delivery",
         );
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a decline held before the agent's deletes leave one question: chosen again on the single-question board, it is taken back from the draft and nothing is sent (AD-20)",
+      async () => {
+        const run = await start(lifecycleScenario(submittedTwoAsk, dist));
+        const board = await openBoard(run, ["database", "cache"]);
+        await chooseFromMore(board, "cache", "Decline");
+        await mirrored(
+          run,
+          (record) => record.questions.cache?.held?.act === "decline",
+          "the decline held",
+        );
+        await run.session.update([{ action: "delete", itemId: "database" }]);
+        await card(board, "database").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await viewText(board, "Delivery").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await buttonOf(board, "cache", "More").click({ timeout: STEP_TIMEOUT_MS });
+        expect(await menuItem(board, "Decline").getAttribute("aria-checked")).toBe("true");
+        const before = sentDrafts(run).length;
+        await menuItem(board, "Decline").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          () =>
+            sentDrafts(run)
+              .slice(before)
+              .some((record) => record.questions.cache?.held === undefined),
+          "the decline taken back from the draft",
+        );
+        expect(sentActs(run)).toEqual([]);
+        expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

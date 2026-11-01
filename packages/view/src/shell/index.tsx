@@ -57,13 +57,14 @@ const connectToBoardPage = (): ViewChannel => {
   return openChannel(app, () => app.connect(new FrameTransport(window.parent, window)));
 };
 
-// The work an act carried, which goes from the draft once the board page settles it as done.
+// The work an act carried, which goes from the draft once the board page settles it as done: an
+// answer, a decline or a note takes with it the undo it was held over.
 const CARRIED: Readonly<Partial<Record<string, readonly (keyof QuestionWork)[]>>> = {
-  answer: ["other", "optionNotes", "note", "held"],
-  decline: ["other", "optionNotes", "note", "held"],
+  answer: ["other", "optionNotes", "note", "held", "undo"],
+  decline: ["other", "optionNotes", "note", "held", "undo"],
   postpone: ["held"],
   reopen: ["held"],
-  note: ["note", "held"],
+  note: ["note", "held", "undo"],
 };
 
 const clearCarried = (

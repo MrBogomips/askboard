@@ -90,6 +90,36 @@ describe("what Submit sends (AD-20; task 6.6)", () => {
     ]);
   });
 
+  test("a note held over the undo of a sent postpone goes after its reopen, in the user's order; an answer or decline held over one goes alone, which the core takes on a postponed or declined question", () => {
+    const { values, board } = setUp();
+    const undo = (order: number) => ({ act: "reopen", order }) as const;
+    board.edit("rollout", 1, () => ({
+      rev: 1,
+      note: "Ask ops.",
+      held: { act: "note", order: 3 },
+      undo: undo(0),
+    }));
+    board.edit("erp-export", 1, () => ({ rev: 1, held: { act: "postpone", order: 1 } }));
+    values.set("region", ["EU"]);
+    board.edit("region", 1, (work) => ({
+      ...work,
+      held: { act: "answer", order: 4 },
+      undo: undo(2),
+    }));
+    board.edit("analytics", 1, () => ({
+      rev: 1,
+      held: { act: "decline", order: 6 },
+      undo: undo(5),
+    }));
+    expect(submitActsOf(heldWorkOf(document, board.get()), values.record(), AT)).toEqual([
+      { type: "reopen", itemId: "rollout" },
+      { type: "postpone", itemId: "erp-export", rev: 1 },
+      { type: "note", itemId: "rollout", rev: 1, note: "Ask ops.", when: WHEN },
+      { type: "answer", itemId: "region", rev: 1, choice: ["EU"], when: WHEN },
+      { type: "decline", itemId: "analytics", rev: 1, when: WHEN },
+    ]);
+  });
+
   test("an answer on work kept from an earlier revision names that revision; a postpone the current one", () => {
     const area = document.items[0] as ViewArea;
     const changed: ViewDocument = {

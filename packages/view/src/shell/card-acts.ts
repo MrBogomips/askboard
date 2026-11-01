@@ -7,7 +7,10 @@
 // or the note alone, ready for Submit, and pressing it again unmarks it (AD-20). "Accept
 // recommended" selects the recommended option and acts as "Answer" (FR-3, AD-10). Postpone and
 // Decline follow the delivery mode the same way, and pressed again undo: the undo of a sent one
-// is a `reopen`, the undo of a held one only changes the draft (FR-4). Follow-ups, Explain's
+// is a `reopen`, the undo of a held one only changes the draft, in either delivery, so a board
+// answering at once never sends a held act its control shows (FR-4, AD-20). An answer, decline or
+// note held over the held undo of a sent postpone or decline keeps that undo beneath it, held
+// again when the act is taken back. Follow-ups, Explain's
 // included, and the agent-change choices go at once in either mode (FR-10, FR-6). Work kept on an
 // earlier revision by "Keep mine" answers that revision. Every command is held by the view's acts
 // until the board page settles it; a refused one leaves the work in the draft.
@@ -27,6 +30,7 @@ import {
   type Delivery,
   itemIdsOf,
   type QuestionWork,
+  releaseHeld,
 } from "./board-draft.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DraftStore } from "./draft-store.ts";
@@ -62,10 +66,10 @@ const dispatch = ({ channel, acts }: Senders, held: readonly ViewAct[], message:
 export const sendActs = (senders: Senders, acts: readonly [ViewAct, ...ViewAct[]]): void =>
   dispatch(senders, acts, { type: "act", acts });
 
-/** The order a newly held act takes: after every act held so far (AD-20). */
+/** The order a newly held act takes: after every act held so far, undos beneath included (AD-20). */
 export const nextHeldOrder = (board: BoardDraft): number =>
   [...board.get().questions.values()].reduce(
-    (last, work) => Math.max(last, (work.held?.order ?? -1) + 1),
+    (last, work) => Math.max(last, (work.held?.order ?? -1) + 1, (work.undo?.order ?? -1) + 1),
     0,
   );
 
@@ -92,23 +96,43 @@ export type QuestionPhase = LifecycleQuestionStatus["state"] | undefined;
 export const revisionFor = (question: ViewQuestion, work: QuestionWork | undefined): number =>
   Math.min(work?.rev ?? question.rev, question.rev);
 
-const withoutHeld = ({ held: _, ...work }: QuestionWork): QuestionWork => work;
+// The acts that carry the question's content, which a held undo of a sent postpone or decline
+// stays beneath (AD-20).
+const OVER_UNDO: ReadonlySet<HeldAct["act"]> = new Set(["answer", "decline", "note"]);
 
-// Holds the act for Submit, or, when that act is held already, takes it back.
+// Holds the act for Submit, or, when that act is held already, takes it back. An answer, decline
+// or note held over the undo of a sent postpone or decline keeps that undo beneath it, held again
+// when the act is taken back.
 const toggleHeld = (question: ViewQuestion, context: AnswerContext, act: HeldAct["act"]): void => {
   const { board } = context;
   const order = nextHeldOrder(board);
-  board.edit(question.id, question.rev, (current) =>
-    current.held?.act === act ? withoutHeld(current) : { ...current, held: { act, order } },
-  );
+  board.edit(question.id, question.rev, (current) => {
+    if (current.held?.act === act) return releaseHeld(current);
+    const beneath = current.held?.act === "reopen" ? current.held : current.undo;
+    const undo = OVER_UNDO.has(act) ? beneath : undefined;
+    const { undo: _, ...rest } = current;
+    return { ...rest, ...(undo === undefined ? {} : { undo }), held: { act, order } };
+  });
 };
 
 // Takes back what is held, if anything is.
 const unhold = (question: ViewQuestion, board: BoardDraft): void => {
   if (board.work(question.id)?.held !== undefined) {
-    board.edit(question.id, question.rev, withoutHeld);
+    board.edit(question.id, question.rev, releaseHeld);
   }
 };
+
+// Whether the undo of the sent postpone or decline is held, alone or beneath a later act.
+const holdsUndo = (work: QuestionWork | undefined): boolean =>
+  work?.held?.act === "reopen" || work?.undo !== undefined;
+
+// Takes back the held undo of a sent postpone or decline; an act held over it stays.
+const takeBackUndo = (question: ViewQuestion, board: BoardDraft): void =>
+  board.edit(question.id, question.rev, (current) => {
+    if (current.held?.act === "reopen") return releaseHeld(current);
+    const { undo: _, ...rest } = current;
+    return rest;
+  });
 
 const now = () => new Date().toISOString();
 
@@ -142,18 +166,30 @@ export const answer = (question: ViewQuestion, context: AnswerContext): void => 
 
 /**
  * Postpone, pressed on an open question, or pressed again to undo (FR-4): sent at once in
- * immediate delivery, its undo as a `reopen`; held in submitted delivery, where taking back a held
- * postpone or undo only changes the draft, and the undo of a sent postpone is held as a `reopen`.
+ * immediate delivery, its undo as a `reopen`; held in submitted delivery, where the undo of a sent
+ * postpone is held as a `reopen`. Pressed on a held postpone or a held undo, which it shows as
+ * such, it takes that back, in either delivery, and only the draft changes (AD-20): a board that
+ * answers at once, the single-question board the agent's deletes left, never sends what it shows
+ * as held. An act held over the undo stays.
  */
 export const postpone = (
   question: ViewQuestion,
   phase: QuestionPhase,
   context: AnswerContext,
 ): void => {
-  const held = context.board.work(question.id)?.held?.act;
+  const { board } = context;
+  const work = board.work(question.id);
+  const held = work?.held?.act;
+  if (held === "postpone" || held === "reopen") {
+    unhold(question, board);
+    return;
+  }
+  if (phase === "postponed" && holdsUndo(work)) {
+    takeBackUndo(question, board);
+    return;
+  }
   if (context.delivery === "submitted") {
-    if (held === "postpone" || held === "reopen") unhold(question, context.board);
-    else toggleHeld(question, context, phase === "postponed" ? "reopen" : "postpone");
+    toggleHeld(question, context, phase === "postponed" ? "reopen" : "postpone");
     return;
   }
   sendActs(context, [
@@ -165,7 +201,10 @@ export const postpone = (
 
 /**
  * Decline, under "More" (FR-4): it closes the question as declined, with the open prompt's text as
- * the reason, and follows the delivery mode; chosen again, it undoes, as Postpone does.
+ * the reason, and follows the delivery mode; chosen again, it undoes, as Postpone does. Chosen on
+ * a held decline, or on the held undo of a sent decline, it takes that back, in either delivery,
+ * and only the draft changes (AD-20). On the held undo of a sent postpone it holds a decline over
+ * that undo, which the core takes on a postponed question; taken back, the undo is held again.
  */
 export const decline = (
   question: ViewQuestion,
@@ -175,9 +214,16 @@ export const decline = (
   const { board } = context;
   const work = board.work(question.id);
   const held = work?.held?.act;
+  if (held === "decline") {
+    unhold(question, board);
+    return;
+  }
+  if (phase === "declined" && holdsUndo(work)) {
+    takeBackUndo(question, board);
+    return;
+  }
   if (context.delivery === "submitted") {
-    if (held === "decline" || held === "reopen") unhold(question, board);
-    else toggleHeld(question, context, phase === "declined" ? "reopen" : "decline");
+    toggleHeld(question, context, phase === "declined" ? "reopen" : "decline");
     return;
   }
   if (phase === "declined") {

@@ -134,6 +134,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   const actions = cardActions({
     status,
     held,
+    undone: work?.undo !== undefined,
     sending: flight !== undefined,
     load,
     lock,

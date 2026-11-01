@@ -17,7 +17,14 @@ import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
 import { draftAnswerOf } from "./question-state.ts";
 
 /** A question's work besides its items' values, on the revision it was made on. */
-export type QuestionWork = Omit<DraftQuestion, "values">;
+export type QuestionWork = Omit<DraftQuestion, "values"> & {
+  /**
+   * The held undo (`reopen`) of a sent postpone or decline that a later answer, decline or note
+   * was held over: it is held again when that act is taken back or made not ready, so the undo is
+   * never lost (AD-20). Only the view keeps it: the draft record holds one act per question.
+   */
+  readonly undo?: HeldAct;
+};
 
 export type Delivery = DraftRecord["delivery"];
 
@@ -65,13 +72,16 @@ const changedContent = (before: QuestionWork, after: QuestionWork): boolean =>
   CONTENT.some((field) => !sameNotes(before[field], after[field]));
 
 // The held acts that carry the question's content: an answer, a decline with its reason, and a
-// note alone. An edit to the content makes them not ready (FR-22); a held postpone or undo stays.
+// note alone. An edit to the content makes them not ready (FR-22), holding again the undo one was
+// held over; a held postpone or undo stays.
 const CONTENT_HELD: ReadonlySet<HeldAct["act"]> = new Set(["answer", "decline", "note"]);
 
 const isAnswerHeld = (held: HeldAct | undefined): boolean =>
   held !== undefined && CONTENT_HELD.has(held.act);
 
-const withoutHeld = ({ held: _, ...work }: QuestionWork): QuestionWork => work;
+/** Takes back the held act; the undo it was held over, if any, is held again. */
+export const releaseHeld = ({ held: _, undo, ...work }: QuestionWork): QuestionWork =>
+  undo === undefined ? work : { ...work, held: undo };
 
 /** The lifecycle draft, starting with no work in the delivery mode given. */
 export const createBoardDraft = (delivery: Delivery): BoardDraft => {
@@ -99,7 +109,7 @@ export const createBoardDraft = (delivery: Delivery): BoardDraft => {
         isAnswerHeld(before.held) &&
         changedContent(before, after)
       ) {
-        after = withoutHeld(after);
+        after = releaseHeld(after);
       }
       set(withWork(questionId, after));
     },
@@ -179,7 +189,7 @@ export const connectDrafts = (
       if (hasValues(question, record) && work === undefined) {
         board.edit(question.id, question.rev, (fresh) => fresh);
       } else if (work !== undefined && isAnswerHeld(work.held)) {
-        board.edit(question.id, work.rev, withoutHeld);
+        board.edit(question.id, work.rev, releaseHeld);
       }
     }
     previous = record;

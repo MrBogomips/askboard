@@ -3,7 +3,7 @@ import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/cont
 import type { ViewArea, ViewQuestion } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
-import { createBoardDraft, type Delivery } from "./board-draft.ts";
+import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts";
 import {
   acceptRecommended,
   answer,
@@ -228,7 +228,118 @@ describe("Decline (FR-4; task 6.5)", () => {
     expect(board.work("payment")).toEqual({ rev: 1, note: "Not ours." });
     decline(region, "declined", context);
     expect(board.work("region")?.held).toEqual({ act: "reopen", order: 0 });
+    decline(region, "declined", context);
+    expect(board.work("region")?.held).toBeUndefined();
     expect(sent).toEqual([]);
+  });
+
+  test("on a sent postpone whose undo is held, it holds a decline over the undo, and chosen again gives the undo back (AD-10, AD-20)", () => {
+    const { sent, board, context } = setUp("submitted");
+    postpone(region, "postponed", context);
+    expect(board.work("region")?.held).toEqual({ act: "reopen", order: 0 });
+    decline(region, "postponed", context);
+    expect(board.work("region")?.held?.act).toBe("decline");
+    expect(board.work("region")?.undo).toEqual({ act: "reopen", order: 0 });
+    decline(region, "postponed", context);
+    expect(board.work("region")?.held).toEqual({ act: "reopen", order: 0 });
+    expect(board.work("region")?.undo).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("work held over the undo of a sent postpone or decline (AD-20; task 6.6)", () => {
+  test("Answer holds the answer over the undo; pressed again, or once its choice changes, the undo is held again", () => {
+    const { sent, draft, board, context } = setUp("submitted");
+    connectDrafts(lifecycleBoardDocument as never, draft, board);
+    postpone(region, "postponed", context);
+    draft.set("region", ["EU"]);
+    answer(region, context);
+    expect(board.work("region")?.held).toEqual({ act: "answer", order: 1 });
+    expect(board.work("region")?.undo).toEqual({ act: "reopen", order: 0 });
+    answer(region, context);
+    expect(board.work("region")?.held).toEqual({ act: "reopen", order: 0 });
+    answer(region, context);
+    draft.set("region", ["US"]);
+    expect(board.work("region")?.held).toEqual({ act: "reopen", order: 0 });
+    expect(board.work("region")?.undo).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("a note held over the undo keeps it beneath; Postpone pressed again takes back only the undo", () => {
+    const { sent, board, context } = setUp("submitted");
+    postpone(payment, "postponed", context);
+    board.edit("payment", 1, (work) => ({ ...work, note: "Ask ops." }));
+    answer(payment, context);
+    expect(board.work("payment")).toEqual({
+      rev: 1,
+      note: "Ask ops.",
+      held: { act: "note", order: 1 },
+      undo: { act: "reopen", order: 0 },
+    });
+    postpone(payment, "postponed", context);
+    expect(board.work("payment")).toEqual({
+      rev: 1,
+      note: "Ask ops.",
+      held: { act: "note", order: 1 },
+    });
+    expect(sent).toEqual([]);
+  });
+
+  test("Accept recommended over the undo keeps it beneath the answer", () => {
+    const { board, context } = setUp("submitted");
+    postpone(region, "postponed", context);
+    acceptRecommended(region, context);
+    expect(board.work("region")?.held?.act).toBe("answer");
+    expect(board.work("region")?.undo).toEqual({ act: "reopen", order: 0 });
+  });
+
+  test("a newly held act comes after an undo held beneath another act", () => {
+    const { board } = setUp("submitted");
+    board.edit("region", 1, () => ({ rev: 1, undo: { act: "reopen", order: 4 } }));
+    expect(nextHeldOrder(board)).toBe(5);
+  });
+});
+
+describe("a held act on a board answering at once: the single-question board left by deletes (AD-20)", () => {
+  // Held in submitted delivery, before the agent's deletes left one question on the board.
+  const holding = (questionId: string, act: "postpone" | "decline" | "reopen") => {
+    const set = setUp("immediate");
+    set.board.edit(questionId, 1, () => ({ rev: 1, held: { act, order: 0 } }));
+    return set;
+  };
+
+  test("Decline chosen again on a held decline takes it back and sends nothing", () => {
+    const { sent, board, context } = holding("payment", "decline");
+    decline(payment, "open", context);
+    expect(board.work("payment")?.held).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("Postpone pressed again on a held postpone takes it back and sends nothing", () => {
+    const { sent, board, context } = holding("payment", "postpone");
+    postpone(payment, "open", context);
+    expect(board.work("payment")?.held).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("the held undo of a sent postpone or decline is taken back by its control, and nothing is sent", () => {
+    const postponed = holding("payment", "reopen");
+    postpone(payment, "postponed", postponed.context);
+    expect(postponed.board.work("payment")?.held).toBeUndefined();
+    const declined = holding("payment", "reopen");
+    decline(payment, "declined", declined.context);
+    expect(declined.board.work("payment")?.held).toBeUndefined();
+    expect([...postponed.sent, ...declined.sent]).toEqual([]);
+  });
+
+  test("with nothing of its own held, each control sends at once", () => {
+    const { sent, context } = holding("region", "decline");
+    decline(payment, "open", context);
+    postpone(payment, "open", context);
+    expect(actsOf(sent)).toEqual([
+      [expect.objectContaining({ type: "decline", itemId: "payment" })],
+      [{ type: "postpone", itemId: "payment", rev: 1 }],
+    ]);
   });
 });
 
@@ -298,7 +409,7 @@ describe("the agent-change choices (FR-6; task 6.7)", () => {
     expect(actsOf(sent)).toEqual([
       [{ type: "edit-choice", itemId: "payment", rev: 2, edit: "reload" }],
     ]);
-    expect(board.work("payment")).toBeUndefined();
+    expect(board.work("payment")?.held).toBeUndefined();
     expect(draft.valueOf("payment")).toBeUndefined();
   });
 
