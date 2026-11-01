@@ -2,6 +2,7 @@
 // the user file and the project file. `ask-core` is the one reader: it validates each file, merges
 // them key by key and applies the rules a schema cannot say.
 
+import { SNAPSHOT_FOLDER } from "../../project-folder.ts";
 import type { SchemaSet } from "../../versions.ts";
 import config from "./config.json" with { type: "json" };
 
@@ -66,5 +67,5 @@ export const CONFIGURATION_DEFAULTS = {
   contextPlacement: "beside",
   defaultLanguage: "en-US",
   askingRule: "none",
-  snapshotFolder: ".askboard/snapshots",
+  snapshotFolder: SNAPSHOT_FOLDER,
 } as const satisfies Omit<ConfigurationValues, "editor" | "defaultMinimumMargin">;

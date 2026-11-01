@@ -484,7 +484,15 @@ export type {
   FetchQuestionProps,
 } from "./schemas/tool-envelopes/index.ts";
 // Settings and languages (E8, settings-languages design decision 2): the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2 and 13): the `.askboard/`
+// folder and the configuration set.
 
+export {
+  ASKBOARD_FOLDER,
+  ASKBOARD_GITIGNORE,
+  ASKBOARD_SUBFOLDERS,
+  SNAPSHOT_FOLDER,
+} from "./project-folder.ts";
 export {
   CONFIGURATION_DEFAULTS,
   CONFIGURATION_KEYS,
