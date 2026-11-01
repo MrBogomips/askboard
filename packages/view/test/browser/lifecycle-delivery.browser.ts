@@ -111,6 +111,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await ready(board, "cache", "Yes");
         await ready(board, "database", "SQLite");
         await buttonOf(board, "audit", "Postpone").click();
+        // Submit reads the held acts once the postpone is held: wait for Postpone to show pressed.
+        await eventually(
+          async () =>
+            (await buttonOf(board, "audit", "Postpone").getAttribute("aria-pressed")) === "true",
+          "audit's postpone held",
+        );
         expect(sentActs(run)).toEqual([]);
         await board.header.getByText("Waiting", { exact: true }).waitFor();
         await barButton(board, "Submit").click();
