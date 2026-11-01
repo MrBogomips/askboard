@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { dateOfDay, dayNumber } from "./date.ts";
-import { dateAt, isZoom, PIXELS_PER_DAY, ticks, xOf, ZOOMS } from "./scale.ts";
+import { calendarDay, dateOfDay, dayNumber } from "./date.ts";
+import {
+  dateAt,
+  isZoom,
+  MAX_TICKS,
+  PIXELS_PER_DAY,
+  type Tick,
+  ticks,
+  xOf,
+  ZOOMS,
+  type Zoom,
+} from "./scale.ts";
 
 const ORIGIN = "2026-11-02";
 
@@ -93,4 +103,109 @@ describe("the Gantt's time scale", () => {
     expect(Object.isFrozen(axis)).toBe(true);
     expect(axis.every((tick) => Object.isFrozen(tick))).toBe(true);
   });
+
+  test("gives no tick when the zoom's first one would fall past the last day a Gantt may name", () => {
+    // 9999-12-31 is a Friday: the next Monday and the next month's first day are out of range.
+    expect(ticks("9999-12-28", "9999-12-31", "week")).toEqual([]);
+    expect(ticks("9999-12-15", "9999-12-31", "month")).toEqual([]);
+  });
+});
+
+/** Each tick's place in its zoom's units: its day, its Monday's week from day 0, or its month. */
+const unitOf = (tick: Tick, zoom: Zoom): number => {
+  const day = dayNumber(tick.date);
+  if (zoom === "day") return day;
+  if (zoom === "week") return Math.floor(day / 7);
+  const { year, month } = calendarDay(tick.date);
+  return year * 12 + month;
+};
+
+/** The label a tick takes in its zoom (the tests above spell each form out). */
+const labelOf = (date: string, zoom: Zoom): string => {
+  const { year, day, monthName, weekdayName } = calendarDay(date);
+  if (zoom === "day") return `${weekdayName} ${day}`;
+  return zoom === "week" ? `${monthName} ${day}` : `${monthName} ${year}`;
+};
+
+describe("the axis of a far plan (design decision 8)", () => {
+  // Every tick from 2026-11-02 to 9999-12-31: each day, each Monday to 9999-12-27, and each
+  // month's first day from 2026-12-01 to 9999-12-01.
+  const FAR = "9999-12-31";
+  const UNTHINNED: Readonly<Record<Zoom, number>> = {
+    day: 2_912_138,
+    week: 416_020,
+    month: 95_677,
+  };
+  const FIRST: Readonly<Record<Zoom, string>> = {
+    day: "2026-11-02",
+    week: "2026-11-02",
+    month: "2026-12-01",
+  };
+
+  test("draws at most about 2,000 ticks", () => {
+    expect(MAX_TICKS).toBe(2_000);
+  });
+
+  test.each([...ZOOMS])(
+    "keeps every n-th tick at %s zoom to 9999-12-31, the smallest n within the bound",
+    (zoom) => {
+      const axis = ticks(ORIGIN, FAR, zoom);
+      const every = Math.ceil(UNTHINNED[zoom] / MAX_TICKS);
+      // The smallest n: every (n - 1)-th tick would draw more than the bound.
+      expect(Math.ceil(UNTHINNED[zoom] / (every - 1))).toBeGreaterThan(MAX_TICKS);
+      expect(axis.length).toBeLessThanOrEqual(MAX_TICKS);
+      // All of them, from the zoom's first tick on or after the origin to the last within the span.
+      expect(axis).toHaveLength(Math.ceil(UNTHINNED[zoom] / every));
+      expect(axis[0]?.date).toBe(FIRST[zoom]);
+      const units = axis.map((tick) => unitOf(tick, zoom));
+      expect(units.slice(1).every((unit, index) => unit - (units[index] as number) === every)).toBe(
+        true,
+      );
+      const days = axis.map((tick) => calendarDay(tick.date));
+      if (zoom === "week") expect(days.every((day) => day.weekday === 1)).toBe(true);
+      if (zoom === "month") expect(days.every((day) => day.day === 1)).toBe(true);
+      expect((axis.at(-1)?.date ?? "") <= FAR).toBe(true);
+      for (const tick of axis) {
+        expect(tick.label).toBe(labelOf(tick.date, zoom));
+        expect(tick.x).toBe(xOf(tick.date, ORIGIN, zoom));
+      }
+      expect(Object.isFrozen(axis)).toBe(true);
+      expect(axis.every((tick) => Object.isFrozen(tick))).toBe(true);
+    },
+  );
+
+  test.each([...ZOOMS])(
+    "counts the ticks at %s zoom to 9999-12-31 without walking them",
+    (zoom) => {
+      const from = performance.now();
+      ticks(ORIGIN, FAR, zoom);
+      const took = performance.now() - from;
+      // A bound far above what this machine gives (about 2 ms): it catches a walk over every
+      // day of the span (about 3 s at day zoom, 400 ms at week, 100 ms at month), not a busy
+      // machine.
+      expect(took).toBeLessThan(50);
+    },
+  );
+
+  test.each([
+    ["day", "2032-04-23", "2032-04-24"],
+    ["week", "2065-02-23", "2065-03-02"],
+    ["month", "2193-07-01", "2193-08-01"],
+  ] as const)(
+    "keeps all 2,000 ticks at %s zoom to %s, and every second one a tick later",
+    (zoom, within, past) => {
+      const all = ticks(ORIGIN, within, zoom);
+      expect(all).toHaveLength(MAX_TICKS);
+      expect(all[0]?.date).toBe(FIRST[zoom]);
+      expect(all.at(-1)?.date).toBe(within);
+      const units = all.map((tick) => unitOf(tick, zoom));
+      expect(units.slice(1).every((unit, index) => unit - (units[index] as number) === 1)).toBe(
+        true,
+      );
+      const thinned = ticks(ORIGIN, past, zoom);
+      expect(thinned).toHaveLength(MAX_TICKS / 2 + 1);
+      expect(thinned).toEqual(all.filter((_, index) => index % 2 === 0).concat(thinned.slice(-1)));
+      expect(thinned.at(-1)?.date).toBe(past);
+    },
+  );
 });
