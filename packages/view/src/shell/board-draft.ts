@@ -9,7 +9,7 @@
 // agent until the user acts (AD-10). Each change makes new values; the stores are replaced, never
 // changed in place.
 
-import type { DraftQuestion, DraftRecord, HeldAct } from "@askboard/contract";
+import type { DraftQuestion, DraftRecord, HeldAct, LifecycleBoardState } from "@askboard/contract";
 import { renderedOf } from "../catalog/components.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
@@ -266,15 +266,68 @@ export const draftRecordOf = (
 const isLabels = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every((label) => typeof label === "string");
 
+const sameLabels = (
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean =>
+  left === undefined
+    ? right === undefined
+    : right !== undefined &&
+      left.length === right.length &&
+      left.every((label, at) => label === right[at]);
+
+const sameTextRecord = (
+  left: Readonly<Record<string, string>> | undefined,
+  right: Readonly<Record<string, string>> | undefined,
+): boolean => {
+  const a = left ?? {};
+  const b = right ?? {};
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && a[key] === b[key])
+  );
+};
+
+const isRestoredAnswer = (
+  question: ViewQuestion,
+  entry: DraftQuestion,
+  state: LifecycleBoardState,
+): boolean => {
+  const status = state.questions.find((each) => each.itemId === question.id);
+  if (
+    status === undefined ||
+    (status.state !== "answered" && status.state !== "declined") ||
+    status.rev !== question.rev ||
+    entry.rev !== question.rev
+  ) {
+    return false;
+  }
+  const expectedHeld = status.state === "declined" ? "decline" : "answer";
+  if (entry.held !== undefined && entry.held.act !== expectedHeld) return false;
+  const itemValues = entry.values ?? {};
+  if (Object.keys(itemValues).some((itemId) => itemId !== question.id)) return false;
+  const choice = itemValues[question.id];
+  if (choice !== undefined && !isLabels(choice)) return false;
+  return (
+    sameLabels(status.answer.choice, choice as readonly string[] | undefined) &&
+    status.answer.other === entry.other &&
+    status.answer.note === entry.note &&
+    sameTextRecord(status.answer.optionNotes, entry.optionNotes)
+  );
+};
+
 /**
  * Puts a restored draft record back into both stores (FR-25): the work on the questions the board
  * still holds, each item's value where it names one of that question's items (a question's own
  * value only as option labels), the delivery mode (immediate on a single-question board) and the
- * question in view. The work keeps the revision it was made on.
+ * question in view. A mirrored answer identical to the board's current answer is stale, not a
+ * revision; work on another revision or with different content stays. The work keeps its revision.
  */
 export const restoreDraft = (
   record: DraftRecord,
   document: ViewDocument,
+  state: LifecycleBoardState,
   values: DraftStore,
   board: BoardDraft,
 ): void => {
@@ -282,13 +335,22 @@ export const restoreDraft = (
   const work = new Map<string, QuestionWork>();
   for (const question of questions) {
     if (!Object.hasOwn(record.questions, question.id)) continue;
-    const { values: kept = {}, ...rest } = record.questions[question.id] as DraftQuestion;
+    const entry = record.questions[question.id] as DraftQuestion;
+    const staleAnswer = isRestoredAnswer(question, entry, state);
+    const { values: kept = {}, ...rest } = entry;
     const items = new Set(itemIdsOf(question));
-    for (const [itemId, value] of Object.entries(kept)) {
-      if (!items.has(itemId) || (itemId === question.id && !isLabels(value))) continue;
-      values.set(itemId, value);
+    if (!staleAnswer) {
+      for (const [itemId, value] of Object.entries(kept)) {
+        if (!items.has(itemId) || (itemId === question.id && !isLabels(value))) continue;
+        values.set(itemId, value);
+      }
     }
-    work.set(question.id, rest);
+    work.set(
+      question.id,
+      staleAnswer
+        ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
+        : rest,
+    );
   }
   const inView = questions.some((question) => question.id === record.inView)
     ? { inView: record.inView as string }

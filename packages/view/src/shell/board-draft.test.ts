@@ -1,11 +1,16 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { DraftRecord } from "@askboard/contract";
+import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
 import {
   lifecycleBoardDocument,
   lifecycleDraftRecord,
   plainChoiceBoardDocument,
 } from "@askboard/contract/fixtures";
-import type { ViewArea, ViewDocument, ViewQuestion } from "../view-document.ts";
+import {
+  questionsOf,
+  type ViewArea,
+  type ViewDocument,
+  type ViewQuestion,
+} from "../view-document.ts";
 import {
   answerContentOf,
   connectDrafts,
@@ -27,6 +32,15 @@ const setUp = (document: ViewDocument = lifecycleBoardDocument) => {
     record: () => draftRecordOf(document, values.record(), board.get()),
   };
 };
+
+const openState = (document: ViewDocument): LifecycleBoardState => ({
+  ask: "waiting",
+  questions: questionsOf(document).map(({ id, rev }) => ({
+    itemId: id,
+    rev,
+    state: "open",
+  })) as unknown as LifecycleBoardState["questions"],
+});
 
 describe("the lifecycle draft beside the draft record (ask-lifecycle, design decision 6)", () => {
   test("it starts with no work, in the delivery the ask requests", () => {
@@ -160,7 +174,13 @@ describe("the lifecycle draft beside the draft record (ask-lifecycle, design dec
 describe("restoring a draft record (ask-lifecycle: What a reload keeps; FR-25)", () => {
   test("the record comes back whole: values, Other text, notes, held acts, delivery and view", () => {
     const { values, board, record } = setUp();
-    restoreDraft(lifecycleDraftRecord, lifecycleBoardDocument, values, board);
+    restoreDraft(
+      lifecycleDraftRecord,
+      lifecycleBoardDocument,
+      openState(lifecycleBoardDocument),
+      values,
+      board,
+    );
     expect(record()).toEqual(lifecycleDraftRecord);
     expect(values.valueOf("region")).toEqual(["EU"]);
     expect(board.work("payment")?.other).toBe("Mollie");
@@ -176,7 +196,7 @@ describe("restoring a draft record (ask-lifecycle: What a reload keeps; FR-25)",
         region: { rev: 1, values: { region: [3], payment: ["Stripe"] }, note: "kept" },
       },
     };
-    restoreDraft(stale, lifecycleBoardDocument, values, board);
+    restoreDraft(stale, lifecycleBoardDocument, openState(lifecycleBoardDocument), values, board);
     expect(record()).toEqual({
       delivery: "immediate",
       questions: { region: { rev: 1, note: "kept" } },
@@ -189,6 +209,7 @@ describe("restoring a draft record (ask-lifecycle: What a reload keeps; FR-25)",
     restoreDraft(
       { delivery: "submitted", questions: { database: { rev: 1, note: "n" } } },
       plainChoiceBoardDocument,
+      openState(plainChoiceBoardDocument),
       values,
       board,
     );
@@ -196,6 +217,73 @@ describe("restoring a draft record (ask-lifecycle: What a reload keeps; FR-25)",
       delivery: "immediate",
       questions: { database: { rev: 1, note: "n" } },
     });
+  });
+
+  test("a stale mirror of the current answer is not restored as a revision", () => {
+    const { values, board, record } = setUp(plainChoiceBoardDocument);
+    const state: LifecycleBoardState = {
+      ask: "answered",
+      questions: [
+        {
+          itemId: "database",
+          rev: 1,
+          state: "answered",
+          answer: {
+            choice: ["PostgreSQL"],
+            when: "2026-10-31T14:05:12Z",
+            receipt: "delivered",
+          },
+        },
+      ],
+    };
+    const stale: DraftRecord = {
+      delivery: "immediate",
+      questions: {
+        database: {
+          rev: 1,
+          values: { database: ["PostgreSQL"] },
+          composer: "Why this choice?",
+        },
+      },
+    };
+
+    restoreDraft(stale, plainChoiceBoardDocument, state, values, board);
+
+    expect(record()).toEqual({
+      delivery: "immediate",
+      questions: { database: { rev: 1, composer: "Why this choice?" } },
+    });
+    const database = plainChoiceBoardDocument.items[0] as ViewQuestion;
+    expect(hasAnswerWork(database, values.record(), board.work("database"))).toBe(false);
+  });
+
+  test("different answer content remains unsent work", () => {
+    const { values, board, record } = setUp(plainChoiceBoardDocument);
+    const state: LifecycleBoardState = {
+      ask: "answered",
+      questions: [
+        {
+          itemId: "database",
+          rev: 1,
+          state: "answered",
+          answer: {
+            choice: ["PostgreSQL"],
+            when: "2026-10-31T14:05:12Z",
+            receipt: "delivered",
+          },
+        },
+      ],
+    };
+    const revision: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: { rev: 1, values: { database: ["SQLite"] } } },
+    };
+
+    restoreDraft(revision, plainChoiceBoardDocument, state, values, board);
+
+    expect(record()).toEqual(revision);
+    const database = plainChoiceBoardDocument.items[0] as ViewQuestion;
+    expect(hasAnswerWork(database, values.record(), board.work("database"))).toBe(true);
   });
 });
 

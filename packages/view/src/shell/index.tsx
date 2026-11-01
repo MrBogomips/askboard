@@ -181,7 +181,7 @@ const boot = (): void => {
     attention.stateChanged(update.state);
     if (update.restore !== undefined && update.restore.id > restored) {
       restored = update.restore.id;
-      restoreDraft(update.restore.record, document, draft, board);
+      restoreDraft(update.restore.record, document, update.state, draft, board);
     }
     for (const flight of acts.reconcile(update.pending ?? [], update.settled ?? [])) {
       clearCarried(flight, document, draft, board, kept);
