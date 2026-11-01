@@ -80,3 +80,7 @@ export { UNKNOWN_VERSION_DIAGNOSTIC } from "./push/version.ts";
 
 export { backgroundThreshold } from "./push/agent-status.ts";
 export { expectedAnswerer } from "./push/answerer.ts";
+
+// Molecules (molecules): the fill forms of the definition format.
+
+export { type ExpandedIds, type Filled, fillItem } from "./molecules/fills.ts";
