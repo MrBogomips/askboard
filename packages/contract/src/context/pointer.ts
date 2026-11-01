@@ -3,7 +3,7 @@
 // and the view read a pointer the same way, and a pointer that could leave the root by its text
 // is refused before anything reaches the file system.
 
-import { POINTER_MAX_CHARS } from "../limits.ts";
+import { POINTER_MAX_CHARS } from "./limits.ts";
 
 /** Lines `start` to `end` of a file, counted from 1, both included. */
 export type LineRange = { readonly start: number; readonly end: number };

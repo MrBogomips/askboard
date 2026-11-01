@@ -405,16 +405,6 @@ export {
 // unresolved and the context limits of proposal B4, exported in one appended block.
 
 export {
-  type InvalidPointer,
-  type LineRange,
-  type Pointer,
-  type PointerAnchor,
-  type PointerProblem,
-  type PointerReading,
-  readPointer,
-} from "./context/pointer.ts";
-export { UNRESOLVED_REASONS, type UnresolvedReason } from "./context/resolution.ts";
-export {
   ANCHOR_FILE_MAX_BYTES,
   ASK_IMAGES_MAX_BYTES,
   CONTEXT_READS_MAX,
@@ -428,4 +418,14 @@ export {
   SOURCE_VIEW_MAX_BYTES,
   SOURCE_VIEW_MAX_LINES,
   URL_MAX_CHARS,
-} from "./limits.ts";
+} from "./context/limits.ts";
+export {
+  type InvalidPointer,
+  type LineRange,
+  type Pointer,
+  type PointerAnchor,
+  type PointerProblem,
+  type PointerReading,
+  readPointer,
+} from "./context/pointer.ts";
+export { UNRESOLVED_REASONS, type UnresolvedReason } from "./context/resolution.ts";

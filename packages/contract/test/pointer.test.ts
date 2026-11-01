@@ -107,11 +107,11 @@ describe("readPointer (contract spec, The pointer grammar)", () => {
     expect(readPointer("x".repeat(10 * POINTER_MAX_CHARS))).toEqual({ invalid: "too-long" });
   });
 
-  test("touches no file: its module imports only the contract's limits", () => {
+  test("touches no file: its module imports only the context limits", () => {
     const source = readFileSync(join(import.meta.dir, "../src/context/pointer.ts"), "utf8");
     const specifiers = [...source.matchAll(/\bfrom\s+"([^"]+)"|\bimport\s*\(\s*"([^"]+)"/g)].map(
       (match) => match[1] ?? match[2],
     );
-    expect(specifiers).toEqual(["../limits.ts"]);
+    expect(specifiers).toEqual(["./limits.ts"]);
   });
 });
