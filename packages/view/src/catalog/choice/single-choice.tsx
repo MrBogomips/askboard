@@ -8,10 +8,11 @@
 
 import { RadioGroup } from "radix-ui";
 import { type KeyboardEvent, type MouseEvent, useRef } from "react";
-import { type ItemProps, questionTextId } from "../port.ts";
+import { questionTextId } from "../port.ts";
 import { MARK, OptionText, optionAria, ROW } from "./option-text.tsx";
+import type { ChoiceProps } from "./props.ts";
 
-export const SingleChoice = ({ item, value, onValueChange, disabled }: ItemProps) => {
+export const SingleChoice = ({ item, value, onValueChange, disabled }: ChoiceProps) => {
   const focusing = useRef(false);
   const onFocus = () => {
     focusing.current = true;
@@ -30,7 +31,7 @@ export const SingleChoice = ({ item, value, onValueChange, disabled }: ItemProps
   return (
     <RadioGroup.Root
       aria-labelledby={questionTextId(item.id)}
-      value={value[0] ?? ""}
+      value={value?.[0] ?? ""}
       onValueChange={(label) => onValueChange([label])}
       disabled={disabled}
       className="flex flex-col gap-2"

@@ -148,3 +148,28 @@ export {
   type SchemaSet,
   unsupportedVersion,
 } from "./versions.ts";
+
+// Widgets: the generic element diff (AD-20).
+export {
+  applyElementChanges,
+  type ElementShape,
+  elementChanges,
+} from "./widgets/element-diff.ts";
+// The Tree's contract (design decision 2): its checks, then its types, limits and element shape.
+export { treeChangesProblems, treePropsProblems } from "./widgets/tree/checks.ts";
+export {
+  TREE_FIELD_PATTERN,
+  TREE_LABEL_MAX_CHARS,
+  TREE_MAX_COLUMNS,
+  TREE_MAX_DEPTH,
+  TREE_MAX_NODES,
+  TREE_SHAPE,
+  TREE_TEXT_MAX_CHARS,
+  type TreeColumn,
+  type TreeColumnType,
+  type TreeFieldValue,
+  type TreeItem,
+  type TreeNode,
+  type TreeOrigin,
+  type TreeProps,
+} from "./widgets/tree/index.ts";

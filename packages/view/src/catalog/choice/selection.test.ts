@@ -11,6 +11,11 @@ describe("Choice's selection (EXPERIENCE.md, Option: manual activation)", () => 
     expect(value).toEqual(["DynamoDB"]);
   });
 
+  test("an unset value is no choice (design decision 7)", () => {
+    expect(toggled(options, undefined, "SQLite", true)).toEqual(["SQLite"]);
+    expect(toggled(options, undefined, "SQLite", false)).toEqual([]);
+  });
+
   test("unchecking a box removes its label; checking one twice keeps it once", () => {
     expect(toggled(options, ["PostgreSQL", "SQLite"], "PostgreSQL", false)).toEqual(["SQLite"]);
     expect(toggled(options, ["SQLite"], "SQLite", true)).toEqual(["SQLite"]);

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:tree-changes",
+  "title": "Tree changes",
+  "description": "A Tree's changes (AD-20, design decision 2): the output format's changes, defined once by the answer event. The Tree's own rules on them (add, remove and move target item.node, set targets item.node.field; an add holds a name and declared fields; a set's field is label or a declared one, with a value of its type) are checked by treeChangesProblems. Empty when nothing changed. In no schema set until the input format reaches 1.1.",
+  "type": "array",
+  "items": {
+    "$ref": "urn:askboard:output:answer-event#/$defs/change"
+  }
+}

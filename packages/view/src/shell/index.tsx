@@ -6,7 +6,6 @@
 // as the system's and then follows the board page's; with no parent it follows the system
 // (EXPERIENCE.md, Dark theme).
 
-import type { BoardDocument } from "@askboard/contract";
 import { App } from "@modelcontextprotocol/ext-apps";
 import { createRoot } from "react-dom/client";
 import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
@@ -19,7 +18,7 @@ import { createAnswerActs } from "./answer-acts.ts";
 import { Board, type BoardView } from "./board.tsx";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { createReadyTracker, type QuestionItems } from "./ready-tracker.ts";
+import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createStore } from "./store.ts";
 
 /** The name component chunks import the port by; the view build maps it to this chunk's copy. */
@@ -34,10 +33,6 @@ const connectToBoardPage = (): ViewChannel => {
   const app = new App(VIEW_INFO, {}, { autoResize: false });
   return openChannel(app, () => app.connect(new FrameTransport(window.parent, window)));
 };
-
-// E1's question is its own one item; a question with a widget adds the widget's items (AD-9).
-const questionItems = (document: BoardDocument): QuestionItems[] =>
-  document.items.map((question) => ({ questionId: question.id, itemIds: [question.id] }));
 
 const boot = (): void => {
   const data = parseBootData(document.getElementById(BOOT_DATA_ID)?.textContent);
@@ -61,7 +56,7 @@ const boot = (): void => {
       console.error(`askboard: the board page did not take the view's ${message.type}:`, error);
     });
   };
-  const tracker = createReadyTracker(questionItems(data.document), {
+  const tracker = createReadyTracker(questionItemsOf(data.document), {
     onVisible: (questionId) => report({ type: "ready", itemId: questionId }),
     onFailed: (_questionId, itemId, error) => report({ type: "item-error", itemId, error }),
   });

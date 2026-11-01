@@ -15,16 +15,27 @@ describe("the answers the view has given and the board page has not settled (M3)
     const acts = createAnswerActs();
     const heard = mock(() => {});
     acts.subscribe(heard);
-    acts.start("database", ["PostgreSQL"], when);
+    acts.start("database", { choice: ["PostgreSQL"] }, when);
     expect(acts.of("database")).toEqual({ choice: ["PostgreSQL"], when });
     acts.replied("database", when, "queued");
     expect(acts.of("database")).toEqual({ choice: ["PostgreSQL"], when, outcome: "queued" });
     expect(heard).toHaveBeenCalledTimes(2);
   });
 
+  test("an act holds the widget values it sent, and only what it sent (design decision 7)", () => {
+    const acts = createAnswerActs();
+    // A test-only `probe` widget item's edited value (design decision 12).
+    const values = { sketch: { size: 4 } };
+    acts.start("plan", { values }, when);
+    expect(acts.of("plan")).toEqual({ values, when });
+    const sent = { type: "answer", itemId: "plan", rev: 1, choice: ["a"], values, when };
+    acts.start("plan", sent, when);
+    expect(acts.of("plan")).toEqual({ choice: ["a"], values, when });
+  });
+
   test("a refused act is dropped at once, and a reply to an older act is ignored", () => {
     const acts = createAnswerActs();
-    acts.start("database", ["PostgreSQL"], when);
+    acts.start("database", { choice: ["PostgreSQL"] }, when);
     acts.replied("database", "2026-10-30T09:00:00Z", "sent");
     expect(acts.of("database")?.outcome).toBeUndefined();
     acts.drop("database", when);
@@ -34,7 +45,7 @@ describe("the answers the view has given and the board page has not settled (M3)
 
   test("an update after the reply that no longer holds the answer drops the act", () => {
     const acts = createAnswerActs();
-    acts.start("database", ["PostgreSQL"], when);
+    acts.start("database", { choice: ["PostgreSQL"] }, when);
     acts.reconcile([]);
     expect(acts.of("database")).toBeDefined();
     acts.replied("database", when, "sent");
@@ -51,7 +62,7 @@ describe("the answers the view has given and the board page has not settled (M3)
     acts.reconcile([]);
     expect(heard).not.toHaveBeenCalled();
     unsubscribe();
-    acts.start("database", ["PostgreSQL"], when);
+    acts.start("database", { choice: ["PostgreSQL"] }, when);
     expect(heard).not.toHaveBeenCalled();
   });
 });

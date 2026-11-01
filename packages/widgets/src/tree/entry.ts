@@ -1,0 +1,78 @@
+// What the Tree's cell editor reads and commits (design decision 6; spec, "Tree editing"): the
+// name's cell, a number field read by AskBoard's own en-US parser, never the browser's number
+// input, or a text field. A commit gives the value after the entry, through the model's `rename`
+// and `setField`, which return the same value when nothing changes (an empty name included, which
+// is never committed), or a refusal with the reason the field error shows.
+
+import {
+  TREE_LABEL_MAX_CHARS,
+  TREE_TEXT_MAX_CHARS,
+  type TreeColumn,
+  type TreeNode,
+  type TreeProps,
+} from "@askboard/contract";
+import { parseNumber } from "../shared/number.ts";
+import { fieldText } from "./cells.ts";
+import { rename, setField } from "./model/edits.ts";
+
+/** What a cell edits: the name, or a field of its column's type. */
+export type EntryKind = "name" | TreeColumn["type"];
+
+export type CellEntry =
+  /** The value after the entry: the same value when it changes nothing. */
+  | { readonly kind: "value"; readonly value: TreeProps }
+  | { readonly kind: "refused"; readonly reason: string };
+
+export const NAME_TOO_LONG = `A name holds at most ${TREE_LABEL_MAX_CHARS} characters.`;
+
+export const TEXT_TOO_LONG = `A text field holds at most ${TREE_TEXT_MAX_CHARS.toLocaleString("en-US")} characters.`;
+
+// A length in code points, as the contract counts it.
+const lengthOf = (text: string): number => [...text].length;
+
+const valued = (value: TreeProps): CellEntry => Object.freeze({ kind: "value", value });
+
+const refused = (reason: string): CellEntry => Object.freeze({ kind: "refused", reason });
+
+/** What the cell `cell` edits: 0 is the name, then one per column; `undefined` past them. */
+export const entryKindOf = (
+  columns: readonly TreeColumn[] | undefined,
+  cell: number,
+): EntryKind | undefined => (cell === 0 ? "name" : columns?.[cell - 1]?.type);
+
+/** The editor's starting text: the name, or the field as the cell shows it. */
+export const startTextOf = (
+  columns: readonly TreeColumn[] | undefined,
+  node: TreeNode,
+  cell: number,
+): string => {
+  if (cell === 0) return node.label;
+  const column = columns?.[cell - 1];
+  return column === undefined ? "" : fieldText(node, column);
+};
+
+/** Commits `text` in the cell `cell` of the node `nodeId`. */
+export const enterCell = (
+  value: TreeProps,
+  nodeId: string,
+  cell: number,
+  text: string,
+): CellEntry => {
+  if (cell === 0) {
+    return lengthOf(text) > TREE_LABEL_MAX_CHARS
+      ? refused(NAME_TOO_LONG)
+      : valued(rename(value, nodeId, text));
+  }
+  const column = value.columns?.[cell - 1];
+  if (column === undefined) return valued(value);
+  if (column.type === "text") {
+    return lengthOf(text) > TREE_TEXT_MAX_CHARS
+      ? refused(TEXT_TOO_LONG)
+      : valued(setField(value, nodeId, column.field, text));
+  }
+  const entry = parseNumber(text);
+  if (entry.kind === "refused") return refused(entry.reason);
+  return valued(
+    setField(value, nodeId, column.field, entry.kind === "number" ? entry.value : undefined),
+  );
+};

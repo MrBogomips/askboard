@@ -7,13 +7,13 @@
 // the board page has given up (AD-10). The board page sends its update before its reply, but the
 // view does not rely on the order: an act drops only on an update that comes after the reply.
 
-import type { PendingAnswer } from "../view-protocol.ts";
-import type { Act } from "./question-state.ts";
+import type { AnswerContent, PendingAnswer } from "../view-protocol.ts";
+import { type Act, contentOf } from "./question-state.ts";
 
 export type AnswerActs = {
   of(itemId: string): Act | undefined;
-  /** "Answer" was pressed: the act shows until it settles. */
-  start(itemId: string, choice: readonly string[], when: string): void;
+  /** "Answer" was pressed: the act shows what was sent, its choice and widget values, until it settles. */
+  start(itemId: string, sent: AnswerContent, when: string): void;
   /** The board page replied that it sent or queued the act stamped `when`. */
   replied(itemId: string, when: string, outcome: "sent" | "queued"): void;
   /** The board page refused the act, or did not reply: the question is open again. */
@@ -36,8 +36,8 @@ export const createAnswerActs = (): AnswerActs => {
   };
   return {
     of: (itemId) => acts.get(itemId),
-    start: (itemId, choice, when) => {
-      acts.set(itemId, Object.freeze({ choice: [...choice], when }));
+    start: (itemId, sent, when) => {
+      acts.set(itemId, Object.freeze({ ...contentOf(sent), when }));
       changed();
     },
     replied: (itemId, when, outcome) => {

@@ -1,32 +1,44 @@
 // The `CatalogRenderer` port (AD-9): the one module through which catalog components register
 // and AskBoard's own renderer finds them (renderer row 1). It runs in the shell chunk; the view
 // build maps a component chunk's imports of this module to the shell's copy, so every chunk shares
-// one registry. A component renders from its props alone: the item, its value in the draft record
-// and whether it may change; it puts each edit into the draft record and reports itself ready.
+// one registry. A component renders from its props alone: the item, the question it sits in, its
+// value in the draft record and whether it may change; it puts each edit into the draft record and
+// reports itself ready. Items and values are of any type: Choice's are a question and its option
+// labels, a widget's are its item and its full edited props (design decision 7).
 
-import type { BoardQuestion } from "@askboard/contract";
 import { type ReactNode, useLayoutEffect } from "react";
 
-export type ItemProps = {
-  readonly item: BoardQuestion;
-  /** The item's value in the draft record: the option labels chosen so far. */
-  readonly value: readonly string[];
-  /** Puts a new value into the draft record; nothing leaves the view (AD-9). */
-  readonly onValueChange: (value: readonly string[]) => void;
+export type ItemProps<Item = unknown, Value = unknown> = {
+  readonly item: Item;
+  /** The question the item sits in, whose text labels it; Choice's item is the question itself. */
+  readonly questionId: string;
+  /** The item's value in the draft record; undefined while the item is untouched. */
+  readonly value: Value | undefined;
+  /** Puts a new value into the draft record, `undefined` for none; nothing leaves the view (AD-9). */
+  readonly onValueChange: (value: Value | undefined) => void;
   /** The item may not change: its question is answered, being sent or locked. */
   readonly disabled: boolean;
   /** Reports the item ready (AD-9); a component calls it through `useReadyAfterLayout`. */
   readonly ready: () => void;
 };
 
-export type CatalogComponent = (props: ItemProps) => ReactNode;
+export type CatalogComponent<Item = unknown, Value = unknown> = (
+  props: ItemProps<Item, Value>,
+) => ReactNode;
 
 const components = new Map<string, CatalogComponent>();
 
-/** Registers a component under its catalog name, once. */
-export const register = (name: string, component: CatalogComponent): void => {
+/**
+ * Registers a component under its catalog name, once. The renderer hands it only the items its
+ * name renders and the values it put in the draft record itself, which no type can say across
+ * chunks: the registry keeps components by name alone.
+ */
+export const register = <Item, Value>(
+  name: string,
+  component: CatalogComponent<Item, Value>,
+): void => {
   if (components.has(name)) throw new Error(`the component "${name}" is registered twice`);
-  components.set(name, component);
+  components.set(name, component as unknown as CatalogComponent);
 };
 
 /** The component registered under a name, if any. */

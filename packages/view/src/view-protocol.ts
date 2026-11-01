@@ -17,14 +17,24 @@ export const VIEW_TOOL_PREFIX = "askboard.view.";
 export const ITEM_ERROR_MAX_CHARS = 1_000;
 
 /**
- * The user pressed "Answer": the question's choice at its revision, stamped with the time of the
- * act (FR-19, FR-22). The board page turns it into the board-protocol `answer` command.
+ * What an answer carries: the question's choice, the full edited value of each widget item the
+ * user changed (AD-20), or both (design decision 7). The view never computes `changes`.
  */
-export type ViewAnswer = {
+export type AnswerContent = {
+  readonly choice?: readonly string[];
+  /** Each changed widget item's full edited props, by item ID. */
+  readonly values?: Readonly<Record<string, unknown>>;
+};
+
+/**
+ * The user pressed "Answer": the answer's content at the question's revision, stamped with the
+ * time of the act (FR-19, FR-22). The board page turns a choice into the board-protocol `answer`
+ * command; the board protocol carries no widget value yet (design decision 7).
+ */
+export type ViewAnswer = AnswerContent & {
   readonly type: "answer";
   readonly itemId: string;
   readonly rev: number;
-  readonly choice: readonly string[];
   readonly when: string;
 };
 
@@ -113,6 +123,14 @@ const choice: FieldCheck = (value) =>
     ? undefined
     : "is not a list of one or more distinct option labels";
 
+// Checked structurally only: whoever can carry a widget's value checks its content.
+const values: FieldCheck = (value) =>
+  isRecord(value) &&
+  Object.keys(value).length > 0 &&
+  Object.entries(value).every(([key, entry]) => ID.test(key) && isRecord(entry))
+    ? undefined
+    : "is not an object of one or more widget item IDs, each to an object value";
+
 const utcTime: FieldCheck = (value) =>
   typeof value === "string" && UTC_TIME.test(value) ? undefined : "is not an RFC 3339 time in UTC";
 
@@ -121,11 +139,20 @@ const errorText: FieldCheck = (value) =>
     ? undefined
     : `is not a text of at most ${ITEM_ERROR_MAX_CHARS} characters`;
 
-// Each message type's fields; a call's arguments hold exactly these.
-const FIELDS: Readonly<Record<ViewMessage["type"], Readonly<Record<string, FieldCheck>>>> = {
-  answer: { itemId, rev: revision, choice, when: utcTime },
-  ready: { itemId },
-  "item-error": { itemId, error: errorText },
+type MessageFields = {
+  readonly checks: Readonly<Record<string, FieldCheck>>;
+  /** Fields a message may leave out, of which it holds one at least. */
+  readonly someOf?: readonly string[];
+};
+
+// Each message type's fields; a call's arguments hold only these, and all but `someOf`'s.
+const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
+  answer: {
+    checks: { itemId, rev: revision, choice, values, when: utcTime },
+    someOf: ["choice", "values"],
+  },
+  ready: { checks: { itemId } },
+  "item-error": { checks: { itemId, error: errorText } },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -134,20 +161,33 @@ const refused = (path: string, message: string): Checked<ViewMessage> => ({
   problems: [{ path, message }],
 });
 
+// A message that holds none of the fields it must hold one of.
+const noneOf = (someOf: readonly string[], args: Record<string, unknown>): Problem[] =>
+  someOf.length === 0 || someOf.some((field) => Object.hasOwn(args, field))
+    ? []
+    : [
+        {
+          path: "/arguments",
+          message: `holds none of ${someOf.map((field) => `"${field}"`).join(" and ")}`,
+        },
+      ];
+
 const fieldProblems = (
-  fields: Readonly<Record<string, FieldCheck>>,
+  { checks, someOf = [] }: MessageFields,
   args: Record<string, unknown>,
 ): Problem[] => [
   ...Object.keys(args)
-    .filter((field) => !Object.hasOwn(fields, field))
+    .filter((field) => !Object.hasOwn(checks, field))
     .map((field) => ({ path: `/arguments/${field}`, message: `unknown field "${field}"` })),
-  ...Object.entries(fields).flatMap(([field, check]) => {
+  ...Object.entries(checks).flatMap(([field, check]) => {
     if (!Object.hasOwn(args, field)) {
+      if (someOf.includes(field)) return [];
       return [{ path: `/arguments/${field}`, message: `missing field "${field}"` }];
     }
     const problem = check(args[field]);
     return problem === undefined ? [] : [{ path: `/arguments/${field}`, message: problem }];
   }),
+  ...noneOf(someOf, args),
 ];
 
 /** A tool call from the view, read as a view message; anything else is refused, saying why. */

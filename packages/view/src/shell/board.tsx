@@ -3,8 +3,9 @@
 // board document and what the board page last sent: the board state, the lock, which makes the
 // board read-only while it moved and once it is discarded (AD-21), and the answers it holds.
 
-import type { BoardDocument, BoardState } from "@askboard/contract";
+import type { BoardState } from "@askboard/contract";
 import { useSyncExternalStore } from "react";
+import type { ViewDocument } from "../view-document.ts";
 import type { PendingAnswer, ViewLock } from "../view-protocol.ts";
 import { BoardHeader } from "./board-header.tsx";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
@@ -22,7 +23,7 @@ export const Board = ({
   view,
   context,
 }: {
-  readonly document: BoardDocument;
+  readonly document: ViewDocument;
   readonly view: Store<BoardView>;
   readonly context: CardContext;
 }) => {

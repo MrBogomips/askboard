@@ -35,9 +35,10 @@ export type BoardRun = {
   openTab(): Promise<Board>;
 };
 
-type Closable = { close(): Promise<void> };
+export type Closable = { close(): Promise<void> };
 
-const closeAll = async (open: Closable[]): Promise<void> => {
+/** Closes each, the last opened first, logging what fails to close. */
+export const closeAll = async (open: Closable[]): Promise<void> => {
   for (const item of open.reverse()) {
     try {
       await item.close();

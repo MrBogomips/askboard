@@ -33,6 +33,24 @@ describe("view messages, as App tool calls the board page answers itself (design
     { type: "ready", itemId: "database" },
     { type: "item-error", itemId: "database", error: "the component threw" },
   ];
+  // Answers with a test-only `probe` widget item's full edited value (design decisions 7 and 12).
+  const answers: ViewMessage[] = [
+    {
+      type: "answer",
+      itemId: "plan",
+      rev: 1,
+      values: { sketch: { size: 4 } },
+      when: "2026-10-30T09:41:27.123Z",
+    },
+    {
+      type: "answer",
+      itemId: "database",
+      rev: 1,
+      choice: ["PostgreSQL"],
+      values: { sketch: { size: 4 }, second: { size: 1 } },
+      when: "2026-10-30T09:41:27.123Z",
+    },
+  ];
 
   test.each(messages.map((message) => [message.type, message] as const))(
     "a %s message goes as a tool call under askboard.view.* and reads back",
@@ -47,6 +65,61 @@ describe("view messages, as App tool calls the board page answers itself (design
       });
     },
   );
+
+  test.each(answers.map((message) => [Object.keys(message).join(", "), message] as const))(
+    "an answer with widget values (%s) goes as a tool call and reads back",
+    (_, message) => {
+      expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    },
+  );
+
+  test("an answer's values are keyed by own-property item IDs, as JSON gives them", () => {
+    const args = JSON.parse(
+      '{"itemId":"q","rev":1,"when":"2026-10-30T09:41:27Z","values":{"__proto__":{"size":4}}}',
+    );
+    const checked = readViewMessage({ name: "askboard.view.answer", arguments: args });
+    const values = checked.ok && checked.value.type === "answer" ? checked.value.values : {};
+    expect(Object.keys(values ?? {})).toEqual(["__proto__"]);
+    expect(Object.hasOwn(values ?? {}, "__proto__")).toBe(true);
+  });
+
+  test("a missing field is refused, naming it; only an answer's choice and values may be left out", () => {
+    expect(problemsOf({ name: "askboard.view.answer", arguments: { choice: ["a"] } })).toEqual([
+      { path: "/arguments/itemId", message: 'missing field "itemId"' },
+      { path: "/arguments/rev", message: 'missing field "rev"' },
+      { path: "/arguments/when", message: 'missing field "when"' },
+    ]);
+  });
+
+  test("an answer with neither a choice nor values is refused", () => {
+    const args = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z" };
+    expect(problemsOf({ name: "askboard.view.answer", arguments: args })).toEqual([
+      { path: "/arguments", message: 'holds none of "choice" and "values"' },
+    ]);
+  });
+
+  test("an answer's values map one or more item IDs, each to an object", () => {
+    const base = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z" };
+    for (const values of [
+      undefined,
+      null,
+      [],
+      [{ size: 4 }],
+      "sketch",
+      {},
+      { "a b": { size: 4 } },
+      { ["x".repeat(65)]: { size: 4 } },
+      { sketch: null },
+      { sketch: [1] },
+      { sketch: 4 },
+      { sketch: { size: 4 }, other: "x" },
+    ]) {
+      const params = { name: "askboard.view.answer", arguments: { ...base, values } };
+      expect(problemsOf(params)).toEqual([
+        { path: "/arguments/values", message: expect.stringContaining("item IDs") },
+      ]);
+    }
+  });
 
   test("an item error longer than the cap is cut on the way out, never refused", () => {
     const call = toolCallOf({ type: "item-error", itemId: "q", error: "x".repeat(5_000) });

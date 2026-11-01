@@ -271,3 +271,9 @@ export const schemaSetProblems = (sets: readonly SchemaSet[]): string[] => {
   }
   return problems;
 };
+
+// The Tree's validators, each its widget validator and then its checks.
+export { validateTreeChanges, validateTreeProps } from "./widgets/tree/validate.ts";
+// Widgets: E1's error mapping, and one standalone validator per widget schema.
+export { widgetValidator } from "./widgets/validator.ts";
+export { problemOf };

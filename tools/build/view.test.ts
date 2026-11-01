@@ -2,11 +2,21 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { VIEW_MANIFEST_FILE, type ViewManifest } from "@askboard/contract";
+import {
+  type BoardState,
+  cspHashSource,
+  type ManifestChunk,
+  VIEW_MANIFEST_FILE,
+  type ViewManifest,
+} from "@askboard/contract";
+import { plainChoiceBoardDocument, treeBoardDocument } from "@askboard/contract/fixtures";
 import { validateViewManifest } from "@askboard/contract/validate";
+// `assemble` as the board page runs it, on this build; the root links no `@askboard/view`.
+import { assemble, selectChunks, sourcesToFetch } from "../../packages/view/src/assemble/index.ts";
+import type { ViewDocument } from "../../packages/view/src/view-document.ts";
 import { bundleChunk } from "./chunks.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
-import { SIZES_FILE } from "./paths.ts";
+import { ROOT, SIZES_FILE } from "./paths.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
 import { main } from "./view.ts";
 
@@ -18,6 +28,11 @@ let sizesFile = "";
 let manifest: ViewManifest;
 const lines: string[] = [];
 const text = (path: string) => Bun.file(join(out, path)).text();
+const treeChunk = (): ManifestChunk => {
+  const chunk = manifest.chunks.tree;
+  if (chunk === undefined) throw new Error("the build made no tree chunk");
+  return chunk;
+};
 
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "askboard-view-build-"));
@@ -40,7 +55,7 @@ describe("bun run build:view (design decision 7)", () => {
     expect(checked.ok ? [] : checked.problems).toEqual([]);
   });
 
-  test("it lists the board page, the shell, the Choice component and their library chunks", () => {
+  test("it lists the board page, the shell, the Choice and Tree components and their library chunks", () => {
     const kinds = Object.fromEntries(
       Object.entries(manifest.chunks).map(([name, chunk]) => [name, chunk.kind]),
     );
@@ -50,10 +65,13 @@ describe("bun run build:view (design decision 7)", () => {
       radix: "library",
       react: "library",
       shell: "shell",
+      tree: "component",
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
+    expect(manifest.chunks.tree?.components).toEqual(["tree"]);
     expect(manifest.chunks.shell?.needs).toEqual(["ext-apps", "react"]);
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
+    expect(manifest.chunks.tree?.needs).toEqual(["react", "shell"]);
     expect(manifest.chunks.radix?.needs).toEqual(["react"]);
     expect(manifest.boardPage.html.path).toBe("board-page.html");
   });
@@ -104,6 +122,30 @@ describe("bun run build:view (design decision 7)", () => {
     expect(await text(own?.path ?? "")).toContain("MIT License");
   });
 
+  test("the Tree's chunk holds only AskBoard's own code, under the repository's MIT licence", async () => {
+    // React and the port come from the react chunk and the shell (design decision 8); of `view`,
+    // the chunk holds only the shared-module registry its imports of them read.
+    const notices = treeChunk().licences;
+    expect(packagesIn(notices)).toEqual([
+      "@askboard/contract",
+      "@askboard/view",
+      "@askboard/widgets",
+    ]);
+    const repository = (await Bun.file(join(ROOT, "LICENSE")).text()).trimEnd();
+    for (const notice of notices) {
+      expect(notice.licence).toBe("MIT");
+      expect((await text(notice.path)).trimEnd()).toBe(repository);
+    }
+  });
+
+  test("the Tree's chunk holds no schema and no Ajv (design, Risks / Trade-offs)", async () => {
+    // It checks its props with the contract's plain checks; the schemas stay with the validators.
+    const script = await text(treeChunk().script.path);
+    expect(script).toContain('"tree"');
+    expect(script).not.toContain("urn:askboard");
+    expect(script).not.toMatch(/\bajv\b/i);
+  });
+
   test("every chunk is a classic script without import.meta", async () => {
     const transpiler = new Bun.Transpiler({ loader: "js" });
     const scripts = [
@@ -146,6 +188,7 @@ describe("bun run build:view (design decision 7)", () => {
       "radix",
       "react",
       "shell",
+      "tree",
     ]);
     expect(sizeProblems(await readSizes(SIZES_FILE), recorded)).toEqual([]);
   });
@@ -173,6 +216,47 @@ describe("bun run build:view (design decision 7)", () => {
 
 const packagesIn = (notices: ViewManifest["boardPage"]["licences"]) =>
   notices.map((notice) => notice.package);
+
+// The board state with the document's question open, as the board page first shows it.
+const openState = (document: ViewDocument): BoardState => {
+  const [question] = document.items;
+  return {
+    ask: "waiting",
+    questions: [{ itemId: question.id, rev: question.rev, state: "open" }],
+  };
+};
+
+// The srcdoc as the board page builds it: the selected chunks' files, fetched from the build.
+const assembled = async (document: ViewDocument) => {
+  const files = sourcesToFetch(selectChunks(document, manifest));
+  const fetched = await Promise.all(
+    files.map(async (file) => [file.sha256, await text(file.path)] as const),
+  );
+  return assemble({ document, state: openState(document) }, manifest, Object.fromEntries(fetched));
+};
+
+describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
+  test("the selection takes the tree chunk for a board holding a Tree, and not for the plain Choice board", () => {
+    const names = (document: ViewDocument) =>
+      selectChunks(document, manifest).map(({ name }) => name);
+    expect(names(treeBoardDocument)).toEqual(["ext-apps", "react", "shell", "tree"]);
+    expect(names(plainChoiceBoardDocument)).toContain("choice");
+    expect(names(plainChoiceBoardDocument)).not.toContain("tree");
+  });
+
+  test("the plain Choice board's srcdoc holds no Tree chunk, and the Tree board's holds it", async () => {
+    const { script } = treeChunk();
+    const tree = await text(script.path);
+    const withTree = await assembled(treeBoardDocument);
+    const plain = await assembled(plainChoiceBoardDocument);
+    expect(withTree.chunks).toContain("tree");
+    expect(withTree.srcdoc).toContain(tree);
+    expect(withTree.policy).toContain(cspHashSource(script.sha256));
+    expect(plain.chunks).not.toContain("tree");
+    expect(plain.srcdoc).not.toContain(tree);
+    expect(plain.policy).not.toContain(cspHashSource(script.sha256));
+  });
+});
 
 describe("build failures", () => {
   test("a chunk holding import.meta fails the build, naming the chunk", async () => {
