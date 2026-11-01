@@ -8,7 +8,8 @@
 // the component (group 6): its grid beside its chart, the critical path and the legend; agent
 // strings as text; the grid's one Tab stop and its keys; starts and durations edited in the grid;
 // the predecessors panel; drags and resizes with the pointer; tasks the graph cannot schedule; the
-// change highlight and counter, the answer with its derived values, and the read-only Gantt.
+// change highlight and counter, the answer with its derived values, and the read-only Gantt; a
+// Gantt at the 500-task limit.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -20,6 +21,24 @@ import {
 import { ganttBoardDocument, ganttEditedValue } from "@askboard/contract/fixtures";
 import type { ViewDocument } from "../../src/view-document.ts";
 import {
+  armDropTimer,
+  dragBy,
+  editorFocused,
+  endPoint,
+  focusedBox,
+  focusedCell,
+  focusedItem,
+  focusRing,
+  grabPoint,
+  guideFacts,
+  keysTo,
+  pageState,
+  pressAndMove,
+  sendLock,
+  tabIntoGrid,
+  tabStops,
+} from "./fixtures/gantt-input.ts";
+import {
   alignment,
   arrowFacts,
   barDates,
@@ -29,34 +48,26 @@ import {
   counterText,
   criticalTasks,
   daysFrom,
-  dragBy,
-  editorFocused,
-  endPoint,
   filledCells,
-  focusedBox,
-  focusedCell,
-  focusedItem,
-  focusRing,
   GANTT_ID,
   ganttOf,
-  grabPoint,
-  guideFacts,
-  keysTo,
+  LIMIT_TASKS,
   LIMITS_TASKS,
-  pageState,
   panelFacts,
   panelOf,
-  pressAndMove,
   RELEASE_TASKS,
   rowLines,
   rowTexts,
-  sendLock,
-  tabIntoGrid,
-  tabStops,
   withSecondGantt,
   withTasks,
 } from "./fixtures/gantt-view.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import {
+  eventually,
+  LOAD_TIMEOUT_MS,
+  QUIET_MS,
+  STEP_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
+} from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { EVAL_PROBE, readViewBuild, withChunkScript } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -950,6 +961,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await expectReadOnly(run);
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a 500-task Gantt becomes visible within the load timeout, and a drop reschedules it within the step timeout",
+      async () => {
+        const from = Date.now();
+        const run = await opened(withTasks(LIMIT_TASKS));
+        expect(Date.now() - from).toBeLessThan(LOAD_TIMEOUT_MS);
+        const gantt = ganttOf(run.board);
+        expect(await gantt.bars.count()).toBe(500);
+        // The first task three days later, its first request: the 24 after it in its chain follow.
+        const last = (await barDates(gantt)).t25;
+        const dropped = await armDropTimer(run.board, "t25");
+        await dragBy(run.board, await grabPoint(gantt, "t1"), 3 * WEEK_PX);
+        expect(await dropped()).toBeLessThan(STEP_TIMEOUT_MS);
+        expect((await barDates(gantt)).t25).not.toBe(last);
+        expect((await barDates(gantt)).t1).toBe("2026-11-05..2026-11-05");
+        // Then a resize and a move of the request it now holds, which the live graph recalculates.
+        const resized = await armDropTimer(run.board, "t1");
+        await dragBy(run.board, await endPoint(gantt, "t1"), 2 * WEEK_PX);
+        expect(await resized()).toBeLessThan(STEP_TIMEOUT_MS);
+        expect((await barDates(gantt)).t1).toBe("2026-11-05..2026-11-06");
+        const moved = await armDropTimer(run.board, "t1");
+        await dragBy(run.board, await grabPoint(gantt, "t1"), 3 * WEEK_PX);
+        expect(await moved()).toBeLessThan(STEP_TIMEOUT_MS);
+        expect((await barDates(gantt)).t1).toBe("2026-11-09..2026-11-10");
+        expect(await counterText(gantt)).toBe("Your changes: 1");
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
