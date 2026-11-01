@@ -323,12 +323,15 @@ const oneOf =
       ? undefined
       : `is not one of ${values.map((v) => JSON.stringify(v)).join(", ")}`;
 
-type MessageFields = {
+/** A message's fields, each with its check, and which of them it may leave out. */
+export type MessageFields = {
   readonly checks: Readonly<Record<string, FieldCheck>>;
   /** Fields a message may leave out, of which it holds one at least. */
   readonly someOf?: readonly string[];
   /** Fields a message may leave out. */
   readonly optional?: readonly string[];
+  /** Fields a message may leave out, and may hold only beside another field, their partner. */
+  readonly beside?: Readonly<Record<string, string>>;
 };
 
 const ANSWER: MessageFields = {
@@ -439,8 +442,23 @@ const noneOf = (
     ? []
     : [{ path: at, message: `holds none of ${listed(someOf)}` }];
 
-function fieldProblems(
-  { checks, someOf = [], optional = [] }: MessageFields,
+// A message that holds a field without the partner it goes only beside.
+const alone = (
+  beside: Readonly<Record<string, string>>,
+  args: Record<string, unknown>,
+  at = "/arguments",
+): Problem[] =>
+  Object.entries(beside)
+    .filter(([field, partner]) => Object.hasOwn(args, field) && !Object.hasOwn(args, partner))
+    .map(([field, partner]) => ({ path: at, message: `"${field}" goes only beside "${partner}"` }));
+
+/**
+ * What is wrong with a message's fields, if anything: an unknown field, a missing one, one that
+ * fails its check, none of those it must hold one of, or one without its partner. Each problem is
+ * under `at`, the message's path.
+ */
+export function fieldProblems(
+  { checks, someOf = [], optional = [], beside = {} }: MessageFields,
   args: Record<string, unknown>,
   at = "/arguments",
 ): Problem[] {
@@ -450,13 +468,16 @@ function fieldProblems(
       .map((field) => ({ path: `${at}/${field}`, message: `unknown field "${field}"` })),
     ...Object.entries(checks).flatMap(([field, check]) => {
       if (!Object.hasOwn(args, field)) {
-        if (someOf.includes(field) || optional.includes(field)) return [];
+        if (someOf.includes(field) || optional.includes(field) || Object.hasOwn(beside, field)) {
+          return [];
+        }
         return [{ path: `${at}/${field}`, message: `missing field "${field}"` }];
       }
       const problem = check(args[field]);
       return problem === undefined ? [] : [{ path: `${at}/${field}`, message: problem }];
     }),
     ...noneOf(someOf, args, at),
+    ...alone(beside, args, at),
   ];
 }
 

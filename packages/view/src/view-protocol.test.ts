@@ -6,7 +6,9 @@ import {
   lifecycleDraftRecord,
 } from "@askboard/contract/fixtures";
 import {
+  fieldProblems,
   ITEM_ERROR_MAX_CHARS,
+  type MessageFields,
   REFERENCE_PATTERN,
   readActReply,
   readAnswerReply,
@@ -630,5 +632,36 @@ describe("who asked and where, and the agent status, in an update (task 8.4)", (
     ]) {
       expect(readViewUpdate({ type: "state", state: waiting, ...wrong })).toBeUndefined();
     }
+  });
+});
+
+describe("a field that goes only beside another (review M3)", () => {
+  // A test-only pair: `extra` may come only with `base`, as a later change's field with its partner.
+  const text = (value: unknown) => (typeof value === "string" ? undefined : "is not a text");
+  const fields: MessageFields = {
+    checks: { itemId: text, base: text, extra: text },
+    optional: ["base"],
+    beside: { extra: "base" },
+  };
+
+  test("may come with its partner, and both may be left out", () => {
+    expect(fieldProblems(fields, { itemId: "q", base: "b", extra: "e" })).toEqual([]);
+    expect(fieldProblems(fields, { itemId: "q", base: "b" })).toEqual([]);
+    expect(fieldProblems(fields, { itemId: "q" })).toEqual([]);
+  });
+
+  test("without its partner is refused, at the message, naming both", () => {
+    expect(fieldProblems(fields, { itemId: "q", extra: "e" })).toEqual([
+      { path: "/arguments", message: '"extra" goes only beside "base"' },
+    ]);
+    expect(fieldProblems(fields, { itemId: "q", extra: "e" }, "/arguments/acts/0")).toEqual([
+      { path: "/arguments/acts/0", message: '"extra" goes only beside "base"' },
+    ]);
+  });
+
+  test("is still checked itself", () => {
+    expect(fieldProblems(fields, { itemId: "q", base: "b", extra: 3 })).toEqual([
+      { path: "/arguments/extra", message: "is not a text" },
+    ]);
   });
 });
