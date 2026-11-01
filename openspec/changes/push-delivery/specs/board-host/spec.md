@@ -47,18 +47,26 @@ Every local API request SHALL carry the session token from the session file in a
 - **THEN** it is refused, and nothing of any ask is returned
 
 ### Requirement: Local API answers at once
-The local API SHALL answer every request at once, with no long-poll, each response under the contract's limit of 1 MiB; a list that does not fit SHALL be paged by `seq` with a continuation (AD-5).
+The local API SHALL answer every request at once, with no long-poll, each response under the contract's limit of 1 MiB; a list that does not fit SHALL be paged by `seq` with a continuation, and no page SHALL end inside one board command's events (AD-5, AD-20).
 
 #### Scenario: Many events
 - **WHEN** the events above `received` exceed 1 MiB
 - **THEN** the response holds the first events that fit and says that more follow
 
+#### Scenario: A board command across the limit
+- **WHEN** the events above `received` exceed 1 MiB and the events of one board command, a Submit of two answers, would straddle the limit
+- **THEN** the response stops before that command, and its continuation names the command's first event
+
 ### Requirement: Events for the mod
-The local API SHALL give the mod, for each ask with a bound owner, the events above `received`, with the owner's Claude Code agent ID or none for the main conversation, and SHALL raise `received` for each delivery the mod reports. It SHALL give no event of an unchecked ask (AD-3, AD-4, AD-5).
+The local API SHALL give the mod, for each ask with a bound owner, the events above `received`, with the owner's Claude Code agent ID or none for the main conversation, and SHALL raise `received` for each delivery the mod reports. It SHALL give no event of an unchecked ask, and SHALL refuse a report no poll could give, one inside a board command among them, leaving `received` where it was (AD-3, AD-4, AD-5, AD-20).
 
 #### Scenario: A subagent's answered ask
 - **WHEN** the user answers a subagent's ask and the mod polls
 - **THEN** the mod receives the answer event with that subagent's agent ID
+
+#### Scenario: A report inside a board command
+- **WHEN** the mod reports a delivery up to the first of one board command's two events
+- **THEN** the report is refused, and `received` does not move
 
 ### Requirement: Pending asks
 The local API SHALL give the session's pending asks: each open ask, not closed or discarded, with at least one question for which the agent has received neither an answer nor a decline. Each entry SHALL carry the ask's title, its origin's label, the number of such questions, its board link and its owner's agent ID (FR-23, EXPERIENCE Counting).
@@ -68,11 +76,19 @@ The local API SHALL give the session's pending asks: each open ask, not closed o
 - **THEN** the ask is still pending, with one open question
 
 ### Requirement: Stop decisions
-For a subagent's stop, the local API SHALL return a block carrying its owned asks' events above `received`, in order and within the response limit, when there are some and `stop_hook_active` is false, raising `received` only to the last event it carries; otherwise it SHALL let the stop through and have `ask-core` close the subagent's open asks with reason `agent-finished` (AD-10).
+For a subagent's stop, the local API SHALL return a block carrying its owned asks' events above `received`, in order and within the response limit, cut only between board commands, when there are some and `stop_hook_active` is false, raising `received` only to the last event it carries; otherwise it SHALL let the stop through and have `ask-core` close the subagent's open asks with reason `agent-finished` (AD-10, AD-20).
 
 #### Scenario: Blocked once
 - **WHEN** a subagent stops with an answer above `received` and `stop_hook_active` false
 - **THEN** the decision is a block carrying the answer, and `received` passes it
+
+#### Scenario: A board command across the limit in a block
+- **WHEN** a subagent's events above `received` exceed the response limit and the events of one board command would straddle it
+- **THEN** the block ends before that command, and `received` rises only to the end of the last command it carries
+
+#### Scenario: A first board command over the limit
+- **WHEN** the first board command above a subagent's `received` alone passes the response limit
+- **THEN** the block carries that ask without events, `received` does not move, and the open asks tell the subagent to collect
 
 ### Requirement: Effective asking rule
 The local API SHALL report the effective asking rule and whether a board can be shown, by the rule of AD-18. Until the session process reads configuration, the rule SHALL be `none` (AD-14, AD-16).

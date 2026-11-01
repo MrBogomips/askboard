@@ -44,7 +44,7 @@ Each owned ask SHALL keep an origin set once from its owning record: the owner k
 - **THEN** the ask's root is the project root
 
 #### Scenario: No session project root
-- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR`, or with one whose real path cannot be read, and a subagent working in a worktree of the repository asks
+- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR`, or with one that is not absolute, or whose real path cannot be read or is not a folder, and a subagent working in a worktree of the repository asks
 - **THEN** the ask's origin has its label and `cwd` and no root, directory, branch or worktree, git does not run for it, and the working folder never stands in for the root
 
 #### Scenario: git pointed at another repository
