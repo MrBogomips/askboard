@@ -22,6 +22,14 @@
 - **WHEN** `vendor` inside the root links to a folder outside it
 - **THEN** a pointer to `vendor/a.md#L1-L2` is unresolved with reason `outside-root`
 
+#### Scenario: A dangling link out of the root
+- **WHEN** `docs/gone.md` inside the root is a symlink to a file outside the root that does not exist
+- **THEN** a pointer to `docs/gone.md#L1-L3` is unresolved with reason `outside-root`, the same reason as for a link to an outside file that exists, so the reason never tells whether a file outside the root exists
+
+#### Scenario: A dangling link inside the root
+- **WHEN** `docs/later.md` inside the root is a symlink to `docs/missing.md`, which does not exist
+- **THEN** the pointer is unresolved with reason `not-found`
+
 #### Scenario: A sibling folder that shares the root's name
 - **WHEN** the root is `/w/proj` and `docs/x.md` links to `/w/proj-old/x.md`
 - **THEN** the pointer is unresolved with reason `outside-root`
