@@ -400,9 +400,18 @@ export {
   type TreePertProps,
   treeDerivedFields,
 } from "./widgets/tree/index.ts";
-// Context, E5 (excerpts, design decision 2): the context limits of proposal B4, exported in one
-// appended block.
+// Context, E5 (excerpts, design decision 2): the pointer grammar and the context limits of
+// proposal B4, exported in one appended block.
 
+export {
+  type InvalidPointer,
+  type LineRange,
+  type Pointer,
+  type PointerAnchor,
+  type PointerProblem,
+  type PointerReading,
+  readPointer,
+} from "./context/pointer.ts";
 export {
   ANCHOR_FILE_MAX_BYTES,
   ASK_IMAGES_MAX_BYTES,
