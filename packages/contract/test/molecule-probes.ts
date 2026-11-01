@@ -3,6 +3,8 @@
 // props schema; the shipped definitions are `molecules`' and its tests'. A test that changes a
 // definition copies it: these objects are frozen.
 
+import type { MoleculeDefinition } from "../src/molecules/index.ts";
+
 const DIALECT = "https://json-schema.org/draft/2020-12/schema";
 
 const deepFreeze = <T>(value: T): T => {
@@ -17,7 +19,7 @@ const deepFreeze = <T>(value: T): T => {
 export const copyOf = <T>(value: T): T => structuredClone(value) as T;
 
 /** A definition in format 1.0.0: one Tree, filled from `nodes`, without their `excerpt`, and `depth`. */
-export const probeWbs = deepFreeze({
+export const probeWbs: MoleculeDefinition = deepFreeze({
   format: "1.0.0",
   molecule: "probe-wbs",
   version: "1.2.0",
@@ -56,7 +58,7 @@ export const probeWbs = deepFreeze({
 });
 
 /** A definition with one slot of each kind: a plan-like item filled by every form. */
-export const probePlan = deepFreeze({
+export const probePlan: MoleculeDefinition = deepFreeze({
   format: "1.0.0",
   molecule: "probe-plan",
   version: "1.0.0",

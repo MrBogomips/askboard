@@ -372,3 +372,21 @@ export { type AgentTextRun, agentTextPiece, agentTextRuns } from "./push/notice-
 // ask-core alike.
 
 export { originMessage, type WhoAskedFields } from "./push/origin-message.ts";
+
+// Molecules (molecules): the reference and definition formats, their checks and JSON Pointers.
+
+export { moleculeDefinitionProblems } from "./molecules/checks.ts";
+export {
+  EXPANDED_ID_SEPARATOR,
+  expandedItemId,
+  MOLECULE_FORMAT_VERSION,
+  MOLECULE_FORMATS_SUPPORTED,
+  MOLECULE_NAME_PATTERN,
+  MOLECULE_VERSION_PATTERN,
+  type MoleculeDefinition,
+  type MoleculeFill,
+  type MoleculeFillForm,
+  type MoleculeItem,
+  type MoleculeProps,
+} from "./molecules/index.ts";
+export { type Located, pointerOf, pointerTokens, valueAt } from "./molecules/pointer.ts";

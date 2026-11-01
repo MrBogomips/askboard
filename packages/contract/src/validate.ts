@@ -317,3 +317,7 @@ export {
   validatePushMessage,
   validateSessionFile,
 } from "./push/validate.ts";
+
+// Molecules (molecules): the reference and definition validators.
+
+export { validateMoleculeDefinition, validateMoleculeProps } from "./molecules/validate.ts";
