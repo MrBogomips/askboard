@@ -1,0 +1,33 @@
+{
+  "molecule": "gantt-plan",
+  "version": "1.0.0",
+  "parameters": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:askboard:molecule:gantt-plan:1",
+    "title": "Gantt plan parameters",
+    "description": "The data an agent sends for a Gantt plan (FR-15): the work breakdown whose leaves are its tasks, the plan's start, and each task's finish-to-start predecessors. Each is checked by the same definitions as a Gantt's props. The plan's names, durations and order come from its work breakdown.",
+    "type": "object",
+    "properties": {
+      "workPackages": {
+        "description": "The ID of the Tree item, in the same question, whose leaves are the plan's tasks.",
+        "$ref": "urn:askboard:input:gantt-props#/properties/workPackages"
+      },
+      "start": {
+        "description": "The plan's start: work starts on the first working day on or after it.",
+        "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate"
+      },
+      "dependencies": {
+        "description": "Each task's predecessors, finish to start, by task ID.",
+        "type": "object",
+        "propertyNames": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "additionalProperties": {
+          "$ref": "urn:askboard:input:gantt-props#/$defs/predecessors"
+        }
+      }
+    },
+    "required": ["workPackages", "start"],
+    "additionalProperties": false
+  }
+}
