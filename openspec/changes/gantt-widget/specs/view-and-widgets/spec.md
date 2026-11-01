@@ -102,6 +102,13 @@ The user SHALL edit a task's predecessors from its grid row, in an inline panel 
 - **WHEN** the user opens the prototype's predecessors
 - **THEN** the portal and reporting, which depend on the prototype, are disabled
 
+### Requirement: Gantt predecessors that name no task
+A predecessor a task holds that names no other task, such as a package deleted in the Tree, an unknown ID from the agent or the task itself, SHALL be listed checked in the task's panel, saying that it names no task, so that the user can uncheck it. The panel SHALL NOT offer the task itself, or such an ID, to any other task (FR-14).
+
+#### Scenario: A predecessor deleted in the Tree
+- **WHEN** the portal is deleted in the plan's Tree and the user opens reporting's predecessors
+- **THEN** `portal` is listed checked, saying that it names no task, and once the user unchecks it and presses "Done", reporting is scheduled again with no field error
+
 ### Requirement: Gantt formula errors
 A task whose schedule is in error, from a dependency cycle or a predecessor that names no task, SHALL show a field error under its row and no bar, and SHALL NOT block "Answer" (AD-13, FR-14; EXPERIENCE State Patterns, By surface).
 

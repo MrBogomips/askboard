@@ -88,6 +88,10 @@ A predecessor that names no task of the Gantt, a plan entry that names no leaf o
 - **WHEN** a Gantt's tasks make `a` depend on `b` and `b` on `a`
 - **THEN** the props pass validation
 
+#### Scenario: A task that names itself
+- **WHEN** a Gantt's changes give task `a` the predecessors `a` and `b`
+- **THEN** the changes pass validation, the self-loop being a cycle
+
 ### Requirement: Gantt limits
 A Gantt SHALL hold at most 500 tasks; a task at most 50 predecessors; at most 50 tasks SHALL depend on one task; a task's name SHALL be 1 to 200 characters. The limits SHALL live in the contract, and a Gantt over one SHALL fail validation, naming the limit.
 
