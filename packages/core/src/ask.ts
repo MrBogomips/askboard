@@ -10,6 +10,7 @@ import {
   type AskState,
   BOARD_DOCUMENT_VERSION,
   type BoardDocument,
+  type ClosedEvent,
   type ClosedReason,
   type DiscardedEvent,
   type DiscardReason,
@@ -415,6 +416,24 @@ export class Ask {
     this.#closed = reason;
     this.#connections.stop();
     return true;
+  }
+
+  /**
+   * Closes the open ask because the subagent that owns it finished (push delivery, AD-10): the final
+   * `closed` event is appended, which the owner reads if it is resumed, then the ask closes with
+   * reason `agent-finished`. Returns the event, or undefined for an ask already closed or
+   * discarded.
+   */
+  finish(): ClosedEvent | undefined {
+    if (this.#stored !== undefined) return undefined;
+    const event: ClosedEvent = {
+      cursor: this.#nextCursor(),
+      type: "closed",
+      reason: "agent-finished",
+    };
+    this.#log.append([event]);
+    this.close("agent-finished");
+    return event;
   }
 
   /**

@@ -7,8 +7,10 @@ import {
   CLAUDE_CODE_MINIMUM,
   LOCAL_API_VERSION,
   type PollResponse,
+  SCHEMA_IDS,
   SESSION_FILE_FORMAT,
 } from "@askboard/contract";
+import { validateAgainst } from "@askboard/contract/validate";
 import { callAs, stopAs } from "./hook-runs.ts";
 import {
   createModHost,
@@ -360,13 +362,26 @@ describe("the stop guard", () => {
     // The second stop goes through, and so does one with nothing above received.
     const allowed = { code: 0, stdout: "", stderr: "" };
     expect(await stopAs(session, agent, true)).toEqual(allowed);
+    // The allow closed the subagent's ask (task 3.6): its board shows it closed.
+    expect(await nextOfType(board, "closed")).toMatchObject({ reason: "agent-finished" });
     expect(await stopAs(session, agent, false)).toEqual(allowed);
     // A side agent of Claude Code's, which the session process has no record of.
     expect(await stopAs(session, subagent("a0e1d2c3b4a596870", ""), false)).toEqual(allowed);
-    // What the block carried was received: the mod pushes none of it, even to a running subagent.
+    // What the block carried was received: a resumed subagent is pushed the closed event alone,
+    // and its collect after the answer returns that event.
     mod.setAgents([listed(agent, "running")]);
-    await afterPolls(mod);
-    expect(mod.record.pushes).toEqual([]);
+    const push = await mod.until((record) => record.pushes[0], "the closed event's push");
+    const closed = { type: "closed", reason: "agent-finished" };
+    expect(pushedMessage(push.text)).toMatchObject({
+      asks: [{ askId, state: "closed", events: [closed] }],
+    });
+    const after = pushedMessage(output.reason).asks[0]?.cursor ?? "";
+    const collected = await callAs(session, agent, "collect", { asks: [{ askId, after }] });
+    expect(validateAgainst(SCHEMA_IDS.collectResult, collected.outcome.json).ok).toBe(true);
+    expect(collected.outcome.json).toMatchObject({
+      asks: [{ askId, state: "closed", events: [closed] }],
+    });
+    expect(mod.record.pushes).toHaveLength(1);
     expect(await session.end()).toBe(0);
   });
 });

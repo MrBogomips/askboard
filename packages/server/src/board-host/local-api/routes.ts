@@ -67,7 +67,7 @@ export const createHandlers = ({
     const allow: StopDecision = { ...ACK, decision: "allow" };
     const ownerKey = records.ownerKeyOf(agent_id);
     if (ownerKey === undefined) return ok(allow);
-    // An allow is where ask-core closes the subagent's open asks once E3's close exists (task 3.6).
+    // An allow closes the subagent's open asks in ask-core, with agent-finished (task 3.6).
     const outcome = core.stop(ownerKey, stop_hook_active, fitStop(core.epoch));
     if (outcome.decision === "allow") return ok(allow);
     return ok(blockDecision(core.epoch, outcome));

@@ -453,10 +453,27 @@ export class AskCore {
 
   /**
    * The stop guard's decision on the owner's stop, acted on before it returns (AD-10): a block
-   * carries what `fit` keeps of the events above `received`, and raises `received` to that alone.
+   * carries what `fit` keeps of the events above `received`, and raises `received` to that alone;
+   * an allow closes the owner's open asks (`agentFinished`).
    */
   stop(ownerKey: string, stopHookActive: boolean, fit?: StopFit): StopOutcome {
-    return this.#push.stop(ownerKey, stopHookActive, fit);
+    const outcome = this.#push.stop(ownerKey, stopHookActive, fit);
+    if (outcome.decision === "allow") this.agentFinished(ownerKey);
+    return outcome;
+  }
+
+  /**
+   * The subagent behind `ownerKey` finished (AD-10, FR-25): each open ask it owns gets its final
+   * `closed` event and closes with reason `agent-finished`; the subscribers hear the event, then
+   * the close, which wakes the ask's waiters.
+   */
+  agentFinished(ownerKey: string): void {
+    for (const askId of this.#push.asksOf(ownerKey)) {
+      const event = this.#asks.get(askId)?.finish();
+      if (event === undefined) continue;
+      this.#appended(askId, [event]);
+      this.#publish({ type: "closed", askId, reason: "agent-finished" });
+    }
   }
 
   /**

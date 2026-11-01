@@ -131,6 +131,11 @@ export class PushDelivery {
     return { decision: "block", ...block };
   }
 
+  /** The IDs of the asks `ownerKey` owns, in the order they were created. */
+  asksOf(ownerKey: string): readonly string[] {
+    return this.#owners.asksOf(ownerKey);
+  }
+
   /** `board-host`'s report of an ask's board working signal, false when its socket closes. */
   setWorking(askId: string, working: boolean): void {
     if (working && this.#host.ask(askId) !== undefined) this.#working.add(askId);

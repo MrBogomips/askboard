@@ -112,7 +112,8 @@ describe("the stop guard", () => {
     const { core, heard } = await ownedAndAnswered();
     const count = heard.length;
     expect(core.stop("reviewer-1", true)).toEqual({ decision: "allow" });
-    expect(heard).toHaveLength(count);
+    // Nothing raises received; the allow closes the subagent's ask (task 3.6).
+    expect(heard.slice(count).map((event) => event.type)).toEqual(["appended", "closed"]);
     expect(core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(false);
   });
 
