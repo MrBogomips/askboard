@@ -115,3 +115,6 @@ export {
   contextWaiting,
   readingPanelTranscript,
 } from "./context-transcripts.ts";
+// Settings and languages (E8): a configuration file with every key (settings-languages task 1.1).
+
+export { everyKeyConfiguration } from "./configuration.ts";

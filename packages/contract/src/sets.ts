@@ -3,6 +3,7 @@
 
 import { boardDocumentSet } from "./schemas/board-document/index.ts";
 import { BOARD_PROTOCOL_MESSAGES, boardProtocol } from "./schemas/board-protocol/index.ts";
+import { configurationSet } from "./schemas/configuration/index.ts";
 import { inputFormat } from "./schemas/input/index.ts";
 import { outputFormat } from "./schemas/output/index.ts";
 import { toolEnvelopes } from "./schemas/tool-envelopes/index.ts";
@@ -16,6 +17,8 @@ export const SCHEMA_SETS: readonly SchemaSet[] = [
   boardDocumentSet,
   boardProtocol,
   viewManifestSet,
+  // settings-languages (E8): the configuration set (design decision 2).
+  configurationSet,
 ];
 
 /** The `$id` of each schema that a unit validates against by name. */
@@ -69,4 +72,7 @@ export const SCHEMA_IDS = {
   boardExcerptProps: "urn:askboard:board-document:excerpt-props",
   boardReferenceProps: "urn:askboard:board-document:reference-props",
   boardImageProps: "urn:askboard:board-document:image-props",
+
+  // settings-languages (E8): the configuration set (design decision 2).
+  configuration: "urn:askboard:configuration:config",
 } as const;

@@ -483,3 +483,19 @@ export type {
   FetchQuestion,
   FetchQuestionProps,
 } from "./schemas/tool-envelopes/index.ts";
+// Settings and languages (E8, settings-languages design decision 2): the configuration set.
+
+export {
+  CONFIGURATION_DEFAULTS,
+  CONFIGURATION_KEYS,
+  CONFIGURATION_VERSION,
+  type Configuration,
+  type ConfigurationKey,
+  type ConfigurationValues,
+  type ContextPlacement,
+  configurationSet,
+  type Density,
+  PRESENTATION_KEYS,
+  type PresentationKey,
+  type ThemePreference,
+} from "./schemas/configuration/index.ts";
