@@ -69,7 +69,7 @@ A Tree with `pert` SHALL open with the packages above its `openDepth` expanded a
 - **THEN** only Design and Build are visible, with closed chevrons
 
 ### Requirement: An added package's predecessors
-A package the user adds to a Tree that a Gantt plan of its question names SHALL, once named, get in that plan the predecessors the plan gives the package it was added after ("Add node") or under ("Add child"), none when that package has none, in the same draft update (F20; EXPERIENCE Molecules, WBS with PERT).
+A package the user adds to a Tree that a Gantt plan of its question names, with `pert` or without, SHALL, once named, get in that plan the predecessors the plan gives the package it was added after ("Add node") or under ("Add child"), none when that package has none, in the same draft update (F20; EXPERIENCE Molecules, WBS with PERT).
 
 #### Scenario: Splitting the portal
 - **WHEN** the user focuses the portal, chooses "Add node" and names the package `Customer portal: dashboards`
@@ -83,8 +83,15 @@ A package the user adds to a Tree that a Gantt plan of its question names SHALL,
 - **WHEN** the user chooses "Add node" and presses Escape
 - **THEN** neither the Tree nor the plan holds a draft value
 
+### Requirement: Linked edits within a plan's limits
+An addition or a confirmed deletion in a Tree whose edit of a linked plan would take that plan past a limit (50 predecessors of a task, 50 dependents of a task, 500 entries) SHALL be refused with a field error naming the limit, and SHALL write nothing to the Tree or the plan (AD-9, AD-10; F20).
+
+#### Scenario: A linked edit past a plan's limit
+- **WHEN** the user names a package added after one whose predecessor already has 50 dependents in the plan
+- **THEN** the name shows a field error naming the limit of 50 dependents, keeps the focus, and neither the Tree nor the plan holds a draft value
+
 ### Requirement: Deleting a package with dependents
-Deleting a package on which tasks of a linked plan depend SHALL ask first, inline, saying how many tasks depend on it, with the focus on "Cancel". Confirming SHALL connect each dependent to the deleted packages' own predecessors, without repeats, and return each deleted package's entry to what the agent sent for it (EXPERIENCE Molecules, WBS with PERT).
+Deleting a package on which tasks of a linked plan depend, in a Tree with `pert` or without, SHALL ask first, inline, saying how many tasks depend on it, with the focus on "Cancel". Confirming SHALL connect each dependent to the deleted packages' own predecessors, without repeats, and return each deleted package's entry to what the agent sent for it (EXPERIENCE Molecules, WBS with PERT).
 
 #### Scenario: Deleting the portal
 - **WHEN** the user deletes the portal, on which reporting depends, and confirms

@@ -58,6 +58,10 @@ A fill SHALL put its parameter's value at its pointer: as it is (copy); as the e
 - **WHEN** `schedule` sits in a question other than the one holding `wbs`
 - **THEN** the request is refused, naming `schedule` and `wbs`
 
+#### Scenario: A day that does not exist
+- **WHEN** the `schedule` reference's `data.start` is `2026-02-30`, which has the form of a date
+- **THEN** the data passes its parameters, whose date is a pattern, and the request is refused at the expanded plan's own checks, naming `schedule` and `/start`
+
 ### Requirement: Expanded IDs
 An expanded item's ID SHALL be at most 64 characters and SHALL NOT equal another item ID of the ask; otherwise the request SHALL be refused, naming the reference and, for a clash, the other item (AD-7, AD-9).
 
