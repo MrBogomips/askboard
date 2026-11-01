@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { ganttPlanLinkProblems, ganttPropsSchema } from "@askboard/contract";
+import { GANTT_MAX_TASKS, ganttPlanLinkProblems, ganttPropsSchema } from "@askboard/contract";
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import { createAjv, problemOf, validateGanttProps } from "@askboard/contract/validate";
 import { READY_MOLECULES } from "../src/index.ts";
@@ -108,6 +108,18 @@ describe("the Gantt plan's definition (molecules spec, The Gantt plan's paramete
     expect({ problems, at: problems.some((problem) => problem.path === path) }).toMatchObject({
       at: true,
     });
+  });
+
+  test("refuse more dependencies than a plan holds entries, naming them", () => {
+    const parameters = definition.parameters as {
+      properties: { dependencies: { maxProperties?: number } };
+    };
+    expect(parameters.properties.dependencies.maxProperties).toBe(GANTT_MAX_TASKS);
+    const entries = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, n) => [`t${n}`, ["ux"]]));
+    expect(problemsOf({ ...data, dependencies: entries(GANTT_MAX_TASKS) })).toEqual([]);
+    const problems = problemsOf({ ...data, dependencies: entries(GANTT_MAX_TASKS + 1) });
+    expect(problems.map((problem) => problem.path)).toEqual(["/dependencies"]);
   });
 });
 

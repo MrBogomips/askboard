@@ -19,6 +19,7 @@
       "dependencies": {
         "description": "Each task's predecessors, finish to start, by task ID.",
         "type": "object",
+        "maxProperties": 500,
         "propertyNames": {
           "$ref": "urn:askboard:input:id"
         },
