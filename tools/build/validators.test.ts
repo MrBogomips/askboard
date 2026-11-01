@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
+import { BOARD_PROTOCOL_MESSAGES, BOARD_PROTOCOL_VERSION } from "@askboard/contract";
 import {
   boardProtocolExamples,
   lifecycleProtocolExamples,
@@ -19,12 +19,16 @@ let generated: Record<string, Check> = {};
 
 // The generated module needs Ajv's run-time helper by its package name, which resolves from the
 // board page's folder in the build; here it is pointed at this folder's resolution instead.
+const load = async (source: string, name: string): Promise<Record<string, Check>> => {
+  const runtime = Bun.resolveSync(HOST_VALIDATORS_RUNTIME, import.meta.dir);
+  const file = join(dir, `${name}.mjs`);
+  await Bun.write(file, source.replaceAll(`"${HOST_VALIDATORS_RUNTIME}"`, JSON.stringify(runtime)));
+  return (await import(file)).hostMessageSchemas;
+};
+
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "askboard-validators-"));
-  const runtime = Bun.resolveSync(HOST_VALIDATORS_RUNTIME, import.meta.dir);
-  const file = join(dir, "validators.mjs");
-  await Bun.write(file, code.replaceAll(`"${HOST_VALIDATORS_RUNTIME}"`, JSON.stringify(runtime)));
-  ({ hostMessageSchemas: generated } = await import(file));
+  generated = await load(code, "validators");
 });
 
 afterAll(async () => {
@@ -81,6 +85,25 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
       const check = generated[message.type];
       expect({ message, ok: check?.(message) }).toEqual({ message, ok: true });
       expect(validateBoardMessage("toPage", message).ok).toBe(true);
+    }
+  });
+
+  test("key each validator by its message name, quoted, so a name need not be an identifier", async () => {
+    // A later host message such as `snapshot-saved`, here checked against `moved`'s schema.
+    const messages = {
+      ...BOARD_PROTOCOL_MESSAGES.toPage,
+      "snapshot-saved": BOARD_PROTOCOL_MESSAGES.toPage.moved,
+    };
+    const extended = await load(hostValidatorsCode(messages), "extended");
+    expect(Object.keys(extended)).toEqual(Object.keys(messages));
+    const check = extended["snapshot-saved"];
+    expect(check?.({ version: BOARD_PROTOCOL_VERSION, type: "moved" })).toBe(true);
+    expect(check?.({ version: BOARD_PROTOCOL_VERSION, type: "moved", why: "x" })).toBe(false);
+    // The listed messages keep their validators beside it.
+    const added = lifecycleProtocolExamples.toPage as readonly { type: string }[];
+    for (const message of [...valid, ...invalid, ...added]) {
+      const ok = extended[message.type]?.(message);
+      expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
     }
   });
 });
