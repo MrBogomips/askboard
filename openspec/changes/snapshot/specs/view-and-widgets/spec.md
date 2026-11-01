@@ -39,7 +39,7 @@ A Snapshot SHALL end with the `askboard-licences` JSON block listing, for each p
 - **THEN** its notices are exactly those the manifest gives for the chunks it inlines, React's included, and ext-apps' are absent
 
 ### Requirement: The Snapshot control
-The bottom action bar SHALL offer "Snapshot" on every board, the single-question board included, while the ask is open or closed; it SHALL be disabled while the connection is lost and absent once the ask is discarded. Its feedback SHALL show the saved file's path, or the failure with the Snapshot folder's path (FR-26).
+The bottom action bar SHALL offer "Snapshot" on every board, the single-question board included, while the ask is open or closed; it SHALL be disabled while the connection is lost and absent once the ask is discarded. Its feedback SHALL show the saved file's path, or the failure with the Snapshot folder's path, or, when the session has no project root, a failure naming `CLAUDE_PROJECT_DIR` (FR-26, AD-12).
 
 #### Scenario: Taking a Snapshot from a single-question board
 - **WHEN** the user presses "Snapshot" on the golden single-question board

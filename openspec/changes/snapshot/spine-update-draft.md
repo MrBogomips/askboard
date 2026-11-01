@@ -2,6 +2,8 @@
 
 Replacement texts for task 0.5, drafted before the PO's decisions. Each block belongs to one or more open questions of proposal.md and applies only if the PO accepts the defaults it rests on. Each block quotes the current text exactly, as it stands on `main` at 92ca203, then gives the replacement. AD IDs stay stable: AD-15 is amended in place, and no AD is added. Nothing here is applied to `docs/` until then. The PRD needs no change.
 
+**Status (2026-11-01):** the PO accepted every open question these blocks rest on as proposed (decisions-5), so every block's condition holds and none needs rewriting; XC-A1 changes none of the quoted texts. No block is applied yet: all seven are applied in task 0.5, after the rebase of task 0.1 on E3 and E4, as "How to apply" says. On this branch (`docs/` as on `main` at 92ca203) each current text stood exactly once on 2026-11-01; task 0.5 checks them again on the rebased `main`.
+
 Files, all under `docs/`:
 
 - **Spine:** `architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`

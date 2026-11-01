@@ -14,11 +14,15 @@
 - **THEN** the Snapshot is taken and `snapshot-saved` answers, though every act on that board is refused
 
 ### Requirement: A board's Snapshot that fails
-When the Snapshot cannot be written, `board-host` SHALL answer `snapshot-failed` with the request's ID, the reason `write-failed` and the Snapshot folder's path; when the ask was discarded meanwhile, with the reason `discarded`, before the board learns of the discard (FR-26, NFR-10).
+When the Snapshot cannot be written, `board-host` SHALL answer `snapshot-failed` with the request's ID, the reason `write-failed` and the Snapshot folder's path; when the session has no project root, with the reason `no-project-root`; when the ask was discarded meanwhile, with the reason `discarded`, before the board learns of the discard (FR-26, NFR-10, AD-12).
 
 #### Scenario: The folder cannot be written
 - **WHEN** the board page sends `snapshot` and the Snapshot folder is not writable
 - **THEN** the page receives `snapshot-failed` naming the request, `write-failed` and the folder
+
+#### Scenario: No project root
+- **WHEN** the board page sends `snapshot` in a session process started without `CLAUDE_PROJECT_DIR`
+- **THEN** the page receives `snapshot-failed` naming the request and `no-project-root`, and no file is written
 
 ### Requirement: Unsent work passed on as a fact
 `board-host` SHALL pass the request's `unsentWork` to `ask-core` as it came, and SHALL NOT consult the mirrored draft record for a Snapshot (AD-15, AD-20).

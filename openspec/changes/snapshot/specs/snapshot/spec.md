@@ -7,7 +7,7 @@ The `snapshot` unit writes Snapshots: one self-contained HTML file per Snapshot,
 ## ADDED Requirements
 
 ### Requirement: The Snapshot folder
-Snapshots SHALL be written into `.askboard/snapshots/` under the session project root, the real path of `CLAUDE_PROJECT_DIR`, else the session process's working folder. When `.askboard/` or the folder is missing, the unit SHALL create it before writing (FR-27, AD-14).
+Snapshots SHALL be written into `.askboard/snapshots/` under the session project root, the real path of `CLAUDE_PROJECT_DIR`. When `.askboard/` or the folder is missing, the unit SHALL create it before writing (FR-27, AD-14).
 
 #### Scenario: The first Snapshot of a project
 - **WHEN** an agent takes a Snapshot in a project that has no `.askboard/` folder
@@ -16,6 +16,13 @@ Snapshots SHALL be written into `.askboard/snapshots/` under the session project
 #### Scenario: A subagent in another worktree
 - **WHEN** a subagent whose ask's root is a worktree of the project takes a Snapshot
 - **THEN** the file is written under the session project root, not under the worktree
+
+### Requirement: No Snapshot without a project root
+Without `CLAUDE_PROJECT_DIR` there is no session project root, and no other folder SHALL stand in for it: a Snapshot requested by the agent or by the board SHALL be refused with the typed error `no-project-root`, naming `CLAUDE_PROJECT_DIR`, and nothing SHALL be written (AD-12).
+
+#### Scenario: No CLAUDE_PROJECT_DIR
+- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR`, and the agent or the board asks for a Snapshot
+- **THEN** the request is refused with an error naming `CLAUDE_PROJECT_DIR`, and no file or folder is created, in the working folder or anywhere else
 
 ### Requirement: Ignored by git by default
 When the unit writes a Snapshot and `.askboard/.gitignore` does not exist, it SHALL create that file listing `snapshots/`, `media/`, `patches/` and `bench/`; an existing `.askboard/.gitignore` SHALL be left as it is, so a user's choice to commit Snapshots holds (FR-27, AD-14).

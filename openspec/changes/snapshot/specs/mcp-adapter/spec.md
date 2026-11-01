@@ -34,7 +34,7 @@ The session process SHALL list exactly `ask`, `update`, `collect`, `fetch` and `
 - **THEN** the result is `discarded` for that ask, not an error, and no file is written
 
 ### Requirement: Snapshot refusals
-A `snapshot` call that E4's owner check refuses, as it refuses `fetch`, SHALL return an error naming the ask; a Snapshot that cannot be written SHALL return an error naming the Snapshot folder and the reason. Neither SHALL write a file (AD-5, AD-6).
+A `snapshot` call that E4's owner check refuses, as it refuses `fetch`, SHALL return an error naming the ask; a Snapshot refused because the session has no project root SHALL return an error naming `CLAUDE_PROJECT_DIR`; a Snapshot that cannot be written SHALL return an error naming the Snapshot folder and the reason. None SHALL write a file (AD-5, AD-6, AD-12).
 
 #### Scenario: Another agent's ask
 - **WHEN** a subagent calls `snapshot` on an ask the main conversation owns
@@ -43,6 +43,10 @@ A `snapshot` call that E4's owner check refuses, as it refuses `fetch`, SHALL re
 #### Scenario: The folder cannot be written
 - **WHEN** the Snapshot folder is not writable
 - **THEN** the result is an error naming the folder and the reason
+
+#### Scenario: No project root
+- **WHEN** an agent calls `snapshot` in a session process started without `CLAUDE_PROJECT_DIR`
+- **THEN** the result is an error naming `CLAUDE_PROJECT_DIR`, and no file is written
 
 ### Requirement: Snapshot of an unchecked ask
 The result of `snapshot` on an ask that has no owner SHALL carry `unchecked: true`, as `collect`'s entry for that ask does (AD-5).
