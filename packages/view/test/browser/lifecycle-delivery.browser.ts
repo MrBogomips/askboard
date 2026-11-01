@@ -3,9 +3,10 @@
 // hidden on the single-question board, a ready question made not ready by an edit, Submit as one
 // command in the user's order, a note held alone until Submit, "Select recommended" never replacing
 // a choice, Submit blocked by an agent-change notice on held work, and the mode-switch confirmation
-// as a modal Alert Dialog whose scroll lock runs under the view's policy; and a decline held before
-// the agent's deletes left the single-question board, taken back there without being sent. Every
-// scenario runs on the session process.
+// as a modal Alert Dialog whose scroll lock runs under the view's policy, with the style-element
+// shim taking every way a `<style>` reaches the head; and a decline held before the agent's deletes
+// left the single-question board, taken back there without being sent. Every scenario runs on the
+// session process.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -18,6 +19,7 @@ import {
 import {
   eventually,
   expectNoCspProblem,
+  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -290,6 +292,51 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the style-element shim takes a <style> added to the head by insertBefore, append, prepend or replaceChildren, and its rules apply with no CSP violation (S-6)",
+      async () => {
+        const run = await start(lifecycleScenario(submittedAsk, dist));
+        const board = await openBoard(run, QUESTIONS);
+        const frame = await board.viewFrame();
+        const outcome = await frame.evaluate(() => {
+          const { head } = document;
+          const styleOf = (color: string) => {
+            const style = document.createElement("style");
+            style.textContent = `html { outline-color: ${color}; }`;
+            return style;
+          };
+          const applied = () => getComputedStyle(document.documentElement).outlineColor;
+          const results: Record<string, { readonly color: string; readonly inHead: boolean }> = {};
+          const add = (name: string, color: string, insert: (style: HTMLStyleElement) => void) => {
+            const style = styleOf(color);
+            insert(style);
+            results[name] = { color: applied(), inHead: style.parentNode === head };
+          };
+          add("insertBefore", "rgb(1, 2, 3)", (style) => head.insertBefore(style, null));
+          add("insertBefore a child", "rgb(4, 5, 6)", (style) =>
+            head.insertBefore(style, head.firstChild),
+          );
+          add("append", "rgb(7, 8, 9)", (style) => head.append(style));
+          add("prepend", "rgb(10, 11, 12)", (style) => head.prepend(style));
+          add("replaceChildren", "rgb(13, 14, 15)", (style) =>
+            head.replaceChildren(...Array.from(head.childNodes), style),
+          );
+          return results;
+        });
+        expect(outcome).toEqual({
+          insertBefore: { color: "rgb(1, 2, 3)", inHead: false },
+          "insertBefore a child": { color: "rgb(4, 5, 6)", inHead: false },
+          append: { color: "rgb(7, 8, 9)", inHead: false },
+          prepend: { color: "rgb(10, 11, 12)", inHead: false },
+          replaceChildren: { color: "rgb(13, 14, 15)", inHead: false },
+        });
+        // Let a report the browser queues reach the harness.
+        await Bun.sleep(QUIET_MS);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
