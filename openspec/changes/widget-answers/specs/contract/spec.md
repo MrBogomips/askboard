@@ -179,6 +179,10 @@ A widget item whose props fail its schema or its widget's checks SHALL fail the 
 - **WHEN** a question's Gantt plan names `workPackages: "wbs"` and the question holds no Tree `wbs`
 - **THEN** the request fails, naming the plan and `wbs`
 
+#### Scenario: A plan whose Tree is in another question
+- **WHEN** a question's Gantt plan names `workPackages: "wbs"` and the Tree `wbs` is an item of another question of the same ask
+- **THEN** the request fails, naming the plan and `wbs`, as if the question held no Tree `wbs`
+
 ### Requirement: Widget items in the board document
 The board document's questions SHALL hold their widget items as `ask-core` expanded them, Tree and Gantt items only, with the props each item's schema defines; a `molecule` item SHALL fail the board document's validation (AD-9, AD-12).
 
