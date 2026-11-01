@@ -19,7 +19,11 @@ import {
 } from "./source.ts";
 
 /** A board item as the input format writes it: its type, its ID and its props. */
-export type BoardItem = { readonly type: string; readonly id: string; readonly props?: unknown };
+export type BoardSourceItem = {
+  readonly type: string;
+  readonly id: string;
+  readonly props?: unknown;
+};
 
 const ID = new RegExp(ID_PATTERN);
 
@@ -148,7 +152,7 @@ const planTasks = (
 };
 
 /** The graph source of a board's items: every Gantt, and each Tree a Gantt plan names, in order. */
-export const boardGraphSource = (items: readonly BoardItem[]): GraphSource => {
+export const boardGraphSource = (items: readonly BoardSourceItem[]): GraphSource => {
   if (!Array.isArray(items)) refuse("the board's items are not a list");
   const trees = namedTrees(items);
   const mapped = new Set<WorkPackages>();

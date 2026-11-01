@@ -5,7 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import { GANTT_ANSWER_DERIVED } from "@askboard/contract";
 import { ganttPlanDerived } from "@askboard/contract/fixtures";
-import type { BoardItem } from "../src/index.ts";
+import type { BoardSourceItem } from "../src/index.ts";
 import * as compute from "../src/index.ts";
 import { BOARD_SOURCE_FIXTURES, UJ2_ANSWERED, UJ2_BOARD } from "./fixtures/board.ts";
 import { runAll, runBoardSources, Tally } from "./fixtures/suite.ts";
@@ -15,7 +15,7 @@ const { boardGraphSource, buildGraph, evaluateGraph, GraphSourceError } = comput
 
 type Json = Record<string, unknown>;
 type Node = Json & { readonly children?: readonly Node[] };
-type Item = BoardItem & { readonly props: Json };
+type Item = BoardSourceItem & { readonly props: Json };
 
 const [WBS, SCHEDULE] = UJ2_BOARD as readonly Item[] as readonly [Item, Item];
 const NODES = WBS.props.nodes as readonly Node[];

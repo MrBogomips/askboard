@@ -9,7 +9,7 @@ import {
   ganttPlanEditedValue,
   treeEditedValue,
 } from "@askboard/contract/fixtures";
-import type { BoardItem } from "../../src/board.ts";
+import type { BoardSourceItem } from "../../src/board.ts";
 import type { Address } from "../../src/types.ts";
 import type { Expected } from "./index.ts";
 import uj2 from "./uj2-wbs-gantt.json" with { type: "json" };
@@ -17,7 +17,7 @@ import uj2 from "./uj2-wbs-gantt.json" with { type: "json" };
 export type BoardSourceFixture = {
   readonly name: string;
   /** A question's items, as the board's graph source reads them. */
-  readonly items: readonly BoardItem[];
+  readonly items: readonly BoardSourceItem[];
   readonly expected: Readonly<Record<Address, Expected>>;
 };
 
@@ -25,10 +25,10 @@ const [question] = ganttPlanBoardDocument.items;
 const [WBS, SCHEDULE] = question.props.items;
 
 /** The UJ-2 question's Tree `wbs` and plan `schedule`, as the agent sent them. */
-export const UJ2_BOARD: readonly BoardItem[] = [WBS, SCHEDULE];
+export const UJ2_BOARD: readonly BoardSourceItem[] = [WBS, SCHEDULE];
 
 /** The same Tree and plan as the approved answer left them: `portal` split, `u-1` linked. */
-export const UJ2_ANSWERED: readonly BoardItem[] = [
+export const UJ2_ANSWERED: readonly BoardSourceItem[] = [
   { ...WBS, props: treeEditedValue },
   { ...SCHEDULE, props: ganttPlanEditedValue },
 ];

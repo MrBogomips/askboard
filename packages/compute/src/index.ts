@@ -2,7 +2,7 @@
 // own restricted evaluator behind the `FormulaEngine` port, with PERT and CPM written as formulas.
 // Plain ECMAScript: it runs in the view and in the session process alike (AD-1).
 
-export { type BoardItem, boardGraphSource } from "./board.ts";
+export { type BoardSourceItem, boardGraphSource } from "./board.ts";
 export {
   addWorkingDays,
   firstWorkingDateFrom,
