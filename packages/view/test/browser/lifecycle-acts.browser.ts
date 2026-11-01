@@ -349,12 +349,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await composerOf(board, "first").fill("Is it needed for the pilot?");
         await buttonOf(board, "first", "Send").click();
         await actsSent(run, 1);
+        await reportedInView(board, "first", true);
         await card(board, "sixth").scrollIntoViewIfNeeded();
-        await eventually(
-          async () =>
-            !(await card(board, "first").isVisible()) || !(await inViewport(board, "first")),
-          "the first question out of view",
-        );
+        // The view's own report, not the layout: the agent replies once the view has heard that
+        // the question left view.
+        await reportedInView(board, "first", false);
         await reply(run, "first", "Yes, the pilot needs it.");
         const count = board.header.getByRole("button", { name: "1 new reply" });
         await count.waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -372,6 +371,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
   });
 }
+
+// Waits until the view's observer has last reported a question's card in view, or out of it.
+const reportedInView = (board: Board, id: string, shown: boolean): Promise<void> =>
+  board.view
+    .locator(`[data-askboard-question="${id}"][data-askboard-in-view="${shown}"]`)
+    .waitFor({ state: "attached", timeout: STEP_TIMEOUT_MS });
 
 // Whether any of a question's card shows inside the view's viewport.
 const inViewport = (board: Board, id: string): Promise<boolean> =>

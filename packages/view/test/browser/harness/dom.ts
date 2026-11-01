@@ -4,7 +4,9 @@
 //
 // - the view is the board page's one sandboxed iframe (AD-8);
 // - each question card carries `data-askboard-question="<itemId>"`, and `aria-busy="true"` while
-//   its loading state shows (EXPERIENCE, Question loading; AD-9);
+//   its loading state shows (EXPERIENCE, Question loading; AD-9), and
+//   `data-askboard-in-view="true"` or `"false"` once the view's observer has reported it in view
+//   or out of it;
 // - the view's header is its `banner` landmark (a top-level `<header>`), holding the title and the
 //   ask state ("Waiting", "Answered", "Discarded"; EXPERIENCE, Voice and Tone);
 // - options are `radio` (or `checkbox`) controls named by their label; "Answer" is a button; an
