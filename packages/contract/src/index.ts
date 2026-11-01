@@ -155,24 +155,6 @@ export {
   type ElementShape,
   elementChanges,
 } from "./widgets/element-diff.ts";
-// The Tree's contract (design decision 2): its checks, then its types, limits and element shape.
-export { treeChangesProblems, treePropsProblems } from "./widgets/tree/checks.ts";
-export {
-  TREE_FIELD_PATTERN,
-  TREE_LABEL_MAX_CHARS,
-  TREE_MAX_COLUMNS,
-  TREE_MAX_DEPTH,
-  TREE_MAX_NODES,
-  TREE_SHAPE,
-  TREE_TEXT_MAX_CHARS,
-  type TreeColumn,
-  type TreeColumnType,
-  type TreeFieldValue,
-  type TreeItem,
-  type TreeNode,
-  type TreeOrigin,
-  type TreeProps,
-} from "./widgets/tree/index.ts";
 export {
   type GanttOrigin,
   ganttChangesProblems,
@@ -202,6 +184,24 @@ export {
   ganttPropsSchema,
   ganttShape,
 } from "./widgets/gantt/index.ts";
+// The Tree's contract (design decision 2): its checks, then its types, limits and element shape.
+export { treeChangesProblems, treePropsProblems } from "./widgets/tree/checks.ts";
+export {
+  TREE_FIELD_PATTERN,
+  TREE_LABEL_MAX_CHARS,
+  TREE_MAX_COLUMNS,
+  TREE_MAX_DEPTH,
+  TREE_MAX_NODES,
+  TREE_SHAPE,
+  TREE_TEXT_MAX_CHARS,
+  type TreeColumn,
+  type TreeColumnType,
+  type TreeFieldValue,
+  type TreeItem,
+  type TreeNode,
+  type TreeOrigin,
+  type TreeProps,
+} from "./widgets/tree/index.ts";
 
 // E3, the ask lifecycle: the 1.1 minors of the input format, the output format, the tool envelopes,
 // the board document and the board protocol, and their constants and limits (ask-lifecycle, design
