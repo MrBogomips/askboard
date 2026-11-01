@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { renameSync, rmSync, symlinkSync } from "node:fs";
+import { constants, renameSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { locate } from "../../src/excerpts/confine.ts";
 import {
@@ -8,7 +8,7 @@ import {
   type SourceHandle,
   type SourceStats,
 } from "../../src/excerpts/fs.ts";
-import { readAtMost, withRegularFile } from "../../src/excerpts/open.ts";
+import { O_NOFOLLOW_ANY, openFlags, readAtMost, withRegularFile } from "../../src/excerpts/open.ts";
 import { isRefused } from "../../src/excerpts/refused.ts";
 import { makeSandbox, type Sandbox, SENTINEL_TEXT, type SpyFs, spyFs } from "./helpers.ts";
 
@@ -229,6 +229,46 @@ describe("a file swapped between the real path and the open (design decision 3, 
   });
 });
 
+describe("a folder swapped for a symlink out of the root (security review, finding R2)", () => {
+  // `docs` holds a decoy `x.md`; just after the real path is taken, `docs` becomes a symlink to
+  // the sibling folder holding the sentinel `x.md`. The real path is still `<root>/docs/x.md`,
+  // and a later lookup of it follows the folder link: only an open that refuses a link at any
+  // level (macOS) or a check of the open file's own path (Linux) tells.
+  const swapFolderAt = (hook: "beforeLstat" | "beforeOpen") => {
+    box.write("docs/x.md", "# Secret\ndecoy\n");
+    spy = spyFs({
+      [hook]: (called: string) => {
+        if (called !== join(box.realRoot, "docs/x.md")) return;
+        renameSync(join(box.root, "docs"), join(box.root, "docs-kept"));
+        symlinkSync(box.outside, join(box.root, "docs"));
+      },
+    });
+  };
+
+  test("swapped before the identity is taken, the open refuses it: outside-root, nothing read", async () => {
+    swapFolderAt("beforeLstat");
+    expect(await reach("docs/x.md#Secret")).toEqual({ refused: "outside-root" });
+    expect(spy.bytesRead()).toBe(0);
+  });
+
+  test("swapped after the identity is taken: outside-root, nothing read", async () => {
+    swapFolderAt("beforeOpen");
+    expect(await reach("docs/x.md#Secret")).toEqual({ refused: "outside-root" });
+    expect(spy.bytesRead()).toBe(0);
+  });
+
+  test("the open follows no link at any level on macOS, and none at the last elsewhere", () => {
+    expect(openFlags("darwin") & O_NOFOLLOW_ANY).toBe(O_NOFOLLOW_ANY);
+    expect(openFlags("darwin") & constants.O_NOFOLLOW).toBe(0);
+    expect(openFlags("linux") & constants.O_NOFOLLOW).toBe(constants.O_NOFOLLOW);
+    expect(openFlags("linux") & O_NOFOLLOW_ANY).toBe(0);
+    for (const platform of ["darwin", "linux"]) {
+      expect(openFlags(platform) & constants.O_NONBLOCK).toBe(constants.O_NONBLOCK);
+      expect(openFlags(platform) & (constants.O_WRONLY | constants.O_RDWR)).toBe(0);
+    }
+  });
+});
+
 describe("faults past the open", () => {
   const stats = (overrides: Partial<SourceStats> = {}): SourceStats => ({
     dev: 1n,
@@ -259,6 +299,7 @@ describe("faults past the open", () => {
     stat: async () => stats(),
     read: async () => ({ bytesRead: 0 }),
     close: async () => undefined,
+    path: async () => undefined,
     ...overrides,
   });
 
@@ -278,6 +319,18 @@ describe("faults past the open", () => {
       expect(await reach("a.md#A", LIMIT, fs)).toEqual({ refused: "not-found" });
       expect(closed()).toBe(1);
     }
+  });
+
+  test("where the system names the open file, it must be the real path (Linux, finding R2)", async () => {
+    const elsewhere = faking(handleOf({ path: async () => "/elsewhere/x.md" }));
+    expect(await reach("a.md#A", LIMIT, elsewhere.fs)).toEqual({ refused: "outside-root" });
+    expect(elsewhere.closed()).toBe(1);
+    const unknown = Object.assign(new Error("ENOENT: no /proc"), { code: "ENOENT" });
+    const unnamed = faking(handleOf({ path: () => Promise.reject(unknown) }));
+    expect(await reach("a.md#A", LIMIT, unnamed.fs)).toEqual({ refused: "outside-root" });
+    expect(unnamed.closed()).toBe(1);
+    const same = faking(handleOf({ path: async (): Promise<string> => join(box.root, "a.md") }));
+    expect(await reach("a.md#A", LIMIT, same.fs)).toBe("");
   });
 
   test("a fault of AskBoard's own is thrown again, and the handle still closes", async () => {

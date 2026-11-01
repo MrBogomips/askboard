@@ -116,6 +116,7 @@ export const spyFs = (hooks: FsHooks = {}, real: SourceFs = nodeSourceFs): SpyFs
       openHandles -= 1;
       await handle.close();
     },
+    path: () => handle.path(),
   });
   const fs: SourceFs = {
     realpath: (path) => {

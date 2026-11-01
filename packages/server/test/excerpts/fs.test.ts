@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { constants } from "node:fs";
 import { join } from "node:path";
+import { nodeSourceFsOn } from "../../src/excerpts/fs.ts";
 import { makeSandbox, type Sandbox, spyFs } from "./helpers.ts";
 
 // The file system calls `excerpts` makes (excerpts, task 2.1): Node's, with stats as big integers
@@ -43,5 +44,22 @@ describe("Node's file system, narrowed", () => {
     expect(new TextDecoder().decode(buffer.subarray(0, 2))).toBe("A\n");
     await handle.close();
     await expect(handle.stat()).rejects.toThrow();
+  });
+
+  test("the open file's path: from /proc/self/fd on Linux, none elsewhere", async () => {
+    const file = box.write("docs/a.md", "# A\n");
+    const onMac = await nodeSourceFsOn("darwin").open(file, constants.O_RDONLY);
+    const onLinux = await nodeSourceFsOn("linux").open(file, constants.O_RDONLY);
+    try {
+      expect(await onMac.path()).toBeUndefined();
+      if (process.platform === "linux") {
+        expect(await onLinux.path()).toBe(join(box.realRoot, "docs/a.md"));
+      } else {
+        await expect(onLinux.path()).rejects.toMatchObject({ code: "ENOENT" });
+      }
+    } finally {
+      await onMac.close();
+      await onLinux.close();
+    }
   });
 });

@@ -1,7 +1,7 @@
 // The file system calls `excerpts` makes, narrowed to what it uses, so a test can record them, count
 // the handles and race a call against a swap on disk.
 
-import { lstat, open, realpath } from "node:fs/promises";
+import { lstat, open, readlink, realpath } from "node:fs/promises";
 
 /** A file's identity, kind and size, as `lstat` and `fstat` give them with `bigint: true`. */
 export type SourceStats = {
@@ -22,6 +22,11 @@ export type SourceHandle = {
     position: number,
   ): Promise<{ readonly bytesRead: number }>;
   close(): Promise<void>;
+  /**
+   * The path the system gives for the open file where it gives one, which is Linux, from
+   * `/proc/self/fd`; undefined elsewhere.
+   */
+  path(): Promise<string | undefined>;
 };
 
 export type SourceFs = {
@@ -32,16 +37,30 @@ export type SourceFs = {
   open(path: string, flags: number): Promise<SourceHandle>;
 };
 
-/** Node's file system. Its promise `realpath` is the native call, one system call per path. */
-export const nodeSourceFs: SourceFs = {
-  realpath: (path) => realpath(path),
-  lstat: (path) => lstat(path, { bigint: true }),
-  open: async (path, flags) => {
-    const handle = await open(path, flags);
-    return {
-      stat: () => handle.stat({ bigint: true }),
-      read: (buffer, offset, length, position) => handle.read(buffer, offset, length, position),
-      close: () => handle.close(),
-    };
-  },
+// Linux names an open file's current path in `/proc/self/fd`; macOS gives no such check here, its
+// open refusing a link at any level instead (`open.ts`).
+const openedPath =
+  (platform: string) =>
+  (fd: number): Promise<string | undefined> =>
+    platform === "linux" ? readlink(`/proc/self/fd/${fd}`) : Promise.resolve(undefined);
+
+/** Node's file system on `platform`. Its promise `realpath` is the native call. */
+export const nodeSourceFsOn = (platform: string): SourceFs => {
+  const pathOf = openedPath(platform);
+  return {
+    realpath: (path) => realpath(path),
+    lstat: (path) => lstat(path, { bigint: true }),
+    open: async (path, flags) => {
+      const handle = await open(path, flags);
+      return {
+        stat: () => handle.stat({ bigint: true }),
+        read: (buffer, offset, length, position) => handle.read(buffer, offset, length, position),
+        close: () => handle.close(),
+        path: () => pathOf(handle.fd),
+      };
+    },
+  };
 };
+
+/** Node's file system on this machine. */
+export const nodeSourceFs: SourceFs = nodeSourceFsOn(process.platform);

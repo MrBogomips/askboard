@@ -1,16 +1,28 @@
 // Opening and reading, steps 4 and 5 of design decision 3 (proposal B3; board-host spec, Only
 // regular files are read). The real path's own stats are taken first, and anything but a regular
 // file is refused before it is opened, so no FIFO, socket or device is ever opened through it.
-// The open follows no final link and never blocks, and the handle's device and inode must be
-// those the real path named, so a file swapped between the real path and the open is refused.
-// A folder swapped for a symlink in that window is the residual race (design, Risks).
+// The open never blocks and follows no link: on macOS at any level of the path, elsewhere at the
+// last, and on Linux the open file's own path, from `/proc/self/fd`, must then be the real path.
+// The handle's device and inode must be those the real path named. So neither a file nor a folder
+// swapped for a symlink between the real path and the open is read (security review, finding R2).
 
 import { constants } from "node:fs";
 import type { SourceFs, SourceHandle } from "./fs.ts";
 import { isRefused, type Refused, refusedBy, systemCode, unless } from "./refused.ts";
 
-/** Read-only, no final link followed, and no wait on a FIFO swapped in. */
-export const OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
+/** macOS 11 and later: `open(2)` refuses a symbolic link at any level of the path, with `ELOOP`. */
+export const O_NOFOLLOW_ANY = 0x20000000;
+
+/**
+ * Read-only and no wait on a FIFO swapped in; no link followed at any level on macOS, and none at
+ * the last elsewhere. macOS refuses `O_NOFOLLOW` beside `O_NOFOLLOW_ANY`, so it takes only the one.
+ */
+export const openFlags = (platform: string): number =>
+  constants.O_RDONLY |
+  constants.O_NONBLOCK |
+  (platform === "darwin" ? O_NOFOLLOW_ANY : constants.O_NOFOLLOW);
+
+export const OPEN_FLAGS = openFlags(process.platform);
 
 // How much one read takes after the first, which asks for the whole file as its stats give it.
 const READ_CHUNK_BYTES = 64 * 1024;
@@ -18,7 +30,7 @@ const READ_CHUNK_BYTES = 64 * 1024;
 /** An open regular file, the one its real path named, and its size when opened. */
 export type RegularFile = { readonly handle: SourceHandle; readonly size: number };
 
-// A final link where the real path had none was swapped in after it was taken: refused as outside.
+// A link where the real path had none was swapped in after it was taken: refused as outside.
 const openRefusal = (error: unknown): Refused =>
   refusedBy(error, systemCode(error) === "ELOOP" ? "outside-root" : "not-found");
 
@@ -45,6 +57,10 @@ export const withRegularFile = async <T>(
     if (isRefused(opened)) return opened;
     if (opened.dev !== named.dev || opened.ino !== named.ino) return { refused: "outside-root" };
     if (!opened.isFile()) return { refused: "not-a-file" };
+    // Where the system names the open file, it must be the real path; unknown, it is not confined.
+    const where = await unless(() => handle.path(), "outside-root");
+    if (isRefused(where)) return where;
+    if (where !== undefined && where !== realPath) return { refused: "outside-root" };
     return await use({ handle, size: Number(opened.size) });
   } finally {
     await handle.close();
