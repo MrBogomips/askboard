@@ -3,19 +3,13 @@ import { join } from "node:path";
 import { TOOL_DEFINITIONS } from "@askboard/contract";
 import { startServer } from "../src/agent.ts";
 import { QUESTIONS } from "../src/scenarios.ts";
+import { childrenSince, isRunning, useDecoys } from "./support/processes.ts";
+
+const decoy = useDecoys();
 
 const STUB = join(import.meta.dir, "stub", "server.ts");
 const question = QUESTIONS[0];
 if (question === undefined) throw new Error("no question");
-
-const isRunning = (pid: number): boolean => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 describe("the scripted MCP client", () => {
   test("opens the stub, lists its tools, asks, collects and closes it", async () => {
@@ -72,6 +66,8 @@ describe("the scripted MCP client", () => {
   });
 
   test("a server that never answers initialize is killed at the bound", async () => {
+    decoy([process.execPath, "-e", "setInterval(() => {}, 1000)"]);
+    const leftRunning = childrenSince("setInterval\\(\\(\\) => \\{\\}, 1000\\)");
     const started = Date.now();
     await expect(
       startServer(
@@ -84,11 +80,7 @@ describe("the scripted MCP client", () => {
       ),
     ).rejects.toThrow("did not answer initialize within 0.3 s");
     expect(Date.now() - started).toBeLessThan(3_000);
-    expect(
-      Bun.spawnSync(["pgrep", "-f", "setInterval\\(\\(\\) => \\{\\}, 1000\\)"])
-        .stdout.toString()
-        .trim(),
-    ).toBe("");
+    expect(leftRunning()).toEqual([]);
   });
 
   test("a server that refuses initialize is killed", async () => {
