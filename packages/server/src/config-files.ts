@@ -3,7 +3,19 @@
 // ask-core parses, validates, merges and applies every rule. It reads only the environment it is
 // given, never `process.env`.
 
-import { readFile, realpath, stat } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import {
+  chmod,
+  type FileHandle,
+  mkdir,
+  open,
+  readFile,
+  readlink,
+  realpath,
+  rename,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { ASKBOARD_FOLDER } from "@askboard/contract";
 import type { Environment } from "./notifier/index.ts";
@@ -87,6 +99,16 @@ export type ConfigFileSystem = {
   readonly stat: (path: string) => Promise<FileStatus>;
   readonly readFile: (path: string) => Promise<string>;
   readonly realpath: (path: string) => Promise<string>;
+  readonly readlink: (path: string) => Promise<string>;
+  /** Gives the first folder it created, or undefined when the folder was there. */
+  readonly mkdir: (
+    path: string,
+    options: { readonly recursive: true; readonly mode: number },
+  ) => Promise<string | undefined>;
+  readonly chmod: (path: string, mode: number) => Promise<void>;
+  readonly open: (path: string, flags: string, mode?: number) => Promise<FileHandle>;
+  readonly rename: (from: string, to: string) => Promise<void>;
+  readonly unlink: (path: string) => Promise<void>;
 };
 
 /** The calls to replace, and the user's own ID, which `process.getuid` gives by default. */
@@ -96,6 +118,12 @@ const NODE_FILE_SYSTEM: ConfigFileSystem = {
   stat,
   readFile: (path) => readFile(path, "utf8"),
   realpath,
+  readlink,
+  mkdir,
+  chmod,
+  open,
+  rename,
+  unlink,
 };
 
 /** A configuration file is a few keys: anything larger is refused before it is read. */
@@ -158,17 +186,151 @@ export const readConfigFile = async (
   }
 };
 
-export type ConfigFilesOptions = { readonly env: Environment; readonly fs?: ConfigIo };
+/** What `ask-core`'s transform returns: the new text, or why nothing is written (design decision 3). */
+export type Replace =
+  | { readonly kind: "write"; readonly text: string }
+  | { readonly kind: "refuse"; readonly reason: string };
 
-/** The adapter: both files' reads, at paths resolved once, at the first read. */
+export type WriteResult =
+  | { readonly kind: "written"; readonly path: string }
+  | { readonly kind: "refused"; readonly reason: string }
+  /** `path` is the file that could not be written; none when there is no user file to write. */
+  | { readonly kind: "failed"; readonly path?: string; readonly code: string };
+
+const FOLDER_MODE = 0o700;
+const FILE_MODE = 0o600;
+/** Temporary names tried before giving up: each is random, so one taken was planted. */
+const TEMPORARY_TRIES = 4;
+
+const randomName = (): string => randomBytes(8).toString("hex");
+
+/**
+ * The file a write replaces: a symbolic link's target, so a dotfiles link survives, also when the
+ * target does not exist yet; else the path itself.
+ */
+const writeTarget = async (path: string, fs: ConfigFileSystem): Promise<string> => {
+  try {
+    return await fs.realpath(path);
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") throw error;
+    const link = await fs.readlink(path).catch(() => undefined);
+    return link === undefined ? path : resolve(dirname(path), link);
+  }
+};
+
+/** Creates a temporary file beside the target with an exclusive create, which follows no link. */
+const createTemporary = async (
+  target: string,
+  mode: number,
+  fs: ConfigFileSystem,
+  random: () => string,
+): Promise<{ path: string; handle: FileHandle }> => {
+  let taken: unknown;
+  for (let attempt = 0; attempt < TEMPORARY_TRIES; attempt += 1) {
+    const path = `${target}.${random()}.tmp`;
+    try {
+      return { path, handle: await fs.open(path, "wx", mode) };
+    } catch (error) {
+      if (codeOf(error) !== "EEXIST") throw error;
+      taken = error;
+    }
+  }
+  throw taken;
+};
+
+const syncFolder = async (folder: string, fs: ConfigFileSystem): Promise<void> => {
+  const handle = await fs.open(folder, "r");
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+};
+
+/**
+ * Replaces `target` with `text`: the folder created `0700` when missing, a temporary file in the
+ * same folder with the target's mode or `0600`, synced, renamed over the target, then the folder
+ * synced. A failure removes the temporary file.
+ */
+const replaceAtomically = async (
+  target: string,
+  text: string,
+  fs: ConfigFileSystem,
+  random: () => string,
+): Promise<WriteResult> => {
+  const folder = dirname(target);
+  let temporary: string | undefined;
+  try {
+    if ((await fs.mkdir(folder, { recursive: true, mode: FOLDER_MODE })) !== undefined) {
+      await fs.chmod(folder, FOLDER_MODE);
+    }
+    const mode = await fs.stat(target).then(
+      (status) => status.mode & 0o777,
+      () => FILE_MODE,
+    );
+    const created = await createTemporary(target, mode, fs, random);
+    temporary = created.path;
+    try {
+      await created.handle.writeFile(text, "utf8");
+      await created.handle.chmod(mode);
+      await created.handle.sync();
+    } finally {
+      await created.handle.close();
+    }
+    await fs.rename(temporary, target);
+    temporary = undefined;
+    await syncFolder(folder, fs);
+    return { kind: "written", path: target };
+  } catch (error) {
+    if (temporary !== undefined) await fs.unlink(temporary).catch(() => undefined);
+    return { kind: "failed", path: target, code: codeOf(error) };
+  }
+};
+
+/**
+ * Replaces the user file through `change`, which gets the file as it is now and gives the new text
+ * or a refusal; a refusal writes nothing and creates no folder.
+ */
+export const replaceUserFile = async (
+  path: string | undefined,
+  change: (current: FileRead) => Replace,
+  io: ConfigIo = {},
+  random: () => string = randomName,
+): Promise<WriteResult> => {
+  if (path === undefined) return { kind: "failed", code: "no-user-file" };
+  const fs = fileSystemOf(io);
+  let target: string;
+  try {
+    target = await writeTarget(path, fs);
+  } catch (error) {
+    return { kind: "failed", path, code: codeOf(error) };
+  }
+  const replace = change(await readConfigFile(target, io));
+  if (replace.kind === "refuse") return { kind: "refused", reason: replace.reason };
+  return replaceAtomically(target, replace.text, fs, random);
+};
+
+export type ConfigFilesOptions = {
+  readonly env: Environment;
+  readonly fs?: ConfigIo;
+  /** The random part of a temporary file's name. */
+  readonly random?: () => string;
+};
+
+/** The adapter: both files' reads and the user file's replacement, at paths resolved once. */
 export type ConfigFiles = {
   userFile(): Promise<FileRead>;
   projectFile(): Promise<FileRead>;
+  replaceUserFile(change: (current: FileRead) => Replace): Promise<WriteResult>;
   /** As the panel shows them. */
   readonly paths: { readonly user?: string; readonly project?: string };
 };
 
-export const configFiles = ({ env, fs = {} }: ConfigFilesOptions): ConfigFiles => {
+export const configFiles = ({
+  env,
+  fs = {},
+  random = randomName,
+}: ConfigFilesOptions): ConfigFiles => {
   let resolved: Promise<ConfigPaths> | undefined;
   const paths = () => {
     resolved ??= resolveConfigPaths(env);
@@ -177,6 +339,7 @@ export const configFiles = ({ env, fs = {} }: ConfigFilesOptions): ConfigFiles =
   return {
     userFile: async () => readConfigFile((await paths()).user, fs),
     projectFile: async () => readConfigFile((await paths()).project, fs),
+    replaceUserFile: async (change) => replaceUserFile((await paths()).user, change, fs, random),
     paths: displayPaths(env),
   };
 };
