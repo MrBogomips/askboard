@@ -13,9 +13,11 @@ import { join } from "node:path";
 import { PreflightError } from "../src/plugin.ts";
 import { rebuildReport, runBenchmark } from "../src/run.ts";
 import { DEFAULTS, type RunSettings } from "../src/settings.ts";
+import { childrenSince, useDecoys } from "./support/processes.ts";
 import { useScratch } from "./support/scratch.ts";
 
 const scratch = useScratch();
+const decoy = useDecoys();
 
 const FAKE_CLAUDE = join(import.meta.dir, "fake-claude.sh");
 
@@ -144,6 +146,8 @@ describe("runBenchmark's limits", () => {
 
   test("an interrupted benchmark stops its run, keeps a report and leaves no process", async () => {
     const { root, options } = workspace();
+    decoy(["sleep", "6123"]);
+    const leftRunning = childrenSince("sleep 6123");
     const settings = settingsFor(root, {
       claude: hanging(root),
       cases: ["S1"],
@@ -164,7 +168,7 @@ describe("runBenchmark's limits", () => {
       { caseId: "S1", arm: "auq", run: 1, reason: "interrupted" },
     ]);
     expect(existsSync(join(result.runDir, "report.md"))).toBe(true);
-    expect(Bun.spawnSync(["pgrep", "-f", "sleep 6123"]).stdout.toString().trim()).toBe("");
+    expect(leftRunning()).toEqual([]);
   }, 20_000);
 
   test("a run folder whose case never finished is rebuilt with that case invalid", async () => {

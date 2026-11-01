@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { type Io, main, processIo } from "../src/cli.ts";
 import { smoke } from "../src/smoke.ts";
+import { childrenOf, childrenSince, isRunning, useDecoys } from "./support/processes.ts";
 import { useScratch } from "./support/scratch.ts";
 
 const scratch = useScratch();
+const decoy = useDecoys();
 
 const FAKE_CLAUDE = join(import.meta.dir, "fake-claude.sh");
+const STUB_SERVER = join(import.meta.dir, "stub", "server.ts");
 
 const io = (root: string) => {
   const out: string[] = [];
@@ -23,9 +26,6 @@ const io = (root: string) => {
   };
   return { io: value, out, err };
 };
-
-const isRunning = (name: string) =>
-  Bun.spawnSync(["pgrep", "-f", name]).stdout.toString().trim() !== "";
 
 describe("the command line", () => {
   test("help and a usage error", async () => {
@@ -42,12 +42,14 @@ describe("the command line", () => {
   test("smoke on the stub: the scripted answer comes back and nothing is left running", async () => {
     const root = scratch("bench-cli-");
     const { io: value, out } = io(root);
+    decoy([process.execPath, STUB_SERVER]);
+    const leftRunning = childrenSince(STUB_SERVER);
     expect(await main(["smoke", "--session", "stub"], value)).toBe(0);
     const text = out.join("\n");
     expect(text).toContain("answer: PostgreSQL");
     expect(text).toMatch(/board shown \d+ ms after the answerer started/);
     expect(text).not.toMatch(/t=[A-Za-z0-9_-]{16,}/);
-    expect(isRunning("test/stub/server.ts")).toBe(false);
+    expect(leftRunning()).toEqual([]);
   }, 30_000);
 
   test("smoke on a plugin that cannot start says why", async () => {
@@ -172,6 +174,7 @@ describe("stopping a run", () => {
     );
     chmodSync(hang, 0o755);
     const out = join(root, "out");
+    decoy(["sleep", "6124"]);
     const child = Bun.spawn(
       [
         process.execPath,
@@ -197,15 +200,18 @@ describe("stopping a run", () => {
         stderr: "pipe",
       },
     );
-    for (let waited = 0; waited < 10_000; waited += 50) {
-      if (Bun.spawnSync(["pgrep", "-f", "sleep 6124"]).stdout.toString().trim() !== "") break;
+    // bench's claude is its child; once bench has exited, a claude left running is no one's.
+    let claude: number[] = [];
+    for (let waited = 0; waited < 10_000 && claude.length === 0; waited += 50) {
       await Bun.sleep(50);
+      claude = childrenOf(child.pid, "sleep 6124");
     }
     child.kill("SIGINT");
     expect(await child.exited).toBe(130);
     const printed = await new Response(child.stdout).text();
     expect(printed).toContain("interrupted");
-    expect(Bun.spawnSync(["pgrep", "-f", "sleep 6124"]).stdout.toString().trim()).toBe("");
+    expect(claude).toHaveLength(1);
+    expect(claude.filter(isRunning)).toEqual([]);
     const [runId] = readdirSync(out).filter((name) => name !== ".gitignore");
     expect(JSON.parse(readFileSync(join(out, runId ?? "", "report.json"), "utf8")).invalid).toEqual(
       [{ caseId: "S1", arm: "auq", run: 1, reason: "interrupted" }],
