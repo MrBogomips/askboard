@@ -49,11 +49,15 @@ Each question SHALL be `answered` or `declined` while its latest answer, logged 
 - **THEN** its state is `postponed` until the user answers, declines or undoes it, or the agent records an answer or deletes it
 
 ### Requirement: Ask states
-An open ask SHALL be `waiting` until its first answer, decline or postpone; `answered` while every question that is not postponed is answered or declined; `partly-answered` otherwise. Closing SHALL make it `closed` and a discard `discarded`. An answered ask SHALL become `partly-answered` again when a question is added or reopened (AD-10).
+An open ask SHALL be `waiting` until its first answer, decline or postpone; `answered` while every question that is not postponed is answered or declined and at least one is; `partly-answered` otherwise. Closing SHALL make it `closed` and a discard `discarded`. An answered ask SHALL become `partly-answered` again when a question is added or reopened (AD-10).
 
 #### Scenario: Answered with one postponed
 - **WHEN** of three questions two are answered and one is postponed
 - **THEN** the ask is `answered`
+
+#### Scenario: Every question postponed
+- **WHEN** the user postpones the only question of an ask
+- **THEN** the ask is `partly-answered`, never `answered`
 
 #### Scenario: The user reopens a declined question
 - **WHEN** the user undoes a logged decline on an answered ask
@@ -231,7 +235,7 @@ On a discard, `ask-core` SHALL drop the ask's board documents, revisions, thread
 - **THEN** a `collect` returns the answer, then the `discarded` event
 
 ### Requirement: Full value of an item
-`ask-core` SHALL return, for an item of an open or closed ask's current board document, its type, `rev` and props, and for a question its state and current answer in full: its content, `who`, `when`, whether it was recorded, and the cursor of its event when logged (FR-20).
+`ask-core` SHALL return, for an item of an open or closed ask's current board document, its type and props, with its `rev` when it is a question, and for a question its state and current answer in full: its content, `who`, `when`, whether it was recorded, and the cursor of its event when logged (FR-20).
 
 #### Scenario: A deleted item
 - **WHEN** the full value of a deleted item is asked for

@@ -1,6 +1,6 @@
 # Spine update draft: ask lifecycle (E3)
 
-Four blocks. Blocks 1 to 3 are clarifications that change no rule's intent; block 4 records a value the spine left to implementation. Block 1 applies only if the PO accepts the proposal's open question 2 (areas as container items), block 2 only if the PO accepts open question 3 (recorded answers are not logged), block 4 only if the PO accepts open question 4 (the grace period); block 3 has no open question of its own, since E1 handed the action ID to E3. If the PO decides otherwise, that block does not apply and the spine stays as it is for that point. Each block quotes the current text exactly, then gives the replacement; ADs are amended in place, with their IDs unchanged. No PRD change is needed, and no block touches AD-6: listing four tools until E7 is an interim reading like E1's two (open question 1).
+Five blocks. Blocks 1 to 3 are clarifications that change no rule's intent; block 4 records a value the spine left to implementation. Block 1 applies only if the PO accepts the proposal's open question 2 (areas as container items), block 2 only if the PO accepts open question 3 (recorded answers are not logged), block 4 only if the PO accepts open question 4 (the grace period); block 3 has no open question of its own, since E1 handed the action ID to E3. Block 5 applies only if the PO accepts open question 12 (the "More" menu on Radix Dropdown Menu), which the implementation's review raised on 2026-11-01; blocks 1 to 4 were applied by task 7.1, block 5 is not. If the PO decides otherwise, that block does not apply and the spine stays as it is for that point. Each block quotes the current text exactly, then gives the replacement; ADs are amended in place, with their IDs unchanged. No PRD change is needed, and no block touches AD-6: listing four tools until E7 is an interim reading like E1's two (open question 1).
 
 Files: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` and, for block 4, `SOLUTION-DESIGN.md` beside it.
 
@@ -74,4 +74,18 @@ Replacement:
 
 ```text
 | Implementation | Default port range, container opt-in setting, host-side link address and port, VS Code Dev Containers' `BROWSER` helper and port forwarding, record timeout, where the file path and line sit in the user's `editor` command (the grace period is 120 s since the `ask-lifecycle` change) |
+```
+
+## Block 5: Stack, the `radix-ui` row
+
+Current:
+
+```text
+| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog; not Select) | 1.8.1 |
+```
+
+Replacement:
+
+```text
+| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
 ```
