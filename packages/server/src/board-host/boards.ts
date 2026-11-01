@@ -57,7 +57,7 @@ import {
 } from "./messages.ts";
 import { presenceOf } from "./presence.ts";
 import type { BoardTokens } from "./tokens.ts";
-import { agentMessage, type HeaderMessage, originMessage } from "./who-and-where.ts";
+import { agentMessage, originMessage } from "./who-and-where.ts";
 
 /**
  * The largest message a board page may send: a draft record of the contract's draft limit, or
@@ -183,6 +183,9 @@ const sizeOf = (data: RawData): number =>
   Array.isArray(data)
     ? data.reduce((total, chunk) => total + chunk.byteLength, 0)
     : (data as Buffer | ArrayBuffer).byteLength;
+
+/** What `#send` takes: any message to the page, which names its protocol version and its type. */
+type BoardHostMessageShape = { readonly version: string; readonly type: string };
 
 // The command a message on a live socket carries, or the refusal it gets: the socket stays open
 // and the ask unchanged.
@@ -667,7 +670,9 @@ export class Boards {
     this.#close(connection, BOARD_CLOSE_CODES.discarded);
   }
 
-  #send(connection: Connection, message: LifecycleHostMessage | HeaderMessage): void {
+  // Any board protocol message: each change's messages carry a version and a type, so a new one
+  // needs no edit here (review fix L8).
+  #send(connection: Connection, message: BoardHostMessageShape): void {
     const { socket } = connection;
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > this.#limits.sendBufferMaxBytes) {
