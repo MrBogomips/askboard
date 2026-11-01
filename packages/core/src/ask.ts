@@ -421,8 +421,8 @@ export class Ask {
   /**
    * Closes the open ask because the subagent that owns it finished (push delivery, AD-10): the final
    * `closed` event is appended, which the owner reads if it is resumed, then the ask closes with
-   * reason `agent-finished`. Returns the event, or undefined for an ask already closed or
-   * discarded.
+   * reason `agent-finished`. Returns the log's event, frozen, or undefined for an ask already
+   * closed or discarded.
    */
   finish(): ClosedEvent | undefined {
     if (this.#stored !== undefined) return undefined;
@@ -431,9 +431,9 @@ export class Ask {
       type: "closed",
       reason: "agent-finished",
     };
-    this.#log.append([event]);
+    const [entry] = this.#log.append([event]);
     this.close("agent-finished");
-    return event;
+    return entry?.event as ClosedEvent;
   }
 
   /**

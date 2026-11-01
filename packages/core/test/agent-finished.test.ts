@@ -52,6 +52,18 @@ describe("a subagent the stop guard lets finish", () => {
     expect(core.answer(ASK_ID, answer())).toMatchObject({ ok: false });
   });
 
+  // Review fix L1: as with a discard, the subscribers hear the log's own event, frozen.
+  test("tells the subscribers the log's own closed event, frozen", async () => {
+    const { core, heard } = await fixture();
+    core.stop("reviewer-1", false);
+    const appended = heard.find((event) => event.type === "appended" && event.askId === ASK_ID);
+    if (appended?.type !== "appended") throw new Error("no appended event");
+    expect(Object.isFrozen(appended.event)).toBe(true);
+    const read = core.read(ASK_ID, `${core.epoch}.0`, { ownerKey: "reviewer-1" });
+    if (read.kind !== "events") throw new Error(`no events: ${read.kind}`);
+    expect(read.events[0]).toBe(appended.event);
+  });
+
   test("leaves another owner's asks and unchecked asks open, and closes nothing twice", async () => {
     const { core, heard } = await fixture();
     core.stop("reviewer-1", false);
