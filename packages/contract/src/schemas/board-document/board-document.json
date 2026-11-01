@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "version": {
-      "description": "The board document version, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). Every level refuses the fields it does not define, so a minor only adds optional fields, sent only once every receiver accepts them.",
+      "description": "The board document version, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). A minor keeps the major's meaning: it may add fields and enum values, make a required field optional, and lift or add a limit. Every level refuses what it does not define or allow, so a minor is used only once both ends, ask-core and the board page, have it, which holds because the session process that runs ask-core also serves the board page.",
       "type": "string",
       "pattern": "^1\\.(0|[1-9][0-9]*)$"
     },
