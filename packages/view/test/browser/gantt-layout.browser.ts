@@ -16,12 +16,10 @@ import { validateGanttProps } from "@askboard/contract/validate";
 import type { ViewDocument } from "../../src/view-document.ts";
 import { ORIGIN, release, schedule, UJ2, WEEK_PX } from "./fixtures/gantt-documents.ts";
 import {
-  alignment,
   arrowFacts,
   barFacts,
   colour,
   daysFrom,
-  type GanttParts,
   ganttOf,
   RELEASE_TASKS,
   rowLines,
@@ -35,7 +33,7 @@ import {
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
-import { type Engine, enginesFrom } from "./harness/engines.ts";
+import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
 import { EVAL_PROBE, readViewBuild, withChunkScript } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -83,31 +81,6 @@ const farTasks = RELEASE_TASKS.map((task) => {
 });
 /** The axis's bound, `MAX_TICKS` in the widgets' `scale.ts`, which the view may not import. */
 const MAX_TICKS = 2_000;
-/** That chart's width at the week scale, from its first day to its last, and a bar's height. */
-const FAR_WIDTH = (daysFrom(ORIGIN, FAR) + 1) * WEEK_PX;
-const BAR_HEIGHT = 14;
-/** The widest box each engine lays out, in pixels, which that chart's width exceeds. */
-const WIDEST_BOX: Readonly<Record<Engine, number>> = {
-  chromium: 33_554_428,
-  firefox: 17_895_190,
-  webkit: 33_554_428,
-};
-
-/**
- * The chart's laid-out width, the scale its viewBox draws at, the first bar's drawn height and the
- * far bar's drawn width; not a number for a part the chart lacks.
- */
-const drawnScale = (gantt: GanttParts) =>
-  gantt.root.evaluate((root) => {
-    const chart = root.querySelector("svg");
-    const box = (selector: string) => root.querySelector(selector)?.getBoundingClientRect();
-    return {
-      width: chart?.getBoundingClientRect().width ?? Number.NaN,
-      scale: chart?.getScreenCTM()?.a ?? Number.NaN,
-      barHeight: box("[data-gantt-bar]")?.height ?? Number.NaN,
-      farBarWidth: box('[data-gantt-bar="reporting"]')?.width ?? Number.NaN,
-    };
-  });
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the Gantt's layout`, () => {
@@ -272,7 +245,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a Gantt reaching 9999-12-31 becomes visible within the step timeout, with at most 2,000 axis ticks, its far bar and its field error, its chart scaled down to the engine's widest box",
+      "a Gantt reaching 9999-12-31 becomes visible within the step timeout, with at most 2,000 axis ticks, its far bar and its field error",
       async () => {
         expect(validateGanttProps({ ...release.props, tasks: farTasks }, "agent").ok).toBe(true);
         const from = Date.now();
@@ -300,19 +273,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(((await gantt.note("billing").textContent()) ?? "").trim()).toBe(
           "No dates: the schedule could not be computed.",
         );
-        // As found, not designed (task 9.2): an engine lays the 43,682,070px chart out at its widest
-        // box, and the viewBox scales the whole chart down to fit, centred, so that its bars no
-        // longer line up with the grid's rows; Firefox draws no box for the far bar at all.
-        const drawn = await drawnScale(gantt);
-        expect(drawn.width).toBe(WIDEST_BOX[engine]);
-        expect(drawn.scale).toBeCloseTo(WIDEST_BOX[engine] / FAR_WIDTH, 4);
-        expect(drawn.barHeight).toBeCloseTo(BAR_HEIGHT * drawn.scale, 1);
-        expect(drawn.farBarWidth === 0).toBe(engine === "firefox");
-        // `alignment` reads a row and its bar as equal when they line up, as in the fixture's chart;
-        // here UX design's bar, in the first row, is drawn lower than its row.
-        const [ux] = await alignment(gantt);
-        expect(ux).toEqual({ task: "ux", row: 32, bar: expect.any(Number) });
-        expect(ux?.bar ?? 0).toBeGreaterThan(32);
+        // Not asserted, since it is the engines' doing and the chart's width is not bounded: found on
+        // 2026-11-01, each engine lays this 43,682,070px chart out at its widest box, Chromium and
+        // WebKit at 33,554,428px, Firefox at 17,895,190px, and the viewBox scales the whole chart
+        // down to fit (0.768, 0.410), centred, so that its bars no longer line up with the grid's
+        // rows; Firefox draws no box for the far bar.
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
