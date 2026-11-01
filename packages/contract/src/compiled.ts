@@ -29,12 +29,15 @@ export const compiled = (): Ajv2020 => {
 };
 
 /**
- * The errors of one contract schema on a value, by the schema's `$id`; empty when it passes. An
- * `if` error is left out: it only says that the branch it chose failed, whose own errors say why.
+ * The errors of one contract schema on a value, by the schema's `$id`; empty only when it passes.
+ * An `if` error is left out beside others: it only says that the branch it chose failed, whose own
+ * errors say why. When it is all there is, it is kept, so a failed value is never errorless.
  */
 export const schemaErrors = (id: string, value: unknown): readonly ErrorObject[] => {
   const validate = compiled().getSchema(id);
   if (validate === undefined) throw new Error(`the contract has no schema ${id}`);
   if (validate(value)) return [];
-  return (validate.errors ?? []).filter((error) => error.keyword !== "if");
+  const errors = validate.errors ?? [];
+  const kept = errors.filter((error) => error.keyword !== "if");
+  return kept.length > 0 ? kept : errors;
 };

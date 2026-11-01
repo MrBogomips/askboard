@@ -55,7 +55,8 @@
     },
     "note": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 10000
     },
     "changes": {
       "type": "array",

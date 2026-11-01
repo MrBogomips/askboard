@@ -35,10 +35,15 @@ import {
   VIEW_MANIFEST_VERSION,
 } from "../src/index.ts";
 import act from "../src/schemas/board-protocol/act.json";
+import boardState from "../src/schemas/board-protocol/board-state.json";
 import done from "../src/schemas/board-protocol/done.json";
 import draftRecord from "../src/schemas/board-protocol/draft-record.json";
 import refused from "../src/schemas/board-protocol/refused.json";
 import questionProps from "../src/schemas/input/question-props.json";
+import update from "../src/schemas/input/update.json";
+import answerEvent from "../src/schemas/output/answer-event.json";
+import followUpEvent from "../src/schemas/output/follow-up-event.json";
+import noteEvent from "../src/schemas/output/note-event.json";
 import fetchPage from "../src/schemas/tool-envelopes/fetch-page.json";
 import {
   draftRecordProblems,
@@ -95,6 +100,48 @@ describe("the lifecycle constants (design decision 2)", () => {
     expect(act.$defs["follow-up"].properties.text.maxLength).toBe(FOLLOW_UP_MAX_CHARS);
     expect(draftRecord.$defs.question.properties.composer.maxLength).toBe(FOLLOW_UP_MAX_CHARS);
     expect(fetchPage.properties.part.maxLength).toBe(FETCH_PAGE_MAX_CHARS);
+    // The user's text wherever it travels, and the agent's: the update request, the events, the
+    // board state and the draft record hold the same limits as the act that sends it.
+    const updated = update.$defs.answer.properties.answer.properties;
+    const drafted = draftRecord.$defs.question.properties;
+    const stated = boardState.$defs;
+    const limits: [string, unknown, number][] = [
+      ["update answer.other", updated.other.maxLength, OTHER_MAX_CHARS],
+      ["update answer.note", updated.note.maxLength, NOTE_MAX_CHARS],
+      ["update reply.text", update.$defs.reply.properties.text.maxLength, REPLY_MAX_CHARS],
+      ["answer event other", answerEvent.properties.other.maxLength, OTHER_MAX_CHARS],
+      ["answer event note", answerEvent.properties.note.maxLength, NOTE_MAX_CHARS],
+      [
+        "answer event optionNotes",
+        answerEvent.properties.optionNotes.additionalProperties.maxLength,
+        OPTION_NOTE_MAX_CHARS,
+      ],
+      ["note event note", noteEvent.properties.note.maxLength, NOTE_MAX_CHARS],
+      ["follow-up event text", followUpEvent.properties.text.maxLength, FOLLOW_UP_MAX_CHARS],
+      ["board state answer other", stated.answer.properties.other.maxLength, OTHER_MAX_CHARS],
+      ["board state answer note", stated.answer.properties.note.maxLength, NOTE_MAX_CHARS],
+      [
+        "board state answer optionNotes",
+        stated.answer.properties.optionNotes.additionalProperties.maxLength,
+        OPTION_NOTE_MAX_CHARS,
+      ],
+      [
+        "board state follow-up text",
+        stated.followUp.properties.text.maxLength,
+        FOLLOW_UP_MAX_CHARS,
+      ],
+      ["board state reply text", stated.reply.properties.text.maxLength, REPLY_MAX_CHARS],
+      ["draft other", drafted.other.maxLength, OTHER_MAX_CHARS],
+      ["draft note", drafted.note.maxLength, NOTE_MAX_CHARS],
+      [
+        "draft optionNotes",
+        drafted.optionNotes.additionalProperties.maxLength,
+        OPTION_NOTE_MAX_CHARS,
+      ],
+    ];
+    for (const [where, schema, constant] of limits) {
+      expect({ where, maxLength: schema }).toEqual({ where, maxLength: constant });
+    }
     for (const schema of [act, done, refused]) {
       expect(schema.properties.actionId.pattern).toBe(ACTION_ID_PATTERN);
     }
