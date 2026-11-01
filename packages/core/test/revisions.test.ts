@@ -351,3 +351,48 @@ describe("kept revisions", () => {
     expect(statesOf(core, FLAT_ID).q1).toBe("answered");
   });
 });
+
+// For E7's Snapshots: the revisions ask-core keeps, read without changing them.
+describe("reading the kept revisions", () => {
+  test("per question, in board order, each kept revision with its props, as ask-core prunes them", async () => {
+    const { core } = await created(flatAsk());
+    const [q1, q2, q3] = flatAsk().items.map((item) => item.props);
+    change(core, FLAT_ID, "q1", { text: "Second" });
+    change(core, FLAT_ID, "q1", { text: "Third" });
+    core.act(FLAT_ID, command([editChoice("q1", 3, 2)]));
+    // The ignore at rev 3 decided: rev 1, which no event names, goes at the next change.
+    change(core, FLAT_ID, "q1", { text: "Fourth" });
+    expect(core.keptRevisions(FLAT_ID) as unknown).toEqual([
+      {
+        itemId: "q1",
+        revisions: [
+          { rev: 2, props: { ...q1, text: "Second" } },
+          { rev: 3, props: { ...q1, text: "Third" } },
+          { rev: 4, props: { ...q1, text: "Fourth" } },
+        ],
+      },
+      { itemId: "q2", revisions: [{ rev: 1, props: q2 }] },
+      { itemId: "q3", revisions: [{ rev: 1, props: q3 }] },
+    ]);
+  });
+
+  test("is read-only: the props are frozen, and changing what was read changes nothing", async () => {
+    const { core } = await created(flatAsk());
+    change(core, FLAT_ID, "q1", { text: "Second" });
+    const read = core.keptRevisions(FLAT_ID) ?? [];
+    const revisions = read[0]?.revisions ?? [];
+    expect(revisions).toHaveLength(2);
+    expect(Object.isFrozen(revisions[0]?.props)).toBe(true);
+    (revisions as unknown[]).splice(0);
+    (read as unknown[]).splice(0);
+    expect(core.keptRevisions(FLAT_ID)?.[0]?.revisions.map(({ rev }) => rev)).toEqual([1, 2]);
+    expect(core.act(FLAT_ID, command([editChoice("q1", 2, 1)])).ok).toBe(true);
+  });
+
+  test("an ask this epoch does not hold has none, and a discarded ask keeps none", async () => {
+    const { core } = await created(flatAsk());
+    expect(core.keptRevisions("no-such-ask")).toBeUndefined();
+    core.discardAll("session-exit");
+    expect(core.keptRevisions(FLAT_ID) as unknown).toEqual([]);
+  });
+});

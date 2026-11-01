@@ -8,6 +8,7 @@ import type {
   FetchAnswer,
   FetchItem,
   LifecycleBoardDocument,
+  QuestionProps,
   QuestionState,
   ThreadReply,
 } from "@askboard/contract";
@@ -146,6 +147,23 @@ export const questionValue = (
     ...(question.previous === undefined ? {} : { previous: question.previous }),
   };
 };
+
+/** A revision ask-core keeps of a question, with its props, frozen (AD-20). */
+export type KeptRevision = { readonly rev: number; readonly props: QuestionProps };
+
+/** The revisions ask-core keeps of one question, by ascending revision (AD-20). */
+export type KeptRevisions = {
+  readonly itemId: string;
+  readonly revisions: readonly KeptRevision[];
+};
+
+/** A question's kept revisions, read: new lists over the frozen props, so nothing read changes it. */
+export const keptRevisionsOf = (question: QuestionRecord): KeptRevisions => ({
+  itemId: question.id,
+  revisions: [...question.revs.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([rev, props]) => ({ rev, props })),
+});
 
 /** An area's full value: its title and its questions, with their revisions and props. */
 export const areaValue = (area: AreaRecord, model: BoardModel): FetchItem => ({

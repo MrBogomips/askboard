@@ -28,6 +28,8 @@ export type { ActRefusal } from "./lifecycle/acts.ts";
 export type { UpdateRefusal } from "./lifecycle/updates.ts";
 export type {
   AnswerView,
+  KeptRevision,
+  KeptRevisions,
   LifecycleBoardView,
   LifecycleQuestionView,
   ThreadView,

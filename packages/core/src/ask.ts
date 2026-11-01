@@ -27,6 +27,8 @@ import { askStateOf, type QuestionStatus, questionStatus } from "./lifecycle/sta
 import { applyActions, type UpdateEffects, type UpdateOutcome } from "./lifecycle/updates.ts";
 import {
   areaValue,
+  type KeptRevisions,
+  keptRevisionsOf,
   type LifecycleBoardView,
   type QuestionFacts,
   questionValue,
@@ -294,6 +296,11 @@ export class Ask {
       .map((question) => questionView(this.#facts(question), this.#received));
     const closed = this.#closed === undefined ? {} : { closed: this.#closed };
     return { askId: this.askId, state, document: model.document(this.#head), questions, ...closed };
+  }
+
+  /** The revisions ask-core keeps of each question, in board order (AD-20); none for a tombstone. */
+  get keptRevisions(): readonly KeptRevisions[] {
+    return (this.#model?.questions() ?? []).map(keptRevisionsOf);
   }
 
   /** An item's full value (FR-20): an open or closed ask's, from its current board document. */

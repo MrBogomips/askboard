@@ -29,7 +29,7 @@ import {
 } from "./ask.ts";
 import { canonicalize } from "./canonical.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
-import type { LifecycleBoardView } from "./lifecycle/views.ts";
+import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
 import { cursorOf, deriveTitle, makeEpoch, nameOf, parseCursor, timeOf } from "./text.ts";
 
@@ -353,6 +353,14 @@ export class AskCore {
   /** What `board-host` shows of the ask (AD-12), or undefined for an ask this epoch does not hold. */
   lifecycleBoard(askId: string): LifecycleBoardView | undefined {
     return this.#asks.get(askId)?.lifecycleView;
+  }
+
+  /**
+   * The revisions ask-core keeps of each question of an ask, with their props, read-only (AD-20):
+   * none for a discarded ask, and undefined for an ask this epoch does not hold.
+   */
+  keptRevisions(askId: string): readonly KeptRevisions[] | undefined {
+    return this.#asks.get(askId)?.keptRevisions;
   }
 
   #appended(askId: string, events: readonly OutputEvent[]): void {
