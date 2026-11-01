@@ -276,7 +276,7 @@ describe("trusting the session folder and file (AD-5, AD-10)", () => {
     "0",
     "-type",
     type,
-    "-user",
+    "-uid",
     `${uid}`,
     "-perm",
     perm,

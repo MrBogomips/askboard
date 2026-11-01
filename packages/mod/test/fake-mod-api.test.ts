@@ -56,7 +56,7 @@ describe("the fake mod API", () => {
         "0",
         "-type",
         type,
-        "-user",
+        "-uid",
         `${user}`,
         "-perm",
         perm,

@@ -38,7 +38,7 @@ export const privateCheck = (
   "0",
   "-type",
   type,
-  "-user",
+  "-uid",
   `${uid}`,
   "-perm",
   mode,

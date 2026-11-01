@@ -74,7 +74,7 @@ const unexpected = (what: string) => async (): Promise<never> => {
   throw new Error(`the test gave no handler for ${what}`);
 };
 
-/** What `find <path> -maxdepth 0 -type <t> -user <uid> -perm <mode>` sees of one path. */
+/** What `find <path> -maxdepth 0 -type <t> -uid <uid> -perm <mode>` sees of one path. */
 type Found = { readonly type: "d" | "f" | "l"; readonly owner: number; readonly mode: number };
 
 // `find` as the mod runs it: the path when it passes every test, nothing when it fails one, and a
@@ -85,7 +85,7 @@ const answerFind = (argv: readonly string[], found: Found | undefined): ProcessR
   for (let index = 0; index < tests.length; index += 2) {
     given.set(tests[index] as string, tests[index + 1] as string);
   }
-  const shape = ["-maxdepth", "-type", "-user", "-perm"];
+  const shape = ["-maxdepth", "-type", "-uid", "-perm"];
   if (
     path === undefined ||
     tests.length !== 8 ||
@@ -99,7 +99,7 @@ const answerFind = (argv: readonly string[], found: Found | undefined): ProcessR
   const passes =
     given.get("-maxdepth") === "0" &&
     found.type === given.get("-type") &&
-    String(found.owner) === given.get("-user") &&
+    String(found.owner) === given.get("-uid") &&
     found.mode === Number.parseInt(given.get("-perm") ?? "", 8);
   return { exitCode: 0, stdout: passes ? `${path}\n` : "", stderr: "" };
 };
