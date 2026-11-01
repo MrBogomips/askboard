@@ -2,9 +2,9 @@
 // beside `workPackages`, the widget element ID rule for tasks and predecessors, days that exist,
 // the dependents limit, a plan's link to its Tree, and what a change may set. Problems name the
 // task, the plan or the operation and the field. Unknown tasks and cycles are no problem: they are
-// the compute graph's warnings (AD-13). Each check skips a part the schema refuses, so it runs on
-// any value, except an operation of AD-20's other kinds, which the schema refuses without naming
-// it. Plain ECMAScript.
+// the compute graph's warnings (AD-13), a task naming itself among them, since a self-loop is a
+// cycle (task 9.1). Each check skips a part the schema refuses, so it runs on any value, except an
+// operation of AD-20's other kinds, which the schema refuses without naming it. Plain ECMAScript.
 
 import { VIEW_ID_PREFIX } from "../../constants.ts";
 import type { Problem } from "../../validate.ts";
@@ -223,7 +223,6 @@ const valueProblem = (task: string, field: string, value: unknown): string | und
   if (!Array.isArray(value) || !value.every((id) => typeof id === "string")) {
     return `task ${task}: dependencies takes a list of task IDs or null`;
   }
-  if (value.includes(task)) return `task ${task}: a task cannot precede itself`;
   if (new Set(value).size !== value.length) return `task ${task}: a predecessor is listed twice`;
   if (value.length > GANTT_MAX_PREDECESSORS) {
     return `task ${task}: more than ${GANTT_MAX_PREDECESSORS} predecessors`;

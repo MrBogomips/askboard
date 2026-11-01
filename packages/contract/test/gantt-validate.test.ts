@@ -206,6 +206,19 @@ describe("validateGanttChanges", () => {
     expect(validateGanttChanges("release", changes, OWN).ok).toBe(true);
   });
 
+  test("accepts a task named among its own predecessors: a self-loop is a cycle, compute's concern", () => {
+    // The contract spec's "A task that names itself"; the first draft refused it (task 9.1).
+    const changes = [set("release.ux.dependencies", ["ux", "architecture"])];
+    expect(validateGanttChanges("release", changes, OWN).ok).toBe(true);
+    expect(validateGanttChanges("release", [set("release.ux.dependencies", ["ux"])], OWN).ok).toBe(
+      true,
+    );
+    expect(
+      validateGanttChanges("schedule", [set("schedule.ux.dependencies", ["ux"])], PLAN).ok,
+    ).toBe(true);
+    expect(ganttChangesProblems("release", changes, OWN)).toEqual([]);
+  });
+
   test.each([
     [
       "a duration on a plan",
@@ -262,14 +275,6 @@ describe("validateGanttChanges", () => {
       OWN,
       "/0/value",
       ["ux", "start"],
-    ],
-    [
-      "a task given itself as a predecessor",
-      "release",
-      [set("release.ux.dependencies", ["ux"])],
-      OWN,
-      "/0/value",
-      ["ux", "itself"],
     ],
     [
       "predecessors given as a date",

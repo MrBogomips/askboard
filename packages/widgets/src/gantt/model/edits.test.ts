@@ -185,8 +185,25 @@ describe("predecessors", () => {
     expectSound(value);
   });
 
+  test("keep the task itself when it held it, as the agent may send a self-loop (task 9.1)", () => {
+    const sent = {
+      ...SENT,
+      tasks: SENT.tasks.map((task) =>
+        task.id === "reporting" ? { ...task, dependencies: ["portal", "reporting"] } : task,
+      ),
+    };
+    // The panel opened on the agent's list commits it as it holds it, the self ID included.
+    expect(setPredecessors(sent, sent, "reporting", ["reporting", "portal"])).toBe(sent);
+    const value = setPredecessors(sent, sent, "reporting", ["portal", "reporting", "billing"]);
+    expect(taskOf(value, "reporting")?.dependencies).toEqual(["portal", "reporting", "billing"]);
+    expectSound(value, sent);
+    const removed = setPredecessors(value, sent, "reporting", ["portal", "billing"]);
+    expect(taskOf(removed, "reporting")?.dependencies).toEqual(["portal", "billing"]);
+    expectSound(removed, sent);
+  });
+
   test.each([
-    [["reporting"], "the task itself"],
+    [["reporting"], "the task itself, which it did not hold"],
     [["no way"], "a name that is no ID"],
     [[3], "a number"],
   ])("refuse %j, %s", (predecessors) => {

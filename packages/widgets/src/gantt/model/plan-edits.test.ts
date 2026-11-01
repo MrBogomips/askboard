@@ -128,6 +128,14 @@ describe("a plan's entry", () => {
     expectSound(back, sent);
   });
 
+  test("keeps the task itself when it held it, as the agent may send a self-loop (task 9.1)", () => {
+    const sent = { ...PLAN, tasks: { ...PLAN.tasks, ux: { dependencies: ["ux"] } } };
+    expect(setPredecessors(sent, sent, "ux", ["ux"])).toBe(sent);
+    const value = setPredecessors(sent, sent, "ux", ["ux", "architecture"]);
+    expect(entryOf(value, "ux")).toEqual({ dependencies: ["ux", "architecture"] });
+    expectSound(value, sent);
+  });
+
   test("gives the same value when nothing changes", () => {
     expect(clearStart(PLAN, PLAN, "ux")).toBe(PLAN);
     expect(setPredecessors(PLAN, PLAN, "ux", [])).toBe(PLAN);
@@ -160,7 +168,7 @@ describe("a plan's edit", () => {
   test.each([
     ["a task that is no ID", () => requestStart(PLAN, PLAN, "no way", "2026-11-04")],
     ["a day the Gantt may not name", () => requestStart(PLAN, PLAN, "ux", "2026-02-30")],
-    ["the task before itself", () => setPredecessors(PLAN, PLAN, "ux", ["ux"])],
+    ["the task before itself, unheld", () => setPredecessors(PLAN, PLAN, "ux", ["ux"])],
     ["a predecessor that is no ID", () => setPredecessors(PLAN, PLAN, "ux", ["no way"])],
   ])("refuses %s", (_, edit) => {
     expect(edit).toThrow(RangeError);

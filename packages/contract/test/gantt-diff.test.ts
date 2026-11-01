@@ -109,6 +109,21 @@ describe("a Gantt's own tasks on the generic diff", () => {
     expect(validateGanttChanges("release", changes, ganttEditedValue).ok).toBe(true);
     expect(applyElementChanges("release", RELEASE, changes, GANTT_SHAPE)).toEqual(ganttEditedValue);
   });
+
+  test("give a valid set for a task that names itself and gains a predecessor (task 9.1)", () => {
+    // The agent may send a self-loop, a cycle compute reports; the diff of the user's edit holds it.
+    const sent = withTask(RELEASE, "ux", (task) => ({ ...task, dependencies: ["ux"] }));
+    const edited = withTask(sent, "ux", (task) => ({
+      ...task,
+      dependencies: ["ux", "architecture"],
+    }));
+    expect(validateGanttProps(sent, "agent").ok).toBe(true);
+    const changes = elementChanges("release", sent, edited, GANTT_SHAPE);
+    expect(changes).toEqual([
+      { op: "set", target: "release.ux.dependencies", value: ["ux", "architecture"] },
+    ]);
+    expect(validateGanttChanges("release", changes, edited).ok).toBe(true);
+  });
 });
 
 describe("a plan's entries on the generic diff", () => {

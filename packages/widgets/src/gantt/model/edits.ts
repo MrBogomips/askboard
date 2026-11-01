@@ -216,10 +216,19 @@ const dependentCounts = (value: GanttProps): ReadonlyMap<string, number> => {
   return counts;
 };
 
+/** The predecessors a task holds now, a Gantt's own task's or a plan entry's; none when absent. */
+const heldPredecessors = (value: GanttProps, taskId: string): readonly string[] => {
+  if (!isOwnGantt(value)) return planEntry(value, taskId)?.dependencies ?? [];
+  return value.tasks.find((task) => task.id === taskId)?.dependencies ?? [];
+};
+
 /**
  * Sets a task's predecessors, each kept once, in the order given; none leaves the field out. A
- * task is refused as its own predecessor, as a name that is no ID, and past the predecessor or
- * the dependents limit: `canPrecede` tells the panel which tasks to offer.
+ * name that is no ID is refused, and so are a list past the predecessor limit and a task past
+ * the dependents limit: `canPrecede` tells the panel which tasks to offer. A task is refused as
+ * its own predecessor unless it holds itself already: the contract accepts the self-loop the
+ * agent may send, a cycle `compute` reports, so the panel commits it as it holds it (design
+ * decision 2, task 9.1); the user never adds one.
  */
 export const setPredecessors = <V extends GanttProps>(
   value: V,
@@ -232,7 +241,9 @@ export const setPredecessors = <V extends GanttProps>(
     if (typeof id !== "string" || !ID.test(id)) {
       throw new RangeError(`the predecessor ${JSON.stringify(id)} is no task ID`);
     }
-    if (id === taskId) throw new RangeError(`task ${taskId} cannot precede itself`);
+  }
+  if (list.includes(taskId) && !heldPredecessors(value, taskId).includes(taskId)) {
+    throw new RangeError(`task ${taskId} cannot precede itself`);
   }
   if (list.length > GANTT_MAX_PREDECESSORS) {
     throw new RangeError(`task ${taskId}: more than ${GANTT_MAX_PREDECESSORS} predecessors`);
