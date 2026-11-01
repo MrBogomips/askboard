@@ -69,9 +69,7 @@ describe("the stop guard, without push", () => {
     const { session } = await startClaudeSession(noMod);
     const askId = "guarded-no-mod-k3f9";
     const { board } = await askAndConnect(session, agent, askId);
-    // Nothing to give yet: the stop goes through.
     const allowed = { code: 0, stdout: "", stderr: "" };
-    expect(await stopAs(session, agent, false)).toEqual(allowed);
     answer(board, ["DynamoDB"]);
     await nextOfType(board, "state");
 
@@ -85,7 +83,20 @@ describe("the stop guard, without push", () => {
     });
     expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
     expect(await stopAs(session, agent, true)).toEqual(allowed);
+    // The allow closed the subagent's ask (task 3.6); the next stop has nothing to give.
+    expect(await nextOfType(board, "closed")).toMatchObject({ reason: "agent-finished" });
     expect(await stopAs(session, agent, false)).toEqual(allowed);
+    expect(await session.end()).toBe(0);
+  });
+
+  test("lets a stop with nothing to give through, closing the ask, which takes no answer after", async () => {
+    const agent = subagent("a7c9e1f3b5d702468", "code-reviewer");
+    const { session } = await startClaudeSession(noMod);
+    const { board } = await askAndConnect(session, agent, "unanswered-no-mod-k3f9");
+    expect(await stopAs(session, agent, false)).toEqual({ code: 0, stdout: "", stderr: "" });
+    expect(await nextOfType(board, "closed")).toMatchObject({ reason: "agent-finished" });
+    answer(board, ["DynamoDB"]);
+    expect(await nextOfType(board, "refused")).toMatchObject({ reason: "answer" });
     expect(await session.end()).toBe(0);
   });
 });
