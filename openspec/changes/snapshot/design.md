@@ -49,7 +49,7 @@ Group 0 waits until E3 and E4 have merged to `main`, rebases on it, and checks e
 
 **Receipts.** E3 adds no builder of the board protocol's state for `ask-core`: `stateOf`, which maps each answer's `delivered` flag to its receipt (`delivered` or `sent`) and leaves out `who` and the cursor, stays in `board-host/messages.ts`, because E4 also edits that file, and AD-1 keeps `ask-core` from importing `board-host`. The gathering therefore builds `state` from `lifecycleBoard(askId)` with its own receipt mapping, and a `board-host` test checks that a board's Snapshot holds the same state as the `state` message the board receives (task 6.1). If `stateOf` has moved where `ask-core` may import it when E3 and E4 have merged, the gathering uses it instead (task 0.2).
 
-**E4's answers** to E7's two requests (an origin builder callable from `ask-core`, and `fetch`'s owner check as one function) had not arrived on 2026-11-01: its row stays as proposed, and task 0.2 checks it.
+**E4's answers** to E7's two requests (an origin builder callable from `ask-core`, and `fetch`'s owner check as one function) had not arrived on 2026-11-01: its row stays as proposed, and task 0.2 checks it. The E4 cross-review (at `2b8734a`, H1) found that E4 still takes the real path of `CLAUDE_PROJECT_DIR`, else the working folder, as an owned ask's `origin.root`. E7's folder never depends on it (decision 6), but the Snapshot's `origin` data takes its `directory` from that root, so task 0.2 also checks that an owned ask has no `origin.root` without the variable.
 
 What has not reached `main` by group 0 is handled as Handed on says: E7 then gathers what exists, and the later change fills its part of the Snapshot data.
 
