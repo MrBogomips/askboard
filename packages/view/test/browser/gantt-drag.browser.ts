@@ -1,7 +1,8 @@
 // The Gantt's pointer scenarios, in each engine, on the widget host (gantt-widget design decisions
 // 9 and 12; spec, "Gantt rescheduling by drag" and "Gantt durations"): a bar dragged later moves
 // on the drop with its dependents, stops at its earliest start with the guide and snaps to working
-// days; Escape cancels a drag, and a press under the drag threshold is a click; a bar's end
+// days; the agent's request for a weekend day survives a short drag and a drag away and back;
+// Escape cancels a drag, and a press under the drag threshold is a click; a bar's end
 // resizes it, never below one working day. Then a Gantt at the 500-task limit, visible within the
 // load timeout and rescheduled by a drop within the step timeout.
 
@@ -23,6 +24,7 @@ import {
   daysFrom,
   ganttOf,
   LIMIT_TASKS,
+  RELEASE_TASKS,
   withTasks,
 } from "./fixtures/gantt-view.ts";
 import { LOAD_TIMEOUT_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
@@ -85,6 +87,32 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await run.board.answer.isEnabled()).toBe(true);
         await dragBy(run.board, await grabPoint(gantt, "reporting"), -10 * WEEK_PX);
         expect((await barDates(gantt)).reporting).toBe("2026-12-04..2026-12-11");
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the agent's request for Saturday 12/5/2026 stays as sent after a 5px drag, and after a drag away and back",
+      async () => {
+        const tasks = RELEASE_TASKS.map((task) =>
+          task.id === "reporting" ? { ...task, start: "2026-12-05" } : task,
+        );
+        const run = await opened(withTasks(tasks));
+        const gantt = ganttOf(run.board);
+        const NONE_YET = "Changes vs agent's original · none yet";
+        expect((await barDates(gantt)).reporting).toBe("2026-12-07..2026-12-14");
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), 5);
+        expect((await barDates(gantt)).reporting).toBe("2026-12-07..2026-12-14");
+        expect(await counterText(gantt)).toBe(NONE_YET);
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), 3 * WEEK_PX);
+        expect((await barDates(gantt)).reporting).toBe("2026-12-10..2026-12-17");
+        expect(await counterText(gantt)).toBe("Your changes: 1");
+        await dragBy(run.board, await grabPoint(gantt, "reporting"), -3 * WEEK_PX);
+        expect((await barDates(gantt)).reporting).toBe("2026-12-07..2026-12-14");
+        expect(await counterText(gantt)).toBe(NONE_YET);
         expect(await run.board.answer.isDisabled()).toBe(true);
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
       },

@@ -145,7 +145,10 @@ export type ChartProps = {
   readonly marks: ReadonlyMap<string, TaskMarks>;
   /** Whether the bars take pointer edits. */
   readonly editable: boolean;
-  /** A bar dropped on a day: its task asks for it, or holds no request on its earliest start. */
+  /**
+   * A bar dropped on another day than it starts on: its task asks for it, holds no request on its
+   * earliest start, or takes the agent's request back on the day that request schedules it on.
+   */
   readonly onMove: (taskId: string, day: string, earliest: string) => void;
   /**
    * A bar's end dropped: its task's new duration, in working days. Undefined in a plan, whose
@@ -174,7 +177,10 @@ export const Chart = (props: ChartProps) => {
       if (bar === undefined) return;
       if (kind === "move") {
         const landing = moveDrop({ start: bar.start, earliest: bar.earliest, dx, zoom });
-        if (landing.kind !== "click") onMove(taskId, landing.start, bar.earliest);
+        // A bar landing where it starts did not move: its task keeps what it holds.
+        if (landing.kind !== "click" && landing.start !== bar.start) {
+          onMove(taskId, landing.start, bar.earliest);
+        }
         return;
       }
       const resized = resizeDrop({ start: bar.start, finish: bar.finish, dx, zoom });

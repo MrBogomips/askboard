@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ganttBoardDocument, ganttPlanBoardDocument } from "@askboard/contract/fixtures";
+import { moveDrop } from "./drag.ts";
+import { sameGantt } from "./edits.ts";
 import { durationEntry, entryEcho, entryText, landOn, startEntry } from "./entries.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planEntry } from "./tasks.ts";
@@ -102,6 +104,80 @@ describe("landing on a day", () => {
     };
     const moved = landOn(agent, agent, "ux", "2026-11-04", "2026-11-02");
     expect(landOn(moved, agent, "ux", "2026-11-02", "2026-11-02").tasks[0]).toBe(agent.tasks[0]);
+  });
+});
+
+/** The fixture Gantt with the agent's request for reporting's start. */
+const askedFor = (start: string): GanttOwnProps => ({
+  ...SENT,
+  tasks: SENT.tasks.map((task) => (task.id === "reporting" ? { ...task, start } : task)),
+});
+
+/** Reporting moved from where the agent's request put it to Wednesday 12/9/2026. */
+const MOVED_LATER: TaskSchedule = {
+  ...SCHEDULED,
+  startDate: "2026-12-09",
+  finishDate: "2026-12-16",
+};
+
+describe("an agent's request for a day the task does not start on", () => {
+  // Before the earliest start the portal allows: the graph schedules it on 12/4/2026.
+  test("before the earliest start: a drop on the bar's own day, a drag back and the typed day keep it", () => {
+    const agent = askedFor("2026-11-20");
+    const wiggle = moveDrop({ start: "2026-12-04", earliest: "2026-12-04", dx: 5, zoom: "week" });
+    expect(wiggle.kind).not.toBe("click");
+    if (wiggle.kind === "click") return;
+    expect(landOn(agent, agent, "reporting", wiggle.start, "2026-12-04")).toBe(agent);
+    const moved = landOn(agent, agent, "reporting", "2026-12-09", "2026-12-04");
+    expect(taskOf(moved, "reporting")?.start).toBe("2026-12-09");
+    const back = landOn(moved, agent, "reporting", "2026-12-04", "2026-12-04");
+    expect(taskOf(back, "reporting")).toBe(taskOf(agent, "reporting"));
+    expect(sameGantt(back, agent)).toBe(true);
+    const typed = startEntry(moved, agent, "reporting", MOVED_LATER, "12/4/2026");
+    expect(typed.kind === "value" && taskOf(typed.value, "reporting")).toBe(
+      taskOf(agent, "reporting"),
+    );
+  });
+
+  // On Saturday 12/5/2026: the graph schedules it on Monday 12/7/2026, after its earliest start.
+  test("on a Saturday: a drop on the bar's own day, a drag back and the typed day keep it", () => {
+    const agent = askedFor("2026-12-05");
+    const wiggle = moveDrop({ start: "2026-12-07", earliest: "2026-12-04", dx: 5, zoom: "week" });
+    expect(wiggle.kind).not.toBe("click");
+    if (wiggle.kind === "click") return;
+    expect(landOn(agent, agent, "reporting", wiggle.start, "2026-12-04")).toBe(agent);
+    const moved = landOn(agent, agent, "reporting", "2026-12-09", "2026-12-04");
+    const back = landOn(moved, agent, "reporting", "2026-12-07", "2026-12-04");
+    expect(taskOf(back, "reporting")).toBe(taskOf(agent, "reporting"));
+    expect(sameGantt(back, agent)).toBe(true);
+    const typed = startEntry(moved, agent, "reporting", MOVED_LATER, "12/7/2026");
+    expect(typed.kind === "value" && taskOf(typed.value, "reporting")).toBe(
+      taskOf(agent, "reporting"),
+    );
+    // Its earliest start is another day: a drop there still clears the request.
+    expect(
+      taskOf(landOn(agent, agent, "reporting", "2026-12-04", "2026-12-04"), "reporting")?.start,
+    ).toBeUndefined();
+  });
+
+  test("with no earliest start, the first working day from the request keeps it", () => {
+    const agent = askedFor("2026-12-05");
+    const moved = landOn(agent, agent, "reporting", "2026-12-09", undefined);
+    expect(taskOf(landOn(moved, agent, "reporting", "2026-12-07", undefined), "reporting")).toBe(
+      taskOf(agent, "reporting"),
+    );
+  });
+
+  test("in a plan's entry, on a Saturday: a drag back keeps it", () => {
+    const agent: GanttPlanProps = {
+      ...PLAN,
+      tasks: { ...PLAN.tasks, reporting: { start: "2026-12-05", dependencies: ["portal"] } },
+    };
+    expect(landOn(agent, agent, "reporting", "2026-12-07", "2026-12-04")).toBe(agent);
+    const moved = landOn(agent, agent, "reporting", "2026-12-09", "2026-12-04");
+    expect(
+      planEntry(landOn(moved, agent, "reporting", "2026-12-07", "2026-12-04"), "reporting"),
+    ).toBe(planEntry(agent, "reporting"));
   });
 });
 

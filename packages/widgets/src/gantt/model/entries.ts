@@ -2,13 +2,14 @@
 // editing in the grid", "Gantt durations"): a start read by the Gantt's own en-US date parser and
 // refused when it is no day, not a working day, or before the earliest start its predecessors
 // allow; an empty start clears the request, and the earliest start itself holds none, as a drop
-// there does; a duration read by the shared number parser and refused unless whole and in range.
+// there does, except that the day the agent's own request schedules the task on gives that request
+// back; a duration read by the shared number parser and refused unless whole and in range.
 // Each gives the Gantt's next value through `edits.ts`, the same value when nothing changes, or
 // the reason for its refusal. A start goes into a Gantt's own task or a plan's entry alike; a
 // plan's durations follow its Tree's estimates, so a typed one is refused there. Plain
 // ECMAScript: the working-day calendar is `compute`'s.
 
-import { isWorkingDate } from "@askboard/compute";
+import { firstWorkingDateFrom, isWorkingDate } from "@askboard/compute";
 import { GANTT_MAX_DURATION, GANTT_MIN_DURATION, type GanttProps } from "@askboard/contract";
 import { numberEcho, parseNumber } from "../../shared/number.ts";
 import { echoDate, gridDate, parseDateEntry } from "./date.ts";
@@ -38,8 +39,19 @@ const agentStart = (sent: GanttProps, taskId: string): string | undefined =>
     : planEntry(sent, taskId)?.start;
 
 /**
- * The task on a day: a request for it, or, on its earliest start, no request, unless the agent
- * itself asked for that day, whose request then comes back, so that a move undone holds no change.
+ * The day a requested start schedules a task on: the first working day from it, never before the
+ * earliest start its predecessors allow.
+ */
+const scheduledFrom = (requested: string, earliest: string | undefined): string => {
+  const working = firstWorkingDateFrom(requested);
+  // Full-dates of four-digit years compare as their days do.
+  return earliest !== undefined && earliest > working ? earliest : working;
+};
+
+/**
+ * The task on a day: on the day the agent's own request schedules it, that request, as sent, even
+ * when it names a weekend or a day before the earliest start, so that a move undone holds no
+ * change; else, on its earliest start, no request; else a request for the day.
  */
 export const landOn = <V extends GanttProps>(
   value: V,
@@ -48,10 +60,13 @@ export const landOn = <V extends GanttProps>(
   day: string,
   earliest: string | undefined,
 ): V => {
-  if (day !== earliest) return requestStart(value, sent, taskId, day);
-  return agentStart(sent, taskId) === day
-    ? requestStart(value, sent, taskId, day)
-    : clearStart(value, sent, taskId);
+  const agent = agentStart(sent, taskId);
+  if (agent !== undefined && day === scheduledFrom(agent, earliest)) {
+    return requestStart(value, sent, taskId, agent);
+  }
+  return day === earliest
+    ? clearStart(value, sent, taskId)
+    : requestStart(value, sent, taskId, day);
 };
 
 /** What a typed start does to the task, scheduled as `schedule` says. */
