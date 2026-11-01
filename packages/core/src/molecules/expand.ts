@@ -52,6 +52,9 @@ type Resolved = {
   readonly expandedId: string;
 };
 
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -150,7 +153,16 @@ const fill = (
       message: `${name}: ${message}`,
     })),
   });
-  const checked = moleculeDataValidator(definition)(props.data);
+  let checked: ReturnType<ReturnType<typeof moleculeDataValidator>>;
+  try {
+    checked = moleculeDataValidator(definition)(props.data);
+  } catch (error) {
+    // A source hands out checked definitions; one that still fails to compile refuses the reference.
+    const message = `the molecule reference "${id}" names ${definition.molecule} ${definition.version}, whose parameters AskBoard cannot use: ${messageOf(error)}`;
+    return {
+      problems: [{ itemId: id, path: placeOf(reference.at, "props", "molecule"), message }],
+    };
+  }
   if (!checked.ok) return located(checked.problems);
   const filled = fillItem(definition, checked.value, ids);
   if (!filled.ok) return located(filled.problems);

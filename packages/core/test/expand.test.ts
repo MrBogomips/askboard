@@ -144,6 +144,15 @@ describe("two references in one question", () => {
     expect((tasks.prototype as Json).dependencies).not.toBe((data.dependencies as Json).prototype);
     expect(plan?.props.tasks).not.toBe(probeSchedule.items[0].props.tasks);
   });
+
+  test("the expanded Tree shares nothing with its definition's composition", () => {
+    const [tree] = itemsOf(expandMolecules([question("plan", [wbs()])], source), 0);
+    const columns = tree?.props.columns as readonly Json[];
+    const composed = wbsPert.items[0].props.columns as readonly Json[];
+    expect(columns).toEqual(composed);
+    expect(columns).not.toBe(composed);
+    expect(columns[0]).not.toBe(composed[0]);
+  });
 });
 
 describe("a question with no reference", () => {
@@ -219,7 +228,7 @@ describe("versions", () => {
     ]);
   });
 
-  test("each reference is looked up once, all of them before any data is checked", () => {
+  test("each reference is looked up once, in the order of the ask, whatever its data", () => {
     const counted = fakeMoleculeSource([wbsPert, probeSchedule]);
     const items = [
       question("plan", [schedule(), reference("wbs", "wbs-pert", { nodes: "none" }, "1.0.0")]),
@@ -280,6 +289,23 @@ describe("refusing an expansion", () => {
     expect(problemsOf(expandMolecules(items, source))).toEqual([
       { path: "/0/props/items/0/id", message: "a molecule reference has no ID" },
     ]);
+  });
+
+  test("a definition whose parameters cannot be compiled refuses, never throws", () => {
+    const uncompiled = copyOf(wbsPert) as unknown as { molecule: string; parameters: Json };
+    uncompiled.molecule = "probe-uncompiled";
+    uncompiled.parameters.$id = "urn:askboard:molecule:probe-uncompiled:1";
+    uncompiled.parameters.wobble = 1;
+    const broken = fakeMoleculeSource([uncompiled as unknown as typeof wbsPert]);
+    const items = [question("plan", [reference("wbs", "probe-uncompiled", copyOf(wbsData))])];
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const problems = problemsOf(expandMolecules(items, broken.source));
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toMatchObject({ itemId: "wbs", path: "/0/props/items/0/props/molecule" });
+      expect(problems[0]?.message).toStartWith(
+        'the molecule reference "wbs" names probe-uncompiled 1.0.0, whose parameters AskBoard cannot use: ',
+      );
+    }
   });
 
   test("with any problem, no items and no map are returned", () => {
