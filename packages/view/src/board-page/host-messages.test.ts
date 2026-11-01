@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
 import {
   boardProtocolExamples,
+  lifecycleProtocolExamples,
   plainChoiceBoardDocument,
   treeBoardDocument,
 } from "@askboard/contract/fixtures";
@@ -18,6 +19,20 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
     expect(Object.keys(hostMessageSchemas).sort()).toEqual(
       Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).sort(),
     );
+  });
+
+  test("each message type the contract lists is read with its own validator, 1.1's included", () => {
+    const examples = [...boardProtocolExamples.toPage, ...lifecycleProtocolExamples.toPage];
+    const names = Object.keys(BOARD_PROTOCOL_MESSAGES.toPage);
+    expect(new Set<string>(examples.map((message) => message.type))).toEqual(new Set(names));
+    for (const name of names) expect(Object.hasOwn(hostMessageSchemas, name)).toBe(true);
+    for (const message of examples) {
+      const read = readHostMessage(JSON.stringify(message));
+      expect({ type: message.type, read }).toEqual({
+        type: message.type,
+        read: { ok: true, value: message },
+      });
+    }
   });
 
   test.each(boardProtocolExamples.toPage.map((message) => [message.type, message] as const))(

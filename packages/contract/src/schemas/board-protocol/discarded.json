@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:discarded",
   "title": "Discarded",
-  "description": "board-host to board page: the ask is discarded and the board accepts no more answers (AD-21). board-host closes the socket right after it, with close code 4410, and the page does not reconnect: the board stays readable.",
+  "description": "board-host to board page: the ask is discarded and the board accepts no more answers (AD-21): at session exit, or when its board was gone past the grace period (board-closed). board-host closes the socket right after it, with close code 4410, and the page does not reconnect: the board stays readable.",
   "type": "object",
   "properties": {
     "version": {
@@ -12,7 +12,7 @@
       "const": "discarded"
     },
     "reason": {
-      "enum": ["session-exit"]
+      "enum": ["session-exit", "board-closed"]
     }
   },
   "required": ["version", "type", "reason"],

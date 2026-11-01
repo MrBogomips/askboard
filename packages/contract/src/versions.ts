@@ -1,8 +1,12 @@
 // Schema sets and their versions (AD-7). Every set has one owning unit and a semantic version,
 // written `major.minor` on the wire; a receiver compares the major only (design decision 2).
-// Every schema refuses the fields it does not define, so a receiver still on an older minor
-// refuses a newer minor's field as a schema error: a minor only adds optional fields, and a sender
-// sends a new field only once every receiver of the set accepts it.
+// A minor keeps its major's meaning: it may add fields and enum values, make a required field
+// optional, and lift or add a limit. Every schema refuses what it does not define or allow, so a
+// receiver still on an older minor refuses a newer minor's additions as schema errors, and one on a
+// newer minor refuses what a limit that minor added excludes. A sender therefore uses a minor's
+// additions only once every receiver of the set has that minor, and a receiver applies its limits
+// only once every sender has it; within AskBoard both hold, because one session process serves
+// both ends.
 
 /** The units that own a schema set, from AD-7's table. */
 export type SchemaOwner =

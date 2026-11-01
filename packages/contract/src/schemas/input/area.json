@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:area",
+  "title": "Area",
+  "description": "An item of type area (FR-2; proposal, open question 2): a titled group of one or more questions, at the top level of an ask only. Its items are questions, so an area inside an area is refused at its type. Once one top-level item of an ask is an area, every one is: the contract's validation function checks that rule.",
+  "type": "object",
+  "properties": {
+    "type": { "const": "area" },
+    "id": { "$ref": "urn:askboard:input:id" },
+    "props": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/question" }
+        }
+      },
+      "required": ["title", "items"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["type", "id", "props"],
+  "additionalProperties": false,
+  "$defs": {
+    "question": {
+      "description": "An item in an area, picked by its type: only a question.",
+      "type": "object",
+      "discriminator": { "propertyName": "type" },
+      "oneOf": [{ "$ref": "urn:askboard:input:question" }]
+    }
+  }
+}

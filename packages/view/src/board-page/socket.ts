@@ -8,8 +8,8 @@ import {
   BOARD_PROTOCOL_VERSION,
   BOARD_TOKEN_QUERY,
   type ConnectMessage,
-  type HostMessage,
-  type PageMessage,
+  type LifecycleHostMessage,
+  type LifecyclePageMessage,
   parseBoardRoute,
   socketPath,
 } from "@askboard/contract";
@@ -33,7 +33,7 @@ export type SocketLike = {
 export type SocketConstructor = new (url: string) => SocketLike;
 
 export type BoardSocketHandlers = {
-  readonly onMessage: (message: HostMessage) => void;
+  readonly onMessage: (message: LifecycleHostMessage) => void;
   /** A message the board protocol refuses: never acted on, only reported. */
   readonly onInvalid: (problems: readonly Problem[]) => void;
   /** The socket closed, or could not open, with this code; called once. */
@@ -42,7 +42,7 @@ export type BoardSocketHandlers = {
 
 export type BoardConnection = {
   /** Sends a page message if the socket is open; says whether it did. */
-  send(message: PageMessage): boolean;
+  send(message: LifecyclePageMessage): boolean;
   /** Closes the socket; its close is still reported. */
   close(): void;
 };

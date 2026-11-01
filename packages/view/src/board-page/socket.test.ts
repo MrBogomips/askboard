@@ -1,5 +1,9 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { HostMessage } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_VERSION,
+  type HostMessage,
+  type LifecycleHostMessage,
+} from "@askboard/contract";
 import { PLAIN_CHOICE, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { boardLinkOf, connectBoard, type SocketLike } from "./socket.ts";
 
@@ -38,11 +42,15 @@ class FakeSocket implements SocketLike {
 const location = new URL(PLAIN_CHOICE.link);
 const bare = new URL(`http://127.0.0.1:${PLAIN_CHOICE.port}/b/${PLAIN_CHOICE.askId}`);
 const link = { askId: PLAIN_CHOICE.askId, token: PLAIN_CHOICE.token };
-const board: HostMessage = { version: "1.0", type: "board", document: plainChoiceBoardDocument };
+const board: HostMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "board",
+  document: plainChoiceBoardDocument,
+};
 
 const open = () => {
   FakeSocket.opened.length = 0;
-  const onMessage = mock((_message: HostMessage) => {});
+  const onMessage = mock((_message: LifecycleHostMessage) => {});
   const onInvalid = mock((_problems: readonly { path: string; message: string }[]) => {});
   const onClose = mock((_code: number) => {});
   const connection = connectBoard(bare, link, { onMessage, onInvalid, onClose }, FakeSocket);
@@ -60,7 +68,7 @@ describe("the board's WebSocket (design decision 8)", () => {
     expect(socket?.sent).toEqual([]);
     socket?.emit("open");
     expect(socket?.sent.map((text) => JSON.parse(text))).toEqual([
-      { version: "1.0", type: "connect", token: PLAIN_CHOICE.token },
+      { version: BOARD_PROTOCOL_VERSION, type: "connect", token: PLAIN_CHOICE.token },
     ]);
   });
 
@@ -73,14 +81,16 @@ describe("the board's WebSocket (design decision 8)", () => {
 
   test("never acts on a message the board protocol refuses, and reports it (AD-10)", () => {
     const { socket, onMessage, onInvalid } = open();
-    socket?.emit("message", { data: JSON.stringify({ version: "1.0", type: "draft" }) });
+    socket?.emit("message", {
+      data: JSON.stringify({ version: BOARD_PROTOCOL_VERSION, type: "telemetry" }),
+    });
     expect(onMessage).not.toHaveBeenCalled();
     expect(onInvalid.mock.calls[0]?.[0][0]?.path).toBe("/type");
   });
 
   test("sends a page message only while open", () => {
     const { connection, socket } = open();
-    const answer = { version: "1.0", type: "connect", token: "x" } as const;
+    const answer = { version: BOARD_PROTOCOL_VERSION, type: "connect", token: "x" } as const;
     expect(connection?.send(answer)).toBe(false);
     socket?.emit("open");
     expect(connection?.send(answer)).toBe(true);
@@ -104,7 +114,9 @@ describe("the board's WebSocket (design decision 8)", () => {
     connection?.close();
     expect(socket?.closed).toBe(true);
     socket?.emit("close", { code: 1005 });
-    expect(connection?.send({ version: "1.0", type: "connect", token: "x" })).toBe(false);
+    expect(connection?.send({ version: BOARD_PROTOCOL_VERSION, type: "connect", token: "x" })).toBe(
+      false,
+    );
   });
 
   test("a socket the browser will not create counts as a drop, reported after the call", async () => {
@@ -124,7 +136,9 @@ describe("the board's WebSocket (design decision 8)", () => {
     expect(onClose).not.toHaveBeenCalled();
     await Bun.sleep(0);
     expect(onClose.mock.calls).toEqual([[1006]]);
-    expect(connection?.send({ version: "1.0", type: "connect", token: "x" })).toBe(false);
+    expect(connection?.send({ version: BOARD_PROTOCOL_VERSION, type: "connect", token: "x" })).toBe(
+      false,
+    );
     connection?.close();
   });
 

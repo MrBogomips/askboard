@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:version",
   "title": "Board protocol version",
-  "description": "The board protocol version a message follows, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). Every message refuses the fields it does not define, so a receiver still on an older minor refuses a newer minor's field as a schema error: a minor only adds optional fields, and a sender sends a new field only once both receivers, the board page and board-host, accept it.",
+  "description": "The board protocol version a message follows, as major.minor. A receiver supports major 1 and accepts any of its minors (design decision 2). A minor keeps the major's meaning: it may add fields and enum values, make a required field optional, and lift or add a limit. Every message refuses what it does not define or allow, so a receiver still on an older minor refuses a newer minor's additions as schema errors, and one on a newer minor refuses what a limit that minor added excludes. A minor is therefore used only once both ends, the board page and board-host, have it, which holds because the session process that runs board-host also serves the board page.",
   "type": "string",
   "pattern": "^1\\.(0|[1-9][0-9]*)$"
 }

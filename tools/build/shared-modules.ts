@@ -31,7 +31,9 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
   react: {
     modules: { react: "*", "react-dom": "*", "react-dom/client": "*", "react/jsx-runtime": "*" },
   },
-  radix: { modules: { "radix-ui": ["Checkbox", "RadioGroup"] } },
+  radix: {
+    modules: { "radix-ui": ["AlertDialog", "Checkbox", "DropdownMenu", "RadioGroup", "Tabs"] },
+  },
   // zod's `jitless` before ext-apps loads (renderer rows 16 and 17); the chunk also carries zod and
   // the MCP client and core, which ext-apps imports.
   "ext-apps": {

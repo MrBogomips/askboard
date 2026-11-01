@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:postponed-event",
+  "title": "Postponed event",
+  "description": "The user postponed a question at its revision (FR-4): it stays open for later, and an ask whose other questions are answered or declined is answered.",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "type": {
+      "const": "postponed"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": ["cursor", "type", "itemId", "rev"],
+  "additionalProperties": false
+}

@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import type { ViewDocument, WidgetItem } from "../view-document.ts";
+import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
 import { CHOICE, componentsOf, renderedOf } from "./components.ts";
 import {
   type CatalogComponent,
@@ -26,7 +26,10 @@ const Probe: CatalogComponent<ProbeItem, ProbeValue> = ({ item, value }) =>
 // holds only one (design decision 12).
 const [question] = plainChoiceBoardDocument.items;
 const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
-const withItems = (items: readonly WidgetItem[], options = true): ViewDocument => {
+const withItems = (
+  items: readonly WidgetItem[],
+  options = true,
+): ViewDocument & { readonly items: readonly [ViewQuestion] } => {
   const { options: kept, ...props } = question.props;
   return {
     ...plainChoiceBoardDocument,
@@ -164,5 +167,24 @@ describe("a component reports ready after its content is laid out (AD-9)", () =>
     run();
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(ready).not.toHaveBeenCalled();
+  });
+});
+
+describe("a board of several questions or of areas (ask-lifecycle, design decision 6)", () => {
+  test("the components of every question, areas' included, each once", () => {
+    expect(componentsOf(lifecycleBoardDocument)).toEqual(["choice"]);
+    const [area] = lifecycleBoardDocument.items;
+    const mixed: ViewDocument = {
+      ...lifecycleBoardDocument,
+      items: [
+        area,
+        {
+          type: "area",
+          id: "later",
+          props: { title: "Later", items: [withItems([sketch], false).items[0]] },
+        },
+      ],
+    } as ViewDocument;
+    expect(componentsOf(mixed)).toEqual(["choice", "probe"]);
   });
 });

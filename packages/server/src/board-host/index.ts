@@ -1,19 +1,33 @@
 // board-host: each ask's board on the local machine only, behind its own token (AD-8, AD-11), and
-// the board protocol between the board page and ask-core (AD-3, AD-21). It imports only ask-core
-// and the contract (AD-1). The listener opens at the first link ask-core asks for (AD-2).
+// the board protocol between the board page and ask-core (AD-3, AD-21), at 1.1 for the ask
+// lifecycle (ask-lifecycle, design decision 5). It imports only ask-core and the contract (AD-1).
+// The listener opens at the first link ask-core asks for (AD-2).
 
 import { createServer, type Server } from "node:http";
 import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
 import type { AskCore, BoardAddress } from "@askboard/core";
-import { WebSocketServer } from "ws";
-import { Boards, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
+import { type ServerOptions, WebSocketServer } from "ws";
+import { Boards, CLOSE_GRACE_MS, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
 import { handleRequest, handleUpgrade } from "./http.ts";
 import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
 import { loadView } from "./view.ts";
 
-/** The part of ask-core `board-host` uses. */
-export type HostCore = Pick<AskCore, "board" | "answer" | "subscribe">;
+/**
+ * The part of ask-core `board-host` uses: what the board shows, E1's answers and the board's act
+ * commands, the draft record, the board's connections, and the subscription.
+ */
+export type HostCore = Pick<
+  AskCore,
+  | "answer"
+  | "subscribe"
+  | "lifecycleBoard"
+  | "act"
+  | "holdDraft"
+  | "draftToRestore"
+  | "connected"
+  | "disconnected"
+>;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */
@@ -65,12 +79,20 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
       report: options.report,
       ...(options.limits ? { limits: options.limits } : {}),
     });
-    const sockets = new WebSocketServer({ noServer: true, maxPayload: MESSAGE_MAX_BYTES });
+    // A live board's largest message; before `connect`, `Boards` holds a socket to far less. A close
+    // handshake the peer does not finish ends the socket after `CLOSE_GRACE_MS`, not ws's 30 s:
+    // ws 8.22's `closeTimeout`, which its type declarations do not name yet.
+    const socketOptions: ServerOptions & { readonly closeTimeout: number } = {
+      noServer: true,
+      maxPayload: MESSAGE_MAX_BYTES,
+      closeTimeout: CLOSE_GRACE_MS,
+    };
+    const sockets = new WebSocketServer(socketOptions);
     const deps = { core, tokens, view, report: options.report, closed: () => closed };
     const server = createServer((request, response) => handleRequest(deps, request, response));
     server.on("upgrade", (request, socket, head) =>
       handleUpgrade(deps, request, socket, (askId) =>
-        sockets.handleUpgrade(request, socket, head, (open) => boards.attach(open, askId)),
+        sockets.handleUpgrade(request, socket, head, (open) => boards.attach(open, askId, socket)),
       ),
     );
     const port = await listen(server, range);

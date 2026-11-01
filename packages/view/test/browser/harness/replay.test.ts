@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { BOARD_CLOSE_CODES, type PageMessage } from "@askboard/contract";
+import { BOARD_CLOSE_CODES, BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import { Replay, type ReplaySocket } from "./replay.ts";
 import { OVERLOADED_CLOSE_CODE, type ReplayTranscript, replayTranscripts } from "./transcripts.ts";
 
-const connect: PageMessage = { version: "1.0", type: "connect", token: PLAIN_CHOICE.token };
+const connect: PageMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "connect",
+  token: PLAIN_CHOICE.token,
+};
 const answer: PageMessage = {
-  version: "1.0",
+  version: BOARD_PROTOCOL_VERSION,
   type: "answer",
   itemId: "database",
   rev: 1,
@@ -197,5 +201,44 @@ describe("Replay: what it reports", () => {
       "the replay did not reach collected within 0.05 s: it waits for socket 1 to send connect",
     );
     expect(replay.position).toBe("socket 1 to send connect");
+  });
+});
+
+describe("Replay: protocol 1.1's board page against E1's transcripts (ask-lifecycle)", () => {
+  const act = {
+    version: BOARD_PROTOCOL_VERSION,
+    type: "act",
+    actionId: "AAAAAAAAAAAAAAAAAAAAAA",
+    acts: [
+      {
+        type: "answer",
+        itemId: "database",
+        rev: 1,
+        choice: ["PostgreSQL"],
+        when: "2026-10-30T10:00:00.250Z",
+      },
+    ],
+  };
+
+  test("an act command for the transcript's answer is acknowledged with done before the host's steps", () => {
+    const { replay, log, open, send } = start(replayTranscripts.answered);
+    open();
+    send(1, connect);
+    send(1, act);
+    expect(log).toEqual(["s1 <- board", "s1 <- state", "s1 <- done", "s1 <- state"]);
+    expect(replay.problems()).toEqual([]);
+  });
+
+  test("draft records go nowhere and are never out of turn", () => {
+    const { replay, log, open, send } = start(replayTranscripts.opening);
+    open();
+    send(1, {
+      version: BOARD_PROTOCOL_VERSION,
+      type: "draft",
+      record: { delivery: "immediate", questions: {} },
+    });
+    send(1, connect);
+    expect(log).toEqual(["s1 <- board", "s1 <- state"]);
+    expect(replay.problems()).toEqual([]);
   });
 });

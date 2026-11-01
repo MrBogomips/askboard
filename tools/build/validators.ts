@@ -13,12 +13,22 @@ import { VALIDATORS_FILE } from "./paths.ts";
 /** The one module the generated code requires, resolved from the board page's folder. */
 export const HOST_VALIDATORS_RUNTIME = "ajv/dist/runtime/ucs2length";
 
-/** ESM exporting one validator per message type and `hostMessageSchemas`, as the view's module does. */
-export const hostValidatorsCode = (): string => {
-  const schemas = BOARD_PROTOCOL_MESSAGES.toPage;
+/**
+ * ESM exporting `hostMessageSchemas`, one validator per message type, as the view's module does.
+ * Ajv exports each validator under a name that must be an identifier, which a message name such as
+ * `snapshot-saved` is not, so each is exported by its place in the list and keyed in
+ * `hostMessageSchemas` by its quoted message name. `messages` is the contract's list by default.
+ */
+export const hostValidatorsCode = (
+  messages: Readonly<Record<string, string>> = BOARD_PROTOCOL_MESSAGES.toPage,
+): string => {
   const ajv = createAjv({ code: { source: true, esm: true } });
-  const types = Object.keys(schemas).join(", ");
-  return `${standaloneCode(ajv, schemas)}\nexport const hostMessageSchemas = { ${types} };\n`;
+  const entries = Object.entries(messages);
+  const exportName = (index: number) => `hostMessage${index}`;
+  const exports = Object.fromEntries(entries.map(([, id], index) => [exportName(index), id]));
+  const keyed = entries.map(([type], index) => `${JSON.stringify(type)}: ${exportName(index)}`);
+  const lookup = `export const hostMessageSchemas = { ${keyed.join(", ")} };`;
+  return `${standaloneCode(ajv, exports)}\n${lookup}\n`;
 };
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");

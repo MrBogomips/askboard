@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:answer-event",
   "title": "Answer event",
-  "description": "An answer the user gave on the board (AD-10), naming its item and the question's revision, who answered and when the user acted (FR-18, FR-19). Its content fields are those of finding F4, each optional: choice (the chosen options, by label), note (the open-prompt text), changes (AD-20's generic diff of agent content the user edited), results (per item ID, what a widget produces that is not an edit) and derived (derived values, by reference). results and derived stay open until each widget's epic narrows them (F7). A Choice answer carries only choice.",
+  "description": "An answer the user gave on the board (AD-10), naming its item and the question's revision, who answered and when the user acted (FR-18, FR-19). Its content fields are those of finding F4 and FR-3, each optional: choice (the chosen options, by label), other (the \"Other…\" text), optionNotes (the user's note on an option, by label), note (the open-prompt text, or a decline's reason), changes (AD-20's generic diff of agent content the user edited), results (per item ID, what a widget produces that is not an edit) and derived (derived values, by reference). results and derived stay open until each widget's epic narrows them (F7). A decline (declined) closes the question like an answer and carries at most its reason as note; replaces names the cursor of the answer a revision replaces (AD-20). A Choice answer carries only choice.",
   "type": "object",
   "properties": {
     "cursor": {
@@ -35,9 +35,28 @@
         "minLength": 1
       }
     },
+    "other": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    },
+    "optionNotes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
     "note": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 10000
     },
     "changes": {
       "type": "array",
@@ -57,10 +76,34 @@
       "propertyNames": {
         "$ref": "#/$defs/reference"
       }
+    },
+    "declined": {
+      "const": true
+    },
+    "replaces": {
+      "$ref": "urn:askboard:output:cursor"
     }
   },
   "required": ["cursor", "type", "itemId", "rev", "who", "when"],
   "additionalProperties": false,
+  "if": {
+    "properties": {
+      "declined": {
+        "const": true
+      }
+    },
+    "required": ["declined"]
+  },
+  "then": {
+    "properties": {
+      "choice": false,
+      "other": false,
+      "optionNotes": false,
+      "changes": false,
+      "results": false,
+      "derived": false
+    }
+  },
   "$defs": {
     "reference": {
       "description": "AD-13's reference syntax without brackets: the item ID, then child IDs or a field, separated by dots; never an array index.",

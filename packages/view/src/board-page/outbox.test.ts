@@ -1,106 +1,171 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { AnswerCommand, BoardState } from "@askboard/contract";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import type { ViewAnswer } from "../view-protocol.ts";
-import { type BoardModel, EMPTY_MODEL } from "./model.ts";
-import { EMPTY_OUTBOX, flush, hasUnsent, hold, settled, withoutItem } from "./outbox.ts";
+import {
+  ACTION_ID_PATTERN,
+  type ActCommand,
+  BOARD_PROTOCOL_VERSION,
+  type LifecycleBoardState,
+} from "@askboard/contract";
+import {
+  acknowledged,
+  EMPTY_OUTBOX,
+  flush,
+  hasUnsent,
+  hold,
+  newActionId,
+  pendingOf,
+  refusedCommand,
+  SETTLED_KEPT,
+  settleDone,
+  withoutAll,
+} from "./outbox.ts";
 
-const answer: ViewAnswer = {
-  type: "answer",
-  itemId: "database",
-  rev: 1,
-  choice: ["PostgreSQL"],
-  when: "2026-10-30T10:00:00.250Z",
-};
-const other: ViewAnswer = { ...answer, itemId: "cache", choice: ["Redis"] };
-const open: BoardState = {
+const command = (actionId: string, itemId = "database"): ActCommand => ({
+  version: BOARD_PROTOCOL_VERSION,
+  type: "act",
+  actionId,
+  acts: [{ type: "postpone", itemId, rev: 1 }],
+});
+const A = "AAAAAAAAAAAAAAAAAAAAAA";
+const B = "BBBBBBBBBBBBBBBBBBBBBB";
+const open: LifecycleBoardState = {
   ask: "waiting",
-  questions: [{ itemId: "database", rev: 1, state: "open" }],
-};
-const answered: BoardState = {
-  ask: "answered",
   questions: [
-    {
-      itemId: "database",
-      rev: 1,
-      state: "answered",
-      answer: { choice: ["SQLite"], when: "2026-10-30T09:00:00Z", receipt: "sent" },
-    },
+    { itemId: "database", rev: 1, state: "open" },
+    { itemId: "cache", rev: 1, state: "open" },
   ],
 };
-const model = (state: BoardState): BoardModel => ({
-  ...EMPTY_MODEL,
-  document: plainChoiceBoardDocument,
-  state,
-  visible: new Set(["database"]),
+const basis = (itemId = "database") => [{ itemId, rev: 1, state: "open" }];
+
+describe("action IDs (ask-lifecycle, design decision 6; AD-20)", () => {
+  test("22 base64url characters from 16 random bytes", () => {
+    const id = newActionId();
+    expect(id).toMatch(new RegExp(ACTION_ID_PATTERN));
+    expect(newActionId()).not.toBe(id);
+    const fixed = newActionId((bytes) => bytes.fill(255));
+    expect(fixed).toBe("_____________________w");
+  });
 });
-const command: AnswerCommand = {
-  version: "1.0",
-  type: "answer",
-  itemId: "database",
-  rev: 1,
-  choice: ["PostgreSQL"],
-  when: answer.when,
-};
 
-describe("the answers the board page holds (design decision 8, FR-22)", () => {
-  test("holds answers in the order given, one per question, each a new outbox", () => {
-    const first = hold(EMPTY_OUTBOX, answer, false);
-    const second = hold(first, other, true);
-    expect(first).toEqual([{ answer, sent: false }]);
-    expect(second).toEqual([
-      { answer, sent: false },
-      { answer: other, sent: true },
+describe("the commands the board page holds until board-host settles them (AD-10, AD-20)", () => {
+  test("a command is held, sent or queued, in the order given", () => {
+    const outbox = hold(
+      hold(EMPTY_OUTBOX, command(A), basis(), true),
+      command(B, "cache"),
+      basis("cache"),
+      false,
+    );
+    expect(pendingOf(outbox)).toEqual([
+      { actionId: A, outcome: "sent" },
+      { actionId: B, outcome: "queued" },
     ]);
-    const again = { ...answer, choice: ["SQLite"] };
-    expect(hold(second, again, true)).toEqual([
-      { answer: other, sent: true },
-      { answer: again, sent: true },
-    ]);
+    expect(hasUnsent(outbox)).toBe(true);
+    expect(hasUnsent(hold(EMPTY_OUTBOX, command(A), basis(), true))).toBe(false);
   });
 
-  test("an answer leaves once a state shows its question no longer open, or not at all", () => {
-    const outbox = hold(hold(EMPTY_OUTBOX, answer, true), other, false);
-    // E1's types hold one question; the outbox is written for more.
-    const both = {
-      ask: "waiting",
-      questions: [...open.questions, { itemId: "cache", rev: 1, state: "open" }],
-    } as unknown as BoardState;
-    expect(settled(outbox, both)).toEqual(outbox);
-    expect(settled(outbox, open)).toEqual([{ answer, sent: true }]);
-    expect(settled(outbox, answered)).toEqual([]);
+  test("done is kept until the state that follows it, then settled", () => {
+    const held = hold(EMPTY_OUTBOX, command(A), basis(), true);
+    const done = acknowledged(held, A);
+    expect(pendingOf(done)).toEqual([{ actionId: A, outcome: "sent" }]);
+    const settled = settleDone(done);
+    expect(pendingOf(settled)).toEqual([]);
+    expect(settled.settled).toEqual([{ actionId: A, outcome: "done" }]);
+    expect(acknowledged(held, B)).toBe(held);
+    expect(settleDone(held)).toBe(held);
   });
 
-  test("a refused answer leaves, and only its question's", () => {
-    const outbox = hold(hold(EMPTY_OUTBOX, answer, true), other, false);
-    expect(withoutItem(outbox, "database")).toEqual([{ answer: other, sent: false }]);
+  test("a refused command is dropped at once and settled as refused", () => {
+    const held = hold(EMPTY_OUTBOX, command(A), basis(), true);
+    const refused = refusedCommand(held, A);
+    expect(pendingOf(refused)).toEqual([]);
+    expect(refused.settled).toEqual([{ actionId: A, outcome: "refused" }]);
+    expect(refusedCommand(held, B)).toBe(held);
   });
 
-  test("says whether an answer was never sent", () => {
-    expect(hasUnsent(EMPTY_OUTBOX)).toBe(false);
-    expect(hasUnsent(hold(EMPTY_OUTBOX, answer, true))).toBe(false);
-    expect(hasUnsent(hold(EMPTY_OUTBOX, answer, false))).toBe(true);
+  test("only the latest settled commands are kept", () => {
+    let outbox = EMPTY_OUTBOX;
+    for (let n = 0; n < SETTLED_KEPT + 5; n += 1) {
+      const id = `${String(n).padStart(2, "0")}${"x".repeat(20)}`;
+      outbox = refusedCommand(hold(outbox, command(id), basis(), true), id);
+    }
+    expect(outbox.settled).toHaveLength(SETTLED_KEPT);
+    expect(outbox.settled[0]?.actionId.startsWith("05")).toBe(true);
   });
 
-  test("a flush sends each answer whose question is open, in order, as the command", () => {
-    const send = mock((_command: AnswerCommand) => true);
-    const result = flush(hold(EMPTY_OUTBOX, answer, false), model(open), send);
-    expect(send.mock.calls).toEqual([[command]]);
-    expect(result).toEqual({ outbox: [{ answer, sent: true }], dropped: [] });
-  });
-
-  test("a flush drops an answer the board page would refuse now, saying why (AD-10)", () => {
-    const send = mock((_command: AnswerCommand) => true);
-    const result = flush(hold(EMPTY_OUTBOX, answer, false), model(answered), send);
-    expect(send).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      outbox: [],
-      dropped: [{ itemId: "database", detail: "the question is not open" }],
+  test("on a new socket, every held command goes again with its action ID, in order", () => {
+    const outbox = hold(
+      hold(EMPTY_OUTBOX, command(A), basis(), true),
+      command(B, "cache"),
+      basis("cache"),
+      false,
+    );
+    const sent: ActCommand[] = [];
+    const flushed = flush(outbox, open, (each) => {
+      sent.push(each);
+      return true;
     });
+    expect(sent).toEqual([command(A), command(B, "cache")]);
+    expect(pendingOf(flushed.outbox)).toEqual([
+      { actionId: A, outcome: "sent" },
+      { actionId: B, outcome: "sent" },
+    ]);
+    expect(flushed.dropped).toEqual([]);
   });
 
-  test("an answer the socket did not take stays unsent", () => {
-    const result = flush(hold(EMPTY_OUTBOX, answer, false), model(open), () => false);
-    expect(result).toEqual({ outbox: [{ answer, sent: false }], dropped: [] });
+  test("a queued command whose question changed meanwhile is dropped, never sent (AD-10)", () => {
+    const changed: LifecycleBoardState = {
+      ask: "partly-answered",
+      questions: [
+        { itemId: "database", rev: 2, state: "open" },
+        { itemId: "cache", rev: 1, state: "postponed" },
+      ],
+    };
+    const outbox = hold(
+      hold(EMPTY_OUTBOX, command(A), basis(), false),
+      command(B, "cache"),
+      basis("cache"),
+      false,
+    );
+    const send = mock((_: ActCommand) => true);
+    const flushed = flush(outbox, changed, send);
+    expect(send).not.toHaveBeenCalled();
+    expect(flushed.dropped.map(({ actionId }) => actionId)).toEqual([A, B]);
+    expect(flushed.outbox.settled).toEqual([
+      { actionId: A, outcome: "dropped" },
+      { actionId: B, outcome: "dropped" },
+    ]);
+  });
+
+  test("a queued command the board page would refuse now is dropped, saying why", () => {
+    const flushed = flush(
+      hold(EMPTY_OUTBOX, command(A), basis(), false),
+      open,
+      () => true,
+      () => "the question's item failed in the view",
+    );
+    expect(flushed.dropped).toEqual([
+      { actionId: A, detail: "the question's item failed in the view" },
+    ]);
+  });
+
+  test("a sent command goes again even if its question changed: board-host knows whether it landed", () => {
+    const answered: LifecycleBoardState = {
+      ask: "answered",
+      questions: [
+        { itemId: "database", rev: 1, state: "postponed" },
+        { itemId: "cache", rev: 1, state: "open" },
+      ],
+    };
+    const send = mock((_: ActCommand) => true);
+    const flushed = flush(hold(EMPTY_OUTBOX, command(A), basis(), true), answered, send);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(flushed.dropped).toEqual([]);
+  });
+
+  test("a command the socket did not take stays queued; a discard drops them all", () => {
+    const flushed = flush(hold(EMPTY_OUTBOX, command(A), basis(), false), open, () => false);
+    expect(pendingOf(flushed.outbox)).toEqual([{ actionId: A, outcome: "queued" }]);
+    const gone = withoutAll(flushed.outbox);
+    expect(pendingOf(gone)).toEqual([]);
+    expect(gone.settled).toEqual([{ actionId: A, outcome: "dropped" }]);
   });
 });

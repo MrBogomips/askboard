@@ -1,21 +1,33 @@
 // Validation of tool requests against the contract (AD-6, AD-7). The server validates every request
-// here. Checks a schema cannot express report like schema errors: the reserved view-made prefix
-// (F10), unique option labels (F5), the room an answer needs, cursors and each ask once in a
-// collect.
+// here. Checks a schema cannot express report like schema errors: over every item of an ask, IDs
+// unique in the ask, the reserved view-made prefix (F10), areas all or none at the top level and
+// never nested (FR-2), unique option labels (F5), one recommended option at most and the room an
+// answer needs; in a collect, cursors and each ask once.
 
-import { schemaErrors } from "./compiled.ts";
-import { ASK_TITLE_MAX_CHARS, ID_PATTERN, VIEW_ID_PREFIX } from "./constants.ts";
 import {
-  CHOICE_LABELS_MAX_CHARS,
-  COLLECT_ASKS_MAX,
-  CURSOR_PATTERN,
-  NAME_MAX_CHARS,
-} from "./limits.ts";
+  areaRuleProblems,
+  ID_SHAPE,
+  ITEM_EXPECTED,
+  ITEM_FIELDS,
+  innerItemOf,
+  isId,
+  itemKey,
+  labelProblems,
+  nestingProblems,
+  placedIds,
+  placedItems,
+  repeatedIdProblems,
+  reservedPrefixProblems,
+  text,
+} from "./ask-items.ts";
+import { schemaErrors } from "./compiled.ts";
+import { ASK_TITLE_MAX_CHARS } from "./constants.ts";
+import { COLLECT_ASKS_MAX, CURSOR_PATTERN, NAME_MAX_CHARS } from "./limits.ts";
 import {
   expectedAt,
   inDocumentOrder,
   isRecord,
-  type Located,
+  keyOf,
   located,
   problemAt,
   type RequestProblem,
@@ -23,7 +35,7 @@ import {
   schemaProblem,
   type Wording,
 } from "./problems.ts";
-import type { AskInput } from "./schemas/input/index.ts";
+import type { LifecycleAskInput } from "./schemas/input/index.ts";
 import type { CollectRequest, ToolDefinition } from "./schemas/tool-envelopes/index.ts";
 import { SCHEMA_IDS } from "./sets.ts";
 
@@ -40,11 +52,7 @@ export type CheckedRequest<T> =
 /** A waiting collect's target: an item of one of the asks it passes (AD-4). */
 export type CollectWait = NonNullable<CollectRequest["wait"]>;
 
-const ID = new RegExp(ID_PATTERN);
 const CURSOR = new RegExp(CURSOR_PATTERN);
-const ID_SHAPE = "an ID of 1 to 64 characters from A-Z, a-z, 0-9, _ and -";
-const text = (max: number) => `text of 1 to ${max} characters`;
-const isId = (value: unknown): value is string => typeof value === "string" && ID.test(value);
 
 const itemsOf = (ask: unknown): readonly unknown[] =>
   isRecord(ask) && Array.isArray(ask.items) ? ask.items : [];
@@ -61,119 +69,55 @@ const ASK: Wording = {
     delivery: '"immediate" or "submitted"',
     language: '"en-US", the only language AskBoard supports for now',
     locale: '"en-US", the only locale AskBoard supports for now',
-    items: "a list of one item of type question: one question per ask is accepted for now",
-    "items[]": "an item {type, id, props}",
-    "items[].type": '"question", the only item type AskBoard accepts for now',
-    "items[].id": `${ID_SHAPE}, unique in the ask`,
-    "items[].props": "a question's props {text, header?, options, multiSelect?}",
-    "items[].props.text": "non-empty text",
-    "items[].props.header": "non-empty text",
-    "items[].props.options": "a non-empty list of options, each {label, description?}",
-    "items[].props.options[]": "an option {label, description?}",
-    "items[].props.options[].label": "non-empty text, unique within the question",
-    "items[].props.options[].description": "text",
-    "items[].props.multiSelect": "true or false",
+    items: "a non-empty list of questions, or of areas each holding questions",
+    ...ITEM_EXPECTED,
   },
   fields: {
     "": "an ask holds only askId, title, agentName, expectedUser, presentation, delivery, language, locale and items",
-    "items[]": "an item holds only type, id and props",
-    "items[].props": "a question's props hold only text, header, options and multiSelect",
-    "items[].props.options[]": "an option holds only label and description",
+    ...ITEM_FIELDS,
   },
+  // An item's fields by the item's type: `question.props.text`, `area.props.title`.
+  keyOf: (ask, segments) =>
+    segments[0] === "items" && segments.length > 1
+      ? itemKey(itemsOf(ask)[Number(segments[1])], segments.slice(2))
+      : keyOf(segments),
+  // The innermost item with a usable ID: an area's question, else the top-level item.
   itemOf: (ask, segments) => {
     if (segments[0] !== "items" || segments.length < 3) return undefined;
-    const item = itemsOf(ask)[Number(segments[1])];
-    const id = isRecord(item) ? item.id : undefined;
-    return isId(id) ? { itemId: id, rest: segments.slice(2) } : undefined;
+    const inner = innerItemOf(itemsOf(ask)[Number(segments[1])], segments.slice(2));
+    const id = isRecord(inner.item) ? inner.item.id : undefined;
+    return isId(id) ? { itemId: id, rest: inner.rest } : undefined;
   },
-};
-
-// Only the first item is a question E1 accepts: a later item is refused as a whole, and an item of
-// a type the input format does not define is refused for its type alone, since its props follow
-// another type's shape and their problems would only mislead.
-const keptForAsk = (ask: unknown) => {
-  const [first] = itemsOf(ask);
-  const foreign = isRecord(first) && typeof first.type === "string" && first.type !== "question";
-  return ({ segments, kind }: Located): boolean => {
-    if (segments[0] !== "items") return true;
-    if (segments.length === 1) return kind !== "invalid" || itemsOf(ask).length <= 1;
-    if (segments[1] !== "0") return false;
-    return !foreign || (segments.length === 3 && segments[2] === "type");
-  };
-};
-
-const extraItemProblems = (ask: unknown): RequestProblem[] =>
-  itemsOf(ask)
-    .slice(1)
-    .map((item, offset) => {
-      const index = String(offset + 1);
-      const id = isRecord(item) && isId(item.id) ? item.id : undefined;
-      const where = id === undefined ? `items[${index}]` : `item "${id}"`;
-      return {
-        path: `/items/${index}`,
-        ...(id === undefined ? {} : { itemId: id }),
-        field: "items",
-        expected: expectedAt(ASK, ["items"]),
-        message: `${where}: one question per ask is accepted for now; send this question in another ask`,
-      };
-    });
-
-const reservedPrefixProblems = (ask: unknown): RequestProblem[] => {
-  const [item] = itemsOf(ask);
-  const ids: [Segments, unknown][] = [
-    [["askId"], isRecord(ask) ? ask.askId : undefined],
-    [["items", "0", "id"], isRecord(item) ? item.id : undefined],
-  ];
-  const expected = `an ID that does not start with "${VIEW_ID_PREFIX}"`;
-  const message = `{where}: the prefix "${VIEW_ID_PREFIX}" is reserved for IDs the board makes`;
-  return ids
-    .filter(([, id]) => isId(id) && id.startsWith(VIEW_ID_PREFIX))
-    .map(([segments]) => problemAt(ASK, ask, segments, message, expected));
-};
-
-const labelProblems = (ask: unknown): RequestProblem[] => {
-  const [question] = itemsOf(ask);
-  const props = isRecord(question) ? question.props : undefined;
-  const options = isRecord(props) && Array.isArray(props.options) ? props.options : [];
-  const labels = options
-    .map((option, index) => ({ index, label: isRecord(option) ? option.label : undefined }))
-    .filter((entry): entry is { index: number; label: string } => typeof entry.label === "string");
-  const problems: RequestProblem[] = [];
-  const seen = new Set<string>();
-  for (const { index, label } of labels) {
-    if (seen.has(label)) {
-      const segments = ["items", "0", "props", "options", String(index), "label"];
-      const message = `{where}: the label ${JSON.stringify(label)} is repeated; option labels are unique within a question, since an answer names its options by label`;
-      problems.push(problemAt(ASK, ask, segments, message, expectedAt(ASK, segments)));
-    }
-    seen.add(label);
-  }
-  const room = JSON.stringify(labels.map(({ label }) => label)).length;
-  if (room > CHOICE_LABELS_MAX_CHARS) {
-    const message = `{where}: the option labels take ${room} characters as a JSON list, more than the ${CHOICE_LABELS_MAX_CHARS} an answer can carry; shorten them`;
-    const expected = `options whose labels take at most ${CHOICE_LABELS_MAX_CHARS} characters`;
-    problems.push(problemAt(ASK, ask, ["items", "0", "props", "options"], message, expected));
-  }
-  return problems;
 };
 
 /**
- * Validates an `ask` request against the input format: the schema, then the checks it cannot
- * express. The input format refines the `ask` tool's generic schema, so a request it accepts
- * passes that schema too.
+ * Validates an `ask` request against the input format: the schema, then, over every item, the
+ * checks it cannot express. The input format refines the `ask` tool's generic schema, so a request
+ * it accepts passes that schema too. An ask that passes is input format 1.1's, which ask-core reads
+ * since ask-lifecycle's task 2.1.
  */
-export const validateAskRequest = (value: unknown): CheckedRequest<AskInput> => {
-  const keep = keptForAsk(value);
+export const validateAskRequest = (value: unknown): CheckedRequest<LifecycleAskInput> => {
+  const items = itemsOf(value);
+  const placed = placedItems(items, ["items"]);
+  // An area inside an area is named once, as an area, not as the question the schema expects.
+  const nested = nestingProblems(ASK, value, placed);
+  const replaced = new Set(nested.map(({ path }) => path));
+  const askId: readonly [Segments, unknown] = [
+    ["askId"],
+    isRecord(value) ? value.askId : undefined,
+  ];
   const problems = [
     ...schemaErrors(SCHEMA_IDS.ask, value)
       .map(located)
-      .filter(keep)
-      .map((entry) => schemaProblem(ASK, value, entry)),
-    ...extraItemProblems(value),
-    ...reservedPrefixProblems(value),
-    ...labelProblems(value),
+      .map((entry) => schemaProblem(ASK, value, entry))
+      .filter(({ path }) => !replaced.has(path)),
+    ...nested,
+    ...areaRuleProblems(items, ["items"]),
+    ...repeatedIdProblems(ASK, value, placed),
+    ...reservedPrefixProblems(ASK, value, [askId, ...placedIds(placed)]),
+    ...labelProblems(ASK, value, placed),
   ];
-  if (problems.length === 0) return { ok: true, value: value as AskInput };
+  if (problems.length === 0) return { ok: true, value: value as LifecycleAskInput };
   return { ok: false, reason: "schema", problems: inDocumentOrder(value, problems) };
 };
 

@@ -5,8 +5,9 @@
 // AD-8), connects the board page's own `hostView` before it sets the srcdoc, so that it hears the
 // view's handshake, and sends one update with the question open; a later one comes only from the
 // test, through a function on the page's window, as the board page sends each new state or lock.
-// Every view message goes to the test through a Playwright binding; an answer is answered as sent,
-// and nothing more follows unless the test sends it, so the card stays at "sent" (proposal, open
+// Every view message goes to the test through a Playwright binding; an answer or an act command is
+// answered as sent, under an action ID as the board page gives one since the ask lifecycle, and
+// nothing more follows unless the test sends it, so the card stays at "sent" (proposal, open
 // question 5). zod's `jitless` comes first, as on the board page (renderer rows 16 and 17).
 
 import "../../../src/zod-jitless.ts";
@@ -30,17 +31,22 @@ const report = (message: ViewMessage): void => {
   void binding(message);
 };
 
-// What the board page replies: an answer it sent, and nothing for the rest (controller.ts).
+// The action ID the host gives every command: the board page draws a fresh one (controller.ts).
+const ACTION_ID = "WidgetHostActionId0000";
+
+// What the board page replies: an answer or a command it sent, and nothing for the rest.
 const handle = async (message: ViewMessage): Promise<ViewReply> => {
   report(message);
-  return message.type === "answer" ? { outcome: "sent" } : {};
+  return message.type === "answer" || message.type === "act"
+    ? { outcome: "sent", actionId: ACTION_ID }
+    : {};
 };
 
 const start = async (): Promise<void> => {
   const text = document.getElementById(WIDGET_HOST_DATA_ID)?.textContent;
   if (text === null || text === undefined) throw new Error("the host page has no data block");
   const data = JSON.parse(text) as WidgetHostData;
-  const chrome = createPageChrome(document, () => {});
+  const chrome = createPageChrome(document, { continueHere: () => {}, copyUnsentWork: () => {} });
   const peer = chrome.frame.contentWindow;
   if (peer === null) throw new Error("the view's frame is not in the document");
   const host = await hostView(peer, window, handle, systemTheme(window.matchMedia(DARK_QUERY)));

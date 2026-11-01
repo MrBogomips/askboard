@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AnswerCommand, PageMessage } from "@askboard/contract";
+import { type AnswerCommand, BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import {
   orderProblems,
@@ -11,9 +11,13 @@ import {
 } from "./messages.ts";
 import { replayTranscripts } from "./transcripts.ts";
 
-const connect: PageMessage = { version: "1.0", type: "connect", token: PLAIN_CHOICE.token };
+const connect: PageMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "connect",
+  token: PLAIN_CHOICE.token,
+};
 const answer: AnswerCommand = {
-  version: "1.0",
+  version: BOARD_PROTOCOL_VERSION,
   type: "answer",
   itemId: "database",
   rev: 1,
@@ -111,8 +115,8 @@ describe("orderProblems", () => {
     dir,
     text: JSON.stringify(message),
   });
-  const board = { version: "1.0", type: "board" };
-  const state = { version: "1.0", type: "state" };
+  const board = { version: BOARD_PROTOCOL_VERSION, type: "board" };
+  const state = { version: BOARD_PROTOCOL_VERSION, type: "state" };
   const first = {
     url: "ws://x/ws/a",
     frames: [frame("sent", connect), frame("received", board), frame("received", state)],
@@ -158,5 +162,41 @@ describe("summary", () => {
     expect(summary({ type: "draft" })).toBe("draft");
     expect(summary("not json")).toBe('"not json"');
     expect(summary(undefined)).toBe("nothing");
+  });
+});
+
+describe("protocol 1.1 against E1's transcripts (ask-lifecycle, design decision 6)", () => {
+  const act = (when: string, extra: Record<string, unknown> = {}) => ({
+    version: BOARD_PROTOCOL_VERSION,
+    type: "act",
+    actionId: "AAAAAAAAAAAAAAAAAAAAAA",
+    acts: [{ type: "answer", itemId: "database", rev: 1, choice: ["PostgreSQL"], when, ...extra }],
+  });
+
+  test("an act command of one answer is the transcript's answer, its when checked as a time", () => {
+    expect(samePageMessage(act("2026-10-30T10:00:00.512Z"), answer, clicked)).toBe(true);
+    expect(samePageMessage(act("2026-10-30T09:59:59Z"), answer, clicked)).toBe(false);
+    expect(samePageMessage(act("2026-10-30T10:00:00.512Z", { note: "x" }), answer)).toBe(false);
+    expect(samePageMessage(act("2026-10-30T10:00:00.512Z", { choice: ["SQLite"] }), answer)).toBe(
+      false,
+    );
+    expect(samePageMessage({ ...act("2026-10-30T10:00:00Z"), actionId: "short" }, answer)).toBe(
+      false,
+    );
+    const two = act("2026-10-30T10:00:00Z");
+    expect(samePageMessage({ ...two, acts: [...two.acts, ...two.acts] }, answer)).toBe(false);
+  });
+
+  test("draft records are the board's own, never in a transcript: they are left out", () => {
+    const draft = { version: BOARD_PROTOCOL_VERSION, type: "draft", record: {} };
+    const socket = {
+      url: "ws://x/ws/a",
+      frames: [
+        { dir: "sent" as const, text: JSON.stringify(connect) },
+        { dir: "sent" as const, text: JSON.stringify(draft) },
+      ],
+    };
+    expect(pageMessagesOf([socket])).toEqual([{ socket: 1, message: connect }]);
+    expect(summary(act("2026-10-30T10:00:00Z"))).toBe("act [answer database rev 1 [PostgreSQL]]");
   });
 });

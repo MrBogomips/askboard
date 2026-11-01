@@ -4,6 +4,7 @@
 // browser storage, and a reload.
 
 import { describe, expect, test } from "bun:test";
+import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import {
   answerWith,
@@ -34,20 +35,21 @@ const labels = question.props.options.map((option) => option.label);
 const visible = (locator: ReturnType<Board["receipt"]>) =>
   locator.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
 
-// No option and no "Answer" the user can act on.
-const expectReadOnly = async (board: Board) => {
+// An answered question while the ask is open: "Answer" waits for an edit, and the options stay
+// editable for a revision (ask-lifecycle, task 6.7: Answer sends at once, Revising an answer).
+const expectAnswered = async (board: Board) => {
   const enabled = {
     options: await enabledCount(board.options),
     answers: await enabledCount(board.answer),
   };
-  expect(enabled).toEqual({ options: 0, answers: 0 });
+  expect(enabled).toEqual({ options: labels.length, answers: 0 });
 };
 
 // Only the connect has left the page: the board sent nothing for the user.
 const expectOnlyConnect = async (run: BoardRun) => {
   await Bun.sleep(300);
   expect(run.browser.pageMessages().map(({ message }) => message)).toEqual([
-    { version: "1.0", type: "connect", token: linkToken(run) },
+    { version: BOARD_PROTOCOL_VERSION, type: "connect", token: linkToken(run) },
   ]);
 };
 
@@ -172,7 +174,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.header
           .getByText("Answered", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await expectReadOnly(board);
+        await expectAnswered(board);
         expectPageHalf(run, clicked);
         expectNoCspProblem(run);
       },
@@ -242,7 +244,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a reload: the board comes back answered, delivered to the agent, read-only, with no token in the view",
+      "a reload: the board comes back answered, delivered to the agent, revisable, with no token in the view",
       async () => {
         const run = await start({ transcript: reload, view: dist });
         const board = await run.open();
@@ -258,7 +260,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .getByText("Answered", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await board.option("PostgreSQL").isChecked()).toBe(true);
-        await expectReadOnly(board);
+        await expectAnswered(board);
         await expectNoTokenInView(board, run);
         await Bun.sleep(QUIET_MS);
         expect(await board.banner(/moved/i).count()).toBe(0);

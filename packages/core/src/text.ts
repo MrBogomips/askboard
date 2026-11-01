@@ -47,6 +47,9 @@ export const nameOf = (name: string | undefined): string | undefined => {
 
 export const cursorOf = (epoch: string, seq: number): string => `${epoch}.${seq}`;
 
+/** A clock reading as the contract writes a time: RFC 3339 UTC, milliseconds only when not zero. */
+export const timeOf = (ms: number): string => new Date(ms).toISOString().replace(".000Z", "Z");
+
 const CURSOR = new RegExp(CURSOR_PATTERN);
 
 /** A cursor's epoch and `seq`, or undefined when it is not `<epoch>.<seq>` (AD-3). */

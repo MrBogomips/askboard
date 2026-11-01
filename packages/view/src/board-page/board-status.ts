@@ -2,7 +2,9 @@
 // 5): connecting, live, retrying after an ordinary close, moved to another tab until "Continue
 // here", or discarded for good. Moved and discarded lock the view (EXPERIENCE.md, Board page or
 // view). Each event gives the next status; a status whose kind does not change stays the same
-// object, so the board page redraws only on a change.
+// object, so the board page redraws only on a change. The ask lifecycle adds the closed ask
+// (FR-6): locked and banner-ed like a discarded one, though its socket stays open and reconnects,
+// and a closed or discarded board with unsent work offers "Copy my unsent work" (F-17).
 
 import type { ViewLock } from "../view-protocol.ts";
 import { closeKindOf } from "./reconnect.ts";
@@ -17,7 +19,9 @@ export type BoardStatus =
   /** Another tab took the board; only "Continue here" reconnects. */
   | { readonly kind: "moved" }
   /** The ask is discarded, or the token was refused, as after a restart: final. */
-  | { readonly kind: "discarded" };
+  | { readonly kind: "discarded" }
+  /** The agent closed the ask: locked, until it is discarded or another tab takes the board. */
+  | { readonly kind: "closed" };
 
 export type StatusEvent =
   /** The current socket's state came after its board document: `board-host` accepted it. */
@@ -28,7 +32,9 @@ export type StatusEvent =
   /** `discarded` came, or `refused` for the token before the socket was accepted. */
   | { readonly type: "discarded" }
   /** The user pressed "Continue here". */
-  | { readonly type: "continue" };
+  | { readonly type: "continue" }
+  /** `closed` came, or a state of a closed ask. */
+  | { readonly type: "ask-closed" };
 
 export const INITIAL_STATUS: BoardStatus = { kind: "connecting" };
 
@@ -39,15 +45,17 @@ const kindAfter = (status: BoardStatus, event: StatusEvent): BoardStatus["kind"]
       return "discarded";
     case "moved":
       return "moved";
+    case "ask-closed":
+      return status.kind === "moved" ? "moved" : "closed";
     case "continue":
       return status.kind === "moved" ? "connecting" : status.kind;
     case "accepted":
-      return status.kind === "moved" ? "moved" : "live";
+      return status.kind === "moved" || status.kind === "closed" ? status.kind : "live";
     case "closed": {
       const kind = closeKindOf(event.code);
       if (kind === "refused" || kind === "discarded") return "discarded";
       if (kind === "moved" || status.kind === "moved") return "moved";
-      return "retrying";
+      return status.kind === "closed" ? "closed" : "retrying";
     }
   }
 };
@@ -57,22 +65,34 @@ export const nextStatus = (status: BoardStatus, event: StatusEvent): BoardStatus
   return kind === status.kind ? status : { kind };
 };
 
-/** Why the view is read-only, if it is (AD-21). */
+/** Why the view is read-only, if it is (AD-21, FR-6). */
 export const lockOf = (status: BoardStatus): ViewLock | undefined =>
-  status.kind === "discarded" || status.kind === "moved" ? status.kind : undefined;
+  status.kind === "discarded" || status.kind === "moved" || status.kind === "closed"
+    ? status.kind
+    : undefined;
+
+/**
+ * Whether the board's connection is lost, as the view hears it: Submit is disabled while it is
+ * (EXPERIENCE.md, Submit). A locked board needs no connection.
+ */
+export const connectionOf = (status: BoardStatus): "lost" | undefined =>
+  status.kind === "connecting" || status.kind === "retrying" ? "lost" : undefined;
 
 export type Banner = {
-  readonly variant: "connection-lost" | "moved" | "discarded";
+  readonly variant: "connection-lost" | "moved" | "discarded" | "closed";
   readonly text: string;
-  /** A second line: on a discarded board, that answers the user gave were never sent. */
+  /** A second line: on a closed or discarded board, that work the user did was never sent. */
   readonly detail?: string;
-  readonly action?: "Continue here";
-  /** The discarded banner takes the focus (EXPERIENCE.md, Accessibility Floor, Focus). */
+  readonly action?: "Continue here" | "Copy my unsent work";
+  /**
+   * The closed and discarded banners take the focus (EXPERIENCE.md, Accessibility Floor, Focus).
+   */
   readonly takesFocus: boolean;
 };
 
-// "Connection lost, retrying", "Your unsent work was not sent" and "Continue here" are
-// EXPERIENCE.md's (Voice and Tone); the moved and discarded wordings are not recorded there.
+// "Connection lost, retrying", "Your unsent work was not sent", "Copy my unsent work" and
+// "Continue here" are EXPERIENCE.md's (Voice and Tone); the moved, discarded and closed wordings
+// are not recorded there.
 const CONNECTION_LOST: Banner = {
   variant: "connection-lost",
   text: "Connection lost, retrying",
@@ -89,8 +109,19 @@ const DISCARDED: Banner = {
   text: "This ask was discarded. The board is read-only.",
   takesFocus: true,
 };
+const CLOSED: Banner = {
+  variant: "closed",
+  text: "This ask was closed. The board is read-only.",
+  takesFocus: true,
+};
 
-/** The banner the board page shows, if any; `unsent` when a discard dropped unsent answers. */
+// A closed or discarded board's banner, saying when unsent work was left and offering its copy.
+const ended = (banner: Banner, unsent: boolean): Banner =>
+  unsent
+    ? { ...banner, detail: "Your unsent work was not sent", action: "Copy my unsent work" }
+    : banner;
+
+/** The banner the board page shows, if any; `unsent` when the board ended with unsent work. */
 export const bannerOf = (status: BoardStatus, unsent = false): Banner | undefined => {
   switch (status.kind) {
     case "retrying":
@@ -98,7 +129,9 @@ export const bannerOf = (status: BoardStatus, unsent = false): Banner | undefine
     case "moved":
       return MOVED;
     case "discarded":
-      return unsent ? { ...DISCARDED, detail: "Your unsent work was not sent" } : DISCARDED;
+      return ended(DISCARDED, unsent);
+    case "closed":
+      return ended(CLOSED, unsent);
     default:
       return undefined;
   }

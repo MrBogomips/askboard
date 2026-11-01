@@ -32,9 +32,10 @@ const problemPaths = (result: Checked<unknown>) =>
   result.ok ? [] : result.problems.map((problem) => problem.path);
 
 describe("the board protocol (owner board-host)", () => {
-  test("the message types of each direction are E1's, each with its schema", () => {
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost).sort()).toEqual(Object.keys(toHost).sort());
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).sort()).toEqual(Object.keys(toPage).sort());
+  test("E1's message types come first in each direction, in their order, each with its schema", () => {
+    const { toHost: host, toPage: page } = BOARD_PROTOCOL_MESSAGES;
+    expect(Object.keys(host).slice(0, 2)).toEqual(Object.keys(toHost));
+    expect(Object.keys(page).slice(0, 6)).toEqual(Object.keys(toPage));
   });
 
   test.each(Object.entries(toHost))("the board page's %s message validates", (_type, message) => {
@@ -81,17 +82,17 @@ describe("the board protocol (owner board-host)", () => {
     expect(validateBoardMessage("toPage", JSON.parse(JSON.stringify(message))).ok).toBe(false);
   });
 
-  test("E1's narrow scope: a discard on board close and a closed ask are refused", () => {
-    const closed = { version, type: "state", state: { ask: "closed", questions: [open] } };
-    expect(validateBoardMessage("toPage", { ...toPage.discarded, reason: "board-closed" }).ok).toBe(
+  test("a discard reason and an ask state the protocol does not define are refused", () => {
+    const unknown = { version, type: "state", state: { ask: "unknown", questions: [open] } };
+    expect(validateBoardMessage("toPage", { ...toPage.discarded, reason: "timeout" }).ok).toBe(
       false,
     );
-    expect(validateBoardMessage("toPage", closed).ok).toBe(false);
+    expect(validateBoardMessage("toPage", unknown).ok).toBe(false);
   });
 
   test("a message the protocol does not define for that direction is refused at its type", () => {
     for (const [direction, message] of [
-      ["toHost", { version, type: "draft", itemId: "database" }],
+      ["toHost", { version, type: "telemetry", itemId: "database" }],
       ["toHost", toPage.moved],
       ["toPage", toHost.answer],
     ] as const) {
@@ -184,8 +185,7 @@ describe("the board protocol (owner board-host)", () => {
       problems: [
         {
           path: "/version",
-          message:
-            "the message is board protocol version 2.0, which is not supported: this receiver supports version 1 (1.0)",
+          message: `the message is board protocol version 2.0, which is not supported: this receiver supports version 1 (${version})`,
         },
       ],
     });

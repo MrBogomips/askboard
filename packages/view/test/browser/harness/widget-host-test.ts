@@ -21,8 +21,14 @@ export type WidgetHostRun = {
   /** The host page, its view's frame found as on the board page. */
   readonly board: Board;
   readonly browser: BoardContext;
-  /** Every view message the host page passed on, in order. */
+  /**
+   * Every view message the host page passed on, in order, but the draft mirror: since the ask
+   * lifecycle the view mirrors its draft record to the board page after each edit (AD-20), which
+   * reaches no agent, so it is kept apart in `drafts`.
+   */
   readonly messages: readonly ViewMessage[];
+  /** The draft records the view mirrored, in order (ask-lifecycle, task 6.1). */
+  readonly drafts: readonly ViewMessage[];
   /** Sends the view a later update, as the board page sends each new state or lock. */
   update(update: ViewUpdate): Promise<void>;
 };
@@ -63,8 +69,9 @@ export const useWidgetHost = (engine: Engine) => {
     const context = await BoardContext.open(browser, options);
     open.push(context);
     const messages: ViewMessage[] = [];
+    const drafts: ViewMessage[] = [];
     await context.context.exposeBinding(WIDGET_HOST_BINDING, (_source, message: ViewMessage) => {
-      messages.push(message);
+      (message.type === "draft" ? drafts : messages).push(message);
     });
     const page = await context.newTab(server.url);
     const update = async (next: ViewUpdate): Promise<void> => {
@@ -72,7 +79,7 @@ export const useWidgetHost = (engine: Engine) => {
         throw new Error("the widget host has not hosted the view yet: no update can reach it");
       }
     };
-    return { board: boardOf(page), browser: context, messages, update };
+    return { board: boardOf(page), browser: context, messages, drafts, update };
   };
   return { host };
 };

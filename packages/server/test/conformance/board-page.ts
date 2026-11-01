@@ -3,10 +3,11 @@
 // in `connect`, then answers. It replays the exchanges the real board page never sends, such as a
 // wrong token, another major or an answer the protocol refuses, and drives the board where a test
 // needs exact timing; the plain choice end to end is answered on the real board page, and the
-// browser tests (9.3) drive it in the three engines.
+// browser tests (9.3) drive it in the three engines. It replays E3's recorded exchanges too, and
+// sends the act commands the lifecycle's cases need (ask-lifecycle, task 7.2).
 
-import { BOARD_HOST } from "@askboard/contract";
-import type { Transcript } from "@askboard/contract/fixtures";
+import { BOARD_HOST, BOARD_PROTOCOL_VERSION, type UpdateInput } from "@askboard/contract";
+import type { LifecycleTranscript, Transcript } from "@askboard/contract/fixtures";
 import { validateBoardMessage } from "@askboard/contract/validate";
 import WebSocket from "ws";
 
@@ -64,12 +65,58 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
   };
 };
 
+type Message = Readonly<Record<string, unknown>>;
+
+/** Takes the socket's messages until one matches and returns it; those before it are dropped. */
+export const until = async (
+  socket: BoardSocket,
+  what: string,
+  matches: (message: Message) => boolean,
+): Promise<Message> => {
+  const deadline = Date.now() + WAIT_MS;
+  for (;;) {
+    const message = socket.pending.shift() as Message | undefined;
+    if (message !== undefined && matches(message)) return message;
+    if (message !== undefined) continue;
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
+    await Bun.sleep(5);
+  }
+};
+
+let commands = 0;
+
+/** A new action ID, 22 base64url characters, as the board page draws one for each command. */
+export const nextActionId = (): string => {
+  commands += 1;
+  return `conformance${String(commands).padStart(11, "0")}`;
+};
+
+/**
+ * Sends one act command as the board page does, and returns the state that follows its `done`;
+ * fails on a refusal. Messages that arrive before them are dropped.
+ */
+export const act = async (socket: BoardSocket, acts: readonly unknown[]): Promise<Message> => {
+  const actionId = nextActionId();
+  socket.send({ version: BOARD_PROTOCOL_VERSION, type: "act", actionId, acts });
+  const outcome = await until(
+    socket,
+    `the outcome of the command ${actionId}`,
+    (message) =>
+      (message.type === "done" && message.actionId === actionId) ||
+      (message.type === "refused" && (message.actionId ?? actionId) === actionId),
+  );
+  if (outcome.type === "refused") throw new Error(`refused: ${JSON.stringify(outcome)}`);
+  return until(socket, "the state after the command", (message) => message.type === "state");
+};
+
 /** What happens off the wire while a transcript is replayed, done on the real session process. */
 export type Offstage = {
   /** The agent's `collect` returns the answer. */
   collected(): Promise<void>;
   /** The session process exits. */
   exit(): Promise<void>;
+  /** The agent's `update`, which only E3's transcripts record (ask-lifecycle, task 7.2). */
+  update?(request: UpdateInput): Promise<void>;
 };
 
 const sameMessage = (received: unknown, expected: object): string | undefined => {
@@ -81,9 +128,9 @@ const sameMessage = (received: unknown, expected: object): string | undefined =>
     const { detail, ...rest } = message as { detail?: unknown };
     return (message as { type?: string }).type === "refused" ? rest : message;
   };
-  const left = JSON.stringify(strip(received));
-  const right = JSON.stringify(strip(expected));
-  return left === right ? undefined : `expected ${right}, received ${left}`;
+  // The same JSON values, whatever the order of their members (RFC 8259: objects are unordered).
+  if (Bun.deepEquals(strip(received), strip(expected), true)) return undefined;
+  return `expected ${JSON.stringify(strip(expected))}, received ${JSON.stringify(strip(received))}`;
 };
 
 /**
@@ -92,7 +139,7 @@ const sameMessage = (received: unknown, expected: object): string | undefined =>
  * the transcript's. Returns the problems, none when board-host answered exactly.
  */
 export const replay = async (
-  transcript: Transcript,
+  transcript: Transcript | LifecycleTranscript,
   board: { port: number; askId: string; token: string },
   offstage: Offstage,
 ): Promise<string[]> => {
@@ -123,6 +170,9 @@ export const replay = async (
         (await socketOf(step.socket)).socket.terminate();
       } else if (step.from === "session" && step.event === "collected") {
         await offstage.collected();
+      } else if (step.from === "session" && step.event === "update") {
+        if (offstage.update === undefined) throw new Error("the replay makes no update happen");
+        await offstage.update(step.request);
       } else if (step.from === "session") {
         await offstage.exit();
       }

@@ -1,19 +1,25 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { SERVER_INSTRUCTIONS, TOOL_DEFINITIONS, type ToolDefinition } from "@askboard/contract";
 import { toolInputProblems } from "@askboard/contract/validate";
 import { listingProblems } from "../../src/mcp-tools/index.ts";
 import { connect, depsWith, fakeCore, textOf } from "./helpers.ts";
 
-// MCP adapter spec: Tool list; Server instructions for the tools listed (task 5.1).
+// MCP adapter spec: Tool list; Server instructions for the tools listed (task 5.1; ask-lifecycle,
+// task 4.1).
+
+// The approved model contract's files, as the contract's own tests read them.
+const approvedFile = (name: string) =>
+  Bun.file(join(import.meta.dir, "..", "..", "..", "contract", "test", "fixtures", name));
 
 const FULL_NAME = (tool: string) => `mcp__plugin_askboard_askboard__${tool}`;
 const LIMIT = 4_096;
 
 describe("the tool list", () => {
-  test("is exactly ask then collect, as the contract's copy of the approved definitions", async () => {
+  test("is exactly ask, update, collect and fetch, as the contract's copy of the approved definitions", async () => {
     const { client, close } = await connect(depsWith(fakeCore()).deps);
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name)).toEqual(["ask", "collect"]);
+    expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
     expect(tools).toEqual(TOOL_DEFINITIONS as never);
     expect(await client.listTools()).toEqual({ tools } as never);
     await close();
@@ -41,18 +47,32 @@ describe("the tool list", () => {
 
   test("an unknown tool is an error naming the tools AskBoard lists", async () => {
     const { client, close } = await connect(depsWith(fakeCore()).deps);
-    const result = await client.callTool({ name: "update", arguments: {} });
+    const result = await client.callTool({ name: "snapshot", arguments: {} });
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("ask and collect");
+    expect(textOf(result)).toBe(
+      'AskBoard has no tool "snapshot": it lists ask, update, collect and fetch.',
+    );
+    await close();
+  });
+
+  test("lists the approved definitions of the model contract unchanged, without snapshot (E7)", async () => {
+    const approved = (await approvedFile("tools.json").json()) as { tools: { name: string }[] };
+    const listed = approved.tools.filter(({ name }) => name !== "snapshot");
+    expect(listed.map(({ name }) => name)).toEqual(["ask", "update", "collect", "fetch"]);
+    const { client, close } = await connect(depsWith(fakeCore()).deps);
+    expect((await client.listTools()).tools).toEqual(listed as never);
     await close();
   });
 });
 
 describe("the server instructions", () => {
-  test("are the contract's cut instructions, which name no tool other than ask and collect", async () => {
+  test("are the contract's approved instructions, which name no tool that is not listed", async () => {
     const { client, close } = await connect(depsWith(fakeCore()).deps);
     expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
-    expect(client.getInstructions()).not.toMatch(/`(update|fetch|snapshot)`/);
+    expect(client.getInstructions()).toBe(
+      (await approvedFile("server-instructions.md").text()).trimEnd(),
+    );
+    expect(client.getInstructions()).not.toMatch(/`snapshot`/);
     expect(client.getServerVersion()).toMatchObject({ name: "askboard" });
     await close();
   });

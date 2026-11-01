@@ -23,6 +23,7 @@ sources:
   - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
   - 'OpenSpec change compute-engine, proposal.md, open question 2: compute writes the PERT and CPM expressions (accepted by the PO, 2026-10-31)'
   - 'OpenSpec change tree-widget: widget chunks in the view build, and the generic element diff in contract with its keyed shapes (2026-10-31)'
+  - 'OpenSpec change ask-lifecycle: areas as container items, answers the agent records, action IDs on board commands and the 120 s grace period (2026-10-31)'
   - 'OpenSpec change widget-answers: when the changes of an answer are computed, the answer too large for one result, and fetch in reference addressing (2026-11-01)'
   - 'OpenSpec change molecules, proposal.md, open questions 3 to 7, 11 and 14: the molecule definition format, the expansion and its map, where per-molecule schemas live, and linked edits in one draft update (accepted by the PO, 2026-11-01)'
 companions: ['SOLUTION-DESIGN.md']
@@ -256,6 +257,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - money is a decimal string plus an ISO 4217 code, which an item may declare once for all its amounts;
       - no unit converts a date through a zoned date-time.
     - **Questions:** a question's props hold its `text`, an optional `header`, its `options` and `multiSelect`; its widgets, excerpts and molecules go in its `items`, each an item as in AD-6. The agent sends no layout: an excerpt goes beside its question because of its type (FR-13).
+    - **Areas:** an area is an item `{type: "area", id, props: {title, items}}` at the top level of an ask, whose `items` hold its questions. Areas do not nest, and either every top-level item of an ask is an area or none is; an ask without areas shows its questions as one group (FR-2). `update` adds a question to an area by naming the area as its parent.
     - **Widgets and the open prompt:** a widget either sits in a question, and so has the open prompt (FR-7), or is display-only and returns no answer.
     - **Diff review alternatives:** a Diff review item may give two alternative fixes as pointers to two patch files under the ask's root. They apply to the files under the ask's root as they stand at send time, never to a git revision, so the item names no base. The agent never writes diff text: AskBoard computes the diffs (AD-12). Branches and commits are not accepted in the first version, since a worktree's object store lies outside the ask's root.
   - **IDs:**
@@ -328,7 +330,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** an answer the user never gave reaching the agent; a missing answer read as "not yet"; answers sent to an agent that no longer exists; scripted answers in normal use.
 - **Rule:**
   - **What becomes an answer:**
-    - An answer event comes only from an explicit user action on its question on the board, or from an `update` the agent marks as recorded on the user's behalf (FR-19).
+    - An answer event comes only from an explicit user action on its question on the board. An answer the agent records on the user's behalf with `update` (FR-19) is held by `ask-core` as that question's answer, marked recorded, with `who` and the core's time, and reported in that call's result; like every change the agent's own call makes, it is not logged (AD-3): no event carries it, so neither push nor `collect` delivers it; `fetch` returns it marked `recorded`.
     - Choice and input widgets start with nothing chosen and no value set, whatever the agent marks as recommended or default. A recommended option is only labelled.
     - Submit sends only answers created by user actions. A review widget (Table, Tree, Gantt, Form over agent content) reports untouched content as unchanged, never as a chosen value.
     - Unsent work never reaches the agent until the user sends it (AD-20).
@@ -554,6 +556,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Delivery modes:**
     - In submitted delivery the view holds answers, declines, postpones, their undos and open-prompt text until the user submits. Follow-ups and edit choices always go at once.
     - A submit appends one event per held action, in the order the user produced them, as one atomic append that `collect` pages never split.
+    - Every board command carries an action ID that the board page makes. `ask-core` applies each action ID once per ask, so a command resent after a dropped connection, a submit or a revision included, is never appended twice.
     - Switching to immediate delivery sends what is held, the same way.
   - **Drafts:**
     - Unsent work is a per-ask **draft record**. Per question it holds the edited values, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers and the user's notes on options. For the board it holds the delivery mode and the open tab or the question in view.
@@ -818,7 +821,7 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | --- | --- | --- |
 | The session-file key (the Claude Code PID) on Linux | Passed on macOS; AD-5 fixes the rule | Task 4.1 of the mod delivery spike, in a devcontainer |
 | Packaging checks left to the product owner: the WSL notices and `$BROWSER`, native Windows, a GitHub-hosted runner (x86-64 Linux, so far run only under emulation), Chrome's Memory Saver and Safari on a background board tab, model runs of a failed start and of the `command` source's background re-run | The packaging spike settled the delivery path and the detection rule (AD-18, AD-19, AD-22); these runs confirm them | The product owner's runs (`spike-packaging` tasks 4.4 and 7.1 to 7.5) |
-| Default port range, the container opt-in setting, the host-side address and port in printed links, whether VS Code Dev Containers' `BROWSER` helper and port forwarding make the container opt-in unnecessary there, the reconnect grace period, the record timeout, where the file path and line sit in the user's `editor` command | AD-5, AD-8, AD-11 and AD-21 fix the rules; the keys are named in the configuration schema | Implementation |
+| Default port range, the container opt-in setting, the host-side address and port in printed links, whether VS Code Dev Containers' `BROWSER` helper and port forwarding make the container opt-in unnecessary there, the record timeout, where the file path and line sit in the user's `editor` command | AD-5, AD-8 and AD-11 fix the rules; the keys are named in the configuration schema. The reconnect grace period is a `contract` constant of 120 s (OpenSpec change `ask-lifecycle`), above the 90 s floor of SOLUTION-DESIGN §8 | Implementation |
 | `alwaysLoad` for the `ask` tool | No context budget in the PRD; decided by data | First benchmark run |
 | Final benchmark question set (seed in `SOLUTION-DESIGN.md`) and the benchmark's browser driver on the user's machine | AD-17 fixes what is measured; AD-19 requires prerequisites to be declared | Benchmark epic |
 | A2UI inbound translator | Preference, not requirement (PRD OQ5) | A2UI v1.0 final with renderers and a table |

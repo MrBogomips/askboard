@@ -2,10 +2,20 @@
 
 import type { AskCore } from "@askboard/core";
 
-/** The part of ask-core the tools use. */
+/** The part of ask-core the tools use; the ask lifecycle adds `update`, `fetch`'s full value and
+ * what the board shows, which `collect`'s wait reads (ask-lifecycle, design decision 4). */
 export type ToolCore = Pick<
   AskCore,
-  "epoch" | "ask" | "read" | "markRead" | "board" | "subscribe" | "discardAll"
+  | "epoch"
+  | "ask"
+  | "read"
+  | "markRead"
+  | "board"
+  | "subscribe"
+  | "discardAll"
+  | "update"
+  | "fullValue"
+  | "lifecycleBoard"
 >;
 
 /** Runs `run` once after `ms` milliseconds; the returned function cancels it. */

@@ -197,7 +197,7 @@ export const schemaRefusalTranscript: Transcript = {
   token,
   steps: [
     ...opening(1),
-    { socket: 1, from: "page", invalid: { version, type: "draft", itemId } },
+    { socket: 1, from: "page", invalid: { version, type: "telemetry", itemId } },
     {
       socket: 1,
       from: "host",
@@ -205,7 +205,7 @@ export const schemaRefusalTranscript: Transcript = {
         version,
         type: "refused",
         reason: "message",
-        detail: '"draft" is not a message the board page sends',
+        detail: '"telemetry" is not a message the board page sends',
       },
     },
     { socket: 1, from: "page", invalid: { ...answer, choice: [] } },
@@ -238,8 +238,7 @@ export const versionRefusalTranscript: Transcript = {
         version,
         type: "refused",
         reason: "version",
-        detail:
-          "the message is board protocol version 2.0, which is not supported: this receiver supports version 1 (1.0)",
+        detail: `the message is board protocol version 2.0, which is not supported: this receiver supports version 1 (${version})`,
       },
     },
     { socket: 1, from: "host", close: BOARD_CLOSE_CODES.refused },
@@ -294,14 +293,13 @@ export const boardProtocolExamples: {
       version,
       type: "refused",
       reason: "message",
-      detail: '"draft" is not a message the board page sends',
+      detail: '"telemetry" is not a message the board page sends',
     },
     {
       version,
       type: "refused",
       reason: "version",
-      detail:
-        "the message is board protocol version 2.0, which is not supported: this receiver supports version 1 (1.0)",
+      detail: `the message is board protocol version 2.0, which is not supported: this receiver supports version 1 (${version})`,
     },
     {
       version,

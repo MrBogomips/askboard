@@ -33,6 +33,7 @@ describe("reading events after a cursor", () => {
           choice: ["PostgreSQL"],
         },
       ],
+      groups: [1],
     });
   });
 
@@ -55,6 +56,7 @@ describe("reading events after a cursor", () => {
       state: "waiting",
       cursor: `${core.epoch}.0`,
       events: [],
+      groups: [],
     });
   });
 
@@ -143,13 +145,8 @@ describe("the received watermark", () => {
 describe("the subscription", () => {
   test("hears each appended event with its ask, in order", async () => {
     const { core, heard } = await answered();
-    expect(heard).toEqual([
-      {
-        type: "appended",
-        askId: ASK_ID,
-        event: expect.objectContaining({ cursor: `${core.epoch}.1`, type: "answer" }),
-      },
-    ]);
+    const event = expect.objectContaining({ cursor: `${core.epoch}.1`, type: "answer" });
+    expect(heard).toEqual([{ type: "appended", askId: ASK_ID, event, events: [event] }]);
   });
 
   test("an unsubscribed listener hears nothing more", async () => {

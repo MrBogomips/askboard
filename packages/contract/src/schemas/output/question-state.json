@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:question-state",
+  "title": "Question state",
+  "description": "A question's state (AD-10): answered or declined while its latest answer, logged or recorded, says so; postponed while a logged postpone of it is not undone; open otherwise.",
+  "enum": ["open", "answered", "postponed", "declined"]
+}

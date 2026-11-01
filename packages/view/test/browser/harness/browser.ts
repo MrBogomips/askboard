@@ -9,6 +9,8 @@
 //   there. Page errors. Not dialogs: the view's sandbox has no `allow-modals`, so an `alert()` in
 //   it opens nothing, and Playwright dismisses any other.
 // - Every WebSocket the board page opens, with each frame it sent or received, in order.
+// - The text the board page puts on the clipboard, through the Clipboard API, as the page calls
+//   it (ask-lifecycle: "Copy my unsent work"), whether or not the engine grants the write.
 
 import {
   type Browser,
@@ -37,6 +39,7 @@ export type Violation = {
 export type ConsoleLine = { readonly type: string; readonly text: string; readonly url: string };
 
 const BINDING = "__askboardTestViolation";
+const CLIPBOARD_BINDING = "__askboardTestClipboard";
 const ACTION_TIMEOUT_MS = 5_000;
 const NAVIGATION_TIMEOUT_MS = 10_000;
 
@@ -58,6 +61,19 @@ const listenForViolations = (binding: string) => {
   );
 };
 
+// Runs in every frame before its scripts: reports each text written to the clipboard, then lets
+// the write go on as the page made it. Test code, as above.
+const recordClipboard = (binding: string) => {
+  const clipboard = navigator.clipboard as Clipboard | undefined;
+  if (clipboard === undefined) return;
+  const write = clipboard.writeText.bind(clipboard);
+  clipboard.writeText = (text: string) => {
+    const report = (globalThis as unknown as Record<string, unknown>)[binding];
+    if (typeof report === "function") report(text);
+    return write(text);
+  };
+};
+
 type MutableSocket = { url: string; frames: { dir: "sent" | "received"; text: string }[] };
 
 export type BoardContextOptions = { readonly colorScheme?: "light" | "dark" };
@@ -67,6 +83,8 @@ export class BoardContext {
   readonly violations: Violation[] = [];
   readonly console: ConsoleLine[] = [];
   readonly errors: string[] = [];
+  /** The texts the board page wrote to the clipboard. */
+  readonly clipboard: string[] = [];
   readonly #sockets: MutableSocket[] = [];
   readonly #context: BrowserContext;
 
@@ -87,6 +105,10 @@ export class BoardContext {
       board.violations.push(violation);
     });
     await context.addInitScript(listenForViolations, BINDING);
+    await context.exposeBinding(CLIPBOARD_BINDING, (_source, text: string) => {
+      board.clipboard.push(text);
+    });
+    await context.addInitScript(recordClipboard, CLIPBOARD_BINDING);
     return board;
   }
 

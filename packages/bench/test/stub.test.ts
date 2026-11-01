@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { PassThrough } from "node:stream";
 import {
   BOARD_CLOSE_CODES,
+  BOARD_PROTOCOL_VERSION,
   type HostMessage,
   parseBoardRoute,
   SCHEMA_IDS,
@@ -217,7 +218,7 @@ describe("the stub's board", () => {
       state: { ask: "answered", questions: [{ state: "answered", answer: { receipt: "sent" } }] },
     });
     expect(socket.messages[3]).toEqual({
-      version: "1.0",
+      version: BOARD_PROTOCOL_VERSION,
       type: "receipt",
       itemId: "database",
       receipt: "delivered",
@@ -225,7 +226,7 @@ describe("the stub's board", () => {
     await stub.shutdown();
     expect(await socket.closed).toBe(BOARD_CLOSE_CODES.discarded);
     expect(socket.messages.at(-1)).toEqual({
-      version: "1.0",
+      version: BOARD_PROTOCOL_VERSION,
       type: "discarded",
       reason: "session-exit",
     });

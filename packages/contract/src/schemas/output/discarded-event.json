@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:discarded-event",
   "title": "Discarded event",
-  "description": "The final event of a discarded ask (AD-21): its unsent answers will not come. E1 discards only at session exit; a minor version adds board-closed with the grace timer.",
+  "description": "The final event of a discarded ask (AD-21): its unsent answers will not come. An ask is discarded at session exit, or when its board is gone and none reconnects within the grace period (board-closed).",
   "type": "object",
   "properties": {
     "cursor": {
@@ -12,7 +12,7 @@
       "const": "discarded"
     },
     "reason": {
-      "enum": ["session-exit"]
+      "enum": ["session-exit", "board-closed"]
     }
   },
   "required": ["cursor", "type", "reason"],

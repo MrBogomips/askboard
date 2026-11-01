@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:note-event",
+  "title": "Note event",
+  "description": "A note the user sent on a question without answering it, the open prompt's text (FR-7); the question's state is unchanged.",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "type": {
+      "const": "note"
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "who": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "when": {
+      "$ref": "urn:askboard:output:time"
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    }
+  },
+  "required": ["cursor", "type", "itemId", "rev", "who", "when", "note"],
+  "additionalProperties": false
+}

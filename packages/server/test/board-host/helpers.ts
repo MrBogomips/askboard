@@ -4,17 +4,64 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
+import { connect, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BOARD_HOST } from "@askboard/contract";
 import { fixtureViewFiles, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { AskCore } from "@askboard/core";
+import { AskCore, type Clock } from "@askboard/core";
 import WebSocket from "ws";
+import type { SocketLimits } from "../../src/board-host/boards.ts";
 import { type BoardHost, createBoardHost } from "../../src/board-host/index.ts";
 
 const folders: string[] = [];
 
 /** Writes a view build's files to a new temporary folder and returns the folder. */
+
+// ask-core's Clock port over the runtime's timers, as the session entry point gives it, except that
+// a timer left running, such as the grace timer of a board a test closed, does not hold the test
+// process.
+export const runtimeClock: Clock = {
+  now: () => Date.now(),
+  after: (ms, run) => {
+    const timer = setTimeout(run, ms);
+    timer.unref();
+    return () => clearTimeout(timer);
+  },
+};
+
+/** A Clock the test moves by hand: `advance` runs the timers that fall due, in order. */
+export const manualClock = () => {
+  let now = Date.parse("2026-10-31T14:00:00Z");
+  const pending = new Map<number, { at: number; run: () => void }>();
+  const delays: number[] = [];
+  let next = 0;
+  const clock: Clock = {
+    now: () => now,
+    after: (ms, run) => {
+      const id = next++;
+      delays.push(ms);
+      pending.set(id, { at: now + ms, run });
+      return () => pending.delete(id);
+    },
+  };
+  const advance = (ms: number) => {
+    const target = now + ms;
+    for (;;) {
+      const due = [...pending.entries()]
+        .filter(([, timer]) => timer.at <= target)
+        .sort(([, a], [, b]) => a.at - b.at)[0];
+      if (due === undefined) break;
+      const [id, timer] = due;
+      now = timer.at;
+      pending.delete(id);
+      timer.run();
+    }
+    now = target;
+  };
+  return { clock, advance, delays, pending: () => pending.size };
+};
+
 export const writeView = (files: Readonly<Record<string, string>> = fixtureViewFiles): string => {
   const folder = mkdtempSync(join(tmpdir(), "askboard-view-"));
   folders.push(folder);
@@ -80,8 +127,14 @@ export type TestHost = {
   readonly core: AskCore;
   readonly reported: unknown[];
   readonly opened: string[];
-  /** Creates an ask with the plain-choice question and returns its link's port, ID and token. */
-  ask(askId?: string): Promise<{ port: number; askId: string; token: string; link: string }>;
+  /**
+   * Creates an ask, with the plain-choice question unless `request` gives another ask, and returns
+   * its link's port, ID and token.
+   */
+  ask(
+    askId?: string,
+    request?: unknown,
+  ): Promise<{ port: number; askId: string; token: string; link: string }>;
 };
 
 /**
@@ -93,7 +146,9 @@ export const startHost = (
     view?: string;
     ports?: { first: number; last: number };
     tokens?: readonly string[];
-    limits?: { connectTimeoutMs?: number; waitingMax?: number };
+    limits?: Partial<SocketLimits>;
+    /** ask-core's clock; the runtime's by default. */
+    clock?: Clock;
   } = {},
 ): TestHost => {
   const reported: unknown[] = [];
@@ -117,6 +172,7 @@ export const startHost = (
     identity: { gitUserName: async () => "Paola Greco", loginName: async () => "paola" },
     randomness: { bytes: (count) => crypto.getRandomValues(new Uint8Array(count)) },
     report: (error) => reported.push(error),
+    clock: options.clock ?? runtimeClock,
   });
   core = created;
   return {
@@ -124,8 +180,8 @@ export const startHost = (
     core: created,
     reported,
     opened,
-    ask: async (askId) => {
-      const outcome = await created.ask(plainChoiceAsk(askId));
+    ask: async (askId, request) => {
+      const outcome = await created.ask(request ?? plainChoiceAsk(askId));
       if (outcome.kind !== "created") throw new Error(`ask not created: ${outcome.kind}`);
       const link = new URL(outcome.ask.board);
       return {
@@ -241,6 +297,76 @@ export const openSocket = async (
     send: (message) => socket.send(JSON.stringify(message)),
   };
 };
+
+/** A client's text frame of `payload`: masked, as RFC 6455 requires of a client, of any length. */
+export const clientFrame = (payload: string): Buffer => {
+  const data = Buffer.from(payload);
+  const mask = Buffer.from([1, 2, 3, 4]);
+  let header: Buffer;
+  if (data.length < 126) {
+    header = Buffer.from([0x81, 0x80 | data.length]);
+  } else if (data.length < 65_536) {
+    header = Buffer.from([0x81, 0x80 | 126, 0, 0]);
+    header.writeUInt16BE(data.length, 2);
+  } else {
+    header = Buffer.from([0x81, 0x80 | 127, 0, 0, 0, 0, 0, 0, 0, 0]);
+    header.writeBigUInt64BE(BigInt(data.length), 2);
+  }
+  const masked = data.map((byte, at) => byte ^ (mask[at % 4] ?? 0));
+  return Buffer.concat([header, mask, masked]);
+};
+
+/** A peer on raw TCP that has opened `/ws/<askId>`, and whether the host has ended it. */
+export type RawPeer = {
+  readonly socket: Socket;
+  /** Whether the host ended the TCP connection within `ms`. */
+  endedWithin(ms: number): Promise<boolean>;
+};
+
+/**
+ * Opens `/ws/<askId>` over raw TCP, writing `trailing` in the same write as the opening handshake,
+ * as a peer that does not wait for the answer may, and never answering a close frame.
+ */
+export const rawUpgrade = (
+  port: number,
+  askId: string,
+  trailing: Buffer = Buffer.alloc(0),
+): Promise<RawPeer> =>
+  new Promise((resolve, reject) => {
+    let ended = false;
+    const socket = connect({ host: BOARD_HOST, port }, () => {
+      const handshake = [
+        `GET /ws/${askId} HTTP/1.1`,
+        `Host: ${BOARD_HOST}:${port}`,
+        `Origin: http://${BOARD_HOST}:${port}`,
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+        "Sec-WebSocket-Version: 13",
+        "",
+        "",
+      ].join("\r\n");
+      socket.write(Buffer.concat([Buffer.from(handshake), trailing]));
+    });
+    socket.on("close", () => {
+      ended = true;
+    });
+    socket.on("error", () => undefined);
+    socket.once("data", (data) => {
+      if (!String(data).startsWith("HTTP/1.1 101")) {
+        reject(new Error(String(data).split("\r\n")[0]));
+        return;
+      }
+      resolve({
+        socket,
+        endedWithin: async (ms) => {
+          const until = Date.now() + ms;
+          while (!ended && Date.now() < until) await Bun.sleep(5);
+          return ended;
+        },
+      });
+    });
+  });
 
 /** The status an upgrade to `/ws/<askId>` is refused with, or "open" when it is accepted. */
 export const upgradeStatus = (

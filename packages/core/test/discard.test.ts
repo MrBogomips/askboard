@@ -27,6 +27,7 @@ describe("discard at session exit", () => {
       state: "discarded",
       cursor: `${core.epoch}.2`,
       events: [discarded(`${core.epoch}.2`) as never],
+      groups: [2],
     });
     expect(core.read(OTHER, `${core.epoch}.0`)).toMatchObject({
       state: "discarded",
@@ -40,18 +41,18 @@ describe("discard at session exit", () => {
   test("subscribers hear each discarded event and each discard before it returns", async () => {
     const { core, heard } = await twoAsks();
     core.discardAll("session-exit");
+    const appended = (askId: string, seq: number) => {
+      const event = {
+        cursor: `${core.epoch}.${seq}`,
+        type: "discarded",
+        reason: "session-exit",
+      } as const;
+      return { type: "appended", askId, event, events: [event] } as const;
+    };
     expect(heard).toEqual([
-      {
-        type: "appended",
-        askId: ASK_ID,
-        event: { cursor: `${core.epoch}.2`, type: "discarded", reason: "session-exit" },
-      },
+      appended(ASK_ID, 2),
       { type: "discarded", askId: ASK_ID, reason: "session-exit" },
-      {
-        type: "appended",
-        askId: OTHER,
-        event: { cursor: `${core.epoch}.1`, type: "discarded", reason: "session-exit" },
-      },
+      appended(OTHER, 1),
       { type: "discarded", askId: OTHER, reason: "session-exit" },
     ]);
   });
@@ -75,7 +76,9 @@ describe("discard at session exit", () => {
     const { core } = await twoAsks();
     core.markRead(ASK_ID, `${core.epoch}.1`);
     core.discardAll("session-exit");
-    expect(core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(true);
+    // The tombstone keeps no question (ask-lifecycle, Tombstone), but `received` stays where it was.
+    expect(core.board(ASK_ID)?.questions).toEqual([]);
+    expect(core.markRead(ASK_ID, `${core.epoch}.1`)).toBe(false);
     expect(core.markRead(ASK_ID, `${core.epoch}.2`)).toBe(true);
   });
 

@@ -1,12 +1,15 @@
 // The session process as the entry point composes it (design decisions 3 and 9): ask-core, holding
-// board-host's address, the notifier's showing and this machine's identity, served over stdio by
-// mcp-tools, whose shutdown closes the board host. Building it touches nothing: the board listener
-// opens at the first ask (AD-2).
+// board-host's address, the notifier's showing, this machine's identity and the system clock,
+// served over stdio by mcp-tools, whose shutdown closes the board host. Building it touches
+// nothing: the board listener opens at the first ask (AD-2). board-host and mcp-tools each hear
+// ask-core's events through its one subscription, the ask lifecycle's included (ask-lifecycle,
+// task 5.3).
 
 import { randomBytes } from "node:crypto";
-import { AskCore } from "@askboard/core";
+import { AskCore, type Clock } from "@askboard/core";
 import type { Transport } from "@modelcontextprotocol/server";
 import { createBoardHost } from "./board-host/index.ts";
+import { systemClock } from "./clock.ts";
 import { systemIdentity } from "./identity.ts";
 import {
   failure,
@@ -31,6 +34,11 @@ export type SessionProcessOptions = {
   readonly stderr: (line: string) => void;
   /** The transport to serve on; the process's stdio by default. */
   readonly transport?: Transport;
+  /**
+   * ask-core's clock, which runs its grace timer: the system clock by default. Only tests give
+   * another; the entry point gives none, so nothing it reads changes the grace period.
+   */
+  readonly clock?: Clock;
 };
 
 export const startSessionProcess = (options: SessionProcessOptions): Session => {
@@ -59,6 +67,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     }),
     randomness: { bytes: (count) => randomBytes(count) },
     report: reportAs("ask-core failed"),
+    clock: options.clock ?? systemClock,
   });
   return serveSession({
     deps: { core, timers: systemTimers, diagnostics },

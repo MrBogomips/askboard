@@ -24,3 +24,29 @@ export {
   treeEditedValue,
 } from "./tree.ts";
 export { fixtureViewFiles, fixtureViewManifest } from "./view-build.ts";
+
+// E3, the ask lifecycle (ask-lifecycle, design decisions 2 and 8): the lifecycle ask's fixtures,
+// its board-protocol messages and its transcripts, kept beside E1's `transcripts`.
+
+export {
+  LIFECYCLE,
+  lifecycleAsk,
+  lifecycleBoardDocument,
+  lifecycleCollectResult,
+  lifecycleDraftRecord,
+  lifecycleFetchPage,
+  lifecycleFetchResult,
+  lifecycleUpdate,
+  lifecycleUpdateResult,
+} from "./lifecycle.ts";
+export { lifecycleProtocolExamples } from "./lifecycle-messages.ts";
+export {
+  closedAskTranscript,
+  type LifecycleTranscript,
+  type LifecycleTranscriptStep,
+  lifecycleTranscripts,
+  restoredDraftTranscript,
+  staleSubmitTranscript,
+  submitTranscript,
+  takeoverDraftTranscript,
+} from "./lifecycle-transcripts.ts";

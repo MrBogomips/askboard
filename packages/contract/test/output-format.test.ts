@@ -124,10 +124,10 @@ describe("the answer event", () => {
 });
 
 describe("the other output schemas", () => {
-  test("the discarded event of a session exit validates, and no other reason in E1", () => {
+  test("the discarded event of a session exit validates, and no reason the format does not define", () => {
     const discarded = { cursor: "k3x9.2", type: "discarded", reason: "session-exit" };
     expect(validateAgainst(SCHEMA_IDS.discardedEvent, discarded).ok).toBe(true);
-    const other = { ...discarded, reason: "board-closed" };
+    const other = { ...discarded, reason: "timeout" };
     expect(pathsOf(SCHEMA_IDS.discardedEvent, other)).toEqual(["/reason"]);
   });
 
@@ -137,11 +137,11 @@ describe("the other output schemas", () => {
     expect(pathsOf(SCHEMA_IDS.warning, { ...warning, code: "late" })).toEqual(["/code"]);
   });
 
-  test("the outcomes are unavailable and open, with AD-18's four reasons", () => {
+  test("the outcomes include unavailable and open, with AD-18's four reasons", () => {
     for (const outcome of ["unavailable", "open"]) {
       expect(validateAgainst(SCHEMA_IDS.outcome, outcome).ok).toBe(true);
     }
-    expect(validateAgainst(SCHEMA_IDS.outcome, "postponed").ok).toBe(false);
+    expect(validateAgainst(SCHEMA_IDS.outcome, "late").ok).toBe(false);
     for (const reason of ["remote-host", "container", "ci", "no-browser"]) {
       expect(validateAgainst(SCHEMA_IDS.unavailableReason, reason).ok).toBe(true);
     }
@@ -158,7 +158,7 @@ describe("the other output schemas", () => {
   });
 
   test("the output format names its version and holds no AXFX term (FR-18)", () => {
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.0");
+    expect(OUTPUT_FORMAT_VERSION).toBe("1.1");
     const text = JSON.stringify(outputFormat.schemas);
     expect(text).not.toMatch(/\b(axfx|verdict|gate|validator)\b/i);
   });

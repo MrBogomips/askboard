@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:update-result",
+  "title": "Update result",
+  "description": "What update returns at once once its actions apply (AD-6, FR-6): the versions, the epoch, the ask's ID and state, and per action, in order, the action, the item it named and the question's new rev where it changed; an answer the agent recorded also names who and when (FR-19). It carries no cursor, so the agent's cursor still covers every event it has not collected (AD-3). An ask without an owner check is unchecked (AD-5).",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "state": {
+      "$ref": "urn:askboard:output:ask-state"
+    },
+    "applied": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/applied"
+      }
+    },
+    "unchecked": {
+      "const": true
+    }
+  },
+  "required": ["versions", "epoch", "askId", "state", "applied"],
+  "additionalProperties": false,
+  "$defs": {
+    "applied": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "enum": ["add", "change", "delete", "reopen", "answer", "reply", "close"]
+        },
+        "itemId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recorded": {
+          "type": "object",
+          "properties": {
+            "who": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "when": {
+              "$ref": "urn:askboard:output:time"
+            }
+          },
+          "required": ["who", "when"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["action"],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "action": {
+            "const": "answer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "itemId": true,
+          "rev": true,
+          "recorded": true
+        },
+        "required": ["itemId", "rev", "recorded"]
+      },
+      "else": {
+        "properties": {
+          "recorded": false
+        },
+        "if": {
+          "properties": {
+            "action": {
+              "const": "close"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "itemId": false,
+            "rev": false
+          }
+        },
+        "else": {
+          "properties": {
+            "itemId": true
+          },
+          "required": ["itemId"]
+        }
+      }
+    }
+  }
+}

@@ -33,6 +33,11 @@ export type Wording = {
   readonly fields: Readonly<Record<string, string>>;
   /** The item a path is in, with the path from that item, when the item has a usable ID. */
   readonly itemOf?: (value: unknown, segments: Segments) => ItemPath | undefined;
+  /**
+   * The key of a path in `expected` and `fields`, when it depends on the value: an area's fields
+   * and a question's read apart (`area.props.title`, `question.props.text`). `keyOf` otherwise.
+   */
+  readonly keyOf?: (value: unknown, segments: Segments) => string;
 };
 
 export type ItemPath = { readonly itemId: string; readonly rest: Segments };
@@ -62,10 +67,19 @@ const joined = (segments: Segments, index: (part: string) => string): string =>
 const fieldOf = (segments: Segments): string => joined(segments, (part) => `[${part}]`);
 
 /** The key of a field in a wording's tables: `items[].props.options[].label`. */
-const keyOf = (segments: Segments): string => joined(segments, () => "[]");
+export const keyOf = (segments: Segments): string => joined(segments, () => "[]");
+
+// The key of a path in a wording's tables, by the wording's own rule when it has one.
+const keyIn = (wording: Wording, value: unknown, segments: Segments): string =>
+  wording.keyOf === undefined ? keyOf(segments) : wording.keyOf(value, segments);
 
 export const located = (error: ErrorObject): Located => {
   const segments = segmentsOf(error.instancePath);
+  // A discriminator picks a schema by a property, `type` or `action`: its error is that property's.
+  if (error.keyword === "discriminator") {
+    const kind = error.params.tagValue === undefined ? "missing" : "invalid";
+    return { segments: [...segments, String(error.params.tag)], kind };
+  }
   if (error.keyword === "additionalProperties") {
     return { segments: [...segments, String(error.params.additionalProperty)], kind: "unknown" };
   }
@@ -102,9 +116,9 @@ export const problemAt = (
   };
 };
 
-/** The expected shape of a field in a wording, by its path. */
-export const expectedAt = (wording: Wording, segments: Segments): string =>
-  wording.expected[keyOf(segments)] ?? "a value the contract defines";
+/** The expected shape of a field in a wording, by its path in `value`. */
+export const expectedAt = (wording: Wording, segments: Segments, value?: unknown): string =>
+  wording.expected[keyIn(wording, value, segments)] ?? "a value the contract defines";
 
 /** A schema error, worded. */
 export const schemaProblem = (
@@ -113,10 +127,11 @@ export const schemaProblem = (
   { segments, kind }: Located,
 ): RequestProblem => {
   if (kind === "unknown") {
-    const allowed = wording.fields[keyOf(segments.slice(0, -1))] ?? "the field is not defined";
+    const parent = keyIn(wording, value, segments.slice(0, -1));
+    const allowed = wording.fields[parent] ?? "the field is not defined";
     return problemAt(wording, value, segments, `{where} is not accepted: ${allowed}`, allowed);
   }
-  const expected = expectedAt(wording, segments);
+  const expected = expectedAt(wording, segments, value);
   if (kind === "missing") {
     return problemAt(wording, value, segments, `{where} is required: ${expected}`, expected);
   }

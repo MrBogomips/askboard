@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:tool-envelopes:collect-result",
   "title": "Collect result",
-  "description": "What collect returns, grouped by ask in the order of the request: each ask's ID, state and latest cursor and its events after the cursor passed, each with the cursor that follows it (AD-3). An ask of E1 is unchecked (AD-5). more is true when events did not fit under the result limit: a collect after the returned cursors gets the rest (AD-6). outcome open says that a waiting collect ended after its longest wait with nothing for its item (AD-4).",
+  "description": "What collect returns, grouped by ask in the order of the request: each ask's ID, state and latest cursor and its events after the cursor passed, each with the cursor that follows it (AD-3). An ask without an owner check is unchecked (AD-5). more is true when events did not fit under the result limit: a collect after the returned cursors gets the rest, and one board command's events are never split (AD-6, AD-20). A waiting collect that ends without an event for its item says why in outcome: open after its longest wait (AD-4), postponed when the item is postponed, closed when the ask is closed; a discarded ask says so in its state.",
   "type": "object",
   "properties": {
     "versions": {
@@ -22,7 +22,7 @@
       "const": true
     },
     "outcome": {
-      "const": "open"
+      "enum": ["open", "postponed", "closed"]
     }
   },
   "required": ["versions", "epoch", "asks"],
@@ -60,6 +60,21 @@
         },
         {
           "$ref": "urn:askboard:output:discarded-event"
+        },
+        {
+          "$ref": "urn:askboard:output:postponed-event"
+        },
+        {
+          "$ref": "urn:askboard:output:reopened-event"
+        },
+        {
+          "$ref": "urn:askboard:output:note-event"
+        },
+        {
+          "$ref": "urn:askboard:output:follow-up-event"
+        },
+        {
+          "$ref": "urn:askboard:output:edit-choice-event"
         }
       ]
     }

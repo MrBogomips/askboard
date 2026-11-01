@@ -39,3 +39,6 @@ export const optionLabelId = (itemId: string, index: number): string =>
 
 export const optionDescriptionId = (itemId: string, index: number): string =>
   `${itemId}:option:${index}:description`;
+
+/** The ID of the "Other…" row's label, which names its radio or box. */
+export const otherLabelId = (itemId: string): string => `${itemId}:other:label`;

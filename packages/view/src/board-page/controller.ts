@@ -1,36 +1,75 @@
 // The board page's controller (design decision 8; design decision 5's close codes; AD-10, AD-21):
 // one socket at a time, with the token first; the board document and the state, checked, into the
-// model, and the view loaded once both are in; the receipts; the answers from the view, sent at
-// once while the board is live and held otherwise, then sent in order once a new socket's state
-// shows their questions still open; reconnecting with backoff after an ordinary close, never on
-// its own after 4403, 4409 or 4410; the banners, and the view locked while the board moved or once
-// it is discarded. Everything it touches comes in `BoardPageDeps`, so it runs without a browser;
-// `start.ts` gives it the real socket, view, timers and page.
+// model, and the view loaded once both are in; the receipts; reconnecting with backoff after an
+// ordinary close, never on its own after 4403, 4409 or 4410; the banners, and the view locked while
+// the board moved or once it is discarded. Since the ask lifecycle (ask-lifecycle, design decision
+// 6): the view's answers and acts go as act commands, each with an action ID drawn here, held in
+// the outbox until `board-host` acknowledges or refuses them and sent again with the same ID on a
+// new socket; the view's draft record is mirrored to `board-host`, and the one it restores is
+// handed to the view when the page has none of its own; a closed ask locks the board with its
+// banner; "Copy my unsent work" and the leave-page prompt read the mirrored record. Protocol 1.1's
+// host messages are handled in cases appended after E1's (design decision 8). Everything it
+// touches comes in `BoardPageDeps`, so it runs without a browser; `start.ts` gives it the real
+// socket, view, timers, clipboard and page.
 
-import type { AnswerCommand, HostMessage, RefusedMessage, StateMessage } from "@askboard/contract";
+import {
+  type ActCommand,
+  BOARD_PROTOCOL_VERSION,
+  DRAFT_RECORD_MAX_CHARS,
+  type DraftRecord,
+  type LifecycleBoardDocument,
+  type LifecycleHostMessage,
+  type LifecycleStateMessage,
+  type RefusedMessage,
+} from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
-import type { AnswerReply, ViewAnswer, ViewMessage, ViewUpdate } from "../view-protocol.ts";
+import { questionsOf, type ViewDocument } from "../view-document.ts";
+import type {
+  ActReply,
+  AnswerReply,
+  DraftRestore,
+  ViewMessage,
+  ViewUpdate,
+} from "../view-protocol.ts";
 import {
   type Banner,
   type BoardStatus,
   bannerOf,
+  connectionOf,
   INITIAL_STATUS,
   lockOf,
   nextStatus,
   type StatusEvent,
 } from "./board-status.ts";
+import { createDraftMirror, type DraftMirror } from "./draft-mirror.ts";
 import {
-  answerCommandFor,
+  type ActsOrRefusal,
+  actsFor,
+  answerActFor,
+  basisOf,
   bootDataOf,
   EMPTY_MODEL,
   stateProblem,
   withHostMessage,
   withViewMessage,
 } from "./model.ts";
-import { EMPTY_OUTBOX, flush, hasUnsent, hold, pendingOf, settled, withoutItem } from "./outbox.ts";
+import {
+  acknowledged,
+  EMPTY_OUTBOX,
+  flush,
+  hasUnsent,
+  hold,
+  newActionId,
+  pendingOf,
+  refusedCommand,
+  settleDone,
+  withoutAll,
+} from "./outbox.ts";
 import { reconnectDelay } from "./reconnect.ts";
 import type { BoardConnection, BoardSocketHandlers } from "./socket.ts";
 import { tabTitle } from "./tab-title.ts";
+import { hasUnsentWork, unsentWorkText } from "./unsent-work.ts";
+import { hostMessageSchemas } from "./validators.ts";
 import type { ViewReply } from "./view-host.ts";
 
 /** What the controller uses of the hosted view. */
@@ -52,6 +91,10 @@ export type BoardPageDeps = {
   readonly setTitle: (title: string) => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
+  /** Puts text on the clipboard, on the user's click (F-17). */
+  readonly copyText: (text: string) => Promise<void>;
+  /** Draws an action ID; 22 random base64url characters by default (AD-20). */
+  readonly newActionId?: () => string;
 };
 
 export type BoardPage = {
@@ -61,16 +104,65 @@ export type BoardPage = {
   suspend(): void;
   /** The page is back, as from the back-forward cache: reconnects if it was retrying. */
   resume(): void;
+  /** The page is hidden or going away: the draft record goes now (AD-20). */
+  flushDraft(): void;
+  /** "Copy my unsent work": the mirrored draft record, as text, on the clipboard (F-17). */
+  copyUnsentWork(): Promise<void>;
+  /**
+   * Whether the browser's leave-page prompt is armed: while the draft holds unsent work or a
+   * command is held, and while postponed questions are open on an open ask (L57, L172, FR-25).
+   */
+  leavePromptArmed(): boolean;
 };
 
 const refusal = (detail: string): AnswerReply => ({ outcome: "refused", detail });
 
+const version = BOARD_PROTOCOL_VERSION;
+
+// The first question of a draft record that the board does not hold at or after the revision its
+// work names; board-host checks the record whole (`draftRecordProblems`), which the board page
+// cannot import, since the contract's validation compiles schemas at run time.
+const strangeQuestion = (
+  record: DraftRecord,
+  document: LifecycleBoardDocument,
+): string | undefined => {
+  const questions = questionsOf(document as ViewDocument);
+  for (const [key, work] of Object.entries(record.questions)) {
+    const question = questions.find((each) => each.id === key);
+    if (question === undefined) return `/questions/${key}: "${key}" names no question of the ask`;
+    if (work.rev > question.rev) {
+      return `/questions/${key}/rev: the question is at revision ${question.rev}, not ${work.rev}`;
+    }
+  }
+  return undefined;
+};
+
+// Why the board page refuses a draft record from the view, if it does: what the board protocol's
+// schema, its limit, and the board document refuse (AD-20).
+const draftRefusal = (
+  record: DraftRecord,
+  document: LifecycleBoardDocument | undefined,
+): string | undefined => {
+  const check = hostMessageSchemas.draft;
+  if (!check({ version, type: "draft", record })) {
+    const [first] = check.errors ?? [];
+    return `the draft record is not one the board protocol takes: ${first?.instancePath || "/"} ${first?.message ?? "is invalid"}`;
+  }
+  if (JSON.stringify(record).length > DRAFT_RECORD_MAX_CHARS) {
+    return `the draft record is longer than ${DRAFT_RECORD_MAX_CHARS} characters`;
+  }
+  if (document === undefined) return "there is no board yet";
+  return strangeQuestion(record, document);
+};
+
 class BoardPageController implements BoardPage {
   readonly #deps: BoardPageDeps;
+  readonly #draw: () => string;
+  readonly #mirror: DraftMirror;
   #model = EMPTY_MODEL;
   #outbox = EMPTY_OUTBOX;
   #status: BoardStatus = INITIAL_STATUS;
-  // Answers a discard dropped before they were sent: the banner says so.
+  // Work the board ended with unsent: the closed and discarded banners say so.
   #unsent = false;
   #socket: BoardConnection | undefined;
   // Whether the current socket's state has come, which makes the board live.
@@ -79,12 +171,24 @@ class BoardPageController implements BoardPage {
   #cancelRetry: (() => void) | undefined;
   #suspended = false;
   #view: ViewHandle | undefined;
+  // The document the view booted with: a later one goes to it in the updates.
+  #booted: ViewDocument | undefined;
   #loading = false;
   // A failed load is tried again on the next socket, not on every message.
   #mayLoad = true;
+  // The draft record board-host restored, while the page has none of its own.
+  #restore: DraftRestore | undefined;
+  #restores = 0;
 
   constructor(deps: BoardPageDeps) {
     this.#deps = deps;
+    this.#draw = deps.newActionId ?? (() => newActionId());
+    this.#mirror = createDraftMirror({
+      schedule: deps.schedule,
+      send: (record) =>
+        this.#status.kind === "live" &&
+        this.#socket?.send({ version, type: "draft", record }) === true,
+    });
     this.#open();
   }
 
@@ -109,18 +213,53 @@ class BoardPageController implements BoardPage {
     if (this.#status.kind === "retrying" || this.#status.kind === "connecting") this.#open();
   }
 
-  // The state, the lock, and the answers held: the view drops an act the board page no longer
-  // holds, so a card is never stuck read-only at a receipt (AD-10).
-  #updateView(): void {
+  flushDraft(): void {
+    this.#mirror.flush();
+  }
+
+  async copyUnsentWork(): Promise<void> {
+    const document = this.#model.document as ViewDocument | undefined;
+    if (document === undefined) return;
+    try {
+      await this.#deps.copyText(unsentWorkText(document, this.#mirror.latest()));
+    } catch (error) {
+      this.#deps.log("the unsent work could not be copied", error);
+    }
+  }
+
+  leavePromptArmed(): boolean {
+    if (this.#status.kind === "moved") return false;
+    if (hasUnsentWork(this.#mirror.latest()) || this.#outbox.held.length > 0) return true;
+    const ended = this.#status.kind === "closed" || this.#status.kind === "discarded";
     const state = this.#model.state;
+    return (
+      !ended &&
+      state !== undefined &&
+      state.ask !== "closed" &&
+      state.questions.some((question) => question.state === "postponed")
+    );
+  }
+
+  // The state, the lock, the connection, the commands held and settled, a later document and a
+  // restore: the view settles its acts on them, so a card is never stuck at a receipt (AD-10).
+  #updateView(): void {
+    const { state, document } = this.#model;
     if (this.#view === undefined || state === undefined) return;
     const lock = lockOf(this.#status);
+    const connection = connectionOf(this.#status);
     const pending = pendingOf(this.#outbox);
+    const { settled } = this.#outbox;
     this.#view.update({
       type: "state",
       state,
+      ...(document === undefined || document === this.#booted
+        ? {}
+        : { document: document as ViewDocument }),
       ...(lock === undefined ? {} : { lock }),
+      ...(connection === undefined ? {} : { connection }),
       ...(pending.length === 0 ? {} : { pending }),
+      ...(settled.length === 0 ? {} : { settled }),
+      ...(this.#restore === undefined ? {} : { restore: this.#restore }),
     });
   }
 
@@ -128,33 +267,72 @@ class BoardPageController implements BoardPage {
     const before = this.#status;
     this.#status = nextStatus(before, event);
     if (this.#status === before) return;
-    if (this.#status.kind === "discarded") {
-      this.#unsent = hasUnsent(this.#outbox);
-      this.#outbox = EMPTY_OUTBOX;
+    if (this.#status.kind === "discarded" || this.#status.kind === "closed") {
+      this.#unsent = hasUnsentWork(this.#mirror.latest()) || hasUnsent(this.#outbox);
+      this.#outbox = withoutAll(this.#outbox);
     }
     this.#deps.showBanner(bannerOf(this.#status, this.#unsent));
     this.#updateView();
   }
 
   readonly #onViewMessage = async (message: ViewMessage): Promise<ViewReply> => {
-    if (message.type === "answer") return this.#answer(message);
-    this.#model = withViewMessage(this.#model, message);
-    if (message.type === "item-error") {
-      this.#deps.log(`the item "${message.itemId}" failed in the view: ${message.error}`);
+    switch (message.type) {
+      case "answer":
+        return this.#command(answerActFor(this.#model, message));
+      case "act":
+        return this.#command(actsFor(this.#model, message.acts));
+      case "draft":
+        return this.#takeDraft(message.record);
+      default:
+        this.#model = withViewMessage(this.#model, message);
+        if (message.type === "item-error") {
+          this.#deps.log(`the item "${message.itemId}" failed in the view: ${message.error}`);
+        }
+        return {};
     }
-    return {};
   };
 
-  #answer(message: ViewAnswer): AnswerReply {
-    if (this.#status.kind === "discarded") return refusal("the ask was discarded");
-    if (this.#status.kind === "moved") return refusal("the board moved to another tab");
-    const command = answerCommandFor(this.#model, message);
-    if (!command.ok) return refusal(command.detail);
-    const sent = this.#status.kind === "live" && this.#socket?.send(command.value) === true;
-    this.#outbox = hold(this.#outbox, message, sent);
+  // Why no act can go now, if none can: the board ended or moved.
+  #ended(): string | undefined {
+    switch (this.#status.kind) {
+      case "discarded":
+        return "the ask was discarded";
+      case "moved":
+        return "the board moved to another tab";
+      case "closed":
+        return "the ask is closed";
+      default:
+        return undefined;
+    }
+  }
+
+  // One command of the view's acts, under a fresh action ID: sent at once while the board is
+  // live, held otherwise, and held either way until board-host settles it.
+  #command(acts: ActsOrRefusal): ActReply {
+    const ended = this.#ended();
+    if (ended !== undefined) return refusal(ended) as ActReply;
+    if (!acts.ok) return refusal(acts.detail) as ActReply;
+    const command: ActCommand = { version, type: "act", actionId: this.#draw(), acts: acts.value };
+    const sent = this.#status.kind === "live" && this.#socket?.send(command) === true;
+    this.#outbox = hold(this.#outbox, command, basisOf(this.#model, acts.value), sent);
     // The view hears it held before the reply.
     this.#updateView();
-    return { outcome: sent ? "sent" : "queued" };
+    return { outcome: sent ? "sent" : "queued", actionId: command.actionId };
+  }
+
+  // The view's draft record, checked, becomes the page's own: board-host's is no longer restored.
+  #takeDraft(record: DraftRecord): ViewReply {
+    const refused = draftRefusal(record, this.#model.document);
+    if (refused !== undefined) {
+      this.#deps.log(`the view's draft record was refused: ${refused}`);
+      return refusal(refused);
+    }
+    this.#mirror.take(record);
+    if (this.#restore !== undefined) {
+      this.#restore = undefined;
+      this.#updateView();
+    }
+    return {};
   }
 
   #loadView(): void {
@@ -165,6 +343,7 @@ class BoardPageController implements BoardPage {
       (opened) => {
         this.#loading = false;
         this.#view = opened;
+        this.#booted = data.document;
         this.#deps.showLoadError(undefined);
         this.#updateView();
       },
@@ -178,28 +357,37 @@ class BoardPageController implements BoardPage {
     );
   }
 
-  // The first state on a socket: the board is live again, and the held answers go.
+  // The first state on a socket: the board is live again, the held commands and the page's own
+  // draft record go.
   #resume(): void {
     this.#stateSeen = true;
     this.#attempt = 0;
     this.#transition({ type: "accepted" });
-    const send = (command: AnswerCommand) => this.#socket?.send(command) === true;
-    const flushed = flush(this.#outbox, this.#model, send);
+    const state = this.#model.state;
+    if (state === undefined || this.#status.kind !== "live") return;
+    const send = (command: ActCommand) => this.#socket?.send(command) === true;
+    const problemOf = (command: ActCommand) => {
+      const checked = actsFor(this.#model, command.acts);
+      return checked.ok ? undefined : checked.detail;
+    };
+    const flushed = flush(this.#outbox, state, send, problemOf);
     this.#outbox = flushed.outbox;
-    for (const { itemId, detail } of flushed.dropped) {
-      this.#deps.log(`the answer to "${itemId}" was not sent: ${detail}`);
+    for (const { actionId, detail } of flushed.dropped) {
+      this.#deps.log(`the command ${actionId} was not sent: ${detail}`);
     }
+    this.#mirror.resend();
   }
 
-  #onState(message: StateMessage): void {
+  #onState(message: LifecycleStateMessage): void {
     const problem = stateProblem(this.#model.document, message.state);
     if (problem !== undefined) {
       this.#deps.log(`board-host sent a state the board page cannot act on: ${problem}`);
       return;
     }
     this.#model = withHostMessage(this.#model, message);
-    this.#outbox = settled(this.#outbox, message.state);
+    this.#outbox = settleDone(this.#outbox);
     if (!this.#stateSeen) this.#resume();
+    if (message.state.ask === "closed") this.#transition({ type: "ask-closed" });
     this.#updateView();
     this.#loadView();
   }
@@ -210,23 +398,36 @@ class BoardPageController implements BoardPage {
       this.#transition({ type: "discarded" });
       return;
     }
-    if (message.reason === "answer") {
-      this.#outbox = withoutItem(this.#outbox, message.itemId ?? "");
-      this.#deps.log(`board-host refused the answer to "${message.itemId}": ${message.detail}`);
-      this.#updateView();
+    if (
+      (message.reason === "act" || message.reason === "closed") &&
+      message.actionId !== undefined
+    ) {
+      this.#refusedCommand(message);
       return;
     }
     this.#deps.log(`board-host refused a message: ${message.detail}`);
   }
 
-  #onHostMessage(message: HostMessage): void {
+  // A refused command is not held any more; the state that follows shows the board unchanged.
+  #refusedCommand(message: RefusedMessage): void {
+    const { actionId = "", index, itemId, detail } = message;
+    this.#outbox = refusedCommand(this.#outbox, actionId);
+    const act =
+      index === undefined
+        ? ""
+        : ` (act ${index + 1}${itemId === undefined ? "" : `, "${itemId}"`})`;
+    this.#deps.log(`board-host refused the command ${actionId}${act}: ${detail}`);
+    this.#updateView();
+  }
+
+  #onHostMessage(message: LifecycleHostMessage): void {
     switch (message.type) {
       case "board":
         this.#model = withHostMessage(this.#model, message);
         this.#deps.setTitle(tabTitle(message.document.title));
         return;
       case "state":
-        this.#onState(message);
+        this.#onState(message as LifecycleStateMessage);
         return;
       case "receipt":
         this.#model = withHostMessage(this.#model, message);
@@ -234,17 +435,38 @@ class BoardPageController implements BoardPage {
         return;
       case "moved":
       case "discarded":
+        // A takeover takes only the last draft the older tab sends once told (AD-21).
+        if (message.type === "moved") this.#mirror.flushLast();
         this.#transition({ type: message.type });
         return;
       case "refused":
         this.#onRefused(message);
         return;
+      // Protocol 1.1's messages (ask-lifecycle, design decision 8), appended after E1's.
+      case "done":
+        this.#outbox = acknowledged(this.#outbox, message.actionId);
+        return;
+      case "draft":
+        this.#onDraft(message.record);
+        return;
+      case "closed":
+        this.#transition({ type: "ask-closed" });
+        return;
     }
+  }
+
+  // board-host's draft record restores the board when the page has none of its own: after a
+  // reload, or in the tab that took the board over (AD-20, FR-25).
+  #onDraft(record: DraftRecord): void {
+    if (this.#mirror.latest() !== undefined) return;
+    this.#restores += 1;
+    this.#restore = { id: this.#restores, record };
+    this.#updateView();
   }
 
   #retry(): void {
     if (this.#suspended || this.#cancelRetry !== undefined) return;
-    if (this.#status.kind !== "retrying") return;
+    if (this.#status.kind !== "retrying" && this.#status.kind !== "closed") return;
     const delay = reconnectDelay(this.#attempt);
     this.#attempt += 1;
     this.#cancelRetry = this.#deps.schedule(delay, () => {

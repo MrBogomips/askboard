@@ -3,7 +3,12 @@
 // chunk's name, the folder under `catalog/`, or under `packages/widgets/src/` for a widget, that
 // holds it (E1's design decision 7; the Tree widget's design decisions 7 and 8).
 
-import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
+import {
+  questionsOf,
+  type ViewDocument,
+  type ViewQuestion,
+  type WidgetItem,
+} from "../view-document.ts";
 
 /** The Choice atom: Radix Radio Group for one choice, Checkbox for several (design decision 8). */
 export const CHOICE = "choice";
@@ -24,10 +29,12 @@ export const renderedOf = (question: ViewQuestion): readonly Rendered[] => [
   ...(question.props.items ?? []).map((item) => ({ item, component: item.type })),
 ];
 
-/** The components a board needs, each once, by name. */
+/** The components a board needs, each once, by name: every question's, areas' included. */
 export const componentsOf = (document: ViewDocument): string[] =>
   [
     ...new Set(
-      document.items.flatMap((question) => renderedOf(question).map(({ component }) => component)),
+      questionsOf(document).flatMap((question) =>
+        renderedOf(question).map(({ component }) => component),
+      ),
     ),
   ].sort();

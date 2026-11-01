@@ -26,14 +26,14 @@ describe("the plain question (input format)", () => {
   });
 
   test.each([
-    ["an option preview", ["options", 0, "preview"]],
-    ["a recommended option", ["recommended"]],
+    ["an option preview that is not text", ["options", 0, "preview"]],
+    ["a recommended field on the question itself", ["recommended"]],
     ["nested items", ["items"]],
   ] as const)("a question with %s fails, naming the field", async (_case, where) => {
     const [question] = clone((await plainChoiceAsk()).items);
     let target: Record<string, unknown> = question?.props ?? {};
     for (const step of where.slice(0, -1)) target = (target as never)[step];
-    target[where.at(-1) as string] = "x";
+    target[where.at(-1) as string] = 7;
     const result = validateAgainst(SCHEMA_IDS.question, question);
     expect(result.ok).toBe(false);
     expect(result.ok ? [] : result.problems.map((problem) => problem.path)).toContain(
@@ -82,10 +82,10 @@ describe("the board document (owner ask-core)", () => {
     expect(paths(result).some((path) => /\/(layout|hidden|colour)$/.test(path))).toBe(true);
   });
 
-  test("a second question, a rev below 1 or a malformed ID fails", () => {
+  test("a rev below 1 or a malformed ID fails; a second question passes in board document 1.1", () => {
     const two = clone(plainChoiceBoardDocument) as unknown as Record<string, unknown[]>;
-    two.items?.push(clone(two.items[0]));
-    expect(paths(validateBoardDocument(two))).toContain("/items");
+    two.items?.push({ ...(clone(two.items[0]) as object), id: "cache" });
+    expect(validateBoardDocument(two).ok).toBe(true);
     const rev = clone(plainChoiceBoardDocument) as unknown as Record<string, unknown>;
     Object.assign(itemOf(rev), { rev: 0 });
     expect(paths(validateBoardDocument(rev))).toContain("/items/0/rev");

@@ -2,11 +2,19 @@
 // banner): a region for the banners above the view's frame, which fills the rest of the page. The
 // view's context header lives in the frame, so a banner sits above it rather than under it. Each
 // banner takes the colours and the marker of the state it stands for: connection lost as the
-// waiting pill (hollow ring), discarded as the discarded pill (bar), moved as the info chip (filled
-// dot) with "Continue here" as a secondary button. The discarded banner takes the focus
-// (Accessibility Floor, Focus). Everything is built from text nodes: no markup is parsed.
+// waiting pill (hollow ring), discarded as the discarded pill (bar), closed as the closed pill
+// (square), moved as the info chip (filled dot) with "Continue here" as a secondary button; a
+// closed or discarded board with unsent work offers "Copy my unsent work" the same way (F-17). The
+// closed and discarded banners take the focus (Accessibility Floor, Focus). Everything is built
+// from text nodes: no markup is parsed.
 
 import type { Banner } from "./board-status.ts";
+
+/** What the banners' actions do. */
+export type BannerActions = {
+  readonly continueHere: () => void;
+  readonly copyUnsentWork: () => void;
+};
 
 export type PageChrome = {
   /** The view's iframe: exactly `sandbox="allow-scripts"` (AD-8). */
@@ -31,6 +39,10 @@ const VARIANTS: Readonly<Record<Banner["variant"], { banner: string; marker: str
     banner: "bg-info-subtle text-info-text",
     marker: "size-2 rounded-full bg-info",
   },
+  closed: {
+    banner: "bg-muted text-foreground",
+    marker: "size-2 bg-ask-closed",
+  },
 };
 
 // `button-secondary` (DESIGN.md), with the focus ring.
@@ -53,7 +65,7 @@ const element = <K extends keyof HTMLElementTagNameMap>(
   return created;
 };
 
-const bannerElement = (document: Document, banner: Banner, onContinue: () => void) => {
+const bannerElement = (document: Document, banner: Banner, actions: BannerActions) => {
   const variant = VARIANTS[banner.variant];
   const root = element(document, "div", `${BANNER} ${variant.banner}`);
   root.dataset.askboardBanner = banner.variant;
@@ -66,7 +78,10 @@ const bannerElement = (document: Document, banner: Banner, onContinue: () => voi
   if (banner.action !== undefined) {
     const button = element(document, "button", SECONDARY_BUTTON, banner.action);
     button.type = "button";
-    button.addEventListener("click", onContinue);
+    button.addEventListener(
+      "click",
+      banner.action === "Continue here" ? actions.continueHere : actions.copyUnsentWork,
+    );
     root.append(button);
   }
   if (banner.takesFocus) root.tabIndex = -1;
@@ -74,7 +89,7 @@ const bannerElement = (document: Document, banner: Banner, onContinue: () => voi
 };
 
 /** Lays the board page out: the banner region, then the view's frame filling the rest. */
-export const createPageChrome = (document: Document, onContinue: () => void): PageChrome => {
+export const createPageChrome = (document: Document, actions: BannerActions): PageChrome => {
   document.body.className = "flex h-screen flex-col overflow-hidden";
   const region = element(document, "div", "shrink-0");
   region.setAttribute("aria-live", "polite");
@@ -92,9 +107,13 @@ export const createPageChrome = (document: Document, onContinue: () => void): Pa
         bannerSlot.replaceChildren();
         return;
       }
-      const shown = bannerElement(document, banner, onContinue);
+      const shown = bannerElement(document, banner, actions);
       bannerSlot.replaceChildren(shown);
-      if (banner.takesFocus) shown.focus();
+      if (banner.takesFocus) {
+        // Firefox keeps the focus in the view's frame unless the frame gives it up first.
+        if (document.activeElement === frame) frame.blur();
+        shown.focus();
+      }
     },
     showLoadError: (text) => {
       if (text === undefined) {

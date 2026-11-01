@@ -7,7 +7,9 @@
 // on the board page's own root and, through the host context, in the view (EXPERIENCE.md, Dark
 // theme). Nothing is kept in Web Storage, IndexedDB or cookies (AD-20). The token stays in the
 // link, so a reload works; the board page's `<base href="/">` keeps it out of the view's base URL
-// (AD-8, `tools/build/board-page.ts`).
+// (AD-8, `tools/build/board-page.ts`). Since the ask lifecycle (ask-lifecycle, design decision 6):
+// the draft record goes at once when the page is hidden or going away, the browser's leave-page
+// prompt is armed as the controller says (FR-25), and "Copy my unsent work" uses the clipboard.
 
 import { applyTheme, DARK_QUERY, followSystemTheme } from "../theme.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
@@ -20,7 +22,10 @@ export const startBoardPage = (window: Window): void => {
   const { document, location } = window;
   const link = boardLinkOf(location);
   let page: BoardPage | undefined;
-  const chrome = createPageChrome(document, () => page?.continueHere());
+  const chrome = createPageChrome(document, {
+    continueHere: () => page?.continueHere(),
+    copyUnsentWork: () => void page?.copyUnsentWork(),
+  });
   let host: ViewHost | undefined;
   const theme = followSystemTheme(window.matchMedia(DARK_QUERY), (next) => {
     applyTheme(document.documentElement, next);
@@ -51,10 +56,47 @@ export const startBoardPage = (window: Window): void => {
       if (detail === undefined) console.error(`askboard: ${text}`);
       else console.error(`askboard: ${text}:`, detail);
     },
+    copyText: (text) => copyText(window, text),
   });
-  // A page going away does not reconnect; one restored from the back-forward cache does.
-  window.addEventListener("pagehide", () => page?.suspend());
+  // A page going away mirrors its draft and does not reconnect; one restored from the
+  // back-forward cache does.
+  window.addEventListener("pagehide", () => {
+    page?.flushDraft();
+    page?.suspend();
+  });
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) page?.resume();
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") page?.flushDraft();
+  });
+  // Browsers show their own text: the view's bottom action bar carries the warning (L190).
+  window.addEventListener("beforeunload", (event) => {
+    if (page?.leavePromptArmed() !== true) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
+};
+
+/**
+ * Puts text on the clipboard on the user's click: the asynchronous Clipboard API, or, where the
+ * browser does not grant it, a selected text area copied the old way.
+ */
+const copyText = async (window: Window, text: string): Promise<void> => {
+  try {
+    await window.navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    // Falls through to the text area.
+  }
+  const { document } = window;
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.className = "fixed -left-[9999px] top-0";
+  document.body.append(area);
+  area.select();
+  const copied = document.execCommand("copy");
+  area.remove();
+  if (!copied) throw new Error("the browser did not copy the text");
 };

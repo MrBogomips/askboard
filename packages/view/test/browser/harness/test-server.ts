@@ -17,6 +17,9 @@ import type { ViewBuild } from "./view-build.ts";
 
 type SocketData = { number: number };
 
+const NO_AGENT =
+  "the test server replays transcripts and has no agent: an ask of the lifecycle runs on the session process";
+
 /** What the session-side steps change, and the requests that reached the server. */
 type ServerState = { access: BoardAccess; networkUp: boolean; readonly requests: string[] };
 
@@ -108,6 +111,8 @@ export const startTestServer = async ({ transcript, view }: Scenario): Promise<B
   return {
     link: boardLink({ port: server.port ?? 0, askId, token }),
     collected: () => replay.trigger("collected"),
+    collect: () => Promise.reject(new Error(NO_AGENT)),
+    update: () => Promise.reject(new Error(NO_AGENT)),
     exit: () => replay.trigger("exit"),
     drop: () => replay.trigger("drop"),
     restore: async () => {

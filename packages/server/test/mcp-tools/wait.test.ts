@@ -47,7 +47,7 @@ const liveCore = () => {
   const append = (askId: string, event: OutputEvent, state: "answered" | "discarded") => {
     logs[askId]?.push(event);
     states[askId] = state;
-    core.emit({ type: "appended", askId, event });
+    core.emit({ type: "appended", askId, event, events: [event] });
   };
   return { core, append };
 };

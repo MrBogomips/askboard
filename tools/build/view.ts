@@ -32,7 +32,7 @@ import {
   chunkDefinitions,
   stylePlanOf,
 } from "./chunks.ts";
-import { collectNotices, type NoticeFile } from "./licences.ts";
+import { collectNotices, LICENCE_TEXTS, type NoticeFile, staleLicenceTexts } from "./licences.ts";
 import { fileEntry, hashProblems, listedFiles, manifestProblems } from "./manifest.ts";
 import { BOARD_PAGE_ENTRY, DIST_VIEW, ROOT, SIZES_FILE } from "./paths.ts";
 import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
@@ -217,6 +217,11 @@ export const buildView = async (out: string): Promise<BuiltView> => {
   try {
     await writeTokenFiles(work);
     const [page, chunks] = await Promise.all([buildBoardPage(work), buildChunks(work)]);
+    // A licence text recorded for a package that no chunk took is stale (ask-lifecycle, 6.6).
+    const used = [page, ...chunks].flatMap(({ notices }) =>
+      notices.flatMap(({ recorded }) => (recorded === undefined ? [] : [recorded])),
+    );
+    failIf(staleLicenceTexts(LICENCE_TEXTS, new Set(used)));
     const { files, manifest } = assembleBuild(page, chunks);
     await writeBuild(out, files, manifest);
     await verifyBuild(out, manifest);

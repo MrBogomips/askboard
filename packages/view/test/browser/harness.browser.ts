@@ -3,7 +3,7 @@
 // negative controls that make "no violation" mean something (renderer row 17).
 
 import { describe, expect, test } from "bun:test";
-import { boardPagePolicy } from "@askboard/contract";
+import { BOARD_PROTOCOL_VERSION, boardPagePolicy } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import {
   eventually,
@@ -48,7 +48,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await Bun.sleep(QUIET_MS);
         expect(run.browser.pageMessages()[0]).toEqual({
           socket: 1,
-          message: { version: "1.0", type: "connect", token: linkToken(run) },
+          message: { version: BOARD_PROTOCOL_VERSION, type: "connect", token: linkToken(run) },
         });
         expect(run.browser.errors).toEqual([]);
         expectNoCspProblem(run);

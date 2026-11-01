@@ -1,19 +1,28 @@
 // The output format (owner `contract`, AD-7): what AskBoard returns to agents inside the tool
-// results. E1 defines the answer event of finding F4 with AD-20's generic diff, the discarded event,
-// the no-hooks warning and the outcomes `unavailable` and `open`. It holds no AXFX term (FR-18).
+// results. E1 defined the answer event of finding F4 with AD-20's generic diff, the discarded event,
+// the no-hooks warning and the outcomes `unavailable` and `open`; E3's minor adds the answer's
+// "Other…" text, option notes, declines and revisions, the lifecycle events, the states AD-10 lists
+// and the outcomes of collect, update and fetch (ask-lifecycle, design decision 2). The closed event
+// is push-delivery's. It holds no AXFX term (FR-18).
 
 import type { SchemaSet } from "../../versions.ts";
 import answerEvent from "./answer-event.json" with { type: "json" };
 import askState from "./ask-state.json" with { type: "json" };
 import cursor from "./cursor.json" with { type: "json" };
 import discardedEvent from "./discarded-event.json" with { type: "json" };
+import editChoiceEvent from "./edit-choice-event.json" with { type: "json" };
 import epoch from "./epoch.json" with { type: "json" };
+import followUpEvent from "./follow-up-event.json" with { type: "json" };
+import noteEvent from "./note-event.json" with { type: "json" };
 import outcome from "./outcome.json" with { type: "json" };
+import postponedEvent from "./postponed-event.json" with { type: "json" };
+import questionState from "./question-state.json" with { type: "json" };
+import reopenedEvent from "./reopened-event.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.0";
+export const OUTPUT_FORMAT_VERSION = "1.1";
 
 export const outputFormat: SchemaSet = {
   name: "output",
@@ -30,10 +39,17 @@ export const outputFormat: SchemaSet = {
     warning,
     outcome,
     unavailableReason,
+    questionState,
+    postponedEvent,
+    reopenedEvent,
+    noteEvent,
+    followUpEvent,
+    editChoiceEvent,
   ],
 };
 
-export type AskState = "waiting" | "answered" | "discarded";
+/** AD-10's ask states. */
+export type AskState = "waiting" | "partly-answered" | "answered" | "closed" | "discarded";
 
 /**
  * One operation of AD-20's generic diff; a target is a reference without brackets (AD-13). `add`
@@ -66,13 +82,22 @@ export type AnswerEvent = {
   readonly when: string;
   /** The chosen options, by label (finding F5). */
   readonly choice?: readonly string[];
+  /** The "Other…" text (FR-3). */
+  readonly other?: string;
+  /** The user's note on an option, by its label (FR-3). */
+  readonly optionNotes?: Readonly<Record<string, string>>;
+  /** The open prompt's text, or a decline's reason. */
   readonly note?: string;
   readonly changes?: readonly Change[];
   readonly results?: Readonly<Record<string, unknown>>;
   readonly derived?: Readonly<Record<string, unknown>>;
+  /** A decline: it closes the question like an answer, with no content but its reason (FR-4). */
+  readonly declined?: true;
+  /** The cursor of the answer this revision replaces (FR-22, AD-20). */
+  readonly replaces?: string;
 };
 
-export type DiscardReason = "session-exit";
+export type DiscardReason = "session-exit" | "board-closed";
 
 export type DiscardedEvent = {
   readonly cursor: string;
@@ -80,11 +105,58 @@ export type DiscardedEvent = {
   readonly reason: DiscardReason;
 };
 
-export type OutputEvent = AnswerEvent | DiscardedEvent;
+export type OutputEvent =
+  | AnswerEvent
+  | DiscardedEvent
+  | PostponedEvent
+  | ReopenedEvent
+  | NoteEvent
+  | FollowUpEvent
+  | EditChoiceEvent;
 
 export type Warning = { readonly code: "no-hooks"; readonly message: string };
 
-export type Outcome = "unavailable" | "open";
+export type Outcome = "unavailable" | "open" | "postponed" | "closed" | "discarded";
 
 /** AD-18's detection rule, in its order. */
 export type UnavailableReason = "remote-host" | "container" | "ci" | "no-browser";
+
+// Output format 1.1 (ask-lifecycle, design decision 2).
+
+/** AD-10's question states. */
+export type QuestionState = "open" | "answered" | "postponed" | "declined";
+
+type QuestionEvent = {
+  readonly cursor: string;
+  readonly itemId: string;
+  /** The question's revision the user acted on. */
+  readonly rev: number;
+};
+
+/** The user postponed the question (FR-4). */
+export type PostponedEvent = QuestionEvent & { readonly type: "postponed" };
+
+/** The user undid a sent postpone or decline (FR-4). */
+export type ReopenedEvent = QuestionEvent & { readonly type: "reopened" };
+
+/** A note sent without an answer (FR-7). */
+export type NoteEvent = QuestionEvent & {
+  readonly type: "note";
+  readonly who: string;
+  readonly when: string;
+  readonly note: string;
+};
+
+/** A follow-up the agent replies to with `update`, naming this event's cursor (FR-10). */
+export type FollowUpEvent = QuestionEvent & {
+  readonly type: "follow-up";
+  readonly who: string;
+  readonly when: string;
+  readonly text: string;
+};
+
+/** What the user chose about an agent change to a question with unsent work (FR-6, AD-20). */
+export type EditChoiceEvent = QuestionEvent & { readonly type: "edit-choice" } & (
+    | { readonly edit: "reload" }
+    | { readonly edit: "ignore"; readonly keptRev: number }
+  );

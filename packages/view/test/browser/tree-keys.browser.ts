@@ -57,14 +57,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["End", { nodeId: "reporting" }],
         ]);
         expect(await focusRing(board)).toEqual(RING);
-        // Tab never lands on another row or cell: it leaves the tree, which the view's document
-        // then no longer holds the focus in, except in Firefox, whose frame keeps its last focused
-        // element when the focus leaves it, and wraps back to the tree's one Tab stop when the host
-        // page has no other.
+        // Tab never lands on another row or cell: it leaves the tree in every engine, since the
+        // question card holds the open prompt and the question's actions after its widget since
+        // the ask lifecycle (ask-lifecycle, task 6.4), so Firefox's frame no longer wraps back to
+        // the tree's one Tab stop.
         const afterTab = await pressIn(board, "Tab");
-        expect(afterTab === undefined ? "left the tree" : afterTab).toEqual(
-          engine === "firefox" ? { nodeId: "reporting" } : "left the tree",
-        );
+        expect(afterTab === undefined ? "left the tree" : afterTab).toEqual("left the tree");
         expect(await tabStops(tree.grid)).toBe(1);
         expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
         expect(board.page.url()).toBe(url);

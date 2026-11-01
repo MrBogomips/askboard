@@ -173,3 +173,95 @@ export {
   type TreeOrigin,
   type TreeProps,
 } from "./widgets/tree/index.ts";
+
+// E3, the ask lifecycle: the 1.1 minors of the input format, the output format, the tool envelopes,
+// the board document and the board protocol, and their constants and limits (ask-lifecycle, design
+// decision 2), each exported beside E1's. E1's types above keep the shapes E1's units read where a
+// 1.1 shape would change them; the `Lifecycle` types here are the full 1.1 shapes, which ask-core,
+// board-host and the view move onto.
+
+export {
+  ACTION_ID_PATTERN,
+  GRACE_PERIOD_MS,
+  TAKEOVER_FLUSH_WAIT_MS,
+} from "./lifecycle-constants.ts";
+export {
+  ANNOTATION_MAX_CHARS,
+  DRAFT_RECORD_MAX_CHARS,
+  FETCH_PAGE_MAX_CHARS,
+  FOLLOW_UP_MAX_CHARS,
+  NOTE_MAX_CHARS,
+  OPTION_NOTE_MAX_CHARS,
+  OTHER_MAX_CHARS,
+  PREVIEW_MAX_CHARS,
+  REPLY_MAX_CHARS,
+} from "./lifecycle-limits.ts";
+export type {
+  BoardArea,
+  BoardAreaProps,
+  BoardItem,
+  LifecycleBoardDocument,
+} from "./schemas/board-document/index.ts";
+export type {
+  Act,
+  ActCommand,
+  AnswerAct,
+  ClosedMessage,
+  ClosedReason,
+  CurrentAnswer,
+  DeclineAct,
+  DoneMessage,
+  DraftMessage,
+  DraftQuestion,
+  DraftRecord,
+  EditChoiceAct,
+  FollowUpAct,
+  HeldAct,
+  LifecycleBoardMessage,
+  LifecycleBoardState,
+  LifecycleHostMessage,
+  LifecyclePageMessage,
+  LifecycleQuestionStatus,
+  LifecycleStateMessage,
+  NoteAct,
+  PostponeAct,
+  ReopenAct,
+  ThreadEntry,
+  ThreadReply,
+} from "./schemas/board-protocol/index.ts";
+export type {
+  AddAction,
+  AnswerAction,
+  AreaItem,
+  AreaProps,
+  AskItem,
+  ChangeAction,
+  CloseAction,
+  DeleteAction,
+  LifecycleAskInput,
+  ReopenAction,
+  ReplyAction,
+  UpdateAction,
+  UpdateAnswer,
+  UpdateInput,
+} from "./schemas/input/index.ts";
+export type {
+  EditChoiceEvent,
+  FollowUpEvent,
+  NoteEvent,
+  PostponedEvent,
+  QuestionState,
+  ReopenedEvent,
+} from "./schemas/output/index.ts";
+export type {
+  AppliedAction,
+  FetchAnswer,
+  FetchItem,
+  FetchOutcomeResult,
+  FetchPage,
+  FetchRequest,
+  FetchResult,
+  UpdateOutcomeResult,
+  UpdateRequest,
+  UpdateResult,
+} from "./schemas/tool-envelopes/index.ts";

@@ -7,13 +7,16 @@ import {
   BOARD_PORT_RANGE,
   BOARD_PROTOCOL_VERSION,
   BOARD_RESPONSES,
+  GRACE_PERIOD_MS,
 } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import type { Clock } from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import type { ExitSignal, SessionProcess } from "../src/mcp-tools/index.ts";
 import { startSessionProcess } from "../src/session-process.ts";
 import {
+  manualClock,
   openSocket,
   plainChoiceAsk,
   removeViews,
@@ -48,7 +51,11 @@ const recorder = (name: string) => {
   return { script, record };
 };
 
-const start = async (env: Readonly<Record<string, string>>, view: string = writeView()) => {
+const start = async (
+  env: Readonly<Record<string, string>>,
+  view: string = writeView(),
+  clock?: Clock,
+) => {
   const handlers = new Map<ExitSignal, () => void>();
   const exits: number[] = [];
   const process: SessionProcess = {
@@ -66,6 +73,7 @@ const start = async (env: Readonly<Record<string, string>>, view: string = write
     process,
     stderr: (line) => stderr.push(line),
     transport: serverEnd,
+    ...(clock ? { clock } : {}),
   });
   const client = new Client({ name: "test", version: "0.0.0" });
   await client.connect(clientEnd);
@@ -87,7 +95,7 @@ describe("the composed session process", () => {
     const { script, record } = recorder("browser");
     const run = await start({ BROWSER: script });
     const { tools } = await run.client.listTools();
-    expect(tools.map((tool) => tool.name)).toEqual(["ask", "collect"]);
+    expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
 
     const asked = await run.call("ask", plainChoiceAsk());
     const link = new URL(asked.board);
@@ -194,5 +202,140 @@ describe("the composed session process", () => {
     run.emit("SIGINT");
     expect(await run.session.ended).toBe(0);
     expect(run.stderr.filter((line) => !line.startsWith("askboard: session ending"))).toEqual([]);
+  });
+});
+
+// ask-lifecycle, task 5.3: the entry point's wiring of the Clock and the new subscriptions, with
+// the real units and a clock the test moves, so the grace period passes without a real wait.
+
+const threeQuestions = (askId: string) => ({
+  askId,
+  items: [
+    { type: "question", id: "database", props: question.props },
+    {
+      type: "question",
+      id: "cache",
+      props: { text: "Which cache?", options: [{ label: "Redis" }, { label: "None" }] },
+    },
+    {
+      type: "question",
+      id: "queue",
+      props: { text: "Which queue?", options: [{ label: "SQS" }, { label: "None" }] },
+    },
+  ],
+});
+
+const answerAct = (actionId: string, itemId: string, choice: string) => ({
+  version,
+  type: "act",
+  actionId,
+  acts: [{ type: "answer", itemId, rev: 1, choice: [choice], when: "2026-10-31T09:41:27Z" }],
+});
+
+const until = async (done: () => boolean) => {
+  for (let tries = 0; tries < 200 && !done(); tries += 1) await Bun.sleep(10);
+  expect(done()).toBe(true);
+};
+
+describe("the ask lifecycle in the composed session process", () => {
+  test("a board closed past the grace period ends a waiting collect with the answer, then the discard", async () => {
+    const { script } = recorder("grace");
+    const time = manualClock();
+    const run = await start({ BROWSER: script }, writeView(), time.clock);
+    const asked = await run.call("ask", threeQuestions("grace-board-k4p2"));
+    const link = new URL(asked.board);
+    const board = await openSocket(Number(link.port), asked.askId);
+    board.send({ version, type: "connect", token: link.searchParams.get("t") });
+    expect(await board.next()).toMatchObject({ type: "board" });
+    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "waiting" } });
+
+    // A first answer makes the ask partly answered, and the agent collects it.
+    const first = "gR4c3PeriodAct10nId001";
+    board.send(answerAct(first, "database", "PostgreSQL"));
+    expect(await board.next()).toEqual({ version, type: "done", actionId: first });
+    expect(await board.next()).toMatchObject({ state: { ask: "partly-answered" } });
+    const before = await run.call("collect", {
+      asks: [{ askId: asked.askId, after: asked.cursor }],
+    });
+    const cursor = before.asks[0].cursor;
+    expect(cursor).toBe(`${asked.epoch}.1`);
+    expect(await board.next()).toMatchObject({ type: "receipt", itemId: "database" });
+
+    // The agent waits on queue; an answer to cache leaves the ask partly answered, so the wait goes
+    // on (AD-4).
+    let returned = false;
+    const waiting = run
+      .call("collect", {
+        asks: [{ askId: asked.askId, after: cursor }],
+        wait: { askId: asked.askId, itemId: "queue" },
+      })
+      .finally(() => {
+        returned = true;
+      });
+    const second = "gR4c3PeriodAct10nId002";
+    board.send(answerAct(second, "cache", "Redis"));
+    expect(await board.next()).toEqual({ version, type: "done", actionId: second });
+    expect(await board.next()).toMatchObject({ state: { ask: "partly-answered" } });
+    await Bun.sleep(30);
+    expect(returned).toBe(false);
+
+    board.socket.close();
+    await board.closed();
+    await until(() => time.delays.includes(GRACE_PERIOD_MS));
+    time.advance(GRACE_PERIOD_MS - 1);
+    await Bun.sleep(30);
+    expect(returned).toBe(false);
+    time.advance(1);
+    const collected = await waiting;
+    expect(collected.asks).toEqual([
+      {
+        askId: asked.askId,
+        state: "discarded",
+        cursor: `${asked.epoch}.3`,
+        events: [
+          expect.objectContaining({ type: "answer", itemId: "cache", choice: ["Redis"] }),
+          { cursor: `${asked.epoch}.3`, type: "discarded", reason: "board-closed" },
+        ],
+        unchecked: true,
+      },
+    ]);
+    expect(collected.outcome).toBeUndefined();
+    const page = await request(Number(link.port), `${link.pathname}${link.search}`);
+    expect(page.status).toBe(BOARD_RESPONSES.discardedLink.status);
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
+  });
+
+  test("no environment variable changes the grace period, and the entry point gives no clock", async () => {
+    const { script } = recorder("no-override");
+    const time = manualClock();
+    const overrides = {
+      ASKBOARD_GRACE_PERIOD_MS: "1",
+      ASKBOARD_GRACE_MS: "1",
+      ASKBOARD_GRACE: "1",
+      GRACE_PERIOD_MS: "1",
+    };
+    const run = await start({ BROWSER: script, ...overrides }, writeView(), time.clock);
+    const asked = await run.call("ask", plainChoiceAsk("no-override-board"));
+    const link = new URL(asked.board);
+    const board = await openSocket(Number(link.port), asked.askId);
+    board.send({ version, type: "connect", token: link.searchParams.get("t") });
+    await board.next();
+    await board.next();
+    board.socket.close();
+    await board.closed();
+    await until(() => time.delays.length > 0);
+    expect(time.delays).toEqual([GRACE_PERIOD_MS]);
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
+    // The shipped bundle's entry point passes no clock: the system clock and the contract's grace
+    // period run, and nothing it reads names a grace period.
+    const entry = readFileSync(join(import.meta.dir, "..", "src", "main.ts"), "utf8");
+    expect(entry).not.toMatch(/clock|grace/i);
+    const composition = readFileSync(
+      join(import.meta.dir, "..", "src", "session-process.ts"),
+      "utf8",
+    );
+    expect(composition).not.toMatch(/GRACE|env\.[A-Z_]*GRACE/);
   });
 });

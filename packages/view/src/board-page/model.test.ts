@@ -1,10 +1,18 @@
 import { describe, expect, test } from "bun:test";
-import type { BoardDocument, BoardState, HostMessage } from "@askboard/contract";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import type { ViewAnswer } from "../view-protocol.ts";
 import {
-  answerCommandFor,
+  BOARD_PROTOCOL_VERSION,
+  type BoardDocument,
+  type BoardState,
+  type HostMessage,
+  type LifecycleBoardState,
+} from "@askboard/contract";
+import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import type { ViewAct, ViewAnswer } from "../view-protocol.ts";
+import {
+  actsFor,
+  answerActFor,
   type BoardModel,
+  basisOf,
   bootDataOf,
   EMPTY_MODEL,
   stateProblem,
@@ -12,7 +20,7 @@ import {
   withViewMessage,
 } from "./model.ts";
 
-const version = "1.0";
+const version = BOARD_PROTOCOL_VERSION;
 const waiting: BoardState = {
   ask: "waiting",
   questions: [{ itemId: "database", rev: 1, state: "open" }],
@@ -140,7 +148,7 @@ describe("a state the board page can act on (AD-10)", () => {
   });
 });
 
-describe("an answer from the view becomes a board-protocol command only if it can be (AD-10)", () => {
+describe("an answer from the view becomes an answer act only if it can be (AD-10)", () => {
   const answer: ViewAnswer = {
     type: "answer",
     itemId: "database",
@@ -154,21 +162,22 @@ describe("an answer from the view becomes a board-protocol command only if it ca
       itemId: "database",
     });
   const detailOf = (model: BoardModel, message: ViewAnswer = answer) => {
-    const command = answerCommandFor(model, message);
-    return command.ok ? undefined : command.detail;
+    const acts = answerActFor(model, message);
+    return acts.ok ? undefined : acts.detail;
   };
 
-  test("an answer to the open, visible question goes as the transcript's command", () => {
-    expect(answerCommandFor(ready(), answer)).toEqual({
+  test("an answer to the visible question goes as one answer act", () => {
+    expect(answerActFor(ready(), answer)).toEqual({
       ok: true,
-      value: {
-        version: "1.0",
-        type: "answer",
-        itemId: "database",
-        rev: 1,
-        choice: ["PostgreSQL"],
-        when: "2026-10-30T09:41:27.123Z",
-      },
+      value: [
+        {
+          type: "answer",
+          itemId: "database",
+          rev: 1,
+          choice: ["PostgreSQL"],
+          when: "2026-10-30T09:41:27.123Z",
+        },
+      ],
     });
   });
 
@@ -176,25 +185,15 @@ describe("an answer from the view becomes a board-protocol command only if it ca
     expect(detailOf(EMPTY_MODEL)).toContain("no board");
   });
 
-  test("not to an item the board does not hold, or at another revision", () => {
+  test("not to an item the board does not hold, or at a later revision than the board's", () => {
     expect(detailOf(ready(), { ...answer, itemId: "other" })).toContain('"other"');
     expect(detailOf(ready(), { ...answer, rev: 2 })).toContain("revision");
   });
 
-  test("not to a question that is not open", () => {
-    const answered: BoardState = {
-      ask: "answered",
-      questions: [
-        {
-          itemId: "database",
-          rev: 1,
-          state: "answered",
-          answer: { choice: ["SQLite"], when: "2026-10-29T09:41:27Z", receipt: "sent" },
-        },
-      ],
-    };
-    const model = withHostMessage(ready(), { version, type: "state", state: answered });
-    expect(detailOf(model)).toContain("not open");
+  test("not on a closed ask (FR-6)", () => {
+    const closed: BoardState = { ...waiting, ask: "closed" } as unknown as BoardState;
+    const model = withHostMessage(ready(), { version, type: "state", state: closed });
+    expect(detailOf(model)).toContain("closed");
   });
 
   test("not to a question that never counted as visible, or whose item failed (AD-9)", () => {
@@ -212,7 +211,7 @@ describe("an answer from the view becomes a board-protocol command only if it ca
     expect(detailOf(ready(), { ...answer, choice: ["Oracle"] })).toContain('"Oracle"');
   });
 
-  test("not with widget values, nor without a choice: the board protocol carries no widget value yet", () => {
+  test("not with widget values: the board protocol carries no widget value yet", () => {
     // A test-only `probe` widget item's value (design decision 12).
     const values = { sketch: { size: 4 } };
     expect(detailOf(ready(), { ...answer, values })).toBe(
@@ -223,7 +222,7 @@ describe("an answer from the view becomes a board-protocol command only if it ca
       "the board protocol carries no widget value yet",
     );
     expect(detailOf(ready(), widgetOnly)).toBe(
-      "the answer carries no choice, and the board protocol carries no widget value yet",
+      "the answer carries no choice and no Other… text, and the board protocol carries no widget value yet",
     );
     expect(detailOf(EMPTY_MODEL, { ...answer, values })).toBe(
       "the board protocol carries no widget value yet",
@@ -238,6 +237,177 @@ describe("an answer from the view becomes a board-protocol command only if it ca
       ...plainChoiceBoardDocument,
       items: [{ ...question, props: { ...question.props, multiSelect: true } }],
     };
-    expect(answerCommandFor(ready(multiple), two).ok).toBe(true);
+    expect(answerActFor(ready(multiple), two).ok).toBe(true);
+  });
+});
+
+describe("the user's acts become one act command only if each can be (ask-lifecycle, AD-10)", () => {
+  const when = "2026-10-31T09:41:27.123Z";
+  const lifecycleState: LifecycleBoardState = {
+    ask: "waiting",
+    questions: [
+      { itemId: "region", rev: 1, state: "open" },
+      { itemId: "payment", rev: 1, state: "open" },
+      { itemId: "analytics", rev: 1, state: "postponed" },
+      { itemId: "rollout", rev: 1, state: "open" },
+      { itemId: "erp-export", rev: 1, state: "open" },
+    ],
+  };
+  const loaded = (): BoardModel => {
+    let model = withHostMessage(EMPTY_MODEL, {
+      version,
+      type: "board",
+      document: lifecycleBoardDocument,
+    } as unknown as HostMessage);
+    model = withHostMessage(model, {
+      version,
+      type: "state",
+      state: lifecycleState,
+    } as unknown as HostMessage);
+    for (const itemId of ["region", "payment", "analytics", "rollout", "erp-export"]) {
+      model = withViewMessage(model, { type: "ready", itemId });
+    }
+    return model;
+  };
+  const detailOf = (acts: readonly ViewAct[], model = loaded()) => {
+    const checked = actsFor(model, acts);
+    return checked.ok ? undefined : checked.detail;
+  };
+
+  test("a board of areas: the state names every question of every area (AD-10)", () => {
+    expect(stateProblem(lifecycleBoardDocument, lifecycleState)).toBeUndefined();
+    const missing = { ...lifecycleState, questions: lifecycleState.questions.slice(1) };
+    expect(stateProblem(lifecycleBoardDocument, missing as unknown as LifecycleBoardState)).toBe(
+      'the state leaves out "region"',
+    );
+  });
+
+  test("each act of a command, in the user's order, as the board protocol has it", () => {
+    const acts: ViewAct[] = [
+      { type: "postpone", itemId: "rollout", rev: 1 },
+      { type: "answer", itemId: "payment", rev: 1, other: "Mollie", note: "Cheaper.", when },
+      { type: "answer", itemId: "region", rev: 1, choice: ["EU", "US"], when },
+      { type: "reopen", itemId: "analytics" },
+      { type: "note", itemId: "erp-export", rev: 1, note: "Ask finance.", when },
+      { type: "follow-up", itemId: "rollout", rev: 1, text: "Why?", when },
+      { type: "decline", itemId: "erp-export", rev: 1, note: "Not mine.", when },
+      { type: "edit-choice", itemId: "region", rev: 1, edit: "reload" },
+    ];
+    expect(actsFor(loaded(), acts)).toEqual({ ok: true, value: acts as never });
+  });
+
+  test("an answer's option notes name the question's options; Other only where it is offered", () => {
+    expect(
+      detailOf([
+        {
+          type: "answer",
+          itemId: "payment",
+          rev: 1,
+          choice: ["Stripe"],
+          optionNotes: { Adyen: "Costly." },
+          when,
+        },
+      ]),
+    ).toBeUndefined();
+    expect(
+      detailOf([
+        {
+          type: "answer",
+          itemId: "payment",
+          rev: 1,
+          choice: ["Stripe"],
+          optionNotes: { Mollie: "?" },
+          when,
+        },
+      ]),
+    ).toContain('"Mollie"');
+    expect(
+      detailOf([{ type: "answer", itemId: "rollout", rev: 1, other: "Canary", when }]),
+    ).toContain("Other");
+  });
+
+  test("a refused act refuses the whole command, naming the act", () => {
+    const detail = detailOf([
+      { type: "postpone", itemId: "rollout", rev: 1 },
+      { type: "postpone", itemId: "rollout", rev: 2 },
+    ]);
+    expect(detail).toContain("act 2");
+    expect(detail).toContain("revision");
+    expect(detailOf([{ type: "reopen", itemId: "nothing" }])).toContain('"nothing"');
+  });
+
+  test("a postpone, a note or an edit choice names the question's current revision", () => {
+    for (const act of [
+      { type: "postpone", itemId: "rollout", rev: 2 },
+      { type: "note", itemId: "rollout", rev: 2, note: "n", when },
+      { type: "edit-choice", itemId: "rollout", rev: 2, edit: "reload" },
+    ] as const) {
+      expect(detailOf([act])).toContain("revision");
+    }
+    expect(
+      detailOf([{ type: "edit-choice", itemId: "rollout", rev: 1, edit: "ignore", keptRev: 1 }]),
+    ).toContain("revision");
+  });
+
+  test("nothing on a closed ask, and nothing on a question that is not visible (AD-9)", () => {
+    const closed = withHostMessage(loaded(), {
+      version,
+      type: "state",
+      state: { ...lifecycleState, ask: "closed" },
+    } as unknown as HostMessage);
+    expect(detailOf([{ type: "postpone", itemId: "rollout", rev: 1 }], closed)).toContain("closed");
+    const hidden = withHostMessage(
+      withHostMessage(EMPTY_MODEL, {
+        version,
+        type: "board",
+        document: lifecycleBoardDocument,
+      } as unknown as HostMessage),
+      { version, type: "state", state: lifecycleState } as unknown as HostMessage,
+    );
+    expect(
+      detailOf([{ type: "follow-up", itemId: "rollout", rev: 1, text: "?", when }], hidden),
+    ).toContain("visible");
+  });
+
+  test("each act's question as it stood when the user acted: its revision and its state", () => {
+    expect(basisOf(loaded(), [{ itemId: "analytics" }, { itemId: "rollout" }])).toEqual([
+      { itemId: "analytics", rev: 1, state: "postponed" },
+      { itemId: "rollout", rev: 1, state: "open" },
+    ]);
+  });
+
+  test("a receipt marks a decline delivered too, on a board of areas", () => {
+    const declined = {
+      ...lifecycleState,
+      ask: "partly-answered",
+      questions: lifecycleState.questions.map((question) =>
+        question.itemId === "rollout"
+          ? {
+              itemId: "rollout",
+              rev: 1,
+              state: "declined",
+              answer: { declined: true, when, receipt: "sent" },
+            }
+          : question,
+      ),
+    } as unknown as LifecycleBoardState;
+    const model = withHostMessage(loaded(), {
+      version,
+      type: "state",
+      state: declined,
+    } as unknown as HostMessage);
+    const delivered = withHostMessage(model, {
+      version,
+      type: "receipt",
+      itemId: "rollout",
+      receipt: "delivered",
+    });
+    const rollout = delivered.state?.questions.find((question) => question.itemId === "rollout");
+    expect(rollout).toEqual({
+      itemId: "rollout",
+      rev: 1,
+      state: "declined",
+      answer: { declined: true, when, receipt: "delivered" },
+    });
   });
 });

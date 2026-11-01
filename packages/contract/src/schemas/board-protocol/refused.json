@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:refused",
   "title": "Refused",
-  "description": "board-host to board page: a message it refused and why (AD-7, AD-11). Before a socket's connect is accepted, a refusal (reason token, or version for a first message of another major) is followed at once by a close with code 4403, and the page does not reconnect on its own: it shows the ask as discarded. Once connect is accepted, a refusal leaves the socket open and the ask unchanged: reason message for a message outside the schema, version for a message of another major, answer for an answer command ask-core refuses, which names the item and is followed by a state message with the question's state. The detail is text for people, at most 1,000 characters, which board-host cuts to fit; no receiver acts on it.",
+  "description": "board-host to board page: a message it refused and why (AD-7, AD-11). Before a socket's connect is accepted, a refusal (reason token, or version for a first message of another major) is followed at once by a close with code 4403, and the page does not reconnect on its own: it shows the ask as discarded. Once connect is accepted, a refusal leaves the socket open and the ask unchanged: reason message for a message outside the schema, version for a message of another major, answer for an answer command ask-core refuses, naming the item; act for an act command ask-core refuses, naming the command's action ID, the refused act's index and its item; closed for an act command on a closed ask, naming the action ID. Each refusal of a command is followed by a state message. The detail is text for people, at most 1,000 characters, which board-host cuts to fit; no receiver acts on it.",
   "type": "object",
   "properties": {
     "version": {
@@ -12,7 +12,7 @@
       "const": "refused"
     },
     "reason": {
-      "enum": ["token", "message", "version", "answer"]
+      "enum": ["token", "message", "version", "answer", "act", "closed"]
     },
     "detail": {
       "type": "string",
@@ -21,6 +21,14 @@
     },
     "itemId": {
       "$ref": "urn:askboard:input:id"
+    },
+    "actionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22}$"
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0
     }
   },
   "required": ["version", "type", "reason", "detail"],
@@ -34,13 +42,51 @@
   },
   "then": {
     "properties": {
-      "itemId": true
+      "itemId": true,
+      "actionId": false,
+      "index": false
     },
     "required": ["itemId"]
   },
   "else": {
-    "properties": {
-      "itemId": false
+    "if": {
+      "properties": {
+        "reason": {
+          "const": "act"
+        }
+      }
+    },
+    "then": {
+      "properties": {
+        "actionId": true,
+        "index": true,
+        "itemId": true
+      },
+      "required": ["actionId", "index", "itemId"]
+    },
+    "else": {
+      "if": {
+        "properties": {
+          "reason": {
+            "const": "closed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "actionId": true,
+          "index": false,
+          "itemId": false
+        },
+        "required": ["actionId"]
+      },
+      "else": {
+        "properties": {
+          "itemId": false,
+          "actionId": false,
+          "index": false
+        }
+      }
     }
   }
 }
