@@ -10,7 +10,7 @@
 import { type ReactNode, useLayoutEffect } from "react";
 
 /** A widget item as the board document holds it: its type, its ID and its props, as sent. */
-export type BoardItem = {
+export type BoardWidgetItem = {
   readonly type: string;
   readonly id: string;
   readonly props: unknown;
@@ -23,7 +23,7 @@ export type BoardItem = {
  * same, so a component can memoize on it.
  */
 export type BoardContent = {
-  readonly items: readonly BoardItem[];
+  readonly items: readonly BoardWidgetItem[];
   readonly draft: ReadonlyMap<string, unknown>;
 };
 

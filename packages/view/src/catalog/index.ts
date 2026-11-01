@@ -5,7 +5,7 @@
 
 export {
   type BoardContent,
-  type BoardItem,
+  type BoardWidgetItem,
   type CatalogComponent,
   componentFor,
   type DerivedValues,
