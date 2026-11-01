@@ -69,11 +69,13 @@ describe("the collect result 1.1", () => {
     },
   );
 
-  test("no closed event: push-delivery defines it, and E3's collect refuses one", () => {
+  test("a closed event, which push delivery adds to the output format's 1.1, is one of collect's", () => {
     const closed = { cursor: "k3x9.9", type: "closed", reason: "agent-finished" };
     const entry = { askId: head.askId, state: "closed", cursor: "k3x9.9", events: [closed] };
+    passes(SCHEMA_IDS.collectResult, { versions, epoch: "k3x9", asks: [entry] });
+    const agents = { ...entry, events: [{ ...closed, reason: "agent" }] };
     expect(
-      pathsOf(SCHEMA_IDS.collectResult, { versions, epoch: "k3x9", asks: [entry] }),
+      pathsOf(SCHEMA_IDS.collectResult, { versions, epoch: "k3x9", asks: [agents] }),
     ).not.toEqual([]);
   });
 

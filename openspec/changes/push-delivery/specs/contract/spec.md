@@ -43,11 +43,19 @@ The output format SHALL define the push message with its own `$id`, `urn:askboar
 - **THEN** it passes, and its ask entry has the same shape as the `collect` result's
 
 ### Requirement: Closed event
-The output format SHALL define the event that closes an ask AskBoard closed, with its own `$id`, `urn:askboard:output:closed-event`: its cursor, `type: "closed"` and `reason: "agent-finished"`. An agent's own close is reported in its call's result and is not an event (AD-3, AD-10).
+The output format SHALL define the event that closes an ask AskBoard closed, with its own `$id`, `urn:askboard:output:closed-event`: its cursor, `type: "closed"` and `reason: "agent-finished"`, in the output format's set at the ask lifecycle's minor 1.1 and among `collect`'s events. An agent's own close is reported in its call's result and is not an event. The mod's poll SHALL carry any event `collect` returns (AD-3, AD-10).
 
 #### Scenario: A closed event validates
 - **WHEN** the fixture closed event is validated
 - **THEN** it passes, and the same event with reason `agent` fails
+
+#### Scenario: A closed event in a collect result
+- **WHEN** a `collect` result holds a closed event
+- **THEN** it validates against the collect result's schema
+
+#### Scenario: The lifecycle's events in a poll
+- **WHEN** a poll response carries a postponed event of the ask lifecycle
+- **THEN** it validates, and an event of a type `collect` does not return fails
 
 ### Requirement: Closed board for a finished subagent
 The board protocol's `closed` message SHALL take the reason `agent-finished` beside the ask lifecycle's `agent`, in the ask lifecycle's minor 1.1, which has not shipped, so that a board shows an ask AskBoard closed because its owning subagent finished (AD-10, FR-6).

@@ -56,6 +56,16 @@ describe("push delivery's schemas", () => {
     }
   });
 
+  test("the closed event is the output format's own since the ask lifecycle: in its set and the ID table", () => {
+    const closed = "urn:askboard:output:closed-event";
+    expect(PUSH_SCHEMAS.map(idOf)).not.toContain(closed);
+    expect(SCHEMA_IDS.closedEvent).toBe(closed);
+    const output = SCHEMA_SETS.find((set) => set.name === "output");
+    expect(output?.schemas.map(idOf)).toContain(closed);
+    const event = { cursor: "k3x9.3", type: "closed", reason: "agent-finished" };
+    expect(validateAgainst(closed, event)).toEqual({ ok: true, value: event });
+  });
+
   test("none is in a schema set or the ID table, so E1's shared validator does not know them", () => {
     const listed = new Set([
       ...SCHEMA_SETS.flatMap((set) => set.schemas.map(idOf)),

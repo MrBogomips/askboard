@@ -64,17 +64,8 @@
       "additionalProperties": false
     },
     "event": {
-      "oneOf": [
-        {
-          "$ref": "urn:askboard:output:answer-event"
-        },
-        {
-          "$ref": "urn:askboard:output:discarded-event"
-        },
-        {
-          "$ref": "urn:askboard:output:closed-event"
-        }
-      ]
+      "description": "One event of the ask's log, any kind collect returns.",
+      "$ref": "urn:askboard:tool-envelopes:collect-result#/$defs/event"
     },
     "pending": {
       "description": "An open ask, not closed or discarded, with at least one question for which the agent has received neither an answer nor a decline (EXPERIENCE, Counting): its title, who asked (the origin's label and the agent's name), how many such questions, its board link and its owner's agent_id.",

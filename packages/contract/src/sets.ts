@@ -59,4 +59,6 @@ export const SCHEMA_IDS = {
   fetchPage: "urn:askboard:tool-envelopes:fetch-page",
   fetchOutcome: "urn:askboard:tool-envelopes:fetch-outcome",
   draftRecord: "urn:askboard:board-protocol:draft-record",
+  // Push delivery's closed event, in the output format's 1.1 since the ask lifecycle (task 14.5).
+  closedEvent: "urn:askboard:output:closed-event",
 } as const;

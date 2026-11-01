@@ -1,14 +1,14 @@
 // Push delivery's messages outside the local API (design decisions 1, 8 and 12): the push message
-// and the `closed` event of the output format (owner `contract`), and the board protocol's
-// presence, origin and agent messages (owner `board-host`). Their schemas are standalone: each
-// group below names the set it will join and that set's version, and is in no set until then.
+// of the output format (owner `contract`), whose `closed` event joined the output format's own set
+// with the ask lifecycle (task 14.5), and the board protocol's presence, origin and agent messages
+// (owner `board-host`). Their schemas are standalone: each group below names the set it will join
+// and that set's version, and is in no set until then.
 
 import { BOARD_PROTOCOL_VERSION } from "../schemas/board-protocol/index.ts";
 import { type AskState, OUTPUT_FORMAT_VERSION } from "../schemas/output/index.ts";
 import type { CollectAskEntry } from "../schemas/tool-envelopes/index.ts";
 import type { SchemaSet } from "../versions.ts";
 import agent from "./agent.json" with { type: "json" };
-import closedEvent from "./closed-event.json" with { type: "json" };
 import origin from "./origin.json" with { type: "json" };
 import presence from "./presence.json" with { type: "json" };
 import pushMessage from "./push-message.json" with { type: "json" };
@@ -19,7 +19,7 @@ export const pushOutputSchemas: SchemaSet = {
   title: "output format",
   owner: "contract",
   version: OUTPUT_FORMAT_VERSION,
-  schemas: [pushMessage, closedEvent],
+  schemas: [pushMessage],
 };
 
 /** The board protocol's new messages, at the board protocol's version. */
@@ -50,12 +50,8 @@ export type PushMessage = {
 export const pushMessageText = (message: PushMessage): string =>
   `${PUSH_MESSAGE_PREFACE}\n${JSON.stringify(message)}`;
 
-/** The one reason AskBoard closes an ask itself: its owner, a subagent, finished. */
-export type ClosedEvent = {
-  readonly cursor: string;
-  readonly type: "closed";
-  readonly reason: "agent-finished";
-};
+/** The closed event, the output format's since the ask lifecycle (task 14.5). */
+export type { ClosedEvent } from "../schemas/output/index.ts";
 
 /** Board page to `board-host`: the board's working signal (AD-2). */
 export type PresenceMessage = {

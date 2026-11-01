@@ -2,12 +2,14 @@
 // results. E1 defined the answer event of finding F4 with AD-20's generic diff, the discarded event,
 // the no-hooks warning and the outcomes `unavailable` and `open`; E3's minor adds the answer's
 // "Other…" text, option notes, declines and revisions, the lifecycle events, the states AD-10 lists
-// and the outcomes of collect, update and fetch (ask-lifecycle, design decision 2). The closed event
-// is push-delivery's. It holds no AXFX term (FR-18).
+// and the outcomes of collect, update and fetch (ask-lifecycle, design decision 2). Push delivery adds
+// to that minor the closed event, which ends an ask AskBoard closed because its owning subagent
+// finished (task 14.5). It holds no AXFX term (FR-18).
 
 import type { SchemaSet } from "../../versions.ts";
 import answerEvent from "./answer-event.json" with { type: "json" };
 import askState from "./ask-state.json" with { type: "json" };
+import closedEvent from "./closed-event.json" with { type: "json" };
 import cursor from "./cursor.json" with { type: "json" };
 import discardedEvent from "./discarded-event.json" with { type: "json" };
 import editChoiceEvent from "./edit-choice-event.json" with { type: "json" };
@@ -45,6 +47,7 @@ export const outputFormat: SchemaSet = {
     noteEvent,
     followUpEvent,
     editChoiceEvent,
+    closedEvent,
   ],
 };
 
@@ -105,6 +108,16 @@ export type DiscardedEvent = {
   readonly reason: DiscardReason;
 };
 
+/**
+ * The final event of an ask AskBoard closed because the subagent that owns it finished (push
+ * delivery, AD-10): an agent's own close is reported in its call's result and is no event.
+ */
+export type ClosedEvent = {
+  readonly cursor: string;
+  readonly type: "closed";
+  readonly reason: "agent-finished";
+};
+
 export type OutputEvent =
   | AnswerEvent
   | DiscardedEvent
@@ -112,7 +125,8 @@ export type OutputEvent =
   | ReopenedEvent
   | NoteEvent
   | FollowUpEvent
-  | EditChoiceEvent;
+  | EditChoiceEvent
+  | ClosedEvent;
 
 export type Warning = { readonly code: "no-hooks"; readonly message: string };
 

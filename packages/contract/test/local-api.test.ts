@@ -229,15 +229,16 @@ describe("the stop decision (design decisions 2 and 8)", () => {
 describe("the mod's poll (design decision 2)", () => {
   const poll = messages.pollResponse;
 
-  test("lists every kind of event with its cursor: an answer, a discard and a close", () => {
+  test("lists every kind of event collect returns, with its cursor: an answer, the lifecycle's, a discard and a close", () => {
     const events = [
       answer,
-      { cursor: "k3x9.2", type: "discarded", reason: "session-exit" },
-      { cursor: "k3x9.3", type: "closed", reason: "agent-finished" },
+      { cursor: "k3x9.2", type: "postponed", itemId: "database", rev: 1 },
+      { cursor: "k3x9.3", type: "discarded", reason: "session-exit" },
+      { cursor: "k3x9.4", type: "closed", reason: "agent-finished" },
     ];
-    const asks = [{ askId, state: "discarded", cursor: "k3x9.3", events }];
+    const asks = [{ askId, state: "discarded", cursor: "k3x9.4", events }];
     expect(validateLocalApi("pollResponse", { ...poll, asks }).ok).toBe(true);
-    const unknown = [{ ...asks[0], events: [{ cursor: "k3x9.4", type: "postponed" }] }];
+    const unknown = [{ ...asks[0], events: [{ cursor: "k3x9.5", type: "telemetry" }] }];
     expect(validateLocalApi("pollResponse", { ...poll, asks: unknown }).ok).toBe(false);
   });
 
