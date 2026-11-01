@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-10-31'
+updated: '2026-11-01'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -23,6 +23,8 @@ sources:
   - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
   - 'OpenSpec change compute-engine, proposal.md, open question 2: compute writes the PERT and CPM expressions (accepted by the PO, 2026-10-31)'
   - 'OpenSpec change tree-widget: widget chunks in the view build, and the generic element diff in contract with its keyed shapes (2026-10-31)'
+  - 'OpenSpec change widget-answers: when the changes of an answer are computed, the answer too large for one result, and fetch in reference addressing (2026-11-01)'
+  - 'OpenSpec change molecules, proposal.md, open questions 3 to 7, 11 and 14: the molecule definition format, the expansion and its map, where per-molecule schemas live, and linked edits in one draft update (accepted by the PO, 2026-11-01)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -193,8 +195,8 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - `snapshot`: `destructiveHint: false`.
   - **Schemas and validation:**
     - Input schemas are generic JSON Schema 2020-12. Every item is `{type, id, props}`: a `type` discriminator, the item's ID and an object of props. A molecule reference is such an item (AD-9). There is no root `anyOf`/`oneOf`/`allOf`, and top-level property names are 1–64 characters from `[A-Za-z0-9_.-]`.
-    - Per-widget and per-molecule schemas, and the asking-rule predicates, exist only in `contract`. Tool definitions never include them.
-    - The skills' reference files, examples and asking-rule texts are generated from `contract` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
+    - Per-widget schemas, the molecule reference and definition formats, and the asking-rule predicates exist only in `contract`. Each ready-made molecule's parameter schema is part of its definition, data in `molecules` written in `contract`'s definition format. Tool definitions never include any of them.
+    - The skills' reference files, examples and asking-rule texts are generated from `contract` and `molecules` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
       - A request the agent must fix returns `isError` text naming the item ID and the expected shape, under 4,000 characters, with the first problems first.
       - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14).
@@ -303,7 +305,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Components:**
     - Atoms, layouts and widgets are catalog components registered through one `CatalogRenderer` port. No widget imports the renderer behind the port, which is AskBoard's own.
-    - A component renders from the board document, the draft record (AD-20) and the compute graph alone, with no network and no server call. It keeps no edit state of its own: every edit goes into the draft record.
+    - A component renders from the board document, the draft record (AD-20) and the compute graph alone, with no network and no server call. It keeps no edit state of its own: every edit goes into the draft record. An edit that the board's links carry into another item of the same question, such as a work package added in a WBS that a Gantt plan schedules, goes into the draft record for both items in one update.
     - User actions leave a component only as typed view messages, which the board page turns into board-protocol commands.
     - A component is ready when its asynchronous work has settled and its content has been laid out once. A question counts as visible when all its items are ready. A container that hides items, such as Tabs, still mounts them, hidden, so they report ready.
     - Each item renders inside an error boundary. An item that throws shows an error state and reports the error to the board page, and its question never counts as visible (AD-10).
@@ -315,9 +317,9 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The view boots from the `askboard-data` block when there is one. It starts the view-protocol handshake only when it has a parent host. A Snapshot, which has none, carries no view-protocol code (ext-apps' `App`).
   - **Molecules:**
     - Ready-made molecules are input-format data, not code.
-    - A molecule reference is an item `{type: "molecule", id, props: {molecule, version, data}}`, with `version` optional. A molecule declares its parameters as JSON Schema and, for each parameter, the JSON Pointers in its composition that the parameter fills.
-    - `ask-core` expands a reference when the ask or update is sent, through the `MoleculeSource` port. Expansion prefixes every internal item ID with `<id>__` and rewrites the molecule's references to match. It refuses an expansion whose IDs exceed 64 characters.
-    - Answers and warnings address a molecule's content through the reference's ID and the child IDs of its data (`wbs.portal.label`), never through the expanded IDs, and carry no `molecule` field: `ask-core` maps between the two. A reference without `version` gets the highest shipped version of the current major.
+    - A molecule reference is an item `{type: "molecule", id, props: {molecule, version, data}}`, with `version` optional. A molecule's definition names the version of the definition format it follows, and declares its parameters as JSON Schema, its composition and, for each parameter, the JSON Pointers in its composition that the parameter fills. A fill copies the parameter's value or applies one of the format's declarative forms: naming an item of the ask, turning an object's values into entries of one field, or leaving out named keys. No fill evaluates anything. `contract` holds the format; `molecules` holds the ready-made definitions.
+    - `ask-core` expands a reference when the ask or update is sent, through the `MoleculeSource` port. Expansion prefixes every internal item ID with `<id>__` and rewrites the molecule's references to match: a parameter that names a molecule reference of the ask names that reference's expanded item. It refuses an expansion whose IDs exceed 64 characters or repeat an item ID of the ask, or whose expanded items fail their widgets' checks. The board document holds the expanded items, never the reference; `ask-core` keeps, beside it, which expanded item belongs to which reference.
+    - Answers, warnings and `fetch` results address a molecule's content through the reference's ID and the child IDs of its data (`wbs.portal.label`), never through the expanded IDs, and carry no `molecule` field: `ask-core` maps between the two. `fetch` of a reference returns its expanded item, as the user left it, under the reference's ID, with each value the expansion filled with an expanded ID naming the reference again. In the first version of the format a composition holds one item, whose addresses are its reference's. A reference without `version` gets the highest shipped version of the current major; one with a version, the shipped version of that major at or above it. AskBoard ships one version per major of a molecule.
     - The sales-estimate-review molecule takes an optional `minimumMargin`. Without it, the project default `defaultMinimumMargin` applies (AD-14); with neither, the board shows no margin warning.
 
 ### AD-10 — Fail closed [ADOPTED]
@@ -542,7 +544,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Answers:**
     - A view answer message carries the item's full edited value in its input-format shape, plus its derived values.
     - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. `contract` holds both the format and the pure function that computes it from the sent and the edited value, generic over ID-keyed elements in a flat list, a tree or an object keyed by element ID, each widget declaring only its shape; `ask-core` is the only unit that calls it at run time. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, each omitted when there is none: the top level, the first position. Elements in an object keyed by element ID change only by `set`s, one per changed field, with `null` for a field or an element that is gone. Widgets never emit diffs.
-    - `ask-core` stores the full edited value; `fetch` and Snapshots read it.
+    - `ask-core` stores the full edited value; `fetch` and Snapshots read it. It computes an answer's `changes` once, when it appends the answer, from the revision the answer names, so a revised answer's `changes` are again from what the agent sent, never from the answer it replaces. An answer whose `changes` and derived values would not fit one result is logged without them, marked `tooLarge`, and `fetch` returns them (FR-20).
     - A later answer to the same question is a new event that names the `seq` it replaces. The latest answer per question wins.
     - **Decline:** `declined` is an answer kind, carrying the optional reason from the question's open prompt. Like an answer, it closes the question (AD-10), names the question's `rev`, follows the delivery mode and is superseded by a later answer or decline. The shipped skills tell the agent not to ask a declined question again within its task; nothing about it outlives the ask (AD-14, FR-25).
     - **Reopening:** undoing a postpone or a decline that has been sent (it is in the log) appends the event "question reopened by the user", which `collect` and the mod deliver like any other (AD-3). Undoing one still held only removes it from the draft record.
