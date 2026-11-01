@@ -107,7 +107,7 @@ The contract SHALL read a number typed in the ask's locale and return a number, 
 - **THEN** it reads as 1234.5, and its echo is `= 1234.5`
 
 ### Requirement: Date entry in the ask's locale
-The contract SHALL read a calendar date typed in the ask's locale, in en-US as `M/D/YYYY` and in it-IT as `D/M/YYYY`, and in both as `YYYY-MM-DD`, and SHALL refuse a day that does not exist. The echo SHALL name the weekday in the ask's language.
+The contract SHALL read a calendar date typed in the ask's locale, in en-US as `M/D/YYYY` and in it-IT as `D/M/YYYY`, and in both as `YYYY-MM-DD`, and SHALL refuse a day that does not exist, with a reason in the ask's language. The echo SHALL name the weekday as the ask's locale writes a long date.
 
 #### Scenario: An Italian date
 - **WHEN** `9/12/2026` is read in it-IT

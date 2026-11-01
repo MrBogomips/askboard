@@ -40,11 +40,15 @@ The settings in effect SHALL take each key from the project file when it sets th
 - **THEN** both apply
 
 ### Requirement: An invalid file is never half-applied
-A file that is not JSON, fails the configuration schema or names an unsupported major version SHALL contribute no key. The session process SHALL write a diagnostic to stderr naming the file and the problem, and the settings SHALL record the file as not applied with that problem (AD-14, NFR-10). An unknown key SHALL be a warning and SHALL not stop the file applying.
+A file that cannot be read, is not JSON, fails the configuration schema or names an unsupported major version SHALL contribute no key. The session process SHALL write a diagnostic to stderr naming the file and the problem, and the settings SHALL record the file as not applied with that problem (AD-14, NFR-10). An unknown key SHALL be a warning and SHALL not stop the file applying.
 
 #### Scenario: One bad value voids the whole file
 - **WHEN** the project file sets `askingRule` to `always` and `theme` to `"sepia"`
 - **THEN** neither key applies, the asking rule in effect comes from the user file or is `none`, and stderr names `.askboard/config.json` and `/theme`
+
+#### Scenario: A file that cannot be read
+- **WHEN** the user file's place holds a directory, a named pipe or a file over 1 MiB
+- **THEN** it counts as a file that cannot be read: no key of it applies, the settings record it as not applied, and the session process never opens it
 
 #### Scenario: A file from a newer major
 - **WHEN** the user file names `version` `2.0`
@@ -55,7 +59,7 @@ A file that is not JSON, fails the configuration schema or names an unsupported 
 - **THEN** `theme` applies, and the settings carry a warning naming `fontSize`
 
 ### Requirement: The editor comes from the user file only
-`editor` SHALL be read only from the user file. A project-level `editor` SHALL be ignored with a warning, whatever the user file holds (AD-8, AD-14). An `editor` in a user file, or a folder above it, that another user can write or that the user does not own SHALL also be ignored with a warning.
+`editor` SHALL be read only from the user file. A project-level `editor` SHALL be ignored with a warning, whatever the user file holds (AD-8, AD-14). An `editor` in a user file, or a folder above it, that another user can write, that the user does not own, or whose owner and mode cannot be read SHALL also be ignored with a warning.
 
 #### Scenario: A project file names a command
 - **WHEN** the project file sets `editor` to `["sh", "-c", "curl evil"]` and the user file sets none
@@ -118,7 +122,7 @@ When an ask is accepted, `ask-core` SHALL fix its language as the ask's `languag
 - **THEN** the ask's language and locale are `en-US`
 
 ### Requirement: The project folders at the first ask
-When a session's first ask is accepted, the session process SHALL create under the session project root `.askboard/`, `snapshots/`, `media/` and `patches/` when missing, and `.askboard/.gitignore` listing `snapshots/`, `media/`, `patches/` and `bench/` only when it creates that file (AD-14, FR-27). A failure SHALL be a diagnostic and SHALL not refuse the ask.
+When a session's first ask is accepted, the session process SHALL create under the session project root `.askboard/`, `snapshots/`, `media/` and `patches/` when missing, and `.askboard/.gitignore` listing `snapshots/`, `media/`, `patches/` and `bench/` only when it creates that file (AD-14, FR-27). A `.askboard` that is a symbolic link or not a folder SHALL be a failure, and nothing SHALL be created through it. A failure SHALL be a diagnostic and SHALL not refuse the ask.
 
 #### Scenario: A fresh project
 - **WHEN** a project has no `.askboard/` and its session accepts a first ask
@@ -131,3 +135,7 @@ When a session's first ask is accepted, the session process SHALL create under t
 #### Scenario: A read-only project
 - **WHEN** the project root cannot be written and a first ask arrives
 - **THEN** the ask is accepted, and stderr says that `.askboard/` could not be created
+
+#### Scenario: A .askboard that leads out of the project
+- **WHEN** `.askboard` is a symbolic link to a folder outside the project and a first ask arrives
+- **THEN** the ask is accepted, nothing is created in that folder, and stderr says that `.askboard/` could not be created

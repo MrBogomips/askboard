@@ -88,11 +88,18 @@ type Replace = { kind: "write"; text: string } | { kind: "refuse"; reason: Refus
 
 The adapter, `packages/server/src/config-files.ts`, sits beside `identity.ts` among AD-1's entry-point files, so the import rules need no change. It resolves the paths once (decision 4), reads with `lstat` and `stat` to report `othersCanWrite` (group or world write on the file or its folder, or another owner), and replaces the user file by: resolving a symlink to its target; re-reading the target; calling `change`; on `write`, creating the folder `0700` when missing, writing `<target>.<random>.tmp` with mode `0600` (or the existing file's mode), `fsync`, `rename` over the target, then `fsync` of the folder; removing the temporary file on any failure. It never follows a symlink for the temporary name and never writes outside the target's folder.
 
+As built before group 0 (commits 9829f6a, 642b97b, 09bd7a7):
+
+- **Results.** `WriteResult` is `{kind: "written", path}`, `{kind: "refused", reason}` with the transform's reason, or `{kind: "failed", path?, code}`, where `path` is the file that could not be written and `code` the error's (`EACCES`, `EEXIST`, …), or `no-user-file`, with no path, when neither `XDG_CONFIG_HOME` nor `HOME` gives a user file. `FolderResult` is decision 13's.
+- **Local types until 3.1 and 4.6.** `config-files.ts` declares `FileRead`, `Replace`, `WriteResult` and `FolderResult` itself, with the shapes above, because `ask-core`'s port does not exist yet; task 3.1 declares them in `packages/core/src/config/ports.ts`, and task 4.6 makes the adapter import them from `@askboard/core`. Until 3.1 types the refusal codes, `Replace`'s `reason` is a string.
+- **`othersCanWrite`** looks at the real file, its folder and, for a symbolic link, the link's own folder. A status that cannot be read counts as writable by others, so an `editor` from that file is ignored (B4).
+
 ### 4. Reading, merging and failing closed (A1, A2, B2)
 
 - **Paths**: the project file is `<realpath(CLAUDE_PROJECT_DIR)>/.askboard/config.json`, and none without the variable (AD-12). The user file is `$XDG_CONFIG_HOME/askboard/config.json` when `XDG_CONFIG_HOME` is absolute, else `$HOME/.config/askboard/config.json` when `HOME` is absolute, else none. The panel shows the user path with `~` for `HOME`.
 - **When**: `ask-core` reads both on the first call that needs a setting (the first ask, `/v1/rule`, a board's connect) and memoises the result; nothing runs before the first request after `server/discover` (AD-2). That is the session's "start" for AD-14's next-session rule.
 - **Per file**: absent means no keys. Unreadable, not JSON, a `version` whose major is not 1, or a schema failure means the file is **not applied**: none of its keys count, and the reason is kept as `{code, pointer?}` (`unreadable`, `not-json`, `version`, `schema`) for the stderr diagnostic and the panel. A file that passes contributes its known keys; each unknown key is a warning `{code: "unknown-key", file, key}`.
+- **What the adapter reads** (as built before group 0, commit 9829f6a): it `stat`s through a symbolic link first, so a directory (`EISDIR`), a named pipe or any other non-file (`ENOTFILE`) and a file over 1 MiB (`EFBIG`) are unreadable and never opened; `ENOENT`, a dangling link included, is absent; any other error is unreadable with its code, or `EIO` when it has none.
 - **Merge**: for each key, the project value, else the user value, else the default (`CONFIGURATION_DEFAULTS`). `editor` and `snapshotFolder` then pass decision 5. The result is the **settings in effect**, each key with `from` (`project`, `user`, `default`), the other file's value when both set it, and its warnings.
 - **Diagnostics** go to stderr once per session, naming the file path, the code, the JSON pointer and Ajv's keyword, never a value of `editor`. Nothing is added to tool results (A1).
 
@@ -132,9 +139,17 @@ The adapter, `packages/server/src/config-files.ts`, sits beside `identity.ts` am
 | Date entry | `M/D/YYYY` or `YYYY-MM-DD` | `G/M/AAAA` or `AAAA-MM-GG` |
 | Date echo | `= Wed, Dec 9, 2026` | `= mer 9 dic 2026` |
 
-- A calendar date is split from its `YYYY-MM-DD` text and its weekday computed arithmetically; it never becomes a `Date` in a time zone (AD-7). A time is an RFC 3339 instant shown at an offset the view takes from `new Date(instant).getTimezoneOffset()`, which is the viewer's time zone.
+- A calendar date is split from its `YYYY-MM-DD` text and its weekday computed arithmetically; it never becomes a `Date` in a time zone (AD-7). A time is an RFC 3339 instant shown at an offset in minutes east of UTC, as RFC 3339 writes it (`+01:00` is 60), which the view takes as the negated `new Date(instant).getTimezoneOffset()`, the viewer's time zone.
 - The it-IT number rules mirror the Tree's en-US parser (`tree-widget`, `packages/widgets/src/shared/number.ts`) with the two marks swapped: no exponent, one leading sign, digits, `.` only in groups of three after a first group of one to three digits, one `,` with digits on both sides. Each refusal names the first rule broken, with an example in that locale. The en-US reasons stay word for word.
 - Currency symbols are the table's (`EUR` €, `USD` $, `GBP` £); any other code shows as the code. Minor units come from the table (`JPY` 0, default 2).
+
+As built before group 0 (commits d7a0af1 and b395c75), which refines decision 2's list:
+
+- **Formats:** `formatNumber(value, locale, {minFraction?, maxFraction?})`, `formatPercent(ratio, locale, {minFraction?, maxFraction?})`, `formatMoney(amount, currency, locale)`, `formatDate(fullDate, locale)`, `formatLongDate(fullDate, locale)`, `formatTime(instant, offsetMinutes, locale)`, `formatDateTime(instant, offsetMinutes, locale)`, and `formatAxisLabel(fullDate, zoom, locale)` with the zooms `day`, `week` and `month` (`Mon 2`, `Nov 2`, `Nov 2026`), for the table's Gantt axis row, which decision 2 named no function for.
+- **Entry:** `parseNumber(input, locale, language = locale)` and `parseDate(input, locale, language = locale)`. The optional `language` is the ask's language, because a refusal's reason is in the ask's language while the rules and the example follow its locale; an en-US ask with `locale` `it-IT` reads "Use periods only between groups of three digits, as in 1.234,5." A refusal is `{kind: "refused", code, reason}`, with the codes `exponent`, `character`, `sign`, `no-digits`, `decimal-marks`, `decimal-sides`, `grouping` and `too-large` for numbers, and `format`, `no-year`, `month` and `day` for dates.
+- **Echo:** `plainNumber(value, locale)` writes a number with no grouping and no exponent (`1234,5`), the Tree's `formatNumber` per locale, which the parser reads back; it is a name of its own because `formatNumber` groups. `numberEcho(value, locale)` is `= ` and that text, and `dateEcho(fullDate, locale)` is `= ` and the long date in the locale.
+- **Short dates:** en-US writes no leading zeros (`12/9/2026`, the Gantt grid's form), it-IT two digits for the day and the month (`09/12/2026`, A7).
+- **Date reasons:** the en-US ones are the Gantt's (`gantt-widget`, `gantt/model/date.ts` at 1d05f07) word for word, without its range check, which stays the Gantt's, so task 9.2 delegates with its tests unchanged; the it-IT ones mirror them ("Novembre 2026 non ha il giorno 31"). They differ from the UX draft's block 2 row "Number and date entry" ("Type a date as 12/9/2026 or 2026-12-09.", "There is no such day."). The PO decides; the default is the Gantt's wording, with that row amended.
 
 ### 9. Strings (A9, B9, B13)
 
@@ -162,6 +177,8 @@ The adapter, `packages/server/src/config-files.ts`, sits beside `identity.ts` am
 ### 13. The project folders (A4)
 
 On the first accepted ask, `ask-core` calls `ensureProjectFolders()` once and reports a failure through `Report`. The adapter creates, under the session project root only, `.askboard/` and `snapshots/`, `media/`, `patches/` when missing (`mkdir` without `recursive` on the root itself, so a missing root is an error), and writes `.askboard/.gitignore` with `ASKBOARD_GITIGNORE` using an exclusive create, so an existing file is never touched. `bench/` is the benchmark's (early-benchmark design.md:190). A configured `snapshotFolder` elsewhere is created by the Snapshot writer at the first Snapshot, and AskBoard does not add it to any `.gitignore`.
+
+As built before group 0 (commit 09bd7a7), in `packages/server/src/project-folders.ts`: `FolderResult` is `{kind: "ready", created}`, listing what this call created relative to the project root, `{kind: "no-project"}` without a session project root, or `{kind: "failed", path, code}`. A `.askboard` that is a symbolic link, or not a folder, fails with `ENOTDIR`, and nothing is created through it, so no folder lands outside the project.
 
 ### 14. Tests (B16, B17)
 

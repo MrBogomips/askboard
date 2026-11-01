@@ -4,6 +4,11 @@ Nine blocks, each for one of the proposal's open questions in group A. A block a
 
 **Accepted, not applied yet.** The PO accepted every block on 2026-11-01 (decisions-5: open questions A1 and A7 to A10, as proposed); task 11.2 applies them.
 
+**Open before 11.2** (recorded before group 0, on 2026-11-01):
+
+- The date refusal texts in block 2's row "Number and date entry" differ from those built in task 2.4, which follow the Gantt's `gantt/model/date.ts` at 1d05f07 ("Write the date as month/day/year, as in 12/9/2026", "November 2026 has no day 31", and their Italian mirror). The PO decides; the default is the Gantt's wording, with that row amended (design decision 8).
+- Block 2 needs rows for three strings the view shows on `main`, which task 7.1's catalogue holds with provisional Italian: "The board could not be loaded: {reason}" ("Impossibile caricare la board: {reason}"), "This item could not be shown." ("Impossibile mostrare questo elemento.") and "Loading" ("Caricamento").
+
 Files: `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 8) and `docs/ux-askboard-2026-10-27/DESIGN.md` (block 9). Both win over the mockups, which are not changed: the settings mock's sample files and the missing key names are superseded by blocks 5 and 9.
 
 How to apply: replace each quoted passage, then run `openspec validate --all --strict --no-interactive`. E5's UX draft also edits the Voice and Tone rows "Context column" and "Reading panel" (its block 4) and Open Items 20 (its block 6.2): if those are applied first, keep their English cells, set the Italian cells as below, and quote block 8's E5 variant.
