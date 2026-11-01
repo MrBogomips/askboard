@@ -12,12 +12,14 @@ import {
 } from "@askboard/contract";
 import type { Refused } from "./refused.ts";
 
+// The patterns run on lines an agent can write, up to the anchor limit: each must take linear time.
+// `s` lets `.` take U+2028 and U+2029 too, so `(.*)$` always matches and nothing backtracks
+// (security review, finding R1).
+
 // An ATX heading: up to three spaces, one to six `#`, then a space, a tab or the line's end.
-const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/;
-// A closing run of `#`, alone or after a space or a tab, with any blanks after it.
-const CLOSING_RUN = /(?:^|[ \t]+)#+[ \t]*$/;
+const HEADING = /^ {0,3}(#{1,6})(?:[ \t](.*))?$/s;
 // A fence: up to three spaces, then three or more backticks or tildes, and an info string.
-const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/s;
 // A closing fence: the same character, a run at least as long, and nothing after it but blanks.
 const CLOSING_FENCE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
 // Letters, digits, `-`, `_` and `.`: an ID's neighbours, so `FR-8` is neither `FR-80` nor `XFR-8`.
@@ -40,6 +42,17 @@ const closesFence = (line: string, fence: Fence): boolean => {
   return run?.startsWith(fence.char) === true && run.length >= fence.length;
 };
 
+// A heading's text without its closing run of `#`, which stands alone or after a space or a tab;
+// `text` is trimmed. Scanned by hand, from the end, in linear time.
+const withoutClosingRun = (text: string): string => {
+  let start = text.length;
+  while (start > 0 && text[start - 1] === "#") start -= 1;
+  if (start === text.length) return text;
+  if (start === 0) return "";
+  const before = text[start - 1];
+  return before === " " || before === "\t" ? text.slice(0, start).trim() : text;
+};
+
 /** The ATX headings outside fenced code, with their text trimmed and closing run dropped. */
 const headingsOf = (lines: readonly string[]): Heading[] => {
   const headings: Heading[] = [];
@@ -52,7 +65,7 @@ const headingsOf = (lines: readonly string[]): Heading[] => {
     fence = opensFence(line);
     const match = fence === undefined ? HEADING.exec(line) : null;
     if (match?.[1] === undefined) return;
-    const text = (match[2] ?? "").trim().replace(CLOSING_RUN, "").trim();
+    const text = withoutClosingRun((match[2] ?? "").trim());
     headings.push({ line: index + 1, level: match[1].length, text });
   });
   return headings;

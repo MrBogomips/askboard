@@ -185,3 +185,29 @@ describe("an excerpt's text and its limits (proposal A11)", () => {
     expect(excerptOf(two, { start: 1, end: 2 })).toEqual({ refused: "too-large" });
   });
 });
+
+describe("hostile lines take linear time (security review, finding R1)", () => {
+  // A line the section finder reads, in a Markdown file the agent can write: each of these took
+  // quadratic time in the regular expressions, about 0.23 s at 20,000 characters, so a 4 MiB line
+  // would freeze the session process for hours.
+  const LONG = 100_000;
+  const blanks = " ".repeat(LONG);
+
+  test.each([
+    ["a heading whose blanks end in no closing run", `# x${blanks}y`],
+    ["a heading whose blanks end in a line separator", `#${blanks} `],
+    ["a heading of tabs and #", `# a${"\t#".repeat(LONG / 2)}b`],
+    ["a run of backticks ending in a line separator", `${"`".repeat(LONG)} `],
+    ["a run of tildes ending in a paragraph separator", `${"~".repeat(LONG)} `],
+  ] as const)("%s", (_, line) => {
+    const started = performance.now();
+    findAnchor([line, "## Next", "x"], name("Next"), true);
+    findAnchor(["```", line, "```", "## Next"], name("Next"), true);
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+
+  test("a line separator inside a heading stays part of its text", () => {
+    expect(inMarkdown(["# A B", "x"], "A B")).toEqual({ start: 1, end: 2 });
+    expect(inMarkdown(["``` ", "# In", "```", "# Out"], "In")).toBeUndefined();
+  });
+});
