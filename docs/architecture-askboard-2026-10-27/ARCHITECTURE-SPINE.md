@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-10-31'
+updated: '2026-11-01'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -23,6 +23,7 @@ sources:
   - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
   - 'OpenSpec change compute-engine, proposal.md, open question 2: compute writes the PERT and CPM expressions (accepted by the PO, 2026-10-31)'
   - 'OpenSpec change tree-widget: widget chunks in the view build, and the generic element diff in contract with its keyed shapes (2026-10-31)'
+  - 'OpenSpec change widget-answers: when the changes of an answer are computed, the answer too large for one result, and fetch in reference addressing (2026-11-01)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -317,7 +318,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Ready-made molecules are input-format data, not code.
     - A molecule reference is an item `{type: "molecule", id, props: {molecule, version, data}}`, with `version` optional. A molecule declares its parameters as JSON Schema and, for each parameter, the JSON Pointers in its composition that the parameter fills.
     - `ask-core` expands a reference when the ask or update is sent, through the `MoleculeSource` port. Expansion prefixes every internal item ID with `<id>__` and rewrites the molecule's references to match. It refuses an expansion whose IDs exceed 64 characters.
-    - Answers and warnings address a molecule's content through the reference's ID and the child IDs of its data (`wbs.portal.label`), never through the expanded IDs, and carry no `molecule` field: `ask-core` maps between the two. A reference without `version` gets the highest shipped version of the current major.
+    - Answers, warnings and `fetch` results address a molecule's content through the reference's ID and the child IDs of its data (`wbs.portal.label`), never through the expanded IDs, and carry no `molecule` field: `ask-core` maps between the two. `fetch` of a reference returns its expanded item, as the user left it, under the reference's ID, with each value the expansion filled with an expanded ID naming the reference again. A reference without `version` gets the highest shipped version of the current major.
     - The sales-estimate-review molecule takes an optional `minimumMargin`. Without it, the project default `defaultMinimumMargin` applies (AD-14); with neither, the board shows no margin warning.
 
 ### AD-10 — Fail closed [ADOPTED]
@@ -542,7 +543,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Answers:**
     - A view answer message carries the item's full edited value in its input-format shape, plus its derived values.
     - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. `contract` holds both the format and the pure function that computes it from the sent and the edited value, generic over ID-keyed elements in a flat list, a tree or an object keyed by element ID, each widget declaring only its shape; `ask-core` is the only unit that calls it at run time. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, each omitted when there is none: the top level, the first position. Elements in an object keyed by element ID change only by `set`s, one per changed field, with `null` for a field or an element that is gone. Widgets never emit diffs.
-    - `ask-core` stores the full edited value; `fetch` and Snapshots read it.
+    - `ask-core` stores the full edited value; `fetch` and Snapshots read it. It computes an answer's `changes` once, when it appends the answer, from the revision the answer names, so a revised answer's `changes` are again from what the agent sent, never from the answer it replaces. An answer whose `changes` and derived values would not fit one result is logged without them, marked `tooLarge`, and `fetch` returns them (FR-20).
     - A later answer to the same question is a new event that names the `seq` it replaces. The latest answer per question wins.
     - **Decline:** `declined` is an answer kind, carrying the optional reason from the question's open prompt. Like an answer, it closes the question (AD-10), names the question's `rev`, follows the delivery mode and is superseded by a later answer or decline. The shipped skills tell the agent not to ask a declined question again within its task; nothing about it outlives the ask (AD-14, FR-25).
     - **Reopening:** undoing a postpone or a decline that has been sent (it is in the log) appends the event "question reopened by the user", which `collect` and the mod deliver like any other (AD-3). Undoing one still held only removes it from the draft record.

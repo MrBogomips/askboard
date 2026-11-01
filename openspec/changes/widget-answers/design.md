@@ -121,5 +121,5 @@ None: nothing has been released. Reverting the change returns the sets to E3's 1
 - **The skills capability:** the `askboard` skill the approved `ask` description names, its Tree, Gantt and molecule references generated from the sets this change completes, and AD-6's drift check (proposal, open question 15).
 - **E4 (`push-delivery`):** pushes widget answer events from the same log; the too-large rule keeps each within a result.
 - **E5:** excerpts per work package, which the expansion still omits.
-- **E7:** Snapshots read the stored full values and the logged `changes`; whether a Snapshot's data names expanded IDs or references is E7's.
+- **E7:** Snapshots read the logged `changes` and the stored full values, through the read-only accessor `AskCore.keptAnswerValues(askId)` (task 2.4): per answer event with widget values, by its cursor, the full edited values by item ID in reference addressing, as E7's proposal (open question A2) puts them in `events[].values`. E7 names the requirement ("Widget answers stored in full") and no accessor, so the name is this change's, after E3's `AskCore.keptRevisions(askId)`.
 - **A later UX decision:** an element-level view of the agent's change to a widget (proposal, open question 17).

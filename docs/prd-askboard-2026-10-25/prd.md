@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # PRD: AskBoard
@@ -363,12 +363,13 @@ An agent can name, in an ask, the user expected to answer it. Every answer recor
 
 #### FR-20: Only what changed
 
-For a widget the user edits, the answer carries only what changed from what the agent sent, together with the derived values. The agent can fetch the full result by ask ID and item ID when it needs it.
+For a widget the user edits, the answer carries only what changed from what the agent sent, together with the derived values. The agent can fetch the full result by ask ID and item ID when it needs it. When what changed and the derived values would not fit in one tool result, the answer says so and carries neither, and the agent fetches them.
 
 **Consequences (testable):**
 - In a 200-node WBS where the user changed 3 nodes, the answer describes the 3 changes, not the 200 nodes.
 - The agent can fetch the full edited structure of any answered item while its ask is open; after a revision, it fetches the latest answer's (FR-22).
 - No single answer AskBoard returns exceeds Claude Code's limit on the size of a tool result.
+- When the user changes every node of a 500-node WBS, the answer says that its changes are too large to carry, and the agent fetches the edited WBS and its derived values.
 
 ### 4.6 Question lifecycle
 
