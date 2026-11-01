@@ -8,7 +8,7 @@
 // ECMAScript: the working-day calendar is `compute`'s.
 
 import { firstWorkingDateFrom, workingDaysBetween } from "@askboard/compute";
-import type { BoardContentItem } from "./board-graph.ts";
+import type { BoardWidgetItem } from "@askboard/view/catalog";
 
 /** An input node's address and its new value. */
 export type InputChange = readonly [address: string, value: number];
@@ -81,8 +81,8 @@ const taskChanges = (
 
 /** One item's input changes, or undefined when only a rebuild can take them. */
 const itemChanges = (
-  before: BoardContentItem,
-  after: BoardContentItem,
+  before: BoardWidgetItem,
+  after: BoardWidgetItem,
 ): readonly InputChange[] | undefined => {
   if (before.type !== after.type || before.id !== after.id) return undefined;
   if (before.props === after.props) return [];
@@ -104,13 +104,13 @@ const itemChanges = (
  * the items' and their tasks' order; undefined when only a rebuild gives it.
  */
 export const inputChanges = (
-  before: readonly BoardContentItem[],
-  after: readonly BoardContentItem[],
+  before: readonly BoardWidgetItem[],
+  after: readonly BoardWidgetItem[],
 ): readonly InputChange[] | undefined => {
   if (before.length !== after.length) return undefined;
   const changes: InputChange[] = [];
   for (const [index, item] of after.entries()) {
-    const found = itemChanges(before[index] as BoardContentItem, item);
+    const found = itemChanges(before[index] as BoardWidgetItem, item);
     if (found === undefined) return undefined;
     changes.push(...found);
   }

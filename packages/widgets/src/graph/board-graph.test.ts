@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { GraphSourceError } from "@askboard/compute";
 import { ganttBoardDocument, ganttEditedValue } from "@askboard/contract/fixtures";
-import { type BoardContent, type BoardContentItem, liveGraph, sentGraph } from "./board-graph.ts";
+import type { BoardContent, BoardWidgetItem } from "@askboard/view/catalog";
+import { liveGraph, sentGraph } from "./board-graph.ts";
 
 // The board's widget items as sent, every question's items flattened, as the port will give them.
 const ITEMS = ganttBoardDocument.items.flatMap((question) => question.props.items);
@@ -10,7 +11,7 @@ const EDITED: ReadonlyMap<string, unknown> = new Map([["release", ganttEditedVal
 
 const board = (
   draft: ReadonlyMap<string, unknown>,
-  items: readonly BoardContentItem[] = ITEMS,
+  items: readonly BoardWidgetItem[] = ITEMS,
 ): BoardContent => ({
   items,
   draft,

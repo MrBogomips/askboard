@@ -1,19 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { ganttBoardDocument, type ganttEditedValue } from "@askboard/contract/fixtures";
-import type { BoardContentItem } from "./board-graph.ts";
+import type { BoardWidgetItem } from "@askboard/view/catalog";
 import { inputChanges, startOffset } from "./recalc.ts";
 
-const ITEMS: readonly BoardContentItem[] = ganttBoardDocument.items.flatMap(
+const ITEMS: readonly BoardWidgetItem[] = ganttBoardDocument.items.flatMap(
   (question) => question.props.items,
 );
-const [RELEASE] = ITEMS as [BoardContentItem];
+const [RELEASE] = ITEMS as [BoardWidgetItem];
 const PROPS = RELEASE.props as typeof ganttEditedValue;
 
 /** The board's items with the Gantt's tasks edited. */
 const edited = (
   edit: (task: Record<string, unknown>) => Record<string, unknown>,
   props: { readonly start?: string } = {},
-): readonly BoardContentItem[] => [
+): readonly BoardWidgetItem[] => [
   {
     ...RELEASE,
     props: { ...PROPS, ...props, tasks: PROPS.tasks.map((task) => edit({ ...task })) },

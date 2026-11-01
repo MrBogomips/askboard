@@ -18,23 +18,8 @@ import {
   type GraphValues,
   type NodeResult,
 } from "@askboard/compute";
+import type { BoardContent, BoardWidgetItem } from "@askboard/view/catalog";
 import { type InputChange, inputChanges } from "./recalc.ts";
-
-/** A widget item as the board sent it: its type, its ID and its props. */
-export type BoardContentItem = {
-  readonly type: string;
-  readonly id: string;
-  readonly props: unknown;
-};
-
-/**
- * What a component reads of its board: the widget items as sent, every question's items
- * flattened, and the draft record, item ID to edited value, with no entry for an untouched item.
- */
-export type BoardContent = {
-  readonly items: readonly BoardContentItem[];
-  readonly draft: ReadonlyMap<string, unknown>;
-};
 
 /** A built and evaluated graph, read-only: a node's value or error, and the build's warnings. */
 export type BoardGraph = {
@@ -48,7 +33,7 @@ const SENT = new WeakMap<object, BoardGraph | undefined>();
 const LIVE = new WeakMap<object, WeakMap<object, BoardGraph | undefined>>();
 
 /** The graph of the items, or undefined when they hold nothing to compute; throws when malformed. */
-const build = (items: readonly BoardContentItem[]): BoardGraph | undefined => {
+const build = (items: readonly BoardWidgetItem[]): BoardGraph | undefined => {
   const source = boardGraphSource(items);
   if (source.items.length === 0) return undefined;
   const graph = buildGraph(source);
@@ -74,7 +59,7 @@ export const sentGraph = (board: BoardContent): BoardGraph | undefined => {
  * `graph` reads.
  */
 type Live = {
-  readonly items: readonly BoardContentItem[];
+  readonly items: readonly BoardWidgetItem[];
   readonly values: GraphValues;
   readonly snapshot: ReadonlyMap<string, NodeResult>;
   readonly graph: BoardGraph;
@@ -92,7 +77,7 @@ const snapshotGraph = (
   Object.freeze({ read: (address: string) => snapshot.get(address) ?? missing(address), warnings });
 
 /** A live graph built from nothing; undefined when the items hold nothing to compute. */
-const buildLive = (items: readonly BoardContentItem[]): Live | undefined => {
+const buildLive = (items: readonly BoardWidgetItem[]): Live | undefined => {
   const source = boardGraphSource(items);
   if (source.items.length === 0) return undefined;
   const graph = buildGraph(source);
@@ -104,7 +89,7 @@ const buildLive = (items: readonly BoardContentItem[]): Live | undefined => {
 /** The live graph moved on by `set` and `recalc`, the build's warnings kept. */
 const recalcLive = (
   live: Live,
-  items: readonly BoardContentItem[],
+  items: readonly BoardWidgetItem[],
   changes: readonly InputChange[],
 ): Live => {
   if (changes.length === 0) return { ...live, items };
