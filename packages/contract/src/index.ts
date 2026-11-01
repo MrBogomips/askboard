@@ -393,4 +393,10 @@ export {
   type MoleculeProps,
 } from "./molecules/index.ts";
 export { type Located, pointerOf, pointerTokens, valueAt } from "./molecules/pointer.ts";
-export { TREE_PERT_MAX_ESTIMATE, type TreePertProps } from "./widgets/tree/index.ts";
+export {
+  TREE_PERT_ANSWER_DERIVED,
+  TREE_PERT_DERIVED,
+  TREE_PERT_MAX_ESTIMATE,
+  type TreePertProps,
+  treeDerivedFields,
+} from "./widgets/tree/index.ts";
