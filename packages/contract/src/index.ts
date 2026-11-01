@@ -486,6 +486,20 @@ export type {
 
 // Snapshots (E7, snapshot design decision 2): the file name and the JSON blocks' element IDs.
 
+// Snapshots (E7, snapshot design decision 2): the Snapshot data set, the file name and the JSON
+// blocks' element IDs.
+
+export {
+  SNAPSHOT_DATA_ID,
+  SNAPSHOT_DATA_VERSION,
+  type SnapshotData,
+  type SnapshotEvent,
+  type SnapshotExpansion,
+  type SnapshotRecord,
+  type SnapshotRender,
+  type SnapshotRevision,
+  snapshotDataSet,
+} from "./schemas/snapshot-data/index.ts";
 export {
   SNAPSHOT_DATA_ELEMENT,
   SNAPSHOT_LICENCES_ELEMENT,

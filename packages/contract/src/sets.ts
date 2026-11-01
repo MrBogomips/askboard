@@ -5,6 +5,7 @@ import { boardDocumentSet } from "./schemas/board-document/index.ts";
 import { BOARD_PROTOCOL_MESSAGES, boardProtocol } from "./schemas/board-protocol/index.ts";
 import { inputFormat } from "./schemas/input/index.ts";
 import { outputFormat } from "./schemas/output/index.ts";
+import { snapshotDataSet } from "./schemas/snapshot-data/index.ts";
 import { toolEnvelopes } from "./schemas/tool-envelopes/index.ts";
 import { viewManifestSet } from "./schemas/view-manifest/index.ts";
 import type { SchemaSet } from "./versions.ts";
@@ -16,6 +17,8 @@ export const SCHEMA_SETS: readonly SchemaSet[] = [
   boardDocumentSet,
   boardProtocol,
   viewManifestSet,
+  // E7 (snapshot, design decision 2): the Snapshot data set.
+  snapshotDataSet,
 ];
 
 /** The `$id` of each schema that a unit validates against by name. */
