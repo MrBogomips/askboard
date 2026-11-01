@@ -116,7 +116,7 @@ A new board-protocol message type is added in four appended steps, which E3 foll
 
 1. **Schema.** A file in `packages/contract/src/schemas/board-protocol/` with the `$id` `urn:askboard:board-protocol:<name>`. A message that joins the set has its name appended at the end of its direction's list in `BOARD_PROTOCOL_MESSAGES` and of `SCHEMA_IDS`. A standalone message, as E4's `presence` is, stays outside the set until its change joins it.
 2. **Validation.** `validateBoardMessage(direction, value)` stays the set's one entry point. E3 changes neither its signature nor the order of E1's entries, so a standalone message checked ahead of it keeps working unchanged.
-3. **Dispatch.** In `board-host`, one case is appended to the page-message dispatch in `boards.ts`, after E1's `connect` and `answer`. In the board page, one validator is appended to the host-message validators and one case to the controller's handler, after E1's. Nothing existing is reordered.
+3. **Dispatch.** In `board-host`, one case is appended to the page-message dispatch in `boards.ts`, after E1's `connect` and `answer`. In the board page, the host-message validators follow the contract's list with no edit, and one case is appended to the controller's handler, after E1's. Nothing existing is reordered.
 4. **Transcript.** The exchange is recorded in the change's own fixtures module beside E1's `transcript.ts` and listed in that module's record, never in E1's `transcripts`, whose replays type their steps as protocol 1.0's messages. E3's are in `packages/contract/src/fixtures/lifecycle-transcripts.ts`, listed in `lifecycleTranscripts`.
 
 Two changes that add messages then merge by keeping both sides' appended entries.
@@ -143,7 +143,7 @@ None: nothing has been released. Reverting the change returns the code to E1's b
 
 What the integration of E3 with E1, tree-widget and gantt-widget brings together:
 
-- **Contract:** the five sets' folders and version constants, `sets.ts`, `SCHEMA_IDS`, `requests.ts`, `constants.ts` and `limits.ts`, the instruction and tool tests; the three appended export blocks (a conflict between appended blocks keeps every line of each).
+- **Contract:** the five sets' folders and version constants, `sets.ts`, `SCHEMA_IDS`, `requests.ts`, `fixtures/transcript.ts`, the instruction and tool tests; the three appended export blocks (a conflict between appended blocks keeps every line of each).
 - **View:** `view-protocol.ts`, `shell/draft-store.ts` (extended, never replaced), `shell/question-card.tsx`, `shell/question-state.ts`, `shell/answer-acts.ts`, `shell/board.tsx`, `shell/board-header.tsx`, `board-page/controller.ts`, `model.ts`, `outbox.ts` and `board-status.ts`, `catalog/choice/`; `packages/view/chunk-sizes.json`, re-recorded after a merge.
 - **Server:** `board-host/boards.ts` and `messages.ts`, `mcp-tools/tools.ts`, `collect.ts`, `wait.ts`, the entry point's wiring (the `Clock`).
 
