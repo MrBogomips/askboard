@@ -243,6 +243,34 @@ describe("edit choice", () => {
     ).toMatchObject({ ok: true });
   });
 
+  test("a decline naming the kept revision is accepted, and logged at that revision", async () => {
+    const { core } = await created(flatAsk());
+    change(core, FLAT_ID, "q1", { text: "Reworded" });
+    const decline = {
+      type: "decline",
+      itemId: "q1",
+      rev: 1,
+      note: "Not mine",
+      when: WHEN,
+    } as const;
+    const outcome = core.act(FLAT_ID, command([editChoice("q1", 2, 1), decline]));
+    expect(outcome.ok && outcome.events[1]).toMatchObject({
+      type: "answer",
+      itemId: "q1",
+      rev: 1,
+      declined: true,
+      note: "Not mine",
+    });
+    expect(statesOf(core, FLAT_ID).q1).toBe("declined");
+    // Without the ignore, the same decline names a stale revision.
+    const { core: other } = await created(flatAsk());
+    change(other, FLAT_ID, "q1", { text: "Reworded" });
+    expect(other.act(FLAT_ID, command([decline]))).toMatchObject({
+      ok: false,
+      refusal: "stale-rev",
+    });
+  });
+
   test("an old revision without the choice is refused", async () => {
     const { core } = await created(flatAsk());
     change(core, FLAT_ID, "q1", { text: "Reworded" });

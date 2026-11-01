@@ -110,6 +110,22 @@ describe("recording an answer", () => {
     });
   });
 
+  test("recording over a decline the log holds is refused, naming the decline's cursor", async () => {
+    const { core } = await created(flatAsk());
+    core.act(FLAT_ID, command([answerAct({ itemId: "q2", choice: ["Linux"] })]));
+    core.act(FLAT_ID, command([{ type: "decline", itemId: "q1", rev: 1, when: WHEN }]));
+    const outcome = update(core, FLAT_ID, record("q1", { choice: ["release"] }));
+    expect(outcome).toMatchObject({
+      kind: "refused",
+      index: 0,
+      itemId: "q1",
+      refusal: "answered",
+      cursor: `${core.epoch}.2`,
+    });
+    expect(outcome.kind === "refused" && outcome.detail).toContain(`${core.epoch}.2`);
+    expect(statesOf(core, FLAT_ID).q1).toBe("declined");
+  });
+
   test("a recorded answer stops a change until reopened, and is kept as previous", async () => {
     const { core } = await created(flatAsk());
     update(core, FLAT_ID, record("q1", { choice: ["main"] }));

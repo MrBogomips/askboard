@@ -163,9 +163,21 @@ describe("ask states, derived: the spine's lifecycle diagram as a table", () => 
       { ...live, questions: ["answered", "answered", "postponed"] },
       "answered",
     ],
+    // AD-10: the state never claims more than the user has given; `answered` needs an answer or a
+    // decline, as the diagram's waiting → partly-answered on a first postpone says.
     [
-      "all questions postponed: answered, since none that is not postponed is open",
+      "all questions postponed: partly-answered, since none is answered or declined",
       { ...live, questions: ["postponed", "postponed"] },
+      "partly-answered",
+    ],
+    [
+      "the only question postponed: partly-answered",
+      { ...live, questions: ["postponed"] },
+      "partly-answered",
+    ],
+    [
+      "one declined, the rest postponed: answered",
+      { ...live, questions: ["postponed", "declined", "postponed"] },
       "answered",
     ],
     [
@@ -208,6 +220,17 @@ describe("ask states through acts", () => {
     expect(statesOf(core, FLAT_ID)).toEqual({ q1: "answered", q2: "answered", q3: "postponed" });
     expect(boardOf(core, FLAT_ID).state).toBe("answered");
     expect(core.read(FLAT_ID, `${core.epoch}.0`)).toMatchObject({ state: "answered" });
+  });
+
+  test("every question postponed: partly-answered, never answered (AD-10)", async () => {
+    const { core } = await created(flatAsk());
+    const postpones = ["q1", "q2", "q3"].map((itemId) => ({ type: "postpone", itemId, rev: 1 }));
+    core.act(FLAT_ID, command(postpones as never));
+    expect(statesOf(core, FLAT_ID)).toEqual({ q1: "postponed", q2: "postponed", q3: "postponed" });
+    expect(boardOf(core, FLAT_ID).state).toBe("partly-answered");
+    expect(core.read(FLAT_ID, `${core.epoch}.0`)).toMatchObject({ state: "partly-answered" });
+    core.act(FLAT_ID, command([answerAct({ itemId: "q2", choice: ["Linux"] })]));
+    expect(boardOf(core, FLAT_ID).state).toBe("answered");
   });
 
   test("the user reopens a declined question on an answered ask: partly-answered", async () => {

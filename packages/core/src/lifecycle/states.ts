@@ -60,14 +60,19 @@ export type AskFacts = {
 };
 
 const SETTLED: ReadonlySet<QuestionState> = new Set(["answered", "declined", "postponed"]);
+const GIVEN: ReadonlySet<QuestionState> = new Set(["answered", "declined"]);
 
 /**
  * An ask's state (core spec, Ask states): `waiting` until its first answer, decline or postpone;
- * then `answered` while every question that is not postponed is answered or declined, and
- * `partly-answered` otherwise. Nothing leads back to `waiting`. Closing and discarding are stored.
+ * then `answered` while every question that is not postponed is answered or declined and at least
+ * one is, and `partly-answered` otherwise: postpones alone never make it `answered`, since the state
+ * never claims more than the user has given (AD-10). Nothing leads back to `waiting`. Closing and
+ * discarding are stored.
  */
 export const askStateOf = ({ stored, acted, questions }: AskFacts): AskState => {
   if (stored !== undefined) return stored;
   if (!acted) return "waiting";
-  return questions.every((state) => SETTLED.has(state)) ? "answered" : "partly-answered";
+  const answered =
+    questions.every((state) => SETTLED.has(state)) && questions.some((state) => GIVEN.has(state));
+  return answered ? "answered" : "partly-answered";
 };
