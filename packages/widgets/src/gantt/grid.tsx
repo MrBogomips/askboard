@@ -5,9 +5,11 @@
 // name, its start as the grid's date (`12/9/2026`), its duration in working days, right-aligned,
 // and its predecessors' names, over their panel while it is open; a note, such as a refused
 // entry's reason, takes a line under its row. A plan's duration is its work package's PERT
-// estimate from the graph, a value no key edits. Every agent string renders as text (AD-8). The
-// grid is one Tab stop (`grid-focus.ts`); its keys are read on its cells only, so that an editor
-// or a panel inside a cell keeps its own (`grid-keys.ts`).
+// estimate from the graph, a value no key edits, and the row of a package the user added in its
+// Tree takes the added mark, the change bar on its left edge (DESIGN.md, Change highlight). Every
+// agent string renders as text (AD-8). The grid is one Tab stop (`grid-focus.ts`); its keys are
+// read on its cells only, so that an editor or a panel inside a cell keeps its own
+// (`grid-keys.ts`).
 
 import type { GanttProps } from "@askboard/contract";
 import { questionTextId } from "@askboard/view/catalog";
@@ -18,7 +20,7 @@ import { gridDate } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
-import { GANTT_COLUMNS, type GanttColumn, type GanttRow, isOwnGantt } from "./model/tasks.ts";
+import { GANTT_COLUMNS, type GanttColumn, type GanttRow } from "./model/tasks.ts";
 import { PredecessorsPanel } from "./panel.tsx";
 import type { PanelState } from "./panel-state.ts";
 
@@ -43,6 +45,9 @@ const CELL =
 
 /** A cell the user changed: the change fill and text, with the change border (DESIGN.md). */
 const CHANGED = "bg-change-subtle text-change-text inset-ring inset-ring-change";
+
+/** A row the user added: the change bar on its left edge, as the Tree's added row has it. */
+const ADDED = "shadow-[inset_2px_0_0_0_var(--change)]";
 
 /** Whether the user changed what a cell shows, by its column. */
 const changedIn = (column: GanttColumn, mark: TaskMarks | undefined): boolean =>
@@ -89,6 +94,8 @@ const HeaderRow = () => (
 type TaskRowProps = {
   readonly itemId: string;
   readonly row: GanttRow;
+  /** Every row, which the row's predecessors panel offers. */
+  readonly rows: readonly GanttRow[];
   readonly schedule: TaskSchedule | undefined;
   readonly names: ReadonlyMap<string, string>;
   /** The column of the cell that holds the grid's Tab stop, if it is in this row. */
@@ -103,18 +110,16 @@ type TaskRowProps = {
   readonly editable: boolean;
 };
 
-/**
- * The predecessors panel of the row, if it is open, in its "Depends on" cell; a Gantt's own tasks
- * only, until a plan's panel offers its Tree's leaves (task 7.8).
- */
-const RowPanel = ({ itemId, row, panels, current, editable }: TaskRowProps) => {
+/** The predecessors panel of the row, if it is open, in its "Depends on" cell. */
+const RowPanel = ({ itemId, row, rows, panels, current, editable }: TaskRowProps) => {
   const { panel } = panels;
-  if (!editable || panel?.taskId !== row.id || !isOwnGantt(current)) return null;
+  if (!editable || panel?.taskId !== row.id) return null;
   return (
     <PredecessorsPanel
       itemId={itemId}
       row={row}
       current={current}
+      rows={rows}
       panel={panel}
       onToggle={panels.toggle}
       onDone={panels.done}
@@ -126,9 +131,11 @@ const RowPanel = ({ itemId, row, panels, current, editable }: TaskRowProps) => {
 const TaskRow = (props: TaskRowProps) => {
   const { itemId, row, schedule, names, stop, editing, mark } = props;
   const edited = props.editable && editing.editing?.taskId === row.id ? editing.editing : undefined;
+  const added = mark?.added === true;
   return (
     <tr
       data-gantt-row={row.id}
+      data-gantt-added={added ? "" : undefined}
       className="h-[36px] border-t border-border text-body text-foreground"
     >
       {row.cells.map(({ column }, index) => (
@@ -137,7 +144,7 @@ const TaskRow = (props: TaskRowProps) => {
           data-gantt-column={column}
           // While its editor is open, the editor holds the cell's Tab stop.
           tabIndex={index === stop && edited?.column !== column ? 0 : -1}
-          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : ""}`}
+          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : ""} ${added && column === "task" ? ADDED : ""}`}
         >
           {edited?.column === column ? (
             <CellEditor
@@ -215,6 +222,7 @@ export const Grid = (props: GridProps) => {
               key={row.id}
               itemId={itemId}
               row={row}
+              rows={rows}
               schedule={schedules[index]}
               names={names}
               stop={stop?.row === index ? stop.column : undefined}

@@ -15,6 +15,8 @@ export type TaskMarks = {
   readonly dependencies: boolean;
   /** Any of them: the bar takes the change outline. */
   readonly changed: boolean;
+  /** In a plan, a package the user added in its Tree: its row takes the added mark. */
+  readonly added?: boolean;
 };
 
 const sameList = (a: readonly string[] | undefined, b: readonly string[] | undefined): boolean =>

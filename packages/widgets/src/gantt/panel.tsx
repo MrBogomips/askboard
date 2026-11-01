@@ -1,17 +1,19 @@
 // A task's predecessors panel (design decision 9; proposal, open question 9; EXPERIENCE Widgets,
 // Gantt): an inline panel under the task's "Depends on" cell, laid over the rows below so that the
-// grid's rows stay beside the chart's, listing every other task with a Radix Checkbox; a task that
-// would close a cycle or break a limit is disabled, its reason beside it. The first box takes the
-// focus when it opens; the up and down arrows move between the boxes, Space checks or unchecks,
-// and "Done" or Enter commits, Escape restores. The focus stays in the panel while it is open: a
-// box the pointer checks takes it, since WebKit focuses no button on a click, and a press anywhere
-// else in the panel leaves it where it is. Task names are agent strings, shown as text.
+// grid's rows stay beside the chart's, listing every other task with a Radix Checkbox, in a plan
+// every other leaf of its Tree, a package the user added there included; a task that would close a
+// cycle or break a limit is disabled, its reason beside it. The first box takes the focus when it
+// opens; the up and down arrows move between the boxes, Space checks or unchecks, and "Done" or
+// Enter commits, Escape restores. The focus stays in the panel while it is open: a box the pointer
+// checks takes it, since WebKit focuses no button on a click, and a press anywhere else in the
+// panel leaves it where it is. Task names are agent strings, shown as text.
 
+import type { GanttProps } from "@askboard/contract";
 import { Checkbox } from "radix-ui";
 import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
 import { keyPressOf } from "./key-press.ts";
 import { panelBoxes } from "./model/predecessors.ts";
-import type { GanttOwnProps, GanttRow } from "./model/tasks.ts";
+import type { GanttRow } from "./model/tasks.ts";
 import type { Panel } from "./panel-state.ts";
 
 const PANEL =
@@ -35,7 +37,9 @@ const boxId = (itemId: string, taskId: string, other: string) =>
 type PanelProps = {
   readonly itemId: string;
   readonly row: GanttRow;
-  readonly current: GanttOwnProps;
+  /** The Gantt as it stands, and its rows, which the boxes are checked against. */
+  readonly current: GanttProps;
+  readonly rows: readonly GanttRow[];
   readonly panel: Panel;
   readonly onToggle: (taskId: string, checked: boolean) => void;
   readonly onDone: () => void;
@@ -44,7 +48,7 @@ type PanelProps = {
 
 export const PredecessorsPanel = (props: PanelProps) => {
   const { itemId, row, panel } = props;
-  const boxes = panelBoxes(props.current, row.id, panel.held);
+  const boxes = panelBoxes(props.current, props.rows, row.id, panel.held);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   useLayoutEffect(() => {
     refs.current.find((box) => box !== null && !box.disabled)?.focus();

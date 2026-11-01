@@ -1,14 +1,17 @@
 // What the Gantt plan's browser scenarios share (gantt-widget design decisions 9 and 12): the
 // fixture plan's question `plan`, holding the Tree `wbs` and the plan `schedule` over it; its tasks,
-// the Tree's leaves in the Tree's order; each zoom's day width; and where a scenario finds the
-// plan's own parts: the zoom's options, the chart by its zoom, and each baseline. The plan's
-// structural hook, beside those of `gantt-view.ts`: each baseline carries
-// `data-gantt-baseline="<task>"` with `data-start` and `data-finish`.
+// the Tree's leaves in the Tree's order, and its rows as the grid shows them; each zoom's day
+// width; and where a scenario finds the plan's own parts: the zoom's options, the chart by its
+// zoom, each baseline, the rows of the packages added in the Tree, and its grid from the Tree
+// before it. The plan's structural hooks, beside those of `gantt-view.ts`: each baseline carries
+// `data-gantt-baseline="<task>"` with `data-start` and `data-finish`, and the grid row of a package
+// the user added in the Tree `data-gantt-added`.
 
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import type { Locator } from "playwright";
 import type { Board } from "../harness/dom.ts";
 import { UJ2 } from "./gantt-documents.ts";
+import { focusedCell } from "./gantt-input.ts";
 import type { GanttParts } from "./gantt-view.ts";
 
 /** The fixture plan's question `plan`, its Tree `wbs` and the plan `schedule`. */
@@ -17,6 +20,38 @@ export const [planTree, planGantt] = planQuestion.props.items;
 
 /** The plan's tasks: the Tree's six leaves, in the Tree's order, as `keysTo` takes them. */
 export const PLAN_TASKS = UJ2.map(([id]) => ({ id }));
+
+/** A grid row's task and its cells' texts: name, start, duration and predecessors. */
+export type RowText = [task: string, name: string, start: string, duration: string, after: string];
+
+/** The fixture plan's rows: the Tree's leaves in its order, each duration its PERT estimate. */
+export const PLAN_ROWS: RowText[] = [
+  ["ux", "UX design", "11/2/2026", "6", ""],
+  ["architecture", "Architecture", "11/2/2026", "4", ""],
+  ["prototype", "Clickable prototype", "11/10/2026", "5", "UX design"],
+  ["portal", "Customer portal", "11/17/2026", "13", "Architecture, Clickable prototype"],
+  ["billing", "Billing integration", "11/6/2026", "9", "Architecture"],
+  ["reporting", "Reporting", "12/4/2026", "6", "Customer portal"],
+];
+
+/**
+ * Presses Tab until a cell of the plan's grid holds the focus, at most ten times: from the Tree,
+ * on to the plan's zoom, then to its grid.
+ */
+export const tabIntoPlanGrid = async (board: Board): Promise<string> => {
+  for (let presses = 0; presses < 10; presses += 1) {
+    await board.page.keyboard.press("Tab");
+    const cell = await focusedCell(board);
+    if (cell !== undefined) return cell;
+  }
+  throw new Error("ten presses of Tab never reached the plan's grid");
+};
+
+/** The tasks whose grid rows carry the added mark, in the grid's order. */
+export const addedRows = (gantt: GanttParts): Promise<string[]> =>
+  gantt.grid
+    .locator("[data-gantt-added]")
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-gantt-row") ?? ""));
 
 /** A calendar day's width in pixels, by zoom (DESIGN.md's mock: 15 at the week scale). */
 export const DAY_PX = { day: 32, week: 15, month: 4 } as const;

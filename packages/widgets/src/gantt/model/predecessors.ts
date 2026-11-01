@@ -1,11 +1,13 @@
 // The predecessors panel's boxes (design decision 8; proposal, open question 9): one per other task,
-// in the Gantt's order, checked as the panel holds them, and refused with `canPrecede`'s reason
-// when it would close a cycle or break the predecessor or the dependents limit. The limits count
-// what the panel holds, not what the Gantt held when it opened, so that checking several boxes
-// never goes past them. Plain ECMAScript.
+// in the rows' order, a plan's its Tree's leaves, a package the user added there included, checked
+// as the panel holds them, and refused with `canPrecede`'s reason when it would close a cycle or
+// break the predecessor or the dependents limit. The limits count what the panel holds, not what
+// the Gantt held when it opened, so that checking several boxes never goes past them; a plan's
+// panel for a task it holds no entry for counts the entry it would create. Plain ECMAScript.
 
+import type { GanttProps } from "@askboard/contract";
 import { canPrecede } from "./edits.ts";
-import type { GanttOwnProps } from "./tasks.ts";
+import { type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
 
 export type PanelBox = {
   readonly id: string;
@@ -15,31 +17,47 @@ export type PanelBox = {
   readonly reason: string | undefined;
 };
 
-/** The Gantt with the task's predecessors as the panel holds them. */
-const withHeld = (
-  value: GanttOwnProps,
+/** The Gantt holding the panel's predecessors for the task, a plan's entry made if need be. */
+const withHeld = (value: GanttProps, taskId: string, held: readonly string[]): GanttProps => {
+  if (isOwnGantt(value)) {
+    return {
+      ...value,
+      tasks: value.tasks.map((task) =>
+        task.id === taskId ? { ...task, dependencies: held } : task,
+      ),
+    };
+  }
+  // Built from entries, so that any ID is an own key, `__proto__` included.
+  const others = Object.entries(value.tasks).filter(([id]) => id !== taskId);
+  const entry = { ...planEntry(value, taskId), dependencies: held };
+  return { ...value, tasks: Object.fromEntries([...others, [taskId, entry]]) };
+};
+
+/** The rows with the task's predecessors as the panel holds them. */
+const rowsWithHeld = (
+  rows: readonly GanttRow[],
   taskId: string,
   held: readonly string[],
-): GanttOwnProps => ({
-  ...value,
-  tasks: value.tasks.map((task) => (task.id === taskId ? { ...task, dependencies: held } : task)),
-});
+): readonly GanttRow[] =>
+  rows.map((row) => (row.id === taskId ? { ...row, dependencies: held } : row));
 
-/** The boxes of a task's panel, which holds `held` as its predecessors. */
+/** The boxes of a task's panel, which holds `held` as its predecessors, over the Gantt's rows. */
 export const panelBoxes = (
-  value: GanttOwnProps,
+  value: GanttProps,
+  rows: readonly GanttRow[],
   taskId: string,
   held: readonly string[],
 ): readonly PanelBox[] => {
   const pending = withHeld(value, taskId, held);
-  return value.tasks
-    .filter((task) => task.id !== taskId)
-    .map((task) => {
-      const verdict = canPrecede(pending, taskId, task.id);
+  const pendingRows = rowsWithHeld(rows, taskId, held);
+  return rows
+    .filter((row) => row.id !== taskId)
+    .map((row) => {
+      const verdict = canPrecede(pending, pendingRows, taskId, row.id);
       return {
-        id: task.id,
-        label: task.label,
-        checked: held.includes(task.id),
+        id: row.id,
+        label: row.label,
+        checked: held.includes(row.id),
         reason: verdict.ok ? undefined : verdict.reason,
       };
     });

@@ -8,8 +8,8 @@
 // and in a plan the zoom another: the grid carries every keyboard path to the tasks. The frame
 // holds the Gantt's view state, the zoom, the grid's focus, its editor and its predecessors panel,
 // and lays the chart's rows out under the grid's, a note's line included, so that each bar stays
-// beside its row. Only a Gantt's own tasks take a duration, and a plan's predecessors panel comes
-// with its Tree's leaves to offer (task 7.8).
+// beside its row. Only a Gantt's own tasks take a duration: a plan's follow its Tree's estimates.
+// Both open a task's predecessors panel from its "Depends on", a plan's offering its Tree's leaves.
 
 import type { GanttProps } from "@askboard/contract";
 import { useCallback, useMemo, useState } from "react";
@@ -127,7 +127,7 @@ export const GanttFrame = (props: FrameProps) => {
     focus,
     editing,
     onClear: (row) => onCommit(clearStart(current, sent, row.id)),
-    onOpenPanel: own ? panels.open : undefined,
+    onOpenPanel: panels.open,
     editable,
   });
   // Only a Gantt's own tasks take a duration: a plan's follow its Tree's estimates.

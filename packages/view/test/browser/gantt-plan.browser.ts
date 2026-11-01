@@ -25,6 +25,7 @@ import {
   DAY_PX,
   focusedZoom,
   optionLook,
+  PLAN_ROWS,
   PLAN_TASKS,
   planGantt,
   planQuestion,
@@ -61,16 +62,6 @@ import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts
 const dist = await readViewBuild();
 
 const NONE_YET = "Changes vs agent's original · none yet";
-
-/** The fixture plan's rows: the Tree's leaves in its order, each duration its PERT estimate. */
-const PLAN_ROWS = [
-  ["ux", "UX design", "11/2/2026", "6", ""],
-  ["architecture", "Architecture", "11/2/2026", "4", ""],
-  ["prototype", "Clickable prototype", "11/10/2026", "5", "UX design"],
-  ["portal", "Customer portal", "11/17/2026", "13", "Architecture, Clickable prototype"],
-  ["billing", "Billing integration", "11/6/2026", "9", "Architecture"],
-  ["reporting", "Reporting", "12/4/2026", "6", "Customer portal"],
-];
 
 /** A task's span on the axis at a zoom, from the chart's first day. */
 const spanAt = (start: string, finish: string, zoom: ZoomName) => ({

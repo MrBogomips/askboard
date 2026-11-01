@@ -17,7 +17,7 @@ import {
   setDuration,
   setPredecessors,
 } from "./edits.ts";
-import type { GanttOwnProps } from "./tasks.ts";
+import { type GanttOwnProps, ownTaskRows } from "./tasks.ts";
 
 const SENT = ganttBoardDocument.items[0].props.items[0].props as GanttOwnProps;
 
@@ -312,6 +312,10 @@ const wide = (count: number): GanttOwnProps => ({
   ],
 });
 
+/** `canPrecede` over a Gantt's own tasks, its rows as the grid shows them. */
+const precedes = (value: GanttOwnProps, taskId: string, candidateId: string) =>
+  canPrecede(value, ownTaskRows(value), taskId, candidateId);
+
 describe("canPrecede", () => {
   test.each([
     ["ux", true],
@@ -321,7 +325,7 @@ describe("canPrecede", () => {
     ["reporting", "Reporting already depends on Clickable prototype"],
     ["prototype", "Clickable prototype cannot come before itself"],
   ])("offers %s to the prototype's predecessors: %p", (candidate, verdict) => {
-    expect(canPrecede(SENT, "prototype", candidate)).toEqual(
+    expect(precedes(SENT, "prototype", candidate)).toEqual(
       verdict === true ? { ok: true } : { ok: false, reason: verdict as string },
     );
   });
@@ -333,9 +337,9 @@ describe("canPrecede", () => {
       { id: "c", label: "C", duration: 1 },
     ];
     const value = { start: "2026-11-02", tasks };
-    expect(canPrecede(value, "c", "a")).toEqual({ ok: true });
-    expect(canPrecede(value, "a", "c")).toEqual({ ok: true });
-    expect(canPrecede(value, "a", "b")).toEqual({ ok: true });
+    expect(precedes(value, "c", "a")).toEqual({ ok: true });
+    expect(precedes(value, "a", "c")).toEqual({ ok: true });
+    expect(precedes(value, "a", "b")).toEqual({ ok: true });
   });
 
   test("takes no more predecessors past the limit, but keeps those listed", () => {
@@ -353,30 +357,30 @@ describe("canPrecede", () => {
       },
     ];
     const value = { start: "2026-11-02", tasks };
-    expect(canPrecede(value, "full", `p${GANTT_MAX_PREDECESSORS}`)).toEqual({
+    expect(precedes(value, "full", `p${GANTT_MAX_PREDECESSORS}`)).toEqual({
       ok: false,
       reason: "Full already has 50 predecessors, the most a task can have",
     });
-    expect(canPrecede(value, "full", "p0")).toEqual({ ok: true });
+    expect(precedes(value, "full", "p0")).toEqual({ ok: true });
   });
 
   test("offers no task that has as many dependents as the limit", () => {
     const value = wide(GANTT_MAX_DEPENDENTS);
-    expect(canPrecede(value, "spare", "hub")).toEqual({
+    expect(precedes(value, "spare", "hub")).toEqual({
       ok: false,
       reason: "Hub already has 50 dependent tasks, the most a task can have",
     });
-    expect(canPrecede(value, "d0", "hub")).toEqual({ ok: true });
-    expect(canPrecede(wide(GANTT_MAX_DEPENDENTS - 1), "spare", "hub")).toEqual({ ok: true });
+    expect(precedes(value, "d0", "hub")).toEqual({ ok: true });
+    expect(precedes(wide(GANTT_MAX_DEPENDENTS - 1), "spare", "hub")).toEqual({ ok: true });
   });
 
-  test("refuses an unknown task or candidate", () => {
-    expect(() => canPrecede(SENT, "nope", "ux")).toThrow(RangeError);
-    expect(() => canPrecede(SENT, "ux", "nope")).toThrow(RangeError);
+  test("refuses a task or a candidate that is no row", () => {
+    expect(() => precedes(SENT, "nope", "ux")).toThrow(RangeError);
+    expect(() => precedes(SENT, "ux", "nope")).toThrow(RangeError);
   });
 
   test("gives frozen verdicts", () => {
-    expect(Object.isFrozen(canPrecede(SENT, "prototype", "ux"))).toBe(true);
-    expect(Object.isFrozen(canPrecede(SENT, "prototype", "portal"))).toBe(true);
+    expect(Object.isFrozen(precedes(SENT, "prototype", "ux"))).toBe(true);
+    expect(Object.isFrozen(precedes(SENT, "prototype", "portal"))).toBe(true);
   });
 });

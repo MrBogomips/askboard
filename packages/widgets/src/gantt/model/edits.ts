@@ -21,7 +21,13 @@ import {
   ID_PATTERN,
 } from "@askboard/contract";
 import { isGanttDate } from "./date.ts";
-import { type GanttOwnProps, type GanttPlanProps, isOwnGantt, planEntry } from "./tasks.ts";
+import {
+  type GanttOwnProps,
+  type GanttPlanProps,
+  type GanttRow,
+  isOwnGantt,
+  planEntry,
+} from "./tasks.ts";
 
 type Field = "start" | "duration" | "dependencies";
 
@@ -255,14 +261,25 @@ const OK: Precedence = Object.freeze({ ok: true });
 
 const refused = (reason: string): Precedence => Object.freeze({ ok: false, reason });
 
-/** The tasks that depend on a task, directly or through others: a walk over the predecessors. */
-const dependentsOf = (value: GanttOwnProps, taskId: string): ReadonlySet<string> => {
+/** A task's row; a task that is no row is refused. */
+const rowOf = (rows: readonly GanttRow[], taskId: string): GanttRow => {
+  const row = rows.find((candidate) => candidate.id === taskId);
+  if (row === undefined) throw new RangeError(`the Gantt has no task ${JSON.stringify(taskId)}`);
+  return row;
+};
+
+/**
+ * The tasks that depend on a task, directly or through others: a walk over the rows'
+ * predecessors. In a plan, an entry that names no leaf is no row, and the graph holds no such
+ * task, so the walk never goes through it.
+ */
+const dependentsOf = (rows: readonly GanttRow[], taskId: string): ReadonlySet<string> => {
   const successors = new Map<string, string[]>();
-  for (const task of value.tasks) {
-    for (const id of task.dependencies ?? []) {
+  for (const row of rows) {
+    for (const id of row.dependencies) {
       const list = successors.get(id);
-      if (list === undefined) successors.set(id, [task.id]);
-      else list.push(task.id);
+      if (list === undefined) successors.set(id, [row.id]);
+      else list.push(row.id);
     }
   }
   const reached = new Set<string>();
@@ -277,18 +294,18 @@ const dependentsOf = (value: GanttOwnProps, taskId: string): ReadonlySet<string>
   return reached;
 };
 
-// One walk per Gantt value and task, since the panel asks for every other task in turn.
-const WALKS = new WeakMap<GanttOwnProps, Map<string, ReadonlySet<string>>>();
+// One walk per rows list and task, since the panel asks for every other task in turn.
+const WALKS = new WeakMap<readonly GanttRow[], Map<string, ReadonlySet<string>>>();
 
-const walkFrom = (value: GanttOwnProps, taskId: string): ReadonlySet<string> => {
-  let walks = WALKS.get(value);
+const walkFrom = (rows: readonly GanttRow[], taskId: string): ReadonlySet<string> => {
+  let walks = WALKS.get(rows);
   if (walks === undefined) {
     walks = new Map();
-    WALKS.set(value, walks);
+    WALKS.set(rows, walks);
   }
   let reached = walks.get(taskId);
   if (reached === undefined) {
-    reached = dependentsOf(value, taskId);
+    reached = dependentsOf(rows, taskId);
     walks.set(taskId, reached);
   }
   return reached;
@@ -296,19 +313,23 @@ const walkFrom = (value: GanttOwnProps, taskId: string): ReadonlySet<string> => 
 
 /**
  * Whether the predecessors panel may check `candidate` for `task`, or why not: it would close a
- * cycle, or break the predecessor or the dependents limit. A predecessor already listed may stay.
+ * cycle, or break the predecessor or the dependents limit. `rows` are the Gantt's tasks as the
+ * grid shows them, a plan's its Tree's leaves, which name the tasks and give their predecessors;
+ * the dependents are counted over every task of `value`, every entry of a plan, as
+ * `setPredecessors` counts them. A predecessor already listed may stay.
  */
 export const canPrecede = (
-  value: GanttOwnProps,
+  value: GanttProps,
+  rows: readonly GanttRow[],
   taskId: string,
   candidateId: string,
 ): Precedence => {
-  const task = value.tasks[indexOfTask(value, taskId)] as GanttOwnTask;
-  const candidate = value.tasks[indexOfTask(value, candidateId)] as GanttOwnTask;
+  const task = rowOf(rows, taskId);
+  const candidate = rowOf(rows, candidateId);
   if (candidateId === taskId) return refused(`${task.label} cannot come before itself`);
-  const listed = task.dependencies ?? [];
+  const listed = task.dependencies;
   if (listed.includes(candidateId)) return OK;
-  if (walkFrom(value, taskId).has(candidateId)) {
+  if (walkFrom(rows, taskId).has(candidateId)) {
     return refused(`${candidate.label} already depends on ${task.label}`);
   }
   if (listed.length >= GANTT_MAX_PREDECESSORS) {
