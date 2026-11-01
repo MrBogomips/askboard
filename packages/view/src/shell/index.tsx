@@ -26,7 +26,13 @@ import type { ViewMessage } from "../view-protocol.ts";
 import { createRevisions, type KeptChoices } from "./agent-change.ts";
 import { createAnswerActs, type Flight } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
-import { Board, type BoardView, type HeadingRequest, requestHeading } from "./board.tsx";
+import {
+  Board,
+  type BoardExtras,
+  type BoardView,
+  type HeadingRequest,
+  requestHeading,
+} from "./board.tsx";
 import { createBoardContent } from "./board-content.ts";
 import {
   type BoardDraft,
@@ -222,8 +228,8 @@ const boot = (): void => {
     boardContent: createBoardContent(() => view.get().document),
     derived: createDerivedStore(),
   };
-  const header = startPushExtras(data, channel, hosted, report);
-  createRoot(root).render(<Board view={view} context={context} header={header} />);
+  const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
+  createRoot(root).render(<Board view={view} context={context} extras={extras} />);
 };
 
 if (document.readyState === "loading") {
