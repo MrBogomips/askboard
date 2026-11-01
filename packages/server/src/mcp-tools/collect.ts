@@ -2,7 +2,9 @@
 // passed, grouped by ask in the request's order; paged under the result limit with `more: true`,
 // never splitting one board command's events (AD-20). What a result returns raises the ask's
 // `received` watermark, never more (AD-3). A wait names a question, and ends at once on a postponed
-// question or a closed or discarded ask (ask-lifecycle, design decision 4).
+// question or a closed or discarded ask (ask-lifecycle, design decision 4). The call binds to its
+// agent record once, and an owned ask is read only by its owner's call (AD-5). While it waits, the
+// agent status says the agent waits (design decision 12).
 
 import {
   type CollectAskEntry,
@@ -13,7 +15,9 @@ import {
   RESULT_VERSIONS,
 } from "@askboard/contract";
 import { type RequestProblem, validateCollectRequest } from "@askboard/contract/validate";
-import type { ToolCore } from "./ports.ts";
+import type { Binding } from "@askboard/core";
+import { ownerRefusalText } from "./owner-refusal.ts";
+import type { ToolCore, ToolDeps } from "./ports.ts";
 import { errorResult, jsonResult, problemsResult, type ToolResult } from "./results.ts";
 import type { ToolHandler } from "./server.ts";
 import { waitedOutcome, waitForItem, waitProblem } from "./wait.ts";
@@ -30,6 +34,8 @@ export type Gathered = {
   readonly events: readonly OutputEvent[];
   /** Each event's board command, as ask-core reads it; one command's events stay on one page. */
   readonly groups?: readonly number[];
+  /** Whether the ask has no owner, so its entry says it is unchecked (AD-5). */
+  readonly unchecked: boolean;
 };
 
 const problemAt = (index: number, field: "askId" | "after", message: string): RequestProblem => ({
@@ -42,30 +48,39 @@ const problemAt = (index: number, field: "askId" | "after", message: string): Re
   message: `asks[${index}].${field}: ${message}`,
 });
 
-/** Reads every ask the request names, or the problems that make the request one to fix. */
+/**
+ * Reads every ask the request names as the call bound to `caller` may, or the problems that make
+ * the request one to fix. An ask of another epoch has no owner this session knows: it stays
+ * unchecked.
+ */
 export const gather = (
   core: ToolCore,
   request: CollectRequest,
+  caller?: Binding,
 ):
   | { readonly ok: true; readonly asks: Gathered[] }
   | { readonly ok: false; readonly problems: RequestProblem[] } => {
   const asks: Gathered[] = [];
   const problems: RequestProblem[] = [];
   request.asks.forEach(({ askId, after }, index) => {
-    const read = core.read(askId, after);
+    const read = core.read(askId, after, caller);
     switch (read.kind) {
-      case "events":
+      case "events": {
+        const { state, cursor, events, groups } = read;
+        const unchecked = core.ownerOf(askId) === undefined;
         asks.push({
           askId,
           after,
-          state: read.state,
-          cursor: read.cursor,
-          events: read.events,
-          ...(read.groups === undefined ? {} : { groups: read.groups }),
+          state,
+          cursor,
+          events,
+          ...(groups === undefined ? {} : { groups }),
+          unchecked,
         });
         return;
+      }
       case "discarded":
-        asks.push({ askId, after, state: "discarded", cursor: after, events: [] });
+        asks.push({ askId, after, state: "discarded", cursor: after, events: [], unchecked: true });
         return;
       case "unknown":
         problems.push(
@@ -87,6 +102,10 @@ export const gather = (
         return;
       case "malformed":
         problems.push(problemAt(index, "after", `"${after}" is not a cursor <epoch>.<seq>`));
+        return;
+      case "other-owner":
+      case "no-record":
+        problems.push(problemAt(index, "askId", ownerRefusalText(read.kind, askId, "collect")));
     }
   });
   return problems.length === 0 ? { ok: true, asks } : { ok: false, problems };
@@ -119,7 +138,7 @@ const entryOf = (ask: Gathered, events: readonly OutputEvent[]): CollectAskEntry
   state: ask.state,
   cursor: events.length === ask.events.length ? ask.cursor : (events.at(-1)?.cursor ?? ask.after),
   events,
-  unchecked: true,
+  ...(ask.unchecked ? { unchecked: true as const } : {}),
 });
 
 const resultOf = (
@@ -187,6 +206,25 @@ const hasNews = (asks: readonly Gathered[], askId: string): boolean =>
   asks.some((ask) => ask.events.length > 0 || (ask.askId === askId && ask.state === "discarded"));
 
 /**
+ * Tells ask-core that the agent waits on the ask while `waiting` runs, and whether its owner is the
+ * main conversation (design decision 12). An unchecked ask's owner is unknown, so it is not.
+ */
+const reportedWait = async <T>(
+  { core, mainConversation }: ToolDeps,
+  wait: NonNullable<CollectRequest["wait"]>,
+  waiting: () => Promise<T>,
+): Promise<T> => {
+  const owner = core.ownerOf(wait.askId);
+  const main = owner !== undefined && (mainConversation?.(owner.ownerKey) ?? false);
+  const ended = core.waitStarted?.(wait.askId, main);
+  try {
+    return await waiting();
+  } finally {
+    ended?.();
+  }
+};
+
+/**
  * `collect`: validates the request, reads every ask it names and returns their events. With
  * `wait`, when nothing is new yet, it waits for the question first (AD-4) and returns `open` after
  * the longest wait; an aborted wait marks nothing read. A postponed question or a closed ask ends
@@ -197,7 +235,11 @@ export const handleCollect: ToolHandler = async (deps, args, context) => {
   const checked = validateCollectRequest(args ?? {});
   if (!checked.ok) return problemsResult(REFUSED, checked.problems);
   const request = checked.value;
-  const gathered = gather(core, request);
+  const { toolUseId } = context;
+  const askIds = request.asks.map(({ askId }) => askId);
+  const identity = { ...(toolUseId === undefined ? {} : { toolUseId }), tool: "collect", askIds };
+  const caller = await core.bind(identity);
+  const gathered = gather(core, request, caller);
   if (!gathered.ok) return problemsResult(REFUSED, gathered.problems);
   const { wait } = request;
   if (wait === undefined) return respond(core, gathered.asks);
@@ -208,9 +250,9 @@ export const handleCollect: ToolHandler = async (deps, args, context) => {
   if (now !== undefined || hasNews(gathered.asks, wait.askId)) {
     return respond(core, gathered.asks, now);
   }
-  const end = await waitForItem(deps, wait, context);
+  const end = await reportedWait(deps, wait, () => waitForItem(deps, wait, context));
   if (end === "aborted") return errorResult("The collect was cancelled; nothing was marked read.");
-  const again = gather(core, request);
+  const again = gather(core, request, caller);
   if (!again.ok) return problemsResult(REFUSED, again.problems);
   return respond(core, again.asks, end === "timeout" ? "open" : waitedOutcome(core, wait));
 };

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:stop-response",
+  "title": "Stop decision",
+  "description": "The stop guard's decision, already acted on (design decision 2): block, carrying the push message with the subagent's open asks, after raising received for what it carries; or allow, with no message, after telling ask-core the subagent finished. That a block and only a block carries the message is checked by the validator, since no combinator stands at a schema's root.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "decision": {
+      "enum": ["allow", "block"]
+    },
+    "message": {
+      "$ref": "urn:askboard:output:push-message"
+    }
+  },
+  "required": ["version", "decision"],
+  "additionalProperties": false
+}

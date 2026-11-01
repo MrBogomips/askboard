@@ -46,3 +46,35 @@ export {
   type Showing,
 } from "./ports.ts";
 export { cursorOf, deriveTitle, EPOCH_LENGTH, isRealUtcTime, parseCursor } from "./text.ts";
+
+// Push delivery (E4, design decisions 4 and 5): its ports, what its commands return, and the
+// version gate's diagnostic.
+
+export type {
+  AgentRecords,
+  AskOverview,
+  Binding,
+  CallIdentity,
+  ClientVersionSource,
+  DeliveredOutcome,
+  Diagnose,
+  HeaderPorts,
+  Notice,
+  Notices,
+  Origin,
+  OwnerRefusal,
+  PushAskOutcome,
+  PushReadOutcome,
+  StopBlock,
+  StopFit,
+  StopOutcome,
+  Timers,
+  WhoAsked,
+} from "./push/ports.ts";
+export { UNKNOWN_VERSION_DIAGNOSTIC } from "./push/version.ts";
+
+// Who asked, and where, and the agent status (E4, design decision 12): the expected-answerer rule
+// of the context header and the background threshold.
+
+export { backgroundThreshold } from "./push/agent-status.ts";
+export { expectedAnswerer } from "./push/answerer.ts";

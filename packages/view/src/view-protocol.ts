@@ -15,12 +15,14 @@
 
 import {
   ACTION_ID_PATTERN,
+  type AgentStatus,
   type DraftRecord,
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
   type LifecycleBoardState,
   NOTE_MAX_CHARS,
   OPTION_NOTE_MAX_CHARS,
+  type OriginMessage,
   OTHER_MAX_CHARS,
   UTC_TIME_PATTERN,
 } from "@askboard/contract";
@@ -35,6 +37,9 @@ export const ITEM_ERROR_MAX_CHARS = 1_000;
 
 /** AD-13's reference without brackets, as the output format's answer event writes it. */
 export const REFERENCE_PATTERN = "^[A-Za-z0-9_-]{1,64}(\\.[A-Za-z0-9_-]{1,64})*$";
+
+/** The view sends its activity message at most once every this many milliseconds. */
+export const VIEW_ACTIVITY_INTERVAL_MS = 5_000;
 
 /**
  * What an answer carries: the question's choice, the full edited value of each widget item the
@@ -123,7 +128,19 @@ export type ViewActs = { readonly type: "act"; readonly acts: readonly [ViewAct,
 /** The board's unsent work, mirrored after each change (AD-20); never sent to the agent. */
 export type ViewDraft = { readonly type: "draft"; readonly record: DraftRecord };
 
-export type ViewMessage = ViewAnswer | ViewReady | ViewItemError | ViewActs | ViewDraft;
+/**
+ * The user acts in the view, with a key or the pointer (design decision 10): input inside the
+ * sandboxed view does not reach the board page, which counts it for the board's working signal.
+ */
+export type ViewActivity = { readonly type: "activity" };
+
+export type ViewMessage =
+  | ViewAnswer
+  | ViewReady
+  | ViewItemError
+  | ViewActs
+  | ViewDraft
+  | ViewActivity;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -168,13 +185,17 @@ export type SettledAct = {
 /** A draft record to restore, numbered so that the view restores each once. */
 export type DraftRestore = { readonly id: number; readonly record: DraftRecord };
 
+/** Who asked and where, as the board page passes it on: the origin message's content (FR-24). */
+export type HeaderOrigin = Omit<OriginMessage, "version" | "type">;
+
 /**
  * What the board page tells a booted view: the board state, as `board-host` last sent it with the
  * receipts since; the latest board document; the lock, while there is one; whether the connection
  * is lost, which disables Submit; the commands it holds, and how the latest ones ended; and the
- * draft record `board-host` restored, when the board page has none of its own (AD-20). A command
- * the board page no longer holds that is not settled was dropped, and its question can be
- * answered again (AD-10).
+ * draft record `board-host` restored, when the board page has none of its own (AD-20); and who
+ * asked and where and the agent status, once `board-host` has sent them (push delivery, design
+ * decision 12). A command the board page no longer holds that is not settled was dropped, and its
+ * question can be answered again (AD-10).
  */
 export type ViewUpdate = {
   readonly type: "state";
@@ -185,6 +206,8 @@ export type ViewUpdate = {
   readonly pending?: readonly PendingAct[];
   readonly settled?: readonly SettledAct[];
   readonly restore?: DraftRestore;
+  readonly origin?: HeaderOrigin;
+  readonly agent?: AgentStatus;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -389,6 +412,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   "item-error": { checks: { itemId, error: errorText } },
   act: { checks: { acts } },
   draft: { checks: { record: draftRecord } },
+  activity: { checks: {} },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -527,6 +551,31 @@ const listOf =
   (value: unknown): value is readonly T[] =>
     Array.isArray(value) && value.every(is);
 
+const optional = (value: unknown, kind: "string" | "number"): boolean =>
+  value === undefined || typeof value === kind;
+
+/**
+ * Whether the view can show this as who asked and where. The board page checked the origin
+ * message against the board protocol; the view checks only the shape it renders from.
+ */
+export const isHeaderOrigin = (value: unknown): value is HeaderOrigin => {
+  if (!isRecord(value) || !isRecord(value.who)) return false;
+  const { label, name, ordinal } = value.who;
+  return (
+    typeof label === "string" &&
+    optional(name, "string") &&
+    (ordinal === undefined || Number.isInteger(ordinal)) &&
+    ["forUser", "project", "directory", "branch", "worktree"].every((key) =>
+      optional(value[key], "string"),
+    )
+  );
+};
+
+const AGENT_STATUSES: readonly unknown[] = ["working", "waiting"] satisfies AgentStatus[];
+
+export const isAgentStatus = (value: unknown): value is AgentStatus =>
+  AGENT_STATUSES.includes(value);
+
 // Each optional field of an update, with its check.
 const UPDATE_FIELDS: Readonly<Record<string, (value: unknown) => boolean>> = {
   document: isDocument,
@@ -535,6 +584,8 @@ const UPDATE_FIELDS: Readonly<Record<string, (value: unknown) => boolean>> = {
   pending: listOf(isPendingAct),
   settled: listOf(isSettledAct),
   restore: isRestore,
+  origin: isHeaderOrigin,
+  agent: isAgentStatus,
 };
 
 /** A tool result's structured content, read as an update; undefined for anything else. */

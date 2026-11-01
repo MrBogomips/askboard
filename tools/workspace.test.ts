@@ -138,15 +138,17 @@ describe("workspace layout", () => {
     }
   });
 
-  // Design decision 3 and AD-1: no DOM, Node or Bun types in core and compute.
-  test.each(["core", "compute"])(
+  // Design decision 3 and AD-1: no DOM, Node or Bun types in core and compute; nor in mod, which
+  // reaches the machine only through the mod API (push delivery, design decision 7). Each states
+  // its libraries and types itself, so a change to the base configuration cannot add any.
+  test.each(["core", "compute", "mod"])(
     "%s compiles with ECMAScript libraries and no types",
     async (name) => {
-      const base = (await readConfig("tsconfig.base.json")).compilerOptions ?? {};
       const own = (await readConfig(join("packages", name, "tsconfig.json"))).compilerOptions ?? {};
-      const lib = (own.lib ?? base.lib) as string[];
-      expect(lib.every((entry) => /^es/i.test(entry))).toBe(true);
-      expect(own.types ?? base.types).toEqual([]);
+      const lib = own.lib as string[] | undefined;
+      expect(lib).toBeArray();
+      expect((lib ?? []).every((entry) => /^es/i.test(entry))).toBe(true);
+      expect(own.types).toEqual([]);
     },
   );
 });

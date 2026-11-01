@@ -11,7 +11,8 @@
 // view says "Question removed by the agent" and shows the next one (task 6.7). It renders from the
 // latest board document and what the board page last sent: the state, the lock, which makes the
 // board read-only while it moved, once it is discarded or closed (AD-21, FR-6), and whether the
-// connection is lost, which stops Submit.
+// connection is lost, which stops Submit. The header also shows who asked and where and the agent
+// status, from push delivery's store (design decision 12).
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
@@ -42,6 +43,7 @@ import {
 } from "./board-view.ts";
 import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
+import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
 import type { Store } from "./store.ts";
@@ -239,9 +241,12 @@ const takesSelection = (
 export const Board = ({
   view,
   context,
+  header,
 }: {
   readonly view: Store<BoardView>;
   readonly context: BoardContext;
+  /** Who asked and where, and the agent status (push delivery, design decision 12). */
+  readonly header: Store<HeaderData>;
 }) => {
   const { document, state, lock, connection } = useSyncExternalStore(view.subscribe, view.get);
   const draft = useSyncExternalStore(context.board.subscribe, context.board.get);
@@ -367,6 +372,7 @@ export const Board = ({
         title={document.title}
         pill={askPillOf(state, lock)}
         counts={single ? undefined : counts}
+        header={header}
       />
       {body}
       <BottomBar

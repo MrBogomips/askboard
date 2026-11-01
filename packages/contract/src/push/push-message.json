@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:push-message",
+  "title": "Push message",
+  "description": "What every push, catch-up submit and stop block carries after its one-line preface (AD-3, design decision 8): the output format version, the epoch, and per ask the entry collect returns, with its ID, state, latest cursor and events, each event with its cursor, so the agent reads one shape whatever the path. A stop block adds the subagent's open asks.",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "$ref": "urn:askboard:tool-envelopes:versions#/properties/output"
+        }
+      },
+      "required": ["output"],
+      "additionalProperties": false
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "asks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "urn:askboard:tool-envelopes:collect-result#/$defs/ask"
+      }
+    },
+    "openAsks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/openAsk"
+      }
+    }
+  },
+  "required": ["versions", "epoch", "asks"],
+  "additionalProperties": false,
+  "$defs": {
+    "openAsk": {
+      "type": "object",
+      "properties": {
+        "askId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "state": {
+          "$ref": "urn:askboard:output:ask-state"
+        },
+        "cursor": {
+          "$ref": "urn:askboard:output:cursor"
+        }
+      },
+      "required": ["askId", "state", "cursor"],
+      "additionalProperties": false
+    }
+  }
+}

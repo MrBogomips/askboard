@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:rule-response",
+  "title": "Effective asking rule",
+  "description": "The asking rule in effect, from the asking rules' closed set, and whether a board can be shown by the rule of AD-18 (AD-16, FR-30). Until the session process reads configuration, the rule is none.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "rule": {
+      "enum": ["none", "always", "with-references"]
+    },
+    "showable": {
+      "type": "boolean"
+    }
+  },
+  "required": ["version", "rule", "showable"],
+  "additionalProperties": false
+}

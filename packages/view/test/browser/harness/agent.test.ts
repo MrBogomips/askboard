@@ -73,6 +73,37 @@ describe("Agent", () => {
     expect(args).toEqual({ asks: [{ askId, after: `${epoch}.0` }] });
   });
 
+  test("lists the tools, waits in collect on a question, and sends an update", async () => {
+    const received: Record<string, unknown> = {};
+    const { agent } = await connect({
+      collect: (given) => {
+        received.collect = given;
+        return { text: JSON.stringify(COLLECT_RESULT) };
+      },
+      update: (given) => {
+        received.update = given;
+        return { text: JSON.stringify({ versions: VERSIONS, epoch, askId, applied: [] }) };
+      },
+    });
+    expect(await agent.listTools()).toEqual(["collect", "update"]);
+    expect(await agent.collectWaiting(askId, `${epoch}.0`, "database")).toMatchObject({
+      askId,
+      state: "answered",
+    });
+    expect(received.collect).toEqual({
+      asks: [{ askId, after: `${epoch}.0` }],
+      wait: { askId, itemId: "database" },
+    });
+    const actions = [{ type: "close" }];
+    expect(await agent.update(askId, actions)).toEqual({
+      versions: VERSIONS,
+      epoch,
+      askId,
+      applied: [],
+    });
+    expect(received.update).toEqual({ askId, actions });
+  });
+
   test("fails on a protocol error, such as a tool the server does not have", async () => {
     const { agent } = await connect({});
     await expect(agent.collect(askId, `${epoch}.0`)).rejects.toThrow("no tools/call");

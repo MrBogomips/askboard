@@ -295,3 +295,79 @@ export type {
   UpdateRequest,
   UpdateResult,
 } from "./schemas/tool-envelopes/index.ts";
+
+// Push delivery (E4, design decision 1): its standalone schemas, which are in no set, and their
+// types and IDs; its constants, the session folder's paths and the asking rules.
+
+export { ASKING_RULES, type AskingRule } from "./push/asking-rules.ts";
+export {
+  BACKGROUND_THRESHOLD_DEFAULT_MS,
+  BACKGROUND_THRESHOLD_VARIABLE,
+  CLAUDE_CODE_CLIENT_NAME,
+  CLAUDE_CODE_MINIMUM,
+  HOOK_REQUEST_TIMEOUT_MS,
+  LOCAL_API_HOST,
+  LOCAL_API_MAX_BYTES,
+  LOCAL_API_QUERY,
+  LOCAL_API_ROUTES,
+  NOTICE_TEXT_MAX_CHARS,
+  noticePath,
+  POLL_INTERVAL_MS,
+  type PollContinuation,
+  pollPath,
+  RECORD_HOLD_MS,
+  RECORD_TIMEOUT_MS,
+  RECORDS_HELD_MAX,
+  SESSION_TOKEN_BYTES,
+  SESSION_TOKEN_HEADER,
+  SOCKET_PATH_MAX_BYTES,
+  WORKING_WINDOW_MS,
+} from "./push/constants.ts";
+export {
+  type AgentRecord,
+  type AskNotice,
+  type DeliveryReport,
+  type EffectiveRule,
+  LOCAL_API_MESSAGES,
+  LOCAL_API_VERSION,
+  type LocalApiAck,
+  type LocalApiMessageName,
+  type LocalApiMessages,
+  type ModHello,
+  type PendingAsk,
+  type PolledAsk,
+  type PolledEvent,
+  type PollResponse,
+  type StopDecision,
+  type StopRequest,
+  type TurnReport,
+} from "./push/local-api/index.ts";
+export {
+  type AgentStatus,
+  type AgentStatusMessage,
+  type ClosedEvent,
+  type OpenAsk,
+  type OriginMessage,
+  type PresenceMessage,
+  PUSH_MESSAGE_PREFACE,
+  type PushMessage,
+  pushMessageText,
+} from "./push/messages.ts";
+export { PUSH_HOST_MESSAGES, PUSH_SCHEMA_IDS, PUSH_SCHEMAS } from "./push/schemas.ts";
+export { SESSION_FILE_FORMAT, type SessionFile } from "./push/session-file/index.ts";
+export {
+  type SessionEnvironment,
+  sessionFilePath,
+  sessionFolder,
+  socketPathFor,
+  socketPathProblem,
+} from "./push/session-folder.ts";
+
+// Push delivery (E4): agent text as a notice shows it, for the notifier, the hooks and the mod.
+
+export { type AgentTextRun, agentTextPiece, agentTextRuns } from "./push/notice-text.ts";
+
+// Push delivery (E4): who asked and where, the context header's first row, for board-host and
+// ask-core alike.
+
+export { originMessage, type WhoAskedFields } from "./push/origin-message.ts";

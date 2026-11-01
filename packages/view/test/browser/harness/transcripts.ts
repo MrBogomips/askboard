@@ -4,7 +4,7 @@
 // `withDocument` puts another board document in, for the view's test-only documents, and
 // `overloaded` closes a socket with a code no transcript records.
 
-import type { BoardDocument } from "@askboard/contract";
+import type { AgentStatusMessage, BoardDocument, OriginMessage } from "@askboard/contract";
 import {
   plainChoiceTranscript,
   resendAfterDropTranscript,
@@ -22,13 +22,22 @@ export const OVERLOADED_CLOSE_CODE = 1013;
 /**
  * A transcript step; the session process restarting, after which every socket ends with no close
  * frame and the board's token opens nothing any more (the restart transcript starts after one;
- * this step puts it under an open board); or a socket closed with a code outside the board
- * protocol's, after which the network stays down until the test restores it, as after a drop.
+ * this step puts it under an open board); a socket closed with a code outside the board
+ * protocol's, after which the network stays down until the test restores it, as after a drop; and,
+ * for push delivery's header (task 8.5), the origin and agent messages and the agent starting a
+ * waiting `collect`, which `asker.ts` adds to Track 0's steps.
  */
 export type ReplayStep =
   | TranscriptStep
   | { readonly socket?: undefined; readonly from: "session"; readonly event: "restart" }
-  | { readonly socket: number; readonly from: "network"; readonly close: number };
+  | { readonly socket: number; readonly from: "network"; readonly close: number }
+  // Push delivery (task 8.5): the context header's messages, and the agent's waiting `collect`.
+  | {
+      readonly socket: number;
+      readonly from: "host";
+      readonly message: OriginMessage | AgentStatusMessage;
+    }
+  | { readonly socket?: undefined; readonly from: "session"; readonly event: "waiting" };
 
 export type ReplayTranscript = {
   readonly name: string;

@@ -8,7 +8,11 @@
 
 import { BOARD_HOST, BOARD_PROTOCOL_VERSION, type UpdateInput } from "@askboard/contract";
 import type { LifecycleTranscript, Transcript } from "@askboard/contract/fixtures";
-import { validateBoardMessage } from "@askboard/contract/validate";
+import {
+  validateAgentStatus,
+  validateBoardMessage,
+  validateOrigin,
+} from "@askboard/contract/validate";
 import WebSocket from "ws";
 
 const WAIT_MS = 5_000;
@@ -30,6 +34,19 @@ export type BoardSocket = {
   next(): Promise<unknown>;
   closed(): Promise<number>;
   send(message: unknown): void;
+  /**
+   * The context header's origin and agent messages (push delivery, design decision 12), kept apart
+   * from the board protocol's exchanges, as the browser harness keeps presence apart; each is
+   * checked against the contract, and one it refuses joins `problems`.
+   */
+  readonly header: unknown[];
+  readonly problems: string[];
+};
+
+// The header's messages and their contract validators.
+const HEADER: Readonly<Record<string, (value: unknown) => { ok: boolean }>> = {
+  origin: validateOrigin,
+  agent: validateAgentStatus,
 };
 
 /** The board link's parts: the port, the ask ID and the token. */
@@ -47,8 +64,21 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
   const origin = `http://${BOARD_HOST}:${port}`;
   const socket = new WebSocket(`ws://${BOARD_HOST}:${port}/ws/${askId}`, { origin });
   const pending: unknown[] = [];
+  const header: unknown[] = [];
+  const problems: string[] = [];
   let code: number | undefined;
-  socket.on("message", (data) => pending.push(JSON.parse(String(data))));
+  socket.on("message", (data) => {
+    const message = JSON.parse(String(data)) as { type?: unknown };
+    const type = message.type;
+    const validate =
+      typeof type === "string" && Object.hasOwn(HEADER, type) ? HEADER[type] : undefined;
+    if (validate === undefined) {
+      pending.push(message);
+      return;
+    }
+    header.push(message);
+    if (!validate(message).ok) problems.push(`the contract refuses ${JSON.stringify(message)}`);
+  });
   socket.on("close", (closeCode) => {
     code = closeCode;
   });
@@ -59,6 +89,8 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
   return {
     socket,
     pending,
+    header,
+    problems,
     next: () => waitFor(() => pending.shift(), "a board message"),
     closed: () => waitFor(() => code, "the board socket's close"),
     send: (message) => socket.send(JSON.stringify(message)),
@@ -183,6 +215,7 @@ export const replay = async (
       if (socket.pending.length > 0) {
         problems.push(`socket ${number}: unexpected ${JSON.stringify(socket.pending)}`);
       }
+      problems.push(...socket.problems.map((problem) => `socket ${number}: ${problem}`));
     }
   } finally {
     for (const socket of sockets.values()) socket.socket.terminate();

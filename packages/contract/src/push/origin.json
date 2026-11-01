@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:origin",
+  "title": "Origin",
+  "description": "board-host to board page, after the board and the state on each connect and on each change: who asked and where, for the context header's first row (FR-24, design decision 12). who holds the label (Main agent, Subagent <type>, or Agent for an unchecked ask), the agent's name and, for the second and later subagent of a type, its ordinal; forUser the expected answerer, only when shown; then the project's folder name, the agent's directory relative to the ask's root, the branch and the worktree's folder name. Each field but who is absent when AskBoard does not know it.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "origin"
+    },
+    "who": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "name": {
+          "$ref": "urn:askboard:input:ask#/properties/agentName"
+        },
+        "ordinal": {
+          "type": "integer",
+          "minimum": 2
+        }
+      },
+      "required": ["label"],
+      "additionalProperties": false
+    },
+    "forUser": {
+      "$ref": "urn:askboard:input:ask#/properties/expectedUser"
+    },
+    "project": {
+      "$ref": "#/$defs/folderName"
+    },
+    "directory": {
+      "description": "\".\" at the ask's root, relative inside it, absolute outside it.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "branch": {
+      "description": "git's abbreviated HEAD: \"HEAD\" when detached.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "worktree": {
+      "$ref": "#/$defs/folderName"
+    }
+  },
+  "required": ["version", "type", "who"],
+  "additionalProperties": false,
+  "$defs": {
+    "label": {
+      "description": "Who asked, as the context header and the pending-asks list name it.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "folderName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    }
+  }
+}

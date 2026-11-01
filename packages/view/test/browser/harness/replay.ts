@@ -7,15 +7,16 @@
 // replay passes it. Since the ask lifecycle, a board page speaking protocol 1.1 answers with an
 // act command, which the replay takes for the transcript's answer and acknowledges with `done`
 // before the host's steps that follow, as `board-host` does; its draft records go nowhere, as
-// none of E1's transcripts holds one (ask-lifecycle, design decision 6).
+// none of E1's transcripts holds one (ask-lifecycle, design decision 6). A presence message (push delivery, task 5.3) is no
+// transcript step either: it is only checked against the contract.
 
 import { BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
-import { validateBoardMessage } from "@askboard/contract/validate";
-import { isDraft, samePageMessage, summary } from "./messages.ts";
+import { validateBoardMessage, validatePresence } from "@askboard/contract/validate";
+import { isDraft, isPresenceMessage, samePageMessage, summary } from "./messages.ts";
 import type { ReplayStep } from "./transcripts.ts";
 
-/** The session-side steps a test triggers. */
-export type ReplayGate = "collected" | "exit" | "restart" | "drop";
+/** The session-side steps a test triggers; `waiting` is the agent's waiting `collect`. */
+export type ReplayGate = "collected" | "exit" | "restart" | "drop" | "waiting";
 
 /** One board WebSocket, as the replay acts on it. */
 export type ReplaySocket = {
@@ -121,6 +122,10 @@ export class Replay {
   /** A message the page sent on a socket. */
   receive(number: number, text: string): void {
     const read = parsed(text);
+    if (isPresenceMessage(read.message)) {
+      this.#presence(number, read.message);
+      return;
+    }
     if (!isDraft(read.message)) {
       this.#inbox.get(number)?.push({ message: read.message });
       this.#advance();
@@ -174,6 +179,15 @@ export class Replay {
       ),
     );
     return [...this.#problems, ...unexpected];
+  }
+
+  #presence(number: number, message: unknown): void {
+    const checked = validatePresence(message);
+    if (checked.ok) return;
+    const problems = checked.problems.map((problem) => `${problem.path}: ${problem.message}`);
+    this.#problems.push(
+      `socket ${number} sent a presence message the contract refuses: ${problems.join("; ")}`,
+    );
   }
 
   #advance(): void {

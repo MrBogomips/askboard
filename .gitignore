@@ -4,6 +4,8 @@
 # Dependencies and build output
 node_modules/
 dist/
+# The mod's module, which `bun run build:mod` writes beside hooks/hooks.json
+hooks/askboard-mod.js
 
 # Local Claude Code settings
 .claude/settings.local.json

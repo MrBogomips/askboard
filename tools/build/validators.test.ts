@@ -2,13 +2,24 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BOARD_PROTOCOL_MESSAGES, BOARD_PROTOCOL_VERSION } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_MESSAGES,
+  BOARD_PROTOCOL_VERSION,
+  PUSH_HOST_MESSAGES,
+} from "@askboard/contract";
 import {
   boardProtocolExamples,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
+  subagentOrigin,
+  uncheckedOrigin,
+  waitingAgentStatus,
 } from "@askboard/contract/fixtures";
-import { validateBoardMessage } from "@askboard/contract/validate";
+import {
+  validateAgentStatus,
+  validateBoardMessage,
+  validateOrigin,
+} from "@askboard/contract/validate";
 import { HOST_VALIDATORS_RUNTIME, hostValidatorsCode } from "./validators.ts";
 
 type Check = ((value: unknown) => boolean) & { errors?: unknown[] | null };
@@ -46,9 +57,9 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     expect(code).not.toMatch(/\beval\s*\(|\bnew\s+Function\b|\bFunction\s*\(/);
   });
 
-  test("export one validator for each message board-host sends", () => {
+  test("export one validator for each message board-host sends, push delivery's included", () => {
     expect(Object.keys(generated).sort()).toEqual(
-      Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).sort(),
+      Object.keys({ ...BOARD_PROTOCOL_MESSAGES.toPage, ...PUSH_HOST_MESSAGES }).sort(),
     );
   });
 
@@ -105,5 +116,35 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
       const ok = extended[message.type]?.(message);
       expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
     }
+  });
+});
+
+describe("the origin and agent messages' standalone validators (task 8.4)", () => {
+  const checks: readonly [string, unknown, (value: unknown) => { ok: boolean }][] = [
+    ["a subagent's origin", subagentOrigin, validateOrigin],
+    ["an unchecked ask's origin", uncheckedOrigin, validateOrigin],
+    ["an origin with a field too many", { ...uncheckedOrigin, cwd: "/" }, validateOrigin],
+    [
+      "an origin with an ordinal of 1",
+      { ...uncheckedOrigin, who: { label: "x", ordinal: 1 } },
+      validateOrigin,
+    ],
+    [
+      "an origin with an agent name too long",
+      { ...uncheckedOrigin, who: { label: "x", name: "n".repeat(257) } },
+      validateOrigin,
+    ],
+    ["an origin with an empty project", { ...uncheckedOrigin, project: "" }, validateOrigin],
+    ["the agent status", waitingAgentStatus, validateAgentStatus],
+    [
+      "an agent status of another value",
+      { ...waitingAgentStatus, status: "idle" },
+      validateAgentStatus,
+    ],
+  ];
+
+  test.each(checks)("agree with the contract's validation on %s", (_, message, validate) => {
+    const type = (message as { type: string }).type;
+    expect(generated[type]?.(message)).toBe(validate(message).ok);
   });
 });

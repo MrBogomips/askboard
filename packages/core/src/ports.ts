@@ -2,6 +2,7 @@
 // runtime-neutral (AD-1): everything that touches the machine comes through these.
 
 import type { UnavailableReason } from "@askboard/contract";
+import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
 
 /**
  * `board-host`: the link of an ask's board, which opens the board listener on first use (AD-2).
@@ -78,4 +79,11 @@ export type CorePorts = {
   readonly report: Report;
   /** The core's time and the grace timer (ask-lifecycle). */
   readonly clock: Clock;
+  /** Push delivery's record table and notifier (E4); without them every ask is unchecked. */
+  readonly records?: AgentRecords;
+  readonly notices?: Notices;
+  /** Push delivery's diagnostics that are not failures (E4); without it, none is written. */
+  readonly diagnose?: Diagnose;
+  /** The context header's timers and threshold (E4, design decision 12). */
+  readonly header?: HeaderPorts;
 };

@@ -41,3 +41,19 @@ describe("the askboard-data block the view boots from (AD-9)", () => {
     expect(() => parseBootData(JSON.stringify({ document: data.document }))).toThrow("state");
   });
 });
+
+describe("who asked and where, and the agent status, in the block (task 8.4)", () => {
+  test("are kept when the board page had them", () => {
+    const full: BootData = {
+      ...data,
+      origin: { who: { label: "Main agent" }, project: "order-service", directory: "." },
+      agent: "waiting",
+    };
+    expect(parseBootData(JSON.stringify(full))).toEqual(full);
+  });
+
+  test("are left out when the view cannot show them", () => {
+    const wrong = { ...data, origin: { who: {} }, agent: "idle" };
+    expect(parseBootData(JSON.stringify(wrong))).toEqual(data);
+  });
+});

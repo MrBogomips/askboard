@@ -1,7 +1,9 @@
 // board-host: each ask's board on the local machine only, behind its own token (AD-8, AD-11), and
 // the board protocol between the board page and ask-core (AD-3, AD-21), at 1.1 for the ask
 // lifecycle (ask-lifecycle, design decision 5). It imports only ask-core and the contract (AD-1).
-// The listener opens at the first link ask-core asks for (AD-2).
+// The listener opens at the first link ask-core asks for (AD-2). Beside it, in `local-api/`, the
+// local API for the hooks and the mod and its session file (push delivery, AD-5), on a listener of
+// its own: neither token reaches the other's routes.
 
 import { createServer, type Server } from "node:http";
 import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
@@ -13,21 +15,27 @@ import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
 import { loadView } from "./view.ts";
 
+/** E1's part of ask-core: the board's answers and the subscription. */
+export type E1Core = Pick<AskCore, "answer" | "subscribe">;
+
 /**
- * The part of ask-core `board-host` uses: what the board shows, E1's answers and the board's act
- * commands, the draft record, the board's connections, and the subscription.
+ * The ask lifecycle's part: what the board shows, the board's act commands, the draft record and
+ * the board's connections (ask-lifecycle).
  */
-export type HostCore = Pick<
+export type LifecycleCore = Pick<
   AskCore,
-  | "answer"
-  | "subscribe"
-  | "lifecycleBoard"
-  | "act"
-  | "holdDraft"
-  | "draftToRestore"
-  | "connected"
-  | "disconnected"
+  "lifecycleBoard" | "act" | "holdDraft" | "draftToRestore" | "connected" | "disconnected"
 >;
+
+/**
+ * Push delivery's part, optional: `setWorking` hears each board's working signal, and `whoAsked`
+ * and `agentStatus` give the context header's data; without them a presence message changes
+ * nothing and no header message is sent.
+ */
+export type PushCore = Partial<Pick<AskCore, "setWorking" | "whoAsked" | "agentStatus">>;
+
+/** The part of ask-core `board-host` uses: one part per change, so each change adds its own. */
+export type HostCore = E1Core & LifecycleCore & PushCore;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */
@@ -42,7 +50,24 @@ export type BoardHostOptions = {
   readonly token?: () => string;
   /** Bounds on sockets that have not sent their first message; `boards.ts`'s constants by default. */
   readonly limits?: Partial<SocketLimits>;
+  /**
+   * The session project's root (design decision 12): with it, each board receives who asked and
+   * where and the agent status after its board document and state on each connect, and the agent
+   * status on each change. Without it, as in E1, neither is sent.
+   */
+  readonly projectDir?: string;
 };
+
+export {
+  createLocalApi,
+  createOrigins,
+  type LocalApi,
+  type LocalApiOptions,
+  newSessionToken,
+  type OriginOf,
+  RecordTable,
+  type Run,
+} from "./local-api/index.ts";
 
 export type BoardHost = {
   /** The `BoardAddress` port ask-core holds: the first link opens the listener. */
@@ -78,6 +103,7 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
       tokens,
       report: options.report,
       ...(options.limits ? { limits: options.limits } : {}),
+      ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }),
     });
     // A live board's largest message; before `connect`, `Boards` holds a socket to far less. A close
     // handshake the peer does not finish ends the socket after `CLOSE_GRACE_MS`, not ws's 30 s:

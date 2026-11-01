@@ -2,12 +2,29 @@ import { describe, expect, test } from "bun:test";
 import { meetsNodeFloor, parseOptions } from "./options.ts";
 
 // The conformance suite's runner (task 9.2): which runtime runs the session process, which serves
-// the real view build, `dist/view/`.
+// the real view build, `dist/view/`, and which of AD-1's configurations run (push delivery, 9.5).
 
 describe("the runner's options", () => {
-  test("take the runtime", () => {
-    expect(parseOptions(["--runtime", "bun"])).toEqual({ runtime: "bun" });
-    expect(parseOptions(["--runtime", "node"])).toEqual({ runtime: "node" });
+  test("take the runtime, and AD-1's three configurations unless one is named", () => {
+    const all = ["mod-and-hooks", "mod-disabled", "hooks-disabled"] as const;
+    expect(parseOptions(["--runtime", "bun"])).toEqual({ runtime: "bun", configurations: all });
+    expect(parseOptions(["--runtime", "node"])).toEqual({ runtime: "node", configurations: all });
+    for (const name of all) {
+      expect(parseOptions(["--configuration", name, "--runtime", "node"])).toEqual({
+        runtime: "node",
+        configurations: [name],
+      });
+    }
+  });
+
+  test("refuse an unknown configuration", () => {
+    for (const args of [
+      ["--runtime", "bun", "--configuration"],
+      ["--runtime", "bun", "--configuration", "mod-only"],
+      ["--runtime", "bun", "--configuration", "all"],
+    ]) {
+      expect("error" in parseOptions(args)).toBe(true);
+    }
   });
 
   test("refuse a missing or unknown runtime, a view build to choose and any other argument", () => {

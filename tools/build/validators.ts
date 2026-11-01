@@ -1,10 +1,11 @@
 // The board page's standalone validators (AD-7, design decision 7). The board page cannot compile
 // a schema under its CSP, so the build generates Ajv's standalone code for each message
-// `board-host` sends, with the contract's own Ajv instance, and bundles it in place of the view's
-// `board-page/validators.ts`, which compiles the same schemas for tests. The code needs only Ajv's
-// `ucs2length` helper at run time and holds no `eval` or `new Function`.
+// `board-host` sends, push delivery's origin and agent messages included (design decision 12), with
+// the contract's own Ajv instance, and bundles it in place of the view's `board-page/validators.ts`,
+// which compiles the same schemas for tests. The code needs only Ajv's `ucs2length` helper at run
+// time and holds no `eval` or `new Function`.
 
-import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
+import { BOARD_PROTOCOL_MESSAGES, PUSH_HOST_MESSAGES, PUSH_SCHEMAS } from "@askboard/contract";
 import { createAjv } from "@askboard/contract/validate";
 import standaloneCode from "ajv/dist/standalone";
 import type { BunPlugin } from "bun";
@@ -17,12 +18,17 @@ export const HOST_VALIDATORS_RUNTIME = "ajv/dist/runtime/ucs2length";
  * ESM exporting `hostMessageSchemas`, one validator per message type, as the view's module does.
  * Ajv exports each validator under a name that must be an identifier, which a message name such as
  * `snapshot-saved` is not, so each is exported by its place in the list and keyed in
- * `hostMessageSchemas` by its quoted message name. `messages` is the contract's list by default.
+ * `hostMessageSchemas` by its quoted message name. `messages` is the contract's list, with push delivery's host messages, by default.
  */
 export const hostValidatorsCode = (
-  messages: Readonly<Record<string, string>> = BOARD_PROTOCOL_MESSAGES.toPage,
+  messages: Readonly<Record<string, string>> = {
+    ...BOARD_PROTOCOL_MESSAGES.toPage,
+    ...PUSH_HOST_MESSAGES,
+  },
 ): string => {
   const ajv = createAjv({ code: { source: true, esm: true } });
+  // Push delivery's schemas are standalone (design decision 1): in no set `createAjv` holds.
+  for (const schema of PUSH_SCHEMAS) ajv.addSchema(schema);
   const entries = Object.entries(messages);
   const exportName = (index: number) => `hostMessage${index}`;
   const exports = Object.fromEntries(entries.map(([, id], index) => [exportName(index), id]));

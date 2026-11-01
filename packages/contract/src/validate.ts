@@ -304,4 +304,14 @@ export { problemOf };
 // draft record checked against its ask's board document.
 
 export { draftRecordProblems } from "./draft-record.ts";
+// Push delivery (E4, design decision 1): the validators of its standalone schemas.
+export {
+  validateAgentStatus,
+  validateClosedEvent,
+  validateLocalApi,
+  validateOrigin,
+  validatePresence,
+  validatePushMessage,
+  validateSessionFile,
+} from "./push/validate.ts";
 export { validateFetchRequest, validateUpdateRequest } from "./update-request.ts";

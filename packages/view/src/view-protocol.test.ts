@@ -595,3 +595,40 @@ describe("what the board page tells the view of the lifecycle (ask-lifecycle, de
     }
   });
 });
+
+describe("who asked and where, and the agent status, in an update (task 8.4)", () => {
+  const origin = {
+    who: { label: "Subagent code-reviewer", name: "Retry review", ordinal: 2 },
+    forUser: "Marco Rossi",
+    project: "order-service",
+    directory: ".",
+    branch: "fix/retry",
+    worktree: "order-service-fix-retry",
+  };
+
+  test("go with the state and read back", () => {
+    const update = { type: "state", state: waiting, origin, agent: "waiting" } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+    expect(
+      readViewUpdate({ type: "state", state: waiting, origin: { who: { label: "Agent" } } }),
+    ).toEqual({
+      type: "state",
+      state: waiting,
+      origin: { who: { label: "Agent" } },
+    });
+  });
+
+  test("an update whose origin or agent status the view cannot show is not an update", () => {
+    for (const wrong of [
+      { origin: "Main agent" },
+      { origin: {} },
+      { origin: { who: { label: 7 } } },
+      { origin: { who: { label: "Agent", ordinal: "2" } } },
+      { origin: { ...origin, branch: 5 } },
+      { agent: "idle" },
+      { agent: true },
+    ]) {
+      expect(readViewUpdate({ type: "state", state: waiting, ...wrong })).toBeUndefined();
+    }
+  });
+});

@@ -640,7 +640,7 @@ The spine's Deferred table lists each open item, why it can wait and when it is 
 | --- | --- |
 | Architecture spikes (§10) | The session-file key on Linux (mod delivery, task 4.1) |
 | Product owner | A2UI inbound translator (OQ5); molecule registry, export and repository (FR-16, FR-17) and full benchmark settings; MCP Apps in Claude hosts, other surfaces, native Windows, remote hosts; packaging checks left to the product owner (`spike-packaging` tasks 4.4 and 7.1 to 7.5) |
-| Implementation | Default port range, container opt-in setting, host-side link address and port, VS Code Dev Containers' `BROWSER` helper and port forwarding, record timeout, where the file path and line sit in the user's `editor` command (the grace period is 120 s since the `ask-lifecycle` change) |
+| Implementation | Default port range, container opt-in setting, host-side link address and port, VS Code Dev Containers' `BROWSER` helper and port forwarding, where the file path and line sit in the user's `editor` command (the grace period is 120 s since the `ask-lifecycle` change) |
 | Benchmark | `alwaysLoad` for `ask` and the result representation (first run); final question set and browser driver (benchmark epic) |
 | Product owner, outside the Deferred table | The licence exception for the Bun executable (§11 entry 7), after the packaging spike; filing the AXFX contract change (§11 entry 8) in the planning repository, with the text in the packaging spike's findings; the Bun executable ships once it is accepted |
 

@@ -1,10 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import {
-  BOARD_PROTOCOL_VERSION,
-  type HostMessage,
-  type LifecycleHostMessage,
-} from "@askboard/contract";
+import { BOARD_PROTOCOL_VERSION, type HostMessage } from "@askboard/contract";
 import { PLAIN_CHOICE, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import type { BoardHostMessage } from "./host-messages.ts";
 import { boardLinkOf, connectBoard, type SocketLike } from "./socket.ts";
 
 type SocketEvent = { data?: unknown; code?: number };
@@ -50,7 +47,7 @@ const board: HostMessage = {
 
 const open = () => {
   FakeSocket.opened.length = 0;
-  const onMessage = mock((_message: LifecycleHostMessage) => {});
+  const onMessage = mock((_message: BoardHostMessage) => {});
   const onInvalid = mock((_problems: readonly { path: string; message: string }[]) => {});
   const onClose = mock((_code: number) => {});
   const connection = connectBoard(bare, link, { onMessage, onInvalid, onClose }, FakeSocket);

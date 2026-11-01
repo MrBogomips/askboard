@@ -8,6 +8,7 @@ import {
   type PageMessage,
 } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
+import { agentWaitsTranscript } from "./asker.ts";
 import type { BoardSession } from "./session.ts";
 import { startTestServer } from "./test-server.ts";
 import { type ReplayTranscript, replayTranscripts } from "./transcripts.ts";
@@ -49,7 +50,7 @@ const page = (session: BoardSession, origin = new URL(session.link).origin) => {
   url.search = "";
   const socket = new WebSocket(url.href, { headers: { Origin: origin } } as unknown as string[]);
   sockets.push(socket);
-  const received: HostMessage[] = [];
+  const received: (HostMessage | { readonly type: "origin" | "agent" })[] = [];
   const waiters: (() => void)[] = [];
   socket.addEventListener("message", (event) => {
     received.push(JSON.parse(String(event.data)));
@@ -172,6 +173,23 @@ describe("the test server: replaying the host's half", () => {
     second.send(connect);
     expect(await second.until(1)).toEqual(["refused"]);
     expect(await second.closed).toBe(BOARD_CLOSE_CODES.refused);
+    expect(session.problems()).toEqual([]);
+  });
+
+  test("the header's messages, and the agent's wait at its gate (task 8.5)", async () => {
+    const session = await start(
+      agentWaitsTranscript({ project: "order-service", gitUser: "Paola Greco" }),
+    );
+    const board = page(session);
+    await board.opened;
+    board.send(connect);
+    expect(await board.until(4)).toEqual(["board", "state", "origin", "agent"]);
+    await session.agentWaits();
+    expect(await board.until(5)).toEqual(["board", "state", "origin", "agent", "agent"]);
+    expect(board.received[4]).toMatchObject({ status: "waiting" });
+    board.send(answer);
+    expect((await board.until(7)).slice(5)).toEqual(["state", "agent"]);
+    expect(board.received[6]).toMatchObject({ status: "working" });
     expect(session.problems()).toEqual([]);
   });
 

@@ -22,7 +22,12 @@ import {
   webkit,
 } from "playwright";
 import type { Engine } from "./engines.ts";
-import { pageMessagesOf, type RecordedSocket, type SentMessage } from "./messages.ts";
+import {
+  pageMessagesOf,
+  presenceMessagesOf,
+  type RecordedSocket,
+  type SentMessage,
+} from "./messages.ts";
 import { isCspConsoleLine } from "./policy.ts";
 
 const ENGINE_TYPES = { chromium, firefox, webkit } as const;
@@ -121,9 +126,17 @@ export class BoardContext {
     return this.#sockets;
   }
 
-  /** What the board page sent, by socket, numbered as the transcripts number them. */
+  /**
+   * What the board page sent, by socket, numbered as the transcripts number them; its presence
+   * messages, which no transcript holds, are `presenceMessages`.
+   */
   pageMessages(): SentMessage[] {
     return pageMessagesOf(this.#sockets);
+  }
+
+  /** The board page's presence messages (push delivery), by socket, numbered alike. */
+  presenceMessages(): SentMessage[] {
+    return presenceMessagesOf(this.#sockets);
   }
 
   /** Violations and CSP console lines, one line each: what a test expects to be empty. */

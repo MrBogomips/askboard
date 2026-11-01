@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:records-request",
+  "title": "Agent record",
+  "description": "A PreToolUse hook's record of one AskBoard call, sent before the call reaches the session process (AD-5): who makes it (agent_id and agent_type as Claude Code names them, both absent for the main conversation), its working directory, the call's tool_use_id when Claude Code gives one, the tool's name, the ask IDs the call names and when the hook ran.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "agent_id": {
+      "$ref": "urn:askboard:local-api:agent-id"
+    },
+    "agent_type": {
+      "$ref": "urn:askboard:local-api:agent-type"
+    },
+    "cwd": {
+      "description": "The agent's working directory, an absolute path.",
+      "type": "string",
+      "pattern": "^/",
+      "maxLength": 4096
+    },
+    "tool_use_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "tool_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "askIds": {
+      "description": "askId for ask, and every asks[].askId for collect: at most the 40 asks one collect takes.",
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "$ref": "urn:askboard:input:id"
+      }
+    },
+    "timestamp": {
+      "$ref": "urn:askboard:output:time"
+    }
+  },
+  "required": ["version", "cwd", "tool_name", "askIds", "timestamp"],
+  "additionalProperties": false
+}

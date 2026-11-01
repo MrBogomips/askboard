@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:closed-event",
+  "title": "Closed event",
+  "description": "The final event of an ask AskBoard closed, not the agent: its owner, a subagent, finished (AD-3, AD-10), and the ask takes no more answers. An agent's own close is reported in its call's result and is not an event.",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "type": {
+      "const": "closed"
+    },
+    "reason": {
+      "enum": ["agent-finished"]
+    }
+  },
+  "required": ["cursor", "type", "reason"],
+  "additionalProperties": false
+}

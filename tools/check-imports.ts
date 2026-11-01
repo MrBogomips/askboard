@@ -1,7 +1,7 @@
 // Import-boundary check (AD-1): fails on any import that crosses the dependency diagram of
 // docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md (Invariants & Rules, AD-1), between
 // packages and between the server units, on relative paths that leave their package, and on Node
-// or Bun built-ins in the sources of core and compute. Repository tooling, not a shipped unit: it
+// or Bun built-ins in the sources of core, compute and mod. Repository tooling, not a shipped unit: it
 // may use Bun APIs.
 //
 // Usage: bun tools/check-imports.ts [root]
@@ -40,8 +40,9 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   snapshot: ["core", "contract", "view/assemble"],
   notifier: ["core", "contract"],
   // The session process entry point: the files in packages/server/src outside the six unit
-  // folders, which compose the units (AD-1 as amended by E1, design decision 9). No unit lists
-  // `server`, so nothing imports it.
+  // folders, which compose the units (AD-1 as amended by E1, design decision 9), and run the hook
+  // mode and the local API client of `hooks` (AD-1 as amended by push delivery, AD-19). No unit
+  // lists `server`, so nothing imports it.
   server: [
     "core",
     "contract",
@@ -51,6 +52,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     "molecule-source",
     "snapshot",
     "notifier",
+    "hooks",
   ],
   molecules: ["contract"],
   view: ["contract", "compute"],
@@ -72,16 +74,18 @@ const PACKAGES = new Set([
   "hooks",
   "bench",
 ]);
-const RUNTIME_NEUTRAL = new Set(["core", "compute"]);
-// core and compute compile contract's sources too, so its type references would reach them.
-const TYPE_ISOLATED = new Set(["contract", "core", "compute"]);
+// The mod runs in Claude Code's mod environment, with no Node and no DOM: everything outside it is
+// reached through the mod API (push delivery, design decision 7).
+const RUNTIME_NEUTRAL = new Set(["core", "compute", "mod"]);
+// core, compute and mod compile contract's sources too, so its type references would reach them.
+const TYPE_ISOLATED = new Set(["contract", "core", "compute", "mod"]);
 const VIEW_ENTRIES = new Set(["assemble", "catalog"]);
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage"]);
 const SCOPE = "@askboard/";
 
 const RULE_BUILT_IN =
-  "core and compute use no Node-only or Bun-only API outside their tests (AD-1)";
+  "core, compute and mod use no Node-only or Bun-only API outside their tests (AD-1)";
 const RULE_OUTSIDE = "resolves outside packages/: not an AskBoard unit (AD-1)";
 const RULE_UNKNOWN = "not an AskBoard package of the spine's layer table (AD-1)";
 const RULE_UNRESOLVED =
@@ -89,7 +93,7 @@ const RULE_UNRESOLVED =
 const RULE_NODE_MODULES =
   "a relative path into node_modules, where the isolated linker links other packages: import @askboard/<unit> or a third-party package by name (AD-1)";
 const RULE_REFERENCE =
-  "contract, core and compute reference no type package and no library beyond ECMAScript outside their tests: core and compute compile without DOM, Node or Bun types (AD-1)";
+  "contract, core, compute and mod reference no type package and no library beyond ECMAScript outside their tests: core, compute and mod compile without DOM, Node or Bun types (AD-1)";
 const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
 
 type Target =

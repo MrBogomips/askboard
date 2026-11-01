@@ -1,6 +1,7 @@
 // The session process's stdio life (AD-2, design decision 4): serve the tools over stdio, and on
 // stdin's end, SIGINT, SIGTERM or SIGHUP run one shutdown: discard every open ask, let the boards'
-// sockets and the waiting collects' answers flush within a short bound, close, and exit.
+// sockets and the waiting collects' answers flush within a short bound, close, and exit. The first
+// request other than `server/discover` is the entry point's cue to start the local API (E4).
 
 import type { Transport } from "@modelcontextprotocol/server";
 import { StdioServerTransport, serveStdio } from "@modelcontextprotocol/server/stdio";
@@ -27,6 +28,11 @@ export type SessionOptions = {
   readonly process: SessionProcess;
   /** Closes what the session opened after the discard, such as the board listener. */
   readonly beforeExit?: () => Promise<void>;
+  /**
+   * Called once, at the first request other than `server/discover`, before the request is handled
+   * (AD-2): Claude Code sends `subscriptions/listen` right after the handshake.
+   */
+  readonly firstRequest?: () => void;
   /** The transport to serve on; the process's stdio by default. */
   readonly transport?: Transport;
   readonly version?: string;
@@ -37,15 +43,26 @@ export type Session = {
   readonly ended: Promise<number>;
 };
 
-// A transport that also tells `closed` when it closes: stdin's end closes the stdio transport
-// whether or not an MCP exchange has started, which the server's own close does not see.
-const watched = (inner: Transport, closed: () => void): Transport => {
+/** The probe of the protocol's revision, which starts nothing (AD-2). */
+const DISCOVER = "server/discover";
+
+// A transport that also tells `closed` when it closes, since stdin's end closes the stdio transport
+// whether or not an MCP exchange has started, which the server's own close does not see; and
+// `requested` at each request it receives, by method.
+const watched = (
+  inner: Transport,
+  closed: () => void,
+  requested: (method: string) => void,
+): Transport => {
   const outer: Transport = {
     start: () => inner.start(),
     send: (message, options) => inner.send(message, options),
     close: () => inner.close(),
   };
-  inner.onmessage = (message, extra) => outer.onmessage?.(message, extra);
+  inner.onmessage = (message, extra) => {
+    if ("method" in message && "id" in message) requested(message.method);
+    outer.onmessage?.(message, extra);
+  };
   inner.onerror = (error) => outer.onerror?.(error);
   inner.onclose = () => {
     outer.onclose?.();
@@ -108,9 +125,23 @@ export const serveSession = (options: SessionOptions): Session => {
     return shutdown;
   };
 
-  const transport = watched(options.transport ?? new StdioServerTransport(), () => {
-    void end("stdin closed");
-  });
+  let first = true;
+  const requested = (method: string) => {
+    if (!first || method === DISCOVER) return;
+    first = false;
+    try {
+      options.firstRequest?.();
+    } catch (error) {
+      say(failure("starting at the first request failed", error));
+    }
+  };
+  const transport = watched(
+    options.transport ?? new StdioServerTransport(),
+    () => {
+      void end("stdin closed");
+    },
+    requested,
+  );
   const handle = serveStdio(() => createToolServer(deps, options.version), {
     transport,
     onerror: (error) => say(failure("protocol error", error)),

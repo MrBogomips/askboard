@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:version",
+  "title": "Local API version",
+  "description": "The local API version a message follows, as major.minor. A receiver supports major 1 and accepts any of its minors. Every message refuses the fields it does not define, so a minor only adds optional fields, sent only once both ends, the session process and its clients, accept them.",
+  "type": "string",
+  "pattern": "^1\\.(0|[1-9][0-9]*)$"
+}

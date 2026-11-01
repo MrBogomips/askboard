@@ -1,8 +1,10 @@
 // The conformance suite's session processes (task 9.2): the built bundle on the runtime the runner
-// chose, in a throwaway project, with a recorder script as `BROWSER`, driven over stdio by the MCP
-// client. The client talks through a transport over the child's own pipes, so the suite can end
-// stdin and watch the process exit on its own, which the SDK's stdio transport, ending its child
-// with signals, cannot show.
+// chose, in a throwaway project, with a recorder script as `BROWSER` and notifier recorders first on
+// `PATH` (push delivery, task 5.4), driven over stdio by the MCP client. The client talks through a
+// transport over the child's own pipes, so the suite can end stdin and watch the process exit on its
+// own, which the SDK's stdio transport, ending its child with signals, cannot show. Beside a session
+// process, a stand-in mod host can run the built mod in the session's environment, Claude Code's
+// (push delivery, task 9.1): in AD-1's hooks-disabled configuration, beside every one.
 
 import {
   chmodSync,
@@ -17,7 +19,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
-import { VIEW_DIRECTORY, VIEW_MANIFEST_FILE, type ViewManifest } from "@askboard/contract";
+import {
+  CLAUDE_CODE_CLIENT_NAME,
+  CLAUDE_CODE_MINIMUM,
+  VIEW_DIRECTORY,
+  VIEW_MANIFEST_FILE,
+  type ViewManifest,
+} from "@askboard/contract";
 import {
   Client,
   type JSONRPCMessage,
@@ -25,6 +33,9 @@ import {
   serializeMessage,
   type Transport,
 } from "@modelcontextprotocol/client";
+import { notifierRecorders } from "../notifier-recorders.ts";
+import { createModHost, type ModHost, type ModHostOptions } from "./mod-host.ts";
+import { type Configuration, configurationNamed } from "./options.ts";
 
 const ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
@@ -34,8 +45,13 @@ export const RUNTIME = process.env.ASKBOARD_CONFORMANCE_RUNTIME ?? process.execP
 /** The git user name of every throwaway project: the approved examples' `who`. */
 export const GIT_USER = "Paola Greco";
 
+/** AD-1's configuration of this run, as run.ts names it: mod-disabled when it names none. */
+export const CONFIGURATION: Configuration =
+  configurationNamed(process.env.ASKBOARD_CONFORMANCE_CONFIGURATION) ?? "mod-disabled";
+
 const folders: string[] = [];
 const children = new Set<ReturnType<typeof Bun.spawn>>();
+const hosts = new Set<ModHost>();
 
 const folder = (name: string): string => {
   const made = mkdtempSync(join(tmpdir(), `askboard-conformance-${name}-`));
@@ -143,6 +159,13 @@ export type SessionOptions = {
   readonly bundle?: string;
   /** The client's negotiation: Claude Code's modern one by default. */
   readonly negotiation?: "auto" | "legacy";
+  /** The client's name and version: Claude Code at the minimum version by default. */
+  readonly client?: { readonly name: string; readonly version: string };
+  /**
+   * A stand-in mod host beside the session process, in its environment: by default one in the
+   * hooks-disabled configuration and none in the others; `false` for none.
+   */
+  readonly mod?: Omit<ModHostOptions, "env" | "cwd"> | false;
 };
 
 export type Session = {
@@ -153,12 +176,21 @@ export type Session = {
   readonly project: string;
   /** The session process's home, which E1 never writes to. */
   readonly home: string;
+  /** The session process's environment, Claude Code's: the hooks and the mod host run in it. */
+  readonly env: Readonly<Record<string, string>>;
+  /** The stand-in mod host beside the session process, started; none without the mod. */
+  readonly mod: ModHost | undefined;
   /** Each start of the recorder: its arguments. */
   opened(): string[][];
   /** Waits for the recorder's next start and returns its arguments. */
   nextOpened(): Promise<string[]>;
-  /** A tool call's result, its JSON parsed when it is not an error. */
-  call(name: string, args: Record<string, unknown>): Promise<ToolOutcome>;
+  /** Each system notification shown: the notifier's name, then its arguments. */
+  notified(): string[][];
+  /**
+   * A tool call's result, its JSON parsed when it is not an error; with `toolUseId`, the request's
+   * `_meta` carries it, as Claude Code's do.
+   */
+  call(name: string, args: Record<string, unknown>, toolUseId?: string): Promise<ToolOutcome>;
   /** Ends stdin and waits for the exit. */
   end(): Promise<number>;
   readonly exited: Promise<number>;
@@ -172,6 +204,23 @@ export type ToolOutcome = {
 };
 
 const WAIT_MS = 5_000;
+
+/** Where Claude Code puts a tool call's ID in the request's `_meta` (AD-5). */
+const TOOL_USE_ID_META = "claudecode/toolUseId";
+
+// The mod host a session gets, started: Claude Code starts its mods at the session's start.
+const modBeside = async (
+  mod: SessionOptions["mod"],
+  env: Readonly<Record<string, string>>,
+  cwd: string,
+): Promise<ModHost | undefined> => {
+  const options = mod ?? (CONFIGURATION === "hooks-disabled" ? {} : false);
+  if (options === false) return undefined;
+  const host = await createModHost({ ...options, env, cwd });
+  hosts.add(host);
+  await host.sessionStart();
+  return host;
+};
 
 const recorderIn = (into: string): string => {
   const script = join(into, "browser.sh");
@@ -193,10 +242,11 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
   const project = folder("project");
   const home = folder("home");
   const recorder = folder("recorder");
+  const notifier = notifierRecorders(folder("notifier"));
   Bun.spawnSync(["git", "init", "--quiet", project]);
   Bun.spawnSync(["git", "-C", project, "config", "user.name", GIT_USER]);
   const env: Record<string, string> = {
-    PATH: process.env.PATH ?? "",
+    PATH: `${notifier.folder}:${process.env.PATH ?? ""}`,
     HOME: home,
     BROWSER: recorderIn(recorder),
     CLAUDE_PROJECT_DIR: project,
@@ -220,9 +270,14 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
     children.delete(child);
     return code;
   });
+  const mod = await modBeside(options.mod, env, project);
+  // A mod host outlives no session process: the next one may take the same session file.
+  void exited.then(() => mod?.stop());
   const transport = new ChildTransport(child);
+  // The client stands in for Claude Code, which names itself and its version in every request's
+  // client information (spike criterion 16): at the minimum, its asks pass the version gate.
   const client = new Client(
-    { name: "askboard-conformance", version: "0.0.0" },
+    options.client ?? { name: CLAUDE_CODE_CLIENT_NAME, version: CLAUDE_CODE_MINIMUM },
     { versionNegotiation: { mode: options.negotiation ?? "auto" } },
   );
   await client.connect(transport);
@@ -233,7 +288,10 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
     pid: child.pid,
     project,
     home,
+    env,
+    mod,
     opened: () => recordedIn(recorder),
+    notified: notifier.notified,
     nextOpened: async () => {
       const until = Date.now() + WAIT_MS;
       while (recordedIn(recorder).length <= seen) {
@@ -243,8 +301,12 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
       seen += 1;
       return recordedIn(recorder)[seen - 1] ?? [];
     },
-    call: async (name, args) => {
-      const result = await client.callTool({ name, arguments: args });
+    call: async (name, args, toolUseId) => {
+      const result = await client.callTool({
+        name,
+        arguments: args,
+        ...(toolUseId === undefined ? {} : { _meta: { [TOOL_USE_ID_META]: toolUseId } }),
+      });
       const [content] = result.content as { text: string }[];
       const text = content?.text ?? "";
       const isError = result.isError === true;
@@ -262,11 +324,18 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
   };
 };
 
-/** Kills any session process a failed test left running, and removes the throwaway folders. */
-export const cleanUp = async (): Promise<void> => {
+/**
+ * Kills any session process a failed test left running, stops the mod hosts, and removes the
+ * throwaway folders. Returns the mod hosts the test started, for their records.
+ */
+export const cleanUp = async (): Promise<ModHost[]> => {
   for (const child of children) child.kill("SIGKILL");
   await Promise.all([...children].map((child) => child.exited));
+  const started = [...hosts];
+  hosts.clear();
+  await Promise.all(started.map((host) => host.stop()));
   for (const made of folders.splice(0)) rmSync(made, { recursive: true, force: true });
+  return started;
 };
 
 /** Whether a process is still running. */

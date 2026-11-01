@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:mod-turn-request",
+  "title": "Turn report",
+  "description": "The mod's report that an agent's turn started (running true) or completed (running false), sent on a change only (design decision 12). agent_id names the subagent; the main conversation has none.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "agent_id": {
+      "$ref": "urn:askboard:local-api:agent-id"
+    },
+    "running": {
+      "type": "boolean"
+    }
+  },
+  "required": ["version", "running"],
+  "additionalProperties": false
+}

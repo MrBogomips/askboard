@@ -6,7 +6,7 @@ AskBoard works in any Claude Code project and depends on nothing else.
 
 ## Status
 
-Design complete and its four spikes decided. E1, the walking skeleton, and E3, the ask lifecycle, are implemented: an agent puts all its choice questions in one ask, grouped in areas if it likes; the user answers, postpones, declines, revises or asks a follow-up on a board in the browser, one at a time or together with Submit, and the board keeps unsent work across a reload; the agent reads what the user sent, changes or closes the ask, and reads one question in full. They await their first live run; nothing is released yet.
+Design complete and its four spikes decided. E1, the walking skeleton, is merged, and E3, the ask lifecycle, is implemented: an agent puts all its choice questions in one ask, grouped in areas if it likes; the user answers, postpones, declines, revises or asks a follow-up on a board in the browser, one at a time or together with Submit, and the board keeps unsent work across a reload; the agent reads what the user sent, changes or closes the ask, and reads one question in full. E4, push delivery, is implemented on top of E3: answers reach a working agent without it asking, through a Claude Code mod, and hooks give each ask its owner, show the board link in the terminal and keep a subagent from finishing before it has its answers. E3 and E4 await their first live runs; nothing is released yet.
 
 ## Tools
 
@@ -49,7 +49,7 @@ The licence check needs network access: it reads the licences of other platforms
 
 The end-to-end tests run the built session process with Playwright's Chromium, Firefox and WebKit; install them once with `node_modules/.bin/playwright install chromium firefox webkit`.
 
-To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a few choice questions with AskBoard (single or multiple choice; widgets come with later epics). The board opens in your browser; answer it there, and the agent collects the answers.
+To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a few choice questions with AskBoard (single or multiple choice; widgets come with later epics). The board opens in your browser with a system notification, and the terminal shows its link. Answer it there: the answers reach the agent by themselves, through the plugin's mod, or when the agent collects them. `/hooks` lists AskBoard's hooks; with mods turned off, answers still arrive when the agent collects them.
 
 ## Licence
 

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:ack",
+  "title": "Acknowledgement",
+  "description": "The session process's answer to a record, a hello, a turn report or a delivery report: it took the request and acted on it.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    }
+  },
+  "required": ["version"],
+  "additionalProperties": false
+}

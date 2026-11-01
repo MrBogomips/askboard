@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:poll-response",
+  "title": "Poll",
+  "description": "What one poll gives the mod (design decision 2): for each ask with a bound owner and events above received, its ID, its owner's agent_id (none for the main conversation), its state, its latest cursor and those events, each with its cursor; then the pending asks. Events of unchecked asks are never listed. A response that would pass 1 MiB stops at the last whole event, with more and the continuation the next poll passes back, always together.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "asks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ask"
+      }
+    },
+    "pending": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pending"
+      }
+    },
+    "more": {
+      "const": true
+    },
+    "continuation": {
+      "$ref": "#/$defs/continuation"
+    }
+  },
+  "required": ["version", "epoch", "asks", "pending"],
+  "dependentRequired": {
+    "more": ["continuation"],
+    "continuation": ["more"]
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ask": {
+      "type": "object",
+      "properties": {
+        "askId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "agent_id": {
+          "$ref": "urn:askboard:local-api:agent-id"
+        },
+        "state": {
+          "$ref": "urn:askboard:output:ask-state"
+        },
+        "cursor": {
+          "$ref": "urn:askboard:output:cursor"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        }
+      },
+      "required": ["askId", "state", "cursor", "events"],
+      "additionalProperties": false
+    },
+    "event": {
+      "oneOf": [
+        {
+          "$ref": "urn:askboard:output:answer-event"
+        },
+        {
+          "$ref": "urn:askboard:output:discarded-event"
+        },
+        {
+          "$ref": "urn:askboard:output:closed-event"
+        }
+      ]
+    },
+    "pending": {
+      "description": "An open ask, not closed or discarded, with at least one question for which the agent has received neither an answer nor a decline (EXPERIENCE, Counting): its title, who asked (the origin's label and the agent's name), how many such questions, its board link and its owner's agent_id.",
+      "type": "object",
+      "properties": {
+        "askId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "title": {
+          "$ref": "urn:askboard:board-document:board-document#/properties/title"
+        },
+        "label": {
+          "$ref": "urn:askboard:board-protocol:origin#/$defs/label"
+        },
+        "agentName": {
+          "$ref": "urn:askboard:input:ask#/properties/agentName"
+        },
+        "openQuestions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "link": {
+          "$ref": "urn:askboard:tool-envelopes:ask-result#/properties/board"
+        },
+        "agent_id": {
+          "$ref": "urn:askboard:local-api:agent-id"
+        }
+      },
+      "required": ["askId", "title", "label", "openQuestions", "link"],
+      "additionalProperties": false
+    },
+    "continuation": {
+      "description": "Where the next page starts: the ask and the seq of its first event not returned.",
+      "type": "object",
+      "properties": {
+        "askId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["askId", "seq"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:presence",
+  "title": "Presence",
+  "description": "Board page to board-host, on each change of its working signal and once after each connect: working while the page has focus and has had a key or pointer input, on the page or in its view, within the last 60 s (AD-2). It carries that flag and nothing else, so never content.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "presence"
+    },
+    "working": {
+      "type": "boolean"
+    }
+  },
+  "required": ["version", "type", "working"],
+  "additionalProperties": false
+}

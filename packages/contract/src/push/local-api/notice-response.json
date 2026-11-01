@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:notice-response",
+  "title": "Ask notice",
+  "description": "An ask's title, as ask-core holds it, and its board link, for the terminal link the PostToolUse hook shows (FR-23).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "title": {
+      "$ref": "urn:askboard:board-document:board-document#/properties/title"
+    },
+    "link": {
+      "$ref": "urn:askboard:tool-envelopes:ask-result#/properties/board"
+    }
+  },
+  "required": ["version", "title", "link"],
+  "additionalProperties": false
+}
