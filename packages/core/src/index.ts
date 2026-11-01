@@ -83,4 +83,9 @@ export { expectedAnswerer } from "./push/answerer.ts";
 
 // Molecules (molecules): the fill forms of the definition format.
 
+// Molecules (molecules): the fill forms of the definition format, the expansion map and
+// reference addressing.
+
+export { type ReferenceAddressing, referenceAddressing } from "./molecules/addressing.ts";
 export { type ExpandedIds, type Filled, fillItem } from "./molecules/fills.ts";
+export type { ExpansionEntry, ExpansionMap } from "./molecules/map.ts";
