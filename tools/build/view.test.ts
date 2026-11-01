@@ -13,7 +13,7 @@ import { plainChoiceBoardDocument, treeBoardDocument } from "@askboard/contract/
 import { validateViewManifest } from "@askboard/contract/validate";
 // `assemble` as the board page runs it, on this build; the root links no `@askboard/view`.
 import { assemble, selectChunks, sourcesToFetch } from "../../packages/view/src/assemble/index.ts";
-import type { ViewDocument } from "../../packages/view/src/view-document.ts";
+import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
 import { bundleChunk } from "./chunks.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
@@ -220,7 +220,8 @@ const packagesIn = (notices: ViewManifest["boardPage"]["licences"]) =>
 
 // The board state with the document's question open, as the board page first shows it.
 const openState = (document: ViewDocument): BoardState => {
-  const [question] = document.items;
+  const [question] = questionsOf(document);
+  if (question === undefined) throw new Error("the document holds no question");
   return {
     ask: "waiting",
     questions: [{ itemId: question.id, rev: question.rev, state: "open" }],
@@ -240,7 +241,8 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
   test("the selection takes the tree chunk for a board holding a Tree, and not for the plain Choice board", () => {
     const names = (document: ViewDocument) =>
       selectChunks(document, manifest).map(({ name }) => name);
-    expect(names(treeBoardDocument)).toEqual(["ext-apps", "react", "shell", "tree"]);
+    // The shell needs the radix chunk since the ask lifecycle (Tabs, the "More" menu, the dialog).
+    expect(names(treeBoardDocument)).toEqual(["ext-apps", "react", "radix", "shell", "tree"]);
     expect(names(plainChoiceBoardDocument)).toContain("choice");
     expect(names(plainChoiceBoardDocument)).not.toContain("tree");
   });

@@ -292,12 +292,12 @@ export const schemaSetProblems = (sets: readonly SchemaSet[]): string[] => {
   return problems;
 };
 
-// The Tree's validators, each its widget validator and then its checks.
-export { validateTreeChanges, validateTreeProps } from "./widgets/tree/validate.ts";
 // E3, the ask lifecycle (ask-lifecycle, design decision 2): the update and fetch requests, and a
 // draft record checked against its ask's board document.
 export { draftRecordProblems } from "./draft-record.ts";
 export { validateFetchRequest, validateUpdateRequest } from "./update-request.ts";
+// The Tree's validators, each its widget validator and then its checks.
+export { validateTreeChanges, validateTreeProps } from "./widgets/tree/validate.ts";
 // Widgets: E1's error mapping, and one standalone validator per widget schema.
 export { widgetValidator } from "./widgets/validator.ts";
 export { problemOf };

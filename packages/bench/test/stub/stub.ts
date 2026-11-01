@@ -223,6 +223,8 @@ export const createStub = (options: StubOptions): Stub => {
       });
     }
     const [item] = request.items;
+    // The stub serves E1's board of one plain question; an ask of areas is not one.
+    if (item.type !== "question") throw new Error("the stub serves one plain question, not areas");
     const token = randomBytes(16).toString("base64url");
     const port = listen().port ?? 0;
     const document: BoardDocument = {
