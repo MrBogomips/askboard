@@ -1,9 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { elementChanges, GANTT_SHAPE } from "@askboard/contract";
-import { ganttBoardDocument, ganttEditedValue } from "@askboard/contract/fixtures";
+import { elementChanges, GANTT_PLAN_SHAPE, GANTT_SHAPE, type TreeNode } from "@askboard/contract";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  ganttPlanBoardDocument,
+  ganttPlanEditedValue,
+  treeEditedValue,
+} from "@askboard/contract/fixtures";
+import { type BoardGraph, liveGraph, sentGraph } from "../../graph/board-graph.ts";
 import { requestStart, setDuration, setPredecessors } from "./edits.ts";
-import { changeCount, changeCounter, ownTaskMarks } from "./marks.ts";
-import type { GanttOwnProps } from "./tasks.ts";
+import {
+  changeCount,
+  changeCounter,
+  ownTaskMarks,
+  type PlanTaskMarks,
+  planChangeCount,
+  planTaskMarks,
+} from "./marks.ts";
+import { baselineOf, scheduleOf } from "./schedule.ts";
+import { type GanttOwnProps, type GanttPlanProps, planTaskRows } from "./tasks.ts";
 
 const SENT = ganttBoardDocument.items[0].props.items[0].props as GanttOwnProps;
 
@@ -81,5 +96,137 @@ describe("a Gantt's change marks", () => {
     [37, "Your changes: 37"],
   ])("read %i changes as %j on the toolbar", (count, text) => {
     expect(changeCounter(count)).toBe(text);
+  });
+});
+
+describe("a plan's change marks", () => {
+  const [planQuestion] = ganttPlanBoardDocument.items;
+  const ITEMS = planQuestion.props.items;
+  const [WBS, SCHEDULE] = ITEMS;
+  const PLAN = SCHEDULE.props as GanttPlanProps;
+  const TREE = WBS.props.nodes;
+  const PLAIN = { ...UNMARKED, added: false };
+
+  const graphIn = (graph: BoardGraph | undefined): BoardGraph => {
+    if (graph === undefined) throw new Error("no graph");
+    return graph;
+  };
+
+  /** The marks of the plan `value` over the Tree `nodes`, read from the board's two graphs. */
+  const marksOf = (
+    value: GanttPlanProps,
+    nodes: readonly TreeNode[] = TREE,
+  ): ReadonlyMap<string, PlanTaskMarks> => {
+    const draft = new Map<string, unknown>([
+      ["wbs", nodes === TREE ? undefined : { ...WBS.props, nodes }],
+      ["schedule", value === PLAN ? undefined : value],
+    ]);
+    const board = { items: ITEMS, draft };
+    const rows = planTaskRows(value, nodes, TREE);
+    const schedules = scheduleOf(graphIn(liveGraph(board)), "schedule", rows);
+    const baselines = baselineOf(graphIn(sentGraph(board)), "schedule", rows);
+    return planTaskMarks(value, PLAN, rows, schedules, baselines);
+  };
+
+  /** The sent Tree with `node` added after the leaf `after`. */
+  const withPackage = (after: string, node: TreeNode): readonly TreeNode[] =>
+    TREE.map((parent) => ({
+      ...parent,
+      children: (parent.children ?? []).flatMap((child) =>
+        child.id === after ? [child, node] : [child],
+      ),
+    }));
+
+  const DASHBOARDS = {
+    id: "u-1",
+    label: "Customer portal: dashboards",
+    optimistic: 4,
+    mostLikely: 7,
+    pessimistic: 12,
+  };
+
+  test("mark nothing on the agent's plan", () => {
+    const marks = marksOf(PLAN);
+    expect([...marks.keys()]).toEqual(planTaskRows(PLAN, TREE, TREE).map((row) => row.id));
+    for (const mark of marks.values()) expect(mark).toEqual(PLAIN);
+    expect(planChangeCount(PLAN, PLAN)).toBe(0);
+    expect(planChangeCount(structuredClone(PLAN), PLAN)).toBe(0);
+  });
+
+  test("mark packages added or re-estimated in the Tree, not those moved by a predecessor", () => {
+    const marks = marksOf(ganttPlanEditedValue, treeEditedValue.nodes);
+    // UX design 6 days to 5, the portal 13 to 7 once split, billing 9 to 10.
+    for (const id of ["ux", "portal", "billing"]) {
+      expect({ id, mark: marks.get(id) }).toEqual({
+        id,
+        mark: { ...PLAIN, duration: true, changed: true },
+      });
+    }
+    expect(marks.get("u-1")).toEqual({ ...PLAIN, added: true, dependencies: true, changed: true });
+    // The prototype and reporting start earlier, as UX design and the portal shrink.
+    for (const id of ["architecture", "prototype", "reporting"]) {
+      expect({ id, mark: marks.get(id) }).toEqual({ id, mark: PLAIN });
+    }
+    // Only the plan's own change counts: the Tree's are the Tree's.
+    expect(planChangeCount(ganttPlanEditedValue, PLAN)).toBe(1);
+  });
+
+  test("count reporting moved and u-1 linked, and leave the portal unmarked", () => {
+    const reporting = { dependencies: ["portal"], start: "2026-12-09" };
+    const linked = { dependencies: ["architecture", "prototype"] };
+    const value = { ...PLAN, tasks: { ...PLAN.tasks, reporting, "u-1": linked } };
+    const marks = marksOf(value, withPackage("portal", DASHBOARDS));
+    expect(marks.get("reporting")).toEqual({ ...PLAIN, start: true, changed: true });
+    expect(marks.get("u-1")).toEqual({ ...PLAIN, added: true, dependencies: true, changed: true });
+    expect(marks.get("portal")).toEqual(PLAIN);
+    expect(changeCounter(planChangeCount(value, PLAN))).toBe("Your changes: 2");
+  });
+
+  test("leave a new estimate that keeps the duration unmarked", () => {
+    const nodes = TREE.map((parent) => ({
+      ...parent,
+      children: (parent.children ?? []).map((child) =>
+        child.id === "reporting" ? { ...child, pessimistic: 10 } : child,
+      ),
+    }));
+    expect(marksOf(PLAN, nodes).get("reporting")).toEqual(PLAIN);
+  });
+
+  test("mark the portal re-estimated from 12 to 20 days, but not while it has no dates", () => {
+    const nodes = TREE.map((parent) => ({
+      ...parent,
+      children: (parent.children ?? []).map((child) =>
+        child.id === "portal" ? { ...child, mostLikely: 20 } : child,
+      ),
+    }));
+    expect(marksOf(PLAN, nodes).get("portal")).toEqual({ ...PLAIN, duration: true, changed: true });
+    // The prototype after reporting closes a cycle through the portal: no duration shows.
+    const prototype = { dependencies: ["ux", "reporting"] };
+    const marks = marksOf({ ...PLAN, tasks: { ...PLAN.tasks, prototype } }, nodes);
+    expect(marks.get("prototype")).toEqual({ ...PLAIN, dependencies: true, changed: true });
+    expect(marks.get("portal")).toEqual(PLAIN);
+  });
+
+  test.each<[string, GanttPlanProps["tasks"]]>([
+    ["an entry for no leaf", { ...PLAN.tasks, design: { start: "2026-11-09" } }],
+    ["an agent's entry emptied", { ...PLAN.tasks, billing: {} }],
+    ["an agent's entry gone", { prototype: { dependencies: ["ux"] } }],
+    ["an empty list for none", { ...PLAN.tasks, ux: { dependencies: [] } }],
+    [
+      "a list reordered",
+      { ...PLAN.tasks, portal: { dependencies: ["prototype", "architecture"] } },
+    ],
+    ["an empty entry", { ...PLAN.tasks, ux: {} }],
+  ])("count %s as the plan's diff does", (_, tasks) => {
+    const value = { ...PLAN, tasks };
+    const changes = elementChanges("schedule", PLAN, value, GANTT_PLAN_SHAPE);
+    const changed = new Set(changes.map((change) => change.target.split(".")[1]));
+    expect(planChangeCount(value, PLAN)).toBe(changed.size);
+  });
+
+  test("give frozen marks", () => {
+    for (const mark of marksOf(ganttPlanEditedValue, treeEditedValue.nodes).values()) {
+      expect(Object.isFrozen(mark)).toBe(true);
+    }
   });
 });

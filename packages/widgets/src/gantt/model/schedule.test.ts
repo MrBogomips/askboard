@@ -1,10 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import type { NodeResult } from "@askboard/compute";
 import { GANTT_ANSWER_DERIVED } from "@askboard/contract";
-import { ganttBoardDocument, ganttEditedValue } from "@askboard/contract/fixtures";
-import { type BoardGraph, liveGraph } from "../../graph/board-graph.ts";
-import { answerDerived, planFinish, scheduleOf, taskSchedule } from "./schedule.ts";
-import { type GanttOwnProps, ownTaskRows } from "./tasks.ts";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  ganttPlanBoardDocument,
+  ganttPlanDerived,
+  ganttPlanEditedValue,
+  treeEditedValue,
+} from "@askboard/contract/fixtures";
+import { type BoardGraph, liveGraph, sentGraph } from "../../graph/board-graph.ts";
+import {
+  answerDerived,
+  baselineOf,
+  planFinish,
+  scheduleOf,
+  taskBaseline,
+  taskSchedule,
+} from "./schedule.ts";
+import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planTaskRows } from "./tasks.ts";
 
 const [question] = ganttBoardDocument.items;
 const ITEMS = question.props.items;
@@ -178,5 +192,89 @@ describe("a Gantt's schedule", () => {
         "g.finish": "2026-11-02",
       });
     });
+  });
+});
+
+describe("a plan's schedule and baseline", () => {
+  const [planQuestion] = ganttPlanBoardDocument.items;
+  const PLAN_ITEMS = planQuestion.props.items;
+  const [WBS, SCHEDULE] = PLAN_ITEMS;
+  const PLAN = SCHEDULE.props as GanttPlanProps;
+  const TREE = WBS.props.nodes;
+  const boardOf = (draft: ReadonlyMap<string, unknown>) => ({ items: PLAN_ITEMS, draft });
+  const graphIn = (graph: BoardGraph | undefined): BoardGraph => {
+    if (graph === undefined) throw new Error("no graph");
+    return graph;
+  };
+  const SENT_PLAN = graphIn(sentGraph(boardOf(new Map())));
+  const ANSWERED = new Map<string, unknown>([
+    ["wbs", treeEditedValue],
+    ["schedule", ganttPlanEditedValue],
+  ]);
+  const ANSWERED_ROWS = planTaskRows(ganttPlanEditedValue, treeEditedValue.nodes, TREE);
+
+  test("reads the answered plan from the live graph, its derived values in Tree order", () => {
+    const live = graphIn(liveGraph(boardOf(ANSWERED)));
+    expect(taskSchedule(live, "schedule", "u-1")).toEqual({
+      kind: "scheduled",
+      startDate: "2026-11-16",
+      finishDate: "2026-11-25",
+      duration: 8,
+      earliestDate: "2026-11-16",
+      critical: false,
+    });
+    const derived: Readonly<Record<string, unknown>> = answerDerived(
+      live,
+      "schedule",
+      ANSWERED_ROWS,
+    );
+    expect(derived).toEqual(ganttPlanDerived);
+  });
+
+  test("reads the baselines from the sent graph, none for a task the agent did not send", () => {
+    expect(baselineOf(SENT_PLAN, "schedule", ANSWERED_ROWS)).toEqual([
+      { startDate: "2026-11-02", finishDate: "2026-11-09", duration: 6 },
+      { startDate: "2026-11-02", finishDate: "2026-11-05", duration: 4 },
+      { startDate: "2026-11-10", finishDate: "2026-11-16", duration: 5 },
+      { startDate: "2026-11-17", finishDate: "2026-12-03", duration: 13 },
+      undefined,
+      { startDate: "2026-11-06", finishDate: "2026-11-18", duration: 9 },
+      { startDate: "2026-12-04", finishDate: "2026-12-11", duration: 6 },
+    ]);
+  });
+
+  test("keeps reporting's baseline as sent when it moves three working days later", () => {
+    const reporting = { ...PLAN.tasks.reporting, start: "2026-12-09" };
+    const moved = { ...PLAN, tasks: { ...PLAN.tasks, reporting } };
+    const board = boardOf(new Map([["schedule", moved]]));
+    expect(taskSchedule(graphIn(liveGraph(board)), "schedule", "reporting")).toMatchObject({
+      startDate: "2026-12-09",
+      finishDate: "2026-12-16",
+    });
+    expect(taskBaseline(graphIn(sentGraph(board)), "schedule", "reporting")).toEqual({
+      startDate: "2026-12-04",
+      finishDate: "2026-12-11",
+      duration: 6,
+    });
+  });
+
+  test("gives no baseline for a task the sent graph holds in error", () => {
+    const graph: BoardGraph = {
+      read: (address) =>
+        address.startsWith("g.t.")
+          ? { error: "cycle", address, detail: "a cycle" }
+          : { error: "missing-reference", address, detail: `no node ${address}` },
+      warnings: [],
+    };
+    expect(taskBaseline(graph, "g", "t")).toBeUndefined();
+    expect(baselineOf(graph, "g", [{ id: "t" }, { id: "u" }])).toEqual([undefined, undefined]);
+  });
+
+  test("gives frozen baselines", () => {
+    const baselines = baselineOf(SENT_PLAN, "schedule", ANSWERED_ROWS);
+    expect(Object.isFrozen(baselines)).toBe(true);
+    for (const baseline of baselines) {
+      if (baseline !== undefined) expect(Object.isFrozen(baseline)).toBe(true);
+    }
   });
 });

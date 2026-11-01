@@ -1,23 +1,32 @@
-// The user's edits of a Gantt's own tasks (design decision 8, AD-20): each takes the Gantt as it
-// stands and as the agent sent it, and gives a new frozen value, or the same value when nothing
-// changes, since the draft record compares values by identity. A field that comes back to the
-// agent's value takes it again, and is left out when the agent sent none; an empty predecessor
-// list is left out. So an edit undone by hand gives no change, and `sameGantt` tells the component
-// to hold no draft value. Every result is valid as an edited value and diffs to `set`s only.
-// A plan's entries come in task 7.6. Plain ECMAScript: no DOM, no `Date`.
+// The user's edits of a Gantt (design decision 8, AD-20), of its own tasks or of a plan's
+// entries: each takes the Gantt as it stands and as the agent sent it, and gives a new frozen
+// value, or the same value when nothing changes, since the draft record compares values by
+// identity. A field that comes back to the agent's value takes it again, and is left out when the
+// agent sent none; an empty predecessor list is left out. A plan's entry is created by its first
+// field and deleted once it holds none, unless the agent sent it empty; a plan's durations follow
+// its Tree, so only a Gantt's own tasks take `setDuration`. So an edit undone by hand gives no
+// change, and `sameGantt` tells the component to hold no draft value. Every result is valid as an
+// edited value and diffs to `set`s only, with `GANTT_SHAPE` or `GANTT_PLAN_SHAPE`. Plain
+// ECMAScript: no DOM, no `Date`.
 
 import {
   GANTT_MAX_DEPENDENTS,
   GANTT_MAX_DURATION,
   GANTT_MAX_PREDECESSORS,
+  GANTT_MAX_TASKS,
   GANTT_MIN_DURATION,
   type GanttOwnTask,
+  type GanttPlanEntry,
+  type GanttProps,
   ID_PATTERN,
 } from "@askboard/contract";
 import { isGanttDate } from "./date.ts";
-import type { GanttOwnProps } from "./tasks.ts";
+import { type GanttOwnProps, type GanttPlanProps, isOwnGantt, planEntry } from "./tasks.ts";
 
 type Field = "start" | "duration" | "dependencies";
+
+/** The fields of a plan's entry, and those both kinds of Gantt share. */
+type EntryField = Exclude<Field, "duration">;
 
 const ID = new RegExp(ID_PATTERN);
 
@@ -69,8 +78,8 @@ const taskWith = (task: GanttOwnTask, field: Field, next: unknown): GanttOwnTask
   });
 };
 
-/** Sets one field of one task to `wanted`, undefined for none. */
-const edit = (
+/** Sets one field of one of a Gantt's own tasks to `wanted`, undefined for none. */
+const editTask = (
   value: GanttOwnProps,
   sent: GanttOwnProps,
   taskId: string,
@@ -91,13 +100,80 @@ const edit = (
   return Object.freeze({ ...value, tasks: Object.freeze(tasks) });
 };
 
+/** The entry with one field changed, left out when undefined; the keys in the contract's order. */
+const entryWith = (
+  entry: GanttPlanEntry | undefined,
+  field: EntryField,
+  next: unknown,
+): GanttPlanEntry => {
+  const fields: Record<EntryField, unknown> = {
+    start: entry?.start,
+    dependencies: entry?.dependencies,
+  };
+  fields[field] = next;
+  const { start, dependencies } = fields as GanttPlanEntry;
+  return Object.freeze({
+    ...(start === undefined ? {} : { start }),
+    ...(dependencies === undefined ? {} : { dependencies }),
+  });
+};
+
+/**
+ * Sets one field of a plan's entry for a task to `wanted`, undefined for none. The entry keeps its
+ * place among the others; a new one comes last. Any ID names an own key, `__proto__` included.
+ */
+const editEntry = (
+  value: GanttPlanProps,
+  sent: GanttPlanProps,
+  taskId: string,
+  field: EntryField,
+  wanted: unknown,
+): GanttPlanProps => {
+  if (!ID.test(taskId)) throw new RangeError(`${JSON.stringify(taskId)} is no task ID`);
+  const entry = planEntry(value, taskId);
+  if (sameField(field, entry?.[field], wanted)) return value;
+  if (entry === undefined && Object.keys(value.tasks).length >= GANTT_MAX_TASKS) {
+    throw new RangeError(`the plan already holds ${GANTT_MAX_TASKS} entries, the most it can`);
+  }
+  const agent = planEntry(sent, taskId);
+  // Back to the agent's value: the agent's own, or none when it sent none.
+  const back = agent !== undefined && sameField(field, agent[field], wanted);
+  const edited = entryWith(entry, field, back ? agent[field] : wanted);
+  // Back to the agent's entry: the agent's own; else an entry left with no field is none.
+  const empty = Object.keys(edited).length === 0;
+  const next = agent !== undefined && sameJson(edited, agent) ? agent : empty ? undefined : edited;
+  const entries = Object.entries(value.tasks);
+  const at = entries.findIndex(([id]) => id === taskId);
+  const kept: [string, GanttPlanEntry][] = next === undefined ? [] : [[taskId, next]];
+  const tasks = at < 0 ? [...entries, ...kept] : entries.toSpliced(at, 1, ...kept);
+  return Object.freeze({ ...value, tasks: Object.freeze(Object.fromEntries(tasks)) });
+};
+
+/** Sets one field of one task, a Gantt's own or a plan's entry, beside the agent's of its kind. */
+const edit = <V extends GanttProps>(
+  value: V,
+  sent: V,
+  taskId: string,
+  field: EntryField,
+  wanted: unknown,
+): V => {
+  const own = isOwnGantt(value);
+  if (own !== isOwnGantt(sent)) {
+    throw new RangeError("a Gantt's edit takes its value and the agent's of one kind");
+  }
+  const next = own
+    ? editTask(value, sent as GanttOwnProps, taskId, field, wanted)
+    : editEntry(value as GanttPlanProps, sent as GanttPlanProps, taskId, field, wanted);
+  return next as V;
+};
+
 /** Asks for a task to start on a day, or as soon after as its predecessors allow. */
-export const requestStart = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
+export const requestStart = <V extends GanttProps>(
+  value: V,
+  sent: V,
   taskId: string,
   date: string,
-): GanttOwnProps => {
+): V => {
   if (!isGanttDate(date)) {
     throw new RangeError(`${JSON.stringify(date)} is no day a Gantt may name`);
   }
@@ -105,11 +181,8 @@ export const requestStart = (
 };
 
 /** Clears a task's requested start: it starts as early as its predecessors allow. */
-export const clearStart = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
-  taskId: string,
-): GanttOwnProps => edit(value, sent, taskId, "start", undefined);
+export const clearStart = <V extends GanttProps>(value: V, sent: V, taskId: string): V =>
+  edit(value, sent, taskId, "start", undefined);
 
 /** Sets a task's duration, in whole working days. */
 export const setDuration = (
@@ -124,13 +197,14 @@ export const setDuration = (
       `a duration takes whole working days from ${GANTT_MIN_DURATION} to ${GANTT_MAX_DURATION}, not ${duration}`,
     );
   }
-  return edit(value, sent, taskId, "duration", duration);
+  return editTask(value, sent, taskId, "duration", duration);
 };
 
-/** How many tasks list each task among their predecessors. */
-const dependentCounts = (value: GanttOwnProps): ReadonlyMap<string, number> => {
+/** How many tasks list each task among their predecessors; in a plan, every entry counts. */
+const dependentCounts = (value: GanttProps): ReadonlyMap<string, number> => {
   const counts = new Map<string, number>();
-  for (const task of value.tasks) {
+  const tasks = isOwnGantt(value) ? value.tasks : Object.values(value.tasks);
+  for (const task of tasks) {
     for (const id of new Set(task.dependencies ?? [])) counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return counts;
@@ -141,12 +215,12 @@ const dependentCounts = (value: GanttOwnProps): ReadonlyMap<string, number> => {
  * task is refused as its own predecessor, as a name that is no ID, and past the predecessor or
  * the dependents limit: `canPrecede` tells the panel which tasks to offer.
  */
-export const setPredecessors = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
+export const setPredecessors = <V extends GanttProps>(
+  value: V,
+  sent: V,
   taskId: string,
   predecessors: readonly string[],
-): GanttOwnProps => {
+): V => {
   const list = [...new Set(predecessors)];
   for (const id of list) {
     if (typeof id !== "string" || !ID.test(id)) {
@@ -173,8 +247,7 @@ export const setPredecessors = (
 };
 
 /** Whether the Gantt is the agent's value again: the component then holds no draft value. */
-export const sameGantt = (value: GanttOwnProps, sent: GanttOwnProps): boolean =>
-  sameJson(value, sent);
+export const sameGantt = (value: GanttProps, sent: GanttProps): boolean => sameJson(value, sent);
 
 export type Precedence = { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
