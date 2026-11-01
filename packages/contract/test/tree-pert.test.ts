@@ -78,6 +78,27 @@ describe("a Tree with pert", () => {
     ]);
   });
 
+  // The names the Gantt plan's link reads as `GANTT_PLAN_ESTIMATES`: this holds them when the
+  // Tree's checks read that list instead of their own copy.
+  test("PERT reads exactly optimistic, mostLikely and pessimistic, in that order", () => {
+    const estimates = ["optimistic", "mostLikely", "pessimistic"];
+    const required = treePropsProblems({ nodes: [], pert: true }, "agent").map(
+      ({ message }) => message.split('"')[1],
+    );
+    expect(required).toEqual(estimates);
+    const columns = estimates.map((field) => ({ field, label: field, type: "number" }));
+    expect(treePropsProblems({ columns, nodes: [], pert: true }, "agent")).toEqual([]);
+    const ranged = estimates.map((field) => leaf({ [field]: -1 }));
+    const nodes = ranged.map((node, at) => ({ ...node, id: `n${at}` }));
+    const paths = treePropsProblems({ columns, nodes, pert: true }, "agent").map(
+      ({ path }) => path,
+    );
+    expect(paths).toEqual(estimates.map((field, at) => `/nodes/${at}/${field}`));
+    const other = [{ field: "likely", label: "Likely", type: "number" }, ...columns];
+    const likely = [{ id: "x", label: "X", likely: -1 }];
+    expect(treePropsProblems({ columns: other, nodes: likely, pert: true }, "agent")).toEqual([]);
+  });
+
   test("a negative estimate fails, naming the node and the field", () => {
     const nodes = [{ id: "design", label: "Design", children: [leaf({ optimistic: -2 })] }];
     expect(validateTreeProps(withNodes(nodes), "agent")).toEqual({
