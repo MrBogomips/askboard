@@ -26,7 +26,7 @@ The root a pointer resolves against SHALL be the `root` of the ask's origin when
 
 #### Scenario: An owned ask without a project directory
 - **WHEN** the session process runs without `CLAUDE_PROJECT_DIR` and an owned ask, whose origin gives a root, holds a pointer to a file in that root
-- **THEN** the excerpt is unresolved with reason `no-root`, and no folder of the origin stands in for the project root
+- **THEN** the excerpt is unresolved with reason `no-root`, whatever the origin's root says
 
 ### Requirement: An unresolved pointer never blocks the board
 A pointer that does not resolve SHALL leave the ask created or the update applied, its item marked unresolved with its reason in the board document, and SHALL add one `unresolved-pointer` warning naming the item to that call's result (FR-8, AD-6).
