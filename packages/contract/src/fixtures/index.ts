@@ -3,7 +3,16 @@
 
 export { plainChoiceBoardDocument } from "./board-document.ts";
 // The Gantt's fixtures (gantt-widget).
-export { type GanttBoardDocument, ganttBoardDocument, ganttEditedValue } from "./gantt.ts";
+export {
+  type GanttBoardDocument,
+  type GanttPlanBoardDocument,
+  ganttBoardDocument,
+  ganttEditedValue,
+  ganttPlanBoardDocument,
+  ganttPlanChanges,
+  ganttPlanDerived,
+  ganttPlanEditedValue,
+} from "./gantt.ts";
 export {
   boardProtocolExamples,
   duplicateAnswerTranscript,
