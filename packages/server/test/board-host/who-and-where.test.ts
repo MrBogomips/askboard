@@ -47,7 +47,7 @@ const hostWith = async (
     ...(options.projectDir === null ? {} : { projectDir: options.projectDir ?? PROJECT }),
     push: {
       ...(options.origin === undefined ? {} : { records: recordsWith(options.origin) }),
-      header: { timers: { after: () => () => undefined }, backgroundThresholdMs: 120_000 },
+      header: { backgroundThresholdMs: 120_000 },
     },
   });
 

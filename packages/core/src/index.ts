@@ -70,7 +70,6 @@ export type {
   StopCandidates,
   StopFit,
   StopOutcome,
-  Timers,
   WhoAsked,
 } from "./push/ports.ts";
 export { UNKNOWN_VERSION_DIAGNOSTIC } from "./push/version.ts";

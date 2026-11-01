@@ -61,7 +61,8 @@ export type Report = (error: unknown) => void;
 
 /**
  * The session process's clock (ask-lifecycle, design decision 3): the core's time, which the
- * answers the agent records and its replies carry (FR-19), and the grace timer (AD-21). The session
+ * answers the agent records and its replies carry (FR-19), the grace timer (AD-21) and, with push
+ * delivery, the background threshold of the agent status (E4, design decision 12). The session
  * entry point implements it with `Date` and `setTimeout`, so ask-core stays runtime-neutral (AD-1).
  */
 export type Clock = {
@@ -84,6 +85,6 @@ export type CorePorts = {
   readonly notices?: Notices;
   /** Push delivery's diagnostics that are not failures (E4); without it, none is written. */
   readonly diagnose?: Diagnose;
-  /** The context header's timers and threshold (E4, design decision 12). */
+  /** The context header's threshold, run on `clock` (E4, design decision 12). */
   readonly header?: HeaderPorts;
 };

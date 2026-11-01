@@ -61,7 +61,7 @@ describe("the background threshold", () => {
 
 describe("nothing reports", () => {
   test("a new ask is working, and stays so", async () => {
-    const { core, headerTimers: clock, published } = await statusCore();
+    const { core, clock, published } = await statusCore();
     expect(core.agentStatus(ASK_ID)).toBe("working");
     clock.advance(10 * THRESHOLD);
     expect(core.agentStatus(ASK_ID)).toBe("working");
@@ -76,7 +76,7 @@ describe("nothing reports", () => {
 
 describe("a waiting collect", () => {
   test("a subagent's wait makes the ask waiting at once, and working when it ends", async () => {
-    const { core, headerTimers: clock, published } = await statusCore();
+    const { core, clock, published } = await statusCore();
     const end = core.waitStarted(ASK_ID, false);
     expect(core.agentStatus(ASK_ID)).toBe("waiting");
     expect(published()).toEqual([waiting]);
@@ -91,7 +91,7 @@ describe("a waiting collect", () => {
   });
 
   test("a main-conversation wait counts until the background threshold", async () => {
-    const { core, headerTimers: clock, published } = await statusCore();
+    const { core, clock, published } = await statusCore();
     const end = core.waitStarted(ASK_ID, true);
     expect(core.agentStatus(ASK_ID)).toBe("waiting");
     clock.advance(THRESHOLD - 1);
@@ -102,24 +102,36 @@ describe("a waiting collect", () => {
     expect(published()).toEqual([waiting, working]);
   });
 
+  test("the core's clock, the grace timer's, runs the background threshold", async () => {
+    const { core, clock, published } = await statusCore();
+    const before = clock.pending;
+    const end = core.waitStarted(ASK_ID, true);
+    expect(clock.pending).toBe(before + 1);
+    clock.advance(THRESHOLD);
+    expect(core.agentStatus(ASK_ID)).toBe("working");
+    expect(clock.pending).toBe(before);
+    end();
+    expect(published()).toEqual([waiting, working]);
+  });
+
   test("a main-conversation wait that ends before the threshold leaves no timer", async () => {
-    const { core, headerTimers: clock, published } = await statusCore();
+    const { core, clock, published } = await statusCore();
     const end = core.waitStarted(ASK_ID, true);
     end();
-    expect(clock.pending()).toBe(0);
+    expect(clock.pending).toBe(0);
     clock.advance(THRESHOLD);
     expect(published()).toEqual([waiting, working]);
   });
 
   test("with the variable set, its threshold counts", async () => {
-    const { core, headerTimers: clock } = await statusCore({}, 30_000);
+    const { core, clock } = await statusCore({}, 30_000);
     core.waitStarted(ASK_ID, true);
     clock.advance(30_000);
     expect(core.agentStatus(ASK_ID)).toBe("working");
   });
 
   test("with the variable 0, a main-conversation wait counts until it ends", async () => {
-    const { core, headerTimers: clock, published } = await statusCore({}, null);
+    const { core, clock, published } = await statusCore({}, null);
     const end = core.waitStarted(ASK_ID, true);
     clock.advance(10 * THRESHOLD);
     expect(core.agentStatus(ASK_ID)).toBe("waiting");
@@ -188,7 +200,7 @@ describe("turn reports", () => {
 
 describe("both signals together", () => {
   test("a main-conversation wait past the threshold stays waiting while the owner has no turn", async () => {
-    const { core, headerTimers: clock, published } = await statusCore({ owner: "owner-1" });
+    const { core, clock, published } = await statusCore({ owner: "owner-1" });
     const end = core.waitStarted(ASK_ID, true);
     clock.advance(THRESHOLD);
     expect(published()).toEqual([waiting, working]);

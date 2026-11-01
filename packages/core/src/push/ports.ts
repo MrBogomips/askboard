@@ -78,19 +78,14 @@ export type Notice = {
  */
 export type Diagnose = (text: string) => void;
 
-/** Runs `run` once after `ms` milliseconds; the returned function cancels it. */
-export type Timers = {
-  after(ms: number, run: () => void): () => void;
-};
-
 /**
  * The context header's data (design decision 12): with these, ask-core works out the expected
  * answerer, asking the machine's git user name when an ask names an expected user, and counts a
- * main-conversation wait as waiting only until Claude Code's background threshold. Without them,
- * as in E1, it asks the machine nothing more and no wait ends on a timer.
+ * main-conversation wait as waiting only until Claude Code's background threshold, on the core's
+ * clock (`CorePorts.clock`). Without them, as in E1, it asks the machine nothing more and no wait
+ * ends on a timer.
  */
 export type HeaderPorts = {
-  readonly timers: Timers;
   /** How long a main-conversation call runs before Claude Code moves it to the background; absent: never. */
   readonly backgroundThresholdMs?: number;
 };

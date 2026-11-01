@@ -38,8 +38,9 @@ export type SessionProcessOptions = {
   /** The transport to serve on; the process's stdio by default. */
   readonly transport?: Transport;
   /**
-   * ask-core's clock, which runs its grace timer: the system clock by default. Only tests give
-   * another; the entry point gives none, so nothing it reads changes the grace period.
+   * ask-core's clock, which runs its grace timer and the agent status's background threshold: the
+   * system clock by default. Only tests give another; the entry point gives none, so nothing it
+   * reads changes the grace period.
    */
   readonly clock?: Clock;
   /** This process's PID, which the session file names (push delivery, design decision 3). */

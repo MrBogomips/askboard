@@ -11,7 +11,6 @@ import {
   type CorePorts,
   type Notice,
   type Origin,
-  type Timers,
 } from "../src/index.ts";
 import { type FakeOptions, fakePorts } from "./fakes.ts";
 
@@ -92,39 +91,6 @@ export const REVIEWER_ORIGIN: Origin = {
   worktree: "fix-retry",
 };
 
-/** Timers on a fake clock: `advance` runs, in time order, every timer it passes. */
-export const fakeTimers = () => {
-  let now = 0;
-  const pending: { at: number; run: () => void; cancelled: boolean }[] = [];
-  const timers: Timers = {
-    after: (ms, run) => {
-      const timer = { at: now + ms, run, cancelled: false };
-      pending.push(timer);
-      return () => {
-        timer.cancelled = true;
-      };
-    },
-  };
-  return {
-    timers,
-    /** Timers neither run nor cancelled. */
-    pending: () => pending.filter((timer) => !timer.cancelled && timer.at > now).length,
-    advance: (ms: number) => {
-      const until = now + ms;
-      for (;;) {
-        const due = pending
-          .filter((timer) => !timer.cancelled && timer.at <= until)
-          .sort((a, b) => a.at - b.at)[0];
-        if (due === undefined) break;
-        due.cancelled = true;
-        now = due.at;
-        due.run();
-      }
-      now = until;
-    },
-  };
-};
-
 export type PushFakeOptions = FakeOptions & {
   /** Leave out the record table, as in a session whose local API never started. */
   readonly noRecords?: boolean;
@@ -135,8 +101,8 @@ export type PushFakeOptions = FakeOptions & {
   /** Leave out the diagnostics port. */
   readonly noDiagnose?: boolean;
   /**
-   * The context header's ports (design decision 12): fake timers, with this background threshold
-   * (`null`: never moved to the background). Left out unless given, as in E1.
+   * The context header's ports (design decision 12): this background threshold, run on the fake
+   * clock (`null`: never moved to the background). Left out unless given, as in E1.
    */
   readonly header?: { readonly backgroundThresholdMs: number | null };
   /** A git user name lookup that throws. */
@@ -157,7 +123,6 @@ export const pushCoreWith = (options: PushFakeOptions = {}) => {
     };
   }
   const table = fakeRecordTable();
-  const headerTimers = fakeTimers();
   const notices: Notice[] = [];
   const diagnosed: string[] = [];
   const header = options.header;
@@ -166,12 +131,10 @@ export const pushCoreWith = (options: PushFakeOptions = {}) => {
     ...(header === undefined
       ? {}
       : {
-          header: {
-            timers: headerTimers.timers,
-            ...(header.backgroundThresholdMs === null
+          header:
+            header.backgroundThresholdMs === null
               ? {}
-              : { backgroundThresholdMs: header.backgroundThresholdMs }),
-          },
+              : { backgroundThresholdMs: header.backgroundThresholdMs },
         }),
     ...(options.noDiagnose ? {} : { diagnose: (text: string) => diagnosed.push(text) }),
     ...(options.noRecords ? {} : { records: table.port }),
@@ -189,7 +152,7 @@ export const pushCoreWith = (options: PushFakeOptions = {}) => {
   });
   const heard: CoreEvent[] = [];
   core.subscribe((event) => heard.push(event));
-  return { core, heard, table, notices, diagnosed, headerTimers, ...fakes };
+  return { core, heard, table, notices, diagnosed, ...fakes };
 };
 
 /** The call identity of an `ask` or a `collect` naming one ask. */

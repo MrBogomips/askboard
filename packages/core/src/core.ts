@@ -175,7 +175,7 @@ export class AskCore {
       ask: (askId) => this.#asks.get(askId),
       markRead: (askId, cursor) => this.markRead(askId, cursor),
     });
-    this.#statuses = new AgentStatuses(ports.header, (askId, status) =>
+    this.#statuses = new AgentStatuses(ports.header, ports.clock, (askId, status) =>
       this.#publish({ type: "agent", askId, status }),
     );
   }

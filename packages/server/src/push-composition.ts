@@ -10,7 +10,7 @@ import { BACKGROUND_THRESHOLD_VARIABLE } from "@askboard/contract";
 import { type AskCore, backgroundThreshold, type CorePorts } from "@askboard/core";
 import { createLocalApi, createOrigins, RecordTable } from "./board-host/index.ts";
 import { runCommand } from "./identity.ts";
-import { type Diagnostics, note, systemTimers, type ToolDeps } from "./mcp-tools/index.ts";
+import { type Diagnostics, note, type ToolDeps } from "./mcp-tools/index.ts";
 import { createNotices, createNotifier, type Environment } from "./notifier/index.ts";
 
 export type PushOptions = {
@@ -110,10 +110,7 @@ export const composePush = (
       records,
       notices,
       diagnose,
-      header: {
-        timers: systemTimers,
-        ...optionalThreshold(backgroundThreshold(env[BACKGROUND_THRESHOLD_VARIABLE])),
-      },
+      header: optionalThreshold(backgroundThreshold(env[BACKGROUND_THRESHOLD_VARIABLE])),
     },
     projectDir,
     deps: { mainConversation: (ownerKey) => records.isMainConversation(ownerKey) },

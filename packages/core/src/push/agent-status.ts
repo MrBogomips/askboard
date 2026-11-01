@@ -6,6 +6,7 @@
 // subagent's call is never moved. Each change is published once.
 
 import { type AgentStatus, BACKGROUND_THRESHOLD_DEFAULT_MS } from "@askboard/contract";
+import type { Clock } from "../ports.ts";
 import type { HeaderPorts } from "./ports.ts";
 
 const MILLISECONDS = /^[0-9]+$/;
@@ -31,6 +32,8 @@ type Tracked = {
 
 export class AgentStatuses {
   readonly #header: HeaderPorts | undefined;
+  // The core's clock, which runs the background threshold beside the grace timer.
+  readonly #clock: Pick<Clock, "after">;
   readonly #publish: (askId: string, status: AgentStatus) => void;
   readonly #asks = new Map<string, Tracked>();
   // Each owner's last turn report: whether a turn is running.
@@ -38,9 +41,11 @@ export class AgentStatuses {
 
   constructor(
     header: HeaderPorts | undefined,
+    clock: Pick<Clock, "after">,
     publish: (askId: string, status: AgentStatus) => void,
   ) {
     this.#header = header;
+    this.#clock = clock;
     this.#publish = publish;
   }
 
@@ -65,8 +70,8 @@ export class AgentStatuses {
     if (tracked === undefined) return () => undefined;
     const wait: Wait = { counted: true, cancel: () => undefined };
     const threshold = mainConversation ? this.#header?.backgroundThresholdMs : undefined;
-    if (threshold !== undefined && this.#header !== undefined) {
-      wait.cancel = this.#header.timers.after(threshold, () => {
+    if (threshold !== undefined) {
+      wait.cancel = this.#clock.after(threshold, () => {
         wait.counted = false;
         this.#update(askId, tracked);
       });
