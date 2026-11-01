@@ -18,7 +18,7 @@ import {
   text,
 } from "./ask-items.ts";
 import { schemaErrors } from "./compiled.ts";
-import { NOTE_MAX_CHARS, OTHER_MAX_CHARS, REPLY_MAX_CHARS } from "./limits.ts";
+import { NOTE_MAX_CHARS, OTHER_MAX_CHARS, REPLY_MAX_CHARS } from "./lifecycle-limits.ts";
 import {
   expectedAt,
   inDocumentOrder,

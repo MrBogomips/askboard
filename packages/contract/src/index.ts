@@ -2,12 +2,7 @@
 // crosses a unit boundary at run time (AD-7). Validation lives in `@askboard/contract/validate`,
 // so the board page, which cannot compile schemas, never loads Ajv.
 
-// E3, the ask lifecycle: the 1.1 minors of the input format, the output format, the tool envelopes,
-// the board document and the board protocol, and their constants (ask-lifecycle, design decision
-// 2). E1's types above keep the shapes E1's units read where a 1.1 shape would change them; the
-// `Lifecycle` types here are the full 1.1 shapes, which ask-core, board-host and the view move onto.
 export {
-  ACTION_ID_PATTERN,
   ASK_TITLE_MAX_CHARS,
   BOARD_CLOSE_CODES,
   BOARD_HOST,
@@ -20,11 +15,9 @@ export {
   COLLECT_MAX_WAIT_MS,
   COLLECT_PROGRESS_INTERVAL_MS,
   ERROR_TEXT_MAX_CHARS,
-  GRACE_PERIOD_MS,
   ID_PATTERN,
   REFUSAL_DETAIL_MAX_CHARS,
   RESULT_MAX_CHARS,
-  TAKEOVER_FLUSH_WAIT_MS,
   TITLE_MAX_CHARS,
   UTC_TIME_PATTERN,
   VIEW_DIRECTORY,
@@ -56,20 +49,11 @@ export {
 } from "./formula/index.ts";
 export { boardPagePolicy, cspHashSource, SHA256_HEX_PATTERN } from "./hash.ts";
 export {
-  ANNOTATION_MAX_CHARS,
   CHOICE_LABELS_MAX_CHARS,
   COLLECT_ASKS_MAX,
   CURSOR_PATTERN,
-  DRAFT_RECORD_MAX_CHARS,
   EPOCH_PATTERN,
-  FETCH_PAGE_MAX_CHARS,
-  FOLLOW_UP_MAX_CHARS,
   NAME_MAX_CHARS,
-  NOTE_MAX_CHARS,
-  OPTION_NOTE_MAX_CHARS,
-  OTHER_MAX_CHARS,
-  PREVIEW_MAX_CHARS,
-  REPLY_MAX_CHARS,
 } from "./limits.ts";
 export {
   BOARD_RESPONSES,
@@ -84,45 +68,13 @@ export {
   parseBoardRoute,
   socketPath,
 } from "./routes.ts";
-export type {
-  BoardArea,
-  BoardAreaProps,
-  BoardItem,
-  LifecycleBoardDocument,
-} from "./schemas/board-document/index.ts";
+
 export {
   BOARD_DOCUMENT_VERSION,
   type BoardDocument,
   type BoardQuestion,
   boardDocumentSet,
 } from "./schemas/board-document/index.ts";
-export type {
-  Act,
-  ActCommand,
-  AnswerAct,
-  ClosedMessage,
-  ClosedReason,
-  CurrentAnswer,
-  DeclineAct,
-  DoneMessage,
-  DraftMessage,
-  DraftQuestion,
-  DraftRecord,
-  EditChoiceAct,
-  FollowUpAct,
-  HeldAct,
-  LifecycleBoardMessage,
-  LifecycleBoardState,
-  LifecycleHostMessage,
-  LifecyclePageMessage,
-  LifecycleQuestionStatus,
-  LifecycleStateMessage,
-  NoteAct,
-  PostponeAct,
-  ReopenAct,
-  ThreadEntry,
-  ThreadReply,
-} from "./schemas/board-protocol/index.ts";
 export {
   type AnswerCommand,
   BOARD_PROTOCOL_MESSAGES,
@@ -144,22 +96,6 @@ export {
   type RefusedMessage,
   type StateMessage,
 } from "./schemas/board-protocol/index.ts";
-export type {
-  AddAction,
-  AnswerAction,
-  AreaItem,
-  AreaProps,
-  AskItem,
-  ChangeAction,
-  CloseAction,
-  DeleteAction,
-  LifecycleAskInput,
-  ReopenAction,
-  ReplyAction,
-  UpdateAction,
-  UpdateAnswer,
-  UpdateInput,
-} from "./schemas/input/index.ts";
 export {
   type AskInput,
   type ChoiceOption,
@@ -168,14 +104,6 @@ export {
   type QuestionItem,
   type QuestionProps,
 } from "./schemas/input/index.ts";
-export type {
-  EditChoiceEvent,
-  FollowUpEvent,
-  NoteEvent,
-  PostponedEvent,
-  QuestionState,
-  ReopenedEvent,
-} from "./schemas/output/index.ts";
 export {
   type AnswerEvent,
   type AskState,
@@ -189,18 +117,6 @@ export {
   type UnavailableReason,
   type Warning,
 } from "./schemas/output/index.ts";
-export type {
-  AppliedAction,
-  FetchAnswer,
-  FetchItem,
-  FetchOutcomeResult,
-  FetchPage,
-  FetchRequest,
-  FetchResult,
-  UpdateOutcomeResult,
-  UpdateRequest,
-  UpdateResult,
-} from "./schemas/tool-envelopes/index.ts";
 export {
   type AskRequest,
   type AskResult,
@@ -232,6 +148,7 @@ export {
   type SchemaSet,
   unsupportedVersion,
 } from "./versions.ts";
+
 // Widgets: the generic element diff (AD-20).
 export {
   applyElementChanges,
@@ -256,3 +173,95 @@ export {
   type TreeOrigin,
   type TreeProps,
 } from "./widgets/tree/index.ts";
+
+// E3, the ask lifecycle: the 1.1 minors of the input format, the output format, the tool envelopes,
+// the board document and the board protocol, and their constants and limits (ask-lifecycle, design
+// decision 2), each exported beside E1's. E1's types above keep the shapes E1's units read where a
+// 1.1 shape would change them; the `Lifecycle` types here are the full 1.1 shapes, which ask-core,
+// board-host and the view move onto.
+
+export {
+  ACTION_ID_PATTERN,
+  GRACE_PERIOD_MS,
+  TAKEOVER_FLUSH_WAIT_MS,
+} from "./lifecycle-constants.ts";
+export {
+  ANNOTATION_MAX_CHARS,
+  DRAFT_RECORD_MAX_CHARS,
+  FETCH_PAGE_MAX_CHARS,
+  FOLLOW_UP_MAX_CHARS,
+  NOTE_MAX_CHARS,
+  OPTION_NOTE_MAX_CHARS,
+  OTHER_MAX_CHARS,
+  PREVIEW_MAX_CHARS,
+  REPLY_MAX_CHARS,
+} from "./lifecycle-limits.ts";
+export type {
+  BoardArea,
+  BoardAreaProps,
+  BoardItem,
+  LifecycleBoardDocument,
+} from "./schemas/board-document/index.ts";
+export type {
+  Act,
+  ActCommand,
+  AnswerAct,
+  ClosedMessage,
+  ClosedReason,
+  CurrentAnswer,
+  DeclineAct,
+  DoneMessage,
+  DraftMessage,
+  DraftQuestion,
+  DraftRecord,
+  EditChoiceAct,
+  FollowUpAct,
+  HeldAct,
+  LifecycleBoardMessage,
+  LifecycleBoardState,
+  LifecycleHostMessage,
+  LifecyclePageMessage,
+  LifecycleQuestionStatus,
+  LifecycleStateMessage,
+  NoteAct,
+  PostponeAct,
+  ReopenAct,
+  ThreadEntry,
+  ThreadReply,
+} from "./schemas/board-protocol/index.ts";
+export type {
+  AddAction,
+  AnswerAction,
+  AreaItem,
+  AreaProps,
+  AskItem,
+  ChangeAction,
+  CloseAction,
+  DeleteAction,
+  LifecycleAskInput,
+  ReopenAction,
+  ReplyAction,
+  UpdateAction,
+  UpdateAnswer,
+  UpdateInput,
+} from "./schemas/input/index.ts";
+export type {
+  EditChoiceEvent,
+  FollowUpEvent,
+  NoteEvent,
+  PostponedEvent,
+  QuestionState,
+  ReopenedEvent,
+} from "./schemas/output/index.ts";
+export type {
+  AppliedAction,
+  FetchAnswer,
+  FetchItem,
+  FetchOutcomeResult,
+  FetchPage,
+  FetchRequest,
+  FetchResult,
+  UpdateOutcomeResult,
+  UpdateRequest,
+  UpdateResult,
+} from "./schemas/tool-envelopes/index.ts";

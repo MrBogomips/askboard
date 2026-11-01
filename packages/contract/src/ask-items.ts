@@ -4,7 +4,8 @@
 // (F5), at most one recommended option, and the room an answer needs.
 
 import { ID_PATTERN, VIEW_ID_PREFIX } from "./constants.ts";
-import { ANNOTATION_MAX_CHARS, CHOICE_LABELS_MAX_CHARS, PREVIEW_MAX_CHARS } from "./limits.ts";
+import { ANNOTATION_MAX_CHARS, PREVIEW_MAX_CHARS } from "./lifecycle-limits.ts";
+import { CHOICE_LABELS_MAX_CHARS } from "./limits.ts";
 import {
   expectedAt,
   isRecord,

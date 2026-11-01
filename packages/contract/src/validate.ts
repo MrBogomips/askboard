@@ -4,7 +4,7 @@
 
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
 import { AJV_OPTIONS, schemaErrors } from "./compiled.ts";
-import { DRAFT_RECORD_MAX_CHARS } from "./limits.ts";
+import { DRAFT_RECORD_MAX_CHARS } from "./lifecycle-limits.ts";
 import { type BoardDocument, boardDocumentSet } from "./schemas/board-document/index.ts";
 import {
   BOARD_PROTOCOL_MESSAGES,
