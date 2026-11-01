@@ -5,7 +5,9 @@
 // task's duration and moves its dependents and the plan's end, the task marked re-estimated; a
 // package added in the Tree is a task with a bar, the added mark, no baseline and no predecessors
 // until the user links it in its panel; a package deleted while another depends on it leaves a
-// field error under the dependent's row.
+// field error under the dependent's row, and the dependent's panel lists it, checked and saying
+// that it names no task, so that the user can uncheck it (spec, "Gantt predecessors that name no
+// task"; task 9.3).
 
 import { describe, expect, test } from "bun:test";
 import { elementChanges, GANTT_PLAN_SHAPE } from "@askboard/contract";
@@ -84,6 +86,9 @@ const WITH_DASHBOARDS = [
   "billing",
   "reporting",
 ].map((id) => ({ id }));
+
+/** The plan's tasks once the portal is deleted in the Tree, as `keysTo` takes them. */
+const WITHOUT_PORTAL = PLAN_ROWS.flatMap(([id]) => (id === "portal" ? [] : [{ id }]));
 
 /** The rows' tasks and the agent's dates of each baseline, in the chart's order. */
 const baselineDates = async (gantt: ReturnType<typeof ganttOf>) =>
@@ -312,7 +317,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a package deleted in the Tree while another depends on it leaves a field error under the dependent's row, the other tasks scheduled",
+      "a package deleted in the Tree while another depends on it leaves a field error under the dependent's row, the other tasks scheduled; unchecked in the dependent's panel, where it names no task, it leaves the dependent scheduled again",
       async () => {
         const run = await opened();
         const { board } = run;
@@ -346,6 +351,46 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isEnabled()).toBe(true);
         expect(await counterText(gantt)).toBe(NONE_YET);
         expect(await changeOutlines(gantt)).toEqual([]);
+        // Reporting's panel, by keyboard: the other tasks, then the portal it still holds,
+        // checked, labelled with its ID and saying that it names no task.
+        await tabIntoPlanGrid(board);
+        await keysTo(board, "reporting", "dependencies", WITHOUT_PORTAL);
+        await board.page.keyboard.press("Enter");
+        const panel = panelOf(gantt, "reporting");
+        const others = PLAN_ROWS.flatMap(([id, task]) =>
+          id === "portal" || id === "reporting"
+            ? []
+            : [{ task, checked: false, disabled: false, reason: "" }],
+        );
+        const portal = { task: "portal", checked: true, disabled: false, reason: "Names no task" };
+        expect(await panelFacts(panel)).toEqual([...others, portal]);
+        expect(await focusedBox(board)).toBe("UX design");
+        for (let box = 0; box < others.length; box += 1) {
+          await board.page.keyboard.press("ArrowDown");
+        }
+        expect(await focusedBox(board)).toBe("portal");
+        // Unchecked, it stays listed until the panel closes; Enter commits.
+        await board.page.keyboard.press("Space");
+        expect(await panelFacts(panel)).toEqual([...others, { ...portal, checked: false }]);
+        await board.page.keyboard.press("Enter");
+        expect(await panel.count()).toBe(0);
+        expect(await focusedCell(board)).toBe("reporting.dependencies");
+        // Reporting, with no predecessor, starts with the plan: a bar, dates, no field error.
+        await eventually(
+          async () => (await barDates(gantt)).reporting === "2026-11-02..2026-11-09",
+          "reporting to be scheduled from 11/2/2026",
+        );
+        expect(await gantt.root.locator("[data-gantt-note]").count()).toBe(0);
+        expect(await rowTexts(gantt)).toEqual([
+          ...PLAN_ROWS.filter((row) => row[0] !== "portal" && row[0] !== "reporting"),
+          ["reporting", "Reporting", "11/2/2026", "6", ""],
+        ]);
+        expect(await barDates(gantt)).toEqual({
+          ...scheduled,
+          reporting: "2026-11-02..2026-11-09",
+        });
+        expect(await counterText(gantt)).toBe("Your changes: 1");
+        expect(await board.answer.isEnabled()).toBe(true);
         await expectOnlyReady(run);
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);

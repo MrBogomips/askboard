@@ -1,7 +1,9 @@
 // The predecessors panel's state (view spec, "Gantt predecessors"; proposal, open question 9): one
 // task's panel at a time, holding its predecessors as the user checks and unchecks them; "Done" or
 // Enter commits them through `edits.ts`, Escape restores, and either gives the focus back to the
-// task's "Depends on" cell. What the panel holds is view state until it commits.
+// task's "Depends on" cell. What the panel holds is view state until it commits. It keeps what the
+// task held when it opened, so that a predecessor naming no other task stays listed once unchecked
+// (task 9.3).
 
 import type { GanttProps } from "@askboard/contract";
 import { useCallback, useRef, useState } from "react";
@@ -13,6 +15,8 @@ export type Panel = {
   readonly taskId: string;
   /** The predecessors the panel holds, in the order the user checked them. */
   readonly held: readonly string[];
+  /** The predecessors the task held when the panel opened. */
+  readonly opened: readonly string[];
 };
 
 export type PanelState = {
@@ -36,7 +40,7 @@ export const usePanelState = (args: PanelArgs): PanelState => {
   const latest = useRef(args);
   latest.current = args;
   const open = useCallback((row: GanttRow) => {
-    setPanel({ taskId: row.id, held: row.dependencies });
+    setPanel({ taskId: row.id, held: row.dependencies, opened: row.dependencies });
   }, []);
   const toggle = useCallback((taskId: string, checked: boolean) => {
     setPanel((shown) => shown && { ...shown, held: toggled(shown.held, taskId, checked) });

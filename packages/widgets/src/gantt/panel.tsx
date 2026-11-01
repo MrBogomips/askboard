@@ -2,11 +2,13 @@
 // Gantt): an inline panel under the task's "Depends on" cell, laid over the rows below so that the
 // grid's rows stay beside the chart's, listing every other task with a Radix Checkbox, in a plan
 // every other leaf of its Tree, a package the user added there included; a task that would close a
-// cycle or break a limit is disabled, its reason beside it. The first box takes the focus when it
-// opens; the up and down arrows move between the boxes, Space checks or unchecks, and "Done" or
-// Enter commits, Escape restores. The focus stays in the panel while it is open: a box the pointer
-// checks takes it, since WebKit focuses no button on a click, and a press anywhere else in the
-// panel leaves it where it is. Task names are agent strings, shown as text.
+// cycle or break a limit is disabled, its reason beside it. After them, each predecessor the task
+// held that names no other task, labelled with its ID and saying so, for the user to uncheck (task
+// 9.3). The text beside a box describes it. The first box takes the focus when it opens; the up
+// and down arrows move between the boxes, Space checks or unchecks, and "Done" or Enter commits,
+// Escape restores. The focus stays in the panel while it is open: a box the pointer checks takes
+// it, since WebKit focuses no button on a click, and a press anywhere else in the panel leaves it
+// where it is. Task names are agent strings, shown as text.
 
 import type { GanttProps } from "@askboard/contract";
 import { Checkbox } from "radix-ui";
@@ -48,7 +50,7 @@ type PanelProps = {
 
 export const PredecessorsPanel = (props: PanelProps) => {
   const { itemId, row, panel } = props;
-  const boxes = panelBoxes(props.current, props.rows, row.id, panel.held);
+  const boxes = panelBoxes(props.current, props.rows, row.id, panel.held, panel.opened);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   useLayoutEffect(() => {
     refs.current.find((box) => box !== null && !box.disabled)?.focus();
@@ -85,6 +87,8 @@ export const PredecessorsPanel = (props: PanelProps) => {
       <ul className="flex max-h-[240px] flex-col gap-1 overflow-y-auto">
         {boxes.map((box, index) => {
           const id = boxId(itemId, row.id, box.id);
+          // A disabled box says why; a box for an ID that names no other task says so.
+          const text = box.reason ?? box.note;
           return (
             <li key={box.id} className="flex items-start gap-2">
               <Checkbox.Root
@@ -94,7 +98,7 @@ export const PredecessorsPanel = (props: PanelProps) => {
                 }}
                 checked={box.checked}
                 disabled={box.reason !== undefined}
-                aria-describedby={box.reason === undefined ? undefined : `${id}:why`}
+                aria-describedby={text === undefined ? undefined : `${id}:why`}
                 onCheckedChange={(checked) => props.onToggle(box.id, checked === true)}
                 onClick={(event) => event.currentTarget.focus()}
                 className={BOX}
@@ -105,9 +109,9 @@ export const PredecessorsPanel = (props: PanelProps) => {
                 <label htmlFor={id} className="truncate">
                   {box.label}
                 </label>
-                {box.reason === undefined ? null : (
+                {text === undefined ? null : (
                   <span id={`${id}:why`} className="text-badge text-muted-foreground">
-                    {box.reason}
+                    {text}
                   </span>
                 )}
               </span>
