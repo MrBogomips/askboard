@@ -20,6 +20,7 @@ import {
   type TreeOrigin,
   type TreeProps,
 } from "./index.ts";
+import { treePertProblems } from "./pert.ts";
 
 type Json = Record<string, unknown>;
 type Path = readonly (string | number)[];
@@ -177,6 +178,7 @@ export const treePropsProblems = (props: unknown, origin: TreeOrigin): Problem[]
   } else if (props.columns !== undefined) {
     problems.push({ path: "/columns", message: "the columns are no list" });
   }
+  problems.push(...treePertProblems(props, columns));
   if (!Array.isArray(props.nodes)) {
     return [...problems, { path: "/nodes", message: "the Tree holds no list of nodes" }];
   }

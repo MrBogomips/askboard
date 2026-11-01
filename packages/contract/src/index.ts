@@ -375,6 +375,9 @@ export { originMessage, type WhoAskedFields } from "./push/origin-message.ts";
 
 // Molecules (molecules): the reference and definition formats, their checks and JSON Pointers.
 
+// Molecules (molecules): the reference and definition formats, their checks and JSON Pointers,
+// and the Tree's PERT.
+
 export { moleculeDefinitionProblems } from "./molecules/checks.ts";
 export {
   EXPANDED_ID_SEPARATOR,
@@ -390,3 +393,4 @@ export {
   type MoleculeProps,
 } from "./molecules/index.ts";
 export { type Located, pointerOf, pointerTokens, valueAt } from "./molecules/pointer.ts";
+export { TREE_PERT_MAX_ESTIMATE, type TreePertProps } from "./widgets/tree/index.ts";

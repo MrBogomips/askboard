@@ -29,6 +29,9 @@ export const TREE_LABEL_MAX_CHARS = 200;
 /** The longest text field; a text field holds at least one character, and is absent when empty. */
 export const TREE_TEXT_MAX_CHARS = 1_000;
 
+/** The largest estimate of a Tree with `pert`, in working days; the smallest is 0 (F8). */
+export const TREE_PERT_MAX_ESTIMATE = 100_000;
+
 /**
  * A column's field: one of AD-13's reference segments that compute reads as a field name, never as
  * a cell, since cells are upper case. `id`, `label` and `children` are a node's own keys, never a
@@ -60,6 +63,13 @@ export type TreeProps = {
   readonly columns?: readonly TreeColumn[];
   readonly nodes: readonly TreeNode[];
 };
+
+/**
+ * A work breakdown's props (molecules design decision 8): a Tree's, with PERT over the three
+ * estimate columns and the levels open at first, from 1 to `TREE_MAX_DEPTH`. A type of its own,
+ * so that `TreeProps` keeps no field of a primitive type.
+ */
+export type TreePertProps = TreeProps & { readonly pert: true; readonly openDepth?: number };
 
 /**
  * Who wrote a Tree's props: the agent, whose IDs may not start with the view's prefix `u-`, or the

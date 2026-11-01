@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:tree-props",
   "title": "Tree props",
-  "description": "A Tree item's props (FR-11, design decision 2): its columns and its nodes. A node holds its ID, its name, its children and a value for any field a column declares: a string for a text column, a number for a number column, absent when empty. What a schema cannot say (IDs unique across levels, the view's prefix, each field declared by a column and of its type, column fields unique, the node count and depth limits) is checked by treePropsProblems. In no schema set until the input format reaches 1.1.",
+  "description": "A Tree item's props (FR-11, design decision 2): its columns and its nodes. A node holds its ID, its name, its children and a value for any field a column declares: a string for a text column, a number for a number column, absent when empty. What a schema cannot say (IDs unique across levels, the view's prefix, each field declared by a column and of its type, column fields unique, the node count and depth limits) is checked by treePropsProblems, with the rules of pert and openDepth. In no schema set until the input format reaches 1.1.",
   "type": "object",
   "properties": {
     "columns": {
@@ -17,6 +17,16 @@
       "items": {
         "$ref": "#/$defs/node"
       }
+    },
+    "pert": {
+      "description": "A work breakdown (AD-13): the columns declare optimistic, mostLikely and pessimistic as numbers, every estimate is 0 to 100,000 working days, and every node and the item get the derived fields expected and spread.",
+      "const": true
+    },
+    "openDepth": {
+      "description": "With pert only, the levels open when the board first shows the work breakdown; a Tree without pert opens fully expanded.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
     }
   },
   "required": ["nodes"],
