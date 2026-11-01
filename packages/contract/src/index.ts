@@ -491,6 +491,9 @@ export type {
 
 export {
   type AxisZoom,
+  type DateEntry,
+  type DateRefusalCode,
+  dateEcho,
   type FractionDigits,
   formatAxisLabel,
   formatDate,
@@ -502,6 +505,12 @@ export {
   formatTime,
   LOCALES,
   type Locale,
+  type NumberEntry,
+  type NumberRefusalCode,
+  numberEcho,
+  parseDate,
+  parseNumber,
+  plainNumber,
 } from "./locale/index.ts";
 export {
   ASKBOARD_FOLDER,

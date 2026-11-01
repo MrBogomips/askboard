@@ -19,6 +19,8 @@ export type LocaleTable = {
   readonly symbolGap: string;
   /** Full month names, January first, as a sentence spells them. */
   readonly months: readonly string[];
+  /** Whether a typed date puts the day before the month, as in 9/12/2026 for December 9. */
+  readonly dayFirst: boolean;
   readonly date: (parts: CalendarParts) => string;
   readonly longDate: (parts: CalendarParts) => string;
   readonly time: (parts: ClockParts) => string;
@@ -90,6 +92,7 @@ const TABLES: Readonly<Record<Locale, LocaleTable>> = {
     group: ",",
     symbolGap: "",
     months: EN_MONTHS,
+    dayFirst: false,
     date: (p) => `${p.month}/${p.day}/${yearOf(p)}`,
     longDate: (p) => `${enWeekday(p)}, ${enMonth(p)} ${p.day}, ${yearOf(p)}`,
     time: enTime,
@@ -105,6 +108,7 @@ const TABLES: Readonly<Record<Locale, LocaleTable>> = {
     group: ".",
     symbolGap: " ",
     months: IT_MONTHS,
+    dayFirst: true,
     date: (p) => `${twoDigits(p.day)}/${twoDigits(p.month)}/${yearOf(p)}`,
     longDate: (p) => `${itWeekday(p)} ${p.day} ${itMonth(p)} ${yearOf(p)}`,
     time: itTime,

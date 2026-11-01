@@ -9,5 +9,16 @@ export {
   formatLongDate,
   formatTime,
 } from "./dates.ts";
+export {
+  type DateEntry,
+  type DateRefusalCode,
+  dateEcho,
+  type NumberEntry,
+  type NumberRefusalCode,
+  numberEcho,
+  parseDate,
+  parseNumber,
+  plainNumber,
+} from "./entry.ts";
 export { type FractionDigits, formatMoney, formatNumber, formatPercent } from "./numbers.ts";
 export { type AxisZoom, LOCALES, type Locale } from "./tables.ts";
