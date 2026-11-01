@@ -402,8 +402,8 @@ export {
 } from "./widgets/tree/index.ts";
 
 // Context, E5 (excerpts, design decision 2): the pointer grammar, what resolving a pointer gives
-// (the reasons it stays unresolved, the media types) and the context limits of proposal B4,
-// exported in one appended block.
+// (the reasons it stays unresolved, the media types, a source's state) and the context limits of
+// proposal B4, exported in one appended block.
 
 export {
   ANCHOR_FILE_MAX_BYTES,
@@ -432,6 +432,8 @@ export {
 export {
   IMAGE_MEDIA_TYPES,
   type ImageMediaType,
+  SOURCE_STATUSES,
+  type SourceStatus,
   TEXT_MEDIA_TYPES,
   type TextMediaType,
   UNRESOLVED_REASONS,

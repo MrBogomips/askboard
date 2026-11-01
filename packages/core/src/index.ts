@@ -108,3 +108,18 @@ export {
   expansionEntries,
 } from "./molecules/map.ts";
 export type { MoleculeLookup, MoleculeSource } from "./molecules/source.ts";
+
+// Context, E5 (excerpts, design decisions 3 and 4): the SourceFiles port, exported in one appended
+// block.
+
+export type {
+  EditorTarget,
+  ExcerptResolution,
+  ImageResolution,
+  ReferenceResolution,
+  SourceFiles,
+  SourceState,
+  SourceText,
+  SourceUnavailable,
+  UnresolvedPointer,
+} from "./context/ports.ts";

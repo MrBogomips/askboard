@@ -18,6 +18,12 @@ import { isRefused, type Refused, refusedBy, systemCode, unless } from "./refuse
 /** A pointer whose file lies inside the root, and that file's real path. */
 export type Located = { readonly realPath: string; readonly pointer: Pointer };
 
+/** Whether an item's pointer takes an anchor: an excerpt's needs one, an image's has none. */
+export type AnchorRule = "required" | "forbidden" | "optional";
+
+const fits = (pointer: Pointer, rule: AnchorRule): boolean =>
+  rule === "optional" || (pointer.anchor !== undefined) === (rule === "required");
+
 const confinedThroughFolder = async (
   fs: SourceFs,
   prefix: string,
@@ -52,16 +58,18 @@ const realPathOf = async (
 
 /**
  * Finds a pointer's file inside `root`. With no root, or one that is not an absolute path, every
- * pointer is `no-root`; an invalid pointer is `invalid-pointer`; neither calls the file system.
+ * pointer is `no-root`; an invalid pointer, or one whose anchor breaks `rule`, is
+ * `invalid-pointer`; neither calls the file system.
  */
 export const locate = async (
   fs: SourceFs,
   root: string | undefined,
   text: string,
+  rule: AnchorRule = "optional",
 ): Promise<Located | Refused> => {
   if (root === undefined || !isAbsolute(root)) return { refused: "no-root" };
   const pointer = readPointer(text);
-  if ("invalid" in pointer) return { refused: "invalid-pointer" };
+  if ("invalid" in pointer || !fits(pointer, rule)) return { refused: "invalid-pointer" };
   const realRoot = await unless(() => fs.realpath(root), "not-found");
   if (isRefused(realRoot)) return realRoot;
   const prefix = realRoot.endsWith("/") ? realRoot : `${realRoot}/`;
