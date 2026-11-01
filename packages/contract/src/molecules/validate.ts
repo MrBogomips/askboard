@@ -6,7 +6,9 @@
 // `../widgets/validator.ts` imports from it, and the cycle is safe only while no module of it makes
 // a call at its top level.
 
+import type { AnySchemaObject } from "ajv/dist/2020";
 import type { Checked } from "../validate.ts";
+import treeProps from "../widgets/tree/tree-props.json" with { type: "json" };
 import { widgetValidator } from "../widgets/validator.ts";
 import { moleculeDefinitionProblems } from "./checks.ts";
 import {
@@ -18,6 +20,9 @@ import {
 } from "./index.ts";
 import moleculeDefinition from "./molecule-definition.json" with { type: "json" };
 import moleculeProps from "./molecule-props.json" with { type: "json" };
+
+/** Every widget props schema of the contract, which a molecule's parameters may reference. */
+const WIDGET_PROPS_SCHEMAS: readonly AnySchemaObject[] = [treeProps];
 
 const VERSION = new RegExp(MOLECULE_VERSION_PATTERN);
 
@@ -64,3 +69,19 @@ export const validateMoleculeDefinition = (value: unknown): Checked<MoleculeDefi
   const problems = moleculeDefinitionProblems(checked.value);
   return problems.length === 0 ? checked : { ok: false, reason: "schema", problems };
 };
+
+/**
+ * The validator of a reference's data against its definition's parameters (contract spec,
+ * "Molecule data validation"), in the shared widget validator beside every widget props schema,
+ * so that the parameters may reference them. Nothing compiles until its first call. Problems name
+ * the path in the data; the caller names the reference. For a definition that passed
+ * `validateMoleculeDefinition`: the widget validator keeps the first schema of an `$id`, and
+ * AskBoard ships one version per major of a molecule (design decision 2).
+ */
+export const moleculeDataValidator = (
+  definition: MoleculeDefinition,
+): ((data: unknown) => Checked<Readonly<Record<string, unknown>>>) =>
+  widgetValidator<Readonly<Record<string, unknown>>>(
+    [...WIDGET_PROPS_SCHEMAS, definition.parameters],
+    String(definition.parameters.$id),
+  );

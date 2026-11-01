@@ -320,4 +320,10 @@ export {
 
 // Molecules (molecules): the reference and definition validators.
 
-export { validateMoleculeDefinition, validateMoleculeProps } from "./molecules/validate.ts";
+// Molecules (molecules): the reference and definition validators, and a reference's data validator.
+
+export {
+  moleculeDataValidator,
+  validateMoleculeDefinition,
+  validateMoleculeProps,
+} from "./molecules/validate.ts";
