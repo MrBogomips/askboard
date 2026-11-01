@@ -1,9 +1,11 @@
 // The pointer edits of the chart's bars (design decision 9; EXPERIENCE Interaction Primitives,
 // Drag): a primary press on a bar, or on its end's handle, captures the pointer, with no drag
 // library, and follows its horizontal travel until the pointer comes up, which drops it; Escape
-// during the drag, a cancelled pointer or a lost capture cancels it. The press is held in a ref,
-// so that the handlers stay the same functions and only the dragged bar draws again as it moves;
-// what the drop does is the chart's (`drag.ts`). Nothing reaches the draft before the drop.
+// during the drag, a cancelled pointer, a lost capture or the bars turning read-only (a lock, an
+// answer) cancels it. The press is held in a ref, so that the handlers stay the same functions and
+// only the dragged bar and its guide draw again as it moves, the chart keeping the other bars, the
+// arrows and the axis; what the drop does is the chart's (`drag.ts`). Nothing reaches the draft
+// before the drop.
 
 import { type PointerEvent, useCallback, useEffect, useRef, useState } from "react";
 
@@ -28,7 +30,8 @@ export type BarDragState = {
   readonly cancel: () => void;
 };
 
-export const useBarDrag = (onDrop: (drop: BarDrag) => void): BarDragState => {
+/** The drags of a chart's bars, dropped through `onDrop`, while `enabled`: its bars take them. */
+export const useBarDrag = (onDrop: (drop: BarDrag) => void, enabled: boolean): BarDragState => {
   const [drag, setDrag] = useState<BarDrag | undefined>(undefined);
   const pressed = useRef<Press | undefined>(undefined);
   const dropTo = useRef(onDrop);
@@ -65,6 +68,10 @@ export const useBarDrag = (onDrop: (drop: BarDrag) => void): BarDragState => {
       held.element.releasePointerCapture(held.pointerId);
     }
   }, []);
+  // Read-only bars drop their handlers, so no pointer up would end a drag they held.
+  useEffect(() => {
+    if (!enabled) cancel();
+  }, [enabled, cancel]);
   const dragging = drag !== undefined;
   useEffect(() => {
     const document = pressed.current?.element.ownerDocument;

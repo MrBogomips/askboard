@@ -1,9 +1,9 @@
 // The chart's geometry (design decision 9; the UJ-2 mock): rows of 36px under an axis of 32px, so
 // that each lines up with its grid row; a row with a field error under it, taller by one line;
 // bars of 14px centred in their row's first 36px, spanning their calendar days; in a plan, the
-// baseline, a 4px bar under its task's bar; finish-to-start elbow arrows; and the axis's span,
-// from the plan's start to two weeks past the last finish, room to drag a task later. Plain
-// numbers, which the chart writes as SVG attributes.
+// baseline, a 4px bar under its task's bar; finish-to-start elbow arrows and their arrowheads'
+// IDs; and the axis's span, from the plan's start to two weeks past the last finish, room to drag
+// a task later. Plain numbers, which the chart writes as SVG attributes.
 
 import { dateOfDay, dayNumber, LAST_DAY } from "./date.ts";
 import { PIXELS_PER_DAY, xOf, type Zoom } from "./scale.ts";
@@ -97,6 +97,13 @@ export const arrowPath = (from: BarBox, to: BarBox): string => {
   const turn = y1 + (y2 >= y1 ? STEP_DOWN : -STEP_DOWN);
   return `M${x1},${y1} h${STEP_OUT} V${turn} H${x2 - STEP_BACK} V${y2} H${x2}`;
 };
+
+/**
+ * The ID of an item's arrowhead marker, plain or critical, unique on the board: the item's ID
+ * between two dots, which no ID holds, so that no item's marker takes another's ID.
+ */
+export const arrowMarkerId = (itemId: string, critical: boolean): string =>
+  `gantt.${itemId}.${critical ? "critical-arrow" : "arrow"}`;
 
 export type ChartSpan = { readonly origin: string; readonly last: string };
 

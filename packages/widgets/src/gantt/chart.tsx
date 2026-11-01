@@ -22,7 +22,7 @@ import {
 import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
-import { AXIS_HEIGHT, arrowPath, type RowBoxes } from "./model/layout.ts";
+import { AXIS_HEIGHT, arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
 import { PIXELS_PER_DAY, ticks, type Zoom } from "./model/scale.ts";
@@ -41,13 +41,10 @@ const arrowsOf = (rows: readonly GanttRow[], bars: ReadonlyMap<string, DrawnBar>
     });
   });
 
-const markerId = (itemId: string, critical: boolean) =>
-  `gantt-${itemId}-${critical ? "critical-arrow" : "arrow"}`;
-
-const Markers = ({ itemId }: { readonly itemId: string }) => (
+const Markers = memo(({ itemId }: { readonly itemId: string }) => (
   <defs>
     <marker
-      id={markerId(itemId, false)}
+      id={arrowMarkerId(itemId, false)}
       viewBox="0 0 6 6"
       refX="6"
       refY="3"
@@ -59,7 +56,7 @@ const Markers = ({ itemId }: { readonly itemId: string }) => (
       <path d="M0,0 L6,3 L0,6 z" className="fill-gantt-bar" />
     </marker>
     <marker
-      id={markerId(itemId, true)}
+      id={arrowMarkerId(itemId, true)}
       viewBox="0 0 7 7"
       refX="7"
       refY="3.5"
@@ -71,7 +68,7 @@ const Markers = ({ itemId }: { readonly itemId: string }) => (
       <path d="M0,0 L7,3.5 L0,7 z" className="fill-critical" />
     </marker>
   </defs>
-);
+));
 
 type AxisProps = {
   readonly span: ChartSpan;
@@ -118,18 +115,32 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => (
   </g>
 ));
 
-const ArrowPath = ({ itemId, arrow }: { readonly itemId: string; readonly arrow: Arrow }) => (
+const ArrowPath = memo(({ itemId, arrow }: { readonly itemId: string; readonly arrow: Arrow }) => (
   <path
     data-gantt-arrow=""
     data-from={arrow.from.id}
     data-to={arrow.to.id}
     data-critical={arrow.critical}
     d={arrowPath(arrow.from.box, arrow.to.box)}
-    markerEnd={`url(#${markerId(itemId, arrow.critical)})`}
+    markerEnd={`url(#${arrowMarkerId(itemId, arrow.critical)})`}
     className={
       arrow.critical ? "fill-none stroke-critical stroke-2" : "fill-none stroke-gantt-bar stroke-1"
     }
   />
+));
+
+/**
+ * The arrows between the drawn bars, built again only when the bars are: a pointer move draws the
+ * dragged bar again, never the arrows, which follow once the drop has rebuilt the graph.
+ */
+const Arrows = memo(
+  ({ itemId, arrows }: { readonly itemId: string; readonly arrows: readonly Arrow[] }) => (
+    <g>
+      {arrows.map((arrow) => (
+        <ArrowPath key={`${arrow.from.id}>${arrow.to.id}`} itemId={itemId} arrow={arrow} />
+      ))}
+    </g>
+  ),
 );
 
 export type ChartProps = {
@@ -192,7 +203,8 @@ export const Chart = (props: ChartProps) => {
     () => drawnBaselines(rows, props.baselines ?? [], layout, span, zoom),
     [rows, props.baselines, layout, span, zoom],
   );
-  const { drag, press, move, release, cancel } = useBarDrag(onDrop);
+  const arrows = useMemo(() => arrowsOf(rows, bars), [rows, bars]);
+  const { drag, press, move, release, cancel } = useBarDrag(onDrop, props.editable);
   const dragged = drag === undefined ? undefined : bars.get(drag.taskId);
   return (
     <svg
@@ -210,11 +222,7 @@ export const Chart = (props: ChartProps) => {
           <BaselineShape key={baseline.id} baseline={baseline} />
         ))}
       </g>
-      <g>
-        {arrowsOf(rows, bars).map((arrow) => (
-          <ArrowPath key={`${arrow.from.id}>${arrow.to.id}`} itemId={itemId} arrow={arrow} />
-        ))}
-      </g>
+      <Arrows itemId={itemId} arrows={arrows} />
       <g>
         {[...bars.values()].map((bar) => (
           <BarShape

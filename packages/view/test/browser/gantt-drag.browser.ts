@@ -2,11 +2,13 @@
 // 9 and 12; spec, "Gantt rescheduling by drag" and "Gantt durations"): a bar dragged later moves
 // on the drop with its dependents, stops at its earliest start with the guide and snaps to working
 // days; the agent's request for a weekend day survives a short drag and a drag away and back;
-// Escape cancels a drag, and a press under the drag threshold is a click; a bar's end
-// resizes it, never below one working day. Then a Gantt at the 500-task limit, visible within the
-// load timeout and rescheduled by a drop within the step timeout.
+// Escape cancels a drag, and so do a lock arriving during it and a lost capture, and a press under
+// the drag threshold is a click; a bar's end resizes it, never below one working day. Then a Gantt
+// at the 500-task limit, visible within the load timeout and rescheduled by a drop within the step
+// timeout.
 
 import { describe, expect, test } from "bun:test";
+import { ganttBoardDocument } from "@askboard/contract/fixtures";
 import { ORIGIN, schedule, WEEK_PX } from "./fixtures/gantt-documents.ts";
 import {
   armDropTimer,
@@ -15,6 +17,7 @@ import {
   grabPoint,
   guideFacts,
   pressAndMove,
+  sendLock,
 } from "./fixtures/gantt-input.ts";
 import {
   barDates,
@@ -27,7 +30,12 @@ import {
   RELEASE_TASKS,
   withTasks,
 } from "./fixtures/gantt-view.ts";
-import { LOAD_TIMEOUT_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import {
+  eventually,
+  LOAD_TIMEOUT_MS,
+  STEP_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
+} from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -155,6 +163,55 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    test(
+      "a lock that arrives during a drag cancels it: the bar goes back, the guide goes, and the release changes nothing",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        const before = await barFacts(gantt);
+        const x = Number(await gantt.bar("portal").getAttribute("x"));
+        await pressAndMove(run.board, await grabPoint(gantt, "portal"), 3 * WEEK_PX);
+        expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(x + 3 * WEEK_PX);
+        await sendLock(run.board, ganttBoardDocument);
+        await eventually(
+          async () => (await gantt.root.locator("[data-gantt-handle]").count()) === 0,
+          "the Gantt to turn read-only",
+        );
+        await run.board.page.mouse.up();
+        expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(x);
+        expect(await guideFacts(gantt)).toBeUndefined();
+        expect(await barFacts(gantt)).toEqual(before);
+        expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+        expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    for (const lost of ["lostpointercapture", "pointercancel"] as const) {
+      test(
+        `a ${lost} during a drag cancels it: the bar goes back, the guide goes, and the release changes nothing`,
+        async () => {
+          const run = await opened();
+          const gantt = ganttOf(run.board);
+          const before = await barFacts(gantt);
+          const x = Number(await gantt.bar("portal").getAttribute("x"));
+          await pressAndMove(run.board, await grabPoint(gantt, "portal"), 3 * WEEK_PX);
+          expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(x + 3 * WEEK_PX);
+          await gantt.bar("portal").dispatchEvent(lost);
+          await eventually(
+            async () => Number(await gantt.bar("portal").getAttribute("x")) === x,
+            "the bar to go back",
+          );
+          expect(await guideFacts(gantt)).toBeUndefined();
+          await run.board.page.mouse.up();
+          expect(await barFacts(gantt)).toEqual(before);
+          expect(await run.board.answer.isDisabled()).toBe(true);
+          expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
 
     test(
       "dragging a bar's end resizes it, its dependents following, and never below one working day",

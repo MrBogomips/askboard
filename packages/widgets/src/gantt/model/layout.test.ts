@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   AXIS_HEIGHT,
+  arrowMarkerId,
   arrowPath,
   BAR_HEIGHT,
   BASELINE_GAP,
@@ -93,6 +94,14 @@ describe("a finish-to-start arrow", () => {
 
   test("elbows up to a successor drawn above its predecessor", () => {
     expect(arrowPath(box(0, 120, 79), box(120, 45, 43))).toBe("M120,86 h5 V74 H111 V50 H120");
+  });
+
+  test("ends in a marker whose ID no other item's marker takes, whatever the two items' IDs", () => {
+    // `a`'s critical marker and `a-critical`'s plain one must differ, and so on for any IDs.
+    const ids = ["a", "a-critical", "a-arrow", "critical", "arrow", "a_critical", "critical-a"];
+    const markers = ids.flatMap((id) => [arrowMarkerId(id, false), arrowMarkerId(id, true)]);
+    expect(arrowMarkerId("a", true)).not.toBe(arrowMarkerId("a-critical", false));
+    expect(new Set(markers).size).toBe(markers.length);
   });
 });
 
