@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:molecule-definition",
+  "title": "Molecule definition",
+  "description": "A molecule's definition (AD-9, design decisions 2 and 3): the definition format it follows, its name and version, its parameters as a JSON Schema, its composition of exactly one widget item in format 1.0.0, and, per parameter, the JSON Pointers into the composition that the parameter fills, each with a declarative form: copy (no as), item, entries or omit. Data only: no fill evaluates anything. What a schema cannot say (the format's major, the parameters' dialect, $id and shape, each fill's parameter and pointer, no markup or script in any string) is checked by moleculeDefinitionProblems. In no schema set until the input format reaches 1.1.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "$ref": "#/$defs/version"
+    },
+    "molecule": {
+      "$ref": "#/$defs/name"
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "parameters": {
+      "description": "The JSON Schema 2020-12 of the data a reference sends, with the $id urn:askboard:molecule:<molecule>:<major>.",
+      "type": "object"
+    },
+    "items": {
+      "description": "The composition: in format 1.0.0, exactly one widget item.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "fills": {
+      "description": "Per top-level parameter, the places in the composition it fills.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/fill"
+        }
+      }
+    }
+  },
+  "required": ["format", "molecule", "version", "parameters", "items", "fills"],
+  "additionalProperties": false,
+  "$defs": {
+    "name": {
+      "description": "A molecule's name: lower-case letters, digits and hyphens, starting with a letter.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "version": {
+      "description": "A semantic version MAJOR.MINOR.PATCH, with no leading zero.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})$"
+    },
+    "item": {
+      "description": "A widget item {type, id, props}; the expansion gives it the ID <reference>__<id>.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "props": {
+          "type": "object"
+        }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "fill": {
+      "description": "An RFC 6901 JSON Pointer into items, and the form of the fill: a copy when as is absent.",
+      "type": "object",
+      "properties": {
+        "pointer": {
+          "type": "string",
+          "pattern": "^(/([^~/]|~[01])*)+$"
+        },
+        "as": {
+          "anyOf": [
+            {
+              "description": "The value names an item of the ask: a molecule reference's expanded item replaces it.",
+              "const": "item"
+            },
+            {
+              "$ref": "#/$defs/entries"
+            },
+            {
+              "$ref": "#/$defs/omit"
+            }
+          ]
+        }
+      },
+      "required": ["pointer"],
+      "additionalProperties": false
+    },
+    "entries": {
+      "description": "Each value v of an object becomes the entry {<entries>: v}.",
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "string",
+          "pattern": "^[a-z][A-Za-z0-9]{0,63}$"
+        }
+      },
+      "required": ["entries"],
+      "additionalProperties": false
+    },
+    "omit": {
+      "description": "A copy without these keys in any object, at any depth.",
+      "type": "object",
+      "properties": {
+        "omit": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": ["omit"],
+      "additionalProperties": false
+    }
+  }
+}

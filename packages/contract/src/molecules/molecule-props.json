@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:molecule-props",
+  "title": "Molecule reference props",
+  "description": "A molecule reference's props (AD-9, F2): the molecule's name, an optional semantic version and the data its definition's parameters describe. Without a version, the highest shipped version of the molecule's current major applies; with one, the highest shipped version of that major at or above it. The data is checked against the definition's parameters. In no schema set until the input format reaches 1.1.",
+  "type": "object",
+  "properties": {
+    "molecule": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})$"
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "required": ["molecule", "data"],
+  "additionalProperties": false
+}
