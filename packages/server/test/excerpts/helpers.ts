@@ -128,6 +128,10 @@ export const spyFs = (hooks: FsHooks = {}, real: SourceFs = nodeSourceFs): SpyFs
       hooks.beforeLstat?.(path);
       return real.lstat(path);
     },
+    readlink: (path) => {
+      calls.push({ call: "readlink", path });
+      return real.readlink(path);
+    },
     open: async (path, flags) => {
       calls.push({ call: "open", path });
       hooks.beforeOpen?.(path);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, realpathSync, renameSync, rmSync, symlinkSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { POINTER_MAX_CHARS } from "@askboard/contract";
 import { locate } from "../../src/excerpts/confine.ts";
 import { makeSandbox, type Sandbox, SENTINEL_TEXT, spyFs } from "./helpers.ts";
@@ -86,6 +86,7 @@ describe("files that are not there", () => {
     const fs = {
       realpath: () => Promise.reject(fault),
       lstat: () => Promise.reject(fault),
+      readlink: () => Promise.reject(fault),
       open: () => Promise.reject(fault),
     };
     await expect(locate(fs, box.root, "docs/a.md#A")).rejects.toBe(fault);
@@ -98,6 +99,7 @@ describe("files that are not there", () => {
     const fs = {
       realpath: () => Promise.reject(fault),
       lstat: () => Promise.reject(fault),
+      readlink: () => Promise.reject(fault),
       open: () => Promise.reject(fault),
     };
     await expect(locate(fs, box.root, "docs/a.md#A")).rejects.toBe(fault);
@@ -220,5 +222,103 @@ describe("symlinks (board-host spec, Pointers resolve only inside the root)", ()
     );
     expect(JSON.stringify(results)).not.toContain(SENTINEL_TEXT);
     expect(JSON.stringify(results)).not.toContain("proj-old");
+  });
+});
+
+describe("never telling whether a file outside the root exists (design decision 4)", () => {
+  // A warning carries the reason, so the reason must not depend on what lies outside the root:
+  // a link leading out is outside-root whether or not its target exists. When the real path
+  // cannot be taken, the path is resolved again one component at a time from the real root,
+  // and that resolution stops, with no call, where it would step outside the root and its own
+  // ancestors.
+
+  const reasonOf = async (pointer: string) => {
+    const { fs } = spyFs();
+    const located = await locate(fs, box.root, pointer);
+    return "refused" in located ? located.refused : "inside";
+  };
+
+  test("a dangling in-root link to a missing outside file is outside-root", async () => {
+    box.link("docs/gone.md", join(box.outside, "missing.md"));
+    box.link("docs/rel.md", "../../proj-old/missing.md");
+    expect(await reasonOf("docs/gone.md#A")).toBe("outside-root");
+    expect(await reasonOf("docs/rel.md#A")).toBe("outside-root");
+  });
+
+  test("a dangling in-root link to a missing in-root file is not-found", async () => {
+    box.write("docs/a.md", "# A\n");
+    box.link("docs/later.md", "missing.md");
+    box.link("docs/abs.md", join(box.realRoot, "docs/missing.md"));
+    box.link("docs/round.md", "../../proj/docs/missing.md");
+    expect(await reasonOf("docs/later.md#A")).toBe("not-found");
+    expect(await reasonOf("docs/abs.md#A")).toBe("not-found");
+    expect(await reasonOf("docs/round.md#A")).toBe("not-found");
+  });
+
+  test("a plain missing in-root path is not-found", async () => {
+    box.write("docs/a.md", "# A\n");
+    for (const pointer of ["docs/missing.md#A", "missing/a.md#A", "docs/a.md/x.md#A"]) {
+      expect(await reasonOf(pointer)).toBe("not-found");
+    }
+  });
+
+  test("a link to an existing outside file is still outside-root", async () => {
+    box.link("docs/out.md", box.sentinel);
+    expect(await reasonOf("docs/out.md#Secret")).toBe("outside-root");
+  });
+
+  test("a chain whose last link leaves toward a missing file is outside-root", async () => {
+    box.link("docs/a.md", "b.md");
+    box.link("docs/b.md", "../c.md");
+    box.link("c.md", "../proj-old/missing.md");
+    expect(await reasonOf("docs/a.md#A")).toBe("outside-root");
+  });
+
+  test("the reason is the same whether the outside target exists or not", async () => {
+    mkdirSync(join(box.outside, "sub"));
+    const targets = [
+      box.sentinel,
+      join(box.outside, "missing.md"),
+      join(box.outside, "sub/missing.md"),
+      join(box.outside, "nodir/missing.md"),
+      "/etc/hosts",
+      "/askboard-no-such-folder/x.md",
+      // Through an outside folder and back: the outside folder's existence must not show.
+      "../../proj-old/sub/../../proj/docs/missing.md",
+      "../../proj-old/nodir/../../proj/docs/missing.md",
+    ];
+    const reasons = [];
+    for (const [index, target] of targets.entries()) {
+      box.link(`docs/t${index}.md`, target);
+      reasons.push(await reasonOf(`docs/t${index}.md#A`));
+    }
+    expect(reasons).toEqual(targets.map(() => "outside-root"));
+  });
+
+  test("a link loop inside the root is not-found", async () => {
+    box.link("loop-a.md", "loop-b.md");
+    box.link("loop-b.md", "loop-a.md");
+    expect(await reasonOf("loop-a.md#A")).toBe("not-found");
+  });
+
+  test("no call reaches beyond the deepest existing ancestor, nor outside the root", async () => {
+    box.write("docs/a.md", "# A\n");
+    box.link("docs/gone.md", join(box.outside, "deep/er/missing.md"));
+    const realOutside = realpathSync(box.outside);
+    for (const [pointer, deepest] of [
+      ["docs/x/y/z.md#A", join(box.realRoot, "docs/x")],
+      ["docs/gone.md#A", join(box.realRoot, "docs/gone.md")],
+    ] as const) {
+      const { fs, calls } = spyFs();
+      await locate(fs, box.root, pointer);
+      const walked = calls.filter((entry) => entry.call !== "realpath").map((entry) => entry.path);
+      expect(walked.at(-1)).toBe(deepest);
+      for (const path of walked) {
+        expect(path === box.realRoot || path?.startsWith(`${box.realRoot}/`)).toBe(true);
+        expect(path?.startsWith(realOutside)).toBe(false);
+      }
+      expect(walked.some((path) => path?.startsWith(`${deepest}/`))).toBe(false);
+      expect(dirname(deepest).startsWith(box.realRoot)).toBe(true);
+    }
   });
 });

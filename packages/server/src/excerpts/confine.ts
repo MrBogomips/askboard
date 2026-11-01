@@ -6,14 +6,15 @@
 // volume both real paths come from the same call, so an in-root name in another case still lies
 // under the real root, and a path outside has a different real prefix in any case.
 //
-// Bun's `realpath` on macOS refuses a Unix socket (EOPNOTSUPP), where Node's resolves it. Such a
-// path is confined through its folder's real path instead, and its own name must be no symbolic
-// link, which could lead anywhere unseen; the next step then finds that it is no regular file.
+// When `realpath` fails, for a missing path, or a Unix socket, whose real path Bun's `realpath`
+// refuses on macOS, `walk.ts` resolves the path again without looking outside the root, so a link
+// leading out is outside-root whether or not its target exists (design decision 4).
 
 import { isAbsolute } from "node:path";
 import { type Pointer, readPointer } from "@askboard/contract";
 import type { SourceFs } from "./fs.ts";
-import { isRefused, type Refused, refusedBy, systemCode, unless } from "./refused.ts";
+import { isRefused, type Refused, systemCode, unless } from "./refused.ts";
+import { walkWithin } from "./walk.ts";
 
 /** A pointer whose file lies inside the root, and that file's real path. */
 export type Located = { readonly realPath: string; readonly pointer: Pointer };
@@ -24,36 +25,18 @@ export type AnchorRule = "required" | "forbidden" | "optional";
 const fits = (pointer: Pointer, rule: AnchorRule): boolean =>
   rule === "optional" || (pointer.anchor !== undefined) === (rule === "required");
 
-const confinedThroughFolder = async (
-  fs: SourceFs,
-  prefix: string,
-  path: string,
-): Promise<string | Refused> => {
-  const slash = path.lastIndexOf("/");
-  const folder =
-    slash === -1
-      ? prefix
-      : await unless(() => fs.realpath(`${prefix}${path.slice(0, slash)}`), "not-found");
-  if (isRefused(folder)) return folder;
-  const within = folder.endsWith("/") ? folder : `${folder}/`;
-  if (!within.startsWith(prefix)) return { refused: "outside-root" };
-  const candidate = `${within}${path.slice(slash + 1)}`;
-  const own = await unless(() => fs.lstat(candidate), "not-found");
-  if (isRefused(own)) return own;
-  return own.isSymbolicLink() ? { refused: "outside-root" } : candidate;
-};
-
 const realPathOf = async (
   fs: SourceFs,
+  realRoot: string,
   prefix: string,
   path: string,
 ): Promise<string | Refused> => {
   try {
     return await fs.realpath(`${prefix}${path}`);
   } catch (error) {
-    if (systemCode(error) !== "EOPNOTSUPP") return refusedBy(error, "not-found");
+    if (systemCode(error) === undefined) throw error;
   }
-  return confinedThroughFolder(fs, prefix, path);
+  return walkWithin(fs, realRoot, path);
 };
 
 /**
@@ -73,7 +56,7 @@ export const locate = async (
   const realRoot = await unless(() => fs.realpath(root), "not-found");
   if (isRefused(realRoot)) return realRoot;
   const prefix = realRoot.endsWith("/") ? realRoot : `${realRoot}/`;
-  const realPath = await realPathOf(fs, prefix, pointer.path);
+  const realPath = await realPathOf(fs, realRoot, prefix, pointer.path);
   if (isRefused(realPath)) return realPath;
   return realPath.startsWith(prefix) ? { realPath, pointer } : { refused: "outside-root" };
 };

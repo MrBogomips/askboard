@@ -124,7 +124,7 @@ describe("what is not a regular file (board-host spec, Only regular files are re
     expect(await reach("docs#L1-L1")).toEqual({ refused: "not-a-file" });
   });
 
-  // Bun's realpath on macOS refuses a socket (EOPNOTSUPP), so its path is confined through its folder.
+  // Bun's realpath on macOS refuses a socket (EOPNOTSUPP), so the walk of walk.ts resolves its path.
   const listening = (path: string) => Bun.listen({ unix: path, socket: { data: () => undefined } });
 
   test("a Unix socket, in the root or a folder of it, is not-a-file at once", async () => {
@@ -154,7 +154,7 @@ describe("what is not a regular file (board-host spec, Only regular files are re
     }
   });
 
-  test("a path the real path call refuses is confined through its folder, on any platform", async () => {
+  test("a path the real path call refuses is resolved by the walk, on any platform", async () => {
     // A file system whose realpath refuses the final name as macOS's refuses a socket.
     const unsupported = Object.assign(new Error("EOPNOTSUPP"), { code: "EOPNOTSUPP" });
     const refusing = (names: readonly string[]): SourceFs => ({
@@ -275,6 +275,7 @@ describe("faults past the open", () => {
     ino: 2n,
     size: 4n,
     isFile: () => true,
+    isDirectory: () => false,
     isSymbolicLink: () => false,
     ...overrides,
   });
@@ -285,6 +286,7 @@ describe("faults past the open", () => {
     const fs: SourceFs = {
       realpath: async (path) => path,
       lstat: async () => expected,
+      readlink: async (path) => path,
       open: async () => ({
         ...handle,
         close: async () => {

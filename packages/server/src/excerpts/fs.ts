@@ -9,6 +9,7 @@ export type SourceStats = {
   readonly ino: bigint;
   readonly size: bigint;
   isFile(): boolean;
+  isDirectory(): boolean;
   isSymbolicLink(): boolean;
 };
 
@@ -34,6 +35,8 @@ export type SourceFs = {
   realpath(path: string): Promise<string>;
   /** A path's own stats, a final symbolic link not followed. */
   lstat(path: string): Promise<SourceStats>;
+  /** A symbolic link's target, as written. */
+  readlink(path: string): Promise<string>;
   open(path: string, flags: number): Promise<SourceHandle>;
 };
 
@@ -50,6 +53,7 @@ export const nodeSourceFsOn = (platform: string): SourceFs => {
   return {
     realpath: (path) => realpath(path),
     lstat: (path) => lstat(path, { bigint: true }),
+    readlink: (path) => readlink(path),
     open: async (path, flags) => {
       const handle = await open(path, flags);
       return {
