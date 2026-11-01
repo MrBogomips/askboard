@@ -137,3 +137,17 @@ export const spyFs = (hooks: FsHooks = {}, real: SourceFs = nodeSourceFs): SpyFs
   };
   return { fs, calls, openHandles: () => openHandles, bytesRead: () => bytesRead };
 };
+
+/** Whether this volume tells names apart only by case: `CASE-PROBE` names the file `case-probe`. */
+export const caseInsensitive = (folder: string): boolean => {
+  const probe = join(folder, "case-probe");
+  writeFileSync(probe, "");
+  try {
+    statSync(join(folder, "CASE-PROBE"));
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(probe);
+  }
+};
