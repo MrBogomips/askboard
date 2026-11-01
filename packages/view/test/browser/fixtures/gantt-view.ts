@@ -16,9 +16,7 @@ import { ganttBoardDocument } from "@askboard/contract/fixtures";
 import type { Locator } from "playwright";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import type { Board } from "../harness/dom.ts";
-
-const [schedule] = ganttBoardDocument.items;
-const [release] = schedule.props.items;
+import { release, schedule } from "./gantt-documents.ts";
 
 /** The fixture Gantt's question and item IDs, and its tasks as sent. */
 export const QUESTION_ID = schedule.id;
