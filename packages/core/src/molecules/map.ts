@@ -14,3 +14,23 @@ export type ExpansionEntry = {
 
 /** Each expanded item's entry, by the expanded item's ID, in the order of the references in the ask. */
 export type ExpansionMap = ReadonlyMap<string, ExpansionEntry>;
+
+/** One expanded item, as a Snapshot's data block lists it (E7). */
+export type ExpansionRecord = {
+  /** The expanded item's ID in the board document. */
+  readonly itemId: string;
+  readonly reference: string;
+  readonly molecule: string;
+  readonly version: string;
+};
+
+/**
+ * The expansion map as frozen records, in the order of the references in the ask: the read-only
+ * view E7's Snapshot gathering reads. Changes nothing.
+ */
+export const expansionEntries = (map: ExpansionMap): readonly ExpansionRecord[] =>
+  Object.freeze(
+    [...map].map(([itemId, { reference, molecule, version }]) =>
+      Object.freeze({ itemId, reference, molecule, version }),
+    ),
+  );

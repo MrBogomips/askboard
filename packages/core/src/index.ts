@@ -86,6 +86,20 @@ export { expectedAnswerer } from "./push/answerer.ts";
 // Molecules (molecules): the fill forms of the definition format, the expansion map and
 // reference addressing.
 
+// Molecules (molecules): expanding molecule references through the MoleculeSource port, the fill
+// forms of the definition format, the expansion map and reference addressing.
+
 export { type ReferenceAddressing, referenceAddressing } from "./molecules/addressing.ts";
+export {
+  type Expansion,
+  type ExpansionProblem,
+  expandMolecules,
+} from "./molecules/expand.ts";
 export { type ExpandedIds, type Filled, fillItem } from "./molecules/fills.ts";
-export type { ExpansionEntry, ExpansionMap } from "./molecules/map.ts";
+export {
+  type ExpansionEntry,
+  type ExpansionMap,
+  type ExpansionRecord,
+  expansionEntries,
+} from "./molecules/map.ts";
+export type { MoleculeLookup, MoleculeSource } from "./molecules/source.ts";
