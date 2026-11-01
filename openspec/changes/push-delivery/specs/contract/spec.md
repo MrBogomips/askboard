@@ -49,6 +49,13 @@ The output format SHALL define the event that closes an ask AskBoard closed, wit
 - **WHEN** the fixture closed event is validated
 - **THEN** it passes, and the same event with reason `agent` fails
 
+### Requirement: Closed board for a finished subagent
+The board protocol's `closed` message SHALL take the reason `agent-finished` beside the ask lifecycle's `agent`, in the ask lifecycle's minor 1.1, which has not shipped, so that a board shows an ask AskBoard closed because its owning subagent finished (AD-10, FR-6).
+
+#### Scenario: A closed message for a finished subagent
+- **WHEN** `board-host` sends a `closed` message with reason `agent-finished`
+- **THEN** it validates against the board protocol, and a reason outside `agent` and `agent-finished` fails
+
 ### Requirement: Board presence message
 The board protocol SHALL define the board page's working signal with its own `$id`, `urn:askboard:board-protocol:presence`: whether the board has focus and has had a user input in the last 60 s, and nothing else, so that it never carries content (AD-2, AD-7).
 
