@@ -15,6 +15,9 @@ import {
   readViewMessage,
   readViewUpdate,
   toolCallOf,
+  UPDATE_FIELDS,
+  type UpdateField,
+  type UpdateFields,
   VIEW_TOOL_PREFIX,
   type ViewAnswer,
   type ViewMessage,
@@ -663,5 +666,25 @@ describe("a field that goes only beside another (review M3)", () => {
     expect(fieldProblems(fields, { itemId: "q", base: "b", extra: 3 })).toEqual([
       { path: "/arguments/extra", message: "is not a text" },
     ]);
+  });
+});
+
+describe("the table of an update's optional fields (review M4, L10)", () => {
+  test("is keyed by the update's optional fields: one left out, or one more, is a type error", () => {
+    type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+    const keyed: Same<keyof typeof UPDATE_FIELDS, UpdateField> = true;
+    const { agent: _, ...short } = UPDATE_FIELDS;
+    // @ts-expect-error: the table leaves out `agent`, an optional field of `ViewUpdate`
+    const missing: UpdateFields = short;
+    expect(keyed).toBe(true);
+    expect(Object.keys(missing)).not.toContain("agent");
+  });
+
+  test("an update with any of its fields in a shape the view cannot read is no update", () => {
+    for (const field of Object.keys(UPDATE_FIELDS)) {
+      expect(readViewUpdate({ type: "state", state: waiting, [field]: Symbol(field) })).toBe(
+        undefined,
+      );
+    }
   });
 });

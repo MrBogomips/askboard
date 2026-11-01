@@ -6,26 +6,39 @@
 // 1.1's, of several questions or areas, and the view's acts become act commands here, each act
 // checked against what the board page knows before it goes (AD-9, AD-10); `board-host` and
 // ask-core check them again. Push delivery adds who asked and where and the agent status (design
-// decision 12).
+// decision 12), the first of the fields the board page passes on to the view as they are.
 
 import type {
   Act,
-  AgentStatus,
   HostMessage,
   LifecycleBoardDocument,
   LifecycleBoardState,
   LifecycleQuestionStatus,
 } from "@askboard/contract";
-import type { BootData } from "../boot-data.ts";
+import { type BootData, bootFieldsOf } from "../boot-data.ts";
 import { questionsOf, type ViewQuestion } from "../view-document.ts";
 import type {
-  HeaderOrigin,
   ViewAct,
   ViewAnswer,
   ViewItemError,
   ViewReady,
+  ViewUpdate,
 } from "../view-protocol.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
+
+// The optional fields of a view update the controller makes from its own state, E1's and the ask
+// lifecycle's: a later document, the lock, the connection, the commands held and settled, and the
+// draft record to restore.
+type ControllerField = "document" | "lock" | "connection" | "pending" | "settled" | "restore";
+
+/**
+ * The fields of a view update the model keeps, which the board page passes on to the view as they
+ * are: in each update, and in the boot data for those `UPDATE_FIELDS` marks `atBoot`. Push
+ * delivery's who asked and where and agent status are the first (design decision 12). Any later
+ * field of `ViewUpdate` the controller does not make is one of them: a change adding one sets it
+ * here, and edits neither `bootDataOf` nor the controller's view updates (review M4).
+ */
+export type PassedOn = Omit<ViewUpdate, "type" | "state" | ControllerField>;
 
 export type BoardModel = {
   readonly document?: LifecycleBoardDocument;
@@ -34,12 +47,14 @@ export type BoardModel = {
   readonly visible: ReadonlySet<string>;
   /** Items the view reported failing, with the error (AD-9, AD-10). */
   readonly failed: ReadonlyMap<string, string>;
-  /** Who asked and where, and the agent status, as `board-host` last sent them (FR-24). */
-  readonly origin?: HeaderOrigin;
-  readonly agent?: AgentStatus;
+  /**
+   * What it passes on to the view: who asked and where, and the agent status, as `board-host`
+   * last sent them (FR-24).
+   */
+  readonly passedOn: PassedOn;
 };
 
-export const EMPTY_MODEL: BoardModel = { visible: new Set(), failed: new Map() };
+export const EMPTY_MODEL: BoardModel = { visible: new Set(), failed: new Map(), passedOn: {} };
 
 const isLogged = (
   question: LifecycleQuestionStatus | undefined,
@@ -76,10 +91,10 @@ export const withHostMessage = (
       return { ...model, state: message.state as LifecycleBoardState };
     case "origin": {
       const { version: _, type: __, ...origin } = message;
-      return { ...model, origin };
+      return { ...model, passedOn: { ...model.passedOn, origin } };
     }
     case "agent":
-      return { ...model, agent: message.status };
+      return { ...model, passedOn: { ...model.passedOn, agent: message.status } };
     case "receipt": {
       if (model.state === undefined) return model;
       const state = withDelivered(model.state, message.itemId);
@@ -127,17 +142,12 @@ export const withViewMessage = (
 
 /**
  * What the view boots from, once the board page has both the board document and the state, with
- * who asked and where and the agent status when it has them.
+ * the fields it passes on that the view boots from, when it has them.
  */
 export const bootDataOf = (model: BoardModel): BootData | undefined => {
-  const { document, state, origin, agent } = model;
+  const { document, state, passedOn } = model;
   if (document === undefined || state === undefined) return undefined;
-  return {
-    document,
-    state,
-    ...(origin === undefined ? {} : { origin }),
-    ...(agent === undefined ? {} : { agent }),
-  };
+  return { document, state, ...bootFieldsOf(passedOn) };
 };
 
 export type ActsOrRefusal =

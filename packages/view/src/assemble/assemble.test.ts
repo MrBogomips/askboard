@@ -288,6 +288,18 @@ describe("assemble (AD-9)", () => {
     expect(srcdoc).toContain('<div id="root"></div>');
   });
 
+  test("the askboard-data block holds the fields the view boots from, and nothing else (review M4)", () => {
+    const full: BootData = {
+      ...data,
+      origin: { who: { label: "Main agent" }, project: "order-service", directory: "." },
+      agent: "working",
+    };
+    const blockOf = (boot: BootData) =>
+      JSON.parse(dataBlock(assemble(boot, fixtureViewManifest, sources).srcdoc) ?? "");
+    expect(blockOf(full)).toEqual(full);
+    expect(blockOf({ ...data, later: 1 } as BootData)).toEqual(data);
+  });
+
   test("the askboard-data block escapes <, so agent text cannot close it", () => {
     const hostile = "</script><script>alert(1)</script><!-- <img src=x onerror=alert(1)>";
     const [question] = plainChoiceBoardDocument.items;

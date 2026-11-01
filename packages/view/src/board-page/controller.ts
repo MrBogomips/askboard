@@ -262,11 +262,11 @@ class BoardPageController implements BoardPage {
   }
 
   // The state, the lock, the connection, the commands held and settled, a later document and a
-  // restore: the view settles its acts on them, so a card is never stuck at a receipt (AD-10). Who
-  // asked and where and the agent status go with them once `board-host` has sent them (design
-  // decision 12).
+  // restore: the view settles its acts on them, so a card is never stuck at a receipt (AD-10).
+  // What the model passes on goes with them as it is: who asked and where and the agent status,
+  // once `board-host` has sent them (design decision 12), and each later field (review M4).
   #updateView(): void {
-    const { state, document, origin, agent } = this.#model;
+    const { state, document } = this.#model;
     if (this.#view === undefined || state === undefined) return;
     const lock = lockOf(this.#status);
     const connection = connectionOf(this.#status);
@@ -283,8 +283,7 @@ class BoardPageController implements BoardPage {
       ...(pending.length === 0 ? {} : { pending }),
       ...(settled.length === 0 ? {} : { settled }),
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
-      ...(origin === undefined ? {} : { origin }),
-      ...(agent === undefined ? {} : { agent }),
+      ...this.#model.passedOn,
     });
   }
 

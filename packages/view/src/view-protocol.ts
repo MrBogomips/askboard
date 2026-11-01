@@ -210,6 +210,21 @@ export type ViewUpdate = {
   readonly agent?: AgentStatus;
 };
 
+/** The optional fields of a view update. */
+export type UpdateField = Exclude<keyof ViewUpdate, "type" | "state">;
+
+/**
+ * The type of `UPDATE_FIELDS`: for each optional field of a view update, the check of a value the
+ * view can read, and `atBoot` when the `askboard-data` block carries the field too, so the first
+ * render has it. A field of `ViewUpdate` the table leaves out is a type error (review L10).
+ */
+export type UpdateFields = {
+  readonly [K in UpdateField]: {
+    readonly check: (value: unknown) => value is NonNullable<ViewUpdate[K]>;
+    readonly atBoot?: true;
+  };
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -597,17 +612,24 @@ const AGENT_STATUSES: readonly unknown[] = ["working", "waiting"] satisfies Agen
 export const isAgentStatus = (value: unknown): value is AgentStatus =>
   AGENT_STATUSES.includes(value);
 
-// Each optional field of an update, with its check.
-const UPDATE_FIELDS: Readonly<Record<string, (value: unknown) => boolean>> = {
-  document: isDocument,
-  lock: (value) => LOCKS.includes(value),
-  connection: (value) => value === "lost",
-  pending: listOf(isPendingAct),
-  settled: listOf(isSettledAct),
-  restore: isRestore,
-  origin: isHeaderOrigin,
-  agent: isAgentStatus,
-};
+const isLock = (value: unknown): value is ViewLock => LOCKS.includes(value);
+
+/**
+ * Each optional field of an update, with its check, and `atBoot` for those the view also boots
+ * from. `readViewUpdate` reads it, and so do the boot data (`boot-data.ts`) and the board page's
+ * model and view updates, so a change adding a field to `ViewUpdate` adds its entry here, which
+ * the type requires, and edits none of them (review M4).
+ */
+export const UPDATE_FIELDS = {
+  document: { check: isDocument },
+  lock: { check: isLock },
+  connection: { check: (value: unknown): value is "lost" => value === "lost" },
+  pending: { check: listOf(isPendingAct) },
+  settled: { check: listOf(isSettledAct) },
+  restore: { check: isRestore },
+  origin: { check: isHeaderOrigin, atBoot: true },
+  agent: { check: isAgentStatus, atBoot: true },
+} as const satisfies UpdateFields;
 
 /** A tool result's structured content, read as an update; undefined for anything else. */
 export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
@@ -615,7 +637,7 @@ export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
     return undefined;
   }
   const update: Record<string, unknown> = { type: "state", state: content.state };
-  for (const [field, check] of Object.entries(UPDATE_FIELDS)) {
+  for (const [field, { check }] of Object.entries(UPDATE_FIELDS)) {
     const value = content[field];
     if (value === undefined) continue;
     if (!check(value)) return undefined;

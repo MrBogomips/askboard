@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { BOARD_PROTOCOL_VERSION, type BoardState, type HostMessage } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { BOOT_DATA_ID, type BootData, parseBootData } from "./boot-data.ts";
+import { bootDataOf, EMPTY_MODEL, type PassedOn, withHostMessage } from "./board-page/model.ts";
+import { BOOT_DATA_ID, type BootData, type BootField, parseBootData } from "./boot-data.ts";
+import { readViewUpdate, type ViewUpdate } from "./view-protocol.ts";
 
 const data: BootData = {
   document: plainChoiceBoardDocument,
@@ -55,5 +58,37 @@ describe("who asked and where, and the agent status, in the block (task 8.4)", (
   test("are left out when the view cannot show them", () => {
     const wrong = { ...data, origin: { who: {} }, agent: "idle" };
     expect(parseBootData(JSON.stringify(wrong))).toEqual(data);
+  });
+});
+
+describe("the fields the view boots from, as the table of update fields marks them (review M4)", () => {
+  // A value the view can show of each field it boots from: a change that marks a field `atBoot` in
+  // `UPDATE_FIELDS` adds its value here, which the type requires.
+  const AT_BOOT: { readonly [K in BootField]: NonNullable<ViewUpdate[K]> } = {
+    origin: { who: { label: "Main agent" }, project: "order-service", directory: "." },
+    agent: "waiting",
+  };
+  const version = BOARD_PROTOCOL_VERSION;
+  const board: HostMessage = { version, type: "board", document: plainChoiceBoardDocument };
+  const state: HostMessage = { version, type: "state", state: data.state as BoardState };
+  const known = withHostMessage(withHostMessage(EMPTY_MODEL, board), state);
+
+  test("each goes from the board page's model into the block, and reads back from it and from an update", () => {
+    const boot = bootDataOf({ ...known, passedOn: AT_BOOT });
+    expect(boot).toEqual({ ...data, ...AT_BOOT });
+    expect(parseBootData(JSON.stringify(boot))).toEqual({ ...data, ...AT_BOOT });
+    const update = { type: "state", state: data.state, ...AT_BOOT } as const;
+    expect(readViewUpdate(update)).toEqual(update);
+  });
+
+  test("a field the board page passes on that the view does not boot from stays out of the block", () => {
+    // A test-only field, as a later change's that goes in the updates only.
+    const passedOn = { ...AT_BOOT, later: "x" } as PassedOn;
+    expect(bootDataOf({ ...known, passedOn })).toEqual({ ...data, ...AT_BOOT });
+  });
+
+  test("the block's other fields pass through, unchecked", () => {
+    const extra = { ...data, later: { at: 1 } };
+    expect(parseBootData(JSON.stringify(extra))).toEqual(extra);
   });
 });
