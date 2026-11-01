@@ -205,6 +205,60 @@ describe("a stop whose events exceed the response limit", () => {
   });
 });
 
+// AD-20 (review fix M1): the subagent's asks of two questions, each answered by one board command
+// of two events, together over 1 MiB. The block ends between commands, never inside one.
+describe("a stop whose commands straddle the response limit", () => {
+  const COUNT = 35;
+  const label = "L".repeat(18_000);
+  const ids = ["first", "second"];
+
+  const fill = async (run: TestApi) => {
+    for (let index = 0; index < COUNT; index += 1) {
+      const askId = `pair-ask-${index}`;
+      const optionOf = (n: number) => `${label}${index}-${n}`;
+      await askAs(run, askId, SUBAGENT, {
+        items: ids.map((id, n) => ({
+          type: "question",
+          id,
+          props: { text: "Which one?", options: [{ label: optionOf(n) }, { label: "Other" }] },
+        })),
+      });
+      const acts = ids.map((itemId, n) => ({
+        type: "answer" as const,
+        itemId,
+        rev: 1,
+        choice: [optionOf(n)],
+        when: "2026-10-29T09:41:27Z",
+      }));
+      const actionId = `action-${String(index).padStart(15, "0")}`;
+      expect(run.core.act(askId, { actionId, acts })).toMatchObject({ ok: true });
+    }
+  };
+
+  test("blocks with whole commands only, and the next block starts at the next command", async () => {
+    const run = await started();
+    await fill(run);
+    const decision = await stopOf(run, SUBAGENT);
+    if (decision.decision !== "block") throw new Error("expected a block");
+    const { asks } = decision.message;
+    expect(asks.length).toBeGreaterThan(0);
+    expect(asks.length).toBeLessThan(COUNT);
+    for (const ask of asks) expect(ask.events).toHaveLength(2);
+    const board = (index: number) => run.core.board(`pair-ask-${index}`);
+    for (let index = 0; index < COUNT; index += 1) {
+      const delivered = index < asks.length;
+      expect(board(index)?.questions.map((question) => question.answer?.delivered)).toEqual([
+        delivered,
+        delivered,
+      ]);
+    }
+    const next = await stopOf(run, SUBAGENT);
+    if (next.decision !== "block") throw new Error("expected a second block");
+    expect(next.message.asks[0]?.askId).toBe(`pair-ask-${asks.length}`);
+    expect(next.message.asks[0]?.events).toHaveLength(2);
+  });
+});
+
 describe("the effective asking rule", () => {
   test("is none until configuration, with whether a board can be shown", async () => {
     for (const showable of [true, false]) {

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { validatePushMessage } from "@askboard/contract/validate";
+import type { CoreEvent } from "../src/index.ts";
 import { answer, askWith, plainChoiceAsk } from "./fakes.ts";
+import { answerAct, command, FLAT_ID, flatAsk } from "./lifecycle-fakes.ts";
 import { callOf, fakeReceipts, pushCoreWith, REVIEWER_ORIGIN } from "./push-fakes.ts";
 
 // Core spec: Received watermark, as modified: raised by a reported push and by a stop block, each
@@ -161,9 +163,12 @@ describe("the stop guard", () => {
     core.answer(ASK_ID, answer());
     core.answer(OTHER_ID, answer());
     const seen: unknown[] = [];
-    const decision = core.stop("reviewer-1", false, (block) => {
-      seen.push(block);
-      return { asks: block.asks.slice(0, 1), openAsks: block.openAsks };
+    const decision = core.stop("reviewer-1", false, (candidates) => {
+      seen.push(candidates);
+      return {
+        asks: candidates.asks.slice(0, 1).map(({ entry }) => entry),
+        openAsks: candidates.openAsks,
+      };
     });
     const openAsks = [
       { askId: ASK_ID, state: "answered", cursor: `${core.epoch}.1` },
@@ -172,8 +177,14 @@ describe("the stop guard", () => {
     expect(seen).toEqual([
       {
         asks: [
-          expect.objectContaining({ askId: ASK_ID, cursor: `${core.epoch}.1` }),
-          expect.objectContaining({ askId: OTHER_ID, cursor: `${core.epoch}.1` }),
+          {
+            entry: expect.objectContaining({ askId: ASK_ID, cursor: `${core.epoch}.1` }),
+            groups: [expect.any(Number)],
+          },
+          {
+            entry: expect.objectContaining({ askId: OTHER_ID, cursor: `${core.epoch}.1` }),
+            groups: [expect.any(Number)],
+          },
         ],
         openAsks,
       },
@@ -198,7 +209,7 @@ describe("the stop guard", () => {
   test("raises nothing for an ask the fit carries no event of", async () => {
     const { core, heard } = await ownedAndAnswered();
     core.stop("reviewer-1", false, ({ asks, openAsks }) => ({
-      asks: asks.map((entry) => ({ ...entry, events: [] })),
+      asks: asks.map(({ entry }) => ({ ...entry, events: [] })),
       openAsks,
     }));
     expect(heard.filter((event) => event.type === "received")).toEqual([]);
@@ -209,5 +220,79 @@ describe("the stop guard", () => {
     const { core } = await ownedAndAnswered();
     core.discardAll("session-exit");
     expect(core.stop("reviewer-1", false)).toEqual({ decision: "allow" });
+  });
+});
+
+// AD-20: a board command's events are never split. The local API pages cut only between commands,
+// and received rises only to the end of one (review fix M1).
+describe("a board command's events", () => {
+  // Two answers in one act command, then one alone: seq 1 and 2 share a command, 3 has its own.
+  const twoCommands = async () => {
+    const fixture = pushCoreWith();
+    fixture.table.add({
+      ownerKey: "reviewer-1",
+      tool: "ask",
+      askIds: [FLAT_ID],
+      origin: REVIEWER_ORIGIN,
+    });
+    await fixture.core.ask(flatAsk(), callOf("ask", FLAT_ID));
+    const { core } = fixture;
+    core.act(FLAT_ID, command([answerAct(), answerAct({ itemId: "q2", choice: ["Linux"] })]));
+    core.act(FLAT_ID, command([answerAct({ itemId: "q3", choice: ["Sara"] })]));
+    return fixture;
+  };
+
+  const raisedOf = (heard: readonly CoreEvent[]) =>
+    heard.flatMap((event) => (event.type === "received" ? [event.cursor] : []));
+
+  test("a report inside a command is one no poll gives: refused, and received does not move", async () => {
+    const { core, heard } = await twoCommands();
+    expect(core.delivered(FLAT_ID, `${core.epoch}.1`)).toBe("refused");
+    expect(raisedOf(heard)).toEqual([]);
+    expect(core.delivered(FLAT_ID, `${core.epoch}.2`)).toBe("raised");
+    expect(core.delivered(FLAT_ID, `${core.epoch}.3`)).toBe("raised");
+  });
+
+  test("the stop guard gives its fit each event's command group", async () => {
+    const { core } = await twoCommands();
+    const groups: (readonly number[])[] = [];
+    core.stop("reviewer-1", false, (candidates) => {
+      for (const ask of candidates.asks) groups.push(ask.groups);
+      return { asks: candidates.asks.map(({ entry }) => entry), openAsks: candidates.openAsks };
+    });
+    const [first, second, third] = groups[0] ?? [];
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(3);
+    expect(second).toBe(first as number);
+    expect(third).not.toBe(first as number);
+  });
+
+  test("a block cut after a whole command raises received to that command's end", async () => {
+    const { core, heard } = await twoCommands();
+    const decision = core.stop("reviewer-1", false, ({ asks, openAsks }) => ({
+      asks: asks.map(({ entry }) => ({
+        ...entry,
+        cursor: `${core.epoch}.2`,
+        events: entry.events.slice(0, 2),
+      })),
+      openAsks,
+    }));
+    expect(decision).toMatchObject({ decision: "block" });
+    expect(raisedOf(heard)).toEqual([`${core.epoch}.2`]);
+  });
+
+  test("a fit that cuts inside a command is a bug: the stop throws and raises nothing", async () => {
+    const { core, heard } = await twoCommands();
+    expect(() =>
+      core.stop("reviewer-1", false, ({ asks, openAsks }) => ({
+        asks: asks.map(({ entry }) => ({
+          ...entry,
+          cursor: `${core.epoch}.1`,
+          events: entry.events.slice(0, 1),
+        })),
+        openAsks,
+      })),
+    ).toThrow(/inside a command/);
+    expect(raisedOf(heard)).toEqual([]);
   });
 });

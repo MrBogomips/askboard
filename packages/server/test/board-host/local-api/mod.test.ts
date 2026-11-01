@@ -257,6 +257,69 @@ describe("paging", () => {
     expect(rest.asks[0]?.askId).toBe(continuation?.askId);
   });
 
+  // AD-20 (review fix M1): asks of two questions, each answered by one board command of two
+  // events, whose events pass 1 MiB together. No page ends inside a command.
+  test("a poll over 1 MiB never splits one board command's events", async () => {
+    const count = 35;
+    const label = "L".repeat(18_000);
+    const ids = ["first", "second"];
+    for (let index = 0; index < count; index += 1) {
+      const askId = `pair-ask-${index}`;
+      const optionOf = (n: number) => `${label}${index}-${n}`;
+      await askAs(askId, undefined, {
+        items: ids.map((id, n) => ({
+          type: "question",
+          id,
+          props: { text: "Which one?", options: [{ label: optionOf(n) }, { label: "Other" }] },
+        })),
+      });
+      const acts = ids.map((itemId, n) => ({
+        type: "answer" as const,
+        itemId,
+        rev: 1,
+        choice: [optionOf(n)],
+        when: "2026-10-29T09:41:27Z",
+      }));
+      const actionId = `action-${String(index).padStart(15, "0")}`;
+      expect(run.core.act(askId, { actionId, acts })).toMatchObject({ ok: true });
+    }
+    const first = await localRequest(run.socket, pollPath());
+    expect(Buffer.byteLength(first.text)).toBeLessThanOrEqual(LOCAL_API_MAX_BYTES);
+    const page = first.json() as PollResponse;
+    expect(page.more).toBe(true);
+    for (const ask of page.asks) expect(ask.events).toHaveLength(2);
+    expect(page.continuation?.seq).toBe(1);
+    const rest = await poll(pollPath(page.continuation));
+    expect(rest.asks[0]?.askId).toBe(page.continuation?.askId);
+    for (const ask of rest.asks) expect(ask.events).toHaveLength(2);
+    expect(page.asks.length + rest.asks.length).toBe(count);
+  });
+
+  test("a continuation inside a command, which no page gives, resumes at the command's start", async () => {
+    const ids = ["first", "second"];
+    await askAs(MAIN_ID, undefined, {
+      items: ids.map((id) => ({
+        type: "question",
+        id,
+        props: { text: "Which one?", options: [{ label: "PostgreSQL" }, { label: "SQLite" }] },
+      })),
+    });
+    const acts = ids.map((itemId) => ({
+      type: "answer" as const,
+      itemId,
+      rev: 1,
+      choice: ["SQLite"],
+      when: "2026-10-29T09:41:27Z",
+    }));
+    expect(run.core.act(MAIN_ID, { actionId: "action-000000000000001", acts })).toMatchObject({
+      ok: true,
+    });
+    const rest = await poll(pollPath({ askId: MAIN_ID, seq: 2 }));
+    expect(rest.asks[0]?.events.map(({ cursor }) => cursor)).toEqual(
+      [1, 2].map((seq) => `${run.core.epoch}.${seq}`),
+    );
+  });
+
   test("a continuation inside an ask resumes at its seq, with the cursor of what it returns", async () => {
     await askAs(MAIN_ID);
     answer(MAIN_ID);

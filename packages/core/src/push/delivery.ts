@@ -4,7 +4,7 @@
 // only while no board is working, with a notice for each (AD-2, FR-23), the version gate (AD-18),
 // and who asked and for whom, for the context header (decision 12).
 
-import type { CollectAskEntry, LifecycleAskInput } from "@askboard/contract";
+import type { LifecycleAskInput } from "@askboard/contract";
 import { type Ask, frozenCopy } from "../ask.ts";
 import type { CorePorts } from "../ports.ts";
 import { parseCursor } from "../text.ts";
@@ -18,6 +18,7 @@ import type {
   Notice,
   OwnerRefusal,
   PushAskOutcome,
+  StopAsk,
   StopFit,
   StopOutcome,
   WhoAsked,
@@ -26,6 +27,19 @@ import { VersionGate } from "./version.ts";
 
 // The states in which an ask is no longer open: E3's `closed` joins E1's `discarded`.
 const ENDED: ReadonlySet<string> = new Set(["closed", "discarded"]);
+
+// Whether `seq` ends a board command: no poll page or stop block stops inside one (AD-20). An entry
+// the ask no longer holds, or `seq` 0, ends one.
+const endsCommand = (ask: Ask, seq: number): boolean => {
+  const [at, next] = ask.entriesAfter(seq - 1);
+  return at?.seq !== seq || next === undefined || next.group !== at.group;
+};
+
+// The stop fit that keeps every candidate event.
+const keepAll: StopFit = ({ asks, openAsks }) => ({
+  asks: asks.map(({ entry }) => entry),
+  openAsks,
+});
 
 /** What push delivery needs of the core that holds it. */
 export type DeliveryHost = {
@@ -88,8 +102,8 @@ export class PushDelivery {
 
   /**
    * The mod's report that it pushed an owned ask's events up to `cursor` (AD-3). A report no poll
-   * could have given (an unchecked or unknown ask, a cursor of another epoch or past the ask's
-   * latest event) is refused, and `received` does not move.
+   * could have given (an unchecked or unknown ask, a cursor of another epoch, past the ask's latest
+   * event or inside a board command, AD-20) is refused, and `received` does not move.
    */
   delivered(askId: string, cursor: string): DeliveredOutcome {
     const ask = this.#host.ask(askId);
@@ -98,6 +112,7 @@ export class PushDelivery {
       return "refused";
     }
     if (parsed.epoch !== this.#host.epoch || parsed.seq > ask.latestSeq) return "refused";
+    if (!endsCommand(ask, parsed.seq)) return "refused";
     return this.#host.markRead(askId, cursor) ? "raised" : "unchanged";
   }
 
@@ -105,29 +120,44 @@ export class PushDelivery {
    * The stop guard (AD-10): unless the stop hook is already active, a block carrying the events
    * above `received` of the owner's open asks, as much of them as `fit` keeps, with the open asks
    * listed, and `received` raised to the last event it carries before it returns; otherwise an
-   * allow.
+   * allow. A fit that cuts an ask inside a board command (AD-20) is a bug: the stop throws, and
+   * nothing is raised.
    */
-  stop(ownerKey: string, stopHookActive: boolean, fit: StopFit = (block) => block): StopOutcome {
+  stop(ownerKey: string, stopHookActive: boolean, fit: StopFit = keepAll): StopOutcome {
     if (stopHookActive) return { decision: "allow" };
     const open = this.#owners.asksOf(ownerKey).flatMap((askId) => {
       const ask = this.#host.ask(askId);
       return ask === undefined || ENDED.has(ask.state) ? [] : [ask];
     });
-    const asks: CollectAskEntry[] = open
+    const asks: StopAsk[] = open
       .filter((ask) => ask.latestSeq > ask.received)
-      .map((ask) => ({
-        askId: ask.askId,
-        state: ask.state,
-        cursor: ask.cursor,
-        events: ask.eventsAfter(ask.received),
-      }));
+      .map((ask) => {
+        const entries = ask.entriesAfter(ask.received);
+        return {
+          entry: {
+            askId: ask.askId,
+            state: ask.state,
+            cursor: ask.cursor,
+            events: entries.map(({ event }) => event),
+          },
+          groups: entries.map(({ group }) => group),
+        };
+      });
     if (asks.length === 0) return { decision: "allow" };
     const openAsks = open.map(({ askId, state, cursor }) => ({ askId, state, cursor }));
     const block = fit({ asks, openAsks });
-    for (const { askId, events } of block.asks) {
+    const raised = block.asks.flatMap(({ askId, events }) => {
       const last = events.at(-1);
-      if (last !== undefined) this.#host.markRead(askId, last.cursor);
+      return last === undefined ? [] : [[askId, last.cursor] as const];
+    });
+    for (const [askId, cursor] of raised) {
+      const ask = this.#host.ask(askId);
+      const seq = parseCursor(cursor)?.seq;
+      if (ask === undefined || seq === undefined || !endsCommand(ask, seq)) {
+        throw new Error(`The stop block cuts ask ${askId} inside a command at ${cursor} (AD-20)`);
+      }
     }
+    for (const [askId, cursor] of raised) this.#host.markRead(askId, cursor);
     return { decision: "block", ...block };
   }
 
@@ -167,6 +197,7 @@ export class PushDelivery {
     const agentName = this.#agentNames.get(askId);
     const view = ask.lifecycleView;
     const questions = view.state === "discarded" ? [] : view.questions;
+    const entries = ask.entriesAfter(ask.received);
     return frozenCopy({
       askId,
       state,
@@ -175,7 +206,8 @@ export class PushDelivery {
       ...(agentName === undefined ? {} : { agentName }),
       ...(owner === undefined ? {} : { owner }),
       cursor,
-      unreceived: ask.eventsAfter(ask.received),
+      unreceived: entries.map(({ event }) => event),
+      groups: entries.map(({ group }) => group),
       openQuestions: questions.filter((question) => !question.answer?.delivered).length,
     });
   }

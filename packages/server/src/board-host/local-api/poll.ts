@@ -1,8 +1,9 @@
 // The mod's poll (design decision 2; AD-3, AD-5): for each owned ask with events above `received`,
 // in the order the asks were created, its ID, its owner's agent ID (none for the main conversation),
 // its state, its latest cursor and those events; then the pending asks (EXPERIENCE, Counting). An
-// unchecked ask's events are never listed. A response that would pass the contract's limit stops at
-// the last whole event, with `more` and the continuation the mod passes back.
+// unchecked ask's events are never listed. A response that would pass the contract's limit stops
+// before the first board command that does not fit whole (AD-20), with `more` and the continuation,
+// at that command's first event, which the mod passes back.
 
 import {
   LOCAL_API_MAX_BYTES,
@@ -64,6 +65,21 @@ const pendingOf = (asks: readonly AskOverview[], agentIdOf: AgentIdOf): PendingA
 
 const seqOf = (event: PolledEvent): number => parseCursor(event.cursor)?.seq ?? 0;
 
+/**
+ * Events as the pages take them: one board command's events together, in order (AD-20). An event
+ * without a group is its own command.
+ */
+export const commandsOf = <E>(events: readonly E[], groups: readonly number[]): E[][] => {
+  const commands: E[][] = [];
+  events.forEach((event, index) => {
+    const last = commands.at(-1);
+    const group = groups[index];
+    if (last !== undefined && group !== undefined && groups[index - 1] === group) last.push(event);
+    else commands.push([event]);
+  });
+  return commands;
+};
+
 // The asks the poll goes through: from the continuation's ask on, when this epoch holds it.
 const from = (asks: readonly AskOverview[], continuation: PollContinuation | undefined) => {
   const at =
@@ -89,9 +105,12 @@ export const pollResponse = (
   const start = from(all, continuation);
   for (const [index, ask] of start.asks.entries()) {
     if (ask.owner === undefined) continue;
+    // A continuation names a command's first event; one inside a command resumes at its start.
     const firstSeq = index === 0 ? start.seq : 0;
-    const events = ask.unreceived.filter((event) => seqOf(event) >= firstSeq);
-    if (events.length === 0) continue;
+    const commands = commandsOf(ask.unreceived, ask.groups).filter(
+      (command) => seqOf(command.at(-1) as PolledEvent) >= firstSeq,
+    );
+    if (commands.length === 0) continue;
     const agentId = agentIdOf(ask.owner.ownerKey);
     const head = {
       askId: ask.askId,
@@ -102,22 +121,23 @@ export const pollResponse = (
     const taken: PolledEvent[] = [];
     // The ask's entry, its comma and its empty list, then each event and its comma.
     let cost = jsonBytes({ ...head, events: [] }) + (response.asks.length > 0 ? 1 : 0);
-    for (const event of events) {
-      cost += jsonBytes(event) + (taken.length > 0 ? 1 : 0);
-      // The first event of a page always goes, so a poll always makes progress.
+    for (const command of commands) {
+      const more = command.reduce(
+        (sum, event, at) => sum + jsonBytes(event) + (taken.length + at > 0 ? 1 : 0),
+        0,
+      );
+      // The first command of a page always goes whole, so a poll always makes progress.
       const first = response.asks.length === 0 && taken.length === 0;
-      if (!first && size + cost > limit) {
+      if (!first && size + cost + more > limit) {
         if (taken.length > 0) {
           const last = taken.at(-1) as PolledEvent;
           response.asks.push({ ...head, cursor: last.cursor, events: taken });
         }
-        return {
-          ...response,
-          more: true,
-          continuation: { askId: ask.askId, seq: seqOf(event) },
-        };
+        const next = command[0] as PolledEvent;
+        return { ...response, more: true, continuation: { askId: ask.askId, seq: seqOf(next) } };
       }
-      taken.push(event);
+      taken.push(...command);
+      cost += more;
     }
     size += cost;
     response.asks.push({ ...head, events: taken });

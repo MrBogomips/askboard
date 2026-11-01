@@ -146,12 +146,31 @@ export type StopBlock = {
 };
 
 /**
- * The part of a stop block that fits the caller's response (board-host spec, Stop decisions):
- * given every event above `received` of the owner's open asks, in order, and every open ask, the
- * block to send, whose asks hold a leading part of those events. ask-core raises `received` only
- * to the last event of each ask it returns.
+ * An open ask's part of what a stop block may carry: its entry as `collect` returns it, with every
+ * event above `received`, and each event's command group in the order of `events`. One board
+ * command's events share a group, which a block never splits and which never reaches the wire
+ * (AD-20).
  */
-export type StopFit = (block: StopBlock) => StopBlock;
+export type StopAsk = {
+  readonly entry: CollectAskEntry;
+  readonly groups: readonly number[];
+};
+
+/** What the stop guard hands its fit: every event a block may carry, and every open ask. */
+export type StopCandidates = {
+  /** Open asks with events above `received`, in order. */
+  readonly asks: readonly StopAsk[];
+  /** The owner's open asks, with their states and latest cursors. */
+  readonly openAsks: readonly OpenAsk[];
+};
+
+/**
+ * The part of a stop block that fits the caller's response (board-host spec, Stop decisions):
+ * given the candidates, the block to send, whose asks hold a leading part of their events, cut
+ * only between board commands (AD-20). ask-core raises `received` only to the last event of each
+ * ask it returns, and a block cut inside a command is a bug, which throws.
+ */
+export type StopFit = (candidates: StopCandidates) => StopBlock;
 
 /** The stop guard's decision on an owner's stop (AD-10), already acted on when it returns. */
 export type StopOutcome =
@@ -179,6 +198,11 @@ export type AskOverview = {
   readonly cursor: string;
   /** The events above `received`, in order, each carrying its cursor. */
   readonly unreceived: readonly OutputEvent[];
+  /**
+   * Each event's command group, in the order of `unreceived`: one board command's events share a
+   * number, which the poll's pages never split and which never reaches the wire (AD-20).
+   */
+  readonly groups: readonly number[];
   /** The questions for which the agent has received neither an answer nor a decline. */
   readonly openQuestions: number;
 };

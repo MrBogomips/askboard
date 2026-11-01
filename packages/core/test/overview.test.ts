@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { answer, askWith, plainChoiceAsk } from "./fakes.ts";
+import { answerAct, command, FLAT_ID, flatAsk } from "./lifecycle-fakes.ts";
 import { callOf, MAIN_ORIGIN, pushCoreWith, REVIEWER_ORIGIN } from "./push-fakes.ts";
 
 // The epoch's asks as the local API reads them for the mod's poll, the pending-asks list and the
@@ -30,6 +31,7 @@ describe("the overview of the epoch's asks", () => {
         link: LINK(ASK_ID),
         cursor: `${core.epoch}.0`,
         unreceived: [],
+        groups: [],
         openQuestions: 1,
       },
     ]);
@@ -60,6 +62,23 @@ describe("the overview of the epoch's asks", () => {
     fixture.core.answer(ASK_ID, answer());
     fixture.core.delivered(ASK_ID, `${fixture.core.epoch}.1`);
     expect(fixture.core.overview()[0]).toMatchObject({ unreceived: [], openQuestions: 0 });
+  });
+
+  // AD-20: the local API pages cut only between board commands, so each event carries its group.
+  test("gives each event above received its command's group, which one command's events share", async () => {
+    const { core } = pushCoreWith();
+    await core.ask(flatAsk());
+    core.act(FLAT_ID, command([answerAct(), answerAct({ itemId: "q2", choice: ["Linux"] })]));
+    core.act(FLAT_ID, command([answerAct({ itemId: "q3", choice: ["Sara"] })]));
+    const [ask] = core.overview();
+    expect(ask?.unreceived.map((event) => event.cursor)).toEqual(
+      [1, 2, 3].map((seq) => `${core.epoch}.${seq}`),
+    );
+    const [first, second, third] = ask?.groups ?? [];
+    expect(ask?.groups).toHaveLength(3);
+    expect(second).toBe(first as number);
+    expect(third).not.toBe(first as number);
+    expect(Object.isFrozen(ask?.groups)).toBe(true);
   });
 
   test("a discarded ask carries its discard event above received", async () => {
