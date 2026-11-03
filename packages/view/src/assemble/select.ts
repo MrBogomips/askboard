@@ -3,11 +3,22 @@
 // hash; `assemble` then selects again from the same input, so both agree. Names come from the
 // manifest and the catalog, and are looked up as own properties only.
 
-import type { ManifestChunk, ManifestFile, ViewManifest } from "@askboard/contract";
+import type { ManifestChunk, ManifestFile, SnapshotRender, ViewManifest } from "@askboard/contract";
 import { componentsOf } from "../catalog/components.ts";
 import type { ViewDocument } from "../view-document.ts";
 
 export type SelectedChunk = { readonly name: string; readonly chunk: ManifestChunk };
+
+/**
+ * What the chunks are selected for (snapshot design decision 4): a board, whose view has the board
+ * page as its host, or a Snapshot, which has none, with the kept renders its data holds.
+ */
+export type SelectionTarget =
+  | { readonly output: "board" }
+  | { readonly output: "snapshot"; readonly renders: readonly SnapshotRender[] };
+
+/** A board's selection, E1's: what the board page and its tests select. */
+export const FOR_BOARD: SelectionTarget = { output: "board" };
 
 type Chunks = ViewManifest["chunks"];
 
@@ -62,6 +73,7 @@ const before = (a: SelectedChunk, b: SelectedChunk): number =>
 export const selectChunks = (
   document: ViewDocument,
   manifest: ViewManifest,
+  _target: SelectionTarget = FOR_BOARD,
 ): readonly SelectedChunk[] => {
   const selected = closure(roots(document, manifest.chunks), manifest.chunks);
   const ordered: SelectedChunk[] = [];
