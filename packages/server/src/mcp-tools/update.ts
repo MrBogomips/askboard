@@ -51,6 +51,8 @@ const resultOf = (
         state: outcome.state,
         applied: outcome.applied,
         ...unchecked,
+        // The unresolved pointers of its new revisions (excerpts, design decision 4, Warnings).
+        ...(outcome.warnings === undefined ? {} : { warnings: outcome.warnings }),
       };
       return jsonResult(result);
     }

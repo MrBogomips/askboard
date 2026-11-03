@@ -274,3 +274,55 @@ describe("refusals of push delivery", () => {
     expect(textOf(result)).toContain("nothing was created");
   });
 });
+
+// Excerpts, task 4.1 (mcp-adapter spec, "Unresolved pointers in ask and update results").
+describe("unresolved pointers", () => {
+  const unresolved = [
+    {
+      code: "unresolved-pointer",
+      itemId: "retry-adr",
+      pointer: "docs/adr/0012-payment-retries.md#Decision",
+      reason: "anchor-not-found",
+      message: 'The file has no heading "Decision".',
+    },
+    {
+      code: "unresolved-pointer",
+      itemId: "shot",
+      pointer: ".askboard/media/shot.png",
+      reason: "not-found",
+      message: "The file does not exist.",
+    },
+  ] as const;
+  const created = (owned: boolean) =>
+    fakeCore({
+      ask: async () => ({
+        kind: "created",
+        ask: { askId: ASK_ID, state: "waiting", cursor: `${EPOCH}.0`, board: LINK },
+        warnings: unresolved,
+      }),
+      ...(owned ? { owners: { [ASK_ID]: { ownerKey: "owner-1" } } } : {}),
+    });
+
+  test("an unchecked ask's result carries them after no-hooks, in order, and validates", async () => {
+    const { result } = await call(created(false), plainChoice);
+    expect(result.isError).toBeFalsy();
+    const json = jsonOf(result) as { warnings: unknown[] };
+    expect(json.warnings).toEqual([
+      { code: "no-hooks", message: expect.any(String) },
+      ...unresolved,
+    ]);
+    expect(validateAgainst(SCHEMA_IDS.askResult, json).ok).toBe(true);
+  });
+
+  test("an owned ask's result carries them alone", async () => {
+    const { result } = await call(created(true), plainChoice);
+    const json = jsonOf(result);
+    expect((json as { warnings: unknown[] }).warnings).toEqual([...unresolved]);
+    expect(validateAgainst(SCHEMA_IDS.askResult, json).ok).toBe(true);
+  });
+
+  test("an owned ask with every pointer resolved has no warnings", async () => {
+    const core = fakeCore({ owners: { [ASK_ID]: { ownerKey: "owner-1" } } });
+    expect(jsonOf((await call(core, plainChoice)).result)).not.toHaveProperty("warnings");
+  });
+});

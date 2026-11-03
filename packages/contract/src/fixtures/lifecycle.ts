@@ -259,6 +259,8 @@ export const lifecycleUpdateResult: UpdateResult = {
 };
 
 const [region] = scope.props.items;
+// It holds no context items, so its props are as `fetch` gives them (excerpts, design decision 4).
+const { items: _, ...regionProps } = region.props;
 
 /** `fetch` of the answered "region" question: its props, state and answer in full (FR-20). */
 export const lifecycleFetchResult: FetchResult = {
@@ -270,7 +272,7 @@ export const lifecycleFetchResult: FetchResult = {
     type: "question",
     id: region.id,
     rev: 1,
-    props: region.props,
+    props: regionProps,
     state: "answered",
     answer: {
       cursor: "k3x9.1",

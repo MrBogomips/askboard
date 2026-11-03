@@ -195,3 +195,56 @@ describe("closed and discarded asks", () => {
     expect(written).toEqual(["askboard: update failed: Error"]);
   });
 });
+
+// Excerpts, task 4.1 (mcp-adapter spec, "Unresolved pointers in ask and update results", "An update
+// that adds a missing image").
+describe("unresolved pointers", () => {
+  const missingImage = {
+    code: "unresolved-pointer",
+    itemId: "shot",
+    pointer: ".askboard/media/shot.png",
+    reason: "not-found",
+    message: "The file does not exist.",
+  } as const;
+  const addition = {
+    askId: A,
+    actions: [
+      {
+        action: "change",
+        itemId: "q2",
+        props: {
+          text: "Which database?",
+          options: [{ label: "A" }, { label: "B" }],
+          items: [
+            { type: "image", id: "shot", props: { pointer: missingImage.pointer, alt: "Shot" } },
+          ],
+        },
+      },
+    ],
+  };
+
+  test("an update that adds a missing image is applied, and its result names the image", async () => {
+    const applied = [{ action: "change", itemId: "q2", rev: 2 }] as const;
+    const { result } = await call(
+      { kind: "updated", askId: A, state: "waiting", applied, warnings: [missingImage] },
+      addition,
+    );
+    expect(result.isError).toBeFalsy();
+    const json = jsonOf(result);
+    expect(json).toEqual({
+      versions: RESULT_VERSIONS,
+      epoch: EPOCH,
+      askId: A,
+      state: "waiting",
+      applied,
+      unchecked: true,
+      warnings: [missingImage],
+    });
+    expect(validateAgainst(SCHEMA_IDS.updateResult, json).ok).toBe(true);
+  });
+
+  test("an update with no unresolved pointer has no warnings", async () => {
+    const { result } = await call({ kind: "updated", askId: A, state: "waiting", applied: [] }, {});
+    expect(jsonOf(result)).not.toHaveProperty("warnings");
+  });
+});

@@ -408,8 +408,8 @@ export {
 // Context, E5 (excerpts, design decision 2): a question's context items in the input format, the
 // pointer grammar, a web reference's URL rule, what resolving a pointer gives (the reasons it stays
 // unresolved, the media types, a source's state), the context limits of proposal B4, the board
-// document's resolved items, the reading panel's messages, and the source view's route and policy,
-// exported in one appended block.
+// document's resolved items, the reading panel's messages, the source view's route and policy, and
+// the context items as `fetch` gives them, exported in one appended block.
 
 export {
   ANCHOR_FILE_MAX_BYTES,
@@ -476,3 +476,10 @@ export type {
   ReferenceProps,
 } from "./schemas/input/index.ts";
 export type { UnresolvedPointerWarning } from "./schemas/output/index.ts";
+export type {
+  FetchContextItem,
+  FetchExcerptProps,
+  FetchImageProps,
+  FetchQuestion,
+  FetchQuestionProps,
+} from "./schemas/tool-envelopes/index.ts";

@@ -21,6 +21,7 @@ import {
   type UnresolvedPointerWarning,
   type UpdateAction,
 } from "@askboard/contract";
+import { fetchItemOf } from "./context/fetch-item.ts";
 import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
 import { type PointerSource, pointerSourceOf } from "./context/source.ts";
 import { unresolvedWarnings } from "./context/warnings.ts";
@@ -604,7 +605,7 @@ export class Ask {
 
   #value(item: FetchItem, generation: number): FullValue {
     const { askId, state } = this;
-    return { kind: "item", askId, state, item: frozenCopy(item), generation };
+    return { kind: "item", askId, state, item: frozenCopy(fetchItemOf(item)), generation };
   }
 
   #nextCursor(): string {

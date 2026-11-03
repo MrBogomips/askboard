@@ -3,7 +3,12 @@
 // Every result names its envelope's version and the output format's (finding F12).
 
 import type { SchemaSet } from "../../versions.ts";
-import type { BoardQuestion } from "../board-document/index.ts";
+import type {
+  BoardExcerptProps,
+  BoardImageProps,
+  BoardQuestion,
+  BoardReferenceProps,
+} from "../board-document/index.ts";
 import type { AskInput, QuestionProps, UpdateInput } from "../input/index.ts";
 import {
   type AskState,
@@ -192,7 +197,7 @@ export type FetchItem =
       readonly type: "question";
       readonly id: string;
       readonly rev: number;
-      readonly props: QuestionProps;
+      readonly props: FetchQuestionProps;
       readonly state: QuestionState;
       readonly answer?: FetchAnswer;
       readonly previous?: FetchAnswer;
@@ -202,7 +207,7 @@ export type FetchItem =
       readonly id: string;
       readonly props: {
         readonly title: string;
-        readonly items: readonly [BoardQuestion, ...BoardQuestion[]];
+        readonly items: readonly [FetchQuestion, ...FetchQuestion[]];
       };
     };
 
@@ -233,3 +238,30 @@ export type FetchOutcomeResult = {
   readonly askId: string;
   readonly outcome: "discarded";
 };
+
+// Tool envelopes 1.2 (excerpts, design decision 4): `fetch` gives a question's context items as the
+// board document holds them, less an excerpt's text, written or read, and an image's bytes.
+
+/** An excerpt as `fetch` gives it: by pointer, its status and lines; written, its title only. */
+export type FetchExcerptProps =
+  | Omit<Extract<BoardExcerptProps, { readonly status: "resolved" }>, "text">
+  | Extract<BoardExcerptProps, { readonly status: "unresolved" }>
+  | { readonly title?: string };
+
+/** An image as `fetch` gives it: its pointer, alt text, status and media type, never its bytes. */
+export type FetchImageProps =
+  | Omit<Extract<BoardImageProps, { readonly status: "resolved" }>, "bytes">
+  | Extract<BoardImageProps, { readonly status: "unresolved" }>;
+
+export type FetchContextItem =
+  | { readonly type: "excerpt"; readonly id: string; readonly props: FetchExcerptProps }
+  | { readonly type: "reference"; readonly id: string; readonly props: BoardReferenceProps }
+  | { readonly type: "image"; readonly id: string; readonly props: FetchImageProps };
+
+/** A question's props as `fetch` gives them. */
+export type FetchQuestionProps = Omit<QuestionProps, "items"> & {
+  readonly items?: readonly [FetchContextItem, ...FetchContextItem[]];
+};
+
+/** A question of a fetched area. */
+export type FetchQuestion = Omit<BoardQuestion, "props"> & { readonly props: FetchQuestionProps };
