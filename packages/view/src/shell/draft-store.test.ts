@@ -80,6 +80,59 @@ describe("the draft record (design decisions 7 and 8, AD-20)", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  test("several items in one update make one new record holding both, heard once (molecules, design decision 11)", () => {
+    const draft = createDraftStore();
+    const listener = mock(() => {});
+    draft.subscribe(listener);
+    const before = draft.record();
+    const own = probe(4);
+    const sibling = probe(5);
+    draft.update({ sketch: own, second: sibling });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(draft.record()).not.toBe(before);
+    expect(draft.valueOf("sketch")).toBe(own);
+    expect(draft.valueOf("second")).toBe(sibling);
+    expect(before.size).toBe(0);
+  });
+
+  test("in one update, undefined removes a value and a new one goes in", () => {
+    const draft = createDraftStore();
+    draft.update({ sketch: probe(4), second: probe(5) });
+    const listener = mock(() => {});
+    draft.subscribe(listener);
+    const kept = draft.valueOf("second");
+    draft.update({ sketch: undefined, database: ["SQLite"] });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(draft.record().has("sketch")).toBe(false);
+    expect(draft.valueOf("database")).toEqual(["SQLite"]);
+    expect(draft.valueOf("second")).toBe(kept);
+  });
+
+  test("an unchanged value keeps its identity; an update that changes nothing makes no record and is not heard", () => {
+    const draft = createDraftStore();
+    const own = probe(4);
+    draft.update({ sketch: own, database: ["SQLite"] });
+    const record = draft.record();
+    const labels = draft.valueOf("database");
+    const listener = mock(() => {});
+    draft.subscribe(listener);
+    draft.update({ sketch: own, database: ["SQLite"], missing: undefined });
+    draft.update({});
+    expect(listener).not.toHaveBeenCalled();
+    expect(draft.record()).toBe(record);
+    draft.update({ sketch: own, second: probe(5) });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(draft.valueOf("sketch")).toBe(own);
+    expect(draft.valueOf("database")).toBe(labels);
+  });
+
+  test("an update's item IDs that name Object's own properties are plain keys", () => {
+    const draft = createDraftStore();
+    draft.update(Object.fromEntries([["__proto__", probe(1)]]));
+    expect(draft.valueOf("__proto__")).toEqual({ size: 1 });
+    expect(draft.valueOf("toString")).toBeUndefined();
+  });
+
   test("item IDs that name Object's own properties are plain keys", () => {
     const draft = createDraftStore();
     draft.set("__proto__", ["a"]);

@@ -45,13 +45,13 @@ const Gantt = ({
     [item, sent, board.items],
   );
   const current = value ?? sent;
-  // Memoized by the board's items and draft record (`board-graph.ts`): rebuilt only when an edit
-  // changes the draft, and thrown from when the board cannot be scheduled.
+  // Memoized by the board's items and shown values (`board-graph.ts`): rebuilt only when an edit
+  // changes what the board shows, and thrown from when the board cannot be scheduled.
   const graph = liveGraph(board);
   if (graph === undefined) throw new Error(`the board's graph holds no Gantt "${item.id}"`);
   // A plan's baselines read the board as sent, built once per board revision.
   const sentBoard = tree === undefined ? undefined : sentGraph(board);
-  const nodes = tree === undefined ? undefined : treeNodesOf(tree, board.draft);
+  const nodes = tree === undefined ? undefined : treeNodesOf(tree, board);
   const rows = useMemo(
     () =>
       ganttRows(

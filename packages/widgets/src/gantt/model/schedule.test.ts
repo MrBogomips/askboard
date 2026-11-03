@@ -26,7 +26,8 @@ const [release] = ITEMS;
 const SENT = release.props as GanttOwnProps;
 
 const graphOf = (value: unknown): BoardGraph => {
-  const graph = liveGraph({ items: ITEMS, draft: new Map([["release", value]]) });
+  const draft = new Map([["release", value]]);
+  const graph = liveGraph({ items: ITEMS, draft, shown: draft });
   if (graph === undefined) throw new Error("no graph");
   return graph;
 };
@@ -201,7 +202,11 @@ describe("a plan's schedule and baseline", () => {
   const [WBS, SCHEDULE] = PLAN_ITEMS;
   const PLAN = SCHEDULE.props as GanttPlanProps;
   const TREE = WBS.props.nodes;
-  const boardOf = (draft: ReadonlyMap<string, unknown>) => ({ items: PLAN_ITEMS, draft });
+  const boardOf = (draft: ReadonlyMap<string, unknown>) => ({
+    items: PLAN_ITEMS,
+    draft,
+    shown: draft,
+  });
   const graphIn = (graph: BoardGraph | undefined): BoardGraph => {
     if (graph === undefined) throw new Error("no graph");
     return graph;

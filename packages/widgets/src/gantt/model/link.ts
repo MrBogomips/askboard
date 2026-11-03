@@ -13,6 +13,7 @@ import {
   type TreeNode,
   type TreeProps,
 } from "@askboard/contract";
+import type { BoardContent } from "@askboard/view/catalog";
 
 /** A board item as the port gives it: its type, its ID and its props, as sent. */
 type Item = { readonly type: string; readonly id: string; readonly props: unknown };
@@ -33,10 +34,11 @@ export const linkedTree = (plan: Item, items: readonly Item[]): TreeItem => {
 };
 
 /**
- * The Tree's nodes as they stand: the draft's, once the user edited the Tree, else as sent. The
- * draft record holds what the Tree's component put there, its full props.
+ * The Tree's nodes as the board shows them (molecules, design decision 11): the draft's, once the
+ * user edited the Tree, else its question's latest answer's, else as sent. Either holds what the
+ * Tree's component put in the draft record, its full props.
  */
 export const treeNodesOf = (
   tree: TreeItem,
-  draft: ReadonlyMap<string, unknown>,
-): readonly TreeNode[] => ((draft.get(tree.id) as TreeProps | undefined) ?? tree.props).nodes;
+  board: Pick<BoardContent, "shown">,
+): readonly TreeNode[] => ((board.shown.get(tree.id) as TreeProps | undefined) ?? tree.props).nodes;

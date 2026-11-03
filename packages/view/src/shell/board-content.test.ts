@@ -1,13 +1,54 @@
 import { describe, expect, test } from "bun:test";
+import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import {
   ganttBoardDocument,
   ganttEditedValue,
   ganttPlanBoardDocument,
+  ganttPlanEditedValue,
   plainChoiceBoardDocument,
+  treeEditedValue,
 } from "@askboard/contract/fixtures";
-import type { ViewArea, ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
+import {
+  questionsOf,
+  type ViewArea,
+  type ViewDocument,
+  type ViewQuestion,
+  type WidgetItem,
+} from "../view-document.ts";
 import { boardItemsOf, createBoardContent } from "./board-content.ts";
 import { createDraftStore } from "./draft-store.ts";
+
+// The board state with each question open, or with the statuses given in place of some.
+const stateOf = (
+  document: ViewDocument,
+  statuses: readonly LifecycleQuestionStatus[] = [],
+): LifecycleBoardState => ({
+  ask: "waiting",
+  questions: questionsOf(document).map(
+    ({ id, rev }) =>
+      statuses.find((status) => status.itemId === id) ?? { itemId: id, rev, state: "open" },
+  ) as unknown as LifecycleBoardState["questions"],
+});
+
+// A question's latest answer, holding widget values as an answer event does (E3's logged answer).
+const answered = (
+  itemId: string,
+  values?: Readonly<Record<string, unknown>>,
+  state: "answered" | "declined" = "answered",
+): LifecycleQuestionStatus => {
+  const answer = {
+    ...(values === undefined ? {} : { values }),
+    when: "2026-11-03T10:00:00Z",
+    receipt: "delivered" as const,
+  };
+  return { itemId, rev: 1, state, answer };
+};
+
+// The board for each draft record over a document whose questions are open, or as answered.
+const boardOver = (document: ViewDocument, statuses?: readonly LifecycleQuestionStatus[]) => {
+  const state = stateOf(document, statuses);
+  return createBoardContent(() => ({ document, state }));
+};
 
 // A test-only widget item, never a real widget's (design decision 12 of the tree-widget change).
 const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
@@ -73,7 +114,7 @@ describe("the board a component reads: its items as sent and the draft record (A
   test("it holds the document's items and the draft record as they are, read-only", () => {
     const draft = createDraftStore();
     draft.set("release", ganttEditedValue);
-    const board = createBoardContent(() => ganttBoardDocument)(draft.record());
+    const board = boardOver(ganttBoardDocument)(draft.record());
     expect(board.items).toBe(boardItemsOf(ganttBoardDocument));
     expect(board.draft).toBe(draft.record());
     expect(board.draft.get("release")).toBe(ganttEditedValue);
@@ -82,7 +123,7 @@ describe("the board a component reads: its items as sent and the draft record (A
 
   test("the same object for the same draft record, a new one once the record changes, over the same items", () => {
     const draft = createDraftStore();
-    const boardOf = createBoardContent(() => ganttBoardDocument);
+    const boardOf = boardOver(ganttBoardDocument);
     const before = boardOf(draft.record());
     expect(boardOf(draft.record())).toBe(before);
     draft.set("release", ganttEditedValue);
@@ -93,14 +134,14 @@ describe("the board a component reads: its items as sent and the draft record (A
   });
 
   test("on a board of areas the Gantt reads the widget items, not the questions (cross-review H1)", () => {
-    const board = createBoardContent(() => areaBoard)(createDraftStore().record());
+    const board = boardOver(areaBoard)(createDraftStore().record());
     expect(board.items).toEqual([release, sketch, wbs, plan]);
   });
 
   test("an agent update that replaces the document gives the new document's items: the plan and its Tree it adds (cross-review H1)", () => {
     // The shell's document, which an agent `update.document` replaces (ask-lifecycle, task 6.7).
     let document: ViewDocument = ganttBoardDocument;
-    const boardOf = createBoardContent(() => document);
+    const boardOf = createBoardContent(() => ({ document, state: stateOf(ganttBoardDocument) }));
     const draft = createDraftStore();
     draft.set("release", ganttEditedValue);
     const record = draft.record();
@@ -117,7 +158,7 @@ describe("the board a component reads: its items as sent and the draft record (A
 
   test("a later draft change on the same document reuses its items list (cross-review H1)", () => {
     let document: ViewDocument = ganttBoardDocument;
-    const boardOf = createBoardContent(() => document);
+    const boardOf = createBoardContent(() => ({ document, state: stateOf(ganttBoardDocument) }));
     const draft = createDraftStore();
     document = areaBoard;
     const first = boardOf(draft.record());
@@ -126,5 +167,96 @@ describe("the board a component reads: its items as sent and the draft record (A
     expect(edited).not.toBe(first);
     expect(edited.items).toBe(first.items);
     expect(edited.draft.get("release")).toBe(ganttEditedValue);
+  });
+});
+
+describe("the board as the user sees it (molecules, design decision 11, option A)", () => {
+  // The plan's question answered with both items' edits, as a widget answer holds them.
+  const bothAnswered = [
+    answered(planQuestion.id, { wbs: treeEditedValue, schedule: ganttPlanEditedValue }),
+  ];
+
+  test("with no answer holding a widget value, what each item shows is the draft record itself", () => {
+    const draft = createDraftStore();
+    draft.set("wbs", treeEditedValue);
+    const open = boardOver(ganttPlanBoardDocument)(draft.record());
+    expect(open.shown).toBe(open.draft);
+    const [database] = plainChoiceBoardDocument.items;
+    const chosen = boardOver(plainChoiceBoardDocument, [answered(database.id)])(draft.record());
+    expect(chosen.shown).toBe(chosen.draft);
+    const declined = boardOver(ganttPlanBoardDocument, [
+      answered(planQuestion.id, undefined, "declined"),
+    ])(draft.record());
+    expect(declined.shown).toBe(declined.draft);
+  });
+
+  test("on an answered question, an item with no draft value shows its answer's value, one with a draft value its draft value", () => {
+    const draft = createDraftStore();
+    const moved = { ...ganttPlanEditedValue, start: "2026-11-23" };
+    draft.set("schedule", moved);
+    const record = draft.record();
+    const board = boardOver(ganttPlanBoardDocument, bothAnswered)(record);
+    expect(board.shown.get("wbs")).toBe(treeEditedValue);
+    expect(board.shown.get("schedule")).toBe(moved);
+  });
+
+  test("the draft record gains nothing the user did not change", () => {
+    const draft = createDraftStore();
+    const record = draft.record();
+    const board = boardOver(ganttPlanBoardDocument, bothAnswered)(record);
+    expect(board.shown.get("schedule")).toBe(ganttPlanEditedValue);
+    expect(board.draft).toBe(record);
+    expect(record.size).toBe(0);
+    expect(draft.record()).toBe(record);
+  });
+
+  test("an item its question's answer holds no value for shows its props as sent: no entry", () => {
+    const board = boardOver(ganttPlanBoardDocument, [
+      answered(planQuestion.id, { schedule: ganttPlanEditedValue }),
+    ])(createDraftStore().record());
+    expect(board.shown.has("wbs")).toBe(false);
+    expect(board.shown.get("schedule")).toBe(ganttPlanEditedValue);
+  });
+
+  test("an answer's value for an item its question does not hold, or under an inherited name, is shown for no item", () => {
+    const named = { ...sketch, id: "constructor" };
+    const document: ViewDocument = {
+      ...ganttBoardDocument,
+      items: [schedule, holding([named])],
+    };
+    const board = boardOver(document, [answered(plain.id, { release: ganttEditedValue })])(
+      createDraftStore().record(),
+    );
+    expect(board.shown.has("release")).toBe(false);
+    expect(board.shown.has("constructor")).toBe(false);
+    expect(board.shown).toBe(board.draft);
+  });
+
+  test("an answered question in an area shows its answer's values (ask-lifecycle, design decision 6)", () => {
+    const board = boardOver(areaBoard, bothAnswered)(createDraftStore().record());
+    expect(board.shown.get("wbs")).toBe(treeEditedValue);
+  });
+
+  test("one object per items list, draft record and answers: a new state with the same answers keeps it", () => {
+    const draft = createDraftStore();
+    const document = ganttPlanBoardDocument;
+    let state = stateOf(document, bothAnswered);
+    const boardOf = createBoardContent(() => ({ document, state }));
+    const first = boardOf(draft.record());
+    expect(boardOf(draft.record())).toBe(first);
+    state = stateOf(document, bothAnswered);
+    expect(boardOf(draft.record())).toBe(first);
+    state = stateOf(document, [answered(planQuestion.id, { schedule: ganttPlanEditedValue })]);
+    const fewer = boardOf(draft.record());
+    expect(fewer).not.toBe(first);
+    expect(fewer.shown.has("wbs")).toBe(false);
+    state = stateOf(document);
+    const open = boardOf(draft.record());
+    expect(open.shown).toBe(open.draft);
+    draft.set("wbs", treeEditedValue);
+    state = stateOf(document, bothAnswered);
+    const edited = boardOf(draft.record());
+    expect(edited).not.toBe(first);
+    expect(edited.shown.get("wbs")).toBe(treeEditedValue);
   });
 });
