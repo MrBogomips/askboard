@@ -165,7 +165,7 @@ When a new ask owned by a subagent appears in the pending asks, the mod SHALL sh
 - **THEN** within one poll interval a toast shows the ask's title and its board link
 
 ### Requirement: Pending-asks list
-The mod SHALL show the pending asks in a band above the prompt, in AskBoard's accent colour: a header with their number, then one row per pending ask, AskBoard's mark and the ask's title, the title linking to its board and no address shown. It SHALL redraw the band whenever the list changes, an ask answered, closed or discarded included, and draw nothing when no ask is pending. While the session also draws on a surface that has no such band, it SHALL keep a status entry of one line (FR-23).
+The mod SHALL show the pending asks in a band above the prompt: a header with their number, then one row per pending ask, AskBoard's mark in its accent colour and the ask's title as a link to its board, no address shown. It SHALL redraw the band whenever the list changes, an ask answered, closed or discarded included, and draw nothing when no ask is pending. While the session also draws on a surface that has no such band, it SHALL keep a status entry of one line (FR-23).
 
 #### Scenario: Two pending asks
 - **WHEN** two asks are pending, titled "Cache" and "Message queue"
