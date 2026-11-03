@@ -155,7 +155,10 @@ describe("the band above the prompt", () => {
     expect(row).toStartWith("🙋 AskBoard › [Pick\\u202E one\\u000A](");
   });
 
-  test("draws everything in the accent colour, and no board address as text", async () => {
+  // The PO's live check of efdc595: a Link whose child was a Text drew the title then the address.
+  // Each row is one Text in the accent colour holding the prefix and a Link with the title as its
+  // label, the form that drew the title alone as the link.
+  test("draws everything in the accent colour, each title a link's label with no address shown", async () => {
     const { fake, hooks, api } = await setUp();
     await pollWith(fake, api, [main]);
     expect(await hooks.drawBand({}, "desktop")).toEqual([
@@ -164,21 +167,22 @@ describe("the band above the prompt", () => {
       BENEATH_ROW,
     ]);
     const [header, row] = (drawnOf(hooks.lastBand()).props.children ?? []) as RenderElement[];
-    expect(drawnOf(header as RenderElement)).toMatchObject({
+    expect(drawnOf(header as RenderElement)).toEqual({
       type: "Text",
-      props: { color: ACCENT, children: "🙋 AskBoard · 1 pending" },
+      props: { color: ACCENT, wrap: "truncate-end", children: "🙋 AskBoard · 1 pending" },
     });
-    const [prefix, link] = (drawnOf(row as RenderElement).props.children ?? []) as RenderElement[];
-    expect(drawnOf(prefix as RenderElement)).toMatchObject({
+    expect(drawnOf(row as RenderElement)).toEqual({
       type: "Text",
-      props: { color: ACCENT, children: "🙋 AskBoard › " },
+      props: {
+        color: ACCENT,
+        wrap: "truncate-end",
+        children: ["🙋 AskBoard › ", expect.anything()],
+      },
     });
-    const { props } = drawnOf(link as RenderElement);
-    expect(props).toMatchObject({ href: LINK(MAIN_ASK) });
-    expect(props.label).toBeUndefined();
-    expect(drawnOf(props.children as RenderElement)).toMatchObject({
-      type: "Text",
-      props: { color: ACCENT, children: "Which database?" },
+    const [, link] = drawnOf(row as RenderElement).props.children as RenderElement[];
+    expect(drawnOf(link as RenderElement)).toEqual({
+      type: "Link",
+      props: { href: LINK(MAIN_ASK), label: "Which database?" },
     });
   });
 });

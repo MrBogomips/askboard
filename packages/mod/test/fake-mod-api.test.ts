@@ -143,12 +143,12 @@ describe("the fake on", () => {
         flexDirection: "column",
         children: [
           Text({ children: `${e.props.bodyColumns}` }),
-          Link({ href: "h" }),
+          Link({ href: "h", label: "l" }),
           await next(e),
         ],
       });
     });
-    expect(await hooks.drawBand({ bodyColumns: 40 })).toEqual(["40", "h", BENEATH_ROW]);
+    expect(await hooks.drawBand({ bodyColumns: 40 })).toEqual(["40", "[l](h)", BENEATH_ROW]);
     expect(() =>
       (hooks.on as (...args: unknown[]) => unknown)("ui.render", { component: "Pane" }, () => {}),
     ).toThrow("only the band");

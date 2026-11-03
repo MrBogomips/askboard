@@ -249,10 +249,11 @@ export type BandElements = {
       readonly wrap?: "truncate-end";
     } & Children,
   ) => RenderElement;
-  /** A link: its children are its text; with none, its label; with neither, its address. */
-  readonly Link: (
-    props: { readonly href: string; readonly label?: string } & Children,
-  ) => RenderElement;
+  /**
+   * A link, inline in a Text: its label is its text; with none, its address. The mod gives it no
+   * children: a Text child draws its text and then the address.
+   */
+  readonly Link: (props: { readonly href: string; readonly label: string }) => RenderElement;
 };
 
 /** The band above the prompt as a `ui.render` hook receives it; raised on terminal and desktop. */

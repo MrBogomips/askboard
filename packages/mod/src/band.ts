@@ -1,7 +1,8 @@
 // The pending asks above the prompt (PO decisions of 2026-11-03, live run 11.3 and the band's
 // recheck; mod spec, "Pending-asks list"; design decision 7, Pending asks): a `ui.render` hook on
 // `AbovePrompt` draws a header, "🙋 AskBoard · <n> pending", and one row per pending ask,
-// "🙋 AskBoard › <title>", the title being the link to its board, all in the accent colour. On a
+// "🙋 AskBoard › <title>", the title being the label of the link to its board, all in the accent
+// colour. On a
 // narrow band only the title is cut, ending with "…": the prefix stays whole, so an ask always takes
 // one row. With no ask pending, or while a survey holds the band, the hook passes to the plugins
 // beneath, which it otherwise draws below its rows. The list is the mod's memory of the last poll
@@ -23,24 +24,14 @@ export const ACCENT = "cyan";
 export const titleIn = (title: string, columns: number): string =>
   agentTextPiece(title, Math.max(columns - ROW_PREFIX_COLUMNS, 1));
 
-const rowOf = (
-  { Box, Text, Link }: BandElements,
-  ask: PendingAsk,
-  columns: number,
-): RenderElement =>
-  Box({
-    flexDirection: "row",
-    children: [
-      Text({ color: ACCENT, children: ROW_PREFIX }),
-      Link({
-        href: ask.link,
-        children: Text({
-          color: ACCENT,
-          wrap: "truncate-end",
-          children: titleIn(ask.title, columns),
-        }),
-      }),
-    ],
+// One Text in the accent colour: the prefix, then a Link whose label is the title. A Link holding
+// a Text as its child draws its text and then its address (the PO's live check of efdc595); with a
+// label it draws the title alone as the link.
+const rowOf = ({ Text, Link }: BandElements, ask: PendingAsk, columns: number): RenderElement =>
+  Text({
+    color: ACCENT,
+    wrap: "truncate-end",
+    children: [ROW_PREFIX, Link({ href: ask.link, label: titleIn(ask.title, columns) })],
   });
 
 /** The band's hook: the pending asks' rows above what the plugins beneath draw, or a pass. */
