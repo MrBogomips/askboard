@@ -231,7 +231,8 @@ export const createStub = (options: StubOptions): Stub => {
       version: BOARD_DOCUMENT_VERSION,
       askId: request.askId,
       title: request.title ?? deriveTitle(item.props.text),
-      items: [{ ...item, rev: 1 }],
+      // A question's context items (excerpts) are ask-core's to resolve: the stub shows none.
+      items: [{ ...item, rev: 1, props: { ...item.props, items: undefined } }],
     };
     const created: StubAsk = {
       askId: request.askId,

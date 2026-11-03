@@ -4,6 +4,7 @@
 
 import {
   type AgentStatus,
+  ASK_IMAGES_MAX_BYTES,
   type AskState,
   type ClosedReason,
   type DiscardReason,
@@ -12,6 +13,7 @@ import {
   type LifecycleAskInput,
   type OutputEvent,
   type UnavailableReason,
+  type UnresolvedPointerWarning,
 } from "@askboard/contract";
 import {
   type RequestProblem,
@@ -29,6 +31,13 @@ import {
   type FullValue,
 } from "./ask.ts";
 import { canonicalize } from "./canonical.ts";
+import {
+  type ContextRequest,
+  contextRequestsOf,
+  type QuestionContext,
+  resolveContext,
+} from "./context/resolve.ts";
+import { rootOf } from "./context/root.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -62,7 +71,12 @@ export type AskOutcome =
       readonly reason: UnavailableReason;
       readonly detail: string;
     }
-  | { readonly kind: "created" | "resent"; readonly ask: AskSummary }
+  | {
+      readonly kind: "created" | "resent";
+      readonly ask: AskSummary;
+      /** A created ask's unresolved pointers, in item order (excerpts, design decision 4). */
+      readonly warnings?: readonly UnresolvedPointerWarning[];
+    }
   /** The ID is that of an ask of this epoch, and the request is not an identical resend. */
   | { readonly kind: "in-use"; readonly askId: string }
   /** The session is ending: its asks were discarded, and it takes no new one. */
@@ -573,16 +587,32 @@ export class AskCore {
     if (unsupported !== undefined) return unsupported;
     const who = await this.#who(input);
     const forUser = await this.#forUser(input);
+    // Context, E5: the pointers are read against the root of the ask's owner-to-be (design
+    // decision 4), before the rev-1 board document is stored.
+    const root = rootOf(this.#ports.projectRoot, caller);
+    const context = await this.#resolve(contextRequestsOf(input.items), root, ASK_IMAGES_MAX_BYTES);
     const link = await this.#ports.address.link(askId);
     if (this.#ending) return { kind: "ending" };
     const [first] = input.items;
     const question = first.type === "area" ? first.props.items[0] : first;
     const title = input.title ?? deriveTitle(question.props.text);
-    const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who });
+    const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who, context });
     this.#asks.set(askId, ask);
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
-    return { kind: "created", ask: ask.summary };
+    const warnings = ask.contextWarnings;
+    return { kind: "created", ask: ask.summary, ...(warnings.length === 0 ? {} : { warnings }) };
+  }
+
+  // Context, E5 (excerpts, design decision 4): the send's pointers read through the port, within
+  // the reads bound and the budget on the core's clock.
+  #resolve(
+    requests: readonly ContextRequest[],
+    root: string | undefined,
+    imageBytes: number,
+  ): Promise<Map<string, QuestionContext>> {
+    const { sources, clock, report } = this.#ports;
+    return resolveContext(requests, { sources, root, clock, report, imageBytes });
   }
 
   // The ask's expected user, else the git user name, else the login name (FR-19). A lookup that

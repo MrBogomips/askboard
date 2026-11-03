@@ -3,7 +3,12 @@
 // refused action leaves the ask unchanged. The agent's own changes are reported in the result and
 // never logged (AD-3).
 
-import type { AppliedAction, AskState, UpdateAction } from "@askboard/contract";
+import type {
+  AppliedAction,
+  AskState,
+  UnresolvedPointerWarning,
+  UpdateAction,
+} from "@askboard/contract";
 import { validateAskRequest } from "@askboard/contract/validate";
 import { parseCursor } from "../text.ts";
 import { contentOf, contentProblem } from "./answers.ts";
@@ -48,6 +53,8 @@ export type UpdateOutcome =
       readonly askId: string;
       readonly state: AskState;
       readonly applied: readonly AppliedAction[];
+      /** The pointers its new revisions hold unresolved (excerpts, design decision 4). */
+      readonly warnings?: readonly UnresolvedPointerWarning[];
     }
   | {
       readonly kind: "refused";

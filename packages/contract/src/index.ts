@@ -475,3 +475,4 @@ export type {
   ReferenceItem,
   ReferenceProps,
 } from "./schemas/input/index.ts";
+export type { UnresolvedPointerWarning } from "./schemas/output/index.ts";

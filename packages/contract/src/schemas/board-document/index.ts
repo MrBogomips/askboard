@@ -27,7 +27,8 @@ export type BoardQuestion = {
   readonly id: string;
   /** The question's revision; 1 when the ask is created (AD-20). */
   readonly rev: number;
-  readonly props: QuestionProps;
+  /** Its props, with its context items as ask-core resolved them since 1.2 (excerpts). */
+  readonly props: BoardQuestionProps;
 };
 
 /**

@@ -18,8 +18,11 @@ import {
   type FetchItem,
   type LifecycleAskInput,
   type OutputEvent,
+  type UnresolvedPointerWarning,
   type UpdateAction,
 } from "@askboard/contract";
+import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
+import { unresolvedWarnings } from "./context/warnings.ts";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
 import { Connections } from "./lifecycle/connections.ts";
 import { type Entry, EventLog, frozenCopy } from "./lifecycle/log.ts";
@@ -67,6 +70,8 @@ export type AskInit = {
   readonly link: string;
   /** Who answers this ask (FR-19), settled when it is created. */
   readonly who: string;
+  /** What the ask's send resolved of its questions' pointers, by question ID (excerpts). */
+  readonly context?: ReadonlyMap<string, QuestionContext>;
 };
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */
@@ -203,7 +208,7 @@ export class Ask {
       ...(presentation === undefined ? {} : { presentation }),
       ...(delivery === undefined ? {} : { delivery }),
     };
-    this.#model = BoardModel.of(items);
+    this.#model = BoardModel.of(items, init.context);
   }
 
   /** The first accepted request, canonicalized; empty once the ask is discarded. */
@@ -383,6 +388,7 @@ export class Ask {
   update(
     actions: readonly UpdateAction[],
     now: string,
+    context: ReadonlyMap<string, QuestionContext> = new Map(),
   ): { outcome: UpdateOutcome; effects?: UpdateEffects } {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) {
@@ -394,15 +400,68 @@ export class Ask {
       const { ok: _, ...refusal } = applied;
       return { outcome: { kind: "refused", askId: this.askId, ...refusal } };
     }
+    const revised = this.#revisedIn(model);
+    for (const question of revised) {
+      const resolved = context.get(question.id);
+      if (resolved !== undefined) model.resolved(question.id, resolved);
+    }
     this.#model = model;
     if (applied.effects.closed) this.close("agent");
+    const warnings = unresolvedWarnings(revised.map((question) => model.boardQuestion(question)));
     const outcome = {
       kind: "updated",
       askId: this.askId,
       state: this.state,
       applied: applied.applied,
+      ...(warnings.length === 0 ? {} : { warnings }),
     } as const;
     return { outcome, effects: applied.effects };
+  }
+
+  // Context, E5 (excerpts, design decision 4).
+
+  /** The `unresolved-pointer` warnings of the ask's send: every question's, in board order. */
+  get contextWarnings(): readonly UnresolvedPointerWarning[] {
+    const model = this.#model;
+    if (model === undefined) return [];
+    return unresolvedWarnings(model.questions().map((question) => model.boardQuestion(question)));
+  }
+
+  /**
+   * The question revisions the update would create, at their props, or undefined when E3's rules
+   * refuse it: tried on a copy, which is dropped, so the ask is unchanged.
+   */
+  revisionsOf(actions: readonly UpdateAction[], now: string): ContextRequest[] | undefined {
+    const model = this.#model?.clone();
+    if (model === undefined || this.#stored !== undefined) return undefined;
+    const { askId, epoch, who } = this;
+    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
+    if (!applied.ok) return undefined;
+    return this.#revisedIn(model).map((question) => ({
+      questionId: question.id,
+      props: model.propsOf(question),
+    }));
+  }
+
+  /** The image bytes the current board document holds, but for these questions'. */
+  imageBytesBut(questionIds: ReadonlySet<string>): number {
+    const model = this.#model;
+    if (model === undefined) return 0;
+    let bytes = 0;
+    for (const question of model.questions()) {
+      if (questionIds.has(question.id)) continue;
+      for (const resolution of question.context.get(question.rev)?.values() ?? []) {
+        if ("bytes" in resolution) bytes += base64Bytes(resolution.bytes);
+      }
+    }
+    return bytes;
+  }
+
+  // The questions whose revision `model`, an updated copy, changed or added, in board order.
+  #revisedIn(model: BoardModel): QuestionRecord[] {
+    return model
+      .questions()
+      .filter((question) => this.#model?.question(question.id)?.rev !== question.rev);
   }
 
   /**
