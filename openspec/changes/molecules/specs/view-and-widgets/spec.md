@@ -121,6 +121,10 @@ The user SHALL edit a task's predecessors from its grid row, in an inline panel 
 - **WHEN** the user opens billing's predecessors and also checks Clickable prototype
 - **THEN** billing starts after the prototype ends, and the draft holds the change
 
+#### Scenario: Linking an added package
+- **WHEN** the user splits the portal into `u-1` and opens `u-1`'s predecessors
+- **THEN** Architecture and Clickable prototype are already checked, the predecessors the split gave it (An added package's predecessors), with nothing linked by hand
+
 #### Scenario: A cycle offered
 - **WHEN** the user opens the prototype's predecessors
 - **THEN** the portal and reporting, which depend on the prototype, are disabled
