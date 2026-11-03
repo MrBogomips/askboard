@@ -210,7 +210,7 @@ What the later merges with E3, E4, `widget-answers`, `snapshot` and `molecules` 
   - `routes.ts` (the `source` route, response and `BoardRoute` member appended, and `parseBoardRoute`'s two-segment case added after E1's);
   - `hash.ts` (`frame-src 'self'` in `boardPagePolicy`; `sourceViewPolicy` appended);
   - `limits.ts`, and the three export blocks (`src/index.ts`, `src/validate.ts`, `src/fixtures/index.ts`);
-  - `fixtures/transcript.ts` (one transcript appended).
+  - `fixtures/context-transcripts.ts` (E5's own transcript record, new; `fixtures/transcript.ts` stays as it is, since E1's replays play every entry of its `transcripts`).
 - **Core:**
   - `ports.ts` (`sources` appended to `CorePorts`);
   - `lifecycle/model.ts` (`context` appended to `QuestionRecord`, the merge in `document`, the prune beside `revs`);

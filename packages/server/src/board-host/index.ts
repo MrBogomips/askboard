@@ -9,7 +9,13 @@ import { createServer, type Server } from "node:http";
 import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
 import type { AskCore, BoardAddress } from "@askboard/core";
 import { type ServerOptions, WebSocketServer } from "ws";
-import { Boards, CLOSE_GRACE_MS, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
+import {
+  Boards,
+  CLOSE_GRACE_MS,
+  type EditorCommand,
+  MESSAGE_MAX_BYTES,
+  type SocketLimits,
+} from "./boards.ts";
 import { handleRequest, handleUpgrade } from "./http.ts";
 import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
@@ -62,6 +68,11 @@ export type BoardHostOptions = {
    * status on each change. Without it, as in E1, neither is sent.
    */
   readonly projectDir?: string;
+  /**
+   * The editor command, an argument vector, read at each use (excerpts, design decision 5): none
+   * until configuration supplies one (E8), and then "Open in editor" starts nothing.
+   */
+  readonly editorCommand?: () => EditorCommand | undefined;
 };
 
 export {
@@ -114,6 +125,7 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
       report: options.report,
       ...(options.limits ? { limits: options.limits } : {}),
       ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }),
+      ...(options.editorCommand === undefined ? {} : { editorCommand: options.editorCommand }),
     });
     // A live board's largest message; before `connect`, `Boards` holds a socket to far less. A close
     // handshake the peer does not finish ends the socket after `CLOSE_GRACE_MS`, not ws's 30 s:
