@@ -7,14 +7,17 @@ import {
   readingPanelTranscript,
 } from "@askboard/contract/fixtures";
 import { validateBoardMessage } from "@askboard/contract/validate";
-import type { Source, SourceState } from "@askboard/core";
+import type { EditorLaunchTarget, Source, SourceState } from "@askboard/core";
+import type { EditorSpawn } from "../../src/board-host/editor.ts";
 import { type BoardHostOptions, createBoardHost } from "../../src/board-host/index.ts";
 import { fakeHostCore, type OpenView } from "./fake-core.ts";
 import { type BoardSocket, freeRange, openSocket, removeViews, writeView } from "./helpers.ts";
 
-// The reading panel's messages (excerpts, task 5.3; design decision 5, Messages; board-host spec,
-// "Reading panel messages", "A changed excerpt"): `open-source` answered with `source-state` from
-// ask-core's state of the source now, only on the ask's live socket, against a fake core.
+// The reading panel's and the editor's messages (excerpts, tasks 5.3 and 5.4; design decision 5,
+// Messages and Editor launch; board-host spec, "Reading panel messages", "A changed excerpt", "The
+// editor launch"): `open-source` answered with `source-state` from ask-core's state of the source
+// now, and `open-editor` with `editor-outcome`, only on the ask's live socket, against a fake core
+// and a fake `spawn`.
 
 const version = BOARD_PROTOCOL_VERSION;
 const { askId, token } = CONTEXT;
@@ -42,8 +45,16 @@ const STATES: Readonly<Record<string, SourceState>> = {
   "old-src": { status: "outside-root" },
 };
 
+// What ask-core gives "Open in editor" for each pointer item whose file is a regular file now.
+const TARGETS: Readonly<Record<string, EditorLaunchTarget>> = {
+  "retry-adr": { file: "/work/proj/docs/adr/0012-payment-retries.md", line: 7 },
+  "retry-src": { file: "/work/proj/src/retry.ts", line: 1 },
+};
+
 type HostOf = {
   readonly editorCommand?: BoardHostOptions["editorCommand"];
+  /** The core gives no editor target at all, as one built before E5. */
+  readonly targetless?: boolean;
   readonly takeoverFlushMs?: number;
   /** Holds every state read until `release`. */
   readonly held?: boolean;
@@ -67,13 +78,25 @@ const hostOf = async (options: HostOf = {}) => {
       text: async () => ({ status: "missing" }),
     };
   };
+  const launched: (readonly string[])[] = [];
+  const spawnEditor: EditorSpawn = (program, args) => {
+    launched.push([program, ...args]);
+    return { once: (_event, started) => queueMicrotask(started), on: () => 0, unref: () => 0 };
+  };
+  const editorTarget = async (ask: string, itemId: string) =>
+    ask === askId ? TARGETS[itemId] : undefined;
+  const context = {
+    ...(options.sourceless ? {} : { sourceOf }),
+    ...(options.targetless ? {} : { editorTarget }),
+  };
   const host = createBoardHost({
-    core: () => (options.sourceless ? fake.core : { ...fake.core, sourceOf }),
+    core: () => ({ ...fake.core, ...context }),
     view: writeView(),
     report: () => undefined,
     ports: await freeRange(1),
     token: () => token,
     limits: { takeoverFlushMs: options.takeoverFlushMs ?? 50 },
+    spawnEditor,
     ...(options.editorCommand === undefined ? {} : { editorCommand: options.editorCommand }),
   });
   const port = Number(new URL(await host.address.link(askId)).port);
@@ -92,10 +115,17 @@ const hostOf = async (options: HostOf = {}) => {
   const release = () => {
     for (const go of waiting.splice(0)) go();
   };
-  return { host, port, connect, open, read, release };
+  return { host, port, connect, open, read, release, launched };
 };
 
 const openSource = (itemId: string) => ({ version, type: "open-source", itemId });
+const openEditor = (itemId: string) => ({ version, type: "open-editor", itemId });
+const outcome = (itemId: string, value: string) => ({
+  version,
+  type: "editor-outcome",
+  itemId,
+  outcome: value,
+});
 
 const stateOf = async (socket: BoardSocket) => {
   const message = await socket.next();
@@ -116,15 +146,9 @@ const expectMessage = (received: unknown, expected: object) => {
   expect(received).toEqual(expected);
 };
 
-// The editor's steps are task 5.4's; this replay leaves them out.
-const EDITOR = new Set(["open-editor", "editor-outcome"]);
-const readingSteps = readingPanelTranscript.steps.filter(
-  (step) => !("message" in step) || !EDITOR.has(step.message.type),
-);
-
 describe("the reading panel transcript, replayed from the board page's side", () => {
   test("board-host sends exactly the host's half", async () => {
-    const { host, port } = await hostOf();
+    const { host, port, launched } = await hostOf();
     const sockets = new Map<number, BoardSocket>();
     const socketOf = async (step: ContextTranscriptStep) => {
       const known = sockets.get(step.socket);
@@ -134,7 +158,7 @@ describe("the reading panel transcript, replayed from the board page's side", ()
       return opened;
     };
     try {
-      for (const step of readingSteps) {
+      for (const step of readingPanelTranscript.steps) {
         const socket = await socketOf(step);
         if (step.from === "page") socket.send("message" in step ? step.message : step.invalid);
         else if ("message" in step) expectMessage(await socket.next(), step.message);
@@ -142,6 +166,7 @@ describe("the reading panel transcript, replayed from the board page's side", ()
       }
       await Bun.sleep(50);
       for (const socket of sockets.values()) expect(socket.pending).toEqual([]);
+      expect(launched).toEqual([]);
     } finally {
       for (const socket of sockets.values()) socket.socket.terminate();
       await host.close();
@@ -246,6 +271,98 @@ describe("only the ask's live socket", () => {
       await Bun.sleep(100);
       expect(first.pending).toEqual([]);
       expect(taker.pending).toEqual([]);
+      taker.socket.terminate();
+    } finally {
+      first.socket.terminate();
+      await host.close();
+    }
+  });
+});
+
+describe("open-editor", () => {
+  const CODE = () => ["code", "--goto", "{file}:{line}"] as const;
+
+  test("opens ask-core's target with the command's vector, then answers opened", async () => {
+    const { host, open, launched } = await hostOf({ editorCommand: CODE });
+    const tab = await open();
+    try {
+      tab.send(openEditor("retry-adr"));
+      expect(await stateOf(tab)).toEqual(outcome("retry-adr", "opened"));
+      expect(launched).toEqual([
+        ["code", "--goto", "/work/proj/docs/adr/0012-payment-retries.md:7"],
+      ]);
+    } finally {
+      tab.socket.terminate();
+      await host.close();
+    }
+  });
+
+  test("a second click for the ask within a second is busy, and starts nothing", async () => {
+    const { host, open, launched } = await hostOf({ editorCommand: CODE });
+    const tab = await open();
+    try {
+      tab.send(openEditor("retry-adr"));
+      tab.send(openEditor("retry-src"));
+      const outcomes = [await stateOf(tab), await stateOf(tab)];
+      expect(outcomes).toContainEqual(outcome("retry-adr", "opened"));
+      expect(outcomes).toContainEqual(outcome("retry-src", "busy"));
+      expect(launched).toHaveLength(1);
+    } finally {
+      tab.socket.terminate();
+      await host.close();
+    }
+  });
+
+  test("an item without a target, or a core without targets, is unavailable", async () => {
+    for (const [targetless, itemId] of [
+      [false, "missing-doc"],
+      [false, "shot"],
+      [true, "retry-adr"],
+    ] as const) {
+      const { host, open, launched } = await hostOf({ editorCommand: CODE, targetless });
+      const tab = await open();
+      try {
+        tab.send(openEditor(itemId));
+        expect(await stateOf(tab)).toEqual(outcome(itemId, "unavailable"));
+        expect(launched).toEqual([]);
+      } finally {
+        tab.socket.terminate();
+        await host.close();
+      }
+    }
+  });
+
+  test("no other message launches, nor an open-editor naming a path", async () => {
+    const { host, open, launched } = await hostOf({ editorCommand: CODE });
+    const tab = await open();
+    try {
+      for (const itemId of Object.keys(STATES)) {
+        tab.send(openSource(itemId));
+        expect(await stateOf(tab)).toMatchObject({ type: "source-state", itemId });
+      }
+      tab.send({ ...openEditor("retry-adr"), path: "/etc/passwd" });
+      expect(await stateOf(tab)).toMatchObject({ type: "refused", reason: "message" });
+      await Bun.sleep(50);
+      expect(launched).toEqual([]);
+    } finally {
+      tab.socket.terminate();
+      await host.close();
+    }
+  });
+
+  test("a socket that lost the board launches nothing and hears no outcome", async () => {
+    const { host, connect, open, launched } = await hostOf({
+      editorCommand: CODE,
+      takeoverFlushMs: 2_000,
+    });
+    const first = await open();
+    try {
+      const taker = await connect();
+      expect(await first.next()).toEqual({ version, type: "moved" });
+      first.send(openEditor("retry-adr"));
+      await Bun.sleep(100);
+      expect(launched).toEqual([]);
+      expect(first.pending).toEqual([]);
       taker.socket.terminate();
     } finally {
       first.socket.terminate();

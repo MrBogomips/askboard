@@ -1,7 +1,12 @@
 // The reading panel's and the editor's messages to the board page (excerpts, design decision 5,
 // Messages; board protocol 1.2): a source's state, with whether "Open in editor" can open it.
 
-import { BOARD_PROTOCOL_VERSION, type SourceStateMessage } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_VERSION,
+  type EditorOutcome,
+  type EditorOutcomeMessage,
+  type SourceStateMessage,
+} from "@askboard/contract";
 import type { SourceState } from "@askboard/core";
 
 /** The state of an item that has no source, or of a core that reads none. */
@@ -27,3 +32,14 @@ export const sourceStateMessage = (
     editor: editorSet && available,
   };
 };
+
+/** `editor-outcome` for an item: what "Open in editor" did. */
+export const editorOutcomeMessage = (
+  itemId: string,
+  outcome: EditorOutcome,
+): EditorOutcomeMessage => ({
+  version: BOARD_PROTOCOL_VERSION,
+  type: "editor-outcome",
+  itemId,
+  outcome,
+});
