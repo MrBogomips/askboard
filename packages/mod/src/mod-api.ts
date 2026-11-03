@@ -250,8 +250,8 @@ export type BandElements = {
     } & Children,
   ) => RenderElement;
   /**
-   * A link, inline in a Text: its label is its text; with none, its address. The mod gives it no
-   * children: a Text child draws its text and then the address.
+   * A link: its label is its text; with none, its address. The mod puts it straight in a Box, with
+   * a label and no children: inside a Text, or holding one, it draws its text and then the address.
    */
   readonly Link: (props: { readonly href: string; readonly label: string }) => RenderElement;
 };

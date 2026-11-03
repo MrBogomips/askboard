@@ -155,10 +155,10 @@ describe("the band above the prompt", () => {
     expect(row).toStartWith("🙋 AskBoard › [Pick\\u202E one\\u000A](");
   });
 
-  // The PO's live check of efdc595: a Link whose child was a Text drew the title then the address.
-  // Each row is one Text in the accent colour holding the prefix and a Link with the title as its
-  // label, the form that drew the title alone as the link.
-  test("draws everything in the accent colour, each title a link's label with no address shown", async () => {
+  // The PO's live checks of efdc595 and 96d34a9 on Claude Code 2.1.317: a Link inside a Text, or
+  // holding a Text, draws its text and then the address; a Link that is a Box's own child, with the
+  // title as its label, draws the title alone as an underlined link (4d87002).
+  test("draws the prefix in the accent colour, each title a link's label straight in the row's Box", async () => {
     const { fake, hooks, api } = await setUp();
     await pollWith(fake, api, [main]);
     expect(await hooks.drawBand({}, "desktop")).toEqual([
@@ -172,14 +172,14 @@ describe("the band above the prompt", () => {
       props: { color: ACCENT, wrap: "truncate-end", children: "🙋 AskBoard · 1 pending" },
     });
     expect(drawnOf(row as RenderElement)).toEqual({
-      type: "Text",
-      props: {
-        color: ACCENT,
-        wrap: "truncate-end",
-        children: ["🙋 AskBoard › ", expect.anything()],
-      },
+      type: "Box",
+      props: { flexDirection: "row", children: [expect.anything(), expect.anything()] },
     });
-    const [, link] = drawnOf(row as RenderElement).props.children as RenderElement[];
+    const [prefix, link] = drawnOf(row as RenderElement).props.children as RenderElement[];
+    expect(drawnOf(prefix as RenderElement)).toEqual({
+      type: "Text",
+      props: { color: ACCENT, children: "🙋 AskBoard › " },
+    });
     expect(drawnOf(link as RenderElement)).toEqual({
       type: "Link",
       props: { href: LINK(MAIN_ASK), label: "Which database?" },
