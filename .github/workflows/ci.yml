@@ -57,7 +57,7 @@ jobs:
   e2e:
     name: Browser tests and conformance suite
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     permissions:
       contents: read
     env:
@@ -90,5 +90,8 @@ jobs:
       # executable (AD-19).
       - name: Conformance suite on Node 24
         run: bun packages/server/test/conformance/run.ts --runtime node
+      # On push to main only: it takes about 12 minutes, and pull requests already run the
+      # browser tests on Bun and the conformance suite on both runtimes.
       - name: Browser tests on Node 24
+        if: github.event_name == 'push'
         run: bun packages/view/test/browser/run.ts --no-build --target session-process --runtime node
