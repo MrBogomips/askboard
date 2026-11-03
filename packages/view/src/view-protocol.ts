@@ -326,6 +326,7 @@ const ANSWER: MessageFields = {
 
 // Derived values belong to the widget values they derive from (gantt-widget design decision 10):
 // without them, the board page would send the answer's choice and drop the derived values unsaid.
+// It holds wherever ANSWER's checks do, for the answer message and the answer act (cross-review M3).
 const derivedAlone = (args: Record<string, unknown>, at = "/arguments"): Problem[] =>
   Object.hasOwn(args, "derived") && !Object.hasOwn(args, "values")
     ? [{ path: `${at}/derived`, message: 'comes only beside "values"' }]
@@ -357,6 +358,7 @@ const actProblems = (act: unknown, at: string): Problem[] => {
   }
   const { type: _, ...fields } = act;
   const problems = fieldProblems(ACTS[type as ViewAct["type"]], fields, at);
+  if (type === "answer") problems.push(...derivedAlone(fields, at));
   if (type === "edit-choice" && problems.length === 0) {
     // `keptRev` with `ignore` only, which keeps that revision (FR-6, AD-20).
     if (fields.edit === "ignore" && !Object.hasOwn(fields, "keptRev")) {

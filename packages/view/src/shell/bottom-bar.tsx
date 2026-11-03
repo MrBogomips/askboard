@@ -15,6 +15,7 @@ import type { ViewDocument } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendActs } from "./card-acts.ts";
+import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
 import {
@@ -50,7 +51,11 @@ export type BottomBarProps = {
   readonly recommendations: boolean;
   /** Nothing on the board acts: it moved, or the ask ended. */
   readonly locked: boolean;
-  readonly context: Senders & { readonly draft: DraftStore; readonly board: BoardDraft };
+  readonly context: Senders & {
+    readonly draft: DraftStore;
+    readonly board: BoardDraft;
+    readonly derived: DerivedStore;
+  };
   readonly onSelectRecommended: () => void;
   readonly onJump: (questionId: string) => void;
 };
@@ -71,6 +76,7 @@ export const BottomBar = (props: BottomBarProps) => {
       heldWorkOf(document, context.board.get()),
       context.draft.record(),
       new Date(),
+      context.derived.reported,
     );
     const [first, ...rest] = acts;
     if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);

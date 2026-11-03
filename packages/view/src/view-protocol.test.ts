@@ -314,6 +314,37 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
       { path: "/arguments/derived", message: 'comes only beside "values"' },
     ]);
   });
+
+  // The answer act of an act command, which the answer message's checks serve too (ask-lifecycle,
+  // design decision 6; cross-review M3).
+  const actCall = (...acts: unknown[]) => ({ name: "askboard.view.act", arguments: { acts } });
+  const note = {
+    type: "note",
+    itemId: "schedule-review",
+    rev: 1,
+    note: "See the plan.",
+    when: base.when,
+  } as const;
+
+  test("an answer act carrying derived values beside its widget values goes in an act command and reads back", () => {
+    const act = { type: "answer", ...base, derived } as const;
+    expect(readViewMessage(actCall(note, act))).toEqual({
+      ok: true,
+      value: { type: "act", acts: [note, act] },
+    });
+  });
+
+  test("an answer act's derived values come only beside its widget values, the act and the field named", () => {
+    const { values: _, ...withoutValues } = base;
+    const act = { type: "answer", ...withoutValues, choice: ["Yes"], derived };
+    expect(problemsOf(actCall(note, act))).toEqual([
+      { path: "/arguments/acts/1/derived", message: 'comes only beside "values"' },
+    ]);
+    expect(problemsOf(actCall({ type: "answer", ...withoutValues, derived }))).toEqual([
+      { path: "/arguments/acts/0", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments/acts/0/derived", message: 'comes only beside "values"' },
+    ]);
+  });
 });
 
 describe("the board page's reply to an answer", () => {

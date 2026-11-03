@@ -2,7 +2,8 @@
 // recommended, Postpone, Decline, Explain, Follow-up thread, Agent-change notice, Reopened question
 // and Interaction Primitives, Delivery): "Answer" sends the question's whole answer at once in
 // immediate delivery and on the single-question board, stamped with the time of the click (FR-19,
-// FR-22), as the answer view message the seams define; with only the open prompt's text it sends
+// FR-22), as the answer view message the seams define, with the derived values its widget items
+// last reported (gantt-widget design decision 10); with only the open prompt's text it sends
 // that note alone, and the question stays open (FR-7). In submitted delivery it marks the answer,
 // or the note alone, ready for Submit, and pressing it again unmarks it (AD-20). "Accept
 // recommended" selects the recommended option and acts as "Answer" (FR-3, AD-10). Postpone and
@@ -33,6 +34,7 @@ import {
   releaseHeld,
 } from "./board-draft.ts";
 import type { ViewChannel } from "./channel.ts";
+import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { answerOf } from "./question-state.ts";
 
@@ -76,8 +78,25 @@ export const nextHeldOrder = (board: BoardDraft): number =>
 export type AnswerContext = Senders & {
   readonly draft: DraftStore;
   readonly board: BoardDraft;
+  /** The derived values each widget item last reported (gantt-widget design decision 10). */
+  readonly derived: DerivedStore;
   /** The delivery the question answers in: immediate on a single-question board. */
   readonly delivery: Delivery;
+};
+
+/**
+ * The answer with the derived values its widget items last reported (gantt-widget design decision
+ * 10, FR-12): those of each item it carries a value for, in the order of its values, which is the
+ * question's, so nothing for an untouched item; no `derived` field when none of them reported any.
+ */
+export const withDerived = (
+  answer: AnswerContent,
+  reported: DerivedStore["reported"],
+): AnswerContent => {
+  const entries = Object.keys(answer.values ?? {}).flatMap((itemId) =>
+    Object.entries(reported(itemId) ?? {}),
+  );
+  return entries.length === 0 ? answer : { ...answer, derived: Object.fromEntries(entries) };
 };
 
 /** The act types a card's command holds the card for; follow-ups and edit choices do not. */
@@ -138,9 +157,9 @@ const now = () => new Date().toISOString();
 
 /** "Answer": sends, marks ready or unmarks, or sends or holds the note alone (FR-7, FR-22). */
 export const answer = (question: ViewQuestion, context: AnswerContext): void => {
-  const { draft, board, delivery } = context;
+  const { draft, board, derived, delivery } = context;
   const work = board.work(question.id);
-  const content = answerContentOf(question, draft.record(), work);
+  const content = withDerived(answerContentOf(question, draft.record(), work), derived.reported);
   const answers =
     content.choice !== undefined || content.values !== undefined || content.other !== undefined;
   if (!answers) {

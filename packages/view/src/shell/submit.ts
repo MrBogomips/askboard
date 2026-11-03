@@ -17,7 +17,8 @@ import {
   type Delivery,
   type QuestionWork,
 } from "./board-draft.ts";
-import { nextHeldOrder, recommendedOf, revisionFor } from "./card-acts.ts";
+import { nextHeldOrder, recommendedOf, revisionFor, withDerived } from "./card-acts.ts";
+import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { contentOf } from "./question-state.ts";
 
@@ -41,12 +42,18 @@ export const heldWorkOf = (document: ViewDocument, board: BoardDraftState): read
 
 const filled = (text: string | undefined): text is string => text !== undefined && text !== "";
 
-// One held act as the view act it sends, if it carries what its act needs.
-const actOf = ({ question, work }: HeldWork, values: DraftRecord, when: string): ViewAct[] => {
+// One held act as the view act it sends, if it carries what its act needs: an answer with the
+// derived values its widget items last reported (gantt-widget design decision 10).
+const actOf = (
+  { question, work }: HeldWork,
+  values: DraftRecord,
+  when: string,
+  reported: DerivedStore["reported"],
+): ViewAct[] => {
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
-      const content = answerContentOf(question, values, work);
+      const content = withDerived(answerContentOf(question, values, work), reported);
       if (content.choice === undefined && content.values === undefined && !filled(content.other)) {
         return [];
       }
@@ -83,18 +90,19 @@ type Ordered = { readonly order: number; readonly acts: readonly ViewAct[] };
 
 /**
  * What Submit sends: each held act, in the order the user produced them, stamped with the time of
- * the click (FR-19).
+ * the click (FR-19); each answer with the derived values `reported` gives its widget items.
  */
 export const submitActsOf = (
   held: readonly HeldWork[],
   values: DraftRecord,
   at: Date,
+  reported: DerivedStore["reported"],
 ): ViewAct[] => {
   const when = at.toISOString();
   return held
     .flatMap((each): Ordered[] => [
       ...undoOf(each),
-      { order: each.work.held.order, acts: actOf(each, values, when) },
+      { order: each.work.held.order, acts: actOf(each, values, when, reported) },
     ])
     .sort((a, b) => a.order - b.order)
     .flatMap(({ acts }) => acts);

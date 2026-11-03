@@ -76,21 +76,6 @@ export const draftAnswerOf = (question: ViewQuestion, record: DraftRecord): Answ
 };
 
 /**
- * The answer with the derived values its widget items last reported (gantt-widget design decision
- * 10, FR-12): those of each item it carries a value for, in the question's order, so nothing for
- * an untouched item; no `derived` field when none of them reported any.
- */
-export const withDerived = (
-  answer: AnswerContent,
-  reported: (itemId: string) => Readonly<Record<string, unknown>> | undefined,
-): AnswerContent => {
-  const entries = Object.keys(answer.values ?? {}).flatMap((itemId) =>
-    Object.entries(reported(itemId) ?? {}),
-  );
-  return entries.length === 0 ? answer : { ...answer, derived: Object.fromEntries(entries) };
-};
-
-/**
  * What an item of the card shows in place of its draft value, if anything: the shown choice for
  * the question's own options, the shown value for a widget item, looked up as an own property.
  */
