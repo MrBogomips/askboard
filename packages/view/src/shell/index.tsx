@@ -26,7 +26,7 @@ import { createRevisions, type KeptChoices } from "./agent-change.ts";
 import { createAnswerActs, type Flight } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
 import { Board, type BoardView, type HeadingRequest, requestHeading } from "./board.tsx";
-import { boardItemsOf, createBoardContent } from "./board-content.ts";
+import { createBoardContent } from "./board-content.ts";
 import {
   type BoardDraft,
   connectDrafts,
@@ -216,7 +216,8 @@ const boot = (): void => {
     threads,
     focus,
     removed,
-    boardContent: createBoardContent(boardItemsOf(data.document)),
+    // The board components read follows the latest document, which an agent update replaces.
+    boardContent: createBoardContent(() => view.get().document),
     derived: createDerivedStore(),
   };
   createRoot(root).render(<Board view={view} context={context} />);
