@@ -16,12 +16,20 @@ The session process SHALL list exactly `ask`, `update`, `collect` and `fetch`, i
 ### Requirement: Server instructions for the tools listed
 The server instructions SHALL be the approved model contract's instructions, keeping only the lines that apply to the tools listed.
 
+#### Scenario: No instruction names a missing tool
+- **WHEN** a client reads the server instructions
+- **THEN** they name no tool other than the four listed, `ask`, `update`, `collect` and `fetch`, and never `snapshot`, which E7 adds
+
 #### Scenario: The instructions are the approved text
 - **WHEN** a client reads the server instructions
-- **THEN** they equal the approved `server-instructions.md`, which names no tool that is not listed
+- **THEN** they equal the approved `server-instructions.md`, uncut
 
 ### Requirement: A session without hooks
 An ask that arrives with no agent record SHALL be unchecked: its `ask` result SHALL say that push, ownership checks and the stop guard are unavailable and that the agent must collect before it finishes, and every `update`, `collect` and `fetch` result SHALL mark the ask as unchecked (AD-5).
+
+#### Scenario: E1's sessions have no hooks
+- **WHEN** an agent sends an ask
+- **THEN** the result carries the no-hooks warning, and a later `collect` marks that ask as unchecked
 
 #### Scenario: E3's sessions have no hooks
 - **WHEN** an agent sends an ask, then updates, collects and fetches it
