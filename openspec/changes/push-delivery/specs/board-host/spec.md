@@ -76,11 +76,19 @@ The local API SHALL give the session's pending asks: each open ask, not closed o
 - **THEN** the ask is still pending, with one open question
 
 ### Requirement: Stop decisions
-For a subagent's stop, the local API SHALL return a block carrying its owned asks' events above `received`, in order and within the response limit, cut only between board commands, when there are some and `stop_hook_active` is false, raising `received` only to the last event it carries; otherwise it SHALL let the stop through and have `ask-core` close the subagent's open asks with reason `agent-finished` (AD-10, AD-20).
+For a subagent's stop, the local API SHALL return a block carrying the events above `received` of the asks it owns, open or discarded but never closed, in order and within the response limit, cut only between board commands, when there are some and `stop_hook_active` is false, raising `received` only to the last event it carries; otherwise it SHALL let the stop through and have `ask-core` close the subagent's open asks with reason `agent-finished` (AD-10, AD-20).
 
 #### Scenario: Blocked once
 - **WHEN** a subagent stops with an answer above `received` and `stop_hook_active` false
 - **THEN** the decision is a block carrying the answer, and `received` passes it
+
+#### Scenario: A discarded ask's answer
+- **WHEN** a subagent stops while an ask it owns was discarded with an answer above `received`
+- **THEN** the block carries that answer and the `discarded` event, `received` passes them, and the ask is not listed among the open asks
+
+#### Scenario: A closed ask
+- **WHEN** a subagent stops while the only ask it owns with events above `received` is closed
+- **THEN** the stop is let through
 
 #### Scenario: A board command across the limit in a block
 - **WHEN** a subagent's events above `received` exceed the response limit and the events of one board command would straddle it
