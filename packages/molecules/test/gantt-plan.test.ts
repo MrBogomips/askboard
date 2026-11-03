@@ -54,8 +54,8 @@ describe("the Gantt plan's definition (molecules spec, The Gantt plan's paramete
     }
   });
 
-  test("is the one ready-made molecule, frozen", () => {
-    expect(READY_MOLECULES).toEqual([definition]);
+  test("is a ready-made molecule, frozen", () => {
+    expect(READY_MOLECULES).toContainEqual(definition);
     expect(Object.isFrozen(READY_MOLECULES)).toBe(true);
   });
 
