@@ -296,6 +296,20 @@ describe("the user's acts become one act command only if each can be (ask-lifecy
     expect(actsFor(loaded(), acts)).toEqual({ ok: true, value: acts as never });
   });
 
+  test("an answer act's derived values never reach board-host (gantt-widget design decision 10; cross-review M3)", () => {
+    // A test-only `probe` widget item's value and derived value (design decision 12).
+    const values = { sketch: { size: 4 } };
+    const derived = { "sketch.area": 16 };
+    const act = { type: "answer", itemId: "region", rev: 1, choice: ["EU"], when } as const;
+    // Beside widget values, refused as they are.
+    expect(detailOf([{ ...act, values, derived }])).toBe(
+      "the board protocol carries no widget value yet",
+    );
+    // The view protocol refuses derived values without widget values; were they to come, the
+    // board protocol's act would still carry none.
+    expect(actsFor(loaded(), [{ ...act, derived }])).toEqual({ ok: true, value: [act] });
+  });
+
   test("an answer's option notes name the question's options; Other only where it is offered", () => {
     expect(
       detailOf([

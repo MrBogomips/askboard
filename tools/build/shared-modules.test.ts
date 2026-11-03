@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PORT_FILE, VIEW_DIR, VIEW_SRC } from "./paths.ts";
+import { PORT_FILE, ROOT, VIEW_DIR, VIEW_SRC, WIDGETS_SRC } from "./paths.ts";
 import {
   CATALOG_PORT,
   LIBRARY_CHUNKS,
@@ -29,18 +29,25 @@ const catalogEntryExports = async (): Promise<string[]> => {
 
 const NAMED_IMPORT = /import\s+\{([^}]*)\}\s+from\s+"([^"]+)"/g;
 
-// The value names the view's sources import from each module, as `<module>:<name>`.
+// The sources whose chunks import the shared modules: the view's, and the widgets' (design
+// decision 8 of the tree-widget change).
+const SOURCE_ROOTS = [VIEW_SRC, WIDGETS_SRC];
+
+// The value names the view's and the widgets' sources import from each module, as
+// `<module>:<name>`.
 const namedImports = async (): Promise<Set<string>> => {
   const found = new Set<string>();
-  for await (const path of new Bun.Glob("**/*.{ts,tsx}").scan(VIEW_SRC)) {
-    if (/\.test\.tsx?$/.test(path)) continue;
-    const source = await Bun.file(join(VIEW_SRC, path)).text();
-    for (const [, names = "", module] of source.matchAll(NAMED_IMPORT)) {
-      const values = names
-        .split(",")
-        .map((name) => name.trim().split(/\s+as\s+/)[0] ?? "")
-        .filter((name) => name !== "" && !name.startsWith("type "));
-      for (const name of values) found.add(`${module}:${name}`);
+  for (const root of SOURCE_ROOTS) {
+    for await (const path of new Bun.Glob("**/*.{ts,tsx}").scan(root)) {
+      if (/\.test\.tsx?$/.test(path)) continue;
+      const source = await Bun.file(join(root, path)).text();
+      for (const [, names = "", module] of source.matchAll(NAMED_IMPORT)) {
+        const values = names
+          .split(",")
+          .map((name) => name.trim().split(/\s+as\s+/)[0] ?? "")
+          .filter((name) => name !== "" && !name.startsWith("type "));
+        for (const name of values) found.add(`${module}:${name}`);
+      }
     }
   }
   return found;
@@ -55,6 +62,10 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(modules.get("@modelcontextprotocol/ext-apps")?.chunk).toBe("ext-apps");
   });
 
+  test("compute comes from the compute chunk (gantt-widget design decision 7)", () => {
+    expect(modules.get("@askboard/compute")?.chunk).toBe("compute");
+  });
+
   test("the shell provides the CatalogRenderer port, with the names its module exports", () => {
     expect(modules.get(CATALOG_PORT)).toEqual({
       chunk: "shell",
@@ -62,11 +73,33 @@ describe("the shared modules and the chunks that provide them", () => {
     });
   });
 
-  test("the library chunks are React, Radix and ext-apps", () => {
-    expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual(["ext-apps", "radix", "react"]);
+  test("the library chunks are React, Radix, ext-apps and compute", () => {
+    expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual(["compute", "ext-apps", "radix", "react"]);
   });
 
-  test("every name a library chunk lists is imported by a view source, so none ships unused", async () => {
+  test("Radix provides the components that sources import, and no other yet", () => {
+    // Toggle Group joined with its first control, the Gantt plan's zoom (gantt-widget design
+    // decision 10).
+    expect(LIBRARY_CHUNKS.radix?.modules["radix-ui"]).toEqual([
+      "AlertDialog",
+      "Checkbox",
+      "DropdownMenu",
+      "RadioGroup",
+      "Tabs",
+      "ToggleGroup",
+    ]);
+  });
+
+  test("compute provides exactly the names the widgets' sources import from it", async () => {
+    const imported = [...(await namedImports())]
+      .filter((entry) => entry.startsWith("@askboard/compute:"))
+      .map((entry) => entry.slice("@askboard/compute:".length))
+      .sort();
+    expect(imported).toContain("boardGraphSource");
+    expect(LIBRARY_CHUNKS.compute?.modules["@askboard/compute"]).toEqual(imported);
+  });
+
+  test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
     const imported = await namedImports();
     const unused = Object.values(LIBRARY_CHUNKS).flatMap(({ modules }) =>
       Object.entries(modules).flatMap(([module, names]) =>
@@ -85,6 +118,7 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     "react-dom",
     "react-dom/client",
     "radix-ui",
+    "@askboard/compute",
     CATALOG_PORT,
     "./port.ts",
     "../port.ts",
@@ -98,6 +132,8 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     "radix-ui/internal",
     "@modelcontextprotocol/ext-apps/app-bridge",
     "zod",
+    "@askboard/compute/src/index.ts",
+    "@askboard/contract",
     "./portal.ts",
     "./export.ts",
   ])("leaves %s alone", (specifier) => {
@@ -151,6 +187,14 @@ describe("shims", () => {
     expect(libraryEntrySource("react")).toContain('provide("react", m0);');
   });
 
+  test("compute's entry imports it as the widgets resolve it, since the view declares no compute", () => {
+    const source = libraryEntrySource("compute");
+    expect(source).toContain(JSON.stringify(join(ROOT, "packages/compute/src/index.ts")));
+    expect(source).toContain(
+      'provide("@askboard/compute", { boardGraphSource: m0_boardGraphSource',
+    );
+  });
+
   test("an unknown library has no entry", () => {
     expect(() => libraryEntrySource("table")).toThrow('"table"');
   });
@@ -202,6 +246,25 @@ describe("a chunk built with the plugin", () => {
       if (!result.success || !needs.has("shell")) failing.push(name);
     }
     expect(failing).toEqual([]);
+  });
+
+  test("a widget importing compute leaves it out and needs the compute chunk", async () => {
+    const { result, needs } = await build(
+      'import { buildGraph } from "@askboard/compute";\n(globalThis as any).x = buildGraph;\n',
+    );
+    expect(result.success).toBe(true);
+    expect([...needs]).toEqual(["compute"]);
+    const code = (await result.outputs[0]?.text()) ?? "";
+    expect(code).toContain('shared("@askboard/compute")');
+    expect(code).not.toContain("WORKDAY");
+  });
+
+  test("fails on a name of compute the chunk does not provide", async () => {
+    const { result } = await build(
+      'import { addWorkingDays } from "@askboard/compute";\n(globalThis as any).x = addWorkingDays;\n',
+    );
+    expect(result.success).toBe(false);
+    expect(result.logs.map(String).join("\n")).toContain("addWorkingDays");
   });
 
   test("fails on a name the library chunk does not provide", async () => {

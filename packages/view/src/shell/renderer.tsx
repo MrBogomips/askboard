@@ -6,17 +6,29 @@
 // 7); the renderer holds no other state. Since the ask lifecycle, a component may also get
 // `extras` beside the port's props: the Choice atom's "Other…" text and option notes, which the
 // lifecycle draft keeps (ask-lifecycle, design decision 6), and the shell may run a step before
-// each value goes into the draft record, such as the start of a revision (task 6.7).
+// each value goes into the draft record, such as the start of a revision (task 6.7). Components
+// also read the board, its items as sent and the draft record, and report their derived values
+// (gantt-widget design decision 10).
 
 import { Component, type ReactNode, useCallback, useSyncExternalStore } from "react";
 import type { Rendered } from "../catalog/components.ts";
-import { type CatalogComponent, componentFor, type ItemProps } from "../catalog/port.ts";
-import type { DraftStore } from "./draft-store.ts";
+import {
+  type BoardContent,
+  type CatalogComponent,
+  componentFor,
+  type DerivedValues,
+  type ItemProps,
+} from "../catalog/port.ts";
+import type { DerivedStore } from "./derived-store.ts";
+import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 
 export type RenderContext = {
   readonly draft: DraftStore;
   readonly tracker: ReadyTracker;
+  /** The board a component reads as its `board` prop, for a draft record (`board-content.ts`). */
+  readonly boardContent: (draft: DraftRecord) => BoardContent;
+  readonly derived: DerivedStore;
 };
 
 const messageOf = (error: unknown): string =>
@@ -111,14 +123,20 @@ export const RenderItem = ({
   extras,
   onBeforeChange,
 }: RenderItemProps) => {
-  const { draft, tracker } = context;
-  const value = useSyncExternalStore(draft.subscribe, () => draft.valueOf(item.id));
+  const { draft, tracker, boardContent, derived } = context;
+  // The whole record, since the board holds it: the item's value is its entry, as `valueOf` reads.
+  const record = useSyncExternalStore(draft.subscribe, draft.record);
+  const value = record.get(item.id);
   const onValueChange = useCallback(
     (next: unknown) => {
       onBeforeChange?.();
       draft.set(item.id, next);
     },
     [draft, item.id, onBeforeChange],
+  );
+  const onDerived = useCallback(
+    (values: DerivedValues) => derived.report(item.id, values),
+    [derived, item.id],
   );
   const onError = useCallback(
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
@@ -135,6 +153,8 @@ export const RenderItem = ({
           onValueChange={onValueChange}
           disabled={disabled}
           ready={tracker.readyFor(item.id)}
+          board={boardContent(record)}
+          onDerived={onDerived}
           {...(extras === undefined ? {} : { extras })}
         />
       </ItemErrorBoundary>

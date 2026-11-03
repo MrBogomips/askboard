@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { LifecycleBoardState } from "@askboard/contract";
-import { lifecycleBoardDocument } from "@askboard/contract/fixtures";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  lifecycleBoardDocument,
+} from "@askboard/contract/fixtures";
 import type { ViewArea, ViewDocument, ViewQuestion } from "../view-document.ts";
 import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
@@ -16,6 +20,8 @@ import {
 const document = lifecycleBoardDocument as unknown as ViewDocument;
 const AT = new Date("2026-10-31T17:42:05.000Z");
 const WHEN = "2026-10-31T17:42:05.000Z";
+// No widget item reported derived values (gantt-widget design decision 10).
+const NONE_REPORTED = () => undefined;
 
 const stateOf = (
   states: Readonly<Record<string, "open" | "postponed" | "answered" | "declined">> = {},
@@ -69,7 +75,7 @@ describe("what Submit sends (AD-20; task 6.6)", () => {
       "analytics",
       "rollout",
     ]);
-    expect(submitActsOf(held, values.record(), AT)).toEqual([
+    expect(submitActsOf(held, values.record(), AT, NONE_REPORTED)).toEqual([
       { type: "answer", itemId: "region", rev: 1, choice: ["EU", "US"], note: "Both.", when: WHEN },
       { type: "answer", itemId: "payment", rev: 1, other: "Mollie", when: WHEN },
       { type: "postpone", itemId: "erp-export", rev: 1 },
@@ -84,7 +90,9 @@ describe("what Submit sends (AD-20; task 6.6)", () => {
     board.edit("rollout", 1, () => ({ rev: 1, held: { act: "note", order: 1 } }));
     board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 2 } }));
     board.edit("analytics", 1, () => ({ rev: 1, held: { act: "decline", order: 3 } }));
-    expect(submitActsOf(heldWorkOf(document, board.get()), values.record(), AT)).toEqual([
+    expect(
+      submitActsOf(heldWorkOf(document, board.get()), values.record(), AT, NONE_REPORTED),
+    ).toEqual([
       { type: "reopen", itemId: "payment" },
       { type: "decline", itemId: "analytics", rev: 1, when: WHEN },
     ]);
@@ -111,7 +119,9 @@ describe("what Submit sends (AD-20; task 6.6)", () => {
       held: { act: "decline", order: 6 },
       undo: undo(5),
     }));
-    expect(submitActsOf(heldWorkOf(document, board.get()), values.record(), AT)).toEqual([
+    expect(
+      submitActsOf(heldWorkOf(document, board.get()), values.record(), AT, NONE_REPORTED),
+    ).toEqual([
       { type: "reopen", itemId: "rollout" },
       { type: "postpone", itemId: "erp-export", rev: 1 },
       { type: "note", itemId: "rollout", rev: 1, note: "Ask ops.", when: WHEN },
@@ -139,9 +149,43 @@ describe("what Submit sends (AD-20; task 6.6)", () => {
     values.set("payment", ["Adyen"]);
     board.edit("payment", 1, (work) => ({ ...work, rev: 1, held: { act: "answer", order: 0 } }));
     board.edit("region", 1, () => ({ rev: 1, held: { act: "postpone", order: 1 } }));
-    expect(submitActsOf(heldWorkOf(changed, board.get()), values.record(), AT)).toEqual([
+    expect(
+      submitActsOf(heldWorkOf(changed, board.get()), values.record(), AT, NONE_REPORTED),
+    ).toEqual([
       { type: "answer", itemId: "payment", rev: 1, choice: ["Adyen"], when: WHEN },
       { type: "postpone", itemId: "region", rev: 2 },
+    ]);
+  });
+});
+
+describe("what Submit's answers carry of the derived values (gantt-widget design decision 10; AD-20, FR-12)", () => {
+  const [schedule] = ganttBoardDocument.items;
+  const gantt = ganttBoardDocument as unknown as ViewDocument;
+  const finish = { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] };
+  const reported = (itemId: string) => (itemId === "release" ? finish : undefined);
+
+  test("a held answer carrying a Gantt's value goes with the derived values the Gantt last reported", () => {
+    const { values, board } = setUp("submitted", gantt);
+    values.set("release", ganttEditedValue);
+    board.edit(schedule.id, 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    expect(submitActsOf(heldWorkOf(gantt, board.get()), values.record(), AT, reported)).toEqual([
+      {
+        type: "answer",
+        itemId: schedule.id,
+        rev: 1,
+        values: { release: ganttEditedValue },
+        derived: finish,
+        when: WHEN,
+      },
+    ]);
+  });
+
+  test("a held answer with no widget value carries none", () => {
+    const { values, board } = setUp();
+    values.set("region", ["EU"]);
+    board.edit("region", 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    expect(submitActsOf(heldWorkOf(document, board.get()), values.record(), AT, reported)).toEqual([
+      { type: "answer", itemId: "region", rev: 1, choice: ["EU"], when: WHEN },
     ]);
   });
 });

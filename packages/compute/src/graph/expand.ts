@@ -1,7 +1,7 @@
 // The computed item kinds become `fields` items before the graph is indexed: every `wbs-pert`
 // item first, since a Gantt plan reads its WBS's leaves, wherever the WBS sits in the source.
 
-import { expandGanttPlan } from "../cpm.ts";
+import { expandGantt, expandGanttPlan } from "../cpm.ts";
 import { expandWbsPert, wbsLeaves } from "../pert.ts";
 import type { FieldsItem, GraphItem } from "../source.ts";
 import type { FormulaError } from "../types.ts";
@@ -22,7 +22,7 @@ export const expandItems = (items: readonly GraphItem[]): Expanded => {
   const expanded = items.map((item): FieldsItem => {
     if (item.kind === "fields") return item;
     if (item.kind === "wbs-pert") return wbs.get(item.id) as FieldsItem;
-    const plan = expandGanttPlan(item, leavesOf);
+    const plan = item.kind === "gantt" ? expandGantt(item) : expandGanttPlan(item, leavesOf);
     warnings.push(...plan.warnings);
     return plan.item;
   });

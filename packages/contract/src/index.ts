@@ -155,6 +155,36 @@ export {
   type ElementShape,
   elementChanges,
 } from "./widgets/element-diff.ts";
+// Widgets: the Gantt (gantt-widget).
+export {
+  type GanttOrigin,
+  ganttChangesProblems,
+  ganttPlanLinkProblems,
+  ganttPropsProblems,
+} from "./widgets/gantt/checks.ts";
+export {
+  GANTT_ANSWER_DERIVED,
+  GANTT_FIRST_DATE,
+  GANTT_LABEL_MAX_CHARS,
+  GANTT_LAST_DATE,
+  GANTT_MAX_DEPENDENTS,
+  GANTT_MAX_DURATION,
+  GANTT_MAX_PREDECESSORS,
+  GANTT_MAX_TASKS,
+  GANTT_MIN_DURATION,
+  GANTT_PLAN_ESTIMATES,
+  GANTT_PLAN_SHAPE,
+  GANTT_SCHEMA_IDS,
+  GANTT_SHAPE,
+  type GanttChange,
+  type GanttItem,
+  type GanttOwnTask,
+  type GanttPlanEntry,
+  type GanttProps,
+  ganttChangesSchema,
+  ganttPropsSchema,
+  ganttShape,
+} from "./widgets/gantt/index.ts";
 // The Tree's contract (design decision 2): its checks, then its types, limits and element shape.
 export { treeChangesProblems, treePropsProblems } from "./widgets/tree/checks.ts";
 export {

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import type { ViewArea, ViewQuestion } from "../view-document.ts";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  lifecycleBoardDocument,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
+import type { ViewArea, ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts";
@@ -17,8 +22,10 @@ import {
   recommendedOf,
   reloadQuestion,
   sendFollowUp,
+  withDerived,
 } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
+import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
 
 const [database] = plainChoiceBoardDocument.items;
@@ -39,7 +46,15 @@ const setUp = (delivery: Delivery = "immediate") => {
   const draft = createDraftStore();
   const board = createBoardDraft(delivery);
   const acts = createAnswerActs();
-  return { sent, draft, board, acts, context: { channel, acts, draft, board, delivery } };
+  const derived = createDerivedStore();
+  return {
+    sent,
+    draft,
+    board,
+    acts,
+    derived,
+    context: { channel, acts, draft, board, derived, delivery },
+  };
 };
 
 describe("what a card's Answer sends (ask-lifecycle, task 6.4; FR-7, FR-22)", () => {
@@ -448,5 +463,92 @@ describe("filling the draft from an answer (Start from my previous answer; a rev
     expect(board.work("payment")).toEqual({ rev: 1, other: "Mollie", composer: "Why?" });
     expect(draft.valueOf("payment")).toBeUndefined();
     expect(sent).toEqual([]);
+  });
+});
+
+describe("the derived values an answer carries (gantt-widget design decision 10; AD-20, FR-12; cross-review M3)", () => {
+  // The Gantt question, and a test-only `probe` widget item beside its Gantt (design decision 12).
+  const [schedule] = ganttBoardDocument.items;
+  const [release] = schedule.props.items;
+  const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
+  const both: ViewQuestion = {
+    ...schedule,
+    props: { ...schedule.props, items: [release, sketch] },
+  };
+  const finish = { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] };
+  const reports = new Map<string, Record<string, unknown>>([
+    ["release", finish],
+    ["sketch", { "sketch.area": 16 }],
+  ]);
+  const reported = (itemId: string) => reports.get(itemId);
+
+  test("those of the items the answer carries a value for, as they last reported them", () => {
+    expect(withDerived({ values: { release: ganttEditedValue } }, reported)).toEqual({
+      values: { release: ganttEditedValue },
+      derived: finish,
+    });
+  });
+
+  test("each carried item's, in the order of the answer's values, which is the question's", () => {
+    const { derived } = withDerived(
+      { values: { release: ganttEditedValue, sketch: { size: 4 } } },
+      reported,
+    );
+    expect(Object.keys(derived ?? {})).toEqual([
+      "release.finish",
+      "release.criticalPath",
+      "sketch.area",
+    ]);
+  });
+
+  test("none for an untouched Gantt, and no field when no carried item reported any", () => {
+    expect(withDerived({ values: { sketch: { size: 4 } } }, reported)).toEqual({
+      values: { sketch: { size: 4 } },
+      derived: { "sketch.area": 16 },
+    });
+    const quiet = withDerived({ values: { sketch: { size: 4 } } }, () => undefined);
+    expect(quiet).toEqual({ values: { sketch: { size: 4 } } });
+    expect(Object.hasOwn(quiet, "derived")).toBe(false);
+    expect(withDerived({ choice: ["SQLite"] }, reported)).toEqual({ choice: ["SQLite"] });
+    expect(withDerived({}, reported)).toEqual({});
+  });
+
+  test("Answer sends, for a question whose item reported derived values and has a value, those values beside it", () => {
+    const { sent, draft, derived, context } = setUp();
+    derived.report("release", finish);
+    derived.report("sketch", { "sketch.area": 16 });
+    draft.set("release", ganttEditedValue);
+    answer(both, context);
+    expect(sent).toEqual([
+      {
+        type: "answer",
+        itemId: "schedule-review",
+        rev: 1,
+        values: { release: ganttEditedValue },
+        derived: finish,
+        when: expect.stringMatching(/Z$/),
+      },
+    ]);
+  });
+
+  test("an answer with no widget value carries none, though its Gantt reported some (design decision 10: only the items in `values`)", () => {
+    // The plain question with the Gantt beside its options.
+    const withGantt: ViewQuestion = {
+      ...database,
+      props: { ...database.props, items: [release] },
+    };
+    const { sent, draft, derived, context } = setUp();
+    derived.report("release", finish);
+    draft.set("database", ["SQLite"]);
+    answer(withGantt, context);
+    expect(sent).toEqual([
+      {
+        type: "answer",
+        itemId: "database",
+        rev: 1,
+        choice: ["SQLite"],
+        when: expect.stringMatching(/Z$/),
+      },
+    ]);
   });
 });

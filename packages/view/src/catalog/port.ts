@@ -2,11 +2,33 @@
 // and AskBoard's own renderer finds them (renderer row 1). It runs in the shell chunk; the view
 // build maps a component chunk's imports of this module to the shell's copy, so every chunk shares
 // one registry. A component renders from its props alone: the item, the question it sits in, its
-// value in the draft record and whether it may change; it puts each edit into the draft record and
-// reports itself ready. Items and values are of any type: Choice's are a question and its option
-// labels, a widget's are its item and its full edited props (design decision 7).
+// value in the draft record, the board it sits on and whether it may change; it puts each edit
+// into the draft record, reports the derived values it declares and reports itself ready. Items
+// and values are of any type: Choice's are a question and its option labels, a widget's are its
+// item and its full edited props (design decision 7).
 
 import { type ReactNode, useLayoutEffect } from "react";
+
+/** A widget item as the board document holds it: its type, its ID and its props, as sent. */
+export type BoardWidgetItem = {
+  readonly type: string;
+  readonly id: string;
+  readonly props: unknown;
+};
+
+/**
+ * The board a component reads, read-only (AD-9; gantt-widget design decision 7): every widget item
+ * the board document holds, as sent, each question's items in order, and the draft record, item ID
+ * to edited value, with no entry for an untouched item. The same object while the record is the
+ * same, so a component can memoize on it.
+ */
+export type BoardContent = {
+  readonly items: readonly BoardWidgetItem[];
+  readonly draft: ReadonlyMap<string, unknown>;
+};
+
+/** Derived values, by AD-13's reference without brackets (`release.finish`), each a JSON value. */
+export type DerivedValues = Readonly<Record<string, unknown>>;
 
 export type ItemProps<Item = unknown, Value = unknown> = {
   readonly item: Item;
@@ -20,6 +42,13 @@ export type ItemProps<Item = unknown, Value = unknown> = {
   readonly disabled: boolean;
   /** Reports the item ready (AD-9); a component calls it through `useReadyAfterLayout`. */
   readonly ready: () => void;
+  /** The board the item sits on: its widget items as sent and the draft record (AD-9). */
+  readonly board: BoardContent;
+  /**
+   * Reports the item's declared derived values as they stand, each report replacing the last; an
+   * answer carries those of the items it carries a value for (AD-20, FR-12).
+   */
+  readonly onDerived: (values: DerivedValues) => void;
 };
 
 export type CatalogComponent<Item = unknown, Value = unknown> = (

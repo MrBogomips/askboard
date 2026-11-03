@@ -62,6 +62,24 @@ const isWorkingDay = (serial: number): boolean => {
   return day !== 0 && day !== 6;
 };
 
+/** The first working day on or after a serial's day. */
+export const firstWorkingDay = (serial: number): number => workday(Math.floor(serial) - 1, 1);
+
+/**
+ * The working days from `from` up to, not including, `to`: negative when `to` comes first. From a
+ * working day, `workday(from, countWorkingDays(from, to))` is `to` for every working day `to`.
+ */
+export const countWorkingDays = (from: number, to: number): number => {
+  const [start, end] = [Math.floor(from), Math.floor(to)];
+  // `0 - n`, not `-n`: no working day between them is 0, never -0.
+  if (end < start) return 0 - countWorkingDays(end, start);
+  // Any seven consecutive days hold exactly five working days.
+  const weeks = Math.floor((end - start) / 7);
+  let count = 5 * weeks;
+  for (let day = start + 7 * weeks; day < end; day++) if (isWorkingDay(day)) count++;
+  return count;
+};
+
 /** Excel's WORKDAY without holidays: n truncated toward zero; n = 0 gives the date itself. */
 export const workday = (start: number, n: number): number => {
   let day = Math.floor(start);
@@ -78,3 +96,43 @@ export const workday = (start: number, n: number): number => {
   }
   return day;
 };
+
+// The calendar on `full-date` strings, for the view: whether a day is a working day, and working-day
+// arithmetic, by AD-7's default calendar, Monday to Friday with no holidays. A date outside the
+// graph's range, or no date, is refused with a `RangeError` naming it.
+
+const serialFrom = (date: string): number => {
+  const serial = serialOf(date);
+  if (serial === undefined) {
+    throw new RangeError(`${JSON.stringify(date)} is not a date from 1900-03-01 to 9999-12-31`);
+  }
+  return serial;
+};
+
+const dateFrom = (serial: number): string => {
+  const date = fullDateOf(serial);
+  if (date === undefined) {
+    throw new RangeError("the day falls outside the dates from 1900-03-01 to 9999-12-31");
+  }
+  return date;
+};
+
+/** Whether a day is a working day. */
+export const isWorkingDate = (date: string): boolean => isWorkingDay(serialFrom(date));
+
+/** The first working day on or after a day: the day itself when it is one. */
+export const firstWorkingDateFrom = (date: string): string =>
+  dateFrom(firstWorkingDay(serialFrom(date)));
+
+/** The day `n` working days after `date`, before it when `n` is negative: Excel's WORKDAY. */
+export const addWorkingDays = (date: string, n: number): string => {
+  if (!Number.isSafeInteger(n)) throw new RangeError(`${n} is not a whole number of working days`);
+  // As the engine's WORKDAY: no count past the graph's last serial reaches a day it holds, and a
+  // larger one would step past 2^53, where adding a day no longer changes the number.
+  if (Math.abs(n) > MAX_SERIAL) throw new RangeError(`${n} working days reach no date`);
+  return dateFrom(workday(serialFrom(date), n));
+};
+
+/** The working days from `from` up to, not including, `to`; negative when `to` comes first. */
+export const workingDaysBetween = (from: string, to: string): number =>
+  countWorkingDays(serialFrom(from), serialFrom(to));

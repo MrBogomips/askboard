@@ -185,10 +185,11 @@ const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | und
   return contentProblem(act, question);
 };
 
-// The board protocol's act for the view's: the same fields, without a widget value.
+// The board protocol's act for the view's: the same fields, without a widget value or the derived
+// values that come beside one (gantt-widget design decision 10; cross-review M3).
 const protocolAct = (act: ViewAct): Act => {
   if (act.type !== "answer") return act as Act;
-  const { values: _, ...answer } = act;
+  const { values: _, derived: _derived, ...answer } = act;
   return answer as Act;
 };
 

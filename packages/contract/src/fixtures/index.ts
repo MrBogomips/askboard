@@ -2,6 +2,17 @@
 // instead of each other's code (design decision 13). Tests only; no shipped unit imports them.
 
 export { plainChoiceBoardDocument } from "./board-document.ts";
+// The Gantt's fixtures (gantt-widget).
+export {
+  type GanttBoardDocument,
+  type GanttPlanBoardDocument,
+  ganttBoardDocument,
+  ganttEditedValue,
+  ganttPlanBoardDocument,
+  ganttPlanChanges,
+  ganttPlanDerived,
+  ganttPlanEditedValue,
+} from "./gantt.ts";
 export {
   boardProtocolExamples,
   duplicateAnswerTranscript,

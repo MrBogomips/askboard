@@ -8,7 +8,13 @@
 
 import { dirname, resolve } from "node:path";
 import type { BunPlugin } from "bun";
-import { PORT_FILE, resolveFromView, SHARED_MODULES_FILE, ZOD_JITLESS_FILE } from "./paths.ts";
+import {
+  PORT_FILE,
+  resolveFromView,
+  SHARED_MODULES_FILE,
+  WIDGETS_SRC,
+  ZOD_JITLESS_FILE,
+} from "./paths.ts";
 
 /** The name the port is shared under, which is also its package export (AD-9). */
 export const CATALOG_PORT = "@askboard/view/catalog";
@@ -20,7 +26,12 @@ type LibraryChunk = {
   /** Modules that run before the library, by path. */
   readonly first?: readonly string[];
   readonly modules: Readonly<Record<string, Names>>;
+  /** The package folder its modules resolve from, when the view does not declare them. */
+  readonly from?: string;
 };
+
+/** The widgets' package, which declares `compute` (the tree-widget change's manifest). */
+const WIDGETS_DIR = dirname(WIDGETS_SRC);
 
 /**
  * The library chunks and the modules each provides. A component that needs another export of a
@@ -31,14 +42,34 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
   react: {
     modules: { react: "*", "react-dom": "*", "react-dom/client": "*", "react/jsx-runtime": "*" },
   },
+  // Radix's controls, Toggle Group among them for the Gantt plan's zoom (gantt-widget design
+  // decision 10).
   radix: {
-    modules: { "radix-ui": ["AlertDialog", "Checkbox", "DropdownMenu", "RadioGroup", "Tabs"] },
+    modules: {
+      "radix-ui": ["AlertDialog", "Checkbox", "DropdownMenu", "RadioGroup", "Tabs", "ToggleGroup"],
+    },
   },
   // zod's `jitless` before ext-apps loads (renderer rows 16 and 17); the chunk also carries zod and
   // the MCP client and core, which ext-apps imports.
   "ext-apps": {
     first: [ZOD_JITLESS_FILE],
     modules: { "@modelcontextprotocol/ext-apps": ["App"] },
+  },
+  // The board's graph for the widgets that compute (gantt-widget design decision 7), loaded only
+  // by boards holding one; the chunk also carries the contract code `compute` imports.
+  compute: {
+    from: WIDGETS_DIR,
+    modules: {
+      "@askboard/compute": [
+        "boardGraphSource",
+        "buildGraph",
+        "evaluateGraph",
+        "firstWorkingDateFrom",
+        "isFormulaError",
+        "isWorkingDate",
+        "workingDaysBetween",
+      ],
+    },
   },
 };
 
@@ -129,7 +160,8 @@ export const sharedModulesPlugin = (
 
 /**
  * A library chunk's generated entry: the modules that run first, then each module, provided
- * under its import name. The modules are imported by the paths they resolve to from the view.
+ * under its import name. The modules are imported by the paths they resolve to from the view, or
+ * from the chunk's `from` folder.
  */
 export const libraryEntrySource = (name: string): string => {
   const chunk = Object.hasOwn(LIBRARY_CHUNKS, name) ? LIBRARY_CHUNKS[name] : undefined;
@@ -138,8 +170,10 @@ export const libraryEntrySource = (name: string): string => {
     ...(chunk.first ?? []).map((path) => `import ${JSON.stringify(path)};`),
     `import { provide } from ${REGISTRY_IMPORT};`,
   ];
+  const { from: folder } = chunk;
   Object.entries(chunk.modules).forEach(([module, names], index) => {
-    const from = JSON.stringify(resolveFromView(module));
+    const path = folder === undefined ? resolveFromView(module) : Bun.resolveSync(module, folder);
+    const from = JSON.stringify(path);
     const local = `m${index}`;
     if (names === "*") {
       lines.push(

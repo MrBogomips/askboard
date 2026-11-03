@@ -1,14 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import type { BoardState, DraftRecord } from "@askboard/contract";
-import { lifecycleBoardDocument, lifecycleDraftRecord } from "@askboard/contract/fixtures";
+import { type BoardState, type DraftRecord, SCHEMA_IDS, SCHEMA_SETS } from "@askboard/contract";
+import {
+  ganttEditedValue,
+  lifecycleBoardDocument,
+  lifecycleDraftRecord,
+} from "@askboard/contract/fixtures";
 import {
   ITEM_ERROR_MAX_CHARS,
+  REFERENCE_PATTERN,
   readActReply,
   readAnswerReply,
   readViewMessage,
   readViewUpdate,
   toolCallOf,
   VIEW_TOOL_PREFIX,
+  type ViewAnswer,
   type ViewMessage,
   viewUpdateResult,
 } from "./view-protocol.ts";
@@ -85,7 +91,7 @@ describe("view messages, as App tool calls the board page answers itself (design
     expect(Object.hasOwn(values ?? {}, "__proto__")).toBe(true);
   });
 
-  test("a missing field is refused, naming it; only an answer's choice and values may be left out", () => {
+  test("a missing field is refused, naming it; only an answer's choice, values and derived values may be left out", () => {
     expect(problemsOf({ name: "askboard.view.answer", arguments: { choice: ["a"] } })).toEqual([
       { path: "/arguments/itemId", message: 'missing field "itemId"' },
       { path: "/arguments/rev", message: 'missing field "rev"' },
@@ -196,6 +202,148 @@ describe("view messages, as App tool calls the board page answers itself (design
   test("an item error without its text is refused", () => {
     const params = { name: "askboard.view.item-error", arguments: { itemId: "q", error: 3 } };
     expect(problemsOf(params)[0]?.path).toBe("/arguments/error");
+  });
+});
+
+describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD-20, FR-12)", () => {
+  // The Gantt question's answer: the Gantt's full edited value and its derived values.
+  const base = {
+    itemId: "schedule-review",
+    rev: 1,
+    values: { release: ganttEditedValue },
+    when: "2026-10-31T09:41:27.123Z",
+  };
+  const derived = {
+    "release.finish": "2026-12-16",
+    "release.criticalPath": ["reporting"],
+  };
+  const call = (args: Record<string, unknown>) => ({
+    name: "askboard.view.answer",
+    arguments: args,
+  });
+
+  test("an answer carrying derived values beside its widget values goes as a tool call and reads back", () => {
+    const message: ViewAnswer = { type: "answer", ...base, derived };
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+  });
+
+  test("a reference is AD-13's, as the output format's answer event writes its derived keys", () => {
+    const answerEvent = SCHEMA_SETS.flatMap((set) => set.schemas).find(
+      (schema) => (schema as { $id?: string }).$id === SCHEMA_IDS.answerEvent,
+    ) as { $defs: { reference: { pattern: string } } } | undefined;
+    expect(REFERENCE_PATTERN).toBe(answerEvent?.$defs.reference.pattern ?? "");
+  });
+
+  test("every JSON value is taken: text, numbers, true, false, null, lists and objects", () => {
+    const values = {
+      release: "x",
+      "release.a": 1.5,
+      "release.b-1.c_2": -3,
+      "release.d": true,
+      "release.e": false,
+      "release.f": null,
+      "release.g": [1, ["x", null], { h: [] }],
+      "release.i": { j: { k: "l" }, m: [] },
+      [`${"r".repeat(64)}.${"s".repeat(64)}`]: 0,
+    };
+    expect(problemsOf(call({ ...base, derived: values }))).toEqual([]);
+  });
+
+  test("references are own properties, as JSON gives them", () => {
+    const args = JSON.parse(
+      `{"itemId":"q","rev":1,"when":"2026-10-30T09:41:27Z","values":{"r":{}},"derived":{"__proto__":1}}`,
+    );
+    const checked = readViewMessage(call(args));
+    const read = checked.ok && checked.value.type === "answer" ? checked.value.derived : {};
+    expect(Object.keys(read ?? {})).toEqual(["__proto__"]);
+    expect(Object.hasOwn(read ?? {}, "__proto__")).toBe(true);
+  });
+
+  test("anything but one or more references, each to a JSON value, is refused", () => {
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    const shared = ["ux"];
+    for (const value of [
+      undefined,
+      null,
+      [],
+      [{ "release.finish": "2026-12-16" }],
+      "release.finish",
+      {},
+      { "release..finish": 1 },
+      { "release.": 1 },
+      { ".finish": 1 },
+      { "release finish": 1 },
+      { "release[0]": 1 },
+      { "release.tasks.0": 1, "release:finish": 1 },
+      { [`release.${"x".repeat(65)}`]: 1 },
+      { "release.finish": undefined },
+      { "release.finish": Number.NaN },
+      { "release.finish": Number.POSITIVE_INFINITY },
+      { "release.finish": () => "2026-12-16" },
+      { "release.finish": 1n },
+      { "release.finish": Symbol("finish") },
+      { "release.finish": new Date(0) },
+      { "release.finish": new Map() },
+      { "release.path": [undefined] },
+      // biome-ignore lint/suspicious/noSparseArray: a hole is no JSON value.
+      { "release.path": [, "ux"] },
+      { "release.path": { a: { b: Number.NaN } } },
+      { "release.path": cycle },
+      { "release.a": shared, "release.b": shared },
+    ]) {
+      expect(problemsOf(call({ ...base, derived: value }))).toEqual([
+        { path: "/arguments/derived", message: expect.stringContaining("references") },
+      ]);
+    }
+  });
+
+  test("a deep value is walked without overflowing the stack", () => {
+    let deep: unknown = "ux";
+    for (let level = 0; level < 200_000; level += 1) deep = [deep];
+    expect(problemsOf(call({ ...base, derived: { "release.deep": deep } }))).toEqual([]);
+  });
+
+  test("derived values come only beside the widget values they derive from", () => {
+    const { values: _, ...withoutValues } = base;
+    expect(problemsOf(call({ ...withoutValues, choice: ["Yes"], derived }))).toEqual([
+      { path: "/arguments/derived", message: 'comes only beside "values"' },
+    ]);
+    expect(problemsOf(call({ ...withoutValues, derived }))).toEqual([
+      { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments/derived", message: 'comes only beside "values"' },
+    ]);
+  });
+
+  // The answer act of an act command, which the answer message's checks serve too (ask-lifecycle,
+  // design decision 6; cross-review M3).
+  const actCall = (...acts: unknown[]) => ({ name: "askboard.view.act", arguments: { acts } });
+  const note = {
+    type: "note",
+    itemId: "schedule-review",
+    rev: 1,
+    note: "See the plan.",
+    when: base.when,
+  } as const;
+
+  test("an answer act carrying derived values beside its widget values goes in an act command and reads back", () => {
+    const act = { type: "answer", ...base, derived } as const;
+    expect(readViewMessage(actCall(note, act))).toEqual({
+      ok: true,
+      value: { type: "act", acts: [note, act] },
+    });
+  });
+
+  test("an answer act's derived values come only beside its widget values, the act and the field named", () => {
+    const { values: _, ...withoutValues } = base;
+    const act = { type: "answer", ...withoutValues, choice: ["Yes"], derived };
+    expect(problemsOf(actCall(note, act))).toEqual([
+      { path: "/arguments/acts/1/derived", message: 'comes only beside "values"' },
+    ]);
+    expect(problemsOf(actCall({ type: "answer", ...withoutValues, derived }))).toEqual([
+      { path: "/arguments/acts/0", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments/acts/0/derived", message: 'comes only beside "values"' },
+    ]);
   });
 });
 

@@ -207,12 +207,14 @@ export const cardActions = (inputs: ActionInputs): CardActions => {
 export const contentOf = ({
   choice,
   values,
+  derived,
   other,
   optionNotes,
   note,
 }: AnswerContent): AnswerContent => ({
   ...(choice === undefined ? {} : { choice: [...choice] }),
   ...(values === undefined ? {} : { values }),
+  ...(derived === undefined ? {} : { derived }),
   ...(other === undefined ? {} : { other }),
   ...(optionNotes === undefined ? {} : { optionNotes: { ...optionNotes } }),
   ...(note === undefined ? {} : { note }),

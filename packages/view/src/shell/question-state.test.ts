@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { BoardState, LifecycleQuestionStatus, QuestionStatus } from "@askboard/contract";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  ganttBoardDocument,
+  ganttEditedValue,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
 import type { ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { Flight } from "./answer-acts.ts";
 import {
@@ -381,5 +385,28 @@ describe("Postpone, Decline and Explain on the card (FR-4, FR-10; task 6.5)", ()
 
   test("Explain is disabled until its reply arrives", () => {
     expect(actions({ explaining: true }).canExplain).toBe(false);
+  });
+});
+
+describe("the derived values an answer carries (gantt-widget design decision 10; AD-20, FR-12)", () => {
+  // The Gantt question; `card-acts.ts` adds the derived values to what "Answer" sends.
+  const [schedule] = ganttBoardDocument.items;
+  const finish = { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] };
+  const sent = { values: { release: ganttEditedValue }, derived: finish };
+
+  test("the answer view message keeps them beside the values", () => {
+    expect(answerOf(schedule, sent, new Date("2026-10-31T09:41:27.123Z"))).toEqual({
+      type: "answer",
+      itemId: "schedule-review",
+      rev: 1,
+      values: { release: ganttEditedValue },
+      derived: finish,
+      when: "2026-10-31T09:41:27.123Z",
+    });
+  });
+
+  test("the act keeps them, and they enable nothing on their own", () => {
+    expect(card({ flight: flightOf([answerAct(sent)], "sent") }).shown).toEqual(sent);
+    expect(card({ draft: { derived: finish } }).canAnswer).toBe(false);
   });
 });
