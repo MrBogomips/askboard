@@ -43,6 +43,10 @@ describe("a first message that is not connect with the board's token", () => {
       { version, type: "connect", token: "wrong", ...manyKeys(160_000) },
     ],
   ];
+  // Refused before the schema check, the draft takes about 25 ms; checked against the schema first,
+  // it took over 35 s. The bound sits between them with room for a loaded CI runner, where sending
+  // and refusing the 2 MB message has taken over 100 ms.
+  const refusedWithinMs = 2_000;
   for (const [what, message] of firstMessages) {
     test(`${what} is refused at once, before any schema check`, async () => {
       // A live board's bound before connect too, so that only the order of the checks is measured.
@@ -59,7 +63,7 @@ describe("a first message that is not connect with the board's token", () => {
         const sent = performance.now();
         socket.socket.send(text);
         expect(await socket.next()).toMatchObject({ type: "refused", reason: "token" });
-        expect(performance.now() - sent).toBeLessThan(100);
+        expect(performance.now() - sent).toBeLessThan(refusedWithinMs);
         expect(await socket.closed()).toBe(BOARD_CLOSE_CODES.refused);
         expect(socket.pending).toEqual([]);
       } finally {
