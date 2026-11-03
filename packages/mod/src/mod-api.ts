@@ -210,10 +210,17 @@ type Children = { readonly children?: RenderChildren };
 export type BandElements = {
   readonly Box: (props: { readonly flexDirection?: "row" | "column" } & Children) => RenderElement;
   readonly Text: (
-    props: { readonly dimColor?: boolean; readonly wrap?: "truncate-end" } & Children,
+    props: {
+      /** A theme key, a colour name such as `cyan`, or a hex colour. */
+      readonly color?: string;
+      readonly dimColor?: boolean;
+      readonly wrap?: "truncate-end";
+    } & Children,
   ) => RenderElement;
-  /** A link; with no label and no children its address is the text. */
-  readonly Link: (props: { readonly href: string; readonly label?: string }) => RenderElement;
+  /** A link: its children are its text; with none, its label; with neither, its address. */
+  readonly Link: (
+    props: { readonly href: string; readonly label?: string } & Children,
+  ) => RenderElement;
 };
 
 /** The band above the prompt as a `ui.render` hook receives it; raised on terminal and desktop. */

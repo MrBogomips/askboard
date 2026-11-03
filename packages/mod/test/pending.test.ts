@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { NOTICE_TEXT_MAX_CHARS, type PendingAsk } from "@askboard/contract";
+import { ACCENT } from "../src/band.ts";
 import { register } from "../src/index.ts";
 import type { RenderElement } from "../src/mod-api.ts";
 import { BENEATH_ROW, drawnOf } from "./fake-band.ts";
@@ -40,6 +41,8 @@ const subagent: PendingAsk = pendingOf(SUB_ASK, {
   agent_id: SUB_AGENT,
 });
 
+const long: PendingAsk = { ...subagent, title: `Retry ${"policy ".repeat(18)}?` };
+
 /** A line's text before its link, which ends it whole after a separator. */
 const textBefore = (line: string, link: string): string => {
   expect(line).toEndWith(` · ${link}`);
@@ -56,14 +59,13 @@ const pollWith = async (
 };
 
 describe("the band above the prompt", () => {
-  const MAIN_ROW = `Which database? · Main agent · 2 open · ${LINK(MAIN_ASK)}`;
-  const SUB_ROW = `Which retry policy? · Subagent code-reviewer · Retry review · 1 open · ${LINK(SUB_ASK)}`;
-
-  test("draws a header and a row per pending ask: title, who asked, questions open, link", async () => {
+  const MAIN_ROW = `🙋 AskBoard › [Which database?](${LINK(MAIN_ASK)})`;
+  const SUB_ROW = `🙋 AskBoard › [Which retry policy?](${LINK(SUB_ASK)})`;
+  test("draws a header, then a row per pending ask whose title links to its board", async () => {
     const { fake, hooks, api } = await setUp();
     await pollWith(fake, api, [main, subagent]);
     expect(await hooks.drawBand()).toEqual([
-      "AskBoard · 2 pending",
+      "🙋 AskBoard · 2 pending",
       MAIN_ROW,
       SUB_ROW,
       BENEATH_ROW,
@@ -100,8 +102,8 @@ describe("the band above the prompt", () => {
     }
     expect(fake.calls.invalidate).toEqual(Array(4).fill("ui.render"));
     expect(drawn.slice(2)).toEqual([
-      ["AskBoard · 2 pending", MAIN_ROW.replace("2 open", "1 open"), SUB_ROW, BENEATH_ROW],
-      ["AskBoard · 1 pending", SUB_ROW, BENEATH_ROW],
+      ["🙋 AskBoard · 2 pending", MAIN_ROW, SUB_ROW, BENEATH_ROW],
+      ["🙋 AskBoard · 1 pending", SUB_ROW, BENEATH_ROW],
       undefined,
       undefined,
     ]);
@@ -132,78 +134,51 @@ describe("the band above the prompt", () => {
     api.unreachable.add("/v1/mod/poll");
     await fake.tick();
     expect(fake.calls.invalidate).toHaveLength(1);
-    expect(await hooks.drawBand()).toEqual(["AskBoard · 1 pending", MAIN_ROW, BENEATH_ROW]);
+    expect(await hooks.drawBand()).toEqual(["🙋 AskBoard · 1 pending", MAIN_ROW, BENEATH_ROW]);
     expect(folderOf(fake)).toBeString();
   });
 
-  test("fits a row to the band's width: the title cut first, the link whole", async () => {
+  test("cuts only the title on a narrow band, the prefix whole and its mark two columns wide", async () => {
     const { fake, hooks, api } = await setUp();
-    const long = { ...subagent, title: `Retry ${"policy ".repeat(18)}?` };
-    await pollWith(fake, api, [long]);
-    const [, row = ""] = (await hooks.drawBand({ bodyColumns: 160 })) ?? [];
-    expect(Array.from(row)).toHaveLength(160);
-    const text = textBefore(row, LINK(SUB_ASK));
-    expect(text).toStartWith("Retry policy policy");
-    expect(text).toEndWith("… · Subagent code-reviewer · Retry review · 1 open");
+    await pollWith(fake, api, [long, subagent]);
+    const [, cut, whole] = (await hooks.drawBand({ bodyColumns: 34 })) ?? [];
+    expect(cut).toBe(`🙋 AskBoard › [Retry policy policy…](${LINK(SUB_ASK)})`);
+    expect(whole).toBe(SUB_ROW);
+    const [, narrowest] = (await hooks.drawBand({ bodyColumns: 10 })) ?? [];
+    expect(narrowest).toBe(`🙋 AskBoard › […](${LINK(SUB_ASK)})`);
   });
 
-  test("cuts the whole text when who asked leaves the title too little room", async () => {
+  test("shows the agent's controls in a title as escapes", async () => {
     const { fake, hooks, api } = await setUp();
-    await pollWith(fake, api, [subagent]);
-    const [, row = ""] = (await hooks.drawBand({ bodyColumns: 120 })) ?? [];
-    expect(Array.from(row)).toHaveLength(120);
-    expect(textBefore(row, LINK(SUB_ASK))).toStartWith("Which retry policy? · Subagent code");
-    expect(textBefore(row, LINK(SUB_ASK))).toEndWith("…");
-  });
-
-  test("draws the title alone as the link where the band leaves the title too little room", async () => {
-    const { fake, hooks, api } = await setUp();
-    const long = { ...subagent, title: "t".repeat(150) };
-    await pollWith(fake, api, [subagent, long]);
-    const rows = (await hooks.drawBand({ bodyColumns: 80 })) ?? [];
-    expect(rows.slice(1, 3)).toEqual([
-      `[Which retry policy?](${LINK(SUB_ASK)})`,
-      `[${"t".repeat(79)}…](${LINK(SUB_ASK)})`,
-    ]);
-  });
-
-  test("keeps the text before the link to the notice limit on a wide band", async () => {
-    const { fake, hooks, api } = await setUp();
-    const long = { ...subagent, title: `Retry ${"policy ".repeat(18)}?` };
-    await pollWith(fake, api, [long]);
-    const [, row = ""] = (await hooks.drawBand({ bodyColumns: 1000 })) ?? [];
-    const text = textBefore(row, LINK(SUB_ASK));
-    expect(Array.from(text)).toHaveLength(NOTICE_TEXT_MAX_CHARS);
-    expect(text).toEndWith("… · Subagent code-reviewer · Retry review · 1 open");
-  });
-
-  test("shows the agent's controls as escapes", async () => {
-    const { fake, hooks, api } = await setUp();
-    await pollWith(fake, api, [{ ...subagent, title: "Pick‮ one\n", agentName: "Re\u001bview" }]);
+    await pollWith(fake, api, [{ ...subagent, title: "Pick‮ one\n" }]);
     const [, row = ""] = (await hooks.drawBand()) ?? [];
-    expect(row).toStartWith(
-      "Pick\\u202E one\\u000A · Subagent code-reviewer · Re\\u001Bview · 1 open",
-    );
+    expect(row).toStartWith("🙋 AskBoard › [Pick\\u202E one\\u000A](");
   });
 
-  test("draws its header dim, and each ask's link as a link", async () => {
+  test("draws everything in the accent colour, and no board address as text", async () => {
     const { fake, hooks, api } = await setUp();
     await pollWith(fake, api, [main]);
     expect(await hooks.drawBand({}, "desktop")).toEqual([
-      "AskBoard · 1 pending",
+      "🙋 AskBoard · 1 pending",
       MAIN_ROW,
       BENEATH_ROW,
     ]);
-    const tree = hooks.lastBand();
-    const [header, row] = (drawnOf(tree).props.children ?? []) as RenderElement[];
+    const [header, row] = (drawnOf(hooks.lastBand()).props.children ?? []) as RenderElement[];
     expect(drawnOf(header as RenderElement)).toMatchObject({
       type: "Text",
-      props: { dimColor: true },
+      props: { color: ACCENT, children: "🙋 AskBoard · 1 pending" },
     });
-    const [, link] = (drawnOf(row as RenderElement).props.children ?? []) as RenderElement[];
-    expect(drawnOf(link as RenderElement)).toEqual({
-      type: "Link",
-      props: { href: LINK(MAIN_ASK) },
+    const [prefix, link] = (drawnOf(row as RenderElement).props.children ?? []) as RenderElement[];
+    expect(drawnOf(prefix as RenderElement)).toMatchObject({
+      type: "Text",
+      props: { color: ACCENT, children: "🙋 AskBoard › " },
+    });
+    const { props } = drawnOf(link as RenderElement);
+    expect(props).toMatchObject({ href: LINK(MAIN_ASK) });
+    expect(props.label).toBeUndefined();
+    expect(drawnOf(props.children as RenderElement)).toMatchObject({
+      type: "Text",
+      props: { color: ACCENT, children: "Which database?" },
     });
   });
 });
@@ -216,7 +191,7 @@ describe("the status entry, where a surface draws no band", () => {
     expect(fake.calls.status).toEqual([]);
   });
 
-  test("shows the first ask's line and how many more while one is attached, one line", async () => {
+  test("shows the first ask's title and how many more while one is attached, one line", async () => {
     const { fake, api } = await setUp();
     fake.handlers.surfaces = async () => ["terminal", "vscode"];
     await pollWith(fake, api, [main, subagent]);
@@ -224,10 +199,20 @@ describe("the status entry, where a surface draws no band", () => {
     await pollWith(fake, api, [subagent]);
     await pollWith(fake, api, []);
     expect(fake.calls.status).toEqual([
-      `Which database? · Main agent · 2 open · ${LINK(MAIN_ASK)} · +1 more`,
-      `Which retry policy? · Subagent code-reviewer · Retry review · 1 open · ${LINK(SUB_ASK)}`,
+      "🙋 AskBoard › Which database? · +1 more",
+      "🙋 AskBoard › Which retry policy?",
       undefined,
     ]);
+  });
+
+  test("cuts a long title to the notice limit", async () => {
+    const { fake, api } = await setUp();
+    fake.handlers.surfaces = async () => ["mobile"];
+    await pollWith(fake, api, [long, main]);
+    const [line = ""] = fake.calls.status;
+    const title = line.slice("🙋 AskBoard › ".length, -" · +1 more".length);
+    expect(Array.from(title)).toHaveLength(NOTICE_TEXT_MAX_CHARS);
+    expect(title).toEndWith("…");
   });
 
   test("clears when that surface leaves, and when the session file is gone", async () => {

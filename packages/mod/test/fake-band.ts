@@ -1,6 +1,7 @@
 // The band's elements as the fake `$.ui.resolve` hands them out, each a plain record, and a drawing
 // read back as the rows a terminal shows: a column's children one under the other, a row's or a
-// text's children on one line, a link as its address, or `[label](address)` when it has a label.
+// text's children on one line, a link as its address, or `[text](address)` when it has children or
+// a label.
 // What the plugins beneath draw, the fake `next`'s answer, reads as one row, `BENEATH_ROW`.
 
 import type { BandElements, RenderChildren, RenderElement } from "../src/mod-api.ts";
@@ -11,6 +12,7 @@ type Drawn = {
     readonly children?: RenderChildren;
     readonly flexDirection?: string;
     readonly dimColor?: boolean;
+    readonly color?: string;
     readonly wrap?: string;
     readonly href?: string;
     readonly label?: string;
@@ -48,8 +50,10 @@ const inline = (children: RenderChildren): string =>
       if (typeof child === "string") return child;
       if (Array.isArray(child)) return inline(child);
       const { type, props } = drawnOf(child as RenderElement);
-      if (type === "Link")
-        return props.label === undefined ? props.href : `[${props.label}](${props.href})`;
+      if (type === "Link") {
+        const text = props.children === undefined ? props.label : inline(props.children);
+        return text === undefined ? props.href : `[${text}](${props.href})`;
+      }
       return type === "Beneath" ? BENEATH_ROW : inline(props.children);
     })
     .join("");

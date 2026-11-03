@@ -133,11 +133,11 @@ describe("the built module", () => {
     expect(probe?.reachedAtRegister).toBe(0);
   });
 
-  test("draws a poll's pending ask in the band above the prompt (task 15.1)", () => {
+  test("draws a poll's pending ask in the band above the prompt (tasks 15.1 and 15.4)", () => {
     expect(probe?.validBand).toEqual([
-      "AskBoard · 1 pending",
+      "🙋 AskBoard · 1 pending",
       expect.stringMatching(
-        /^Which database should the orders service use\? · Main agent · 1 open · http/,
+        /^🙋 AskBoard › \[Which database should the orders service use\?\]\(http/,
       ),
       "<beneath>",
     ]);
