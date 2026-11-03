@@ -8,6 +8,9 @@
 // `server/discover`, and its close beside the board host's. Excerpts (E5) read pointers in the
 // session project root alone, through the excerpts unit; board-host has no editor command until
 // configuration supplies one (E8).
+// `server/discover`, and its close beside the board host's. The configuration (settings-languages,
+// design decisions 3 and 12) joins as ask-core's `Config` port over the two files; the local API
+// starts once ask-core has read them, so that its first `/v1/rule` answers the rule in effect.
 
 import { randomBytes } from "node:crypto";
 import { AskCore, type Clock, type SourceFiles } from "@askboard/core";
@@ -16,6 +19,7 @@ import type { BoardHostOptions, ParentArgv } from "./board-host/index.ts";
 import { createBoardHost } from "./board-host/index.ts";
 import { systemClock } from "./clock.ts";
 import { createSourceFiles } from "./excerpts/index.ts";
+import { configFiles } from "./config-files.ts";
 import { systemIdentity } from "./identity.ts";
 import {
   failure,
@@ -82,6 +86,12 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
   const push = composePush(options, { core: coreOf, diagnostics, reportAs });
   // The root pointers resolve in: E4's session project root, never the working folder (AD-12).
   const projectRoot = sessionProjectRoot(options.env);
+  const push = composePush(options, {
+    core: coreOf,
+    diagnostics,
+    reportAs,
+    rule: () => coreOf().askingRule(),
+  });
   const host = createBoardHost({
     core: coreOf,
     view: options.view,
@@ -106,11 +116,20 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     ...push.ports,
     sources: options.sources ?? createSourceFiles({ projectRoot }),
     ...(projectRoot === undefined ? {} : { projectRoot }),
+    config: configFiles({ env: options.env }),
   });
+  // The first request other than `server/discover` reads the configuration, then starts the local
+  // API, whatever the read gives: a file not applied still lets it start, with the defaults.
+  const firstRequest = () => {
+    coreOf()
+      .settings()
+      .catch(reportAs("reading the configuration failed"))
+      .finally(push.firstRequest);
+  };
   return serveSession({
     deps: { core, timers: systemTimers, diagnostics, ...push.deps },
     process: options.process,
-    firstRequest: push.firstRequest,
+    firstRequest,
     beforeExit: async () => {
       await Promise.all([host.close(), push.close()]);
     },

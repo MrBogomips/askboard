@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
-import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
+import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { linkParts, openBoardSocket } from "./board-page.ts";
-import { removeShortFolders } from "./modes.ts";
-import { cleanUp, type Session, startSession } from "./session.ts";
+import { getOverSocket, removeShortFolders, sessionFileIn, shortFolder } from "./modes.ts";
+import { cleanUp, type Session, type SessionOptions, startSession } from "./session.ts";
 
 // Settings and languages on the real session process (settings-languages, tasks 4.5 and 4.6): the
 // suite gives each session process a home, a configuration folder and a project of its own, so a
@@ -15,6 +15,11 @@ import { cleanUp, type Session, startSession } from "./session.ts";
 
 const version = BOARD_PROTOCOL_VERSION;
 const ASK_ID = "settings-conformance";
+const [QUESTION] = plainChoiceBoardDocument.items;
+const ASK = {
+  askId: ASK_ID,
+  items: [{ type: QUESTION.type, id: QUESTION.id, props: QUESTION.props }],
+};
 
 afterEach(cleanUp);
 afterEach(removeShortFolders);
@@ -24,7 +29,7 @@ type Settings = { readonly keys: Readonly<Record<string, Row>> };
 
 /** Asks the plain-choice question and connects a board, returning the settings it opened with. */
 const openedSettings = async (session: Session): Promise<Settings> => {
-  const asked = await session.call("ask", { ...PLAIN_CHOICE, askId: ASK_ID });
+  const asked = await session.call("ask", ASK);
   const link = linkParts((asked.json as { board: string }).board);
   const board = await openBoardSocket(link.port, ASK_ID);
   try {
@@ -63,6 +68,70 @@ describe("the session's own configuration", () => {
     const session = await withDeveloperHome(() => startSession());
     const settings = await openedSettings(session);
     expect(settings.keys.theme).toEqual({ value: "system", from: "default", writable: true });
+    expect(await session.end()).toBe(0);
+  });
+});
+
+/** A session with these files whose local API has started, and the rule its first `/v1/rule` gives. */
+const firstRule = async (options: SessionOptions, before?: (session: Session) => void) => {
+  const runtime = shortFolder();
+  const session = await startSession({ ...options, env: { XDG_RUNTIME_DIR: runtime } });
+  // Nothing is read before the first request after server/discover (AD-2).
+  before?.(session);
+  await session.client.listTools();
+  const answer = await getOverSocket(await sessionFileIn(runtime), "/v1/rule");
+  expect(answer.status).toBe(200);
+  return { session, rule: (JSON.parse(answer.body) as { rule: string }).rule };
+};
+
+describe("the configuration wired into the session process", () => {
+  test("a project file's asking rule is the rule of the session's first /v1/rule", async () => {
+    const { session, rule } = await firstRule({
+      projectConfig: { version: "1.0", askingRule: "always" },
+      userConfig: { version: "1.0", askingRule: "with-references" },
+    });
+    expect(rule).toBe("always");
+    expect(await session.end()).toBe(0);
+  });
+
+  test("a project file that fails its check applies nothing, and stderr names it", async () => {
+    const { session, rule } = await firstRule({
+      projectConfig: { version: "1.0", askingRule: "always", theme: "sepia" },
+    });
+    expect(rule).toBe("none");
+    expect(await session.end()).toBe(0);
+    const stderr = await session.stderr();
+    expect(stderr).toContain(".askboard/config.json is not applied");
+    expect(stderr).toContain("/theme");
+  });
+
+  test("an unreadable project file still lets the local API start, with the rule's default", async () => {
+    const { session, rule } = await firstRule({}, (started) => {
+      mkdirSync(join(started.project, ".askboard", "config.json"), { recursive: true });
+    });
+    expect(rule).toBe("none");
+    expect(await session.end()).toBe(0);
+    expect(await session.stderr()).toContain(".askboard/config.json is not applied");
+  });
+
+  test("the user file's theme reaches the board", async () => {
+    const session = await startSession({ userConfig: { version: "1.0", theme: "dark" } });
+    const settings = await openedSettings(session);
+    expect(settings.keys.theme).toEqual({ value: "dark", from: "user", writable: true });
+    expect(await session.end()).toBe(0);
+  });
+
+  test("the first ask creates .askboard/ in the project", async () => {
+    const session = await startSession();
+    expect(existsSync(join(session.project, ".askboard"))).toBe(false);
+    await openedSettings(session);
+    const folder = join(session.project, ".askboard");
+    for (const name of ["snapshots", "media", "patches"]) {
+      expect(existsSync(join(folder, name))).toBe(true);
+    }
+    expect(readFileSync(join(folder, ".gitignore"), "utf8")).toBe(
+      "snapshots/\nmedia/\npatches/\nbench/\n",
+    );
     expect(await session.end()).toBe(0);
   });
 });
