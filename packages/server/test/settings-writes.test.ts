@@ -134,7 +134,7 @@ describe("a board writes only presentation keys", () => {
   test("a valid write reaches ask-core, and the board hears the settings with the outcome", async () => {
     const { board, user, fixture } = await liveBoard();
     board.send(setting("theme", "dark"));
-    const settings = (await board.nextSettings()) as Record<string, any>;
+    const settings = (await board.nextSettings()) as Record<string, unknown>;
     expect(validateBoardMessage("toPage", settings).ok).toBe(true);
     expect(settings).toMatchObject({
       version,

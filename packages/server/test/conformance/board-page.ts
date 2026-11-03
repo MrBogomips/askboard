@@ -170,6 +170,17 @@ export type Offstage = {
   update?(request: UpdateInput): Promise<void>;
 };
 
+/**
+ * A recorded board message as board-host sends it now: ask-core gives every ask's board document
+ * its language and locale, `en-US` when the ask and the configuration name none
+ * (settings-languages, task 3.6); the recordings predate them.
+ */
+export const withLanguage = <T extends object>(expected: T): T => {
+  const { type, document } = expected as { type?: string; document?: object };
+  if (type !== "board" || document === undefined) return expected;
+  return { ...expected, document: { language: "en-US", locale: "en-US", ...document } };
+};
+
 const sameMessage = (received: unknown, expected: object): string | undefined => {
   if (!validateBoardMessage("toPage", received).ok) {
     return `${JSON.stringify(received)} is not a valid board-host message`;
@@ -211,7 +222,8 @@ export const replay = async (
         const socket = await socketOf(step.socket);
         await socket.send(withToken("message" in step ? step.message : step.invalid));
       } else if (step.from === "host" && "message" in step) {
-        const problem = sameMessage(await (await socketOf(step.socket)).next(), step.message);
+        const received = await (await socketOf(step.socket)).next();
+        const problem = sameMessage(received, withLanguage(step.message));
         if (problem !== undefined) problems.push(`socket ${step.socket}: ${problem}`);
       } else if (step.from === "host") {
         const code = await (await socketOf(step.socket)).closed();
