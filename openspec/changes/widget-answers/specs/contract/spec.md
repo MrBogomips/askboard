@@ -13,6 +13,10 @@ The input format SHALL accept an ask of `askId`, optional `title`, `agentName`, 
 - **WHEN** the approved `asks/uj2-wbs-gantt.json`, whose question `plan` holds the molecule references `wbs` and `schedule`, is validated against input format 1.2
 - **THEN** it passes unchanged
 
+#### Scenario: A widget item inside a question
+- **WHEN** a question's props carry `items` holding a `tree`, `gantt` or `molecule` item with its type's props (Items in a question)
+- **THEN** it passes, where input format 1.1 refused any `items`, naming the field
+
 #### Scenario: A widget type the input format does not define
 - **WHEN** a question's props carry `items` holding a `diff-review`, `graph`, `table` or `approval` item, as the approved `uj1` and `uj3` asks do
 - **THEN** validation fails, naming that item's ID and its type

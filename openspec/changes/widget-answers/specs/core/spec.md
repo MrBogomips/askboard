@@ -13,6 +13,10 @@ An answer event SHALL come only from an answer or decline act of the board on a 
 - **WHEN** an answer names a label that is not an option, two labels on a single-choice question, "Other…" text on a question without `allowOther`, no label and no "Other…" text, a `rev` that is not current and not kept, or a `when` that is no real time, such as `2026-02-30T10:00:00Z`
 - **THEN** it is refused and the log is unchanged
 
+#### Scenario: A second answer to an answered question
+- **WHEN** the board sends a second answer to a question already answered as E1's answer command, without an action ID, such as a retry after a dropped connection
+- **THEN** it is refused, the log keeps the first answer only, and the board is told the answer it holds; an answer act with an action ID is instead acknowledged as before when that ID was applied (One command, applied once), or appended as a revision when it is new (Revising an answer)
+
 #### Scenario: An answer to a closed ask
 - **WHEN** the board sends an answer after the agent closed the ask
 - **THEN** it is refused, the log is unchanged, and the board is told the ask is closed

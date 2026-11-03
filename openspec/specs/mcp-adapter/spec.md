@@ -1,6 +1,9 @@
-# Spec Delta
+# mcp-adapter Specification
 
-## MODIFIED Requirements
+## Purpose
+The MCP adapter is how agents reach AskBoard: the session process's tools over stdio, which validate every request against the contract and return compact, typed results, so that every capability works by pull alone (AD-4, AD-6).
+
+## Requirements
 
 ### Requirement: Tool list
 The session process SHALL list exactly `ask`, `update`, `collect` and `fetch`, in that order, with the input schemas, descriptions and annotations of the approved model contract, and the list SHALL NOT change during a session. Each description, and the server instructions, SHALL stay within 4,096 characters, and each full tool name within 128.
@@ -16,27 +19,67 @@ The session process SHALL list exactly `ask`, `update`, `collect` and `fetch`, i
 ### Requirement: Server instructions for the tools listed
 The server instructions SHALL be the approved model contract's instructions, keeping only the lines that apply to the tools listed.
 
+#### Scenario: No instruction names a missing tool
+- **WHEN** a client reads the server instructions
+- **THEN** they name no tool other than the four listed, `ask`, `update`, `collect` and `fetch`, and never `snapshot`, which E7 adds
+
 #### Scenario: The instructions are the approved text
 - **WHEN** a client reads the server instructions
-- **THEN** they equal the approved `server-instructions.md`, which names no tool that is not listed
+- **THEN** they equal the approved `server-instructions.md`, uncut
+
+### Requirement: No side effect before the first request
+The session process SHALL open no port, write no file and start no process until it receives a request other than `server/discover` (AD-2).
+
+#### Scenario: A protocol probe
+- **WHEN** a client starts the session process, sends only `server/discover`, then closes stdin
+- **THEN** no port was opened, no file written and no process started
+
+### Requirement: Validation errors
+The session process SHALL validate every request against the contract. A request the agent must fix SHALL return `isError` text that names the item ID and the expected shape, puts the first problems first and stays under 4,000 characters (AD-6).
+
+#### Scenario: An invalid ask
+- **WHEN** an ask's question has no options
+- **THEN** the result is an error that names the question's item ID and says that `options` is required, and no ask is created
+
+#### Scenario: Many problems
+- **WHEN** a request has more problems than fit in 4,000 characters
+- **THEN** the error text lists the first problems and stays under 4,000 characters
+
+### Requirement: The ask result
+A valid `ask` SHALL return at once, without waiting for the user: its result names the versions it follows, the epoch, the ask ID, state `waiting`, the first cursor and the board link (FR-21).
+
+#### Scenario: An ask returns at once
+- **WHEN** an agent sends the plain-choice ask
+- **THEN** the result arrives before any user action, with state `waiting`, cursor `<epoch>.0` and a link of the form `http://127.0.0.1:<port>/b/<askId>?t=<token>`
 
 ### Requirement: A session without hooks
 An ask that arrives with no agent record SHALL be unchecked: its `ask` result SHALL say that push, ownership checks and the stop guard are unavailable and that the agent must collect before it finishes, and every `update`, `collect` and `fetch` result SHALL mark the ask as unchecked (AD-5).
+
+#### Scenario: E1's sessions have no hooks
+- **WHEN** an agent sends an ask
+- **THEN** the result carries the no-hooks warning, and a later `collect` marks that ask as unchecked
 
 #### Scenario: E3's sessions have no hooks
 - **WHEN** an agent sends an ask, then updates, collects and fetches it
 - **THEN** the `ask` result carries the no-hooks warning, and the `update`, `collect` and `fetch` results mark that ask as unchecked
 
-### Requirement: Result size
-A result SHALL stay under 30,000 characters. A `collect` result that would exceed it SHALL return the events that fit, in order, with `more: true`, and SHALL never split the events of one board command; a command whose events alone exceed the limit SHALL fill a page by itself (AD-6, AD-20).
+### Requirement: No board can be shown
+When no board can be shown, `ask` SHALL return the typed result `unavailable` with its reason and SHALL create no ask (AD-18, NFR-8).
 
-#### Scenario: Paging a large collect
-- **WHEN** the events after the cursors passed exceed 30,000 characters
-- **THEN** the result holds the first events that fit, with `more: true`, and a `collect` after its cursors returns the rest
+#### Scenario: A remote host
+- **WHEN** an ask arrives while `SSH_CONNECTION` is set
+- **THEN** the result is `unavailable`, naming a remote host as the reason, and no board, port or ask exists afterwards
 
-#### Scenario: A submit at a page's edge
-- **WHEN** a page has room for only two of a submit's three events
-- **THEN** the page ends before the submit, and the next `collect` returns all three
+### Requirement: Collecting events
+`collect` SHALL take `{askId, after}` per ask and return, grouped by ask, each ask's ID, state, latest cursor and the events after `after`. An ask ID unknown to the current epoch with a cursor of the current epoch SHALL be an error naming it (AD-3).
+
+#### Scenario: Collecting an answer
+- **WHEN** the user has answered and the agent collects after `<epoch>.0`
+- **THEN** the result holds the ask with state `answered`, cursor `<epoch>.1` and the answer event
+
+#### Scenario: Collecting after a restart
+- **WHEN** the agent collects with a cursor of an earlier epoch
+- **THEN** that ask is reported `discarded`, with no events
 
 ### Requirement: Waiting for an item
 `collect` with `wait` SHALL name a question and return as soon as the log gains an event for it, follow-ups included, or the ask's state changes; and at once when the question is postponed (outcome `postponed`), the ask closed (outcome `closed`) or the ask discarded (state `discarded`). It SHALL send progress at least every 60 s when the request carries a progress token, and SHALL return `open` after 20 minutes (AD-4).
@@ -57,7 +100,27 @@ A result SHALL stay under 30,000 characters. A `collect` result that would excee
 - **WHEN** an agent collects with `wait` and no event arrives within 20 minutes
 - **THEN** the call returns `open`, having sent progress at least every 60 s
 
-## ADDED Requirements
+### Requirement: Result size
+A result SHALL stay under 30,000 characters. A `collect` result that would exceed it SHALL return the events that fit, in order, with `more: true`, and SHALL never split the events of one board command; a command whose events alone exceed the limit SHALL fill a page by itself (AD-6, AD-20).
+
+#### Scenario: Paging a large collect
+- **WHEN** the events after the cursors passed exceed 30,000 characters
+- **THEN** the result holds the first events that fit, with `more: true`, and a `collect` after its cursors returns the rest
+
+#### Scenario: A submit at a page's edge
+- **WHEN** a page has room for only two of a submit's three events
+- **THEN** the page ends before the submit, and the next `collect` returns all three
+
+### Requirement: Exit
+The session process SHALL exit when its stdin closes or on SIGINT, SIGTERM or SIGHUP, after the discard of its open asks (AD-2). Stdout SHALL carry only MCP protocol, and diagnostics SHALL go to stderr with no agent content and no token.
+
+#### Scenario: Claude Code stops the session process
+- **WHEN** the session process receives SIGINT with a board connected
+- **THEN** the board is told the ask was discarded and the process exits
+
+#### Scenario: No token in diagnostics
+- **WHEN** the session process writes diagnostics while asks are open
+- **THEN** stderr holds no board token and no question text
 
 ### Requirement: Updating an ask
 `update` SHALL apply its actions through `ask-core` and return at once the versions, epoch, ask ID, the ask's state and, per action, its item ID with the question's new `rev` where it changed; a recorded answer SHALL be reported with its `who` and `when`. The result SHALL carry no cursor, so the agent's cursor still covers every event it has not collected (AD-3, FR-6).
