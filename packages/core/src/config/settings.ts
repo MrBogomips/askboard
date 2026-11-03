@@ -17,6 +17,7 @@ import {
 } from "@askboard/contract";
 import type { FileState } from "./file.ts";
 import type { Config } from "./ports.ts";
+import { screened } from "./rules.ts";
 
 /** Each key's value in effect; `editor` and `defaultMinimumMargin` only when one is. */
 export type EffectiveValues = {
@@ -43,9 +44,6 @@ const PRESENTATION: ReadonlySet<string> = new Set(PRESENTATION_KEYS);
 /** What the board protocol holds: a warning's key, and the warnings no row holds (task 2.6). */
 export const WARNING_KEY_MAX_CHARS = 256;
 export const WARNINGS_MAX = 64;
-
-const valuesOf = (state: FileState): Partial<ConfigurationValues> =>
-  state.status === "applied" ? state.values : {};
 
 const fileOf = (state: FileState, path: string | undefined): SettingsFile => {
   const where = path === undefined ? {} : { path };
@@ -78,14 +76,23 @@ const rowOf = (
   return { value, from, writable, ...other };
 };
 
+const withWarnings = (row: Row, warnings: readonly SettingWarning[]): Row => {
+  const [first, ...rest] = warnings;
+  return first === undefined ? row : { ...row, warnings: [first, ...rest] };
+};
+
 /** The settings in effect from both files' states. */
 export const mergeSettings = ({ user, project, paths }: FileStates): SettingsInEffect => {
-  const projectValues = valuesOf(project);
-  const userValues = valuesOf(user);
+  const fromProject = screened("project", project);
+  const fromUser = screened("user", user);
+  const dropped = [...fromProject.warnings, ...fromUser.warnings];
   const rows: Record<string, Row> = {};
   const values: Record<string, unknown> = {};
   for (const key of CONFIGURATION_KEYS) {
-    const row = rowOf(key, projectValues, userValues);
+    const row = withWarnings(
+      rowOf(key, fromProject.values, fromUser.values),
+      dropped.filter((warning) => warning.key === key),
+    );
     rows[key] = row;
     if (row.value !== undefined) values[key] = row.value;
   }

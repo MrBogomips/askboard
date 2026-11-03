@@ -16,10 +16,21 @@ const problemText = ({ code, pointer, keyword, error }: FileProblem): string =>
     .filter(Boolean)
     .join(" ");
 
-const warningText = (settings: SettingsInEffect, warning: SettingWarning): string => {
-  const file = where(settings.files[warning.file], warning.file);
-  return `AskBoard: ${file} holds the unknown key ${JSON.stringify(warning.key)}, which is ignored.`;
+const WARNINGS: Readonly<Record<SettingWarning["code"], (warning: SettingWarning) => string>> = {
+  "unknown-key": ({ key }) => `holds the unknown key ${JSON.stringify(key)}, which is ignored.`,
+  "project-editor-ignored": () =>
+    "sets editor, which AskBoard reads from the user file only: it is ignored.",
+  "editor-file-writable-by-others": () =>
+    "can be written by another user, or a folder above it can, or another user owns one: its editor is ignored.",
+  "snapshot-folder-replaced": ({ value }) =>
+    `sets snapshotFolder to ${JSON.stringify(value)}, which leaves the project: .askboard/snapshots is used instead.`,
 };
+
+const warningText = (settings: SettingsInEffect, warning: SettingWarning): string =>
+  `AskBoard: ${where(settings.files[warning.file], warning.file)} ${WARNINGS[warning.code](warning)}`;
+
+const rowWarnings = (settings: SettingsInEffect): SettingWarning[] =>
+  Object.values(settings.rows).flatMap((row) => row.warnings ?? []);
 
 /** Every line the configuration in effect has to say on stderr. */
 export const configurationDiagnostics = (settings: SettingsInEffect): string[] => {
@@ -31,6 +42,8 @@ export const configurationDiagnostics = (settings: SettingsInEffect): string[] =
       `AskBoard: ${where(file, name)} is not applied: ${problemText(file.problem)}; none of its keys count.`,
     );
   }
-  for (const warning of settings.warnings) lines.push(warningText(settings, warning));
+  for (const warning of [...rowWarnings(settings), ...settings.warnings]) {
+    lines.push(warningText(settings, warning));
+  }
   return lines;
 };
