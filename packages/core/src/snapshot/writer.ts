@@ -1,7 +1,7 @@
 // The driven port through which `ask-core` hands a Snapshot's data to the `snapshot` unit, and the
 // error it rejects with (snapshot design decision 3, open question B1). `snapshot` implements the
-// port and the entry point wires it. The `CorePorts` field and the `snapshot` command come with
-// group 0, beside E3's and E4's names.
+// port and the entry point wires it, with the display project folder of the origin row, as E7's
+// `CorePorts` field (`SnapshotPorts`).
 
 import type { SnapshotData } from "@askboard/contract";
 
@@ -65,3 +65,13 @@ export class SnapshotWriteError extends Error {
     );
   }
 }
+
+/**
+ * E7's `CorePorts` field (design decisions 3 and 6, Two project values): the writer, and the
+ * project folder `board-host` names the origin row with (`PushComposition.projectDir`), for the
+ * Snapshot data's origin only; without it the data holds no origin, as `board-host` then sends none.
+ */
+export type SnapshotPorts = {
+  readonly writer: SnapshotWriter;
+  readonly projectDir?: string;
+};

@@ -1,13 +1,20 @@
 // Helpers for the Snapshot tests (snapshot, group 2): a fake writer that records what it was handed,
-// and the lifecycle ask played as the contract's Snapshot fixture tells it, from E3's fixtures, on a
-// core whose clock the test sets.
+// a core with E7's ports beside push delivery's record table, and the lifecycle ask played as the
+// contract's Snapshot fixture tells it, from E3's fixtures, on a core whose clock the test sets.
 
 import type { Act, AnswerEvent, OutputEvent, SnapshotData, UpdateAction } from "@askboard/contract";
 import { LIFECYCLE, lifecycleCollectResult, lifecycleUpdate } from "@askboard/contract/fixtures";
-import type { Origin, SnapshotWriter } from "../src/index.ts";
-import { fakeClock } from "./fakes.ts";
+import {
+  AskCore,
+  type CoreEvent,
+  type HeaderPorts,
+  type Origin,
+  type SnapshotPorts,
+  type SnapshotWriter,
+} from "../src/index.ts";
+import { type FakeOptions, fakeClock, fakePorts } from "./fakes.ts";
 import { areasAsk, command, LIFECYCLE_ID } from "./lifecycle-fakes.ts";
-import { callOf, pushCoreWith } from "./push-fakes.ts";
+import { callOf, fakeRecordTable } from "./push-fakes.ts";
 
 /** The folder the fixture's Snapshots go to, and the path the fake writer gives. */
 export const SNAPSHOT_FOLDER = "/home/sara/shop/.askboard/snapshots";
@@ -97,6 +104,29 @@ const actionOf = <K extends UpdateAction["action"]>(kind: K) =>
     { action: K }
   >;
 
+export type SnapshotFakeOptions = FakeOptions & {
+  /** E7's `CorePorts` field: without it, the core has no Snapshot writer. */
+  readonly snapshots?: SnapshotPorts;
+  /** The context header's ports, for the expected answerer. */
+  readonly header?: HeaderPorts;
+};
+
+/** ask-core with E1's fake ports, a fake record table and, when given, E7's ports. */
+export const snapshotCoreWith = (options: SnapshotFakeOptions = {}) => {
+  const fakes = fakePorts(options);
+  const table = fakeRecordTable();
+  const { snapshots, header } = options;
+  const core = new AskCore({
+    ...fakes.ports,
+    records: table.port,
+    ...(header === undefined ? {} : { header }),
+    ...(snapshots === undefined ? {} : { snapshots }),
+  });
+  const heard: CoreEvent[] = [];
+  core.subscribe((event) => heard.push(event));
+  return { core, heard, table, ...fakes };
+};
+
 const applied = (outcome: { readonly ok: boolean } | { readonly kind: string }) => {
   if ("ok" in outcome ? outcome.ok : outcome.kind === "updated") return;
   throw new Error(`the step was not applied: ${JSON.stringify(outcome)}`);
@@ -109,10 +139,11 @@ const applied = (outcome: { readonly ok: boolean } | { readonly kind: string }) 
  * the launch question added with the user's answer recorded, then the analytics question
  * postponed; the clock stands at the Snapshot's time, 14:30. Returns the ask's board link too.
  */
-export const lifecycleSnapshotCore = async () => {
+export const lifecycleSnapshotCore = async (snapshots?: SnapshotPorts) => {
   const clock = fakeClock(Date.parse("2026-10-31T14:00:00Z"));
   const header = { backgroundThresholdMs: 120_000 };
-  const fixture = pushCoreWith({ clock, git: "Paolo Ferri", header });
+  const options = { clock, git: "Paolo Ferri", header };
+  const fixture = snapshotCoreWith(snapshots === undefined ? options : { ...options, snapshots });
   const { core, table } = fixture;
   table.add({ ownerKey: SHOP_OWNER, tool: "ask", askIds: [LIFECYCLE_ID], origin: SHOP_ORIGIN });
   const created = await core.ask(areasAsk(), callOf("ask", LIFECYCLE_ID));
