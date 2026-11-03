@@ -94,7 +94,7 @@ describe("kept for the whole ask", () => {
     const later = askWith({ askId: "later-ask-k3m9" });
     await core.ask(later);
     expect(core.board(later.askId)?.document).toMatchObject(both("it-IT"));
-    expect(calls.sort()).toEqual(["project", "user"]);
+    expect(calls.sort()).toEqual(["folders", "project", "user"]);
   });
 
   test("a refused ask reads no setting", async () => {

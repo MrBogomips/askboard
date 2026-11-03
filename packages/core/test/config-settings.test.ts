@@ -22,7 +22,7 @@ describe("reading the configuration once, on first use", () => {
     const { config, calls } = fakeConfig({ user: { version: v, theme: "dark" } });
     const { core } = coreWith({ config });
     await core.ask(plainChoiceAsk());
-    expect(calls.sort()).toEqual(["project", "user"]);
+    expect(calls.sort()).toEqual(["folders", "project", "user"]);
   });
 
   test("both files are read once, however many calls and asks follow", async () => {
@@ -33,7 +33,7 @@ describe("reading the configuration once, on first use", () => {
     await core.ask({ ...plainChoiceAsk(), askId: "second-ask" });
     expect(await core.settings()).toBe(all[0]);
     expect(new Set(all).size).toBe(1);
-    expect(calls.sort()).toEqual(["project", "user"]);
+    expect(calls.sort()).toEqual(["folders", "project", "user"]);
   });
 });
 

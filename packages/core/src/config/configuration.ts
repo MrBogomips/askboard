@@ -1,11 +1,12 @@
-// ask-core's one reader of the configuration (settings-languages design decisions 3, 4 and 6): both
-// files are read the first time a setting is needed, once, and the settings in effect are kept for
-// the session (AD-2, AD-14); a board reads the user file's presentation keys again, and writes one.
+// ask-core's one reader of the configuration (settings-languages design decisions 3, 4, 6 and 13):
+// both files are read the first time a setting is needed, once, and the settings in effect are kept
+// for the session (AD-2, AD-14); a board reads the user file's presentation keys again, and writes
+// one; the first accepted ask creates the project folders.
 
 import type { PresentationSetting, WriteOutcome } from "@askboard/contract";
 import type { Report } from "../ports.ts";
 import type { Diagnose } from "../push/ports.ts";
-import { configurationDiagnostics } from "./diagnostics.ts";
+import { configurationDiagnostics, foldersFailed } from "./diagnostics.ts";
 import { type FileState, fileState } from "./file.ts";
 import type { Config, FileRead } from "./ports.ts";
 import { boardSettings, isPresentationSetting, outcomeOf, withSetting } from "./presentation.ts";
@@ -29,6 +30,7 @@ export type ConfigurationPorts = {
 export class Configuration {
   readonly #ports: ConfigurationPorts;
   #first: Promise<FirstRead> | undefined;
+  #folders = false;
 
   constructor(ports: ConfigurationPorts) {
     this.#ports = ports;
@@ -63,6 +65,26 @@ export class Configuration {
       report(error);
       return outcomeOf(key, { kind: "failed", code: EIO }, config.paths.user);
     }
+  }
+
+  /**
+   * Creates the project folders, once, at the first accepted ask, without waiting for them: a
+   * failure is said on stderr and never refuses the ask (design decision 13).
+   */
+  ensureFolders(): void {
+    const { config, report } = this.#ports;
+    if (config === undefined || this.#folders) return;
+    this.#folders = true;
+    config.ensureProjectFolders().then((result) => {
+      if (result.kind === "failed") this.#say(foldersFailed(result));
+    }, report);
+  }
+
+  // A line for stderr, through `diagnose`, else as a failure `Report` takes.
+  #say(line: string): void {
+    const { diagnose, report } = this.#ports;
+    if (diagnose === undefined) report(new Error(line));
+    else diagnose(line);
   }
 
   #firstRead(): Promise<FirstRead> {

@@ -4,6 +4,7 @@
 // so an `editor` never reaches stderr.
 
 import type { FileProblem, SettingsFile, SettingWarning } from "@askboard/contract";
+import type { FolderResult } from "./ports.ts";
 import type { SettingsInEffect } from "./settings.ts";
 
 const FILE_NAMES = { user: "the user file", project: "the project file" } as const;
@@ -47,3 +48,7 @@ export const configurationDiagnostics = (settings: SettingsInEffect): string[] =
   }
   return lines;
 };
+
+/** The line for project folders the first ask could not create; the path is quoted as JSON. */
+export const foldersFailed = ({ path, code }: Extract<FolderResult, { kind: "failed" }>): string =>
+  `AskBoard: .askboard/ could not be created at ${JSON.stringify(path)} (${code}); the ask goes on without it.`;

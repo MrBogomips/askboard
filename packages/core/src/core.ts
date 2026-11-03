@@ -684,6 +684,7 @@ export class AskCore {
       ...language,
     });
     this.#asks.set(askId, ask);
+    this.#configuration.ensureFolders();
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
     const warnings = ask.contextWarnings;
