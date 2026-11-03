@@ -174,3 +174,8 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
 
   return { address, close };
 };
+
+// Snapshots (E7, snapshot design decision 6): the view build as board-host loads and checks it, for
+// the entry point's `viewBuild` port.
+
+export { type LoadedView, loadView } from "./view.ts";
