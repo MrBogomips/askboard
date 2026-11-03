@@ -70,19 +70,21 @@ const pathsOf = (id: string, value: unknown) => {
 };
 
 describe("the tool definitions", () => {
-  test("are the approved ask, update, collect and fetch, in that order and unchanged", () => {
+  test("are the approved ask, update, collect, fetch and snapshot, in that order and unchanged", () => {
     const byName = (name: string) => approved.tools.find((tool) => tool.name === name);
     expect(TOOL_DEFINITIONS.map((tool) => tool.name)).toEqual([
       "ask",
       "update",
       "collect",
       "fetch",
+      "snapshot",
     ]);
     expect(TOOL_DEFINITIONS).toEqual([
       byName("ask"),
       byName("update"),
       byName("collect"),
       byName("fetch"),
+      byName("snapshot"),
     ] as never);
   });
 
@@ -168,7 +170,7 @@ describe("the server instructions", () => {
     expect(SERVER_INSTRUCTIONS).toBe(text.trimEnd());
   });
 
-  test("name the four tools listed and no other AskBoard tool", () => {
+  test("name ask, update, collect and fetch, and not snapshot, which the approved text leaves out", () => {
     for (const tool of ["ask", "update", "collect", "fetch"]) {
       expect(SERVER_INSTRUCTIONS).toContain(`\`${tool}\``);
     }

@@ -24,6 +24,8 @@ import collectResult from "./collect-result.json" with { type: "json" };
 import fetchOutcome from "./fetch-outcome.json" with { type: "json" };
 import fetchPage from "./fetch-page.json" with { type: "json" };
 import fetchResult from "./fetch-result.json" with { type: "json" };
+import snapshotOutcome from "./snapshot-outcome.json" with { type: "json" };
+import snapshotResult from "./snapshot-result.json" with { type: "json" };
 import definitions from "./tools.json" with { type: "json" };
 import updateOutcome from "./update-outcome.json" with { type: "json" };
 import updateResult from "./update-result.json" with { type: "json" };
@@ -45,8 +47,9 @@ export type ToolDefinition = {
 };
 
 /**
- * The contract's copy of the approved `ask`, `update`, `collect` and `fetch` definitions, in the
- * order `tools/list` lists them (AD-6; ask-lifecycle, open question 1).
+ * The contract's copy of the approved `ask`, `update`, `collect`, `fetch` and `snapshot`
+ * definitions, in the order `tools/list` lists them (AD-6; ask-lifecycle, open question 1; snapshot
+ * design decision 2).
  */
 export const TOOL_DEFINITIONS: readonly ToolDefinition[] = definitions.tools;
 
@@ -82,6 +85,10 @@ export const toolEnvelopes: SchemaSet = {
     fetchResult,
     fetchPage,
     fetchOutcome,
+    // E7 (snapshot, design decision 2): the snapshot request, result and typed result.
+    requestSchema("snapshot"),
+    snapshotResult,
+    snapshotOutcome,
   ],
 };
 
@@ -265,3 +272,26 @@ export type FetchQuestionProps = Omit<QuestionProps, "items"> & {
 
 /** A question of a fetched area. */
 export type FetchQuestion = Omit<BoardQuestion, "props"> & { readonly props: FetchQuestionProps };
+
+// Tool envelopes 1.2 (snapshot, design decision 2).
+
+/** A `snapshot` request: the ask, and nothing else. */
+export type SnapshotRequest = { readonly askId: string };
+
+/** What `snapshot` returns once the file is written: its absolute path, never its content. */
+export type SnapshotResult = {
+  readonly versions: ResultVersions;
+  readonly epoch: string;
+  readonly askId: string;
+  readonly state: AskState;
+  readonly path: string;
+  readonly unchecked?: true;
+};
+
+/** `snapshot` on a discarded ask, or one unknown to the epoch: a typed result. */
+export type SnapshotOutcomeResult = {
+  readonly versions: ResultVersions;
+  readonly epoch: string;
+  readonly askId: string;
+  readonly outcome: "discarded";
+};

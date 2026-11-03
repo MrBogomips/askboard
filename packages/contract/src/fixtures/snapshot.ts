@@ -1,5 +1,5 @@
 // The Snapshot fixtures (snapshot design decision 2): the Snapshot data of an agent's Snapshot of
-// E3's lifecycle ask, built from its fixtures. The agent has added the launch question and recorded
+// E3's lifecycle ask, built from its fixtures, and what `snapshot` returns for it. The agent has added the launch question and recorded
 // the user's answer to it, reworded the rollout question to rev 2 and replied to its follow-up; the
 // log is the lifecycle collect result's, then a postpone of the analytics question. So the data
 // holds both areas, a postponed question, a decline, a recorded answer, an answer on the rollout
@@ -19,6 +19,7 @@ import {
 import type { AddAction, ChangeAction, ReplyAction, UpdateAction } from "../schemas/input/index.ts";
 import { OUTPUT_FORMAT_VERSION } from "../schemas/output/index.ts";
 import { SNAPSHOT_DATA_VERSION, type SnapshotData } from "../schemas/snapshot-data/index.ts";
+import { RESULT_VERSIONS, type SnapshotResult } from "../schemas/tool-envelopes/index.ts";
 import {
   LIFECYCLE,
   lifecycleBoardDocument,
@@ -146,4 +147,13 @@ export const lifecycleSnapshotData: SnapshotData = {
     forUser: sara,
   }),
   events: events.map((event) => ({ event })) as SnapshotData["events"],
+};
+
+/** What `snapshot` returns for that Snapshot: the ask's state and the file's absolute path. */
+export const lifecycleSnapshotResult: SnapshotResult = {
+  versions: RESULT_VERSIONS,
+  epoch,
+  askId,
+  state: state.ask,
+  path: `/home/sara/shop/.askboard/snapshots/${askId}-20261031T143000Z-k3x9a1.html`,
 };

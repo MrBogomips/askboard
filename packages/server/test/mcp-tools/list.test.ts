@@ -16,10 +16,16 @@ const FULL_NAME = (tool: string) => `mcp__plugin_askboard_askboard__${tool}`;
 const LIMIT = 4_096;
 
 describe("the tool list", () => {
-  test("is exactly ask, update, collect and fetch, as the contract's copy of the approved definitions", async () => {
+  test("is exactly ask, update, collect, fetch and snapshot, as the contract's copy of the approved definitions", async () => {
     const { client, close } = await connect(depsWith(fakeCore()).deps);
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "ask",
+      "update",
+      "collect",
+      "fetch",
+      "snapshot",
+    ]);
     expect(tools).toEqual(TOOL_DEFINITIONS as never);
     expect(await client.listTools()).toEqual({ tools } as never);
     await close();
@@ -47,20 +53,25 @@ describe("the tool list", () => {
 
   test("an unknown tool is an error naming the tools AskBoard lists", async () => {
     const { client, close } = await connect(depsWith(fakeCore()).deps);
-    const result = await client.callTool({ name: "snapshot", arguments: {} });
+    const result = await client.callTool({ name: "draw", arguments: {} });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toBe(
-      'AskBoard has no tool "snapshot": it lists ask, update, collect and fetch.',
+      'AskBoard has no tool "draw": it lists ask, update, collect, fetch and snapshot.',
     );
     await close();
   });
 
-  test("lists the approved definitions of the model contract unchanged, without snapshot (E7)", async () => {
+  test("lists the approved definitions of the model contract unchanged, snapshot's included (E7)", async () => {
     const approved = (await approvedFile("tools.json").json()) as { tools: { name: string }[] };
-    const listed = approved.tools.filter(({ name }) => name !== "snapshot");
-    expect(listed.map(({ name }) => name)).toEqual(["ask", "update", "collect", "fetch"]);
+    expect(approved.tools.map(({ name }) => name)).toEqual([
+      "ask",
+      "update",
+      "collect",
+      "fetch",
+      "snapshot",
+    ]);
     const { client, close } = await connect(depsWith(fakeCore()).deps);
-    expect((await client.listTools()).tools).toEqual(listed as never);
+    expect((await client.listTools()).tools).toEqual(approved.tools as never);
     await close();
   });
 });

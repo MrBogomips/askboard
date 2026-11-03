@@ -134,7 +134,7 @@ describe("the first request", () => {
         throw new RangeError("no session folder");
       },
     });
-    expect((await client.listTools()).tools).toHaveLength(4);
+    expect((await client.listTools()).tools).toHaveLength(5);
     expect(written).toEqual(["askboard: starting at the first request failed: RangeError"]);
     proc.emit("SIGTERM");
     await served.ended;

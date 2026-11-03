@@ -373,6 +373,7 @@ export { type AgentTextRun, agentTextPiece, agentTextRuns } from "./push/notice-
 
 export { originMessage, type WhoAskedFields } from "./push/origin-message.ts";
 
+<<<<<<< HEAD
 // Molecules (molecules): the reference and definition formats, their checks and JSON Pointers.
 
 // Molecules (molecules): the reference and definition formats, their checks and JSON Pointers,
@@ -488,6 +489,10 @@ export type {
 
 // Snapshots (E7, snapshot design decision 2): the Snapshot data set, the file name and the JSON
 // blocks' element IDs.
+=======
+// Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
+// the file name and the JSON blocks' element IDs.
+>>>>>>> 1ffc696 (feat(contract): the snapshot tool's definition, request, result and typed result)
 
 export {
   SNAPSHOT_DATA_ID,
@@ -500,6 +505,11 @@ export {
   type SnapshotRevision,
   snapshotDataSet,
 } from "./schemas/snapshot-data/index.ts";
+export type {
+  SnapshotOutcomeResult,
+  SnapshotRequest,
+  SnapshotResult,
+} from "./schemas/tool-envelopes/index.ts";
 export {
   SNAPSHOT_DATA_ELEMENT,
   SNAPSHOT_LICENCES_ELEMENT,

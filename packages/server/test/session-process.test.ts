@@ -40,7 +40,13 @@ describe("the composed session process", () => {
     const { script, record } = recorder("browser");
     const run = await start({ BROWSER: script });
     const { tools } = await run.client.listTools();
-    expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "ask",
+      "update",
+      "collect",
+      "fetch",
+      "snapshot",
+    ]);
 
     const asked = await run.call("ask", plainChoiceAsk());
     const link = new URL(asked.board);
