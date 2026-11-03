@@ -176,6 +176,7 @@ The seam's discovery finds `packages/widgets/src/gantt/index.tsx`. The `gantt` c
 - [Treating a plan's Tree as a WBS may differ from what the WBS-with-PERT change decides] → `boardGraphSource` is the one place that decides it, and the spec scenario pins only the UJ-2 values.
 - [The answer's `finish` is `compute`'s `finishDate`, not its `finish`] → `GANTT_ANSWER_DERIVED` names both sides, and the UJ-2 check compares the approved value.
 - [The expansion may name the plan's items differently from the fixtures] → The fixtures use the reference's IDs, which answers use (AD-9); the molecules epic maps between the two, and the molecule's tests do not depend on the item ID.
+- [Known limit: the chart's width is unbounded for far-future dates, so past each engine's clamp the bars no longer line up with the grid rows] → Kept as found by the PO on 2026-11-03 (Open Questions, 2); the axis ticks stay capped at 2,000 (task 9.2).
 - [The port and the view protocol are seam files, and their integration is still open] → Each addition is small, tested first and listed in the proposal's merge points; E1's and the Tree's browser suites run in every task that touches the view.
 
 ## Migration Plan
@@ -184,11 +185,14 @@ None: nothing reaches an agent yet. Reverting the change removes the widget, the
 
 ## Open Questions
 
-1. **FR-12: the derived values of a computing item the user did not edit** (open; the team lead hands it to Track B and the PO). Editing only a plan's Tree moves the plan's finish and critical path, but the answer carries no `schedule.*` derived value: the question card sends the derived values only of the items it sends `values` for (decision 10), as the view spec's "Answering a question with a Gantt" says ("and nothing for an untouched Gantt"). FR-12 wants the consequences of an edit computed on the board and reported. The options:
+1. **FR-12: the derived values of a computing item the user did not edit** (answered: option (a), 2026-11-03). Editing only a plan's Tree moves the plan's finish and critical path, but the answer carries no `schedule.*` derived value: the question card sends the derived values only of the items it sends `values` for (decision 10), as the view spec's "Answering a question with a Gantt" says ("and nothing for an untouched Gantt"). FR-12 wants the consequences of an edit computed on the board and reported. The options:
    - **(a), the default:** the answer carries the declared derived values of every computing item in the question, changed or not. The change lands in `widget-answers`, whose send path takes over `withDerived` and whose `ask-core` checks already admit `derived` for any widget item of the question; that requirement of this change's view spec is then modified there.
    - **(b):** the exception is recorded against FR-12: an answer reports the derived values only of the items it changes, and an agent that needs a moved plan's finish computes it from the answer's values.
 
-   Until it is decided, the code keeps decision 10's behaviour.
+   - **Answer (PO, 2026-11-03):** option (a): an answer will carry the declared derived values of every computing item in the question, changed or not. It is implemented in the `widget-answers` change, which modifies this change's view spec requirement "Answering a question with a Gantt" there. Until then, the Gantt's code keeps decision 10's behaviour: the question card sends the derived values only of the items in `values`.
+
+2. **The chart's width for far-future dates** (the LOW found by task 9.2). `scale.ts` caps the axis at 2,000 ticks (66d5cf6), but nothing bounds the chart's width: a Gantt whose reporting starts on 9999-12-31 makes it about 43.7M px, each engine clamps it (Chromium and WebKit to 33,554,428 px, Firefox to 17,895,190 px) and its `viewBox` scales it down, so the bars no longer line up with the grid rows, and Firefox draws no far bar. *Alternative:* bound the chart's width as well.
+   - **Answer (PO, 2026-11-03):** keep as found: the width stays unbounded, and the tick cap of task 9.2 is the only bound.
 
 ## Handed on
 
