@@ -24,8 +24,10 @@ import { cleanUp } from "./session.ts";
 afterEach(cleanUp);
 afterEach(removeShortFolders);
 
-const hasReceipt = (pending: readonly unknown[]): boolean =>
-  pending.some((message) => (message as { type?: string }).type === "receipt");
+const hasMessage = (pending: readonly unknown[], type: string): boolean =>
+  pending.some((message) => (message as { type?: string }).type === type);
+
+const hasReceipt = (pending: readonly unknown[]): boolean => hasMessage(pending, "receipt");
 
 const noMod = { mod: false } as const;
 
@@ -97,6 +99,34 @@ describe("the stop guard, without push", () => {
     expect(await nextOfType(board, "closed")).toMatchObject({ reason: "agent-finished" });
     answer(board, ["DynamoDB"]);
     expect(await nextOfType(board, "refused")).toMatchObject({ reason: "answer" });
+    expect(await session.end()).toBe(0);
+  });
+});
+
+describe("an in-process teammate, without the mod's report", () => {
+  // The PO's probe (task 17.6): an in-process teammate's hooks give an opaque `agent_id`. With no
+  // mod to report it, the stop route takes an agent whose ID reads `a<agent_type>-<hex>` for a
+  // teammate going idle, while its label stays a subagent's (design decision 4, Origin, plan B).
+  test("its stop with nothing to give goes through and leaves its ask open, to answer and deliver by the guard", async () => {
+    const teammate = subagent("aresearcher-096d99adc3d94b0a", "researcher");
+    const { session } = await startClaudeSession(noMod);
+    const askId = "teammate-no-mod-k3f9";
+    const { board } = await askAndConnect(session, teammate, askId);
+    expect(await headerOf(board, "origin")).toMatchObject({
+      who: { label: "Subagent researcher" },
+    });
+    expect(await stopAs(session, teammate, false)).toEqual({ code: 0, stdout: "", stderr: "" });
+    // Still open: the answer is taken, and the teammate's next turn end carries it.
+    answer(board, ["SQLite"]);
+    expect(await nextOfType(board, "state")).toMatchObject({ state: { ask: "answered" } });
+    expect(hasMessage(board.pending, "closed")).toBe(false);
+    const blocked = await stopAs(session, teammate, false);
+    const output = JSON.parse(blocked.stdout) as { decision: string; reason: string };
+    expect(output.decision).toBe("block");
+    expect(pushedMessage(output.reason)).toMatchObject({
+      asks: [{ askId, events: [{ type: "answer", choice: ["SQLite"] }] }],
+    });
+    expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
     expect(await session.end()).toBe(0);
   });
 });
