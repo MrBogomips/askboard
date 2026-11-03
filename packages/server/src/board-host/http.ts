@@ -122,7 +122,8 @@ const replyTo = (deps: HttpDeps, request: IncomingMessage): Reply => {
   if (gateOf(request, false) !== undefined) return text(BOARD_RESPONSES.refused);
   const { route: target, query } = targetOf(request.url);
   const readable = request.method === "GET" || request.method === "HEAD";
-  if (target === undefined || !readable || target.kind === "socket") {
+  // The source view's branch comes with it (excerpts, task 5.2); until then `/s/` names nothing.
+  if (target === undefined || !readable || target.kind === "socket" || target.kind === "source") {
     return text(BOARD_RESPONSES.notFound);
   }
   if (target.kind === "board") return boardPage(deps, target.askId, query);

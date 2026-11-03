@@ -127,7 +127,14 @@ describe("shared constants (contract spec; design decisions 2 and 5)", () => {
 
 describe("board routes and the token header (design decision 5)", () => {
   test("the routes and the token's places", () => {
-    expect(BOARD_ROUTES).toEqual({ board: "/b/", chunk: "/c/", manifest: "/m", socket: "/ws/" });
+    // `/s/`, the source view, since the excerpts change (design decision 2).
+    expect(BOARD_ROUTES).toEqual({
+      board: "/b/",
+      chunk: "/c/",
+      manifest: "/m",
+      socket: "/ws/",
+      source: "/s/",
+    });
     expect(manifestPath()).toBe("/m");
     expect(BOARD_TOKEN_QUERY).toBe("t");
     expect(BOARD_TOKEN_HEADER).toBe("X-AskBoard-Token");

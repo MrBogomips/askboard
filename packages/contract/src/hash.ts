@@ -44,8 +44,9 @@ const hashSources = (files: readonly ManifestFile[]): string => {
  * sources; nothing else, and no form post (AD-11) or page framing the board. `base-uri 'self'` admits
  * the page's static `<base href="/">`, which gives the srcdoc view a base URL without the token, and
  * no base of another origin.
- * `frame-src 'self'` waits for the reading panel (E5). One rule for `board-host` and the view's test
- * server, so that the browser tests meet the policy the session process sends.
+ * `frame-src 'self'` lets the reading panel frame the source view of the board's own origin
+ * (excerpts, design decision 2). One rule for `board-host` and the view's test server, so that the
+ * browser tests meet the policy the session process sends.
  */
 export const boardPagePolicy = (manifest: ViewManifest): string => {
   const chunks = Object.values(manifest.chunks);
@@ -58,8 +59,24 @@ export const boardPagePolicy = (manifest: ViewManifest): string => {
     "connect-src 'self'",
     "img-src data: blob:",
     "font-src data:",
+    "frame-src 'self'",
     "base-uri 'self'",
     "form-action 'none'",
     "frame-ancestors 'none'",
   ].join("; ");
 };
+
+/**
+ * The source view's Content-Security-Policy (excerpts, design decision 2; proposal A2): nothing but
+ * its one inlined stylesheet, by the hash `board-host` computes at build time, and `data:` images;
+ * only a page of its own origin may frame it; no base URL and no form. It names no script source.
+ */
+export const sourceViewPolicy = (styleSha256: string): string =>
+  [
+    "default-src 'none'",
+    `style-src ${cspHashSource(styleSha256)}`,
+    "img-src data:",
+    "frame-ancestors 'self'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join("; ");

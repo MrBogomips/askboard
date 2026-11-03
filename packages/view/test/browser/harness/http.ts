@@ -95,7 +95,8 @@ export const answerHttp = (
   if (request.method !== "GET" && request.method !== "HEAD") return notFound();
   const url = new URL(request.url);
   const route = parseBoardRoute(url.pathname);
-  if (route === undefined || route.kind === "socket") return notFound();
+  // The fixture source view comes with the reading panel (excerpts, task 6.6).
+  if (route === undefined || route.kind === "socket" || route.kind === "source") return notFound();
   if (route.kind === "board") return boardPage(url, route.askId, view, access);
   if (request.headers.get(BOARD_TOKEN_HEADER) !== access.token || access.state !== "open") {
     return tokenRefused();
