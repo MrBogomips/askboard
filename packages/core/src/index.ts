@@ -125,3 +125,15 @@ export type {
 } from "./context/ports.ts";
 export { rootOf } from "./context/root.ts";
 export type { EditorLaunchTarget, Source } from "./context/source.ts";
+// Settings and languages (E8, settings-languages design decisions 3 and 4): the configuration's
+// port and the settings in effect.
+
+export type {
+  Config,
+  FileRead,
+  FolderResult,
+  RefusalCode,
+  Replace,
+  WriteResult,
+} from "./config/ports.ts";
+export type { EffectiveValues, SettingsInEffect } from "./config/settings.ts";

@@ -40,6 +40,8 @@ import {
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
+import { Configuration } from "./config/configuration.ts";
+import type { SettingsInEffect } from "./config/settings.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -186,6 +188,8 @@ export class AskCore {
   #ending = false;
   readonly #push: PushDelivery;
   readonly #statuses: AgentStatuses;
+  // settings-languages: the configuration, read on first use.
+  readonly #configuration: Configuration;
 
   constructor(ports: CorePorts) {
     this.#ports = ports;
@@ -198,6 +202,7 @@ export class AskCore {
     this.#statuses = new AgentStatuses(ports.header, ports.clock, (askId, status) =>
       this.#publish({ type: "agent", askId, status }),
     );
+    this.#configuration = new Configuration(ports);
   }
 
   /**
@@ -731,5 +736,15 @@ export class AskCore {
       report(error);
     }
     return expectedAnswerer(input.expectedUser, gitUser);
+  }
+
+  // Settings and languages (E8, settings-languages design decisions 3 to 7).
+
+  /**
+   * The settings in effect: both configuration files are read on the first call and kept for the
+   * session, so a change to a behaviour key applies from the next session (AD-14, FR-35).
+   */
+  settings(): Promise<SettingsInEffect> {
+    return this.#configuration.inEffect();
   }
 }

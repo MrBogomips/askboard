@@ -3,6 +3,7 @@
 
 import type { UnavailableReason } from "@askboard/contract";
 import type { SourceFiles } from "./context/ports.ts";
+import type { Config } from "./config/ports.ts";
 import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
 
 /**
@@ -95,4 +96,6 @@ export type CorePorts = {
    * `no-root`, whatever an ask's origin says (excerpts, design decision 4, Root).
    */
   readonly projectRoot?: string;
+  /** The configuration files (settings-languages); without it every key takes its default. */
+  readonly config?: Config;
 };

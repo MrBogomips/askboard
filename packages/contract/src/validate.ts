@@ -347,4 +347,7 @@ export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets
 export { contextDocumentProblems } from "./context/document.ts";
 // Settings and languages (E8, settings-languages design decision 2): a configuration file.
 
-export { validateConfiguration } from "./schemas/configuration/validate.ts";
+export {
+  configurationProblem,
+  validateConfiguration,
+} from "./schemas/configuration/validate.ts";

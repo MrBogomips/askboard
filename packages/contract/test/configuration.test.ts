@@ -10,7 +10,12 @@ import {
   SCHEMA_SET_OWNERS,
   SCHEMA_SETS,
 } from "../src/index.ts";
-import { type Problem, schemaSetProblems, validateConfiguration } from "../src/validate.ts";
+import {
+  configurationProblem,
+  type Problem,
+  schemaSetProblems,
+  validateConfiguration,
+} from "../src/validate.ts";
 
 // The configuration schema set (settings-languages design decision 2; contract spec, "The
 // configuration schema set", "The editor key is an argument vector", "The presentation keys are a
@@ -180,5 +185,32 @@ describe("the set", () => {
     expect(SCHEMA_IDS.configuration).toBe("urn:askboard:configuration:config");
     const [schema] = configurationSet.schemas as [{ $id: string }];
     expect(schema.$id).toBe(SCHEMA_IDS.configuration);
+  });
+});
+
+// settings-languages task 3.2: why a file is not applied, for ask-core's diagnostic and the panel.
+describe("configurationProblem", () => {
+  test("a file that passes has none", () => {
+    expect(configurationProblem({ version: "1.0", theme: "dark", fontSize: 14 })).toBeUndefined();
+  });
+
+  test("a major other than 1 names the version", () => {
+    expect(configurationProblem({ version: "2.0", theme: "dark" })).toEqual({
+      code: "version",
+      pointer: "/version",
+    });
+  });
+
+  test("a schema failure names its first JSON pointer and Ajv's keyword", () => {
+    expect(configurationProblem({ version: "1.0", askingRule: "always", theme: "sepia" })).toEqual({
+      code: "schema",
+      pointer: "/theme",
+      keyword: "enum",
+    });
+    expect(configurationProblem({ version: "1.0", editor: ["code", 7] })).toEqual({
+      code: "schema",
+      pointer: "/editor/1",
+      keyword: "type",
+    });
   });
 });
