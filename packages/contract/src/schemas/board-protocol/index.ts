@@ -24,7 +24,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.1";
+export const BOARD_PROTOCOL_VERSION = "1.2";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -268,6 +268,8 @@ export type DraftQuestion = {
   /** The follow-up composer's text. */
   readonly composer?: string;
   readonly held?: HeldAct;
+  /** Where the user placed the question's context, since 1.2; never unsent work (excerpts). */
+  readonly context?: "beside" | "inline";
 };
 
 /** The board's unsent work (AD-20), held apart from the log; never sent to the agent. */

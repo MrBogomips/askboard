@@ -24,7 +24,7 @@ import updateOutcome from "./update-outcome.json" with { type: "json" };
 import updateResult from "./update-result.json" with { type: "json" };
 import versions from "./versions.json" with { type: "json" };
 
-export const TOOL_ENVELOPES_VERSION = "1.1";
+export const TOOL_ENVELOPES_VERSION = "1.2";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {
@@ -163,6 +163,8 @@ export type UpdateResult = {
   readonly state: AskState;
   readonly applied: readonly AppliedAction[];
   readonly unchecked?: true;
+  /** Since 1.2: the unresolved pointers of the questions the update revised (excerpts). */
+  readonly warnings?: readonly Warning[];
 };
 
 /** `update` on a closed or discarded ask, or one unknown to the epoch: a typed result. */

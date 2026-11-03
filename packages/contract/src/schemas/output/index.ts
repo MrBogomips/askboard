@@ -6,6 +6,7 @@
 // to that minor the closed event, which ends an ask AskBoard closed because its owning subagent
 // finished (task 14.5). It holds no AXFX term (FR-18).
 
+import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
 import answerEvent from "./answer-event.json" with { type: "json" };
 import askState from "./ask-state.json" with { type: "json" };
@@ -24,7 +25,7 @@ import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.1";
+export const OUTPUT_FORMAT_VERSION = "1.2";
 
 export const outputFormat: SchemaSet = {
   name: "output",
@@ -128,7 +129,19 @@ export type OutputEvent =
   | EditChoiceEvent
   | ClosedEvent;
 
-export type Warning = { readonly code: "no-hooks"; readonly message: string };
+export type Warning = NoHooksWarning | UnresolvedPointerWarning;
+
+export type NoHooksWarning = { readonly code: "no-hooks"; readonly message: string };
+
+/** A context item whose pointer did not resolve, since output format 1.2 (excerpts, design decision 4). */
+export type UnresolvedPointerWarning = {
+  readonly code: "unresolved-pointer";
+  readonly itemId: string;
+  readonly pointer: string;
+  readonly reason: UnresolvedReason;
+  /** The reason in plain words; it names no path outside the root. */
+  readonly message: string;
+};
 
 export type Outcome = "unavailable" | "open" | "postponed" | "closed" | "discarded";
 

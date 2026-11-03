@@ -61,6 +61,10 @@
           "type": "string",
           "maxLength": 10000
         },
+        "context": {
+          "description": "Where the user placed the question's context, since 1.2 (excerpts, design decision 6): beside the question or inline under it. It is a layout choice, never unsent work.",
+          "enum": ["beside", "inline"]
+        },
         "held": {
           "type": "object",
           "properties": {

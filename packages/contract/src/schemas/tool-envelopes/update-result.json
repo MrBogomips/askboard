@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:tool-envelopes:update-result",
   "title": "Update result",
-  "description": "What update returns at once once its actions apply (AD-6, FR-6): the versions, the epoch, the ask's ID and state, and per action, in order, the action, the item it named and the question's new rev where it changed; an answer the agent recorded also names who and when (FR-19). It carries no cursor, so the agent's cursor still covers every event it has not collected (AD-3). An ask without an owner check is unchecked (AD-5).",
+  "description": "What update returns at once once its actions apply (AD-6, FR-6): the versions, the epoch, the ask's ID and state, and per action, in order, the action, the item it named and the question's new rev where it changed; an answer the agent recorded also names who and when (FR-19). It carries no cursor, so the agent's cursor still covers every event it has not collected (AD-3). An ask without an owner check is unchecked (AD-5). Since 1.2 it carries warnings, as the ask result does: an unresolved pointer among the questions the update revised (excerpts, design decision 4).",
   "type": "object",
   "properties": {
     "versions": {
@@ -26,6 +26,13 @@
     },
     "unchecked": {
       "const": true
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "urn:askboard:output:warning"
+      }
     }
   },
   "required": ["versions", "epoch", "askId", "state", "applied"],
