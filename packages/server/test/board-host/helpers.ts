@@ -258,7 +258,11 @@ export type BoardSocket = {
   next(): Promise<unknown>;
   /** The close code, once `board-host` closed the socket. */
   closed(): Promise<number>;
-  send(message: unknown): void;
+  /**
+   * Sends a message; resolves once `ws` has written it to the socket, or failed to, so that a
+   * `terminate()` that follows cannot drop it (the replays' network drops).
+   */
+  send(message: unknown): Promise<void>;
   /** Messages received and not taken by `next`. */
   readonly pending: unknown[];
   /** The next origin or agent message; fails after a wait. */
@@ -322,7 +326,8 @@ export const openSocket = async (
     next: () => waitFor(() => pending.shift(), "a message"),
     nextHeader: () => waitFor(() => header.shift(), "an origin or agent message"),
     closed: () => waitFor(() => code, "the close"),
-    send: (message) => socket.send(JSON.stringify(message)),
+    send: (message) =>
+      new Promise<void>((resolve) => socket.send(JSON.stringify(message), () => resolve())),
   };
 };
 

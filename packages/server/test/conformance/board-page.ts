@@ -33,7 +33,11 @@ export type BoardSocket = {
   readonly pending: unknown[];
   next(): Promise<unknown>;
   closed(): Promise<number>;
-  send(message: unknown): void;
+  /**
+   * Sends a message; resolves once `ws` has written it to the socket, or failed to, so that a
+   * `terminate()` that follows cannot drop it (the replays' network drops).
+   */
+  send(message: unknown): Promise<void>;
   /**
    * The context header's origin and agent messages (push delivery, design decision 12), kept apart
    * from the board protocol's exchanges, as the browser harness keeps presence apart; each is
@@ -93,7 +97,8 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
     problems,
     next: () => waitFor(() => pending.shift(), "a board message"),
     closed: () => waitFor(() => code, "the board socket's close"),
-    send: (message) => socket.send(JSON.stringify(message)),
+    send: (message) =>
+      new Promise<void>((resolve) => socket.send(JSON.stringify(message), () => resolve())),
   };
 };
 
@@ -190,7 +195,7 @@ export const replay = async (
     for (const step of transcript.steps) {
       if (step.from === "page") {
         const socket = await socketOf(step.socket);
-        socket.send(withToken("message" in step ? step.message : step.invalid));
+        await socket.send(withToken("message" in step ? step.message : step.invalid));
       } else if (step.from === "host" && "message" in step) {
         const problem = sameMessage(await (await socketOf(step.socket)).next(), step.message);
         if (problem !== undefined) problems.push(`socket ${step.socket}: ${problem}`);
