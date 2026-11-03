@@ -9,6 +9,7 @@ export {
   isWorkingDate,
   workingDaysBetween,
 } from "./dates.ts";
+export { roundNumber } from "./engine/functions.ts";
 export { createOwnEngine } from "./engine/own-engine.ts";
 export type {
   EngineCell,

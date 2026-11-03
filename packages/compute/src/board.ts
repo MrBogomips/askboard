@@ -2,7 +2,9 @@
 // draft's values in place, mapped onto what `buildGraph` reads. Items are typed only by their
 // shape, so `compute` needs no widget type from `contract`; the props it reads are checked as any
 // graph source is. A Gantt plan reads the Tree it names, which becomes its WBS once, however many
-// plans name it; items that hold nothing to compute, a Tree no plan names among them, add nothing.
+// plans name it; a Tree with `pert` (the WBS with PERT, molecules design decision 10) is a WBS on
+// its own, and once when a plan also names it. Items that hold nothing to compute, a Tree with no
+// `pert` that no plan names among them, add nothing.
 
 import { ID_PATTERN } from "@askboard/contract";
 import {
@@ -104,8 +106,11 @@ const workPackages = (item: Record<string, unknown>): WorkPackages => {
   return { item: Object.freeze({ kind: "wbs-pert", id, nodes }), leaves };
 };
 
-/** The Trees the board's plans name, each mapped once, by ID: the first item with the ID counts. */
-const namedTrees = (items: readonly unknown[]): ReadonlyMap<unknown, WorkPackages> => {
+/**
+ * The Trees the board computes, each mapped once, by ID: those the board's plans name and those
+ * with `pert`. The first item with an ID counts.
+ */
+const wbsTrees = (items: readonly unknown[]): ReadonlyMap<unknown, WorkPackages> => {
   const named = new Set<unknown>();
   for (const item of items) {
     if (isRecord(item) && item.type === "gantt" && isRecord(item.props)) {
@@ -115,7 +120,8 @@ const namedTrees = (items: readonly unknown[]): ReadonlyMap<unknown, WorkPackage
   const trees = new Map<unknown, WorkPackages>();
   for (const item of items) {
     if (!isRecord(item) || item.type !== "tree" || typeof item.id !== "string") continue;
-    if (named.has(item.id) && !trees.has(item.id)) trees.set(item.id, workPackages(item));
+    const computed = named.has(item.id) || (isRecord(item.props) && item.props.pert === true);
+    if (computed && !trees.has(item.id)) trees.set(item.id, workPackages(item));
   }
   return trees;
 };
@@ -151,10 +157,13 @@ const planTasks = (
   });
 };
 
-/** The graph source of a board's items: every Gantt, and each Tree a Gantt plan names, in order. */
+/**
+ * The graph source of a board's items: every Gantt, and each Tree a Gantt plan names or with
+ * `pert`, in order.
+ */
 export const boardGraphSource = (items: readonly BoardSourceItem[]): GraphSource => {
   if (!Array.isArray(items)) refuse("the board's items are not a list");
-  const trees = namedTrees(items);
+  const trees = wbsTrees(items);
   const mapped = new Set<WorkPackages>();
   const source: GraphItem[] = [];
   for (const item of items as readonly unknown[]) {

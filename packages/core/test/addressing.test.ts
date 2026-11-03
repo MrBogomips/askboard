@@ -131,6 +131,23 @@ describe("warnings and problems", () => {
     });
   });
 
+  // The core spec's "A predecessor that names no task": the warning `compute` gives when the
+  // expanded plan gives billing the predecessor review (`packages/compute/test/board-wbs.test.ts`).
+  test("the warning of a predecessor that names no task names schedule and review only", () => {
+    const warning = deepFreeze({
+      error: "missing-reference",
+      address: "schedule__plan.billing.es",
+      detail: "reference [schedule__plan.review.ef] names no child review of schedule__plan",
+    });
+    const mapped = addressing.warning(warning);
+    expect(mapped).toEqual({
+      error: "missing-reference",
+      address: "schedule.billing.es",
+      detail: "reference [schedule.review.ef] names no child review of schedule",
+    });
+    expect(JSON.stringify(mapped)).not.toContain("schedule__plan");
+  });
+
   test("an expanded ID anywhere in a text names the reference, as a whole ID only", () => {
     const warning = {
       error: "missing-reference",

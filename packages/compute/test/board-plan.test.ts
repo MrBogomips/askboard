@@ -7,7 +7,12 @@ import { GANTT_ANSWER_DERIVED } from "@askboard/contract";
 import { ganttPlanDerived } from "@askboard/contract/fixtures";
 import type { BoardSourceItem } from "../src/index.ts";
 import * as compute from "../src/index.ts";
-import { BOARD_SOURCE_FIXTURES, UJ2_ANSWERED, UJ2_BOARD } from "./fixtures/board.ts";
+import {
+  BOARD_SOURCE_FIXTURES,
+  EXPANDED_SOURCE_FIXTURES,
+  UJ2_ANSWERED,
+  UJ2_BOARD,
+} from "./fixtures/board.ts";
 import { runAll, runBoardSources, Tally } from "./fixtures/suite.ts";
 import uj2 from "./fixtures/uj2-wbs-gantt.json" with { type: "json" };
 
@@ -235,8 +240,12 @@ describe("the board source fixtures", () => {
     runBoardSources(tally);
     expect(tally.failures).toEqual([]);
     expect(tally.exactMismatches).toEqual([]);
-    const checks = BOARD_SOURCE_FIXTURES.map(({ expected }) => Object.keys(expected).length + 1);
+    const checks = [...BOARD_SOURCE_FIXTURES, ...EXPANDED_SOURCE_FIXTURES].map(
+      ({ expected }) => Object.keys(expected).length + 1,
+    );
     expect(tally.passed).toBe(checks.reduce((sum, count) => sum + count, 0));
-    expect(Object.keys(runAll().results)).toContain("board:uj2-answered");
+    const results = Object.keys(runAll().results);
+    expect(results).toContain("board:uj2-answered");
+    expect(results).toContain("board:uj2-expanded-wbs");
   });
 });
