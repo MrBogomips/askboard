@@ -57,13 +57,6 @@ The output format SHALL define the event that closes an ask AskBoard closed, wit
 - **WHEN** a poll response carries a postponed event of the ask lifecycle
 - **THEN** it validates, and an event of a type `collect` does not return fails
 
-### Requirement: Closed board for a finished subagent
-The board protocol's `closed` message SHALL take the reason `agent-finished` beside the ask lifecycle's `agent`, in the ask lifecycle's minor 1.1, which has not shipped, so that a board shows an ask AskBoard closed because its owning subagent finished (AD-10, FR-6).
-
-#### Scenario: A closed message for a finished subagent
-- **WHEN** `board-host` sends a `closed` message with reason `agent-finished`
-- **THEN** it validates against the board protocol, and a reason outside `agent` and `agent-finished` fails
-
 ### Requirement: Board presence message
 The board protocol SHALL define the board page's working signal with its own `$id`, `urn:askboard:board-protocol:presence`: whether the board has focus and has had a user input in the last 60 s, and nothing else, so that it never carries content (AD-2, AD-7).
 
@@ -124,3 +117,20 @@ The contract SHALL provide fixtures for an agent record of the main conversation
 #### Scenario: Every fixture validates
 - **WHEN** the contract's tests validate each push delivery fixture
 - **THEN** every one passes against its schema
+
+## MODIFIED Requirements
+
+### Requirement: Closed asks on the wire
+The ask state of results, the board state and `collect`'s ask entry SHALL admit `closed`. The board protocol's `closed` message SHALL carry `reason` as an enum holding `agent` and `agent-finished`, the second in the ask lifecycle's minor 1.1, so that a board shows an ask AskBoard closed because its owning subagent finished (AD-10, FR-6). The output format's closed event is push delivery's (Closed event).
+
+#### Scenario: The agent closes an ask
+- **WHEN** the agent closes an ask with `update`
+- **THEN** `collect`'s entry for it validates with state `closed`, and the board's `closed` message with reason `agent`
+
+#### Scenario: A closed message for a finished subagent
+- **WHEN** `board-host` sends a `closed` message with reason `agent-finished`
+- **THEN** it validates against the board protocol
+
+#### Scenario: A reason outside the enum
+- **WHEN** a `closed` message carries the reason `timeout`
+- **THEN** it fails validation, naming the field

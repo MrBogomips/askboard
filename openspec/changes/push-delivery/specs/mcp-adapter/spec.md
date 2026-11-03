@@ -29,3 +29,11 @@ An ask that arrives with no agent record SHALL be unchecked: its `ask` result SH
 #### Scenario: A session with hooks
 - **WHEN** an agent sends an ask whose `PreToolUse` record reached the session process
 - **THEN** the result carries no no-hooks warning, and a later `collect` does not mark the ask as unchecked
+
+#### Scenario: E1's sessions have no hooks
+- **WHEN** an agent sends an ask in a session whose hooks do not run
+- **THEN** the result carries the no-hooks warning, and a later `collect` marks that ask as unchecked
+
+#### Scenario: E3's sessions have no hooks
+- **WHEN** an agent sends an ask in a session whose hooks do not run, then updates, collects and fetches it
+- **THEN** the `ask` result carries the no-hooks warning, and the `update`, `collect` and `fetch` results mark that ask as unchecked
