@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:view-manifest:view-manifest",
   "title": "View manifest",
-  "description": "What the view build publishes (AD-9) and board-host reads to serve the chunks and build the board page's CSP (AD-8): the board page and every chunk, each file with its SHA-256 as lowercase hex, its styles, the chunks it needs and the licence notices of the code it contains. Paths are relative to the manifest's folder.",
+  "description": "What the view build publishes (AD-9) and board-host reads to serve the chunks and build the board page's CSP (AD-8): the board page and every chunk, each file with its SHA-256 as lowercase hex, its styles, the chunks it needs and the licence notices of the code it contains; since 1.1, a chunk needed only with a parent host, and a component chunk's kept-render chunk. Paths are relative to the manifest's folder.",
   "type": "object",
   "properties": {
     "version": {
@@ -132,6 +132,15 @@
           "items": {
             "$ref": "#/$defs/notice"
           }
+        },
+        "hostOnly": {
+          "description": "Needed only when the view has a parent host: a board selects it, a Snapshot never does (1.1; snapshot design decisions 4 and 5).",
+          "const": true
+        },
+        "keptRender": {
+          "description": "On a component chunk: the chunk that shows its kept renders, which a Snapshot selects instead when it holds a render of every item of the component (1.1; snapshot design decision 4).",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
         }
       },
       "required": ["kind", "script", "styles", "needs", "licences"],

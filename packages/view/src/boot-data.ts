@@ -5,12 +5,12 @@
 // where and the agent status (push delivery, design decision 12). A later field joins them with
 // its entry in that table alone (review M4).
 
-import type { LifecycleBoardState } from "@askboard/contract";
+import { type LifecycleBoardState, SNAPSHOT_DATA_ELEMENT } from "@askboard/contract";
 import type { ViewDocument } from "./view-document.ts";
 import { UPDATE_FIELDS, type UpdateField, type ViewUpdate } from "./view-protocol.ts";
 
-/** The id of the `<script type="application/json">` element that holds the block. */
-export const BOOT_DATA_ID = "askboard-data";
+/** The id of the `<script type="application/json">` element that holds the block: a Snapshot's too. */
+export const BOOT_DATA_ID = SNAPSHOT_DATA_ELEMENT;
 
 /** The optional fields of a view update the view also boots from: those marked `atBoot`. */
 export type BootField = {

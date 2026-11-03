@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { BOARD_PROTOCOL_VERSION, type BoardState, type HostMessage } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_VERSION,
+  type BoardState,
+  type HostMessage,
+  SNAPSHOT_DATA_ELEMENT,
+} from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { bootDataOf, EMPTY_MODEL, type PassedOn, withHostMessage } from "./board-page/model.ts";
 import { BOOT_DATA_ID, type BootData, type BootField, parseBootData } from "./boot-data.ts";
@@ -11,8 +16,9 @@ const data: BootData = {
 };
 
 describe("the askboard-data block the view boots from (AD-9)", () => {
-  test("has the id the view looks for", () => {
+  test("has the id the view looks for, the contract's Snapshot data element (snapshot task 1.4)", () => {
     expect(BOOT_DATA_ID).toBe("askboard-data");
+    expect(BOOT_DATA_ID).toBe(SNAPSHOT_DATA_ELEMENT);
   });
 
   test("holds the board document and the state", () => {
