@@ -19,9 +19,12 @@ export type CallIdentity = {
  * an `ask`. ask-core keeps it as given and never reads a Claude Code identifier from it.
  */
 export type Origin = {
-  /** "Main agent" or "Subagent <type>". */
+  /** "Main agent", "Subagent <type>" or "Teammate <name>" for an agent-team teammate. */
   readonly label: string;
-  /** The number of the second and later subagent of one type (design decision 12, task 8.1). */
+  /**
+   * The number of the second and later subagent of one type (design decision 12, task 8.1); a
+   * teammate, whose name tells it apart, never has one.
+   */
   readonly ordinal?: number;
   /** The agent's working folder. */
   readonly cwd: string;

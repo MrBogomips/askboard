@@ -62,8 +62,8 @@ export {
   takeoverDraftTranscript,
 } from "./lifecycle-transcripts.ts";
 
-// Push delivery (E4): agent records, the session file, push and stop messages, the pending asks,
-// the closed event, and the board's presence, origin and agent messages.
+// Push delivery (E4): agent records, a teammate's included, the session file, push and stop
+// messages, the pending asks, the closed event, and the board's presence, origin and agent messages.
 
 export {
   agentFinishedEvent,
@@ -75,6 +75,8 @@ export {
   subagentOrigin,
   subagentRecord,
   subagentStopBlock,
+  teammateOrigin,
+  teammateRecord,
   uncheckedOrigin,
   waitingAgentStatus,
   workingPresence,

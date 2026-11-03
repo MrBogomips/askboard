@@ -2,7 +2,7 @@
 // call it describes binds it, and the owner keys ask-core holds, mapped to Claude Code's agent IDs.
 // Only this table holds Claude Code identifiers; ask-core sees an opaque key, and agents see none.
 // It also numbers the subagents of each type in the order of their first record, for the origin's
-// ordinal (design decision 12).
+// ordinal (design decision 12); an in-process teammate, whose name tells it apart, is not counted.
 //
 // A call carrying a `tool_use_id` binds its record whatever its age, since `PreToolUse` runs before
 // Claude Code's permission prompt (review fix, 2026-11-01); the record timeout limits only the
@@ -17,6 +17,7 @@ import {
 } from "@askboard/contract";
 import type { AgentRecords, Binding, CallIdentity, Origin } from "@askboard/core";
 import type { OriginOf } from "./origin.ts";
+import { teammateOfAgent } from "./teammate.ts";
 
 /** The main conversation's entry in the key map: an agent ID is never empty. */
 const MAIN_CONVERSATION = "";
@@ -117,9 +118,11 @@ export class RecordTable implements AgentRecords {
     return agentId === MAIN_CONVERSATION ? undefined : this.#keys.get(agentId);
   }
 
-  // A subagent's first record gives it the next number of its type; the main conversation has none.
+  // A subagent's first record gives it the next number of its type; the main conversation and
+  // in-process teammates have none.
   #number({ agent_id, agent_type }: AgentRecord): void {
     if (agent_id === undefined || this.#ordinals.has(agent_id)) return;
+    if (teammateOfAgent(agent_id) !== undefined) return;
     const type = agent_type?.trim() ?? "";
     const ordinal = (this.#perType.get(type) ?? 0) + 1;
     this.#perType.set(type, ordinal);

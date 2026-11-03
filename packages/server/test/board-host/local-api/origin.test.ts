@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type AgentRecord, LOCAL_API_VERSION } from "@askboard/contract";
-import { createOrigins, type Run } from "../../../src/board-host/local-api/origin.ts";
+import { createOrigins, labelOf, type Run } from "../../../src/board-host/local-api/origin.ts";
 
 // The origin of an ask (design decision 4; core spec, Origin of an ask; task 4.4): its label from
 // the record, and its root, directory, branch and worktree from one git run in the record's cwd,
@@ -87,7 +87,11 @@ const runGit: Run = async (command, args, { cwd, env: runEnv }) => {
 
 const originsFor = (
   run: Run = runGit,
-  options: { projectRoot?: string; env?: Record<string, string> } = { projectRoot: project },
+  options: {
+    projectRoot?: string;
+    env?: Record<string, string>;
+    teammate?: Promise<string | undefined>;
+  } = { projectRoot: project },
 ) => {
   const calls: string[][] = [];
   const environments: Readonly<Record<string, string | undefined>>[] = [];
@@ -96,9 +100,10 @@ const originsFor = (
     environments.push(runOptions.env);
     return run(command, args, runOptions);
   };
-  const { projectRoot, env: given = env } = options;
+  const { projectRoot, env: given = env, teammate } = options;
   const originOf = createOrigins({
     ...(projectRoot === undefined ? {} : { projectRoot }),
+    ...(teammate === undefined ? {} : { teammate }),
     env: given,
     run: counted,
   });
@@ -112,6 +117,53 @@ describe("the label", () => {
     expect((await originOf(recordOf(project, SUBAGENT))).label).toBe("Subagent code-reviewer");
     const sideAgent = recordOf(project, { agent_id: "a0", agent_type: "" });
     expect((await originOf(sideAgent)).label).toBe("Subagent");
+  });
+});
+
+// Telling a teammate (board-host spec; design decision 4, Origin; task 17.1): "Teammate <name>"
+// for an in-process teammate's record and, in a pane teammate's own session, for its main
+// conversation; a pane teammate's subagents stay subagents.
+describe("a teammate's label", () => {
+  const IN_PROCESS = { agent_id: "researcher@session-a1b2c3d4", agent_type: "researcher" } as const;
+
+  test("labelOf covers the main conversation, a subagent and both kinds of teammate", () => {
+    expect(labelOf(recordOf(project))).toBe("Main agent");
+    expect(labelOf(recordOf(project, SUBAGENT))).toBe("Subagent code-reviewer");
+    expect(labelOf(recordOf(project, IN_PROCESS))).toBe("Teammate researcher");
+    expect(labelOf(recordOf(project), "ask-log-level")).toBe("Teammate ask-log-level");
+    expect(labelOf(recordOf(project, SUBAGENT), "ask-log-level")).toBe("Subagent code-reviewer");
+    expect(labelOf(recordOf(project, IN_PROCESS), "ask-log-level")).toBe("Teammate researcher");
+    expect(labelOf(recordOf(project), " ")).toBe("Main agent");
+  });
+
+  test("an agent ID without a team address keeps the subagent label", () => {
+    const record = recordOf(project, { agent_id: "@session-a1b2c3d4", agent_type: "researcher" });
+    expect(labelOf(record)).toBe("Subagent researcher");
+  });
+
+  test("a pane teammate's main conversation waits for the parent's name; its subagent does not", async () => {
+    for (const projectRoot of [project, undefined]) {
+      let tell: (name: string | undefined) => void = () => {};
+      const teammate = new Promise<string | undefined>((resolve) => {
+        tell = resolve;
+      });
+      const { originOf } = originsFor(runGit, {
+        ...(projectRoot === undefined ? {} : { projectRoot }),
+        teammate,
+      });
+      expect((await originOf(recordOf(project, SUBAGENT))).label).toBe("Subagent code-reviewer");
+      const main = originOf(recordOf(project));
+      tell("ask-log-level");
+      expect((await main).label).toBe("Teammate ask-log-level");
+      expect((await originOf(recordOf(project, IN_PROCESS))).label).toBe("Teammate researcher");
+    }
+  });
+
+  test("a parent read that names nothing, or rejects, leaves the main agent", async () => {
+    for (const teammate of [Promise.resolve(undefined), Promise.reject(new Error("EPERM"))]) {
+      const { originOf } = originsFor(runGit, { projectRoot: project, teammate });
+      expect((await originOf(recordOf(project))).label).toBe("Main agent");
+    }
   });
 });
 

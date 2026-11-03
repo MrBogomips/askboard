@@ -1,5 +1,6 @@
-// The origin of an owned ask (design decision 4; AD-5, AD-12): the label from the agent record,
-// and, from one git run in the record's `cwd`, the worktree's top level, its branch and whether it
+// The origin of an owned ask (design decision 4; AD-5, AD-12): the label from the agent record, or
+// from the teammate it names (`teammate.ts`), and, from one git run in the record's `cwd`, the
+// worktree's top level, its branch and whether it
 // belongs to the project's repository. Root is that top level when it does, else the project root,
 // and the directory the header shows is the `cwd` relative to it, worked out here once.
 // git runs with an argument vector, never through a shell (AD-8), and without the variables that
@@ -10,6 +11,7 @@ import { realpathSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import type { AgentRecord } from "@askboard/contract";
 import type { Origin } from "@askboard/core";
+import { teammateOfAgent } from "./teammate.ts";
 
 /**
  * Runs a command and gives its standard output; no value when it exited with a failure. A command
@@ -30,6 +32,11 @@ export type OriginOptions = {
   readonly projectRoot?: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly run: Run;
+  /**
+   * This session process's own teammate name, when it is a pane teammate's (`parentTeammate`): read
+   * once at start, awaited only for the main conversation's records.
+   */
+  readonly teammate?: Promise<string | undefined>;
 };
 
 // Variables that would make git read another repository than the one of the folder it runs in.
@@ -38,8 +45,14 @@ const STEERING_VARIABLES = ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_I
 /** Resolves an agent record's origin; it never rejects. */
 export type OriginOf = (record: AgentRecord) => Promise<Origin>;
 
-/** "Main agent" for the main conversation, "Subagent <type>" for a subagent (design decision 4). */
-export const labelOf = ({ agent_id, agent_type }: AgentRecord): string => {
+/**
+ * "Teammate <name>" for an in-process teammate's record, whose `agent_id` is its team address, and
+ * for the main conversation when this session process is the pane teammate `teammate`; otherwise
+ * "Main agent" for the main conversation and "Subagent <type>" for a subagent (design decision 4).
+ */
+export const labelOf = ({ agent_id, agent_type }: AgentRecord, teammate?: string): string => {
+  const name = (agent_id === undefined ? teammate : teammateOfAgent(agent_id))?.trim() ?? "";
+  if (name !== "") return `Teammate ${name}`;
   if (agent_id === undefined) return "Main agent";
   const type = agent_type?.trim() ?? "";
   return type === "" ? "Subagent" : `Subagent ${type}`;
@@ -103,8 +116,12 @@ const gitOf = ({ env, run }: OriginOptions, projectRoot: string): Git => {
 /** The origin resolver of a session: the project's own common directory is looked up once. */
 export const createOrigins = (options: OriginOptions): OriginOf => {
   const { projectRoot } = options;
+  // A read that rejects names nobody; a subagent's label never waits for it.
+  const teammate = options.teammate?.catch(() => undefined);
+  const labelFor = async (record: AgentRecord) =>
+    labelOf(record, record.agent_id === undefined ? await teammate : undefined);
   if (projectRoot === undefined)
-    return async (record) => ({ label: labelOf(record), cwd: record.cwd });
+    return async (record) => ({ label: await labelFor(record), cwd: record.cwd });
   const git = gitOf(options, projectRoot);
   let projectCommon: Promise<string | undefined> | undefined;
   const commonOfProject = () => {
@@ -115,10 +132,14 @@ export const createOrigins = (options: OriginOptions): OriginOf => {
   };
   return async (record) => {
     const { cwd } = record;
-    const bare: Origin = { label: labelOf(record), cwd };
-    const outside = placed(bare, projectRoot);
     const args = ["--show-toplevel", "--git-common-dir", "--abbrev-ref", "HEAD"];
-    const [place, project] = await Promise.all([git(cwd, args, 3), commonOfProject()]);
+    const [label, place, project] = await Promise.all([
+      labelFor(record),
+      git(cwd, args, 3),
+      commonOfProject(),
+    ]);
+    const bare: Origin = { label, cwd };
+    const outside = placed(bare, projectRoot);
     if (place === undefined || project === undefined) return outside;
     const [named, common, branch] = place as [string, string, string];
     const top = realDirectory(cwd, named);

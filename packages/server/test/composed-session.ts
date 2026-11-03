@@ -3,7 +3,8 @@
 // delivery tests beside it. Each test file makes its own throwaway project; each session gets its
 // own session folder under a short runtime folder, and a notifier recorder first on PATH, so that
 // an ask shows no real notification and the test reads what would have been shown (task 5.4). A
-// test may give ask-core's clock, which runs the grace timer (ask-lifecycle).
+// test may give ask-core's clock, which runs the grace timer (ask-lifecycle), and the parent's
+// argument vector, an ordinary one unless given (task 17.1).
 
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,6 +18,7 @@ import {
 import type { Clock } from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
+import type { ParentArgv } from "../src/board-host/index.ts";
 import type { ExitSignal, SessionProcess } from "../src/mcp-tools/index.ts";
 import { startSessionProcess } from "../src/session-process.ts";
 import { removeViews, writeView } from "./board-host/helpers.ts";
@@ -30,6 +32,12 @@ export type ClientIdentity = {
   readonly version: string;
   readonly negotiation?: "auto" | "legacy";
 };
+
+/**
+ * An ordinary Claude Code as the sessions' parent: `KEY` names no process, and reading it would
+ * add a note to stderr.
+ */
+export const ORDINARY_PARENT: ParentArgv = async () => ["claude"];
 
 /** A Claude Code at the minimum version, so no unknown-version diagnostic joins stderr. */
 export const CLAUDE_CODE: ClientIdentity = {
@@ -71,6 +79,7 @@ export const composedSessions = () => {
     view: string = writeView(),
     client: ClientIdentity = CLAUDE_CODE,
     clock?: Clock,
+    parentArgv: ParentArgv = ORDINARY_PARENT,
   ) => {
     const runtime = mkdtempSync("/tmp/abs-");
     runtimes.push(runtime);
@@ -97,6 +106,7 @@ export const composedSessions = () => {
       process: running,
       pid: process.pid,
       parentPid: KEY,
+      parentArgv,
       uid,
       stderr: (line) => stderr.push(line),
       transport: serverEnd,

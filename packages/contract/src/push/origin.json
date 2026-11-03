@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:origin",
   "title": "Origin",
-  "description": "board-host to board page, after the board and the state on each connect and on each change: who asked and where, for the context header's first row (FR-24, design decision 12). who holds the label (Main agent, Subagent <type>, or Agent for an unchecked ask), the agent's name and, for the second and later subagent of a type, its ordinal; forUser the expected answerer, only when shown; then the project's folder name, the agent's directory relative to the ask's root, the branch and the worktree's folder name. Each field but who is absent when AskBoard does not know it.",
+  "description": "board-host to board page, after the board and the state on each connect and on each change: who asked and where, for the context header's first row (FR-24, design decision 12). who holds the label (Main agent, Subagent <type>, Teammate <name> for an agent-team teammate, its name as Claude Code gives it, or Agent for an unchecked ask), the agent's name and, for the second and later subagent of a type, its ordinal, which a teammate never has; forUser the expected answerer, only when shown; then the project's folder name, the agent's directory relative to the ask's root, the branch and the worktree's folder name. Each field but who is absent when AskBoard does not know it.",
   "type": "object",
   "properties": {
     "version": {

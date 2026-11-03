@@ -1,5 +1,6 @@
 // Push delivery as the session process composes it (E4, design decisions 3, 4, 9 and 12): the
-// record table with its origin resolver, the notifier's notices, the local API with its session
+// record table with its origin resolver, which the parent's teammate flags, read once here, feed,
+// the notifier's notices, the local API with its session
 // file, and the context header's data, beside E1's and the ask lifecycle's wiring, which it leaves
 // as it is. ask-core takes `ports`, board-host the session project, mcp-tools `deps` and
 // `firstRequest`, at which the local API starts (AD-2); `close` ends what it started.
@@ -8,7 +9,14 @@ import { realpathSync, statSync } from "node:fs";
 import { basename, isAbsolute } from "node:path";
 import { BACKGROUND_THRESHOLD_VARIABLE } from "@askboard/contract";
 import { type AskCore, backgroundThreshold, type CorePorts } from "@askboard/core";
-import { createLocalApi, createOrigins, RecordTable } from "./board-host/index.ts";
+import {
+  createLocalApi,
+  createOrigins,
+  type ParentArgv,
+  parentTeammate,
+  RecordTable,
+  readParentArgv,
+} from "./board-host/index.ts";
 import { runCommand } from "./identity.ts";
 import { type Diagnostics, note, type ToolDeps } from "./mcp-tools/index.ts";
 import { createNotices, createNotifier, type Environment } from "./notifier/index.ts";
@@ -25,6 +33,11 @@ export type PushOptions = {
   readonly parentPid: number;
   /** The user's ID, which names the session folder outside `XDG_RUNTIME_DIR`. */
   readonly uid: number;
+  /**
+   * Reads the parent's argument vector, for the teammate label (design decision 4, Origin): the
+   * system's by default. Only tests give another.
+   */
+  readonly parentArgv?: ParentArgv;
 };
 
 export type PushComposition = {
@@ -86,12 +99,24 @@ export const composePush = (
     report: reportAs("the system notification failed"),
     diagnose,
   });
+  // Whether this session is a pane teammate's, read once from its parent's launch flags; the rest of
+  // that argument vector is never kept (design decision 4, Origin).
+  const teammate = parentTeammate({
+    argv: (options.parentArgv ?? readParentArgv)({
+      platform,
+      parentPid: options.parentPid,
+      env,
+      run: runCommand,
+    }),
+    diagnose,
+  });
   const records = new RecordTable({
     now: Date.now,
     originOf: createOrigins({
       ...(projectRoot === undefined ? {} : { projectRoot }),
       env,
       run: runCommand,
+      teammate,
     }),
   });
   const localApi = createLocalApi({

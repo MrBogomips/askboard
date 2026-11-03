@@ -10,6 +10,8 @@ import {
   subagentOrigin,
   subagentRecord,
   subagentStopBlock,
+  teammateOrigin,
+  teammateRecord,
   uncheckedOrigin,
   waitingAgentStatus,
   workingPresence,
@@ -36,6 +38,11 @@ const fixtures: [string, unknown, (value: unknown) => Checked<unknown>][] = [
     (v) => validateLocalApi("recordsRequest", v),
   ],
   ["a subagent's agent record", subagentRecord, (v) => validateLocalApi("recordsRequest", v)],
+  [
+    "an in-process teammate's agent record",
+    teammateRecord,
+    (v) => validateLocalApi("recordsRequest", v),
+  ],
   ["the session file", fixtureSessionFile, validateSessionFile],
   ["the push message", plainChoicePushMessage, validatePushMessage],
   ["the stop block", subagentStopBlock, (v) => validateLocalApi("stopResponse", v)],
@@ -54,6 +61,7 @@ const fixtures: [string, unknown, (value: unknown) => Checked<unknown>][] = [
   ["the presence message", workingPresence, validatePresence],
   ["the subagent's origin message", subagentOrigin, validateOrigin],
   ["an unchecked ask's origin message", uncheckedOrigin, validateOrigin],
+  ["the teammate's origin message", teammateOrigin, validateOrigin],
   ["the agent message", waitingAgentStatus, validateAgentStatus],
 ];
 
@@ -113,5 +121,14 @@ describe("the fixtures tell one session's story", () => {
     expect(subagentOrigin.who.label).toBe(`Subagent ${subagentRecord.agent_type}`);
     expect(subagentRecord.cwd.endsWith(`/${subagentOrigin.worktree}`)).toBe(true);
     expect(Object.keys(uncheckedOrigin).sort()).toEqual(["project", "type", "version", "who"]);
+  });
+
+  // Telling a teammate (task 17.1): its agent ID is its team address, which names it.
+  test("the in-process teammate's origin names it by the part of its address before the @", () => {
+    const address = teammateRecord.agent_id ?? "";
+    const name = address.slice(0, address.lastIndexOf("@"));
+    expect(address).toBe(`${name}@session-a1b2c3d4`);
+    expect(teammateOrigin.who).toEqual({ label: `Teammate ${name}` });
+    expect(teammateOrigin.who).not.toHaveProperty("ordinal");
   });
 });

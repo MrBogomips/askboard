@@ -65,8 +65,13 @@ export {
   type LocalApiOptions,
   newSessionToken,
   type OriginOf,
+  type ParentArgv,
+  type ParentArgvOptions,
+  parentTeammate,
   RecordTable,
   type Run,
+  readParentArgv,
+  teammateOfAgent,
 } from "./local-api/index.ts";
 
 export type BoardHost = {

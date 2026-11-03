@@ -31,7 +31,8 @@ const FIELDS = [
   ["Worktree", "worktree"],
 ] as const satisfies readonly (readonly [string, keyof HeaderOrigin])[];
 
-// Who asked, each agent string isolated: "Main agent", "Subagent code-reviewer #2 · Retry review".
+// Who asked, each agent string isolated: "Main agent", "Subagent code-reviewer #2 · Retry review",
+// "Teammate scout-2 · Retry review" (a teammate has no ordinal).
 const WhoAsked = ({ who: { label, ordinal, name } }: { readonly who: HeaderOrigin["who"] }) => (
   <>
     <bdi>{label}</bdi>

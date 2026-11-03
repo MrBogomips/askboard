@@ -41,6 +41,13 @@ export { createOrigins, labelOf, type OriginOf, type OriginOptions, type Run } f
 export { PENDING_MAX_BYTES, UNCHECKED_LABEL } from "./poll.ts";
 export { RecordTable, type RecordTableOptions } from "./records.ts";
 export type { RoutesCore } from "./routes.ts";
+export {
+  type ParentArgv,
+  type ParentArgvOptions,
+  parentTeammate,
+  readParentArgv,
+  teammateOfAgent,
+} from "./teammate.ts";
 
 /** A new session token: 128 random bits as 22 base64url characters (AD-11). */
 export const newSessionToken = (): string => randomBytes(SESSION_TOKEN_BYTES).toString("base64url");

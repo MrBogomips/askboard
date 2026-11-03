@@ -1,7 +1,8 @@
 // Push delivery fixtures (contract spec, Push delivery fixtures): one session of the plain-choice
 // epoch under one Claude Code process on macOS. The main conversation owns the plain-choice ask; a
 // `code-reviewer` subagent named "Retry review", in a linked worktree, owns two asks of its own and
-// has an answer it has not received. Tests only, like every fixture.
+// has an answer it has not received; an in-process agent-team teammate named `researcher`, whose
+// `agent_id` is its team address, asks from the project. Tests only, like every fixture.
 
 import type {
   AgentRecord,
@@ -57,6 +58,18 @@ export const subagentRecord: AgentRecord = {
   tool_name: "mcp__plugin_askboard_askboard__collect",
   askIds: [RETRY_POLICY.askId, RETRY_LIMIT.askId],
   timestamp: "2026-10-29T09:42:05.418Z",
+};
+
+/** An in-process teammate's `ask`: its `agent_id` is its team address, `<name>@<team>`. */
+export const teammateRecord: AgentRecord = {
+  version,
+  agent_id: "researcher@session-a1b2c3d4",
+  agent_type: "researcher",
+  cwd: PROJECT,
+  tool_use_id: "toolu_01Tq6WnB3vXk8RmZ2pLc5HdY",
+  tool_name: "mcp__plugin_askboard_askboard__ask",
+  askIds: ["cache-ttl-p4d6"],
+  timestamp: "2026-10-29T09:44:12Z",
 };
 
 /** The session file, in the session folder macOS's usual `TMPDIR` gives user 501. */
@@ -186,6 +199,17 @@ export const subagentOrigin: OriginMessage = {
   directory: ".",
   branch: "fix/retry",
   worktree: "order-service-fix-retry",
+};
+
+/** Who asked the teammate's ask: "Teammate <name>", its name as Claude Code gives it, no ordinal. */
+export const teammateOrigin: OriginMessage = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "origin",
+  who: { label: "Teammate researcher" },
+  project: "order-service",
+  directory: ".",
+  branch: "main",
+  worktree: "order-service",
 };
 
 /** An ask with no agent record: who is only "Agent", and the place only the project. */

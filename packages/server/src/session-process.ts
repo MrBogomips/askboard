@@ -10,6 +10,7 @@
 import { randomBytes } from "node:crypto";
 import { AskCore, type Clock } from "@askboard/core";
 import type { Transport } from "@modelcontextprotocol/server";
+import type { ParentArgv } from "./board-host/index.ts";
 import { createBoardHost } from "./board-host/index.ts";
 import { systemClock } from "./clock.ts";
 import { systemIdentity } from "./identity.ts";
@@ -49,6 +50,11 @@ export type SessionProcessOptions = {
   readonly parentPid: number;
   /** The user's ID, which names the session folder outside `XDG_RUNTIME_DIR`. */
   readonly uid: number;
+  /**
+   * Reads the parent's argument vector, for the teammate label: the system's by default. Only tests
+   * give another; the entry point gives none.
+   */
+  readonly parentArgv?: ParentArgv;
 };
 
 export const startSessionProcess = (options: SessionProcessOptions): Session => {
