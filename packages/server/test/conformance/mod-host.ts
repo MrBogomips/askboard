@@ -1,4 +1,4 @@
-// The stand-in mod host (push delivery, tasks 9.1 and 15.2; design decision 11; the spine's
+// The stand-in mod host (push delivery, tasks 9.1, 15.2 and 17.4; design decision 11; the spine's
 // Consistency Conventions, Tests): Claude Code's mod API, as much of it as AskBoard's mod uses, for
 // the conformance suite. It loads a mod module, the built `hooks/askboard-mod.js` by default, and
 // calls its `register(on)`. What reaches the machine is real: `$.process.run` starts processes as
@@ -6,8 +6,8 @@
 // the PID that names the session file, as it does under Claude Code; `$.clock` is the system clock
 // and its timers; `$.http.fetch` goes over the session's Unix socket; `$.fs` reads the real files.
 // What would act on Claude Code is recorded instead: the agent list, the turn events the suite
-// emits, appends, submits, toasts, the status entry and the band's redraw requests. The band above
-// the prompt is drawn when the suite says, through the mod's `ui.render` hook on `AbovePrompt`, and
+// emits, appends, submits, messages to an idle teammate, toasts, the status entry and the band's
+// redraw requests. The band above the prompt is drawn when the suite says, through the mod's `ui.render` hook on `AbovePrompt`, and
 // read back as rows (mod-host-band.ts); `$.session.surfaces` gives the terminal alone unless the
 // suite gives others. A member the host does not implement, or a hook on an event or a component it
 // never emits, is a problem the suite reports, never a silent `undefined` (mod-host-api.ts).

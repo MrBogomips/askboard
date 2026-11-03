@@ -368,6 +368,74 @@ describe("what would act on Claude Code is recorded", () => {
     expect(await $.prompt.submit({ text: "pushed" })).toEqual({ drop: "interrupted" });
   });
 
+  describe("a message to an agent", () => {
+    const ADDRESS = "researcher@session-a1b2c3d4";
+    const teammate = (status: HostedAgent["status"]): HostedAgent => ({
+      id: ADDRESS,
+      teammateId: ADDRESS,
+      name: "researcher",
+      type: "general-purpose",
+      description: "",
+      status,
+    });
+
+    test("an idle teammate's is delivered and recorded as a push; the list carries its address and name", async () => {
+      const { host, $ } = await hostOf({}, { agents: [teammate("idle")] });
+      expect(await $.agent.list()).toEqual([teammate("idle")]);
+      expect(await $.session.send({ to: { agentId: ADDRESS }, text: "pushed" })).toEqual({
+        isDelivered: true,
+      });
+      expect(host.record.pushes.map(({ at: _at, ...push }) => push)).toEqual([
+        { via: "send", agentId: ADDRESS, text: "pushed" },
+      ]);
+      expect(host.record.refusedSends).toEqual([]);
+      expect(host.record.problems).toEqual([]);
+    });
+
+    test("can be refused, as auto mode refuses a mod's: no push, and the refusal recorded", async () => {
+      const sent: string[] = [];
+      const { host, $ } = await hostOf(
+        {},
+        {
+          agents: [teammate("idle")],
+          send: async (agentId, text) => {
+            sent.push(`${agentId} ${text}`);
+            return { isDelivered: false, reason: "refused in auto mode" };
+          },
+        },
+      );
+      expect(await $.session.send({ to: { agentId: ADDRESS }, text: "pushed" })).toEqual({
+        isDelivered: false,
+        reason: "refused in auto mode",
+      });
+      expect(sent).toEqual([`${ADDRESS} pushed`]);
+      expect(host.record.pushes).toEqual([]);
+      expect(host.record.refusedSends).toEqual([ADDRESS]);
+      expect(host.record.problems).toEqual([]);
+    });
+
+    test("to an agent not listed as an idle teammate is a problem and a throw: AskBoard's mod sends to no other", async () => {
+      const subagent: HostedAgent = {
+        id: "a19c05fdf24e1b9a2",
+        type: "code-reviewer",
+        description: "",
+        status: "idle",
+      };
+      const { host, $ } = await hostOf({}, { agents: [teammate("running"), subagent] });
+      for (const agentId of [ADDRESS, subagent.id, "a0e1d2c3b4a596870"]) {
+        await expect($.session.send({ to: { agentId }, text: "pushed" })).rejects.toThrow(
+          `the mod sent a message to ${agentId}, which is not listed as an idle teammate`,
+        );
+      }
+      expect(host.record.pushes).toEqual([]);
+      expect(host.record.problems).toEqual([
+        `the mod sent a message to ${ADDRESS}, which is not listed as an idle teammate`,
+        `the mod sent a message to ${subagent.id}, which is not listed as an idle teammate`,
+        "the mod sent a message to a0e1d2c3b4a596870, which is not listed as an idle teammate",
+      ]);
+    });
+  });
+
   test("turn events go through the mod's hooks and are recorded; a step's stream is read to its end", async () => {
     const seen: string[] = [];
     const { host } = await hostOf({
@@ -538,10 +606,10 @@ describe("what the host does not implement", () => {
   test("is a problem the suite sees, and a throw the mod sees, never undefined", async () => {
     const { host, $ } = await hostOf();
     const loose = $ as unknown as Record<string, Record<string, unknown>>;
-    expect(() => loose.session?.send).toThrow("$.session.send");
+    expect(() => loose.session?.compact).toThrow("$.session.compact");
     expect(() => loose.tool).toThrow("$.tool");
     expect(host.record.problems).toEqual([
-      "the mod reached $.session.send, which the stand-in host does not implement",
+      "the mod reached $.session.compact, which the stand-in host does not implement",
       "the mod reached $.tool, which the stand-in host does not implement",
     ]);
   });

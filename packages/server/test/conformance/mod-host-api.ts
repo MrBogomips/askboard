@@ -1,13 +1,16 @@
-// The `$` the stand-in mod host gives a mod (push delivery, tasks 9.1 and 15.2): the part of Claude
-// Code's mod API AskBoard's mod uses, declared here after `packages/mod/src/mod-api.ts`, since the
-// import rules (AD-1) keep the server package, its tests included, from importing `mod`. What
-// reaches the machine is real: process runs, the clock and its timers, fetches over a Unix socket,
-// the files. What would act on Claude Code is recorded: the agent list, appends, submits, toasts,
-// the status entry, the band's redraw requests (`$.ui.invalidate`) and logs. `$.ui.resolve` gives
-// the band's element constructors (mod-host-band.ts), and `$.session.surfaces` the surfaces the
-// test gives, the terminal alone by default. An append to an agent the list does not show, or
+// The `$` the stand-in mod host gives a mod (push delivery, tasks 9.1, 15.2 and 17.4): the part of
+// Claude Code's mod API AskBoard's mod uses, declared here after `packages/mod/src/mod-api.ts`,
+// since the import rules (AD-1) keep the server package, its tests included, from importing `mod`.
+// What reaches the machine is real: process runs, the clock and its timers, fetches over a Unix
+// socket, the files. What would act on Claude Code is recorded: the agent list, whose teammates
+// carry their team address and name, appends, submits, messages to an agent (`$.session.send`),
+// toasts, the status entry, the band's redraw requests (`$.ui.invalidate`) and logs. `$.ui.resolve`
+// gives the band's element constructors (mod-host-band.ts), and `$.session.surfaces` the surfaces
+// the test gives, the terminal alone by default. An append to an agent the list does not show, or
 // shows as finished, is refused as the engine refuses it ("one that names no running loop is
-// refused"). Any other member is a problem in the record and a throw for the mod.
+// refused"); a message is delivered unless the test refuses it, as auto mode refuses a mod's
+// (finding D13), and one to an agent not listed as an idle teammate, which AskBoard's mod never
+// sends (G2), is a problem. Any other member is a problem in the record and a throw for the mod.
 
 import { lstat, readFile, stat } from "node:fs/promises";
 import { request } from "node:http";
@@ -27,6 +30,11 @@ type AppendArgs = {
   readonly agentId?: string;
 };
 export type SubmitResult = { readonly text: string } | { readonly drop: string };
+/** Whether a message reached the agent's inbox; when not, why, as the SendMessage tool words it. */
+export type SendResult =
+  | { readonly isDelivered: true }
+  | { readonly isDelivered: false; readonly reason: string };
+type SendArgs = { readonly to: { readonly agentId: string }; readonly text: string };
 type HttpInit = {
   readonly method?: string;
   readonly headers?: Readonly<Record<string, string>>;
@@ -56,6 +64,10 @@ type FsStat = {
 /** An agent as `$.agent.list()` gives it. */
 export type HostedAgent = {
   readonly id: string;
+  /** A teammate's address in its team, `<name>@<team>`; absent for any other agent. */
+  readonly teammateId?: string;
+  /** A teammate's name in its team. */
+  readonly name?: string;
   readonly type: string;
   readonly description: string;
   readonly status: "pending" | "running" | "waiting" | "idle" | "completed" | "failed" | "killed";
@@ -79,6 +91,8 @@ export type HostApi = {
   readonly session: {
     version(): Promise<{ readonly version: string; readonly base?: string }>;
     append(args: AppendArgs): Promise<{ readonly uuid: string } | { readonly deny: string }>;
+    /** A message to the agent `to.agentId` names, which wakes an idle teammate. */
+    send(args: SendArgs): Promise<SendResult>;
     /** The surfaces the session draws on. */
     surfaces(): Promise<readonly string[]>;
   };
@@ -108,8 +122,9 @@ export type Exchange = {
   readonly refused?: true;
 };
 
+/** A push that reached Claude Code: an append, a submit, or a message delivered to an agent. */
 export type Push = {
-  readonly via: "append" | "submit";
+  readonly via: "append" | "submit" | "send";
   readonly agentId?: string;
   readonly text: string;
   /** When the call was made, by the system clock. */
@@ -129,6 +144,8 @@ export type HostRecord = {
   readonly exchanges: Exchange[];
   /** The agent IDs of appends refused: the agent was not listed, or listed as finished. */
   readonly refusedAppends: string[];
+  /** The agent IDs of messages not delivered, as the test refused them. */
+  readonly refusedSends: string[];
   readonly runs: { readonly argv: readonly string[]; result?: RunResult }[];
   readonly reads: string[];
   readonly envReads: string[];
@@ -149,6 +166,8 @@ export type ApiOptions = {
   readonly refuseFetch?: boolean;
   /** What a submit resolves to; the turn started, by default. */
   readonly submit?: (text: string) => Promise<SubmitResult>;
+  /** What a message to an idle teammate resolves to; delivered, by default. */
+  readonly send?: (agentId: string, text: string) => Promise<SendResult>;
 };
 
 /**
@@ -175,6 +194,7 @@ export const emptyRecord = (): HostRecord => ({
   logs: [],
   exchanges: [],
   refusedAppends: [],
+  refusedSends: [],
   runs: [],
   reads: [],
   envReads: [],
@@ -382,6 +402,31 @@ const uiOf = ({ record }: HostState): HostApi["ui"] => ({
   resolve: () => BAND_ELEMENTS,
 });
 
+const isIdleTeammate = (state: HostState, agentId: string): boolean => {
+  const listed = state.agents.find((agent) => agent.id === agentId);
+  return listed?.teammateId !== undefined && listed.status === "idle";
+};
+
+/** `$.session.send`: to a listed idle teammate alone, delivered unless the test refuses it. */
+const sendOf =
+  (state: HostState): HostApi["session"]["send"] =>
+  async ({ to, text }) => {
+    const { options, record } = state;
+    if (!isIdleTeammate(state, to.agentId)) {
+      const problem = `the mod sent a message to ${to.agentId}, which is not listed as an idle teammate`;
+      record.problems.push(problem);
+      throw new Error(problem);
+    }
+    const result: SendResult =
+      options.send === undefined ? { isDelivered: true } : await options.send(to.agentId, text);
+    if (result.isDelivered) {
+      record.pushes.push({ via: "send", agentId: to.agentId, text, at: Date.now() });
+    } else {
+      record.refusedSends.push(to.agentId);
+    }
+    return result;
+  };
+
 // Whether an append may join `agentId`'s loop: listed, and not finished.
 const runsLoop = (state: HostState, agentId: string): boolean => {
   const listed = state.agents.find((agent) => agent.id === agentId);
@@ -404,6 +449,7 @@ const sessionOf = (state: HostState): HostApi["session"] => ({
     record.pushes.push({ via: "append", ...to, text, at: Date.now() });
     return { uuid: `row-${record.pushes.filter((push) => push.via === "append").length}` };
   },
+  send: sendOf(state),
   surfaces: async () => state.surfaces,
 });
 

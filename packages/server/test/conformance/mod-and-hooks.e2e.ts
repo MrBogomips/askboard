@@ -77,8 +77,10 @@ const helloSaid = (mod: ModHost) =>
 const turnReports = (record: HostRecord) =>
   record.exchanges.filter((each) => each.path === "/v1/mod/turn");
 
-const hasReceipt = (pending: readonly unknown[]): boolean =>
-  pending.some((message) => (message as { type?: string }).type === "receipt");
+const hasMessage = (pending: readonly unknown[], type: string): boolean =>
+  pending.some((message) => (message as { type?: string }).type === type);
+
+const hasReceipt = (pending: readonly unknown[]): boolean => hasMessage(pending, "receipt");
 
 /**
  * The band above the prompt as the engine draws it: now, then again after each of the mod's
@@ -449,6 +451,115 @@ describe("an answer appended during a subagent's final reply", () => {
       asks: [{ askId, events: [{ type: "answer", choice: ["SQLite"] }] }],
     });
     expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
+    expect(mod.record.pushes).toHaveLength(1);
+    expect(await session.end()).toBe(0);
+  });
+});
+
+describe("an in-process teammate", () => {
+  // Its hooks give its team address as `agent_id` (task 17.1). The mod finds it in the agent list
+  // by that ID, or else by the teammate's `teammateId`, since whether the list gives the address or
+  // the loop's own ID is not confirmed yet (tasks 17.3, 17.6): each case lists it one way.
+  const ADDRESS = "researcher@session-a1b2c3d4";
+  const teammate = subagent(ADDRESS, "general-purpose");
+  const listedTeammate = (id: string): HostedAgent => ({
+    id,
+    teammateId: ADDRESS,
+    name: "researcher",
+    type: "general-purpose",
+    description: "a teammate",
+    status: "idle",
+  });
+  const allowed = { code: 0, stdout: "", stderr: "" };
+
+  test("is Teammate researcher; its stop leaves its ask open (G1), and one message wakes it with the answer (G2)", async () => {
+    const reviewer = subagent("a8b6d4f2e0c13579d", "code-reviewer");
+    const { session } = await startClaudeSession({ mod: { agents: [listedTeammate(ADDRESS)] } });
+    const mod = modOf(session);
+    const askId = "teammate-idle-k3f9";
+    const { result, board } = await askAndConnect(session, teammate, askId, "Cache TTL");
+    const other = await askAndConnect(session, reviewer, "teammate-sub-k3f9", "Log level");
+    // Who asked, on its board and in the poll the band is drawn from: no subagent ordinal taken.
+    expect(await headerOf(board, "origin")).toMatchObject({
+      who: { label: "Teammate researcher" },
+    });
+    expect(await headerOf(other.board, "origin")).toMatchObject({
+      who: { label: "Subagent code-reviewer" },
+    });
+    const pending = await mod.until(
+      (record) =>
+        answeredPolls(record)
+          .map((poll) => (poll.response as PollResponse).pending)
+          .find((asks) => asks.length === 2),
+      "both asks pending",
+    );
+    expect(pending).toMatchObject([
+      { askId, label: "Teammate researcher", agent_id: ADDRESS },
+      { askId: "teammate-sub-k3f9", label: "Subagent code-reviewer" },
+    ]);
+
+    // G1: each turn ends with nothing to give. The teammate's stop goes through and leaves its ask
+    // open, so the band keeps it; the subagent's closes the subagent's ask.
+    expect(await stopAs(session, teammate, false)).toEqual(allowed);
+    expect(await stopAs(session, reviewer, false)).toEqual(allowed);
+    expect(await nextOfType(other.board, "closed")).toMatchObject({ reason: "agent-finished" });
+    expect(hasMessage(board.pending, "closed")).toBe(false);
+    const rows = await bandWhen(
+      mod,
+      (drawn) => (drawn?.length === 3 ? drawn : undefined),
+      "the teammate's ask alone in the band",
+    );
+    expect(rows).toEqual([
+      "🙋 AskBoard · 1 pending",
+      `🙋 AskBoard › [Cache TTL](${result.board})`,
+      BENEATH_ROW,
+    ]);
+
+    // G2: listed idle, the teammate is woken by one message carrying the answer, and no append.
+    answer(board, ["SQLite"]);
+    const push = await mod.until((record) => record.pushes[0], "the message");
+    expect(push).toMatchObject({ via: "send", agentId: ADDRESS });
+    expect(pushedMessage(push.text).asks).toMatchObject([
+      { askId, events: [{ type: "answer", choice: ["SQLite"] }] },
+    ]);
+    expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
+    const reports = await mod.until((record) => {
+      const found = record.exchanges.filter((each) => each.path === "/v1/mod/delivered");
+      return found.length > 0 ? found : undefined;
+    }, "the delivery report");
+    expect(reports.map((each) => each.request)).toMatchObject([{ askId, via: "submit" }]);
+    await afterPolls(mod);
+    expect(mod.record.pushes).toHaveLength(1);
+    expect(mod.record.refusedSends).toEqual([]);
+    expect(await session.end()).toBe(0);
+  });
+
+  test("whose message is refused, as auto mode refuses a mod's, gets the answer appended, reported at its next turn", async () => {
+    // Listed under its loop's own ID, the teammate is found by its team address.
+    const loop = "a2c4e6a8b0d13579e";
+    const { session } = await startClaudeSession({
+      mod: {
+        agents: [listedTeammate(loop)],
+        send: async () => ({ isDelivered: false, reason: "refused in auto mode" }),
+      },
+    });
+    const mod = modOf(session);
+    const askId = "teammate-refused-k3f9";
+    const { board } = await askAndConnect(session, teammate, askId);
+    answer(board, ["SQLite"]);
+    const push = await mod.until((record) => record.pushes[0], "the append");
+    expect(push).toMatchObject({ via: "append", agentId: loop });
+    expect(pushedMessage(push.text).asks).toMatchObject([
+      { askId, events: [{ type: "answer", choice: ["SQLite"] }] },
+    ]);
+    expect(mod.record.refusedSends).toEqual([loop]);
+    // No request carried the row yet: no receipt until the teammate's next turn reads it.
+    await afterPolls(mod, 1);
+    expect(hasReceipt(board.pending)).toBe(false);
+    await mod.turnStart(loop);
+    await mod.turnStep(loop);
+    expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
+    await afterPolls(mod);
     expect(mod.record.pushes).toHaveLength(1);
     expect(await session.end()).toBe(0);
   });
