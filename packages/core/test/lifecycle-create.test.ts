@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { lifecycleBoardDocument } from "@askboard/contract/fixtures";
 import { validateAgainst } from "@askboard/contract/validate";
-import { fakeClock } from "./fakes.ts";
+import { EN_US, fakeClock } from "./fakes.ts";
 import {
   areasAsk,
   boardOf,
@@ -18,7 +18,8 @@ describe("creating an ask of several questions", () => {
   test("an ask with areas holds both areas in order, every question at rev 1 and open", async () => {
     const { core } = await created(areasAsk());
     const board = boardOf(core, LIFECYCLE_ID);
-    expect(board.document).toEqual(lifecycleBoardDocument);
+    // settings-languages: ask-core names the ask's language and locale on every board document.
+    expect(board.document).toEqual({ ...lifecycleBoardDocument, ...EN_US });
     expect(validateAgainst("urn:askboard:board-document:board-document", board.document).ok).toBe(
       true,
     );

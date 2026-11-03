@@ -423,3 +423,13 @@ export const upgradeStatus = (
       } else reject(error);
     });
   });
+
+// settings-languages (task 3.6): ask-core names the ask's language and locale on every board
+// document, which the transcripts, written before it, leave out.
+
+/** The expected message, its board document with the language and locale an en-US ask gets. */
+export const withLanguage = <T extends object>(expected: T): T => {
+  const { type, document } = expected as { type?: string; document?: object };
+  if (type !== "board" || document === undefined) return expected;
+  return { ...expected, document: { ...document, language: "en-US", locale: "en-US" } };
+};

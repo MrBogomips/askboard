@@ -26,6 +26,7 @@ import {
   removeViews,
   request,
   startHost,
+  withLanguage,
   writeView,
 } from "./helpers.ts";
 
@@ -51,7 +52,7 @@ const expectMessage = (received: unknown, expected: object) => {
     expect(typeof detail).toBe("string");
     return;
   }
-  expect(received).toEqual(expected);
+  expect(received).toEqual(withLanguage(expected));
 };
 
 const replay = async (transcript: LifecycleTranscript) => {
@@ -445,11 +446,9 @@ describe("a closed ask's board", () => {
       expect(page.status).toBe(BOARD_RESPONSES.boardPage.status);
       const tab = await openSocket(port, askId);
       tab.send({ version, type: "connect", token });
-      expect(await tab.next()).toEqual({
-        version,
-        type: "board",
-        document: lifecycleBoardDocument,
-      });
+      expect(await tab.next()).toEqual(
+        withLanguage({ version, type: "board", document: lifecycleBoardDocument }),
+      );
       expect(await tab.next()).toMatchObject({ type: "state", state: { ask: "closed" } });
       expect(await tab.next()).toEqual({ version, type: "closed", reason: "agent" });
       tab.send(act([{ type: "postpone", itemId: "region", rev: 1 }]));

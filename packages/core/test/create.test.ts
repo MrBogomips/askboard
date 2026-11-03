@@ -3,7 +3,7 @@ import { EPOCH_PATTERN, TITLE_MAX_CHARS } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { validateBoardDocument } from "@askboard/contract/validate";
 import { AskCore, BoardSetupError, deriveTitle } from "../src/index.ts";
-import { askWith, coreWith, fakePorts, plainChoiceAsk } from "./fakes.ts";
+import { askWith, coreWith, EN_US, fakePorts, plainChoiceAsk } from "./fakes.ts";
 
 // Core spec: Epoch, Creating an ask, Derived title (task 4.1).
 
@@ -39,7 +39,8 @@ describe("creating an ask", () => {
       },
     });
     const board = core.board("order-db-choice-x7k2");
-    expect(board?.document).toEqual(plainChoiceBoardDocument);
+    // settings-languages: ask-core names the ask's language and locale on every board document.
+    expect(board?.document).toEqual({ ...plainChoiceBoardDocument, ...EN_US });
     expect(validateBoardDocument(board?.document).ok).toBe(true);
     expect(board?.state).toBe("waiting");
     expect(board?.questions).toEqual([{ itemId: "database", rev: 1 }]);

@@ -43,6 +43,7 @@ import {
 import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
 import { Configuration } from "./config/configuration.ts";
+import { askLanguage } from "./config/language.ts";
 import type { SettingsInEffect } from "./config/settings.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
@@ -659,6 +660,7 @@ export class AskCore {
     }
     const unsupported = this.#push.versionRefusal(askId);
     if (unsupported !== undefined) return unsupported;
+    const language = askLanguage(input, (await this.settings()).values.defaultLanguage);
     const who = await this.#who(input);
     const forUser = await this.#forUser(input);
     // Context, E5: the pointers are read against the root of the ask's owner-to-be (design
@@ -671,6 +673,16 @@ export class AskCore {
     const question = first.type === "area" ? first.props.items[0] : first;
     const title = input.title ?? deriveTitle(question.props.text);
     const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who, context });
+    const ask = new Ask({
+      epoch: this.epoch,
+      askId,
+      request,
+      title,
+      input,
+      link,
+      who,
+      ...language,
+    });
     this.#asks.set(askId, ask);
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);

@@ -14,9 +14,14 @@ describe("reading the configuration once, on first use", () => {
     const { config, calls } = fakeConfig({ user: { version: v, theme: "dark" } });
     const { core } = coreWith({ config });
     expect(calls).toEqual([]);
-    await core.ask(plainChoiceAsk());
-    expect(calls).toEqual([]);
     await core.settings();
+    expect(calls.sort()).toEqual(["project", "user"]);
+  });
+
+  test("an ask needs one: its language (task 3.6)", async () => {
+    const { config, calls } = fakeConfig({ user: { version: v, theme: "dark" } });
+    const { core } = coreWith({ config });
+    await core.ask(plainChoiceAsk());
     expect(calls.sort()).toEqual(["project", "user"]);
   });
 

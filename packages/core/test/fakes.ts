@@ -229,3 +229,6 @@ export const fakeConfig = (options: FakeConfigOptions = {}) => {
     },
   };
 };
+
+/** The language and locale ask-core names on a board document when nothing sets them (task 3.6). */
+export const EN_US = { language: "en-US", locale: "en-US" } as const;
