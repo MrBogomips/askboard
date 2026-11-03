@@ -147,6 +147,6 @@ The team lead merges E3 (`ask-lifecycle`) first, then E4, then this change. E3 i
 
 ## Workflow follow-up
 
-- The PO accepted every open question of the proposal on 2026-10-31 with no override; a choice reversed later comes back as an `/opsx:update` of this change. The design's open question 1 (FR-12) is open, with Track B and the PO.
+- The PO accepted every open question of the proposal on 2026-10-31 with no override; a choice reversed later comes back as an `/opsx:update` of this change. The PO answered the design's two open questions on 2026-11-03: FR-12 with option (a), which the `widget-answers` change implements, the Gantt's code keeping design decision 10 until then; and the chart's width at far-future dates, kept as found.
 - Merge after E3 (`ask-lifecycle`), onto which group 10 rebases this change, as after E1's integration and the `tree-widget` change before it: the cherry-picked seam commits drop as duplicates on a rebase; the appended export blocks in `contract` keep every line of each; the port and view protocol additions sit on the seams' files; `packages/molecules/package.json` and its `bun.lock` entry are regenerated with `bun install` on a conflict; the integration session adds `packages/molecules` and the Gantt to `CLAUDE.md`.
 - Propose the input format widening for both widgets (design, Handed on), then archive this change on `main`, which adds its requirements to `openspec/specs/contract/`, `compute/`, `molecules/` and `view-and-widgets/`.

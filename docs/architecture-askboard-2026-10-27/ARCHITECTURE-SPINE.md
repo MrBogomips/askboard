@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-01'
+updated: '2026-11-03'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -27,6 +27,7 @@ sources:
   - 'OpenSpec change widget-answers: when the changes of an answer are computed, the answer too large for one result, and fetch in reference addressing (2026-11-01)'
   - 'OpenSpec change molecules, proposal.md, open questions 3 to 7, 11 and 14: the molecule definition format, the expansion and its map, where per-molecule schemas live, and linked edits in one draft update (accepted by the PO, 2026-11-01)'
   - 'OpenSpec change gantt-widget, proposal.md, open question 6: the view builds the board graph from the board document with the values of the draft record, recalculated in place where an edit changes only input values, and the baseline of a Gantt plan from the document as sent (accepted by the PO, 2026-10-31; applied 2026-11-01)'
+  - 'OpenSpec change ask-lifecycle, proposal.md, open question 12: the "More" menu on Radix Dropdown Menu, added to the Stack row of radix-ui (accepted by the PO, 2026-11-03)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -634,7 +635,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@modelcontextprotocol/ext-apps` (view message set, `App`, `AppBridge`) | 2.0.4 |
 | React (view and widgets) | 19.3.1 |
 | `@dagrejs/dagre` (Graph widget initial layout and auto-layout; elkjs stays excluded) | 3.1.3 |
-| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog; not Select) | 1.8.1 |
+| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
 | `react-day-picker` (the Date Picker's calendar) | 10.0.2 |
 | `markdown-it` (Markdown, `html: false`) | 15.0.3 |
 | `dompurify` (the Markdown sanitizer) | 3.4.17 |
