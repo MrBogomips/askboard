@@ -103,7 +103,7 @@ The contract SHALL declare, for a Tree with `pert`, the built-in derived fields 
 - **THEN** they are `expected` and `spread`, on every node and on the item, and only for a Tree with `pert`
 
 ### Requirement: WBS answer derived values
-The derived values a Tree with `pert` gives an answer SHALL be each node's `expected` and `spread` whose value, rounded half away from zero to two decimals, differs from the board as sent or whose node the agent did not send, and the item's `expected` and `spread` always, each rounded so; a value in error SHALL be left out. An answer SHALL carry them only beside the Tree's own value, as it carries every widget's derived values (F7, FR-12, FR-20).
+The derived values a Tree with `pert` gives an answer SHALL be each node's `expected` and `spread` whose value, rounded half away from zero to two decimals, differs from the board as sent or whose node the agent did not send, and the item's `expected` and `spread` always, each rounded so; a value in error SHALL be left out. An answer that carries the Tree's value SHALL carry these derived values beside it (F7, FR-12, FR-20).
 
 #### Scenario: The approved UJ-2 values
 - **WHEN** the UJ-2 work breakdown is computed after the approved answer's edits and compared with the board as sent
@@ -111,7 +111,7 @@ The derived values a Tree with `pert` gives an answer SHALL be each node's `expe
 
 #### Scenario: An untouched work breakdown
 - **WHEN** the user changed nothing in the work breakdown
-- **THEN** its derived values are the item's `expected` and `spread` only, and an answer that carries no value for the Tree carries none of them
+- **THEN** its derived values are the item's `expected` and `spread` only
 
 ### Requirement: Molecule fixtures
 The contract SHALL provide, for tests only, the UJ-2 question as the expansion gives it, a Tree `wbs__tree` and a Gantt plan `schedule__plan` over it, and their values after the approved answer's edits. Each SHALL pass the widget item checks, and the diff of each sent and edited value, under its reference's ID, SHALL give the approved answer's operations.

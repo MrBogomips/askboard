@@ -14,7 +14,7 @@ The view SHALL receive a molecule only as the widget items its expansion gave, a
 - **THEN** `assemble` fails, naming the type `molecule`, and no srcdoc is built
 
 ### Requirement: Linked edits in one draft update
-A component SHALL be able to put the values of several items of its own question into the draft record in one update, `undefined` removing an item's value. An update naming an item outside the component's question SHALL change nothing and SHALL be reported as an error (AD-9, AD-20).
+A component SHALL be able to put the values of several items of its own question into the draft record in one update, `undefined` removing an item's value. An update naming an item outside the component's question SHALL change nothing and SHALL be reported as an error. The board a component reads SHALL give each item the value it shows: its draft value, else its question's latest answer's value for it, else its props as sent (AD-9, AD-20).
 
 #### Scenario: Two items at once
 - **WHEN** a test `probe` component sets its own value and its sibling's in one update
@@ -23,6 +23,10 @@ A component SHALL be able to put the values of several items of its own question
 #### Scenario: An item of another question
 - **WHEN** a `probe` component's update names an item of another question
 - **THEN** the draft record is unchanged and the item reports the error
+
+#### Scenario: A linked edit on an answered question
+- **WHEN** the user revises an answered question whose answer holds edits of the plan, and names a package added in the Tree after the portal
+- **THEN** the plan's draft value is the answered plan with the added package's predecessors, and the plan shows it; no other item of the question gains a draft value
 
 ### Requirement: The board graph chunk
 The board graph SHALL be the library chunk `board-graph`, needing `compute`, which the `tree` and `gantt` chunks need; every computing widget on a board SHALL read one live graph per draft change and one graph of the board as sent (AD-9, AD-13).
