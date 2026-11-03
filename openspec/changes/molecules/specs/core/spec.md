@@ -17,6 +17,10 @@ The core owns asks, their board documents, their states and one append-only even
 - **WHEN** the plain-choice ask's items are expanded
 - **THEN** they are returned unchanged and no expansion is recorded
 
+#### Scenario: A question in an area
+- **WHEN** the UJ-2 question `plan` sits in an area, as E3's input format 1.1 allows, and the items are expanded
+- **THEN** the area's question `plan` holds `wbs__tree` and `schedule__plan` as at the top level, and the area is otherwise unchanged
+
 ### Requirement: Fill forms
 A fill SHALL put its parameter's value at its pointer: as it is (copy); as the expanded item of the molecule reference it names, else unchanged (`item`); with each value of an object turned into an entry holding it under the given field (`entries`); or without the given keys at any depth (`omit`). A parameter the data leaves out SHALL leave the composition's value (AD-9).
 
