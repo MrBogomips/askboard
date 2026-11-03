@@ -63,7 +63,7 @@ The mod SHALL push only events above an ask's `received` watermark, only for ask
 - **THEN** the mod pushes nothing, and the answer waits for `collect`
 
 ### Requirement: Push to a subagent
-The mod SHALL push to a subagent by appending a row addressed to its agent ID, and only while the mod API lists that subagent with a status other than `completed`, `failed` or `killed`. It SHALL NOT use `$.session.send` (AD-4, findings D1, D13).
+The mod SHALL push to a subagent by appending a row addressed to its agent ID, and only while the mod API lists that subagent with a status other than `completed`, `failed` or `killed`. It SHALL use `$.session.send` only to wake an idle in-process teammate (AD-4, findings D1, D13).
 
 #### Scenario: A running background subagent under auto mode
 - **WHEN** a background subagent that owns an ask is still working under auto mode and the user answers
@@ -72,6 +72,17 @@ The mod SHALL push to a subagent by appending a row addressed to its agent ID, a
 #### Scenario: The subagent has finished
 - **WHEN** the owner of an ask is no longer listed, or is listed as completed
 - **THEN** the mod pushes nothing to it, so no finished subagent is resumed
+
+### Requirement: Waking an idle teammate
+An in-process teammate the mod API lists as `idle` SHALL be pushed to by one `$.session.send` addressed to its agent ID, carrying the push, which wakes it; when the send is not delivered, as auto mode refuses it for a mod (D13), the row SHALL be appended instead (AD-4).
+
+#### Scenario: An idle in-process teammate, by message
+- **WHEN** the user answers the ask of an in-process teammate that waits idle for a message
+- **THEN** one message to its agent ID wakes it with the answer, and the receipt reads "delivered to the agent"
+
+#### Scenario: A busy in-process teammate
+- **WHEN** the user answers the ask of an in-process teammate whose turn runs
+- **THEN** the answer is appended to its conversation, as for a subagent
 
 ### Requirement: Push to the main conversation
 For an ask the main conversation owns, the mod SHALL append the push while a main turn runs and SHALL submit it as a new turn when the main conversation is idle. Its rows and turns SHALL be attributed to the plugin, never sent as the user (AD-4).

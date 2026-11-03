@@ -29,7 +29,7 @@ A record SHALL bind to the call that carries the same `tool_use_id`, whatever th
 - **THEN** it binds to that record
 
 ### Requirement: Origin of an ask
-Each owned ask SHALL keep an origin set once from its owning record: the owner key; a label, "Main agent" or "Subagent <type>", with an ordinal for the second and later subagents of one type; the `cwd`; the root, the real path of the git worktree of the `cwd` when it belongs to the project's repository, else of the session project root; the directory, the `cwd` relative to the root; the branch; and the worktree. Without a session project root it SHALL have none of the last four (AD-5, AD-12).
+Each owned ask SHALL keep an origin set once from its owning record: the owner key; a label, "Main agent", "Subagent <type>" with an ordinal from the second of a type, or "Teammate <name>"; the `cwd`; the root, the real path of the git worktree of the `cwd` when it belongs to the project's repository, else of the session project root; the directory, the `cwd` relative to the root; the branch; and the worktree. Without a session project root it SHALL have none of the last four (AD-5, AD-12).
 
 #### Scenario: A subagent in another worktree
 - **WHEN** a subagent working in a worktree of the project's repository asks

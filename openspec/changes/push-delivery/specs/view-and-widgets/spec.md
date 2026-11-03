@@ -22,7 +22,7 @@ The board page SHALL send `board-host` a presence message whenever its working s
 - **THEN** the board page reports within about a second that it is not working
 
 ### Requirement: Who asked, and where
-The context header's first row SHALL name who asked: "Main agent" or "Subagent <type>", with " · <name>" when the agent gave a display name and an ordinal ("#2") for a second subagent of the same type in the session. It SHALL then show the labelled fields Project, Directory, Branch and Worktree from the ask's origin, and "—" for a field AskBoard does not know (FR-24, EXPERIENCE Board anatomy, DESIGN.md Context header).
+The context header's first row SHALL name who asked: "Main agent", "Subagent <type>" or "Teammate <name>", with " · <name>" when the agent gave a display name and an ordinal ("#2") for a second subagent of the same type. It SHALL then show the labelled fields Project, Directory, Branch and Worktree from the ask's origin, and "—" for a field AskBoard does not know (FR-24, EXPERIENCE Board anatomy, DESIGN.md Context header).
 
 #### Scenario: A named subagent in a worktree
 - **WHEN** a `code-reviewer` subagent named "Retry review" asks from a linked worktree on branch `fix/retry`
@@ -35,6 +35,18 @@ The context header's first row SHALL name who asked: "Main agent" or "Subagent <
 #### Scenario: A second subagent of one type
 - **WHEN** a second `code-reviewer` subagent of the same session asks without a name
 - **THEN** row 1 reads "Subagent code-reviewer #2"
+
+#### Scenario: A teammate in its own pane
+- **WHEN** an agent-team teammate named `researcher`, running in its own pane, asks
+- **THEN** row 1 of its board reads "Teammate researcher"
+
+#### Scenario: An in-process teammate
+- **WHEN** an in-process teammate named `scout-2` asks through the lead's session
+- **THEN** row 1 of its board reads "Teammate scout-2", with no ordinal
+
+#### Scenario: The lead
+- **WHEN** the lead of an agent team asks
+- **THEN** row 1 reads "Main agent"
 
 #### Scenario: An unchecked ask
 - **WHEN** an ask arrives with no agent record
