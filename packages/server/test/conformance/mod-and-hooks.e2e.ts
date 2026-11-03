@@ -211,12 +211,12 @@ describe("push to the main conversation", () => {
     // main conversation's ask gets no toast.
     const rows = await bandWhen(
       mod,
-      (drawn) => (drawn?.some((row) => row.endsWith(result.board)) ? drawn : undefined),
+      (drawn) => (drawn?.some((row) => row.includes(result.board)) ? drawn : undefined),
       "the ask in the band",
     );
     expect(rows).toEqual([
-      "AskBoard · 1 pending",
-      `Orders DB · Main agent · 1 open · ${result.board}`,
+      "🙋 AskBoard · 1 pending",
+      `🙋 AskBoard › [Orders DB](${result.board})`,
       BENEATH_ROW,
     ]);
 
@@ -324,9 +324,9 @@ describe("push to subagents", () => {
       "both asks in the band",
     );
     expect(rows).toEqual([
-      "AskBoard · 2 pending",
-      `Log level · Subagent code-reviewer · 1 open · ${first.result.board}`,
-      `Retry policy · Subagent test-runner · 1 open · ${second.result.board}`,
+      "🙋 AskBoard · 2 pending",
+      `🙋 AskBoard › [Log level](${first.result.board})`,
+      `🙋 AskBoard › [Retry policy](${second.result.board})`,
       BENEATH_ROW,
     ]);
 

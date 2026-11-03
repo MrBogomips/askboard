@@ -446,6 +446,13 @@ describe("the band above the prompt", () => {
             ],
           }),
           Box({ flexDirection: "row", children: [Link({ href: RETRY, label: "Retry policy" })] }),
+          Box({
+            flexDirection: "row",
+            children: [
+              Text({ color: "cyan", children: "🙋 AskBoard › " }),
+              Link({ href: RETRY, children: Text({ color: "cyan", children: "Retry policy" }) }),
+            ],
+          }),
           await beneath(),
         ],
       });
@@ -454,6 +461,7 @@ describe("the band above the prompt", () => {
       "AskBoard · 2 pending",
       `Which database? · Main agent · 2 open · ${BOARD}`,
       `[Retry policy](${RETRY})`,
+      `🙋 AskBoard › [Retry policy](${RETRY})`,
       BENEATH_ROW,
     ];
     expect(await host.drawBand()).toEqual(rows);

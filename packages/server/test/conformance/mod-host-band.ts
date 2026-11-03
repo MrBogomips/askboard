@@ -3,7 +3,7 @@
 // element constructors `$.ui.resolve` gives, each building a plain record. A drawing is read back as
 // the rows a terminal shows, as the mod's own fake reads it (`packages/mod/test/fake-band.ts`): a
 // column's children one under the other, a row's or a text's children on one line, a link as its
-// address, or `[label](address)` when it has a label. What the plugins beneath draw, the host's
+// address, or `[text](address)` when it has children or a label. What the plugins beneath draw, the host's
 // `next`, reads as one row, `BENEATH_ROW`. An element these constructors did not build is a
 // problem, never read as a row.
 
@@ -34,6 +34,7 @@ export type BandElement = {
   readonly props: {
     readonly children?: BandChildren;
     readonly flexDirection?: "row" | "column";
+    readonly color?: string;
     readonly dimColor?: boolean;
     readonly wrap?: "truncate-end";
     readonly href?: string;
@@ -49,10 +50,16 @@ type Children = { readonly children?: BandChildren };
 export type BandElements = {
   readonly Box: (props: { readonly flexDirection?: "row" | "column" } & Children) => BandElement;
   readonly Text: (
-    props: { readonly dimColor?: boolean; readonly wrap?: "truncate-end" } & Children,
+    props: {
+      readonly color?: string;
+      readonly dimColor?: boolean;
+      readonly wrap?: "truncate-end";
+    } & Children,
   ) => BandElement;
-  /** A link; with no label its address is the text. */
-  readonly Link: (props: { readonly href: string; readonly label?: string }) => BandElement;
+  /** A link: its children are its text; with none, its label; with neither, its address. */
+  readonly Link: (
+    props: { readonly href: string; readonly label?: string } & Children,
+  ) => BandElement;
 };
 
 /** The band on a terminal 200 cells wide, with no survey and no turn running. */
@@ -111,7 +118,8 @@ const inline = (children: unknown): string =>
       if (Array.isArray(child)) return inline(child);
       const { type, props } = drawnOf(child);
       if (type === "Link") {
-        return props.label === undefined ? props.href : `[${props.label}](${props.href})`;
+        const text = props.children === undefined ? props.label : inline(props.children);
+        return text === undefined ? props.href : `[${text}](${props.href})`;
       }
       return type === "Beneath" ? BENEATH_ROW : inline(props.children);
     })
