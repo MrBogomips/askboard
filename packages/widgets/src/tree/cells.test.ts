@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeColumn, TreePertProps } from "@askboard/contract";
-import { fieldText, nameColumnOf, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
+import { affixOf, fieldText, nameColumnOf, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
 
 const days: TreeColumn = { field: "days", label: "Days", type: "number" };
 const note: TreeColumn = { field: "note", label: "Note", type: "text" };
@@ -45,5 +45,16 @@ describe("a work breakdown's cells (molecules design decision 14)", () => {
     expect(pertFieldText({ id: "a", label: "A" }, optimistic, true)).toBe("");
     expect(pertFieldText(leaf, note, true)).toBe("n");
     expect(pertFieldText(leaf, days, false)).toBe("2");
+  });
+
+  test("an estimate's editor keeps the d affix in a work breakdown; no other cell's does", () => {
+    const wbs: TreePertProps = { columns: [optimistic, note], nodes: [], pert: true };
+    expect([0, 1, 2, 3].map((cell) => affixOf(wbs, cell))).toEqual([
+      undefined,
+      "d",
+      undefined,
+      undefined,
+    ]);
+    expect(affixOf({ columns: [optimistic], nodes: [] }, 1)).toBeUndefined();
   });
 });

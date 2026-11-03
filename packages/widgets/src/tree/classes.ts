@@ -137,6 +137,12 @@ export const EDITOR = EDITOR_BASE;
 /** A number's editor: a text input, right-aligned in the code face as the cell's number is. */
 export const NUMBER_EDITOR = `${EDITOR_BASE} text-right font-mono text-code`;
 
+/** An input and its unit affix side by side, as an Input Group (DESIGN.md, Input atoms). */
+export const AFFIX_GROUP = "flex min-w-0 items-center gap-1";
+
+/** The unit affix after an input, in the code face and muted. */
+export const AFFIX = "shrink-0 font-mono text-code text-muted-foreground";
+
 /** A number's parsed value, echoed in the code face (DESIGN.md, Input atoms). */
 export const ECHO = "text-right font-mono text-code text-muted-foreground";
 

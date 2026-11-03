@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 import { numberEcho, parseNumber } from "../shared/number.ts";
-import { ECHO, EDITOR, EDITOR_BOX, NUMBER_EDITOR } from "./classes.ts";
+import { AFFIX, AFFIX_GROUP, ECHO, EDITOR, EDITOR_BOX, NUMBER_EDITOR } from "./classes.ts";
 import type { EntryKind } from "./entry.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { keyAction } from "./model/keys.ts";
@@ -37,6 +37,8 @@ export type CellEditorProps = {
   readonly onCancel: () => void;
   /** The text changed, so a field error no longer applies. */
   readonly onEdit: () => void;
+  /** The unit kept beside the input, as a work breakdown's estimate keeps `d`; none elsewhere. */
+  readonly affix?: string | undefined;
 };
 
 export const CellEditor = ({
@@ -48,6 +50,7 @@ export const CellEditor = ({
   onCommit,
   onCancel,
   onEdit,
+  affix,
 }: CellEditorProps) => {
   const [text, setText] = useState(initial);
   const input = useRef<HTMLInputElement>(null);
@@ -86,22 +89,34 @@ export const CellEditor = ({
   };
 
   const parsed = kind === "number" ? parseNumber(text) : undefined;
+  const field = (
+    <input
+      ref={input}
+      type="text"
+      value={text}
+      aria-label={label}
+      aria-invalid={error !== undefined}
+      aria-describedby={error === undefined ? undefined : errorId}
+      autoComplete="off"
+      spellCheck={false}
+      className={kind === "number" ? NUMBER_EDITOR : EDITOR}
+      onKeyDown={onKeyDown}
+      onBlur={onBlur}
+      onChange={onChange}
+    />
+  );
   return (
     <span className={EDITOR_BOX}>
-      <input
-        ref={input}
-        type="text"
-        value={text}
-        aria-label={label}
-        aria-invalid={error !== undefined}
-        aria-describedby={error === undefined ? undefined : errorId}
-        autoComplete="off"
-        spellCheck={false}
-        className={kind === "number" ? NUMBER_EDITOR : EDITOR}
-        onKeyDown={onKeyDown}
-        onBlur={onBlur}
-        onChange={onChange}
-      />
+      {affix === undefined ? (
+        field
+      ) : (
+        <span className={AFFIX_GROUP}>
+          {field}
+          <span aria-hidden="true" className={AFFIX}>
+            {affix}
+          </span>
+        </span>
+      )}
       {parsed?.kind === "number" ? <span className={ECHO}>{numberEcho(parsed.value)}</span> : null}
     </span>
   );

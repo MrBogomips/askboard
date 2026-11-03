@@ -44,6 +44,13 @@ export const visibleRows = (
   return Object.freeze(rows);
 };
 
+/** A work breakdown's value cells after its fields: the expected effort and the spread. */
+export const PERT_VALUE_CELLS = 2;
+
+/** The cells of each row: the name, one per column, then a work breakdown's two value cells. */
+export const cellCount = (value: TreeProps): number =>
+  1 + (value.columns?.length ?? 0) + (isPert(value) ? PERT_VALUE_CELLS : 0);
+
 /** The levels a work breakdown opens with when its props set no `openDepth` (EXPERIENCE, WBS with PERT). */
 export const PERT_OPEN_DEPTH = 2;
 

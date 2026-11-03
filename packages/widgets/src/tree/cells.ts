@@ -28,6 +28,9 @@ export const TOTAL_ROW = "Total";
 
 const ESTIMATES: ReadonlySet<string> = new Set(GANTT_PLAN_ESTIMATES);
 
+/** The unit affix of a work breakdown's estimates and values: working days. */
+const DAYS = "d";
+
 /** The name column's header for `value`. */
 export const nameColumnOf = (value: TreeProps): string =>
   isPert(value) ? WBS_NAME_COLUMN : NAME_COLUMN;
@@ -46,5 +49,14 @@ export const fieldText = (node: TreeNode, column: TreeColumn): string => {
 export const pertFieldText = (node: TreeNode, column: TreeColumn, estimates: boolean): string => {
   if (!ESTIMATES.has(column.field)) return fieldText(node, column);
   const text = estimates ? fieldText(node, column) : "";
-  return text === "" ? "" : `${text} d`;
+  return text === "" ? "" : `${text} ${DAYS}`;
+};
+
+/**
+ * The affix the editor of the cell `cell` keeps beside its input (DESIGN.md, Input atoms): `d` on a
+ * work breakdown's estimate, none elsewhere.
+ */
+export const affixOf = (value: TreeProps, cell: number): string | undefined => {
+  const field = cell === 0 ? undefined : value.columns?.[cell - 1]?.field;
+  return isPert(value) && field !== undefined && ESTIMATES.has(field) ? DAYS : undefined;
 };

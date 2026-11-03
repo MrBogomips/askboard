@@ -5,7 +5,8 @@
 // it, and its question never counts as visible (AD-10). It shows its value, the draft or the sent
 // answer, else the agent's props, as a treegrid in the widget frame, and reports ready once laid
 // out. A work breakdown, a Tree with `pert`, reads the board's graph through the `board-graph`
-// chunk, the one build the plan on its board reads too (molecules, design decisions 13 and 14).
+// chunk, the one build the plan on its board reads too, and reports the derived values its answer
+// carries (molecules, design decisions 13 and 14).
 
 import {
   type TreeItem,
@@ -15,13 +16,15 @@ import {
 } from "@askboard/contract";
 import {
   type BoardContent,
+  type DerivedValues,
   type ItemProps,
   questionTextId,
   register,
   useReadyAfterLayout,
 } from "@askboard/view/catalog";
-import { useMemo } from "react";
-import { type BoardGraph, liveGraph } from "../graph/index.ts";
+import { useEffect, useMemo } from "react";
+import { type BoardGraph, liveGraph, sentGraph } from "../graph/index.ts";
+import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Tree item's type. */
@@ -55,6 +58,26 @@ const pertGraph = (
   return graph;
 };
 
+/**
+ * The derived values a work breakdown's answer carries as it stands (`pertDerived`), against the
+ * board as sent; none for a Tree that computes nothing.
+ */
+const usePertDerived = (
+  itemId: string,
+  nodes: TreeProps["nodes"],
+  graph: BoardGraph | undefined,
+  board: BoardContent,
+): DerivedValues | undefined => {
+  const sentBoard = graph === undefined ? undefined : sentGraph(board);
+  return useMemo(
+    () =>
+      graph === undefined || sentBoard === undefined
+        ? undefined
+        : pertDerived(graph, sentBoard, itemId, nodes),
+    [graph, sentBoard, itemId, nodes],
+  );
+};
+
 const Tree = ({
   item,
   questionId,
@@ -63,10 +86,17 @@ const Tree = ({
   disabled,
   ready,
   board,
+  onDerived,
 }: TreeComponentProps) => {
   // The checks throw before the item can report ready: its props, then its board's graph.
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
   const graph = pertGraph(item.id, sent, board);
+  // Reported on first layout and after each rebuild of the graph, which each committed edit of the
+  // board makes (AD-20, FR-12; molecules design decision 14).
+  const derived = usePertDerived(item.id, (value ?? sent).nodes, graph, board);
+  useEffect(() => {
+    if (derived !== undefined) onDerived(derived);
+  }, [derived, onDerived]);
   useReadyAfterLayout(ready);
   return (
     <TreeWidget

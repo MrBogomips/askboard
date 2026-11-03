@@ -12,9 +12,9 @@
 import type { TreeProps } from "@askboard/contract";
 import { useMemo, useState } from "react";
 import { enterNewName, type PendingAdd, withPending } from "./adding.ts";
-import { nameColumnOf } from "./cells.ts";
+import { affixOf, nameColumnOf } from "./cells.ts";
 import { CellEditor, type CommitBy } from "./editor.tsx";
-import { type EntryKind, enterCell, entryKindOf, startTextOf } from "./entry.ts";
+import { type EntryKind, enterCell, entryKindAt, startTextOf } from "./entry.ts";
 import { nextNodeId } from "./model/edits.ts";
 import type { TreeFocus } from "./model/focus.ts";
 import { sameNodes } from "./model/marks.ts";
@@ -71,7 +71,7 @@ export const useCellEditing = ({
 
   const start = (at: TreeFocus): void => {
     const cell = at.cell ?? 0;
-    const kind = entryKindOf(value.columns, cell);
+    const kind = entryKindAt(value, at.nodeId, cell);
     if (!disabled && kind !== undefined) setState({ nodeId: at.nodeId, cell, kind });
   };
   const startAdd = (pending: PendingAdd): void => {
@@ -122,6 +122,7 @@ export const useCellEditing = ({
               onCommit={commit}
               onCancel={() => close(true, editing.add)}
               onEdit={onEdit}
+              affix={affixOf(value, editing.cell)}
             />
           ),
         };

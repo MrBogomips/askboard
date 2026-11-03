@@ -1,15 +1,16 @@
 // The treegrid's focus and expansion (design decision 5; proposal, open questions 8, 9 and 10):
 // view state the component holds beside the draft, never in it. The focus is on a row or on one
-// of its cells, 0 the name and then one per column, and follows the WAI-ARIA treegrid pattern:
-// Up and Down move between visible rows in the same column, Home and End to the first and last
-// row or cell, Right expands a closed row or enters its cells, Left collapses an open row, goes to
-// the parent or leaves the cells. Each function returns a new frozen view, or the same view when
-// nothing changes. Also here: where focus goes after a delete, and the toolbar's roving focus.
+// of its cells, 0 the name, then one per column and a work breakdown's two value cells, and
+// follows the WAI-ARIA treegrid pattern: Up and Down move between visible rows in the same column,
+// Home and End to the first and last row or cell, Right expands a closed row or enters its cells,
+// Left collapses an open row, goes to the parent or leaves the cells. Each function returns a new
+// frozen view, or the same view when nothing changes. Also here: where focus goes after a delete,
+// and the toolbar's roving focus.
 
 import type { TreeProps } from "@askboard/contract";
 import type { FocusMove, ToolbarMove } from "./keys.ts";
 import { locate, nodeIds } from "./nodes.ts";
-import { openingCollapsed, type TreeRow, visibleRows } from "./rows.ts";
+import { cellCount, openingCollapsed, type TreeRow, visibleRows } from "./rows.ts";
 
 /** A row, or one of its cells when `cell` is set: 0 is the name, then one cell per column. */
 export type TreeFocus = { readonly nodeId: string; readonly cell?: number };
@@ -131,7 +132,7 @@ export const navigate = (view: TreeView, move: FocusMove, value: TreeProps): Tre
   if (focus === undefined) return view;
   const rows = visibleRows(value.nodes, collapsed);
   const at = rows.findIndex((row) => row.node.id === focus.nodeId);
-  const cells = 1 + (value.columns?.length ?? 0);
+  const cells = cellCount(value);
   const step =
     focus.cell === undefined
       ? rowStep(rows, at, collapsed, move)

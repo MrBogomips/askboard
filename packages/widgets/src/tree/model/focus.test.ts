@@ -49,6 +49,20 @@ describe("opening the treegrid", () => {
   });
 });
 
+describe("a work breakdown's value cells (molecules design decision 14)", () => {
+  const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+
+  test("the arrow keys, Home and End reach the two value cells after the estimates", () => {
+    const at = (focus: TreeFocus, move: FocusMove) => navigate(viewOf(focus), move, wbs).focus;
+    expect(at(cell("ux", 3), "right")).toEqual(cell("ux", 4));
+    expect(at(cell("ux", 4), "right")).toEqual(cell("ux", 5));
+    expect(at(cell("ux", 5), "right")).toEqual(cell("ux", 5));
+    expect(at(cell("ux", 0), "end")).toEqual(cell("ux", 5));
+    expect(at(cell("ux", 5), "down")).toEqual(cell("architecture", 5));
+    expect(at(cell("design", 4), "left")).toEqual(cell("design", 3));
+  });
+});
+
 describe("the focus moves (WAI-ARIA treegrid)", () => {
   // [from, collapsed, key, to, collapsed after]
   test.each<[TreeFocus, string[], FocusMove, TreeFocus, string[]]>([
