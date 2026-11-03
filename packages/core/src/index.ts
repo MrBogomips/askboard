@@ -123,3 +123,4 @@ export type {
   SourceUnavailable,
   UnresolvedPointer,
 } from "./context/ports.ts";
+export { rootOf } from "./context/root.ts";
