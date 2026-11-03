@@ -1,7 +1,8 @@
 // How the board page reads what `board-host` sends over the WebSocket (AD-7, AD-10): the text is
 // parsed, the version checked first, then the message's own `type` picks its schema, as the
 // contract's `validateBoardMessage` does on the other side. A message that fails is never acted on.
-// Push delivery's origin and agent messages are read the same way (design decision 12).
+// Push delivery's origin and agent messages are read the same way (design decision 12), and so are
+// the settings (settings-languages, design decision 6).
 
 import {
   type AgentStatusMessage,
@@ -9,6 +10,7 @@ import {
   type ContextHostMessage,
   type LifecycleHostMessage,
   type OriginMessage,
+  type SettingsMessage,
   unsupportedVersion,
 } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
@@ -21,12 +23,14 @@ const BOARD_PROTOCOL = { title: "board protocol", version: BOARD_PROTOCOL_VERSIO
 /**
  * Every message `board-host` sends a board: protocol 1.1's, push delivery's origin and agent, and
  * the reading panel's source state and editor outcome (excerpts).
+ * protocol 1.2's settings.
  */
 export type BoardHostMessage =
   | LifecycleHostMessage
   | OriginMessage
   | AgentStatusMessage
   | ContextHostMessage;
+  | SettingsMessage;
 
 const refused = (path: string, message: string): Checked<BoardHostMessage> => ({
   ok: false,

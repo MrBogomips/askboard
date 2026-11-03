@@ -68,7 +68,7 @@ const quiet = async (board: BoardSocket) => {
 const call = { tool: "ask", askIds: [askId] };
 
 describe("on connect", () => {
-  test("an owned ask's board gets the board, the state, then who asked and where, then the agent status", async () => {
+  test("an owned ask's board gets the settings, the board, the state, then who asked and where, then the agent status", async () => {
     const fixture = await hostWith({ origin: REVIEWER });
     try {
       const { port } = await fixture.ask(
@@ -91,7 +91,7 @@ describe("on connect", () => {
       const agent = await board.nextHeader();
       expect(agent).toEqual({ version, type: "agent", status: "working" });
       expect(validateAgentStatus(agent).ok).toBe(true);
-      expect(board.types).toEqual(["board", "state", "origin", "agent"]);
+      expect(board.types).toEqual(["settings", "board", "state", "origin", "agent"]);
       await quiet(board);
       expect(fixture.reported).toEqual([]);
     } finally {

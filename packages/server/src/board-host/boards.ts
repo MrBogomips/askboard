@@ -43,7 +43,7 @@ import {
   TAKEOVER_FLUSH_WAIT_MS,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
-import type { ActOutcome, CoreEvent } from "@askboard/core";
+import type { ActOutcome, CoreEvent, SettingsView } from "@askboard/core";
 import { type RawData, WebSocket } from "ws";
 import { actReply, draftRefusal } from "./acts.ts";
 import { editorOutcomeMessage, NO_SOURCE, sourceStateMessage } from "./context-messages.ts";
@@ -186,8 +186,8 @@ type Commands = {
   ) => void;
 };
 
-/** One part of a board's opening, sent when it applies. */
-type Opener = (connection: Connection, board: OpenBoardView) => void;
+/** One part of a board's opening, sent when it applies; `settings` when ask-core read them. */
+type Opener = (connection: Connection, board: OpenBoardView, settings?: SettingsView) => void;
 
 // The size of a message as it arrived, in bytes.
 const sizeOf = (data: RawData): number =>
@@ -539,15 +539,48 @@ export class Boards {
     this.#moved(connection);
   }
 
+  // A board opens once ask-core has read its settings, which re-reads the user file
+  // (settings-languages, design decision 6); without ask-core's settings part it opens at once.
+  // Meanwhile the socket is live and not opened: ask-core's events reach it only as a discard, and
+  // the opening sends the board as it then is, as a takeover's does. Settings that fail are
+  // reported, and the board opens without them.
   #open(connection: Connection, board: OpenBoardView): void {
-    connection.opened = true;
-    for (const opener of this.#openers) opener(connection, board);
+    const core = this.#core;
+    if (core.boardSettingsView === undefined) {
+      this.#openNow(connection, board);
+      return;
+    }
+    core.boardSettingsView().then(
+      (settings) => this.#guard(() => this.#openWith(connection, settings)),
+      (error: unknown) => {
+        this.#report(error);
+        this.#guard(() => this.#openWith(connection, undefined));
+      },
+    );
   }
 
-  // The board's opening, in order, each part sent when it applies: its document and state, then its
+  // The settings are read: the board opens unless it closed, lost the board or was opened, or the
+  // ask was discarded meanwhile, which it was then told.
+  #openWith(connection: Connection, settings: SettingsView | undefined): void {
+    if (connection.phase !== "live" || connection.opened) return;
+    if (this.#live.get(connection.askId) !== connection) return;
+    const board = this.#view(connection.askId);
+    if (board !== undefined) this.#openNow(connection, board, settings);
+  }
+
+  #openNow(connection: Connection, board: OpenBoardView, settings?: SettingsView): void {
+    connection.opened = true;
+    for (const opener of this.#openers) opener(connection, board, settings);
+  }
+
+  // The board's opening, in order, each part sent when it applies: the settings in effect, before
+  // the board they present (settings-languages, design decision 6); its document and state, then its
   // unsent work when ask-core holds it, and the close when the ask is closed (ask-lifecycle); then
   // who asked and where, and the agent status (push delivery, design decision 12).
   readonly #openers: readonly Opener[] = [
+    (connection, _board, settings) => {
+      if (settings !== undefined) this.#send(connection, settingsMessage(settings));
+    },
     (connection, board) => this.#send(connection, boardMessage(board)),
     (connection) => this.#sendState(connection),
     (connection) => {

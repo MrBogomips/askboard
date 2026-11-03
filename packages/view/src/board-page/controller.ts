@@ -534,6 +534,9 @@ class BoardPageController implements BoardPage {
     agent: (message) => this.#keep(message),
     "source-state": (message) => this.#deps.readingPanel?.sourceState(message),
     "editor-outcome": (message) => this.#deps.readingPanel?.editorOutcome(message),
+    // Read before the board on each connect; the board page applies them with its settings
+    // (settings-languages, task 8.2).
+    settings: () => undefined,
   };
 
   // A message the model keeps, which the view shows: a receipt, who asked and where, the status.

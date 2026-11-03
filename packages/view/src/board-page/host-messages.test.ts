@@ -42,7 +42,7 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
       // `settings` joins `BoardHostMessage` with the board page's settings (settings-languages 8.2).
       expect({ type: message.type, read }).toEqual({
         type: message.type,
-        read: { ok: true, value: message as never },
+        read: { ok: true, value: message },
       });
     }
   });

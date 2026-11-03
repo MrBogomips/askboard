@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BOARD_CLOSE_CODES, BOARD_PROTOCOL_VERSION } from "@askboard/contract";
-import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
+import { PLAIN_CHOICE, settingsWithEveryKey } from "@askboard/contract/fixtures";
 import { validateBoardMessage } from "@askboard/contract/validate";
 import { type BoardHost, createBoardHost, type HostCore } from "../src/board-host/index.ts";
 import { NO_SETTINGS } from "../src/board-host/settings.ts";
@@ -91,8 +91,9 @@ const liveBoard = async () => {
   return { ...disk, fixture, board };
 };
 
-// The opening's messages, up to the state; a settings message (task 5.1) may come first.
-const opened = async (board: BoardSocket) => {
+// The opening's messages: its settings when ask-core has them (task 5.1), then up to the state.
+const opened = async (board: BoardSocket, settings = true) => {
+  if (settings) await board.nextSettings();
   for (let message = await board.next(); ; message = await board.next()) {
     if ((message as { type?: string }).type === "state") return;
   }
@@ -133,7 +134,7 @@ describe("a board writes only presentation keys", () => {
   test("a valid write reaches ask-core, and the board hears the settings with the outcome", async () => {
     const { board, user, fixture } = await liveBoard();
     board.send(setting("theme", "dark"));
-    const settings = (await board.next()) as Record<string, any>;
+    const settings = (await board.nextSettings()) as Record<string, any>;
     expect(validateBoardMessage("toPage", settings).ok).toBe(true);
     expect(settings).toMatchObject({
       version,
@@ -150,7 +151,7 @@ describe("a board writes only presentation keys", () => {
     const { board, bytes } = await liveBoard();
     const before = bytes();
     board.send(setting("density", "compact"));
-    expect(await board.next()).toMatchObject({
+    expect(await board.nextSettings()).toMatchObject({
       type: "settings",
       write: { key: "density", outcome: "refused", reason: "set-by-project" },
       keys: { density: { value: "comfortable", from: "project", writable: false } },
@@ -165,7 +166,7 @@ describe("a board writes only presentation keys", () => {
       chmodSync(userFolder, 0o500);
       try {
         board.send(setting("contextPlacement", "inline"));
-        expect(await board.next()).toMatchObject({
+        expect(await board.nextSettings()).toMatchObject({
           type: "settings",
           write: {
             key: "contextPlacement",
@@ -184,6 +185,7 @@ describe("a board writes only presentation keys", () => {
 
 describe("a write ask-core cannot take", () => {
   const token = "sssssssssssssssssssssA";
+  const { version: _, type: __, ...openingView } = settingsWithEveryKey;
 
   // A live board on a host around `core`, past its opening, and what the host reported.
   const fakeBoard = async (core: HostCore) => {
@@ -200,7 +202,7 @@ describe("a write ask-core cannot take", () => {
     const board = await openSocket(Number(link.port), PLAIN_CHOICE.askId);
     sockets.push(board);
     board.send({ version, type: "connect", token });
-    await opened(board);
+    await opened(board, core.boardSettingsView !== undefined);
     return { board, reported };
   };
 
@@ -220,7 +222,8 @@ describe("a write ask-core cannot take", () => {
     const { board, reported } = await fakeBoard({
       ...fakeHostCore().core,
       writeSetting: () => Promise.reject(failure),
-      boardSettingsView: () => Promise.reject(new Error("never asked")),
+      // The opening's settings; the failed write asks for none.
+      boardSettingsView: () => Promise.resolve(openingView),
     });
     board.send(setting("theme", "dark"));
     board.send({ version, type: "draft", record: "not a record" });
