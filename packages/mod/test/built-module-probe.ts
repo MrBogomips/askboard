@@ -1,7 +1,7 @@
 // Run as its own process by tools/build/mod.test.ts, so that the built code it loads stays out of
 // that run's coverage: it loads the built mod module as the conformance suite's stand-in mod host
 // will (an import, an `on` that records registrations, a fake `$`), drives it through a few polls,
-// and checks the build's standalone validators against the mod's own checks, which run the
+// draws its band, and checks the build's standalone validators against the mod's own checks, which run the
 // contract's. It prints what it found as one JSON line.
 //
 // Usage: bun packages/mod/test/built-module-probe.ts <built module> <generated validators>
@@ -44,9 +44,10 @@ const reachedAtRegister = registered.fake.calls.reached.length;
 const valid = load();
 await valid.hooks.sessionStart();
 const validApi = runningSession(valid.fake);
-validApi.answerPolls(pollOf([entryOf(MAIN_ASK, [answerAt(1)])]));
+validApi.answerPolls(pollOf([entryOf(MAIN_ASK, [answerAt(1)])], [pendingOf(MAIN_ASK)]));
 await valid.fake.tick();
 await settle();
+const validBand = await valid.hooks.drawBand();
 
 // Another local API major pushes nothing; a session file of another format reaches nothing.
 const other = load();
@@ -86,6 +87,7 @@ console.log(
     events,
     reachedAtRegister,
     validSubmits: valid.fake.calls.submit.length,
+    validBand,
     validPaths: validApi.paths(),
     otherSubmits: other.fake.calls.submit.length,
     requestsWithOtherFormat: otherApi.requests.length - before,

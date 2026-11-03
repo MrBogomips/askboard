@@ -4,9 +4,11 @@
 // A `find` run, the mod's check of the session folder and file, is answered from the fake's file
 // system, with each path's owner and mode, as BSD and GNU `find` answer it, and recorded apart from
 // the other runs. `fakeOn` stands for the engine's `on`: it keeps each hook and fires it as the
-// engine would.
+// engine would, and draws the band through the mod's `ui.render` hook as text rows (`fake-band.ts`).
 
 import type {
+  AbovePromptHook,
+  AbovePromptInput,
   AgentInfo,
   HttpInit,
   HttpResponse,
@@ -17,12 +19,14 @@ import type {
   ProcessRunResult,
   PromptSubmitArgs,
   PromptSubmitResult,
+  RenderElement,
   SessionAppendArgs,
   SessionAppendResult,
   TurnCompleteInput,
   TurnStartInput,
   TurnStepInput,
 } from "../src/mod-api.ts";
+import { BENEATH, FAKE_ELEMENTS, rowsOf } from "./fake-band.ts";
 
 /** The command the mod runs once at session start for the Claude Code PID and the uid. */
 export const PID_COMMAND = ["sh", "-c", `printf '%s %s' "$PPID" "$(id -u)"`];
@@ -50,6 +54,8 @@ export type Calls = {
   readonly submit: PromptSubmitArgs[];
   readonly status: (string | undefined)[];
   readonly toast: string[];
+  /** Each `$.ui.invalidate` call's event. */
+  readonly invalidate: string[];
   readonly log: string[];
   agentLists: number;
   /** The names of every `$` member the mod reached, such as `session.append`. */
@@ -63,6 +69,8 @@ export type Handlers = {
   append: (args: SessionAppendArgs) => Promise<SessionAppendResult>;
   submit: (args: PromptSubmitArgs) => Promise<PromptSubmitResult>;
   agents: () => Promise<readonly AgentInfo[]>;
+  /** The surfaces the session draws on: the terminal alone unless the test says otherwise. */
+  surfaces: () => Promise<readonly string[]>;
 };
 
 type Interval = { readonly ms: number; readonly fn: () => unknown; cancelled: boolean };
@@ -122,6 +130,7 @@ export const fakeModApi = (options: FakeOptions = {}) => {
     submit: [],
     status: [],
     toast: [],
+    invalidate: [],
     log: [],
     agentLists: 0,
     reached: [],
@@ -147,6 +156,7 @@ export const fakeModApi = (options: FakeOptions = {}) => {
     append: async () => ({ uuid: `row-${calls.append.length}` }),
     submit: async ({ text }) => ({ text }),
     agents: async () => [],
+    surfaces: async () => ["terminal"],
   };
   const reach = (name: string) => calls.reached.push(name);
 
@@ -165,6 +175,14 @@ export const fakeModApi = (options: FakeOptions = {}) => {
         reach("ui.status");
         calls.status.push(text);
       },
+      invalidate: (event) => {
+        reach("ui.invalidate");
+        calls.invalidate.push(event);
+      },
+      resolve: () => {
+        reach("ui.resolve");
+        return FAKE_ELEMENTS;
+      },
     },
     session: {
       version: async () => {
@@ -175,6 +193,10 @@ export const fakeModApi = (options: FakeOptions = {}) => {
         reach("session.append");
         calls.append.push(args);
         return handlers.append(args);
+      },
+      surfaces: () => {
+        reach("session.surfaces");
+        return handlers.surfaces();
       },
     },
     prompt: {
@@ -280,16 +302,23 @@ export const fakeModApi = (options: FakeOptions = {}) => {
 /** Lets every promise chain the mod left running settle: the fake never waits on a timer. */
 export const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-type Registered = { [N in keyof ModHooks]?: ModHooks[N][] };
+type Registered = { -readonly [N in keyof ModHooks]?: ModHooks[N][] } & {
+  "ui.render"?: AbovePromptHook[];
+};
 
 /** Stands for the engine's `on`: keeps each hook, and fires an event through its hooks. */
 export const fakeOn = (api: ModApi) => {
   const hooks: Registered = {};
-  const on: On = (event, hook) => {
+  let last: RenderElement = BENEATH;
+  const on = ((event: keyof Registered, ...rest: readonly unknown[]) => {
+    const [matcher, hook] = rest.length === 2 ? rest : [undefined, rest[0]];
+    if (event === "ui.render" && JSON.stringify(matcher) !== '{"component":"AbovePrompt"}') {
+      throw new Error(`the fake draws only the band, not ${JSON.stringify(matcher)}`);
+    }
     const list = (hooks[event] ?? []) as unknown[];
     hooks[event] = [...list, hook] as never;
     return undefined;
-  };
+  }) as On;
   const only = <N extends keyof ModHooks>(event: N): ModHooks[N] | undefined => {
     const list = hooks[event] ?? [];
     if (list.length > 1) throw new Error(`more than one ${event} hook`);
@@ -331,5 +360,28 @@ export const fakeOn = (api: ModApi) => {
       const next = async (_x: TurnCompleteInput) => ({ text: "" });
       return hook === undefined ? next(input) : hook(api, input, next);
     },
+    /**
+     * Draws the band above the prompt on a terminal 200 cells wide unless `props` says otherwise:
+     * its rows, or undefined when the hook passed to the plugins beneath.
+     */
+    drawBand: async (
+      props: Partial<AbovePromptInput["props"]> = {},
+      surface = "terminal",
+    ): Promise<string[] | undefined> => {
+      const list = hooks["ui.render"] ?? [];
+      if (list.length > 1) throw new Error("more than one ui.render hook");
+      const input: AbovePromptInput = {
+        surface,
+        component: "AbovePrompt",
+        requestId: "band",
+        props: { hasSurvey: false, isWorking: false, maxRows: 20, bodyColumns: 200, ...props },
+      };
+      const [hook] = list;
+      const drawn = hook === undefined ? BENEATH : await hook(api, input, async () => BENEATH);
+      last = drawn;
+      return drawn === BENEATH ? undefined : rowsOf(drawn);
+    },
+    /** The tree the band's last drawing returned. */
+    lastBand: (): RenderElement => last,
   };
 };

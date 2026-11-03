@@ -4,7 +4,7 @@
 // (design decision 12) and the pending asks it showed. A module reload starts it over, as it does
 // the poll.
 
-import type { PollContinuation, SessionFile } from "@askboard/contract";
+import type { PendingAsk, PollContinuation, SessionFile } from "@askboard/contract";
 import type { PushedAsk } from "./push-message.ts";
 
 /** The session file's place, learned once at the session's start. */
@@ -83,7 +83,9 @@ export type Memory = {
   subagents: Map<string, SubagentTurn>;
   /** The subagent turns tracked so far, which gives each its serial. */
   subagentTurns: number;
-  /** The status entry's text as last set; undefined when cleared. */
+  /** The pending asks of the last poll, which the band above the prompt draws. */
+  pending: readonly PendingAsk[];
+  /** The status entry's text as last set, only while a surface draws no band; undefined when cleared. */
   status: string | undefined;
   /** The subagents' asks a toast showed in this epoch. */
   toasted: Set<string>;
@@ -114,6 +116,7 @@ export const createMemory = (): Memory => ({
   main: { running: false, steps: 0, appended: [], dropped: [] },
   subagents: new Map(),
   subagentTurns: 0,
+  pending: [],
   status: undefined,
   toasted: new Set(),
   logged: new Set(),

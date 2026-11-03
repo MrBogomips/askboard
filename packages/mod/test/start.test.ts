@@ -32,11 +32,17 @@ const started = async (options: FakeOptions = {}) => {
 };
 
 describe("registering", () => {
-  test("hooks the session's start and the turns, and nothing else", () => {
+  test("hooks the session's start, the turns and the band above the prompt, and nothing else", () => {
     const fake = fakeModApi();
     const hooks = fakeOn(fake.api);
     register(hooks.on);
-    expect(hooks.events()).toEqual(["session.start", "turn.complete", "turn.start", "turn.step"]);
+    expect(hooks.events()).toEqual([
+      "session.start",
+      "turn.complete",
+      "turn.start",
+      "turn.step",
+      "ui.render",
+    ]);
     expect(fake.calls.reached).toEqual([]);
   });
 
@@ -313,7 +319,7 @@ describe("trusting the session folder and file (AD-5, AD-10)", () => {
     await settle();
     expect(fake.calls.fetch).toEqual([]);
     expect(fake.calls.submit).toEqual([]);
-    expect(fake.calls.status).toEqual([]);
+    expect(fake.calls.invalidate).toEqual([]);
     expect(fake.calls.log).toEqual([NOT_PRIVATE]);
   });
 
@@ -358,7 +364,7 @@ describe("trusting the session folder and file (AD-5, AD-10)", () => {
   });
 
   test("stops polling at the check a minute on when the folder is no longer private", async () => {
-    const { fake } = await started();
+    const { fake, hooks } = await started();
     const api = runningSession(fake);
     api.answerPolls(pollOf([], [pendingOf(MAIN_ASK)]));
     for (let poll = 1; poll <= 60; poll += 1) await fake.tick();
@@ -367,7 +373,7 @@ describe("trusting the session folder and file (AD-5, AD-10)", () => {
     await fake.tick();
     await fake.tick();
     expect(api.paths()).toHaveLength(polled);
-    expect(fake.calls.status.at(-1)).toBeUndefined();
+    expect(await hooks.drawBand()).toBeUndefined();
     expect(fake.calls.log).toEqual([NOT_PRIVATE]);
     // A failed check runs again at the next poll, and the mod polls once it passes.
     fake.modes.delete(folderOf(fake));
@@ -376,18 +382,19 @@ describe("trusting the session folder and file (AD-5, AD-10)", () => {
   });
 
   test("a new session process in a file that is no longer private is not trusted", async () => {
-    const { fake } = await started();
+    const { fake, hooks } = await started();
     const first = runningSession(fake);
     first.answerPolls(pollOf([], [pendingOf(MAIN_ASK)]));
     await fake.tick();
-    expect(fake.calls.status).toHaveLength(1);
+    expect(fake.calls.invalidate).toHaveLength(1);
     const requests = first.paths().length;
     runningSession(fake, { epoch: "m7q2" });
     fake.modes.set(sessionFilePath(folderOf(fake), fake.pid), 0o644);
     await fake.tick();
     await fake.tick();
     expect(fake.calls.fetch).toHaveLength(requests);
-    expect(fake.calls.status).toEqual([expect.any(String), undefined]);
+    expect(fake.calls.invalidate).toHaveLength(2);
+    expect(await hooks.drawBand()).toBeUndefined();
     expect(fake.calls.log).toEqual([NOT_PRIVATE]);
   });
 

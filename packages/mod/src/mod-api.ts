@@ -2,7 +2,10 @@
 // from the engine's own declarations (`claude-code`, 2.1.311 to 2.1.314) and the mod delivery
 // spike's probe, so that `mod` compiles with ECMAScript libraries alone. Only what the mod calls is
 // declared: `$.session.send`, a submit `asUser` and any variable but the session folder's two are
-// left out, so the compiler refuses them (AD-4, AD-5).
+// left out, so the compiler refuses them (AD-4, AD-5). The pending-asks band (PO decision of
+// 2026-11-03) adds the `ui.render` hook on `AbovePrompt`, the elements it draws with, which the mod
+// calls as constructors rather than through JSX, and `$.ui.resolve`, `$.ui.invalidate` and
+// `$.session.surfaces`.
 
 /** The engine interface a hook receives as `$`, reduced to what the mod calls. */
 export type ModApi = {
@@ -15,12 +18,24 @@ export type ModApi = {
     toast(text: string, options?: { readonly timeoutMs?: number }): void;
     /** Pins `text` as this plugin's status line until the next call; `undefined` removes it. */
     status(text: string | undefined): void;
+    /**
+     * Re-runs this plugin's `ui.render` hooks, so the band is drawn again; ten a second at most,
+     * sooner calls folded.
+     */
+    invalidate(event: "ui.render"): void;
+    /** The element constructors of the surface a `ui.render` input is drawn on. */
+    resolve(e: AbovePromptInput): BandElements;
   };
   readonly session: {
     /** The engine's version: `version` as `claude --version` prints it. */
     version(): Promise<SessionVersion>;
     /** Adds a row to the main conversation, or to the running subagent `agentId` names. */
     append(args: SessionAppendArgs): Promise<SessionAppendResult>;
+    /**
+     * Every surface the session draws on, each once: `terminal` under the REPL first, then the
+     * remote ones (`desktop`, `vscode`, `mobile`). Empty in a plain `-p` run; never rejects.
+     */
+    surfaces(): Promise<readonly string[]>;
   };
   readonly prompt: {
     /**
@@ -182,7 +197,47 @@ export type TurnCompleteInput = {
 };
 export type TurnCompleteResult = { readonly text: string };
 
+declare const ELEMENT: unique symbol;
+
+/** A drawn element, as a constructor returns it: the mod never looks inside one. */
+export type RenderElement = { readonly [ELEMENT]: true };
+
+export type RenderChildren = RenderElement | string | undefined | readonly RenderChildren[];
+
+type Children = { readonly children?: RenderChildren };
+
+/** The elements the band draws with, each a constructor from its props, children included. */
+export type BandElements = {
+  readonly Box: (props: { readonly flexDirection?: "row" | "column" } & Children) => RenderElement;
+  readonly Text: (
+    props: { readonly dimColor?: boolean; readonly wrap?: "truncate-end" } & Children,
+  ) => RenderElement;
+  /** A link; with no label and no children its address is the text. */
+  readonly Link: (props: { readonly href: string; readonly label?: string }) => RenderElement;
+};
+
+/** The band above the prompt as a `ui.render` hook receives it; raised on terminal and desktop. */
+export type AbovePromptInput = {
+  /** Where the tree is drawn: `terminal` or `desktop`. */
+  readonly surface: string;
+  readonly component: "AbovePrompt";
+  readonly requestId: string;
+  readonly props: {
+    /** True while a survey holds the band; a hook yields to it. */
+    readonly hasSurvey: boolean;
+    /** True while a model turn is running. */
+    readonly isWorking: boolean;
+    /** Rows the band may take; a taller tree scrolls. */
+    readonly maxRows: number;
+    /** Cells the band's tree is laid out in. */
+    readonly bodyColumns: number;
+  };
+};
+
 type Hook<E, R> = (api: ModApi, e: E, next: (e: E) => Promise<R>) => Promise<R>;
+
+/** The band's hook: draws a tree, or passes with `next(e)`, what the plugins beneath draw. */
+export type AbovePromptHook = Hook<AbovePromptInput, RenderElement>;
 
 /** A hook on a streaming event: an async generator that forwards `next(e)`'s stream. */
 type StreamHook<E, C, R> = (
@@ -199,5 +254,12 @@ export type ModHooks = {
   readonly "turn.complete": Hook<TurnCompleteInput, TurnCompleteResult>;
 };
 
-/** `on(event, hook)`, as the engine passes it to `register`. */
-export type On = <N extends keyof ModHooks>(event: N, hook: ModHooks[N]) => unknown;
+/** `on(event, hook)`, and `on("ui.render", matcher, hook)`, as the engine passes it to `register`. */
+export type On = {
+  <N extends keyof ModHooks>(event: N, hook: ModHooks[N]): unknown;
+  (
+    event: "ui.render",
+    matcher: { readonly component: "AbovePrompt" },
+    hook: AbovePromptHook,
+  ): unknown;
+};

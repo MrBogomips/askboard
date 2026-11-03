@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { BENEATH_ROW } from "./fake-band.ts";
 import { fakeModApi, fakeOn, PID_COMMAND } from "./fake-mod-api.ts";
 
 // The fake `$` and `on` stand for Claude Code in every test of the mod, so they are tested too:
@@ -20,7 +21,10 @@ describe("the fake mod API", () => {
     api.ui.log("c");
     api.ui.toast("d");
     api.ui.status(undefined);
+    api.ui.invalidate("ui.render");
+    expect(await api.session.surfaces()).toEqual(["terminal"]);
     expect(calls).toMatchObject({
+      invalidate: ["ui.render"],
       append: [row],
       submit: [{ text: "b" }],
       log: ["c"],
@@ -124,5 +128,29 @@ describe("the fake on", () => {
     expect(seen).toEqual(["t", "step 3", "complete true"]);
     hooks.on("turn.start", async (_$, e, next) => next(e));
     expect(hooks.turnStart()).rejects.toThrow("more than one");
+  });
+
+  test("draws the band through its one hook as rows, or passes without one", async () => {
+    const fake = fakeModApi();
+    const hooks = fakeOn(fake.api);
+    expect(await hooks.drawBand()).toBeUndefined();
+    hooks.on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
+      const { Box, Text, Link } = $.ui.resolve(e);
+      return Box({
+        flexDirection: "column",
+        children: [
+          Text({ children: `${e.props.bodyColumns}` }),
+          Link({ href: "h" }),
+          await next(e),
+        ],
+      });
+    });
+    expect(await hooks.drawBand({ bodyColumns: 40 })).toEqual(["40", "h", BENEATH_ROW]);
+    expect(() =>
+      (hooks.on as (...args: unknown[]) => unknown)("ui.render", { component: "Pane" }, () => {}),
+    ).toThrow("only the band");
+    hooks.on("ui.render", { component: "AbovePrompt" }, async (_$, e, next) => next(e));
+    expect(hooks.drawBand()).rejects.toThrow("more than one");
+    expect(fake.calls.reached).toEqual(["ui.resolve"]);
   });
 });

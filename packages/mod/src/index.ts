@@ -1,7 +1,8 @@
-// AskBoard's mod (AD-4, AD-5; design decision 7): the push transport inside Claude Code. The mod
-// build bundles this module into `hooks/askboard-mod.js`, the hooks module `hooks/hooks.json` names,
-// which exports `register(on)` alone.
+// AskBoard's mod (AD-4, AD-5; design decision 7): the push transport inside Claude Code, and the
+// pending asks above the prompt. The mod build bundles this module into `hooks/askboard-mod.js`, the
+// hooks module `hooks/hooks.json` names, which exports `register(on)` alone.
 
+import { drawBand } from "./band.ts";
 import { createMemory } from "./memory.ts";
 import type { On } from "./mod-api.ts";
 import { start } from "./poll.ts";
@@ -10,8 +11,9 @@ import { turnChanged } from "./turn-reports.ts";
 import { mainTurnCompleted, mainTurnStarted, mainTurnStepped } from "./turns.ts";
 
 /**
- * Hooks the session's start and the turns; one memory per loaded module. The turn hooks count each
- * agent's requests and never wait for a report, which goes with the next poll.
+ * Hooks the session's start, the turns and the band above the prompt; one memory per loaded module.
+ * The turn hooks count each agent's requests and never wait for a report, which goes with the next
+ * poll.
  */
 export function register(on: On): void {
   const memory = createMemory();
@@ -39,4 +41,6 @@ export function register(on: On): void {
     else subagentTurnCompleted(memory, e.agentId);
     return next(e);
   });
+  // The pending asks above the prompt (PO decision of 2026-11-03), from the last poll's list.
+  on("ui.render", { component: "AbovePrompt" }, ($, e, next) => drawBand(memory, $, e, next));
 }

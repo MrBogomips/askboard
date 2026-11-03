@@ -135,7 +135,7 @@ const pollOnce = async (memory: Memory, $: ModApi): Promise<void> => {
   const poll = await polled(memory, $, session);
   if (poll === undefined) return;
   await pushPoll(memory, $, poll);
-  showPending(memory, $, poll.pending);
+  await showPending(memory, $, poll.pending);
 };
 
 /** One period of the poll; skipped while the previous one runs. */

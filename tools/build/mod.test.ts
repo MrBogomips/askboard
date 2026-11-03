@@ -24,6 +24,7 @@ const PROBE = join(ROOT, "packages/mod/test/built-module-probe.ts");
 type Probe = {
   readonly exports: readonly string[];
   readonly events: readonly string[];
+  readonly validBand: readonly string[] | undefined;
   readonly reachedAtRegister: number;
   readonly validSubmits: number;
   readonly validPaths: readonly string[];
@@ -120,10 +121,26 @@ describe("the built module", () => {
     expect(code).not.toMatch(/^var start\b/m);
   });
 
-  test("exports register alone, which registers the session's start and the turns", () => {
+  test("exports register alone, which registers the session's start, the turns and the band", () => {
     expect(probe?.exports).toEqual(["register"]);
-    expect(probe?.events).toEqual(["session.start", "turn.complete", "turn.start", "turn.step"]);
+    expect(probe?.events).toEqual([
+      "session.start",
+      "turn.complete",
+      "turn.start",
+      "turn.step",
+      "ui.render",
+    ]);
     expect(probe?.reachedAtRegister).toBe(0);
+  });
+
+  test("draws a poll's pending ask in the band above the prompt (task 15.1)", () => {
+    expect(probe?.validBand).toEqual([
+      "AskBoard · 1 pending",
+      expect.stringMatching(
+        /^Which database should the orders service use\? · Main agent · 1 open · http/,
+      ),
+      "<beneath>",
+    ]);
   });
 
   test("pushes a valid poll's answer, with its standalone checks", () => {
