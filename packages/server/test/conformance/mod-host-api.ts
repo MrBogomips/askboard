@@ -1,14 +1,17 @@
-// The `$` the stand-in mod host gives a mod (push delivery, task 9.1): the part of Claude Code's
-// mod API AskBoard's mod uses, declared here after `packages/mod/src/mod-api.ts`, since the import
-// rules (AD-1) keep the server package, its tests included, from importing `mod`. What reaches the
-// machine is real: process runs, the clock and its timers, fetches over a Unix socket, the files.
-// What would act on Claude Code is recorded: the agent list, appends, submits, toasts, the status
-// entry and logs. An append to an agent the list does not show, or shows as finished, is refused
-// as the engine refuses it ("one that names no running loop is refused"). Any other member is a
-// problem in the record and a throw for the mod.
+// The `$` the stand-in mod host gives a mod (push delivery, tasks 9.1 and 15.2): the part of Claude
+// Code's mod API AskBoard's mod uses, declared here after `packages/mod/src/mod-api.ts`, since the
+// import rules (AD-1) keep the server package, its tests included, from importing `mod`. What
+// reaches the machine is real: process runs, the clock and its timers, fetches over a Unix socket,
+// the files. What would act on Claude Code is recorded: the agent list, appends, submits, toasts,
+// the status entry, the band's redraw requests (`$.ui.invalidate`) and logs. `$.ui.resolve` gives
+// the band's element constructors (mod-host-band.ts), and `$.session.surfaces` the surfaces the
+// test gives, the terminal alone by default. An append to an agent the list does not show, or
+// shows as finished, is refused as the engine refuses it ("one that names no running loop is
+// refused"). Any other member is a problem in the record and a throw for the mod.
 
 import { lstat, readFile, stat } from "node:fs/promises";
 import { request } from "node:http";
+import { type AbovePromptInput, BAND_ELEMENTS, type BandElements } from "./mod-host-band.ts";
 
 /** `$.process.run`'s bound when the call gives none, and `$.http.fetch`'s (design decision 2). */
 const RUN_TIMEOUT_MS = 30_000;
@@ -68,10 +71,16 @@ export type HostApi = {
     log(text: string, options?: { readonly to?: "transcript" | "debug" }): void;
     toast(text: string, options?: { readonly timeoutMs?: number }): void;
     status(text: string | undefined): void;
+    /** Asks for the band to be drawn again. */
+    invalidate(event: "ui.render"): void;
+    /** The element constructors of the surface a `ui.render` input is drawn on. */
+    resolve(e: AbovePromptInput): BandElements;
   };
   readonly session: {
     version(): Promise<{ readonly version: string; readonly base?: string }>;
     append(args: AppendArgs): Promise<{ readonly uuid: string } | { readonly deny: string }>;
+    /** The surfaces the session draws on. */
+    surfaces(): Promise<readonly string[]>;
   };
   readonly prompt: { submit(args: { readonly text: string }): Promise<SubmitResult> };
   readonly agent: { list(): Promise<readonly HostedAgent[]> };
@@ -114,6 +123,8 @@ export type HostRecord = {
   agentLists: number;
   readonly toasts: string[];
   readonly statuses: (string | undefined)[];
+  /** Each `$.ui.invalidate` call's event: the band is drawn again after each. */
+  readonly invalidations: string[];
   readonly logs: string[];
   readonly exchanges: Exchange[];
   /** The agent IDs of appends refused: the agent was not listed, or listed as finished. */
@@ -140,13 +151,17 @@ export type ApiOptions = {
   readonly submit?: (text: string) => Promise<SubmitResult>;
 };
 
-/** What the host's `$` shares with the host: its record, its timers and processes, its agents. */
+/**
+ * What the host's `$` shares with the host: its record, its timers and processes, its agents and
+ * the surfaces the session draws on.
+ */
 export type HostState = {
   readonly options: ApiOptions;
   readonly record: HostRecord;
   readonly timers: Set<ReturnType<typeof setInterval>>;
   readonly children: Set<ReturnType<typeof Bun.spawn>>;
   agents: readonly HostedAgent[];
+  surfaces: readonly string[];
   stopped: boolean;
 };
 
@@ -156,6 +171,7 @@ export const emptyRecord = (): HostRecord => ({
   agentLists: 0,
   toasts: [],
   statuses: [],
+  invalidations: [],
   logs: [],
   exchanges: [],
   refusedAppends: [],
@@ -360,6 +376,10 @@ const uiOf = ({ record }: HostState): HostApi["ui"] => ({
   status: (text) => {
     record.statuses.push(text);
   },
+  invalidate: (event) => {
+    record.invalidations.push(event);
+  },
+  resolve: () => BAND_ELEMENTS,
 });
 
 // Whether an append may join `agentId`'s loop: listed, and not finished.
@@ -384,6 +404,7 @@ const sessionOf = (state: HostState): HostApi["session"] => ({
     record.pushes.push({ via: "append", ...to, text, at: Date.now() });
     return { uuid: `row-${record.pushes.filter((push) => push.via === "append").length}` };
   },
+  surfaces: async () => state.surfaces,
 });
 
 const promptOf = ({ options, record }: HostState): HostApi["prompt"] => ({

@@ -13,6 +13,7 @@ import {
 import { validateAgainst } from "@askboard/contract/validate";
 import { callAs, stopAs } from "./hook-runs.ts";
 import {
+  BENEATH_ROW,
   createModHost,
   type HostedAgent,
   type HostRecord,
@@ -78,6 +79,27 @@ const turnReports = (record: HostRecord) =>
 
 const hasReceipt = (pending: readonly unknown[]): boolean =>
   pending.some((message) => (message as { type?: string }).type === "receipt");
+
+/**
+ * The band above the prompt as the engine draws it: now, then again after each of the mod's
+ * `$.ui.invalidate` calls, until `accept` takes its rows (`undefined` when the mod passes). A list
+ * the mod changes without asking for a redraw is never drawn, and the wait fails.
+ */
+const bandWhen = <T>(
+  mod: ModHost,
+  accept: (rows: string[] | undefined) => T | undefined,
+  what: string,
+): Promise<T> => {
+  let drawnAt = -1;
+  return mod.until(async (record) => {
+    if (record.invalidations.length === drawnAt) return undefined;
+    drawnAt = record.invalidations.length;
+    return accept(await mod.drawBand());
+  }, what);
+};
+
+const bandPassed = (rows: string[] | undefined): true | undefined =>
+  rows === undefined ? true : undefined;
 
 describe("one session folder", () => {
   for (const [what, env, folderOf] of [
@@ -175,7 +197,7 @@ describe("a session folder open to others (AD-5, AD-10)", () => {
 });
 
 describe("push to the main conversation", () => {
-  test("idle: one submit, the receipt by push, the terminal link and the status entry", async () => {
+  test("idle: one submit, the receipt by push, the terminal link and the band above the prompt", async () => {
     const { session } = await startClaudeSession({ mod: {} });
     const mod = modOf(session);
     const askId = "main-idle-k3f9";
@@ -185,12 +207,18 @@ describe("push to the main conversation", () => {
     expect(JSON.parse(call.post?.stdout ?? "")).toEqual({
       systemMessage: `AskBoard · Orders DB · ${result.board}`,
     });
-    // The status entry lists the pending ask; the main conversation's ask gets no toast.
-    const line = await mod.until((record) => {
-      const shown = record.statuses.at(-1);
-      return shown?.includes(result.board) ? shown : undefined;
-    }, "the status entry");
-    expect(line).toBe(`Orders DB · Main agent · 1 open · ${result.board}`);
+    // The band above the prompt lists the pending ask, above what the plugins beneath draw; the
+    // main conversation's ask gets no toast.
+    const rows = await bandWhen(
+      mod,
+      (drawn) => (drawn?.some((row) => row.endsWith(result.board)) ? drawn : undefined),
+      "the ask in the band",
+    );
+    expect(rows).toEqual([
+      "AskBoard · 1 pending",
+      `Orders DB · Main agent · 1 open · ${result.board}`,
+      BENEATH_ROW,
+    ]);
 
     answer(board, ["SQLite"]);
     const push = await mod.until((record) => record.pushes[0], "a push");
@@ -216,14 +244,13 @@ describe("push to the main conversation", () => {
         response: { version: LOCAL_API_VERSION },
       },
     ]);
-    // Received: the ask leaves the status entry, and the answer is pushed once.
-    await mod.until(
-      (record) => (record.statuses.length > 1 && record.statuses.at(-1) === undefined) || undefined,
-      "the status entry cleared",
-    );
+    // Received: the ask leaves the band, which passes to the plugins beneath, and the answer is
+    // pushed once. With the terminal alone, which draws the band, the status entry stays unset.
+    await bandWhen(mod, bandPassed, "the band passing");
     await afterPolls(mod);
     expect(mod.record.pushes).toHaveLength(1);
     expect(mod.record.toasts).toEqual([]);
+    expect(mod.record.statuses).toEqual([]);
     expect(await session.end()).toBe(0);
   });
 
@@ -290,14 +317,17 @@ describe("push to subagents", () => {
       `AskBoard · Log level · ${first.result.board}`,
       `AskBoard · Retry policy · ${second.result.board}`,
     ]);
-    const status = await mod.until(
-      (record) =>
-        record.statuses.at(-1)?.split("\n").length === 2 ? record.statuses.at(-1) : undefined,
-      "both asks in the status entry",
+    // Both asks in the band above the prompt, a row each, under the count.
+    const rows = await bandWhen(
+      mod,
+      (drawn) => (drawn?.length === 4 ? drawn : undefined),
+      "both asks in the band",
     );
-    expect(status?.split("\n")).toEqual([
+    expect(rows).toEqual([
+      "AskBoard · 2 pending",
       `Log level · Subagent code-reviewer · 1 open · ${first.result.board}`,
       `Retry policy · Subagent test-runner · 1 open · ${second.result.board}`,
+      BENEATH_ROW,
     ]);
 
     // The running subagent is mid-turn: its first request is under way when the user answers.
@@ -326,11 +356,9 @@ describe("push to subagents", () => {
       asks: [{ askId: second.result.askId, events: [{ type: "answer", choice: ["DynamoDB"] }] }],
     });
     expect(await nextOfType(second.board, "receipt")).toMatchObject({ receipt: "delivered" });
-    await mod.until(
-      (record) =>
-        record.statuses.length > 0 && record.statuses.at(-1) === undefined ? true : undefined,
-      "the status entry cleared",
-    );
+    // Both received: the band passes, and with the terminal alone the status entry stays unset.
+    await bandWhen(mod, bandPassed, "the band passing");
+    expect(mod.record.statuses).toEqual([]);
     expect(mod.record.toasts).toHaveLength(2);
     expect(await session.end()).toBe(0);
   });
