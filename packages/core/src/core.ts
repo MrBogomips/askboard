@@ -797,4 +797,13 @@ export class AskCore {
   askingRule(): AskingRule {
     return this.#configuration.settled?.values.askingRule ?? "none";
   }
+
+  /**
+   * The editor command in effect, for E5's `editorCommand` dependency of board-host, read without
+   * waiting: the user file's argument vector (design decision 5), none before the settings are read
+   * and none when the user file sets none or cannot be trusted with one.
+   */
+  editorCommand(): readonly string[] | undefined {
+    return this.#configuration.settled?.values.editor;
+  }
 }
