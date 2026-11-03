@@ -2,7 +2,8 @@
 // epoch under one Claude Code process on macOS. The main conversation owns the plain-choice ask; a
 // `code-reviewer` subagent named "Retry review", in a linked worktree, owns two asks of its own and
 // has an answer it has not received; an in-process agent-team teammate named `researcher`, whose
-// `agent_id` is its team address, asks from the project. Tests only, like every fixture.
+// `agent_id` is opaque and whom the mod's turn report names, asks from the project. Tests only,
+// like every fixture.
 
 import type {
   AgentRecord,
@@ -60,10 +61,13 @@ export const subagentRecord: AgentRecord = {
   timestamp: "2026-10-29T09:42:05.418Z",
 };
 
-/** An in-process teammate's `ask`: its `agent_id` is its team address, `<name>@<team>`. */
+/**
+ * An in-process teammate's `ask`: its `agent_id` is opaque, as the PO's probe found it on Claude
+ * Code 2.1.317, and only the mod's turn report names it a teammate.
+ */
 export const teammateRecord: AgentRecord = {
   version,
-  agent_id: "researcher@session-a1b2c3d4",
+  agent_id: "aresearcher-096d99adc3d94b0a",
   agent_type: "researcher",
   cwd: PROJECT,
   tool_use_id: "toolu_01Tq6WnB3vXk8RmZ2pLc5HdY",

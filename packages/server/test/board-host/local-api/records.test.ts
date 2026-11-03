@@ -310,18 +310,6 @@ describe("the ordinal of a subagent (task 8.1, design decision 12)", () => {
     expect(again?.origin).not.toHaveProperty("ordinal");
   });
 
-  // Telling a teammate (board-host spec; task 17.1): a teammate's name already tells it apart.
-  test("an in-process teammate takes none and does not advance its type's count", async () => {
-    const { table } = tableOf();
-    table.add(subagent("a1", "code-reviewer", "toolu_1"));
-    table.add(subagent("researcher@session-a1b2c3d4", "code-reviewer", "toolu_teammate"));
-    table.add(subagent("scout-2@session-a1b2c3d4", "code-reviewer", "toolu_teammate_2"));
-    table.add(subagent("a2", "code-reviewer", "toolu_2"));
-    expect(await ordinalOf(table, "toolu_teammate")).toBeUndefined();
-    expect(await ordinalOf(table, "toolu_teammate_2")).toBeUndefined();
-    expect(await ordinalOf(table, "toolu_2")).toBe(2);
-  });
-
   test("a record that expired unbound still counted its agent", async () => {
     const { table, advance } = tableOf();
     table.add(subagent("a1", "code-reviewer", "toolu_1"));

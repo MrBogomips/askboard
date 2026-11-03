@@ -120,25 +120,28 @@ describe("the label", () => {
   });
 });
 
-// Telling a teammate (board-host spec; design decision 4, Origin; task 17.1): "Teammate <name>"
-// for an in-process teammate's record and, in a pane teammate's own session, for its main
-// conversation; a pane teammate's subagents stay subagents.
+// Telling a teammate (board-host spec; design decision 4, Origin; tasks 17.1 and 18.2): in a pane
+// teammate's own session, "Teammate <name>" for its main conversation, from its parent's flags; its
+// subagents stay subagents. An in-process teammate is named by the mod's report, in the record
+// table, never by the form of its agent ID, which is opaque.
 describe("a teammate's label", () => {
-  const IN_PROCESS = { agent_id: "researcher@session-a1b2c3d4", agent_type: "researcher" } as const;
+  const ADDRESS_LIKE = {
+    agent_id: "researcher@session-a1b2c3d4",
+    agent_type: "researcher",
+  } as const;
+  const OPAQUE = { agent_id: "aresearcher-096d99adc3d94b0a", agent_type: "researcher" } as const;
 
-  test("labelOf covers the main conversation, a subagent and both kinds of teammate", () => {
+  test("labelOf covers the main conversation, a subagent and a pane teammate", () => {
     expect(labelOf(recordOf(project))).toBe("Main agent");
     expect(labelOf(recordOf(project, SUBAGENT))).toBe("Subagent code-reviewer");
-    expect(labelOf(recordOf(project, IN_PROCESS))).toBe("Teammate researcher");
     expect(labelOf(recordOf(project), "ask-log-level")).toBe("Teammate ask-log-level");
     expect(labelOf(recordOf(project, SUBAGENT), "ask-log-level")).toBe("Subagent code-reviewer");
-    expect(labelOf(recordOf(project, IN_PROCESS), "ask-log-level")).toBe("Teammate researcher");
     expect(labelOf(recordOf(project), " ")).toBe("Main agent");
   });
 
-  test("an agent ID without a team address keeps the subagent label", () => {
-    const record = recordOf(project, { agent_id: "@session-a1b2c3d4", agent_type: "researcher" });
-    expect(labelOf(record)).toBe("Subagent researcher");
+  test("an agent ID's form names no teammate: an address or a named agent's ID is a subagent", () => {
+    expect(labelOf(recordOf(project, ADDRESS_LIKE))).toBe("Subagent researcher");
+    expect(labelOf(recordOf(project, OPAQUE))).toBe("Subagent researcher");
   });
 
   test("a pane teammate's main conversation waits for the parent's name; its subagent does not", async () => {
@@ -155,7 +158,7 @@ describe("a teammate's label", () => {
       const main = originOf(recordOf(project));
       tell("ask-log-level");
       expect((await main).label).toBe("Teammate ask-log-level");
-      expect((await originOf(recordOf(project, IN_PROCESS))).label).toBe("Teammate researcher");
+      expect((await originOf(recordOf(project, OPAQUE))).label).toBe("Subagent researcher");
     }
   });
 

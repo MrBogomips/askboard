@@ -1,5 +1,6 @@
-// The origin of an owned ask (design decision 4; AD-5, AD-12): the label from the agent record, or
-// from the teammate it names (`teammate.ts`), and, from one git run in the record's `cwd`, the
+// The origin of an owned ask (design decision 4; AD-5, AD-12): the label from the agent record, or,
+// for a pane teammate's main conversation, from its parent's flags (`teammate.ts`; the record table
+// labels an in-process teammate the mod reported), and, from one git run in the record's `cwd`, the
 // worktree's top level, its branch and whether it
 // belongs to the project's repository. Root is that top level when it does, else the project root,
 // and the directory the header shows is the `cwd` relative to it, worked out here once.
@@ -11,7 +12,6 @@ import { realpathSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import type { AgentRecord } from "@askboard/contract";
 import type { Origin } from "@askboard/core";
-import { teammateOfAgent } from "./teammate.ts";
 
 /**
  * Runs a command and gives its standard output; no value when it exited with a failure. A command
@@ -45,15 +45,19 @@ const STEERING_VARIABLES = ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_I
 /** Resolves an agent record's origin; it never rejects. */
 export type OriginOf = (record: AgentRecord) => Promise<Origin>;
 
+/** "Teammate <name>" for a teammate's name, as Claude Code gives it; none for a blank one. */
+export const teammateLabel = (name: string | undefined): string | undefined => {
+  const trimmed = name?.trim() ?? "";
+  return trimmed === "" ? undefined : `Teammate ${trimmed}`;
+};
+
 /**
- * "Teammate <name>" for an in-process teammate's record, whose `agent_id` is its team address, and
- * for the main conversation when this session process is the pane teammate `teammate`; otherwise
- * "Main agent" for the main conversation and "Subagent <type>" for a subagent (design decision 4).
+ * "Main agent" for the main conversation, or "Teammate <name>" when this session process is the
+ * pane teammate `teammate`; "Subagent <type>" for a subagent, whatever its agent ID's form (design
+ * decision 4). The record table relabels an in-process teammate the mod reported.
  */
 export const labelOf = ({ agent_id, agent_type }: AgentRecord, teammate?: string): string => {
-  const name = (agent_id === undefined ? teammate : teammateOfAgent(agent_id))?.trim() ?? "";
-  if (name !== "") return `Teammate ${name}`;
-  if (agent_id === undefined) return "Main agent";
+  if (agent_id === undefined) return teammateLabel(teammate) ?? "Main agent";
   const type = agent_type?.trim() ?? "";
   return type === "" ? "Subagent" : `Subagent ${type}`;
 };

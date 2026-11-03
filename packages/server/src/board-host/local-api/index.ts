@@ -46,7 +46,6 @@ export {
   type ParentArgvOptions,
   parentTeammate,
   readParentArgv,
-  teammateOfAgent,
 } from "./teammate.ts";
 
 /** A new session token: 128 random bits as 22 base64url characters (AD-11). */
