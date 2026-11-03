@@ -91,7 +91,7 @@ For a subagent's stop, the local API SHALL return a block carrying the events ab
 - **THEN** the stop is let through
 
 ### Requirement: A teammate's stop is idle
-Claude Code fires `SubagentStop` at every turn end of an in-process teammate, which then waits for a message. Its stop SHALL be blocked as a subagent's is, but a stop let through SHALL NOT close its asks. An agent the mod has reported neither way is taken for a teammate when its `agent_id` reads `a<agent_type>-<hex>`, as Claude Code 2.1.317 names a named agent (AD-10).
+Claude Code fires `SubagentStop` at every turn end of an in-process teammate, which then waits for a message. Its stop SHALL be blocked as a subagent's is, but a stop let through SHALL NOT close its asks. An agent the mod has not reported as a teammate is taken for one when its `agent_id` reads `a<agent_type>-<hex>`, as Claude Code 2.1.317 names a named agent (AD-10).
 
 #### Scenario: An in-process teammate goes idle
 - **WHEN** an in-process teammate's turn ends with nothing above `received` and its ask still waiting
