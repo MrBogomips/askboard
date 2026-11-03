@@ -39,3 +39,8 @@ export const SOURCE_STATUSES = [
 ] as const;
 
 export type SourceStatus = (typeof SOURCE_STATUSES)[number];
+
+/** What "Open in editor" gave (proposal B17): the board page shows any but `opened`. */
+export const EDITOR_OUTCOMES = ["opened", "no-editor", "unavailable", "failed", "busy"] as const;
+
+export type EditorOutcome = (typeof EDITOR_OUTCOMES)[number];

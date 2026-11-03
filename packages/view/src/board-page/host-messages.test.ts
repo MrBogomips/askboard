@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { BOARD_PROTOCOL_MESSAGES, PUSH_HOST_MESSAGES } from "@askboard/contract";
 import {
   boardProtocolExamples,
+  contextProtocolExamples,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
   subagentOrigin,
@@ -24,16 +25,21 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
     );
   });
 
-  test("each message type the contract lists is read with its own validator, 1.1's included", () => {
-    const examples = [...boardProtocolExamples.toPage, ...lifecycleProtocolExamples.toPage];
+  test("each message type the contract lists is read with its own validator, 1.1's and 1.2's included", () => {
+    const examples = [
+      ...boardProtocolExamples.toPage,
+      ...lifecycleProtocolExamples.toPage,
+      ...contextProtocolExamples.toPage,
+    ];
     const names = Object.keys(BOARD_PROTOCOL_MESSAGES.toPage);
     expect(new Set<string>(examples.map((message) => message.type))).toEqual(new Set(names));
     for (const name of names) expect(Object.hasOwn(hostMessageSchemas, name)).toBe(true);
     for (const message of examples) {
       const read = readHostMessage(JSON.stringify(message));
+      // E5's messages join `BoardHostMessage` with the reading panel's handlers (excerpts, task 6.6).
       expect({ type: message.type, read }).toEqual({
         type: message.type,
-        read: { ok: true, value: message },
+        read: { ok: true, value: message as never },
       });
     }
   });

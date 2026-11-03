@@ -97,9 +97,21 @@ export {
 // Context, E5 (excerpts, design decision 2): a board document with every status of every context
 // item type.
 
+// Context, E5 (excerpts, design decisions 2 and 5): a board document with every status of every
+// context item type, and the reading panel's recorded exchange.
+
 export {
   type ContextBoardDocument,
   type ContextBoardQuestion,
   contextBoardDocument,
   ONE_PIXEL_PNG,
 } from "./context.ts";
+export {
+  CONTEXT,
+  type ContextBoardMessage,
+  type ContextTranscript,
+  type ContextTranscriptStep,
+  contextProtocolExamples,
+  contextWaiting,
+  readingPanelTranscript,
+} from "./context-transcripts.ts";

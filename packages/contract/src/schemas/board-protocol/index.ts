@@ -3,8 +3,10 @@
 // schema holds the minor-version rule; a receiver looks a message's schema up by direction and
 // `type`, since no schema has a root combinator. E3's minor appends act commands with action IDs,
 // the draft record, done and closed, and widens the state, refusals and discards (ask-lifecycle,
-// design decisions 2 and 8): a new message's name goes at the end of its direction's list.
+// design decisions 2 and 8): a new message's name goes at the end of its direction's list. E5's
+// minor appends the reading panel's and the editor's messages (excerpts, design decision 5).
 
+import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
 import type { BoardDocument, LifecycleBoardDocument } from "../board-document/index.ts";
 import act from "./act.json" with { type: "json" };
@@ -17,9 +19,13 @@ import discarded from "./discarded.json" with { type: "json" };
 import done from "./done.json" with { type: "json" };
 import draft from "./draft.json" with { type: "json" };
 import draftRecord from "./draft-record.json" with { type: "json" };
+import editorOutcome from "./editor-outcome.json" with { type: "json" };
 import moved from "./moved.json" with { type: "json" };
+import openEditor from "./open-editor.json" with { type: "json" };
+import openSource from "./open-source.json" with { type: "json" };
 import receipt from "./receipt.json" with { type: "json" };
 import refused from "./refused.json" with { type: "json" };
+import sourceState from "./source-state.json" with { type: "json" };
 import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
@@ -48,6 +54,10 @@ export const boardProtocol: SchemaSet = {
     draft,
     done,
     closed,
+    openSource,
+    openEditor,
+    sourceState,
+    editorOutcome,
   ],
 };
 
@@ -61,6 +71,8 @@ export const BOARD_PROTOCOL_MESSAGES = {
     answer: schemaId("answer"),
     act: schemaId("act"),
     draft: schemaId("draft"),
+    "open-source": schemaId("open-source"),
+    "open-editor": schemaId("open-editor"),
   },
   /** Sent by `board-host`, received by the board page. */
   toPage: {
@@ -73,6 +85,8 @@ export const BOARD_PROTOCOL_MESSAGES = {
     done: schemaId("done"),
     draft: schemaId("draft"),
     closed: schemaId("closed"),
+    "source-state": schemaId("source-state"),
+    "editor-outcome": schemaId("editor-outcome"),
   },
 } as const;
 
@@ -375,3 +389,45 @@ export type LifecycleHostMessage =
   | DoneMessage
   | DraftMessage
   | ClosedMessage;
+
+// Board protocol 1.2 (excerpts, design decision 5): the reading panel's and the editor's messages.
+// None carries a path the page chose (AD-8).
+
+/** The page asks for a source's state, naming the item only. */
+export type OpenSourceCommand = {
+  readonly version: string;
+  readonly type: "open-source";
+  readonly itemId: string;
+};
+
+/** The user's click on "Open in editor", naming the item only. */
+export type OpenEditorCommand = {
+  readonly version: string;
+  readonly type: "open-editor";
+  readonly itemId: string;
+};
+
+/** A source's state now, for the reading panel's header. */
+export type SourceStateMessage = {
+  readonly version: string;
+  readonly type: "source-state";
+  readonly itemId: string;
+  readonly status: SourceStatus;
+  /** An excerpt's range differs from the text the agent sent. */
+  readonly changed?: boolean;
+  /** The anchor's current first line. */
+  readonly line?: number;
+  /** An editor is set and the file is available. */
+  readonly editor: boolean;
+};
+
+export type EditorOutcomeMessage = {
+  readonly version: string;
+  readonly type: "editor-outcome";
+  readonly itemId: string;
+  readonly outcome: EditorOutcome;
+};
+
+export type ContextPageMessage = OpenSourceCommand | OpenEditorCommand;
+
+export type ContextHostMessage = SourceStateMessage | EditorOutcomeMessage;

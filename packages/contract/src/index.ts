@@ -435,6 +435,8 @@ export {
   readPointer,
 } from "./context/pointer.ts";
 export {
+  EDITOR_OUTCOMES,
+  type EditorOutcome,
   IMAGE_MEDIA_TYPES,
   type ImageMediaType,
   SOURCE_STATUSES,
@@ -453,6 +455,14 @@ export type {
   BoardReferenceProps,
   ContextLines,
 } from "./schemas/board-document/index.ts";
+export type {
+  ContextHostMessage,
+  ContextPageMessage,
+  EditorOutcomeMessage,
+  OpenEditorCommand,
+  OpenSourceCommand,
+  SourceStateMessage,
+} from "./schemas/board-protocol/index.ts";
 export type {
   ContextItem,
   ExcerptItem,

@@ -106,13 +106,14 @@ describe("the board document 1.1", () => {
 
 describe("the board protocol's messages 1.1 (design decision 8)", () => {
   test("E1's messages keep their order, and E3's are appended in each direction", () => {
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost)).toEqual([
+    // A later minor appends after them (excerpts, design decision 5), so these lead each list.
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost).slice(0, 4)).toEqual([
       "connect",
       "answer",
       "act",
       "draft",
     ]);
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage)).toEqual([
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(0, 9)).toEqual([
       "board",
       "state",
       "receipt",

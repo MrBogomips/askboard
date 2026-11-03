@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:open-source",
+  "title": "Open a source",
+  "description": "The board page to board-host when the user opens a reference or an excerpt in the reading panel (excerpts, design decision 5): it names the item only, never a path, and board-host answers with source-state. Accepted only on the ask's live board connection (AD-8, AD-21).",
+  "type": "object",
+  "properties": {
+    "version": { "$ref": "urn:askboard:board-protocol:version" },
+    "type": { "const": "open-source" },
+    "itemId": { "$ref": "urn:askboard:input:id" }
+  },
+  "required": ["version", "type", "itemId"],
+  "additionalProperties": false
+}
