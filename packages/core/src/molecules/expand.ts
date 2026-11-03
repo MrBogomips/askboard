@@ -1,9 +1,11 @@
 // Expanding molecule references (AD-9, AD-12; molecules design decision 4): each reference among a
-// question's items becomes its definition's item, filled from the reference's data, in the
-// reference's place and under the ID `<reference>__<item>`. First every reference's definition
-// and expanded ID, so that an `item` fill names a reference wherever it sits in the ask; then each
-// reference's data against its parameters, and its fills; then each expanded ID, at most 64
-// characters and the ID of no other item of the ask. With any problem the expansion gives no
+// question's items, at the top level or in an area (E3), becomes its definition's item, filled
+// from the reference's data, in the reference's place and under the ID `<reference>__<item>`.
+// First every reference's definition and expanded ID, so that an `item` fill names a reference
+// wherever it sits in the ask; then each reference's data against its parameters, and its fills;
+// then each expanded ID, at most 64 characters and the ID of no other item of the ask; last, once
+// every reference has expanded, each expanded item through its widget's checks in its question as
+// expanded, so a plan's link reads the Tree beside it. With any problem the expansion gives no
 // items: the caller refuses the request (AD-10). Pure and deterministic, changing none of its
 // inputs; plain ECMAScript (AD-1).
 
@@ -18,7 +20,9 @@ import {
   moleculeDataValidator,
   type Problem,
   validateMoleculeProps,
+  widgetItemProblems,
 } from "@askboard/contract/validate";
+import { referenceAddressing } from "./addressing.ts";
 import { type ExpandedIds, fillItem } from "./fills.ts";
 import type { ExpansionEntry, ExpansionMap } from "./map.ts";
 import type { MoleculeLookup, MoleculeSource } from "./source.ts";
@@ -40,12 +44,18 @@ export type Expansion =
 
 type Json = Readonly<Record<string, unknown>>;
 
+/** Where a question sits in the items given: `[i]` at the top level, `[i, "props", "items", j]` in an area. */
+type QuestionPlace = readonly (string | number)[];
+
+/** Where a reference sits: its question's place, and its index among that question's items. */
+type Place = { readonly question: QuestionPlace; readonly child: number };
+
 /** A reference found in a question's items: where it is, and what it holds. */
-type Found = { readonly at: readonly [number, number]; readonly item: Json };
+type Found = { readonly at: Place; readonly item: Json };
 
 /** A reference whose definition was found. */
 type Resolved = {
-  readonly at: readonly [number, number];
+  readonly at: Place;
   readonly id: string;
   readonly props: MoleculeProps;
   readonly definition: MoleculeDefinition;
@@ -58,16 +68,26 @@ const messageOf = (error: unknown): string =>
 const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const childrenOf = (item: unknown): readonly unknown[] | undefined =>
-  isObject(item) &&
-  item.type === "question" &&
-  isObject(item.props) &&
-  Array.isArray(item.props.items)
+const itemsIn = (item: unknown, type: string): readonly unknown[] | undefined =>
+  isObject(item) && item.type === type && isObject(item.props) && Array.isArray(item.props.items)
     ? item.props.items
     : undefined;
 
-const placeOf = ([question, child]: readonly [number, number], ...rest: string[]): string =>
-  pointerOf([question, "props", "items", child, ...rest]);
+const childrenOf = (item: unknown): readonly unknown[] | undefined => itemsIn(item, "question");
+
+/** Every question of the items with its place: each top-level question, then each area's. */
+const questionsOf = (items: readonly unknown[]): { place: QuestionPlace; question: unknown }[] =>
+  items.flatMap((item, at) => {
+    const inArea = itemsIn(item, "area");
+    if (inArea === undefined) return [{ place: [at], question: item }];
+    return inArea.map((question, index) => ({
+      place: [at, "props", "items", index],
+      question,
+    }));
+  });
+
+const placeOf = ({ question, child }: Place, ...rest: string[]): string =>
+  pointerOf([...question, "props", "items", child, ...rest]);
 
 // `/` from a validator is the value itself.
 const under = (base: string, path: string): string => (path === "/" ? base : `${base}${path}`);
@@ -79,9 +99,11 @@ const inWords = (names: readonly string[]): string => {
 };
 
 const referencesOf = (items: readonly unknown[]): Found[] =>
-  items.flatMap((item, question) =>
-    (childrenOf(item) ?? []).flatMap((child, at): Found[] =>
-      isObject(child) && child.type === MOLECULE ? [{ at: [question, at], item: child }] : [],
+  questionsOf(items).flatMap(({ place, question }) =>
+    (childrenOf(question) ?? []).flatMap((child, at): Found[] =>
+      isObject(child) && child.type === MOLECULE
+        ? [{ at: { question: place, child: at }, item: child }]
+        : [],
     ),
   );
 
@@ -175,9 +197,10 @@ const takenIds = (items: readonly unknown[], references: readonly Resolved[]) =>
   const take = (id: unknown) => {
     if (typeof id === "string") taken.set(id, (taken.get(id) ?? 0) + 1);
   };
-  for (const item of items) {
-    if (isObject(item)) take(item.id);
-    for (const child of childrenOf(item) ?? []) if (isObject(child)) take(child.id);
+  for (const item of items) if (isObject(item)) take(item.id);
+  for (const { place, question } of questionsOf(items)) {
+    if (place.length > 1 && isObject(question)) take(question.id);
+    for (const child of childrenOf(question) ?? []) if (isObject(child)) take(child.id);
   }
   for (const { expandedId } of references) take(expandedId);
   return taken;
@@ -199,21 +222,61 @@ const idProblems = (
   return message === undefined ? [] : [{ itemId: id, path: placeOf(at, "id"), message }];
 };
 
-const keyOf = ([question, child]: readonly [number, number]): string => `${question}/${child}`;
+const keyOf = ({ question, child }: Place): string => pointerOf([...question, child]);
 
-// The items with each reference replaced in place by its expanded item.
+// A container, question or area, with its items replaced: itself when none changed.
+const withItems = (item: unknown, items: readonly unknown[], old: readonly unknown[]): unknown =>
+  isObject(item) && items.some((each, at) => each !== old[at])
+    ? { ...item, props: { ...(item.props as Json), items } }
+    : item;
+
+// A question with each of its references replaced in place by its expanded item.
+const replacedQuestion = (
+  question: unknown,
+  place: QuestionPlace,
+  expanded: ReadonlyMap<string, MoleculeItem>,
+): unknown => {
+  const children = childrenOf(question) ?? [];
+  const items = children.map(
+    (old, child) => expanded.get(keyOf({ question: place, child })) ?? old,
+  );
+  return withItems(question, items, children);
+};
+
+// The items with each reference replaced in place by its expanded item, in an area's question too.
 const replaced = (items: readonly unknown[], expanded: ReadonlyMap<string, MoleculeItem>) =>
-  items.map((item, question) => {
-    const children = childrenOf(item);
-    if (children === undefined || !isObject(item)) return item;
-    const at = (child: number) => expanded.get(keyOf([question, child]));
-    if (!children.some((_, child) => at(child) !== undefined)) return item;
-    const props = {
-      ...(item.props as Json),
-      items: children.map((old, child) => at(child) ?? old),
-    };
-    return { ...item, props };
+  items.map((item, at) => {
+    const inArea = itemsIn(item, "area");
+    if (inArea === undefined) return replacedQuestion(item, [at], expanded);
+    const questions = inArea.map((question, index) =>
+      replacedQuestion(question, [at, "props", "items", index], expanded),
+    );
+    return withItems(item, questions, inArea);
   });
+
+// Step 4's widget checks: each expanded item in its question as expanded, its problems at the
+// reference's place, naming the reference and the path in the item's props, in reference
+// addressing, since a path in the expanded item is no path in the reference's data.
+const widgetProblems = (
+  done: readonly { readonly reference: Resolved; readonly item: MoleculeItem }[],
+  items: readonly unknown[],
+  map: ExpansionMap,
+): ExpansionProblem[] => {
+  const { textToReference } = referenceAddressing(map);
+  const questions = new Map(
+    questionsOf(items).map(({ place, question }) => [pointerOf(place), question]),
+  );
+  return done.flatMap(({ reference, item }) => {
+    const { id, definition, at } = reference;
+    const question = questions.get(pointerOf(at.question));
+    const name = `the molecule reference "${id}" (${definition.molecule} ${definition.version})`;
+    return widgetItemProblems(item, question, "agent").map(({ path, message }) => ({
+      itemId: id,
+      path: placeOf(at),
+      message: `${name}, at ${path} of its ${item.type}: ${textToReference(message)}`,
+    }));
+  });
+};
 
 type Step =
   | { readonly reference: Resolved; readonly item: MoleculeItem }
@@ -252,5 +315,8 @@ export const expandMolecules = (items: readonly unknown[], source: MoleculeSourc
     ]),
   );
   const expanded = new Map(done.map(({ reference, item }) => [keyOf(reference.at), item]));
-  return { ok: true, items: replaced(items, expanded), map };
+  const result = replaced(items, expanded);
+  const refused = widgetProblems(done, result, map);
+  if (refused.length > 0) return { ok: false, problems: refused };
+  return { ok: true, items: result, map };
 };

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { ID_PATTERN } from "@askboard/contract";
-import { treeBoardDocument } from "@askboard/contract/fixtures";
+import { treeBoardDocument, uj2ExpandedQuestion } from "@askboard/contract/fixtures";
 import {
   type Expansion,
   type ExpansionMap,
@@ -12,6 +12,7 @@ import {
   copyOf,
   deepFreeze,
   fakeMoleculeSource,
+  ganttPlan,
   probeSchedule,
   scheduleData,
   uj2Ask,
@@ -21,9 +22,8 @@ import {
 
 // Expanding molecule references (molecules design decision 4; core spec, "Expanding molecule
 // references", "Molecule versions", "Refusing an expansion", "Expanded IDs", "The expansion map"),
-// with a fake `MoleculeSource` over the test copy of `wbs-pert` and the test-only `probe-schedule`.
-// The shipped `gantt-plan`, the contract's UJ-2 fixtures and the widget item checks come with the
-// gantt-widget change.
+// with a fake `MoleculeSource` over the shipped `wbs-pert` and the test-only `probe-schedule`, and
+// over the two shipped definitions for the UJ-2 ask, step 4's widget item checks and E3's areas.
 
 type Json = Record<string, unknown>;
 type Item = Json & { readonly type: string; readonly id: string; readonly props: Json };
@@ -128,7 +128,8 @@ describe("two references in one question", () => {
   });
 
   test("an item fill naming a plain item of the ask keeps its ID", () => {
-    const plainTree = { type: "tree", id: "wbs", props: { nodes: [] } };
+    const columns = wbsPert.items[0].props.columns;
+    const plainTree = { type: "tree", id: "wbs", props: { columns, nodes: [] } };
     const items = itemsOf(expandMolecules([question("plan", [plainTree, schedule()])], source), 0);
     expect(items[0]).toBe(plainTree);
     expect(items[1]?.props.workPackages).toBe("wbs");
@@ -183,7 +184,8 @@ describe("versions", () => {
 
   test("the map records the version the reference expanded with, not the one it asked for", () => {
     const asked = reference("schedule", "probe-schedule", copyOf(scheduleData), "1.1.0");
-    const plainTree = { type: "tree", id: "wbs", props: { nodes: [] } };
+    const columns = wbsPert.items[0].props.columns;
+    const plainTree = { type: "tree", id: "wbs", props: { columns, nodes: [] } };
     const result = expanded(expandMolecules([question("plan", [plainTree, asked])], source));
     expect(result.map.get("schedule__plan")?.version).toBe("1.2.0");
   });
@@ -398,5 +400,92 @@ describe("expansionEntries", () => {
     expect([...map]).toEqual(before);
     const empty: ExpansionMap = new Map();
     expect(expansionEntries(empty)).toEqual([]);
+  });
+});
+
+describe("the shipped definitions and step 4's widget checks", () => {
+  const shipped = fakeMoleculeSource([wbsPert, ganttPlan]).source;
+  const plan = (data: Json = copyOf(scheduleData)) => reference("schedule", "gantt-plan", data);
+  const area = (id: string, questions: readonly unknown[]) => ({
+    type: "area",
+    id,
+    props: { title: "Review", items: questions },
+  });
+
+  test("the approved UJ-2 items give uj2ExpandedQuestion in place, erp-export unchanged", () => {
+    const result = expanded(expandMolecules(uj2Ask.items, shipped));
+    const [question, other] = result.items;
+    expect(question).toEqual(uj2ExpandedQuestion);
+    expect(other).toBe(erpExport);
+    expect([...result.map]).toEqual([
+      ["wbs__tree", { reference: "wbs", molecule: "wbs-pert", version: "1.0.0" }],
+      ["schedule__plan", { reference: "schedule", molecule: "gantt-plan", version: "1.0.0" }],
+    ]);
+  });
+
+  test("data holding calendar is refused, naming schedule and calendar", () => {
+    const items = [question("plan", [wbs(), plan({ ...copyOf(scheduleData), calendar: "EU" })])];
+    expect(problemsOf(expandMolecules(items, shipped))).toEqual([
+      {
+        itemId: "schedule",
+        path: "/0/props/items/1/props/data/calendar",
+        message: expect.stringContaining('"schedule"'),
+      },
+    ]);
+  });
+
+  test("a plan in another question than wbs is refused at its link, naming schedule and wbs", () => {
+    const items = [question("plan", [wbs()]), question("timeline", [plan()])];
+    const problems = problemsOf(expandMolecules(items, shipped));
+    expect(problems).toEqual([
+      { itemId: "schedule", path: "/1/props/items/0", message: expect.any(String) },
+    ]);
+    const [problem] = problems;
+    expect(problem?.message).toContain('"schedule"');
+    expect(problem?.message).toContain("/workPackages");
+    expect(problem?.message).toContain("wbs name no item");
+    expect(problem?.message).not.toContain("__");
+  });
+
+  test("a start of 2026-02-30 passes the data check and is refused at step 4, at /start", () => {
+    const data = { ...copyOf(scheduleData), start: "2026-02-30" };
+    const items = [question("plan", [wbs(), plan(data)])];
+    const problems = problemsOf(expandMolecules(items, shipped));
+    expect(problems.map(({ itemId, path }) => ({ itemId, path }))).toEqual([
+      { itemId: "schedule", path: "/0/props/items/1" },
+    ]);
+    expect(problems[0]?.message).toContain('"schedule"');
+    expect(problems[0]?.message).toContain("/start");
+    expect(problems[0]?.message).not.toContain("__");
+  });
+
+  test("a reference in an area's question expands in place there, the area otherwise unchanged", () => {
+    const [planQuestion] = uj2Ask.items;
+    const items = deepFreeze([area("review", [planQuestion]), area("export", [erpExport])]);
+    const result = expanded(expandMolecules(items, shipped));
+    const [review, exported] = result.items as readonly unknown[];
+    expect(review).toEqual(area("review", [uj2ExpandedQuestion]));
+    expect(exported).toBe(items[1]);
+    expect([...result.map.keys()]).toEqual(["wbs__tree", "schedule__plan"]);
+  });
+
+  test("a problem in an area's question is placed through the area", () => {
+    const data = { ...copyOf(scheduleData), calendar: "EU" };
+    const items = [area("review", [question("plan", [wbs(), plan(data)])])];
+    expect(problemsOf(expandMolecules(items, shipped)).map(({ path }) => path)).toEqual([
+      "/0/props/items/0/props/items/1/props/data/calendar",
+    ]);
+    const elsewhere = [area("review", [question("plan", [wbs()]), question("timeline", [plan()])])];
+    expect(problemsOf(expandMolecules(elsewhere, shipped)).map(({ path }) => path)).toEqual([
+      "/0/props/items/1/props/items/0",
+    ]);
+  });
+
+  test("an area's ID counts among the ask's item IDs", () => {
+    const items = [area("wbs__tree", [question("plan", [wbs()])])];
+    const problems = problemsOf(expandMolecules(items, shipped));
+    expect(problems.map(({ itemId, path }) => ({ itemId, path }))).toEqual([
+      { itemId: "wbs", path: "/0/props/items/0/props/items/0/id" },
+    ]);
   });
 });
