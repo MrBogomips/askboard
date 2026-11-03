@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   boardPageInputProblems,
+  hostOnlyNeedProblems,
   importMetaProblem,
   inlineScript,
   inlineStyleProblem,
@@ -67,5 +68,24 @@ describe("the board page bundles no schema compiler", () => {
     expect(problems).toHaveLength(2);
     expect(problems[0]).toContain("ajv/dist/compile/index.js");
     expect(problems[1]).toContain("packages/contract/src/validate.ts");
+  });
+});
+
+describe("host-only chunks are needed only by host-only chunks (snapshot design decision 5)", () => {
+  const extApps = { name: "ext-apps", hostOnly: true, needs: [] };
+
+  test("chunks that do not need them pass, and so does a host-only chunk needing one", () => {
+    const channel = { name: "channel", hostOnly: true, needs: ["ext-apps"] };
+    const shell = { name: "shell", needs: ["radix", "react"] };
+    expect(hostOnlyNeedProblems([extApps, channel, shell])).toEqual([]);
+  });
+
+  test("a chunk that is not host-only and needs one fails, naming both", () => {
+    const shell = { name: "shell", needs: ["ext-apps", "react"] };
+    const choice = { name: "choice", hostOnly: undefined, needs: ["ext-apps"] };
+    expect(hostOnlyNeedProblems([shell, extApps, choice])).toEqual([
+      'the chunk "shell" needs the host-only chunk "ext-apps", which only a view with a host loads: take it from the shared-module registry when there is one, never by an import',
+      'the chunk "choice" needs the host-only chunk "ext-apps", which only a view with a host loads: take it from the shared-module registry when there is one, never by an import',
+    ]);
   });
 });

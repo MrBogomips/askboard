@@ -48,3 +48,31 @@ export const boardPageInputProblems = (inputs: readonly string[]): string[] =>
   inputs
     .filter((input) => COMPILER_INPUTS.some((pattern) => pattern.test(input)))
     .map((input) => `the board page bundles ${input}, which compiles schemas at run time`);
+
+/** A chunk as the host-only check reads it: its name, its mark and the chunks it needs. */
+export type NeedingChunk = {
+  readonly name: string;
+  readonly hostOnly?: boolean | undefined;
+  readonly needs: readonly string[];
+};
+
+/**
+ * Host-only chunks (snapshot design decision 5) are loaded only by a view with a host, so a chunk
+ * that is not one must not need one: it would pull the chunk into a Snapshot. The shared-modules
+ * plugin records a need for every import of a shared module, so this fails a static import.
+ */
+export const hostOnlyNeedProblems = (chunks: readonly NeedingChunk[]): string[] => {
+  const hostOnly = new Set(
+    chunks.filter((chunk) => chunk.hostOnly === true).map(({ name }) => name),
+  );
+  return chunks
+    .filter((chunk) => chunk.hostOnly !== true)
+    .flatMap(({ name, needs }) =>
+      needs
+        .filter((needed) => hostOnly.has(needed))
+        .map(
+          (needed) =>
+            `the chunk "${name}" needs the host-only chunk "${needed}", which only a view with a host loads: take it from the shared-module registry when there is one, never by an import`,
+        ),
+    );
+};

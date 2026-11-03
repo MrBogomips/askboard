@@ -9,6 +9,7 @@ import {
   chunkComponents,
   chunkDefinitions,
   componentChunks,
+  HOST_ONLY_CHUNKS,
 } from "./chunks.ts";
 import { collectNotices } from "./licences.ts";
 import { CATALOG_DIR, PORT_FILE, ROOT, WIDGETS_SRC } from "./paths.ts";
@@ -139,5 +140,14 @@ describe("the components a chunk registers", () => {
   test("a name of the object prototype is no chunk's entry", () => {
     expect(chunkComponents("constructor")).toEqual(["constructor"]);
     expect(chunkComponents("toString")).toEqual(["toString"]);
+  });
+});
+
+describe("host-only chunks (snapshot design decision 5)", () => {
+  test("ext-apps is the one chunk only a view with a host loads, and the build marks it", async () => {
+    expect([...HOST_ONLY_CHUNKS]).toEqual(["ext-apps"]);
+    const definitions = await chunkDefinitions(join(dir, "work"), roots());
+    const marked = definitions.filter((definition) => definition.hostOnly === true);
+    expect(marked.map(({ name, kind }) => `${kind} ${name}`)).toEqual(["library ext-apps"]);
   });
 });

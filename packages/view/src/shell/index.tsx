@@ -1,7 +1,9 @@
 // The view shell's entry, bundled into the shell chunk (design decisions 7 and 8). It provides the
 // `CatalogRenderer` port to the component chunks, which run after it, and boots once the srcdoc
 // has parsed, when every chunk has run: it reads the `askboard-data` block, connects ext-apps'
-// `App` to the board page when it has a parent (a Snapshot has none, AD-9), and renders the board
+// `App` to the board page when it has a parent (a Snapshot has none, AD-9), taking it from the
+// shared-module registry only then, so no ext-apps code is needed without a host (snapshot design
+// decision 5), and renders the board
 // through AskBoard's own renderer, with the draft record and the ready tracker. The theme starts
 // as the system's and then follows the board page's; with no parent it follows the system
 // (EXPERIENCE.md, Dark theme). Since the ask lifecycle (ask-lifecycle, design decision 6): the
@@ -14,12 +16,12 @@
 // runs under the view's policy (S-6). Push delivery's part, the context header's data and the
 // user's activity for the board's working signal, starts beside them (`push-extras.ts`).
 
-import { App } from "@modelcontextprotocol/ext-apps";
+import type * as ExtApps from "@modelcontextprotocol/ext-apps";
 import { createRoot } from "react-dom/client";
 import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
 import { FrameTransport } from "../frame-transport.ts";
-import { provide } from "../shared-modules.ts";
+import { provide, shared } from "../shared-modules.ts";
 import { applyTheme, DARK_QUERY, followSystemTheme, systemTheme, type Theme } from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
@@ -63,8 +65,10 @@ provide(CATALOG_PORT, port);
 
 const VIEW_INFO = { name: "askboard-view", version: "0.0.0" };
 
-// The view fills its frame, which the board page sizes: no size notifications.
+// The view fills its frame, which the board page sizes: no size notifications. ext-apps' `App`
+// comes from its host-only chunk, which only a board loads; the shell imports its type alone.
 const connectToBoardPage = (): ViewChannel => {
+  const { App } = shared("@modelcontextprotocol/ext-apps") as Pick<typeof ExtApps, "App">;
   const app = new App(VIEW_INFO, {}, { autoResize: false });
   return openChannel(app, () => app.connect(new FrameTransport(window.parent, window)));
 };
