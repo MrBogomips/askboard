@@ -20,7 +20,8 @@ import { composedSessions } from "./composed-session.ts";
 // is "Teammate <name>" on its board, in its notification and in the band's pending asks; in the
 // lead's session, the mod's turn report names an in-process teammate, whose opaque agent ID does
 // not, before its ask or after it, when its open board gets the new origin; its idle stop leaves its
-// ask open; and a parent that cannot be read leaves "Main agent", with one note naming no argument.
+// ask open, also when the mod could not name it and its ID has the probe's form; and a parent that
+// cannot be read leaves "Main agent", with one note naming no argument.
 
 const { project, recorder, start, remove } = composedSessions();
 afterAll(remove);
@@ -198,15 +199,18 @@ describe("the lead's session", () => {
     expect(await ended(run)).toEqual([]);
   });
 
-  test("the teammate's idle stop leaves its ask open, reported or, mods off, by its ID's form", async () => {
+  test("the teammate's idle stop leaves its ask open, reported or, unlisted or mods off, by its ID's form", async () => {
     const { script } = recorder("idle-stop");
     const run = await start({ BROWSER: script }, undefined, undefined, undefined, LEAD_PARENT);
     const session = await sessionOf(run);
+    // Unlisted: the mod's report names no teammate, which records nothing.
+    await turnStarted(session, IN_PROCESS.agent_id);
     await askAs(run, session, "idle-ask", IN_PROCESS);
     const reported = { agent_id: "ascout-2-5e0a17", agent_type: "scout-2" };
     await turnStarted(session, reported.agent_id, "scout-2");
     await askAs(run, session, "reported-ask", reported);
     const finished = { agent_id: "a3f9c1d27b8e4f60", agent_type: "code-reviewer" };
+    await turnStarted(session, finished.agent_id);
     await askAs(run, session, "finished-ask", finished);
     expect(await stopped(session, IN_PROCESS)).toBe("allow");
     expect(await stopped(session, reported)).toBe("allow");

@@ -5,10 +5,10 @@ import type { OriginOf } from "../../../src/board-host/local-api/origin.ts";
 import { RecordTable } from "../../../src/board-host/local-api/records.ts";
 
 // The mod's teammate reports in the record table (task 18.2; board-host spec, Telling a teammate;
-// design decision 4, Origin, plan B): per agent ID, whether the mod reported it a teammate, with its
-// name, or not. A reported teammate's asks are "Teammate <name>", with no ordinal, and it is not
-// counted among the subagents of its type; a report that lands while an origin resolves still
-// labels it. A teammate stays one.
+// design decision 4, Origin, plan B): per agent ID, the teammate name a report gave. A report
+// without one records nothing, since the mod may not have been able to tell. A reported teammate's
+// asks are "Teammate <name>", with no ordinal, and it is not counted among the subagents of its
+// type; a report that lands while an origin resolves still labels it. A teammate stays one.
 
 const TEAMMATE = "aresearcher-096d99adc3d94b0a";
 const ASK_ID = "order-db-choice-x7k2";
@@ -90,23 +90,35 @@ describe("a teammate the mod reported", () => {
 });
 
 describe("what the table keeps of the reports", () => {
-  test("nothing before a report, no teammate after one without a name, then the teammate, who stays one", () => {
+  test("nothing before a report, nor after one without a name; then the teammate, who stays one", () => {
     const table = tableOf();
-    expect(table.reportOf(TEAMMATE)).toBeUndefined();
+    expect(table.teammateOf(TEAMMATE)).toBeUndefined();
     expect(table.reported(TEAMMATE, undefined)).toBeUndefined();
-    expect(table.reportOf(TEAMMATE)).toBeNull();
+    expect(table.teammateOf(TEAMMATE)).toBeUndefined();
     expect(table.reported(TEAMMATE, "researcher")).toBe("Teammate researcher");
-    expect(table.reportOf(TEAMMATE)).toBe("researcher");
+    expect(table.teammateOf(TEAMMATE)).toBe("researcher");
     expect(table.reported(TEAMMATE, undefined)).toBeUndefined();
     expect(table.reported(TEAMMATE, "researcher")).toBeUndefined();
-    expect(table.reportOf(TEAMMATE)).toBe("researcher");
+    expect(table.teammateOf(TEAMMATE)).toBe("researcher");
     expect(table.reported(TEAMMATE, " scout-2 ")).toBe("Teammate scout-2");
-    expect(table.reportOf(TEAMMATE)).toBe("scout-2");
+    expect(table.teammateOf(TEAMMATE)).toBe("scout-2");
   });
 
-  test("a blank name names no teammate", () => {
+  test("a blank name records nothing", () => {
     const table = tableOf();
     expect(table.reported(TEAMMATE, "  ")).toBeUndefined();
-    expect(table.reportOf(TEAMMATE)).toBeNull();
+    expect(table.teammateOf(TEAMMATE)).toBeUndefined();
+  });
+
+  test("a report without a name leaves a subagent numbered and labelled as before", async () => {
+    const table = tableOf();
+    table.add(recordOf("a1", "researcher", "toolu_1"));
+    table.reported(TEAMMATE, undefined);
+    table.add(recordOf(TEAMMATE, "researcher", "toolu_teammate"));
+    expect(await originOf(table, "toolu_teammate")).toEqual({
+      label: "Subagent researcher",
+      cwd: "/Users/paola/src/order-service",
+      ordinal: 2,
+    });
   });
 });

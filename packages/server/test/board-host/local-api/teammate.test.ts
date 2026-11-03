@@ -239,23 +239,24 @@ describe("this session's own teammate name", () => {
   });
 });
 
-// Board-host spec, A teammate's stop is idle (task 18.2): a reported teammate's stop ends its turn,
-// a reported subagent's its work; without a report, the agent ID `a<agent_type>-<hex>` errs to idle.
+// Board-host spec, A teammate's stop is idle (task 18.2): the open ask is the safe side. A reported
+// teammate's stop ends its turn; so does, without that report, the stop of an agent whose ID reads
+// `a<agent_type>-<lowercase hex>`, which a failed or empty agent list cannot then turn into an end.
 describe("what a stop ends", () => {
   const PROBE = "aresearcher-096d99adc3d94b0a";
 
-  test("the mod's report decides, whatever the agent ID's form", () => {
+  test("a reported teammate's stop is idle, whatever its agent ID's form", () => {
     expect(stopEndOf("researcher", "a3f9c1d27b8e4f60", "code-reviewer")).toBe("idle");
-    expect(stopEndOf(null, PROBE, "researcher")).toBe("finished");
+    expect(stopEndOf("researcher", PROBE, "researcher")).toBe("idle");
   });
 
-  test("without a report, a named agent's ID of its own type is idle", () => {
+  test("otherwise, a named agent's ID of its own type is idle", () => {
     expect(stopEndOf(undefined, PROBE, "researcher")).toBe("idle");
     expect(stopEndOf(undefined, "acode.reviewer-0f", "code.reviewer")).toBe("idle");
     expect(stopEndOf(undefined, "a-0f", "")).toBe("idle");
   });
 
-  test("without a report, any other ID is finished", () => {
+  test("otherwise, any other ID is finished", () => {
     for (const [agentId, agentType] of [
       ["a3f9c1d27b8e4f60", "code-reviewer"],
       [PROBE, "explorer"],

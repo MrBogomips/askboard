@@ -170,8 +170,8 @@ describe("the stop guard", () => {
 // Board-host spec, A teammate's stop is idle (tasks 17.2 and 18.2, G1): Claude Code fires
 // SubagentStop at every turn end of an in-process teammate, whose agent ID is opaque. Its stop is
 // blocked as a subagent's is, but one let through closes none of its asks. The mod's turn report
-// says which agent is a teammate; an agent never reported either way is taken for one when its ID
-// reads `a<agent_type>-<hex>`, so that a teammate is not closed with the mods off.
+// names a teammate; any other agent is taken for one when its ID reads `a<agent_type>-<hex>`, so
+// that a teammate is not closed with the mods off, nor when the mod's agent list did not hold it.
 describe("an in-process teammate's stop", () => {
   // The ids of the PO's probe (task 17.6).
   const TEAMMATE = { agent_id: "aresearcher-096d99adc3d94b0a", agent_type: "researcher" } as const;
@@ -212,12 +212,16 @@ describe("an in-process teammate's stop", () => {
     expect(stateOf(run, ASK_ID)).toBe("answered");
   });
 
-  test("reported no teammate, is finished even with a named agent's ID", async () => {
+  test("unlisted, its report naming no teammate, is still idle by its ID's form; a subagent is finished", async () => {
     const run = await started();
     await reportTurn(run, TEAMMATE.agent_id);
+    await reportTurn(run, SUBAGENT.agent_id);
     await askAs(run, ASK_ID, TEAMMATE);
+    await askAs(run, "retry-limit-w2n5", SUBAGENT);
     expect((await stopOf(run, TEAMMATE)).decision).toBe("allow");
-    expect(stateOf(run, ASK_ID)).toBe("closed");
+    expect(stateOf(run, ASK_ID)).toBe("waiting");
+    expect((await stopOf(run, SUBAGENT)).decision).toBe("allow");
+    expect(stateOf(run, "retry-limit-w2n5")).toBe("closed");
   });
 
   test("never reported, mods off: a named agent's ID is idle, any other finished", async () => {

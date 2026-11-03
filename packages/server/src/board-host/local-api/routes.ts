@@ -26,7 +26,7 @@ export type RoutesDeps = {
   readonly core: RoutesCore;
   readonly records: Pick<
     RecordTable,
-    "add" | "agentIdOf" | "ownerKeyOf" | "keyOfAgent" | "reported" | "reportOf"
+    "add" | "agentIdOf" | "ownerKeyOf" | "keyOfAgent" | "reported" | "teammateOf"
   >;
   /** Whether a board can be shown, by AD-18's rule: the notifier's check. */
   readonly showable: () => Promise<boolean>;
@@ -73,8 +73,9 @@ export const createHandlers = ({
     if (ownerKey === undefined) return ok(allow);
     // An allow closes the subagent's open asks in ask-core, with agent-finished (task 3.6). An
     // in-process teammate stops at every turn end and then waits for a message: its allow closes
-    // none (G1, tasks 17.2 and 18.2), by the mod's report or, without one, its agent ID's form.
-    const end = stopEndOf(records.reportOf(agent_id), agent_id, agent_type);
+    // none (G1, tasks 17.2 and 18.2): one the mod's report named, or, without that, one whose agent
+    // ID has a named agent's form.
+    const end = stopEndOf(records.teammateOf(agent_id), agent_id, agent_type);
     const outcome = core.stop(ownerKey, stop_hook_active, fitStop(core.epoch), end);
     if (outcome.decision === "allow") return ok(allow);
     return ok(blockDecision(core.epoch, outcome));
@@ -97,10 +98,10 @@ export const createHandlers = ({
   },
 
   // The agent status (AD-4, design decision 12): an agent with no record yet owns no ask, and its
-  // report changes nothing of it. A subagent's report says whether it is an in-process teammate
-  // (design decision 4, Origin, plan B), which the record table keeps; one that names it anew
-  // relabels the asks it owns, and their open boards hear who asked again. The main conversation's
-  // report names nobody.
+  // report changes nothing of it. A subagent's report may name it an in-process teammate (design
+  // decision 4, Origin, plan B), which the record table keeps; one that names it anew relabels the
+  // asks it owns, and their open boards hear who asked again. The main conversation's report names
+  // nobody.
   modTurn: ({ agent_id, running, teammate }) => {
     const label = agent_id === undefined ? undefined : records.reported(agent_id, teammate);
     const ownerKey = records.keyOfAgent(agent_id);

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:local-api:mod-turn-request",
   "title": "Turn report",
-  "description": "The mod's report that an agent's turn started (running true) or completed (running false), sent on a change only (design decision 12). agent_id names the subagent; the main conversation has none. teammate names an in-process agent-team teammate, when the mod API lists the subagent with a teammateId (design decision 4, Origin, plan B); a subagent's report without it names no teammate.",
+  "description": "The mod's report that an agent's turn started (running true) or completed (running false), sent on a change only (design decision 12). agent_id names the subagent; the main conversation has none. teammate names an in-process agent-team teammate, when the mod API lists the subagent with a teammateId (design decision 4, Origin, plan B); a report without it says nothing of whether the subagent is one, since the list may not hold it.",
   "type": "object",
   "properties": {
     "version": {

@@ -10,8 +10,8 @@
 //   Any doubt names nobody, so the label stays "Main agent";
 // - an in-process teammate runs inside the lead's process under an opaque `agent_id`
 //   (`aresearcher-096d99adc3d94b0a` in the PO's probe): the mod's turn report names it, and the
-//   record table keeps what it said (plan B). Only what its stop ends falls back, without a report,
-//   on the form of that ID.
+//   record table keeps that name (plan B). Only what its stop ends falls back, without that name, on
+//   the form of that ID.
 
 import { readFile } from "node:fs/promises";
 import type { StopEnd } from "@askboard/core";
@@ -113,17 +113,17 @@ const isNamedAgentId = (agentId: string, agentType: string | undefined): boolean
 /**
  * What an agent's allowed stop ends (board-host spec, A teammate's stop is idle; AD-10): only the
  * turn of an in-process teammate, which then waits for a message, and the work of any other agent.
- * The mod's report decides: `reported` is the teammate's name, or null for an agent reported no
- * teammate. An agent never reported either way is taken for a teammate when its ID has a named
- * agent's form, since closing a teammate's ask loses it while leaving a subagent's open only waits
- * for the session's end (design decision 4, "Without the mod's report").
+ * A teammate is one the mod's report named (`teammate`, its name) or, without that, one whose ID
+ * has a named agent's form. The open ask is the safe side: taking a teammate for a subagent loses
+ * its ask, while taking a subagent for a teammate only leaves its asks open until the session
+ * discards them (design decision 4, "Without the mod's report").
  */
 export const stopEndOf = (
-  reported: string | null | undefined,
+  teammate: string | undefined,
   agentId: string,
   agentType: string | undefined,
 ): StopEnd => {
-  if (reported !== undefined) return reported === null ? "finished" : "idle";
+  if (teammate !== undefined) return "idle";
   return isNamedAgentId(agentId, agentType) ? "idle" : "finished";
 };
 
