@@ -340,3 +340,8 @@ export {
   validateMoleculeProps,
 } from "./molecules/validate.ts";
 export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets/items.ts";
+
+// Context, E5 (excerpts, design decision 2): the board document's check in code, which the board
+// page runs after its generated validators.
+
+export { contextDocumentProblems } from "./context/document.ts";

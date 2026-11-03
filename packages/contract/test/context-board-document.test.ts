@@ -14,7 +14,11 @@ import boardDocumentSchema from "../src/schemas/board-document/board-document.js
 import boardExcerpt from "../src/schemas/board-document/excerpt-props.json" with { type: "json" };
 import boardImage from "../src/schemas/board-document/image-props.json" with { type: "json" };
 import inputQuestionProps from "../src/schemas/input/question-props.json" with { type: "json" };
-import { validateAgainst, validateBoardDocument } from "../src/validate.ts";
+import {
+  contextDocumentProblems,
+  validateAgainst,
+  validateBoardDocument,
+} from "../src/validate.ts";
 
 // The board document's resolved context (excerpts, task 1.3; contract spec: Resolved context in the
 // board document; proposal B8): each item's props carry what ask-core resolved, by status.
@@ -345,5 +349,38 @@ describe("items in a board document's question", () => {
       ok: false,
       problems: [{ path: "/items/0/props/items/0/type" }],
     });
+  });
+});
+
+describe("the line-order check, for the board page", () => {
+  test("is exported from the validate entry, finding a reversed range in an area's question", () => {
+    const props = {
+      pointer: "a.md#L9-L3",
+      kind: "file",
+      status: "resolved",
+      lines: { start: 9, end: 3 },
+    };
+    const [question] = plainChoiceBoardDocument.items;
+    const area = {
+      type: "area",
+      id: "scope",
+      props: {
+        title: "Scope",
+        items: [
+          {
+            ...question,
+            props: { ...question.props, items: [{ type: "reference", id: "r", props }] },
+          },
+        ],
+      },
+    };
+    expect(contextDocumentProblems({ ...plainChoiceBoardDocument, items: [area] })).toEqual([
+      {
+        path: "/items/0/props/items/0/props/items/0/props/lines",
+        message: "the line range starts after it ends",
+      },
+    ]);
+    expect(contextDocumentProblems(contextBoardDocument)).toEqual([]);
+    expect(contextDocumentProblems(null)).toEqual([]);
   });
 });
