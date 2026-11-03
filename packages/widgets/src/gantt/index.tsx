@@ -15,7 +15,7 @@
 import type { GanttItem, GanttProps } from "@askboard/contract";
 import { type ItemProps, register, useReadyAfterLayout } from "@askboard/view/catalog";
 import { useCallback, useEffect, useMemo } from "react";
-import { liveGraph, sentGraph } from "../graph/board-graph.ts";
+import { liveGraph, sentGraph } from "../graph/index.ts";
 import { GanttFrame } from "./frame.tsx";
 import { sameGantt } from "./model/edits.ts";
 import { ganttMarks, ganttRows } from "./model/kinds.ts";

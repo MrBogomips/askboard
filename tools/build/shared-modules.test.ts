@@ -2,8 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PORT_FILE, ROOT, VIEW_DIR, VIEW_SRC, WIDGETS_SRC } from "./paths.ts";
+import { GRAPH_FILE, PORT_FILE, ROOT, VIEW_DIR, VIEW_SRC, WIDGETS_SRC } from "./paths.ts";
 import {
+  BOARD_GRAPH,
   CATALOG_PORT,
   LIBRARY_CHUNKS,
   libraryEntrySource,
@@ -13,6 +14,7 @@ import {
   sharedFilter,
   sharedModules,
   sharedModulesPlugin,
+  sharedNameOf,
   shimSource,
 } from "./shared-modules.ts";
 
@@ -34,20 +36,37 @@ const NAMED_IMPORT = /import\s+\{([^}]*)\}\s+from\s+"([^"]+)"/g;
 const SOURCE_ROOTS = [VIEW_SRC, WIDGETS_SRC];
 
 // The value names the view's and the widgets' sources import from each module, as
-// `<module>:<name>`.
+// `<module>:<name>`, a module imported by the path to its file under its shared name.
 const namedImports = async (): Promise<Set<string>> => {
   const found = new Set<string>();
   for (const root of SOURCE_ROOTS) {
     for await (const path of new Bun.Glob("**/*.{ts,tsx}").scan(root)) {
       if (/\.test\.tsx?$/.test(path)) continue;
-      const source = await Bun.file(join(root, path)).text();
-      for (const [, names = "", module] of source.matchAll(NAMED_IMPORT)) {
+      const file = join(root, path);
+      const source = await Bun.file(file).text();
+      for (const [, names = "", specifier = ""] of source.matchAll(NAMED_IMPORT)) {
+        const module = sharedNameOf(specifier, file);
         const values = names
           .split(",")
           .map((name) => name.trim().split(/\s+as\s+/)[0] ?? "")
           .filter((name) => name !== "" && !name.startsWith("type "));
         for (const name of values) found.add(`${module}:${name}`);
       }
+    }
+  }
+  return found;
+};
+
+// The relative paths each source imports at run time, resolved, with the importing file.
+const runTimeImports = async (root: string): Promise<{ file: string; target: string }[]> => {
+  const found: { file: string; target: string }[] = [];
+  const statement = /import\s+(type\s)?[^"]*"(\.[^"]+)"/g;
+  for await (const path of new Bun.Glob("**/*.{ts,tsx}").scan(root)) {
+    if (/\.test\.tsx?$/.test(path)) continue;
+    const file = join(root, path);
+    const source = await Bun.file(file).text();
+    for (const [, typeOnly, specifier = ""] of source.matchAll(statement)) {
+      if (typeOnly === undefined) found.push({ file, target: join(file, "..", specifier) });
     }
   }
   return found;
@@ -66,6 +85,12 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(modules.get("@askboard/compute")?.chunk).toBe("compute");
   });
 
+  test("the board graph comes from the board-graph chunk, under a name of its own (molecules, design decision 13)", () => {
+    expect(modules.get(BOARD_GRAPH)?.chunk).toBe("board-graph");
+    expect(BOARD_GRAPH).toBe("@askboard/widgets/graph");
+    expect(GRAPH_FILE).toBe(join(WIDGETS_SRC, "graph/index.ts"));
+  });
+
   test("the shell provides the CatalogRenderer port, with the names its module exports", () => {
     expect(modules.get(CATALOG_PORT)).toEqual({
       chunk: "shell",
@@ -73,8 +98,14 @@ describe("the shared modules and the chunks that provide them", () => {
     });
   });
 
-  test("the library chunks are React, Radix, ext-apps and compute", () => {
-    expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual(["compute", "ext-apps", "radix", "react"]);
+  test("the library chunks are React, Radix, ext-apps, compute and the board graph", () => {
+    expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual([
+      "board-graph",
+      "compute",
+      "ext-apps",
+      "radix",
+      "react",
+    ]);
   });
 
   test("Radix provides the components that sources import, and no other yet", () => {
@@ -97,6 +128,24 @@ describe("the shared modules and the chunks that provide them", () => {
       .sort();
     expect(imported).toContain("boardGraphSource");
     expect(LIBRARY_CHUNKS.compute?.modules["@askboard/compute"]).toEqual(imported);
+  });
+
+  test("the board graph provides exactly the names the widgets' sources import from it, the Tree and the Gantt among them", async () => {
+    const imported = [...(await namedImports())]
+      .filter((entry) => entry.startsWith(`${BOARD_GRAPH}:`))
+      .map((entry) => entry.slice(BOARD_GRAPH.length + 1))
+      .sort();
+    expect(imported).toContain("liveGraph");
+    expect(LIBRARY_CHUNKS["board-graph"]?.modules[BOARD_GRAPH]).toEqual(imported);
+  });
+
+  test("a widget reaches the board graph's modules at run time only through its index, so one module instance holds the memo", async () => {
+    const graph = join(WIDGETS_SRC, "graph");
+    const around = (await runTimeImports(WIDGETS_SRC)).filter(
+      ({ file, target }) => !file.startsWith(`${graph}/`) && target.startsWith(`${graph}/`),
+    );
+    expect(around.length).toBeGreaterThan(0);
+    expect(around.filter(({ target }) => target !== GRAPH_FILE)).toEqual([]);
   });
 
   test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
@@ -122,6 +171,9 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     CATALOG_PORT,
     "./port.ts",
     "../port.ts",
+    BOARD_GRAPH,
+    "../graph/index.ts",
+    "../../graph/index.ts",
   ])("matches %s", (specifier) => {
     expect(filter.test(specifier)).toBe(true);
   });
@@ -136,6 +188,9 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     "@askboard/contract",
     "./portal.ts",
     "./export.ts",
+    "./index.ts",
+    "../graph/board-graph.ts",
+    "@askboard/widgets",
   ])("leaves %s alone", (specifier) => {
     expect(filter.test(specifier)).toBe(false);
   });
@@ -166,6 +221,32 @@ describe("which chunk an import comes from", () => {
     expect(providerOf(modules, "choice", "./port.ts", importer)).toBeUndefined();
     expect(PORT_FILE.endsWith("catalog/port.ts")).toBe(true);
   });
+
+  test("a relative import of the board graph's index comes from the board-graph chunk, unless the chunk is that one (molecules, design decision 13)", () => {
+    const tree = join(WIDGETS_SRC, "tree/index.tsx");
+    const plan = join(WIDGETS_SRC, "gantt/model/plan.ts");
+    expect(providerOf(modules, "tree", "../graph/index.ts", tree)).toEqual({
+      module: BOARD_GRAPH,
+      chunk: "board-graph",
+    });
+    expect(providerOf(modules, "gantt", "../../graph/index.ts", plan)?.chunk).toBe("board-graph");
+    expect(providerOf(modules, "board-graph", "../graph/index.ts", tree)).toBeUndefined();
+  });
+
+  test("another graph/index.ts, or another file of the graph, is not the board graph", () => {
+    const elsewhere = join(VIEW_SRC, "catalog/choice/index.tsx");
+    expect(providerOf(modules, "choice", "../graph/index.ts", elsewhere)).toBeUndefined();
+    const tree = join(WIDGETS_SRC, "tree/index.tsx");
+    expect(providerOf(modules, "tree", "../graph/board-graph.ts", tree)).toBeUndefined();
+  });
+
+  test("a shared name is the module a relative import of its file names, else the specifier", () => {
+    const tree = join(WIDGETS_SRC, "tree/index.tsx");
+    expect(sharedNameOf("../graph/index.ts", tree)).toBe(BOARD_GRAPH);
+    expect(sharedNameOf("../port.ts", importer)).toBe(CATALOG_PORT);
+    expect(sharedNameOf("./widget.tsx", tree)).toBe("./widget.tsx");
+    expect(sharedNameOf("react", tree)).toBe("react");
+  });
 });
 
 describe("shims", () => {
@@ -193,6 +274,12 @@ describe("shims", () => {
     expect(source).toContain(
       'provide("@askboard/compute", { boardGraphSource: m0_boardGraphSource',
     );
+  });
+
+  test("the board graph's entry imports its index by path, the chunk mapping it as it maps the port", () => {
+    const source = libraryEntrySource("board-graph");
+    expect(source).toContain(JSON.stringify(GRAPH_FILE));
+    expect(source).toContain(`provide("${BOARD_GRAPH}", { liveGraph: m0_liveGraph`);
   });
 
   test("an unknown library has no entry", () => {
