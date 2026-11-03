@@ -44,6 +44,11 @@ export type BoardSocket = {
    * checked against the contract, and one it refuses joins `problems`.
    */
   readonly header: unknown[];
+  /**
+   * The settings each opening and each write sends (settings-languages, design decision 6), kept
+   * apart in the same way and checked against the board protocol.
+   */
+  readonly settings: unknown[];
   readonly problems: string[];
 };
 
@@ -69,6 +74,7 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
   const socket = new WebSocket(`ws://${BOARD_HOST}:${port}/ws/${askId}`, { origin });
   const pending: unknown[] = [];
   const header: unknown[] = [];
+  const settings: unknown[] = [];
   const problems: string[] = [];
   let code: number | undefined;
   socket.on("message", (data) => {
@@ -76,6 +82,13 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
     const type = message.type;
     const validate =
       typeof type === "string" && Object.hasOwn(HEADER, type) ? HEADER[type] : undefined;
+    if (type === "settings") {
+      settings.push(message);
+      if (!validateBoardMessage("toPage", message).ok) {
+        problems.push(`the contract refuses ${JSON.stringify(message)}`);
+      }
+      return;
+    }
     if (validate === undefined) {
       pending.push(message);
       return;
@@ -94,6 +107,7 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
     socket,
     pending,
     header,
+    settings,
     problems,
     next: () => waitFor(() => pending.shift(), "a board message"),
     closed: () => waitFor(() => code, "the board socket's close"),

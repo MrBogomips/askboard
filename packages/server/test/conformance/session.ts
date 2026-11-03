@@ -166,6 +166,13 @@ export type SessionOptions = {
    * hooks-disabled configuration and none in the others; `false` for none.
    */
   readonly mod?: Omit<ModHostOptions, "env" | "cwd"> | false;
+  /**
+   * The user configuration file, written under the session's own `XDG_CONFIG_HOME` before it
+   * starts (settings-languages, design decision 14): a value as JSON, a string as it is.
+   */
+  readonly userConfig?: unknown;
+  /** The project configuration file, `.askboard/config.json`, written in the same way. */
+  readonly projectConfig?: unknown;
 };
 
 export type Session = {
@@ -176,6 +183,8 @@ export type Session = {
   readonly project: string;
   /** The session process's home, which E1 never writes to. */
   readonly home: string;
+  /** The session process's `XDG_CONFIG_HOME`, apart from its home, so that the home stays empty. */
+  readonly configHome: string;
   /** The session process's environment, Claude Code's: the hooks and the mod host run in it. */
   readonly env: Readonly<Record<string, string>>;
   /** The stand-in mod host beside the session process, started; none without the mod. */
@@ -237,10 +246,24 @@ const recordedIn = (into: string): string[][] =>
     .filter((name) => name.startsWith("opened.") && name.endsWith(".txt"))
     .map((name) => readFileSync(join(into, name), "utf8").split("\n").slice(1, -1));
 
-/** Starts a session process and connects the MCP client to it. */
+// A configuration file a scenario gives, written before the session starts.
+const writeConfig = (file: string, value: unknown): void => {
+  if (value === undefined) return;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`);
+};
+
+/**
+ * Starts a session process and connects the MCP client to it. Its home, configuration folder and
+ * project are throwaway folders of its own, so that no developer's configuration reaches it
+ * (settings-languages, design decision 14).
+ */
 export const startSession = async (options: SessionOptions = {}): Promise<Session> => {
   const project = folder("project");
   const home = folder("home");
+  const configHome = folder("config");
+  writeConfig(join(configHome, "askboard", "config.json"), options.userConfig);
+  writeConfig(join(project, ".askboard", "config.json"), options.projectConfig);
   const recorder = folder("recorder");
   const notifier = notifierRecorders(folder("notifier"));
   Bun.spawnSync(["git", "init", "--quiet", project]);
@@ -248,6 +271,7 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
   const env: Record<string, string> = {
     PATH: `${notifier.folder}:${process.env.PATH ?? ""}`,
     HOME: home,
+    XDG_CONFIG_HOME: configHome,
     BROWSER: recorderIn(recorder),
     CLAUDE_PROJECT_DIR: project,
     GIT_CONFIG_NOSYSTEM: "1",
@@ -288,6 +312,7 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
     pid: child.pid,
     project,
     home,
+    configHome,
     env,
     mod,
     opened: () => recordedIn(recorder),

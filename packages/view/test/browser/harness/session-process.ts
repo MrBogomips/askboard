@@ -21,6 +21,7 @@
 //   expected user.
 
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
@@ -65,6 +66,13 @@ export type SessionProcessOptions = {
   readonly openTimeoutMs?: number;
   /** How long the process may take to exit once its input ends; the design's bound is 1 s. */
   readonly exitTimeoutMs?: number;
+  /**
+   * The user configuration file, written under the process's own `XDG_CONFIG_HOME` before it starts
+   * (settings-languages, design decision 14): a value as JSON, a string as it is.
+   */
+  readonly userConfig?: unknown;
+  /** The project configuration file, `.askboard/config.json`, written in the same way. */
+  readonly projectConfig?: unknown;
 };
 
 const ROOT = join(import.meta.dir, "..", "..", "..", "..", "..");
@@ -401,6 +409,30 @@ const writeFiles = async (
   }
 };
 
+// A configuration file a scenario gives, written before the process starts.
+const writeConfig = async (file: string, value: unknown): Promise<void> => {
+  if (value === undefined) return;
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`);
+};
+
+/**
+ * The process's own home, configuration folder and project, inside `dir`, holding the scenario's
+ * configuration files, so that no developer's configuration reaches it (settings-languages, design
+ * decision 14); an asker's project stands in for the project.
+ */
+const isolated = async (dir: string, options: SessionProcessOptions, place?: AskerPlace) => {
+  const home = join(dir, "home");
+  const configHome = join(dir, "config");
+  const project = place?.projectDir ?? join(dir, "project");
+  await Promise.all(
+    [home, configHome, project].map((folder) => mkdir(folder, { recursive: true })),
+  );
+  await writeConfig(join(configHome, "askboard", "config.json"), options.userConfig);
+  await writeConfig(join(project, ".askboard", "config.json"), options.projectConfig);
+  return { HOME: home, XDG_CONFIG_HOME: configHome, CLAUDE_PROJECT_DIR: project };
+};
+
 // The ask with the asker's agent name and expected user.
 const withAsker = <T extends object>(input: T, asker: Asker | undefined): T => ({
   ...input,
@@ -444,6 +476,7 @@ export const startSessionProcess = async (
   if (projectDir !== undefined && files !== undefined) await writeFiles(projectDir, files);
   const cleanup = cleanupOf(stage, dir, place, plain);
   const linksFile = join(dir, "links");
+  const folders = await isolated(dir, options, place);
   const problems: string[] = [];
   const context: LaunchContext = {
     ...(asker === undefined || place === undefined ? {} : { asker: { asker, place } }),
@@ -458,6 +491,7 @@ export const startSessionProcess = async (
       BROWSER: LINK_RECORDER,
       [LINKS_VARIABLE]: linksFile,
       ...(projectDir === undefined ? {} : { CLAUDE_PROJECT_DIR: projectDir }),
+      ...folders,
     },
     linksFile,
     input,
