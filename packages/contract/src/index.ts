@@ -490,9 +490,12 @@ export type {
 // formats, the `.askboard/` folder and the configuration set.
 // Settings and languages (E8, settings-languages design decisions 2, 8, 12 and 13): the locale
 // formats, the `.askboard/` folder, the asking rule's references and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 7, 8, 12 and 13): the locale
+// formats, a board's language, the `.askboard/` folder, the asking rule's references and the configuration set.
 
 export {
   type AxisZoom,
+  type BoardLanguage,
   type DateEntry,
   type DateRefusalCode,
   dateEcho,
@@ -507,6 +510,7 @@ export {
   formatTime,
   LOCALES,
   type Locale,
+  languageOf,
   type NumberEntry,
   type NumberRefusalCode,
   numberEcho,

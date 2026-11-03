@@ -20,5 +20,6 @@ export {
   parseNumber,
   plainNumber,
 } from "./entry.ts";
+export { type BoardLanguage, languageOf } from "./language-of.ts";
 export { type FractionDigits, formatMoney, formatNumber, formatPercent } from "./numbers.ts";
 export { type AxisZoom, LOCALES, type Locale } from "./tables.ts";

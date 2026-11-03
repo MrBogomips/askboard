@@ -3,6 +3,8 @@
 // several questions or areas, and the presentation and delivery the ask requests (ask-lifecycle,
 // design decision 2); E5's carries a question's context items as ask-core resolved them (excerpts,
 // design decision 2).
+// design decision 2); E8's names the ask's language and locale (settings-languages, design
+// decision 7).
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -63,6 +65,9 @@ export type BoardItem = BoardQuestion | BoardArea;
 export type LifecycleBoardDocument = Omit<BoardDocument, "items"> & {
   readonly presentation?: "sections" | "tabs" | "one-per-view";
   readonly delivery?: "immediate" | "submitted";
+  /** Board document 1.2 (settings-languages): absent in an earlier minor's, read as en-US. */
+  readonly language?: "en-US" | "it-IT";
+  readonly locale?: "en-US" | "it-IT";
   readonly items:
     | readonly [BoardQuestion, ...BoardQuestion[]]
     | readonly [BoardArea, ...BoardArea[]];

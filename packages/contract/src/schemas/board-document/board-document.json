@@ -3,6 +3,7 @@
   "$id": "urn:askboard:board-document:board-document",
   "title": "Board document",
   "description": "What a board shows of an ask, as ask-core holds it now (AD-12): its ID, its title, the presentation and delivery the ask requests, and its items as the input format places them: questions, or areas holding questions, never both at the top level and never an area in an area, each question with its current revision (AD-20). Since 1.2 a question's context items carry what ask-core resolved (excerpts, design decision 2). It holds no draft, no event and no token.",
+  "description": "What a board shows of an ask, as ask-core holds it now (AD-12): its ID, its title, the presentation and delivery the ask requests, its language and locale, and its items as the input format places them: questions, or areas holding questions, never both at the top level and never an area in an area, each question with its current revision (AD-20). It holds no draft, no event and no token.",
   "type": "object",
   "properties": {
     "version": {
@@ -23,6 +24,14 @@
     },
     "delivery": {
       "enum": ["immediate", "submitted"]
+    },
+    "language": {
+      "description": "The ask's language, fixed when ask-core accepted the ask (FR-34). A document without it reads as en-US, as one of an earlier minor does.",
+      "enum": ["en-US", "it-IT"]
+    },
+    "locale": {
+      "description": "The ask's locale, for the values the board shows and reads, fixed with the language. A document without it reads as its language.",
+      "enum": ["en-US", "it-IT"]
     },
     "items": {
       "type": "array",
