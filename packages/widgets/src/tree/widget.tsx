@@ -11,11 +11,15 @@
 // from a tool, the focus stays on the tool. Every change of the value goes in the draft, or
 // `undefined` once the nodes are the agent's again (`sameNodes`). What the user changed against
 // the agent's value is marked per node and counted in the toolbar row (`marksOf`, open question
-// 14), the read-only Tree's included.
+// 14), the read-only Tree's included. A work breakdown, a Tree with `pert`, opens to its
+// `openDepth` (`openView`) and shows each row's values from the board's graph, and its totals
+// (molecules design decision 14).
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
 import { type FocusEvent, type KeyboardEvent, type MouseEvent, useMemo, useState } from "react";
+import type { BoardGraph } from "../graph/index.ts";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
+import { nameColumnOf } from "./cells.ts";
 import { FRAME } from "./classes.ts";
 import { afterDelete, deleteQuestionOf } from "./deleting.ts";
 import { useCellEditing } from "./editing.tsx";
@@ -25,6 +29,7 @@ import { can, type TreeEdit } from "./model/edits.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
 import { marksOf, sameNodes } from "./model/marks.ts";
+import { pertValues } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 import { afterMove, isMove, type MoveEdit } from "./moving.ts";
 import { chevronNodeOf, focusTargetOf } from "./targets.ts";
@@ -51,6 +56,7 @@ export const TreeWidget = ({
   value,
   labelledBy,
   disabled,
+  graph,
   onValueChange,
 }: {
   readonly itemId: string;
@@ -61,6 +67,8 @@ export const TreeWidget = ({
   readonly labelledBy: string;
   /** The question is answered, being sent or locked: the Tree edits nothing. */
   readonly disabled: boolean;
+  /** A work breakdown's live graph, the board's; none for a Tree without `pert`. */
+  readonly graph: BoardGraph | undefined;
   readonly onValueChange: (value: TreeProps | undefined) => void;
 }) => {
   const [stored, setView] = useState(() => openView(value));
@@ -85,6 +93,10 @@ export const TreeWidget = ({
   // where its add started.
   if (dropped !== undefined) setView(viewWithoutAdd(view, value, dropped));
   const marks = useMemo(() => marksOf(sent, value), [sent, value]);
+  const pert = useMemo(
+    () => (graph === undefined ? undefined : pertValues(graph, itemId, rows, value.nodes)),
+    [graph, itemId, rows, value.nodes],
+  );
 
   const show = (next: TreeView, moveFocus: boolean): void => {
     if (next === view) return;
@@ -193,7 +205,9 @@ export const TreeWidget = ({
       />
       <TreeGrid
         ref={focus.grid}
+        nameColumn={nameColumnOf(value)}
         columns={value.columns ?? NO_COLUMNS}
+        pert={pert}
         rows={rows}
         focus={view.focus}
         editing={editing}

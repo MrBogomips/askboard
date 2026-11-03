@@ -12,7 +12,7 @@
 import type { TreeProps } from "@askboard/contract";
 import { useMemo, useState } from "react";
 import { enterNewName, type PendingAdd, withPending } from "./adding.ts";
-import { NAME_COLUMN } from "./cells.ts";
+import { nameColumnOf } from "./cells.ts";
 import { CellEditor, type CommitBy } from "./editor.tsx";
 import { type EntryKind, enterCell, entryKindOf, startTextOf } from "./entry.ts";
 import { nextNodeId } from "./model/edits.ts";
@@ -35,7 +35,7 @@ export type GridEditing = RowEditing & { readonly nodeId: string };
 
 // The editor's name: the column, then the node's name, as in "Optimistic of Customer portal".
 const labelOf = (value: TreeProps, row: TreeRow, cell: number): string =>
-  `${cell === 0 ? NAME_COLUMN : (value.columns?.[cell - 1]?.label ?? "")} of ${row.node.label}`;
+  `${cell === 0 ? nameColumnOf(value) : (value.columns?.[cell - 1]?.label ?? "")} of ${row.node.label}`;
 
 export const useCellEditing = ({
   itemId,

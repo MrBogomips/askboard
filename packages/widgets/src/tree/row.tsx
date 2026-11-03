@@ -7,11 +7,13 @@
 // highlight (`marks.ts`; DESIGN.md, Change highlight): a renamed name and a changed field the
 // change fill, text and border, an added row the change bar, a moved row the change dot after its
 // name; each mark carries `data-change`, its kind. Agent strings are text children, which React
-// escapes: none becomes markup (AD-8).
+// escapes: none becomes markup (AD-8). In a work breakdown (molecules design decision 14) a leaf's
+// estimates show with the `d` affix and a parent's not at all, two value cells follow the fields,
+// right-aligned and never edited, and values in error show a field error under the row.
 
 import type { TreeColumn } from "@askboard/contract";
 import { memo, type ReactNode } from "react";
-import { fieldText } from "./cells.ts";
+import { fieldText, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
 import {
   ADDED_BAR,
   CHANGE_DOT,
@@ -30,6 +32,7 @@ import {
   ROW,
 } from "./classes.ts";
 import type { NodeMark } from "./model/marks.ts";
+import { type PertRow, type PertValue, type PertValues, pertNote } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 
 // The chevron points right when closed and down when open. It has no role: the row's
@@ -89,6 +92,48 @@ const FieldError = ({
   </tr>
 );
 
+// The line under a row whose values are in error (DESIGN.md, Derived value); no row of the grid.
+export const ValueError = ({
+  values,
+  cells,
+}: {
+  readonly values: PertValues;
+  readonly cells: number;
+}) => {
+  const note = pertNote(values);
+  return note === undefined ? null : (
+    // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid.
+    <tr role="presentation">
+      <td colSpan={cells} className={FIELD_ERROR}>
+        {note}
+      </td>
+    </tr>
+  );
+};
+
+const valueText = (value: PertValue): string => (value.kind === "value" ? value.text : "");
+
+/** A work breakdown's two value cells, from cell `first` on: read-only, right-aligned. */
+export const ValueCells = ({
+  values,
+  first,
+  stop,
+}: {
+  readonly values: PertValues;
+  readonly first: number;
+  readonly stop?: RowStop;
+}) =>
+  [values.expected, values.spread].map((value, at) => (
+    <td
+      key={PERT_VALUE_COLUMNS[at]}
+      data-cell={first + at}
+      tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
+      className={`${FIELD_CELL.number} ${FOCUS_RING}`}
+    >
+      {valueText(value)}
+    </td>
+  ));
+
 // The name, on the change fill when renamed, then the change dot when the row moved.
 const Name = ({ row, mark }: { readonly row: TreeRow; readonly mark: NodeMark | undefined }) => {
   const name = row.hasChildren ? PARENT_NAME : NAME;
@@ -123,6 +168,7 @@ export const NodeRow = memo(function NodeRow({
   stop,
   editing,
   mark,
+  pert,
 }: {
   readonly row: TreeRow;
   readonly columns: readonly TreeColumn[];
@@ -130,9 +176,16 @@ export const NodeRow = memo(function NodeRow({
   readonly editing: RowEditing | undefined;
   /** What the user changed in this node against the agent's value; none for an unchanged node. */
   readonly mark: NodeMark | undefined;
+  /** A work breakdown's values for the row; none in a Tree without `pert`. */
+  readonly pert: PertRow | undefined;
 }) {
   const edits = (cell: number): boolean => editing?.cell === cell;
   const added = mark?.added === true;
+  const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_VALUE_COLUMNS.length);
+  const textOf = (column: TreeColumn): string =>
+    pert === undefined
+      ? fieldText(row.node, column)
+      : pertFieldText(row.node, column, pert.estimates);
   return (
     <>
       <tr
@@ -168,14 +221,16 @@ export const NodeRow = memo(function NodeRow({
               tabIndex={tabIndexOf(stop, at + 1)}
               className={`${fieldClass(column, edited, changed)} ${FOCUS_RING}`}
             >
-              {edited ? editing?.editor : fieldText(row.node, column)}
+              {edited ? editing?.editor : textOf(column)}
             </td>
           );
         })}
+        {pert === undefined ? null : (
+          <ValueCells values={pert} first={1 + columns.length} stop={stop} />
+        )}
       </tr>
-      {editing?.error === undefined ? null : (
-        <FieldError editing={editing} cells={1 + columns.length} />
-      )}
+      {editing?.error === undefined ? null : <FieldError editing={editing} cells={cells} />}
+      {pert === undefined ? null : <ValueError values={pert} cells={cells} />}
     </>
   );
 });

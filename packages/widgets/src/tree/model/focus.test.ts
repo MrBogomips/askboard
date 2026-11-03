@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { TreeProps } from "@askboard/contract";
-import { treeBoardDocument } from "@askboard/contract/fixtures";
+import type { TreePertProps, TreeProps } from "@askboard/contract";
+import { treeBoardDocument, uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { chain, flat } from "../../../test/tree-model.ts";
 import {
   focusAfterRemove,
@@ -36,6 +36,16 @@ describe("opening the treegrid", () => {
 
   test("focuses nothing in an empty Tree", () => {
     expect(stateOf(openView({ nodes: [] }))).toEqual({ focus: undefined, collapsed: [] });
+  });
+
+  test("a work breakdown opens with the levels above its openDepth open (molecules design decision 14)", () => {
+    const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+    expect(stateOf(openView(wbs))).toEqual({ focus: row("design"), collapsed: [] });
+    const oneLevel: TreePertProps = { ...wbs, openDepth: 1 };
+    expect(stateOf(openView(oneLevel))).toEqual({
+      focus: row("design"),
+      collapsed: ["build", "design"],
+    });
   });
 });
 

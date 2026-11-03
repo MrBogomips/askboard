@@ -9,7 +9,7 @@
 import type { TreeProps } from "@askboard/contract";
 import type { FocusMove, ToolbarMove } from "./keys.ts";
 import { locate, nodeIds } from "./nodes.ts";
-import { type TreeRow, visibleRows } from "./rows.ts";
+import { openingCollapsed, type TreeRow, visibleRows } from "./rows.ts";
 
 /** A row, or one of its cells when `cell` is set: 0 is the name, then one cell per column. */
 export type TreeFocus = { readonly nodeId: string; readonly cell?: number };
@@ -50,12 +50,15 @@ const expanding = (collapsed: ReadonlySet<string>, ids: Iterable<string>): Reado
 const collapsing = (collapsed: ReadonlySet<string>, id: string): ReadonlySet<string> =>
   collapsed.has(id) ? collapsed : new Set([...collapsed, id]);
 
-/** The view of a Tree as it opens: the first row focused, nothing collapsed. */
+/**
+ * The view of a Tree as it opens: the first row focused, nothing collapsed but, in a work
+ * breakdown, the levels from its `openDepth` down (`openingCollapsed`).
+ */
 export const openView = (value: TreeProps): TreeView => {
   const first = value.nodes[0];
   return Object.freeze({
     focus: first === undefined ? undefined : focusOf(first.id, undefined),
-    collapsed: new Set<string>(),
+    collapsed: openingCollapsed(value),
   });
 };
 

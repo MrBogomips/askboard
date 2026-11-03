@@ -8,7 +8,15 @@ import {
 } from "@askboard/contract/fixtures";
 import type { BoardContent, BoardWidgetItem } from "@askboard/view/catalog";
 import { type BoardGraph, liveGraph, sentGraph } from "../../graph/index.ts";
-import { pertDerived, pertRow, pertText, pertTotal } from "./pert.ts";
+import {
+  PERT_NOT_COMPUTED,
+  pertDerived,
+  pertNote,
+  pertRow,
+  pertText,
+  pertTotal,
+  pertValues,
+} from "./pert.ts";
 import { visibleRows } from "./rows.ts";
 
 // The expanded UJ-2 board (molecules design decision 9): the WBS `wbs__tree`, the plan over it.
@@ -105,6 +113,33 @@ describe("the WBS's values (molecules design decision 14; view spec, WBS layout)
     expect(row.expected).toEqual({ kind: "error", error: cycle });
     expect(row.spread).toMatchObject({ kind: "error", error: { error: "value" } });
     expect(totalText(graph, WBS.props.nodes)?.[0]).toEqual({ kind: "error", error: cycle });
+  });
+
+  test("a row whose values are in error has a field error under it; one whose values are numbers none (DESIGN.md, Derived value)", () => {
+    const cycle: FormulaError = { error: "cycle", address: `${TREE}.ux.expected` };
+    const spreadOnly: BoardGraph = {
+      read: (address) => (address.endsWith(".spread") ? cycle : 1),
+      warnings: [],
+    };
+    const [first] = visibleRows(WBS.props.nodes, new Set());
+    if (first === undefined) throw new Error("the fixture has no rows");
+    expect(pertNote(pertRow(spreadOnly, TREE, first))).toBe(PERT_NOT_COMPUTED);
+    expect(PERT_NOT_COMPUTED).toBe("No expected effort or spread: they could not be computed.");
+    expect(pertNote(pertRow(graphOf([WBS, PLAN]), TREE, first))).toBeUndefined();
+  });
+});
+
+describe("the values a work breakdown's grid shows (molecules design decision 14)", () => {
+  test("each shown row's by node, and the Total row's", () => {
+    const graph = graphOf([WBS, PLAN]);
+    const rows = visibleRows(WBS.props.nodes, new Set(["build"]));
+    const values = pertValues(graph, TREE, rows, WBS.props.nodes);
+    expect([...values.rows.keys()]).toEqual(["design", "ux", "architecture", "prototype", "build"]);
+    expect(values.rows.get("build")).toEqual(
+      pertRow(graph, TREE, rows[4] as (typeof rows)[number]),
+    );
+    expect(values.total).toEqual(pertTotal(graph, TREE, WBS.props.nodes));
+    expect(Object.isFrozen(values)).toBe(true);
   });
 });
 

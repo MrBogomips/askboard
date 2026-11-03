@@ -3,7 +3,8 @@
 // (`<item>.<node>.expected` and `.spread`, which `compute`'s PERT writes), or the formula error a
 // value reads as; a leaf has estimate cells, a parent, whose own estimates PERT ignores, none. A
 // work breakdown of several top-level packages ends with a Total row, the item's roll-ups; with one,
-// that package's row shows them. Values show with one decimal in en-US and the `d` affix. An answer
+// that package's row shows them. Values show with one decimal in en-US and the `d` affix; a row
+// whose values are in error shows a field error under it, the wording this change's. An answer
 // carrying the Tree's value carries its derived values by `TREE_PERT_ANSWER_DERIVED` (contract spec,
 // "WBS answer derived values"; F7), rounded with `compute`'s own `ROUND`. Plain ECMAScript.
 
@@ -50,12 +51,37 @@ const valuesAt = (graph: BoardGraph, prefix: string): PertValues =>
 export const pertRow = (graph: BoardGraph, itemId: string, row: TreeRow): PertRow =>
   Object.freeze({ ...valuesAt(graph, `${itemId}.${row.node.id}`), estimates: !row.hasChildren });
 
+/** The field error under a row whose values are in error (AD-13: it never blocks "Answer"). */
+export const PERT_NOT_COMPUTED = "No expected effort or spread: they could not be computed.";
+
+/** The field error under a row, the Total row's included; none while both values are numbers. */
+export const pertNote = ({ expected, spread }: PertValues): string | undefined =>
+  expected.kind === "error" || spread.kind === "error" ? PERT_NOT_COMPUTED : undefined;
+
 /** The Total row's values, the item's roll-ups; none with fewer than two top-level packages. */
 export const pertTotal = (
   graph: BoardGraph,
   itemId: string,
   nodes: readonly TreeNode[],
 ): PertValues | undefined => (nodes.length > 1 ? valuesAt(graph, itemId) : undefined);
+
+/** What a work breakdown's grid shows of the graph: each shown row's values, then the Total's. */
+export type PertGrid = {
+  readonly rows: ReadonlyMap<string, PertRow>;
+  readonly total: PertValues | undefined;
+};
+
+/** The values of the rows the grid shows, by node, and of its Total row (`pertTotal`). */
+export const pertValues = (
+  graph: BoardGraph,
+  itemId: string,
+  rows: readonly TreeRow[],
+  nodes: readonly TreeNode[],
+): PertGrid =>
+  Object.freeze({
+    rows: new Map(rows.map((row) => [row.node.id, pertRow(graph, itemId, row)])),
+    total: pertTotal(graph, itemId, nodes),
+  });
 
 /** The derived values an answer carries, by reference (`wbs.portal.expected`), each a number. */
 export type PertDerived = Readonly<Record<string, number>>;

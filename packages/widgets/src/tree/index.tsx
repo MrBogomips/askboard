@@ -66,7 +66,7 @@ const Tree = ({
 }: TreeComponentProps) => {
   // The checks throw before the item can report ready: its props, then its board's graph.
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
-  pertGraph(item.id, sent, board);
+  const graph = pertGraph(item.id, sent, board);
   useReadyAfterLayout(ready);
   return (
     <TreeWidget
@@ -75,6 +75,7 @@ const Tree = ({
       value={value ?? sent}
       labelledBy={questionTextId(questionId)}
       disabled={disabled}
+      graph={graph}
       onValueChange={onValueChange}
     />
   );
