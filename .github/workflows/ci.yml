@@ -54,8 +54,53 @@ jobs:
           # The licence check asks the GitHub API whether direct dependencies are archived.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Whether the change reaches anything the e2e job builds or runs. Documents, OpenSpec artifacts,
+  # drafts, the agent tooling under .claude/ and the root Markdown files do not: a change made only
+  # of those skips the e2e job (the check job still runs, since its tests read OpenSpec examples).
+  # Anything else, or a diff that cannot be computed, runs it.
+  scope:
+    name: Change scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: diff
+        name: List the changed files
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE...$PR_HEAD"
+          else
+            range="$PUSH_BEFORE..$PUSH_AFTER"
+          fi
+          if ! files=$(git diff --name-only "$range" 2>/dev/null); then
+            echo "No diff for $range: the e2e job runs."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$files"
+          code=$(printf '%s\n' "$files" | grep -Ev '^(docs/|openspec/|drafts/|\.claude/|[^/]+\.md$)' | grep -c . || true)
+          if [ "$code" -gt 0 ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only documents changed: the e2e job is skipped."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     name: Browser tests and conformance suite
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
