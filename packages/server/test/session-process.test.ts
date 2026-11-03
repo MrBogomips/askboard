@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import {
   existsSync,
   mkdirSync,
@@ -19,7 +19,6 @@ import {
 } from "@askboard/contract";
 import { ONE_PIXEL_PNG, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { validateSnapshotData } from "@askboard/contract/validate";
-import { AskCore } from "@askboard/core";
 import { sessionProjectRoot } from "../src/push-composition.ts";
 import {
   manualClock,
@@ -496,22 +495,8 @@ describe("context in the composed session process (excerpts)", () => {
 });
 
 // E7, task 4.4: the Snapshot writer the entry point composes beside push delivery's ports, with the
-// session project root as its root and the view build board-host serves. Neither the snapshot tool
-// (task 5.2) nor the board's snapshot command (task 6.1) is served yet, so the test takes ask-core's
-// Snapshot from the session's own ask-core, caught as the session's first ask runs on it.
-
-/** The session's ask-core, caught at its first ask; `restore` ends the watch. */
-const catchCore = () => {
-  const watched = spyOn(AskCore.prototype, "ask");
-  return {
-    core: (): AskCore => {
-      const [core] = watched.mock.contexts;
-      if (!(core instanceof AskCore)) throw new Error("no ask reached ask-core");
-      return core;
-    },
-    restore: () => watched.mockRestore(),
-  };
-};
+// session project root as its root and the view build board-host serves, reached through the
+// snapshot tool (task 5.2).
 
 const snapshotsOf = (folder: string): string[] => {
   const snapshots = join(folder, ".askboard", "snapshots");
@@ -526,86 +511,73 @@ const dataBlockOf = (page: string): unknown => {
 };
 
 describe("Snapshots in the composed session process (E7)", () => {
-  test("an ask answered on the board and an ask-core Snapshot leave one file, which outlives the session", async () => {
-    const caught = catchCore();
-    try {
-      const { script } = recorder("snapshot");
-      const run = await start({ BROWSER: script });
-      const asked = await run.call("ask", plainChoiceAsk("snapshot-board-r7t2"));
-      const link = new URL(asked.board);
-      const token = link.searchParams.get("t") ?? "";
-      const board = await openSocket(Number(link.port), asked.askId);
-      board.send({ version, type: "connect", token });
-      expect(await board.next()).toMatchObject({ type: "board" });
-      expect(await board.next()).toMatchObject({ type: "state", state: { ask: "waiting" } });
-      board.send({
-        version,
-        type: "answer",
-        itemId: question.id,
-        rev: 1,
-        choice: ["PostgreSQL"],
-        when: "2026-11-03T09:41:27Z",
-      });
-      expect(await board.next()).toMatchObject({ type: "state", state: { ask: "answered" } });
+  test("an ask answered on the board and the snapshot tool's Snapshot leave one file, which outlives the session", async () => {
+    const { script } = recorder("snapshot");
+    const run = await start({ BROWSER: script });
+    const asked = await run.call("ask", plainChoiceAsk("snapshot-board-r7t2"));
+    const link = new URL(asked.board);
+    const token = link.searchParams.get("t") ?? "";
+    const board = await openSocket(Number(link.port), asked.askId);
+    board.send({ version, type: "connect", token });
+    expect(await board.next()).toMatchObject({ type: "board" });
+    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "waiting" } });
+    board.send({
+      version,
+      type: "answer",
+      itemId: question.id,
+      rev: 1,
+      choice: ["PostgreSQL"],
+      when: "2026-11-03T09:41:27Z",
+    });
+    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "answered" } });
 
-      const before = snapshotsOf(project);
-      const outcome = await caught.core().snapshot(asked.askId, {
-        takenBy: "user",
-        unsentWork: false,
-      });
-      if (outcome.outcome !== "saved") throw new Error(`not saved: ${outcome.outcome}`);
-      expect(outcome).toMatchObject({ state: "answered", unchecked: true });
-      expect(dirname(outcome.path)).toBe(join(realpathSync(project), ".askboard", "snapshots"));
-      expect(snapshotsOf(project)).toEqual([...before, basename(outcome.path)].sort());
+    const before = snapshotsOf(project);
+    const taken = await run.call("snapshot", { askId: asked.askId });
+    expect(taken).toMatchObject({ askId: asked.askId, state: "answered", unchecked: true });
+    expect(dirname(taken.path)).toBe(join(realpathSync(project), ".askboard", "snapshots"));
+    expect(snapshotsOf(project)).toEqual([...before, basename(taken.path)].sort());
 
-      const page = readFileSync(outcome.path, "utf8");
-      const checked = validateSnapshotData(dataBlockOf(page));
-      if (!checked.ok) throw new Error(JSON.stringify(checked.problems));
-      expect(checked.value).toMatchObject({
-        askId: asked.askId,
-        snapshot: { takenBy: "user", who: "Paola Greco" },
-        state: { ask: "answered" },
-      });
-      expect(checked.value.events.map(({ event }) => event)).toEqual([
-        expect.objectContaining({ type: "answer", choice: ["PostgreSQL"] }),
-      ]);
-      const session = JSON.parse(await waitForFile(run.sessionFile)) as { sessionToken: string };
-      expect(page).not.toContain(token);
-      expect(page).not.toContain(session.sessionToken);
+    const page = readFileSync(taken.path, "utf8");
+    const checked = validateSnapshotData(dataBlockOf(page));
+    if (!checked.ok) throw new Error(JSON.stringify(checked.problems));
+    expect(checked.value).toMatchObject({
+      askId: asked.askId,
+      snapshot: { takenBy: "agent" },
+      state: { ask: "answered" },
+    });
+    expect(checked.value.events.map(({ event }) => event)).toEqual([
+      expect.objectContaining({ type: "answer", choice: ["PostgreSQL"], who: "Paola Greco" }),
+    ]);
+    const session = JSON.parse(await waitForFile(run.sessionFile)) as { sessionToken: string };
+    expect(page).not.toContain(token);
+    expect(page).not.toContain(session.sessionToken);
 
-      // stdin's end discards the ask; the Snapshot stays as it was (Snapshots outlive their ask).
-      await run.client.close();
-      expect(await run.session.ended).toBe(0);
-      expect(readFileSync(outcome.path, "utf8")).toBe(page);
-      expect(snapshotsOf(project)).toContain(basename(outcome.path));
-    } finally {
-      caught.restore();
-    }
+    // stdin's end discards the ask; the Snapshot stays as it was (Snapshots outlive their ask).
+    await run.client.close();
+    expect(await run.session.ended).toBe(0);
+    expect(readFileSync(taken.path, "utf8")).toBe(page);
+    expect(snapshotsOf(project)).toContain(basename(taken.path));
   });
 
-  test("without CLAUDE_PROJECT_DIR, a Snapshot is refused with no-project-root, creating nothing", async () => {
-    const caught = catchCore();
-    try {
-      const { script } = recorder("snapshot-no-root");
-      const run = await start({ BROWSER: script, CLAUDE_PROJECT_DIR: undefined });
-      const asked = await run.call("ask", plainChoiceAsk("snapshot-no-root-b4n8"));
-      // The session's working folder, which stands in for the project in its display only.
-      const working = dirname(project);
-      const before = readdirSync(working).sort();
-      const outcome = await caught.core().snapshot(asked.askId, {
-        takenBy: "user",
-        unsentWork: false,
-      });
-      expect(outcome).toEqual({ outcome: "no-project-root", variable: "CLAUDE_PROJECT_DIR" });
-      expect(existsSync(join(working, ".askboard"))).toBe(false);
-      expect(readdirSync(working).sort()).toEqual(before);
-      expect(run.stderr).toContain(
-        "askboard: no Snapshot without a session project root: CLAUDE_PROJECT_DIR is not set",
-      );
-      run.emit("SIGTERM");
-      expect(await run.session.ended).toBe(0);
-    } finally {
-      caught.restore();
-    }
+  test("without CLAUDE_PROJECT_DIR, a Snapshot is refused naming the variable, creating nothing", async () => {
+    const { script } = recorder("snapshot-no-root");
+    const run = await start({ BROWSER: script, CLAUDE_PROJECT_DIR: undefined });
+    const asked = await run.call("ask", plainChoiceAsk("snapshot-no-root-b4n8"));
+    // The session's working folder, which stands in for the project in its display only.
+    const working = dirname(project);
+    const before = readdirSync(working).sort();
+    const refused = await run.callRaw("snapshot", { askId: asked.askId });
+    expect(refused.isError).toBe(true);
+    const [content] = refused.content as { text: string }[];
+    expect(content?.text).toStartWith(
+      `No Snapshot was taken of the ask "${asked.askId}": CLAUDE_PROJECT_DIR is not set`,
+    );
+    expect(existsSync(join(working, ".askboard"))).toBe(false);
+    expect(readdirSync(working).sort()).toEqual(before);
+    expect(run.stderr).toContain(
+      "askboard: no Snapshot without a session project root: CLAUDE_PROJECT_DIR is not set",
+    );
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
   });
 });
