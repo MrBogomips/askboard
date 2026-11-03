@@ -119,6 +119,30 @@ describe("the stop guard", () => {
     expect(await stopOf(run, SUBAGENT)).toEqual({ version: LOCAL_API_VERSION, decision: "allow" });
   });
 
+  // PO decision of 2026-11-03 on AD-10 and AD-21: a discarded ask's tombstone is delivered too.
+  test("blocks with a discarded ask's answer and its discard, listing no open ask", async () => {
+    const run = await started();
+    await askAs(run, ASK_ID);
+    const appended = answer(run, ASK_ID);
+    run.core.discardAll("session-exit");
+    const decision = await stopOf(run, SUBAGENT);
+    if (decision.decision !== "block") throw new Error("expected a block");
+    expect(validatePushMessage(decision.message).ok).toBe(true);
+    expect(decision.message.asks).toEqual([
+      {
+        askId: ASK_ID,
+        state: "discarded",
+        cursor: `${run.core.epoch}.2`,
+        events: [
+          appended,
+          { cursor: `${run.core.epoch}.2`, type: "discarded", reason: "session-exit" },
+        ],
+      },
+    ]);
+    expect(decision.message.openAsks).toEqual([]);
+    expect(await stopOf(run, SUBAGENT)).toEqual({ version: LOCAL_API_VERSION, decision: "allow" });
+  });
+
   test("allows a stop that follows a block, leaving received where it is", async () => {
     const run = await started();
     await askAs(run, ASK_ID);

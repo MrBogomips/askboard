@@ -118,18 +118,18 @@ export class PushDelivery {
 
   /**
    * The stop guard (AD-10): unless the stop hook is already active, a block carrying the events
-   * above `received` of the owner's open asks, as much of them as `fit` keeps, with the open asks
-   * listed, and `received` raised to the last event it carries before it returns; otherwise an
-   * allow. A fit that cuts an ask inside a board command (AD-20) is a bug: the stop throws, and
-   * nothing is raised.
+   * above `received` of the owner's asks, open or discarded but never closed (AD-21; PO decision of
+   * 2026-11-03), as much of them as `fit` keeps, with the open asks listed, and `received` raised
+   * to the last event it carries before it returns; otherwise an allow. A fit that cuts an ask
+   * inside a board command (AD-20) is a bug: the stop throws, and nothing is raised.
    */
   stop(ownerKey: string, stopHookActive: boolean, fit: StopFit = keepAll): StopOutcome {
     if (stopHookActive) return { decision: "allow" };
-    const open = this.#owners.asksOf(ownerKey).flatMap((askId) => {
+    const owned = this.#owners.asksOf(ownerKey).flatMap((askId) => {
       const ask = this.#host.ask(askId);
-      return ask === undefined || ENDED.has(ask.state) ? [] : [ask];
+      return ask === undefined || ask.state === "closed" ? [] : [ask];
     });
-    const asks: StopAsk[] = open
+    const asks: StopAsk[] = owned
       .filter((ask) => ask.latestSeq > ask.received)
       .map((ask) => {
         const entries = ask.entriesAfter(ask.received);
@@ -144,7 +144,9 @@ export class PushDelivery {
         };
       });
     if (asks.length === 0) return { decision: "allow" };
-    const openAsks = open.map(({ askId, state, cursor }) => ({ askId, state, cursor }));
+    const openAsks = owned
+      .filter((ask) => !ENDED.has(ask.state))
+      .map(({ askId, state, cursor }) => ({ askId, state, cursor }));
     const block = fit({ asks, openAsks });
     const raised = block.asks.flatMap(({ askId, events }) => {
       const last = events.at(-1);

@@ -342,7 +342,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `declined` is a terminal question state like `answered`: a decline closes its question (AD-20). An ask is `answered` when every question that is not postponed is answered or declined.
     - An `answered` ask returns to `partly-answered` when the agent adds or reopens a question, or when the user reopens a postponed or declined question with the event "question reopened by the user" (AD-20).
   - **Subagents:**
-    - A `SubagentStop` hook blocks a subagent from finishing only while an open ask it owns holds events above `received`, and only when the hook input's `stop_hook_active` is false. It never blocks twice for the same event.
+    - A `SubagentStop` hook blocks a subagent from finishing only while an ask it owns, open or discarded, holds events above `received`, and only when the hook input's `stop_hook_active` is false. A discarded ask's tombstone is delivered as AD-21 says; a closed ask never blocks. It never blocks twice for the same event (PO decision of 2026-11-03).
     - The block's reason carries those events with their cursor and lists the subagent's open asks.
     - Whenever the guard lets a stop through, it tells the session process, which closes the subagent's open asks with reason `agent-finished`. Their boards show it and accept no more answers.
     - A stop is let through for an ask with no bound owner, and, without an error, for an agent the session process has no record of, such as Claude Code's own side agents (empty `agent_type`).

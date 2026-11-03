@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { GRACE_PERIOD_MS } from "@askboard/contract";
 import { validatePushMessage } from "@askboard/contract/validate";
 import type { CoreEvent } from "../src/index.ts";
 import { answer, askWith, plainChoiceAsk } from "./fakes.ts";
@@ -216,10 +217,63 @@ describe("the stop guard", () => {
     expect(core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(false);
   });
 
-  test("leaves out discarded asks", async () => {
-    const { core } = await ownedAndAnswered();
+  // PO decision of 2026-11-03 on AD-10 and AD-21: the guard delivers a discarded ask's tombstone,
+  // the answers the user gave and the discard, and never a closed ask's events.
+  test("carries a discarded ask's events above received, and lists it among no open asks", async () => {
+    const { core, heard } = await ownedAndAnswered();
     core.discardAll("session-exit");
+    const decision = core.stop("reviewer-1", false);
+    expect(decision).toEqual({
+      decision: "block",
+      asks: [
+        {
+          askId: ASK_ID,
+          state: "discarded",
+          cursor: `${core.epoch}.2`,
+          events: [
+            expect.objectContaining({ cursor: `${core.epoch}.1`, type: "answer" }),
+            { cursor: `${core.epoch}.2`, type: "discarded", reason: "session-exit" },
+          ],
+        },
+      ],
+      openAsks: [],
+    });
+    expect(heard.at(-1)).toEqual({ type: "received", askId: ASK_ID, cursor: `${core.epoch}.2` });
+    // Nothing is left above received: the next stop goes through.
     expect(core.stop("reviewer-1", false)).toEqual({ decision: "allow" });
+  });
+
+  test("carries an open ask's events and a discarded one's together, listing the open one", async () => {
+    const fixture = pushCoreWith();
+    await askAs(fixture, "reviewer-1");
+    await askAs(fixture, "reviewer-1", OTHER_ID);
+    const { core, clock } = fixture;
+    core.answer(ASK_ID, answer());
+    core.answer(OTHER_ID, answer());
+    // The first ask's board leaves and does not come back within the grace period (AD-21).
+    core.connected(ASK_ID);
+    core.disconnected(ASK_ID);
+    clock.advance(GRACE_PERIOD_MS);
+    expect(core.lifecycleBoard(ASK_ID)?.state).toBe("discarded");
+    expect(core.stop("reviewer-1", false)).toEqual({
+      decision: "block",
+      asks: [
+        expect.objectContaining({ askId: ASK_ID, state: "discarded", cursor: `${core.epoch}.2` }),
+        expect.objectContaining({ askId: OTHER_ID, state: "answered", cursor: `${core.epoch}.1` }),
+      ],
+      openAsks: [{ askId: OTHER_ID, state: "answered", cursor: `${core.epoch}.1` }],
+    });
+    // The allow that follows closes the open ask only; the tombstone stays as it is.
+    expect(core.stop("reviewer-1", false)).toEqual({ decision: "allow" });
+    expect(core.lifecycleBoard(OTHER_ID)?.state).toBe("closed");
+    expect(core.lifecycleBoard(ASK_ID)?.state).toBe("discarded");
+  });
+
+  test("never carries a closed ask's events", async () => {
+    const { core, heard } = await ownedAndAnswered();
+    expect(core.close(ASK_ID, "agent")).toEqual({ kind: "closed", askId: ASK_ID });
+    expect(core.stop("reviewer-1", false)).toEqual({ decision: "allow" });
+    expect(heard.filter((event) => event.type === "received")).toEqual([]);
   });
 });
 
