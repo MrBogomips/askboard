@@ -199,11 +199,15 @@ When `$.http.fetch` fails, the mod SHALL send that request through the AskBoard 
 - **THEN** the answer is pushed to its owner, and its delivery is reported through the process client
 
 ### Requirement: Turn reports
-The mod SHALL report to the local API when a turn of the main conversation or of a subagent starts and when it completes, transitions only, through the same path as its polls (AD-4, Agent status).
+The mod SHALL report to the local API when a turn of the main conversation or of a subagent starts and when it completes, transitions only, through the same path as its polls; a subagent's report SHALL name it a teammate, with its name, when the mod API lists it with a `teammateId` (AD-4, Agent status).
 
 #### Scenario: A subagent's turn completes
 - **WHEN** a subagent that owns an ask completes its turn
 - **THEN** the local API is told once that the subagent has no turn running
+
+#### Scenario: An in-process teammate's turn starts
+- **WHEN** a turn of the agent `aresearcher-096d99adc3d94b0a` starts and the mod API lists it with `teammateId` `researcher@session-653b7577` and `name` `researcher`
+- **THEN** the turn report names the teammate `researcher`
 
 #### Scenario: Many model requests in one turn
 - **WHEN** a turn makes ten model requests
