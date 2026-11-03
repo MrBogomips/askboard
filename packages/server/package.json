@@ -11,6 +11,7 @@
     "@askboard/contract": "workspace:*",
     "@askboard/core": "workspace:*",
     "@askboard/hooks": "workspace:*",
+    "@askboard/molecules": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
     "ws": "8.22.1"
   },
