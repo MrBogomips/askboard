@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { treeBoardDocument, treeEditedValue } from "../src/fixtures/index.ts";
 import {
+  GANTT_PLAN_ESTIMATES,
   TREE_MAX_DEPTH,
   TREE_PERT_MAX_ESTIMATE,
   type TreeNode,
@@ -78,10 +79,10 @@ describe("a Tree with pert", () => {
     ]);
   });
 
-  // The names the Gantt plan's link reads as `GANTT_PLAN_ESTIMATES`: this holds them when the
-  // Tree's checks read that list instead of their own copy.
-  test("PERT reads exactly optimistic, mostLikely and pessimistic, in that order", () => {
-    const estimates = ["optimistic", "mostLikely", "pessimistic"];
+  // The names the Gantt plan's link reads, `GANTT_PLAN_ESTIMATES`, which the Tree's checks read too.
+  test("PERT reads exactly the Gantt plan's estimates, in their order", () => {
+    const estimates = [...GANTT_PLAN_ESTIMATES];
+    expect(estimates).toEqual(["optimistic", "mostLikely", "pessimistic"]);
     const required = treePropsProblems({ nodes: [], pert: true }, "agent").map(
       ({ message }) => message.split('"')[1],
     );

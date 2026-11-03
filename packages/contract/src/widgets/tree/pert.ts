@@ -3,14 +3,14 @@
 // working days from 0 to 100,000 (F8), a parent's too, which PERT ignores; `openDepth`, a whole
 // number of levels from 1 to 8, comes only with `pert`. Estimates are unordered. The schema says
 // the props' own types; these rules hold also for the props the Tree's chunk reads, which no
-// schema has seen. Plain ECMAScript with no JSON and no Ajv; never throws.
+// schema has seen. The estimates are the Gantt plan's, `GANTT_PLAN_ESTIMATES`, the one list its
+// link reads too; of the Gantt's module only that constant is read, so no schema reaches the
+// Tree's chunk. Plain ECMAScript with no Ajv; never throws.
 
 import { pointerOf } from "../../molecules/pointer.ts";
 import type { Problem } from "../../validate.ts";
+import { GANTT_PLAN_ESTIMATES } from "../gantt/index.ts";
 import { TREE_MAX_DEPTH, TREE_PERT_MAX_ESTIMATE, type TreeColumnType } from "./index.ts";
-
-/** The three estimates PERT reads, the fields a Gantt plan's link reads from its Tree. */
-const PERT_ESTIMATES = ["optimistic", "mostLikely", "pessimistic"] as const;
 
 type Json = Readonly<Record<string, unknown>>;
 type Path = readonly (string | number)[];
@@ -24,7 +24,7 @@ const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const columnProblems = (columns: Columns): Problem[] =>
-  PERT_ESTIMATES.flatMap((field) => {
+  GANTT_PLAN_ESTIMATES.flatMap((field) => {
     const type = columns.get(field);
     if (type === "number") return [];
     const why = columns.has(field)
@@ -42,7 +42,7 @@ const estimateProblems = (list: unknown, at: Path, level: number): Problem[] => 
   return list.flatMap((node: unknown, index) => {
     if (!isObject(node)) return [];
     const path = [...at, index];
-    const own = PERT_ESTIMATES.flatMap((field) => {
+    const own = GANTT_PLAN_ESTIMATES.flatMap((field) => {
       const value = node[field];
       if (typeof value !== "number" || !Number.isFinite(value)) return [];
       if (value >= 0 && value <= TREE_PERT_MAX_ESTIMATE) return [];
