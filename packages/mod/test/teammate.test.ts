@@ -142,6 +142,35 @@ describe("a send that is not delivered", () => {
     throw new Error("no such agent");
   };
 
+  // The row appended while the teammate was idle is in the conversation when its next turn starts,
+  // so that turn's first request carries it: the append is reported then, and the stop guard does
+  // not carry the answer a second time.
+  test("refused, its fallback append is reported at the first request of the teammate's next turn", async () => {
+    const setup = await setUp([teammate("idle")]);
+    const { fake, hooks, api } = setup;
+    fake.handlers.send = refused;
+    await polled(setup, teammateAsk());
+    expect(fake.calls.append).toHaveLength(1);
+    await hooks.turnStart({ agentId: TEAMMATE });
+    await hooks.turnStep({ agentId: TEAMMATE });
+    await laterPolls(setup);
+    expect(reports(api)).toEqual([delivered("append")]);
+  });
+
+  test("a row appended after the next turn started waits for that turn's second request", async () => {
+    const setup = await setUp([teammate("running")]);
+    const { fake, hooks, api } = setup;
+    await hooks.turnStart({ agentId: TEAMMATE });
+    await polled(setup, teammateAsk());
+    expect(fake.calls.append).toHaveLength(1);
+    await hooks.turnStep({ agentId: TEAMMATE });
+    await laterPolls(setup);
+    expect(reports(api)).toEqual([]);
+    await hooks.turnStep({ agentId: TEAMMATE, index: 1 });
+    await laterPolls(setup);
+    expect(reports(api)).toEqual([delivered("append")]);
+  });
+
   test.each([
     ["refused, as auto mode refuses a mod's send (D13)", refused],
     ["rejected", rejected],

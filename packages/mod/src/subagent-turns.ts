@@ -43,9 +43,17 @@ export const subagentAppended = (
   memory.subagents.set(agentId, { ...turn, appended: [...turn.appended, row] });
 };
 
-/** The subagent's run started: a new turn, with no request yet. */
+/**
+ * The subagent's run started: a new turn, with no request yet. Rows appended while it was idle, to
+ * a turn record that made no request (an idle teammate's fallback append, decision 7), were in the
+ * conversation before this turn started, so its first request carries them.
+ */
 export const subagentTurnStarted = (memory: Memory, agentId: string): void => {
-  freshTurn(memory, agentId);
+  const idle = memory.subagents.get(agentId);
+  const turn = freshTurn(memory, agentId);
+  if (idle === undefined || idle.steps > 0 || idle.appended.length === 0) return;
+  const rows = idle.appended.map((row) => ({ ...row, carriedFrom: 1 }));
+  memory.subagents.set(agentId, { ...turn, appended: rows });
 };
 
 /** A model request of the subagent is about to go: what it carries is reported at the next poll. */
