@@ -7,7 +7,7 @@
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { type Randomness, SnapshotWriteError } from "@askboard/core";
-import { codeOf, failureLine, type ReportLine } from "./diagnostics.ts";
+import { codeOf, type ReportLine, refuse } from "./diagnostics.ts";
 import { fileSystemOf, type SnapshotFileSystem } from "./file-system.ts";
 import { type SnapshotFile, writeSnapshotFile } from "./write.ts";
 
@@ -90,10 +90,7 @@ const preparedFolder = async (
 export const snapshotFiles = (options: SnapshotFilesOptions): SnapshotFiles => ({
   save: async (file) => {
     const folder = await preparedFolder(options);
-    if (folder instanceof SnapshotWriteError) {
-      options.report(failureLine(folder));
-      throw folder;
-    }
+    if (folder instanceof SnapshotWriteError) return refuse(folder, options.report);
     // The write reports its own failure, once.
     return { path: await writeSnapshotFile({ ...file, folder }, options) };
   },

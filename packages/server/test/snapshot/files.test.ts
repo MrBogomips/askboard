@@ -101,6 +101,7 @@ const recording = (calls: string[]): SnapshotFileSystem => {
     link: refuse("link"),
     unlink: refuse("unlink"),
     realpath: refuse("realpath"),
+    readFile: refuse("readFile"),
   };
 };
 

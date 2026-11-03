@@ -20,6 +20,12 @@ export const codeOf = (error: unknown): string => {
 /** The line for a Snapshot not written: its error's message, which names only the folder and the code. */
 export const failureLine = (error: SnapshotWriteError): string => `${PREFIX} ${error.message}`;
 
+/** Reports a Snapshot not written, once, and rejects with its error. */
+export const refuse = (error: SnapshotWriteError, report: ReportLine): never => {
+  report(failureLine(error));
+  throw error;
+};
+
 /** The line for a written Snapshot whose partial file could not be removed. */
 export const leftoverLine = (folder: string, code: string): string =>
   `${PREFIX} a Snapshot's partial file stayed in ${folder}: ${code}`;
