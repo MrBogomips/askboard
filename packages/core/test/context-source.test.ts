@@ -138,6 +138,20 @@ describe("sourceOf", () => {
     }
   });
 
+  test("its path is the pointer's, without the anchor, for the source view (task 5.2)", async () => {
+    const invalid = "#Decision";
+    const { core } = await created({}, contextAsk([...everyItem(), excerpt("bad", invalid)]));
+    expect(core.sourceOf(CONTEXT_ASK_ID, "retry-adr")?.path).toBe(
+      "docs/adr/0012-payment-retries.md",
+    );
+    expect(core.sourceOf(CONTEXT_ASK_ID, "retry-src")?.path).toBe("src/retry.ts");
+    expect(core.sourceOf(CONTEXT_ASK_ID, "bad")?.path).toBe(invalid);
+    const { core: rootless } = await created({ projectRoot: null });
+    expect(rootless.sourceOf(CONTEXT_ASK_ID, "retry-adr")?.path).toBe(
+      "docs/adr/0012-payment-retries.md",
+    );
+  });
+
   test("a port call that rejects is reported, and the source is missing", async () => {
     const { core, reported } = await created();
     const fakes = contextCoreWith({ reject: [ADR_POINTER] });

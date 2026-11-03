@@ -3,11 +3,13 @@
 // pointer is resolved and confined again at each call, against the ask's root, so a file swapped
 // after the send is judged as it is now.
 
-import type { BoardContextItem } from "@askboard/contract";
+import { type BoardContextItem, readPointer } from "@askboard/contract";
 import type { SourceState, SourceText, SourceUnavailable } from "./ports.ts";
 
 /** A source the reading panel and the source view read, each call reading the file again. */
 export type Source = {
+  /** The pointer's path, without its anchor; the pointer as written when it is not one. */
+  readonly path: string;
   /** Its state now; for an excerpt, whether its range now differs from the text the board shows. */
   state(): Promise<SourceState>;
   /** Its text for the source view. */
@@ -39,4 +41,10 @@ export const pointerSourceOf = (item: BoardContextItem): PointerSource | undefin
     pointer: props.pointer,
     ...(props.lines === undefined ? {} : { line: props.lines.start }),
   };
+};
+
+/** The path a source names, for the source view: the pointer's, or the pointer when it is none. */
+export const sourcePathOf = (pointer: string): string => {
+  const read = readPointer(pointer);
+  return "path" in read ? read.path : pointer;
 };

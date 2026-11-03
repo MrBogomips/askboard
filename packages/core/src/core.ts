@@ -39,7 +39,7 @@ import {
   resolveContext,
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
-import { type EditorLaunchTarget, MISSING, type Source } from "./context/source.ts";
+import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -580,14 +580,16 @@ export class AskCore {
     const { pointer, sentText } = found;
     const { sources, report } = this.#ports;
     const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    const path = sourcePathOf(pointer);
     const missing = (error: unknown) => {
       report(error);
       return MISSING;
     };
     if (sources === undefined || root === undefined) {
-      return { state: async () => MISSING, text: async () => MISSING };
+      return { path, state: async () => MISSING, text: async () => MISSING };
     }
     return {
+      path,
       state: () => sources.sourceState(root, pointer, sentText).catch(missing),
       text: () => sources.readSource(root, pointer).catch(missing),
     };
