@@ -745,9 +745,11 @@ export class AskCore {
   /**
    * Takes a Snapshot of an open or closed ask (FR-26, AD-15), on the agent's request or the
    * board's: a discarded ask, or one this epoch does not hold, is `discarded`, and nothing reaches
-   * the writer (AD-10, AD-21). The data is gathered in one synchronous step, so nothing appended
-   * after it is in it, then handed to the writer (E7's `CorePorts` field). It appends no event,
-   * publishes nothing and moves no `received` (AD-3).
+   * the writer (AD-10, AD-21). The agent's request then passes the owner check `fetch` applies,
+   * with the call's binding; the board's carries none, its token being its authority (AD-5,
+   * AD-11). The data is gathered in one synchronous step, so nothing appended after it is in it,
+   * then handed to the writer (E7's `CorePorts` field). It appends no event, publishes nothing and
+   * moves no `received` (AD-3).
    */
   async snapshot(askId: string, request: SnapshotRequester): Promise<SnapshotOutcome> {
     const ask = this.#asks.get(askId);
@@ -755,6 +757,8 @@ export class AskCore {
     if (ask === undefined || board === undefined || board.state === "discarded") {
       return { outcome: "discarded" };
     }
+    const why = request.takenBy === "agent" ? this.ownerRefusal(askId, request.caller) : undefined;
+    if (why !== undefined) return { outcome: "refused", why };
     const snapshots = this.#ports.snapshots;
     const projectDir = snapshots?.projectDir;
     const asked = this.whoAsked(askId);
