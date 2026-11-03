@@ -34,8 +34,14 @@ export type LifecycleCore = Pick<
  */
 export type PushCore = Partial<Pick<AskCore, "setWorking" | "whoAsked" | "agentStatus">>;
 
+/**
+ * Context's part, optional (excerpts, design decision 4): an item's source for the reading panel
+ * and the source view, and the editor target; without them no item has a source.
+ */
+export type ContextCore = Partial<Pick<AskCore, "sourceOf" | "editorTarget">>;
+
 /** The part of ask-core `board-host` uses: one part per change, so each change adds its own. */
-export type HostCore = E1Core & LifecycleCore & PushCore;
+export type HostCore = E1Core & LifecycleCore & PushCore & ContextCore;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */

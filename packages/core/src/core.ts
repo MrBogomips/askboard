@@ -39,6 +39,7 @@ import {
   resolveContext,
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
+import { type EditorLaunchTarget, MISSING, type Source } from "./context/source.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -563,6 +564,54 @@ export class AskCore {
    */
   setClientVersion(source: ClientVersionSource, version: string): void {
     this.#push.setClientVersion(source, version);
+  }
+
+  // Context, E5 (excerpts, design decision 4, For `board-host`).
+
+  /**
+   * The source of a pointer excerpt or pointer reference of the ask's current board document, for
+   * the reading panel and the source view; undefined for any other item and for a discarded ask.
+   * Each call resolves and confines the pointer again against the ask's root (AD-8, AD-12); without
+   * a root, or when the read fails (reported), the source is missing.
+   */
+  sourceOf(askId: string, itemId: string): Source | undefined {
+    const found = this.#asks.get(askId)?.pointerSource(itemId);
+    if (found === undefined) return undefined;
+    const { pointer, sentText } = found;
+    const { sources, report } = this.#ports;
+    const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    const missing = (error: unknown) => {
+      report(error);
+      return MISSING;
+    };
+    if (sources === undefined || root === undefined) {
+      return { state: async () => MISSING, text: async () => MISSING };
+    }
+    return {
+      state: () => sources.sourceState(root, pointer, sentText).catch(missing),
+      text: () => sources.readSource(root, pointer).catch(missing),
+    };
+  }
+
+  /**
+   * "Open in editor" (proposal B17): the item's confined real path, resolved again now, and the
+   * anchor's current line, else the board document's first line, else 1; undefined when the item
+   * has no source or its pointer no longer reaches a regular file inside the root (AD-8).
+   */
+  async editorTarget(askId: string, itemId: string): Promise<EditorLaunchTarget | undefined> {
+    const found = this.#asks.get(askId)?.pointerSource(itemId);
+    const { sources, report } = this.#ports;
+    const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    if (found === undefined || sources === undefined || root === undefined) return undefined;
+    try {
+      const target = await sources.editorTarget(root, found.pointer);
+      return target === undefined
+        ? undefined
+        : { file: target.file, line: target.line ?? found.line ?? 1 };
+    } catch (error) {
+      report(error);
+      return undefined;
+    }
   }
 
   // An identical request under an open ask's ID returns its board and opens nothing; any other

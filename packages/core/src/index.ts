@@ -124,3 +124,4 @@ export type {
   UnresolvedPointer,
 } from "./context/ports.ts";
 export { rootOf } from "./context/root.ts";
+export type { EditorLaunchTarget, Source } from "./context/source.ts";

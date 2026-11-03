@@ -80,7 +80,10 @@ export const fakeSources = (options: FakeSourceOptions = {}) => {
     const answer = () => {
       running -= 1;
       if (options.reject?.includes(pointer)) throw new Error(`EIO reading ${pointer}`);
-      return options.answers?.[pointer]?.[op] ?? defaults(root, pointer)[op];
+      const given = options.answers?.[pointer];
+      return given !== undefined && op in given
+        ? (given[op] as Answers[K])
+        : defaults(root, pointer)[op];
     };
     if (!options.held) return Promise.resolve().then(answer);
     return new Promise<void>((resolve) => waiting.push(resolve)).then(answer) as Promise<

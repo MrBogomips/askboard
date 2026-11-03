@@ -22,6 +22,7 @@ import {
   type UpdateAction,
 } from "@askboard/contract";
 import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
+import { type PointerSource, pointerSourceOf } from "./context/source.ts";
 import { unresolvedWarnings } from "./context/warnings.ts";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
 import { Connections } from "./lifecycle/connections.ts";
@@ -457,6 +458,19 @@ export class Ask {
       props: model.propsOf(question),
     }));
     return { revisions, heldImageBytes };
+  }
+
+  /**
+   * The pointer source of a context item of the current board document, or undefined for any other
+   * item, an item only an earlier revision holds, and a tombstone (AD-21).
+   */
+  pointerSource(itemId: string): PointerSource | undefined {
+    const model = this.#model;
+    for (const question of model?.questions() ?? []) {
+      const item = model?.boardQuestion(question).props.items?.find(({ id }) => id === itemId);
+      if (item !== undefined) return pointerSourceOf(item);
+    }
+    return undefined;
   }
 
   // The questions whose revision `model`, an updated copy, changed or added, in board order.
