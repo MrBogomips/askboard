@@ -525,3 +525,13 @@ export {
   SNAPSHOT_NAME_TRIES,
   SNAPSHOT_RANDOM,
 } from "./snapshot/constants.ts";
+
+// The `.askboard/` folder under the session project root (AD-14): E8's constants
+// (settings-languages design decision 13), which E7 brings as the first of the two to land.
+
+export {
+  ASKBOARD_FOLDER,
+  ASKBOARD_GITIGNORE,
+  ASKBOARD_SUBFOLDERS,
+  SNAPSHOT_FOLDER,
+} from "./project-folder.ts";
