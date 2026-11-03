@@ -116,5 +116,15 @@ export {
   readingPanelTranscript,
 } from "./context-transcripts.ts";
 // Settings and languages (E8): a configuration file with every key (settings-languages task 1.1).
+// Settings and languages (E8): a configuration file with every key (settings-languages task 1.1),
+// and the settings messages with their transcript (task 2.6).
 
 export { everyKeyConfiguration } from "./configuration.ts";
+export {
+  type SettingsTranscriptStep,
+  settingsProtocolExamples,
+  settingsSaved,
+  settingsTranscript,
+  settingsWithEveryKey,
+  themeSetting,
+} from "./settings.ts";

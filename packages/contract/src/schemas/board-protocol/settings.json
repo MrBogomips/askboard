@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:settings",
+  "title": "Settings",
+  "description": "board-host to board page: the settings in effect, before the board on every connect and again after each write (AD-14, FR-35; settings-languages, design decision 6). Every key has its row: its value, where it comes from, whether the board may write it, the other file's value when both set it, and its warnings. The two files follow, each with its status, then the warnings no row holds, and, after a write, its outcome. Warnings and problems are codes with their file, key or pointer; the board page words them in the ask's language.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "settings"
+    },
+    "keys": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/theme"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/theme"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
+        "density": {
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/density"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/density"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
+        "contextPlacement": {
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/contextPlacement"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/contextPlacement"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
+        "defaultLanguage": {
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/defaultLanguage"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/defaultLanguage"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
+        "askingRule": {
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/askingRule"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/askingRule"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
+        "snapshotFolder": {
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/snapshotFolder"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/snapshotFolder"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
+        "editor": {
+          "description": "No value when no editor is in effect.",
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/editor"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/editor"
+                }
+              }
+            }
+          }
+        },
+        "defaultMinimumMargin": {
+          "description": "No value when neither file sets it.",
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/defaultMinimumMargin"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/defaultMinimumMargin"
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "theme",
+        "density",
+        "contextPlacement",
+        "defaultLanguage",
+        "askingRule",
+        "snapshotFolder",
+        "editor",
+        "defaultMinimumMargin"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/$defs/file"
+        },
+        "project": {
+          "$ref": "#/$defs/file"
+        }
+      },
+      "required": ["user", "project"],
+      "additionalProperties": false
+    },
+    "warnings": {
+      "description": "The warnings no row holds: a key the configuration does not define.",
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/warning"
+      }
+    },
+    "write": {
+      "description": "The outcome of the board's last write, in the settings sent after it.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "enum": ["theme", "density", "contextPlacement"]
+        },
+        "outcome": {
+          "enum": ["saved", "refused", "failed"]
+        },
+        "reason": {
+          "description": "Why it was refused (set-by-project, file-not-applied) or failed: the system's error code, or no-user-file.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "path": {
+          "description": "The file that could not be written, as the panel shows it.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": ["key", "outcome"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "type", "keys", "files", "warnings"],
+  "additionalProperties": false,
+  "$defs": {
+    "source": {
+      "enum": ["user", "project"]
+    },
+    "row": {
+      "description": "One key in effect. A key's own schema above gives its value's shape.",
+      "type": "object",
+      "properties": {
+        "value": true,
+        "from": {
+          "enum": ["project", "user", "default"]
+        },
+        "writable": {
+          "description": "Whether the board may write it: a presentation key the project does not set.",
+          "type": "boolean"
+        },
+        "other": {
+          "description": "The other file's value when both set the key; it is not used.",
+          "type": "object",
+          "properties": {
+            "file": {
+              "$ref": "#/$defs/source"
+            },
+            "value": true
+          },
+          "required": ["file", "value"],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/warning"
+          }
+        }
+      },
+      "required": ["from", "writable"],
+      "additionalProperties": false
+    },
+    "warning": {
+      "description": "unknown-key: a key the configuration does not define; project-editor-ignored: the project file's editor never runs; editor-file-writable-by-others: the user file's editor is ignored; snapshot-folder-replaced: the value leaves the project and the default is in effect.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "unknown-key",
+            "project-editor-ignored",
+            "editor-file-writable-by-others",
+            "snapshot-folder-replaced"
+          ]
+        },
+        "file": {
+          "$ref": "#/$defs/source"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "value": {
+          "description": "The value replaced, for snapshot-folder-replaced.",
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": ["code", "file", "key"],
+      "additionalProperties": false
+    },
+    "file": {
+      "description": "A configuration file: its path as the panel shows it, absent when there is no such file to read, and whether it applied. A file not applied names its problem: unreadable, with the system's error code; not-json; version, a major other than 1; schema, with the JSON pointer and the keyword that failed.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "status": {
+          "enum": ["applied", "absent", "not-applied"]
+        },
+        "problem": {
+          "$ref": "#/$defs/problem"
+        }
+      },
+      "required": ["status"],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "status": {
+            "const": "not-applied"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "problem": true
+        },
+        "required": ["problem"]
+      },
+      "else": {
+        "properties": {
+          "problem": false
+        }
+      }
+    },
+    "problem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": ["unreadable", "not-json", "version", "schema"]
+        },
+        "pointer": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "keyword": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "error": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        }
+      },
+      "required": ["code"],
+      "additionalProperties": false,
+      "description": "Why a file is not applied. A definition of its own, so that the board page's generated validator checks both files with one function."
+    }
+  }
+}

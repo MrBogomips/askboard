@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:setting",
+  "title": "Setting",
+  "description": "board page to board-host: the user changed one presentation key on the board, which the session process writes into the user file (AD-14, FR-35). Only theme, density and contextPlacement, each with a value the configuration schema allows; board-host refuses anything else with reason message, and nothing is written. ask-core checks the key again before it writes (settings-languages, design decision 6).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "setting"
+    },
+    "key": {
+      "enum": ["theme", "density", "contextPlacement"]
+    },
+    "value": {
+      "description": "The key's new value, checked against that key's values below."
+    }
+  },
+  "required": ["version", "type", "key", "value"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "key": {
+        "const": "theme"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "value": {
+        "$ref": "urn:askboard:configuration:config#/properties/theme"
+      }
+    }
+  },
+  "else": {
+    "if": {
+      "properties": {
+        "key": {
+          "const": "density"
+        }
+      }
+    },
+    "then": {
+      "properties": {
+        "value": {
+          "$ref": "urn:askboard:configuration:config#/properties/density"
+        }
+      }
+    },
+    "else": {
+      "properties": {
+        "value": {
+          "$ref": "urn:askboard:configuration:config#/properties/contextPlacement"
+        }
+      }
+    }
+  }
+}

@@ -105,6 +105,7 @@ describe("the board document 1.1", () => {
 });
 
 describe("the board protocol's messages 1.1 (design decision 8)", () => {
+  // settings-languages then appended its own (its design decision 6).
   test("E1's messages keep their order, and E3's are appended in each direction", () => {
     // A later minor appends after them (excerpts, design decision 5), so these lead each list.
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost).slice(0, 4)).toEqual([
@@ -112,6 +113,7 @@ describe("the board protocol's messages 1.1 (design decision 8)", () => {
       "answer",
       "act",
       "draft",
+      "setting",
     ]);
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(0, 9)).toEqual([
       "board",
@@ -123,6 +125,7 @@ describe("the board protocol's messages 1.1 (design decision 8)", () => {
       "done",
       "draft",
       "closed",
+      "settings",
     ]);
     for (const type of ["act", "draft", "done", "closed"]) {
       const id = `urn:askboard:board-protocol:${type}`;

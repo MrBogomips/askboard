@@ -492,6 +492,9 @@ export type {
 // formats, the `.askboard/` folder, the asking rule's references and the configuration set.
 // Settings and languages (E8, settings-languages design decisions 2, 7, 8, 12 and 13): the locale
 // formats, a board's language, the `.askboard/` folder, the asking rule's references and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 6, 7, 8, 12 and 13): the
+// locale formats, a board's language, the `.askboard/` folder, the asking rule's references, the
+// configuration set and the board protocol's settings messages.
 
 export {
   type AxisZoom,
@@ -529,6 +532,21 @@ export {
   REFERENCE_PATTERNS,
   WITH_REFERENCES_DESCRIPTION,
 } from "./push/references.ts";
+export type {
+  FileProblem,
+  FileProblemCode,
+  PresentationSetting,
+  SettingCommand,
+  SettingRow,
+  SettingSource,
+  SettingsFile,
+  SettingsFileName,
+  SettingsMessage,
+  SettingsRows,
+  SettingWarning,
+  SettingWarningCode,
+  WriteOutcome,
+} from "./schemas/board-protocol/index.ts";
 export {
   CONFIGURATION_DEFAULTS,
   CONFIGURATION_KEYS,

@@ -5,6 +5,7 @@ import {
   contextProtocolExamples,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
+  settingsProtocolExamples,
   subagentOrigin,
   treeBoardDocument,
   uncheckedOrigin,
@@ -30,6 +31,7 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
       ...boardProtocolExamples.toPage,
       ...lifecycleProtocolExamples.toPage,
       ...contextProtocolExamples.toPage,
+      ...settingsProtocolExamples.toPage,
     ];
     const names = Object.keys(BOARD_PROTOCOL_MESSAGES.toPage);
     expect(new Set<string>(examples.map((message) => message.type))).toEqual(new Set(names));
@@ -37,6 +39,7 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
     for (const message of examples) {
       const read = readHostMessage(JSON.stringify(message));
       // E5's messages join `BoardHostMessage` with the reading panel's handlers (excerpts, task 6.6).
+      // `settings` joins `BoardHostMessage` with the board page's settings (settings-languages 8.2).
       expect({ type: message.type, read }).toEqual({
         type: message.type,
         read: { ok: true, value: message as never },
