@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:snapshot",
+  "title": "Snapshot request",
+  "description": "Board page to board-host: take a Snapshot of the ask (FR-26). requestId is 22 base64url characters the board page draws, as an action ID is; board-host answers with snapshot-saved or snapshot-failed naming it. unsentWork says that the board held unsent work, which the Snapshot leaves out and records only as this flag. The request is never resent, and changes nothing on the ask.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "snapshot"
+    },
+    "requestId": {
+      "$ref": "urn:askboard:board-protocol:act#/properties/actionId"
+    },
+    "unsentWork": {
+      "const": true
+    }
+  },
+  "required": ["version", "type", "requestId"],
+  "additionalProperties": false
+}

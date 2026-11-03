@@ -117,6 +117,14 @@ export {
 } from "./context-transcripts.ts";
 
 // Snapshots (E7, snapshot design decision 2): the Snapshot data of an agent's Snapshot of the
-// lifecycle ask, and the snapshot result naming its file.
+// lifecycle ask, the snapshot result naming its file, and the board protocol's Snapshot messages
+// with their recorded exchange.
 
 export { lifecycleSnapshotData, lifecycleSnapshotResult } from "./snapshot.ts";
+export {
+  type SnapshotTranscript,
+  type SnapshotTranscriptStep,
+  snapshotProtocolExamples,
+  snapshotTranscript,
+  snapshotTranscripts,
+} from "./snapshot-transcripts.ts";

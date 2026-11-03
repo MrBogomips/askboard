@@ -373,7 +373,6 @@ export { type AgentTextRun, agentTextPiece, agentTextRuns } from "./push/notice-
 
 export { originMessage, type WhoAskedFields } from "./push/origin-message.ts";
 
-<<<<<<< HEAD
 // Molecules (molecules): the reference and definition formats, their checks and JSON Pointers.
 
 // Molecules (molecules): the reference and definition formats, their checks and JSON Pointers,
@@ -489,11 +488,20 @@ export type {
 
 // Snapshots (E7, snapshot design decision 2): the Snapshot data set, the file name and the JSON
 // blocks' element IDs.
-=======
-// Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
-// the file name and the JSON blocks' element IDs.
->>>>>>> 1ffc696 (feat(contract): the snapshot tool's definition, request, result and typed result)
 
+// Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
+<<<<<<< HEAD
+// the file name and the JSON blocks' element IDs.
+=======
+// the board protocol's Snapshot messages, the file name and the JSON blocks' element IDs.
+>>>>>>> a1d558f (feat(contract): the board protocol's Snapshot request and replies)
+
+export type {
+  SnapshotCommand,
+  SnapshotFailedMessage,
+  SnapshotReply,
+  SnapshotSavedMessage,
+} from "./schemas/board-protocol/index.ts";
 export {
   SNAPSHOT_DATA_ID,
   SNAPSHOT_DATA_VERSION,
