@@ -54,12 +54,11 @@ const liveAgents = async ($: ModApi): Promise<readonly AgentInfo[] | undefined> 
 };
 
 /**
- * The live agent an ask's `agent_id` names: the one with that ID, else the teammate with that team
- * address, since whether an in-process teammate's hooks give the one or the other is not confirmed
- * yet (task 17.6).
+ * The live agent an ask's `agent_id` names: the one listed with that ID, an in-process teammate's
+ * included, since its hooks give the same ID the agent list does (the PO's probe, task 17.6).
  */
 const ownerOf = (agents: readonly AgentInfo[], owner: string): AgentInfo | undefined =>
-  agents.find((agent) => agent.id === owner) ?? agents.find((agent) => agent.teammateId === owner);
+  agents.find((agent) => agent.id === owner);
 
 /** The new events of the subagents' and teammates' asks, by the live agent that owns them. */
 const byLiveAgent = (
