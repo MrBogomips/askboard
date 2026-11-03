@@ -9,6 +9,7 @@
 import type { AnySchemaObject } from "ajv/dist/2020";
 import { createAjv } from "../compiled.ts";
 import type { Checked, Problem } from "../validate.ts";
+import ganttProps from "../widgets/gantt/gantt-props.json" with { type: "json" };
 import treeProps from "../widgets/tree/tree-props.json" with { type: "json" };
 import { widgetValidator } from "../widgets/validator.ts";
 import { moleculeDefinitionProblems } from "./checks.ts";
@@ -23,7 +24,7 @@ import moleculeDefinition from "./molecule-definition.json" with { type: "json" 
 import moleculeProps from "./molecule-props.json" with { type: "json" };
 
 /** Every widget props schema of the contract, which a molecule's parameters may reference. */
-const WIDGET_PROPS_SCHEMAS: readonly AnySchemaObject[] = [treeProps];
+const WIDGET_PROPS_SCHEMAS: readonly AnySchemaObject[] = [treeProps, ganttProps];
 
 const VERSION = new RegExp(MOLECULE_VERSION_PATTERN);
 

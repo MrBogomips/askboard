@@ -84,3 +84,23 @@ export const probePlan: MoleculeDefinition = deepFreeze({
     dependencies: [{ pointer: "/0/props/tasks", as: { entries: "dependencies" } }],
   },
 });
+
+/** A definition whose parameters reference the Gantt's props schema, as `gantt-plan`'s do. */
+export const probeDated: MoleculeDefinition = deepFreeze({
+  format: "1.0.0",
+  molecule: "probe-dated",
+  version: "1.0.0",
+  parameters: {
+    $schema: DIALECT,
+    $id: "urn:askboard:molecule:probe-dated:1",
+    type: "object",
+    properties: {
+      start: { $ref: "urn:askboard:input:gantt-props#/$defs/fullDate" },
+      predecessors: { $ref: "urn:askboard:input:gantt-props#/$defs/predecessors" },
+    },
+    required: ["start"],
+    additionalProperties: false,
+  },
+  items: [{ type: "gantt", id: "plan", props: { start: "2026-01-05", tasks: {} } }],
+  fills: { start: [{ pointer: "/0/props/start" }] },
+});

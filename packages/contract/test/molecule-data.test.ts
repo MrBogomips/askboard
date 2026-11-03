@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { compiled } from "../src/compiled.ts";
 import type { MoleculeDefinition } from "../src/index.ts";
 import { moleculeDataValidator, validateAgainst } from "../src/validate.ts";
-import { copyOf, probeWbs } from "./molecule-probes.ts";
+import { copyOf, probeDated, probeWbs } from "./molecule-probes.ts";
 
 // A reference's data against its definition's parameters (contract spec, "Molecule data
 // validation"), in the shared widget validator beside the widget props schemas. The test-only
-// `probe-wbs` parameters reference the Tree's node and E1's ID schema; the Gantt's `fullDate`
-// case of task 1.3 waits for the Gantt's props schema.
+// `probe-wbs` parameters reference the Tree's node and E1's ID schema, and `probe-dated`'s the
+// Gantt's `fullDate` and `predecessors`, as the shipped `gantt-plan`'s do.
 
 const moleculeIdsOfE1 = () =>
   Object.keys(compiled().schemas).filter((id) => id.startsWith("urn:askboard:molecule:"));
@@ -71,6 +71,20 @@ describe("moleculeDataValidator", () => {
       ok: false,
       reason: "schema",
       problems: [{ path: "/nodes", message: 'missing field "nodes"' }],
+    });
+  });
+
+  test("takes the Gantt's definitions: a full date passes, another form is refused at its path", () => {
+    const validate = moleculeDataValidator(probeDated);
+    expect(validate({ start: "2026-11-02" })).toEqual({ ok: true, value: { start: "2026-11-02" } });
+    expect(validate({ start: "11/02/2026" })).toEqual({
+      ok: false,
+      reason: "schema",
+      problems: [{ path: "/start", message: expect.stringContaining("pattern") }],
+    });
+    expect(validate({ start: "2026-11-02", predecessors: ["ux", "ux"] })).toMatchObject({
+      ok: false,
+      problems: [{ path: "/predecessors" }],
     });
   });
 
