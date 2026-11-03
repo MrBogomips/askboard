@@ -3,9 +3,20 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { GANTT_MAX_TASKS, ganttPlanLinkProblems, ganttPropsSchema } from "@askboard/contract";
+import {
+  GANTT_MAX_TASKS,
+  ganttPlanLinkProblems,
+  ganttPropsSchema,
+  type MoleculeDefinition,
+} from "@askboard/contract";
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
-import { createAjv, problemOf, validateGanttProps } from "@askboard/contract/validate";
+import {
+  createAjv,
+  moleculeDataValidator,
+  problemOf,
+  validateGanttProps,
+  validateMoleculeDefinition,
+} from "@askboard/contract/validate";
 import { READY_MOLECULES } from "../src/index.ts";
 import { expandGanttPlan, type GanttPlanReference } from "./expand.ts";
 
@@ -19,11 +30,7 @@ const ask = await Bun.file(
 const reference = ask.items[0].props.items[1] as GanttPlanReference;
 const { data } = reference.props;
 
-const definition = JSON.parse(await Bun.file(FILE).text()) as {
-  molecule: string;
-  version: string;
-  parameters: Record<string, unknown>;
-};
+const definition = JSON.parse(await Bun.file(FILE).text()) as MoleculeDefinition;
 
 // Compiled as the contract compiles its schemas, strict, beside E1's ID schema and the Gantt's
 // props schema, which the parameters reference; every strict-mode warning is kept.
@@ -45,8 +52,15 @@ const strings = (value: unknown): string[] => {
 };
 
 describe("the Gantt plan's definition (molecules spec, The Gantt plan's parameters are data)", () => {
-  test("is only data: exactly molecule, version and parameters, no markup or script", () => {
-    expect(Object.keys(definition).sort()).toEqual(["molecule", "parameters", "version"]);
+  test("is only data: exactly format, molecule, version, parameters, items and fills, no markup or script", () => {
+    expect(Object.keys(definition)).toEqual([
+      "format",
+      "molecule",
+      "version",
+      "parameters",
+      "items",
+      "fills",
+    ]);
     expect(definition).toMatchObject({ molecule: "gantt-plan", version: "1.0.0" });
     for (const text of strings(definition)) {
       expect({ text, markup: text.includes("<") }).toEqual({ text, markup: false });
@@ -120,6 +134,35 @@ describe("the Gantt plan's definition (molecules spec, The Gantt plan's paramete
     expect(problemsOf({ ...data, dependencies: entries(GANTT_MAX_TASKS) })).toEqual([]);
     const problems = problemsOf({ ...data, dependencies: entries(GANTT_MAX_TASKS + 1) });
     expect(problems.map((problem) => problem.path)).toEqual(["/dependencies"]);
+  });
+});
+
+describe("the Gantt plan in the molecule format (molecules spec, The Gantt plan's parameters are data)", () => {
+  test("passes the definition format's checks", () => {
+    expect(validateMoleculeDefinition(definition)).toEqual({ ok: true, value: definition });
+    expect(definition.format).toBe("1.0.0");
+  });
+
+  test("its item is one Gantt plan with no entries", () => {
+    expect(definition.items).toEqual([{ type: "gantt", id: "plan", props: { tasks: {} } }]);
+  });
+
+  test("fills the work packages as an item, the start as it is and the entries from dependencies", () => {
+    expect(definition.fills).toEqual({
+      workPackages: [{ pointer: "/0/props/workPackages", as: "item" }],
+      start: [{ pointer: "/0/props/start" }],
+      dependencies: [{ pointer: "/0/props/tasks", as: { entries: "dependencies" } }],
+    });
+  });
+
+  test("its data validator accepts the approved schedule data and refuses calendar", () => {
+    const validateData = moleculeDataValidator(definition);
+    expect(validateData(data)).toEqual({ ok: true, value: data });
+    expect(validateData({ ...data, calendar: "EU" })).toEqual({
+      ok: false,
+      reason: "schema",
+      problems: [{ path: "/calendar", message: 'unknown field "calendar"' }],
+    });
   });
 });
 

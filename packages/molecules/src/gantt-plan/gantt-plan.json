@@ -1,4 +1,5 @@
 {
+  "format": "1.0.0",
   "molecule": "gantt-plan",
   "version": "1.0.0",
   "parameters": {
@@ -30,5 +31,11 @@
     },
     "required": ["workPackages", "start"],
     "additionalProperties": false
+  },
+  "items": [{ "type": "gantt", "id": "plan", "props": { "tasks": {} } }],
+  "fills": {
+    "workPackages": [{ "pointer": "/0/props/workPackages", "as": "item" }],
+    "start": [{ "pointer": "/0/props/start" }],
+    "dependencies": [{ "pointer": "/0/props/tasks", "as": { "entries": "dependencies" } }]
   }
 }
