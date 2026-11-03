@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:ask",
   "title": "Ask",
-  "description": "An ask as the agent sends it to the ask tool (AD-7): its ID, the optional fields, and its items in English only: one or more questions, or one or more areas each holding questions (FR-1, FR-2). A board of one question is the single-question board whatever its presentation and delivery say (EXPERIENCE, Presentations). Further checks the schema cannot express run in the contract's validation function: item IDs unique in the ask, the reserved view-made prefix, areas all or none at the top level, unique option labels, at most one recommended option per question and the room an answer needs.",
+  "description": "An ask as the agent sends it to the ask tool (AD-7): its ID, the optional fields, among them its language and locale, each en-US or it-IT, and its items: one or more questions, or one or more areas each holding questions (FR-1, FR-2). A board of one question is the single-question board whatever its presentation and delivery say (EXPERIENCE, Presentations). Further checks the schema cannot express run in the contract's validation function: item IDs unique in the ask, the reserved view-made prefix, areas all or none at the top level, unique option labels, at most one recommended option per question and the room an answer needs.",
   "type": "object",
   "properties": {
     "askId": {
@@ -30,10 +30,10 @@
       "enum": ["immediate", "submitted"]
     },
     "language": {
-      "const": "en-US"
+      "enum": ["en-US", "it-IT"]
     },
     "locale": {
-      "const": "en-US"
+      "enum": ["en-US", "it-IT"]
     },
     "items": {
       "type": "array",

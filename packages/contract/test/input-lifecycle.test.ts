@@ -254,8 +254,9 @@ describe("what the input format still refuses", () => {
     }
   });
 
-  test.each(["language", "locale"])("%s it-IT is still refused, naming the field", (field) => {
-    const problem = only(ask([question("q")], { [field]: "it-IT" }));
+  // Input format 1.2 accepts it-IT (settings-languages); any other value is still refused.
+  test.each(["language", "locale"])("%s fr-FR is still refused, naming the field", (field) => {
+    const problem = only(ask([question("q")], { [field]: "fr-FR" }));
     expect(problem).toMatchObject({ path: `/${field}`, field });
   });
 
