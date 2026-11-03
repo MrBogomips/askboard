@@ -38,6 +38,8 @@ import {
   type LifecyclePageMessage,
   type OpenEditorCommand,
   type OpenSourceCommand,
+  type PresentationSetting,
+  type SettingCommand,
   TAKEOVER_FLUSH_WAIT_MS,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
@@ -60,6 +62,7 @@ import {
   stateMessage,
 } from "./messages.ts";
 import { presenceOf } from "./presence.ts";
+import { NO_SETTINGS, settingsMessage } from "./settings.ts";
 import type { BoardTokens } from "./tokens.ts";
 import { agentMessage, originMessage } from "./who-and-where.ts";
 
@@ -165,6 +168,7 @@ type PageCommand = Exclude<
   LifecyclePageMessage | OpenSourceCommand | OpenEditorCommand,
   ConnectMessage
 >;
+type PageCommand = Exclude<LifecyclePageMessage, ConnectMessage> | SettingCommand;
 
 /** What a live board does with each of ask-core's events, by type. */
 type Heard = {
@@ -203,7 +207,7 @@ const commandOf = (value: unknown): PageCommand | LifecycleHostMessage => {
     const reason = checked.reason === "version" ? "version" : "message";
     return refusedMessage(reason, problemsDetail(checked.problems));
   }
-  const message = checked.value as LifecyclePageMessage;
+  const message = checked.value as LifecyclePageMessage | SettingCommand;
   if (message.type === "connect") return refusedMessage("message", CONNECTED);
   return message;
 };
@@ -590,13 +594,35 @@ export class Boards {
   // The board protocol's page commands, by type: E1's answer; the ask lifecycle's act command and
   // draft record (ask-lifecycle, design decision 8); the reading panel's source and "Open in
   // editor" (excerpts, design decision 5).
+  // draft record (ask-lifecycle, design decision 8); a presentation key's write (settings-languages,
+  // design decision 6).
   readonly #commands: Commands = {
     answer: (connection, command) => this.#answer(connection, command),
     act: (connection, command) => this.#act(connection, command),
     draft: (connection, command) => this.#draft(connection, command),
     "open-source": (connection, command) => this.#openSource(connection, command),
     "open-editor": (connection, command) => this.#openEditor(connection, command),
+    setting: (connection, command) => this.#setting(connection, command),
   };
+
+  // A presentation key's write, which the validator admitted for the three keys and their schema
+  // values only: ask-core checks it again and writes it, then this board hears the settings as read
+  // now, with the outcome. Other boards keep theirs until they reconnect (B10).
+  #setting(connection: Connection, command: SettingCommand): void {
+    const core = this.#core;
+    if (core.writeSetting === undefined || core.boardSettingsView === undefined) {
+      this.#send(connection, refusedMessage("message", NO_SETTINGS));
+      return;
+    }
+    const setting = { key: command.key, value: command.value } as PresentationSetting;
+    core
+      .writeSetting(setting)
+      .then((outcome) => core.boardSettingsView?.(outcome))
+      .then((view) => {
+        if (view !== undefined) this.#send(connection, settingsMessage(view));
+      })
+      .catch(this.#report);
+  }
 
   #answer(connection: Connection, command: AnswerCommand): void {
     const { itemId, rev, choice, when } = command;

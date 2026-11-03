@@ -154,6 +154,8 @@ export const startHost = (
     projectDir?: string;
     /** Push delivery's record table and the context header's ports. */
     push?: Pick<CorePorts, "records" | "header">;
+    /** The configuration's port (settings-languages). */
+    config?: CorePorts["config"];
   } = {},
 ): TestHost => {
   const reported: unknown[] = [];
@@ -180,6 +182,7 @@ export const startHost = (
     report: (error) => reported.push(error),
     clock: options.clock ?? runtimeClock,
     ...options.push,
+    ...(options.config === undefined ? {} : { config: options.config }),
   });
   core = created;
   return {
