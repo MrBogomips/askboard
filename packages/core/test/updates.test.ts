@@ -37,7 +37,7 @@ const idsOf = (core: Core, askId: string) =>
 describe("adding an item", () => {
   test("adding first without after, and last after the last question", async () => {
     const { core } = await created(flatAsk());
-    const outcome = update(
+    const outcome = await update(
       core,
       FLAT_ID,
       { action: "add", item: question("q0") },
@@ -58,7 +58,7 @@ describe("adding an item", () => {
 
   test("a question goes into the area parentId names, after the sibling after names", async () => {
     const { core } = await created(areasAsk());
-    update(
+    await update(
       core,
       LIFECYCLE_ID,
       { action: "add", item: question("launch"), parentId: "delivery", after: "rollout" },
@@ -78,12 +78,12 @@ describe("adding an item", () => {
       id: "support",
       props: { title: "Support", items: [question("hotline")] },
     } as const;
-    expect(update(core, LIFECYCLE_ID, { action: "add", item: area, after: "scope" })).toMatchObject(
-      {
-        kind: "updated",
-        applied: [{ action: "add", itemId: "support" }],
-      },
-    );
+    expect(
+      await update(core, LIFECYCLE_ID, { action: "add", item: area, after: "scope" }),
+    ).toMatchObject({
+      kind: "updated",
+      applied: [{ action: "add", itemId: "support" }],
+    });
     expect(idsOf(core, LIFECYCLE_ID)).toEqual([
       ["scope", ["region", "payment", "analytics"]],
       ["support", ["hotline"]],
@@ -105,7 +105,11 @@ describe("adding an item", () => {
       ]),
     );
     expect(boardOf(core, FLAT_ID).state).toBe("answered");
-    const outcome = update(core, FLAT_ID, { action: "add", item: question("q4"), after: "q3" });
+    const outcome = await update(core, FLAT_ID, {
+      action: "add",
+      item: question("q4"),
+      after: "q3",
+    });
     expect(outcome).toMatchObject({ kind: "updated", state: "partly-answered" });
     expect(boardOf(core, FLAT_ID).questions.at(-1)).toMatchObject({
       itemId: "q4",
@@ -140,7 +144,7 @@ describe("adding an item", () => {
   ] as const)("adding with %s is refused", async (_, action, refusal, itemId) => {
     const { core } = await created(flatAsk());
     const before = boardOf(core, FLAT_ID).document;
-    const outcome = update(core, FLAT_ID, action as UpdateAction);
+    const outcome = await update(core, FLAT_ID, action as UpdateAction);
     expect(outcome).toMatchObject({ kind: "refused", index: 0, refusal, itemId });
     expect(boardOf(core, FLAT_ID).document).toEqual(before);
   });
@@ -164,7 +168,9 @@ describe("adding an item", () => {
     ],
   ] as const)("in an ask of areas, %s is refused", async (_, fields, refusal) => {
     const { core } = await created(areasAsk());
-    expect(update(core, LIFECYCLE_ID, { action: "add", ...fields } as UpdateAction)).toMatchObject({
+    expect(
+      await update(core, LIFECYCLE_ID, { action: "add", ...fields } as UpdateAction),
+    ).toMatchObject({
       kind: "refused",
       refusal,
     });
@@ -172,8 +178,8 @@ describe("adding an item", () => {
 
   test("reusing a deleted item's ID is refused, naming the ID as in use", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, { action: "delete", itemId: "q2" });
-    const outcome = update(core, FLAT_ID, { action: "add", item: question("q2") });
+    await update(core, FLAT_ID, { action: "delete", itemId: "q2" });
+    const outcome = await update(core, FLAT_ID, { action: "add", item: question("q2") });
     expect(outcome).toMatchObject({ kind: "refused", index: 0, itemId: "q2", refusal: "in-use" });
     expect(outcome.kind === "refused" && outcome.detail).toContain("deleted");
   });
@@ -185,7 +191,7 @@ describe("updates apply atomically", () => {
     core.act(FLAT_ID, command([answerAct({ itemId: "q2", choice: ["Linux"] })]));
     heard.length = 0;
     const before = boardOf(core, FLAT_ID);
-    const outcome = update(
+    const outcome = await update(
       core,
       FLAT_ID,
       { action: "add", item: question("q4") },
@@ -204,7 +210,7 @@ describe("updates apply atomically", () => {
 
   test("each action sees what the earlier ones leave: add, then change what was added", async () => {
     const { core } = await created(flatAsk());
-    const outcome = update(
+    const outcome = await update(
       core,
       FLAT_ID,
       { action: "add", item: question("q4") },
@@ -224,7 +230,7 @@ describe("updates apply atomically", () => {
 
   test("an update publishes the board document and the state once, document first", async () => {
     const { core, heard } = await created(flatAsk());
-    update(
+    await update(
       core,
       FLAT_ID,
       { action: "add", item: question("q4") },
@@ -250,7 +256,7 @@ describe("updates apply atomically", () => {
     const fixture = structuredClone(lifecycleUpdate) as typeof lifecycleUpdate;
     const reply = fixture.actions[5];
     if (reply?.action === "reply") Object.assign(reply, { followUp: `${core.epoch}.4` });
-    const outcome = core.update(fixture);
+    const outcome = await core.update(fixture);
     expect(outcome).toEqual({
       kind: "updated",
       askId: LIFECYCLE_ID,
@@ -287,7 +293,7 @@ describe("deleting an item", () => {
     );
     core.act(FLAT_ID, command([{ type: "reopen", itemId: "q3" }]));
     core.act(FLAT_ID, command([{ type: "postpone", itemId: "q3", rev: 1 }]));
-    expect(update(core, FLAT_ID, { action: "delete", itemId: "q3" })).toMatchObject({
+    expect(await update(core, FLAT_ID, { action: "delete", itemId: "q3" })).toMatchObject({
       kind: "updated",
       state: "answered",
       applied: [{ action: "delete", itemId: "q3" }],
@@ -299,21 +305,21 @@ describe("deleting an item", () => {
     const { core } = await created(flatAsk());
     core.act(FLAT_ID, command([answerAct(), answerAct({ itemId: "q2", choice: ["WSL"] })]));
     expect(boardOf(core, FLAT_ID).state).toBe("partly-answered");
-    expect(update(core, FLAT_ID, { action: "delete", itemId: "q3" })).toMatchObject({
+    expect(await update(core, FLAT_ID, { action: "delete", itemId: "q3" })).toMatchObject({
       state: "answered",
     });
   });
 
   test("deleting the only question of an ask is refused, saying to close the ask instead", async () => {
     const { core } = await created({ askId: "solo-a1b2", items: [question("only")] });
-    const outcome = update(core, "solo-a1b2", { action: "delete", itemId: "only" });
+    const outcome = await update(core, "solo-a1b2", { action: "delete", itemId: "only" });
     expect(outcome).toMatchObject({ kind: "refused", refusal: "last-question", itemId: "only" });
     expect(outcome.kind === "refused" && outcome.detail).toContain("close");
   });
 
   test("deleting every area in turn is refused at the last one", async () => {
     const { core } = await created(areasAsk());
-    const outcome = update(
+    const outcome = await update(
       core,
       LIFECYCLE_ID,
       { action: "delete", itemId: "scope" },
@@ -325,13 +331,15 @@ describe("deleting an item", () => {
   test("an answered question is refused, naming its cursor; an area holding one too", async () => {
     const { core } = await created(areasAsk());
     core.act(LIFECYCLE_ID, command([answerAct({ itemId: "payment", choice: ["Stripe"] })]));
-    expect(update(core, LIFECYCLE_ID, { action: "delete", itemId: "payment" })).toMatchObject({
-      kind: "refused",
-      itemId: "payment",
-      cursor: `${core.epoch}.1`,
-      refusal: "answered",
-    });
-    const area = update(core, LIFECYCLE_ID, { action: "delete", itemId: "scope" });
+    expect(await update(core, LIFECYCLE_ID, { action: "delete", itemId: "payment" })).toMatchObject(
+      {
+        kind: "refused",
+        itemId: "payment",
+        cursor: `${core.epoch}.1`,
+        refusal: "answered",
+      },
+    );
+    const area = await update(core, LIFECYCLE_ID, { action: "delete", itemId: "scope" });
     expect(area).toMatchObject({
       kind: "refused",
       itemId: "scope",
@@ -343,7 +351,7 @@ describe("deleting an item", () => {
 
   test("an area and its questions go together; an area emptied by its last question goes too", async () => {
     const { core } = await created(areasAsk());
-    update(
+    await update(
       core,
       LIFECYCLE_ID,
       { action: "delete", itemId: "rollout" },
@@ -351,13 +359,17 @@ describe("deleting an item", () => {
     );
     expect(idsOf(core, LIFECYCLE_ID)).toEqual([["scope", ["region", "payment", "analytics"]]]);
     expect(
-      update(core, LIFECYCLE_ID, { action: "change", itemId: "delivery", props: { title: "x" } }),
+      await update(core, LIFECYCLE_ID, {
+        action: "change",
+        itemId: "delivery",
+        props: { title: "x" },
+      }),
     ).toMatchObject({ kind: "refused", refusal: "deleted", itemId: "delivery" });
   });
 
   test("acts on a deleted question are refused and append nothing", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, { action: "delete", itemId: "q1" });
+    await update(core, FLAT_ID, { action: "delete", itemId: "q1" });
     expect(core.act(FLAT_ID, command([answerAct()]))).toMatchObject({
       ok: false,
       refusal: "unknown-item",
@@ -371,9 +383,9 @@ describe("deleting an item", () => {
     ["an item the ask never held", "unknown-item"],
   ] as const)("deleting %s is refused", async (_, refusal) => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, { action: "delete", itemId: "q1" });
+    await update(core, FLAT_ID, { action: "delete", itemId: "q1" });
     const itemId = refusal === "deleted" ? "q1" : "q8";
-    expect(update(core, FLAT_ID, { action: "delete", itemId })).toMatchObject({
+    expect(await update(core, FLAT_ID, { action: "delete", itemId })).toMatchObject({
       kind: "refused",
       refusal,
       itemId,
@@ -385,7 +397,7 @@ describe("reopening a question", () => {
   test("reopening an answer: open at rev 2 with no answer, the rev 1 answer kept as previous", async () => {
     const { core } = await created(areasAsk());
     core.act(LIFECYCLE_ID, command([answerAct({ itemId: "erp-export", choice: ["No"] })]));
-    const outcome = update(core, LIFECYCLE_ID, { action: "reopen", itemId: "erp-export" });
+    const outcome = await update(core, LIFECYCLE_ID, { action: "reopen", itemId: "erp-export" });
     expect(outcome).toMatchObject({
       kind: "updated",
       state: "partly-answered",
@@ -413,7 +425,7 @@ describe("reopening a question", () => {
       ]),
     );
     expect(boardOf(core, FLAT_ID).state).toBe("answered");
-    update(core, FLAT_ID, { action: "reopen", itemId: "q3" });
+    await update(core, FLAT_ID, { action: "reopen", itemId: "q3" });
     expect(boardOf(core, FLAT_ID).state).toBe("partly-answered");
     expect(
       core.act(FLAT_ID, command([answerAct({ itemId: "q3", choice: ["Sara"] })])),
@@ -432,7 +444,7 @@ describe("reopening a question", () => {
   ] as const)("reopening %s is refused", async (_, before, refusal, itemId) => {
     const { core } = await created(flatAsk());
     if (before.length > 0) core.act(FLAT_ID, command(before as never));
-    expect(update(core, FLAT_ID, { action: "reopen", itemId })).toMatchObject({
+    expect(await update(core, FLAT_ID, { action: "reopen", itemId })).toMatchObject({
       kind: "refused",
       refusal,
       itemId,
@@ -441,7 +453,7 @@ describe("reopening a question", () => {
 
   test("reopening an area is refused: only a question is reopened", async () => {
     const { core } = await created(areasAsk());
-    expect(update(core, LIFECYCLE_ID, { action: "reopen", itemId: "scope" })).toMatchObject({
+    expect(await update(core, LIFECYCLE_ID, { action: "reopen", itemId: "scope" })).toMatchObject({
       kind: "refused",
       refusal: "not-question",
       itemId: "scope",
@@ -452,7 +464,7 @@ describe("reopening a question", () => {
 describe("update outcomes for the ask itself", () => {
   test("an ask this epoch does not hold is discarded, never unknown", async () => {
     const { core } = await created(flatAsk());
-    expect(update(core, "never-asked", { action: "close" })).toEqual({
+    expect(await update(core, "never-asked", { action: "close" })).toEqual({
       kind: "discarded",
       askId: "never-asked",
     });

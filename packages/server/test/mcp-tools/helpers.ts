@@ -155,7 +155,7 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
       calls.push("discardAll");
       return 0;
     },
-    update: (request) => {
+    update: async (request) => {
       calls.push("update");
       return (
         options.update?.(request) ?? {

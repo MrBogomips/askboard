@@ -133,7 +133,7 @@ describe("the tombstone", () => {
         { type: "follow-up", itemId: "rollout", rev: 1, text: "Why?", when: WHEN },
       ]),
     );
-    core.update({
+    await core.update({
       askId: LIFECYCLE_ID,
       actions: [
         {
@@ -181,7 +181,7 @@ describe("the tombstone", () => {
     core.markRead(LIFECYCLE_ID, `${core.epoch}.1`);
     expect(await core.ask(areasAsk())).toEqual({ kind: "in-use", askId: LIFECYCLE_ID });
     expect(core.markRead(LIFECYCLE_ID, `${core.epoch}.3`)).toBe(true);
-    expect(core.update({ askId: LIFECYCLE_ID, actions: [{ action: "close" }] })).toEqual({
+    expect(await core.update({ askId: LIFECYCLE_ID, actions: [{ action: "close" }] })).toEqual({
       kind: "discarded",
       askId: LIFECYCLE_ID,
     });

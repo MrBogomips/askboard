@@ -34,7 +34,7 @@ describe("recording an answer", () => {
     const { core, heard } = await created(areasAsk());
     core.act(LIFECYCLE_ID, command([{ type: "postpone", itemId: "erp-export", rev: 1 }]));
     heard.length = 0;
-    const outcome = update(core, LIFECYCLE_ID, record("erp-export", { choice: ["Yes"] }));
+    const outcome = await update(core, LIFECYCLE_ID, record("erp-export", { choice: ["Yes"] }));
     expect(outcome).toEqual({
       kind: "updated",
       askId: LIFECYCLE_ID,
@@ -65,7 +65,11 @@ describe("recording an answer", () => {
     const clock = fakeClock();
     const { core } = await created(flatAsk(), { git: "Paola Greco", clock });
     clock.advance(90_500);
-    const outcome = update(core, FLAT_ID, record("q1", { choice: ["main"], note: "On a call" }));
+    const outcome = await update(
+      core,
+      FLAT_ID,
+      record("q1", { choice: ["main"], note: "On a call" }),
+    );
     expect(outcome).toMatchObject({
       applied: [{ recorded: { who: "Paola Greco", when: "2026-10-31T14:21:33.500Z" } }],
     });
@@ -73,9 +77,9 @@ describe("recording an answer", () => {
 
   test("a recorded answer moves a waiting ask out of waiting, and can answer every question", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, record("q1", { choice: ["main"] }));
+    await update(core, FLAT_ID, record("q1", { choice: ["main"] }));
     expect(boardOf(core, FLAT_ID).state).toBe("partly-answered");
-    update(
+    await update(
       core,
       FLAT_ID,
       record("q2", { choice: ["Linux", "WSL"] }),
@@ -91,7 +95,7 @@ describe("recording an answer", () => {
     ["no label and no Other… text", { note: "Ask later" }, "content"],
   ])("a recorded answer with %s is refused", async (_, answer, refusal) => {
     const { core } = await created(flatAsk());
-    expect(update(core, FLAT_ID, record("q1", answer))).toMatchObject({
+    expect(await update(core, FLAT_ID, record("q1", answer))).toMatchObject({
       kind: "refused",
       index: 0,
       itemId: "q1",
@@ -103,7 +107,7 @@ describe("recording an answer", () => {
   test("recording over an answer the log holds is refused, naming it", async () => {
     const { core } = await created(flatAsk());
     core.act(FLAT_ID, command([answerAct()]));
-    expect(update(core, FLAT_ID, record("q1", { choice: ["release"] }))).toMatchObject({
+    expect(await update(core, FLAT_ID, record("q1", { choice: ["release"] }))).toMatchObject({
       kind: "refused",
       refusal: "answered",
       cursor: `${core.epoch}.1`,
@@ -114,7 +118,7 @@ describe("recording an answer", () => {
     const { core } = await created(flatAsk());
     core.act(FLAT_ID, command([answerAct({ itemId: "q2", choice: ["Linux"] })]));
     core.act(FLAT_ID, command([{ type: "decline", itemId: "q1", rev: 1, when: WHEN }]));
-    const outcome = update(core, FLAT_ID, record("q1", { choice: ["release"] }));
+    const outcome = await update(core, FLAT_ID, record("q1", { choice: ["release"] }));
     expect(outcome).toMatchObject({
       kind: "refused",
       index: 0,
@@ -128,12 +132,16 @@ describe("recording an answer", () => {
 
   test("a recorded answer stops a change until reopened, and is kept as previous", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, record("q1", { choice: ["main"] }));
-    const changed = update(core, FLAT_ID, { action: "change", itemId: "q1", props: { text: "x" } });
+    await update(core, FLAT_ID, record("q1", { choice: ["main"] }));
+    const changed = await update(core, FLAT_ID, {
+      action: "change",
+      itemId: "q1",
+      props: { text: "x" },
+    });
     expect(changed).toMatchObject({ kind: "refused", refusal: "answered", itemId: "q1" });
     expect(changed.kind === "refused" && "cursor" in changed).toBe(false);
     expect(changed.kind === "refused" && changed.detail).toContain("recorded");
-    update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
+    await update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
     expect(boardOf(core, FLAT_ID).questions[0]).toMatchObject({
       rev: 2,
       state: "open",
@@ -143,7 +151,7 @@ describe("recording an answer", () => {
 
   test("a later board answer to a recorded question is an event replacing nothing", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, record("q1", { choice: ["main"] }));
+    await update(core, FLAT_ID, record("q1", { choice: ["main"] }));
     const outcome = core.act(FLAT_ID, command([answerAct({ choice: ["release"] })]));
     expect(outcome.ok && outcome.events[0]).toMatchObject({ choice: ["release"] });
     expect(outcome.ok && "replaces" in (outcome.events[0] ?? {})).toBe(false);
@@ -155,7 +163,7 @@ describe("recording an answer", () => {
 
   test("E1's answer without an action ID is refused on a recorded question", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, record("q1", { choice: ["main"] }));
+    await update(core, FLAT_ID, record("q1", { choice: ["main"] }));
     expect(core.answer(FLAT_ID, e1Answer({ itemId: "q1", choice: ["main"] }))).toMatchObject({
       ok: false,
       refusal: "answered",
@@ -179,9 +187,13 @@ describe("replies to follow-ups", () => {
 
   test("a reply goes under its follow-up, with the core's time; no event, the rev unchanged", async () => {
     const { core, heard } = await followed();
-    update(core, FLAT_ID, { action: "change", itemId: "q2", props: { text: "Platforms first?" } });
+    await update(core, FLAT_ID, {
+      action: "change",
+      itemId: "q2",
+      props: { text: "Platforms first?" },
+    });
     heard.length = 0;
-    const outcome = update(core, FLAT_ID, {
+    const outcome = await update(core, FLAT_ID, {
       action: "reply",
       itemId: "q2",
       followUp: `${core.epoch}.1`,
@@ -215,7 +227,7 @@ describe("replies to follow-ups", () => {
   ])("a reply to %s is refused, naming the cursor", async (_, cursorOf, itemId) => {
     const { core } = await followed();
     const followUp = cursorOf(core.epoch);
-    const outcome = update(core, FLAT_ID, { action: "reply", itemId, followUp, text: "?" });
+    const outcome = await update(core, FLAT_ID, { action: "reply", itemId, followUp, text: "?" });
     expect(outcome).toMatchObject({
       kind: "refused",
       index: 0,
@@ -232,7 +244,7 @@ describe("closing an ask", () => {
     const { core, heard } = await created(flatAsk());
     core.act(FLAT_ID, command([answerAct()]));
     heard.length = 0;
-    expect(update(core, FLAT_ID, { action: "close" })).toEqual({
+    expect(await update(core, FLAT_ID, { action: "close" })).toEqual({
       kind: "updated",
       askId: FLAT_ID,
       state: "closed",
@@ -252,8 +264,8 @@ describe("closing an ask", () => {
 
   test("a closed ask refuses updates with the typed result closed", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, { action: "close" });
-    expect(update(core, FLAT_ID, { action: "reopen", itemId: "q1" })).toEqual({
+    await update(core, FLAT_ID, { action: "close" });
+    expect(await update(core, FLAT_ID, { action: "reopen", itemId: "q1" })).toEqual({
       kind: "closed",
       askId: FLAT_ID,
     });
@@ -261,7 +273,7 @@ describe("closing an ask", () => {
 
   test("an action after close in the same update is refused, and nothing applies", async () => {
     const { core } = await created(flatAsk());
-    const outcome = update(
+    const outcome = await update(
       core,
       FLAT_ID,
       { action: "close" },

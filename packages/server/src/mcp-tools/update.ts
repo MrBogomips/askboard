@@ -64,7 +64,7 @@ const resultOf = (
 export const handleUpdate: ToolHandler = async ({ core }, args, context) => {
   const refused = await ownerCheck(core, "update", args, context);
   if (refused !== undefined) return refused;
-  const outcome = core.update(args ?? {});
+  const outcome = await core.update(args ?? {});
   return resultOf(
     core.epoch,
     outcome,

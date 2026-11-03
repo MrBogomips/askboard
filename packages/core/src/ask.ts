@@ -59,6 +59,12 @@ export type FullValue =
   /** A discarded ask, or one this epoch does not hold (AD-10, AD-21). */
   | { readonly kind: "discarded"; readonly askId: string };
 
+/** What an update would do to the ask's context (excerpts, design decision 4, When). */
+export type UpdatePreview = {
+  readonly revisions: readonly ContextRequest[];
+  readonly heldImageBytes: number;
+};
+
 export type AskInit = {
   readonly epoch: string;
   readonly askId: string;
@@ -428,33 +434,29 @@ export class Ask {
   }
 
   /**
-   * The question revisions the update would create, at their props, or undefined when E3's rules
-   * refuse it: tried on a copy, which is dropped, so the ask is unchanged.
+   * What the update would do, tried on a copy that is dropped, so the ask is unchanged: the
+   * question revisions it would create, at their props, and the image bytes the questions it leaves
+   * as they are would still hold; undefined when E3's rules refuse it.
    */
-  revisionsOf(actions: readonly UpdateAction[], now: string): ContextRequest[] | undefined {
+  preview(actions: readonly UpdateAction[], now: string): UpdatePreview | undefined {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) return undefined;
     const { askId, epoch, who } = this;
     const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
     if (!applied.ok) return undefined;
-    return this.#revisedIn(model).map((question) => ({
+    const revised = this.#revisedIn(model);
+    let heldImageBytes = 0;
+    for (const question of model.questions()) {
+      if (revised.includes(question)) continue;
+      for (const resolution of question.context.get(question.rev)?.values() ?? []) {
+        if ("bytes" in resolution) heldImageBytes += base64Bytes(resolution.bytes);
+      }
+    }
+    const revisions = revised.map((question) => ({
       questionId: question.id,
       props: model.propsOf(question),
     }));
-  }
-
-  /** The image bytes the current board document holds, but for these questions'. */
-  imageBytesBut(questionIds: ReadonlySet<string>): number {
-    const model = this.#model;
-    if (model === undefined) return 0;
-    let bytes = 0;
-    for (const question of model.questions()) {
-      if (questionIds.has(question.id)) continue;
-      for (const resolution of question.context.get(question.rev)?.values() ?? []) {
-        if ("bytes" in resolution) bytes += base64Bytes(resolution.bytes);
-      }
-    }
-    return bytes;
+    return { revisions, heldImageBytes };
   }
 
   // The questions whose revision `model`, an updated copy, changed or added, in board order.

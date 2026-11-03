@@ -34,6 +34,7 @@ import { canonicalize } from "./canonical.ts";
 import {
   type ContextRequest,
   contextRequestsOf,
+  hasPointers,
   type QuestionContext,
   resolveContext,
 } from "./context/resolve.ts";
@@ -177,6 +178,8 @@ export class AskCore {
   readonly #listeners = new Set<Listener>();
   // Creations under way, by ask ID, so that a second request for one ID waits for the first.
   readonly #creating = new Map<string, Promise<unknown>>();
+  // Updates reading their pointers, by ask ID, so that the ask's next update waits for the first.
+  readonly #updating = new Map<string, Promise<unknown>>();
   // Set by the discard at session exit: no ask may be created after it, or it would never be
   // discarded.
   #ending = false;
@@ -346,19 +349,32 @@ export class AskCore {
   /**
    * The agent's `update`: validated with the contract, then applied to the ask in order, all or
    * none (AD-6). It appends no event; the subscribers hear `document` and `state` once it applies.
+   * The pointers of the revisions it creates are read first, outside the aggregate; it then
+   * applies in one step, so an act in between sees the old revisions (excerpts, design decision 4).
+   * An update with nothing to read applies before this returns, and one ask's updates apply in the
+   * order they came.
    */
-  update(request: unknown): UpdateOutcome {
+  async update(request: unknown): Promise<UpdateOutcome> {
     const checked = validateUpdateRequest(request);
     if (!checked.ok) return { kind: "invalid", problems: checked.problems };
     const { askId, actions } = checked.value;
-    const ask = this.#asks.get(askId);
-    if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
-    if (ask.state === "closed") return { kind: "closed", askId };
-    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()));
-    if (effects?.document) this.#publish({ type: "document", askId });
-    if (effects?.state) this.#publish({ type: "state", askId });
-    if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });
-    return outcome;
+    for (let pending = this.#updating.get(askId); pending; pending = this.#updating.get(askId)) {
+      await pending;
+    }
+    const now = timeOf(this.#ports.clock.now());
+    const preview = this.#asks.get(askId)?.preview(actions, now);
+    if (preview === undefined || !preview.revisions.some(({ props }) => hasPointers(props))) {
+      return this.#applyUpdate(askId, actions, new Map());
+    }
+    const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    const { revisions, heldImageBytes } = preview;
+    const reading = this.#resolve(revisions, root, ASK_IMAGES_MAX_BYTES - heldImageBytes);
+    this.#updating.set(askId, reading);
+    try {
+      return this.#applyUpdate(askId, actions, await reading);
+    } finally {
+      this.#updating.delete(askId);
+    }
   }
 
   /**
@@ -602,6 +618,22 @@ export class AskCore {
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
     const warnings = ask.contextWarnings;
     return { kind: "created", ask: ask.summary, ...(warnings.length === 0 ? {} : { warnings }) };
+  }
+
+  // An update's actions applied to the ask as it is now, with what its new revisions resolved.
+  #applyUpdate(
+    askId: string,
+    actions: Parameters<Ask["update"]>[0],
+    context: ReadonlyMap<string, QuestionContext>,
+  ): UpdateOutcome {
+    const ask = this.#asks.get(askId);
+    if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
+    if (ask.state === "closed") return { kind: "closed", askId };
+    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()), context);
+    if (effects?.document) this.#publish({ type: "document", askId });
+    if (effects?.state) this.#publish({ type: "state", askId });
+    if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });
+    return outcome;
   }
 
   // Context, E5 (excerpts, design decision 4): the send's pointers read through the port, within
