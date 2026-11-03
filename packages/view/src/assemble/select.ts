@@ -6,6 +6,7 @@
 import type { ManifestChunk, ManifestFile, SnapshotRender, ViewManifest } from "@askboard/contract";
 import { componentsOf } from "../catalog/components.ts";
 import type { ViewDocument } from "../view-document.ts";
+import { keptComponents } from "./kept-render.ts";
 
 export type SelectedChunk = { readonly name: string; readonly chunk: ManifestChunk };
 
@@ -28,17 +29,31 @@ const chunkNamed = (chunks: Chunks, name: string, why: string): ManifestChunk =>
   return chunk;
 };
 
+// For a Snapshot, a component chunk naming a kept-render chunk gives way to it when the renders
+// cover every item of its component, and is joined by it when they do not (snapshot design
+// decision 4, Kept renders); a board ignores renders.
+const componentRoots = (
+  [name, chunk]: [string, ManifestChunk],
+  component: string,
+  kept: ReadonlySet<string> | undefined,
+): string[] => {
+  const keptRender = chunk.keptRender;
+  if (kept === undefined || keptRender === undefined) return [name];
+  return kept.has(component) ? [keptRender] : [name, keptRender];
+};
+
 // The shell, and the chunk registering each component the board's items render with, widget
-// items included (design decision 7); for a board, every host-only chunk too, which only a view
-// with a host loads (snapshot design decision 5).
+// items included (design decision 7), or its kept-render chunk; for a board, every host-only chunk
+// too, which only a view with a host loads (snapshot design decision 5).
 const roots = (document: ViewDocument, chunks: Chunks, target: SelectionTarget): string[] => {
   const entries = Object.entries(chunks);
   const shell = entries.find(([, chunk]) => chunk.kind === "shell")?.[0];
   if (shell === undefined) throw new Error("the manifest has no shell chunk");
-  const components = componentsOf(document).map((component) => {
+  const kept = target.output === "snapshot" ? keptComponents(document, target.renders) : undefined;
+  const components = componentsOf(document).flatMap((component) => {
     const found = entries.find(([, chunk]) => chunk.components?.includes(component) === true);
     if (found === undefined) throw new Error(`no chunk of the manifest registers "${component}"`);
-    return found[0];
+    return componentRoots(found, component, kept);
   });
   const hosted = target.output === "board" ? entries.filter(([, chunk]) => chunk.hostOnly) : [];
   return [shell, ...hosted.map(([name]) => name), ...components];
@@ -80,8 +95,9 @@ const before = (a: SelectedChunk, b: SelectedChunk): number =>
 /**
  * The shell, the chunks of the components the board's items render with, and every chunk those
  * need, each after the chunks it needs: libraries first, then the shell, then the components,
- * by name within each kind. A board's take the host-only chunks too, a Snapshot's none. The order
- * depends only on the input, so `assemble` is repeatable.
+ * by name within each kind. A board's take the host-only chunks too, a Snapshot's none, and a
+ * Snapshot's take a kept-render chunk for a component its renders cover. The order depends only on
+ * the input, so `assemble` is repeatable.
  */
 export const selectChunks = (
   document: ViewDocument,

@@ -179,7 +179,7 @@ describe("a Snapshot's licence notices (Licence notices in a Snapshot)", () => {
 describe("the Snapshot's modules are pure ECMAScript (AD-9: snapshot calls assemble too)", () => {
   test("they import only the contract and each other", async () => {
     const transpiler = new Bun.Transpiler({ loader: "ts" });
-    for (const path of ["json-block.ts", "licences.ts"]) {
+    for (const path of ["json-block.ts", "licences.ts", "kept-render.ts"]) {
       const source = await Bun.file(`${import.meta.dir}/${path}`).text();
       for (const { path: specifier } of transpiler.scanImports(source)) {
         expect([path, specifier === "@askboard/contract" || specifier.startsWith(".")]).toEqual([
