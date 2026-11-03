@@ -74,9 +74,9 @@ export const composedSessions = () => {
     return { script, record };
   };
 
-  /** Starts a composed session process and connects a client to it. */
+  /** Starts a composed session process and connects a client to it; an undefined variable is unset. */
   const start = async (
-    env: Readonly<Record<string, string>>,
+    env: Readonly<Record<string, string | undefined>>,
     view: string = writeView(),
     client: ClientIdentity = CLAUDE_CODE,
     clock?: Clock,
