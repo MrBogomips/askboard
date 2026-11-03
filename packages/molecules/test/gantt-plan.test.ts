@@ -1,24 +1,17 @@
 // The Gantt plan molecule (gantt-widget, task 7.5; molecules spec; design decision 6): its
-// parameters as data, checked by the Gantt's own definitions, and what its expansion gives.
+// parameters as data, checked by the Gantt's own definitions. What its expansion gives is tested
+// through `ask-core`'s expansion with the shipped definitions, in `molecule-source`.
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import {
-  GANTT_MAX_TASKS,
-  ganttPlanLinkProblems,
-  ganttPropsSchema,
-  type MoleculeDefinition,
-} from "@askboard/contract";
-import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
+import { GANTT_MAX_TASKS, ganttPropsSchema, type MoleculeDefinition } from "@askboard/contract";
 import {
   createAjv,
   moleculeDataValidator,
   problemOf,
-  validateGanttProps,
   validateMoleculeDefinition,
 } from "@askboard/contract/validate";
 import { READY_MOLECULES } from "../src/index.ts";
-import { expandGanttPlan, type GanttPlanReference } from "./expand.ts";
 
 const FILE = join(import.meta.dir, "../src/gantt-plan/gantt-plan.json");
 const PARAMETERS_ID = "urn:askboard:molecule:gantt-plan:1";
@@ -27,8 +20,7 @@ const PARAMETERS_ID = "urn:askboard:molecule:gantt-plan:1";
 const ask = await Bun.file(
   join(import.meta.dir, "../../contract/test/fixtures/asks/uj2-wbs-gantt.json"),
 ).json();
-const reference = ask.items[0].props.items[1] as GanttPlanReference;
-const { data } = reference.props;
+const { data } = ask.items[0].props.items[1].props as { data: Record<string, unknown> };
 
 const definition = JSON.parse(await Bun.file(FILE).text()) as MoleculeDefinition;
 
@@ -163,37 +155,5 @@ describe("the Gantt plan in the molecule format (molecules spec, The Gantt plan'
       reason: "schema",
       problems: [{ path: "/calendar", message: 'unknown field "calendar"' }],
     });
-  });
-});
-
-describe("the Gantt plan's expansion (molecules spec, The Gantt plan's expansion)", () => {
-  const [question] = ganttPlanBoardDocument.items;
-  const [, plan] = question.props.items;
-
-  test("gives the fixture plan from the approved data", () => {
-    expect(reference.props.molecule).toBe("gantt-plan");
-    const expanded: unknown = expandGanttPlan(reference);
-    expect(expanded).toEqual(plan);
-  });
-
-  test("gives props that validate as a Gantt plan's, linked to the Tree wbs", () => {
-    const expanded = expandGanttPlan(reference);
-    expect(validateGanttProps(expanded.props, "agent")).toEqual({
-      ok: true,
-      value: expanded.props,
-    });
-    expect(ganttPlanLinkProblems(expanded, question)).toEqual([]);
-  });
-
-  test("gives an empty plan for data without dependencies, sharing no list with the data", () => {
-    const bare = { ...reference, props: { ...reference.props, data: { ...data } } };
-    delete (bare.props.data as { dependencies?: unknown }).dependencies;
-    expect(expandGanttPlan(bare).props).toEqual({
-      workPackages: "wbs",
-      start: "2026-11-02",
-      tasks: {},
-    });
-    const expanded = expandGanttPlan(reference);
-    expect(expanded.props.tasks.portal?.dependencies).not.toBe(data.dependencies?.portal);
   });
 });
