@@ -1,6 +1,7 @@
 // A fake of the mod API subset (`src/mod-api.ts`) for the mod's tests: every call is recorded, the
 // file system is a map, the clock is the test's, and each call the mod makes on Claude Code
-// (process runs, fetches, appends, submits, the agent list) goes to a handler the test can replace.
+// (process runs, fetches, appends, sends, submits, the agent list) goes to a handler the test can
+// replace.
 // A `find` run, the mod's check of the session folder and file, is answered from the fake's file
 // system, with each path's owner and mode, as BSD and GNU `find` answer it, and recorded apart from
 // the other runs. `fakeOn` stands for the engine's `on`: it keeps each hook and fires it as the
@@ -22,6 +23,8 @@ import type {
   RenderElement,
   SessionAppendArgs,
   SessionAppendResult,
+  SessionSendArgs,
+  SessionSendResult,
   TurnCompleteInput,
   TurnStartInput,
   TurnStepInput,
@@ -51,6 +54,7 @@ export type Calls = {
   readonly find: Ran[];
   readonly fetch: Fetched[];
   readonly append: SessionAppendArgs[];
+  readonly send: SessionSendArgs[];
   readonly submit: PromptSubmitArgs[];
   readonly status: (string | undefined)[];
   readonly toast: string[];
@@ -67,6 +71,8 @@ export type Handlers = {
   run: (argv: readonly string[], init?: ProcessRunInit) => Promise<ProcessRunResult>;
   fetch: (url: string, init?: HttpInit) => Promise<HttpResponse>;
   append: (args: SessionAppendArgs) => Promise<SessionAppendResult>;
+  /** A message to an agent: delivered unless the test says otherwise. */
+  send: (args: SessionSendArgs) => Promise<SessionSendResult>;
   submit: (args: PromptSubmitArgs) => Promise<PromptSubmitResult>;
   agents: () => Promise<readonly AgentInfo[]>;
   /** The surfaces the session draws on: the terminal alone unless the test says otherwise. */
@@ -127,6 +133,7 @@ export const fakeModApi = (options: FakeOptions = {}) => {
     find: [],
     fetch: [],
     append: [],
+    send: [],
     submit: [],
     status: [],
     toast: [],
@@ -154,6 +161,7 @@ export const fakeModApi = (options: FakeOptions = {}) => {
     run: unexpected("a process run"),
     fetch: unexpected("a fetch"),
     append: async () => ({ uuid: `row-${calls.append.length}` }),
+    send: async () => ({ isDelivered: true }),
     submit: async ({ text }) => ({ text }),
     agents: async () => [],
     surfaces: async () => ["terminal"],
@@ -197,6 +205,11 @@ export const fakeModApi = (options: FakeOptions = {}) => {
       surfaces: () => {
         reach("session.surfaces");
         return handlers.surfaces();
+      },
+      send: (args) => {
+        reach("session.send");
+        calls.send.push(args);
+        return handlers.send(args);
       },
     },
     prompt: {

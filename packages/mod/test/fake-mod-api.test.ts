@@ -17,6 +17,8 @@ describe("the fake mod API", () => {
     };
     expect(await api.session.append(row)).toEqual({ uuid: "row-1" });
     expect(await api.prompt.submit({ text: "b" })).toEqual({ text: "b" });
+    const message = { to: { agentId: "a" }, text: "e" };
+    expect(await api.session.send(message)).toEqual({ isDelivered: true });
     expect(await api.agent.list()).toEqual([]);
     api.ui.log("c");
     api.ui.toast("d");
@@ -26,6 +28,7 @@ describe("the fake mod API", () => {
     expect(calls).toMatchObject({
       invalidate: ["ui.render"],
       append: [row],
+      send: [message],
       submit: [{ text: "b" }],
       log: ["c"],
       toast: ["d"],

@@ -1,11 +1,13 @@
 // The subset of Claude Code's mod API that AskBoard's mod uses (design decision 7), declared here
 // from the engine's own declarations (`claude-code`, 2.1.311 to 2.1.314) and the mod delivery
 // spike's probe, so that `mod` compiles with ECMAScript libraries alone. Only what the mod calls is
-// declared: `$.session.send`, a submit `asUser` and any variable but the session folder's two are
-// left out, so the compiler refuses them (AD-4, AD-5). The pending-asks band (PO decision of
-// 2026-11-03) adds the `ui.render` hook on `AbovePrompt`, the elements it draws with, which the mod
-// calls as constructors rather than through JSX, and `$.ui.resolve`, `$.ui.invalidate` and
-// `$.session.surfaces`.
+// declared: a submit `asUser` and any variable but the session folder's two are left out, so the
+// compiler refuses them (AD-4, AD-5). The pending-asks band (PO decision of 2026-11-03) adds the
+// `ui.render` hook on `AbovePrompt`, the elements it draws with, which the mod calls as
+// constructors rather than through JSX, and `$.ui.resolve`, `$.ui.invalidate` and
+// `$.session.surfaces`. The idle-teammate wake (PO decision of 2026-11-03, G2) adds, from the
+// 2.1.317 declarations, `$.session.send`, declared for that wake alone and only with an agent ID as
+// its recipient, and the agents' `teammateId` and `name`.
 
 /** The engine interface a hook receives as `$`, reduced to what the mod calls. */
 export type ModApi = {
@@ -36,6 +38,12 @@ export type ModApi = {
      * remote ones (`desktop`, `vscode`, `mobile`). Empty in a plain `-p` run; never rejects.
      */
     surfaces(): Promise<readonly string[]>;
+    /**
+     * Sends a plain-text message to an agent of the session, framed at the receiver as a peer's,
+     * attributed to the plugin; resolves once queued in its inbox, which wakes an idle teammate.
+     * For an idle in-process teammate alone (G2): auto mode refuses a mod's send (finding D13).
+     */
+    send(args: SessionSendArgs): Promise<SessionSendResult>;
   };
   readonly prompt: {
     /**
@@ -99,6 +107,25 @@ export type SessionAppendResult =
   | { readonly uuid: string; readonly deny?: undefined }
   | { readonly deny: string; readonly uuid?: undefined };
 
+/** A message to an agent: `session.send`'s input as the mod gives it. */
+export type SessionSendArgs = {
+  /**
+   * The recipient, by the agent ID `$.agent.list()` lists; the engine takes a name, an address or
+   * a session ID too, which the mod never uses.
+   */
+  readonly to: { readonly agentId: string };
+  /** The message's text, non-empty. */
+  readonly text: string;
+};
+
+/**
+ * Whether the message was delivered: queued in the recipient's inbox, never read yet. When not,
+ * `reason` says why, as the SendMessage tool words it.
+ */
+export type SessionSendResult =
+  | { readonly isDelivered: true; readonly reason?: undefined }
+  | { readonly isDelivered: false; readonly reason: string };
+
 /** The prompt's text alone: the mod never submits as the user (AD-4). */
 export type PromptSubmitArgs = { readonly text: string };
 
@@ -118,8 +145,13 @@ export type AgentStatus =
 export type AgentInfo = {
   /** The agent's one ID: a hook's `agent_id`, a turn event's `agentId`. */
   readonly id: string;
+  /** A teammate's address in its team, `<name>@<team>`; absent for any other agent. */
+  readonly teammateId?: string;
+  /** What SendMessage addresses it by, when it has one: a teammate's name in its team. */
+  readonly name?: string;
   readonly type: string;
   readonly description: string;
+  /** Where its loop stands: a teammate that waits for a message is `idle`, not `running`. */
   readonly status: AgentStatus;
 };
 

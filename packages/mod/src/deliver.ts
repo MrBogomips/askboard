@@ -1,7 +1,8 @@
-// The two push calls (AD-4; design decision 7): an append, to a running subagent or to the main
-// conversation while its turn runs, and a submit, which starts a main turn. Both are attributed to
-// the plugin: the mod never uses `$.session.send` and never submits as the user. An event counts as
-// pushed once its call is made (finding O7); a call that fails takes it back.
+// The three push calls (AD-4; design decision 7): an append, to a running subagent or to the main
+// conversation while its turn runs; a submit, which starts a main turn; and a send, which wakes an
+// idle in-process teammate (G2), the one use of `$.session.send`. All are attributed to the plugin:
+// the mod never submits as the user. An event counts as pushed once its call is made (finding O7);
+// a call that fails takes it back.
 
 import { debug } from "./diagnostics.ts";
 import type { Memory } from "./memory.ts";
@@ -33,6 +34,25 @@ export const appendPush = async (
       ...(agentId === undefined ? {} : { agentId }),
     });
     return stored.deny === undefined;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Sends one push as a message to an agent's inbox, which wakes an idle teammate; true once
+ * delivered. A send not delivered, as auto mode answers a mod's (finding D13), or one that
+ * rejects, is false: nothing reached the agent.
+ */
+export const sendPush = async (
+  $: ModApi,
+  epoch: string,
+  asks: readonly PushedAsk[],
+  agentId: string,
+): Promise<boolean> => {
+  try {
+    const sent = await $.session.send({ to: { agentId }, text: pushText(epoch, asks) });
+    return sent.isDelivered === true;
   } catch {
     return false;
   }
