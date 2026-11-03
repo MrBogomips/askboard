@@ -3,6 +3,7 @@
 // changes asks (AD-3).
 
 import {
+  type AgentStatus,
   type AskState,
   type ClosedReason,
   type DiscardReason,
@@ -31,6 +32,23 @@ import { canonicalize } from "./canonical.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
+import { AgentStatuses } from "./push/agent-status.ts";
+import { expectedAnswerer } from "./push/answerer.ts";
+import { PushDelivery } from "./push/delivery.ts";
+import type {
+  AskOverview,
+  Binding,
+  CallIdentity,
+  ClientVersionSource,
+  DeliveredOutcome,
+  OwnerRefusal,
+  PushAskOutcome,
+  PushReadOutcome,
+  StopEnd,
+  StopFit,
+  StopOutcome,
+  WhoAsked,
+} from "./push/ports.ts";
 import { cursorOf, deriveTitle, makeEpoch, nameOf, parseCursor, timeOf } from "./text.ts";
 
 /** Who answers when neither the ask nor the machine names anyone. */
@@ -48,7 +66,8 @@ export type AskOutcome =
   /** The ID is that of an ask of this epoch, and the request is not an identical resend. */
   | { readonly kind: "in-use"; readonly askId: string }
   /** The session is ending: its asks were discarded, and it takes no new one. */
-  | { readonly kind: "ending" };
+  | { readonly kind: "ending" }
+  | PushAskOutcome;
 
 /**
  * What the subscription carries: events appended to an ask's log, all those of one command in one
@@ -57,9 +76,13 @@ export type AskOutcome =
  * told (AD-21). The ask lifecycle adds, for changes that append no event: `document`, the board
  * document changed; `state`, what the board's state shows changed, such as a recorded answer, a
  * reopen, a delete or a reply; `closed`, the ask closed, which wakes its waiters (ask-lifecycle,
- * design decision 3). An update publishes each once, after it applies, in that order.
+ * design decision 3). An update publishes each once, after it applies, in that order. Push
+ * delivery adds `agent`: the ask's agent status changed, which is presence, never logged (AD-4).
  */
-export type CoreEvent =
+export type CoreEvent = E1Event | LifecycleEvent | PushEvent;
+
+/** E1's events: an ask's log appended to, its `received` raised, the ask discarded. */
+export type E1Event =
   | {
       readonly type: "appended";
       readonly askId: string;
@@ -69,10 +92,20 @@ export type CoreEvent =
       readonly events: readonly OutputEvent[];
     }
   | { readonly type: "received"; readonly askId: string; readonly cursor: string }
-  | { readonly type: "discarded"; readonly askId: string; readonly reason: DiscardReason }
+  | { readonly type: "discarded"; readonly askId: string; readonly reason: DiscardReason };
+
+/** The ask lifecycle's events, for changes that append no event (ask-lifecycle). */
+export type LifecycleEvent =
   | { readonly type: "document"; readonly askId: string }
   | { readonly type: "state"; readonly askId: string }
   | { readonly type: "closed"; readonly askId: string; readonly reason: ClosedReason };
+
+/** Push delivery's events (E4): the ask's agent status changed, presence only (AD-4). */
+export type PushEvent = {
+  readonly type: "agent";
+  readonly askId: string;
+  readonly status: AgentStatus;
+};
 
 /** An ask's events after a cursor (AD-3, AD-10). */
 export type ReadOutcome =
@@ -101,7 +134,8 @@ export type ReadOutcome =
       readonly cursor: string;
       readonly latest: string;
     }
-  | { readonly kind: "malformed"; readonly askId: string; readonly cursor: string };
+  | { readonly kind: "malformed"; readonly askId: string; readonly cursor: string }
+  | PushReadOutcome;
 
 export type Listener = (event: CoreEvent) => void;
 
@@ -131,19 +165,32 @@ export class AskCore {
   // Set by the discard at session exit: no ask may be created after it, or it would never be
   // discarded.
   #ending = false;
+  readonly #push: PushDelivery;
+  readonly #statuses: AgentStatuses;
 
   constructor(ports: CorePorts) {
     this.#ports = ports;
     this.epoch = makeEpoch(ports.randomness);
+    this.#push = new PushDelivery(ports, {
+      epoch: this.epoch,
+      ask: (askId) => this.#asks.get(askId),
+      markRead: (askId, cursor) => this.markRead(askId, cursor),
+    });
+    this.#statuses = new AgentStatuses(ports.header, ports.clock, (askId, status) =>
+      this.#publish({ type: "agent", askId, status }),
+    );
   }
 
   /**
    * Creates an ask, in the order of SOLUTION-DESIGN §5.1: validate, check that a board can be
    * shown (else `unavailable`, creating nothing), settle who answers, make the link, store the ask
    * with its rev-1 board document, then open the board. A failure to make the link rejects, and
-   * nothing is created.
+   * nothing is created. With `call`, the call is first bound to its agent record, whose agent owns
+   * the ask it creates (design decision 4). After the showability check, a Claude Code below the
+   * minimum is refused (AD-18); the board opens only while no board is working (AD-2).
    */
-  async ask(request: unknown): Promise<AskOutcome> {
+  async ask(request: unknown, call?: CallIdentity): Promise<AskOutcome> {
+    const caller = call === undefined ? undefined : await this.#push.bind(call);
     const checked = validateAskRequest(request);
     if (!checked.ok) return { kind: "invalid", problems: checked.problems };
     const { askId } = checked.value;
@@ -154,9 +201,9 @@ export class AskCore {
       await pending;
     }
     const existing = this.#asks.get(askId);
-    if (existing !== undefined) return this.#resend(existing, canonical);
+    if (existing !== undefined) return this.#resend(existing, canonical, caller);
     if (this.#ending) return { kind: "ending" };
-    const creation = this.#create(checked.value, canonical);
+    const creation = this.#create(checked.value, canonical, caller);
     this.#creating.set(
       askId,
       creation.then(
@@ -188,14 +235,17 @@ export class AskCore {
   /**
    * The ask's state, latest cursor and events after `after`. A cursor of another epoch reports
    * the ask discarded, never as having no answer yet (AD-10). Reading does not raise `received`:
-   * the reader marks what it returned with `markRead`.
+   * the reader marks what it returned with `markRead`. An owned ask is read only by a call bound
+   * to its owner (`caller`, from `bind`), and refused to any other, revealing nothing (AD-5).
    */
-  read(askId: string, after: string): ReadOutcome {
+  read(askId: string, after: string, caller?: Binding): ReadOutcome {
     const cursor = parseCursor(after);
     if (cursor === undefined) return { kind: "malformed", askId, cursor: after };
     if (cursor.epoch !== this.epoch) return { kind: "discarded", askId, cursor: after };
     const ask = this.#asks.get(askId);
     if (ask === undefined) return { kind: "unknown", askId };
+    const refusal = this.ownerRefusal(askId, caller);
+    if (refusal !== undefined) return { kind: refusal, askId };
     if (cursor.seq > ask.latestSeq) {
       return { kind: "beyond", askId, cursor: after, latest: ask.cursor };
     }
@@ -368,12 +418,121 @@ export class AskCore {
     if (event !== undefined) this.#publish({ type: "appended", askId, event, events });
   }
 
+  // Push delivery (E4, design decisions 4 and 5).
+
+  /** Binds a call to its agent record, once per call; undefined when it carries none (AD-5). */
+  bind(call: CallIdentity): Promise<Binding | undefined> {
+    return this.#push.bind(call);
+  }
+
+  /** The ask's owner key and origin, or undefined for an unchecked ask (AD-5). */
+  ownerOf(askId: string): Binding | undefined {
+    return this.#push.ownerOf(askId);
+  }
+
+  /**
+   * Why a call bound to `caller` (absent when it carried no record) may not act on the ask, or
+   * undefined when it may: the one owner check every tool that acts on an ask applies (AD-5). An
+   * unchecked ask takes any caller.
+   */
+  ownerRefusal(askId: string, caller?: Binding): OwnerRefusal | undefined {
+    return this.#push.refusal(askId, caller);
+  }
+
+  /**
+   * The epoch's asks in the order they were created, discarded ones included, as the local API
+   * reads them for the mod's poll, the pending-asks list and the terminal link (design decision 2).
+   */
+  overview(): readonly AskOverview[] {
+    return [...this.#asks.values()].map((ask) => this.#push.overview(ask));
+  }
+
+  /** The mod's report of a push (AD-3): raises `received`, and the board's receipt follows. */
+  delivered(askId: string, cursor: string): DeliveredOutcome {
+    return this.#push.delivered(askId, cursor);
+  }
+
+  /**
+   * The stop guard's decision on the owner's stop, acted on before it returns (AD-10): a block
+   * carries what `fit` keeps of the events above `received`, and raises `received` to that alone;
+   * an allow closes the owner's open asks (`agentFinished`) when the stop ends its work, and none
+   * when `end` is `idle`, the end of a turn only (G1).
+   */
+  stop(
+    ownerKey: string,
+    stopHookActive: boolean,
+    fit?: StopFit,
+    end: StopEnd = "finished",
+  ): StopOutcome {
+    const outcome = this.#push.stop(ownerKey, stopHookActive, fit);
+    if (outcome.decision === "allow" && end === "finished") this.agentFinished(ownerKey);
+    return outcome;
+  }
+
+  /**
+   * The subagent behind `ownerKey` finished (AD-10, FR-25): each open ask it owns gets its final
+   * `closed` event and closes with reason `agent-finished`; the subscribers hear the event, then
+   * the close, which wakes the ask's waiters.
+   */
+  agentFinished(ownerKey: string): void {
+    for (const askId of this.#push.asksOf(ownerKey)) {
+      const event = this.#asks.get(askId)?.finish();
+      if (event === undefined) continue;
+      this.#appended(askId, [event]);
+      this.#publish({ type: "closed", askId, reason: "agent-finished" });
+    }
+  }
+
+  /**
+   * Who asked and for whom, for the context header's first row (design decision 12): the owner's
+   * origin, the agent's name and the expected answerer when the header shows it.
+   */
+  whoAsked(askId: string): WhoAsked | undefined {
+    return this.#push.whoAsked(askId);
+  }
+
+  /** The ask's agent status (AD-4), or undefined for an ask this epoch does not hold. */
+  agentStatus(askId: string): AgentStatus | undefined {
+    return this.#statuses.statusOf(askId);
+  }
+
+  /**
+   * `mcp-tools`' report that a waiting `collect` on the ask started, and whether its owner is the
+   * main conversation, whose wait counts only until the background threshold; the returned
+   * function ends it (design decision 12).
+   */
+  waitStarted(askId: string, mainConversation: boolean): () => void {
+    return this.#statuses.waitStarted(askId, mainConversation);
+  }
+
+  /** The mod's report, through `board-host`, that the owner's turn started or completed (AD-4). */
+  turnReported(ownerKey: string, running: boolean): void {
+    this.#statuses.turnReported(ownerKey, running);
+  }
+
+  /** `board-host`'s report of an ask's board working signal (AD-2), false when it closes. */
+  setWorking(askId: string, working: boolean): void {
+    this.#push.setWorking(askId, working);
+  }
+
+  /**
+   * The Claude Code version: from `mcp-tools` when the client information names `claude-code`,
+   * from `board-host` when the mod reports it; the first wins over the second (AD-18).
+   */
+  setClientVersion(source: ClientVersionSource, version: string): void {
+    this.#push.setClientVersion(source, version);
+  }
+
   // An identical request under an open ask's ID returns its board and opens nothing; any other
-  // request under the ID of an ask of this epoch is refused (AD-6, FR-5).
-  #resend(ask: Ask, request: string): AskOutcome {
+  // request under the ID of an ask of this epoch is refused (AD-6, FR-5), and so is the identical
+  // one from a call that is not its owner's (AD-5): from another agent, whose ID is in use by this
+  // ask, or from a call with no record, which may be retried.
+  #resend(ask: Ask, request: string, caller: Binding | undefined): AskOutcome {
     if (ask.state === "discarded" || ask.request !== request) {
       return { kind: "in-use", askId: ask.askId };
     }
+    const refusal = this.#push.refusal(ask.askId, caller);
+    if (refusal !== undefined) return { kind: refusal, askId: ask.askId };
     return { kind: "resent", ask: ask.summary };
   }
 
@@ -388,13 +547,20 @@ export class AskCore {
     }
   }
 
-  async #create(input: LifecycleAskInput, request: string): Promise<AskOutcome> {
+  async #create(
+    input: LifecycleAskInput,
+    request: string,
+    caller: Binding | undefined,
+  ): Promise<AskOutcome> {
     const { askId } = input;
     const showing = await this.#ports.showing.check();
     if (!showing.showable) {
       return { kind: "unavailable", askId, reason: showing.reason, detail: showing.detail };
     }
+    const unsupported = this.#push.versionRefusal(askId);
+    if (unsupported !== undefined) return unsupported;
     const who = await this.#who(input);
+    const forUser = await this.#forUser(input);
     const link = await this.#ports.address.link(askId);
     if (this.#ending) return { kind: "ending" };
     const [first] = input.items;
@@ -402,11 +568,8 @@ export class AskCore {
     const title = input.title ?? deriveTitle(question.props.text);
     const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who });
     this.#asks.set(askId, ask);
-    try {
-      this.#ports.showing.open(link);
-    } catch (error) {
-      this.#ports.report(error);
-    }
+    this.#push.created(ask, input, caller, forUser);
+    this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
     return { kind: "created", ask: ask.summary };
   }
 
@@ -428,5 +591,20 @@ export class AskCore {
       (await lookup(() => identity.loginName())) ??
       UNKNOWN_USER
     );
+  }
+
+  // The expected answerer the context header shows (design decision 12): only with the header's
+  // ports, and asking the machine only when the ask names an expected user. A git user name that
+  // cannot be read is reported and counts as none.
+  async #forUser(input: LifecycleAskInput): Promise<string | undefined> {
+    const { header, identity, report } = this.#ports;
+    if (header === undefined || nameOf(input.expectedUser) === undefined) return undefined;
+    let gitUser: string | undefined;
+    try {
+      gitUser = nameOf(await identity.gitUserName());
+    } catch (error) {
+      report(error);
+    }
+    return expectedAnswerer(input.expectedUser, gitUser);
   }
 }

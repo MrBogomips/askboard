@@ -393,6 +393,10 @@ describe("what board-host sends 1.1", () => {
   test.each([
     ["done", { version, type: "done", actionId }],
     ["closed by the agent", { version, type: "closed", reason: "agent" }],
+    [
+      "closed when its owning subagent finished (push delivery)",
+      { version, type: "closed", reason: "agent-finished" },
+    ],
     ["a discard after the tab closed", { version, type: "discarded", reason: "board-closed" }],
     ["a board of areas", { version, type: "board", document: lifecycleBoardDocument }],
     [

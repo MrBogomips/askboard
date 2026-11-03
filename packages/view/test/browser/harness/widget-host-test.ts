@@ -22,13 +22,17 @@ export type WidgetHostRun = {
   readonly board: Board;
   readonly browser: BoardContext;
   /**
-   * Every view message the host page passed on, in order, but the draft mirror: since the ask
-   * lifecycle the view mirrors its draft record to the board page after each edit (AD-20), which
-   * reaches no agent, so it is kept apart in `drafts`.
+   * Every view message the host page passed on, in order, but the draft mirror and the activity:
+   * since the ask lifecycle the view mirrors its draft record to the board page after each edit
+   * (AD-20), which reaches no agent, so it is kept apart in `drafts`; since push delivery the view
+   * reports the user's keys and pointer for the board's working signal (design decision 10), which
+   * reaches no agent either, so it is kept apart in `activity`.
    */
   readonly messages: readonly ViewMessage[];
   /** The draft records the view mirrored, in order (ask-lifecycle, task 6.1). */
   readonly drafts: readonly ViewMessage[];
+  /** The activity messages the view sent (push delivery). */
+  readonly activity: readonly ViewMessage[];
   /** Sends the view a later update, as the board page sends each new state or lock. */
   update(update: ViewUpdate): Promise<void>;
 };
@@ -70,8 +74,11 @@ export const useWidgetHost = (engine: Engine) => {
     open.push(context);
     const messages: ViewMessage[] = [];
     const drafts: ViewMessage[] = [];
+    const activity: ViewMessage[] = [];
     await context.context.exposeBinding(WIDGET_HOST_BINDING, (_source, message: ViewMessage) => {
-      (message.type === "draft" ? drafts : messages).push(message);
+      if (message.type === "draft") drafts.push(message);
+      else if (message.type === "activity") activity.push(message);
+      else messages.push(message);
     });
     const page = await context.newTab(server.url);
     const update = async (next: ViewUpdate): Promise<void> => {
@@ -79,7 +86,7 @@ export const useWidgetHost = (engine: Engine) => {
         throw new Error("the widget host has not hosted the view yet: no update can reach it");
       }
     };
-    return { board: boardOf(page), browser: context, messages, drafts, update };
+    return { board: boardOf(page), browser: context, messages, drafts, activity, update };
   };
   return { host };
 };

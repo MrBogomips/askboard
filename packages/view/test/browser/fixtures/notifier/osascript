@@ -1,0 +1,3 @@
+#!/bin/sh
+# A stand-in for the system notifier (task 5.4): the browser tests show no notification.
+exit 0

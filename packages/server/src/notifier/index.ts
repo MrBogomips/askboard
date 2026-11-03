@@ -1,14 +1,25 @@
-// notifier: whether a board can be shown, and bringing a new board to the user's browser (AD-2,
-// AD-18). It imports only ask-core and the contract (AD-1). The opener starts with an argument
-// vector, never through a shell (AD-8): the link reaches it as one argument, whatever it holds.
+// notifier: whether a board can be shown, bringing a new board to the user's browser (AD-2,
+// AD-18), and a new ask's system notification (`notices.ts`, FR-23). It imports only ask-core and
+// the contract (AD-1). The opener starts with an argument vector, never through a shell (AD-8):
+// the link reaches it as one argument, whatever it holds.
 
 import { spawn as spawnProcess } from "node:child_process";
-import { accessSync, constants, statSync } from "node:fs";
-import { join } from "node:path";
+import { statSync } from "node:fs";
 import type { BoardShowing } from "@askboard/core";
 import { type Detection, detect, type Environment } from "./detect.ts";
+import { onPathOf } from "./on-path.ts";
 
 export { type Detection, type DetectionInput, detect, type Environment } from "./detect.ts";
+export { type NoticeText, noticeText } from "./notice-text.ts";
+export {
+  createNotices,
+  type NoticeProcess,
+  type NoticeSpawn,
+  type NoticesOptions,
+  OSASCRIPT_SCRIPT,
+  type SystemNotices,
+} from "./notices.ts";
+export { onPathOf } from "./on-path.ts";
 
 /** The part of a started process the opener uses. */
 export type Started = {
@@ -39,23 +50,6 @@ export class NoBoardOpenerError extends Error {
   override readonly name = "NoBoardOpenerError";
   readonly code = "NO_BOARD_OPENER";
 }
-
-const isExecutableFile = (path: string): boolean => {
-  try {
-    accessSync(path, constants.X_OK);
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
-};
-
-/** Whether a command is an executable file in one of `PATH`'s folders. */
-export const onPathOf =
-  (env: Environment) =>
-  (command: string): boolean =>
-    (env.PATH ?? "")
-      .split(":")
-      .some((folder) => folder !== "" && isExecutableFile(join(folder, command)));
 
 const fileExists = (path: string): boolean => {
   try {

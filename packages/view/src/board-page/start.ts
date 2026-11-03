@@ -10,13 +10,45 @@
 // (AD-8, `tools/build/board-page.ts`). Since the ask lifecycle (ask-lifecycle, design decision 6):
 // the draft record goes at once when the page is hidden or going away, the browser's leave-page
 // prompt is armed as the controller says (FR-25), and "Copy my unsent work" uses the clipboard.
+// The board's working signal (push delivery, `working-signal.ts`) follows the page's focus and
+// visibility and the user's keys and pointer, on the page and, through the view's activity message,
+// in the view; each socket sends it once accepted and on each change (`presence.ts`). While it is
+// on, it reads the focus again once a second, and it stops doing so when the page goes away.
 
+import { WORKING_WINDOW_MS } from "@askboard/contract";
 import { applyTheme, DARK_QUERY, followSystemTheme } from "../theme.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
 import { loadView } from "./load-view.ts";
 import { createPageChrome } from "./page-chrome.ts";
+import { withPresence } from "./presence.ts";
 import { boardLinkOf, connectBoard } from "./socket.ts";
 import { hostView, type ViewHost } from "./view-host.ts";
+import { createWorkingSignal, FOCUS_RECHECK_MS, type WorkingSignal } from "./working-signal.ts";
+
+const INPUTS = ["keydown", "pointerdown"] as const;
+
+// The signal over the page: a hidden tab has no focus. A blur that moves the focus into the view's
+// frame leaves `document.hasFocus()` true, so it is read once the focus has settled. A window that
+// loses the focus while it is inside the view sends the page no blur: the signal's recheck finds it.
+const workingSignalOf = (
+  window: Window,
+  schedule: (ms: number, run: () => void) => () => void,
+): WorkingSignal => {
+  const { document } = window;
+  const signal = createWorkingSignal({
+    focused: () => document.hasFocus() && document.visibilityState !== "hidden",
+    schedule,
+    windowMs: WORKING_WINDOW_MS,
+    recheckMs: FOCUS_RECHECK_MS,
+  });
+  window.addEventListener("focus", signal.check);
+  window.addEventListener("blur", () => schedule(0, signal.check));
+  document.addEventListener("visibilitychange", signal.check);
+  for (const type of INPUTS) {
+    window.addEventListener(type, signal.input, { capture: true, passive: true });
+  }
+  return signal;
+};
 
 export const startBoardPage = (window: Window): void => {
   const { document, location } = window;
@@ -32,8 +64,13 @@ export const startBoardPage = (window: Window): void => {
     host?.setTheme(next);
   });
   if (link === undefined) return;
+  const schedule = (ms: number, run: () => void) => {
+    const timer = window.setTimeout(run, ms);
+    return () => window.clearTimeout(timer);
+  };
+  const signal = workingSignalOf(window, schedule);
   page = runBoardPage({
-    connect: (events) => connectBoard(location, link, events),
+    connect: withPresence((events) => connectBoard(location, link, events), signal),
     openView: async (data, handle) => {
       const assembled = await loadView(data, link.token);
       const peer = chrome.frame.contentWindow;
@@ -42,10 +79,7 @@ export const startBoardPage = (window: Window): void => {
       chrome.frame.srcdoc = assembled.srcdoc;
       return host;
     },
-    schedule: (ms, run) => {
-      const timer = window.setTimeout(run, ms);
-      return () => window.clearTimeout(timer);
-    },
+    schedule,
     showBanner: chrome.showBanner,
     showLoadError: chrome.showLoadError,
     // `document.title` is text: the agent's title never becomes markup (AD-8).
@@ -57,15 +91,19 @@ export const startBoardPage = (window: Window): void => {
       else console.error(`askboard: ${text}:`, detail);
     },
     copyText: (text) => copyText(window, text),
+    onActivity: signal.input,
   });
-  // A page going away mirrors its draft and does not reconnect; one restored from the
-  // back-forward cache does.
+  // A page going away mirrors its draft, does not reconnect and stops reading its focus; one
+  // restored from the back-forward cache reconnects and reads it again.
   window.addEventListener("pagehide", () => {
     page?.flushDraft();
     page?.suspend();
+    signal.stop();
   });
   window.addEventListener("pageshow", (event) => {
-    if (event.persisted) page?.resume();
+    if (!event.persisted) return;
+    signal.check();
+    page?.resume();
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") page?.flushDraft();

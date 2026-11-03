@@ -196,6 +196,46 @@ describe("unit boundaries (AD-1)", () => {
     expect(violations[0]?.rule).toContain("entry point");
   });
 
+  // AD-1 as push delivery amends it (spine-update-draft block 1): the entry point runs the hook
+  // mode and the local API client of the same executable (AD-19), so it may import `hooks`; `hooks`
+  // still imports `contract` only, and no other unit imports `hooks`.
+  test.each(["packages/server/src/main.ts", "packages/server/src/hook-mode.ts"])(
+    "the session process entry point, %s, may import @askboard/hooks",
+    (file) => {
+      expect(checkSource(file, importOf("@askboard/hooks"))).toEqual([]);
+    },
+  );
+
+  test.each([
+    ["@askboard/core", "core"],
+    ["@askboard/compute", "compute"],
+    ["@askboard/server", "server"],
+    ["@askboard/mod", "mod"],
+    ["@askboard/view", "view"],
+    ["../../server/src/board-host/index.ts", "board-host"],
+    ["../../server/src/mcp-tools/index.ts", "mcp-tools"],
+    ["../../server/src/main.ts", "server"],
+    ["../../core/src/index.ts", "core"],
+  ])("hooks may not import %s", (specifier, target) => {
+    const violations = checkSource("packages/hooks/src/runner.ts", importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ target });
+    expect(violations[0]?.rule).toContain("hooks may import only contract");
+  });
+
+  test.each([
+    ...SERVER_UNITS.map((unit) => `packages/server/src/${unit}/index.ts`),
+    "packages/core/src/index.ts",
+    "packages/contract/src/index.ts",
+    "packages/mod/src/index.ts",
+    "packages/bench/src/index.ts",
+    "packages/view/src/index.ts",
+  ])("%s may not import @askboard/hooks", (file) => {
+    const violations = checkSource(file, importOf("@askboard/hooks"));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.target).toBe("hooks");
+  });
+
   test.each([
     ...SERVER_UNITS.flatMap((unit): [string, string][] => [
       [`packages/server/src/${unit}/index.ts`, "../main.ts"],
@@ -221,21 +261,27 @@ describe("unit boundaries (AD-1)", () => {
   });
 });
 
-describe("runtime-specific imports in core and compute (AD-1)", () => {
+describe("runtime-specific imports in core, compute and mod (AD-1)", () => {
   const BUILT_INS = ["node:fs", "fs", "fs/promises", "path", "bun", "bun:sqlite", "bun:test"];
 
-  test.each(["core", "compute"])("%s sources may not import Node or Bun built-ins", (unit) => {
-    for (const specifier of BUILT_INS) {
-      const violations = checkSource(`packages/${unit}/src/a.ts`, importOf(specifier));
-      expect(violations).toHaveLength(1);
-      expect(violations[0]?.rule).toContain("no Node-only or Bun-only API");
-    }
-  });
+  // The mod runs in Claude Code's mod environment, with no Node and no DOM: it reaches the machine
+  // only through the mod API (push delivery, design decision 7).
+  test.each(["core", "compute", "mod"])(
+    "%s sources may not import Node or Bun built-ins",
+    (unit) => {
+      for (const specifier of BUILT_INS) {
+        const violations = checkSource(`packages/${unit}/src/a.ts`, importOf(specifier));
+        expect(violations).toHaveLength(1);
+        expect(violations[0]?.rule).toContain("no Node-only or Bun-only API");
+      }
+    },
+  );
 
   test.each([
     "packages/core/src/a.test.ts",
     "packages/compute/src/graph/a.test.tsx",
     "packages/core/test/helpers.ts",
+    "packages/mod/test/fake-mod-api.ts",
   ])("%s, a test file, may import them", (file) => {
     for (const specifier of BUILT_INS) {
       expect(checkSource(file, importOf(specifier))).toEqual([]);
@@ -258,7 +304,7 @@ describe("triple-slash references (AD-1)", () => {
   const reference = (kind: string, value: string) =>
     `/// <reference ${kind}="${value}" />\nexport {};\n`;
 
-  test.each(["contract", "core", "compute"])(
+  test.each(["contract", "core", "compute", "mod"])(
     "%s sources may not reference type packages or non-ECMAScript libraries",
     (unit) => {
       for (const [kind, value] of [

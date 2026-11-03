@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   BOARD_CLOSE_CODES,
   BOARD_HOST,
@@ -8,6 +8,7 @@ import {
   BOARD_PROTOCOL_VERSION,
   BOARD_RESPONSES,
   boardPagePolicy,
+  type PollResponse,
   RESULT_VERSIONS,
   SCHEMA_IDS,
   TOOL_DEFINITIONS,
@@ -17,11 +18,22 @@ import {
   restartTranscript,
   transcripts,
 } from "@askboard/contract/fixtures";
-import { validateAgainst } from "@askboard/contract/validate";
-import { linkParts, openBoardSocket, replay } from "./board-page.ts";
+import { validateAgainst, validateLocalApi } from "@askboard/contract/validate";
+import { type BoardSocket, linkParts, openBoardSocket, replay } from "./board-page.ts";
+import type { ModHost } from "./mod-host.ts";
+import {
+  getOverSocket,
+  removeShortFolders,
+  runMode,
+  sessionFileIn,
+  shortFolder,
+  treeOf,
+} from "./modes.ts";
+import { afterPolls, answeredPolls } from "./push-steps.ts";
 import { launchBrowser, openRealBoard } from "./real-board.ts";
 import {
   bundleWith,
+  CONFIGURATION,
   cleanUp,
   distViewFiles,
   GIT_USER,
@@ -39,6 +51,11 @@ import {
 // page, opened in Chromium at the link the recorder caught; a scripted board page replays every
 // recorded board exchange, the refusals the real page never sends among them. Run it with run.ts
 // beside it.
+//
+// run.ts runs it in two of AD-1's configurations (push delivery, tasks 9.3 and 9.4): with the
+// mod disabled, its cases with hooks included, and with the hooks disabled, where those are left
+// out and a stand-in mod host runs the built mod beside every session process. Every ask is then
+// unchecked, so the mod is given no event and pushes nothing; everything else is as in E1.
 
 const version = BOARD_PROTOCOL_VERSION;
 const FIXTURES = join(import.meta.dir, "..", "..", "..", "contract", "test", "fixtures");
@@ -49,7 +66,30 @@ const QUESTION = plainChoiceBoardDocument.items[0];
 const ASK_ID = plainChoiceBoardDocument.askId;
 const WHEN = "2026-10-29T09:41:27Z";
 
-afterEach(cleanUp);
+const HOOKS_DISABLED = CONFIGURATION === "hooks-disabled";
+
+const modPushedNothing = (hosts: readonly ModHost[]): void => {
+  for (const { record } of hosts) {
+    expect(record.problems).toEqual([]);
+    expect(record.pushes).toEqual([]);
+    expect(record.toasts).toEqual([]);
+    expect(record.exchanges.filter((each) => each.path === "/v1/mod/delivered")).toEqual([]);
+    for (const poll of answeredPolls(record)) {
+      const { asks, pending } = poll.response as PollResponse;
+      expect(asks).toEqual([]);
+      for (const ask of pending) {
+        expect(ask.label).toBe("Agent");
+        expect(ask).not.toHaveProperty("agent_id");
+      }
+    }
+  }
+};
+
+afterEach(async () => {
+  const hosts = await cleanUp();
+  if (HOOKS_DISABLED) modPushedNothing(hosts);
+});
+afterEach(removeShortFolders);
 
 console.error(`conformance: ${RUNTIME}, dist/view`);
 
@@ -377,6 +417,168 @@ describe("resending an ask", () => {
   });
 });
 
+describe("a new ask's notices (push delivery, task 5.4)", () => {
+  test("with no board working, it opens through BROWSER and shows one notification", async () => {
+    const session = await startSession();
+    const asked = await session.call("ask", PLAIN_CHOICE);
+    const result = asked.json as { board: string };
+    expect(await session.nextOpened()).toEqual([result.board]);
+    for (let tries = 0; tries < 200 && session.notified().length === 0; tries += 1) {
+      await Bun.sleep(10);
+    }
+    expect(session.notified()).toHaveLength(1);
+    const [notified = []] = session.notified();
+    expect(notified[0]).toBe(process.platform === "darwin" ? "osascript" : "notify-send");
+    expect(notified).toContain(plainChoiceBoardDocument.title);
+    expect(notified.at(-1)).toBe(`${basename(session.project)} · 1 question`);
+    expect(notified.join("\n")).not.toContain(linkParts(result.board).token);
+    expect(await session.end()).toBe(0);
+    expect(session.opened()).toHaveLength(1);
+  });
+});
+
+describe.skipIf(HOOKS_DISABLED)(
+  "the bundle's hook and client modes (push delivery, task 6.6)",
+  () => {
+    const preToolUse = (askId: string, cwd: string) =>
+      JSON.stringify({
+        session_id: "0f6b6a43-6a6c-4c3e-9a55-3d1c1c0e2b7a",
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "mcp__plugin_askboard_askboard__ask",
+        tool_input: { askId },
+        tool_use_id: "toolu_01HJ6m9QxR2a7pLmWn3VbT4k",
+      });
+
+    test("the guard they run under ends a process that opens a listening socket", async () => {
+      const home = shortFolder();
+      const script = join(home, "listens.mjs");
+      await Bun.write(script, 'import http from "node:http";\nhttp.createServer().listen(0);\n');
+      const ran = await runMode([], { runtime: home, home, script });
+      expect(ran).toMatchObject({ code: 97, stderr: "no-listen: a listening socket was opened\n" });
+    });
+
+    test("a PreToolUse hook binds the next ask, opening no port and writing no file", async () => {
+      const runtime = shortFolder();
+      const home = shortFolder();
+      const session = await startSession({ env: { XDG_RUNTIME_DIR: runtime } });
+      await session.client.listTools();
+      await sessionFileIn(runtime);
+      const before = treeOf(runtime);
+      const askId = "hook-mode-db-k3f9";
+      const hooked = await runMode(["hook", "PreToolUse"], {
+        runtime,
+        home,
+        stdin: preToolUse(askId, session.project),
+      });
+      expect(hooked).toEqual({ code: 0, stdout: "", stderr: "" });
+      expect(treeOf(runtime)).toEqual(before);
+      expect(treeOf(home)).toEqual([]);
+      // The suite's MCP client sends no tool_use_id, so the record binds by the next-call rule.
+      const asked = await session.call("ask", askOf(askId));
+      expect(asked.isError).toBe(false);
+      expect(asked.json).not.toHaveProperty("warnings");
+      expect(await session.end()).toBe(0);
+    });
+
+    test("the client prints the poll response the socket gives, opening no port and writing no file", async () => {
+      const runtime = shortFolder();
+      const home = shortFolder();
+      const session = await startSession({ env: { XDG_RUNTIME_DIR: runtime } });
+      await session.client.listTools();
+      const file = await sessionFileIn(runtime);
+      const askId = "client-mode-db-k3f9";
+      const hooked = await runMode(["hook", "PreToolUse"], {
+        runtime,
+        home,
+        stdin: preToolUse(askId, session.project),
+      });
+      expect(hooked.code).toBe(0);
+      const { result, board } = await askAndConnect(session, askId);
+      board.send(answerOf(["SQLite"]));
+      for (let tries = 0; tries < 50; tries += 1) {
+        const polled = JSON.parse((await getOverSocket(file, "/v1/mod/poll")).body);
+        if (polled.asks.length > 0) break;
+        await Bun.sleep(20);
+      }
+      const before = treeOf(runtime);
+      const viaClient = await runMode(["client", "/v1/mod/poll"], { runtime, home });
+      const viaSocket = await getOverSocket(file, "/v1/mod/poll");
+      expect(viaSocket.status).toBe(200);
+      expect(viaClient).toEqual({ code: 0, stdout: viaSocket.body, stderr: "" });
+      const poll = JSON.parse(viaClient.stdout);
+      expect(validateLocalApi("pollResponse", poll).ok).toBe(true);
+      expect(poll).toMatchObject({
+        epoch: result.epoch,
+        asks: [{ askId, state: "answered", events: [{ type: "answer", choice: ["SQLite"] }] }],
+      });
+      expect(poll.asks[0]).not.toHaveProperty("agent_id");
+      expect(treeOf(runtime)).toEqual(before);
+      expect(treeOf(home)).toEqual([]);
+      expect(await session.end()).toBe(0);
+    });
+  },
+);
+
+describe.skipIf(HOOKS_DISABLED)("an ask its hook recorded (push delivery, task 4.8)", () => {
+  const recordOf = (tool: string, toolInput: Record<string, unknown>, cwd: string) =>
+    JSON.stringify({
+      session_id: "0f6b6a43-6a6c-4c3e-9a55-3d1c1c0e2b7a",
+      cwd,
+      hook_event_name: "PreToolUse",
+      tool_name: `mcp__plugin_askboard_askboard__${tool}`,
+      tool_input: toolInput,
+      tool_use_id: `toolu_owned_${tool}`,
+      agent_id: "a19c05fdf24e1b9a2",
+      agent_type: "code-reviewer",
+    });
+
+  /** The board socket's next message of a type, skipping the others. */
+  const nextOfType = async (board: BoardSocket, type: string): Promise<Record<string, unknown>> => {
+    for (;;) {
+      const message = (await board.next()) as Record<string, unknown>;
+      if (message.type === type) return message;
+    }
+  };
+
+  test("its owner's collect returns its events, and a call with no record is refused", async () => {
+    const runtime = shortFolder();
+    const home = shortFolder();
+    const session = await startSession({ env: { XDG_RUNTIME_DIR: runtime } });
+    await session.client.listTools();
+    await sessionFileIn(runtime);
+    const askId = "owned-db-k3f9";
+    const hook = (tool: string, toolInput: Record<string, unknown>) =>
+      runMode(["hook", "PreToolUse"], {
+        runtime,
+        home,
+        stdin: recordOf(tool, toolInput, session.project),
+      });
+
+    // The suite's MCP client sends no tool_use_id, so each record binds by the next-call rule.
+    expect(await hook("ask", { askId })).toEqual({ code: 0, stdout: "", stderr: "" });
+    const { result, board } = await askAndConnect(session, askId);
+    expect(result).not.toHaveProperty("warnings");
+    board.send(answerOf(["SQLite"]));
+    expect(await nextOfType(board, "state")).toMatchObject({ state: { ask: "answered" } });
+
+    const args = { asks: [{ askId, after: result.cursor }] };
+    const unbound = await session.call("collect", args);
+    expect(unbound.isError).toBe(true);
+    expect(unbound.text).toContain("no agent record");
+
+    expect(await hook("collect", args)).toEqual({ code: 0, stdout: "", stderr: "" });
+    const collected = await session.call("collect", args);
+    expect(collected.isError).toBe(false);
+    expect(collected.json).toMatchObject({
+      asks: [{ askId, state: "answered", events: [{ type: "answer", choice: ["SQLite"] }] }],
+    });
+    expect((collected.json as { asks: object[] }).asks[0]).not.toHaveProperty("unchecked");
+    expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
+    expect(await session.end()).toBe(0);
+  });
+});
+
 describe("no board can be shown", () => {
   for (const [what, options, reason] of [
     ["inside a container", { env: { DEVCONTAINER: "1" } }, "container"],
@@ -435,4 +637,27 @@ describe("the view build", () => {
       );
     });
   }
+});
+
+describe.if(HOOKS_DISABLED)("the mod beside the session process (push delivery, task 9.4)", () => {
+  // E1's cases mostly end before the mod's first poll: this one waits for it.
+  test("an answered unchecked ask is polled and pushed nothing, and waits for collect", async () => {
+    const session = await startSession();
+    const mod = session.mod;
+    if (mod === undefined) throw new Error("no mod host beside the session process");
+    const { result, board } = await askAndConnect(session);
+    expect(result).toMatchObject({ warnings: [{ code: "no-hooks" }] });
+    board.send(answerOf(["SQLite"]));
+    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "answered" } });
+    await afterPolls(mod, 2);
+    const polled = answeredPolls(mod.record).map((poll) => poll.response as PollResponse);
+    expect(polled.at(-1)?.pending).toMatchObject([{ askId: ASK_ID, label: "Agent" }]);
+    expect(mod.record.pushes).toEqual([]);
+    const collected = await collectAfterStart(session, result.epoch);
+    expect(collected.json).toMatchObject({
+      asks: [{ askId: ASK_ID, unchecked: true, events: [{ type: "answer", choice: ["SQLite"] }] }],
+    });
+    expect(await board.next()).toMatchObject({ type: "receipt", receipt: "delivered" });
+    expect(await session.end()).toBe(0);
+  });
 });

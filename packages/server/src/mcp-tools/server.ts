@@ -3,10 +3,15 @@
 // instructions whole (ask-lifecycle, design decision 2). Building it has no side effect:
 // `server/discover`, `initialize` and `tools/list` touch nothing (AD-2).
 
-import { SERVER_INSTRUCTIONS, TOOL_DEFINITIONS, type ToolDefinition } from "@askboard/contract";
+import {
+  CLAUDE_CODE_CLIENT_NAME,
+  SERVER_INSTRUCTIONS,
+  TOOL_DEFINITIONS,
+  type ToolDefinition,
+} from "@askboard/contract";
 import { Server, type Tool } from "@modelcontextprotocol/server";
 import { failure } from "./diagnostics.ts";
-import type { CallContext, ToolDeps } from "./ports.ts";
+import type { CallContext, ToolCore, ToolDeps } from "./ports.ts";
 import { errorResult, type ToolResult } from "./results.ts";
 
 /** The server's name and the plugin's, which make the full tool names (Consistency Conventions). */
@@ -48,23 +53,56 @@ const listed = (names: readonly string[]): string =>
 
 const TOOL_NAMES = listed(TOOL_DEFINITIONS.map(({ name }) => name));
 
-const contextOf = (ctx: {
+/** Where Claude Code names a call's tool use in its `_meta` (spike criterion 14). */
+const TOOL_USE_ID_KEY = "claudecode/toolUseId";
+/** The longest tool use ID an agent record carries (the local API's records schema). */
+const TOOL_USE_ID_MAX_CHARS = 256;
+/** The per-request envelope's client information (protocol revision 2026-07-28). */
+const CLIENT_INFO_KEY = "io.modelcontextprotocol/clientInfo";
+
+type RequestContext = {
   mcpReq: {
     signal: AbortSignal;
-    _meta?: { progressToken?: string | number };
+    _meta?: Readonly<Record<string, unknown>>;
+    /** The per-request envelope's keys, lifted out of `_meta` by the SDK. */
+    envelope?: unknown;
     notify: (notification: { method: string; params: Record<string, unknown> }) => Promise<void>;
   };
-}): CallContext => {
-  const token = ctx.mcpReq._meta?.progressToken;
-  if (token === undefined) return { signal: ctx.mcpReq.signal };
+};
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toolUseIdOf = (meta: Readonly<Record<string, unknown>> | undefined): string | undefined => {
+  const id = meta?.[TOOL_USE_ID_KEY];
+  return typeof id === "string" && id !== "" && id.length <= TOOL_USE_ID_MAX_CHARS ? id : undefined;
+};
+
+const contextOf = (ctx: RequestContext): CallContext => {
+  const { signal, _meta: meta } = ctx.mcpReq;
+  const toolUseId = toolUseIdOf(meta);
+  const base: CallContext = toolUseId === undefined ? { signal } : { signal, toolUseId };
+  const token = meta?.progressToken;
+  if (typeof token !== "string" && typeof token !== "number") return base;
   return {
-    signal: ctx.mcpReq.signal,
+    ...base,
     progress: (progress, message) =>
       ctx.mcpReq.notify({
         method: "notifications/progress",
         params: { progressToken: token, progress, message },
       }),
   };
+};
+
+/**
+ * Hands ask-core the Claude Code version the client information names (AD-18): the per-request
+ * envelope's, else the one `initialize` gave. A client of another name sets none.
+ */
+const noteClient = (core: ToolCore, server: Server, ctx: RequestContext): void => {
+  const envelope = isRecord(ctx.mcpReq.envelope) ? ctx.mcpReq.envelope : undefined;
+  const client: unknown = envelope?.[CLIENT_INFO_KEY] ?? server.getClientVersion();
+  if (!isRecord(client) || client.name !== CLAUDE_CODE_CLIENT_NAME) return;
+  if (typeof client.version === "string") core.setClientVersion("client-info", client.version);
 };
 
 /** The tool server, whose `tools/call` dispatches by name to these handlers. */
@@ -83,6 +121,7 @@ export const createToolServer = (
   server.setRequestHandler("tools/list", async () => ({ tools }));
   server.setRequestHandler("tools/call", async (request, ctx) => {
     const { name, arguments: args } = request.params;
+    noteClient(deps.core, server, ctx);
     const handler = Object.hasOwn(handlers, name) ? handlers[name] : undefined;
     let result: ToolResult;
     if (handler === undefined) {

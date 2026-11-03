@@ -108,6 +108,11 @@ export const fakeMcpServer =
         serverInfo: { name: "fake-askboard", version: "0.0.0" },
       });
     }
+    if (method === "tools/list") {
+      return result({
+        tools: Object.keys(tools).map((name) => ({ name, inputSchema: { type: "object" } })),
+      });
+    }
     const tool = method === "tools/call" ? tools[String(params.name)] : undefined;
     if (tool === undefined) {
       return [

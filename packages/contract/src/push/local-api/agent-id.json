@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:agent-id",
+  "title": "Claude Code agent ID",
+  "description": "A subagent's or an in-process teammate's agent_id, as Claude Code's hook input gives it; a teammate's is its team address, <name>@<team>, and the main conversation has none. Only the local API carries Claude Code's identifiers, and agents never see them (AD-5, AD-7).",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}

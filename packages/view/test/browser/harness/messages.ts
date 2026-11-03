@@ -5,7 +5,9 @@
 // E1's transcripts: it answers with an act command of one answer act under an action ID of its
 // own, which stands for the transcript's answer, and it mirrors draft records, which no E1
 // transcript holds and which never reach the agent, so they are left out (ask-lifecycle, design
-// decision 6).
+// decision 6). Push
+// delivery's presence messages (task 5.3) are no transcript's either: the comparisons leave them
+// out, and `presenceMessagesOf` lists them.
 
 import { ACTION_ID_PATTERN, type PageMessage, UTC_TIME_PATTERN } from "@askboard/contract";
 import type { ReplayTranscript } from "./transcripts.ts";
@@ -131,6 +133,14 @@ const parsed = (text: string): unknown => {
   }
 };
 
+/** Whether a message names itself the board page's presence message. */
+export const isPresenceMessage = (message: unknown): boolean =>
+  isRecord(message) && message.type === "presence";
+
+type Frame = RecordedSocket["frames"][number];
+
+const isPresenceFrame = (frame: Frame): boolean => isPresenceMessage(parsed(frame.text));
+
 // What the page sent that a transcript can hold: its draft records left out.
 const sentFrames = (socket: RecordedSocket) =>
   socket.frames.filter((frame) => frame.dir === "sent" && !isDraft(parsed(frame.text)));
@@ -139,11 +149,21 @@ const sentFrames = (socket: RecordedSocket) =>
 const usedSockets = (sockets: readonly RecordedSocket[]) =>
   sockets.filter((socket) => sentFrames(socket).length > 0);
 
+// What each socket that sent something sent, numbered as the transcript does, presence or not.
+const sentOf = (sockets: readonly RecordedSocket[], presence: boolean): SentMessage[] =>
+  usedSockets(sockets).flatMap((socket, at) =>
+    sentFrames(socket)
+      .filter((frame) => isPresenceFrame(frame) === presence)
+      .map((frame) => ({ socket: at + 1, message: parsed(frame.text) })),
+  );
+
 /** What the page sent on each socket that sent something, numbered as the transcript does. */
 export const pageMessagesOf = (sockets: readonly RecordedSocket[]): SentMessage[] =>
-  usedSockets(sockets).flatMap((socket, at) =>
-    sentFrames(socket).map((frame) => ({ socket: at + 1, message: parsed(frame.text) })),
-  );
+  sentOf(sockets, false);
+
+/** The presence messages the page sent, by socket, numbered as the transcript numbers sockets. */
+export const presenceMessagesOf = (sockets: readonly RecordedSocket[]): SentMessage[] =>
+  sentOf(sockets, true);
 
 /**
  * Page messages sent before the host's messages that precede them on their socket in the
@@ -160,6 +180,7 @@ export const orderProblems = (
     let received = 0;
     let sent = 0;
     return socket.frames.flatMap((frame) => {
+      if (frame.dir === "sent" && isPresenceFrame(frame)) return [];
       if (frame.dir === "received") {
         received += 1;
         return [];

@@ -113,6 +113,7 @@ export const startTestServer = async ({ transcript, view }: Scenario): Promise<B
     collected: () => replay.trigger("collected"),
     collect: () => Promise.reject(new Error(NO_AGENT)),
     update: () => Promise.reject(new Error(NO_AGENT)),
+    agentWaits: () => replay.trigger("waiting"),
     exit: () => replay.trigger("exit"),
     drop: () => replay.trigger("drop"),
     restore: async () => {

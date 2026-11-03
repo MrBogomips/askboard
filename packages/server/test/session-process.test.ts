@@ -1,7 +1,13 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative } from "node:path";
 import {
   BOARD_CLOSE_CODES,
   BOARD_PORT_RANGE,
@@ -10,19 +16,15 @@ import {
   GRACE_PERIOD_MS,
 } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import type { Clock } from "@askboard/core";
-import { Client } from "@modelcontextprotocol/client";
-import { InMemoryTransport } from "@modelcontextprotocol/server";
-import type { ExitSignal, SessionProcess } from "../src/mcp-tools/index.ts";
-import { startSessionProcess } from "../src/session-process.ts";
+import { sessionProjectRoot } from "../src/push-composition.ts";
 import {
   manualClock,
   openSocket,
   plainChoiceAsk,
-  removeViews,
   request,
   writeView,
 } from "./board-host/helpers.ts";
+import { CLAUDE_CODE, composedSessions, waitForFile } from "./composed-session.ts";
 
 // The session process as the entry point composes it (design decisions 3 and 9, task 7.2): ask-core
 // with board-host's address, the notifier's showing and the system identity, served by mcp-tools.
@@ -30,65 +32,8 @@ import {
 
 const version = BOARD_PROTOCOL_VERSION;
 const [question] = plainChoiceBoardDocument.items;
-const folder = mkdtempSync(join(tmpdir(), "askboard-session-"));
-afterAll(() => {
-  rmSync(folder, { recursive: true, force: true });
-  removeViews();
-});
-
-const project = join(folder, "project");
-Bun.spawnSync(["git", "init", "--quiet", project]);
-Bun.spawnSync(["git", "-C", project, "config", "user.name", "Paola Greco"]);
-
-const recorder = (name: string) => {
-  const record = join(folder, `${name}.txt`);
-  const script = join(folder, `${name}.sh`);
-  writeFileSync(
-    script,
-    `#!/bin/sh\nprintf '%s\\n' "$@" > '${record}.part'\nmv '${record}.part' '${record}'\n`,
-  );
-  chmodSync(script, 0o755);
-  return { script, record };
-};
-
-const start = async (
-  env: Readonly<Record<string, string>>,
-  view: string = writeView(),
-  clock?: Clock,
-) => {
-  const handlers = new Map<ExitSignal, () => void>();
-  const exits: number[] = [];
-  const process: SessionProcess = {
-    onSignal: (signal, handler) => handlers.set(signal, handler),
-    exit: (code) => exits.push(code),
-  };
-  const stderr: string[] = [];
-  const [clientEnd, serverEnd] = InMemoryTransport.createLinkedPair();
-  const session = startSessionProcess({
-    env: { PATH: globalThis.process.env.PATH ?? "", CLAUDE_PROJECT_DIR: project, ...env },
-    platform: globalThis.process.platform,
-    cwd: folder,
-    view,
-    version: "0.0.0-test",
-    process,
-    stderr: (line) => stderr.push(line),
-    transport: serverEnd,
-    ...(clock ? { clock } : {}),
-  });
-  const client = new Client({ name: "test", version: "0.0.0" });
-  await client.connect(clientEnd);
-  const call = async (name: string, args: Record<string, unknown>) => {
-    const result = await client.callTool({ name, arguments: args });
-    const [content] = result.content as { text: string }[];
-    return JSON.parse(content?.text ?? "{}");
-  };
-  return { client, call, session, exits, stderr, emit: (s: ExitSignal) => handlers.get(s)?.() };
-};
-
-const waitForFile = async (path: string) => {
-  for (let tries = 0; tries < 200 && !existsSync(path); tries += 1) await Bun.sleep(10);
-  return readFileSync(path, "utf8");
-};
+const { project, recorder, start, remove } = composedSessions();
+afterAll(remove);
 
 describe("the composed session process", () => {
   test("serves an ask from the tool call to the board and back, then ends cleanly", async () => {
@@ -171,7 +116,7 @@ describe("the composed session process", () => {
   });
 
   test("reports a browser that cannot start on stderr, with neither the link nor its token", async () => {
-    const run = await start({ BROWSER: join(folder, "no-such-browser") });
+    const run = await start({ BROWSER: join(project, "no-such-browser") });
     const asked = await run.call("ask", plainChoiceAsk("browser-missing"));
     const token = new URL(asked.board).searchParams.get("t") ?? "";
     for (let tries = 0; tries < 200 && run.stderr.length === 0; tries += 1) await Bun.sleep(10);
@@ -241,7 +186,7 @@ describe("the ask lifecycle in the composed session process", () => {
   test("a board closed past the grace period ends a waiting collect with the answer, then the discard", async () => {
     const { script } = recorder("grace");
     const time = manualClock();
-    const run = await start({ BROWSER: script }, writeView(), time.clock);
+    const run = await start({ BROWSER: script }, writeView(), CLAUDE_CODE, time.clock);
     const asked = await run.call("ask", threeQuestions("grace-board-k4p2"));
     const link = new URL(asked.board);
     const board = await openSocket(Number(link.port), asked.askId);
@@ -315,7 +260,12 @@ describe("the ask lifecycle in the composed session process", () => {
       ASKBOARD_GRACE: "1",
       GRACE_PERIOD_MS: "1",
     };
-    const run = await start({ BROWSER: script, ...overrides }, writeView(), time.clock);
+    const run = await start(
+      { BROWSER: script, ...overrides },
+      writeView(),
+      CLAUDE_CODE,
+      time.clock,
+    );
     const asked = await run.call("ask", plainChoiceAsk("no-override-board"));
     const link = new URL(asked.board);
     const board = await openSocket(Number(link.port), asked.askId);
@@ -337,5 +287,39 @@ describe("the ask lifecycle in the composed session process", () => {
       "utf8",
     );
     expect(composition).not.toMatch(/GRACE|env\.[A-Z_]*GRACE/);
+  });
+});
+
+describe("the session project root (AD-12)", () => {
+  test("is the real path of CLAUDE_PROJECT_DIR", () => {
+    const linked = join(dirname(project), "linked-project");
+    symlinkSync(project, linked);
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: linked })).toBe(realpathSync(project));
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: project })).toBe(realpathSync(project));
+  });
+
+  test("is absent when the variable is not set, is empty or names no folder", () => {
+    expect(sessionProjectRoot({})).toBeUndefined();
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: "" })).toBeUndefined();
+    const gone = join(dirname(project), "removed-project");
+    mkdirSync(gone);
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: join(gone, "not-there") })).toBeUndefined();
+  });
+
+  // Review fix L2: a relative path would resolve against the working folder, which never stands in.
+  test("is absent for a relative path, even one naming the project from the working folder", () => {
+    const named = relative(process.cwd(), project);
+    expect(realpathSync(named)).toBe(realpathSync(project));
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: named })).toBeUndefined();
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: "." })).toBeUndefined();
+  });
+
+  test("is absent when the path, or the one its link points to, names a file", () => {
+    const file = join(dirname(project), "project-file.txt");
+    writeFileSync(file, "not a folder");
+    const linked = join(dirname(project), "linked-file");
+    symlinkSync(file, linked);
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: file })).toBeUndefined();
+    expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: linked })).toBeUndefined();
   });
 });

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:agent-type",
+  "title": "Claude Code agent type",
+  "description": "A subagent's agent_type, as Claude Code's hook input gives it. Claude Code's own side agents give an empty one.",
+  "type": "string",
+  "maxLength": 256
+}

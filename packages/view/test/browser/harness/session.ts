@@ -4,6 +4,7 @@
 // `ASKBOARD_E2E_TARGET=session-process` selects (the runner's `--target`). The tests stay as they
 // are.
 
+import type { Asker } from "./asker.ts";
 import { startSessionProcess } from "./session-process.ts";
 import { targetFrom } from "./target.ts";
 import { startTestServer } from "./test-server.ts";
@@ -28,6 +29,12 @@ export type Scenario = {
    * target, and the transcript only names the ask.
    */
   readonly ask?: { readonly askId: string } & Readonly<Record<string, unknown>>;
+  /**
+   * Who asks and from where (push delivery, task 8.5): the session process is given the project,
+   * the worktree and the agent records that make it; the transcript holds the header messages the
+   * test server replays for it (`asker.ts`). Without it, an unchecked ask from the checkout.
+   */
+  readonly asker?: Asker;
 };
 
 export type BoardSession = {
@@ -42,6 +49,11 @@ export type BoardSession = {
   }>;
   /** The agent's `update` of the ask with these actions: its result. */
   update(actions: readonly unknown[]): Promise<unknown>;
+  /**
+   * The agent calls `collect` with `wait` on the ask's question (push delivery): it returns once
+   * the call is made, and the call returns when the user answers.
+   */
+  agentWaits(): Promise<void>;
   /** The session process exits with the board open; every open ask is discarded. */
   exit(): Promise<void>;
   /** The board's connection drops with no close frame; the network stays down until `restore`. */

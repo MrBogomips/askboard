@@ -31,6 +31,12 @@ const WSL_VARIABLES = ["WSL_DISTRO_NAME", "WSL_INTEROP"] as const;
 const DISPLAY_VARIABLES = ["DISPLAY", "WAYLAND_DISPLAY"] as const;
 const WSL_OPENERS = ["wslview", "explorer.exe"] as const;
 
+// An empty variable counts as unset.
+const isSet = (env: Environment, name: string) => (env[name] ?? "") !== "";
+
+/** Whether the environment is WSL's, where Linux runs under Windows. */
+export const isWsl = (env: Environment): boolean => WSL_VARIABLES.some((name) => isSet(env, name));
+
 const unshowable = (reason: UnavailableReason, detail: string): Detection => ({
   showable: false,
   reason,
@@ -39,8 +45,7 @@ const unshowable = (reason: UnavailableReason, detail: string): Detection => ({
 
 /** Whether a board can be shown, and with which opener. */
 export const detect = ({ platform, env, exists, onPath }: DetectionInput): Detection => {
-  // An empty variable counts as unset.
-  const set = (name: string) => (env[name] ?? "") !== "";
+  const set = (name: string) => isSet(env, name);
   const remote = REMOTE_VARIABLES.find(set);
   if (remote !== undefined) return unshowable("remote-host", `${remote} is set`);
   const marker = CONTAINER_FILES.find((file) => exists(file));
@@ -62,7 +67,7 @@ export const detect = ({ platform, env, exists, onPath }: DetectionInput): Detec
   if (platform !== "linux") {
     return unshowable("no-browser", `BROWSER is not set and ${platform} has no opener`);
   }
-  if (WSL_VARIABLES.some(set)) {
+  if (isWsl(env)) {
     const wsl = WSL_OPENERS.find(onPath);
     if (wsl !== undefined) return { showable: true, opener: wsl };
   }

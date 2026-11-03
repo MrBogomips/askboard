@@ -11,7 +11,8 @@
 // focus move on from it; the commands the user sent, whose work is cleared once the board page
 // settles them as done, and whose "Keep mine" is then remembered; and what the user has not seen
 // yet. The style-element shim is installed first, so the mode-switch confirmation's scroll lock
-// runs under the view's policy (S-6).
+// runs under the view's policy (S-6). Push delivery's part, the context header's data and the
+// user's activity for the board's working signal, starts beside them (`push-extras.ts`).
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import { createRoot } from "react-dom/client";
@@ -25,7 +26,13 @@ import type { ViewMessage } from "../view-protocol.ts";
 import { createRevisions, type KeptChoices } from "./agent-change.ts";
 import { createAnswerActs, type Flight } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
-import { Board, type BoardView, type HeadingRequest, requestHeading } from "./board.tsx";
+import {
+  Board,
+  type BoardExtras,
+  type BoardView,
+  type HeadingRequest,
+  requestHeading,
+} from "./board.tsx";
 import { createBoardContent } from "./board-content.ts";
 import {
   type BoardDraft,
@@ -41,6 +48,7 @@ import { dropWork } from "./card-acts.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
+import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
@@ -220,7 +228,8 @@ const boot = (): void => {
     boardContent: createBoardContent(() => view.get().document),
     derived: createDerivedStore(),
   };
-  createRoot(root).render(<Board view={view} context={context} />);
+  const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
+  createRoot(root).render(<Board view={view} context={context} extras={extras} />);
 };
 
 if (document.readyState === "loading") {

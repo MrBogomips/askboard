@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:delivered-request",
+  "title": "Delivery report",
+  "description": "The mod's report that a push of an ask's events up to cursor succeeded, by append or by submit; the session process raises the ask's received watermark to it (AD-3, FR-22).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "cursor": {
+      "$ref": "urn:askboard:output:cursor"
+    },
+    "via": {
+      "enum": ["append", "submit"]
+    }
+  },
+  "required": ["version", "askId", "cursor", "via"],
+  "additionalProperties": false
+}

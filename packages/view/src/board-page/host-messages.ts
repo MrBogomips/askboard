@@ -1,10 +1,13 @@
 // How the board page reads what `board-host` sends over the WebSocket (AD-7, AD-10): the text is
 // parsed, the version checked first, then the message's own `type` picks its schema, as the
 // contract's `validateBoardMessage` does on the other side. A message that fails is never acted on.
+// Push delivery's origin and agent messages are read the same way (design decision 12).
 
 import {
+  type AgentStatusMessage,
   BOARD_PROTOCOL_VERSION,
   type LifecycleHostMessage,
+  type OriginMessage,
   unsupportedVersion,
 } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
@@ -14,7 +17,10 @@ import { hostMessageSchemas } from "./validators.ts";
 // The set as `unsupportedVersion` names it; the set itself would bring its schemas into the page.
 const BOARD_PROTOCOL = { title: "board protocol", version: BOARD_PROTOCOL_VERSION };
 
-const refused = (path: string, message: string): Checked<LifecycleHostMessage> => ({
+/** Every message `board-host` sends a board: protocol 1.1's, and push delivery's origin and agent. */
+export type BoardHostMessage = LifecycleHostMessage | OriginMessage | AgentStatusMessage;
+
+const refused = (path: string, message: string): Checked<BoardHostMessage> => ({
   ok: false,
   reason: "schema",
   problems: [{ path, message }],
@@ -46,7 +52,7 @@ const parsed = (data: unknown): { ok: true; value: unknown } | { ok: false } => 
 };
 
 /** A WebSocket message from `board-host`, checked against the board protocol. */
-export const readHostMessage = (data: unknown): Checked<LifecycleHostMessage> => {
+export const readHostMessage = (data: unknown): Checked<BoardHostMessage> => {
   const text = parsed(data);
   if (!text.ok) return refused("/", "a board-protocol message is JSON text");
   const value = text.value;
@@ -61,6 +67,6 @@ export const readHostMessage = (data: unknown): Checked<LifecycleHostMessage> =>
     return refused("/type", `${JSON.stringify(type ?? null)} is not a message board-host sends`);
   }
   const check = hostMessageSchemas[type as keyof typeof hostMessageSchemas];
-  if (check(value)) return { ok: true, value: value as LifecycleHostMessage };
+  if (check(value)) return { ok: true, value: value as BoardHostMessage };
   return { ok: false, reason: "schema", problems: (check.errors ?? []).map(problemOf) };
 };

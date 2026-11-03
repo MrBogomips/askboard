@@ -6,6 +6,7 @@ import {
   pageHalf,
   pageHalfProblems,
   pageMessagesOf,
+  presenceMessagesOf,
   samePageMessage,
   summary,
 } from "./messages.ts";
@@ -152,6 +153,56 @@ describe("orderProblems", () => {
   test("keeps text that is not JSON as it was sent", () => {
     const odd = { url: "ws://x/ws/a", frames: [{ dir: "sent" as const, text: "hello" }] };
     expect(pageMessagesOf([odd])).toEqual([{ socket: 1, message: "hello" }]);
+  });
+});
+
+describe("presence messages", () => {
+  // Push delivery's presence is no transcript's: the comparisons leave it out, and it is listed
+  // on its own (task 5.3).
+  const frame = (dir: "sent" | "received", message: unknown) => ({
+    dir,
+    text: JSON.stringify(message),
+  });
+  const idle = { version: "1.0", type: "presence", working: false };
+  const working = { ...idle, working: true };
+  const board = { version: "1.0", type: "board" };
+  const state = { version: "1.0", type: "state" };
+  const first = {
+    url: "ws://x/ws/a",
+    frames: [
+      frame("sent", connect),
+      frame("received", board),
+      frame("sent", idle),
+      frame("received", state),
+      frame("sent", working),
+    ],
+  };
+  const second = {
+    url: "ws://x/ws/a",
+    frames: [
+      frame("sent", connect),
+      frame("received", board),
+      frame("sent", working),
+      frame("received", state),
+      frame("sent", answer),
+    ],
+  };
+
+  test("are left out of what the page sent for the transcript, and of its order", () => {
+    expect(pageMessagesOf([first, second])).toEqual([
+      { socket: 1, message: connect },
+      { socket: 2, message: connect },
+      { socket: 2, message: answer },
+    ]);
+    expect(orderProblems([first, second], replayTranscripts.resendAfterDrop)).toEqual([]);
+  });
+
+  test("are listed on their own, by socket", () => {
+    expect(presenceMessagesOf([first, second])).toEqual([
+      { socket: 1, message: idle },
+      { socket: 1, message: working },
+      { socket: 2, message: working },
+    ]);
   });
 });
 

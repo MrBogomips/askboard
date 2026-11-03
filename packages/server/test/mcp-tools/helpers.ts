@@ -4,10 +4,13 @@
 import type { QuestionState } from "@askboard/contract";
 import type {
   AskOutcome,
+  Binding,
+  CallIdentity,
   Clock,
   CoreEvent,
   FullValue,
   LifecycleBoardView,
+  OwnerRefusal,
   ReadOutcome,
   UpdateOutcome,
 } from "@askboard/core";
@@ -36,6 +39,11 @@ export const LINK = `http://127.0.0.1:47213/b/${ASK_ID}?t=pV3xK9qLmT2wR7nB4cYh8A
 
 export type FakeCore = ToolCore & {
   readonly calls: string[];
+  /** Each call identity `ask` and `bind` received, and each binding `read` received. */
+  readonly identities: (CallIdentity | undefined)[];
+  readonly bindings: (Binding | undefined)[];
+  /** Each client version set, as "<source> <version>". */
+  readonly versions: string[];
   readonly listeners: Set<(event: CoreEvent) => void>;
   emit(event: CoreEvent): void;
 };
@@ -44,7 +52,13 @@ type FakeState = "waiting" | "partly-answered" | "answered" | "closed" | "discar
 
 type FakeCoreOptions = {
   readonly ask?: (request: unknown) => Promise<AskOutcome>;
-  readonly read?: (askId: string, after: string) => ReadOutcome;
+  readonly read?: (askId: string, after: string, caller?: Binding) => ReadOutcome;
+  /** The binding of every call; none by default, as without hooks. */
+  readonly binding?: Binding;
+  /** The owners of asks; every ask is unchecked by default, as without hooks. */
+  readonly owners?: Readonly<Record<string, Binding>>;
+  /** Each ask's owner refusal of every call; none by default (AD-5). */
+  readonly refusals?: Readonly<Record<string, OwnerRefusal>>;
   readonly items?: Readonly<Record<string, readonly string[]>>;
   readonly states?: Record<string, FakeState>;
   /** Each question's state by ask, then by item ID; `open` unless given. */
@@ -81,16 +95,23 @@ const fakeView = (options: FakeCoreOptions, askId: string): LifecycleBoardView =
 
 export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
   const calls: string[] = [];
+  const identities: (CallIdentity | undefined)[] = [];
+  const bindings: (Binding | undefined)[] = [];
+  const versions: string[] = [];
   const listeners = new Set<(event: CoreEvent) => void>();
   return {
     epoch: EPOCH,
     calls,
+    identities,
+    bindings,
+    versions,
     listeners,
     emit: (event) => {
       for (const listener of listeners) listener(event);
     },
-    ask: async (request) => {
+    ask: async (request, call) => {
       calls.push("ask");
+      identities.push(call);
       return (
         options.ask?.(request) ?? {
           kind: "created",
@@ -98,10 +119,11 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
         }
       );
     },
-    read: (askId, after) => {
+    read: (askId, after, caller) => {
       calls.push(`read ${askId} ${after}`);
+      bindings.push(caller);
       return (
-        options.read?.(askId, after) ?? {
+        options.read?.(askId, after, caller) ?? {
           kind: "events",
           askId,
           state: options.states?.[askId] ?? "waiting",
@@ -147,6 +169,20 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
       return options.fullValue?.(askId, itemId) ?? { kind: "missing", askId, itemId };
     },
     lifecycleBoard: (askId) => options.lifecycle?.(askId) ?? fakeView(options, askId),
+    bind: async (call) => {
+      calls.push("bind");
+      identities.push(call);
+      return options.binding;
+    },
+    ownerOf: (askId) => options.owners?.[askId],
+    ownerRefusal: (askId, caller) => {
+      calls.push(`ownerRefusal ${askId}`);
+      bindings.push(caller);
+      return options.refusals?.[askId];
+    },
+    setClientVersion: (source, version) => {
+      versions.push(`${source} ${version}`);
+    },
   };
 };
 
@@ -189,11 +225,20 @@ export const depsWith = (core: ToolCore, timers: Timers = manualTimers().timers)
   return { deps, written };
 };
 
+export type ClientOptions = {
+  readonly name?: string;
+  readonly version?: string;
+  readonly negotiation?: "auto" | "legacy";
+};
+
 /** An MCP client linked to the tool server, served as the session process serves it. */
-export const connect = async (deps: ToolDeps) => {
+export const connect = async (deps: ToolDeps, options: ClientOptions = {}) => {
   const [clientEnd, serverEnd] = InMemoryTransport.createLinkedPair();
   const handle = serveStdio(() => createToolServer(deps), { transport: serverEnd });
-  const client = new Client({ name: "test", version: "0.0.0" });
+  const client = new Client(
+    { name: options.name ?? "test", version: options.version ?? "0.0.0" },
+    options.negotiation === undefined ? {} : { versionNegotiation: { mode: options.negotiation } },
+  );
   await client.connect(clientEnd);
   return {
     client,

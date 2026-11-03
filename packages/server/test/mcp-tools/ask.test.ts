@@ -138,6 +138,19 @@ describe("validation errors", () => {
     expect(textOf(result)).toContain(`"${ASK_ID}" is in use`);
   });
 
+  // Core spec, Re-sending comes from the owner (task 13.7): resending cannot get another agent's
+  // board, so the text sends the agent to a new ID rather than into a retry loop.
+  test("another agent's identical ask is refused as in use, telling the agent to choose a new ID", async () => {
+    const core = fakeCore({ ask: async () => ({ kind: "other-owner", askId: ASK_ID }) });
+    const { result } = await call(core, plainChoice);
+    expect(result.isError).toBe(true);
+    const text = textOf(result);
+    expect(text).toContain(`"${ASK_ID}" is in use`);
+    expect(text).toContain("another agent's ask");
+    expect(text).toContain("choose a new ID");
+    expect(text).not.toContain("send the identical request again");
+  });
+
   test("a failure inside AskBoard is an error that creates nothing, and stderr names no content", async () => {
     const core = fakeCore({
       ask: async () => {
@@ -230,5 +243,34 @@ describe("no board can be shown", () => {
     expect(json.reason).toBe(reason);
     expect(json.message).toContain(words);
     expect(json.message).toContain(detail);
+  });
+});
+
+// Push delivery (tasks 3.2 and 3.5): the owner's resend and the version gate's refusal.
+
+describe("refusals of push delivery", () => {
+  test("an owned ask's resend from a call with no agent record may be retried, naming the ask", async () => {
+    const core = fakeCore({ ask: async () => ({ kind: "no-record", askId: ASK_ID }) });
+    const { result } = await call(core, plainChoice);
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain(`"${ASK_ID}"`);
+    expect(textOf(result)).toContain("no agent record");
+    expect(textOf(result)).toContain("again");
+  });
+
+  test("a Claude Code below the minimum is refused, naming both versions", async () => {
+    const core = fakeCore({
+      ask: async () => ({
+        kind: "unsupported-version",
+        askId: ASK_ID,
+        version: "2.1.308",
+        minimum: "2.1.311",
+      }),
+    });
+    const { result } = await call(core, plainChoice);
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain("2.1.311");
+    expect(textOf(result)).toContain("2.1.308");
+    expect(textOf(result)).toContain("nothing was created");
   });
 });

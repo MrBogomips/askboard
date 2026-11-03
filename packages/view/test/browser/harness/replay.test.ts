@@ -187,6 +187,20 @@ describe("Replay: what it reports", () => {
     ]);
   });
 
+  test("a presence message is no transcript step; one with more than its flag is a problem", () => {
+    const { replay, log, open, send } = start(replayTranscripts.answered);
+    open();
+    send(1, connect);
+    send(1, { version: "1.0", type: "presence", working: false });
+    send(1, answer);
+    expect(log).toContain("s1 <- state");
+    expect(replay.problems()).toEqual([]);
+    send(1, { version: "1.0", type: "presence", working: true, itemId: "database" });
+    expect(replay.problems()).toEqual([
+      'socket 1 sent a presence message the contract refuses: /itemId: unknown field "itemId"',
+    ]);
+  });
+
   test("a trigger the rest of the transcript has no gate for fails at once", async () => {
     const { replay } = start(replayTranscripts.opening);
     await expect(replay.trigger("exit")).rejects.toThrow(

@@ -15,7 +15,10 @@
 // - the delivery receipt reads "not sent yet", "sent" or "delivered to the agent";
 // - an item that fails shows an `alert` inside its question card;
 // - the board banners render on the board page, outside the view: "Connection lost, retrying",
-//   one saying the ask was discarded, and one saying the board moved, with "Continue here".
+//   one saying the ask was discarded, and one saying the board moved, with "Continue here";
+// - push delivery's header row of who asked and where carries `data-askboard-header=
+//   "who-and-where"`, its labelled fields a `<dl>` of `<dt>` and `<dd>`; the agent pill is a
+//   `status` reading "Agent: …" (task 8.5).
 
 import type { Frame, FrameLocator, Locator, Page } from "playwright";
 
@@ -43,11 +46,18 @@ export type Board = {
   readonly continueHere: Locator;
   /** The view's frame, to run code in its document. */
   viewFrame(): Promise<Frame>;
+  /** The header's row of who asked and where (push delivery). */
+  readonly whoAndWhere: Locator;
+  /** Row 1's value of a labelled field: Project, Directory, Branch or Worktree. */
+  field(label: "Project" | "Directory" | "Branch" | "Worktree"): Locator;
+  /** The agent pill. */
+  readonly agentPill: Locator;
 };
 
 export const boardOf = (page: Page): Board => {
   const view = page.frameLocator(VIEW_FRAME);
   const frame = page.locator(VIEW_FRAME);
+  const whoAndWhere = view.locator('[data-askboard-header="who-and-where"]');
   return {
     page,
     frame,
@@ -65,6 +75,13 @@ export const boardOf = (page: Page): Board => {
     receipt: (text) => view.getByText(text, { exact: true }),
     banner: (text) => page.getByText(text),
     continueHere: page.getByRole("button", { name: "Continue here" }),
+    whoAndWhere,
+    field: (label) =>
+      whoAndWhere
+        .locator("dl > div")
+        .filter({ has: view.locator("dt").getByText(label, { exact: true }) })
+        .locator("dd"),
+    agentPill: view.getByRole("status").filter({ hasText: /^Agent: / }),
     viewFrame: async () => {
       const content = await (await frame.elementHandle())?.contentFrame();
       if (content === null || content === undefined) throw new Error("the board has no view frame");

@@ -3,8 +3,9 @@
 // `dist/askboard.mjs` serving `dist/view/`.
 //
 // - Start: the bundle runs on Bun (or Node 24) as a child over stdio, with `BROWSER` naming the
-//   link recorder; `@modelcontextprotocol/client` calls `ask` with the scenario's ask, and the
-//   board link is the one `ask` returned, which the recorder must have received alone.
+//   link recorder and silent notifier stand-ins first on `PATH`, so that no system notification
+//   shows (push delivery); `@modelcontextprotocol/client` calls `ask` with the scenario's ask, and
+//   the board link is the one `ask` returned, which the recorder must have received alone.
 // - The browser reaches the board through a proxy (`proxy.ts`), which gives `drop`, `restore` and
 //   `requests`; the tests' link is the ask's link on the proxy's port.
 // - `collected` calls `collect` after the last cursor and expects exactly one new answer event.
@@ -14,12 +15,25 @@
 //   board, and a new one asks the same ask, which opens it under a new token, so the old token
 //   opens nothing (Track 0's restart transcript). An ended session sends `discarded`, which
 //   `exit` covers.
+// - With an asker (push delivery, task 8.5), the process runs in the asker's own git project, and
+//   before each `ask` and the waiting `collect` of `agentWaits` the agent records its hooks would
+//   send reach the local API (`asker-project.ts`); the ask carries the asker's agent name and
+//   expected user.
 
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
 import { Agent } from "./agent.ts";
+import type { Asker } from "./asker.ts";
+import {
+  type AskerPlace,
+  findLocalApi,
+  type LocalApi,
+  postRecord,
+  prepareProject,
+  recordsFor,
+} from "./asker-project.ts";
 import { type BoardLink, linkThrough, parseBoardLink } from "./board-link.ts";
 import {
   type Child,
@@ -54,6 +68,8 @@ export type SessionProcessOptions = {
 };
 
 const ROOT = join(import.meta.dir, "..", "..", "..", "..", "..");
+/** `osascript` and `notify-send` stand-ins that show nothing. */
+const NOTIFIER_STAND_INS = join(import.meta.dir, "..", "fixtures", "notifier");
 const OPEN_TIMEOUT_MS = 5_000;
 const EXIT_TIMEOUT_MS = 5_000;
 const STDERR_TAIL_CHARS = 1_000;
@@ -63,6 +79,8 @@ type Life = {
   readonly child: Child;
   readonly agent: Agent;
   readonly link: BoardLink;
+  /** The local API the asker's records go to; none without an asker. */
+  readonly api?: LocalApi;
   cursor: string;
   stderr: { text: string };
   state: { ending: boolean; exit?: ChildExit };
@@ -77,6 +95,13 @@ const within = async (exited: Promise<ChildExit>, ms: number): Promise<ChildExit
   const exit = await Promise.race([exited, late]);
   clearTimeout(timer);
   return exit;
+};
+
+// The ask's one question, which a waiting collect waits for.
+const questionIdOf = (input: AskInput): string => {
+  const [item] = Array.isArray(input.items) ? (input.items as { id?: unknown }[]) : [];
+  if (typeof item?.id !== "string") throw new Error("the scenario's ask holds no question");
+  return item.id;
 };
 
 const stderrNote = (stderr: { text: string }): string => {
@@ -101,6 +126,10 @@ class ProcessSession implements BoardSession {
   readonly #problems: string[];
   readonly #cleanup: () => Promise<void>;
   readonly #exitTimeoutMs: number;
+  readonly #input: AskInput;
+  readonly #asker: { readonly asker: Asker; readonly place: AskerPlace } | undefined;
+  // The agent's waiting collects, which end with the user's answer or the session.
+  readonly #waits: Promise<unknown>[] = [];
   #closing: Promise<void> | undefined;
 
   constructor(parts: {
@@ -111,6 +140,7 @@ class ProcessSession implements BoardSession {
     problems: string[];
     cleanup: () => Promise<void>;
     exitTimeoutMs: number;
+    asker?: { readonly asker: Asker; readonly place: AskerPlace };
   }) {
     this.#lives = [parts.first];
     this.#proxy = parts.proxy;
@@ -119,6 +149,8 @@ class ProcessSession implements BoardSession {
     this.#problems = parts.problems;
     this.#cleanup = parts.cleanup;
     this.#exitTimeoutMs = parts.exitTimeoutMs;
+    this.#input = parts.input;
+    this.#asker = parts.asker;
     this.link = linkThrough(parts.first.link, parts.proxy.port);
   }
 
@@ -151,6 +183,26 @@ class ProcessSession implements BoardSession {
   update(actions: readonly unknown[]): Promise<unknown> {
     const life = this.#current;
     return life.agent.update(life.link.askId, actions);
+  }
+
+  async agentWaits(): Promise<void> {
+    const life = this.#current;
+    const { askId } = life.link;
+    if (this.#asker !== undefined && life.api !== undefined) {
+      const { asker, place } = this.#asker;
+      for (const record of recordsFor(asker, "collect", askId, place.cwd)) {
+        await postRecord(life.api, record);
+      }
+    }
+    const waiting = life.agent.collectWaiting(askId, life.cursor, questionIdOf(this.#input));
+    this.#waits.push(
+      waiting.then(
+        (collected) => {
+          life.cursor = collected.cursor;
+        },
+        () => undefined,
+      ),
+    );
   }
 
   async exit(): Promise<void> {
@@ -236,6 +288,7 @@ class ProcessSession implements BoardSession {
 }
 
 type LaunchContext = {
+  readonly asker?: { readonly asker: Asker; readonly place: AskerPlace };
   readonly spawn: SpawnChild;
   readonly command: string;
   readonly entry: string;
@@ -262,6 +315,21 @@ const checkOpened = async (context: LaunchContext, n: number, board: string): Pr
   }
 };
 
+/**
+ * With an asker, the records its hooks send before the `ask`, once a first request has started the
+ * local API (AD-2); the local API they went to.
+ */
+const recordAsk = async (context: LaunchContext, agent: Agent): Promise<LocalApi | undefined> => {
+  if (context.asker === undefined) return undefined;
+  const { asker, place } = context.asker;
+  await agent.listTools();
+  const api = await findLocalApi(context.env, process.getuid?.() ?? 0, place.projectDir);
+  for (const record of recordsFor(asker, "ask", context.askId, place.cwd)) {
+    await postRecord(api, record);
+  }
+  return api;
+};
+
 /** Starts the n-th life of the session process and asks the scenario's ask on it. */
 const launch = async (context: LaunchContext, n: number): Promise<Life> => {
   const child = context.spawn(context.command, [context.entry], { env: context.env, cwd: ROOT });
@@ -281,6 +349,7 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
   let agent: Agent | undefined;
   try {
     agent = await Agent.connect(new ChildTransport(child));
+    const api = await recordAsk(context, agent);
     const result = await agent.ask(context.input);
     if (result.askId !== context.askId) {
       throw new Error(
@@ -289,7 +358,15 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
     }
     const link = parseBoardLink(result.board);
     await checkOpened(context, n, result.board);
-    return { child, agent, link, cursor: result.cursor, stderr, state };
+    return {
+      child,
+      agent,
+      link,
+      ...(api === undefined ? {} : { api }),
+      cursor: result.cursor,
+      stderr,
+      state,
+    };
   } catch (error) {
     await killLife({ child, agent, state });
     const message = error instanceof Error ? error.message : String(error);
@@ -297,10 +374,18 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
   }
 };
 
-const cleanupOf = (stage: Stage, dir: string) => async () => {
+const cleanupOf = (stage: Stage, dir: string, place?: AskerPlace) => async () => {
   await stage.cleanup();
   await rm(dir, { recursive: true, force: true });
+  await place?.cleanup();
 };
+
+// The ask with the asker's agent name and expected user.
+const withAsker = <T extends object>(input: T, asker: Asker | undefined): T => ({
+  ...input,
+  ...(asker?.agentName === undefined ? {} : { agentName: asker.agentName }),
+  ...(asker?.expectedUser === undefined ? {} : { expectedUser: asker.expectedUser }),
+});
 
 /** The first life and the proxy in front of it; a failure leaves nothing running or staged. */
 const startFirst = async (
@@ -322,23 +407,31 @@ const startFirst = async (
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
 export const startSessionProcess = async (
-  { transcript, view, ask }: Scenario,
+  { transcript, view, ask, asker }: Scenario,
   options: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
-  const input = ask ?? (await askInputFor(transcript, options.approvedAsk));
+  const input = withAsker(ask ?? (await askInputFor(transcript, options.approvedAsk)), asker);
   const runtime = options.runtime ?? runtimeFrom(process.env.ASKBOARD_E2E_RUNTIME);
   const stage = await stageSession(view, options.bundle);
   const dir = await mkdtemp(join(tmpdir(), "askboard-e2e-links-"));
-  const cleanup = cleanupOf(stage, dir);
+  const place = asker === undefined ? undefined : await prepareProject(asker);
+  const cleanup = cleanupOf(stage, dir, place);
   const linksFile = join(dir, "links");
   const problems: string[] = [];
   const context: LaunchContext = {
+    ...(asker === undefined || place === undefined ? {} : { asker: { asker, place } }),
     spawn: options.spawn ?? spawnChild,
     command: runtime === "node" ? "node" : process.execPath,
     entry: stage.entry,
     // The SDK stdio transport's default inheritance: the developer's SSH or CI variables do not
     // reach the detection rule (AD-18), and BROWSER shows the board wherever the tests run.
-    env: { ...getDefaultEnvironment(), BROWSER: LINK_RECORDER, [LINKS_VARIABLE]: linksFile },
+    env: {
+      ...getDefaultEnvironment(),
+      PATH: `${NOTIFIER_STAND_INS}:${getDefaultEnvironment().PATH ?? ""}`,
+      BROWSER: LINK_RECORDER,
+      [LINKS_VARIABLE]: linksFile,
+      ...(place === undefined ? {} : { CLAUDE_PROJECT_DIR: place.projectDir }),
+    },
     linksFile,
     input,
     askId: input.askId,
@@ -354,5 +447,6 @@ export const startSessionProcess = async (
     problems,
     cleanup,
     exitTimeoutMs: options.exitTimeoutMs ?? EXIT_TIMEOUT_MS,
+    ...(context.asker === undefined ? {} : { asker: context.asker }),
   });
 };

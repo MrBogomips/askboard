@@ -61,7 +61,11 @@ const fakeProcess = () => {
 };
 
 const session = async (
-  options: { beforeExit?: () => Promise<void>; negotiation?: "auto" | "legacy" } = {},
+  options: {
+    beforeExit?: () => Promise<void>;
+    negotiation?: "auto" | "legacy";
+    firstRequest?: () => void;
+  } = {},
 ) => {
   const { ports, calls } = recordingPorts();
   const core = new AskCore(ports);
@@ -78,6 +82,7 @@ const session = async (
       order.push(`beforeExit after ${core.board(ASK_ID)?.state ?? "no ask"}`);
       await options.beforeExit?.();
     },
+    ...(options.firstRequest ? { firstRequest: options.firstRequest } : {}),
   });
   const client = new Client(
     { name: "test", version: "0.0.0" },
@@ -102,6 +107,55 @@ describe("no side effect before the first request", () => {
     await client.close();
     await served.ended;
     expect(calls).toEqual([]);
+  });
+});
+
+// Push delivery (task 4.7; AD-2): the entry point starts the local API at the first request other
+// than `server/discover`.
+
+describe("the first request", () => {
+  test("server/discover alone is not one", async () => {
+    let started = 0;
+    const { client, served } = await session({
+      negotiation: "auto",
+      firstRequest: () => {
+        started += 1;
+      },
+    });
+    await client.discover();
+    await client.close();
+    await served.ended;
+    expect(started).toBe(0);
+  });
+
+  test("a start that throws is written to diagnostics, and the request is still served", async () => {
+    const { client, proc, served, written } = await session({
+      firstRequest: () => {
+        throw new RangeError("no session folder");
+      },
+    });
+    expect((await client.listTools()).tools).toHaveLength(4);
+    expect(written).toEqual(["askboard: starting at the first request failed: RangeError"]);
+    proc.emit("SIGTERM");
+    await served.ended;
+  });
+
+  test("the next request is, once, whichever handshake ran", async () => {
+    for (const negotiation of ["auto", "legacy"] as const) {
+      let started = 0;
+      const { client, proc, served, calls } = await session({
+        negotiation,
+        firstRequest: () => {
+          started += 1;
+        },
+      });
+      await client.listTools();
+      await client.listTools();
+      expect(started).toBe(1);
+      expect(calls).toEqual([]);
+      proc.emit("SIGTERM");
+      await served.ended;
+    }
   });
 });
 

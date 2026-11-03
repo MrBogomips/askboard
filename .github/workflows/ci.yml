@@ -128,12 +128,14 @@ jobs:
       # The pinned playwright's own binary, so the engines match its version.
       - name: Install Chromium, Firefox and WebKit with their system dependencies
         run: node_modules/.bin/playwright install --with-deps chromium firefox webkit
-      # The browser tests against the built session process, then the conformance suite.
-      - name: Browser tests and conformance suite on Bun
+      # The browser tests against the built session process, then the conformance suite in AD-1's
+      # three configurations, which its runner runs in turn: mod and hooks (the built mod in the
+      # stand-in mod host, the hooks as processes of the bundle), mod disabled, hooks disabled.
+      - name: Browser tests, and the conformance suite in its three configurations, on Bun
         run: bun run test:e2e
       # The same bundle on Node 24, the runtime AskBoard ships on until AXFX NFR-1 admits the
-      # executable (AD-19).
-      - name: Conformance suite on Node 24
+      # executable (AD-19): the session process and the hooks run on it.
+      - name: Conformance suite in its three configurations on Node 24
         run: bun packages/server/test/conformance/run.ts --runtime node
       # On push to main only: it takes about 12 minutes, and pull requests already run the
       # browser tests on Bun and the conformance suite on both runtimes.

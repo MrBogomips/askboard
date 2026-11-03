@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { BOARD_PROTOCOL_MESSAGES } from "@askboard/contract";
+import { BOARD_PROTOCOL_MESSAGES, PUSH_HOST_MESSAGES } from "@askboard/contract";
 import {
   boardProtocolExamples,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
+  subagentOrigin,
   treeBoardDocument,
+  uncheckedOrigin,
+  waitingAgentStatus,
 } from "@askboard/contract/fixtures";
 import { readHostMessage } from "./host-messages.ts";
 import { hostMessageSchemas } from "./validators.ts";
@@ -15,9 +18,9 @@ const problemsOf = (data: unknown) => {
 };
 
 describe("the messages board-host sends, as the board page reads them (AD-7)", () => {
-  test("there is one validator per message type", () => {
+  test("there is one validator per message type, push delivery's origin and agent included", () => {
     expect(Object.keys(hostMessageSchemas).sort()).toEqual(
-      Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).sort(),
+      Object.keys({ ...BOARD_PROTOCOL_MESSAGES.toPage, ...PUSH_HOST_MESSAGES }).sort(),
     );
   });
 
@@ -121,5 +124,45 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
         { path: "/document/items/0/props/options", message: 'missing field "options"' },
       ]),
     );
+  });
+});
+
+describe("push delivery's origin and agent messages (task 8.4, design decision 12)", () => {
+  test.each([
+    ["a subagent's origin", subagentOrigin],
+    ["an unchecked ask's origin", uncheckedOrigin],
+    ["the agent status", waitingAgentStatus],
+  ] as const)("%s is read", (_, message) => {
+    expect(readHostMessage(JSON.stringify(message))).toEqual({ ok: true, value: message });
+  });
+
+  test.each([
+    ["an origin with an unknown field", { ...uncheckedOrigin, cwd: "/Users/paola" }, "/cwd"],
+    ["an origin without who asked", { version: "1.0", type: "origin" }, "/who"],
+    [
+      "an origin with an ordinal of 1",
+      { ...subagentOrigin, who: { label: "Subagent x", ordinal: 1 } },
+      "/who/ordinal",
+    ],
+    ["an origin with an empty branch", { ...subagentOrigin, branch: "" }, "/branch"],
+    [
+      "an agent status other than working or waiting",
+      { ...waitingAgentStatus, status: "idle" },
+      "/status",
+    ],
+    ["an agent message without its status", { version: "1.0", type: "agent" }, "/status"],
+  ] as const)("%s is refused at its path, like E1's", (_, message, path) => {
+    const checked = readHostMessage(JSON.stringify(message));
+    expect(checked).toMatchObject({ ok: false, reason: "schema" });
+    expect(problemsOf(JSON.stringify(message)).map((problem) => problem.path)).toContain(path);
+  });
+
+  test("an origin or agent message of another major is refused first", () => {
+    for (const message of [uncheckedOrigin, waitingAgentStatus]) {
+      expect(readHostMessage(JSON.stringify({ ...message, version: "2.0" }))).toMatchObject({
+        ok: false,
+        reason: "version",
+      });
+    }
   });
 });

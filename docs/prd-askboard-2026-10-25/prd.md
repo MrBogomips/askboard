@@ -405,14 +405,14 @@ The user chooses, for each board, whether answers go to the agent immediately as
 
 #### FR-23: Notice of a new ask
 
-When an ask arrives, AskBoard brings its board to the front in the browser and shows a system notification, and the agent's Claude Code terminal shows a link to the board. AskBoard neither opens the board nor brings it to the front while the user is working on another board of the same Claude Code session, meaning that a board of that session has focus and has had input from the user in the last 60 seconds; the notification and the terminal link then open it. The notification names who asked, as the agent's type and name (FR-24), where it works (project, branch and worktree), the ask's title (FR-1) and its number of questions. Where AskBoard's push path runs (R1), the terminal notice also lists the pending asks.
+When an ask arrives, AskBoard brings its board to the front in the browser and shows a system notification, and the agent's Claude Code terminal shows a link to the board. AskBoard neither opens the board nor brings it to the front while the user is working on another board of the same Claude Code session, meaning that a board of that session has focus and has had input from the user in the last 60 seconds; the terminal link then opens it, and so does the notification where the operating system lets a notification open a link (on macOS it only announces the ask). The notification names who asked, as the agent's type and name (FR-24), where it works (project, branch and worktree), the ask's title (FR-1) and its number of questions. Where AskBoard's push path runs (R1), the terminal notice also lists the pending asks.
 
 **Consequences (testable):**
 - On the user's machine, outside a container, a new ask produces all three notices, unless the user is working on another board of the same session. A subagent's ask shows its terminal link only where AskBoard's push path runs (R1); without it, the browser and system notices still appear.
 - While the user is working on a board of a Claude Code session, a new ask from that session produces the notification and the terminal link, and its board neither opens nor comes to the front; a new ask from another session is not held back.
 - The notification shows who asked, the project, branch and worktree, the ask's title and its number of questions.
 - When Claude Code runs in a devcontainer, the link in the terminal is the notice that always works, for a subagent's ask where AskBoard's push path runs; the browser and system notices appear where the host allows them.
-- The link in the terminal opens the board of that ask.
+- The link in the terminal opens the board of that ask, and on Linux so does the notification.
 - Where the push path runs, the terminal notice lists each pending ask on one line: its title, who asked, the number of questions still open and the link to its board.
 
 #### FR-24: One tab per ask, with a context header

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:closed",
   "title": "Closed",
-  "description": "board-host to board page: the ask is closed, and the board locks with the Closed banner; the socket stays open and every act is refused with reason closed (FR-6). E3 closes only for the agent; a later minor extends the reason.",
+  "description": "board-host to board page: the ask is closed, and the board locks with the Closed banner; the socket stays open and every act is refused with reason closed (FR-6). The reason is agent when the agent closed the ask, and agent-finished when AskBoard closed it because the subagent that owns it finished (push delivery, AD-10).",
   "type": "object",
   "properties": {
     "version": {
@@ -12,7 +12,7 @@
       "const": "closed"
     },
     "reason": {
-      "enum": ["agent"]
+      "enum": ["agent", "agent-finished"]
     }
   },
   "required": ["version", "type", "reason"],

@@ -15,12 +15,14 @@
 
 import {
   ACTION_ID_PATTERN,
+  type AgentStatus,
   type DraftRecord,
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
   type LifecycleBoardState,
   NOTE_MAX_CHARS,
   OPTION_NOTE_MAX_CHARS,
+  type OriginMessage,
   OTHER_MAX_CHARS,
   UTC_TIME_PATTERN,
 } from "@askboard/contract";
@@ -35,6 +37,9 @@ export const ITEM_ERROR_MAX_CHARS = 1_000;
 
 /** AD-13's reference without brackets, as the output format's answer event writes it. */
 export const REFERENCE_PATTERN = "^[A-Za-z0-9_-]{1,64}(\\.[A-Za-z0-9_-]{1,64})*$";
+
+/** The view sends its activity message at most once every this many milliseconds. */
+export const VIEW_ACTIVITY_INTERVAL_MS = 5_000;
 
 /**
  * What an answer carries: the question's choice, the full edited value of each widget item the
@@ -123,7 +128,19 @@ export type ViewActs = { readonly type: "act"; readonly acts: readonly [ViewAct,
 /** The board's unsent work, mirrored after each change (AD-20); never sent to the agent. */
 export type ViewDraft = { readonly type: "draft"; readonly record: DraftRecord };
 
-export type ViewMessage = ViewAnswer | ViewReady | ViewItemError | ViewActs | ViewDraft;
+/**
+ * The user acts in the view, with a key or the pointer (design decision 10): input inside the
+ * sandboxed view does not reach the board page, which counts it for the board's working signal.
+ */
+export type ViewActivity = { readonly type: "activity" };
+
+export type ViewMessage =
+  | ViewAnswer
+  | ViewReady
+  | ViewItemError
+  | ViewActs
+  | ViewDraft
+  | ViewActivity;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -168,13 +185,17 @@ export type SettledAct = {
 /** A draft record to restore, numbered so that the view restores each once. */
 export type DraftRestore = { readonly id: number; readonly record: DraftRecord };
 
+/** Who asked and where, as the board page passes it on: the origin message's content (FR-24). */
+export type HeaderOrigin = Omit<OriginMessage, "version" | "type">;
+
 /**
  * What the board page tells a booted view: the board state, as `board-host` last sent it with the
  * receipts since; the latest board document; the lock, while there is one; whether the connection
  * is lost, which disables Submit; the commands it holds, and how the latest ones ended; and the
- * draft record `board-host` restored, when the board page has none of its own (AD-20). A command
- * the board page no longer holds that is not settled was dropped, and its question can be
- * answered again (AD-10).
+ * draft record `board-host` restored, when the board page has none of its own (AD-20); and who
+ * asked and where and the agent status, once `board-host` has sent them (push delivery, design
+ * decision 12). A command the board page no longer holds that is not settled was dropped, and its
+ * question can be answered again (AD-10).
  */
 export type ViewUpdate = {
   readonly type: "state";
@@ -185,6 +206,23 @@ export type ViewUpdate = {
   readonly pending?: readonly PendingAct[];
   readonly settled?: readonly SettledAct[];
   readonly restore?: DraftRestore;
+  readonly origin?: HeaderOrigin;
+  readonly agent?: AgentStatus;
+};
+
+/** The optional fields of a view update. */
+export type UpdateField = Exclude<keyof ViewUpdate, "type" | "state">;
+
+/**
+ * The type of `UPDATE_FIELDS`: for each optional field of a view update, the check of a value the
+ * view can read, and `atBoot` when the `askboard-data` block carries the field too, so the first
+ * render has it. A field of `ViewUpdate` the table leaves out is a type error (review L10).
+ */
+export type UpdateFields = {
+  readonly [K in UpdateField]: {
+    readonly check: (value: unknown) => value is NonNullable<ViewUpdate[K]>;
+    readonly atBoot?: true;
+  };
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -300,12 +338,15 @@ const oneOf =
       ? undefined
       : `is not one of ${values.map((v) => JSON.stringify(v)).join(", ")}`;
 
-type MessageFields = {
+/** A message's fields, each with its check, and which of them it may leave out. */
+export type MessageFields = {
   readonly checks: Readonly<Record<string, FieldCheck>>;
   /** Fields a message may leave out, of which it holds one at least. */
   readonly someOf?: readonly string[];
   /** Fields a message may leave out. */
   readonly optional?: readonly string[];
+  /** Fields a message may leave out, and may hold only beside another field, their partner. */
+  readonly beside?: Readonly<Record<string, string>>;
 };
 
 const ANSWER: MessageFields = {
@@ -389,6 +430,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   "item-error": { checks: { itemId, error: errorText } },
   act: { checks: { acts } },
   draft: { checks: { record: draftRecord } },
+  activity: { checks: {} },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -415,8 +457,23 @@ const noneOf = (
     ? []
     : [{ path: at, message: `holds none of ${listed(someOf)}` }];
 
-function fieldProblems(
-  { checks, someOf = [], optional = [] }: MessageFields,
+// A message that holds a field without the partner it goes only beside.
+const alone = (
+  beside: Readonly<Record<string, string>>,
+  args: Record<string, unknown>,
+  at = "/arguments",
+): Problem[] =>
+  Object.entries(beside)
+    .filter(([field, partner]) => Object.hasOwn(args, field) && !Object.hasOwn(args, partner))
+    .map(([field, partner]) => ({ path: at, message: `"${field}" goes only beside "${partner}"` }));
+
+/**
+ * What is wrong with a message's fields, if anything: an unknown field, a missing one, one that
+ * fails its check, none of those it must hold one of, or one without its partner. Each problem is
+ * under `at`, the message's path.
+ */
+export function fieldProblems(
+  { checks, someOf = [], optional = [], beside = {} }: MessageFields,
   args: Record<string, unknown>,
   at = "/arguments",
 ): Problem[] {
@@ -426,13 +483,16 @@ function fieldProblems(
       .map((field) => ({ path: `${at}/${field}`, message: `unknown field "${field}"` })),
     ...Object.entries(checks).flatMap(([field, check]) => {
       if (!Object.hasOwn(args, field)) {
-        if (someOf.includes(field) || optional.includes(field)) return [];
+        if (someOf.includes(field) || optional.includes(field) || Object.hasOwn(beside, field)) {
+          return [];
+        }
         return [{ path: `${at}/${field}`, message: `missing field "${field}"` }];
       }
       const problem = check(args[field]);
       return problem === undefined ? [] : [{ path: `${at}/${field}`, message: problem }];
     }),
     ...noneOf(someOf, args, at),
+    ...alone(beside, args, at),
   ];
 }
 
@@ -527,15 +587,49 @@ const listOf =
   (value: unknown): value is readonly T[] =>
     Array.isArray(value) && value.every(is);
 
-// Each optional field of an update, with its check.
-const UPDATE_FIELDS: Readonly<Record<string, (value: unknown) => boolean>> = {
-  document: isDocument,
-  lock: (value) => LOCKS.includes(value),
-  connection: (value) => value === "lost",
-  pending: listOf(isPendingAct),
-  settled: listOf(isSettledAct),
-  restore: isRestore,
+const optional = (value: unknown, kind: "string" | "number"): boolean =>
+  value === undefined || typeof value === kind;
+
+/**
+ * Whether the view can show this as who asked and where. The board page checked the origin
+ * message against the board protocol; the view checks only the shape it renders from.
+ */
+export const isHeaderOrigin = (value: unknown): value is HeaderOrigin => {
+  if (!isRecord(value) || !isRecord(value.who)) return false;
+  const { label, name, ordinal } = value.who;
+  return (
+    typeof label === "string" &&
+    optional(name, "string") &&
+    (ordinal === undefined || Number.isInteger(ordinal)) &&
+    ["forUser", "project", "directory", "branch", "worktree"].every((key) =>
+      optional(value[key], "string"),
+    )
+  );
 };
+
+const AGENT_STATUSES: readonly unknown[] = ["working", "waiting"] satisfies AgentStatus[];
+
+export const isAgentStatus = (value: unknown): value is AgentStatus =>
+  AGENT_STATUSES.includes(value);
+
+const isLock = (value: unknown): value is ViewLock => LOCKS.includes(value);
+
+/**
+ * Each optional field of an update, with its check, and `atBoot` for those the view also boots
+ * from. `readViewUpdate` reads it, and so do the boot data (`boot-data.ts`) and the board page's
+ * model and view updates, so a change adding a field to `ViewUpdate` adds its entry here, which
+ * the type requires, and edits none of them (review M4).
+ */
+export const UPDATE_FIELDS = {
+  document: { check: isDocument },
+  lock: { check: isLock },
+  connection: { check: (value: unknown): value is "lost" => value === "lost" },
+  pending: { check: listOf(isPendingAct) },
+  settled: { check: listOf(isSettledAct) },
+  restore: { check: isRestore },
+  origin: { check: isHeaderOrigin, atBoot: true },
+  agent: { check: isAgentStatus, atBoot: true },
+} as const satisfies UpdateFields;
 
 /** A tool result's structured content, read as an update; undefined for anything else. */
 export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
@@ -543,7 +637,7 @@ export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
     return undefined;
   }
   const update: Record<string, unknown> = { type: "state", state: content.state };
-  for (const [field, check] of Object.entries(UPDATE_FIELDS)) {
+  for (const [field, { check }] of Object.entries(UPDATE_FIELDS)) {
     const value = content[field];
     if (value === undefined) continue;
     if (!check(value)) return undefined;

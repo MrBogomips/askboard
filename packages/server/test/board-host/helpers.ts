@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BOARD_HOST } from "@askboard/contract";
 import { fixtureViewFiles, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { AskCore, type Clock } from "@askboard/core";
+import { AskCore, type Clock, type CorePorts } from "@askboard/core";
 import WebSocket from "ws";
 import type { SocketLimits } from "../../src/board-host/boards.ts";
 import { type BoardHost, createBoardHost } from "../../src/board-host/index.ts";
@@ -128,12 +128,13 @@ export type TestHost = {
   readonly reported: unknown[];
   readonly opened: string[];
   /**
-   * Creates an ask, with the plain-choice question unless `request` gives another ask, and returns
-   * its link's port, ID and token.
+   * Creates an ask, with the plain-choice question unless `request` gives another ask, and the
+   * call identity `call` when given (push delivery), and returns its link's port, ID and token.
    */
   ask(
     askId?: string,
     request?: unknown,
+    call?: Parameters<AskCore["ask"]>[1],
   ): Promise<{ port: number; askId: string; token: string; link: string }>;
 };
 
@@ -149,6 +150,10 @@ export const startHost = (
     limits?: Partial<SocketLimits>;
     /** ask-core's clock; the runtime's by default. */
     clock?: Clock;
+    /** The session project, which turns on the context header's messages (push delivery). */
+    projectDir?: string;
+    /** Push delivery's record table and the context header's ports. */
+    push?: Pick<CorePorts, "records" | "header">;
   } = {},
 ): TestHost => {
   const reported: unknown[] = [];
@@ -165,6 +170,7 @@ export const startHost = (
     ...(options.ports ? { ports: options.ports } : {}),
     ...(options.limits ? { limits: options.limits } : {}),
     ...(options.tokens ? { token: () => tokens.shift() ?? `random-${crypto.randomUUID()}` } : {}),
+    ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }),
   });
   const created = new AskCore({
     address: host.address,
@@ -173,6 +179,7 @@ export const startHost = (
     randomness: { bytes: (count) => crypto.getRandomValues(new Uint8Array(count)) },
     report: (error) => reported.push(error),
     clock: options.clock ?? runtimeClock,
+    ...options.push,
   });
   core = created;
   return {
@@ -180,8 +187,8 @@ export const startHost = (
     core: created,
     reported,
     opened,
-    ask: async (askId, request) => {
-      const outcome = await created.ask(request ?? plainChoiceAsk(askId));
+    ask: async (askId, request, call) => {
+      const outcome = await created.ask(request ?? plainChoiceAsk(askId), call);
       if (outcome.kind !== "created") throw new Error(`ask not created: ${outcome.kind}`);
       const link = new URL(outcome.ask.board);
       return {
@@ -240,17 +247,29 @@ export const request = (
     sent.end();
   });
 
-/** A board socket as the board page opens it, with its messages and close queued. */
+/**
+ * A board socket as the board page opens it, with its messages and close queued. The context
+ * header's origin and agent messages (push delivery, design decision 12) are queued apart, as the
+ * browser harness keeps presence apart, so that E1's exchanges read as they were recorded.
+ */
 export type BoardSocket = {
   readonly socket: WebSocket;
-  /** The next message `board-host` sent, parsed; fails after a wait. */
+  /** The next message `board-host` sent, parsed, other than the header's; fails after a wait. */
   next(): Promise<unknown>;
   /** The close code, once `board-host` closed the socket. */
   closed(): Promise<number>;
   send(message: unknown): void;
   /** Messages received and not taken by `next`. */
   readonly pending: unknown[];
+  /** The next origin or agent message; fails after a wait. */
+  nextHeader(): Promise<unknown>;
+  /** Origin and agent messages received and not taken by `nextHeader`. */
+  readonly header: unknown[];
+  /** The type of every message received, in order, the header's included. */
+  readonly types: string[];
 };
+
+const HEADER_TYPES: readonly unknown[] = ["origin", "agent"];
 
 const WAIT_MS = 2_000;
 
@@ -277,8 +296,14 @@ export const openSocket = async (
     ...(origin === null ? {} : { origin }),
   });
   const pending: unknown[] = [];
+  const header: unknown[] = [];
+  const types: string[] = [];
   let code: number | undefined;
-  socket.on("message", (data) => pending.push(JSON.parse(String(data))));
+  socket.on("message", (data) => {
+    const message = JSON.parse(String(data)) as { type?: unknown };
+    types.push(String(message.type));
+    (HEADER_TYPES.includes(message.type) ? header : pending).push(message);
+  });
   socket.on("close", (closeCode) => {
     code = closeCode;
   });
@@ -292,7 +317,10 @@ export const openSocket = async (
   return {
     socket,
     pending,
+    header,
+    types,
     next: () => waitFor(() => pending.shift(), "a message"),
+    nextHeader: () => waitFor(() => header.shift(), "an origin or agent message"),
     closed: () => waitFor(() => code, "the close"),
     send: (message) => socket.send(JSON.stringify(message)),
   };

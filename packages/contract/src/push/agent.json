@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:agent",
+  "title": "Agent status",
+  "description": "board-host to board page, on each connect and on each change: whether the ask's agent is working or waiting for the user's answer, for the agent pill (AD-4, FR-24). Presence only, never an ask state.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "agent"
+    },
+    "status": {
+      "enum": ["working", "waiting"]
+    }
+  },
+  "required": ["version", "type", "status"],
+  "additionalProperties": false
+}

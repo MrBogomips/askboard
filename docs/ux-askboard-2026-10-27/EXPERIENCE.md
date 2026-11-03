@@ -45,7 +45,7 @@ updated: 2026-11-01
 - **Audience and stakes.** The audience is the PRD's: engineers first, and also power PMs and power sales people who work in Claude Code. The run's "internal / own team" stakes set the polish level only: essential accessibility and little onboarding (L10, L158).
 - **Design principle.** AskBoard exists to lower the felt cognitive complexity of a problem. A single-question board must be as effective as a large one (L116, pending PCR-25). The principle serves SM-5: complicated questions are answered on the board without going back to the terminal or the sources. The excerpts, the in-board reading panel, the follow-ups and "Explain" keep the user on the board.
 - **Agent cost.** Rich questions stay cheap for the agent (NFR-1, SM-1, SM-2). Two rules follow:
-  - **AskBoard-only fields are optional.** Every field AskBoard adds beyond AskUserQuestion's is optional: the ask title, the agent display name, the header chip, the declared language and the minimum margin. When the agent omits them, AskBoard supplies defaults: the title from the first question; "Main agent" or "Subagent <type>" for the name (F-53); the configured language, then en-US (Localization); and the project's minimum margin, when one is set (F-98). An omitted header chip is simply absent. A plain single-question ask stays within SM-1's +25% (L148, pending PCR-32, pending ACR-06, pending ACR-07).
+  - **AskBoard-only fields are optional.** Every field AskBoard adds beyond AskUserQuestion's is optional: the ask title, the agent display name, the header chip, the declared language and the minimum margin. When the agent omits them, AskBoard supplies defaults: the title from the first question; "Main agent", "Subagent <type>" or "Teammate <name>" for the name (F-53); the configured language, then en-US (Localization); and the project's minimum margin, when one is set (F-98). An omitted header chip is simply absent. A plain single-question ask stays within SM-1's +25% (L148, pending PCR-32, pending ACR-06, pending ACR-07).
   - **AskBoard computes or holds derived data,** so the agent never writes it: derived values (FR-12), the split and single-question board rules (L106, L120), the change highlight and the Gantt baseline against the agent's original (L76, L72), the Graph's initial layout and auto-layout (L160), molecule expansion (AD-9), and the diffs of Diff review's two alternatives, which AskBoard reads from patch files (L182, pending ACR-07).
 
 ## Information Architecture
@@ -58,7 +58,7 @@ updated: 2026-11-01
 | Reading panel | A project-file reference, inside the board (L79) | The referenced file at its location, with "Open in editor" | None; the golden case exercises it (see Open Items) |
 | Settings panel | "Settings" in the context header, on every board, with user and project scopes (L40) | Theme, density and the context-placement default, editable; every other setting and the current language, read-only (L171, L179; Preferences and Settings; [mock](mockups/key-settings-panel.html)) | None, by choice: covered by description (L96) |
 | Invalid-link page | A bare, stale, invalid or discarded-ask board URL (L41) | Says why no board opens and what to do (Component Patterns, Invalid-link page) | None, by choice (L96) |
-| System notification | A new ask (FR-23) | Announces who asked, where, the ask's title and the question count (L65), and opens the board (F-49) | UJ-1 |
+| System notification | A new ask (FR-23) | Announces who asked, where, the ask's title and the question count (L65), and opens the board where the system lets it: on Linux, not on macOS (F-49, FR-23) | UJ-1 |
 | Terminal link and pending-asks list | The agent's Claude Code terminal (FR-23, AD-4) | Opens the ask's board. With the mod, the notice also lists the pending asks (L157, pending PCR-31) | UJ-1 |
 | Snapshot | A file in the Snapshot folder (FR-27) | An offline, view-only copy of a board, taken while the ask is open or closed (L137) | UJ-2 and UJ-3 (taken by the agent); taken by the user: covered by description (L96) |
 | Leave-page prompt | Closing or reloading a board's tab with unsent work or with postponed questions open (L57, L172, F-57) | The browser's own guard against losing work | UJ-1 edge case, UJ-2 |
@@ -70,7 +70,7 @@ The browser tab is labelled with the ask's title: "<title> · AskBoard" (L110, p
 This is variant A of the structural mock ([layout variants](mockups/layout-split-view-variants-2026-10-27.html)), with every placement confirmed (L106 to L110). It describes a board with sections or tabs; Presentations gives what one question per view and the single-question board change.
 
 1. **Context header**, sticky, in two rows (L46, L110):
-   - **Row 1:** who asked, as type and name (L86), then Project, Directory, Branch and Worktree (FR-24). Without a display name from the agent, the header shows "Main agent" or "Subagent <type>" alone, and a second subagent of the same type in the session adds an ordinal ("code-reviewer #2") (F-53). "For: <name>" appears only when the expected answerer differs from this machine's git user (L87, L200). Which header row it sits in is not recorded (Open Items 13).
+   - **Row 1:** who asked, as type and name (L86), then Project, Directory, Branch and Worktree (FR-24). Without a display name from the agent, the header shows "Main agent", "Subagent <type>" or "Teammate <name>" alone, and a second subagent of the same type in the session adds an ordinal ("code-reviewer #2") (F-53). "Teammate <name>" names an agent-team teammate by its name as Claude Code gives it ("Teammate scout-2"), with no ordinal (PO decision of 2026-11-03). "For: <name>" appears only when the expected answerer differs from this machine's git user (L87, L200). It sits in row 1, after who asked. Directory is the agent's working directory relative to the ask's root ("." at the root), and a field AskBoard does not know, as for an ask with no agent record, shows "—".
    - **Row 2:** the ask state with its postponed and declined counts (L55, F-08), the agent state (FR-24), the open count and the next-open jump (L50, F-08), the count of unread follow-up replies when there is one (F-20), then the quick toggles (Theme, Compact | Comfortable) and Settings (L46, L169).
    - It also carries the agent-change flag (L58).
 2. **Outline navigator.** A sticky left rail of areas and questions, each with its state marker (Counting). A click or a keypress jumps to a question (L50, L110). With areas as tabs, a jump into another area activates that tab (L160).
@@ -101,7 +101,7 @@ The brand voice lives in DESIGN.md, Brand & Style. For the things the user acts 
 | Where | English | Italian | Source |
 |---|---|---|---|
 | Browser tab | "<title> · AskBoard" | — | L110 |
-| Who asked | "Main agent · <name>", "Subagent <type> · <name>" (for example, "Subagent code-reviewer · Retry review"); without a display name "Main agent" or "Subagent <type>"; a second subagent of the same type "Subagent code-reviewer #2" | — | L86, F-53 |
+| Who asked | "Main agent · <name>", "Subagent <type> · <name>" (for example, "Subagent code-reviewer · Retry review"), "Teammate <name> · <display name>"; without a display name "Main agent", "Subagent <type>" or "Teammate <name>"; a second subagent of the same type "Subagent code-reviewer #2" | — | L86, F-53 |
 | Expected answerer | "For: <name>" | — | L87 |
 | Header fields | "Project", "Directory", "Branch", "Worktree" | — | Structural mock |
 | Ask state | "Waiting", "Partly answered 1/3", "Answered", "Closed", "Discarded"; with postponed or declined questions "answered, 1 postponed", "answered, 1 declined" | — | Colour page, L55, F-08 |
@@ -650,10 +650,10 @@ An opened Snapshot: [mock](mockups/key-snapshot-view.html), Marco's UJ-3 board i
   - the ask's title;
   - the number of questions.
 
-  When the agent gives no title or display name, AskBoard's defaults fill them (L148, F-53). Agent text reaches the notifier as a plain, truncated argument (L65, pending PCR-02, AD-8). The notification and the terminal link both open the board (F-49).
+  When the agent gives no title or display name, AskBoard's defaults fill them (L148, F-53). Agent text reaches the notifier as a plain, truncated argument (L65, pending PCR-02, AD-8). The terminal link opens the board; the notification opens it on Linux, and on macOS only announces the ask (F-49, FR-23).
 - **Bring to front.** AskBoard opens the new board and brings it to the front, unless the user is working on another board of the same Claude Code session. "Working" means that a board of that session has focus and has had a user input in the last 60 seconds (pending ACR-12). In that case AskBoard does not open the board, and the user opens it from the notification or the terminal link. Across sessions the browser behaves as usual, since each session has its own process (L81, L141, AD-2, pending PCR-01, F-49).
-- **The terminal link** is the board link `http://<loopback host>:<port>/b/<ask-id>?t=<token>`. A hook shows it to the user as a system message, for the main conversation and subagents alike (ARCHITECTURE-SPINE, Conventions). Its surrounding text is not recorded.
-- **Pending-asks list.** With the mod (AD-4), the terminal notice also lists the pending asks, one line each: the ask's title, who asked, the number of questions still open (Counting) and the board link, like the notification (L157, pending PCR-31). Its wording is not recorded.
+- **The terminal link** is the board link `http://<loopback host>:<port>/b/<ask-id>?t=<token>`. A hook shows it to the user as a system message for the main conversation's asks, as "AskBoard · <title> · <link>". For a subagent's ask, the mod shows it as a toast and in the pending-asks list; with mods off, the browser and the notification remain (ARCHITECTURE-SPINE, Conventions; FR-23).
+- **Pending-asks list.** With the mod (AD-4), the terminal notice also lists the pending asks, one line each: the ask's title, who asked, the number of questions still open (Counting) and the board link, like the notification (L157, pending PCR-31). Each line reads "<title> · <who> · <n> open · <link>", and the list is cleared when no ask is pending.
 - **Devcontainer.** The terminal link always works. The browser and system notices appear where the host allows them (FR-23).
 - **Concurrent asks.** Each opens in its own tab and is told apart by its context header. No board shows another ask's items (FR-24, NFR-2).
 
@@ -814,7 +814,7 @@ This spine relies on change requests that the askboard repository has not applie
 | The reading panel inside the board | ACR-03, PCR-14 | AD-8: a project-file reference opens the source view in a new tab |
 | "Open in editor" | ACR-04, PCR-14 | No "Open in editor", and no `editor` setting |
 | Undoing a delivered postpone or decline | ACR-05, PCR-06 | Undo only while it is held, in submitted delivery before Submit |
-| The ask title and the agent display name written by the agent | ACR-06, PCR-03, PCR-16 | The title always comes from the first question, and the name is "Main agent" or "Subagent <type>" |
+| The ask title and the agent display name written by the agent | ACR-06, PCR-03, PCR-16 | The title always comes from the first question, and the name is "Main agent", "Subagent <type>" or "Teammate <name>" |
 | The minimum margin set by the agent or by a project default | ACR-07, PCR-23 | No minimum margin: no warning and no chip |
 | Diff review's two alternatives as patch files | ACR-07, PCR-23 | Diff review shows one diff, with no "Fix A \| Fix B \| A vs B" switch; the choice of fix stays an option on the question |
 | Decline | ACR-08, PCR-29 | No Decline; Postpone stays (FR-4) |
@@ -878,7 +878,7 @@ Not blocking. They stay open until the stories close them (L145).
 10. **Splitting a work package.** Whether a split is one action or the Tree's add and move; F-09 records only how added and deleted packages carry into the Gantt.
 11. **References without excerpts.** Where the references go for a question that has no excerpts (L106 ties the split to excerpts).
 12. **Ask title on the board.** Whether the ask's title appears on the board itself, beyond the tab and the notification.
-13. **"For: <name>".** Which header row it goes in.
+13. **"For: <name>".** Decided by the OpenSpec change `push-delivery`: row 1, after who asked (Board anatomy).
 14. **Areas in one question per view.** How one question per view shows each question's area (FR-2, AXFX FR-36; reconcile-prd §2).
 15. **Resending an open ask.** What the user sees when the agent resends an ask that is still open: FR-5 opens no second board (reconcile-prd §2).
 16. **Agent changes between rounds.** Whether the board marks what the agent changed in an item since the user last saw it, when the user has no unsent work (reconcile-research R3). Questions the agent adds carry "New" (F-55).

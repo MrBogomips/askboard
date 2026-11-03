@@ -1,5 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // AD-1: the mod runs in Claude Code's mod environment, with no DOM and no Node, and reaches the
+    // machine only through the mod API (design decision 7), so neither DOM nor runtime types.
+    "lib": ["es2024"],
+    "types": []
+  },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

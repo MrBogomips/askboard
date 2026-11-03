@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:local-api:stop-request",
+  "title": "Stop",
+  "description": "The SubagentStop hook's question: may this subagent stop? stop_hook_active is Claude Code's flag that the stop follows a block (AD-10).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:local-api:version"
+    },
+    "agent_id": {
+      "$ref": "urn:askboard:local-api:agent-id"
+    },
+    "agent_type": {
+      "$ref": "urn:askboard:local-api:agent-type"
+    },
+    "stop_hook_active": {
+      "type": "boolean"
+    }
+  },
+  "required": ["version", "agent_id", "stop_hook_active"],
+  "additionalProperties": false
+}

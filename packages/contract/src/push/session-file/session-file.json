@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:session-file:session-file",
+  "title": "Session file",
+  "description": "How the hooks and the mod find the session process (AD-5; design decision 3): written 0600 in the session folder as <key>.json, where key is the PID of the Claude Code process, parent of the session process and of every hook. A file that fails validation, or names another format major, is no session: its reader treats the session process as unreachable.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "description": "The session file format, as major.minor. A reader supports major 1 and accepts any of its minors; a minor only adds optional fields, written only once every reader accepts them.",
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "key": {
+      "description": "The Claude Code process's PID, which names the file.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "pid": {
+      "description": "The session process's PID: a file whose process is gone is stale.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "apiAddress": {
+      "description": "The local API's socket, an absolute path within Linux's 107 bytes; on macOS the session process checks the smaller limit before it listens.",
+      "type": "string",
+      "pattern": "^/",
+      "maxLength": 107
+    },
+    "sessionToken": {
+      "description": "The local API's token: 128 random bits as base64url, written as a board token is, though it opens no board.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22,}$",
+      "maxLength": 256
+    },
+    "projectDir": {
+      "description": "The session project root, the real path of CLAUDE_PROJECT_DIR (AD-12); absent when the session has none, as when the variable is not set.",
+      "type": "string",
+      "pattern": "^/",
+      "maxLength": 4096
+    },
+    "startedAt": {
+      "$ref": "urn:askboard:output:time"
+    }
+  },
+  "required": ["format", "key", "pid", "epoch", "apiAddress", "sessionToken", "startedAt"],
+  "additionalProperties": false
+}

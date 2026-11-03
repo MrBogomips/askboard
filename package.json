@@ -8,9 +8,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun run build:server && bun run build:view",
+    "build": "bun run build:server && bun run build:view && bun run build:mod",
     "build:server": "bun build packages/server/src/main.ts --target=node --format=esm --outfile=dist/askboard.mjs",
     "build:view": "bun tools/build/view.ts",
+    "build:mod": "bun tools/build/mod.ts",
     "check": "bun run typecheck && bun run lint && bun run test && bun run check:imports && bun run check:licences",
     "typecheck": "for p in packages/*/; do tsc -p \"$p\" || exit 1; done && tsc -p tsconfig.test.json",
     "lint": "biome check .",

@@ -351,8 +351,11 @@ export type DoneMessage = {
   readonly actionId: string;
 };
 
-/** Why an ask closed: E3 closes only for the agent; a later minor extends it. */
-export type ClosedReason = "agent";
+/**
+ * Why an ask closed: the agent closed it, or AskBoard did because the subagent that owns it
+ * finished (push delivery, AD-10).
+ */
+export type ClosedReason = "agent" | "agent-finished";
 
 export type ClosedMessage = {
   readonly version: string;

@@ -1,14 +1,18 @@
 // The view's context header (EXPERIENCE.md, Board anatomy and Context header; DESIGN.md, Context
-// header and State pill), sticky, in two rows (L46, L110). Row 1 belongs to `push-delivery` (E4):
-// who asked, the project, the directory, the branch and the worktree (FR-24); until E4 inserts it,
-// row 1 shows the ask's title. Row 2 holds the "Ask" label and the ask state pill, then, after the
-// place where E4 inserts the agent pill, the open count, "Next open ↓", the unread-reply count and
-// the agent-change flag (ask-lifecycle, design decisions 6 and 8). A single-question board shows
-// only the pill (L198). The title is agent text and renders as text only (AD-8).
+// header and State pill), sticky, in two rows (L46, L110). Row 1 is push delivery's (E4): who
+// asked, the project, the directory, the branch and the worktree (FR-24, `who-and-where.tsx`). Row
+// 2 holds the ask's title, the "Ask" label and the ask state pill, the agent pill (push delivery,
+// `agent-pill.tsx`), then the open count, "Next open ↓", the unread-reply count and the
+// agent-change flag (ask-lifecycle, design decisions 6 and 8). A single-question board shows only
+// the pills (L198). The title is agent text and renders as text only (AD-8).
 
+import { AgentPill } from "./agent-pill.tsx";
 import type { AskPill as Pill } from "./board-view.ts";
+import type { HeaderData } from "./header-data.ts";
 import { AskPill } from "./markers.tsx";
+import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, INFO_BADGE, SEPARATOR } from "./styles.ts";
+import { WhoAndWhere } from "./who-and-where.tsx";
 
 /** What row 2 shows beyond the pill; absent on a single-question board. */
 export type HeaderCounts = {
@@ -53,25 +57,26 @@ export const BoardHeader = ({
   title,
   pill,
   counts,
+  header,
 }: {
   readonly title: string;
   readonly pill: Pill;
   readonly counts?: HeaderCounts | undefined;
+  /** Who asked and where, and the agent status (push delivery). */
+  readonly header: Store<HeaderData>;
 }) => (
   <header className="sticky top-0 z-10 flex flex-col border-b border-border bg-card">
+    <WhoAndWhere header={header} />
     <div className="flex h-8 items-center gap-3 px-4">
-      {/* push-delivery (E4) inserts its who-and-where row here: <WhoAndWhere />. */}
       <h1
         className="min-w-0 flex-1 truncate text-body-lg font-semibold text-foreground"
         title={title}
       >
         {title}
       </h1>
-    </div>
-    <div className="flex h-8 items-center gap-3 px-4">
       <span className="text-label text-muted-foreground uppercase">Ask</span>
       <AskPill pill={pill} />
-      {/* push-delivery (E4) inserts the agent pill here: <AgentPill />. */}
+      <AgentPill header={header} />
       {counts === undefined ? null : <Counts counts={counts} />}
     </div>
   </header>

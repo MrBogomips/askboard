@@ -250,3 +250,35 @@ describe("result size", () => {
     ]);
   });
 });
+
+// Push delivery (task 3.2): ask-core refuses an owned ask to a call that is not its owner's.
+
+describe("owner refusals", () => {
+  const refusing =
+    (refused: string, kind: "other-owner" | "no-record") =>
+    (askId: string, after: string): ReadOutcome =>
+      askId === refused ? { kind, askId } : logs({ [A]: [answerEvent(1)] })(askId, after);
+
+  test("an ask another agent owns is an error naming it, and nothing is marked read", async () => {
+    const core = fakeCore({ read: refusing(B, "other-owner") });
+    const result = await collect(core, {
+      asks: [
+        { askId: A, after: `${EPOCH}.0` },
+        { askId: B, after: `${EPOCH}.0` },
+      ],
+    });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain(`asks[1].askId: the ask "${B}" belongs to another agent`);
+    expect(core.calls.some((call) => call.startsWith("markRead"))).toBe(false);
+  });
+
+  test("a call with no agent record is an error naming the ask, saying it may be retried", async () => {
+    const core = fakeCore({ read: refusing(A, "no-record") });
+    const result = await collect(core, { asks: [{ askId: A, after: `${EPOCH}.0` }] });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain(`asks[0].askId: the ask "${A}"`);
+    expect(textOf(result)).toContain("no agent record");
+    expect(textOf(result)).toContain("again");
+    expect(core.calls.some((call) => call.startsWith("markRead"))).toBe(false);
+  });
+});

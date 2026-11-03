@@ -48,10 +48,19 @@
     "packages/hooks": {
       "name": "@askboard/hooks",
       "version": "0.0.0",
+      "dependencies": {
+        "@askboard/contract": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "26.6.6",
+      },
     },
     "packages/mod": {
       "name": "@askboard/mod",
       "version": "0.0.0",
+      "dependencies": {
+        "@askboard/contract": "workspace:*",
+      },
     },
     "packages/molecules": {
       "name": "@askboard/molecules",
@@ -66,6 +75,7 @@
       "dependencies": {
         "@askboard/contract": "workspace:*",
         "@askboard/core": "workspace:*",
+        "@askboard/hooks": "workspace:*",
         "@modelcontextprotocol/server": "2.4.0",
         "ws": "8.22.1",
       },

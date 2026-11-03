@@ -9,14 +9,16 @@ import {
   type UnavailableReason,
   type Warning,
 } from "@askboard/contract";
-import { type AskOutcome, BoardSetupError } from "@askboard/core";
+import { type AskOutcome, BoardSetupError, type CallIdentity } from "@askboard/core";
 import { failure } from "./diagnostics.ts";
+import { ownerRefusalText } from "./owner-refusal.ts";
+import type { CallContext } from "./ports.ts";
 import { errorResult, jsonResult, problemsResult } from "./results.ts";
 import type { ToolHandler } from "./server.ts";
 
 /**
- * E1's sessions have no hooks, so no ask has an agent record and every ask is unchecked (AD-5):
- * every `ask` result says so.
+ * An ask that arrived with no agent record is unchecked, which means its session runs without
+ * AskBoard's hooks (AD-5): its `ask` result says so. An ask bound to a record does not.
  */
 export const NO_HOOKS_WARNING: Warning = {
   code: "no-hooks",
@@ -52,10 +54,20 @@ const FAILED_INSIDE =
 const SETUP_FAILED =
   "AskBoard cannot show boards: its view build is missing or damaged, so nothing was created for this ask. Do not send it again: ask through AskUserQuestion, and tell the user to rebuild or reinstall AskBoard.";
 
-export const handleAsk: ToolHandler = async ({ core, diagnostics }, args) => {
+// The call as its agent record names it (design decision 4): its tool use, the tool and the ask ID
+// the arguments give, read before ask-core validates them.
+const identityOf = (args: unknown, context: CallContext): CallIdentity => {
+  const askId =
+    typeof args === "object" && args !== null ? (args as { askId?: unknown }).askId : undefined;
+  const askIds = typeof askId === "string" ? [askId] : [];
+  const { toolUseId } = context;
+  return toolUseId === undefined ? { tool: "ask", askIds } : { toolUseId, tool: "ask", askIds };
+};
+
+export const handleAsk: ToolHandler = async ({ core, diagnostics }, args, context) => {
   let outcome: AskOutcome;
   try {
-    outcome = await core.ask(args ?? {});
+    outcome = await core.ask(args ?? {}, identityOf(args, context));
   } catch (error) {
     diagnostics.write(failure("ask failed", error));
     return errorResult(error instanceof BoardSetupError ? SETUP_FAILED : FAILED_INSIDE);
@@ -76,12 +88,20 @@ export const handleAsk: ToolHandler = async ({ core, diagnostics }, args) => {
       return errorResult(
         "The session is ending: AskBoard takes no new ask. Ask through AskUserQuestion instead.",
       );
+    case "other-owner":
+    case "no-record":
+      return errorResult(ownerRefusalText(outcome.kind, outcome.askId, "ask"));
+    case "unsupported-version":
+      return errorResult(
+        `AskBoard needs Claude Code ${outcome.minimum} or later, and this session runs ${outcome.version}: nothing was created. Ask through AskUserQuestion instead, and tell the user to update Claude Code.`,
+      );
     default: {
+      const unchecked = core.ownerOf(outcome.ask.askId) === undefined;
       const result: AskResult = {
         versions: RESULT_VERSIONS,
         epoch: core.epoch,
         ...outcome.ask,
-        warnings: [NO_HOOKS_WARNING],
+        ...(unchecked ? { warnings: [NO_HOOKS_WARNING] } : {}),
       };
       return jsonResult(result);
     }

@@ -11,7 +11,9 @@
 // view says "Question removed by the agent" and shows the next one (task 6.7). It renders from the
 // latest board document and what the board page last sent: the state, the lock, which makes the
 // board read-only while it moved, once it is discarded or closed (AD-21, FR-6), and whether the
-// connection is lost, which stops Submit.
+// connection is lost, which stops Submit. Later changes' stores come in one record, the shell's
+// extras: the header also shows who asked and where and the agent status, from push delivery's
+// store (design decision 12).
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
@@ -42,6 +44,7 @@ import {
 } from "./board-view.ts";
 import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
+import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
 import type { Store } from "./store.ts";
@@ -72,6 +75,15 @@ export type BoardContext = CardContext & {
   readonly focus: Store<HeadingRequest | undefined>;
   /** The agent deleted the question in view, in one question per view (F-55). */
   readonly removed: Store<boolean>;
+};
+
+/**
+ * The stores later changes add to the board, one member each, which the shell passes in one
+ * literal (review M5).
+ */
+export type BoardExtras = {
+  /** Who asked and where, and the agent status (push delivery, design decision 12). */
+  readonly header: Store<HeaderData>;
 };
 
 // Questions the agent changed under the user's work, made on an earlier revision, that wait for
@@ -239,9 +251,11 @@ const takesSelection = (
 export const Board = ({
   view,
   context,
+  extras,
 }: {
   readonly view: Store<BoardView>;
   readonly context: BoardContext;
+  readonly extras: BoardExtras;
 }) => {
   const { document, state, lock, connection } = useSyncExternalStore(view.subscribe, view.get);
   const draft = useSyncExternalStore(context.board.subscribe, context.board.get);
@@ -367,6 +381,7 @@ export const Board = ({
         title={document.title}
         pill={askPillOf(state, lock)}
         counts={single ? undefined : counts}
+        header={extras.header}
       />
       {body}
       <BottomBar

@@ -15,8 +15,19 @@
 // and `closed`.
 
 import type { Duplex } from "node:stream";
+//
+// Push delivery: a live board's presence messages say whether the user works on it, which ask-core
+// hears with `setWorking` until it closes or is taken over (`presence.ts`). With the session
+// project given, a live board also gets who asked and where and the agent status at its opening,
+// and each change of the status (`who-and-where.ts`).
+//
+// Each of ask-core's events, each page message and each part of a board's opening has one entry
+// in a table, so that a change adding one adds its entry and edits no other.
+
 import {
   type ActCommand,
+  type AgentStatus,
+  type AnswerCommand,
   BOARD_CLOSE_CODES,
   CHOICE_LABELS_MAX_CHARS,
   type ConnectMessage,
@@ -44,7 +55,9 @@ import {
   refusedMessage,
   stateMessage,
 } from "./messages.ts";
+import { presenceOf } from "./presence.ts";
 import type { BoardTokens } from "./tokens.ts";
+import { agentMessage, originMessage } from "./who-and-where.ts";
 
 /**
  * The largest message a board page may send: a draft record of the contract's draft limit, or
@@ -120,6 +133,8 @@ type Connection = {
   phase: "waiting" | "live" | "moving" | "closed";
   /** The answers, by cursor, this board has been told were delivered to the agent. */
   readonly delivered: Set<string>;
+  /** Whether its last presence message says the user works on it, as ask-core last heard. */
+  working: boolean;
   /** Cancels the first-message timer of a waiting socket, or the flush wait of a moving one. */
   stopTimer: () => void;
   /** Stops counting what the socket sends before its `connect` is accepted. */
@@ -144,11 +159,33 @@ const parse = (data: RawData, binary: boolean): unknown => {
 
 type PageCommand = Exclude<LifecyclePageMessage, ConnectMessage>;
 
+/** What a live board does with each of ask-core's events, by type. */
+type Heard = {
+  readonly [T in CoreEvent["type"]]: (
+    connection: Connection,
+    event: Extract<CoreEvent, { readonly type: T }>,
+  ) => void;
+};
+
+/** What a live board does with each page command, by type, once the validator checked it. */
+type Commands = {
+  readonly [T in PageCommand["type"]]: (
+    connection: Connection,
+    command: Extract<PageCommand, { readonly type: T }>,
+  ) => void;
+};
+
+/** One part of a board's opening, sent when it applies. */
+type Opener = (connection: Connection, board: OpenBoardView) => void;
+
 // The size of a message as it arrived, in bytes.
 const sizeOf = (data: RawData): number =>
   Array.isArray(data)
     ? data.reduce((total, chunk) => total + chunk.byteLength, 0)
     : (data as Buffer | ArrayBuffer).byteLength;
+
+/** What `#send` takes: any message to the page, which names its protocol version and its type. */
+type BoardHostMessageShape = { readonly version: string; readonly type: string };
 
 // The command a message on a live socket carries, or the refusal it gets: the socket stays open
 // and the ask unchanged.
@@ -172,6 +209,8 @@ export type BoardsDeps = {
   readonly report: (error: unknown) => void;
   /** `CONNECT_TIMEOUT_MS` and `WAITING_SOCKETS_MAX` unless given. */
   readonly limits?: Partial<SocketLimits>;
+  /** The session project: with it, the context header's messages go to each live board. */
+  readonly projectDir?: string;
 };
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -190,6 +229,7 @@ export class Boards {
   readonly #limits: SocketLimits;
   // The connection whose act command ask-core is applying: its acknowledgement precedes its state.
   #acting: Connection | undefined;
+  readonly #projectDir: string | undefined;
   // Set when the host starts closing: no socket is accepted or heard from then.
   #closing = false;
 
@@ -204,6 +244,7 @@ export class Boards {
       takeoverFlushMs: deps.limits?.takeoverFlushMs ?? TAKEOVER_FLUSH_WAIT_MS,
       sendBufferMaxBytes: deps.limits?.sendBufferMaxBytes ?? SEND_BUFFER_MAX_BYTES,
     };
+    this.#projectDir = deps.projectDir;
   }
 
   /**
@@ -217,6 +258,7 @@ export class Boards {
       askId,
       phase: "waiting",
       delivered: new Set(),
+      working: false,
       stopTimer: () => undefined,
       stopCounting: () => undefined,
       opened: false,
@@ -228,6 +270,7 @@ export class Boards {
       this.#sockets.delete(socket);
       connection.stopCounting();
       this.#settle(connection);
+      this.#guard(() => this.#setWorking(connection, false));
       connection.phase = "closed";
       // A tab that lost the board and closes ends its flush: the tab that took it opens.
       this.#guard(() => this.#moved(connection));
@@ -261,27 +304,27 @@ export class Boards {
     const connection = this.#live.get(event.askId);
     if (connection === undefined) return;
     if (!connection.opened && event.type !== "discarded") return;
-    this.#guard(() => {
-      if (event.type === "appended") {
-        if (this.#acting !== connection) this.#sendState(connection);
-      } else if (event.type === "received") this.#sendReceipts(connection);
-      else if (event.type === "discarded") this.#discard(connection, event.reason);
-      else this.#hearLifecycle(connection, event);
-    });
+    const handle = this.#heard[event.type] as (connection: Connection, event: CoreEvent) => void;
+    this.#guard(() => handle(connection, event));
   }
 
-  // Protocol 1.1's agent changes (ask-lifecycle, design decision 5): a new board document, a new
-  // state, and the close, each sent when ask-core publishes it.
-  #hearLifecycle(connection: Connection, event: CoreEvent): void {
-    if (event.type === "document") {
+  // What a live board hears of each of ask-core's events, by type: E1's appended events, receipts
+  // and the discard; the ask lifecycle's agent changes, a new board document, a new state and the
+  // close (ask-lifecycle, design decision 5); push delivery's agent status (design decision 12).
+  readonly #heard: Heard = {
+    appended: (connection) => {
+      if (this.#acting !== connection) this.#sendState(connection);
+    },
+    received: (connection) => this.#sendReceipts(connection),
+    discarded: (connection, event) => this.#discard(connection, event.reason),
+    document: (connection) => {
       const view = this.#view(connection.askId);
       if (view !== undefined) this.#send(connection, boardMessage(view));
-    } else if (event.type === "state") {
-      this.#sendState(connection);
-    } else if (event.type === "closed") {
-      this.#send(connection, closedMessage(event.reason));
-    }
-  }
+    },
+    state: (connection) => this.#sendState(connection),
+    closed: (connection, event) => this.#send(connection, closedMessage(event.reason)),
+    agent: (connection, event) => this.#sendAgent(connection, event.status),
+  };
 
   /**
    * Closes every socket with "going away" and waits for their close handshakes, those already
@@ -417,6 +460,7 @@ export class Boards {
     this.#live.set(connection.askId, connection);
     connection.phase = "live";
     if (previous !== undefined) {
+      this.#setWorking(previous, false);
       this.#takeOver(previous, connection);
       return;
     }
@@ -470,44 +514,73 @@ export class Boards {
     this.#moved(connection);
   }
 
-  // The board's opening: its document and state, then its unsent work when ask-core holds it, and
-  // the close when the ask is closed.
   #open(connection: Connection, board: OpenBoardView): void {
     connection.opened = true;
-    this.#send(connection, boardMessage(board));
-    this.#sendState(connection);
-    const draft = this.#core.draftToRestore(connection.askId);
-    if (draft !== undefined) this.#send(connection, draftMessage(draft));
-    if (board.closed !== undefined) this.#send(connection, closedMessage(board.closed));
+    for (const opener of this.#openers) opener(connection, board);
   }
 
+  // The board's opening, in order, each part sent when it applies: its document and state, then its
+  // unsent work when ask-core holds it, and the close when the ask is closed (ask-lifecycle); then
+  // who asked and where, and the agent status (push delivery, design decision 12).
+  readonly #openers: readonly Opener[] = [
+    (connection, board) => this.#send(connection, boardMessage(board)),
+    (connection) => this.#sendState(connection),
+    (connection) => {
+      const draft = this.#core.draftToRestore(connection.askId);
+      if (draft !== undefined) this.#send(connection, draftMessage(draft));
+    },
+    (connection, board) => {
+      if (board.closed !== undefined) this.#send(connection, closedMessage(board.closed));
+    },
+    (connection) => this.#sendOrigin(connection),
+    (connection) => {
+      const status = this.#core.agentStatus?.(connection.askId);
+      if (status !== undefined) this.#sendAgent(connection, status);
+    },
+  ];
+
+  // A live board's message. One whose type has a standalone schema of its own is handled before the
+  // board protocol's validator reads it (push delivery's presence, design decision 1); any other is
+  // checked by that validator, then handled by its type, and a refusal goes back as it is.
   #command(connection: Connection, value: unknown): void {
-    const command = commandOf(value);
-    if (command.type !== "answer") {
-      this.#lifecycleCommand(connection, command);
+    const type = isRecord(value) ? value.type : undefined;
+    const standalone = typeof type === "string" ? this.#standalone.get(type) : undefined;
+    if (standalone !== undefined) {
+      standalone(connection, value);
       return;
     }
+    const command = commandOf(value);
+    if (command.type in this.#commands) {
+      const handle = this.#commands[command.type as PageCommand["type"]] as (
+        connection: Connection,
+        command: PageCommand,
+      ) => void;
+      handle(connection, command as PageCommand);
+    } else {
+      this.#send(connection, command as LifecycleHostMessage);
+    }
+  }
+
+  // Page messages with a standalone schema, by type: push delivery's presence.
+  readonly #standalone = new Map<string, (connection: Connection, value: unknown) => void>([
+    ["presence", (connection, value) => this.#presence(connection, value)],
+  ]);
+
+  // The board protocol's page commands, by type: E1's answer; the ask lifecycle's act command and
+  // draft record (ask-lifecycle, design decision 8).
+  readonly #commands: Commands = {
+    answer: (connection, command) => this.#answer(connection, command),
+    act: (connection, command) => this.#act(connection, command),
+    draft: (connection, command) => this.#draft(connection, command),
+  };
+
+  #answer(connection: Connection, command: AnswerCommand): void {
     const { itemId, rev, choice, when } = command;
     const outcome = this.#core.answer(connection.askId, { itemId, rev, choice, when });
     // An accepted answer reaches this board as ask-core's event, which sends the state.
     if (!outcome.ok) {
       this.#send(connection, refusedMessage("answer", outcome.detail, itemId));
       this.#sendState(connection);
-    }
-  }
-
-  // Protocol 1.1's page messages (ask-lifecycle, design decision 8): cases appended after E1's
-  // `connect` and `answer`; anything else is the refusal `commandOf` made.
-  #lifecycleCommand(connection: Connection, command: PageCommand | LifecycleHostMessage): void {
-    switch (command.type) {
-      case "act":
-        this.#act(connection, command as ActCommand);
-        return;
-      case "draft":
-        this.#draft(connection, command as DraftMessage);
-        return;
-      default:
-        this.#send(connection, command as LifecycleHostMessage);
     }
   }
 
@@ -541,6 +614,20 @@ export class Boards {
     return view === undefined || view.state === "discarded" ? undefined : view;
   }
 
+  // A live board's presence: its working flag on each change, or the refusal.
+  #presence(connection: Connection, value: unknown): void {
+    const presence = presenceOf(value);
+    if ("type" in presence) this.#send(connection, presence);
+    else this.#setWorking(connection, presence.working);
+  }
+
+  // ask-core hears a board's working flag when it changes; the board's end makes it false.
+  #setWorking(connection: Connection, working: boolean): void {
+    if (connection.working === working) return;
+    connection.working = working;
+    this.#core.setWorking?.(connection.askId, working);
+  }
+
   // The ask's state, unless it is discarded: its board then hears the discard instead.
   #sendState(connection: Connection): void {
     const board = this.#view(connection.askId);
@@ -565,13 +652,27 @@ export class Boards {
     }
   }
 
+  // Who asked and where, as it is now (design decision 12).
+  #sendOrigin(connection: Connection): void {
+    const asked = this.#core.whoAsked?.(connection.askId);
+    if (this.#projectDir !== undefined && asked !== undefined) {
+      this.#send(connection, originMessage(this.#projectDir, asked));
+    }
+  }
+
+  #sendAgent(connection: Connection, status: AgentStatus): void {
+    if (this.#projectDir !== undefined) this.#send(connection, agentMessage(status));
+  }
+
   #discard(connection: Connection, reason: DiscardReason): void {
     this.#live.delete(connection.askId);
     this.#send(connection, discardedMessage(reason));
     this.#close(connection, BOARD_CLOSE_CODES.discarded);
   }
 
-  #send(connection: Connection, message: LifecycleHostMessage): void {
+  // Any board protocol message: each change's messages carry a version and a type, so a new one
+  // needs no edit here (review fix L8).
+  #send(connection: Connection, message: BoardHostMessageShape): void {
     const { socket } = connection;
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > this.#limits.sendBufferMaxBytes) {

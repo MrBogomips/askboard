@@ -1,5 +1,5 @@
 // The agent's side of the session-process target: `@modelcontextprotocol/client` 2.4.0 calls `ask`
-// and `collect` as an agent does (design decision 11), and reads the JSON each result carries in
+// and `collect`, with `wait` too (push delivery), as an agent does (design decision 11), and reads the JSON each result carries in
 // its one text block (AD-6). It reads only what the target needs; the conformance suite (task 9.2)
 // checks the envelopes in full.
 
@@ -109,6 +109,21 @@ export class Agent {
     const result = await this.#client.callTool({
       name: "collect",
       arguments: { asks: [{ askId, after }] },
+    });
+    return collectedAskOf(toolJson("collect", result), askId);
+  }
+
+  /** Lists the tools: a first request, which starts the session process's local API (AD-2). */
+  async listTools(): Promise<readonly string[]> {
+    const listed = await this.#client.listTools();
+    return listed.tools.map((tool) => tool.name);
+  }
+
+  /** `collect` with `wait` on the ask's question: returns when the user answers it. */
+  async collectWaiting(askId: string, after: string, itemId: string): Promise<CollectedAsk> {
+    const result = await this.#client.callTool({
+      name: "collect",
+      arguments: { asks: [{ askId, after }], wait: { askId, itemId } },
     });
     return collectedAskOf(toolJson("collect", result), askId);
   }

@@ -10,7 +10,10 @@
 // banner; "Copy my unsent work" and the leave-page prompt read the mirrored record. Protocol 1.1's
 // host messages are handled in cases appended after E1's (design decision 8). Everything it
 // touches comes in `BoardPageDeps`, so it runs without a browser; `start.ts` gives it the real
-// socket, view, timers, clipboard and page.
+// socket, view, timers, clipboard and page. Push delivery adds who asked and where and the agent
+// status, passed on to the view, and the view's activity, for the board's working signal (design
+// decisions 10 and 12). The view's messages and `board-host`'s each have one entry in a table, so a
+// change adding one adds its entry.
 
 import {
   type ActCommand,
@@ -18,7 +21,6 @@ import {
   DRAFT_RECORD_MAX_CHARS,
   type DraftRecord,
   type LifecycleBoardDocument,
-  type LifecycleHostMessage,
   type LifecycleStateMessage,
   type RefusedMessage,
 } from "@askboard/contract";
@@ -28,7 +30,9 @@ import type {
   ActReply,
   AnswerReply,
   DraftRestore,
+  ViewItemError,
   ViewMessage,
+  ViewReady,
   ViewUpdate,
 } from "../view-protocol.ts";
 import {
@@ -42,6 +46,7 @@ import {
   type StatusEvent,
 } from "./board-status.ts";
 import { createDraftMirror, type DraftMirror } from "./draft-mirror.ts";
+import type { BoardHostMessage } from "./host-messages.ts";
 import {
   type ActsOrRefusal,
   actsFor,
@@ -75,6 +80,20 @@ import type { ViewReply } from "./view-host.ts";
 /** What the controller uses of the hosted view. */
 export type ViewHandle = { update(update: ViewUpdate): void };
 
+/** What the board page does with each of the view's messages, by type. */
+type ViewHandlers = {
+  readonly [T in ViewMessage["type"]]: (
+    message: Extract<ViewMessage, { readonly type: T }>,
+  ) => ViewReply;
+};
+
+/** What the board page does with each message `board-host` sends, by type. */
+type HostHandlers = {
+  readonly [T in BoardHostMessage["type"]]: (
+    message: Extract<BoardHostMessage, { readonly type: T }>,
+  ) => void;
+};
+
 export type BoardPageDeps = {
   /** Opens a socket to `board-host`, which sends `connect` with the token once open. */
   readonly connect: (events: BoardSocketHandlers) => BoardConnection;
@@ -95,6 +114,8 @@ export type BoardPageDeps = {
   readonly copyText: (text: string) => Promise<void>;
   /** Draws an action ID; 22 random base64url characters by default (AD-20). */
   readonly newActionId?: () => string;
+  /** The view's activity message: an input in the view, for the board's working signal. */
+  readonly onActivity?: () => void;
 };
 
 export type BoardPage = {
@@ -242,6 +263,8 @@ class BoardPageController implements BoardPage {
 
   // The state, the lock, the connection, the commands held and settled, a later document and a
   // restore: the view settles its acts on them, so a card is never stuck at a receipt (AD-10).
+  // What the model passes on goes with them as it is: who asked and where and the agent status,
+  // once `board-host` has sent them (design decision 12), and each later field (review M4).
   #updateView(): void {
     const { state, document } = this.#model;
     if (this.#view === undefined || state === undefined) return;
@@ -260,6 +283,7 @@ class BoardPageController implements BoardPage {
       ...(pending.length === 0 ? {} : { pending }),
       ...(settled.length === 0 ? {} : { settled }),
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
+      ...this.#model.passedOn,
     });
   }
 
@@ -276,21 +300,32 @@ class BoardPageController implements BoardPage {
   }
 
   readonly #onViewMessage = async (message: ViewMessage): Promise<ViewReply> => {
-    switch (message.type) {
-      case "answer":
-        return this.#command(answerActFor(this.#model, message));
-      case "act":
-        return this.#command(actsFor(this.#model, message.acts));
-      case "draft":
-        return this.#takeDraft(message.record);
-      default:
-        this.#model = withViewMessage(this.#model, message);
-        if (message.type === "item-error") {
-          this.#deps.log(`the item "${message.itemId}" failed in the view: ${message.error}`);
-        }
-        return {};
-    }
+    const handle = this.#viewHandlers[message.type] as (message: ViewMessage) => ViewReply;
+    return handle(message);
   };
+
+  // What the board page does with each of the view's messages, by type: E1's answer, ready and
+  // item error; the ask lifecycle's act command and draft record; push delivery's activity.
+  readonly #viewHandlers: ViewHandlers = {
+    answer: (message) => this.#command(answerActFor(this.#model, message)),
+    ready: (message) => this.#viewReport(message),
+    "item-error": (message) => this.#viewReport(message),
+    act: (message) => this.#command(actsFor(this.#model, message.acts)),
+    draft: (message) => this.#takeDraft(message.record),
+    activity: () => {
+      this.#deps.onActivity?.();
+      return {};
+    },
+  };
+
+  // What the view reports of its items: kept in the model, a failing item also logged.
+  #viewReport(message: ViewReady | ViewItemError): ViewReply {
+    this.#model = withViewMessage(this.#model, message);
+    if (message.type === "item-error") {
+      this.#deps.log(`the item "${message.itemId}" failed in the view: ${message.error}`);
+    }
+    return {};
+  }
 
   // Why no act can go now, if none can: the board ended or moved.
   #ended(): string | undefined {
@@ -420,39 +455,41 @@ class BoardPageController implements BoardPage {
     this.#updateView();
   }
 
-  #onHostMessage(message: LifecycleHostMessage): void {
-    switch (message.type) {
-      case "board":
-        this.#model = withHostMessage(this.#model, message);
-        this.#deps.setTitle(tabTitle(message.document.title));
-        return;
-      case "state":
-        this.#onState(message as LifecycleStateMessage);
-        return;
-      case "receipt":
-        this.#model = withHostMessage(this.#model, message);
-        this.#updateView();
-        return;
-      case "moved":
-      case "discarded":
-        // A takeover takes only the last draft the older tab sends once told (AD-21).
-        if (message.type === "moved") this.#mirror.flushLast();
-        this.#transition({ type: message.type });
-        return;
-      case "refused":
-        this.#onRefused(message);
-        return;
-      // Protocol 1.1's messages (ask-lifecycle, design decision 8), appended after E1's.
-      case "done":
-        this.#outbox = acknowledged(this.#outbox, message.actionId);
-        return;
-      case "draft":
-        this.#onDraft(message.record);
-        return;
-      case "closed":
-        this.#transition({ type: "ask-closed" });
-        return;
-    }
+  #onHostMessage(message: BoardHostMessage): void {
+    const handle = this.#hostHandlers[message.type] as (message: BoardHostMessage) => void;
+    handle(message);
+  }
+
+  // What the board page does with each message `board-host` sends, by type: E1's; protocol
+  // 1.1's (ask-lifecycle, design decision 8); push delivery's who asked and where and agent
+  // status, kept and passed on to the view (design decision 12).
+  readonly #hostHandlers: HostHandlers = {
+    board: (message) => {
+      this.#model = withHostMessage(this.#model, message);
+      this.#deps.setTitle(tabTitle(message.document.title));
+    },
+    state: (message) => this.#onState(message as LifecycleStateMessage),
+    receipt: (message) => this.#keep(message),
+    // A takeover takes only the last draft the older tab sends once told (AD-21).
+    moved: () => {
+      this.#mirror.flushLast();
+      this.#transition({ type: "moved" });
+    },
+    discarded: () => this.#transition({ type: "discarded" }),
+    refused: (message) => this.#onRefused(message),
+    done: (message) => {
+      this.#outbox = acknowledged(this.#outbox, message.actionId);
+    },
+    draft: (message) => this.#onDraft(message.record),
+    closed: () => this.#transition({ type: "ask-closed" }),
+    origin: (message) => this.#keep(message),
+    agent: (message) => this.#keep(message),
+  };
+
+  // A message the model keeps, which the view shows: a receipt, who asked and where, the status.
+  #keep(message: BoardHostMessage): void {
+    this.#model = withHostMessage(this.#model, message);
+    this.#updateView();
   }
 
   // board-host's draft record restores the board when the page has none of its own: after a

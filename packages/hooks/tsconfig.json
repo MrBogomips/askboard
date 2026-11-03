@@ -1,5 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // AD-19: the hooks run in the session process's executable, on Bun and on Node 24.22.1 or
+    // later, through Node's API only, so they compile with Node's types and never Bun's.
+    "types": ["node"]
+  },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

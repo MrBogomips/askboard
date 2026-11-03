@@ -1,10 +1,11 @@
 // `@askboard/view/assemble` (AD-9): one pure function builds a board's srcdoc, called by the board
 // page, and later every Snapshot, called by `snapshot`. It inlines only the chunks the board
 // needs, writes AD-8's view policy as a meta tag, and puts the board document and the state in
-// the `askboard-data` block the view boots from. Plain ECMAScript only: no DOM, Node or Bun API.
+// the `askboard-data` block the view boots from, with the fields of a view update the view also
+// boots from (`bootFieldsOf`). Plain ECMAScript only: no DOM, Node or Bun API.
 
 import { cspHashSource, type ManifestFile, type ViewManifest } from "@askboard/contract";
-import { BOOT_DATA_ID, type BootData } from "../boot-data.ts";
+import { BOOT_DATA_ID, type BootData, bootFieldsOf } from "../boot-data.ts";
 import { type SelectedChunk, selectChunks } from "./select.ts";
 
 export { type SelectedChunk, selectChunks, sourcesToFetch } from "./select.ts";
@@ -68,7 +69,10 @@ const textOf = (name: string, file: ManifestFile, fetched: ChunkSources): string
 
 /** The data as JSON with every `<` escaped: no agent string can end the block or open a tag. */
 const dataBlock = (data: BootData): string =>
-  JSON.stringify({ document: data.document, state: data.state }).replaceAll("<", "\\u003c");
+  JSON.stringify({ document: data.document, state: data.state, ...bootFieldsOf(data) }).replaceAll(
+    "<",
+    "\\u003c",
+  );
 
 /**
  * The view's srcdoc for a board: the policy first, then the `askboard-data` block and each

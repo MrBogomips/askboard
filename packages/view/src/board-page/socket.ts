@@ -8,13 +8,13 @@ import {
   BOARD_PROTOCOL_VERSION,
   BOARD_TOKEN_QUERY,
   type ConnectMessage,
-  type LifecycleHostMessage,
   type LifecyclePageMessage,
+  type PresenceMessage,
   parseBoardRoute,
   socketPath,
 } from "@askboard/contract";
 import type { Problem } from "@askboard/contract/validate";
-import { readHostMessage } from "./host-messages.ts";
+import { type BoardHostMessage, readHostMessage } from "./host-messages.ts";
 
 /** The board's link, as the page's location gives it. */
 export type BoardLocation = Pick<URL, "href" | "pathname" | "search">;
@@ -33,7 +33,7 @@ export type SocketLike = {
 export type SocketConstructor = new (url: string) => SocketLike;
 
 export type BoardSocketHandlers = {
-  readonly onMessage: (message: LifecycleHostMessage) => void;
+  readonly onMessage: (message: BoardHostMessage) => void;
   /** A message the board protocol refuses: never acted on, only reported. */
   readonly onInvalid: (problems: readonly Problem[]) => void;
   /** The socket closed, or could not open, with this code; called once. */
@@ -45,6 +45,11 @@ export type BoardConnection = {
   send(message: LifecyclePageMessage): boolean;
   /** Closes the socket; its close is still reported. */
   close(): void;
+};
+
+/** A board's socket as the board page opens it, which also sends its presence (`presence.ts`). */
+export type PageConnection = Omit<BoardConnection, "send"> & {
+  send(message: LifecyclePageMessage | PresenceMessage): boolean;
 };
 
 const OPEN = 1;
@@ -77,7 +82,7 @@ export const connectBoard = (
   link: BoardLink,
   handlers: BoardSocketHandlers,
   Socket: SocketConstructor = WebSocket,
-): BoardConnection => {
+): PageConnection => {
   let closed = false;
   const onClose = (code: number) => {
     if (closed) return;
