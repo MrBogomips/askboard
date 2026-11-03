@@ -229,6 +229,24 @@ describe("assemble (AD-9)", () => {
     ]);
   });
 
+  test("a question holding a molecule reference fails, naming the type molecule, and builds no srcdoc: the view takes molecules expanded only (molecules; view spec, Molecules reach the view expanded)", () => {
+    // A reference as an agent writes it, which `ask-core`'s expansion replaces before the view.
+    const reference: WidgetItem = {
+      type: "molecule",
+      id: "wbs",
+      props: { molecule: "wbs-pert", version: "1.0.0", data: { nodes: [] } },
+    };
+    let built: unknown;
+    const attempt =
+      (items: readonly WidgetItem[], manifest: ViewManifest, files: ChunkSources) => () => {
+        built = assemble({ document: holding(items), state }, manifest, files);
+      };
+    const named = 'no chunk of the manifest registers "molecule"';
+    expect(attempt([reference], fixtureViewManifest, sources)).toThrow(named);
+    expect(attempt([sketch, reference], withProbe, withProbeSources)).toThrow(named);
+    expect(built).toBeUndefined();
+  });
+
   test("the same input gives the same output", () => {
     const reordered = Object.fromEntries(Object.entries(withUnusedSources).reverse());
     const first = assemble(data, withUnused, withUnusedSources);

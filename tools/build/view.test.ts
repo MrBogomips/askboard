@@ -429,6 +429,26 @@ describe("the board graph chunk (molecules, design decision 13; view spec, The b
   });
 });
 
+describe("molecules reach the view expanded (molecules; view spec, Molecules reach the view expanded)", () => {
+  test("no chunk of the build registers molecule, so a board holding a reference builds no srcdoc", async () => {
+    const [question] = plainChoiceBoardDocument.items;
+    const reference = {
+      type: "molecule",
+      id: "wbs",
+      props: { molecule: "wbs-pert", version: "1.0.0", data: { nodes: [] } },
+    };
+    const document: ViewDocument = {
+      ...plainChoiceBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [reference] } }],
+    };
+    const components = Object.values(manifest.chunks).flatMap((chunk) => chunk.components ?? []);
+    expect(components).not.toContain("molecule");
+    await expect(assembled(document)).rejects.toThrow(
+      'no chunk of the manifest registers "molecule"',
+    );
+  });
+});
+
 describe("build failures", () => {
   test("a chunk holding import.meta fails the build, naming the chunk", async () => {
     const entry = join(dir, "meta.ts");
