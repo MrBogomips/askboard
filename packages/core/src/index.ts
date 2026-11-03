@@ -127,6 +127,8 @@ export { rootOf } from "./context/root.ts";
 export type { EditorLaunchTarget, Source } from "./context/source.ts";
 // Settings and languages (E8, settings-languages design decisions 3 and 4): the configuration's
 // port and the settings in effect.
+// Settings and languages (E8, settings-languages design decisions 3, 4 and 6): the configuration's
+// port, the settings in effect and the view a board receives.
 
 export type {
   Config,
@@ -137,3 +139,4 @@ export type {
   WriteResult,
 } from "./config/ports.ts";
 export type { EffectiveValues, SettingsInEffect } from "./config/settings.ts";
+export type { SettingsView } from "./config/view.ts";

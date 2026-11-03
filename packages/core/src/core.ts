@@ -5,6 +5,7 @@
 import {
   type AgentStatus,
   ASK_IMAGES_MAX_BYTES,
+  type AskingRule,
   type AskState,
   type ClosedReason,
   type DiscardReason,
@@ -45,6 +46,7 @@ import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./c
 import { Configuration } from "./config/configuration.ts";
 import { askLanguage } from "./config/language.ts";
 import type { SettingsInEffect } from "./config/settings.ts";
+import { type SettingsView, settingsView } from "./config/view.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -777,5 +779,22 @@ export class AskCore {
    */
   writeSetting(setting: PresentationSetting): Promise<WriteOutcome> {
     return this.#configuration.write(setting);
+  }
+
+  /**
+   * The body of the `settings` message a board receives when it connects, and after a write with
+   * its outcome: the settings it opens with, each key's row, both files and the other warnings.
+   */
+  async boardSettingsView(write?: WriteOutcome): Promise<SettingsView> {
+    return settingsView(await this.settingsForBoard(), write);
+  }
+
+  /**
+   * The asking rule in effect, for the local API's `/v1/rule`, read without waiting: the session
+   * process reads the settings before the local API starts (design decision 12); before that,
+   * `none`, which only lets AskUserQuestion through.
+   */
+  askingRule(): AskingRule {
+    return this.#configuration.settled?.values.askingRule ?? "none";
   }
 }

@@ -30,6 +30,7 @@ export type ConfigurationPorts = {
 export class Configuration {
   readonly #ports: ConfigurationPorts;
   #first: Promise<FirstRead> | undefined;
+  #settled: SettingsInEffect | undefined;
   #folders = false;
 
   constructor(ports: ConfigurationPorts) {
@@ -39,6 +40,11 @@ export class Configuration {
   /** The settings in effect, read on the first call; every later call gets the same. */
   inEffect(): Promise<SettingsInEffect> {
     return this.#firstRead().then(({ settings }) => settings);
+  }
+
+  /** The settings in effect once the first read has settled, without waiting; else undefined. */
+  get settled(): SettingsInEffect | undefined {
+    return this.#settled;
   }
 
   /** The settings a board opens with: the user file's presentation keys as they are now. */
@@ -89,6 +95,7 @@ export class Configuration {
 
   #firstRead(): Promise<FirstRead> {
     this.#first ??= this.#read().then((first) => {
+      this.#settled = first.settings;
       for (const line of configurationDiagnostics(first.settings)) this.#ports.diagnose?.(line);
       return first;
     });
