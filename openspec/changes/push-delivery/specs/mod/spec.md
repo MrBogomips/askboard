@@ -154,15 +154,27 @@ When a new ask owned by a subagent appears in the pending asks, the mod SHALL sh
 - **THEN** within one poll interval a toast shows the ask's title and its board link
 
 ### Requirement: Pending-asks list
-The mod SHALL keep one status entry listing each pending ask on one line: its title, who asked, its number of questions still open and its board link. It SHALL update the entry whenever the list changes, an ask answered, closed or discarded included, and clear it when no ask is pending (FR-23).
+The mod SHALL show the pending asks in a band above the prompt, one row per pending ask: its title, who asked, its number of questions still open and its board link. It SHALL redraw the band whenever the list changes, an ask answered, closed or discarded included, and draw nothing when no ask is pending. While the session also draws on a surface that has no such band, it SHALL keep a status entry of one line (FR-23).
+
+#### Scenario: Four pending asks
+- **WHEN** four asks are pending
+- **THEN** the band shows one row for each, with its title, who asked, its open questions and its board link
 
 #### Scenario: An ask is answered
 - **WHEN** the agent receives the answer to the only pending ask
-- **THEN** the status entry is cleared
+- **THEN** the band draws nothing
 
 #### Scenario: The owner finishes
 - **WHEN** the subagent that owns a pending ask finishes and its ask closes
-- **THEN** the ask leaves the status entry
+- **THEN** the ask leaves the band
+
+#### Scenario: A narrow terminal
+- **WHEN** the band is narrower than a row's text and its board link
+- **THEN** each ask still takes one row: the text before the link is cut and the link kept whole, and where that leaves the title too little room, the title alone is drawn as the link
+
+#### Scenario: A surface without the band
+- **WHEN** the session also draws on a surface that has no band above the prompt
+- **THEN** a status entry of one line shows the first pending ask and how many more are pending
 
 ### Requirement: When `$.http.fetch` is refused
 When `$.http.fetch` fails, the mod SHALL send that request through the AskBoard bundle run as a client by a process run. After three requests in a row to one session process whose fetch failed while the client reached it, it SHALL send everything, polls, reports and the version report, through the client for the rest of the session; a fetch that succeeds resets the count. When both fail, it SHALL try again at the next poll (AD-5).
