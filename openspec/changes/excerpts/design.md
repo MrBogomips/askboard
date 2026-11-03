@@ -6,7 +6,7 @@ See proposal.md for why E5 comes now and what it leaves out. What the code start
 
 - **`main` at 92ca203** (E1 d34422d, compute-engine a670add, the early benchmark): `packages/server/src/excerpts/index.ts` is an empty module, which `tools/check-imports.ts` already lets import only `core` and `contract`. `boardPagePolicy` (`packages/contract/src/hash.ts`) has nine directives and says "`frame-src 'self'` waits for the reading panel (E5)". `BOARD_ROUTES` holds `/b/`, `/c/`, `/m` and `/ws/`, parsed by `parseBoardRoute` and answered by `http.ts`'s `replyTo`. Every response already carries `nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. The warning is `{code: "no-hooks", message}`, and no schema names an excerpt, a pointer or an image. The approved `ask` description and server instructions already teach `path#Heading`, `path#L10-L40` and `.askboard/media/`. The approved UJ-1 ask holds `{type: "excerpt", id: "retry-adr", props: {pointer: "docs/adr/0012-payment-retries.md#Decision"}}`.
 - **E3, `ask-lifecycle`** (branch `worktree-feature-ask-lifecycle`, f2f7dcd, not merged, not yet rebased onto 92ca203): five sets at 1.1 with `SCHEMA_SET_OWNERS`; `LifecycleBoardDocument` with `BoardQuestion {type, id, rev, props}`; `QuestionRecord` with `revs: Map<number, QuestionProps>` and `BoardModel.document(...)` in `packages/core/src/lifecycle/model.ts`; `CorePorts` gains `Clock`; `HostCore` is a `Pick<AskCore, …>`; board-protocol messages are added in four appended steps (its design decision 8); the draft record's `DraftQuestion` refuses unknown fields. Its Handed on gives E5 "context placement in the draft record, the context column and references". It has no resolution, no context item and no split rule (`question-card.tsx` puts each widget item at the card's full width).
-- **E4, `push-delivery`** (branch `worktree-feature-push-delivery`, not merged): `Origin {label, ordinal?, cwd, root, branch?, worktree?}` in `packages/core/src/push/ports.ts`, read through `AskCore.ownerOf(askId)?.origin`. Only an `ask` binding has one, and an unchecked ask has none. `root`, a required string, is the git worktree of `cwd` when it shares the project's git common dir, else the real path of `projectDir` (at 2b8734a). `session-process.ts` sets `projectDir = env.CLAUDE_PROJECT_DIR || cwd`, so without the variable an owned ask's `root` comes from the working folder (E4 cross-review, H1). E4 changes no board route, `http.ts`, `tokens.ts`, `gate.ts` or `pages.ts`.
+- **E4, `push-delivery`** (branch `worktree-feature-push-delivery`, not merged; final names read at 432f2f0): `Origin {label, ordinal?, cwd, root, branch?, worktree?}` in `packages/core/src/push/ports.ts`, read through `AskCore.ownerOf(askId)?.origin`. Only an `ask` binding has one, and an unchecked ask has none. At 2b8734a `root`, a required string, was the git worktree of `cwd` when it shares the project's git common dir, else the real path of `projectDir`, and `session-process.ts` set `projectDir = env.CLAUDE_PROJECT_DIR || cwd`, so without the variable an owned ask's `root` came from the working folder (E4 cross-review, H1). At 432f2f0 `root` is optional: the worktree, else the session project root, and absent without one (AD-12). The session project root is `sessionProjectRoot(env)` in `server/src/push-composition.ts`: the real path of `CLAUDE_PROJECT_DIR`, and none when the variable is unset, not absolute, or not naming a folder (E4's review fix L2). `composePush()`, beside it, builds E4's part of the session process and keeps the working folder for display only (`PushComposition.projectDir`). E4's tasks 14.3 and 14.7a leave the dispatch points E5 appends to as tables (decision 1). E4 changes no board route, `http.ts`, `tokens.ts`, `gate.ts` or `pages.ts`.
 - **`widget-answers`** (proposal only): brings a question's `items`, a discriminator by `type` (`tree`, `gantt`, `molecule`), `warnings` on `update`'s result and the `formula` warning `{code, itemId, address, error, message}`, at the next minor after E3's.
 - **`tree-widget`** (PR #11): the view document's `WidgetItem`, `ItemProps`, `register`, and the widget host for browser tests, whose `update()` and `colorScheme` come from its commit 5eec3ca, not from the seams E3 took.
 - **`snapshot`** (E7, proposal) holds the board document "as `ask-core` holds it" and hands E5 the FILE reference's Snapshot look; **`molecules`** (proposal) leaves the excerpt per work package to E5.
@@ -33,7 +33,17 @@ ADs this design relies on: AD-1, AD-5, AD-6, AD-7, AD-8, AD-9, AD-10, AD-11, AD-
 
 ### 1. Group 0 waits for E3 and E4, then checks every borrowed name
 
-E5 builds on E3's lifecycle model and board protocol and on E4's origin, so its first task waits until both are on `main`, rebases, and checks each name this design borrows against the code: `QuestionRecord`, `revs`, `BoardModel.document`, `LifecycleBoardDocument`, `BoardQuestion`, `DraftQuestion`, `BOARD_PROTOCOL_MESSAGES`, `SCHEMA_IDS`, `HostCore`, `CorePorts`, `Clock`, `validateBoardMessage`, `fixtures/transcript.ts`, `Origin`, `ownerOf`, `projectDir`, and the `update` result envelope. A name that differs stops the work for `/opsx:update`. It also records whether an owned ask's `origin.root` is absent when `CLAUDE_PROJECT_DIR` is unset (E4 cross-review, H1); either way, `rootOf` gates on `projectRoot` first (decision 4, Root), so the answer stops nothing. It also notes whether `widget-answers`, `tree-widget`, `molecules` and `snapshot` have merged, which decides decision 2's version labels and decision 11's harness options.
+E5 builds on E3's lifecycle model and board protocol and on E4's origin, so its first task waits until both are on `main`, rebases, and checks each name this design borrows against the code: `QuestionRecord`, `revs`, `BoardModel.document`, `LifecycleBoardDocument`, `BoardQuestion`, `DraftQuestion`, `BOARD_PROTOCOL_MESSAGES`, `SCHEMA_IDS`, `HostCore`, `CorePorts`, `Clock`, `validateBoardMessage`, `fixtures/transcript.ts`, `Origin`, `ownerOf`, `sessionProjectRoot` and `composePush` (`server/src/push-composition.ts`), E4's dispatch tables below, and the `update` result envelope. A name that differs stops the work for `/opsx:update`. It also records whether an owned ask's `origin.root` is absent when `CLAUDE_PROJECT_DIR` is unset (E4 cross-review, H1; at 432f2f0 it is); either way, `rootOf` gates on `projectRoot` first (decision 4, Root), so the answer stops nothing. It also notes whether `widget-answers`, `tree-widget`, `molecules` and `snapshot` have merged, which decides decision 2's version labels and decision 11's harness options.
+
+**E4's dispatch tables.** E4's tasks 14.3 and 14.7a turn the shared dispatch points into tables, so that E5, E7 and E8 append to them; their final names, read at 432f2f0, are E4's task 14.3 note's. E5 appends:
+
+- in `server/src/board-host/boards.ts`, two `Boards.#commands` entries, `open-source` and `open-editor`, whose types join `PageCommand`, and nothing to `Boards.#heard`, `Boards.#standalone` or `Boards.#openers`;
+- in `packages/core/src/core.ts`, `sourceOf` and `editorTarget` in E5's own appended block, and no member of `CoreEvent`; the resolution at `ask` goes into `#create`, beside E4's lines, since `#create` has no hook table (E4's design, Merge points, L10);
+- one member of `HostCore = E1Core & LifecycleCore & PushCore` in `server/src/board-host/index.ts` (decision 4, For `board-host`);
+- in `view/src/view-protocol.ts`, one `FIELDS` entry, `open-reference`, whose type joins `ViewMessage`; in `view/src/board-page/controller.ts`, one `#viewHandlers` entry (`open-reference`) and two `#hostHandlers` entries (`source-state` and `editor-outcome`, whose types join `BoardHostMessage` in `board-page/host-messages.ts`);
+- in `server/src/session-process.ts`, the wiring beside E4's `composePush(...)` call (decision 5, Composition).
+
+`reading-panel-closed` (decision 6, Focus) has no table yet: in E4's view protocol the board page tells a booted view everything through `ViewUpdate`, so it becomes either an optional field of `ViewUpdate` with one `UPDATE_FIELDS` entry, without `atBoot`, or a notification of its own beside `ViewUpdate`; task 6.6 chooses and records why. `PageCommand`, `BoardHostMessage`, `ViewMessage` and `HostCore` stay one-line unions that each later change edits on the same line (E4's design, Merge points, L8).
 
 *Alternative:* start on E1's head with stubs for E3's model. Rejected: resolution is stored per revision, and E1 has no revisions.
 
@@ -75,14 +85,14 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
 ### 4. `ask-core`: resolution per revision, and two answers for `board-host`
 
 - **Port.** `SourceFiles` in `packages/core/src/context/ports.ts`, appended as an optional `sources` in `CorePorts`. Without it, every pointer is `no-root`, so E1's and E3's tests that build a core without it keep passing.
-- **Root.** `rootOf(askId)` = `projectRoot === undefined ? undefined : (ownerOf(askId)?.origin?.root ?? projectRoot)`; with no root, every pointer of the ask is `no-root` and the port is not called. `projectRoot` is the value the composition passes, the real path of `CLAUDE_PROJECT_DIR` or nothing, and it gates the root before the origin is read, so the root never falls back to the working directory (proposal, B2). At 2b8734a an owned ask's `origin.root` comes from the working folder when the variable is unset (E4 cross-review, H1); the gate keeps it from becoming a root whether E4 keeps `Origin.root` required or makes it optional. The adapter's own refusal without a project root (decision 3, step 1) stays as a second guard.
+- **Root.** `rootOf(askId)` = `projectRoot === undefined ? undefined : (ownerOf(askId)?.origin?.root ?? projectRoot)`; with no root, every pointer of the ask is `no-root` and the port is not called. `projectRoot` is the value the composition passes, the real path of `CLAUDE_PROJECT_DIR` or nothing, and it gates the root before the origin is read, so the root never falls back to the working directory (proposal, B2). At 2b8734a an owned ask's `origin.root` comes from the working folder when the variable is unset (E4 cross-review, H1); the gate keeps it from becoming a root whether E4 keeps `Origin.root` required or makes it optional. At 432f2f0 E4 made it optional, absent without a session project root, and the gate stays. The adapter's own refusal without a project root (decision 3, step 1) stays as a second guard.
 - **When.** In `ask`, after validation and owner binding and before the rev-1 board document is stored. In `update`, for each question the update gives a new revision, before the revision is applied. Resolution is asynchronous and runs outside the aggregate. The update then applies in one synchronous step with E3's usual checks, so a concurrent act sees either the old revision or the new one, never half (AD-3). Reads run at most `CONTEXT_READS_MAX` at once, and when `CONTEXT_RESOLVE_BUDGET_MS` ends on the `Clock`, every pointer not yet resolved is `timeout`.
 - **Storage.** `QuestionRecord` gains `context: Map<rev, ReadonlyMap<itemId, Resolution>>`, pruned with `revs`. `BoardModel.document` merges each revision's resolutions into its items' props, and the excerpt text and image bytes live only there (proposal, B8). Discard drops both maps with the board documents (AD-21).
 - **Warnings.** Each unresolved pointer becomes `{code: "unresolved-pointer", itemId, pointer, reason, message}`. The message names the reason in plain words, never a path outside the root, and never says whether a file outside the root exists; neither does the reason (decision 3, step 3). Warnings join the `ask` or `update` result in item order.
 - **For `board-host`:**
   - `sourceOf(askId, itemId)` finds the item among the current board document's pointer excerpts and pointer references. It returns undefined for anything else, otherwise the adapter's `sourceState` and `readSource` results for the ask's root, with an excerpt's stored text for `changed`.
   - `editorTarget(askId, itemId)` gives the adapter's confined real path and line (proposal, B17).
-  - Both are appended to `AskCore`, and their names to `HostCore`'s `Pick`.
+  - Both are appended to `AskCore`, in E5's own block of `core.ts`, and a `Pick` of their names joins `HostCore = E1Core & LifecycleCore & PushCore` (`board-host/index.ts`) as one more member of the intersection (E4's task 14.3).
 - **`fetch`** reads the board document and drops `text` from every excerpt and `bytes` from every image, at any depth of a question's `items`, before E3's paging.
 
 *Alternative:* resolve in `mcp-tools` before calling the core. Rejected: AD-12 gives resolution to `ask-core`, and `update` needs the revision logic that only the core holds.
@@ -112,8 +122,8 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
   5. Call `spawn(argv[0], argv.slice(1), {shell: false, detached: true, stdio: "ignore"})`, then `unref()`. A spawn error is `failed`.
 
   Diagnostics name the outcome, never the vector.
-- **Composition.** `session-process.ts`:
-  - reads `env.CLAUDE_PROJECT_DIR` itself and takes its real path, which `rootOf` gates on (decision 4, Root), so E4's working-directory fallback never reaches pointers, for an owned ask as for any other (E4 cross-review, H1);
+- **Composition.** `session-process.ts`, beside E4's `composePush(...)` call (`server/src/push-composition.ts`):
+  - takes the project root from E4's `sessionProjectRoot(env)`, beside `composePush` in `push-composition.ts`: the real path of `CLAUDE_PROJECT_DIR`, or none, which `rootOf` gates on (decision 4, Root), so the working folder, which E4 keeps for display only (`PushComposition.projectDir`), never reaches pointers, for an owned ask as for any other (E4 cross-review, H1). *Why E4's function rather than E5's own read of the variable:* E4's origins take their root from the same function, so an origin's root and the project root cannot disagree on what the session project root is; it also gives none for a relative path or one that names no folder (E4's review fix L2), which the adapter already treats as `no-root`;
   - passes `createSourceFiles({projectRoot})` to `ask-core` as `sources`, and `editorCommand: () => undefined` to `board-host`, which E8 replaces with its `Config` port;
   - lets tests inject both, as E3 injects `clock`. The shipped bundle has no override.
 
@@ -133,7 +143,7 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
 - **Reference.** A two-line chip: the kind label (FILE, GITHUB, WEB), then the path or title, then the hint ("opens in a reading panel" or "opens in browser ↗", the external mark only on the second). A click or Enter sends `askboard.view.open-reference {itemId, inset}` (proposal, B12).
 - **Image.** A `blob:` URL made from the base64 bytes and media type, set on an `<img alt>` and revoked on unmount. `ready` follows `img.decode()`, or comes at once for an unresolved image.
 - **Snapshot look.** Each component reads `hosted` from a shell context that is true only when the view has a parent host (proposal, B15).
-- **Focus.** When the board page reports `reading-panel-closed {itemId}`, a host notification appended to the view protocol, the view focuses that item's control (EXPERIENCE Accessibility Floor, F-03).
+- **Focus.** When the board page reports `reading-panel-closed {itemId}`, a host notification appended to the view protocol (a `ViewUpdate` field or a notification of its own, task 6.6; decision 1, E4's dispatch tables), the view focuses that item's control (EXPERIENCE Accessibility Floor, F-03).
 
 ### 7. Board page: the reading panel and web links
 
@@ -187,7 +197,7 @@ None: nothing has been released. Reverting the change returns `excerpts` to an e
 
 ## Merge points
 
-What the later merges with E3, E4, `widget-answers`, `snapshot` and `molecules` bring together. Every entry is an appended block, an appended case or an appended field, and a conflict between two appended blocks keeps every line of each.
+What the later merges with E3, E4, `widget-answers`, `snapshot` and `molecules` bring together. Every entry is an appended block, an appended case or an appended field, except the resolution call inside E4's `#create` and the one-line unions E4 lists (decision 1, E4's dispatch tables), and a conflict between two appended blocks keeps every line of each.
 
 - **Contract:**
   - the four sets' version constants;
@@ -204,23 +214,23 @@ What the later merges with E3, E4, `widget-answers`, `snapshot` and `molecules` 
 - **Core:**
   - `ports.ts` (`sources` appended to `CorePorts`);
   - `lifecycle/model.ts` (`context` appended to `QuestionRecord`, the merge in `document`, the prune beside `revs`);
-  - `core.ts` (resolution calls in `ask` and `update`, `sourceOf` and `editorTarget` appended);
+  - `core.ts` (resolution calls in `ask`, inside `#create` beside E4's lines, which has no hook table (E4's design, Merge points, L10), and in `update`; `sourceOf` and `editorTarget` in E5's own appended block);
   - the `fetch` path's omission;
   - new `context/` folder.
 - **Server:**
   - `excerpts/` (E5 only);
   - `board-host/http.ts` (one appended branch);
-  - `boards.ts` (two appended dispatch cases);
-  - `board-host/index.ts` (`HostCore` gains two names; deps gain `editorCommand`);
+  - `boards.ts` (two `Boards.#commands` entries, `open-source` and `open-editor`, their types joining `PageCommand`);
+  - `board-host/index.ts` (one member of `HostCore = E1Core & LifecycleCore & PushCore`, a `Pick` of two names; deps gain `editorCommand`);
   - new `source-view.ts` and `editor.ts`;
   - `mcp-tools` `ask` and `update` results (warnings appended after the others), `fetch`;
-  - `session-process.ts` (three wiring lines beside E3's `clock` and E4's origins).
+  - `session-process.ts` (three wiring lines beside E3's `clock` and E4's `composePush(...)` call, with the project root from E4's `sessionProjectRoot(env)` in `push-composition.ts`).
 - **View:**
   - new `catalog/context/`;
   - `shell/question-card.tsx` (the split);
   - E3's `BoardDraft` (`context`);
-  - `view-protocol.ts` (`open-reference` and `reading-panel-closed` appended);
-  - `board-page/controller.ts` and `validators.ts` (appended cases);
+  - `view-protocol.ts` (`open-reference`, one `FIELDS` entry, its type joining `ViewMessage`; `reading-panel-closed`, one `UPDATE_FIELDS` entry or a notification of its own, task 6.6);
+  - `board-page/controller.ts` (one `#viewHandlers` and two `#hostHandlers` entries), `board-page/host-messages.ts` (`source-state` and `editor-outcome` joining `BoardHostMessage`) and `validators.ts` (appended cases);
   - new `board-page/reading-panel.ts`;
   - `tools/build/`'s chunk list (`context` appended);
   - `chunk-sizes.json`, re-recorded after a merge with `bun run build:view --record-sizes`.
