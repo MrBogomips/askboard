@@ -81,3 +81,15 @@ export {
   waitingAgentStatus,
   workingPresence,
 } from "./push-delivery.ts";
+
+// Molecules (molecules, design decision 9): the UJ-2 question as the expansion gives it.
+
+export {
+  type TreePertItem,
+  type Uj2ExpandedBoardDocument,
+  type Uj2ExpandedQuestion,
+  uj2ExpandedBoardDocument,
+  uj2ExpandedDerived,
+  uj2ExpandedEditedValues,
+  uj2ExpandedQuestion,
+} from "./molecules.ts";
