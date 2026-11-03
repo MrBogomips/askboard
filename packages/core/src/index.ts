@@ -89,7 +89,12 @@ export { expectedAnswerer } from "./push/answerer.ts";
 // Molecules (molecules): expanding molecule references through the MoleculeSource port, the fill
 // forms of the definition format, the expansion map and reference addressing.
 
-export { type ReferenceAddressing, referenceAddressing } from "./molecules/addressing.ts";
+export {
+  type AddressedAnswer,
+  answerInReferenceAddressing,
+  type ReferenceAddressing,
+  referenceAddressing,
+} from "./molecules/addressing.ts";
 export {
   type Expansion,
   type ExpansionProblem,

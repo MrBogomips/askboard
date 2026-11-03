@@ -4,9 +4,12 @@
 // takes the reference's ID instead and keeps the rest; any other address stays. A change's
 // `parent` and `after` are element IDs and stay (F3); derived values keep their values. A warning
 // or problem has its address fields mapped so, and every expanded ID its texts name, as a whole
-// ID, replaced. Pure: nothing is changed in place. Plain ECMAScript (AD-1).
+// ID, replaced. `answerInReferenceAddressing` folds an answer's widget values into its `changes`
+// and `derived` in reference addressing, the fold the widening calls when it appends an answer.
+// Pure: nothing is changed in place. Plain ECMAScript (AD-1).
 
-import type { Change } from "@askboard/contract";
+import { type Change, elementChanges } from "@askboard/contract";
+import { elementShapeOf } from "@askboard/contract/validate";
 import type { ExpansionMap } from "./map.ts";
 
 /** The fields of a warning or problem that hold an address, not a text. */
@@ -68,4 +71,41 @@ export const referenceAddressing = (map: ExpansionMap): ReferenceAddressing => {
       Object.fromEntries(Object.entries(derived).map(([key, value]) => [toReference(key), value])),
     warning: <T>(warning: T): T => mapped(warning) as T,
   };
+};
+
+/** An item of a board document, as sent: its type, its ID and its props. */
+type SentItem = { readonly type: string; readonly id: string; readonly props: unknown };
+
+/** An answer's changes and derived values, in reference addressing. */
+export type AddressedAnswer = { readonly changes: readonly Change[]; readonly derived: Json };
+
+const itemsOf = (question: { readonly props: object }): readonly SentItem[] => {
+  const { items } = question.props as { readonly items?: readonly SentItem[] };
+  return items ?? [];
+};
+
+/**
+ * An answer to `question` in reference addressing (AD-9, AD-20; F15): for each widget item of the
+ * question that has a value in `editedValues`, in the question's order, the generic diff of its
+ * props as sent (`sentItems`, by ID, else the question's own item) and its edited value, with its
+ * element shape; then every change's target and every derived key under its reference's ID. An
+ * item with no edited value, or of no widget the contract defines, gives no change.
+ */
+export const answerInReferenceAddressing = (
+  map: ExpansionMap,
+  question: { readonly props: object },
+  sentItems: readonly SentItem[],
+  editedValues: Json,
+  derived: Json,
+): AddressedAnswer => {
+  const addressing = referenceAddressing(map);
+  const changes = itemsOf(question).flatMap((item) => {
+    if (!Object.hasOwn(editedValues, item.id)) return [];
+    const shape = elementShapeOf(item);
+    const edited = editedValues[item.id];
+    if (shape === undefined || !isObject(edited)) return [];
+    const sent = sentItems.find((each) => each.id === item.id) ?? item;
+    return elementChanges(item.id, isObject(sent.props) ? sent.props : {}, edited, shape);
+  });
+  return { changes: addressing.changes(changes), derived: addressing.derived(derived) };
 };
