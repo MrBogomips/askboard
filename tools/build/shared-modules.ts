@@ -83,6 +83,7 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
         "firstWorkingDateFrom",
         "isFormulaError",
         "isWorkingDate",
+        "roundNumber",
         "workingDaysBetween",
       ],
     },

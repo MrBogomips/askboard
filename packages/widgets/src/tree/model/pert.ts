@@ -3,10 +3,12 @@
 // (`<item>.<node>.expected` and `.spread`, which `compute`'s PERT writes), or the formula error a
 // value reads as; a leaf has estimate cells, a parent, whose own estimates PERT ignores, none. A
 // work breakdown of several top-level packages ends with a Total row, the item's roll-ups; with one,
-// that package's row shows them. Values show with one decimal in en-US and the `d` affix. Plain ECMAScript.
+// that package's row shows them. Values show with one decimal in en-US and the `d` affix. An answer
+// carrying the Tree's value carries its derived values by `TREE_PERT_ANSWER_DERIVED` (contract spec,
+// "WBS answer derived values"; F7), rounded with `compute`'s own `ROUND`. Plain ECMAScript.
 
-import { type FormulaError, isFormulaError } from "@askboard/compute";
-import type { TreeNode } from "@askboard/contract";
+import { type FormulaError, isFormulaError, roundNumber } from "@askboard/compute";
+import { TREE_PERT_ANSWER_DERIVED, type TreeNode } from "@askboard/contract";
 import type { BoardGraph } from "../../graph/index.ts";
 import type { TreeRow } from "./rows.ts";
 
@@ -54,3 +56,46 @@ export const pertTotal = (
   itemId: string,
   nodes: readonly TreeNode[],
 ): PertValues | undefined => (nodes.length > 1 ? valuesAt(graph, itemId) : undefined);
+
+/** The derived values an answer carries, by reference (`wbs.portal.expected`), each a number. */
+export type PertDerived = Readonly<Record<string, number>>;
+
+const { fields, decimals } = TREE_PERT_ANSWER_DERIVED;
+
+// A node's value rounded as the answer carries it, or undefined when it is no finite number.
+const roundedAt = (graph: BoardGraph, address: string): number | undefined => {
+  const value = graph.read(address);
+  if (typeof value !== "number") return undefined;
+  const rounded = roundNumber(value, decimals);
+  return Number.isFinite(rounded) ? rounded : undefined;
+};
+
+const allNodes = (nodes: readonly TreeNode[]): TreeNode[] =>
+  nodes.flatMap((node) => [node, ...allNodes(node.children ?? [])]);
+
+/**
+ * The derived values a work breakdown's answer carries (`TREE_PERT_ANSWER_DERIVED`): of each node,
+ * in document order, the fields whose rounded value differs from the board as sent, or that the
+ * agent did not send; then the item's totals, always; a value in error never.
+ */
+export const pertDerived = (
+  live: BoardGraph,
+  sent: BoardGraph,
+  itemId: string,
+  nodes: readonly TreeNode[],
+): PertDerived => {
+  const entries: [string, number][] = [];
+  for (const node of allNodes(nodes)) {
+    for (const field of fields) {
+      const address = `${itemId}.${node.id}.${field}`;
+      const value = roundedAt(live, address);
+      if (value !== undefined && value !== roundedAt(sent, address)) entries.push([address, value]);
+    }
+  }
+  for (const field of fields) {
+    const address = `${itemId}.${field}`;
+    const value = roundedAt(live, address);
+    if (value !== undefined) entries.push([address, value]);
+  }
+  return Object.freeze(Object.fromEntries(entries));
+};

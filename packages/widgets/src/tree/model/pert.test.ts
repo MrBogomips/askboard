@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { FormulaError } from "@askboard/compute";
 import type { TreeNode } from "@askboard/contract";
-import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
+import {
+  uj2ExpandedBoardDocument,
+  uj2ExpandedDerived,
+  uj2ExpandedEditedValues,
+} from "@askboard/contract/fixtures";
 import type { BoardContent, BoardWidgetItem } from "@askboard/view/catalog";
-import { type BoardGraph, liveGraph } from "../../graph/index.ts";
-import { pertRow, pertText, pertTotal } from "./pert.ts";
+import { type BoardGraph, liveGraph, sentGraph } from "../../graph/index.ts";
+import { pertDerived, pertRow, pertText, pertTotal } from "./pert.ts";
 import { visibleRows } from "./rows.ts";
 
 // The expanded UJ-2 board (molecules design decision 9): the WBS `wbs__tree`, the plan over it.
@@ -111,5 +115,119 @@ describe("the WBS's display text (DESIGN.md Input atoms, the d affix)", () => {
     expect(pertText(40.666_666)).toBe("40.7 d");
     expect(pertText(0.25)).toBe("0.3 d");
     expect(pertText(1234.56)).toBe("1,234.6 d");
+  });
+});
+
+describe("the derived values a work breakdown reports (contract spec, WBS answer derived values; F7)", () => {
+  // The WBS's own derived values among the approved answer's fourteen.
+  const approved = Object.fromEntries(
+    Object.entries(uj2ExpandedDerived).filter(([key]) => key.startsWith(`${TREE}.`)),
+  );
+  const items = [WBS, PLAN];
+
+  test("after the approved edits, exactly the approved answer's twelve values of the WBS", () => {
+    const draft = new Map(Object.entries(uj2ExpandedEditedValues));
+    const live = graphOf(items, draft);
+    const sent = sentGraph({ items, draft, shown: draft });
+    if (sent === undefined) throw new Error("the board as sent computes nothing");
+    const edited = draft.get(TREE) as { readonly nodes: readonly TreeNode[] };
+    expect(Object.keys(approved)).toHaveLength(12);
+    const derived: unknown = pertDerived(live, sent, TREE, edited.nodes);
+    expect(derived).toEqual(approved);
+  });
+
+  test("with no edit, the item's expected effort and spread only", () => {
+    const graph = graphOf(items);
+    expect(pertDerived(graph, graph, TREE, WBS.props.nodes)).toEqual({
+      [`${TREE}.expected`]: 40.67,
+      [`${TREE}.spread`]: 3.21,
+    });
+  });
+
+  // A graph reading the values given, by address, and a missing reference for any other.
+  const reading = (values: Readonly<Record<string, number | FormulaError>>): BoardGraph => ({
+    read: (address) =>
+      Object.hasOwn(values, address)
+        ? (values[address] as number | FormulaError)
+        : { error: "missing-reference", address, detail: `no node ${address}` },
+    warnings: [],
+  });
+  const leaf: readonly TreeNode[] = [{ id: "solo", label: "Solo" }];
+
+  test("a value in error is left out, the item's totals included", () => {
+    const cycle = {
+      error: "cycle",
+      address: `${TREE}.solo.expected`,
+      detail: "on a cycle",
+    } as const;
+    const live = reading({
+      [`${TREE}.solo.expected`]: cycle,
+      [`${TREE}.solo.spread`]: 2,
+      [`${TREE}.expected`]: cycle,
+      [`${TREE}.spread`]: 2,
+    });
+    const sent = reading({ [`${TREE}.solo.spread`]: 1 });
+    expect(pertDerived(live, sent, TREE, leaf)).toEqual({
+      [`${TREE}.solo.spread`]: 2,
+      [`${TREE}.spread`]: 2,
+    });
+  });
+
+  test("a value no rounding keeps finite is left out, as a value in error is", () => {
+    const live = reading({
+      [`${TREE}.solo.expected`]: Number.POSITIVE_INFINITY,
+      [`${TREE}.solo.spread`]: 1,
+      [`${TREE}.expected`]: Number.NaN,
+      [`${TREE}.spread`]: 1,
+    });
+    expect(pertDerived(live, reading({}), TREE, leaf)).toEqual({
+      [`${TREE}.solo.spread`]: 1,
+      [`${TREE}.spread`]: 1,
+    });
+  });
+
+  test("a node whose value differs only beyond the second decimal is not reported; one the agent did not send is", () => {
+    const live = reading({
+      [`${TREE}.solo.expected`]: 2.0049,
+      [`${TREE}.solo.spread`]: 1.2341,
+      [`${TREE}.added.expected`]: 1,
+      [`${TREE}.added.spread`]: 0,
+      [`${TREE}.expected`]: 3.0049,
+      [`${TREE}.spread`]: 1.2341,
+    });
+    const sent = reading({ [`${TREE}.solo.expected`]: 2.0011, [`${TREE}.solo.spread`]: 1.2349 });
+    const nodes: readonly TreeNode[] = [...leaf, { id: "added", label: "Added" }];
+    expect(pertDerived(live, sent, TREE, nodes)).toEqual({
+      [`${TREE}.added.expected`]: 1,
+      [`${TREE}.added.spread`]: 0,
+      [`${TREE}.expected`]: 3,
+      [`${TREE}.spread`]: 1.23,
+    });
+  });
+
+  test("a parent's values count as a node's, children walked at any depth", () => {
+    const nodes: readonly TreeNode[] = [
+      { id: "top", label: "Top", children: [{ id: "deep", label: "Deep" }] },
+    ];
+    const live = reading({
+      [`${TREE}.top.expected`]: 5,
+      [`${TREE}.top.spread`]: 1,
+      [`${TREE}.deep.expected`]: 5,
+      [`${TREE}.deep.spread`]: 1,
+      [`${TREE}.expected`]: 5,
+      [`${TREE}.spread`]: 1,
+    });
+    const sent = reading({
+      [`${TREE}.top.expected`]: 4,
+      [`${TREE}.top.spread`]: 1,
+      [`${TREE}.deep.expected`]: 4,
+      [`${TREE}.deep.spread`]: 1,
+    });
+    expect(Object.keys(pertDerived(live, sent, TREE, nodes))).toEqual([
+      `${TREE}.top.expected`,
+      `${TREE}.deep.expected`,
+      `${TREE}.expected`,
+      `${TREE}.spread`,
+    ]);
   });
 });
