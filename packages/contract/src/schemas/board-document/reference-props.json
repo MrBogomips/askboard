@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-document:reference-props",
+  "title": "Reference props, resolved",
+  "description": "A reference as the board document holds it (AD-12; proposal B8, A10), with its `kind`. A project file by pointer is of kind `file`, with its `status`: when `resolved`, its anchor's `lines` if it has an anchor; when `unresolved`, its `reason`. A web page by `url` is of kind `github` (on `github.com` or `gist.github.com`) or `web`, with no status, since AskBoard fetches none (NFR-9).",
+  "type": "object",
+  "properties": {
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "kind": { "enum": ["file", "github", "web"] },
+    "status": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/status" },
+    "reason": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/reason" },
+    "lines": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/lines" }
+  },
+  "required": ["kind"],
+  "additionalProperties": false,
+  "if": { "properties": { "pointer": true }, "required": ["pointer"] },
+  "then": {
+    "properties": { "kind": { "const": "file" }, "status": true, "url": false },
+    "required": ["status"],
+    "if": { "properties": { "status": { "const": "resolved" } } },
+    "then": { "properties": { "reason": false } },
+    "else": { "properties": { "reason": true, "lines": false }, "required": ["reason"] }
+  },
+  "else": {
+    "properties": {
+      "url": true,
+      "kind": { "enum": ["github", "web"] },
+      "status": false,
+      "reason": false,
+      "lines": false
+    },
+    "required": ["url"]
+  }
+}

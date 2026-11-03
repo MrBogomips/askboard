@@ -28,3 +28,14 @@ export const webUrlProblem = (url: string): WebUrlProblem | undefined => {
   const host = AUTHORITY.exec(authority)?.[1];
   return host === undefined || host === "" || host === "[]" ? "form" : undefined;
 };
+
+// The hosts of a reference of kind `github` (proposal A10); any other web page is of kind `web`.
+const GITHUB_HOSTS = new Set(["github.com", "gist.github.com"]);
+
+/** A web reference's kind by its URL's host, compared without case: `github` or `web`. */
+export const webReferenceKind = (url: string): "github" | "web" => {
+  const scheme = SCHEME.exec(url)?.[1] ?? "";
+  const authority = url.slice(scheme.length + 3).split(/[/?#]/, 1)[0] ?? "";
+  const host = AUTHORITY.exec(authority)?.[1]?.toLowerCase() ?? "";
+  return GITHUB_HOSTS.has(host) ? "github" : "web";
+};

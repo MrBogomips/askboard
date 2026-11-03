@@ -66,4 +66,7 @@ export const SCHEMA_IDS = {
   excerptProps: "urn:askboard:input:excerpt-props",
   referenceProps: "urn:askboard:input:reference-props",
   imageProps: "urn:askboard:input:image-props",
+  boardExcerptProps: "urn:askboard:board-document:excerpt-props",
+  boardReferenceProps: "urn:askboard:board-document:reference-props",
+  boardImageProps: "urn:askboard:board-document:image-props",
 } as const;

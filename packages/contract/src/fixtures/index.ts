@@ -93,3 +93,13 @@ export {
   uj2ExpandedEditedValues,
   uj2ExpandedQuestion,
 } from "./molecules.ts";
+
+// Context, E5 (excerpts, design decision 2): a board document with every status of every context
+// item type.
+
+export {
+  type ContextBoardDocument,
+  type ContextBoardQuestion,
+  contextBoardDocument,
+  ONE_PIXEL_PNG,
+} from "./context.ts";

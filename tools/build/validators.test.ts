@@ -9,6 +9,7 @@ import {
 } from "@askboard/contract";
 import {
   boardProtocolExamples,
+  contextBoardDocument,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
   subagentOrigin,
@@ -99,34 +100,33 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
-  // A board document whose question holds context items (excerpts, design decision 2), each type
-  // valid and each refused, so every validator the items add runs.
-  const [question] = plainChoiceBoardDocument.items;
-  const withItems = (items: readonly unknown[]) => ({
+  // Board documents whose questions hold context items (excerpts, design decision 2): the fixture
+  // with every status of every type, and each item broken, so every validator the items add runs.
+  const board = (document: unknown) => ({
     version: BOARD_PROTOCOL_VERSION,
     type: "board",
-    document: {
-      ...plainChoiceBoardDocument,
-      items: [{ ...question, props: { ...question.props, items } }],
-    },
+    document,
   });
-  const contextItems = [
-    { type: "excerpt", id: "adr", props: { pointer: "docs/adr/0012.md#Decision" } },
-    { type: "excerpt", id: "note", props: { text: "retries: 3", title: "Settings" } },
-    { type: "reference", id: "pr", props: { url: "https://github.com/acme/pay/pull/12" } },
-    { type: "reference", id: "src", props: { pointer: "src/retry.ts#L1-L5" } },
-    { type: "image", id: "shot", props: { pointer: ".askboard/media/shot.png", alt: "Log" } },
-  ];
+  const [first, ...others] = contextBoardDocument.items;
+  const withItem = (item: unknown) =>
+    board({
+      ...contextBoardDocument,
+      items: [{ ...first, props: { ...first.props, items: [item] } }, ...others],
+    });
+  const contextItems = contextBoardDocument.items.flatMap((question) => question.props.items ?? []);
   const context: readonly { type: string }[] = [
-    withItems(contextItems),
-    ...contextItems.map((item) => withItems([{ ...item, props: { ...item.props, extra: 1 } }])),
-    ...contextItems.map((item) => withItems([{ ...item, id: "" }])),
-    withItems([{ type: "image", id: "shot", props: { pointer: "" } }]),
-    withItems([{ type: "probe", id: "x", props: {} }]),
-    withItems([]),
+    board(contextBoardDocument),
+    ...contextItems.map((item) => withItem({ ...item, props: { ...item.props, extra: 1 } })),
+    ...contextItems.map((item) => withItem({ ...item, id: "" })),
+    ...contextItems.map((item) =>
+      withItem({ ...item, props: { ...item.props, status: "pending" } }),
+    ),
+    withItem({ type: "excerpt", id: "adr", props: { pointer: "a.md#A" } }),
+    withItem({ type: "probe", id: "x", props: {} }),
+    board({ ...contextBoardDocument, items: [{ ...first, props: { ...first.props, items: [] } }] }),
   ];
 
-  test("agree with the contract on board documents holding context items (excerpts, task 1.2)", () => {
+  test("agree with the contract on board documents holding context items (excerpts, task 1.3)", () => {
     expect(validateBoardMessage("toPage", context[0]).ok).toBe(true);
     for (const message of context) {
       const ok = generated[message.type]?.(message);

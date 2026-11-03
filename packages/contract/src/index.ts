@@ -444,7 +444,15 @@ export {
   UNRESOLVED_REASONS,
   type UnresolvedReason,
 } from "./context/resolution.ts";
-export { type WebUrlProblem, webUrlProblem } from "./context/url.ts";
+export { type WebUrlProblem, webReferenceKind, webUrlProblem } from "./context/url.ts";
+export type {
+  BoardContextItem,
+  BoardExcerptProps,
+  BoardImageProps,
+  BoardQuestionProps,
+  BoardReferenceProps,
+  ContextLines,
+} from "./schemas/board-document/index.ts";
 export type {
   ContextItem,
   ExcerptItem,

@@ -4,6 +4,7 @@
 
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
 import { AJV_OPTIONS, schemaErrors } from "./compiled.ts";
+import { contextDocumentProblems } from "./context/document.ts";
 import { DRAFT_RECORD_MAX_CHARS } from "./lifecycle-limits.ts";
 import { type BoardDocument, boardDocumentSet } from "./schemas/board-document/index.ts";
 import {
@@ -85,8 +86,16 @@ export const validateVersioned = <T>(set: SchemaSet, id: string, value: unknown)
   return validateAgainst<T>(id, value);
 };
 
-export const validateBoardDocument = (value: unknown): Checked<BoardDocument> =>
-  validateVersioned(boardDocumentSet, SCHEMA_IDS.boardDocument, value);
+/** Validates a board document, then, since 1.2, that each context item's line range is in order. */
+export const validateBoardDocument = (value: unknown): Checked<BoardDocument> => {
+  const checked = validateVersioned<BoardDocument>(
+    boardDocumentSet,
+    SCHEMA_IDS.boardDocument,
+    value,
+  );
+  const problems = checked.ok ? contextDocumentProblems(value) : [];
+  return problems.length === 0 ? checked : { ok: false, reason: "schema", problems };
+};
 
 const SENDERS: Record<BoardMessageDirection, string> = {
   toHost: "the board page",
