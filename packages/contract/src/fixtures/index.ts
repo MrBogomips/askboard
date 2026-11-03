@@ -115,3 +115,8 @@ export {
   contextWaiting,
   readingPanelTranscript,
 } from "./context-transcripts.ts";
+
+// Snapshots (E7, snapshot design decision 2): the Snapshot data of an agent's Snapshot of the
+// lifecycle ask.
+
+export { lifecycleSnapshotData } from "./snapshot.ts";

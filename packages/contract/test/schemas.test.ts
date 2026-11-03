@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SCHEMA_SET_OWNERS, SCHEMA_SETS, type SchemaSet } from "../src/index.ts";
+import { pushBoardProtocolSchemas } from "../src/push/messages.ts";
 import { schemaSetProblems } from "../src/validate.ts";
 
 const set = (fields: Partial<SchemaSet>): SchemaSet => ({
@@ -24,7 +25,9 @@ const schema = (fields: Record<string, unknown>) => ({
 
 describe("schema checks (Consistency Conventions, Tests; AD-7)", () => {
   test("every schema of every set compiles as 2020-12 in strict mode, with no root combinator", () => {
-    expect(schemaSetProblems(SCHEMA_SETS)).toEqual([]);
+    // The Snapshot data's origin is push delivery's standalone origin message (snapshot design
+    // decision 2), which joins the board protocol's set in push delivery's follow-up.
+    expect(schemaSetProblems([...SCHEMA_SETS, pushBoardProtocolSchemas])).toEqual([]);
   });
 
   test("every set names its version and the owner AD-7's table gives it", () => {

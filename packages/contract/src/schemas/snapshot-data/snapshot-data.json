@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:snapshot-data:snapshot-data",
   "title": "Snapshot data",
-  "description": "A Snapshot's askboard-data block (AD-15; snapshot design decision 2): the versions it follows, the Snapshot's record, the epoch and ask ID, the current board document, the earlier revisions its events name, the board state as the board receives it and every logged event with the full values kept for its answer; optionally the molecule expansion map and kept diagram renders. document and state keep BootData's names, so the view boots a Snapshot as it boots a board (AD-9). Every level refuses the fields it does not define, so nothing of a draft record, no token, no board link and no agent status can be held.",
+  "description": "A Snapshot's askboard-data block (AD-15; snapshot design decision 2): the versions it follows, the Snapshot's record, the epoch and ask ID, the current board document, the earlier revisions its events name, the board state as the board receives it, the ask's origin as the board protocol's origin message carries it when known, and every logged event with the full values kept for its answer; optionally the molecule expansion map and kept diagram renders. document and state keep BootData's names, so the view boots a Snapshot as it boots a board (AD-9). Every level refuses the fields it does not define, so nothing of a draft record, no token, no board link and no agent status can be held.",
   "type": "object",
   "properties": {
     "versions": {
@@ -28,6 +28,9 @@
     },
     "state": {
       "$ref": "urn:askboard:board-protocol:board-state"
+    },
+    "origin": {
+      "$ref": "urn:askboard:board-protocol:origin"
     },
     "events": {
       "type": "array",
@@ -148,7 +151,7 @@
       "type": "object",
       "properties": {
         "event": {
-          "$ref": "urn:askboard:output:answer-event"
+          "$ref": "#/$defs/event"
         },
         "values": {
           "type": "object",
@@ -160,6 +163,36 @@
       },
       "required": ["event"],
       "additionalProperties": false
+    },
+    "event": {
+      "description": "An event of the output format, picked by its type: every one an ask that is not discarded can log, so no discarded event.",
+      "type": "object",
+      "discriminator": {
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "urn:askboard:output:answer-event"
+        },
+        {
+          "$ref": "urn:askboard:output:postponed-event"
+        },
+        {
+          "$ref": "urn:askboard:output:reopened-event"
+        },
+        {
+          "$ref": "urn:askboard:output:note-event"
+        },
+        {
+          "$ref": "urn:askboard:output:follow-up-event"
+        },
+        {
+          "$ref": "urn:askboard:output:edit-choice-event"
+        },
+        {
+          "$ref": "urn:askboard:output:closed-event"
+        }
+      ]
     },
     "expansion": {
       "description": "One entry of the molecule expansion map: an expanded item ID, the reference it expands, and the molecule and version it came from, so a reader can join the expanded documents with the referenced events.",

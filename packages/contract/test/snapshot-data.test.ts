@@ -10,11 +10,12 @@ import {
   type SnapshotData,
   snapshotDataSet,
 } from "../src/index.ts";
+import { pushBoardProtocolSchemas } from "../src/push/messages.ts";
 import { schemaSetProblems, validateSnapshotData } from "../src/validate.ts";
 
 // The `snapshot-data` set (snapshot design decision 2; contract spec, Snapshot data schema set,
-// What the Snapshot data names, What the Snapshot data holds). The fixture built from E3's
-// lifecycle fixtures waits for group 0: these cases build on E1's plain choice.
+// What the Snapshot data names, What the Snapshot data holds). These cases build on E1's plain
+// choice; `snapshot-fixture.test.ts` checks the fixture built from E3's lifecycle fixtures.
 
 const [question] = plainChoiceBoardDocument.items;
 const when = "2026-10-29T09:41:27Z";
@@ -88,7 +89,14 @@ describe("the snapshot-data set", () => {
     const [schema] = snapshotDataSet.schemas as Json[];
     expect(schema?.$id).toBe(SNAPSHOT_DATA_ID);
     for (const keyword of ["oneOf", "anyOf", "allOf"]) expect(schema).not.toHaveProperty(keyword);
-    expect(schemaSetProblems(SCHEMA_SETS)).toEqual([]);
+    expect(schemaSetProblems([...SCHEMA_SETS, pushBoardProtocolSchemas])).toEqual([]);
+  });
+
+  test("it needs push delivery's standalone origin, which E1's sets do not hold", () => {
+    const problems = schemaSetProblems(SCHEMA_SETS);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toStartWith(`Snapshot data, ${SNAPSHOT_DATA_ID}: does not compile`);
+    expect(problems[0]).toContain("urn:askboard:board-protocol:origin");
   });
 
   test("comes after every set before it, in their order", () => {
@@ -245,12 +253,15 @@ describe("what the Snapshot data holds", () => {
     expect(problemPaths(empty)).toContain("/events/0/values");
   });
 
-  test("an event that is not an output-format answer event fails inside it", () => {
+  test("an event that is not an output-format event fails inside it", () => {
     const bad = changed((data) => {
       ((data.events as Json[])[0] as { event: Json }).event.rev = 0;
     });
-    expect(problemPaths(bad)).toContain("/events/0/event/rev");
-    expect(problemPaths(changed((data) => (data.events = [{}])))).toContain("/events/0/event");
+    expect(problemPaths(bad)).toEqual(["/events/0/event/rev"]);
+    expect(problemPaths(changed((data) => (data.events = [{}])))).toEqual(["/events/0/event"]);
+    expect(problemPaths(changed((data) => (data.events = [{ event: {} }])))).toEqual([
+      "/events/0/event/type",
+    ]);
   });
 
   test("the molecule expansion map, as expansion entries", () => {

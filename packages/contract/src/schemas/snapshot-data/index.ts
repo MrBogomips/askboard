@@ -2,11 +2,12 @@
 // `askboard-data` block, which the view boots from with no host and an agent reads without
 // rendering. A Snapshot outlives the versions that wrote it, so the data names each one.
 
+import type { OriginMessage } from "../../push/messages.ts";
 import type { SchemaSet } from "../../versions.ts";
-import type { BoardDocument } from "../board-document/index.ts";
-import type { BoardState } from "../board-protocol/index.ts";
+import type { LifecycleBoardDocument } from "../board-document/index.ts";
+import type { LifecycleBoardState } from "../board-protocol/index.ts";
 import type { QuestionProps } from "../input/index.ts";
-import type { AnswerEvent } from "../output/index.ts";
+import type { DiscardedEvent, OutputEvent } from "../output/index.ts";
 import snapshotData from "./snapshot-data.json" with { type: "json" };
 
 export const SNAPSHOT_DATA_VERSION = "1.0";
@@ -39,9 +40,12 @@ export type SnapshotRevision = {
   readonly props: QuestionProps;
 };
 
-/** One logged event, with the full values kept for its answer, by item ID in reference addressing. */
+/**
+ * One logged event, with the full values kept for its answer, by item ID in reference addressing.
+ * An ask that is not discarded logs every output event but `discarded`.
+ */
 export type SnapshotEvent = {
-  readonly event: AnswerEvent;
+  readonly event: Exclude<OutputEvent, DiscardedEvent>;
   readonly values?: Readonly<Record<string, unknown>>;
 };
 
@@ -71,10 +75,12 @@ export type SnapshotData = {
   readonly epoch: string;
   readonly askId: string;
   /** The current board document: `BootData`'s name, so the view boots a Snapshot like a board. */
-  readonly document: BoardDocument;
+  readonly document: LifecycleBoardDocument;
   readonly revisions: readonly SnapshotRevision[];
   /** The board state as the board receives it: `BootData`'s name too. */
-  readonly state: BoardState;
+  readonly state: LifecycleBoardState;
+  /** Who asked and where, as `board-host` sends the board: `BootData`'s name too. */
+  readonly origin?: OriginMessage;
   /** The whole log, in `seq` order. */
   readonly events: readonly SnapshotEvent[];
   readonly molecules?: readonly SnapshotExpansion[];
