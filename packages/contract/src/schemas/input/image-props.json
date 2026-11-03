@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:image-props",
+  "title": "Image props",
+  "description": "An image by pointer, as a file of the ask's root such as `.askboard/media/shot.png`, with no anchor, and its required `alt` text. No image data and no image URL enters tool input (AD-7, AD-12).",
+  "type": "object",
+  "properties": {
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "alt": { "type": "string", "minLength": 1, "maxLength": 1000 }
+  },
+  "required": ["pointer", "alt"],
+  "additionalProperties": false
+}

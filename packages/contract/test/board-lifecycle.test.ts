@@ -91,7 +91,7 @@ describe("the board document 1.1", () => {
     expect(paths(validateBoardDocument(table))).toEqual(["/items/0/type"]);
   });
 
-  test("a question's widget items are still refused, naming items", () => {
+  test("a question's widget items are still refused, naming the item's type", () => {
     const [question] = plainChoiceBoardDocument.items;
     const probe = { type: "probe", id: "sketch", props: { size: 3 } };
     const props = { ...question.props, items: [probe] };
@@ -99,7 +99,8 @@ describe("the board document 1.1", () => {
       ...plainChoiceBoardDocument,
       items: [{ ...question, props }],
     });
-    expect(paths(result)).toEqual(["/items/0/props/items"]);
+    // Since board document 1.2 a question's items hold its context (excerpts, design decision 2).
+    expect(paths(result)).toEqual(["/items/0/props/items/0/type"]);
   });
 });
 

@@ -8,7 +8,7 @@
 
 import type { QuestionProps } from "../schemas/input/index.ts";
 import type { GanttItem, GanttProps } from "../widgets/gantt/index.ts";
-import type { TreePertProps } from "../widgets/tree/index.ts";
+import type { TreePertProps, TreeProps } from "../widgets/tree/index.ts";
 import { ganttPlanBoardDocument, ganttPlanDerived, ganttPlanEditedValue } from "./gantt.ts";
 import { treeEditedValue } from "./tree.ts";
 
@@ -23,7 +23,7 @@ export type TreePertItem = {
 export type Uj2ExpandedQuestion = {
   readonly type: "question";
   readonly id: string;
-  readonly props: Omit<QuestionProps, "options"> & {
+  readonly props: Omit<QuestionProps, "options" | "items"> & {
     readonly items: readonly [TreePertItem, GanttItem];
   };
 };
@@ -45,7 +45,11 @@ const { rev, ...QUESTION } = PLAN_QUESTION;
 /** What `wbs-pert`'s composition adds to the Tree: PERT, and two levels open at first. */
 const WBS_PERT = { pert: true, openDepth: 2 } as const;
 
-const TREE: TreePertItem = { type: "tree", id: TREE_ID, props: { ...WBS.props, ...WBS_PERT } };
+const TREE: TreePertItem = {
+  type: "tree",
+  id: TREE_ID,
+  props: { ...(WBS.props as TreeProps), ...WBS_PERT },
+};
 /** A Gantt plan's props, which name its Tree; the Gantt's fixture plan is one. */
 type GanttPlanProps = Extract<GanttProps, { readonly workPackages: string }>;
 const SENT_PLAN = SCHEDULE.props as GanttPlanProps;

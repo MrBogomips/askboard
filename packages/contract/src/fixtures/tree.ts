@@ -14,7 +14,7 @@ import type { AnswerEvent } from "../schemas/output/index.ts";
 import type { TreeColumn, TreeItem, TreeProps } from "../widgets/tree/index.ts";
 
 /** A question that holds widget items beside its options or instead of them (AD-7, Questions). */
-type WidgetQuestionProps = Omit<QuestionProps, "options"> & {
+type WidgetQuestionProps = Omit<QuestionProps, "options" | "items"> & {
   readonly options?: QuestionProps["options"];
   readonly items: readonly [TreeItem];
 };

@@ -18,7 +18,9 @@ import type { TreeItem } from "../widgets/tree/index.ts";
 import { type TreeBoardDocument, treeBoardDocument } from "./tree.ts";
 
 type GanttQuestion = Omit<BoardQuestion, "props"> & {
-  readonly props: Omit<QuestionProps, "options"> & { readonly items: readonly [GanttItem] };
+  readonly props: Omit<QuestionProps, "options" | "items"> & {
+    readonly items: readonly [GanttItem];
+  };
 };
 
 export type GanttBoardDocument = Omit<BoardDocument, "items"> & {

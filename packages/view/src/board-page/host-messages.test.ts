@@ -94,9 +94,11 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
         type: "board",
         document: { ...plainChoiceBoardDocument, items: [{ ...question, props }] },
       });
+    // Since board document 1.2 a question's items hold its context, and a widget item is refused
+    // at the item, by its type (excerpts, design decision 2).
     const unknownItems = {
-      path: "/document/items/0/props/items",
-      message: 'unknown field "items"',
+      path: "/document/items/0/props/items/0",
+      message: 'value of tag "type" must be in oneOf',
     };
     expect(readHostMessage(boardWith({ ...question.props, items: [probe] }))).toEqual({
       ok: false,
@@ -120,7 +122,10 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
     expect(readHostMessage(board)).toMatchObject({ ok: false, reason: "schema" });
     expect(problemsOf(board)).toEqual(
       expect.arrayContaining([
-        { path: "/document/items/0/props/items", message: 'unknown field "items"' },
+        {
+          path: "/document/items/0/props/items/0",
+          message: 'value of tag "type" must be in oneOf',
+        },
         { path: "/document/items/0/props/options", message: 'missing field "options"' },
       ]),
     );

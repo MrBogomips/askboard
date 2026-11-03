@@ -405,6 +405,11 @@ export {
 // (the reasons it stays unresolved, the media types, a source's state) and the context limits of
 // proposal B4, exported in one appended block.
 
+// Context, E5 (excerpts, design decision 2): a question's context items in the input format, the
+// pointer grammar, a web reference's URL rule, what resolving a pointer gives (the reasons it stays
+// unresolved, the media types, a source's state) and the context limits of proposal B4, exported
+// in one appended block.
+
 export {
   ANCHOR_FILE_MAX_BYTES,
   ASK_IMAGES_MAX_BYTES,
@@ -439,3 +444,13 @@ export {
   UNRESOLVED_REASONS,
   type UnresolvedReason,
 } from "./context/resolution.ts";
+export { type WebUrlProblem, webUrlProblem } from "./context/url.ts";
+export type {
+  ContextItem,
+  ExcerptItem,
+  ExcerptProps,
+  ImageItem,
+  ImageProps,
+  ReferenceItem,
+  ReferenceProps,
+} from "./schemas/input/index.ts";

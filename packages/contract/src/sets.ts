@@ -61,4 +61,9 @@ export const SCHEMA_IDS = {
   draftRecord: "urn:askboard:board-protocol:draft-record",
   // Push delivery's closed event, in the output format's 1.1 since the ask lifecycle (task 14.5).
   closedEvent: "urn:askboard:output:closed-event",
+  // E5's context items (excerpts, design decision 2).
+  pointer: "urn:askboard:input:pointer",
+  excerptProps: "urn:askboard:input:excerpt-props",
+  referenceProps: "urn:askboard:input:reference-props",
+  imageProps: "urn:askboard:input:image-props",
 } as const;

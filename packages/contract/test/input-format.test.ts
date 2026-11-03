@@ -53,9 +53,10 @@ describe("the ask level of the input format", () => {
       "recommended",
       ["recommended"],
       "props.recommended",
-      "text, header, options, multiSelect and allowOther",
+      "text, header, options, multiSelect, allowOther and items",
     ],
-    ["items", ["items"], "props.items", "text, header, options, multiSelect and allowOther"],
+    // Since input format 1.2 a question's items hold its context (excerpts, design decision 2).
+    ["items", ["items"], "props.items", "excerpts, references and images"],
     [
       "an option colour",
       ["options", 0, "colour"],

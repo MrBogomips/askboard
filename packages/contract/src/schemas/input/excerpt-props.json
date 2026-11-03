@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:excerpt-props",
+  "title": "Excerpt props",
+  "description": "An excerpt beside the question: a `pointer` to a file and its anchor, which ask-core resolves when the ask is sent, or the `text` the agent wrote, never both; and an optional `title` (FR-8, AD-12). The contract's validation function checks that it holds exactly one of `pointer` and `text`.",
+  "type": "object",
+  "properties": {
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "text": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 }
+  },
+  "additionalProperties": false
+}

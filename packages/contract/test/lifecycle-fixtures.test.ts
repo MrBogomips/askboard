@@ -149,23 +149,31 @@ describe("the lifecycle constants (design decision 2)", () => {
 });
 
 describe("the versions (design decision 2)", () => {
-  test("each set E3 touches is at its next minor, and the view manifest is unchanged", () => {
-    expect({
+  test("each set E3 touches is at its next minor or a later one, and the view manifest is unchanged", () => {
+    // A later change takes the next minor again (excerpts, design decision 2).
+    const atLeast11 = (version: string) => (/^1\.([1-9][0-9]*)$/.test(version) ? "1.1+" : version);
+    const versions = {
       input: INPUT_FORMAT_VERSION,
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({
-      input: "1.1",
-      output: "1.1",
-      envelopes: "1.1",
-      document: "1.1",
-      protocol: "1.1",
-      manifest: "1.0",
+    };
+    expect(Object.fromEntries(Object.entries(versions).map(([k, v]) => [k, atLeast11(v)]))).toEqual(
+      {
+        input: "1.1+",
+        output: "1.1+",
+        envelopes: "1.1+",
+        document: "1.1+",
+        protocol: "1.1+",
+        manifest: "1.0",
+      },
+    );
+    expect(RESULT_VERSIONS).toEqual({
+      result: TOOL_ENVELOPES_VERSION,
+      output: OUTPUT_FORMAT_VERSION,
     });
-    expect(RESULT_VERSIONS).toEqual({ result: "1.1", output: "1.1" });
   });
 });
 

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:pointer",
+  "title": "Pointer",
+  "description": "A file of the ask's root, and optionally a place in it: a root-relative path, then `#` and an anchor, `L<start>-L<end>` for a line range or else a heading or an ID (Consistency Conventions, \"Excerpts and media\"). Its length is the contract's pointer limit. The grammar is the contract's `readPointer`, not this schema: a pointer it reads as invalid is no request error but an `unresolved-pointer` warning (AD-12, FR-8).",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 1024
+}
