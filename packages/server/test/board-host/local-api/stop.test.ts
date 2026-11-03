@@ -167,6 +167,50 @@ describe("the stop guard", () => {
   });
 });
 
+// Board-host spec, A teammate's stop is idle (task 17.2, G1): Claude Code fires SubagentStop at
+// every turn end of an in-process teammate, whose agent ID is its team address. Its stop is blocked
+// as a subagent's is, but one let through closes none of its asks; a subagent's still does.
+describe("an in-process teammate's stop", () => {
+  const TEAMMATE = { agent_id: "researcher@session-a1b2c3d4", agent_type: "researcher" } as const;
+  const stateOf = (run: TestApi, askId: string) => run.core.lifecycleBoard(askId)?.state;
+
+  test("with nothing above received, is let through and leaves its ask waiting", async () => {
+    const run = await started();
+    await askAs(run, ASK_ID, TEAMMATE);
+    expect(await stopOf(run, TEAMMATE)).toEqual({ version: LOCAL_API_VERSION, decision: "allow" });
+    expect(stateOf(run, ASK_ID)).toBe("waiting");
+    // The user's answer still lands, and the teammate's next stop carries it.
+    const appended = answer(run, ASK_ID);
+    const decision = await stopOf(run, TEAMMATE);
+    if (decision.decision !== "block") throw new Error("expected a block");
+    expect(decision.message.asks).toEqual([
+      { askId: ASK_ID, state: "answered", cursor: appended.cursor, events: [appended] },
+    ]);
+    expect(run.reported).toEqual([]);
+  });
+
+  test("is blocked with an answer above received, and the stop that follows closes nothing", async () => {
+    const run = await started();
+    await askAs(run, ASK_ID, TEAMMATE);
+    await askAs(run, "retry-limit-w2n5", TEAMMATE);
+    answer(run, ASK_ID);
+    expect((await stopOf(run, TEAMMATE)).decision).toBe("block");
+    expect(run.core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(true);
+    expect((await stopOf(run, TEAMMATE, true)).decision).toBe("allow");
+    expect(stateOf(run, ASK_ID)).toBe("answered");
+    expect(stateOf(run, "retry-limit-w2n5")).toBe("waiting");
+  });
+
+  test("a subagent's stop let through still closes its asks with agent-finished", async () => {
+    const run = await started();
+    await askAs(run, ASK_ID, SUBAGENT);
+    await askAs(run, "retry-limit-w2n5", TEAMMATE);
+    expect((await stopOf(run, SUBAGENT)).decision).toBe("allow");
+    expect(stateOf(run, ASK_ID)).toBe("closed");
+    expect(stateOf(run, "retry-limit-w2n5")).toBe("waiting");
+  });
+});
+
 // Board-host spec, Stop decisions (review fix, task 13.5): a block holds what the response limit
 // does, in order, and raises received only to its last event, so the hook never drops it.
 describe("a stop whose events exceed the response limit", () => {

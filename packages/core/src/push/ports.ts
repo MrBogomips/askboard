@@ -170,6 +170,14 @@ export type StopCandidates = {
  */
 export type StopFit = (candidates: StopCandidates) => StopBlock;
 
+/**
+ * What an owner's stop ends (AD-10): `finished`, a subagent's work, so that an allowed stop closes
+ * its open asks with `agent-finished`; `idle`, only a turn of an agent that then waits for a
+ * message, so that an allowed stop closes none (board-host spec, A teammate's stop is idle). The
+ * caller tells which; ask-core never reads it from an agent's identifiers.
+ */
+export type StopEnd = "finished" | "idle";
+
 /** The stop guard's decision on an owner's stop (AD-10), already acted on when it returns. */
 export type StopOutcome =
   | { readonly decision: "allow" }

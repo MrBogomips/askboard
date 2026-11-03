@@ -68,6 +68,7 @@ export type {
   StopAsk,
   StopBlock,
   StopCandidates,
+  StopEnd,
   StopFit,
   StopOutcome,
   WhoAsked,

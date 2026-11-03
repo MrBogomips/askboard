@@ -15,6 +15,7 @@ import { type Handlers, ok, refused } from "./http.ts";
 import { pollResponse } from "./poll.ts";
 import type { RecordTable } from "./records.ts";
 import { blockDecision, fitStop } from "./stop-block.ts";
+import { teammateOfAgent } from "./teammate.ts";
 
 export type RoutesCore = Pick<
   AskCore,
@@ -67,8 +68,11 @@ export const createHandlers = ({
     const allow: StopDecision = { ...ACK, decision: "allow" };
     const ownerKey = records.ownerKeyOf(agent_id);
     if (ownerKey === undefined) return ok(allow);
-    // An allow closes the subagent's open asks in ask-core, with agent-finished (task 3.6).
-    const outcome = core.stop(ownerKey, stop_hook_active, fitStop(core.epoch));
+    // An allow closes the subagent's open asks in ask-core, with agent-finished (task 3.6). An
+    // in-process teammate, whose agent ID is its team address, stops at every turn end and then
+    // waits for a message: its allow closes none (G1, task 17.2).
+    const end = teammateOfAgent(agent_id) === undefined ? "finished" : "idle";
+    const outcome = core.stop(ownerKey, stop_hook_active, fitStop(core.epoch), end);
     if (outcome.decision === "allow") return ok(allow);
     return ok(blockDecision(core.epoch, outcome));
   },

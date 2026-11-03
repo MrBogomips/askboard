@@ -83,3 +83,26 @@ describe("a subagent the stop guard lets finish", () => {
     expect(closedOf(core, ASK_ID)).toBe("closed");
   });
 });
+
+// Board-host spec, A teammate's stop is idle (task 17.2, G1): an in-process teammate's stop ends a
+// turn, not its work. The caller says so, and an allowed idle stop closes none of the owner's asks.
+describe("an owner whose stop is idle", () => {
+  test("is blocked as a subagent is, and an allow closes none of its asks", async () => {
+    const { core, heard } = await fixture();
+    core.answer(ASK_ID, answer());
+    expect(core.stop("reviewer-1", false, undefined, "idle")).toMatchObject({ decision: "block" });
+    const before = heard.length;
+    expect(core.stop("reviewer-1", true, undefined, "idle")).toEqual({ decision: "allow" });
+    expect(core.stop("reviewer-1", false, undefined, "idle")).toEqual({ decision: "allow" });
+    expect(closedOf(core, ASK_ID)).toBe("answered");
+    expect(heard.length).toBe(before);
+  });
+
+  test("a later finished stop still closes them", async () => {
+    const { core } = await fixture();
+    expect(core.stop("reviewer-1", false, undefined, "idle")).toEqual({ decision: "allow" });
+    expect(closedOf(core, ASK_ID)).toBe("waiting");
+    expect(core.stop("reviewer-1", false, undefined, "finished")).toEqual({ decision: "allow" });
+    expect(closedOf(core, ASK_ID)).toBe("closed");
+  });
+});

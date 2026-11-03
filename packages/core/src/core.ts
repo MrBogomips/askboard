@@ -44,6 +44,7 @@ import type {
   OwnerRefusal,
   PushAskOutcome,
   PushReadOutcome,
+  StopEnd,
   StopFit,
   StopOutcome,
   WhoAsked,
@@ -454,11 +455,17 @@ export class AskCore {
   /**
    * The stop guard's decision on the owner's stop, acted on before it returns (AD-10): a block
    * carries what `fit` keeps of the events above `received`, and raises `received` to that alone;
-   * an allow closes the owner's open asks (`agentFinished`).
+   * an allow closes the owner's open asks (`agentFinished`) when the stop ends its work, and none
+   * when `end` is `idle`, the end of a turn only (G1).
    */
-  stop(ownerKey: string, stopHookActive: boolean, fit?: StopFit): StopOutcome {
+  stop(
+    ownerKey: string,
+    stopHookActive: boolean,
+    fit?: StopFit,
+    end: StopEnd = "finished",
+  ): StopOutcome {
     const outcome = this.#push.stop(ownerKey, stopHookActive, fit);
-    if (outcome.decision === "allow") this.agentFinished(ownerKey);
+    if (outcome.decision === "allow" && end === "finished") this.agentFinished(ownerKey);
     return outcome;
   }
 
