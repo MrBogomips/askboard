@@ -12,8 +12,10 @@ import {
   GRACE_PERIOD_MS,
   type LifecycleAskInput,
   type OutputEvent,
+  type PresentationSetting,
   type UnavailableReason,
   type UnresolvedPointerWarning,
+  type WriteOutcome,
 } from "@askboard/contract";
 import {
   type RequestProblem,
@@ -746,5 +748,21 @@ export class AskCore {
    */
   settings(): Promise<SettingsInEffect> {
     return this.#configuration.inEffect();
+  }
+
+  /**
+   * The settings a board opens with: the user file's presentation keys are read again, so a change
+   * another session wrote reaches a later board; everything else is the first read's.
+   */
+  settingsForBoard(): Promise<SettingsInEffect> {
+    return this.#configuration.forBoard();
+  }
+
+  /**
+   * A board's write of one presentation key into the user file: refused for any other key, a value
+   * outside the schema, a key the project file sets, or a user file that fails its check.
+   */
+  writeSetting(setting: PresentationSetting): Promise<WriteOutcome> {
+    return this.#configuration.write(setting);
   }
 }
