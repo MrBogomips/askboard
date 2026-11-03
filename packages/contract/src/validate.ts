@@ -322,8 +322,12 @@ export {
 
 // Molecules (molecules): the reference and definition validators, and a reference's data validator.
 
+// Molecules (molecules): the reference and definition validators, a reference's data validator,
+// and the widget item checks the expansion runs.
+
 export {
   moleculeDataValidator,
   validateMoleculeDefinition,
   validateMoleculeProps,
 } from "./molecules/validate.ts";
+export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets/items.ts";
