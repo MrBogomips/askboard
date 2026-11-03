@@ -4,6 +4,8 @@ Replacement texts for task 0.5, drafted before the PO's decisions. Each block be
 
 **Status (2026-11-01):** the PO accepted every open question these blocks rest on as proposed (decisions-5), so every block's condition holds and none needs rewriting; XC-A1 changes none of the quoted texts. No block is applied yet: all seven are applied in task 0.5, after the rebase of task 0.1 on E3 and E4, as "How to apply" says. On this branch (`docs/` as on `main` at 92ca203) each current text stood exactly once on 2026-11-01; task 0.5 checks them again on the rebased `main`.
 
+**Applied on 2026-11-03 (task 0.5).** After the rebase of task 0.1 on `main` at `cfd77e0` (E3 and E4 merged), each current text below stood exactly once in its file, so blocks 1 to 7 (sub-blocks 1.1 to 7.2) were applied as written, in order, and `updated:` was set to 2026-11-03 in the spine, the solution design and the experience document.
+
 Files, all under `docs/`:
 
 - **Spine:** `architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`
