@@ -9,10 +9,12 @@
 import { describe, expect, test } from "bun:test";
 import { onePerViewAsk, submittedAsk, twoAsk } from "./fixtures/lifecycle-asks.ts";
 import {
+  type BoardRun,
   enabledCount,
   eventually,
   expectNoCspProblem,
   RECONNECT_TIMEOUT_MS,
+  reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -69,8 +71,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, QUESTIONS);
         await work(board);
         await mirrored(run, hasWork, "the ready answer and the note");
-        await board.page.reload();
-        await openBoardAgain(board);
+        await reloadAndOpen(run, board);
         await expectWork(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
@@ -103,8 +104,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await navigatorOf(first).getByRole("button", { name: "Next", exact: true }).click();
         await inView(first, "Question 3 of 5", "q3");
         await mirrored(run, (record) => record.inView === "q3", "the question in view");
-        await first.page.reload();
-        await openBoardAgain(first, ids);
+        await reloadAndOpen(run, first, ids);
         await inView(first, "Question 3 of 5", "q3");
         const second = await openBoard(run, ids);
         await first.banner(/moved/i).first().waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -224,11 +224,12 @@ const inView = async (board: Board, position: string, id: string) => {
   await card(board, id).waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
 };
 
-// After a reload the same tab shows the board again.
-const openBoardAgain = async (board: Board, ids: readonly string[] = QUESTIONS) => {
-  for (const id of ids) {
-    await board.view
-      .locator(`[data-askboard-question="${id}"]:not([aria-busy="true"])`)
-      .waitFor({ state: "attached", timeout: STEP_TIMEOUT_MS * 2 });
-  }
-};
+// The tab is reloaded and shows the board again, each question loaded.
+const reloadAndOpen = (run: BoardRun, board: Board, ids: readonly string[] = QUESTIONS) =>
+  reloadBoard(board, run, async () => {
+    for (const id of ids) {
+      await board.view
+        .locator(`[data-askboard-question="${id}"]:not([aria-busy="true"])`)
+        .waitFor({ state: "attached", timeout: STEP_TIMEOUT_MS * 2 });
+    }
+  });

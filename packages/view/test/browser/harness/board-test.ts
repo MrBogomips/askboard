@@ -9,6 +9,7 @@ import { BoardContext, type BoardContextOptions, launchEngine } from "./browser.
 import { type Board, boardOf } from "./dom.ts";
 import type { Engine } from "./engines.ts";
 import { type ClickWindow, orderProblems, pageHalf, pageHalfProblems } from "./messages.ts";
+import { reloadAndWait, viewFrameLost } from "./reload.ts";
 import { type BoardSession, type Scenario, startSession } from "./session.ts";
 import type { ReplayTranscript } from "./transcripts.ts";
 
@@ -48,13 +49,31 @@ export const closeAll = async (open: Closable[]): Promise<void> => {
   }
 };
 
-// Why the question did not show, for the failure message.
+// The frames Playwright tracks under the board page: the view's, at `about:srcdoc` once loaded.
+const childFrameUrls = (board: Board): string[] =>
+  board.page
+    .frames()
+    .filter((frame) => frame !== board.page.mainFrame())
+    .map((frame) => frame.url());
+
+// Why the question did not show, for the failure message: the view's frame, its srcdoc and the
+// frame Playwright tracks for it, what the board page shows above the frame (a banner, a load
+// error) and logged, the page errors and the session's problems.
 const diagnosis = async (board: Board, run: BoardRun): Promise<string> => {
   const frames = await board.frame.count();
   const srcdoc = frames === 0 ? null : await board.frame.first().getAttribute("srcdoc");
+  const tracked = childFrameUrls(board);
+  const shown = await board.page.locator("[data-askboard-banner], [role='alert']").allInnerTexts();
   const parts = [
     frames === 0 ? "no view frame" : `${frames} view frame(s)`,
     srcdoc === null ? "no srcdoc" : `a srcdoc of ${srcdoc.length} characters`,
+    tracked.length === 0
+      ? "Playwright tracks no frame"
+      : `Playwright's frame at ${tracked.join(", ")}`,
+    ...shown.map((text) => `the board page shows: ${text.replace(/\s+/g, " ")}`),
+    ...run.browser.console
+      .filter((line) => line.text.startsWith("askboard:"))
+      .map((line) => `logged: ${line.text}`),
     ...run.browser.errors.map((error) => `page error: ${error}`),
     ...run.session.problems().map((problem) => `session: ${problem}`),
   ];
@@ -76,6 +95,27 @@ export const waitForQuestion = async (
     );
   }
 };
+
+/**
+ * Reloads the board page and waits for the view, as `loaded` says; once more when Playwright lost
+ * the view's frame (`reload.ts`). A failure says what the board page shows.
+ */
+export const reloadBoard = (
+  board: Board,
+  run: BoardRun,
+  loaded: () => Promise<unknown>,
+): Promise<void> =>
+  reloadAndWait({
+    reload: () => board.page.reload(),
+    loaded,
+    frameLost: async () =>
+      viewFrameLost(await board.frame.first().getAttribute("srcdoc"), childFrameUrls(board)),
+    failure: async (error) =>
+      new Error(
+        `the reloaded board did not show the view loaded (${await diagnosis(board, run)}): ${String(error).split("\n")[0]}`,
+      ),
+    warn: (text) => console.warn(text),
+  });
 
 /** The tests of one engine: launches its browser for the file and cleans up after each test. */
 export const useEngine = (engine: Engine) => {
