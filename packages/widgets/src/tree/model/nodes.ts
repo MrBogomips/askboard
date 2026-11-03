@@ -3,9 +3,13 @@
 // returns. Node IDs are
 // unique at every level (design decision 11), so an ID names one node.
 
-import type { TreeNode, TreeProps } from "@askboard/contract";
+import type { TreeNode, TreePertProps, TreeProps } from "@askboard/contract";
 
 export type Nodes = readonly TreeNode[];
+
+/** Whether the Tree is a work breakdown, a Tree with `pert` (molecules design decision 8). */
+export const isPert = (value: TreeProps): value is TreePertProps =>
+  (value as { readonly pert?: unknown }).pert === true;
 
 /** A node and its place: its parent (`undefined` at the top level), its siblings and its level. */
 export type Located = {

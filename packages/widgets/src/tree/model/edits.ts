@@ -1,15 +1,19 @@
 // The Tree's edits (design decision 5): pure functions from a value to the next. Each returns a new
 // value frozen at every level, or the same value when nothing changes, and never touches its
 // input. An edit the contract would refuse changes nothing, so every value they return validates
-// as an edited value: names of 1 to 200 characters, text fields of 1 to 1,000, finite numbers, an
-// emptied field or children list removed, at most 500 nodes and 8 levels. A node the user adds
+// as an edited value: names of 1 to 200 characters, text fields of 1 to 1,000, finite numbers, a
+// work breakdown's estimates from 0 to 100,000 working days, an emptied field or children list
+// removed, at most 500 nodes and 8 levels. A work breakdown's parent, whose estimates PERT
+// ignores, takes no estimate edit (molecules design decision 14). A node the user adds
 // takes the next view-made ID (design decision 11). The edits never compute one value from
 // another and never build `changes` (open question 3, AD-20).
 
 import {
+  GANTT_PLAN_ESTIMATES,
   TREE_LABEL_MAX_CHARS,
   TREE_MAX_DEPTH,
   TREE_MAX_NODES,
+  TREE_PERT_MAX_ESTIMATE,
   TREE_TEXT_MAX_CHARS,
   type TreeColumnType,
   type TreeFieldValue,
@@ -21,6 +25,7 @@ import {
   countNodes,
   frozenWith,
   heightOf,
+  isPert,
   type Located,
   locate,
   nodeIds,
@@ -39,6 +44,14 @@ export type TreeEdit =
   | "outdent"
   | "remove";
 
+/** A cell edit `can` also answers for: a work breakdown's estimate cells, which a parent has none of. */
+export type FieldEdit = "editEstimate";
+
+/** Why a work breakdown refuses an estimate: the contract's range of working days (F8). */
+export const ESTIMATE_OUT_OF_RANGE = `An estimate is 0 to ${TREE_PERT_MAX_ESTIMATE.toLocaleString("en-US")} working days.`;
+
+const ESTIMATES: ReadonlySet<string> = new Set(GANTT_PLAN_ESTIMATES);
+
 /** A node's own keys; every other key is a field. */
 const NODE_KEYS: ReadonlySet<string> = new Set(["id", "label", "children"]);
 
@@ -51,7 +64,7 @@ const hasRoom = (value: TreeProps): boolean => countNodes(value.nodes) < TREE_MA
 
 // Whether `edit` is possible on the node at `place`: the moving rules (proposal, open question 13)
 // and the limits (open question 16). The one rule for `can` and for the edits themselves.
-const possible = (edit: TreeEdit, value: TreeProps, place: Located): boolean => {
+const possible = (edit: TreeEdit | FieldEdit, value: TreeProps, place: Located): boolean => {
   switch (edit) {
     case "addAfter":
       return hasRoom(value);
@@ -68,20 +81,31 @@ const possible = (edit: TreeEdit, value: TreeProps, place: Located): boolean => 
       return place.parentId !== undefined;
     case "remove":
       return true;
+    case "editEstimate":
+      return !isPert(value) || (place.node.children?.length ?? 0) === 0;
   }
 };
 
 // The place of the node `nodeId` when `edit` is possible on it.
-const placeFor = (edit: TreeEdit, value: TreeProps, nodeId: string): Located | undefined => {
+const placeFor = (
+  edit: TreeEdit | FieldEdit,
+  value: TreeProps,
+  nodeId: string,
+): Located | undefined => {
   const place = locate(value.nodes, nodeId);
   return place !== undefined && possible(edit, value, place) ? place : undefined;
 };
 
 /**
- * Whether `edit` is possible on the node `nodeId`, for the toolbar's tools and the keys. With no
- * current node, as in an empty Tree, only `addAfter` is, adding a top-level node.
+ * Whether `edit` is possible on the node `nodeId`, for the toolbar's tools, the keys and a work
+ * breakdown's estimate cells. With no current node, as in an empty Tree, only `addAfter` is, adding
+ * a top-level node.
  */
-export const can = (edit: TreeEdit, value: TreeProps, nodeId: string | undefined): boolean =>
+export const can = (
+  edit: TreeEdit | FieldEdit,
+  value: TreeProps,
+  nodeId: string | undefined,
+): boolean =>
   nodeId === undefined
     ? edit === "addAfter" && hasRoom(value)
     : placeFor(edit, value, nodeId) !== undefined;
@@ -140,9 +164,39 @@ const accepts = (type: TreeColumnType, input: TreeFieldValue): boolean =>
     : typeof input === "string" && lengthOf(input) <= TREE_TEXT_MAX_CHARS;
 
 /**
+ * Why a work breakdown refuses `input` as its estimate `field`: a number outside 0 to 100,000
+ * working days. `undefined` when it takes it, as for an emptied estimate, another field or a Tree
+ * without `pert`. `setField` refuses what this gives a reason for, and the cell editor shows it.
+ */
+export const estimateProblem = (
+  value: TreeProps,
+  field: string,
+  input: TreeFieldValue | undefined,
+): string | undefined =>
+  isPert(value) &&
+  ESTIMATES.has(field) &&
+  typeof input === "number" &&
+  !(input >= 0 && input <= TREE_PERT_MAX_ESTIMATE)
+    ? ESTIMATE_OUT_OF_RANGE
+    : undefined;
+
+// Whether a work breakdown refuses `input` as the estimate `field` of the node at `place`: one
+// `estimateProblem` gives a reason for, or any on a parent, whose estimate cells `can` refuses.
+const refusedEstimate = (
+  value: TreeProps,
+  place: Located,
+  field: string,
+  input: TreeFieldValue | undefined,
+): boolean =>
+  isPert(value) &&
+  ESTIMATES.has(field) &&
+  (!possible("editEstimate", value, place) || estimateProblem(value, field, input) !== undefined);
+
+/**
  * Sets the field `field` of the node `nodeId` to `input`, of its column's type; `undefined` or an
  * empty string empties it, removing the key. Nothing changes for a field no column declares, a
- * value of the wrong type or over the limit, the value it holds, or an unknown node.
+ * value of the wrong type or over the limit, the value it holds, or an unknown node; nor, in a
+ * work breakdown, for an estimate `estimateProblem` refuses or a parent's estimate.
  */
 export const setField = (
   value: TreeProps,
@@ -153,6 +207,7 @@ export const setField = (
   const place = locate(value.nodes, nodeId);
   const type = value.columns?.find((column) => column.field === field)?.type;
   if (place === undefined || type === undefined || NODE_KEYS.has(field)) return value;
+  if (refusedEstimate(value, place, field, input)) return value;
   const { node } = place;
   let next: TreeNode;
   if (input === undefined || input === "") {
