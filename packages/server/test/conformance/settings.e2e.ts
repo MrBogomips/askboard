@@ -43,6 +43,18 @@ const openedSettings = async (session: Session): Promise<Settings> => {
   }
 };
 
+/**
+ * Waits for a file the session process creates: the first ask starts the project folders without
+ * waiting for them (task 3.7), so a board can open before `.gitignore` is written.
+ */
+const created = async (path: string): Promise<void> => {
+  const deadline = Date.now() + 5_000;
+  while (!existsSync(path)) {
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${path}`);
+    await Bun.sleep(5);
+  }
+};
+
 /** Runs `start` with this process's HOME pointing at a developer-style home, then restores it. */
 const withDeveloperHome = async <T>(start: () => Promise<T>): Promise<T> => {
   const developer = mkdtempSync(join(tmpdir(), "askboard-developer-home-"));
@@ -126,6 +138,7 @@ describe("the configuration wired into the session process", () => {
     expect(existsSync(join(session.project, ".askboard"))).toBe(false);
     await openedSettings(session);
     const folder = join(session.project, ".askboard");
+    await created(join(folder, ".gitignore"));
     for (const name of ["snapshots", "media", "patches"]) {
       expect(existsSync(join(folder, name))).toBe(true);
     }
