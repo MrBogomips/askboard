@@ -1,12 +1,14 @@
 // The WBS's edits carried into its plan, in each engine, on the widget host (molecules design
 // decisions 11 and 12; F20; view spec, "An added package's predecessors", "Linked edits within a
-// plan's limits", "A linked edit on an answered question"): a package named after, or under,
-// another gets that package's predecessors in the plan in the same draft update, nothing leaving
-// the view; an addition taken back writes nothing; a linked edit past a plan's limit is refused at
-// the name, writing nothing; and on an answered question the plan's draft value starts from its
-// answer.
+// plan's limits", "A linked edit on an answered question", "Deleting a package with dependents"): a
+// package named after, or under, another gets that package's predecessors in the plan in the same
+// draft update, nothing leaving the view; an addition taken back writes nothing; a linked edit past
+// a plan's limit is refused at the name, writing nothing; on an answered question the plan's draft
+// value starts from its answer; and a package other tasks depend on is deleted only once the user
+// confirms, its dependents then depending on its predecessors.
 
 import { describe, expect, test } from "bun:test";
+import { elementChanges, GANTT_PLAN_SHAPE } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { ganttOf, rowTexts } from "./fixtures/gantt-view.ts";
 import {
@@ -25,13 +27,20 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { pressIn, pressTool, type TreeGrid, treeGridOf } from "./harness/tree-grid.ts";
+import {
+  deleteQuestion,
+  pressIn,
+  pressTool,
+  type TreeGrid,
+  treeGridOf,
+} from "./harness/tree-grid.ts";
 import {
   expectNewNode,
   expectSteps,
   expectUnchanged,
   focusPortal,
   readyIn,
+  shownIds,
   typeIn,
 } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -48,6 +57,9 @@ const PAST_DEPENDENTS =
 /** The predecessors the portal has, which a package named after it gets. */
 const PORTAL_PREDECESSORS = ["architecture", "prototype"];
 
+/** The question before deleting the portal, on which reporting depends. */
+const PORTAL_QUESTION = "“Customer portal” will be deleted. 1 task in the plan depends on it.";
+
 /** The plan's row of `task`: its ID, name, start, duration and predecessors. */
 const rowOf = async (run: WidgetHostRun, task: string) =>
   (await rowTexts(ganttOf(run.board, wbsPlan.id))).find(([id]) => id === task);
@@ -58,6 +70,16 @@ const addAndName = async (run: WidgetHostRun, tree: TreeGrid, tool: "Add node" |
   if (tool === "Add child") expect(await pressTool(run.board, "ArrowRight")).toBe("Add child");
   await run.board.page.keyboard.press("Enter");
   await expectNewNode(tree, "u-1");
+};
+
+/** Delete on the focused portal: the question, once it shows, with the focus on "Cancel". */
+const askToDeletePortal = async (run: WidgetHostRun) => {
+  await run.board.page.keyboard.press("Delete");
+  const question = deleteQuestion(run.board, PORTAL_QUESTION);
+  await question.waitFor({ timeout: STEP_TIMEOUT_MS });
+  expect(await question.getByRole("button").allTextContents()).toEqual(["Cancel", "Delete"]);
+  expect(await isFocused(question.getByRole("button", { name: "Cancel" }))).toBe(true);
+  return question;
 };
 
 /** The draft holds a value for exactly these items, once the view has mirrored it. */
@@ -205,6 +227,88 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         expect((await rowOf(run, "u-1"))?.[4]).toBe("Architecture, Clickable prototype");
         expect((await rowOf(run, "billing"))?.[4]).toBe("Architecture, Clickable prototype");
+        await Bun.sleep(QUIET_MS);
+        expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Delete on the portal asks first, inline, saying one task depends on it, with the focus on Cancel; Cancel leaves the Tree and the plan unchanged",
+      async () => {
+        const run = await host(dist, uj2ExpandedBoardDocument);
+        await readyIn(run);
+        const tree = treeGridOf(run.board);
+        await focusPortal(run, tree);
+        const ids = await shownIds(tree);
+        const question = await askToDeletePortal(run);
+        await run.board.page.keyboard.press("Enter");
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await shownIds(tree)).toEqual(ids);
+        expect((await rowOf(run, "reporting"))?.[4]).toBe("Customer portal");
+        await expectUnchanged(run);
+        expect(draftValues(run)).toEqual({});
+        await Bun.sleep(QUIET_MS);
+        expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the portal's delete confirmed connects reporting to Architecture and Clickable prototype, the plan's diff one set of reporting's predecessors",
+      async () => {
+        const run = await host(dist, uj2ExpandedBoardDocument);
+        await readyIn(run);
+        const tree = treeGridOf(run.board);
+        await focusPortal(run, tree);
+        const question = await askToDeletePortal(run);
+        await question.getByRole("button", { name: "Delete" }).click({ timeout: STEP_TIMEOUT_MS });
+        await expectDraftOf(run, [wbsTree.id, wbsPlan.id]);
+        expect(await shownIds(tree)).not.toContain("portal");
+        expect(
+          elementChanges(
+            wbsPlan.id,
+            wbsPlan.props,
+            draftValues(run)[wbsPlan.id] as object,
+            GANTT_PLAN_SHAPE,
+          ),
+        ).toEqual([
+          {
+            op: "set",
+            target: `${wbsPlan.id}.reporting.dependencies`,
+            value: PORTAL_PREDECESSORS,
+          },
+        ]);
+        await eventually(
+          async () => (await rowOf(run, "reporting"))?.[4] === "Architecture, Clickable prototype",
+          "reporting to depend on Architecture and Clickable prototype",
+        );
+        expect(await run.board.answer.isDisabled()).toBe(false);
+        await Bun.sleep(QUIET_MS);
+        expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the portal split into u-1, then u-1 deleted, leaves neither the Tree nor the plan a draft value and Answer disabled",
+      async () => {
+        const run = await host(dist, uj2ExpandedBoardDocument);
+        await readyIn(run);
+        const tree = treeGridOf(run.board);
+        await focusPortal(run, tree);
+        await addAndName(run, tree, "Add node");
+        await run.board.page.keyboard.type(DASHBOARDS);
+        expect(await pressIn(run.board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });
+        await expectDraftOf(run, [wbsTree.id, wbsPlan.id]);
+        // No task depends on u-1: it goes at once, with no question, the focus on its next sibling.
+        expect(await pressIn(run.board, "Delete")).toEqual({ nodeId: "billing", cell: 0 });
+        expect(await deleteQuestion(run.board, /will be deleted\./).count()).toBe(0);
+        await expectDraftOf(run, []);
+        expect(await rowOf(run, "u-1")).toBeUndefined();
+        await expectUnchanged(run);
+        expect(await run.board.answer.isDisabled()).toBe(true);
         await Bun.sleep(QUIET_MS);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
       },

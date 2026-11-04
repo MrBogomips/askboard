@@ -40,39 +40,20 @@ import {
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
-import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { pressIn, pressTool, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import {
-  type FocusAt,
-  pressIn,
-  pressTool,
-  type TreeGrid,
-  treeFocus,
-  treeGridOf,
-} from "./harness/tree-grid.ts";
-import { expectNewNode, expectSteps, readyIn, typeIn } from "./harness/tree-steps.ts";
+  enterField,
+  expectNewNode,
+  expectSteps,
+  readyIn,
+  tabUntil,
+  typeIn,
+} from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
+import { useWidgetHost } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
-
-/** How many presses of Tab may pass before the focus must have reached its target. */
-const MAX_TABS = 6;
-
-/** Presses Tab until `reached` holds, at most `MAX_TABS` times, with no click. */
-const tabUntil = async (board: Board, reached: () => Promise<boolean>, what: string) => {
-  for (let presses = 0; !(await reached()); presses += 1) {
-    if (presses === MAX_TABS) throw new Error(`${MAX_TABS} presses of Tab never reached ${what}`);
-    await board.page.keyboard.press("Tab");
-  }
-};
-
-/** Edits the Tree's focused field: F2, the text over the field's, then Enter, the focus kept. */
-const enterField = async (run: WidgetHostRun, tree: TreeGrid, text: string, at: FocusAt) => {
-  await typeIn(run, tree, "F2", text);
-  expect({ text, at: await pressIn(run.board, "Enter") }).toEqual({ text, at });
-  expect(await tree.editor.count()).toBe(0);
-};
 
 // The approved answer's plan as `compute` schedules it over the edited Tree: each row, then each
 // bar; it ends on 12/2/2026.

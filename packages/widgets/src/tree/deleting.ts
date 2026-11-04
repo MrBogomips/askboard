@@ -1,14 +1,30 @@
 // Deleting a node (spec, "Tree deleting nodes"; proposal, open question 11): the node goes with its
-// branch. A node with children goes only once the user confirms an inline question that says how
-// many nodes go with it; a leaf goes at once. A focus in the branch moves to the node's next
+// branch. A node with children, or one on whose branch tasks of a linked plan depend (molecules,
+// view spec, "Deleting a package with dependents"), goes only once the user confirms an inline
+// question that says how many nodes go with it and how many tasks depend on it; another leaf goes
+// at once. A focus in the branch moves to the node's next
 // sibling, else the previous one, else the parent, worked out on the value that still holds it.
 
 import type { TreeNode, TreeProps } from "@askboard/contract";
 import { remove, removedCount } from "./model/edits.ts";
 import { focusAfterRemove, type TreeView } from "./model/focus.ts";
 
-/** What the question before deleting a node says: the node's name and how many nodes are under it. */
-export type DeleteQuestion = { readonly label: string; readonly under: number };
+/**
+ * What the question before deleting a node says: the node's name, how many nodes are under it, and
+ * how many tasks of the plans over the Tree depend on its branch; and, once the confirmed delete was
+ * refused, the field error naming the plan's limit (`linked.ts`).
+ */
+export type DeleteQuestion = {
+  readonly label: string;
+  readonly under: number;
+  readonly dependents: number;
+  readonly refusal?: string;
+};
+
+/** How many tasks of the plans over the Tree depend on the packages `ids`, none outside them. */
+export type CountDependents = (ids: readonly string[]) => number;
+
+const NO_DEPENDENTS: CountDependents = () => 0;
 
 const nodeIn = (nodes: readonly TreeNode[], id: string): TreeNode | undefined => {
   for (const node of nodes) {
@@ -18,23 +34,59 @@ const nodeIn = (nodes: readonly TreeNode[], id: string): TreeNode | undefined =>
   return undefined;
 };
 
-/** The question deleting `nodeId` asks first, from the value as it is; `undefined` for a leaf or a node gone. */
-export const deleteQuestionOf = (value: TreeProps, nodeId: string): DeleteQuestion | undefined => {
-  const under = removedCount(value, nodeId) - 1;
-  const label = nodeIn(value.nodes, nodeId)?.label;
-  return under < 1 || label === undefined ? undefined : Object.freeze({ label, under });
-};
-
-/** The question's words after the node's name, for the `under` nodes of its branch. The wording is not recorded in EXPERIENCE.md. */
-export const deletedWith = (under: number): string =>
-  under === 1
-    ? "and the node under it will be deleted."
-    : `and the ${under} nodes under it will be deleted.`;
-
 const idsIn = (node: TreeNode): string[] => [
   node.id,
   ...(node.children ?? []).flatMap((child) => idsIn(child)),
 ];
+
+/** The IDs of `nodeId`'s branch, its own first; none for a node gone. */
+export const branchIdsOf = (value: TreeProps, nodeId: string): readonly string[] => {
+  const node = nodeIn(value.nodes, nodeId);
+  return Object.freeze(node === undefined ? [] : idsIn(node));
+};
+
+/**
+ * The question deleting `nodeId` asks first, from the value as it is; `undefined` for a node gone,
+ * and for a leaf no task depends on unless `always`, as once its delete was refused.
+ */
+export const deleteQuestionOf = (
+  value: TreeProps,
+  nodeId: string,
+  countDependents: CountDependents = NO_DEPENDENTS,
+  always = false,
+): DeleteQuestion | undefined => {
+  const label = nodeIn(value.nodes, nodeId)?.label;
+  if (label === undefined) return undefined;
+  const under = removedCount(value, nodeId) - 1;
+  const dependents = countDependents(branchIdsOf(value, nodeId));
+  return under < 1 && dependents < 1 && !always
+    ? undefined
+    : Object.freeze({ label, under, dependents });
+};
+
+// How many tasks depend on the node, or on its branch: the design's provisional wording
+// (molecules, design decision 14).
+const dependedOn = (dependents: number, under: number): string => {
+  if (dependents < 1) return "";
+  const what = under < 1 ? "it" : "them";
+  return dependents === 1
+    ? ` 1 task in the plan depends on ${what}.`
+    : ` ${dependents} tasks in the plan depend on ${what}.`;
+};
+
+/**
+ * The question's words after the node's name, for the `under` nodes of its branch and the
+ * `dependents` tasks of the plans over the Tree. The wording is not recorded in EXPERIENCE.md.
+ */
+export const deletedWith = (under: number, dependents: number): string => {
+  const deleted =
+    under < 1
+      ? "will be deleted."
+      : under === 1
+        ? "and the node under it will be deleted."
+        : `and the ${under} nodes under it will be deleted.`;
+  return `${deleted}${dependedOn(dependents, under)}`;
+};
 
 /**
  * The value without `nodeId` and its branch, and the view with the focus moved off it when the

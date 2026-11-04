@@ -43,6 +43,9 @@ export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
 
 export const QUESTION_REST = "shrink-0";
 
+/** A confirmed delete's refusal, after the question's buttons: the plan's limit it would pass. */
+export const QUESTION_ERROR = "min-w-0 truncate text-control text-destructive-text";
+
 /** The grid: a fixed layout, so that the field columns keep their widths and the name takes the rest. */
 export const GRID = "w-full table-fixed border-collapse";
 

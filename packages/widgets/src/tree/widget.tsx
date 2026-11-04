@@ -14,7 +14,9 @@
 // 14), the read-only Tree's included. A work breakdown, a Tree with `pert`, opens to its
 // `openDepth` (`openView`) and shows each row's values from the board's graph, and its totals
 // (molecules design decision 14). A node added and named goes in the draft with the edits it makes
-// to the plans over the Tree (`linked.ts`; design decisions 11 and 12).
+// to the plans over the Tree (`linked.ts`; design decisions 11 and 12), and so does a node deleted,
+// which asks first when tasks of those plans depend on its branch; a delete they refuse writes
+// nothing and keeps the question open with the refusal.
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
 import { type FocusEvent, type KeyboardEvent, type MouseEvent, useMemo, useState } from "react";
@@ -22,7 +24,13 @@ import type { BoardGraph } from "../graph/index.ts";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
 import { nameColumnOf } from "./cells.ts";
 import { FRAME } from "./classes.ts";
-import { afterDelete, deleteQuestionOf } from "./deleting.ts";
+import {
+  afterDelete,
+  branchIdsOf,
+  type CountDependents,
+  type DeleteQuestion,
+  deleteQuestionOf,
+} from "./deleting.ts";
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
 import { treeKeyOf } from "./key-event.ts";
@@ -38,6 +46,20 @@ import { TreeToolbar } from "./toolbar.tsx";
 import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
 const NO_COLUMNS: readonly TreeColumn[] = [];
+
+/** A delete whose question is asked: its node, the part it was asked from, and its refusal. */
+type Asked = { readonly nodeId: string; readonly from: TreePart; readonly refusal?: string };
+
+// The question of the delete `asked`, from the value as it is, with the refusal it met.
+const askedQuestion = (
+  value: TreeProps,
+  asked: Asked,
+  countDependents: CountDependents,
+): DeleteQuestion | undefined => {
+  const { nodeId, refusal } = asked;
+  const question = deleteQuestionOf(value, nodeId, countDependents, refusal !== undefined);
+  return question === undefined || refusal === undefined ? question : { ...question, refusal };
+};
 
 const isAdd = (edit: TreeEdit): edit is AddEdit => edit === "addAfter" || edit === "addChild";
 
@@ -60,6 +82,8 @@ export const TreeWidget = ({
   graph,
   onValueChange,
   onLinkedAdd,
+  countDependents,
+  onLinkedDelete,
 }: {
   readonly itemId: string;
   /** The agent's props, checked. */
@@ -81,10 +105,17 @@ export const TreeWidget = ({
     added: string,
     anchor: string | undefined,
   ) => string | undefined;
+  /** How many tasks of the plans over the Tree depend on a branch (`linked.ts`). */
+  readonly countDependents: CountDependents;
+  /**
+   * Writes the value `next` once the branch `deleted` is out of it, with the plans' linked edits,
+   * or returns the field error that refuses it (`linked.ts`).
+   */
+  readonly onLinkedDelete: (next: TreeProps, deleted: readonly string[]) => string | undefined;
 }) => {
   const [stored, setView] = useState(() => openView(value));
-  // The delete whose question is asked, and the part it was asked from.
-  const [asked, setAsked] = useState<{ readonly nodeId: string; readonly from: TreePart }>();
+  // The delete whose question is asked, the part it was asked from, and its refusal once refused.
+  const [asked, setAsked] = useState<Asked>();
   const focus = useTreeFocus();
 
   const { rows, editing, start, startAdd, dropped } = useCellEditing({
@@ -126,12 +157,25 @@ export const TreeWidget = ({
     setView(viewOfAdd(view, value, pending));
     startAdd(pending);
   };
-  // The node and its branch go, the focus moving off it (`deleting.ts`).
-  const remove = (nodeId: string, focusTo: TreePart | undefined): void => {
+  // The node and its branch go, the focus moving off it (`deleting.ts`), with the plans' linked
+  // edits; or nothing goes, and the refusal is returned.
+  const remove = (nodeId: string, focusTo: TreePart | undefined): string | undefined => {
     const deleted = afterDelete(value, view, nodeId);
+    const refusal = onLinkedDelete(deleted.value, branchIdsOf(value, nodeId));
+    if (refusal !== undefined) return refusal;
     focus.moveFocusTo(focusTo);
     setView(deleted.view);
-    change(deleted.value);
+    return undefined;
+  };
+  // A delete, asked first where `deleteQuestionOf` asks; a refused one opens the question with
+  // its refusal.
+  const startDelete = (nodeId: string, from: TreePart): void => {
+    if (deleteQuestionOf(value, nodeId, countDependents) !== undefined) {
+      setAsked({ nodeId, from });
+      return;
+    }
+    const refusal = remove(nodeId, from === "grid" ? "grid" : undefined);
+    if (refusal !== undefined) setAsked({ nodeId, from, refusal });
   };
   // The node moves with its branch, the focus following it (`moving.ts`).
   const move = (edit: MoveEdit, nodeId: string, focusTo: TreePart | undefined): void => {
@@ -148,14 +192,14 @@ export const TreeWidget = ({
     if (isAdd(edit)) add(edit);
     else if (nodeId === undefined) return;
     else if (isMove(edit)) move(edit, nodeId, focusTo);
-    else if (deleteQuestionOf(value, nodeId) !== undefined) setAsked({ nodeId, from });
-    else remove(nodeId, focusTo);
+    else startDelete(nodeId, from);
   };
   const enabled = TREE_TOOLS.map((tool) => !disabled && can(tool.edit, value, view.focus?.nodeId));
-  // The question shows while its node has children, from the value as it is, and while the Tree
-  // is editable; once it no longer applies it is dropped, never to show again unasked.
+  // The question shows while its node has children or dependents, from the value as it is, or
+  // its delete was refused, and while the Tree is editable; once it no longer applies it is
+  // dropped, never to show again unasked.
   const question =
-    disabled || asked === undefined ? undefined : deleteQuestionOf(value, asked.nodeId);
+    disabled || asked === undefined ? undefined : askedQuestion(value, asked, countDependents);
   if (asked !== undefined && question === undefined) setAsked(undefined);
   const asking =
     question === undefined || asked === undefined
@@ -164,8 +208,8 @@ export const TreeWidget = ({
           nodeId: asked.nodeId,
           question,
           onConfirm: () => {
-            setAsked(undefined);
-            remove(asked.nodeId, asked.from);
+            const refusal = remove(asked.nodeId, asked.from);
+            setAsked(refusal === undefined ? undefined : { ...asked, refusal });
           },
           onCancel: () => {
             focus.moveFocusTo(asked.from);

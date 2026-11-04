@@ -7,7 +7,8 @@
 // out. A work breakdown, a Tree with `pert`, reads the board's graph through the `board-graph`
 // chunk, the one build the plan on its board reads too, and reports the derived values its answer
 // carries (molecules, design decisions 13 and 14). A Tree a plan names, a work breakdown or not,
-// puts an added package's predecessors in the plan in the same draft update (design decision 12).
+// puts an added package's predecessors in the plan in the same draft update, and a deleted
+// package's in its dependents' (design decision 12).
 
 import {
   type TreeItem,
@@ -25,7 +26,7 @@ import {
 } from "@askboard/view/catalog";
 import { useCallback, useEffect, useMemo } from "react";
 import { type BoardGraph, liveGraph, sentGraph } from "../graph/index.ts";
-import { linkedAdd } from "./linked.ts";
+import { linkedAdd, linkedDelete, linkedDependents } from "./linked.ts";
 import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
 
@@ -110,6 +111,21 @@ const Tree = ({
     },
     [board, item.id, sent, onValuesChange],
   );
+  // A deletion and the plans' linked edits go in one draft update, or none goes; it asks first
+  // when tasks of those plans depend on the deleted branch.
+  const countDependents = useCallback(
+    (ids: readonly string[]): number => linkedDependents(board, item.id, ids),
+    [board, item.id],
+  );
+  const onLinkedDelete = useCallback(
+    (next: TreeProps, deleted: readonly string[]): string | undefined => {
+      const write = linkedDelete(board, item.id, sent, next, deleted);
+      if (!write.ok) return write.reason;
+      onValuesChange(write.values);
+      return undefined;
+    },
+    [board, item.id, sent, onValuesChange],
+  );
   useReadyAfterLayout(ready);
   return (
     <TreeWidget
@@ -121,6 +137,8 @@ const Tree = ({
       graph={graph}
       onValueChange={onValueChange}
       onLinkedAdd={onLinkedAdd}
+      countDependents={countDependents}
+      onLinkedDelete={onLinkedDelete}
     />
   );
 };

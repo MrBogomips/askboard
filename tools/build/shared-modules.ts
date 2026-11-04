@@ -93,7 +93,15 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
   // plans over it (molecules, design decisions 12 and 13).
   "board-graph": {
     modules: {
-      [BOARD_GRAPH]: ["afterAdd", "linkedEdit", "linkedPlans", "liveGraph", "sentGraph"],
+      [BOARD_GRAPH]: [
+        "afterAdd",
+        "afterDelete",
+        "dependentsOf",
+        "linkedEdit",
+        "linkedPlans",
+        "liveGraph",
+        "sentGraph",
+      ],
     },
   },
 };

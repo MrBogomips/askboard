@@ -3,8 +3,8 @@ import { GANTT_MAX_DEPENDENTS, GANTT_MAX_PREDECESSORS, GANTT_MAX_TASKS } from "@
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import type { BoardContent } from "@askboard/view/catalog";
 import type { GanttPlanProps } from "../gantt/model/tasks.ts";
-import { linkedAdd, refusalText } from "./linked.ts";
-import { addAfter, addChild } from "./model/edits.ts";
+import { linkedAdd, linkedDelete, linkedDependents, refusalText } from "./linked.ts";
+import { addAfter, addChild, remove } from "./model/edits.ts";
 
 // The expanded UJ-2 board: the WBS `wbs__tree` and the plan `schedule__plan` over it, whose
 // entries are prototype [ux], portal [architecture, prototype], billing [architecture] and
@@ -76,6 +76,66 @@ describe("a package added in a Tree a plan names (view spec, An added package's 
     expect(
       linkedAdd(board(new Map([[PLAN.id, plan]])), WBS.id, SENT, SPLIT, "u-1", "portal"),
     ).toEqual({
+      ok: false,
+      reason: `Clickable prototype would have more than ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have.`,
+    });
+  });
+});
+
+describe("a package deleted in a Tree a plan names (view spec, Deleting a package with dependents)", () => {
+  const crowded = (task: string): GanttPlanProps => ({
+    ...SENT_PLAN,
+    tasks: {
+      ...SENT_PLAN.tasks,
+      ...Object.fromEntries(
+        Array.from({ length: GANTT_MAX_DEPENDENTS - 1 }, (_, at) => [
+          `t-${at + 1}`,
+          { dependencies: [task] },
+        ]),
+      ),
+    },
+  });
+
+  test("counts the tasks of the plans that depend on the branch, outside it", () => {
+    expect(linkedDependents(board(), WBS.id, ["portal"])).toBe(1);
+    expect(linkedDependents(board(), WBS.id, ["ux", "prototype"])).toBe(1);
+    expect(linkedDependents(board(), WBS.id, ["reporting"])).toBe(0);
+    expect(linkedDependents(board(), PLAN.id, ["portal"])).toBe(0);
+  });
+
+  test("connects each dependent to the deleted package's predecessors, in one update with the Tree's value", () => {
+    const next = remove(SENT, "portal");
+    expect(linkedDelete(board(), WBS.id, SENT, next, ["portal"])).toEqual({
+      ok: true,
+      values: {
+        [WBS.id]: next,
+        [PLAN.id]: {
+          ...SENT_PLAN,
+          tasks: {
+            ...SENT_PLAN.tasks,
+            reporting: {
+              ...SENT_PLAN.tasks.reporting,
+              dependencies: ["architecture", "prototype"],
+            },
+          },
+        },
+      },
+    });
+  });
+
+  test("leaves neither value in the draft once a package the user added is deleted again", () => {
+    const added = linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", "portal");
+    const shown = new Map(added.ok ? Object.entries(added.values) : []);
+    expect(linkedDelete(board(shown), WBS.id, SENT, SENT, ["u-1"])).toEqual({
+      ok: true,
+      values: { [WBS.id]: undefined, [PLAN.id]: undefined },
+    });
+  });
+
+  test("is refused, naming the limit, when a dependent's new predecessors would pass one", () => {
+    const next = remove(SENT, "portal");
+    const shown = new Map([[PLAN.id, crowded("prototype")]]);
+    expect(linkedDelete(board(shown), WBS.id, SENT, next, ["portal"])).toEqual({
       ok: false,
       reason: `Clickable prototype would have more than ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have.`,
     });
