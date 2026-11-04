@@ -230,7 +230,11 @@ const boot = (): void => {
     derived: createDerivedStore(),
   };
   const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
-  createRoot(root).render(<Board view={view} context={context} extras={extras} />);
+  createRoot(root).render(
+    <port.HostedContext.Provider value={hosted}>
+      <Board view={view} context={context} extras={extras} />
+    </port.HostedContext.Provider>,
+  );
 };
 
 if (document.readyState === "loading") {

@@ -111,6 +111,20 @@ describe("linesOf", () => {
 });
 
 describe("referenceOf", () => {
+  test("only an http or https URL is a link; any other scheme is text", () => {
+    const web = (url: string) => referenceOf({ url, kind: "web" });
+    expect(web("http://example.com/a")).toHaveProperty("href", "http://example.com/a");
+    for (const url of [
+      "javascript:alert(1)",
+      "data:text/html,x",
+      "ftp://example.com",
+      "not a url",
+    ]) {
+      expect(web(url)).not.toHaveProperty("href");
+    }
+    expect(referenceOf({ pointer: "src/a.ts", kind: "file" })).not.toHaveProperty("href");
+  });
+
   test("a FILE reference opens in the reading panel, its title or its pointer shown", () => {
     expect(referenceOf(propsOf("retry-src"))).toEqual({
       label: "FILE",
@@ -125,12 +139,14 @@ describe("referenceOf", () => {
   test("a GITHUB or WEB reference opens in the browser", () => {
     expect(referenceOf(propsOf("pr"))).toEqual({
       label: "GITHUB",
+      href: "https://github.com/acme/pay/pull/12",
       shown: "PR 12",
       target: "https://github.com/acme/pay/pull/12",
       external: true,
     });
     expect(referenceOf(propsOf("runbook"))).toEqual({
       label: "WEB",
+      href: "https://acme.atlassian.net/wiki/runbook",
       shown: "https://acme.atlassian.net/wiki/runbook",
       target: "https://acme.atlassian.net/wiki/runbook",
       external: true,

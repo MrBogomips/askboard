@@ -38,6 +38,8 @@ export type Caption = {
 
 export type ReferenceView = {
   readonly label: "FILE" | "GITHUB" | "WEB";
+  /** The URL a click opens in the browser: a web or GitHub reference's http or https URL. */
+  readonly href?: string;
   /** Its title, else its pointer or URL. */
   readonly shown: string;
   /** Its pointer or URL. */
@@ -152,6 +154,16 @@ export const captionOf = (excerpt: ExcerptView): Caption => {
 export const linesOf = (text: string, start: number): ExcerptLine[] =>
   text.split("\n").map((line, at) => ({ number: start + at, text: line }));
 
+// Only http and https open in the browser (AD-8); any other scheme shows as text.
+const isWebUrl = (text: string): boolean => {
+  try {
+    const { protocol } = new URL(text);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+};
+
 const LABELS = { file: "FILE", github: "GITHUB", web: "WEB" } as const;
 
 /** The reference in `props`, or a throw. */
@@ -171,7 +183,14 @@ export const referenceOf = (props: unknown): ReferenceView => {
   if (target === undefined || (kind !== "file" && kind !== "github" && kind !== "web")) {
     return fail();
   }
-  return { label: LABELS[kind], shown: title ?? target, target, external: kind !== "file" };
+  const href = kind !== "file" && isWebUrl(target) ? { href: target } : {};
+  return {
+    label: LABELS[kind],
+    ...href,
+    shown: title ?? target,
+    target,
+    external: kind !== "file",
+  };
 };
 
 const isShownType = (value: unknown): value is ShownImageType =>

@@ -71,6 +71,10 @@ export const IMAGE = "block h-auto max-w-full rounded-md border border-border";
 /** The reference: a bordered chip on two lines. */
 export const REFERENCE = `flex w-full min-w-0 flex-col gap-[2px] rounded-md border border-border bg-card px-[8px] py-[6px] text-left hover:bg-muted ${FOCUS_RING}`;
 
+/** A FILE reference in a Snapshot: the chip's look, no hover or focus, since it does nothing. */
+export const REFERENCE_STATIC =
+  "flex w-full min-w-0 flex-col gap-[2px] rounded-md border border-border bg-card px-[8px] py-[6px] text-left";
+
 /** The reference's first line: its kind label, then its path or title. */
 export const REFERENCE_ROW = "flex min-w-0 items-baseline gap-[8px]";
 

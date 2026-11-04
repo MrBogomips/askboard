@@ -173,3 +173,25 @@ export const imageRemovedDocument = boardOf({
   ]),
   rev: 2,
 });
+
+export const SNAPSHOT_FILE_POINTER = "docs/specs/checkout.md#L40-L52";
+export const SNAPSHOT_GITHUB_URL = "https://github.com/acme/pay/pull/12";
+export const SNAPSHOT_WEB_URL = "https://acme.example/runbook?page=1&view=full";
+
+/** A FILE excerpt, a FILE reference, a GITHUB and a WEB reference: what a Snapshot shows. */
+export const snapshotDocument = boardOf(
+  questionOf("snap", "Is the checkout flow correct?", [
+    excerptOf("snap-excerpt", SNAPSHOT_FILE_POINTER, "text/markdown", 40, CHECKOUT_LINES),
+    {
+      type: "reference",
+      id: "snap-file",
+      props: { pointer: SNAPSHOT_FILE_POINTER, kind: "file", status: "resolved" },
+    },
+    {
+      type: "reference",
+      id: "snap-github",
+      props: { url: SNAPSHOT_GITHUB_URL, title: "PR 12", kind: "github" },
+    },
+    { type: "reference", id: "snap-web", props: { url: SNAPSHOT_WEB_URL, kind: "web" } },
+  ]),
+);

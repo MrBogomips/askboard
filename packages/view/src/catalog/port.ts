@@ -9,7 +9,7 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import { type ReactNode, useLayoutEffect } from "react";
+import { createContext, type ReactNode, useContext, useLayoutEffect } from "react";
 
 /** A widget item as the board document holds it: its type, its ID and its props, as sent. */
 export type BoardWidgetItem = {
@@ -125,3 +125,12 @@ export const useReadyAfterLayout = (ready: () => void, settled = true): void => 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the effect is made from exactly these.
   useLayoutEffect(readyEffect(ready, settled), [ready, settled]);
 };
+
+/**
+ * Whether the view has a parent host, a live board page it can ask to open a reference or a
+ * source. A Snapshot has none (AD-9, excerpts decision 6): the shell provides it, and a component
+ * that needs the board page falls back to its Snapshot look. True unless the shell says otherwise.
+ */
+export const HostedContext = createContext(true);
+
+export const useHosted = (): boolean => useContext(HostedContext);
