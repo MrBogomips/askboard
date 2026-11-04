@@ -10,6 +10,9 @@
 // 11).
 
 import { createContext, type ReactNode, useContext, useLayoutEffect } from "react";
+import type { Locale } from "@askboard/contract";
+import { createContext, type ReactNode, useCallback, useContext, useLayoutEffect } from "react";
+import { type Slots, type StringKey, t } from "../strings/index.ts";
 
 /** A widget item as the board document holds it: its type, its ID and its props, as sent. */
 export type BoardWidgetItem = {
@@ -144,3 +147,17 @@ export const useHosted = (): boolean => useContext(HostContext).hosted;
 
 export const useOpenReference = (): ((itemId: string) => void) =>
   useContext(HostContext).openReference;
+ * The ask's language, which the shell provides for the board (settings-languages design decision
+ * 9): the view's own strings, the catalog components' included, are in it; en-US when none is
+ * provided.
+ */
+export const LanguageContext = createContext<Locale>("en-US");
+
+/** The ask's language, for a text made outside a lookup. */
+export const useLanguage = (): Locale => useContext(LanguageContext);
+
+/** The lookup of the view's own strings in the ask's language. */
+export const useStrings = (): ((key: StringKey, slots?: Slots) => string) => {
+  const language = useLanguage();
+  return useCallback((key: StringKey, slots?: Slots) => t(language, key, slots), [language]);
+};

@@ -12,21 +12,27 @@
 // nothing answered while an agent-change notice waits for the user's choice. Postpone, Decline and
 // Explain follow `cardActions` (task 6.5; FR-4, FR-10).
 
-import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
+import type {
+  HeldAct,
+  LifecycleBoardState,
+  LifecycleQuestionStatus,
+  Locale,
+} from "@askboard/contract";
+import { type StringKey, t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { AnswerContent, ViewAnswer, ViewLock } from "../view-protocol.ts";
 import type { Flight } from "./answer-acts.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import type { QuestionStatus as Load } from "./ready-tracker.ts";
 
-/** The board's receipt texts (EXPERIENCE.md, Voice and Tone). */
-export type ReceiptText = "not sent yet" | "sent" | "delivered to the agent";
+/** The board's receipt texts (EXPERIENCE.md, Voice and Tone), in the ask's language. */
+export type ReceiptText = string;
 
 const RECEIPTS = {
-  queued: "not sent yet",
-  sent: "sent",
-  delivered: "delivered to the agent",
-} as const;
+  queued: "receipt.notSentYet",
+  sent: "receipt.sent",
+  delivered: "receipt.delivered",
+} as const satisfies Record<string, StringKey>;
 
 export type CardInputs = {
   readonly status: LifecycleQuestionStatus | undefined;
@@ -41,6 +47,8 @@ export type CardInputs = {
   readonly editing?: boolean;
   /** An agent-change notice waits for the user's choice (FR-6). */
   readonly pending?: boolean;
+  /** The ask's language, for the receipt: en-US when not given. */
+  readonly language?: Locale;
 };
 
 export type CardState = {
@@ -113,6 +121,7 @@ export const cardState = ({
   ready,
   editing = false,
   pending = false,
+  language = "en-US",
 }: CardInputs): CardState => {
   const logged = status?.state === "answered" || status?.state === "declined" ? status : undefined;
   if (flight !== undefined) {
@@ -120,13 +129,14 @@ export const cardState = ({
     return {
       phase: "sending",
       ...(shown === undefined ? {} : { shown }),
-      ...(flight.outcome === undefined ? {} : { receipt: RECEIPTS[flight.outcome] }),
+      ...(flight.outcome === undefined ? {} : { receipt: t(language, RECEIPTS[flight.outcome]) }),
       ...closed,
       ready: false,
     };
   }
   const answerable = status !== undefined && load === "visible" && lock === undefined;
-  const receipt = logged === undefined ? {} : { receipt: RECEIPTS[logged.answer.receipt] };
+  const receipt =
+    logged === undefined ? {} : { receipt: t(language, RECEIPTS[logged.answer.receipt]) };
   if (logged !== undefined && !editing) {
     return {
       phase: logged.state,

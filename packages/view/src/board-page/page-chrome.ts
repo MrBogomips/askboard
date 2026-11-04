@@ -80,7 +80,7 @@ const bannerElement = (document: Document, banner: Banner, actions: BannerAction
     button.type = "button";
     button.addEventListener(
       "click",
-      banner.action === "Continue here" ? actions.continueHere : actions.copyUnsentWork,
+      banner.variant === "moved" ? actions.continueHere : actions.copyUnsentWork,
     );
     root.append(button);
   }

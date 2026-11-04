@@ -7,7 +7,8 @@
 // with held work. "Select recommended" only selects, and in submitted delivery holds each selection
 // for Submit. Pure functions of the board document, the drafts and the board's state.
 
-import type { HeldAct, LifecycleBoardState } from "@askboard/contract";
+import type { HeldAct, LifecycleBoardState, Locale } from "@askboard/contract";
+import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { ViewAct, ViewLock } from "../view-protocol.ts";
 import {
@@ -146,8 +147,8 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
 };
 
 /** The bar's count of agent-change notices on held work, which jumps to the first. */
-export const updatesLabel = (count: number): string =>
-  count === 1 ? "1 update needs a choice" : `${count} updates need a choice`;
+export const updatesLabel = (count: number, language: Locale = "en-US"): string =>
+  t(language, "bar.updates", { count });
 
 /** Whether any question has a recommended option: "Select recommended" shows only then. */
 export const hasRecommendation = (document: ViewDocument): boolean =>

@@ -18,7 +18,7 @@
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
 import { type ReactNode, useEffect, useSyncExternalStore } from "react";
-import { questionTextId } from "../catalog/port.ts";
+import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import {
   areaOf,
   questionsOf,
@@ -159,42 +159,50 @@ const TabsBody = ({
   readonly onActivate: (areaId: string) => void;
   readonly shared: Shared;
   readonly unseen: ReadonlySet<string>;
-}) => (
-  <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-4">
-    <Tabs.List aria-label="Areas" className="flex gap-1 overflow-x-auto border-b border-border">
-      {groups.map((group) => {
-        const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
-        const open = tabOpenCount(area, shared.state, shared.draft.questions);
-        const fresh = group.questions.some((question) => unseen.has(question.id));
-        return (
-          <Tabs.Trigger
-            key={group.id}
-            value={group.id ?? ""}
-            className={`flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-1.5 text-control text-muted-foreground data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text ${FOCUS_RING}`}
-          >
-            <span className="max-w-48 truncate" title={group.title}>
-              {group.title}
-            </span>
-            {open === 0 ? null : <span className="text-badge">{`${open} open`}</span>}
-            {fresh ? <span className={INFO_BADGE}>New</span> : null}
-          </Tabs.Trigger>
-        );
-      })}
-    </Tabs.List>
-    {groups.map((group) => (
-      <Tabs.Content
-        key={group.id}
-        value={group.id ?? ""}
-        forceMount
-        className="flex flex-col gap-4 data-[state=inactive]:hidden"
+}) => {
+  const text = useStrings();
+  return (
+    <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-4">
+      <Tabs.List
+        aria-label={text("areas.label")}
+        className="flex gap-1 overflow-x-auto border-b border-border"
       >
-        {group.questions.map((question) => (
-          <Card key={question.id} question={question} shared={shared} />
-        ))}
-      </Tabs.Content>
-    ))}
-  </Tabs.Root>
-);
+        {groups.map((group) => {
+          const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
+          const open = tabOpenCount(area, shared.state, shared.draft.questions);
+          const fresh = group.questions.some((question) => unseen.has(question.id));
+          return (
+            <Tabs.Trigger
+              key={group.id}
+              value={group.id ?? ""}
+              className={`flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-1.5 text-control text-muted-foreground data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text ${FOCUS_RING}`}
+            >
+              <span className="max-w-48 truncate" title={group.title}>
+                {group.title}
+              </span>
+              {open === 0 ? null : (
+                <span className="text-badge">{text("areas.open", { count: open })}</span>
+              )}
+              {fresh ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
+            </Tabs.Trigger>
+          );
+        })}
+      </Tabs.List>
+      {groups.map((group) => (
+        <Tabs.Content
+          key={group.id}
+          value={group.id ?? ""}
+          forceMount
+          className="flex flex-col gap-4 data-[state=inactive]:hidden"
+        >
+          {group.questions.map((question) => (
+            <Card key={question.id} question={question} shared={shared} />
+          ))}
+        </Tabs.Content>
+      ))}
+    </Tabs.Root>
+  );
+};
 
 const OneQuestionBody = ({
   questions,
@@ -258,6 +266,7 @@ export const Board = ({
   readonly extras: BoardExtras;
 }) => {
   const { document, state, lock, connection } = useSyncExternalStore(view.subscribe, view.get);
+  const language = useLanguage();
   const draft = useSyncExternalStore(context.board.subscribe, context.board.get);
   const kept = useSyncExternalStore(context.kept.subscribe, context.kept.get);
   const removed = useSyncExternalStore(context.removed.subscribe, context.removed.get);
@@ -379,7 +388,7 @@ export const Board = ({
     <div className="flex min-h-screen flex-col">
       <BoardHeader
         title={document.title}
-        pill={askPillOf(state, lock)}
+        pill={askPillOf(state, lock, language)}
         counts={single ? undefined : counts}
         header={extras.header}
       />
@@ -388,7 +397,7 @@ export const Board = ({
         single={single}
         document={document}
         delivery={delivery}
-        warning={postponedWarningOf(document, state, draft.questions)}
+        warning={postponedWarningOf(document, state, draft.questions, language)}
         submit={submit}
         recommendations={hasRecommendation(document)}
         locked={lock !== undefined}

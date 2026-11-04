@@ -5,18 +5,19 @@
 
 import type { AgentStatus } from "@askboard/contract";
 import { useSyncExternalStore } from "react";
+import { useStrings } from "../catalog/port.ts";
 import type { HeaderData } from "./header-data.ts";
 import type { Store } from "./store.ts";
 
 const PILLS = {
   working: {
-    label: "Agent: Working",
+    label: "agent.working",
     pill: "border-transparent bg-agent-subtle text-agent-text",
     // A filled dot: working (DESIGN.md, Markers).
     marker: "size-2 rounded-full bg-agent",
   },
   waiting: {
-    label: "Agent: Waiting for your answer",
+    label: "agent.waiting",
     pill: "border-border bg-muted text-foreground-secondary",
     // A hollow ring: waiting is neutral grey, and never colour alone.
     marker: "size-2 rounded-full border border-agent-waiting",
@@ -25,6 +26,7 @@ const PILLS = {
 
 export const AgentPill = ({ header }: { readonly header: Store<HeaderData> }) => {
   const { agent } = useSyncExternalStore(header.subscribe, header.get);
+  const text = useStrings();
   const shown = agent === undefined ? undefined : PILLS[agent];
   return (
     <span role="status" className="inline-flex">
@@ -33,7 +35,7 @@ export const AgentPill = ({ header }: { readonly header: Store<HeaderData> }) =>
           className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-badge ${shown.pill}`}
         >
           <span aria-hidden="true" className={`shrink-0 ${shown.marker}`} />
-          {shown.label}
+          {text(shown.label)}
         </span>
       )}
     </span>

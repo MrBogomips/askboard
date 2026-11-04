@@ -22,9 +22,11 @@ import {
   type DraftRecord,
   type LifecycleBoardDocument,
   type LifecycleStateMessage,
+  type Locale,
   type RefusedMessage,
 } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
+import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type {
   ActReply,
@@ -246,6 +248,12 @@ class BoardPageController implements BoardPage {
     if (this.#status.kind === "retrying" || this.#status.kind === "connecting") this.#open();
   }
 
+  // The language of the board page's own strings: en-US until the board's language is read
+  // (settings-languages, task 7.2).
+  #language(): Locale {
+    return "en-US";
+  }
+
   flushDraft(): void {
     this.#mirror.flush();
   }
@@ -254,7 +262,7 @@ class BoardPageController implements BoardPage {
     const document = this.#model.document as ViewDocument | undefined;
     if (document === undefined) return;
     try {
-      await this.#deps.copyText(unsentWorkText(document, this.#mirror.latest()));
+      await this.#deps.copyText(unsentWorkText(document, this.#mirror.latest(), this.#language()));
     } catch (error) {
       this.#deps.log("the unsent work could not be copied", error);
     }
@@ -312,7 +320,7 @@ class BoardPageController implements BoardPage {
       this.#unsent = hasUnsentWork(this.#mirror.latest()) || hasUnsent(this.#outbox);
       this.#outbox = withoutAll(this.#outbox);
     }
-    this.#deps.showBanner(bannerOf(this.#status, this.#unsent));
+    this.#deps.showBanner(bannerOf(this.#status, this.#unsent, this.#language()));
     this.#updateView();
   }
 
@@ -434,7 +442,7 @@ class BoardPageController implements BoardPage {
         this.#loading = false;
         this.#mayLoad = false;
         const reason = error instanceof Error ? error.message : String(error);
-        this.#deps.showLoadError(`The board could not be loaded: ${reason}`);
+        this.#deps.showLoadError(t(this.#language(), "board.loadError", { reason }));
         this.#deps.log("the view did not load", error);
       },
     );
@@ -514,7 +522,7 @@ class BoardPageController implements BoardPage {
   readonly #hostHandlers: HostHandlers = {
     board: (message) => {
       this.#model = withHostMessage(this.#model, message);
-      this.#deps.setTitle(tabTitle(message.document.title));
+      this.#deps.setTitle(tabTitle(message.document.title, this.#language()));
     },
     state: (message) => this.#onState(message as LifecycleStateMessage),
     receipt: (message) => this.#keep(message),

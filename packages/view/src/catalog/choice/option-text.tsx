@@ -6,6 +6,7 @@
 // user's note) sits under it, in `OptionDetails`.
 
 import type { ChoiceOption } from "@askboard/contract";
+import { useStrings } from "../port.ts";
 import { optionDescriptionId, optionLabelId } from "./selection.ts";
 
 /** A bordered row on the card colour; its border turns primary once it is checked. */
@@ -38,18 +39,26 @@ export const OptionText = ({
   readonly itemId: string;
   readonly index: number;
   readonly option: ChoiceOption;
-}) => (
-  <span className="flex min-w-0 flex-col gap-0.5">
-    <span className="flex flex-wrap items-center gap-2">
-      <span id={optionLabelId(itemId, index)} className="text-body-lg text-foreground">
-        {option.label}
+}) => {
+  const text = useStrings();
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="flex flex-wrap items-center gap-2">
+        <span id={optionLabelId(itemId, index)} className="text-body-lg text-foreground">
+          {option.label}
+        </span>
+        {option.recommended === true ? (
+          <span className={RECOMMENDED}>{text("question.recommended")}</span>
+        ) : null}
       </span>
-      {option.recommended === true ? <span className={RECOMMENDED}>Recommended</span> : null}
+      {option.description === undefined ? null : (
+        <span
+          id={optionDescriptionId(itemId, index)}
+          className="text-body text-foreground-secondary"
+        >
+          {option.description}
+        </span>
+      )}
     </span>
-    {option.description === undefined ? null : (
-      <span id={optionDescriptionId(itemId, index)} className="text-body text-foreground-secondary">
-        {option.description}
-      </span>
-    )}
-  </span>
-);
+  );
+};

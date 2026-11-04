@@ -4,7 +4,8 @@
 // count and the tabs' counts, the ask pill, the postponed warning and the next-open jump's order.
 // Strings are EXPERIENCE.md's (Voice and Tone).
 
-import type { LifecycleBoardState } from "@askboard/contract";
+import type { LifecycleBoardState, Locale } from "@askboard/contract";
+import { type StringKey, t } from "../strings/index.ts";
 import {
   questionsOf,
   type ViewArea,
@@ -47,13 +48,17 @@ export const groupsOf = (document: ViewDocument): readonly Group[] => {
 /** A question's own state, as its marker shows it (EXPERIENCE.md, Counting). */
 export type Mark = "unanswered" | "ready" | "answered" | "postponed" | "declined";
 
-export const MARK_LABELS: Readonly<Record<Mark, string>> = {
-  unanswered: "Unanswered",
-  ready: "Ready",
-  answered: "Answered",
-  postponed: "Postponed",
-  declined: "Declined",
-};
+const MARK_KEYS = {
+  unanswered: "mark.unanswered",
+  ready: "mark.ready",
+  answered: "mark.answered",
+  postponed: "mark.postponed",
+  declined: "mark.declined",
+} as const satisfies Record<Mark, StringKey>;
+
+/** A marker's label in the ask's language. */
+export const markLabel = (mark: Mark, language: Locale = "en-US"): string =>
+  t(language, MARK_KEYS[mark]);
 
 type Work = ReadonlyMap<string, QuestionWork>;
 
@@ -103,24 +108,33 @@ const counted = (state: LifecycleBoardState, which: string): number =>
  * answered ask adds its postponed and declined counts ("answered, 1 postponed"). A closed or
  * discarded ask says so.
  */
-export const askPillOf = (state: LifecycleBoardState, lock: ViewLock | undefined): AskPill => {
-  if (lock === "discarded") return { kind: "discarded", label: "Discarded" };
-  if (lock === "closed" || state.ask === "closed") return { kind: "closed", label: "Closed" };
-  if (state.ask === "waiting") return { kind: "waiting", label: "Waiting" };
+export const askPillOf = (
+  state: LifecycleBoardState,
+  lock: ViewLock | undefined,
+  language: Locale = "en-US",
+): AskPill => {
+  if (lock === "discarded") return { kind: "discarded", label: t(language, "state.discarded") };
+  if (lock === "closed" || state.ask === "closed") {
+    return { kind: "closed", label: t(language, "state.closed") };
+  }
+  if (state.ask === "waiting") return { kind: "waiting", label: t(language, "state.waiting") };
   const answered = counted(state, "answered");
   const declined = counted(state, "declined");
   if (state.ask === "partly-answered") {
-    const total = state.questions.length;
-    return { kind: "partial", label: `Partly answered ${answered + declined}/${total}` };
+    const slots = { answered: answered + declined, total: state.questions.length };
+    return { kind: "partial", label: t(language, "state.partly", slots) };
   }
   const postponed = counted(state, "postponed");
   const parts = [
-    ...(postponed === 0 ? [] : [`${postponed} postponed`]),
-    ...(declined === 0 ? [] : [`${declined} declined`]),
+    ...(postponed === 0 ? [] : [t(language, "state.postponedPart", { count: postponed })]),
+    ...(declined === 0 ? [] : [t(language, "state.declinedPart", { count: declined })]),
   ];
   return {
     kind: "answered",
-    label: parts.length === 0 ? "Answered" : `answered, ${parts.join(", ")}`,
+    label:
+      parts.length === 0
+        ? t(language, "state.answered")
+        : t(language, "state.answeredWith", { parts: parts.join(", ") }),
   };
 };
 
@@ -132,13 +146,12 @@ export const postponedWarningOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: Work,
+  language: Locale = "en-US",
 ): string | undefined => {
   const count = questionsOf(document).filter(
     (question) => markOf(question.id, state, work) === "postponed",
   ).length;
-  if (count === 0) return undefined;
-  const questions = count === 1 ? "1 postponed question" : `${count} postponed questions`;
-  return `You have ${questions}: closing loses this ask`;
+  return count === 0 ? undefined : t(language, "bar.postponedWarning", { count });
 };
 
 /**

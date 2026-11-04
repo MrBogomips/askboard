@@ -6,6 +6,7 @@
 // agent-change flag (ask-lifecycle, design decisions 6 and 8). A single-question board shows only
 // the pills (L198). The title is agent text and renders as text only (AD-8).
 
+import { useStrings } from "../catalog/port.ts";
 import { AgentPill } from "./agent-pill.tsx";
 import type { AskPill as Pill } from "./board-view.ts";
 import type { HeaderData } from "./header-data.ts";
@@ -26,32 +27,35 @@ export type HeaderCounts = {
   readonly onChanged: () => void;
 };
 
-const replies = (count: number) => (count === 1 ? "1 new reply" : `${count} new replies`);
-
-const Counts = ({ counts }: { readonly counts: HeaderCounts }) => (
-  <>
-    <span aria-hidden="true" className={SEPARATOR} />
-    <span className="text-control font-semibold text-foreground">{`${counts.open} open`}</span>
-    <button
-      type="button"
-      className={BUTTON_SECONDARY}
-      disabled={counts.onNextOpen === undefined}
-      onClick={counts.onNextOpen}
-    >
-      Next open ↓
-    </button>
-    {counts.unreadReplies === 0 ? null : (
-      <button type="button" className={BUTTON_LINK} onClick={counts.onUnread}>
-        {replies(counts.unreadReplies)}
+const Counts = ({ counts }: { readonly counts: HeaderCounts }) => {
+  const text = useStrings();
+  return (
+    <>
+      <span aria-hidden="true" className={SEPARATOR} />
+      <span className="text-control font-semibold text-foreground">
+        {text("header.open", { count: counts.open })}
+      </span>
+      <button
+        type="button"
+        className={BUTTON_SECONDARY}
+        disabled={counts.onNextOpen === undefined}
+        onClick={counts.onNextOpen}
+      >
+        {text("header.nextOpen")}
       </button>
-    )}
-    {counts.changed === 0 ? null : (
-      <button type="button" className={`${INFO_BADGE} ${BUTTON_LINK}`} onClick={counts.onChanged}>
-        The agent updated this
-      </button>
-    )}
-  </>
-);
+      {counts.unreadReplies === 0 ? null : (
+        <button type="button" className={BUTTON_LINK} onClick={counts.onUnread}>
+          {text("header.newReplies", { count: counts.unreadReplies })}
+        </button>
+      )}
+      {counts.changed === 0 ? null : (
+        <button type="button" className={`${INFO_BADGE} ${BUTTON_LINK}`} onClick={counts.onChanged}>
+          {text("header.agentUpdated")}
+        </button>
+      )}
+    </>
+  );
+};
 
 export const BoardHeader = ({
   title,
@@ -64,20 +68,23 @@ export const BoardHeader = ({
   readonly counts?: HeaderCounts | undefined;
   /** Who asked and where, and the agent status (push delivery). */
   readonly header: Store<HeaderData>;
-}) => (
-  <header className="sticky top-0 z-10 flex flex-col border-b border-border bg-card">
-    <WhoAndWhere header={header} />
-    <div className="flex h-8 items-center gap-3 px-4">
-      <h1
-        className="min-w-0 flex-1 truncate text-body-lg font-semibold text-foreground"
-        title={title}
-      >
-        {title}
-      </h1>
-      <span className="text-label text-muted-foreground uppercase">Ask</span>
-      <AskPill pill={pill} />
-      <AgentPill header={header} />
-      {counts === undefined ? null : <Counts counts={counts} />}
-    </div>
-  </header>
-);
+}) => {
+  const text = useStrings();
+  return (
+    <header className="sticky top-0 z-10 flex flex-col border-b border-border bg-card">
+      <WhoAndWhere header={header} />
+      <div className="flex h-8 items-center gap-3 px-4">
+        <h1
+          className="min-w-0 flex-1 truncate text-body-lg font-semibold text-foreground"
+          title={title}
+        >
+          {title}
+        </h1>
+        <span className="text-label text-muted-foreground uppercase">{text("header.ask")}</span>
+        <AskPill pill={pill} />
+        <AgentPill header={header} />
+        {counts === undefined ? null : <Counts counts={counts} />}
+      </div>
+    </header>
+  );
+};

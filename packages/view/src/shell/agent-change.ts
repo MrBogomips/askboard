@@ -7,7 +7,8 @@
 // change" can mark what changed; a revision the view never saw (as after a reload) shows unmarked.
 // Pure functions and two small in-memory stores; nothing here is sent or mirrored.
 
-import type { ChoiceOption } from "@askboard/contract";
+import type { ChoiceOption, Locale } from "@askboard/contract";
+import { t } from "../strings/index.ts";
 import {
   questionsOf,
   type ViewDocument,
@@ -51,8 +52,8 @@ export const changeCountOf = (
 };
 
 /** The notice's count (EXPERIENCE.md, Voice and Tone: "Your 17 changes on this question"). */
-export const changesLabel = (count: number): string =>
-  `Your ${count} ${count === 1 ? "change" : "changes"} on this question`;
+export const changesLabel = (count: number, language: Locale = "en-US"): string =>
+  t(language, "change.yourChanges", { count });
 
 /** Each question's revisions the view has seen, by revision. */
 export type Revisions = {

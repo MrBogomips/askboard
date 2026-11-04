@@ -17,6 +17,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useStrings } from "../catalog/port.ts";
+import type { StringKey } from "../strings/index.ts";
 import type { HeaderOrigin } from "../view-protocol.ts";
 import type { HeaderData } from "./header-data.ts";
 import type { Store } from "./store.ts";
@@ -25,11 +27,11 @@ import type { Store } from "./store.ts";
 const UNKNOWN = "—";
 
 const FIELDS = [
-  ["Project", "project"],
-  ["Directory", "directory"],
-  ["Branch", "branch"],
-  ["Worktree", "worktree"],
-] as const satisfies readonly (readonly [string, keyof HeaderOrigin])[];
+  ["header.project", "project"],
+  ["header.directory", "directory"],
+  ["header.branch", "branch"],
+  ["header.worktree", "worktree"],
+] as const satisfies readonly (readonly [StringKey, keyof HeaderOrigin])[];
 
 // Who asked, each agent string isolated: "Main agent", "Subagent code-reviewer #2 · Retry review",
 // "Teammate scout-2 · Retry review" (a teammate has no ordinal).
@@ -129,6 +131,7 @@ const Field = ({ label, value }: { readonly label: string; readonly value?: stri
 
 export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) => {
   const { origin } = useSyncExternalStore(header.subscribe, header.get);
+  const text = useStrings();
   return (
     <div data-askboard-header="who-and-where" className="flex h-8 min-w-0 items-center gap-4 px-4">
       {origin === undefined ? null : (
@@ -141,7 +144,7 @@ export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) 
             {origin.forUser === undefined ? null : (
               <span className="flex min-w-0 items-baseline gap-1">
                 {" "}
-                <span className="shrink-0 text-muted-foreground">For:</span>{" "}
+                <span className="shrink-0 text-muted-foreground">{text("header.for")}</span>{" "}
                 <Clipped className="max-w-48">
                   <bdi>{origin.forUser}</bdi>
                 </Clipped>
@@ -150,7 +153,7 @@ export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) 
           </span>
           <dl className="m-0 ml-auto flex min-w-0 items-baseline gap-4">
             {FIELDS.map(([label, key]) => (
-              <Field key={key} label={label} value={origin[key]} />
+              <Field key={key} label={text(label)} value={origin[key]} />
             ))}
           </dl>
         </>

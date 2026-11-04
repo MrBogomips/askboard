@@ -19,6 +19,8 @@ import { Fragment, useRef, useSyncExternalStore } from "react";
 import type { ChoiceExtras } from "../catalog/choice/props.ts";
 import { type Rendered, renderedOf } from "../catalog/components.ts";
 import { questionTextId } from "../catalog/port.ts";
+import { renderedOf } from "../catalog/components.ts";
+import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
 import {
@@ -99,8 +101,6 @@ type CardProps = {
   readonly context: CardContext;
 };
 
-const NOTE_LABEL = "Note for the agent (optional)";
-
 const noteFieldId = (questionId: string) => `${questionId}:note`;
 
 const focusHeadingOf = (questionId: string) => () =>
@@ -110,6 +110,7 @@ const focusHeadingOf = (questionId: string) => () =>
 // agent's changes under the work.
 const useCard = ({ question, state, lock, context }: CardProps) => {
   const { tracker, draft, acts, board, kept, revisions } = context;
+  const language = useLanguage();
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const values = useSyncExternalStore(draft.subscribe, draft.record);
   const work = useSyncExternalStore(board.subscribe, () => board.work(question.id));
@@ -137,6 +138,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     ready: held === "answer" || held === "note",
     editing: hasAnswerWork(shown, values, work),
     pending,
+    language,
   });
   const actions = cardActions({
     status,
@@ -146,7 +148,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     load,
     lock,
     pending,
-    explaining: explainPending(status?.thread, followUp?.acts ?? []),
+    explaining: explainPending(status?.thread, followUp?.acts ?? [], language),
   });
   return {
     load,
@@ -206,18 +208,21 @@ const OptionsLabel = ({
   readonly question: ViewQuestion;
   readonly disabled: boolean;
   readonly onAccept: () => void;
-}) => (
-  <div className="flex items-center justify-between gap-3">
-    <p className={SECTION_LABEL}>
-      {question.props.multiSelect === true ? "Options" : "Options · pick one"}
-    </p>
-    {question.props.options?.some((option) => option.recommended === true) !== true ? null : (
-      <button type="button" className={BUTTON_LINK} disabled={disabled} onClick={onAccept}>
-        Accept recommended
-      </button>
-    )}
-  </div>
-);
+}) => {
+  const text = useStrings();
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className={SECTION_LABEL}>
+        {text(question.props.multiSelect === true ? "question.options" : "question.optionsPickOne")}
+      </p>
+      {question.props.options?.some((option) => option.recommended === true) !== true ? null : (
+        <button type="button" className={BUTTON_LINK} disabled={disabled} onClick={onAccept}>
+          {text("question.acceptRecommended")}
+        </button>
+      )}
+    </div>
+  );
+};
 
 // The open prompt (FR-7): one field per question, its text leaving only with an act.
 const OpenPrompt = ({
@@ -230,22 +235,25 @@ const OpenPrompt = ({
   readonly note: string;
   readonly readOnly: boolean;
   readonly onChange: (text: string) => void;
-}) => (
-  <div className="flex flex-col gap-1">
-    <label htmlFor={noteFieldId(questionId)} className="text-body text-foreground-secondary">
-      {NOTE_LABEL}
-    </label>
-    <textarea
-      id={noteFieldId(questionId)}
-      value={note}
-      readOnly={readOnly}
-      maxLength={NOTE_MAX_CHARS}
-      rows={2}
-      onChange={(event) => onChange(event.target.value)}
-      className={TEXT_FIELD}
-    />
-  </div>
-);
+}) => {
+  const text = useStrings();
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={noteFieldId(questionId)} className="text-body text-foreground-secondary">
+        {text("question.note")}
+      </label>
+      <textarea
+        id={noteFieldId(questionId)}
+        value={note}
+        readOnly={readOnly}
+        maxLength={NOTE_MAX_CHARS}
+        rows={2}
+        onChange={(event) => onChange(event.target.value)}
+        className={TEXT_FIELD}
+      />
+    </div>
+  );
+};
 
 export const QuestionCard = (props: CardProps) => {
   const { question, state, lock, delivery, single, context, level = 2 } = props;
@@ -263,6 +271,9 @@ export const QuestionCard = (props: CardProps) => {
     choosing,
     placement,
   } = useCard(props);
+  const language = useLanguage();
+  const { load, values, work, status, pending, shown, card, actions, followUp, choosing } =
+    useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
   const { header, text } = shown.props;
@@ -349,7 +360,7 @@ export const QuestionCard = (props: CardProps) => {
           earlier={
             work === undefined ? undefined : context.revisions.question(question.id, work.rev)
           }
-          stake={changesLabel(changeCountOf(shown, values, work))}
+          stake={changesLabel(changeCountOf(shown, values, work), language)}
           busy={!usable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
           onKeep={() => keepMine(question, acting)}
@@ -408,7 +419,7 @@ export const QuestionCard = (props: CardProps) => {
             submitted={!single && delivery === "submitted"}
             onAnswer={() => answer(question, acting)}
             onPostpone={() => postpone(question, status?.state, acting)}
-            onExplain={() => explain(question, acting)}
+            onExplain={() => explain(question, acting, language)}
             onDecline={() => decline(question, status?.state, acting)}
             focusHeading={focusHeading}
           />

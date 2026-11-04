@@ -11,6 +11,7 @@
 
 import { AlertDialog } from "radix-ui";
 import { useState } from "react";
+import { useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewDocument } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
@@ -25,7 +26,6 @@ const DIALOG =
   "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-2 rounded-lg border border-border bg-popover p-4 text-foreground shadow-lg";
 
 /** The immediate mode's helper text (EXPERIENCE.md, Voice and Tone: Bottom action bar). */
-const IMMEDIATE_HELP = "Answers go to the agent as you give them.";
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
@@ -55,6 +55,8 @@ export type BottomBarProps = {
 export const BottomBar = (props: BottomBarProps) => {
   const { single, document, delivery, warning, submit, recommendations, locked, context } = props;
   const [confirming, setConfirming] = useState(false);
+  const text = useStrings();
+  const language = useLanguage();
   if (single) {
     return warning === undefined ? null : (
       <footer className="sticky bottom-0 flex min-h-12 items-center gap-2 border-t border-border bg-card px-4">
@@ -84,7 +86,7 @@ export const BottomBar = (props: BottomBarProps) => {
   return (
     <footer className="sticky bottom-0 flex min-h-12 flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-2">
       <span id="askboard-delivery" className={SECTION_LABEL}>
-        Delivery
+        {text("bar.delivery")}
       </span>
       <fieldset
         aria-labelledby="askboard-delivery"
@@ -97,7 +99,7 @@ export const BottomBar = (props: BottomBarProps) => {
           disabled={locked || blockedSwitch}
           onClick={toImmediate}
         >
-          Immediate
+          {text("bar.immediate")}
         </button>
         <button
           type="button"
@@ -106,11 +108,11 @@ export const BottomBar = (props: BottomBarProps) => {
           disabled={locked}
           onClick={() => context.board.setDelivery("submitted")}
         >
-          Submitted
+          {text("bar.submitted")}
         </button>
       </fieldset>
       {delivery === "immediate" ? (
-        <span className="text-body text-muted-foreground">{IMMEDIATE_HELP}</span>
+        <span className="text-body text-muted-foreground">{text("bar.immediateHelp")}</span>
       ) : null}
       {warning === undefined ? null : <Warning warning={warning} />}
       <span className="ml-auto flex items-center gap-2">
@@ -121,16 +123,16 @@ export const BottomBar = (props: BottomBarProps) => {
             disabled={locked}
             onClick={props.onSelectRecommended}
           >
-            Select recommended
+            {text("bar.selectRecommended")}
           </button>
         ) : null}
         {blocked === undefined ? null : (
           <button type="button" className={BUTTON_LINK} onClick={() => props.onJump(blocked)}>
-            {updatesLabel(submit.blocked.length)}
+            {updatesLabel(submit.blocked.length, language)}
           </button>
         )}
         <button type="button" className={BUTTON_PRIMARY} disabled={submit.disabled} onClick={send}>
-          Submit
+          {text("bar.submit")}
         </button>
       </span>
       <AlertDialog.Root open={confirming} onOpenChange={setConfirming}>
@@ -138,13 +140,15 @@ export const BottomBar = (props: BottomBarProps) => {
           <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
           <AlertDialog.Content className={DIALOG}>
             <AlertDialog.Title className="text-body-lg font-semibold">
-              Switch to immediate delivery?
+              {text("bar.switchTitle")}
             </AlertDialog.Title>
             <AlertDialog.Description className="text-body text-foreground-secondary">
-              Your held work goes to the agent now, in the order you gave it.
+              {text("bar.switchBody")}
             </AlertDialog.Description>
             <div className="mt-2 flex justify-end gap-2">
-              <AlertDialog.Cancel className={BUTTON_SECONDARY}>Cancel</AlertDialog.Cancel>
+              <AlertDialog.Cancel className={BUTTON_SECONDARY}>
+                {text("bar.cancel")}
+              </AlertDialog.Cancel>
               <AlertDialog.Action
                 className={BUTTON_PRIMARY}
                 disabled={submit.disabled}
@@ -153,7 +157,7 @@ export const BottomBar = (props: BottomBarProps) => {
                   context.board.setDelivery("immediate");
                 }}
               >
-                Send and switch
+                {text("bar.sendAndSwitch")}
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

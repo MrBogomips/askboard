@@ -16,7 +16,8 @@
 // earlier revision by "Keep mine" answers that revision. Every command is held by the view's acts
 // until the board page settles it; a refused one leaves the work in the draft.
 
-import type { ChoiceOption, HeldAct, LifecycleQuestionStatus } from "@askboard/contract";
+import type { ChoiceOption, HeldAct, LifecycleQuestionStatus, Locale } from "@askboard/contract";
+import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import {
   type AnswerContent,
@@ -39,7 +40,7 @@ import type { DraftStore } from "./draft-store.ts";
 import { answerOf } from "./question-state.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
-export const EXPLAIN = "Why are you asking, and what changes with each option?";
+export const EXPLAIN = t("en-US", "question.explainText");
 
 export type Senders = {
   readonly channel: ViewChannel;
@@ -270,8 +271,11 @@ const followUp = (question: ViewQuestion, text: string): ViewAct => ({
 });
 
 /** Explain: its ready-made follow-up, at once in either delivery mode (FR-10). */
-export const explain = (question: ViewQuestion, context: Senders): void =>
-  sendActs(context, [followUp(question, EXPLAIN)]);
+export const explain = (
+  question: ViewQuestion,
+  context: Senders,
+  language: Locale = "en-US",
+): void => sendActs(context, [followUp(question, t(language, "question.explainText"))]);
 
 /** "Send" in the thread's composer: its text as a follow-up, at once in either mode (FR-10). */
 export const sendFollowUp = (question: ViewQuestion, context: AnswerContext): void => {
