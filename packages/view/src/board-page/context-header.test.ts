@@ -54,6 +54,7 @@ const setUp = (options: { readonly failLoads?: number } = {}) => {
     showBanner: () => undefined,
     showLoadError: () => undefined,
     setTitle: () => undefined,
+    setLanguage: () => undefined,
     log: (text) => logs.push(text),
     copyText: async () => undefined,
   };

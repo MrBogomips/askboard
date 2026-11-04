@@ -87,6 +87,10 @@ export const startBoardPage = (window: Window): void => {
     setTitle: (title) => {
       document.title = title;
     },
+    // The static `lang="en"` stays until the first board (settings-languages, B13).
+    setLanguage: (lang) => {
+      document.documentElement.lang = lang;
+    },
     log: (text, detail) => {
       if (detail === undefined) console.error(`askboard: ${text}`);
       else console.error(`askboard: ${text}:`, detail);

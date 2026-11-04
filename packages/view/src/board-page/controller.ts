@@ -26,7 +26,7 @@ import {
   type RefusedMessage,
 } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
-import { t } from "../strings/index.ts";
+import { htmlLang, languageOf, t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type {
   ActReply,
@@ -115,6 +115,8 @@ export type BoardPageDeps = {
   /** Says the view did not load, or, with undefined, that it did. */
   readonly showLoadError: (error: string | undefined) => void;
   readonly setTitle: (title: string) => void;
+  /** Sets the page's `lang` to the board's language (settings-languages design decision 9). */
+  readonly setLanguage: (lang: "en" | "it") => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
   /** Puts text on the clipboard, on the user's click (F-17). */
@@ -248,10 +250,10 @@ class BoardPageController implements BoardPage {
     if (this.#status.kind === "retrying" || this.#status.kind === "connecting") this.#open();
   }
 
-  // The language of the board page's own strings: en-US until the board's language is read
-  // (settings-languages, task 7.2).
+  // The language of the board page's own strings: the board document's, so English until the
+  // first board arrives (settings-languages design decision 9, B13).
   #language(): Locale {
-    return "en-US";
+    return languageOf(this.#model.document);
   }
 
   flushDraft(): void {
@@ -522,6 +524,7 @@ class BoardPageController implements BoardPage {
   readonly #hostHandlers: HostHandlers = {
     board: (message) => {
       this.#model = withHostMessage(this.#model, message);
+      this.#deps.setLanguage(htmlLang(this.#language()));
       this.#deps.setTitle(tabTitle(message.document.title, this.#language()));
     },
     state: (message) => this.#onState(message as LifecycleStateMessage),

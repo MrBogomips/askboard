@@ -6,6 +6,7 @@
 
 import { cspHashSource, type ManifestFile, type ViewManifest } from "@askboard/contract";
 import { BOOT_DATA_ID, type BootData, bootFieldsOf } from "../boot-data.ts";
+import { htmlLang, languageOf } from "../strings/language.ts";
 import { type SelectedChunk, selectChunks } from "./select.ts";
 
 export { type SelectedChunk, selectChunks, sourcesToFetch } from "./select.ts";
@@ -94,7 +95,7 @@ export const assemble = (
   );
   const srcdoc = [
     "<!doctype html>",
-    '<html lang="en">',
+    `<html lang="${htmlLang(languageOf(data.document))}">`,
     "<head>",
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${policy}">`,

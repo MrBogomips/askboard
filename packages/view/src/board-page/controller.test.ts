@@ -113,6 +113,7 @@ const setUp = (options: { failLoads?: number } = {}) => {
   const banners: (Banner | undefined)[] = [];
   const loadErrors: (string | undefined)[] = [];
   const titles: string[] = [];
+  const languages: string[] = [];
   const logs: string[] = [];
   const loads: BootData[] = [];
   const updates: ViewUpdate[] = [];
@@ -168,6 +169,7 @@ const setUp = (options: { failLoads?: number } = {}) => {
     showBanner: (banner) => banners.push(banner),
     showLoadError: (error) => loadErrors.push(error),
     setTitle: (title) => titles.push(title),
+    setLanguage: (language) => languages.push(language),
     log: (text) => logs.push(text),
     copyText: async (text) => {
       copies.push(text);
@@ -212,6 +214,7 @@ const setUp = (options: { failLoads?: number } = {}) => {
     banners,
     loadErrors,
     titles,
+    languages,
     logs,
     loads,
     updates,
@@ -1024,5 +1027,37 @@ describe("the reading panel on the board page (excerpts, task 6.6; AD-8)", () =>
     run.socket(1).close(1006);
     await run.view({ type: "open-reference", itemId: "retry-src", inset });
     expect(run.panel.events).toEqual([]);
+describe("the board page speaks the ask's language (settings-languages, task 7.2)", () => {
+  const italian: HostMessage = {
+    version,
+    type: "board",
+    // The E1 type predates board document 1.2; the protocol's schema takes the language.
+    document: { ...plainChoiceBoardDocument, language: "it-IT" } as typeof plainChoiceBoardDocument,
+  };
+
+  test("an it-IT board sets the page's lang to it, and its banners are Italian", async () => {
+    const run = setUp();
+    run.socket(1).receive(italian, stateOf(waiting));
+    await settled();
+    expect(run.languages).toEqual(["it"]);
+    run.socket(1).receive({ version, type: "moved" });
+    expect(run.banner()).toMatchObject({
+      text: "Questa board si è spostata in un'altra scheda.",
+      action: "Continua qui",
+    });
+  });
+
+  test("a board without a language reads as en-US", async () => {
+    const run = await opened();
+    expect(run.languages).toEqual(["en"]);
+    run.socket(1).close(1006);
+    expect(run.banner()?.text).toBe("Connection lost, retrying");
+  });
+
+  test("a banner shown before the first board is English", () => {
+    const run = setUp();
+    run.socket(1).close(1006);
+    expect(run.banner()?.text).toBe("Connection lost, retrying");
+    expect(run.languages).toEqual([]);
   });
 });

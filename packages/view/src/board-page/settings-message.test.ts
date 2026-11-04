@@ -40,6 +40,7 @@ const setUp = () => {
     showBanner: () => undefined,
     showLoadError: () => undefined,
     setTitle: () => undefined,
+    setLanguage: () => undefined,
     log: (text) => logs.push(text),
     copyText: async () => undefined,
   });

@@ -8,7 +8,7 @@
 // questions, or areas holding them, with the presentation and delivery the ask requests.
 // Plain ECMAScript: `assemble` reads it.
 
-import type { BoardDocument, BoardQuestion, QuestionProps } from "@askboard/contract";
+import type { BoardDocument, BoardQuestion, Locale, QuestionProps } from "@askboard/contract";
 
 /** A widget item in a question. */
 export type WidgetItem = {
@@ -38,6 +38,9 @@ export type ViewArea = {
 export type ViewDocument = Omit<BoardDocument, "items"> & {
   readonly presentation?: "sections" | "tabs" | "one-per-view";
   readonly delivery?: "immediate" | "submitted";
+  /** The ask's language and locale (settings-languages): absent in an earlier minor's, en-US. */
+  readonly language?: Locale;
+  readonly locale?: Locale;
   readonly items: readonly [ViewQuestion, ...ViewQuestion[]] | readonly [ViewArea, ...ViewArea[]];
 };
 

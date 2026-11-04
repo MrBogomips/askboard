@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { bannerOf } from "../board-page/board-status.ts";
 import { tabTitle } from "../board-page/tab-title.ts";
 import { EN_US } from "./en-US.ts";
-import { fill, STRINGS, t } from "./index.ts";
+import { fill, htmlLang, languageOf, STRINGS, t } from "./index.ts";
 import { IT_IT } from "./it-IT.ts";
 import { STRING_KEYS, type StringTable, type Template } from "./keys.ts";
 
@@ -166,5 +166,18 @@ describe("a lookup", () => {
 
   test("refuses a language outside the two", () => {
     expect(() => t("fr-FR" as never, "question.answer")).toThrow(RangeError);
+  });
+});
+
+describe("the board's language (task 7.2)", () => {
+  test("is the board document's, en-US when it holds none or there is no board", () => {
+    expect(languageOf({ language: "it-IT" })).toBe("it-IT");
+    expect(languageOf({})).toBe("en-US");
+    expect(languageOf(undefined)).toBe("en-US");
+  });
+
+  test("is written as the document's lang: en or it", () => {
+    expect(htmlLang("en-US")).toBe("en");
+    expect(htmlLang("it-IT")).toBe("it");
   });
 });

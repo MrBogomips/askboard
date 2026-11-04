@@ -43,6 +43,7 @@ import {
   type QuestionWork,
   restoreDraft,
 } from "./board-draft.ts";
+import { BoardLanguage } from "./board-language.tsx";
 import { nextAfterRemoval, presentationOf } from "./board-view.ts";
 import { dropWork } from "./card-acts.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
@@ -246,6 +247,9 @@ const boot = (): void => {
     <port.HostContext.Provider value={host}>
       <Board view={view} context={context} extras={extras} />
     </port.HostContext.Provider>,
+    <BoardLanguage view={view}>
+      <Board view={view} context={context} extras={extras} />
+    </BoardLanguage>,
   );
 };
 

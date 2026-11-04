@@ -183,6 +183,7 @@ describe("the view's activity message", () => {
       showBanner: () => undefined,
       showLoadError: () => undefined,
       setTitle: () => undefined,
+      setLanguage: () => undefined,
       log: () => undefined,
       copyText: async () => undefined,
       ...(onActivity === undefined ? {} : { onActivity }),
