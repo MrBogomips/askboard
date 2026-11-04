@@ -42,7 +42,7 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
       // E7's replies join `BoardHostMessage` with the board page's Snapshot control (task 6.2).
       expect({ type: message.type, read }).toEqual({
         type: message.type,
-        read: { ok: true, value: message as never },
+        read: { ok: true, value: message },
       });
     }
   });

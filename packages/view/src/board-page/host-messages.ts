@@ -9,6 +9,7 @@ import {
   type ContextHostMessage,
   type LifecycleHostMessage,
   type OriginMessage,
+  type SnapshotReply,
   unsupportedVersion,
 } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
@@ -20,13 +21,15 @@ const BOARD_PROTOCOL = { title: "board protocol", version: BOARD_PROTOCOL_VERSIO
 
 /**
  * Every message `board-host` sends a board: protocol 1.1's, push delivery's origin and agent, and
- * the reading panel's source state and editor outcome (excerpts).
+ * the reading panel's source state and editor outcome (excerpts), and protocol 1.3's Snapshot
+ * replies (snapshot design decision 8).
  */
 export type BoardHostMessage =
   | LifecycleHostMessage
   | OriginMessage
   | AgentStatusMessage
-  | ContextHostMessage;
+  | ContextHostMessage
+  | SnapshotReply;
 
 const refused = (path: string, message: string): Checked<BoardHostMessage> => ({
   ok: false,
