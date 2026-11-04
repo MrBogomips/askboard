@@ -4,7 +4,8 @@
 // own session folder under a short runtime folder, and a notifier recorder first on PATH, so that
 // an ask shows no real notification and the test reads what would have been shown (task 5.4). A
 // test may give ask-core's clock, which runs the grace timer (ask-lifecycle), and the parent's
-// argument vector, an ordinary one unless given (task 17.1).
+// argument vector, an ordinary one unless given (task 17.1), and the editor command board-host
+// starts on "Open in editor", none unless given (excerpts, task 5.5).
 
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,7 +19,7 @@ import {
 import type { Clock } from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
-import type { ParentArgv } from "../src/board-host/index.ts";
+import type { BoardHostOptions, ParentArgv } from "../src/board-host/index.ts";
 import type { ExitSignal, SessionProcess } from "../src/mcp-tools/index.ts";
 import { startSessionProcess } from "../src/session-process.ts";
 import { removeViews, writeView } from "./board-host/helpers.ts";
@@ -80,6 +81,7 @@ export const composedSessions = () => {
     client: ClientIdentity = CLAUDE_CODE,
     clock?: Clock,
     parentArgv: ParentArgv = ORDINARY_PARENT,
+    editorCommand?: BoardHostOptions["editorCommand"],
   ) => {
     const runtime = mkdtempSync("/tmp/abs-");
     runtimes.push(runtime);
@@ -111,6 +113,7 @@ export const composedSessions = () => {
       stderr: (line) => stderr.push(line),
       transport: serverEnd,
       ...(clock ? { clock } : {}),
+      ...(editorCommand ? { editorCommand } : {}),
     });
     const connected = new Client(
       { name: client.name, version: client.version },

@@ -5,14 +5,17 @@
 // ask-core's events through its one subscription, the ask lifecycle's included (ask-lifecycle,
 // task 5.3). Push delivery (E4) joins through `composePush`: its ports, the session project for
 // board-host's context header, the local API started at the first request other than
-// `server/discover`, and its close beside the board host's.
+// `server/discover`, and its close beside the board host's. Excerpts (E5) read pointers in the
+// session project root alone, through the excerpts unit; board-host has no editor command until
+// configuration supplies one (E8).
 
 import { randomBytes } from "node:crypto";
-import { AskCore, type Clock } from "@askboard/core";
+import { AskCore, type Clock, type SourceFiles } from "@askboard/core";
 import type { Transport } from "@modelcontextprotocol/server";
-import type { ParentArgv } from "./board-host/index.ts";
+import type { BoardHostOptions, ParentArgv } from "./board-host/index.ts";
 import { createBoardHost } from "./board-host/index.ts";
 import { systemClock } from "./clock.ts";
+import { createSourceFiles } from "./excerpts/index.ts";
 import { systemIdentity } from "./identity.ts";
 import {
   failure,
@@ -22,7 +25,7 @@ import {
   systemTimers,
 } from "./mcp-tools/index.ts";
 import { createNotifier, type Environment } from "./notifier/index.ts";
-import { composePush } from "./push-composition.ts";
+import { composePush, sessionProjectRoot } from "./push-composition.ts";
 
 export type SessionProcessOptions = {
   readonly env: Environment;
@@ -55,6 +58,16 @@ export type SessionProcessOptions = {
    * give another; the entry point gives none.
    */
   readonly parentArgv?: ParentArgv;
+  /**
+   * ask-core's `SourceFiles` port: the excerpts unit over the session project root by default.
+   * Only tests give another; the entry point gives none (excerpts, design decision 5).
+   */
+  readonly sources?: SourceFiles;
+  /**
+   * The editor command board-host starts on "Open in editor": none by default, until E8's
+   * configuration supplies one. Only tests give one; the entry point gives none.
+   */
+  readonly editorCommand?: BoardHostOptions["editorCommand"];
 };
 
 export const startSessionProcess = (options: SessionProcessOptions): Session => {
@@ -67,11 +80,14 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     return core;
   };
   const push = composePush(options, { core: coreOf, diagnostics, reportAs });
+  // The root pointers resolve in: E4's session project root, never the working folder (AD-12).
+  const projectRoot = sessionProjectRoot(options.env);
   const host = createBoardHost({
     core: coreOf,
     view: options.view,
     report: reportAs("the board host failed"),
     projectDir: push.projectDir,
+    editorCommand: options.editorCommand ?? (() => undefined),
   });
   core = new AskCore({
     address: host.address,
@@ -88,6 +104,8 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     report: reportAs("ask-core failed"),
     clock: options.clock ?? systemClock,
     ...push.ports,
+    sources: options.sources ?? createSourceFiles({ projectRoot }),
+    ...(projectRoot === undefined ? {} : { projectRoot }),
   });
   return serveSession({
     deps: { core, timers: systemTimers, diagnostics, ...push.deps },
