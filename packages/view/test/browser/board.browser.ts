@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import {
+  actsApplied,
   answerWith,
   type BoardRun,
   enabledCount,
@@ -188,6 +189,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await run.open();
         const clicked = await answerWith(board, "PostgreSQL");
         await visible(board.receipt("sent"));
+        await actsApplied(run, 1);
         await run.session.collected();
         await visible(board.receipt("delivered to the agent"));
         expect(await board.receipt("sent").count()).toBe(0);
@@ -251,6 +253,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectNoTokenInView(board, run);
         const clicked = await answerWith(board, "PostgreSQL");
         await visible(board.receipt("sent"));
+        await actsApplied(run, 1);
         await run.session.collected();
         await visible(board.receipt("delivered to the agent"));
         await board.page.reload();

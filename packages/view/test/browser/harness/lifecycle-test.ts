@@ -6,7 +6,7 @@
 
 import type { ActCommand, DraftRecord } from "@askboard/contract";
 import type { Locator } from "playwright";
-import { type BoardRun, LOAD_TIMEOUT_MS, STEP_TIMEOUT_MS } from "./board-test.ts";
+import { actsApplied, type BoardRun, LOAD_TIMEOUT_MS, STEP_TIMEOUT_MS } from "./board-test.ts";
 import type { Board } from "./dom.ts";
 import type { Scenario } from "./session.ts";
 import type { ViewBuild } from "./view-build.ts";
@@ -142,6 +142,12 @@ export const actsSent = async (run: BoardRun, count: number): Promise<ActCommand
     }
     await Bun.sleep(50);
   }
+  return sentActs(run);
+};
+
+/** Waits until board-host has applied the first `count` act commands (`actsApplied`). */
+export const actsDone = async (run: BoardRun, count: number): Promise<ActCommand[]> => {
+  await actsApplied(run, count);
   return sentActs(run);
 };
 

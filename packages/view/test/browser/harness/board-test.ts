@@ -8,7 +8,13 @@ import type { Browser, Locator } from "playwright";
 import { BoardContext, type BoardContextOptions, launchEngine } from "./browser.ts";
 import { type Board, boardOf } from "./dom.ts";
 import type { Engine } from "./engines.ts";
-import { type ClickWindow, orderProblems, pageHalf, pageHalfProblems } from "./messages.ts";
+import {
+  actsDoneIn,
+  type ClickWindow,
+  orderProblems,
+  pageHalf,
+  pageHalfProblems,
+} from "./messages.ts";
 import { reloadAndWait, viewFrameLost } from "./reload.ts";
 import { type BoardSession, type Scenario, startSession } from "./session.ts";
 import type { ReplayTranscript } from "./transcripts.ts";
@@ -167,6 +173,17 @@ export const eventually = async (
     await Bun.sleep(50);
   }
 };
+
+/**
+ * Waits until board-host has applied the first `count` act commands the board page sent. The
+ * receipt shows "sent" once a command leaves the page, before board-host applies it: the agent's
+ * side (`collect`, an `update` on the user's act) waits for this, not for the receipt.
+ */
+export const actsApplied = (run: BoardRun, count: number): Promise<void> =>
+  eventually(
+    () => actsDoneIn(run.browser.sockets, count),
+    `board-host's done on ${count} act command${count === 1 ? "" : "s"}`,
+  );
 
 /** Selects an option and presses "Answer"; returns the click's window for the answer's `when`. */
 export const answerWith = async (board: Board, label: string): Promise<ClickWindow> => {

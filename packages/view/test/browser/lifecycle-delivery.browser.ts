@@ -27,6 +27,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  actsDone,
   actsSent,
   answerOf,
   barButton,
@@ -120,7 +121,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(sentActs(run)).toEqual([]);
         await board.header.getByText("Waiting", { exact: true }).waitFor();
         await barButton(board, "Submit").click();
-        const [command] = await actsSent(run, 1);
+        const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           { type: "answer", itemId: "cache", rev: 1, choice: ["Yes"], when: expect.any(String) },
           {
@@ -165,7 +166,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.header.getByText("3 open", { exact: true }).waitFor();
         expect(sentActs(run)).toEqual([]);
         await barButton(board, "Submit").click();
-        const [command] = await actsSent(run, 1);
+        const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           {
             type: "note",

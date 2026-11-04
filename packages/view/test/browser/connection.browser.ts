@@ -7,6 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import {
+  actsApplied,
   answerWith,
   enabledCount,
   eventually,
@@ -68,6 +69,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const first = await run.open();
         const clicked = await answerWith(first, "PostgreSQL");
         await first.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await actsApplied(run, 1);
         await run.session.collected();
         await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const second = await run.open();
@@ -160,6 +162,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const first = await run.open();
         const clicked = await answerWith(first, "PostgreSQL");
         await first.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await actsApplied(run, 1);
         await run.session.collected();
         await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const second = await run.open();

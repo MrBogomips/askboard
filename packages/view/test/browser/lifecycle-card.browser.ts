@@ -16,6 +16,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  actsDone,
   answerOf,
   card,
   lifecycleScenario,
@@ -93,7 +94,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.header
           .getByText("Answered", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        const acts = sentActs(run);
+        const acts = await actsDone(run, 1);
         expect(acts).toHaveLength(1);
         expect(acts[0]?.acts).toEqual([
           {
@@ -132,7 +133,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await other.fill("MariaDB");
         await answerOf(board, "database").click();
         await sent(board, "database");
-        const [command] = sentActs(run);
+        const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           {
             type: "answer",
@@ -158,7 +159,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await card(board, "database").getByRole("button", { name: "Accept recommended" }).click();
         await sent(board, "database");
         expect(await optionOf(board, "database", "PostgreSQL").isChecked()).toBe(true);
-        expect(sentActs(run)[0]?.acts).toEqual([
+        expect((await actsDone(run, 1))[0]?.acts).toEqual([
           {
             type: "answer",
             itemId: "database",
@@ -208,7 +209,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
         await sent(board, "database");
-        expect(sentActs(run)[0]?.acts).toEqual([
+        expect((await actsDone(run, 1))[0]?.acts).toEqual([
           {
             type: "answer",
             itemId: "database",
@@ -239,7 +240,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await noteOf(board, "database").inputValue()) === "",
           "the note to leave the draft",
         );
-        expect(sentActs(run)[0]?.acts).toEqual([
+        expect((await actsDone(run, 1))[0]?.acts).toEqual([
           {
             type: "note",
             itemId: "database",
