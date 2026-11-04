@@ -188,6 +188,7 @@ describe("the view's activity message", () => {
       schedule: () => () => undefined,
       showBanner: () => undefined,
       showLoadError: () => undefined,
+      showSnapshot: () => undefined,
       setTitle: () => undefined,
       log: () => undefined,
       copyText: async () => undefined,

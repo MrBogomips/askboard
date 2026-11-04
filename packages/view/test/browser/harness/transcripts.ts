@@ -4,11 +4,21 @@
 // `withDocument` puts another board document in, for the view's test-only documents, and
 // `overloaded` closes a socket with a code no transcript records.
 
-import type { AgentStatusMessage, BoardDocument, OriginMessage } from "@askboard/contract";
+import {
+  type AgentStatusMessage,
+  BOARD_PROTOCOL_VERSION,
+  type BoardDocument,
+  type LifecycleHostMessage,
+  type OriginMessage,
+  type SnapshotCommand,
+  type SnapshotReply,
+} from "@askboard/contract";
 import {
   plainChoiceTranscript,
   resendAfterDropTranscript,
   restartTranscript,
+  type SnapshotTranscriptStep,
+  snapshotTranscript,
   type TranscriptStep,
 } from "@askboard/contract/fixtures";
 
@@ -37,7 +47,15 @@ export type ReplayStep =
       readonly from: "host";
       readonly message: OriginMessage | AgentStatusMessage;
     }
-  | { readonly socket?: undefined; readonly from: "session"; readonly event: "waiting" };
+  | { readonly socket?: undefined; readonly from: "session"; readonly event: "waiting" }
+  // The Snapshot (snapshot task 7.1): E7's transcript, on the lifecycle board, with a board's
+  // request and board-host's reply, which the replay matches by request ID.
+  | { readonly socket: number; readonly from: "page"; readonly message: SnapshotCommand }
+  | {
+      readonly socket: number;
+      readonly from: "host";
+      readonly message: LifecycleHostMessage | SnapshotReply;
+    };
 
 export type ReplayTranscript = {
   readonly name: string;
@@ -49,7 +67,7 @@ export type ReplayTranscript = {
 const named = (
   name: string,
   steps: readonly ReplayStep[],
-  base = plainChoiceTranscript,
+  base: { readonly askId: string; readonly token: string } = plainChoiceTranscript,
 ): ReplayTranscript => ({ name, askId: base.askId, token: base.token, steps });
 
 const isHost = (step: ReplayStep, type: string): boolean =>
@@ -87,6 +105,24 @@ const shortDrop = through(
   resendAfterDropTranscript.steps,
   (step) => step.socket === 2 && isHost(step, "state"),
 ).filter((step) => step.from !== "user");
+
+// E7's steps, each of a kind the replay plays: connects, Snapshot requests and host messages.
+const replayable = (step: SnapshotTranscriptStep): ReplayStep => {
+  if (step.from === "host" && "message" in step) return step;
+  if (step.from === "page" && "message" in step) {
+    const { socket, message } = step;
+    if (message.type === "snapshot") return { socket, from: "page", message };
+    if (message.type === "connect") return { socket, from: "page", message };
+  }
+  throw new Error(`the replay does not play E7's step ${JSON.stringify(step)}`);
+};
+
+const snapshotSteps = snapshotTranscript.steps.map(replayable);
+// The lifecycle board opens: connect, the board document, the state.
+const snapshotOpening = through(snapshotSteps, (step) => isHost(step, "state"));
+const snapshotRequest = snapshotSteps[snapshotOpening.length] as ReplayStep;
+const requestIdOf = (step: ReplayStep): string =>
+  "message" in step && "requestId" in step.message ? step.message.requestId : "";
 
 export const replayTranscripts = {
   /** Track 0's plain-choice session: answer, receipt, takeover by a second tab, discard. */
@@ -142,6 +178,44 @@ export const replayTranscripts = {
       ...renumbered(restartTranscript.steps, (n) => n + 1),
     ],
     restartTranscript,
+  ),
+  /** E7's transcript: a board's Snapshot saved, write-failed, no-project-root and discarded. */
+  snapshot: named("snapshot", snapshotSteps, snapshotTranscript),
+  /**
+   * A board's Snapshot that AskBoard fails to take: board-host answers `internal-error` (snapshot
+   * task 6.3), which no transcript records; the first request of E7's transcript gets it.
+   */
+  snapshotInternalError: named(
+    "snapshotInternalError",
+    [
+      ...snapshotOpening,
+      snapshotRequest,
+      {
+        socket: 1,
+        from: "host",
+        message: {
+          version: BOARD_PROTOCOL_VERSION,
+          type: "snapshot-failed",
+          requestId: requestIdOf(snapshotRequest),
+          reason: "internal-error",
+        },
+      },
+    ],
+    snapshotTranscript,
+  ),
+  /**
+   * The connection drops before board-host answers the first request of E7's transcript; once the
+   * network is back the board opens on a second socket, where no request may go again.
+   */
+  snapshotDropped: named(
+    "snapshotDropped",
+    [
+      ...snapshotOpening,
+      snapshotRequest,
+      { socket: 1, from: "network", drop: true },
+      ...renumbered(snapshotOpening, () => 2),
+    ],
+    snapshotTranscript,
   ),
 } as const satisfies Readonly<Record<string, ReplayTranscript>>;
 

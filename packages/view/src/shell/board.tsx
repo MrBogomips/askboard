@@ -47,6 +47,7 @@ import { CARD_ACTS } from "./card-acts.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
+import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, selectRecommended, submitStateOf } from "./submit.ts";
@@ -84,6 +85,8 @@ export type BoardContext = CardContext & {
 export type BoardExtras = {
   /** Who asked and where, and the agent status (push delivery, design decision 12). */
   readonly header: Store<HeaderData>;
+  /** The bottom action bar's Snapshot (snapshot task 7.1). */
+  readonly snapshot: SnapshotControl;
 };
 
 // Questions the agent changed under the user's work, made on an earlier revision, that wait for
@@ -400,6 +403,8 @@ export const Board = ({
           })
         }
         onJump={go}
+        snapshot={extras.snapshot}
+        snapshotOffer={snapshotOfferOf(lock, connection)}
       />
     </div>
   );

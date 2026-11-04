@@ -54,6 +54,7 @@ import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
+import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThreadRequest } from "./thread.tsx";
@@ -245,7 +246,10 @@ const boot = (): void => {
     hosted,
     openReference: (itemId) => report({ type: "open-reference", itemId, inset: measureInset() }),
   };
-  const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
+  const extras: BoardExtras = {
+    header: startPushExtras(data, channel, hosted, report),
+    snapshot: createSnapshotControl(channel),
+  };
   createRoot(root).render(
     <port.HostContext.Provider value={host}>
       <Board view={view} context={context} extras={extras} />

@@ -176,7 +176,7 @@ describe("the Closed banner's Snapshot", () => {
   test("a closed ask takes it on its open socket; the feedback goes to the banner", async () => {
     const run = await opened();
     run.socket(1).receive({ version, type: "closed", reason: "agent" });
-    run.page.takeSnapshot();
+    expect(run.page.takeSnapshot()).toEqual({ outcome: "sent", requestId: ID(1) });
     expect(snapshots(run, 1)).toEqual([request(1)]);
     run.socket(1).receive(saved(1));
     expect(run.bannerSnapshots).toEqual([{ requestId: ID(1), outcome: "saved", path: PATH }]);
@@ -187,7 +187,10 @@ describe("the Closed banner's Snapshot", () => {
     const run = await opened();
     run.socket(1).receive({ version, type: "closed", reason: "agent" });
     run.socket(1).close(1006);
-    run.page.takeSnapshot();
+    expect(run.page.takeSnapshot()).toEqual({
+      outcome: "refused",
+      detail: "the connection is lost",
+    });
     expect(snapshots(run, 1)).toEqual([]);
     expect(run.logs.at(-1)).toContain("the connection is lost");
   });

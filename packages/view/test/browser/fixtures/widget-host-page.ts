@@ -46,7 +46,11 @@ const start = async (): Promise<void> => {
   const text = document.getElementById(WIDGET_HOST_DATA_ID)?.textContent;
   if (text === null || text === undefined) throw new Error("the host page has no data block");
   const data = JSON.parse(text) as WidgetHostData;
-  const chrome = createPageChrome(document, { continueHere: () => {}, copyUnsentWork: () => {} });
+  const chrome = createPageChrome(document, {
+    continueHere: () => {},
+    copyUnsentWork: () => {},
+    takeSnapshot: () => ({ outcome: "refused", detail: "the widget host takes no Snapshot" }),
+  });
   const peer = chrome.frame.contentWindow;
   if (peer === null) throw new Error("the view's frame is not in the document");
   const host = await hostView(peer, window, handle, systemTheme(window.matchMedia(DARK_QUERY)));

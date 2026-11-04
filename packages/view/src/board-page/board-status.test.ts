@@ -140,10 +140,11 @@ describe("a closed ask (ask-lifecycle: FR-6, Board banner, Closed)", () => {
     expect(nextStatus(moved, { type: "ask-closed" })).toBe(moved);
   });
 
-  test("the Closed banner takes the focus; with unsent work it says so and offers the copy", () => {
+  test("the Closed banner takes the focus and offers Snapshot; with unsent work it offers the copy", () => {
     expect(bannerOf(closedAsk)).toEqual({
       variant: "closed",
       text: "This ask was closed. The board is read-only.",
+      snapshot: true,
       takesFocus: true,
     });
     expect(bannerOf(closedAsk, true)).toEqual({
@@ -151,8 +152,16 @@ describe("a closed ask (ask-lifecycle: FR-6, Board banner, Closed)", () => {
       text: "This ask was closed. The board is read-only.",
       detail: "Your unsent work was not sent",
       action: "Copy my unsent work",
+      snapshot: true,
       takesFocus: true,
     });
+  });
+
+  test("no other banner offers Snapshot, the Discarded one included", () => {
+    for (const status of [retrying, moved, discarded]) {
+      expect(bannerOf(status)?.snapshot).toBeUndefined();
+      expect(bannerOf(status, true)?.snapshot).toBeUndefined();
+    }
   });
 
   test("whether the connection is lost, as the view hears it to disable Submit", () => {

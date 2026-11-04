@@ -135,7 +135,7 @@ export type BoardPageDeps = {
   /** The reading panel: a side sheet on the page that frames a source (excerpts). */
   readonly readingPanel?: ReadingPanel;
   /** Shows how the Closed banner's Snapshot request ended, beside its action. */
-  readonly showSnapshot?: (feedback: SnapshotFeedback) => void;
+  readonly showSnapshot: (feedback: SnapshotFeedback) => void;
 };
 
 export type BoardPage = {
@@ -149,8 +149,11 @@ export type BoardPage = {
   flushDraft(): void;
   /** "Copy my unsent work": the mirrored draft record, as text, on the clipboard (F-17). */
   copyUnsentWork(): Promise<void>;
-  /** The Closed banner's "Snapshot": the board, taken as the user's (FR-26). */
-  takeSnapshot(): void;
+  /**
+   * The Closed banner's "Snapshot": the board, taken as the user's (FR-26). Says whether the
+   * request went, and whether the board held unsent work, or why it did not go.
+   */
+  takeSnapshot(): SnapshotRequestReply;
   /**
    * Whether the browser's leave-page prompt is armed: while the draft holds unsent work or a
    * command is held, and while postponed questions are open on an open ask (L57, L172, FR-25).
@@ -281,9 +284,10 @@ class BoardPageController implements BoardPage {
     }
   }
 
-  takeSnapshot(): void {
+  takeSnapshot(): SnapshotRequestReply {
     const reply = this.#takeSnapshot("banner");
     if (reply.outcome === "refused") this.#deps.log(`no Snapshot was requested: ${reply.detail}`);
+    return reply;
   }
 
   leavePromptArmed(): boolean {
@@ -456,9 +460,7 @@ class BoardPageController implements BoardPage {
   // The view's request ends in its updates; the banner's beside the banner.
   #snapshotEnded(source: SnapshotSource, feedback: SnapshotFeedback): void {
     if (source === "banner") {
-      if (this.#deps.showSnapshot === undefined)
-        this.#deps.log("the banner shows no Snapshot", feedback);
-      else this.#deps.showSnapshot(feedback);
+      this.#deps.showSnapshot(feedback);
       return;
     }
     this.#snapshot = feedback;

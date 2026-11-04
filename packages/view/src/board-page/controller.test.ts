@@ -557,6 +557,7 @@ describe("a closed ask (ask-lifecycle: FR-6; Board banner, Closed and Unsent wor
     expect(run.banner()).toEqual({
       variant: "closed",
       text: "This ask was closed. The board is read-only.",
+      snapshot: true,
       takesFocus: true,
     });
     expect(run.updates.at(-1)?.lock).toBe("closed");
