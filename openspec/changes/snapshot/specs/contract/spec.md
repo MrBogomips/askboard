@@ -50,11 +50,15 @@ The contract's tool definitions SHALL be the approved `ask`, `update`, `collect`
 - **THEN** they are equal, all five entries in order
 
 ### Requirement: Snapshot messages on the board protocol
-The board protocol SHALL define, page to host, `snapshot` with a `requestId` and an optional `unsentWork: true`; and host to page, `snapshot-saved` with the `requestId` and the file's absolute `path`, and `snapshot-failed` with the `requestId`, a `reason` of `write-failed`, `no-project-root` or `discarded`, and the Snapshot folder's path for `write-failed` only (FR-26, AD-12).
+The board protocol SHALL define, page to host, `snapshot` with a `requestId` and an optional `unsentWork: true`; and host to page, `snapshot-saved` with the `requestId` and the file's absolute `path`, and `snapshot-failed` with the `requestId`, a `reason` of `write-failed`, `no-project-root`, `internal-error` or `discarded`, and the Snapshot folder's path for `write-failed` only (FR-26, AD-12).
 
 #### Scenario: A request without its ID
 - **WHEN** a `snapshot` message without `requestId` is validated
 - **THEN** it fails, naming `requestId`
+
+#### Scenario: A failure inside AskBoard names no folder
+- **WHEN** a `snapshot-failed` with the reason `internal-error` and a `folder` is validated
+- **THEN** it fails, naming `folder`
 
 #### Scenario: The recorded exchange
 - **WHEN** the recorded transcript of a board's Snapshot, saved and then failed, is validated in both directions

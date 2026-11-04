@@ -39,7 +39,7 @@ A Snapshot SHALL end with the `askboard-licences` JSON block listing, for each p
 - **THEN** its notices are exactly those the manifest gives for the chunks it inlines, React's included, and ext-apps' are absent
 
 ### Requirement: The Snapshot control
-The bottom action bar SHALL offer "Snapshot" on every board, the single-question board included, while the ask is open or closed; it SHALL be disabled while the connection is lost and absent once the ask is discarded. Its feedback SHALL show the saved file's path, or the failure with the Snapshot folder's path, or, when the session has no project root, a failure naming `CLAUDE_PROJECT_DIR` (FR-26, AD-12).
+The bottom action bar SHALL offer "Snapshot" on every board, the single-question board included, while the ask is open or closed; it SHALL be disabled while the connection is lost and absent once the ask is discarded. Its feedback SHALL show the saved file's path, or the failure with the Snapshot folder's path, or, when the session has no project root, a failure naming `CLAUDE_PROJECT_DIR`, or, for `internal-error`, that no Snapshot was taken (FR-26, AD-12).
 
 #### Scenario: Taking a Snapshot from a single-question board
 - **WHEN** the user presses "Snapshot" on the golden single-question board
@@ -48,6 +48,13 @@ The bottom action bar SHALL offer "Snapshot" on every board, the single-question
 #### Scenario: The connection is lost
 - **WHEN** the board shows "Connection lost, retrying"
 - **THEN** "Snapshot" is disabled, and no request leaves the page
+
+### Requirement: A Snapshot not confirmed
+A request whose connection drops, or whose reply has not come after `SNAPSHOT_REPLY_WAIT_MS`, SHALL end with feedback saying the Snapshot was not confirmed, never that it was saved or that none was taken, and SHALL NOT be sent again (FR-26, NFR-10).
+
+#### Scenario: The connection drops while a Snapshot is taken
+- **WHEN** the user presses "Snapshot" and the connection drops before the reply
+- **THEN** the feedback says the Snapshot was not confirmed, and the request is not sent again on the new connection
 
 ### Requirement: A Snapshot from a closed board
 The Closed banner SHALL offer "Snapshot", which takes the Snapshot as the bar's control does and shows its feedback beside it; the Discarded banner SHALL offer none (FR-26, EXPERIENCE Board banner).
