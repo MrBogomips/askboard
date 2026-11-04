@@ -1,14 +1,14 @@
 // A board's Snapshot (snapshot design decision 8; board-host spec, A Snapshot requested by the
-// board, A board's Snapshot that fails): the reply each of ask-core's outcomes gets, naming the
-// request. An owner refusal, which only an agent's request gets, has no reply: it is a failure no
-// caller can take.
+// board, A board's Snapshot that fails, A board's Snapshot AskBoard fails to take): the reply each
+// of ask-core's outcomes gets, naming the request. An owner refusal, which only an agent's request
+// gets, is an error to report, answered `internal-error` as a rejection is.
 
 import { BOARD_PROTOCOL_VERSION, type SnapshotReply } from "@askboard/contract";
 import type { SnapshotOutcome } from "@askboard/core";
 
 const version = BOARD_PROTOCOL_VERSION;
 
-/** The reply to the board's request `requestId`, or the error to report when there is none. */
+/** The reply to the board's request `requestId`, or the error to report for an outcome it never gets. */
 export const snapshotReply = (
   askId: string,
   requestId: string,
@@ -37,10 +37,14 @@ export const snapshotReply = (
 
 /** `snapshot-failed` for a reason that names no folder. */
 const failedWithoutFolder = (
-  reason: "no-project-root" | "discarded",
+  reason: "no-project-root" | "internal-error" | "discarded",
   requestId: string,
 ): SnapshotReply => ({ version, type: "snapshot-failed", requestId, reason });
 
 /** What a request still waiting for ask-core hears when the ask is discarded meanwhile (AD-21). */
 export const snapshotDiscarded = (requestId: string): SnapshotReply =>
   failedWithoutFolder("discarded", requestId);
+
+/** What a request hears when ask-core fails to take its Snapshot, or answers it out of turn. */
+export const snapshotFailedInside = (requestId: string): SnapshotReply =>
+  failedWithoutFolder("internal-error", requestId);

@@ -476,7 +476,7 @@ export type SnapshotFailedMessage = {
   readonly requestId: string;
 } & (
   | { readonly reason: "write-failed"; readonly folder: string }
-  | { readonly reason: "no-project-root" | "discarded" }
+  | { readonly reason: "no-project-root" | "internal-error" | "discarded" }
 );
 
 /** What `board-host` answers a Snapshot request with. */

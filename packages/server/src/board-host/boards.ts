@@ -66,7 +66,7 @@ import {
   stateMessage,
 } from "./messages.ts";
 import { presenceOf } from "./presence.ts";
-import { snapshotDiscarded, snapshotReply } from "./snapshots.ts";
+import { snapshotDiscarded, snapshotFailedInside, snapshotReply } from "./snapshots.ts";
 import type { BoardTokens } from "./tokens.ts";
 import { agentMessage, originMessage } from "./who-and-where.ts";
 
@@ -678,18 +678,22 @@ export class Boards {
     const unsentWork = command.unsentWork === true;
     this.#core.snapshot(connection.askId, { takenBy: "user", unsentWork }).then(
       (outcome) => this.#guard(() => this.#snapshotTaken(connection, requestId, outcome)),
-      (error: unknown) => {
-        connection.snapshots.delete(requestId);
-        this.#report(error);
-      },
+      (error: unknown) => this.#guard(() => this.#snapshotFailed(connection, requestId, error)),
     );
   }
 
   #snapshotTaken(connection: Connection, requestId: string, outcome: SnapshotOutcome): void {
-    if (!connection.snapshots.delete(requestId)) return;
     const reply = snapshotReply(connection.askId, requestId, outcome);
-    if (reply instanceof Error) this.#report(reply);
-    else this.#send(connection, reply);
+    if (reply instanceof Error) this.#snapshotFailed(connection, requestId, reply);
+    else if (connection.snapshots.delete(requestId)) this.#send(connection, reply);
+  }
+
+  // A Snapshot ask-core could not take: reported, and answered `internal-error` unless the
+  // discard already answered it, so no request waits for a reply that never comes.
+  #snapshotFailed(connection: Connection, requestId: string, error: unknown): void {
+    this.#report(error);
+    if (connection.snapshots.delete(requestId))
+      this.#send(connection, snapshotFailedInside(requestId));
   }
 
   // What ask-core shows of the ask, unless it is gone.

@@ -126,7 +126,7 @@ describe("board-host's replies", () => {
     expect(toPage(failed("write-failed"))).toEqual(["/folder"]);
   });
 
-  test.each(["no-project-root", "discarded"])(
+  test.each(["no-project-root", "internal-error", "discarded"])(
     "snapshot-failed with %s names no folder",
     (reason) => {
       expect(toPage(failed(reason))).toEqual([]);

@@ -181,8 +181,8 @@ describe("a board's Snapshot request", () => {
   });
 });
 
-describe("a board's Snapshot that cannot be answered", () => {
-  test("a rejection, a damaged view build's included, is reported and gets no reply; the board stays", async () => {
+describe("a board's Snapshot AskBoard fails to take", () => {
+  test("a rejection, a damaged view build's included, is reported and answers internal-error; the board stays", async () => {
     class DamagedBuild extends BoardSetupError {
       override readonly name = "DamagedBuild";
     }
@@ -199,7 +199,11 @@ describe("a board's Snapshot that cannot be answered", () => {
       const board = await opened();
       board.send(request(FIRST));
       board.send(request(SECOND));
-      await quiet(board);
+      for (const id of [FIRST, SECOND]) {
+        const received = await board.next();
+        expect(received).toEqual(failed(id, "internal-error"));
+        expect(validateBoardMessage("toPage", received).ok).toBe(true);
+      }
       expect(reported).toEqual([damaged, expect.any(Error)]);
       expect((reported[1] as Error).message).toBe("the writer broke its port");
       board.send(request("cD5eF7gH9jK1lM3nP5qR7s"));
@@ -209,7 +213,7 @@ describe("a board's Snapshot that cannot be answered", () => {
     }
   });
 
-  test("ask-core's owner refusal, which only an agent's request gets, is reported and gets no reply", async () => {
+  test("ask-core's owner refusal, which only an agent's request gets, is reported and answers internal-error", async () => {
     const fake = fakeHostCore({
       snapshot: async () => ({ outcome: "refused", why: "other-owner" }),
     });
@@ -217,6 +221,7 @@ describe("a board's Snapshot that cannot be answered", () => {
     try {
       const board = await opened();
       board.send(request(FIRST));
+      expect(await board.next()).toEqual(failed(FIRST, "internal-error"));
       await quiet(board);
       expect(reported).toHaveLength(1);
       expect(String(reported[0])).toContain("refused");
