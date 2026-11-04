@@ -28,7 +28,8 @@ import type { BoardHostMessage } from "./host-messages.ts";
 
 // The optional fields of a view update the controller makes from its own state, E1's and the ask
 // lifecycle's: a later document, the lock, the connection, the commands held and settled, and the
-// draft record to restore.
+// draft record to restore and the reading panel's latest closing; and the Snapshot's: how the view's
+// latest request ended, which the controller tracks itself (snapshot design decision 8, task 6.2).
 type ControllerField =
   | "document"
   | "lock"
@@ -36,7 +37,8 @@ type ControllerField =
   | "pending"
   | "settled"
   | "restore"
-  | "panelClosed";
+  | "panelClosed"
+  | "snapshot";
 
 /**
  * The fields of a view update the model keeps, which the board page passes on to the view as they
