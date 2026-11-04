@@ -6,7 +6,7 @@
 // the test, and the test sends the view a later update, a lock for one, as the board page would.
 
 import { afterAll, afterEach, beforeAll } from "bun:test";
-import type { Browser } from "playwright";
+import type { Browser, BrowserContext } from "playwright";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import type { ViewMessage, ViewUpdate } from "../../../src/view-protocol.ts";
 import { WIDGET_HOST_BINDING, WIDGET_HOST_UPDATE } from "../fixtures/widget-host-data.ts";
@@ -33,8 +33,15 @@ export type WidgetHostRun = {
   readonly drafts: readonly ViewMessage[];
   /** The activity messages the view sent (push delivery). */
   readonly activity: readonly ViewMessage[];
+  /** The URL of every request the tab made, its own page's first (excerpts, task 6.2). */
+  readonly requests: readonly string[];
   /** Sends the view a later update, as the board page sends each new state or lock. */
   update(update: ViewUpdate): Promise<void>;
+};
+
+export type HostPreparation = {
+  /** Runs on the browser context before the tab opens. */
+  readonly prepare?: (context: BrowserContext) => Promise<void>;
 };
 
 // Runs in the host page: hands the update to the function the page set, once it has hosted the view.
@@ -60,12 +67,13 @@ export const useWidgetHost = (engine: Engine) => {
   });
   /**
    * A new tab on a widget host for the document, its question open, with the view from `build`, in
-   * the light system colour scheme unless `colorScheme` says otherwise.
+   * the light system colour scheme unless `colorScheme` says otherwise; `prepare` runs on the
+   * browser context before the tab opens, such as to add an init script.
    */
   const host = async (
     build: ViewBuild,
     document: ViewDocument,
-    options: WidgetHostOptions & BoardContextOptions = {},
+    options: WidgetHostOptions & BoardContextOptions & HostPreparation = {},
   ): Promise<WidgetHostRun> => {
     if (browser === undefined) throw new Error(`${engine} did not launch`);
     const server = await startWidgetHost(build, document, options);
@@ -75,6 +83,9 @@ export const useWidgetHost = (engine: Engine) => {
     const messages: ViewMessage[] = [];
     const drafts: ViewMessage[] = [];
     const activity: ViewMessage[] = [];
+    const requests: string[] = [];
+    context.context.on("request", (request) => requests.push(request.url()));
+    await options.prepare?.(context.context);
     await context.context.exposeBinding(WIDGET_HOST_BINDING, (_source, message: ViewMessage) => {
       if (message.type === "draft") drafts.push(message);
       else if (message.type === "activity") activity.push(message);
@@ -86,7 +97,7 @@ export const useWidgetHost = (engine: Engine) => {
         throw new Error("the widget host has not hosted the view yet: no update can reach it");
       }
     };
-    return { board: boardOf(page), browser: context, messages, drafts, activity, update };
+    return { board: boardOf(page), browser: context, messages, drafts, activity, requests, update };
   };
   return { host };
 };
