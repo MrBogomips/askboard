@@ -137,8 +137,10 @@ jobs:
       # executable (AD-19): the session process and the hooks run on it.
       - name: Conformance suite in its three configurations on Node 24
         run: bun packages/server/test/conformance/run.ts --runtime node
-      # On push to main only: it takes about 12 minutes, and pull requests already run the
-      # browser tests on Bun and the conformance suite on both runtimes.
-      - name: Browser tests on Node 24
+      # On push to main only, since pull requests already run the browser tests on Bun and the
+      # conformance suite on both runtimes. In Chromium only: the runtime changes the session
+      # process, not the browser side, which the run on Bun covers in all three engines; the three
+      # took about 12 minutes here.
+      - name: Browser tests on Node 24, in Chromium
         if: github.event_name == 'push'
-        run: bun packages/view/test/browser/run.ts --no-build --target session-process --runtime node
+        run: bun packages/view/test/browser/run.ts --no-build --target session-process --runtime node --engines chromium
