@@ -13,7 +13,8 @@
 // the agent's value is marked per node and counted in the toolbar row (`marksOf`, open question
 // 14), the read-only Tree's included. A work breakdown, a Tree with `pert`, opens to its
 // `openDepth` (`openView`) and shows each row's values from the board's graph, and its totals
-// (molecules design decision 14).
+// (molecules design decision 14). A node added and named goes in the draft with the edits it makes
+// to the plans over the Tree (`linked.ts`; design decisions 11 and 12).
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
 import { type FocusEvent, type KeyboardEvent, type MouseEvent, useMemo, useState } from "react";
@@ -58,6 +59,7 @@ export const TreeWidget = ({
   disabled,
   graph,
   onValueChange,
+  onLinkedAdd,
 }: {
   readonly itemId: string;
   /** The agent's props, checked. */
@@ -70,6 +72,15 @@ export const TreeWidget = ({
   /** A work breakdown's live graph, the board's; none for a Tree without `pert`. */
   readonly graph: BoardGraph | undefined;
   readonly onValueChange: (value: TreeProps | undefined) => void;
+  /**
+   * Writes the value `next` once the new node `added` is named after, or under, the node `anchor`,
+   * with the plans' linked edits, or returns the field error that refuses it (`linked.ts`).
+   */
+  readonly onLinkedAdd: (
+    next: TreeProps,
+    added: string,
+    anchor: string | undefined,
+  ) => string | undefined;
 }) => {
   const [stored, setView] = useState(() => openView(value));
   // The delete whose question is asked, and the part it was asked from.
@@ -83,6 +94,7 @@ export const TreeWidget = ({
     collapsed: stored.collapsed,
     disabled,
     onValueChange,
+    onCommitAdd: (next, added, pending) => onLinkedAdd(next, added, pending.anchor?.nodeId),
     onClosed: (moveFocus, takenAway) => {
       focus.moveFocusTo(moveFocus ? "grid" : undefined);
       if (takenAway !== undefined) setView(viewWithoutAdd(view, value, takenAway));

@@ -402,9 +402,14 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
 
 describe("the board graph chunk (molecules, design decision 13; view spec, The board graph chunk)", () => {
   test("it holds only AskBoard's own code, under the repository's MIT licence", async () => {
-    // compute and the port come from their chunks; of `view`, it holds only the registry.
+    // compute and the port come from their chunks; of `view`, it holds only the registry; of
+    // `contract`, the plan limits the plan-link rules check (design decision 12).
     const notices = chunkNamed("board-graph").licences;
-    expect(packagesIn(notices)).toEqual(["@askboard/view", "@askboard/widgets"]);
+    expect(packagesIn(notices)).toEqual([
+      "@askboard/contract",
+      "@askboard/view",
+      "@askboard/widgets",
+    ]);
     const repository = (await Bun.file(join(ROOT, "LICENSE")).text()).trimEnd();
     for (const notice of notices) {
       expect(notice.licence).toBe("MIT");

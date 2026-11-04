@@ -6,7 +6,8 @@
 // answer, else the agent's props, as a treegrid in the widget frame, and reports ready once laid
 // out. A work breakdown, a Tree with `pert`, reads the board's graph through the `board-graph`
 // chunk, the one build the plan on its board reads too, and reports the derived values its answer
-// carries (molecules, design decisions 13 and 14).
+// carries (molecules, design decisions 13 and 14). A Tree a plan names, a work breakdown or not,
+// puts an added package's predecessors in the plan in the same draft update (design decision 12).
 
 import {
   type TreeItem,
@@ -22,8 +23,9 @@ import {
   register,
   useReadyAfterLayout,
 } from "@askboard/view/catalog";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { type BoardGraph, liveGraph, sentGraph } from "../graph/index.ts";
+import { linkedAdd } from "./linked.ts";
 import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
 
@@ -83,6 +85,7 @@ const Tree = ({
   questionId,
   value,
   onValueChange,
+  onValuesChange,
   disabled,
   ready,
   board,
@@ -97,6 +100,16 @@ const Tree = ({
   useEffect(() => {
     if (derived !== undefined) onDerived(derived);
   }, [derived, onDerived]);
+  // A named addition and the plans' linked edits go in one draft update, or none goes (F20).
+  const onLinkedAdd = useCallback(
+    (next: TreeProps, added: string, anchor: string | undefined): string | undefined => {
+      const write = linkedAdd(board, item.id, sent, next, added, anchor);
+      if (!write.ok) return write.reason;
+      onValuesChange(write.values);
+      return undefined;
+    },
+    [board, item.id, sent, onValuesChange],
+  );
   useReadyAfterLayout(ready);
   return (
     <TreeWidget
@@ -107,6 +120,7 @@ const Tree = ({
       disabled={disabled}
       graph={graph}
       onValueChange={onValueChange}
+      onLinkedAdd={onLinkedAdd}
     />
   );
 };

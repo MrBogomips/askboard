@@ -15,6 +15,7 @@ import {
   afterAdd,
   afterDelete,
   dependentsOf,
+  linkedEdit,
   linkedPlans,
   type PlanEdit,
   predecessorsOf,
@@ -273,5 +274,76 @@ describe("a package deleted in the Tree (view spec, Deleting a package with depe
     expect(() => afterDelete(SENT, SENT, ["portal", "design", "nowhere"])).not.toThrow();
     expect(() => afterAdd(SENT, SENT, "u-1", "portal")).not.toThrow();
     expect(SENT).toEqual(copy);
+  });
+});
+
+describe("a linked edit of every plan over a Tree (molecules design decision 11)", () => {
+  const plans = (shown: ReadonlyMap<string, unknown> = new Map()) =>
+    linkedPlans(board(shown), TREE);
+
+  test("gives each plan the edit changes its value, as one update", () => {
+    const edit = linkedEdit(plans(), (plan) => afterAdd(plan.value, plan.sent, "u-1", "portal"));
+    expect(edit).toEqual({
+      ok: true,
+      values: {
+        [PLAN.id]: planWith({
+          ...SENT.tasks,
+          "u-1": { dependencies: ["architecture", "prototype"] },
+        }),
+      },
+    });
+  });
+
+  test("names no plan the edit leaves as it shows it", () => {
+    const edit = linkedEdit(plans(), (plan) => afterAdd(plan.value, plan.sent, "u-1", "ux"));
+    expect(edit).toEqual({ ok: true, values: {} });
+  });
+
+  test("gives `undefined` for a plan the edit takes back to its props as sent", () => {
+    const shown = new Map([[PLAN.id, uj2ExpandedEditedValues[PLAN.id]]]);
+    const edit = linkedEdit(plans(shown), (plan) => afterDelete(plan.value, plan.sent, ["u-1"]));
+    expect(edit).toEqual({ ok: true, values: { [PLAN.id]: undefined } });
+  });
+
+  test("starts from the value the board shows, an answer's included", () => {
+    const answered = planWith({
+      ...SENT.tasks,
+      billing: { dependencies: ["architecture", "prototype"] },
+    });
+    const edit = linkedEdit(plans(new Map([[PLAN.id, answered]])), (plan) =>
+      afterAdd(plan.value, plan.sent, "u-1", "portal"),
+    );
+    expect(edit).toEqual({
+      ok: true,
+      values: {
+        [PLAN.id]: planWith({
+          ...answered.tasks,
+          "u-1": { dependencies: ["architecture", "prototype"] },
+        }),
+      },
+    });
+  });
+
+  test("is refused whole when one plan's edit is", () => {
+    const crowded = planWith({
+      ...SENT.tasks,
+      ...dependingOn("architecture", GANTT_MAX_DEPENDENTS - 2),
+    });
+    const edit = linkedEdit(plans(new Map([[PLAN.id, crowded]])), (plan) =>
+      afterAdd(plan.value, plan.sent, "u-1", "portal"),
+    );
+    expect(edit).toEqual({
+      ok: false,
+      limit: "dependents",
+      most: GANTT_MAX_DEPENDENTS,
+      taskId: "architecture",
+    });
+  });
+
+  test("changes nothing with no plan over the Tree", () => {
+    expect(linkedEdit([], () => ({ ok: false, limit: "entries", most: GANTT_MAX_TASKS }))).toEqual({
+      ok: true,
+      values: {},
+    });
   });
 });

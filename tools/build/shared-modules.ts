@@ -89,9 +89,12 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
     },
   },
   // The board's graph, one module instance for every widget that computes on a board, so that
-  // they read one live graph per draft update (molecules, design decision 13).
+  // they read one live graph per draft update, and the rules that carry a Tree's edits into the
+  // plans over it (molecules, design decisions 12 and 13).
   "board-graph": {
-    modules: { [BOARD_GRAPH]: ["liveGraph", "sentGraph"] },
+    modules: {
+      [BOARD_GRAPH]: ["afterAdd", "linkedEdit", "linkedPlans", "liveGraph", "sentGraph"],
+    },
   },
 };
 

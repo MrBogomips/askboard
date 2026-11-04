@@ -279,7 +279,8 @@ describe("shims", () => {
   test("the board graph's entry imports its index by path, the chunk mapping it as it maps the port", () => {
     const source = libraryEntrySource("board-graph");
     expect(source).toContain(JSON.stringify(GRAPH_FILE));
-    expect(source).toContain(`provide("${BOARD_GRAPH}", { liveGraph: m0_liveGraph`);
+    expect(source).toContain(`provide("${BOARD_GRAPH}", { afterAdd: m0_afterAdd`);
+    expect(source).toContain("liveGraph: m0_liveGraph");
   });
 
   test("an unknown library has no entry", () => {

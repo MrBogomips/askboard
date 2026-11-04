@@ -15,7 +15,7 @@ import {
   type GanttPlanEntry,
 } from "@askboard/contract";
 import type { BoardContent } from "@askboard/view/catalog";
-import { setPredecessors } from "../gantt/model/edits.ts";
+import { sameGantt, setPredecessors } from "../gantt/model/edits.ts";
 import { type GanttPlanProps, planEntry } from "../gantt/model/tasks.ts";
 
 /** A plan over a Tree: its item's ID, the value the board shows for it, and its props as sent. */
@@ -34,6 +34,12 @@ export type PlanRefusal = {
   readonly limit: PlanLimit;
   readonly most: number;
   readonly taskId?: string;
+};
+
+/** The plans' values after a linked edit, by plan ID, `undefined` for a plan as sent again. */
+export type LinkedValues = {
+  readonly ok: true;
+  readonly values: Readonly<Record<string, GanttPlanProps | undefined>>;
 };
 
 /** A linked write: the plan after it, or its refusal. */
@@ -211,4 +217,24 @@ export const afterDelete = (
   let next = back;
   for (const [taskId, list] of changed) next = setPredecessors(next, sentPlan, taskId, list);
   return done(next);
+};
+
+/**
+ * The values a linked edit gives the plans over a Tree, by plan ID, as one draft update: each plan
+ * `edit` changes, its edited value, or `undefined` once it is its props as sent again (`sameGantt`);
+ * a plan it leaves as the board shows it is not named. A refusal of any plan's edit refuses the
+ * whole edit, so that a linked edit is whole or not at all (design decision 11; review L8).
+ */
+export const linkedEdit = (
+  plans: readonly LinkedPlan[],
+  edit: (plan: LinkedPlan) => PlanEdit,
+): LinkedValues | PlanRefusal => {
+  const values: Record<string, GanttPlanProps | undefined> = {};
+  for (const plan of plans) {
+    const edited = edit(plan);
+    if (!edited.ok) return edited;
+    if (sameGantt(edited.plan, plan.value)) continue;
+    values[plan.id] = sameGantt(edited.plan, plan.sent) ? undefined : edited.plan;
+  }
+  return Object.freeze({ ok: true, values: Object.freeze(values) });
 };

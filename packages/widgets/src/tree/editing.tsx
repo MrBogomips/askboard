@@ -44,6 +44,7 @@ export const useCellEditing = ({
   collapsed,
   disabled,
   onValueChange,
+  onCommitAdd,
   onClosed,
 }: {
   readonly itemId: string;
@@ -54,6 +55,11 @@ export const useCellEditing = ({
   readonly collapsed: ReadonlySet<string>;
   readonly disabled: boolean;
   readonly onValueChange: (value: TreeProps | undefined) => void;
+  /**
+   * Writes the value `next` once the add's new node `added` is named, with its linked edits, or
+   * returns the field error that refuses it, writing nothing (`linked.ts`).
+   */
+  readonly onCommitAdd: (next: TreeProps, added: string, add: PendingAdd) => string | undefined;
   /**
    * The editor closed: the focus goes back to the Tab stop after Enter or Escape. `takenAway` is
    * the add whose new node went with it.
@@ -81,19 +87,30 @@ export const useCellEditing = ({
     setState(undefined);
     onClosed(moveFocus, takenAway);
   };
+  // A changed value goes in the draft, an added node's through its linked write, which may refuse.
+  const write = (next: TreeProps, add: PendingAdd | undefined, nodeId: string) => {
+    if (add !== undefined) return onCommitAdd(next, nodeId, add);
+    onValueChange(sameNodes(sent, next) ? undefined : next);
+    return undefined;
+  };
   const commit = (text: string, by: CommitBy): boolean => {
     if (editing === undefined) return true;
     const entry =
       editing.add === undefined
         ? enterCell(value, editing.nodeId, editing.cell, text)
         : enterNewName(value, editing.add, text);
-    if (entry.kind === "refused" && by === "enter") {
-      setState({ ...editing, error: entry.reason });
+    const changed = entry.kind === "value" && entry.value !== value;
+    const reason =
+      entry.kind === "refused"
+        ? entry.reason
+        : changed
+          ? write(entry.value, editing.add, editing.nodeId)
+          : undefined;
+    if (reason !== undefined && by === "enter") {
+      setState({ ...editing, error: reason });
       return false;
     }
-    const changed = entry.kind === "value" && entry.value !== value;
-    if (changed) onValueChange(sameNodes(sent, entry.value) ? undefined : entry.value);
-    close(by === "enter", changed ? undefined : editing.add);
+    close(by === "enter", changed && reason === undefined ? undefined : editing.add);
     return true;
   };
   const onEdit = (): void => {
