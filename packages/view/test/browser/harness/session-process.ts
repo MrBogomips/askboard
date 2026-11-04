@@ -20,9 +20,9 @@
 //   send reach the local API (`asker-project.ts`); the ask carries the asker's agent name and
 //   expected user.
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
 import { Agent } from "./agent.ts";
 import type { Asker } from "./asker.ts";
@@ -374,10 +374,29 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
   }
 };
 
-const cleanupOf = (stage: Stage, dir: string, place?: AskerPlace) => async () => {
-  await stage.cleanup();
-  await rm(dir, { recursive: true, force: true });
-  await place?.cleanup();
+const cleanupOf =
+  (stage: Stage, dir: string, place?: AskerPlace, plain?: { cleanup(): Promise<void> }) =>
+  async () => {
+    await stage.cleanup();
+    await rm(dir, { recursive: true, force: true });
+    await place?.cleanup();
+    await plain?.cleanup();
+  };
+
+// A project with no git and no asker, only to hold a scenario's files.
+const plainProject = async (): Promise<{ projectDir: string; cleanup(): Promise<void> }> => {
+  const projectDir = await mkdtemp(join(tmpdir(), "askboard-e2e-files-"));
+  return { projectDir, cleanup: () => rm(projectDir, { recursive: true, force: true }) };
+};
+
+const writeFiles = async (
+  root: string,
+  files: Readonly<Record<string, string | Uint8Array>>,
+): Promise<void> => {
+  for (const [path, content] of Object.entries(files)) {
+    await mkdir(dirname(join(root, path)), { recursive: true });
+    await writeFile(join(root, path), content);
+  }
 };
 
 // The ask with the asker's agent name and expected user.
@@ -407,7 +426,7 @@ const startFirst = async (
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
 export const startSessionProcess = async (
-  { transcript, view, ask, asker }: Scenario,
+  { transcript, view, ask, asker, files }: Scenario,
   options: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
   const input = withAsker(ask ?? (await askInputFor(transcript, options.approvedAsk)), asker);
@@ -415,7 +434,10 @@ export const startSessionProcess = async (
   const stage = await stageSession(view, options.bundle);
   const dir = await mkdtemp(join(tmpdir(), "askboard-e2e-links-"));
   const place = asker === undefined ? undefined : await prepareProject(asker);
-  const cleanup = cleanupOf(stage, dir, place);
+  const plain = place === undefined && files !== undefined ? await plainProject() : undefined;
+  const projectDir = place?.projectDir ?? plain?.projectDir;
+  if (projectDir !== undefined && files !== undefined) await writeFiles(projectDir, files);
+  const cleanup = cleanupOf(stage, dir, place, plain);
   const linksFile = join(dir, "links");
   const problems: string[] = [];
   const context: LaunchContext = {
@@ -430,7 +452,7 @@ export const startSessionProcess = async (
       PATH: `${NOTIFIER_STAND_INS}:${getDefaultEnvironment().PATH ?? ""}`,
       BROWSER: LINK_RECORDER,
       [LINKS_VARIABLE]: linksFile,
-      ...(place === undefined ? {} : { CLAUDE_PROJECT_DIR: place.projectDir }),
+      ...(projectDir === undefined ? {} : { CLAUDE_PROJECT_DIR: projectDir }),
     },
     linksFile,
     input,

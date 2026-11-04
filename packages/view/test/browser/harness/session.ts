@@ -35,6 +35,12 @@ export type Scenario = {
    * test server replays for it (`asker.ts`). Without it, an unchecked ask from the checkout.
    */
   readonly asker?: Asker;
+  /**
+   * Files of the session project, by path under it (excerpts): the session process runs with
+   * `CLAUDE_PROJECT_DIR` naming a temporary folder that holds them, or the asker's project when
+   * there is one. The test server serves a transcript and needs none.
+   */
+  readonly files?: Readonly<Record<string, string | Uint8Array>>;
 };
 
 export type BoardSession = {

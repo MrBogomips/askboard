@@ -341,3 +341,55 @@ describe("whether a question's draft holds answer work (a revision's start; task
     expect(hasAnswerWork(payment, values.record(), board.work("payment"))).toBe(true);
   });
 });
+
+describe("a question's context placement (excerpts, task 6.3; FR-13, AD-20)", () => {
+  test("Inline goes into the draft record at the question's revision and Beside takes it out", () => {
+    const { board, record } = setUp();
+    board.setPlacement("region", "inline");
+    expect(board.placement("region")).toBe("inline");
+    expect(record().questions).toEqual({ region: { rev: 1, context: "inline" } });
+    board.setPlacement("region", "beside");
+    expect(board.placement("region")).toBeUndefined();
+    expect(record().questions).toEqual({});
+  });
+
+  test("it joins the question's other work in one entry and starts no work of its own", () => {
+    const { board, record } = setUp();
+    board.setPlacement("region", "inline");
+    expect(board.work("region")).toBeUndefined();
+    board.edit("region", 1, (work) => ({ ...work, note: "n" }));
+    expect(record().questions).toEqual({ region: { rev: 1, note: "n", context: "inline" } });
+  });
+
+  test("a placement on a question the board does not hold stays out of the record", () => {
+    const { board, record } = setUp();
+    board.setPlacement("gone", "inline");
+    expect(record().questions).toEqual({});
+  });
+
+  test("a restored record brings it back, and only it", () => {
+    const { values, board, record } = setUp();
+    const saved: DraftRecord = {
+      delivery: "submitted",
+      questions: { region: { rev: 1, context: "inline" } },
+    };
+    restoreDraft(saved, lifecycleBoardDocument, openState(lifecycleBoardDocument), values, board);
+    expect(board.placement("region")).toBe("inline");
+    expect(board.work("region")?.context).toBeUndefined();
+    expect(record()).toEqual(saved);
+  });
+
+  test("a restored placement of a stale answer stays", () => {
+    const { values, board } = setUp(plainChoiceBoardDocument);
+    const [question] = questionsOf(plainChoiceBoardDocument);
+    const id = (question as ViewQuestion).id;
+    restoreDraft(
+      { delivery: "immediate", questions: { [id]: { rev: 1, context: "inline" } } },
+      plainChoiceBoardDocument,
+      openState(plainChoiceBoardDocument),
+      values,
+      board,
+    );
+    expect(board.placement(id)).toBe("inline");
+  });
+});
