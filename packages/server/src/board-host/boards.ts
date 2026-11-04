@@ -310,7 +310,8 @@ export class Boards {
 
   // What a live board hears of each of ask-core's events, by type: E1's appended events, receipts
   // and the discard; the ask lifecycle's agent changes, a new board document, a new state and the
-  // close (ask-lifecycle, design decision 5); push delivery's agent status (design decision 12).
+  // close (ask-lifecycle, design decision 5); push delivery's agent status (design decision 12) and
+  // who asked anew, once its owner is relabelled (design decision 4, Origin, plan B).
   readonly #heard: Heard = {
     appended: (connection) => {
       if (this.#acting !== connection) this.#sendState(connection);
@@ -324,6 +325,7 @@ export class Boards {
     state: (connection) => this.#sendState(connection),
     closed: (connection, event) => this.#send(connection, closedMessage(event.reason)),
     agent: (connection, event) => this.#sendAgent(connection, event.status),
+    origin: (connection) => this.#sendOrigin(connection),
   };
 
   /**

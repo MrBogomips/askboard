@@ -25,8 +25,10 @@ import {
   sessionFolder,
   socketPathFor,
   socketPathProblem,
+  TEAMMATE_NAME_MAX_CHARS,
   WORKING_WINDOW_MS,
 } from "../src/index.ts";
+import modTurnRequest from "../src/push/local-api/mod-turn-request.json";
 
 // Push delivery's shared values (contract spec, Push delivery constants; design decision 1). No
 // unit defines its own.
@@ -59,6 +61,11 @@ describe("push delivery constants", () => {
   test("a board works for 60 s after the last input, and notices cut agent text at 120", () => {
     expect(WORKING_WINDOW_MS).toBe(60_000);
     expect(NOTICE_TEXT_MAX_CHARS).toBe(120);
+  });
+
+  test("a turn report's teammate name is bounded as the schema bounds it (task 18.1)", () => {
+    expect(TEAMMATE_NAME_MAX_CHARS).toBe(256);
+    expect(modTurnRequest.properties.teammate.maxLength).toBe(TEAMMATE_NAME_MAX_CHARS);
   });
 
   test("the session token draws at least 128 bits and travels in its own header", () => {

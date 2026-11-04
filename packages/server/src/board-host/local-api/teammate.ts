@@ -1,19 +1,20 @@
-// Telling an agent-team teammate (board-host spec, Telling a teammate; design decision 4, Origin,
-// PO decision of 2026-11-03). A teammate is known by its team address, `<name>@<team>`:
+// Telling an agent-team teammate (board-host spec, Telling a teammate and A teammate's stop is
+// idle; design decision 4, Origin, PO decisions of 2026-11-03):
 //
 // - a pane teammate is a Claude Code process of its own, whose identity reaches it only as its
 //   launch flags `--agent-id`, `--agent-name` and `--team-name`; nothing in the environment, the
 //   hook input or the mod API names it. So this session process reads its parent's argument vector
 //   once, `/proc/<ppid>/cmdline` on Linux and WSL, `ps` on macOS (argument vector, no shell, the
-//   runner's 2 s bound), and keeps only those three values; the rest, which can hold settings and
-//   paths, is never kept, logged or sent;
-// - an in-process teammate runs inside the lead's process, and its records carry the address as
-//   their `agent_id`.
-//
-// Any doubt names nobody, so the label stays "Main agent" or "Subagent <type>": a subagent's ID is
-// hexadecimal and never holds `@`, and the three flags must agree.
+//   runner's 2 s bound), and keeps only those three values, taking the name only when the address
+//   is `<name>@<team>`; the rest, which can hold settings and paths, is never kept, logged or sent.
+//   Any doubt names nobody, so the label stays "Main agent";
+// - an in-process teammate runs inside the lead's process under an opaque `agent_id`
+//   (`aresearcher-096d99adc3d94b0a` in the PO's probe): the mod's turn report names it, and the
+//   record table keeps that name (plan B). Only what its stop ends falls back, without that name, on
+//   the form of that ID.
 
 import { readFile } from "node:fs/promises";
+import type { StopEnd } from "@askboard/core";
 import type { Run } from "./origin.ts";
 
 /** What a parent's argument vector says of this session. */
@@ -99,15 +100,31 @@ export const argvOfPs = (text: string): string[] => {
   return trimmed === "" ? [] : trimmed.split(/\s+/);
 };
 
+const LOWERCASE_HEX = /^[0-9a-f]+$/;
+
+// Whether the agent ID reads `a<agent_type>-<hex>`, as Claude Code 2.1.317 names a named agent
+// (the PO's probe). Undocumented, so it serves the stop alone, never the label.
+const isNamedAgentId = (agentId: string, agentType: string | undefined): boolean => {
+  if (agentType === undefined) return false;
+  const prefix = `a${agentType}-`;
+  return agentId.startsWith(prefix) && LOWERCASE_HEX.test(agentId.slice(prefix.length));
+};
+
 /**
- * The name an in-process teammate's `agent_id` gives: the part before its last `@`, when both
- * parts are non-blank.
+ * What an agent's allowed stop ends (board-host spec, A teammate's stop is idle; AD-10): only the
+ * turn of an in-process teammate, which then waits for a message, and the work of any other agent.
+ * A teammate is one the mod's report named (`teammate`, its name) or, without that, one whose ID
+ * has a named agent's form. The open ask is the safe side: taking a teammate for a subagent loses
+ * its ask, while taking a subagent for a teammate only leaves its asks open until the session
+ * discards them (design decision 4, "Without the mod's report").
  */
-export const teammateOfAgent = (agentId: string | undefined): string | undefined => {
-  const at = agentId?.lastIndexOf("@") ?? -1;
-  if (agentId === undefined || at < 0) return undefined;
-  const name = agentId.slice(0, at).trim();
-  return name === "" || agentId.slice(at + 1).trim() === "" ? undefined : name;
+export const stopEndOf = (
+  teammate: string | undefined,
+  agentId: string,
+  agentType: string | undefined,
+): StopEnd => {
+  if (teammate !== undefined) return "idle";
+  return isNamedAgentId(agentId, agentType) ? "idle" : "finished";
 };
 
 export type ParentArgvOptions = {

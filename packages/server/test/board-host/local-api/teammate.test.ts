@@ -7,15 +7,15 @@ import {
   PARENT_UNREADABLE_NOTE,
   parentTeammate,
   readParentArgv,
+  stopEndOf,
   teammateFromArgv,
-  teammateOfAgent,
 } from "../../../src/board-host/local-api/teammate.ts";
 
-// Telling a teammate (board-host spec; design decision 4, Origin, PO decision of 2026-11-03; task
-// 17.1): a pane teammate's own session reads its parent's `--agent-id`, `--agent-name` and
-// `--team-name` once, keeping nothing else; an in-process teammate is named by a record whose
-// `agent_id` is its team address. Any doubt gives no name, so the label stays "Main agent" or
-// "Subagent <type>".
+// Telling a teammate (board-host spec; design decision 4, Origin, PO decisions of 2026-11-03; tasks
+// 17.1 and 18.2): a pane teammate's own session reads its parent's `--agent-id`, `--agent-name` and
+// `--team-name` once, keeping nothing else; any doubt gives no name, so the label stays "Main
+// agent". An in-process teammate is named by the mod's report (records-teammates.test.ts); what its
+// stop ends falls back, without a report, on the form Claude Code 2.1.317 gives a named agent's ID.
 
 const PARENT_PID = 870;
 const SETTINGS = '{"env":{"API_KEY":"sk-not-a-real-key"}}';
@@ -239,15 +239,36 @@ describe("this session's own teammate name", () => {
   });
 });
 
-describe("an in-process teammate's agent ID", () => {
-  test("a team address names the teammate by the part before its last @", () => {
-    expect(teammateOfAgent("researcher@session-a1b2c3d4")).toBe("researcher");
-    expect(teammateOfAgent("scout-2@session-a1b2c3d4")).toBe("scout-2");
+// Board-host spec, A teammate's stop is idle (task 18.2): the open ask is the safe side. A reported
+// teammate's stop ends its turn; so does, without that report, the stop of an agent whose ID reads
+// `a<agent_type>-<lowercase hex>`, which a failed or empty agent list cannot then turn into an end.
+describe("what a stop ends", () => {
+  const PROBE = "aresearcher-096d99adc3d94b0a";
+
+  test("a reported teammate's stop is idle, whatever its agent ID's form", () => {
+    expect(stopEndOf("researcher", "a3f9c1d27b8e4f60", "code-reviewer")).toBe("idle");
+    expect(stopEndOf("researcher", PROBE, "researcher")).toBe("idle");
   });
 
-  test("a subagent's hexadecimal ID, an empty part or no ID names none", () => {
-    for (const agentId of ["a3f9c1d27b8e4f60", "", "@x", "x@", " @x", "x@ ", undefined]) {
-      expect(teammateOfAgent(agentId)).toBeUndefined();
+  test("otherwise, a named agent's ID of its own type is idle", () => {
+    expect(stopEndOf(undefined, PROBE, "researcher")).toBe("idle");
+    expect(stopEndOf(undefined, "acode.reviewer-0f", "code.reviewer")).toBe("idle");
+    expect(stopEndOf(undefined, "a-0f", "")).toBe("idle");
+  });
+
+  test("otherwise, any other ID is finished", () => {
+    for (const [agentId, agentType] of [
+      ["a3f9c1d27b8e4f60", "code-reviewer"],
+      [PROBE, "explorer"],
+      [PROBE, undefined],
+      ["aresearcher-", "researcher"],
+      ["aresearcher-096D99", "researcher"],
+      ["aresearcher-096d99x", "researcher"],
+      ["xaresearcher-096d99", "researcher"],
+      ["acodexreviewer-0f", "code.reviewer"],
+      ["researcher@session-653b7577", "researcher"],
+    ] as const) {
+      expect(stopEndOf(undefined, agentId, agentType)).toBe("finished");
     }
   });
 });

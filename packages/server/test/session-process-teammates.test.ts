@@ -14,11 +14,14 @@ import { openSocket, plainChoiceAsk } from "./board-host/helpers.ts";
 import { localRequest, post } from "./board-host/local-api/helpers.ts";
 import { composedSessions } from "./composed-session.ts";
 
-// Telling a teammate in the composed session process (board-host spec; view-and-widgets spec, Who
-// asked, and where; task 17.1): with the parent's argument vector given in place of the system's,
-// a pane teammate's main conversation is "Teammate <name>" on its board, in its notification and in
-// the band's pending asks; in the lead's session, an in-process teammate's record names it; and a
-// parent that cannot be read leaves "Main agent", with one note naming no argument.
+// Telling a teammate in the composed session process (board-host spec, Telling a teammate and A
+// teammate's stop is idle; view-and-widgets spec, Who asked, and where; tasks 17.1 and 18.2): with
+// the parent's argument vector given in place of the system's, a pane teammate's main conversation
+// is "Teammate <name>" on its board, in its notification and in the band's pending asks; in the
+// lead's session, the mod's turn report names an in-process teammate, whose opaque agent ID does
+// not, before its ask or after it, when its open board gets the new origin; its idle stop leaves its
+// ask open, also when the mod could not name it and its ID has the probe's form; and a parent that
+// cannot be read leaves "Main agent", with one note naming no argument.
 
 const { project, recorder, start, remove } = composedSessions();
 afterAll(remove);
@@ -36,7 +39,8 @@ const PANE_ARGV = [
   "--settings",
   SETTINGS,
 ];
-const IN_PROCESS = { agent_id: "researcher@session-a1b2c3d4", agent_type: "researcher" } as const;
+// The ids of the PO's probe (task 17.6).
+const IN_PROCESS = { agent_id: "aresearcher-096d99adc3d94b0a", agent_type: "researcher" } as const;
 const PANE_PARENT: ParentArgv = async () => PANE_ARGV;
 const LEAD_PARENT: ParentArgv = async () => ["2.1.317", "--settings", SETTINGS];
 
@@ -89,7 +93,31 @@ const askAs = async (
   await board.next();
   await board.next();
   const origin = (await board.nextHeader()) as { who: unknown };
-  return origin.who;
+  return { who: origin.who, board };
+};
+
+// What the mod sends at a turn's start: a subagent's report, naming it a teammate when it is one.
+const turnStarted = async (session: SessionFile, agentId: string, teammate?: string) => {
+  const body = { version: LOCAL_API_VERSION, agent_id: agentId, running: true };
+  const answered = await post(
+    session.apiAddress,
+    LOCAL_API_ROUTES.modTurn.path,
+    teammate === undefined ? body : { ...body, teammate },
+    { token: session.sessionToken },
+  );
+  expect(answered.status).toBe(200);
+};
+
+// The SubagentStop hook's question, with nothing above `received`.
+const stopped = async (session: SessionFile, agent: { agent_id: string; agent_type: string }) => {
+  const answered = await post(
+    session.apiAddress,
+    LOCAL_API_ROUTES.stop.path,
+    { version: LOCAL_API_VERSION, ...agent, stop_hook_active: false },
+    { token: session.sessionToken },
+  );
+  expect(answered.status).toBe(200);
+  return (answered.json() as { decision: string }).decision;
 };
 
 const pendingLabels = async (session: SessionFile) => {
@@ -116,10 +144,11 @@ describe("a pane teammate's own session", () => {
     const { script } = recorder("pane-teammate");
     const run = await start({ BROWSER: script }, undefined, undefined, undefined, PANE_PARENT);
     const session = await sessionOf(run);
-    expect(await askAs(run, session, "pane-ask")).toEqual({ label: "Teammate ask-log-level" });
-    expect(
-      await askAs(run, session, "pane-subagent-ask", { agent_id: "a3f9", agent_type: "Explore" }),
-    ).toEqual({
+    expect((await askAs(run, session, "pane-ask")).who).toEqual({
+      label: "Teammate ask-log-level",
+    });
+    const subagent = { agent_id: "a3f9", agent_type: "Explore" };
+    expect((await askAs(run, session, "pane-subagent-ask", subagent)).who).toEqual({
       label: "Subagent Explore",
     });
     expect(await waitForNotices(run, 2)).toContain("Teammate ask-log-level · project · 1 question");
@@ -133,22 +162,62 @@ describe("a pane teammate's own session", () => {
 });
 
 describe("the lead's session", () => {
-  test("labels an in-process teammate by its address, with no ordinal, and its own asks Main agent", async () => {
+  test("labels an in-process teammate the mod reported, with no ordinal, and its own asks Main agent", async () => {
     const { script } = recorder("lead");
     const run = await start({ BROWSER: script }, undefined, undefined, undefined, LEAD_PARENT);
     const session = await sessionOf(run);
-    expect(await askAs(run, session, "lead-ask")).toEqual({ label: "Main agent" });
-    expect(await askAs(run, session, "teammate-ask", IN_PROCESS)).toEqual({
+    expect((await askAs(run, session, "lead-ask")).who).toEqual({ label: "Main agent" });
+    await turnStarted(session, IN_PROCESS.agent_id, "researcher");
+    expect((await askAs(run, session, "teammate-ask", IN_PROCESS)).who).toEqual({
       label: "Teammate researcher",
     });
-    const second = { agent_id: "scout-2@session-a1b2c3d4", agent_type: "researcher" };
-    expect(await askAs(run, session, "teammate-2-ask", second)).toEqual({
-      label: "Teammate scout-2",
+    const reviewer = { agent_id: "a3f9c1d27b8e4f60", agent_type: "researcher" };
+    await turnStarted(session, reviewer.agent_id);
+    expect((await askAs(run, session, "reviewer-ask", reviewer)).who).toEqual({
+      label: "Subagent researcher",
     });
+    expect(await waitForNotices(run, 3)).toContain("Teammate researcher · project · 1 question");
     expect(await pendingLabels(session)).toEqual([
       ["lead-ask", "Main agent"],
       ["teammate-ask", "Teammate researcher"],
-      ["teammate-2-ask", "Teammate scout-2"],
+      ["reviewer-ask", "Subagent researcher"],
+    ]);
+    expect(await ended(run)).toEqual([]);
+  });
+
+  test("a report after the ask relabels it, and its open board gets the new origin", async () => {
+    const { script } = recorder("late-report");
+    const run = await start({ BROWSER: script }, undefined, undefined, undefined, LEAD_PARENT);
+    const session = await sessionOf(run);
+    const { who, board } = await askAs(run, session, "late-ask", IN_PROCESS);
+    expect(who).toEqual({ label: "Subagent researcher" });
+    await turnStarted(session, IN_PROCESS.agent_id, "researcher");
+    let header = (await board.nextHeader()) as { type: string; who?: unknown };
+    while (header.type !== "origin") header = (await board.nextHeader()) as typeof header;
+    expect(header.who).toEqual({ label: "Teammate researcher" });
+    expect(await pendingLabels(session)).toEqual([["late-ask", "Teammate researcher"]]);
+    expect(await ended(run)).toEqual([]);
+  });
+
+  test("the teammate's idle stop leaves its ask open, reported or, unlisted or mods off, by its ID's form", async () => {
+    const { script } = recorder("idle-stop");
+    const run = await start({ BROWSER: script }, undefined, undefined, undefined, LEAD_PARENT);
+    const session = await sessionOf(run);
+    // Unlisted: the mod's report names no teammate, which records nothing.
+    await turnStarted(session, IN_PROCESS.agent_id);
+    await askAs(run, session, "idle-ask", IN_PROCESS);
+    const reported = { agent_id: "ascout-2-5e0a17", agent_type: "scout-2" };
+    await turnStarted(session, reported.agent_id, "scout-2");
+    await askAs(run, session, "reported-ask", reported);
+    const finished = { agent_id: "a3f9c1d27b8e4f60", agent_type: "code-reviewer" };
+    await turnStarted(session, finished.agent_id);
+    await askAs(run, session, "finished-ask", finished);
+    expect(await stopped(session, IN_PROCESS)).toBe("allow");
+    expect(await stopped(session, reported)).toBe("allow");
+    expect(await stopped(session, finished)).toBe("allow");
+    expect(await pendingLabels(session)).toEqual([
+      ["idle-ask", "Subagent researcher"],
+      ["reported-ask", "Teammate scout-2"],
     ]);
     expect(await ended(run)).toEqual([]);
   });
@@ -167,7 +236,7 @@ describe("a parent that cannot be read, or whose flags disagree", () => {
       const { script } = recorder(`parent-${name}`);
       const run = await start({ BROWSER: script }, undefined, undefined, undefined, parentArgv);
       const session = await sessionOf(run);
-      expect(await askAs(run, session, `${name}-ask`)).toEqual({ label: "Main agent" });
+      expect((await askAs(run, session, `${name}-ask`)).who).toEqual({ label: "Main agent" });
       const stderr = await ended(run);
       expect(stderr).toHaveLength(1);
       expect(stderr[0]).toContain("could not tell whether this session is a teammate");

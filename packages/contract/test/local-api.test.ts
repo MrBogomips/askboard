@@ -325,4 +325,20 @@ describe("the other messages", () => {
     expect(validateLocalApi("modTurnRequest", main).ok).toBe(true);
     expect(problemPaths(validateLocalApi("modTurnRequest", { version }))).toEqual(["/running"]);
   });
+
+  // Plan B (task 18.1; mod spec, Turn reports): a subagent's report may name it a teammate.
+  test("a subagent's turn report may name it a teammate, by a name of 1 to 256 characters", () => {
+    const teammate = { version, agent_id: "aresearcher-096d99adc3d94b0a", running: true };
+    expect(validateLocalApi("modTurnRequest", { ...teammate, teammate: "researcher" }).ok).toBe(
+      true,
+    );
+    expect(validateLocalApi("modTurnRequest", { ...teammate, teammate: "é".repeat(256) }).ok).toBe(
+      true,
+    );
+    for (const name of ["", "x".repeat(257), 7]) {
+      expect(
+        problemPaths(validateLocalApi("modTurnRequest", { ...teammate, teammate: name })),
+      ).toEqual(["/teammate"]);
+    }
+  });
 });

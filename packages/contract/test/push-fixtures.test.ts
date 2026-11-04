@@ -123,12 +123,13 @@ describe("the fixtures tell one session's story", () => {
     expect(Object.keys(uncheckedOrigin).sort()).toEqual(["project", "type", "version", "who"]);
   });
 
-  // Telling a teammate (task 17.1): its agent ID is its team address, which names it.
-  test("the in-process teammate's origin names it by the part of its address before the @", () => {
-    const address = teammateRecord.agent_id ?? "";
-    const name = address.slice(0, address.lastIndexOf("@"));
-    expect(address).toBe(`${name}@session-a1b2c3d4`);
-    expect(teammateOrigin.who).toEqual({ label: `Teammate ${name}` });
+  // Telling a teammate (tasks 17.1 and 18.2): an in-process teammate's agent ID is opaque, of the
+  // form Claude Code 2.1.317 gives a named agent; the mod's turn report names it.
+  test("the in-process teammate's agent ID is opaque, and its origin is Teammate researcher", () => {
+    const { agent_id: agentId = "", agent_type: agentType } = teammateRecord;
+    expect(agentId).not.toContain("@");
+    expect(agentId).toMatch(new RegExp(`^a${agentType}-[0-9a-f]+$`));
+    expect(teammateOrigin.who).toEqual({ label: "Teammate researcher" });
     expect(teammateOrigin.who).not.toHaveProperty("ordinal");
   });
 });

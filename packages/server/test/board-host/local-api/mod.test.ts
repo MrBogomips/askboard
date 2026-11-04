@@ -410,6 +410,43 @@ describe("turn reports (task 8.3)", () => {
     expect(run.core.agentStatus(SUB_ID)).toBe("working");
   });
 
+  // Telling a teammate (task 18.2; design decision 4, Origin, plan B): a subagent's report may name
+  // it an in-process teammate, which relabels its asks; the main conversation's names nobody.
+  const teammateTurn = (agentId: string | undefined, teammate: string) =>
+    post(run.socket, modTurn.path, {
+      version: LOCAL_API_VERSION,
+      ...(agentId === undefined ? {} : { agent_id: agentId }),
+      running: true,
+      teammate,
+    });
+  const labelOf = (askId: string) => run.core.whoAsked(askId)?.origin?.label;
+
+  test("a report naming a bound subagent a teammate relabels its asks, in the pending list too", async () => {
+    await askAs(SUB_ID, SUBAGENT);
+    await askAs(MAIN_ID);
+    expect(labelOf(SUB_ID)).toBe("Subagent code-reviewer");
+    expect((await teammateTurn(SUBAGENT.agent_id, "researcher")).status).toBe(200);
+    expect(labelOf(SUB_ID)).toBe("Teammate researcher");
+    expect(labelOf(MAIN_ID)).toBe("Main agent");
+    const labels = (await poll()).pending.map(({ askId, label }) => [askId, label]);
+    expect(labels).toEqual([
+      [SUB_ID, "Teammate researcher"],
+      [MAIN_ID, "Main agent"],
+    ]);
+  });
+
+  test("a report before the agent's first record labels its asks when they bind", async () => {
+    expect((await teammateTurn(SUBAGENT.agent_id, "researcher")).status).toBe(200);
+    await askAs(SUB_ID, SUBAGENT);
+    expect(labelOf(SUB_ID)).toBe("Teammate researcher");
+  });
+
+  test("the main conversation's report names no teammate", async () => {
+    await askAs(MAIN_ID);
+    expect((await teammateTurn(undefined, "researcher")).status).toBe(200);
+    expect(labelOf(MAIN_ID)).toBe("Main agent");
+  });
+
   test("a report for an agent with no record yet is taken and changes nothing", async () => {
     await run.core.ask(plainChoiceAsk(UNCHECKED_ID));
     expect((await turn(false, SUBAGENT)).status).toBe(200);

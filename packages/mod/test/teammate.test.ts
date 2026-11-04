@@ -106,30 +106,15 @@ describe("an idle in-process teammate", () => {
     expect(sent).toBe(busy.fake.calls.append[0]?.message.content[0]?.text as string);
   });
 
-  test("owning the ask under its team address, is sent to by its agent ID", async () => {
+  // The PO's probe (task 17.6): a poll's `agent_id` is the agent list's `id`. An owner that names
+  // a teammate's address names no live agent.
+  test("an ask owned under its team address names no live agent: nothing is pushed", async () => {
     const setup = await setUp([teammate("idle")]);
     const { fake, api } = setup;
     await polled(setup, teammateAsk(ADDRESS));
-    expect(fake.calls.send.map((message) => message.to)).toEqual([{ agentId: TEAMMATE }]);
+    expect(fake.calls.send).toEqual([]);
     expect(fake.calls.append).toEqual([]);
-    expect(reports(api)).toEqual([delivered("submit")]);
-  });
-
-  test("respawned under its address, is reached in its live loop, not its finished one", async () => {
-    const setup = await setUp([teammate("completed", "a0f1e2d3c4b5a697"), teammate("idle")]);
-    await polled(setup, teammateAsk(ADDRESS));
-    expect(setup.fake.calls.send.map((message) => message.to)).toEqual([{ agentId: TEAMMATE }]);
-  });
-
-  test("gets one send for asks owned under its agent ID and under its address alike", async () => {
-    const setup = await setUp([teammate("idle")]);
-    const other = entryOf("cache-size-r8j3", [answerAt(1)], ADDRESS);
-    await polled(setup, teammateAsk(), other);
-    expect(setup.fake.calls.send).toHaveLength(1);
-    expect(reports(setup.api)).toEqual([
-      delivered("submit"),
-      delivered("submit", "cache-size-r8j3"),
-    ]);
+    expect(reports(api)).toEqual([]);
   });
 });
 
@@ -239,7 +224,7 @@ describe("a teammate that is not idle", () => {
     async (status) => {
       const setup = await setUp([teammate(status)]);
       const { fake, api } = setup;
-      await polled(setup, teammateAsk(ADDRESS));
+      await polled(setup, teammateAsk());
       expect(fake.calls.send).toEqual([]);
       expect(fake.calls.append.map((row) => row.agentId)).toEqual([TEAMMATE]);
       expect(reports(api)).toEqual([]);
@@ -253,7 +238,6 @@ describe("a teammate that is not idle", () => {
     const setup = await setUp([teammate(status)]);
     const { fake, api } = setup;
     await polled(setup, teammateAsk());
-    await polled(setup, teammateAsk(ADDRESS));
     expect(fake.calls.send).toEqual([]);
     expect(fake.calls.append).toEqual([]);
     expect(fake.calls.submit).toEqual([]);

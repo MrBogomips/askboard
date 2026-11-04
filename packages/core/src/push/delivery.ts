@@ -59,6 +59,8 @@ export class PushDelivery {
   readonly #forUsers = new Map<string, string>();
   // The asks whose board reports the working signal (AD-2).
   readonly #working = new Set<string>();
+  // Each owner's label since it was relabelled, which its later asks take too.
+  readonly #labels = new Map<string, string>();
   readonly #gate: VersionGate;
 
   constructor(ports: CorePorts, host: DeliveryHost) {
@@ -163,6 +165,16 @@ export class PushDelivery {
     return { decision: "block", ...block };
   }
 
+  /**
+   * The owner's agent is now known by `label`, which names it alone (design decision 4, Origin,
+   * plan B): its asks show that label with no ordinal, and so will those it creates later. Returns
+   * the IDs of the asks whose origin changed.
+   */
+  relabel(ownerKey: string, label: string): string[] {
+    this.#labels.set(ownerKey, label);
+    return this.#owners.asksOf(ownerKey).filter((askId) => this.#owners.relabel(askId, label));
+  }
+
   /** The IDs of the asks `ownerKey` owns, in the order they were created. */
   asksOf(ownerKey: string): readonly string[] {
     return this.#owners.asksOf(ownerKey);
@@ -181,6 +193,8 @@ export class PushDelivery {
    */
   created(ask: Ask, input: LifecycleAskInput, caller: Binding | undefined, forUser?: string): void {
     this.#owners.own(ask.askId, caller);
+    const label = caller === undefined ? undefined : this.#labels.get(caller.ownerKey);
+    if (label !== undefined) this.#owners.relabel(ask.askId, label);
     if (input.agentName !== undefined) this.#agentNames.set(ask.askId, input.agentName);
     if (forUser !== undefined) this.#forUsers.set(ask.askId, forUser);
     const { showing, notices } = this.#ports;

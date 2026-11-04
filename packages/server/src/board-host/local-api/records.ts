@@ -2,7 +2,9 @@
 // call it describes binds it, and the owner keys ask-core holds, mapped to Claude Code's agent IDs.
 // Only this table holds Claude Code identifiers; ask-core sees an opaque key, and agents see none.
 // It also numbers the subagents of each type in the order of their first record, for the origin's
-// ordinal (design decision 12); an in-process teammate, whose name tells it apart, is not counted.
+// ordinal (design decision 12), and keeps the in-process teammates the mod's turn reports named,
+// with their names (design decision 4, Origin, plan B). A reported teammate is labelled "Teammate
+// <name>", with no ordinal, and is not counted among its type.
 //
 // A call carrying a `tool_use_id` binds its record whatever its age, since `PreToolUse` runs before
 // Claude Code's permission prompt (review fix, 2026-11-01); the record timeout limits only the
@@ -16,8 +18,7 @@ import {
   RECORDS_HELD_MAX,
 } from "@askboard/contract";
 import type { AgentRecords, Binding, CallIdentity, Origin } from "@askboard/core";
-import type { OriginOf } from "./origin.ts";
-import { teammateOfAgent } from "./teammate.ts";
+import { type OriginOf, teammateLabel } from "./origin.ts";
 
 /** The main conversation's entry in the key map: an agent ID is never empty. */
 const MAIN_CONVERSATION = "";
@@ -44,6 +45,9 @@ const sameIds = (a: readonly string[], b: readonly string[]): boolean =>
 const withOrdinal = (origin: Origin, ordinal: number | undefined): Origin =>
   ordinal === undefined || ordinal < 2 ? origin : { ...origin, ordinal };
 
+/** A subagent's number among those of its type, which is kept to give it back. */
+type Numbered = { readonly type: string; readonly ordinal: number };
+
 export class RecordTable implements AgentRecords {
   readonly #now: () => number;
   readonly #originOf: OriginOf;
@@ -54,8 +58,11 @@ export class RecordTable implements AgentRecords {
   // Each ask's origin, by owner key and ask ID, resolved at the first bound `ask` of that pair.
   readonly #origins = new Map<string, Promise<Origin>>();
   // Each subagent's number among the subagents of its type, and how many each type has.
-  readonly #ordinals = new Map<string, number>();
+  readonly #ordinals = new Map<string, Numbered>();
   readonly #perType = new Map<string, number>();
+  // The teammate name the mod's turn reports gave each agent, by agent ID. A report without one
+  // records nothing, since the mod may not have been able to tell; a teammate stays one.
+  readonly #teammates = new Map<string, string>();
 
   constructor(options: RecordTableOptions) {
     this.#now = options.now;
@@ -94,12 +101,31 @@ export class RecordTable implements AgentRecords {
     const cached = `${ownerKey}\n${askId}`;
     let origin = this.#origins.get(cached);
     if (origin === undefined) {
-      const ordinal =
-        record.agent_id === undefined ? undefined : this.#ordinals.get(record.agent_id);
-      origin = this.#originOf(record).then((resolved) => withOrdinal(resolved, ordinal));
+      const { agent_id: agentId } = record;
+      origin = this.#originOf(record).then((resolved) => this.#known(agentId, resolved));
       this.#origins.set(cached, origin);
     }
     return { ownerKey, origin: await origin };
+  }
+
+  /**
+   * The mod's turn report on a subagent and the teammate name it gives, if any (design decision 4,
+   * Origin, plan B). A report without a name, or with a blank one, records nothing: the agent list
+   * may not have held the agent. Returns the label its asks take, "Teammate <name>", when the report
+   * names it a teammate anew, else undefined; a teammate numbered among its type gives its number
+   * back while no later subagent of that type took one.
+   */
+  reported(agentId: string, teammate: string | undefined): string | undefined {
+    const name = teammate?.trim() ?? "";
+    if (name === "" || this.#teammates.get(agentId) === name) return undefined;
+    this.#teammates.set(agentId, name);
+    this.#unnumber(agentId);
+    return teammateLabel(name);
+  }
+
+  /** The teammate name the mod reported for the agent; undefined when it named none. */
+  teammateOf(agentId: string): string | undefined {
+    return this.#teammates.get(agentId);
   }
 
   /** The agent ID behind an owner key; undefined for the main conversation or an unknown key. */
@@ -118,15 +144,34 @@ export class RecordTable implements AgentRecords {
     return agentId === MAIN_CONVERSATION ? undefined : this.#keys.get(agentId);
   }
 
-  // A subagent's first record gives it the next number of its type; the main conversation and
-  // in-process teammates have none.
+  // A subagent's first record gives it the next number of its type; the main conversation and the
+  // teammates the mod reported have none.
   #number({ agent_id, agent_type }: AgentRecord): void {
     if (agent_id === undefined || this.#ordinals.has(agent_id)) return;
-    if (teammateOfAgent(agent_id) !== undefined) return;
+    if (this.#teammates.has(agent_id)) return;
     const type = agent_type?.trim() ?? "";
     const ordinal = (this.#perType.get(type) ?? 0) + 1;
     this.#perType.set(type, ordinal);
-    this.#ordinals.set(agent_id, ordinal);
+    this.#ordinals.set(agent_id, { type, ordinal });
+  }
+
+  // A teammate reported after its first record gives its number back, and the count of its type
+  // goes back when no later subagent of that type was numbered; the later numbers stay as shown.
+  #unnumber(agentId: string): void {
+    const numbered = this.#ordinals.get(agentId);
+    if (numbered === undefined) return;
+    this.#ordinals.delete(agentId);
+    const { type, ordinal } = numbered;
+    if (this.#perType.get(type) === ordinal) this.#perType.set(type, ordinal - 1);
+  }
+
+  // The origin as the table knows its agent once it resolves: a reported teammate's label with no
+  // ordinal, else a subagent's ordinal.
+  #known(agentId: string | undefined, origin: Origin): Origin {
+    if (agentId === undefined) return origin;
+    const label = teammateLabel(this.#teammates.get(agentId));
+    if (label !== undefined) return { ...origin, label };
+    return withOrdinal(origin, this.#ordinals.get(agentId)?.ordinal);
   }
 
   /**

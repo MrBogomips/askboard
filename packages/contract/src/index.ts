@@ -321,6 +321,7 @@ export {
   SESSION_TOKEN_BYTES,
   SESSION_TOKEN_HEADER,
   SOCKET_PATH_MAX_BYTES,
+  TEAMMATE_NAME_MAX_CHARS,
   WORKING_WINDOW_MS,
 } from "./push/constants.ts";
 export {

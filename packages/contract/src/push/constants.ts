@@ -35,6 +35,12 @@ export const LOCAL_API_MAX_BYTES = 1024 * 1024;
 /** How long a hook waits for the local API, inside the 5 s every hook declares (AD-19). */
 export const HOOK_REQUEST_TIMEOUT_MS = 2_000;
 
+/**
+ * The longest teammate name a turn report carries (design decision 4, Origin, plan B), as the
+ * contract bounds an agent ID: the mod cuts a longer one.
+ */
+export const TEAMMATE_NAME_MAX_CHARS = 256;
+
 /** A board is working while it has focus and had a user input within this window (AD-2). */
 export const WORKING_WINDOW_MS = 60_000;
 

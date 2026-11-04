@@ -1,7 +1,7 @@
 // The mod's memory, one per loaded module (design decision 7): where the session file is, the
 // session process it found, how it reaches it, what it pushed in the current epoch, the delivery
 // reports to send, the main conversation's turn and each subagent's, each agent's turn as reported
-// (design decision 12) and the pending asks it showed. A module reload starts it over, as it does
+// (design decision 12), which subagents are teammates (plan B) and the pending asks it showed. A module reload starts it over, as it does
 // the poll.
 
 import type { PendingAsk, PollContinuation, SessionFile } from "@askboard/contract";
@@ -97,6 +97,11 @@ export type Memory = {
   unsentTurns: Map<string, boolean>;
   /** The turn reports in flight, which go one after another, in order. */
   turnReports: Promise<void>;
+  /**
+   * Each subagent the agent list told of: its teammate name, or null when it lists no `teammateId`
+   * (plan B, teammates.ts). An agent's ID keeps its meaning across session processes.
+   */
+  teammates: Map<string, string | null>;
 };
 
 export const createMemory = (): Memory => ({
@@ -123,6 +128,7 @@ export const createMemory = (): Memory => ({
   turns: new Map(),
   unsentTurns: new Map(),
   turnReports: Promise.resolve(),
+  teammates: new Map(),
 });
 
 /**

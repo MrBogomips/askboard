@@ -170,6 +170,33 @@ describe("on each change", () => {
     }
   });
 
+  // Telling a teammate, "The report comes after the ask" (task 18.2): the mod's late report
+  // relabels the owner, and its open board gets the new origin.
+  test("a live board gets who asked anew when its owner is relabelled", async () => {
+    const fixture = await hostWith({ origin: REVIEWER });
+    try {
+      const { port } = await fixture.ask(askId, plainChoiceAsk(askId), call);
+      const board = await connect(port);
+      expect(await board.nextHeader()).toMatchObject({ who: { label: "Subagent code-reviewer" } });
+      await board.nextHeader();
+      fixture.core.relabel("owner-1", "Teammate researcher");
+      const origin = await board.nextHeader();
+      expect(origin).toEqual({
+        version,
+        type: "origin",
+        who: { label: "Teammate researcher" },
+        project: "order-service",
+        directory: "services/orders",
+        branch: "fix/retry",
+        worktree: "order-service-fix-retry",
+      });
+      expect(validateOrigin(origin).ok).toBe(true);
+      await quiet(board);
+    } finally {
+      await fixture.host.close();
+    }
+  });
+
   test("nothing reaches a socket before its token is accepted", async () => {
     const fixture = await hostWith({ tokens: [token] });
     try {

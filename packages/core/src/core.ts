@@ -100,12 +100,13 @@ export type LifecycleEvent =
   | { readonly type: "state"; readonly askId: string }
   | { readonly type: "closed"; readonly askId: string; readonly reason: ClosedReason };
 
-/** Push delivery's events (E4): the ask's agent status changed, presence only (AD-4). */
-export type PushEvent = {
-  readonly type: "agent";
-  readonly askId: string;
-  readonly status: AgentStatus;
-};
+/**
+ * Push delivery's events (E4): the ask's agent status changed, presence only (AD-4); who asked
+ * changed, its owner relabelled (design decision 4, Origin, plan B).
+ */
+export type PushEvent =
+  | { readonly type: "agent"; readonly askId: string; readonly status: AgentStatus }
+  | { readonly type: "origin"; readonly askId: string };
 
 /** An ask's events after a cursor (AD-3, AD-10). */
 export type ReadOutcome =
@@ -467,6 +468,17 @@ export class AskCore {
     const outcome = this.#push.stop(ownerKey, stopHookActive, fit);
     if (outcome.decision === "allow" && end === "finished") this.agentFinished(ownerKey);
     return outcome;
+  }
+
+  /**
+   * The agent behind `ownerKey` is now known by `label`, display text such as "Teammate
+   * researcher" (design decision 4, Origin, plan B): each ask it owns, and each it creates later,
+   * shows that label with no ordinal, and the subscribers hear an `origin` event for each ask whose
+   * origin changed.
+   */
+  relabel(ownerKey: string, label: string): void {
+    for (const askId of this.#push.relabel(ownerKey, label))
+      this.#publish({ type: "origin", askId });
   }
 
   /**

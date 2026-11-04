@@ -115,6 +115,8 @@ export type TurnReport = {
   readonly version: string;
   readonly agent_id?: string;
   readonly running: boolean;
+  /** An in-process teammate's name, when the mod API lists the subagent as one. */
+  readonly teammate?: string;
 };
 
 /** What a poll lists of an ask's events: E1's events and the `closed` event. */

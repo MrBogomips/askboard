@@ -457,50 +457,72 @@ describe("an answer appended during a subagent's final reply", () => {
 });
 
 describe("an in-process teammate", () => {
-  // Its hooks give its team address as `agent_id` (task 17.1). The mod finds it in the agent list
-  // by that ID, or else by the teammate's `teammateId`, since whether the list gives the address or
-  // the loop's own ID is not confirmed yet (tasks 17.3, 17.6): each case lists it one way.
-  const ADDRESS = "researcher@session-a1b2c3d4";
-  const teammate = subagent(ADDRESS, "general-purpose");
-  const listedTeammate = (id: string): HostedAgent => ({
-    id,
-    teammateId: ADDRESS,
+  // The PO's probe (task 17.6): the teammate's hooks give an opaque `agent_id` and its agent type,
+  // and `$.agent.list()` lists it under that ID with its team address and name. The mod's turn
+  // report, at the teammate's `turn.start`, names it a teammate (design decision 4, Origin, plan B).
+  const TEAMMATE_ID = "aresearcher-096d99adc3d94b0a";
+  const teammate = subagent(TEAMMATE_ID, "researcher");
+  const listed: HostedAgent = {
+    id: TEAMMATE_ID,
+    teammateId: "researcher@session-653b7577",
     name: "researcher",
-    type: "general-purpose",
+    type: "researcher",
     description: "a teammate",
     status: "idle",
-  });
+  };
   const allowed = { code: 0, stdout: "", stderr: "" };
 
-  test("is Teammate researcher; its stop leaves its ask open (G1), and one message wakes it with the answer (G2)", async () => {
+  /** Waits for the mod's turn report naming the teammate, answered. */
+  const reportedTeammate = (mod: ModHost) =>
+    mod.until(
+      (record) =>
+        turnReports(record).find(
+          (each) =>
+            each.status === 200 &&
+            (each.request as { teammate?: string } | undefined)?.teammate === "researcher",
+        ),
+      "the turn report naming the teammate",
+    );
+
+  /** The pending entry of `askId` once a poll lists it with `label`. */
+  const pendingAs = (mod: ModHost, askId: string, label: string) =>
+    mod.until(
+      (record) =>
+        answeredPolls(record)
+          .flatMap((poll) => (poll.response as PollResponse).pending)
+          .find((ask) => ask.askId === askId && ask.label === label),
+      `${askId} pending as ${label}`,
+    );
+
+  test("reported at its turn's start, is Teammate researcher; its stop leaves its ask open (G1), and one message wakes it (G2)", async () => {
     const reviewer = subagent("a8b6d4f2e0c13579d", "code-reviewer");
-    const { session } = await startClaudeSession({ mod: { agents: [listedTeammate(ADDRESS)] } });
+    const { session } = await startClaudeSession({ mod: { agents: [listed] } });
     const mod = modOf(session);
+    await mod.turnStart(TEAMMATE_ID);
+    expect((await reportedTeammate(mod)).request).toEqual({
+      version: LOCAL_API_VERSION,
+      agent_id: TEAMMATE_ID,
+      running: true,
+      teammate: "researcher",
+    });
     const askId = "teammate-idle-k3f9";
     const { result, board } = await askAndConnect(session, teammate, askId, "Cache TTL");
     const other = await askAndConnect(session, reviewer, "teammate-sub-k3f9", "Log level");
-    // Who asked, on its board and in the poll the band is drawn from: no subagent ordinal taken.
+    // Who asked, on its board and in the poll the band is drawn from; a subagent keeps its label.
     expect(await headerOf(board, "origin")).toMatchObject({
       who: { label: "Teammate researcher" },
     });
     expect(await headerOf(other.board, "origin")).toMatchObject({
       who: { label: "Subagent code-reviewer" },
     });
-    const pending = await mod.until(
-      (record) =>
-        answeredPolls(record)
-          .map((poll) => (poll.response as PollResponse).pending)
-          .find((asks) => asks.length === 2),
-      "both asks pending",
-    );
-    expect(pending).toMatchObject([
-      { askId, label: "Teammate researcher", agent_id: ADDRESS },
-      { askId: "teammate-sub-k3f9", label: "Subagent code-reviewer" },
-    ]);
+    expect(await pendingAs(mod, askId, "Teammate researcher")).toMatchObject({
+      agent_id: TEAMMATE_ID,
+    });
 
     // G1: each turn ends with nothing to give. The teammate's stop goes through and leaves its ask
-    // open, so the band keeps it; the subagent's closes the subagent's ask.
+    // open, so the band keeps it; the subagent's, a hexadecimal ID of another type, closes its ask.
     expect(await stopAs(session, teammate, false)).toEqual(allowed);
+    await mod.turnComplete(TEAMMATE_ID);
     expect(await stopAs(session, reviewer, false)).toEqual(allowed);
     expect(await nextOfType(other.board, "closed")).toMatchObject({ reason: "agent-finished" });
     expect(hasMessage(board.pending, "closed")).toBe(false);
@@ -518,7 +540,7 @@ describe("an in-process teammate", () => {
     // G2: listed idle, the teammate is woken by one message carrying the answer, and no append.
     answer(board, ["SQLite"]);
     const push = await mod.until((record) => record.pushes[0], "the message");
-    expect(push).toMatchObject({ via: "send", agentId: ADDRESS });
+    expect(push).toMatchObject({ via: "send", agentId: TEAMMATE_ID });
     expect(pushedMessage(push.text).asks).toMatchObject([
       { askId, events: [{ type: "answer", choice: ["SQLite"] }] },
     ]);
@@ -534,30 +556,44 @@ describe("an in-process teammate", () => {
     expect(await session.end()).toBe(0);
   });
 
-  test("whose message is refused, as auto mode refuses a mod's, gets the answer appended, reported at its next turn", async () => {
-    // Listed under its loop's own ID, the teammate is found by its team address.
-    const loop = "a2c4e6a8b0d13579e";
+  test("reported after its ask was bound, relabels it on its open board; a refused message falls back to the append", async () => {
     const { session } = await startClaudeSession({
       mod: {
-        agents: [listedTeammate(loop)],
+        agents: [listed],
         send: async () => ({ isDelivered: false, reason: "refused in auto mode" }),
       },
     });
     const mod = modOf(session);
-    const askId = "teammate-refused-k3f9";
-    const { board } = await askAndConnect(session, teammate, askId);
+    const askId = "teammate-late-k3f9";
+    const { board } = await askAndConnect(session, teammate, askId, "Cache TTL");
+    // Not reported yet: the label is a subagent's, from its agent type.
+    expect(await headerOf(board, "origin")).toMatchObject({
+      who: { label: "Subagent researcher" },
+    });
+    const seen = board.header.length;
+    await mod.turnStart(TEAMMATE_ID);
+    await reportedTeammate(mod);
+    const relabelled = (message: Record<string, unknown>) =>
+      (message.who as { label?: string } | undefined)?.label === "Teammate researcher";
+    expect(await headerOf(board, "origin", relabelled, seen)).toMatchObject({
+      who: { label: "Teammate researcher" },
+    });
+    await pendingAs(mod, askId, "Teammate researcher");
+    await mod.turnComplete(TEAMMATE_ID);
+
+    // Idle, the teammate is sent the answer; auto mode refuses a mod's message (D13), so the answer
+    // is appended to its conversation, and reported once its next turn's first request reads it.
     answer(board, ["SQLite"]);
     const push = await mod.until((record) => record.pushes[0], "the append");
-    expect(push).toMatchObject({ via: "append", agentId: loop });
+    expect(push).toMatchObject({ via: "append", agentId: TEAMMATE_ID });
     expect(pushedMessage(push.text).asks).toMatchObject([
       { askId, events: [{ type: "answer", choice: ["SQLite"] }] },
     ]);
-    expect(mod.record.refusedSends).toEqual([loop]);
-    // No request carried the row yet: no receipt until the teammate's next turn reads it.
+    expect(mod.record.refusedSends).toEqual([TEAMMATE_ID]);
     await afterPolls(mod, 1);
     expect(hasReceipt(board.pending)).toBe(false);
-    await mod.turnStart(loop);
-    await mod.turnStep(loop);
+    await mod.turnStart(TEAMMATE_ID);
+    await mod.turnStep(TEAMMATE_ID);
     expect(await nextOfType(board, "receipt")).toMatchObject({ receipt: "delivered" });
     await afterPolls(mod);
     expect(mod.record.pushes).toHaveLength(1);

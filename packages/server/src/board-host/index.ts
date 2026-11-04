@@ -71,7 +71,6 @@ export {
   RecordTable,
   type Run,
   readParentArgv,
-  teammateOfAgent,
 } from "./local-api/index.ts";
 
 export type BoardHost = {

@@ -167,15 +167,27 @@ describe("the stop guard", () => {
   });
 });
 
-// Board-host spec, A teammate's stop is idle (task 17.2, G1): Claude Code fires SubagentStop at
-// every turn end of an in-process teammate, whose agent ID is its team address. Its stop is blocked
-// as a subagent's is, but one let through closes none of its asks; a subagent's still does.
+// Board-host spec, A teammate's stop is idle (tasks 17.2 and 18.2, G1): Claude Code fires
+// SubagentStop at every turn end of an in-process teammate, whose agent ID is opaque. Its stop is
+// blocked as a subagent's is, but one let through closes none of its asks. The mod's turn report
+// names a teammate; any other agent is taken for one when its ID reads `a<agent_type>-<hex>`, so
+// that a teammate is not closed with the mods off, nor when the mod's agent list did not hold it.
 describe("an in-process teammate's stop", () => {
-  const TEAMMATE = { agent_id: "researcher@session-a1b2c3d4", agent_type: "researcher" } as const;
+  // The ids of the PO's probe (task 17.6).
+  const TEAMMATE = { agent_id: "aresearcher-096d99adc3d94b0a", agent_type: "researcher" } as const;
   const stateOf = (run: TestApi, askId: string) => run.core.lifecycleBoard(askId)?.state;
+  const reportTurn = async (run: TestApi, agentId: string, teammate?: string) => {
+    const body = { version: LOCAL_API_VERSION, agent_id: agentId, running: true };
+    const sent = await post(run.socket, LOCAL_API_ROUTES.modTurn.path, {
+      ...body,
+      ...(teammate === undefined ? {} : { teammate }),
+    });
+    expect(sent.status).toBe(200);
+  };
 
-  test("with nothing above received, is let through and leaves its ask waiting", async () => {
+  test("reported a teammate, with nothing above received, is let through and leaves its ask waiting", async () => {
     const run = await started();
+    await reportTurn(run, TEAMMATE.agent_id, "researcher");
     await askAs(run, ASK_ID, TEAMMATE);
     expect(await stopOf(run, TEAMMATE)).toEqual({ version: LOCAL_API_VERSION, decision: "allow" });
     expect(stateOf(run, ASK_ID)).toBe("waiting");
@@ -189,25 +201,38 @@ describe("an in-process teammate's stop", () => {
     expect(run.reported).toEqual([]);
   });
 
-  test("is blocked with an answer above received, and the stop that follows closes nothing", async () => {
-    const run = await started();
-    await askAs(run, ASK_ID, TEAMMATE);
-    await askAs(run, "retry-limit-w2n5", TEAMMATE);
-    answer(run, ASK_ID);
-    expect((await stopOf(run, TEAMMATE)).decision).toBe("block");
-    expect(run.core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(true);
-    expect((await stopOf(run, TEAMMATE, true)).decision).toBe("allow");
-    expect(stateOf(run, ASK_ID)).toBe("answered");
-    expect(stateOf(run, "retry-limit-w2n5")).toBe("waiting");
-  });
-
-  test("a subagent's stop let through still closes its asks with agent-finished", async () => {
+  test("reported a teammate, is blocked with an answer above received, and the stop after closes nothing", async () => {
     const run = await started();
     await askAs(run, ASK_ID, SUBAGENT);
-    await askAs(run, "retry-limit-w2n5", TEAMMATE);
+    await reportTurn(run, SUBAGENT.agent_id, "scout-2");
+    answer(run, ASK_ID);
+    expect((await stopOf(run, SUBAGENT)).decision).toBe("block");
+    expect(run.core.board(ASK_ID)?.questions[0]?.answer?.delivered).toBe(true);
+    expect((await stopOf(run, SUBAGENT, true)).decision).toBe("allow");
+    expect(stateOf(run, ASK_ID)).toBe("answered");
+  });
+
+  test("unlisted, its report naming no teammate, is still idle by its ID's form; a subagent is finished", async () => {
+    const run = await started();
+    await reportTurn(run, TEAMMATE.agent_id);
+    await reportTurn(run, SUBAGENT.agent_id);
+    await askAs(run, ASK_ID, TEAMMATE);
+    await askAs(run, "retry-limit-w2n5", SUBAGENT);
+    expect((await stopOf(run, TEAMMATE)).decision).toBe("allow");
+    expect(stateOf(run, ASK_ID)).toBe("waiting");
     expect((await stopOf(run, SUBAGENT)).decision).toBe("allow");
-    expect(stateOf(run, ASK_ID)).toBe("closed");
-    expect(stateOf(run, "retry-limit-w2n5")).toBe("waiting");
+    expect(stateOf(run, "retry-limit-w2n5")).toBe("closed");
+  });
+
+  test("never reported, mods off: a named agent's ID is idle, any other finished", async () => {
+    const run = await started();
+    await askAs(run, ASK_ID, TEAMMATE);
+    await askAs(run, "retry-limit-w2n5", SUBAGENT);
+    expect((await stopOf(run, TEAMMATE)).decision).toBe("allow");
+    expect(stateOf(run, ASK_ID)).toBe("waiting");
+    expect((await stopOf(run, SUBAGENT)).decision).toBe("allow");
+    expect(stateOf(run, "retry-limit-w2n5")).toBe("closed");
+    expect(stateOf(run, ASK_ID)).toBe("waiting");
   });
 });
 

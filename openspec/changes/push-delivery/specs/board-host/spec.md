@@ -91,22 +91,30 @@ For a subagent's stop, the local API SHALL return a block carrying the events ab
 - **THEN** the stop is let through
 
 ### Requirement: A teammate's stop is idle
-Claude Code fires `SubagentStop` at every turn end of an in-process teammate, which then waits for a message. Its stop SHALL be blocked as a subagent's is, but a stop let through SHALL NOT close its asks (AD-10).
+Claude Code fires `SubagentStop` at every turn end of an in-process teammate, which then waits for a message. Its stop SHALL be blocked as a subagent's is, but a stop let through SHALL NOT close its asks. An agent the mod has not reported as a teammate is taken for one when its `agent_id` reads `a<agent_type>-<hex>`, as Claude Code 2.1.317 names a named agent (AD-10).
 
 #### Scenario: An in-process teammate goes idle
 - **WHEN** an in-process teammate's turn ends with nothing above `received` and its ask still waiting
 - **THEN** the stop is let through and the ask stays open
 
+#### Scenario: Mods off
+- **WHEN** no mod runs and the agent `aresearcher-096d99adc3d94b0a`, of type `researcher`, stops with its ask waiting
+- **THEN** the stop is let through and the ask stays open
+
 ### Requirement: Telling a teammate
-The session process SHALL name an agent-team teammate by its team address, `<name>@<team>`: for its own main conversation, from its parent Claude Code process's `--agent-id`, `--agent-name` and `--team-name`, read once at start and only when the address matches name and team, the rest of that argument vector neither kept nor logged; for a call, from an `agent_id` of that form. When it cannot tell, the label SHALL stay "Main agent" or "Subagent <type>" (FR-24).
+The session process SHALL name an agent-team teammate by its team address, `<name>@<team>`: for its own main conversation, from its parent Claude Code process's `--agent-id`, `--agent-name` and `--team-name`, read once at start, the rest neither kept nor logged; for an in-process teammate, from the mod's report naming its agent ID a teammate. Otherwise the label SHALL stay "Main agent" or "Subagent <type>" (FR-24).
 
 #### Scenario: A pane teammate
 - **WHEN** the session process's parent runs with `--agent-id researcher@session-a1b2 --agent-name researcher --team-name session-a1b2`
 - **THEN** its main conversation's asks are labelled "Teammate researcher"
 
 #### Scenario: An in-process teammate
-- **WHEN** a call's record carries `agent_id` `researcher@session-a1b2`
+- **WHEN** the mod reports the agent `aresearcher-096d99adc3d94b0a` as the teammate `researcher`, and that agent asks
 - **THEN** its ask is labelled "Teammate researcher" and takes no subagent ordinal
+
+#### Scenario: The report comes after the ask
+- **WHEN** a teammate's ask was labelled "Subagent researcher" before the mod's report arrived
+- **THEN** the report relabels it "Teammate researcher", and its open board shows the new label
 
 #### Scenario: A parent that cannot be read
 - **WHEN** the parent's argument vector cannot be read, or its address does not match its name and team
