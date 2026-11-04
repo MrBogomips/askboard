@@ -48,7 +48,7 @@ export const MultipleChoice = ({ item, value, onValueChange, disabled, extras }:
     className: ROW,
   });
   return (
-    <fieldset aria-labelledby={questionTextId(item.id)} className="flex flex-col gap-2">
+    <fieldset aria-labelledby={questionTextId(item.id)} className="flex flex-col gap-sm">
       {options.map((option, index) => {
         const checked = value?.includes(option.label) === true;
         return (

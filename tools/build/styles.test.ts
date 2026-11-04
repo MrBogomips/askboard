@@ -38,13 +38,18 @@ describe("Tailwind's input per chunk", () => {
 
   test("the CLI turns a chunk's sources into its utilities, on the token variables", async () => {
     const source = join(work, "card.tsx");
-    await Bun.write(source, 'export const c = "rounded-md bg-card text-question dark:bg-muted";\n');
+    await Bun.write(
+      source,
+      'export const c = "rounded-md bg-card text-question gap-md h-header-row dark:bg-muted";\n',
+    );
     const input = join(work, "card.css");
     await Bun.write(input, tailwindInput("utilities", [source], work));
     const css = await runTailwind(input, join(work, "card.out.css"));
     expect(css).toContain("background-color:var(--card)");
     expect(css).toContain(":where(.dark,.dark *)");
-    expect(css).toContain("font-size:20px");
+    expect(css).toContain("font-size:var(--fs-question)");
+    expect(css).toContain("gap:var(--md)");
+    expect(css).toContain("height:var(--header-row)");
     expect(css).toContain("border-radius:4px");
   });
 

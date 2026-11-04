@@ -27,6 +27,15 @@ export const applyTheme = (root: ThemeRoot, theme: Theme): void => {
   root.classList.toggle(DARK_CLASS, theme === "dark");
 };
 
+export type Density = "compact" | "comfortable";
+
+const COMFORTABLE_CLASS = "comfortable";
+
+/** Compact is the base tokens; a `.comfortable` class on the root re-points spacing and type. */
+export const applyDensity = (root: ThemeRoot, density: Density): void => {
+  root.classList.toggle(COMFORTABLE_CLASS, density === "comfortable");
+};
+
 /** Calls `apply` with the system's theme now and on each change; returns the current one. */
 export const followSystemTheme = (
   query: SchemeQuery,

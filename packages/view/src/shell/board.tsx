@@ -128,7 +128,7 @@ const Section = ({ group, shared }: { readonly group: Group; readonly shared: Sh
     <section
       aria-labelledby={headingId}
       data-askboard-area={group.id}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-lg"
     >
       {group.title === undefined ? null : (
         <h2 id={headingId} className={AREA_HEADING}>
@@ -162,7 +162,7 @@ const TabsBody = ({
 }) => {
   const text = useStrings();
   return (
-    <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-4">
+    <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-lg">
       <Tabs.List
         aria-label={text("areas.label")}
         className="flex gap-1 overflow-x-auto border-b border-border"
@@ -175,7 +175,7 @@ const TabsBody = ({
             <Tabs.Trigger
               key={group.id}
               value={group.id ?? ""}
-              className={`flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-1.5 text-control text-muted-foreground data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text ${FOCUS_RING}`}
+              className={`flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-md py-1.5 text-control text-muted-foreground data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text ${FOCUS_RING}`}
             >
               <span className="max-w-48 truncate" title={group.title}>
                 {group.title}
@@ -193,7 +193,7 @@ const TabsBody = ({
           key={group.id}
           value={group.id ?? ""}
           forceMount
-          className="flex flex-col gap-4 data-[state=inactive]:hidden"
+          className="flex flex-col gap-lg data-[state=inactive]:hidden"
         >
           {group.questions.map((question) => (
             <Card key={question.id} question={question} shared={shared} />
@@ -215,12 +215,12 @@ const OneQuestionBody = ({
   readonly shared: Shared;
   readonly navigator: ReactNode;
 }) => (
-  <div className="flex flex-col gap-3">
+  <div className="flex flex-col gap-md">
     {navigator}
     {questions.map((question) => {
       const area = areaOf(shared.document, question.id);
       return (
-        <div key={question.id} hidden={question.id !== current} className="flex flex-col gap-3">
+        <div key={question.id} hidden={question.id !== current} className="flex flex-col gap-md">
           {area === undefined ? null : <p className={AREA_HEADING}>{area.props.title}</p>}
           <Card question={question} shared={shared} />
         </div>
@@ -320,7 +320,7 @@ export const Board = ({
   let body: ReactNode;
   if (single || first === undefined) {
     body = (
-      <main className="flex flex-col gap-4 p-4">
+      <main className="flex flex-col gap-lg p-lg">
         {first === undefined ? null : <Card question={first} shared={shared} />}
       </main>
     );
@@ -328,7 +328,7 @@ export const Board = ({
     const shown = current ?? first.id;
     const at = questions.findIndex((question) => question.id === shown);
     body = (
-      <main className="flex flex-col gap-4 p-4">
+      <main className="flex flex-col gap-lg p-lg">
         <OneQuestionBody
           questions={questions}
           current={shown}
@@ -352,7 +352,7 @@ export const Board = ({
     body = (
       <div className="flex flex-1">
         <Outline groups={groups} current={current} marksOf={marksOf} onJump={go} />
-        <main className="flex min-w-0 flex-1 flex-col gap-6 p-4">
+        <main className="flex min-w-0 flex-1 flex-col gap-xl p-lg">
           {presentation === "tabs" ? (
             <TabsBody
               groups={groups}

@@ -15,7 +15,7 @@ import { BUTTON_LINK, BUTTON_SECONDARY, CHIP, SECTION_LABEL } from "./styles.ts"
 
 /** `agent-change-notice`: info colours with a 3px left rule. */
 const NOTICE =
-  "flex flex-col gap-2 rounded-md border-l-[3px] border-info bg-info-subtle p-2 text-body text-foreground";
+  "flex flex-col gap-sm rounded-md border-l-[3px] border-info bg-info-subtle p-sm text-body text-foreground";
 
 const NOTICE_TITLE = "font-semibold text-info-text";
 
@@ -49,7 +49,7 @@ const OptionLine = ({ option }: { readonly option: OptionChange }) => {
   );
   return (
     <li data-askboard-change={option.change} className="flex flex-col gap-0.5">
-      <span className="flex flex-wrap items-center gap-2 text-body-lg">
+      <span className="flex flex-wrap items-center gap-sm text-body-lg">
         {label}
         {option.recommended ? (
           <span className="text-badge text-recommended">{text("question.recommended")}</span>
@@ -74,7 +74,7 @@ const AgentChange = ({
 }) => {
   const diff = revisionDiff(earlier?.props, question.props);
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-2">
+    <div className="flex flex-col gap-sm rounded-md border border-border bg-card p-sm">
       {diff.header.now === undefined && !diff.header.changed ? null : (
         <span className={CHIP}>
           <Field change={diff.header} />
@@ -122,7 +122,7 @@ export const ChangeNotice = ({
     <div data-askboard-notice="agent-change" className={NOTICE}>
       <p className={NOTICE_TITLE}>{text("change.title")}</p>
       <p>{stake}</p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-sm">
         <button
           type="button"
           className={BUTTON_LINK}
@@ -182,8 +182,8 @@ export const ReopenedNotice = ({
   return (
     <div data-askboard-notice="reopened" className={NOTICE}>
       <p className={NOTICE_TITLE}>{text("reopened.title")}</p>
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex min-w-48 flex-1 flex-col gap-1 rounded-md bg-muted p-2">
+      <div className="flex flex-wrap items-start gap-md">
+        <div className="flex min-w-48 flex-1 flex-col gap-1 rounded-md bg-muted p-sm">
           <p className={SECTION_LABEL}>{text("reopened.previous")}</p>
           <AnswerText answer={previous} />
         </div>

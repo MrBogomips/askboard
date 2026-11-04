@@ -22,8 +22,10 @@ import { QuestionMarker } from "./markers.tsx";
 import { BUTTON_LINK, BUTTON_PRIMARY, BUTTON_SECONDARY, SECTION_LABEL, SEGMENT } from "./styles.ts";
 import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
 
+const SEGMENT = `h-6 rounded-sm border-b-2 border-transparent px-sm text-control text-muted-foreground aria-pressed:border-primary aria-pressed:bg-card aria-pressed:font-semibold aria-pressed:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
+
 const DIALOG =
-  "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-2 rounded-lg border border-border bg-popover p-4 text-foreground shadow-lg";
+  "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-sm rounded-lg border border-border bg-popover p-lg text-foreground shadow-lg";
 
 /** The immediate mode's helper text (EXPERIENCE.md, Voice and Tone: Bottom action bar). */
 
@@ -59,7 +61,7 @@ export const BottomBar = (props: BottomBarProps) => {
   const language = useLanguage();
   if (single) {
     return warning === undefined ? null : (
-      <footer className="sticky bottom-0 flex min-h-12 items-center gap-2 border-t border-border bg-card px-4">
+      <footer className="sticky bottom-0 flex min-h-bottom-bar items-center gap-sm border-t border-border bg-card px-lg">
         <Warning warning={warning} />
       </footer>
     );
@@ -84,7 +86,7 @@ export const BottomBar = (props: BottomBarProps) => {
   };
   const [blocked] = submit.blocked;
   return (
-    <footer className="sticky bottom-0 flex min-h-12 flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-2">
+    <footer className="sticky bottom-0 flex min-h-bottom-bar flex-wrap items-center gap-md border-t border-border bg-card px-lg py-sm">
       <span id="askboard-delivery" className={SECTION_LABEL}>
         {text("bar.delivery")}
       </span>
@@ -115,7 +117,7 @@ export const BottomBar = (props: BottomBarProps) => {
         <span className="text-body text-muted-foreground">{text("bar.immediateHelp")}</span>
       ) : null}
       {warning === undefined ? null : <Warning warning={warning} />}
-      <span className="ml-auto flex items-center gap-2">
+      <span className="ml-auto flex items-center gap-sm">
         {recommendations ? (
           <button
             type="button"
@@ -145,7 +147,7 @@ export const BottomBar = (props: BottomBarProps) => {
             <AlertDialog.Description className="text-body text-foreground-secondary">
               {text("bar.switchBody")}
             </AlertDialog.Description>
-            <div className="mt-2 flex justify-end gap-2">
+            <div className="mt-sm flex justify-end gap-sm">
               <AlertDialog.Cancel className={BUTTON_SECONDARY}>
                 {text("bar.cancel")}
               </AlertDialog.Cancel>

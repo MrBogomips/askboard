@@ -105,7 +105,7 @@ const Clipped = ({
         <span
           role="tooltip"
           id={id}
-          className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-[min(36rem,80vw)] rounded-md border border-border bg-popover px-2 py-1 font-sans text-body text-popover-foreground break-all whitespace-normal shadow-md group-focus-within:block group-hover:block"
+          className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-[min(36rem,80vw)] rounded-md border border-border bg-popover px-sm py-1 font-sans text-body text-popover-foreground break-all whitespace-normal shadow-md group-focus-within:block group-hover:block"
         >
           {children}
         </span>
@@ -133,10 +133,13 @@ export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) 
   const { origin } = useSyncExternalStore(header.subscribe, header.get);
   const text = useStrings();
   return (
-    <div data-askboard-header="who-and-where" className="flex h-8 min-w-0 items-center gap-4 px-4">
+    <div
+      data-askboard-header="who-and-where"
+      className="flex h-header-row min-w-0 items-center gap-lg px-lg"
+    >
       {origin === undefined ? null : (
         <>
-          <span className="flex min-w-0 items-baseline gap-3 text-body text-foreground">
+          <span className="flex min-w-0 items-baseline gap-md text-body text-foreground">
             <Clipped className="max-w-80 font-semibold">
               <WhoAsked who={origin.who} />
             </Clipped>
@@ -151,7 +154,7 @@ export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) 
               </span>
             )}
           </span>
-          <dl className="m-0 ml-auto flex min-w-0 items-baseline gap-4">
+          <dl className="m-0 ml-auto flex min-w-0 items-baseline gap-lg">
             {FIELDS.map(([label, key]) => (
               <Field key={key} label={text(label)} value={origin[key]} />
             ))}

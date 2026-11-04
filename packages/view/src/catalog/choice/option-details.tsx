@@ -32,7 +32,7 @@ type DetailsProps = {
 const Annotation = ({ text }: { readonly text: string }) => {
   const strings = useStrings();
   return (
-    <p className="ml-6 border-l-2 border-border-strong bg-muted px-2 py-1 text-body text-foreground-secondary">
+    <p className="ml-xl border-l-2 border-border-strong bg-muted px-sm py-1 text-body text-foreground-secondary">
       <span className="font-semibold">{strings("option.agent")}</span> {text}
     </p>
   );
@@ -66,7 +66,7 @@ const NoteField = ({
       maxLength={OPTION_NOTE_MAX_CHARS}
       rows={2}
       onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
-      className={`ml-6 rounded-md border border-change bg-change-subtle p-2 text-body text-foreground ${FOCUS}`}
+      className={`ml-xl rounded-md border border-change bg-change-subtle p-sm text-body text-foreground ${FOCUS}`}
     />
   );
 };
@@ -97,7 +97,7 @@ export const OptionDetails = ({
     <>
       {option.annotation === undefined ? null : <Annotation text={option.annotation} />}
       {option.preview === undefined && !canNote ? null : (
-        <div className="ml-6 flex flex-wrap items-center gap-3">
+        <div className="ml-xl flex flex-wrap items-center gap-md">
           {option.preview === undefined ? null : (
             <button
               type="button"
@@ -119,7 +119,7 @@ export const OptionDetails = ({
       {previewOpen && option.preview !== undefined ? (
         <p
           id={previewId(itemId, index)}
-          className="ml-6 whitespace-pre-wrap rounded-md border border-border bg-muted p-2 text-body text-foreground"
+          className="ml-xl whitespace-pre-wrap rounded-md border border-border bg-muted p-sm text-body text-foreground"
         >
           {option.preview}
         </p>
@@ -159,7 +159,7 @@ export const OtherField = ({
       readOnly={disabled}
       maxLength={OTHER_MAX_CHARS}
       onChange={(event) => onChange(event.target.value)}
-      className={`ml-6 rounded-md border border-input bg-card p-2 text-body text-foreground read-only:border-border read-only:bg-muted ${FOCUS}`}
+      className={`ml-xl rounded-md border border-input bg-card p-sm text-body text-foreground read-only:border-border read-only:bg-muted ${FOCUS}`}
     />
   );
 };

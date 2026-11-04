@@ -34,9 +34,9 @@ const Message = ({
   return (
     <li
       data-askboard-message={agent ? "agent" : "user"}
-      className={`flex flex-col gap-0.5 border-t border-border px-3 py-2 first:border-t-0 ${agent ? "bg-muted" : ""}`}
+      className={`flex flex-col gap-0.5 border-t border-border px-md py-sm first:border-t-0 ${agent ? "bg-muted" : ""}`}
     >
-      <span className="flex items-center gap-2 text-badge">
+      <span className="flex items-center gap-sm text-badge">
         <span className="font-semibold text-foreground">{author}</span>
         <time dateTime={when} className="text-muted-foreground">
           {timeOf(when, locale)}
@@ -103,7 +103,7 @@ export const Thread = ({
   const canSend = usable && !sending && composer !== "";
   if (!open) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5">
+      <div className="flex items-center gap-sm rounded-md border border-border px-md py-1.5">
         <span className="text-control font-semibold text-foreground">{text("thread.title")}</span>
         <span className="text-badge text-muted-foreground">{messagesLabel(count, language)}</span>
         <button
@@ -128,7 +128,7 @@ export const Thread = ({
       aria-label={text("thread.title")}
       className="flex flex-col rounded-md border border-border"
     >
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
+      <div className="flex items-center gap-sm border-b border-border px-md py-1.5">
         <span className="text-control font-semibold text-foreground">{text("thread.title")}</span>
         <span className="text-badge text-muted-foreground">{messagesLabel(count, language)}</span>
         <button
@@ -168,7 +168,7 @@ export const Thread = ({
           ])}
         </ol>
       )}
-      <div className="flex items-end gap-2 border-t border-border p-2">
+      <div className="flex items-end gap-sm border-t border-border p-sm">
         <textarea
           ref={composerRef}
           aria-label={text("thread.composer")}

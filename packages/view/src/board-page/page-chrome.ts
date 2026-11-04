@@ -24,7 +24,7 @@ export type PageChrome = {
   showLoadError(text: string | undefined): void;
 };
 
-const BANNER = "flex items-center gap-3 border-b border-border px-4 py-2 text-body outline-none";
+const BANNER = "flex items-center gap-md border-b border-border px-lg py-sm text-body outline-none";
 
 const VARIANTS: Readonly<Record<Banner["variant"], { banner: string; marker: string }>> = {
   "connection-lost": {
@@ -47,11 +47,11 @@ const VARIANTS: Readonly<Record<Banner["variant"], { banner: string; marker: str
 
 // `button-secondary` (DESIGN.md), with the focus ring.
 const SECONDARY_BUTTON =
-  "h-7 shrink-0 rounded-md border border-border bg-muted px-3 text-control text-foreground " +
+  "h-control-height shrink-0 rounded-md border border-border bg-muted px-md text-control text-foreground " +
   "hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 
 const LOAD_ERROR =
-  "border-b border-border bg-destructive-subtle px-4 py-2 text-body text-destructive-text";
+  "border-b border-border bg-destructive-subtle px-lg py-sm text-body text-destructive-text";
 
 const element = <K extends keyof HTMLElementTagNameMap>(
   document: Document,

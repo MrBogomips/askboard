@@ -44,7 +44,7 @@ export const ItemError = () => {
   return (
     <p
       role="alert"
-      className="rounded-md border border-destructive p-2 text-body text-destructive-text"
+      className="rounded-md border border-destructive p-sm text-body text-destructive-text"
     >
       {text("item.error")}
     </p>
@@ -95,7 +95,7 @@ const ItemFrame = ({
     <div data-askboard-item={itemId} className="relative">
       <div className={pending ? "invisible" : undefined}>{children}</div>
       {pending ? (
-        <div className="absolute inset-0 flex items-start rounded-md bg-muted p-2 text-body text-muted-foreground">
+        <div className="absolute inset-0 flex items-start rounded-md bg-muted p-sm text-body text-muted-foreground">
           {text("item.loading")}
         </div>
       ) : null}

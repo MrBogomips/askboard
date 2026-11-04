@@ -211,7 +211,7 @@ const OptionsLabel = ({
 }) => {
   const text = useStrings();
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center justify-between gap-md">
       <p className={SECTION_LABEL}>
         {text(question.props.multiSelect === true ? "question.options" : "question.optionsPickOne")}
       </p>
@@ -352,7 +352,7 @@ export const QuestionCard = (props: CardProps) => {
       data-askboard-question={question.id}
       aria-busy={load === "loading"}
       aria-labelledby={questionTextId(question.id)}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      className="flex flex-col gap-md rounded-lg border border-border bg-card p-lg"
     >
       {pending ? (
         <ChangeNotice
@@ -377,7 +377,7 @@ export const QuestionCard = (props: CardProps) => {
         />
       )}
       {header === undefined && mark === "unanswered" ? null : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-sm">
           {mark === "unanswered" ? null : <QuestionMarker mark={mark} />}
           {header === undefined ? null : <span className={CHIP}>{header}</span>}
         </div>

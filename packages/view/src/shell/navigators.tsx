@@ -39,7 +39,7 @@ const Badges = ({ marks }: { readonly marks: EntryMarks }) => {
   );
 };
 
-const ENTRY = `flex w-full flex-col gap-0.5 rounded-md border-l-2 py-1 pr-1 pl-2 text-left enabled:hover:bg-accent ${FOCUS_RING}`;
+const ENTRY = `flex w-full flex-col gap-0.5 rounded-md border-l-2 py-1 pr-1 pl-sm text-left enabled:hover:bg-accent ${FOCUS_RING}`;
 
 /** The outline navigator: a sticky rail of areas and their questions. */
 export const Outline = ({
@@ -58,7 +58,7 @@ export const Outline = ({
   return (
     <nav
       aria-label={text("outline.label")}
-      className="sticky top-16 flex max-h-[calc(100vh-4rem)] w-[212px] shrink-0 flex-col gap-2 self-start overflow-y-auto border-r border-border p-2"
+      className="sticky top-16 flex max-h-[calc(100vh-4rem)] w-[212px] shrink-0 flex-col gap-sm self-start overflow-y-auto border-r border-border p-sm"
     >
       <p className={SECTION_LABEL}>{text("outline.label")}</p>
       {groups.map((group) => (
@@ -129,7 +129,7 @@ export const QuestionNavigator = ({
   return (
     <nav
       aria-label={text("navigator.label")}
-      className="flex flex-wrap items-center gap-3 border-b border-border pb-2"
+      className="flex flex-wrap items-center gap-md border-b border-border pb-sm"
     >
       <span className="text-control font-semibold text-foreground">
         {text("navigator.position", { current: current + 1, total: questions.length })}
@@ -161,11 +161,11 @@ export const QuestionNavigator = ({
         })}
       </span>
       {removed ? (
-        <span className="rounded-md border-l-[3px] border-info bg-info-subtle px-2 py-1 text-body text-info-text">
+        <span className="rounded-md border-l-[3px] border-info bg-info-subtle px-sm py-1 text-body text-info-text">
           {text("navigator.removed")}
         </span>
       ) : null}
-      <span className="ml-auto flex items-center gap-2">
+      <span className="ml-auto flex items-center gap-sm">
         <button
           type="button"
           className={BUTTON_SECONDARY}

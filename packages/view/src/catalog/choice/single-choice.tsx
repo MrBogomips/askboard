@@ -60,7 +60,7 @@ export const SingleChoice = ({ item, value, onValueChange, disabled, extras }: C
       value={selected}
       onValueChange={choose}
       disabled={disabled}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-sm"
     >
       {options.map((option, index) => (
         <div key={option.label} className="group/option flex flex-col gap-1">

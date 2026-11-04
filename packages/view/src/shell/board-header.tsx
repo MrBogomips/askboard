@@ -73,7 +73,7 @@ export const BoardHeader = ({
   return (
     <header className="sticky top-0 z-10 flex flex-col border-b border-border bg-card">
       <WhoAndWhere header={header} />
-      <div className="flex h-8 items-center gap-3 px-4">
+      <div className="flex h-header-row items-center gap-md px-lg">
         <h1
           className="min-w-0 flex-1 truncate text-body-lg font-semibold text-foreground"
           title={title}

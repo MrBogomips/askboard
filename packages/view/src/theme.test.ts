@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyTheme, followSystemTheme, readTheme, systemTheme } from "./theme.ts";
+import { applyDensity, applyTheme, followSystemTheme, readTheme, systemTheme } from "./theme.ts";
 
 // A media query list whose answer the test changes.
 const media = (matches: boolean) => {
@@ -58,5 +58,23 @@ describe("the theme (EXPERIENCE.md, Dark theme)", () => {
     expect(readTheme("dark")).toBe("dark");
     expect(readTheme("light")).toBe("light");
     for (const value of ["system", "", undefined, 1, {}]) expect(readTheme(value)).toBeUndefined();
+  });
+});
+
+describe("the density class", () => {
+  test("comfortable sets the class on the root and compact removes it", () => {
+    const target = root();
+    applyDensity(target, "comfortable");
+    expect([...target.classes]).toEqual(["comfortable"]);
+    applyDensity(target, "compact");
+    expect([...target.classes]).toEqual([]);
+  });
+
+  test("the density and the theme classes are independent", () => {
+    const target = root();
+    applyTheme(target, "dark");
+    applyDensity(target, "comfortable");
+    applyDensity(target, "compact");
+    expect([...target.classes]).toEqual(["dark"]);
   });
 });
