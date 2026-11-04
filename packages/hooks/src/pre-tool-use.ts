@@ -84,7 +84,7 @@ const applyRule = async ({ input, localApi }: HookContext): Promise<HookResult> 
   try {
     sends = sendsToAskBoard(rule, input.tool_input);
   } catch {
-    return { problem: "the asking rule in effect has no predicate yet, so the question proceeds" };
+    return { problem: "the asking rule in effect could not be checked, so the question proceeds" };
   }
   return sends ? DENY : {};
 };

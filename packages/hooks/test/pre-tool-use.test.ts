@@ -238,13 +238,23 @@ describe("AskUserQuestion", () => {
     expect(api.requests).toHaveLength(1);
   });
 
-  test("proceeds, with one line, under a rule that has no predicate yet", async () => {
+  test("is denied under with-references when the question names a file (settings-languages, 6.1)", async () => {
     const api = await ruled("with-references", true);
-    const outcome = await run(api, QUESTION);
-    expect(outcome.stdout).toBe("");
-    expect(outcome.stderr).toBe(
-      "askboard hook PreToolUse: the asking rule in effect has no predicate yet, so the question proceeds\n",
-    );
+    const named = inputOf({
+      tool_name: "AskUserQuestion",
+      tool_input: {
+        questions: [{ question: "Keep src/retry.ts#L1-L5?", header: "Retry", options: [] }],
+      },
+    });
+    const outcome = await run(api, named);
+    expect(outcome.stderr).toBe("");
+    const reason: string = JSON.parse(outcome.stdout).hookSpecificOutput.permissionDecisionReason;
+    expect(reason).toContain("AskBoard");
+  });
+
+  test("proceeds under with-references when the question names no file or URL", async () => {
+    const api = await ruled("with-references", true);
+    expect(await run(api, QUESTION)).toEqual({ stdout: "", stderr: "" });
   });
 
   test("proceeds, with one line, when the session process cannot be reached", async () => {

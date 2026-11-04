@@ -5,8 +5,14 @@ import { join } from "node:path";
 import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { linkParts, openBoardSocket } from "./board-page.ts";
-import { getOverSocket, removeShortFolders, sessionFileIn, shortFolder } from "./modes.ts";
-import { cleanUp, type Session, type SessionOptions, startSession } from "./session.ts";
+import { getOverSocket, removeShortFolders, runMode, sessionFileIn, shortFolder } from "./modes.ts";
+import {
+  CONFIGURATION,
+  cleanUp,
+  type Session,
+  type SessionOptions,
+  startSession,
+} from "./session.ts";
 
 // Settings and languages on the real session process (settings-languages, tasks 4.5 and 4.6): the
 // suite gives each session process a home, a configuration folder and a project of its own, so a
@@ -148,3 +154,55 @@ describe("the configuration wired into the session process", () => {
     expect(await session.end()).toBe(0);
   });
 });
+
+/** Claude Code's `PreToolUse` input for an AskUserQuestion call with one question. */
+const askUserQuestion = (cwd: string, question: string): string =>
+  JSON.stringify({
+    session_id: "0f6b6a43-6a6c-4c3e-9a55-3d1c1c0e2b7a",
+    cwd,
+    hook_event_name: "PreToolUse",
+    tool_name: "AskUserQuestion",
+    tool_input: {
+      questions: [
+        {
+          question,
+          header: "Retry",
+          multiSelect: false,
+          options: [
+            { label: "Keep", description: "As it is" },
+            { label: "Shorten", description: "Three tries" },
+          ],
+        },
+      ],
+    },
+    tool_use_id: "toolu_01Wr8xKq3m5NpL2vB7cD9eFh",
+  });
+
+describe.skipIf(CONFIGURATION === "hooks-disabled")(
+  "the asking rule with-references in the PreToolUse hook (task 6.1)",
+  () => {
+    test("a question naming a file goes to AskBoard, and a plain one proceeds", async () => {
+      const runtime = shortFolder();
+      const home = shortFolder();
+      const session = await startSession({
+        projectConfig: { version: "1.0", askingRule: "with-references" },
+        env: { XDG_RUNTIME_DIR: runtime },
+      });
+      await session.client.listTools();
+      await sessionFileIn(runtime);
+      const hook = (question: string) =>
+        runMode(["hook", "PreToolUse"], {
+          runtime,
+          home,
+          stdin: askUserQuestion(session.project, question),
+        });
+      const refused = await hook("Keep the retry in src/retry.ts#L1-L5?");
+      expect(refused).toMatchObject({ code: 0, stderr: "" });
+      const output = JSON.parse(refused.stdout).hookSpecificOutput;
+      expect(output.permissionDecision).toBe("deny");
+      expect(output.permissionDecisionReason).toContain("AskBoard");
+      expect(await hook("Keep the retry as it is?")).toEqual({ code: 0, stdout: "", stderr: "" });
+      expect(await session.end()).toBe(0);
+    });
+  },
+);
