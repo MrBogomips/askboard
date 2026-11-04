@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { bannerOf } from "../board-page/board-status.ts";
 import { tabTitle } from "../board-page/tab-title.ts";
 import { EN_US } from "./en-US.ts";
-import { fill, htmlLang, languageOf, STRINGS, t } from "./index.ts";
+import { fill, htmlLang, languageOf, localeOf, STRINGS, t } from "./index.ts";
 import { IT_IT } from "./it-IT.ts";
 import { STRING_KEYS, type StringTable, type Template } from "./keys.ts";
 
@@ -174,6 +174,13 @@ describe("the board's language (task 7.2)", () => {
     expect(languageOf({ language: "it-IT" })).toBe("it-IT");
     expect(languageOf({})).toBe("en-US");
     expect(languageOf(undefined)).toBe("en-US");
+  });
+
+  test("its locale is the document's, else its language (task 7.3)", () => {
+    expect(localeOf({ language: "en-US", locale: "it-IT" })).toBe("it-IT");
+    expect(localeOf({ language: "it-IT" })).toBe("it-IT");
+    expect(localeOf({})).toBe("en-US");
+    expect(localeOf(undefined)).toBe("en-US");
   });
 
   test("is written as the document's lang: en or it", () => {

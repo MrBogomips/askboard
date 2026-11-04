@@ -1,9 +1,9 @@
 // The follow-up thread's texts and keys (ask-lifecycle, task 6.5; EXPERIENCE.md, Follow-up thread,
-// Explain and Voice and Tone: Follow-up; FR-10): the message count, each message's time in en-US
-// ("5:42 PM"), the author of the agent's replies, whether Explain still waits for its reply, and
-// the composer's send key, a modified Enter.
+// Explain and Voice and Tone: Follow-up; FR-10): the message count, each message's time in the
+// ask's locale ("5:42 PM", "17:42"), the author of the agent's replies, whether Explain still waits
+// for its reply, and the composer's send key, a modified Enter.
 
-import type { Locale, ThreadEntry } from "@askboard/contract";
+import { formatTime, type Locale, type ThreadEntry } from "@askboard/contract";
 import { t } from "../strings/index.ts";
 import type { ViewAct } from "../view-protocol.ts";
 
@@ -23,16 +23,21 @@ export const messageCountOf = (thread: readonly ThreadEntry[] | undefined): numb
 export const messagesLabel = (count: number, language: Locale = "en-US"): string =>
   count === 0 ? t(language, "thread.noMessages") : t(language, "thread.messages", { count });
 
-/** A message's time as en-US hours and minutes, in the viewer's time zone unless one is given. */
-export const timeOf = (when: string, timeZone?: string): string =>
-  new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    ...(timeZone === undefined ? {} : { timeZone }),
-  })
-    .format(new Date(when))
-    // Newer ICU data puts a narrow no-break space before AM and PM.
-    .replace(/\s/g, " ");
+/**
+ * The viewer's offset from UTC at an instant, in minutes east of UTC as RFC 3339 writes it
+ * (`+01:00` is 60): the viewer's time zone, the one value the view takes from the runtime (AD-13).
+ */
+export const viewerOffset = (instant: string): number => 0 - new Date(instant).getTimezoneOffset();
+
+/**
+ * A message's time as hours and minutes in the ask's locale (`5:42 PM`, `17:42`), at the viewer's
+ * offset unless one is given (settings-languages design decision 8).
+ */
+export const timeOf = (
+  when: string,
+  locale: Locale = "en-US",
+  offsetMinutes: number = viewerOffset(when),
+): string => formatTime(when, offsetMinutes, locale);
 
 /** Whether an Explain follow-up waits for its reply: in the thread without one, or on its way. */
 export const explainPending = (

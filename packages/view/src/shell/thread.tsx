@@ -9,7 +9,7 @@
 
 import { FOLLOW_UP_MAX_CHARS, type ThreadEntry } from "@askboard/contract";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useLanguage, useStrings } from "../catalog/port.ts";
+import { useLanguage, useLocale, useStrings } from "../catalog/port.ts";
 import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, TEXT_FIELD } from "./styles.ts";
 import { agentAuthor, isSendKey, messageCountOf, messagesLabel, timeOf } from "./thread-text.ts";
@@ -29,20 +29,23 @@ const Message = ({
   readonly when: string;
   readonly text: string;
   readonly agent: boolean;
-}) => (
-  <li
-    data-askboard-message={agent ? "agent" : "user"}
-    className={`flex flex-col gap-0.5 border-t border-border px-3 py-2 first:border-t-0 ${agent ? "bg-muted" : ""}`}
-  >
-    <span className="flex items-center gap-2 text-badge">
-      <span className="font-semibold text-foreground">{author}</span>
-      <time dateTime={when} className="text-muted-foreground">
-        {timeOf(when)}
-      </time>
-    </span>
-    <span className="whitespace-pre-wrap text-body text-foreground">{text}</span>
-  </li>
-);
+}) => {
+  const locale = useLocale();
+  return (
+    <li
+      data-askboard-message={agent ? "agent" : "user"}
+      className={`flex flex-col gap-0.5 border-t border-border px-3 py-2 first:border-t-0 ${agent ? "bg-muted" : ""}`}
+    >
+      <span className="flex items-center gap-2 text-badge">
+        <span className="font-semibold text-foreground">{author}</span>
+        <time dateTime={when} className="text-muted-foreground">
+          {timeOf(when, locale)}
+        </time>
+      </span>
+      <span className="whitespace-pre-wrap text-body text-foreground">{text}</span>
+    </li>
+  );
+};
 
 export type ThreadProps = {
   readonly questionId: string;

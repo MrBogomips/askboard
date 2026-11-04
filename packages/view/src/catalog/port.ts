@@ -161,3 +161,9 @@ export const useStrings = (): ((key: StringKey, slots?: Slots) => string) => {
   const language = useLanguage();
   return useCallback((key: StringKey, slots?: Slots) => t(language, key, slots), [language]);
 };
+
+/** The ask's locale, for the values the board shows (design decision 8); en-US when none is provided. */
+export const LocaleContext = createContext<Locale>("en-US");
+
+/** The ask's locale, which may differ from its language. */
+export const useLocale = (): Locale => useContext(LocaleContext);

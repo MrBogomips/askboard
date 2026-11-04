@@ -8,7 +8,7 @@ import { IT_IT } from "./it-IT.ts";
 import type { StringKey, StringTable, Template } from "./keys.ts";
 
 export type { StringKey, StringTable, Template } from "./keys.ts";
-export { htmlLang, languageOf } from "./language.ts";
+export { htmlLang, languageOf, localeOf } from "./language.ts";
 
 /** One table per language AskBoard speaks. */
 export const STRINGS: Readonly<Record<Locale, StringTable>> = { "en-US": EN_US, "it-IT": IT_IT };

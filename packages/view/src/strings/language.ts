@@ -10,3 +10,8 @@ export const languageOf = (document: { readonly language?: Locale } | undefined)
 
 /** A language as a document's `lang` attribute: `en` or `it`. */
 export const htmlLang = (language: Locale): "en" | "it" => (language === "it-IT" ? "it" : "en");
+
+/** The board's locale, for the values it shows: its document's, else its language (decision 7). */
+export const localeOf = (
+  document: { readonly language?: Locale; readonly locale?: Locale } | undefined,
+): Locale => document?.locale ?? languageOf(document);
