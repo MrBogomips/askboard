@@ -159,7 +159,8 @@ describe("the recorded exchange", () => {
   const { steps } = snapshotTranscript;
 
   test("is E7's own record, beside E1's and E3's", () => {
-    expect(snapshotTranscripts).toEqual({ snapshot: snapshotTranscript });
+    expect(snapshotTranscripts.snapshot).toBe(snapshotTranscript);
+    expect(Object.keys(snapshotTranscripts)[0]).toBe("snapshot");
     expect([snapshotTranscript.askId, snapshotTranscript.token]).toEqual([
       LIFECYCLE.askId,
       LIFECYCLE.token,

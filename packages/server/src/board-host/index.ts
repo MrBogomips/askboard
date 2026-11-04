@@ -41,8 +41,11 @@ export type PushCore = Partial<Pick<AskCore, "setWorking" | "whoAsked" | "agentS
  */
 export type ContextCore = Partial<Pick<AskCore, "sourceOf" | "editorTarget">>;
 
+/** E7's part: the board's Snapshot, taken as the user's (snapshot design decision 8). */
+export type SnapshotCore = Pick<AskCore, "snapshot">;
+
 /** The part of ask-core `board-host` uses: one part per change, so each change adds its own. */
-export type HostCore = E1Core & LifecycleCore & PushCore & ContextCore;
+export type HostCore = E1Core & LifecycleCore & PushCore & ContextCore & SnapshotCore;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */

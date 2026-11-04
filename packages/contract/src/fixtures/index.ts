@@ -122,9 +122,12 @@ export {
 
 export { lifecycleSnapshotData, lifecycleSnapshotResult } from "./snapshot.ts";
 export {
+  closedAskSnapshotTranscript,
+  discardSnapshotTranscript,
   type SnapshotTranscript,
   type SnapshotTranscriptStep,
   snapshotProtocolExamples,
   snapshotTranscript,
   snapshotTranscripts,
+  takeoverSnapshotTranscript,
 } from "./snapshot-transcripts.ts";

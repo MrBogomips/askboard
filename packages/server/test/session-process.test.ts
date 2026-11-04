@@ -496,7 +496,7 @@ describe("context in the composed session process (excerpts)", () => {
 
 // E7, task 4.4: the Snapshot writer the entry point composes beside push delivery's ports, with the
 // session project root as its root and the view build board-host serves, reached through the
-// snapshot tool (task 5.2).
+// snapshot tool (task 5.2) and the board's `snapshot` command (task 6.1).
 
 const snapshotsOf = (folder: string): string[] => {
   const snapshots = join(folder, ".askboard", "snapshots");
@@ -552,11 +552,29 @@ describe("Snapshots in the composed session process (E7)", () => {
     expect(page).not.toContain(token);
     expect(page).not.toContain(session.sessionToken);
 
+    // The board's Snapshot is the user's, with its unsent-work flag, in the same folder.
+    const requestId = "mZ4aD8wEg2UyB6fTj9oHqL";
+    board.send({ version, type: "snapshot", requestId, unsentWork: true });
+    const reply = (await board.next()) as { type: string; requestId: string; path: string };
+    expect(reply).toMatchObject({ type: "snapshot-saved", requestId });
+    expect(dirname(reply.path)).toBe(dirname(taken.path));
+    const users = validateSnapshotData(dataBlockOf(readFileSync(reply.path, "utf8")));
+    if (!users.ok) throw new Error(JSON.stringify(users.problems));
+    expect(users.value.snapshot).toMatchObject({
+      takenBy: "user",
+      who: "Paola Greco",
+      unsentWork: true,
+    });
+    expect(snapshotsOf(project)).toEqual(
+      [...before, basename(taken.path), basename(reply.path)].sort(),
+    );
+
     // stdin's end discards the ask; the Snapshot stays as it was (Snapshots outlive their ask).
     await run.client.close();
     expect(await run.session.ended).toBe(0);
     expect(readFileSync(taken.path, "utf8")).toBe(page);
     expect(snapshotsOf(project)).toContain(basename(taken.path));
+    expect(snapshotsOf(project)).toContain(basename(reply.path));
   });
 
   test("without CLAUDE_PROJECT_DIR, a Snapshot is refused naming the variable, creating nothing", async () => {
