@@ -74,7 +74,7 @@ const replay = async (name: string, transcript: Transcript) => {
   try {
     for (const step of transcript.steps) {
       if (step.from === "page") {
-        (await socketOf(step)).send("message" in step ? step.message : step.invalid);
+        await (await socketOf(step)).send("message" in step ? step.message : step.invalid);
       } else if (step.from === "host") {
         const socket = await socketOf(step);
         if ("message" in step) expectMessage(await socket.next(), step.message);

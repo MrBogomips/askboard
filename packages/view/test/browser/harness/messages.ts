@@ -165,6 +165,33 @@ export const pageMessagesOf = (sockets: readonly RecordedSocket[]): SentMessage[
 export const presenceMessagesOf = (sockets: readonly RecordedSocket[]): SentMessage[] =>
   sentOf(sockets, true);
 
+// The action ID of each message of this type in these frames, in order.
+const actionIdsOf = (
+  sockets: readonly RecordedSocket[],
+  dir: Frame["dir"],
+  type: "act" | "done",
+): string[] =>
+  sockets.flatMap((socket) =>
+    socket.frames.flatMap((frame) => {
+      if (frame.dir !== dir) return [];
+      const message = parsed(frame.text);
+      return isRecord(message) && message.type === type && typeof message.actionId === "string"
+        ? [message.actionId]
+        : [];
+    }),
+  );
+
+/**
+ * Whether board-host has applied the first `count` act commands the page sent, on any socket: its
+ * `done` names each (AD-20). A command shows "sent" once it leaves the page, before this.
+ */
+export const actsDoneIn = (sockets: readonly RecordedSocket[], count: number): boolean => {
+  // A command resent across a drop keeps its action ID (AD-20): it counts once.
+  const sent = [...new Set(actionIdsOf(sockets, "sent", "act"))];
+  const done = new Set(actionIdsOf(sockets, "received", "done"));
+  return sent.length >= count && sent.slice(0, count).every((actionId) => done.has(actionId));
+};
+
 /**
  * Page messages sent before the host's messages that precede them on their socket in the
  * transcript had arrived, such as an answer queued across a drop sent before the new socket's

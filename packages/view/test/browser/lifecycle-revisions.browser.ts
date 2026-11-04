@@ -18,6 +18,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  actsDone,
   actsSent,
   answerOf,
   buttonOf,
@@ -57,6 +58,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await actsDone(run, 1);
         await run.session.collect();
         await card(board, "database")
           .getByText("delivered to the agent", { exact: true })
@@ -68,7 +70,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await card(board, "database")
           .getByText("sent", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        const [, revision] = await actsSent(run, 2);
+        const [, revision] = await actsDone(run, 2);
         expect(revision?.acts).toEqual([
           {
             type: "answer",
@@ -160,7 +162,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await notice(board, "database")
           .getByRole("button", { name: "Reload, losing my work" })
           .click();
-        const [command] = await actsSent(run, 1);
+        const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           { type: "edit-choice", itemId: "database", rev: 2, edit: "reload" },
         ]);
@@ -189,6 +191,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await notice(board, "database").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "database").click();
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await actsDone(run, 2);
         expect(sentActs(run).map((command) => command.acts)).toEqual([
           [{ type: "edit-choice", itemId: "database", rev: 2, edit: "ignore", keptRev: 1 }],
           [
@@ -218,6 +221,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await actsDone(run, 1);
         await run.session.update([{ action: "reopen", itemId: "database" }]);
         const reopened = card(board, "database").locator('[data-askboard-notice="reopened"]');
         await reopened.getByText("Reopened by the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -251,6 +255,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.view
           .getByText("You have 1 postponed question: closing loses this ask", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
         await run.session.update([
           { action: "answer", itemId: "database", answer: { choice: ["SQLite"] } },
         ]);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { type AnswerCommand, BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
 import { PLAIN_CHOICE } from "@askboard/contract/fixtures";
 import {
+  actsDoneIn,
   orderProblems,
   pageHalf,
   pageHalfProblems,
@@ -249,5 +250,45 @@ describe("protocol 1.1 against E1's transcripts (ask-lifecycle, design decision 
     };
     expect(pageMessagesOf([socket])).toEqual([{ socket: 1, message: connect }]);
     expect(summary(act("2026-10-30T10:00:00Z"))).toBe("act [answer database rev 1 [PostgreSQL]]");
+  });
+});
+
+describe("actsDoneIn", () => {
+  const version = BOARD_PROTOCOL_VERSION;
+  const act = (actionId: string) => ({ version, type: "act", actionId, acts: [] });
+  const done = (actionId: string) => ({ version, type: "done", actionId });
+  const frame = (dir: "sent" | "received", message: unknown) => ({
+    dir,
+    text: typeof message === "string" ? message : JSON.stringify(message),
+  });
+  const socket = (...frames: ReturnType<typeof frame>[]) => ({ url: "ws://x/ws/a", frames });
+
+  test("holds once board-host's done names each of the first commands sent", () => {
+    const sockets = [socket(frame("sent", act("a")), frame("received", done("a")))];
+    expect(actsDoneIn(sockets, 1)).toBe(true);
+    expect(actsDoneIn(sockets, 0)).toBe(true);
+  });
+
+  test("does not hold for a command sent but not yet done, or not yet sent", () => {
+    const sent = socket(
+      frame("sent", act("a")),
+      frame("received", done("a")),
+      frame("sent", act("b")),
+    );
+    expect(actsDoneIn([sent], 2)).toBe(false);
+    expect(actsDoneIn([socket(frame("sent", act("a")))], 1)).toBe(false);
+    expect(actsDoneIn([socket()], 1)).toBe(false);
+  });
+
+  test("a command resent on a new socket counts once, and holds once its done comes on either", () => {
+    const first = socket(frame("sent", act("a")), frame("received", "not json"));
+    const second = socket(frame("sent", act("a")), frame("received", done("a")));
+    expect(actsDoneIn([first, second], 1)).toBe(true);
+    expect(actsDoneIn([first, second], 2)).toBe(false);
+  });
+
+  test("a done the page sent, or a received act, does not count", () => {
+    const sockets = [socket(frame("sent", done("a")), frame("received", act("a")))];
+    expect(actsDoneIn(sockets, 1)).toBe(false);
   });
 });

@@ -19,6 +19,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  actsDone,
   actsSent,
   actTypes,
   answerOf,
@@ -53,7 +54,8 @@ const outlineSays = (board: Board, id: string, label: string) =>
     .getByText(label, { exact: true })
     .waitFor({ timeout: STEP_TIMEOUT_MS });
 
-// The agent's reply to the latest follow-up of a question, through `update`.
+// The agent's reply to the latest follow-up of a question, through `update`: the caller first waits
+// for board-host's `done` on the follow-up (`actsDone`), or `collect` may not have it yet.
 const reply = async (run: BoardRun, itemId: string, text: string) => {
   const { events } = await run.session.collect();
   const followUp = events.findLast(
@@ -107,7 +109,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .getByText("You have 1 postponed question: closing loses this ask", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await buttonOf(board, "database", "Postpone").click();
-        await actsSent(run, 2);
+        await actsDone(run, 2);
         await outlineSays(board, "database", "Unanswered");
         expect(sentActs(run).map((command) => command.acts)).toEqual([
           [{ type: "postpone", itemId: "database", rev: 1 }],
@@ -156,7 +158,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await outlineSays(board, "audit", "Declined");
         expect(sentActs(run)).toEqual([]);
         await barButton(board, "Submit").click();
-        const [command] = await actsSent(run, 1);
+        const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           {
             type: "decline",
@@ -212,7 +214,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database", "cache", "audit"]);
         await optionOf(board, "database", "SQLite").click();
         await chooseFromMore(board, "database", "Explain");
-        const [command] = await actsSent(run, 1);
+        const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           {
             type: "follow-up",
@@ -279,7 +281,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await outlineSays(board, "audit", "Declined");
         expect(sentActs(run)).toHaveLength(1);
         await barButton(board, "Submit").click();
-        const commands = await actsSent(run, 2);
+        const commands = await actsDone(run, 2);
         expect(commands[1]?.acts).toEqual([
           { type: "decline", itemId: "audit", rev: 1, when: expect.stringMatching(/Z$/) },
         ]);
@@ -308,12 +310,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await composer.inputValue()).toBe("Why\nPostgreSQL?");
         expect(sentActs(run)).toEqual([]);
         await board.page.keyboard.press("Control+Enter");
-        await actsSent(run, 1);
+        await actsDone(run, 1);
         await eventually(async () => (await composer.inputValue()) === "", "the composer cleared");
         await reply(run, "database", "<script>alert(1)</script>The team runs it.");
         await composer.fill("And SQLite?");
         await buttonOf(board, "database", "Send").click();
-        await actsSent(run, 2);
+        await actsDone(run, 2);
         await reply(run, "database", "One file, one writer.");
         const thread = card(board, "database").getByRole("region", { name: "Follow-up" });
         await thread.getByText("4 messages", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -331,6 +333,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await actsDone(run, 3);
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["answer"]);
         expect(actTypes(run)).toEqual([["follow-up"], ["follow-up"], ["answer"]]);
@@ -348,7 +351,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await buttonOf(board, "first", "Ask a follow-up").click();
         await composerOf(board, "first").fill("Is it needed for the pilot?");
         await buttonOf(board, "first", "Send").click();
-        await actsSent(run, 1);
+        await actsDone(run, 1);
         await reportedInView(board, "first", true);
         await card(board, "sixth").scrollIntoViewIfNeeded();
         // The view's own report, not the layout: the agent replies once the view has heard that
