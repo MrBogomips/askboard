@@ -63,6 +63,16 @@ export const componentChunks = async (
     .map(([name, root]) => ({ name, kind: "component", entry: entryOf(root, name) }));
 };
 
+// The component chunks that register more than the component they are named after: the context
+// chunk registers the three context items' components (excerpts, design decision 6).
+const CHUNK_COMPONENTS: Readonly<Record<string, readonly string[]>> = {
+  context: ["excerpt", "image", "reference"],
+};
+
+/** The components a component chunk registers: its own name, unless the table above lists more. */
+export const chunkComponents = (name: string): readonly string[] =>
+  Object.hasOwn(CHUNK_COMPONENTS, name) ? (CHUNK_COMPONENTS[name] ?? [name]) : [name];
+
 /** Every chunk, writing the library chunks' generated entries into `work`. */
 export const chunkDefinitions = async (
   work: string,

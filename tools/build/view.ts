@@ -29,6 +29,7 @@ import {
   type Bundle,
   bundleChunk,
   type ChunkKind,
+  chunkComponents,
   chunkDefinitions,
   stylePlanOf,
 } from "./chunks.ts";
@@ -159,7 +160,7 @@ const assembleBuild = (
         script: add(`chunks/${chunk.name}.js`, chunk.script),
         styles: styles(`chunks/${chunk.name}.css`, chunk.styles),
         needs: chunk.needs,
-        ...(chunk.kind === "component" ? { components: [chunk.name] } : {}),
+        ...(chunk.kind === "component" ? { components: [...chunkComponents(chunk.name)] } : {}),
         licences: notices(chunk),
       },
     ]);

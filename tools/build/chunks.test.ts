@@ -6,6 +6,7 @@ import {
   bundleChunk,
   type ChunkDefinition,
   COMPONENT_ROOTS,
+  chunkComponents,
   chunkDefinitions,
   componentChunks,
 } from "./chunks.ts";
@@ -122,5 +123,21 @@ describe("a widget's chunk", () => {
     for (const notice of notices) {
       expect(notice).toEqual({ scope: "@askboard", licence: "MIT", text: repository });
     }
+  });
+});
+
+describe("the components a chunk registers", () => {
+  test("a component chunk registers the component it is named after", () => {
+    expect(chunkComponents("tree")).toEqual(["tree"]);
+    expect(chunkComponents("probe")).toEqual(["probe"]);
+  });
+
+  test("the context chunk registers the three context items' components (excerpts, design decision 6)", () => {
+    expect(chunkComponents("context")).toEqual(["excerpt", "image", "reference"]);
+  });
+
+  test("a name of the object prototype is no chunk's entry", () => {
+    expect(chunkComponents("constructor")).toEqual(["constructor"]);
+    expect(chunkComponents("toString")).toEqual(["toString"]);
   });
 });

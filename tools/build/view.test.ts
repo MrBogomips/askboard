@@ -10,6 +10,7 @@ import {
   type ViewManifest,
 } from "@askboard/contract";
 import {
+  contextBoardDocument,
   ganttBoardDocument,
   ganttPlanBoardDocument,
   plainChoiceBoardDocument,
@@ -68,6 +69,7 @@ describe("bun run build:view (design decision 7)", () => {
     expect(kinds).toEqual({
       "board-graph": "library",
       choice: "component",
+      context: "component",
       compute: "library",
       "ext-apps": "library",
       gantt: "component",
@@ -226,6 +228,7 @@ describe("bun run build:view (design decision 7)", () => {
       "board-page",
       "choice",
       "compute",
+      "context",
       "ext-apps",
       "gantt",
       "radix",
@@ -452,6 +455,51 @@ describe("molecules reach the view expanded (molecules; view spec, Molecules rea
     await expect(assembled(document)).rejects.toThrow(
       'no chunk of the manifest registers "molecule"',
     );
+  });
+});
+
+describe("the context chunk (excerpts, design decision 6; view spec, Context items)", () => {
+  test("it registers excerpt, image and reference, needing React and the shell", () => {
+    expect(chunkNamed("context").components).toEqual(["excerpt", "image", "reference"]);
+    expect(chunkNamed("context").needs).toEqual(["react", "shell"]);
+  });
+
+  test("it holds only AskBoard's own code, no schema, no Ajv and no code made from text", async () => {
+    expect(packagesIn(chunkNamed("context").licences)).toEqual(["@askboard/view"]);
+    const context = await text(chunkNamed("context").script.path);
+    expect(context).toContain('"excerpt"');
+    expect(context).not.toMatch(/\bimport\s*\.\s*meta\b/);
+    expect(context).not.toContain("urn:askboard");
+    expect(context).not.toMatch(/\bajv\b/i);
+    expect(context).not.toMatch(/\bnew Function\b|\beval\(/);
+  });
+
+  test("the selection takes it for a board holding a context item, and not for the plain Choice board", () => {
+    const names = (document: ViewDocument) =>
+      selectChunks(document, manifest).map(({ name }) => name);
+    expect(names(contextBoardDocument)).toEqual([
+      "ext-apps",
+      "react",
+      "radix",
+      "shell",
+      "choice",
+      "context",
+    ]);
+    expect(names(plainChoiceBoardDocument)).not.toContain("context");
+    expect(names(treeBoardDocument)).not.toContain("context");
+  });
+
+  test("the context board's srcdoc inlines it, and the plain Choice board's does not", async () => {
+    const { script } = chunkNamed("context");
+    const code = await text(script.path);
+    const withContext = await assembled(contextBoardDocument);
+    const plain = await assembled(plainChoiceBoardDocument);
+    expect(withContext.chunks).toContain("context");
+    expect(withContext.srcdoc).toContain(code);
+    expect(withContext.policy).toContain(cspHashSource(script.sha256));
+    expect(plain.chunks).not.toContain("context");
+    expect(plain.srcdoc).not.toContain(code);
+    expect(plain.policy).not.toContain(cspHashSource(script.sha256));
   });
 });
 
