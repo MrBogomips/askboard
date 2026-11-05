@@ -14,6 +14,7 @@ import {
   type LifecycleAskInput,
   type OutputEvent,
   type PresentationSetting,
+  SNAPSHOT_FOLDER,
   type UnavailableReason,
   type UnresolvedPointerWarning,
   type WriteOutcome,
@@ -803,6 +804,15 @@ export class AskCore {
    */
   askingRule(): AskingRule {
     return this.#configuration.settled?.values.askingRule ?? "none";
+  }
+
+  /**
+   * The Snapshot folder in effect, relative to the project root, for E7's writer at each Snapshot,
+   * read without waiting: the default until the settings are read, and when the file's value
+   * leaves the project (design decision 5).
+   */
+  snapshotFolder(): string {
+    return this.#configuration.settled?.values.snapshotFolder ?? SNAPSHOT_FOLDER;
   }
 
   /**

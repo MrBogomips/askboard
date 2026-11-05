@@ -102,7 +102,10 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     reportAs,
     rule: () => coreOf().askingRule(),
   });
-  const snapshots = composeSnapshots(options, { projectDir: push.projectDir });
+  const snapshots = composeSnapshots(options, {
+    projectDir: push.projectDir,
+    folder: () => coreOf().snapshotFolder(),
+  });
   const host = createBoardHost({
     core: coreOf,
     view: options.view,

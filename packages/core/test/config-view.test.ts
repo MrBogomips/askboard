@@ -98,6 +98,38 @@ describe("the settings view a board receives", () => {
   });
 });
 
+describe("the Snapshot folder in effect (design decision 5)", () => {
+  const folderOf = async (options: FakeConfigOptions) => {
+    const { core } = withConfig(options);
+    await core.settings();
+    return core.snapshotFolder();
+  };
+
+  test("the default before the configuration is read", () => {
+    const { core } = withConfig({ project: { version: v, snapshotFolder: "docs/snaps" } });
+    expect(core.snapshotFolder()).toBe(".askboard/snapshots");
+  });
+
+  test("the project's, else the user's, else the default", async () => {
+    expect(
+      await folderOf({
+        user: { version: v, snapshotFolder: "user/snaps" },
+        project: { version: v, snapshotFolder: "docs/snaps" },
+      }),
+    ).toBe("docs/snaps");
+    expect(await folderOf({ user: { version: v, snapshotFolder: "user/snaps" } })).toBe(
+      "user/snaps",
+    );
+    expect(await folderOf({})).toBe(".askboard/snapshots");
+  });
+
+  test("a folder that leaves the project is replaced by the default", async () => {
+    expect(await folderOf({ project: { version: v, snapshotFolder: "../out" } })).toBe(
+      ".askboard/snapshots",
+    );
+  });
+});
+
 describe("the asking rule in effect", () => {
   const ruleOf = async (options: FakeConfigOptions) => {
     const { core } = withConfig(options);
