@@ -29,6 +29,7 @@ sources:
   - 'OpenSpec change gantt-widget, proposal.md, open question 6: the view builds the board graph from the board document with the values of the draft record, recalculated in place where an edit changes only input values, and the baseline of a Gantt plan from the document as sent (accepted by the PO, 2026-10-31; applied 2026-11-01)'
   - 'OpenSpec change ask-lifecycle, proposal.md, open question 12: the "More" menu on Radix Dropdown Menu, added to the Stack row of radix-ui (accepted by the PO, 2026-11-03)'
   - 'OpenSpec change excerpts, proposal.md, open questions A1, A2, A4, A5, A6 and B1 (accepted by the PO, 2026-11-01)'
+  - 'OpenSpec change settings-languages, proposal.md, open questions A1 to A6: configuration files, the first-ask folders, `with-references` and locale formats (accepted by the PO, 2026-11-01)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -427,12 +428,13 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Configuration:**
     - Both configuration files follow the configuration schema in `contract`:
       - project: `.askboard/config.json`;
-      - user: `$XDG_CONFIG_HOME/askboard/config.json`, by default `~/.config/askboard/`.
+      - user: `$XDG_CONFIG_HOME/askboard/config.json`, by default `~/.config/askboard/`. A relative `XDG_CONFIG_HOME` is ignored, as the XDG specification says; without an absolute `HOME` either, no user file is read.
+    - Each file names its `version`, `major.minor`, as every document does (AD-7).
     - The schema names these keys, and the board's settings panel shows the presentation and behaviour ones (FR-35):
       - presentation: `theme`, `density`, `contextPlacement`;
       - behaviour: `defaultLanguage` (`en-US` or `it-IT`, FR-34), `askingRule` (FR-30, AD-16), `snapshotFolder` (FR-27), `editor` (AD-8);
       - molecule defaults: `defaultMinimumMargin`, the project default for the sales-estimate-review molecule's `minimumMargin` (AD-9).
-    - Only the session process reads them, through one `Config` port in `ask-core`: once at start, and the user configuration's presentation keys again whenever it opens a board. It merges them key by key, project keys winning, and changes take effect from the next session, except the board's presentation writes below.
+    - Only the session process reads them, through one `Config` port in `ask-core`: once at start, and the user configuration's presentation keys again whenever it opens a board. Start is the first time it needs a setting, never before its first request after `server/discover` (AD-2). It merges them key by key, project keys winning, and changes take effect from the next session, except the board's presentation writes below.
     - **Presentation keys:**
       - The board page may change `theme`, `density` and `contextPlacement` over the board protocol. The session process writes the value to the user configuration and applies it at once, to that board and to later ones.
       - The write re-reads the file, changes only that key and replaces the file atomically (a temporary file, then a rename).
@@ -441,10 +443,10 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The session process accepts a settings write only for `theme`, `density` and `contextPlacement`, with a value the configuration schema allows, and refuses any other key, so the board never writes a command to run. Behavioural settings show read-only, with their file and key, and keep the next-session rule.
     - `editor` is the one key read only from the user configuration, an exception to the merge: a project-level `editor` is ignored, with a warning (AD-8).
     - `hooks` and `mod` read effective settings only through the local API.
-    - An unknown key is a warning. A file with an unsupported major version is ignored, with a diagnostic.
+    - An unknown key is a warning. A file with an unsupported major version is ignored, with a diagnostic, and so is a file that cannot be read, is not JSON or fails the configuration schema: none of its keys applies, never part of them, and the settings panel shows the file as not applied, with the problem. The session process never writes a presentation key into a user configuration that fails its check.
   - **Project folders:**
     - `.askboard/` holds `config.json`, `snapshots/` (the default Snapshot folder, changeable with `snapshotFolder`), `media/` and `patches/` (written by agents, only read by AskBoard) and `bench/` (benchmark mode only).
-    - At a session's first ask, the session process creates `.askboard/` and any missing subfolder. It writes `.askboard/.gitignore`, listing `snapshots/`, `media/`, `patches/` and `bench/`, only when it creates that file, so a user's choice to commit holds (FR-27).
+    - At a session's first ask, the session process creates `.askboard/` under the session project root, with `snapshots/`, `media/` and `patches/` when missing; `bench/` is created only by `bench`. It writes `.askboard/.gitignore`, listing `snapshots/`, `media/`, `patches/` and `bench/`, only when it creates that file, so a user's choice to commit holds (FR-27). It creates nothing in another root: an `isolation: worktree` subagent's worktree is removed only while it holds no change (AD-12). A failure is a diagnostic and never refuses the ask.
   - **Roots:**
     - Configuration, `snapshots/` and `bench/` resolve against the session project root; `media/` and `patches/` against the ask's root (AD-12).
     - A configured Snapshot folder outside the project root is replaced by the default, with a warning.
@@ -472,6 +474,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **The rules:**
     - Asking rules are a closed set defined in `contract`: `none`, `always`, `with-references`. Each has one predicate over an AskUserQuestion input, implemented once in `hooks`; the skills' texts are generated from `contract` (AD-6).
+    - `with-references` sends a call to AskBoard when any question's `question` or `header`, or any option's `label`, `description` or `preview`, holds an `http:` or `https:` URL or a project-file pointer: a relative path ending in a file extension that holds a `/` or is followed by `#` and an anchor or by `:` and a line. `contract` holds both patterns.
     - The effective rule comes from the session process (AD-14).
   - **Enforcement:**
     - A `PreToolUse` hook on AskUserQuestion refuses it, with a reason pointing to AskBoard, whenever the rule sends the question there. It does so only while the session process is reachable and reports that it can show boards; otherwise it lets the call through.
@@ -614,6 +617,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | JSON field names | camelCase in every schema set except the local API's Claude Code fields, which keep Claude Code's names. Event, state and reason values in kebab-case (`partly-answered`, `follow-up`, `agent-finished`). |
 | IDs and references | As in AD-7 and AD-13. The skills teach ask IDs made of a task slug plus a short random suffix. |
 | Time and identity | RFC 3339 timestamps in UTC. `when` is the time of the user's answer action, stamped by the view; for an answer the agent records, the core's time. `who` is declared: the ask's named user, else the git user name, else the OS login name (FR-19). |
+| Locale formats | The en-US and it-IT formats for numbers, money, percentages, dates and times, and number and date entry, are AskBoard's own tables and pure functions in `contract`, used by the view, the board page, the widgets and Snapshots. Nothing formats through `Intl`, `toLocaleString` or the runtime's locale. A calendar date never passes through a time zone; a time shows in the viewer's time zone. Strings live in the view's catalogue, one table per language, and every string exists in both (FR-34). |
 | Versions | Packages, plugin and every schema set follow semantic versioning (AD-7). |
 | Errors, warnings, typed results | As in AD-6. |
 | Process output | Stdout carries only MCP protocol. Diagnostics go to stderr, without agent content by default and never with a token. |
