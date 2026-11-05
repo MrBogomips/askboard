@@ -55,6 +55,8 @@ Group 0 waits until E3 and E4 have merged to `main`, rebases, and checks every n
 | 9.2 the Gantt's dates | `gantt-widget` | The Gantt's `date.ts` delegates to the contract's date entry and formats |
 | 10.1 the number step of the end-to-end scenario | a number field on `main` (the Tree) | The step waits for the first number field on `main` and is recorded open |
 
+*2026-11-05: E7 landed first (`origin/main` 8e323779) with board protocol 1.3 and the tool envelopes at 1.3, and the `.askboard/` constants under E7's names, which this change keeps. Its `settings` and `setting` messages are therefore board protocol 1.4, after E7's messages in the lists; the input format and the board document are at 1.3, unchanged by E7.*
+
 `molecules` defers nothing to E8 (its open question 9 shows en-US values by choice); `defaultMinimumMargin` waits for the sales molecule's epic (B14). `widget-answers` keeps "`language` and `locale` stay `en-US` until E8" (its contract spec), which decision 7 supersedes.
 
 **E4's dispatch tables.** E4's tasks 14.3 and 14.7a turn the shared dispatch points into tables, so that E5, E7 and E8 append to them; their final names, read at 432f2f0, are E4's task 14.3 note's. E8 adds:
