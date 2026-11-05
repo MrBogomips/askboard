@@ -52,6 +52,25 @@ const unavailable = (reason: UnresolvedReason): SourceUnavailable => {
   return { status: "missing" };
 };
 
+// How much of a file's start tells whether it is text: no NUL byte and valid UTF-8, a character
+// cut at the end of the prefix allowed.
+const TEXT_PROBE_BYTES = 8192;
+const PROBE_DECODER = new TextDecoder("utf-8", { fatal: true });
+
+const looksLikeText = async ({ handle, size }: RegularFile): Promise<boolean> => {
+  const buffer = new Uint8Array(Math.min(size, TEXT_PROBE_BYTES));
+  try {
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const prefix = buffer.subarray(0, bytesRead);
+    if (prefix.includes(0)) return false;
+    PROBE_DECODER.decode(prefix, { stream: true });
+    return true;
+  } catch {
+    // Invalid UTF-8 (a TypeError), or a read that failed: not a file to hand to an editor.
+    return false;
+  }
+};
+
 /** The lines of a regular file read up to `limit`, or why not. */
 const linesOf = async (file: RegularFile, limit: number): Promise<string[] | Refused> => {
   const bytes = await readAtMost(file, limit);
@@ -183,6 +202,9 @@ export const createSourceFiles = ({
       const located = await find(root, pointer);
       if (isRefused(located)) return undefined;
       const target = await withRegularFile<EditorTarget>(fs, located.realPath, async (file) => {
+        // Only a text file goes to the editor: a command such as `open` would launch any other
+        // file by its association. A file past the source view's limit is still text.
+        if (!(await looksLikeText(file))) return { refused: "not-text" };
         const lines =
           located.pointer.anchor === undefined
             ? undefined

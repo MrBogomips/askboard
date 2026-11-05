@@ -54,6 +54,10 @@ A reference SHALL show its kind label and its path or title, and open only on an
 - **WHEN** a message reaches the board page naming an item that is not a reference of its board document
 - **THEN** the board page opens nothing
 
+#### Scenario: The URL is the board's own, as it stands now
+- **WHEN** a message names a web reference whose URL a later revision of the board document changed
+- **THEN** the board page opens the URL the board document holds for that item now, and never one that came with the message
+
 ### Requirement: Images by pointer
 An image SHALL show its bytes from the board document through a `blob:` URL, with its alt text, and never load a URL; an unresolved image SHALL show "Unresolved" with its pointer and leave the rest of the board working (AD-8, AD-12).
 

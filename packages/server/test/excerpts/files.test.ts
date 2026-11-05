@@ -464,6 +464,22 @@ describe("editorTarget", () => {
     });
   });
 
+  test("a file that is not text gives no target, so an editor command cannot launch it by association", async () => {
+    box.write("bin/data.bin", Uint8Array.from([0x41, 0x00, 0x42]));
+    box.write("bin/latin1.txt", Uint8Array.from([0x63, 0x61, 0x66, 0xe9, 0x0a]));
+    box.write("bin/late-nul.dat", `${"a".repeat(100)}\0tail`);
+    expect(await files.editorTarget(box.root, "bin/data.bin")).toBeUndefined();
+    expect(await files.editorTarget(box.root, "bin/latin1.txt")).toBeUndefined();
+    expect(await files.editorTarget(box.root, "bin/late-nul.dat")).toBeUndefined();
+  });
+
+  test("a large text file, past the source view's limit, still opens", async () => {
+    box.write("big/huge.txt", "x\n".repeat(30_000));
+    expect(await files.editorTarget(box.root, "big/huge.txt")).toEqual({
+      file: join(box.realRoot, "big/huge.txt"),
+    });
+  });
+
   test("a file swapped for a symlink out of the root after the send gives no target", async () => {
     const pointer = "docs/adr/0012-payment-retries.md#Decision";
     expect(await files.resolveExcerpt(box.root, pointer)).toMatchObject({ status: "resolved" });

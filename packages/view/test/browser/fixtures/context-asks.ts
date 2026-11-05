@@ -114,6 +114,8 @@ export const webReferenceAsk: Ask = {
 /** The project of the reading panel's scenarios: a 100-line spec, a binary, a huge file, a link out. */
 export const SPEC_PATH = "docs/specs/checkout.md";
 export const SPEC_LINES = Array.from({ length: 100 }, (_, at) => `spec line ${at + 1}`);
+/** A pointer holding U+202E, which the grammar admits: no file has this name. */
+export const BIDI_POINTER = "docs/\u202Efdp.md";
 export const PANEL_POINTER = `${SPEC_PATH}#L40-L52`;
 
 export const panelFiles = (outside: string) =>
@@ -142,6 +144,7 @@ export const panelAsk: Ask = {
           { type: "reference", id: "ref-binary", props: { pointer: "bin/data.bin" } },
           { type: "reference", id: "ref-large", props: { pointer: "big/large.txt" } },
           { type: "reference", id: "ref-outside", props: { pointer: "escape.md" } },
+          { type: "reference", id: "ref-bidi", props: { pointer: BIDI_POINTER } },
         ],
       },
     },

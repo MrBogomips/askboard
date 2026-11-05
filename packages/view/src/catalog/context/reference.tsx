@@ -11,6 +11,7 @@ import type { ItemProps } from "../port.ts";
 import { useHosted, useOpenReference, useReadyAfterLayout } from "../port.ts";
 import { HINT, LABEL, PATH, REFERENCE, REFERENCE_ROW, REFERENCE_STATIC } from "./classes.ts";
 import { Marked } from "./marked.tsx";
+import { markedString } from "./marks.ts";
 import { type ReferenceView, referenceOf } from "./props.ts";
 
 const Row = ({ reference }: { readonly reference: ReferenceView }) => (
@@ -40,7 +41,7 @@ const Hint = ({ reference }: { readonly reference: ReferenceView }) =>
 
 // A Snapshot has no board page to open a file in: the path stays as text.
 const SnapshotFile = ({ reference }: { readonly reference: ReferenceView }) => (
-  <div data-context="reference" title={reference.target} className={REFERENCE_STATIC}>
+  <div data-context="reference" title={markedString(reference.target)} className={REFERENCE_STATIC}>
     <Row reference={reference} />
     <span data-context-part="hint" className={HINT}>
       not available in a Snapshot
@@ -57,7 +58,7 @@ const SnapshotLink = ({
 }) => (
   <a
     data-context="reference"
-    title={reference.target}
+    title={markedString(reference.target)}
     href={href}
     target="_blank"
     rel="noopener noreferrer"
@@ -85,7 +86,7 @@ export const Reference = ({
     <button
       type="button"
       data-context="reference"
-      title={reference.target}
+      title={markedString(reference.target)}
       className={REFERENCE}
       onClick={() => openReference(item.id)}
     >

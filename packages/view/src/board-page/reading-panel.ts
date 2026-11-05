@@ -8,6 +8,7 @@
 // it from the source route with the token, and everything shown is text (AD-8).
 
 import type { EditorOutcomeMessage, SourceStateMessage } from "@askboard/contract";
+import { markedString } from "../catalog/context/marks.ts";
 import type { ReferenceInset } from "../view-protocol.ts";
 import {
   LOADING,
@@ -158,8 +159,11 @@ export const createReadingPanel = (document: Document, options: PanelOptions): R
     root.style.top = `${request.inset.top}px`;
     root.style.bottom = `${request.inset.bottom}px`;
     const header = made(document, "div", HEADER);
-    const path = made(document, "span", PATH, request.path);
-    path.title = request.path;
+    // The controls that could reorder a path show as their escapes, as in the source view.
+    const shown = markedString(request.path);
+    const path = made(document, "span", PATH, shown);
+    path.title = shown;
+    path.dir = "auto";
     const chip = made(document, "span", CHIP, "Changed since the agent asked");
     chip.hidden = true;
     const editor = made(document, "button", BUTTON, "Open in editor");
@@ -176,7 +180,7 @@ export const createReadingPanel = (document: Document, options: PanelOptions): R
     root.append(header, note, body);
     const open: Open = {
       itemId: request.itemId,
-      path: request.path,
+      path: markedString(request.path),
       actions,
       elements: { root, chip, editor, close, note, body },
     };

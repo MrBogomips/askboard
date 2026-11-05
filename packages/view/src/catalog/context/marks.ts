@@ -31,3 +31,9 @@ export const markedRuns = (text: string): TextRun[] => {
   if (plain !== "") runs.push({ text: plain, mark: false });
   return runs;
 };
+
+/** The text as one string, each marked control as its escape: for a tooltip or a title. */
+export const markedString = (text: string): string =>
+  markedRuns(text)
+    .map((run) => run.text)
+    .join("");

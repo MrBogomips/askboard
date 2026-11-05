@@ -309,6 +309,27 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "a bidirectional control in a pointer shows as its escape in the header and the tooltip, never raw",
+      async () => {
+        const { board } = await startPanel();
+        const chip = openerOf(board, "ref-bidi");
+        expect(await chip.getAttribute("title")).toBe("docs/\\u202Efdp.md");
+        await chip.click();
+        const panel = panelOf(board);
+        await panel
+          .getByText("This file is not available", { exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        const text = (await panel.textContent()) ?? "";
+        expect(text).toContain("docs/\\u202Efdp.md");
+        expect(text).not.toContain("\u202E");
+        expect(await panel.locator("span[title]").first().getAttribute("title")).toBe(
+          "docs/\\u202Efdp.md",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "the panel's request to open a source names the item only",
       async () => {
         const { run, board } = await startPanel();

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { markedRuns } from "./marks.ts";
+import { markedRuns, markedString } from "./marks.ts";
 
 // The controls the source view marks (`server/src/board-host/source-view.ts`): the bidirectional
 // controls of the board header's rule, and NUL.
@@ -37,5 +37,14 @@ describe("markedRuns (excerpts, design decision 6; view spec, Bidirectional cont
     for (const kept of ["\t", "\r", "\u00A0", "\u200B", "\u05D0", "\u{1F600}"]) {
       expect(markedRuns(kept)).toEqual([{ text: kept, mark: false }]);
     }
+  });
+});
+
+describe("markedString (reading panel paths and tooltips; the 8.1 review)", () => {
+  test("each marked control is its escape and everything else stays as written", () => {
+    expect(markedString("docs/\u202Eevil.md")).toBe("docs/\\u202Eevil.md");
+    expect(markedString("a\0b\u2066c")).toBe("a\\u0000b\\u2066c");
+    expect(markedString("src/retry.ts#L1-L5")).toBe("src/retry.ts#L1-L5");
+    expect(markedString("")).toBe("");
   });
 });

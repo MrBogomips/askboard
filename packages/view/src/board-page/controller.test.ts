@@ -874,6 +874,34 @@ describe("opening a reference from the view (excerpts, task 6.5; AD-8)", () => {
     expect(run.acts(1)).toEqual([]);
   });
 
+  test("a reference whose URL a later revision changed opens the board document's current URL, never one from the message", async () => {
+    const run = await openedContext();
+    const changed = {
+      ...contextBoardDocument,
+      items: contextBoardDocument.items.map((question) => ({
+        ...question,
+        props: {
+          ...question.props,
+          items: question.props.items?.map((item) =>
+            item.id === "pr"
+              ? {
+                  ...item,
+                  props: { ...(item.props as object), url: "https://github.com/acme/pay/pull/99" },
+                }
+              : item,
+          ),
+        },
+      })),
+    };
+    run.socket(1).receive({
+      version,
+      type: "board",
+      document: changed as unknown as typeof plainChoiceBoardDocument,
+    });
+    await run.view({ type: "open-reference", itemId: "pr", inset });
+    expect(run.opened).toEqual(["https://github.com/acme/pay/pull/99"]);
+  });
+
   test("an image, an excerpt, a FILE reference, a question and an unknown item open nothing", async () => {
     const run = await openedContext();
     for (const itemId of ["shot", "retry-adr", "retry-src", "fix", "no-such-item"]) {
