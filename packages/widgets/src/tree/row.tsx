@@ -186,8 +186,8 @@ export const NodeRow = memo(function NodeRow({
   const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_VALUE_COLUMNS.length);
   const textOf = (column: TreeColumn): string =>
     pert === undefined
-      ? fieldText(row.node, column)
-      : pertFieldText(row.node, column, pert.estimates);
+      ? fieldText(row.node, column, locale)
+      : pertFieldText(row.node, column, pert.estimates, locale);
   return (
     <>
       <tr
@@ -224,7 +224,6 @@ export const NodeRow = memo(function NodeRow({
               className={`${fieldClass(column, edited, changed)} ${FOCUS_RING}`}
             >
               {edited ? editing?.editor : textOf(column)}
-              {edited ? editing?.editor : fieldText(row.node, column, locale)}
             </td>
           );
         })}

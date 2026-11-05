@@ -60,7 +60,7 @@ const passes = (value: unknown) =>
 
 describe("the input format's version (design decision 2)", () => {
   test("is the minor after main's 1.1", () => {
-    expect(INPUT_FORMAT_VERSION).toBe("1.2");
+    expect(INPUT_FORMAT_VERSION).toMatch(/^1\.([2-9]|[1-9][0-9]+)$/);
   });
 
   test("names the four new schemas", () => {

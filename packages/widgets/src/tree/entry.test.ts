@@ -137,6 +137,9 @@ describe("a work breakdown's entries (molecules design decision 14; view spec, W
     expect(entryKindAt(wbs, "portal", 4)).toBeUndefined();
     expect(entryKindAt(wbs, "portal", 5)).toBeUndefined();
     expect(entryKindAt(tree, "b", 1)).toBe("number");
+  });
+});
+
 describe("a number column in the ask's locale (settings-languages, task 9.1)", () => {
   test("starts an edit with the value as the locale writes it", () => {
     expect(startTextOf(tree.columns, nodeOf(tree, "a") as never, 1, "it-IT")).toBe("1234,5");

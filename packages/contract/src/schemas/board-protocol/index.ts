@@ -4,9 +4,8 @@
 // `type`, since no schema has a root combinator. E3's minor appends act commands with action IDs,
 // the draft record, done and closed, and widens the state, refusals and discards (ask-lifecycle,
 // design decisions 2 and 8): a new message's name goes at the end of its direction's list. E5's
-// minor appends the reading panel's and the editor's messages (excerpts, design decision 5).
-// design decisions 2 and 8): a new message's name goes at the end of its direction's list. E8's
-// minor appends the settings in effect and a board's write of one presentation key
+// minor appends the reading panel's and the editor's messages (excerpts, design decision 5), and
+// E8's minor appends the settings in effect and a board's write of one presentation key
 // (settings-languages, design decision 6).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
@@ -33,14 +32,14 @@ import openEditor from "./open-editor.json" with { type: "json" };
 import openSource from "./open-source.json" with { type: "json" };
 import receipt from "./receipt.json" with { type: "json" };
 import refused from "./refused.json" with { type: "json" };
-import sourceState from "./source-state.json" with { type: "json" };
 import setting from "./setting.json" with { type: "json" };
 import settings from "./settings.json" with { type: "json" };
+import sourceState from "./source-state.json" with { type: "json" };
 import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.2";
+export const BOARD_PROTOCOL_VERSION = "1.3";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -445,7 +444,7 @@ export type EditorOutcomeMessage = {
 export type ContextPageMessage = OpenSourceCommand | OpenEditorCommand;
 
 export type ContextHostMessage = SourceStateMessage | EditorOutcomeMessage;
-// Board protocol 1.2 (settings-languages, design decision 6).
+// Board protocol 1.3 (settings-languages, design decision 6).
 
 /** Where a key in effect comes from. */
 export type SettingSource = "project" | "user" | "default";

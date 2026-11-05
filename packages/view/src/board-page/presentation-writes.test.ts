@@ -34,6 +34,7 @@ const setUp = async () => {
   const updates: ViewUpdate[] = [];
   const applied: ViewPresentation[] = [];
   const opened: (PanelData | undefined)[] = [];
+  const readingPanelClosed: true[] = [];
   let page: BoardPage | undefined;
   const handles: ((message: ViewMessage) => Promise<ViewReply>)[] = [];
   page = runBoardPage({
@@ -61,6 +62,13 @@ const setUp = async () => {
     setLanguage: () => undefined,
     applyPresentation: (presentation) => applied.push(presentation),
     showSettings: (panel) => opened.push(panel),
+    readingPanel: {
+      close: () => readingPanelClosed.push(true),
+      itemId: undefined,
+      open: () => undefined,
+      sourceState: () => undefined,
+      editorOutcome: () => undefined,
+    },
     log: () => undefined,
     copyText: async () => undefined,
   });
@@ -76,7 +84,18 @@ const setUp = async () => {
   };
   const closeSettings = () => page?.closeSettings();
   const setPresentation = (setting: PresentationSetting) => page?.setPresentation(setting);
-  return { sockets, sent, updates, applied, opened, receive, view, closeSettings, setPresentation };
+  return {
+    sockets,
+    sent,
+    updates,
+    applied,
+    opened,
+    readingPanelClosed,
+    receive,
+    view,
+    closeSettings,
+    setPresentation,
+  };
 };
 
 describe("a toggle's value from the view", () => {
@@ -141,6 +160,12 @@ describe("a toggle's value from the view", () => {
 });
 
 describe("the settings panel", () => {
+  test("opening it closes the reading panel (excerpts)", async () => {
+    const run = await setUp();
+    await run.view({ type: "open-settings" });
+    expect(run.readingPanelClosed).toHaveLength(1);
+  });
+
   test("opens on the view's Settings with the rows in effect", async () => {
     const run = await setUp();
     expect(await run.view({ type: "open-settings" })).toEqual({});

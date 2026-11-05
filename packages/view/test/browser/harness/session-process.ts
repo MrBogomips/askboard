@@ -21,7 +21,6 @@
 //   expected user.
 
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
@@ -428,10 +427,10 @@ const writeConfig = async (file: string, value: unknown): Promise<void> => {
  * configuration files, so that no developer's configuration reaches it (settings-languages, design
  * decision 14); an asker's project stands in for the project.
  */
-const isolated = async (dir: string, options: SessionProcessOptions, place?: AskerPlace) => {
+const isolated = async (dir: string, options: SessionProcessOptions, projectDir?: string) => {
   const home = join(dir, "home");
   const configHome = join(dir, "config");
-  const project = place?.projectDir ?? join(dir, "project");
+  const project = projectDir ?? join(dir, "project");
   await Promise.all(
     [home, configHome, project].map((folder) => mkdir(folder, { recursive: true })),
   );
@@ -467,15 +466,13 @@ const startFirst = async (
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
 export const startSessionProcess = async (
-  { transcript, view, ask, asker, files, projectDir: given }: Scenario,
-  options: SessionProcessOptions = {},
-  { transcript, view, ask, asker, config }: Scenario,
-  given: SessionProcessOptions = {},
+  { transcript, view, ask, asker, files, projectDir: given, config }: Scenario,
+  extra: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
   const options: SessionProcessOptions = {
     ...(config?.user === undefined ? {} : { userConfig: config.user }),
     ...(config?.project === undefined ? {} : { projectConfig: config.project }),
-    ...given,
+    ...extra,
   };
   const input = withAsker(ask ?? (await askInputFor(transcript, options.approvedAsk)), asker);
   const runtime = options.runtime ?? runtimeFrom(process.env.ASKBOARD_E2E_RUNTIME);
@@ -490,7 +487,7 @@ export const startSessionProcess = async (
   if (projectDir !== undefined && files !== undefined) await writeFiles(projectDir, files);
   const cleanup = cleanupOf(stage, dir, place, plain);
   const linksFile = join(dir, "links");
-  const folders = await isolated(dir, options, place);
+  const folders = await isolated(dir, options, projectDir);
   const problems: string[] = [];
   const context: LaunchContext = {
     ...(asker === undefined || place === undefined ? {} : { asker: { asker, place } }),
@@ -504,7 +501,6 @@ export const startSessionProcess = async (
       PATH: `${NOTIFIER_STAND_INS}:${getDefaultEnvironment().PATH ?? ""}`,
       BROWSER: LINK_RECORDER,
       [LINKS_VARIABLE]: linksFile,
-      ...(projectDir === undefined ? {} : { CLAUDE_PROJECT_DIR: projectDir }),
       ...folders,
     },
     linksFile,

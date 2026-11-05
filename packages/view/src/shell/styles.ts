@@ -51,7 +51,7 @@ export const TEXT_FIELD =
   "read-only:border-border read-only:bg-muted";
 
 /** One segment of a segmented control: the pressed one is underlined (Delivery, context placement). */
-export const SEGMENT = `h-6 rounded-sm border-b-2 border-transparent px-2 text-control text-muted-foreground aria-pressed:border-primary aria-pressed:bg-card aria-pressed:font-semibold aria-pressed:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
+export const SEGMENT = `h-6 rounded-sm border-b-2 border-transparent px-sm text-control text-muted-foreground aria-pressed:border-primary aria-pressed:bg-card aria-pressed:font-semibold aria-pressed:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
 
 /** The frame of a segmented control. */
 export const SEGMENTS = "flex items-center gap-0.5 rounded-md border border-border bg-muted p-0.5";

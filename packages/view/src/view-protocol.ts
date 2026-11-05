@@ -140,6 +140,16 @@ export type ViewDraft = { readonly type: "draft"; readonly record: DraftRecord }
 export type ViewActivity = { readonly type: "activity" };
 
 /**
+ * One presentation key and a value its schema allows, from a quick toggle (settings-languages,
+ * design decision 10): the board page applies it at once and sends it to `board-host` as a
+ * `setting` command, which writes it to the user file.
+ */
+export type ViewSetting = { readonly type: "setting" } & PresentationSetting;
+
+/** "Settings": the board page opens its settings panel. */
+export type ViewOpenSettings = { readonly type: "open-settings" };
+
+/**
  * The user clicks a reference, or an excerpt's "Open in reading panel" (excerpts, design decisions
  * 6 and 7): the message names the item and the heights of the view's header and bottom bar, so that
  * the reading panel sits between them. The board page reads the URL or pointer from the board
@@ -153,14 +163,6 @@ export type ViewOpenReference = {
 
 /** The view's header and bottom bar heights in CSS pixels: where the reading panel may sit. */
 export type ReferenceInset = { readonly top: number; readonly bottom: number };
- * One presentation key and a value its schema allows, from a quick toggle (settings-languages,
- * design decision 10): the board page applies it at once and sends it to `board-host` as a
- * `setting` command, which writes it to the user file.
- */
-export type ViewSetting = { readonly type: "setting" } & PresentationSetting;
-
-/** "Settings": the board page opens its settings panel. */
-export type ViewOpenSettings = { readonly type: "open-settings" };
 
 export type ViewMessage =
   | ViewAnswer
@@ -169,9 +171,9 @@ export type ViewMessage =
   | ViewActs
   | ViewDraft
   | ViewActivity
-  | ViewOpenReference;
   | ViewSetting
-  | ViewOpenSettings;
+  | ViewOpenSettings
+  | ViewOpenReference;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -474,18 +476,6 @@ const draftRecord: FieldCheck = (value) =>
     ? undefined
     : "is not a draft record: a delivery mode and the questions' work";
 
-/** The most a height can be: a bound, so that no message names a panel off any screen. */
-export const INSET_MAX = 10_000;
-
-const inset: FieldCheck = (value) => {
-  const bound = (height: unknown) =>
-    typeof height === "number" && Number.isFinite(height) && height >= 0 && height <= INSET_MAX;
-  return isRecord(value) &&
-    Object.keys(value).length === 2 &&
-    bound(value.top) &&
-    bound(value.bottom)
-    ? undefined
-    : `is not the header's and the bottom bar's heights, "top" and "bottom", each from 0 to ${INSET_MAX}`;
 const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
 const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
 const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
@@ -524,6 +514,20 @@ const settingProblems = (args: Record<string, unknown>, at = "/arguments"): Prob
     : [{ path: `${at}/value`, message: `is not a value "${String(key)}" allows` }];
 };
 
+/** The most a height can be: a bound, so that no message names a panel off any screen. */
+export const INSET_MAX = 10_000;
+
+const inset: FieldCheck = (value) => {
+  const bound = (height: unknown) =>
+    typeof height === "number" && Number.isFinite(height) && height >= 0 && height <= INSET_MAX;
+  return isRecord(value) &&
+    Object.keys(value).length === 2 &&
+    bound(value.top) &&
+    bound(value.bottom)
+    ? undefined
+    : `is not the header's and the bottom bar's heights, "top" and "bottom", each from 0 to ${INSET_MAX}`;
+};
+
 // Each message type's fields; a call's arguments hold only these, and all but `someOf`'s and
 // `optional`'s.
 const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
@@ -533,7 +537,6 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   act: { checks: { acts } },
   draft: { checks: { record: draftRecord } },
   activity: { checks: {} },
-  "open-reference": { checks: { itemId, inset } },
   setting: {
     checks: {
       key: presentationKey,
@@ -541,6 +544,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
     },
   },
   "open-settings": { checks: {} },
+  "open-reference": { checks: { itemId, inset } },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -693,14 +697,15 @@ const isRestore = (value: unknown): value is DraftRestore =>
   (value.id as number) >= 1 &&
   draftRecord(value.record) === undefined;
 
+const isCount = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= 1;
+
 const isPanelClosed = (value: unknown): value is PanelClosed =>
   isRecord(value) &&
   Number.isInteger(value.id) &&
   (value.id as number) >= 1 &&
   typeof value.itemId === "string" &&
   ID.test(value.itemId);
-const isCount = (value: unknown): value is number =>
-  Number.isInteger(value) && (value as number) >= 1;
 
 const listOf =
   <T>(is: (value: unknown) => value is T) =>

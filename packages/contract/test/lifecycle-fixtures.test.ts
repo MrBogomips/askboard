@@ -153,13 +153,6 @@ describe("the versions (design decision 2)", () => {
     // A later change takes the next minor again (excerpts, design decision 2).
     const atLeast11 = (version: string) => (/^1\.([1-9][0-9]*)$/.test(version) ? "1.1+" : version);
     const versions = {
-  // settings-languages later took 1.2 for the input format (its design decision 2).
-  // settings-languages later took 1.2 for the input format and the board document (its design
-  // decision 2).
-  // settings-languages later took 1.2 for the input format, the board document and the board
-  // protocol (its design decision 2).
-  test("each set E3 touches is at its next minor, and the view manifest is unchanged", () => {
-    expect({
       input: INPUT_FORMAT_VERSION,
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
@@ -180,13 +173,6 @@ describe("the versions (design decision 2)", () => {
     expect(RESULT_VERSIONS).toEqual({
       result: TOOL_ENVELOPES_VERSION,
       output: OUTPUT_FORMAT_VERSION,
-    }).toEqual({
-      input: "1.2",
-      output: "1.1",
-      envelopes: "1.1",
-      document: "1.2",
-      protocol: "1.2",
-      manifest: "1.0",
     });
   });
 });

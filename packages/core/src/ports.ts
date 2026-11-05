@@ -2,8 +2,8 @@
 // runtime-neutral (AD-1): everything that touches the machine comes through these.
 
 import type { UnavailableReason } from "@askboard/contract";
-import type { SourceFiles } from "./context/ports.ts";
 import type { Config } from "./config/ports.ts";
+import type { SourceFiles } from "./context/ports.ts";
 import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
 
 /**

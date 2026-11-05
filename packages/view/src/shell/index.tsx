@@ -257,21 +257,25 @@ const boot = (): void => {
     hosted,
     openReference: (itemId) => report({ type: "open-reference", itemId, inset: measureInset() }),
   };
-  const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
+  const controls = startPresentation(data, channel, {
+    hosted,
+    report,
+    followTheme: (preference) => follower?.prefer(preference),
+  });
+  // The presentation's placement is the board's default; a question's own control overrides it.
+  const followPlacement = () =>
+    board.setDefaultPlacement(controls.presentation.get().contextPlacement);
+  followPlacement();
+  controls.presentation.subscribe(followPlacement);
   const extras: BoardExtras = {
     header: startPushExtras(data, channel, hosted, report),
-    presentation: startPresentation(data, channel, {
-      hosted,
-      report,
-      followTheme: (preference) => follower?.prefer(preference),
-    }),
+    presentation: controls,
   };
   createRoot(root).render(
-    <port.HostContext.Provider value={host}>
-      <Board view={view} context={context} extras={extras} />
-    </port.HostContext.Provider>,
     <BoardLanguage view={view}>
-      <Board view={view} context={context} extras={extras} />
+      <port.HostContext.Provider value={host}>
+        <Board view={view} context={context} extras={extras} />
+      </port.HostContext.Provider>
     </BoardLanguage>,
   );
 };

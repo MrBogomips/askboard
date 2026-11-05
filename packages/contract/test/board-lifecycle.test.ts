@@ -113,7 +113,6 @@ describe("the board protocol's messages 1.1 (design decision 8)", () => {
       "answer",
       "act",
       "draft",
-      "setting",
     ]);
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(0, 9)).toEqual([
       "board",
@@ -125,7 +124,6 @@ describe("the board protocol's messages 1.1 (design decision 8)", () => {
       "done",
       "draft",
       "closed",
-      "settings",
     ]);
     for (const type of ["act", "draft", "done", "closed"]) {
       const id = `urn:askboard:board-protocol:${type}`;

@@ -18,8 +18,6 @@ import { type LifecycleBoardState, NOTE_MAX_CHARS } from "@askboard/contract";
 import { Fragment, useRef, useSyncExternalStore } from "react";
 import type { ChoiceExtras } from "../catalog/choice/props.ts";
 import { type Rendered, renderedOf } from "../catalog/components.ts";
-import { questionTextId } from "../catalog/port.ts";
-import { renderedOf } from "../catalog/components.ts";
 import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
@@ -120,9 +118,8 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   const choosing = useSyncExternalStore(acts.subscribe, () =>
     acts.of(question.id, ["edit-choice"]),
   );
-  const placement = useSyncExternalStore(
-    board.subscribe,
-    () => board.placement(question.id) ?? "beside",
+  const placement = useSyncExternalStore(board.subscribe, () =>
+    board.effectivePlacement(question.id),
   );
   const status = statusOf(state, question.id);
   const pending = changePending(question, work, keptChoices);
@@ -258,6 +255,7 @@ const OpenPrompt = ({
 export const QuestionCard = (props: CardProps) => {
   const { question, state, lock, delivery, single, context, level = 2 } = props;
   const Heading = level === 3 ? "h3" : "h2";
+  const language = useLanguage();
   const {
     load,
     values,
@@ -271,9 +269,6 @@ export const QuestionCard = (props: CardProps) => {
     choosing,
     placement,
   } = useCard(props);
-  const language = useLanguage();
-  const { load, values, work, status, pending, shown, card, actions, followUp, choosing } =
-    useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
   const { header, text } = shown.props;

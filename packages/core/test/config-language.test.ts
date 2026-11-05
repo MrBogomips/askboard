@@ -73,7 +73,7 @@ describe("kept for the whole ask", () => {
     await core.ask({ ...flatAsk(), locale: "en-US" });
     expect(boardOf(core, FLAT_ID).document).toMatchObject(both("it-IT", "en-US"));
     const props = { text: "Ship it?", options: [{ label: "Yes" }, { label: "No" }] };
-    const outcome = core.update({
+    const outcome = await core.update({
       askId: FLAT_ID,
       actions: [
         { action: "add", item: { type: "question", id: "q9", props } },

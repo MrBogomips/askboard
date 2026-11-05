@@ -9,7 +9,6 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import { createContext, type ReactNode, useContext, useLayoutEffect } from "react";
 import type { Locale } from "@askboard/contract";
 import { createContext, type ReactNode, useCallback, useContext, useLayoutEffect } from "react";
 import { type Slots, type StringKey, t } from "../strings/index.ts";
@@ -130,23 +129,6 @@ export const useReadyAfterLayout = (ready: () => void, settled = true): void => 
 };
 
 /**
- * What the view has of its host (AD-9, excerpts decision 6), which the shell provides: whether it
- * has a parent, a live board page it can ask to open a reference or a source (a Snapshot has none),
- * and the way to ask: the view message that names an item, which the board page answers from its
- * own board document.
- */
-export type ViewHost = {
-  readonly hosted: boolean;
-  /** Asks the board page to open a reference, or an excerpt's source, by its item ID. */
-  readonly openReference: (itemId: string) => void;
-};
-
-export const HostContext = createContext<ViewHost>({ hosted: true, openReference: () => {} });
-
-export const useHosted = (): boolean => useContext(HostContext).hosted;
-
-export const useOpenReference = (): ((itemId: string) => void) =>
-  useContext(HostContext).openReference;
  * The ask's language, which the shell provides for the board (settings-languages design decision
  * 9): the view's own strings, the catalog components' included, are in it; en-US when none is
  * provided.
@@ -167,3 +149,22 @@ export const LocaleContext = createContext<Locale>("en-US");
 
 /** The ask's locale, which may differ from its language. */
 export const useLocale = (): Locale => useContext(LocaleContext);
+
+/**
+ * What the view has of its host (AD-9, excerpts decision 6), which the shell provides: whether it
+ * has a parent, a live board page it can ask to open a reference or a source (a Snapshot has none),
+ * and the way to ask: the view message that names an item, which the board page answers from its
+ * own board document.
+ */
+export type ViewHost = {
+  readonly hosted: boolean;
+  /** Asks the board page to open a reference, or an excerpt's source, by its item ID. */
+  readonly openReference: (itemId: string) => void;
+};
+
+export const HostContext = createContext<ViewHost>({ hosted: true, openReference: () => {} });
+
+export const useHosted = (): boolean => useContext(HostContext).hosted;
+
+export const useOpenReference = (): ((itemId: string) => void) =>
+  useContext(HostContext).openReference;

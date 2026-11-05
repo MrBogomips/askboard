@@ -28,7 +28,7 @@ export type QuestionWork = Omit<DraftQuestion, "values"> & {
 
 export type Delivery = DraftRecord["delivery"];
 
-/** Where a question's context sits (FR-13): `beside` is the default and is never held. */
+/** Where a question's context sits (FR-13): held only when it differs from the board's default. */
 export type ContextPlacement = NonNullable<DraftQuestion["context"]>;
 
 export type BoardDraftState = {
@@ -57,8 +57,12 @@ export type BoardDraft = {
   setDelivery(delivery: Delivery): void;
   /** Where the user placed the question's context; none while it is beside. */
   placement(questionId: string): ContextPlacement | undefined;
-  /** Places a question's context; `beside` is the default and takes the placement out. */
+  /** Places a question's context; a placement equal to the board's default takes it out. */
   setPlacement(questionId: string, placement: ContextPlacement): void;
+  /** Where the question's context sits: its own placement, else the board's default. */
+  effectivePlacement(questionId: string): ContextPlacement;
+  /** The board's default placement, the presentation's `contextPlacement` (design decision 1). */
+  setDefaultPlacement(placement: ContextPlacement): void;
   setInView(questionId: string | undefined): void;
   /** Replaces the whole draft, as a restore does. */
   replace(state: BoardDraftState): void;
@@ -98,6 +102,8 @@ export const releaseHeld = ({ held: _, undo, ...work }: QuestionWork): QuestionW
 /** The lifecycle draft, starting with no work in the delivery mode given. */
 export const createBoardDraft = (delivery: Delivery): BoardDraft => {
   let state: BoardDraftState = { delivery, questions: new Map() };
+  // Kept beside the state, which a restore replaces: the default is the user's setting, not work.
+  let fallback: ContextPlacement = "beside";
   const listeners = new Set<() => void>();
   const set = (next: BoardDraftState) => {
     if (next === state) return;
@@ -140,11 +146,17 @@ export const createBoardDraft = (delivery: Delivery): BoardDraft => {
     },
     placement: (questionId) => state.placements?.get(questionId),
     setPlacement: (questionId, placement) => {
-      if ((state.placements?.get(questionId) ?? "beside") === placement) return;
+      if ((state.placements?.get(questionId) ?? fallback) === placement) return;
       const placements = new Map(state.placements);
-      if (placement === "beside") placements.delete(questionId);
+      if (placement === fallback) placements.delete(questionId);
       else placements.set(questionId, placement);
       set({ ...state, placements });
+    },
+    effectivePlacement: (questionId) => state.placements?.get(questionId) ?? fallback,
+    setDefaultPlacement: (placement) => {
+      if (placement === fallback) return;
+      fallback = placement;
+      set({ ...state });
     },
     setInView: (questionId) => {
       if (questionId === state.inView) return;
@@ -369,7 +381,7 @@ export const restoreDraft = (
     const entry = record.questions[question.id] as DraftQuestion;
     const staleAnswer = isRestoredAnswer(question, entry, state);
     const { values: kept = {}, context, ...rest } = entry;
-    if (context === "inline") placements.set(question.id, context);
+    if (context !== undefined) placements.set(question.id, context);
     const items = new Set(itemIdsOf(question));
     if (!staleAnswer) {
       for (const [itemId, value] of Object.entries(kept)) {

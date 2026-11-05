@@ -31,8 +31,8 @@ import { presentationOf } from "./presentation.ts";
 
 // The optional fields of a view update the controller makes from its own state, E1's and the ask
 // lifecycle's: a later document, the lock, the connection, the commands held and settled, and the
-// draft record to restore.
-// draft record to restore, and how often the settings panel has closed.
+// draft record to restore, how often the settings panel has closed and the reading panel's latest
+// closing.
 type ControllerField =
   | "document"
   | "lock"
@@ -40,8 +40,8 @@ type ControllerField =
   | "pending"
   | "settled"
   | "restore"
+  | "settingsClosed"
   | "panelClosed";
-  | "settingsClosed";
 
 /**
  * The fields of a view update the model keeps, which the board page passes on to the view as they

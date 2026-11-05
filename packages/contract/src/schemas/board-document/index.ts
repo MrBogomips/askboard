@@ -2,8 +2,7 @@
 // the view renders. E1's held one plain question as accepted, with its revision; E3's minor holds
 // several questions or areas, and the presentation and delivery the ask requests (ask-lifecycle,
 // design decision 2); E5's carries a question's context items as ask-core resolved them (excerpts,
-// design decision 2).
-// design decision 2); E8's names the ask's language and locale (settings-languages, design
+// design decision 2), and E8's names the ask's language and locale (settings-languages, design
 // decision 7).
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
@@ -14,7 +13,7 @@ import excerptProps from "./excerpt-props.json" with { type: "json" };
 import imageProps from "./image-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 
-export const BOARD_DOCUMENT_VERSION = "1.2";
+export const BOARD_DOCUMENT_VERSION = "1.3";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",
@@ -65,7 +64,7 @@ export type BoardItem = BoardQuestion | BoardArea;
 export type LifecycleBoardDocument = Omit<BoardDocument, "items"> & {
   readonly presentation?: "sections" | "tabs" | "one-per-view";
   readonly delivery?: "immediate" | "submitted";
-  /** Board document 1.2 (settings-languages): absent in an earlier minor's, read as en-US. */
+  /** Board document 1.3 (settings-languages): absent in an earlier minor's, read as en-US. */
   readonly language?: "en-US" | "it-IT";
   readonly locale?: "en-US" | "it-IT";
   readonly items:

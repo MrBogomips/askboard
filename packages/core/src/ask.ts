@@ -81,7 +81,6 @@ export type AskInit = {
   readonly who: string;
   /** What the ask's send resolved of its questions' pointers, by question ID (excerpts). */
   readonly context?: ReadonlyMap<string, QuestionContext>;
-};
 } & BoardLanguage;
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */

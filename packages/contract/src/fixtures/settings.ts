@@ -1,4 +1,4 @@
-// The settings messages of board protocol 1.2 (settings-languages, design decision 6), on the
+// The settings messages of board protocol 1.3 (settings-languages, design decision 6), on the
 // lifecycle ask: the settings in effect with every key, a board's write of the theme, and the
 // exchange board-host's tests replay, with `settings` before the board (task 5.1).
 
@@ -70,7 +70,7 @@ export const settingsSaved: SettingsMessage = {
   write: { key: "theme", outcome: "saved" },
 };
 
-/** One valid message of each type protocol 1.2 adds, in each direction. */
+/** One valid message of each type protocol 1.3 adds, in each direction. */
 export const settingsProtocolExamples: {
   readonly toHost: readonly SettingCommand[];
   readonly toPage: readonly SettingsMessage[];

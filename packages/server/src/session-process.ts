@@ -6,20 +6,20 @@
 // task 5.3). Push delivery (E4) joins through `composePush`: its ports, the session project for
 // board-host's context header, the local API started at the first request other than
 // `server/discover`, and its close beside the board host's. Excerpts (E5) read pointers in the
-// session project root alone, through the excerpts unit; board-host has no editor command until
-// configuration supplies one (E8).
-// `server/discover`, and its close beside the board host's. The configuration (settings-languages,
+// session project root alone, through the excerpts unit. The configuration (settings-languages,
 // design decisions 3 and 12) joins as ask-core's `Config` port over the two files; the local API
-// starts once ask-core has read them, so that its first `/v1/rule` answers the rule in effect.
+// starts once ask-core has read them, so that its first `/v1/rule` answers the rule in effect, and
+// board-host's editor command is the user file's (design decision 5).
 
 import { randomBytes } from "node:crypto";
 import { AskCore, type Clock, type SourceFiles } from "@askboard/core";
 import type { Transport } from "@modelcontextprotocol/server";
+import type { EditorCommand } from "./board-host/editor.ts";
 import type { BoardHostOptions, ParentArgv } from "./board-host/index.ts";
 import { createBoardHost } from "./board-host/index.ts";
 import { systemClock } from "./clock.ts";
-import { createSourceFiles } from "./excerpts/index.ts";
 import { configFiles } from "./config-files.ts";
+import { createSourceFiles } from "./excerpts/index.ts";
 import { systemIdentity } from "./identity.ts";
 import {
   failure,
@@ -68,10 +68,16 @@ export type SessionProcessOptions = {
    */
   readonly sources?: SourceFiles;
   /**
-   * The editor command board-host starts on "Open in editor": none by default, until E8's
-   * configuration supplies one. Only tests give one; the entry point gives none.
+   * The editor command board-host starts on "Open in editor": the user file's `editor` by default.
+   * Only tests give another; the entry point gives none.
    */
   readonly editorCommand?: BoardHostOptions["editorCommand"];
+};
+
+// The user file's argument vector, as the launch takes it: never empty.
+const userEditor = (core: AskCore): EditorCommand | undefined => {
+  const [program, ...args] = core.editorCommand() ?? [];
+  return program === undefined ? undefined : [program, ...args];
 };
 
 export const startSessionProcess = (options: SessionProcessOptions): Session => {
@@ -83,7 +89,6 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     if (core === undefined) throw new Error("ask-core is not built yet");
     return core;
   };
-  const push = composePush(options, { core: coreOf, diagnostics, reportAs });
   // The root pointers resolve in: E4's session project root, never the working folder (AD-12).
   const projectRoot = sessionProjectRoot(options.env);
   const push = composePush(options, {
@@ -97,7 +102,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     view: options.view,
     report: reportAs("the board host failed"),
     projectDir: push.projectDir,
-    editorCommand: options.editorCommand ?? (() => undefined),
+    editorCommand: options.editorCommand ?? (() => userEditor(coreOf())),
   });
   core = new AskCore({
     address: host.address,

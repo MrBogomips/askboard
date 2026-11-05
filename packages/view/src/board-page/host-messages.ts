@@ -21,15 +21,14 @@ import { hostMessageSchemas } from "./validators.ts";
 const BOARD_PROTOCOL = { title: "board protocol", version: BOARD_PROTOCOL_VERSION };
 
 /**
- * Every message `board-host` sends a board: protocol 1.1's, push delivery's origin and agent, and
- * the reading panel's source state and editor outcome (excerpts).
- * protocol 1.2's settings.
+ * Every message `board-host` sends a board: protocol 1.1's, push delivery's origin and agent, the
+ * reading panel's source state and editor outcome (excerpts), and the settings.
  */
 export type BoardHostMessage =
   | LifecycleHostMessage
   | OriginMessage
   | AgentStatusMessage
-  | ContextHostMessage;
+  | ContextHostMessage
   | SettingsMessage;
 
 const refused = (path: string, message: string): Checked<BoardHostMessage> => ({

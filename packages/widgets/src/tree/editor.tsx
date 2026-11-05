@@ -91,7 +91,7 @@ export const CellEditor = ({
     onEdit();
   };
 
-  const parsed = kind === "number" ? parseNumber(text) : undefined;
+  const parsed = kind === "number" ? parseNumber(text, locale, language) : undefined;
   const field = (
     <input
       ref={input}
@@ -120,24 +120,6 @@ export const CellEditor = ({
           </span>
         </span>
       )}
-      {parsed?.kind === "number" ? <span className={ECHO}>{numberEcho(parsed.value)}</span> : null}
-  const parsed = kind === "number" ? parseNumber(text, locale, language) : undefined;
-  return (
-    <span className={EDITOR_BOX}>
-      <input
-        ref={input}
-        type="text"
-        value={text}
-        aria-label={label}
-        aria-invalid={error !== undefined}
-        aria-describedby={error === undefined ? undefined : errorId}
-        autoComplete="off"
-        spellCheck={false}
-        className={kind === "number" ? NUMBER_EDITOR : EDITOR}
-        onKeyDown={onKeyDown}
-        onBlur={onBlur}
-        onChange={onChange}
-      />
       {parsed?.kind === "number" ? (
         <span className={ECHO}>{numberEcho(parsed.value, locale)}</span>
       ) : null}

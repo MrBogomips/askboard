@@ -232,13 +232,13 @@ class BoardPageController implements BoardPage {
   // The draft record board-host restored, while the page has none of its own.
   #restore: DraftRestore | undefined;
   #restores = 0;
-  // The reading panel's latest closing by the user, which the view acts on once.
-  #closed: PanelClosed | undefined;
-  #closings = 0;
   // The settings panel: whether it is open, and how many times it has closed (the view focuses
   // "Settings" on each).
   #settingsOpen = false;
   #settingsClosed = 0;
+  // The reading panel's latest closing by the user, which the view acts on once.
+  #closed: PanelClosed | undefined;
+  #closings = 0;
 
   constructor(deps: BoardPageDeps) {
     this.#deps = deps;
@@ -328,8 +328,8 @@ class BoardPageController implements BoardPage {
       ...(pending.length === 0 ? {} : { pending }),
       ...(settled.length === 0 ? {} : { settled }),
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
-      ...(this.#closed === undefined ? {} : { panelClosed: this.#closed }),
       ...(this.#settingsClosed === 0 ? {} : { settingsClosed: this.#settingsClosed }),
+      ...(this.#closed === undefined ? {} : { panelClosed: this.#closed }),
       ...this.#model.passedOn,
     });
   }
@@ -367,43 +367,14 @@ class BoardPageController implements BoardPage {
       this.#deps.onActivity?.();
       return {};
     },
-    "open-reference": (message) => this.#openReference(message),
-  };
-
-  // A click on a reference or an excerpt's "Open in reading panel", read from the board document
-  // the page holds: a web page opens in a new tab, a file in the reading panel (AD-8).
-  #openReference({ itemId, inset }: ViewOpenReference): ViewReply {
-    const document = this.#model.document as ViewDocument | undefined;
-    const url = webUrlOf(document, itemId);
-    if (url !== undefined) {
-      this.#deps.openLink?.(url);
-      return {};
-    }
-    const pointer = sourcePointerOf(document, itemId);
-    const panel = this.#deps.readingPanel;
-    if (pointer === undefined || panel === undefined || this.#status.kind !== "live") return {};
-    panel.open(
-      { itemId, path: pathOf(pointer), inset },
-      {
-        openEditor: () => void this.#socket?.send({ version, type: "open-editor", itemId }),
-        closed: () => this.#panelClosed(itemId),
-      },
-    );
-    this.#socket?.send({ version, type: "open-source", itemId });
-    return {};
-  }
-
-  // The user closed the panel: the view puts the focus back on the item that opened it.
-  #panelClosed(itemId: string): void {
-    this.#closings += 1;
-    this.#closed = { id: this.#closings, itemId };
-    this.#updateView();
     setting: (message) => this.#setting(message),
     "open-settings": () => {
+      this.#deps.readingPanel?.close();
       this.#settingsOpen = true;
       this.#showSettings();
       return {};
     },
+    "open-reference": (message) => this.#openReference(message),
   };
 
   // A toggle's value: applied to the board at once, then sent to board-host to be written as the
@@ -447,6 +418,36 @@ class BoardPageController implements BoardPage {
     }
     const sent = this.#socket?.send({ version, ...message }) === true;
     return { outcome: sent ? "sent" : "not-sent" };
+  }
+
+  // A click on a reference or an excerpt's "Open in reading panel", read from the board document
+  // the page holds: a web page opens in a new tab, a file in the reading panel (AD-8).
+  #openReference({ itemId, inset }: ViewOpenReference): ViewReply {
+    const document = this.#model.document as ViewDocument | undefined;
+    const url = webUrlOf(document, itemId);
+    if (url !== undefined) {
+      this.#deps.openLink?.(url);
+      return {};
+    }
+    const pointer = sourcePointerOf(document, itemId);
+    const panel = this.#deps.readingPanel;
+    if (pointer === undefined || panel === undefined || this.#status.kind !== "live") return {};
+    panel.open(
+      { itemId, path: pathOf(pointer), inset },
+      {
+        openEditor: () => void this.#socket?.send({ version, type: "open-editor", itemId }),
+        closed: () => this.#panelClosed(itemId),
+      },
+    );
+    this.#socket?.send({ version, type: "open-source", itemId });
+    return {};
+  }
+
+  // The user closed the panel: the view puts the focus back on the item that opened it.
+  #panelClosed(itemId: string): void {
+    this.#closings += 1;
+    this.#closed = { id: this.#closings, itemId };
+    this.#updateView();
   }
 
   // What the view reports of its items: kept in the model, a failing item also logged.
@@ -616,11 +617,6 @@ class BoardPageController implements BoardPage {
     closed: () => this.#transition({ type: "ask-closed" }),
     origin: (message) => this.#keep(message),
     agent: (message) => this.#keep(message),
-    "source-state": (message) => this.#deps.readingPanel?.sourceState(message),
-    "editor-outcome": (message) => this.#deps.readingPanel?.editorOutcome(message),
-    // Read before the board on each connect; the board page applies them with its settings
-    // (settings-languages, task 8.2).
-    settings: () => undefined,
     // Read before the board on each connect and after each write: the page applies the
     // presentation to its own root at once and the view gets it with its next update, or in its
     // boot data (settings-languages, design decision 10).
@@ -630,6 +626,8 @@ class BoardPageController implements BoardPage {
       if (presentation !== undefined) this.#deps.applyPresentation?.(presentation);
       this.#showSettings();
     },
+    "source-state": (message) => this.#deps.readingPanel?.sourceState(message),
+    "editor-outcome": (message) => this.#deps.readingPanel?.editorOutcome(message),
   };
 
   // A message the model keeps, which the view shows: a receipt, who asked and where, the status.

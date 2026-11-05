@@ -77,8 +77,7 @@ const done = (n = 1): LifecycleHostMessage => ({ version, type: "done", actionId
 
 type FakeSocket = {
   readonly events: BoardSocketHandlers;
-  readonly sent: (LifecyclePageMessage | ContextPageMessage)[];
-  readonly sent: (LifecyclePageMessage | SettingCommand)[];
+  readonly sent: (LifecyclePageMessage | SettingCommand | ContextPageMessage)[];
   open: boolean;
   closed: boolean;
   receive(...messages: (HostMessage | LifecycleHostMessage | ContextHostMessage)[]): void;
@@ -1029,6 +1028,9 @@ describe("the reading panel on the board page (excerpts, task 6.6; AD-8)", () =>
     run.socket(1).close(1006);
     await run.view({ type: "open-reference", itemId: "retry-src", inset });
     expect(run.panel.events).toEqual([]);
+  });
+});
+
 describe("the board page speaks the ask's language (settings-languages, task 7.2)", () => {
   const italian: HostMessage = {
     version,

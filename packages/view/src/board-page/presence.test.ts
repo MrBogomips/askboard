@@ -56,8 +56,7 @@ const fakeSignal = (initial: boolean) => {
 
 // One socket: what was sent on it, and the handlers the page gave it.
 const fakeConnect = () => {
-  const sent: (LifecyclePageMessage | ContextPageMessage | PresenceMessage)[] = [];
-  const sent: (LifecyclePageMessage | SettingCommand | PresenceMessage)[] = [];
+  const sent: (LifecyclePageMessage | ContextPageMessage | SettingCommand | PresenceMessage)[] = [];
   let handlers: BoardSocketHandlers | undefined;
   let open = true;
   const connect = (events: BoardSocketHandlers): PageConnection => {

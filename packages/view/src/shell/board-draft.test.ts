@@ -393,3 +393,40 @@ describe("a question's context placement (excerpts, task 6.3; FR-13, AD-20)", ()
     expect(board.placement(id)).toBe("inline");
   });
 });
+
+describe("the board's default placement (settings-languages, task 8.5; FR-13)", () => {
+  test("a question without its own placement takes the default, and the default can change", () => {
+    const { board } = setUp();
+    expect(board.effectivePlacement("region")).toBe("beside");
+    board.setDefaultPlacement("inline");
+    expect(board.effectivePlacement("region")).toBe("inline");
+    expect(board.placement("region")).toBeUndefined();
+  });
+
+  test("under an inline default, Beside is the question's own choice, held and restored", () => {
+    const { board, record, values } = setUp();
+    board.setDefaultPlacement("inline");
+    board.setPlacement("region", "beside");
+    expect(board.effectivePlacement("region")).toBe("beside");
+    expect(record().questions).toEqual({ region: { rev: 1, context: "beside" } });
+    board.setPlacement("region", "inline");
+    expect(board.placement("region")).toBeUndefined();
+    expect(record().questions).toEqual({});
+    const saved = { delivery: "immediate", questions: { region: { rev: 1, context: "beside" } } };
+    restoreDraft(
+      saved as DraftRecord,
+      lifecycleBoardDocument,
+      openState(lifecycleBoardDocument),
+      values,
+      board,
+    );
+    expect(board.effectivePlacement("region")).toBe("beside");
+  });
+
+  test("a replaced draft keeps the default", () => {
+    const { board } = setUp();
+    board.setDefaultPlacement("inline");
+    board.replace({ delivery: "immediate", questions: new Map() });
+    expect(board.effectivePlacement("region")).toBe("inline");
+  });
+});

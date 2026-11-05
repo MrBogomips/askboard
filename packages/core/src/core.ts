@@ -34,6 +34,10 @@ import {
   type FullValue,
 } from "./ask.ts";
 import { canonicalize } from "./canonical.ts";
+import { Configuration } from "./config/configuration.ts";
+import { askLanguage } from "./config/language.ts";
+import type { SettingsInEffect } from "./config/settings.ts";
+import { type SettingsView, settingsView } from "./config/view.ts";
 import {
   type ContextRequest,
   contextRequestsOf,
@@ -43,10 +47,6 @@ import {
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
-import { Configuration } from "./config/configuration.ts";
-import { askLanguage } from "./config/language.ts";
-import type { SettingsInEffect } from "./config/settings.ts";
-import { type SettingsView, settingsView } from "./config/view.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -674,7 +674,6 @@ export class AskCore {
     const [first] = input.items;
     const question = first.type === "area" ? first.props.items[0] : first;
     const title = input.title ?? deriveTitle(question.props.text);
-    const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who, context });
     const ask = new Ask({
       epoch: this.epoch,
       askId,
@@ -683,6 +682,7 @@ export class AskCore {
       input,
       link,
       who,
+      context,
       ...language,
     });
     this.#asks.set(askId, ask);

@@ -36,6 +36,12 @@ export type Scenario = {
    */
   readonly asker?: Asker;
   /**
+   * The configuration files the session process starts with (settings-languages): the user file
+   * and the project's `.askboard/config.json`, as JSON values. A scenario with either runs on the
+   * session process whatever the target, since only it reads configuration.
+   */
+  readonly config?: { readonly user?: unknown; readonly project?: unknown };
+  /**
    * Files of the session project, by path under it (excerpts): the session process runs with
    * `CLAUDE_PROJECT_DIR` naming a temporary folder that holds them, or the asker's project when
    * there is one. The test server serves a transcript and needs none.
@@ -47,11 +53,6 @@ export type Scenario = {
    * owns it. Without it, a temporary folder is made and removed.
    */
   readonly projectDir?: string;
-   * The configuration files the session process starts with (settings-languages): the user file
-   * and the project's `.askboard/config.json`, as JSON values. A scenario with either runs on the
-   * session process whatever the target, since only it reads configuration.
-   */
-  readonly config?: { readonly user?: unknown; readonly project?: unknown };
 };
 
 /** A file of the session project: its text or bytes, or a symbolic link to a target path. */

@@ -32,8 +32,10 @@ describe("the lists", () => {
       "draft",
       "open-source",
       "open-editor",
+      // settings-languages appended its own after E5's (its design decision 6).
+      "setting",
     ]);
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(-2)).toEqual([
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(-3, -1)).toEqual([
       "source-state",
       "editor-outcome",
     ]);

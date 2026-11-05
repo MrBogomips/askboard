@@ -164,11 +164,9 @@ const parse = (data: RawData, binary: boolean): unknown => {
   }
 };
 
-type PageCommand = Exclude<
-  LifecyclePageMessage | OpenSourceCommand | OpenEditorCommand,
-  ConnectMessage
->;
-type PageCommand = Exclude<LifecyclePageMessage, ConnectMessage> | SettingCommand;
+type PageCommand =
+  | Exclude<LifecyclePageMessage | OpenSourceCommand | OpenEditorCommand, ConnectMessage>
+  | SettingCommand;
 
 /** What a live board does with each of ask-core's events, by type. */
 type Heard = {
