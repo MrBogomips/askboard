@@ -484,12 +484,6 @@ export type {
   FetchQuestionProps,
 } from "./schemas/tool-envelopes/index.ts";
 
-// Snapshots (E7, snapshot design decision 2): the file name and the JSON blocks' element IDs.
-
-// Snapshots (E7, snapshot design decision 2): the Snapshot data set, the file name and the JSON
-// blocks' element IDs.
-
-
 // Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
 // the board protocol's Snapshot messages, the file name and the JSON blocks' element IDs.
 

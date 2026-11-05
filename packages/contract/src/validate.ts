@@ -360,9 +360,6 @@ export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets
 
 export { contextDocumentProblems } from "./context/document.ts";
 
-// Snapshots (E7, snapshot design decision 2): a Snapshot's data block.
-
-=======
 // Snapshots (E7, snapshot design decision 2): a Snapshot's data block, and the snapshot request.
 
 export { validateSnapshotData } from "./schemas/snapshot-data/validate.ts";
