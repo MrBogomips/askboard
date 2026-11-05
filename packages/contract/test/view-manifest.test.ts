@@ -180,6 +180,8 @@ describe("the view manifest (owner view)", () => {
   test("a major-2 manifest is refused, naming the supported version", () => {
     const result = validateViewManifest({ ...manifest(), version: "2.0" });
     expect(result).toMatchObject({ ok: false, reason: "version" });
-    expect(result.ok ? "" : result.problems[0]?.message).toContain("supports version 1 (1.0)");
+    expect(result.ok ? "" : result.problems[0]?.message).toContain(
+      `supports version 1 (${VIEW_MANIFEST_VERSION})`,
+    );
   });
 });

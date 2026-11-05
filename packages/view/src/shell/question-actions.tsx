@@ -17,6 +17,8 @@ const MENU =
 const MENU_ITEM = `flex cursor-default items-center gap-2 rounded-md px-2 py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
 
 export type ActionsRowProps = {
+  /** An opened Snapshot: only the delivery receipt shows. */
+  readonly opened?: boolean;
   readonly card: CardState;
   readonly actions: CardActions;
   /** The board is locked: nothing in the row acts. */
@@ -32,6 +34,7 @@ export type ActionsRowProps = {
 };
 
 export const ActionsRow = ({
+  opened = false,
   card,
   actions,
   locked,
@@ -45,6 +48,11 @@ export const ActionsRow = ({
 }: ActionsRowProps) => {
   // Decline moves focus to the heading once the menu has closed, instead of back to "More".
   const toHeading = useRef(false);
+  if (opened) {
+    return card.receipt === undefined ? null : (
+      <span className="text-badge text-muted-foreground">{card.receipt}</span>
+    );
+  }
   return (
     <div className="flex flex-wrap items-center gap-3">
       <button

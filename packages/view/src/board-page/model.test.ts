@@ -15,6 +15,7 @@ import {
   basisOf,
   bootDataOf,
   EMPTY_MODEL,
+  type PassedOn,
   stateProblem,
   withHostMessage,
   withViewMessage,
@@ -423,5 +424,16 @@ describe("the user's acts become one act command only if each can be (ask-lifecy
       state: "declined",
       answer: { declined: true, when, receipt: "delivered" },
     });
+  });
+});
+
+describe("what the model passes on (snapshot task 6.2)", () => {
+  test("is no Snapshot's end: the controller makes that field from its own tracking", () => {
+    const passedOn: PassedOn = {
+      // @ts-expect-error: `snapshot` is one of the controller's fields, not one the model keeps
+      snapshot: { requestId: "aB3cD5eF7gH9jK1lM3nP5q", outcome: "failed", reason: "unconfirmed" },
+    };
+    expect(Object.keys(passedOn)).toEqual(["snapshot"]);
+    expect(EMPTY_MODEL.passedOn).toEqual({});
   });
 });

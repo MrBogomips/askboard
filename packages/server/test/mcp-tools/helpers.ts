@@ -12,6 +12,8 @@ import type {
   LifecycleBoardView,
   OwnerRefusal,
   ReadOutcome,
+  SnapshotOutcome,
+  SnapshotRequester,
   UpdateOutcome,
 } from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
@@ -46,6 +48,8 @@ export type FakeCore = ToolCore & {
   readonly versions: string[];
   readonly listeners: Set<(event: CoreEvent) => void>;
   emit(event: CoreEvent): void;
+  /** Each request `snapshot` received (E7). */
+  readonly snapshots: SnapshotRequester[];
 };
 
 type FakeState = "waiting" | "partly-answered" | "answered" | "closed" | "discarded";
@@ -67,6 +71,8 @@ type FakeCoreOptions = {
   readonly fullValue?: (askId: string, itemId: string) => FullValue;
   /** What `lifecycleBoard` shows; built from `items`, `states` and `questionStates` unless given. */
   readonly lifecycle?: (askId: string) => LifecycleBoardView | undefined;
+  /** What `snapshot` gives (E7); `discarded` unless given. */
+  readonly snapshot?: (askId: string, request: SnapshotRequester) => Promise<SnapshotOutcome>;
 };
 
 // A board document of plain questions at rev 1, by the fake's item IDs.
@@ -99,6 +105,7 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
   const bindings: (Binding | undefined)[] = [];
   const versions: string[] = [];
   const listeners = new Set<(event: CoreEvent) => void>();
+  const snapshots: SnapshotRequester[] = [];
   return {
     epoch: EPOCH,
     calls,
@@ -182,6 +189,12 @@ export const fakeCore = (options: FakeCoreOptions = {}): FakeCore => {
     },
     setClientVersion: (source, version) => {
       versions.push(`${source} ${version}`);
+    },
+    snapshots,
+    snapshot: async (askId, request) => {
+      calls.push(`snapshot ${askId}`);
+      snapshots.push(request);
+      return (await options.snapshot?.(askId, request)) ?? { outcome: "discarded" };
     },
   };
 };

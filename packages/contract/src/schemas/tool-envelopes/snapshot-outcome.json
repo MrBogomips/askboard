@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:snapshot-outcome",
+  "title": "Snapshot outcome",
+  "description": "What snapshot returns when the ask is discarded, which an ask ID unknown to this session's epoch counts as (AD-6, AD-10, AD-21): a typed result, not an error, and no file is written. A closed ask's Snapshot is still taken.",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "outcome": {
+      "const": "discarded"
+    }
+  },
+  "required": ["versions", "epoch", "askId", "outcome"],
+  "additionalProperties": false
+}

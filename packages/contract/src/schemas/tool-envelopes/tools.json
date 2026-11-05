@@ -192,6 +192,25 @@
         "readOnlyHint": true,
         "openWorldHint": false
       }
+    },
+    {
+      "name": "snapshot",
+      "description": "Save the ask's board as one self-contained HTML file in the project, with its data embedded, and return the file's path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "askId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          }
+        },
+        "required": ["askId"],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
     }
   ]
 }

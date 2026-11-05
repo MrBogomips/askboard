@@ -35,12 +35,19 @@ describe("the owner refusal text", () => {
     );
   });
 
-  test("for another tool: the same as collect's, naming that tool", () => {
+  test("for snapshot (E7): the whole call is refused, as for update and fetch", () => {
     expect(ownerRefusalText("other-owner", ASK_ID, "snapshot")).toBe(
+      `The ask "${ASK_ID}" belongs to another agent, so this snapshot was refused: send snapshot only for asks you sent.`,
+    );
+    expect(ownerRefusalText("no-record", ASK_ID, "snapshot")).toBe(
+      `The ask "${ASK_ID}" belongs to an agent, and this call carried no agent record, so AskBoard cannot tell that it is yours. Send the snapshot again.`,
+    );
+  });
+
+  test("for another tool: the same as collect's, naming that tool", () => {
+    expect(ownerRefusalText("other-owner", ASK_ID, "draw")).toBe(
       ownerRefusalText("other-owner", ASK_ID, "collect"),
     );
-    expect(ownerRefusalText("no-record", ASK_ID, "snapshot")).toEndWith(
-      ": send the snapshot again",
-    );
+    expect(ownerRefusalText("no-record", ASK_ID, "draw")).toEndWith(": send the draw again");
   });
 });

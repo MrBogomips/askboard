@@ -30,8 +30,9 @@ describe("the versions (design decision 2)", () => {
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
-    }).toEqual({ output: "1.2", envelopes: "1.2", protocol: "1.2" });
-    expect(RESULT_VERSIONS).toEqual({ result: "1.2", output: "1.2" });
+      // E7 (snapshot) took the envelopes and the protocol to 1.3 after E5's 1.2.
+    }).toEqual({ output: "1.2", envelopes: "1.3", protocol: "1.3" });
+    expect(RESULT_VERSIONS).toEqual({ result: "1.3", output: "1.2" });
   });
 });
 

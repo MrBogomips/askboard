@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:snapshot-failed",
+  "title": "Snapshot failed",
+  "description": "board-host to board page: no Snapshot was written for the request with this ID (FR-26, AD-12). write-failed: the Snapshot folder could not be prepared or written, and folder names it; no-project-root: the session has no project root, CLAUDE_PROJECT_DIR, so no folder stands in for it; internal-error: AskBoard failed to make the Snapshot for another cause, such as a damaged view build; discarded: the ask is discarded. Only write-failed names a folder.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "snapshot-failed"
+    },
+    "requestId": {
+      "$ref": "urn:askboard:board-protocol:act#/properties/actionId"
+    },
+    "reason": {
+      "enum": ["write-failed", "no-project-root", "internal-error", "discarded"]
+    },
+    "folder": {
+      "description": "The Snapshot folder's path.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": ["version", "type", "requestId", "reason"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "reason": {
+        "const": "write-failed"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "folder": true
+    },
+    "required": ["folder"]
+  },
+  "else": {
+    "properties": {
+      "folder": false
+    }
+  }
+}

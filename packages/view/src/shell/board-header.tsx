@@ -12,6 +12,7 @@ import type { HeaderData } from "./header-data.ts";
 import { AskPill } from "./markers.tsx";
 import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, INFO_BADGE, SEPARATOR } from "./styles.ts";
+import { type ThemeChoice, ThemeControl } from "./theme-control.tsx";
 import { WhoAndWhere } from "./who-and-where.tsx";
 
 /** What row 2 shows beyond the pill; absent on a single-question board. */
@@ -58,12 +59,15 @@ export const BoardHeader = ({
   pill,
   counts,
   header,
+  theme,
 }: {
   readonly title: string;
   readonly pill: Pill;
   readonly counts?: HeaderCounts | undefined;
   /** Who asked and where, and the agent status (push delivery). */
   readonly header: Store<HeaderData>;
+  /** An opened Snapshot's Theme control (snapshot task 8.3). */
+  readonly theme?: Store<ThemeChoice> | undefined;
 }) => (
   <header className="sticky top-0 z-10 flex flex-col border-b border-border bg-card">
     <WhoAndWhere header={header} />
@@ -78,6 +82,7 @@ export const BoardHeader = ({
       <AskPill pill={pill} />
       <AgentPill header={header} />
       {counts === undefined ? null : <Counts counts={counts} />}
+      {theme === undefined ? null : <ThemeControl choice={theme} />}
     </div>
   </header>
 );

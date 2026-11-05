@@ -13,17 +13,25 @@ import {
   contextBoardDocument,
   ganttBoardDocument,
   ganttPlanBoardDocument,
+  lifecycleSnapshotData,
   plainChoiceBoardDocument,
   treeBoardDocument,
   uj2ExpandedBoardDocument,
 } from "@askboard/contract/fixtures";
 import { validateViewManifest } from "@askboard/contract/validate";
 // `assemble` as the board page runs it, on this build; the root links no `@askboard/view`.
-import { assemble, selectChunks, sourcesToFetch } from "../../packages/view/src/assemble/index.ts";
+import {
+  assemble,
+  selectChunks,
+  sourcesToFetch,
+  targetOf,
+} from "../../packages/view/src/assemble/index.ts";
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
+import { hostOnlyNeedProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
+import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
 import { main } from "./view.ts";
 
@@ -80,8 +88,9 @@ describe("bun run build:view (design decision 7)", () => {
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
     expect(manifest.chunks.tree?.components).toEqual(["tree"]);
-    // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2).
-    expect(manifest.chunks.shell?.needs).toEqual(["ext-apps", "radix", "react"]);
+    // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
+    // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
+    expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
     // The Tree reads the board graph since the molecules change (design decision 13), and the
     // work breakdown's values need compute's `isFormulaError` and `roundNumber` (decision 14).
@@ -281,6 +290,74 @@ const assembled = async (document: ViewDocument) => {
   );
   return assemble({ document, state: openState(document) }, manifest, Object.fromEntries(fetched));
 };
+
+describe("ext-apps only with a host (snapshot design decision 5; No view-protocol code in a Snapshot)", () => {
+  // A plain-question Snapshot: the lifecycle Snapshot's record over E1's plain Choice board.
+  const plainSnapshot = {
+    ...lifecycleSnapshotData,
+    document: plainChoiceBoardDocument,
+    state: openState(plainChoiceBoardDocument),
+  };
+
+  test("the manifest marks the ext-apps chunk host-only, and no other", () => {
+    const marked = Object.entries(manifest.chunks).filter(([, chunk]) => chunk.hostOnly === true);
+    expect(marked.map(([name]) => name)).toEqual(["ext-apps"]);
+    expect(manifest.version).toBe("1.1");
+  });
+
+  test("no chunk that is not host-only needs it", () => {
+    const chunks = Object.entries(manifest.chunks).map(([name, chunk]) => ({ name, ...chunk }));
+    expect(hostOnlyNeedProblems(chunks)).toEqual([]);
+  });
+
+  test("a board takes it, and a plain-question Snapshot holds none of its code, hash or notices", async () => {
+    const data = plainSnapshot;
+    const selection = selectChunks(data.document, manifest, targetOf(data));
+    const files = sourcesToFetch(selection);
+    const chunks = Object.fromEntries(
+      await Promise.all(files.map(async (file) => [file.sha256, await text(file.path)] as const)),
+    );
+    const paths = selection.flatMap(({ chunk }) => chunk.licences.map((notice) => notice.path));
+    const licences = Object.fromEntries(
+      await Promise.all(paths.map(async (path) => [path, await text(path)] as const)),
+    );
+    const snapshot = assemble(data, manifest, { chunks, licences });
+    const board = await assembled(plainChoiceBoardDocument);
+    const extApps = chunkNamed("ext-apps");
+    const code = await text(extApps.script.path);
+    expect(board.chunks).toContain("ext-apps");
+    expect(board.srcdoc).toContain(code);
+    expect(snapshot.chunks).toEqual(["react", "radix", "shell", "choice"]);
+    expect(snapshot.srcdoc).not.toContain(code);
+    expect(snapshot.policy).not.toContain(cspHashSource(extApps.script.sha256));
+    const block = /id="askboard-licences">([\s\S]*?)<\/script>/.exec(snapshot.srcdoc)?.[1] ?? "";
+    const notices = (JSON.parse(block) as { package: string }[]).map((notice) => notice.package);
+    expect(notices).toContain("react");
+    const inlined = new Set(selection.flatMap(({ chunk }) => packagesIn(chunk.licences)));
+    const onlyExtApps = packagesIn(extApps.licences).filter((name) => !inlined.has(name));
+    expect(onlyExtApps).toContain("@modelcontextprotocol/ext-apps");
+    for (const name of onlyExtApps) expect(notices).not.toContain(name);
+  });
+
+  test("a static import of ext-apps records the need the build check fails on", async () => {
+    const entry = join(dir, "static-ext-apps.ts");
+    await Bun.write(
+      entry,
+      'import { App } from "@modelcontextprotocol/ext-apps";\nconsole.log(App);\n',
+    );
+    const needs = new Set<string>();
+    const plugins = [sharedModulesPlugin("static", sharedModules(await portExports()), needs)];
+    await bundleChunk({ name: "static", entry }, plugins);
+    expect([...needs]).toEqual(["ext-apps"]);
+    const chunks = [
+      { name: "static", needs: [...needs] },
+      { name: "ext-apps", hostOnly: true, needs: [] },
+    ];
+    expect(hostOnlyNeedProblems(chunks)).toEqual([
+      expect.stringContaining('the chunk "static" needs the host-only chunk "ext-apps"'),
+    ]);
+  });
+});
 
 describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
   test("the selection takes the tree chunk for a board holding a Tree, and not for the plain Choice board", () => {

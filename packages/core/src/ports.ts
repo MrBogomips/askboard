@@ -4,6 +4,7 @@
 import type { UnavailableReason } from "@askboard/contract";
 import type { SourceFiles } from "./context/ports.ts";
 import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
+import type { SnapshotPorts } from "./snapshot/writer.ts";
 
 /**
  * `board-host`: the link of an ask's board, which opens the board listener on first use (AD-2).
@@ -95,4 +96,10 @@ export type CorePorts = {
    * `no-root`, whatever an ask's origin says (excerpts, design decision 4, Root).
    */
   readonly projectRoot?: string;
+
+  /**
+   * The Snapshot writer and the origin row's project folder (E7, snapshot design decision 3);
+   * without them no Snapshot is written, as in a session without a project root.
+   */
+  readonly snapshots?: SnapshotPorts;
 };

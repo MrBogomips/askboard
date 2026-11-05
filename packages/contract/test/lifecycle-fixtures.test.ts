@@ -149,7 +149,7 @@ describe("the lifecycle constants (design decision 2)", () => {
 });
 
 describe("the versions (design decision 2)", () => {
-  test("each set E3 touches is at its next minor or a later one, and the view manifest is unchanged", () => {
+  test("each set E3 touches is at its next minor or a later one, and the view manifest at 1.1 or later", () => {
     // A later change takes the next minor again (excerpts, design decision 2).
     const atLeast11 = (version: string) => (/^1\.([1-9][0-9]*)$/.test(version) ? "1.1+" : version);
     const versions = {
@@ -167,7 +167,7 @@ describe("the versions (design decision 2)", () => {
         envelopes: "1.1+",
         document: "1.1+",
         protocol: "1.1+",
-        manifest: "1.0",
+        manifest: "1.1+",
       },
     );
     expect(RESULT_VERSIONS).toEqual({

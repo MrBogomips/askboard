@@ -191,15 +191,29 @@ const needCycles = (chunks: Chunks): string[][] => {
   return cycles;
 };
 
+// A kept-render chunk is named by a component chunk only, and is in the manifest (1.1).
+const keptRenderProblems = (chunks: Chunks, name: string, chunk: ManifestChunk): Problem[] => {
+  const kept = chunk.keptRender;
+  if (kept === undefined) return [];
+  const path = `/chunks/${name}/keptRender`;
+  if (chunk.kind !== "component") {
+    return [{ path, message: "only a component chunk names a kept-render chunk" }];
+  }
+  if (Object.hasOwn(chunks, kept)) return [];
+  const message = `the chunk "${name}" names "${kept}" as its kept-render chunk, which is not in the manifest`;
+  return [{ path, message }];
+};
+
 // What the manifest's schema cannot say: every needed chunk exists, the shell and the libraries
 // need only libraries, no chunk needs itself through any path, there is exactly one shell, exactly
-// the component chunks name components, and no two chunks register one component.
+// the component chunks name components, no two chunks register one component, and a kept-render
+// chunk is a component chunk's and exists.
 const manifestProblems = ({ chunks }: ViewManifest): Problem[] => {
   const problems: Problem[] = [];
   const entries = Object.entries(chunks);
   const registrars = new Map<string, string>();
   for (const [name, chunk] of entries) {
-    problems.push(...needProblems(chunks, name, chunk));
+    problems.push(...needProblems(chunks, name, chunk), ...keptRenderProblems(chunks, name, chunk));
     const component = chunk.kind === "component";
     if (component !== (chunk.components !== undefined)) {
       const message = component
@@ -345,3 +359,8 @@ export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets
 // page runs after its generated validators.
 
 export { contextDocumentProblems } from "./context/document.ts";
+
+// Snapshots (E7, snapshot design decision 2): a Snapshot's data block, and the snapshot request.
+
+export { validateSnapshotData } from "./schemas/snapshot-data/validate.ts";
+export { validateSnapshotRequest } from "./snapshot/request.ts";

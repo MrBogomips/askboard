@@ -84,6 +84,8 @@ export type Banner = {
   /** A second line: on a closed or discarded board, that work the user did was never sent. */
   readonly detail?: string;
   readonly action?: "Continue here" | "Copy my unsent work";
+  /** The Closed banner offers "Snapshot", with its feedback beside it (snapshot task 7.2). */
+  readonly snapshot?: true;
   /**
    * The closed and discarded banners take the focus (EXPERIENCE.md, Accessibility Floor, Focus).
    */
@@ -112,6 +114,7 @@ const DISCARDED: Banner = {
 const CLOSED: Banner = {
   variant: "closed",
   text: "This ask was closed. The board is read-only.",
+  snapshot: true,
   takesFocus: true,
 };
 

@@ -483,3 +483,46 @@ export type {
   FetchQuestion,
   FetchQuestionProps,
 } from "./schemas/tool-envelopes/index.ts";
+
+// Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
+// the board protocol's Snapshot messages, the file name and the JSON blocks' element IDs.
+
+export type {
+  SnapshotCommand,
+  SnapshotFailedMessage,
+  SnapshotReply,
+  SnapshotSavedMessage,
+} from "./schemas/board-protocol/index.ts";
+export {
+  SNAPSHOT_DATA_ID,
+  SNAPSHOT_DATA_VERSION,
+  type SnapshotData,
+  type SnapshotEvent,
+  type SnapshotExpansion,
+  type SnapshotRecord,
+  type SnapshotRender,
+  type SnapshotRevision,
+  snapshotDataSet,
+} from "./schemas/snapshot-data/index.ts";
+export type {
+  SnapshotOutcomeResult,
+  SnapshotRequest,
+  SnapshotResult,
+} from "./schemas/tool-envelopes/index.ts";
+export {
+  SNAPSHOT_DATA_ELEMENT,
+  SNAPSHOT_LICENCES_ELEMENT,
+  SNAPSHOT_NAME_PATTERN,
+  SNAPSHOT_NAME_TRIES,
+  SNAPSHOT_RANDOM,
+} from "./snapshot/constants.ts";
+
+// The `.askboard/` folder under the session project root (AD-14): E8's constants
+// (settings-languages design decision 13), which E7 brings as the first of the two to land.
+
+export {
+  ASKBOARD_FOLDER,
+  ASKBOARD_GITIGNORE,
+  ASKBOARD_SUBFOLDERS,
+  SNAPSHOT_FOLDER,
+} from "./project-folder.ts";

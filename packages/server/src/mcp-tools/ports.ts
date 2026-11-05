@@ -6,7 +6,8 @@ import type { AskCore } from "@askboard/core";
  * The part of ask-core the tools use. The ask lifecycle adds `update`, `fetch`'s full value and
  * what the board shows, which `collect`'s wait reads (ask-lifecycle, design decision 4); push
  * delivery adds its binding and version gate, and the waiting `collect` reports of the agent status
- * (design decision 12), which E1's fakes leave out.
+ * (design decision 12), which E1's fakes leave out; E7 adds its Snapshot (snapshot design
+ * decision 7).
  */
 export type ToolCore = Pick<
   AskCore,
@@ -24,6 +25,7 @@ export type ToolCore = Pick<
   | "ownerOf"
   | "ownerRefusal"
   | "setClientVersion"
+  | "snapshot"
 > &
   Partial<Pick<AskCore, "waitStarted">>;
 

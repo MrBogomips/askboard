@@ -8,6 +8,8 @@
 // `server/discover`, and its close beside the board host's. Excerpts (E5) read pointers in the
 // session project root alone, through the excerpts unit; board-host has no editor command until
 // configuration supplies one (E8).
+// Snapshots (E7) join through `composeSnapshots`: the writer over the session project root, and
+// the origin row's project.
 
 import { randomBytes } from "node:crypto";
 import { AskCore, type Clock, type SourceFiles } from "@askboard/core";
@@ -26,6 +28,7 @@ import {
 } from "./mcp-tools/index.ts";
 import { createNotifier, type Environment } from "./notifier/index.ts";
 import { composePush, sessionProjectRoot } from "./push-composition.ts";
+import { composeSnapshots } from "./snapshot-composition.ts";
 
 export type SessionProcessOptions = {
   readonly env: Environment;
@@ -82,6 +85,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
   const push = composePush(options, { core: coreOf, diagnostics, reportAs });
   // The root pointers resolve in: E4's session project root, never the working folder (AD-12).
   const projectRoot = sessionProjectRoot(options.env);
+  const snapshots = composeSnapshots(options, { projectDir: push.projectDir });
   const host = createBoardHost({
     core: coreOf,
     view: options.view,
@@ -106,6 +110,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     ...push.ports,
     sources: options.sources ?? createSourceFiles({ projectRoot }),
     ...(projectRoot === undefined ? {} : { projectRoot }),
+    ...snapshots.ports,
   });
   return serveSession({
     deps: { core, timers: systemTimers, diagnostics, ...push.deps },

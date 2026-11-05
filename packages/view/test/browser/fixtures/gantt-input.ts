@@ -148,9 +148,15 @@ export const focusedBox = async (board: Board) => {
 /** A point on the page, as Playwright's mouse takes it. */
 type Point = { readonly x: number; readonly y: number };
 
-/** Where the pointer grabs a bar to move it: 4px in from its start, at its middle. */
+/**
+ * Where the pointer grabs a bar to move it: 4px in from its start, at its middle. The bar is
+ * scrolled to the middle of the view first: on a short window the sticky bottom bar, which a
+ * single-question board now shows for "Snapshot", covers the lowest bars.
+ */
 export const grabPoint = async (gantt: GanttParts, task: string): Promise<Point> => {
-  const box = await gantt.bar(task).boundingBox();
+  const bar = gantt.bar(task);
+  await bar.evaluate((element) => element.scrollIntoView({ block: "center", inline: "nearest" }));
+  const box = await bar.boundingBox();
   if (box === null) throw new Error(`the bar of ${task} is not shown`);
   return { x: box.x + 4, y: box.y + box.height / 2 };
 };

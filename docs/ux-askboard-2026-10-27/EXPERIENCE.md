@@ -11,7 +11,7 @@ sources:
   - .working/technical-choices-proposal.md
   - reconcile-prd.md
   - reconcile-research.md
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # AskBoard — Experience Spine
@@ -134,7 +134,7 @@ The brand voice lives in DESIGN.md, Brand & Style. For the things the user acts 
 | Deleted item | "Removed by the agent" [ASSUMPTION] | — | L60 |
 | Board banner | "Connection lost, retrying"; "Your unsent work was not sent", "Copy my unsent work"; "Continue here" | — | L85, L139, F-17, F-58 |
 | Postponed warning (bottom action bar) | "You have 1 postponed question: closing loses this ask", "You have 2 postponed questions: closing loses this ask" | — | L172, L190 |
-| Snapshot | "Your unsent work will not be in the Snapshot"; on a project-file reference, "not available in a Snapshot"; the top line of an opened Snapshot, "Snapshot · taken Oct 28, 2026, 4:12 PM by the agent · read-only" (when and by whom; to review) | — | F-80, F-69, L207 |
+| Snapshot | "Your unsent work will not be in the Snapshot", shown as the Snapshot is taken, with no confirmation; on a project-file reference, "not available in a Snapshot"; the top line of an opened Snapshot, "Snapshot · taken Oct 28, 2026, 4:12 PM by the agent · read-only" (when and by whom; to review), with "by <who>" when the user took it and "· your unsent work is not included" before "· read-only" when the board held unsent work (to review) | — | F-80, F-69, L207; OpenSpec change `snapshot` |
 
 | Do | Don't |
 |---|---|
@@ -640,7 +640,7 @@ An opened Snapshot: [mock](mockups/key-snapshot-view.html), Marco's UJ-3 board i
   - a project-file reference shows its path and anchor as text, marked "not available in a Snapshot", and a web reference opens only on an explicit click.
 - **Security.** The file holds no board token (L84, AD-8).
 - **Where.** In the Snapshot folder, set in the configuration. AskBoard names the file, never overwrites one, and the folder is ignored by git by default (FR-27, L40, AD-14, AD-15).
-- **Not recorded:** whether the board shows a Snapshot the agent took.
+- **The agent's Snapshots:** the board does not show a Snapshot the agent took; the agent's result names the file (OpenSpec change `snapshot`).
 
 ## Notices
 
@@ -893,7 +893,7 @@ Not blocking. They stay open until the stories close them (L145).
     - a pending follow-up reply, beyond Explain being disabled;
     - the reading panel's loading look and its treatment of a very large file (F-40);
     - the moved-board tab's wording.
-19. **Snapshot feedback.** Whether the board shows a Snapshot the agent took.
+19. **Snapshot feedback.** Decided by the OpenSpec change `snapshot`: the board does not show a Snapshot the agent took (Snapshots).
 
 **Settings**
 

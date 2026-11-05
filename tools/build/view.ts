@@ -3,8 +3,9 @@
 // and styles inline, and the two files beside it), each chunk's script and styles under `chunks/`,
 // and the licence texts under `licences/`. It fails, naming the chunk, on a chunk that holds
 // `import.meta`, a script or style that cannot be inlined as it is, a package without a licence,
-// a board page that would compile schemas, a manifest the contract refuses, a file whose hash does
-// not match, and a chunk grown more than 10% over `packages/view/chunk-sizes.json`.
+// a board page that would compile schemas, a chunk that needs a host-only chunk without being one
+// (snapshot design decision 5), a manifest the contract refuses, a file whose hash does not match,
+// and a chunk grown more than 10% over `packages/view/chunk-sizes.json`.
 //
 // Usage: bun tools/build/view.ts [--record-sizes] [--out <dir>] [--sizes <file>]
 //   --record-sizes  write the built sizes to the sizes file instead of checking them; a change
@@ -24,7 +25,12 @@ import {
 } from "@askboard/contract";
 import type { BunPlugin } from "bun";
 import { boardPageHtml } from "./board-page.ts";
-import { boardPageInputProblems, inlineScript, inlineStyleProblem } from "./checks.ts";
+import {
+  boardPageInputProblems,
+  hostOnlyNeedProblems,
+  inlineScript,
+  inlineStyleProblem,
+} from "./checks.ts";
 import {
   type Bundle,
   bundleChunk,
@@ -105,18 +111,22 @@ const finish = async (
   return { name, script: code, styles, notices: await collectNotices(name, inputs, ROOT) };
 };
 
-type BuiltChunk = Finished & { readonly kind: ChunkKind; readonly needs: readonly string[] };
+type BuiltChunk = Finished & {
+  readonly kind: ChunkKind;
+  readonly hostOnly?: true;
+  readonly needs: readonly string[];
+};
 
 const buildChunks = async (work: string): Promise<BuiltChunk[]> => {
   const modules = sharedModules(await portExports());
   const definitions = await chunkDefinitions(work);
   return Promise.all(
-    definitions.map(async ({ name, kind, entry }) => {
+    definitions.map(async ({ name, kind, entry, hostOnly }) => {
       const needs = new Set<string>();
       const plugins: BunPlugin[] = [sharedModulesPlugin(name, modules, needs)];
       const bundle = await bundleChunk({ name, entry }, plugins);
       const finished = await finish(name, stylePlanOf(kind), bundle, work);
-      return { ...finished, kind, needs: [...needs].sort() };
+      return { ...finished, kind, ...(hostOnly ? { hostOnly } : {}), needs: [...needs].sort() };
     }),
   );
 };
@@ -160,6 +170,7 @@ const assembleBuild = (
         script: add(`chunks/${chunk.name}.js`, chunk.script),
         styles: styles(`chunks/${chunk.name}.css`, chunk.styles),
         needs: chunk.needs,
+        ...(chunk.hostOnly ? { hostOnly: true } : {}),
         ...(chunk.kind === "component" ? { components: [...chunkComponents(chunk.name)] } : {}),
         licences: notices(chunk),
       },
@@ -218,6 +229,7 @@ export const buildView = async (out: string): Promise<BuiltView> => {
   try {
     await writeTokenFiles(work);
     const [page, chunks] = await Promise.all([buildBoardPage(work), buildChunks(work)]);
+    failIf(hostOnlyNeedProblems(chunks));
     // A licence text recorded for a package that no chunk took is stale (ask-lifecycle, 6.6).
     const used = [page, ...chunks].flatMap(({ notices }) =>
       notices.flatMap(({ recorded }) => (recorded === undefined ? [] : [recorded])),

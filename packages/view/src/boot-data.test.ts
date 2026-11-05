@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { BOARD_PROTOCOL_VERSION, type BoardState, type HostMessage } from "@askboard/contract";
+import {
+  BOARD_PROTOCOL_VERSION,
+  type BoardState,
+  type HostMessage,
+  SNAPSHOT_DATA_ELEMENT,
+} from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { bootDataOf, EMPTY_MODEL, type PassedOn, withHostMessage } from "./board-page/model.ts";
 import { BOOT_DATA_ID, type BootData, type BootField, parseBootData } from "./boot-data.ts";
@@ -11,8 +16,9 @@ const data: BootData = {
 };
 
 describe("the askboard-data block the view boots from (AD-9)", () => {
-  test("has the id the view looks for", () => {
+  test("has the id the view looks for, the contract's Snapshot data element (snapshot task 1.4)", () => {
     expect(BOOT_DATA_ID).toBe("askboard-data");
+    expect(BOOT_DATA_ID).toBe(SNAPSHOT_DATA_ELEMENT);
   });
 
   test("holds the board document and the state", () => {
@@ -90,5 +96,26 @@ describe("the fields the view boots from, as the table of update fields marks th
   test("the block's other fields pass through, unchecked", () => {
     const extra = { ...data, later: { at: 1 } };
     expect(parseBootData(JSON.stringify(extra))).toEqual(extra);
+  });
+});
+
+describe("a Snapshot's record in the block (snapshot task 8.1)", () => {
+  test("is kept when it names when and by whom", () => {
+    const agent = {
+      ...data,
+      snapshot: { takenAt: "2026-10-31T14:30:00Z", takenBy: "agent" },
+    } as const;
+    expect(parseBootData(JSON.stringify(agent))).toEqual(agent);
+    const user = {
+      ...data,
+      snapshot: { takenAt: "2026-10-31T14:30:00Z", takenBy: "user", who: "Sara Conti" },
+    } as const;
+    expect(parseBootData(JSON.stringify(user))).toEqual(user);
+  });
+
+  test("a malformed record fails the boot", () => {
+    for (const snapshot of [{ takenBy: "agent" }, { takenAt: "x", takenBy: "user" }, "now"]) {
+      expect(() => parseBootData(JSON.stringify({ ...data, snapshot }))).toThrow(/snapshot record/);
+    }
   });
 });

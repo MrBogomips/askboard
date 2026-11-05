@@ -21,7 +21,16 @@ export type ChunkDefinition = {
   readonly kind: ChunkKind;
   /** The entry module's path. */
   readonly entry: string;
+  /** Loaded only by a view with a host, so never by a Snapshot (snapshot design decision 5). */
+  readonly hostOnly?: true;
 };
+
+/**
+ * The chunks only a view with a host loads (snapshot design decision 5): ext-apps, whose `App`
+ * the shell takes from the shared-module registry when it has a parent. A board's selection adds
+ * them, a Snapshot's leaves them out, and no other chunk may need them.
+ */
+export const HOST_ONLY_CHUNKS: ReadonlySet<string> = new Set(["ext-apps"]);
 
 /** A document's styles for the shell, a component's own utilities, nothing for a library. */
 export const stylePlanOf = (kind: ChunkKind): StylePlan | undefined =>
@@ -73,6 +82,8 @@ const CHUNK_COMPONENTS: Readonly<Record<string, readonly string[]>> = {
 export const chunkComponents = (name: string): readonly string[] =>
   Object.hasOwn(CHUNK_COMPONENTS, name) ? (CHUNK_COMPONENTS[name] ?? [name]) : [name];
 
+const HOST_ONLY = { hostOnly: true } as const;
+
 /** Every chunk, writing the library chunks' generated entries into `work`. */
 export const chunkDefinitions = async (
   work: string,
@@ -82,7 +93,7 @@ export const chunkDefinitions = async (
     Object.keys(LIBRARY_CHUNKS).map(async (name): Promise<ChunkDefinition> => {
       const entry = join(work, "entries", `${name}.js`);
       await Bun.write(entry, libraryEntrySource(name));
-      return { name, kind: "library", entry };
+      return { name, kind: "library", entry, ...(HOST_ONLY_CHUNKS.has(name) ? HOST_ONLY : {}) };
     }),
   );
   return [

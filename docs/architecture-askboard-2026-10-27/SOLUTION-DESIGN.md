@@ -2,7 +2,7 @@
 title: 'Solution design: AskBoard'
 status: final
 created: '2026-10-27'
-updated: '2026-11-01'
+updated: '2026-11-03'
 companions: ['ARCHITECTURE-SPINE.md']
 sources:
   - 'ARCHITECTURE-SPINE.md: AD-1 to AD-22, conventions, stack, Deferred (final, 2026-10-28)'
@@ -377,10 +377,10 @@ stateDiagram-v2
 
 ### 5.6 Snapshot (AD-15)
 
-1. The owner calls `snapshot`, which takes no path.
-2. `assemble` writes the `askboard-data` block first (`<` escaped), with the board documents, the whole log, each answer's full value stored with its revision, and the light and dark render `board-host` kept for each diagram; then the chunks used, their styles, the view CSP and the licence notices. A diagram with a kept render needs no renderer chunk: the renderer spike's golden Snapshot was 429,393 bytes with renders against 5,044,979 with the PlantUML chunk.
-3. The file `<ask-id>-<UTC timestamp>-<short random>.html` goes into the Snapshot folder (by default `.askboard/snapshots/`, git-ignored, inside the project root) and never overwrites another.
-4. The tool returns the path (FR-26). An agent reads the data block without rendering the page (FR-27).
+1. The owner calls `snapshot`, which takes no path, or the user presses Snapshot on the board. `ask-core` gathers the data at once and hands it to its `SnapshotWriter` port, which the `snapshot` unit implements.
+2. `assemble` writes the view CSP, then the `askboard-data` block (`<` escaped), with the Snapshot's record, the board document and the revisions events name, the board state, the origin, the whole log with each answer's full values, the expansion map, and the light and dark render `board-host` kept for each diagram; then the chunks used and their styles, and the licence notices last. A diagram with a kept render needs no renderer chunk: the renderer spike's golden Snapshot was 429,393 bytes with renders against 5,044,979 with the PlantUML chunk.
+3. The file `<ask-id>-<YYYYMMDDTHHMMSSZ>-<short random>.html` goes into the Snapshot folder (by default `.askboard/snapshots/`, git-ignored, inside the project root) and never overwrites another.
+4. The tool returns the absolute path (FR-26). A Snapshot the user takes is no event: the agent finds it in the folder. An agent reads the data block without rendering the page (FR-27).
 5. A Snapshot taken from the board notes unsent work but never includes the draft record. Opened later, the view boots from the data block, offline, with no AskBoard running.
 
 ## 6. Security model (AD-11)

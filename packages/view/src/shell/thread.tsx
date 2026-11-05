@@ -51,6 +51,8 @@ export type ThreadProps = {
   readonly composer: string;
   /** The composer can be used: the question is visible and the board not locked. */
   readonly usable: boolean;
+  /** An opened Snapshot: the messages show, with no composer and no way to ask. */
+  readonly readOnly?: boolean;
   /** A follow-up of the composer's is on its way. */
   readonly sending: boolean;
   readonly onComposerChange: (text: string) => void;
@@ -63,6 +65,7 @@ export const Thread = ({
   thread,
   composer,
   usable,
+  readOnly = false,
   sending,
   onComposerChange,
   onSend,
@@ -97,6 +100,7 @@ export const Thread = ({
   const count = messageCountOf(thread);
   const id = `${questionId}:thread`;
   const canSend = usable && !sending && composer !== "";
+  if (readOnly && count === 0) return null;
   if (!open) {
     return (
       <div className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5">
@@ -110,10 +114,10 @@ export const Thread = ({
           aria-controls={id}
           onClick={() => {
             setOpen(true);
-            setFocus("composer");
+            setFocus(readOnly ? "latest" : "composer");
           }}
         >
-          Ask a follow-up
+          {readOnly ? "Show follow-up" : "Ask a follow-up"}
         </button>
       </div>
     );
@@ -164,27 +168,29 @@ export const Thread = ({
           ])}
         </ol>
       )}
-      <div className="flex items-end gap-2 border-t border-border p-2">
-        <textarea
-          ref={composerRef}
-          aria-label={COMPOSER_LABEL}
-          placeholder={COMPOSER_LABEL}
-          value={composer}
-          readOnly={!usable || sending}
-          maxLength={FOLLOW_UP_MAX_CHARS}
-          rows={2}
-          onChange={(event) => onComposerChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (!isSendKey(event)) return;
-            event.preventDefault();
-            if (canSend) onSend();
-          }}
-          className={TEXT_FIELD}
-        />
-        <button type="button" className={BUTTON_SECONDARY} disabled={!canSend} onClick={onSend}>
-          Send
-        </button>
-      </div>
+      {readOnly ? null : (
+        <div className="flex items-end gap-2 border-t border-border p-2">
+          <textarea
+            ref={composerRef}
+            aria-label={COMPOSER_LABEL}
+            placeholder={COMPOSER_LABEL}
+            value={composer}
+            readOnly={!usable || sending}
+            maxLength={FOLLOW_UP_MAX_CHARS}
+            rows={2}
+            onChange={(event) => onComposerChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (!isSendKey(event)) return;
+              event.preventDefault();
+              if (canSend) onSend();
+            }}
+            className={TEXT_FIELD}
+          />
+          <button type="button" className={BUTTON_SECONDARY} disabled={!canSend} onClick={onSend}>
+            Send
+          </button>
+        </div>
+      )}
     </section>
   );
 };

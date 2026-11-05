@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:snapshot-saved",
+  "title": "Snapshot saved",
+  "description": "board-host to board page: the Snapshot the request with this ID asked for is written, at this absolute path (FR-26, AD-15).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "urn:askboard:board-protocol:version"
+    },
+    "type": {
+      "const": "snapshot-saved"
+    },
+    "requestId": {
+      "$ref": "urn:askboard:board-protocol:act#/properties/actionId"
+    },
+    "path": {
+      "description": "The Snapshot file's absolute path.",
+      "type": "string",
+      "pattern": "^/"
+    }
+  },
+  "required": ["version", "type", "requestId", "path"],
+  "additionalProperties": false
+}

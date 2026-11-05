@@ -1,5 +1,6 @@
 // A fake ask-core for board-host's tests: one ask whose board view the test sets, the commands,
-// drafts and connection reports it was given, and a subscription the test emits on.
+// drafts and connection reports it was given, and a subscription the test emits on. Since E7, the
+// Snapshots it was asked for, each answered as the test says.
 
 import type { DraftRecord, LifecycleBoardDocument } from "@askboard/contract";
 import { PLAIN_CHOICE, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
@@ -10,6 +11,8 @@ import type {
   AnswerOutcome,
   CoreEvent,
   LifecycleBoardView,
+  SnapshotOutcome,
+  SnapshotRequester,
 } from "@askboard/core";
 import type { HostCore } from "../../src/board-host/index.ts";
 
@@ -17,6 +20,16 @@ export const REFUSING: AnswerOutcome = {
   ok: false,
   refusal: "answered",
   detail: "the question is already answered",
+};
+
+/** Where the fake's Snapshots are written. */
+export const SNAPSHOT_PATH = "/Users/paola/src/order-service/.askboard/snapshots/plain.html";
+
+const SAVED: SnapshotOutcome = {
+  outcome: "saved",
+  path: SNAPSHOT_PATH,
+  state: "waiting",
+  unchecked: true,
 };
 
 /** What ask-core shows of an ask that is not discarded. */
@@ -34,7 +47,8 @@ export type Call =
   | readonly ["answer", string, AnswerCommandInput]
   | readonly ["act", string, ActCommandInput]
   | readonly ["holdDraft", string, DraftRecord]
-  | readonly ["connected" | "disconnected", string];
+  | readonly ["connected" | "disconnected", string]
+  | readonly ["snapshot", string, SnapshotRequester];
 
 export type FakeHostCore = {
   readonly core: HostCore;
@@ -53,6 +67,8 @@ export const fakeHostCore = (
     answer?: AnswerOutcome | ((askId: string, command: AnswerCommandInput) => AnswerOutcome);
     act?: (command: ActCommandInput) => ActOutcome;
     draft?: DraftRecord;
+    /** ask-core's Snapshot outcome; `saved` at `SNAPSHOT_PATH` by default. */
+    snapshot?: (askId: string, request: SnapshotRequester) => Promise<SnapshotOutcome>;
   } = {},
 ): FakeHostCore => {
   const calls: Call[] = [];
@@ -92,6 +108,10 @@ export const fakeHostCore = (
       subscribe: (listener) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
+      },
+      snapshot: async (askId, request) => {
+        calls.push(["snapshot", askId, request]);
+        return options.snapshot?.(askId, request) ?? SAVED;
       },
     },
   };
