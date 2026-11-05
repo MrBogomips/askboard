@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
@@ -55,7 +63,8 @@ const openedSettings = async (session: Session): Promise<Settings> => {
  */
 const created = async (path: string): Promise<void> => {
   const deadline = Date.now() + 5_000;
-  while (!existsSync(path)) {
+  // The file is created before it is written: wait for its content too.
+  while (!existsSync(path) || statSync(path).size === 0) {
     if (Date.now() > deadline) throw new Error(`timed out waiting for ${path}`);
     await Bun.sleep(5);
   }

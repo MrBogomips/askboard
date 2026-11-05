@@ -121,8 +121,7 @@ export const Thread = ({
             setFocus(readOnly ? "latest" : "composer");
           }}
         >
-          {text("thread.ask")}
-          {readOnly ? "Show follow-up" : "Ask a follow-up"}
+          {text(readOnly ? "thread.show" : "thread.ask")}
         </button>
       </div>
     );

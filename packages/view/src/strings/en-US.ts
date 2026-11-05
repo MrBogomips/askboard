@@ -128,6 +128,7 @@ export const EN_US = {
   "thread.noMessages": "no messages yet",
   "thread.messages": { one: "{count} message", other: "{count} messages" },
   "thread.ask": "Ask a follow-up",
+  "thread.show": "Show follow-up",
   "thread.collapse": "Collapse",
   "thread.composer": "Ask the agent a follow-up…",
   "thread.send": "Send",

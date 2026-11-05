@@ -131,6 +131,7 @@ export const STRING_KEYS = [
   "thread.noMessages",
   "thread.messages",
   "thread.ask",
+  "thread.show",
   "thread.collapse",
   "thread.composer",
   "thread.send",

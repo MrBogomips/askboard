@@ -133,6 +133,7 @@ export const IT_IT = {
   "thread.noMessages": "ancora nessun messaggio",
   "thread.messages": { one: "{count} messaggio", other: "{count} messaggi" },
   "thread.ask": "Chiedi un chiarimento",
+  "thread.show": "Mostra il chiarimento",
   "thread.collapse": "Comprimi",
   "thread.composer": "Chiedi un chiarimento all'agente…",
   "thread.send": "Invia",
