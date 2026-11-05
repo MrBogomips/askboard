@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { TreeNode } from "@askboard/contract";
-import { treeBoardDocument } from "@askboard/contract/fixtures";
-import { visibleRows } from "./rows.ts";
+import type { TreeNode, TreeProps } from "@askboard/contract";
+import { treeBoardDocument, uj2ExpandedQuestion } from "@askboard/contract/fixtures";
+import { openingCollapsed, visibleRows } from "./rows.ts";
 
 // The visible rows of a Tree (design decision 5): one per node whose ancestors are all expanded,
 // in document order, with what the treegrid's roles need. All expanded by default (open question 8).
@@ -109,5 +109,78 @@ describe("the visible rows (design decision 5)", () => {
     expect(rows.every((row) => Object.isFrozen(row))).toBe(true);
     expect(nodes).toEqual(before);
     expect([...collapsed]).toEqual(["n1"]);
+  });
+});
+
+describe("the rows a work breakdown opens with (molecules design decision 14; view spec, WBS opening depth)", () => {
+  // The expanded UJ-2 work breakdown: `pert`, `openDepth` 2, Design and Build with three leaves each.
+  const wbs = uj2ExpandedQuestion.props.items[0].props;
+  const opening = (props: TreeProps) =>
+    visibleRows(props.nodes, openingCollapsed(props)).map((row) => [row.node.id, row.expanded]);
+  // The work breakdown with the portal given a child, a third level.
+  const deeper: TreeProps = {
+    ...wbs,
+    nodes: wbs.nodes.map((node) =>
+      node.id !== "build"
+        ? node
+        : {
+            ...node,
+            children: (node.children ?? []).map((child) =>
+              child.id === "portal"
+                ? { ...child, children: [{ id: "u-1", label: "Login" }] }
+                : child,
+            ),
+          },
+    ),
+  };
+
+  test("with openDepth 2, Design and Build open and their six children show", () => {
+    expect(opening(wbs)).toEqual([
+      ["design", true],
+      ["ux", false],
+      ["architecture", false],
+      ["prototype", false],
+      ["build", true],
+      ["portal", false],
+      ["billing", false],
+      ["reporting", false],
+    ]);
+  });
+
+  test("with openDepth 1, only Design and Build show, closed", () => {
+    expect(opening({ ...wbs, openDepth: 1 } as TreeProps)).toEqual([
+      ["design", false],
+      ["build", false],
+    ]);
+  });
+
+  test("a node with children at the opening depth opens closed, and the levels above it open", () => {
+    const rows = opening(deeper);
+    expect(rows).toContainEqual(["build", true]);
+    expect(rows).toContainEqual(["portal", false]);
+    expect(rows.map(([id]) => id)).not.toContain("u-1");
+    expect(opening({ ...deeper, openDepth: 3 } as TreeProps)).toContainEqual(["u-1", false]);
+  });
+
+  test("a node below the opening depth opens closed too, once its parent is expanded", () => {
+    const collapsed = openingCollapsed({ ...deeper, openDepth: 1 } as TreeProps);
+    expect([...collapsed].sort()).toEqual(["build", "design", "portal"]);
+  });
+
+  test("a work breakdown that sets no openDepth opens two levels (EXPERIENCE, WBS with PERT)", () => {
+    const { openDepth, ...unset } = wbs;
+    expect(openDepth).toBe(2);
+    expect(openingCollapsed(unset)).toEqual(openingCollapsed(wbs));
+    expect(openingCollapsed({ ...deeper, openDepth: undefined } as TreeProps)).toEqual(
+      new Set(["portal"]),
+    );
+  });
+
+  test("a Tree without pert still opens fully expanded (tree-widget open question 8)", () => {
+    expect(openingCollapsed(fixture).size).toBe(0);
+    const { pert, openDepth, ...plain } = deeper as TreeProps & { pert?: true; openDepth?: number };
+    expect([pert, openDepth]).toEqual([true, 2]);
+    expect(openingCollapsed(plain).size).toBe(0);
+    expect(visibleRows(plain.nodes, openingCollapsed(plain))).toHaveLength(9);
   });
 });

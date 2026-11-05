@@ -5,6 +5,7 @@
 import { expect } from "bun:test";
 import { plan } from "../fixtures/tree-documents.ts";
 import { eventually, isFocused, LOAD_TIMEOUT_MS, QUIET_MS, STEP_TIMEOUT_MS } from "./board-test.ts";
+import type { Board } from "./dom.ts";
 import {
   type FocusAt,
   pressIn,
@@ -97,6 +98,24 @@ export const typeIn = async (run: WidgetHostRun, tree: TreeGrid, key: string, te
   await tree.editor.waitFor({ timeout: STEP_TIMEOUT_MS });
   expect(await isFocused(tree.editor)).toBe(true);
   await run.board.page.keyboard.type(text);
+};
+
+/** Edits the Tree's focused field: F2, the text over the field's, then Enter, the focus kept. */
+export const enterField = async (run: WidgetHostRun, tree: TreeGrid, text: string, at: FocusAt) => {
+  await typeIn(run, tree, "F2", text);
+  expect({ text, at: await pressIn(run.board, "Enter") }).toEqual({ text, at });
+  expect(await tree.editor.count()).toBe(0);
+};
+
+/** How many presses of Tab may pass before the focus must have reached its target. */
+const MAX_TABS = 6;
+
+/** Presses Tab until `reached` holds, at most `MAX_TABS` times, with no click. */
+export const tabUntil = async (board: Board, reached: () => Promise<boolean>, what: string) => {
+  for (let presses = 0; !(await reached()); presses += 1) {
+    if (presses === MAX_TABS) throw new Error(`${MAX_TABS} presses of Tab never reached ${what}`);
+    await board.page.keyboard.press("Tab");
+  }
 };
 
 /** Presses each key in turn in the toolbar, expecting the focus on the step's tool, with one Tab stop. */

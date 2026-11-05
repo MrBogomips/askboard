@@ -121,9 +121,10 @@ describe("the port carries any item and any value (design decision 7)", () => {
       questionId: "plan",
       value: undefined,
       onValueChange: (value) => changes.push(value),
+      onValuesChange: (values) => changes.push(values),
       disabled: false,
       ready: () => {},
-      board: { items: [], draft: new Map() },
+      board: { items: [], draft: new Map(), shown: new Map() },
       onDerived: () => {},
     };
     componentFor("test-probe-props")?.(props);
@@ -134,6 +135,28 @@ describe("the port carries any item and any value (design decision 7)", () => {
     got?.onValueChange({ size: 4 });
     got?.onValueChange(undefined);
     expect(changes).toEqual([{ size: 4 }, undefined]);
+  });
+
+  test("it puts several items of its question in one update, undefined removing one (molecules, design decision 11)", () => {
+    const seen: ItemProps<ProbeItem, ProbeValue>[] = [];
+    register<ProbeItem, ProbeValue>("test-probe-linked", (props) => {
+      seen.push(props);
+      return null;
+    });
+    const updates: Readonly<Record<string, unknown>>[] = [];
+    componentFor("test-probe-linked")?.({
+      item: sketch,
+      questionId: "plan",
+      value: undefined,
+      onValueChange: () => {},
+      onValuesChange: (values) => updates.push(values),
+      disabled: false,
+      ready: () => {},
+      board: { items: [sketch], draft: new Map(), shown: new Map() },
+      onDerived: () => {},
+    });
+    seen[0]?.onValuesChange({ sketch: { size: 4 }, second: undefined });
+    expect(updates).toEqual([{ sketch: { size: 4 }, second: undefined }]);
   });
 });
 
@@ -146,16 +169,15 @@ describe("the port gives a component its board and takes its derived values (gan
     });
     const [schedule] = ganttBoardDocument.items;
     const [release] = schedule.props.items;
-    const board: BoardContent = {
-      items: [release],
-      draft: new Map([["release", ganttEditedValue]]),
-    };
+    const draft = new Map([["release", ganttEditedValue]]);
+    const board: BoardContent = { items: [release], draft, shown: draft };
     const reports: DerivedValues[] = [];
     componentFor("test-board")?.({
       item: release,
       questionId: schedule.id,
       value: ganttEditedValue,
       onValueChange: () => {},
+      onValuesChange: () => {},
       disabled: false,
       ready: () => {},
       board,

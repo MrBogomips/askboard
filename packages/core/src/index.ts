@@ -80,3 +80,31 @@ export { UNKNOWN_VERSION_DIAGNOSTIC } from "./push/version.ts";
 
 export { backgroundThreshold } from "./push/agent-status.ts";
 export { expectedAnswerer } from "./push/answerer.ts";
+
+// Molecules (molecules): the fill forms of the definition format.
+
+// Molecules (molecules): the fill forms of the definition format, the expansion map and
+// reference addressing.
+
+// Molecules (molecules): expanding molecule references through the MoleculeSource port, the fill
+// forms of the definition format, the expansion map and reference addressing.
+
+export {
+  type AddressedAnswer,
+  answerInReferenceAddressing,
+  type ReferenceAddressing,
+  referenceAddressing,
+} from "./molecules/addressing.ts";
+export {
+  type Expansion,
+  type ExpansionProblem,
+  expandMolecules,
+} from "./molecules/expand.ts";
+export { type ExpandedIds, type Filled, fillItem } from "./molecules/fills.ts";
+export {
+  type ExpansionEntry,
+  type ExpansionMap,
+  type ExpansionRecord,
+  expansionEntries,
+} from "./molecules/map.ts";
+export type { MoleculeLookup, MoleculeSource } from "./molecules/source.ts";

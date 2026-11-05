@@ -224,8 +224,9 @@ const boot = (): void => {
     threads,
     focus,
     removed,
-    // The board components read follows the latest document, which an agent update replaces.
-    boardContent: createBoardContent(() => view.get().document),
+    // The board components read follows the latest document, which an agent update replaces, and
+    // the answers of the latest board state (molecules, design decision 11).
+    boardContent: createBoardContent(() => view.get()),
     derived: createDerivedStore(),
   };
   const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };

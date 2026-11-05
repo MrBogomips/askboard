@@ -1,10 +1,12 @@
 // The board's compute graph in the view (design decision 7, AD-13): the live graph, of the board's
-// items with the draft record's values in place of their props, and the sent graph, of the items
-// as the agent sent them, which the baseline reads. Each is built through `compute` and memoized by
-// the identity of the items list and of the draft record, so that every Gantt on a board shares one
-// build and the sent graph is built once per board revision. A board holding nothing to compute
-// builds nothing. Written to move behind the port, into a library chunk, when a second computing
-// widget comes. The live graph built for a board's items moves on with the draft: a change that
+// items with the values they show in place of their props (the draft record's, else their
+// question's latest answer's: the board's `shown`, molecules design decision 11), and the sent
+// graph, of the items as the agent sent them, which the baseline reads. Each is built through
+// `compute` and memoized by the identity of the items list and of the shown values, so that every
+// Gantt on a board shares one build and the sent graph is built once per board revision. A board
+// holding nothing to compute builds nothing. Written to move behind the port, into a library
+// chunk, when a second computing widget comes. The live graph built for a board's items moves on
+// with the draft: a change that
 // `recalc.ts` says needs no rebuild (a duration, or a held request's move) goes through `set` and
 // `recalc` on it, the design's fallback for drops over 100 ms at the limits (task 6.8); every live
 // graph a component gets is a snapshot of its values, which never changes after. Plain ECMAScript:
@@ -105,18 +107,18 @@ const recalcLive = (
   };
 };
 
-/** The graph of the board's items with the draft's values in place: the board as it stands. */
+/** The graph of the board's items with the values they show in place: the board as it stands. */
 export const liveGraph = (board: BoardContent): BoardGraph | undefined => {
-  const { items, draft } = board;
-  if (!items.some((item) => draft.get(item.id) !== undefined)) return sentGraph(board);
-  let byDraft = LIVE.get(items);
-  if (byDraft === undefined) {
-    byDraft = new WeakMap();
-    LIVE.set(items, byDraft);
+  const { items, shown } = board;
+  if (!items.some((item) => shown.get(item.id) !== undefined)) return sentGraph(board);
+  let byShown = LIVE.get(items);
+  if (byShown === undefined) {
+    byShown = new WeakMap();
+    LIVE.set(items, byShown);
   }
-  if (byDraft.has(draft)) return byDraft.get(draft);
+  if (byShown.has(shown)) return byShown.get(shown);
   const effective = items.map((item) => {
-    const value = draft.get(item.id);
+    const value = shown.get(item.id);
     return value === undefined ? item : { ...item, props: value };
   });
   const held = CHAINS.get(items);
@@ -126,6 +128,6 @@ export const liveGraph = (board: BoardContent): BoardGraph | undefined => {
       ? recalcLive(held, effective, changes)
       : buildLive(effective);
   if (live !== undefined) CHAINS.set(items, live);
-  byDraft.set(draft, live?.graph);
+  byShown.set(shown, live?.graph);
   return live?.graph;
 };

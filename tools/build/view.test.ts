@@ -14,6 +14,7 @@ import {
   ganttPlanBoardDocument,
   plainChoiceBoardDocument,
   treeBoardDocument,
+  uj2ExpandedBoardDocument,
 } from "@askboard/contract/fixtures";
 import { validateViewManifest } from "@askboard/contract/validate";
 // `assemble` as the board page runs it, on this build; the root links no `@askboard/view`.
@@ -65,6 +66,7 @@ describe("bun run build:view (design decision 7)", () => {
       Object.entries(manifest.chunks).map(([name, chunk]) => [name, chunk.kind]),
     );
     expect(kinds).toEqual({
+      "board-graph": "library",
       choice: "component",
       compute: "library",
       "ext-apps": "library",
@@ -79,16 +81,39 @@ describe("bun run build:view (design decision 7)", () => {
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2).
     expect(manifest.chunks.shell?.needs).toEqual(["ext-apps", "radix", "react"]);
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
-    expect(manifest.chunks.tree?.needs).toEqual(["react", "shell"]);
+    // The Tree reads the board graph since the molecules change (design decision 13), and the
+    // work breakdown's values need compute's `isFormulaError` and `roundNumber` (decision 14).
+    expect(manifest.chunks.tree?.needs).toEqual(["board-graph", "compute", "react", "shell"]);
     expect(manifest.chunks.radix?.needs).toEqual(["react"]);
     expect(manifest.boardPage.html.path).toBe("board-page.html");
   });
 
-  test("it lists the Gantt's chunk, needing the shell, React, Radix and compute, and compute's (gantt-widget design decisions 7 and 11)", () => {
+  test("it lists the Gantt's chunk, needing the shell, React, Radix, compute and the board graph, and compute's (gantt-widget design decisions 7 and 11)", () => {
     // Radix joined the Gantt's needs with its first Radix control, the predecessors' Checkbox.
     expect(chunkNamed("gantt").components).toEqual(["gantt"]);
-    expect(chunkNamed("gantt").needs).toEqual(["compute", "radix", "react", "shell"]);
+    expect(chunkNamed("gantt").needs).toEqual([
+      "board-graph",
+      "compute",
+      "radix",
+      "react",
+      "shell",
+    ]);
     expect(chunkNamed("compute").needs).toEqual([]);
+  });
+
+  test("it lists the library chunk board-graph, needing compute, which the Tree and the Gantt need (molecules, design decision 13; view spec, The board graph chunk)", () => {
+    expect(chunkNamed("board-graph").kind).toBe("library");
+    expect(chunkNamed("board-graph").needs).toEqual(["compute"]);
+    expect(chunkNamed("tree").needs).toContain("board-graph");
+    expect(chunkNamed("gantt").needs).toContain("board-graph");
+  });
+
+  test("the board graph's code is in its chunk only, not in the Gantt's or the Tree's", async () => {
+    // `missing` builds this detail for an address the live graph holds no node for.
+    const marker = "no node ";
+    expect(await text(chunkNamed("board-graph").script.path)).toContain(marker);
+    expect(await text(chunkNamed("gantt").script.path)).not.toContain(marker);
+    expect(await text(chunkNamed("tree").script.path)).not.toContain(marker);
   });
 
   test("each hash matches its file, and the board page holds its script and styles inline", async () => {
@@ -197,6 +222,7 @@ describe("bun run build:view (design decision 7)", () => {
   test("the recorded sizes are the build's, and packages/view/chunk-sizes.json is up to date", async () => {
     const recorded = await readSizes(sizesFile);
     expect(Object.keys(recorded).sort()).toEqual([
+      "board-graph",
       "board-page",
       "choice",
       "compute",
@@ -258,7 +284,16 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     const names = (document: ViewDocument) =>
       selectChunks(document, manifest).map(({ name }) => name);
     // The shell needs the radix chunk since the ask lifecycle (Tabs, the "More" menu, the dialog).
-    expect(names(treeBoardDocument)).toEqual(["ext-apps", "react", "radix", "shell", "tree"]);
+    // Since the molecules change the Tree needs the board graph, and it compute (design decision 13).
+    expect(names(treeBoardDocument)).toEqual([
+      "compute",
+      "board-graph",
+      "ext-apps",
+      "react",
+      "radix",
+      "shell",
+      "tree",
+    ]);
     expect(names(plainChoiceBoardDocument)).toContain("choice");
     expect(names(plainChoiceBoardDocument)).not.toContain("tree");
   });
@@ -301,9 +336,11 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
   test("they hold no schema, no Ajv and no code made from text, which the view's policy forbids", async () => {
     const gantt = await text(chunkNamed("gantt").script.path);
     const compute = await text(chunkNamed("compute").script.path);
+    const graph = await text(chunkNamed("board-graph").script.path);
     expect(gantt).toContain('"gantt"');
     expect(compute).toContain('"@askboard/compute"');
-    for (const script of [gantt, compute]) {
+    expect(graph).toContain('"@askboard/widgets/graph"');
+    for (const script of [gantt, compute, graph]) {
       expect(script).not.toContain("urn:askboard");
       expect(script).not.toMatch(/\bajv\b/i);
       expect(script).not.toMatch(/\bnew Function\b|\beval\(/);
@@ -316,6 +353,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
     // Each chunk after the chunks it needs: Radix after React.
     expect(names(ganttBoardDocument)).toEqual([
       "compute",
+      "board-graph",
       "ext-apps",
       "react",
       "radix",
@@ -325,21 +363,31 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
     expect(names(plainChoiceBoardDocument)).toContain("choice");
     expect(names(plainChoiceBoardDocument)).not.toContain("gantt");
     expect(names(plainChoiceBoardDocument)).not.toContain("compute");
+    expect(names(plainChoiceBoardDocument)).not.toContain("board-graph");
   });
 
   test("the plan's board takes them with the Tree's chunk, and Radix carries the plan's zoom (design decision 10)", () => {
     const names = selectChunks(ganttPlanBoardDocument, manifest).map(({ name }) => name);
-    expect(names).toEqual(["compute", "ext-apps", "react", "radix", "shell", "gantt", "tree"]);
+    expect(names).toEqual([
+      "compute",
+      "board-graph",
+      "ext-apps",
+      "react",
+      "radix",
+      "shell",
+      "gantt",
+      "tree",
+    ]);
     // The zoom is a Radix Toggle Group, in the radix chunk with the toggle it is made of.
     expect(packagesIn(chunkNamed("radix").licences)).toEqual(
       expect.arrayContaining(["@radix-ui/react-toggle", "@radix-ui/react-toggle-group"]),
     );
   });
 
-  test("the Gantt board's srcdoc inlines both, and the plain Choice board's neither", async () => {
+  test("the Gantt board's srcdoc inlines them, and the plain Choice board's none", async () => {
     const withGantt = await assembled(ganttBoardDocument);
     const plain = await assembled(plainChoiceBoardDocument);
-    for (const name of ["gantt", "compute"]) {
+    for (const name of ["gantt", "compute", "board-graph"]) {
       const { script } = chunkNamed(name);
       const code = await text(script.path);
       expect(withGantt.chunks).toContain(name);
@@ -349,6 +397,61 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
       expect(plain.srcdoc).not.toContain(code);
       expect(plain.policy).not.toContain(cspHashSource(script.sha256));
     }
+  });
+});
+
+describe("the board graph chunk (molecules, design decision 13; view spec, The board graph chunk)", () => {
+  test("it holds only AskBoard's own code, under the repository's MIT licence", async () => {
+    // compute and the port come from their chunks; of `view`, it holds only the registry; of
+    // `contract`, the plan limits the plan-link rules check (design decision 12).
+    const notices = chunkNamed("board-graph").licences;
+    expect(packagesIn(notices)).toEqual([
+      "@askboard/contract",
+      "@askboard/view",
+      "@askboard/widgets",
+    ]);
+    const repository = (await Bun.file(join(ROOT, "LICENSE")).text()).trimEnd();
+    for (const notice of notices) {
+      expect(notice.licence).toBe("MIT");
+      expect((await text(notice.path)).trimEnd()).toBe(repository);
+    }
+  });
+
+  test("the UJ-2 work breakdown's srcdoc holds the board graph and compute once each, for the Tree and the plan both", async () => {
+    const uj2 = await assembled(uj2ExpandedBoardDocument);
+    expect(uj2.chunks).toEqual(expect.arrayContaining(["tree", "gantt", "board-graph", "compute"]));
+    for (const name of ["board-graph", "compute"]) {
+      const code = await text(chunkNamed(name).script.path);
+      expect(uj2.srcdoc.split(code)).toHaveLength(2);
+    }
+  });
+
+  test("the plain Choice board's srcdoc holds neither", async () => {
+    const plain = await assembled(plainChoiceBoardDocument);
+    for (const name of ["board-graph", "compute"]) {
+      expect(plain.chunks).not.toContain(name);
+      expect(plain.srcdoc).not.toContain(await text(chunkNamed(name).script.path));
+    }
+  });
+});
+
+describe("molecules reach the view expanded (molecules; view spec, Molecules reach the view expanded)", () => {
+  test("no chunk of the build registers molecule, so a board holding a reference builds no srcdoc", async () => {
+    const [question] = plainChoiceBoardDocument.items;
+    const reference = {
+      type: "molecule",
+      id: "wbs",
+      props: { molecule: "wbs-pert", version: "1.0.0", data: { nodes: [] } },
+    };
+    const document: ViewDocument = {
+      ...plainChoiceBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [reference] } }],
+    };
+    const components = Object.values(manifest.chunks).flatMap((chunk) => chunk.components ?? []);
+    expect(components).not.toContain("molecule");
+    await expect(assembled(document)).rejects.toThrow(
+      'no chunk of the manifest registers "molecule"',
+    );
   });
 });
 

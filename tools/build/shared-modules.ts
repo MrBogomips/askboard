@@ -4,11 +4,14 @@
 // way. In every other chunk, a bundler plugin compiles an import of a shared module to a shim
 // that reads the registry, and records the providing chunk among the chunk's needs. Its resolve
 // filter names only the modules it maps: a filter that matched every import made Bun ignore the
-// packages' `sideEffects` and keep their unused modules (the spike's chart chunk doubled).
+// packages' `sideEffects` and keep their unused modules (the spike's chart chunk doubled). Two
+// shared modules are files that components import by a relative path, mapped by that path: the
+// port, and the board graph (molecules, design decision 13).
 
 import { dirname, resolve } from "node:path";
 import type { BunPlugin } from "bun";
 import {
+  GRAPH_FILE,
   PORT_FILE,
   resolveFromView,
   SHARED_MODULES_FILE,
@@ -18,6 +21,19 @@ import {
 
 /** The name the port is shared under, which is also its package export (AD-9). */
 export const CATALOG_PORT = "@askboard/view/catalog";
+
+/** The name the board graph is shared under; `widgets` exports no such entry. */
+export const BOARD_GRAPH = "@askboard/widgets/graph";
+
+/**
+ * The shared modules imported by a relative path to their file, with the end of the paths that
+ * can name it: components inside `view` import the port by its file name, the widgets the board
+ * graph by its folder and file name.
+ */
+const BY_PATH: Readonly<Record<string, { readonly file: string; readonly tail: RegExp }>> = {
+  [CATALOG_PORT]: { file: PORT_FILE, tail: /(^|\/)port\.ts$/ },
+  [BOARD_GRAPH]: { file: GRAPH_FILE, tail: /(^|\/)graph\/index\.ts$/ },
+};
 
 /** `*`: the whole module, as one object; a list: exactly those exports, so another fails the build. */
 type Names = "*" | readonly string[];
@@ -55,8 +71,8 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
     first: [ZOD_JITLESS_FILE],
     modules: { "@modelcontextprotocol/ext-apps": ["App"] },
   },
-  // The board's graph for the widgets that compute (gantt-widget design decision 7), loaded only
-  // by boards holding one; the chunk also carries the contract code `compute` imports.
+  // The engine for the widgets that compute (gantt-widget design decision 7), loaded only by
+  // boards holding one; the chunk also carries the contract code `compute` imports.
   compute: {
     from: WIDGETS_DIR,
     modules: {
@@ -67,7 +83,24 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
         "firstWorkingDateFrom",
         "isFormulaError",
         "isWorkingDate",
+        "roundNumber",
         "workingDaysBetween",
+      ],
+    },
+  },
+  // The board's graph, one module instance for every widget that computes on a board, so that
+  // they read one live graph per draft update, and the rules that carry a Tree's edits into the
+  // plans over it (molecules, design decisions 12 and 13).
+  "board-graph": {
+    modules: {
+      [BOARD_GRAPH]: [
+        "afterAdd",
+        "afterDelete",
+        "dependentsOf",
+        "linkedEdit",
+        "linkedPlans",
+        "liveGraph",
+        "sentGraph",
       ],
     },
   },
@@ -94,12 +127,27 @@ export const portExports = async (): Promise<string[]> =>
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 
-// Components inside `view` import the port by a relative path to its file.
-const PORT_PATH = /(^|\/)port\.ts$/;
-
-/** The resolve filter: the shared modules' names, and paths ending in the port's file name. */
+/**
+ * The resolve filter: the shared modules' names, and the relative paths ending as those that name
+ * a module shared by its file.
+ */
 export const sharedFilter = (modules: SharedModules): RegExp =>
-  new RegExp(`^(${[...modules.keys()].map(escaped).join("|")})$|${PORT_PATH.source}`);
+  new RegExp(
+    [
+      `^(${[...modules.keys()].map(escaped).join("|")})$`,
+      ...Object.values(BY_PATH).map(({ tail }) => tail.source),
+    ].join("|"),
+  );
+
+/** The shared module a relative import of its file names, else the specifier itself. */
+export const sharedNameOf = (specifier: string, importer: string): string => {
+  if (!specifier.startsWith(".")) return specifier;
+  const path = resolve(dirname(importer), specifier);
+  const found = Object.entries(BY_PATH).find(
+    ([, { file, tail }]) => tail.test(specifier) && path === file,
+  );
+  return found?.[0] ?? specifier;
+};
 
 /** The shared module an import names and the chunk providing it, unless it is `own`. */
 export const providerOf = (
@@ -108,11 +156,7 @@ export const providerOf = (
   specifier: string,
   importer: string,
 ): { readonly module: string; readonly chunk: string } | undefined => {
-  const isPort =
-    specifier.startsWith(".") &&
-    PORT_PATH.test(specifier) &&
-    resolve(dirname(importer), specifier) === PORT_FILE;
-  const module = isPort ? CATALOG_PORT : specifier;
+  const module = sharedNameOf(specifier, importer);
   const shared = modules.get(module);
   if (shared === undefined || shared.chunk === own) return undefined;
   return { module, chunk: shared.chunk };
@@ -160,8 +204,8 @@ export const sharedModulesPlugin = (
 
 /**
  * A library chunk's generated entry: the modules that run first, then each module, provided
- * under its import name. The modules are imported by the paths they resolve to from the view, or
- * from the chunk's `from` folder.
+ * under its import name. The modules are imported by their file when shared by it, else by the
+ * paths they resolve to from the view, or from the chunk's `from` folder.
  */
 export const libraryEntrySource = (name: string): string => {
   const chunk = Object.hasOwn(LIBRARY_CHUNKS, name) ? LIBRARY_CHUNKS[name] : undefined;
@@ -172,7 +216,10 @@ export const libraryEntrySource = (name: string): string => {
   ];
   const { from: folder } = chunk;
   Object.entries(chunk.modules).forEach(([module, names], index) => {
-    const path = folder === undefined ? resolveFromView(module) : Bun.resolveSync(module, folder);
+    const byPath = Object.hasOwn(BY_PATH, module) ? BY_PATH[module] : undefined;
+    const path =
+      byPath?.file ??
+      (folder === undefined ? resolveFromView(module) : Bun.resolveSync(module, folder));
     const from = JSON.stringify(path);
     const local = `m${index}`;
     if (names === "*") {

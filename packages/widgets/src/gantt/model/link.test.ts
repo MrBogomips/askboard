@@ -38,13 +38,22 @@ describe("a Gantt plan's link to its Tree (gantt-widget design decision 9, AD-10
   });
 });
 
+// The board's shown values: each item's draft value, else its question's latest answer's.
+const showing = (shown: ReadonlyMap<string, unknown>) => ({ shown });
+
 describe("the nodes of a plan's Tree", () => {
-  test("are the Tree's as sent while the draft holds no value for it", () => {
-    expect(treeNodesOf(WBS, new Map())).toBe(WBS.props.nodes);
-    expect(treeNodesOf(WBS, new Map([["schedule", SCHEDULE.props]]))).toBe(WBS.props.nodes);
+  test("are the Tree's as sent while the board shows no value for it", () => {
+    expect(treeNodesOf(WBS, showing(new Map()))).toBe(WBS.props.nodes);
+    expect(treeNodesOf(WBS, showing(new Map([["schedule", SCHEDULE.props]])))).toBe(
+      WBS.props.nodes,
+    );
   });
 
-  test("are the draft's once the user edited the Tree", () => {
-    expect(treeNodesOf(WBS, new Map([["wbs", treeEditedValue]]))).toBe(treeEditedValue.nodes);
+  test("are the ones the board shows: the draft's once the user edited the Tree, or the answer's on a question being revised (molecules, design decision 11)", () => {
+    expect(treeNodesOf(WBS, showing(new Map([["wbs", treeEditedValue]])))).toBe(
+      treeEditedValue.nodes,
+    );
+    const revised = { draft: new Map(), shown: new Map([["wbs", treeEditedValue]]) };
+    expect(treeNodesOf(WBS, revised)).toBe(treeEditedValue.nodes);
   });
 });

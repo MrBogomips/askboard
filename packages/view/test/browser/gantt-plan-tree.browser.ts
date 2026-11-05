@@ -3,11 +3,13 @@
 // highlight", "Gantt formula errors" and "Gantt plan baseline"), on the fixture plan, the Tree
 // driven by the keyboard as its own scenarios drive it: an estimate changed in the Tree changes its
 // task's duration and moves its dependents and the plan's end, the task marked re-estimated; a
-// package added in the Tree is a task with a bar, the added mark, no baseline and no predecessors
-// until the user links it in its panel; a package deleted while another depends on it leaves a
-// field error under the dependent's row, and the dependent's panel lists it, checked and saying
-// that it names no task, so that the user can uncheck it (spec, "Gantt predecessors that name no
-// task"; task 9.3).
+// package added in the Tree is a task with a bar, the added mark, no baseline and the predecessors
+// of the package it was added after (molecules, F20), and a task the user links in its panel
+// starts after its new predecessor; a package deleted while another depends on it asks first, and
+// once confirmed its dependent depends on its predecessors (molecules, "Deleting a package with
+// dependents"); a package given a child names no task, which leaves a field error under the
+// dependent's row, and the dependent's panel lists it, checked and saying that it names no task, so
+// that the user can uncheck it (spec, "Gantt predecessors that name no task"; task 9.3).
 
 import { describe, expect, test } from "bun:test";
 import { elementChanges, GANTT_PLAN_SHAPE } from "@askboard/contract";
@@ -39,9 +41,15 @@ import {
   rowTexts,
 } from "./fixtures/gantt-view.ts";
 import { withBuild } from "./fixtures/tree-documents.ts";
-import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import {
+  eventually,
+  isFocused,
+  QUIET_MS,
+  STEP_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
+} from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { paintOf, pressIn, pressTool, treeGridOf } from "./harness/tree-grid.ts";
+import { deleteQuestion, paintOf, pressIn, pressTool, treeGridOf } from "./harness/tree-grid.ts";
 import {
   expectNewNode,
   expectSteps,
@@ -87,8 +95,13 @@ const WITH_DASHBOARDS = [
   "reporting",
 ].map((id) => ({ id }));
 
-/** The plan's tasks once the portal is deleted in the Tree, as `keysTo` takes them. */
-const WITHOUT_PORTAL = PLAN_ROWS.flatMap(([id]) => (id === "portal" ? [] : [{ id }]));
+/** The plan's tasks once the portal has the child `u-1` in the Tree, as `keysTo` takes them. */
+const WITH_CHILD = ["ux", "architecture", "prototype", "u-1", "billing", "reporting"].map((id) => ({
+  id,
+}));
+
+/** The question before deleting the portal, on which reporting depends. */
+const PORTAL_QUESTION = "“Customer portal” will be deleted. 1 task in the plan depends on it.";
 
 /** The rows' tasks and the agent's dates of each baseline, in the chart's order. */
 const baselineDates = async (gantt: ReturnType<typeof ganttOf>) =>
@@ -182,7 +195,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a package added in the Tree after the portal gets a bar, the added mark, no baseline and no predecessors; linked to Architecture and Clickable prototype in its panel, it starts after the prototype",
+      "a package added in the Tree after the portal gets a bar, the added mark, no baseline and the portal's predecessors, starting after the prototype; billing linked to Clickable prototype in its panel starts after the prototype too",
       async () => {
         const run = await opened();
         const { board } = run;
@@ -202,24 +215,30 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await typeIn(run, tree, "F2", String(estimate));
           expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: at + 1 });
         }
-        // (4 + 4 × 7 + 12) / 6, rounded up, is 8 working days; with no predecessor, it starts
-        // with the plan.
+        // Named after the portal, it depends on the portal's predecessors (F20): (4 + 4 × 7 + 12)
+        // / 6, rounded up, is 8 working days, from the day after the prototype ends.
         await eventually(
-          async () => (await barDates(gantt))["u-1"] === "2026-11-02..2026-11-11",
-          "u-1's bar from 11/2/2026 to 11/11/2026",
+          async () => (await barDates(gantt))["u-1"] === "2026-11-17..2026-11-26",
+          "u-1's bar from 11/17/2026 to 11/26/2026",
         );
-        const added: RowText = ["u-1", DASHBOARDS.label, "11/2/2026", "8", ""];
+        const added: RowText = [
+          "u-1",
+          DASHBOARDS.label,
+          "11/17/2026",
+          "8",
+          "Architecture, Clickable prototype",
+        ];
         expect(await rowTexts(gantt)).toEqual([
           ...PLAN_ROWS.slice(0, 4),
           added,
           ...PLAN_ROWS.slice(4),
         ]);
-        expect(await barDates(gantt)).toEqual({ ...UJ2_DATES, "u-1": "2026-11-02..2026-11-11" });
+        expect(await barDates(gantt)).toEqual({ ...UJ2_DATES, "u-1": "2026-11-17..2026-11-26" });
         // No baseline: the agent sent no such task.
         expect(await baselineDates(gantt)).toEqual(SENT_BASELINES);
         // The added mark: the change outline on its bar and the change bar on its row's left
-        // edge; no predecessor, so no arrow and no changed cell; the plan's counter counts only
-        // its own entries' changes.
+        // edge; its predecessors, an arrow from each and its changed "Depends on", which the
+        // plan's counter counts.
         const change = colour("change");
         expect(await changeOutlines(gantt)).toEqual([
           { task: "u-1", stroke: change, width: "2px" },
@@ -229,36 +248,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           `${change} 2px 0px 0px 0px inset`,
         );
         expect((await paintOf(gantt.cell("portal", "task"))).shadow).not.toContain(change);
-        expect(await filledCells(gantt, colour("change-subtle"))).toEqual([]);
-        expect((await arrowFacts(gantt)).filter(({ link }) => link.endsWith(">u-1"))).toEqual([]);
-        expect(await counterText(gantt)).toBe(NONE_YET);
-        // On to the plan's grid by Tab, through its zoom; Enter on u-1's "Depends on" opens its
-        // panel, every other task offered, none checked.
-        await tabIntoPlanGrid(board);
-        await keysTo(board, "u-1", "dependencies", WITH_DASHBOARDS);
-        await board.page.keyboard.press("Enter");
-        const panel = panelOf(gantt, "u-1");
-        expect(await panelFacts(panel)).toEqual(
-          PLAN_ROWS.map(([, task]) => ({ task, checked: false, disabled: false, reason: "" })),
-        );
-        expect(await focusedBox(board)).toBe("UX design");
-        for (const box of ["Architecture", "Clickable prototype"]) {
-          await board.page.keyboard.press("ArrowDown");
-          expect(await focusedBox(board)).toBe(box);
-          await board.page.keyboard.press("Space");
-        }
-        await board.page.keyboard.press("Enter");
-        expect(await panel.count()).toBe(0);
-        expect(await focusedCell(board)).toBe("u-1.dependencies");
-        // u-1 starts after the prototype ends, with an arrow from each of its predecessors.
-        expect((await barDates(gantt))["u-1"]).toBe("2026-11-17..2026-11-26");
-        expect((await rowTexts(gantt))[4]).toEqual([
-          "u-1",
-          DASHBOARDS.label,
-          "11/17/2026",
-          "8",
-          "Architecture, Clickable prototype",
-        ]);
         expect(
           (await arrowFacts(gantt)).map(({ link }) => link).filter((link) => link.endsWith(">u-1")),
         ).toEqual(["architecture>u-1", "prototype>u-1"]);
@@ -266,7 +255,53 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { cell: "u-1.dependencies", color: colour("change-text") },
         ]);
         expect(await counterText(gantt)).toBe("Your changes: 1");
-        // Reporting moved later too (spec, "Counting changes"): two tasks changed, the portal not.
+        // On to the plan's grid by Tab, through its zoom; Enter on billing's "Depends on" opens
+        // its panel, every other task offered, Architecture checked.
+        await tabIntoPlanGrid(board);
+        await keysTo(board, "billing", "dependencies", WITH_DASHBOARDS);
+        await board.page.keyboard.press("Enter");
+        const panel = panelOf(gantt, "billing");
+        const offered = [...PLAN_ROWS.slice(0, 4), added, ...PLAN_ROWS.slice(5)].map(
+          ([, task]) => task,
+        );
+        expect(await panelFacts(panel)).toEqual(
+          offered.map((task) => ({
+            task,
+            checked: task === "Architecture",
+            disabled: false,
+            reason: "",
+          })),
+        );
+        expect(await focusedBox(board)).toBe("UX design");
+        for (const box of ["Architecture", "Clickable prototype"]) {
+          await board.page.keyboard.press("ArrowDown");
+          expect(await focusedBox(board)).toBe(box);
+        }
+        await board.page.keyboard.press("Space");
+        await board.page.keyboard.press("Enter");
+        expect(await panel.count()).toBe(0);
+        expect(await focusedCell(board)).toBe("billing.dependencies");
+        // Billing starts after the prototype ends, with an arrow from each of its predecessors.
+        expect((await barDates(gantt)).billing).toBe("2026-11-17..2026-11-27");
+        expect((await rowTexts(gantt))[5]).toEqual([
+          "billing",
+          "Billing integration",
+          "11/17/2026",
+          "9",
+          "Architecture, Clickable prototype",
+        ]);
+        expect(
+          (await arrowFacts(gantt))
+            .map(({ link }) => link)
+            .filter((link) => link.endsWith(">billing")),
+        ).toEqual(["architecture>billing", "prototype>billing"]);
+        expect(await filledCells(gantt, colour("change-subtle"))).toEqual([
+          { cell: "u-1.dependencies", color: colour("change-text") },
+          { cell: "billing.dependencies", color: colour("change-text") },
+        ]);
+        expect(await counterText(gantt)).toBe("Your changes: 2");
+        // Reporting moved later too (spec, "Counting changes"): three tasks changed, the portal
+        // not.
         await keysTo(board, "reporting", "start", WITH_DASHBOARDS);
         await board.page.keyboard.press("Enter");
         await board.page.keyboard.type("12/9/2026");
@@ -275,11 +310,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await barDates(gantt)).reporting === "2026-12-09..2026-12-16",
           "reporting to move to 12/9/2026",
         );
-        expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["u-1", "reporting"]);
-        expect(await counterText(gantt)).toBe("Your changes: 2");
+        expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual([
+          "u-1",
+          "billing",
+          "reporting",
+        ]);
+        expect(await counterText(gantt)).toBe("Your changes: 3");
         await expectOnlyReady(run);
         // "Answer" sends the Tree's and the plan's values, with the plan's derived values; the
-        // plan's diff names the two tasks it changed.
+        // plan's diff names the three tasks it changed.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
         await eventually(() => run.messages.length > 1, "the answer message");
         await Bun.sleep(QUIET_MS);
@@ -288,6 +327,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ...planGantt.props,
           tasks: {
             ...sentPlan.tasks,
+            billing: { dependencies: ["architecture", "prototype"] },
             reporting: { dependencies: ["portal"], start: "2026-12-09" },
             "u-1": { dependencies: ["architecture", "prototype"] },
           },
@@ -307,6 +347,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           },
         ]);
         expect(elementChanges(planGantt.id, planGantt.props, plan, GANTT_PLAN_SHAPE)).toEqual([
+          {
+            op: "set",
+            target: "schedule.billing.dependencies",
+            value: ["architecture", "prototype"],
+          },
           { op: "set", target: "schedule.reporting.start", value: "2026-12-09" },
           { op: "set", target: "schedule.u-1.dependencies", value: ["architecture", "prototype"] },
         ]);
@@ -317,54 +362,103 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a package deleted in the Tree while another depends on it leaves a field error under the dependent's row, the other tasks scheduled; unchecked in the dependent's panel, where it names no task, it leaves the dependent scheduled again",
+      "a package deleted in the Tree while another depends on it asks first, saying one task depends on it; confirmed, the dependent depends on its predecessors and stays scheduled",
       async () => {
         const run = await opened();
         const { board } = run;
         const tree = treeGridOf(board);
         const gantt = ganttOf(board, planGantt.id);
-        // The portal, a leaf, goes at once; reporting depends on it.
+        // The portal, a leaf on which reporting depends, asks first, the focus on "Cancel".
         await focusPortal(run, tree);
         await board.page.keyboard.press("Delete");
+        const question = deleteQuestion(board, PORTAL_QUESTION);
+        await question.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await isFocused(question.getByRole("button", { name: "Cancel" }))).toBe(true);
+        expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
+        await board.page.keyboard.press("Tab");
+        await board.page.keyboard.press("Enter");
         await eventually(
           async () => !(await shownIds(tree)).includes("portal"),
           "the portal to leave the Tree",
         );
-        expect(await shownIds(tree)).toEqual(FIXTURE_IDS.filter((id) => id !== "portal"));
+        // Reporting now depends on the portal's own predecessors: no field error, a bar, and the
+        // plan's one change its "Depends on".
+        await eventually(
+          async () =>
+            (await rowTexts(gantt)).find(([id]) => id === "reporting")?.[4] ===
+            "Architecture, Clickable prototype",
+          "reporting to depend on Architecture and Clickable prototype",
+        );
+        expect(await gantt.root.locator("[data-gantt-note]").count()).toBe(0);
+        expect(Object.keys(await barDates(gantt))).toContain("reporting");
+        expect(await counterText(gantt)).toBe("Your changes: 1");
+        expect(await board.answer.isEnabled()).toBe(true);
+        await expectOnlyReady(run);
+        expect(run.browser.errors).toEqual([]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a package given a child in the Tree names no task, which leaves a field error under its dependent's row; unchecked in the dependent's panel, where it names no task, it leaves the dependent scheduled again",
+      async () => {
+        const run = await opened();
+        const { board } = run;
+        const tree = treeGridOf(board);
+        const gantt = ganttOf(board, planGantt.id);
+        // "Add child" on the portal: the portal is a parent, no longer a task.
+        await focusPortal(run, tree);
+        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await pressTool(board, "ArrowRight")).toBe("Add child");
+        await board.page.keyboard.press("Enter");
+        await expectNewNode(tree, "u-1");
+        await board.page.keyboard.type(DASHBOARDS.label);
+        expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });
+        const estimates = [DASHBOARDS.optimistic, DASHBOARDS.mostLikely, DASHBOARDS.pessimistic];
+        for (const [at, estimate] of estimates.entries()) {
+          expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "u-1", cell: at + 1 });
+          await typeIn(run, tree, "F2", String(estimate));
+          expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: at + 1 });
+        }
         await gantt.note("reporting").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(((await gantt.note("reporting").textContent()) ?? "").trim()).toBe(
           "No dates: its predecessor portal names no task.",
         );
         expect(await gantt.root.locator("[data-gantt-note]").count()).toBe(1);
-        // The portal has no row, no bar and no baseline; reporting has no dates and no bar; the
-        // others keep theirs, and with the plan's end unknown, no path is critical.
+        // The portal, a parent now, has no row and no bar; u-1 takes its place, depending on its
+        // predecessors (F20); reporting has no dates and no bar, and the others keep theirs.
+        const child: RowText = [
+          "u-1",
+          DASHBOARDS.label,
+          "11/17/2026",
+          "8",
+          "Architecture, Clickable prototype",
+        ];
+        const before = PLAN_ROWS.filter(([id]) => id !== "portal" && id !== "reporting");
         expect(await rowTexts(gantt)).toEqual([
-          ...PLAN_ROWS.filter((row) => row[0] !== "portal" && row[0] !== "reporting"),
+          ...before.slice(0, 3),
+          child,
+          ...before.slice(3),
           ["reporting", "Reporting", "", "", "portal"],
         ]);
         const { portal: _portal, reporting: _reporting, ...scheduled } = UJ2_DATES;
-        expect(await barDates(gantt)).toEqual(scheduled);
-        expect(await criticalTasks(gantt)).toEqual([]);
-        expect(await gantt.root.locator('[data-gantt-baseline="portal"]').count()).toBe(0);
-        // Nothing blocks "Answer", which the Tree's draft enables; the plan changed nothing of
-        // its own.
-        expect(await board.answer.isEnabled()).toBe(true);
-        expect(await counterText(gantt)).toBe(NONE_YET);
-        expect(await changeOutlines(gantt)).toEqual([]);
+        const withChild = { ...scheduled, "u-1": "2026-11-17..2026-11-26" };
+        expect(await barDates(gantt)).toEqual(withChild);
         // Reporting's panel, by keyboard: the other tasks, then the portal it still holds,
         // checked, labelled with its ID and saying that it names no task.
         await tabIntoPlanGrid(board);
-        await keysTo(board, "reporting", "dependencies", WITHOUT_PORTAL);
+        await keysTo(board, "reporting", "dependencies", WITH_CHILD);
         await board.page.keyboard.press("Enter");
         const panel = panelOf(gantt, "reporting");
-        const others = PLAN_ROWS.flatMap(([id, task]) =>
-          id === "portal" || id === "reporting"
-            ? []
-            : [{ task, checked: false, disabled: false, reason: "" }],
-        );
+        const others = [...before.slice(0, 3), child, ...before.slice(3)].map(([, task]) => ({
+          task,
+          checked: false,
+          disabled: false,
+          reason: "",
+        }));
         const portal = { task: "portal", checked: true, disabled: false, reason: "Names no task" };
         expect(await panelFacts(panel)).toEqual([...others, portal]);
-        expect(await focusedBox(board)).toBe("UX design");
         for (let box = 0; box < others.length; box += 1) {
           await board.page.keyboard.press("ArrowDown");
         }
@@ -381,15 +475,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "reporting to be scheduled from 11/2/2026",
         );
         expect(await gantt.root.locator("[data-gantt-note]").count()).toBe(0);
-        expect(await rowTexts(gantt)).toEqual([
-          ...PLAN_ROWS.filter((row) => row[0] !== "portal" && row[0] !== "reporting"),
-          ["reporting", "Reporting", "11/2/2026", "6", ""],
+        expect((await rowTexts(gantt)).find(([id]) => id === "reporting")).toEqual([
+          "reporting",
+          "Reporting",
+          "11/2/2026",
+          "6",
+          "",
         ]);
         expect(await barDates(gantt)).toEqual({
-          ...scheduled,
+          ...withChild,
           reporting: "2026-11-02..2026-11-09",
         });
-        expect(await counterText(gantt)).toBe("Your changes: 1");
         expect(await board.answer.isEnabled()).toBe(true);
         await expectOnlyReady(run);
         expect(run.browser.errors).toEqual([]);

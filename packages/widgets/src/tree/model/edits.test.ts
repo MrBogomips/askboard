@@ -6,10 +6,21 @@ import {
   type TreeNode,
   type TreeProps,
 } from "@askboard/contract";
-import { treeBoardDocument } from "@askboard/contract/fixtures";
+import { treeBoardDocument, uj2ExpandedQuestion } from "@askboard/contract/fixtures";
 import { validateTreeProps } from "@askboard/contract/validate";
 import { chain, flat, isDeepFrozen, objectsOf } from "../../../test/tree-model.ts";
-import { addAfter, addChild, nextNodeId, remove, removedCount, rename, setField } from "./edits.ts";
+import {
+  addAfter,
+  addChild,
+  can,
+  ESTIMATE_OUT_OF_RANGE,
+  estimateProblem,
+  nextNodeId,
+  remove,
+  removedCount,
+  rename,
+  setField,
+} from "./edits.ts";
 
 // The Tree's edits (design decision 5): each returns a new frozen value that validates as an
 // edited value, or the same value when nothing changes, and never touches its input.
@@ -220,6 +231,65 @@ describe("setting a field", () => {
   test("changes nothing in a Tree without columns", () => {
     const bare: TreeProps = { nodes: flat(1) };
     expect(run(setField, bare, "n0", "estimate", 1)).toBe(bare);
+  });
+});
+
+describe("a work breakdown's estimates (molecules design decision 14; view spec, WBS values follow the edits)", () => {
+  // The expanded UJ-2 work breakdown, the fixture Tree with `pert`; `sent` is the same Tree without.
+  const wbs: TreeProps = uj2ExpandedQuestion.props.items[0].props;
+  const withRisk: TreeProps = {
+    ...wbs,
+    columns: [...(wbs.columns ?? []), { field: "risk", label: "Risk", type: "number" }],
+  };
+
+  test("takes an estimate of 0 to 100,000 working days on a leaf", () => {
+    expect(nodeOf(run(setField, wbs, "portal", "optimistic", 0), "portal")?.optimistic).toBe(0);
+    expect(nodeOf(run(setField, wbs, "portal", "pessimistic", 100_000), "portal")).toHaveProperty(
+      "pessimistic",
+      100_000,
+    );
+    expect(estimateProblem(wbs, "optimistic", 0)).toBeUndefined();
+    expect(estimateProblem(wbs, "pessimistic", 100_000)).toBeUndefined();
+  });
+
+  test.each<[string, number]>([
+    ["-2", -2],
+    ["100,001", 100_001],
+    ["a fraction below 0", -0.5],
+  ])("refuses %s with the reason, and returns the same value", (_, input) => {
+    expect(run(setField, wbs, "portal", "mostLikely", input)).toBe(wbs);
+    expect(estimateProblem(wbs, "mostLikely", input)).toBe(ESTIMATE_OUT_OF_RANGE);
+  });
+
+  test("says why in the contract's range", () => {
+    expect(ESTIMATE_OUT_OF_RANGE).toBe("An estimate is 0 to 100,000 working days.");
+  });
+
+  test("gives no reason for an emptied estimate, another field, or a Tree without pert", () => {
+    expect(estimateProblem(wbs, "optimistic", undefined)).toBeUndefined();
+    expect(estimateProblem(withRisk, "risk", -2)).toBeUndefined();
+    expect(nodeOf(run(setField, withRisk, "portal", "risk", -2), "portal")?.risk).toBe(-2);
+    expect(estimateProblem(sent, "optimistic", -2)).toBeUndefined();
+    expect(nodeOf(run(setField, sent, "ux", "optimistic", -2), "ux")?.optimistic).toBe(-2);
+  });
+
+  test("refuses editing a parent's estimate, through can and setField", () => {
+    expect(can("editEstimate", wbs, "design")).toBe(false);
+    expect(can("editEstimate", wbs, "build")).toBe(false);
+    expect(run(setField, wbs, "design", "optimistic", 3)).toBe(wbs);
+    expect(run(setField, wbs, "build", "pessimistic", undefined)).toBe(wbs);
+    expect(can("editEstimate", wbs, "portal")).toBe(true);
+    expect(can("editEstimate", wbs, "nowhere")).toBe(false);
+    expect(can("editEstimate", wbs, undefined)).toBe(false);
+  });
+
+  test("a parent's other fields stay editable", () => {
+    expect(nodeOf(run(setField, withRisk, "design", "risk", 1), "design")?.risk).toBe(1);
+  });
+
+  test("a Tree without pert edits a parent's estimate as a plain value", () => {
+    expect(can("editEstimate", sent, "design")).toBe(true);
+    expect(nodeOf(run(setField, sent, "design", "optimistic", 3), "design")?.optimistic).toBe(3);
   });
 });
 

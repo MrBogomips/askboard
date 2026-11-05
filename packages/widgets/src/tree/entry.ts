@@ -5,6 +5,7 @@
 // is never committed), or a refusal with the reason the field error shows.
 
 import {
+  GANTT_PLAN_ESTIMATES,
   TREE_LABEL_MAX_CHARS,
   TREE_TEXT_MAX_CHARS,
   type TreeColumn,
@@ -13,7 +14,7 @@ import {
 } from "@askboard/contract";
 import { parseNumber } from "../shared/number.ts";
 import { fieldText } from "./cells.ts";
-import { rename, setField } from "./model/edits.ts";
+import { can, estimateProblem, rename, setField } from "./model/edits.ts";
 
 /** What a cell edits: the name, or a field of its column's type. */
 export type EntryKind = "name" | TreeColumn["type"];
@@ -39,6 +40,23 @@ export const entryKindOf = (
   columns: readonly TreeColumn[] | undefined,
   cell: number,
 ): EntryKind | undefined => (cell === 0 ? "name" : columns?.[cell - 1]?.type);
+
+/**
+ * What the cell `cell` of the node `nodeId` edits, as `entryKindOf` says, but nothing on a work
+ * breakdown parent's estimate, which PERT ignores (`can("editEstimate")`; molecules design decision
+ * 14), nor on the value cells past the fields.
+ */
+export const entryKindAt = (
+  value: TreeProps,
+  nodeId: string,
+  cell: number,
+): EntryKind | undefined => {
+  const field = cell === 0 ? undefined : value.columns?.[cell - 1]?.field;
+  const estimate = field !== undefined && GANTT_PLAN_ESTIMATES.some((name) => name === field);
+  return estimate && !can("editEstimate", value, nodeId)
+    ? undefined
+    : entryKindOf(value.columns, cell);
+};
 
 /** The editor's starting text: the name, or the field as the cell shows it. */
 export const startTextOf = (
@@ -72,7 +90,10 @@ export const enterCell = (
   }
   const entry = parseNumber(text);
   if (entry.kind === "refused") return refused(entry.reason);
-  return valued(
-    setField(value, nodeId, column.field, entry.kind === "number" ? entry.value : undefined),
-  );
+  const number = entry.kind === "number" ? entry.value : undefined;
+  // A work breakdown's estimate outside its range (molecules design decision 14).
+  const problem = estimateProblem(value, column.field, number);
+  return problem === undefined
+    ? valued(setField(value, nodeId, column.field, number))
+    : refused(problem);
 };

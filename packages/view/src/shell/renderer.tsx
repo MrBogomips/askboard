@@ -8,9 +8,11 @@
 // lifecycle draft keeps (ask-lifecycle, design decision 6), and the shell may run a step before
 // each value goes into the draft record, such as the start of a revision (task 6.7). Components
 // also read the board, its items as sent and the draft record, and report their derived values
-// (gantt-widget design decision 10).
+// (gantt-widget design decision 10). Since the molecules change (design decision 11), a component
+// may put several items of its question into the draft record in one update, and an item shows the
+// board's shown value, its answer's on a question being revised, until the user changes it.
 
-import { Component, type ReactNode, useCallback, useSyncExternalStore } from "react";
+import { Component, type ReactNode, useCallback, useMemo, useSyncExternalStore } from "react";
 import type { Rendered } from "../catalog/components.ts";
 import {
   type BoardContent,
@@ -21,6 +23,7 @@ import {
 } from "../catalog/port.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
+import { itemCallbacks, itemValueOf } from "./item-callbacks.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 
 export type RenderContext = {
@@ -98,6 +101,8 @@ const ItemFrame = ({
 type RenderItemProps = Rendered & {
   /** The question the item sits in. */
   readonly questionId: string;
+  /** The items the question's draft values may name (`itemIdsOf`): the only ones it may write. */
+  readonly itemIds: readonly string[];
   readonly context: RenderContext;
   /** The item may not change. */
   readonly disabled: boolean;
@@ -117,6 +122,7 @@ export const RenderItem = ({
   item,
   component,
   questionId,
+  itemIds,
   context,
   disabled,
   shown,
@@ -124,16 +130,9 @@ export const RenderItem = ({
   onBeforeChange,
 }: RenderItemProps) => {
   const { draft, tracker, boardContent, derived } = context;
-  // The whole record, since the board holds it: the item's value is its entry, as `valueOf` reads.
+  // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record);
-  const value = record.get(item.id);
-  const onValueChange = useCallback(
-    (next: unknown) => {
-      onBeforeChange?.();
-      draft.set(item.id, next);
-    },
-    [draft, item.id, onBeforeChange],
-  );
+  const board = boardContent(record);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
     [derived, item.id],
@@ -142,6 +141,10 @@ export const RenderItem = ({
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
     [tracker, item.id],
   );
+  const { onValueChange, onValuesChange } = useMemo(
+    () => itemCallbacks({ draft, itemId: item.id, questionId, itemIds, onBeforeChange, onError }),
+    [draft, item.id, questionId, itemIds, onBeforeChange, onError],
+  );
   const Item = (componentFor(component) ?? Unregistered) as Rendering;
   return (
     <ItemFrame itemId={item.id} tracker={tracker}>
@@ -149,11 +152,12 @@ export const RenderItem = ({
         <Item
           item={item}
           questionId={questionId}
-          value={shown ?? value}
+          value={itemValueOf(shown, board, item.id)}
           onValueChange={onValueChange}
+          onValuesChange={onValuesChange}
           disabled={disabled}
           ready={tracker.readyFor(item.id)}
-          board={boardContent(record)}
+          board={board}
           onDerived={onDerived}
           {...(extras === undefined ? {} : { extras })}
         />

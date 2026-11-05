@@ -14,7 +14,7 @@ The view SHALL receive a molecule only as the widget items its expansion gave, a
 - **THEN** `assemble` fails, naming the type `molecule`, and no srcdoc is built
 
 ### Requirement: Linked edits in one draft update
-A component SHALL be able to put the values of several items of its own question into the draft record in one update, `undefined` removing an item's value. An update naming an item outside the component's question SHALL change nothing and SHALL be reported as an error (AD-9, AD-20).
+A component SHALL be able to put the values of several items of its own question into the draft record in one update, `undefined` removing an item's value. An update naming an item outside the component's question SHALL change nothing and SHALL be reported as an error. The board a component reads SHALL give each item the value it shows: its draft value, else its question's latest answer's value for it, else its props as sent (AD-9, AD-20).
 
 #### Scenario: Two items at once
 - **WHEN** a test `probe` component sets its own value and its sibling's in one update
@@ -23,6 +23,10 @@ A component SHALL be able to put the values of several items of its own question
 #### Scenario: An item of another question
 - **WHEN** a `probe` component's update names an item of another question
 - **THEN** the draft record is unchanged and the item reports the error
+
+#### Scenario: A linked edit on an answered question
+- **WHEN** the user revises an answered question whose answer holds edits of the plan, and names a package added in the Tree after the portal
+- **THEN** the plan's draft value is the answered plan with the added package's predecessors, and the plan shows it; no other item of the question gains a draft value
 
 ### Requirement: The board graph chunk
 The board graph SHALL be the library chunk `board-graph`, needing `compute`, which the `tree` and `gantt` chunks need; every computing widget on a board SHALL read one live graph per draft change and one graph of the board as sent (AD-9, AD-13).
@@ -69,7 +73,7 @@ A Tree with `pert` SHALL open with the packages above its `openDepth` expanded a
 - **THEN** only Design and Build are visible, with closed chevrons
 
 ### Requirement: An added package's predecessors
-A package the user adds to a Tree that a Gantt plan of its question names SHALL, once named, get in that plan the predecessors the plan gives the package it was added after ("Add node") or under ("Add child"), none when that package has none, in the same draft update (F20; EXPERIENCE Molecules, WBS with PERT).
+A package the user adds to a Tree that a Gantt plan of its question names, with `pert` or without, SHALL, once named, get in that plan the predecessors the plan gives the package it was added after ("Add node") or under ("Add child"), none when that package has none, in the same draft update (F20; EXPERIENCE Molecules, WBS with PERT).
 
 #### Scenario: Splitting the portal
 - **WHEN** the user focuses the portal, chooses "Add node" and names the package `Customer portal: dashboards`
@@ -83,8 +87,15 @@ A package the user adds to a Tree that a Gantt plan of its question names SHALL,
 - **WHEN** the user chooses "Add node" and presses Escape
 - **THEN** neither the Tree nor the plan holds a draft value
 
+### Requirement: Linked edits within a plan's limits
+An addition or a confirmed deletion in a Tree whose edit of a linked plan would take that plan past a limit (50 predecessors of a task, 50 dependents of a task, 500 entries) SHALL be refused with a field error naming the limit, and SHALL write nothing to the Tree or the plan (AD-9, AD-10; F20).
+
+#### Scenario: A linked edit past a plan's limit
+- **WHEN** the user names a package added after one whose predecessor already has 50 dependents in the plan
+- **THEN** the name shows a field error naming the limit of 50 dependents, keeps the focus, and neither the Tree nor the plan holds a draft value
+
 ### Requirement: Deleting a package with dependents
-Deleting a package on which tasks of a linked plan depend SHALL ask first, inline, saying how many tasks depend on it, with the focus on "Cancel". Confirming SHALL connect each dependent to the deleted packages' own predecessors, without repeats, and return each deleted package's entry to what the agent sent for it (EXPERIENCE Molecules, WBS with PERT).
+Deleting a package on which tasks of a linked plan depend, in a Tree with `pert` or without, SHALL ask first, inline, saying how many tasks depend on it, with the focus on "Cancel". Confirming SHALL connect each dependent to the deleted packages' own predecessors, without repeats, and return each deleted package's entry to what the agent sent for it (EXPERIENCE Molecules, WBS with PERT).
 
 #### Scenario: Deleting the portal
 - **WHEN** the user deletes the portal, on which reporting depends, and confirms
@@ -128,3 +139,14 @@ The user SHALL edit a task's predecessors from its grid row, in an inline panel 
 #### Scenario: A cycle offered
 - **WHEN** the user opens the prototype's predecessors
 - **THEN** the portal and reporting, which depend on the prototype, are disabled
+
+### Requirement: Gantt predecessors that name no task
+A predecessor a task holds that names no other task, such as a work package that became a parent in the Tree, an unknown ID from the agent or the task itself, SHALL be listed checked in the task's panel, saying that it names no task, so that the user can uncheck it. The panel SHALL NOT offer the task itself, or such an ID, to any other task (FR-14).
+
+#### Scenario: A predecessor deleted in the Tree
+- **WHEN** the portal is deleted in the plan's Tree, the user confirms the question that says one task depends on it, and opens reporting's predecessors
+- **THEN** reporting's predecessors are Architecture and Clickable prototype, the portal's own, and none is listed as naming no task
+
+#### Scenario: A predecessor that became a parent
+- **WHEN** the user adds a child to the portal in the plan's Tree and opens reporting's predecessors
+- **THEN** `portal` is listed checked, saying that it names no task, and once the user unchecks it and presses "Done", reporting is scheduled again with no field error

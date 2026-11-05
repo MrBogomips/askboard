@@ -121,7 +121,7 @@ describe("a plan's change marks", () => {
       ["wbs", nodes === TREE ? undefined : { ...WBS.props, nodes }],
       ["schedule", value === PLAN ? undefined : value],
     ]);
-    const board = { items: ITEMS, draft };
+    const board = { items: ITEMS, draft, shown: draft };
     const rows = planTaskRows(value, nodes, TREE);
     const schedules = scheduleOf(graphIn(liveGraph(board)), "schedule", rows);
     const baselines = baselineOf(graphIn(sentGraph(board)), "schedule", rows);

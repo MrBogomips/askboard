@@ -87,6 +87,20 @@ const unscaled = (v: number, digits: number, sign: number): number => {
   return sign < 0 ? -r : r;
 };
 
+/** The most decimal places, either way, that ROUND and ROUNDUP take. */
+const MAX_DIGITS = 300;
+
+// ROUND's and ROUNDUP's arithmetic, for digits within ±MAX_DIGITS: `x` to `digits` places, half
+// away from zero or up, in decimal from its 15 significant digits.
+const rounded = (x: number, digits: number, mode: "half" | "up"): number => {
+  if (x === 0) return 0;
+  const [m, e] = digits15(x);
+  // Rounding below the 15th significant digit leaves the 15-digit value: ROUND(1E300,10) is 1E300.
+  if (e + digits >= 15) return clean15(x);
+  const v = Number(`${m}e${e + digits}`);
+  return unscaled(mode === "half" ? Math.floor(v + 0.5) : Math.ceil(v), digits, Math.sign(x));
+};
+
 const round =
   (mode: "half" | "up"): Implementation =>
   (args, ctx) => {
@@ -94,18 +108,24 @@ const round =
     if (isEngineError(x)) return x;
     const d = number(args[1], ctx);
     if (isEngineError(d)) return d;
-    if (x === 0) return 0;
     const digits = Math.trunc(d);
-    if (Math.abs(digits) > 300) return err("value", ctx.origin, "digits out of range");
-    const [m, e] = digits15(x);
-    // Rounding below the 15th significant digit leaves the 15-digit value: ROUND(1E300,10) is 1E300.
-    if (e + digits >= 15) return clean15(x);
-    const v = Number(`${m}e${e + digits}`);
-    return finite(
-      unscaled(mode === "half" ? Math.floor(v + 0.5) : Math.ceil(v), digits, Math.sign(x)),
-      ctx.origin,
-    );
+    if (x !== 0 && Math.abs(digits) > MAX_DIGITS) {
+      return err("value", ctx.origin, "digits out of range");
+    }
+    return finite(rounded(x, digits, mode), ctx.origin);
   };
+
+/**
+ * The evaluator's own ROUND on a number (molecules design decision 10): `x` to `digits` decimal
+ * places, exactly as a `ROUND` formula gives it, so that a widget rounds a derived value as a
+ * formula would; NaN where the formula gives an error.
+ */
+export const roundNumber = (x: number, digits: number): number => {
+  const whole = Math.trunc(digits);
+  if (x !== 0 && !(Math.abs(whole) <= MAX_DIGITS)) return Number.NaN;
+  const value = rounded(x, whole, "half");
+  return Number.isFinite(value) ? value || 0 : Number.NaN;
+};
 
 const aggregate =
   (reduce: (xs: number[], ctx: Ctx) => EngineValue): Implementation =>

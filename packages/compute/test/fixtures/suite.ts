@@ -8,7 +8,7 @@ import { evaluateGraph } from "../../src/evaluate.ts";
 import { buildGraph } from "../../src/graph/build.ts";
 import type { Fields, GraphChild, GraphItem, GraphSource, WbsNode } from "../../src/source.ts";
 import { type Address, isFormulaError, type NodeResult, type Scalar } from "../../src/types.ts";
-import { BOARD_SOURCE_FIXTURES } from "./board.ts";
+import { BOARD_SOURCE_FIXTURES, EXPANDED_SOURCE_FIXTURES } from "./board.ts";
 import { GANTT_FIXTURES } from "./gantt.ts";
 import { ERROR_FIXTURES, type Expected } from "./index.ts";
 import spreadsheet from "./spreadsheet.json" with { type: "json" };
@@ -255,7 +255,7 @@ export const runGantt = (tally: Tally): void => {
 
 /** The board's items through `boardGraphSource`, as the view and `ask-core` map them. */
 export const runBoardSources = (tally: Tally): void => {
-  for (const fixture of BOARD_SOURCE_FIXTURES) {
+  for (const fixture of [...BOARD_SOURCE_FIXTURES, ...EXPANDED_SOURCE_FIXTURES]) {
     const graph = buildGraph(boardGraphSource(fixture.items));
     const values = evaluateGraph(graph);
     tally.values(`board:${fixture.name}`, fixture.expected, (address) => values.read(address));

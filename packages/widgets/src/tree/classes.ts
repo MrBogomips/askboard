@@ -43,6 +43,9 @@ export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
 
 export const QUESTION_REST = "shrink-0";
 
+/** A confirmed delete's refusal, after the question's buttons: the plan's limit it would pass. */
+export const QUESTION_ERROR = "min-w-0 truncate text-control text-destructive-text";
+
 /** The grid: a fixed layout, so that the field columns keep their widths and the name takes the rest. */
 export const GRID = "w-full table-fixed border-collapse";
 
@@ -136,6 +139,12 @@ export const EDITOR = EDITOR_BASE;
 
 /** A number's editor: a text input, right-aligned in the code face as the cell's number is. */
 export const NUMBER_EDITOR = `${EDITOR_BASE} text-right font-mono text-code`;
+
+/** An input and its unit affix side by side, as an Input Group (DESIGN.md, Input atoms). */
+export const AFFIX_GROUP = "flex min-w-0 items-center gap-1";
+
+/** The unit affix after an input, in the code face and muted. */
+export const AFFIX = "shrink-0 font-mono text-code text-muted-foreground";
 
 /** A number's parsed value, echoed in the code face (DESIGN.md, Input atoms). */
 export const ECHO = "text-right font-mono text-code text-muted-foreground";

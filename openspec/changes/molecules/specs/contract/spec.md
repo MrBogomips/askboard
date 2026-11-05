@@ -22,7 +22,7 @@ The contract SHALL define a molecule reference's props in the standalone schema 
 - **THEN** validation fails, naming `data`
 
 ### Requirement: Molecule definition format
-The contract SHALL define the molecule definition format 1.0.0 in the standalone schema `urn:askboard:input:molecule-definition`: `format`, `molecule`, `version`, `parameters`, `items` and `fills`, and nothing else. `parameters` SHALL be a JSON Schema 2020-12 object whose `$id` is `urn:askboard:molecule:<name>:<major>`, with no root combinator; `items` SHALL hold exactly one widget item `{type, id, props}` (AD-9).
+The contract SHALL define the molecule definition format 1.0.0 in the standalone schema `urn:askboard:input:molecule-definition`: `format`, `molecule`, `version`, `parameters`, `items` and `fills`, and nothing else. `parameters` SHALL be a JSON Schema 2020-12 object whose `$id` is `urn:askboard:molecule:<name>:<major>`, with no root combinator, that compiles in strict mode beside the contract's widget props schemas; `items` SHALL hold exactly one widget item `{type, id, props}` (AD-9).
 
 #### Scenario: Two items
 - **WHEN** a definition's `items` holds two widget items
@@ -36,8 +36,12 @@ The contract SHALL define the molecule definition format 1.0.0 in the standalone
 - **WHEN** a definition's `format` is `2.0.0`
 - **THEN** validation fails, naming the format versions the contract supports
 
+#### Scenario: Parameters that do not compile
+- **WHEN** a definition's parameters hold a keyword JSON Schema does not define
+- **THEN** validation fails, naming `parameters`
+
 ### Requirement: Molecule fills
-A definition's `fills` SHALL map a top-level parameter to a list of fills, each a JSON Pointer into `items` and a form: copy (the default), `item`, `{entries: <field>}` or `{omit: [keys]}`. A fill SHALL name a parameter its `parameters` declare and a pointer whose parent exists in the composition, or the definition SHALL fail validation, naming the fill (AD-9).
+A definition's `fills` SHALL map a top-level parameter to a list of fills, each a JSON Pointer into `items` and a form: copy (the default), `item`, `{entries: <field>}` or `{omit: [keys]}`. A fill SHALL name a parameter its `parameters` declare and a pointer inside the item's props whose parent exists in the composition, and no two fills SHALL fill one place or places inside each other, or the definition SHALL fail validation, naming the fill (AD-9).
 
 #### Scenario: An unknown parameter
 - **WHEN** a definition fills from `calendar`, which its parameters do not declare
@@ -47,8 +51,12 @@ A definition's `fills` SHALL map a top-level parameter to a list of fills, each 
 - **WHEN** a fill's pointer is `/0/props/schedule/start` and the item's props hold no `schedule`
 - **THEN** validation fails, naming the pointer
 
+#### Scenario: Two fills on one place
+- **WHEN** a fill's pointer lies inside the place another parameter fills
+- **THEN** validation fails, naming the later fill's pointer and the other parameter
+
 ### Requirement: Molecules carry no code
-A molecule definition SHALL be JSON data only, read and never run: no string in it SHALL hold `<` or a `javascript:` URL, and no fill form SHALL evaluate anything. A definition that breaks this SHALL fail validation, naming the path (AD-8, NFR-5, FR-17).
+A molecule definition SHALL be JSON data only, read and never run: no string or key in it SHALL hold `<` or a `javascript:` URL, and no fill form SHALL evaluate anything. A definition that breaks this SHALL fail validation, naming the path (AD-8, NFR-5, FR-17).
 
 #### Scenario: Markup in a definition
 - **WHEN** a parameter's `description` holds `<script>alert(1)</script>`
@@ -95,7 +103,7 @@ The contract SHALL declare, for a Tree with `pert`, the built-in derived fields 
 - **THEN** they are `expected` and `spread`, on every node and on the item, and only for a Tree with `pert`
 
 ### Requirement: WBS answer derived values
-The derived values a Tree with `pert` gives an answer SHALL be each node's `expected` and `spread` whose value, rounded half away from zero to two decimals, differs from the board as sent or whose node the agent did not send, and the item's `expected` and `spread` always, each rounded so; a value in error SHALL be left out (F7, FR-12, FR-20).
+The derived values a Tree with `pert` gives an answer SHALL be each node's `expected` and `spread` whose value, rounded half away from zero to two decimals, differs from the board as sent or whose node the agent did not send, and the item's `expected` and `spread` always, each rounded so; a value in error SHALL be left out. An answer that carries the Tree's value SHALL carry these derived values beside it (F7, FR-12, FR-20).
 
 #### Scenario: The approved UJ-2 values
 - **WHEN** the UJ-2 work breakdown is computed after the approved answer's edits and compared with the board as sent

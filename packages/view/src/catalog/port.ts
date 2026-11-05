@@ -2,10 +2,12 @@
 // and AskBoard's own renderer finds them (renderer row 1). It runs in the shell chunk; the view
 // build maps a component chunk's imports of this module to the shell's copy, so every chunk shares
 // one registry. A component renders from its props alone: the item, the question it sits in, its
-// value in the draft record, the board it sits on and whether it may change; it puts each edit
-// into the draft record, reports the derived values it declares and reports itself ready. Items
-// and values are of any type: Choice's are a question and its option labels, a widget's are its
-// item and its full edited props (design decision 7).
+// value as it shows it, the board it sits on and whether it may change; it puts each edit into
+// the draft record, reports the derived values it declares and reports itself ready. Items and
+// values are of any type: Choice's are a question and its option labels, a widget's are its item
+// and its full edited props (design decision 7). A component may put several items of its own
+// question into the draft record in one update, as a linked edit does (molecules, design decision
+// 11).
 
 import { type ReactNode, useLayoutEffect } from "react";
 
@@ -18,13 +20,21 @@ export type BoardWidgetItem = {
 
 /**
  * The board a component reads, read-only (AD-9; gantt-widget design decision 7): every widget item
- * the board document holds, as sent, each question's items in order, and the draft record, item ID
- * to edited value, with no entry for an untouched item. The same object while the record is the
- * same, so a component can memoize on it.
+ * the board document holds, as sent, each question's items in order, the draft record, item ID to
+ * edited value, with no entry for an untouched item, and what each item shows (molecules, design
+ * decision 11). The same object while the items, the record and the answers are the same, so a
+ * component can memoize on it.
  */
 export type BoardContent = {
   readonly items: readonly BoardWidgetItem[];
   readonly draft: ReadonlyMap<string, unknown>;
+  /**
+   * Item ID to the value the item shows: its draft value, else the value its question's latest
+   * answer holds for it; an item with no entry shows its props as sent. The draft record itself
+   * while no answer holds a widget value. The board as it stands reads it; change marks and
+   * counters read the draft record.
+   */
+  readonly shown: ReadonlyMap<string, unknown>;
 };
 
 /** Derived values, by AD-13's reference without brackets (`release.finish`), each a JSON value. */
@@ -34,15 +44,24 @@ export type ItemProps<Item = unknown, Value = unknown> = {
   readonly item: Item;
   /** The question the item sits in, whose text labels it; Choice's item is the question itself. */
   readonly questionId: string;
-  /** The item's value in the draft record; undefined while the item is untouched. */
+  /**
+   * The item's value as it shows it: its draft value, else its question's latest answer's, else
+   * undefined, while it shows its props as sent.
+   */
   readonly value: Value | undefined;
   /** Puts a new value into the draft record, `undefined` for none; nothing leaves the view (AD-9). */
   readonly onValueChange: (value: Value | undefined) => void;
+  /**
+   * Puts the values of several items of the item's own question into the draft record, by item
+   * ID, in one update, `undefined` removing one; an update naming an item outside the question
+   * changes nothing and fails the item (molecules, design decision 11).
+   */
+  readonly onValuesChange: (values: Readonly<Record<string, unknown>>) => void;
   /** The item may not change: its question is answered, being sent or locked. */
   readonly disabled: boolean;
   /** Reports the item ready (AD-9); a component calls it through `useReadyAfterLayout`. */
   readonly ready: () => void;
-  /** The board the item sits on: its widget items as sent and the draft record (AD-9). */
+  /** The board the item sits on: its widget items as sent, the draft record and what each shows. */
   readonly board: BoardContent;
   /**
    * Reports the item's declared derived values as they stand, each report replacing the last; an

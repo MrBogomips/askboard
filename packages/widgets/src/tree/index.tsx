@@ -4,16 +4,30 @@
 // plain checks, never its schemas, and throws on a problem: the item's error boundary then fails
 // it, and its question never counts as visible (AD-10). It shows its value, the draft or the sent
 // answer, else the agent's props, as a treegrid in the widget frame, and reports ready once laid
-// out.
+// out. A work breakdown, a Tree with `pert`, reads the board's graph through the `board-graph`
+// chunk, the one build the plan on its board reads too, and reports the derived values its answer
+// carries (molecules, design decisions 13 and 14). A Tree a plan names, a work breakdown or not,
+// puts an added package's predecessors in the plan in the same draft update, and a deleted
+// package's in its dependents' (design decision 12).
 
-import { type TreeItem, type TreeProps, treePropsProblems } from "@askboard/contract";
 import {
+  type TreeItem,
+  type TreeProps,
+  treeDerivedFields,
+  treePropsProblems,
+} from "@askboard/contract";
+import {
+  type BoardContent,
+  type DerivedValues,
   type ItemProps,
   questionTextId,
   register,
   useReadyAfterLayout,
 } from "@askboard/view/catalog";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { type BoardGraph, liveGraph, sentGraph } from "../graph/index.ts";
+import { linkedAdd, linkedDelete, linkedDependents } from "./linked.ts";
+import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Tree item's type. */
@@ -32,9 +46,86 @@ const checkedProps = (itemId: string, props: unknown): TreeProps => {
   throw new Error(`the Tree "${itemId}" refuses its props: ${listed}`);
 };
 
-const Tree = ({ item, questionId, value, onValueChange, disabled, ready }: TreeComponentProps) => {
-  // The check throws before the item can report ready.
+/**
+ * A work breakdown's live graph, memoized by the board (`board-graph.ts`); none for a Tree that
+ * computes nothing. It throws when the board cannot be computed, as the plan's does.
+ */
+const pertGraph = (
+  itemId: string,
+  sent: TreeProps,
+  board: BoardContent,
+): BoardGraph | undefined => {
+  if (treeDerivedFields(sent) === undefined) return undefined;
+  const graph = liveGraph(board);
+  if (graph === undefined) throw new Error(`the board's graph holds no work breakdown "${itemId}"`);
+  return graph;
+};
+
+/**
+ * The derived values a work breakdown's answer carries as it stands (`pertDerived`), against the
+ * board as sent; none for a Tree that computes nothing.
+ */
+const usePertDerived = (
+  itemId: string,
+  nodes: TreeProps["nodes"],
+  graph: BoardGraph | undefined,
+  board: BoardContent,
+): DerivedValues | undefined => {
+  const sentBoard = graph === undefined ? undefined : sentGraph(board);
+  return useMemo(
+    () =>
+      graph === undefined || sentBoard === undefined
+        ? undefined
+        : pertDerived(graph, sentBoard, itemId, nodes),
+    [graph, sentBoard, itemId, nodes],
+  );
+};
+
+const Tree = ({
+  item,
+  questionId,
+  value,
+  onValueChange,
+  onValuesChange,
+  disabled,
+  ready,
+  board,
+  onDerived,
+}: TreeComponentProps) => {
+  // The checks throw before the item can report ready: its props, then its board's graph.
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
+  const graph = pertGraph(item.id, sent, board);
+  // Reported on first layout and after each rebuild of the graph, which each committed edit of the
+  // board makes (AD-20, FR-12; molecules design decision 14).
+  const derived = usePertDerived(item.id, (value ?? sent).nodes, graph, board);
+  useEffect(() => {
+    if (derived !== undefined) onDerived(derived);
+  }, [derived, onDerived]);
+  // A named addition and the plans' linked edits go in one draft update, or none goes (F20).
+  const onLinkedAdd = useCallback(
+    (next: TreeProps, added: string, anchor: string | undefined): string | undefined => {
+      const write = linkedAdd(board, item.id, sent, next, added, anchor);
+      if (!write.ok) return write.reason;
+      onValuesChange(write.values);
+      return undefined;
+    },
+    [board, item.id, sent, onValuesChange],
+  );
+  // A deletion and the plans' linked edits go in one draft update, or none goes; it asks first
+  // when tasks of those plans depend on the deleted branch.
+  const countDependents = useCallback(
+    (ids: readonly string[]): number => linkedDependents(board, item.id, ids),
+    [board, item.id],
+  );
+  const onLinkedDelete = useCallback(
+    (next: TreeProps, deleted: readonly string[]): string | undefined => {
+      const write = linkedDelete(board, item.id, sent, next, deleted);
+      if (!write.ok) return write.reason;
+      onValuesChange(write.values);
+      return undefined;
+    },
+    [board, item.id, sent, onValuesChange],
+  );
   useReadyAfterLayout(ready);
   return (
     <TreeWidget
@@ -43,7 +134,11 @@ const Tree = ({ item, questionId, value, onValueChange, disabled, ready }: TreeC
       value={value ?? sent}
       labelledBy={questionTextId(questionId)}
       disabled={disabled}
+      graph={graph}
       onValueChange={onValueChange}
+      onLinkedAdd={onLinkedAdd}
+      countDependents={countDependents}
+      onLinkedDelete={onLinkedDelete}
     />
   );
 };

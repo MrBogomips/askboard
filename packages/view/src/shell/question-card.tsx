@@ -36,6 +36,7 @@ import {
   type BoardDraft,
   type Delivery,
   hasAnswerWork,
+  itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
 import { markOf } from "./board-view.ts";
@@ -242,6 +243,8 @@ export const QuestionCard = (props: CardProps) => {
   const focusHeading = focusHeadingOf(question.id);
   // The first edit of an answered question starts the revision from its latest answer, once per
   // gesture: a gesture that clears the choice and then chooses "Other…" seeds only before the first.
+  // It seeds no widget value: an item the revision leaves alone shows its answer's value through
+  // the board (molecules, design decision 11).
   const seeding = useRef(false);
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
@@ -314,6 +317,7 @@ export const QuestionCard = (props: CardProps) => {
             item={item}
             component={component}
             questionId={question.id}
+            itemIds={itemIdsOf(question)}
             context={context}
             disabled={card.readOnly}
             shown={shownFor(card.shown, question.id, item.id)}

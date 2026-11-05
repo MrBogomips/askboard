@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeProps } from "@askboard/contract";
-import { enterCell, entryKindOf, NAME_TOO_LONG, startTextOf, TEXT_TOO_LONG } from "./entry.ts";
+import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
+import {
+  enterCell,
+  entryKindAt,
+  entryKindOf,
+  NAME_TOO_LONG,
+  startTextOf,
+  TEXT_TOO_LONG,
+} from "./entry.ts";
+import { ESTIMATE_OUT_OF_RANGE } from "./model/edits.ts";
 
 const tree: TreeProps = Object.freeze({
   columns: [
@@ -102,5 +111,31 @@ describe("enterCell", () => {
     expect(Object.isFrozen(entry)).toBe(true);
     expect(Object.isFrozen(enterCell(tree, "a", 1, "2"))).toBe(true);
     expect(JSON.stringify(tree)).toBe(before);
+  });
+});
+
+describe("a work breakdown's entries (molecules design decision 14; view spec, WBS values follow the edits)", () => {
+  const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+
+  test("an estimate outside 0 to 100,000 working days is refused with its reason, the value kept", () => {
+    expect(enterCell(wbs, "portal", 1, "-2")).toEqual({
+      kind: "refused",
+      reason: ESTIMATE_OUT_OF_RANGE,
+    });
+    expect(enterCell(wbs, "portal", 3, "100,001")).toEqual({
+      kind: "refused",
+      reason: ESTIMATE_OUT_OF_RANGE,
+    });
+    const taken = enterCell(wbs, "portal", 1, "4");
+    expect(taken.kind === "value" ? nodeOf(taken.value, "portal")?.optimistic : undefined).toBe(4);
+  });
+
+  test("a parent's estimate cells, and the value cells past the fields, open no editor; a leaf's do", () => {
+    expect(entryKindAt(wbs, "design", 1)).toBeUndefined();
+    expect(entryKindAt(wbs, "design", 0)).toBe("name");
+    expect(entryKindAt(wbs, "portal", 1)).toBe("number");
+    expect(entryKindAt(wbs, "portal", 4)).toBeUndefined();
+    expect(entryKindAt(wbs, "portal", 5)).toBeUndefined();
+    expect(entryKindAt(tree, "b", 1)).toBe("number");
   });
 });

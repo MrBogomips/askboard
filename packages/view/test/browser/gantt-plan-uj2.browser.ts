@@ -1,7 +1,8 @@
 // UJ-2 on the Gantt plan, end to end, in each engine, on the widget host (gantt-widget task 7.9;
 // spec, "Answering a question with a Gantt"; AD-10, AD-20): with the keyboard only, the user makes
 // the approved UJ-2 answer's edits on the fixture plan, the Tree's in the Tree as the Tree's own
-// UJ-2 scenario makes them and `u-1`'s predecessors in the plan's panel, and presses "Answer".
+// UJ-2 scenario makes them, `u-1`'s predecessors following from the split (molecules, F20), and
+// presses "Answer".
 // Nothing leaves the view before it; after it, one answer message carries the Tree's and the
 // plan's full edited values, whose diffs against the values sent are the approved answer's
 // changes, and the plan's derived values, which are the approved answer's.
@@ -17,14 +18,12 @@ import {
   treeEditedValue,
 } from "@askboard/contract/fixtures";
 import { validateGanttProps, validateTreeProps } from "@askboard/contract/validate";
-import { focusedBox, focusedCell, keysTo } from "./fixtures/gantt-input.ts";
 import {
   baselineFacts,
   planGantt,
   planQuestion,
   planTree,
   type RowText,
-  tabIntoPlanGrid,
 } from "./fixtures/gantt-plan.ts";
 import {
   barDates,
@@ -41,44 +40,20 @@ import {
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
-import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { pressIn, pressTool, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import {
-  type FocusAt,
-  pressIn,
-  pressTool,
-  type TreeGrid,
-  treeFocus,
-  treeGridOf,
-} from "./harness/tree-grid.ts";
-import { expectNewNode, expectSteps, readyIn, typeIn } from "./harness/tree-steps.ts";
+  enterField,
+  expectNewNode,
+  expectSteps,
+  readyIn,
+  tabUntil,
+  typeIn,
+} from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
+import { useWidgetHost } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
-
-/** How many presses of Tab may pass before the focus must have reached its target. */
-const MAX_TABS = 6;
-
-/** Presses Tab until `reached` holds, at most `MAX_TABS` times, with no click. */
-const tabUntil = async (board: Board, reached: () => Promise<boolean>, what: string) => {
-  for (let presses = 0; !(await reached()); presses += 1) {
-    if (presses === MAX_TABS) throw new Error(`${MAX_TABS} presses of Tab never reached ${what}`);
-    await board.page.keyboard.press("Tab");
-  }
-};
-
-/** Edits the Tree's focused field: F2, the text over the field's, then Enter, the focus kept. */
-const enterField = async (run: WidgetHostRun, tree: TreeGrid, text: string, at: FocusAt) => {
-  await typeIn(run, tree, "F2", text);
-  expect({ text, at: await pressIn(run.board, "Enter") }).toEqual({ text, at });
-  expect(await tree.editor.count()).toBe(0);
-};
-
-/** The plan's tasks once `u-1` follows the portal, as `keysTo` takes them. */
-const UJ2_TASKS = ["ux", "architecture", "prototype", "portal", "u-1", "billing", "reporting"].map(
-  (id) => ({ id }),
-);
 
 // The approved answer's plan as `compute` schedules it over the edited Tree: each row, then each
 // bar; it ends on 12/2/2026.
@@ -107,7 +82,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { host } = useWidgetHost(engine);
 
     test(
-      "with the keyboard only, the approved UJ-2 edits in the Tree and the plan, then Answer, send one answer whose plan diffs to the approved operation with the approved derived values",
+      "with the keyboard only, the approved UJ-2 edits in the Tree, the plan's following from the split, then Answer, send one answer whose plan diffs to the approved operation with the approved derived values",
       async () => {
         const run = await host(dist, ganttPlanBoardDocument);
         await readyIn(run);
@@ -142,7 +117,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "portal", cell });
           await enterField(run, tree, text, { nodeId: "portal", cell });
         }
-        // `u-1`, split off after `portal` from the toolbar's "Add node", named, then estimated.
+        // `u-1`, split off after `portal` from the toolbar's "Add node", named, which gives it the
+        // portal's predecessors in the plan (molecules, F20), then estimated.
         expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
@@ -159,20 +135,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // `billing`: the pessimistic estimate, 15 to 21.
         expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "billing", cell: 3 });
         await enterField(run, tree, "21", { nodeId: "billing", cell: 3 });
-        // The plan's edit: on by Tab through its zoom to its grid, then `u-1`'s "Depends on",
-        // where Enter opens the panel; Architecture and Clickable prototype checked, Enter
-        // commits.
-        await tabIntoPlanGrid(board);
-        await keysTo(board, "u-1", "dependencies", UJ2_TASKS);
-        await board.page.keyboard.press("Enter");
-        expect(await focusedBox(board)).toBe("UX design");
-        for (const box of ["Architecture", "Clickable prototype"]) {
-          await board.page.keyboard.press("ArrowDown");
-          expect(await focusedBox(board)).toBe(box);
-          await board.page.keyboard.press("Space");
-        }
-        await board.page.keyboard.press("Enter");
-        expect(await focusedCell(board)).toBe("u-1.dependencies");
         // The plan as the approved answer leaves it: the re-estimated tasks and `u-1` marked,
         // the tasks moved only by their predecessors not; one change of the plan's own.
         await eventually(

@@ -137,7 +137,7 @@ export const recordedKeys = async (board: Board): Promise<string[]> =>
   (await board.viewFrame()).evaluate(() => [...((window as KeyRecord).askboardKeys ?? [])]);
 
 /** The question asked before deleting a node with children: `message`, or any such question. */
-export const deleteQuestion = (board: Board, message?: string): Locator =>
+export const deleteQuestion = (board: Board, message?: string | RegExp): Locator =>
   board.view.getByRole("group", { name: message ?? /will be deleted\.$/, exact: true });
 
 /** The name of the toolbar's focused tool; `undefined` when no tool has the view's focus. */

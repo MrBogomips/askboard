@@ -3,7 +3,8 @@
 // from here and put each change back, and nothing leaves the view until "Answer". An item holds
 // one value of its component's own type, or none while it is untouched: a widget puts `undefined`
 // back when its edits return to the agent's content. Each change makes a new record; E1 does not
-// mirror it to the board page (open question 5).
+// mirror it to the board page (open question 5). A linked edit puts several items' values in one
+// update, one new record heard once (molecules, design decision 11).
 
 /** Each item's value, by item ID; an untouched item has no entry. */
 export type DraftRecord = ReadonlyMap<string, unknown>;
@@ -13,6 +14,8 @@ export type DraftStore = {
   valueOf(itemId: string): unknown;
   /** Puts in an item's value; `undefined` removes it. */
   set(itemId: string, value: unknown): void;
+  /** Puts in several items' values, by item ID, in one new record; `undefined` removes one. */
+  update(values: Readonly<Record<string, unknown>>): void;
   record(): DraftRecord;
   subscribe(listener: () => void): () => void;
 };
@@ -33,16 +36,22 @@ export const createDraftStore = (): DraftStore => {
   let current: DraftRecord = new Map();
   const listeners = new Set<() => void>();
   const read = (itemId: string) => current.get(itemId);
-  return {
-    valueOf: read,
-    set: (itemId, value) => {
-      if (same(read(itemId), value)) return;
-      const next = new Map(current);
+  // The entries that change something go into one new record, heard once; none, no record.
+  const apply = (entries: readonly (readonly [string, unknown])[]) => {
+    const changed = entries.filter(([itemId, value]) => !same(read(itemId), value));
+    if (changed.length === 0) return;
+    const next = new Map(current);
+    for (const [itemId, value] of changed) {
       if (value === undefined) next.delete(itemId);
       else next.set(itemId, held(value));
-      current = next;
-      for (const listener of listeners) listener();
-    },
+    }
+    current = next;
+    for (const listener of listeners) listener();
+  };
+  return {
+    valueOf: read,
+    set: (itemId, value) => apply([[itemId, value]]),
+    update: (values) => apply(Object.entries(values)),
     record: () => current,
     subscribe: (listener) => {
       listeners.add(listener);

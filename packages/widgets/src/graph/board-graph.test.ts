@@ -9,12 +9,14 @@ const ITEMS = ganttBoardDocument.items.flatMap((question) => question.props.item
 const NOTHING: ReadonlyMap<string, unknown> = new Map();
 const EDITED: ReadonlyMap<string, unknown> = new Map([["release", ganttEditedValue]]);
 
+// A board with no answer holding a widget value: each item shows its draft value.
 const board = (
   draft: ReadonlyMap<string, unknown>,
   items: readonly BoardWidgetItem[] = ITEMS,
 ): BoardContent => ({
   items,
   draft,
+  shown: draft,
 });
 
 describe("the board's graph", () => {
@@ -36,6 +38,26 @@ describe("the board's graph", () => {
     const sent = sentGraph(board(EDITED));
     expect(sent?.read("release.reporting.startDate")).toBe("2026-12-04");
     expect(sent?.read("release.billing.duration")).toBe(9);
+  });
+
+  test("reads what each item shows: on a question being revised, its answer's value with no draft value (molecules, design decision 11)", () => {
+    const revised: BoardContent = { items: ITEMS, draft: NOTHING, shown: EDITED };
+    const live = liveGraph(revised);
+    expect(live?.read("release.finishDate")).toBe("2026-12-16");
+    expect(live?.read("release.billing.duration")).toBe(11);
+    expect(sentGraph(revised)?.read("release.finishDate")).toBe("2026-12-11");
+  });
+
+  test("builds the live graph once per items list and shown values, whatever the draft record", () => {
+    const items = [...ITEMS];
+    const shown = new Map(EDITED);
+    const first = liveGraph({ items, draft: NOTHING, shown });
+    expect(liveGraph({ items, draft: new Map(), shown })).toBe(first);
+    expect(liveGraph({ items, draft: EDITED, shown })).toBe(first);
+    // Nothing shown in place of the props: the sent graph, whatever the draft record holds.
+    expect(liveGraph({ items, draft: EDITED, shown: NOTHING })).toBe(
+      sentGraph(board(NOTHING, items)),
+    );
   });
 
   test("ignores draft values of items the board does not hold", () => {

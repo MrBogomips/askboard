@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { TreeProps } from "@askboard/contract";
-import { treeBoardDocument } from "@askboard/contract/fixtures";
+import type { TreePertProps, TreeProps } from "@askboard/contract";
+import { treeBoardDocument, uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { chain, flat } from "../../../test/tree-model.ts";
 import {
   focusAfterRemove,
@@ -36,6 +36,30 @@ describe("opening the treegrid", () => {
 
   test("focuses nothing in an empty Tree", () => {
     expect(stateOf(openView({ nodes: [] }))).toEqual({ focus: undefined, collapsed: [] });
+  });
+
+  test("a work breakdown opens with the levels above its openDepth open (molecules design decision 14)", () => {
+    const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+    expect(stateOf(openView(wbs))).toEqual({ focus: row("design"), collapsed: [] });
+    const oneLevel: TreePertProps = { ...wbs, openDepth: 1 };
+    expect(stateOf(openView(oneLevel))).toEqual({
+      focus: row("design"),
+      collapsed: ["build", "design"],
+    });
+  });
+});
+
+describe("a work breakdown's value cells (molecules design decision 14)", () => {
+  const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+
+  test("the arrow keys, Home and End reach the two value cells after the estimates", () => {
+    const at = (focus: TreeFocus, move: FocusMove) => navigate(viewOf(focus), move, wbs).focus;
+    expect(at(cell("ux", 3), "right")).toEqual(cell("ux", 4));
+    expect(at(cell("ux", 4), "right")).toEqual(cell("ux", 5));
+    expect(at(cell("ux", 5), "right")).toEqual(cell("ux", 5));
+    expect(at(cell("ux", 0), "end")).toEqual(cell("ux", 5));
+    expect(at(cell("ux", 5), "down")).toEqual(cell("architecture", 5));
+    expect(at(cell("design", 4), "left")).toEqual(cell("design", 3));
   });
 });
 
