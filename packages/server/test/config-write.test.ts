@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -118,6 +119,16 @@ describe("a write", () => {
       version: "1.0",
       theme: "light",
     });
+  });
+
+  test("fails on a link whose target folder does not exist, creating no folder", async () => {
+    const home = freshHome();
+    mkdirSync(userFolder(home), { recursive: true, mode: 0o700 });
+    const missing = join(home, "nowhere", "deeper");
+    symlinkSync(join(missing, "askboard.json"), userFile(home));
+    const result = await adapter(home).replaceUserFile(setKey("theme", "dark"));
+    expect(result).toEqual({ kind: "failed", path: userFile(home), code: "ENOENT" });
+    expect(existsSync(join(home, "nowhere"))).toBe(false);
   });
 
   test("fails on a user file that is a loop of symlinks, writing nothing", async () => {

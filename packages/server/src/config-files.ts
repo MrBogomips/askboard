@@ -203,7 +203,7 @@ const randomName = (): string => randomBytes(8).toString("hex");
 
 /**
  * The file a write replaces: a symbolic link's target, so a dotfiles link survives, also when the
- * target does not exist yet; else the path itself.
+ * target does not exist yet, if its folder does; else the path itself.
  */
 const writeTarget = async (path: string, fs: ConfigFileSystem): Promise<string> => {
   try {
@@ -211,7 +211,11 @@ const writeTarget = async (path: string, fs: ConfigFileSystem): Promise<string> 
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
     const link = await fs.readlink(path).catch(() => undefined);
-    return link === undefined ? path : resolve(dirname(path), link);
+    if (link === undefined) return path;
+    const target = resolve(dirname(path), link);
+    // A dangling link must not make the write create folders wherever it points.
+    await fs.stat(dirname(target));
+    return target;
   }
 };
 

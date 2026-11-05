@@ -206,7 +206,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const view = await board.viewFrame();
         await tabUntil(
           board,
-          () => view.evaluate(() => document.activeElement?.getAttribute("role") === "radio"),
+          () =>
+            view.evaluate(
+              // An option of the question: the header's quick toggles are radios too.
+              () =>
+                document.activeElement?.getAttribute("role") === "radio" &&
+                document.activeElement.closest("[data-askboard-question]") !== null,
+            ),
           "an option",
         );
         const ring = await view.evaluate(() => {
