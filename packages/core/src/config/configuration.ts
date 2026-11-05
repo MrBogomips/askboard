@@ -32,6 +32,8 @@ export class Configuration {
   #first: Promise<FirstRead> | undefined;
   #settled: SettingsInEffect | undefined;
   #folders = false;
+  // Writes run one after the other: each re-reads the file, so two at once would lose one change.
+  #writes: Promise<unknown> = Promise.resolve();
 
   constructor(ports: ConfigurationPorts) {
     this.#ports = ports;
@@ -58,7 +60,13 @@ export class Configuration {
   }
 
   /** Writes one presentation key into the user file, unless the project file sets it. */
-  async write(setting: PresentationSetting): Promise<WriteOutcome> {
+  write(setting: PresentationSetting): Promise<WriteOutcome> {
+    const turn = this.#writes.then(() => this.#write(setting));
+    this.#writes = turn.catch(() => undefined);
+    return turn;
+  }
+
+  async #write(setting: PresentationSetting): Promise<WriteOutcome> {
     const { key } = setting;
     if (!isPresentationSetting(setting)) return { key, outcome: "refused", reason: "invalid" };
     const { config, report } = this.#ports;

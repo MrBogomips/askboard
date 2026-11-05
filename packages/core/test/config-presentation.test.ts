@@ -255,6 +255,31 @@ describe("writing a presentation key", () => {
     expect(reported).toEqual([failure]);
   });
 
+  test("writes from several boards run one after the other, so none overwrites another", async () => {
+    const fakes = fakeConfig({ user: { version: v } });
+    let active = 0;
+    let overlapped = false;
+    const { core } = coreWith({
+      config: {
+        ...fakes.config,
+        replaceUserFile: async (change) => {
+          active += 1;
+          overlapped ||= active > 1;
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          active -= 1;
+          return fakes.config.replaceUserFile(change);
+        },
+      },
+    });
+    const outcomes = await Promise.all([
+      core.writeSetting({ key: "theme", value: "dark" }),
+      core.writeSetting({ key: "density", value: "compact" }),
+      core.writeSetting({ key: "theme", value: "light" }),
+    ]);
+    expect(overlapped).toBe(false);
+    expect(outcomes.map((outcome) => outcome.outcome)).toEqual(["saved", "saved", "saved"]);
+  });
+
   test("without the port nothing is written, and the write fails", async () => {
     const { core } = coreWith();
     expect(await core.writeSetting({ key: "theme", value: "dark" })).toEqual({
