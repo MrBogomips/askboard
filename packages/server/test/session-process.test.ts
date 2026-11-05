@@ -578,9 +578,10 @@ describe("Snapshots in the composed session process (E7)", () => {
   });
 
   test("without CLAUDE_PROJECT_DIR, a Snapshot is refused naming the variable, creating nothing", async () => {
-    const { script } = recorder("snapshot-no-root");
+    const { script, record } = recorder("snapshot-no-root");
     const run = await start({ BROWSER: script, CLAUDE_PROJECT_DIR: undefined });
     const asked = await run.call("ask", plainChoiceAsk("snapshot-no-root-b4n8"));
+    expect(await waitForFile(record)).toBe(`${asked.board}\n`);
     // The session's working folder, which stands in for the project in its display only.
     const working = dirname(project);
     const before = readdirSync(working).sort();
