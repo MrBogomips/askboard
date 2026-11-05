@@ -152,3 +152,58 @@ export const panelAsk: Ask = {
     },
   ],
 };
+
+/** The conformance suite's context ask: the UJ-1 pointer, a written excerpt, an image, a FILE reference, a missing file. */
+export const UJ1_ADR = "docs/adr/0012-payment-retries.md";
+export const UJ1_WRITTEN = "retries: 3\nbackoff: exponential";
+export const UJ1_SOURCE_LINES = Array.from(
+  { length: 8 },
+  (_, at) => `export const retry${at + 1} = ${at + 1};`,
+);
+
+export const uj1Files = {
+  [UJ1_ADR]: [
+    "# ADR 12: payment retries",
+    "",
+    "## Context",
+    "",
+    "Payments fail for transient reasons.",
+    "",
+    "## Decision",
+    "",
+    "We retry a failed payment three times, with exponential backoff.",
+    "",
+  ].join("\n"),
+  ".askboard/media/shot.png": Uint8Array.from(Buffer.from(ONE_PIXEL_PNG, "base64")),
+  "src/retry.ts": `${UJ1_SOURCE_LINES.join("\n")}\n`,
+} as const;
+
+export const uj1Ask: Ask = {
+  askId: "context-uj1-k1m2",
+  title: "Payment retry fix",
+  items: [
+    {
+      type: "question",
+      id: "fix",
+      props: {
+        text: "Which fix should I keep for the failing payment retry?",
+        options: [{ label: "Fix A" }, { label: "Fix B" }],
+        items: [
+          { type: "excerpt", id: "retry-adr", props: { pointer: `${UJ1_ADR}#Decision` } },
+          {
+            type: "excerpt",
+            id: "settings",
+            props: { text: UJ1_WRITTEN, title: "Retry settings" },
+          },
+          {
+            type: "image",
+            id: "shot",
+            props: { pointer: ".askboard/media/shot.png", alt: "The retry log" },
+          },
+          { type: "reference", id: "retry-src", props: { pointer: "src/retry.ts#L1-L5" } },
+          { type: "excerpt", id: "gone", props: { pointer: "docs/missing.md#Intro" } },
+        ],
+      },
+    },
+  ],
+};
