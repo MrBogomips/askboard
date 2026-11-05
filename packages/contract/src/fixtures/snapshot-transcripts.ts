@@ -84,7 +84,7 @@ const discarded: SnapshotReply = {
   reason: "discarded",
 };
 
-/** One valid message of each type protocol 1.2 adds, in each direction. */
+/** One valid message of each type protocol 1.3 adds, in each direction. */
 export const snapshotProtocolExamples: {
   readonly toHost: readonly SnapshotCommand[];
   readonly toPage: readonly SnapshotReply[];

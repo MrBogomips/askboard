@@ -135,7 +135,7 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
-  test("accept the Snapshot replies board protocol 1.2 adds, and refuse a folder outside write-failed (snapshot, task 1.3)", () => {
+  test("accept the Snapshot replies board protocol 1.3 adds, and refuse a folder outside write-failed (snapshot, task 1.3)", () => {
     const added = snapshotProtocolExamples.toPage as readonly { type: string }[];
     expect([...new Set(added.map((message) => message.type))]).toEqual([
       "snapshot-saved",

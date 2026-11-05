@@ -31,7 +31,7 @@ import updateOutcome from "./update-outcome.json" with { type: "json" };
 import updateResult from "./update-result.json" with { type: "json" };
 import versions from "./versions.json" with { type: "json" };
 
-export const TOOL_ENVELOPES_VERSION = "1.2";
+export const TOOL_ENVELOPES_VERSION = "1.3";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {
@@ -273,7 +273,7 @@ export type FetchQuestionProps = Omit<QuestionProps, "items"> & {
 /** A question of a fetched area. */
 export type FetchQuestion = Omit<BoardQuestion, "props"> & { readonly props: FetchQuestionProps };
 
-// Tool envelopes 1.2 (snapshot, design decision 2).
+// Tool envelopes 1.3 (snapshot, design decision 2).
 
 /** A `snapshot` request: the ask, and nothing else. */
 export type SnapshotRequest = { readonly askId: string };

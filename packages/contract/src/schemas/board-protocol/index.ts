@@ -34,7 +34,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.2";
+export const BOARD_PROTOCOL_VERSION = "1.3";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -443,7 +443,7 @@ export type ContextPageMessage = OpenSourceCommand | OpenEditorCommand;
 
 export type ContextHostMessage = SourceStateMessage | EditorOutcomeMessage;
 
-// Board protocol 1.2 (snapshot, design decision 2).
+// Board protocol 1.3 (snapshot, design decision 2).
 
 /** Board page to `board-host`: take a Snapshot; never resent (FR-26). */
 export type SnapshotCommand = {

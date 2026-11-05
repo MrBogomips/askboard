@@ -64,8 +64,8 @@ describe("the registrations", () => {
     expect([byType.snapshot, byType["snapshot-saved"], byType["snapshot-failed"]]).toEqual(ids);
   });
 
-  test("the board protocol is at its next minor, 1.2", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.2");
+  test("the board protocol is at its next minor, 1.3", () => {
+    expect(BOARD_PROTOCOL_VERSION).toBe("1.3");
     expect(boardProtocol.version).toBe(BOARD_PROTOCOL_VERSION);
   });
 

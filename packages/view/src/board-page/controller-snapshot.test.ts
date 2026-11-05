@@ -1,5 +1,5 @@
 // The board page's Snapshot requests through its controller (snapshot design decision 8; board
-// protocol 1.2): the view's `snapshot` message and the Closed banner's action each send one request
+// protocol 1.3): the view's `snapshot` message and the Closed banner's action each send one request
 // under a fresh ID, never queued and never sent again; the reply, a drop or the backstop bound ends
 // it, and its feedback goes to the view's update or to the banner.
 
