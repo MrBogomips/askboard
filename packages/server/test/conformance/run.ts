@@ -29,9 +29,14 @@ const SUITE = "./packages/server/test/conformance";
 
 /** The suite's files in each configuration. */
 const FILES: Readonly<Record<Configuration, readonly string[]>> = {
-  "mod-and-hooks": ["mod-and-hooks.e2e.ts"],
-  "mod-disabled": ["conformance.e2e.ts", "lifecycle.e2e.ts", "mod-disabled.e2e.ts"],
-  "hooks-disabled": ["conformance.e2e.ts", "lifecycle.e2e.ts"],
+  "mod-and-hooks": ["mod-and-hooks.e2e.ts", "snapshot.e2e.ts"],
+  "mod-disabled": [
+    "conformance.e2e.ts",
+    "lifecycle.e2e.ts",
+    "mod-disabled.e2e.ts",
+    "snapshot.e2e.ts",
+  ],
+  "hooks-disabled": ["conformance.e2e.ts", "lifecycle.e2e.ts", "snapshot.e2e.ts"],
 };
 
 // The runtime's executable: Bun is this process; Node is the one the repository's PATH gives, its
