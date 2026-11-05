@@ -98,3 +98,24 @@ describe("the fields the view boots from, as the table of update fields marks th
     expect(parseBootData(JSON.stringify(extra))).toEqual(extra);
   });
 });
+
+describe("a Snapshot's record in the block (snapshot task 8.1)", () => {
+  test("is kept when it names when and by whom", () => {
+    const agent = {
+      ...data,
+      snapshot: { takenAt: "2026-10-31T14:30:00Z", takenBy: "agent" },
+    } as const;
+    expect(parseBootData(JSON.stringify(agent))).toEqual(agent);
+    const user = {
+      ...data,
+      snapshot: { takenAt: "2026-10-31T14:30:00Z", takenBy: "user", who: "Sara Conti" },
+    } as const;
+    expect(parseBootData(JSON.stringify(user))).toEqual(user);
+  });
+
+  test("a malformed record fails the boot", () => {
+    for (const snapshot of [{ takenBy: "agent" }, { takenAt: "x", takenBy: "user" }, "now"]) {
+      expect(() => parseBootData(JSON.stringify({ ...data, snapshot }))).toThrow(/snapshot record/);
+    }
+  });
+});

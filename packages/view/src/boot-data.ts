@@ -5,7 +5,11 @@
 // where and the agent status (push delivery, design decision 12). A later field joins them with
 // its entry in that table alone (review M4).
 
-import { type LifecycleBoardState, SNAPSHOT_DATA_ELEMENT } from "@askboard/contract";
+import {
+  type LifecycleBoardState,
+  SNAPSHOT_DATA_ELEMENT,
+  type SnapshotRecord,
+} from "@askboard/contract";
 import type { ViewDocument } from "./view-document.ts";
 import { UPDATE_FIELDS, type UpdateField, type ViewUpdate } from "./view-protocol.ts";
 
@@ -25,6 +29,8 @@ export type BootData = {
   /** The board document, whose question may hold widget items as the view document allows. */
   readonly document: ViewDocument;
   readonly state: LifecycleBoardState;
+  /** Present when the page is a Snapshot: when it was taken and by whom (snapshot design 9). */
+  readonly snapshot?: SnapshotRecord;
 } & Pick<ViewUpdate, BootField>;
 
 /** The fields the view boots from that a record holds, and none of its others. */
@@ -36,6 +42,11 @@ export const bootFieldsOf = (fields: Pick<ViewUpdate, BootField>): Pick<ViewUpda
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const isSnapshotRecord = (value: unknown): value is SnapshotRecord =>
+  isRecord(value) &&
+  typeof value.takenAt === "string" &&
+  (value.takenBy === "agent" || (value.takenBy === "user" && typeof value.who === "string"));
+
 /** The block's data, from the element's text; throws when the block is missing or malformed. */
 export const parseBootData = (text: string | null | undefined): BootData => {
   if (text === null || text === undefined || text === "") {
@@ -46,6 +57,9 @@ export const parseBootData = (text: string | null | undefined): BootData => {
     throw new Error(`the ${BOOT_DATA_ID} block holds no board document`);
   }
   if (!isRecord(data.state)) throw new Error(`the ${BOOT_DATA_ID} block holds no state`);
+  if (data.snapshot !== undefined && !isSnapshotRecord(data.snapshot)) {
+    throw new Error(`the ${BOOT_DATA_ID} block holds a malformed snapshot record`);
+  }
   // The fields the view boots from, each only in a shape it can show; the others pass through.
   const unshowable = new Set<string>(
     BOOT_FIELDS.filter((field) => !UPDATE_FIELDS[field].check(data[field])),

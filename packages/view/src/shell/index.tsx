@@ -52,11 +52,13 @@ import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
+import { snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
+import type { ThemeChoice } from "./theme-control.tsx";
 import type { ThreadRequest } from "./thread.tsx";
 
 /** The name component chunks import the port by; the view build maps it to this chunk's copy. */
@@ -156,10 +158,19 @@ const boot = (): void => {
   const root = document.getElementById("root");
   if (root === null) throw new Error("the view has no #root element");
   const hosted = window.parent !== window;
+  // A Snapshot has no parent and its data holds its record: it opens read-only (design decision 9).
+  const opened = hosted ? undefined : data.snapshot;
+  // The ask's title is agent text: it goes into the tab through the DOM, never through markup.
+  if (opened !== undefined) document.title = snapshotTitleOf(data.document.title);
   const setTheme = (theme: Theme) => applyTheme(document.documentElement, theme);
   const scheme = window.matchMedia(DARK_QUERY);
+  // An opened Snapshot's Theme control picks the system's theme or one fixed, and saves nothing.
+  const choice = createStore<ThemeChoice>("system");
+  const themeOf = (system: Theme): Theme =>
+    choice.get() === "system" ? system : (choice.get() as Theme);
   if (hosted) setTheme(systemTheme(scheme));
-  else followSystemTheme(scheme, setTheme);
+  else followSystemTheme(scheme, (system) => setTheme(themeOf(system)));
+  choice.subscribe(() => setTheme(themeOf(systemTheme(scheme))));
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
   const view = createStore<BoardView>({ document: data.document, state: data.state });
@@ -240,6 +251,7 @@ const boot = (): void => {
     // the answers of the latest board state (molecules, design decision 11).
     boardContent: createBoardContent(() => view.get()),
     derived: createDerivedStore(),
+    opened,
   };
   // What a component asks of the board page: a reference opened by its item, never by its target.
   const host: port.ViewHost = {
@@ -249,6 +261,7 @@ const boot = (): void => {
   const extras: BoardExtras = {
     header: startPushExtras(data, channel, hosted, report),
     snapshot: createSnapshotControl(channel),
+    ...(opened === undefined ? {} : { theme: choice }),
   };
   createRoot(root).render(
     <port.HostContext.Provider value={host}>
