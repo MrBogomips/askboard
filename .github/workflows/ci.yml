@@ -1,9 +1,16 @@
 name: CI
 
+# openspec and check run on every pull request and push to main. The browser and conformance suites
+# cost more macOS minutes (10x Linux): they run on demand, weekly, and on a pull request labelled
+# `full-ci`. To add Linux, pass `runs-on: ubuntu-24.04` to the calls below (one line each).
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, reopened, synchronize, labeled]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -14,133 +21,30 @@ concurrency:
 
 jobs:
   openspec:
-    name: OpenSpec validate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    env:
-      OPENSPEC_TELEMETRY: "0"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-      - run: npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    uses: ./.github/workflows/openspec.yml
+    with:
+      runs-on: macos-latest
 
   check:
-    name: Type check, lint, tests, import and licence checks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: package.json
-      # Bun from npm at the packageManager version: oven-sh/setup-bun fails the adoption rule.
-      # Its postinstall links the binary, so that one script is allowed, and no other.
-      - name: Install Bun
-        run: |
-          version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
-          npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
-          bun --version
-      - run: bun install --frozen-lockfile
-      - run: bun run check
-        env:
-          # The licence check asks the GitHub API whether direct dependencies are archived.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    uses: ./.github/workflows/check.yml
+    with:
+      runs-on: macos-latest
+    secrets: inherit
 
-  # Whether the change reaches anything the e2e job builds or runs. Documents, OpenSpec artifacts,
-  # drafts, the agent tooling under .claude/ and the root Markdown files do not: a change made only
-  # of those skips the e2e job (the check job still runs, since its tests read OpenSpec examples).
-  # Anything else, or a diff that cannot be computed, runs it.
-  scope:
-    name: Change scope
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      code: ${{ steps.diff.outputs.code }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - id: diff
-        name: List the changed files
-        env:
-          EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PUSH_AFTER: ${{ github.sha }}
-        run: |
-          if [ "$EVENT" = pull_request ]; then
-            range="$PR_BASE...$PR_HEAD"
-          else
-            range="$PUSH_BEFORE..$PUSH_AFTER"
-          fi
-          if ! files=$(git diff --name-only "$range" 2>/dev/null); then
-            echo "No diff for $range: the e2e job runs."
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          printf '%s\n' "$files"
-          code=$(printf '%s\n' "$files" | grep -Ev '^(docs/|openspec/|drafts/|\.claude/|[^/]+\.md$)' | grep -c . || true)
-          if [ "$code" -gt 0 ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Only documents changed: the e2e job is skipped."
-            echo "code=false" >> "$GITHUB_OUTPUT"
-          fi
+  browser:
+    if: >-
+      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+    uses: ./.github/workflows/browser.yml
+    with:
+      runs-on: macos-latest
 
-  e2e:
-    name: Browser tests and conformance suite
-    needs: scope
-    if: needs.scope.outputs.code == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    permissions:
-      contents: read
-    env:
-      # With CI set and no BROWSER, no board can be shown (AD-18). The browser tests and the
-      # conformance suite name their own recorder; job-wide, the recorder opens nothing.
-      BROWSER: ${{ github.workspace }}/packages/view/test/browser/fixtures/record-link.sh
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: package.json
-      # Bun from npm at the packageManager version, as in the check job.
-      - name: Install Bun
-        run: |
-          version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
-          npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
-          bun --version
-      - run: bun install --frozen-lockfile
-      # Before the engines' download, so that a missing piece fails the job first.
-      - run: bun run build
-      # The pinned playwright's own binary, so the engines match its version.
-      - name: Install Chromium, Firefox and WebKit with their system dependencies
-        run: node_modules/.bin/playwright install --with-deps chromium firefox webkit
-      # The browser tests against the built session process, then the conformance suite in AD-1's
-      # three configurations, which its runner runs in turn: mod and hooks (the built mod in the
-      # stand-in mod host, the hooks as processes of the bundle), mod disabled, hooks disabled.
-      - name: Browser tests, and the conformance suite in its three configurations, on Bun
-        run: bun run test:e2e
-      # The same bundle on Node 24, the runtime AskBoard ships on until AXFX NFR-1 admits the
-      # executable (AD-19): the session process and the hooks run on it.
-      - name: Conformance suite in its three configurations on Node 24
-        run: bun packages/server/test/conformance/run.ts --runtime node
-      # On push to main only, since pull requests already run the browser tests on Bun and the
-      # conformance suite on both runtimes. In Chromium only: the runtime changes the session
-      # process, not the browser side, which the run on Bun covers in all three engines; the three
-      # took about 12 minutes here.
-      - name: Browser tests on Node 24, in Chromium
-        if: github.event_name == 'push'
-        run: bun packages/view/test/browser/run.ts --no-build --target session-process --runtime node --engines chromium
+  conformance:
+    if: >-
+      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+    uses: ./.github/workflows/conformance.yml
+    with:
+      runs-on: macos-latest

@@ -1,0 +1,24 @@
+name: OpenSpec
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        type: string
+        default: macos-latest
+permissions:
+  contents: read
+jobs:
+  openspec:
+    name: OpenSpec validate
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 5
+    env:
+      OPENSPEC_TELEMETRY: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive

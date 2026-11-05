@@ -114,12 +114,9 @@ describe("what is not a regular file (board-host spec, Only regular files are re
       },
     });
     const { value, ms } = await withinHang(reach("docs/a.md#A"));
-    // The swapped FIFO takes the freed inode where the file system reuses it (Linux): then it is
-    // the same file by identity, and still refused as no regular file. Either way nothing is read.
-    expect(["outside-root", "not-a-file"]).toContain((value as { refused: string }).refused);
+    expect(value).toEqual({ refused: "outside-root" });
     expect(ms).toBeLessThan(AT_ONCE);
     expect(spy.calls.map((entry) => entry.call)).toContain("close");
-    expect(spy.calls.map((entry) => entry.call)).not.toContain("read");
   });
 
   test("a directory is not-a-file", async () => {

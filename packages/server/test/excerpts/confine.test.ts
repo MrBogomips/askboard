@@ -312,16 +312,9 @@ describe("never telling whether a file outside the root exists (design decision 
       const { fs, calls } = spyFs();
       await locate(fs, box.root, pointer);
       const walked = calls.filter((entry) => entry.call !== "realpath").map((entry) => entry.path);
-      // A link out by a path that is already real (Linux's /tmp) is followed through the root's own
-      // ancestors, which exist since the root does; a path through a link (macOS's /var) stops short.
-      const ofRoot = (path: string | undefined): boolean =>
-        path !== undefined && box.realRoot.startsWith(`${path}/`);
-      const last = walked.at(-1);
-      expect(last === deepest || (pointer === "docs/gone.md#A" && ofRoot(last))).toBe(true);
+      expect(walked.at(-1)).toBe(deepest);
       for (const path of walked) {
-        expect(path === box.realRoot || path?.startsWith(`${box.realRoot}/`) || ofRoot(path)).toBe(
-          true,
-        );
+        expect(path === box.realRoot || path?.startsWith(`${box.realRoot}/`)).toBe(true);
         expect(path?.startsWith(realOutside)).toBe(false);
       }
       expect(walked.some((path) => path?.startsWith(`${deepest}/`))).toBe(false);

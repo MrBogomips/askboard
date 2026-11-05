@@ -1,0 +1,23 @@
+name: Check
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        type: string
+        default: macos-latest
+permissions:
+  contents: read
+jobs:
+  check:
+    name: Type check, lint, tests, import and licence checks
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+      - run: bun run check
+        env:
+          # The licence check asks the GitHub API whether direct dependencies are archived.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
