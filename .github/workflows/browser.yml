@@ -1,0 +1,33 @@
+name: Browser
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        type: string
+        default: macos-latest
+permissions:
+  contents: read
+jobs:
+  browser:
+    name: Browser tests, ${{ matrix.engine }}
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
+    env:
+      # With CI set and no BROWSER, no board can be shown (AD-18): the recorder opens nothing.
+      BROWSER: ${{ github.workspace }}/packages/view/test/browser/fixtures/record-link.sh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+      # Before the engine's download, so that a missing piece fails the job first.
+      - run: bun run build
+      # The pinned playwright's own binary, so the engine matches its version.
+      - name: Install ${{ matrix.engine }} with its system dependencies
+        run: node_modules/.bin/playwright install --with-deps ${{ matrix.engine }}
+      - name: Browser tests against the built session process
+        run: bun packages/view/test/browser/run.ts --no-build --target session-process --engines ${{ matrix.engine }}

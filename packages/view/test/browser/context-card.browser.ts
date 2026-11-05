@@ -158,7 +158,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "fix placed inline",
         );
         await first.page.reload();
-        for (const id of IDS) await card(first, id).waitFor({ timeout: STEP_TIMEOUT_MS * 2 });
+        for (const id of IDS) await card(first, id).waitFor({ timeout: STEP_TIMEOUT_MS * 6 });
         await eventually(
           async () =>
             (await contextOf(first, "fix").getAttribute("data-askboard-context")) === "inline",

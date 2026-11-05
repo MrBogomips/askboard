@@ -17,7 +17,11 @@ export type StandaloneView = {
 
 /** Serves the view for a board document at `/`; everything else answers 404. */
 export const startStandaloneView = (build: ViewBuild, document: ViewDocument): StandaloneView => {
-  const html = assembledSrcdoc(build, document);
+  // Keeps Firefox from requesting /favicon.ico, which the view's `img-src` refuses.
+  const html = assembledSrcdoc(build, document).replace(
+    "<head>",
+    '<head><link rel="icon" href="data:,">',
+  );
   const requests: string[] = [];
   const server = Bun.serve({
     hostname: BOARD_HOST,
