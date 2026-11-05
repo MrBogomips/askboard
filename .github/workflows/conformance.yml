@@ -23,6 +23,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun
+      - run: bun run build
       # The suite's three configurations (mod and hooks, mod disabled, hooks disabled) run in turn;
       # on Node 24 it is the runtime AskBoard ships on until AXFX NFR-1 admits the executable (AD-19).
       - run: bun packages/server/test/conformance/run.ts --runtime ${{ matrix.runtime }}

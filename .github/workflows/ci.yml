@@ -1,16 +1,13 @@
 name: CI
 
 # openspec and check run on every pull request and push to main. The browser and conformance suites
-# cost more macOS minutes (10x Linux): they run on demand, weekly, and on a pull request labelled
-# `full-ci`. To add Linux, pass `runs-on: ubuntu-24.04` to the calls below (one line each).
+# cost more macOS minutes (10x Linux) and run locally before a merge: here they run only on demand
+# (workflow_dispatch). To add Linux, pass `runs-on: ubuntu-24.04` to the calls below (one line each).
 on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, reopened, synchronize, labeled]
   workflow_dispatch:
-  schedule:
-    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -21,30 +18,26 @@ concurrency:
 
 jobs:
   openspec:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name != 'workflow_dispatch'
     uses: ./.github/workflows/openspec.yml
     with:
       runs-on: macos-latest
 
   check:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name != 'workflow_dispatch'
     uses: ./.github/workflows/check.yml
     with:
       runs-on: macos-latest
     secrets: inherit
 
   browser:
-    if: >-
-      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/browser.yml
     with:
       runs-on: macos-latest
 
   conformance:
-    if: >-
-      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/conformance.yml
     with:
       runs-on: macos-latest
