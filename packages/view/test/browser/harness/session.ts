@@ -60,6 +60,13 @@ export type ProjectFile = string | Uint8Array | { readonly link: string };
 export type BoardSession = {
   /** The board link, as the `ask` result gives it: `http://127.0.0.1:<port>/b/<askId>?t=<token>`. */
   readonly link: string;
+  /**
+   * The user configuration file the session process reads, in its own folder (settings-languages,
+   * design decision 14): only the session process has one.
+   */
+  readonly userConfigPath?: string;
+  /** The link of the board the latest session process serves: the later ask after `restart`. */
+  latestLink?(): string;
   /** The agent's `collect` returns the answer, so the board is told it was delivered. */
   collected(): Promise<void>;
   /** The agent's `collect` after the last cursor: every new event, with the ask's state. */

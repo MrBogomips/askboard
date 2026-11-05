@@ -174,7 +174,7 @@ describe("startSessionProcess", () => {
     const fake = fakeProcess();
     const user = { version: "1.0", theme: "dark" };
     const project = { version: "1.0", askingRule: "always" };
-    await start(fake, { userConfig: user, projectConfig: project });
+    const session = await start(fake, { userConfig: user, projectConfig: project });
     const env = fake.spawned[0]?.options.env ?? {};
     const folders = [env.HOME, env.XDG_CONFIG_HOME, env.CLAUDE_PROJECT_DIR].map(String);
     for (const folder of folders) expect(folder).toStartWith(tmpdir());
@@ -183,6 +183,8 @@ describe("startSessionProcess", () => {
     const read = (file: string) => Bun.file(file).json();
     expect(await read(join(configHome, "askboard", "config.json"))).toEqual(user);
     expect(await read(join(projectDir, ".askboard", "config.json"))).toEqual(project);
+    // The scenarios reach the user file through the session, to read what a board wrote.
+    expect(session.userConfigPath).toBe(join(configHome, "askboard", "config.json"));
   });
 
   test("starts the bundle on Node when asked to", async () => {

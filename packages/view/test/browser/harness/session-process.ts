@@ -127,6 +127,7 @@ const killLife = async (life: Pick<Life, "child" | "state"> & { agent?: Agent })
 
 class ProcessSession implements BoardSession {
   readonly link: string;
+  readonly userConfigPath: string;
   readonly #lives: Life[];
   readonly #proxy: BoardProxy;
   readonly #launch: (n: number) => Promise<Life>;
@@ -149,6 +150,7 @@ class ProcessSession implements BoardSession {
     cleanup: () => Promise<void>;
     exitTimeoutMs: number;
     asker?: { readonly asker: Asker; readonly place: AskerPlace };
+    userConfigPath: string;
   }) {
     this.#lives = [parts.first];
     this.#proxy = parts.proxy;
@@ -160,6 +162,11 @@ class ProcessSession implements BoardSession {
     this.#input = parts.input;
     this.#asker = parts.asker;
     this.link = linkThrough(parts.first.link, parts.proxy.port);
+    this.userConfigPath = parts.userConfigPath;
+  }
+
+  latestLink(): string {
+    return linkThrough(this.#current.link, this.#proxy.port);
   }
 
   get #current(): Life {
@@ -515,6 +522,7 @@ export const startSessionProcess = async (
     problems,
     cleanup,
     exitTimeoutMs: options.exitTimeoutMs ?? EXIT_TIMEOUT_MS,
+    userConfigPath: join(folders.XDG_CONFIG_HOME, "askboard", "config.json"),
     ...(context.asker === undefined ? {} : { asker: context.asker }),
   });
 };
