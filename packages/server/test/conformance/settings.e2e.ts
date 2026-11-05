@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BOARD_PROTOCOL_VERSION } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { linkParts, openBoardSocket } from "./board-page.ts";
+import { linkParts, openBoardSocket, until } from "./board-page.ts";
 import { getOverSocket, removeShortFolders, runMode, sessionFileIn, shortFolder } from "./modes.ts";
 import {
   CONFIGURATION,
@@ -206,3 +206,69 @@ describe.skipIf(CONFIGURATION === "hooks-disabled")(
     });
   },
 );
+
+// Settings and languages end to end (settings-languages, task 10.1, design decision 14): the project
+// file sets the language and an editor, the user file the theme and another editor, on the real
+// session process. The number step (the Tree's `1.234,5` echoing `= 1234,5`) is a browser one and
+// needs a number field on a real board: the board refuses a Tree for now, so it is open until the
+// Tree is accepted (see the change's note).
+describe("a project and a user file together", () => {
+  const PROJECT = {
+    version: "1.0",
+    defaultLanguage: "it-IT",
+    editor: ["evil", "{file}"],
+  };
+  const USER = { version: "1.0", theme: "light", editor: ["true", "{file}"] };
+
+  type Message = Readonly<Record<string, unknown>>;
+  type Row = { value?: unknown; from?: string; warnings?: { code: string }[] };
+
+  test("an ask with no language opens in Italian, the project's editor is ignored and a pick of Dark is written to the user file alone", async () => {
+    const session = await startSession({ projectConfig: PROJECT, userConfig: USER });
+    const asked = await session.call("ask", ASK);
+    const link = linkParts((asked.json as { board: string }).board);
+    const board = await openBoardSocket(link.port, ASK_ID);
+    try {
+      board.send({ version, type: "connect", token: link.token });
+      const opened = (await until(board, "the board", (m) => m.type === "board")) as Message;
+      expect((opened.document as { language: string }).language).toBe("it-IT");
+      expect(board.settings).toHaveLength(1);
+      const keys = (board.settings[0] as { keys: Record<string, Row> }).keys;
+      expect(keys.editor?.value).toEqual(["true", "{file}"]);
+      expect(keys.editor?.from).toBe("user");
+      expect(keys.editor?.warnings?.map((warning) => warning.code)).toEqual([
+        "project-editor-ignored",
+      ]);
+      expect(keys.defaultLanguage).toMatchObject({ value: "it-IT", from: "project" });
+      expect(keys.theme).toMatchObject({ value: "light", from: "user" });
+      board.send({ version, type: "setting", key: "theme", value: "dark" });
+      await until(
+        board,
+        "the saved setting",
+        (m) => m.type === "settings" && m.write !== undefined,
+      );
+      expect(board.problems).toEqual([]);
+      const written = JSON.parse(
+        readFileSync(join(session.configHome, "askboard", "config.json"), "utf8"),
+      );
+      expect(written).toEqual({ ...USER, theme: "dark" });
+    } finally {
+      board.socket.terminate();
+    }
+    expect(await session.end()).toBe(0);
+    const stderr = await session.stderr();
+    expect(stderr).toContain(".askboard/config.json");
+    expect(stderr).toContain("sets editor, which AskBoard reads from the user file only");
+    expect(stderr).not.toContain("evil");
+    // A session of a later ask reads the user file as the board wrote it: it opens dark.
+    const later = await startSession({
+      projectConfig: PROJECT,
+      userConfig: JSON.parse(
+        readFileSync(join(session.configHome, "askboard", "config.json"), "utf8"),
+      ),
+    });
+    const second = await openedSettings(later);
+    expect(second.keys.theme).toEqual({ value: "dark", from: "user", writable: true });
+    expect(await later.end()).toBe(0);
+  });
+});
