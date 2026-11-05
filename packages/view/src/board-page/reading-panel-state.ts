@@ -26,7 +26,7 @@ export type PanelView = {
   readonly editorNote?: string;
 };
 
-export const NO_EDITOR_NOTE = "No editor set. Set `editor` in the AskBoard configuration.";
+export const NO_EDITOR_NOTE = "No editor set: `editor` in ~/.config/askboard/config.json";
 
 /** The panel as it opens, before `board-host` has answered. */
 export const LOADING: PanelView = {
@@ -36,10 +36,10 @@ export const LOADING: PanelView = {
 };
 
 const UNAVAILABLE: Readonly<Record<Exclude<SourceStateMessage["status"], "available">, string>> = {
-  missing: "The file is not available.",
-  "outside-root": "The path is outside the project, so it is not shown.",
-  "not-text": "The file is not text, so it is not shown.",
-  "too-large": "The file is too large to show.",
+  missing: "This file is not available",
+  "outside-root": "This file is not available",
+  "not-text": "This file cannot be shown as text",
+  "too-large": "This file is too large to show here",
 };
 
 /** The panel for a source state. */
@@ -48,7 +48,9 @@ export const panelViewOf = (state: SourceStateMessage): PanelView => {
     return {
       body: { kind: "message", text: UNAVAILABLE[state.status] },
       changed: false,
-      editorEnabled: false,
+      // Board-host says whether an editor is set and can open the file: a file too large to show
+      // can still be opened in one.
+      editorEnabled: state.editor,
     };
   }
   return {
@@ -61,8 +63,8 @@ export const panelViewOf = (state: SourceStateMessage): PanelView => {
 
 const OUTCOMES: Readonly<Record<Exclude<EditorOutcomeMessage["outcome"], "opened">, string>> = {
   "no-editor": NO_EDITOR_NOTE,
-  unavailable: "The file is no longer available, so it was not opened.",
-  failed: "The editor did not start.",
+  unavailable: "This file is not available",
+  failed: "Could not start the editor",
   busy: "The editor was opened a moment ago. Try again shortly.",
 };
 

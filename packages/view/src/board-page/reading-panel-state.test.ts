@@ -44,15 +44,15 @@ describe("the reading panel's content (excerpts, task 6.6; DESIGN, Reading panel
       editorNote: NO_EDITOR_NOTE,
     });
     expect(NO_EDITOR_NOTE).toContain("No editor set");
-    expect(NO_EDITOR_NOTE).toContain("editor");
+    expect(NO_EDITOR_NOTE).toContain("`editor`");
   });
 
-  test("a missing, outside, binary and too large source each show one line, and Open in editor stays disabled", () => {
+  test("a missing, outside, binary and too large source each show one line, and Open in editor follows the host", () => {
     const lines = {
-      missing: "The file is not available.",
-      "outside-root": "The path is outside the project, so it is not shown.",
-      "not-text": "The file is not text, so it is not shown.",
-      "too-large": "The file is too large to show.",
+      missing: "This file is not available",
+      "outside-root": "This file is not available",
+      "not-text": "This file cannot be shown as text",
+      "too-large": "This file is too large to show here",
     } as const;
     for (const [status, text] of Object.entries(lines)) {
       const view = panelViewOf(
@@ -64,6 +64,12 @@ describe("the reading panel's content (excerpts, task 6.6; DESIGN, Reading panel
         editorEnabled: false,
       });
     }
+  });
+
+  test("a source too large to show can still go to an editor the host says is set", () => {
+    const view = panelViewOf(stateOf({ status: "too-large", editor: true }));
+    expect(view.editorEnabled).toBe(true);
+    expect(view.body).toEqual({ kind: "message", text: "This file is too large to show here" });
   });
 
   test("an editor's outcome other than opened is a note; opened is none", () => {

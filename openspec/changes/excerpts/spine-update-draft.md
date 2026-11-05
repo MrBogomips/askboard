@@ -2,7 +2,7 @@
 
 Six blocks, each for one of the proposal's open questions. A block applies only if the PO accepts the choice made there; a question the PO reverses leaves its block unapplied, and the change is revised with `/opsx:update`. Each block quotes the current text exactly, then gives the replacement. ADs are amended in place; none is added or renumbered.
 
-**Not applied yet.** The PO accepted every open question these blocks serve on 2026-11-01 (decisions-5), so all six apply; task 9.1 applies them, after E3 and E4 merge and this branch rebases.
+**Applied 2026-11-05** (task 9.1; the PO accepted every question these blocks serve on 2026-11-01, decisions-5). Blocks 1, 2, 3.1, 4, 5, 6.1 and 6.2 were applied word for word. Blocks 3.2 and 6.3 quote rows that E3 and E4 had since changed (the grace period, the record timeout), so their intent was applied to the rows as they stand: only the phrase "where the file path and line sit in the user's `editor` command" was removed from the Deferred row of the spine and from the Implementation row of SOLUTION-DESIGN §12. The spine's `updated:` is 2026-11-05.
 
 Files: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md` (blocks 1 to 5 and 6.1) and `docs/architecture-askboard-2026-10-27/SOLUTION-DESIGN.md` (block 6.2 and 6.3), which the spine wins over and which must not contradict it.
 

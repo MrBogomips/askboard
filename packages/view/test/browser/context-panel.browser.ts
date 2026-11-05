@@ -163,10 +163,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     for (const [id, path, line] of [
-      ["ref-missing", "docs/missing.md", "The file is not available."],
-      ["ref-outside", "escape.md", "The path is outside the project, so it is not shown."],
-      ["ref-binary", "bin/data.bin", "The file is not text, so it is not shown."],
-      ["ref-large", "big/large.txt", "The file is too large to show."],
+      ["ref-missing", "docs/missing.md", "This file is not available"],
+      ["ref-outside", "escape.md", "This file is not available"],
+      ["ref-binary", "bin/data.bin", "This file cannot be shown as text"],
+      ["ref-large", "big/large.txt", "This file is too large to show here"],
     ] as const) {
       test(
         `${id}: the panel shows one line and the path, and Open in editor is disabled`,

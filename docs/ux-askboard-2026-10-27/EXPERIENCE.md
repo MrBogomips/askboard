@@ -118,8 +118,8 @@ The brand voice lives in DESIGN.md, Brand & Style. For the things the user acts 
 | Delivery receipt | "not sent yet", "sent", "delivered to the agent" | "consegnata all'agente" (for "delivered to the agent"); the others — | F-56, L159, F-48 |
 | Reopened question | "Reopened by the agent", "Start from my previous answer" | — | F-18 |
 | Follow-up | "Follow-up", "2 messages", "no messages yet", "Ask a follow-up", "Collapse", composer "Ask the agent a follow-up…", "Send"; message time "5:42 PM" in en-US (to review) | — | Structural mock, golden-1-base, L200 (T-9) |
-| Context column | "Excerpt and references", "Beside \| Inline", "opens in a reading panel", "opens in browser ↗", "Open in reading panel", type labels "FILE", "GITHUB" | — | Structural mock, L160, F-60 |
-| Reading panel | "Open in editor", "Changed since the agent asked" | — | L79, F-40 |
+| Context column | "Excerpt and references", "Beside \| Inline", "opens in a reading panel", "opens in browser ↗", "Open in reading panel", type labels "FILE", "GITHUB", "WEB" (every other web address, Atlassian's included); for an unresolved excerpt or image, "Unresolved" with its pointer (to review) | — | Structural mock, L160, F-60 |
+| Reading panel | "Open in editor", "Changed since the agent asked"; "This file is not available", "This file cannot be shown as text", "This file is too large to show here", each with the path; "No editor set: `editor` in ~/.config/askboard/config.json", "Could not start the editor" (to review) | — | L79, F-40 |
 | Settings panel | "Theme", "Density", "Context placement", "Language", "Default language", "Asking rules", "Snapshot folder", "Editor"; the note "Applies from the next session" over the behavioural settings (to review) | — | L209 |
 | Diff review | "Fix A \| Fix B \| A vs B", "Split \| Unified", "Accept file", "Reject file", "Accepted", "Rejected", "Edit" (on a line comment); a collapsed run of unchanged lines labelled by its hunk header as the diff gives it ("@@ -41,8 +41,10 @@ …") (to review) | — | Structural mock, L200 (T-7) |
 | Graph | "Add state", "Add transition", "Delete", "Comment", "Auto-layout", "Checks", "Changes vs agent's original", "none yet" | — | Structural mock |
@@ -202,7 +202,7 @@ These are behavioural rules; the visual specs live in DESIGN.md, Components, und
 
 | Component | Behavioural rules | Source |
 |---|---|---|
-| **Context column** | Holds the question's excerpts and references. It sits beside the question (the default) or inline under the question text. The "Beside \| Inline" control sits in the context column's title row ("Excerpt and references") and stays there in both positions, so it never jumps. The board-wide placement is set in the settings panel (Preferences and Settings), and the control on a question overrides it on that question only; the override stays with the ask (What a reload keeps). Where the references go for a question without excerpts is not recorded. | L108, L111, L112, L160, F-33 |
+| **Context column** | Holds the question's excerpts, then its references. It sits beside the question (the default) or inline under the question text. The "Beside \| Inline" control sits in the context column's title row ("Excerpt and references") and stays there in both positions, so it never jumps. The board-wide placement is set in the settings panel (Preferences and Settings), and the control on a question overrides it on that question only; the override stays with the ask (What a reload keeps). A question with no resolved or agent-written excerpt does not split: its references and unresolved pointers show inline under the question text, under the same title, with no "Beside \| Inline" control. | L108, L111, L112, L160, F-33 |
 | **Excerpt** | Shown beside its question. A resolved pointer shows the content at its location, and an agent-written excerpt shows as written. An unresolved pointer shows as unresolved, with the pointer, and does not block the board; when none of a question's excerpts resolved, the question does not split and the pointer shows inline. A path outside the ask's root resolves as unresolved. A long excerpt is capped in height (DESIGN.md, Components, Excerpt) and scrolls inside, and an excerpt from a project file adds "Open in reading panel". An excerpt always shows as source text with its line numbers, so its line range stays meaningful: code does not wrap and scrolls sideways, and Markdown soft-wraps (its look: DESIGN.md, Components, Excerpt). | FR-8, AD-12, F-60, F-104, L199 |
 | **Reference** | Opens in one click, and only on an explicit user click. A project-file reference opens the reading panel at the referenced location; in the context column it shows its type and path, then the hint "opens in a reading panel" (DESIGN.md, Components, Reference). A web, GitHub or Atlassian reference opens in the user's browser, in a new tab, and only `http:` and `https:` URLs open. For references in a Snapshot, see Snapshots, Snapshot view. | FR-9, L79, L80, AD-8, F-69, L199 |
 | **Reading panel** | Shows the referenced project file at its location, inside the board. It renders on the board page, since the view cannot frame AskBoard's source view, as a non-modal side sheet over the context column and part of the question (its width: DESIGN.md, Components, Reading panel), and it frames that token-gated source view, which renders the file as text only (pending ACR-03). Esc or its close control dismisses it, and focus returns to the reference. It reads the file when it opens, so it shows the current file, with "Changed since the agent asked" when the excerpted range differs from the excerpt. "Open in editor" opens the file at that line with the editor command set in the configuration, under these rules: only on an explicit user click, never on agent content; the command comes from the user's settings; it starts with an argument vector, never through a shell; and the path is confined to the ask's root (AD-12, pending ACR-04). "Open in editor" is disabled for a missing file. The panel's states are in State Patterns. The [UJ-1 mock](mockups/key-uj1-diff-review.html), section 2, shows it open. | L79, L80, L139, L140, AD-8, pending PCR-14, F-03, F-40, L199 |
@@ -227,7 +227,7 @@ The FR-13 atoms and layouts the agent composes when no widget fits. A question b
 
 | Component | Behavioural rules | Source |
 |---|---|---|
-| **Display atoms** | Text, Image and Value show content and return no answer. Markdown in a Text goes through the view's sanitizer, the same path option previews and agent-written excerpts take. An image pointer that does not resolve shows as unresolved, like an excerpt, keeps the rest of the board working and sends the agent a typed warning (AD-6). Value shows a given or derived value in the ask's locale, or its formula error. | FR-13, L160, TC §1.2, F-41 |
+| **Display atoms** | Text, Image and Value show content and return no answer. Markdown in a Text goes through the view's sanitizer, the same path option previews take; an excerpt, the agent's included, always shows as source text (Excerpt). An image pointer that does not resolve shows as unresolved, like an excerpt, keeps the rest of the board working and sends the agent a typed warning (AD-6). Value shows a given or derived value in the ask's locale, or its formula error. | FR-13, L160, TC §1.2, F-41 |
 | **Input atoms** | TextField, NumberField, MoneyField, DateField, Choice, Toggle and Slider return the typed answers below. Each starts empty or unset; in a widget that reviews agent content (Table, Tree, a Form over agent values), it starts from the agent's value, and an untouched value is reported unchanged. Typing never answers: a value becomes an answer only through the question's "Answer" and the delivery mode. Atoms show and accept input in the ask's locale, en-US or it-IT, and return the contract's formats (AD-7). NumberField and MoneyField are text inputs with AskBoard's own parser for the ask's locale, never the browser's number input: input that is ambiguous in that locale is refused with a message, and the parsed value is echoed beside the field ("= 12.5"). | FR-13, AD-10, AD-20, L160, L168, L169, F-26 |
 | **Layouts** | Stack, Row and Group compose items, and Tabs inside a question is optional (Composition and Components, Layouts). Layouts return no answer. The board-level layouts follow Board anatomy and Presentations. | FR-13, L160, TC §1.5 |
 
@@ -370,6 +370,7 @@ Every counter on the board and in the notices follows this table (F-08). On the 
 | Context | Unresolved excerpt | Excerpt. | FR-8, AD-12, F-104 |
 | Context | No excerpts | Board anatomy, Question card. | L106 |
 | Context | Long excerpt | Excerpt. | F-60 |
+| Context | Excerpt over its limit | Unresolved, like a missing pointer: more than 1,000 lines or 64 KiB is not read, and the agent's warning says to narrow the pointer. | FR-8, AD-12 |
 | Widget | No user changes | "Changes vs agent's original · none yet"; "Your changes: N" counts them as they come. | Structural mock, golden-1-base |
 | Widget | Ranking untouched | Ranking: no answer until a move or "Keep this order". | L160, AD-10 |
 | Widget | Field check fails (Form) | Field error, blocking the question's "Answer". | L160, AD-13, TC §3.1, F-39 |
@@ -383,7 +384,7 @@ Every counter on the board and in the notices follows this table (F-08). On the 
 | Reading panel | Loading | A loading state while the file is read. Its look is not recorded. | F-40 |
 | Reading panel | File missing, or outside the ask's root | The panel says the file is not available and shows its path (paths resolve only inside the root). "Open in editor" is disabled for a missing file. | AD-8, AD-12, F-40 |
 | Reading panel | Binary file | The panel says the file cannot be shown as text. | AD-8, F-40 |
-| Reading panel | Very large file | Not recorded. | F-40 |
+| Reading panel | Very large file | Over the source view's limit (2 MiB or 20,000 lines), the panel says "This file is too large to show here" with its path and size; "Open in editor" stays enabled. | F-40 |
 | Reading panel | File changed since the ask | The current file, with "Changed since the agent asked" when the excerpted range differs. | F-40 |
 | Settings panel | Preference changed | Preferences and Settings, Persistence. | L43, L138, L171, AD-14 |
 | Settings panel | Preference write fails | An error naming the configuration file's path. | F-80 |
@@ -616,7 +617,7 @@ API --> Web : order confirmed
 | Default language | `en-US` or `it-IT` | Read-only, with its file and key | Next session | L171, L175, pending ACR-02 |
 | Asking rules | `none`, `always`, `with-references` | Read-only, with its file and key | Next session | FR-30, L40, AD-16, L171 |
 | Snapshot folder | `.askboard/snapshots/` by default. A folder outside the project is replaced by the default, with a warning | Read-only, with its file and key | Next session | FR-27, L40, AD-14, L171 |
-| Editor | The command "Open in editor" uses, started with an argument vector, never through a shell | Read-only, with its file and key | Next session | L79, L80, L171, pending ACR-04 |
+| Editor | The command "Open in editor" uses: a list of arguments, the program first, with `{file}` and `{line}` where the file and its line go, started with that argument vector, never through a shell. While none is set, "Open in editor" is disabled and says which key to set | Read-only, with its file and key | Next session | L79, L80, L171, pending ACR-04 |
 
 - **Current language.** It is not a setting: the settings panel shows it read-only (Localization).
 - **Scopes.** User and project (L40). The project-level asking rule wins (FR-30), and project keys win over user keys (AD-14). The board writes only theme, density and the context-placement default, to the user scope. Every other setting, and every project-scope value, is read-only on the board, with the file and key to edit, so the board never writes a command to run (L171, pending ACR-02).
@@ -876,7 +877,7 @@ Not blocking. They stay open until the stories close them (L145).
 8. **Long option lists.** The number of options above which the list gains its filter field (F-23).
 9. **Agent-written labels.** The cap lengths, and the length at which the derived title is cut (F-64).
 10. **Splitting a work package.** Whether a split is one action or the Tree's add and move; F-09 records only how added and deleted packages carry into the Gantt.
-11. **References without excerpts.** Where the references go for a question that has no excerpts (L106 ties the split to excerpts).
+11. **References without excerpts.** Decided by the OpenSpec change `excerpts` (open question A9): inline under the question text (Context column).
 12. **Ask title on the board.** Whether the ask's title appears on the board itself, beyond the tab and the notification.
 13. **"For: <name>".** Decided by the OpenSpec change `push-delivery`: row 1, after who asked (Board anatomy).
 14. **Areas in one question per view.** How one question per view shows each question's area (FR-2, AXFX FR-36; reconcile-prd §2).
@@ -896,7 +897,7 @@ Not blocking. They stay open until the stories close them (L145).
 
 **Settings**
 
-20. **Settings panel.** The scope precedence for theme, density and context placement, and what "Open in editor" does while no editor is set. The files shown on the read-only rows in the settings mock are sample values, pending the scope rule.
+20. **Settings panel.** The scope precedence for theme, density and context placement. The files shown on the read-only rows in the settings mock are sample values, pending the scope rule. While no editor is set, "Open in editor" is disabled and names the key (Preferences and Settings, Editor; OpenSpec change `excerpts`, open question A3).
 
 **Keyboard, accessibility and viewport**
 

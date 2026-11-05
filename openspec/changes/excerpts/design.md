@@ -43,7 +43,7 @@ E5 builds on E3's lifecycle model and board protocol and on E4's origin, so its 
 - in `view/src/view-protocol.ts`, one `FIELDS` entry, `open-reference`, whose type joins `ViewMessage`; in `view/src/board-page/controller.ts`, one `#viewHandlers` entry (`open-reference`) and two `#hostHandlers` entries (`source-state` and `editor-outcome`, whose types join `BoardHostMessage` in `board-page/host-messages.ts`);
 - in `server/src/session-process.ts`, the wiring beside E4's `composePush(...)` call (decision 5, Composition).
 
-`reading-panel-closed` (decision 6, Focus) has no table yet: in E4's view protocol the board page tells a booted view everything through `ViewUpdate`, so it becomes either an optional field of `ViewUpdate` with one `UPDATE_FIELDS` entry, without `atBoot`, or a notification of its own beside `ViewUpdate`; task 6.6 chooses and records why. `PageCommand`, `BoardHostMessage`, `ViewMessage` and `HostCore` stay one-line unions that each later change edits on the same line (E4's design, Merge points, L8).
+`reading-panel-closed` (decision 6, Focus) has no table yet: in E4's view protocol the board page tells a booted view everything through `ViewUpdate`, so it became an optional field of `ViewUpdate`, `panelClosed {id, itemId}`, with one `UPDATE_FIELDS` entry, without `atBoot`, made by the controller (a `ControllerField` of `model.ts`) and numbered so that the view acts on each once (decided in task 6.6: one channel of state serves a view that boots after the closing). `PageCommand`, `BoardHostMessage`, `ViewMessage` and `HostCore` stay one-line unions that each later change edits on the same line (E4's design, Merge points, L8).
 
 *Alternative:* start on E1's head with stubs for E3's model. Rejected: resolution is stored per revision, and E1 has no revisions.
 
@@ -133,7 +133,7 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
 
 - **Chunk.** One component chunk, `context`, registers `excerpt`, `reference` and `image` through the `CatalogRenderer` port (proposal, B14). `tools/build/` lists it, `selectChunks` picks it for any board that holds one of the three types, and `chunk-sizes.json` records it.
 - **Question card.** `shell/question-card.tsx` sorts a question's items into context items (excerpts, then references) and the rest. The card splits when at least one excerpt is resolved or written and the question's placement is `beside`: a two-column grid, with the question column and the `{spacing.context-column}` context column separated by a `{colors.border}` rule. The rest of the items, images included, follow below both columns at full width (proposal, B19). Without a split, the context sits inline under the question text, and the "Beside | Inline" control shows only when the card could split (proposal, A9).
-- **Placement.** The placement is read from the draft record's `context`, else `beside` (proposal, A13), and set by the segmented control in the column's title row. The view mirrors it into E3's `BoardDraft` and leaves it out of what counts as unsent work.
+- **Placement.** The placement is read from the draft record's `context`, else `beside` (proposal, A13), and set by the segmented control in the column's title row. The view keeps it in E3's `BoardDraftState.placements`, apart from the work, which is tied to a revision (a placement is no answer work and survives a revision), writes it as the draft record entry's `context` at the question's revision, restores it from there, and leaves it out of what counts as unsent work.
 - **Excerpt.** A bordered card: the caption, then the body as an ordered list of lines whose numbers start at `lines.start`.
   - The caption holds the title, else the anchor's text, else the file name, then the source line, path, anchor and range, in the code type.
   - The body is capped at `{spacing.excerpt-max-height}` with scrolling inside. `text/markdown` soft-wraps with a hanging indent; anything else keeps its lines and scrolls sideways.
@@ -142,8 +142,8 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
   - All text goes in through `textContent`.
 - **Reference.** A two-line chip: the kind label (FILE, GITHUB, WEB), then the path or title, then the hint ("opens in a reading panel" or "opens in browser ↗", the external mark only on the second). A click or Enter sends `askboard.view.open-reference {itemId, inset}` (proposal, B12).
 - **Image.** A `blob:` URL made from the base64 bytes and media type, set on an `<img alt>` and revoked on unmount. `ready` follows `img.decode()`, or comes at once for an unresolved image.
-- **Snapshot look.** Each component reads `hosted` from a shell context that is true only when the view has a parent host (proposal, B15).
-- **Focus.** When the board page reports `reading-panel-closed {itemId}`, a host notification appended to the view protocol (a `ViewUpdate` field or a notification of its own, task 6.6; decision 1, E4's dispatch tables), the view focuses that item's control (EXPERIENCE Accessibility Floor, F-03).
+- **Snapshot look.** Each component reads `hosted` from the shell's `HostContext` (the port's `{hosted, openReference}`, true only when the view has a parent host; proposal, B15). The message a click sends is `open-reference {itemId, inset: {top, bottom}}` and carries no URL: the board page reads the URL or pointer from its own board document, so a URL that changed in a later revision is read as the current one rather than refused.
+- **Focus.** When the board page reports `reading-panel-closed {itemId}`, a `ViewUpdate` field, `panelClosed {id, itemId}` (decision 1, E4's dispatch tables), the view focuses that item's control (EXPERIENCE Accessibility Floor, F-03).
 
 ### 7. Board page: the reading panel and web links
 
@@ -157,6 +157,8 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
 - **Web references.** For an item whose props hold a `url`, the board page checks that the scheme is `http:` or `https:` and that the item is a reference of its current board document. It then calls `window.open(url, "_blank", "noopener,noreferrer")`. It opens nothing for any other message (AD-8).
 - **Policy.** The board page's policy is the contract's ten-directive `boardPagePolicy`. The view's own policy keeps `frame-src 'none'`, since the view frames nothing.
 
+**Reading panel wording and states** (EXPERIENCE Voice and Tone, applied 2026-11-05): "This file is not available" for a missing file and one outside the root, "This file cannot be shown as text", "This file is too large to show here" (without the size: the source state carries none), each with the path; "No editor set: `editor` in ~/.config/askboard/config.json" while none is set, "Could not start the editor" on `failed`. "Open in editor" follows the source state's `editor` for every status.
+
 ### 8. Tests
 
 - **Unit** (`bun test`, 80% per file or more), each written first and seen to fail for the right reason:
@@ -164,6 +166,7 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
   - the adapter on real temporary folders, with every attack of the board-host spec plus `/proc/self/root`, a hard link and a root that is itself a symlink. Case and Unicode cases run on macOS and are skipped, named, on Linux, where a case-sensitive pair of files checks the exact comparison instead;
   - the section finder and decoders as tables;
   - `editorArguments` as a table;
+  - the reading panel's browser scenarios run on the session process against real project files (`Scenario.files` and `projectDir`), not on a test-server fixture source view: the test server has no source route, and the session process shows every state for real;
   - `sourceViewPage` on hostile text;
   - `ask-core`'s resolution, storage, prune, warnings, budget (a fake `Clock` and a port that never settles) and `fetch` omission;
   - `board-host` routes and messages against recorded transcripts and a fake core;
@@ -180,6 +183,7 @@ The budget and the concurrency bound (B4) run in `ask-core` through `Clock`, so 
 
 ## Risks / Trade-offs
 
+- [Bidirectional controls in a pointer or URL show unmarked in the reading panel's header, its "not available" line and frame title, and in the reference chip's tooltip, since the pointer grammar and the URL check refuse only category Cc] → Low, display spoofing only, found by the 8.1 review; left open for the PO. Fix: build those strings from `marks.ts`.
 - [A sandboxed frame's `frame-ancestors 'self'` might be read against its opaque origin in some engine, so the panel shows nothing] → The browser tests open the panel in the three engines first (task 6.6). If one refuses, the frame keeps its `sandbox` and the source view's policy names the board origin (`http://127.0.0.1:<port>`) explicitly. The PO is told.
 - [Esc does not reach the board page while focus is inside the sandboxed frame, which runs no script] → ✕ always works. Opening the panel by keyboard focuses its close control. The tests check both, and the gap is recorded for the accessibility floor (EXPERIENCE Open Items 22).
 - [`window.open` from the board page after a click in the sandboxed view may be blocked where user activation does not reach the parent frame] → Chromium shares activation with ancestors. The browser tests check each engine. Where an engine blocks it, the board page shows a one-line link the user clicks, and the PO is told, since FR-9 asks for one click.
