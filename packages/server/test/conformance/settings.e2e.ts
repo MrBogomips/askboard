@@ -242,11 +242,10 @@ describe("a project and a user file together", () => {
       expect(keys.defaultLanguage).toMatchObject({ value: "it-IT", from: "project" });
       expect(keys.theme).toMatchObject({ value: "light", from: "user" });
       board.send({ version, type: "setting", key: "theme", value: "dark" });
-      await until(
-        board,
-        "the saved setting",
-        (m) => m.type === "settings" && m.write !== undefined,
-      );
+      // The settings messages are kept apart from the pending ones: wait for the write's.
+      const deadline = Date.now() + 5000;
+      while (board.settings.length < 2 && Date.now() < deadline) await Bun.sleep(25);
+      expect((board.settings[1] as { write?: { outcome: string } }).write?.outcome).toBe("saved");
       expect(board.problems).toEqual([]);
       const written = JSON.parse(
         readFileSync(join(session.configHome, "askboard", "config.json"), "utf8"),

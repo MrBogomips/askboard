@@ -442,6 +442,7 @@ describe("a closed ask's link", () => {
       await board.header.getByText("Closed", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
       for (const radio of await board.page
         .frameLocator('iframe[sandbox="allow-scripts"]')
+        .locator("[data-askboard-question]")
         .getByRole("radio")
         .all())
         expect(await radio.isDisabled()).toBe(true);
