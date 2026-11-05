@@ -70,7 +70,8 @@ export const boardOf = (page: Page): Board => {
         .filter({ has: view.getByRole("radio").or(view.getByRole("checkbox")) })
         .filter({ hasNot: view.getByRole("alert") }),
     option: (label) => view.getByRole("radio", { name: label }),
-    options: view.getByRole("radio"),
+    // Inside a question: the header's quick toggles are radio groups too (settings-languages).
+    options: view.locator("[data-askboard-question]").getByRole("radio"),
     answer: view.getByRole("button", { name: "Answer", exact: true }),
     receipt: (text) => view.getByText(text, { exact: true }),
     banner: (text) => page.getByText(text),
