@@ -12,6 +12,7 @@
 // right-aligned and never edited, and values in error show a field error under the row.
 
 import type { TreeColumn } from "@askboard/contract";
+import { useLocale } from "@askboard/view/catalog";
 import { memo, type ReactNode } from "react";
 import { fieldText, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
 import {
@@ -179,6 +180,7 @@ export const NodeRow = memo(function NodeRow({
   /** A work breakdown's values for the row; none in a Tree without `pert`. */
   readonly pert: PertRow | undefined;
 }) {
+  const locale = useLocale();
   const edits = (cell: number): boolean => editing?.cell === cell;
   const added = mark?.added === true;
   const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_VALUE_COLUMNS.length);
@@ -222,6 +224,7 @@ export const NodeRow = memo(function NodeRow({
               className={`${fieldClass(column, edited, changed)} ${FOCUS_RING}`}
             >
               {edited ? editing?.editor : textOf(column)}
+              {edited ? editing?.editor : fieldText(row.node, column, locale)}
             </td>
           );
         })}

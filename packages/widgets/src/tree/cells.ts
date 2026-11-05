@@ -11,6 +11,7 @@ import {
   type TreeNode,
   type TreeProps,
 } from "@askboard/contract";
+import type { Locale, TreeColumn, TreeNode } from "@askboard/contract";
 import { formatNumber } from "../shared/number.ts";
 import { isPert } from "./model/nodes.ts";
 
@@ -37,8 +38,10 @@ export const nameColumnOf = (value: TreeProps): string =>
 
 /** The text of the node's field in `column`: empty when the node has none. */
 export const fieldText = (node: TreeNode, column: TreeColumn): string => {
+/** The text of the node's field in `column`, in the ask's locale: empty when the node has none. */
+export const fieldText = (node: TreeNode, column: TreeColumn, locale: Locale = "en-US"): string => {
   const value = Object.hasOwn(node, column.field) ? node[column.field] : undefined;
-  if (typeof value === "number") return formatNumber(value);
+  if (typeof value === "number") return formatNumber(value, locale);
   return typeof value === "string" ? value : "";
 };
 

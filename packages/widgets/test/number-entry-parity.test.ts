@@ -6,8 +6,9 @@ import {
 } from "@askboard/contract";
 import { formatNumber, numberEcho, parseNumber } from "../src/shared/number.ts";
 
-// The contract's en-US number entry (settings-languages task 2.4) reads exactly as the Tree's
-// parser does, reason for reason, until the Tree delegates to it (task 9.1).
+// The contract's number entry (settings-languages tasks 2.4 and 9.1) and the Tree's parser, which
+// delegates to it: they read every entry alike in each locale, reason for reason, and the Tree's
+// en-US exports are what they were.
 
 const ALPHABET = ["0", "1", "5", "9", ",", ".", "+", "-", "e", " ", "x"];
 
@@ -55,28 +56,33 @@ const FIXED = [
   `1${"0".repeat(400)}`,
 ];
 
-const sameAs = (text: string) => {
-  const { code: _, ...entry } = contractParse(text, "en-US") as { code?: string };
-  return entry;
-};
-
-describe("the contract's en-US entry and the Tree's", () => {
-  test.each(FIXED)("read %p alike", (text) => {
-    expect(sameAs(text)).toEqual(parseNumber(text));
+describe("the contract's entry and the Tree's", () => {
+  test.each(FIXED)("read %p alike in en-US and it-IT", (text) => {
+    for (const locale of ["en-US", "it-IT"] as const) {
+      expect(parseNumber(text, locale)).toEqual(contractParse(text, locale));
+    }
   });
 
   test("read 5,000 generated entries alike", () => {
     for (const text of entries(5_000, 42))
-      expect({ text, entry: sameAs(text) }).toEqual({
+      expect({ text, entry: parseNumber(text) }).toEqual({
         text,
-        entry: parseNumber(text),
+        entry: contractParse(text, "en-US"),
       });
   });
 
   test("write a value back alike", () => {
     for (const value of [0, -0, 0.1, -0.5, 1234.5, 1e21, -1.25e22, 1.5e-7, 2 ** 53 + 2]) {
-      expect(plainNumber(value, "en-US")).toBe(formatNumber(value));
-      expect(contractEcho(value, "en-US")).toBe(numberEcho(value));
+      for (const locale of ["en-US", "it-IT"] as const) {
+        expect(formatNumber(value, locale)).toBe(plainNumber(value, locale));
+        expect(numberEcho(value, locale)).toBe(contractEcho(value, locale));
+      }
     }
+  });
+
+  test("keep en-US when no locale is given", () => {
+    expect(parseNumber("1,234.5")).toEqual({ kind: "number", value: 1234.5 });
+    expect(formatNumber(1234.5)).toBe("1234.5");
+    expect(numberEcho(1234.5)).toBe("= 1234.5");
   });
 });

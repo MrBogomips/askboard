@@ -5,6 +5,13 @@ import { affixOf, fieldText, nameColumnOf, PERT_VALUE_COLUMNS, pertFieldText } f
 const days: TreeColumn = { field: "days", label: "Days", type: "number" };
 const note: TreeColumn = { field: "note", label: "Note", type: "text" };
 
+describe("fieldText in the ask's locale", () => {
+  test("shows a number with the locale's decimal mark and no grouping", () => {
+    expect(fieldText({ id: "a", label: "A", days: 1234.5 }, days, "it-IT")).toBe("1234,5");
+    expect(fieldText({ id: "a", label: "A", days: 1234.5 }, days, "en-US")).toBe("1234.5");
+  });
+});
+
 describe("fieldText", () => {
   test("a number as the en-US formatter writes it, without grouping or exponent", () => {
     expect(fieldText({ id: "a", label: "A", days: 1234.5 }, days)).toBe("1234.5");
