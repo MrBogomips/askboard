@@ -23,6 +23,11 @@ import type { Duplex } from "node:stream";
 //
 // Each of ask-core's events, each page message and each part of a board's opening has one entry
 // in a table, so that a change adding one adds its entry and edits no other.
+//
+// Snapshots (snapshot design decision 8): the live board's `snapshot` is taken by ask-core as the
+// user's, with its unsent-work flag as it came, and answered on the tab that asked, naming the
+// request; a request still waiting when the ask is discarded is answered `discarded` before the
+// discard. A tab that lost the board takes none.
 
 import {
   type ActCommand,
@@ -40,10 +45,11 @@ import {
   type OpenSourceCommand,
   type PresentationSetting,
   type SettingCommand,
+  type SnapshotCommand,
   TAKEOVER_FLUSH_WAIT_MS,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
-import type { ActOutcome, CoreEvent, SettingsView } from "@askboard/core";
+import type { ActOutcome, CoreEvent, SettingsView, SnapshotOutcome } from "@askboard/core";
 import { type RawData, WebSocket } from "ws";
 import { actReply, draftRefusal } from "./acts.ts";
 import { editorOutcomeMessage, NO_SOURCE, sourceStateMessage } from "./context-messages.ts";
@@ -63,6 +69,7 @@ import {
 } from "./messages.ts";
 import { presenceOf } from "./presence.ts";
 import { NO_SETTINGS, settingsMessage } from "./settings.ts";
+import { snapshotDiscarded, snapshotFailedInside, snapshotReply } from "./snapshots.ts";
 import type { BoardTokens } from "./tokens.ts";
 import { agentMessage, originMessage } from "./who-and-where.ts";
 
@@ -150,6 +157,8 @@ type Connection = {
   opened: boolean;
   /** The tab that took the board from this one, which opens once this one's flush ends. */
   successor?: Connection;
+  /** The IDs of its Snapshot requests ask-core has not finished. */
+  readonly snapshots: Set<string>;
 };
 
 const parse = (data: RawData, binary: boolean): unknown => {
@@ -166,7 +175,8 @@ const parse = (data: RawData, binary: boolean): unknown => {
 
 type PageCommand =
   | Exclude<LifecyclePageMessage | OpenSourceCommand | OpenEditorCommand, ConnectMessage>
-  | SettingCommand;
+  | SettingCommand
+  | SnapshotCommand;
 
 /** What a live board does with each of ask-core's events, by type. */
 type Heard = {
@@ -283,6 +293,7 @@ export class Boards {
       stopTimer: () => undefined,
       stopCounting: () => undefined,
       opened: false,
+      snapshots: new Set(),
     };
     this.#sockets.add(socket);
     this.#countBeforeConnect(connection, stream);
@@ -627,6 +638,7 @@ export class Boards {
   // editor" (excerpts, design decision 5).
   // draft record (ask-lifecycle, design decision 8); a presentation key's write (settings-languages,
   // design decision 6).
+  // editor" (excerpts, design decision 5); E7's Snapshot (snapshot design decision 8).
   readonly #commands: Commands = {
     answer: (connection, command) => this.#answer(connection, command),
     act: (connection, command) => this.#act(connection, command),
@@ -634,6 +646,7 @@ export class Boards {
     "open-source": (connection, command) => this.#openSource(connection, command),
     "open-editor": (connection, command) => this.#openEditor(connection, command),
     setting: (connection, command) => this.#setting(connection, command),
+    snapshot: (connection, command) => this.#snapshot(connection, command),
   };
 
   // A presentation key's write, which the validator admitted for the three keys and their schema
@@ -716,6 +729,32 @@ export class Boards {
       .catch(this.#report);
   }
 
+  // A Snapshot taken as the user's, whose token is its authority (AD-11); the mirrored draft record
+  // is not consulted (AD-20). Its outcome is answered on this tab, unless the discard already was.
+  #snapshot(connection: Connection, command: SnapshotCommand): void {
+    const { requestId } = command;
+    connection.snapshots.add(requestId);
+    const unsentWork = command.unsentWork === true;
+    this.#core.snapshot(connection.askId, { takenBy: "user", unsentWork }).then(
+      (outcome) => this.#guard(() => this.#snapshotTaken(connection, requestId, outcome)),
+      (error: unknown) => this.#guard(() => this.#snapshotFailed(connection, requestId, error)),
+    );
+  }
+
+  #snapshotTaken(connection: Connection, requestId: string, outcome: SnapshotOutcome): void {
+    const reply = snapshotReply(connection.askId, requestId, outcome);
+    if (reply instanceof Error) this.#snapshotFailed(connection, requestId, reply);
+    else if (connection.snapshots.delete(requestId)) this.#send(connection, reply);
+  }
+
+  // A Snapshot ask-core could not take: reported, and answered `internal-error` unless the
+  // discard already answered it, so no request waits for a reply that never comes.
+  #snapshotFailed(connection: Connection, requestId: string, error: unknown): void {
+    this.#report(error);
+    if (connection.snapshots.delete(requestId))
+      this.#send(connection, snapshotFailedInside(requestId));
+  }
+
   // What ask-core shows of the ask, unless it is gone.
   #view(askId: string): OpenBoardView | undefined {
     const view = this.#core.lifecycleBoard(askId);
@@ -774,6 +813,9 @@ export class Boards {
 
   #discard(connection: Connection, reason: DiscardReason): void {
     this.#live.delete(connection.askId);
+    for (const requestId of connection.snapshots)
+      this.#send(connection, snapshotDiscarded(requestId));
+    connection.snapshots.clear();
     this.#send(connection, discardedMessage(reason));
     this.#close(connection, BOARD_CLOSE_CODES.discarded);
   }

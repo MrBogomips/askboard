@@ -8,9 +8,11 @@
 // act command, which the replay takes for the transcript's answer and acknowledges with `done`
 // before the host's steps that follow, as `board-host` does; its draft records go nowhere, as
 // none of E1's transcripts holds one (ask-lifecycle, design decision 6). A presence message (push delivery, task 5.3) is no
-// transcript step either: it is only checked against the contract.
+// transcript step either: it is only checked against the contract. A Snapshot request (snapshot
+// task 7.1) carries the board page's own request ID: the replay takes it for the transcript's, and
+// answers under it.
 
-import { BOARD_PROTOCOL_VERSION, type PageMessage } from "@askboard/contract";
+import { BOARD_PROTOCOL_VERSION, type PageMessage, type SnapshotCommand } from "@askboard/contract";
 import { validateBoardMessage, validatePresence } from "@askboard/contract/validate";
 import { isDraft, isPresenceMessage, samePageMessage, summary } from "./messages.ts";
 import type { ReplayStep } from "./transcripts.ts";
@@ -57,7 +59,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // The fields two messages differ in, for a report where both read alike.
-const differing = (actual: unknown, expected: PageMessage): string[] => {
+const differing = (actual: unknown, expected: PageMessage | SnapshotCommand): string[] => {
   if (!isRecord(actual)) return [];
   const fields = new Set([...Object.keys(actual), ...Object.keys(expected)]);
   const wanted = expected as Readonly<Record<string, unknown>>;
@@ -80,6 +82,8 @@ export class Replay {
   readonly #latched = new Set<ReplayGate>();
   #waiters: Waiter[] = [];
   #at = 0;
+  // The transcript's Snapshot request IDs, each to the one the board page sent in its place.
+  readonly #requestIds = new Map<string, string>();
 
   constructor(steps: readonly ReplayStep[], hooks: ReplayHooks = {}) {
     this.#steps = steps;
@@ -210,7 +214,7 @@ export class Replay {
         if ("close" in step) {
           entry.socket.close(step.close);
           entry.open = false;
-        } else entry.socket.send(JSON.stringify(step.message));
+        } else entry.socket.send(JSON.stringify(this.#underPageIds(step.message)));
       }
       return true;
     }
@@ -220,8 +224,22 @@ export class Replay {
       this.#problems.push(this.#mismatch(step.socket, received.message, step));
     } else {
       this.#acknowledge(step.socket, received.message);
+      this.#takeRequestId(step.message, received.message);
     }
     return true;
+  }
+
+  #takeRequestId(expected: { readonly type: string }, sent: unknown): void {
+    if (expected.type !== "snapshot" || !("requestId" in expected) || !isRecord(sent)) return;
+    if (typeof expected.requestId !== "string" || typeof sent.requestId !== "string") return;
+    this.#requestIds.set(expected.requestId, sent.requestId);
+  }
+
+  // A host message naming a transcript's Snapshot request names the page's request instead.
+  #underPageIds<T extends object>(message: T): T {
+    if (!("requestId" in message) || typeof message.requestId !== "string") return message;
+    const requestId = this.#requestIds.get(message.requestId);
+    return requestId === undefined ? message : { ...message, requestId };
   }
 
   // An act command that stands for the transcript's answer is acknowledged, as board-host does.

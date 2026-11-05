@@ -14,6 +14,7 @@ import {
   restartTranscript,
   schemaRefusalTranscript,
   settingsProtocolExamples,
+  snapshotProtocolExamples,
   type Transcript,
   type TranscriptStep,
   transcripts,
@@ -300,7 +301,7 @@ describe("the error and resend transcripts", () => {
 });
 
 describe("board-protocol examples", () => {
-  test("one valid example of every message type, in each direction: E1's, then 1.1's, then 1.2's", () => {
+  test("one valid example of every message type, in each direction: E1's, then 1.1's, 1.2's and 1.3's", () => {
     for (const direction of ["toHost", "toPage"] as const) {
       const examples: readonly object[] = [
         ...boardProtocolExamples[direction],
@@ -308,6 +309,7 @@ describe("board-protocol examples", () => {
         ...settingsProtocolExamples[direction],
         // The reading panel's and the editor's messages (excerpts, design decision 5).
         ...contextProtocolExamples[direction],
+        ...snapshotProtocolExamples[direction],
       ];
       const types = examples.map((message) => (message as { type: string }).type);
       for (const type of Object.keys(BOARD_PROTOCOL_MESSAGES[direction])) {

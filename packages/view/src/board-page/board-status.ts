@@ -85,6 +85,8 @@ export type Banner = {
   readonly text: string;
   /** A second line: on a closed or discarded board, that work the user did was never sent. */
   readonly detail?: string;
+  /** The Closed banner offers "Snapshot", with its feedback beside it (snapshot task 7.2). */
+  readonly snapshot?: true;
   /** The action's label: "Continue here" on a moved board, "Copy my unsent work" on an ended one. */
   readonly action?: string;
   /**
@@ -111,7 +113,10 @@ const moved = (language: Locale): Banner => ({
 // A closed or discarded board's banner, saying when unsent work was left and offering its copy.
 const ended = (variant: "discarded" | "closed", unsent: boolean, language: Locale): Banner => {
   const text = t(language, variant === "discarded" ? "banner.discarded" : "banner.closed");
-  const banner: Banner = { variant, text, takesFocus: true };
+  const banner: Banner =
+    variant === "closed"
+      ? { variant, text, snapshot: true, takesFocus: true }
+      : { variant, text, takesFocus: true };
   if (!unsent) return banner;
   const detail = t(language, "banner.unsentNotSent");
   return { ...banner, detail, action: t(language, "banner.copyUnsentWork") };

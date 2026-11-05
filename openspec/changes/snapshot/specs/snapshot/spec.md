@@ -7,7 +7,7 @@ The `snapshot` unit writes Snapshots: one self-contained HTML file per Snapshot,
 ## ADDED Requirements
 
 ### Requirement: The Snapshot folder
-Snapshots SHALL be written into `.askboard/snapshots/` under the session project root, the real path of `CLAUDE_PROJECT_DIR`. When `.askboard/` or the folder is missing, the unit SHALL create it before writing (FR-27, AD-14).
+Snapshots SHALL be written into `.askboard/snapshots/` under the session project root, the real path of `CLAUDE_PROJECT_DIR`. When `.askboard/` or the folder is missing, it SHALL be created before the Snapshot is written (FR-27, AD-14).
 
 #### Scenario: The first Snapshot of a project
 - **WHEN** an agent takes a Snapshot in a project that has no `.askboard/` folder
@@ -25,7 +25,7 @@ Without `CLAUDE_PROJECT_DIR` there is no session project root, and no other fold
 - **THEN** the request is refused with an error naming `CLAUDE_PROJECT_DIR`, and no file or folder is created, in the working folder or anywhere else
 
 ### Requirement: Ignored by git by default
-When the unit writes a Snapshot and `.askboard/.gitignore` does not exist, it SHALL create that file listing `snapshots/`, `media/`, `patches/` and `bench/`; an existing `.askboard/.gitignore` SHALL be left as it is, so a user's choice to commit Snapshots holds (FR-27, AD-14).
+When a Snapshot is written and `.askboard/.gitignore` does not exist, that file SHALL be created listing `snapshots/`, `media/`, `patches/` and `bench/`; an existing `.askboard/.gitignore` SHALL be left as it is, so a user's choice to commit Snapshots holds (FR-27, AD-14).
 
 #### Scenario: No ignore file yet
 - **WHEN** the first Snapshot is written in a project whose `.askboard/` has no `.gitignore`

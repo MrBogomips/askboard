@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { BOARD_CLOSE_CODES } from "@askboard/contract";
-import { plainChoiceBoardDocument, transcripts } from "@askboard/contract/fixtures";
+import {
+  plainChoiceBoardDocument,
+  snapshotTranscript,
+  transcripts,
+} from "@askboard/contract/fixtures";
 import { validateBoardDocument, validateBoardMessage } from "@askboard/contract/validate";
 import { markupBoardDocument } from "../fixtures/markup-document.ts";
 import {
@@ -126,6 +130,34 @@ describe("the transcripts the test server replays", () => {
         expect(checked.ok ? [] : checked.problems).toEqual([]);
       }
     }
+  });
+});
+
+describe("the Snapshot's parts (snapshot task 7.1)", () => {
+  test("replay E7's transcript, then its first request failing inside and dropped", () => {
+    const { snapshot, snapshotInternalError, snapshotDropped } = replayTranscripts;
+    expect(snapshot.steps).toEqual(snapshotTranscript.steps as typeof snapshot.steps);
+    const kinds = (transcript: ReplayTranscript) =>
+      transcript.steps.map((step) =>
+        "message" in step ? `${step.socket} ${step.message.type}` : `${step.socket} ${step.from}`,
+      );
+    expect(kinds(snapshotInternalError)).toEqual([
+      "1 connect",
+      "1 board",
+      "1 state",
+      "1 snapshot",
+      "1 snapshot-failed",
+    ]);
+    expect(kinds(snapshotDropped)).toEqual([
+      "1 connect",
+      "1 board",
+      "1 state",
+      "1 snapshot",
+      "1 network",
+      "2 connect",
+      "2 board",
+      "2 state",
+    ]);
   });
 });
 

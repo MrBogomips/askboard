@@ -2,20 +2,23 @@ import { afterAll, describe, expect, test } from "bun:test";
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import {
   BOARD_CLOSE_CODES,
   BOARD_PORT_RANGE,
   BOARD_PROTOCOL_VERSION,
   BOARD_RESPONSES,
   GRACE_PERIOD_MS,
+  SNAPSHOT_DATA_ELEMENT,
 } from "@askboard/contract";
 import { ONE_PIXEL_PNG, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import { validateSnapshotData } from "@askboard/contract/validate";
 import { sessionProjectRoot } from "../src/push-composition.ts";
 import {
   manualClock,
@@ -40,7 +43,13 @@ describe("the composed session process", () => {
     const { script, record } = recorder("browser");
     const run = await start({ BROWSER: script });
     const { tools } = await run.client.listTools();
-    expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "ask",
+      "update",
+      "collect",
+      "fetch",
+      "snapshot",
+    ]);
 
     const asked = await run.call("ask", plainChoiceAsk());
     const link = new URL(asked.board);
@@ -484,5 +493,112 @@ describe("context in the composed session process (excerpts)", () => {
     expect(composition).toContain(
       "editorCommand: options.editorCommand ?? (() => userEditor(coreOf()))",
     );
+  });
+});
+
+// E7, task 4.4: the Snapshot writer the entry point composes beside push delivery's ports, with the
+// session project root as its root and the view build board-host serves, reached through the
+// snapshot tool (task 5.2) and the board's `snapshot` command (task 6.1).
+
+const snapshotsOf = (folder: string): string[] => {
+  const snapshots = join(folder, ".askboard", "snapshots");
+  return existsSync(snapshots) ? readdirSync(snapshots).sort() : [];
+};
+
+/** The `askboard-data` block, cut out by the text rule. */
+const dataBlockOf = (page: string): unknown => {
+  const opening = `id="${SNAPSHOT_DATA_ELEMENT}">`;
+  const start = page.indexOf(opening) + opening.length;
+  return JSON.parse(page.slice(start, page.indexOf("</script>", start)));
+};
+
+describe("Snapshots in the composed session process (E7)", () => {
+  test("an ask answered on the board and the snapshot tool's Snapshot leave one file, which outlives the session", async () => {
+    const { script } = recorder("snapshot");
+    const run = await start({ BROWSER: script });
+    const asked = await run.call("ask", plainChoiceAsk("snapshot-board-r7t2"));
+    const link = new URL(asked.board);
+    const token = link.searchParams.get("t") ?? "";
+    const board = await openSocket(Number(link.port), asked.askId);
+    board.send({ version, type: "connect", token });
+    expect(await board.next()).toMatchObject({ type: "board" });
+    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "waiting" } });
+    board.send({
+      version,
+      type: "answer",
+      itemId: question.id,
+      rev: 1,
+      choice: ["PostgreSQL"],
+      when: "2026-11-03T09:41:27Z",
+    });
+    expect(await board.next()).toMatchObject({ type: "state", state: { ask: "answered" } });
+
+    const before = snapshotsOf(project);
+    const taken = await run.call("snapshot", { askId: asked.askId });
+    expect(taken).toMatchObject({ askId: asked.askId, state: "answered", unchecked: true });
+    expect(dirname(taken.path)).toBe(join(realpathSync(project), ".askboard", "snapshots"));
+    expect(snapshotsOf(project)).toEqual([...before, basename(taken.path)].sort());
+
+    const page = readFileSync(taken.path, "utf8");
+    const checked = validateSnapshotData(dataBlockOf(page));
+    if (!checked.ok) throw new Error(JSON.stringify(checked.problems));
+    expect(checked.value).toMatchObject({
+      askId: asked.askId,
+      snapshot: { takenBy: "agent" },
+      state: { ask: "answered" },
+    });
+    expect(checked.value.events.map(({ event }) => event)).toEqual([
+      expect.objectContaining({ type: "answer", choice: ["PostgreSQL"], who: "Paola Greco" }),
+    ]);
+    const session = JSON.parse(await waitForFile(run.sessionFile)) as { sessionToken: string };
+    expect(page).not.toContain(token);
+    expect(page).not.toContain(session.sessionToken);
+
+    // The board's Snapshot is the user's, with its unsent-work flag, in the same folder.
+    const requestId = "mZ4aD8wEg2UyB6fTj9oHqL";
+    board.send({ version, type: "snapshot", requestId, unsentWork: true });
+    const reply = (await board.next()) as { type: string; requestId: string; path: string };
+    expect(reply).toMatchObject({ type: "snapshot-saved", requestId });
+    expect(dirname(reply.path)).toBe(dirname(taken.path));
+    const users = validateSnapshotData(dataBlockOf(readFileSync(reply.path, "utf8")));
+    if (!users.ok) throw new Error(JSON.stringify(users.problems));
+    expect(users.value.snapshot).toMatchObject({
+      takenBy: "user",
+      who: "Paola Greco",
+      unsentWork: true,
+    });
+    expect(snapshotsOf(project)).toEqual(
+      [...before, basename(taken.path), basename(reply.path)].sort(),
+    );
+
+    // stdin's end discards the ask; the Snapshot stays as it was (Snapshots outlive their ask).
+    await run.client.close();
+    expect(await run.session.ended).toBe(0);
+    expect(readFileSync(taken.path, "utf8")).toBe(page);
+    expect(snapshotsOf(project)).toContain(basename(taken.path));
+    expect(snapshotsOf(project)).toContain(basename(reply.path));
+  });
+
+  test("without CLAUDE_PROJECT_DIR, a Snapshot is refused naming the variable, creating nothing", async () => {
+    const { script, record } = recorder("snapshot-no-root");
+    const run = await start({ BROWSER: script, CLAUDE_PROJECT_DIR: undefined });
+    const asked = await run.call("ask", plainChoiceAsk("snapshot-no-root-b4n8"));
+    expect(await waitForFile(record)).toBe(`${asked.board}\n`);
+    // The session's working folder, which stands in for the project in its display only.
+    const working = dirname(project);
+    const before = readdirSync(working).sort();
+    const refused = await run.callRaw("snapshot", { askId: asked.askId });
+    expect(refused.isError).toBe(true);
+    const [content] = refused.content as { text: string }[];
+    expect(content?.text).toStartWith(
+      `No Snapshot was taken of the ask "${asked.askId}": CLAUDE_PROJECT_DIR is not set`,
+    );
+    expect(existsSync(join(working, ".askboard", "snapshots"))).toBe(false);
+    expect(readdirSync(working).sort()).toEqual(before);
+    expect(run.stderr).toContain(
+      "askboard: no Snapshot without a session project root: CLAUDE_PROJECT_DIR is not set",
+    );
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
   });
 });

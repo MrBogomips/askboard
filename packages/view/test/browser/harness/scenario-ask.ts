@@ -26,7 +26,8 @@ export const APPROVED_PLAIN_CHOICE_ASK = join(
 const boardDocumentOf = (transcript: ReplayTranscript): BoardDocument => {
   for (const step of transcript.steps) {
     if (step.from === "host" && "message" in step && step.message.type === "board") {
-      return step.message.document;
+      // A lifecycle board's document asks as it is (E7's transcripts replay on the test server).
+      return step.message.document as BoardDocument;
     }
   }
   return plainChoiceBoardDocument;

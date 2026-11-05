@@ -8,18 +8,24 @@
 // closed and discarded banners take the focus (Accessibility Floor, Focus). Everything is built
 // from text nodes: no markup is parsed.
 
+import type { SnapshotFeedback, SnapshotRequestReply } from "../snapshot-feedback.ts";
+import { type BannerSnapshot, createBannerSnapshot } from "./banner-snapshot.ts";
 import type { Banner } from "./board-status.ts";
 
 /** What the banners' actions do. */
 export type BannerActions = {
   readonly continueHere: () => void;
   readonly copyUnsentWork: () => void;
+  /** The Closed banner's "Snapshot" (snapshot task 7.2). */
+  readonly takeSnapshot: () => SnapshotRequestReply;
 };
 
 export type PageChrome = {
   /** The view's iframe: exactly `sandbox="allow-scripts"` (AD-8). */
   readonly frame: HTMLIFrameElement;
   showBanner(banner: Banner | undefined): void;
+  /** Shows how the Closed banner's Snapshot request ended, beside its action. */
+  showSnapshot(feedback: SnapshotFeedback): void;
   /** Says the view did not load; undefined removes it. */
   showLoadError(text: string | undefined): void;
 };
@@ -65,7 +71,12 @@ export const element = <K extends keyof HTMLElementTagNameMap>(
   return created;
 };
 
-const bannerElement = (document: Document, banner: Banner, actions: BannerActions) => {
+const bannerElement = (
+  document: Document,
+  banner: Banner,
+  actions: BannerActions,
+  snapshot: BannerSnapshot,
+) => {
   const variant = VARIANTS[banner.variant];
   const root = element(document, "div", `${BANNER} ${variant.banner}`);
   root.dataset.askboardBanner = banner.variant;
@@ -84,6 +95,7 @@ const bannerElement = (document: Document, banner: Banner, actions: BannerAction
     );
     root.append(button);
   }
+  if (banner.snapshot === true) root.append(...snapshot.elements(document));
   if (banner.takesFocus) root.tabIndex = -1;
   return root;
 };
@@ -100,14 +112,19 @@ export const createPageChrome = (document: Document, actions: BannerActions): Pa
   frame.setAttribute("sandbox", "allow-scripts");
   frame.title = "AskBoard";
   document.body.append(region, frame);
+  const snapshot = createBannerSnapshot({
+    take: actions.takeSnapshot,
+    buttonClass: SECONDARY_BUTTON,
+  });
   return {
     frame,
+    showSnapshot: snapshot.show,
     showBanner: (banner) => {
       if (banner === undefined) {
         bannerSlot.replaceChildren();
         return;
       }
-      const shown = bannerElement(document, banner, actions);
+      const shown = bannerElement(document, banner, actions, snapshot);
       bannerSlot.replaceChildren(shown);
       if (banner.takesFocus) {
         // Firefox keeps the focus in the view's frame unless the frame gives it up first.

@@ -60,6 +60,8 @@ export const startBoardPage = (window: Window): void => {
   const chrome = createPageChrome(document, {
     continueHere: () => page?.continueHere(),
     copyUnsentWork: () => void page?.copyUnsentWork(),
+    takeSnapshot: () =>
+      page?.takeSnapshot() ?? { outcome: "refused", detail: "the board is not open yet" },
   });
   const panel = createSettingsPanel(document, chrome.frame, {
     choose: (setting) => void page?.setPresentation(setting),
@@ -94,6 +96,7 @@ export const startBoardPage = (window: Window): void => {
     schedule,
     showBanner: chrome.showBanner,
     showLoadError: chrome.showLoadError,
+    showSnapshot: chrome.showSnapshot,
     // `document.title` is text: the agent's title never becomes markup (AD-8).
     setTitle: (title) => {
       document.title = title;

@@ -58,6 +58,7 @@ import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
 import { QuestionMarker } from "./markers.tsx";
+import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
 import {
   type CardState,
@@ -84,6 +85,8 @@ export type CardContext = RenderContext & {
   readonly kept: Store<KeptChoices>;
   /** Requests to open a question's thread at its latest reply (task 6.5). */
   readonly threads: ThreadRequests;
+  /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
+  readonly opened?: OpenedSnapshot | undefined;
 };
 
 type CardProps = {
@@ -291,7 +294,9 @@ export const QuestionCard = (props: CardProps) => {
     fillFrom(shown, contentOf(status.answer), context);
   };
   const extras = extrasOf(shown, card, work, context.board, revise);
-  const usable = status !== undefined && load === "visible" && lock === undefined;
+  const opened = context.opened !== undefined;
+  const readOnly = opened || card.readOnly;
+  const usable = !opened && status !== undefined && load === "visible" && lock === undefined;
   const reopened = status?.state === "open" || status?.state === "postponed" ? status : undefined;
   const layout = layoutOf(renderedOf(shown));
   const placeable = couldSplit(layout.context);
@@ -311,7 +316,7 @@ export const QuestionCard = (props: CardProps) => {
         {item === shown ? (
           <OptionsLabel
             question={shown}
-            disabled={card.readOnly || pending}
+            disabled={readOnly || pending}
             onAccept={() => {
               revise();
               acceptRecommended(shown, acting);
@@ -324,7 +329,7 @@ export const QuestionCard = (props: CardProps) => {
           questionId={question.id}
           itemIds={itemIdsOf(question)}
           context={context}
-          disabled={card.readOnly}
+          disabled={readOnly}
           shown={shownFor(card.shown, question.id, item.id)}
           onBeforeChange={revise}
           {...(item === shown ? { extras } : {})}
@@ -364,7 +369,7 @@ export const QuestionCard = (props: CardProps) => {
       {reopened?.previous === undefined ? null : (
         <ReopenedNotice
           previous={reopened.previous}
-          disabled={card.readOnly || pending}
+          disabled={readOnly || pending}
           onStart={() => {
             const previous = reopened.previous;
             if (previous !== undefined) fillFrom(question, contentOf(previous), context);
@@ -398,7 +403,7 @@ export const QuestionCard = (props: CardProps) => {
           <OpenPrompt
             questionId={question.id}
             note={card.shown?.note ?? work?.note ?? ""}
-            readOnly={card.readOnly}
+            readOnly={readOnly}
             onChange={(note) => {
               revise();
               context.board.edit(question.id, question.rev, ({ note: _, ...rest }) =>
@@ -407,6 +412,7 @@ export const QuestionCard = (props: CardProps) => {
             }}
           />
           <ActionsRow
+            opened={opened}
             card={card}
             actions={actions}
             locked={lock !== undefined}
@@ -423,6 +429,7 @@ export const QuestionCard = (props: CardProps) => {
             thread={status?.thread}
             composer={work?.composer ?? ""}
             usable={usable}
+            readOnly={opened}
             sending={followUp !== undefined}
             onComposerChange={(composer) =>
               context.board.edit(question.id, question.rev, ({ composer: _, ...rest }) =>

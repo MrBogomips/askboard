@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BOARD_HOST } from "@askboard/contract";
 import { fixtureViewFiles, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { AskCore, type Clock, type CorePorts } from "@askboard/core";
+import { AskCore, type Clock, type CorePorts, type SnapshotPorts } from "@askboard/core";
 import WebSocket from "ws";
 import type { SocketLimits } from "../../src/board-host/boards.ts";
 import { type BoardHost, createBoardHost } from "../../src/board-host/index.ts";
@@ -154,6 +154,8 @@ export const startHost = (
     projectDir?: string;
     /** Push delivery's record table and the context header's ports. */
     push?: Pick<CorePorts, "records" | "header">;
+    /** E7's Snapshot writer, with the origin row's project folder. */
+    snapshots?: SnapshotPorts;
     /** The configuration's port (settings-languages). */
     config?: CorePorts["config"];
   } = {},
@@ -182,6 +184,7 @@ export const startHost = (
     report: (error) => reported.push(error),
     clock: options.clock ?? runtimeClock,
     ...options.push,
+    ...(options.snapshots === undefined ? {} : { snapshots: options.snapshots }),
     ...(options.config === undefined ? {} : { config: options.config }),
   });
   core = created;

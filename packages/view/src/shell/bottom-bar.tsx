@@ -2,12 +2,14 @@
 // recommended, Submit and Mode-switch confirmation; DESIGN.md, the same; ask-lifecycle, task 6.6;
 // FR-3, FR-22, AD-20): sticky, on a board of two or more questions it holds the "Delivery" label
 // and the "Immediate | Submitted" switch with its helper text, the postponed warning line, then
-// "Select recommended" (only while a question has a recommendation), the count of agent-change
-// notices on held work, which jumps to the first, and "Submit". Switching from submitted to
+// "Select recommended" (only while a question has a recommendation), "Snapshot" with its feedback
+// (snapshot task 7.1), the count of agent-change notices on held work, which jumps to the first,
+// and "Submit". Switching from submitted to
 // immediate with held work asks first, in a modal Radix Alert Dialog whose scroll lock runs
 // through the view's style-element shim (S-6): confirming sends the held work as Submit does and
 // switches, cancelling stays in submitted delivery; it is blocked as Submit is. On the
-// single-question board the bar shows only the postponed warning line, while there is one.
+// single-question board the bar shows only the postponed warning line, while there is one, and
+// "Snapshot".
 
 import { AlertDialog } from "radix-ui";
 import { useState } from "react";
@@ -19,13 +21,13 @@ import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
+import { SnapshotButton } from "./snapshot-button.tsx";
+import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import { BUTTON_LINK, BUTTON_PRIMARY, BUTTON_SECONDARY, SECTION_LABEL, SEGMENT } from "./styles.ts";
 import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
 
 const DIALOG =
   "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-sm rounded-lg border border-border bg-popover p-lg text-foreground shadow-lg";
-
-/** The immediate mode's helper text (EXPERIENCE.md, Voice and Tone: Bottom action bar). */
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
@@ -50,6 +52,9 @@ export type BottomBarProps = {
   };
   readonly onSelectRecommended: () => void;
   readonly onJump: (questionId: string) => void;
+  /** The bar's Snapshot, and whether the board offers it now. */
+  readonly snapshot: SnapshotControl;
+  readonly snapshotOffer: SnapshotOffer;
 };
 
 export const BottomBar = (props: BottomBarProps) => {
@@ -57,10 +62,12 @@ export const BottomBar = (props: BottomBarProps) => {
   const [confirming, setConfirming] = useState(false);
   const text = useStrings();
   const language = useLanguage();
+  const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
   if (single) {
-    return warning === undefined ? null : (
-      <footer className="sticky bottom-0 flex min-h-bottom-bar items-center gap-sm border-t border-border bg-card px-lg">
-        <Warning warning={warning} />
+    return (
+      <footer className="sticky bottom-0 flex min-h-bottom-bar flex-wrap items-center gap-sm border-t border-border bg-card px-lg py-sm">
+        {warning === undefined ? null : <Warning warning={warning} />}
+        <span className="ml-auto flex min-w-0 items-center gap-sm">{snapshot}</span>
       </footer>
     );
   }
@@ -115,7 +122,7 @@ export const BottomBar = (props: BottomBarProps) => {
         <span className="text-body text-muted-foreground">{text("bar.immediateHelp")}</span>
       ) : null}
       {warning === undefined ? null : <Warning warning={warning} />}
-      <span className="ml-auto flex items-center gap-sm">
+      <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
         {recommendations ? (
           <button
             type="button"
@@ -126,6 +133,7 @@ export const BottomBar = (props: BottomBarProps) => {
             {text("bar.selectRecommended")}
           </button>
         ) : null}
+        {snapshot}
         {blocked === undefined ? null : (
           <button type="button" className={BUTTON_LINK} onClick={() => props.onJump(blocked)}>
             {updatesLabel(submit.blocked.length, language)}

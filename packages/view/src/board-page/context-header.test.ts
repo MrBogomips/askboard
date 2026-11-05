@@ -53,6 +53,7 @@ const setUp = (options: { readonly failLoads?: number } = {}) => {
     },
     showBanner: () => undefined,
     showLoadError: () => undefined,
+    showSnapshot: () => undefined,
     setTitle: () => undefined,
     setLanguage: () => undefined,
     log: (text) => logs.push(text),

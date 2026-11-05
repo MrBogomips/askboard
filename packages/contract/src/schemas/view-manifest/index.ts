@@ -4,7 +4,7 @@
 import type { SchemaSet } from "../../versions.ts";
 import viewManifest from "./view-manifest.json" with { type: "json" };
 
-export const VIEW_MANIFEST_VERSION = "1.0";
+export const VIEW_MANIFEST_VERSION = "1.1";
 
 export const viewManifestSet: SchemaSet = {
   name: "view-manifest",
@@ -40,6 +40,10 @@ export type ManifestChunk = {
   /** The catalog components a component chunk registers. */
   readonly components?: readonly string[];
   readonly licences: readonly LicenceNotice[];
+  /** Needed only with a parent host: a board selects it, a Snapshot never does (1.1). */
+  readonly hostOnly?: true;
+  /** A component chunk's kept-render chunk, by name (1.1). */
+  readonly keptRender?: string;
 };
 
 export type ViewManifest = {

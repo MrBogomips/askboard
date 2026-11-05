@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:snapshot-result",
+  "title": "Snapshot result",
+  "description": "What snapshot returns once the Snapshot is written (FR-26, AD-15): the ask's state and the absolute path of the file, which holds the board and its data; never the file's content. An ask without an owner check is unchecked (AD-5).",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "state": {
+      "$ref": "urn:askboard:output:ask-state"
+    },
+    "path": {
+      "description": "The Snapshot file's absolute path: the Snapshot folder's real path joined with the file's name.",
+      "type": "string",
+      "pattern": "^/"
+    },
+    "unchecked": {
+      "const": true
+    }
+  },
+  "required": ["versions", "epoch", "askId", "state", "path"],
+  "additionalProperties": false
+}

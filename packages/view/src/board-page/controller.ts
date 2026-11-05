@@ -13,7 +13,8 @@
 // socket, view, timers, clipboard and page. Push delivery adds who asked and where and the agent
 // status, passed on to the view, and the view's activity, for the board's working signal (design
 // decisions 10 and 12). The view's messages and `board-host`'s each have one entry in a table, so a
-// change adding one adds its entry.
+// change adding one adds its entry. The Snapshot (snapshot design decision 8) adds the view's
+// request and the Closed banner's, each sent once and tracked in `snapshot-requests.ts`.
 
 import {
   type ActCommand,
@@ -25,6 +26,7 @@ import {
   type Locale,
   type PresentationSetting,
   type RefusedMessage,
+  type SnapshotReply,
 } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
 import { htmlLang, languageOf, localeOf, t } from "../strings/index.ts";
@@ -34,6 +36,8 @@ import type {
   AnswerReply,
   DraftRestore,
   PanelClosed,
+  SnapshotFeedback,
+  SnapshotRequestReply,
   ViewItemError,
   ViewMessage,
   ViewOpenReference,
@@ -82,6 +86,11 @@ import { pathOf } from "./reading-panel-state.ts";
 import { reconnectDelay } from "./reconnect.ts";
 import { sourcePointerOf, webUrlOf } from "./references.ts";
 import { type PanelData, panelData } from "./settings-panel-data.ts";
+import {
+  createSnapshotRequests,
+  type SnapshotRequests,
+  type SnapshotSource,
+} from "./snapshot-requests.ts";
 import type { BoardConnection, BoardSocketHandlers } from "./socket.ts";
 import { tabTitle } from "./tab-title.ts";
 import { hasUnsentWork, unsentWorkText } from "./unsent-work.ts";
@@ -144,6 +153,8 @@ export type BoardPageDeps = {
   readonly openLink?: (url: string) => void;
   /** The reading panel: a side sheet on the page that frames a source (excerpts). */
   readonly readingPanel?: ReadingPanel;
+  /** Shows how the Closed banner's Snapshot request ended, beside its action. */
+  readonly showSnapshot: (feedback: SnapshotFeedback) => void;
 };
 
 export type BoardPage = {
@@ -157,6 +168,11 @@ export type BoardPage = {
   flushDraft(): void;
   /** "Copy my unsent work": the mirrored draft record, as text, on the clipboard (F-17). */
   copyUnsentWork(): Promise<void>;
+  /**
+   * The Closed banner's "Snapshot": the board, taken as the user's (FR-26). Says whether the
+   * request went, and whether the board held unsent work, or why it did not go.
+   */
+  takeSnapshot(): SnapshotRequestReply;
   /**
    * Whether the browser's leave-page prompt is armed: while the draft holds unsent work or a
    * command is held, and while postponed questions are open on an open ask (L57, L172, FR-25).
@@ -239,6 +255,9 @@ class BoardPageController implements BoardPage {
   // The reading panel's latest closing by the user, which the view acts on once.
   #closed: PanelClosed | undefined;
   #closings = 0;
+  readonly #snapshots: SnapshotRequests;
+  // How the view's latest Snapshot request ended, in each update from then on.
+  #snapshot: SnapshotFeedback | undefined;
 
   constructor(deps: BoardPageDeps) {
     this.#deps = deps;
@@ -249,6 +268,10 @@ class BoardPageController implements BoardPage {
         this.#status.kind === "live" &&
         this.#socket?.send({ version, type: "draft", record }) === true,
     });
+    this.#snapshots = createSnapshotRequests({
+      schedule: deps.schedule,
+      end: (source, feedback) => this.#snapshotEnded(source, feedback),
+    });
     this.#open();
   }
 
@@ -256,6 +279,7 @@ class BoardPageController implements BoardPage {
     if (this.#status.kind !== "moved") return;
     this.#socket?.close();
     this.#socket = undefined;
+    this.#snapshots.drop();
     this.#stateSeen = false;
     this.#attempt = 0;
     this.#transition({ type: "continue" });
@@ -291,6 +315,12 @@ class BoardPageController implements BoardPage {
     } catch (error) {
       this.#deps.log("the unsent work could not be copied", error);
     }
+  }
+
+  takeSnapshot(): SnapshotRequestReply {
+    const reply = this.#takeSnapshot("banner");
+    if (reply.outcome === "refused") this.#deps.log(`no Snapshot was requested: ${reply.detail}`);
+    return reply;
   }
 
   leavePromptArmed(): boolean {
@@ -330,6 +360,7 @@ class BoardPageController implements BoardPage {
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
       ...(this.#settingsClosed === 0 ? {} : { settingsClosed: this.#settingsClosed }),
       ...(this.#closed === undefined ? {} : { panelClosed: this.#closed }),
+      ...(this.#snapshot === undefined ? {} : { snapshot: this.#snapshot }),
       ...this.#model.passedOn,
     });
   }
@@ -375,6 +406,7 @@ class BoardPageController implements BoardPage {
       return {};
     },
     "open-reference": (message) => this.#openReference(message),
+    snapshot: () => this.#takeSnapshot("view"),
   };
 
   // A toggle's value: applied to the board at once, then sent to board-host to be written as the
@@ -485,6 +517,38 @@ class BoardPageController implements BoardPage {
     // The view hears it held before the reply.
     this.#updateView();
     return { outcome: sent ? "sent" : "queued", actionId: command.actionId };
+  }
+
+  // A Snapshot request, sent once on a socket board-host accepted, with whether the board holds
+  // unsent work (AD-15); never queued, so nothing goes while the connection is lost.
+  #takeSnapshot(source: SnapshotSource): SnapshotRequestReply {
+    const ended = this.#status.kind === "closed" ? undefined : this.#ended();
+    if (ended !== undefined) return { outcome: "refused", detail: ended };
+    const requestId = this.#draw();
+    const unsentWork = hasUnsentWork(this.#mirror.latest());
+    const flag = unsentWork ? { unsentWork: true as const } : {};
+    const sent =
+      this.#stateSeen && this.#socket?.send({ version, type: "snapshot", requestId, ...flag });
+    if (sent !== true) return { outcome: "refused", detail: "the connection is lost" };
+    this.#snapshots.track(requestId, source, unsentWork);
+    return { outcome: "sent", requestId, ...flag };
+  }
+
+  #onSnapshotReply(message: SnapshotReply): void {
+    if (this.#snapshots.reply(message)) return;
+    this.#deps.log(
+      `board-host answered a Snapshot request the page does not wait for: ${message.requestId}`,
+    );
+  }
+
+  // The view's request ends in its updates; the banner's beside the banner.
+  #snapshotEnded(source: SnapshotSource, feedback: SnapshotFeedback): void {
+    if (source === "banner") {
+      this.#deps.showSnapshot(feedback);
+      return;
+    }
+    this.#snapshot = feedback;
+    this.#updateView();
   }
 
   // The view's draft record, checked, becomes the page's own: board-host's is no longer restored.
@@ -628,6 +692,8 @@ class BoardPageController implements BoardPage {
     },
     "source-state": (message) => this.#deps.readingPanel?.sourceState(message),
     "editor-outcome": (message) => this.#deps.readingPanel?.editorOutcome(message),
+    "snapshot-saved": (message) => this.#onSnapshotReply(message),
+    "snapshot-failed": (message) => this.#onSnapshotReply(message),
   };
 
   // A message the model keeps, which the view shows: a receipt, who asked and where, the status.
@@ -659,6 +725,7 @@ class BoardPageController implements BoardPage {
   #onClose(): void {
     this.#socket = undefined;
     this.#stateSeen = false;
+    this.#snapshots.drop();
   }
 
   // Each socket's events count only while it is the current one.

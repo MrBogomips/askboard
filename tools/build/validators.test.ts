@@ -13,6 +13,7 @@ import {
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
   settingsProtocolExamples,
+  snapshotProtocolExamples,
   subagentOrigin,
   uncheckedOrigin,
   waitingAgentStatus,
@@ -153,6 +154,23 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
       const ok = generated[message.type]?.(message);
       expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
     }
+  });
+
+  test("accept the Snapshot replies board protocol 1.3 adds, and refuse a folder outside write-failed (snapshot, task 1.3)", () => {
+    const added = snapshotProtocolExamples.toPage as readonly { type: string }[];
+    expect([...new Set(added.map((message) => message.type))]).toEqual([
+      "snapshot-saved",
+      "snapshot-failed",
+    ]);
+    const folder = { ...(added.at(-1) as object), folder: "/home/sara/shop/.askboard/snapshots" };
+    const relative = { ...(added[0] as object), path: "board.html" };
+    for (const message of [...added, folder, relative] as { type: string }[]) {
+      const ok = generated[message.type]?.(message);
+      expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
+    }
+    expect(added.every((message) => generated[message.type]?.(message))).toBe(true);
+    expect(generated["snapshot-failed"]?.(folder)).toBe(false);
+    expect(generated["snapshot-saved"]?.(relative)).toBe(false);
   });
 
   test("key each validator by its message name, quoted, so a name need not be an identifier", async () => {

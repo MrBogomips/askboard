@@ -140,3 +140,17 @@ export type {
 } from "./config/ports.ts";
 export type { EffectiveValues, SettingsInEffect } from "./config/settings.ts";
 export type { SettingsView } from "./config/view.ts";
+
+// Snapshots (E7, snapshot design decision 3): the port `snapshot` implements, and its error.
+
+// Snapshots (E7, snapshot design decision 3): the port `snapshot` implements, its error, E7's
+// `CorePorts` field, and the `snapshot` command's request and outcomes.
+
+export type { SnapshotOutcome, SnapshotRequester } from "./snapshot/command.ts";
+export {
+  PROJECT_ROOT_VARIABLE,
+  SNAPSHOT_NO_PROJECT_ROOT,
+  type SnapshotPorts,
+  SnapshotWriteError,
+  type SnapshotWriter,
+} from "./snapshot/writer.ts";

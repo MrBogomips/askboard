@@ -196,11 +196,17 @@ describe("before the first ask", () => {
     onlyProtocol(session);
   });
 
-  test("tools/list gives ask, update, collect and fetch, as the contract defines them, on either negotiation", async () => {
+  test("tools/list gives ask, update, collect, fetch and snapshot, as the contract defines them, on either negotiation", async () => {
     for (const negotiation of ["auto", "legacy"] as const) {
       const session = await startSession({ negotiation });
       const { tools } = await session.client.listTools();
-      expect(tools.map((tool) => tool.name)).toEqual(["ask", "update", "collect", "fetch"]);
+      expect(tools.map((tool) => tool.name)).toEqual([
+        "ask",
+        "update",
+        "collect",
+        "fetch",
+        "snapshot",
+      ]);
       for (const [at, tool] of tools.entries())
         expect(tool).toMatchObject(TOOL_DEFINITIONS[at] ?? {});
       expect(await session.end()).toBe(0);

@@ -128,3 +128,19 @@ export {
   settingsWithEveryKey,
   themeSetting,
 } from "./settings.ts";
+
+// Snapshots (E7, snapshot design decision 2): the Snapshot data of an agent's Snapshot of the
+// lifecycle ask, the snapshot result naming its file, and the board protocol's Snapshot messages
+// with their recorded exchange.
+
+export { lifecycleSnapshotData, lifecycleSnapshotResult } from "./snapshot.ts";
+export {
+  closedAskSnapshotTranscript,
+  discardSnapshotTranscript,
+  type SnapshotTranscript,
+  type SnapshotTranscriptStep,
+  snapshotProtocolExamples,
+  snapshotTranscript,
+  snapshotTranscripts,
+  takeoverSnapshotTranscript,
+} from "./snapshot-transcripts.ts";

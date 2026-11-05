@@ -31,12 +31,17 @@ const catalogEntryExports = async (): Promise<string[]> => {
 
 const NAMED_IMPORT = /import\s+\{([^}]*)\}\s+from\s+"([^"]+)"/g;
 
+// A host-only module read from the registry where it is used, as the shell reads ext-apps' `App`
+// (snapshot design decision 5): `const { App } = shared("@modelcontextprotocol/ext-apps")`.
+const REGISTRY_LOOKUP = /const\s+\{([^}]*)\}\s*=\s*shared\(\s*"([^"]+)"\s*\)/g;
+
 // The sources whose chunks import the shared modules: the view's, and the widgets' (design
 // decision 8 of the tree-widget change).
 const SOURCE_ROOTS = [VIEW_SRC, WIDGETS_SRC];
 
-// The value names the view's and the widgets' sources import from each module, as
-// `<module>:<name>`, a module imported by the path to its file under its shared name.
+// The value names the view's and the widgets' sources import from each module, or read from it
+// through the registry, as `<module>:<name>`, a module imported by the path to its file under its
+// shared name.
 const namedImports = async (): Promise<Set<string>> => {
   const found = new Set<string>();
   for (const root of SOURCE_ROOTS) {
@@ -44,8 +49,15 @@ const namedImports = async (): Promise<Set<string>> => {
       if (/\.test\.tsx?$/.test(path)) continue;
       const file = join(root, path);
       const source = await Bun.file(file).text();
-      for (const [, names = "", specifier = ""] of source.matchAll(NAMED_IMPORT)) {
-        const module = sharedNameOf(specifier, file);
+      const uses = [
+        ...[...source.matchAll(NAMED_IMPORT)].map(
+          ([, names = "", specifier = ""]) => [names, sharedNameOf(specifier, file)] as const,
+        ),
+        ...[...source.matchAll(REGISTRY_LOOKUP)].map(
+          ([, names = "", module = ""]) => [names, module] as const,
+        ),
+      ];
+      for (const [names, module] of uses) {
         const values = names
           .split(",")
           .map((name) => name.trim().split(/\s+as\s+/)[0] ?? "")

@@ -5,240 +5,34 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  type ActCommand,
   BOARD_CLOSE_CODES,
-  BOARD_PROTOCOL_VERSION,
   type BoardState,
-  type ContextHostMessage,
-  type ContextPageMessage,
   type DraftRecord,
   type HostMessage,
-  type LifecycleHostMessage,
-  type LifecyclePageMessage,
-  type SettingCommand,
 } from "@askboard/contract";
 import {
   contextBoardDocument,
   ganttEditedValue,
   plainChoiceBoardDocument,
 } from "@askboard/contract/fixtures";
-import type { BootData } from "../boot-data.ts";
-import type { ViewAnswer, ViewMessage, ViewUpdate } from "../view-protocol.ts";
-import type { Banner } from "./board-status.ts";
-import { type BoardPageDeps, runBoardPage } from "./controller.ts";
-import type { PanelActions, PanelRequest, ReadingPanel } from "./reading-panel.ts";
-import type { BoardSocketHandlers } from "./socket.ts";
-import type { ViewReply } from "./view-host.ts";
-
-const version = BOARD_PROTOCOL_VERSION;
-const waiting: BoardState = {
-  ask: "waiting",
-  questions: [{ itemId: "database", rev: 1, state: "open" }],
-};
-const answered = (receipt: "sent" | "delivered"): BoardState => ({
-  ask: "answered",
-  questions: [
-    {
-      itemId: "database",
-      rev: 1,
-      state: "answered",
-      answer: { choice: ["PostgreSQL"], when: "2026-10-30T10:00:00.250Z", receipt },
-    },
-  ],
-});
-const board: HostMessage = { version, type: "board", document: plainChoiceBoardDocument };
-const stateOf = (state: BoardState): HostMessage => ({ version, type: "state", state });
-const answer: ViewAnswer = {
-  type: "answer",
-  itemId: "database",
-  rev: 1,
-  choice: ["PostgreSQL"],
-  when: "2026-10-30T10:00:00.250Z",
-};
-// The action IDs the fake draws, in order.
-const ID = (n: number) => `${String(n).padStart(2, "0")}${"a".repeat(20)}`;
-const commandOf = (n: number, acts: ActCommand["acts"] = [answerAct]): ActCommand => ({
+import {
+  answer,
+  answerAct,
+  answered,
+  board,
+  command,
+  commandOf,
+  done,
+  ID,
+  opened,
+  queued,
+  sent,
+  settled,
+  setUp,
+  stateOf,
   version,
-  type: "act",
-  actionId: ID(n),
-  acts,
-});
-const answerAct = {
-  type: "answer",
-  itemId: "database",
-  rev: 1,
-  choice: ["PostgreSQL"],
-  when: answer.when,
-} as const;
-const command = commandOf(1);
-const sent = (n = 1) => ({ outcome: "sent", actionId: ID(n) }) as const;
-const queued = (n = 1) => ({ outcome: "queued", actionId: ID(n) }) as const;
-const done = (n = 1): LifecycleHostMessage => ({ version, type: "done", actionId: ID(n) });
-
-type FakeSocket = {
-  readonly events: BoardSocketHandlers;
-  readonly sent: (LifecyclePageMessage | SettingCommand | ContextPageMessage)[];
-  open: boolean;
-  closed: boolean;
-  receive(...messages: (HostMessage | LifecycleHostMessage | ContextHostMessage)[]): void;
-  close(code: number): void;
-};
-
-type Timer = { readonly ms: number; readonly run: () => void; cancelled: boolean };
-
-// A reading panel that records what the controller does to it.
-const fakePanel = () => {
-  const events: string[] = [];
-  let shown: { request: PanelRequest; actions: PanelActions } | undefined;
-  const port: ReadingPanel = {
-    open: (request, actions) => {
-      shown = { request, actions };
-      events.push(`open ${request.itemId}`);
-    },
-    sourceState: (message) => events.push(`state ${message.itemId} ${message.status}`),
-    editorOutcome: (message) => events.push(`outcome ${message.itemId} ${message.outcome}`),
-    close: () => {
-      shown = undefined;
-      events.push("close");
-    },
-    get itemId() {
-      return shown?.request.itemId;
-    },
-  };
-  return { port, events, shown: () => shown };
-};
-
-const setUp = (options: { failLoads?: number } = {}) => {
-  const sockets: FakeSocket[] = [];
-  const timers: Timer[] = [];
-  const banners: (Banner | undefined)[] = [];
-  const loadErrors: (string | undefined)[] = [];
-  const titles: string[] = [];
-  const languages: string[] = [];
-  const logs: string[] = [];
-  const loads: BootData[] = [];
-  const updates: ViewUpdate[] = [];
-  const copies: string[] = [];
-  const opened: string[] = [];
-  const panel = fakePanel();
-  let handle: ((message: ViewMessage) => Promise<ViewReply>) | undefined;
-  let failLoads = options.failLoads ?? 0;
-  let drawn = 0;
-  const deps: BoardPageDeps = {
-    connect: (events) => {
-      const socket: FakeSocket = {
-        events,
-        sent: [],
-        open: true,
-        closed: false,
-        receive: (...messages) => {
-          for (const message of messages) events.onMessage(message as HostMessage);
-        },
-        close: (code) => {
-          socket.open = false;
-          events.onClose(code);
-        },
-      };
-      sockets.push(socket);
-      return {
-        send: (message) => {
-          if (!socket.open) return false;
-          socket.sent.push(message);
-          return true;
-        },
-        close: () => {
-          socket.closed = true;
-        },
-      };
-    },
-    openView: async (data, onMessage) => {
-      loads.push(data);
-      handle = onMessage;
-      if (failLoads > 0) {
-        failLoads -= 1;
-        throw new Error("/m answered 503");
-      }
-      return { update: (update) => updates.push(update) };
-    },
-    schedule: (ms, run) => {
-      const timer: Timer = { ms, run, cancelled: false };
-      timers.push(timer);
-      return () => {
-        timer.cancelled = true;
-      };
-    },
-    showBanner: (banner) => banners.push(banner),
-    showLoadError: (error) => loadErrors.push(error),
-    setTitle: (title) => titles.push(title),
-    setLanguage: (language) => languages.push(language),
-    log: (text) => logs.push(text),
-    copyText: async (text) => {
-      copies.push(text);
-    },
-    openLink: (url) => {
-      opened.push(url);
-    },
-    readingPanel: panel.port,
-    newActionId: () => {
-      drawn += 1;
-      return ID(drawn);
-    },
-  };
-  const page = runBoardPage(deps);
-  const socket = (n: number): FakeSocket => {
-    const found = sockets[n - 1];
-    if (found === undefined) throw new Error(`no socket ${n}`);
-    return found;
-  };
-  const view = async (message: ViewMessage): Promise<ViewReply> => {
-    if (handle === undefined) throw new Error("the view is not loaded");
-    return handle(message);
-  };
-  // Runs the next pending timer; fails if there is none.
-  const tick = (): number => {
-    const timer = timers.find((entry) => !entry.cancelled);
-    if (timer === undefined) throw new Error("no timer is pending");
-    timer.cancelled = true;
-    timer.run();
-    return timer.ms;
-  };
-  const pending = () => timers.filter((timer) => !timer.cancelled).map((timer) => timer.ms);
-  const banner = () => banners.at(-1);
-  return {
-    page,
-    sockets,
-    socket,
-    view,
-    tick,
-    pending,
-    banner,
-    banners,
-    loadErrors,
-    titles,
-    languages,
-    logs,
-    loads,
-    updates,
-    copies,
-    opened,
-    panel,
-    // What the page sent on a socket, drafts left out.
-    acts: (n: number) => socket(n).sent.filter((message) => message.type !== "draft"),
-    drafts: (n: number) => socket(n).sent.filter((message) => message.type === "draft"),
-  };
-};
-
-// Lets the view's load settle.
-const settled = () => Bun.sleep(0);
-
-// A board opened on socket 1, its view loaded and its question visible.
-const opened = async (options?: { failLoads?: number }) => {
-  const run = setUp(options);
-  run.socket(1).receive(board, stateOf(waiting));
-  await settled();
-  await run.view({ type: "ready", itemId: "database" });
-  return run;
-};
+  waiting,
+} from "../../test/board-page/controller-harness.ts";
 
 describe("the board page opens its board (design decision 8)", () => {
   test("opens one socket at once and loads the view with the board document and the state", async () => {
@@ -768,6 +562,7 @@ describe("a closed ask (ask-lifecycle: FR-6; Board banner, Closed and Unsent wor
     expect(run.banner()).toEqual({
       variant: "closed",
       text: "This ask was closed. The board is read-only.",
+      snapshot: true,
       takesFocus: true,
     });
     expect(run.updates.at(-1)?.lock).toBe("closed");

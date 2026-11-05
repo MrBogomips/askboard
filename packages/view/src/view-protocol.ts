@@ -11,7 +11,8 @@
 // message per command, and the draft mirror, as `draft`; the answer gains its "Other…" text, the
 // option notes and the open prompt's note. The board page tells the view the latest board
 // document, the closed lock, whether the connection is lost, the commands it holds and settles by
-// action ID, and a draft record to restore.
+// action ID, and a draft record to restore. The Snapshot (snapshot design decision 8) adds the
+// view's `snapshot` request and the update's `snapshot` feedback, typed in `snapshot-feedback.ts`.
 
 import {
   ACTION_ID_PATTERN,
@@ -32,6 +33,11 @@ import {
   UTC_TIME_PATTERN,
 } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
+import {
+  isSnapshotFeedback,
+  type SnapshotFeedback,
+  type ViewSnapshot,
+} from "./snapshot-feedback.ts";
 import type { ViewDocument } from "./view-document.ts";
 
 /** The tool-name prefix of every view message. */
@@ -173,7 +179,8 @@ export type ViewMessage =
   | ViewActivity
   | ViewSetting
   | ViewOpenSettings
-  | ViewOpenReference;
+  | ViewOpenReference
+  | ViewSnapshot;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -262,6 +269,8 @@ export type ViewUpdate = {
   readonly presentation?: ViewPresentation;
   /** How many times the settings panel has closed: the view focuses "Settings" on each. */
   readonly settingsClosed?: number;
+  /** How the latest Snapshot request the view sent ended (snapshot design decision 8). */
+  readonly snapshot?: SnapshotFeedback;
 };
 
 /** The optional fields of a view update. */
@@ -545,6 +554,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   },
   "open-settings": { checks: {} },
   "open-reference": { checks: { itemId, inset } },
+  snapshot: { checks: {} },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -757,6 +767,7 @@ export const UPDATE_FIELDS = {
   agent: { check: isAgentStatus, atBoot: true },
   presentation: { check: isPresentation, atBoot: true },
   settingsClosed: { check: isCount },
+  snapshot: { check: isSnapshotFeedback },
 } as const satisfies UpdateFields;
 
 /** A tool result's structured content, read as an update; undefined for anything else. */
@@ -773,3 +784,12 @@ export const readViewUpdate = (content: unknown): ViewUpdate | undefined => {
   }
   return update as ViewUpdate;
 };
+
+// The Snapshot's messages (snapshot design decision 8)
+
+export type {
+  SnapshotFailure,
+  SnapshotFeedback,
+  SnapshotRequestReply,
+  ViewSnapshot,
+} from "./snapshot-feedback.ts";

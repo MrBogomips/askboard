@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { Board, BoardExtras } from "./board.tsx";
+import { NO_CHANNEL } from "./channel.ts";
 import { type HeaderData, headerDataOf } from "./header-data.ts";
 import { DEFAULT_PRESENTATION, type PresentationControls } from "./presentation-controls.ts";
+import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore } from "./store.ts";
 
 // The context header's data in the view (task 8.5, design decision 12): who asked and where and
@@ -45,7 +47,11 @@ describe("the header's store on the board (review M5)", () => {
       set: () => undefined,
       openSettings: () => undefined,
     };
-    const extras: BoardExtras = { header, presentation };
+    const extras: BoardExtras = {
+      header,
+      presentation,
+      snapshot: createSnapshotControl(NO_CHANNEL),
+    };
     const props: Pick<Props, "extras"> = { extras };
     // @ts-expect-error: the board takes no header of its own, only its extras
     const own: Pick<Props, "header"> = { header };

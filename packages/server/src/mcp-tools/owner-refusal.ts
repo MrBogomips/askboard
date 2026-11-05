@@ -1,15 +1,17 @@
 // The refusal of a call on an owned ask that is not its owner's (AD-5; core spec, "Only the owner
 // acts on an owned ask", "Re-sending comes from the owner"): one text per refusal and tool, naming
-// the ask and what the agent can do. `ask`, `update` and `fetch` refuse a whole request; `collect`,
-// and the tools that later check owners, list it among the request's problems. `ownerCheck` binds a
-// call on one ask and gives its refusal, for `update` and `fetch` (task 3.7).
+// the ask and what the agent can do. `ask`, `update`, `fetch` and E7's `snapshot` refuse a whole
+// request; `collect`, and the tools that later check owners, list it among the request's problems.
+// `ownerCheck` binds a call on one ask and gives its refusal, for `update` and `fetch` (task 3.7);
+// `snapshot` binds its call itself, as ask-core checks the discard first (snapshot design
+// decision 7).
 
 import type { CallIdentity, OwnerRefusal } from "@askboard/core";
 import type { CallContext, ToolCore } from "./ports.ts";
 import { errorResult, type ToolResult } from "./results.ts";
 
 /** The tools that act on one ask, whose refusal is the whole result. */
-const ONE_ASK_TOOLS: readonly string[] = ["update", "fetch"];
+const ONE_ASK_TOOLS: readonly string[] = ["update", "fetch", "snapshot"];
 
 /** The text of a refusal `ask-core` gave `tool`'s call on `askId`. */
 export const ownerRefusalText = (kind: OwnerRefusal, askId: string, tool: string): string => {

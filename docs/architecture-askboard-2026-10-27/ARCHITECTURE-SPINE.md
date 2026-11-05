@@ -460,12 +460,12 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Content:**
     - A Snapshot is one HTML file built by `assemble` (AD-9).
-    - The `askboard-data` block, `<script type="application/json" id="askboard-data">`, comes first, with `<` escaped. It holds the board documents (AD-12) and every event in the ask's log, each answer carried with its full edited value on its own revision (AD-20), and the kept light and dark render of each diagram (AD-9).
-    - After the data block come the chunks the board uses, their styles, the view CSP as a meta tag and the licence notices of the inlined code. A diagram whose renders the data block holds needs no renderer chunk.
+    - The `askboard-data` block, `<script type="application/json" id="askboard-data">`, comes before every style and script, after the charset declaration and the view CSP meta tag, with `<` escaped. It holds the Snapshot's own record (when it was taken, by the agent or by whom, and whether a board's Snapshot left unsent work out); the current board document and every earlier revision an event names (AD-12); the board state the live board receives, with each question's state, current and previous answer, whether it was recorded, its receipt and its follow-up thread; the ask's origin (AD-5); every event in the ask's log, each answer carried with the full edited values `ask-core` keeps for it (AD-20); the molecule expansion map; and the kept light and dark render of each diagram (AD-9). The board document, revisions and board state use expanded IDs, as the view renders them; events and their values use the molecule references, as `collect` returns them.
+    - After the data block come the styles and scripts of the chunks the board uses, then the licence notices of the inlined code, as the JSON block `<script type="application/json" id="askboard-licences">`, with `<` escaped. A diagram whose renders the data block holds needs no renderer chunk.
     - A Snapshot never includes a draft record. A Snapshot taken from the board says so when unsent work exists.
   - **Writing:**
-    - The `snapshot` tool takes no path. AskBoard writes into the configured Snapshot folder (AD-14) under a name it chooses, `<ask-id>-<UTC timestamp>-<short random>.html`, and never overwrites a file.
-    - The tool returns the file path, not the content.
+    - The `snapshot` tool takes no path. AskBoard writes into the configured Snapshot folder (AD-14) under a name it chooses, `<ask-id>-<YYYYMMDDTHHMMSSZ>-<6 characters from [a-z0-9]>.html`, with no colon, and never overwrites a file.
+    - The tool returns the file's absolute path, not the content.
 
 ### AD-16 — Asking rules enforced by a hook [ADOPTED]
 
@@ -788,7 +788,7 @@ askboard/
   hooks/hooks.json       # settings hooks (askboard hook <event>) and the mod as hooks module
   packages/
     contract/            # every schema set (AD-7), formula grammar and whitelist, asking rules, constants, session-file module, generated types
-    core/                # ask-core: asks, revisions, board documents, event logs, drafts, ports (BoardAddress, MoleculeSource, SourceFiles, Config, FormulaEngine use)
+    core/                # ask-core: asks, revisions, board documents, event logs, drafts, ports (BoardAddress, MoleculeSource, SourceFiles, Config, SnapshotWriter, FormulaEngine use)
     compute/             # buildGraph, FormulaEngine port and adapter, PERT, CPM scheduling
     server/              # session process: mcp-tools, board-host (board listener, local API), excerpts, molecule-source, snapshot, notifier, hook mode
     view/                # board page, assemble, view shell, CatalogRenderer port, atoms, layouts

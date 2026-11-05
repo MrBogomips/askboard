@@ -39,6 +39,7 @@ const setUp = () => {
       return () => undefined;
     },
     showBanner: () => undefined,
+    showSnapshot: () => undefined,
     showLoadError: () => undefined,
     setTitle: () => undefined,
     setLanguage: () => undefined,

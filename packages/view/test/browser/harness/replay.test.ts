@@ -256,3 +256,58 @@ describe("Replay: protocol 1.1's board page against E1's transcripts (ask-lifecy
     expect(replay.problems()).toEqual([]);
   });
 });
+
+describe("Replay: a board's Snapshot (snapshot task 7.1)", () => {
+  const PAGE_ID = "zZ9yY8xX7wW6vV5uU4tT3s";
+  const lifecycleConnect = { ...connect, token: replayTranscripts.snapshot.token };
+  const request = (requestId: string, unsentWork = false) => ({
+    version: BOARD_PROTOCOL_VERSION,
+    type: "snapshot",
+    requestId,
+    ...(unsentWork ? { unsentWork: true } : {}),
+  });
+  // What the replay sent on socket 1, parsed.
+  const sentOn = (transcript: ReplayTranscript) => {
+    const sent: Record<string, unknown>[] = [];
+    const replay = new Replay(transcript.steps);
+    replay.attach({
+      send: (text) => sent.push(JSON.parse(text)),
+      close: () => {},
+      terminate: () => {},
+    });
+    return { replay, sent, send: (message: unknown) => replay.receive(1, JSON.stringify(message)) };
+  };
+
+  test("takes the page's request ID for the transcript's and answers under it", () => {
+    const { replay, sent, send } = sentOn(replayTranscripts.snapshot);
+    send(lifecycleConnect);
+    send(request(PAGE_ID));
+    expect(sent.map((message) => message.type)).toEqual(["board", "state", "snapshot-saved"]);
+    expect(sent[2]?.requestId).toBe(PAGE_ID);
+    expect(replay.problems()).toEqual([]);
+  });
+
+  test("tells a request whose unsent-work flag differs, or whose ID is no action ID", () => {
+    const { replay, send } = sentOn(replayTranscripts.snapshot);
+    send(lifecycleConnect);
+    send(request(PAGE_ID, true));
+    send(request("short"));
+    const problems = replay.problems();
+    // The short ID: off the transcript, and refused by the board protocol too.
+    expect(problems).toHaveLength(3);
+    expect(problems[0]).toContain("unsentWork");
+    expect(problems.filter((line) => line.includes("the board protocol refuses"))).toHaveLength(1);
+  });
+
+  test("answers internal-error to the first request of its part", () => {
+    const { sent, send } = sentOn(replayTranscripts.snapshotInternalError);
+    send(lifecycleConnect);
+    send(request(PAGE_ID));
+    expect(sent[2]).toEqual({
+      version: BOARD_PROTOCOL_VERSION,
+      type: "snapshot-failed",
+      requestId: PAGE_ID,
+      reason: "internal-error",
+    });
+  });
+});

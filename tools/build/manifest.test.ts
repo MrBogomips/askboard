@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { type ManifestFile, VIEW_MANIFEST_FILE, type ViewManifest } from "@askboard/contract";
+import {
+  type ManifestChunk,
+  type ManifestFile,
+  VIEW_MANIFEST_FILE,
+  type ViewManifest,
+} from "@askboard/contract";
 import { fixtureViewFiles, fixtureViewManifest } from "@askboard/contract/fixtures";
 import { fileEntry, hashProblems, listedFiles, manifestProblems } from "./manifest.ts";
 
@@ -72,5 +77,26 @@ describe("the manifest validates against the contract's view manifest schema", (
     const problems = manifestProblems(broken as unknown as ViewManifest);
     expect(problems.some((problem) => problem.startsWith("/chunks:"))).toBe(true);
     expect(problems.some((problem) => problem.includes('"table"'))).toBe(true);
+  });
+});
+
+describe("the build's manifest check on kept-render chunks (snapshot task 3.3)", () => {
+  test("a keptRender naming a chunk the manifest lacks fails, naming both chunks", () => {
+    const choice = fixtureViewManifest.chunks.choice as ManifestChunk;
+    const renderer: ManifestChunk = {
+      ...choice,
+      components: ["probe-diagram"],
+      keptRender: "probe-diagram-svg",
+    };
+    const manifest: ViewManifest = {
+      ...fixtureViewManifest,
+      chunks: { ...fixtureViewManifest.chunks, "probe-diagram": renderer },
+    };
+    expect(manifestProblems(manifest)).toEqual([
+      '/chunks/probe-diagram/keptRender: the chunk "probe-diagram" names "probe-diagram-svg" as its kept-render chunk, which is not in the manifest',
+    ]);
+    const kept = { ...choice, components: ["probe-diagram-svg"] };
+    const listed = { ...manifest, chunks: { ...manifest.chunks, "probe-diagram-svg": kept } };
+    expect(manifestProblems(listed)).toEqual([]);
   });
 });

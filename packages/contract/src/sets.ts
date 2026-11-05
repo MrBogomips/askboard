@@ -6,6 +6,7 @@ import { BOARD_PROTOCOL_MESSAGES, boardProtocol } from "./schemas/board-protocol
 import { configurationSet } from "./schemas/configuration/index.ts";
 import { inputFormat } from "./schemas/input/index.ts";
 import { outputFormat } from "./schemas/output/index.ts";
+import { snapshotDataSet } from "./schemas/snapshot-data/index.ts";
 import { toolEnvelopes } from "./schemas/tool-envelopes/index.ts";
 import { viewManifestSet } from "./schemas/view-manifest/index.ts";
 import type { SchemaSet } from "./versions.ts";
@@ -17,6 +18,8 @@ export const SCHEMA_SETS: readonly SchemaSet[] = [
   boardDocumentSet,
   boardProtocol,
   viewManifestSet,
+  // E7 (snapshot, design decision 2): the Snapshot data set.
+  snapshotDataSet,
   // settings-languages (E8): the configuration set (design decision 2).
   configurationSet,
 ];
@@ -73,6 +76,10 @@ export const SCHEMA_IDS = {
   boardReferenceProps: "urn:askboard:board-document:reference-props",
   boardImageProps: "urn:askboard:board-document:image-props",
 
+  // E7's tool envelopes (snapshot, design decision 2).
+  snapshotRequest: "urn:askboard:tool-envelopes:snapshot-request",
+  snapshotResult: "urn:askboard:tool-envelopes:snapshot-result",
+  snapshotOutcome: "urn:askboard:tool-envelopes:snapshot-outcome",
   // settings-languages (E8): the configuration set (design decision 2).
   configuration: "urn:askboard:configuration:config",
 } as const;

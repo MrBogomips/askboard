@@ -24,6 +24,13 @@ When the Snapshot cannot be written, `board-host` SHALL answer `snapshot-failed`
 - **WHEN** the board page sends `snapshot` in a session process started without `CLAUDE_PROJECT_DIR`
 - **THEN** the page receives `snapshot-failed` naming the request and `no-project-root`, and no file is written
 
+### Requirement: A board's Snapshot AskBoard fails to take
+When `ask-core` fails to take a board's Snapshot for any cause other than the folder, the project root or a discard, such as a damaged view build, `board-host` SHALL report the error and answer `snapshot-failed` with the request's ID and the reason `internal-error`, naming no folder, so every request on a live connection gets one reply (FR-26, NFR-10).
+
+#### Scenario: The view build is damaged
+- **WHEN** the board page sends `snapshot` and the view build cannot be loaded
+- **THEN** the page receives `snapshot-failed` naming the request and `internal-error`, the error is reported, no file is written, and the board stays open
+
 ### Requirement: Unsent work passed on as a fact
 `board-host` SHALL pass the request's `unsentWork` to `ask-core` as it came, and SHALL NOT consult the mirrored draft record for a Snapshot (AD-15, AD-20).
 

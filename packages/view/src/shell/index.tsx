@@ -1,7 +1,9 @@
 // The view shell's entry, bundled into the shell chunk (design decisions 7 and 8). It provides the
 // `CatalogRenderer` port to the component chunks, which run after it, and boots once the srcdoc
 // has parsed, when every chunk has run: it reads the `askboard-data` block, connects ext-apps'
-// `App` to the board page when it has a parent (a Snapshot has none, AD-9), and renders the board
+// `App` to the board page when it has a parent (a Snapshot has none, AD-9), taking it from the
+// shared-module registry only then, so no ext-apps code is needed without a host (snapshot design
+// decision 5), and renders the board
 // through AskBoard's own renderer, with the draft record and the ready tracker. The theme starts
 // as the system's and then follows the board page's; with no parent it follows the system
 // (EXPERIENCE.md, Dark theme). Since the ask lifecycle (ask-lifecycle, design decision 6): the
@@ -14,18 +16,19 @@
 // runs under the view's policy (S-6). Push delivery's part, the context header's data and the
 // user's activity for the board's working signal, starts beside them (`push-extras.ts`).
 
-import { App } from "@modelcontextprotocol/ext-apps";
+import type * as ExtApps from "@modelcontextprotocol/ext-apps";
 import { createRoot } from "react-dom/client";
 import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
 import { FrameTransport } from "../frame-transport.ts";
-import { provide } from "../shared-modules.ts";
+import { provide, shared } from "../shared-modules.ts";
 import {
   applyDensity,
   applyTheme,
   DARK_QUERY,
-  followTheme,
+  followSystemTheme,
   resolveTheme,
+  systemTheme,
   type Theme,
 } from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
@@ -58,11 +61,14 @@ import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
+import { snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
+import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
+import type { ThemeChoice } from "./theme-control.tsx";
 import type { ThreadRequest } from "./thread.tsx";
 
 /** The name component chunks import the port by; the view build maps it to this chunk's copy. */
@@ -72,8 +78,10 @@ provide(CATALOG_PORT, port);
 
 const VIEW_INFO = { name: "askboard-view", version: "0.0.0" };
 
-// The view fills its frame, which the board page sizes: no size notifications.
+// The view fills its frame, which the board page sizes: no size notifications. ext-apps' `App`
+// comes from its host-only chunk, which only a board loads; the shell imports its type alone.
 const connectToBoardPage = (): ViewChannel => {
+  const { App } = shared("@modelcontextprotocol/ext-apps") as Pick<typeof ExtApps, "App">;
   const app = new App(VIEW_INFO, {}, { autoResize: false });
   return openChannel(app, () => app.connect(new FrameTransport(window.parent, window)));
 };
@@ -160,14 +168,22 @@ const boot = (): void => {
   const root = document.getElementById("root");
   if (root === null) throw new Error("the view has no #root element");
   const hosted = window.parent !== window;
+  // A Snapshot has no parent and its data holds its record: it opens read-only (design decision 9).
+  const opened = hosted ? undefined : data.snapshot;
+  // The ask's title is agent text: it goes into the tab through the DOM, never through markup.
+  if (opened !== undefined) document.title = snapshotTitleOf(data.document.title);
   const setTheme = (theme: Theme) => applyTheme(document.documentElement, theme);
   const scheme = window.matchMedia(DARK_QUERY);
   // The presentation the board page had at boot sets theme and density before the first render.
   const presentation = data.presentation;
   applyDensity(document.documentElement, presentation?.density ?? "compact");
-  // A Snapshot follows the system until its Theme toggle says otherwise.
-  const follower = hosted ? undefined : followTheme(scheme, setTheme);
   if (hosted) setTheme(resolveTheme(presentation?.theme ?? "system", scheme.matches));
+  // An opened Snapshot's Theme control picks the system's theme or one fixed, and saves nothing.
+  const choice = createStore<ThemeChoice>("system");
+  const themeOf = (system: Theme): Theme =>
+    choice.get() === "system" ? system : (choice.get() as Theme);
+  if (!hosted) followSystemTheme(scheme, (system) => setTheme(themeOf(system)));
+  choice.subscribe(() => setTheme(themeOf(systemTheme(scheme))));
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
   const view = createStore<BoardView>({ document: data.document, state: data.state });
@@ -251,6 +267,7 @@ const boot = (): void => {
     // the answers of the latest board state (molecules, design decision 11).
     boardContent: createBoardContent(() => view.get()),
     derived: createDerivedStore(),
+    opened,
   };
   // What a component asks of the board page: a reference opened by its item, never by its target.
   const host: port.ViewHost = {
@@ -260,7 +277,6 @@ const boot = (): void => {
   const controls = startPresentation(data, channel, {
     hosted,
     report,
-    followTheme: (preference) => follower?.prefer(preference),
   });
   // The presentation's placement is the board's default; a question's own control overrides it.
   const followPlacement = () =>
@@ -270,6 +286,8 @@ const boot = (): void => {
   const extras: BoardExtras = {
     header: startPushExtras(data, channel, hosted, report),
     presentation: controls,
+    snapshot: createSnapshotControl(channel),
+    ...(opened === undefined ? {} : { theme: choice }),
   };
   createRoot(root).render(
     <BoardLanguage view={view}>

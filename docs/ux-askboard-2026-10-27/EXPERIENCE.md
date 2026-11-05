@@ -11,7 +11,7 @@ sources:
   - .working/technical-choices-proposal.md
   - reconcile-prd.md
   - reconcile-research.md
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # AskBoard — Experience Spine
@@ -144,6 +144,41 @@ The brand voice lives in DESIGN.md, Brand & Style. For the things the user acts 
 | Board banner | "Connection lost, retrying"; "Your unsent work was not sent", "Copy my unsent work"; "Continue here" | "Connessione persa, nuovo tentativo in corso"; "Il lavoro non inviato non è stato inviato", "Copia il mio lavoro non inviato"; "Continua qui" (to review) | L85, L139, F-17, F-58 |
 | Postponed warning (bottom action bar) | "You have 1 postponed question: closing loses this ask", "You have 2 postponed questions: closing loses this ask" | "Hai 1 domanda rinviata: chiudendo perdi questa richiesta", "Hai 2 domande rinviate: chiudendo perdi questa richiesta" (to review) | L172, L190 |
 | Snapshot | "Your unsent work will not be in the Snapshot"; on a project-file reference, "not available in a Snapshot"; the top line of an opened Snapshot, "Snapshot · taken Oct 28, 2026, 4:12 PM by the agent · read-only" (when and by whom; to review) | "Il lavoro non inviato non sarà nello Snapshot"; su un riferimento a un file del progetto, "non disponibile in uno Snapshot"; la riga in alto di uno Snapshot aperto, "Snapshot · creato il 28 ott 2026, 16:12 dall'agente · sola lettura" (to review) | F-80, F-69, L207 |
+| Browser tab | "<title> · AskBoard" | — | L110 |
+| Who asked | "Main agent · <name>", "Subagent <type> · <name>" (for example, "Subagent code-reviewer · Retry review"), "Teammate <name> · <display name>"; without a display name "Main agent", "Subagent <type>" or "Teammate <name>"; a second subagent of the same type "Subagent code-reviewer #2" | — | L86, F-53 |
+| Expected answerer | "For: <name>" | — | L87 |
+| Header fields | "Project", "Directory", "Branch", "Worktree" | — | Structural mock |
+| Ask state | "Waiting", "Partly answered 1/3", "Answered", "Closed", "Discarded"; with postponed or declined questions "answered, 1 postponed", "answered, 1 declined" | — | Colour page, L55, F-08 |
+| Agent state | "Agent: Working", "Agent: Waiting for your answer" | — | Colour page |
+| Header labels | "Ask" before the ask state, "Theme" before the theme control (to review) | — | L200 (T-6) |
+| Count and jump | "2 open", "Next open ↓"; in the question navigator "Next open →"; "1 new reply" | — | F-08, F-20, L210 |
+| Quick toggles | "Theme" ("System", "Light", "Dark"), "Compact" / "Comfortable", "Settings" | — | Structural mock, F-78 |
+| Outline | "Outline", "Unanswered", "New" | — | Structural mock, F-55 |
+| Question navigator | "Question n of m", "Previous", "Next", "Question removed by the agent" | — | L160, TC §1.6, F-55 |
+| Options | "Options · pick one", "Recommended", "Accept recommended", "+ Add your note to this option", agent annotation prefix "Agent:", "Other…", "Show preview" | — | L61, L108, L154, L155, structural mock |
+| Question actions | "Answer"; "More", which holds "Explain" (it sends "Why are you asking, and what changes with each option?") and "Decline" | — | L168, F-52, L152, L153 |
+| Open prompt | "Note for the agent (optional)"; "Reason for the changes (required)" while "Approve with changes" is selected | — | Golden prompt (L118), F-04 |
+| Postpone | "Postpone" | — | Structural mock |
+| Delivery receipt | "not sent yet", "sent", "delivered to the agent" | "consegnata all'agente" (for "delivered to the agent"); the others — | F-56, L159, F-48 |
+| Reopened question | "Reopened by the agent", "Start from my previous answer" | — | F-18 |
+| Follow-up | "Follow-up", "2 messages", "no messages yet", "Ask a follow-up", "Collapse", composer "Ask the agent a follow-up…", "Send"; message time "5:42 PM" in en-US (to review) | — | Structural mock, golden-1-base, L200 (T-9) |
+| Context column | "Excerpt and references", "Beside \| Inline", "opens in a reading panel", "opens in browser ↗", "Open in reading panel", type labels "FILE", "GITHUB", "WEB" (every other web address, Atlassian's included); for an unresolved excerpt or image, "Unresolved" with its pointer (to review) | — | Structural mock, L160, F-60 |
+| Reading panel | "Open in editor", "Changed since the agent asked"; "This file is not available", "This file cannot be shown as text", "This file is too large to show here", each with the path; "No editor set: `editor` in ~/.config/askboard/config.json", "Could not start the editor" (to review) | — | L79, F-40 |
+| Settings panel | "Theme", "Density", "Context placement", "Language", "Default language", "Asking rules", "Snapshot folder", "Editor"; the note "Applies from the next session" over the behavioural settings (to review) | — | L209 |
+| Diff review | "Fix A \| Fix B \| A vs B", "Split \| Unified", "Accept file", "Reject file", "Accepted", "Rejected", "Edit" (on a line comment); a collapsed run of unchanged lines labelled by its hunk header as the diff gives it ("@@ -41,8 +41,10 @@ …") (to review) | — | Structural mock, L200 (T-7) |
+| Graph | "Add state", "Add transition", "Delete", "Comment", "Auto-layout", "Checks", "Changes vs agent's original", "none yet" | — | Structural mock |
+| Diagram | "Diagram \| Source", "Annotate", "Your changes: 1 annotation"; with no change yet, "Changes vs agent's original · none yet" (to review) | — | golden-1-base, L200 (T-8) |
+| Approval | "Approve", "Approve with changes", "Reject"; the label "Approval" above the decision buttons and the summary title "2 changes" (with the count) (to review); the Field error for an empty required reason, "Add the reason for your changes." (to review) | — | FR-11, F-04, L200 (T-4), L198 |
+| Ranking and Kanban | "Keep this order", "Move up", "Move down", "Move to…" | — | L160, TC §2.1, §2.2 |
+| Sales estimate review | "Total", "Margin", "on" / "off" for an optional line (to review) | — | L200 (T-4) |
+| WBS with PERT | Columns "Work package", "Optimistic", "Most likely", "Pessimistic", "Expected effort", "Spread" (to review) | — | L200 (T-5) |
+| Gantt plan | Columns "Task", "Start", "Duration"; zoom "Day \| Week \| Month" (to review) | — | L200 (T-5) |
+| Bottom action bar | "Delivery", "Immediate \| Submitted", "Answers go to the agent as you give them.", "Select recommended", "Snapshot", "Submit" | — | Structural mock, L170 |
+| Agent-change notice | "The agent updated this", "Your 17 changes on this question" (with the count), "Show the agent's change", "Reload, losing my work", "Keep mine" | — | L58, F-19 |
+| Deleted item | "Removed by the agent" [ASSUMPTION] | — | L60 |
+| Board banner | "Connection lost, retrying"; "Your unsent work was not sent", "Copy my unsent work"; "Continue here" | — | L85, L139, F-17, F-58 |
+| Postponed warning (bottom action bar) | "You have 1 postponed question: closing loses this ask", "You have 2 postponed questions: closing loses this ask" | — | L172, L190 |
+| Snapshot | "Your unsent work will not be in the Snapshot", shown as the Snapshot is taken, with no confirmation; on a project-file reference, "not available in a Snapshot"; the top line of an opened Snapshot, "Snapshot · taken Oct 28, 2026, 4:12 PM by the agent · read-only" (when and by whom; to review), with "by <who>" when the user took it and "· your unsent work is not included" before "· read-only" when the board held unsent work (to review) | — | F-80, F-69, L207; OpenSpec change `snapshot` |
 
 | Do | Don't |
 |---|---|
@@ -654,7 +689,7 @@ An opened Snapshot: [mock](mockups/key-snapshot-view.html), Marco's UJ-3 board i
   - a project-file reference shows its path and anchor as text, marked "not available in a Snapshot", and a web reference opens only on an explicit click.
 - **Security.** The file holds no board token (L84, AD-8).
 - **Where.** In the Snapshot folder, set in the configuration. AskBoard names the file, never overwrites one, and the folder is ignored by git by default (FR-27, L40, AD-14, AD-15).
-- **Not recorded:** whether the board shows a Snapshot the agent took.
+- **The agent's Snapshots:** the board does not show a Snapshot the agent took; the agent's result names the file (OpenSpec change `snapshot`).
 
 ## Notices
 
@@ -907,7 +942,7 @@ Not blocking. They stay open until the stories close them (L145).
     - a pending follow-up reply, beyond Explain being disabled;
     - the reading panel's loading look and its treatment of a very large file (F-40);
     - the moved-board tab's wording.
-19. **Snapshot feedback.** Whether the board shows a Snapshot the agent took.
+19. **Snapshot feedback.** Decided by the OpenSpec change `snapshot`: the board does not show a Snapshot the agent took (Snapshots).
 
 **Settings**
 

@@ -10,6 +10,10 @@
 // design decisions 3 and 12) joins as ask-core's `Config` port over the two files; the local API
 // starts once ask-core has read them, so that its first `/v1/rule` answers the rule in effect, and
 // board-host's editor command is the user file's (design decision 5).
+// session project root alone, through the excerpts unit; board-host has no editor command until
+// configuration supplies one (E8).
+// Snapshots (E7) join through `composeSnapshots`: the writer over the session project root, and
+// the origin row's project.
 
 import { randomBytes } from "node:crypto";
 import { AskCore, type Clock, type SourceFiles } from "@askboard/core";
@@ -30,6 +34,7 @@ import {
 } from "./mcp-tools/index.ts";
 import { createNotifier, type Environment } from "./notifier/index.ts";
 import { composePush, sessionProjectRoot } from "./push-composition.ts";
+import { composeSnapshots } from "./snapshot-composition.ts";
 
 export type SessionProcessOptions = {
   readonly env: Environment;
@@ -97,6 +102,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     reportAs,
     rule: () => coreOf().askingRule(),
   });
+  const snapshots = composeSnapshots(options, { projectDir: push.projectDir });
   const host = createBoardHost({
     core: coreOf,
     view: options.view,
@@ -122,6 +128,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     sources: options.sources ?? createSourceFiles({ projectRoot }),
     ...(projectRoot === undefined ? {} : { projectRoot }),
     config: configFiles({ env: options.env }),
+    ...snapshots.ports,
   });
   // The first request other than `server/discover` reads the configuration, then starts the local
   // API, whatever the read gives: a file not applied still lets it start, with the defaults.

@@ -48,9 +48,12 @@ import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
+import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
+import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, selectRecommended, submitStateOf } from "./submit.ts";
+import type { ThemeChoice } from "./theme-control.tsx";
 
 /** What the board page last told the view, with the latest board document. */
 export type BoardView = {
@@ -87,6 +90,10 @@ export type BoardExtras = {
   readonly header: Store<HeaderData>;
   /** The quick toggles' presentation, and what they ask for (settings-languages, design 10). */
   readonly presentation: PresentationControls;
+  /** The bottom action bar's Snapshot (snapshot task 7.1). */
+  readonly snapshot: SnapshotControl;
+  /** An opened Snapshot's Theme control: the choice, saved nowhere (snapshot task 8.3). */
+  readonly theme?: Store<ThemeChoice>;
 };
 
 // Questions the agent changed under the user's work, made on an earlier revision, that wait for
@@ -389,31 +396,39 @@ export const Board = ({
   });
   return (
     <div className="flex min-h-screen flex-col">
+      {context.opened === undefined ? null : <SnapshotTopLine opened={context.opened} />}
       <BoardHeader
         title={document.title}
         pill={askPillOf(state, lock, language)}
         counts={single ? undefined : counts}
         header={extras.header}
         controls={extras.presentation}
+        theme={extras.theme}
       />
       {body}
-      <BottomBar
-        single={single}
-        document={document}
-        delivery={delivery}
-        warning={postponedWarningOf(document, state, draft.questions, language)}
-        submit={submit}
-        recommendations={hasRecommendation(document)}
-        locked={lock !== undefined}
-        context={context}
-        onSelectRecommended={() =>
-          selectRecommended(document, state, context, (id) => {
-            const question = questions.find((each) => each.id === id);
-            return question === undefined || !takesSelection(context, question, draft, kept, lock);
-          })
-        }
-        onJump={go}
-      />
+      {context.opened !== undefined ? null : (
+        <BottomBar
+          single={single}
+          document={document}
+          delivery={delivery}
+          warning={postponedWarningOf(document, state, draft.questions, language)}
+          submit={submit}
+          recommendations={hasRecommendation(document)}
+          locked={lock !== undefined}
+          context={context}
+          onSelectRecommended={() =>
+            selectRecommended(document, state, context, (id) => {
+              const question = questions.find((each) => each.id === id);
+              return (
+                question === undefined || !takesSelection(context, question, draft, kept, lock)
+              );
+            })
+          }
+          onJump={go}
+          snapshot={extras.snapshot}
+          snapshotOffer={snapshotOfferOf(lock, connection)}
+        />
+      )}
     </div>
   );
 };

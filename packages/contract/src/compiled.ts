@@ -33,8 +33,12 @@ export const compiled = (): Ajv2020 => {
  * An `if` error is left out beside others: it only says that the branch it chose failed, whose own
  * errors say why. When it is all there is, it is kept, so a failed value is never errorless.
  */
-export const schemaErrors = (id: string, value: unknown): readonly ErrorObject[] => {
-  const validate = compiled().getSchema(id);
+export const schemaErrors = (id: string, value: unknown): readonly ErrorObject[] =>
+  errorsIn(compiled(), id, value);
+
+/** The errors of the schema `id` of `ajv` on a value, kept as `schemaErrors` keeps them. */
+export const errorsIn = (ajv: Ajv2020, id: string, value: unknown): readonly ErrorObject[] => {
+  const validate = ajv.getSchema(id);
   if (validate === undefined) throw new Error(`the contract has no schema ${id}`);
   if (validate(value)) return [];
   const errors = validate.errors ?? [];

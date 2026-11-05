@@ -9,13 +9,21 @@
 // delivery's presence messages (task 5.3) are no transcript's either: the comparisons leave them
 // out, and `presenceMessagesOf` lists them.
 
-import { ACTION_ID_PATTERN, type PageMessage, UTC_TIME_PATTERN } from "@askboard/contract";
+import {
+  ACTION_ID_PATTERN,
+  type PageMessage,
+  type SnapshotCommand,
+  UTC_TIME_PATTERN,
+} from "@askboard/contract";
 import type { ReplayTranscript } from "./transcripts.ts";
 
 /** A message the board page sent, with the number of the socket it sent it on, from 1. */
 export type SentMessage = { readonly socket: number; readonly message: unknown };
 
-export type ExpectedMessage = { readonly socket: number; readonly message: PageMessage };
+export type ExpectedMessage = {
+  readonly socket: number;
+  readonly message: PageMessage | SnapshotCommand;
+};
 
 /** When the user acted: the test's clock just before the click and just after it. */
 export type ClickWindow = { readonly from: number; readonly to: number };
@@ -55,14 +63,29 @@ export const answerOfAct = (message: unknown): Record<string, unknown> | undefin
 /** Whether a message is a draft record, which the board page mirrors on its own. */
 export const isDraft = (message: unknown): boolean => isRecord(message) && message.type === "draft";
 
-/** Whether a sent message is the transcript's, an answer's `when` checked as a time. */
+// A Snapshot request with the page's own request ID, a fresh action ID (snapshot task 7.1).
+const sameSnapshot = (sent: Record<string, unknown>, expected: SnapshotCommand): boolean => {
+  const { requestId, ...rest } = sent;
+  const { requestId: _, ...expectedRest } = expected;
+  return (
+    typeof requestId === "string" &&
+    ACTION_ID.test(requestId) &&
+    Bun.deepEquals(rest, expectedRest, true)
+  );
+};
+
+/**
+ * Whether a sent message is the transcript's, an answer's `when` checked as a time and a Snapshot
+ * request's ID as an action ID.
+ */
 export const samePageMessage = (
   sent: unknown,
-  expected: PageMessage,
+  expected: PageMessage | SnapshotCommand,
   answeredAt?: ClickWindow,
 ): boolean => {
   const actual = expected.type === "answer" ? (answerOfAct(sent) ?? sent) : sent;
   if (!isRecord(actual)) return false;
+  if (expected.type === "snapshot") return sameSnapshot(actual, expected);
   if (expected.type !== "answer") return Bun.deepEquals(actual, expected, true);
   const { when, ...rest } = actual;
   const { when: _, ...expectedRest } = expected;

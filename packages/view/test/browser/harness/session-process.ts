@@ -194,6 +194,11 @@ class ProcessSession implements BoardSession {
     return { state: collected.state, events: collected.events };
   }
 
+  snapshot(): Promise<{ readonly path: string; readonly state: string }> {
+    const life = this.#current;
+    return life.agent.snapshot(life.link.askId);
+  }
+
   update(actions: readonly unknown[]): Promise<unknown> {
     const life = this.#current;
     return life.agent.update(life.link.askId, actions);
