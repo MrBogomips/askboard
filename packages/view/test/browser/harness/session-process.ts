@@ -462,7 +462,14 @@ const startFirst = async (
 export const startSessionProcess = async (
   { transcript, view, ask, asker, files, projectDir: given }: Scenario,
   options: SessionProcessOptions = {},
+  { transcript, view, ask, asker, config }: Scenario,
+  given: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
+  const options: SessionProcessOptions = {
+    ...(config?.user === undefined ? {} : { userConfig: config.user }),
+    ...(config?.project === undefined ? {} : { projectConfig: config.project }),
+    ...given,
+  };
   const input = withAsker(ask ?? (await askInputFor(transcript, options.approvedAsk)), asker);
   const runtime = options.runtime ?? runtimeFrom(process.env.ASKBOARD_E2E_RUNTIME);
   const stage = await stageSession(view, options.bundle);

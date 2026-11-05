@@ -20,7 +20,15 @@ import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
 import { FrameTransport } from "../frame-transport.ts";
 import { provide } from "../shared-modules.ts";
-import { applyTheme, DARK_QUERY, followSystemTheme, systemTheme, type Theme } from "../theme.ts";
+import {
+  applyDensity,
+  applyTheme,
+  DARK_QUERY,
+  followSystemTheme,
+  resolveTheme,
+  systemTheme,
+  type Theme,
+} from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createRevisions, type KeptChoices } from "./agent-change.ts";
@@ -154,7 +162,10 @@ const boot = (): void => {
   const hosted = window.parent !== window;
   const setTheme = (theme: Theme) => applyTheme(document.documentElement, theme);
   const scheme = window.matchMedia(DARK_QUERY);
-  if (hosted) setTheme(systemTheme(scheme));
+  // The presentation the board page had at boot sets theme and density before the first render.
+  const presentation = data.presentation;
+  applyDensity(document.documentElement, presentation?.density ?? "compact");
+  if (hosted) setTheme(resolveTheme(presentation?.theme ?? "system", scheme.matches));
   else followSystemTheme(scheme, setTheme);
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
@@ -183,6 +194,9 @@ const boot = (): void => {
   let restored = 0;
   let closedPanel = 0;
   channel.onUpdate((update) => {
+    if (update.presentation !== undefined) {
+      applyDensity(window.document.documentElement, update.presentation.density);
+    }
     const before = view.get().document;
     const document = update.document ?? before;
     if (update.document !== undefined) {

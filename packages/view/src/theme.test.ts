@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { applyDensity, applyTheme, followSystemTheme, readTheme, systemTheme } from "./theme.ts";
+import {
+  applyDensity,
+  applyTheme,
+  followSystemTheme,
+  followTheme,
+  readTheme,
+  resolveTheme,
+  systemTheme,
+} from "./theme.ts";
 
 // A media query list whose answer the test changes.
 const media = (matches: boolean) => {
@@ -76,5 +84,32 @@ describe("the density class", () => {
     applyDensity(target, "comfortable");
     applyDensity(target, "compact");
     expect([...target.classes]).toEqual(["dark"]);
+  });
+});
+
+describe("the theme preference", () => {
+  test("system follows the system's scheme; light and dark ignore it", () => {
+    expect(resolveTheme("system", true)).toBe("dark");
+    expect(resolveTheme("system", false)).toBe("light");
+    expect(resolveTheme("light", true)).toBe("light");
+    expect(resolveTheme("dark", false)).toBe("dark");
+  });
+
+  test("a followed preference applies the resolved theme now and on each system change", () => {
+    const { list, change } = media(false);
+    const applied: string[] = [];
+    const follower = followTheme(list, (theme) => applied.push(theme));
+    expect(applied).toEqual(["light"]);
+    change(true);
+    expect(applied).toEqual(["light", "dark"]);
+    expect(follower.current()).toBe("dark");
+    follower.prefer("light");
+    expect(applied).toEqual(["light", "dark", "light"]);
+    change(false);
+    change(true);
+    expect(applied).toEqual(["light", "dark", "light"]);
+    expect(follower.current()).toBe("light");
+    follower.prefer("system");
+    expect(applied.at(-1)).toBe("dark");
   });
 });

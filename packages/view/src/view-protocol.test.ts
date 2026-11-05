@@ -732,3 +732,33 @@ describe("the table of an update's optional fields (review M4, L10)", () => {
     }
   });
 });
+
+describe("the presentation in an update (settings-languages, task 8.2)", () => {
+  const presentation = {
+    theme: "light",
+    density: "comfortable",
+    contextPlacement: "beside",
+    locked: ["theme", "contextPlacement"],
+  } as const;
+
+  test("goes with the state and reads back", () => {
+    const update = { type: "state", state: waiting, presentation } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("an update whose presentation the view cannot apply is not an update", () => {
+    for (const wrong of [
+      { ...presentation, theme: "auto" },
+      { ...presentation, density: "tight" },
+      { ...presentation, contextPlacement: "left" },
+      { ...presentation, locked: ["language"] },
+      { ...presentation, locked: "theme" },
+      { theme: "dark" },
+      "dark",
+    ]) {
+      expect(
+        readViewUpdate({ type: "state", state: waiting, presentation: wrong }),
+      ).toBeUndefined();
+    }
+  });
+});

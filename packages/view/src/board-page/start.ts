@@ -16,7 +16,7 @@
 // on, it reads the focus again once a second, and it stops doing so when the page goes away.
 
 import { WORKING_WINDOW_MS } from "@askboard/contract";
-import { applyTheme, DARK_QUERY, followSystemTheme } from "../theme.ts";
+import { applyDensity, applyTheme, DARK_QUERY, followTheme } from "../theme.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
 import { loadView } from "./load-view.ts";
 import { createPageChrome } from "./page-chrome.ts";
@@ -60,7 +60,8 @@ export const startBoardPage = (window: Window): void => {
     copyUnsentWork: () => void page?.copyUnsentWork(),
   });
   let host: ViewHost | undefined;
-  const theme = followSystemTheme(window.matchMedia(DARK_QUERY), (next) => {
+  // The preference is `system` until the settings say otherwise (settings-languages, design 11).
+  const theme = followTheme(window.matchMedia(DARK_QUERY), (next) => {
     applyTheme(document.documentElement, next);
     host?.setTheme(next);
   });
@@ -76,7 +77,7 @@ export const startBoardPage = (window: Window): void => {
       const assembled = await loadView(data, link.token);
       const peer = chrome.frame.contentWindow;
       if (peer === null) throw new Error("the view's frame is not in the document");
-      host = await hostView(peer, window, handle, theme());
+      host = await hostView(peer, window, handle, theme.current());
       chrome.frame.srcdoc = assembled.srcdoc;
       return host;
     },
@@ -90,6 +91,10 @@ export const startBoardPage = (window: Window): void => {
     // The static `lang="en"` stays until the first board (settings-languages, B13).
     setLanguage: (lang) => {
       document.documentElement.lang = lang;
+    },
+    applyPresentation: (presentation) => {
+      applyDensity(document.documentElement, presentation.density);
+      theme.prefer(presentation.theme);
     },
     log: (text, detail) => {
       if (detail === undefined) console.error(`askboard: ${text}`);

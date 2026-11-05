@@ -47,6 +47,11 @@ export type Scenario = {
    * owns it. Without it, a temporary folder is made and removed.
    */
   readonly projectDir?: string;
+   * The configuration files the session process starts with (settings-languages): the user file
+   * and the project's `.askboard/config.json`, as JSON values. A scenario with either runs on the
+   * session process whatever the target, since only it reads configuration.
+   */
+  readonly config?: { readonly user?: unknown; readonly project?: unknown };
 };
 
 /** A file of the session project: its text or bytes, or a symbolic link to a target path. */
@@ -91,6 +96,6 @@ const TARGET = targetFrom(process.env.ASKBOARD_E2E_TARGET);
 
 /** The session side the browser tests use: the target the environment names. */
 export const startSession: StartSession = (scenario) =>
-  TARGET === "session-process" || scenario.ask !== undefined
+  TARGET === "session-process" || scenario.ask !== undefined || scenario.config !== undefined
     ? startSessionProcess(scenario)
     : startTestServer(scenario);

@@ -36,6 +36,7 @@ import type {
   ViewItemError,
   ViewMessage,
   ViewOpenReference,
+  ViewPresentation,
   ViewReady,
   ViewUpdate,
 } from "../view-protocol.ts";
@@ -117,6 +118,11 @@ export type BoardPageDeps = {
   readonly setTitle: (title: string) => void;
   /** Sets the page's `lang` to the board's language (settings-languages design decision 9). */
   readonly setLanguage: (lang: "en" | "it") => void;
+  /**
+   * Applies the presentation the settings give to the board page itself: its root's theme and
+   * density classes, and the system scheme it follows only under `system`.
+   */
+  readonly applyPresentation?: (presentation: ViewPresentation) => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
   /** Puts text on the clipboard, on the user's click (F-17). */
@@ -548,6 +554,14 @@ class BoardPageController implements BoardPage {
     // Read before the board on each connect; the board page applies them with its settings
     // (settings-languages, task 8.2).
     settings: () => undefined,
+    // Read before the board on each connect and after each write: the page applies the
+    // presentation to its own root at once and the view gets it with its next update, or in its
+    // boot data (settings-languages, design decision 10).
+    settings: (message) => {
+      this.#keep(message);
+      const { presentation } = this.#model.passedOn;
+      if (presentation !== undefined) this.#deps.applyPresentation?.(presentation);
+    },
   };
 
   // A message the model keeps, which the view shows: a receipt, who asked and where, the status.

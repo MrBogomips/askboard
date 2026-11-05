@@ -67,6 +67,7 @@ describe("the fields the view boots from, as the table of update fields marks th
   const AT_BOOT: { readonly [K in BootField]: NonNullable<ViewUpdate[K]> } = {
     origin: { who: { label: "Main agent" }, project: "order-service", directory: "." },
     agent: "waiting",
+    presentation: { theme: "dark", density: "comfortable", contextPlacement: "inline", locked: [] },
   };
   const version = BOARD_PROTOCOL_VERSION;
   const board: HostMessage = { version, type: "board", document: plainChoiceBoardDocument };
@@ -90,5 +91,30 @@ describe("the fields the view boots from, as the table of update fields marks th
   test("the block's other fields pass through, unchecked", () => {
     const extra = { ...data, later: { at: 1 } };
     expect(parseBootData(JSON.stringify(extra))).toEqual(extra);
+  });
+});
+
+describe("the presentation in the block (settings-languages, task 8.2)", () => {
+  const presentation = {
+    theme: "dark",
+    density: "comfortable",
+    contextPlacement: "inline",
+    locked: ["density"],
+  } as const;
+
+  test("is kept when the board page had it", () => {
+    const full: BootData = { ...data, presentation };
+    expect(parseBootData(JSON.stringify(full))).toEqual(full);
+  });
+
+  test("is left out when the view cannot apply it", () => {
+    for (const wrong of [
+      { ...presentation, theme: "sepia" },
+      { ...presentation, density: 3 },
+      { ...presentation, locked: ["editor"] },
+      "dark",
+    ]) {
+      expect(parseBootData(JSON.stringify({ ...data, presentation: wrong }))).toEqual(data);
+    }
   });
 });

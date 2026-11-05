@@ -16,6 +16,8 @@
 import {
   ACTION_ID_PATTERN,
   type AgentStatus,
+  type ContextPlacement,
+  type Density,
   type DraftRecord,
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
@@ -24,6 +26,8 @@ import {
   OPTION_NOTE_MAX_CHARS,
   type OriginMessage,
   OTHER_MAX_CHARS,
+  type PresentationKey,
+  type ThemePreference,
   UTC_TIME_PATTERN,
 } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
@@ -211,6 +215,17 @@ export type PanelClosed = { readonly id: number; readonly itemId: string };
 export type HeaderOrigin = Omit<OriginMessage, "version" | "type">;
 
 /**
+ * The theme, density and context placement the user's settings give, and the keys the project
+ * fixes, so that a toggle for one is read-only (settings-languages, design decision 10).
+ */
+export type ViewPresentation = {
+  readonly theme: ThemePreference;
+  readonly density: Density;
+  readonly contextPlacement: ContextPlacement;
+  readonly locked: readonly PresentationKey[];
+};
+
+/**
  * What the board page tells a booted view: the board state, as `board-host` last sent it with the
  * receipts since; the latest board document; the lock, while there is one; whether the connection
  * is lost, which disables Submit; the commands it holds, and how the latest ones ended; and the
@@ -231,6 +246,7 @@ export type ViewUpdate = {
   readonly panelClosed?: PanelClosed;
   readonly origin?: HeaderOrigin;
   readonly agent?: AgentStatus;
+  readonly presentation?: ViewPresentation;
 };
 
 /** The optional fields of a view update. */
@@ -657,6 +673,24 @@ const AGENT_STATUSES: readonly unknown[] = ["working", "waiting"] satisfies Agen
 export const isAgentStatus = (value: unknown): value is AgentStatus =>
   AGENT_STATUSES.includes(value);
 
+const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
+const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
+const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
+const PRESENTATION_KEY_NAMES: readonly unknown[] = [
+  "theme",
+  "density",
+  "contextPlacement",
+] satisfies PresentationKey[];
+
+/** Whether the view can apply this as the presentation. */
+export const isPresentation = (value: unknown): value is ViewPresentation =>
+  isRecord(value) &&
+  THEMES.includes(value.theme) &&
+  DENSITIES.includes(value.density) &&
+  PLACEMENTS.includes(value.contextPlacement) &&
+  Array.isArray(value.locked) &&
+  value.locked.every((key) => PRESENTATION_KEY_NAMES.includes(key));
+
 const isLock = (value: unknown): value is ViewLock => LOCKS.includes(value);
 
 /**
@@ -675,6 +709,7 @@ export const UPDATE_FIELDS = {
   panelClosed: { check: isPanelClosed },
   origin: { check: isHeaderOrigin, atBoot: true },
   agent: { check: isAgentStatus, atBoot: true },
+  presentation: { check: isPresentation, atBoot: true },
 } as const satisfies UpdateFields;
 
 /** A tool result's structured content, read as an update; undefined for anything else. */
