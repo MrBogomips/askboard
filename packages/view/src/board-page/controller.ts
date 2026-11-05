@@ -23,10 +23,11 @@ import {
   type LifecycleBoardDocument,
   type LifecycleStateMessage,
   type Locale,
+  type PresentationSetting,
   type RefusedMessage,
 } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
-import { htmlLang, languageOf, t } from "../strings/index.ts";
+import { htmlLang, languageOf, localeOf, t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type {
   ActReply,
@@ -80,6 +81,7 @@ import type { ReadingPanel } from "./reading-panel.ts";
 import { pathOf } from "./reading-panel-state.ts";
 import { reconnectDelay } from "./reconnect.ts";
 import { sourcePointerOf, webUrlOf } from "./references.ts";
+import { type PanelData, panelData } from "./settings-panel-data.ts";
 import type { BoardConnection, BoardSocketHandlers } from "./socket.ts";
 import { tabTitle } from "./tab-title.ts";
 import { hasUnsentWork, unsentWorkText } from "./unsent-work.ts";
@@ -124,8 +126,12 @@ export type BoardPageDeps = {
    * density classes, and the system scheme it follows only under `system`.
    */
   readonly applyPresentation?: (presentation: ViewPresentation) => void;
-  /** Opens the settings panel: the view's "Settings" (settings-languages, design decision 10). */
-  readonly openSettings?: () => void;
+  /**
+   * Shows the settings panel with these rows, or closes it with undefined: opened by the view's
+   * "Settings", and shown again after each change of the settings while it is open
+   * (settings-languages, design decision 10).
+   */
+  readonly showSettings?: (panel: PanelData | undefined) => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
   /** Puts text on the clipboard, on the user's click (F-17). */
@@ -156,6 +162,10 @@ export type BoardPage = {
    * command is held, and while postponed questions are open on an open ask (L57, L172, FR-25).
    */
   leavePromptArmed(): boolean;
+  /** The settings panel's choice of a presentation key: what a quick toggle does. */
+  setPresentation(setting: PresentationSetting): ViewReply;
+  /** The settings panel was closed: the view is asked to focus "Settings". */
+  closeSettings(): void;
 };
 
 const refusal = (detail: string): AnswerReply => ({ outcome: "refused", detail });
@@ -225,6 +235,10 @@ class BoardPageController implements BoardPage {
   // The reading panel's latest closing by the user, which the view acts on once.
   #closed: PanelClosed | undefined;
   #closings = 0;
+  // The settings panel: whether it is open, and how many times it has closed (the view focuses
+  // "Settings" on each).
+  #settingsOpen = false;
+  #settingsClosed = 0;
 
   constructor(deps: BoardPageDeps) {
     this.#deps = deps;
@@ -315,6 +329,7 @@ class BoardPageController implements BoardPage {
       ...(settled.length === 0 ? {} : { settled }),
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
       ...(this.#closed === undefined ? {} : { panelClosed: this.#closed }),
+      ...(this.#settingsClosed === 0 ? {} : { settingsClosed: this.#settingsClosed }),
       ...this.#model.passedOn,
     });
   }
@@ -385,7 +400,8 @@ class BoardPageController implements BoardPage {
     this.#updateView();
     setting: (message) => this.#setting(message),
     "open-settings": () => {
-      this.#deps.openSettings?.();
+      this.#settingsOpen = true;
+      this.#showSettings();
       return {};
     },
   };
@@ -393,6 +409,28 @@ class BoardPageController implements BoardPage {
   // A toggle's value: applied to the board at once, then sent to board-host to be written as the
   // user's setting. A key the project sets is refused here and by ask-core (AD-14). The value
   // stays on this board whatever the write does (design decision 6).
+  setPresentation(setting: PresentationSetting): ViewReply {
+    return this.#setting({ type: "setting", ...setting });
+  }
+
+  closeSettings(): void {
+    if (!this.#settingsOpen) return;
+    this.#settingsOpen = false;
+    this.#settingsClosed += 1;
+    this.#deps.showSettings?.(undefined);
+    this.#updateView();
+  }
+
+  // The panel's rows for the settings and presentation in effect, while it is open.
+  #showSettings(): void {
+    const { settings, passedOn, document } = this.#model;
+    const { presentation } = passedOn;
+    if (!this.#settingsOpen || settings === undefined || presentation === undefined) return;
+    this.#deps.showSettings?.(
+      panelData(settings, presentation, languageOf(document), localeOf(document)),
+    );
+  }
+
   #setting(message: ViewSetting): ViewReply {
     const presentation = this.#model.passedOn.presentation;
     if (presentation?.locked.includes(message.key)) {
@@ -405,6 +443,7 @@ class BoardPageController implements BoardPage {
       this.#model = { ...this.#model, passedOn: { ...this.#model.passedOn, presentation: next } };
       this.#deps.applyPresentation?.(next);
       this.#updateView();
+      this.#showSettings();
     }
     const sent = this.#socket?.send({ version, ...message }) === true;
     return { outcome: sent ? "sent" : "not-sent" };
@@ -589,6 +628,7 @@ class BoardPageController implements BoardPage {
       this.#keep(message);
       const { presentation } = this.#model.passedOn;
       if (presentation !== undefined) this.#deps.applyPresentation?.(presentation);
+      this.#showSettings();
     },
   };
 

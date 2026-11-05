@@ -763,6 +763,21 @@ describe("the presentation in an update (settings-languages, task 8.2)", () => {
   });
 });
 
+describe("the settings panel closing in an update (settings-languages, task 8.4)", () => {
+  test("goes with the state as a count and reads back", () => {
+    const update = { type: "state", state: waiting, settingsClosed: 2 } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("a count that is not a whole number of one or more is not an update", () => {
+    for (const wrong of [0, -1, 1.5, "1"]) {
+      expect(
+        readViewUpdate({ type: "state", state: waiting, settingsClosed: wrong }),
+      ).toBeUndefined();
+    }
+  });
+});
+
 describe("the presentation messages the view sends (settings-languages, task 8.3)", () => {
   test("a setting names one presentation key and a value its schema allows", () => {
     for (const message of [

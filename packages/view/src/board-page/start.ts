@@ -13,7 +13,8 @@
 // The board's working signal (push delivery, `working-signal.ts`) follows the page's focus and
 // visibility and the user's keys and pointer, on the page and, through the view's activity message,
 // in the view; each socket sends it once accepted and on each change (`presence.ts`). While it is
-// on, it reads the focus again once a second, and it stops doing so when the page goes away.
+// on, it reads the focus again once a second, and it stops doing so when the page goes away. The
+// settings panel (`settings-panel.ts`) opens over the page when the view's "Settings" asks.
 
 import { WORKING_WINDOW_MS } from "@askboard/contract";
 import { applyDensity, applyTheme, DARK_QUERY, followTheme } from "../theme.ts";
@@ -22,6 +23,7 @@ import { loadView } from "./load-view.ts";
 import { createPageChrome } from "./page-chrome.ts";
 import { withPresence } from "./presence.ts";
 import { createReadingPanel } from "./reading-panel.ts";
+import { createSettingsPanel } from "./settings-panel.ts";
 import { boardLinkOf, connectBoard } from "./socket.ts";
 import { hostView, type ViewHost } from "./view-host.ts";
 import { createWorkingSignal, FOCUS_RECHECK_MS, type WorkingSignal } from "./working-signal.ts";
@@ -58,6 +60,14 @@ export const startBoardPage = (window: Window): void => {
   const chrome = createPageChrome(document, {
     continueHere: () => page?.continueHere(),
     copyUnsentWork: () => void page?.copyUnsentWork(),
+  });
+  const panel = createSettingsPanel(document, chrome.frame, {
+    choose: (setting) => void page?.setPresentation(setting),
+    close: () => {
+      // The panel's focus goes to the frame first, so that the view can focus "Settings".
+      chrome.frame.focus();
+      page?.closeSettings();
+    },
   });
   let host: ViewHost | undefined;
   // The preference is `system` until the settings say otherwise (settings-languages, design 11).
@@ -96,6 +106,7 @@ export const startBoardPage = (window: Window): void => {
       applyDensity(document.documentElement, presentation.density);
       theme.prefer(presentation.theme);
     },
+    showSettings: panel.show,
     log: (text, detail) => {
       if (detail === undefined) console.error(`askboard: ${text}`);
       else console.error(`askboard: ${text}:`, detail);

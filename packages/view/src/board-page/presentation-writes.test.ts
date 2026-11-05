@@ -8,13 +8,15 @@ import {
   BOARD_PROTOCOL_VERSION,
   type BoardState,
   type HostMessage,
+  type PresentationSetting,
   type SettingsMessage,
 } from "@askboard/contract";
 import { plainChoiceBoardDocument, settingsWithEveryKey } from "@askboard/contract/fixtures";
 import type { BootData } from "../boot-data.ts";
 import type { ViewMessage, ViewPresentation, ViewUpdate } from "../view-protocol.ts";
-import { runBoardPage } from "./controller.ts";
+import { type BoardPage, runBoardPage } from "./controller.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
+import type { PanelData } from "./settings-panel-data.ts";
 import type { BoardSocketHandlers } from "./socket.ts";
 import type { ViewReply } from "./view-host.ts";
 
@@ -31,9 +33,10 @@ const setUp = async () => {
   const sent: unknown[] = [];
   const updates: ViewUpdate[] = [];
   const applied: ViewPresentation[] = [];
-  const opened: string[] = [];
+  const opened: (PanelData | undefined)[] = [];
+  let page: BoardPage | undefined;
   const handles: ((message: ViewMessage) => Promise<ViewReply>)[] = [];
-  runBoardPage({
+  page = runBoardPage({
     connect: (events) => {
       sockets.push(events);
       return {
@@ -57,7 +60,7 @@ const setUp = async () => {
     setTitle: () => undefined,
     setLanguage: () => undefined,
     applyPresentation: (presentation) => applied.push(presentation),
-    openSettings: () => opened.push("settings"),
+    showSettings: (panel) => opened.push(panel),
     log: () => undefined,
     copyText: async () => undefined,
   });
@@ -71,7 +74,9 @@ const setUp = async () => {
     if (handle === undefined) throw new Error("the view did not open");
     return handle(message);
   };
-  return { sockets, sent, updates, applied, opened, receive, view };
+  const closeSettings = () => page?.closeSettings();
+  const setPresentation = (setting: PresentationSetting) => page?.setPresentation(setting);
+  return { sockets, sent, updates, applied, opened, receive, view, closeSettings, setPresentation };
 };
 
 describe("a toggle's value from the view", () => {
@@ -135,10 +140,63 @@ describe("a toggle's value from the view", () => {
   });
 });
 
-describe("Settings from the view", () => {
-  test("asks the page to open its panel and replies", async () => {
+describe("the settings panel", () => {
+  test("opens on the view's Settings with the rows in effect", async () => {
     const run = await setUp();
     expect(await run.view({ type: "open-settings" })).toEqual({});
-    expect(run.opened).toEqual(["settings"]);
+    expect(run.opened).toHaveLength(1);
+    expect(run.opened[0]?.title).toBe("Settings");
+    expect(run.opened[0]?.controls.map((control) => control.value)).toEqual([
+      "dark",
+      "compact",
+      "inline",
+    ]);
+  });
+
+  test("shows no panel until it is opened", async () => {
+    const run = await setUp();
+    await run.view({ type: "setting", key: "density", value: "comfortable" });
+    run.receive(settingsWithEveryKey);
+    expect(run.opened).toEqual([]);
+  });
+
+  test("is shown again after a settings message and after a choice made in it", async () => {
+    const run = await setUp();
+    await run.view({ type: "open-settings" });
+    expect(run.setPresentation({ key: "density", value: "comfortable" })).toEqual({
+      outcome: "sent",
+    });
+    expect(run.opened.at(-1)?.controls[1]?.value).toBe("comfortable");
+    const failed: SettingsMessage = {
+      ...settingsWithEveryKey,
+      write: { key: "density", outcome: "failed", reason: "EACCES", path: "/home/u/config.json" },
+    };
+    run.receive(failed);
+    expect(run.opened.at(-1)?.controls[1]?.error).toBe(
+      "Could not save density to /home/u/config.json: EACCES",
+    );
+  });
+
+  test("a project's key is refused when chosen in the panel", async () => {
+    const run = await setUp();
+    await run.view({ type: "open-settings" });
+    const reply = run.setPresentation({ key: "contextPlacement", value: "beside" });
+    expect(reply?.outcome).toBe("refused");
+  });
+
+  test("closing hides it once and tells the view, which focuses Settings", async () => {
+    const run = await setUp();
+    await run.view({ type: "open-settings" });
+    run.closeSettings();
+    expect(run.opened.at(-1)).toBeUndefined();
+    expect(run.updates.at(-1)?.settingsClosed).toBe(1);
+    const shown = run.opened.length;
+    run.closeSettings();
+    expect(run.opened).toHaveLength(shown);
+    await run.view({ type: "open-settings" });
+    run.closeSettings();
+    expect(run.updates.at(-1)?.settingsClosed).toBe(2);
+    run.receive(settingsWithEveryKey);
+    expect(run.opened.at(-1)).toBeUndefined();
   });
 });

@@ -18,14 +18,24 @@ export type PresentationOptions = {
   readonly followTheme?: (preference: ThemePreference) => void;
 };
 
+const focusSettings = (): void => {
+  document.querySelector<HTMLElement>("[data-askboard-settings]")?.focus();
+};
+
 export const startPresentation = (
   data: BootData,
   channel: ViewChannel,
   { hosted, report, followTheme }: PresentationOptions,
 ): PresentationControls => {
   const presentation = createStore(data.presentation ?? DEFAULT_PRESENTATION);
+  // The settings panel closing gives the focus back to "Settings", once for each closing.
+  let closings = 0;
   channel.onUpdate((update) => {
     if (update.presentation !== undefined) presentation.set(update.presentation);
+    if (update.settingsClosed !== undefined && update.settingsClosed > closings) {
+      closings = update.settingsClosed;
+      focusSettings();
+    }
   });
   return {
     presentation,

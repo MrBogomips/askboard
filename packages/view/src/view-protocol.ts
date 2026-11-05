@@ -258,6 +258,8 @@ export type ViewUpdate = {
   readonly origin?: HeaderOrigin;
   readonly agent?: AgentStatus;
   readonly presentation?: ViewPresentation;
+  /** How many times the settings panel has closed: the view focuses "Settings" on each. */
+  readonly settingsClosed?: number;
 };
 
 /** The optional fields of a view update. */
@@ -697,6 +699,8 @@ const isPanelClosed = (value: unknown): value is PanelClosed =>
   (value.id as number) >= 1 &&
   typeof value.itemId === "string" &&
   ID.test(value.itemId);
+const isCount = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= 1;
 
 const listOf =
   <T>(is: (value: unknown) => value is T) =>
@@ -747,6 +751,7 @@ export const UPDATE_FIELDS = {
   origin: { check: isHeaderOrigin, atBoot: true },
   agent: { check: isAgentStatus, atBoot: true },
   presentation: { check: isPresentation, atBoot: true },
+  settingsClosed: { check: isCount },
 } as const satisfies UpdateFields;
 
 /** A tool result's structured content, read as an update; undefined for anything else. */

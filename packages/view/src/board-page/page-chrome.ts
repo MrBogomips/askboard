@@ -53,7 +53,7 @@ const SECONDARY_BUTTON =
 const LOAD_ERROR =
   "border-b border-border bg-destructive-subtle px-lg py-sm text-body text-destructive-text";
 
-const element = <K extends keyof HTMLElementTagNameMap>(
+export const element = <K extends keyof HTMLElementTagNameMap>(
   document: Document,
   tag: K,
   className: string,
