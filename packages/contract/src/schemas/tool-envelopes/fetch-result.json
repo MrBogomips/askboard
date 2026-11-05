@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:tool-envelopes:fetch-result",
   "title": "Fetch result",
-  "description": "What fetch returns for an item of an open or closed ask whose full value fits one result (FR-20, AD-6): the versions, the epoch, the ask's ID and state, and the item as ask-core holds it now. Nothing of the draft record. A longer value comes in pages (fetch-page). An ask without an owner check is unchecked (AD-5).",
+  "description": "What fetch returns for an item of an open or closed ask whose full value fits one result (FR-20, AD-6): the versions, the epoch, the ask's ID and state, and the item as ask-core holds it now. Nothing of the draft record. A longer value comes in pages (fetch-page). An ask without an owner check is unchecked (AD-5). Since 1.2, a question's context items are the board document's without an excerpt's text, written or read, or an image's bytes, at any depth (excerpts, design decision 4).",
   "type": "object",
   "properties": {
     "versions": {
@@ -70,7 +70,7 @@
           "answer": false,
           "previous": false,
           "props": {
-            "$ref": "urn:askboard:board-document:board-document#/$defs/areaProps"
+            "$ref": "#/$defs/areaProps"
           }
         }
       },
@@ -78,7 +78,7 @@
         "required": ["rev", "state"],
         "properties": {
           "props": {
-            "$ref": "urn:askboard:input:question-props"
+            "$ref": "#/$defs/questionProps"
           },
           "rev": true,
           "state": true
@@ -177,6 +177,128 @@
         },
         "required": ["cursor"]
       }
+    },
+    "areaProps": {
+      "description": "An area's title and questions, each as the question below.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/question" } }
+      },
+      "required": ["title", "items"],
+      "additionalProperties": false
+    },
+    "question": {
+      "description": "A question of an area, as the board document holds it, its props as fetch gives them.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "question" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "rev": { "type": "integer", "minimum": 1 },
+        "props": { "$ref": "#/$defs/questionProps" }
+      },
+      "required": ["type", "id", "rev", "props"],
+      "additionalProperties": false
+    },
+    "questionProps": {
+      "description": "A question's props as fetch gives them: the input format's fields, and its context items as the board document holds them, less excerpt text and image bytes (excerpts, design decision 4).",
+      "type": "object",
+      "properties": {
+        "text": { "$ref": "urn:askboard:input:question-props#/properties/text" },
+        "header": { "$ref": "urn:askboard:input:question-props#/properties/header" },
+        "options": { "$ref": "urn:askboard:input:question-props#/properties/options" },
+        "multiSelect": { "$ref": "urn:askboard:input:question-props#/properties/multiSelect" },
+        "allowOther": { "$ref": "urn:askboard:input:question-props#/properties/allowOther" },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/contextItem" } }
+      },
+      "required": ["text", "options"],
+      "additionalProperties": false
+    },
+    "contextItem": {
+      "description": "A context item, picked by its type.",
+      "type": "object",
+      "discriminator": { "propertyName": "type" },
+      "oneOf": [
+        { "$ref": "#/$defs/excerpt" },
+        { "$ref": "#/$defs/reference" },
+        { "$ref": "#/$defs/image" }
+      ]
+    },
+    "excerpt": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "excerpt" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "#/$defs/excerptProps" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "reference": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "reference" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:board-document:reference-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "image" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "#/$defs/imageProps" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "excerptProps": {
+      "description": "An excerpt without its text: by pointer, its status, and its media type and lines when resolved or its reason when not; written by the agent, its title only.",
+      "type": "object",
+      "properties": {
+        "pointer": { "$ref": "urn:askboard:input:pointer" },
+        "title": { "$ref": "urn:askboard:board-document:excerpt-props#/properties/title" },
+        "status": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/status" },
+        "reason": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/reason" },
+        "mediaType": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/textMediaType" },
+        "lines": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/lines" }
+      },
+      "additionalProperties": false,
+      "if": { "properties": { "pointer": true }, "required": ["pointer"] },
+      "then": {
+        "properties": { "status": true },
+        "required": ["status"],
+        "if": { "properties": { "status": { "const": "resolved" } } },
+        "then": {
+          "properties": { "mediaType": true, "lines": true, "reason": false },
+          "required": ["mediaType", "lines"]
+        },
+        "else": {
+          "properties": { "reason": true, "mediaType": false, "lines": false },
+          "required": ["reason"]
+        }
+      },
+      "else": {
+        "properties": { "status": false, "reason": false, "mediaType": false, "lines": false }
+      }
+    },
+    "imageProps": {
+      "description": "An image without its bytes: its pointer, alt text and status, and its media type when resolved or its reason when not.",
+      "type": "object",
+      "properties": {
+        "pointer": { "$ref": "urn:askboard:input:pointer" },
+        "alt": { "$ref": "urn:askboard:board-document:image-props#/properties/alt" },
+        "status": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/status" },
+        "reason": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/reason" },
+        "mediaType": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/imageMediaType" }
+      },
+      "required": ["pointer", "alt", "status"],
+      "additionalProperties": false,
+      "if": { "properties": { "status": { "const": "resolved" } } },
+      "then": { "properties": { "mediaType": true, "reason": false }, "required": ["mediaType"] },
+      "else": { "properties": { "reason": true, "mediaType": false }, "required": ["reason"] }
     }
   }
 }

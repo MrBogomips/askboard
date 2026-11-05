@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-document:image-props",
+  "title": "Image props, resolved",
+  "description": "An image as the board document holds it (AD-12; proposal B6, B8): its pointer, its alt text and its `status`; when `resolved`, its `mediaType` and its `bytes` in base64, at most the contract's image limit; when `unresolved`, its `reason` and no bytes. The view shows the bytes only through a `blob:` URL.",
+  "type": "object",
+  "properties": {
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "alt": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "status": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/status" },
+    "reason": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/reason" },
+    "mediaType": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/imageMediaType" },
+    "bytes": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 5592408,
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    }
+  },
+  "required": ["pointer", "alt", "status"],
+  "additionalProperties": false,
+  "if": { "properties": { "status": { "const": "resolved" } } },
+  "then": {
+    "properties": { "mediaType": true, "bytes": true, "reason": false },
+    "required": ["mediaType", "bytes"]
+  },
+  "else": {
+    "properties": { "reason": true, "mediaType": false, "bytes": false },
+    "required": ["reason"]
+  }
+}

@@ -512,6 +512,32 @@ describe("the lifecycle's view messages (ask-lifecycle, design decision 6)", () 
     expect(refusedAt([null])).toBe("/arguments/acts/0");
   });
 
+  test("an open-reference message names an item and the view's insets, and nothing else (excerpts, task 6.5)", () => {
+    const message: ViewMessage = {
+      type: "open-reference",
+      itemId: "pr",
+      inset: { top: 64, bottom: 48 },
+    };
+    expect(toolCallOf(message).name).toBe("askboard.view.open-reference");
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    const refusedAt = (arguments_: Record<string, unknown>) => {
+      const read = readViewMessage({ name: "askboard.view.open-reference", arguments: arguments_ });
+      return read.ok ? undefined : read.problems[0]?.path;
+    };
+    expect(refusedAt({ inset: { top: 0, bottom: 0 } })).toBe("/arguments/itemId");
+    expect(refusedAt({ itemId: "not an id", inset: { top: 0, bottom: 0 } })).toBe(
+      "/arguments/itemId",
+    );
+    expect(refusedAt({ itemId: "pr" })).toBe("/arguments/inset");
+    expect(refusedAt({ itemId: "pr", inset: { top: -1, bottom: 0 } })).toBe("/arguments/inset");
+    expect(refusedAt({ itemId: "pr", inset: { top: 0 } })).toBe("/arguments/inset");
+    expect(refusedAt({ itemId: "pr", inset: { top: "9", bottom: 0 } })).toBe("/arguments/inset");
+    expect(refusedAt({ itemId: "pr", inset: { top: 0, bottom: 1e9 } })).toBe("/arguments/inset");
+    expect(refusedAt({ itemId: "pr", inset: { top: 0, bottom: 0 }, url: "https://x.test" })).toBe(
+      "/arguments/url",
+    );
+  });
+
   test("a draft message carries the whole draft record, checked only for its shape here", () => {
     const message: ViewMessage = { type: "draft", record: lifecycleDraftRecord };
     expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
@@ -583,6 +609,24 @@ describe("what the board page tells the view of the lifecycle (ask-lifecycle, de
       restore: { id: 1, record: lifecycleDraftRecord },
     } as const;
     expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("the reading panel's closing reads back, numbered, and a malformed one is no update (excerpts, task 6.6)", () => {
+    const update = {
+      type: "state",
+      state: lifecycleState,
+      panelClosed: { id: 2, itemId: "retry-src" },
+    } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+    for (const panelClosed of [
+      { id: 0, itemId: "retry-src" },
+      { id: 1 },
+      { id: 1, itemId: "not an id" },
+      { id: 1.5, itemId: "retry-src" },
+      "retry-src",
+    ]) {
+      expect(readViewUpdate({ type: "state", state: lifecycleState, panelClosed })).toBeUndefined();
+    }
   });
 
   test("a malformed document, connection, settled list or restore is no update", () => {

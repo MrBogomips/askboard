@@ -17,6 +17,11 @@ export const BOARD_ROUTES = {
    * `Origin` pass: the token travels in the first message, which is where a wrong one is refused.
    */
   socket: "/ws/",
+  /**
+   * `GET /s/<askId>/<itemId>?t=<token>&scheme=<light|dark>`: the source view of a pointer excerpt or
+   * pointer reference, which the reading panel frames (excerpts, design decision 2; AD-8).
+   */
+  source: "/s/",
 } as const;
 
 /** The board link's query parameter that holds the token. */
@@ -29,6 +34,11 @@ export const boardPath = (askId: string): string => `${BOARD_ROUTES.board}${askI
 export const chunkPath = (sha256: string): string => `${BOARD_ROUTES.chunk}${sha256}`;
 export const manifestPath = (): string => BOARD_ROUTES.manifest;
 export const socketPath = (askId: string): string => `${BOARD_ROUTES.socket}${askId}`;
+export const sourcePath = (askId: string, itemId: string): string =>
+  `${BOARD_ROUTES.source}${askId}/${itemId}`;
+
+/** The source view's query parameter for its colour scheme, `light` or `dark`. */
+export const SOURCE_SCHEME_QUERY = "scheme";
 
 /** `http://127.0.0.1:<port>/b/<askId>?t=<token>`, the link the `ask` result returns. */
 export const boardLink = (link: { port: number; askId: string; token: string }): string =>
@@ -70,20 +80,38 @@ export const BOARD_RESPONSES = {
    * GET or HEAD needs (AD-11). A WebSocket upgrade refused for it gets this status.
    */
   refused: { status: 403, contentType: TEXT },
+  /**
+   * `/s/`: the source view, for a pointer item of an ask the token opens (excerpts). Without `t`,
+   * or with a token that does not open that ask, it is `tokenRefused`; for a discarded ask,
+   * `discardedLink`'s status as plain text; for any other item, `notFound`.
+   */
+  sourceView: { status: 200, contentType: HTML },
 } as const;
 
 export type BoardRoute =
   | { readonly kind: "board"; readonly askId: string }
   | { readonly kind: "chunk"; readonly sha256: string }
   | { readonly kind: "manifest" }
-  | { readonly kind: "socket"; readonly askId: string };
+  | { readonly kind: "socket"; readonly askId: string }
+  | { readonly kind: "source"; readonly askId: string; readonly itemId: string };
 
 const ID = new RegExp(ID_PATTERN);
 const SHA256 = new RegExp(SHA256_HEX_PATTERN);
 
+// The source route: exactly two IDs after its prefix, read with no decoding, so `%2e%2e` is no ID.
+const sourceRoute = (rest: string): BoardRoute | undefined => {
+  const [askId = "", itemId = "", ...more] = rest.split("/");
+  return more.length === 0 && ID.test(askId) && ID.test(itemId)
+    ? { kind: "source", askId, itemId }
+    : undefined;
+};
+
 /** The route a request path names, without its query; undefined for any other path. */
 export const parseBoardRoute = (pathname: string): BoardRoute | undefined => {
   if (pathname === BOARD_ROUTES.manifest) return { kind: "manifest" };
+  if (pathname.startsWith(BOARD_ROUTES.source)) {
+    return sourceRoute(pathname.slice(BOARD_ROUTES.source.length));
+  }
   for (const kind of ["board", "chunk", "socket"] as const) {
     const prefix = BOARD_ROUTES[kind];
     if (!pathname.startsWith(prefix)) continue;

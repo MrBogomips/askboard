@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:open-editor",
+  "title": "Open in editor",
+  "description": "The board page to board-host on the user's click on \"Open in editor\" (excerpts, design decision 5; FR-9): it names the item only, never a path or a command, and board-host answers with editor-outcome. Accepted only on the ask's live board connection (AD-8, AD-21).",
+  "type": "object",
+  "properties": {
+    "version": { "$ref": "urn:askboard:board-protocol:version" },
+    "type": { "const": "open-editor" },
+    "itemId": { "$ref": "urn:askboard:input:id" }
+  },
+  "required": ["version", "type", "itemId"],
+  "additionalProperties": false
+}

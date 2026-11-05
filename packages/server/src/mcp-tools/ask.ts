@@ -97,11 +97,13 @@ export const handleAsk: ToolHandler = async ({ core, diagnostics }, args, contex
       );
     default: {
       const unchecked = core.ownerOf(outcome.ask.askId) === undefined;
+      // The unresolved pointers come after the others (excerpts, design decision 4, Warnings).
+      const warnings = [...(unchecked ? [NO_HOOKS_WARNING] : []), ...(outcome.warnings ?? [])];
       const result: AskResult = {
         versions: RESULT_VERSIONS,
         epoch: core.epoch,
         ...outcome.ask,
-        ...(unchecked ? { warnings: [NO_HOOKS_WARNING] } : {}),
+        ...(warnings.length === 0 ? {} : { warnings }),
       };
       return jsonResult(result);
     }

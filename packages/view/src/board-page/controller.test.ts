@@ -9,16 +9,23 @@ import {
   BOARD_CLOSE_CODES,
   BOARD_PROTOCOL_VERSION,
   type BoardState,
+  type ContextHostMessage,
+  type ContextPageMessage,
   type DraftRecord,
   type HostMessage,
   type LifecycleHostMessage,
   type LifecyclePageMessage,
 } from "@askboard/contract";
-import { ganttEditedValue, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  contextBoardDocument,
+  ganttEditedValue,
+  plainChoiceBoardDocument,
+} from "@askboard/contract/fixtures";
 import type { BootData } from "../boot-data.ts";
 import type { ViewAnswer, ViewMessage, ViewUpdate } from "../view-protocol.ts";
 import type { Banner } from "./board-status.ts";
 import { type BoardPageDeps, runBoardPage } from "./controller.ts";
+import type { PanelActions, PanelRequest, ReadingPanel } from "./reading-panel.ts";
 import type { BoardSocketHandlers } from "./socket.ts";
 import type { ViewReply } from "./view-host.ts";
 
@@ -69,14 +76,36 @@ const done = (n = 1): LifecycleHostMessage => ({ version, type: "done", actionId
 
 type FakeSocket = {
   readonly events: BoardSocketHandlers;
-  readonly sent: LifecyclePageMessage[];
+  readonly sent: (LifecyclePageMessage | ContextPageMessage)[];
   open: boolean;
   closed: boolean;
-  receive(...messages: (HostMessage | LifecycleHostMessage)[]): void;
+  receive(...messages: (HostMessage | LifecycleHostMessage | ContextHostMessage)[]): void;
   close(code: number): void;
 };
 
 type Timer = { readonly ms: number; readonly run: () => void; cancelled: boolean };
+
+// A reading panel that records what the controller does to it.
+const fakePanel = () => {
+  const events: string[] = [];
+  let shown: { request: PanelRequest; actions: PanelActions } | undefined;
+  const port: ReadingPanel = {
+    open: (request, actions) => {
+      shown = { request, actions };
+      events.push(`open ${request.itemId}`);
+    },
+    sourceState: (message) => events.push(`state ${message.itemId} ${message.status}`),
+    editorOutcome: (message) => events.push(`outcome ${message.itemId} ${message.outcome}`),
+    close: () => {
+      shown = undefined;
+      events.push("close");
+    },
+    get itemId() {
+      return shown?.request.itemId;
+    },
+  };
+  return { port, events, shown: () => shown };
+};
 
 const setUp = (options: { failLoads?: number } = {}) => {
   const sockets: FakeSocket[] = [];
@@ -88,6 +117,8 @@ const setUp = (options: { failLoads?: number } = {}) => {
   const loads: BootData[] = [];
   const updates: ViewUpdate[] = [];
   const copies: string[] = [];
+  const opened: string[] = [];
+  const panel = fakePanel();
   let handle: ((message: ViewMessage) => Promise<ViewReply>) | undefined;
   let failLoads = options.failLoads ?? 0;
   let drawn = 0;
@@ -141,6 +172,10 @@ const setUp = (options: { failLoads?: number } = {}) => {
     copyText: async (text) => {
       copies.push(text);
     },
+    openLink: (url) => {
+      opened.push(url);
+    },
+    readingPanel: panel.port,
     newActionId: () => {
       drawn += 1;
       return ID(drawn);
@@ -181,6 +216,8 @@ const setUp = (options: { failLoads?: number } = {}) => {
     loads,
     updates,
     copies,
+    opened,
+    panel,
     // What the page sent on a socket, drafts left out.
     acts: (n: number) => socket(n).sent.filter((message) => message.type !== "draft"),
     drafts: (n: number) => socket(n).sent.filter((message) => message.type === "draft"),
@@ -804,5 +841,188 @@ describe("the leave-page prompt (ask-lifecycle: Close and reload; FR-25)", () =>
     await run.view({ type: "draft", record: noted("x") });
     run.socket(1).receive({ version, type: "moved" });
     expect(run.page.leavePromptArmed()).toBe(false);
+  });
+});
+
+describe("opening a reference from the view (excerpts, task 6.5; AD-8)", () => {
+  const inset = { top: 64, bottom: 48 };
+  const contextBoard: HostMessage = {
+    version,
+    type: "board",
+    document: contextBoardDocument as unknown as typeof plainChoiceBoardDocument,
+  };
+  const contextState: BoardState = {
+    ask: "waiting",
+    questions: ["fix", "rollout", "settings"].map((itemId) => ({
+      itemId,
+      rev: 1,
+      state: "open",
+    })) as unknown as BoardState["questions"],
+  };
+  const openedContext = async () => {
+    const run = setUp();
+    run.socket(1).receive(contextBoard, stateOf(contextState));
+    await settled();
+    return run;
+  };
+
+  test("a web reference of the board document opens its own URL, once, and nothing is sent to the agent", async () => {
+    const run = await openedContext();
+    const reply = await run.view({ type: "open-reference", itemId: "pr", inset });
+    expect(reply).toEqual({});
+    expect(run.opened).toEqual(["https://github.com/acme/pay/pull/12"]);
+    expect(run.acts(1)).toEqual([]);
+  });
+
+  test("a reference whose URL a later revision changed opens the board document's current URL, never one from the message", async () => {
+    const run = await openedContext();
+    const changed = {
+      ...contextBoardDocument,
+      items: contextBoardDocument.items.map((question) => ({
+        ...question,
+        props: {
+          ...question.props,
+          items: question.props.items?.map((item) =>
+            item.id === "pr"
+              ? {
+                  ...item,
+                  props: { ...(item.props as object), url: "https://github.com/acme/pay/pull/99" },
+                }
+              : item,
+          ),
+        },
+      })),
+    };
+    run.socket(1).receive({
+      version,
+      type: "board",
+      document: changed as unknown as typeof plainChoiceBoardDocument,
+    });
+    await run.view({ type: "open-reference", itemId: "pr", inset });
+    expect(run.opened).toEqual(["https://github.com/acme/pay/pull/99"]);
+  });
+
+  test("an image, an excerpt, a FILE reference, a question and an unknown item open nothing", async () => {
+    const run = await openedContext();
+    for (const itemId of ["shot", "retry-adr", "retry-src", "fix", "no-such-item"]) {
+      expect(await run.view({ type: "open-reference", itemId, inset })).toEqual({});
+    }
+    expect(run.opened).toEqual([]);
+  });
+});
+
+describe("the reading panel on the board page (excerpts, task 6.6; AD-8)", () => {
+  const inset = { top: 64, bottom: 48 };
+  const contextBoard: HostMessage = {
+    version,
+    type: "board",
+    document: contextBoardDocument as unknown as typeof plainChoiceBoardDocument,
+  };
+  const contextState: BoardState = {
+    ask: "waiting",
+    questions: ["fix", "rollout", "settings"].map((itemId) => ({
+      itemId,
+      rev: 1,
+      state: "open",
+    })) as unknown as BoardState["questions"],
+  };
+  const openedContext = async () => {
+    const run = setUp();
+    run.socket(1).receive(contextBoard, stateOf(contextState));
+    await settled();
+    return run;
+  };
+  const sentOnSocket = (run: Awaited<ReturnType<typeof openedContext>>) =>
+    run.socket(1).sent.filter((message) => message.type !== "draft");
+
+  test("a FILE reference opens the panel with the file's path and sends open-source naming the item", async () => {
+    const run = await openedContext();
+    await run.view({ type: "open-reference", itemId: "retry-src", inset });
+    expect(run.panel.events).toEqual(["open retry-src"]);
+    expect(run.panel.shown()?.request).toEqual({
+      itemId: "retry-src",
+      path: "src/retry.ts",
+      inset,
+    });
+    expect(sentOnSocket(run)).toEqual([{ version, type: "open-source", itemId: "retry-src" }]);
+    expect(run.opened).toEqual([]);
+  });
+
+  test("an excerpt with a pointer opens the panel too", async () => {
+    const run = await openedContext();
+    await run.view({ type: "open-reference", itemId: "retry-adr", inset });
+    expect(run.panel.shown()?.request.path).toBe("docs/adr/0012-payment-retries.md");
+    expect(sentOnSocket(run)).toEqual([{ version, type: "open-source", itemId: "retry-adr" }]);
+  });
+
+  test("an excerpt the agent wrote, an image, a web reference, a question and an unknown item open no panel", async () => {
+    const run = await openedContext();
+    for (const itemId of ["settings-note", "shot", "pr", "fix", "no-such-item"]) {
+      await run.view({ type: "open-reference", itemId, inset });
+    }
+    expect(run.panel.events).toEqual([]);
+    expect(sentOnSocket(run)).toEqual([]);
+  });
+
+  test("source state and the editor's outcome reach the panel", async () => {
+    const run = await openedContext();
+    await run.view({ type: "open-reference", itemId: "retry-src", inset });
+    run.socket(1).receive({
+      version,
+      type: "source-state",
+      itemId: "retry-src",
+      status: "available",
+      editor: false,
+    });
+    run.socket(1).receive({
+      version,
+      type: "editor-outcome",
+      itemId: "retry-src",
+      outcome: "no-editor",
+    });
+    expect(run.panel.events).toEqual([
+      "open retry-src",
+      "state retry-src available",
+      "outcome retry-src no-editor",
+    ]);
+  });
+
+  test("Open in editor sends open-editor naming the item, only for the item the panel shows", async () => {
+    const run = await openedContext();
+    await run.view({ type: "open-reference", itemId: "retry-src", inset });
+    run.panel.shown()?.actions.openEditor();
+    expect(sentOnSocket(run).at(-1)).toEqual({ version, type: "open-editor", itemId: "retry-src" });
+  });
+
+  test("closing the panel tells the view, once, with the item that opened it", async () => {
+    const run = await openedContext();
+    await run.view({ type: "open-reference", itemId: "retry-src", inset });
+    run.panel.shown()?.actions.closed();
+    expect(run.updates.at(-1)?.panelClosed).toEqual({ id: 1, itemId: "retry-src" });
+    await run.view({ type: "open-reference", itemId: "retry-adr", inset });
+    run.panel.shown()?.actions.closed();
+    expect(run.updates.at(-1)?.panelClosed).toEqual({ id: 2, itemId: "retry-adr" });
+  });
+
+  test("a board that moved or was discarded closes the panel; a closed ask keeps it", async () => {
+    const moved = await openedContext();
+    await moved.view({ type: "open-reference", itemId: "retry-src", inset });
+    moved.socket(1).receive({ version, type: "moved" });
+    expect(moved.panel.events.at(-1)).toBe("close");
+    const discarded = await openedContext();
+    await discarded.view({ type: "open-reference", itemId: "retry-src", inset });
+    discarded.socket(1).receive({ version, type: "discarded", reason: "session-exit" });
+    expect(discarded.panel.events.at(-1)).toBe("close");
+    const closed = await openedContext();
+    await closed.view({ type: "open-reference", itemId: "retry-src", inset });
+    closed.socket(1).receive({ version, type: "closed", reason: "agent" });
+    expect(closed.panel.events).toEqual(["open retry-src"]);
+  });
+
+  test("with no live connection the panel does not open", async () => {
+    const run = await openedContext();
+    run.socket(1).close(1006);
+    await run.view({ type: "open-reference", itemId: "retry-src", inset });
+    expect(run.panel.events).toEqual([]);
   });
 });

@@ -30,6 +30,7 @@ describe("the board page's policy", () => {
         "font-src",
         "form-action",
         "frame-ancestors",
+        "frame-src",
         "img-src",
         "script-src",
         "style-src",
@@ -52,11 +53,14 @@ describe("the board page's policy", () => {
     expect(parts.get("connect-src")).toEqual(["'self'"]);
     expect(parts.get("img-src")).toEqual(["data:", "blob:"]);
     expect(parts.get("font-src")).toEqual(["data:"]);
+    // The reading panel frames the source view of the board's own origin (excerpts, task 1.6).
+    expect(parts.get("frame-src")).toEqual(["'self'"]);
+    expect(parts.size).toBe(10);
   });
 
-  test("holds no frame source, no unsafe keyword and no wildcard", () => {
+  test("frames only its own origin, and holds no unsafe keyword and no wildcard", () => {
     const policy = boardPagePolicy(manifest);
-    expect(policy).not.toContain("frame-src");
+    expect(policy).toContain("frame-src 'self';");
     expect(policy).not.toContain("unsafe-");
     expect(policy).not.toContain("*");
     expect(policy).not.toContain(cspHashSource(manifest.boardPage.html.sha256));

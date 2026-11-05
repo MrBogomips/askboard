@@ -76,7 +76,8 @@ describe("the board page", () => {
       hashes([...manifest.boardPage.styles, ...styles]),
     );
     expect(policy).not.toContain("unsafe-");
-    expect(policy).not.toContain("frame-src");
+    // The reading panel frames the source view of the board's own origin only (excerpts, task 1.6).
+    expect(parts.get("frame-src")).toEqual(["'self'"]);
     // The page's own `<base href="/">` is allowed, an off-origin base is not.
     expect(parts.get("base-uri")).toEqual(["'self'"]);
   });

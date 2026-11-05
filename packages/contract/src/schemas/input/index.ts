@@ -1,23 +1,39 @@
 // The input format (owner `contract`, AD-7): what an agent sends. E1 defined the plain question and
 // the ask level around it, in English (E1, design decision 1); E3's minor takes several questions,
-// areas, FR-3's remaining fields and `update`'s request (ask-lifecycle, design decision 2).
+// areas, FR-3's remaining fields and `update`'s request (ask-lifecycle, design decision 2); E5's
+// takes a question's context items: excerpts, references and images (excerpts, design decision 2).
 
 import type { SchemaSet } from "../../versions.ts";
 import area from "./area.json" with { type: "json" };
 import ask from "./ask.json" with { type: "json" };
+import excerptProps from "./excerpt-props.json" with { type: "json" };
 import id from "./id.json" with { type: "json" };
+import imageProps from "./image-props.json" with { type: "json" };
+import pointer from "./pointer.json" with { type: "json" };
 import question from "./question.json" with { type: "json" };
 import questionProps from "./question-props.json" with { type: "json" };
+import referenceProps from "./reference-props.json" with { type: "json" };
 import update from "./update.json" with { type: "json" };
 
-export const INPUT_FORMAT_VERSION = "1.1";
+export const INPUT_FORMAT_VERSION = "1.2";
 
 export const inputFormat: SchemaSet = {
   name: "input",
   title: "input format",
   owner: "contract",
   version: INPUT_FORMAT_VERSION,
-  schemas: [id, questionProps, question, ask, area, update],
+  schemas: [
+    id,
+    questionProps,
+    question,
+    ask,
+    area,
+    update,
+    pointer,
+    excerptProps,
+    referenceProps,
+    imageProps,
+  ],
 };
 
 export type ChoiceOption = {
@@ -38,6 +54,8 @@ export type QuestionProps = {
   readonly multiSelect?: boolean;
   /** Offers the "Other…" row (FR-3). */
   readonly allowOther?: boolean;
+  /** The question's context, since input format 1.2 (excerpts, design decision 2). */
+  readonly items?: readonly [ContextItem, ...ContextItem[]];
 };
 
 export type QuestionItem = {
@@ -147,3 +165,33 @@ export type UpdateInput = {
   readonly askId: string;
   readonly actions: readonly [UpdateAction, ...UpdateAction[]];
 };
+
+// Input format 1.2 (excerpts, design decision 2): a question's context items.
+
+/** An excerpt: a pointer that ask-core resolves, or the text the agent wrote; exactly one. */
+export type ExcerptProps =
+  | { readonly pointer: string; readonly title?: string }
+  | { readonly text: string; readonly title?: string };
+
+/** A project file by pointer, or a web page by its `http:` or `https:` URL; exactly one. */
+export type ReferenceProps =
+  | { readonly pointer: string; readonly title?: string }
+  | { readonly url: string; readonly title?: string };
+
+/** An image by pointer, with no anchor, and its alt text. */
+export type ImageProps = { readonly pointer: string; readonly alt: string };
+
+export type ExcerptItem = {
+  readonly type: "excerpt";
+  readonly id: string;
+  readonly props: ExcerptProps;
+};
+export type ReferenceItem = {
+  readonly type: "reference";
+  readonly id: string;
+  readonly props: ReferenceProps;
+};
+export type ImageItem = { readonly type: "image"; readonly id: string; readonly props: ImageProps };
+
+/** An item of a question's context, picked by its type. */
+export type ContextItem = ExcerptItem | ReferenceItem | ImageItem;

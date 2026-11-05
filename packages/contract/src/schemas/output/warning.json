@@ -2,17 +2,39 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:warning",
   "title": "Warning",
-  "description": "A typed warning in a successful result (AD-6). E1's one warning, no-hooks, says that the session runs without hooks, so push, ownership checks and the stop guard are unavailable and the agent must collect before it finishes (AD-5).",
+  "description": "A typed warning in a successful result (AD-6). E1's one warning, no-hooks, says that the session runs without hooks, so push, ownership checks and the stop guard are unavailable and the agent must collect before it finishes (AD-5). Since 1.2, unresolved-pointer names a context item whose pointer did not resolve, with the pointer and the reason; it never refuses the ask (excerpts, design decision 4; FR-8).",
   "type": "object",
   "properties": {
     "code": {
-      "enum": ["no-hooks"]
+      "enum": ["no-hooks", "unresolved-pointer"]
     },
     "message": {
       "type": "string",
       "minLength": 1
+    },
+    "itemId": { "$ref": "urn:askboard:input:id" },
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "reason": {
+      "enum": [
+        "no-root",
+        "invalid-pointer",
+        "outside-root",
+        "not-found",
+        "not-a-file",
+        "anchor-not-found",
+        "not-text",
+        "not-image",
+        "too-large",
+        "timeout"
+      ]
     }
   },
   "required": ["code", "message"],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "if": { "properties": { "code": { "const": "unresolved-pointer" } } },
+  "then": {
+    "properties": { "itemId": true, "pointer": true, "reason": true },
+    "required": ["itemId", "pointer", "reason"]
+  },
+  "else": { "properties": { "itemId": false, "pointer": false, "reason": false } }
 }

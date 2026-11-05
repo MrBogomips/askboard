@@ -18,8 +18,13 @@ import {
   type FetchItem,
   type LifecycleAskInput,
   type OutputEvent,
+  type UnresolvedPointerWarning,
   type UpdateAction,
 } from "@askboard/contract";
+import { fetchItemOf } from "./context/fetch-item.ts";
+import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
+import { type PointerSource, pointerSourceOf } from "./context/source.ts";
+import { unresolvedWarnings } from "./context/warnings.ts";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
 import { Connections } from "./lifecycle/connections.ts";
 import { type Entry, EventLog, frozenCopy } from "./lifecycle/log.ts";
@@ -56,6 +61,12 @@ export type FullValue =
   /** A discarded ask, or one this epoch does not hold (AD-10, AD-21). */
   | { readonly kind: "discarded"; readonly askId: string };
 
+/** What an update would do to the ask's context (excerpts, design decision 4, When). */
+export type UpdatePreview = {
+  readonly revisions: readonly ContextRequest[];
+  readonly heldImageBytes: number;
+};
+
 export type AskInit = {
   readonly epoch: string;
   readonly askId: string;
@@ -67,6 +78,8 @@ export type AskInit = {
   readonly link: string;
   /** Who answers this ask (FR-19), settled when it is created. */
   readonly who: string;
+  /** What the ask's send resolved of its questions' pointers, by question ID (excerpts). */
+  readonly context?: ReadonlyMap<string, QuestionContext>;
 };
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */
@@ -203,7 +216,7 @@ export class Ask {
       ...(presentation === undefined ? {} : { presentation }),
       ...(delivery === undefined ? {} : { delivery }),
     };
-    this.#model = BoardModel.of(items);
+    this.#model = BoardModel.of(items, init.context);
   }
 
   /** The first accepted request, canonicalized; empty once the ask is discarded. */
@@ -383,6 +396,7 @@ export class Ask {
   update(
     actions: readonly UpdateAction[],
     now: string,
+    context: ReadonlyMap<string, QuestionContext> = new Map(),
   ): { outcome: UpdateOutcome; effects?: UpdateEffects } {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) {
@@ -394,15 +408,77 @@ export class Ask {
       const { ok: _, ...refusal } = applied;
       return { outcome: { kind: "refused", askId: this.askId, ...refusal } };
     }
+    const revised = this.#revisedIn(model);
+    for (const question of revised) {
+      const resolved = context.get(question.id);
+      if (resolved !== undefined) model.resolved(question.id, resolved);
+    }
     this.#model = model;
     if (applied.effects.closed) this.close("agent");
+    const warnings = unresolvedWarnings(revised.map((question) => model.boardQuestion(question)));
     const outcome = {
       kind: "updated",
       askId: this.askId,
       state: this.state,
       applied: applied.applied,
+      ...(warnings.length === 0 ? {} : { warnings }),
     } as const;
     return { outcome, effects: applied.effects };
+  }
+
+  // Context, E5 (excerpts, design decision 4).
+
+  /** The `unresolved-pointer` warnings of the ask's send: every question's, in board order. */
+  get contextWarnings(): readonly UnresolvedPointerWarning[] {
+    const model = this.#model;
+    if (model === undefined) return [];
+    return unresolvedWarnings(model.questions().map((question) => model.boardQuestion(question)));
+  }
+
+  /**
+   * What the update would do, tried on a copy that is dropped, so the ask is unchanged: the
+   * question revisions it would create, at their props, and the image bytes the questions it leaves
+   * as they are would still hold; undefined when E3's rules refuse it.
+   */
+  preview(actions: readonly UpdateAction[], now: string): UpdatePreview | undefined {
+    const model = this.#model?.clone();
+    if (model === undefined || this.#stored !== undefined) return undefined;
+    const { askId, epoch, who } = this;
+    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
+    if (!applied.ok) return undefined;
+    const revised = this.#revisedIn(model);
+    let heldImageBytes = 0;
+    for (const question of model.questions()) {
+      if (revised.includes(question)) continue;
+      for (const resolution of question.context.get(question.rev)?.values() ?? []) {
+        if ("bytes" in resolution) heldImageBytes += base64Bytes(resolution.bytes);
+      }
+    }
+    const revisions = revised.map((question) => ({
+      questionId: question.id,
+      props: model.propsOf(question),
+    }));
+    return { revisions, heldImageBytes };
+  }
+
+  /**
+   * The pointer source of a context item of the current board document, or undefined for any other
+   * item, an item only an earlier revision holds, and a tombstone (AD-21).
+   */
+  pointerSource(itemId: string): PointerSource | undefined {
+    const model = this.#model;
+    for (const question of model?.questions() ?? []) {
+      const item = model?.boardQuestion(question).props.items?.find(({ id }) => id === itemId);
+      if (item !== undefined) return pointerSourceOf(item);
+    }
+    return undefined;
+  }
+
+  // The questions whose revision `model`, an updated copy, changed or added, in board order.
+  #revisedIn(model: BoardModel): QuestionRecord[] {
+    return model
+      .questions()
+      .filter((question) => this.#model?.question(question.id)?.rev !== question.rev);
   }
 
   /**
@@ -529,7 +605,7 @@ export class Ask {
 
   #value(item: FetchItem, generation: number): FullValue {
     const { askId, state } = this;
-    return { kind: "item", askId, state, item: frozenCopy(item), generation };
+    return { kind: "item", askId, state, item: frozenCopy(fetchItemOf(item)), generation };
   }
 
   #nextCursor(): string {

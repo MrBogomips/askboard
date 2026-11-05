@@ -100,7 +100,7 @@ describe("the full value of an item", () => {
 
   test("a recorded answer is marked recorded and has no cursor; a reopen keeps it as previous", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, { action: "answer", itemId: "q3", answer: { other: "Ines" } });
+    await update(core, FLAT_ID, { action: "answer", itemId: "q3", answer: { other: "Ines" } });
     const recorded = core.fullValue(FLAT_ID, "q3");
     expect(recorded).toMatchObject({
       item: {
@@ -115,7 +115,7 @@ describe("the full value of an item", () => {
     });
     const answer = recorded.kind === "item" && "answer" in recorded.item && recorded.item.answer;
     expect(answer && "cursor" in answer).toBe(false);
-    update(core, FLAT_ID, { action: "reopen", itemId: "q3" });
+    await update(core, FLAT_ID, { action: "reopen", itemId: "q3" });
     const reopened = core.fullValue(FLAT_ID, "q3");
     expect(reopened).toMatchObject({
       item: { rev: 2, state: "open", previous: { other: "Ines", recorded: true } },
@@ -149,7 +149,7 @@ describe("the full value of an item", () => {
 
   test("a deleted item is reported as deleted, and one never held as missing", async () => {
     const { core } = await created(flatAsk());
-    update(core, FLAT_ID, { action: "delete", itemId: "q2" });
+    await update(core, FLAT_ID, { action: "delete", itemId: "q2" });
     expect(core.fullValue(FLAT_ID, "q2")).toEqual({
       kind: "deleted",
       askId: FLAT_ID,
@@ -179,15 +179,19 @@ describe("the generation", () => {
     const { core } = await created(flatAsk());
     const seen = [generationOf(core, FLAT_ID, "q1")];
     const step = () => seen.push(generationOf(core, FLAT_ID, "q1"));
-    update(core, FLAT_ID, { action: "change", itemId: "q1", props: { text: "Reworded?" } });
+    await update(core, FLAT_ID, { action: "change", itemId: "q1", props: { text: "Reworded?" } });
     step();
     core.act(FLAT_ID, command([answerAct({ rev: 2 })]));
     step();
-    update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
+    await update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
     step();
-    update(core, FLAT_ID, { action: "answer", itemId: "q1", answer: { choice: ["release"] } });
+    await update(core, FLAT_ID, {
+      action: "answer",
+      itemId: "q1",
+      answer: { choice: ["release"] },
+    });
     step();
-    update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
+    await update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
     core.act(FLAT_ID, command([{ type: "decline", itemId: "q1", rev: 4, when: WHEN }]));
     step();
     for (const [index, generation] of seen.entries()) {
@@ -216,7 +220,7 @@ describe("the generation", () => {
         answerAct({ itemId: "q2", choice: ["WSL"] }),
       ]),
     );
-    update(
+    await update(
       core,
       FLAT_ID,
       { action: "reply", itemId: "q1", followUp: `${core.epoch}.2`, text: "!" },
@@ -229,24 +233,36 @@ describe("the generation", () => {
     const { core } = await created(areasAsk());
     const seen = [generationOf(core, LIFECYCLE_ID, "scope")];
     const step = () => seen.push(generationOf(core, LIFECYCLE_ID, "scope"));
-    update(core, LIFECYCLE_ID, { action: "change", itemId: "scope", props: { title: "What" } });
+    await update(core, LIFECYCLE_ID, {
+      action: "change",
+      itemId: "scope",
+      props: { title: "What" },
+    });
     step();
-    update(core, LIFECYCLE_ID, { action: "change", itemId: "region", props: { text: "Where?" } });
+    await update(core, LIFECYCLE_ID, {
+      action: "change",
+      itemId: "region",
+      props: { text: "Where?" },
+    });
     step();
-    update(core, LIFECYCLE_ID, {
+    await update(core, LIFECYCLE_ID, {
       action: "add",
       item: { type: "question", id: "tax", props: { text: "Tax?", options: [{ label: "Yes" }] } },
       parentId: "scope",
     });
     step();
-    update(core, LIFECYCLE_ID, { action: "delete", itemId: "tax" });
+    await update(core, LIFECYCLE_ID, { action: "delete", itemId: "tax" });
     step();
     for (const [index, generation] of seen.entries()) {
       if (index > 0) expect(generation).toBeGreaterThan(seen[index - 1] as number);
     }
     const unchanged = generationOf(core, LIFECYCLE_ID, "scope");
     core.act(LIFECYCLE_ID, command([answerAct({ itemId: "payment", choice: ["Adyen"] })]));
-    update(core, LIFECYCLE_ID, { action: "change", itemId: "rollout", props: { text: "How?" } });
+    await update(core, LIFECYCLE_ID, {
+      action: "change",
+      itemId: "rollout",
+      props: { text: "How?" },
+    });
     expect(generationOf(core, LIFECYCLE_ID, "scope")).toBe(unchanged);
   });
 });

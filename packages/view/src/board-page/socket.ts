@@ -8,6 +8,7 @@ import {
   BOARD_PROTOCOL_VERSION,
   BOARD_TOKEN_QUERY,
   type ConnectMessage,
+  type ContextPageMessage,
   type LifecyclePageMessage,
   type PresenceMessage,
   parseBoardRoute,
@@ -42,14 +43,14 @@ export type BoardSocketHandlers = {
 
 export type BoardConnection = {
   /** Sends a page message if the socket is open; says whether it did. */
-  send(message: LifecyclePageMessage): boolean;
+  send(message: LifecyclePageMessage | ContextPageMessage): boolean;
   /** Closes the socket; its close is still reported. */
   close(): void;
 };
 
 /** A board's socket as the board page opens it, which also sends its presence (`presence.ts`). */
 export type PageConnection = Omit<BoardConnection, "send"> & {
-  send(message: LifecyclePageMessage | PresenceMessage): boolean;
+  send(message: LifecyclePageMessage | ContextPageMessage | PresenceMessage): boolean;
 };
 
 const OPEN = 1;

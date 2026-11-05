@@ -2,7 +2,8 @@
 // here. Checks a schema cannot express report like schema errors: over every item of an ask, IDs
 // unique in the ask, the reserved view-made prefix (F10), areas all or none at the top level and
 // never nested (FR-2), unique option labels (F5), one recommended option at most and the room an
-// answer needs; in a collect, cursors and each ask once.
+// answer needs; in a collect, cursors and each ask once. Since input format 1.2, over each
+// question's context items, the one-of rules and the URL (excerpts, design decision 2).
 
 import {
   areaRuleProblems,
@@ -22,6 +23,7 @@ import {
 } from "./ask-items.ts";
 import { schemaErrors } from "./compiled.ts";
 import { ASK_TITLE_MAX_CHARS } from "./constants.ts";
+import { contextProblems } from "./context/items.ts";
 import { COLLECT_ASKS_MAX, CURSOR_PATTERN, NAME_MAX_CHARS } from "./limits.ts";
 import {
   expectedAt,
@@ -116,6 +118,7 @@ export const validateAskRequest = (value: unknown): CheckedRequest<LifecycleAskI
     ...repeatedIdProblems(ASK, value, placed),
     ...reservedPrefixProblems(ASK, value, [askId, ...placedIds(placed)]),
     ...labelProblems(ASK, value, placed),
+    ...contextProblems(ASK, value, placed),
   ];
   if (problems.length === 0) return { ok: true, value: value as LifecycleAskInput };
   return { ok: false, reason: "schema", problems: inDocumentOrder(value, problems) };

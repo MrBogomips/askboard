@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import {
   BOARD_CLOSE_CODES,
   BOARD_HOST,
@@ -14,6 +14,7 @@ import {
   TOOL_DEFINITIONS,
 } from "@askboard/contract";
 import {
+  ONE_PIXEL_PNG,
   plainChoiceBoardDocument,
   restartTranscript,
   transcripts,
@@ -30,7 +31,7 @@ import {
   treeOf,
 } from "./modes.ts";
 import { afterPolls, answeredPolls } from "./push-steps.ts";
-import { launchBrowser, openRealBoard } from "./real-board.ts";
+import { launchBrowser, openRealBoard, STEP_TIMEOUT_MS } from "./real-board.ts";
 import {
   bundleWith,
   CONFIGURATION,
@@ -658,6 +659,170 @@ describe.if(HOOKS_DISABLED)("the mod beside the session process (push delivery, 
       asks: [{ askId: ASK_ID, unchecked: true, events: [{ type: "answer", choice: ["SQLite"] }] }],
     });
     expect(await board.next()).toMatchObject({ type: "receipt", receipt: "delivered" });
+    expect(await session.end()).toBe(0);
+  });
+});
+
+// The conformance suite's context ask (excerpts, task 7.1; design decision 11): the built session
+// process on Bun or Node 24, serving the real `dist/view/`, with `CLAUDE_PROJECT_DIR` naming its
+// throwaway project. One question holds the approved UJ-1 excerpt pointer, an excerpt the agent
+// wrote, an image, a FILE reference and an excerpt whose file is missing. The real board in
+// Chromium shows every item, opens the reading panel and takes the answer; `collect` returns it,
+// and `fetch` holds no excerpt text or image bytes. Run it with run.ts beside it.
+
+const CONTEXT_ASK_ID = "context-ask-s9t1";
+const ADR = "docs/adr/0012-payment-retries.md";
+const ADR_TEXT = [
+  "# ADR 12: payment retries",
+  "",
+  "## Context",
+  "",
+  "Payments fail for transient reasons.",
+  "",
+  "## Decision",
+  "",
+  "We retry a failed payment three times, with exponential backoff.",
+  "",
+].join("\n");
+const CONTEXT_WRITTEN = "retries: 3\nbackoff: exponential";
+const SOURCE_LINES = Array.from(
+  { length: 8 },
+  (_, at) => `export const retry${at + 1} = ${at + 1};`,
+);
+
+const contextAsk = {
+  askId: CONTEXT_ASK_ID,
+  title: "Payment retry fix",
+  items: [
+    {
+      type: "question",
+      id: "fix",
+      props: {
+        text: "Which fix should I keep for the failing payment retry?",
+        options: [{ label: "Fix A" }, { label: "Fix B" }],
+        items: [
+          { type: "excerpt", id: "retry-adr", props: { pointer: `${ADR}#Decision` } },
+          {
+            type: "excerpt",
+            id: "settings",
+            props: { text: CONTEXT_WRITTEN, title: "Retry settings" },
+          },
+          {
+            type: "image",
+            id: "shot",
+            props: { pointer: ".askboard/media/shot.png", alt: "The retry log" },
+          },
+          { type: "reference", id: "retry-src", props: { pointer: "src/retry.ts#L1-L5" } },
+          { type: "excerpt", id: "gone", props: { pointer: "docs/missing.md#Intro" } },
+        ],
+      },
+    },
+  ],
+};
+
+const writeContextProject = (project: string): void => {
+  const files: Record<string, string | Uint8Array> = {
+    [ADR]: ADR_TEXT,
+    ".askboard/media/shot.png": Uint8Array.from(Buffer.from(ONE_PIXEL_PNG, "base64")),
+    "src/retry.ts": `${SOURCE_LINES.join("\n")}\n`,
+  };
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(project, path)), { recursive: true });
+    writeFileSync(join(project, path), content);
+  }
+};
+
+describe("a question with context (excerpts)", () => {
+  test("the ask resolves the pointers, the real board shows and answers it, and fetch holds no source", async () => {
+    const session = await startSession();
+    writeContextProject(session.project);
+
+    const asked = await session.call("ask", contextAsk);
+    expect(asked.isError).toBe(false);
+    const result = asked.json as {
+      board: string;
+      epoch: string;
+      cursor: string;
+      warnings?: unknown[];
+    };
+    // An unchecked ask also carries the no-hooks warning: only the pointer's is the point here.
+    const pointerWarnings = (result.warnings ?? []).filter(
+      (warning) => (warning as { code?: string }).code === "unresolved-pointer",
+    );
+    expect(pointerWarnings).toEqual([
+      expect.objectContaining({
+        code: "unresolved-pointer",
+        itemId: "gone",
+        pointer: "docs/missing.md#Intro",
+        reason: "not-found",
+      }),
+    ]);
+    expect(validateAgainst(SCHEMA_IDS.askResult, asked.json).ok).toBe(true);
+    expect(await session.nextOpened()).toEqual([result.board]);
+
+    const browser = await launchBrowser();
+    try {
+      const board = await openRealBoard(browser, result.board);
+      await board.loaded("fix");
+      const card = board.card("fix");
+      // Split: the context column beside the question, holding the excerpts then the references.
+      const column = card.locator('[data-askboard-context="beside"]');
+      await column.waitFor({ timeout: STEP_TIMEOUT_MS });
+      await column.getByText("Excerpt and references", { exact: true }).waitFor();
+      const text = card.getByRole("heading", { level: 2 });
+      const [columnBox, textBox] = [await column.boundingBox(), await text.boundingBox()];
+      if (columnBox === null || textBox === null) throw new Error("no box");
+      expect(columnBox.x).toBeGreaterThan(textBox.x + textBox.width - 1);
+      for (const id of ["retry-adr", "settings", "retry-src", "gone"]) {
+        await column.locator(`[data-askboard-item="${id}"]`).waitFor();
+      }
+      await column.getByText("We retry a failed payment three times", { exact: false }).waitFor();
+      await column.getByText("backoff: exponential", { exact: false }).waitFor();
+      await column.locator('[data-askboard-item="gone"]').getByText("Unresolved").waitFor();
+      await card.locator('[data-askboard-item="shot"] img').waitFor();
+
+      // The reading panel opens at line 1 of the source.
+      await column.locator('[data-askboard-item="retry-src"]').getByRole("button").click();
+      const panel = board.page.locator('aside[aria-label="Reading panel"]');
+      await panel.getByText("src/retry.ts", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+      const source = board.page.frameLocator('aside[aria-label="Reading panel"] iframe');
+      await source.locator("#L1").waitFor({ timeout: STEP_TIMEOUT_MS });
+      expect(await source.locator(".hit").count()).toBe(5);
+      await source.getByText(SOURCE_LINES[0] ?? "", { exact: false }).waitFor();
+
+      // The panel lies over the question's right side: the user closes it, then answers.
+      await panel.getByRole("button", { name: "Close reading panel" }).click();
+      await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+      // The user answers; the missing pointer left the question answerable.
+      await board.optionIn("fix", "Fix B").click();
+      await board.buttonIn("fix", "Answer").click();
+      await board.receipt("sent");
+      expect(board.errors).toEqual([]);
+    } finally {
+      await browser.close();
+    }
+
+    const collected = await session.call("collect", {
+      asks: [{ askId: CONTEXT_ASK_ID, after: `${result.epoch}.0` }],
+    });
+    expect(collected.json).toMatchObject({
+      asks: [
+        {
+          askId: CONTEXT_ASK_ID,
+          state: "answered",
+          events: [{ type: "answer", itemId: "fix", choice: ["Fix B"] }],
+        },
+      ],
+    });
+
+    // `fetch` names the items and their pointers, and holds neither the excerpt's text nor the image's bytes.
+    const fetched = await session.call("fetch", { askId: CONTEXT_ASK_ID, itemId: "fix" });
+    expect(fetched.isError).toBe(false);
+    const body = JSON.stringify(fetched.json);
+    expect(body).not.toContain("We retry a failed payment");
+    expect(body).not.toContain(CONTEXT_WRITTEN.split("\n")[0] ?? "");
+    expect(body).not.toContain(ONE_PIXEL_PNG);
+    expect(body).not.toContain(SOURCE_LINES[0] ?? "");
     expect(await session.end()).toBe(0);
   });
 });

@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   BOARD_PROTOCOL_VERSION,
+  type ContextPageMessage,
   type HostMessage,
   type LifecyclePageMessage,
   type PresenceMessage,
@@ -54,7 +55,7 @@ const fakeSignal = (initial: boolean) => {
 
 // One socket: what was sent on it, and the handlers the page gave it.
 const fakeConnect = () => {
-  const sent: (LifecyclePageMessage | PresenceMessage)[] = [];
+  const sent: (LifecyclePageMessage | ContextPageMessage | PresenceMessage)[] = [];
   let handlers: BoardSocketHandlers | undefined;
   let open = true;
   const connect = (events: BoardSocketHandlers): PageConnection => {

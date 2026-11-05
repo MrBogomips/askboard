@@ -28,10 +28,18 @@ export type QuestionWork = Omit<DraftQuestion, "values"> & {
 
 export type Delivery = DraftRecord["delivery"];
 
+/** Where a question's context sits (FR-13): `beside` is the default and is never held. */
+export type ContextPlacement = NonNullable<DraftQuestion["context"]>;
+
 export type BoardDraftState = {
   readonly delivery: Delivery;
   readonly inView?: string;
   readonly questions: ReadonlyMap<string, QuestionWork>;
+  /**
+   * The questions whose context the user placed inline (excerpts, task 6.3). Kept apart from the
+   * work, which is tied to a revision: a placement is no answer work and survives a revision.
+   */
+  readonly placements?: ReadonlyMap<string, ContextPlacement>;
 };
 
 export type BoardDraft = {
@@ -47,6 +55,10 @@ export type BoardDraft = {
   /** Drops a question's work, its revision included. */
   forget(questionId: string): void;
   setDelivery(delivery: Delivery): void;
+  /** Where the user placed the question's context; none while it is beside. */
+  placement(questionId: string): ContextPlacement | undefined;
+  /** Places a question's context; `beside` is the default and takes the placement out. */
+  setPlacement(questionId: string, placement: ContextPlacement): void;
   setInView(questionId: string | undefined): void;
   /** Replaces the whole draft, as a restore does. */
   replace(state: BoardDraftState): void;
@@ -125,6 +137,14 @@ export const createBoardDraft = (delivery: Delivery): BoardDraft => {
     },
     setDelivery: (next) => {
       if (next !== state.delivery) set({ ...state, delivery: next });
+    },
+    placement: (questionId) => state.placements?.get(questionId),
+    setPlacement: (questionId, placement) => {
+      if ((state.placements?.get(questionId) ?? "beside") === placement) return;
+      const placements = new Map(state.placements);
+      if (placement === "beside") placements.delete(questionId);
+      else placements.set(questionId, placement);
+      set({ ...state, placements });
     },
     setInView: (questionId) => {
       if (questionId === state.inView) return;
@@ -226,6 +246,7 @@ const questionEntry = (
   question: ViewQuestion,
   values: ValueRecord,
   work: QuestionWork | undefined,
+  placement: ContextPlacement | undefined,
 ): DraftQuestion | undefined => {
   const held = itemIdsOf(question).flatMap((itemId) => {
     const value = values.get(itemId);
@@ -239,6 +260,7 @@ const questionEntry = (
     ...(filled(work?.note) ? { note: work.note } : {}),
     ...(filled(work?.composer) ? { composer: work.composer } : {}),
     ...(work?.held === undefined ? {} : { held: work.held }),
+    ...(placement === undefined ? {} : { context: placement }),
   };
   return Object.keys(fields).length === 0
     ? undefined
@@ -253,7 +275,12 @@ export const draftRecordOf = (
 ): DraftRecord => {
   const questions = questionsOf(document);
   const entries = questions.flatMap((question) => {
-    const entry = questionEntry(question, values, board.questions.get(question.id));
+    const entry = questionEntry(
+      question,
+      values,
+      board.questions.get(question.id),
+      board.placements?.get(question.id),
+    );
     return entry === undefined ? [] : [[question.id, entry] as const];
   });
   const inView =
@@ -288,6 +315,9 @@ const sameTextRecord = (
     keys.every((key) => Object.hasOwn(b, key) && a[key] === b[key])
   );
 };
+
+const hasValuesIn = (values: Readonly<Record<string, unknown>>): boolean =>
+  Object.keys(values).length > 0;
 
 const isRestoredAnswer = (
   question: ViewQuestion,
@@ -333,11 +363,13 @@ export const restoreDraft = (
 ): void => {
   const questions = questionsOf(document);
   const work = new Map<string, QuestionWork>();
+  const placements = new Map<string, ContextPlacement>();
   for (const question of questions) {
     if (!Object.hasOwn(record.questions, question.id)) continue;
     const entry = record.questions[question.id] as DraftQuestion;
     const staleAnswer = isRestoredAnswer(question, entry, state);
-    const { values: kept = {}, ...rest } = entry;
+    const { values: kept = {}, context, ...rest } = entry;
+    if (context === "inline") placements.set(question.id, context);
     const items = new Set(itemIdsOf(question));
     if (!staleAnswer) {
       for (const [itemId, value] of Object.entries(kept)) {
@@ -345,18 +377,18 @@ export const restoreDraft = (
         values.set(itemId, value);
       }
     }
-    work.set(
-      question.id,
-      staleAnswer
-        ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
-        : rest,
-    );
+    const held = staleAnswer
+      ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
+      : rest;
+    // An entry holding only a placement is no work.
+    if (Object.keys(held).some((key) => key !== "rev") || hasValuesIn(kept))
+      work.set(question.id, held);
   }
   const inView = questions.some((question) => question.id === record.inView)
     ? { inView: record.inView as string }
     : {};
   const delivery = questions.length === 1 ? "immediate" : record.delivery;
-  board.replace({ delivery, ...inView, questions: work });
+  board.replace({ delivery, ...inView, questions: work, placements });
 };
 
 /**

@@ -4,6 +4,7 @@
 
 import {
   type AgentStatus,
+  ASK_IMAGES_MAX_BYTES,
   type AskState,
   type ClosedReason,
   type DiscardReason,
@@ -12,6 +13,7 @@ import {
   type LifecycleAskInput,
   type OutputEvent,
   type UnavailableReason,
+  type UnresolvedPointerWarning,
 } from "@askboard/contract";
 import {
   type RequestProblem,
@@ -29,6 +31,15 @@ import {
   type FullValue,
 } from "./ask.ts";
 import { canonicalize } from "./canonical.ts";
+import {
+  type ContextRequest,
+  contextRequestsOf,
+  hasPointers,
+  type QuestionContext,
+  resolveContext,
+} from "./context/resolve.ts";
+import { rootOf } from "./context/root.ts";
+import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import type { CorePorts } from "./ports.ts";
@@ -62,7 +73,12 @@ export type AskOutcome =
       readonly reason: UnavailableReason;
       readonly detail: string;
     }
-  | { readonly kind: "created" | "resent"; readonly ask: AskSummary }
+  | {
+      readonly kind: "created" | "resent";
+      readonly ask: AskSummary;
+      /** A created ask's unresolved pointers, in item order (excerpts, design decision 4). */
+      readonly warnings?: readonly UnresolvedPointerWarning[];
+    }
   /** The ID is that of an ask of this epoch, and the request is not an identical resend. */
   | { readonly kind: "in-use"; readonly askId: string }
   /** The session is ending: its asks were discarded, and it takes no new one. */
@@ -163,6 +179,8 @@ export class AskCore {
   readonly #listeners = new Set<Listener>();
   // Creations under way, by ask ID, so that a second request for one ID waits for the first.
   readonly #creating = new Map<string, Promise<unknown>>();
+  // Updates reading their pointers, by ask ID, so that the ask's next update waits for the first.
+  readonly #updating = new Map<string, Promise<unknown>>();
   // Set by the discard at session exit: no ask may be created after it, or it would never be
   // discarded.
   #ending = false;
@@ -332,19 +350,32 @@ export class AskCore {
   /**
    * The agent's `update`: validated with the contract, then applied to the ask in order, all or
    * none (AD-6). It appends no event; the subscribers hear `document` and `state` once it applies.
+   * The pointers of the revisions it creates are read first, outside the aggregate; it then
+   * applies in one step, so an act in between sees the old revisions (excerpts, design decision 4).
+   * An update with nothing to read applies before this returns, and one ask's updates apply in the
+   * order they came.
    */
-  update(request: unknown): UpdateOutcome {
+  async update(request: unknown): Promise<UpdateOutcome> {
     const checked = validateUpdateRequest(request);
     if (!checked.ok) return { kind: "invalid", problems: checked.problems };
     const { askId, actions } = checked.value;
-    const ask = this.#asks.get(askId);
-    if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
-    if (ask.state === "closed") return { kind: "closed", askId };
-    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()));
-    if (effects?.document) this.#publish({ type: "document", askId });
-    if (effects?.state) this.#publish({ type: "state", askId });
-    if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });
-    return outcome;
+    for (let pending = this.#updating.get(askId); pending; pending = this.#updating.get(askId)) {
+      await pending;
+    }
+    const now = timeOf(this.#ports.clock.now());
+    const preview = this.#asks.get(askId)?.preview(actions, now);
+    if (preview === undefined || !preview.revisions.some(({ props }) => hasPointers(props))) {
+      return this.#applyUpdate(askId, actions, new Map());
+    }
+    const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    const { revisions, heldImageBytes } = preview;
+    const reading = this.#resolve(revisions, root, ASK_IMAGES_MAX_BYTES - heldImageBytes);
+    this.#updating.set(askId, reading);
+    try {
+      return this.#applyUpdate(askId, actions, await reading);
+    } finally {
+      this.#updating.delete(askId);
+    }
   }
 
   /**
@@ -535,6 +566,56 @@ export class AskCore {
     this.#push.setClientVersion(source, version);
   }
 
+  // Context, E5 (excerpts, design decision 4, For `board-host`).
+
+  /**
+   * The source of a pointer excerpt or pointer reference of the ask's current board document, for
+   * the reading panel and the source view; undefined for any other item and for a discarded ask.
+   * Each call resolves and confines the pointer again against the ask's root (AD-8, AD-12); without
+   * a root, or when the read fails (reported), the source is missing.
+   */
+  sourceOf(askId: string, itemId: string): Source | undefined {
+    const found = this.#asks.get(askId)?.pointerSource(itemId);
+    if (found === undefined) return undefined;
+    const { pointer, sentText } = found;
+    const { sources, report } = this.#ports;
+    const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    const path = sourcePathOf(pointer);
+    const missing = (error: unknown) => {
+      report(error);
+      return MISSING;
+    };
+    if (sources === undefined || root === undefined) {
+      return { path, state: async () => MISSING, text: async () => MISSING };
+    }
+    return {
+      path,
+      state: () => sources.sourceState(root, pointer, sentText).catch(missing),
+      text: () => sources.readSource(root, pointer).catch(missing),
+    };
+  }
+
+  /**
+   * "Open in editor" (proposal B17): the item's confined real path, resolved again now, and the
+   * anchor's current line, else the board document's first line, else 1; undefined when the item
+   * has no source or its pointer no longer reaches a regular file inside the root (AD-8).
+   */
+  async editorTarget(askId: string, itemId: string): Promise<EditorLaunchTarget | undefined> {
+    const found = this.#asks.get(askId)?.pointerSource(itemId);
+    const { sources, report } = this.#ports;
+    const root = rootOf(this.#ports.projectRoot, this.ownerOf(askId));
+    if (found === undefined || sources === undefined || root === undefined) return undefined;
+    try {
+      const target = await sources.editorTarget(root, found.pointer);
+      return target === undefined
+        ? undefined
+        : { file: target.file, line: target.line ?? found.line ?? 1 };
+    } catch (error) {
+      report(error);
+      return undefined;
+    }
+  }
+
   // An identical request under an open ask's ID returns its board and opens nothing; any other
   // request under the ID of an ask of this epoch is refused (AD-6, FR-5), and so is the identical
   // one from a call that is not its owner's (AD-5): from another agent, whose ID is in use by this
@@ -573,16 +654,48 @@ export class AskCore {
     if (unsupported !== undefined) return unsupported;
     const who = await this.#who(input);
     const forUser = await this.#forUser(input);
+    // Context, E5: the pointers are read against the root of the ask's owner-to-be (design
+    // decision 4), before the rev-1 board document is stored.
+    const root = rootOf(this.#ports.projectRoot, caller);
+    const context = await this.#resolve(contextRequestsOf(input.items), root, ASK_IMAGES_MAX_BYTES);
     const link = await this.#ports.address.link(askId);
     if (this.#ending) return { kind: "ending" };
     const [first] = input.items;
     const question = first.type === "area" ? first.props.items[0] : first;
     const title = input.title ?? deriveTitle(question.props.text);
-    const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who });
+    const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who, context });
     this.#asks.set(askId, ask);
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
-    return { kind: "created", ask: ask.summary };
+    const warnings = ask.contextWarnings;
+    return { kind: "created", ask: ask.summary, ...(warnings.length === 0 ? {} : { warnings }) };
+  }
+
+  // An update's actions applied to the ask as it is now, with what its new revisions resolved.
+  #applyUpdate(
+    askId: string,
+    actions: Parameters<Ask["update"]>[0],
+    context: ReadonlyMap<string, QuestionContext>,
+  ): UpdateOutcome {
+    const ask = this.#asks.get(askId);
+    if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
+    if (ask.state === "closed") return { kind: "closed", askId };
+    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()), context);
+    if (effects?.document) this.#publish({ type: "document", askId });
+    if (effects?.state) this.#publish({ type: "state", askId });
+    if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });
+    return outcome;
+  }
+
+  // Context, E5 (excerpts, design decision 4): the send's pointers read through the port, within
+  // the reads bound and the budget on the core's clock.
+  #resolve(
+    requests: readonly ContextRequest[],
+    root: string | undefined,
+    imageBytes: number,
+  ): Promise<Map<string, QuestionContext>> {
+    const { sources, clock, report } = this.#ports;
+    return resolveContext(requests, { sources, root, clock, report, imageBytes });
   }
 
   // The ask's expected user, else the git user name, else the login name (FR-19). A lookup that

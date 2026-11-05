@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:reference-props",
+  "title": "Reference props",
+  "description": "Reference material the user opens in one click: a `pointer` to a project file, which opens in the reading panel, or a web `url`, which opens in the user's browser, never both; and an optional `title` (FR-9). The contract's validation function checks that it holds exactly one of `pointer` and `url`, and that the URL is absolute, `http` or `https`, with a host and no user name or password (AD-8).",
+  "type": "object",
+  "properties": {
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 }
+  },
+  "additionalProperties": false
+}

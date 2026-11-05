@@ -30,8 +30,10 @@ import type {
   ActReply,
   AnswerReply,
   DraftRestore,
+  PanelClosed,
   ViewItemError,
   ViewMessage,
+  ViewOpenReference,
   ViewReady,
   ViewUpdate,
 } from "../view-protocol.ts";
@@ -70,7 +72,10 @@ import {
   settleDone,
   withoutAll,
 } from "./outbox.ts";
+import type { ReadingPanel } from "./reading-panel.ts";
+import { pathOf } from "./reading-panel-state.ts";
 import { reconnectDelay } from "./reconnect.ts";
+import { sourcePointerOf, webUrlOf } from "./references.ts";
 import type { BoardConnection, BoardSocketHandlers } from "./socket.ts";
 import { tabTitle } from "./tab-title.ts";
 import { hasUnsentWork, unsentWorkText } from "./unsent-work.ts";
@@ -116,6 +121,10 @@ export type BoardPageDeps = {
   readonly newActionId?: () => string;
   /** The view's activity message: an input in the view, for the board's working signal. */
   readonly onActivity?: () => void;
+  /** Opens a web page in a new tab with no opener and no referrer, on the user's click (AD-8). */
+  readonly openLink?: (url: string) => void;
+  /** The reading panel: a side sheet on the page that frames a source (excerpts). */
+  readonly readingPanel?: ReadingPanel;
 };
 
 export type BoardPage = {
@@ -200,6 +209,9 @@ class BoardPageController implements BoardPage {
   // The draft record board-host restored, while the page has none of its own.
   #restore: DraftRestore | undefined;
   #restores = 0;
+  // The reading panel's latest closing by the user, which the view acts on once.
+  #closed: PanelClosed | undefined;
+  #closings = 0;
 
   constructor(deps: BoardPageDeps) {
     this.#deps = deps;
@@ -283,6 +295,7 @@ class BoardPageController implements BoardPage {
       ...(pending.length === 0 ? {} : { pending }),
       ...(settled.length === 0 ? {} : { settled }),
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
+      ...(this.#closed === undefined ? {} : { panelClosed: this.#closed }),
       ...this.#model.passedOn,
     });
   }
@@ -291,6 +304,10 @@ class BoardPageController implements BoardPage {
     const before = this.#status;
     this.#status = nextStatus(before, event);
     if (this.#status === before) return;
+    // A moved or discarded board shows nothing of its source; a closed one stays readable.
+    if (this.#status.kind === "moved" || this.#status.kind === "discarded") {
+      this.#deps.readingPanel?.close();
+    }
     if (this.#status.kind === "discarded" || this.#status.kind === "closed") {
       this.#unsent = hasUnsentWork(this.#mirror.latest()) || hasUnsent(this.#outbox);
       this.#outbox = withoutAll(this.#outbox);
@@ -316,7 +333,38 @@ class BoardPageController implements BoardPage {
       this.#deps.onActivity?.();
       return {};
     },
+    "open-reference": (message) => this.#openReference(message),
   };
+
+  // A click on a reference or an excerpt's "Open in reading panel", read from the board document
+  // the page holds: a web page opens in a new tab, a file in the reading panel (AD-8).
+  #openReference({ itemId, inset }: ViewOpenReference): ViewReply {
+    const document = this.#model.document as ViewDocument | undefined;
+    const url = webUrlOf(document, itemId);
+    if (url !== undefined) {
+      this.#deps.openLink?.(url);
+      return {};
+    }
+    const pointer = sourcePointerOf(document, itemId);
+    const panel = this.#deps.readingPanel;
+    if (pointer === undefined || panel === undefined || this.#status.kind !== "live") return {};
+    panel.open(
+      { itemId, path: pathOf(pointer), inset },
+      {
+        openEditor: () => void this.#socket?.send({ version, type: "open-editor", itemId }),
+        closed: () => this.#panelClosed(itemId),
+      },
+    );
+    this.#socket?.send({ version, type: "open-source", itemId });
+    return {};
+  }
+
+  // The user closed the panel: the view puts the focus back on the item that opened it.
+  #panelClosed(itemId: string): void {
+    this.#closings += 1;
+    this.#closed = { id: this.#closings, itemId };
+    this.#updateView();
+  }
 
   // What the view reports of its items: kept in the model, a failing item also logged.
   #viewReport(message: ViewReady | ViewItemError): ViewReply {
@@ -484,6 +532,8 @@ class BoardPageController implements BoardPage {
     closed: () => this.#transition({ type: "ask-closed" }),
     origin: (message) => this.#keep(message),
     agent: (message) => this.#keep(message),
+    "source-state": (message) => this.#deps.readingPanel?.sourceState(message),
+    "editor-outcome": (message) => this.#deps.readingPanel?.editorOutcome(message),
   };
 
   // A message the model keeps, which the view shows: a receipt, who asked and where, the status.

@@ -440,7 +440,10 @@ describe("a closed ask's link", () => {
       for (const id of ["queue", "retry"]) await board.loaded(id);
       await board.banner(/closed/i);
       await board.header.getByText("Closed", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
-      for (const radio of await board.page.frameLocator("iframe[sandbox]").getByRole("radio").all())
+      for (const radio of await board.page
+        .frameLocator('iframe[sandbox="allow-scripts"]')
+        .getByRole("radio")
+        .all())
         expect(await radio.isDisabled()).toBe(true);
       expect(board.received).toContainEqual({ version, type: "closed", reason: "agent" });
       expect(board.errors).toEqual([]);

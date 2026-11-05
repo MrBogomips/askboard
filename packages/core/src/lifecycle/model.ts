@@ -15,6 +15,8 @@ import {
   type QuestionProps,
   type ThreadReply,
 } from "@askboard/contract";
+import { boardPropsOf } from "../context/board-props.ts";
+import type { QuestionContext } from "../context/resolve.ts";
 import { type Entry, frozenCopy } from "./log.ts";
 import type { AnswerMark } from "./states.ts";
 
@@ -52,6 +54,11 @@ export type QuestionRecord = {
   readonly named: Set<number>;
   /** The latest revision the user decided on, by an edit choice, an answer or a decline. */
   decided: number;
+  /**
+   * What each kept revision's send resolved of its pointers, by item ID, pruned with `revs`: the
+   * excerpt text and image bytes live only here (excerpts, design decision 4, Storage).
+   */
+  readonly context: Map<number, QuestionContext>;
 };
 
 export type AreaRecord = {
@@ -76,6 +83,7 @@ const newQuestion = (item: QuestionItem, area: string | undefined): QuestionReco
   generation: 1,
   named: new Set(),
   decided: 0,
+  context: new Map(),
 });
 
 const copyQuestion = (question: QuestionRecord): QuestionRecord => ({
@@ -83,6 +91,7 @@ const copyQuestion = (question: QuestionRecord): QuestionRecord => ({
   revs: new Map(question.revs),
   replies: new Map([...question.replies].map(([cursor, replies]) => [cursor, [...replies]])),
   named: new Set(question.named),
+  context: new Map(question.context),
 });
 
 // Inserts `id` into `list` after `after`, or first without it.
@@ -127,8 +136,14 @@ export class BoardModel {
     this.#recordedEver = parts.recordedEver;
   }
 
-  /** An ask's items as it was accepted: every question at revision 1 (AD-20). */
-  static of(items: LifecycleAskInput["items"]): BoardModel {
+  /**
+   * An ask's items as it was accepted: every question at revision 1 (AD-20), with what its send
+   * resolved, by question ID.
+   */
+  static of(
+    items: LifecycleAskInput["items"],
+    context: ReadonlyMap<string, QuestionContext> = new Map(),
+  ): BoardModel {
     const layout = items[0].type === "area" ? "areas" : "questions";
     const model = new BoardModel(layout, {
       top: [],
@@ -142,6 +157,7 @@ export class BoardModel {
       model.add(item, after === undefined ? {} : { after });
       after = item.id;
     }
+    for (const [id, resolved] of context) model.resolved(id, resolved);
     return model;
   }
 
@@ -204,8 +220,10 @@ export class BoardModel {
     return question.revs.get(question.rev) as QuestionProps;
   }
 
+  /** A question at its current revision, its context merged with what its send resolved. */
   boardQuestion(question: QuestionRecord): BoardQuestion {
-    return { type: "question", id: question.id, rev: question.rev, props: this.propsOf(question) };
+    const props = boardPropsOf(this.propsOf(question), question.context.get(question.rev));
+    return { type: "question", id: question.id, rev: question.rev, props };
   }
 
   /** An area's questions as the board document holds them. */
@@ -276,6 +294,12 @@ export class BoardModel {
     this.#touchArea(question);
     this.#prune(question);
     return question.rev;
+  }
+
+  /** Holds what a send resolved of a question's current revision (excerpts, design decision 4). */
+  resolved(id: string, context: QuestionContext): void {
+    const question = this.#questions.get(id);
+    if (question !== undefined) question.context.set(question.rev, context);
   }
 
   /** Changes an area's title. */
@@ -369,7 +393,9 @@ export class BoardModel {
   #prune(question: QuestionRecord): void {
     for (const rev of question.revs.keys()) {
       const kept = rev === question.rev || question.named.has(rev) || rev > question.decided;
-      if (!kept) question.revs.delete(rev);
+      if (kept) continue;
+      question.revs.delete(rev);
+      question.context.delete(rev);
     }
   }
 }

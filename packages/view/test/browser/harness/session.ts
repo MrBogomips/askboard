@@ -35,7 +35,22 @@ export type Scenario = {
    * test server replays for it (`asker.ts`). Without it, an unchecked ask from the checkout.
    */
   readonly asker?: Asker;
+  /**
+   * Files of the session project, by path under it (excerpts): the session process runs with
+   * `CLAUDE_PROJECT_DIR` naming a temporary folder that holds them, or the asker's project when
+   * there is one. The test server serves a transcript and needs none.
+   */
+  readonly files?: Readonly<Record<string, ProjectFile>>;
+  /**
+   * The folder to use as the session project when the test needs to change its files while the
+   * board is open: the harness writes `files` into it and leaves it alone afterwards, so the test
+   * owns it. Without it, a temporary folder is made and removed.
+   */
+  readonly projectDir?: string;
 };
+
+/** A file of the session project: its text or bytes, or a symbolic link to a target path. */
+export type ProjectFile = string | Uint8Array | { readonly link: string };
 
 export type BoardSession = {
   /** The board link, as the `ask` result gives it: `http://127.0.0.1:<port>/b/<askId>?t=<token>`. */

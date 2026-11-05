@@ -400,3 +400,86 @@ export {
   type TreePertProps,
   treeDerivedFields,
 } from "./widgets/tree/index.ts";
+
+// Context, E5 (excerpts, design decision 2): the pointer grammar, what resolving a pointer gives
+// (the reasons it stays unresolved, the media types, a source's state) and the context limits of
+// proposal B4, exported in one appended block.
+
+// Context, E5 (excerpts, design decision 2): a question's context items in the input format, the
+// pointer grammar, a web reference's URL rule, what resolving a pointer gives (the reasons it stays
+// unresolved, the media types, a source's state), the context limits of proposal B4, the board
+// document's resolved items, the reading panel's messages, the source view's route and policy, and
+// the context items as `fetch` gives them, exported in one appended block.
+
+export {
+  ANCHOR_FILE_MAX_BYTES,
+  ASK_IMAGES_MAX_BYTES,
+  CONTEXT_READS_MAX,
+  CONTEXT_RESOLVE_BUDGET_MS,
+  CONTEXT_TITLE_MAX_CHARS,
+  EXCERPT_MAX_BYTES,
+  EXCERPT_MAX_LINES,
+  IMAGE_ALT_MAX_CHARS,
+  IMAGE_MAX_BYTES,
+  POINTER_MAX_CHARS,
+  SOURCE_VIEW_MAX_BYTES,
+  SOURCE_VIEW_MAX_LINES,
+  URL_MAX_CHARS,
+} from "./context/limits.ts";
+export {
+  type InvalidPointer,
+  type LineRange,
+  type Pointer,
+  type PointerAnchor,
+  type PointerProblem,
+  type PointerReading,
+  readPointer,
+} from "./context/pointer.ts";
+export {
+  EDITOR_OUTCOMES,
+  type EditorOutcome,
+  IMAGE_MEDIA_TYPES,
+  type ImageMediaType,
+  SOURCE_STATUSES,
+  type SourceStatus,
+  TEXT_MEDIA_TYPES,
+  type TextMediaType,
+  UNRESOLVED_REASONS,
+  type UnresolvedReason,
+} from "./context/resolution.ts";
+export { type WebUrlProblem, webReferenceKind, webUrlProblem } from "./context/url.ts";
+export { sourceViewPolicy } from "./hash.ts";
+export { SOURCE_SCHEME_QUERY, sourcePath } from "./routes.ts";
+export type {
+  BoardContextItem,
+  BoardExcerptProps,
+  BoardImageProps,
+  BoardQuestionProps,
+  BoardReferenceProps,
+  ContextLines,
+} from "./schemas/board-document/index.ts";
+export type {
+  ContextHostMessage,
+  ContextPageMessage,
+  EditorOutcomeMessage,
+  OpenEditorCommand,
+  OpenSourceCommand,
+  SourceStateMessage,
+} from "./schemas/board-protocol/index.ts";
+export type {
+  ContextItem,
+  ExcerptItem,
+  ExcerptProps,
+  ImageItem,
+  ImageProps,
+  ReferenceItem,
+  ReferenceProps,
+} from "./schemas/input/index.ts";
+export type { UnresolvedPointerWarning } from "./schemas/output/index.ts";
+export type {
+  FetchContextItem,
+  FetchExcerptProps,
+  FetchImageProps,
+  FetchQuestion,
+  FetchQuestionProps,
+} from "./schemas/tool-envelopes/index.ts";

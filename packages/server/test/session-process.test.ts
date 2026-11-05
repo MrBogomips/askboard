@@ -15,7 +15,7 @@ import {
   BOARD_RESPONSES,
   GRACE_PERIOD_MS,
 } from "@askboard/contract";
-import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import { ONE_PIXEL_PNG, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { sessionProjectRoot } from "../src/push-composition.ts";
 import {
   manualClock,
@@ -321,5 +321,166 @@ describe("the session project root (AD-12)", () => {
     symlinkSync(file, linked);
     expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: file })).toBeUndefined();
     expect(sessionProjectRoot({ CLAUDE_PROJECT_DIR: linked })).toBeUndefined();
+  });
+});
+
+// Excerpts (E5, task 5.5): the session process reads pointers in the session project root alone,
+// through the excerpts unit, and board-host starts the editor command given to it.
+const ADR = [
+  "# ADR 12: Payment retries",
+  "",
+  "## Decision",
+  "",
+  "We retry a failed payment three times.",
+  "",
+  "## Consequences",
+  "",
+].join("\n");
+const RETRY = [
+  "export const retries = 3;",
+  "",
+  "export const backoff = (n: number) =>",
+  "  2 ** n;",
+  "",
+];
+
+/** Writes the files the context ask points at under `root`. */
+const writeContextFiles = (root: string) => {
+  mkdirSync(join(root, "docs", "adr"), { recursive: true });
+  mkdirSync(join(root, "src"), { recursive: true });
+  mkdirSync(join(root, ".askboard", "media"), { recursive: true });
+  writeFileSync(join(root, "docs", "adr", "0012-payment-retries.md"), ADR);
+  writeFileSync(join(root, "src", "retry.ts"), RETRY.join("\n"));
+  writeFileSync(join(root, ".askboard", "media", "shot.png"), Buffer.from(ONE_PIXEL_PNG, "base64"));
+};
+
+const POINTERS = {
+  "retry-adr": "docs/adr/0012-payment-retries.md#Decision",
+  "retry-src": "src/retry.ts#L3-L4",
+  shot: ".askboard/media/shot.png",
+} as const;
+
+/** One question holding every context item: a pointer and a written excerpt, two references, an image. */
+const contextAsk = (askId: string) => ({
+  askId,
+  items: [
+    {
+      type: "question",
+      id: "fix",
+      props: {
+        text: "Which fix should I keep for the failing payment retry?",
+        options: [{ label: "Fix A" }, { label: "Fix B" }],
+        items: [
+          { type: "excerpt", id: "retry-adr", props: { pointer: POINTERS["retry-adr"] } },
+          { type: "excerpt", id: "note", props: { text: "Seen on 2 November.", title: "Note" } },
+          { type: "reference", id: "retry-src", props: { pointer: POINTERS["retry-src"] } },
+          { type: "reference", id: "pr", props: { url: "https://github.com/acme/pay/pull/12" } },
+          { type: "image", id: "shot", props: { pointer: POINTERS.shot, alt: "The retry log" } },
+        ],
+      },
+    },
+  ],
+});
+
+type Warning = { code: string; itemId?: string; reason?: string };
+
+/** The ask result's `unresolved-pointer` warnings; the session has no hooks, so `no-hooks` joins. */
+const unresolved = (warnings: readonly Warning[]) =>
+  warnings
+    .filter(({ code }) => code === "unresolved-pointer")
+    .map(({ code, itemId, reason }) => ({ code, itemId, reason }));
+
+type ContextBoard = { items: { props: { items: { id: string; props: object }[] } }[] };
+
+/** Whether a process whose command line holds `text` is still running. */
+const running = (text: string) => Bun.spawnSync(["pgrep", "-f", text]).exitCode === 0;
+
+describe("context in the composed session process (excerpts)", () => {
+  test("an ask with every context item resolves, and open-editor starts the command on the real path", async () => {
+    writeContextFiles(project);
+    const browser = recorder("context-browser");
+    const editor = recorder("context-editor");
+    const run = await start(
+      { BROWSER: browser.script },
+      writeView(),
+      CLAUDE_CODE,
+      undefined,
+      undefined,
+      () => [editor.script, "{file}", "{line}"],
+    );
+    const asked = await run.call("ask", contextAsk("context-every-item"));
+    expect(unresolved(asked.warnings)).toEqual([]);
+    const link = new URL(asked.board);
+    const board = await openSocket(Number(link.port), asked.askId);
+    board.send({ version, type: "connect", token: link.searchParams.get("t") });
+    const sent = (await board.next()) as { type: string; document: ContextBoard };
+    expect(sent.type).toBe("board");
+    const items = sent.document.items[0]?.props.items ?? [];
+    expect(Object.fromEntries(items.map((item) => [item.id, item.props]))).toEqual({
+      "retry-adr": {
+        pointer: POINTERS["retry-adr"],
+        status: "resolved",
+        text: "## Decision\n\nWe retry a failed payment three times.",
+        mediaType: "text/markdown",
+        lines: { start: 3, end: 5 },
+      },
+      note: { text: "Seen on 2 November.", title: "Note" },
+      "retry-src": {
+        pointer: POINTERS["retry-src"],
+        kind: "file",
+        status: "resolved",
+        lines: { start: 3, end: 4 },
+      },
+      pr: { url: "https://github.com/acme/pay/pull/12", kind: "github" },
+      shot: {
+        pointer: POINTERS.shot,
+        alt: "The retry log",
+        status: "resolved",
+        mediaType: "image/png",
+        bytes: ONE_PIXEL_PNG,
+      },
+    });
+    await board.next();
+
+    board.send({ version, type: "open-editor", itemId: "retry-src" });
+    expect(await board.next()).toEqual({
+      version,
+      type: "editor-outcome",
+      itemId: "retry-src",
+      outcome: "opened",
+    });
+    const real = realpathSync(join(project, "src", "retry.ts"));
+    expect((await waitForFile(editor.record)).split("\n")).toEqual([real, "3", ""]);
+    for (let tries = 0; tries < 200 && running(editor.script); tries += 1) await Bun.sleep(10);
+    expect(running(editor.script)).toBe(false);
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
+  });
+
+  test("without CLAUDE_PROJECT_DIR every pointer is no-root, even with the working folder holding the file", async () => {
+    // The working folder of `start` is the project's parent.
+    writeContextFiles(dirname(project));
+    const { script } = recorder("context-no-root");
+    const run = await start({ BROWSER: script, CLAUDE_PROJECT_DIR: "" });
+    const asked = await run.call("ask", contextAsk("context-no-root"));
+    expect(unresolved(asked.warnings)).toEqual(
+      ["retry-adr", "retry-src", "shot"].map((itemId) => ({
+        code: "unresolved-pointer",
+        itemId,
+        reason: "no-root",
+      })),
+    );
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
+  });
+
+  test("the shipped bundle's composition gives board-host no editor command", () => {
+    const entry = readFileSync(join(import.meta.dir, "..", "src", "session-entry.ts"), "utf8");
+    expect(entry).not.toMatch(/editor|sources/i);
+    const composition = readFileSync(
+      join(import.meta.dir, "..", "src", "session-process.ts"),
+      "utf8",
+    );
+    expect(composition).toContain("editorCommand: options.editorCommand ?? (() => undefined)");
   });
 });

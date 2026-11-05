@@ -18,6 +18,7 @@ import {
   text,
 } from "./ask-items.ts";
 import { schemaErrors } from "./compiled.ts";
+import { contextProblems } from "./context/items.ts";
 import { NOTE_MAX_CHARS, OTHER_MAX_CHARS, REPLY_MAX_CHARS } from "./lifecycle-limits.ts";
 import {
   expectedAt,
@@ -113,6 +114,7 @@ const addProblems = (request: unknown, action: unknown, index: number): Added =>
     ...repeatedIdProblems(UPDATE, request, placed),
     ...reservedPrefixProblems(UPDATE, request, placedIds(placed)),
     ...labelProblems(UPDATE, request, placed),
+    ...contextProblems(UPDATE, request, placed),
   ];
   if (isRecord(action.item) && action.item.type === "area" && action.parentId !== undefined) {
     const segments = [...at, "parentId"];

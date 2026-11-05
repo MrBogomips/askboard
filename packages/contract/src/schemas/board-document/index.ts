@@ -1,20 +1,25 @@
 // The board document (owner `ask-core`, AD-12): what `board-host` ships to the board page and what
 // the view renders. E1's held one plain question as accepted, with its revision; E3's minor holds
 // several questions or areas, and the presentation and delivery the ask requests (ask-lifecycle,
+// design decision 2); E5's carries a question's context items as ask-core resolved them (excerpts,
 // design decision 2).
 
+import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
 import type { QuestionProps } from "../input/index.ts";
 import boardDocument from "./board-document.json" with { type: "json" };
+import excerptProps from "./excerpt-props.json" with { type: "json" };
+import imageProps from "./image-props.json" with { type: "json" };
+import referenceProps from "./reference-props.json" with { type: "json" };
 
-export const BOARD_DOCUMENT_VERSION = "1.1";
+export const BOARD_DOCUMENT_VERSION = "1.2";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",
   title: "board document",
   owner: "ask-core",
   version: BOARD_DOCUMENT_VERSION,
-  schemas: [boardDocument],
+  schemas: [boardDocument, excerptProps, referenceProps, imageProps],
 };
 
 export type BoardQuestion = {
@@ -22,7 +27,8 @@ export type BoardQuestion = {
   readonly id: string;
   /** The question's revision; 1 when the ask is created (AD-20). */
   readonly rev: number;
-  readonly props: QuestionProps;
+  /** Its props, with its context items as ask-core resolved them since 1.2 (excerpts). */
+  readonly props: BoardQuestionProps;
 };
 
 /**
@@ -60,4 +66,74 @@ export type LifecycleBoardDocument = Omit<BoardDocument, "items"> & {
   readonly items:
     | readonly [BoardQuestion, ...BoardQuestion[]]
     | readonly [BoardArea, ...BoardArea[]];
+};
+
+// Board document 1.2 (excerpts, design decision 2; proposal B8): a question's context items with
+// what ask-core resolved.
+
+/** A range of 1-based lines, both ends included, `start` at most `end`. */
+export type ContextLines = { readonly start: number; readonly end: number };
+
+/** An excerpt by pointer, resolved or not, or the text the agent wrote. */
+export type BoardExcerptProps =
+  | {
+      readonly pointer: string;
+      readonly title?: string;
+      readonly status: "resolved";
+      /** The source text: the anchor's lines joined by LF. */
+      readonly text: string;
+      readonly mediaType: TextMediaType;
+      readonly lines: ContextLines;
+    }
+  | {
+      readonly pointer: string;
+      readonly title?: string;
+      readonly status: "unresolved";
+      readonly reason: UnresolvedReason;
+    }
+  | { readonly text: string; readonly title?: string };
+
+/** A project file by pointer, of kind `file`, or a web page by URL, of kind `github` or `web`. */
+export type BoardReferenceProps =
+  | {
+      readonly pointer: string;
+      readonly title?: string;
+      readonly kind: "file";
+      readonly status: "resolved";
+      /** The anchor's lines, when the pointer has an anchor. */
+      readonly lines?: ContextLines;
+    }
+  | {
+      readonly pointer: string;
+      readonly title?: string;
+      readonly kind: "file";
+      readonly status: "unresolved";
+      readonly reason: UnresolvedReason;
+    }
+  | { readonly url: string; readonly title?: string; readonly kind: "github" | "web" };
+
+/** An image by pointer: its bytes in base64 when resolved, its reason when not. */
+export type BoardImageProps =
+  | {
+      readonly pointer: string;
+      readonly alt: string;
+      readonly status: "resolved";
+      readonly mediaType: ImageMediaType;
+      readonly bytes: string;
+    }
+  | {
+      readonly pointer: string;
+      readonly alt: string;
+      readonly status: "unresolved";
+      readonly reason: UnresolvedReason;
+    };
+
+export type BoardContextItem =
+  | { readonly type: "excerpt"; readonly id: string; readonly props: BoardExcerptProps }
+  | { readonly type: "reference"; readonly id: string; readonly props: BoardReferenceProps }
+  | { readonly type: "image"; readonly id: string; readonly props: BoardImageProps };
+
+/** A question's props as the board document holds them: its items resolved. */
+export type BoardQuestionProps = Omit<QuestionProps, "items"> & {
+  readonly items?: readonly [BoardContextItem, ...BoardContextItem[]];
 };

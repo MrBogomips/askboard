@@ -9,6 +9,7 @@ import {
 } from "@askboard/contract";
 import {
   boardProtocolExamples,
+  contextBoardDocument,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
   subagentOrigin,
@@ -99,6 +100,40 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
+  // Board documents whose questions hold context items (excerpts, design decision 2): the fixture
+  // with every status of every type, and each item broken, so every validator the items add runs.
+  const board = (document: unknown) => ({
+    version: BOARD_PROTOCOL_VERSION,
+    type: "board",
+    document,
+  });
+  const [first, ...others] = contextBoardDocument.items;
+  const withItem = (item: unknown) =>
+    board({
+      ...contextBoardDocument,
+      items: [{ ...first, props: { ...first.props, items: [item] } }, ...others],
+    });
+  const contextItems = contextBoardDocument.items.flatMap((question) => question.props.items ?? []);
+  const context: readonly { type: string }[] = [
+    board(contextBoardDocument),
+    ...contextItems.map((item) => withItem({ ...item, props: { ...item.props, extra: 1 } })),
+    ...contextItems.map((item) => withItem({ ...item, id: "" })),
+    ...contextItems.map((item) =>
+      withItem({ ...item, props: { ...item.props, status: "pending" } }),
+    ),
+    withItem({ type: "excerpt", id: "adr", props: { pointer: "a.md#A" } }),
+    withItem({ type: "probe", id: "x", props: {} }),
+    board({ ...contextBoardDocument, items: [{ ...first, props: { ...first.props, items: [] } }] }),
+  ];
+
+  test("agree with the contract on board documents holding context items (excerpts, task 1.3)", () => {
+    expect(validateBoardMessage("toPage", context[0]).ok).toBe(true);
+    for (const message of context) {
+      const ok = generated[message.type]?.(message);
+      expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
+    }
+  });
+
   test("key each validator by its message name, quoted, so a name need not be an identifier", async () => {
     // A later host message such as `snapshot-saved`, here checked against `moved`'s schema.
     const messages = {
@@ -112,7 +147,7 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     expect(check?.({ version: BOARD_PROTOCOL_VERSION, type: "moved", why: "x" })).toBe(false);
     // The listed messages keep their validators beside it.
     const added = lifecycleProtocolExamples.toPage as readonly { type: string }[];
-    for (const message of [...valid, ...invalid, ...added]) {
+    for (const message of [...valid, ...invalid, ...added, ...context]) {
       const ok = extended[message.type]?.(message);
       expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
     }

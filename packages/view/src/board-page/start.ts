@@ -21,6 +21,7 @@ import { type BoardPage, runBoardPage } from "./controller.ts";
 import { loadView } from "./load-view.ts";
 import { createPageChrome } from "./page-chrome.ts";
 import { withPresence } from "./presence.ts";
+import { createReadingPanel } from "./reading-panel.ts";
 import { boardLinkOf, connectBoard } from "./socket.ts";
 import { hostView, type ViewHost } from "./view-host.ts";
 import { createWorkingSignal, FOCUS_RECHECK_MS, type WorkingSignal } from "./working-signal.ts";
@@ -92,6 +93,15 @@ export const startBoardPage = (window: Window): void => {
     },
     copyText: (text) => copyText(window, text),
     onActivity: signal.input,
+    readingPanel: createReadingPanel(document, {
+      askId: link.askId,
+      token: link.token,
+      scheme: () => (document.documentElement.classList.contains("dark") ? "dark" : "light"),
+    }),
+    // On the user's click, as a new tab that has no opener and sends no referrer (AD-8).
+    openLink: (url) => {
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
   });
   // A page going away mirrors its draft, does not reconnect and stops reading its focus; one
   // restored from the back-forward cache reconnects and reads it again.

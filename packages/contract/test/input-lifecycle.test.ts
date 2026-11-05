@@ -238,22 +238,21 @@ describe("question props: FR-3's fields", () => {
   });
 });
 
-describe("what input format 1.1 still refuses", () => {
+describe("what the input format still refuses", () => {
+  // Since input format 1.2 a question's items hold its context, and a widget item is refused at its
+  // type (excerpts, design decision 2).
   test.each([
-    ["uj1-diff-graph", ["fix", "state-machine"]],
-    ["uj2-wbs-gantt", ["plan"]],
-    ["uj3-sales-review", ["offer"]],
-  ])(
-    "the approved %s ask is refused, naming each question with widget items and items",
-    async (name, ids) => {
-      const problems = problemsOf(await read(`asks/${name}.json`));
-      const named = problems.filter((problem) => problem.field === "props.items");
-      expect(named.map((problem) => problem.itemId)).toEqual(ids);
-      for (const problem of named) {
-        expect(problem.message).toStartWith(`item "${problem.itemId}", props.items`);
-      }
-    },
-  );
+    ["uj1-diff-graph", ["fix-diff", "retry-states"]],
+    ["uj2-wbs-gantt", ["wbs", "schedule"]],
+    ["uj3-sales-review", ["estimate"]],
+  ])("the approved %s ask is refused, naming each widget item and its type", async (name, ids) => {
+    const problems = problemsOf(await read(`asks/${name}.json`));
+    const named = problems.filter((problem) => problem.field === "type");
+    expect(named.map((problem) => problem.itemId)).toEqual(ids);
+    for (const problem of named) {
+      expect(problem.message).toStartWith(`item "${problem.itemId}", type`);
+    }
+  });
 
   test.each(["language", "locale"])("%s it-IT is still refused, naming the field", (field) => {
     const problem = only(ask([question("q")], { [field]: "it-IT" }));

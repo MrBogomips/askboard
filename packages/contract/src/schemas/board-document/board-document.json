@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-document:board-document",
   "title": "Board document",
-  "description": "What a board shows of an ask, as ask-core holds it now (AD-12): its ID, its title, the presentation and delivery the ask requests, and its items as the input format places them: questions, or areas holding questions, never both at the top level and never an area in an area, each question with its current revision (AD-20). It holds no draft, no event and no token.",
+  "description": "What a board shows of an ask, as ask-core holds it now (AD-12): its ID, its title, the presentation and delivery the ask requests, and its items as the input format places them: questions, or areas holding questions, never both at the top level and never an area in an area, each question with its current revision (AD-20). Since 1.2 a question's context items carry what ask-core resolved (excerpts, design decision 2). It holds no draft, no event and no token.",
   "type": "object",
   "properties": {
     "version": {
@@ -97,7 +97,7 @@
           "minimum": 1
         },
         "props": {
-          "$ref": "urn:askboard:input:question-props"
+          "$ref": "#/$defs/questionProps"
         }
       },
       "required": ["type", "id", "rev", "props"],
@@ -135,6 +135,64 @@
         }
       },
       "required": ["title", "items"],
+      "additionalProperties": false
+    },
+    "questionProps": {
+      "description": "A question's props: the input format's fields, whose context items carry what ask-core resolved (excerpts, design decision 2).",
+      "type": "object",
+      "properties": {
+        "text": { "$ref": "urn:askboard:input:question-props#/properties/text" },
+        "header": { "$ref": "urn:askboard:input:question-props#/properties/header" },
+        "options": { "$ref": "urn:askboard:input:question-props#/properties/options" },
+        "multiSelect": { "$ref": "urn:askboard:input:question-props#/properties/multiSelect" },
+        "allowOther": { "$ref": "urn:askboard:input:question-props#/properties/allowOther" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/contextItem" }
+        }
+      },
+      "required": ["text", "options"],
+      "additionalProperties": false
+    },
+    "contextItem": {
+      "description": "An item of a question, picked by its type.",
+      "type": "object",
+      "discriminator": { "propertyName": "type" },
+      "oneOf": [
+        { "$ref": "#/$defs/excerpt" },
+        { "$ref": "#/$defs/reference" },
+        { "$ref": "#/$defs/image" }
+      ]
+    },
+    "excerpt": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "excerpt" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:board-document:excerpt-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "reference": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "reference" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:board-document:reference-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "image" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:board-document:image-props" }
+      },
+      "required": ["type", "id", "props"],
       "additionalProperties": false
     }
   }

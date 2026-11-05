@@ -17,7 +17,7 @@
 import { type LifecycleBoardState, NOTE_MAX_CHARS } from "@askboard/contract";
 import { Fragment, useRef, useSyncExternalStore } from "react";
 import type { ChoiceExtras } from "../catalog/choice/props.ts";
-import { renderedOf } from "../catalog/components.ts";
+import { type Rendered, renderedOf } from "../catalog/components.ts";
 import { questionTextId } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
@@ -55,6 +55,8 @@ import {
 } from "./card-acts.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
+import { ContextColumn } from "./context-column.tsx";
+import { couldSplit, layoutOf } from "./context-layout.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { ActionsRow } from "./question-actions.tsx";
 import {
@@ -117,6 +119,10 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   const choosing = useSyncExternalStore(acts.subscribe, () =>
     acts.of(question.id, ["edit-choice"]),
   );
+  const placement = useSyncExternalStore(
+    board.subscribe,
+    () => board.placement(question.id) ?? "beside",
+  );
   const status = statusOf(state, question.id);
   const pending = changePending(question, work, keptChoices);
   // The revision the card works on: the one the work was made on, while it is earlier.
@@ -142,7 +148,19 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     pending,
     explaining: explainPending(status?.thread, followUp?.acts ?? []),
   });
-  return { load, values, work, status, pending, shown, card, actions, followUp, choosing };
+  return {
+    load,
+    values,
+    work,
+    status,
+    pending,
+    shown,
+    card,
+    actions,
+    followUp,
+    choosing,
+    placement,
+  };
 };
 
 // Choice's extras: the shown answer's or the draft's "Other…" text and option notes, with the
@@ -232,8 +250,19 @@ const OpenPrompt = ({
 export const QuestionCard = (props: CardProps) => {
   const { question, state, lock, delivery, single, context, level = 2 } = props;
   const Heading = level === 3 ? "h3" : "h2";
-  const { load, values, work, status, pending, shown, card, actions, followUp, choosing } =
-    useCard(props);
+  const {
+    load,
+    values,
+    work,
+    status,
+    pending,
+    shown,
+    card,
+    actions,
+    followUp,
+    choosing,
+    placement,
+  } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
   const { header, text } = shown.props;
@@ -258,6 +287,54 @@ export const QuestionCard = (props: CardProps) => {
   const extras = extrasOf(shown, card, work, context.board, revise);
   const usable = status !== undefined && load === "visible" && lock === undefined;
   const reopened = status?.state === "open" || status?.state === "postponed" ? status : undefined;
+  const layout = layoutOf(renderedOf(shown));
+  const placeable = couldSplit(layout.context);
+  const split = placeable && placement === "beside";
+  const headingOf = (
+    <Heading
+      id={questionTextId(question.id)}
+      tabIndex={-1}
+      className={`text-question text-foreground ${FOCUS_RING}`}
+    >
+      {text}
+    </Heading>
+  );
+  const itemsOf = (list: readonly Rendered[]) =>
+    list.map(({ item, component }) => (
+      <Fragment key={item.id}>
+        {item === shown ? (
+          <OptionsLabel
+            question={shown}
+            disabled={card.readOnly || pending}
+            onAccept={() => {
+              revise();
+              acceptRecommended(shown, acting);
+            }}
+          />
+        ) : null}
+        <RenderItem
+          item={item}
+          component={component}
+          questionId={question.id}
+          itemIds={itemIdsOf(question)}
+          context={context}
+          disabled={card.readOnly}
+          shown={shownFor(card.shown, question.id, item.id)}
+          onBeforeChange={revise}
+          {...(item === shown ? { extras } : {})}
+        />
+      </Fragment>
+    ));
+  const contextColumn = (
+    <ContextColumn
+      questionId={question.id}
+      placement={split ? "beside" : "inline"}
+      placeable={placeable}
+      onPlace={(next) => context.board.setPlacement(question.id, next)}
+    >
+      {itemsOf(layout.context)}
+    </ContextColumn>
+  );
   return (
     <section
       ref={section}
@@ -294,38 +371,22 @@ export const QuestionCard = (props: CardProps) => {
           {header === undefined ? null : <span className={CHIP}>{header}</span>}
         </div>
       )}
-      <Heading
-        id={questionTextId(question.id)}
-        tabIndex={-1}
-        className={`text-question text-foreground ${FOCUS_RING}`}
-      >
-        {text}
-      </Heading>
-      {renderedOf(shown).map(({ item, component }) => (
-        <Fragment key={item.id}>
-          {item === shown ? (
-            <OptionsLabel
-              question={shown}
-              disabled={card.readOnly || pending}
-              onAccept={() => {
-                revise();
-                acceptRecommended(shown, acting);
-              }}
-            />
-          ) : null}
-          <RenderItem
-            item={item}
-            component={component}
-            questionId={question.id}
-            itemIds={itemIdsOf(question)}
-            context={context}
-            disabled={card.readOnly}
-            shown={shownFor(card.shown, question.id, item.id)}
-            onBeforeChange={revise}
-            {...(item === shown ? { extras } : {})}
-          />
-        </Fragment>
-      ))}
+      {split ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-4">
+          <div className="flex min-w-0 flex-col gap-3">
+            {headingOf}
+            {itemsOf(layout.main)}
+          </div>
+          {contextColumn}
+        </div>
+      ) : (
+        <>
+          {headingOf}
+          {layout.context.length === 0 ? null : contextColumn}
+          {itemsOf(layout.main)}
+        </>
+      )}
+      {itemsOf(layout.below)}
       {load === "failed" ? null : (
         <>
           <OpenPrompt

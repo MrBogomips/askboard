@@ -36,12 +36,16 @@ import {
   type DraftMessage,
   type LifecycleHostMessage,
   type LifecyclePageMessage,
+  type OpenEditorCommand,
+  type OpenSourceCommand,
   TAKEOVER_FLUSH_WAIT_MS,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
 import type { ActOutcome, CoreEvent } from "@askboard/core";
 import { type RawData, WebSocket } from "ws";
 import { actReply, draftRefusal } from "./acts.ts";
+import { editorOutcomeMessage, NO_SOURCE, sourceStateMessage } from "./context-messages.ts";
+import { type EditorCommand, EditorLaunch, type EditorSpawn } from "./editor.ts";
 import type { HostCore } from "./index.ts";
 import {
   boardMessage,
@@ -157,7 +161,10 @@ const parse = (data: RawData, binary: boolean): unknown => {
   }
 };
 
-type PageCommand = Exclude<LifecyclePageMessage, ConnectMessage>;
+type PageCommand = Exclude<
+  LifecyclePageMessage | OpenSourceCommand | OpenEditorCommand,
+  ConnectMessage
+>;
 
 /** What a live board does with each of ask-core's events, by type. */
 type Heard = {
@@ -211,6 +218,10 @@ export type BoardsDeps = {
   readonly limits?: Partial<SocketLimits>;
   /** The session project: with it, the context header's messages go to each live board. */
   readonly projectDir?: string;
+  /** The editor command, read at each use; none by default (excerpts, design decision 5). */
+  readonly editorCommand?: () => EditorCommand | undefined;
+  /** Starts the editor; Node's `spawn` by default (excerpts, task 5.4). */
+  readonly spawnEditor?: EditorSpawn;
 };
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -230,6 +241,8 @@ export class Boards {
   // The connection whose act command ask-core is applying: its acknowledgement precedes its state.
   #acting: Connection | undefined;
   readonly #projectDir: string | undefined;
+  readonly #editorCommand: () => EditorCommand | undefined;
+  readonly #editor: EditorLaunch;
   // Set when the host starts closing: no socket is accepted or heard from then.
   #closing = false;
 
@@ -245,6 +258,12 @@ export class Boards {
       sendBufferMaxBytes: deps.limits?.sendBufferMaxBytes ?? SEND_BUFFER_MAX_BYTES,
     };
     this.#projectDir = deps.projectDir;
+    this.#editorCommand = deps.editorCommand ?? (() => undefined);
+    this.#editor = new EditorLaunch({
+      command: this.#editorCommand,
+      report: deps.report,
+      ...(deps.spawnEditor === undefined ? {} : { spawn: deps.spawnEditor }),
+    });
   }
 
   /**
@@ -569,11 +588,14 @@ export class Boards {
   ]);
 
   // The board protocol's page commands, by type: E1's answer; the ask lifecycle's act command and
-  // draft record (ask-lifecycle, design decision 8).
+  // draft record (ask-lifecycle, design decision 8); the reading panel's source and "Open in
+  // editor" (excerpts, design decision 5).
   readonly #commands: Commands = {
     answer: (connection, command) => this.#answer(connection, command),
     act: (connection, command) => this.#act(connection, command),
     draft: (connection, command) => this.#draft(connection, command),
+    "open-source": (connection, command) => this.#openSource(connection, command),
+    "open-editor": (connection, command) => this.#openEditor(connection, command),
   };
 
   #answer(connection: Connection, command: AnswerCommand): void {
@@ -608,6 +630,33 @@ export class Boards {
     const refusal = draftRefusal(message.record, view.document);
     if (refusal !== undefined) this.#send(connection, refusal);
     else this.#core.holdDraft(connection.askId, message.record);
+  }
+
+  // A source's state, read by ask-core now; it reaches the board only while this socket is still
+  // the ask's live one (excerpts, design decision 5, Messages).
+  #openSource(connection: Connection, { itemId }: OpenSourceCommand): void {
+    const source = this.#core.sourceOf?.(connection.askId, itemId);
+    const reading = source === undefined ? Promise.resolve(NO_SOURCE) : source.state();
+    reading
+      .then((state) => {
+        if (this.#live.get(connection.askId) !== connection) return;
+        const editorSet = this.#editorCommand() !== undefined;
+        this.#send(connection, sourceStateMessage(itemId, state, editorSet));
+      })
+      .catch(this.#report);
+  }
+
+  // "Open in editor" on ask-core's target, resolved and confined again now; the outcome reaches the
+  // board only while this socket is still the ask's live one (excerpts, design decision 5).
+  #openEditor(connection: Connection, { itemId }: OpenEditorCommand): void {
+    const { askId } = connection;
+    this.#editor
+      .open(askId, async () => this.#core.editorTarget?.(askId, itemId))
+      .then((outcome) => {
+        if (this.#live.get(askId) !== connection) return;
+        this.#send(connection, editorOutcomeMessage(itemId, outcome));
+      })
+      .catch(this.#report);
   }
 
   // What ask-core shows of the ask, unless it is gone.

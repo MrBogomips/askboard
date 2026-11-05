@@ -2,6 +2,7 @@
 // runtime-neutral (AD-1): everything that touches the machine comes through these.
 
 import type { UnavailableReason } from "@askboard/contract";
+import type { SourceFiles } from "./context/ports.ts";
 import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
 
 /**
@@ -87,4 +88,11 @@ export type CorePorts = {
   readonly diagnose?: Diagnose;
   /** The context header's threshold, run on `clock` (E4, design decision 12). */
   readonly header?: HeaderPorts;
+  /** Context, E5: the pointers' files (excerpts); without it every pointer is `no-root`. */
+  readonly sources?: SourceFiles;
+  /**
+   * The session project root, the real path of `CLAUDE_PROJECT_DIR`; without it every pointer is
+   * `no-root`, whatever an ask's origin says (excerpts, design decision 4, Root).
+   */
+  readonly projectRoot?: string;
 };

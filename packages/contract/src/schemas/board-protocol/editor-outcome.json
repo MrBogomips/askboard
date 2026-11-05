@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:editor-outcome",
+  "title": "The editor's outcome",
+  "description": "board-host to the board page in answer to open-editor (excerpts, design decision 5; proposal B17): opened, no-editor (none is set), unavailable (the file no longer resolves inside the root), failed (the editor did not start) or busy (a launch for the ask within the last second). It never holds the command or its arguments.",
+  "type": "object",
+  "properties": {
+    "version": { "$ref": "urn:askboard:board-protocol:version" },
+    "type": { "const": "editor-outcome" },
+    "itemId": { "$ref": "urn:askboard:input:id" },
+    "outcome": { "enum": ["opened", "no-editor", "unavailable", "failed", "busy"] }
+  },
+  "required": ["version", "type", "itemId", "outcome"],
+  "additionalProperties": false
+}

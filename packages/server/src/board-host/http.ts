@@ -1,7 +1,8 @@
 // The board listener's HTTP side (design decision 5): the gate of every request, then the board page
 // at its link, the manifest at `/m` and the chunks at `/c/<sha256>` behind the token header, each
 // answer with the status and type of the contract's `BOARD_RESPONSES`, and the WebSocket upgrade at
-// `/ws/<askId>`, whose token comes in the first message.
+// `/ws/<askId>`, whose token comes in the first message. The source view at `/s/<askId>/<itemId>`
+// takes its token in the query, as the board link does (excerpts, design decision 5).
 
 import { type IncomingMessage, type ServerResponse, STATUS_CODES } from "node:http";
 import type { Duplex } from "node:stream";
@@ -11,10 +12,12 @@ import {
   BOARD_TOKEN_QUERY,
   type BoardRoute,
   parseBoardRoute,
+  SOURCE_SCHEME_QUERY,
 } from "@askboard/contract";
 import { gateRefusal } from "./gate.ts";
 import type { HostCore } from "./index.ts";
 import { INVALID_LINK_PAGES, PLAIN_POLICY } from "./pages.ts";
+import { SOURCE_VIEW_POLICY, type SourceScheme, sourceViewPage } from "./source-view.ts";
 import type { BoardTokens } from "./tokens.ts";
 import type { LoadedView } from "./view.ts";
 
@@ -118,7 +121,40 @@ const boardPage = (deps: HttpDeps, askId: string, query: URLSearchParams): Reply
   return { answer: BOARD_RESPONSES.boardPage, body: deps.view.boardPage, policy: deps.view.policy };
 };
 
-const replyTo = (deps: HttpDeps, request: IncomingMessage): Reply => {
+type SourceRoute = Extract<BoardRoute, { readonly kind: "source" }>;
+
+const schemeOf = (query: URLSearchParams): { readonly scheme?: SourceScheme } => {
+  const scheme = query.get(SOURCE_SCHEME_QUERY);
+  return scheme === "light" || scheme === "dark" ? { scheme } : {};
+};
+
+// The source view (excerpts, design decision 5, Route): only with the token that opens its ask, as
+// plain text otherwise; nothing for a discarded ask, and a page only for an item with a source,
+// whose file is read now.
+const sourceView = async (
+  deps: HttpDeps,
+  { askId, itemId }: SourceRoute,
+  query: URLSearchParams,
+): Promise<Reply> => {
+  const token = query.get(BOARD_TOKEN_QUERY);
+  const board =
+    token !== null && deps.tokens.opens(askId, token) ? deps.core.lifecycleBoard(askId) : undefined;
+  if (board === undefined) return text(BOARD_RESPONSES.tokenRefused);
+  if (board.state === "discarded") {
+    const { contentType } = BOARD_RESPONSES.tokenRefused;
+    return text({ status: BOARD_RESPONSES.discardedLink.status, contentType });
+  }
+  const source = deps.core.sourceOf?.(askId, itemId);
+  if (source === undefined) return text(BOARD_RESPONSES.notFound);
+  const page = sourceViewPage({
+    path: source.path,
+    source: await source.text(),
+    ...schemeOf(query),
+  });
+  return { answer: BOARD_RESPONSES.sourceView, body: page, policy: SOURCE_VIEW_POLICY };
+};
+
+const replyTo = (deps: HttpDeps, request: IncomingMessage): Reply | Promise<Reply> => {
   if (gateOf(request, false) !== undefined) return text(BOARD_RESPONSES.refused);
   const { route: target, query } = targetOf(request.url);
   const readable = request.method === "GET" || request.method === "HEAD";
@@ -126,6 +162,7 @@ const replyTo = (deps: HttpDeps, request: IncomingMessage): Reply => {
     return text(BOARD_RESPONSES.notFound);
   }
   if (target.kind === "board") return boardPage(deps, target.askId, query);
+  if (target.kind === "source") return sourceView(deps, target, query);
   if (!headerTokenOpens(deps, request)) return text(BOARD_RESPONSES.tokenRefused);
   if (target.kind === "manifest") {
     return { answer: BOARD_RESPONSES.manifest, body: deps.view.manifest };
@@ -135,20 +172,33 @@ const replyTo = (deps: HttpDeps, request: IncomingMessage): Reply => {
   return { answer: { status: 200, contentType: chunk.contentType }, body: chunk.body };
 };
 
-/** Answers one HTTP request; a handler failure is reported and answered with 500. */
+/**
+ * Answers one HTTP request; a handler failure is reported and answered with 500. Only the source
+ * view answers later, once its file is read.
+ */
 export const handleRequest = (
   deps: HttpDeps,
   request: IncomingMessage,
   response: ServerResponse,
 ): void => {
-  let reply: Reply;
+  const failed = (error: unknown): Reply => {
+    deps.report(error);
+    return text({ status: 500, contentType: BOARD_RESPONSES.notFound.contentType });
+  };
+  let reply: Reply | Promise<Reply>;
   try {
     reply = replyTo(deps, request);
   } catch (error) {
-    deps.report(error);
-    reply = text({ status: 500, contentType: BOARD_RESPONSES.notFound.contentType });
+    reply = failed(error);
   }
-  send(request, response, reply);
+  if (reply instanceof Promise) {
+    reply
+      .catch(failed)
+      .then((settled) => send(request, response, settled))
+      .catch(deps.report);
+  } else {
+    send(request, response, reply);
+  }
 };
 
 // Refuses an upgrade with a bare HTTP answer and closes the connection.

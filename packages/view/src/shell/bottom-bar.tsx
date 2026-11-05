@@ -18,16 +18,8 @@ import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
-import {
-  BUTTON_LINK,
-  BUTTON_PRIMARY,
-  BUTTON_SECONDARY,
-  FOCUS_RING,
-  SECTION_LABEL,
-} from "./styles.ts";
+import { BUTTON_LINK, BUTTON_PRIMARY, BUTTON_SECONDARY, SECTION_LABEL, SEGMENT } from "./styles.ts";
 import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
-
-const SEGMENT = `h-6 rounded-sm border-b-2 border-transparent px-2 text-control text-muted-foreground aria-pressed:border-primary aria-pressed:bg-card aria-pressed:font-semibold aria-pressed:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
 
 const DIALOG =
   "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-2 rounded-lg border border-border bg-popover p-4 text-foreground shadow-lg";

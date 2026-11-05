@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-protocol:source-state",
+  "title": "A source's state",
+  "description": "board-host to the board page in answer to open-source (excerpts, design decision 5): the source's status now, whether an excerpt's range changed since the ask, the anchor's current line, and whether \"Open in editor\" can open it (an editor is set and the file is available). It holds no path and no text: the reading panel frames the source view for those (AD-8).",
+  "type": "object",
+  "properties": {
+    "version": { "$ref": "urn:askboard:board-protocol:version" },
+    "type": { "const": "source-state" },
+    "itemId": { "$ref": "urn:askboard:input:id" },
+    "status": { "enum": ["available", "missing", "outside-root", "not-text", "too-large"] },
+    "changed": { "type": "boolean" },
+    "line": { "type": "integer", "minimum": 1 },
+    "editor": { "type": "boolean" }
+  },
+  "required": ["version", "type", "itemId", "status", "editor"],
+  "additionalProperties": false
+}

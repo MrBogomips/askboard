@@ -1,9 +1,17 @@
 // The items of an ask, or of an `update`'s `add`, checked where a schema cannot reach (ask-lifecycle,
 // design decision 2): item IDs unique in the ask, the reserved view-made prefix (F10), areas all or
 // none at the top level and never inside an area (FR-2), and per question its option labels unique
-// (F5), at most one recommended option, and the room an answer needs.
+// (F5), at most one recommended option, and the room an answer needs. Since input format 1.2 a
+// question's context items are walked too, so their IDs follow the same rules (excerpts, design
+// decision 2).
 
 import { ID_PATTERN, VIEW_ID_PREFIX } from "./constants.ts";
+import {
+  CONTEXT_TITLE_MAX_CHARS,
+  IMAGE_ALT_MAX_CHARS,
+  POINTER_MAX_CHARS,
+  URL_MAX_CHARS,
+} from "./context/limits.ts";
 import { ANNOTATION_MAX_CHARS, PREVIEW_MAX_CHARS } from "./lifecycle-limits.ts";
 import { CHOICE_LABELS_MAX_CHARS } from "./limits.ts";
 import {
@@ -31,58 +39,111 @@ export type Placed = {
   readonly item: Readonly<Record<string, unknown>>;
   readonly at: Segments;
   readonly depth: number;
+  /** Set on an item of a question's `items`, one level deeper than its question. */
+  readonly inQuestion?: true;
 };
 
 const isArea = (item: unknown): boolean => isRecord(item) && item.type === "area";
+const isQuestion = (item: unknown): boolean => isRecord(item) && item.type === "question";
 
-// An area's items, when it holds a list of them.
-const childrenOf = (item: unknown): readonly unknown[] => {
+// The list of items an item's props hold, if any.
+const listOf = (item: unknown): readonly unknown[] => {
   const props = isRecord(item) ? item.props : undefined;
-  return isArea(item) && isRecord(props) && Array.isArray(props.items) ? props.items : [];
+  return isRecord(props) && Array.isArray(props.items) ? props.items : [];
 };
 
-/** An item at `at`, then, when it is an area, each of its items. */
+// An area's items, when it holds a list of them.
+const childrenOf = (item: unknown): readonly unknown[] => (isArea(item) ? listOf(item) : []);
+
+// A question's items, when it holds a list of them.
+const contextOf = (item: unknown): readonly unknown[] => (isQuestion(item) ? listOf(item) : []);
+
+/** The item types a question's `items` hold (excerpts, design decision 2). */
+export const CONTEXT_ITEM_TYPES: readonly string[] = ["excerpt", "reference", "image"];
+
+// A question's items, each where it is. An area or a question among them is left to the schema,
+// which refuses it at its type, rather than named as a nested area or checked as a question.
+const placedContext = (question: unknown, at: Segments, depth: number): Placed[] =>
+  contextOf(question).flatMap((item, index) =>
+    isRecord(item) && !isArea(item) && !isQuestion(item)
+      ? [{ item, at: [...at, "props", "items", String(index)], depth: depth + 1, inQuestion: true }]
+      : [],
+  );
+
+/** An item at `at`, then each of its items: an area's questions, or a question's items. */
 export const placedItem = (item: unknown, at: Segments, depth = 0): Placed[] =>
   isRecord(item)
-    ? [{ item, at, depth }, ...placedItems(childrenOf(item), [...at, "props", "items"], depth + 1)]
+    ? [
+        { item, at, depth },
+        ...placedItems(childrenOf(item), [...at, "props", "items"], depth + 1),
+        ...placedContext(item, at, depth),
+      ]
     : [];
 
 /** Each item of a list at `at`, in document order, each area followed by its items. */
 export const placedItems = (items: readonly unknown[], at: Segments, depth = 0): Placed[] =>
   items.flatMap((item, index) => placedItem(item, [...at, String(index)], depth));
 
+// Whether a path from an item goes into one of its items' own fields, past `props.items[n]`.
+const entersItem = (rest: Segments): boolean =>
+  rest[0] === "props" && rest[1] === "items" && rest.length > 3;
+
+// A question's fields, and its items' own fields by their type (`excerpt.props.pointer`), once the
+// type is one the input format defines; anything else reads as the question's.
+const questionKey = (question: unknown, rest: Segments): string => {
+  if (entersItem(rest) && !(rest.length === 4 && rest[3] === "type")) {
+    const inner = contextOf(question)[Number(rest[2])];
+    const type = isRecord(inner) ? inner.type : undefined;
+    if (typeof type === "string" && CONTEXT_ITEM_TYPES.includes(type)) {
+      return `${type}.${keyOf(rest.slice(3))}`;
+    }
+  }
+  return rest.length === 0 ? "question" : `question.${keyOf(rest)}`;
+};
+
 /**
  * The wording keys of an item's fields by its type, so that an area's fields and a question's read
- * apart: `rest` is the path from the item. A question in an area reads as a question.
+ * apart: `rest` is the path from the item. A question in an area reads as a question, and a
+ * question's item by its own type.
  */
 export const itemKey = (item: unknown, rest: Segments): string => {
   if (isArea(item) && rest[0] === "props" && rest[1] === "items" && rest.length > 2) {
     if (rest.length === 3) return "area.props.items[]";
     if (rest.length === 4 && rest[3] === "type") return "area.props.items[].type";
-    return `question.${keyOf(rest.slice(3))}`;
+    return questionKey(childrenOf(item)[Number(rest[2])], rest.slice(3));
   }
-  const kind = isArea(item) ? "area" : "question";
-  return rest.length === 0 ? kind : `${kind}.${keyOf(rest)}`;
+  if (isArea(item)) return rest.length === 0 ? "area" : `area.${keyOf(rest)}`;
+  return questionKey(item, rest);
 };
 
-/** The item a path from an item is in: an area's question when the path enters one. */
+/**
+ * The item a path from an item is in: an area's question when the path enters one, and a
+ * question's item when it enters one in turn.
+ */
 export const innerItemOf = (
   item: unknown,
   rest: Segments,
 ): { readonly item: unknown; readonly rest: Segments } => {
-  if (isArea(item) && rest[0] === "props" && rest[1] === "items" && rest.length > 3) {
-    const inner = childrenOf(item)[Number(rest[2])];
-    if (isRecord(inner) && isId(inner.id)) return { item: inner, rest: rest.slice(3) };
-  }
-  return { item, rest };
+  if (!entersItem(rest)) return { item, rest };
+  const inner = (isArea(item) ? childrenOf(item) : contextOf(item))[Number(rest[2])];
+  if (!isRecord(inner) || !isId(inner.id)) return { item, rest };
+  return isQuestion(inner) && isArea(item)
+    ? innerItemOf(inner, rest.slice(3))
+    : { item: inner, rest: rest.slice(3) };
 };
+
+const POINTER = `a pointer of 1 to ${POINTER_MAX_CHARS} characters, path#anchor: a path from the project's root, then # and L<start>-L<end>, a heading or an ID`;
+
+/** A web reference's URL, in words (excerpts, design decision 2). */
+export const WEB_URL = `an absolute http or https URL of at most ${URL_MAX_CHARS} characters, with a host and no user name or password`;
 
 /** How a request's wording reads an item's fields, keyed as `itemKey` keys them. */
 export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   question: "an item {type, id, props}: a question, or at the top level an area",
   "question.type": '"question" or "area"',
   "question.id": `${ID_SHAPE}, unique in the ask`,
-  "question.props": "a question's props {text, header?, options, multiSelect?, allowOther?}",
+  "question.props":
+    "a question's props {text, header?, options, multiSelect?, allowOther?, items?}",
   "question.props.text": "non-empty text",
   "question.props.header": "non-empty text",
   "question.props.options":
@@ -103,13 +164,39 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "area.props.items": "a non-empty list of questions",
   "area.props.items[]": 'a question {type: "question", id, props}',
   "area.props.items[].type": '"question": an area holds questions only',
+  // A question's items (excerpts, design decision 2).
+  "question.props.items":
+    "a non-empty list of the question's context: excerpts, references and images",
+  "question.props.items[]":
+    'an item {type, id, props} whose type is "excerpt", "reference" or "image"',
+  "question.props.items[].type": '"excerpt", "reference" or "image"',
+  "excerpt.id": `${ID_SHAPE}, unique in the ask`,
+  "excerpt.props":
+    "an excerpt's props {pointer, title?} or {text, title?}: exactly one of pointer and text",
+  "excerpt.props.pointer": `${POINTER} with an anchor`,
+  "excerpt.props.text": "non-empty text, shown as source text",
+  "excerpt.props.title": text(CONTEXT_TITLE_MAX_CHARS),
+  "reference.id": `${ID_SHAPE}, unique in the ask`,
+  "reference.props":
+    "a reference's props {pointer, title?} or {url, title?}: exactly one of pointer and url",
+  "reference.props.pointer": `${POINTER}; without an anchor the file opens at its top`,
+  "reference.props.url": WEB_URL,
+  "reference.props.title": text(CONTEXT_TITLE_MAX_CHARS),
+  "image.id": `${ID_SHAPE}, unique in the ask`,
+  "image.props": "an image's props {pointer, alt}",
+  "image.props.pointer": `${POINTER} to a PNG, JPEG, GIF or WebP file, with no anchor`,
+  "image.props.alt": text(IMAGE_ALT_MAX_CHARS),
 };
 
 /** What each of an item's objects holds, keyed as `itemKey` keys them. */
 export const ITEM_FIELDS: Readonly<Record<string, string>> = {
   question: "an item holds only type, id and props",
   "question.props":
-    "a question's props hold only text, header, options, multiSelect and allowOther",
+    "a question's props hold only text, header, options, multiSelect, allowOther and items",
+  "question.props.items[]": "an item holds only type, id and props",
+  "excerpt.props": "an excerpt's props hold only pointer, text and title",
+  "reference.props": "a reference's props hold only pointer, url and title",
+  "image.props": "an image's props hold only pointer and alt",
   "question.props.options[]":
     "an option holds only label, description, preview, annotation and recommended",
   area: "an area holds only type, id and props",

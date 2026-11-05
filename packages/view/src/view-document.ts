@@ -18,7 +18,7 @@ export type WidgetItem = {
   readonly props: unknown;
 };
 
-export type ViewQuestionProps = Omit<QuestionProps, "options"> & {
+export type ViewQuestionProps = Omit<QuestionProps, "options" | "items"> & {
   readonly options?: QuestionProps["options"];
   readonly items?: readonly WidgetItem[];
 };

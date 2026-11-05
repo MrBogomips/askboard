@@ -88,6 +88,17 @@ describe("the draft mirror (ask-lifecycle, design decision 6; AD-20)", () => {
 });
 
 describe("unsent work (EXPERIENCE.md, Board banner: Unsent work; Close and reload)", () => {
+  test("a context placement alone is no work and adds no line to the copy (excerpts, task 6.3)", () => {
+    const record: DraftRecord = {
+      delivery: "immediate",
+      questions: { a: { rev: 1, context: "inline" } },
+    };
+    expect(hasUnsentWork(record)).toBe(false);
+    expect(
+      hasUnsentWork({ ...record, questions: { a: { rev: 1, context: "inline", note: "n" } } }),
+    ).toBe(true);
+  });
+
   test("values, Other text, option notes, a note, a follow-up being written or a held act are work", () => {
     expect(hasUnsentWork(undefined)).toBe(false);
     expect(hasUnsentWork({ delivery: "immediate", questions: {} })).toBe(false);

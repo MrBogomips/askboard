@@ -58,7 +58,7 @@ describe("atomic commands", () => {
 
   test("a submit whose second act names a revision the agent has just replaced appends nothing", async () => {
     const { core } = await created(flatAsk());
-    const changed = core.update({
+    const changed = await core.update({
       askId: FLAT_ID,
       actions: [{ action: "change", itemId: "q2", props: { text: "Which platforms first?" } }],
     });

@@ -7,7 +7,7 @@
 
 import { type Browser, chromium, type Locator, type Page } from "playwright";
 
-const VIEW_FRAME = "iframe[sandbox]";
+const VIEW_FRAME = 'iframe[sandbox="allow-scripts"]';
 const LOAD_TIMEOUT_MS = 8_000;
 export const STEP_TIMEOUT_MS = 5_000;
 

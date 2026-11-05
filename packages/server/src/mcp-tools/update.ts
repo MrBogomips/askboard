@@ -51,6 +51,8 @@ const resultOf = (
         state: outcome.state,
         applied: outcome.applied,
         ...unchecked,
+        // The unresolved pointers of its new revisions (excerpts, design decision 4, Warnings).
+        ...(outcome.warnings === undefined ? {} : { warnings: outcome.warnings }),
       };
       return jsonResult(result);
     }
@@ -64,7 +66,7 @@ const resultOf = (
 export const handleUpdate: ToolHandler = async ({ core }, args, context) => {
   const refused = await ownerCheck(core, "update", args, context);
   if (refused !== undefined) return refused;
-  const outcome = core.update(args ?? {});
+  const outcome = await core.update(args ?? {});
   return resultOf(
     core.epoch,
     outcome,

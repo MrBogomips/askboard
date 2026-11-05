@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:board-document:excerpt-props",
+  "title": "Excerpt props, resolved",
+  "description": "An excerpt as the board document holds it (AD-12; proposal B8). By pointer: its `status`; when `resolved`, the source `text` (its lines joined by LF, possibly empty), its `mediaType` and its `lines`; when `unresolved`, its `reason` and nothing read. Written by the agent: its `text`, with no status. The `$defs` are the context's shared shapes, which the reference and image props reference too. The contract's validation function checks that `lines.start` is at most `lines.end`.",
+  "type": "object",
+  "properties": {
+    "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "text": { "type": "string" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "status": { "$ref": "#/$defs/status" },
+    "reason": { "$ref": "#/$defs/reason" },
+    "mediaType": { "$ref": "#/$defs/textMediaType" },
+    "lines": { "$ref": "#/$defs/lines" }
+  },
+  "additionalProperties": false,
+  "if": { "properties": { "pointer": true }, "required": ["pointer"] },
+  "then": {
+    "properties": { "status": true },
+    "required": ["status"],
+    "if": { "properties": { "status": { "const": "resolved" } } },
+    "then": {
+      "properties": { "text": true, "mediaType": true, "lines": true, "reason": false },
+      "required": ["text", "mediaType", "lines"]
+    },
+    "else": {
+      "properties": { "reason": true, "text": false, "mediaType": false, "lines": false },
+      "required": ["reason"]
+    }
+  },
+  "else": {
+    "properties": {
+      "text": { "type": "string", "minLength": 1 },
+      "status": false,
+      "reason": false,
+      "mediaType": false,
+      "lines": false
+    },
+    "required": ["text"]
+  },
+  "$defs": {
+    "status": { "enum": ["resolved", "unresolved"] },
+    "reason": {
+      "description": "Why a pointer stays unresolved, as the `unresolved-pointer` warning names it.",
+      "enum": [
+        "no-root",
+        "invalid-pointer",
+        "outside-root",
+        "not-found",
+        "not-a-file",
+        "anchor-not-found",
+        "not-text",
+        "not-image",
+        "too-large",
+        "timeout"
+      ]
+    },
+    "textMediaType": {
+      "description": "`text/markdown` for `.md` and `.markdown`, `text/plain` otherwise; it decides only how the text wraps.",
+      "enum": ["text/markdown", "text/plain"]
+    },
+    "imageMediaType": {
+      "description": "An image recognised by its first bytes; SVG is none of them.",
+      "enum": ["image/png", "image/jpeg", "image/gif", "image/webp"]
+    },
+    "lines": {
+      "description": "A range of 1-based lines, both ends included.",
+      "type": "object",
+      "properties": {
+        "start": { "type": "integer", "minimum": 1 },
+        "end": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["start", "end"],
+      "additionalProperties": false
+    }
+  }
+}

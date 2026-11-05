@@ -80,7 +80,7 @@ describe("revising an answer", () => {
 describe("changing a question makes a revision", () => {
   test("rewording an open question: rev 2, the new text, the other props as they were", async () => {
     const { core, heard } = await created(flatAsk());
-    const outcome = change(core, FLAT_ID, "q1", { text: "Which branch do we cut from?" });
+    const outcome = await change(core, FLAT_ID, "q1", { text: "Which branch do we cut from?" });
     expect(outcome).toEqual({
       kind: "updated",
       askId: FLAT_ID,
@@ -103,7 +103,7 @@ describe("changing a question makes a revision", () => {
 
   test("each given key replaces its old value whole", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q3", { options: [{ label: "Paola" }], allowOther: false });
+    await change(core, FLAT_ID, "q3", { options: [{ label: "Paola" }], allowOther: false });
     expect(boardOf(core, FLAT_ID).document.items[2]?.props).toEqual({
       text: "Who signs the release off?",
       allowOther: false,
@@ -125,7 +125,7 @@ describe("changing a question makes a revision", () => {
         ],
       },
     ]) {
-      expect(change(core, FLAT_ID, "q1", props)).toMatchObject({
+      expect(await change(core, FLAT_ID, "q1", props)).toMatchObject({
         kind: "refused",
         index: 0,
         itemId: "q1",
@@ -138,7 +138,7 @@ describe("changing a question makes a revision", () => {
   test("a postponed question stays postponed through a change", async () => {
     const { core } = await created(flatAsk());
     core.act(FLAT_ID, command([{ type: "postpone", itemId: "q1", rev: 1 }]));
-    change(core, FLAT_ID, "q1", { text: "Reworded" });
+    await change(core, FLAT_ID, "q1", { text: "Reworded" });
     expect(boardOf(core, FLAT_ID).questions[0]).toMatchObject({ rev: 2, state: "postponed" });
   });
 
@@ -147,7 +147,7 @@ describe("changing a question makes a revision", () => {
     core.act(FLAT_ID, command([answerAct({ itemId: "q2", choice: ["WSL"] })]));
     core.act(FLAT_ID, command([{ type: "note", itemId: "q1", rev: 1, note: "x", when: WHEN }]));
     core.act(FLAT_ID, command([answerAct()]));
-    const outcome = change(core, FLAT_ID, "q1", { text: "Reworded" });
+    const outcome = await change(core, FLAT_ID, "q1", { text: "Reworded" });
     expect(outcome).toMatchObject({
       kind: "refused",
       index: 0,
@@ -163,7 +163,7 @@ describe("changing a question makes a revision", () => {
   test("a declined question is refused the same way", async () => {
     const { core } = await created(flatAsk());
     core.act(FLAT_ID, command([{ type: "decline", itemId: "q1", rev: 1, when: WHEN }]));
-    expect(change(core, FLAT_ID, "q1", { text: "x" })).toMatchObject({
+    expect(await change(core, FLAT_ID, "q1", { text: "x" })).toMatchObject({
       kind: "refused",
       refusal: "answered",
       cursor: `${core.epoch}.1`,
@@ -172,18 +172,18 @@ describe("changing a question makes a revision", () => {
 
   test("an area's title changes; its questions change through their own actions", async () => {
     const { core } = await created(areasAsk());
-    expect(change(core, LIFECYCLE_ID, "scope", { title: "What we ship" })).toMatchObject({
+    expect(await change(core, LIFECYCLE_ID, "scope", { title: "What we ship" })).toMatchObject({
       kind: "updated",
       applied: [{ action: "change", itemId: "scope" }],
     });
     expect(boardOf(core, LIFECYCLE_ID).document.items[0]?.props).toMatchObject({
       title: "What we ship",
     });
-    expect(change(core, LIFECYCLE_ID, "scope", { items: [] })).toMatchObject({
+    expect(await change(core, LIFECYCLE_ID, "scope", { items: [] })).toMatchObject({
       kind: "refused",
       refusal: "props",
     });
-    expect(change(core, LIFECYCLE_ID, "scope", { title: "" })).toMatchObject({
+    expect(await change(core, LIFECYCLE_ID, "scope", { title: "" })).toMatchObject({
       kind: "refused",
       refusal: "props",
     });
@@ -191,7 +191,7 @@ describe("changing a question makes a revision", () => {
 
   test("a change to an unknown item is refused naming it", async () => {
     const { core } = await created(flatAsk());
-    expect(change(core, FLAT_ID, "q9", { text: "x" })).toMatchObject({
+    expect(await change(core, FLAT_ID, "q9", { text: "x" })).toMatchObject({
       kind: "refused",
       index: 0,
       itemId: "q9",
@@ -201,7 +201,10 @@ describe("changing a question makes a revision", () => {
 
   test("an update that is not a valid request is refused with the contract's problems", async () => {
     const { core } = await created(flatAsk());
-    const outcome = core.update({ askId: FLAT_ID, actions: [{ action: "change", itemId: "q1" }] });
+    const outcome = await core.update({
+      askId: FLAT_ID,
+      actions: [{ action: "change", itemId: "q1" }],
+    });
     expect(outcome.kind).toBe("invalid");
   });
 });
@@ -209,7 +212,7 @@ describe("changing a question makes a revision", () => {
 describe("edit choice", () => {
   test("the user keeps their work: the ignore keeping rev 1, then the answer naming rev 1", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q3", { options: [{ label: "Paola" }, { label: "Marco" }] });
+    await change(core, FLAT_ID, "q3", { options: [{ label: "Paola" }, { label: "Marco" }] });
     const outcome = core.act(
       FLAT_ID,
       command([editChoice("q3", 2, 1), answerAct({ itemId: "q3", rev: 1, choice: ["Sara"] })]),
@@ -230,7 +233,7 @@ describe("edit choice", () => {
 
   test("an answer to the kept revision is checked against that revision's content", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q3", { options: [{ label: "Paola" }], allowOther: false });
+    await change(core, FLAT_ID, "q3", { options: [{ label: "Paola" }], allowOther: false });
     core.act(FLAT_ID, command([editChoice("q3", 2, 1)]));
     expect(
       core.act(FLAT_ID, command([answerAct({ itemId: "q3", rev: 1, choice: ["Paola"] })])),
@@ -245,7 +248,7 @@ describe("edit choice", () => {
 
   test("a decline naming the kept revision is accepted, and logged at that revision", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Reworded" });
+    await change(core, FLAT_ID, "q1", { text: "Reworded" });
     const decline = {
       type: "decline",
       itemId: "q1",
@@ -273,7 +276,7 @@ describe("edit choice", () => {
 
   test("an old revision without the choice is refused", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Reworded" });
+    await change(core, FLAT_ID, "q1", { text: "Reworded" });
     expect(core.act(FLAT_ID, command([answerAct({ rev: 1 })]))).toMatchObject({
       ok: false,
       refusal: "stale-rev",
@@ -285,7 +288,7 @@ describe("edit choice", () => {
 
   test("the latest edit choice of the current rev counts: a reload after an ignore closes rev 1", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Reworded" });
+    await change(core, FLAT_ID, "q1", { text: "Reworded" });
     core.act(FLAT_ID, command([editChoice("q1", 2, 1), editChoice("q1", 2)]));
     expect(core.act(FLAT_ID, command([answerAct({ rev: 1 })]))).toMatchObject({
       ok: false,
@@ -296,9 +299,9 @@ describe("edit choice", () => {
 
   test("an ignore kept for an older rev does not open it once the agent changes again", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Second" });
+    await change(core, FLAT_ID, "q1", { text: "Second" });
     core.act(FLAT_ID, command([editChoice("q1", 2, 1)]));
-    change(core, FLAT_ID, "q1", { text: "Third" });
+    await change(core, FLAT_ID, "q1", { text: "Third" });
     expect(core.act(FLAT_ID, command([answerAct({ rev: 1 })]))).toMatchObject({
       ok: false,
       refusal: "stale-rev",
@@ -314,7 +317,7 @@ describe("edit choice", () => {
     ["keeps a rev the question never had", editChoice("q1", 2, 0)],
   ])("an edit choice that %s is refused", async (_, act) => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Reworded" });
+    await change(core, FLAT_ID, "q1", { text: "Reworded" });
     expect(core.act(FLAT_ID, command([act]))).toMatchObject({ ok: false, index: 0 });
     expect(logOf(core, FLAT_ID)).toEqual([]);
   });
@@ -323,12 +326,12 @@ describe("edit choice", () => {
 describe("kept revisions", () => {
   test("revisions since the user's last decision are kept; older ones nothing names are dropped", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Second" });
-    change(core, FLAT_ID, "q1", { text: "Third" });
+    await change(core, FLAT_ID, "q1", { text: "Second" });
+    await change(core, FLAT_ID, "q1", { text: "Third" });
     // No decision yet: the board may hold work on rev 1 or rev 2.
     expect(core.act(FLAT_ID, command([editChoice("q1", 3, 2)])).ok).toBe(true);
     // The ignore at rev 3 decided: rev 1, which no event names, is dropped; rev 2 is named.
-    change(core, FLAT_ID, "q1", { text: "Fourth" });
+    await change(core, FLAT_ID, "q1", { text: "Fourth" });
     expect(core.act(FLAT_ID, command([editChoice("q1", 4, 1)]))).toMatchObject({
       ok: false,
       refusal: "kept-rev",
@@ -340,9 +343,9 @@ describe("kept revisions", () => {
   test("a revision an event names stays kept after later decisions", async () => {
     const { core } = await created(flatAsk());
     core.act(FLAT_ID, command([{ type: "postpone", itemId: "q1", rev: 1 }]));
-    change(core, FLAT_ID, "q1", { text: "Second" });
+    await change(core, FLAT_ID, "q1", { text: "Second" });
     core.act(FLAT_ID, command([editChoice("q1", 2)]));
-    change(core, FLAT_ID, "q1", { text: "Third" });
+    await change(core, FLAT_ID, "q1", { text: "Third" });
     const kept = core.act(
       FLAT_ID,
       command([editChoice("q1", 3, 1), answerAct({ rev: 1, choice: ["release"] })]),
@@ -357,11 +360,11 @@ describe("reading the kept revisions", () => {
   test("per question, in board order, each kept revision with its props, as ask-core prunes them", async () => {
     const { core } = await created(flatAsk());
     const [q1, q2, q3] = flatAsk().items.map((item) => item.props);
-    change(core, FLAT_ID, "q1", { text: "Second" });
-    change(core, FLAT_ID, "q1", { text: "Third" });
+    await change(core, FLAT_ID, "q1", { text: "Second" });
+    await change(core, FLAT_ID, "q1", { text: "Third" });
     core.act(FLAT_ID, command([editChoice("q1", 3, 2)]));
     // The ignore at rev 3 decided: rev 1, which no event names, goes at the next change.
-    change(core, FLAT_ID, "q1", { text: "Fourth" });
+    await change(core, FLAT_ID, "q1", { text: "Fourth" });
     expect(core.keptRevisions(FLAT_ID) as unknown).toEqual([
       {
         itemId: "q1",
@@ -378,7 +381,7 @@ describe("reading the kept revisions", () => {
 
   test("is read-only: the props are frozen, and changing what was read changes nothing", async () => {
     const { core } = await created(flatAsk());
-    change(core, FLAT_ID, "q1", { text: "Second" });
+    await change(core, FLAT_ID, "q1", { text: "Second" });
     const read = core.keptRevisions(FLAT_ID) ?? [];
     const revisions = read[0]?.revisions ?? [];
     expect(revisions).toHaveLength(2);

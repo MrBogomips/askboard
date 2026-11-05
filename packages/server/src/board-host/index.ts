@@ -10,6 +10,7 @@ import { BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
 import type { AskCore, BoardAddress } from "@askboard/core";
 import { type ServerOptions, WebSocketServer } from "ws";
 import { Boards, CLOSE_GRACE_MS, MESSAGE_MAX_BYTES, type SocketLimits } from "./boards.ts";
+import type { EditorCommand, EditorSpawn } from "./editor.ts";
 import { handleRequest, handleUpgrade } from "./http.ts";
 import { listen, type PortRange, stop } from "./listener.ts";
 import { BoardTokens, newToken } from "./tokens.ts";
@@ -34,8 +35,14 @@ export type LifecycleCore = Pick<
  */
 export type PushCore = Partial<Pick<AskCore, "setWorking" | "whoAsked" | "agentStatus">>;
 
+/**
+ * Context's part, optional (excerpts, design decision 4): an item's source for the reading panel
+ * and the source view, and the editor target; without them no item has a source.
+ */
+export type ContextCore = Partial<Pick<AskCore, "sourceOf" | "editorTarget">>;
+
 /** The part of ask-core `board-host` uses: one part per change, so each change adds its own. */
-export type HostCore = E1Core & LifecycleCore & PushCore;
+export type HostCore = E1Core & LifecycleCore & PushCore & ContextCore;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */
@@ -56,6 +63,13 @@ export type BoardHostOptions = {
    * status on each change. Without it, as in E1, neither is sent.
    */
   readonly projectDir?: string;
+  /**
+   * The editor command, an argument vector, read at each use (excerpts, design decision 5): none
+   * until configuration supplies one (E8), and then "Open in editor" starts nothing.
+   */
+  readonly editorCommand?: () => EditorCommand | undefined;
+  /** Starts the editor; Node's `spawn` by default. Tests pass a fake (excerpts, task 5.4). */
+  readonly spawnEditor?: EditorSpawn;
 };
 
 export {
@@ -108,6 +122,8 @@ export const createBoardHost = (options: BoardHostOptions): BoardHost => {
       report: options.report,
       ...(options.limits ? { limits: options.limits } : {}),
       ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }),
+      ...(options.editorCommand === undefined ? {} : { editorCommand: options.editorCommand }),
+      ...(options.spawnEditor === undefined ? {} : { spawnEditor: options.spawnEditor }),
     });
     // A live board's largest message; before `connect`, `Boards` holds a socket to far less. A close
     // handshake the peer does not finish ends the socket after `CLOSE_GRACE_MS`, not ws's 30 s:

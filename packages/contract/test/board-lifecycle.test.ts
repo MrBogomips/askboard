@@ -91,7 +91,7 @@ describe("the board document 1.1", () => {
     expect(paths(validateBoardDocument(table))).toEqual(["/items/0/type"]);
   });
 
-  test("a question's widget items are still refused, naming items", () => {
+  test("a question's widget items are still refused, naming the item's type", () => {
     const [question] = plainChoiceBoardDocument.items;
     const probe = { type: "probe", id: "sketch", props: { size: 3 } };
     const props = { ...question.props, items: [probe] };
@@ -99,19 +99,21 @@ describe("the board document 1.1", () => {
       ...plainChoiceBoardDocument,
       items: [{ ...question, props }],
     });
-    expect(paths(result)).toEqual(["/items/0/props/items"]);
+    // Since board document 1.2 a question's items hold its context (excerpts, design decision 2).
+    expect(paths(result)).toEqual(["/items/0/props/items/0/type"]);
   });
 });
 
 describe("the board protocol's messages 1.1 (design decision 8)", () => {
   test("E1's messages keep their order, and E3's are appended in each direction", () => {
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost)).toEqual([
+    // A later minor appends after them (excerpts, design decision 5), so these lead each list.
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost).slice(0, 4)).toEqual([
       "connect",
       "answer",
       "act",
       "draft",
     ]);
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage)).toEqual([
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(0, 9)).toEqual([
       "board",
       "state",
       "receipt",

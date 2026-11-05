@@ -76,7 +76,7 @@ const replay = async (transcript: LifecycleTranscript) => {
       } else if (step.from === "network") {
         (await socketOf(step)).socket.terminate();
       } else if (step.event === "update") {
-        expect(fixture.core.update(step.request)).toMatchObject({ kind: "updated" });
+        expect(await fixture.core.update(step.request)).toMatchObject({ kind: "updated" });
       } else if (step.event === "collected") {
         const read = fixture.core.read(transcript.askId, `${fixture.core.epoch}.0`);
         if (read.kind !== "events") throw new Error(`read ${read.kind}`);
@@ -437,7 +437,7 @@ describe("a closed ask's board", () => {
     const fixture = startHost({ ports: await freeRange(1), tokens: [token] });
     try {
       const { port, link } = await fixture.ask(undefined, lifecycleAsk);
-      expect(fixture.core.update({ askId, actions: [{ action: "close" }] })).toMatchObject({
+      expect(await fixture.core.update({ askId, actions: [{ action: "close" }] })).toMatchObject({
         kind: "updated",
         state: "closed",
       });
@@ -485,7 +485,7 @@ describe("a closed ask's board", () => {
     try {
       const { port } = await fixture.ask(undefined, lifecycleAsk);
       expect(fixture.core.holdDraft(askId, lifecycleDraftRecord as DraftRecord)).toBe(true);
-      fixture.core.update({ askId, actions: [{ action: "close" }] });
+      await fixture.core.update({ askId, actions: [{ action: "close" }] });
       const tab = await openSocket(port, askId);
       tab.send({ version, type: "connect", token });
       const types = [];
