@@ -38,6 +38,7 @@ import type {
   ViewOpenReference,
   ViewPresentation,
   ViewReady,
+  ViewSetting,
   ViewUpdate,
 } from "../view-protocol.ts";
 import {
@@ -123,6 +124,8 @@ export type BoardPageDeps = {
    * density classes, and the system scheme it follows only under `system`.
    */
   readonly applyPresentation?: (presentation: ViewPresentation) => void;
+  /** Opens the settings panel: the view's "Settings" (settings-languages, design decision 10). */
+  readonly openSettings?: () => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
   /** Puts text on the clipboard, on the user's click (F-17). */
@@ -380,6 +383,31 @@ class BoardPageController implements BoardPage {
     this.#closings += 1;
     this.#closed = { id: this.#closings, itemId };
     this.#updateView();
+    setting: (message) => this.#setting(message),
+    "open-settings": () => {
+      this.#deps.openSettings?.();
+      return {};
+    },
+  };
+
+  // A toggle's value: applied to the board at once, then sent to board-host to be written as the
+  // user's setting. A key the project sets is refused here and by ask-core (AD-14). The value
+  // stays on this board whatever the write does (design decision 6).
+  #setting(message: ViewSetting): ViewReply {
+    const presentation = this.#model.passedOn.presentation;
+    if (presentation?.locked.includes(message.key)) {
+      return refusal(`${message.key} is set by the project file`);
+    }
+    const ended = this.#ended();
+    if (ended !== undefined) return refusal(ended);
+    if (presentation !== undefined) {
+      const next = { ...presentation, [message.key]: message.value };
+      this.#model = { ...this.#model, passedOn: { ...this.#model.passedOn, presentation: next } };
+      this.#deps.applyPresentation?.(next);
+      this.#updateView();
+    }
+    const sent = this.#socket?.send({ version, ...message }) === true;
+    return { outcome: sent ? "sent" : "not-sent" };
   }
 
   // What the view reports of its items: kept in the model, a failing item also logged.

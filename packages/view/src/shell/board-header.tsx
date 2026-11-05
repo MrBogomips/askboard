@@ -3,7 +3,8 @@
 // asked, the project, the directory, the branch and the worktree (FR-24, `who-and-where.tsx`). Row
 // 2 holds the ask's title, the "Ask" label and the ask state pill, the agent pill (push delivery,
 // `agent-pill.tsx`), then the open count, "Next open ↓", the unread-reply count and the
-// agent-change flag (ask-lifecycle, design decisions 6 and 8). A single-question board shows only
+// agent-change flag (ask-lifecycle, design decisions 6 and 8), and the quick toggles at its right
+// end (`quick-toggles.tsx`, settings-languages). A single-question board shows only
 // the pills (L198). The title is agent text and renders as text only (AD-8).
 
 import { useStrings } from "../catalog/port.ts";
@@ -11,6 +12,8 @@ import { AgentPill } from "./agent-pill.tsx";
 import type { AskPill as Pill } from "./board-view.ts";
 import type { HeaderData } from "./header-data.ts";
 import { AskPill } from "./markers.tsx";
+import type { PresentationControls } from "./presentation-controls.ts";
+import { QuickToggles } from "./quick-toggles.tsx";
 import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, INFO_BADGE, SEPARATOR } from "./styles.ts";
 import { WhoAndWhere } from "./who-and-where.tsx";
@@ -62,12 +65,15 @@ export const BoardHeader = ({
   pill,
   counts,
   header,
+  controls,
 }: {
   readonly title: string;
   readonly pill: Pill;
   readonly counts?: HeaderCounts | undefined;
   /** Who asked and where, and the agent status (push delivery). */
   readonly header: Store<HeaderData>;
+  /** The quick toggles at the right end of row 2 (settings-languages). */
+  readonly controls: PresentationControls;
 }) => {
   const text = useStrings();
   return (
@@ -84,6 +90,7 @@ export const BoardHeader = ({
         <AskPill pill={pill} />
         <AgentPill header={header} />
         {counts === undefined ? null : <Counts counts={counts} />}
+        <QuickToggles controls={controls} />
       </div>
     </header>
   );

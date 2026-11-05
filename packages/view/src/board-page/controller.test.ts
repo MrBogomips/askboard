@@ -15,6 +15,7 @@ import {
   type HostMessage,
   type LifecycleHostMessage,
   type LifecyclePageMessage,
+  type SettingCommand,
 } from "@askboard/contract";
 import {
   contextBoardDocument,
@@ -77,6 +78,7 @@ const done = (n = 1): LifecycleHostMessage => ({ version, type: "done", actionId
 type FakeSocket = {
   readonly events: BoardSocketHandlers;
   readonly sent: (LifecyclePageMessage | ContextPageMessage)[];
+  readonly sent: (LifecyclePageMessage | SettingCommand)[];
   open: boolean;
   closed: boolean;
   receive(...messages: (HostMessage | LifecycleHostMessage | ContextHostMessage)[]): void;

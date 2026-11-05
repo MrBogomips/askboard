@@ -46,6 +46,7 @@ import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
+import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
@@ -84,6 +85,8 @@ export type BoardContext = CardContext & {
 export type BoardExtras = {
   /** Who asked and where, and the agent status (push delivery, design decision 12). */
   readonly header: Store<HeaderData>;
+  /** The quick toggles' presentation, and what they ask for (settings-languages, design 10). */
+  readonly presentation: PresentationControls;
 };
 
 // Questions the agent changed under the user's work, made on an earlier revision, that wait for
@@ -391,6 +394,7 @@ export const Board = ({
         pill={askPillOf(state, lock, language)}
         counts={single ? undefined : counts}
         header={extras.header}
+        controls={extras.presentation}
       />
       {body}
       <BottomBar

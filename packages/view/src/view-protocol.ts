@@ -27,6 +27,7 @@ import {
   type OriginMessage,
   OTHER_MAX_CHARS,
   type PresentationKey,
+  type PresentationSetting,
   type ThemePreference,
   UTC_TIME_PATTERN,
 } from "@askboard/contract";
@@ -152,6 +153,14 @@ export type ViewOpenReference = {
 
 /** The view's header and bottom bar heights in CSS pixels: where the reading panel may sit. */
 export type ReferenceInset = { readonly top: number; readonly bottom: number };
+ * One presentation key and a value its schema allows, from a quick toggle (settings-languages,
+ * design decision 10): the board page applies it at once and sends it to `board-host` as a
+ * `setting` command, which writes it to the user file.
+ */
+export type ViewSetting = { readonly type: "setting" } & PresentationSetting;
+
+/** "Settings": the board page opens its settings panel. */
+export type ViewOpenSettings = { readonly type: "open-settings" };
 
 export type ViewMessage =
   | ViewAnswer
@@ -161,6 +170,8 @@ export type ViewMessage =
   | ViewDraft
   | ViewActivity
   | ViewOpenReference;
+  | ViewSetting
+  | ViewOpenSettings;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -473,6 +484,42 @@ const inset: FieldCheck = (value) => {
     bound(value.bottom)
     ? undefined
     : `is not the header's and the bottom bar's heights, "top" and "bottom", each from 0 to ${INSET_MAX}`;
+const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
+const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
+const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
+const PRESENTATION_KEY_NAMES: readonly unknown[] = [
+  "theme",
+  "density",
+  "contextPlacement",
+] satisfies PresentationKey[];
+
+/** Whether the view can apply this as the presentation. */
+export const isPresentation = (value: unknown): value is ViewPresentation =>
+  isRecord(value) &&
+  THEMES.includes(value.theme) &&
+  DENSITIES.includes(value.density) &&
+  PLACEMENTS.includes(value.contextPlacement) &&
+  Array.isArray(value.locked) &&
+  value.locked.every((key) => PRESENTATION_KEY_NAMES.includes(key));
+
+// The values each presentation key allows, as the configuration schema does.
+const PRESENTATION_VALUES: Readonly<Record<PresentationKey, readonly unknown[]>> = {
+  theme: THEMES,
+  density: DENSITIES,
+  contextPlacement: PLACEMENTS,
+};
+
+const presentationKey: FieldCheck = (value) =>
+  PRESENTATION_KEY_NAMES.includes(value) ? undefined : "is not a presentation key";
+
+// The pair, once each field has passed its own check: the value must be one its key allows.
+const settingProblems = (args: Record<string, unknown>, at = "/arguments"): Problem[] => {
+  const { key, value } = args;
+  if (!PRESENTATION_KEY_NAMES.includes(key)) return [];
+  const allowed = PRESENTATION_VALUES[key as PresentationKey];
+  return allowed.includes(value)
+    ? []
+    : [{ path: `${at}/value`, message: `is not a value "${String(key)}" allows` }];
 };
 
 // Each message type's fields; a call's arguments hold only these, and all but `someOf`'s and
@@ -485,6 +532,13 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   draft: { checks: { record: draftRecord } },
   activity: { checks: {} },
   "open-reference": { checks: { itemId, inset } },
+  setting: {
+    checks: {
+      key: presentationKey,
+      value: (value) => (typeof value === "string" ? undefined : "is not a text"),
+    },
+  },
+  "open-settings": { checks: {} },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -563,6 +617,7 @@ export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
   if (!isRecord(args)) return refused("/arguments", "a view message's arguments are an object");
   const problems = fieldProblems(FIELDS[type as ViewMessage["type"]], args);
   if (type === "answer") problems.push(...derivedAlone(args));
+  if (type === "setting" && problems.length === 0) problems.push(...settingProblems(args));
   if (problems.length === 0 && type === "act") {
     problems.push(
       ...(args.acts as unknown[]).flatMap((act, index) =>
@@ -672,24 +727,6 @@ const AGENT_STATUSES: readonly unknown[] = ["working", "waiting"] satisfies Agen
 
 export const isAgentStatus = (value: unknown): value is AgentStatus =>
   AGENT_STATUSES.includes(value);
-
-const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
-const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
-const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
-const PRESENTATION_KEY_NAMES: readonly unknown[] = [
-  "theme",
-  "density",
-  "contextPlacement",
-] satisfies PresentationKey[];
-
-/** Whether the view can apply this as the presentation. */
-export const isPresentation = (value: unknown): value is ViewPresentation =>
-  isRecord(value) &&
-  THEMES.includes(value.theme) &&
-  DENSITIES.includes(value.density) &&
-  PLACEMENTS.includes(value.contextPlacement) &&
-  Array.isArray(value.locked) &&
-  value.locked.every((key) => PRESENTATION_KEY_NAMES.includes(key));
 
 const isLock = (value: unknown): value is ViewLock => LOCKS.includes(value);
 

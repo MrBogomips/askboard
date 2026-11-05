@@ -22,6 +22,7 @@ import type {
   ViewAct,
   ViewAnswer,
   ViewItemError,
+  ViewPresentation,
   ViewReady,
   ViewUpdate,
 } from "../view-protocol.ts";
@@ -86,6 +87,17 @@ const withDelivered = (state: LifecycleBoardState, itemId: string): LifecycleBoa
   return { ...state, questions };
 };
 
+// The presentation after a settings message. A write that did not save leaves the file as it was,
+// but the board keeps the value its user picked, which the panel shows beside the error
+// (settings-languages, design decision 6).
+const afterSettings = (model: BoardModel, message: SettingsMessage): ViewPresentation => {
+  const next = presentationOf(message);
+  const before = model.passedOn.presentation;
+  const write = message.write;
+  if (before === undefined || write === undefined || write.outcome === "saved") return next;
+  return { ...next, [write.key]: before[write.key] };
+};
+
 /**
  * The model after a message from `board-host`: the board document, the state, a receipt, which
  * marks the logged answer delivered, who asked and where, the agent status and the settings. `moved`,
@@ -110,7 +122,7 @@ export const withHostMessage = (
       return {
         ...model,
         settings: message,
-        passedOn: { ...model.passedOn, presentation: presentationOf(message) },
+        passedOn: { ...model.passedOn, presentation: afterSettings(model, message) },
       };
     case "receipt": {
       if (model.state === undefined) return model;

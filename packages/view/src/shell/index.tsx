@@ -24,9 +24,8 @@ import {
   applyDensity,
   applyTheme,
   DARK_QUERY,
-  followSystemTheme,
+  followTheme,
   resolveTheme,
-  systemTheme,
   type Theme,
 } from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
@@ -59,6 +58,7 @@ import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
+import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createStore, type Store } from "./store.ts";
@@ -165,8 +165,9 @@ const boot = (): void => {
   // The presentation the board page had at boot sets theme and density before the first render.
   const presentation = data.presentation;
   applyDensity(document.documentElement, presentation?.density ?? "compact");
+  // A Snapshot follows the system until its Theme toggle says otherwise.
+  const follower = hosted ? undefined : followTheme(scheme, setTheme);
   if (hosted) setTheme(resolveTheme(presentation?.theme ?? "system", scheme.matches));
-  else followSystemTheme(scheme, setTheme);
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
   const view = createStore<BoardView>({ document: data.document, state: data.state });
@@ -257,6 +258,14 @@ const boot = (): void => {
     openReference: (itemId) => report({ type: "open-reference", itemId, inset: measureInset() }),
   };
   const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
+  const extras: BoardExtras = {
+    header: startPushExtras(data, channel, hosted, report),
+    presentation: startPresentation(data, channel, {
+      hosted,
+      report,
+      followTheme: (preference) => follower?.prefer(preference),
+    }),
+  };
   createRoot(root).render(
     <port.HostContext.Provider value={host}>
       <Board view={view} context={context} extras={extras} />
