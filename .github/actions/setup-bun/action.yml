@@ -1,0 +1,18 @@
+name: Set up the repository
+description: Node from package.json, Bun from npm at the packageManager version, and the pinned dependencies.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: package.json
+    # Bun from npm at the packageManager version: oven-sh/setup-bun fails the adoption rule.
+    # Its postinstall links the binary, so that one script is allowed, and no other.
+    - name: Install Bun
+      shell: bash
+      run: |
+        version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
+        npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
+        bun --version
+    - run: bun install --frozen-lockfile
+      shell: bash

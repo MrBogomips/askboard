@@ -335,13 +335,29 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const url = (await image.getAttribute("src")) ?? "";
         const view = await run.board.viewFrame();
         expect(await loads(view, url)).toBe("loaded");
+        // The call itself is seen in every engine; Firefox keeps a decoded image by its URL, so
+        // a probe of the revoked URL still loads there.
+        await view.evaluate((blobUrl) => {
+          const revoked: string[] = [];
+          const real = URL.revokeObjectURL.bind(URL);
+          URL.revokeObjectURL = (revoking: string) => {
+            revoked.push(revoking);
+            real(revoking);
+          };
+          (globalThis as unknown as Record<string, unknown>).__revoked = revoked;
+          if (blobUrl === "") throw new Error("the image has no URL");
+        }, url);
         await run.update({
           type: "state",
           state: openStateOf(imageRemovedDocument),
           document: imageRemovedDocument,
         });
         await eventually(async () => (await image.count()) === 0, "the image to be gone");
-        expect(await loads(view, url)).toBe("error");
+        const revoked = await view.evaluate(
+          () => (globalThis as unknown as Record<string, string[]>).__revoked,
+        );
+        expect(revoked).toContain(url);
+        if (engine !== "firefox") expect(await loads(view, url)).toBe("error");
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,

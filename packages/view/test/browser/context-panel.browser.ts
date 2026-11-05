@@ -288,6 +288,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const real = new URL(run.session.link);
         const other = `http://localhost:${real.port}/foreign`;
         const target = new URL(src, real.origin).href;
+        let text = "";
         await run.browser.context.route(other, (route) =>
           route.fulfill({
             contentType: "text/html",
@@ -295,15 +296,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           }),
         );
         const page = await run.browser.context.newPage();
-        await page.goto(other);
-        await Bun.sleep(1500);
-        const child = page.frames().find((each) => each !== page.mainFrame());
-        const text =
-          child === undefined
-            ? ""
-            : await child.evaluate(() => document.body?.textContent ?? "").catch(() => "");
+        try {
+          await page.goto(other, { waitUntil: "commit", timeout: STEP_TIMEOUT_MS });
+          await Bun.sleep(1500);
+          const child = page.frames().find((each) => each !== page.mainFrame());
+          // A refused frame can be an error page that never answers (Firefox): no answer is no text.
+          const unanswered = new Promise<string>((resolve) => setTimeout(() => resolve(""), 3000));
+          const read =
+            child === undefined
+              ? Promise.resolve("")
+              : child.evaluate(() => document.body?.textContent ?? "").catch(() => "");
+          text = await Promise.race([read, unanswered]);
+        } finally {
+          await page.close({ runBeforeUnload: false }).catch(() => undefined);
+        }
         expect(text).not.toContain("spec line 40");
-        await page.close();
       },
       TEST_TIMEOUT_MS,
     );
