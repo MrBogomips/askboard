@@ -99,6 +99,16 @@ export class Agent {
     return askResultOf(toolJson("ask", result));
   }
 
+  /** The agent's `snapshot` (snapshot task 9.1): its result's JSON, the absolute path included. */
+  async snapshot(askId: string): Promise<{ readonly path: string; readonly state: string }> {
+    const result = await this.#client.callTool({ name: "snapshot", arguments: { askId } });
+    const json = toolJson("snapshot", result) as { path?: unknown; state?: unknown };
+    if (typeof json.path !== "string" || typeof json.state !== "string") {
+      throw new Error(`the snapshot result holds no path and state: ${JSON.stringify(json)}`);
+    }
+    return { path: json.path, state: json.state };
+  }
+
   /** The agent's `update` (ask-lifecycle): its result's JSON, or a failure quoting the error. */
   async update(askId: string, actions: readonly unknown[]): Promise<unknown> {
     const result = await this.#client.callTool({ name: "update", arguments: { askId, actions } });

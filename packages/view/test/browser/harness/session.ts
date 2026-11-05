@@ -62,6 +62,8 @@ export type BoardSession = {
     readonly state: string;
     readonly events: readonly Record<string, unknown>[];
   }>;
+  /** The agent's `snapshot` of the ask: its absolute path and the ask's state. */
+  snapshot(): Promise<{ readonly path: string; readonly state: string }>;
   /** The agent's `update` of the ask with these actions: its result. */
   update(actions: readonly unknown[]): Promise<unknown>;
   /**

@@ -3,6 +3,7 @@
 // the contract's Snapshot fixture, opened from `file://`, with every request recorded.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { dirname, join } from "node:path";
 import { lifecycleSnapshotData, treeBoardDocument } from "@askboard/contract/fixtures";
 import type { Browser, BrowserContext, Page } from "playwright";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
@@ -43,9 +44,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
     const open = async (
       data: typeof lifecycleSnapshotData,
-      options: { colorScheme?: "dark" | "light"; offline?: boolean } = {},
+      options: { colorScheme?: "dark" | "light"; offline?: boolean; beside?: string } = {},
     ): Promise<Opened> => {
       const path = await writeSnapshot(data);
+      // A script file placed beside the Snapshot, as a hostile folder would hold (task 8.4).
+      if (options.beside !== undefined) {
+        await Bun.write(join(dirname(path), options.beside), "window.__placedScriptRan = true;");
+      }
       const context = await browser.newContext({
         ...(options.colorScheme === undefined ? {} : { colorScheme: options.colorScheme }),
       });
@@ -227,6 +232,30 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             .getByRole("button", { name: "System", exact: true })
             .getAttribute("aria-pressed"),
         ).toBe("true");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "opened offline from file://: it shows with no request and no CSP violation, and a placed script never runs",
+      async () => {
+        const { page, requests, violations } = await open(tabbed, {
+          offline: true,
+          beside: "themes.js",
+        });
+        await page.getByText(/^Snapshot · taken/).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await page.getByRole("tab").count()).toBeGreaterThan(1);
+        expect(
+          requests.filter((url) => !url.startsWith("file:") && !url.startsWith("data:")),
+        ).toEqual([]);
+        // The only file the page may load is itself.
+        expect(
+          requests.filter((url) => url.startsWith("file:") && !url.endsWith("snapshot.html")),
+        ).toEqual([]);
+        expect(violations).toEqual([]);
+        expect(
+          await page.evaluate(() => (window as never as Record<string, unknown>).__placedScriptRan),
+        ).toBeUndefined();
       },
       TEST_TIMEOUT_MS,
     );
