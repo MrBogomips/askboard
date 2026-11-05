@@ -163,7 +163,7 @@ describe("the registrations (Snapshot registrations are appended)", () => {
 
   test("their IDs are appended to SCHEMA_IDS, after every earlier entry", () => {
     const keys = Object.keys(SCHEMA_IDS);
-    expect(keys.slice(keys.indexOf("closedEvent") + 1)).toEqual([
+    expect(keys.slice(keys.indexOf("boardImageProps") + 1)).toEqual([
       "snapshotRequest",
       "snapshotResult",
       "snapshotOutcome",

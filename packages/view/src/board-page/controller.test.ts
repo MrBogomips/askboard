@@ -4,7 +4,12 @@
 // (ask-lifecycle, design decision 6).
 
 import { describe, expect, test } from "bun:test";
-import { BOARD_CLOSE_CODES, type BoardState, type DraftRecord } from "@askboard/contract";
+import {
+  BOARD_CLOSE_CODES,
+  type BoardState,
+  type DraftRecord,
+  type HostMessage,
+} from "@askboard/contract";
 import {
   contextBoardDocument,
   ganttEditedValue,

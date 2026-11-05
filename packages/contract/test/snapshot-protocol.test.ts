@@ -34,6 +34,8 @@ describe("the registrations", () => {
       "answer",
       "act",
       "draft",
+      "open-source",
+      "open-editor",
       "snapshot",
     ]);
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage)).toEqual([
@@ -46,6 +48,8 @@ describe("the registrations", () => {
       "done",
       "draft",
       "closed",
+      "source-state",
+      "editor-outcome",
       "snapshot-saved",
       "snapshot-failed",
     ]);

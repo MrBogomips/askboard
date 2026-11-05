@@ -48,10 +48,10 @@ const valid = (data: SnapshotData) => {
 // Plays a lifecycle transcript's acts, drafts and agent updates into the core; at each board and
 // state message the host sent, the Snapshot's document and state must equal it. Returns the types
 // of the messages compared.
-const replay = (core: Core, steps: readonly LifecycleTranscriptStep[]): string[] => {
+const replay = async (core: Core, steps: readonly LifecycleTranscriptStep[]): Promise<string[]> => {
   const compared: string[] = [];
   for (const step of steps) {
-    if (step.from === "session" && step.event === "update") core.update(step.request);
+    if (step.from === "session" && step.event === "update") await core.update(step.request);
     if (!("message" in step)) continue;
     const message = step.message;
     if (message.type === "act") core.act(LIFECYCLE_ID, command(message.acts, message.actionId));
@@ -69,7 +69,7 @@ describe("the gathering over E3's transcripts", () => {
     "%s: the document and the state equal every board and state message the board got",
     async (_, transcript) => {
       const { core } = await created(areasAsk());
-      const compared = replay(core, transcript.steps);
+      const compared = await replay(core, transcript.steps);
       expect(compared).toContain("board");
       expect(compared).toContain("state");
       valid(gather(core));
@@ -136,7 +136,7 @@ describe("what a Snapshot holds", () => {
 
   test("a revision kept for unsent work that no event names is left out, and so is the current one", async () => {
     const { core } = await created(areasAsk());
-    core.update({
+    await core.update({
       askId: LIFECYCLE_ID,
       actions: [{ action: "change", itemId: "payment", props: { text: "Reworded" } }],
     });
@@ -180,7 +180,7 @@ describe("what a Snapshot holds", () => {
       LIFECYCLE_ID,
       command([{ type: "answer", itemId: "region", rev: 1, choice: ["EU"], when }]),
     );
-    core.update({
+    await core.update({
       askId: LIFECYCLE_ID,
       actions: [{ action: "change", itemId: "payment", props: { text: "New" } }],
     });

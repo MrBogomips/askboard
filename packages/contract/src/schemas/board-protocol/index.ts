@@ -4,10 +4,8 @@
 // `type`, since no schema has a root combinator. E3's minor appends act commands with action IDs,
 // the draft record, done and closed, and widens the state, refusals and discards (ask-lifecycle,
 // design decisions 2 and 8): a new message's name goes at the end of its direction's list. E5's
-// minor appends the reading panel's and the editor's messages (excerpts, design decision 5).
-
-// design decisions 2 and 8): a new message's name goes at the end of its direction's list. E7's
-// minor appends the Snapshot request and its two replies (snapshot design decision 2).
+// minor appends the reading panel's and the editor's messages (excerpts, design decision 5), and
+// E7's the Snapshot request and its two replies (snapshot design decision 2).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -28,11 +26,10 @@ import openEditor from "./open-editor.json" with { type: "json" };
 import openSource from "./open-source.json" with { type: "json" };
 import receipt from "./receipt.json" with { type: "json" };
 import refused from "./refused.json" with { type: "json" };
-import sourceState from "./source-state.json" with { type: "json" };
-
 import snapshot from "./snapshot.json" with { type: "json" };
 import snapshotFailed from "./snapshot-failed.json" with { type: "json" };
 import snapshotSaved from "./snapshot-saved.json" with { type: "json" };
+import sourceState from "./source-state.json" with { type: "json" };
 import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
@@ -65,7 +62,6 @@ export const boardProtocol: SchemaSet = {
     openEditor,
     sourceState,
     editorOutcome,
-
     // E7 (snapshot, design decision 2): the Snapshot request and its two replies.
     snapshot,
     snapshotSaved,
@@ -85,7 +81,6 @@ export const BOARD_PROTOCOL_MESSAGES = {
     draft: schemaId("draft"),
     "open-source": schemaId("open-source"),
     "open-editor": schemaId("open-editor"),
-
     snapshot: schemaId("snapshot"),
   },
   /** Sent by `board-host`, received by the board page. */
@@ -101,7 +96,6 @@ export const BOARD_PROTOCOL_MESSAGES = {
     closed: schemaId("closed"),
     "source-state": schemaId("source-state"),
     "editor-outcome": schemaId("editor-outcome"),
-
     "snapshot-saved": schemaId("snapshot-saved"),
     "snapshot-failed": schemaId("snapshot-failed"),
   },

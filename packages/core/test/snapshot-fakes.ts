@@ -151,13 +151,13 @@ export const lifecycleSnapshotCore = async (snapshots?: SnapshotPorts) => {
   const act = (acts: readonly Act[]) => {
     for (const one of acts) applied(core.act(LIFECYCLE_ID, command([one])));
   };
-  const update = (actions: readonly UpdateAction[]) =>
-    applied(core.update({ askId: LIFECYCLE_ID, actions }));
+  const update = async (actions: readonly UpdateAction[]) =>
+    applied(await core.update({ askId: LIFECYCLE_ID, actions }));
   const until = (time: string) => clock.advance(Date.parse(time) - clock.now());
   act(LIFECYCLE_ACTS.slice(0, 6));
   until("2026-10-31T14:09:30Z");
   const reply = { ...actionOf("reply"), followUp: `${core.epoch}.4` };
-  update([actionOf("change"), reply]);
+  await update([actionOf("change"), reply]);
   act(LIFECYCLE_ACTS.slice(6));
   core.markRead(LIFECYCLE_ID, `${core.epoch}.9`);
   until("2026-10-31T14:16:00Z");
@@ -166,7 +166,7 @@ export const lifecycleSnapshotCore = async (snapshots?: SnapshotPorts) => {
     itemId: "launch",
     answer: { choice: ["Before Black Friday"] },
   };
-  update([actionOf("add"), record as UpdateAction]);
+  await update([actionOf("add"), record as UpdateAction]);
   act([{ type: "postpone", itemId: "analytics", rev: 1 }]);
   until("2026-10-31T14:30:00Z");
   return { ...fixture, link: created.ask.board };

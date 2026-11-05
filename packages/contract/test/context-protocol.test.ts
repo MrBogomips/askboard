@@ -25,7 +25,8 @@ const toPage = (message: unknown) => validateBoardMessage("toPage", message);
 
 describe("the lists", () => {
   test("E1's and E3's messages keep their order, and E5's are appended in each direction", () => {
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost)).toEqual([
+    // A later change's messages follow E5's (snapshot, design decision 2).
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost).slice(0, 6)).toEqual([
       "connect",
       "answer",
       "act",
@@ -33,7 +34,7 @@ describe("the lists", () => {
       "open-source",
       "open-editor",
     ]);
-    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(-2)).toEqual([
+    expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage).slice(9, 11)).toEqual([
       "source-state",
       "editor-outcome",
     ]);

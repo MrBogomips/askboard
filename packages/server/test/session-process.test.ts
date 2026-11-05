@@ -590,7 +590,7 @@ describe("Snapshots in the composed session process (E7)", () => {
     expect(content?.text).toStartWith(
       `No Snapshot was taken of the ask "${asked.askId}": CLAUDE_PROJECT_DIR is not set`,
     );
-    expect(existsSync(join(working, ".askboard"))).toBe(false);
+    expect(existsSync(join(working, ".askboard", "snapshots"))).toBe(false);
     expect(readdirSync(working).sort()).toEqual(before);
     expect(run.stderr).toContain(
       "askboard: no Snapshot without a session project root: CLAUDE_PROJECT_DIR is not set",

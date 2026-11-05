@@ -160,7 +160,7 @@ const replay = async (transcript: SnapshotTranscript) => {
         // A session step comes once ask-core has handed the live board's requests to the writer.
         await until(() => written.length === taken.length);
         if (step.event === "update") {
-          expect(fixture.core.update(step.request)).toMatchObject({ kind: "updated" });
+          expect(await fixture.core.update(step.request)).toMatchObject({ kind: "updated" });
         } else {
           fixture.core.discardAll("session-exit");
         }

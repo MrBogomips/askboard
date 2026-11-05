@@ -92,7 +92,7 @@ describe("taking a Snapshot", () => {
 
   test("of a closed ask, from the board: taken, with the ask's state `closed`", async () => {
     const { core, written } = await lifecycleWith();
-    core.update({ askId: LIFECYCLE_ID, actions: [{ action: "close" }] });
+    await core.update({ askId: LIFECYCLE_ID, actions: [{ action: "close" }] });
     expect(await core.snapshot(LIFECYCLE_ID, BOARD)).toMatchObject({
       outcome: "saved",
       state: "closed",
