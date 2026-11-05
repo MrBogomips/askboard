@@ -359,6 +359,12 @@ export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets
 // page runs after its generated validators.
 
 export { contextDocumentProblems } from "./context/document.ts";
+// Settings and languages (E8, settings-languages design decision 2): a configuration file.
+
+export {
+  configurationProblem,
+  validateConfiguration,
+} from "./schemas/configuration/validate.ts";
 
 // Snapshots (E7, snapshot design decision 2): a Snapshot's data block, and the snapshot request.
 

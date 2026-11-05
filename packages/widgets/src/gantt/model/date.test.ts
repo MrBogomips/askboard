@@ -178,3 +178,28 @@ describe("the Gantt's day numbers", () => {
     });
   });
 });
+
+describe("the Gantt's it-IT dates (settings-languages, task 9.2)", () => {
+  const italian = { locale: "it-IT", language: "it-IT" } as const;
+
+  test("reads day first and refuses a day outside the range in Italian", () => {
+    expect(parseDateEntry("9/12/2026", italian)).toEqual({ kind: "date", date: "2026-12-09" });
+    expect(parseDateEntry("2026-12-09", italian)).toEqual({ kind: "date", date: "2026-12-09" });
+    const early = parseDateEntry("1/1/1800", italian);
+    expect(early).toEqual({
+      kind: "refused",
+      reason: "Scegli un giorno dal 02/03/1900 al 31/12/9999",
+    });
+  });
+
+  test("shows the grid's form and the echo in Italian", () => {
+    expect(gridDate("2026-12-09", "it-IT")).toBe("09/12/2026");
+    expect(gridDate("2026-12-09")).toBe("12/9/2026");
+    expect(echoDate("2026-12-09", "it-IT")).toBe("= mer 9 dic 2026");
+  });
+
+  test("still refuses a day outside the contract's range, whatever the locale", () => {
+    expect(() => gridDate("1899-12-31", "it-IT")).toThrow(RangeError);
+    expect(() => echoDate("1899-12-31", "it-IT")).toThrow(RangeError);
+  });
+});

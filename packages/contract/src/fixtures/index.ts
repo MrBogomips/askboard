@@ -115,6 +115,19 @@ export {
   contextWaiting,
   readingPanelTranscript,
 } from "./context-transcripts.ts";
+// Settings and languages (E8): a configuration file with every key (settings-languages task 1.1).
+// Settings and languages (E8): a configuration file with every key (settings-languages task 1.1),
+// and the settings messages with their transcript (task 2.6).
+
+export { everyKeyConfiguration } from "./configuration.ts";
+export {
+  type SettingsTranscriptStep,
+  settingsProtocolExamples,
+  settingsSaved,
+  settingsTranscript,
+  settingsWithEveryKey,
+  themeSetting,
+} from "./settings.ts";
 
 // Snapshots (E7, snapshot design decision 2): the Snapshot data of an agent's Snapshot of the
 // lifecycle ask, the snapshot result naming its file, and the board protocol's Snapshot messages

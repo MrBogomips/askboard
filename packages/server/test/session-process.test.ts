@@ -483,14 +483,16 @@ describe("context in the composed session process (excerpts)", () => {
     expect(await run.session.ended).toBe(0);
   });
 
-  test("the shipped bundle's composition gives board-host no editor command", () => {
+  test("the shipped bundle's composition gives board-host the user file's editor command (settings-languages, design decision 5)", () => {
     const entry = readFileSync(join(import.meta.dir, "..", "src", "session-entry.ts"), "utf8");
     expect(entry).not.toMatch(/editor|sources/i);
     const composition = readFileSync(
       join(import.meta.dir, "..", "src", "session-process.ts"),
       "utf8",
     );
-    expect(composition).toContain("editorCommand: options.editorCommand ?? (() => undefined)");
+    expect(composition).toContain(
+      "editorCommand: options.editorCommand ?? (() => userEditor(coreOf()))",
+    );
   });
 });
 

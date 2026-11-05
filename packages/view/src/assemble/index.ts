@@ -14,6 +14,7 @@ import {
   type ViewManifest,
 } from "@askboard/contract";
 import { BOOT_DATA_ID, type BootData, bootFieldsOf } from "../boot-data.ts";
+import { htmlLang, languageOf } from "../strings/language.ts";
 import { jsonBlock } from "./json-block.ts";
 import { licenceNotices } from "./licences.ts";
 import { FOR_BOARD, type SelectedChunk, type SelectionTarget, selectChunks } from "./select.ts";
@@ -119,10 +120,10 @@ const licencesBlock = (
   return jsonBlock(SNAPSHOT_LICENCES_ELEMENT, licenceNotices(selection, sources.licences));
 };
 
-const page = (head: readonly string[], body: readonly string[]): string =>
+const page = (lang: string, head: readonly string[], body: readonly string[]): string =>
   [
     "<!doctype html>",
-    '<html lang="en">',
+    `<html lang="${lang}">`,
     "<head>",
     '<meta charset="utf-8">',
     ...head,
@@ -163,6 +164,7 @@ export function assemble(
   );
   const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
   const licences = isSnapshot(data) ? [licencesBlock(selection, sources)] : [];
-  const srcdoc = page([meta, dataBlock(data), ...styles], [...scripts, ...licences]);
+  const lang = htmlLang(languageOf(data.document));
+  const srcdoc = page(lang, [meta, dataBlock(data), ...styles], [...scripts, ...licences]);
   return { srcdoc, policy, chunks: selection.map(({ name }) => name) };
 }

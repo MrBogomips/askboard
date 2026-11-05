@@ -18,7 +18,7 @@
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
 import { type ReactNode, useEffect, useSyncExternalStore } from "react";
-import { questionTextId } from "../catalog/port.ts";
+import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import {
   areaOf,
   questionsOf,
@@ -46,6 +46,7 @@ import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
+import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
@@ -87,6 +88,8 @@ export type BoardContext = CardContext & {
 export type BoardExtras = {
   /** Who asked and where, and the agent status (push delivery, design decision 12). */
   readonly header: Store<HeaderData>;
+  /** The quick toggles' presentation, and what they ask for (settings-languages, design 10). */
+  readonly presentation: PresentationControls;
   /** The bottom action bar's Snapshot (snapshot task 7.1). */
   readonly snapshot: SnapshotControl;
   /** An opened Snapshot's Theme control: the choice, saved nowhere (snapshot task 8.3). */
@@ -135,7 +138,7 @@ const Section = ({ group, shared }: { readonly group: Group; readonly shared: Sh
     <section
       aria-labelledby={headingId}
       data-askboard-area={group.id}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-lg"
     >
       {group.title === undefined ? null : (
         <h2 id={headingId} className={AREA_HEADING}>
@@ -166,42 +169,50 @@ const TabsBody = ({
   readonly onActivate: (areaId: string) => void;
   readonly shared: Shared;
   readonly unseen: ReadonlySet<string>;
-}) => (
-  <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-4">
-    <Tabs.List aria-label="Areas" className="flex gap-1 overflow-x-auto border-b border-border">
-      {groups.map((group) => {
-        const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
-        const open = tabOpenCount(area, shared.state, shared.draft.questions);
-        const fresh = group.questions.some((question) => unseen.has(question.id));
-        return (
-          <Tabs.Trigger
-            key={group.id}
-            value={group.id ?? ""}
-            className={`flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-1.5 text-control text-muted-foreground data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text ${FOCUS_RING}`}
-          >
-            <span className="max-w-48 truncate" title={group.title}>
-              {group.title}
-            </span>
-            {open === 0 ? null : <span className="text-badge">{`${open} open`}</span>}
-            {fresh ? <span className={INFO_BADGE}>New</span> : null}
-          </Tabs.Trigger>
-        );
-      })}
-    </Tabs.List>
-    {groups.map((group) => (
-      <Tabs.Content
-        key={group.id}
-        value={group.id ?? ""}
-        forceMount
-        className="flex flex-col gap-4 data-[state=inactive]:hidden"
+}) => {
+  const text = useStrings();
+  return (
+    <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-lg">
+      <Tabs.List
+        aria-label={text("areas.label")}
+        className="flex gap-1 overflow-x-auto border-b border-border"
       >
-        {group.questions.map((question) => (
-          <Card key={question.id} question={question} shared={shared} />
-        ))}
-      </Tabs.Content>
-    ))}
-  </Tabs.Root>
-);
+        {groups.map((group) => {
+          const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
+          const open = tabOpenCount(area, shared.state, shared.draft.questions);
+          const fresh = group.questions.some((question) => unseen.has(question.id));
+          return (
+            <Tabs.Trigger
+              key={group.id}
+              value={group.id ?? ""}
+              className={`flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-md py-1.5 text-control text-muted-foreground data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text ${FOCUS_RING}`}
+            >
+              <span className="max-w-48 truncate" title={group.title}>
+                {group.title}
+              </span>
+              {open === 0 ? null : (
+                <span className="text-badge">{text("areas.open", { count: open })}</span>
+              )}
+              {fresh ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
+            </Tabs.Trigger>
+          );
+        })}
+      </Tabs.List>
+      {groups.map((group) => (
+        <Tabs.Content
+          key={group.id}
+          value={group.id ?? ""}
+          forceMount
+          className="flex flex-col gap-lg data-[state=inactive]:hidden"
+        >
+          {group.questions.map((question) => (
+            <Card key={question.id} question={question} shared={shared} />
+          ))}
+        </Tabs.Content>
+      ))}
+    </Tabs.Root>
+  );
+};
 
 const OneQuestionBody = ({
   questions,
@@ -214,12 +225,12 @@ const OneQuestionBody = ({
   readonly shared: Shared;
   readonly navigator: ReactNode;
 }) => (
-  <div className="flex flex-col gap-3">
+  <div className="flex flex-col gap-md">
     {navigator}
     {questions.map((question) => {
       const area = areaOf(shared.document, question.id);
       return (
-        <div key={question.id} hidden={question.id !== current} className="flex flex-col gap-3">
+        <div key={question.id} hidden={question.id !== current} className="flex flex-col gap-md">
           {area === undefined ? null : <p className={AREA_HEADING}>{area.props.title}</p>}
           <Card question={question} shared={shared} />
         </div>
@@ -265,6 +276,7 @@ export const Board = ({
   readonly extras: BoardExtras;
 }) => {
   const { document, state, lock, connection } = useSyncExternalStore(view.subscribe, view.get);
+  const language = useLanguage();
   const draft = useSyncExternalStore(context.board.subscribe, context.board.get);
   const kept = useSyncExternalStore(context.kept.subscribe, context.kept.get);
   const removed = useSyncExternalStore(context.removed.subscribe, context.removed.get);
@@ -318,7 +330,7 @@ export const Board = ({
   let body: ReactNode;
   if (single || first === undefined) {
     body = (
-      <main className="flex flex-col gap-4 p-4">
+      <main className="flex flex-col gap-lg p-lg">
         {first === undefined ? null : <Card question={first} shared={shared} />}
       </main>
     );
@@ -326,7 +338,7 @@ export const Board = ({
     const shown = current ?? first.id;
     const at = questions.findIndex((question) => question.id === shown);
     body = (
-      <main className="flex flex-col gap-4 p-4">
+      <main className="flex flex-col gap-lg p-lg">
         <OneQuestionBody
           questions={questions}
           current={shown}
@@ -350,7 +362,7 @@ export const Board = ({
     body = (
       <div className="flex flex-1">
         <Outline groups={groups} current={current} marksOf={marksOf} onJump={go} />
-        <main className="flex min-w-0 flex-1 flex-col gap-6 p-4">
+        <main className="flex min-w-0 flex-1 flex-col gap-xl p-lg">
           {presentation === "tabs" ? (
             <TabsBody
               groups={groups}
@@ -387,9 +399,10 @@ export const Board = ({
       {context.opened === undefined ? null : <SnapshotTopLine opened={context.opened} />}
       <BoardHeader
         title={document.title}
-        pill={askPillOf(state, lock)}
+        pill={askPillOf(state, lock, language)}
         counts={single ? undefined : counts}
         header={extras.header}
+        controls={extras.presentation}
         theme={extras.theme}
       />
       {body}
@@ -398,7 +411,7 @@ export const Board = ({
           single={single}
           document={document}
           delivery={delivery}
-          warning={postponedWarningOf(document, state, draft.questions)}
+          warning={postponedWarningOf(document, state, draft.questions, language)}
           submit={submit}
           recommendations={hasRecommendation(document)}
           locked={lock !== undefined}

@@ -20,7 +20,13 @@ import {
   transcripts,
 } from "@askboard/contract/fixtures";
 import { validateAgainst, validateLocalApi } from "@askboard/contract/validate";
-import { type BoardSocket, linkParts, openBoardSocket, replay } from "./board-page.ts";
+import {
+  type BoardSocket,
+  linkParts,
+  openBoardSocket,
+  replay,
+  withLanguage,
+} from "./board-page.ts";
 import type { ModHost } from "./mod-host.ts";
 import {
   getOverSocket,
@@ -257,11 +263,9 @@ describe("the approved plain-choice example, end to end", () => {
         asks: [{ unchecked: true, events: [{ who: GIT_USER }] }],
       });
       await board.receipt("delivered to the agent");
-      expect(board.received).toContainEqual({
-        version,
-        type: "board",
-        document: plainChoiceBoardDocument,
-      });
+      expect(board.received).toContainEqual(
+        withLanguage({ version, type: "board", document: plainChoiceBoardDocument }),
+      );
       expect(board.received).toContainEqual({
         version,
         type: "receipt",

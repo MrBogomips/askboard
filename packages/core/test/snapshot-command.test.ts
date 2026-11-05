@@ -15,6 +15,7 @@ import {
   SNAPSHOT_PATH,
   type SnapshotFakeOptions,
   snapshotCoreWith,
+  withEnglish,
 } from "./snapshot-fakes.ts";
 
 // Core spec: Taking a Snapshot, No Snapshot of a discarded ask (snapshot task 2.1, design decision
@@ -79,7 +80,7 @@ describe("taking a Snapshot", () => {
       unchecked: false,
     });
     const [data] = writer.written;
-    expect(data && asFixtureEpoch(data, core.epoch)).toEqual(lifecycleSnapshotData);
+    expect(data && asFixtureEpoch(data, core.epoch)).toEqual(withEnglish(lifecycleSnapshotData));
   });
 
   test("without the display project folder the data holds no origin", async () => {

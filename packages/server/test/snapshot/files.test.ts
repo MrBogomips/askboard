@@ -241,6 +241,22 @@ describe("the Snapshot folder", () => {
   );
 });
 
+describe("the folder in effect (settings-languages, design decision 5)", () => {
+  test("a folder given as a function is read at each Snapshot, so a change takes effect at once", async () => {
+    const project = fresh("project");
+    mkdirSync(join(project, "docs/one"), { recursive: true });
+    mkdirSync(join(project, "docs/two"), { recursive: true });
+    let folder = "docs/one";
+    const { options } = setup(project, { folder: () => folder });
+    const files = snapshotFiles(options);
+    const first = await files.save(FILE);
+    folder = "docs/two";
+    const second = await files.save(FILE);
+    expect(first.path).toBe(join(project, "docs/one", NAME));
+    expect(second.path).toBe(join(project, "docs/two", NAME));
+  });
+});
+
 describe("never outside the project", () => {
   test.each([
     ["snapshots", SNAPSHOT_FOLDER],

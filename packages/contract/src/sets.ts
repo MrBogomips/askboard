@@ -3,6 +3,7 @@
 
 import { boardDocumentSet } from "./schemas/board-document/index.ts";
 import { BOARD_PROTOCOL_MESSAGES, boardProtocol } from "./schemas/board-protocol/index.ts";
+import { configurationSet } from "./schemas/configuration/index.ts";
 import { inputFormat } from "./schemas/input/index.ts";
 import { outputFormat } from "./schemas/output/index.ts";
 import { snapshotDataSet } from "./schemas/snapshot-data/index.ts";
@@ -19,6 +20,8 @@ export const SCHEMA_SETS: readonly SchemaSet[] = [
   viewManifestSet,
   // E7 (snapshot, design decision 2): the Snapshot data set.
   snapshotDataSet,
+  // settings-languages (E8): the configuration set (design decision 2).
+  configurationSet,
 ];
 
 /** The `$id` of each schema that a unit validates against by name. */
@@ -77,4 +80,6 @@ export const SCHEMA_IDS = {
   snapshotRequest: "urn:askboard:tool-envelopes:snapshot-request",
   snapshotResult: "urn:askboard:tool-envelopes:snapshot-result",
   snapshotOutcome: "urn:askboard:tool-envelopes:snapshot-outcome",
+  // settings-languages (E8): the configuration set (design decision 2).
+  configuration: "urn:askboard:configuration:config",
 } as const;

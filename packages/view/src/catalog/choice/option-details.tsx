@@ -8,6 +8,7 @@
 
 import { type ChoiceOption, OPTION_NOTE_MAX_CHARS, OTHER_MAX_CHARS } from "@askboard/contract";
 import { useEffect, useRef, useState } from "react";
+import { useStrings } from "../port.ts";
 import type { ChoiceExtras } from "./props.ts";
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
@@ -28,11 +29,14 @@ type DetailsProps = {
   readonly onPreview: () => void;
 };
 
-const Annotation = ({ text }: { readonly text: string }) => (
-  <p className="ml-6 border-l-2 border-border-strong bg-muted px-2 py-1 text-body text-foreground-secondary">
-    <span className="font-semibold">Agent:</span> {text}
-  </p>
-);
+const Annotation = ({ text }: { readonly text: string }) => {
+  const strings = useStrings();
+  return (
+    <p className="ml-xl border-l-2 border-border-strong bg-muted px-sm py-1 text-body text-foreground-secondary">
+      <span className="font-semibold">{strings("option.agent")}</span> {text}
+    </p>
+  );
+};
 
 // The user's note on the option, in the user-change colours (`user-annotation`).
 const NoteField = ({
@@ -49,19 +53,20 @@ const NoteField = ({
   readonly onChange: (note: string | undefined) => void;
 }) => {
   const field = useRef<HTMLTextAreaElement>(null);
+  const text = useStrings();
   useEffect(() => {
     if (focus) field.current?.focus();
   }, [focus]);
   return (
     <textarea
       ref={field}
-      aria-label={`Your note on ${label}`}
+      aria-label={text("option.noteLabel", { label })}
       value={note}
       readOnly={disabled}
       maxLength={OPTION_NOTE_MAX_CHARS}
       rows={2}
       onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
-      className={`ml-6 rounded-md border border-change bg-change-subtle p-2 text-body text-foreground ${FOCUS}`}
+      className={`ml-xl rounded-md border border-change bg-change-subtle p-sm text-body text-foreground ${FOCUS}`}
     />
   );
 };
@@ -84,6 +89,7 @@ export const OptionDetails = ({
   const noteShown = note !== undefined || editing;
   const canNote = extras !== undefined && !disabled && !noteShown;
   // Shown on a selected option, and on any other under hover or keyboard focus (F-52).
+  const text = useStrings();
   const reveal = selected
     ? "inline-flex"
     : "hidden group-hover/option:inline-flex group-focus-within/option:inline-flex";
@@ -91,7 +97,7 @@ export const OptionDetails = ({
     <>
       {option.annotation === undefined ? null : <Annotation text={option.annotation} />}
       {option.preview === undefined && !canNote ? null : (
-        <div className="ml-6 flex flex-wrap items-center gap-3">
+        <div className="ml-xl flex flex-wrap items-center gap-md">
           {option.preview === undefined ? null : (
             <button
               type="button"
@@ -100,12 +106,12 @@ export const OptionDetails = ({
               aria-controls={previewId(itemId, index)}
               onClick={onPreview}
             >
-              Show preview
+              {text("option.showPreview")}
             </button>
           )}
           {canNote ? (
             <button type="button" className={`${LINK} ${reveal}`} onClick={() => setEditing(true)}>
-              + Add your note to this option
+              {text("option.addNote")}
             </button>
           ) : null}
         </div>
@@ -113,7 +119,7 @@ export const OptionDetails = ({
       {previewOpen && option.preview !== undefined ? (
         <p
           id={previewId(itemId, index)}
-          className="ml-6 whitespace-pre-wrap rounded-md border border-border bg-muted p-2 text-body text-foreground"
+          className="ml-xl whitespace-pre-wrap rounded-md border border-border bg-muted p-sm text-body text-foreground"
         >
           {option.preview}
         </p>
@@ -143,14 +149,17 @@ export const OtherField = ({
   readonly other: string;
   readonly disabled: boolean;
   readonly onChange: (other: string) => void;
-}) => (
-  <input
-    type="text"
-    aria-label="Other…"
-    value={other}
-    readOnly={disabled}
-    maxLength={OTHER_MAX_CHARS}
-    onChange={(event) => onChange(event.target.value)}
-    className={`ml-6 rounded-md border border-input bg-card p-2 text-body text-foreground read-only:border-border read-only:bg-muted ${FOCUS}`}
-  />
-);
+}) => {
+  const text = useStrings();
+  return (
+    <input
+      type="text"
+      aria-label={text("option.other")}
+      value={other}
+      readOnly={disabled}
+      maxLength={OTHER_MAX_CHARS}
+      onChange={(event) => onChange(event.target.value)}
+      className={`ml-xl rounded-md border border-input bg-card p-sm text-body text-foreground read-only:border-border read-only:bg-muted ${FOCUS}`}
+    />
+  );
+};

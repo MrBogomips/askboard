@@ -70,11 +70,15 @@ const repository = (): string => {
 const untracked = (project: string): string[] =>
   git(project, "status", "--porcelain", "--untracked-files=all").split("\n").filter(Boolean);
 
-const composed = (env: Readonly<Record<string, string>>, projectDir = env.CLAUDE_PROJECT_DIR) => {
+const composed = (
+  env: Readonly<Record<string, string>>,
+  projectDir = env.CLAUDE_PROJECT_DIR,
+  folder?: () => string,
+) => {
   const lines: string[] = [];
   const { ports } = composeSnapshots(
     { env, view: writeView(), stderr: (line) => lines.push(line) },
-    { projectDir: projectDir ?? root },
+    { projectDir: projectDir ?? root, ...(folder === undefined ? {} : { folder }) },
   );
   if (ports.snapshots === undefined) throw new Error("no Snapshot ports");
   return { lines, snapshots: ports.snapshots, writer: ports.snapshots.writer };
@@ -104,6 +108,15 @@ describe("the Snapshot folder, prepared by E8's project folders", () => {
     expect(readFileSync(join(project, ".askboard", ".gitignore"), "utf8")).toBe(GITIGNORE);
     expect(readFileSync(path, "utf8")).toContain(`"askId":"${data.askId}"`);
     expect(lines).toEqual([]);
+  });
+
+  test("the folder in effect, read at each Snapshot, takes the file (settings-languages)", async () => {
+    const project = fresh("project");
+    mkdirSync(join(project, "docs", "snaps"), { recursive: true });
+    const { writer } = composed({ CLAUDE_PROJECT_DIR: project }, project, () => "docs/snaps");
+    const { path } = await writer.write(data);
+    expect(dirname(path)).toBe(join(project, "docs", "snaps"));
+    expect(readdirSync(join(project, ".askboard", "snapshots"))).toEqual([]);
   });
 
   test("git status does not show the Snapshot under the .gitignore it created", async () => {

@@ -12,6 +12,7 @@ import {
   type LifecyclePageMessage,
   type PresenceMessage,
   parseBoardRoute,
+  type SettingCommand,
   type SnapshotCommand,
   socketPath,
 } from "@askboard/contract";
@@ -45,6 +46,8 @@ export type BoardSocketHandlers = {
 export type BoardConnection = {
   /** Sends a page message if the socket is open; says whether it did. */
   send(message: LifecyclePageMessage | ContextPageMessage | SnapshotCommand): boolean;
+  send(message: LifecyclePageMessage | ContextPageMessage): boolean;
+  send(message: LifecyclePageMessage | SettingCommand): boolean;
   /** Closes the socket; its close is still reported. */
   close(): void;
 };
@@ -54,6 +57,8 @@ export type PageConnection = Omit<BoardConnection, "send"> & {
   send(
     message: LifecyclePageMessage | ContextPageMessage | SnapshotCommand | PresenceMessage,
   ): boolean;
+  send(message: LifecyclePageMessage | ContextPageMessage | PresenceMessage): boolean;
+  send(message: LifecyclePageMessage | SettingCommand | PresenceMessage): boolean;
 };
 
 const OPEN = 1;

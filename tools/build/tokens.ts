@@ -23,6 +23,7 @@ export type DesignTokens = {
   readonly aliases: Readonly<Record<string, string>>;
   readonly typography: Readonly<Record<string, TypeStyle>>;
   readonly rounded: Readonly<Record<string, string>>;
+  readonly spacing: Readonly<Record<string, string>>;
 };
 
 // The YAML shows an alias resolved to hex, marked by a comment: `input: '#8f877a'  # = border-strong`.
@@ -41,6 +42,7 @@ export const readDesignTokens = (markdown: string): DesignTokens => {
     aliases,
     typography: parsed.typography ?? {},
     rounded: parsed.rounded ?? {},
+    spacing: parsed.spacing ?? {},
   };
 };
 
@@ -50,7 +52,42 @@ const lightNames = (tokens: DesignTokens): string[] =>
 const declarations = (pairs: readonly [string, string][]): string =>
   pairs.map(([name, value]) => `--${name}:${value};`).join("");
 
-/** `:root` with the light scheme and every alias, then `.dark` with the dark scheme. */
+/** The compact and the comfortable value of each density-dependent spacing key. */
+const spacingPairs = (spacing: DesignTokens["spacing"]) => {
+  const names = Object.keys(spacing).filter((name) => name.endsWith(COMFORTABLE));
+  return names.map((name) => {
+    const base = name.slice(0, -COMFORTABLE.length);
+    const compact = spacing[base];
+    if (compact === undefined) {
+      throw new Error(`the key "${name}" has no compact key "${base}"`);
+    }
+    return { name: base, compact: String(compact), comfortable: String(spacing[name]) };
+  });
+};
+
+/** The font-size variables: every style's compact size, and each comfortable delta. */
+const sizePairs = (typography: DesignTokens["typography"]) => {
+  const compact = Object.entries(typography)
+    .filter(([name]) => !name.endsWith(COMFORTABLE))
+    .flatMap(([name, style]): [string, string][] =>
+      style.fontSize === undefined ? [] : [[`fs-${name}`, style.fontSize]],
+    );
+  const comfortable = Object.entries(typography)
+    .filter(([name]) => name.endsWith(COMFORTABLE))
+    .flatMap(([name, style]): [string, string][] => {
+      const base = name.slice(0, -COMFORTABLE.length);
+      if (typography[base] === undefined) {
+        throw new Error(`the type style "${name}" has no compact style "${base}"`);
+      }
+      return style.fontSize === undefined ? [] : [[`fs-${base}`, style.fontSize]];
+    });
+  return { compact, comfortable };
+};
+
+/**
+ * `:root` with the light scheme, every alias and the compact density, then `.dark` with the dark
+ * scheme and `.comfortable` re-pointing the density variables (the type sizes and the spacing).
+ */
 export const tokensCss = (tokens: DesignTokens): string => {
   const light: [string, string][] = [];
   const dark: [string, string][] = [];
@@ -70,9 +107,20 @@ export const tokensCss = (tokens: DesignTokens): string => {
     light.push([name, tokens.colors[name] ?? ""]);
     dark.push([name, darkValue]);
   }
+  const spacing = spacingPairs(tokens.spacing);
+  const sizes = sizePairs(tokens.typography);
+  const compact = [
+    ...spacing.map((pair): [string, string] => [pair.name, pair.compact]),
+    ...sizes.compact,
+  ];
+  const roomy = [
+    ...spacing.map((pair): [string, string] => [pair.name, pair.comfortable]),
+    ...sizes.comfortable,
+  ];
   return (
-    `:root{${declarations(light)}color-scheme:light}\n` +
-    `.dark{${declarations(dark)}color-scheme:dark}\n`
+    `:root{${declarations(light)}${declarations(compact)}color-scheme:light}\n` +
+    `.dark{${declarations(dark)}color-scheme:dark}\n` +
+    `.comfortable{${declarations(roomy)}}\n`
   );
 };
 
@@ -87,7 +135,7 @@ const typeRamp = (typography: DesignTokens["typography"]): [string, string][] =>
         [`text-${name}--letter-spacing`, style.letterSpacing],
       ];
       return [
-        [`text-${name}`, style.fontSize],
+        [`text-${name}`, `var(--fs-${name})`],
         ...optional.flatMap(([key, value]): [string, string][] =>
           value === undefined ? [] : [[key, String(value)]],
         ),
@@ -106,6 +154,10 @@ export const themeCss = (tokens: DesignTokens): string => {
   const radius = Object.entries(tokens.rounded)
     .filter(([name]) => name !== "full")
     .map(([name, value]): [string, string] => [`radius-${name}`, value]);
+  const spacing = spacingPairs(tokens.spacing).map(({ name }): [string, string] => [
+    `spacing-${name}`,
+    `var(--${name})`,
+  ]);
   const inline = [
     ["color-*", "initial"],
     ...colors,
@@ -113,6 +165,7 @@ export const themeCss = (tokens: DesignTokens): string => {
     ...typeRamp(tokens.typography),
     ["radius-*", "initial"],
     ...radius,
+    ...spacing,
   ] as [string, string][];
   return (
     `@theme inline{${declarations(inline)}}\n` +

@@ -108,6 +108,7 @@ describe("the snapshot-data set", () => {
       "board-protocol",
       "view-manifest",
       "snapshot-data",
+      "configuration",
     ]);
   });
 });
@@ -190,7 +191,7 @@ describe("what the Snapshot data names", () => {
 
   test("a later minor of each set passes", () => {
     const minors = changed((data) => {
-      data.versions = { snapshot: "1.4", output: "1.2", boardProtocol: "1.3" };
+      data.versions = { snapshot: "1.4", output: "1.2", boardProtocol: "1.4" };
     });
     expect(problemPaths(minors)).toEqual([]);
   });

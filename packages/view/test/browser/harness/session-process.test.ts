@@ -151,8 +151,14 @@ describe("startSessionProcess", () => {
     expect(env.BROWSER).toBe(LINK_RECORDER);
     expect(env[LINKS_VARIABLE]).toBeString();
     // The SDK's default inheritance, so that the developer's SSH or CI variables do not reach the
-    // detection rule (AD-18): BROWSER decides.
-    const allowed = [...DEFAULT_INHERITED_ENV_VARS, "BROWSER", LINKS_VARIABLE];
+    // detection rule (AD-18): BROWSER decides. The configuration's folders are the suite's own.
+    const allowed = [
+      ...DEFAULT_INHERITED_ENV_VARS,
+      "BROWSER",
+      LINKS_VARIABLE,
+      "XDG_CONFIG_HOME",
+      "CLAUDE_PROJECT_DIR",
+    ];
     for (const name of Object.keys(env)) expect(allowed).toContain(name);
     expect(fake.asked).toEqual([approved]);
     const link = new URL(session.link);
@@ -161,6 +167,24 @@ describe("startSessionProcess", () => {
     expect(`${link.pathname}${link.search}`).toBe(`/b/${askId}?t=${TOKENS[0]}`);
     expect(session.problems()).toEqual([]);
     expect(session.requests()).toEqual([]);
+  });
+
+  // Settings-languages, design decision 14: no developer's configuration reaches the process.
+  test("its home, configuration folder and project are its own, holding the scenario's files", async () => {
+    const fake = fakeProcess();
+    const user = { version: "1.0", theme: "dark" };
+    const project = { version: "1.0", askingRule: "always" };
+    const session = await start(fake, { userConfig: user, projectConfig: project });
+    const env = fake.spawned[0]?.options.env ?? {};
+    const folders = [env.HOME, env.XDG_CONFIG_HOME, env.CLAUDE_PROJECT_DIR].map(String);
+    for (const folder of folders) expect(folder).toStartWith(tmpdir());
+    expect(new Set([...folders, process.env.HOME])).toHaveProperty("size", 4);
+    const [, configHome = "", projectDir = ""] = folders;
+    const read = (file: string) => Bun.file(file).json();
+    expect(await read(join(configHome, "askboard", "config.json"))).toEqual(user);
+    expect(await read(join(projectDir, ".askboard", "config.json"))).toEqual(project);
+    // The scenarios reach the user file through the session, to read what a board wrote.
+    expect(session.userConfigPath).toBe(join(configHome, "askboard", "config.json"));
   });
 
   test("starts the bundle on Node when asked to", async () => {

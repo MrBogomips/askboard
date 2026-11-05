@@ -13,15 +13,17 @@
 // The board's working signal (push delivery, `working-signal.ts`) follows the page's focus and
 // visibility and the user's keys and pointer, on the page and, through the view's activity message,
 // in the view; each socket sends it once accepted and on each change (`presence.ts`). While it is
-// on, it reads the focus again once a second, and it stops doing so when the page goes away.
+// on, it reads the focus again once a second, and it stops doing so when the page goes away. The
+// settings panel (`settings-panel.ts`) opens over the page when the view's "Settings" asks.
 
 import { WORKING_WINDOW_MS } from "@askboard/contract";
-import { applyTheme, DARK_QUERY, followSystemTheme } from "../theme.ts";
+import { applyDensity, applyTheme, DARK_QUERY, followTheme } from "../theme.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
 import { loadView } from "./load-view.ts";
 import { createPageChrome } from "./page-chrome.ts";
 import { withPresence } from "./presence.ts";
 import { createReadingPanel } from "./reading-panel.ts";
+import { createSettingsPanel } from "./settings-panel.ts";
 import { boardLinkOf, connectBoard } from "./socket.ts";
 import { hostView, type ViewHost } from "./view-host.ts";
 import { createWorkingSignal, FOCUS_RECHECK_MS, type WorkingSignal } from "./working-signal.ts";
@@ -61,8 +63,17 @@ export const startBoardPage = (window: Window): void => {
     takeSnapshot: () =>
       page?.takeSnapshot() ?? { outcome: "refused", detail: "the board is not open yet" },
   });
+  const panel = createSettingsPanel(document, chrome.frame, {
+    choose: (setting) => void page?.setPresentation(setting),
+    close: () => {
+      // The panel's focus goes to the frame first, so that the view can focus "Settings".
+      chrome.frame.focus();
+      page?.closeSettings();
+    },
+  });
   let host: ViewHost | undefined;
-  const theme = followSystemTheme(window.matchMedia(DARK_QUERY), (next) => {
+  // The preference is `system` until the settings say otherwise (settings-languages, design 11).
+  const theme = followTheme(window.matchMedia(DARK_QUERY), (next) => {
     applyTheme(document.documentElement, next);
     host?.setTheme(next);
   });
@@ -78,7 +89,7 @@ export const startBoardPage = (window: Window): void => {
       const assembled = await loadView(data, link.token);
       const peer = chrome.frame.contentWindow;
       if (peer === null) throw new Error("the view's frame is not in the document");
-      host = await hostView(peer, window, handle, theme());
+      host = await hostView(peer, window, handle, theme.current());
       chrome.frame.srcdoc = assembled.srcdoc;
       return host;
     },
@@ -90,6 +101,15 @@ export const startBoardPage = (window: Window): void => {
     setTitle: (title) => {
       document.title = title;
     },
+    // The static `lang="en"` stays until the first board (settings-languages, B13).
+    setLanguage: (lang) => {
+      document.documentElement.lang = lang;
+    },
+    applyPresentation: (presentation) => {
+      applyDensity(document.documentElement, presentation.density);
+      theme.prefer(presentation.theme);
+    },
+    showSettings: panel.show,
     log: (text, detail) => {
       if (detail === undefined) console.error(`askboard: ${text}`);
       else console.error(`askboard: ${text}:`, detail);

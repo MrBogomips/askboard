@@ -1,16 +1,38 @@
-// The Gantt's dates as the user types and reads them, in en-US (EXPERIENCE, Input atoms): a start
-// typed as month/day/year, or as year-month-day, read into an RFC 3339 `full-date`, the format the
-// contract carries (AD-7); the grid's form, `12/9/2026`, and the echo beside the field,
-// `= Wed, Dec 9, 2026`; and day numbers, which the time scale and drags count calendar days with.
-// Plain arithmetic on the calendar, with no `Date`, time zone or locale (AD-13). The range is the
-// contract's. Dates are the Gantt's: this module moves to `shared/` when a second widget needs it.
+// The Gantt's dates as the user types and reads them, in the ask's locale (EXPERIENCE, Input
+// atoms; settings-languages design decision 8): a start typed as month/day/year in en-US and
+// day/month/year in it-IT, or as year-month-day, read into an RFC 3339 `full-date`, the format the
+// contract carries (AD-7); the grid's form, `12/9/2026` or `09/12/2026`, and the echo beside the
+// field, `= Wed, Dec 9, 2026` or `= mer 9 dic 2026`; and day numbers, which the time scale and
+// drags count calendar days with. The reading, the forms and the refusals are the contract's
+// (`locale/entry.ts`); this module adds the Gantt's range, and keeps en-US where no locale is
+// given. Plain arithmetic on the calendar, with no `Date`, time zone or runtime locale (AD-13).
+// Dates are the Gantt's: this module moves to `shared/` when a second widget needs it.
 
-import { GANTT_FIRST_DATE, GANTT_LAST_DATE } from "@askboard/contract";
+import {
+  dateEcho,
+  formatDate,
+  GANTT_FIRST_DATE,
+  GANTT_LAST_DATE,
+  type Locale,
+  parseDate,
+} from "@askboard/contract";
 
 export type DateEntry =
   | { readonly kind: "date"; readonly date: string }
   | { readonly kind: "empty" }
   | { readonly kind: "refused"; readonly reason: string };
+
+/** The locale a date is typed and shown in, and the language its refusals are written in. */
+export type DateFormat = { readonly locale: Locale; readonly language: Locale };
+
+export const EN_US_FORMAT: DateFormat = Object.freeze({ locale: "en-US", language: "en-US" });
+
+/** The Gantt's own refusal of a day outside its range, in the ask's language. */
+const RANGE_REFUSALS: Readonly<Record<Locale, (first: string, last: string) => string>> = {
+  "en-US": (first, last) => `Pick a day from ${first} to ${last}`,
+  // Provisional, with the other Italian strings (UX draft block 1).
+  "it-IT": (first, last) => `Scegli un giorno dal ${first} al ${last}`,
+};
 
 const MONTHS = [
   "January",
@@ -28,13 +50,7 @@ const MONTHS = [
 ] as const;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-const US_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const MONTH_AND_DAY = /^\d{1,2}\/\d{1,2}$/;
-
-const EXAMPLE = "month/day/year, as in 12/9/2026";
-const FORMAT = `Write the date as ${EXAMPLE}`;
-const NO_YEAR = `Write the year too: ${EXAMPLE}`;
 
 const isLeap = (year: number): boolean => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 
@@ -70,10 +86,10 @@ const partsOf = (date: string): readonly [number, number, number] => {
 export const isGanttDate = (date: unknown): date is string =>
   typeof date === "string" && realParts(date) !== undefined;
 
-/** The grid's form of a `full-date`: month/day/year, with no leading zeros. */
-export const gridDate = (date: string): string => {
-  const [year, month, day] = partsOf(date);
-  return `${month}/${day}/${year}`;
+/** The grid's form of a `full-date` in `locale`: `12/9/2026` in en-US, `09/12/2026` in it-IT. */
+export const gridDate = (date: string, locale: Locale = "en-US"): string => {
+  partsOf(date);
+  return formatDate(date, locale);
 };
 
 // Howard Hinnant's days_from_civil and civil_from_days, proleptic Gregorian: days from 1970-01-01.
@@ -147,35 +163,22 @@ export const calendarDay = (date: string): CalendarDay => {
   });
 };
 
-/** The echo beside a date field: the weekday and the day, spelled out. */
-export const echoDate = (date: string): string => {
-  const { year, day, monthName, weekdayName } = calendarDay(date);
-  return `= ${weekdayName}, ${monthName} ${day}, ${year}`;
+/** The echo beside a date field: the weekday and the day, spelled out in `locale`. */
+export const echoDate = (date: string, locale: Locale = "en-US"): string => {
+  partsOf(date);
+  return dateEcho(date, locale);
 };
 
-const refused = (reason: string): DateEntry => ({ kind: "refused", reason });
-
 /**
- * What the user typed in a date field: a `full-date`, an empty field, or a refusal saying why.
- * Month/day/year takes one or two digits for the month and the day and four for the year;
- * year-month-day takes exactly two for the month and the day. Surrounding spaces are ignored.
+ * What the user typed in a date field: a `full-date`, an empty field, or a refusal saying why, in
+ * the format's language. A day outside the Gantt's range is refused too.
  */
-export const parseDateEntry = (text: string): DateEntry => {
-  const entry = text.trim();
-  if (entry === "") return { kind: "empty" };
-  if (MONTH_AND_DAY.test(entry)) return refused(NO_YEAR);
-  const us = US_DATE.exec(entry);
-  const iso = ISO_DATE.exec(entry);
-  const parts = us !== null ? [us[3], us[1], us[2]] : iso !== null ? iso.slice(1) : undefined;
-  if (parts === undefined) return refused(FORMAT);
-  const [year, month, day] = parts.map(Number) as [number, number, number];
-  if (month < 1 || month > 12) return refused(`${month} is not a month: write ${EXAMPLE}`);
-  if (day < 1 || day > daysIn(year, month)) {
-    return refused(`${MONTHS[month - 1]} ${year} has no day ${day}`);
-  }
-  const date = fullDate(year, month, day);
-  if (!isGanttDate(date)) {
-    return refused(`Pick a day from ${gridDate(GANTT_FIRST_DATE)} to ${gridDate(GANTT_LAST_DATE)}`);
-  }
-  return { kind: "date", date };
+export const parseDateEntry = (text: string, format: DateFormat = EN_US_FORMAT): DateEntry => {
+  const entry = parseDate(text, format.locale, format.language);
+  if (entry.kind === "empty") return entry;
+  if (entry.kind === "refused") return { kind: "refused", reason: entry.reason };
+  if (isGanttDate(entry.date)) return entry;
+  const first = gridDate(GANTT_FIRST_DATE, format.locale);
+  const last = gridDate(GANTT_LAST_DATE, format.locale);
+  return { kind: "refused", reason: RANGE_REFUSALS[format.language](first, last) };
 };

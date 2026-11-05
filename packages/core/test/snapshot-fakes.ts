@@ -12,7 +12,7 @@ import {
   type SnapshotPorts,
   type SnapshotWriter,
 } from "../src/index.ts";
-import { type FakeOptions, fakeClock, fakePorts } from "./fakes.ts";
+import { EN_US, type FakeOptions, fakeClock, fakePorts } from "./fakes.ts";
 import { areasAsk, command, LIFECYCLE_ID } from "./lifecycle-fakes.ts";
 import { callOf, fakeRecordTable } from "./push-fakes.ts";
 
@@ -171,6 +171,12 @@ export const lifecycleSnapshotCore = async (snapshots?: SnapshotPorts) => {
   until("2026-10-31T14:30:00Z");
   return { ...fixture, link: created.ask.board };
 };
+
+/** The fixture's data with the language and locale an en-US ask gets (settings-languages). */
+export const withEnglish = (data: SnapshotData): SnapshotData => ({
+  ...data,
+  document: { ...data.document, ...EN_US },
+});
 
 /** The data with the core's epoch written as the fixtures' (`k3x9`), so they compare whole. */
 export const asFixtureEpoch = (data: SnapshotData, epoch: string): SnapshotData =>

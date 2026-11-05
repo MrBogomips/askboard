@@ -8,8 +8,15 @@ import {
 } from "@askboard/contract/fixtures";
 import { validateSnapshotData } from "@askboard/contract/validate";
 import { gatherSnapshot, type SnapshotSources } from "../src/snapshot/gather.ts";
+import { EN_US } from "./fakes.ts";
 import { areasAsk, boardOf, command, created, LIFECYCLE_ID } from "./lifecycle-fakes.ts";
-import { asFixtureEpoch, lifecycleSnapshotCore, SHOP_DIR, SHOP_OWNER } from "./snapshot-fakes.ts";
+import {
+  asFixtureEpoch,
+  lifecycleSnapshotCore,
+  SHOP_DIR,
+  SHOP_OWNER,
+  withEnglish,
+} from "./snapshot-fakes.ts";
 
 // Snapshot spec, through the core spec's requirements What a Snapshot holds, What a Snapshot never
 // holds and Unsent work noted, never read (snapshot task 2.2, design decision 3): the pure gathering
@@ -57,7 +64,8 @@ const replay = async (core: Core, steps: readonly LifecycleTranscriptStep[]): Pr
     if (message.type === "act") core.act(LIFECYCLE_ID, command(message.acts, message.actionId));
     if (message.type === "draft") core.holdDraft(LIFECYCLE_ID, message.record);
     if (step.from !== "host") continue;
-    if (message.type === "board") expect(gather(core).document).toEqual(message.document);
+    if (message.type === "board")
+      expect(gather(core).document).toEqual({ ...message.document, ...EN_US });
     if (message.type === "state") expect(gather(core).state).toEqual(message.state);
     if (message.type === "board" || message.type === "state") compared.push(message.type);
   }
@@ -108,7 +116,7 @@ describe("what a Snapshot holds", () => {
     const data = gather(core, { projectDir: SHOP_DIR, ...(asked ? { asked } : {}) });
     valid(data);
     expect(data.epoch).toBe(core.epoch);
-    expect(asFixtureEpoch(data, core.epoch)).toEqual(lifecycleSnapshotData);
+    expect(asFixtureEpoch(data, core.epoch)).toEqual(withEnglish(lifecycleSnapshotData));
   });
 
   test("an answer on an older revision: that revision's props beside the current document", async () => {

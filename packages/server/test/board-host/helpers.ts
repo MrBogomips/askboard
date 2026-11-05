@@ -156,6 +156,8 @@ export const startHost = (
     push?: Pick<CorePorts, "records" | "header">;
     /** E7's Snapshot writer, with the origin row's project folder. */
     snapshots?: SnapshotPorts;
+    /** The configuration's port (settings-languages). */
+    config?: CorePorts["config"];
   } = {},
 ): TestHost => {
   const reported: unknown[] = [];
@@ -183,6 +185,7 @@ export const startHost = (
     clock: options.clock ?? runtimeClock,
     ...options.push,
     ...(options.snapshots === undefined ? {} : { snapshots: options.snapshots }),
+    ...(options.config === undefined ? {} : { config: options.config }),
   });
   core = created;
   return {
@@ -252,8 +255,9 @@ export const request = (
 
 /**
  * A board socket as the board page opens it, with its messages and close queued. The context
- * header's origin and agent messages (push delivery, design decision 12) are queued apart, as the
- * browser harness keeps presence apart, so that E1's exchanges read as they were recorded.
+ * header's origin and agent messages (push delivery, design decision 12) and the settings
+ * (settings-languages, design decision 6) are queued apart, as the browser harness keeps presence
+ * apart, so that E1's exchanges read as they were recorded.
  */
 export type BoardSocket = {
   readonly socket: WebSocket;
@@ -272,7 +276,11 @@ export type BoardSocket = {
   nextHeader(): Promise<unknown>;
   /** Origin and agent messages received and not taken by `nextHeader`. */
   readonly header: unknown[];
-  /** The type of every message received, in order, the header's included. */
+  /** The next settings message; fails after a wait. */
+  nextSettings(): Promise<unknown>;
+  /** Settings messages received and not taken by `nextSettings`. */
+  readonly settings: unknown[];
+  /** The type of every message received, in order, the header's and the settings included. */
   readonly types: string[];
 };
 
@@ -304,12 +312,15 @@ export const openSocket = async (
   });
   const pending: unknown[] = [];
   const header: unknown[] = [];
+  const settings: unknown[] = [];
   const types: string[] = [];
   let code: number | undefined;
+  const queueOf = (type: unknown) =>
+    HEADER_TYPES.includes(type) ? header : type === "settings" ? settings : pending;
   socket.on("message", (data) => {
     const message = JSON.parse(String(data)) as { type?: unknown };
     types.push(String(message.type));
-    (HEADER_TYPES.includes(message.type) ? header : pending).push(message);
+    queueOf(message.type).push(message);
   });
   socket.on("close", (closeCode) => {
     code = closeCode;
@@ -325,9 +336,11 @@ export const openSocket = async (
     socket,
     pending,
     header,
+    settings,
     types,
     next: () => waitFor(() => pending.shift(), "a message"),
     nextHeader: () => waitFor(() => header.shift(), "an origin or agent message"),
+    nextSettings: () => waitFor(() => settings.shift(), "a settings message"),
     closed: () => waitFor(() => code, "the close"),
     send: (message) =>
       new Promise<void>((resolve) => socket.send(JSON.stringify(message), () => resolve())),
@@ -426,3 +439,13 @@ export const upgradeStatus = (
       } else reject(error);
     });
   });
+
+// settings-languages (task 3.6): ask-core names the ask's language and locale on every board
+// document, which the transcripts, written before it, leave out.
+
+/** The expected message, its board document with the language and locale an en-US ask gets. */
+export const withLanguage = <T extends object>(expected: T): T => {
+  const { type, document } = expected as { type?: string; document?: object };
+  if (type !== "board" || document === undefined) return expected;
+  return { ...expected, document: { ...document, language: "en-US", locale: "en-US" } };
+};

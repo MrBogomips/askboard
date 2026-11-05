@@ -25,13 +25,14 @@ const unresolved = (extra: Record<string, unknown> = {}) => ({
 const NO_HOOKS = { code: "no-hooks", message: "This session runs without hooks." };
 
 describe("the versions (design decision 2)", () => {
-  test("the output format, the tool envelopes and the board protocol take the minor after 1.1", () => {
+  test("the output format, the tool envelopes and the board protocol take the minor after 1.1, the protocol a later one (settings-languages)", () => {
     expect({
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
-      // E7 (snapshot) took the envelopes and the protocol to 1.3 after E5's 1.2.
-    }).toEqual({ output: "1.2", envelopes: "1.3", protocol: "1.3" });
+      // E7 (snapshot) took the envelopes and the protocol to 1.3 after E5's 1.2; E8 (settings and
+      // languages) took the protocol to 1.4.
+    }).toEqual({ output: "1.2", envelopes: "1.3", protocol: "1.4" });
     expect(RESULT_VERSIONS).toEqual({ result: "1.3", output: "1.2" });
   });
 });

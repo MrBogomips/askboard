@@ -17,6 +17,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useStrings } from "../catalog/port.ts";
+import type { StringKey } from "../strings/index.ts";
 import type { HeaderOrigin } from "../view-protocol.ts";
 import type { HeaderData } from "./header-data.ts";
 import type { Store } from "./store.ts";
@@ -25,11 +27,11 @@ import type { Store } from "./store.ts";
 const UNKNOWN = "—";
 
 const FIELDS = [
-  ["Project", "project"],
-  ["Directory", "directory"],
-  ["Branch", "branch"],
-  ["Worktree", "worktree"],
-] as const satisfies readonly (readonly [string, keyof HeaderOrigin])[];
+  ["header.project", "project"],
+  ["header.directory", "directory"],
+  ["header.branch", "branch"],
+  ["header.worktree", "worktree"],
+] as const satisfies readonly (readonly [StringKey, keyof HeaderOrigin])[];
 
 // Who asked, each agent string isolated: "Main agent", "Subagent code-reviewer #2 · Retry review",
 // "Teammate scout-2 · Retry review" (a teammate has no ordinal).
@@ -103,7 +105,7 @@ const Clipped = ({
         <span
           role="tooltip"
           id={id}
-          className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-[min(36rem,80vw)] rounded-md border border-border bg-popover px-2 py-1 font-sans text-body text-popover-foreground break-all whitespace-normal shadow-md group-focus-within:block group-hover:block"
+          className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-[min(36rem,80vw)] rounded-md border border-border bg-popover px-sm py-1 font-sans text-body text-popover-foreground break-all whitespace-normal shadow-md group-focus-within:block group-hover:block"
         >
           {children}
         </span>
@@ -129,11 +131,15 @@ const Field = ({ label, value }: { readonly label: string; readonly value?: stri
 
 export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) => {
   const { origin } = useSyncExternalStore(header.subscribe, header.get);
+  const text = useStrings();
   return (
-    <div data-askboard-header="who-and-where" className="flex h-8 min-w-0 items-center gap-4 px-4">
+    <div
+      data-askboard-header="who-and-where"
+      className="flex h-header-row min-w-0 items-center gap-lg px-lg"
+    >
       {origin === undefined ? null : (
         <>
-          <span className="flex min-w-0 items-baseline gap-3 text-body text-foreground">
+          <span className="flex min-w-0 items-baseline gap-md text-body text-foreground">
             <Clipped className="max-w-80 font-semibold">
               <WhoAsked who={origin.who} />
             </Clipped>
@@ -141,16 +147,16 @@ export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) 
             {origin.forUser === undefined ? null : (
               <span className="flex min-w-0 items-baseline gap-1">
                 {" "}
-                <span className="shrink-0 text-muted-foreground">For:</span>{" "}
+                <span className="shrink-0 text-muted-foreground">{text("header.for")}</span>{" "}
                 <Clipped className="max-w-48">
                   <bdi>{origin.forUser}</bdi>
                 </Clipped>
               </span>
             )}
           </span>
-          <dl className="m-0 ml-auto flex min-w-0 items-baseline gap-4">
+          <dl className="m-0 ml-auto flex min-w-0 items-baseline gap-lg">
             {FIELDS.map(([label, key]) => (
-              <Field key={key} label={label} value={origin[key]} />
+              <Field key={key} label={text(label)} value={origin[key]} />
             ))}
           </dl>
         </>

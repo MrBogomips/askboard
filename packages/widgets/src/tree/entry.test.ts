@@ -139,3 +139,30 @@ describe("a work breakdown's entries (molecules design decision 14; view spec, W
     expect(entryKindAt(tree, "b", 1)).toBe("number");
   });
 });
+
+describe("a number column in the ask's locale (settings-languages, task 9.1)", () => {
+  test("starts an edit with the value as the locale writes it", () => {
+    expect(startTextOf(tree.columns, nodeOf(tree, "a") as never, 1, "it-IT")).toBe("1234,5");
+    expect(startTextOf(tree.columns, nodeOf(tree, "a") as never, 1)).toBe("1234.5");
+  });
+
+  test("reads 1.234,5 in it-IT as the JSON number 1234.5", () => {
+    const entry = enterCell(tree, "b", 1, "1.234,5", "it-IT");
+    expect(entry.kind).toBe("value");
+    if (entry.kind !== "value") return;
+    expect(nodeOf(entry.value, "b")?.days).toBe(1234.5);
+  });
+
+  test("refuses an en-US entry in it-IT with the Italian reason, and an en-US ask in English", () => {
+    const italian = enterCell(tree, "b", 1, "1,234.5", "it-IT");
+    expect(italian.kind).toBe("refused");
+    if (italian.kind === "refused") expect(italian.reason).not.toBe("");
+    const english = enterCell(tree, "b", 1, "1.234,5", "it-IT", "en-US");
+    expect(english.kind).toBe("value");
+    const mixed = enterCell(tree, "b", 1, "1.2.3", "it-IT", "en-US");
+    const plain = enterCell(tree, "b", 1, "1.2.3", "it-IT", "it-IT");
+    expect(
+      mixed.kind === "refused" && plain.kind === "refused" && mixed.reason !== plain.reason,
+    ).toBe(true);
+  });
+});

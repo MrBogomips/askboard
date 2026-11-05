@@ -3,10 +3,11 @@
 // Escape cancels (`keys.ts`); leaving the input commits too, but the window or the view's frame
 // losing the focus is no leaving: the input stays its document's focus; every other key stays
 // with the input.
-// A number field is a text input read by AskBoard's own en-US parser, never `type="number"`, its
+// A number field is a text input read by AskBoard's own parser in the ask's locale, never `type="number"`, its
 // parsed value echoed under the input in the code face ("= 1234.5"), since a field's column is too
 // narrow to hold both side by side.
 
+import { useLanguage, useLocale } from "@askboard/view/catalog";
 import {
   type ChangeEvent,
   type FocusEvent,
@@ -53,6 +54,8 @@ export const CellEditor = ({
   affix,
 }: CellEditorProps) => {
   const [text, setText] = useState(initial);
+  const locale = useLocale();
+  const language = useLanguage();
   const input = useRef<HTMLInputElement>(null);
   // Set once the editor has committed or cancelled, or is being taken out, as when the Tree turns
   // read-only, so that the blur of its removal commits nothing (AD-10).
@@ -88,7 +91,7 @@ export const CellEditor = ({
     onEdit();
   };
 
-  const parsed = kind === "number" ? parseNumber(text) : undefined;
+  const parsed = kind === "number" ? parseNumber(text, locale, language) : undefined;
   const field = (
     <input
       ref={input}
@@ -117,7 +120,9 @@ export const CellEditor = ({
           </span>
         </span>
       )}
-      {parsed?.kind === "number" ? <span className={ECHO}>{numberEcho(parsed.value)}</span> : null}
+      {parsed?.kind === "number" ? (
+        <span className={ECHO}>{numberEcho(parsed.value, locale)}</span>
+      ) : null}
     </span>
   );
 };

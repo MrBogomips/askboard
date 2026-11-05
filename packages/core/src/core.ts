@@ -5,6 +5,7 @@
 import {
   type AgentStatus,
   ASK_IMAGES_MAX_BYTES,
+  type AskingRule,
   type AskState,
   type ClosedReason,
   type DiscardReason,
@@ -12,8 +13,11 @@ import {
   GRACE_PERIOD_MS,
   type LifecycleAskInput,
   type OutputEvent,
+  type PresentationSetting,
+  SNAPSHOT_FOLDER,
   type UnavailableReason,
   type UnresolvedPointerWarning,
+  type WriteOutcome,
 } from "@askboard/contract";
 import {
   type RequestProblem,
@@ -31,6 +35,10 @@ import {
   type FullValue,
 } from "./ask.ts";
 import { canonicalize } from "./canonical.ts";
+import { Configuration } from "./config/configuration.ts";
+import { askLanguage } from "./config/language.ts";
+import type { SettingsInEffect } from "./config/settings.ts";
+import { type SettingsView, settingsView } from "./config/view.ts";
 import {
   type ContextRequest,
   contextRequestsOf,
@@ -193,6 +201,8 @@ export class AskCore {
   #ending = false;
   readonly #push: PushDelivery;
   readonly #statuses: AgentStatuses;
+  // settings-languages: the configuration, read on first use.
+  readonly #configuration: Configuration;
 
   constructor(ports: CorePorts) {
     this.#ports = ports;
@@ -205,6 +215,7 @@ export class AskCore {
     this.#statuses = new AgentStatuses(ports.header, ports.clock, (askId, status) =>
       this.#publish({ type: "agent", askId, status }),
     );
+    this.#configuration = new Configuration(ports);
   }
 
   /**
@@ -659,6 +670,7 @@ export class AskCore {
     }
     const unsupported = this.#push.versionRefusal(askId);
     if (unsupported !== undefined) return unsupported;
+    const language = askLanguage(input, (await this.settings()).values.defaultLanguage);
     const who = await this.#who(input);
     const forUser = await this.#forUser(input);
     // Context, E5: the pointers are read against the root of the ask's owner-to-be (design
@@ -670,8 +682,19 @@ export class AskCore {
     const [first] = input.items;
     const question = first.type === "area" ? first.props.items[0] : first;
     const title = input.title ?? deriveTitle(question.props.text);
-    const ask = new Ask({ epoch: this.epoch, askId, request, title, input, link, who, context });
+    const ask = new Ask({
+      epoch: this.epoch,
+      askId,
+      request,
+      title,
+      input,
+      link,
+      who,
+      context,
+      ...language,
+    });
     this.#asks.set(askId, ask);
+    this.#configuration.ensureFolders();
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
     const warnings = ask.contextWarnings;
@@ -738,6 +761,67 @@ export class AskCore {
       report(error);
     }
     return expectedAnswerer(input.expectedUser, gitUser);
+  }
+
+  // Settings and languages (E8, settings-languages design decisions 3 to 7).
+
+  /**
+   * The settings in effect: both configuration files are read on the first call and kept for the
+   * session, so a change to a behaviour key applies from the next session (AD-14, FR-35).
+   */
+  settings(): Promise<SettingsInEffect> {
+    return this.#configuration.inEffect();
+  }
+
+  /**
+   * The settings a board opens with: the user file's presentation keys are read again, so a change
+   * another session wrote reaches a later board; everything else is the first read's.
+   */
+  settingsForBoard(): Promise<SettingsInEffect> {
+    return this.#configuration.forBoard();
+  }
+
+  /**
+   * A board's write of one presentation key into the user file: refused for any other key, a value
+   * outside the schema, a key the project file sets, or a user file that fails its check.
+   */
+  writeSetting(setting: PresentationSetting): Promise<WriteOutcome> {
+    return this.#configuration.write(setting);
+  }
+
+  /**
+   * The body of the `settings` message a board receives when it connects, and after a write with
+   * its outcome: the settings it opens with, each key's row, both files and the other warnings.
+   */
+  async boardSettingsView(write?: WriteOutcome): Promise<SettingsView> {
+    return settingsView(await this.settingsForBoard(), write);
+  }
+
+  /**
+   * The asking rule in effect, for the local API's `/v1/rule`, read without waiting: the session
+   * process reads the settings before the local API starts (design decision 12); before that,
+   * `none`, which only lets AskUserQuestion through.
+   */
+  askingRule(): AskingRule {
+    return this.#configuration.settled?.values.askingRule ?? "none";
+  }
+
+  /**
+   * The Snapshot folder in effect, relative to the project root, for E7's writer at each Snapshot,
+   * read without waiting: the default until the settings are read, and when the file's value
+   * leaves the project (design decision 5).
+   */
+  snapshotFolder(): string {
+    return this.#configuration.settled?.values.snapshotFolder ?? SNAPSHOT_FOLDER;
+  }
+
+  /**
+   * The editor command in effect, for E5's `editorCommand` dependency of board-host, read without
+   * waiting: the user file's argument vector (design decision 5), none before the settings are read
+   * and none when the user file sets none or cannot be trusted with one.
+   */
+  editorCommand(): readonly string[] | undefined {
+    return this.#configuration.settled?.values.editor;
   }
 
   // Snapshots (E7, snapshot design decision 3).

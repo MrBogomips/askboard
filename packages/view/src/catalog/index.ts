@@ -13,5 +13,7 @@ export {
   questionTextId,
   register,
   registeredComponents,
+  useLanguage,
+  useLocale,
   useReadyAfterLayout,
 } from "./port.ts";

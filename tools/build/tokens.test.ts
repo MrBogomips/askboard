@@ -35,6 +35,15 @@ typography:
 rounded:
   md: 4px
   full: 9999px
+spacing:
+  unit: 8px
+  sm: 8px
+  control-height: 28px
+  header-row: 32px
+  viewport-floor: 1280px
+  sm-comfortable: 12px
+  control-height-comfortable: 32px
+  header-row-comfortable: 40px
 ---
 
 # Test
@@ -75,14 +84,45 @@ describe("DESIGN.md's tokens as CSS variables", () => {
     expect(theme).toContain("--text-*:initial;");
     expect(theme).toContain("--radius-*:initial;");
     expect(theme).toContain("--color-card-foreground:var(--card-foreground);");
-    expect(theme).toContain("--text-question:20px;");
+    expect(theme).toContain("--text-question:var(--fs-question);");
     expect(theme).toContain("--text-question--line-height:1.3;");
     expect(theme).toContain("--text-question--font-weight:600;");
     expect(theme).toContain("--text-question--letter-spacing:-0.01em;");
-    expect(theme).toContain("--text-body:13px;");
+    expect(theme).toContain("--text-body:var(--fs-body);");
     expect(theme).not.toContain("comfortable");
     expect(theme).toContain("--radius-md:4px;");
     expect(theme).not.toContain("--radius-full");
+  });
+
+  test("the spacing and the type ramp are variables whose comfortable values re-point under .comfortable", () => {
+    const css = tokensCss(tokens);
+    const [root = "", rest = ""] = css.split(".dark{");
+    const comfortable = rest.split(".comfortable{")[1] ?? "";
+    expect(root).toContain("--sm:8px;");
+    expect(root).toContain("--control-height:28px;");
+    expect(root).toContain("--header-row:32px;");
+    expect(root).toContain("--fs-body:13px;");
+    expect(root).toContain("--fs-question:20px;");
+    expect(root).not.toContain("viewport-floor");
+    expect(comfortable).toContain("--sm:12px;");
+    expect(comfortable).toContain("--control-height:32px;");
+    expect(comfortable).toContain("--header-row:40px;");
+    expect(comfortable).toContain("--fs-body:14px;");
+    expect(comfortable).not.toContain("--fs-question");
+    expect(comfortable).not.toContain("--background");
+  });
+
+  test("Tailwind's theme reads the density variables, so a utility follows the class", () => {
+    const theme = themeCss(tokens);
+    expect(theme).toContain("--spacing-sm:var(--sm);");
+    expect(theme).toContain("--spacing-control-height:var(--control-height);");
+    expect(theme).toContain("--spacing-header-row:var(--header-row);");
+    expect(theme).not.toContain("viewport-floor");
+  });
+
+  test("a comfortable key without its compact key fails, naming it", () => {
+    const orphan = DESIGN.replace("  sm-comfortable: 12px", "  xl-comfortable: 12px");
+    expect(() => tokensCss(readDesignTokens(orphan))).toThrow('"xl-comfortable"');
   });
 
   test("a colour without its dark value fails, naming it", () => {
@@ -106,5 +146,8 @@ describe("DESIGN.md's tokens as CSS variables", () => {
     expect(css).toContain("--primary:#0b6e7f;");
     expect(css).toContain("--primary:#5fb4c2;");
     expect(css).toContain("--input:var(--border-strong);");
+    expect(css).toContain(".comfortable{");
+    expect(css).toContain("--bottom-bar:48px;");
+    expect(css).toContain("--bottom-bar:56px;");
   });
 });

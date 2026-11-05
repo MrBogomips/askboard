@@ -5,7 +5,8 @@
 // - mod disabled: E1's suite, `conformance.e2e.ts`, with its cases with hooks, the ask
 //   lifecycle's, `lifecycle.e2e.ts` (ask-lifecycle, task 7.2), and `mod-disabled.e2e.ts`;
 // - hooks disabled: E1's and the ask lifecycle's suites with the stand-in mod host beside every
-//   session process.
+//   session process;
+// - in each, the configuration's scenarios, `settings.e2e.ts` (settings-languages, task 4.5).
 // The suite drives the built bundle, so it stays out of `bun run check`, which builds nothing:
 // its file names match no test pattern, and only this runner names them.
 //
@@ -29,14 +30,20 @@ const SUITE = "./packages/server/test/conformance";
 
 /** The suite's files in each configuration. */
 const FILES: Readonly<Record<Configuration, readonly string[]>> = {
-  "mod-and-hooks": ["mod-and-hooks.e2e.ts", "snapshot.e2e.ts"],
+  "mod-and-hooks": ["mod-and-hooks.e2e.ts", "settings.e2e.ts", "snapshot.e2e.ts"],
   "mod-disabled": [
     "conformance.e2e.ts",
     "lifecycle.e2e.ts",
     "mod-disabled.e2e.ts",
+    "settings.e2e.ts",
     "snapshot.e2e.ts",
   ],
-  "hooks-disabled": ["conformance.e2e.ts", "lifecycle.e2e.ts", "snapshot.e2e.ts"],
+  "hooks-disabled": [
+    "conformance.e2e.ts",
+    "lifecycle.e2e.ts",
+    "settings.e2e.ts",
+    "snapshot.e2e.ts",
+  ],
 };
 
 // The runtime's executable: Bun is this process; Node is the one the repository's PATH gives, its

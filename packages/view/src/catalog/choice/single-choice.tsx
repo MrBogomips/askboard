@@ -11,7 +11,7 @@
 
 import { RadioGroup } from "radix-ui";
 import { type KeyboardEvent, type MouseEvent, useRef, useState } from "react";
-import { questionTextId } from "../port.ts";
+import { questionTextId, useStrings } from "../port.ts";
 import { OptionDetails, OtherField } from "./option-details.tsx";
 import { MARK, OptionText, optionAria, ROW } from "./option-text.tsx";
 import type { ChoiceProps } from "./props.ts";
@@ -22,6 +22,7 @@ const radioOf = (index: number) => `o${index}`;
 
 export const SingleChoice = ({ item, value, onValueChange, disabled, extras }: ChoiceProps) => {
   const { options } = item.props;
+  const text = useStrings();
   const offersOther = item.props.allowOther === true && extras !== undefined;
   const other = offersOther ? extras?.other : undefined;
   const [preview, setPreview] = useState<number | undefined>(undefined);
@@ -59,7 +60,7 @@ export const SingleChoice = ({ item, value, onValueChange, disabled, extras }: C
       value={selected}
       onValueChange={choose}
       disabled={disabled}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-sm"
     >
       {options.map((option, index) => (
         <div key={option.label} className="group/option flex flex-col gap-1">
@@ -102,7 +103,7 @@ export const SingleChoice = ({ item, value, onValueChange, disabled, extras }: C
               <RadioGroup.Indicator className="size-2 rounded-full bg-primary" />
             </span>
             <span id={otherLabelId(item.id)} className="text-body-lg text-foreground">
-              Other…
+              {text("option.other")}
             </span>
           </RadioGroup.Item>
           {other === undefined ? null : (

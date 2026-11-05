@@ -81,12 +81,32 @@ describe("the ask level of the input format", () => {
     expect(only({ ...ask(), areas: [] })).toMatchObject({ path: "/areas", field: "areas" });
   });
 
-  test.each(["language", "locale"])("%s it-IT is refused, naming the field", (field) => {
-    const problem = only({ ...ask(), [field]: "it-IT" });
-    expect(problem).toMatchObject({ path: `/${field}`, field });
-    expect(problem.itemId).toBeUndefined();
-    expect(problem.expected).toContain('"en-US"');
+  // settings-languages (contract spec: An ask's language and locale): input format 1.2 takes
+  // en-US and it-IT for each field, together and apart (B8).
+  test.each([
+    [{ language: "it-IT" }],
+    [{ locale: "it-IT" }],
+    [{ language: "en-US" }],
+    [{ locale: "en-US" }],
+    [{ language: "it-IT", locale: "it-IT" }],
+    [{ language: "en-US", locale: "it-IT" }],
+    [{ language: "it-IT", locale: "en-US" }],
+  ])("an ask with %o validates", (fields) => {
+    const value = { ...ask(), ...fields };
+    expect(validateAskRequest(value)).toEqual({ ok: true, value: value as never });
   });
+
+  test.each(["language", "locale"])(
+    "%s fr-FR is refused, naming the field and both accepted values",
+    (field) => {
+      const problem = only({ ...ask(), [field]: "fr-FR" });
+      expect(problem).toMatchObject({ path: `/${field}`, field });
+      expect(problem.itemId).toBeUndefined();
+      expect(problem.message).toContain(field);
+      expect(problem.expected).toContain('"en-US"');
+      expect(problem.expected).toContain('"it-IT"');
+    },
+  );
 
   test.each([
     ["holds a space", "order db"],
@@ -178,7 +198,7 @@ describe("the ask level of the input format", () => {
       title: "",
       askId: "order db",
       items: [{ type: "question", id: "u-1", props: { options: [], text: "" } }],
-      language: "it-IT",
+      language: "fr-FR",
     };
     expect(problemsOf(value).map((problem) => problem.path)).toEqual([
       "/title",

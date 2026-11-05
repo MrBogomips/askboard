@@ -8,13 +8,14 @@
 
 import type { CurrentAnswer } from "@askboard/contract";
 import { useState } from "react";
+import { useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type FieldChange, type OptionChange, revisionDiff } from "./agent-change.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, CHIP, SECTION_LABEL } from "./styles.ts";
 
 /** `agent-change-notice`: info colours with a 3px left rule. */
 const NOTICE =
-  "flex flex-col gap-2 rounded-md border-l-[3px] border-info bg-info-subtle p-2 text-body text-foreground";
+  "flex flex-col gap-sm rounded-md border-l-[3px] border-info bg-info-subtle p-sm text-body text-foreground";
 
 const NOTICE_TITLE = "font-semibold text-info-text";
 
@@ -34,6 +35,7 @@ const Field = ({ change }: { readonly change: FieldChange }) => {
 };
 
 const OptionLine = ({ option }: { readonly option: OptionChange }) => {
+  const text = useStrings();
   const label =
     option.change === "added" ? (
       <ins className={INSERTED}>{option.label}</ins>
@@ -47,10 +49,10 @@ const OptionLine = ({ option }: { readonly option: OptionChange }) => {
   );
   return (
     <li data-askboard-change={option.change} className="flex flex-col gap-0.5">
-      <span className="flex flex-wrap items-center gap-2 text-body-lg">
+      <span className="flex flex-wrap items-center gap-sm text-body-lg">
         {label}
         {option.recommended ? (
-          <span className="text-badge text-recommended">Recommended</span>
+          <span className="text-badge text-recommended">{text("question.recommended")}</span>
         ) : null}
       </span>
       {details.map((name) => (
@@ -72,7 +74,7 @@ const AgentChange = ({
 }) => {
   const diff = revisionDiff(earlier?.props, question.props);
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-2">
+    <div className="flex flex-col gap-sm rounded-md border border-border bg-card p-sm">
       {diff.header.now === undefined && !diff.header.changed ? null : (
         <span className={CHIP}>
           <Field change={diff.header} />
@@ -115,11 +117,12 @@ export const ChangeNotice = ({
 }: ChangeNoticeProps) => {
   const [showing, setShowing] = useState(false);
   const id = `${question.id}:agent-change`;
+  const text = useStrings();
   return (
     <div data-askboard-notice="agent-change" className={NOTICE}>
-      <p className={NOTICE_TITLE}>The agent updated this</p>
+      <p className={NOTICE_TITLE}>{text("change.title")}</p>
       <p>{stake}</p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-sm">
         <button
           type="button"
           className={BUTTON_LINK}
@@ -127,13 +130,13 @@ export const ChangeNotice = ({
           aria-controls={id}
           onClick={() => setShowing(!showing)}
         >
-          Show the agent's change
+          {text("change.show")}
         </button>
         <button type="button" className={BUTTON_SECONDARY} disabled={busy} onClick={onReload}>
-          Reload, losing my work
+          {text("change.reload")}
         </button>
         <button type="button" className={BUTTON_SECONDARY} disabled={busy} onClick={onKeep}>
-          Keep mine
+          {text("change.keep")}
         </button>
       </div>
       {showing ? (
@@ -147,18 +150,23 @@ export const ChangeNotice = ({
 
 // An answer's content, read-only: the chosen options, the "Other…" text, the notes on options and
 // the open prompt's note, as text with no input borders (DESIGN.md, Reopened question).
-const AnswerText = ({ answer }: { readonly answer: CurrentAnswer }) => (
-  <ul className="flex flex-col gap-0.5 font-mono text-body text-foreground">
-    {(answer.choice ?? []).map((label) => (
-      <li key={`choice:${label}`}>{label}</li>
-    ))}
-    {answer.other === undefined ? null : <li>{`Other… ${answer.other}`}</li>}
-    {Object.entries(answer.optionNotes ?? {}).map(([label, note]) => (
-      <li key={`note:${label}`}>{`${label}: ${note}`}</li>
-    ))}
-    {answer.note === undefined ? null : <li className="whitespace-pre-wrap">{answer.note}</li>}
-  </ul>
-);
+const AnswerText = ({ answer }: { readonly answer: CurrentAnswer }) => {
+  const text = useStrings();
+  return (
+    <ul className="flex flex-col gap-0.5 font-mono text-body text-foreground">
+      {(answer.choice ?? []).map((label) => (
+        <li key={`choice:${label}`}>{label}</li>
+      ))}
+      {answer.other === undefined ? null : (
+        <li>{text("reopened.other", { text: answer.other })}</li>
+      )}
+      {Object.entries(answer.optionNotes ?? {}).map(([label, note]) => (
+        <li key={`note:${label}`}>{`${label}: ${note}`}</li>
+      ))}
+      {answer.note === undefined ? null : <li className="whitespace-pre-wrap">{answer.note}</li>}
+    </ul>
+  );
+};
 
 /** "Reopened by the agent", with the previous answer read-only and the way to start from it. */
 export const ReopenedNotice = ({
@@ -169,17 +177,20 @@ export const ReopenedNotice = ({
   readonly previous: CurrentAnswer;
   readonly disabled: boolean;
   readonly onStart: () => void;
-}) => (
-  <div data-askboard-notice="reopened" className={NOTICE}>
-    <p className={NOTICE_TITLE}>Reopened by the agent</p>
-    <div className="flex flex-wrap items-start gap-3">
-      <div className="flex min-w-48 flex-1 flex-col gap-1 rounded-md bg-muted p-2">
-        <p className={SECTION_LABEL}>Previous answer</p>
-        <AnswerText answer={previous} />
+}) => {
+  const text = useStrings();
+  return (
+    <div data-askboard-notice="reopened" className={NOTICE}>
+      <p className={NOTICE_TITLE}>{text("reopened.title")}</p>
+      <div className="flex flex-wrap items-start gap-md">
+        <div className="flex min-w-48 flex-1 flex-col gap-1 rounded-md bg-muted p-sm">
+          <p className={SECTION_LABEL}>{text("reopened.previous")}</p>
+          <AnswerText answer={previous} />
+        </div>
+        <button type="button" className={BUTTON_SECONDARY} disabled={disabled} onClick={onStart}>
+          {text("reopened.start")}
+        </button>
       </div>
-      <button type="button" className={BUTTON_SECONDARY} disabled={disabled} onClick={onStart}>
-        Start from my previous answer
-      </button>
     </div>
-  </div>
-);
+  );
+};

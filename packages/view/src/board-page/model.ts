@@ -14,6 +14,7 @@ import type {
   LifecycleBoardDocument,
   LifecycleBoardState,
   LifecycleQuestionStatus,
+  SettingsMessage,
 } from "@askboard/contract";
 import { type BootData, bootFieldsOf } from "../boot-data.ts";
 import { questionsOf, type ViewQuestion } from "../view-document.ts";
@@ -21,15 +22,18 @@ import type {
   ViewAct,
   ViewAnswer,
   ViewItemError,
+  ViewPresentation,
   ViewReady,
   ViewUpdate,
 } from "../view-protocol.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
+import { presentationOf } from "./presentation.ts";
 
 // The optional fields of a view update the controller makes from its own state, E1's and the ask
 // lifecycle's: a later document, the lock, the connection, the commands held and settled, and the
-// draft record to restore and the reading panel's latest closing; and the Snapshot's: how the view's
-// latest request ended, which the controller tracks itself (snapshot design decision 8, task 6.2).
+// draft record to restore, how often the settings panel has closed and the reading panel's latest
+// closing; and the Snapshot's: how the view's latest request ended, which the controller tracks
+// itself (snapshot design decision 8, task 6.2).
 type ControllerField =
   | "document"
   | "lock"
@@ -37,6 +41,7 @@ type ControllerField =
   | "pending"
   | "settled"
   | "restore"
+  | "settingsClosed"
   | "panelClosed"
   | "snapshot";
 
@@ -61,6 +66,8 @@ export type BoardModel = {
    * last sent them (FR-24).
    */
   readonly passedOn: PassedOn;
+  /** The settings in effect, as `board-host` last sent them: the settings panel's rows. */
+  readonly settings?: SettingsMessage;
 };
 
 export const EMPTY_MODEL: BoardModel = { visible: new Set(), failed: new Map(), passedOn: {} };
@@ -84,9 +91,20 @@ const withDelivered = (state: LifecycleBoardState, itemId: string): LifecycleBoa
   return { ...state, questions };
 };
 
+// The presentation after a settings message. A write that did not save leaves the file as it was,
+// but the board keeps the value its user picked, which the panel shows beside the error
+// (settings-languages, design decision 6).
+const afterSettings = (model: BoardModel, message: SettingsMessage): ViewPresentation => {
+  const next = presentationOf(message);
+  const before = model.passedOn.presentation;
+  const write = message.write;
+  if (before === undefined || write === undefined || write.outcome === "saved") return next;
+  return { ...next, [write.key]: before[write.key] };
+};
+
 /**
  * The model after a message from `board-host`: the board document, the state, a receipt, which
- * marks the logged answer delivered, and who asked and where and the agent status. `moved`,
+ * marks the logged answer delivered, who asked and where, the agent status and the settings. `moved`,
  * `discarded` and `refused` change the board's status, not what it knows of the board.
  */
 export const withHostMessage = (
@@ -104,6 +122,12 @@ export const withHostMessage = (
     }
     case "agent":
       return { ...model, passedOn: { ...model.passedOn, agent: message.status } };
+    case "settings":
+      return {
+        ...model,
+        settings: message,
+        passedOn: { ...model.passedOn, presentation: afterSettings(model, message) },
+      };
     case "receipt": {
       if (model.state === undefined) return model;
       const state = withDelivered(model.state, message.itemId);

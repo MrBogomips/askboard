@@ -2,7 +2,17 @@
 
 import type { AskInput } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import { AskCore, type Clock, type CoreEvent, type CorePorts, type Showing } from "../src/index.ts";
+import {
+  AskCore,
+  type Clock,
+  type Config,
+  type CoreEvent,
+  type CorePorts,
+  type FileRead,
+  type FolderResult,
+  type Showing,
+  type WriteResult,
+} from "../src/index.ts";
 
 export type Calls = string[];
 
@@ -13,6 +23,9 @@ export type FakeOptions = {
   readonly login?: string;
   readonly linkFails?: boolean;
   readonly clock?: FakeClock;
+  /** The configuration's port and where its diagnostics go (settings-languages). */
+  readonly config?: Config;
+  readonly diagnose?: (text: string) => void;
 };
 
 let seed = 0;
@@ -103,6 +116,8 @@ export const fakePorts = (options: FakeOptions = {}) => {
     },
     report: (error) => reported.push(error),
     clock,
+    ...(options.config === undefined ? {} : { config: options.config }),
+    ...(options.diagnose === undefined ? {} : { diagnose: options.diagnose }),
   };
   return { ports, calls, opened, reported, clock };
 };
@@ -138,3 +153,82 @@ export const answer = (fields: Partial<Parameters<AskCore["answer"]>[1]> = {}) =
   when: "2026-10-29T09:41:27Z",
   ...fields,
 });
+
+// settings-languages (design decision 3): a fake `Config`, each file given as its text, an object
+// written as JSON, a `FileRead` as it is, or nothing for an absent file. `replaceUserFile` hands the
+// transform the user file and keeps what it writes; `calls` records each method called.
+export type FakeFile = string | Readonly<Record<string, unknown>> | FileRead | undefined;
+
+export type FakeConfigOptions = {
+  readonly user?: FakeFile;
+  readonly project?: FakeFile;
+  readonly othersCanWrite?: boolean;
+  readonly paths?: Config["paths"];
+  readonly write?: (text: string) => WriteResult;
+  readonly folders?: FolderResult;
+};
+
+const isRead = (file: FakeFile): file is FileRead =>
+  typeof file === "object" && file !== null && "kind" in file && typeof file.kind === "string";
+
+const readOf = (file: FakeFile, othersCanWrite = false): FileRead => {
+  if (file === undefined) return { kind: "absent" };
+  if (isRead(file)) return file;
+  const text = typeof file === "string" ? file : JSON.stringify(file);
+  return { kind: "read", text, othersCanWrite };
+};
+
+export const fakeConfig = (options: FakeConfigOptions = {}) => {
+  const calls: Calls = [];
+  let user = options.user;
+  const written: string[] = [];
+  const diagnosed: string[] = [];
+  const config: Config = {
+    userFile: async () => {
+      calls.push("user");
+      return readOf(user, options.othersCanWrite);
+    },
+    projectFile: async () => {
+      calls.push("project");
+      return readOf(options.project);
+    },
+    replaceUserFile: async (change) => {
+      calls.push("replace");
+      const replace = change(readOf(user, options.othersCanWrite));
+      if (replace.kind === "refuse") return { kind: "refused", reason: replace.reason };
+      const result = options.write?.(replace.text) ?? {
+        kind: "written",
+        path: "/home/u/.config/askboard/config.json",
+      };
+      if (result.kind === "written") {
+        user = replace.text;
+        written.push(replace.text);
+      }
+      return result;
+    },
+    ensureProjectFolders: async () => {
+      calls.push("folders");
+      return options.folders ?? { kind: "ready", created: [] };
+    },
+    paths: options.paths ?? {
+      user: "~/.config/askboard/config.json",
+      project: ".askboard/config.json",
+    },
+  };
+  return {
+    config,
+    calls,
+    written,
+    diagnosed,
+    diagnose: (text: string) => {
+      diagnosed.push(text);
+    },
+    /** The user file changes, as another session or a hand edit would. */
+    setUser: (file: FakeFile) => {
+      user = file;
+    },
+  };
+};
+
+/** The language and locale ask-core names on a board document when nothing sets them (task 3.6). */
+export const EN_US = { language: "en-US", locale: "en-US" } as const;

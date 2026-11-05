@@ -2,6 +2,7 @@
 // runtime-neutral (AD-1): everything that touches the machine comes through these.
 
 import type { UnavailableReason } from "@askboard/contract";
+import type { Config } from "./config/ports.ts";
 import type { SourceFiles } from "./context/ports.ts";
 import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
 import type { SnapshotPorts } from "./snapshot/writer.ts";
@@ -102,4 +103,6 @@ export type CorePorts = {
    * without them no Snapshot is written, as in a session without a project root.
    */
   readonly snapshots?: SnapshotPorts;
+  /** The configuration files (settings-languages); without it every key takes its default. */
+  readonly config?: Config;
 };

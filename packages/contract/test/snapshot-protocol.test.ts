@@ -28,7 +28,7 @@ const toPage = (message: object) => paths(validateBoardMessage("toPage", message
 const idOf = (schema: object) => (schema as Record<string, unknown>).$id;
 
 describe("the registrations", () => {
-  test("the earlier messages keep their order in each direction, and E7's follow them", () => {
+  test("the earlier messages keep their order in each direction, and E7's follow them, E8's after", () => {
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost)).toEqual([
       "connect",
       "answer",
@@ -37,6 +37,7 @@ describe("the registrations", () => {
       "open-source",
       "open-editor",
       "snapshot",
+      "setting",
     ]);
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toPage)).toEqual([
       "board",
@@ -52,20 +53,21 @@ describe("the registrations", () => {
       "editor-outcome",
       "snapshot-saved",
       "snapshot-failed",
+      "settings",
     ]);
   });
 
-  test("each has its schema, last in the set, and its ID in SCHEMA_IDS by its type", () => {
+  test("each has its schema, in the set before E8's two, and its ID in SCHEMA_IDS by its type", () => {
     const ids = ["snapshot", "snapshot-saved", "snapshot-failed"].map(
       (type) => `urn:askboard:board-protocol:${type}`,
     );
-    expect(boardProtocol.schemas.map(idOf).slice(-3)).toEqual(ids);
+    expect(boardProtocol.schemas.map(idOf).slice(-5, -2)).toEqual(ids);
     const byType = SCHEMA_IDS as Readonly<Record<string, string>>;
     expect([byType.snapshot, byType["snapshot-saved"], byType["snapshot-failed"]]).toEqual(ids);
   });
 
-  test("the board protocol is at its next minor, 1.3", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.3");
+  test("the board protocol is at its next minor, 1.4, after the Snapshot's own 1.3", () => {
+    expect(BOARD_PROTOCOL_VERSION).toBe("1.4");
     expect(boardProtocol.version).toBe(BOARD_PROTOCOL_VERSION);
   });
 

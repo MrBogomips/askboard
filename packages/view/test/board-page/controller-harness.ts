@@ -11,6 +11,7 @@ import {
   type HostMessage,
   type LifecycleHostMessage,
   type LifecyclePageMessage,
+  type SettingCommand,
   type SnapshotCommand,
   type SnapshotReply,
 } from "@askboard/contract";
@@ -79,7 +80,7 @@ export const done = (n = 1): LifecycleHostMessage => ({ version, type: "done", a
 
 export type FakeSocket = {
   readonly events: BoardSocketHandlers;
-  readonly sent: (LifecyclePageMessage | ContextPageMessage | SnapshotCommand)[];
+  readonly sent: (LifecyclePageMessage | ContextPageMessage | SettingCommand | SnapshotCommand)[];
   open: boolean;
   closed: boolean;
   receive(
@@ -118,6 +119,7 @@ export const setUp = (options: { failLoads?: number } = {}) => {
   const banners: (Banner | undefined)[] = [];
   const loadErrors: (string | undefined)[] = [];
   const titles: string[] = [];
+  const languages: string[] = [];
   const logs: string[] = [];
   const loads: BootData[] = [];
   const updates: ViewUpdate[] = [];
@@ -174,6 +176,7 @@ export const setUp = (options: { failLoads?: number } = {}) => {
     showBanner: (banner) => banners.push(banner),
     showLoadError: (error) => loadErrors.push(error),
     setTitle: (title) => titles.push(title),
+    setLanguage: (language) => languages.push(language),
     log: (text) => logs.push(text),
     showSnapshot: (feedback) => bannerSnapshots.push(feedback),
     openLink: (url) => {
@@ -227,6 +230,7 @@ export const setUp = (options: { failLoads?: number } = {}) => {
     banners,
     loadErrors,
     titles,
+    languages,
     logs,
     loads,
     updates,

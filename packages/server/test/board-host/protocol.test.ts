@@ -25,6 +25,7 @@ import {
   removeViews,
   request,
   startHost,
+  withLanguage,
   writeView,
 } from "./helpers.ts";
 
@@ -50,7 +51,7 @@ const expectMessage = (received: unknown, expected: object) => {
     expect(typeof detail).toBe("string");
     return;
   }
-  expect(received).toEqual(expected);
+  expect(received).toEqual(withLanguage(expected));
 };
 
 const replay = async (name: string, transcript: Transcript) => {

@@ -36,6 +36,12 @@ export type Scenario = {
    */
   readonly asker?: Asker;
   /**
+   * The configuration files the session process starts with (settings-languages): the user file
+   * and the project's `.askboard/config.json`, as JSON values. A scenario with either runs on the
+   * session process whatever the target, since only it reads configuration.
+   */
+  readonly config?: { readonly user?: unknown; readonly project?: unknown };
+  /**
    * Files of the session project, by path under it (excerpts): the session process runs with
    * `CLAUDE_PROJECT_DIR` naming a temporary folder that holds them, or the asker's project when
    * there is one. The test server serves a transcript and needs none.
@@ -55,6 +61,13 @@ export type ProjectFile = string | Uint8Array | { readonly link: string };
 export type BoardSession = {
   /** The board link, as the `ask` result gives it: `http://127.0.0.1:<port>/b/<askId>?t=<token>`. */
   readonly link: string;
+  /**
+   * The user configuration file the session process reads, in its own folder (settings-languages,
+   * design decision 14): only the session process has one.
+   */
+  readonly userConfigPath?: string;
+  /** The link of the board the latest session process serves: the later ask after `restart`. */
+  latestLink?(): string;
   /** The agent's `collect` returns the answer, so the board is told it was delivered. */
   collected(): Promise<void>;
   /** The agent's `collect` after the last cursor: every new event, with the ask's state. */
@@ -93,6 +106,6 @@ const TARGET = targetFrom(process.env.ASKBOARD_E2E_TARGET);
 
 /** The session side the browser tests use: the target the environment names. */
 export const startSession: StartSession = (scenario) =>
-  TARGET === "session-process" || scenario.ask !== undefined
+  TARGET === "session-process" || scenario.ask !== undefined || scenario.config !== undefined
     ? startSessionProcess(scenario)
     : startTestServer(scenario);

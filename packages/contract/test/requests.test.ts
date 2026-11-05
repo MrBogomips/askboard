@@ -29,7 +29,7 @@ describe("a request with many problems", () => {
       },
       { type: "question", id: "cache", props: {} },
     ],
-    locale: "it-IT",
+    locale: "fr-FR",
     colour: "red",
   };
   const problems = problemsOf(validateAskRequest(request));

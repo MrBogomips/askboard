@@ -9,6 +9,7 @@ import {
   messageCountOf,
   messagesLabel,
   timeOf,
+  viewerOffset,
 } from "./thread-text.ts";
 
 const entry = (text: string, replies: number): ThreadEntry => ({
@@ -32,10 +33,19 @@ describe("the follow-up thread's texts (EXPERIENCE.md, Voice and Tone: Follow-up
     expect(messagesLabel(2)).toBe("2 messages");
   });
 
-  test("a message's time reads as en-US hours and minutes", () => {
-    expect(timeOf("2026-10-31T17:42:05Z", "UTC")).toBe("5:42 PM");
-    expect(timeOf("2026-10-31T09:05:00Z", "UTC")).toBe("9:05 AM");
+  test("a message's time reads as hours and minutes in the ask's locale (settings-languages, task 7.3)", () => {
+    expect(timeOf("2026-10-31T17:42:05Z", "en-US", 0)).toBe("5:42 PM");
+    expect(timeOf("2026-10-31T09:05:00Z", "en-US", 0)).toBe("9:05 AM");
+    expect(timeOf("2026-10-31T17:42:05Z", "it-IT", 0)).toBe("17:42");
+    expect(timeOf("2026-10-31T17:42:05Z", "it-IT", 60)).toBe("18:42");
+    expect(timeOf("2026-10-31T17:42:05Z", "en-US", -600)).toBe("7:42 AM");
     expect(timeOf("2026-10-31T17:42:05Z")).toMatch(/^\d{1,2}:\d{2} [AP]M$/);
+  });
+
+  test("the viewer's offset is the time zone's at that instant, minutes east of UTC", () => {
+    const when = "2026-10-31T17:42:05Z";
+    expect(viewerOffset(when)).toBe(0 - new Date(when).getTimezoneOffset());
+    expect(timeOf(when, "it-IT")).toBe(timeOf(when, "it-IT", viewerOffset(when)));
   });
 
   test("the agent's replies are headed by the agent", () => {

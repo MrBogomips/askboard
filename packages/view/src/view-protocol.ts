@@ -17,6 +17,8 @@
 import {
   ACTION_ID_PATTERN,
   type AgentStatus,
+  type ContextPlacement,
+  type Density,
   type DraftRecord,
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
@@ -25,6 +27,9 @@ import {
   OPTION_NOTE_MAX_CHARS,
   type OriginMessage,
   OTHER_MAX_CHARS,
+  type PresentationKey,
+  type PresentationSetting,
+  type ThemePreference,
   UTC_TIME_PATTERN,
 } from "@askboard/contract";
 import type { Checked, Problem } from "@askboard/contract/validate";
@@ -141,6 +146,16 @@ export type ViewDraft = { readonly type: "draft"; readonly record: DraftRecord }
 export type ViewActivity = { readonly type: "activity" };
 
 /**
+ * One presentation key and a value its schema allows, from a quick toggle (settings-languages,
+ * design decision 10): the board page applies it at once and sends it to `board-host` as a
+ * `setting` command, which writes it to the user file.
+ */
+export type ViewSetting = { readonly type: "setting" } & PresentationSetting;
+
+/** "Settings": the board page opens its settings panel. */
+export type ViewOpenSettings = { readonly type: "open-settings" };
+
+/**
  * The user clicks a reference, or an excerpt's "Open in reading panel" (excerpts, design decisions
  * 6 and 7): the message names the item and the heights of the view's header and bottom bar, so that
  * the reading panel sits between them. The board page reads the URL or pointer from the board
@@ -162,6 +177,8 @@ export type ViewMessage =
   | ViewActs
   | ViewDraft
   | ViewActivity
+  | ViewSetting
+  | ViewOpenSettings
   | ViewOpenReference
   | ViewSnapshot;
 
@@ -218,6 +235,17 @@ export type PanelClosed = { readonly id: number; readonly itemId: string };
 export type HeaderOrigin = Omit<OriginMessage, "version" | "type">;
 
 /**
+ * The theme, density and context placement the user's settings give, and the keys the project
+ * fixes, so that a toggle for one is read-only (settings-languages, design decision 10).
+ */
+export type ViewPresentation = {
+  readonly theme: ThemePreference;
+  readonly density: Density;
+  readonly contextPlacement: ContextPlacement;
+  readonly locked: readonly PresentationKey[];
+};
+
+/**
  * What the board page tells a booted view: the board state, as `board-host` last sent it with the
  * receipts since; the latest board document; the lock, while there is one; whether the connection
  * is lost, which disables Submit; the commands it holds, and how the latest ones ended; and the
@@ -238,6 +266,9 @@ export type ViewUpdate = {
   readonly panelClosed?: PanelClosed;
   readonly origin?: HeaderOrigin;
   readonly agent?: AgentStatus;
+  readonly presentation?: ViewPresentation;
+  /** How many times the settings panel has closed: the view focuses "Settings" on each. */
+  readonly settingsClosed?: number;
   /** How the latest Snapshot request the view sent ended (snapshot design decision 8). */
   readonly snapshot?: SnapshotFeedback;
 };
@@ -454,6 +485,44 @@ const draftRecord: FieldCheck = (value) =>
     ? undefined
     : "is not a draft record: a delivery mode and the questions' work";
 
+const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
+const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
+const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
+const PRESENTATION_KEY_NAMES: readonly unknown[] = [
+  "theme",
+  "density",
+  "contextPlacement",
+] satisfies PresentationKey[];
+
+/** Whether the view can apply this as the presentation. */
+export const isPresentation = (value: unknown): value is ViewPresentation =>
+  isRecord(value) &&
+  THEMES.includes(value.theme) &&
+  DENSITIES.includes(value.density) &&
+  PLACEMENTS.includes(value.contextPlacement) &&
+  Array.isArray(value.locked) &&
+  value.locked.every((key) => PRESENTATION_KEY_NAMES.includes(key));
+
+// The values each presentation key allows, as the configuration schema does.
+const PRESENTATION_VALUES: Readonly<Record<PresentationKey, readonly unknown[]>> = {
+  theme: THEMES,
+  density: DENSITIES,
+  contextPlacement: PLACEMENTS,
+};
+
+const presentationKey: FieldCheck = (value) =>
+  PRESENTATION_KEY_NAMES.includes(value) ? undefined : "is not a presentation key";
+
+// The pair, once each field has passed its own check: the value must be one its key allows.
+const settingProblems = (args: Record<string, unknown>, at = "/arguments"): Problem[] => {
+  const { key, value } = args;
+  if (!PRESENTATION_KEY_NAMES.includes(key)) return [];
+  const allowed = PRESENTATION_VALUES[key as PresentationKey];
+  return allowed.includes(value)
+    ? []
+    : [{ path: `${at}/value`, message: `is not a value "${String(key)}" allows` }];
+};
+
 /** The most a height can be: a bound, so that no message names a panel off any screen. */
 export const INSET_MAX = 10_000;
 
@@ -477,6 +546,13 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   act: { checks: { acts } },
   draft: { checks: { record: draftRecord } },
   activity: { checks: {} },
+  setting: {
+    checks: {
+      key: presentationKey,
+      value: (value) => (typeof value === "string" ? undefined : "is not a text"),
+    },
+  },
+  "open-settings": { checks: {} },
   "open-reference": { checks: { itemId, inset } },
   snapshot: { checks: {} },
 };
@@ -557,6 +633,7 @@ export const readViewMessage = (params: unknown): Checked<ViewMessage> => {
   if (!isRecord(args)) return refused("/arguments", "a view message's arguments are an object");
   const problems = fieldProblems(FIELDS[type as ViewMessage["type"]], args);
   if (type === "answer") problems.push(...derivedAlone(args));
+  if (type === "setting" && problems.length === 0) problems.push(...settingProblems(args));
   if (problems.length === 0 && type === "act") {
     problems.push(
       ...(args.acts as unknown[]).flatMap((act, index) =>
@@ -630,6 +707,9 @@ const isRestore = (value: unknown): value is DraftRestore =>
   (value.id as number) >= 1 &&
   draftRecord(value.record) === undefined;
 
+const isCount = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= 1;
+
 const isPanelClosed = (value: unknown): value is PanelClosed =>
   isRecord(value) &&
   Number.isInteger(value.id) &&
@@ -685,6 +765,8 @@ export const UPDATE_FIELDS = {
   panelClosed: { check: isPanelClosed },
   origin: { check: isHeaderOrigin, atBoot: true },
   agent: { check: isAgentStatus, atBoot: true },
+  presentation: { check: isPresentation, atBoot: true },
+  settingsClosed: { check: isCount },
   snapshot: { check: isSnapshotFeedback },
 } as const satisfies UpdateFields;
 

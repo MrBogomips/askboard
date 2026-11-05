@@ -483,6 +483,44 @@ export type {
   FetchQuestion,
   FetchQuestionProps,
 } from "./schemas/tool-envelopes/index.ts";
+// Settings and languages (E8, settings-languages design decision 2): the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2 and 13): the `.askboard/`
+// folder and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 8 and 13): the locale
+// formats, the `.askboard/` folder and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 8, 12 and 13): the locale
+// formats, the `.askboard/` folder, the asking rule's references and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 7, 8, 12 and 13): the locale
+// formats, a board's language, the `.askboard/` folder, the asking rule's references and the configuration set.
+// Settings and languages (E8, settings-languages design decisions 2, 6, 7, 8, 12 and 13): the
+// locale formats, a board's language, the `.askboard/` folder, the asking rule's references, the
+// configuration set and the board protocol's settings messages.
+
+export {
+  type AxisZoom,
+  type BoardLanguage,
+  type DateEntry,
+  type DateRefusalCode,
+  dateEcho,
+  type FractionDigits,
+  formatAxisLabel,
+  formatDate,
+  formatDateTime,
+  formatLongDate,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  formatTime,
+  LOCALES,
+  type Locale,
+  languageOf,
+  type NumberEntry,
+  type NumberRefusalCode,
+  numberEcho,
+  parseDate,
+  parseNumber,
+  plainNumber,
+} from "./locale/index.ts";
 
 // Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
 // the board protocol's Snapshot messages, the file name and the JSON blocks' element IDs.
@@ -526,3 +564,37 @@ export {
   ASKBOARD_SUBFOLDERS,
   SNAPSHOT_FOLDER,
 } from "./project-folder.ts";
+export {
+  hasReference,
+  REFERENCE_PATTERNS,
+  WITH_REFERENCES_DESCRIPTION,
+} from "./push/references.ts";
+export type {
+  FileProblem,
+  FileProblemCode,
+  PresentationSetting,
+  SettingCommand,
+  SettingRow,
+  SettingSource,
+  SettingsFile,
+  SettingsFileName,
+  SettingsMessage,
+  SettingsRows,
+  SettingWarning,
+  SettingWarningCode,
+  WriteOutcome,
+} from "./schemas/board-protocol/index.ts";
+export {
+  CONFIGURATION_DEFAULTS,
+  CONFIGURATION_KEYS,
+  CONFIGURATION_VERSION,
+  type Configuration,
+  type ConfigurationKey,
+  type ConfigurationValues,
+  type ContextPlacement,
+  configurationSet,
+  type Density,
+  PRESENTATION_KEYS,
+  type PresentationKey,
+  type ThemePreference,
+} from "./schemas/configuration/index.ts";

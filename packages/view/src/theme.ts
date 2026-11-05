@@ -4,6 +4,8 @@
 // view, which sets its own class; a view with no host, as in a Snapshot, reads it itself. Plain
 // ECMAScript: the board page and the shell both bundle it.
 
+import type { Density, ThemePreference } from "@askboard/contract";
+
 export type Theme = "light" | "dark";
 
 /** The media query that says the system prefers a dark scheme. */
@@ -25,6 +27,43 @@ export const systemTheme = (query: Pick<SchemeQuery, "matches">): Theme =>
 
 export const applyTheme = (root: ThemeRoot, theme: Theme): void => {
   root.classList.toggle(DARK_CLASS, theme === "dark");
+};
+
+/** The theme a preference gives when the system prefers dark or not. */
+export const resolveTheme = (preference: ThemePreference, systemDark: boolean): Theme =>
+  preference === "system" ? (systemDark ? "dark" : "light") : preference;
+
+/** A followed preference: `prefer` sets it, `current` is the theme now in effect. */
+export type ThemeFollower = {
+  prefer(preference: ThemePreference): void;
+  current(): Theme;
+};
+
+/**
+ * Calls `apply` with the theme the preference gives now and whenever it changes: the preference
+ * itself, and, under `system` only, the system's scheme. The preference is `system` until set.
+ */
+export const followTheme = (query: SchemeQuery, apply: (theme: Theme) => void): ThemeFollower => {
+  let preference: ThemePreference = "system";
+  const current = () => resolveTheme(preference, query.matches);
+  apply(current());
+  query.addEventListener("change", () => {
+    if (preference === "system") apply(current());
+  });
+  return {
+    prefer: (next) => {
+      preference = next;
+      apply(current());
+    },
+    current,
+  };
+};
+
+const COMFORTABLE_CLASS = "comfortable";
+
+/** Compact is the base tokens; a `.comfortable` class on the root re-points spacing and type. */
+export const applyDensity = (root: ThemeRoot, density: Density): void => {
+  root.classList.toggle(COMFORTABLE_CLASS, density === "comfortable");
 };
 
 /** Calls `apply` with the system's theme now and on each change; returns the current one. */

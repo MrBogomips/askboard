@@ -59,14 +59,17 @@ export const servedViewBuild = (folder: string): ViewBuild => {
   };
 };
 
-/** Builds the Snapshot writer and E7's `CorePorts` field; `projectDir` is `PushComposition`'s. */
+/**
+ * Builds the Snapshot writer and E7's `CorePorts` field; `projectDir` is `PushComposition`'s, and
+ * `folder` reads the Snapshot folder in effect at each Snapshot (settings-languages, decision 5).
+ */
 export const composeSnapshots = (
   options: SnapshotOptions,
-  context: { readonly projectDir: string },
+  context: { readonly projectDir: string; readonly folder?: () => string },
 ): SnapshotComposition => {
   const writer = createSnapshotWriter({
     projectRoot: sessionProjectRoot(options.env),
-    folder: SNAPSHOT_FOLDER,
+    folder: context.folder ?? SNAPSHOT_FOLDER,
     prepareFolders: ensureProjectFolders,
     viewBuild: servedViewBuild(options.view),
     randomness: { bytes: (count) => randomBytes(count) },

@@ -81,7 +81,8 @@ export const createHandlers = ({
     return ok(blockDecision(core.epoch, outcome));
   },
 
-  // The rule is `none` until the session process reads configuration (E8; AD-14, AD-16).
+  // The rule in effect, from the configuration the session process reads before the local API
+  // starts (settings-languages, design decision 12); `none` without it (AD-14, AD-16).
   rule: async () => ok({ ...ACK, rule: rule(), showable: await showable() }),
 
   notice: (query) => {

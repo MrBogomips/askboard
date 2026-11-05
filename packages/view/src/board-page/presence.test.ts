@@ -10,6 +10,7 @@ import {
   type HostMessage,
   type LifecyclePageMessage,
   type PresenceMessage,
+  type SettingCommand,
   type SnapshotCommand,
 } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
@@ -56,8 +57,13 @@ const fakeSignal = (initial: boolean) => {
 
 // One socket: what was sent on it, and the handlers the page gave it.
 const fakeConnect = () => {
-  const sent: (LifecyclePageMessage | ContextPageMessage | SnapshotCommand | PresenceMessage)[] =
-    [];
+  const sent: (
+    | LifecyclePageMessage
+    | ContextPageMessage
+    | SettingCommand
+    | SnapshotCommand
+    | PresenceMessage
+  )[] = [];
   let handlers: BoardSocketHandlers | undefined;
   let open = true;
   const connect = (events: BoardSocketHandlers): PageConnection => {
@@ -186,6 +192,7 @@ describe("the view's activity message", () => {
       showLoadError: () => undefined,
       showSnapshot: () => undefined,
       setTitle: () => undefined,
+      setLanguage: () => undefined,
       log: () => undefined,
       copyText: async () => undefined,
       ...(onActivity === undefined ? {} : { onActivity }),

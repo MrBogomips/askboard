@@ -41,11 +41,23 @@ export type PushCore = Partial<Pick<AskCore, "setWorking" | "whoAsked" | "agentS
  */
 export type ContextCore = Partial<Pick<AskCore, "sourceOf" | "editorTarget">>;
 
+/**
+ * Settings and languages' part, optional: the settings view a board receives when it connects and
+ * after a write, and the write of one presentation key; without them a board receives no settings
+ * and its writes are refused (settings-languages, design decision 6).
+ */
+export type SettingsCore = Partial<Pick<AskCore, "boardSettingsView" | "writeSetting">>;
+
 /** E7's part: the board's Snapshot, taken as the user's (snapshot design decision 8). */
 export type SnapshotCore = Pick<AskCore, "snapshot">;
 
 /** The part of ask-core `board-host` uses: one part per change, so each change adds its own. */
-export type HostCore = E1Core & LifecycleCore & PushCore & ContextCore & SnapshotCore;
+export type HostCore = E1Core &
+  LifecycleCore &
+  PushCore &
+  ContextCore &
+  SettingsCore &
+  SnapshotCore;
 
 export type BoardHostOptions = {
   /** ask-core, read at the first link: ask-core takes this host's address when it is made. */

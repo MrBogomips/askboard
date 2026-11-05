@@ -81,7 +81,12 @@ const recordClipboard = (binding: string) => {
 
 type MutableSocket = { url: string; frames: { dir: "sent" | "received"; text: string }[] };
 
-export type BoardContextOptions = { readonly colorScheme?: "light" | "dark" };
+export type BoardContextOptions = {
+  readonly colorScheme?: "light" | "dark";
+  /** The browser's own locale and time zone (settings-languages, task 7.4). */
+  readonly locale?: string;
+  readonly timezoneId?: string;
+};
 
 /** One browser context with its recorders; every tab a test opens belongs to it. */
 export class BoardContext {
@@ -101,6 +106,8 @@ export class BoardContext {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       colorScheme: options.colorScheme ?? "light",
+      ...(options.locale === undefined ? {} : { locale: options.locale }),
+      ...(options.timezoneId === undefined ? {} : { timezoneId: options.timezoneId }),
     });
     // Bounded below a test's timeout, so a stuck step fails with what it waited for.
     context.setDefaultTimeout(ACTION_TIMEOUT_MS);

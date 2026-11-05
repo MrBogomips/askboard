@@ -16,7 +16,14 @@ import {
 import { validateBoardMessage } from "@askboard/contract/validate";
 import { type AskCore, type Origin, SnapshotWriteError, type SnapshotWriter } from "@askboard/core";
 import { stateOf } from "../../src/board-host/messages.ts";
-import { type BoardSocket, freeRange, openSocket, removeViews, startHost } from "./helpers.ts";
+import {
+  type BoardSocket,
+  freeRange,
+  openSocket,
+  removeViews,
+  startHost,
+  withLanguage,
+} from "./helpers.ts";
 
 // Board-host spec, A Snapshot requested by the board, A board's Snapshot that fails, Unsent work
 // passed on as a fact and A board's Snapshot is no event (snapshot task 6.1): task 1.3's
@@ -152,7 +159,7 @@ const replay = async (transcript: SnapshotTranscript) => {
       } else if (step.from === "host" && "message" in step) {
         const received = await (await socketOf(step.socket)).next();
         expect(validateBoardMessage("toPage", received).ok).toBe(true);
-        expect(received).toEqual(step.message);
+        expect(received).toEqual(withLanguage(step.message));
         if (step.message.type === "moved") moved.add(step.socket);
       } else if (step.from === "host" && "close" in step) {
         expect(await (await socketOf(step.socket)).closed()).toBe(step.close);

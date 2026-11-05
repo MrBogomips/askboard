@@ -1,11 +1,12 @@
 // What the Tree's cell editor reads and commits (design decision 6; spec, "Tree editing"): the
-// name's cell, a number field read by AskBoard's own en-US parser, never the browser's number
+// name's cell, a number field read by AskBoard's own parser, in the ask's locale, never the browser's number
 // input, or a text field. A commit gives the value after the entry, through the model's `rename`
 // and `setField`, which return the same value when nothing changes (an empty name included, which
 // is never committed), or a refusal with the reason the field error shows.
 
 import {
   GANTT_PLAN_ESTIMATES,
+  type Locale,
   TREE_LABEL_MAX_CHARS,
   TREE_TEXT_MAX_CHARS,
   type TreeColumn,
@@ -63,10 +64,11 @@ export const startTextOf = (
   columns: readonly TreeColumn[] | undefined,
   node: TreeNode,
   cell: number,
+  locale: Locale = "en-US",
 ): string => {
   if (cell === 0) return node.label;
   const column = columns?.[cell - 1];
-  return column === undefined ? "" : fieldText(node, column);
+  return column === undefined ? "" : fieldText(node, column, locale);
 };
 
 /** Commits `text` in the cell `cell` of the node `nodeId`. */
@@ -75,6 +77,8 @@ export const enterCell = (
   nodeId: string,
   cell: number,
   text: string,
+  locale: Locale = "en-US",
+  language: Locale = locale,
 ): CellEntry => {
   if (cell === 0) {
     return lengthOf(text) > TREE_LABEL_MAX_CHARS
@@ -88,7 +92,7 @@ export const enterCell = (
       ? refused(TEXT_TOO_LONG)
       : valued(setField(value, nodeId, column.field, text));
   }
-  const entry = parseNumber(text);
+  const entry = parseNumber(text, locale, language);
   if (entry.kind === "refused") return refused(entry.reason);
   const number = entry.kind === "number" ? entry.value : undefined;
   // A work breakdown's estimate outside its range (molecules design decision 14).

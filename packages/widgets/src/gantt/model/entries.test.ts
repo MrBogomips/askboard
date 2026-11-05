@@ -263,3 +263,47 @@ describe("in a Gantt plan (design decision 8)", () => {
     });
   });
 });
+
+describe("in the ask's locale (settings-languages, task 9.2)", () => {
+  const italian = { locale: "it-IT", language: "it-IT" } as const;
+
+  test("a start is typed day first and echoed in Italian", () => {
+    expect(entryEcho("start", "9/12/2026", italian)).toBe("= mer 9 dic 2026");
+    expect(entryEcho("start", "2026-12-09", italian)).toBe("= mer 9 dic 2026");
+    expect(entryEcho("start", "9/12/2026")).toBe("= Sat, Sep 12, 2026");
+  });
+
+  test("an editor opens on the start as the Italian grid shows it", () => {
+    if (REPORTING === undefined) throw new Error("no reporting row");
+    expect(entryText("start", REPORTING, SCHEDULED, "it-IT")).toBe("04/12/2026");
+  });
+
+  test("a duration reads through the locale's number entry", () => {
+    const grouped = durationEntry(SENT, SENT, "billing", "1.200", italian);
+    expect(
+      grouped.kind === "value" && taskOf(grouped.value as GanttOwnProps, "billing")?.duration,
+    ).toBe(1200);
+    expect(durationEntry(SENT, SENT, "billing", "2.001", italian).kind).toBe("refused");
+    expect(entryEcho("duration", "1.200", italian)).toBe("= 1200");
+    const day = durationEntry(SENT, SENT, "billing", "30", italian);
+    expect(day.kind === "value" && taskOf(day.value as GanttOwnProps, "billing")?.duration).toBe(
+      30,
+    );
+  });
+
+  test("a refusal speaks the ask's language and shows dates in the locale", () => {
+    const italianReason = startEntry(SENT, SENT, "billing", undefined, "Dec 9", italian);
+    const englishReason = startEntry(SENT, SENT, "billing", undefined, "Dec 9");
+    expect(italianReason.kind === "refused" && englishReason.kind === "refused").toBe(true);
+    if (italianReason.kind === "refused" && englishReason.kind === "refused") {
+      expect(italianReason.reason).not.toBe(englishReason.reason);
+    }
+    const mixed = startEntry(SENT, SENT, "billing", undefined, "1/1/1800", {
+      locale: "it-IT",
+      language: "en-US",
+    });
+    expect(mixed.kind === "refused" && mixed.reason).toBe(
+      "Pick a day from 02/03/1900 to 31/12/9999",
+    );
+  });
+});

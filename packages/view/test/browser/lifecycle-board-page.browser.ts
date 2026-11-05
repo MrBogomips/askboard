@@ -199,7 +199,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the focus on the Closed banner",
         );
         await board.header.getByText("Closed", { exact: true }).waitFor();
-        expect(await enabledCount(board.view.getByRole("radio"))).toBe(0);
+        expect(await enabledCount(board.options)).toBe(0);
         expect(await noteOf(board, "cache").inputValue()).toBe("Cache only the catalogue.");
         await board.page.getByRole("button", { name: "Copy my unsent work" }).click();
         await eventually(() => run.browser.clipboard.length > 0, "the copy");

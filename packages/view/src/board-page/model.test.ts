@@ -6,7 +6,11 @@ import {
   type HostMessage,
   type LifecycleBoardState,
 } from "@askboard/contract";
-import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  lifecycleBoardDocument,
+  plainChoiceBoardDocument,
+  settingsWithEveryKey,
+} from "@askboard/contract/fixtures";
 import type { ViewAct, ViewAnswer } from "../view-protocol.ts";
 import {
   actsFor,
@@ -435,5 +439,41 @@ describe("what the model passes on (snapshot task 6.2)", () => {
     };
     expect(Object.keys(passedOn)).toEqual(["snapshot"]);
     expect(EMPTY_MODEL.passedOn).toEqual({});
+  });
+});
+
+describe("the settings in the model (settings-languages, task 8.2)", () => {
+  test("the presentation passes on the values in effect and the keys the project fixes", () => {
+    const model = withHostMessage(EMPTY_MODEL, settingsWithEveryKey);
+    expect(model.settings).toBe(settingsWithEveryKey);
+    expect(model.passedOn.presentation).toEqual({
+      theme: "dark",
+      density: "compact",
+      contextPlacement: "inline",
+      locked: ["contextPlacement"],
+    });
+  });
+
+  test("a later settings message replaces the earlier one and keeps what else is passed on", () => {
+    const origin = { version, type: "origin", who: { label: "Main agent" } } as const;
+    const first = withHostMessage(withHostMessage(EMPTY_MODEL, origin), settingsWithEveryKey);
+    const light = {
+      ...settingsWithEveryKey,
+      keys: {
+        ...settingsWithEveryKey.keys,
+        theme: { value: "light", from: "user", writable: true },
+      },
+    } as const;
+    const second = withHostMessage(first, light);
+    expect(second.passedOn.presentation?.theme).toBe("light");
+    expect(second.passedOn.origin).toEqual({ who: { label: "Main agent" } });
+  });
+
+  test("the boot data holds the presentation, which the view's first render reads", () => {
+    const model = withHostMessage(
+      withHostMessage(withHostMessage(EMPTY_MODEL, board), state),
+      settingsWithEveryKey,
+    );
+    expect(bootDataOf(model)?.presentation?.theme).toBe("dark");
   });
 });

@@ -12,6 +12,7 @@ import {
   contextBoardDocument,
   lifecycleProtocolExamples,
   plainChoiceBoardDocument,
+  settingsProtocolExamples,
   snapshotProtocolExamples,
   subagentOrigin,
   uncheckedOrigin,
@@ -101,6 +102,26 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
+  test("agree with the contract on what board protocol 1.2 adds (settings-languages, task 2.6)", () => {
+    const check = generated.settings;
+    const [every] = settingsProtocolExamples.toPage;
+    const keys = every?.keys;
+    const invalid = [
+      { ...every, keys: { ...keys, theme: { value: "sepia", from: "user", writable: true } } },
+      { ...every, keys: { ...keys, editor: { value: "code", from: "user", writable: false } } },
+      { ...every, files: { ...every?.files, user: { status: "not-applied" } } },
+      { ...every, files: { ...every?.files, user: { status: "absent", problem: { code: "x" } } } },
+      { ...every, warnings: [{ code: "unknown-key", file: "user" }] },
+      { ...every, write: { key: "editor", outcome: "saved" } },
+    ];
+    for (const message of settingsProtocolExamples.toPage) expect(check?.(message)).toBe(true);
+    for (const message of invalid) {
+      const ok = check?.(message);
+      expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
+      expect(ok).toBe(false);
+    }
+  });
+
   // Board documents whose questions hold context items (excerpts, design decision 2): the fixture
   // with every status of every type, and each item broken, so every validator the items add runs.
   const board = (document: unknown) => ({
@@ -165,7 +186,13 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     expect(check?.({ version: BOARD_PROTOCOL_VERSION, type: "moved", why: "x" })).toBe(false);
     // The listed messages keep their validators beside it.
     const added = lifecycleProtocolExamples.toPage as readonly { type: string }[];
-    for (const message of [...valid, ...invalid, ...added, ...context]) {
+    for (const message of [
+      ...valid,
+      ...invalid,
+      ...added,
+      ...context,
+      ...settingsProtocolExamples.toPage,
+    ]) {
       const ok = extended[message.type]?.(message);
       expect({ message, ok }).toEqual({ message, ok: validateBoardMessage("toPage", message).ok });
     }

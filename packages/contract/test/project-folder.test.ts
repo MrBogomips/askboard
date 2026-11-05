@@ -3,6 +3,7 @@ import {
   ASKBOARD_FOLDER,
   ASKBOARD_GITIGNORE,
   ASKBOARD_SUBFOLDERS,
+  CONFIGURATION_DEFAULTS,
   SERVER_INSTRUCTIONS,
   SNAPSHOT_FOLDER,
 } from "../src/index.ts";
@@ -25,9 +26,10 @@ describe("the .askboard folder", () => {
     for (const folder of ASKBOARD_SUBFOLDERS) expect(ASKBOARD_GITIGNORE).toContain(`${folder}/`);
   });
 
-  test("the default Snapshot folder is its snapshots subfolder", () => {
+  test("the default Snapshot folder is its snapshots subfolder, and the configuration's default", () => {
     expect(SNAPSHOT_FOLDER).toBe(".askboard/snapshots");
     expect(SNAPSHOT_FOLDER).toBe(`${ASKBOARD_FOLDER}/${ASKBOARD_SUBFOLDERS[0]}`);
+    expect(CONFIGURATION_DEFAULTS.snapshotFolder).toBe(SNAPSHOT_FOLDER);
   });
 
   test("the server instructions name its media subfolder for screenshots", () => {

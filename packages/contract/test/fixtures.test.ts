@@ -13,6 +13,7 @@ import {
   resendAfterDropTranscript,
   restartTranscript,
   schemaRefusalTranscript,
+  settingsProtocolExamples,
   snapshotProtocolExamples,
   type Transcript,
   type TranscriptStep,
@@ -305,6 +306,7 @@ describe("board-protocol examples", () => {
       const examples: readonly object[] = [
         ...boardProtocolExamples[direction],
         ...lifecycleProtocolExamples[direction],
+        ...settingsProtocolExamples[direction],
         // The reading panel's and the editor's messages (excerpts, design decision 5).
         ...contextProtocolExamples[direction],
         ...snapshotProtocolExamples[direction],

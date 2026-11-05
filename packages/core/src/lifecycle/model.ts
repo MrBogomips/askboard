@@ -253,7 +253,10 @@ export class BoardModel {
 
   /** The board document, frozen. */
   document(
-    head: Pick<LifecycleBoardDocument, "askId" | "title" | "presentation" | "delivery">,
+    head: Pick<
+      LifecycleBoardDocument,
+      "askId" | "title" | "presentation" | "delivery" | "language" | "locale"
+    >,
   ): LifecycleBoardDocument {
     const document: LifecycleBoardDocument = {
       version: BOARD_DOCUMENT_VERSION,

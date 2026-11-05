@@ -6,7 +6,9 @@
 // back. The text and the refusal are view state: only a committed value reaches the draft.
 
 import type { GanttProps } from "@askboard/contract";
+import { useLanguage, useLocale } from "@askboard/view/catalog";
 import { useCallback, useRef, useState } from "react";
+import type { DateFormat } from "./model/date.ts";
 import {
   durationEntry,
   type EditedColumn,
@@ -45,12 +47,12 @@ type EditingArgs = {
   readonly focusCell: (taskId: string, column: GanttColumn) => void;
 };
 
-const entryOf = (args: EditingArgs, editing: Editing): Entry => {
+const entryOf = (args: EditingArgs, format: DateFormat, editing: Editing): Entry => {
   const index = args.rows.findIndex((row) => row.id === editing.taskId);
   const { current, sent } = args;
   return editing.column === "start"
-    ? startEntry(current, sent, editing.taskId, args.schedules[index], editing.text)
-    : durationEntry(current, sent, editing.taskId, editing.text);
+    ? startEntry(current, sent, editing.taskId, args.schedules[index], editing.text, format)
+    : durationEntry(current, sent, editing.taskId, editing.text, format);
 };
 
 export const useCellEditing = (args: EditingArgs): CellEditing => {
@@ -63,13 +65,18 @@ export const useCellEditing = (args: EditingArgs): CellEditing => {
   }, []);
   const latest = useRef(args);
   latest.current = args;
+  // Dates and numbers are read and shown in the ask's locale, and refused in its language.
+  const locale = useLocale();
+  const language = useLanguage();
+  const format = useRef<DateFormat>({ locale, language });
+  format.current = { locale, language };
   const begin = useCallback(
     (row: GanttRow, column: EditedColumn) => {
       const index = latest.current.rows.indexOf(row);
       show({
         taskId: row.id,
         column,
-        text: entryText(column, row, latest.current.schedules[index]),
+        text: entryText(column, row, latest.current.schedules[index], format.current.locale),
       });
     },
     [show],
@@ -93,7 +100,7 @@ export const useCellEditing = (args: EditingArgs): CellEditing => {
     (refocus: boolean) => {
       const editingNow = open.current;
       if (editingNow === undefined) return;
-      const entry = entryOf(latest.current, editingNow);
+      const entry = entryOf(latest.current, format.current, editingNow);
       if (entry.kind === "refused") {
         show({ ...editingNow, refusal: entry.reason });
         return;

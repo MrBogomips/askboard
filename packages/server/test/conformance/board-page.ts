@@ -44,6 +44,11 @@ export type BoardSocket = {
    * checked against the contract, and one it refuses joins `problems`.
    */
   readonly header: unknown[];
+  /**
+   * The settings each opening and each write sends (settings-languages, design decision 6), kept
+   * apart in the same way and checked against the board protocol.
+   */
+  readonly settings: unknown[];
   readonly problems: string[];
 };
 
@@ -69,6 +74,7 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
   const socket = new WebSocket(`ws://${BOARD_HOST}:${port}/ws/${askId}`, { origin });
   const pending: unknown[] = [];
   const header: unknown[] = [];
+  const settings: unknown[] = [];
   const problems: string[] = [];
   let code: number | undefined;
   socket.on("message", (data) => {
@@ -76,6 +82,13 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
     const type = message.type;
     const validate =
       typeof type === "string" && Object.hasOwn(HEADER, type) ? HEADER[type] : undefined;
+    if (type === "settings") {
+      settings.push(message);
+      if (!validateBoardMessage("toPage", message).ok) {
+        problems.push(`the contract refuses ${JSON.stringify(message)}`);
+      }
+      return;
+    }
     if (validate === undefined) {
       pending.push(message);
       return;
@@ -94,6 +107,7 @@ export const openBoardSocket = async (port: number, askId: string): Promise<Boar
     socket,
     pending,
     header,
+    settings,
     problems,
     next: () => waitFor(() => pending.shift(), "a board message"),
     closed: () => waitFor(() => code, "the board socket's close"),
@@ -156,6 +170,17 @@ export type Offstage = {
   update?(request: UpdateInput): Promise<void>;
 };
 
+/**
+ * A recorded board message as board-host sends it now: ask-core gives every ask's board document
+ * its language and locale, `en-US` when the ask and the configuration name none
+ * (settings-languages, task 3.6); the recordings predate them.
+ */
+export const withLanguage = <T extends object>(expected: T): T => {
+  const { type, document } = expected as { type?: string; document?: object };
+  if (type !== "board" || document === undefined) return expected;
+  return { ...expected, document: { language: "en-US", locale: "en-US", ...document } };
+};
+
 const sameMessage = (received: unknown, expected: object): string | undefined => {
   if (!validateBoardMessage("toPage", received).ok) {
     return `${JSON.stringify(received)} is not a valid board-host message`;
@@ -197,7 +222,8 @@ export const replay = async (
         const socket = await socketOf(step.socket);
         await socket.send(withToken("message" in step ? step.message : step.invalid));
       } else if (step.from === "host" && "message" in step) {
-        const problem = sameMessage(await (await socketOf(step.socket)).next(), step.message);
+        const received = await (await socketOf(step.socket)).next();
+        const problem = sameMessage(received, withLanguage(step.message));
         if (problem !== undefined) problems.push(`socket ${step.socket}: ${problem}`);
       } else if (step.from === "host") {
         const code = await (await socketOf(step.socket)).closed();

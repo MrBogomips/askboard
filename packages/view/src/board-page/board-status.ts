@@ -6,6 +6,8 @@
 // (FR-6): locked and banner-ed like a discarded one, though its socket stays open and reconnects,
 // and a closed or discarded board with unsent work offers "Copy my unsent work" (F-17).
 
+import type { Locale } from "@askboard/contract";
+import { t } from "../strings/index.ts";
 import type { ViewLock } from "../view-protocol.ts";
 import { closeKindOf } from "./reconnect.ts";
 
@@ -83,9 +85,10 @@ export type Banner = {
   readonly text: string;
   /** A second line: on a closed or discarded board, that work the user did was never sent. */
   readonly detail?: string;
-  readonly action?: "Continue here" | "Copy my unsent work";
   /** The Closed banner offers "Snapshot", with its feedback beside it (snapshot task 7.2). */
   readonly snapshot?: true;
+  /** The action's label: "Continue here" on a moved board, "Copy my unsent work" on an ended one. */
+  readonly action?: string;
   /**
    * The closed and discarded banners take the focus (EXPERIENCE.md, Accessibility Floor, Focus).
    */
@@ -94,47 +97,46 @@ export type Banner = {
 
 // "Connection lost, retrying", "Your unsent work was not sent", "Copy my unsent work" and
 // "Continue here" are EXPERIENCE.md's (Voice and Tone); the moved, discarded and closed wordings
-// are not recorded there.
-const CONNECTION_LOST: Banner = {
+// are not recorded there. Each comes from the catalogue in the ask's language.
+const connectionLost = (language: Locale): Banner => ({
   variant: "connection-lost",
-  text: "Connection lost, retrying",
+  text: t(language, "banner.connectionLost"),
   takesFocus: false,
-};
-const MOVED: Banner = {
+});
+const moved = (language: Locale): Banner => ({
   variant: "moved",
-  text: "This board moved to another tab.",
-  action: "Continue here",
+  text: t(language, "banner.moved"),
+  action: t(language, "banner.continueHere"),
   takesFocus: false,
-};
-const DISCARDED: Banner = {
-  variant: "discarded",
-  text: "This ask was discarded. The board is read-only.",
-  takesFocus: true,
-};
-const CLOSED: Banner = {
-  variant: "closed",
-  text: "This ask was closed. The board is read-only.",
-  snapshot: true,
-  takesFocus: true,
-};
+});
 
 // A closed or discarded board's banner, saying when unsent work was left and offering its copy.
-const ended = (banner: Banner, unsent: boolean): Banner =>
-  unsent
-    ? { ...banner, detail: "Your unsent work was not sent", action: "Copy my unsent work" }
-    : banner;
+const ended = (variant: "discarded" | "closed", unsent: boolean, language: Locale): Banner => {
+  const text = t(language, variant === "discarded" ? "banner.discarded" : "banner.closed");
+  const banner: Banner =
+    variant === "closed"
+      ? { variant, text, snapshot: true, takesFocus: true }
+      : { variant, text, takesFocus: true };
+  if (!unsent) return banner;
+  const detail = t(language, "banner.unsentNotSent");
+  return { ...banner, detail, action: t(language, "banner.copyUnsentWork") };
+};
 
 /** The banner the board page shows, if any; `unsent` when the board ended with unsent work. */
-export const bannerOf = (status: BoardStatus, unsent = false): Banner | undefined => {
+export const bannerOf = (
+  status: BoardStatus,
+  unsent = false,
+  language: Locale = "en-US",
+): Banner | undefined => {
   switch (status.kind) {
     case "retrying":
-      return CONNECTION_LOST;
+      return connectionLost(language);
     case "moved":
-      return MOVED;
+      return moved(language);
     case "discarded":
-      return ended(DISCARDED, unsent);
+      return ended("discarded", unsent, language);
     case "closed":
-      return ended(CLOSED, unsent);
+      return ended("closed", unsent, language);
     default:
       return undefined;
   }

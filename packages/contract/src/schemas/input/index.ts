@@ -1,7 +1,8 @@
 // The input format (owner `contract`, AD-7): what an agent sends. E1 defined the plain question and
 // the ask level around it, in English (E1, design decision 1); E3's minor takes several questions,
 // areas, FR-3's remaining fields and `update`'s request (ask-lifecycle, design decision 2); E5's
-// takes a question's context items: excerpts, references and images (excerpts, design decision 2).
+// takes a question's context items: excerpts, references and images (excerpts, design decision 2);
+// E8's takes it-IT as the ask's language and locale (settings-languages, design decision 2, B8).
 
 import type { SchemaSet } from "../../versions.ts";
 import area from "./area.json" with { type: "json" };
@@ -15,7 +16,7 @@ import questionProps from "./question-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 import update from "./update.json" with { type: "json" };
 
-export const INPUT_FORMAT_VERSION = "1.2";
+export const INPUT_FORMAT_VERSION = "1.3";
 
 export const inputFormat: SchemaSet = {
   name: "input",
@@ -76,8 +77,9 @@ export type AskInput = {
   readonly expectedUser?: string;
   readonly presentation?: "sections" | "tabs" | "one-per-view";
   readonly delivery?: "immediate" | "submitted";
-  readonly language?: "en-US";
-  readonly locale?: "en-US";
+  /** Input format 1.3 adds it-IT (settings-languages). */
+  readonly language?: "en-US" | "it-IT";
+  readonly locale?: "en-US" | "it-IT";
   readonly items: readonly [QuestionItem];
 };
 

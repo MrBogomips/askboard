@@ -8,7 +8,7 @@ export const FOCUS_RING =
 
 /** `button-secondary`, with `button-disabled`. */
 export const BUTTON_SECONDARY =
-  `inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted px-3 text-control text-foreground enabled:hover:bg-card ${FOCUS_RING} ` +
+  `inline-flex h-control-height shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted px-md text-control text-foreground enabled:hover:bg-card ${FOCUS_RING} ` +
   "disabled:text-muted-foreground disabled:opacity-50";
 
 /** `button-link`: link weight, no fill or border (F-77). */
@@ -18,17 +18,17 @@ export const BUTTON_LINK =
 
 /** `button-answer` on a board with Submit: an outline button, never a second filled primary. */
 export const BUTTON_ANSWER =
-  `inline-flex h-7 items-center gap-1.5 rounded-md border border-primary bg-card px-3 text-control text-primary-text enabled:hover:bg-primary-subtle ${FOCUS_RING} ` +
+  `inline-flex h-control-height items-center gap-1.5 rounded-md border border-primary bg-card px-md text-control text-primary-text enabled:hover:bg-primary-subtle ${FOCUS_RING} ` +
   "aria-pressed:bg-primary-subtle disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50";
 
 /** `button-primary`: Submit, the bottom action bar's only primary, and a dialog's confirmation. */
 export const BUTTON_PRIMARY =
-  `inline-flex h-7 shrink-0 items-center rounded-md bg-primary px-3 text-control text-primary-foreground enabled:hover:bg-primary-hover ${FOCUS_RING} ` +
+  `inline-flex h-control-height shrink-0 items-center rounded-md bg-primary px-md text-control text-primary-foreground enabled:hover:bg-primary-hover ${FOCUS_RING} ` +
   "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50";
 
 /** `button-answer` on a single-question board: the board's only primary (L168). */
 export const BUTTON_ANSWER_PRIMARY =
-  `inline-flex h-7 items-center rounded-md bg-primary px-3 text-control text-primary-foreground enabled:hover:bg-primary-hover ${FOCUS_RING} ` +
+  `inline-flex h-control-height items-center rounded-md bg-primary px-md text-control text-primary-foreground enabled:hover:bg-primary-hover ${FOCUS_RING} ` +
   "disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50";
 
 /** `header-chip`. */
@@ -47,11 +47,11 @@ export const SEPARATOR = "h-4 w-px shrink-0 bg-border";
 
 /** A multi-line text field: the open prompt and the notes. */
 export const TEXT_FIELD =
-  `w-full rounded-md border border-input bg-card p-2 text-body text-foreground ${FOCUS_RING} ` +
+  `w-full rounded-md border border-input bg-card p-sm text-body text-foreground ${FOCUS_RING} ` +
   "read-only:border-border read-only:bg-muted";
 
 /** One segment of a segmented control: the pressed one is underlined (Delivery, context placement). */
-export const SEGMENT = `h-6 rounded-sm border-b-2 border-transparent px-2 text-control text-muted-foreground aria-pressed:border-primary aria-pressed:bg-card aria-pressed:font-semibold aria-pressed:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
+export const SEGMENT = `h-6 rounded-sm border-b-2 border-transparent px-sm text-control text-muted-foreground aria-pressed:border-primary aria-pressed:bg-card aria-pressed:font-semibold aria-pressed:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
 
 /** The frame of a segmented control. */
 export const SEGMENTS = "flex items-center gap-0.5 rounded-md border border-border bg-muted p-0.5";

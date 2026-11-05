@@ -7,7 +7,7 @@
 
 import { Checkbox } from "radix-ui";
 import { type KeyboardEvent, useRef, useState } from "react";
-import { questionTextId } from "../port.ts";
+import { questionTextId, useStrings } from "../port.ts";
 import { OptionDetails, OtherField } from "./option-details.tsx";
 import { MARK, OptionText, optionAria, ROW } from "./option-text.tsx";
 import type { ChoiceProps } from "./props.ts";
@@ -15,6 +15,7 @@ import { nextFocus, otherLabelId, toggled } from "./selection.ts";
 
 export const MultipleChoice = ({ item, value, onValueChange, disabled, extras }: ChoiceProps) => {
   const { options } = item.props;
+  const text = useStrings();
   const offersOther = item.props.allowOther === true && extras !== undefined;
   const other = offersOther ? extras?.other : undefined;
   const count = options.length + (offersOther ? 1 : 0);
@@ -47,7 +48,7 @@ export const MultipleChoice = ({ item, value, onValueChange, disabled, extras }:
     className: ROW,
   });
   return (
-    <fieldset aria-labelledby={questionTextId(item.id)} className="flex flex-col gap-2">
+    <fieldset aria-labelledby={questionTextId(item.id)} className="flex flex-col gap-sm">
       {options.map((option, index) => {
         const checked = value?.includes(option.label) === true;
         return (
@@ -90,7 +91,7 @@ export const MultipleChoice = ({ item, value, onValueChange, disabled, extras }:
               <Checkbox.Indicator className="size-2 bg-primary" />
             </span>
             <span id={otherLabelId(item.id)} className="text-body-lg text-foreground">
-              Other…
+              {text("option.other")}
             </span>
           </Checkbox.Root>
           {other === undefined ? null : (

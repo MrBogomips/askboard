@@ -7,6 +7,7 @@
 
 import { DropdownMenu } from "radix-ui";
 import { useRef } from "react";
+import { useStrings } from "../catalog/port.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { CardActions, CardState } from "./question-state.ts";
 import { BUTTON_ANSWER, BUTTON_ANSWER_PRIMARY, BUTTON_SECONDARY, FOCUS_RING } from "./styles.ts";
@@ -14,7 +15,7 @@ import { BUTTON_ANSWER, BUTTON_ANSWER_PRIMARY, BUTTON_SECONDARY, FOCUS_RING } fr
 const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
 
-const MENU_ITEM = `flex cursor-default items-center gap-2 rounded-md px-2 py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
+const MENU_ITEM = `flex cursor-default items-center gap-sm rounded-md px-sm py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
 
 export type ActionsRowProps = {
   /** An opened Snapshot: only the delivery receipt shows. */
@@ -48,13 +49,14 @@ export const ActionsRow = ({
 }: ActionsRowProps) => {
   // Decline moves focus to the heading once the menu has closed, instead of back to "More".
   const toHeading = useRef(false);
+  const text = useStrings();
   if (opened) {
     return card.receipt === undefined ? null : (
       <span className="text-badge text-muted-foreground">{card.receipt}</span>
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-md">
       <button
         type="button"
         className={`${BUTTON_SECONDARY} aria-pressed:border-foreground-secondary aria-pressed:font-semibold`}
@@ -66,11 +68,11 @@ export const ActionsRow = ({
         }}
       >
         {actions.postponed ? <QuestionMarker mark="postponed" /> : null}
-        Postpone
+        {text("question.postpone")}
       </button>
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger className={BUTTON_SECONDARY} disabled={locked}>
-          More
+          {text("question.more")}
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
@@ -89,7 +91,7 @@ export const ActionsRow = ({
               disabled={!actions.canExplain}
               onSelect={onExplain}
             >
-              Explain
+              {text("question.explain")}
             </DropdownMenu.Item>
             <DropdownMenu.CheckboxItem
               className={MENU_ITEM}
@@ -105,12 +107,12 @@ export const ActionsRow = ({
                   <QuestionMarker mark="declined" />
                 </DropdownMenu.ItemIndicator>
               </span>
-              Decline
+              {text("question.decline")}
             </DropdownMenu.CheckboxItem>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      <span className="ml-auto flex items-center gap-3">
+      <span className="ml-auto flex items-center gap-md">
         {card.receipt === undefined ? null : (
           <span className="text-badge text-muted-foreground">{card.receipt}</span>
         )}
@@ -122,7 +124,7 @@ export const ActionsRow = ({
           className={single ? BUTTON_ANSWER_PRIMARY : BUTTON_ANSWER}
         >
           {card.ready ? <QuestionMarker mark="ready" /> : null}
-          Answer
+          {text("question.answer")}
         </button>
       </span>
     </div>

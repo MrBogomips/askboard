@@ -9,7 +9,9 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import { createContext, type ReactNode, useContext, useLayoutEffect } from "react";
+import type { Locale } from "@askboard/contract";
+import { createContext, type ReactNode, useCallback, useContext, useLayoutEffect } from "react";
+import { type Slots, type StringKey, t } from "../strings/index.ts";
 
 /** A widget item as the board document holds it: its type, its ID and its props, as sent. */
 export type BoardWidgetItem = {
@@ -125,6 +127,28 @@ export const useReadyAfterLayout = (ready: () => void, settled = true): void => 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the effect is made from exactly these.
   useLayoutEffect(readyEffect(ready, settled), [ready, settled]);
 };
+
+/**
+ * The ask's language, which the shell provides for the board (settings-languages design decision
+ * 9): the view's own strings, the catalog components' included, are in it; en-US when none is
+ * provided.
+ */
+export const LanguageContext = createContext<Locale>("en-US");
+
+/** The ask's language, for a text made outside a lookup. */
+export const useLanguage = (): Locale => useContext(LanguageContext);
+
+/** The lookup of the view's own strings in the ask's language. */
+export const useStrings = (): ((key: StringKey, slots?: Slots) => string) => {
+  const language = useLanguage();
+  return useCallback((key: StringKey, slots?: Slots) => t(language, key, slots), [language]);
+};
+
+/** The ask's locale, for the values the board shows (design decision 8); en-US when none is provided. */
+export const LocaleContext = createContext<Locale>("en-US");
+
+/** The ask's locale, which may differ from its language. */
+export const useLocale = (): Locale => useContext(LocaleContext);
 
 /**
  * What the view has of its host (AD-9, excerpts decision 6), which the shell provides: whether it

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:configuration:config",
+  "title": "Configuration",
+  "description": "The user file ($XDG_CONFIG_HOME/askboard/config.json, else $HOME/.config/askboard/config.json) and the project file (.askboard/config.json under the session project root) share this schema (AD-14). Every key is optional and its value closed. A key this minor does not define passes, so a session on an older minor reads a newer file, and the reader warns on it (settings-languages open question B2). A file that fails this schema applies no key at all.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "The configuration version, as major.minor. A reader supports major 1 and accepts any of its minors; a file of another major applies no key (AD-14).",
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "theme": {
+      "description": "A presentation key, which a board may write: system follows the system's colour scheme.",
+      "enum": ["system", "light", "dark"]
+    },
+    "density": {
+      "description": "A presentation key, which a board may write.",
+      "enum": ["compact", "comfortable"]
+    },
+    "contextPlacement": {
+      "description": "A presentation key, which a board may write: where a question's context shows by default.",
+      "enum": ["beside", "inline"]
+    },
+    "defaultLanguage": {
+      "description": "The language of an ask that names none (FR-34).",
+      "enum": ["en-US", "it-IT"]
+    },
+    "askingRule": {
+      "description": "Which AskUserQuestion calls AskBoard takes instead (AD-16, FR-30).",
+      "enum": ["none", "always", "with-references"]
+    },
+    "snapshotFolder": {
+      "description": "Where Snapshots are written, relative to the session project root; ask-core replaces a path that leaves the project (AD-14).",
+      "type": "string",
+      "maxLength": 1024
+    },
+    "editor": {
+      "description": "The command \"Open in editor\" runs, as an argument vector: the program, then its arguments, with {file} and {line} its only placeholders (AD-8). Read from the user file only.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    },
+    "defaultMinimumMargin": {
+      "description": "The sales molecule's default minimum margin, a percentage (settings-languages open question B14).",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "required": ["version"]
+}

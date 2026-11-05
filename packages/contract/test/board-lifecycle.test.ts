@@ -106,6 +106,7 @@ describe("the board document 1.1", () => {
 
 describe("the board protocol's messages 1.1 (design decision 8)", () => {
   // A later minor's messages follow these (E7's: snapshot-protocol.test.ts).
+  // settings-languages then appended its own (its design decision 6).
   test("E1's messages keep their order, and E3's are appended in each direction", () => {
     // A later minor appends after them (excerpts, design decision 5), so these lead each list.
     expect(Object.keys(BOARD_PROTOCOL_MESSAGES.toHost).slice(0, 4)).toEqual([

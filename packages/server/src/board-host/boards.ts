@@ -43,11 +43,13 @@ import {
   type LifecyclePageMessage,
   type OpenEditorCommand,
   type OpenSourceCommand,
+  type PresentationSetting,
+  type SettingCommand,
   type SnapshotCommand,
   TAKEOVER_FLUSH_WAIT_MS,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
-import type { ActOutcome, CoreEvent, SnapshotOutcome } from "@askboard/core";
+import type { ActOutcome, CoreEvent, SettingsView, SnapshotOutcome } from "@askboard/core";
 import { type RawData, WebSocket } from "ws";
 import { actReply, draftRefusal } from "./acts.ts";
 import { editorOutcomeMessage, NO_SOURCE, sourceStateMessage } from "./context-messages.ts";
@@ -66,6 +68,7 @@ import {
   stateMessage,
 } from "./messages.ts";
 import { presenceOf } from "./presence.ts";
+import { NO_SETTINGS, settingsMessage } from "./settings.ts";
 import { snapshotDiscarded, snapshotFailedInside, snapshotReply } from "./snapshots.ts";
 import type { BoardTokens } from "./tokens.ts";
 import { agentMessage, originMessage } from "./who-and-where.ts";
@@ -172,6 +175,7 @@ const parse = (data: RawData, binary: boolean): unknown => {
 
 type PageCommand =
   | Exclude<LifecyclePageMessage | OpenSourceCommand | OpenEditorCommand, ConnectMessage>
+  | SettingCommand
   | SnapshotCommand;
 
 /** What a live board does with each of ask-core's events, by type. */
@@ -190,8 +194,8 @@ type Commands = {
   ) => void;
 };
 
-/** One part of a board's opening, sent when it applies. */
-type Opener = (connection: Connection, board: OpenBoardView) => void;
+/** One part of a board's opening, sent when it applies; `settings` when ask-core read them. */
+type Opener = (connection: Connection, board: OpenBoardView, settings?: SettingsView) => void;
 
 // The size of a message as it arrived, in bytes.
 const sizeOf = (data: RawData): number =>
@@ -211,7 +215,7 @@ const commandOf = (value: unknown): PageCommand | LifecycleHostMessage => {
     const reason = checked.reason === "version" ? "version" : "message";
     return refusedMessage(reason, problemsDetail(checked.problems));
   }
-  const message = checked.value as LifecyclePageMessage;
+  const message = checked.value as LifecyclePageMessage | SettingCommand;
   if (message.type === "connect") return refusedMessage("message", CONNECTED);
   return message;
 };
@@ -544,15 +548,48 @@ export class Boards {
     this.#moved(connection);
   }
 
+  // A board opens once ask-core has read its settings, which re-reads the user file
+  // (settings-languages, design decision 6); without ask-core's settings part it opens at once.
+  // Meanwhile the socket is live and not opened: ask-core's events reach it only as a discard, and
+  // the opening sends the board as it then is, as a takeover's does. Settings that fail are
+  // reported, and the board opens without them.
   #open(connection: Connection, board: OpenBoardView): void {
-    connection.opened = true;
-    for (const opener of this.#openers) opener(connection, board);
+    const core = this.#core;
+    if (core.boardSettingsView === undefined) {
+      this.#openNow(connection, board);
+      return;
+    }
+    core.boardSettingsView().then(
+      (settings) => this.#guard(() => this.#openWith(connection, settings)),
+      (error: unknown) => {
+        this.#report(error);
+        this.#guard(() => this.#openWith(connection, undefined));
+      },
+    );
   }
 
-  // The board's opening, in order, each part sent when it applies: its document and state, then its
+  // The settings are read: the board opens unless it closed, lost the board or was opened, or the
+  // ask was discarded meanwhile, which it was then told.
+  #openWith(connection: Connection, settings: SettingsView | undefined): void {
+    if (connection.phase !== "live" || connection.opened) return;
+    if (this.#live.get(connection.askId) !== connection) return;
+    const board = this.#view(connection.askId);
+    if (board !== undefined) this.#openNow(connection, board, settings);
+  }
+
+  #openNow(connection: Connection, board: OpenBoardView, settings?: SettingsView): void {
+    connection.opened = true;
+    for (const opener of this.#openers) opener(connection, board, settings);
+  }
+
+  // The board's opening, in order, each part sent when it applies: the settings in effect, before
+  // the board they present (settings-languages, design decision 6); its document and state, then its
   // unsent work when ask-core holds it, and the close when the ask is closed (ask-lifecycle); then
   // who asked and where, and the agent status (push delivery, design decision 12).
   readonly #openers: readonly Opener[] = [
+    (connection, _board, settings) => {
+      if (settings !== undefined) this.#send(connection, settingsMessage(settings));
+    },
     (connection, board) => this.#send(connection, boardMessage(board)),
     (connection) => this.#sendState(connection),
     (connection) => {
@@ -598,6 +635,9 @@ export class Boards {
 
   // The board protocol's page commands, by type: E1's answer; the ask lifecycle's act command and
   // draft record (ask-lifecycle, design decision 8); the reading panel's source and "Open in
+  // editor" (excerpts, design decision 5).
+  // draft record (ask-lifecycle, design decision 8); a presentation key's write (settings-languages,
+  // design decision 6).
   // editor" (excerpts, design decision 5); E7's Snapshot (snapshot design decision 8).
   readonly #commands: Commands = {
     answer: (connection, command) => this.#answer(connection, command),
@@ -605,8 +645,28 @@ export class Boards {
     draft: (connection, command) => this.#draft(connection, command),
     "open-source": (connection, command) => this.#openSource(connection, command),
     "open-editor": (connection, command) => this.#openEditor(connection, command),
+    setting: (connection, command) => this.#setting(connection, command),
     snapshot: (connection, command) => this.#snapshot(connection, command),
   };
+
+  // A presentation key's write, which the validator admitted for the three keys and their schema
+  // values only: ask-core checks it again and writes it, then this board hears the settings as read
+  // now, with the outcome. Other boards keep theirs until they reconnect (B10).
+  #setting(connection: Connection, command: SettingCommand): void {
+    const core = this.#core;
+    if (core.writeSetting === undefined || core.boardSettingsView === undefined) {
+      this.#send(connection, refusedMessage("message", NO_SETTINGS));
+      return;
+    }
+    const setting = { key: command.key, value: command.value } as PresentationSetting;
+    core
+      .writeSetting(setting)
+      .then((outcome) => core.boardSettingsView?.(outcome))
+      .then((view) => {
+        if (view !== undefined) this.#send(connection, settingsMessage(view));
+      })
+      .catch(this.#report);
+  }
 
   #answer(connection: Connection, command: AnswerCommand): void {
     const { itemId, rev, choice, when } = command;

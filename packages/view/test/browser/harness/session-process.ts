@@ -65,6 +65,13 @@ export type SessionProcessOptions = {
   readonly openTimeoutMs?: number;
   /** How long the process may take to exit once its input ends; the design's bound is 1 s. */
   readonly exitTimeoutMs?: number;
+  /**
+   * The user configuration file, written under the process's own `XDG_CONFIG_HOME` before it starts
+   * (settings-languages, design decision 14): a value as JSON, a string as it is.
+   */
+  readonly userConfig?: unknown;
+  /** The project configuration file, `.askboard/config.json`, written in the same way. */
+  readonly projectConfig?: unknown;
 };
 
 const ROOT = join(import.meta.dir, "..", "..", "..", "..", "..");
@@ -119,6 +126,7 @@ const killLife = async (life: Pick<Life, "child" | "state"> & { agent?: Agent })
 
 class ProcessSession implements BoardSession {
   readonly link: string;
+  readonly userConfigPath: string;
   readonly #lives: Life[];
   readonly #proxy: BoardProxy;
   readonly #launch: (n: number) => Promise<Life>;
@@ -141,6 +149,7 @@ class ProcessSession implements BoardSession {
     cleanup: () => Promise<void>;
     exitTimeoutMs: number;
     asker?: { readonly asker: Asker; readonly place: AskerPlace };
+    userConfigPath: string;
   }) {
     this.#lives = [parts.first];
     this.#proxy = parts.proxy;
@@ -152,6 +161,11 @@ class ProcessSession implements BoardSession {
     this.#input = parts.input;
     this.#asker = parts.asker;
     this.link = linkThrough(parts.first.link, parts.proxy.port);
+    this.userConfigPath = parts.userConfigPath;
+  }
+
+  latestLink(): string {
+    return linkThrough(this.#current.link, this.#proxy.port);
   }
 
   get #current(): Life {
@@ -406,6 +420,30 @@ const writeFiles = async (
   }
 };
 
+// A configuration file a scenario gives, written before the process starts.
+const writeConfig = async (file: string, value: unknown): Promise<void> => {
+  if (value === undefined) return;
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`);
+};
+
+/**
+ * The process's own home, configuration folder and project, inside `dir`, holding the scenario's
+ * configuration files, so that no developer's configuration reaches it (settings-languages, design
+ * decision 14); an asker's project stands in for the project.
+ */
+const isolated = async (dir: string, options: SessionProcessOptions, projectDir?: string) => {
+  const home = join(dir, "home");
+  const configHome = join(dir, "config");
+  const project = projectDir ?? join(dir, "project");
+  await Promise.all(
+    [home, configHome, project].map((folder) => mkdir(folder, { recursive: true })),
+  );
+  await writeConfig(join(configHome, "askboard", "config.json"), options.userConfig);
+  await writeConfig(join(project, ".askboard", "config.json"), options.projectConfig);
+  return { HOME: home, XDG_CONFIG_HOME: configHome, CLAUDE_PROJECT_DIR: project };
+};
+
 // The ask with the asker's agent name and expected user.
 const withAsker = <T extends object>(input: T, asker: Asker | undefined): T => ({
   ...input,
@@ -433,9 +471,14 @@ const startFirst = async (
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
 export const startSessionProcess = async (
-  { transcript, view, ask, asker, files, projectDir: given }: Scenario,
-  options: SessionProcessOptions = {},
+  { transcript, view, ask, asker, files, projectDir: given, config }: Scenario,
+  extra: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
+  const options: SessionProcessOptions = {
+    ...(config?.user === undefined ? {} : { userConfig: config.user }),
+    ...(config?.project === undefined ? {} : { projectConfig: config.project }),
+    ...extra,
+  };
   const input = withAsker(ask ?? (await askInputFor(transcript, options.approvedAsk)), asker);
   const runtime = options.runtime ?? runtimeFrom(process.env.ASKBOARD_E2E_RUNTIME);
   const stage = await stageSession(view, options.bundle);
@@ -449,6 +492,7 @@ export const startSessionProcess = async (
   if (projectDir !== undefined && files !== undefined) await writeFiles(projectDir, files);
   const cleanup = cleanupOf(stage, dir, place, plain);
   const linksFile = join(dir, "links");
+  const folders = await isolated(dir, options, projectDir);
   const problems: string[] = [];
   const context: LaunchContext = {
     ...(asker === undefined || place === undefined ? {} : { asker: { asker, place } }),
@@ -462,7 +506,7 @@ export const startSessionProcess = async (
       PATH: `${NOTIFIER_STAND_INS}:${getDefaultEnvironment().PATH ?? ""}`,
       BROWSER: LINK_RECORDER,
       [LINKS_VARIABLE]: linksFile,
-      ...(projectDir === undefined ? {} : { CLAUDE_PROJECT_DIR: projectDir }),
+      ...folders,
     },
     linksFile,
     input,
@@ -479,6 +523,7 @@ export const startSessionProcess = async (
     problems,
     cleanup,
     exitTimeoutMs: options.exitTimeoutMs ?? EXIT_TIMEOUT_MS,
+    userConfigPath: join(folders.XDG_CONFIG_HOME, "askboard", "config.json"),
     ...(context.asker === undefined ? {} : { asker: context.asker }),
   });
 };

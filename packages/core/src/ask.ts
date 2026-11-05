@@ -10,6 +10,7 @@ import {
   type AskState,
   BOARD_DOCUMENT_VERSION,
   type BoardDocument,
+  type BoardLanguage,
   type ClosedEvent,
   type ClosedReason,
   type DiscardedEvent,
@@ -80,7 +81,7 @@ export type AskInit = {
   readonly who: string;
   /** What the ask's send resolved of its questions' pointers, by question ID (excerpts). */
   readonly context?: ReadonlyMap<string, QuestionContext>;
-};
+} & BoardLanguage;
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */
 export type AnswerCommandInput = {
@@ -188,6 +189,9 @@ export class Ask {
     readonly title: string;
     readonly presentation?: LifecycleAskInput["presentation"];
     readonly delivery?: LifecycleAskInput["delivery"];
+    /** Fixed when the ask is created (settings-languages); a discarded ask's head has neither. */
+    readonly language?: BoardLanguage["language"];
+    readonly locale?: BoardLanguage["locale"];
   };
   // The ask's items; gone once it is discarded (AD-21).
   #model: BoardModel | undefined;
@@ -215,6 +219,8 @@ export class Ask {
       title: init.title,
       ...(presentation === undefined ? {} : { presentation }),
       ...(delivery === undefined ? {} : { delivery }),
+      language: init.language,
+      locale: init.locale,
     };
     this.#model = BoardModel.of(items, init.context);
   }

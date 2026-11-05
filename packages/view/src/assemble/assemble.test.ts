@@ -373,6 +373,14 @@ describe("assemble (AD-9)", () => {
   });
 });
 
+describe("the srcdoc's lang (settings-languages, task 7.2)", () => {
+  test("is the board's language: it for an it-IT ask, en otherwise", () => {
+    const italian = { ...data, document: { ...data.document, language: "it-IT" as const } };
+    expect(assemble(italian, fixtureViewManifest, sources).srcdoc).toContain('<html lang="it">');
+    expect(assemble(data, fixtureViewManifest, sources).srcdoc).toContain('<html lang="en">');
+  });
+});
+
 describe("assemble is pure ECMAScript (AD-9: the board page and snapshot both call it)", () => {
   const root = join(import.meta.dir, "../../../..");
 

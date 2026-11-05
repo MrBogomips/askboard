@@ -7,6 +7,7 @@
 
 import {
   GANTT_PLAN_ESTIMATES,
+  type Locale,
   type TreeColumn,
   type TreeNode,
   type TreeProps,
@@ -35,10 +36,10 @@ const DAYS = "d";
 export const nameColumnOf = (value: TreeProps): string =>
   isPert(value) ? WBS_NAME_COLUMN : NAME_COLUMN;
 
-/** The text of the node's field in `column`: empty when the node has none. */
-export const fieldText = (node: TreeNode, column: TreeColumn): string => {
+/** The text of the node's field in `column`, in the ask's locale: empty when the node has none. */
+export const fieldText = (node: TreeNode, column: TreeColumn, locale: Locale = "en-US"): string => {
   const value = Object.hasOwn(node, column.field) ? node[column.field] : undefined;
-  if (typeof value === "number") return formatNumber(value);
+  if (typeof value === "number") return formatNumber(value, locale);
   return typeof value === "string" ? value : "";
 };
 
@@ -46,9 +47,14 @@ export const fieldText = (node: TreeNode, column: TreeColumn): string => {
  * The text of a work breakdown's field: an estimate with the `d` affix where the row has estimate
  * cells, a leaf's, and nothing where it has none; any other field as `fieldText` gives it.
  */
-export const pertFieldText = (node: TreeNode, column: TreeColumn, estimates: boolean): string => {
-  if (!ESTIMATES.has(column.field)) return fieldText(node, column);
-  const text = estimates ? fieldText(node, column) : "";
+export const pertFieldText = (
+  node: TreeNode,
+  column: TreeColumn,
+  estimates: boolean,
+  locale: Locale = "en-US",
+): string => {
+  if (!ESTIMATES.has(column.field)) return fieldText(node, column, locale);
+  const text = estimates ? fieldText(node, column, locale) : "";
   return text === "" ? "" : `${text} ${DAYS}`;
 };
 

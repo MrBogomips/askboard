@@ -23,10 +23,13 @@ import {
   type DraftRecord,
   type LifecycleBoardDocument,
   type LifecycleStateMessage,
+  type Locale,
+  type PresentationSetting,
   type RefusedMessage,
   type SnapshotReply,
 } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
+import { htmlLang, languageOf, localeOf, t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type {
   ActReply,
@@ -38,7 +41,9 @@ import type {
   ViewItemError,
   ViewMessage,
   ViewOpenReference,
+  ViewPresentation,
   ViewReady,
+  ViewSetting,
   ViewUpdate,
 } from "../view-protocol.ts";
 import {
@@ -80,6 +85,7 @@ import type { ReadingPanel } from "./reading-panel.ts";
 import { pathOf } from "./reading-panel-state.ts";
 import { reconnectDelay } from "./reconnect.ts";
 import { sourcePointerOf, webUrlOf } from "./references.ts";
+import { type PanelData, panelData } from "./settings-panel-data.ts";
 import {
   createSnapshotRequests,
   type SnapshotRequests,
@@ -122,6 +128,19 @@ export type BoardPageDeps = {
   /** Says the view did not load, or, with undefined, that it did. */
   readonly showLoadError: (error: string | undefined) => void;
   readonly setTitle: (title: string) => void;
+  /** Sets the page's `lang` to the board's language (settings-languages design decision 9). */
+  readonly setLanguage: (lang: "en" | "it") => void;
+  /**
+   * Applies the presentation the settings give to the board page itself: its root's theme and
+   * density classes, and the system scheme it follows only under `system`.
+   */
+  readonly applyPresentation?: (presentation: ViewPresentation) => void;
+  /**
+   * Shows the settings panel with these rows, or closes it with undefined: opened by the view's
+   * "Settings", and shown again after each change of the settings while it is open
+   * (settings-languages, design decision 10).
+   */
+  readonly showSettings?: (panel: PanelData | undefined) => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
   /** Puts text on the clipboard, on the user's click (F-17). */
@@ -159,6 +178,10 @@ export type BoardPage = {
    * command is held, and while postponed questions are open on an open ask (L57, L172, FR-25).
    */
   leavePromptArmed(): boolean;
+  /** The settings panel's choice of a presentation key: what a quick toggle does. */
+  setPresentation(setting: PresentationSetting): ViewReply;
+  /** The settings panel was closed: the view is asked to focus "Settings". */
+  closeSettings(): void;
 };
 
 const refusal = (detail: string): AnswerReply => ({ outcome: "refused", detail });
@@ -225,6 +248,10 @@ class BoardPageController implements BoardPage {
   // The draft record board-host restored, while the page has none of its own.
   #restore: DraftRestore | undefined;
   #restores = 0;
+  // The settings panel: whether it is open, and how many times it has closed (the view focuses
+  // "Settings" on each).
+  #settingsOpen = false;
+  #settingsClosed = 0;
   // The reading panel's latest closing by the user, which the view acts on once.
   #closed: PanelClosed | undefined;
   #closings = 0;
@@ -270,6 +297,12 @@ class BoardPageController implements BoardPage {
     if (this.#status.kind === "retrying" || this.#status.kind === "connecting") this.#open();
   }
 
+  // The language of the board page's own strings: the board document's, so English until the
+  // first board arrives (settings-languages design decision 9, B13).
+  #language(): Locale {
+    return languageOf(this.#model.document);
+  }
+
   flushDraft(): void {
     this.#mirror.flush();
   }
@@ -278,7 +311,7 @@ class BoardPageController implements BoardPage {
     const document = this.#model.document as ViewDocument | undefined;
     if (document === undefined) return;
     try {
-      await this.#deps.copyText(unsentWorkText(document, this.#mirror.latest()));
+      await this.#deps.copyText(unsentWorkText(document, this.#mirror.latest(), this.#language()));
     } catch (error) {
       this.#deps.log("the unsent work could not be copied", error);
     }
@@ -325,6 +358,7 @@ class BoardPageController implements BoardPage {
       ...(pending.length === 0 ? {} : { pending }),
       ...(settled.length === 0 ? {} : { settled }),
       ...(this.#restore === undefined ? {} : { restore: this.#restore }),
+      ...(this.#settingsClosed === 0 ? {} : { settingsClosed: this.#settingsClosed }),
       ...(this.#closed === undefined ? {} : { panelClosed: this.#closed }),
       ...(this.#snapshot === undefined ? {} : { snapshot: this.#snapshot }),
       ...this.#model.passedOn,
@@ -343,7 +377,7 @@ class BoardPageController implements BoardPage {
       this.#unsent = hasUnsentWork(this.#mirror.latest()) || hasUnsent(this.#outbox);
       this.#outbox = withoutAll(this.#outbox);
     }
-    this.#deps.showBanner(bannerOf(this.#status, this.#unsent));
+    this.#deps.showBanner(bannerOf(this.#status, this.#unsent, this.#language()));
     this.#updateView();
   }
 
@@ -364,9 +398,59 @@ class BoardPageController implements BoardPage {
       this.#deps.onActivity?.();
       return {};
     },
+    setting: (message) => this.#setting(message),
+    "open-settings": () => {
+      this.#deps.readingPanel?.close();
+      this.#settingsOpen = true;
+      this.#showSettings();
+      return {};
+    },
     "open-reference": (message) => this.#openReference(message),
     snapshot: () => this.#takeSnapshot("view"),
   };
+
+  // A toggle's value: applied to the board at once, then sent to board-host to be written as the
+  // user's setting. A key the project sets is refused here and by ask-core (AD-14). The value
+  // stays on this board whatever the write does (design decision 6).
+  setPresentation(setting: PresentationSetting): ViewReply {
+    return this.#setting({ type: "setting", ...setting });
+  }
+
+  closeSettings(): void {
+    if (!this.#settingsOpen) return;
+    this.#settingsOpen = false;
+    this.#settingsClosed += 1;
+    this.#deps.showSettings?.(undefined);
+    this.#updateView();
+  }
+
+  // The panel's rows for the settings and presentation in effect, while it is open.
+  #showSettings(): void {
+    const { settings, passedOn, document } = this.#model;
+    const { presentation } = passedOn;
+    if (!this.#settingsOpen || settings === undefined || presentation === undefined) return;
+    this.#deps.showSettings?.(
+      panelData(settings, presentation, languageOf(document), localeOf(document)),
+    );
+  }
+
+  #setting(message: ViewSetting): ViewReply {
+    const presentation = this.#model.passedOn.presentation;
+    if (presentation?.locked.includes(message.key)) {
+      return refusal(`${message.key} is set by the project file`);
+    }
+    const ended = this.#ended();
+    if (ended !== undefined) return refusal(ended);
+    if (presentation !== undefined) {
+      const next = { ...presentation, [message.key]: message.value };
+      this.#model = { ...this.#model, passedOn: { ...this.#model.passedOn, presentation: next } };
+      this.#deps.applyPresentation?.(next);
+      this.#updateView();
+      this.#showSettings();
+    }
+    const sent = this.#socket?.send({ version, ...message }) === true;
+    return { outcome: sent ? "sent" : "not-sent" };
+  }
 
   // A click on a reference or an excerpt's "Open in reading panel", read from the board document
   // the page holds: a web page opens in a new tab, a file in the reading panel (AD-8).
@@ -498,7 +582,7 @@ class BoardPageController implements BoardPage {
         this.#loading = false;
         this.#mayLoad = false;
         const reason = error instanceof Error ? error.message : String(error);
-        this.#deps.showLoadError(`The board could not be loaded: ${reason}`);
+        this.#deps.showLoadError(t(this.#language(), "board.loadError", { reason }));
         this.#deps.log("the view did not load", error);
       },
     );
@@ -578,7 +662,8 @@ class BoardPageController implements BoardPage {
   readonly #hostHandlers: HostHandlers = {
     board: (message) => {
       this.#model = withHostMessage(this.#model, message);
-      this.#deps.setTitle(tabTitle(message.document.title));
+      this.#deps.setLanguage(htmlLang(this.#language()));
+      this.#deps.setTitle(tabTitle(message.document.title, this.#language()));
     },
     state: (message) => this.#onState(message as LifecycleStateMessage),
     receipt: (message) => this.#keep(message),
@@ -596,6 +681,15 @@ class BoardPageController implements BoardPage {
     closed: () => this.#transition({ type: "ask-closed" }),
     origin: (message) => this.#keep(message),
     agent: (message) => this.#keep(message),
+    // Read before the board on each connect and after each write: the page applies the
+    // presentation to its own root at once and the view gets it with its next update, or in its
+    // boot data (settings-languages, design decision 10).
+    settings: (message) => {
+      this.#keep(message);
+      const { presentation } = this.#model.passedOn;
+      if (presentation !== undefined) this.#deps.applyPresentation?.(presentation);
+      this.#showSettings();
+    },
     "source-state": (message) => this.#deps.readingPanel?.sourceState(message),
     "editor-outcome": (message) => this.#deps.readingPanel?.editorOutcome(message),
     "snapshot-saved": (message) => this.#onSnapshotReply(message),

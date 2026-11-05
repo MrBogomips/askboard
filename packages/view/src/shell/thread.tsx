@@ -9,11 +9,10 @@
 
 import { FOLLOW_UP_MAX_CHARS, type ThreadEntry } from "@askboard/contract";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLanguage, useLocale, useStrings } from "../catalog/port.ts";
 import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, TEXT_FIELD } from "./styles.ts";
-import { AGENT_AUTHOR, isSendKey, messageCountOf, messagesLabel, timeOf } from "./thread-text.ts";
-
-const COMPOSER_LABEL = "Ask the agent a follow-up…";
+import { agentAuthor, isSendKey, messageCountOf, messagesLabel, timeOf } from "./thread-text.ts";
 
 /** A request to open a question's thread and show its latest reply, numbered so each runs once. */
 export type ThreadRequest = { readonly questionId: string; readonly n: number };
@@ -30,20 +29,23 @@ const Message = ({
   readonly when: string;
   readonly text: string;
   readonly agent: boolean;
-}) => (
-  <li
-    data-askboard-message={agent ? "agent" : "user"}
-    className={`flex flex-col gap-0.5 border-t border-border px-3 py-2 first:border-t-0 ${agent ? "bg-muted" : ""}`}
-  >
-    <span className="flex items-center gap-2 text-badge">
-      <span className="font-semibold text-foreground">{author}</span>
-      <time dateTime={when} className="text-muted-foreground">
-        {timeOf(when)}
-      </time>
-    </span>
-    <span className="whitespace-pre-wrap text-body text-foreground">{text}</span>
-  </li>
-);
+}) => {
+  const locale = useLocale();
+  return (
+    <li
+      data-askboard-message={agent ? "agent" : "user"}
+      className={`flex flex-col gap-0.5 border-t border-border px-md py-sm first:border-t-0 ${agent ? "bg-muted" : ""}`}
+    >
+      <span className="flex items-center gap-sm text-badge">
+        <span className="font-semibold text-foreground">{author}</span>
+        <time dateTime={when} className="text-muted-foreground">
+          {timeOf(when, locale)}
+        </time>
+      </span>
+      <span className="whitespace-pre-wrap text-body text-foreground">{text}</span>
+    </li>
+  );
+};
 
 export type ThreadProps = {
   readonly questionId: string;
@@ -98,14 +100,16 @@ export const Thread = ({
     else listRef.current?.lastElementChild?.scrollIntoView({ block: "nearest" });
   }, [focus]);
   const count = messageCountOf(thread);
+  const text = useStrings();
+  const language = useLanguage();
   const id = `${questionId}:thread`;
   const canSend = usable && !sending && composer !== "";
   if (readOnly && count === 0) return null;
   if (!open) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5">
-        <span className="text-control font-semibold text-foreground">Follow-up</span>
-        <span className="text-badge text-muted-foreground">{messagesLabel(count)}</span>
+      <div className="flex items-center gap-sm rounded-md border border-border px-md py-1.5">
+        <span className="text-control font-semibold text-foreground">{text("thread.title")}</span>
+        <span className="text-badge text-muted-foreground">{messagesLabel(count, language)}</span>
         <button
           ref={toggleRef}
           type="button"
@@ -117,7 +121,7 @@ export const Thread = ({
             setFocus(readOnly ? "latest" : "composer");
           }}
         >
-          {readOnly ? "Show follow-up" : "Ask a follow-up"}
+          {text(readOnly ? "thread.show" : "thread.ask")}
         </button>
       </div>
     );
@@ -125,12 +129,12 @@ export const Thread = ({
   return (
     <section
       id={id}
-      aria-label="Follow-up"
+      aria-label={text("thread.title")}
       className="flex flex-col rounded-md border border-border"
     >
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-        <span className="text-control font-semibold text-foreground">Follow-up</span>
-        <span className="text-badge text-muted-foreground">{messagesLabel(count)}</span>
+      <div className="flex items-center gap-sm border-b border-border px-md py-1.5">
+        <span className="text-control font-semibold text-foreground">{text("thread.title")}</span>
+        <span className="text-badge text-muted-foreground">{messagesLabel(count, language)}</span>
         <button
           type="button"
           className={`${BUTTON_LINK} ml-auto`}
@@ -141,7 +145,7 @@ export const Thread = ({
             setFocus("toggle");
           }}
         >
-          Collapse
+          {text("thread.collapse")}
         </button>
       </div>
       {count === 0 ? null : (
@@ -159,7 +163,7 @@ export const Thread = ({
                 // Replies are appended under their follow-up and never reordered.
                 // biome-ignore lint/suspicious/noArrayIndexKey: a reply has no ID of its own
                 key={`${entry.cursor}:${index}`}
-                author={AGENT_AUTHOR}
+                author={agentAuthor(language)}
                 when={reply.when}
                 text={reply.text}
                 agent
@@ -169,11 +173,11 @@ export const Thread = ({
         </ol>
       )}
       {readOnly ? null : (
-        <div className="flex items-end gap-2 border-t border-border p-2">
+        <div className="flex items-end gap-sm border-t border-border p-sm">
           <textarea
             ref={composerRef}
-            aria-label={COMPOSER_LABEL}
-            placeholder={COMPOSER_LABEL}
+            aria-label={text("thread.composer")}
+            placeholder={text("thread.composer")}
             value={composer}
             readOnly={!usable || sending}
             maxLength={FOLLOW_UP_MAX_CHARS}
@@ -187,7 +191,7 @@ export const Thread = ({
             className={TEXT_FIELD}
           />
           <button type="button" className={BUTTON_SECONDARY} disabled={!canSend} onClick={onSend}>
-            Send
+            {text("thread.send")}
           </button>
         </div>
       )}

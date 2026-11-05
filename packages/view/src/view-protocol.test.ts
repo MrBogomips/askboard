@@ -732,3 +732,89 @@ describe("the table of an update's optional fields (review M4, L10)", () => {
     }
   });
 });
+
+describe("the presentation in an update (settings-languages, task 8.2)", () => {
+  const presentation = {
+    theme: "light",
+    density: "comfortable",
+    contextPlacement: "beside",
+    locked: ["theme", "contextPlacement"],
+  } as const;
+
+  test("goes with the state and reads back", () => {
+    const update = { type: "state", state: waiting, presentation } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("an update whose presentation the view cannot apply is not an update", () => {
+    for (const wrong of [
+      { ...presentation, theme: "auto" },
+      { ...presentation, density: "tight" },
+      { ...presentation, contextPlacement: "left" },
+      { ...presentation, locked: ["language"] },
+      { ...presentation, locked: "theme" },
+      { theme: "dark" },
+      "dark",
+    ]) {
+      expect(
+        readViewUpdate({ type: "state", state: waiting, presentation: wrong }),
+      ).toBeUndefined();
+    }
+  });
+});
+
+describe("the settings panel closing in an update (settings-languages, task 8.4)", () => {
+  test("goes with the state as a count and reads back", () => {
+    const update = { type: "state", state: waiting, settingsClosed: 2 } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("a count that is not a whole number of one or more is not an update", () => {
+    for (const wrong of [0, -1, 1.5, "1"]) {
+      expect(
+        readViewUpdate({ type: "state", state: waiting, settingsClosed: wrong }),
+      ).toBeUndefined();
+    }
+  });
+});
+
+describe("the presentation messages the view sends (settings-languages, task 8.3)", () => {
+  test("a setting names one presentation key and a value its schema allows", () => {
+    for (const message of [
+      { type: "setting", key: "theme", value: "dark" },
+      { type: "setting", key: "theme", value: "system" },
+      { type: "setting", key: "density", value: "comfortable" },
+      { type: "setting", key: "contextPlacement", value: "inline" },
+    ] as const) {
+      expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    }
+  });
+
+  test("a setting for any other key, or with a value the key does not allow, is refused", () => {
+    for (const arguments_ of [
+      { key: "editor", value: "evil" },
+      { key: "askingRule", value: "none" },
+      { key: "defaultLanguage", value: "it-IT" },
+      { key: "theme", value: "comfortable" },
+      { key: "density", value: "dark" },
+      { key: "contextPlacement", value: "left" },
+      { key: "theme", value: 1 },
+      { key: "theme" },
+      { value: "dark" },
+      { key: "theme", value: "dark", extra: true },
+    ]) {
+      const read = readViewMessage({ name: `${VIEW_TOOL_PREFIX}setting`, arguments: arguments_ });
+      expect(read.ok).toBe(false);
+    }
+  });
+
+  test("opening the settings takes no arguments", () => {
+    const message = { type: "open-settings" } as const;
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    const refused = readViewMessage({
+      name: `${VIEW_TOOL_PREFIX}open-settings`,
+      arguments: { panel: "x" },
+    });
+    expect(refused.ok).toBe(false);
+  });
+});

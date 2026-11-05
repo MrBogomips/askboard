@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { configFiles } from "../src/config-files.ts";
 import { ensureProjectFolders } from "../src/project-folders.ts";
 
 // The project folders at a session's first ask (settings-languages design decision 13, open
@@ -147,5 +148,22 @@ describe("the project folders", () => {
 
   test("nothing is created without a project root", async () => {
     expect(await ensureProjectFolders(undefined)).toEqual({ kind: "no-project" });
+  });
+});
+
+describe("the adapter", () => {
+  test("creates the folders under the real path of CLAUDE_PROJECT_DIR", async () => {
+    const project = freshProject();
+    const linked = join(root, `linked-${count}`);
+    symlinkSync(project, linked);
+    const files = configFiles({ env: { CLAUDE_PROJECT_DIR: linked } });
+    expect(await files.ensureProjectFolders()).toMatchObject({ kind: "ready" });
+    expect(readFileSync(join(project, ".askboard/.gitignore"), "utf8")).toBe(GITIGNORE);
+    expect(lstatSync(linked).isSymbolicLink()).toBe(true);
+  });
+
+  test("creates nothing without CLAUDE_PROJECT_DIR", async () => {
+    const files = configFiles({ env: { HOME: freshProject() } });
+    expect(await files.ensureProjectFolders()).toEqual({ kind: "no-project" });
   });
 });

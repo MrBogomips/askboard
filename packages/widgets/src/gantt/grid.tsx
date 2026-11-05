@@ -11,8 +11,8 @@
 // read on its cells only, so that an editor or a panel inside a cell keeps its own
 // (`grid-keys.ts`).
 
-import type { GanttProps } from "@askboard/contract";
-import { questionTextId } from "@askboard/view/catalog";
+import type { GanttProps, Locale } from "@askboard/contract";
+import { questionTextId, useLocale } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
 import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing } from "./editing.ts";
@@ -67,6 +67,7 @@ export const cellText = (
   row: GanttRow,
   schedule: TaskSchedule | undefined,
   names: ReadonlyMap<string, string>,
+  locale: Locale = "en-US",
 ): string => {
   if (column === "task") return row.label;
   if (column === "dependencies") {
@@ -78,7 +79,7 @@ export const cellText = (
     const days = row.duration ?? scheduled?.duration;
     return days === undefined ? "" : String(days);
   }
-  return scheduled === undefined ? "" : gridDate(scheduled.startDate);
+  return scheduled === undefined ? "" : gridDate(scheduled.startDate, locale);
 };
 
 const HeaderRow = () => (
@@ -129,6 +130,7 @@ const RowPanel = ({ itemId, row, rows, panels, current, editable }: TaskRowProps
 };
 
 const TaskRow = (props: TaskRowProps) => {
+  const locale = useLocale();
   const { itemId, row, schedule, names, stop, editing, mark } = props;
   const edited = props.editable && editing.editing?.taskId === row.id ? editing.editing : undefined;
   const added = mark?.added === true;
@@ -156,7 +158,7 @@ const TaskRow = (props: TaskRowProps) => {
               onCancel={editing.cancel}
             />
           ) : (
-            <span className="block truncate">{cellText(column, row, schedule, names)}</span>
+            <span className="block truncate">{cellText(column, row, schedule, names, locale)}</span>
           )}
           {column === "dependencies" ? <RowPanel {...props} /> : null}
         </td>

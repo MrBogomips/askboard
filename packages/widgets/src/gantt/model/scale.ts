@@ -1,10 +1,11 @@
 // The Gantt's time scale (design decision 8): calendar days, weekends unmarked (proposal, open
-// question 8), at a width per zoom; the axis ticks and their en-US labels; and the conversion
+// question 8), at a width per zoom; the axis ticks and their labels in the ask's locale; and the conversion
 // between a day and its x position from the axis's origin. A plan zooms; a standalone Gantt shows
 // the week scale (proposal, open question 5). Day arithmetic is on day numbers, with no `Date`.
 // A start up to 9999-12-31 is valid, so an axis may span millennia: it draws at most about 2,000
 // ticks, and finds them by counting its days, Mondays or months, never by walking them.
 
+import { formatAxisLabel, type Locale } from "@askboard/contract";
 import { calendarDay, dateOfDay, dayNumber } from "./date.ts";
 
 export const ZOOMS = Object.freeze(["day", "week", "month"] as const);
@@ -38,12 +39,12 @@ export const xOf = (date: string, origin: string, zoom: Zoom): number =>
 export const dateAt = (x: number, origin: string, zoom: Zoom): string =>
   dateOfDay(dayNumber(origin) + Math.round(x / PIXELS_PER_DAY[zoom]));
 
-/** A tick's label by zoom: `Mon 2` each day, `Nov 2` each Monday, `Nov 2026` each month. */
-const label = (date: string, zoom: Zoom): string => {
-  const { year, day, monthName, weekdayName } = calendarDay(date);
-  if (zoom === "day") return `${weekdayName} ${day}`;
-  return zoom === "week" ? `${monthName} ${day}` : `${monthName} ${year}`;
-};
+/**
+ * A tick's label by zoom, in the locale: `Mon 2` each day, `Nov 2` each Monday and `Nov 2026` each
+ * month in en-US; `lun 2`, `2 nov` and `nov 2026` in it-IT.
+ */
+const label = (date: string, zoom: Zoom, locale: Locale): string =>
+  formatAxisLabel(date, zoom, locale);
 
 /** An axis's ticks before thinning: how many, and the day number of each by its index. */
 type TickDays = { readonly count: number; readonly dayOf: (index: number) => number };
@@ -79,13 +80,18 @@ const tickDays = (origin: number, end: number, zoom: Zoom): TickDays => {
  * The ticks of an axis from its origin to its last day, both included: every tick of its zoom, or
  * over a span that would draw more than `MAX_TICKS`, every n-th from the first.
  */
-export const ticks = (origin: string, last: string, zoom: Zoom): readonly Tick[] => {
+export const ticks = (
+  origin: string,
+  last: string,
+  zoom: Zoom,
+  locale: Locale = "en-US",
+): readonly Tick[] => {
   const { count, dayOf } = tickDays(dayNumber(origin), dayNumber(last), zoom);
   const every = Math.max(1, Math.ceil(count / MAX_TICKS));
   const kept = Math.max(0, Math.ceil(count / every));
   const out = Array.from({ length: kept }, (_, index) => {
     const date = dateOfDay(dayOf(index * every));
-    return Object.freeze({ date, x: xOf(date, origin, zoom), label: label(date, zoom) });
+    return Object.freeze({ date, x: xOf(date, origin, zoom), label: label(date, zoom, locale) });
   });
   return Object.freeze(out);
 };

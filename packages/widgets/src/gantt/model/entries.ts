@@ -1,5 +1,5 @@
 // What the grid's editors do with what the user types (design decision 8; view spec, "Gantt
-// editing in the grid", "Gantt durations"): a start read by the Gantt's own en-US date parser and
+// editing in the grid", "Gantt durations"): a start read by the contract's date entry in the ask's locale and
 // refused when it is no day, not a working day, or before the earliest start its predecessors
 // allow; an empty start clears the request, and the earliest start itself holds none, as a drop
 // there does, except that the day the agent's own request schedules the task on gives that request
@@ -10,9 +10,14 @@
 // ECMAScript: the working-day calendar is `compute`'s.
 
 import { firstWorkingDateFrom, isWorkingDate } from "@askboard/compute";
-import { GANTT_MAX_DURATION, GANTT_MIN_DURATION, type GanttProps } from "@askboard/contract";
+import {
+  GANTT_MAX_DURATION,
+  GANTT_MIN_DURATION,
+  type GanttProps,
+  type Locale,
+} from "@askboard/contract";
 import { numberEcho, parseNumber } from "../../shared/number.ts";
-import { echoDate, gridDate, parseDateEntry } from "./date.ts";
+import { type DateFormat, EN_US_FORMAT, echoDate, gridDate, parseDateEntry } from "./date.ts";
 import { clearStart, requestStart, setDuration } from "./edits.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttColumn, type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
@@ -76,19 +81,23 @@ export const startEntry = <V extends GanttProps>(
   taskId: string,
   schedule: TaskSchedule | undefined,
   text: string,
+  format: DateFormat = EN_US_FORMAT,
 ): Entry<V> => {
-  const parsed = parseDateEntry(text);
+  const { locale } = format;
+  const parsed = parseDateEntry(text, format);
   if (parsed.kind === "refused") return refused(parsed.reason);
   if (parsed.kind === "empty") return accepted(clearStart(value, sent, taskId));
   const day = parsed.date;
   if (!isWorkingDate(day)) {
-    return refused(`${gridDate(day)} is not a working day: pick a day from Monday to Friday.`);
+    return refused(
+      `${gridDate(day, locale)} is not a working day: pick a day from Monday to Friday.`,
+    );
   }
   if (schedule?.kind !== "scheduled") return accepted(requestStart(value, sent, taskId, day));
   // Full-dates of four-digit years compare as their days do.
   if (day < schedule.earliestDate) {
     return refused(
-      `The earliest start its predecessors allow is ${gridDate(schedule.earliestDate)}.`,
+      `The earliest start its predecessors allow is ${gridDate(schedule.earliestDate, locale)}.`,
     );
   }
   if (day === schedule.startDate) return accepted(value);
@@ -101,9 +110,10 @@ export const durationEntry = (
   sent: GanttProps,
   taskId: string,
   text: string,
+  format: DateFormat = EN_US_FORMAT,
 ): Entry => {
   if (!isOwnGantt(value) || !isOwnGantt(sent)) return refused(PLAN_DURATION);
-  const parsed = parseNumber(text);
+  const parsed = parseNumber(text, format.locale, format.language);
   if (parsed.kind === "refused") return refused(parsed.reason);
   if (parsed.kind === "empty") return refused(WHOLE);
   const days = parsed.value;
@@ -118,18 +128,23 @@ export const entryText = (
   column: EditedColumn,
   row: GanttRow,
   schedule: TaskSchedule | undefined,
+  locale: Locale = "en-US",
 ): string => {
   if (column === "duration") return row.duration === undefined ? "" : String(row.duration);
-  if (schedule?.kind === "scheduled") return gridDate(schedule.startDate);
-  return row.start === undefined ? "" : gridDate(row.start);
+  if (schedule?.kind === "scheduled") return gridDate(schedule.startDate, locale);
+  return row.start === undefined ? "" : gridDate(row.start, locale);
 };
 
 /** The echo beside an editor: the day or the number it reads, or nothing. */
-export const entryEcho = (column: EditedColumn, text: string): string | undefined => {
+export const entryEcho = (
+  column: EditedColumn,
+  text: string,
+  format: DateFormat = EN_US_FORMAT,
+): string | undefined => {
   if (column === "start") {
-    const parsed = parseDateEntry(text);
-    return parsed.kind === "date" ? echoDate(parsed.date) : undefined;
+    const parsed = parseDateEntry(text, format);
+    return parsed.kind === "date" ? echoDate(parsed.date, format.locale) : undefined;
   }
-  const parsed = parseNumber(text);
-  return parsed.kind === "number" ? numberEcho(parsed.value) : undefined;
+  const parsed = parseNumber(text, format.locale, format.language);
+  return parsed.kind === "number" ? numberEcho(parsed.value, format.locale) : undefined;
 };

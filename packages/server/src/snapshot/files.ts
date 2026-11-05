@@ -25,8 +25,11 @@ export type PrepareFolders = (projectRoot: string) => Promise<FolderResult>;
 export type SnapshotFilesOptions = {
   /** The real path of `CLAUDE_PROJECT_DIR`, or none without it (AD-12). */
   readonly projectRoot: string | undefined;
-  /** The Snapshot folder, relative to the project root: `.askboard/snapshots` by default. */
-  readonly folder: string;
+  /**
+   * The Snapshot folder, relative to the project root: `.askboard/snapshots` by default. A function
+   * is read at each Snapshot, for the folder the configuration has in effect (settings-languages).
+   */
+  readonly folder: string | (() => string);
   readonly prepareFolders: PrepareFolders;
   readonly randomness: Randomness;
   readonly report: ReportLine;
@@ -75,7 +78,8 @@ const preparedFolder = async (
 ): Promise<string | SnapshotWriteError> => {
   const { projectRoot } = options;
   if (projectRoot === undefined) return SnapshotWriteError.noProjectRoot();
-  const folder = resolve(projectRoot, options.folder);
+  const { folder: named } = options;
+  const folder = resolve(projectRoot, typeof named === "function" ? named() : named);
   const prepared = await options
     .prepareFolders(projectRoot)
     .catch(

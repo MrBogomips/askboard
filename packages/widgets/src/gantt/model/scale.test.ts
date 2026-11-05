@@ -209,3 +209,20 @@ describe("the axis of a far plan (design decision 8)", () => {
     },
   );
 });
+
+describe("the axis in the ask's locale (settings-languages, task 9.2)", () => {
+  test("labels the ticks in Italian: lun 2, 2 nov and nov 2026", () => {
+    expect(ticks(ORIGIN, "2026-11-03", "day", "it-IT").map((tick) => tick.label)).toEqual([
+      "lun 2",
+      "mar 3",
+    ]);
+    expect(ticks(ORIGIN, "2026-11-10", "week", "it-IT").map((tick) => tick.label)).toEqual([
+      "2 nov",
+      "9 nov",
+    ]);
+    expect(ticks("2026-11-01", "2026-12-05", "month", "it-IT").map((tick) => tick.label)).toEqual([
+      "nov 2026",
+      "dic 2026",
+    ]);
+  });
+});

@@ -22,7 +22,15 @@ import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
 import { FrameTransport } from "../frame-transport.ts";
 import { provide, shared } from "../shared-modules.ts";
-import { applyTheme, DARK_QUERY, followSystemTheme, systemTheme, type Theme } from "../theme.ts";
+import {
+  applyDensity,
+  applyTheme,
+  DARK_QUERY,
+  followSystemTheme,
+  resolveTheme,
+  systemTheme,
+  type Theme,
+} from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createRevisions, type KeptChoices } from "./agent-change.ts";
@@ -45,6 +53,7 @@ import {
   type QuestionWork,
   restoreDraft,
 } from "./board-draft.ts";
+import { BoardLanguage } from "./board-language.tsx";
 import { nextAfterRemoval, presentationOf } from "./board-view.ts";
 import { dropWork } from "./card-acts.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
@@ -53,6 +62,7 @@ import { createDraftStore, type DraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
 import { snapshotTitleOf } from "./opened-snapshot.ts";
+import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
@@ -164,12 +174,15 @@ const boot = (): void => {
   if (opened !== undefined) document.title = snapshotTitleOf(data.document.title);
   const setTheme = (theme: Theme) => applyTheme(document.documentElement, theme);
   const scheme = window.matchMedia(DARK_QUERY);
+  // The presentation the board page had at boot sets theme and density before the first render.
+  const presentation = data.presentation;
+  applyDensity(document.documentElement, presentation?.density ?? "compact");
+  if (hosted) setTheme(resolveTheme(presentation?.theme ?? "system", scheme.matches));
   // An opened Snapshot's Theme control picks the system's theme or one fixed, and saves nothing.
   const choice = createStore<ThemeChoice>("system");
   const themeOf = (system: Theme): Theme =>
     choice.get() === "system" ? system : (choice.get() as Theme);
-  if (hosted) setTheme(systemTheme(scheme));
-  else followSystemTheme(scheme, (system) => setTheme(themeOf(system)));
+  if (!hosted) followSystemTheme(scheme, (system) => setTheme(themeOf(system)));
   choice.subscribe(() => setTheme(themeOf(systemTheme(scheme))));
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
@@ -198,6 +211,9 @@ const boot = (): void => {
   let restored = 0;
   let closedPanel = 0;
   channel.onUpdate((update) => {
+    if (update.presentation !== undefined) {
+      applyDensity(window.document.documentElement, update.presentation.density);
+    }
     const before = view.get().document;
     const document = update.document ?? before;
     if (update.document !== undefined) {
@@ -258,15 +274,27 @@ const boot = (): void => {
     hosted,
     openReference: (itemId) => report({ type: "open-reference", itemId, inset: measureInset() }),
   };
+  const controls = startPresentation(data, channel, {
+    hosted,
+    report,
+  });
+  // The presentation's placement is the board's default; a question's own control overrides it.
+  const followPlacement = () =>
+    board.setDefaultPlacement(controls.presentation.get().contextPlacement);
+  followPlacement();
+  controls.presentation.subscribe(followPlacement);
   const extras: BoardExtras = {
     header: startPushExtras(data, channel, hosted, report),
+    presentation: controls,
     snapshot: createSnapshotControl(channel),
     ...(opened === undefined ? {} : { theme: choice }),
   };
   createRoot(root).render(
-    <port.HostContext.Provider value={host}>
-      <Board view={view} context={context} extras={extras} />
-    </port.HostContext.Provider>,
+    <BoardLanguage view={view}>
+      <port.HostContext.Provider value={host}>
+        <Board view={view} context={context} extras={extras} />
+      </port.HostContext.Provider>
+    </BoardLanguage>,
   );
 };
 

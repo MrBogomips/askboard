@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Board, BoardExtras } from "./board.tsx";
 import { NO_CHANNEL } from "./channel.ts";
 import { type HeaderData, headerDataOf } from "./header-data.ts";
+import { DEFAULT_PRESENTATION, type PresentationControls } from "./presentation-controls.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore } from "./store.ts";
 
@@ -40,7 +41,17 @@ describe("the header's store on the board (review M5)", () => {
   test("is a member of the shell's extras, the one prop the board takes beside E3's", () => {
     type Props = Parameters<typeof Board>[0];
     const header = createStore<HeaderData>({ agent: "working" });
-    const extras: BoardExtras = { header, snapshot: createSnapshotControl(NO_CHANNEL) };
+    const presentation: PresentationControls = {
+      presentation: createStore(DEFAULT_PRESENTATION),
+      hosted: false,
+      set: () => undefined,
+      openSettings: () => undefined,
+    };
+    const extras: BoardExtras = {
+      header,
+      presentation,
+      snapshot: createSnapshotControl(NO_CHANNEL),
+    };
     const props: Pick<Props, "extras"> = { extras };
     // @ts-expect-error: the board takes no header of its own, only its extras
     const own: Pick<Props, "header"> = { header };

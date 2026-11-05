@@ -7,7 +7,7 @@
 
 import { realpathSync, statSync } from "node:fs";
 import { basename, isAbsolute } from "node:path";
-import { BACKGROUND_THRESHOLD_VARIABLE } from "@askboard/contract";
+import { type AskingRule, BACKGROUND_THRESHOLD_VARIABLE } from "@askboard/contract";
 import { type AskCore, backgroundThreshold, type CorePorts } from "@askboard/core";
 import {
   createLocalApi,
@@ -80,6 +80,11 @@ export const composePush = (
     readonly core: () => AskCore;
     readonly diagnostics: Diagnostics;
     readonly reportAs: (what: string) => (error: unknown) => void;
+    /**
+     * The asking rule in effect, which the local API answers at `/v1/rule`: ask-core's, from the
+     * configuration (settings-languages, design decision 12); `none` without it.
+     */
+    readonly rule?: () => AskingRule;
   },
 ): PushComposition => {
   const { env, platform } = options;
@@ -131,6 +136,7 @@ export const composePush = (
     showable: async () => (await showing.check()).showable,
     report: reportAs("the local API failed"),
     diagnose,
+    ...(context.rule === undefined ? {} : { rule: context.rule }),
   });
   return {
     ports: {

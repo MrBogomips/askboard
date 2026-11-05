@@ -20,6 +20,7 @@ import {
   componentFor,
   type DerivedValues,
   type ItemProps,
+  useStrings,
 } from "../catalog/port.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
@@ -38,14 +39,17 @@ const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /** The error state of an item that failed. The wording is not recorded in EXPERIENCE.md. */
-export const ItemError = () => (
-  <p
-    role="alert"
-    className="rounded-md border border-destructive p-2 text-body text-destructive-text"
-  >
-    This item could not be shown.
-  </p>
-);
+export const ItemError = () => {
+  const text = useStrings();
+  return (
+    <p
+      role="alert"
+      className="rounded-md border border-destructive p-sm text-body text-destructive-text"
+    >
+      {text("item.error")}
+    </p>
+  );
+};
 
 type BoundaryProps = { readonly onError: (error: unknown) => void; readonly children: ReactNode };
 
@@ -86,12 +90,13 @@ const ItemFrame = ({
 }) => {
   const status = useSyncExternalStore(tracker.subscribe, () => tracker.itemStatus(itemId));
   const pending = status === "pending";
+  const text = useStrings();
   return (
     <div data-askboard-item={itemId} className="relative">
       <div className={pending ? "invisible" : undefined}>{children}</div>
       {pending ? (
-        <div className="absolute inset-0 flex items-start rounded-md bg-muted p-2 text-body text-muted-foreground">
-          Loading
+        <div className="absolute inset-0 flex items-start rounded-md bg-muted p-sm text-body text-muted-foreground">
+          {text("item.loading")}
         </div>
       ) : null}
     </div>
