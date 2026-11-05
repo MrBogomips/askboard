@@ -5,6 +5,7 @@
 // was refused, the destructive border, the reason under the row naming it. Enter commits, Escape
 // restores, and leaving the field commits; every other key is the field's.
 
+import { useLanguage, useLocale } from "@askboard/view/catalog";
 import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
 import type { Editing } from "./editing.ts";
 import { keyPressOf } from "./key-press.ts";
@@ -56,7 +57,9 @@ export const CellEditor = ({
     else if (action.kind === "cancel") onCancel();
   };
   const refused = editing.refusal !== undefined;
-  const echo = entryEcho(editing.column, editing.text);
+  const locale = useLocale();
+  const language = useLanguage();
+  const echo = entryEcho(editing.column, editing.text, { locale, language });
   return (
     <>
       <input

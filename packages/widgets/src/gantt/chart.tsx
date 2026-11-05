@@ -9,6 +9,7 @@
 // rebuilt. Geometry is written as SVG attributes and colours and widths as classes built from
 // DESIGN.md's tokens: no `style` attribute (AD-8).
 
+import { useLocale } from "@askboard/view/catalog";
 import { memo, useCallback, useMemo } from "react";
 import { type BarDrag, useBarDrag } from "./bar-drag.ts";
 import {
@@ -78,42 +79,50 @@ type AxisProps = {
 };
 
 /** The axis band with its labels, a gridline per tick, and a line under each row. */
-const Axis = memo(({ span, zoom, width, layout }: AxisProps) => (
-  <g>
-    <rect x={0} y={0} width={width} height={AXIS_HEIGHT} className="fill-muted" />
-    <line
-      x1={0}
-      y1={AXIS_HEIGHT - 0.5}
-      x2={width}
-      y2={AXIS_HEIGHT - 0.5}
-      className="stroke-border stroke-1"
-    />
-    {layout.boxes.map((box) => (
+const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
+  const locale = useLocale();
+  return (
+    <g>
+      <rect x={0} y={0} width={width} height={AXIS_HEIGHT} className="fill-muted" />
       <line
-        key={box.top}
         x1={0}
-        y1={box.top + box.height - 0.5}
+        y1={AXIS_HEIGHT - 0.5}
         x2={width}
-        y2={box.top + box.height - 0.5}
+        y2={AXIS_HEIGHT - 0.5}
         className="stroke-border stroke-1"
       />
-    ))}
-    {ticks(span.origin, span.last, zoom).map((tick) => (
-      <g key={tick.date}>
+      {layout.boxes.map((box) => (
         <line
-          x1={tick.x + 0.5}
-          y1={0}
-          x2={tick.x + 0.5}
-          y2={layout.height}
+          key={box.top}
+          x1={0}
+          y1={box.top + box.height - 0.5}
+          x2={width}
+          y2={box.top + box.height - 0.5}
           className="stroke-border stroke-1"
         />
-        <text data-gantt-tick="" x={tick.x + 6} y={20} className="fill-muted-foreground text-badge">
-          {tick.label}
-        </text>
-      </g>
-    ))}
-  </g>
-));
+      ))}
+      {ticks(span.origin, span.last, zoom, locale).map((tick) => (
+        <g key={tick.date}>
+          <line
+            x1={tick.x + 0.5}
+            y1={0}
+            x2={tick.x + 0.5}
+            y2={layout.height}
+            className="stroke-border stroke-1"
+          />
+          <text
+            data-gantt-tick=""
+            x={tick.x + 6}
+            y={20}
+            className="fill-muted-foreground text-badge"
+          >
+            {tick.label}
+          </text>
+        </g>
+      ))}
+    </g>
+  );
+});
 
 const ArrowPath = memo(({ itemId, arrow }: { readonly itemId: string; readonly arrow: Arrow }) => (
   <path
