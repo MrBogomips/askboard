@@ -341,7 +341,6 @@ export {
   validateSessionFile,
 } from "./push/validate.ts";
 
-<<<<<<< HEAD
 // Molecules (molecules): the reference and definition validators.
 
 // Molecules (molecules): the reference and definition validators, and a reference's data validator.
@@ -362,9 +361,9 @@ export { elementShapeOf, type WidgetOrigin, widgetItemProblems } from "./widgets
 export { contextDocumentProblems } from "./context/document.ts";
 
 // Snapshots (E7, snapshot design decision 2): a Snapshot's data block.
+
 =======
 // Snapshots (E7, snapshot design decision 2): a Snapshot's data block, and the snapshot request.
->>>>>>> 1ffc696 (feat(contract): the snapshot tool's definition, request, result and typed result)
 
 export { validateSnapshotData } from "./schemas/snapshot-data/validate.ts";
 export { validateSnapshotRequest } from "./snapshot/request.ts";

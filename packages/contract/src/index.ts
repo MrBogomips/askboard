@@ -489,12 +489,9 @@ export type {
 // Snapshots (E7, snapshot design decision 2): the Snapshot data set, the file name and the JSON
 // blocks' element IDs.
 
+
 // Snapshots (E7, snapshot design decision 2): the Snapshot data set, the snapshot tool's envelopes,
-<<<<<<< HEAD
-// the file name and the JSON blocks' element IDs.
-=======
 // the board protocol's Snapshot messages, the file name and the JSON blocks' element IDs.
->>>>>>> a1d558f (feat(contract): the board protocol's Snapshot request and replies)
 
 export type {
   SnapshotCommand,
