@@ -54,13 +54,13 @@ export const userConfigPath = (env: Environment): string | undefined => {
 
 /**
  * Both files: the user file, and the project file under the real path of `CLAUDE_PROJECT_DIR`,
- * none without it (AD-12). A project folder that cannot be resolved keeps its absolute path, so its
+ * none without it or with a relative one (AD-12). A project folder that cannot be resolved keeps its absolute path, so its
  * file reads as absent and creating its folders fails.
  */
 export const resolveConfigPaths = async (env: Environment): Promise<ConfigPaths> => {
   const user = userConfigPath(env);
   const named = env.CLAUDE_PROJECT_DIR;
-  if (named === undefined || named === "") return user === undefined ? {} : { user };
+  if (named === undefined || !isAbsolute(named)) return user === undefined ? {} : { user };
   const projectRoot = await realpath(named).catch(() => resolve(named));
   const project = join(projectRoot, PROJECT_CONFIG_FILE);
   return user === undefined ? { projectRoot, project } : { user, projectRoot, project };

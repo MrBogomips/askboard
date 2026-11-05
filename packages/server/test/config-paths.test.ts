@@ -62,8 +62,12 @@ describe("the project file", () => {
     expect(paths.user).toBe(join(home, ".config/askboard/config.json"));
   });
 
-  test("is none without CLAUDE_PROJECT_DIR, or with it empty", async () => {
-    for (const env of [{ HOME: home }, { HOME: home, CLAUDE_PROJECT_DIR: "" }]) {
+  test("is none without CLAUDE_PROJECT_DIR, or with it empty or relative (AD-12)", async () => {
+    for (const env of [
+      { HOME: home },
+      { HOME: home, CLAUDE_PROJECT_DIR: "" },
+      { HOME: home, CLAUDE_PROJECT_DIR: "project" },
+    ]) {
       const paths = await resolveConfigPaths(env);
       expect(paths).toEqual({ user: join(home, ".config/askboard/config.json") });
     }
