@@ -48,6 +48,8 @@ import { dropWork } from "./card-acts.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
+import { focusOpener } from "./focus-opener.ts";
+import { measureInset } from "./measure-inset.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createStore, type Store } from "./store.ts";
@@ -178,6 +180,7 @@ const boot = (): void => {
     onFailed: (_questionId, itemId, error) => report({ type: "item-error", itemId, error }),
   });
   let restored = 0;
+  let closedPanel = 0;
   channel.onUpdate((update) => {
     const before = view.get().document;
     const document = update.document ?? before;
@@ -189,6 +192,10 @@ const boot = (): void => {
     }
     view.set({ document, state: update.state, lock: update.lock, connection: update.connection });
     attention.stateChanged(update.state);
+    if (update.panelClosed !== undefined && update.panelClosed.id > closedPanel) {
+      closedPanel = update.panelClosed.id;
+      focusOpener(update.panelClosed.itemId);
+    }
     if (update.restore !== undefined && update.restore.id > restored) {
       restored = update.restore.id;
       restoreDraft(update.restore.record, document, update.state, draft, board);
@@ -229,11 +236,16 @@ const boot = (): void => {
     boardContent: createBoardContent(() => view.get()),
     derived: createDerivedStore(),
   };
+  // What a component asks of the board page: a reference opened by its item, never by its target.
+  const host: port.ViewHost = {
+    hosted,
+    openReference: (itemId) => report({ type: "open-reference", itemId, inset: measureInset() }),
+  };
   const extras: BoardExtras = { header: startPushExtras(data, channel, hosted, report) };
   createRoot(root).render(
-    <port.HostedContext.Provider value={hosted}>
+    <port.HostContext.Provider value={host}>
       <Board view={view} context={context} extras={extras} />
-    </port.HostedContext.Provider>,
+    </port.HostContext.Provider>,
   );
 };
 

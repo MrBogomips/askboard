@@ -1,13 +1,14 @@
 // The reference (excerpts, design decision 6; DESIGN.md, Reference; view spec, "References open in
 // one click"): a bordered chip on two lines, the kind label (FILE, GITHUB, WEB) and the path or
 // title, then the hint, the external-link mark only on a reference that opens in the browser. It is
-// a button, so a click or Enter will open it; the open-reference message it sends joins it in task
-// 6.5. With no parent host, the Snapshot look (task 6.4; EXPERIENCE, Snapshots): a FILE reference
-// is text, "not available in a Snapshot", opening nothing, and a web reference is a link that
-// opens in a new tab only on a click, with `noopener` and `noreferrer`.
+// a button: a click or Enter sends `open-reference` naming its item, and the board page opens it
+// from its own board document (task 6.5). With no parent host, the Snapshot look (task 6.4;
+// EXPERIENCE, Snapshots): a FILE reference is text, "not available in a Snapshot", opening
+// nothing, and a web reference is a link that opens in a new tab only on a click, with `noopener`
+// and `noreferrer`.
 
 import type { ItemProps } from "../port.ts";
-import { useHosted, useReadyAfterLayout } from "../port.ts";
+import { useHosted, useOpenReference, useReadyAfterLayout } from "../port.ts";
 import { HINT, LABEL, PATH, REFERENCE, REFERENCE_ROW, REFERENCE_STATIC } from "./classes.ts";
 import { Marked } from "./marked.tsx";
 import { type ReferenceView, referenceOf } from "./props.ts";
@@ -67,8 +68,12 @@ const SnapshotLink = ({
   </a>
 );
 
-export const Reference = ({ item, ready }: ItemProps<{ readonly props: unknown }>) => {
+export const Reference = ({
+  item,
+  ready,
+}: ItemProps<{ readonly id: string; readonly props: unknown }>) => {
   const hosted = useHosted();
+  const openReference = useOpenReference();
   useReadyAfterLayout(ready);
   const reference = referenceOf(item.props);
   if (!hosted) {
@@ -77,7 +82,13 @@ export const Reference = ({ item, ready }: ItemProps<{ readonly props: unknown }
     return <SnapshotFile reference={reference} />;
   }
   return (
-    <button type="button" data-context="reference" title={reference.target} className={REFERENCE}>
+    <button
+      type="button"
+      data-context="reference"
+      title={reference.target}
+      className={REFERENCE}
+      onClick={() => openReference(item.id)}
+    >
       <Row reference={reference} />
       <Hint reference={reference} />
     </button>

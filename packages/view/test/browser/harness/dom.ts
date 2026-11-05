@@ -22,7 +22,7 @@
 
 import type { Frame, FrameLocator, Locator, Page } from "playwright";
 
-export const VIEW_FRAME = "iframe[sandbox]";
+export const VIEW_FRAME = 'iframe[sandbox="allow-scripts"]';
 
 export type Board = {
   readonly page: Page;

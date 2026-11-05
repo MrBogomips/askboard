@@ -134,13 +134,29 @@ export type ViewDraft = { readonly type: "draft"; readonly record: DraftRecord }
  */
 export type ViewActivity = { readonly type: "activity" };
 
+/**
+ * The user clicks a reference, or an excerpt's "Open in reading panel" (excerpts, design decisions
+ * 6 and 7): the message names the item and the heights of the view's header and bottom bar, so that
+ * the reading panel sits between them. The board page reads the URL or pointer from the board
+ * document it holds, never from the message (AD-8).
+ */
+export type ViewOpenReference = {
+  readonly type: "open-reference";
+  readonly itemId: string;
+  readonly inset: ReferenceInset;
+};
+
+/** The view's header and bottom bar heights in CSS pixels: where the reading panel may sit. */
+export type ReferenceInset = { readonly top: number; readonly bottom: number };
+
 export type ViewMessage =
   | ViewAnswer
   | ViewReady
   | ViewItemError
   | ViewActs
   | ViewDraft
-  | ViewActivity;
+  | ViewActivity
+  | ViewOpenReference;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -185,6 +201,12 @@ export type SettledAct = {
 /** A draft record to restore, numbered so that the view restores each once. */
 export type DraftRestore = { readonly id: number; readonly record: DraftRecord };
 
+/**
+ * The reading panel was closed by the user: the view focuses the item that opened it (excerpts,
+ * design decision 6; EXPERIENCE, Accessibility Floor). Numbered, so that the view acts on each once.
+ */
+export type PanelClosed = { readonly id: number; readonly itemId: string };
+
 /** Who asked and where, as the board page passes it on: the origin message's content (FR-24). */
 export type HeaderOrigin = Omit<OriginMessage, "version" | "type">;
 
@@ -206,6 +228,7 @@ export type ViewUpdate = {
   readonly pending?: readonly PendingAct[];
   readonly settled?: readonly SettledAct[];
   readonly restore?: DraftRestore;
+  readonly panelClosed?: PanelClosed;
   readonly origin?: HeaderOrigin;
   readonly agent?: AgentStatus;
 };
@@ -422,6 +445,20 @@ const draftRecord: FieldCheck = (value) =>
     ? undefined
     : "is not a draft record: a delivery mode and the questions' work";
 
+/** The most a height can be: a bound, so that no message names a panel off any screen. */
+export const INSET_MAX = 10_000;
+
+const inset: FieldCheck = (value) => {
+  const bound = (height: unknown) =>
+    typeof height === "number" && Number.isFinite(height) && height >= 0 && height <= INSET_MAX;
+  return isRecord(value) &&
+    Object.keys(value).length === 2 &&
+    bound(value.top) &&
+    bound(value.bottom)
+    ? undefined
+    : `is not the header's and the bottom bar's heights, "top" and "bottom", each from 0 to ${INSET_MAX}`;
+};
+
 // Each message type's fields; a call's arguments hold only these, and all but `someOf`'s and
 // `optional`'s.
 const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
@@ -431,6 +468,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   act: { checks: { acts } },
   draft: { checks: { record: draftRecord } },
   activity: { checks: {} },
+  "open-reference": { checks: { itemId, inset } },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({
@@ -582,6 +620,13 @@ const isRestore = (value: unknown): value is DraftRestore =>
   (value.id as number) >= 1 &&
   draftRecord(value.record) === undefined;
 
+const isPanelClosed = (value: unknown): value is PanelClosed =>
+  isRecord(value) &&
+  Number.isInteger(value.id) &&
+  (value.id as number) >= 1 &&
+  typeof value.itemId === "string" &&
+  ID.test(value.itemId);
+
 const listOf =
   <T>(is: (value: unknown) => value is T) =>
   (value: unknown): value is readonly T[] =>
@@ -627,6 +672,7 @@ export const UPDATE_FIELDS = {
   pending: { check: listOf(isPendingAct) },
   settled: { check: listOf(isSettledAct) },
   restore: { check: isRestore },
+  panelClosed: { check: isPanelClosed },
   origin: { check: isHeaderOrigin, atBoot: true },
   agent: { check: isAgentStatus, atBoot: true },
 } as const satisfies UpdateFields;

@@ -6,6 +6,7 @@
 import {
   type AgentStatusMessage,
   BOARD_PROTOCOL_VERSION,
+  type ContextHostMessage,
   type LifecycleHostMessage,
   type OriginMessage,
   unsupportedVersion,
@@ -17,8 +18,15 @@ import { hostMessageSchemas } from "./validators.ts";
 // The set as `unsupportedVersion` names it; the set itself would bring its schemas into the page.
 const BOARD_PROTOCOL = { title: "board protocol", version: BOARD_PROTOCOL_VERSION };
 
-/** Every message `board-host` sends a board: protocol 1.1's, and push delivery's origin and agent. */
-export type BoardHostMessage = LifecycleHostMessage | OriginMessage | AgentStatusMessage;
+/**
+ * Every message `board-host` sends a board: protocol 1.1's, push delivery's origin and agent, and
+ * the reading panel's source state and editor outcome (excerpts).
+ */
+export type BoardHostMessage =
+  | LifecycleHostMessage
+  | OriginMessage
+  | AgentStatusMessage
+  | ContextHostMessage;
 
 const refused = (path: string, message: string): Checked<BoardHostMessage> => ({
   ok: false,

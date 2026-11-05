@@ -86,3 +86,69 @@ export const singleContextAsk: Ask = {
   title: "One question",
   items: [splitting("only")],
 };
+
+/** The pages the web references name: the test answers them itself, so nothing leaves the machine. */
+export const RUNBOOK_URL = "https://runbook.example.test/retry?page=1";
+export const PULL_URL = "https://github.com/acme/pay/pull/12";
+
+/** One question holding a WEB and a GITHUB reference. */
+export const webReferenceAsk: Ask = {
+  askId: "context-web-e5f6",
+  title: "Web references",
+  items: [
+    {
+      type: "question",
+      id: "links",
+      props: {
+        text: "Is the runbook right?",
+        options,
+        items: [
+          { type: "reference", id: "runbook", props: { url: RUNBOOK_URL, title: "Runbook" } },
+          { type: "reference", id: "pull", props: { url: PULL_URL } },
+        ],
+      },
+    },
+  ],
+};
+
+/** The project of the reading panel's scenarios: a 100-line spec, a binary, a huge file, a link out. */
+export const SPEC_PATH = "docs/specs/checkout.md";
+export const SPEC_LINES = Array.from({ length: 100 }, (_, at) => `spec line ${at + 1}`);
+export const PANEL_POINTER = `${SPEC_PATH}#L40-L52`;
+
+export const panelFiles = (outside: string) =>
+  ({
+    [SPEC_PATH]: `${SPEC_LINES.join("\n")}\n`,
+    "bin/data.bin": Uint8Array.from([0x41, 0x00, 0x42, 0xff, 0x00, 0x43]),
+    "big/large.txt": "x\n".repeat(20_001),
+    "escape.md": { link: outside },
+  }) as const;
+
+/** One question holding the spec as an excerpt and as a FILE reference, and four FILE references. */
+export const panelAsk: Ask = {
+  askId: "context-panel-g7h8",
+  title: "Reading panel",
+  items: [
+    {
+      type: "question",
+      id: "spec",
+      props: {
+        text: "Is the checkout flow right?",
+        options,
+        items: [
+          { type: "excerpt", id: "spec-excerpt", props: { pointer: PANEL_POINTER, title: "Spec" } },
+          { type: "reference", id: "ref-file", props: { pointer: PANEL_POINTER } },
+          { type: "reference", id: "ref-missing", props: { pointer: "docs/missing.md" } },
+          { type: "reference", id: "ref-binary", props: { pointer: "bin/data.bin" } },
+          { type: "reference", id: "ref-large", props: { pointer: "big/large.txt" } },
+          { type: "reference", id: "ref-outside", props: { pointer: "escape.md" } },
+        ],
+      },
+    },
+    {
+      type: "question",
+      id: "other",
+      props: { text: "Anything else?", options },
+    },
+  ],
+};

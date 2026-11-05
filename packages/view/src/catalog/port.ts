@@ -127,10 +127,20 @@ export const useReadyAfterLayout = (ready: () => void, settled = true): void => 
 };
 
 /**
- * Whether the view has a parent host, a live board page it can ask to open a reference or a
- * source. A Snapshot has none (AD-9, excerpts decision 6): the shell provides it, and a component
- * that needs the board page falls back to its Snapshot look. True unless the shell says otherwise.
+ * What the view has of its host (AD-9, excerpts decision 6), which the shell provides: whether it
+ * has a parent, a live board page it can ask to open a reference or a source (a Snapshot has none),
+ * and the way to ask: the view message that names an item, which the board page answers from its
+ * own board document.
  */
-export const HostedContext = createContext(true);
+export type ViewHost = {
+  readonly hosted: boolean;
+  /** Asks the board page to open a reference, or an excerpt's source, by its item ID. */
+  readonly openReference: (itemId: string) => void;
+};
 
-export const useHosted = (): boolean => useContext(HostedContext);
+export const HostContext = createContext<ViewHost>({ hosted: true, openReference: () => {} });
+
+export const useHosted = (): boolean => useContext(HostContext).hosted;
+
+export const useOpenReference = (): ((itemId: string) => void) =>
+  useContext(HostContext).openReference;

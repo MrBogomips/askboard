@@ -14,7 +14,13 @@ export const EXCERPT = "min-w-0 overflow-hidden rounded-md border border-border 
 
 /** The caption on the sunken fill, with a bottom border. */
 export const CAPTION =
-  "flex min-w-0 flex-col gap-[2px] border-b border-border bg-muted px-[8px] py-[6px]";
+  "flex min-w-0 items-start justify-between gap-[8px] border-b border-border bg-muted px-[8px] py-[6px]";
+
+/** The caption's text: the title over the source line. */
+export const CAPTION_TEXT = "flex min-w-0 flex-1 flex-col gap-[2px]";
+
+/** "Open in reading panel": `button-link` in the caption. */
+export const OPEN_LINK = `shrink-0 rounded-md text-control text-primary-text hover:underline ${FOCUS_RING}`;
 
 /** The caption's title, semibold. */
 export const TITLE = "block min-w-0 truncate text-body font-semibold text-foreground";
