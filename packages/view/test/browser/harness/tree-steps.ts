@@ -108,7 +108,7 @@ export const enterField = async (run: WidgetHostRun, tree: TreeGrid, text: strin
 };
 
 /** How many presses of Tab may pass before the focus must have reached its target. */
-const MAX_TABS = 6;
+const MAX_TABS = 30; // the board page has its own stops (header, sections) before the question
 
 /** Presses Tab until `reached` holds, at most `MAX_TABS` times, with no click. */
 export const tabUntil = async (board: Board, reached: () => Promise<boolean>, what: string) => {

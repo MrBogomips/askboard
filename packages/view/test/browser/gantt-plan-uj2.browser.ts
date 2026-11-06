@@ -51,7 +51,7 @@ import {
   typeIn,
 } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost } from "./harness/widget-host-test.ts";
+import { placeSuffix, placesOf, widgetBoardFor } from "./harness/widget-board.ts";
 
 const dist = await readViewBuild();
 
@@ -78,131 +78,141 @@ const ANSWERED_BARS = {
 };
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
-  describe(`${engine}: UJ-2 on the Gantt plan`, () => {
-    const { host } = useWidgetHost(engine);
+  for (const place of placesOf())
+    describe(`${engine}: UJ-2 on the Gantt plan${placeSuffix(place)}`, () => {
+      const { host } = widgetBoardFor(engine, place);
 
-    test(
-      "with the keyboard only, the approved UJ-2 edits in the Tree, the plan's following from the split, then Answer, send one answer whose plan diffs to the approved operation with the approved derived values",
-      async () => {
-        const run = await host(dist, ganttPlanBoardDocument);
-        await readyIn(run);
-        const { board } = run;
-        const tree = treeGridOf(board);
-        const gantt = ganttOf(board, planGantt.id);
-        await tabUntil(board, async () => (await treeFocus(board)) !== undefined, "the Tree");
-        expect(await treeFocus(board)).toEqual({ nodeId: "design" });
-        // The Tree's edits, as the Tree's UJ-2 scenario makes them. `ux`: most likely, 5 to 4.
-        await expectSteps(run, tree, [
-          ["ArrowDown", { nodeId: "ux" }],
-          ["ArrowRight", { nodeId: "ux", cell: 0 }],
-          ["ArrowRight", { nodeId: "ux", cell: 1 }],
-          ["ArrowRight", { nodeId: "ux", cell: 2 }],
-        ]);
-        await enterField(run, tree, "4", { nodeId: "ux", cell: 2 });
-        // `portal`: renamed, and its three estimates halved.
-        await expectSteps(run, tree, [
-          ["ArrowDown", { nodeId: "architecture", cell: 2 }],
-          ["ArrowDown", { nodeId: "prototype", cell: 2 }],
-          ["ArrowDown", { nodeId: "build", cell: 2 }],
-          ["ArrowDown", { nodeId: "portal", cell: 2 }],
-          ["Home", { nodeId: "portal", cell: 0 }],
-        ]);
-        await typeIn(run, tree, "Enter", "Customer portal: accounts");
-        expect(await pressIn(board, "Enter")).toEqual({ nodeId: "portal", cell: 0 });
-        for (const [cell, text] of [
-          [1, "4"],
-          [2, "6"],
-          [3, "10"],
-        ] as const) {
-          expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "portal", cell });
-          await enterField(run, tree, text, { nodeId: "portal", cell });
-        }
-        // `u-1`, split off after `portal` from the toolbar's "Add node", named, which gives it the
-        // portal's predecessors in the plan (molecules, F20), then estimated.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
-        await board.page.keyboard.press("Enter");
-        await expectNewNode(tree, "u-1");
-        await board.page.keyboard.type("Customer portal: dashboards");
-        expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });
-        for (const [cell, text] of [
-          [1, "4"],
-          [2, "7"],
-          [3, "12"],
-        ] as const) {
-          expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "u-1", cell });
-          await enterField(run, tree, text, { nodeId: "u-1", cell });
-        }
-        // `billing`: the pessimistic estimate, 15 to 21.
-        expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "billing", cell: 3 });
-        await enterField(run, tree, "21", { nodeId: "billing", cell: 3 });
-        // The plan as the approved answer leaves it: the re-estimated tasks and `u-1` marked,
-        // the tasks moved only by their predecessors not; one change of the plan's own.
-        await eventually(
-          async () => (await barDates(gantt))["u-1"] === ANSWERED_BARS["u-1"],
-          "u-1 to start after the prototype",
-        );
-        expect(await rowTexts(gantt)).toEqual(ANSWERED_ROWS);
-        expect(await barDates(gantt)).toEqual(ANSWERED_BARS);
-        expect(await criticalTasks(gantt)).toEqual(["ux", "prototype", "portal", "reporting"]);
-        expect((await baselineFacts(gantt)).map(({ task }) => task)).toEqual([
-          "ux",
-          "architecture",
-          "prototype",
-          "portal",
-          "billing",
-          "reporting",
-        ]);
-        expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual([
-          "ux",
-          "portal",
-          "u-1",
-          "billing",
-        ]);
-        expect(await counterText(gantt)).toBe("Your changes: 1");
-        // Nothing has left the view yet.
-        await Bun.sleep(QUIET_MS);
-        expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
-        // Tab on to "Answer", then Enter.
-        expect(await board.answer.isEnabled()).toBe(true);
-        await tabUntil(board, () => isFocused(board.answer), "Answer");
-        await board.page.keyboard.press("Enter");
-        await eventually(() => run.messages.length > 1, "the answer message", STEP_TIMEOUT_MS);
-        await Bun.sleep(QUIET_MS);
-        expect(run.messages).toHaveLength(2);
-        const answers = run.messages.filter((message) => message.type === "answer");
-        expect(answers).toHaveLength(1);
-        const [answer] = answers;
-        expect(answer).toEqual({
-          type: "answer",
-          itemId: planQuestion.id,
-          rev: planQuestion.rev,
-          values: { [planTree.id]: treeEditedValue, [planGantt.id]: ganttPlanEditedValue },
-          derived: expect.any(Object),
-          when: expect.any(String),
-        });
-        const { values = {}, derived = {} } = answer?.type === "answer" ? answer : {};
-        // Each value validates as an edited value, and the contract's diff of the sent and the
-        // edited value is the approved answer's: the Tree's `changes`, and the plan's operation.
-        const wbs = validateTreeProps(values[planTree.id], "edited");
-        const schedule = validateGanttProps(values[planGantt.id], "edited");
-        if (!wbs.ok || !schedule.ok)
-          throw new Error("the answer's values do not validate as edited");
-        expect(elementChanges(planTree.id, planTree.props, wbs.value, TREE_SHAPE)).toEqual(
-          treeAnswer.changes ?? [],
-        );
-        expect(
-          elementChanges(planGantt.id, planGantt.props, schedule.value, GANTT_PLAN_SHAPE),
-        ).toEqual(ganttPlanChanges);
-        // The plan's derived values are the approved answer's; the Tree's are the WBS-with-PERT
-        // change's, so only the plan's are compared.
-        const planDerived = Object.fromEntries(
-          Object.entries(derived).filter(([reference]) => reference.startsWith(`${planGantt.id}.`)),
-        );
-        expect(planDerived).toEqual(ganttPlanDerived);
-        expect(run.browser.errors).toEqual([]);
-        expect(run.browser.cspProblems()).toEqual([]);
-      },
-      TEST_TIMEOUT_MS,
-    );
-  });
+      test(
+        "with the keyboard only, the approved UJ-2 edits in the Tree, the plan's following from the split, then Answer, send one answer whose plan diffs to the approved operation with the approved derived values",
+        async () => {
+          const run = await host(dist, ganttPlanBoardDocument);
+          await readyIn(run);
+          const { board } = run;
+          const tree = treeGridOf(board);
+          const gantt = ganttOf(board, planGantt.id);
+          await tabUntil(board, async () => (await treeFocus(board)) !== undefined, "the Tree");
+          expect(await treeFocus(board)).toEqual({ nodeId: "design" });
+          // The Tree's edits, as the Tree's UJ-2 scenario makes them. `ux`: most likely, 5 to 4.
+          await expectSteps(run, tree, [
+            ["ArrowDown", { nodeId: "ux" }],
+            ["ArrowRight", { nodeId: "ux", cell: 0 }],
+            ["ArrowRight", { nodeId: "ux", cell: 1 }],
+            ["ArrowRight", { nodeId: "ux", cell: 2 }],
+          ]);
+          await enterField(run, tree, "4", { nodeId: "ux", cell: 2 });
+          // `portal`: renamed, and its three estimates halved.
+          await expectSteps(run, tree, [
+            ["ArrowDown", { nodeId: "architecture", cell: 2 }],
+            ["ArrowDown", { nodeId: "prototype", cell: 2 }],
+            ["ArrowDown", { nodeId: "build", cell: 2 }],
+            ["ArrowDown", { nodeId: "portal", cell: 2 }],
+            ["Home", { nodeId: "portal", cell: 0 }],
+          ]);
+          await typeIn(run, tree, "Enter", "Customer portal: accounts");
+          expect(await pressIn(board, "Enter")).toEqual({ nodeId: "portal", cell: 0 });
+          for (const [cell, text] of [
+            [1, "4"],
+            [2, "6"],
+            [3, "10"],
+          ] as const) {
+            expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "portal", cell });
+            await enterField(run, tree, text, { nodeId: "portal", cell });
+          }
+          // `u-1`, split off after `portal` from the toolbar's "Add node", named, which gives it the
+          // portal's predecessors in the plan (molecules, F20), then estimated.
+          expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+          await board.page.keyboard.press("Enter");
+          await expectNewNode(tree, "u-1");
+          await board.page.keyboard.type("Customer portal: dashboards");
+          expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });
+          for (const [cell, text] of [
+            [1, "4"],
+            [2, "7"],
+            [3, "12"],
+          ] as const) {
+            expect(await pressIn(board, "ArrowRight")).toEqual({ nodeId: "u-1", cell });
+            await enterField(run, tree, text, { nodeId: "u-1", cell });
+          }
+          // `billing`: the pessimistic estimate, 15 to 21.
+          expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "billing", cell: 3 });
+          await enterField(run, tree, "21", { nodeId: "billing", cell: 3 });
+          // The plan as the approved answer leaves it: the re-estimated tasks and `u-1` marked,
+          // the tasks moved only by their predecessors not; one change of the plan's own.
+          await eventually(
+            async () => (await barDates(gantt))["u-1"] === ANSWERED_BARS["u-1"],
+            "u-1 to start after the prototype",
+          );
+          expect(await rowTexts(gantt)).toEqual(ANSWERED_ROWS);
+          expect(await barDates(gantt)).toEqual(ANSWERED_BARS);
+          expect(await criticalTasks(gantt)).toEqual(["ux", "prototype", "portal", "reporting"]);
+          expect((await baselineFacts(gantt)).map(({ task }) => task)).toEqual([
+            "ux",
+            "architecture",
+            "prototype",
+            "portal",
+            "billing",
+            "reporting",
+          ]);
+          expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual([
+            "ux",
+            "portal",
+            "u-1",
+            "billing",
+          ]);
+          expect(await counterText(gantt)).toBe("Your changes: 1");
+          // Nothing has left the view yet.
+          await Bun.sleep(QUIET_MS);
+          expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
+          // Tab on to "Answer", then Enter.
+          expect(await board.answer.isEnabled()).toBe(true);
+          await tabUntil(board, () => isFocused(board.answer), "Answer");
+          await board.page.keyboard.press("Enter");
+          await eventually(() => run.messages.length > 1, "the answer message", STEP_TIMEOUT_MS);
+          await Bun.sleep(QUIET_MS);
+          expect(run.messages).toHaveLength(2);
+          const answers = run.messages.filter((message) => message.type === "answer");
+          expect(answers).toHaveLength(1);
+          const [answer] = answers;
+          expect(answer).toEqual({
+            type: "answer",
+            itemId: planQuestion.id,
+            rev: planQuestion.rev,
+            values: { [planTree.id]: treeEditedValue, [planGantt.id]: ganttPlanEditedValue },
+            derived: expect.any(Object),
+            when: expect.any(String),
+          });
+          const { values = {}, derived = {} } = answer?.type === "answer" ? answer : {};
+          // Each value validates as an edited value, and the contract's diff of the sent and the
+          // edited value is the approved answer's: the Tree's `changes`, and the plan's operation.
+          const wbs = validateTreeProps(values[planTree.id], "edited");
+          const schedule = validateGanttProps(values[planGantt.id], "edited");
+          if (!wbs.ok || !schedule.ok)
+            throw new Error("the answer's values do not validate as edited");
+          expect(elementChanges(planTree.id, planTree.props, wbs.value, TREE_SHAPE)).toEqual(
+            treeAnswer.changes ?? [],
+          );
+          expect(
+            elementChanges(planGantt.id, planGantt.props, schedule.value, GANTT_PLAN_SHAPE),
+          ).toEqual(ganttPlanChanges);
+          // The plan's derived values are the approved answer's; the Tree's are the WBS-with-PERT
+          // change's, so only the plan's are compared.
+          const planDerived = Object.fromEntries(
+            Object.entries(derived).filter(([reference]) =>
+              reference.startsWith(`${planGantt.id}.`),
+            ),
+          );
+          expect(planDerived).toEqual(ganttPlanDerived);
+          // On the session process the answer is logged with the Tree's and the plan's changes.
+          if (run.logged !== undefined) {
+            const approved = [...(treeAnswer.changes ?? []), ...ganttPlanChanges];
+            const [logged] = await run.logged();
+            expect(logged?.changes).toHaveLength(approved.length);
+            expect(logged?.changes).toEqual(expect.arrayContaining(approved));
+          }
+          expect(run.browser.errors).toEqual([]);
+          expect(run.browser.cspProblems()).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    });
 }
