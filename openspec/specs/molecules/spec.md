@@ -6,10 +6,10 @@ The molecules AskBoard ships ready-made, each written as input-format data: the 
 ## Requirements
 
 ### Requirement: The Gantt plan's parameters are data
-AskBoard SHALL ship the Gantt plan as a definition in the molecule format 1.0.0, under the molecule name `gantt-plan`, version 1.0.0, whose parameters are a JSON Schema of `workPackages`, the ID of the work breakdown whose leaves are its tasks, `start`, the plan's start date, and an optional `dependencies`, each task's predecessors by ID, checked by the same definitions as the Gantt's props. It SHALL hold no code, markup or style, and any other parameter SHALL be refused, naming it (AD-9, FR-15, NFR-5).
+AskBoard SHALL ship the Gantt plan as a definition in the molecule format 1.0.0, under the molecule name `gantt-plan`, version 1.0.0, whose parameters are a JSON Schema of `workPackages`, the ID of the work breakdown whose leaves are its tasks, `start`, the plan's start date, and an optional `dependencies`, each task's predecessors by ID. It SHALL hold no code, markup or style, and any other parameter SHALL be refused, naming it (AD-9, FR-15, NFR-5).
 
 #### Scenario: The approved UJ-2 data
-- **WHEN** the `data` of the approved `uj2-wbs-gantt` ask's `schedule` reference is validated against the parameters
+- **WHEN** the `data` of the approved `uj2-wbs-gantt` ask's `schedule` reference is validated against the parameters, which the same definitions as the Gantt's props check
 - **THEN** it passes unchanged
 
 #### Scenario: An unknown parameter

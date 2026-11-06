@@ -43,11 +43,11 @@ Each board SHALL have its own random token of at least 128 bits. It SHALL travel
 - **THEN** the upgrade is refused
 
 ### Requirement: The board page and its policy
-`board-host` SHALL serve a board's page at its link, with `X-Content-Type-Options: nosniff` and a CSP of ten directives, the contract's `boardPagePolicy` of the view manifest: `default-src 'none'`; scripts and styles only by the hashes of the board page's code and of the view's chunks; `connect-src 'self'`; `img-src data: blob:` and `font-src data:`; `frame-src 'self'`, which serves only the reading panel's source view; `base-uri 'self'`; `form-action 'none'`; and `frame-ancestors 'none'`; and nothing else (AD-8, AD-11).
+`board-host` SHALL serve a board's page at its link, with `X-Content-Type-Options: nosniff` and a CSP of ten directives, the contract's `boardPagePolicy`: `default-src 'none'`; scripts and styles only by the hashes of the board page's code and of the view's chunks; `connect-src 'self'`; `img-src data: blob:` and `font-src data:`; `frame-src 'self'`; `base-uri 'self'`; `form-action 'none'`; and `frame-ancestors 'none'`; and nothing else (AD-8, AD-11).
 
 #### Scenario: The served policy
 - **WHEN** a board page is loaded with its token
-- **THEN** its CSP header names exactly the ten directives, holds the hashes of the board page script and of every view chunk, allows frames only from `'self'`, and holds no `'wasm-unsafe-eval'`, `'unsafe-inline'`, `'unsafe-eval'` or `'unsafe-hashes'`
+- **THEN** its CSP header names exactly the ten directives, holds the hashes of the board page script and of every view chunk, allows frames only from `'self'`, which serves only the reading panel's source view, and holds no `'wasm-unsafe-eval'`, `'unsafe-inline'`, `'unsafe-eval'` or `'unsafe-hashes'`
 
 ### Requirement: The board page's base URL
 The board page SHALL carry a static `<base href="/">`, which its `base-uri 'self'` admits. A srcdoc document takes its base URL from the board page, whose link carries the token, so without that element the sandboxed view would inherit `?t=` (AD-8). The view's own policy keeps `base-uri 'none'`.

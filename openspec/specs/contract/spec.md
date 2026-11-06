@@ -174,7 +174,7 @@ Every widget's element IDs SHALL match `[A-Za-z0-9_-]{1,64}` and be unique withi
 - **THEN** it passes validation as an edited value
 
 ### Requirement: Tree item props
-The contract SHALL define a Tree item's props in the schema `urn:askboard:input:tree-props`, checked by `validateTreeProps`, as optional `columns`, each `{field, label, type}` with `type` `text` or `number`, `nodes`, each `{id, label, children?}` plus a value for any declared field: a string for `text`, a number for `number`, absent when empty, and, for a work breakdown, the optional `pert` and `openDepth` (Tree PERT props). Any other key SHALL fail validation, naming the node and the key. No ask SHALL carry a Tree until the input format admits one in a question's items.
+The contract SHALL define a Tree item's props in the schema `urn:askboard:input:tree-props`, checked by `validateTreeProps`, as optional `columns`, each `{field, label, type}` with `type` `text` or `number`, `nodes`, each `{id, label, children?}` plus a value for any declared field: a string for `text`, a number for `number`, absent when empty, and, for a work breakdown, the optional `pert` and `openDepth` (Tree PERT props). Any other key SHALL fail validation, naming the node and the key.
 
 #### Scenario: The UJ-2 work breakdown as a Tree
 - **WHEN** the nodes of the approved `uj2-wbs-gantt` ask's `wbs` data, without their `excerpt` pointers, are validated as a Tree whose columns declare `optimistic`, `mostLikely` and `pessimistic` as numbers
@@ -187,6 +187,13 @@ The contract SHALL define a Tree item's props in the schema `urn:askboard:input:
 #### Scenario: An undeclared field
 - **WHEN** a node carries `owner` and no column declares it
 - **THEN** validation fails, naming the node's ID and the field `owner`
+
+### Requirement: No Tree before the input format admits one
+No ask SHALL carry a Tree until the input format admits one in a question's items.
+
+#### Scenario: A Tree in an ask before the input format admits it
+- **WHEN** a question's items holds a Tree and the input format does not yet admit one
+- **THEN** the ask is refused
 
 #### Scenario: A value of the wrong type
 - **WHEN** a node holds the text `"five"` in a `number` column
