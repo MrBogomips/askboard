@@ -8,7 +8,7 @@
 // and in a plan the zoom another: the grid carries every keyboard path to the tasks. The frame
 // holds the Gantt's view state, the zoom, the grid's focus, its editor and its predecessors panel,
 // and lays the chart's rows out under the grid's, a note's line included, so that each bar stays
-// beside its row. Only a Gantt's own tasks take a duration: a plan's follow its Tree's estimates.
+// beside its row. A Gantt's own tasks take a duration; a plan's tasks take a requested one, which is none again at the length their estimates give.
 // Both open a task's predecessors panel from its "Depends on", a plan's offering its Tree's leaves.
 
 import type { GanttProps } from "@askboard/contract";
@@ -16,12 +16,15 @@ import { useStrings } from "@askboard/view/catalog";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Chart } from "./chart.tsx";
 import { Legend, Toolbar } from "./chrome.tsx";
+import { ColumnEdge } from "./column-edge.tsx";
 import { type Editing, useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
+import { gridDoubleClickHandler } from "./grid-pointer.ts";
+import { COLUMN_DEFAULT, clampWidth, fitWidth } from "./model/column-width.ts";
 import { dayNumber } from "./model/date.ts";
-import { clearStart, setDuration } from "./model/edits.ts";
+import { clearDuration, clearStart, setDuration } from "./model/edits.ts";
 import { landOn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
@@ -31,6 +34,7 @@ import { type Baseline, movedBaselines, type TaskSchedule } from "./model/schedu
 import { type GanttColumn, type GanttRow, isOwnGantt } from "./model/tasks.ts";
 import { usePanelState } from "./panel-state.ts";
 import { useChartBox } from "./use-chart-box.ts";
+import { useElementWidth } from "./use-element-width.ts";
 import { useRowHeight } from "./use-row-height.ts";
 
 /**
@@ -121,6 +125,15 @@ const EdgeCue = ({
     />
   ) : null;
 
+/** The widget's width until it is measured: wide enough that no limit bites. */
+const UNMEASURED = 10_000;
+
+/** The full width of each name the grid shows, which a fit of the TASK column reads. */
+const nameWidths = (table: HTMLTableElement | null): number[] =>
+  [...(table?.querySelectorAll<HTMLElement>('[data-gantt-column="task"] > span') ?? [])].map(
+    (name) => name.scrollWidth,
+  );
+
 export const GanttFrame = (props: FrameProps) => {
   const { itemId, rows, schedules, baselines, marks, current, sent, onCommit, editable } = props;
   // The zoom the user chose, else the one the plan opened at: the finest at which it fits.
@@ -128,6 +141,13 @@ export const GanttFrame = (props: FrameProps) => {
   const [opened, setOpened] = useState<Zoom | undefined>(undefined);
   const zoom = chosen ?? opened ?? "week";
   const scroller = useRef<HTMLDivElement>(null);
+  // The TASK column's width is view state, never part of the draft (design decision 7).
+  const frame = useRef<HTMLDivElement>(null);
+  const widget = useElementWidth(frame) ?? UNMEASURED;
+  const [wanted, setWanted] = useState(COLUMN_DEFAULT);
+  // The critical path's highlighting: on at open, view state like the zoom (design decision 8).
+  const [showCritical, setShowCritical] = useState(true);
+  const taskWidth = clampWidth(wanted, widget);
   const box = useChartBox(scroller);
   const focus = useGridFocus(rows);
   const { table } = focus;
@@ -176,23 +196,35 @@ export const GanttFrame = (props: FrameProps) => {
     rows,
     focus,
     editing,
-    onClear: (row) => onCommit(clearStart(current, sent, row.id)),
+    onClear: (row, column) =>
+      onCommit(
+        column === "start"
+          ? clearStart(current, sent, row.id)
+          : clearDuration(current, sent, row.id),
+      ),
+    hasRequest: (row) => !own && row.duration !== undefined,
     onOpenPanel: panels.open,
     editable,
   });
-  // Only a Gantt's own tasks take a duration: a plan's follow its Tree's estimates.
-  const onResize = own
-    ? (taskId: string, duration: number) => onCommit(setDuration(current, sent, taskId, duration))
-    : undefined;
+  // A bar's end sets a Gantt's own task's duration, or asks for a plan task's, which is none again
+  // at the length its estimates give.
+  const onResize = (taskId: string, duration: number) => {
+    const schedule = schedules[rows.findIndex((row) => row.id === taskId)];
+    const estimate = schedule?.kind === "scheduled" ? schedule.estimate : undefined;
+    onCommit(setDuration(current, sent, taskId, duration, estimate));
+  };
+  const clearRequest = (row: GanttRow) => onCommit(clearDuration(current, sent, row.id));
   return (
-    <div className="flex flex-col rounded-md border border-border bg-card">
+    <div ref={frame} className="flex flex-col rounded-md border border-border bg-card">
       <Toolbar
+        itemId={itemId}
+        critical={{ on: showCritical, onChange: setShowCritical }}
         count={props.count}
         derived={props.derived}
         zoom={props.zoomable ? { zoom, onZoom: setChosen } : undefined}
       />
       <div className="flex">
-        <div className="w-[480px] shrink-0 border-r border-border">
+        <div className="shrink-0 border-r border-border">
           <Grid
             itemId={itemId}
             questionId={props.questionId}
@@ -207,7 +239,19 @@ export const GanttFrame = (props: FrameProps) => {
             table={table}
             stop={focus.stop}
             onKeyDown={onKeyDown}
+            onDoubleClick={gridDoubleClickHandler({ rows, editing, panels, editable })}
             onFocus={focus.onFocus}
+            plan={!own}
+            onUseEstimate={clearRequest}
+            taskWidth={taskWidth}
+            edge={
+              <ColumnEdge
+                width={taskWidth}
+                widget={widget}
+                onWidth={setWanted}
+                onFit={() => setWanted(fitWidth(nameWidths(table.current), widget))}
+              />
+            }
           />
         </div>
         <div className="relative min-w-0 flex-1">
@@ -220,8 +264,10 @@ export const GanttFrame = (props: FrameProps) => {
               layout={layout}
               span={shownSpan}
               zoom={zoom}
+              room={box.width ?? 0}
               marks={marks}
               editable={editable}
+              highlight={showCritical}
               onMove={(taskId, day, earliest) =>
                 onCommit(landOn(current, sent, taskId, day, earliest))
               }
@@ -232,7 +278,10 @@ export const GanttFrame = (props: FrameProps) => {
           <EdgeCue side="after" shown={box.edges.after} />
         </div>
       </div>
-      <Legend baseline={drawn?.some((baseline) => baseline !== undefined) === true} />
+      <Legend
+        baseline={drawn?.some((baseline) => baseline !== undefined) === true}
+        highlight={showCritical}
+      />
     </div>
   );
 };

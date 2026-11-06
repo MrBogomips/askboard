@@ -52,7 +52,7 @@ const entryOf = (args: EditingArgs, format: DateFormat, editing: Editing): Entry
   const { current, sent } = args;
   return editing.column === "start"
     ? startEntry(current, sent, editing.taskId, args.schedules[index], editing.text, format)
-    : durationEntry(current, sent, editing.taskId, editing.text, format);
+    : durationEntry(current, sent, editing.taskId, args.schedules[index], editing.text, format);
 };
 
 export const useCellEditing = (args: EditingArgs): CellEditing => {

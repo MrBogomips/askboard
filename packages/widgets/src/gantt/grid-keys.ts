@@ -18,8 +18,10 @@ type GridKeysArgs = {
   readonly rows: readonly GanttRow[];
   readonly focus: GridFocusState;
   readonly editing: CellEditing;
-  /** Clears a task's requested start. */
-  readonly onClear: (row: GanttRow) => void;
+  /** Clears a task's requested start, or a plan task's requested duration. */
+  readonly onClear: (row: GanttRow, column: "start" | "duration") => void;
+  /** Whether a row's duration is a request to clear: a plan task's that holds one. */
+  readonly hasRequest: (row: GanttRow) => boolean;
   /** Opens a task's predecessors panel. */
   readonly onOpenPanel: (row: GanttRow) => void;
   /** Whether the Gantt takes edits; a read-only Gantt's keys only move the focus. */
@@ -30,8 +32,19 @@ type GridKeysArgs = {
 const isEditedColumn = (column: GanttColumn): column is "start" | "duration" =>
   column === "start" || column === "duration";
 
+const isRequestColumn = (column: GanttColumn): column is "start" | "duration" =>
+  column === "start" || column === "duration";
+
 export const gridKeyHandler =
-  ({ rows, focus, editing, onClear, onOpenPanel, editable: takesEdits }: GridKeysArgs) =>
+  ({
+    rows,
+    focus,
+    editing,
+    onClear,
+    hasRequest,
+    onOpenPanel,
+    editable: takesEdits,
+  }: GridKeysArgs) =>
   (event: KeyboardEvent<HTMLTableElement>): void => {
     const press = keyPressOf(event);
     const { stop, size } = focus;
@@ -40,11 +53,12 @@ export const gridKeyHandler =
     const column = GANTT_COLUMNS[stop.column];
     if (row === undefined || column === undefined) return;
     const editable = takesEdits && row.cells[stop.column]?.editable === true;
-    const action = gridKeyAction(press, { mode: "navigate", column, editable });
+    const clearable = hasRequest(row);
+    const action = gridKeyAction(press, { mode: "navigate", column, editable, clearable });
     if (isGridKey(press)) event.preventDefault();
     if (action === undefined) return;
     if (action.kind === "move") focus.moveTo(moveFocus(stop, action.move, size));
     else if (action.kind === "edit" && isEditedColumn(column)) editing.begin(row, column);
     else if (action.kind === "edit" && column === "dependencies") onOpenPanel(row);
-    else if (action.kind === "clear") onClear(row);
+    else if (action.kind === "clear" && isRequestColumn(column)) onClear(row, column);
   };

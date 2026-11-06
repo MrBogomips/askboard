@@ -4,7 +4,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { GANTT_ANSWER_DERIVED } from "@askboard/contract";
-import { ganttPlanDerived } from "@askboard/contract/fixtures";
+import {
+  ganttPlanDerived,
+  ganttPlanRequestedDerived,
+  ganttPlanRequestedValue,
+} from "@askboard/contract/fixtures";
 import type { BoardSourceItem } from "../src/index.ts";
 import * as compute from "../src/index.ts";
 import {
@@ -44,6 +48,9 @@ const estimated = (nodes: readonly Node[]): Json[] =>
     ...(children === undefined ? {} : { children: estimated(children) }),
   }));
 
+/** The plan `schedule` with the portal requested at 21 days, as the contract's fixture holds it. */
+const SCHEDULE_REQUESTED: Item = { ...SCHEDULE, props: ganttPlanRequestedValue as unknown as Json };
+
 const LEAVES = ["ux", "architecture", "prototype", "portal", "u-1", "billing", "reporting"];
 
 describe("the board's graph source, on a Gantt plan", () => {
@@ -64,6 +71,7 @@ describe("the board's graph source, on a Gantt plan", () => {
             reporting: ["portal"],
           },
           starts: {},
+          durations: {},
         },
       ],
     });
@@ -99,6 +107,23 @@ describe("the board's graph source, on a Gantt plan", () => {
     };
     expect(derived).toEqual(ganttPlanDerived);
     expect(values.read("schedule.u-1.startDate")).toBe("2026-11-16");
+  });
+
+  test("with the portal requested at 21 days, finishes later by the 8 days it gained", () => {
+    const board = [WBS, SCHEDULE_REQUESTED];
+    const graph = buildGraph(boardGraphSource(board));
+    expect(graph.warnings).toEqual([]);
+    const values = evaluateGraph(graph);
+    expect(values.read("schedule.portal.duration")).toBe(21);
+    expect(values.read("wbs.portal.expected")).toBeCloseTo(12.67, 2);
+    const critical = LEAVES.filter(
+      (task) => values.read(`schedule.${task}.${GANTT_ANSWER_DERIVED.criticalPath}`) === true,
+    );
+    const derived: unknown = {
+      "schedule.finish": values.read(`schedule.${GANTT_ANSWER_DERIVED.finish}`),
+      "schedule.criticalPath": critical,
+    };
+    expect(derived).toEqual(ganttPlanRequestedDerived);
   });
 
   test("takes an entry's requested start", () => {

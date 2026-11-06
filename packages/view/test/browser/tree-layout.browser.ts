@@ -111,7 +111,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           })),
         );
         expect(rows).toEqual(FIXTURE_ROWS);
-        expect(await tree.row("portal").getByRole("gridcell").allTextContents()).toEqual([
+        expect(await tree.row("portal").locator("[data-cell]").allTextContents()).toEqual([
           "Customer portal",
           "8",
           "12",
@@ -155,7 +155,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // The header row is in upper case, so its text is read without the rendering's case.
         const tree = treeGridOf(run.board);
         expect(await tree.headers.allTextContents()).toEqual(["Name", MARKUP_LABEL]);
-        expect(await tree.row("markup").getByRole("gridcell").allTextContents()).toEqual([
+        expect(await tree.row("markup").locator("[data-cell]").allTextContents()).toEqual([
           MARKUP_LABEL,
           MARKUP_NOTE,
         ]);

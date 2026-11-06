@@ -132,10 +132,11 @@ describe("the plan's props and changes (spec, Gantt item props, Gantt changes)",
     expect(validateGanttChanges("schedule", schedule, EDITED).ok).toBe(true);
   });
 
-  test("a plan's duration fails, saying that it follows the estimates", () => {
-    const duration = [{ op: "set", target: "schedule.portal.duration", value: 13 }];
-    const checked = validateGanttChanges("schedule", duration, PLAN);
+  test("a plan's duration is a request: it passes, and 0 fails naming the range", () => {
+    const set = (value: number) => [{ op: "set", target: "schedule.portal.duration", value }];
+    expect(validateGanttChanges("schedule", set(13), PLAN).ok).toBe(true);
+    const checked = validateGanttChanges("schedule", set(0), PLAN);
     const problems = checked.ok ? [] : checked.problems;
-    expect(says(problems, "/0/target", "portal", "estimates")).toBe(true);
+    expect(says(problems, "/0/value", "portal", "1", "2000")).toBe(true);
   });
 });

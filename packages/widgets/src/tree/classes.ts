@@ -46,8 +46,8 @@ export const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
 
 export const MENU_ITEM =
-  "flex cursor-default items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
-  "data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";
+  "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
+  "data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";
 
 /** The change dot, `{colors.change}`: the counter's mark, and a moved row's after its name. */
 export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
@@ -67,7 +67,7 @@ export const HEADER_ROW = "h-header-row bg-muted text-label text-muted-foregroun
 export const NAME_HEADER = "px-2 text-left";
 
 /** A node's row, as tall as the header row (32px compact, 40px comfortable; review F-23), with a rule above it. */
-export const ROW = "h-header-row border-t border-border text-body text-foreground";
+export const ROW = "group/row h-header-row border-t border-border text-body text-foreground";
 
 /** A cell that is not being edited takes no text selection, so a double click opens its editor (review F-05). */
 export const NOT_SELECTABLE = "select-none";
@@ -104,6 +104,50 @@ export const CURRENT_BAR = "shadow-[inset_2px_0_0_0_var(--primary)]";
 
 export const CURRENT_ADDED_BAR =
   "shadow-[inset_2px_0_0_0_var(--primary),inset_4px_0_0_0_var(--change)]";
+
+/**
+ * The leading selection column (spec, "Tree row selection"): narrow and always shown, so that the
+ * layout does not jump when a selection starts; a selected row takes the `accent` fill.
+ */
+export const SELECT_COLUMN = "w-[48px] px-2 text-center";
+
+/** The row's wrapper of its drag handle and check box: the handle shows on hover and on the current row. */
+export const SELECT_CELL_BOX = "inline-flex items-center gap-1";
+
+/**
+ * The drag handle, a grip at the row's start in `muted-foreground`: hidden until the row is
+ * hovered or current, never out of the pointer's reach, with no text selection.
+ */
+export const DRAG_HANDLE =
+  "inline-flex size-[14px] shrink-0 select-none items-center justify-center text-muted-foreground " +
+  "opacity-0 group-hover/row:opacity-100 group-aria-[current=true]/row:opacity-100";
+
+/** The row being dragged, dimmed. */
+export const DRAGGED_ROW = "opacity-50";
+
+export const CHECKBOX =
+  "size-[14px] cursor-pointer align-middle accent-primary focus-visible:outline-2 " +
+  "focus-visible:outline-offset-1 focus-visible:outline-ring";
+
+export const SELECTED_ROW = "aria-selected:bg-accent";
+
+/** The toolbar's right end: the selection count, then the counter of the user's changes. */
+export const STATUS = "ml-auto flex min-w-0 items-center gap-3";
+
+export const SELECTION_COUNT = "shrink-0 text-control text-foreground-secondary";
+
+/** The percentage panel (Popover) and its parts, as the "More" menu's panel looks. */
+export const PANEL =
+  "z-20 flex w-72 flex-col gap-2 rounded-md border border-border bg-popover p-3 text-control " +
+  "text-foreground shadow-md";
+
+export const PANEL_GROUP = "flex flex-col gap-1 border-0 p-0";
+
+export const PANEL_LABEL = "flex items-center gap-2";
+
+export const PANEL_ACTIONS = "flex justify-end gap-2";
+
+export const PANEL_PREVIEW = "flex flex-col gap-0.5 text-control text-foreground-secondary";
 
 /** The name's indent, `spacing.lg` per level below the first (DESIGN.md, Tree), by level. */
 export const INDENT: readonly string[] = [
@@ -177,3 +221,20 @@ export const FIELD_ERROR = "px-2 pb-1.5 text-body text-destructive-text";
 
 /** An added row's note and its dash roll-ups: neutral, not an error (review F-11). */
 export const NEUTRAL_NOTE = "px-2 pb-1.5 text-body text-muted-foreground";
+
+// The drop indicator (DESIGN.md, Tree): an inset line above or below the row's cells for before and
+// after, an outline of the whole row for into, in `primary`; a drop that is not allowed takes the
+// same shapes in `destructive-text`. The cells take it, since a table row draws no shadow.
+export const DROP_BEFORE = "[&>td]:shadow-[inset_0_2px_0_0_var(--primary)]";
+export const DROP_AFTER = "[&>td]:shadow-[inset_0_-2px_0_0_var(--primary)]";
+export const DROP_INTO =
+  "[&>td]:shadow-[inset_0_2px_0_0_var(--primary),inset_0_-2px_0_0_var(--primary)] " +
+  "[&>td:first-child]:shadow-[inset_0_2px_0_0_var(--primary),inset_0_-2px_0_0_var(--primary),inset_2px_0_0_0_var(--primary)] " +
+  "[&>td:last-child]:shadow-[inset_0_2px_0_0_var(--primary),inset_0_-2px_0_0_var(--primary),inset_-2px_0_0_0_var(--primary)]";
+export const DROP_REFUSED =
+  "[&>td]:shadow-[inset_0_2px_0_0_var(--destructive-text),inset_0_-2px_0_0_var(--destructive-text)] " +
+  "[&>td:first-child]:shadow-[inset_0_2px_0_0_var(--destructive-text),inset_0_-2px_0_0_var(--destructive-text),inset_2px_0_0_0_var(--destructive-text)] " +
+  "[&>td:last-child]:shadow-[inset_0_2px_0_0_var(--destructive-text),inset_0_-2px_0_0_var(--destructive-text),inset_-2px_0_0_0_var(--destructive-text)]";
+
+/** The tip under the grid while a drop would be refused: the reason, in `destructive-text`. */
+export const DRAG_TIP = "px-2 py-1 text-body text-destructive-text empty:hidden";

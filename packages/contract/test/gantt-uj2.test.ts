@@ -10,6 +10,9 @@ import {
   ganttPlanChanges,
   ganttPlanDerived,
   ganttPlanEditedValue,
+  ganttPlanRequestedChanges,
+  ganttPlanRequestedDerived,
+  ganttPlanRequestedValue,
   treeAnswer,
   treeBoardDocument,
   treeEditedValue,
@@ -132,6 +135,40 @@ describe("the Gantt plan fixtures (spec, Gantt fixtures)", () => {
     expect(
       applyElementChanges("schedule", schedule.props, ganttPlanChanges, GANTT_PLAN_SHAPE),
     ).toEqual(ganttPlanEditedValue);
+  });
+});
+
+describe("the Gantt plan with a requested duration (widget-editing-plus)", () => {
+  test("the portal at 21 days validates as an agent's plan and as an edited one", () => {
+    expect(validateGanttProps(ganttPlanRequestedValue, "agent").ok).toBe(true);
+    expect(validateGanttProps(ganttPlanRequestedValue, "edited").ok).toBe(true);
+    expect(ganttPlanRequestedValue.tasks.portal).toEqual({
+      dependencies: ["architecture", "prototype"],
+      duration: 21,
+    });
+  });
+
+  test("its changes equal the diff of the plan as sent and as edited, validate and apply back", () => {
+    const diff = elementChanges(
+      "schedule",
+      schedule.props,
+      ganttPlanRequestedValue,
+      GANTT_PLAN_SHAPE,
+    );
+    expect(diff).toEqual(ganttPlanRequestedChanges);
+    expect(validateGanttChanges("schedule", diff, ganttPlanRequestedValue).ok).toBe(true);
+    expect(applyElementChanges("schedule", schedule.props, diff, GANTT_PLAN_SHAPE)).toEqual(
+      ganttPlanRequestedValue,
+    );
+  });
+
+  test("its derived values validate in an answer event with the plan's changes", () => {
+    const answer: AnswerEvent = {
+      ...treeAnswer,
+      changes: ganttPlanRequestedChanges,
+      derived: ganttPlanRequestedDerived,
+    };
+    expect(validateAgainst(SCHEMA_IDS.answerEvent, answer)).toEqual({ ok: true, value: answer });
   });
 });
 

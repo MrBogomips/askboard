@@ -78,6 +78,36 @@ describe("the diff on Tree values", () => {
     expect(refusal(changes, sent)).toBeUndefined();
   });
 
+  test("twelve leaves' estimates raised at once give twelve sets, which validate (bulk adjustment)", () => {
+    const sent = twoHundred();
+    const edited = structuredClone(sent);
+    const leaves = (edited.nodes[2]?.children ?? []).slice(0, 12);
+    for (const leaf of leaves) leaf.estimate = Math.round((leaf.days as number) * 11) / 10;
+    const changes = elementChanges(ITEM, sent, edited, TREE_SHAPE);
+    expect(changes).toEqual(
+      leaves.map((leaf) => ({
+        op: "set",
+        target: `wbs.${leaf.id}.estimate`,
+        value: leaf.estimate,
+      })),
+    );
+    expect(changes).toHaveLength(12);
+    expect(refusal(changes, sent)).toBeUndefined();
+    expect(applyElementChanges(ITEM, sent, changes, TREE_SHAPE)).toEqual(edited);
+  });
+
+  test("a node moved and moved back gives no operation for it (drag and drop)", () => {
+    const sent = twoHundred();
+    const edited = structuredClone(sent);
+    const [from, to] = [edited.nodes[1]?.children as Node[], edited.nodes[4]?.children as Node[]];
+    to.splice(3, 0, from.splice(5, 1)[0] as Node);
+    expect(elementChanges(ITEM, sent, edited, TREE_SHAPE)).toHaveLength(1);
+    from.splice(5, 0, to.splice(3, 1)[0] as Node);
+    const changes = elementChanges(ITEM, sent, edited, TREE_SHAPE);
+    expect(changes).toEqual([]);
+    expect(refusal(changes, sent)).toBeUndefined();
+  });
+
   test("an unchanged Tree gives no operation, which validates", () => {
     const sent = twoHundred();
     const changes = elementChanges(ITEM, sent, structuredClone(sent), TREE_SHAPE);

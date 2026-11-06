@@ -20,6 +20,8 @@ export type TaskSchedule =
       readonly earliestDate: string;
       /** False too while the flag is in error, as when the plan's end is: no path is known. */
       readonly critical: boolean;
+      /** A plan task's duration as its estimates alone give it; undefined in a Gantt's own. */
+      readonly estimate?: number | undefined;
     }
   | { readonly kind: "error"; readonly error: FormulaError };
 
@@ -62,8 +64,10 @@ export const taskSchedule = (graph: BoardGraph, itemId: string, taskId: string):
   for (const field of [startDate, finishDate, duration, earliestDate]) {
     if (isFormulaError(field)) return Object.freeze({ kind: "error", error: field });
   }
+  const estimate = graph.read(at("effortDays"));
   return Object.freeze({
     kind: "scheduled",
+    estimate: typeof estimate === "number" ? estimate : undefined,
     startDate: startDate as string,
     finishDate: finishDate as string,
     duration: duration as number,

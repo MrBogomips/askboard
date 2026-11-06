@@ -1,6 +1,7 @@
 // The Gantt's keys (proposal, open question 18; EXPERIENCE Accessibility Floor): the grid is one
 // Tab stop where the arrow keys, Home and End move between cells, Enter or F2 edits the focused
-// start, duration or predecessors, and Delete or Backspace on a start clears the request; in edit
+// start, duration or predecessors, and Delete or Backspace on a start, or on a plan's pinned
+// duration, clears the request; in edit
 // mode, Enter commits and Escape cancels, and the field keeps every other key. A plan's toolbar is
 // a second Tab stop with roving focus. Each key acts with no modifier held; with one it does
 // nothing. A key with an action prevents its default; so does each of the grid's own keys where it
@@ -35,6 +36,8 @@ export type GridKeyContext = {
   readonly column: GanttColumn;
   /** The focused cell is the user's to edit, and the Gantt takes edits. */
   readonly editable: boolean;
+  /** The focused cell holds a plan task's requested duration, which Delete clears. */
+  readonly clearable?: boolean;
 };
 
 export type ToolMove = "next" | "previous" | "first" | "last";
@@ -86,9 +89,13 @@ export const gridKeyAction = (press: KeyPress, context: GridKeyContext): GridAct
   if (context.mode === "edit") return EDIT_KEYS.get(press.key);
   const found = NAVIGATION_KEYS.get(press.key);
   if (found === EDIT) return context.editable ? EDIT : undefined;
-  if (found === CLEAR) return context.editable && context.column === "start" ? CLEAR : undefined;
+  if (found === CLEAR) return context.editable && clears(context) ? CLEAR : undefined;
   return found;
 };
+
+/** Whether Delete clears the focused cell: a start's request, or a plan task's requested duration. */
+const clears = (context: GridKeyContext): boolean =>
+  context.column === "start" || (context.column === "duration" && context.clearable === true);
 
 /** Where a key moves the toolbar's focus, or undefined when it is not the toolbar's. */
 export const toolbarKeyMove = (press: KeyPress): ToolMove | undefined =>

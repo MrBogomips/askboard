@@ -48,14 +48,14 @@ export const treeGridOf = (board: Board): TreeGrid => {
   const toolbar = board.view.getByRole("toolbar");
   return {
     grid,
-    headers: grid.getByRole("columnheader"),
+    headers: grid.locator("thead th:not([data-select-column])"),
     rows: grid.locator("[data-node-id]"),
     row,
     cell: (nodeId, cell) => row(nodeId).locator(`[data-cell="${cell}"]`),
     chevron: (nodeId) => row(nodeId).locator("[data-chevron]"),
     editor: grid.getByRole("textbox"),
     toolbar,
-    tools: toolbar.getByRole("button"),
+    tools: toolbar.locator("button:not([data-selection-tool])"),
     tool: (label) => toolbar.getByRole("button", { name: label, exact: true }),
     counter: board.view.locator("p").filter({ hasText: COUNTER }),
     marks: (kind) => grid.locator(kind === undefined ? "[data-change]" : `[data-change="${kind}"]`),
@@ -161,6 +161,16 @@ export const tabIntoToolbar = async (board: Board, questionText: string): Promis
 export const pressTool = async (board: Board, key: string): Promise<string | undefined> => {
   await board.page.keyboard.press(key);
   return toolFocus(board);
+};
+
+/**
+ * Shift+Tab from the tree to the toolbar, then Home: the toolbar's Tab stop is the tool focused
+ * last, and the Tab that reached the tree passed "Select all", the one tool enabled before a row
+ * is current.
+ */
+export const shiftTabToAddNode = async (board: Board): Promise<string | undefined> => {
+  await board.page.keyboard.press("Shift+Tab");
+  return pressTool(board, "Home");
 };
 
 /** How many of the toolbar's tools are in the Tab order: its one Tab stop. */

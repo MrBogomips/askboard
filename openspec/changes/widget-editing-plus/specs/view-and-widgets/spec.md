@@ -95,7 +95,7 @@ While the end of a bar is dragged, the Gantt SHALL show the live duration beside
 - **THEN** the portal's cell carries the pin and the change border, and the UX design's cell carries the derived mark and no pin
 
 ### Requirement: A requested duration is cleared by returning to the estimate
-A task whose requested duration equals its PERT expected effort rounded up SHALL have none. Dragging the end back to that length, pressing Delete on the duration cell, or "Use estimate" in the cell's menu SHALL clear the request; a change to the task's estimates in the Tree SHALL leave a requested duration as it is.
+A task whose requested duration equals its PERT expected effort rounded up SHALL have none. Dragging the end back to that length, pressing Delete on the duration cell, or the pin's "Use estimate" control in the cell SHALL clear the request; a change to the task's estimates in the Tree SHALL leave a requested duration as it is.
 
 #### Scenario: Back to the estimate
 - **WHEN** the portal has a requested duration of 21 and the user drags the end of its bar back to 18

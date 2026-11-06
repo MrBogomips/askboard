@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeProps } from "@askboard/contract";
+import { dropOn } from "./model/drop.ts";
 import { focusOn, openView } from "./model/focus.ts";
-import { afterMove, isMove } from "./moving.ts";
+import { afterDrop, afterMove, isMove } from "./moving.ts";
 
 const tree: TreeProps = Object.freeze({
   nodes: [
@@ -57,5 +58,38 @@ describe("moving a node", () => {
     const refused = afterMove("moveUp", tree, onA, "a");
     expect(refused.value).toBe(tree);
     expect(refused.view).toBe(onA);
+  });
+});
+
+describe("dropping a node", () => {
+  const drop = (view: ReturnType<typeof openView>, nodeId: string, targetId: string, at: number) =>
+    afterDrop(dropOn(tree, nodeId, targetId, at), tree, view, nodeId);
+
+  test("a drop makes the move the buttons make, the focus following the node in its cell", () => {
+    const onC = focusOn(openView(tree), tree, "c", 1);
+    const dropped = drop(onC, "c", "e", 0.9);
+    expect(idsOf(dropped.value)).toEqual(["a", "b", "e", "c", "d"]);
+    expect(dropped.value).toEqual(afterMove("moveDown", tree, onC, "c").value);
+    expect(dropped.view.focus).toEqual({ nodeId: "c", cell: 1 });
+  });
+
+  test("an into drop opens the target, so that the node shows", () => {
+    const closed = { ...focusOn(openView(tree), tree, "e"), collapsed: new Set(["c"]) };
+    const dropped = drop(closed, "e", "c", 0.5);
+    expect(idsOf(dropped.value)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(dropped.view.collapsed.has("c")).toBe(false);
+  });
+
+  test("a refused drop and one that moves nothing give the same value and view", () => {
+    const view = focusOn(openView(tree), tree, "b");
+    for (const [nodeId, targetId, at] of [
+      ["b", "d", 0.5],
+      ["b", "b", 0.1],
+      ["e", "c", 0.9],
+    ] as const) {
+      const dropped = drop(view, nodeId, targetId, at);
+      expect(dropped.value).toBe(tree);
+      expect(dropped.view).toBe(view);
+    }
   });
 });

@@ -47,9 +47,25 @@ const valuesAt = (graph: BoardGraph, prefix: string): PertValues =>
     spread: valueAt(graph, `${prefix}.spread`),
   });
 
+const ESTIMATE_FIELDS = ["optimistic", "mostLikely", "pessimistic"] as const;
+
+// A leaf with none of its three estimates: the graph reads its missing inputs as 0, but no effort
+// can be computed from nothing (spec: An added row's empty roll-ups), so it reads as an error.
+const unestimated = ({ node, hasChildren }: TreeRow): boolean =>
+  !hasChildren && ESTIMATE_FIELDS.every((field) => typeof node[field] !== "number");
+
+const notComputed = (address: string): PertValues => {
+  const error = Object.freeze({ error: "value", address, detail: "no estimates" } as const);
+  const value: PertValue = Object.freeze({ kind: "error", error });
+  return Object.freeze({ expected: value, spread: value });
+};
+
 /** A visible row's expected effort and spread, and whether it has estimate cells. */
-export const pertRow = (graph: BoardGraph, itemId: string, row: TreeRow): PertRow =>
-  Object.freeze({ ...valuesAt(graph, `${itemId}.${row.node.id}`), estimates: !row.hasChildren });
+export const pertRow = (graph: BoardGraph, itemId: string, row: TreeRow): PertRow => {
+  const address = `${itemId}.${row.node.id}`;
+  const values = unestimated(row) ? notComputed(address) : valuesAt(graph, address);
+  return Object.freeze({ ...values, estimates: !row.hasChildren });
+};
 
 /** The catalogue key of the field error under a row whose values are in error (AD-13: it never blocks "Answer"). */
 export const PERT_NOT_COMPUTED = "tree.notComputed";

@@ -30,7 +30,7 @@ export type GanttRow = {
   readonly sent: boolean;
   /** The requested start, a `full-date`; undefined when the task has none. */
   readonly start: string | undefined;
-  /** The task's own duration in working days; a plan's comes from the graph. */
+  /** The task's own duration in working days, or a plan task's requested one; else the graph's. */
   readonly duration: number | undefined;
   /** The task's predecessors, by task ID; empty when it has none. */
   readonly dependencies: readonly string[];
@@ -45,13 +45,8 @@ const OWN_CELLS: readonly GanttCell[] = Object.freeze(
   GANTT_COLUMNS.map((column) => Object.freeze({ column, editable: column !== "task" })),
 );
 
-// In a plan, a duration follows its work package's estimates: only the start and the predecessors
-// are the user's to edit here.
-const PLAN_CELLS: readonly GanttCell[] = Object.freeze(
-  GANTT_COLUMNS.map((column) =>
-    Object.freeze({ column, editable: column === "start" || column === "dependencies" }),
-  ),
-);
+// In a plan, a duration is the user's to request, as a start is: only the name is not editable.
+const PLAN_CELLS: readonly GanttCell[] = OWN_CELLS;
 
 /** Whether the props are a Gantt's own tasks rather than a plan over a Tree. */
 export const isOwnGantt = (props: GanttProps): props is GanttOwnProps =>
@@ -103,7 +98,7 @@ export const planTaskRows = (
         label: node.label,
         sent: sent.has(node.id),
         start: entry?.start,
-        duration: undefined,
+        duration: entry?.duration,
         dependencies:
           entry?.dependencies === undefined ? NONE : Object.freeze([...entry.dependencies]),
         cells: PLAN_CELLS,

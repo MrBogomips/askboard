@@ -186,21 +186,21 @@ describe("an agent's request for a day the task does not start on", () => {
 
 describe("a typed duration", () => {
   test("sets whole working days", () => {
-    const entry = durationEntry(SENT, SENT, "billing", "30", EN_US_FORMAT);
+    const entry = durationEntry(SENT, SENT, "billing", undefined, "30", EN_US_FORMAT);
     expect(
       entry.kind === "value" && taskOf(entry.value as GanttOwnProps, "billing")?.duration,
     ).toBe(30);
   });
 
   test.each(["2.5", "0", "2001", ""])("refuses %p, saying a duration is whole", (text) => {
-    expect(durationEntry(SENT, SENT, "billing", text, EN_US_FORMAT)).toEqual({
+    expect(durationEntry(SENT, SENT, "billing", undefined, text, EN_US_FORMAT)).toEqual({
       kind: "refused",
       reason: "A duration is a whole number of working days, from 1 to 2,000.",
     });
   });
 
   test("refuses what is no number, with the parser's reason", () => {
-    const entry = durationEntry(SENT, SENT, "billing", "ten", EN_US_FORMAT);
+    const entry = durationEntry(SENT, SENT, "billing", undefined, "ten", EN_US_FORMAT);
     expect(entry.kind).toBe("refused");
     expect(entry.kind === "refused" && entry.reason).toContain("not part of a number");
   });
@@ -213,7 +213,10 @@ describe("an editor", () => {
     expect(entryText("start", REPORTING, IN_ERROR)).toBe("");
     expect(entryText("start", { ...REPORTING, start: "2026-12-09" }, IN_ERROR)).toBe("12/9/2026");
     expect(entryText("duration", REPORTING, SCHEDULED)).toBe("6");
-    expect(entryText("duration", { ...REPORTING, duration: undefined }, SCHEDULED)).toBe("");
+    // A plan task with no request opens on the duration the graph gives it, else on none.
+    expect(entryText("duration", { ...REPORTING, duration: undefined }, SCHEDULED)).toBe("6");
+    expect(entryText("duration", { ...REPORTING, duration: undefined }, IN_ERROR)).toBe("");
+    expect(entryText("duration", { ...REPORTING, duration: 9 }, SCHEDULED)).toBe("9");
   });
 });
 
@@ -253,11 +256,28 @@ describe("in a Gantt plan (design decision 8)", () => {
     );
   });
 
-  test("a typed duration is refused: a plan's durations follow its work packages' estimates", () => {
-    expect(durationEntry(PLAN, PLAN, "billing", "11", EN_US_FORMAT)).toEqual({
-      kind: "refused",
-      reason: "A plan's durations follow its work packages' estimates in its Tree.",
+  test("a typed duration is a plan's request; the duration the estimates give is none", () => {
+    const requested = durationEntry(PLAN, PLAN, "billing", undefined, "11", EN_US_FORMAT);
+    expect(requested.kind === "value" && planEntry(requested.value as never, "billing")).toEqual({
+      duration: 11,
+      dependencies: ["architecture"],
     });
+    const estimated = {
+      ...SCHEDULED,
+      estimate: 9,
+    } as const;
+    const same = durationEntry(PLAN, PLAN, "billing", estimated, "9", EN_US_FORMAT);
+    expect(same.kind === "value" && same.value).toEqual(PLAN);
+  });
+
+  test("an empty duration clears a plan's request, and 2.5 is refused", () => {
+    const requested = durationEntry(PLAN, PLAN, "billing", undefined, "11", EN_US_FORMAT);
+    if (requested.kind !== "value") throw new Error("no value");
+    const cleared = durationEntry(requested.value, PLAN, "billing", undefined, "", EN_US_FORMAT);
+    expect(cleared.kind === "value" && cleared.value).toEqual(PLAN);
+    expect(durationEntry(PLAN, PLAN, "billing", undefined, "2.5", EN_US_FORMAT).kind).toBe(
+      "refused",
+    );
   });
 });
 
@@ -270,12 +290,12 @@ describe("in the ask's locale (settings-languages, task 9.2)", () => {
   });
 
   test("a duration reads through the locale's number entry", () => {
-    const grouped = durationEntry(SENT, SENT, "billing", "1.200", italian);
+    const grouped = durationEntry(SENT, SENT, "billing", undefined, "1.200", italian);
     expect(
       grouped.kind === "value" && taskOf(grouped.value as GanttOwnProps, "billing")?.duration,
     ).toBe(1200);
-    expect(durationEntry(SENT, SENT, "billing", "2.001", italian).kind).toBe("refused");
-    const day = durationEntry(SENT, SENT, "billing", "30", italian);
+    expect(durationEntry(SENT, SENT, "billing", undefined, "2.001", italian).kind).toBe("refused");
+    const day = durationEntry(SENT, SENT, "billing", undefined, "30", italian);
     expect(day.kind === "value" && taskOf(day.value as GanttOwnProps, "billing")?.duration).toBe(
       30,
     );

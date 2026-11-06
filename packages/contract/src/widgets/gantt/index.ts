@@ -64,6 +64,8 @@ export type GanttOwnTask = {
 
 /** What a Gantt plan says of one of its Tree's leaves. */
 export type GanttPlanEntry = {
+  /** The requested duration in whole working days, which wins over the estimates' (input 1.5). */
+  readonly duration?: number;
   readonly start?: string;
   readonly dependencies?: readonly string[];
 };

@@ -21,9 +21,9 @@ import {
   deleteQuestion,
   enabledTools,
   pressIn,
-  pressTool,
   recordedKeys,
   recordKeys,
+  shiftTabToAddNode,
   type TreeGrid,
   tabIntoTree,
   toolStops,
@@ -103,7 +103,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.cell("portal", 0).textContent()).toBe("Customer portal: accounts");
         expect(await tree.counter.textContent()).toBe("Your changes: 1");
         expect(await enabledTools(tree.tools)).toEqual([]);
-        expect(await toolStops(tree.toolbar)).toBe(0);
+        // "Select all" is the toolbar's one stop: the selection controls still select.
+        expect(await toolStops(tree.toolbar)).toBe(1);
         // The editing keys change nothing, and the browser does not act on them.
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "portal" });
         await recordKeys(board);
@@ -173,7 +174,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.cell("portal", 0).textContent()).toBe("Customer portal");
         expect(await treeFocus(board)).toEqual({ nodeId: "portal" });
         // A new node being named: the lock takes it away, the focus back where the add started.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         await board.page.keyboard.type("Draft");

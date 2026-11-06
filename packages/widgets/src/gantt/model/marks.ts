@@ -57,11 +57,12 @@ export const ownTaskMarks = (
   );
 };
 
-/** Whether a plan's entries for a task differ in its start or its predecessors. */
+/** Whether a plan's entries for a task differ in its requested duration, start or predecessors. */
 const entryMarks = (plan: GanttPlanProps, sent: GanttPlanProps, taskId: string) => {
   const entry = planEntry(plan, taskId);
   const agent = planEntry(sent, taskId);
   return {
+    duration: entry?.duration !== agent?.duration,
     start: entry?.start !== agent?.start,
     dependencies: !sameList(entry?.dependencies, agent?.dependencies),
   };
@@ -82,21 +83,18 @@ export const planTaskMarks = (
 ): ReadonlyMap<string, PlanTaskMarks> =>
   new Map(
     rows.map((row, index) => {
-      const { start, dependencies } = entryMarks(value, sent, row.id);
+      const { duration, start, dependencies } = entryMarks(value, sent, row.id);
       const schedule = schedules[index];
       const baseline = baselines[index];
-      // A duration the user asked for in the Gantt is `direct` (a later task); until then the only
-      // duration that differs from the baseline's follows the Tree.
+      // A duration the user asked for in the Gantt is `direct` and the task counts as the user's;
+      // one that differs from the baseline's with no request of the user's follows the Tree.
       const derived =
         schedule?.kind === "scheduled" &&
         baseline !== undefined &&
         schedule.duration !== baseline.duration;
       const added = !row.sent;
-      const changed = start || dependencies || added;
-      return [
-        row.id,
-        Object.freeze({ start, duration: false, dependencies, added, derived, changed }),
-      ];
+      const changed = duration || start || dependencies || added;
+      return [row.id, Object.freeze({ start, duration, dependencies, added, derived, changed })];
     }),
   );
 
@@ -107,8 +105,8 @@ export const planTaskMarks = (
 export const planChangeCount = (value: GanttPlanProps, sent: GanttPlanProps): number => {
   const ids = new Set([...Object.keys(value.tasks), ...Object.keys(sent.tasks)]);
   return [...ids].filter((id) => {
-    const { start, dependencies } = entryMarks(value, sent, id);
-    return start || dependencies;
+    const { duration, start, dependencies } = entryMarks(value, sent, id);
+    return duration || start || dependencies;
   }).length;
 };
 

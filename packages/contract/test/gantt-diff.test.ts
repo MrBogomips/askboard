@@ -161,6 +161,38 @@ describe("a plan's entries on the generic diff", () => {
       { op: "set", target: "schedule.ux.start", value: null },
     ]);
   });
+
+  test("give a set for an added, a changed and a cleared requested duration (input 1.5)", () => {
+    const sent: Json = {
+      ...PLAN,
+      tasks: { ...PLAN.tasks, portal: { ...PLAN.tasks.portal, duration: 21 } },
+    };
+    const edited: Json = {
+      ...PLAN,
+      tasks: {
+        ...PLAN.tasks,
+        ux: { duration: 8 },
+        billing: { ...PLAN.tasks.billing, duration: 12 },
+      },
+    };
+    const forward = elementChanges("schedule", PLAN, sent, GANTT_PLAN_SHAPE);
+    expect(forward).toEqual([{ op: "set", target: "schedule.portal.duration", value: 21 }]);
+    const changes = elementChanges("schedule", sent, edited, GANTT_PLAN_SHAPE);
+    expect(changes).toEqual([
+      { op: "set", target: "schedule.billing.duration", value: 12 },
+      { op: "set", target: "schedule.portal.duration", value: null },
+      { op: "set", target: "schedule.ux.duration", value: 8 },
+    ]);
+    expect(validateGanttProps(sent, "agent").ok).toBe(true);
+    expect(validateGanttProps(edited, "edited").ok).toBe(true);
+    for (const [base, value, list] of [
+      [PLAN, sent, forward],
+      [sent, edited, changes],
+    ] as const) {
+      expect(validateGanttChanges("schedule", list, value).ok).toBe(true);
+      expect(applyElementChanges("schedule", base, list, GANTT_PLAN_SHAPE)).toEqual(value);
+    }
+  });
 });
 
 // A small seeded generator, so that a failure names the seed that gives it again.
@@ -186,6 +218,7 @@ const someDay = (next: () => number): string =>
 const fields = (next: () => number, id: string): Json => {
   const entry: Json = {};
   if (next() < 0.5) entry.start = someDay(next);
+  if (next() < 0.4) entry.duration = 1 + Math.floor(next() * 30);
   const predecessors = pick(next, IDS, id);
   if (predecessors.length > 0 && next() < 0.7) entry.dependencies = predecessors;
   return entry;

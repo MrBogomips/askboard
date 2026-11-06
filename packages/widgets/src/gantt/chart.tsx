@@ -4,8 +4,7 @@
 // `critical` on the critical path; finish-to-start elbow arrows, 1px in `gantt-bar`, or 2px in
 // `critical` on a tight link between two critical tasks (`critical-link.ts`), each with its
 // arrowhead; in a plan, the baselines under the bars. A task the graph cannot schedule has no bar
-// and no arrow. The pointer drags a bar to move it, or, in a Gantt with its own tasks, its end to
-// resize it (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and
+// and no arrow. The pointer drags a bar to move it, or its end to resize it (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and
 // the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
 // and widths as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
@@ -19,12 +18,14 @@ import {
   drawnBars,
   drawnBaselines,
   Guide,
+  ResizeFeedback,
 } from "./bars.tsx";
 import { isCriticalLink } from "./model/critical-link.ts";
 import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
+import { looksCritical } from "./model/legend.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
 import {
@@ -166,31 +167,57 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
   );
 });
 
-const ArrowPath = memo(({ itemId, arrow }: { readonly itemId: string; readonly arrow: Arrow }) => (
-  <path
-    data-gantt-arrow=""
-    data-from={arrow.from.id}
-    data-to={arrow.to.id}
-    data-critical={arrow.critical}
-    d={arrowPath(arrow.from.box, arrow.to.box)}
-    markerEnd={`url(#${arrowMarkerId(itemId, arrow.critical)})`}
-    className={
-      arrow.critical
-        ? "fill-none stroke-critical stroke-2"
-        : "fill-none stroke-border-strong stroke-1"
-    }
-  />
-));
+const ArrowPath = memo(
+  ({
+    itemId,
+    arrow,
+    highlight,
+  }: {
+    readonly itemId: string;
+    readonly arrow: Arrow;
+    readonly highlight: boolean;
+  }) => {
+    const critical = looksCritical(arrow.critical, highlight);
+    return (
+      <path
+        data-gantt-arrow=""
+        data-from={arrow.from.id}
+        data-to={arrow.to.id}
+        data-critical={arrow.critical}
+        d={arrowPath(arrow.from.box, arrow.to.box)}
+        markerEnd={`url(#${arrowMarkerId(itemId, critical)})`}
+        className={
+          critical
+            ? "fill-none stroke-critical stroke-2"
+            : "fill-none stroke-border-strong stroke-1"
+        }
+      />
+    );
+  },
+);
 
 /**
  * The arrows between the drawn bars, built again only when the bars are: a pointer move draws the
  * dragged bar again, never the arrows, which follow once the drop has rebuilt the graph.
  */
 const Arrows = memo(
-  ({ itemId, arrows }: { readonly itemId: string; readonly arrows: readonly Arrow[] }) => (
+  ({
+    itemId,
+    arrows,
+    highlight,
+  }: {
+    readonly itemId: string;
+    readonly arrows: readonly Arrow[];
+    readonly highlight: boolean;
+  }) => (
     <g>
       {arrows.map((arrow) => (
-        <ArrowPath key={`${arrow.from.id}>${arrow.to.id}`} itemId={itemId} arrow={arrow} />
+        <ArrowPath
+          key={`${arrow.from.id}>${arrow.to.id}`}
+          itemId={itemId}
+          arrow={arrow}
+          highlight={highlight}
+        />
       ))}
     </g>
   ),
@@ -207,18 +234,22 @@ export type ChartProps = {
   readonly layout: RowBoxes;
   readonly span: ChartSpan;
   readonly zoom: Zoom;
+  /** The room the chart's frame gives it, in px: a span of fewer whole days than fill it is drawn that wide. */
+  readonly room: number;
   /** What the user changed, by task: a changed task's bar takes the change outline. */
   readonly marks: ReadonlyMap<string, TaskMarks>;
   /** Whether the bars take pointer edits. */
   readonly editable: boolean;
+  /** Whether the critical path is highlighted (the toolbar's switch). */
+  readonly highlight: boolean;
   /**
    * A bar dropped on another day than it starts on: its task asks for it, holds no request on its
    * earliest start, or takes the agent's request back on the day that request schedules it on.
    */
   readonly onMove: (taskId: string, day: string, earliest: string) => void;
   /**
-   * A bar's end dropped: its task's new duration, in working days. Undefined in a plan, whose
-   * durations follow its Tree: its bars have no handle.
+   * A bar's end dropped: its task's new duration, in working days, which a plan's task takes as a
+   * request. Undefined where the bars take no handle.
    */
   readonly onResize: ((taskId: string, duration: number) => void) | undefined;
 };
@@ -230,10 +261,39 @@ const draggedBox = (bar: DrawnBar, drag: BarDrag, span: ChartSpan, zoom: Zoom) =
   return movedBox(bar.box, landing, span.origin, zoom);
 };
 
+/** The live duration and the earliest-end guide of a bar whose end is dragged. */
+const ResizeLabel = ({
+  bar,
+  drag,
+  zoom,
+  height,
+}: {
+  readonly bar: DrawnBar;
+  readonly drag: BarDrag;
+  readonly zoom: Zoom;
+  readonly height: number;
+}) => {
+  const resized = resizeDrop({ start: bar.start, finish: bar.finish, dx: drag.dx, zoom });
+  if (resized.kind !== "duration") return null;
+  const drawn = resizedBox(bar.box, drag.dx, zoom);
+  return (
+    <ResizeFeedback
+      bar={bar}
+      drawn={drawn}
+      duration={resized.duration}
+      zoom={zoom}
+      height={height}
+    />
+  );
+};
+
 export const Chart = (props: ChartProps) => {
   const { itemId, rows, schedules, layout, span, zoom, onMove, onResize } = props;
   const text = useStrings();
-  const width = (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
+  const width = Math.max(
+    (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom],
+    props.room,
+  );
   const bars = useMemo(
     () => drawnBars(rows, schedules, layout, span, zoom),
     [rows, schedules, layout, span, zoom],
@@ -278,7 +338,7 @@ export const Chart = (props: ChartProps) => {
           <BaselineShape key={baseline.id} baseline={baseline} />
         ))}
       </g>
-      <Arrows itemId={itemId} arrows={arrows} />
+      <Arrows itemId={itemId} arrows={arrows} highlight={props.highlight} />
       <g>
         {[...bars.values()].map((bar) => (
           <BarShape
@@ -289,6 +349,7 @@ export const Chart = (props: ChartProps) => {
             derived={isDerived(props.marks.get(bar.id))}
             draggable={props.editable}
             resizable={onResize !== undefined}
+            highlight={props.highlight}
             onPress={press}
             onMove={move}
             onRelease={release}
@@ -298,6 +359,9 @@ export const Chart = (props: ChartProps) => {
       </g>
       {dragged !== undefined && drag?.kind === "move" ? (
         <Guide bar={dragged} span={span} zoom={zoom} height={layout.height} />
+      ) : null}
+      {dragged !== undefined && drag?.kind === "resize" ? (
+        <ResizeLabel bar={dragged} drag={drag} zoom={zoom} height={layout.height} />
       ) : null}
     </svg>
   );

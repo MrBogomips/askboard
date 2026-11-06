@@ -27,6 +27,6 @@ describe("the Tree toolbar's counter", () => {
     expect(toolbar).toContain("DropdownMenu");
     expect(toolbar).toContain("useCrowded");
     expect(await source("./use-crowded.ts")).toContain("isCrowded");
-    expect(toolbar).toContain("MOVE_TOOLS");
+    expect(toolbar).toContain("OVERFLOW_TOOLS");
   });
 });

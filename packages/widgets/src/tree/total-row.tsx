@@ -6,8 +6,9 @@
 import type { TreeColumn } from "@askboard/contract";
 import { useStrings } from "@askboard/view/catalog";
 import { PERT_HEADERS } from "./cells.ts";
-import { FIELD_CELL, NAME_CELL, PARENT_NAME, ROW } from "./classes.ts";
+import { FIELD_CELL, NAME_CELL, PARENT_NAME, ROW, SELECT_COLUMN } from "./classes.ts";
 import type { PertValues } from "./model/pert.ts";
+import { SELECT_CELLS } from "./model/rows.ts";
 import { ValueCells, ValueError } from "./row.tsx";
 
 export const TotalRow = ({
@@ -21,6 +22,7 @@ export const TotalRow = ({
   return (
     <>
       <tr data-total-row="" className={ROW}>
+        <td data-select-column="" className={SELECT_COLUMN} />
         <td data-cell={0} className={NAME_CELL}>
           <span className={PARENT_NAME}>{text("tree.total")}</span>
         </td>
@@ -29,7 +31,7 @@ export const TotalRow = ({
         ))}
         <ValueCells values={values} first={1 + columns.length} />
       </tr>
-      <ValueError values={values} cells={1 + columns.length + PERT_HEADERS.length} />
+      <ValueError values={values} cells={SELECT_CELLS + 1 + columns.length + PERT_HEADERS.length} />
     </>
   );
 };
