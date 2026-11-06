@@ -1,6 +1,6 @@
 // The chart's bars (design decision 9; DESIGN.md Widgets, Gantt): per task the graph scheduled, a
 // 14px bar in `gantt-bar`, or in `critical` on the critical path, with a 6px handle on its end
-// that resizes it in a Gantt with its own tasks; the press that drags either is `bar-drag.ts`'s. A
+// that resizes it, a plan's by requesting a duration; the press that drags either is `bar-drag.ts`'s. A
 // task of no duration, a plan's milestone, is a diamond on its start. A
 // task the user changed takes the 2px `change` outline, offset by 1px (`gantt-user-change`).
 // While a bar is dragged it is drawn where it would land (`model/preview.ts`), and a move shows
@@ -16,7 +16,7 @@ import type { DragKind } from "./bar-drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { type BarBox, barBox, baselineBox, type RowBox, type RowBoxes } from "./model/layout.ts";
 import { looksCritical } from "./model/legend.ts";
-import { xOf, type Zoom } from "./model/scale.ts";
+import { PIXELS_PER_DAY, xOf, type Zoom } from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
@@ -205,7 +205,7 @@ const Bar = ({
           y={drawn.y}
           width={HANDLE_WIDTH}
           height={drawn.height}
-          className="cursor-ew-resize fill-transparent"
+          className="cursor-ew-resize fill-transparent hover:fill-foreground/30"
           {...pointer("resize")}
         />
       ) : null}
@@ -251,6 +251,49 @@ export const Guide = ({
         className="fill-foreground-secondary stroke-card stroke-[3px] text-badge [paint-order:stroke]"
       >
         {label}
+      </text>
+    </g>
+  );
+};
+
+/**
+ * While a bar's end is dragged (view spec, "Duration resize feedback"): the live duration beside
+ * the bar's end, "8 d", and a dashed guide at the earliest end, one working day long. `duration`
+ * is what a drop would give, from `drag.ts`.
+ */
+export const ResizeFeedback = ({
+  bar,
+  drawn,
+  duration,
+  zoom,
+  height,
+}: {
+  readonly bar: DrawnBar;
+  /** Where the bar is drawn now. */
+  readonly drawn: BarBox;
+  readonly duration: number;
+  readonly zoom: Zoom;
+  /** The chart's height, which the guide spans. */
+  readonly height: number;
+}) => {
+  const text = useStrings();
+  const earliestEnd = bar.box.x + PIXELS_PER_DAY[zoom] + 0.5;
+  return (
+    <g data-gantt-resize="" data-duration={duration} className="pointer-events-none">
+      <line
+        x1={earliestEnd}
+        y1={0}
+        x2={earliestEnd}
+        y2={height}
+        className="stroke-foreground-secondary stroke-2 [stroke-dasharray:4_3]"
+      />
+      <text
+        data-gantt-resize-label=""
+        x={drawn.x + drawn.width + 6}
+        y={drawn.y + drawn.height - 2}
+        className="fill-foreground-secondary stroke-card stroke-[3px] text-badge [paint-order:stroke]"
+      >
+        {text("gantt.duration", { count: duration })}
       </text>
     </g>
   );

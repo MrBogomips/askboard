@@ -8,7 +8,7 @@
 // and in a plan the zoom another: the grid carries every keyboard path to the tasks. The frame
 // holds the Gantt's view state, the zoom, the grid's focus, its editor and its predecessors panel,
 // and lays the chart's rows out under the grid's, a note's line included, so that each bar stays
-// beside its row. Only a Gantt's own tasks take a duration: a plan's follow its Tree's estimates.
+// beside its row. A Gantt's own tasks take a duration; a plan's tasks take a requested one, which is none again at the length their estimates give.
 // Both open a task's predecessors panel from its "Depends on", a plan's offering its Tree's leaves.
 
 import type { GanttProps } from "@askboard/contract";
@@ -23,7 +23,7 @@ import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
 import { COLUMN_DEFAULT, clampWidth, fitWidth } from "./model/column-width.ts";
 import { dayNumber } from "./model/date.ts";
-import { clearStart, setDuration } from "./model/edits.ts";
+import { clearDuration, clearStart, setDuration } from "./model/edits.ts";
 import { landOn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
@@ -195,14 +195,24 @@ export const GanttFrame = (props: FrameProps) => {
     rows,
     focus,
     editing,
-    onClear: (row) => onCommit(clearStart(current, sent, row.id)),
+    onClear: (row, column) =>
+      onCommit(
+        column === "start"
+          ? clearStart(current, sent, row.id)
+          : clearDuration(current, sent, row.id),
+      ),
+    hasRequest: (row) => !own && row.duration !== undefined,
     onOpenPanel: panels.open,
     editable,
   });
-  // Only a Gantt's own tasks take a duration: a plan's follow its Tree's estimates.
-  const onResize = own
-    ? (taskId: string, duration: number) => onCommit(setDuration(current, sent, taskId, duration))
-    : undefined;
+  // A bar's end sets a Gantt's own task's duration, or asks for a plan task's, which is none again
+  // at the length its estimates give.
+  const onResize = (taskId: string, duration: number) => {
+    const schedule = schedules[rows.findIndex((row) => row.id === taskId)];
+    const estimate = schedule?.kind === "scheduled" ? schedule.estimate : undefined;
+    onCommit(setDuration(current, sent, taskId, duration, estimate));
+  };
+  const clearRequest = (row: GanttRow) => onCommit(clearDuration(current, sent, row.id));
   return (
     <div ref={frame} className="flex flex-col rounded-md border border-border bg-card">
       <Toolbar
@@ -229,6 +239,8 @@ export const GanttFrame = (props: FrameProps) => {
             stop={focus.stop}
             onKeyDown={onKeyDown}
             onFocus={focus.onFocus}
+            plan={!own}
+            onUseEstimate={clearRequest}
             taskWidth={taskWidth}
             edge={
               <ColumnEdge

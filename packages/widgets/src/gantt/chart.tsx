@@ -4,8 +4,7 @@
 // `critical` on the critical path; finish-to-start elbow arrows, 1px in `gantt-bar`, or 2px in
 // `critical` on a tight link between two critical tasks (`critical-link.ts`), each with its
 // arrowhead; in a plan, the baselines under the bars. A task the graph cannot schedule has no bar
-// and no arrow. The pointer drags a bar to move it, or, in a Gantt with its own tasks, its end to
-// resize it (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and
+// and no arrow. The pointer drags a bar to move it, or its end to resize it (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and
 // the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
 // and widths as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
@@ -19,6 +18,7 @@ import {
   drawnBars,
   drawnBaselines,
   Guide,
+  ResizeFeedback,
 } from "./bars.tsx";
 import { isCriticalLink } from "./model/critical-link.ts";
 import { dayNumber } from "./model/date.ts";
@@ -246,8 +246,8 @@ export type ChartProps = {
    */
   readonly onMove: (taskId: string, day: string, earliest: string) => void;
   /**
-   * A bar's end dropped: its task's new duration, in working days. Undefined in a plan, whose
-   * durations follow its Tree: its bars have no handle.
+   * A bar's end dropped: its task's new duration, in working days, which a plan's task takes as a
+   * request. Undefined where the bars take no handle.
    */
   readonly onResize: ((taskId: string, duration: number) => void) | undefined;
 };
@@ -257,6 +257,32 @@ const draggedBox = (bar: DrawnBar, drag: BarDrag, span: ChartSpan, zoom: Zoom) =
   if (drag.kind === "resize") return resizedBox(bar.box, drag.dx, zoom);
   const landing = moveDrop({ start: bar.start, earliest: bar.earliest, dx: drag.dx, zoom });
   return movedBox(bar.box, landing, span.origin, zoom);
+};
+
+/** The live duration and the earliest-end guide of a bar whose end is dragged. */
+const ResizeLabel = ({
+  bar,
+  drag,
+  zoom,
+  height,
+}: {
+  readonly bar: DrawnBar;
+  readonly drag: BarDrag;
+  readonly zoom: Zoom;
+  readonly height: number;
+}) => {
+  const resized = resizeDrop({ start: bar.start, finish: bar.finish, dx: drag.dx, zoom });
+  if (resized.kind !== "duration") return null;
+  const drawn = resizedBox(bar.box, drag.dx, zoom);
+  return (
+    <ResizeFeedback
+      bar={bar}
+      drawn={drawn}
+      duration={resized.duration}
+      zoom={zoom}
+      height={height}
+    />
+  );
 };
 
 export const Chart = (props: ChartProps) => {
@@ -328,6 +354,9 @@ export const Chart = (props: ChartProps) => {
       </g>
       {dragged !== undefined && drag?.kind === "move" ? (
         <Guide bar={dragged} span={span} zoom={zoom} height={layout.height} />
+      ) : null}
+      {dragged !== undefined && drag?.kind === "resize" ? (
+        <ResizeLabel bar={dragged} drag={drag} zoom={zoom} height={layout.height} />
       ) : null}
     </svg>
   );

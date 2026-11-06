@@ -6,7 +6,7 @@
 // name, its start as the grid's date (`12/9/2026`), its duration in working days, right-aligned,
 // and its predecessors' names, over their panel while it is open; a note, such as a refused
 // entry's reason, takes a line under its row. A plan's duration is its work package's PERT
-// estimate from the graph, a value no key edits, and the row of a package the user added in its
+// estimate from the graph until the user requests another, which carries a pin, and the row of a package the user added in its
 // Tree takes the added mark, the change bar on its left edge (DESIGN.md, Change highlight). Every
 // agent string renders as text (AD-8). The grid is one Tab stop (`grid-focus.ts`); its keys are
 // read on its cells only, so that an editor or a panel inside a cell keeps its own
@@ -146,6 +146,9 @@ type TaskRowProps = {
   readonly editable: boolean;
   /** Whether the grid's dates carry their year. */
   readonly withYear: boolean;
+  /** Whether the Gantt is a plan, whose duration is a request: its pin clears it. */
+  readonly plan: boolean;
+  readonly onUseEstimate: (row: GanttRow) => void;
 };
 
 /** The predecessors panel of the row, if it is open, in its "Depends on" cell. */
@@ -166,6 +169,46 @@ const RowPanel = ({ itemId, row, rows, panels, current, editable }: TaskRowProps
   );
 };
 
+/** A pushpin, 10 px, in the current colour. */
+const PIN_PATH = "M3 1h4l-.6 3.2L8.5 6v1H5.6V9.5L5 10l-.6-.5V7H1.5V6l2.1-1.8z";
+
+/**
+ * The pin on a plan task's requested duration (design decision 2): a button that gives the
+ * estimates' duration back, "Use estimate", while the Gantt takes edits; a mark only when it is
+ * read-only. The grid's keys reach the same clear with Delete, so the button is no Tab stop.
+ */
+const DurationPin = ({
+  label,
+  editable,
+  onUse,
+}: {
+  readonly label: string;
+  readonly editable: boolean;
+  readonly onUse: () => void;
+}) => {
+  const glyph = (
+    <svg aria-hidden="true" viewBox="0 0 10 10" className="size-[10px] fill-current">
+      <path d={PIN_PATH} />
+    </svg>
+  );
+  return editable ? (
+    <button
+      type="button"
+      tabIndex={-1}
+      data-gantt-pin=""
+      aria-label={label}
+      className="mr-1 inline-flex shrink-0 text-change-text"
+      onClick={onUse}
+    >
+      {glyph}
+    </button>
+  ) : (
+    <span data-gantt-pin="" className="mr-1 inline-flex shrink-0 text-change-text">
+      {glyph}
+    </span>
+  );
+};
+
 const TaskRow = (props: TaskRowProps) => {
   const locale = useLocale();
   const text = useStrings();
@@ -177,6 +220,13 @@ const TaskRow = (props: TaskRowProps) => {
   };
   const edited = props.editable && editing.editing?.taskId === row.id ? editing.editing : undefined;
   const added = mark?.added === true;
+  // A plan task that holds a requested duration: the pin, and the tooltip comparing it.
+  const pinned = props.plan && row.duration !== undefined;
+  const estimate = schedule?.kind === "scheduled" ? schedule.estimate : undefined;
+  const requestedTitle =
+    pinned && estimate !== undefined
+      ? text("gantt.duration.requested", { requested: row.duration ?? 0, estimate })
+      : undefined;
   return (
     <tr
       data-gantt-row={row.id}
@@ -187,7 +237,7 @@ const TaskRow = (props: TaskRowProps) => {
         <td
           key={column}
           data-gantt-column={column}
-          title={column === "task" ? row.label : undefined}
+          title={column === "task" ? row.label : column === "duration" ? requestedTitle : undefined}
           data-gantt-derived={derivedIn(column, mark) ? "" : undefined}
           data-editable={props.editable && editable && edited?.column !== column ? true : undefined}
           // While its editor is open, the editor holds the cell's Tab stop.
@@ -204,7 +254,18 @@ const TaskRow = (props: TaskRowProps) => {
               onCancel={editing.cancel}
             />
           ) : (
-            <span className="block truncate">{cellText(column, row, schedule, names, format)}</span>
+            <span
+              className={`block truncate ${column === "duration" && pinned ? "flex items-center justify-end" : ""}`}
+            >
+              {column === "duration" && pinned ? (
+                <DurationPin
+                  label={text("gantt.duration.useEstimate")}
+                  editable={props.editable}
+                  onUse={() => props.onUseEstimate(row)}
+                />
+              ) : null}
+              {cellText(column, row, schedule, names, format)}
+            </span>
           )}
           {column === "dependencies" ? <RowPanel {...props} /> : null}
         </td>
@@ -271,6 +332,9 @@ export type GridProps = {
   /** The TASK column's width in px, and the edge that resizes it, drawn in its header. */
   readonly taskWidth: number;
   readonly edge: ReactNode;
+  /** Whether the Gantt is a plan, and what "Use estimate" does for a task. */
+  readonly plan: boolean;
+  readonly onUseEstimate: (row: GanttRow) => void;
 };
 
 export const Grid = (props: GridProps) => {
@@ -317,6 +381,8 @@ export const Grid = (props: GridProps) => {
               mark={props.marks.get(row.id)}
               editable={props.editable}
               withYear={withYear}
+              plan={props.plan}
+              onUseEstimate={props.onUseEstimate}
             />
           );
           if (note === undefined) return [task];

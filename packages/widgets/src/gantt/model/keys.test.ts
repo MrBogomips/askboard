@@ -25,6 +25,13 @@ const NAVIGATE_PREDECESSORS: GridKeyContext = {
   column: "dependencies",
   editable: true,
 };
+const NAVIGATE_REQUESTED: GridKeyContext = {
+  mode: "navigate",
+  column: "duration",
+  editable: true,
+  clearable: true,
+};
+const READ_ONLY_REQUESTED: GridKeyContext = { ...NAVIGATE_REQUESTED, editable: false };
 const NAVIGATE_TASK: GridKeyContext = { mode: "navigate", column: "task", editable: false };
 const READ_ONLY_START: GridKeyContext = { mode: "navigate", column: "start", editable: false };
 const EDIT_START: GridKeyContext = { mode: "edit", column: "start", editable: true };
@@ -58,6 +65,10 @@ describe("the grid's keys", () => {
     ["Delete", NAVIGATE_START, CLEAR],
     ["Backspace", NAVIGATE_START, CLEAR],
     ["Delete", NAVIGATE_DURATION, undefined],
+    // A plan's requested duration is cleared the same way, where the Gantt takes edits.
+    ["Delete", NAVIGATE_REQUESTED, CLEAR],
+    ["Backspace", NAVIGATE_REQUESTED, CLEAR],
+    ["Delete", READ_ONLY_REQUESTED, undefined],
     ["Backspace", NAVIGATE_PREDECESSORS, undefined],
     ["Delete", READ_ONLY_START, undefined],
     // Other keys are not the grid's.

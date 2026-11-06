@@ -145,7 +145,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     };
 
     test(
-      "the plan lists the Tree's leaves in its order with their PERT durations, read-only, and draws their bars and the critical path",
+      "the plan lists the Tree's leaves in its order with their PERT durations, and draws their bars with a resize handle each, and the critical path",
       async () => {
         const run = await openedPlan();
         const gantt = ganttOf(run.board, planGantt.id);
@@ -160,20 +160,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await criticalTasks(gantt)).toEqual(["ux", "prototype", "portal", "reporting"]);
         expect(await chartAt(gantt, "week").count()).toBe(1);
-        // Durations are right-aligned values: no resize handle, and no key edits one.
+        // Durations are right-aligned values; each bar has a resize handle, and no pin shows while
+        // no duration is requested.
         const alignment = await gantt.grid
           .locator('[data-gantt-column="duration"]')
           .evaluateAll((cells) => cells.map((cell) => getComputedStyle(cell).textAlign));
         expect(alignment).toEqual(UJ2.map(() => "right"));
-        expect(await gantt.root.locator("[data-gantt-handle]").count()).toBe(0);
+        expect(await gantt.root.locator("[data-gantt-handle]").count()).toBe(PLAN_TASKS.length);
+        expect(await gantt.root.locator("[data-gantt-pin]").count()).toBe(0);
+        // Delete and Backspace clear nothing where no duration is requested; Enter opens the editor
+        // on the duration the estimates give, and Escape restores it.
         await keysTo(run.board, "billing", "duration", PLAN_TASKS);
-        for (const key of ["Enter", "F2", "Delete", "Backspace"]) {
+        for (const key of ["Delete", "Backspace"]) {
           await run.board.page.keyboard.press(key);
-          expect({ key, editors: await gantt.grid.locator("input").count() }).toEqual({
-            key,
-            editors: 0,
-          });
+          expect(await gantt.grid.locator("input").count()).toBe(0);
         }
+        await run.board.page.keyboard.press("Enter");
+        expect(await gantt.grid.locator("input").inputValue()).toBe("9");
+        await run.board.page.keyboard.press("Escape");
+        expect(await gantt.grid.locator("input").count()).toBe(0);
         expect(await focusedCell(run.board)).toBe("billing.duration");
         expect(await rowTexts(gantt)).toEqual(PLAN_ROWS);
         await Bun.sleep(QUIET_MS);
@@ -200,13 +205,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ).toEqual([...ZOOM_LABELS]);
         expect(await checkedZoom(gantt)).toEqual(["Week"]);
         await expectScale(gantt, "week");
-        // The zoom, then the grid: two Tab stops, and Shift+Tab back to the Tree.
+        // The zoom, the critical path switch, the Task column's edge, then the grid: four Tab stops,
+        // and Shift+Tab back to the Tree.
         await tabIntoPlan(board);
         expect(await focusAt(board)).toBe("Week");
         const ring = colour("ring");
         expect(await focusRing(board)).toEqual({ style: "solid", width: "2px", color: ring });
-        await pressTo(board, "Tab", "ux.task");
-        await pressTo(board, "Shift+Tab", "Week");
+        for (let stops = 0; stops < 3; stops += 1) await board.page.keyboard.press("Tab");
+        await eventually(async () => (await focusAt(board)) === "ux.task", "Tab to the grid");
+        for (let stops = 0; stops < 3; stops += 1) await board.page.keyboard.press("Shift+Tab");
+        await eventually(async () => (await focusAt(board)) === "Week", "Shift+Tab to the zoom");
         await pressTo(board, "Shift+Tab", planTree.id);
         await pressTo(board, "Tab", "Week");
         // The arrow keys, Home and End move between the options; Space or Enter chooses one.
@@ -222,8 +230,18 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await Bun.sleep(QUIET_MS);
         expect(await checkedZoom(gantt)).toEqual(["Day"]);
         await expectScale(gantt, "day");
+        // From the last option the right arrow reaches the switch, and the left arrow comes back.
         await pressTo(board, "End", "Month");
-        await pressTo(board, "ArrowRight", "Day");
+        await board.page.keyboard.press("ArrowRight");
+        await eventually(
+          async () =>
+            (await gantt.root
+              .getByRole("switch", { name: "Critical path" })
+              .evaluate((element) => element === element.ownerDocument.activeElement)) === true,
+          "the right arrow to reach the switch",
+        );
+        await pressTo(board, "ArrowLeft", "Month");
+        await pressTo(board, "Home", "Day");
         expect(await focusRing(board)).toEqual({ style: "solid", width: "2px", color: ring });
         // The pointer chooses too.
         await zoomOption(gantt, "Week").click();

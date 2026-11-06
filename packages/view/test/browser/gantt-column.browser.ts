@@ -5,9 +5,11 @@
 // state: no message leaves the view, "Answer" stays disabled, and the counter reads "No changes".
 
 import { describe, expect, test } from "bun:test";
+import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import { schedule } from "./fixtures/gantt-documents.ts";
+import { planGantt } from "./fixtures/gantt-plan.ts";
 import { type GanttParts, ganttOf, withTasks } from "./fixtures/gantt-view.ts";
-import { QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -151,6 +153,31 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await edge.dblclick();
         expect((await widths(gantt)).column).toBe(fitted.column);
         await expectNotAnAnswer(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the fixture plan opens at the column's default width with its last bar and end date visible without scrolling",
+      async () => {
+        const run = await host(dist, ganttPlanBoardDocument);
+        await eventually(
+          () => run.messages.length > 0,
+          "the plan's ready message",
+          LOAD_TIMEOUT_MS,
+        );
+        const gantt = ganttOf(run.board, planGantt.id);
+        const fits = await gantt.root.evaluate((root) => {
+          const scroller = root.querySelector<HTMLElement>("svg")?.parentElement;
+          return scroller === null || scroller === undefined
+            ? undefined
+            : scroller.scrollWidth <= scroller.clientWidth + 1;
+        });
+        expect(fits).toBe(true);
+        const last = await gantt.bar("reporting").boundingBox();
+        const chart = await gantt.root.locator("svg").first().boundingBox();
+        if (last === null || chart === null) throw new Error("no last bar or chart");
+        expect(last.x + last.width).toBeLessThanOrEqual(chart.x + chart.width);
       },
       TEST_TIMEOUT_MS,
     );
