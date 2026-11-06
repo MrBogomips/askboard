@@ -11,6 +11,7 @@ import {
   isGanttDate,
   LAST_DAY,
   parseDateEntry,
+  spansYears,
 } from "./date.ts";
 
 describe("the Gantt's en-US date entry", () => {
@@ -201,5 +202,16 @@ describe("the Gantt's it-IT dates (settings-languages, task 9.2)", () => {
   test("still refuses a day outside the contract's range, whatever the locale", () => {
     expect(() => gridDate("1899-12-31", "it-IT")).toThrow(RangeError);
     expect(() => echoDate("1899-12-31", "it-IT")).toThrow(RangeError);
+  });
+});
+
+describe("whether a plan spans two years (review F-21)", () => {
+  test("is no when every date is in one year, or there is none", () => {
+    expect(spansYears([])).toBe(false);
+    expect(spansYears(["2026-11-02", "2026-12-31"])).toBe(false);
+  });
+
+  test("is yes when the dates are in two", () => {
+    expect(spansYears(["2026-12-31", "2027-01-04"])).toBe(true);
   });
 });

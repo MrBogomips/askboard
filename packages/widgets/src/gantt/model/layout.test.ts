@@ -94,16 +94,27 @@ describe("a plan's baseline", () => {
 describe("a finish-to-start arrow", () => {
   const box = (x: number, width: number, y: number) => ({ x, y, width, height: 14 });
 
-  test("runs straight to just before a successor that starts well after, then down and in", () => {
-    expect(arrowPath(box(165, 105, 187), box(465, 120, 259))).toBe("M270,194 H449 V266 H465");
+  test("leaves the bar's end by an 8px stub, drops in the gap, and enters from the left", () => {
+    // The channel runs 5px under the predecessor's bar, clear of the row's rule.
+    expect(arrowPath(box(165, 105, 187), box(465, 120, 259))).toBe(
+      "M270,194 h8 V206 H457 V266 H465",
+    );
   });
 
-  test("elbows back under its predecessor to a successor that starts at once, as in the mock", () => {
-    expect(arrowPath(box(0, 120, 43), box(120, 45, 79))).toBe("M120,50 h5 V62 H111 V86 H120");
+  test("returns under its predecessor to a successor that starts at once", () => {
+    expect(arrowPath(box(0, 120, 43), box(120, 45, 79))).toBe("M120,50 h8 V62 H112 V86 H120");
   });
 
-  test("elbows up to a successor drawn above its predecessor", () => {
-    expect(arrowPath(box(0, 120, 79), box(120, 45, 43))).toBe("M120,86 h5 V74 H111 V50 H120");
+  test("takes the gap above to a successor drawn above its predecessor", () => {
+    expect(arrowPath(box(0, 120, 79), box(120, 45, 43))).toBe("M120,86 h8 V74 H112 V50 H120");
+  });
+
+  test("never runs along a row's rule: the channel is 6px clear of it either way", () => {
+    // Bars of 14px in rows of 36px: a rule lies 11px under a bar's foot or over its top.
+    const down = arrowPath(box(0, 50, 43), box(200, 50, 115));
+    const up = arrowPath(box(0, 50, 115), box(200, 50, 43));
+    expect(down.match(/V(\d+) H/)?.[1]).toBe("62");
+    expect(up.match(/V(\d+) H/)?.[1]).toBe("110");
   });
 
   test("ends in a marker whose ID no other item's marker takes, whatever the two items' IDs", () => {

@@ -83,12 +83,12 @@ export const baselineBox = (
   });
 };
 
-// The mock's elbows: straight on to 16px before a successor that starts well after; else out 5px,
-// to 12px from the predecessor's middle, back to 9px before the successor, then to it.
-const RUN_IN = 16;
-const STEP_OUT = 5;
-const STEP_DOWN = 12;
-const STEP_BACK = 9;
+// An arrow leaves its predecessor's end by a stub, runs in the channel under (or over) that bar,
+// clear of the row's rule, and enters its successor from the left at mid-height after a stub
+// (review F-13): never along a row's rule, and no bracket shape.
+const STUB = 8;
+/** From the predecessor's bar to the channel: the rule is 11px from the bar, so 6px clear of it. */
+const CHANNEL_GAP = 5;
 
 /** The path of the arrow from a predecessor's end to its successor's start. */
 export const arrowPath = (from: BarBox, to: BarBox): string => {
@@ -96,9 +96,9 @@ export const arrowPath = (from: BarBox, to: BarBox): string => {
   const y1 = from.y + from.height / 2;
   const x2 = to.x;
   const y2 = to.y + to.height / 2;
-  if (x2 - RUN_IN >= x1 + STEP_OUT) return `M${x1},${y1} H${x2 - RUN_IN} V${y2} H${x2}`;
-  const turn = y1 + (y2 >= y1 ? STEP_DOWN : -STEP_DOWN);
-  return `M${x1},${y1} h${STEP_OUT} V${turn} H${x2 - STEP_BACK} V${y2} H${x2}`;
+  if (y1 === y2) return `M${x1},${y1} H${x2}`;
+  const channel = y2 > y1 ? from.y + from.height + CHANNEL_GAP : from.y - CHANNEL_GAP;
+  return `M${x1},${y1} h${STUB} V${channel} H${x2 - STUB} V${y2} H${x2}`;
 };
 
 /**

@@ -92,6 +92,10 @@ export const gridDate = (date: string, locale: Locale = "en-US"): string => {
   return formatDate(date, locale);
 };
 
+/** Whether `dates` fall in two or more years: the grid then shows its dates with their year. */
+export const spansYears = (dates: readonly string[]): boolean =>
+  new Set(dates.map((date) => date.slice(0, 4))).size > 1;
+
 // Howard Hinnant's days_from_civil and civil_from_days, proleptic Gregorian: days from 1970-01-01.
 const daysFromCivil = (year: number, month: number, day: number): number => {
   const y = month <= 2 ? year - 1 : year;

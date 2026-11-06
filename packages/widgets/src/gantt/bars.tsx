@@ -4,23 +4,17 @@
 // task of no duration, a plan's milestone, is a diamond on its start. A
 // task the user changed takes the 2px `change` outline, offset by 1px (`gantt-user-change`).
 // While a bar is dragged it is drawn where it would land (`model/preview.ts`), and a move shows
-// its earliest start as the guide, a 1px dashed line in `muted-foreground` over its row (proposal,
-// open question 7). In a plan, each task the agent sent has its baseline under its bar: the dates
-// the agent's plan gave it, a 4px bar in `border-strong` (proposal, open question 7), which stays
-// where it is while the task moves. Geometry as SVG attributes, colours and widths as token
+// its earliest start as the guide, a full-height 2px dashed line with its date. In a plan, each
+// task that has moved from the agent's dates has its baseline under its bar: those dates as a 2px
+// dashed `border-strong` line, which stays where it is while the task moves (review F-12, F-14). Geometry as SVG attributes, colours and widths as token
 // classes (AD-8).
 
+import { formatShortDate } from "@askboard/contract";
+import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, type PointerEvent } from "react";
 import type { DragKind } from "./bar-drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
-import {
-  type BarBox,
-  barBox,
-  baselineBox,
-  ROW_HEIGHT,
-  type RowBox,
-  type RowBoxes,
-} from "./model/layout.ts";
+import { type BarBox, barBox, baselineBox, type RowBox, type RowBoxes } from "./model/layout.ts";
 import { xOf, type Zoom } from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
@@ -86,18 +80,22 @@ export const drawnBaselines = (
     ];
   });
 
-export const BaselineShape = memo(({ baseline }: { readonly baseline: DrawnBaseline }) => (
-  <rect
-    data-gantt-baseline={baseline.id}
-    data-start={baseline.start}
-    data-finish={baseline.finish}
-    x={baseline.box.x}
-    y={baseline.box.y}
-    width={baseline.box.width}
-    height={baseline.box.height}
-    className="pointer-events-none fill-border-strong"
-  />
-));
+/** The baseline: the agent's dates as a 2px dashed `border-strong` line under the bar. */
+export const BaselineShape = memo(({ baseline }: { readonly baseline: DrawnBaseline }) => {
+  const y = baseline.box.y + baseline.box.height / 2;
+  return (
+    <line
+      data-gantt-baseline={baseline.id}
+      data-start={baseline.start}
+      data-finish={baseline.finish}
+      x1={baseline.box.x}
+      y1={y}
+      x2={baseline.box.x + baseline.box.width}
+      y2={y}
+      className="pointer-events-none stroke-border-strong stroke-2 [stroke-dasharray:4_3]"
+    />
+  );
+});
 
 /** Where the press lands: the bar, or its end's handle. */
 export type Press = (taskId: string, kind: DragKind, event: PointerEvent<SVGElement>) => void;
@@ -204,26 +202,43 @@ const Bar = ({ bar, drawn, changed, derived, draggable, resizable, ...on }: BarS
 
 export const BarShape = memo(Bar);
 
-/** The earliest start a moved bar may take, over its row. */
+/**
+ * The earliest start a moved bar may take, shown while it is dragged: a full-height 2px dashed
+ * line in `foreground-secondary` with its date, "earliest 11/6" (review F-14).
+ */
 export const Guide = ({
   bar,
   span,
   zoom,
+  height,
 }: {
   readonly bar: DrawnBar;
   readonly span: ChartSpan;
   readonly zoom: Zoom;
+  /** The chart's height, which the guide spans. */
+  readonly height: number;
 }) => {
+  const text = useStrings();
+  const locale = useLocale();
   const x = xOf(bar.earliest, span.origin, zoom) + 0.5;
+  const label = text("gantt.guide.earliest", { date: formatShortDate(bar.earliest, locale) });
   return (
-    <line
-      data-gantt-guide=""
-      data-date={bar.earliest}
-      x1={x}
-      y1={bar.row.top}
-      x2={x}
-      y2={bar.row.top + ROW_HEIGHT}
-      className="stroke-muted-foreground stroke-1 [stroke-dasharray:3_3]"
-    />
+    <g data-gantt-guide="" data-date={bar.earliest} className="pointer-events-none">
+      <line
+        x1={x}
+        y1={0}
+        x2={x}
+        y2={height}
+        className="stroke-foreground-secondary stroke-2 [stroke-dasharray:4_3]"
+      />
+      <text
+        data-gantt-guide-label=""
+        x={x + 6}
+        y={bar.row.top + 9}
+        className="fill-foreground-secondary stroke-card stroke-[3px] text-badge [paint-order:stroke]"
+      >
+        {label}
+      </text>
+    </g>
   );
 };

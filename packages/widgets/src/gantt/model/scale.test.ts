@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { calendarDay, dateOfDay, dayNumber } from "./date.ts";
 import {
+  axisTicks,
   dateAt,
   isZoom,
   labelLines,
   MAX_TICKS,
+  openingZoom,
   PIXELS_PER_DAY,
+  stretchedLast,
   type Tick,
   ticks,
+  weekendDays,
   xOf,
   ZOOMS,
   type Zoom,
@@ -237,5 +241,113 @@ describe("an axis label's lines", () => {
   test("at week and month zoom, one line: their columns hold it", () => {
     expect(labelLines("2 nov", "week")).toEqual(["2 nov"]);
     expect(labelLines("nov 2026", "month")).toEqual(["nov 2026"]);
+  });
+});
+
+describe("the axis labels its first period (design decision 8; review F-15)", () => {
+  test("adds the origin's month at month zoom when the plan starts inside it", () => {
+    expect(axisTicks(ORIGIN, "2027-01-20", "month").map((tick) => [tick.x, tick.label])).toEqual([
+      [0, "Nov 2026"],
+      [116, "Dec 2026"],
+      [240, "Jan 2027"],
+    ]);
+  });
+
+  test("adds the origin's day at week zoom when it is not a Monday", () => {
+    expect(
+      axisTicks("2026-10-28", "2026-11-17", "week").map((tick) => [tick.x, tick.label]),
+    ).toEqual([
+      [0, "Oct 28"],
+      [75, "Nov 2"],
+      [180, "Nov 9"],
+      [285, "Nov 16"],
+    ]);
+  });
+
+  test("adds nothing where the origin is a tick, or the zoom is day", () => {
+    expect(axisTicks("2026-11-01", "2026-12-20", "month")).toEqual(
+      ticks("2026-11-01", "2026-12-20", "month"),
+    );
+    expect(axisTicks(ORIGIN, "2026-11-20", "week")).toEqual(ticks(ORIGIN, "2026-11-20", "week"));
+    expect(axisTicks("2026-10-28", "2026-11-04", "day")).toEqual(
+      ticks("2026-10-28", "2026-11-04", "day"),
+    );
+  });
+
+  test("skips the first label when the next tick is too close to hold it", () => {
+    // Origin Sunday 11/1/2026 is one day before a Monday: 15px at week zoom.
+    expect(axisTicks("2026-11-01", "2026-11-17", "week").map((tick) => tick.date)).toEqual([
+      "2026-11-02",
+      "2026-11-09",
+      "2026-11-16",
+    ]);
+    // Origin 10/31: the month's first day is one day on, 4px at month zoom.
+    expect(axisTicks("2026-10-31", "2027-01-20", "month").map((tick) => tick.date)).toEqual([
+      "2026-11-01",
+      "2026-12-01",
+      "2027-01-01",
+    ]);
+  });
+
+  test("labels in Italian", () => {
+    expect(axisTicks(ORIGIN, "2026-12-20", "month", "it-IT")[0]?.label).toBe("nov 2026");
+  });
+});
+
+describe("the opening zoom (design decision 9; review F-03)", () => {
+  test("is the finest zoom at which the whole span fits the width", () => {
+    expect(openingZoom(10, 400)).toBe("day");
+    expect(openingZoom(61, 1_000)).toBe("week");
+    expect(openingZoom(61, 300)).toBe("month");
+  });
+
+  test("is month when none fits", () => {
+    expect(openingZoom(400, 300)).toBe("month");
+    expect(openingZoom(61, 0)).toBe("month");
+  });
+
+  test("takes a span that fills the width exactly as fitting", () => {
+    expect(openingZoom(20, 300)).toBe("week");
+    expect(openingZoom(20, 640)).toBe("day");
+  });
+});
+
+describe("a short span stretched to the frame's width (review F-15)", () => {
+  const span = { origin: ORIGIN, last: "2026-12-01" };
+
+  test("runs the axis on to the day the width needs", () => {
+    // 30 days at 4px are 120px: 400px need 100 days, 11/2 to 2/9/2027.
+    expect(stretchedLast(span, "month", 400)).toBe("2027-02-09");
+  });
+
+  test("leaves a span that already fills the width", () => {
+    expect(stretchedLast(span, "week", 300)).toBe("2026-12-01");
+    expect(stretchedLast(span, "week", 0)).toBe("2026-12-01");
+  });
+
+  test("stops at the last day a Gantt may name", () => {
+    expect(stretchedLast({ origin: "9999-12-20", last: "9999-12-25" }, "day", 100_000)).toBe(
+      "9999-12-31",
+    );
+  });
+});
+
+describe("the non-working days of a day-zoom axis (review F-15)", () => {
+  test("are the Saturdays and Sundays", () => {
+    expect(weekendDays(ORIGIN, "2026-11-15")).toEqual([
+      "2026-11-07",
+      "2026-11-08",
+      "2026-11-14",
+      "2026-11-15",
+    ]);
+  });
+
+  test("hold none for an axis of Monday to Friday, or of no days", () => {
+    expect(weekendDays(ORIGIN, "2026-11-06")).toEqual([]);
+    expect(weekendDays("2026-11-09", ORIGIN)).toEqual([]);
+  });
+
+  test("are not listed for a span too long to draw each day", () => {
+    expect(weekendDays(ORIGIN, "2036-11-02")).toEqual([]);
   });
 });

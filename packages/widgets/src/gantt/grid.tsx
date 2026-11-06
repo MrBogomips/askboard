@@ -11,12 +11,12 @@
 // read on its cells only, so that an editor or a panel inside a cell keeps its own
 // (`grid-keys.ts`).
 
-import type { GanttProps, Locale } from "@askboard/contract";
-import { questionTextId, useLocale } from "@askboard/view/catalog";
+import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract";
+import { questionTextId, useLocale, useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
 import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing } from "./editing.ts";
-import { gridDate } from "./model/date.ts";
+import { spansYears } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
@@ -68,13 +68,22 @@ const FACE: Readonly<Record<GanttColumn, string>> = {
   dependencies: "",
 };
 
+/** How the grid writes what it shows: the ask's locale, a date's year and a duration's unit. */
+export type CellFormat = {
+  readonly locale: Locale;
+  /** Whether a date carries its year: only when the plan spans two years (review F-21). */
+  readonly withYear: boolean;
+  /** A duration in working days with its unit: "6 d" (review F-20). */
+  readonly days: (count: number) => string;
+};
+
 /** What a cell shows, from its row, the row's schedule and every task's name. */
 export const cellText = (
   column: GanttColumn,
   row: GanttRow,
   schedule: TaskSchedule | undefined,
   names: ReadonlyMap<string, string>,
-  locale: Locale = "en-US",
+  format: CellFormat,
 ): string => {
   if (column === "task") return row.label;
   if (column === "dependencies") {
@@ -84,9 +93,11 @@ export const cellText = (
   if (column === "duration") {
     // A task's own duration, or a plan's, which the graph gives from its estimates.
     const days = row.duration ?? scheduled?.duration;
-    return days === undefined ? "" : String(days);
+    return days === undefined ? "" : format.days(days);
   }
-  return scheduled === undefined ? "" : gridDate(scheduled.startDate, locale);
+  return scheduled === undefined
+    ? ""
+    : formatGridDate(scheduled.startDate, format.locale, format.withYear);
 };
 
 const HeaderRow = () => (
@@ -116,6 +127,8 @@ type TaskRowProps = {
   readonly mark: TaskMarks | undefined;
   /** Whether the Gantt takes edits: a read-only one opens no editor and no panel. */
   readonly editable: boolean;
+  /** Whether the grid's dates carry their year. */
+  readonly withYear: boolean;
 };
 
 /** The predecessors panel of the row, if it is open, in its "Depends on" cell. */
@@ -138,7 +151,13 @@ const RowPanel = ({ itemId, row, rows, panels, current, editable }: TaskRowProps
 
 const TaskRow = (props: TaskRowProps) => {
   const locale = useLocale();
+  const text = useStrings();
   const { itemId, row, schedule, names, stop, editing, mark } = props;
+  const format: CellFormat = {
+    locale,
+    withYear: props.withYear,
+    days: (count) => text("gantt.duration", { count }),
+  };
   const edited = props.editable && editing.editing?.taskId === row.id ? editing.editing : undefined;
   const added = mark?.added === true;
   return (
@@ -167,7 +186,7 @@ const TaskRow = (props: TaskRowProps) => {
               onCancel={editing.cancel}
             />
           ) : (
-            <span className="block truncate">{cellText(column, row, schedule, names, locale)}</span>
+            <span className="block truncate">{cellText(column, row, schedule, names, format)}</span>
           )}
           {column === "dependencies" ? <RowPanel {...props} /> : null}
         </td>
@@ -212,6 +231,9 @@ export type GridProps = {
 export const Grid = (props: GridProps) => {
   const { itemId, rows, schedules, notes, stop } = props;
   const names = new Map(rows.map((row) => [row.id, row.label]));
+  const withYear = spansYears(
+    schedules.flatMap((s) => (s.kind === "scheduled" ? [s.startDate, s.finishDate] : [])),
+  );
   return (
     <table
       ref={props.table}
@@ -242,6 +264,7 @@ export const Grid = (props: GridProps) => {
               current={props.current}
               mark={props.marks.get(row.id)}
               editable={props.editable}
+              withYear={withYear}
             />
           );
           if (note === undefined) return [task];

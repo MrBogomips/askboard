@@ -27,7 +27,15 @@ import type { ChartSpan } from "./model/layout.ts";
 import { AXIS_HEIGHT, arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
-import { labelLines, PIXELS_PER_DAY, type Tick, ticks, type Zoom } from "./model/scale.ts";
+import {
+  axisTicks,
+  labelLines,
+  PIXELS_PER_DAY,
+  type Tick,
+  weekendDays,
+  xOf,
+  type Zoom,
+} from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
@@ -55,7 +63,7 @@ const Markers = memo(({ itemId }: { readonly itemId: string }) => (
       markerUnits="userSpaceOnUse"
       orient="auto"
     >
-      <path d="M0,0 L6,3 L0,6 z" className="fill-gantt-bar" />
+      <path d="M0,0 L6,3 L0,6 z" className="fill-border-strong" />
     </marker>
     <marker
       id={arrowMarkerId(itemId, true)}
@@ -118,6 +126,19 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
         y2={AXIS_HEIGHT - 0.5}
         className="stroke-border stroke-1"
       />
+      {zoom === "day"
+        ? weekendDays(span.origin, span.last).map((date) => (
+            <rect
+              key={date}
+              data-gantt-weekend={date}
+              x={xOf(date, span.origin, zoom)}
+              y={AXIS_HEIGHT}
+              width={PIXELS_PER_DAY[zoom]}
+              height={layout.height - AXIS_HEIGHT}
+              className="fill-muted"
+            />
+          ))
+        : null}
       {layout.boxes.map((box) => (
         <line
           key={box.top}
@@ -128,7 +149,7 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
           className="stroke-border stroke-1"
         />
       ))}
-      {ticks(span.origin, span.last, zoom, locale).map((tick) => (
+      {axisTicks(span.origin, span.last, zoom, locale).map((tick) => (
         <g key={tick.date}>
           <line
             x1={tick.x + 0.5}
@@ -153,7 +174,9 @@ const ArrowPath = memo(({ itemId, arrow }: { readonly itemId: string; readonly a
     d={arrowPath(arrow.from.box, arrow.to.box)}
     markerEnd={`url(#${arrowMarkerId(itemId, arrow.critical)})`}
     className={
-      arrow.critical ? "fill-none stroke-critical stroke-2" : "fill-none stroke-gantt-bar stroke-1"
+      arrow.critical
+        ? "fill-none stroke-critical stroke-2"
+        : "fill-none stroke-border-strong stroke-1"
     }
   />
 ));
@@ -272,7 +295,7 @@ export const Chart = (props: ChartProps) => {
         ))}
       </g>
       {dragged !== undefined && drag?.kind === "move" ? (
-        <Guide bar={dragged} span={span} zoom={zoom} />
+        <Guide bar={dragged} span={span} zoom={zoom} height={layout.height} />
       ) : null}
     </svg>
   );
