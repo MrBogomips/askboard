@@ -75,12 +75,19 @@ const conditional = (
     ? { if: condition, [THEN]: whenTrue }
     : { if: condition, [THEN]: whenTrue, else: otherwise };
 
-// A widget item's props by its type, in registry order: each type before the last is an `if`, the
-// last takes the `else`; a registry of one type has its `if` alone. Never a `properties` at the
-// top, which would replace the branch's own.
+// A widget item's props, and its result for a type that declares one, by its type, in registry
+// order: each type before the last is an `if`, the last takes the `else`; a registry of one type
+// has its `if` alone. Never a `properties` at the top, which would replace the branch's own.
 const propsBranch = (types: readonly WidgetType[]): AnySchemaObject => {
   const ifType = (entry: WidgetType) => ({ properties: { type: { const: entry.type } } });
-  const props = (entry: WidgetType) => ({ properties: { props: { $ref: entry.props.$id } } });
+  // A type that gives a result also has its result checked by its schema; the others add nothing,
+  // so the Tree's and the Gantt's branches are as before.
+  const props = (entry: WidgetType) => ({
+    properties: {
+      props: { $ref: entry.props.$id },
+      ...(entry.result === undefined ? {} : { result: { $ref: entry.result.schema.$id } }),
+    },
+  });
   const [first, ...rest] = types as readonly [WidgetType, ...WidgetType[]];
   if (rest.length === 0) return conditional(ifType(first), props(first));
   const last = rest.pop() as WidgetType;

@@ -163,7 +163,20 @@ export {
   uj2WidgetWaitingState,
 } from "./widget-answers.ts";
 
-// Widget registry (widget-registry, design decision 2): the test-only widget type and the registry
-// that holds it.
+// Widget registry (widget-registry, design decision 2 and task 2.3): the test-only widget type, the
+// registry that holds it and the fixtures of its results.
 
-export { PROBE_TYPES, PROBE_WIDGET } from "./widget-registry.ts";
+export {
+  PROBE_SESSION,
+  PROBE_TYPES,
+  PROBE_WIDGET,
+  probeAnswerEvent,
+  probeBoardDocument,
+  probeBoardState,
+  probeDraftRecord,
+  probeFetchItemResult,
+  probeFetchResult,
+  probeResultAct,
+  probeSnapshotEntry,
+  probeTooLargeEvent,
+} from "./widget-registry.ts";

@@ -617,3 +617,9 @@ export {
   widgetRegistryProblems,
   widgetTypeOf,
 } from "./widgets/registry.ts";
+
+// Widget results (widget-registry, design decision 7): the generic result check and the
+// annotation's own.
+
+export type { Annotation, AnnotationSelector } from "./schemas/output/index.ts";
+export { annotationProblems, widgetResultProblems } from "./widgets/results.ts";

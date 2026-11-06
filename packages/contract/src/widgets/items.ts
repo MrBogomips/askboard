@@ -7,33 +7,13 @@
 // takes the registry as its last parameter, defaulting to the shipped one (widget-registry, design
 // decision 2). The validators compile on their first call, not at import.
 
-import type Ajv2020 from "ajv/dist/2020";
-import { compiled } from "../compiled.ts";
 import { isRecord } from "../problems.ts";
-import { type Checked, type Problem, validateAgainst } from "../validate.ts";
+import type { Problem } from "../validate.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { WIDGET_TYPES, type WidgetOrigin, type WidgetType, widgetTypeOf } from "./registry.ts";
-import { widgetValidator } from "./validator.ts";
+import { schemaVerdict } from "./schema-verdict.ts";
 
 export type { WidgetOrigin };
-
-// The validator of a schema no schema set holds (a test type's), made on first use and kept.
-const validators = new WeakMap<object, (value: unknown) => Checked<unknown>>();
-
-// An entry's props through its schema: by `$id` where a set holds it (Tree and Gantt), else through
-// the widget validator, which adds the schema to its own Ajv.
-const schemaVerdict = (entry: WidgetType, props: unknown): Checked<unknown> => {
-  const ajv: Ajv2020 = compiled();
-  if (ajv.getSchema(entry.props.$id as string) !== undefined) {
-    return validateAgainst(entry.props.$id as string, props);
-  }
-  let validate = validators.get(entry.props);
-  if (validate === undefined) {
-    validate = widgetValidator([entry.props], entry.props.$id as string);
-    validators.set(entry.props, validate);
-  }
-  return validate(props);
-};
 
 // The schema's problems, then the entry's checks: after a passing schema only, or, for an entry
 // that reads any value, beside the schema's, each problem once.
@@ -42,7 +22,7 @@ const propsProblems = (
   props: unknown,
   origin: WidgetOrigin,
 ): readonly Problem[] => {
-  const checked = schemaVerdict(entry, props);
+  const checked = schemaVerdict(entry.props, props);
   if (!checked.ok && entry.checksInvalidProps !== true) return checked.problems;
   const checks = entry.propsProblems(props, origin);
   const fromSchema = checked.ok ? [] : checked.problems;

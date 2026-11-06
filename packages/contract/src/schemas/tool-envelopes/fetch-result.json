@@ -55,6 +55,9 @@
         },
         "previous": {
           "$ref": "#/$defs/answer"
+        },
+        "result": {
+          "description": "Since widget-registry: a widget item fetched alone with the result its latest answer gave for it, any JSON value its type defines (FR-20); never on a question or an area."
         }
       },
       "required": ["type", "id", "props"],
@@ -68,6 +71,7 @@
           "rev": false,
           "answer": false,
           "previous": false,
+          "result": true,
           "props": true
         }
       },
@@ -86,6 +90,7 @@
             "state": false,
             "answer": false,
             "previous": false,
+            "result": false,
             "props": {
               "$ref": "#/$defs/areaProps"
             }
@@ -95,6 +100,7 @@
           "required": ["rev", "state"],
           "properties": {
             "questionId": false,
+            "result": false,
             "props": {
               "$ref": "#/$defs/questionProps"
             },
@@ -170,6 +176,15 @@
           "additionalProperties": {
             "type": "object"
           }
+        },
+        "results": {
+          "description": "Since widget-registry: the result each widget item gave, by item ID in reference addressing, each any JSON value its item's type defines (FR-20, AD-20).",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": true
         },
         "derived": {
           "description": "Since 1.4: the derived values of the question's computing items as the user's board reported them, by reference (AD-13, FR-12), each any JSON value.",

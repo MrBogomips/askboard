@@ -1,6 +1,7 @@
 // The tool request and result envelopes (owner `mcp-tools`, AD-7). The requests are the input
 // schemas of the approved tool definitions, generic as AD-6 asks: a tool request names no version.
-// Every result names its envelope's version and the output format's (finding F12).
+// Every result names its envelope's version and the output format's (finding F12). Widget-registry's
+// minor adds the answer's results and a widget item's result to `fetch` (design decision 6).
 
 import type { SchemaSet } from "../../versions.ts";
 import { composeFetchResult } from "../../widgets/compose.ts";
@@ -37,7 +38,7 @@ import versions from "./versions.json" with { type: "json" };
 // The `fetch` result with each registered type's item composed in.
 const fetchResult = composeFetchResult(fetchResultBase);
 
-export const TOOL_ENVELOPES_VERSION = "1.4";
+export const TOOL_ENVELOPES_VERSION = "1.5";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {
@@ -201,6 +202,8 @@ export type FetchAnswer = {
   readonly note?: string;
   /** Since 1.4: each changed widget item's full props, by item ID in reference addressing. */
   readonly values?: Readonly<Record<string, unknown>>;
+  /** Since widget-registry: each widget item's result, by item ID in reference addressing. */
+  readonly results?: Readonly<Record<string, unknown>>;
   /** Since 1.4: the derived values as the board reported them, by reference. */
   readonly derived?: Readonly<Record<string, unknown>>;
   readonly declined?: true;
@@ -234,6 +237,8 @@ export type FetchItem =
       readonly questionId: string;
       readonly props: Readonly<Record<string, unknown>>;
       readonly state: QuestionState;
+      /** Since widget-registry: the result its latest answer gave for it, when there is one. */
+      readonly result?: unknown;
     };
 
 export type FetchResult = {

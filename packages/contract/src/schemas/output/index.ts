@@ -4,12 +4,14 @@
 // "Other…" text, option notes, declines and revisions, the lifecycle events, the states AD-10 lists
 // and the outcomes of collect, update and fetch (ask-lifecycle, design decision 2). Push delivery adds
 // to that minor the closed event, which ends an ask AskBoard closed because its owning subagent
-// finished (task 14.5). It holds no AXFX term (FR-18).
+// finished (task 14.5). Widget-registry's minor adds the annotation and each widget type's result
+// schema, and a too-large answer carries no results. It holds no AXFX term (FR-18).
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { FormulaErrorKind } from "../../formula/errors.ts";
 import type { SchemaSet } from "../../versions.ts";
 import { WIDGET_TYPES } from "../../widgets/registry.ts";
+import annotation from "./annotation.json" with { type: "json" };
 import answerEvent from "./answer-event.json" with { type: "json" };
 import askState from "./ask-state.json" with { type: "json" };
 import closedEvent from "./closed-event.json" with { type: "json" };
@@ -51,8 +53,13 @@ export const outputFormat: SchemaSet = {
     followUpEvent,
     editChoiceEvent,
     closedEvent,
-    // The widget types' changes schemas, in registry order (widget-registry, design decision 4).
-    ...WIDGET_TYPES.flatMap(({ edits }) => (edits === undefined ? [] : [edits.changes])),
+    // The annotation widgets' results are made of (widget-registry, design decision 7), then the
+    // widget types' changes and result schemas, in registry order (design decisions 4 and 7).
+    annotation,
+    ...WIDGET_TYPES.flatMap(({ edits, result }) => [
+      ...(edits === undefined ? [] : [edits.changes]),
+      ...(result === undefined ? [] : [result.schema]),
+    ]),
   ],
 };
 
@@ -105,6 +112,32 @@ export type AnswerEvent = {
   readonly replaces?: string;
   /** Since 1.3: `changes` and `derived` were over `ANSWER_EVENT_MAX_CHARS` and are left out; `fetch` has them. */
   readonly tooLarge?: true;
+};
+
+/** One of the six selectors of an annotation (widget-registry, design decision 7). */
+export type AnnotationSelector =
+  | { readonly type: "element"; readonly id: string }
+  | { readonly type: "label"; readonly label: string; readonly occurrence?: number }
+  | { readonly type: "region"; readonly value: string }
+  | {
+      readonly type: "line";
+      readonly side: "old" | "new";
+      readonly path: string;
+      readonly line: number;
+    }
+  | {
+      readonly type: "quote";
+      readonly exact: string;
+      readonly prefix?: string;
+      readonly suffix?: string;
+    }
+  | { readonly type: "position"; readonly start: number; readonly end: number };
+
+/** A user's note on a place in a widget item's content, as a widget's result holds it. */
+export type Annotation = {
+  readonly id: string;
+  readonly target: { readonly selector: AnnotationSelector };
+  readonly body: { readonly text: string };
 };
 
 export type DiscardReason = "session-exit" | "board-closed";

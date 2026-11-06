@@ -33,6 +33,20 @@ const schemasOf = (set: { readonly schemas: readonly object[] }): AnySchemaObjec
 
 const TREE_AND_GANTT = [TREE_WIDGET, GANTT_WIDGET];
 
+// `fetch`'s schema as `main` held it: without what the results seam adds to it (widget-registry,
+// task 2.3), the answer's `results` and a widget item's `result`, the one place where the three
+// golden copies of task 0.3 and the shipped schema differ. Nothing else is taken out.
+const withoutResults = (schema: AnySchemaObject): AnySchemaObject => {
+  const copy = structuredClone(schema);
+  const { item, answer } = copy.$defs;
+  delete answer.properties.results;
+  delete item.properties.result;
+  delete item.then.properties.result;
+  delete item.else.then.properties.result;
+  delete item.else.else.properties.result;
+  return copy;
+};
+
 const shipped = (id: string): AnySchemaObject => {
   const found = SCHEMA_SETS.flatMap(schemasOf).find((schema) => schema.$id === id);
   if (found === undefined) throw new Error(`no schema ${id}`);
@@ -43,7 +57,9 @@ describe("the composition over the Tree and the Gantt", () => {
   test("deep-equals main's three schemas, in order", () => {
     expect(composeQuestionProps(questionPropsBase, TREE_AND_GANTT)).toEqual(goldenQuestionProps);
     expect(composeBoardDocument(boardDocumentBase, TREE_AND_GANTT)).toEqual(goldenBoardDocument);
-    expect(composeFetchResult(fetchResultBase, TREE_AND_GANTT)).toEqual(goldenFetchResult);
+    expect(withoutResults(composeFetchResult(fetchResultBase, TREE_AND_GANTT))).toEqual(
+      goldenFetchResult,
+    );
   });
 
   test("keeps the order of the item unions: context, Tree, Gantt, then the molecule", () => {
@@ -65,7 +81,7 @@ describe("the composition over the Tree and the Gantt", () => {
   test("is what the schema sets hold", () => {
     expect(shipped(SCHEMA_IDS.questionProps)).toEqual(goldenQuestionProps);
     expect(shipped(SCHEMA_IDS.boardDocument)).toEqual(goldenBoardDocument);
-    expect(shipped(SCHEMA_IDS.fetchResult)).toEqual(goldenFetchResult);
+    expect(withoutResults(shipped(SCHEMA_IDS.fetchResult))).toEqual(goldenFetchResult);
     expect(WIDGET_TYPES).toEqual(TREE_AND_GANTT);
   });
 
