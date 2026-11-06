@@ -29,14 +29,16 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { BoardGraph } from "../graph/index.ts";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
 import type { Applied } from "./adjust-panel.tsx";
 import { nameColumnOf } from "./cells.ts";
-import { FRAME } from "./classes.ts";
+import { DRAG_TIP, FRAME } from "./classes.ts";
 import {
   afterDelete,
   branchIdsOf,
@@ -44,15 +46,19 @@ import {
   type DeleteQuestion,
   deleteQuestionOf,
 } from "./deleting.ts";
+import { NO_ROW_EVENTS, type RowDragEvents, type TreeDrag } from "./drag.ts";
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
 import { treeKeyOf } from "./key-event.ts";
 import { applyAdjustment } from "./model/adjust.ts";
 import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
+import { type DragState, leaveTarget, overTarget, startDrag, tipOf } from "./model/dragging.ts";
+import { dropOn } from "./model/drop.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
 import { ADDED, marksOf, sameNodes } from "./model/marks.ts";
+import { locate } from "./model/nodes.ts";
 import { pertValues } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 import {
@@ -65,7 +71,7 @@ import {
   toggle as toggleSelected,
 } from "./model/selection.ts";
 import { draftAfterUndo, liveSlot, slotOf, type UndoSlot } from "./model/undo.ts";
-import { afterMove, isMove, type MoveEdit } from "./moving.ts";
+import { afterDrop, afterMove, isMove, type MoveEdit } from "./moving.ts";
 import {
   cellTargetOf,
   chevronNodeOf,
@@ -155,6 +161,8 @@ export const TreeWidget = ({
   const [anchor, setAnchor] = useState<string>();
   const [slot, setSlot] = useState<UndoSlot>();
   const [announced, setAnnounced] = useState("");
+  // The row being dragged and where the pointer is: view state, nothing until it drops.
+  const [dragging, setDragging] = useState<DragState>();
   const focus = useTreeFocus();
   // Any edit but an adjustment, or its undo, empties the slot.
   const edited = (next: TreeProps | undefined): void => {
@@ -302,6 +310,61 @@ export const TreeWidget = ({
     else if (isMove(edit)) move(edit, nodeId, focusTo);
     else startDelete(nodeId, from);
   };
+  // A drop makes the move the buttons make, the focus following the node (`moving.ts`); a refused
+  // drop and one where the node already is change nothing.
+  const dropRow = (nodeId: string, targetId: string, fraction: number): void => {
+    const moved = afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId);
+    if (disabled || moved.value === value) return;
+    focus.moveFocusTo("grid");
+    setCurrent(nodeId);
+    setView(moved.view);
+    change(moved.value);
+    const name = locate(value.nodes, nodeId)?.node.label ?? nodeId;
+    setAnnounced(text("tree.drag.moved", { name }));
+  };
+  // The events every row reports to, read at the time of the event: the rows register once.
+  const dragEvents = useRef<RowDragEvents>(NO_ROW_EVENTS.current);
+  // Escape cancels the drag: the browser's own drag takes the key and ends without a drop; where
+  // the key reaches the page first, the drag is called off here and the drop that follows is not made.
+  const cancelled = useRef(false);
+  dragEvents.current = {
+    start: (nodeId) => {
+      cancelled.current = false;
+      setDragging(startDrag(nodeId));
+    },
+    over: (nodeId, targetId, fraction) => {
+      if (cancelled.current) return;
+      setDragging((state) =>
+        overTarget(state, nodeId, targetId, dropOn(value, nodeId, targetId, fraction)),
+      );
+    },
+    leave: (targetId) => setDragging((state) => leaveTarget(state, targetId)),
+    drop: (nodeId, targetId, fraction) => {
+      if (!cancelled.current) dropRow(nodeId, targetId, fraction);
+    },
+    end: () => {
+      setDragging(undefined);
+      focus.moveFocusTo("grid");
+    },
+  };
+  const dragged = dragging !== undefined;
+  useEffect(() => {
+    const page = focus.grid.current?.ownerDocument;
+    if (!dragged || page === undefined) return undefined;
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      cancelled.current = true;
+      setDragging(undefined);
+    };
+    page.addEventListener("keydown", onKey, true);
+    return () => page.removeEventListener("keydown", onKey, true);
+  }, [dragged, focus.grid]);
+  if (disabled && dragging !== undefined) setDragging(undefined);
+  const drag = useMemo<TreeDrag | undefined>(
+    () => (disabled ? undefined : { treeId: itemId, events: dragEvents }),
+    [disabled, itemId],
+  );
+  const tip = tipOf(dragging);
   const enabled = TREE_TOOLS.map((tool) => !disabled && canAct(tool.edit, value, current));
   // The question shows while its node has children or dependents, from the value as it is, or
   // its delete was refused, and while the Tree is editable; once it no longer applies it is
@@ -425,6 +488,8 @@ export const TreeWidget = ({
         marks={shownMarks}
         selection={selection}
         headerState={headerState(selection, value)}
+        drag={drag}
+        dragging={dragging}
         labelledBy={labelledBy}
         onKeyDown={onKeyDown}
         onFocus={onFocus}
@@ -433,6 +498,9 @@ export const TreeWidget = ({
         onDoubleClick={onDoubleClick}
         onChange={onChange}
       />
+      <p data-drag-tip="" className={DRAG_TIP}>
+        {tip === undefined ? "" : text(tip.key, "max" in tip ? { max: tip.max } : undefined)}
+      </p>
       <p role="status" className="sr-only">
         {announced}
       </p>

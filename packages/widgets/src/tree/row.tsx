@@ -13,7 +13,7 @@
 
 import type { TreeColumn } from "@askboard/contract";
 import { useLocale, useStrings } from "@askboard/view/catalog";
-import { memo, type ReactNode } from "react";
+import { memo, type ReactNode, type RefObject, useRef } from "react";
 import { errorSpan } from "../shared/field-error.ts";
 import { fieldText, PERT_HEADERS, pertFieldText } from "./cells.ts";
 import {
@@ -25,6 +25,12 @@ import {
   CURRENT_ADDED_BAR,
   CURRENT_BAR,
   CURRENT_ROW,
+  DRAG_HANDLE,
+  DRAGGED_ROW,
+  DROP_AFTER,
+  DROP_BEFORE,
+  DROP_INTO,
+  DROP_REFUSED,
   EDITED_FIELD_CELL,
   FIELD_CELL,
   FIELD_ERROR,
@@ -37,9 +43,12 @@ import {
   PARENT_NAME,
   RENAMED,
   ROW,
+  SELECT_CELL_BOX,
   SELECT_COLUMN,
   SELECTED_ROW,
 } from "./classes.ts";
+import { NO_ROW_EVENTS, type TreeDrag, useRowDrag } from "./drag.ts";
+import type { DropIndicator } from "./model/dragging.ts";
 import type { NodeMark } from "./model/marks.ts";
 import { type PertRow, type PertValues, rollupNote, rollupText } from "./model/pert.ts";
 import { SELECT_CELLS, type TreeRow } from "./model/rows.ts";
@@ -66,6 +75,46 @@ const Chevron = ({ open }: { readonly open: boolean }) => (
     </svg>
   </span>
 );
+
+// The drag handle: a grip of six dots, named "Drag <name>". It is no tab stop and no button: the
+// row stays the one focusable thing, and the keyboard moves a node with the Alt+Shift keys.
+const DragHandle = ({
+  handle,
+  label,
+}: {
+  readonly handle: RefObject<HTMLSpanElement | null>;
+  readonly label: string;
+}) => (
+  <span
+    ref={handle}
+    role="img"
+    aria-label={label}
+    data-drag-handle=""
+    data-grab=""
+    className={DRAG_HANDLE}
+  >
+    <svg viewBox="0 0 12 12" className="size-3" aria-hidden="true">
+      <path
+        d="M4 2.5h.01M8 2.5h.01M4 6h.01M8 6h.01M4 9.5h.01M8 9.5h.01"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  </span>
+);
+
+// The row's look under a drag: dimmed when dragged, and the indicator of the zone it is over.
+const DROP_CLASS: Readonly<Record<DropIndicator, string>> = Object.freeze({
+  before: DROP_BEFORE,
+  after: DROP_AFTER,
+  into: DROP_INTO,
+  refused: DROP_REFUSED,
+});
+
+const dragLook = (dragged: boolean, indicator: DropIndicator | undefined): string =>
+  `${dragged ? `${DRAGGED_ROW} ` : ""}${indicator === undefined ? "" : `${DROP_CLASS[indicator]} `}`;
 
 // A leaf keeps the chevron's room, so that names of one level line up.
 const NoChevron = () => <span aria-hidden="true" className="size-4 shrink-0" />;
@@ -212,6 +261,9 @@ export const NodeRow = memo(function NodeRow({
   editable,
   current,
   selected,
+  drag,
+  dragged,
+  indicator,
 }: {
   readonly row: TreeRow;
   readonly columns: readonly TreeColumn[];
@@ -227,8 +279,24 @@ export const NodeRow = memo(function NodeRow({
   readonly current: boolean;
   /** The row's check box: checked, partial for a parent with only part of its branch, or none. */
   readonly selected: CheckState;
+  /** The Tree's drag, which is one object for every row; none when the Tree is read-only. */
+  readonly drag: TreeDrag | undefined;
+  /** The row is the one dragged. */
+  readonly dragged: boolean;
+  /** The zone a drop on this row would land in, or that it is not allowed; none when not over it. */
+  readonly indicator: DropIndicator | undefined;
 }) {
   const locale = useLocale();
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const gripRef = useRef<HTMLSpanElement>(null);
+  useRowDrag({
+    row: rowRef,
+    handle: gripRef,
+    treeId: drag?.treeId ?? "",
+    nodeId: row.node.id,
+    enabled: drag !== undefined && editing === undefined,
+    events: drag?.events ?? NO_ROW_EVENTS,
+  });
   const edits = (cell: number): boolean => editing?.cell === cell;
   const takesEdit = (cell: number): true | undefined =>
     !edits(cell) && editable.split(",").includes(String(cell)) ? true : undefined;
@@ -242,7 +310,10 @@ export const NodeRow = memo(function NodeRow({
   return (
     <>
       <tr
+        ref={rowRef}
         data-node-id={row.node.id}
+        data-dragging={dragged ? "" : undefined}
+        data-drop={indicator}
         data-change={added ? "added" : undefined}
         aria-level={row.level}
         aria-posinset={row.position}
@@ -251,14 +322,22 @@ export const NodeRow = memo(function NodeRow({
         aria-current={current ? "true" : undefined}
         aria-selected={selected === "checked"}
         tabIndex={tabIndexOf(stop, ROW_STOP)}
-        className={`${ROW} ${SELECTED_ROW} ${current ? `${CURRENT_ROW} ` : ""}${FOCUS_RING}`}
+        className={`${ROW} ${SELECTED_ROW} ${current ? `${CURRENT_ROW} ` : ""}${dragLook(dragged, indicator)}${FOCUS_RING}`}
       >
         <td data-select-column="" className={SELECT_COLUMN}>
-          <SelectBox
-            state={selected}
-            node={row.node.id}
-            label={text("tree.select.row", { name: row.node.label })}
-          />
+          <span className={SELECT_CELL_BOX}>
+            {drag === undefined ? null : (
+              <DragHandle
+                handle={gripRef}
+                label={text("tree.drag.handle", { name: row.node.label })}
+              />
+            )}
+            <SelectBox
+              state={selected}
+              node={row.node.id}
+              label={text("tree.select.row", { name: row.node.label })}
+            />
+          </span>
         </td>
         <td
           data-cell={0}

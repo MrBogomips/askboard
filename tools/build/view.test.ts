@@ -180,20 +180,35 @@ describe("bun run build:view (design decision 7)", () => {
     expect(await text(own?.path ?? "")).toContain("MIT License");
   });
 
-  test("the Tree's chunk holds only AskBoard's own code, under the repository's MIT licence", async () => {
+  test("the Tree's chunk holds AskBoard's own code under the repository's MIT licence, and the drag library with its three dependencies under their own", async () => {
     // React and the port come from the react chunk and the shell (design decision 8); of `view`,
-    // the chunk holds only the shared-module registry its imports of them read.
+    // the chunk holds only the shared-module registry its imports of them read. Pragmatic drag
+    // and drop 4.0.0 (widget-editing-plus, task 5.1) is bundled with raf-schd, bind-event-listener
+    // and @babel/runtime, each shipping its licence text.
     const notices = chunkNamed("tree").licences;
     expect(packagesIn(notices)).toEqual([
       "@askboard/contract",
       "@askboard/view",
       "@askboard/widgets",
+      "@atlaskit/pragmatic-drag-and-drop",
+      "@babel/runtime",
+      "bind-event-listener",
+      "raf-schd",
     ]);
     const repository = (await Bun.file(join(ROOT, "LICENSE")).text()).trimEnd();
-    for (const notice of notices) {
+    for (const notice of notices.filter((entry) => entry.package.startsWith("@askboard/"))) {
       expect(notice.licence).toBe("MIT");
       expect((await text(notice.path)).trimEnd()).toBe(repository);
     }
+    const licences = Object.fromEntries(notices.map((entry) => [entry.package, entry.licence]));
+    expect(licences).toMatchObject({
+      "@atlaskit/pragmatic-drag-and-drop": "Apache-2.0",
+      "@babel/runtime": "MIT",
+      "bind-event-listener": "MIT",
+      "raf-schd": "MIT",
+    });
+    const library = notices.find((entry) => entry.package === "@atlaskit/pragmatic-drag-and-drop");
+    expect(await text(library?.path ?? "")).toContain("Apache License");
   });
 
   test("the Tree's chunk holds no schema and no Ajv (design, Risks / Trade-offs)", async () => {

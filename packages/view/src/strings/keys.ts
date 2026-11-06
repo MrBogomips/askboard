@@ -212,6 +212,11 @@ export const STRING_KEYS = [
   "tree.select.row",
   "tree.select.header",
   "tree.select.column",
+  // The Tree's drag and drop (widget-editing-plus, group 5).
+  "tree.drag.handle",
+  "tree.drag.ownBranch",
+  "tree.drag.depth",
+  "tree.drag.moved",
   "tree.adjust.title",
   "tree.adjust.columns",
   "tree.adjust.percent",

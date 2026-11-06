@@ -17,7 +17,9 @@ import type {
 } from "react";
 import { PERT_HEADERS } from "./cells.ts";
 import { FIELD_HEADER, GRID, HEADER_ROW, NAME_HEADER, SELECT_COLUMN } from "./classes.ts";
+import type { TreeDrag } from "./drag.ts";
 import { editableCells } from "./entry.ts";
+import { type DragState, indicatorOf } from "./model/dragging.ts";
 import type { TreeFocus } from "./model/focus.ts";
 import type { NodeMark } from "./model/marks.ts";
 import type { PertGrid } from "./model/pert.ts";
@@ -54,6 +56,8 @@ export const TreeGrid = ({
   marks,
   selection,
   headerState,
+  drag,
+  dragging,
   labelledBy,
   onKeyDown,
   onFocus,
@@ -85,6 +89,10 @@ export const TreeGrid = ({
   readonly selection: Selection;
   /** The header check box's state. */
   readonly headerState: CheckState;
+  /** The Tree's drag, shared by the rows; none when the Tree is read-only. */
+  readonly drag: TreeDrag | undefined;
+  /** The drag under way, if any. */
+  readonly dragging: DragState | undefined;
   /** The ID of the question's text, which names the grid. */
   readonly labelledBy: string;
   readonly onKeyDown: KeyboardEventHandler<HTMLTableElement>;
@@ -139,6 +147,9 @@ export const TreeGrid = ({
             editable={editableCells(value, row.node.id, disabled)}
             current={current === row.node.id}
             selected={stateOf(selection, row.node)}
+            drag={drag}
+            dragged={dragging?.nodeId === row.node.id}
+            indicator={indicatorOf(dragging, row.node.id)}
           />
         ))}
         {pert?.total === undefined ? null : <TotalRow columns={columns} values={pert.total} />}
