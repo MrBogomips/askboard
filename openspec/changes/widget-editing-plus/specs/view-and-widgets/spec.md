@@ -158,7 +158,7 @@ With a node selected, the Tree's toolbar SHALL offer "Adjust by %…": a panel w
 - **THEN** "Adjust by %…" is disabled and the selection controls only select
 
 ### Requirement: The adjustment percentage
-The percentage SHALL be read by AskBoard's number parser for the ask's locale, at most one decimal, from -99.9 to +1000, with the echo that Number entry echo says; anything else SHALL be refused with a message and "Apply" SHALL stay disabled.
+The percentage SHALL be read by AskBoard's number parser for the ask's locale, at most one decimal, from -99.9 to +1000, without an echo (Grid entries have no echo); anything else SHALL be refused with a message and "Apply" SHALL stay disabled.
 
 #### Scenario: A percentage that is refused
 - **WHEN** the user types `-100`, `+1001`, `12,5` in the en-US locale or `1.25`
@@ -446,20 +446,28 @@ On a closed or discarded ask, the header SHALL hide the open count and the next-
 - **WHEN** the agent closes an ask with two questions still open
 - **THEN** the header shows no "2 open" and no "Next open", the agent reads as ended, and the option rows are disabled
 
-### Requirement: Number entry echo
-A number or date entry in a grid editor SHALL echo the parsed value only when it differs from what was typed, on the editor's own row and never as a second line that grows the row; a Gantt date's echo SHALL show as a tip above the editor, with its weekday, and SHALL not cover another cell. A refused entry SHALL still show its message. A standalone number or money field keeps its echo beside it (DESIGN Input atoms; review F-08, F-09).
+### Requirement: Grid entries have no echo
+The Tree's and the Gantt's grid editors and the adjustment percentage field SHALL show no echo of the parsed value, and the editor SHALL not change its row's height. An ambiguous or invalid entry SHALL still be refused with a message, and after the commit the cell SHALL show the value formatted in the ask's locale. Standalone fields keep their echo (review F-08, F-09; open question 14c2).
 
 #### Scenario: A plain number
 - **WHEN** the user types `6` in an estimate cell
 - **THEN** no echo shows and the row's height does not change
 
 #### Scenario: A normalised number
-- **WHEN** the user types `1,234.5` in an estimate cell
-- **THEN** the echo "1234.5" shows on the editor's row, and the row's height does not change
+- **WHEN** the user types `1,234.5` in an estimate cell and presses Enter
+- **THEN** no echo shows while typing, and the cell then shows 1,234.5 as the en-US locale writes it
 
 #### Scenario: A date
-- **WHEN** the user types `11/9/2026` in a Gantt start
-- **THEN** a tip above the editor reads "Mon, Nov 9, 2026" and the Duration and Depends on cells stay visible
+- **WHEN** the user types `11/9/2026` in a Gantt start and presses Enter
+- **THEN** no tip or echo shows, the Duration and Depends on cells stay visible, and the cell shows "Mon 11/9"
+
+#### Scenario: A start that is not a working day
+- **WHEN** the user types `11/7/2026`, a Saturday, and presses Enter
+- **THEN** the field shows a message that it is not a working day, and the draft is unchanged
+
+#### Scenario: The percentage field
+- **WHEN** the user types `+10` in the adjustment panel
+- **THEN** no echo shows beside it, and `1.25` is refused with its message
 
 ### Requirement: Grid field errors name their field
 A refusal message in the Tree's and the Gantt's grids SHALL begin with the name of the column it is about, be tied to its editor for assistive technology, and sit under the row, indented to the edited cell when there is room (DESIGN Field error; review F-10).
@@ -609,7 +617,7 @@ The user SHALL reschedule a task by dragging its bar with the pointer. The bar S
 - **THEN** reporting starts on Monday 12/14/2026
 
 ### Requirement: Gantt editing in the grid
-The user SHALL edit a task's start and, in a Gantt with its own tasks or a plan, its duration in the grid: Enter, F2 or a double-click starts editing, Enter or leaving the field commits, Escape restores. A start SHALL be read by AskBoard's own en-US date parser, echoed as Number entry echo says, and refused with a message when it is no date, not a working day, or before the earliest start; an empty start SHALL clear the request.
+The user SHALL edit a task's start and, in a Gantt with its own tasks or a plan, its duration in the grid: Enter, F2 or a double-click starts editing, Enter or leaving the field commits, Escape restores. A start SHALL be read by AskBoard's own en-US date parser, with no echo (Grid entries have no echo), and refused with a message when it is no date, not a working day, or before the earliest start; an empty start SHALL clear the request.
 
 #### Scenario: Typing a start
 - **WHEN** the user types `12/9/2026` in reporting's start and presses Enter
@@ -654,7 +662,7 @@ A Gantt plan SHALL draw, under the bar of a task whose dates differ from the age
 - **THEN** `u-1` has a bar and no baseline
 
 ### Requirement: Tree editing
-The user SHALL rename a node and edit its fields in place: Enter, F2 or a double-click starts editing the name or field, Enter or leaving the field commits, Escape restores the previous value. A number field SHALL be a text input read by AskBoard's own en-US parser, echoed as Number entry echo says and refusing an ambiguous entry with a message, and an empty name SHALL NOT be committed.
+The user SHALL rename a node and edit its fields in place: Enter, F2 or a double-click starts editing the name or field, Enter or leaving the field commits, Escape restores the previous value. A number field SHALL be a text input read by AskBoard's own en-US parser, with no echo (Grid entries have no echo) and refusing an ambiguous entry with a message, and an empty name SHALL NOT be committed.
 
 #### Scenario: Editing a number
 - **WHEN** the user types `1,234.5` in a number field and presses Enter
