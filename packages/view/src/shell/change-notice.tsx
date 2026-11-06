@@ -12,6 +12,7 @@ import { useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type FieldChange, type OptionChange, revisionDiff } from "./agent-change.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, CHIP, SECTION_LABEL } from "./styles.ts";
+import type { WidgetChange } from "./widget-changes.ts";
 
 /** `agent-change-notice`: info colours with a 3px left rule. */
 const NOTICE =
@@ -64,6 +65,21 @@ const OptionLine = ({ option }: { readonly option: OptionChange }) => {
   );
 };
 
+// A widget item the agent changed: its ID, its type and its number of element operations. The
+// element-level view waits for EXPERIENCE to record one (widget-answers, design decision 8).
+const WidgetLine = ({ change }: { readonly change: WidgetChange }) => {
+  const text = useStrings();
+  return (
+    <li data-askboard-change="widget" data-askboard-widget={change.itemId}>
+      {text("change.widget", {
+        item: change.itemId,
+        type: text(change.type === "tree" ? "change.widgetTree" : "change.widgetGantt"),
+        count: change.operations,
+      })}
+    </li>
+  );
+};
+
 /** The new revision, read-only, marked against the earlier one where the view knows it. */
 const AgentChange = ({
   question,
@@ -87,6 +103,13 @@ const AgentChange = ({
         <ul className="flex flex-col gap-1.5">
           {diff.options.map((option) => (
             <OptionLine key={`${option.change}:${option.label}`} option={option} />
+          ))}
+        </ul>
+      )}
+      {diff.widgets === undefined ? null : (
+        <ul className="flex flex-col gap-1.5">
+          {diff.widgets.map((change) => (
+            <WidgetLine key={change.itemId} change={change} />
           ))}
         </ul>
       )}

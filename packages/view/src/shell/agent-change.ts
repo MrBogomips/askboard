@@ -17,6 +17,7 @@ import {
 } from "../view-document.ts";
 import { itemIdsOf, type QuestionWork } from "./board-draft.ts";
 import type { DraftRecord } from "./draft-store.ts";
+import { type WidgetChange, widgetChanges } from "./widget-changes.ts";
 
 /** "Keep mine", once done: the revision it was about, and the one it kept. */
 export type KeptChoice = { readonly rev: number; readonly keptRev: number };
@@ -111,6 +112,8 @@ export type RevisionDiff = {
   readonly header: FieldChange;
   readonly text: FieldChange;
   readonly options: readonly OptionChange[];
+  /** The widget items the agent changed; absent when it changed none. */
+  readonly widgets?: readonly WidgetChange[];
 };
 
 const field = (now: string | undefined, before: string | undefined, known: boolean) => {
@@ -161,6 +164,7 @@ export const revisionDiff = (
   const earlier = before?.options ?? [];
   const now = after.options ?? [];
   const labels = new Set(now.map((option) => option.label));
+  const widgets = widgetChanges(before, after);
   return {
     header: field(after.header, before?.header, known),
     text: field(after.text, before?.text, known),
@@ -174,5 +178,6 @@ export const revisionDiff = (
       ),
       ...earlier.filter((option) => !labels.has(option.label)).map(removedOption),
     ],
+    ...(widgets.length === 0 ? {} : { widgets }),
   };
 };

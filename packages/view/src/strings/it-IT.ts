@@ -123,6 +123,12 @@ export const IT_IT = {
     other: "Le tue {count} modifiche a questa domanda",
   },
   "change.show": "Mostra la modifica dell'agente",
+  "change.widget": {
+    one: "{item}, {type}: {count} modifica dell'agente",
+    other: "{item}, {type}: {count} modifiche dell'agente",
+  },
+  "change.widgetTree": "Albero",
+  "change.widgetGantt": "Gantt",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
