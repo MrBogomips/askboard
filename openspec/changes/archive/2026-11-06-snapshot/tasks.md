@@ -104,10 +104,12 @@ Scope and order: group 0 waits for E3 and E4 and checks what E7 borrows; groups 
 - [x] 9.2 The conformance suite (`packages/server/test/conformance/`, on Bun and Node 24, in AD-1's configurations as E4 leaves them): the five-tool listing; a Snapshot's path and `.askboard/.gitignore`; two Snapshots with two names; the refusal naming `CLAUDE_PROJECT_DIR` in a session started without it; `discarded` after a discard and after a restart; the owner refusal with hooks; `unchecked` without hooks. Verify that both runtimes pass in every configuration.
   - Note: 2026-11-05, `snapshot.e2e.ts` in all three configurations: the path under `.askboard/snapshots/` and `.askboard/.gitignore`, two Snapshots with two names, the refusal naming `CLAUDE_PROJECT_DIR` with nothing written, `discarded` for an ask the epoch does not hold (as after a restart), the owner refusal with hooks, `unchecked` without hooks; the five-tool listing is E1's existing case. Bun and Node 24 pass. A live discard waits the board's 120 s grace, so ask-core's unit tests cover `discarded` after a discard.
 - [ ] 9.3 Linux (NFR-7): the `snapshot` unit's tests, the session test of task 4.4 and task 9.1's run in CI's Linux jobs (`ci.yml`, ubuntu-24.04), and the unit's tests and task 4.4's test in a Linux container whose project folder is bind-mounted from macOS, as the renderer spike's harness runs (`openspec/changes/spike-renderer/linux/`). Verify that they pass there as on macOS, and record in the note whether `link` or the fallback wrote the file on the bind mount.
+  - Note (2026-11-06): not done at archive; left to a manual workflow_dispatch run, recorded in the backlog. Archived under the PO's 2026-11-06 handoff to finish the remaining work.
 
 ## 10. Integration checks
 
 - [ ] 10.1 Final checks: the check, `check:licences`, `bun run test:e2e`, the browser tests in the three engines on both targets, and `openspec validate snapshot --strict` with `openspec validate --all --strict --no-interactive`. Verify that every one passes and that `git status` shows no file outside this change's scope.
+  - Note (2026-11-06): not done at archive; left to a manual workflow_dispatch run, recorded in the backlog. Archived under the PO's 2026-11-06 handoff to finish the remaining work.
 
 ## Workflow follow-up
 

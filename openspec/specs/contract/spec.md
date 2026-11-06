@@ -35,7 +35,7 @@ Option labels SHALL be unique within a question, since an answer names the chose
 - **THEN** validation fails, naming the question's item ID and the repeated label
 
 ### Requirement: Answer event in the output format
-The output format SHALL define the answer event as `cursor`, `type: "answer"`, `itemId`, `rev`, `who` and `when`, plus optional content: `choice`, `other`, `optionNotes` (by label), `note`, `changes`, `results`, `derived`, `declined: true` and `replaces` (the replaced answer's cursor). In `changes`, `add` and `move` SHALL omit `parent` when there is none (the top level) and `after` when there is none (the first position). It SHALL contain no AXFX term (FR-18).
+The output format SHALL define the answer event as `cursor`, `type: "answer"`, `itemId`, `rev`, `who` and `when`, plus optional content: `choice`, `other`, `optionNotes` (by label), `note`, `changes`, `results`, `derived`, `declined: true`, `replaces` (the replaced answer's cursor) and `tooLarge: true`. In `changes`, `add` and `move` SHALL omit `parent` when there is none (the top level) and `after` when there is none (the first position). It SHALL contain no AXFX term (FR-18).
 
 #### Scenario: Every approved answer event validates
 - **WHEN** each `answer` event of the fixtures `answers/*.json` is validated against the answer event schema
@@ -60,6 +60,10 @@ The output format SHALL define the answer event as `cursor`, `type: "answer"`, `
 #### Scenario: A revised answer
 - **WHEN** the user revises an answer logged at cursor `k3x9.4`
 - **THEN** the new answer event carries `replaces: "k3x9.4"`
+
+#### Scenario: An answer too large for a result
+- **WHEN** an answer event carries `tooLarge: true` together with `changes` or `derived`
+- **THEN** it fails validation, naming the field
 
 ### Requirement: Results name their versions
 Every tool result SHALL name both the version of its result envelope and the version of the output format it carries, as `versions: {result, output}` (finding F12). A tool request SHALL name no version (AD-7).
@@ -140,13 +144,6 @@ The contract SHALL name the kinds of formula error a node can read as, the same 
 - **WHEN** the contract's formula error kinds are read
 - **THEN** they are those eight, in kebab-case
 
-### Requirement: Standalone widget schemas
-A widget's item props and its `changes` SHALL be schemas of their own in the contract, with the `$id`s `urn:askboard:input:<name>-props` and `urn:askboard:output:<name>-changes`, compiled in strict mode by the contract's widget validator beside every contract schema they reference. A `changes` schema SHALL take its operations from the output format's change. Until a later minor version of the input format admits widget items, they SHALL belong to no schema set (AD-7).
-
-#### Scenario: The Tree's schemas compile
-- **WHEN** the Tree's props and changes schemas are compiled in strict mode in a validator made by `createAjv`
-- **THEN** both compile, both are JSON Schema 2020-12, their `$id`s are `urn:askboard:input:tree-props` and `urn:askboard:output:tree-changes`, neither has a root combinator, and the changes schema's items are the output format's change
-
 ### Requirement: No import-time effects in the contract
 No module of the contract SHALL add a schema to a validator or write to a registry when it is imported, and making a widget validator SHALL compile nothing. A widget validator SHALL add its schemas on its first use, into one validator for widget schemas apart from the contract's shared validator, and SHALL report problems in the shape of the contract's other validators.
 
@@ -174,15 +171,26 @@ Every widget's element IDs SHALL match `[A-Za-z0-9_-]{1,64}` and be unique withi
 - **THEN** it passes validation as an edited value
 
 ### Requirement: Tree item props
-The contract SHALL define a Tree item's props in the schema `urn:askboard:input:tree-props`, checked by `validateTreeProps`, as optional `columns`, each `{field, label, type}` with `type` `text` or `number`, and `nodes`, each `{id, label, children?}` plus a value for any declared field: a string for `text`, a number for `number`, absent when empty. Any other key SHALL fail validation, naming the node and the key. No ask SHALL carry a Tree until the input format admits one in a question's items.
+The contract SHALL define a Tree item's props in the schema `urn:askboard:input:tree-props`, checked by `validateTreeProps`, as optional `columns`, each `{field, label, type}` with `type` `text` or `number`, `nodes`, each `{id, label, children?}` plus a value for any declared field: a string for `text`, a number for `number`, absent when empty, and, for a work breakdown, the optional `pert` and `openDepth` (Tree PERT props). Any other key SHALL fail validation, naming the node and the key.
 
 #### Scenario: The UJ-2 work breakdown as a Tree
 - **WHEN** the nodes of the approved `uj2-wbs-gantt` ask's `wbs` data, without their `excerpt` pointers, are validated as a Tree whose columns declare `optimistic`, `mostLikely` and `pessimistic` as numbers
 - **THEN** they pass
 
+#### Scenario: The UJ-2 work breakdown with PERT
+- **WHEN** the same Tree also holds `pert` `true` and `openDepth` `2`
+- **THEN** it passes
+
 #### Scenario: An undeclared field
 - **WHEN** a node carries `owner` and no column declares it
 - **THEN** validation fails, naming the node's ID and the field `owner`
+
+### Requirement: No Tree before the input format admits one
+No ask SHALL carry a Tree until the input format admits one in a question's items.
+
+#### Scenario: A Tree in an ask before the input format admits it
+- **WHEN** a question's items holds a Tree and the input format does not yet admit one
+- **THEN** the ask is refused
 
 #### Scenario: A value of the wrong type
 - **WHEN** a node holds the text `"five"` in a `number` column
@@ -302,11 +310,11 @@ The contract SHALL provide, for tests only, a board document whose one question 
 - **THEN** the fixture Tree and its edited value validate, the answer validates as an answer event, its `changes` validate as Tree changes, and the diff of the two values gives exactly those `changes`
 
 ### Requirement: Gantt schemas
-The Gantt's props and changes SHALL be standalone widget schemas, `urn:askboard:input:gantt-props` and `urn:askboard:output:gantt-changes`, compiled only when the Gantt's validate functions first run, through the contract's shared widget validator, and belonging to no schema set until the input format reaches 1.1 (AD-7).
+The Gantt's props and changes SHALL be the schemas `urn:askboard:input:gantt-props` and `urn:askboard:output:gantt-changes`, parts of the input format and of the output format, compiled with every schema of the contract's sets (AD-7).
 
 #### Scenario: The Gantt's schemas compile
-- **WHEN** the Gantt's two schemas are compiled in strict mode with `createAjv`'s options and E1's ID schema
-- **THEN** both compile, both are JSON Schema 2020-12 with those `$id`s, neither has a root combinator, and no schema set lists either
+- **WHEN** the Gantt's two schemas are compiled in strict mode with every schema of the contract's sets
+- **THEN** both compile, both are JSON Schema 2020-12 with those `$id`s, neither has a root combinator, and the input format lists `gantt-props` and the output format `gantt-changes`
 
 ### Requirement: Gantt item props
 The input format SHALL define a Gantt item's props as a `start` date and `tasks`. Without `workPackages`, `tasks` SHALL be a list of the Gantt's own tasks, each `{id, label, duration}`. With `workPackages`, the ID of a Tree item whose leaves are the tasks (the Gantt plan), `tasks` SHALL be a map from task ID to an entry. A task or an entry MAY hold a requested `start` and its `dependencies`, its predecessors' IDs; an entry holds nothing else. Any other key SHALL fail validation, naming it.
@@ -451,18 +459,26 @@ The contract SHALL provide, for tests only, a board document whose question hold
 - **THEN** both fixture Gantts and their edited values validate, the plan's `changes` validate, and the diff of the sent and the edited plan gives exactly those `changes`, which are the approved ones
 
 ### Requirement: Input format for questions and areas
-The input format SHALL accept an ask of `askId`, optional `title`, `agentName`, `expectedUser`, `presentation`, `delivery`, `language` and `locale`, and `items` holding one or more questions, or one or more areas. Any field, item type or value it does not define SHALL fail validation, naming the item and the field; `language` and `locale` stay `en-US` until E8.
+The input format SHALL accept an ask of `askId`, optional `title`, `agentName`, `expectedUser`, `presentation`, `delivery`, `language` and `locale`, and `items` holding one or more questions, or one or more areas; `language` and `locale` each take a value the input format lists (E8). Any field, item type or value it does not define SHALL fail validation, naming the item and the field.
 
 #### Scenario: Several questions
 - **WHEN** an ask holds six questions with distinct item IDs
 - **THEN** it passes
 
+#### Scenario: The approved UJ-2 ask
+- **WHEN** the approved `asks/uj2-wbs-gantt.json`, whose question `plan` holds the molecule references `wbs` and `schedule`, is validated against input format 1.4
+- **THEN** it passes unchanged
+
 #### Scenario: A widget item inside a question
-- **WHEN** a question's props carry `items`, as the approved `uj1`, `uj2` and `uj3` asks do
-- **THEN** validation fails, naming the question's item ID and the field `items`
+- **WHEN** a question's props carry `items` holding a `tree`, `gantt` or `molecule` item with its type's props (Items in a question)
+- **THEN** it passes, where input format 1.3 admitted only excerpts, references and images in `items`
+
+#### Scenario: A widget type the input format does not define
+- **WHEN** a question's props carry `items` holding a `diff-review`, `graph`, `table` or `approval` item, as the approved `uj1` and `uj3` asks do
+- **THEN** validation fails, naming that item's ID and its type
 
 #### Scenario: Only English is accepted
-- **WHEN** an ask sets `language` or `locale` to `it-IT`
+- **WHEN** an ask sets `language` or `locale` to a value the input format does not list, such as `fr-FR` (E8 lists `en-US` and `it-IT`; the scenario keeps its name from the base spec, and a later archive of E8 renames it)
 - **THEN** validation fails, naming the field
 
 ### Requirement: Areas
@@ -481,7 +497,7 @@ An area SHALL be an item `{type: "area", id, props: {title, items}}` at the top 
 - **THEN** validation fails, naming the inner area
 
 ### Requirement: Question props
-A question's props SHALL be `text`, optional `header`, a non-empty `options` list, optional `multiSelect` and optional `allowOther`. An option SHALL be `{label, description?, preview?, annotation?, recommended?}`, every value text but `recommended: true`; labels SHALL be unique within the question (F5), and at most one option SHALL be recommended.
+A question's props SHALL be `text`, optional `header`, an `options` list, optional `multiSelect`, optional `allowOther` and optional `items`, and SHALL hold a non-empty `options`, a non-empty `items`, or both (F1). An option SHALL be `{label, description?, preview?, annotation?, recommended?}`, every value text but `recommended: true`; labels SHALL be unique within the question (F5), and at most one option SHALL be recommended.
 
 #### Scenario: A recommended option
 - **WHEN** a question marks one option `recommended: true`, as the approved `uj1` ask's state-machine question does
@@ -494,6 +510,14 @@ A question's props SHALL be `text`, optional `header`, a non-empty `options` lis
 #### Scenario: Two options with one label
 - **WHEN** a question holds two options labelled `PostgreSQL`
 - **THEN** validation fails, naming the question's item ID and the repeated label
+
+#### Scenario: A question with items and no options
+- **WHEN** a question holds a Tree item and no `options`
+- **THEN** its props pass
+
+#### Scenario: A question with neither
+- **WHEN** a question holds no `options` and no `items`
+- **THEN** validation fails, naming the question's item ID and saying that a question needs options, items or both
 
 ### Requirement: The update request
 The contract SHALL define `update`'s request as `askId` and a non-empty list of actions: `add` (`item`, optional `parentId` and `after`: without `parentId` the item goes to the top level, without `after` first, as in `changes`), `change` (`itemId`, `props`), `delete`, `reopen` (`itemId`), `answer` (`itemId`, `answer` of `choice`, `other` and `note`), `reply` (`itemId`, `followUp`, `text`) and `close`. A field the action does not use SHALL fail validation, naming the action's index.
@@ -533,11 +557,15 @@ Results and board-protocol messages SHALL report an ask state of `waiting`, `par
 - **THEN** it passes
 
 ### Requirement: Closed asks on the wire
-The ask state of results, the board state and `collect`'s ask entry SHALL admit `closed`. The board protocol's `closed` message SHALL carry `reason` as an enum holding `agent`, which a later minor may extend. The output format's closed event is not defined by this change: `push-delivery` defines it.
+The ask state of results, the board state and `collect`'s ask entry SHALL admit `closed`. The board protocol's `closed` message SHALL carry `reason` as an enum holding `agent` and `agent-finished`, the second in the ask lifecycle's minor 1.1, so that a board shows an ask AskBoard closed because its owning subagent finished (AD-10, FR-6). The output format's closed event is push delivery's (Closed event).
 
 #### Scenario: The agent closes an ask
 - **WHEN** the agent closes an ask with `update`
 - **THEN** `collect`'s entry for it validates with state `closed`, and the board's `closed` message with reason `agent`
+
+#### Scenario: A closed message for a finished subagent
+- **WHEN** `board-host` sends a `closed` message with reason `agent-finished`
+- **THEN** it validates against the board protocol
 
 #### Scenario: A reason outside the enum
 - **WHEN** a `closed` message carries the reason `timeout`
@@ -606,3 +634,665 @@ The contract SHALL add fixtures for E3's types, each validating against the full
 #### Scenario: A fixture that diverges
 - **WHEN** a lifecycle fixture is edited so that it no longer validates
 - **THEN** the contract's tests fail, naming the fixture
+
+### Requirement: Local API schemas
+Every local API request and response SHALL have a JSON Schema 2020-12 schema with its own `$id` in the `urn:askboard:local-api:` namespace, in a set owned by `board-host` with its own semantic version that every message with a body names; a request without a body names the set's major in its path (`/v1/`). Claude Code's fields SHALL keep Claude Code's names (`agent_id`, `agent_type`, `tool_use_id`, `stop_hook_active`); every other field is camelCase (AD-7, Consistency Conventions).
+
+#### Scenario: An agent record validates
+- **WHEN** the contract's fixture agent record is validated against the local API's record schema
+- **THEN** it passes, and a record carrying an unknown field fails, naming it
+
+#### Scenario: A message from another major
+- **WHEN** a local API message names major version 2 and the receiver supports 1
+- **THEN** the receiver refuses it with a reason that names version 1
+
+### Requirement: Session file schema
+The session file SHALL follow a contract schema with its own `$id`, `urn:askboard:session-file:session-file`: `format` (its version), `key` (the Claude Code PID), `pid`, `epoch`, `apiAddress` (the socket's path), `sessionToken` and `startedAt`, each required; `projectDir`, the session project root, the real path of `CLAUDE_PROJECT_DIR`, only when the session has one; and nothing else (AD-5, AD-12).
+
+#### Scenario: A session file with an extra field
+- **WHEN** a session file carries a field the schema does not define
+- **THEN** it fails validation, and a client treats the session as unreachable
+
+#### Scenario: A session without a project root
+- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR`
+- **THEN** its session file has no `projectDir`, and validates
+
+### Requirement: Session folder and paths
+The contract SHALL compute the session folder, `$XDG_RUNTIME_DIR/askboard` when that variable is set, else `${TMPDIR:-/tmp}/askboard-<uid>`, and in it the session file `<key>.json` and the socket `<key>.sock`. No unit SHALL compute these paths itself. A socket path longer than the platform's limit SHALL be reported as unusable (AD-5, AD-11).
+
+#### Scenario: The same path from every client
+- **WHEN** the session process, a hook and the mod compute the paths for one key and one environment
+- **THEN** all three get the same folder, file and socket
+
+#### Scenario: A path over the limit
+- **WHEN** the socket path for a key exceeds 103 bytes on macOS
+- **THEN** the contract reports it as unusable, naming the limit
+
+### Requirement: Push message schema
+The output format SHALL define the push message with its own `$id`, `urn:askboard:output:push-message`: the versions it follows, the epoch, and per ask its ID, state, latest cursor and events, each event with its cursor, as `collect` returns them; a stop block's message also lists the subagent's open asks (AD-3, AD-7).
+
+#### Scenario: A push message validates
+- **WHEN** the fixture push message holding the plain-choice answer is validated
+- **THEN** it passes, and its ask entry has the same shape as the `collect` result's
+
+### Requirement: Closed event
+The output format SHALL define the event that closes an ask AskBoard closed, with its own `$id`, `urn:askboard:output:closed-event`: its cursor, `type: "closed"` and `reason: "agent-finished"`, in the output format's set at the ask lifecycle's minor 1.1 and among `collect`'s events. An agent's own close is reported in its call's result and is not an event. The mod's poll SHALL carry any event `collect` returns (AD-3, AD-10).
+
+#### Scenario: A closed event validates
+- **WHEN** the fixture closed event is validated
+- **THEN** it passes, and the same event with reason `agent` fails
+
+#### Scenario: A closed event in a collect result
+- **WHEN** a `collect` result holds a closed event
+- **THEN** it validates against the collect result's schema
+
+#### Scenario: The lifecycle's events in a poll
+- **WHEN** a poll response carries a postponed event of the ask lifecycle
+- **THEN** it validates, and an event of a type `collect` does not return fails
+
+### Requirement: Board presence message
+The board protocol SHALL define the board page's working signal with its own `$id`, `urn:askboard:board-protocol:presence`: whether the board has focus and has had a user input in the last 60 s, and nothing else, so that it never carries content (AD-2, AD-7).
+
+#### Scenario: Presence with content
+- **WHEN** a presence message carries any field besides its version, type and working flag
+- **THEN** it fails validation
+
+### Requirement: Board origin and agent messages
+The board protocol SHALL define two host messages, each with its own `$id`: `urn:askboard:board-protocol:origin`, holding who asked (label, optional name and ordinal), the expected answerer when shown, and the project, directory, branch and worktree, each optional; and `urn:askboard:board-protocol:agent`, holding the agent status, `working` or `waiting` (AD-4, AD-7, FR-24).
+
+#### Scenario: An origin message for an unchecked ask
+- **WHEN** an origin message carries a label and a project and no other field
+- **THEN** it validates
+
+#### Scenario: An agent message with another status
+- **WHEN** an agent message names a status other than `working` or `waiting`
+- **THEN** it fails validation
+
+### Requirement: Who asked and where, built in the contract
+The contract SHALL provide `originMessage`, which builds the origin message from the session project's folder, the ask's origin with its directory, its agent's name and the expected answerer, using no Node, Bun or DOM API, so that `board-host` and `ask-core` build the same row; a field longer than the schema allows SHALL be left out (AD-1, AD-7, FR-24).
+
+#### Scenario: A branch too long for the schema
+- **WHEN** `originMessage` is given an origin whose branch is longer than the schema allows
+- **THEN** the message leaves the branch out and validates, and the board shows the branch as unknown
+
+#### Scenario: Imported where Node is not
+- **WHEN** a unit compiled without Node, Bun or DOM types, such as `ask-core`, imports `originMessage`
+- **THEN** it compiles, and its message equals the one `board-host` sends for the same ask
+
+### Requirement: New schemas are standalone
+E4's schemas SHALL be standalone: compiled only by the validate functions that use them, on first call, with the validator's strict options; listed in no existing schema set or ID table; and registered by no module when it is imported. The closed event alone is the output format's, in its set and ID table at the ask lifecycle's minor 1.1 (task 14.5). Additions to the contract's entry modules SHALL be new export blocks only (AD-7).
+
+#### Scenario: Importing the contract
+- **WHEN** a module imports the contract's entry points and calls nothing
+- **THEN** no schema has been compiled or registered
+
+#### Scenario: Strict compilation
+- **WHEN** the contract's tests compile E4's schemas in strict mode
+- **THEN** each compiles, has its `$id` in its set's namespace and no root combinator
+
+### Requirement: Asking rules
+The contract SHALL hold the asking rules as a closed set, `none`, `always` and `with-references`; each rule's predicate is implemented once, in `hooks` (AD-16, FR-30).
+
+#### Scenario: An unknown rule
+- **WHEN** a rule outside the closed set is checked
+- **THEN** it is refused as unknown
+
+### Requirement: Push delivery constants
+The contract SHALL hold the constants the session process, the hooks and the mod share: the poll interval (1 s), the record timeout, the minimum Claude Code version (2.1.311), the local API response limit (1 MiB), the hooks' request timeout and the working window (60 s) (AD-2, AD-4, AD-5, AD-18).
+
+#### Scenario: One value for every unit
+- **WHEN** the mod polls, a hook waits for the local API or the session process checks a client version
+- **THEN** the value used is the contract's constant, and no unit defines its own
+
+### Requirement: Push delivery fixtures
+The contract SHALL provide fixtures for an agent record of the main conversation and of a subagent, a session file, a push message, a stop block, a pending-asks list, a closed event, and a presence, an origin and an agent message, each validating against its schema (AD-7).
+
+#### Scenario: Every fixture validates
+- **WHEN** the contract's tests validate each push delivery fixture
+- **THEN** every one passes against its schema
+
+### Requirement: Molecule reference props
+The contract SHALL define a molecule reference's props in the schema `urn:askboard:input:molecule-props`, a part of the input format: `molecule`, a molecule name, an optional `version`, a semantic version `MAJOR.MINOR.PATCH`, and `data`, an object. Any other key SHALL fail validation, naming it (AD-6, AD-9, F2).
+
+#### Scenario: The UJ-2 references
+- **WHEN** the props of the approved `uj2-wbs-gantt` ask's `wbs` and `schedule` items are validated
+- **THEN** both pass unchanged
+
+#### Scenario: A version that is not semantic
+- **WHEN** a reference's `version` is `1.0`
+- **THEN** validation fails, naming `version`
+
+#### Scenario: No data
+- **WHEN** a reference names `wbs-pert` and holds no `data`
+- **THEN** validation fails, naming `data`
+
+### Requirement: Molecule definition format
+The contract SHALL define the molecule definition format 1.0.0 in the schema `urn:askboard:input:molecule-definition`, a part of the input format: `format`, `molecule`, `version`, `parameters`, `items` and `fills`, and nothing else. `parameters` SHALL be a JSON Schema 2020-12 object whose `$id` is `urn:askboard:molecule:<name>:<major>`, with no root combinator; `items` SHALL hold exactly one widget item `{type, id, props}` (AD-9).
+
+#### Scenario: Two items
+- **WHEN** a definition's `items` holds two widget items
+- **THEN** validation fails, saying that format 1.0.0 composes one item
+
+#### Scenario: Parameters with a root combinator
+- **WHEN** a definition's `parameters` has `anyOf` at its root
+- **THEN** validation fails, naming `parameters`
+
+#### Scenario: Another format
+- **WHEN** a definition's `format` is `2.0.0`
+- **THEN** validation fails, naming the format versions the contract supports
+
+#### Scenario: Parameters that do not compile
+- **WHEN** a definition's parameters hold a keyword JSON Schema does not define
+- **THEN** validation fails, naming `parameters`
+
+### Requirement: Molecule fills
+A definition's `fills` SHALL map a top-level parameter to a list of fills, each a JSON Pointer into `items` and a form: copy (the default), `item`, `{entries: <field>}` or `{omit: [keys]}`. A fill SHALL name a parameter its `parameters` declare and a pointer inside the item's props whose parent exists in the composition, and no two fills SHALL fill one place or places inside each other, or the definition SHALL fail validation, naming the fill (AD-9).
+
+#### Scenario: An unknown parameter
+- **WHEN** a definition fills from `calendar`, which its parameters do not declare
+- **THEN** validation fails, naming `calendar`
+
+#### Scenario: A pointer outside the composition
+- **WHEN** a fill's pointer is `/0/props/schedule/start` and the item's props hold no `schedule`
+- **THEN** validation fails, naming the pointer
+
+#### Scenario: Two fills on one place
+- **WHEN** a fill's pointer lies inside the place another parameter fills
+- **THEN** validation fails, naming the later fill's pointer and the other parameter
+
+### Requirement: Molecules carry no code
+A molecule definition SHALL be JSON data only, read and never run: no string or key in it SHALL hold `<` or a `javascript:` URL, and no fill form SHALL evaluate anything. A definition that breaks this SHALL fail validation, naming the path (AD-8, NFR-5, FR-17).
+
+#### Scenario: Markup in a definition
+- **WHEN** a parameter's `description` holds `<script>alert(1)</script>`
+- **THEN** validation fails, naming the path of that string
+
+### Requirement: Molecule data validation
+A reference's `data` SHALL be validated in strict mode against its definition's `parameters`, beside every widget props schema of the contract, so that parameters may reference them. A problem SHALL name the reference's item ID and the path in its data (AD-6, AD-10).
+
+#### Scenario: A problem in the data
+- **WHEN** the `schedule` reference's `data.start` is `11/02/2026`
+- **THEN** validation fails, naming `schedule` and `/start`
+
+### Requirement: Widget item checks
+The contract SHALL check any widget item it defines, given the question that holds it and the value's origin: a Tree with the Tree's checks, a Gantt with the Gantt's, a Gantt plan's link included. A type the contract does not define SHALL be a problem naming the item and its type (AD-7, AD-10).
+
+#### Scenario: A plan whose link fails
+- **WHEN** a question holds the Gantt plan `schedule__plan` whose `workPackages` names `wbs__tree`, and no item `wbs__tree`
+- **THEN** the check fails, naming `schedule__plan` and `wbs__tree`
+
+#### Scenario: An unknown widget type
+- **WHEN** an item's type is `kanban`
+- **THEN** the check fails, naming the item and `kanban`
+
+### Requirement: Tree PERT props
+A Tree's `pert`, when given, SHALL be `true` and SHALL require columns declaring `optimistic`, `mostLikely` and `pessimistic` as numbers; every estimate SHALL be a number of working days from 0 to 100,000. `openDepth`, an integer from 1 to 8, SHALL be accepted only with `pert`. A Tree breaking a rule SHALL fail validation, naming the node or key (AD-13, F8).
+
+#### Scenario: PERT without its columns
+- **WHEN** a Tree with `pert` declares no `pessimistic` column
+- **THEN** validation fails, naming `pert` and `pessimistic`
+
+#### Scenario: A negative estimate
+- **WHEN** a node of a Tree with `pert` holds `optimistic` `-2`
+- **THEN** validation fails, naming the node and `optimistic`
+
+#### Scenario: A depth on a plain Tree
+- **WHEN** a Tree without `pert` holds `openDepth` `2`
+- **THEN** validation fails, saying that `openDepth` needs `pert`
+
+### Requirement: Tree PERT derived fields
+The contract SHALL declare, for a Tree with `pert`, the built-in derived fields `expected` and `spread` on every node and on the item, addressed `<item>.<node>.expected` and `<item>.expected`, which `compute` writes as PERT and its roll-ups (AD-13, FR-15).
+
+#### Scenario: The declared fields
+- **WHEN** the Tree's derived fields are read from the contract
+- **THEN** they are `expected` and `spread`, on every node and on the item, and only for a Tree with `pert`
+
+### Requirement: WBS answer derived values
+The derived values a Tree with `pert` gives an answer SHALL be each node's `expected` and `spread` whose value, rounded half away from zero to two decimals, differs from the board as sent or whose node the agent did not send, and the item's `expected` and `spread` always, each rounded so; a value in error SHALL be left out. An answer that carries the Tree's value SHALL carry these derived values beside it (F7, FR-12, FR-20).
+
+#### Scenario: The approved UJ-2 values
+- **WHEN** the UJ-2 work breakdown is computed after the approved answer's edits and compared with the board as sent
+- **THEN** its derived values are exactly the approved answer's twelve `wbs.` keys and values, under the Tree's item ID
+
+#### Scenario: An untouched work breakdown
+- **WHEN** the user changed nothing in the work breakdown
+- **THEN** its derived values are the item's `expected` and `spread` only
+
+### Requirement: Molecule fixtures
+The contract SHALL provide, for tests only, the UJ-2 question as the expansion gives it, a Tree `wbs__tree` and a Gantt plan `schedule__plan` over it, and their values after the approved answer's edits. Each SHALL pass the widget item checks, and the diff of each sent and edited value, under its reference's ID, SHALL give the approved answer's operations.
+
+#### Scenario: The fixtures agree
+- **WHEN** the contract's tests run
+- **THEN** both expanded items and both edited values pass their checks, and the diffs under `wbs` and `schedule` give exactly the approved answer's `wbs.` operations and `set schedule.u-1.dependencies`, compared as a set
+
+### Requirement: Context items in a question
+A question's `items` SHALL accept three item types: `excerpt` with exactly one of `pointer` and `text`, and an optional `title`; `reference` with exactly one of `pointer` and `url`, and an optional `title`; `image` with `pointer` and a required `alt`. Each refuses every other field, so no image data or image URL enters tool input (AD-7, AD-12, FR-8, FR-9).
+
+#### Scenario: The approved UJ-1 excerpt
+- **WHEN** the input format validates `{type: "excerpt", id: "retry-adr", props: {pointer: "docs/adr/0012-payment-retries.md#Decision"}}` inside a question's `items`
+- **THEN** it passes
+
+#### Scenario: An excerpt with both forms
+- **WHEN** an excerpt holds both `pointer` and `text`
+- **THEN** the request is refused with a problem naming the item and saying that an excerpt takes exactly one of them
+
+#### Scenario: An image sent as data
+- **WHEN** an `image` item holds a `data`, `src` or `url` field
+- **THEN** the request is refused as a schema error naming the item and the field
+
+#### Scenario: An image without alt text
+- **WHEN** an `image` item has no `alt`
+- **THEN** the request is refused, naming the item and `alt`
+
+### Requirement: Web reference URLs
+A reference's `url` SHALL be an absolute URL with the scheme `http` or `https`, a host, and no user name or password, of at most the contract's URL limit; any other is a request error naming the item (AD-8, FR-9).
+
+#### Scenario: A script URL
+- **WHEN** a reference's `url` is `javascript:alert(1)`, `data:text/html,…`, `file:///etc/passwd` or `vbscript:…`
+- **THEN** the request is refused, naming the item and saying that only `http` and `https` URLs are accepted
+
+#### Scenario: A URL with credentials
+- **WHEN** a reference's `url` is `https://user:secret@example.com/`
+- **THEN** the request is refused, naming the item
+
+### Requirement: The pointer grammar
+The contract SHALL hold one function that reads a pointer: the text up to the first `#` is a root-relative path; what follows is the anchor, a line range when it is `L<start>-L<end>` with `1 ≤ start ≤ end`, otherwise a heading or an ID. A pointer whose path is empty, starts with `/`, holds a backslash, a control character, or an empty, `.` or `..` segment SHALL read as invalid, with its reason (Consistency Conventions, "Excerpts and media").
+
+#### Scenario: A line range
+- **WHEN** the pointer `src/retry.ts#L40-L62` is read
+- **THEN** it gives the path `src/retry.ts` and the line range 40 to 62
+
+#### Scenario: A heading
+- **WHEN** the pointer `docs/prd.md#Billing` is read
+- **THEN** it gives the path `docs/prd.md` and the heading or ID anchor `Billing`
+
+#### Scenario: Paths that leave the root by their text
+- **WHEN** the pointers `../secret.md#A`, `docs/../../x.md#A`, `/etc/passwd#L1-L2`, `docs//x.md#A`, `./docs/x.md#A` and `docs\x.md#A` are read
+- **THEN** each reads as invalid, with its reason, and nothing touches the file system
+
+#### Scenario: A reversed range
+- **WHEN** the pointer `a.md#L9-L3` is read
+- **THEN** its anchor is not a line range
+
+### Requirement: Resolved context in the board document
+The board document SHALL hold, for each pointer excerpt, its pointer, status (`resolved` or `unresolved`), and either its source text, media type and line range or its reason; for each agent-written excerpt, its text; for each image, its pointer, alt text, status, and either its media type and bytes in base64 or its reason; for each reference, its kind (`file`, `github` or `web`) and, for a pointer, its status and line range or reason (AD-12).
+
+#### Scenario: A resolved excerpt
+- **WHEN** a board document holds an excerpt with status `resolved`
+- **THEN** it validates only with its text, its media type and a line range whose start is at most its end
+
+#### Scenario: An unresolved image
+- **WHEN** a board document holds an image with status `unresolved`
+- **THEN** it validates only with a reason and without bytes
+
+### Requirement: The unresolved-pointer warning
+The output format's warning SHALL admit the code `unresolved-pointer`, carrying the item ID, the pointer, the reason (`no-root`, `invalid-pointer`, `outside-root`, `not-found`, `not-a-file`, `anchor-not-found`, `not-text`, `not-image`, `too-large`, `timeout`) and a message (AD-6, FR-8).
+
+#### Scenario: A heading that does not exist
+- **WHEN** an `ask` result warns that `retry-adr` points at a heading the file lacks
+- **THEN** the warning validates with code `unresolved-pointer`, item `retry-adr`, its pointer and reason `anchor-not-found`
+
+### Requirement: The source view route
+The contract SHALL define the route `GET /s/<askId>/<itemId>` with the board token in the query parameter `t` and an optional `scheme` of `light` or `dark`, and what it answers: the source view page, 403 without a token that opens that ask's board, 410 for a discarded ask, 404 for an item that is no pointer excerpt or pointer reference of the ask. Both IDs follow the ID pattern (AD-8, AD-11).
+
+#### Scenario: A path that is not a source route
+- **WHEN** `/s/<askId>/../m`, `/s/<askId>`, `/s/<askId>/<itemId>/x` or `/s/%2e%2e/<itemId>` is parsed
+- **THEN** it names no route
+
+### Requirement: The source view's policy
+The contract SHALL hold the source view's CSP: `default-src 'none'`, its stylesheet by hash, `img-src data:`, `frame-ancestors 'self'`, `base-uri 'none'` and `form-action 'none'`, and nothing else (AD-8).
+
+#### Scenario: No script source
+- **WHEN** the source view's policy is read
+- **THEN** it names no `script-src`, no `'unsafe-inline'`, no `'unsafe-eval'` and no host
+
+### Requirement: Reading panel and editor messages
+The board protocol SHALL carry, page to host, `open-source` and `open-editor`, each naming one item; and host to page, `source-state` (the item, its status, whether the excerpted range changed, the current line and whether an editor can open it) and `editor-outcome` (`opened`, `no-editor`, `unavailable`, `failed` or `busy`). No message carries a path the page chose (AD-8).
+
+#### Scenario: A message that names a file
+- **WHEN** a page sends `open-source` holding a `path` field
+- **THEN** it is refused as a schema error
+
+### Requirement: Context placement in the draft record
+The draft record's question SHALL admit `context`, `beside` or `inline`, the user's choice for that question (AD-20, FR-13).
+
+#### Scenario: A placement kept in the draft
+- **WHEN** a draft record question holds `context: "inline"`
+- **THEN** it validates, and a value other than `beside` or `inline` is refused
+
+### Requirement: Context limits
+The contract SHALL hold the limits every unit reads for context: pointer, title, alt text and URL lengths; the largest file searched for an anchor; an excerpt's lines and bytes; an image's bytes and an ask's image bytes; the source view's bytes and lines; concurrent reads; the resolution budget. No unit SHALL define its own.
+
+#### Scenario: One limit, one place
+- **WHEN** `excerpts`, `ask-core` and `board-host` check an excerpt's length
+- **THEN** each reads the same contract constant
+
+### Requirement: Snapshot data schema set
+The contract SHALL hold the `snapshot-data` set at version 1.0, owned by `snapshot` (AD-7), whose one schema describes a Snapshot's `askboard-data` block. Like every set, it SHALL refuse fields it does not define and SHALL have no root combinator.
+
+#### Scenario: The set is listed
+- **WHEN** the contract's schema sets are listed
+- **THEN** `snapshot-data` is among them at 1.0, with `snapshot` as its owner
+
+### Requirement: What the Snapshot data names
+The Snapshot data SHALL name its versions (the set's, the output format's and the board protocol's), the epoch and the ask ID, and SHALL hold the Snapshot's record: `takenAt` in UTC, `takenBy` (`agent` or `user`), `who` for the user's, and `unsentWork: true` only for a board's Snapshot taken with unsent work (AD-15).
+
+#### Scenario: The agent's Snapshot
+- **WHEN** the Snapshot data of an agent's Snapshot is validated
+- **THEN** it passes with `takenBy: "agent"`, a UTC `takenAt` and no `who` or `unsentWork`
+
+#### Scenario: A user's Snapshot without its taker
+- **WHEN** Snapshot data with `takenBy: "user"` and no `who` is validated
+- **THEN** it fails, naming `who`
+
+### Requirement: What the Snapshot data holds
+The Snapshot data SHALL hold the current board document, the earlier revisions its events name, the board state as the board protocol carries it, the ask's origin as the board protocol's `origin` message carries it when known, and every event of the log, each with the full values kept for its answer; optionally the molecule expansion map and kept diagram renders (AD-15, open questions A1 and A2).
+
+#### Scenario: The fixture validates
+- **WHEN** the contract's Snapshot data fixture, with areas, a postponed question, a thread with a reply, a recorded answer and a revised answer, is validated
+- **THEN** it passes against the `snapshot-data` schema
+
+#### Scenario: A draft in the data
+- **WHEN** Snapshot data carries a `draft` field
+- **THEN** it fails validation, naming the field
+
+### Requirement: The snapshot tool's envelopes
+The tool envelopes SHALL define the `snapshot` request as the approved definition's input schema (`askId` only) and its result: the versions, epoch, ask ID, the ask's state, the file's absolute `path`, and `unchecked: true` for an ask without an owner; and the typed result `discarded` naming the ask (AD-6, FR-26).
+
+#### Scenario: A result validates
+- **WHEN** the Snapshot fixture's `snapshot` result is validated against the `snapshot` result envelope
+- **THEN** it passes and names a result and an output version
+
+#### Scenario: A relative path
+- **WHEN** a `snapshot` result whose `path` does not start with `/` is validated
+- **THEN** it fails, naming `path`
+
+### Requirement: The approved snapshot definition
+The contract's tool definitions SHALL be the approved `ask`, `update`, `collect`, `fetch` and `snapshot`, in that order, equal to the approved `tools.json`, with `snapshot`'s description and annotations unchanged (`destructiveHint: false`, `openWorldHint: false`). The server instructions SHALL stay the approved text.
+
+#### Scenario: The tool definitions
+- **WHEN** the contract's tool definitions are compared with the approved `tools.json`
+- **THEN** they are equal, all five entries in order
+
+### Requirement: Snapshot messages on the board protocol
+The board protocol SHALL define, page to host, `snapshot` with a `requestId` and an optional `unsentWork: true`; and host to page, `snapshot-saved` with the `requestId` and the file's absolute `path`, and `snapshot-failed` with the `requestId`, a `reason` of `write-failed`, `no-project-root`, `internal-error` or `discarded`, and the Snapshot folder's path for `write-failed` only (FR-26, AD-12).
+
+#### Scenario: A request without its ID
+- **WHEN** a `snapshot` message without `requestId` is validated
+- **THEN** it fails, naming `requestId`
+
+#### Scenario: A failure inside AskBoard names no folder
+- **WHEN** a `snapshot-failed` with the reason `internal-error` and a `folder` is validated
+- **THEN** it fails, naming `folder`
+
+#### Scenario: The recorded exchange
+- **WHEN** the recorded transcript of a board's Snapshot, saved and then failed, is validated in both directions
+- **THEN** every message passes
+
+### Requirement: Host-only and kept-render chunks
+The view manifest SHALL admit, at its next minor, an optional `hostOnly: true` on a chunk needed only when the view has a parent host, and an optional `keptRender` on a component chunk naming the chunk that shows its kept renders (AD-9, open questions B2 and B3).
+
+#### Scenario: A host-only chunk
+- **WHEN** a manifest whose ext-apps chunk carries `hostOnly: true` is validated
+- **THEN** it passes
+
+#### Scenario: A kept-render chunk that does not exist
+- **WHEN** a manifest names in `keptRender` a chunk it does not list
+- **THEN** the view build's manifest check fails, naming both chunks
+
+### Requirement: Snapshot constants
+The contract SHALL hold, as shared constants, the default Snapshot folder `.askboard/snapshots`, the lines of `.askboard/.gitignore`, the file-name pattern, the random part's length and alphabet, the number of names tried, and the IDs of the `askboard-data` and `askboard-licences` elements; no unit SHALL define its own.
+
+#### Scenario: The data element's ID
+- **WHEN** `assemble` writes a Snapshot and the contract's tests read the element ID
+- **THEN** both use the contract's `askboard-data`
+
+### Requirement: Snapshot registrations are appended
+Every schema, export and fixture this change adds SHALL be registered by entries appended after the existing ones (`sets.ts`, `SCHEMA_IDS`, the board protocol's message lists, and one export block at the end of `src/index.ts`, `src/validate.ts` and `src/fixtures/index.ts`), and importing the contract SHALL register nothing.
+
+#### Scenario: Existing order kept
+- **WHEN** the contract's sets, schema IDs and board-protocol messages are listed
+- **THEN** the entries before this change's keep their order, and this change's follow them
+
+### Requirement: The configuration schema set
+The contract SHALL hold the `configuration` schema set, owned by `ask-core`, starting at `1.0`, for both configuration files (AD-7, AD-14). A file SHALL name its `version` as `major.minor`. It SHALL allow `theme` (`system`, `light`, `dark`), `density` (`compact`, `comfortable`), `contextPlacement` (`beside`, `inline`), `defaultLanguage` (`en-US`, `it-IT`), `askingRule` (`none`, `always`, `with-references`), `snapshotFolder`, `editor` and `defaultMinimumMargin`, each optional.
+
+#### Scenario: A file with every key validates
+- **WHEN** the fixture holding `version` `1.0` and one valid value for each of the eight keys is validated against the configuration schema
+- **THEN** it passes
+
+#### Scenario: A value outside a key's set is refused, naming the key
+- **WHEN** a file sets `theme` to `"sepia"` or `askingRule` to `"sometimes"`
+- **THEN** validation fails with a problem whose path names that key
+
+#### Scenario: A file without its version is refused
+- **WHEN** a file holds `{"theme": "dark"}`
+- **THEN** validation fails, naming `version`
+
+#### Scenario: An unknown key passes the schema
+- **WHEN** a file holds `version` `1.0` and a key `fontSize`
+- **THEN** the schema passes it, and the contract's list of configuration keys does not hold `fontSize`
+
+### Requirement: The editor key is an argument vector
+`editor` SHALL be a non-empty list of non-empty strings whose first is the program, at most 32 strings of at most 1,024 characters each; `{file}` and `{line}` are its only placeholders (AD-8). A string, an empty list or a list holding a non-string SHALL fail validation.
+
+#### Scenario: A command line as one string is refused
+- **WHEN** a file sets `editor` to `"code --goto {file}:{line}"`
+- **THEN** validation fails, naming `editor`
+
+#### Scenario: An argument vector validates
+- **WHEN** a file sets `editor` to `["code", "--goto", "{file}:{line}"]`
+- **THEN** it passes
+
+### Requirement: The presentation keys are a closed list
+The contract SHALL name `theme`, `density` and `contextPlacement` as the presentation keys, the only keys a board may write, and SHALL name every other key of the configuration set as not writable from a board (AD-14).
+
+#### Scenario: The writable keys
+- **WHEN** a test reads the contract's presentation keys
+- **THEN** they are exactly `theme`, `density` and `contextPlacement`
+
+### Requirement: An ask's language and locale
+The input format SHALL accept `language` and `locale`, each optional, each `en-US` or `it-IT` (FR-34, AD-7). Any other value SHALL fail validation, naming the field. This replaces E1's en-US-only rule.
+
+#### Scenario: An Italian ask validates
+- **WHEN** an ask sets `language` to `it-IT` and no `locale`
+- **THEN** it passes
+
+#### Scenario: English with Italian formats validates
+- **WHEN** an ask sets `language` to `en-US` and `locale` to `it-IT`
+- **THEN** it passes
+
+#### Scenario: Another language is refused
+- **WHEN** an ask sets `language` to `fr-FR`
+- **THEN** validation fails with a problem naming `language` and saying that `en-US` and `it-IT` are accepted
+
+### Requirement: The board document names the ask's language and locale
+The board document SHALL carry the ask's resolved `language` and `locale` at its root, each `en-US` or `it-IT`. A board document without them SHALL be read as `en-US` for both, so an older Snapshot still opens (AD-12, FR-34).
+
+#### Scenario: A board document in Italian
+- **WHEN** a board document with `language` and `locale` set to `it-IT` is validated
+- **THEN** it passes
+
+#### Scenario: An older board document
+- **WHEN** a board document of an earlier minor, without either field, is read by the view
+- **THEN** the view shows it in English with en-US formats
+
+### Requirement: Settings messages on the board protocol
+The board protocol SHALL add the message `settings`, host to page, carrying the presentation and behaviour settings in effect, each with its value and the file and key that set it, and `setting`, page to host, carrying one key and one value. The schema of `setting` SHALL admit only the presentation keys, each with a value the configuration schema allows (AD-14).
+
+#### Scenario: A presentation write validates
+- **WHEN** the page sends `setting` with `key` `density` and `value` `comfortable`
+- **THEN** the message passes the board-protocol schema
+
+#### Scenario: Any other key fails the schema
+- **WHEN** the page sends `setting` with `key` `editor`, `askingRule` or `snapshotFolder`, or with `theme` set to `"sepia"`
+- **THEN** the message fails the board-protocol schema
+
+### Requirement: Locale formats
+The contract SHALL format numbers, money, percentages, calendar dates and times for `en-US` and `it-IT` with its own tables, giving the same text whatever the runtime's locale and time zone (AD-7, AD-13). Calendar dates SHALL never pass through a time zone; a time SHALL show at the UTC offset it is given, which the view takes from the viewer's time zone.
+
+#### Scenario: The same value in both locales
+- **WHEN** 12480 EUR, 1234.5, 0.185 as a percentage and the date `2026-10-27` are formatted
+- **THEN** en-US gives `€12,480.00`, `1,234.5`, `18.5%` and `10/27/2026`, and it-IT gives `€ 12.480,00`, `1.234,5`, `18,5%` and `27/10/2026`
+
+#### Scenario: A time in each locale
+- **WHEN** `2026-10-28T15:12:00Z` is formatted as a date and time at the offset `+01:00`
+- **THEN** en-US gives `Oct 28, 2026, 4:12 PM` and it-IT gives `28 ott 2026, 16:12`
+
+#### Scenario: The runtime's locale and time zone change nothing
+- **WHEN** the locale fixtures run under `TZ=Pacific/Kiritimati` and `TZ=America/Adak` and under the runtime locales `en-US` and `de-DE`
+- **THEN** every result equals the fixture's, and `2026-10-27` formats as the same day in each run
+
+### Requirement: Number entry in the ask's locale
+The contract SHALL read a number typed in the ask's locale and return a number, an empty entry or a refusal with a reason in the ask's language (EXPERIENCE, Input atoms). In it-IT, `,` SHALL be the one decimal mark and `.` SHALL stand only between groups of three digits; an entry that breaks either SHALL be refused. The echo SHALL write the value without grouping.
+
+#### Scenario: An Italian entry with grouping and decimals
+- **WHEN** `1.234,5` is read in it-IT
+- **THEN** it reads as 1234.5, and its echo is `= 1234,5`
+
+#### Scenario: An English habit in Italian is refused
+- **WHEN** `1234.5` or `1.23` is read in it-IT
+- **THEN** it is refused with the reason "Usa i punti solo tra gruppi di tre cifre, come in 1.234,5."
+
+#### Scenario: The en-US rules are unchanged
+- **WHEN** `1,234.5` is read in en-US
+- **THEN** it reads as 1234.5, and its echo is `= 1234.5`
+
+### Requirement: Date entry in the ask's locale
+The contract SHALL read a calendar date typed in the ask's locale, in en-US as `M/D/YYYY` and in it-IT as `D/M/YYYY`, and in both as `YYYY-MM-DD`, and SHALL refuse a day that does not exist, with a reason in the ask's language. The echo SHALL name the weekday as the ask's locale writes a long date.
+
+#### Scenario: An Italian date
+- **WHEN** `9/12/2026` is read in it-IT
+- **THEN** it reads as `2026-12-09`, and its echo is `= mer 9 dic 2026`
+
+#### Scenario: The same text in English
+- **WHEN** `9/12/2026` is read in en-US
+- **THEN** it reads as `2026-09-12`, and its echo is `= Sat, Sep 12, 2026`
+
+#### Scenario: A day that does not exist
+- **WHEN** `31/11/2026` is read in it-IT
+- **THEN** it is refused with a reason in Italian
+
+### Requirement: The widening as the next minor
+The input format, output format, tool envelopes, board document and board protocol SHALL each take the minor after what `main` holds when this change rebases, adding only optional fields, enum values and schemas, so a receiver on the earlier minor refuses each new field as a schema error (AD-7): input format 1.4 (after 1.3), output format 1.3 (after 1.2), tool envelopes 1.4 (after 1.3), board document 1.4 (after 1.3) and board protocol 1.5 (after 1.4).
+
+#### Scenario: The five versions
+- **WHEN** the contract's schema sets are listed
+- **THEN** the input format names 1.4, the output format 1.3, the tool envelopes 1.4, the board document 1.4 and the board protocol 1.5, each with the owner AD-7's table gives it, and the view manifest keeps its version
+
+#### Scenario: A board protocol 1.4 receiver meets a widget answer
+- **WHEN** a receiver that supports board protocol 1.4 gets an `act` whose answer carries `values`
+- **THEN** it refuses the message as a schema error naming `values`
+
+### Requirement: Widget schemas in the schema sets
+A widget's item props and its `changes` SHALL be schemas of the input format and the output format, `urn:askboard:input:<name>-props` and `urn:askboard:output:<name>-changes`, checked as set parts with their owner and version, and validated through the contract's shared validator. A `changes` schema SHALL take its operations from the output format's change (AD-7).
+
+#### Scenario: The Tree's schemas are set parts
+- **WHEN** the schema checks of the Consistency Conventions run over the contract's sets
+- **THEN** they cover `tree-props` and `tree-changes` with the input and output formats' owner and version, and report no problem
+
+#### Scenario: One validator for every set schema
+- **WHEN** a Tree's props are validated by `$id`
+- **THEN** they are checked by the same validator as every other schema of the sets, and its problems read as E1's
+
+### Requirement: Molecule parameters stay data
+A ready-made molecule's `parameters` schema SHALL stay with its definition, outside the schema sets, and SHALL be compiled on first use beside every widget props schema it references (AD-9).
+
+#### Scenario: The plan's parameters
+- **WHEN** the `gantt-plan` definition's parameters validate the approved `schedule` data
+- **THEN** they pass, resolving their references into `gantt-props`, and no schema set lists `urn:askboard:molecule:gantt-plan:1`
+
+### Requirement: Widget items in a question
+A question's `items`, which hold the context items of excerpts (`excerpt`, `reference` and `image`), SHALL also hold items `{type, id, props}` whose `type` is `tree`, `gantt` or `molecule`, each picked by `type` and with the props of its type's schema, in the same list and the same order. Their IDs SHALL follow the ask's ID rules with every other item's: unique in the ask, the `u-` prefix refused (AD-7, AD-9).
+
+#### Scenario: A Tree and a Gantt
+- **WHEN** a question holds the fixture Tree `wbs` and a Gantt with its own tasks
+- **THEN** the ask passes
+
+#### Scenario: A Tree beside an excerpt
+- **WHEN** a question holds an excerpt and a Tree in its `items`
+- **THEN** the ask passes, both kept in the order sent
+
+#### Scenario: An item ID used twice
+- **WHEN** a question's Tree has the ID of another question of the ask, or of one of its own excerpts
+- **THEN** validation fails, naming the ID as used twice
+
+### Requirement: Widget props problems for the agent
+A widget item whose props fail its schema or its widget's checks SHALL fail the request with problems worded as every request problem is: each names the item's ID, the element and the field where there is one, and the expected shape, in document order (AD-6).
+
+#### Scenario: A Tree node without a label
+- **WHEN** an ask's Tree `wbs` holds the node `ux` with no `label`
+- **THEN** the request fails with a problem naming item `wbs`, node `ux` and the field `label`, and saying what a node holds
+
+#### Scenario: A Gantt predecessor with the reserved prefix
+- **WHEN** an agent's Gantt names the predecessor `u-3`
+- **THEN** the request fails, naming the Gantt's ID and the task, and saying that the prefix `u-` is reserved for IDs the board makes
+
+#### Scenario: A plan whose Tree is missing
+- **WHEN** a question's Gantt plan names `workPackages: "wbs"` and the question holds no Tree `wbs`
+- **THEN** the request fails, naming the plan and `wbs`
+
+#### Scenario: A plan whose Tree is in another question
+- **WHEN** a question's Gantt plan names `workPackages: "wbs"` and the Tree `wbs` is an item of another question of the same ask
+- **THEN** the request fails, naming the plan and `wbs`, as if the question held no Tree `wbs`
+
+### Requirement: Widget items in the board document
+The board document's questions SHALL hold their widget items as `ask-core` expanded them, among the resolved context items of excerpts and in the same list, Tree and Gantt items only, with the props each item's schema defines; a `molecule` item SHALL fail the board document's validation (AD-9, AD-12).
+
+#### Scenario: The UJ-2 board
+- **WHEN** the UJ-2 ask's board document is validated
+- **THEN** it passes, its question `plan` holding the Tree `wbs__tree` and the Gantt plan `schedule__plan`
+
+#### Scenario: A reference in a board document
+- **WHEN** a board document's question holds a `molecule` item
+- **THEN** validation fails, naming the item and its type
+
+### Requirement: Widget values in the answer act
+The board protocol's `answer` act SHALL take, beside its other optional content, `values`, an object from widget item ID to that item's full edited props, and `derived`, an object from reference to JSON value. E1's `answer` command SHALL keep its choice-only shape (AD-20).
+
+#### Scenario: A Tree answer act
+- **WHEN** the board page sends an `act` whose answer to `plan` carries `values` for `wbs__tree` and `schedule__plan` and their `derived`
+- **THEN** it validates against board protocol 1.5
+
+#### Scenario: Values in E1's command
+- **WHEN** a board page sends E1's `answer` command with `values`
+- **THEN** it is refused as a schema error naming `values`
+
+### Requirement: Logged widget values in the board state
+The board state SHALL carry, in a question's current and previous answer, the logged `values` of each widget item the answer changed, by expanded item ID, and no derived value (AD-20).
+
+#### Scenario: An answered Tree question
+- **WHEN** the board state of an answered UJ-2 question is built
+- **THEN** its answer holds `values` for `wbs__tree` and `schedule__plan` as the user sent them, with its `when` and receipt
+
+### Requirement: Formula warnings
+The output format's warning SHALL admit the code `formula`, with the item ID in reference addressing, the address of the node in error, its formula error kind and a message, so that a graph problem confined to one item is a warning in a successful result (AD-6, AD-13, FR-14).
+
+#### Scenario: A predecessor that names no task
+- **WHEN** an `ask` result warns that the plan `schedule` names the predecessor `review`, which is no task
+- **THEN** the warning validates with code `formula`, item `schedule` and kind `missing-reference`, and takes none of the `pointer` and `reason` fields of an `unresolved-pointer` warning
+
+#### Scenario: A formula warning in an update result
+- **WHEN** an `update` result, whose `warnings` field the excerpts change already admits, carries a `formula` warning
+- **THEN** it validates against the `update` result envelope
+
+### Requirement: The largest answer event
+The contract SHALL hold `ANSWER_EVENT_MAX_CHARS`, 24,000 characters of an answer event's JSON text, chosen so that a `collect` result holding that event and the most ask entries a `collect` takes stays under the result limit; no unit SHALL define its own.
+
+#### Scenario: The largest event fits a page
+- **WHEN** a `collect` result is built with the most ask entries and one answer event of `ANSWER_EVENT_MAX_CHARS`
+- **THEN** its text is under 30,000 characters
+
+### Requirement: Widget answers in fetch results
+`fetch`'s result SHALL hold, for a question, an answer's `values` (by item ID in reference addressing) and `derived`, and SHALL admit as the item a Tree, a Gantt or a molecule reference's expanded item under the reference's ID, with its props as the user left them (FR-20, AD-9).
+
+#### Scenario: Fetching the WBS
+- **WHEN** the lifecycle fixture's `fetch` result of the reference `wbs` is validated
+- **THEN** it passes, its item a Tree with the ID `wbs`
+
+### Requirement: The approved UJ-2 example validates whole
+The approved `uj2-wbs-gantt` ask, `ask` result and `collect` answer SHALL validate against the full contract at its current minors, and the contract's fixtures SHALL hold the UJ-2 board document and the logged answer the end-to-end scenario expects.
+
+#### Scenario: The approved files
+- **WHEN** `asks/uj2-wbs-gantt.json`, `results/uj2-wbs-gantt.json` and `answers/uj2-wbs-gantt.json` are validated against the input format, the `ask` result and the `collect` result
+- **THEN** each passes unchanged

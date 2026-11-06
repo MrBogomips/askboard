@@ -223,17 +223,6 @@ Every edit to a widget SHALL go into the draft record and SHALL send nothing. A 
 - **WHEN** a Tree question opens and the user only moves the focus and expands and collapses nodes
 - **THEN** "Answer" stays disabled
 
-### Requirement: The board page refuses widget answers for now
-Until the board protocol carries a widget's value, the board page SHALL refuse an answer message that carries one, send nothing to `board-host` and leave the question open, and its validators SHALL refuse a board document whose question holds widget items (AD-10, NFR-10).
-
-#### Scenario: An answer with a Tree value
-- **WHEN** the view sends an answer that carries a Tree's value
-- **THEN** the board page replies that it refused it, and no answer command reaches `board-host`
-
-#### Scenario: A board document holding a Tree
-- **WHEN** `board-host`'s board message carries a question with a Tree item
-- **THEN** the board page refuses the message as outside the schema and never builds the view from it
-
 ### Requirement: Tree layout
 The Tree SHALL show its nodes as a treegrid in the widget frame: a toolbar, a header row of column names, and one row per visible node, indented per level, with a chevron on a node that has children, the node's name, and its fields as columns, numbers right-aligned. Every agent string SHALL render as text (AD-8, DESIGN.md Widgets, Tree; EXPERIENCE Widgets, Tree).
 
@@ -323,10 +312,10 @@ The Tree SHALL show what the user changed against what the agent sent: changed n
 - **THEN** the renamed name and the added row carry the change highlight and the toolbar reads "Your changes: 3"
 
 ### Requirement: Tree plain values
-The Tree SHALL show and edit node fields as plain values and SHALL compute none: no roll-up, total or formula, and its answer SHALL carry no derived value (AD-13; proposal open question 3).
+A Tree without `pert` SHALL show and edit node fields as plain values and SHALL compute none: no roll-up, total or formula, and its answer SHALL carry no derived value (AD-13; proposal open question 3).
 
 #### Scenario: A child's estimate changes
-- **WHEN** the user changes a number field of `portal`
+- **WHEN** the user changes a number field of `portal` in a Tree without `pert`
 - **THEN** no field of `build` or of any other node changes
 
 ### Requirement: Read-only Tree
@@ -431,19 +420,27 @@ The user SHALL edit a task's start and, in a Gantt with its own tasks, its durat
 ### Requirement: Gantt predecessors
 The user SHALL edit a task's predecessors from its grid row, in an inline panel listing every other task to check or uncheck. A task that would close a cycle SHALL be disabled, saying why, and a task at the limit of 50 predecessors or 50 dependents SHALL take no more (EXPERIENCE Widgets, Gantt; proposal open question 9).
 
+#### Scenario: Linking a package
+- **WHEN** the user opens billing's predecessors and also checks Clickable prototype
+- **THEN** billing starts after the prototype ends, and the draft holds the change
+
 #### Scenario: Linking an added package
-- **WHEN** the user opens `u-1`'s predecessors and checks Architecture and Clickable prototype
-- **THEN** `u-1` starts after the prototype ends, and the draft holds the change
+- **WHEN** the user splits the portal into `u-1` and opens `u-1`'s predecessors
+- **THEN** Architecture and Clickable prototype are already checked, the predecessors the split gave it (An added package's predecessors), with nothing linked by hand
 
 #### Scenario: A cycle offered
 - **WHEN** the user opens the prototype's predecessors
 - **THEN** the portal and reporting, which depend on the prototype, are disabled
 
 ### Requirement: Gantt predecessors that name no task
-A predecessor a task holds that names no other task, such as a package deleted in the Tree, an unknown ID from the agent or the task itself, SHALL be listed checked in the task's panel, saying that it names no task, so that the user can uncheck it. The panel SHALL NOT offer the task itself, or such an ID, to any other task (FR-14).
+A predecessor a task holds that names no other task, such as a work package that became a parent in the Tree, an unknown ID from the agent or the task itself, SHALL be listed checked in the task's panel, saying that it names no task, so that the user can uncheck it. The panel SHALL NOT offer the task itself, or such an ID, to any other task (FR-14).
 
 #### Scenario: A predecessor deleted in the Tree
-- **WHEN** the portal is deleted in the plan's Tree and the user opens reporting's predecessors
+- **WHEN** the portal is deleted in the plan's Tree, the user confirms the question that says one task depends on it, and opens reporting's predecessors
+- **THEN** reporting's predecessors are Architecture and Clickable prototype, the portal's own, and none is listed as naming no task
+
+#### Scenario: A predecessor that became a parent
+- **WHEN** the user adds a child to the portal in the plan's Tree and opens reporting's predecessors
 - **THEN** `portal` is listed checked, saying that it names no task, and once the user unchecks it and presses "Done", reporting is scheduled again with no field error
 
 ### Requirement: Gantt formula errors
@@ -465,7 +462,7 @@ Every Gantt edit SHALL go into the draft record and SHALL send nothing. A Gantt 
 - **THEN** the Gantt holds no draft value and "Answer" is disabled again
 
 ### Requirement: Answering a question with a Gantt
-"Answer" SHALL send one answer message carrying each changed widget's full edited value and the Gantt's declared derived values as they stand, and nothing for an untouched Gantt. The question SHALL then be read-only (AD-10, AD-20, FR-12).
+"Answer" SHALL send one answer message carrying each changed widget's full edited value and the declared derived values of every Gantt in the question as they stand, changed or not; an untouched Gantt sends no value, only its derived values. The question SHALL then be read-only (AD-10, AD-20, FR-12).
 
 #### Scenario: The UJ-2 edits by keyboard
 - **WHEN** the user makes the approved answer's edits with the keyboard, in the Tree and in the plan, and presses "Answer"
@@ -704,3 +701,560 @@ The board page SHALL arm the browser's leave-page prompt while the draft holds u
 #### Scenario: Closing with a postponed question
 - **WHEN** a question is postponed and the user closes the tab
 - **THEN** the browser's prompt to leave the page appears first
+
+### Requirement: The board's working signal
+The board page SHALL send `board-host` a presence message whenever its working signal changes, and once after each connect: working while the page has focus and has had a key or pointer input, on the board page or in its view, within the last 60 s. The message SHALL carry only that flag, never content (AD-2, AD-7).
+
+#### Scenario: The user types an answer
+- **WHEN** the user clicks an option on a focused board
+- **THEN** the board page reports that it is working
+
+#### Scenario: A minute without input
+- **WHEN** a focused board has had no input for 60 s
+- **THEN** the board page reports that it is not working
+
+#### Scenario: The user switches tabs
+- **WHEN** the board's tab loses focus
+- **THEN** the board page reports at once that it is not working
+
+#### Scenario: The user switches to another application from inside the view
+- **WHEN** the focus is inside the view and the browser window loses focus to another application
+- **THEN** the board page reports within about a second that it is not working
+
+### Requirement: Who asked, and where
+The context header's first row SHALL name who asked: "Main agent", "Subagent <type>" or "Teammate <name>", with " · <name>" when the agent gave a display name and an ordinal ("#2") for a second subagent of the same type. It SHALL then show the labelled fields Project, Directory, Branch and Worktree from the ask's origin, and "—" for a field AskBoard does not know (FR-24, EXPERIENCE Board anatomy, DESIGN.md Context header).
+
+#### Scenario: A named subagent in a worktree
+- **WHEN** a `code-reviewer` subagent named "Retry review" asks from a linked worktree on branch `fix/retry`
+- **THEN** row 1 reads "Subagent code-reviewer · Retry review", with the project, its directory, `fix/retry` and the worktree's folder name
+
+#### Scenario: Two asks from two worktrees
+- **WHEN** two asks of one project come from agents in two worktrees
+- **THEN** their headers alone tell them apart
+
+#### Scenario: A second subagent of one type
+- **WHEN** a second `code-reviewer` subagent of the same session asks without a name
+- **THEN** row 1 reads "Subagent code-reviewer #2"
+
+#### Scenario: A teammate in its own pane
+- **WHEN** an agent-team teammate named `researcher`, running in its own pane, asks
+- **THEN** row 1 of its board reads "Teammate researcher"
+
+#### Scenario: An in-process teammate
+- **WHEN** an in-process teammate named `scout-2` asks through the lead's session
+- **THEN** row 1 of its board reads "Teammate scout-2", with no ordinal
+
+#### Scenario: The lead
+- **WHEN** the lead of an agent team asks
+- **THEN** row 1 reads "Main agent"
+
+#### Scenario: An unchecked ask
+- **WHEN** an ask arrives with no agent record
+- **THEN** row 1 reads "Agent · <its display name>", or "Agent" without one, shows the project, and shows "—" for Directory, Branch and Worktree
+
+### Requirement: The expected answerer in the header
+Row 1 SHALL show "For: <name>" after who asked only when the ask names an expected user who differs from the session project's git user name, compared without case and surrounding spaces; on a machine with no git user name, a named expected user always shows (FR-19, FR-24).
+
+#### Scenario: The expected user is the git user
+- **WHEN** an ask names as `expectedUser` the git user name of the session project
+- **THEN** the header shows no "For:"
+
+#### Scenario: Another expected user
+- **WHEN** an ask names an `expectedUser` other than the git user name
+- **THEN** row 1 shows "For: <that name>" after who asked
+
+### Requirement: The agent pill
+Row 2 SHALL show the agent pill, "Agent: Working" or "Agent: Waiting for your answer", as `board-host` reports it, and change it as soon as the report changes, within the interaction that caused it. The pill shows presence only, never an ask state (AD-4, FR-24, DESIGN.md State pill).
+
+#### Scenario: The agent starts waiting
+- **WHEN** the agent calls `collect` with `wait` on the board's ask
+- **THEN** the pill reads "Agent: Waiting for your answer" before the user's next action
+
+#### Scenario: The wait ends
+- **WHEN** the waiting `collect` returns with the user's answer
+- **THEN** the pill reads "Agent: Working"
+
+### Requirement: Agent text and paths in the header
+Every agent string and path in the header SHALL render as text, isolated for bidirectional text, capped with an ellipsis, with the full text on hover and on keyboard focus. A bidirectional control character in a path, branch or worktree SHALL show as a visible escape (AD-8, EXPERIENCE Agent-written labels).
+
+#### Scenario: A right-to-left override in a branch name
+- **WHEN** the origin's branch holds U+202E
+- **THEN** the header shows it as a visible escape, and the rest of the row keeps its order
+
+#### Scenario: A long directory
+- **WHEN** the directory is longer than its field
+- **THEN** it ends in an ellipsis, and the full path shows on hover and on focus
+
+### Requirement: Molecules reach the view expanded
+The view SHALL receive a molecule only as the widget items its expansion gave, and SHALL hold no molecule code. A board document holding a `molecule` item SHALL fail to assemble, naming the type, since no chunk registers it (AD-9, AD-10, AD-12).
+
+#### Scenario: A reference that was never expanded
+- **WHEN** a test board document's question holds a `molecule` item
+- **THEN** `assemble` fails, naming the type `molecule`, and no srcdoc is built
+
+### Requirement: Linked edits in one draft update
+A component SHALL be able to put the values of several items of its own question into the draft record in one update, `undefined` removing an item's value. An update naming an item outside the component's question SHALL change nothing and SHALL be reported as an error. The board a component reads SHALL give each item the value it shows: its draft value, else its question's latest answer's value for it, else its props as sent (AD-9, AD-20).
+
+#### Scenario: Two items at once
+- **WHEN** a test `probe` component sets its own value and its sibling's in one update
+- **THEN** the draft record holds both, "Answer" is enabled, and no view message leaves the view
+
+#### Scenario: An item of another question
+- **WHEN** a `probe` component's update names an item of another question
+- **THEN** the draft record is unchanged and the item reports the error
+
+#### Scenario: A linked edit on an answered question
+- **WHEN** the user revises an answered question whose answer holds edits of the plan, and names a package added in the Tree after the portal
+- **THEN** the plan's draft value is the answered plan with the added package's predecessors, and the plan shows it; no other item of the question gains a draft value
+
+### Requirement: The board graph chunk
+The board graph SHALL be the library chunk `board-graph`, needing `compute`, which the `tree` and `gantt` chunks need; every computing widget on a board SHALL read one live graph per draft change and one graph of the board as sent (AD-9, AD-13).
+
+#### Scenario: The manifest
+- **WHEN** the view is built
+- **THEN** the manifest lists the library chunk `board-graph`, needing `compute`, and both `tree` and `gantt` need it
+
+#### Scenario: One graph for two widgets
+- **WHEN** an estimate is committed on the UJ-2 board, where the WBS and the plan both read the graph
+- **THEN** the graph is built once for that draft change
+
+### Requirement: WBS layout
+A Tree with `pert` SHALL show the columns "Work package", "Optimistic", "Most likely", "Pessimistic", "Expected effort" and "Spread" (labels provisional): estimates and values with the "d" affix, values read-only, right-aligned, with one decimal, parents with their roll-ups and no estimate cells, and a "Total" row when it has several top-level packages (EXPERIENCE and DESIGN.md Molecules, WBS with PERT).
+
+#### Scenario: The UJ-2 work breakdown opens
+- **WHEN** the expanded UJ-2 question opens
+- **THEN** UX design shows 5.5 d and 1.2 d, Design shows 14.0 d and 1.6 d and no estimate cells, and the Total row shows 40.7 d and 3.2 d
+
+#### Scenario: One top-level package
+- **WHEN** a work breakdown has a single top-level package
+- **THEN** that package's row shows the totals, and there is no Total row
+
+### Requirement: WBS values follow the edits
+An estimate the user changes SHALL update its package's expected effort and spread, its parents' roll-ups and the totals within the same interaction, without the agent, and SHALL send nothing (FR-12, AD-13).
+
+#### Scenario: Re-estimating the portal
+- **WHEN** the user sets the portal's estimates to 4, 6 and 10
+- **THEN** the portal shows 6.3 d and 1.0 d, Build 20.3 d and Total 34.3 d, and no view message leaves the view
+
+#### Scenario: A negative estimate
+- **WHEN** the user types `-2` as an estimate and presses Enter
+- **THEN** the cell shows a field error, keeps the focus, and the draft is unchanged
+
+### Requirement: WBS opening depth
+A Tree with `pert` SHALL open with the packages above its `openDepth` expanded and the rest collapsed. Expanding and collapsing SHALL change no value and SHALL NOT count as a change (EXPERIENCE Molecules, WBS with PERT).
+
+#### Scenario: Two levels
+- **WHEN** the expanded UJ-2 question opens with `openDepth` 2
+- **THEN** Design and Build show open chevrons and their six children are visible
+
+#### Scenario: One level
+- **WHEN** it opens with `openDepth` 1
+- **THEN** only Design and Build are visible, with closed chevrons
+
+### Requirement: An added package's predecessors
+A package the user adds to a Tree that a Gantt plan of its question names, with `pert` or without, SHALL, once named, get in that plan the predecessors the plan gives the package it was added after ("Add node") or under ("Add child"), none when that package has none, in the same draft update (F20; EXPERIENCE Molecules, WBS with PERT).
+
+#### Scenario: Splitting the portal
+- **WHEN** the user focuses the portal, chooses "Add node" and names the package `Customer portal: dashboards`
+- **THEN** the plan's `u-1` depends on Architecture and Clickable prototype and starts after the prototype ends, both items hold draft values, and no view message leaves the view
+
+#### Scenario: A child of a leaf
+- **WHEN** the user adds and names a child of reporting, which depends on the portal
+- **THEN** the new package depends on the portal in the plan
+
+#### Scenario: An addition taken back
+- **WHEN** the user chooses "Add node" and presses Escape
+- **THEN** neither the Tree nor the plan holds a draft value
+
+### Requirement: Linked edits within a plan's limits
+An addition or a confirmed deletion in a Tree whose edit of a linked plan would take that plan past a limit (50 predecessors of a task, 50 dependents of a task, 500 entries) SHALL be refused with a field error naming the limit, and SHALL write nothing to the Tree or the plan (AD-9, AD-10; F20).
+
+#### Scenario: A linked edit past a plan's limit
+- **WHEN** the user names a package added after one whose predecessor already has 50 dependents in the plan
+- **THEN** the name shows a field error naming the limit of 50 dependents, keeps the focus, and neither the Tree nor the plan holds a draft value
+
+### Requirement: Deleting a package with dependents
+Deleting a package on which tasks of a linked plan depend, in a Tree with `pert` or without, SHALL ask first, inline, saying how many tasks depend on it, with the focus on "Cancel". Confirming SHALL connect each dependent to the deleted packages' own predecessors, without repeats, and return each deleted package's entry to what the agent sent for it (EXPERIENCE Molecules, WBS with PERT).
+
+#### Scenario: Deleting the portal
+- **WHEN** the user deletes the portal, on which reporting depends, and confirms
+- **THEN** reporting depends on Architecture and Clickable prototype, and the diff of the sent and the edited plan is one `set` of reporting's predecessors
+
+#### Scenario: Cancelling
+- **WHEN** the user deletes the portal and chooses "Cancel"
+- **THEN** the Tree and the plan are unchanged
+
+#### Scenario: Deleting a package the user added
+- **WHEN** the user splits the portal into `u-1` and then deletes `u-1`
+- **THEN** neither the Tree nor the plan holds a draft value, and "Answer" is disabled
+
+### Requirement: Answering a work breakdown question
+"Answer" SHALL send one answer message carrying the full edited value of each changed item and the derived values of the Tree with `pert` and of the plan as they stand (AD-20, FR-12, F7).
+
+#### Scenario: The UJ-2 edits by keyboard
+- **WHEN** the user makes the approved answer's `wbs` edits by keyboard on the expanded UJ-2 question and presses "Answer"
+- **THEN** one answer message leaves the view, holding `wbs__tree` and `schedule__plan`; put in reference addressing by `ask-core`, its changes are the approved eight operations and its derived values the approved fourteen; and no CSP violation is reported
+
+### Requirement: A question with context splits
+A question with at least one resolved or agent-written excerpt SHALL render split, its context column of excerpts then references beside the question text and options, unless the user placed its context inline. A question with none SHALL take the full width, its references and unresolved pointers inline under the question text (FR-13; EXPERIENCE Board anatomy).
+
+#### Scenario: One excerpt resolves
+- **WHEN** a question holds a resolved excerpt and a reference
+- **THEN** it renders split, with "Excerpt and references" beside the question text and options
+
+#### Scenario: Every excerpt unresolved
+- **WHEN** a question's only excerpt is unresolved and it holds a reference
+- **THEN** it takes the full width, and the unresolved pointer and the reference show inline under the question text
+
+#### Scenario: A wide widget under a split question
+- **WHEN** a split question also holds a widget
+- **THEN** the widget spans the card's full width below both columns
+
+### Requirement: Context placement per question
+The context column's title row SHALL hold a "Beside | Inline" control on a split question; choosing Inline moves the context under the question text, for that question only, and the choice SHALL survive a reload and a takeover through the draft record without counting as unsent work (FR-13, AD-20).
+
+#### Scenario: Inline survives a reload
+- **WHEN** the user sets one question's context to Inline and reloads the board
+- **THEN** that question's context is still inline, the other questions' still beside
+
+#### Scenario: Placement is not unsent work
+- **WHEN** the only change on a board is a question's placement
+- **THEN** no leave-page prompt is armed, and "Copy my unsent work" holds nothing
+
+### Requirement: Excerpts show as source text
+An excerpt SHALL show its caption (title, then path, anchor and line range) and its body as source text with its line numbers, through `textContent` only, capped in height with scrolling inside; an excerpt from a file SHALL offer "Open in reading panel". An unresolved excerpt SHALL show "Unresolved" with its pointer (FR-8, AD-8; DESIGN, Excerpt).
+
+#### Scenario: Markup in an excerpt
+- **WHEN** an excerpt's text, title or pointer holds `<img src=x onerror=alert(1)>`
+- **THEN** the view shows those characters as text, adds no element and reports no CSP violation
+
+#### Scenario: Line numbers follow the file
+- **WHEN** an excerpt was read from lines 40 to 52
+- **THEN** its body numbers its lines 40 to 52
+
+#### Scenario: Bidirectional controls are visible
+- **WHEN** an excerpt's text holds U+202E
+- **THEN** the body shows a visible marker for it instead of reordering the line
+
+### Requirement: References open in one click
+A reference SHALL show its kind label and its path or title, and open only on an explicit click: a FILE reference in the reading panel, a GITHUB or WEB reference in a new browser tab, `http:` and `https:` only, with `noopener` and `noreferrer`. It SHALL leave the view only as an open-reference message naming its item (FR-9, AD-8).
+
+#### Scenario: A web reference
+- **WHEN** the user clicks a WEB reference to `https://example.com/a`
+- **THEN** a new tab opens that URL, and the new page's `window.opener` is null
+
+#### Scenario: The board page trusts no URL from the view
+- **WHEN** a message reaches the board page naming an item that is not a reference of its board document
+- **THEN** the board page opens nothing
+
+#### Scenario: The URL is the board's own, as it stands now
+- **WHEN** a message names a web reference whose URL a later revision of the board document changed
+- **THEN** the board page opens the URL the board document holds for that item now, and never one that came with the message
+
+### Requirement: Images by pointer
+An image SHALL show its bytes from the board document through a `blob:` URL, with its alt text, and never load a URL; an unresolved image SHALL show "Unresolved" with its pointer and leave the rest of the board working (AD-8, AD-12).
+
+#### Scenario: A screenshot
+- **WHEN** a question holds a resolved PNG image
+- **THEN** the view shows it from a `blob:` URL with its alt text, and the browser reports no CSP violation and no network request for it
+
+### Requirement: Context counts for a visible question
+A question SHALL count as visible only once its excerpts, references and images are ready: an image once decoded or found unresolved, every other context item once laid out (AD-9, SM-C2).
+
+#### Scenario: A large image
+- **WHEN** a question holds an image that takes time to decode
+- **THEN** its `ready` message is sent only after the image is decoded
+
+### Requirement: The reading panel
+A FILE reference or an excerpt's "Open in reading panel" SHALL open, on the board page, a non-modal side sheet whose header holds the path, "Changed since the agent asked" when the source state says so, "Open in editor" and a close control, and whose body frames the source view at the anchor, in an iframe with an empty `sandbox` and no referrer (FR-9, AD-8; DESIGN, Reading panel).
+
+#### Scenario: Opening at the anchor
+- **WHEN** the user opens a reference to `docs/specs/checkout.md#L40-L52`
+- **THEN** the panel shows the file with line 40 at the top of its view and lines 40 to 52 marked, and the frame carries an empty `sandbox`
+
+#### Scenario: Closing returns focus
+- **WHEN** the user presses Esc in the panel's header or clicks its close control
+- **THEN** the panel closes and focus returns to the reference that opened it
+
+#### Scenario: A missing file
+- **WHEN** the referenced file no longer exists
+- **THEN** the panel says that the file is not available, shows its path, and "Open in editor" is disabled
+
+#### Scenario: The board locks
+- **WHEN** the board is moved to another tab, closed or discarded while the panel is open
+- **THEN** a moved or discarded board closes the panel, and a closed board keeps it readable
+
+### Requirement: Open in editor on the board page
+"Open in editor" SHALL send `open-editor` only on an explicit click on the board page, show the outcome when it is not `opened`, and be disabled while no editor is set or the file is not available (FR-9, AD-8).
+
+#### Scenario: No editor set
+- **WHEN** the reading panel opens and no editor command is configured
+- **THEN** "Open in editor" is disabled with "No editor set" and the configuration key to set
+
+### Requirement: Context in a Snapshot view
+With no parent host, a FILE reference SHALL show its path and anchor as text, "not available in a Snapshot", an excerpt SHALL hide "Open in reading panel", and a web reference SHALL be a link that opens only on a click, with `noopener` and `noreferrer` (EXPERIENCE, Snapshots).
+
+#### Scenario: A FILE reference offline
+- **WHEN** the view renders a board document with a FILE reference and no parent host
+- **THEN** the reference shows its path as text with "not available in a Snapshot", and clicking it opens nothing
+
+### Requirement: Assembling a Snapshot
+The one `assemble` function SHALL build a Snapshot from Snapshot data: the charset, the view policy as a meta tag, the `askboard-data` block with every `<` escaped, the styles and scripts of the chunks the board's current document needs, then the licence notices. The same input SHALL give the same output (AD-9, AD-15, A3).
+
+#### Scenario: The data block is found without rendering
+- **WHEN** the text between `id="askboard-data">` and the next `</script>` of a Snapshot is parsed as JSON
+- **THEN** it is the Snapshot data, and it validates against the `snapshot-data` schema
+
+#### Scenario: Agent text that closes a script
+- **WHEN** a question's text holds `</script><script>alert(1)</script>` and a Snapshot is assembled
+- **THEN** the file holds that text only inside the data block, escaped, and opening the file runs no script but AskBoard's
+
+### Requirement: No view-protocol code in a Snapshot
+The view build SHALL mark the ext-apps chunk as needed only with a host, and the shell SHALL reach ext-apps' `App` only when it has a parent. `assemble` SHALL add host-only chunks to a board's srcdoc and leave them out of a Snapshot (AD-9).
+
+#### Scenario: A board and its Snapshot
+- **WHEN** one plain-question board is assembled as a srcdoc and as a Snapshot
+- **THEN** the srcdoc holds the ext-apps chunk and the Snapshot does not, and the board still connects to its board page
+
+### Requirement: Kept diagram renders in a Snapshot
+For a component chunk that names a kept-render chunk, `assemble` SHALL inline the kept-render chunk instead when every item of that component has a kept render in the data, and both when any lacks one (AD-9, open question B3).
+
+#### Scenario: Every diagram has its renders
+- **WHEN** a fixture board with two probe diagrams, both with kept renders, is assembled as a Snapshot
+- **THEN** the file holds the probe kept-render chunk and not the probe renderer chunk
+
+#### Scenario: One diagram never rendered
+- **WHEN** one of the two probe diagrams has no kept render
+- **THEN** the file holds both chunks
+
+### Requirement: Licence notices in a Snapshot
+A Snapshot SHALL end with the `askboard-licences` JSON block listing, for each package whose code it inlines, its name, version, licence and notice text, with every `<` escaped (AD-15, NFR-6).
+
+#### Scenario: The notices match the chunks
+- **WHEN** a plain-question Snapshot is assembled
+- **THEN** its notices are exactly those the manifest gives for the chunks it inlines, React's included, and ext-apps' are absent
+
+### Requirement: The Snapshot control
+The bottom action bar SHALL offer "Snapshot" on every board, the single-question board included, while the ask is open or closed; it SHALL be disabled while the connection is lost and absent once the ask is discarded. Its feedback SHALL show the saved file's path, or the failure with the Snapshot folder's path, or, when the session has no project root, a failure naming `CLAUDE_PROJECT_DIR`, or, for `internal-error`, that no Snapshot was taken (FR-26, AD-12).
+
+#### Scenario: Taking a Snapshot from a single-question board
+- **WHEN** the user presses "Snapshot" on the golden single-question board
+- **THEN** the bar shows the saved file's path, and the file is in the Snapshot folder
+
+#### Scenario: The connection is lost
+- **WHEN** the board shows "Connection lost, retrying"
+- **THEN** "Snapshot" is disabled, and no request leaves the page
+
+### Requirement: A Snapshot not confirmed
+A request whose connection drops, or whose reply has not come after `SNAPSHOT_REPLY_WAIT_MS`, SHALL end with feedback saying the Snapshot was not confirmed, never that it was saved or that none was taken, and SHALL NOT be sent again (FR-26, NFR-10).
+
+#### Scenario: The connection drops while a Snapshot is taken
+- **WHEN** the user presses "Snapshot" and the connection drops before the reply
+- **THEN** the feedback says the Snapshot was not confirmed, and the request is not sent again on the new connection
+
+### Requirement: A Snapshot from a closed board
+The Closed banner SHALL offer "Snapshot", which takes the Snapshot as the bar's control does and shows its feedback beside it; the Discarded banner SHALL offer none (FR-26, EXPERIENCE Board banner).
+
+#### Scenario: The agent closed the ask
+- **WHEN** the user presses "Snapshot" on the Closed banner
+- **THEN** the banner shows the saved file's path
+
+#### Scenario: A discarded board
+- **WHEN** the ask is discarded while its tab is open
+- **THEN** no "Snapshot" control shows on the board or its banner
+
+### Requirement: The unsent-work note
+When the user takes a Snapshot while the board holds unsent work, the board SHALL show "Your unsent work will not be in the Snapshot" with the feedback, take the Snapshot without asking to confirm, and say in the request that unsent work existed (AD-15, open question B5).
+
+#### Scenario: A ready answer not yet submitted
+- **WHEN** the user takes a Snapshot in submitted delivery with a ready answer held
+- **THEN** the note shows, the Snapshot is taken, and the opened file says the unsent work is not included and shows the question unanswered
+
+### Requirement: Opening a Snapshot
+A Snapshot opened from disk SHALL boot from its data block with no parent host and no view-protocol handshake, show the board in its final state with no network and no AskBoard running, request nothing, and raise no CSP violation, in Chromium, Firefox and WebKit (FR-27, AD-8, AD-9).
+
+#### Scenario: Offline, AskBoard stopped
+- **WHEN** a Snapshot is opened from `file://` in each engine, offline, after the session process has exited
+- **THEN** the board shows, the page made no request, and no CSP violation was reported
+
+#### Scenario: A script file beside the Snapshot
+- **WHEN** a script file is placed in the Snapshot's folder and the Snapshot is opened in Firefox
+- **THEN** that script never runs
+
+### Requirement: The Snapshot view's chrome
+An opened Snapshot SHALL start with the line "Snapshot · taken <when> by <whom> · read-only", noting unsent work when the data records it; it SHALL hide Answer, Postpone, More, "Ask a follow-up", Settings, the density switch, the bottom action bar and the agent pill, and keep the ask state pill and delivery receipts (EXPERIENCE Snapshots).
+
+#### Scenario: The agent's Snapshot
+- **WHEN** the agent's Snapshot of an answered ask is opened
+- **THEN** the top line says it was taken by the agent, the header shows "answered" and no agent state, and no answer control is shown
+
+### Requirement: Read-only and navigable
+In an opened Snapshot every item SHALL render disabled, answers and the open prompt in the read-only look of a reopened question's previous answer, postponed questions marked, threads shown without a composer; tabs, navigators, expand and collapse SHALL work, and nothing SHALL be answerable or sent (FR-27).
+
+#### Scenario: Switching and expanding
+- **WHEN** the user switches tabs and jumps to a postponed question in an opened Snapshot
+- **THEN** the board follows, the question shows as postponed, and no control accepts an answer
+
+### Requirement: Theme in a Snapshot
+An opened Snapshot SHALL start in the viewer's system theme and offer a Theme control that switches it and saves nothing; the page SHALL use no browser storage (EXPERIENCE Dark theme, AD-8).
+
+#### Scenario: Dark system theme
+- **WHEN** a Snapshot is opened with the system set to dark and the user switches to Light
+- **THEN** the board shows in dark, then in light, and reopening the file shows it dark again
+
+### Requirement: The board's interface in the ask's language
+The view and the board page SHALL show every string of their own in the ask's language, en-US or it-IT, and SHALL set the document's `lang` to it; the agent's content SHALL show as the agent sent it (FR-34; EXPERIENCE, Localization, Voice and Tone). No control on the board SHALL change the language.
+
+#### Scenario: An Italian ask
+- **WHEN** an ask is sent with `language` `it-IT`
+- **THEN** the board shows "Rispondi", "Rinvia" and "Impostazioni", and the board page's and the view's `lang` are `it`
+
+#### Scenario: The agent's text is untouched
+- **WHEN** an it-IT ask's question text is English
+- **THEN** the question shows in English, inside the Italian interface
+
+#### Scenario: No language control
+- **WHEN** a user looks for a way to change the language on any board
+- **THEN** there is none, and the settings panel shows the language read-only
+
+### Requirement: Every string in both languages
+Every string the view and the board page show SHALL exist in both en-US and it-IT, and a test SHALL fail when a string exists in one language only (EXPERIENCE, Open Items 4).
+
+#### Scenario: A string added in English only
+- **WHEN** a change adds a string to the en-US table and not to the it-IT one
+- **THEN** the view's tests fail, naming the string's key
+
+### Requirement: Values shown in the ask's locale
+Numbers, money, percentages, dates and times SHALL show in the ask's locale, which may differ from its language; answers SHALL carry the contract's formats whatever the locale (FR-34, AD-7). Times SHALL show in the viewer's time zone.
+
+#### Scenario: English with Italian formats
+- **WHEN** an ask in `en-US` with `locale` `it-IT` holds 1234.5 in a Tree's number column
+- **THEN** the board's interface is in English and the value shows as `1.234,5`
+
+#### Scenario: The answer is locale-free
+- **WHEN** the user types `1.234,5` in an it-IT board's number field and answers
+- **THEN** the answer carries the JSON number 1234.5
+
+### Requirement: Number and date entry in the ask's locale
+A number field and a date field SHALL read the user's typing with the contract's entry rules for the ask's locale, echo the parsed value beside the field, and show a refusal's reason in the ask's language as a field error (EXPERIENCE, Input atoms).
+
+#### Scenario: An Italian number
+- **WHEN** the user types `1.234,5` in a number field of an it-IT board
+- **THEN** the field echoes `= 1234,5` and shows no error
+
+#### Scenario: An ambiguous Italian entry
+- **WHEN** the user types `1234.5` in a number field of an it-IT board
+- **THEN** the field shows "Usa i punti solo tra gruppi di tre cifre, come in 1.234,5." and the value is not taken
+
+#### Scenario: An Italian date in the Gantt
+- **WHEN** the user types `9/12/2026` as a task's start on an it-IT board
+- **THEN** the field echoes `= mer 9 dic 2026` and the task starts on `2026-12-09`
+
+### Requirement: The settings panel
+Every board SHALL open a settings panel from "Settings" in the context header: a non-modal side sheet on the board page, closed with Esc or its close control, holding the presentation keys as controls, the ask's language read-only, and each behaviour key read-only with its value, file and key (FR-35; EXPERIENCE, Preferences and Settings; DESIGN, Settings panel).
+
+#### Scenario: The panel's three groups
+- **WHEN** the user presses "Settings"
+- **THEN** the panel shows Theme, Density and Context placement as segmented controls, then the Language indicator, then default language, asking rules, Snapshot folder and editor under "Applies from the next session"
+
+#### Scenario: The board stays usable
+- **WHEN** the panel is open and the user answers a question
+- **THEN** the answer is sent, and the panel stays open
+
+#### Scenario: From the keyboard
+- **WHEN** the user opens the panel with the keyboard, moves through a segmented control with the arrow keys and presses Esc
+- **THEN** the setting changes, the panel closes, and focus returns to "Settings"
+
+### Requirement: Presentation changes apply at once and persist
+Changing theme or density from the header's quick toggles or the panel, or the context-placement default from the panel, SHALL apply to that board at once and be written as the user-level setting, so a board opened later opens with it (FR-35). No setting SHALL be kept in the browser's storage.
+
+#### Scenario: Theme reaches a later board
+- **WHEN** the user picks Dark on one board and the agent then sends a new ask
+- **THEN** the new board opens dark
+
+#### Scenario: Clearing the browser's storage
+- **WHEN** the user clears the browser's storage and opens a board
+- **THEN** the board opens with the settings from the configuration files
+
+#### Scenario: A write that fails
+- **WHEN** the user picks Comfortable and the user file cannot be written
+- **THEN** the board turns comfortable, and the panel shows an error under Density naming the file's path
+
+### Requirement: Keys set by the project are read-only on the board
+A presentation key the project file sets SHALL show read-only in the panel with the project file and key, and its header toggle SHALL be disabled, its description naming that file and key (AD-14; EXPERIENCE, Preferences and Settings, Scopes).
+
+#### Scenario: The project fixes the density
+- **WHEN** the project file sets `density` to `comfortable`
+- **THEN** the board opens comfortable, the panel's Density row is read-only with `.askboard/config.json · density`, and the header's density control is disabled
+
+### Requirement: Theme, density and context placement
+Theme SHALL be System, which follows the system's scheme and is the default, Light or Dark, on the board page and in the view. Density SHALL be Compact, the default, or Comfortable, re-pointing spacing and type. The context-placement default SHALL place each question's context, and a question's own control SHALL override it on that question (FR-13; DESIGN, Layout & Spacing).
+
+#### Scenario: System follows the system
+- **WHEN** the theme is System and the system switches to dark
+- **THEN** the board page and the view turn dark
+
+#### Scenario: Comfortable density
+- **WHEN** the user picks Comfortable
+- **THEN** controls are 32 px high and header rows 40 px, and Compact brings back 28 px controls and 32 px header rows
+
+#### Scenario: Inline by default
+- **WHEN** the context-placement default is `inline`
+- **THEN** a question with excerpts shows them under its text, and its "Beside | Inline" control still moves that question beside
+
+### Requirement: Snapshots in the ask's language
+An opened Snapshot SHALL show its strings and values in the ask's language and locale from its board document, and its Theme control SHALL save nothing (FR-27; EXPERIENCE, Snapshots).
+
+#### Scenario: An Italian Snapshot
+- **WHEN** a Snapshot of an it-IT ask is opened from disk
+- **THEN** its strings are Italian and its values use it-IT formats, and picking Dark writes no file and no browser storage
+
+### Requirement: Derived values of every computing item in an answer
+An answer SHALL carry the declared derived values of every computing item in its question, a widget item whose widget declares answer-derived fields, changed or not, as they stood when the user answered, so that the agent never recomputes them. Derived values SHALL never be an answer's only content: they go beside a choice, "Other…" text or a widget value, and an answer with nothing else SHALL be refused (FR-12, AD-10).
+
+#### Scenario: Only the WBS edited
+- **WHEN** the user re-estimates one work package in the UJ-2 question's WBS, leaves the plan untouched and presses "Answer"
+- **THEN** the answer act's `values` hold `wbs__tree` alone, and its `derived` holds `schedule__plan.finish` and `schedule__plan.criticalPath` as the board showed them, beside the WBS's derived values
+
+#### Scenario: A choice beside an untouched plan
+- **WHEN** a question holding options and a Gantt plan is answered with an option alone
+- **THEN** the answer act carries the option and the plan's derived values, and no `values`
+
+### Requirement: Board documents with widget items
+The board page SHALL accept a board document whose questions hold Tree and Gantt items, validate it with the standalone validators of board document 1.4, and build the view from it; a board document holding a `molecule` item SHALL still be refused (AD-9, AD-10).
+
+#### Scenario: The UJ-2 board
+- **WHEN** `board-host` sends the UJ-2 ask's board document
+- **THEN** the board page builds the view, and the question `plan` shows the WBS and the plan and counts as visible
+
+### Requirement: The board page sends widget answers
+The board page SHALL turn the view's answer message with widget values into an `answer` act carrying `values` and `derived`, after the checks every answer passes (question open, at its revision, visible, no failed item), and only for widget items of that question (AD-10, AD-20, FR-22).
+
+#### Scenario: The UJ-2 edits answered
+- **WHEN** the user makes the approved UJ-2 edits by keyboard and presses "Answer" on the real board page
+- **THEN** one `act` reaches `board-host`, its answer carrying `values` for `wbs__tree` and `schedule__plan` and their derived values
+
+#### Scenario: A value for an item of another question
+- **WHEN** an answer message names in `values` an item that is not in its question
+- **THEN** the board page refuses it, sends nothing and leaves the question open
+
+### Requirement: Answered widget questions
+A question whose widget answer is logged SHALL show each widget read-only with the logged value and the answer's delivery receipt, also after a reload or a takeover, which restore it from the board state (AD-20, AD-21; EXPERIENCE, By surface: Question, Answered).
+
+#### Scenario: A reload after answering
+- **WHEN** the user reloads the board after answering the UJ-2 question
+- **THEN** the WBS and the plan show the edited values read-only, with the receipt the board state gives
+
+### Requirement: Revising a widget answer
+While the ask is open, the user SHALL be able to revise a widget answer: its widgets become editable from the logged value, an edit fills the draft, and "Answer" sends the full edited values again (AD-20; EXPERIENCE, Interaction Primitives, Revisions).
+
+#### Scenario: Revising the WBS
+- **WHEN** the user revises the answered UJ-2 question and renames one more node
+- **THEN** the change highlight still compares against the agent's original, and the new answer carries both edited values in full
+
+### Requirement: The agent's change to a widget under unsent work
+When the agent changes a widget item whose question holds unsent work, the agent-change notice's "Show the agent's change" SHALL name each widget item the agent changed and how many element operations the change holds, and the notice's choices SHALL be those of every question (FR-6; EXPERIENCE, Agent-change notice).
+
+#### Scenario: New data for the plan while the user edits the WBS
+- **WHEN** the agent changes `schedule`'s data while the user holds unsent WBS edits in `plan`
+- **THEN** the notice shows, and "Show the agent's change" names the Gantt plan and its number of operations, and nothing of the user's draft is lost

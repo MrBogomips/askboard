@@ -45,3 +45,11 @@ A Gantt plan SHALL schedule its WBS's leaves in working days: duration the task'
 #### Scenario: A requested duration is mapped
 - **WHEN** a plan's entry holds `duration` 21 for a leaf
 - **THEN** the plan source gives that task 21 days and the WBS-with-PERT source is unchanged
+
+#### Scenario: A work breakdown with no plan
+- **WHEN** a board's only item is the expanded UJ-2 Tree `wbs__tree`, with `pert`
+- **THEN** the graph gives each node and the item their expected effort and spread, the item's 40.67 and 3.21 among them, with no warning
+
+#### Scenario: A plain Tree
+- **WHEN** a board's only item is a Tree without `pert` whose columns declare the three estimates
+- **THEN** the graph source holds no item

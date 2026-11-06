@@ -42,7 +42,7 @@ Only `ask-core` SHALL append to an ask's log. Events SHALL be immutable, concern
 - **THEN** the second's `seq` is greater than the first's, and neither event changes afterwards
 
 ### Requirement: Answers only from an explicit user action
-An answer event SHALL come only from an answer or decline act of the board on a question of an open ask, naming the question's current `rev`, or an older one the user kept (edit choice), and content that revision can hold: option labels, one unless `multiSelect` is set, "Other…" text only with `allowOther`, and at least a label or "Other…" text unless it declines. Any other act SHALL be refused and append nothing (AD-10, NFR-10).
+An answer event SHALL come only from an answer or decline act of the board on a question of an open ask, naming the question's current `rev`, or an older one the user kept (edit choice), and content that revision can hold: option labels, one unless `multiSelect` is set, "Other…" text only with `allowOther`, widget values only for its widget items, and at least a label, "Other…" text or a widget change unless it declines. Any other act SHALL be refused and append nothing (AD-10, NFR-10).
 
 #### Scenario: A valid answer is appended
 - **WHEN** the board sends an answer to question `database` with `rev` 1 and `choice: ["PostgreSQL"]`
@@ -59,6 +59,14 @@ An answer event SHALL come only from an answer or decline act of the board on a 
 #### Scenario: An answer to a closed ask
 - **WHEN** the board sends an answer after the agent closed the ask
 - **THEN** it is refused, the log is unchanged, and the board is told the ask is closed
+
+#### Scenario: Widget values the question cannot hold
+- **WHEN** an answer's `values` name an item of another question, an inherited name such as `constructor`, or a Tree value whose node has no label
+- **THEN** it is refused, naming the item, and the log is unchanged
+
+#### Scenario: Widget values equal to what was sent
+- **WHEN** an answer to a question with no options carries a Tree value equal to the Tree as sent, and nothing else
+- **THEN** it is refused as an answer with no content, and the log is unchanged
 
 ### Requirement: Who and when
 Answers, notes and follow-ups the board sends SHALL carry `when`, the time of the user's action as the board stamped it, in RFC 3339 UTC, and `who`: the ask's `expectedUser`, else the git user name of the session project, else the operating system's login name. An answer the agent records SHALL take the same `who` and the core's time as `when` (FR-19).
@@ -83,7 +91,7 @@ Answers, notes and follow-ups the board sends SHALL carry `when`, the time of th
 - **THEN** the ask is reported `discarded`, never as having no answer yet
 
 ### Requirement: Received watermark
-Per ask, `ask-core` SHALL keep a `received` watermark that only increases: the highest `seq` a read has returned. When it passes an answer's event, `board-host` SHALL be told, so that the board marks that answer delivered to the agent (AD-3).
+Per ask, `ask-core` SHALL keep a `received` watermark that only increases: the highest `seq` a read has returned, a stop block has carried or a push has been reported delivered. When it passes an answer's event, `board-host` SHALL be told, so that the board marks that answer delivered to the agent (AD-3).
 
 #### Scenario: Collecting raises the watermark
 - **WHEN** a read returns the answer event with `seq` 1
@@ -92,6 +100,14 @@ Per ask, `ask-core` SHALL keep a `received` watermark that only increases: the h
 #### Scenario: An older cursor does not lower it
 - **WHEN** a later read passes cursor `<epoch>.0` again
 - **THEN** `received` stays 1
+
+#### Scenario: A push is reported
+- **WHEN** the mod reports that it pushed the answer with `seq` 1
+- **THEN** `received` becomes 1, the board marks the answer delivered, and a later poll returns nothing for that ask
+
+#### Scenario: A stop block carries the answer
+- **WHEN** the stop guard blocks with the answer with `seq` 1
+- **THEN** `received` becomes 1
 
 ### Requirement: Re-sending an ask
 An `ask` with the ID of an open ask SHALL return that ask's board, opening nothing, only when the request is deep-equal to the first accepted one after RFC 8785 canonicalization. Any other `ask` with the ID of an ask of the current epoch SHALL be refused, naming the ID as in use (AD-6, FR-5).
@@ -305,8 +321,580 @@ On a discard, `ask-core` SHALL drop the ask's board documents, revisions, thread
 - **THEN** a `collect` returns the answer, then the `discarded` event
 
 ### Requirement: Full value of an item
-`ask-core` SHALL return, for an item of an open or closed ask's current board document, its type and props, with its `rev` when it is a question, and for a question its state and current answer in full: its content, `who`, `when`, whether it was recorded, and the cursor of its event when logged (FR-20).
+`ask-core` SHALL return, for an item of an open or closed ask's current board document, its type, `rev` and props, and for a question its state and current answer in full: its content, the full edited value of each widget item it changed and its derived values, `who`, `when`, whether it was recorded, and the cursor of its event when logged (FR-20).
 
 #### Scenario: A deleted item
 - **WHEN** the full value of a deleted item is asked for
 - **THEN** none is returned, and the item is reported as deleted
+
+#### Scenario: An answered widget question
+- **WHEN** the full value of the answered UJ-2 question `plan` is asked for
+- **THEN** its answer holds the edited WBS under `wbs` and the edited plan under `schedule`, and the fourteen derived values, with no expanded ID anywhere
+
+### Requirement: Owner of an ask
+The agent of the first `ask` call bound to an agent record SHALL own the ask, and a later record from another agent SHALL NOT change the owner. `ask-core` SHALL know the owner only as an opaque owner key; Claude Code identifiers stay in the local API's record table (AD-5).
+
+#### Scenario: A subagent's ask
+- **WHEN** a subagent's `ask` arrives bound to its record
+- **THEN** the ask is owned by that subagent, and nothing in `ask-core` holds its `agent_id`
+
+#### Scenario: An ask without a record
+- **WHEN** an `ask` arrives with no bound record
+- **THEN** the ask has no owner and is unchecked
+
+### Requirement: Binding a record to its call
+A record SHALL bind to the call that carries the same `tool_use_id`, whatever the time between them, since a permission prompt can stand between a hook and its call. A call without one SHALL bind to the first unbound record of the same tool and the same ask IDs received within the contract's record timeout. Unbound records SHALL expire after the contract's longer hold time, and their number SHALL be bounded (AD-5).
+
+#### Scenario: Bound by tool_use_id
+- **WHEN** a call carries `claudecode/toolUseId` in its `_meta` and a record with that `tool_use_id` exists
+- **THEN** the call is bound to that record, whatever other records exist
+
+#### Scenario: A stale record
+- **WHEN** a record arrives, and a call without a `tool_use_id` for the same tool and ask IDs comes after the record timeout
+- **THEN** the call does not bind to it
+
+#### Scenario: A slow permission prompt
+- **WHEN** the call carrying a record's `tool_use_id` arrives two minutes after the record, once the user has approved it
+- **THEN** it binds to that record
+
+### Requirement: Origin of an ask
+Each owned ask SHALL keep an origin set once from its owning record: the owner key; a label, "Main agent", "Subagent <type>" with an ordinal from the second of a type, or "Teammate <name>"; the `cwd`; the root, the real path of the git worktree of the `cwd` when it belongs to the project's repository, else of the session project root; the directory, the `cwd` relative to the root; the branch; and the worktree. Without a session project root it SHALL have none of the last four (AD-5, AD-12).
+
+#### Scenario: A subagent in another worktree
+- **WHEN** a subagent working in a worktree of the project's repository asks
+- **THEN** the ask's root is that worktree, and its origin names the worktree and its branch
+
+#### Scenario: The directory is set at the bind
+- **WHEN** a subagent working in `services/orders` under its worktree asks
+- **THEN** the ask's origin holds the directory `services/orders`, worked out once when the record is bound, and a `cwd` outside the root is held as the absolute `cwd`
+
+#### Scenario: A cwd outside the repository
+- **WHEN** the owning record's `cwd` is outside the project's repository
+- **THEN** the ask's root is the project root
+
+#### Scenario: No session project root
+- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR`, or with one that is not absolute, or whose real path cannot be read or is not a folder, and a subagent working in a worktree of the repository asks
+- **THEN** the ask's origin has its label and `cwd` and no root, directory, branch or worktree, git does not run for it, and the working folder never stands in for the root
+
+#### Scenario: git pointed at another repository
+- **WHEN** the session process's environment sets `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR` or `GIT_INDEX_FILE` to another repository
+- **THEN** the origin is resolved from the repository of the `cwd`, since git runs without those variables
+
+### Requirement: Only the owner acts on an owned ask
+`collect` on an owned ask, and `update` and `fetch` once the ask-lifecycle change lists them, SHALL be refused, naming the ask, unless the call is bound to a record of its owner. An unchecked ask SHALL take any caller's calls (AD-5).
+
+#### Scenario: Another subagent collects
+- **WHEN** a subagent collects an ask another subagent owns
+- **THEN** the call is refused, naming the ask as owned by another agent, and `received` does not move
+
+#### Scenario: A call without a record
+- **WHEN** a `collect` on an owned ask arrives with no bound record
+- **THEN** it is refused, saying that the call carried no agent record and may be retried
+
+#### Scenario: Another subagent updates
+- **WHEN** a subagent sends `update` on an ask another subagent owns
+- **THEN** the call is refused, naming the ask, and the ask is unchanged
+
+### Requirement: Re-sending comes from the owner
+An identical `ask` with the ID of an open owned ask SHALL return that ask's board only when it comes from the owner; from any other agent it SHALL be refused, naming the ID as in use (AD-6).
+
+#### Scenario: Two subagents pick one ID
+- **WHEN** two subagents running one skill send identical asks under the same ID
+- **THEN** the first owns the ask, and the second is refused with the ID named as in use
+
+### Requirement: Closing a finished subagent's asks
+When the session process is told that a subagent finished, `ask-core` SHALL close every open ask that subagent owns with reason `agent-finished`, appending the `closed` event; their boards SHALL show the ask as closed and accept no more answers (AD-10, FR-25). The `closed` state and `ask-core`'s close come from the ask-lifecycle change.
+
+#### Scenario: The guard lets a subagent stop
+- **WHEN** a subagent owning a `waiting` ask finishes with nothing above `received`
+- **THEN** the ask is closed, its log ends with a `closed` event with reason `agent-finished`, and its board shows it closed and refuses a later answer
+
+### Requirement: Agent status of an ask
+Each ask SHALL have an agent status, presence only and never an event: `waiting` while a waiting `collect` on it is pending, except a main-conversation call past Claude Code's background threshold, or while the mod reports that the owner has no turn running; `working` otherwise, from the ask's creation (AD-4).
+
+#### Scenario: A subagent waits in collect
+- **WHEN** the owning subagent calls `collect` with `wait` on the ask
+- **THEN** the status becomes `waiting` at once, and `working` when the call returns
+
+#### Scenario: A main-conversation call moves to the background
+- **WHEN** the main conversation's waiting `collect` has been pending longer than Claude Code's background threshold
+- **THEN** the status becomes `working`, unless the mod reports that the main conversation has no turn running
+
+#### Scenario: The owner's turn ends
+- **WHEN** the mod reports that the owning agent's turn completed
+- **THEN** the status becomes `waiting`, and `working` when the mod reports its next turn
+
+#### Scenario: Nothing reports
+- **WHEN** an ask is created and neither a waiting `collect` nor the mod reports anything
+- **THEN** its status stays `working`
+
+### Requirement: Expanding molecule references
+`ask-core` SHALL replace each molecule reference among a question's items by its definition's item, filled from the reference's data, in the reference's place and under the ID `<reference>__<item>`. The board document SHALL hold the expanded items and never the reference; every other item SHALL stay as sent (AD-9, AD-12).
+
+#### Scenario: The UJ-2 ask
+- **WHEN** the approved `uj2-wbs-gantt` ask's items are expanded with the shipped molecules
+- **THEN** the question `plan` holds the Tree `wbs__tree` and then the Gantt plan `schedule__plan`, equal to the contract's molecule fixtures, and the question `erp-export` is unchanged
+
+#### Scenario: A question with no reference
+- **WHEN** the plain-choice ask's items are expanded
+- **THEN** they are returned unchanged and no expansion is recorded
+
+#### Scenario: A question in an area
+- **WHEN** the UJ-2 question `plan` sits in an area, as E3's input format 1.1 allows, and the items are expanded
+- **THEN** the area's question `plan` holds `wbs__tree` and `schedule__plan` as at the top level, and the area is otherwise unchanged
+
+### Requirement: Fill forms
+A fill SHALL put its parameter's value at its pointer: as it is (copy); as the expanded item of the molecule reference it names, else unchanged (`item`); with each value of an object turned into an entry holding it under the given field (`entries`); or without the given keys at any depth (`omit`). A parameter the data leaves out SHALL leave the composition's value (AD-9).
+
+#### Scenario: Entries
+- **WHEN** the `gantt-plan` data's `dependencies` `{prototype: ["ux"]}` fills `tasks` with `{entries: "dependencies"}`
+- **THEN** `tasks` is `{prototype: {dependencies: ["ux"]}}`
+
+#### Scenario: Omit
+- **WHEN** the `wbs-pert` data's `nodes` fill the Tree's `nodes` with `{omit: ["excerpt"]}`
+- **THEN** no node at any depth holds `excerpt`, and every other key is kept
+
+#### Scenario: A parameter left out
+- **WHEN** the `wbs-pert` data holds no `depth`
+- **THEN** the Tree's `openDepth` is the composition's 2
+
+### Requirement: Molecule versions
+`ask-core` SHALL get each definition through the `MoleculeSource` port. A reference without `version` SHALL get the highest shipped version of the molecule's current major; one with a version, the highest shipped version of that major at or above it. A name or version with no such definition SHALL refuse the request, naming the reference and what is shipped (AD-9, AD-10).
+
+#### Scenario: No version
+- **WHEN** a reference names `wbs-pert` with no `version`, and 1.0.0 is shipped
+- **THEN** it expands with `wbs-pert` 1.0.0
+
+#### Scenario: A version not shipped
+- **WHEN** a reference names `wbs-pert` version `2.0.0`
+- **THEN** the request is refused, naming the reference and `wbs-pert` 1.0.0
+
+#### Scenario: An unknown molecule
+- **WHEN** a reference names `sales-estimate-review`
+- **THEN** the request is refused, naming the reference and the shipped molecules `gantt-plan` and `wbs-pert`
+
+### Requirement: Refusing an expansion
+`ask-core` SHALL refuse a request, naming the reference's ID, when a reference's data fails its parameters, or when an expanded item fails its widget's checks in the question that holds it, such as a Gantt plan naming a work breakdown in another question (AD-10, NFR-10).
+
+#### Scenario: Data outside the parameters
+- **WHEN** the `schedule` reference's data also holds `calendar`
+- **THEN** the request is refused, naming `schedule` and `calendar`
+
+#### Scenario: A plan in another question
+- **WHEN** `schedule` sits in a question other than the one holding `wbs`
+- **THEN** the request is refused, naming `schedule` and `wbs`
+
+#### Scenario: A day that does not exist
+- **WHEN** the `schedule` reference's `data.start` is `2026-02-30`, which has the form of a date
+- **THEN** the data passes its parameters, whose date is a pattern, and the request is refused at the expanded plan's own checks, naming `schedule` and `/start`
+
+### Requirement: Expanded IDs
+An expanded item's ID SHALL be at most 64 characters and SHALL NOT equal another item ID of the ask; otherwise the request SHALL be refused, naming the reference and, for a clash, the other item (AD-7, AD-9).
+
+#### Scenario: A long reference ID
+- **WHEN** a `wbs-pert` reference's ID has 59 characters, so that its expanded ID would have 65
+- **THEN** the request is refused, naming the reference and the limit of 64 characters
+
+#### Scenario: A clash
+- **WHEN** an ask holds a reference `wbs` and another item whose ID is `wbs__tree`
+- **THEN** the request is refused, naming both
+
+### Requirement: The expansion map
+For each board document, `ask-core` SHALL keep which expanded item belongs to which reference, with the molecule's name and version, apart from the board document, which the view, `fetch` and Snapshots read unchanged (AD-9, AD-12).
+
+#### Scenario: The UJ-2 map
+- **WHEN** the UJ-2 ask is expanded
+- **THEN** the map gives `wbs__tree` as `wbs`, `wbs-pert` 1.0.0, and `schedule__plan` as `schedule`, `gantt-plan` 1.0.0, and the board document holds no `molecule` item
+
+### Requirement: Answers in reference addressing
+`ask-core` SHALL give every change target and derived-value key that addresses an expanded item under its reference's ID, keeping the rest of the address, so answers name no expanded ID and carry no `molecule` field; other addresses and every `parent` and `after` SHALL stay as they are (AD-9, AD-20, F15).
+
+#### Scenario: The UJ-2 answer
+- **WHEN** the UJ-2 question's changes and derived values, computed from the expanded items as sent and as the approved edits leave them, are put in reference addressing
+- **THEN** the changes are the approved answer's eight operations, compared as a set, and the derived values the approved answer's fourteen, `wbs.` and `schedule.` keys alike
+
+#### Scenario: An address of another item
+- **WHEN** an answer's change targets an item that no reference expanded
+- **THEN** its target is unchanged
+
+### Requirement: Warnings in reference addressing
+A warning or problem that names an expanded item SHALL name its reference's ID instead, keeping the rest of what it says (AD-6, AD-9, AD-13).
+
+#### Scenario: A predecessor that names no task
+- **WHEN** the `schedule` data gives `billing` the predecessor `review`, which is no work package, and the expanded question's graph is built
+- **THEN** the graph's `missing-reference` warning names `schedule` and `review`, and no warning names `schedule__plan`
+
+### Requirement: Context resolved when an ask or update is sent
+When an `ask` or an `update` creates a question's revision, `ask-core` SHALL resolve every excerpt pointer, image pointer and reference pointer of that revision through its `SourceFiles` port, before the revision is stored, and SHALL keep the result with that revision until the revision is pruned (AD-12, FR-8).
+
+#### Scenario: The board shows what was read at send time
+- **WHEN** an ask holds an excerpt pointing at `docs/a.md#Intro`, and the file changes after the ask is sent
+- **THEN** the board document of that revision still holds the section as it read at send time
+
+#### Scenario: An update re-reads only what it changes
+- **WHEN** an `update` changes question `q2` of an ask whose question `q1` also holds an excerpt
+- **THEN** only `q2`'s pointers are read again, and `q1`'s board document is unchanged
+
+### Requirement: The ask's root
+The root a pointer resolves against SHALL be the `root` of the ask's origin when the ask has one (AD-5), else the session project root, the real path of `CLAUDE_PROJECT_DIR`. When `CLAUDE_PROJECT_DIR` is not set, every pointer SHALL resolve as unresolved with reason `no-root`, and no other folder SHALL stand in for it (AD-12).
+
+#### Scenario: A subagent in its own worktree
+- **WHEN** a subagent whose origin's root is its worktree asks with the pointer `src/retry.ts#L1-L5`
+- **THEN** the excerpt is read from that worktree, not from the main checkout
+
+#### Scenario: No project directory
+- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR` and an ask holds a pointer to a file in its working directory
+- **THEN** the excerpt is unresolved with reason `no-root`, and the ask is created
+
+#### Scenario: An owned ask without a project directory
+- **WHEN** the session process runs without `CLAUDE_PROJECT_DIR` and an owned ask, whose origin gives a root, holds a pointer to a file in that root
+- **THEN** the excerpt is unresolved with reason `no-root`, whatever the origin's root says
+
+### Requirement: An unresolved pointer never blocks the board
+A pointer that does not resolve SHALL leave the ask created or the update applied, its item marked unresolved with its reason in the board document, and SHALL add one `unresolved-pointer` warning naming the item to that call's result (FR-8, AD-6).
+
+#### Scenario: One good and one missing excerpt
+- **WHEN** an ask holds an excerpt pointing at an existing heading and one pointing at a missing file
+- **THEN** the ask is created, the first excerpt is resolved, the second is unresolved with reason `not-found`, and the result carries one warning, for the second
+
+### Requirement: Agent-written excerpts are kept as written
+An excerpt given as `text` SHALL reach the board document exactly as the agent wrote it, read nothing from disk, and count as resolved (FR-8).
+
+#### Scenario: Text that looks like markup
+- **WHEN** an excerpt's text is `<script>alert(1)</script>`
+- **THEN** the board document holds that text unchanged
+
+### Requirement: A source's current state for the reading panel
+`ask-core` SHALL answer, for a pointer excerpt or pointer reference of an ask's current board document, the file's current state: available, missing, outside the root, not text or too large; the current line of its anchor; and, for an excerpt, whether the excerpted range now differs from its text. It SHALL resolve and confine the pointer again under AD-12 against the ask's root (AD-8).
+
+#### Scenario: A file edited since the ask
+- **WHEN** the lines an excerpt was read from change after the ask was sent
+- **THEN** the source's state says that the range changed
+
+#### Scenario: An item that is not a pointer
+- **WHEN** `board-host` asks for the source of an agent-written excerpt, an image or an unknown item
+- **THEN** `ask-core` answers that there is no such source
+
+### Requirement: The editor target is confined again at the click
+For "Open in editor", `ask-core` SHALL give the file's absolute real path and an integer line only after resolving and confining the item's pointer again under AD-12 at that moment; a pointer that no longer resolves inside the root SHALL give no target (AD-8).
+
+#### Scenario: A file swapped for a symlink after the send
+- **WHEN** a referenced file is replaced by a symlink to a file outside the root after the ask was sent, and the user clicks "Open in editor"
+- **THEN** `ask-core` gives no target and no editor starts
+
+### Requirement: Discard drops resolved context
+On discard, `ask-core` SHALL drop every revision's resolved context with its board documents, so no excerpt text or image bytes of a discarded ask stay in memory (AD-21).
+
+#### Scenario: A discarded ask
+- **WHEN** an ask holding an image is discarded
+- **THEN** its tombstone holds no excerpt text and no image bytes
+
+### Requirement: Taking a Snapshot
+`ask-core` SHALL take a Snapshot of an open or closed ask on the agent's request or the board's: it SHALL gather the Snapshot's data in one step, as the ask stands at that moment, hand it to the Snapshot writer and return the file's path (FR-26, AD-15).
+
+#### Scenario: A Snapshot of an open ask
+- **WHEN** the agent asks for a Snapshot of an ask with one question answered and one open
+- **THEN** the writer receives data holding the answer and the open question, and the path it returns is the result
+
+#### Scenario: A Snapshot of a closed ask
+- **WHEN** the board asks for a Snapshot of an ask the agent closed
+- **THEN** the Snapshot is taken, with the ask's state `closed`
+
+#### Scenario: An answer arrives while the file is written
+- **WHEN** the user's answer is appended after the data is gathered but before the writer finishes
+- **THEN** the Snapshot holds the ask as it stood before that answer
+
+### Requirement: No Snapshot of a discarded ask
+For a discarded ask, or an ask ID unknown to the current epoch, `ask-core` SHALL return `discarded` and SHALL hand nothing to the writer (FR-26, AD-10, AD-21).
+
+#### Scenario: After the tab closed
+- **WHEN** the agent asks for a Snapshot of an ask discarded after its board closed
+- **THEN** the answer is `discarded`, and no file is written
+
+#### Scenario: After a restart
+- **WHEN** the agent asks for a Snapshot of an ask it sent before the session process restarted
+- **THEN** the answer is `discarded`, never an error that the ask is unknown
+
+### Requirement: What a Snapshot holds
+The data SHALL hold the current board document, the revisions its events name, the board state the live board receives (threads, recorded and previous answers, receipts), the origin, every logged event with its answer's kept full values, and the expansion map when the ask holds molecules (AD-15; open questions A1 and A2).
+
+#### Scenario: The context header as it stood
+- **WHEN** a subagent's ask with a postponed question and a follow-up thread is snapshotted
+- **THEN** the data names the subagent and its worktree, the ask's state, the question as postponed, and the follow-up with the agent's reply
+
+#### Scenario: A recorded answer
+- **WHEN** the agent recorded an answer with `update` and then takes a Snapshot
+- **THEN** the data's board state shows the question answered and recorded, though no event holds it
+
+#### Scenario: An answer on an older revision
+- **WHEN** an answer names `rev` 1 of a question the agent then changed to `rev` 2 under an `ignore` edit choice
+- **THEN** the data holds `rev` 1's props beside the current document, and the answer event names `rev` 1
+
+### Requirement: What a Snapshot never holds
+The data SHALL hold nothing of the draft record, no board or session token, no board link, no agent record or Claude Code identifier, and not the agent's working or waiting status (AD-15, AD-20, NFR-4).
+
+#### Scenario: Unsent work at the time
+- **WHEN** the board mirrors a draft with a ready answer and an open-prompt text, and the agent takes a Snapshot
+- **THEN** the data holds neither, and the question is shown as the log leaves it
+
+#### Scenario: The board link
+- **WHEN** the data of any Snapshot is searched for the ask's board link and token
+- **THEN** neither is found
+
+### Requirement: Unsent work noted, never read
+A Snapshot the board requests SHALL record `unsentWork: true` exactly when the request says so; `ask-core` SHALL NOT read its draft record to decide it (AD-15, AD-20).
+
+#### Scenario: The board held unsent work
+- **WHEN** the board asks for a Snapshot saying it holds unsent work
+- **THEN** the data records `takenBy: "user"` and `unsentWork: true`, and nothing of the work
+
+### Requirement: Only the owner's agent takes a Snapshot
+An agent's request for a Snapshot of an owned ask SHALL pass the same owner check as `fetch`, and a refused request SHALL write nothing. A board's request carries no agent record and SHALL be taken for an open or closed ask (AD-5).
+
+#### Scenario: Another subagent asks for a Snapshot
+- **WHEN** a subagent asks for a Snapshot of an ask another subagent owns
+- **THEN** the request is refused, naming the ask, and no file is written
+
+#### Scenario: An unchecked ask
+- **WHEN** an agent asks for a Snapshot of an ask that has no owner
+- **THEN** the Snapshot is taken, and the outcome says the ask is unchecked
+
+### Requirement: A Snapshot changes nothing
+Taking a Snapshot, or failing to, SHALL append no event, SHALL NOT move `received`, and SHALL change neither the ask's state nor any question's (AD-3, open question A7).
+
+#### Scenario: The user takes a Snapshot
+- **WHEN** the user takes a Snapshot from the board and the agent then collects
+- **THEN** the result holds no event for it, and the ask's cursor and state are as before
+
+### Requirement: Two configuration files
+The session process SHALL read the project file `.askboard/config.json` under the real path of `CLAUDE_PROJECT_DIR`, and the user file `$XDG_CONFIG_HOME/askboard/config.json` when `XDG_CONFIG_HOME` is an absolute path, else `$HOME/.config/askboard/config.json` (AD-14). Without `CLAUDE_PROJECT_DIR` it SHALL read no project file, and without an absolute `HOME` or `XDG_CONFIG_HOME` no user file (AD-12).
+
+#### Scenario: XDG_CONFIG_HOME is honoured
+- **WHEN** `XDG_CONFIG_HOME` is `/tmp/x` and `/tmp/x/askboard/config.json` sets `theme` to `dark`
+- **THEN** the theme in effect is `dark`, and `$HOME/.config/askboard/config.json` is not read
+
+#### Scenario: A relative XDG_CONFIG_HOME is ignored
+- **WHEN** `XDG_CONFIG_HOME` is `conf` and `$HOME/.config/askboard/config.json` sets `theme` to `light`
+- **THEN** the theme in effect is `light`
+
+#### Scenario: No project root, no project file
+- **WHEN** `CLAUDE_PROJECT_DIR` is not set and the working folder holds `.askboard/config.json`
+- **THEN** that file is not read
+
+### Requirement: Read once, on first use
+The session process SHALL read both files once, the first time it needs a setting, and never before its first request after `server/discover` (AD-2). Every key except the presentation keys SHALL keep that value for the rest of the session, so a change applies from the next session (FR-35).
+
+#### Scenario: The probe sibling reads nothing
+- **WHEN** a session process answers `server/discover` and exits
+- **THEN** it has opened neither configuration file
+
+#### Scenario: A behaviour change waits for the next session
+- **WHEN** the user changes `defaultLanguage` in the user file while a session runs
+- **THEN** that session's later asks keep the language read at first use, and the next session uses the new one
+
+### Requirement: Merged key by key, project keys winning
+The settings in effect SHALL take each key from the project file when it sets the key, else from the user file, else the key's default: `system`, `compact`, `beside`, `en-US`, `none`, `.askboard/snapshots/`, no editor and no minimum margin (AD-14, FR-30). `editor` is the one exception.
+
+#### Scenario: The project's asking rule wins
+- **WHEN** the user file sets `askingRule` to `none` and the project file sets it to `always`
+- **THEN** the asking rule in effect is `always`, from the project file
+
+#### Scenario: Keys from both files combine
+- **WHEN** the user file sets `theme` to `dark` and the project file sets `density` to `comfortable`
+- **THEN** both apply
+
+### Requirement: An invalid file is never half-applied
+A file that cannot be read, is not JSON, fails the configuration schema or names an unsupported major version SHALL contribute no key. The session process SHALL write a diagnostic to stderr naming the file and the problem, and the settings SHALL record the file as not applied with that problem (AD-14, NFR-10). An unknown key SHALL be a warning and SHALL not stop the file applying.
+
+#### Scenario: One bad value voids the whole file
+- **WHEN** the project file sets `askingRule` to `always` and `theme` to `"sepia"`
+- **THEN** neither key applies, the asking rule in effect comes from the user file or is `none`, and stderr names `.askboard/config.json` and `/theme`
+
+#### Scenario: A file that cannot be read
+- **WHEN** the user file's place holds a directory, a named pipe or a file over 1 MiB
+- **THEN** it counts as a file that cannot be read: no key of it applies, the settings record it as not applied, and the session process never opens it
+
+#### Scenario: A file from a newer major
+- **WHEN** the user file names `version` `2.0`
+- **THEN** no key of it applies, and the diagnostic names the version
+
+#### Scenario: An unknown key
+- **WHEN** the user file holds `version` `1.0`, `theme` `dark` and `fontSize` `14`
+- **THEN** `theme` applies, and the settings carry a warning naming `fontSize`
+
+### Requirement: The editor comes from the user file only
+`editor` SHALL be read only from the user file. A project-level `editor` SHALL be ignored with a warning, whatever the user file holds (AD-8, AD-14). An `editor` in a user file, or a folder above it, that another user can write, that the user does not own, or whose owner and mode cannot be read SHALL also be ignored with a warning.
+
+#### Scenario: A project file names a command
+- **WHEN** the project file sets `editor` to `["sh", "-c", "curl evil"]` and the user file sets none
+- **THEN** no editor is in effect, and the settings carry a warning that the project's `editor` is ignored
+
+#### Scenario: The user's editor stands beside a project one
+- **WHEN** the project file sets `editor` to `["evil", "{file}"]` and the user file sets `["code", "--goto", "{file}:{line}"]`
+- **THEN** the editor in effect is the user's
+
+#### Scenario: A user file others can write
+- **WHEN** the user file is group-writable and sets `editor`
+- **THEN** no editor is in effect, the warning names the file's mode, and the file's other keys apply
+
+### Requirement: The Snapshot folder stays inside the project
+`snapshotFolder` SHALL be a path relative to the session project root that stays inside it once normalised. An absolute path, a path starting with `~`, a backslash, or a `..` that leaves the root SHALL be replaced by `.askboard/snapshots/` with a warning (AD-14, FR-27).
+
+#### Scenario: A folder inside the project
+- **WHEN** the project file sets `snapshotFolder` to `docs/snapshots`
+- **THEN** the Snapshot folder in effect is `docs/snapshots` under the project root
+
+#### Scenario: A folder outside the project
+- **WHEN** a file sets `snapshotFolder` to `../shared` or `/tmp/snaps`
+- **THEN** the folder in effect is `.askboard/snapshots/`, with a warning naming the value
+
+### Requirement: Presentation keys read again when a board opens
+Each time a board connects, the session process SHALL read the user file's presentation keys again, so a board of any running session opens with a change written since (AD-14, FR-35). Project presentation keys SHALL keep the value read at first use.
+
+#### Scenario: Another session's change reaches a later board
+- **WHEN** a board of session A writes `theme` `dark`, and session B then opens a board
+- **THEN** session B's board opens dark
+
+### Requirement: Writing a presentation key
+The session process SHALL write only `theme`, `density` and `contextPlacement`, with a schema value, into the user file: re-reading it, changing only that key, keeping every other key, and replacing the file atomically (AD-14). It SHALL refuse a write for a key the project file sets, or into a user file that fails its check, and SHALL leave that file unchanged.
+
+#### Scenario: Only that key changes
+- **WHEN** the user file holds `version`, `editor`, `askingRule` and `fontSize`, and a board writes `density` `comfortable`
+- **THEN** the file holds the same four keys with the same values, in the same order, plus `density`, and no temporary file remains
+
+#### Scenario: A key the project sets
+- **WHEN** the project file sets `theme` to `light` and a board writes `theme` `dark`
+- **THEN** the write is refused as set by the project, and the user file is unchanged
+
+#### Scenario: An invalid user file is not overwritten
+- **WHEN** the user file is not valid JSON and a board writes `theme` `dark`
+- **THEN** the write is refused, naming the file, and its bytes are unchanged
+
+#### Scenario: No user file yet
+- **WHEN** the user folder does not exist and a board writes `theme` `dark`
+- **THEN** the folder is created with mode `0700` and the file with mode `0600`, holding `version` and `theme`
+
+### Requirement: The ask's language is resolved when it is created
+When an ask is accepted, `ask-core` SHALL fix its language as the ask's `language`, else `defaultLanguage` in effect, else `en-US`, and its locale as the ask's `locale`, else its language, and SHALL keep both for the whole ask (FR-34, AD-7). An `update` SHALL not change them.
+
+#### Scenario: The project's default language
+- **WHEN** the project file sets `defaultLanguage` to `it-IT`, the user file to `en-US`, and an ask names no language
+- **THEN** the ask's language and locale are `it-IT`
+
+#### Scenario: The agent's language wins
+- **WHEN** `defaultLanguage` in effect is `it-IT` and an ask sets `language` to `en-US`
+- **THEN** the ask's language and locale are `en-US`
+
+### Requirement: The project folders at the first ask
+When a session's first ask is accepted, the session process SHALL create under the session project root `.askboard/`, `snapshots/`, `media/` and `patches/` when missing, and `.askboard/.gitignore` listing `snapshots/`, `media/`, `patches/` and `bench/` only when it creates that file (AD-14, FR-27). A `.askboard` that is a symbolic link or not a folder SHALL be a failure, and nothing SHALL be created through it. A failure SHALL be a diagnostic and SHALL not refuse the ask.
+
+#### Scenario: A fresh project
+- **WHEN** a project has no `.askboard/` and its session accepts a first ask
+- **THEN** `.askboard/` holds `snapshots/`, `media/`, `patches/` and a `.gitignore` of those four lines, and no `bench/`
+
+#### Scenario: A user's own .gitignore holds
+- **WHEN** `.askboard/.gitignore` exists without `snapshots/`, because the user commits Snapshots
+- **THEN** the file is unchanged after the first ask
+
+#### Scenario: A read-only project
+- **WHEN** the project root cannot be written and a first ask arrives
+- **THEN** the ask is accepted, and stderr says that `.askboard/` could not be created
+
+#### Scenario: A .askboard that leads out of the project
+- **WHEN** `.askboard` is a symbolic link to a folder outside the project and a first ask arrives
+- **THEN** the ask is accepted, nothing is created in that folder, and stderr says that `.askboard/` could not be created
+
+### Requirement: Molecules expanded when an ask is sent
+When an ask or an update holds molecule references, `ask-core` SHALL expand them through its molecule source before storing the board document, keep the expansion map beside it, and refuse the request when any reference does not expand, naming the reference; nothing SHALL be stored then (AD-9, AD-12).
+
+#### Scenario: The UJ-2 ask
+- **WHEN** the approved UJ-2 ask is sent
+- **THEN** its board document's question `plan` holds the Tree `wbs__tree` and the Gantt plan `schedule__plan`, and no `molecule` item
+
+#### Scenario: An unknown molecule
+- **WHEN** an ask's reference names the molecule `org-chart`
+- **THEN** the ask is refused, naming the reference and the molecules shipped, and no ask is created
+
+### Requirement: The send-time graph check
+When an ask or an update with widget items is accepted, `ask-core` SHALL build the board's graph from the items as stored and return each graph problem as a `formula` warning in reference addressing; a graph problem SHALL never refuse the request (AD-13, FR-14).
+
+#### Scenario: A predecessor that names no task
+- **WHEN** an ask's `schedule` data gives `billing` the predecessor `review`, which is no work package
+- **THEN** the ask is created, and its result warns, naming `schedule` and `review`, never `schedule__plan`
+
+### Requirement: Widget answers stored in full
+For an answer with widget values, `ask-core` SHALL keep the full edited value of each widget item the answer changed, as the board sent it, apart from the log, until the ask is discarded (AD-20).
+
+#### Scenario: The full value after the answer
+- **WHEN** the UJ-2 answer is appended
+- **THEN** the edited Tree and plan are held whole, and the log's event carries only their changes
+
+### Requirement: Changes computed by the core
+For each widget item an answer changed, `ask-core` SHALL compute `changes` with the contract's generic diff and that widget's shape, from the item's props in the revision the answer names to its edited value, once, when it appends the answer; the event SHALL carry them in reference addressing (AD-9, AD-20).
+
+#### Scenario: The UJ-2 changes
+- **WHEN** the UJ-2 edits are answered
+- **THEN** the answer event's `changes` are the approved answer's eight operations, compared as a set, `wbs.u-1` and `schedule.u-1.dependencies` among them
+
+#### Scenario: A revised widget answer
+- **WHEN** the user revises a Tree answer, restoring one of two renamed nodes
+- **THEN** the new event, naming the first in `replaces`, carries one `set` for the node still renamed, against the Tree as sent
+
+#### Scenario: An edit the changes cannot describe
+- **WHEN** an answer's Tree value also changes the Tree's `columns`, which no element operation expresses
+- **THEN** the answer is refused, naming the item, since its changes would not rebuild the edited value, and the log is unchanged
+
+### Requirement: Derived values in an answer
+`ask-core` SHALL log an answer's derived values as the board sent them, in reference addressing, after checking that each key addresses a widget item of the question and a derived field its widget declares, and that each value is JSON; an answer whose derived values fail the check SHALL be refused (AD-13, FR-12).
+
+#### Scenario: The UJ-2 derived values
+- **WHEN** the UJ-2 answer carries the WBS's and the plan's derived values
+- **THEN** the event's `derived` holds the approved fourteen keys, `wbs.expected` and `schedule.criticalPath` among them
+
+#### Scenario: A field no widget declares
+- **WHEN** an answer's `derived` holds `schedule__plan.margin`
+- **THEN** the answer is refused, naming the key, and the log is unchanged
+
+### Requirement: Answers too large for one result
+When an answer event with its `changes` and derived values would exceed the contract's largest answer event, `ask-core` SHALL log it without them and with `tooLarge: true`, keeping the full edited values and derived values for `fetch` (FR-20, AD-6).
+
+#### Scenario: Every node of a large Tree renamed
+- **WHEN** the user renames all 500 nodes of a Tree and answers
+- **THEN** the event carries `tooLarge: true` and no `changes` or `derived`, and the question's full value holds the edited Tree and its derived values
+
+### Requirement: Full value of a widget item
+`ask-core` SHALL return, for a widget item or a molecule reference in a question, that item alone as the user left it: the latest answer's edited value, else the value as sent, with its question's state. A reference SHALL come under its own ID, with its expanded item's type and props and each `item`-fill slot naming the reference (AD-9, FR-20).
+
+#### Scenario: Fetching the plan by its reference
+- **WHEN** the full value of `schedule` is asked for after the UJ-2 answer
+- **THEN** it is a Gantt plan with the ID `schedule`, `workPackages: "wbs"`, and the entry `u-1` with its dependencies
+
+#### Scenario: An untouched Tree
+- **WHEN** the full value of a Tree whose question is still open is asked for
+- **THEN** it is the Tree as the agent sent it
+
+#### Scenario: A widget item beside an excerpt
+- **WHEN** a question holds an excerpt and a Tree, and the full value of the question is asked for
+- **THEN** the excerpt keeps the form the excerpts change gives `fetch` (no text, no bytes), and the Tree comes in full, as the user left it
+
+### Requirement: Changing an item inside a question
+An `update` `change` naming a widget item or a molecule reference SHALL merge the given props into its props key by key, check them as an ask's are, re-expand a reference whole, and raise its question's `rev`; a question whose latest answer is logged SHALL NOT change unless reopened (AD-20, FR-6).
+
+#### Scenario: New data for a reference
+- **WHEN** the agent changes `schedule`'s `data` in an open question
+- **THEN** `schedule__plan` is expanded again from the new data, the question `plan` is at `rev` 2, and the board receives the new board document
+
+#### Scenario: A change that does not expand
+- **WHEN** the agent changes `wbs`'s `data` to hold a node without `label`
+- **THEN** the update is refused, naming `wbs`, and the question keeps its `rev`
+
+### Requirement: Widget answers in a Snapshot
+`ask-core` SHALL give the Snapshot's gathering, for each answer event it logged with widget values, the full edited values kept for it, by item ID in reference addressing, and the expansion map's entries of the ask's molecule references, so that a Snapshot's data holds `events[].values` and `molecules` (FR-26, AD-15, AD-20).
+
+#### Scenario: A Snapshot of the answered UJ-2 ask
+- **WHEN** a Snapshot is taken of the ask after the UJ-2 answer
+- **THEN** the answer's event holds `values` for `wbs` and `schedule` as the user left them, and `molecules` lists the references `wbs` and `schedule` with their molecule and version
+
+#### Scenario: A Snapshot of an ask without widget answers
+- **WHEN** a Snapshot is taken of an ask whose answers are choices only
+- **THEN** no event holds `values` and the data holds no `molecules` entry
