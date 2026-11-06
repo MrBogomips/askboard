@@ -203,9 +203,9 @@ describe("act commands", () => {
       "/acts/0/keptRev",
     ],
     [
-      "a widget value, which the widget follow-up adds",
+      "a widget value that is no object, which board protocol 1.5 takes as props",
       act({ ...answer, values: { region: ["EU"] } }),
-      "/acts/0/values",
+      "/acts/0/values/region",
     ],
     ["a note of 10,001 characters", act({ ...answer, note: "n".repeat(10_001) }), "/acts/0/note"],
     [

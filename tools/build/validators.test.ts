@@ -106,6 +106,31 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
+  test("agree with the contract on a state that logs widget values (widget-answers, task 1.4)", () => {
+    const answer = { when: "2026-11-02T09:30:00Z", receipt: "sent" as const };
+    const tree = { nodes: [{ id: "ux", label: "UX design" }] };
+    const state = (extra: Record<string, unknown>) => ({
+      version: BOARD_PROTOCOL_VERSION,
+      type: "state",
+      state: {
+        ask: "waiting",
+        questions: [{ itemId: "plan", rev: 1, state: "answered", answer: { ...answer, ...extra } }],
+      },
+    });
+    const accepted = state({ values: { wbs__tree: tree } });
+    const refused = [
+      state({ values: {} }),
+      state({ values: { wbs__tree: [] } }),
+      state({ values: { wbs__tree: tree }, derived: { "plan.finish": 1 } }),
+    ];
+    expect(generated.state?.(accepted)).toBe(true);
+    expect(validateBoardMessage("toPage", accepted).ok).toBe(true);
+    for (const message of refused) {
+      expect(generated.state?.(message)).toBe(false);
+      expect(validateBoardMessage("toPage", message).ok).toBe(false);
+    }
+  });
+
   test("agree with the contract on what board protocol 1.2 adds (settings-languages, task 2.6)", () => {
     const check = generated.settings;
     const [every] = settingsProtocolExamples.toPage;
