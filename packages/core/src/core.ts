@@ -53,6 +53,7 @@ import { formulaWarnings } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import { expandSentItems } from "./molecules/on-ask.ts";
+import { referencesIn } from "./molecules/references.ts";
 import { valueInReferenceAddressing } from "./molecules/rewrite.ts";
 import type { CorePorts } from "./ports.ts";
 import { AgentStatuses } from "./push/agent-status.ts";
@@ -388,7 +389,7 @@ export class AskCore {
       await pending;
     }
     const now = timeOf(this.#ports.clock.now());
-    const preview = this.#asks.get(askId)?.preview(actions, now);
+    const preview = this.#asks.get(askId)?.preview(actions, now, this.#ports.molecules);
     if (preview === undefined || !preview.revisions.some(({ props }) => hasPointers(props))) {
       return this.#applyUpdate(askId, actions, new Map());
     }
@@ -729,6 +730,7 @@ export class AskCore {
       title,
       input: { ...input, items: sent.items as LifecycleAskInput["items"] },
       expansion: sent.map,
+      references: referencesIn(input.items),
       link,
       who,
       context,
@@ -751,7 +753,12 @@ export class AskCore {
     const ask = this.#asks.get(askId);
     if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
     if (ask.state === "closed") return { kind: "closed", askId };
-    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()), context);
+    const { outcome, effects } = ask.update(
+      actions,
+      timeOf(this.#ports.clock.now()),
+      context,
+      this.#ports.molecules,
+    );
     if (effects?.document) this.#publish({ type: "document", askId });
     if (effects?.state) this.#publish({ type: "state", askId });
     if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });

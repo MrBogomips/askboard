@@ -26,6 +26,7 @@ import { fetchItemOf } from "./context/fetch-item.ts";
 import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
 import { type PointerSource, pointerSourceOf } from "./context/source.ts";
 import { unresolvedWarnings } from "./context/warnings.ts";
+import { formulaWarnings } from "./graph-check.ts";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
 import { Connections } from "./lifecycle/connections.ts";
 import { type Entry, EventLog, frozenCopy } from "./lifecycle/log.ts";
@@ -43,6 +44,7 @@ import {
 } from "./lifecycle/views.ts";
 import type { KeptAnswer } from "./lifecycle/widget-event.ts";
 import { areaInReference, questionInReference, widgetItemValue } from "./lifecycle/widget-fetch.ts";
+import type { WidgetUpdate } from "./lifecycle/widget-update.ts";
 import type { ExpansionMap } from "./molecules/map.ts";
 import type { MoleculeSource } from "./molecules/source.ts";
 import { cursorOf } from "./text.ts";
@@ -87,6 +89,8 @@ export type AskInit = {
   readonly context?: ReadonlyMap<string, QuestionContext>;
   /** Which expanded item of `input.items` belongs to which molecule reference (AD-9). */
   readonly expansion?: ExpansionMap;
+  /** The molecule references as the agent sent them, by ID (a `change` merges into their props). */
+  readonly references?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 } & BoardLanguage;
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */
@@ -217,12 +221,15 @@ export class Ask {
   readonly #connections = new Connections();
   // Which expanded item belongs to which molecule reference (AD-9); empty without references.
   #expansion: ExpansionMap;
+  // Each reference's props as last sent or changed, by the reference's ID.
+  #references: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 
   constructor(init: AskInit) {
     this.epoch = init.epoch;
     this.askId = init.askId;
     this.#request = init.request;
     this.#expansion = init.expansion ?? new Map();
+    this.#references = init.references ?? new Map();
     this.link = init.link;
     this.who = init.who;
     const { presentation, delivery, items } = init.input;
@@ -440,13 +447,18 @@ export class Ask {
     actions: readonly UpdateAction[],
     now: string,
     context: ReadonlyMap<string, QuestionContext> = new Map(),
+    molecules?: MoleculeSource,
   ): { outcome: UpdateOutcome; effects?: UpdateEffects } {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) {
       throw new Error(`update: the ask is ${this.state}`);
     }
     const { askId, epoch, who } = this;
-    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
+    const widgets = this.#widgetsFor(molecules);
+    const applied = applyActions(
+      { askId, epoch, who, now, model, log: this.#log, widgets },
+      actions,
+    );
     if (!applied.ok) {
       const { ok: _, ...refusal } = applied;
       return { outcome: { kind: "refused", askId: this.askId, ...refusal } };
@@ -457,8 +469,13 @@ export class Ask {
       if (resolved !== undefined) model.resolved(question.id, resolved);
     }
     this.#model = model;
+    this.#expansion = widgets.expansion;
+    this.#references = widgets.references;
     if (applied.effects.closed) this.close("agent");
-    const warnings = unresolvedWarnings(revised.map((question) => model.boardQuestion(question)));
+    const warnings = [
+      ...unresolvedWarnings(revised.map((question) => model.boardQuestion(question))),
+      ...(revised.length === 0 ? [] : formulaWarnings(model.items(), widgets.expansion)),
+    ];
     const outcome = {
       kind: "updated",
       askId: this.askId,
@@ -483,11 +500,19 @@ export class Ask {
    * question revisions it would create, at their props, and the image bytes the questions it leaves
    * as they are would still hold; undefined when E3's rules refuse it.
    */
-  preview(actions: readonly UpdateAction[], now: string): UpdatePreview | undefined {
+  preview(
+    actions: readonly UpdateAction[],
+    now: string,
+    molecules?: MoleculeSource,
+  ): UpdatePreview | undefined {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) return undefined;
     const { askId, epoch, who } = this;
-    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
+    const widgets = this.#widgetsFor(molecules);
+    const applied = applyActions(
+      { askId, epoch, who, now, model, log: this.#log, widgets },
+      actions,
+    );
     if (!applied.ok) return undefined;
     const revised = this.#revisedIn(model);
     let heldImageBytes = 0;
@@ -515,6 +540,15 @@ export class Ask {
       if (item !== undefined) return pointerSourceOf(item);
     }
     return undefined;
+  }
+
+  // Copies of the ask's molecules for one update, kept only if it applies.
+  #widgetsFor(source: MoleculeSource | undefined): WidgetUpdate {
+    return {
+      source,
+      expansion: new Map(this.#expansion),
+      references: new Map(this.#references),
+    };
   }
 
   // The questions whose revision `model`, an updated copy, changed or added, in board order.

@@ -6,6 +6,7 @@
 import type {
   AppliedAction,
   AskState,
+  FormulaWarning,
   UnresolvedPointerWarning,
   UpdateAction,
 } from "@askboard/contract";
@@ -16,6 +17,14 @@ import type { EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
 import { fullAnswer } from "./views.ts";
+import {
+  changedReference,
+  expandAdded,
+  holderOf,
+  mergedWidget,
+  type WidgetHolder,
+  type WidgetUpdate,
+} from "./widget-update.ts";
 
 /** Why an action cannot apply. */
 export type UpdateRefusal =
@@ -53,8 +62,11 @@ export type UpdateOutcome =
       readonly askId: string;
       readonly state: AskState;
       readonly applied: readonly AppliedAction[];
-      /** The pointers its new revisions hold unresolved (excerpts, design decision 4). */
-      readonly warnings?: readonly UnresolvedPointerWarning[];
+      /**
+       * The pointers its new revisions hold unresolved (excerpts, design decision 4), then the
+       * formulas in error in the board as changed (widgets, design decision 5).
+       */
+      readonly warnings?: readonly (UnresolvedPointerWarning | FormulaWarning)[];
     }
   | {
       readonly kind: "refused";
@@ -78,6 +90,8 @@ export type UpdateContext = {
   /** The copy of the ask's items the actions change. */
   readonly model: BoardModel;
   readonly log: EventLog;
+  /** The ask's molecules, as copies the update changes and the aggregate keeps if all apply. */
+  readonly widgets: WidgetUpdate;
 };
 
 /** What an update changed, for the subscription: the board document, the board's state, closing. */
@@ -201,8 +215,10 @@ const add = (context: UpdateContext, action: Action<"add">): Step => {
   }
   const misplaced = placementProblem(context, action);
   if (misplaced !== undefined) return misplaced;
+  const expanded = expandAdded(context.model, context.widgets, item);
+  if (!expanded.ok) return refuse("props", expanded.detail, expanded.itemId ?? item.id);
   const { parentId, after } = action;
-  context.model.add(item, {
+  context.model.add(expanded.item, {
     ...(parentId === undefined ? {} : { parentId }),
     ...(after === undefined ? {} : { after }),
   });
@@ -213,7 +229,7 @@ const change = (context: UpdateContext, action: Action<"change">): Step => {
   const { itemId } = action;
   const props = { ...action.props };
   const question = context.model.question(itemId);
-  if (question === undefined) return changeArea(context, itemId, props);
+  if (question === undefined) return changeWidget(context, itemId, props);
   const stands = answeredRefusal(question, statusOf(context, question), "change");
   if (stands !== undefined) return stands;
   const merged = { ...context.model.propsOf(question), ...props };
@@ -221,6 +237,41 @@ const change = (context: UpdateContext, action: Action<"change">): Step => {
   if (problems !== undefined) return refuse("props", problems, itemId);
   const rev = context.model.revise(question, merged as never);
   return { action: "change", itemId, rev };
+};
+
+// A change naming a widget item or a reference of a question; any other ID names an area or nothing.
+const changeWidget = (context: UpdateContext, itemId: string, props: Record<string, unknown>) => {
+  const { model, widgets } = context;
+  const holder = holderOf(model, widgets, itemId);
+  if (holder === undefined) return changeArea(context, itemId, props);
+  const { question } = holder;
+  const stands = answeredRefusal(question, statusOf(context, question), "change");
+  if (stands !== undefined) return { ...stands, itemId };
+  const changed = widgetProps(context, holder, props);
+  if (!changed.ok) return refuse("props", changed.detail, changed.itemId ?? itemId);
+  const rev = model.revise(question, changed.props);
+  return { action: "change", itemId, rev } as const;
+};
+
+// The question's props once the widget item or reference takes the props, checked as an ask's are.
+const widgetProps = (
+  context: UpdateContext,
+  holder: WidgetHolder,
+  props: Record<string, unknown>,
+) => {
+  const { model, widgets } = context;
+  if (holder.reference !== undefined) {
+    return changedReference(model, widgets, { ...holder, reference: holder.reference }, props);
+  }
+  const merged = mergedWidget(model, holder, props);
+  const problems = itemProblems(context, {
+    type: "question",
+    id: holder.question.id,
+    props: merged,
+  });
+  return problems === undefined
+    ? ({ ok: true, props: merged } as const)
+    : ({ ok: false, detail: problems } as const);
 };
 
 const remove = (context: UpdateContext, action: Action<"delete">): Step => {
