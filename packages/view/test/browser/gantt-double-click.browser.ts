@@ -20,10 +20,18 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { host } = useWidgetHost(engine);
     const opened = openerFor(host, dist);
 
-    /** What the view's document has selected as text. */
+    /** What the view's document has selected as text, apart from an open editor's own selected text. */
     const selection = async (run: Awaited<ReturnType<typeof opened>>) => {
       const view = await run.board.viewFrame();
-      return view.evaluate(() => window.getSelection()?.toString() ?? "");
+      return view.evaluate(() => {
+        const text = window.getSelection()?.toString() ?? "";
+        const field = document.activeElement;
+        const own =
+          field instanceof HTMLInputElement
+            ? field.value.slice(field.selectionStart ?? 0, field.selectionEnd ?? 0)
+            : "";
+        return text === own ? "" : text;
+      });
     };
 
     test(

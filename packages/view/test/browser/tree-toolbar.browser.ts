@@ -69,7 +69,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.page.keyboard.press("Enter");
         const item = run.board.view.getByRole("menuitem", { name: "Sposta giù" });
         await item.waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await run.board.view.getByRole("menuitem").count()).toBe(MOVES.length);
+        // The crowded row gives up "Select all" and "Select none" too, with the four moves.
+        expect(await run.board.view.getByRole("menuitem").count()).toBe(MOVES.length + 2);
         await item.click({ timeout: STEP_TIMEOUT_MS });
         expect((await shownIds(tree)).slice(0, 3)).toEqual(["design", "architecture", "ux"]);
         expect(run.browser.errors).toEqual([]);

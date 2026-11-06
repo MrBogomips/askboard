@@ -21,6 +21,7 @@ import {
   focusRing,
   pressIn,
   pressTool,
+  shiftTabToAddNode,
   tabIntoToolbar,
   tabIntoTree,
   tabStops,
@@ -90,10 +91,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["ArrowRight", "Add child"],
           ["ArrowRight", "Move down"],
           ["ArrowRight", "Delete"],
-          ["ArrowRight", "Delete"],
+          // The selection tools follow the Tree's: "Select none" and "Adjust by %…" are disabled
+          // with nothing selected.
+          ["ArrowRight", "Select all"],
+          ["ArrowRight", "Select all"],
           ["Home", "Add node"],
           ["ArrowLeft", "Add node"],
-          ["End", "Delete"],
+          ["End", "Select all"],
+          ["ArrowLeft", "Delete"],
           ["ArrowLeft", "Move down"],
         ]);
         expect(await focusRing(board)).toEqual(RING);
@@ -142,7 +147,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(board);
         await focusPortal(run, tree);
         // From the keyboard: Shift+Tab to the toolbar, whose Tab stop is "Add node", then Enter.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         expect(await shownIds(tree)).toEqual([
@@ -202,7 +207,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
         expect(await pressIn(board, "ArrowLeft")).toEqual({ nodeId: "design" });
         expect(await shownIds(tree)).toEqual(["design", "build", "portal", "billing", "reporting"]);
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         expect(await pressTool(board, "ArrowRight")).toBe("Add child");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
@@ -261,7 +266,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(board);
         await focusPortal(run, tree);
         // Escape, after typing: the focus goes back to the node it was on.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         await board.page.keyboard.type("Draft");
@@ -269,7 +274,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.editor.count()).toBe(0);
         expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
         // An empty name: "Add child" on `portal`, a leaf, which opens, then Enter.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         expect(await pressTool(board, "ArrowRight")).toBe("Add child");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
@@ -306,14 +311,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(board);
         await focusPortal(run, tree);
         // Shift+Tab from an empty name: the node goes, and the focus goes back to `portal`.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         expect(await pressIn(board, "Shift+Tab")).toEqual({ nodeId: "portal" });
         expect(await shownIds(tree)).toEqual(FIXTURE_IDS);
         expect(await tabStops(tree.grid)).toBe(1);
         // Shift+Tab from a name: the node is added, and the focus stays on its name.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         await board.page.keyboard.type("Dashboards");

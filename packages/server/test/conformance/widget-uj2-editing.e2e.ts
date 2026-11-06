@@ -97,6 +97,8 @@ const dropBefore = async (board: RealBoard, nodeId: string, targetId: string): P
 
 /** The five edits, on the real board page, with the pointer. */
 const makeTheEdits = async (board: RealBoard): Promise<void> => {
+  // A tall page, so that no handle sits under the board's bar at the bottom of the default one.
+  await board.page.setViewportSize({ width: 1280, height: 1000 });
   await board.view.getByRole("treegrid").waitFor({ timeout: STEP_TIMEOUT_MS });
   const edge = board.view.getByRole("separator", { name: "Resize the Task column" });
   await dragSideways(board, edge, COLUMN_STEP_PX);
@@ -107,7 +109,7 @@ const makeTheEdits = async (board: RealBoard): Promise<void> => {
   await board.view.locator('[data-node-id="billing"] [data-select]').click();
   await board.view.getByRole("button", { name: "Adjust by %…", exact: true }).click();
   const panel = board.view.getByRole("dialog");
-  await panel.getByLabel("Percentage").fill("+10");
+  await panel.getByLabel("Percentage", { exact: true }).fill("+10");
   await panel.getByRole("button", { name: "Apply" }).click();
   await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
   await dropBefore(board, "reporting", "billing");
@@ -136,7 +138,7 @@ describe("UJ-2 with the five editing features on the real session process", () =
       const [entry] = collected.asks;
       expect(entry).toMatchObject({ askId, state: "answered" });
       const [answer] = entry?.events ?? [];
-      expect(answer).toMatchObject({ type: "answer", questionId: "plan" });
+      expect(answer).toMatchObject({ type: "answer", itemId: "plan" });
       const changes = answer?.changes ?? [];
       // The plan's one request of a duration, longer than the estimates' 13 days.
       const durations = changes.filter(({ target }) => /^schedule\.[^.]+\.duration$/.test(target));

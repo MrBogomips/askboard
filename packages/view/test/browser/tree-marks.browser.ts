@@ -16,7 +16,7 @@ import {
   focusRing,
   paintOf,
   pressIn,
-  pressTool,
+  shiftTabToAddNode,
   treeGridOf,
 } from "./harness/tree-grid.ts";
 import {
@@ -60,7 +60,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.counter.textContent()).toBe("Your changes: 1");
         // A new node shows the added mark at once (review F-11) but is not counted until its name
         // is committed.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
@@ -139,7 +139,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await pressIn(board, "Enter")).toEqual({ nodeId: "portal", cell: 1 });
           expect(await focusRing(board)).toEqual(RING);
           // An added row: `u-1` after `portal`.
-          expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+          expect(await shiftTabToAddNode(board)).toBe("Add node");
           await board.page.keyboard.press("Enter");
           await expectNewNode(tree, "u-1");
           await board.page.keyboard.type("Customer portal: dashboards");

@@ -42,7 +42,7 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { pressIn, pressTool, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
+import { pressIn, shiftTabToAddNode, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import {
   enterField,
   expectNewNode,
@@ -121,7 +121,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           }
           // `u-1`, split off after `portal` from the toolbar's "Add node", named, which gives it the
           // portal's predecessors in the plan (molecules, F20), then estimated.
-          expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+          expect(await shiftTabToAddNode(board)).toBe("Add node");
           await board.page.keyboard.press("Enter");
           await expectNewNode(tree, "u-1");
           await board.page.keyboard.type("Customer portal: dashboards");

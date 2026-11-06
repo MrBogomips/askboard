@@ -90,13 +90,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await panel.waitFor({ timeout: STEP_TIMEOUT_MS });
         for (const column of ["Most likely", "Pessimistic"])
           await panel.getByLabel(column).uncheck();
-        await panel.getByLabel("Percentage").fill("+300");
+        await panel.getByLabel("Percentage", { exact: true }).fill("+300");
         await panel.getByText(/Nothing is applied/).waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await panel.getByText(/, Optimistic/).count()).toBeGreaterThan(0);
         expect(await panel.getByRole("button", { name: "Apply" }).isDisabled()).toBe(true);
         expect(await tree.marks("field").count()).toBe(0);
         for (const column of ["Most likely", "Pessimistic"]) await panel.getByLabel(column).check();
-        await panel.getByLabel("Percentage").fill("+10");
+        await panel.getByLabel("Percentage", { exact: true }).fill("+10");
         const apply = panel.getByRole("button", { name: "Apply" });
         await apply.click();
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });

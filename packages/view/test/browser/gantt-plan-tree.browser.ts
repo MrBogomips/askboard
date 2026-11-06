@@ -51,7 +51,14 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { deleteQuestion, paintOf, pressIn, pressTool, treeGridOf } from "./harness/tree-grid.ts";
+import {
+  deleteQuestion,
+  paintOf,
+  pressIn,
+  pressTool,
+  shiftTabToAddNode,
+  treeGridOf,
+} from "./harness/tree-grid.ts";
 import {
   expectNewNode,
   expectSteps,
@@ -218,7 +225,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // "Add node" from the Tree's toolbar on the portal, then the new package's name and
         // estimates, all by keyboard.
         await focusPortal(run, tree);
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
         // The new row shows the added mark at once, with no error note.
@@ -426,7 +433,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const gantt = ganttOf(board, planGantt.id);
         // "Add child" on the portal: the portal is a parent, no longer a task.
         await focusPortal(run, tree);
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         expect(await pressTool(board, "ArrowRight")).toBe("Add child");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");

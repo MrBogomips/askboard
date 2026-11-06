@@ -50,6 +50,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await panel.getByLabel("Optimistic").isChecked()).toBe(true);
         await board.page.keyboard.press("Space");
         expect(await panel.getByLabel("Optimistic").isChecked()).toBe(false);
+        // The focus opened on "Optimistic": Tab passes "Most likely" and "Pessimistic" to the field.
+        for (let tab = 0; tab < 3; tab += 1) await board.page.keyboard.press("Tab");
         await board.page.keyboard.type("15");
         const apply = panel.getByRole("button", { name: "Apply" });
         await eventually(async () => !(await apply.isDisabled()), "Apply enabled", STEP_TIMEOUT_MS);
@@ -57,7 +59,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await toolFocus(board)).toBe(ADJUST);
         await eventually(
-          async () => DONE.test((await board.view.getByRole("status").textContent()) ?? ""),
+          async () =>
+            DONE.test(
+              (await board.view
+                .getByRole("status")
+                .filter({ hasText: /^Adjusted/ })
+                .textContent()) ?? "",
+            ),
           "the announcement",
           STEP_TIMEOUT_MS,
         );
@@ -80,7 +88,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tree.tool(ADJUST).click();
         const panel = board.view.getByRole("dialog");
         await panel.waitFor({ timeout: STEP_TIMEOUT_MS });
-        const field = panel.getByLabel("Percentage");
+        const field = panel.getByLabel("Percentage", { exact: true });
         for (const refused of ["-100", "+1001", "12,5", "1.25"]) {
           await field.fill(refused);
           expect(await panel.getByRole("button", { name: "Apply" }).isDisabled()).toBe(true);
@@ -106,7 +114,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tree.row("portal").locator("[data-select]").click();
         await tree.tool(ADJUST).click();
         const panel = board.view.getByRole("dialog");
-        await panel.getByLabel("Percentage").fill("15");
+        await panel.getByLabel("Percentage", { exact: true }).fill("15");
         await panel.getByRole("button", { name: "Apply" }).click();
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await tree.tool("Undo adjust").waitFor();
@@ -120,7 +128,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectUnchanged(run);
         // By the keyboard: Ctrl or Cmd with Z in the tree.
         await tree.tool(ADJUST).click();
-        await panel.getByLabel("Percentage").fill("15");
+        await panel.getByLabel("Percentage", { exact: true }).fill("15");
         await panel.getByRole("button", { name: "Apply" }).click();
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await pressIn(board, "Tab")).toEqual(await treeFocus(board));
@@ -132,7 +140,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         // Another edit takes the button away.
         await tree.tool(ADJUST).click();
-        await panel.getByLabel("Percentage").fill("15");
+        await panel.getByLabel("Percentage", { exact: true }).fill("15");
         await panel.getByRole("button", { name: "Apply" }).click();
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await tree.cell("ux", 0).dblclick();
@@ -155,7 +163,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const panel = board.view.getByRole("dialog");
         for (const column of ["Optimistic", "Pessimistic"])
           await panel.getByLabel(column).uncheck();
-        await panel.getByLabel("Percentage").fill("+10");
+        await panel.getByLabel("Percentage", { exact: true }).fill("+10");
         await panel.getByRole("button", { name: "Apply" }).click();
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await tree.marks("field").count()).toBeGreaterThan(0);

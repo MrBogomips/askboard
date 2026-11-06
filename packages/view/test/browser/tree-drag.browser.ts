@@ -14,6 +14,7 @@ import {
   dragDrop,
   dragOver,
   dragTip,
+  expectDrop,
   handleOf,
   release,
   ZONE,
@@ -64,7 +65,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const tree = treeGridOf(board);
           await beginDrag(board, tree, "billing");
           await dragOver(board, tree, "portal", ZONE.before);
-          expect(await tree.row("portal").getAttribute("data-drop")).toBe("before");
+          await expectDrop(tree, "portal", "before");
           expect(await tree.row("billing").getAttribute("data-dragging")).toBe("");
           await release(board);
           await eventually(
@@ -81,7 +82,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await tree.counter.textContent()).toBe("Your changes: 1");
           expect(await tree.marks("moved").count()).toBe(1);
           expect(await tree.row("billing").getAttribute("data-dragging")).toBeNull();
-          expect(await tree.row("portal").getAttribute("data-drop")).toBeNull();
+          await expectDrop(tree, "portal", null);
           expect(await treeFocus(board)).toEqual({ nodeId: "billing" });
         },
         TEST_TIMEOUT_MS,
@@ -96,7 +97,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const tree = treeGridOf(board);
           await beginDrag(board, tree, "billing");
           await dragOver(board, tree, "portal", ZONE.into);
-          expect(await tree.row("portal").getAttribute("data-drop")).toBe("into");
+          await expectDrop(tree, "portal", "into");
           await release(board);
           await eventually(
             async () => (await placeOf(tree, "billing"))[0] === "3",
@@ -118,7 +119,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const tree = treeGridOf(board);
           await beginDrag(board, tree, "reporting");
           await dragOver(board, tree, "build", ZONE.after);
-          expect(await tree.row("build").getAttribute("data-drop")).toBe("after");
+          await expectDrop(tree, "build", "after");
           await release(board);
           await eventually(
             async () => (await placeOf(tree, "reporting"))[0] === "1",
@@ -141,7 +142,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const places = await allPlaces(tree);
           await beginDrag(board, tree, "build");
           await dragOver(board, tree, "portal", ZONE.into);
-          expect(await tree.row("portal").getAttribute("data-drop")).toBe("refused");
+          await expectDrop(tree, "portal", "refused");
           await dragTip(board).getByText("Cannot drop inside its own branch").waitFor({
             timeout: STEP_TIMEOUT_MS,
           });
@@ -168,7 +169,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const places = await allPlaces(tree);
           await beginDrag(board, tree, "leaf");
           await dragOver(board, tree, "b8", ZONE.into);
-          expect(await tree.row("b8").getAttribute("data-drop")).toBe("refused");
+          await expectDrop(tree, "b8", "refused");
           await dragTip(board).getByText("At most 8 levels").waitFor({ timeout: STEP_TIMEOUT_MS });
           await release(board);
           await eventually(
@@ -192,7 +193,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const places = await allPlaces(tree);
           await beginDrag(board, tree, "billing");
           await dragOver(board, tree, "portal", ZONE.before);
-          expect(await tree.row("portal").getAttribute("data-drop")).toBe("before");
+          await expectDrop(tree, "portal", "before");
           await board.page.keyboard.press("Escape");
           await release(board);
           await eventually(

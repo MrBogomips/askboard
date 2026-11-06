@@ -20,7 +20,7 @@ import { enginesFrom } from "./harness/engines.ts";
 import {
   type FocusAt,
   pressIn,
-  pressTool,
+  shiftTabToAddNode,
   type TreeGrid,
   treeFocus,
   treeGridOf,
@@ -98,7 +98,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             await enterField(run, tree, text, { nodeId: "portal", cell });
           }
           // `u-1`, split off after `portal` from the toolbar's "Add node", named, then estimated.
-          expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+          expect(await shiftTabToAddNode(board)).toBe("Add node");
           await board.page.keyboard.press("Enter");
           await expectNewNode(tree, "u-1");
           await board.page.keyboard.type("Customer portal: dashboards");

@@ -163,6 +163,16 @@ export const pressTool = async (board: Board, key: string): Promise<string | und
   return toolFocus(board);
 };
 
+/**
+ * Shift+Tab from the tree to the toolbar, then Home: the toolbar's Tab stop is the tool focused
+ * last, and the Tab that reached the tree passed "Select all", the one tool enabled before a row
+ * is current.
+ */
+export const shiftTabToAddNode = async (board: Board): Promise<string | undefined> => {
+  await board.page.keyboard.press("Shift+Tab");
+  return pressTool(board, "Home");
+};
+
 /** How many of the toolbar's tools are in the Tab order: its one Tab stop. */
 export const toolStops = (toolbar: Locator): Promise<number> =>
   toolbar.locator('button:not([tabindex="-1"])').count();

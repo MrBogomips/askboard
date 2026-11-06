@@ -75,8 +75,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(dates.reporting).toBe("2026-12-09..2026-12-16");
         expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["portal"]);
         expect(await counterText(gantt)).toBe("Your changes: 1");
-        // The pin and the change fill on the portal's cell; reporting only follows, with no pin.
-        expect(await derivedOutlines(gantt)).toContain("reporting");
+        // The pin and the change fill on the portal's cell; reporting only follows, with no pin and
+        // no derived mark, which is for a duration that follows the Tree.
+        expect(await derivedOutlines(gantt)).toEqual([]);
         expect(await pinOf(gantt, "reporting").count()).toBe(0);
         expect(await run.board.answer.isEnabled()).toBe(true);
         expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
@@ -89,7 +90,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "while the end is dragged a label reads the live duration and a guide marks the earliest end",
       async () => {
         const { run, gantt } = await opened();
-        await pressAndMove(run.board, await endPoint(gantt, "portal"), 2 * WEEK_PX);
+        await pressAndMove(run.board, await endPoint(gantt, "portal"), 4 * WEEK_PX);
         const label = gantt.root.locator("[data-gantt-resize-label]");
         await eventually(async () => (await label.textContent())?.trim() === "15 d", "the label");
         expect(await gantt.root.locator("[data-gantt-resize]").count()).toBe(1);
@@ -124,13 +125,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { run, gantt } = await opened();
         await keysTo(run.board, "portal", "duration", PLAN_TASKS);
         await run.board.page.keyboard.press("Enter");
-        await run.board.page.keyboard.press("Control+A");
+        await run.board.page.keyboard.press("ControlOrMeta+A");
         await run.board.page.keyboard.type("2.5");
         await run.board.page.keyboard.press("Enter");
         expect(await gantt.note("portal").count()).toBe(1);
         expect(await gantt.grid.locator("input").count()).toBe(1);
         expect(await counterText(gantt)).toBe("No changes");
-        await run.board.page.keyboard.press("Control+A");
+        await run.board.page.keyboard.press("ControlOrMeta+A");
         await run.board.page.keyboard.type("10");
         await run.board.page.keyboard.press("Enter");
         expect(await focusedCell(run.board)).toBe("portal.duration");
@@ -157,7 +158,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // By the keyboard: Delete on the pinned cell.
         await keysTo(run.board, "portal", "duration", PLAN_TASKS);
         await run.board.page.keyboard.press("Enter");
-        await run.board.page.keyboard.press("Control+A");
+        await run.board.page.keyboard.press("ControlOrMeta+A");
         await run.board.page.keyboard.type("21");
         await run.board.page.keyboard.press("Enter");
         expect(await durationOf(gantt, "portal")).toBe("21 d");

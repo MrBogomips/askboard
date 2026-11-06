@@ -31,6 +31,7 @@ import {
   deleteQuestion,
   pressIn,
   pressTool,
+  shiftTabToAddNode,
   type TreeGrid,
   treeGridOf,
 } from "./harness/tree-grid.ts";
@@ -66,7 +67,7 @@ const rowOf = async (run: WidgetHostRun, task: string) =>
 
 /** Opens "Add node" on the focused node from the toolbar and names the new package `label`. */
 const addAndName = async (run: WidgetHostRun, tree: TreeGrid, tool: "Add node" | "Add child") => {
-  expect(await pressTool(run.board, "Shift+Tab")).toBe("Add node");
+  expect(await shiftTabToAddNode(run.board)).toBe("Add node");
   if (tool === "Add child") expect(await pressTool(run.board, "ArrowRight")).toBe("Add child");
   await run.board.page.keyboard.press("Enter");
   await expectNewNode(tree, "u-1");

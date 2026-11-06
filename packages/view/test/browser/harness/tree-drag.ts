@@ -5,6 +5,7 @@
 // works in Chromium and WebKit.
 
 import type { Locator } from "playwright";
+import { eventually, STEP_TIMEOUT_MS } from "./board-test.ts";
 import type { Board } from "./dom.ts";
 import type { TreeGrid } from "./tree-grid.ts";
 
@@ -38,7 +39,12 @@ export const dragOver = async (
   fraction: number,
 ): Promise<void> => {
   const row = await centreOf(tree.row(targetId));
-  await board.page.mouse.move(row.x + row.width / 2, row.y + row.height * fraction, { steps: 10 });
+  const x = row.x + row.width / 2;
+  const y = row.y + row.height * fraction;
+  await board.page.mouse.move(x, y, { steps: 10 });
+  // The move that enters a row fires only its `dragenter`; a real browser goes on firing
+  // `dragover` while the pointer rests, so one more move within the row stands for that.
+  await board.page.mouse.move(x + 1, y);
 };
 
 /** Releases the mouse: the drop, wherever the pointer is. */
@@ -59,3 +65,11 @@ export const dragDrop = async (
 
 /** The three zones' pointer places, as fractions of a row's height. */
 export const ZONE = { before: 0.1, into: 0.5, after: 0.9 } as const;
+
+/** Waits for the row's drop indicator to read `drop`: WebKit tells the page of the pointer a moment late. */
+export const expectDrop = (tree: TreeGrid, nodeId: string, drop: string | null): Promise<void> =>
+  eventually(
+    async () => (await tree.row(nodeId).getAttribute("data-drop")) === drop,
+    `${nodeId}'s drop indicator to read ${drop}`,
+    STEP_TIMEOUT_MS,
+  );

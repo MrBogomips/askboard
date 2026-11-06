@@ -81,7 +81,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await tree.row("billing").locator("[data-select]").click();
           await tree.tool("Adjust by %…").click();
           const panel = board.view.getByRole("dialog");
-          await panel.getByLabel("Percentage").fill("+10");
+          await panel.getByLabel("Percentage", { exact: true }).fill("+10");
           await panel.getByRole("button", { name: "Apply" }).click();
           await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
 

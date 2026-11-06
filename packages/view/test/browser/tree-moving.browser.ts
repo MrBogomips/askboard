@@ -17,6 +17,7 @@ import {
   pressTool,
   recordedKeys,
   recordKeys,
+  shiftTabToAddNode,
   tabIntoTree,
   tabStops,
   treeGridOf,
@@ -154,7 +155,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Outdent",
           "Delete",
         ]);
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
         await expectToolSteps(run, tree, [
           ["ArrowRight", "Add child"],
           ["ArrowRight", "Move down"],
@@ -182,7 +183,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await treeStop(tree)).toEqual({ nodeId: "portal" });
         // The spec's "Outdenting": `portal` follows `build` at the top level, and `billing` and
         // `reporting` stay under `build`.
-        expect(await pressTool(board, "End")).toBe("Delete");
+        expect(await pressTool(board, "End")).toBe("Select all");
+        expect(await pressTool(board, "ArrowLeft")).toBe("Delete");
         expect(await pressTool(board, "ArrowLeft")).toBe("Outdent");
         expect(await pressTool(board, "Enter")).toBe("Outdent");
         expect(await shownIds(tree)).toEqual(last);

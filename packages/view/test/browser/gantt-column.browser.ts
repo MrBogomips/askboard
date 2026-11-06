@@ -139,13 +139,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(
           await cell.locator("span").evaluate((span) => span.scrollWidth > span.clientWidth),
         ).toBe(true);
+        // The name's whole width, cut as it is, and the cell's padding on both sides.
+        const needed = await cell
+          .locator("span")
+          .evaluate((span) => Math.ceil(span.scrollWidth) + 16);
         const edge = gantt.root.getByRole("separator", { name: "Resize the Task column" });
         await edge.focus();
         await run.board.page.keyboard.press("Enter");
         const fitted = await widths(gantt);
-        const needed = await cell
-          .locator("span")
-          .evaluate((span) => Math.ceil(span.scrollWidth) + 16);
         expect(
           Math.abs(fitted.column - Math.min(needed, Math.floor(fitted.frame * 0.6))),
         ).toBeLessThanOrEqual(1);

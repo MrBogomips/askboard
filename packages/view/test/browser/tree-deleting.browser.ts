@@ -21,6 +21,7 @@ import {
   focusRing,
   pressIn,
   pressTool,
+  shiftTabToAddNode,
   tabIntoTree,
   tabStops,
   toolFocus,
@@ -70,8 +71,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await shownIds(tree)).toEqual([...FIXTURE_IDS.slice(0, 6)]);
         // From the toolbar: `portal`, now `build`'s only child, goes; the focus stays on the tool
         // and the tree's focus goes to the parent.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
-        expect(await pressTool(board, "End")).toBe("Delete");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
+        expect(await pressTool(board, "End")).toBe("Select all");
+        expect(await pressTool(board, "ArrowLeft")).toBe("Delete");
         expect(await pressTool(board, "Enter")).toBe("Delete");
         expect(await shownIds(tree)).toEqual([...FIXTURE_IDS.slice(0, 5)]);
         expect(await tree.row("build").getAttribute("aria-expanded")).toBeNull();
@@ -127,8 +129,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await question.count()).toBe(0);
         expect(await treeFocus(board)).toEqual({ nodeId: "design" });
         // From the toolbar's "Delete": Enter on "Cancel" gives the focus back to the tool.
-        expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
-        expect(await pressTool(board, "End")).toBe("Delete");
+        expect(await shiftTabToAddNode(board)).toBe("Add node");
+        expect(await pressTool(board, "End")).toBe("Select all");
+        expect(await pressTool(board, "ArrowLeft")).toBe("Delete");
         await board.page.keyboard.press("Enter");
         await question.waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await isFocused(question.getByRole("button", { name: "Cancel" }))).toBe(true);
