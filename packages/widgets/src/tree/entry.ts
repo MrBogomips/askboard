@@ -8,14 +8,17 @@ import {
   GANTT_PLAN_ESTIMATES,
   type Locale,
   TREE_LABEL_MAX_CHARS,
+  TREE_PERT_MAX_ESTIMATE,
   TREE_TEXT_MAX_CHARS,
   type TreeColumn,
   type TreeNode,
   type TreeProps,
 } from "@askboard/contract";
+import { say } from "@askboard/view/catalog";
 import { parseNumber } from "../shared/number.ts";
 import { fieldText } from "./cells.ts";
 import { can, estimateProblem, rename, setField } from "./model/edits.ts";
+import { cellCount } from "./model/rows.ts";
 
 /** What a cell edits: the name, or a field of its column's type. */
 export type EntryKind = "name" | TreeColumn["type"];
@@ -25,9 +28,17 @@ export type CellEntry =
   | { readonly kind: "value"; readonly value: TreeProps }
   | { readonly kind: "refused"; readonly reason: string };
 
-export const NAME_TOO_LONG = `A name holds at most ${TREE_LABEL_MAX_CHARS} characters.`;
+/** The refusal of a name past the contract's limit, in `language`. */
+export const nameTooLong = (language: Locale): string =>
+  say(language, "tree.entry.nameTooLong", { max: TREE_LABEL_MAX_CHARS.toLocaleString(language) });
 
-export const TEXT_TOO_LONG = `A text field holds at most ${TREE_TEXT_MAX_CHARS.toLocaleString("en-US")} characters.`;
+const textTooLong = (language: Locale): string =>
+  say(language, "tree.entry.textTooLong", { max: TREE_TEXT_MAX_CHARS.toLocaleString(language) });
+
+const estimateOutOfRange = (language: Locale): string =>
+  say(language, "tree.entry.estimateRange", {
+    max: TREE_PERT_MAX_ESTIMATE.toLocaleString(language),
+  });
 
 // A length in code points, as the contract counts it.
 const lengthOf = (text: string): number => [...text].length;
@@ -59,6 +70,17 @@ export const entryKindAt = (
     : entryKindOf(value.columns, cell);
 };
 
+/**
+ * The cells of the node `nodeId` that take an edit, as a comma-separated list of their numbers: it
+ * is what the row marks `data-editable` for the hover layer, a primitive so that a row re-renders
+ * only when it changes. None once the Tree is read-only.
+ */
+export const editableCells = (value: TreeProps, nodeId: string, disabled = false): string => {
+  if (disabled) return "";
+  const cells = Array.from({ length: cellCount(value) }, (_, cell) => cell);
+  return cells.filter((cell) => entryKindAt(value, nodeId, cell) !== undefined).join(",");
+};
+
 /** The editor's starting text: the name, or the field as the cell shows it. */
 export const startTextOf = (
   columns: readonly TreeColumn[] | undefined,
@@ -82,14 +104,14 @@ export const enterCell = (
 ): CellEntry => {
   if (cell === 0) {
     return lengthOf(text) > TREE_LABEL_MAX_CHARS
-      ? refused(NAME_TOO_LONG)
+      ? refused(nameTooLong(language))
       : valued(rename(value, nodeId, text));
   }
   const column = value.columns?.[cell - 1];
   if (column === undefined) return valued(value);
   if (column.type === "text") {
     return lengthOf(text) > TREE_TEXT_MAX_CHARS
-      ? refused(TEXT_TOO_LONG)
+      ? refused(textTooLong(language))
       : valued(setField(value, nodeId, column.field, text));
   }
   const entry = parseNumber(text, locale, language);
@@ -99,5 +121,5 @@ export const enterCell = (
   const problem = estimateProblem(value, column.field, number);
   return problem === undefined
     ? valued(setField(value, nodeId, column.field, number))
-    : refused(problem);
+    : refused(estimateOutOfRange(language));
 };

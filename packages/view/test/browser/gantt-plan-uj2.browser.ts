@@ -30,6 +30,7 @@ import {
   changeOutlines,
   counterText,
   criticalTasks,
+  derivedOutlines,
   ganttOf,
   rowTexts,
 } from "./fixtures/gantt-view.ts";
@@ -58,13 +59,13 @@ const dist = await readViewBuild();
 // The approved answer's plan as `compute` schedules it over the edited Tree: each row, then each
 // bar; it ends on 12/2/2026.
 const ANSWERED_ROWS: RowText[] = [
-  ["ux", "UX design", "11/2/2026", "5", ""],
-  ["architecture", "Architecture", "11/2/2026", "4", ""],
-  ["prototype", "Clickable prototype", "11/9/2026", "5", "UX design"],
-  ["portal", "Customer portal: accounts", "11/16/2026", "7", "Architecture, Clickable prototype"],
-  ["u-1", "Customer portal: dashboards", "11/16/2026", "8", "Architecture, Clickable prototype"],
-  ["billing", "Billing integration", "11/6/2026", "10", "Architecture"],
-  ["reporting", "Reporting", "11/25/2026", "6", "Customer portal: accounts"],
+  ["ux", "UX design", "Mon 11/2", "5 d", ""],
+  ["architecture", "Architecture", "Mon 11/2", "4 d", ""],
+  ["prototype", "Clickable prototype", "Mon 11/9", "5 d", "UX design"],
+  ["portal", "Customer portal: accounts", "Mon 11/16", "7 d", "Architecture, Clickable prototype"],
+  ["u-1", "Customer portal: dashboards", "Mon 11/16", "8 d", "Architecture, Clickable prototype"],
+  ["billing", "Billing integration", "Fri 11/6", "10 d", "Architecture"],
+  ["reporting", "Reporting", "Wed 11/25", "6 d", "Customer portal: accounts"],
 ];
 
 const ANSWERED_BARS = {
@@ -147,19 +148,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await criticalTasks(gantt)).toEqual(["ux", "prototype", "portal", "reporting"]);
           expect((await baselineFacts(gantt)).map(({ task }) => task)).toEqual([
             "ux",
-            "architecture",
             "prototype",
             "portal",
             "billing",
             "reporting",
           ]);
-          expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual([
-            "ux",
-            "portal",
-            "u-1",
-            "billing",
-          ]);
-          expect(await counterText(gantt)).toBe("Your changes: 1");
+          // `u-1` is the user's own change; the three re-estimated follow the WBS (review F-07).
+          expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["u-1"]);
+          expect(await derivedOutlines(gantt)).toEqual(["ux", "portal", "billing"]);
+          expect(await counterText(gantt)).toBe("Your changes: 1 · 3 follow from the WBS");
           // Nothing has left the view yet.
           await Bun.sleep(QUIET_MS);
           expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);

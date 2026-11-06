@@ -1,12 +1,12 @@
 // The widgets' number and date entry in the ask's locale, in each engine (settings-languages, task
 // 9.3): the browser runs in German in each extreme time zone of AD-13's determinism runs, and the
-// widgets follow the ask alone. An it-IT ask's Tree reads `1.234,5` and echoes `= 1234,5`, and
-// refuses an en-US entry with the Italian reason; an en-US ask with the it-IT locale reads the same
-// entry and refuses in English; its Gantt takes `9/12/2026` day first, echoes `= mer 9 dic 2026`,
-// shows `09/12/2026` in the grid and labels its axis in Italian.
+// widgets follow the ask alone. An it-IT ask's Tree reads `1.234,5`, shows `1234,5` with no echo
+// and refuses an en-US entry with the Italian reason; an en-US ask with the it-IT locale reads the
+// same entry and refuses in English; its Gantt takes `9/12/2026` day first, shows the short Italian
+// date (`mer 9/12`) with no echo, and labels its axis in Italian.
 
 import { describe, expect, test } from "bun:test";
-import { parseNumber } from "@askboard/contract";
+import { formatGridDate, parseNumber } from "@askboard/contract";
 import { ganttBoardDocument, treeBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument } from "../../src/view-document.ts";
 import { editorFocused, keysTo } from "./fixtures/gantt-input.ts";
@@ -51,7 +51,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             ["ArrowRight", { nodeId: "portal", cell: 1 }],
           ]);
           await typeIn(run, tree, "F2", "1.234,5");
-          expect(await tree.cell("portal", 1).textContent()).toContain("= 1234,5");
+          expect(await tree.cell("portal", 1).textContent()).not.toContain("=");
           expect(await pressIn(run.board, "Enter")).toEqual({ nodeId: "portal", cell: 1 });
           expect(((await tree.cell("portal", 1).textContent()) ?? "").trim()).toBe("1234,5");
           await typeIn(run, tree, "F2", "1,234.5");
@@ -78,7 +78,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             ["ArrowRight", { nodeId: "portal", cell: 1 }],
           ]);
           await typeIn(run, tree, "F2", "1.234,5");
-          expect(await tree.cell("portal", 1).textContent()).toContain("= 1234,5");
+          expect(await tree.cell("portal", 1).textContent()).not.toContain("=");
           await run.board.page.keyboard.press("Escape");
           await typeIn(run, tree, "F2", "1,234.5");
           await run.board.page.keyboard.press("Enter");
@@ -92,7 +92,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       );
 
       test(
-        "an it-IT Gantt takes 9/12/2026 day first, echoes = mer 9 dic 2026, shows 09/12/2026 and labels its axis in Italian",
+        "an it-IT Gantt takes 9/12/2026 day first, echoes nothing, shows the Italian grid date and labels its axis in Italian",
         async () => {
           const run = await opened(withAsk(ganttBoardDocument, italian));
           const gantt = ganttOf(run.board);
@@ -110,12 +110,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await editor.inputValue()).toBe("04/12/2026");
           expect(await editorFocused(run.board, "reporting", "start")).toBe(true);
           await run.board.page.keyboard.type("9/12/2026");
-          expect(await gantt.cell("reporting", "start").textContent()).toContain(
-            "= mer 9 dic 2026",
-          );
+          expect(await gantt.cell("reporting", "start").textContent()).not.toContain("=");
           await run.board.page.keyboard.press("Enter");
           expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-            "09/12/2026",
+            formatGridDate("2026-12-09", "it-IT", false),
           );
           expect(run.browser.cspProblems()).toEqual([]);
         },
@@ -128,14 +126,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const run = await opened(withAsk(ganttBoardDocument, mixed));
           const gantt = ganttOf(run.board);
           expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-            "04/12/2026",
+            formatGridDate("2026-12-04", "it-IT", false),
           );
           await keysTo(run.board, "reporting", "start");
           await run.board.page.keyboard.press("Enter");
           await run.board.page.keyboard.type("9/12/2026");
-          expect(await gantt.cell("reporting", "start").textContent()).toContain(
-            "= mer 9 dic 2026",
-          );
+          expect(await gantt.cell("reporting", "start").textContent()).not.toContain("=");
         },
         TEST_TIMEOUT_MS,
       );

@@ -5,8 +5,8 @@
 // stays as it was. An empty name, Escape or leaving the name empty takes it away again, so no
 // default label is ever sent as the user's (AD-10).
 
-import { TREE_LABEL_MAX_CHARS, type TreeProps } from "@askboard/contract";
-import { type CellEntry, NAME_TOO_LONG } from "./entry.ts";
+import { type Locale, TREE_LABEL_MAX_CHARS, type TreeProps } from "@askboard/contract";
+import { type CellEntry, nameTooLong } from "./entry.ts";
 import { addAfter, addChild, can, nextNodeId, type TreeEdit } from "./model/edits.ts";
 import { focusOn, type TreeFocus, type TreeView } from "./model/focus.ts";
 
@@ -49,9 +49,14 @@ export const withPending = (value: TreeProps, add: PendingAdd | undefined): Tree
  * Commits `text` as the new node's name: the value with the node, the same value for an empty
  * name, which takes the node away, or the refusal of a name past the contract's limit.
  */
-export const enterNewName = (value: TreeProps, add: PendingAdd, text: string): CellEntry =>
+export const enterNewName = (
+  value: TreeProps,
+  add: PendingAdd,
+  text: string,
+  language: Locale = "en-US",
+): CellEntry =>
   lengthOf(text) > TREE_LABEL_MAX_CHARS
-    ? Object.freeze({ kind: "refused", reason: NAME_TOO_LONG })
+    ? Object.freeze({ kind: "refused", reason: nameTooLong(language) })
     : Object.freeze({ kind: "value", value: added(value, add, text) });
 
 /** The view while the name is entered: the focus on the new node's name, its parent expanded. */

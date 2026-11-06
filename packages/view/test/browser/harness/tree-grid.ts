@@ -12,8 +12,8 @@
 //   labels;
 // - the question before deleting a node with children replaces the tools in the toolbar row: a
 //   `group` named by its message, which ends "will be deleted.";
-// - the counter at the toolbar row's right is found by its text, "Changes vs agent's original ·
-//   none yet" or "Your changes: N";
+// - the counter at the toolbar row's right is found by its text, "No changes" or "Your changes: N"
+//   (in Italian "Nessuna modifica" or "Le tue modifiche: N");
 // - each change mark carries `data-change`: `renamed` on a renamed name's text, `field` on a
 //   changed field's cell, `added` on an added node's row and `moved` on the mark after a moved
 //   node's name.
@@ -40,7 +40,7 @@ export type TreeGrid = {
   marks(kind?: "renamed" | "field" | "added" | "moved"): Locator;
 };
 
-const COUNTER = /^(Your changes: \d+|Changes vs agent's original · none yet)$/;
+const COUNTER = /^(Your changes: \d+|No changes|Le tue modifiche: \d+|Nessuna modifica)$/;
 
 export const treeGridOf = (board: Board): TreeGrid => {
   const grid = board.view.getByRole("treegrid");
@@ -57,7 +57,7 @@ export const treeGridOf = (board: Board): TreeGrid => {
     toolbar,
     tools: toolbar.getByRole("button"),
     tool: (label) => toolbar.getByRole("button", { name: label, exact: true }),
-    counter: board.view.getByText(COUNTER),
+    counter: board.view.locator("p").filter({ hasText: COUNTER }),
     marks: (kind) => grid.locator(kind === undefined ? "[data-change]" : `[data-change="${kind}"]`),
   };
 };

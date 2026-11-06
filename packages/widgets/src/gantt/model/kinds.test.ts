@@ -7,7 +7,13 @@ import {
   treeEditedValue,
 } from "@askboard/contract/fixtures";
 import { ganttMarks, ganttRows } from "./kinds.ts";
-import { changeCount, ownTaskMarks, planChangeCount, planTaskMarks } from "./marks.ts";
+import {
+  changeCount,
+  derivedCount,
+  ownTaskMarks,
+  planChangeCount,
+  planTaskMarks,
+} from "./marks.ts";
 import type { Baseline, TaskSchedule } from "./schedule.ts";
 import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planTaskRows } from "./tasks.ts";
 
@@ -72,11 +78,19 @@ describe("a Gantt's marks and the count its toolbar shows, by its kind", () => {
         ? undefined
         : { startDate: "2026-11-02", finishDate: "2026-11-06", duration: 5 },
     );
-    const { marks, count } = ganttMarks(ganttPlanEditedValue, PLAN, rows, schedules, baselines);
+    const { marks, count, derived } = ganttMarks(
+      ganttPlanEditedValue,
+      PLAN,
+      rows,
+      schedules,
+      baselines,
+    );
     expect(marks).toEqual(planTaskMarks(ganttPlanEditedValue, PLAN, rows, schedules, baselines));
     expect(marks.get("u-1")).toMatchObject({ added: true, dependencies: true, changed: true });
-    expect(marks.get("ux")).toMatchObject({ duration: true, changed: true });
+    expect(marks.get("ux")).toMatchObject({ derived: true, changed: false });
     expect(count).toBe(planChangeCount(ganttPlanEditedValue, PLAN));
+    expect(derived).toBe(derivedCount(marks));
+    expect(derived).toBeGreaterThan(0);
     expect(count).toBe(1);
   });
 

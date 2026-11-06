@@ -58,11 +58,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await pressIn(board, "Enter")).toEqual({ nodeId: "portal" });
         expect(await tree.marks("renamed").textContent()).toBe("Customer portal: accounts");
         expect(await tree.counter.textContent()).toBe("Your changes: 1");
-        // A new node is neither marked nor counted until its name is committed.
+        // A new node shows the added mark at once (review F-11) but is not counted until its name
+        // is committed.
         expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
-        expect(await tree.row("u-1").getAttribute("data-change")).toBeNull();
+        expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
         expect(await tree.counter.textContent()).toBe("Your changes: 1");
         await board.page.keyboard.type("Customer portal: dashboards");
         expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });

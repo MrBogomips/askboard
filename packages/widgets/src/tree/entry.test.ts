@@ -1,15 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeProps } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
-import {
-  enterCell,
-  entryKindAt,
-  entryKindOf,
-  NAME_TOO_LONG,
-  startTextOf,
-  TEXT_TOO_LONG,
-} from "./entry.ts";
-import { ESTIMATE_OUT_OF_RANGE } from "./model/edits.ts";
+import { editableCells, enterCell, entryKindAt, entryKindOf, startTextOf } from "./entry.ts";
 
 const tree: TreeProps = Object.freeze({
   columns: [
@@ -67,7 +59,7 @@ describe("enterCell", () => {
     expect(enterCell(tree, "a", 0, "x".repeat(200)).kind).toBe("value");
     expect(enterCell(tree, "a", 0, "😀".repeat(201))).toEqual({
       kind: "refused",
-      reason: NAME_TOO_LONG,
+      reason: "A name holds at most 200 characters.",
     });
   });
 
@@ -96,7 +88,7 @@ describe("enterCell", () => {
     expect(Object.hasOwn(nodeOf(emptied.value, "a") ?? {}, "note")).toBe(false);
     expect(enterCell(tree, "a", 2, "x".repeat(1_001))).toEqual({
       kind: "refused",
-      reason: TEXT_TOO_LONG,
+      reason: "A text field holds at most 1,000 characters.",
     });
   });
 
@@ -120,11 +112,11 @@ describe("a work breakdown's entries (molecules design decision 14; view spec, W
   test("an estimate outside 0 to 100,000 working days is refused with its reason, the value kept", () => {
     expect(enterCell(wbs, "portal", 1, "-2")).toEqual({
       kind: "refused",
-      reason: ESTIMATE_OUT_OF_RANGE,
+      reason: "An estimate is 0 to 100,000 working days.",
     });
     expect(enterCell(wbs, "portal", 3, "100,001")).toEqual({
       kind: "refused",
-      reason: ESTIMATE_OUT_OF_RANGE,
+      reason: "An estimate is 0 to 100,000 working days.",
     });
     const taken = enterCell(wbs, "portal", 1, "4");
     expect(taken.kind === "value" ? nodeOf(taken.value, "portal")?.optimistic : undefined).toBe(4);
@@ -164,5 +156,21 @@ describe("a number column in the ask's locale (settings-languages, task 9.1)", (
     expect(
       mixed.kind === "refused" && plain.kind === "refused" && mixed.reason !== plain.reason,
     ).toBe(true);
+  });
+});
+
+describe("the cells of a row that take an edit", () => {
+  test("the name and each field of a Tree with columns, as a list of cell numbers", () => {
+    expect(editableCells(tree, "a")).toBe("0,1,2");
+  });
+
+  test("none once the Tree is read-only", () => {
+    expect(editableCells(tree, "a", true)).toBe("");
+  });
+
+  test("a work breakdown parent's estimates and the value cells are left out", () => {
+    const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+    expect(editableCells(wbs, "design")).toBe("0");
+    expect(editableCells(wbs, "portal")).toBe("0,1,2,3");
   });
 });

@@ -6,6 +6,7 @@
 // sibling, else the previous one, else the parent, worked out on the value that still holds it.
 
 import type { TreeNode, TreeProps } from "@askboard/contract";
+import type { Say } from "@askboard/view/catalog";
 import { remove, removedCount } from "./model/edits.ts";
 import { focusAfterRemove, type TreeView } from "./model/focus.ts";
 
@@ -66,26 +67,21 @@ export const deleteQuestionOf = (
 
 // How many tasks depend on the node, or on its branch: the design's provisional wording
 // (molecules, design decision 14).
-const dependedOn = (dependents: number, under: number): string => {
+const dependedOn = (dependents: number, under: number, text: Say): string => {
   if (dependents < 1) return "";
-  const what = under < 1 ? "it" : "them";
-  return dependents === 1
-    ? ` 1 task in the plan depends on ${what}.`
-    : ` ${dependents} tasks in the plan depend on ${what}.`;
+  const key = under < 1 ? "tree.delete.dependsOnIt" : "tree.delete.dependsOnThem";
+  return ` ${text(key, { count: dependents })}`;
 };
 
 /**
  * The question's words after the node's name, for the `under` nodes of its branch and the
- * `dependents` tasks of the plans over the Tree. The wording is not recorded in EXPERIENCE.md.
+ * `dependents` tasks of the plans over the Tree, in the ask's language through `text`. The wording
+ * is not recorded in EXPERIENCE.md.
  */
-export const deletedWith = (under: number, dependents: number): string => {
+export const deletedWith = (under: number, dependents: number, text: Say): string => {
   const deleted =
-    under < 1
-      ? "will be deleted."
-      : under === 1
-        ? "and the node under it will be deleted."
-        : `and the ${under} nodes under it will be deleted.`;
-  return `${deleted}${dependedOn(dependents, under)}`;
+    under < 1 ? text("tree.delete.alone") : text("tree.delete.under", { count: under });
+  return `${deleted}${dependedOn(dependents, under, text)}`;
 };
 
 /**

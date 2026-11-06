@@ -55,9 +55,9 @@ const snapshotRequests = (run: BoardRun): number =>
     .flatMap((socket) => socket.frames)
     .filter((frame) => frame.dir === "sent" && frame.text.includes('"type":"snapshot"')).length;
 
-// The path the bar shows, in code type.
+// The full path the bar shows in code type: the tooltip, since the text is cut in the middle.
 const shownPath = async (board: Board): Promise<string> =>
-  (await feedbackOf(board).locator("code").textContent()) ?? "";
+  (await feedbackOf(board).locator("code").getAttribute("title")) ?? "";
 
 const expectSavedFile = async (path: string, askId: string): Promise<string> => {
   expect(path).toMatch(new RegExp(`/\\.askboard/snapshots/${askId}-[^/]+\\.html$`));
@@ -145,6 +145,31 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await snapshotButton(board).click({ timeout: STEP_TIMEOUT_MS });
         await says(board, "Snapshot saved:", RECONNECT_TIMEOUT_MS);
         await expectSavedFile(await shownPath(board), singleAsk.askId);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the feedback has a line of its own under the bar's controls, the path cut in the middle with Copy path, and Submit stays on the bar's row",
+      async () => {
+        const run = await start({ ...lifecycleScenario(twoAsk, dist), asker: ASKER });
+        const board = await openBoard(run, ["database", "cache"]);
+        await snapshotButton(board).click({ timeout: STEP_TIMEOUT_MS });
+        await says(board, "Snapshot saved:", RECONNECT_TIMEOUT_MS);
+        const path = await shownPath(board);
+        const code = feedbackOf(board).locator("code");
+        const text = (await code.textContent()) ?? "";
+        expect(text).toContain("…");
+        expect(text.startsWith(".askboard/snapshots/")).toBe(true);
+        expect(path.endsWith(text.slice(text.indexOf("…") + 1))).toBe(true);
+        await feedbackOf(board).getByRole("button", { name: "Copy path" }).waitFor();
+        const feedback = await feedbackOf(board).boundingBox();
+        const bar = await snapshotButton(board).boundingBox();
+        const submit = await barButton(board, "Submit").boundingBox();
+        if (feedback === null || bar === null || submit === null) throw new Error("no box");
+        expect(feedback.y).toBeGreaterThanOrEqual(bar.y + bar.height);
+        expect(Math.abs(bar.y - submit.y)).toBeLessThan(2);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

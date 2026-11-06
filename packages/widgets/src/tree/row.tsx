@@ -12,15 +12,19 @@
 // right-aligned and never edited, and values in error show a field error under the row.
 
 import type { TreeColumn } from "@askboard/contract";
-import { useLocale } from "@askboard/view/catalog";
+import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, type ReactNode } from "react";
-import { fieldText, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
+import { errorSpan } from "../shared/field-error.ts";
+import { fieldText, PERT_HEADERS, pertFieldText } from "./cells.ts";
 import {
   ADDED_BAR,
   CHANGE_DOT,
   CHANGED_FIELD,
   CHEVRON,
   CHEVRON_OPEN,
+  CURRENT_ADDED_BAR,
+  CURRENT_BAR,
+  CURRENT_ROW,
   EDITED_FIELD_CELL,
   FIELD_CELL,
   FIELD_ERROR,
@@ -28,12 +32,14 @@ import {
   indentOf,
   NAME,
   NAME_CELL,
+  NEUTRAL_NOTE,
+  NOT_SELECTABLE,
   PARENT_NAME,
   RENAMED,
   ROW,
 } from "./classes.ts";
 import type { NodeMark } from "./model/marks.ts";
-import { type PertRow, type PertValue, type PertValues, pertNote } from "./model/pert.ts";
+import { type PertRow, type PertValues, rollupNote, rollupText } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 
 // The chevron points right when closed and down when open. It has no role: the row's
@@ -71,6 +77,8 @@ const tabIndexOf = (stop: RowStop, at: RowStop): number => (stop === at ? 0 : -1
 /** The cell of a row being edited: its editor and the field error of a refused entry. */
 export type RowEditing = {
   readonly cell: number;
+  /** The edited column's name, which begins the field error (review F-10). */
+  readonly column: string;
   readonly editor: ReactNode;
   readonly error: string | undefined;
   /** The error line's ID, which describes the editor while it shows. */
@@ -84,56 +92,76 @@ const FieldError = ({
 }: {
   readonly editing: RowEditing;
   readonly cells: number;
-}) => (
-  // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid; the editor's aria-describedby reads it.
-  <tr role="presentation">
-    <td colSpan={cells} className={FIELD_ERROR}>
-      <span id={editing.errorId}>{editing.error}</span>
-    </td>
-  </tr>
-);
-
-// The line under a row whose values are in error (DESIGN.md, Derived value); no row of the grid.
-export const ValueError = ({
-  values,
-  cells,
-}: {
-  readonly values: PertValues;
-  readonly cells: number;
 }) => {
-  const note = pertNote(values);
-  return note === undefined ? null : (
-    // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid.
+  const text = useStrings();
+  const { skip, span } = errorSpan(editing.cell, cells);
+  return (
+    // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid; the editor's aria-describedby reads it.
     <tr role="presentation">
-      <td colSpan={cells} className={FIELD_ERROR}>
-        {note}
+      {skip === 0 ? null : <td colSpan={skip} />}
+      <td colSpan={span} className={FIELD_ERROR}>
+        <span id={editing.errorId}>
+          <span className="font-medium">
+            {text("widget.fieldError", { column: editing.column })}
+          </span>{" "}
+          <span>{editing.error}</span>
+        </span>
       </td>
     </tr>
   );
 };
 
-const valueText = (value: PertValue): string => (value.kind === "value" ? value.text : "");
+// The line under a row whose values are in error (DESIGN.md, Derived value); no row of the grid.
+export const ValueError = ({
+  values,
+  cells,
+  added = false,
+  current = false,
+}: {
+  readonly values: PertValues;
+  readonly cells: number;
+  /** The row was just added: its note is neutral, and shows once the user leaves it. */
+  readonly added?: boolean;
+  readonly current?: boolean;
+}) => {
+  const text = useStrings();
+  const note = rollupNote(values, { added, current });
+  return note === undefined ? null : (
+    // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid.
+    <tr role="presentation">
+      <td colSpan={cells} className={note.neutral ? NEUTRAL_NOTE : FIELD_ERROR}>
+        {text(note.text)}
+      </td>
+    </tr>
+  );
+};
 
 /** A work breakdown's two value cells, from cell `first` on: read-only, right-aligned. */
 export const ValueCells = ({
   values,
   first,
   stop,
+  added = false,
 }: {
   readonly values: PertValues;
   readonly first: number;
   readonly stop?: RowStop;
+  /** An added row's missing values read as a muted dash (review F-11). */
+  readonly added?: boolean;
 }) =>
-  [values.expected, values.spread].map((value, at) => (
-    <td
-      key={PERT_VALUE_COLUMNS[at]}
-      data-cell={first + at}
-      tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
-      className={`${FIELD_CELL.number} ${FOCUS_RING}`}
-    >
-      {valueText(value)}
-    </td>
-  ));
+  [values.expected, values.spread].map((value, at) => {
+    const { text, muted } = rollupText(value, added);
+    return (
+      <td
+        key={PERT_HEADERS[at]?.label}
+        data-cell={first + at}
+        tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
+        className={`${FIELD_CELL.number} ${NOT_SELECTABLE} ${FOCUS_RING}${muted ? " text-muted-foreground" : ""}`}
+      >
+        {text}
+      </td>
+    );
+  });
 
 // The name, on the change fill when renamed, then the change dot when the row moved.
 const Name = ({ row, mark }: { readonly row: TreeRow; readonly mark: NodeMark | undefined }) => {
@@ -154,6 +182,10 @@ const Name = ({ row, mark }: { readonly row: TreeRow; readonly mark: NodeMark | 
   );
 };
 
+// The name cell's left-edge bar: the current row's, the added row's, both, or none.
+const barOf = (added: boolean, current: boolean): string =>
+  current ? (added ? CURRENT_ADDED_BAR : CURRENT_BAR) : added ? ADDED_BAR : "";
+
 // A field's cell by its column's type: as edited, as changed, or plain.
 const fieldClass = (column: TreeColumn, edited: boolean, changed: boolean): string =>
   edited
@@ -161,6 +193,9 @@ const fieldClass = (column: TreeColumn, edited: boolean, changed: boolean): stri
     : changed
       ? `${FIELD_CELL[column.type]} ${CHANGED_FIELD}`
       : FIELD_CELL[column.type];
+
+// A cell takes a text selection only while its editor is open (review F-05).
+const selectable = (edited: boolean): string => (edited ? "" : NOT_SELECTABLE);
 
 // Each row re-renders only when its node, its place, its Tab stop, its editing or its mark changes.
 export const NodeRow = memo(function NodeRow({
@@ -170,6 +205,8 @@ export const NodeRow = memo(function NodeRow({
   editing,
   mark,
   pert,
+  editable,
+  current,
 }: {
   readonly row: TreeRow;
   readonly columns: readonly TreeColumn[];
@@ -179,11 +216,17 @@ export const NodeRow = memo(function NodeRow({
   readonly mark: NodeMark | undefined;
   /** A work breakdown's values for the row; none in a Tree without `pert`. */
   readonly pert: PertRow | undefined;
+  /** The cells that take an edit, as a comma-separated list of their numbers (`editableCells`). */
+  readonly editable: string;
+  /** The row is the Tree's current row, the one its row tools act on (`model/current.ts`). */
+  readonly current: boolean;
 }) {
   const locale = useLocale();
   const edits = (cell: number): boolean => editing?.cell === cell;
+  const takesEdit = (cell: number): true | undefined =>
+    !edits(cell) && editable.split(",").includes(String(cell)) ? true : undefined;
   const added = mark?.added === true;
-  const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_VALUE_COLUMNS.length);
+  const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_HEADERS.length);
   const textOf = (column: TreeColumn): string =>
     pert === undefined
       ? fieldText(row.node, column, locale)
@@ -197,15 +240,15 @@ export const NodeRow = memo(function NodeRow({
         aria-posinset={row.position}
         aria-setsize={row.setSize}
         aria-expanded={row.hasChildren ? row.expanded : undefined}
+        aria-current={current ? "true" : undefined}
         tabIndex={tabIndexOf(stop, ROW_STOP)}
-        className={`${ROW} ${FOCUS_RING}`}
+        className={current ? `${ROW} ${CURRENT_ROW} ${FOCUS_RING}` : `${ROW} ${FOCUS_RING}`}
       >
         <td
           data-cell={0}
+          data-editable={takesEdit(0)}
           tabIndex={tabIndexOf(stop, 0)}
-          className={
-            added ? `${NAME_CELL} ${ADDED_BAR} ${FOCUS_RING}` : `${NAME_CELL} ${FOCUS_RING}`
-          }
+          className={`${NAME_CELL} ${selectable(edits(0))} ${barOf(added, current)} ${FOCUS_RING}`}
         >
           <span className={`flex min-w-0 items-center gap-1.5 ${indentOf(row.level)}`}>
             {row.hasChildren ? <Chevron open={row.expanded} /> : <NoChevron />}
@@ -219,20 +262,23 @@ export const NodeRow = memo(function NodeRow({
             <td
               key={column.field}
               data-cell={at + 1}
+              data-editable={takesEdit(at + 1)}
               data-change={changed ? "field" : undefined}
               tabIndex={tabIndexOf(stop, at + 1)}
-              className={`${fieldClass(column, edited, changed)} ${FOCUS_RING}`}
+              className={`${fieldClass(column, edited, changed)} ${selectable(edited)} ${FOCUS_RING}`}
             >
               {edited ? editing?.editor : textOf(column)}
             </td>
           );
         })}
         {pert === undefined ? null : (
-          <ValueCells values={pert} first={1 + columns.length} stop={stop} />
+          <ValueCells values={pert} first={1 + columns.length} stop={stop} added={added} />
         )}
       </tr>
       {editing?.error === undefined ? null : <FieldError editing={editing} cells={cells} />}
-      {pert === undefined ? null : <ValueError values={pert} cells={cells} />}
+      {pert === undefined ? null : (
+        <ValueError values={pert} cells={cells} added={added} current={current} />
+      )}
     </>
   );
 });

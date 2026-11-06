@@ -21,9 +21,16 @@ import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
-import { SnapshotButton } from "./snapshot-button.tsx";
+import { SnapshotButton, SnapshotFeedback } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
-import { BUTTON_LINK, BUTTON_PRIMARY, BUTTON_SECONDARY, SECTION_LABEL, SEGMENT } from "./styles.ts";
+import {
+  BUTTON_LINK,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY,
+  SECTION_LABEL,
+  SEGMENT,
+  SEGMENTS,
+} from "./styles.ts";
 import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
 
 const DIALOG =
@@ -63,11 +70,14 @@ export const BottomBar = (props: BottomBarProps) => {
   const text = useStrings();
   const language = useLanguage();
   const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
+  // The feedback has a line of its own under the bar's controls, whatever the path's length.
+  const feedback = <SnapshotFeedback control={props.snapshot} offer={props.snapshotOffer} />;
   if (single) {
     return (
       <footer className="sticky bottom-0 flex min-h-bottom-bar flex-wrap items-center gap-sm border-t border-border bg-card px-lg py-sm">
         {warning === undefined ? null : <Warning warning={warning} />}
         <span className="ml-auto flex min-w-0 items-center gap-sm">{snapshot}</span>
+        {feedback}
       </footer>
     );
   }
@@ -95,10 +105,7 @@ export const BottomBar = (props: BottomBarProps) => {
       <span id="askboard-delivery" className={SECTION_LABEL}>
         {text("bar.delivery")}
       </span>
-      <fieldset
-        aria-labelledby="askboard-delivery"
-        className="flex items-center gap-0.5 rounded-md border border-border bg-muted p-0.5"
-      >
+      <fieldset aria-labelledby="askboard-delivery" className={SEGMENTS}>
         <button
           type="button"
           className={SEGMENT}
@@ -143,6 +150,7 @@ export const BottomBar = (props: BottomBarProps) => {
           {text("bar.submit")}
         </button>
       </span>
+      {feedback}
       <AlertDialog.Root open={confirming} onOpenChange={setConfirming}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />

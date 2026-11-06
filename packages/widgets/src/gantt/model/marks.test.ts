@@ -11,7 +11,7 @@ import { type BoardGraph, liveGraph, sentGraph } from "../../graph/board-graph.t
 import { requestStart, setDuration, setPredecessors } from "./edits.ts";
 import {
   changeCount,
-  changeCounter,
+  derivedCount,
   ownTaskMarks,
   type PlanTaskMarks,
   planChangeCount,
@@ -88,15 +88,6 @@ describe("a Gantt's change marks", () => {
       expect(Object.isFrozen(mark)).toBe(true);
     }
   });
-
-  test.each([
-    [0, "Changes vs agent's original · none yet"],
-    [1, "Your changes: 1"],
-    [2, "Your changes: 2"],
-    [37, "Your changes: 37"],
-  ])("read %i changes as %j on the toolbar", (count, text) => {
-    expect(changeCounter(count)).toBe(text);
-  });
 });
 
 describe("a plan's change marks", () => {
@@ -105,7 +96,7 @@ describe("a plan's change marks", () => {
   const [WBS, SCHEDULE] = ITEMS;
   const PLAN = SCHEDULE.props as GanttPlanProps;
   const TREE = WBS.props.nodes;
-  const PLAIN = { ...UNMARKED, added: false };
+  const PLAIN = { ...UNMARKED, added: false, derived: false };
 
   const graphIn = (graph: BoardGraph | undefined): BoardGraph => {
     if (graph === undefined) throw new Error("no graph");
@@ -159,7 +150,7 @@ describe("a plan's change marks", () => {
     for (const id of ["ux", "portal", "billing"]) {
       expect({ id, mark: marks.get(id) }).toEqual({
         id,
-        mark: { ...PLAIN, duration: true, changed: true },
+        mark: { ...PLAIN, derived: true },
       });
     }
     expect(marks.get("u-1")).toEqual({ ...PLAIN, added: true, dependencies: true, changed: true });
@@ -179,7 +170,30 @@ describe("a plan's change marks", () => {
     expect(marks.get("reporting")).toEqual({ ...PLAIN, start: true, changed: true });
     expect(marks.get("u-1")).toEqual({ ...PLAIN, added: true, dependencies: true, changed: true });
     expect(marks.get("portal")).toEqual(PLAIN);
-    expect(changeCounter(planChangeCount(value, PLAN))).toBe("Your changes: 2");
+    expect(planChangeCount(value, PLAN)).toBe(2);
+  });
+
+  test("count the tasks that follow the WBS apart from the user's own changes", () => {
+    const marks = marksOf(ganttPlanEditedValue, treeEditedValue.nodes);
+    // UX design, the portal and billing follow the Tree; u-1 is the user's own, by its links.
+    expect(derivedCount(marks)).toBe(3);
+    expect(derivedCount(marksOf(PLAN))).toBe(0);
+  });
+
+  test("keep a task the user also changed out of the derived count", () => {
+    const nodes = TREE.map((parent) => ({
+      ...parent,
+      children: (parent.children ?? []).map((child) =>
+        child.id === "portal" ? { ...child, mostLikely: 20 } : child,
+      ),
+    }));
+    const value = {
+      ...PLAN,
+      tasks: { ...PLAN.tasks, portal: { ...PLAN.tasks.portal, start: "2026-12-01" } },
+    };
+    const mark = marksOf(value, nodes).get("portal");
+    expect(mark).toEqual({ ...PLAIN, derived: true, start: true, changed: true });
+    expect(derivedCount(marksOf(value, nodes))).toBe(0);
   });
 
   test("leave a new estimate that keeps the duration unmarked", () => {
@@ -199,7 +213,7 @@ describe("a plan's change marks", () => {
         child.id === "portal" ? { ...child, mostLikely: 20 } : child,
       ),
     }));
-    expect(marksOf(PLAN, nodes).get("portal")).toEqual({ ...PLAIN, duration: true, changed: true });
+    expect(marksOf(PLAN, nodes).get("portal")).toEqual({ ...PLAIN, derived: true });
     // The prototype after reporting closes a cycle through the portal: no duration shows.
     const prototype = { dependencies: ["ux", "reporting"] };
     const marks = marksOf({ ...PLAN, tasks: { ...PLAN.tasks, prototype } }, nodes);

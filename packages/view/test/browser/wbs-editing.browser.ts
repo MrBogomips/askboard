@@ -63,7 +63,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await cellTexts(totalRow(tree))).slice(4)).toEqual(["34.3 d", "2.7 d"]);
         const reporting = (await rowTexts(plan)).find(([task]) => task === "reporting");
         expect(reporting?.[2]).not.toBe(reportingBefore?.[2]);
-        expect(reporting?.[2]).toBe("11/26/2026");
+        expect(reporting?.[2]).toBe("Thu 11/26");
         expect(await run.board.answer.isDisabled()).toBe(false);
         await Bun.sleep(QUIET_MS);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);

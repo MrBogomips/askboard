@@ -23,6 +23,10 @@ export type LocaleTable = {
   readonly dayFirst: boolean;
   readonly date: (parts: CalendarParts) => string;
   readonly longDate: (parts: CalendarParts) => string;
+  /** The Gantt grid's date: the weekday and the day and month, the year only when asked. */
+  readonly gridDate: (parts: CalendarParts, withYear: boolean) => string;
+  /** The day and month alone. */
+  readonly shortDate: (parts: CalendarParts) => string;
   readonly time: (parts: ClockParts) => string;
   readonly dateTime: (parts: ClockParts) => string;
   readonly axis: Readonly<Record<AxisZoom, (parts: CalendarParts) => string>>;
@@ -95,6 +99,9 @@ const TABLES: Readonly<Record<Locale, LocaleTable>> = {
     dayFirst: false,
     date: (p) => `${p.month}/${p.day}/${yearOf(p)}`,
     longDate: (p) => `${enWeekday(p)}, ${enMonth(p)} ${p.day}, ${yearOf(p)}`,
+    gridDate: (p, withYear) =>
+      `${enWeekday(p)} ${p.month}/${p.day}${withYear ? `/${yearOf(p)}` : ""}`,
+    shortDate: (p) => `${p.month}/${p.day}`,
     time: enTime,
     dateTime: (p) => `${enMonth(p)} ${p.day}, ${yearOf(p)}, ${enTime(p)}`,
     axis: {
@@ -111,6 +118,9 @@ const TABLES: Readonly<Record<Locale, LocaleTable>> = {
     dayFirst: true,
     date: (p) => `${twoDigits(p.day)}/${twoDigits(p.month)}/${yearOf(p)}`,
     longDate: (p) => `${itWeekday(p)} ${p.day} ${itMonth(p)} ${yearOf(p)}`,
+    gridDate: (p, withYear) =>
+      `${itWeekday(p)} ${p.day}/${p.month}${withYear ? `/${yearOf(p)}` : ""}`,
+    shortDate: (p) => `${p.day}/${p.month}`,
     time: itTime,
     dateTime: (p) => `${p.day} ${itMonth(p)} ${yearOf(p)}, ${itTime(p)}`,
     axis: {

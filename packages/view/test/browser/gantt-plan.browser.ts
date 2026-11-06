@@ -22,6 +22,7 @@ import {
   baselineFacts,
   chartAt,
   checkedZoom,
+  chooseWeek,
   DAY_PX,
   focusedZoom,
   optionLook,
@@ -61,7 +62,7 @@ import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts
 
 const dist = await readViewBuild();
 
-const NONE_YET = "Changes vs agent's original · none yet";
+const NONE_YET = "No changes";
 
 /** A task's span on the axis at a zoom, from the chart's first day. */
 const spanAt = (start: string, finish: string, zoom: ZoomName) => ({
@@ -74,23 +75,28 @@ const AXIS_DAYS = 54;
 const FIRST_TICKS: Record<ZoomName, readonly string[]> = {
   day: ["Mon 2", "Tue 3", "Wed 4", "Thu 5", "Fri 6", "Sat 7", "Sun 8", "Mon 9"],
   week: ["Nov 2", "Nov 9", "Nov 16", "Nov 23", "Nov 30", "Dec 7", "Dec 14", "Dec 21"],
-  month: ["Dec 2026"],
+  month: ["Nov 2026", "Dec 2026"],
 };
 
 /** The fixture plan's chart at a zoom: its label, its width, its axis, its bars and baselines. */
 const expectScale = async (gantt: GanttParts, zoom: ZoomName) => {
   const chart = chartAt(gantt, zoom);
   await chart.waitFor({ timeout: STEP_TIMEOUT_MS });
-  expect(Number(await chart.getAttribute("width"))).toBe(AXIS_DAYS * DAY_PX[zoom]);
+  // A span narrower than the frame is stretched to it (Month); a wider one is as long as it is.
+  const room = await chart.evaluate((svg) => svg.parentElement?.clientWidth ?? 0);
+  const width = Number(await chart.getAttribute("width"));
+  expect(width).toBeGreaterThanOrEqual(Math.max(AXIS_DAYS * DAY_PX[zoom], room));
+  expect(width).toBeLessThan(Math.max(AXIS_DAYS * DAY_PX[zoom], room) + DAY_PX[zoom]);
   const ticks = await tickLabels(gantt);
   expect(ticks.slice(0, FIRST_TICKS[zoom].length)).toEqual([...FIRST_TICKS[zoom]]);
   if (zoom === "day") expect(ticks).toHaveLength(AXIS_DAYS);
-  else expect(ticks).toHaveLength(FIRST_TICKS[zoom].length);
+  else if (zoom === "week") expect(ticks).toHaveLength(FIRST_TICKS[zoom].length);
+  else expect(ticks.length).toBeGreaterThanOrEqual(FIRST_TICKS[zoom].length);
   const spans = UJ2.map(([task, start, finish]) => ({ task, ...spanAt(start, finish, zoom) }));
   const bars = await barFacts(gantt);
   expect(bars.map(({ task, x, width }) => ({ task, x, width }))).toEqual(spans);
-  const baselines = await baselineFacts(gantt);
-  expect(baselines.map(({ task, x, width }) => ({ task, x, width }))).toEqual(spans);
+  // No baseline: nothing has moved.
+  expect(await baselineFacts(gantt)).toEqual([]);
 };
 
 /** Presses Tab from the host page until the focus reaches the plan, at most ten times. */
@@ -134,6 +140,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         LOAD_TIMEOUT_MS,
       );
       expect(run.messages[0]).toEqual({ type: "ready", itemId: planQuestion.id });
+      await chooseWeek(ganttOf(run.board, planGantt.id));
       return run;
     };
 
@@ -222,11 +229,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await zoomOption(gantt, "Week").click();
         await expectScale(gantt, "week");
         expect(await checkedZoom(gantt)).toEqual(["Week"]);
-        // The segmented control's look: the chosen option on the card in the primary text,
-        // semibold and underlined in the primary colour; the others in the muted foreground.
+        // The segmented control's look: the chosen option on the card in the foreground, semibold
+        // and underlined in the primary colour; the others in the muted foreground.
         expect(await optionLook(zoomOption(gantt, "Week"))).toEqual({
           background: colour("card"),
-          color: colour("primary-text"),
+          color: colour("foreground"),
           weight: "600",
           underline: `2px solid ${colour("primary")}`,
         });
@@ -257,11 +264,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           start,
           finish,
           ...spanAt(start, finish, "week"),
-          height: 4,
-          gap: 4,
-          fill: colour("border-strong"),
+          height: 2,
+          gap: 6,
+          stroke: colour("border-strong"),
+          dashed: true,
         }));
-        expect(await baselineFacts(gantt)).toEqual(sent);
+        // Nothing has moved: no task shows a baseline, and the legend does not name the plan's.
+        expect(await baselineFacts(gantt)).toEqual([]);
+        expect(await gantt.root.locator("[data-gantt-legend-baseline]").count()).toBe(0);
         // Reporting, from Friday 12/4 to Wednesday 12/9: three working days later.
         await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
         await eventually(
@@ -271,11 +281,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await rowTexts(gantt)).toEqual(
           PLAN_ROWS.map((row) =>
             row[0] === "reporting"
-              ? ["reporting", "Reporting", "12/9/2026", "6", "Customer portal"]
+              ? ["reporting", "Reporting", "Wed 12/9", "6 d", "Customer portal"]
               : row,
           ),
         );
-        expect(await baselineFacts(gantt)).toEqual(sent);
+        expect(await baselineFacts(gantt)).toEqual(sent.filter(({ task }) => task === "reporting"));
+        expect(await gantt.root.locator("[data-gantt-legend-baseline]").textContent()).toContain(
+          "agent's plan",
+        );
         const [reporting] = (await barFacts(gantt)).filter((bar) => bar.task === "reporting");
         expect(reporting?.x).toBe(spanAt("2026-12-09", "2026-12-16", "week").x);
         expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["reporting"]);

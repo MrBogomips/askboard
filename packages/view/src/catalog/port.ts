@@ -138,6 +138,15 @@ export const LanguageContext = createContext<Locale>("en-US");
 /** The ask's language, for a text made outside a lookup. */
 export const useLanguage = (): Locale => useContext(LanguageContext);
 
+/** A string lookup in one language: the shape `useStrings` returns and the widgets' models take. */
+export type { Slots, StringKey };
+
+export type Say = (key: StringKey, slots?: Slots) => string;
+
+/** The string `key` in `language`, for a text made outside a component (a widget model's). */
+export const say = (language: Locale, key: StringKey, slots?: Slots): string =>
+  t(language, key, slots);
+
 /** The lookup of the view's own strings in the ask's language. */
 export const useStrings = (): ((key: StringKey, slots?: Slots) => string) => {
   const language = useLanguage();

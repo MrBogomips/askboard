@@ -200,6 +200,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = run;
         const tree = treeGridOf(board);
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "Home")).toEqual({ nodeId: "design" });
         await board.page.keyboard.press("Delete");
         const question = deleteQuestion(
           board,

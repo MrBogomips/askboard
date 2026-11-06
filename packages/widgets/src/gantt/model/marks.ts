@@ -15,6 +15,12 @@ export type TaskMarks = {
   readonly dependencies: boolean;
   /** Any of them: the bar takes the change outline. */
   readonly changed: boolean;
+  /**
+   * In a plan, a duration that only follows an estimate or a package the user changed in the Tree
+   * (design decision 11): the derived mark, never the change outline, and not counted as the
+   * user's.
+   */
+  readonly derived?: boolean;
   /** In a plan, a package the user added in its Tree: its row takes the added mark. */
   readonly added?: boolean;
 };
@@ -26,10 +32,11 @@ const sameList = (a: readonly string[] | undefined, b: readonly string[] | undef
     a.length === b.length &&
     a.every((id, at) => id === b[at]));
 
-/** A plan's marks: its `duration` says the task was re-estimated in the plan's Tree. */
+/** A plan's marks: its `derived` says the task was re-estimated in the plan's Tree. */
 export type PlanTaskMarks = TaskMarks & {
   /** A package the user added in the plan's Tree: the agent sent no such task. */
   readonly added: boolean;
+  readonly derived: boolean;
 };
 
 /** Each task's marks, by task ID, in task order. */
@@ -63,7 +70,8 @@ const entryMarks = (plan: GanttPlanProps, sent: GanttPlanProps, taskId: string) 
 /**
  * Each row's marks in a plan, by task ID in the rows' order. `schedules` and `baselines` are the
  * rows' schedules in the live graph and their baselines, in the rows' order: a task re-estimated
- * is one whose duration differs from its baseline's while the live graph schedules it.
+ * is one whose duration differs from its baseline's while the live graph schedules it: it takes
+ * the derived mark and does not count as the user's change.
  */
 export const planTaskMarks = (
   value: GanttPlanProps,
@@ -77,13 +85,18 @@ export const planTaskMarks = (
       const { start, dependencies } = entryMarks(value, sent, row.id);
       const schedule = schedules[index];
       const baseline = baselines[index];
-      const duration =
+      // A duration the user asked for in the Gantt is `direct` (a later task); until then the only
+      // duration that differs from the baseline's follows the Tree.
+      const derived =
         schedule?.kind === "scheduled" &&
         baseline !== undefined &&
         schedule.duration !== baseline.duration;
       const added = !row.sent;
-      const changed = start || duration || dependencies || added;
-      return [row.id, Object.freeze({ start, duration, dependencies, added, changed })];
+      const changed = start || dependencies || added;
+      return [
+        row.id,
+        Object.freeze({ start, duration: false, dependencies, added, derived, changed }),
+      ];
     }),
   );
 
@@ -103,6 +116,9 @@ export const planChangeCount = (value: GanttPlanProps, sent: GanttPlanProps): nu
 export const changeCount = (marks: ReadonlyMap<string, TaskMarks>): number =>
   [...marks.values()].filter((mark) => mark.changed).length;
 
-/** The toolbar's counter (EXPERIENCE State Patterns, Widget). */
-export const changeCounter = (count: number): string =>
-  count === 0 ? "Changes vs agent's original · none yet" : `Your changes: ${count}`;
+/**
+ * How many tasks follow the Tree, each once: the derived mark on a task the user did not also
+ * change, so that the marks and the counter agree (design decision 11; review F-07).
+ */
+export const derivedCount = (marks: ReadonlyMap<string, TaskMarks>): number =>
+  [...marks.values()].filter((mark) => mark.derived === true && !mark.changed).length;

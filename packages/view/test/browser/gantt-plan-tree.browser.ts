@@ -19,13 +19,14 @@ import { focusedBox, focusedCell, keysTo } from "./fixtures/gantt-input.ts";
 import {
   addedRows,
   baselineFacts,
-  chartAt,
+  DAY_PX,
   PLAN_ROWS,
   planGantt,
   planQuestion,
   planTree,
   type RowText,
   tabIntoPlanGrid,
+  type ZoomName,
 } from "./fixtures/gantt-plan.ts";
 import {
   arrowFacts,
@@ -34,6 +35,7 @@ import {
   colour,
   counterText,
   criticalTasks,
+  derivedOutlines,
   filledCells,
   ganttOf,
   panelFacts,
@@ -64,7 +66,7 @@ import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts
 
 const dist = await readViewBuild();
 
-const NONE_YET = "Changes vs agent's original · none yet";
+const NONE_YET = "No changes";
 
 /** Each task's bar as compute's UJ-2 plan schedules it, `start..finish`. */
 const UJ2_DATES: Record<string, string> = Object.fromEntries(
@@ -151,11 +153,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             portal: [
               "portal",
               "Customer portal",
-              "11/17/2026",
-              "18",
+              "Tue 11/17",
+              "18 d",
               "Architecture, Clickable prototype",
             ],
-            reporting: ["reporting", "Reporting", "12/11/2026", "6", "Customer portal"],
+            reporting: ["reporting", "Reporting", "Fri 12/11", "6 d", "Customer portal"],
           }),
         );
         expect(await barDates(gantt)).toEqual({
@@ -165,16 +167,26 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         expect(await criticalTasks(gantt)).toEqual(["ux", "prototype", "portal", "reporting"]);
         // The plan now ends on 12/18/2026, and the axis runs two weeks past it: 61 days.
-        expect(Number(await chartAt(gantt, "week").getAttribute("width"))).toBe(61 * 15);
-        expect(await baselineDates(gantt)).toEqual(SENT_BASELINES);
-        // Re-estimated in the Tree: the portal's bar takes the change outline and its duration the
-        // change fill; reporting, moved only by its predecessor, takes neither; the plan counts
-        // only its own entries' changes, and the Tree's draft enables "Answer".
-        expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["portal"]);
+        // (The axis may be stretched to the frame's width, so it holds at least those days.)
+        const opening = gantt.root.getByRole("img", { name: /^Gantt chart/ });
+        const zoom = ((await opening.getAttribute("aria-label")) ?? "").split(" ")[2] as ZoomName;
+        expect(Number(await opening.getAttribute("width"))).toBeGreaterThanOrEqual(
+          61 * DAY_PX[zoom],
+        );
+        // The portal and reporting moved: their baselines show the agent's dates, the rest none.
+        expect(await baselineDates(gantt)).toEqual(
+          SENT_BASELINES.filter((dates) => /^(portal|reporting) /.test(dates)),
+        );
+        // Re-estimated in the Tree: the portal's bar takes the derived mark, a dotted outline, and
+        // its duration the change fill with no border; reporting, moved only by its predecessor,
+        // takes neither; the counter says so apart from the user's changes (F-07), and the Tree's
+        // draft enables "Answer".
+        expect(await changeOutlines(gantt)).toEqual([]);
+        expect(await derivedOutlines(gantt)).toEqual(["portal"]);
         expect(await filledCells(gantt, colour("change-subtle"))).toEqual([
-          { cell: "portal.duration", color: colour("change-text") },
+          { cell: "portal.duration", color: colour("foreground") },
         ]);
-        expect(await counterText(gantt)).toBe(NONE_YET);
+        expect(await counterText(gantt)).toBe("No changes · 1 follows from the WBS");
         expect(await board.answer.isEnabled()).toBe(true);
         // Back to 12 by hand: the plan as the agent sent it, and nothing to answer.
         await typeIn(run, tree, "F2", "12");
@@ -186,6 +198,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await rowTexts(gantt)).toEqual(PLAN_ROWS);
         expect(await barDates(gantt)).toEqual(UJ2_DATES);
         expect(await changeOutlines(gantt)).toEqual([]);
+        expect(await derivedOutlines(gantt)).toEqual([]);
+        expect(await counterText(gantt)).toBe(NONE_YET);
         expect(await board.answer.isDisabled()).toBe(true);
         await expectOnlyReady(run);
         expect(run.browser.errors).toEqual([]);
@@ -207,6 +221,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
+        // The new row shows the added mark at once, with no error note.
+        expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
+        expect(await board.view.getByText("could not be computed").count()).toBe(0);
         await board.page.keyboard.type(DASHBOARDS.label);
         expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });
         const estimates = [DASHBOARDS.optimistic, DASHBOARDS.mostLikely, DASHBOARDS.pessimistic];
@@ -224,8 +241,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const added: RowText = [
           "u-1",
           DASHBOARDS.label,
-          "11/17/2026",
-          "8",
+          "Tue 11/17",
+          "8 d",
           "Architecture, Clickable prototype",
         ];
         expect(await rowTexts(gantt)).toEqual([
@@ -234,8 +251,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ...PLAN_ROWS.slice(4),
         ]);
         expect(await barDates(gantt)).toEqual({ ...UJ2_DATES, "u-1": "2026-11-17..2026-11-26" });
-        // No baseline: the agent sent no such task.
-        expect(await baselineDates(gantt)).toEqual(SENT_BASELINES);
+        // No baseline: the agent sent no such task, and no task moved.
+        expect(await baselineDates(gantt)).toEqual([]);
         // The added mark: the change outline on its bar and the change bar on its row's left
         // edge; its predecessors, an arrow from each and its changed "Depends on", which the
         // plan's counter counts.
@@ -286,8 +303,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await rowTexts(gantt))[5]).toEqual([
           "billing",
           "Billing integration",
-          "11/17/2026",
-          "9",
+          "Tue 11/17",
+          "9 d",
           "Architecture, Clickable prototype",
         ]);
         expect(
@@ -431,8 +448,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const child: RowText = [
           "u-1",
           DASHBOARDS.label,
-          "11/17/2026",
-          "8",
+          "Tue 11/17",
+          "8 d",
           "Architecture, Clickable prototype",
         ];
         const before = PLAN_ROWS.filter(([id]) => id !== "portal" && id !== "reporting");
@@ -478,8 +495,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await rowTexts(gantt)).find(([id]) => id === "reporting")).toEqual([
           "reporting",
           "Reporting",
-          "11/2/2026",
-          "6",
+          "Mon 11/2",
+          "6 d",
           "",
         ]);
         expect(await barDates(gantt)).toEqual({

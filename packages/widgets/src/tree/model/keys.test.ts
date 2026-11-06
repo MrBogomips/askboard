@@ -117,13 +117,13 @@ describe("a key pressed while an input method composes", () => {
 describe("the toolbar's tools", () => {
   test("come in the design's order, with their names", () => {
     expect(TREE_TOOLS.map(({ edit, label }) => [edit, label])).toEqual([
-      ["addAfter", "Add node"],
-      ["addChild", "Add child"],
-      ["moveUp", "Move up"],
-      ["moveDown", "Move down"],
-      ["indent", "Indent"],
-      ["outdent", "Outdent"],
-      ["remove", "Delete"],
+      ["addAfter", "tree.tool.addAfter"],
+      ["addChild", "tree.tool.addChild"],
+      ["moveUp", "tree.tool.moveUp"],
+      ["moveDown", "tree.tool.moveDown"],
+      ["indent", "tree.tool.indent"],
+      ["outdent", "tree.tool.outdent"],
+      ["remove", "tree.tool.remove"],
     ]);
   });
 

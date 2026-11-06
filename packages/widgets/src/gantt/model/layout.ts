@@ -1,6 +1,6 @@
-// The chart's geometry (design decision 9; the UJ-2 mock): rows of 36px under an axis of 32px, so
-// that each lines up with its grid row; a row with a field error under it, taller by one line;
-// bars of 14px centred in their row's first 36px, spanning their calendar days; in a plan, the
+// The chart's geometry (design decision 9): rows and axis of the density's height, 32px compact and
+// 40px comfortable (review F-23), so that each lines up with its grid row; a row with a field
+// error under it, taller by one line; bars of 14px centred in their row's first line, spanning their calendar days; in a plan, the
 // baseline, a 4px bar under its task's bar; finish-to-start elbow arrows and their arrowheads'
 // IDs; and the axis's span, from the plan's start to two weeks past the last finish, room to drag
 // a task later. Plain numbers, which the chart writes as SVG attributes.
@@ -8,8 +8,9 @@
 import { dateOfDay, dayNumber, LAST_DAY } from "./date.ts";
 import { PIXELS_PER_DAY, xOf, type Zoom } from "./scale.ts";
 
+/** The compact density's `header-row` token, which a row and the axis take (DESIGN, density). */
 export const AXIS_HEIGHT = 32;
-export const ROW_HEIGHT = 36;
+export const ROW_HEIGHT = 32;
 /** The line a field error takes under its row. */
 export const NOTE_HEIGHT = 20;
 export const BAR_HEIGHT = 14;
@@ -23,11 +24,16 @@ export const AXIS_TAIL_DAYS = 14;
 export type RowBox = {
   readonly top: number;
   readonly height: number;
-  /** The middle of the row's first 36px, where its bar sits. */
+  /** The middle of the row's first line, where its bar sits. */
   readonly middle: number;
 };
 
-export type RowBoxes = { readonly boxes: readonly RowBox[]; readonly height: number };
+export type RowBoxes = {
+  readonly boxes: readonly RowBox[];
+  readonly height: number;
+  /** The axis's height: the same as a row's. */
+  readonly axis: number;
+};
 
 export type BarBox = {
   readonly x: number;
@@ -36,16 +42,19 @@ export type BarBox = {
   readonly height: number;
 };
 
-/** Each row's box under the axis, by whether a note sits under it; and the chart's height. */
-export const rowBoxes = (notes: readonly boolean[]): RowBoxes => {
-  let top = AXIS_HEIGHT;
+/**
+ * Each row's box under the axis, by whether a note sits under it; and the chart's height. The rows
+ * and the axis are `unit` high: the density's `header-row`.
+ */
+export const rowBoxes = (notes: readonly boolean[], unit: number = ROW_HEIGHT): RowBoxes => {
+  let top = unit;
   const boxes = notes.map((note) => {
-    const height = ROW_HEIGHT + (note ? NOTE_HEIGHT : 0);
-    const box = Object.freeze({ top, height, middle: top + ROW_HEIGHT / 2 });
+    const height = unit + (note ? NOTE_HEIGHT : 0);
+    const box = Object.freeze({ top, height, middle: top + unit / 2 });
     top += height;
     return box;
   });
-  return Object.freeze({ boxes: Object.freeze(boxes), height: top });
+  return Object.freeze({ boxes: Object.freeze(boxes), height: top, axis: unit });
 };
 
 /**
@@ -83,12 +92,12 @@ export const baselineBox = (
   });
 };
 
-// The mock's elbows: straight on to 16px before a successor that starts well after; else out 5px,
-// to 12px from the predecessor's middle, back to 9px before the successor, then to it.
-const RUN_IN = 16;
-const STEP_OUT = 5;
-const STEP_DOWN = 12;
-const STEP_BACK = 9;
+// An arrow leaves its predecessor's end by a stub, runs in the channel under (or over) that bar,
+// clear of the row's rule, and enters its successor from the left at mid-height after a stub
+// (review F-13): never along a row's rule, and no bracket shape.
+const STUB = 8;
+/** From the predecessor's bar to the channel: the rule is 11px from the bar, so 6px clear of it. */
+const CHANNEL_GAP = 5;
 
 /** The path of the arrow from a predecessor's end to its successor's start. */
 export const arrowPath = (from: BarBox, to: BarBox): string => {
@@ -96,9 +105,9 @@ export const arrowPath = (from: BarBox, to: BarBox): string => {
   const y1 = from.y + from.height / 2;
   const x2 = to.x;
   const y2 = to.y + to.height / 2;
-  if (x2 - RUN_IN >= x1 + STEP_OUT) return `M${x1},${y1} H${x2 - RUN_IN} V${y2} H${x2}`;
-  const turn = y1 + (y2 >= y1 ? STEP_DOWN : -STEP_DOWN);
-  return `M${x1},${y1} h${STEP_OUT} V${turn} H${x2 - STEP_BACK} V${y2} H${x2}`;
+  if (y1 === y2) return `M${x1},${y1} H${x2}`;
+  const channel = y2 > y1 ? from.y + from.height + CHANNEL_GAP : from.y - CHANNEL_GAP;
+  return `M${x1},${y1} h${STUB} V${channel} H${x2 - STUB} V${y2} H${x2}`;
 };
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { GANTT_FIRST_DATE, GANTT_LAST_DATE } from "@askboard/contract";
+import { EN_US_FORMAT, formatFor } from "../en-us.ts";
 import {
   calendarDay,
   dateOfDay,
@@ -11,6 +12,7 @@ import {
   isGanttDate,
   LAST_DAY,
   parseDateEntry,
+  spansYears,
 } from "./date.ts";
 
 describe("the Gantt's en-US date entry", () => {
@@ -23,11 +25,11 @@ describe("the Gantt's en-US date entry", () => {
     ["3/2/1900", "1900-03-02"],
     ["12/31/9999", "9999-12-31"],
   ])("reads %j as %s", (text, date) => {
-    expect(parseDateEntry(text)).toEqual({ kind: "date", date });
+    expect(parseDateEntry(text, EN_US_FORMAT)).toEqual({ kind: "date", date });
   });
 
   test.each(["", "   "])("reads %j as an empty field", (text) => {
-    expect(parseDateEntry(text)).toEqual({ kind: "empty" });
+    expect(parseDateEntry(text, EN_US_FORMAT)).toEqual({ kind: "empty" });
   });
 
   test.each([
@@ -45,7 +47,7 @@ describe("the Gantt's en-US date entry", () => {
     ["2/28/1900", "Pick a day from 3/2/1900 to 12/31/9999"],
     ["3/1/1900", "Pick a day from 3/2/1900 to 12/31/9999"],
   ])("refuses %j, saying why", (text, reason) => {
-    expect(parseDateEntry(text)).toEqual({ kind: "refused", reason });
+    expect(parseDateEntry(text, EN_US_FORMAT)).toEqual({ kind: "refused", reason });
   });
 
   test.each([
@@ -63,7 +65,7 @@ describe("the Gantt's en-US date entry", () => {
     for (let day = 0; day < 800; day++) {
       const month = 1 + (Math.floor(day / 28) % 12);
       const date = `2027-${String(month).padStart(2, "0")}-${String(1 + (day % 28)).padStart(2, "0")}`;
-      expect(parseDateEntry(gridDate(date))).toEqual({ kind: "date", date });
+      expect(parseDateEntry(gridDate(date), EN_US_FORMAT)).toEqual({ kind: "date", date });
     }
   });
 
@@ -80,7 +82,7 @@ describe("the Gantt's en-US date entry", () => {
     expect(/\bDate\b/.test(source.replace(/\/\/.*$/gm, ""))).toBe(false);
     const script = `import { echoDate, parseDateEntry } from ${JSON.stringify(join(import.meta.dir, "date.ts"))};
 console.log(JSON.stringify(["12/9/2026", "2/29/2028", "1/1/2027"].map((t) => {
-  const entry = parseDateEntry(t);
+  const entry = parseDateEntry(t, { locale: "en-US", language: "en-US", text: (key) => key });
   return entry.kind === "date" ? echoDate(entry.date) : entry;
 })));`;
     const run = (tz: string) =>
@@ -96,9 +98,15 @@ console.log(JSON.stringify(["12/9/2026", "2/29/2028", "1/1/2027"].map((t) => {
 
   test("takes its range from the contract's GANTT_FIRST_DATE and GANTT_LAST_DATE", () => {
     const range = `Pick a day from ${gridDate(GANTT_FIRST_DATE)} to ${gridDate(GANTT_LAST_DATE)}`;
-    expect(parseDateEntry("3/1/1900")).toEqual({ kind: "refused", reason: range });
-    expect(parseDateEntry(GANTT_FIRST_DATE)).toEqual({ kind: "date", date: GANTT_FIRST_DATE });
-    expect(parseDateEntry(GANTT_LAST_DATE)).toEqual({ kind: "date", date: GANTT_LAST_DATE });
+    expect(parseDateEntry("3/1/1900", EN_US_FORMAT)).toEqual({ kind: "refused", reason: range });
+    expect(parseDateEntry(GANTT_FIRST_DATE, EN_US_FORMAT)).toEqual({
+      kind: "date",
+      date: GANTT_FIRST_DATE,
+    });
+    expect(parseDateEntry(GANTT_LAST_DATE, EN_US_FORMAT)).toEqual({
+      kind: "date",
+      date: GANTT_LAST_DATE,
+    });
   });
 
   test.each([
@@ -180,7 +188,7 @@ describe("the Gantt's day numbers", () => {
 });
 
 describe("the Gantt's it-IT dates (settings-languages, task 9.2)", () => {
-  const italian = { locale: "it-IT", language: "it-IT" } as const;
+  const italian = formatFor("it-IT", "it-IT");
 
   test("reads day first and refuses a day outside the range in Italian", () => {
     expect(parseDateEntry("9/12/2026", italian)).toEqual({ kind: "date", date: "2026-12-09" });
@@ -201,5 +209,16 @@ describe("the Gantt's it-IT dates (settings-languages, task 9.2)", () => {
   test("still refuses a day outside the contract's range, whatever the locale", () => {
     expect(() => gridDate("1899-12-31", "it-IT")).toThrow(RangeError);
     expect(() => echoDate("1899-12-31", "it-IT")).toThrow(RangeError);
+  });
+});
+
+describe("whether a plan spans two years (review F-21)", () => {
+  test("is no when every date is in one year, or there is none", () => {
+    expect(spansYears([])).toBe(false);
+    expect(spansYears(["2026-11-02", "2026-12-31"])).toBe(false);
+  });
+
+  test("is yes when the dates are in two", () => {
+    expect(spansYears(["2026-12-31", "2027-01-04"])).toBe(true);
   });
 });

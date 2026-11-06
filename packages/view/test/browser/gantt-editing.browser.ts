@@ -31,14 +31,19 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const editor = gantt.cell("reporting", "start").locator("input");
         expect(await editor.inputValue()).toBe("12/4/2026");
         expect(await editorFocused(run.board, "reporting", "start")).toBe(true);
+        const rowHeight = async () =>
+          (await gantt.cell("reporting", "start").boundingBox())?.height;
+        const height = await rowHeight();
         await run.board.page.keyboard.type("12/9/2026");
-        expect(await gantt.cell("reporting", "start").textContent()).toContain(
-          "= Wed, Dec 9, 2026",
-        );
+        // No echo: nothing covers the Duration and Depends on cells, and the row keeps its height.
+        expect(await gantt.root.locator("[data-gantt-echo]").count()).toBe(0);
+        expect(await gantt.cell("reporting", "start").textContent()).not.toContain("=");
+        expect(await gantt.cell("reporting", "duration").isVisible()).toBe(true);
+        expect(await rowHeight()).toBe(height);
         await run.board.page.keyboard.press("Enter");
         expect(await editor.count()).toBe(0);
         expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-          "12/9/2026",
+          "Wed 12/9",
         );
         expect((await barDates(gantt)).reporting).toBe("2026-12-09..2026-12-16");
         expect(await criticalTasks(gantt)).toEqual(["reporting"]);
@@ -70,9 +75,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.page.keyboard.press("F2");
         expect(await gantt.cell("billing", "duration").locator("input").inputValue()).toBe("9");
         await run.board.page.keyboard.type("30");
-        expect(await gantt.cell("billing", "duration").textContent()).toContain("= 30");
+        expect(await gantt.cell("billing", "duration").textContent()).not.toContain("=");
         await run.board.page.keyboard.press("Enter");
-        expect(((await gantt.cell("billing", "duration").textContent()) ?? "").trim()).toBe("30");
+        expect(((await gantt.cell("billing", "duration").textContent()) ?? "").trim()).toBe("30 d");
         expect((await barDates(gantt)).billing).toBe("2026-11-06..2026-12-17");
         expect(await criticalTasks(gantt)).toEqual(["architecture", "billing"]);
         expect(await focusedCell(run.board)).toBe("billing.duration");
@@ -102,6 +107,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             entry,
             note: expect.stringContaining(said),
           });
+          // The note names its column and describes the editor.
+          expect(await gantt.note("reporting").textContent()).toStartWith("Start:");
+          const noteId = await gantt.note("reporting").locator("span").first().getAttribute("id");
+          expect(await editor.getAttribute("aria-describedby")).toBe(noteId);
           expect(await editorFocused(run.board, "reporting", "start")).toBe(true);
           expect(await run.board.answer.isDisabled()).toBe(true);
         }
@@ -109,7 +118,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await editor.count()).toBe(0);
         expect(await gantt.note("reporting").count()).toBe(0);
         expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-          "12/4/2026",
+          "Fri 12/4",
         );
         expect(await focusedCell(run.board)).toBe("reporting.start");
         // A refused duration in a middle row: the rows under it move down with the chart's.
@@ -122,7 +131,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const lined = await alignment(gantt);
         expect(lined.map(({ task, row }) => [task, row])).toEqual(
           ["ux", "architecture", "prototype", "portal", "billing", "reporting"].map(
-            (task, index) => [task, 32 + 36 * index + (index > 3 ? 20 : 0)],
+            (task, index) => [task, 32 + 32 * index + (index > 3 ? 20 : 0)],
           ),
         );
         for (const { row, bar } of lined) expect(bar).toBe(row);

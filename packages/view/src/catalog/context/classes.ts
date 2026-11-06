@@ -71,8 +71,15 @@ export const IMAGE_UNRESOLVED = "min-w-0 rounded-md border border-border bg-card
 /** An unresolved image's alt text. */
 export const ALT = "px-[8px] pb-[6px] text-body text-foreground-secondary";
 
-/** A shown image: the column's width at most, its own height. */
-export const IMAGE = "block h-auto max-w-full rounded-md border border-border";
+/** A shown image's frame (review F-24): `muted`, bordered, so that a screenshot never reads as live board UI. */
+export const IMAGE_FRAME =
+  "flex min-w-0 flex-col gap-[6px] rounded-md border border-border bg-muted p-[8px]";
+
+/** A shown image: the frame's width at most, its own height. */
+export const IMAGE = "block h-auto max-w-full self-start rounded-md";
+
+/** A shown image's caption line: its alt text, else its path. */
+export const IMAGE_CAPTION = "truncate text-badge text-muted-foreground";
 
 /** The reference: a bordered chip on two lines. */
 export const REFERENCE = `flex w-full min-w-0 flex-col gap-[2px] rounded-md border border-border bg-card px-[8px] py-[6px] text-left hover:bg-muted ${FOCUS_RING}`;

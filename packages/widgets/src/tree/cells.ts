@@ -12,29 +12,27 @@ import {
   type TreeNode,
   type TreeProps,
 } from "@askboard/contract";
+import type { Say } from "@askboard/view/catalog";
 import { formatNumber } from "../shared/number.ts";
 import { isPert } from "./model/nodes.ts";
 
-/** The name column's header. The wording is not recorded in EXPERIENCE.md. */
-export const NAME_COLUMN = "Name";
-
-/** A work breakdown's name column header (EXPERIENCE, Copy, WBS with PERT). */
-export const WBS_NAME_COLUMN = "Work package";
-
-/** A work breakdown's value columns, after the fields: each row's expected effort and spread. */
-export const PERT_VALUE_COLUMNS = ["Expected effort", "Spread"] as const;
-
-/** The name of a work breakdown's Total row, its item's roll-ups (provisional: design decision 14). */
-export const TOTAL_ROW = "Total";
+/**
+ * The two value columns' headers from the catalogue: a label short enough for one line, and the
+ * column's full name as its tip (review F-22).
+ */
+export const PERT_HEADERS = [
+  { label: "tree.expected", tip: "tree.expectedEffort" },
+  { label: "tree.spread", tip: "tree.spread" },
+] as const;
 
 const ESTIMATES: ReadonlySet<string> = new Set(GANTT_PLAN_ESTIMATES);
 
 /** The unit affix of a work breakdown's estimates and values: working days. */
 const DAYS = "d";
 
-/** The name column's header for `value`. */
-export const nameColumnOf = (value: TreeProps): string =>
-  isPert(value) ? WBS_NAME_COLUMN : NAME_COLUMN;
+/** The name column's header for `value`: "Work package" for a work breakdown, else "Name". */
+export const nameColumnOf = (value: TreeProps, text: Say): string =>
+  text(isPert(value) ? "tree.wbsNameColumn" : "tree.nameColumn");
 
 /** The text of the node's field in `column`, in the ask's locale: empty when the node has none. */
 export const fieldText = (node: TreeNode, column: TreeColumn, locale: Locale = "en-US"): string => {

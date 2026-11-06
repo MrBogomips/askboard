@@ -9,7 +9,7 @@
 // the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
 // and widths as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
-import { useLocale } from "@askboard/view/catalog";
+import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, useCallback, useMemo } from "react";
 import { type BarDrag, useBarDrag } from "./bar-drag.ts";
 import {
@@ -24,12 +24,21 @@ import { isCriticalLink } from "./model/critical-link.ts";
 import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
-import { AXIS_HEIGHT, arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
+import { arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
-import { labelLines, PIXELS_PER_DAY, type Tick, ticks, type Zoom } from "./model/scale.ts";
+import {
+  axisTicks,
+  labelLines,
+  PIXELS_PER_DAY,
+  type Tick,
+  weekendDays,
+  xOf,
+  type Zoom,
+} from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
+import { ZOOM_LABELS } from "./zoom.tsx";
 
 type Arrow = { readonly from: DrawnBar; readonly to: DrawnBar; readonly critical: boolean };
 
@@ -55,7 +64,7 @@ const Markers = memo(({ itemId }: { readonly itemId: string }) => (
       markerUnits="userSpaceOnUse"
       orient="auto"
     >
-      <path d="M0,0 L6,3 L0,6 z" className="fill-gantt-bar" />
+      <path d="M0,0 L6,3 L0,6 z" className="fill-border-strong" />
     </marker>
     <marker
       id={arrowMarkerId(itemId, true)}
@@ -110,14 +119,27 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
   const locale = useLocale();
   return (
     <g>
-      <rect x={0} y={0} width={width} height={AXIS_HEIGHT} className="fill-muted" />
+      <rect x={0} y={0} width={width} height={layout.axis} className="fill-muted" />
       <line
         x1={0}
-        y1={AXIS_HEIGHT - 0.5}
+        y1={layout.axis - 0.5}
         x2={width}
-        y2={AXIS_HEIGHT - 0.5}
+        y2={layout.axis - 0.5}
         className="stroke-border stroke-1"
       />
+      {zoom === "day"
+        ? weekendDays(span.origin, span.last).map((date) => (
+            <rect
+              key={date}
+              data-gantt-weekend={date}
+              x={xOf(date, span.origin, zoom)}
+              y={layout.axis}
+              width={PIXELS_PER_DAY[zoom]}
+              height={layout.height - layout.axis}
+              className="fill-muted"
+            />
+          ))
+        : null}
       {layout.boxes.map((box) => (
         <line
           key={box.top}
@@ -128,7 +150,7 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
           className="stroke-border stroke-1"
         />
       ))}
-      {ticks(span.origin, span.last, zoom, locale).map((tick) => (
+      {axisTicks(span.origin, span.last, zoom, locale).map((tick) => (
         <g key={tick.date}>
           <line
             x1={tick.x + 0.5}
@@ -153,7 +175,9 @@ const ArrowPath = memo(({ itemId, arrow }: { readonly itemId: string; readonly a
     d={arrowPath(arrow.from.box, arrow.to.box)}
     markerEnd={`url(#${arrowMarkerId(itemId, arrow.critical)})`}
     className={
-      arrow.critical ? "fill-none stroke-critical stroke-2" : "fill-none stroke-gantt-bar stroke-1"
+      arrow.critical
+        ? "fill-none stroke-critical stroke-2"
+        : "fill-none stroke-border-strong stroke-1"
     }
   />
 ));
@@ -171,6 +195,8 @@ const Arrows = memo(
     </g>
   ),
 );
+
+const isDerived = (mark: TaskMarks | undefined): boolean => mark?.derived === true && !mark.changed;
 
 export type ChartProps = {
   readonly itemId: string;
@@ -206,6 +232,7 @@ const draggedBox = (bar: DrawnBar, drag: BarDrag, span: ChartSpan, zoom: Zoom) =
 
 export const Chart = (props: ChartProps) => {
   const { itemId, rows, schedules, layout, span, zoom, onMove, onResize } = props;
+  const text = useStrings();
   const width = (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
   const bars = useMemo(
     () => drawnBars(rows, schedules, layout, span, zoom),
@@ -238,7 +265,7 @@ export const Chart = (props: ChartProps) => {
   return (
     <svg
       role="img"
-      aria-label={`Gantt chart, ${zoom} zoom`}
+      aria-label={text("gantt.chart.name", { zoom: text(ZOOM_LABELS[zoom]).toLowerCase() })}
       width={width}
       height={layout.height}
       viewBox={`0 0 ${width} ${layout.height}`}
@@ -259,6 +286,7 @@ export const Chart = (props: ChartProps) => {
             bar={bar}
             drawn={bar === dragged && drag ? draggedBox(bar, drag, span, zoom) : bar.box}
             changed={props.marks.get(bar.id)?.changed === true}
+            derived={isDerived(props.marks.get(bar.id))}
             draggable={props.editable}
             resizable={onResize !== undefined}
             onPress={press}
@@ -269,7 +297,7 @@ export const Chart = (props: ChartProps) => {
         ))}
       </g>
       {dragged !== undefined && drag?.kind === "move" ? (
-        <Guide bar={dragged} span={span} zoom={zoom} />
+        <Guide bar={dragged} span={span} zoom={zoom} height={layout.height} />
       ) : null}
     </svg>
   );

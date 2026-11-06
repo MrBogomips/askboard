@@ -7,6 +7,7 @@
 import type { GanttProps, TreeNode } from "@askboard/contract";
 import {
   changeCount,
+  derivedCount,
   ownTaskMarks,
   planChangeCount,
   planTaskMarks,
@@ -33,6 +34,8 @@ export type GanttMarks = {
   readonly marks: ReadonlyMap<string, TaskMarks>;
   /** The tasks "Your changes" counts. */
   readonly count: number;
+  /** The tasks that follow the plan's Tree: "M follow from the WBS". Always 0 for a Gantt's own. */
+  readonly derived: number;
 };
 
 /**
@@ -49,13 +52,11 @@ export const ganttMarks = (
 ): GanttMarks => {
   if (isOwnGantt(value) && isOwnGantt(sent)) {
     const marks = ownTaskMarks(value, sent);
-    return { marks, count: changeCount(marks) };
+    return { marks, count: changeCount(marks), derived: 0 };
   }
   if (isOwnGantt(value) || isOwnGantt(sent)) {
     throw new RangeError("a Gantt's marks take its value and the agent's of one kind");
   }
-  return {
-    marks: planTaskMarks(value, sent, rows, schedules, baselines ?? []),
-    count: planChangeCount(value, sent),
-  };
+  const marks = planTaskMarks(value, sent, rows, schedules, baselines ?? []);
+  return { marks, count: planChangeCount(value, sent), derived: derivedCount(marks) };
 };

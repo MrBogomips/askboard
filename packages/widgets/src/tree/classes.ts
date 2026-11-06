@@ -14,7 +14,7 @@ export const TOOLBAR =
   "flex h-[32px] items-center gap-2 rounded-t-md border-b border-border bg-muted px-2";
 
 /** The tools, on the toolbar row's left. */
-export const TOOLS = "flex items-center gap-[4px]";
+export const TOOLS = "flex shrink-0 items-center gap-[4px]";
 
 /**
  * A tool: `button-secondary`, `spacing.control-height` high, with the focus ring; a disabled tool
@@ -36,7 +36,18 @@ export const QUESTION_ROW = "flex min-w-0 items-center gap-2";
 
 /** The counter of the user's changes, at the toolbar row's right; the question never pushes it out. */
 export const COUNTER =
-  "ml-auto flex shrink-0 items-center gap-[6px] text-control text-foreground-secondary";
+  "ml-auto flex min-w-0 items-center gap-[6px] text-control text-foreground-secondary";
+
+/** The counter's text, cut with an ellipsis before it overprints a tool (review F-16). */
+export const COUNTER_TEXT = "min-w-0 truncate";
+
+/** The "More" menu's panel and its items, as the question card's menu looks. */
+export const MENU =
+  "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
+
+export const MENU_ITEM =
+  "flex cursor-default items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
+  "data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";
 
 /** The change dot, `{colors.change}`: the counter's mark, and a moved row's after its name. */
 export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
@@ -50,13 +61,16 @@ export const QUESTION_ERROR = "min-w-0 truncate text-control text-destructive-te
 export const GRID = "w-full table-fixed border-collapse";
 
 /** The header row of column names, `spacing.header-row` high, in `typography.label` on `muted`. */
-export const HEADER_ROW = "h-[32px] bg-muted text-label text-muted-foreground uppercase";
+export const HEADER_ROW = "h-header-row bg-muted text-label text-muted-foreground uppercase";
 
 /** The name column's header. */
 export const NAME_HEADER = "px-2 text-left";
 
-/** A node's row, as tall as the mockup's grid rows, with a rule above it. */
-export const ROW = "h-[36px] border-t border-border text-body text-foreground";
+/** A node's row, as tall as the header row (32px compact, 40px comfortable; review F-23), with a rule above it. */
+export const ROW = "h-header-row border-t border-border text-body text-foreground";
+
+/** A cell that is not being edited takes no text selection, so a double click opens its editor (review F-05). */
+export const NOT_SELECTABLE = "select-none";
 
 /** The name's cell, which takes the room the field columns leave. */
 export const NAME_CELL = "px-2";
@@ -78,6 +92,18 @@ export const FIELD_HEADER: Readonly<Record<TreeColumnType, string>> = {
   number: "w-36 px-2 text-right",
   text: "w-48 px-2 text-left",
 };
+
+/**
+ * The current row (spec, "Tree current row"): a `primary-subtle` fill on the row and a 2px
+ * `primary` bar on the name cell's left edge, shown whether or not the row has the keyboard focus.
+ * An added row keeps its change bar, inside the current one.
+ */
+export const CURRENT_ROW = "bg-primary-subtle";
+
+export const CURRENT_BAR = "shadow-[inset_2px_0_0_0_var(--primary)]";
+
+export const CURRENT_ADDED_BAR =
+  "shadow-[inset_2px_0_0_0_var(--primary),inset_4px_0_0_0_var(--change)]";
 
 /** The name's indent, `spacing.lg` per level below the first (DESIGN.md, Tree), by level. */
 export const INDENT: readonly string[] = [
@@ -131,8 +157,8 @@ const EDITOR_BASE =
   "text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 " +
   "focus-visible:outline-ring aria-invalid:border-destructive";
 
-/** The cell editor and, under it, a number's echo; it takes the cell's width. */
-export const EDITOR_BOX = "flex min-w-0 flex-1 flex-col gap-0.5 py-1";
+/** The cell editor; it takes the cell's width and never changes the row's height. */
+export const EDITOR_BOX = "flex min-w-0 flex-1 items-center";
 
 /** A name's or a text's editor, in the input atoms' look, its border `field-error`'s when refused. */
 export const EDITOR = EDITOR_BASE;
@@ -146,8 +172,8 @@ export const AFFIX_GROUP = "flex min-w-0 items-center gap-1";
 /** The unit affix after an input, in the code face and muted. */
 export const AFFIX = "shrink-0 font-mono text-code text-muted-foreground";
 
-/** A number's parsed value, echoed in the code face (DESIGN.md, Input atoms). */
-export const ECHO = "text-right font-mono text-code text-muted-foreground";
-
 /** The `field-error` line under the edited row (DESIGN.md, Field error). */
 export const FIELD_ERROR = "px-2 pb-1.5 text-body text-destructive-text";
+
+/** An added row's note and its dash roll-ups: neutral, not an error (review F-11). */
+export const NEUTRAL_NOTE = "px-2 pb-1.5 text-body text-muted-foreground";

@@ -1,7 +1,8 @@
 // The Gantt's grid (design decision 9; EXPERIENCE Widgets, Gantt): a table whose role is `grid`,
 // so that its rows, cells and column headers take their roles from the HTML, labelled by its
-// question's text; a header row of 32px in `text-label` on `muted` ("Task", "Start", "Duration",
-// "Depends on"; provisional) and one row of 36px per task, lined up with its row of the chart: its
+// question's text; a header row, `header-row` high (32px compact, 40px comfortable), in `text-label` on `muted`
+// ("Task", "Start", "Duration", "Depends on"; provisional) and one row per task as tall as the
+// header, lined up with its row of the chart: its
 // name, its start as the grid's date (`12/9/2026`), its duration in working days, right-aligned,
 // and its predecessors' names, over their panel while it is open; a note, such as a refused
 // entry's reason, takes a line under its row. A plan's duration is its work package's PERT
@@ -11,12 +12,13 @@
 // read on its cells only, so that an editor or a panel inside a cell keeps its own
 // (`grid-keys.ts`).
 
-import type { GanttProps, Locale } from "@askboard/contract";
-import { questionTextId, useLocale } from "@askboard/view/catalog";
+import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract";
+import { questionTextId, type StringKey, useLocale, useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
+import { errorSpan } from "../shared/field-error.ts";
 import { CellEditor, noteId } from "./cell-editor.tsx";
-import type { CellEditing } from "./editing.ts";
-import { gridDate } from "./model/date.ts";
+import type { CellEditing, Editing } from "./editing.ts";
+import { spansYears } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import type { TaskSchedule } from "./model/schedule.ts";
@@ -24,11 +26,12 @@ import { GANTT_COLUMNS, type GanttColumn, type GanttRow } from "./model/tasks.ts
 import { PredecessorsPanel } from "./panel.tsx";
 import type { PanelState } from "./panel-state.ts";
 
-export const HEADERS: Readonly<Record<GanttColumn, string>> = {
-  task: "Task",
-  start: "Start",
-  duration: "Duration",
-  dependencies: "Depends on",
+/** Each column's header string in the catalogue. */
+export const HEADERS: Readonly<Record<GanttColumn, StringKey>> = {
+  task: "gantt.column.task",
+  start: "gantt.column.start",
+  duration: "gantt.column.duration",
+  dependencies: "gantt.column.dependencies",
 };
 
 /** Each column's width and alignment; the name takes what the others leave. */
@@ -43,8 +46,14 @@ const COLUMN: Readonly<Record<GanttColumn, string>> = {
 const CELL =
   "relative focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 
+/** A cell that is not being edited takes no text selection, so a double click opens its editor (review F-05). */
+const NOT_SELECTABLE = "select-none";
+
 /** A cell the user changed: the change fill and text, with the change border (DESIGN.md). */
 const CHANGED = "bg-change-subtle text-change-text inset-ring inset-ring-change";
+
+/** A cell that only follows the plan's Tree: the change fill, with no border (design decision 11). */
+const DERIVED = "bg-change-subtle";
 
 /** A row the user added: the change bar on its left edge, as the Tree's added row has it. */
 const ADDED = "shadow-[inset_2px_0_0_0_var(--change)]";
@@ -52,6 +61,10 @@ const ADDED = "shadow-[inset_2px_0_0_0_var(--change)]";
 /** Whether the user changed what a cell shows, by its column. */
 const changedIn = (column: GanttColumn, mark: TaskMarks | undefined): boolean =>
   mark !== undefined && column !== "task" && mark[column];
+
+/** Whether a cell shows a value that only follows the Tree: a plan's duration. */
+const derivedIn = (column: GanttColumn, mark: TaskMarks | undefined): boolean =>
+  column === "duration" && mark?.derived === true && !mark.changed;
 
 /** The face of each column's values: dates and numbers in the code face. */
 const FACE: Readonly<Record<GanttColumn, string>> = {
@@ -61,13 +74,22 @@ const FACE: Readonly<Record<GanttColumn, string>> = {
   dependencies: "",
 };
 
+/** How the grid writes what it shows: the ask's locale, a date's year and a duration's unit. */
+export type CellFormat = {
+  readonly locale: Locale;
+  /** Whether a date carries its year: only when the plan spans two years (review F-21). */
+  readonly withYear: boolean;
+  /** A duration in working days with its unit: "6 d" (review F-20). */
+  readonly days: (count: number) => string;
+};
+
 /** What a cell shows, from its row, the row's schedule and every task's name. */
 export const cellText = (
   column: GanttColumn,
   row: GanttRow,
   schedule: TaskSchedule | undefined,
   names: ReadonlyMap<string, string>,
-  locale: Locale = "en-US",
+  format: CellFormat,
 ): string => {
   if (column === "task") return row.label;
   if (column === "dependencies") {
@@ -77,20 +99,25 @@ export const cellText = (
   if (column === "duration") {
     // A task's own duration, or a plan's, which the graph gives from its estimates.
     const days = row.duration ?? scheduled?.duration;
-    return days === undefined ? "" : String(days);
+    return days === undefined ? "" : format.days(days);
   }
-  return scheduled === undefined ? "" : gridDate(scheduled.startDate, locale);
+  return scheduled === undefined
+    ? ""
+    : formatGridDate(scheduled.startDate, format.locale, format.withYear);
 };
 
-const HeaderRow = () => (
-  <tr className="h-[32px] bg-muted text-label text-muted-foreground uppercase">
-    {GANTT_COLUMNS.map((column) => (
-      <th key={column} scope="col" className={`${COLUMN[column]} font-semibold`}>
-        {HEADERS[column]}
-      </th>
-    ))}
-  </tr>
-);
+const HeaderRow = () => {
+  const text = useStrings();
+  return (
+    <tr className="h-header-row bg-muted text-label text-muted-foreground uppercase">
+      {GANTT_COLUMNS.map((column) => (
+        <th key={column} scope="col" className={`${COLUMN[column]} font-semibold`}>
+          {text(HEADERS[column])}
+        </th>
+      ))}
+    </tr>
+  );
+};
 
 type TaskRowProps = {
   readonly itemId: string;
@@ -109,6 +136,8 @@ type TaskRowProps = {
   readonly mark: TaskMarks | undefined;
   /** Whether the Gantt takes edits: a read-only one opens no editor and no panel. */
   readonly editable: boolean;
+  /** Whether the grid's dates carry their year. */
+  readonly withYear: boolean;
 };
 
 /** The predecessors panel of the row, if it is open, in its "Depends on" cell. */
@@ -131,34 +160,42 @@ const RowPanel = ({ itemId, row, rows, panels, current, editable }: TaskRowProps
 
 const TaskRow = (props: TaskRowProps) => {
   const locale = useLocale();
+  const text = useStrings();
   const { itemId, row, schedule, names, stop, editing, mark } = props;
+  const format: CellFormat = {
+    locale,
+    withYear: props.withYear,
+    days: (count) => text("gantt.duration", { count }),
+  };
   const edited = props.editable && editing.editing?.taskId === row.id ? editing.editing : undefined;
   const added = mark?.added === true;
   return (
     <tr
       data-gantt-row={row.id}
       data-gantt-added={added ? "" : undefined}
-      className="h-[36px] border-t border-border text-body text-foreground"
+      className="h-header-row border-t border-border text-body text-foreground"
     >
-      {row.cells.map(({ column }, index) => (
+      {row.cells.map(({ column, editable }, index) => (
         <td
           key={column}
           data-gantt-column={column}
+          data-gantt-derived={derivedIn(column, mark) ? "" : undefined}
+          data-editable={props.editable && editable && edited?.column !== column ? true : undefined}
           // While its editor is open, the editor holds the cell's Tab stop.
           tabIndex={index === stop && edited?.column !== column ? 0 : -1}
-          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : ""} ${added && column === "task" ? ADDED : ""}`}
+          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${edited?.column === column ? "" : NOT_SELECTABLE} ${changedIn(column, mark) ? CHANGED : derivedIn(column, mark) ? DERIVED : ""} ${added && column === "task" ? ADDED : ""}`}
         >
           {edited?.column === column ? (
             <CellEditor
               itemId={itemId}
               editing={edited}
-              label={`${HEADERS[column]}, ${row.label}`}
+              label={text("gantt.cellLabel", { column: text(HEADERS[column]), task: row.label })}
               onChange={editing.change}
               onCommit={editing.commit}
               onCancel={editing.cancel}
             />
           ) : (
-            <span className="block truncate">{cellText(column, row, schedule, names, locale)}</span>
+            <span className="block truncate">{cellText(column, row, schedule, names, format)}</span>
           )}
           {column === "dependencies" ? <RowPanel {...props} /> : null}
         </td>
@@ -167,18 +204,42 @@ const TaskRow = (props: TaskRowProps) => {
   );
 };
 
-type NoteRowProps = { readonly itemId: string; readonly taskId: string; readonly note: string };
+// The column whose entry was refused in the task `taskId`, if it is.
+const refusedColumn = (editing: Editing | undefined, taskId: string): GanttColumn | undefined =>
+  editing?.taskId === taskId && editing.refusal !== undefined ? editing.column : undefined;
+
+type NoteRowProps = {
+  readonly itemId: string;
+  readonly taskId: string;
+  readonly note: string;
+  /** The column of a refused entry, which the note names and sits under; none for another note. */
+  readonly refused?: GanttColumn | undefined;
+};
 
 /** The line under a task's row that holds its note, in the field error's colour. */
-const NoteRow = ({ itemId, taskId, note }: NoteRowProps) => (
-  <tr data-gantt-note={taskId} className="h-[20px] text-body text-destructive-text">
-    <td colSpan={GANTT_COLUMNS.length} className="px-2">
-      <span id={noteId(itemId, taskId)} className="block truncate">
-        {note}
-      </span>
-    </td>
-  </tr>
-);
+const NoteRow = ({ itemId, taskId, note, refused }: NoteRowProps) => {
+  const text = useStrings();
+  const columns = GANTT_COLUMNS.length;
+  const { skip, span } =
+    refused === undefined
+      ? errorSpan(0, columns)
+      : errorSpan(GANTT_COLUMNS.indexOf(refused), columns);
+  return (
+    <tr data-gantt-note={taskId} className="h-[20px] text-body text-destructive-text">
+      {skip === 0 ? null : <td colSpan={skip} />}
+      <td colSpan={span} className="px-2">
+        <span id={noteId(itemId, taskId)} className="block truncate">
+          {refused === undefined ? null : (
+            <span className="font-medium">
+              {text("widget.fieldError", { column: text(HEADERS[refused]) })}{" "}
+            </span>
+          )}
+          {note}
+        </span>
+      </td>
+    </tr>
+  );
+};
 
 export type GridProps = {
   readonly itemId: string;
@@ -203,6 +264,9 @@ export type GridProps = {
 export const Grid = (props: GridProps) => {
   const { itemId, rows, schedules, notes, stop } = props;
   const names = new Map(rows.map((row) => [row.id, row.label]));
+  const withYear = spansYears(
+    schedules.flatMap((s) => (s.kind === "scheduled" ? [s.startDate, s.finishDate] : [])),
+  );
   return (
     <table
       ref={props.table}
@@ -233,11 +297,18 @@ export const Grid = (props: GridProps) => {
               current={props.current}
               mark={props.marks.get(row.id)}
               editable={props.editable}
+              withYear={withYear}
             />
           );
           if (note === undefined) return [task];
           const line = (
-            <NoteRow key={`${row.id}:note`} itemId={itemId} taskId={row.id} note={note} />
+            <NoteRow
+              key={`${row.id}:note`}
+              itemId={itemId}
+              taskId={row.id}
+              note={note}
+              refused={refusedColumn(props.editing.editing, row.id)}
+            />
           );
           return [task, line];
         })}

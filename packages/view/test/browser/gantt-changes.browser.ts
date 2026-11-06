@@ -67,12 +67,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await criticalTasks(gantt)).toEqual([]);
         const rows = await rowTexts(gantt);
         expect(rows.slice(6)).toEqual([
-          ["qa", "QA sign-off", "", "2", "Release notes"],
-          ["docs", "Release notes", "", "3", "QA sign-off"],
-          ["launch", "Launch", "", "1", "ghost"],
+          ["qa", "QA sign-off", "", "2 d", "Release notes"],
+          ["docs", "Release notes", "", "3 d", "QA sign-off"],
+          ["launch", "Launch", "", "1 d", "ghost"],
         ]);
         const lined = await alignment(gantt);
-        expect(lined.map(({ row }) => row)).toEqual([32, 68, 104, 140, 176, 212, 248, 304, 360]);
+        expect(lined.map(({ row }) => row)).toEqual([32, 64, 96, 128, 160, 192, 224, 276, 328]);
         for (const { row, bar } of lined) if (bar !== undefined) expect(bar).toBe(row);
         expect(await run.board.answer.isDisabled()).toBe(true);
         // A change elsewhere: the question can be answered, the errors standing.
@@ -118,7 +118,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             expect(await view.evaluate(() => document.querySelector(".dark") !== null)).toBe(true);
           }
           const gantt = ganttOf(run.board);
-          expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+          expect(await counterText(gantt)).toBe("No changes");
           expect(await changeOutlines(gantt)).toEqual([]);
           await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
           expect(await counterText(gantt)).toBe("Your changes: 1");
@@ -158,7 +158,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.page.keyboard.type("12/4/2026");
         await run.board.page.keyboard.press("Enter");
         expect(await run.board.answer.isDisabled()).toBe(true);
-        expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+        expect(await counterText(gantt)).toBe("No changes");
         // The fixture's two edits, by keyboard.
         await keysTo(run.board, "reporting", "start");
         await run.board.page.keyboard.press("Enter");

@@ -26,12 +26,12 @@ export type RowText = [task: string, name: string, start: string, duration: stri
 
 /** The fixture plan's rows: the Tree's leaves in its order, each duration its PERT estimate. */
 export const PLAN_ROWS: RowText[] = [
-  ["ux", "UX design", "11/2/2026", "6", ""],
-  ["architecture", "Architecture", "11/2/2026", "4", ""],
-  ["prototype", "Clickable prototype", "11/10/2026", "5", "UX design"],
-  ["portal", "Customer portal", "11/17/2026", "13", "Architecture, Clickable prototype"],
-  ["billing", "Billing integration", "11/6/2026", "9", "Architecture"],
-  ["reporting", "Reporting", "12/4/2026", "6", "Customer portal"],
+  ["ux", "UX design", "Mon 11/2", "6 d", ""],
+  ["architecture", "Architecture", "Mon 11/2", "4 d", ""],
+  ["prototype", "Clickable prototype", "Tue 11/10", "5 d", "UX design"],
+  ["portal", "Customer portal", "Tue 11/17", "13 d", "Architecture, Clickable prototype"],
+  ["billing", "Billing integration", "Fri 11/6", "9 d", "Architecture"],
+  ["reporting", "Reporting", "Fri 12/4", "6 d", "Customer portal"],
 ];
 
 /**
@@ -69,6 +69,17 @@ export const chartAt = (gantt: GanttParts, zoom: ZoomName): Locator =>
 export const zoomOption = (gantt: GanttParts, label: string): Locator =>
   gantt.root.getByRole("radiogroup", { name: "Zoom" }).getByRole("radio", { name: label });
 
+/**
+ * Chooses the Week zoom, which most scenarios measure against: the plan opens at the finest zoom
+ * that fits its box, which at 1280 px is not always the week.
+ */
+export const chooseWeek = async (gantt: GanttParts): Promise<void> => {
+  // A synthetic click: a real one would leave the focus on the option, and the scenarios that Tab
+  // to the grid start from none.
+  await zoomOption(gantt, "Week").dispatchEvent("click");
+  await chartAt(gantt, "week").waitFor();
+};
+
 /** The labels of the zoom's options that read as checked. */
 export const checkedZoom = (gantt: GanttParts): Promise<string[]> =>
   gantt.root
@@ -102,8 +113,9 @@ export const optionLook = (option: Locator) =>
   });
 
 /**
- * Every baseline's task, dates, geometry and fill, in the chart's order, with the gap from the
- * bottom of its task's bar to its top: a baseline lies under its bar.
+ * Every drawn baseline's task, dates, geometry and stroke, in the chart's order, with the gap from
+ * the bottom of its task's bar to its line: a baseline, a dashed 2px line, lies under its bar and
+ * only where the task's dates differ from the agent's.
  */
 export const baselineFacts = (gantt: GanttParts) =>
   gantt.root.locator("[data-gantt-baseline]").evaluateAll((baselines) =>
@@ -114,15 +126,17 @@ export const baselineFacts = (gantt: GanttParts) =>
         bar === null
           ? Number.NaN
           : Number(bar.getAttribute("y")) + Number(bar.getAttribute("height"));
+      const style = getComputedStyle(baseline);
       return {
         task,
         start: baseline.getAttribute("data-start") ?? "",
         finish: baseline.getAttribute("data-finish") ?? "",
-        x: Number(baseline.getAttribute("x")),
-        width: Number(baseline.getAttribute("width")),
-        height: Number(baseline.getAttribute("height")),
-        gap: Number(baseline.getAttribute("y")) - barBottom,
-        fill: getComputedStyle(baseline).fill,
+        x: Number(baseline.getAttribute("x1")),
+        width: Number(baseline.getAttribute("x2")) - Number(baseline.getAttribute("x1")),
+        height: Number.parseFloat(style.strokeWidth),
+        gap: Number(baseline.getAttribute("y1")) - barBottom,
+        stroke: style.stroke,
+        dashed: style.strokeDasharray !== "none",
       };
     }),
   );

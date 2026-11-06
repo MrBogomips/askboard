@@ -2,14 +2,15 @@
 // visible question"): its bytes from the board document, through a `blob:` URL revoked when the
 // image is gone, never a URL from the agent; ready once `decode()` settles. An unresolved image, or
 // one the browser cannot decode, shows "Unresolved" with its pointer and its alt text, and is ready
-// at once, so the rest of the board keeps working (AD-12).
+// at once, so the rest of the board keeps working (AD-12). A shown image sits in a bordered frame on
+// `muted` with a caption line, its alt text else its path (review F-24).
 
 import { useEffect, useRef, useState } from "react";
 import type { ItemProps } from "../port.ts";
 import { useReadyAfterLayout } from "../port.ts";
-import { ALT, IMAGE, IMAGE_UNRESOLVED } from "./classes.ts";
+import { ALT, IMAGE, IMAGE_CAPTION, IMAGE_FRAME, IMAGE_UNRESOLVED } from "./classes.ts";
 import { Marked, UnresolvedRow } from "./marked.tsx";
-import { type ImageView, imageOf } from "./props.ts";
+import { type ImageView, imageCaptionOf, imageOf } from "./props.ts";
 
 type Resolved = Extract<ImageView, { kind: "resolved" }>;
 
@@ -71,9 +72,14 @@ const Shown = ({ image, ready }: { readonly image: Resolved; readonly ready: () 
   useReadyAfterLayout(ready, decoded === "done");
   if (failed) return <Unresolved image={image} ready={ready} />;
   return (
-    <div data-context="image">
+    <figure data-context="image" className={IMAGE_FRAME}>
       {url === undefined ? null : <img ref={element} src={url} alt={image.alt} className={IMAGE} />}
-    </div>
+      <figcaption data-context-part="caption" className={IMAGE_CAPTION}>
+        <bdi>
+          <Marked text={imageCaptionOf(image)} />
+        </bdi>
+      </figcaption>
+    </figure>
   );
 };
 

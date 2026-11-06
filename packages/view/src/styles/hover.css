@@ -1,0 +1,84 @@
+/* The shared hover, cursor and focus layer (DESIGN.md, hover; widget-editing-plus design decisions
+   9 and 12; review F-01). One rule set keyed on roles, `disabled`, `aria-disabled` and these
+   attributes, so that a control gets its cursor and its hover look by carrying the attribute, and
+   no component hand-rolls a hover:
+   - `data-editable` on a grid cell that takes an edit: text cursor, hover outline;
+   - `data-chevron` on a Tree chevron, `data-interactive` on any other control with no role or
+     element of its own: pointer;
+   - `data-interactive="row"` on an option row or a card: pointer, the `muted` fill;
+   - `data-grab` on a drag handle: grab; `data-resize="column"` on a column's edge: col-resize,
+     with the hover outline.
+   Every toolbar and secondary button, which rests on `muted` with a border, takes the `border-strong`
+   border and the `card` fill. Hover alone never shows the focus ring (that is `focus-visible`). */
+
+/* The hover token pair, in each scheme's root: the fill of a card under the pointer and the
+   outline of an editable cell, a column edge and a toolbar button. */
+:is(:root, .dark) {
+  --hover-fill: var(--muted);
+  --hover-outline: var(--border-strong);
+  --hover-tool-fill: var(--card);
+}
+
+@layer base {
+  :is(
+    button,
+    [role="button"],
+    [role="switch"],
+    [role="radio"],
+    [role="checkbox"],
+    [role="option"],
+    [role="menuitem"],
+    summary,
+    a[href],
+    input[type="checkbox"],
+    input[type="radio"],
+    [data-chevron],
+    [data-interactive]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
+  :is(
+    button,
+    [role="button"],
+    [role="switch"],
+    [role="radio"],
+    [role="checkbox"],
+    [role="option"],
+    [role="menuitem"],
+    input[type="checkbox"],
+    input[type="radio"],
+    [data-interactive]
+  ):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: not-allowed;
+  }
+
+  [data-editable] {
+    cursor: text;
+  }
+
+  [data-grab] {
+    cursor: grab;
+  }
+
+  [data-resize="column"] {
+    cursor: col-resize;
+  }
+}
+
+/* The looks are not in a layer: they must beat the resting utilities of the same element, and a
+   disabled control, which no rule below matches, keeps its resting look. */
+button.bg-muted.border-border:not(:disabled, [aria-disabled="true"]):hover {
+  background-color: var(--hover-tool-fill);
+  border-color: var(--hover-outline);
+}
+
+[data-interactive="row"]:not(:disabled, [aria-disabled="true"], [data-disabled]):hover {
+  background-color: var(--hover-fill);
+}
+
+[data-editable]:hover:not(:focus-visible),
+[data-resize="column"]:hover:not(:focus-visible) {
+  outline: 1px solid var(--hover-outline);
+  outline-offset: -1px;
+}

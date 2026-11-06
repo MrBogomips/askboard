@@ -3,11 +3,10 @@
 // Escape cancels (`keys.ts`); leaving the input commits too, but the window or the view's frame
 // losing the focus is no leaving: the input stays its document's focus; every other key stays
 // with the input.
-// A number field is a text input read by AskBoard's own parser in the ask's locale, never `type="number"`, its
-// parsed value echoed under the input in the code face ("= 1234.5"), since a field's column is too
-// narrow to hold both side by side.
+// A number field is a text input read by AskBoard's own parser in the ask's locale, never `type="number"`,
+// with no echo of the parsed value: the cell shows it, locale-formatted, once committed, and an
+// entry that cannot be read is refused with a message (review F-08).
 
-import { useLanguage, useLocale } from "@askboard/view/catalog";
 import {
   type ChangeEvent,
   type FocusEvent,
@@ -16,8 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { numberEcho, parseNumber } from "../shared/number.ts";
-import { AFFIX, AFFIX_GROUP, ECHO, EDITOR, EDITOR_BOX, NUMBER_EDITOR } from "./classes.ts";
+import { AFFIX, AFFIX_GROUP, EDITOR, EDITOR_BOX, NUMBER_EDITOR } from "./classes.ts";
 import type { EntryKind } from "./entry.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { keyAction } from "./model/keys.ts";
@@ -54,8 +52,6 @@ export const CellEditor = ({
   affix,
 }: CellEditorProps) => {
   const [text, setText] = useState(initial);
-  const locale = useLocale();
-  const language = useLanguage();
   const input = useRef<HTMLInputElement>(null);
   // Set once the editor has committed or cancelled, or is being taken out, as when the Tree turns
   // read-only, so that the blur of its removal commits nothing (AD-10).
@@ -91,7 +87,6 @@ export const CellEditor = ({
     onEdit();
   };
 
-  const parsed = kind === "number" ? parseNumber(text, locale, language) : undefined;
   const field = (
     <input
       ref={input}
@@ -120,9 +115,6 @@ export const CellEditor = ({
           </span>
         </span>
       )}
-      {parsed?.kind === "number" ? (
-        <span className={ECHO}>{numberEcho(parsed.value, locale)}</span>
-      ) : null}
     </span>
   );
 };

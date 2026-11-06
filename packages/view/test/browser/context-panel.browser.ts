@@ -196,6 +196,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await panel.getByRole("button", { name: "Open in editor" }).isDisabled()).toBe(true);
         expect(await panel.getByText("editor", { exact: false }).count()).toBeGreaterThan(0);
+        // The key is in the code face and no backtick shows (review F-26).
+        const hint = panel.getByRole("status");
+        expect(await hint.locator("code").allTextContents()).toEqual(["editor"]);
+        expect(
+          await hint.locator("code").evaluate((el) => getComputedStyle(el).fontFamily),
+        ).toMatch(/mono|Mono|Menlo|Consolas/);
+        expect(((await hint.textContent()) ?? "").includes("`")).toBe(false);
       },
       TEST_TIMEOUT_MS,
     );

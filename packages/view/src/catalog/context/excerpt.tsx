@@ -4,7 +4,7 @@
 // capped in height and scrolling inside. Markdown soft-wraps under a hanging indent; anything else
 // keeps its lines and scrolls sideways. An unresolved excerpt shows "Unresolved" and its pointer in
 // place of the body. Every string goes in as text. "Open in reading panel" sits in the caption of
-// an excerpt from a file, in a hosted view only (task 6.4): it sends `open-reference` naming the
+// a resolved excerpt from a file, in a hosted view only (task 6.4): it sends `open-reference` naming the
 // item (task 6.6).
 
 import type { ItemProps } from "../port.ts";
@@ -25,7 +25,7 @@ import {
   TITLE,
 } from "./classes.ts";
 import { Marked, UnresolvedRow } from "./marked.tsx";
-import { type Caption, captionOf, excerptOf, linesOf } from "./props.ts";
+import { type Caption, captionOf, excerptOf, linesOf, opensInPanel } from "./props.ts";
 
 const CaptionRow = ({
   caption,
@@ -100,9 +100,7 @@ export const Excerpt = ({
       {caption.title === undefined ? null : (
         <CaptionRow
           caption={caption}
-          {...(hosted && excerpt.kind !== "written"
-            ? { onOpen: () => openReference(item.id) }
-            : {})}
+          {...(opensInPanel(excerpt, hosted) ? { onOpen: () => openReference(item.id) } : {})}
         />
       )}
       {excerpt.kind === "unresolved" ? (

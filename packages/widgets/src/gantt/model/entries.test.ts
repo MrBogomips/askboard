@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { ganttBoardDocument, ganttPlanBoardDocument } from "@askboard/contract/fixtures";
+import { EN_US_FORMAT, formatFor } from "../en-us.ts";
 import { moveDrop } from "./drag.ts";
 import { sameGantt } from "./edits.ts";
-import { durationEntry, entryEcho, entryText, landOn, startEntry } from "./entries.ts";
+import { durationEntry, entryText, landOn, startEntry } from "./entries.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planEntry } from "./tasks.ts";
 
@@ -35,56 +36,58 @@ const PLAN = schedule.props as GanttPlanProps;
 
 describe("a typed start", () => {
   test("requests a later working day", () => {
-    const entry = startEntry(SENT, SENT, "reporting", SCHEDULED, " 12/9/2026 ");
+    const entry = startEntry(SENT, SENT, "reporting", SCHEDULED, " 12/9/2026 ", EN_US_FORMAT);
     expect(entry.kind).toBe("value");
     if (entry.kind === "value") expect(taskOf(entry.value, "reporting")?.start).toBe("2026-12-09");
   });
 
   test("refuses a day before the earliest start, naming it", () => {
-    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "11/20/2026")).toEqual({
+    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "11/20/2026", EN_US_FORMAT)).toEqual({
       kind: "refused",
       reason: "The earliest start its predecessors allow is 12/4/2026.",
     });
   });
 
   test("refuses a Saturday or a Sunday", () => {
-    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "12/12/2026")).toEqual({
+    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "12/12/2026", EN_US_FORMAT)).toEqual({
       kind: "refused",
       reason: "12/12/2026 is not a working day: pick a day from Monday to Friday.",
     });
-    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "2026-12-13").kind).toBe("refused");
+    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "2026-12-13", EN_US_FORMAT).kind).toBe(
+      "refused",
+    );
   });
 
   test("refuses what is no day, with the parser's reason", () => {
-    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "2/30/2026")).toEqual({
+    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "2/30/2026", EN_US_FORMAT)).toEqual({
       kind: "refused",
       reason: "February 2026 has no day 30",
     });
   });
 
   test("changes nothing when it is the day the task starts on", () => {
-    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "12/4/2026")).toEqual({
+    expect(startEntry(SENT, SENT, "reporting", SCHEDULED, "12/4/2026", EN_US_FORMAT)).toEqual({
       kind: "value",
       value: SENT,
     });
   });
 
   test("clears the request when empty, or when it is the earliest start", () => {
-    const moved = startEntry(SENT, SENT, "reporting", SCHEDULED, "12/9/2026");
+    const moved = startEntry(SENT, SENT, "reporting", SCHEDULED, "12/9/2026", EN_US_FORMAT);
     if (moved.kind !== "value") throw new Error("not moved");
     const later = { ...SCHEDULED, startDate: "2026-12-09", finishDate: "2026-12-16" };
-    expect(startEntry(moved.value, SENT, "reporting", later, "")).toEqual({
+    expect(startEntry(moved.value, SENT, "reporting", later, "", EN_US_FORMAT)).toEqual({
       kind: "value",
       value: SENT,
     });
-    const back = startEntry(moved.value, SENT, "reporting", later, "12/4/2026");
+    const back = startEntry(moved.value, SENT, "reporting", later, "12/4/2026", EN_US_FORMAT);
     expect(back.kind === "value" && taskOf(back.value, "reporting")).toBe(
       taskOf(SENT, "reporting"),
     );
   });
 
   test("takes any working day for a task the graph cannot schedule", () => {
-    const entry = startEntry(SENT, SENT, "reporting", IN_ERROR, "11/3/2026");
+    const entry = startEntry(SENT, SENT, "reporting", IN_ERROR, "11/3/2026", EN_US_FORMAT);
     expect(entry.kind === "value" && taskOf(entry.value, "reporting")?.start).toBe("2026-11-03");
   });
 });
@@ -133,7 +136,7 @@ describe("an agent's request for a day the task does not start on", () => {
     const back = landOn(moved, agent, "reporting", "2026-12-04", "2026-12-04");
     expect(taskOf(back, "reporting")).toBe(taskOf(agent, "reporting"));
     expect(sameGantt(back, agent)).toBe(true);
-    const typed = startEntry(moved, agent, "reporting", MOVED_LATER, "12/4/2026");
+    const typed = startEntry(moved, agent, "reporting", MOVED_LATER, "12/4/2026", EN_US_FORMAT);
     expect(typed.kind === "value" && taskOf(typed.value, "reporting")).toBe(
       taskOf(agent, "reporting"),
     );
@@ -150,7 +153,7 @@ describe("an agent's request for a day the task does not start on", () => {
     const back = landOn(moved, agent, "reporting", "2026-12-07", "2026-12-04");
     expect(taskOf(back, "reporting")).toBe(taskOf(agent, "reporting"));
     expect(sameGantt(back, agent)).toBe(true);
-    const typed = startEntry(moved, agent, "reporting", MOVED_LATER, "12/7/2026");
+    const typed = startEntry(moved, agent, "reporting", MOVED_LATER, "12/7/2026", EN_US_FORMAT);
     expect(typed.kind === "value" && taskOf(typed.value, "reporting")).toBe(
       taskOf(agent, "reporting"),
     );
@@ -183,21 +186,21 @@ describe("an agent's request for a day the task does not start on", () => {
 
 describe("a typed duration", () => {
   test("sets whole working days", () => {
-    const entry = durationEntry(SENT, SENT, "billing", "30");
+    const entry = durationEntry(SENT, SENT, "billing", "30", EN_US_FORMAT);
     expect(
       entry.kind === "value" && taskOf(entry.value as GanttOwnProps, "billing")?.duration,
     ).toBe(30);
   });
 
   test.each(["2.5", "0", "2001", ""])("refuses %p, saying a duration is whole", (text) => {
-    expect(durationEntry(SENT, SENT, "billing", text)).toEqual({
+    expect(durationEntry(SENT, SENT, "billing", text, EN_US_FORMAT)).toEqual({
       kind: "refused",
       reason: "A duration is a whole number of working days, from 1 to 2,000.",
     });
   });
 
   test("refuses what is no number, with the parser's reason", () => {
-    const entry = durationEntry(SENT, SENT, "billing", "ten");
+    const entry = durationEntry(SENT, SENT, "billing", "ten", EN_US_FORMAT);
     expect(entry.kind).toBe("refused");
     expect(entry.kind === "refused" && entry.reason).toContain("not part of a number");
   });
@@ -212,24 +215,18 @@ describe("an editor", () => {
     expect(entryText("duration", REPORTING, SCHEDULED)).toBe("6");
     expect(entryText("duration", { ...REPORTING, duration: undefined }, SCHEDULED)).toBe("");
   });
-
-  test("echoes the day or the number it reads, and nothing for what it refuses", () => {
-    expect(entryEcho("start", "12/9/2026")).toBe("= Wed, Dec 9, 2026");
-    expect(entryEcho("start", "12/9")).toBeUndefined();
-    expect(entryEcho("start", "")).toBeUndefined();
-    expect(entryEcho("duration", "1,200")).toBe("= 1200");
-    expect(entryEcho("duration", "x")).toBeUndefined();
-  });
 });
 
 describe("in a Gantt plan (design decision 8)", () => {
   test("a typed start requests the day in the task's entry, beside its predecessors", () => {
-    const entry = startEntry(PLAN, PLAN, "reporting", SCHEDULED, "12/9/2026");
+    const entry = startEntry(PLAN, PLAN, "reporting", SCHEDULED, "12/9/2026", EN_US_FORMAT);
     expect(entry.kind === "value" && planEntry(entry.value, "reporting")).toEqual({
       start: "2026-12-09",
       dependencies: ["portal"],
     });
-    expect(startEntry(PLAN, PLAN, "reporting", SCHEDULED, "11/20/2026").kind).toBe("refused");
+    expect(startEntry(PLAN, PLAN, "reporting", SCHEDULED, "11/20/2026", EN_US_FORMAT).kind).toBe(
+      "refused",
+    );
   });
 
   test("a bar landed later requests the day; back on its earliest start, the agent's entry", () => {
@@ -257,7 +254,7 @@ describe("in a Gantt plan (design decision 8)", () => {
   });
 
   test("a typed duration is refused: a plan's durations follow its work packages' estimates", () => {
-    expect(durationEntry(PLAN, PLAN, "billing", "11")).toEqual({
+    expect(durationEntry(PLAN, PLAN, "billing", "11", EN_US_FORMAT)).toEqual({
       kind: "refused",
       reason: "A plan's durations follow its work packages' estimates in its Tree.",
     });
@@ -265,13 +262,7 @@ describe("in a Gantt plan (design decision 8)", () => {
 });
 
 describe("in the ask's locale (settings-languages, task 9.2)", () => {
-  const italian = { locale: "it-IT", language: "it-IT" } as const;
-
-  test("a start is typed day first and echoed in Italian", () => {
-    expect(entryEcho("start", "9/12/2026", italian)).toBe("= mer 9 dic 2026");
-    expect(entryEcho("start", "2026-12-09", italian)).toBe("= mer 9 dic 2026");
-    expect(entryEcho("start", "9/12/2026")).toBe("= Sat, Sep 12, 2026");
-  });
+  const italian = formatFor("it-IT", "it-IT");
 
   test("an editor opens on the start as the Italian grid shows it", () => {
     if (REPORTING === undefined) throw new Error("no reporting row");
@@ -284,7 +275,6 @@ describe("in the ask's locale (settings-languages, task 9.2)", () => {
       grouped.kind === "value" && taskOf(grouped.value as GanttOwnProps, "billing")?.duration,
     ).toBe(1200);
     expect(durationEntry(SENT, SENT, "billing", "2.001", italian).kind).toBe("refused");
-    expect(entryEcho("duration", "1.200", italian)).toBe("= 1200");
     const day = durationEntry(SENT, SENT, "billing", "30", italian);
     expect(day.kind === "value" && taskOf(day.value as GanttOwnProps, "billing")?.duration).toBe(
       30,
@@ -293,15 +283,19 @@ describe("in the ask's locale (settings-languages, task 9.2)", () => {
 
   test("a refusal speaks the ask's language and shows dates in the locale", () => {
     const italianReason = startEntry(SENT, SENT, "billing", undefined, "Dec 9", italian);
-    const englishReason = startEntry(SENT, SENT, "billing", undefined, "Dec 9");
+    const englishReason = startEntry(SENT, SENT, "billing", undefined, "Dec 9", EN_US_FORMAT);
     expect(italianReason.kind === "refused" && englishReason.kind === "refused").toBe(true);
     if (italianReason.kind === "refused" && englishReason.kind === "refused") {
       expect(italianReason.reason).not.toBe(englishReason.reason);
     }
-    const mixed = startEntry(SENT, SENT, "billing", undefined, "1/1/1800", {
-      locale: "it-IT",
-      language: "en-US",
-    });
+    const mixed = startEntry(
+      SENT,
+      SENT,
+      "billing",
+      undefined,
+      "1/1/1800",
+      formatFor("it-IT", "en-US"),
+    );
     expect(mixed.kind === "refused" && mixed.reason).toBe(
       "Pick a day from 02/03/1900 to 31/12/9999",
     );

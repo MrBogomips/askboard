@@ -13,8 +13,10 @@ import { type BoardGraph, liveGraph, sentGraph } from "../../graph/board-graph.t
 import {
   answerDerived,
   baselineOf,
+  movedBaselines,
   planFinish,
   scheduleOf,
+  type TaskSchedule,
   taskBaseline,
   taskSchedule,
 } from "./schedule.ts";
@@ -275,11 +277,81 @@ describe("a plan's schedule and baseline", () => {
     expect(baselineOf(graph, "g", [{ id: "t" }, { id: "u" }])).toEqual([undefined, undefined]);
   });
 
+  test("draws no baseline for the plan as the agent sent it, and one for each task that moved", () => {
+    const rows = planTaskRows(PLAN, TREE, TREE);
+    const sent = scheduleOf(SENT_PLAN, "schedule", rows);
+    expect(
+      movedBaselines(baselineOf(SENT_PLAN, "schedule", rows), sent).every((b) => b === undefined),
+    ).toBe(true);
+    const live = graphIn(liveGraph(boardOf(ANSWERED)));
+    const answered = planTaskRows(ganttPlanEditedValue, treeEditedValue.nodes, TREE);
+    const moved = movedBaselines(
+      baselineOf(SENT_PLAN, "schedule", answered),
+      scheduleOf(live, "schedule", answered),
+    );
+    expect(answered.filter((_, at) => moved[at] !== undefined).map((row) => row.id)).toEqual([
+      "ux",
+      "prototype",
+      "portal",
+      "billing",
+      "reporting",
+    ]);
+  });
+
   test("gives frozen baselines", () => {
     const baselines = baselineOf(SENT_PLAN, "schedule", ANSWERED_ROWS);
     expect(Object.isFrozen(baselines)).toBe(true);
     for (const baseline of baselines) {
       if (baseline !== undefined) expect(Object.isFrozen(baseline)).toBe(true);
     }
+  });
+});
+
+describe("the baselines drawn (review F-12)", () => {
+  const baseline = (startDate: string, finishDate: string) => ({
+    startDate,
+    finishDate,
+    duration: 5,
+  });
+  const scheduled = (startDate: string, finishDate: string): TaskSchedule => ({
+    kind: "scheduled",
+    startDate,
+    finishDate,
+    duration: 5,
+    earliestDate: startDate,
+    critical: false,
+  });
+
+  test("keeps a baseline whose dates differ from the task's, and drops one that does not", () => {
+    const shown = movedBaselines(
+      [
+        baseline("2026-11-02", "2026-11-06"),
+        baseline("2026-11-02", "2026-11-06"),
+        baseline("2026-11-02", "2026-11-06"),
+        undefined,
+      ],
+      [
+        scheduled("2026-11-02", "2026-11-06"),
+        scheduled("2026-11-09", "2026-11-13"),
+        scheduled("2026-11-02", "2026-11-10"),
+        scheduled("2026-11-02", "2026-11-06"),
+      ],
+    );
+    expect(shown).toEqual([
+      undefined,
+      baseline("2026-11-02", "2026-11-06"),
+      baseline("2026-11-02", "2026-11-06"),
+      undefined,
+    ]);
+  });
+
+  test("keeps the agent's dates for a task the graph cannot schedule", () => {
+    const error: TaskSchedule = {
+      kind: "error",
+      error: { error: "value", address: "a", detail: "x" },
+    };
+    expect(movedBaselines([baseline("2026-11-02", "2026-11-06")], [error])).toEqual([
+      baseline("2026-11-02", "2026-11-06"),
+    ]);
   });
 });

@@ -50,6 +50,7 @@ const start = async (): Promise<void> => {
     continueHere: () => {},
     copyUnsentWork: () => {},
     takeSnapshot: () => ({ outcome: "refused", detail: "the widget host takes no Snapshot" }),
+    copyPath: () => {},
   });
   const peer = chrome.frame.contentWindow;
   if (peer === null) throw new Error("the view's frame is not in the document");

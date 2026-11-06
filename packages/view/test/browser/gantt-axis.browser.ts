@@ -16,8 +16,16 @@ import { useWidgetHost } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 
-const ZOOM_LABEL: Record<ZoomName, string> = { day: "Day", week: "Week", month: "Month" };
 const LOCALES = ["en-US", "it-IT"] as const;
+const CHART_NAME = {
+  "en-US": (zoom: ZoomName) => `Gantt chart, ${zoom} zoom`,
+  "it-IT": (zoom: ZoomName) =>
+    `Diagramma di Gantt, zoom ${ZOOM_LABEL["it-IT"][zoom].toLowerCase()}`,
+} as const;
+const ZOOM_LABEL: Record<(typeof LOCALES)[number], Record<ZoomName, string>> = {
+  "en-US": { day: "Day", week: "Week", month: "Month" },
+  "it-IT": { day: "Giorno", week: "Settimana", month: "Mese" },
+};
 
 type Box = { readonly left: number; readonly right: number; readonly top: number };
 
@@ -42,9 +50,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             const document = { ...ganttPlanBoardDocument, language } as unknown as ViewDocument;
             const run = await openerFor((build, doc) => host(build, doc), dist)(document);
             const gantt = ganttOf(run.board, planGantt.id);
-            await zoomOption(gantt, ZOOM_LABEL[zoom]).click({ timeout: STEP_TIMEOUT_MS });
+            await zoomOption(gantt, ZOOM_LABEL[language][zoom]).click({ timeout: STEP_TIMEOUT_MS });
             await gantt.root
-              .getByRole("img", { name: `Gantt chart, ${zoom} zoom` })
+              .getByRole("img", { name: CHART_NAME[language](zoom) })
               .waitFor({ timeout: STEP_TIMEOUT_MS });
             await eventually(async () => (await gantt.ticks.count()) > 0, "the axis labels");
             const boxes = await tickBoxes(gantt);

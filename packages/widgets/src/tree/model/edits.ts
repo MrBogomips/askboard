@@ -47,9 +47,6 @@ export type TreeEdit =
 /** A cell edit `can` also answers for: a work breakdown's estimate cells, which a parent has none of. */
 export type FieldEdit = "editEstimate";
 
-/** Why a work breakdown refuses an estimate: the contract's range of working days (F8). */
-export const ESTIMATE_OUT_OF_RANGE = `An estimate is 0 to ${TREE_PERT_MAX_ESTIMATE.toLocaleString("en-US")} working days.`;
-
 const ESTIMATES: ReadonlySet<string> = new Set(GANTT_PLAN_ESTIMATES);
 
 /** A node's own keys; every other key is a field. */
@@ -164,20 +161,20 @@ const accepts = (type: TreeColumnType, input: TreeFieldValue): boolean =>
     : typeof input === "string" && lengthOf(input) <= TREE_TEXT_MAX_CHARS;
 
 /**
- * Why a work breakdown refuses `input` as its estimate `field`: a number outside 0 to 100,000
- * working days. `undefined` when it takes it, as for an emptied estimate, another field or a Tree
+ * Why a work breakdown refuses `input` as its estimate `field`: `"range"` for a number outside 0
+ * to 100,000 working days (the entry's wording is the catalogue's `tree.entry.estimateRange`). `undefined` when it takes it, as for an emptied estimate, another field or a Tree
  * without `pert`. `setField` refuses what this gives a reason for, and the cell editor shows it.
  */
 export const estimateProblem = (
   value: TreeProps,
   field: string,
   input: TreeFieldValue | undefined,
-): string | undefined =>
+): "range" | undefined =>
   isPert(value) &&
   ESTIMATES.has(field) &&
   typeof input === "number" &&
   !(input >= 0 && input <= TREE_PERT_MAX_ESTIMATE)
-    ? ESTIMATE_OUT_OF_RANGE
+    ? "range"
     : undefined;
 
 // Whether a work breakdown refuses `input` as the estimate `field` of the node at `place`: one

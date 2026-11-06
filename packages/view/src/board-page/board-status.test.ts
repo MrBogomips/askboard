@@ -145,6 +145,7 @@ describe("a closed ask (ask-lifecycle: FR-6, Board banner, Closed)", () => {
       variant: "closed",
       text: "This ask was closed. The board is read-only.",
       snapshot: true,
+      copyPath: "Copy path",
       takesFocus: true,
     });
     expect(bannerOf(closedAsk, true)).toEqual({
@@ -153,6 +154,7 @@ describe("a closed ask (ask-lifecycle: FR-6, Board banner, Closed)", () => {
       detail: "Your unsent work was not sent",
       action: "Copy my unsent work",
       snapshot: true,
+      copyPath: "Copy path",
       takesFocus: true,
     });
   });

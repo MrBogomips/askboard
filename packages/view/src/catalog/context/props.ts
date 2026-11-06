@@ -210,3 +210,14 @@ export const imageOf = (props: unknown): ImageView => {
   if (fields.status !== "resolved" || bytes === undefined || !isShownType(mediaType)) return fail();
   return { kind: "resolved", pointer, alt, mediaType, bytes };
 };
+
+/** An image's caption line (review F-24): its alt text, else the path it came from. */
+export const imageCaptionOf = (image: ImageView): string =>
+  image.alt.trim() === "" ? image.pointer : image.alt;
+
+/**
+ * Whether an excerpt offers "Open in reading panel" (review F-25): in a hosted view, for an excerpt
+ * from a file that resolved; a written one has no file, and an unresolved pointer has nothing to open.
+ */
+export const opensInPanel = (excerpt: ExcerptView, hosted: boolean): boolean =>
+  hosted && excerpt.kind === "resolved";

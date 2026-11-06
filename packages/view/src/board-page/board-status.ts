@@ -87,6 +87,8 @@ export type Banner = {
   readonly detail?: string;
   /** The Closed banner offers "Snapshot", with its feedback beside it (snapshot task 7.2). */
   readonly snapshot?: true;
+  /** The "Copy path" label of the Snapshot's saved path, with the Snapshot (review F-06). */
+  readonly copyPath?: string;
   /** The action's label: "Continue here" on a moved board, "Copy my unsent work" on an ended one. */
   readonly action?: string;
   /**
@@ -115,7 +117,13 @@ const ended = (variant: "discarded" | "closed", unsent: boolean, language: Local
   const text = t(language, variant === "discarded" ? "banner.discarded" : "banner.closed");
   const banner: Banner =
     variant === "closed"
-      ? { variant, text, snapshot: true, takesFocus: true }
+      ? {
+          variant,
+          text,
+          snapshot: true,
+          copyPath: t(language, "snapshot.copyPath"),
+          takesFocus: true,
+        }
       : { variant, text, takesFocus: true };
   if (!unsent) return banner;
   const detail = t(language, "banner.unsentNotSent");

@@ -138,3 +138,22 @@ export const answerDerived = (
   if (path !== undefined) entries.push([`${itemId}.criticalPath`, path]);
   return Object.freeze(Object.fromEntries(entries));
 };
+
+/**
+ * The baselines worth drawing: those whose dates differ from the task's own, so that a task that
+ * did not move shows no second bar (review F-12). A task the graph cannot schedule keeps its
+ * baseline, the agent's dates being all that is left of it.
+ */
+export const movedBaselines = (
+  baselines: readonly (Baseline | undefined)[],
+  schedules: readonly (TaskSchedule | undefined)[],
+): readonly (Baseline | undefined)[] =>
+  Object.freeze(
+    baselines.map((baseline, index) => {
+      const schedule = schedules[index];
+      if (baseline === undefined || schedule?.kind !== "scheduled") return baseline;
+      const same =
+        schedule.startDate === baseline.startDate && schedule.finishDate === baseline.finishDate;
+      return same ? undefined : baseline;
+    }),
+  );

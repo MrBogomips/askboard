@@ -12,6 +12,7 @@ import { markedString } from "../catalog/context/marks.ts";
 import type { ReferenceInset } from "../view-protocol.ts";
 import {
   LOADING,
+  noteRuns,
   outcomeNote,
   type PanelView,
   panelViewOf,
@@ -104,7 +105,14 @@ export const createReadingPanel = (document: Document, options: PanelOptions): R
   };
 
   const showNote = (open: Open, text: string | undefined) => {
-    open.elements.note.textContent = text ?? "";
+    const { note } = open.elements;
+    note.replaceChildren(
+      ...noteRuns(text ?? "").map((run) =>
+        run.code
+          ? made(document, "code", "font-mono text-code", run.text)
+          : document.createTextNode(run.text),
+      ),
+    );
     open.elements.note.hidden = text === undefined;
   };
 

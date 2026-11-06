@@ -28,6 +28,16 @@ export type PanelView = {
 
 export const NO_EDITOR_NOTE = "No editor set: `editor` in ~/.config/askboard/config.json";
 
+/** A run of a note's text: a configuration key between backticks is `code`, in the code face. */
+export type NoteRun = { readonly text: string; readonly code: boolean };
+
+/** A note as its runs, the backticks gone: a key shows in the code face, never with literal backticks (review F-26). */
+export const noteRuns = (note: string): readonly NoteRun[] =>
+  note
+    .split("`")
+    .map((text, at) => ({ text, code: at % 2 === 1 }))
+    .filter((run) => run.text !== "");
+
 /** The panel as it opens, before `board-host` has answered. */
 export const LOADING: PanelView = {
   body: { kind: "loading" },

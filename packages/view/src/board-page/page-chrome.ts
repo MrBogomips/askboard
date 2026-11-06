@@ -18,6 +18,8 @@ export type BannerActions = {
   readonly copyUnsentWork: () => void;
   /** The Closed banner's "Snapshot" (snapshot task 7.2). */
   readonly takeSnapshot: () => SnapshotRequestReply;
+  /** The saved Snapshot's "Copy path": the full path, on the clipboard (review F-06). */
+  readonly copyPath: (path: string) => void;
 };
 
 export type PageChrome = {
@@ -30,7 +32,10 @@ export type PageChrome = {
   showLoadError(text: string | undefined): void;
 };
 
-const BANNER = "flex items-center gap-md border-b border-border px-lg py-sm text-body outline-none";
+const BANNER = "flex flex-col gap-xs border-b border-border px-lg py-sm text-body outline-none";
+
+// The banner's row: the marker, the message, the actions; the Snapshot's feedback has the next line.
+const ROW = "flex items-center gap-md";
 
 const VARIANTS: Readonly<Record<Banner["variant"], { banner: string; marker: string }>> = {
   "connection-lost": {
@@ -80,12 +85,17 @@ const bannerElement = (
   const variant = VARIANTS[banner.variant];
   const root = element(document, "div", `${BANNER} ${variant.banner}`);
   root.dataset.askboardBanner = banner.variant;
+  const row = element(document, "div", ROW);
   const marker = element(document, "span", `shrink-0 ${variant.marker}`);
   marker.setAttribute("aria-hidden", "true");
   const message = element(document, "div", "min-w-0 flex-1");
-  message.append(element(document, "p", "", banner.text));
+  // The message stays on one line, cut with an ellipsis rather than broken (review F-06).
+  const text = element(document, "p", "truncate", banner.text);
+  text.title = banner.text;
+  message.append(text);
   if (banner.detail !== undefined) message.append(element(document, "p", "", banner.detail));
-  root.append(marker, message);
+  row.append(marker, message);
+  root.append(row);
   if (banner.action !== undefined) {
     const button = element(document, "button", SECONDARY_BUTTON, banner.action);
     button.type = "button";
@@ -93,9 +103,13 @@ const bannerElement = (
       "click",
       banner.variant === "moved" ? actions.continueHere : actions.copyUnsentWork,
     );
-    root.append(button);
+    row.append(button);
   }
-  if (banner.snapshot === true) root.append(...snapshot.elements(document));
+  if (banner.snapshot === true) {
+    const { button, feedback } = snapshot.elements(document, banner.copyPath ?? "");
+    row.append(button);
+    root.append(feedback);
+  }
   if (banner.takesFocus) root.tabIndex = -1;
   return root;
 };
@@ -115,6 +129,7 @@ export const createPageChrome = (document: Document, actions: BannerActions): Pa
   const snapshot = createBannerSnapshot({
     take: actions.takeSnapshot,
     buttonClass: SECONDARY_BUTTON,
+    copyPath: actions.copyPath,
   });
   return {
     frame,

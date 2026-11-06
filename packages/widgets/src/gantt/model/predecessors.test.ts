@@ -6,6 +6,7 @@ import {
   ganttPlanEditedValue,
   treeEditedValue,
 } from "@askboard/contract/fixtures";
+import { EN_US_SAY } from "../en-us.ts";
 import { canPrecede, setPredecessors } from "./edits.ts";
 import { type PanelBox, panelBoxes, toggled } from "./predecessors.ts";
 import {
@@ -29,7 +30,7 @@ const boxesOf = (
   taskId: string,
   held: readonly string[],
   opened: readonly string[] = held,
-) => panelBoxes(value, ownTaskRows(value), taskId, held, opened);
+) => panelBoxes(value, ownTaskRows(value), taskId, held, opened, EN_US_SAY);
 
 /** Another task's box, which may be checked. */
 const offered = (id: string, label: string, checked: boolean): PanelBox => ({
@@ -178,7 +179,7 @@ describe("a predecessor that names no other task (task 9.3)", () => {
 
   test("is never given to canPrecede, which refuses a task that is no row", () => {
     const rows = ownTaskRows(VALUE);
-    expect(() => canPrecede(VALUE, rows, "reporting", "ghost")).toThrow(RangeError);
+    expect(() => canPrecede(VALUE, rows, "reporting", "ghost", EN_US_SAY)).toThrow(RangeError);
     expect(() => boxesOf(VALUE, "reporting", OPENED)).not.toThrow();
   });
 
@@ -205,7 +206,7 @@ const editedRows = (value: GanttPlanProps) =>
 
 describe("a plan's panel", () => {
   test("offers the Tree's other leaves in its order, a package added there among them", () => {
-    expect(panelBoxes(PLAN, editedRows(PLAN), "u-1", [], [])).toEqual(
+    expect(panelBoxes(PLAN, editedRows(PLAN), "u-1", [], [], EN_US_SAY)).toEqual(
       (
         [
           ["ux", "UX design"],
@@ -218,7 +219,7 @@ describe("a plan's panel", () => {
       ).map(([id, label]) => offered(id, label, false)),
     );
     const held = ["architecture", "prototype"];
-    const checked = panelBoxes(PLAN, editedRows(PLAN), "u-1", held, []);
+    const checked = panelBoxes(PLAN, editedRows(PLAN), "u-1", held, [], EN_US_SAY);
     expect(checked.filter((box) => box.checked).map((box) => box.id)).toEqual([
       "architecture",
       "prototype",
@@ -227,7 +228,7 @@ describe("a plan's panel", () => {
 
   test("refuses the task's dependents, a package linked in the plan among them", () => {
     const value = ganttPlanEditedValue;
-    const boxes = panelBoxes(value, editedRows(value), "prototype", ["ux"], ["ux"]);
+    const boxes = panelBoxes(value, editedRows(value), "prototype", ["ux"], ["ux"], EN_US_SAY);
     const refused = boxes.flatMap((box) =>
       box.reason === undefined ? [] : [[box.id, box.reason]],
     );
@@ -241,7 +242,7 @@ describe("a plan's panel", () => {
   test("counts what it holds against the predecessor limit, for a task the plan has no entry for", () => {
     const held = Array.from({ length: GANTT_MAX_PREDECESSORS }, (_, n) => `gone${n}`);
     // Held by the panel, not by the plan when it opened: the boxes are the rows'.
-    const boxes = panelBoxes(PLAN, editedRows(PLAN), "u-1", held, []);
+    const boxes = panelBoxes(PLAN, editedRows(PLAN), "u-1", held, [], EN_US_SAY);
     expect(new Set(boxes.map((box) => box.reason))).toEqual(
       new Set([
         "Customer portal: dashboards already has 50 predecessors, the most a task can have",
@@ -263,7 +264,8 @@ describe("a plan's panel", () => {
     const full = { ...PLAN, tasks };
     const rows = editedRows(full);
     const architecture = (taskId: string, held: readonly string[]) =>
-      panelBoxes(full, rows, taskId, held, held).find((box) => box.id === "architecture")?.reason;
+      panelBoxes(full, rows, taskId, held, held, EN_US_SAY).find((box) => box.id === "architecture")
+        ?.reason;
     expect(architecture("u-1", [])).toBe(
       "Architecture already has 50 dependent tasks, the most a task can have",
     );
@@ -279,7 +281,7 @@ describe("a plan's panel after a package is deleted in its Tree (task 9.3)", () 
     const rows = editedRows(PLAN).filter((row) => row.id !== "portal");
     const opened = rows.find((row) => row.id === "reporting")?.dependencies ?? [];
     expect(opened).toEqual(["portal"]);
-    const boxes = panelBoxes(PLAN, rows, "reporting", opened, opened);
+    const boxes = panelBoxes(PLAN, rows, "reporting", opened, opened, EN_US_SAY);
     expect(boxes.at(-1)).toEqual({
       id: "portal",
       label: "portal",
@@ -288,12 +290,12 @@ describe("a plan's panel after a package is deleted in its Tree (task 9.3)", () 
       note: "Names no task",
     });
     const unchecked = toggled(opened, "portal", false);
-    expect(panelBoxes(PLAN, rows, "reporting", unchecked, opened).at(-1)).toMatchObject({
+    expect(panelBoxes(PLAN, rows, "reporting", unchecked, opened, EN_US_SAY).at(-1)).toMatchObject({
       id: "portal",
       checked: false,
     });
     const billing = rows.find((row) => row.id === "billing")?.dependencies ?? [];
-    const ids = panelBoxes(PLAN, rows, "billing", billing, billing).map((box) => box.id);
+    const ids = panelBoxes(PLAN, rows, "billing", billing, billing, EN_US_SAY).map((box) => box.id);
     expect(ids).not.toContain("portal");
   });
 });
@@ -308,8 +310,8 @@ describe("the boxes against canPrecede", () => {
     taskId: string,
   ) => {
     const listed = heldRows.find((row) => row.id === taskId)?.dependencies ?? [];
-    return panelBoxes(value, rows, taskId, listed, listed).map((box) => {
-      const verdict = canPrecede(held, heldRows, taskId, box.id);
+    return panelBoxes(value, rows, taskId, listed, listed, EN_US_SAY).map((box) => {
+      const verdict = canPrecede(held, heldRows, taskId, box.id, EN_US_SAY);
       return [box.id, box.reason, verdict.ok ? undefined : verdict.reason];
     });
   };
@@ -354,7 +356,7 @@ describe("the boxes against canPrecede", () => {
     const value: GanttOwnProps = { start: "2026-11-02", tasks };
     const rows = ownTaskRows(value);
     const from = performance.now();
-    const boxes = panelBoxes(value, rows, "t499", [], []);
+    const boxes = panelBoxes(value, rows, "t499", [], [], EN_US_SAY);
     const took = performance.now() - from;
     expect(boxes).toHaveLength(499);
     // The first eight layers are at the dependents limit; the ninth has 49, the last none.

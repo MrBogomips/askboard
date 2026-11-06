@@ -117,14 +117,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await pressIn(run.board, "Enter")).toEqual({ nodeId: "u-1", cell: at + 1 });
         }
         await eventually(
-          async () => (await rowOf(run, "u-1"))?.[2] === "11/17/2026",
+          async () => (await rowOf(run, "u-1"))?.[2] === "Tue 11/17",
           "u-1 to start on 11/17/2026",
         );
         expect(await rowOf(run, "u-1")).toEqual([
           "u-1",
           DASHBOARDS,
-          "11/17/2026",
-          "8",
+          "Tue 11/17",
+          "8 d",
           "Architecture, Clickable prototype",
         ]);
         expect(await run.board.answer.isDisabled()).toBe(false);
@@ -172,6 +172,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await rowOf(run, "u-1")).toBeUndefined();
         await expectUnchanged(run);
         expect(draftValues(run)).toEqual({});
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      '"Add node" shows the new row at once with the added mark, "—" for its roll-ups and no error',
+      async () => {
+        const run = await host(dist, uj2ExpandedBoardDocument);
+        await readyIn(run);
+        const tree = treeGridOf(run.board);
+        await focusPortal(run, tree);
+        await addAndName(run, tree, "Add node");
+        const cells = tree.row("u-1").locator("td");
+        expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
+        const texts = await cells.allTextContents();
+        expect(texts.slice(-2)).toEqual(["\u2014", "\u2014"]);
+        expect(await run.board.view.getByText("could not be computed").count()).toBe(0);
+        expect(await pressIn(run.board, "Escape")).toEqual({ nodeId: "portal" });
+        expect(run.browser.errors).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );

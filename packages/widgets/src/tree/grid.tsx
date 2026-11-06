@@ -6,10 +6,12 @@
 // names its work packages and adds its two value columns, and its Total row ends the grid
 // (molecules design decision 14).
 
-import type { TreeColumn } from "@askboard/contract";
+import type { TreeColumn, TreeProps } from "@askboard/contract";
+import { useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, MouseEventHandler, Ref } from "react";
-import { PERT_VALUE_COLUMNS } from "./cells.ts";
+import { PERT_HEADERS } from "./cells.ts";
 import { FIELD_HEADER, GRID, HEADER_ROW, NAME_HEADER } from "./classes.ts";
+import { editableCells } from "./entry.ts";
 import type { TreeFocus } from "./model/focus.ts";
 import type { NodeMark } from "./model/marks.ts";
 import type { PertGrid } from "./model/pert.ts";
@@ -20,13 +22,26 @@ import { TotalRow } from "./total-row.tsx";
 const stopIn = (focus: TreeFocus | undefined, nodeId: string): RowStop =>
   focus?.nodeId === nodeId ? (focus.cell ?? ROW_STOP) : undefined;
 
+// A work breakdown's two value columns' headers, each on one line with its full name as the tip.
+const PertHeaders = () => {
+  const text = useStrings();
+  return PERT_HEADERS.map(({ label, tip }) => (
+    <th scope="col" key={label} title={text(tip)} className={FIELD_HEADER.number}>
+      {text(label)}
+    </th>
+  ));
+};
+
 export const TreeGrid = ({
   ref,
   nameColumn,
   columns,
+  value,
+  disabled,
   pert,
   rows,
   focus,
+  current,
   editing,
   marks,
   labelledBy,
@@ -40,11 +55,17 @@ export const TreeGrid = ({
   /** The name column's header. */
   readonly nameColumn: string;
   readonly columns: readonly TreeColumn[];
+  /** The Tree's value, which says what each cell edits. */
+  readonly value: TreeProps;
+  /** The Tree is read-only: no cell takes an edit. */
+  readonly disabled: boolean;
   /** A work breakdown's values, by row, and its Total row's; none in a Tree without `pert`. */
   readonly pert: PertGrid | undefined;
   readonly rows: readonly TreeRow[];
   /** The Tab stop: a row, or a cell of it. */
   readonly focus: TreeFocus | undefined;
+  /** The current row's node, which its row tools act on, or none. */
+  readonly current: string | undefined;
   /** The node whose cell is being edited, and its editor. */
   readonly editing: (RowEditing & { readonly nodeId: string }) | undefined;
   /** What the user changed, by node, against the agent's value (`marks.ts`). */
@@ -79,13 +100,7 @@ export const TreeGrid = ({
             {column.label}
           </th>
         ))}
-        {pert === undefined
-          ? null
-          : PERT_VALUE_COLUMNS.map((label) => (
-              <th scope="col" key={label} className={FIELD_HEADER.number}>
-                {label}
-              </th>
-            ))}
+        {pert === undefined ? null : <PertHeaders />}
       </tr>
     </thead>
     <tbody>
@@ -98,6 +113,8 @@ export const TreeGrid = ({
           editing={editing?.nodeId === row.node.id ? editing : undefined}
           mark={marks.get(row.node.id)}
           pert={pert?.rows.get(row.node.id)}
+          editable={editableCells(value, row.node.id, disabled)}
+          current={current === row.node.id}
         />
       ))}
       {pert?.total === undefined ? null : <TotalRow columns={columns} values={pert.total} />}

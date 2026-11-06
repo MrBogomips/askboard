@@ -12,22 +12,26 @@
 // Both open a task's predecessors panel from its "Depends on", a plan's offering its Tree's leaves.
 
 import type { GanttProps } from "@askboard/contract";
-import { useCallback, useMemo, useState } from "react";
+import { useStrings } from "@askboard/view/catalog";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Chart } from "./chart.tsx";
 import { Legend, Toolbar } from "./chrome.tsx";
 import { type Editing, useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
+import { dayNumber } from "./model/date.ts";
 import { clearStart, setDuration } from "./model/edits.ts";
 import { landOn } from "./model/entries.ts";
 import { chartSpan, rowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { scheduleNote } from "./model/notes.ts";
-import type { Zoom } from "./model/scale.ts";
-import type { Baseline, TaskSchedule } from "./model/schedule.ts";
+import { openingZoom, stretchedLast, type Zoom } from "./model/scale.ts";
+import { type Baseline, movedBaselines, type TaskSchedule } from "./model/schedule.ts";
 import { type GanttColumn, type GanttRow, isOwnGantt } from "./model/tasks.ts";
 import { usePanelState } from "./panel-state.ts";
+import { useChartBox } from "./use-chart-box.ts";
+import { useRowHeight } from "./use-row-height.ts";
 
 /**
  * The note under each row: a refused entry's reason for the row being edited, else the field
@@ -39,13 +43,14 @@ const useNotes = (
   schedules: readonly TaskSchedule[],
   editing: Editing | undefined,
 ): ReadonlyMap<string, string> => {
+  const text = useStrings();
   const errors = useMemo(() => {
     const labels = new Map(rows.map((row) => [row.id, row.label]));
     return rows.flatMap((row, index) => {
-      const note = scheduleNote(itemId, row, schedules[index], labels);
+      const note = scheduleNote(itemId, row, schedules[index], labels, text);
       return note === undefined ? [] : [[row.id, note] as const];
     });
-  }, [itemId, rows, schedules]);
+  }, [itemId, rows, schedules, text]);
   const refusal = editing?.refusal;
   const taskId = editing?.taskId;
   return useMemo(
@@ -65,6 +70,8 @@ export type FrameProps = {
   /** What the user changed, by task, and how many tasks the toolbar counts. */
   readonly marks: ReadonlyMap<string, TaskMarks>;
   readonly count: number;
+  /** The tasks that follow the plan's Tree, which the counter names after the user's changes. */
+  readonly derived: number;
   /** The Gantt as it stands, and as the agent sent it, of one kind. */
   readonly current: GanttProps;
   readonly sent: GanttProps;
@@ -98,9 +105,30 @@ const spanOf = (
   );
 };
 
+/** The shadow on a side of the chart's frame that holds more (view spec, "Gantt overflow cue"). */
+const EdgeCue = ({
+  side,
+  shown,
+}: {
+  readonly side: "before" | "after";
+  readonly shown: boolean;
+}) =>
+  shown ? (
+    <div
+      aria-hidden="true"
+      data-gantt-more={side}
+      className={`pointer-events-none absolute inset-y-0 w-[16px] from-foreground/20 to-transparent ${side === "before" ? "left-0 bg-linear-to-r" : "right-0 bg-linear-to-l"}`}
+    />
+  ) : null;
+
 export const GanttFrame = (props: FrameProps) => {
   const { itemId, rows, schedules, baselines, marks, current, sent, onCommit, editable } = props;
-  const [zoom, setZoom] = useState<Zoom>("week");
+  // The zoom the user chose, else the one the plan opened at: the finest at which it fits.
+  const [chosen, setChosen] = useState<Zoom | undefined>(undefined);
+  const [opened, setOpened] = useState<Zoom | undefined>(undefined);
+  const zoom = chosen ?? opened ?? "week";
+  const scroller = useRef<HTMLDivElement>(null);
+  const box = useChartBox(scroller);
   const focus = useGridFocus(rows);
   const { table } = focus;
   const focusCell = useCallback(
@@ -116,10 +144,32 @@ export const GanttFrame = (props: FrameProps) => {
   });
   // A read-only Gantt shows no editor, and no refusal of one.
   const notes = useNotes(itemId, rows, schedules, editable ? editing.editing : undefined);
-  const layout = useMemo(() => rowBoxes(rows.map((row) => notes.has(row.id))), [rows, notes]);
+  const unit = useRowHeight();
+  const layout = useMemo(
+    () =>
+      rowBoxes(
+        rows.map((row) => notes.has(row.id)),
+        unit,
+      ),
+    [rows, notes, unit],
+  );
   const span = useMemo(
     () => spanOf(current.start, schedules, baselines ?? []),
     [current.start, schedules, baselines],
+  );
+  useLayoutEffect(() => {
+    if (opened !== undefined || !props.zoomable || !box.width) return;
+    const days = dayNumber(span.last) - dayNumber(span.origin) + 1;
+    setOpened(openingZoom(days, box.width));
+  }, [opened, props.zoomable, box.width, span]);
+  // A short span is stretched to the frame's width.
+  const shownSpan = useMemo(
+    () => ({ origin: span.origin, last: stretchedLast(span, zoom, box.width ?? 0) }),
+    [span, zoom, box.width],
+  );
+  const drawn = useMemo(
+    () => (baselines === undefined ? undefined : movedBaselines(baselines, schedules)),
+    [baselines, schedules],
   );
   const own = isOwnGantt(current) && isOwnGantt(sent);
   const onKeyDown = gridKeyHandler({
@@ -136,7 +186,11 @@ export const GanttFrame = (props: FrameProps) => {
     : undefined;
   return (
     <div className="flex flex-col rounded-md border border-border bg-card">
-      <Toolbar count={props.count} zoom={props.zoomable ? { zoom, onZoom: setZoom } : undefined} />
+      <Toolbar
+        count={props.count}
+        derived={props.derived}
+        zoom={props.zoomable ? { zoom, onZoom: setChosen } : undefined}
+      />
       <div className="flex">
         <div className="w-[480px] shrink-0 border-r border-border">
           <Grid
@@ -156,25 +210,29 @@ export const GanttFrame = (props: FrameProps) => {
             onFocus={focus.onFocus}
           />
         </div>
-        <div tabIndex={-1} className="min-w-0 flex-1 overflow-x-auto outline-none">
-          <Chart
-            itemId={itemId}
-            rows={rows}
-            schedules={schedules}
-            baselines={baselines}
-            layout={layout}
-            span={span}
-            zoom={zoom}
-            marks={marks}
-            editable={editable}
-            onMove={(taskId, day, earliest) =>
-              onCommit(landOn(current, sent, taskId, day, earliest))
-            }
-            onResize={onResize}
-          />
+        <div className="relative min-w-0 flex-1">
+          <div ref={scroller} tabIndex={-1} className="overflow-x-auto outline-none">
+            <Chart
+              itemId={itemId}
+              rows={rows}
+              schedules={schedules}
+              baselines={drawn}
+              layout={layout}
+              span={shownSpan}
+              zoom={zoom}
+              marks={marks}
+              editable={editable}
+              onMove={(taskId, day, earliest) =>
+                onCommit(landOn(current, sent, taskId, day, earliest))
+              }
+              onResize={onResize}
+            />
+          </div>
+          <EdgeCue side="before" shown={box.edges.before} />
+          <EdgeCue side="after" shown={box.edges.after} />
         </div>
       </div>
-      <Legend />
+      <Legend baseline={drawn?.some((baseline) => baseline !== undefined) === true} />
     </div>
   );
 };

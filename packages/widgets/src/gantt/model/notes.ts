@@ -3,10 +3,9 @@
 // no task, or it follows a task that has no dates, named by where `compute` says its error arose.
 // The wordings are this change's: EXPERIENCE records none. A formula error never blocks "Answer".
 
+import type { Say } from "./say.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import type { GanttRow } from "./tasks.ts";
-
-const COULD_NOT = "No dates: the schedule could not be computed.";
 
 /** The task an address names, in the item `itemId`: `<item>.<task>.<field>`. */
 const taskOf = (itemId: string, address: string): string | undefined => {
@@ -20,18 +19,19 @@ export const scheduleNote = (
   row: GanttRow,
   schedule: TaskSchedule | undefined,
   labels: ReadonlyMap<string, string>,
+  text: Say,
 ): string | undefined => {
   if (schedule?.kind !== "error") return undefined;
   const { error, address } = schedule.error;
   const origin = taskOf(itemId, address);
-  if (origin === undefined) return COULD_NOT;
+  if (origin === undefined) return text("gantt.note.couldNot");
   if (origin !== row.id) {
-    return `No dates: it follows ${labels.get(origin) ?? origin}, which has none.`;
+    return text("gantt.note.follows", { task: labels.get(origin) ?? origin });
   }
-  if (error === "cycle") return "No dates: its predecessors form a cycle.";
-  if (error !== "missing-reference") return COULD_NOT;
+  if (error === "cycle") return text("gantt.note.cycle");
+  if (error !== "missing-reference") return text("gantt.note.couldNot");
   const missing = row.dependencies.filter((id) => !labels.has(id));
-  return missing.length === 1
-    ? `No dates: its predecessor ${missing[0]} names no task.`
-    : `No dates: its predecessors ${missing.join(", ")} name no task.`;
+  return text(missing.length === 1 ? "gantt.note.missingOne" : "gantt.note.missingMany", {
+    ids: missing.join(", "),
+  });
 };

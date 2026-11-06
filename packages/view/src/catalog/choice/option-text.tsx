@@ -13,7 +13,10 @@ import { optionDescriptionId, optionLabelId } from "./selection.ts";
 export const ROW =
   "group flex w-full items-start gap-sm rounded-md border border-border bg-card p-sm text-left " +
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring " +
-  "enabled:hover:bg-accent data-[state=checked]:border-primary";
+  "enabled:hover:bg-accent data-[state=checked]:border-primary " +
+  // On a closed or discarded ask, which the board marks, a row looks disabled (review F-18).
+  "group-data-[askboard-ended]/board:data-[disabled]:bg-muted " +
+  "group-data-[askboard-ended]/board:data-[disabled]:opacity-50";
 
 /** The empty mark, ringed in the input colour and in primary once checked. */
 export const MARK =

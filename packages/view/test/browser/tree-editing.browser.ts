@@ -1,6 +1,6 @@
 // The Tree's editing scenarios, in each engine, on the widget host (tree-widget design decision
 // 6; spec, "Tree editing"): Enter and F2 edit the focused name or field, Enter and leaving the
-// field commit, Escape restores; a number is read by the en-US parser with its echo, and an
+// field commit, Escape restores; a number is read by the en-US parser with no echo, and an
 // ambiguous one is refused; the edits fill the draft and send nothing until "Answer".
 
 import { describe, expect, test } from "bun:test";
@@ -84,7 +84,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "1,234.5 in a number field shows its echo, commits 1234.5 into the draft, and the answer carries it",
+      "1,234.5 in a number field shows no echo, commits 1234.5 into the draft, and the answer carries it",
       async () => {
         const run = await host(dist, treeBoardDocument);
         await readyIn(run);
@@ -95,10 +95,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["ArrowRight", { nodeId: "portal", cell: 0 }],
           ["ArrowRight", { nodeId: "portal", cell: 1 }],
         ]);
+        const rowHeight = (await tree.row("portal").boundingBox())?.height;
         await typeIn(run, tree, "F2", "1,234.5");
-        await tree.row("portal").getByText("= 1234.5", { exact: true }).waitFor({
-          timeout: STEP_TIMEOUT_MS,
-        });
+        // No echo while typing, and the row keeps its height.
+        expect(await tree.row("portal").getByText("= 1234.5").count()).toBe(0);
+        expect((await tree.row("portal").boundingBox())?.height).toBe(rowHeight);
         expect(await pressIn(board, "Enter")).toEqual({ nodeId: "portal", cell: 1 });
         expect(await tree.editor.count()).toBe(0);
         expect(await tree.cell("portal", 1).textContent()).toBe("1234.5");
@@ -138,6 +139,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.editor.getAttribute("aria-invalid")).toBe("true");
         const describedBy = (await tree.editor.getAttribute("aria-describedby")) ?? "";
         const message = board.view.locator(`[id="${describedBy}"]`);
+        expect(await message.textContent()).toStartWith("Optimistic:");
         expect(await message.textContent()).toContain("commas");
         expect(await message.isVisible()).toBe(true);
         expect(await board.answer.isDisabled()).toBe(true);

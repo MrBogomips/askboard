@@ -9,6 +9,7 @@
 // zoom shown keeps it: a toggle group would turn it off. The zoom is view state: it rescales the
 // chart and reaches no draft, and a read-only Gantt keeps it (AD-10).
 
+import { type StringKey, useStrings } from "@askboard/view/catalog";
 import { ToggleGroup } from "radix-ui";
 import { type FocusEvent, type KeyboardEvent, useRef, useState } from "react";
 import { keyPressOf } from "./key-press.ts";
@@ -16,23 +17,22 @@ import { nextTool, toolTabStop } from "./model/focus.ts";
 import { toolbarKeyMove } from "./model/keys.ts";
 import { isZoom, ZOOMS, type Zoom } from "./model/scale.ts";
 
-const LABELS: Readonly<Record<Zoom, string>> = { day: "Day", week: "Week", month: "Month" };
+export const ZOOM_LABELS: Readonly<Record<Zoom, StringKey>> = {
+  day: "gantt.zoom.day",
+  week: "gantt.zoom.week",
+  month: "gantt.zoom.month",
+};
 
 /** Every zoom may be chosen, whether or not the Gantt takes edits. */
 const ENABLED: readonly boolean[] = ZOOMS.map(() => true);
 
-/** The sunken track with its border, `spacing.control-height` high. */
-const TRACK = "inline-flex h-[28px] items-stretch rounded-md border border-border bg-muted";
-
 /**
- * A segment: in `muted-foreground`, and once chosen on `card` in `primary-text`, semibold, with a
- * 2px `primary` underline, so it differs by weight and shape as well as hue (F-92).
+ * The segmented control's one look (`view/src/styles/segment.css`, review F-17): a sunken track and
+ * its segments, the chosen one underlined in `primary`. The names repeat `shell/segment-classes.ts`,
+ * which a widget cannot import (AD-1); a test holds the two together.
  */
-const SEGMENT =
-  "border-b-2 border-transparent px-3 text-control text-muted-foreground first:rounded-l-md " +
-  "last:rounded-r-md hover:text-foreground data-[state=on]:border-primary " +
-  "data-[state=on]:bg-card data-[state=on]:font-semibold data-[state=on]:text-primary-text " +
-  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+const TRACK = "askboard-segments";
+const SEGMENT = "askboard-segment";
 
 export type ZoomProps = {
   readonly zoom: Zoom;
@@ -40,6 +40,7 @@ export type ZoomProps = {
 };
 
 export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
+  const text = useStrings();
   const options = useRef<(HTMLButtonElement | null)[]>([]);
   // The option the focus is on while it is in the control: the Tab stop follows it, so that
   // Shift+Tab leaves; once the focus has left, the stop is the chosen zoom again.
@@ -64,7 +65,7 @@ export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
         if (isZoom(next)) onZoom(next);
       }}
       rovingFocus={false}
-      aria-label="Zoom"
+      aria-label={text("gantt.zoom.name")}
       className={TRACK}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
@@ -80,7 +81,7 @@ export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
           onFocus={() => setFocused(at)}
           className={SEGMENT}
         >
-          {LABELS[option]}
+          {text(ZOOM_LABELS[option])}
         </ToggleGroup.Item>
       ))}
     </ToggleGroup.Root>

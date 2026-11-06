@@ -19,6 +19,7 @@
 // nothing and keeps the question open with the refusal.
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
+import { useStrings } from "@askboard/view/catalog";
 import { type FocusEvent, type KeyboardEvent, type MouseEvent, useMemo, useState } from "react";
 import type { BoardGraph } from "../graph/index.ts";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
@@ -34,14 +35,15 @@ import {
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
 import { treeKeyOf } from "./key-event.ts";
-import { can, type TreeEdit } from "./model/edits.ts";
+import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
+import type { TreeEdit } from "./model/edits.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
-import { marksOf, sameNodes } from "./model/marks.ts";
+import { ADDED, marksOf, sameNodes } from "./model/marks.ts";
 import { pertValues } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 import { afterMove, isMove, type MoveEdit } from "./moving.ts";
-import { cellTargetOf, chevronNodeOf, focusTargetOf } from "./targets.ts";
+import { cellTargetOf, chevronNodeOf, focusTargetOf, rowNodeOf } from "./targets.ts";
 import { TreeToolbar } from "./toolbar.tsx";
 import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
@@ -113,12 +115,15 @@ export const TreeWidget = ({
    */
   readonly onLinkedDelete: (next: TreeProps, deleted: readonly string[]) => string | undefined;
 }) => {
+  const text = useStrings();
   const [stored, setView] = useState(() => openView(value));
   // The delete whose question is asked, the part it was asked from, and its refusal once refused.
   const [asked, setAsked] = useState<Asked>();
+  // The current row, which the row tools act on: set by a click or an arrow key, none at open.
+  const [currentId, setCurrent] = useState<Current>();
   const focus = useTreeFocus();
 
-  const { rows, editing, start, startAdd, dropped } = useCellEditing({
+  const { rows, editing, start, startAdd, dropped, pendingId } = useCellEditing({
     itemId,
     sent,
     value,
@@ -128,14 +133,28 @@ export const TreeWidget = ({
     onCommitAdd: (next, added, pending) => onLinkedAdd(next, added, pending.anchor?.nodeId),
     onClosed: (moveFocus, takenAway) => {
       focus.moveFocusTo(moveFocus ? "grid" : undefined);
-      if (takenAway !== undefined) setView(viewWithoutAdd(view, value, takenAway));
+      if (takenAway !== undefined) {
+        const back = viewWithoutAdd(view, value, takenAway);
+        setView(back);
+        setCurrent(back.focus?.nodeId);
+      }
     },
   });
   const view = shownView(stored, rows);
   // A new node the Tree dropped on turning read-only goes as if taken away: the focus goes back
   // where its add started.
-  if (dropped !== undefined) setView(viewWithoutAdd(view, value, dropped));
+  if (dropped !== undefined) {
+    const back = viewWithoutAdd(view, value, dropped);
+    setView(back);
+    setCurrent(back.focus?.nodeId);
+  }
+  const current = currentIn(value, currentId);
   const marks = useMemo(() => marksOf(sent, value), [sent, value]);
+  // The new node being named shows the added mark at once, though it is in no value yet.
+  const shownMarks = useMemo(
+    () => (pendingId === undefined ? marks.byNode : new Map(marks.byNode).set(pendingId, ADDED)),
+    [marks, pendingId],
+  );
   const pert = useMemo(
     () => (graph === undefined ? undefined : pertValues(graph, itemId, rows, value.nodes)),
     [graph, itemId, rows, value.nodes],
@@ -152,9 +171,11 @@ export const TreeWidget = ({
 
   // The new node's name is entered in its row, whose editor takes the focus.
   const add = (edit: AddEdit): void => {
-    const pending = pendingAdd(edit, value, view.focus);
+    const pending = pendingAdd(edit, value, anchorOf(view, current));
     if (disabled || pending === undefined) return;
-    setView(viewOfAdd(view, value, pending));
+    const next = viewOfAdd(view, value, pending);
+    setView(next);
+    setCurrent(next.focus?.nodeId);
     startAdd(pending);
   };
   // The node and its branch go, the focus moving off it (`deleting.ts`), with the plans' linked
@@ -165,6 +186,7 @@ export const TreeWidget = ({
     if (refusal !== undefined) return refusal;
     focus.moveFocusTo(focusTo);
     setView(deleted.view);
+    setCurrent(deleted.view.focus?.nodeId);
     return undefined;
   };
   // A delete, asked first where `deleteQuestionOf` asks; a refused one opens the question with
@@ -186,15 +208,15 @@ export const TreeWidget = ({
   };
   // An edit of the focused node, from a key or a tool, where it is possible.
   const act = (edit: TreeEdit, from: TreePart): void => {
-    const nodeId = view.focus?.nodeId;
+    const nodeId = current;
     const focusTo = from === "grid" ? "grid" : undefined;
-    if (disabled || !can(edit, value, nodeId)) return;
+    if (disabled || !canAct(edit, value, nodeId)) return;
     if (isAdd(edit)) add(edit);
     else if (nodeId === undefined) return;
     else if (isMove(edit)) move(edit, nodeId, focusTo);
     else startDelete(nodeId, from);
   };
-  const enabled = TREE_TOOLS.map((tool) => !disabled && can(tool.edit, value, view.focus?.nodeId));
+  const enabled = TREE_TOOLS.map((tool) => !disabled && canAct(tool.edit, value, current));
   // The question shows while its node has children or dependents, from the value as it is, or
   // its delete was refused, and while the Tree is editable; once it no longer applies it is
   // dropped, never to show again unasked.
@@ -224,8 +246,11 @@ export const TreeWidget = ({
     const action = keyAction(treeKeyOf(event), "navigation");
     if (action === undefined) return;
     event.preventDefault();
-    if (action.kind === "focus") show(navigate(view, action.move, value), true);
-    else if (action.kind === "startEdit" && view.focus !== undefined) start(view.focus);
+    if (action.kind === "focus") {
+      const next = navigate(view, action.move, value);
+      setCurrent(next.focus?.nodeId);
+      show(next, true);
+    } else if (action.kind === "startEdit" && view.focus !== undefined) start(view.focus);
     else if (action.kind === "edit") act(action.edit, "grid");
   };
 
@@ -239,6 +264,8 @@ export const TreeWidget = ({
   // the node when the focused row is in the branch it hides. While a cell is edited, the click
   // takes the focus, so that the editor commits first.
   const onMouseDown = (event: MouseEvent<HTMLTableElement>): void => {
+    const clicked = rowNodeOf(event.target);
+    if (clicked !== undefined) setCurrent(clicked);
     if (editing === undefined && chevronNodeOf(event.target) !== undefined) event.preventDefault();
   };
   const onClick = (event: MouseEvent<HTMLTableElement>): void => {
@@ -269,13 +296,16 @@ export const TreeWidget = ({
       />
       <TreeGrid
         ref={focus.grid}
-        nameColumn={nameColumnOf(value)}
+        nameColumn={nameColumnOf(value, text)}
         columns={value.columns ?? NO_COLUMNS}
+        value={value}
+        disabled={disabled}
         pert={pert}
         rows={rows}
         focus={view.focus}
+        current={pendingId ?? current}
         editing={editing}
-        marks={marks.byNode}
+        marks={shownMarks}
         labelledBy={labelledBy}
         onKeyDown={onKeyDown}
         onFocus={onFocus}
