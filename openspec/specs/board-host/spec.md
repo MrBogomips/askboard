@@ -479,3 +479,90 @@ The session process SHALL give `ask-core` the `excerpts` adapter as its `SourceF
 #### Scenario: Started without the variable
 - **WHEN** the session process starts with no `CLAUDE_PROJECT_DIR`
 - **THEN** it starts, and every pointer resolves as unresolved with reason `no-root`
+
+### Requirement: A Snapshot requested by the board
+`board-host` SHALL accept a `snapshot` message on an ask's live board connection while the ask is open or closed, have `ask-core` take the Snapshot as the user's, and answer `snapshot-saved` with the request's ID and the file's absolute path (FR-26, AD-15).
+
+#### Scenario: The user takes a Snapshot
+- **WHEN** the board page sends `snapshot` with request ID `r1` on an open ask
+- **THEN** a new file exists in the Snapshot folder, and the page receives `snapshot-saved` naming `r1` and that file's path
+
+#### Scenario: A closed ask
+- **WHEN** the board page of an ask the agent closed sends `snapshot`
+- **THEN** the Snapshot is taken and `snapshot-saved` answers, though every act on that board is refused
+
+### Requirement: A board's Snapshot that fails
+When the Snapshot cannot be written, `board-host` SHALL answer `snapshot-failed` with the request's ID, the reason `write-failed` and the Snapshot folder's path; when the session has no project root, with the reason `no-project-root`; when the ask was discarded meanwhile, with the reason `discarded`, before the board learns of the discard (FR-26, NFR-10, AD-12).
+
+#### Scenario: The folder cannot be written
+- **WHEN** the board page sends `snapshot` and the Snapshot folder is not writable
+- **THEN** the page receives `snapshot-failed` naming the request, `write-failed` and the folder
+
+#### Scenario: No project root
+- **WHEN** the board page sends `snapshot` in a session process started without `CLAUDE_PROJECT_DIR`
+- **THEN** the page receives `snapshot-failed` naming the request and `no-project-root`, and no file is written
+
+### Requirement: A board's Snapshot AskBoard fails to take
+When `ask-core` fails to take a board's Snapshot for any cause other than the folder, the project root or a discard, such as a damaged view build, `board-host` SHALL report the error and answer `snapshot-failed` with the request's ID and the reason `internal-error`, naming no folder, so every request on a live connection gets one reply (FR-26, NFR-10).
+
+#### Scenario: The view build is damaged
+- **WHEN** the board page sends `snapshot` and the view build cannot be loaded
+- **THEN** the page receives `snapshot-failed` naming the request and `internal-error`, the error is reported, no file is written, and the board stays open
+
+### Requirement: Unsent work passed on as a fact
+`board-host` SHALL pass the request's `unsentWork` to `ask-core` as it came, and SHALL NOT consult the mirrored draft record for a Snapshot (AD-15, AD-20).
+
+#### Scenario: The page says it holds unsent work
+- **WHEN** the board page sends `snapshot` with `unsentWork: true`
+- **THEN** the Snapshot's data records `unsentWork: true`, and holds nothing of the draft
+
+### Requirement: A board's Snapshot is no event
+A Snapshot the board takes SHALL reach the agent only as a file in the Snapshot folder: no event, no push and no `collect` entry (FR-26, open question A7).
+
+#### Scenario: The agent collects after the user's Snapshot
+- **WHEN** the user takes a Snapshot from the board and the agent collects with its last cursor
+- **THEN** the result holds no event, and the file is in the Snapshot folder
+
+### Requirement: Settings sent to a board when it connects
+When a board page connects with its token, `board-host` SHALL send it the `settings` message before the board itself: every presentation and behaviour key in effect, with its value and the file and key that set it, the files not applied and the warnings (FR-35, AD-14). It SHALL send `settings` again after every write.
+
+#### Scenario: A board opens with the user's theme
+- **WHEN** the user file sets `theme` to `dark` and a board connects
+- **THEN** the page receives `settings` with `theme` `dark` from the user file before it receives the board
+
+#### Scenario: Read-only rows name their file and key
+- **WHEN** the project file sets `askingRule` to `with-references` and a board connects
+- **THEN** `settings` gives `askingRule` the value `with-references`, the project file and the key `askingRule`
+
+### Requirement: A board writes only presentation keys
+`board-host` SHALL pass a `setting` message to the session process only when it names `theme`, `density` or `contextPlacement` with a value the configuration schema allows; any other message SHALL be refused as a `message` and nothing SHALL be written (AD-14). A board token never opens the local API (AD-11).
+
+#### Scenario: A board tries to set the editor
+- **WHEN** a client holding a board's token sends `setting` with `key` `editor` and `value` `["sh", "-c", "id"]`
+- **THEN** `board-host` answers `refused` with reason `message`, and neither configuration file changes
+
+#### Scenario: A failed write reaches the board
+- **WHEN** a board writes `density` `comfortable` and the user folder cannot be written
+- **THEN** the page receives `settings` whose write outcome names the user file's path and the error, and the board keeps working
+
+### Requirement: The local API reports the configured asking rule
+The local API's asking rule SHALL be the `askingRule` in effect, from the project file, else the user file, else `none`, replacing the rule fixed at `none` until configuration was read (AD-14, AD-16, FR-30).
+
+#### Scenario: The rule from the project file
+- **WHEN** the project file sets `askingRule` to `always` and a hook asks the local API for the rule
+- **THEN** the answer's rule is `always`
+
+#### Scenario: A project file that fails its check
+- **WHEN** the project file sets `askingRule` to `always` and fails the schema, and the user file sets none
+- **THEN** the answer's rule is `none`
+
+### Requirement: The editor command comes from configuration
+The editor command `board-host` runs on "Open in editor" SHALL be the user file's `editor` in effect, with `{file}` and `{line}` replaced, and none when it is not set or was ignored (AD-8, FR-9).
+
+#### Scenario: The user's command runs
+- **WHEN** the user file sets `editor` to `["true", "{file}"]` and the user clicks "Open in editor"
+- **THEN** `true` starts with the file's absolute real path as its argument
+
+#### Scenario: A project command never runs
+- **WHEN** only the project file sets `editor` and the user clicks "Open in editor"
+- **THEN** no process starts, and the outcome is `no-editor`

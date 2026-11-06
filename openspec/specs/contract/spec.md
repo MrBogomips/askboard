@@ -953,3 +953,209 @@ The contract SHALL hold the limits every unit reads for context: pointer, title,
 #### Scenario: One limit, one place
 - **WHEN** `excerpts`, `ask-core` and `board-host` check an excerpt's length
 - **THEN** each reads the same contract constant
+
+### Requirement: Snapshot data schema set
+The contract SHALL hold the `snapshot-data` set at version 1.0, owned by `snapshot` (AD-7), whose one schema describes a Snapshot's `askboard-data` block. Like every set, it SHALL refuse fields it does not define and SHALL have no root combinator.
+
+#### Scenario: The set is listed
+- **WHEN** the contract's schema sets are listed
+- **THEN** `snapshot-data` is among them at 1.0, with `snapshot` as its owner
+
+### Requirement: What the Snapshot data names
+The Snapshot data SHALL name its versions (the set's, the output format's and the board protocol's), the epoch and the ask ID, and SHALL hold the Snapshot's record: `takenAt` in UTC, `takenBy` (`agent` or `user`), `who` for the user's, and `unsentWork: true` only for a board's Snapshot taken with unsent work (AD-15).
+
+#### Scenario: The agent's Snapshot
+- **WHEN** the Snapshot data of an agent's Snapshot is validated
+- **THEN** it passes with `takenBy: "agent"`, a UTC `takenAt` and no `who` or `unsentWork`
+
+#### Scenario: A user's Snapshot without its taker
+- **WHEN** Snapshot data with `takenBy: "user"` and no `who` is validated
+- **THEN** it fails, naming `who`
+
+### Requirement: What the Snapshot data holds
+The Snapshot data SHALL hold the current board document, the earlier revisions its events name, the board state as the board protocol carries it, the ask's origin as the board protocol's `origin` message carries it when known, and every event of the log, each with the full values kept for its answer; optionally the molecule expansion map and kept diagram renders (AD-15, open questions A1 and A2).
+
+#### Scenario: The fixture validates
+- **WHEN** the contract's Snapshot data fixture, with areas, a postponed question, a thread with a reply, a recorded answer and a revised answer, is validated
+- **THEN** it passes against the `snapshot-data` schema
+
+#### Scenario: A draft in the data
+- **WHEN** Snapshot data carries a `draft` field
+- **THEN** it fails validation, naming the field
+
+### Requirement: The snapshot tool's envelopes
+The tool envelopes SHALL define the `snapshot` request as the approved definition's input schema (`askId` only) and its result: the versions, epoch, ask ID, the ask's state, the file's absolute `path`, and `unchecked: true` for an ask without an owner; and the typed result `discarded` naming the ask (AD-6, FR-26).
+
+#### Scenario: A result validates
+- **WHEN** the Snapshot fixture's `snapshot` result is validated against the `snapshot` result envelope
+- **THEN** it passes and names a result and an output version
+
+#### Scenario: A relative path
+- **WHEN** a `snapshot` result whose `path` does not start with `/` is validated
+- **THEN** it fails, naming `path`
+
+### Requirement: The approved snapshot definition
+The contract's tool definitions SHALL be the approved `ask`, `update`, `collect`, `fetch` and `snapshot`, in that order, equal to the approved `tools.json`, with `snapshot`'s description and annotations unchanged (`destructiveHint: false`, `openWorldHint: false`). The server instructions SHALL stay the approved text.
+
+#### Scenario: The tool definitions
+- **WHEN** the contract's tool definitions are compared with the approved `tools.json`
+- **THEN** they are equal, all five entries in order
+
+### Requirement: Snapshot messages on the board protocol
+The board protocol SHALL define, page to host, `snapshot` with a `requestId` and an optional `unsentWork: true`; and host to page, `snapshot-saved` with the `requestId` and the file's absolute `path`, and `snapshot-failed` with the `requestId`, a `reason` of `write-failed`, `no-project-root`, `internal-error` or `discarded`, and the Snapshot folder's path for `write-failed` only (FR-26, AD-12).
+
+#### Scenario: A request without its ID
+- **WHEN** a `snapshot` message without `requestId` is validated
+- **THEN** it fails, naming `requestId`
+
+#### Scenario: A failure inside AskBoard names no folder
+- **WHEN** a `snapshot-failed` with the reason `internal-error` and a `folder` is validated
+- **THEN** it fails, naming `folder`
+
+#### Scenario: The recorded exchange
+- **WHEN** the recorded transcript of a board's Snapshot, saved and then failed, is validated in both directions
+- **THEN** every message passes
+
+### Requirement: Host-only and kept-render chunks
+The view manifest SHALL admit, at its next minor, an optional `hostOnly: true` on a chunk needed only when the view has a parent host, and an optional `keptRender` on a component chunk naming the chunk that shows its kept renders (AD-9, open questions B2 and B3).
+
+#### Scenario: A host-only chunk
+- **WHEN** a manifest whose ext-apps chunk carries `hostOnly: true` is validated
+- **THEN** it passes
+
+#### Scenario: A kept-render chunk that does not exist
+- **WHEN** a manifest names in `keptRender` a chunk it does not list
+- **THEN** the view build's manifest check fails, naming both chunks
+
+### Requirement: Snapshot constants
+The contract SHALL hold, as shared constants, the default Snapshot folder `.askboard/snapshots`, the lines of `.askboard/.gitignore`, the file-name pattern, the random part's length and alphabet, the number of names tried, and the IDs of the `askboard-data` and `askboard-licences` elements; no unit SHALL define its own.
+
+#### Scenario: The data element's ID
+- **WHEN** `assemble` writes a Snapshot and the contract's tests read the element ID
+- **THEN** both use the contract's `askboard-data`
+
+### Requirement: Snapshot registrations are appended
+Every schema, export and fixture this change adds SHALL be registered by entries appended after the existing ones (`sets.ts`, `SCHEMA_IDS`, the board protocol's message lists, and one export block at the end of `src/index.ts`, `src/validate.ts` and `src/fixtures/index.ts`), and importing the contract SHALL register nothing.
+
+#### Scenario: Existing order kept
+- **WHEN** the contract's sets, schema IDs and board-protocol messages are listed
+- **THEN** the entries before this change's keep their order, and this change's follow them
+
+### Requirement: The configuration schema set
+The contract SHALL hold the `configuration` schema set, owned by `ask-core`, starting at `1.0`, for both configuration files (AD-7, AD-14). A file SHALL name its `version` as `major.minor`. It SHALL allow `theme` (`system`, `light`, `dark`), `density` (`compact`, `comfortable`), `contextPlacement` (`beside`, `inline`), `defaultLanguage` (`en-US`, `it-IT`), `askingRule` (`none`, `always`, `with-references`), `snapshotFolder`, `editor` and `defaultMinimumMargin`, each optional.
+
+#### Scenario: A file with every key validates
+- **WHEN** the fixture holding `version` `1.0` and one valid value for each of the eight keys is validated against the configuration schema
+- **THEN** it passes
+
+#### Scenario: A value outside a key's set is refused, naming the key
+- **WHEN** a file sets `theme` to `"sepia"` or `askingRule` to `"sometimes"`
+- **THEN** validation fails with a problem whose path names that key
+
+#### Scenario: A file without its version is refused
+- **WHEN** a file holds `{"theme": "dark"}`
+- **THEN** validation fails, naming `version`
+
+#### Scenario: An unknown key passes the schema
+- **WHEN** a file holds `version` `1.0` and a key `fontSize`
+- **THEN** the schema passes it, and the contract's list of configuration keys does not hold `fontSize`
+
+### Requirement: The editor key is an argument vector
+`editor` SHALL be a non-empty list of non-empty strings whose first is the program, at most 32 strings of at most 1,024 characters each; `{file}` and `{line}` are its only placeholders (AD-8). A string, an empty list or a list holding a non-string SHALL fail validation.
+
+#### Scenario: A command line as one string is refused
+- **WHEN** a file sets `editor` to `"code --goto {file}:{line}"`
+- **THEN** validation fails, naming `editor`
+
+#### Scenario: An argument vector validates
+- **WHEN** a file sets `editor` to `["code", "--goto", "{file}:{line}"]`
+- **THEN** it passes
+
+### Requirement: The presentation keys are a closed list
+The contract SHALL name `theme`, `density` and `contextPlacement` as the presentation keys, the only keys a board may write, and SHALL name every other key of the configuration set as not writable from a board (AD-14).
+
+#### Scenario: The writable keys
+- **WHEN** a test reads the contract's presentation keys
+- **THEN** they are exactly `theme`, `density` and `contextPlacement`
+
+### Requirement: An ask's language and locale
+The input format SHALL accept `language` and `locale`, each optional, each `en-US` or `it-IT` (FR-34, AD-7). Any other value SHALL fail validation, naming the field. This replaces E1's en-US-only rule.
+
+#### Scenario: An Italian ask validates
+- **WHEN** an ask sets `language` to `it-IT` and no `locale`
+- **THEN** it passes
+
+#### Scenario: English with Italian formats validates
+- **WHEN** an ask sets `language` to `en-US` and `locale` to `it-IT`
+- **THEN** it passes
+
+#### Scenario: Another language is refused
+- **WHEN** an ask sets `language` to `fr-FR`
+- **THEN** validation fails with a problem naming `language` and saying that `en-US` and `it-IT` are accepted
+
+### Requirement: The board document names the ask's language and locale
+The board document SHALL carry the ask's resolved `language` and `locale` at its root, each `en-US` or `it-IT`. A board document without them SHALL be read as `en-US` for both, so an older Snapshot still opens (AD-12, FR-34).
+
+#### Scenario: A board document in Italian
+- **WHEN** a board document with `language` and `locale` set to `it-IT` is validated
+- **THEN** it passes
+
+#### Scenario: An older board document
+- **WHEN** a board document of an earlier minor, without either field, is read by the view
+- **THEN** the view shows it in English with en-US formats
+
+### Requirement: Settings messages on the board protocol
+The board protocol SHALL add the message `settings`, host to page, carrying the presentation and behaviour settings in effect, each with its value and the file and key that set it, and `setting`, page to host, carrying one key and one value. The schema of `setting` SHALL admit only the presentation keys, each with a value the configuration schema allows (AD-14).
+
+#### Scenario: A presentation write validates
+- **WHEN** the page sends `setting` with `key` `density` and `value` `comfortable`
+- **THEN** the message passes the board-protocol schema
+
+#### Scenario: Any other key fails the schema
+- **WHEN** the page sends `setting` with `key` `editor`, `askingRule` or `snapshotFolder`, or with `theme` set to `"sepia"`
+- **THEN** the message fails the board-protocol schema
+
+### Requirement: Locale formats
+The contract SHALL format numbers, money, percentages, calendar dates and times for `en-US` and `it-IT` with its own tables, giving the same text whatever the runtime's locale and time zone (AD-7, AD-13). Calendar dates SHALL never pass through a time zone; a time SHALL show at the UTC offset it is given, which the view takes from the viewer's time zone.
+
+#### Scenario: The same value in both locales
+- **WHEN** 12480 EUR, 1234.5, 0.185 as a percentage and the date `2026-10-27` are formatted
+- **THEN** en-US gives `€12,480.00`, `1,234.5`, `18.5%` and `10/27/2026`, and it-IT gives `€ 12.480,00`, `1.234,5`, `18,5%` and `27/10/2026`
+
+#### Scenario: A time in each locale
+- **WHEN** `2026-10-28T15:12:00Z` is formatted as a date and time at the offset `+01:00`
+- **THEN** en-US gives `Oct 28, 2026, 4:12 PM` and it-IT gives `28 ott 2026, 16:12`
+
+#### Scenario: The runtime's locale and time zone change nothing
+- **WHEN** the locale fixtures run under `TZ=Pacific/Kiritimati` and `TZ=America/Adak` and under the runtime locales `en-US` and `de-DE`
+- **THEN** every result equals the fixture's, and `2026-10-27` formats as the same day in each run
+
+### Requirement: Number entry in the ask's locale
+The contract SHALL read a number typed in the ask's locale and return a number, an empty entry or a refusal with a reason in the ask's language (EXPERIENCE, Input atoms). In it-IT, `,` SHALL be the one decimal mark and `.` SHALL stand only between groups of three digits; an entry that breaks either SHALL be refused. The echo SHALL write the value without grouping.
+
+#### Scenario: An Italian entry with grouping and decimals
+- **WHEN** `1.234,5` is read in it-IT
+- **THEN** it reads as 1234.5, and its echo is `= 1234,5`
+
+#### Scenario: An English habit in Italian is refused
+- **WHEN** `1234.5` or `1.23` is read in it-IT
+- **THEN** it is refused with the reason "Usa i punti solo tra gruppi di tre cifre, come in 1.234,5."
+
+#### Scenario: The en-US rules are unchanged
+- **WHEN** `1,234.5` is read in en-US
+- **THEN** it reads as 1234.5, and its echo is `= 1234.5`
+
+### Requirement: Date entry in the ask's locale
+The contract SHALL read a calendar date typed in the ask's locale, in en-US as `M/D/YYYY` and in it-IT as `D/M/YYYY`, and in both as `YYYY-MM-DD`, and SHALL refuse a day that does not exist, with a reason in the ask's language. The echo SHALL name the weekday as the ask's locale writes a long date.
+
+#### Scenario: An Italian date
+- **WHEN** `9/12/2026` is read in it-IT
+- **THEN** it reads as `2026-12-09`, and its echo is `= mer 9 dic 2026`
+
+#### Scenario: The same text in English
+- **WHEN** `9/12/2026` is read in en-US
+- **THEN** it reads as `2026-09-12`, and its echo is `= Sat, Sep 12, 2026`
+
+#### Scenario: A day that does not exist
+- **WHEN** `31/11/2026` is read in it-IT
+- **THEN** it is refused with a reason in Italian
