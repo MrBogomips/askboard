@@ -60,6 +60,11 @@ const isName = (label: string): boolean => label !== "" && lengthOf(label) <= TR
 
 const hasRoom = (value: TreeProps): boolean => countNodes(value.nodes) < TREE_MAX_NODES;
 
+// Whether the branch of `node` fits the depth limit with its root at `level`: the one check the
+// buttons' indent and a drop make (its deepest node lands at its level plus its height less one).
+const fitsAt = (node: TreeNode, level: number): boolean =>
+  level + heightOf(node) - 1 <= TREE_MAX_DEPTH;
+
 // Whether `edit` is possible on the node at `place`: the moving rules (proposal, open question 13)
 // and the limits (open question 16). The one rule for `can` and for the edits themselves.
 const possible = (edit: TreeEdit | FieldEdit, value: TreeProps, place: Located): boolean => {
@@ -73,8 +78,8 @@ const possible = (edit: TreeEdit | FieldEdit, value: TreeProps, place: Located):
     case "moveDown":
       return place.index < place.siblings.length - 1;
     case "indent":
-      // The branch goes one level down: its deepest node lands at its level plus its height.
-      return place.index > 0 && place.level + heightOf(place.node) <= TREE_MAX_DEPTH;
+      // The branch goes one level down.
+      return place.index > 0 && fitsAt(place.node, place.level + 1);
     case "outdent":
       return place.parentId !== undefined;
     case "remove":
@@ -273,3 +278,71 @@ export const outdent = (value: TreeProps, nodeId: string): TreeProps => {
   const left = withChildren(parent.node, place.siblings.toSpliced(place.index, 1));
   return changed(value, parent, (list) => list.toSpliced(parent.index, 1, left, place.node));
 };
+
+/** Where a node lands against another: before it, after it, or as its last child. */
+export type Relocation = "before" | "after" | "into";
+
+/** Why a node cannot be put against another: it is that node or holds it, or the branch is too deep. */
+export type RelocationProblem = "own-branch" | "depth";
+
+// Where the node at `place` lands against `target`: its new parent and level, and its index in
+// that parent's list once the node is out of its old place.
+const landing = (place: Located, target: Located, where: Relocation) => {
+  if (where === "into") {
+    const own = place.parentId === target.node.id ? 1 : 0;
+    const index = (target.node.children?.length ?? 0) - own;
+    return { parentId: target.node.id, level: target.level + 1, index };
+  }
+  const at = target.index + (where === "after" ? 1 : 0);
+  const sameList = place.parentId === target.parentId && place.index < at;
+  return { parentId: target.parentId, level: target.level, index: sameList ? at - 1 : at };
+};
+
+/**
+ * Why the node `nodeId`, with its branch, cannot be put `where` against `targetId`; `undefined`
+ * when it can, or when either node is unknown. The limits the toolbar's moves keep (`fitsAt`) and
+ * a node never inside itself. A move never changes the node count, so the node limit cannot refuse it.
+ */
+export const relocationProblem = (
+  value: TreeProps,
+  nodeId: string,
+  targetId: string,
+  where: Relocation,
+): RelocationProblem | undefined => {
+  const place = locate(value.nodes, nodeId);
+  const target = locate(value.nodes, targetId);
+  if (place === undefined || target === undefined) return undefined;
+  if (locate([place.node], targetId) !== undefined) return "own-branch";
+  return fitsAt(place.node, landing(place, target, where).level) ? undefined : "depth";
+};
+
+// The node `nodeId` with its branch put `where` against `targetId`; the same value for a refused
+// move, an unknown node and a node already where the move puts it.
+const relocate = (
+  value: TreeProps,
+  nodeId: string,
+  targetId: string,
+  where: Relocation,
+): TreeProps => {
+  const place = locate(value.nodes, nodeId);
+  const target = locate(value.nodes, targetId);
+  if (place === undefined || target === undefined) return value;
+  if (relocationProblem(value, nodeId, targetId, where) !== undefined) return value;
+  const to = landing(place, target, where);
+  if (to.parentId === place.parentId && to.index === place.index) return value;
+  const taken = withList(value.nodes, place.parentId, (list) => list.toSpliced(place.index, 1));
+  const put = withList(taken, to.parentId, (list) => list.toSpliced(to.index, 0, place.node));
+  return frozenWith(value, put);
+};
+
+/** Puts the node `nodeId`, with its branch, right before `targetId`, under the target's parent. */
+export const moveBefore = (value: TreeProps, nodeId: string, targetId: string): TreeProps =>
+  relocate(value, nodeId, targetId, "before");
+
+/** Puts the node `nodeId`, with its branch, right after `targetId`, under the target's parent. */
+export const moveAfter = (value: TreeProps, nodeId: string, targetId: string): TreeProps =>
+  relocate(value, nodeId, targetId, "after");
+
+/** Makes the node `nodeId`, with its branch, the last child of `targetId`. */
+export const moveInto = (value: TreeProps, nodeId: string, targetId: string): TreeProps =>
+  relocate(value, nodeId, targetId, "into");
