@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ganttBoardDocument, ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import { moveDrop } from "./drag.ts";
 import { sameGantt } from "./edits.ts";
-import { durationEntry, entryEcho, entryText, landOn, startEntry } from "./entries.ts";
+import { durationEntry, entryText, landOn, startEntry } from "./entries.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttOwnProps, type GanttPlanProps, ownTaskRows, planEntry } from "./tasks.ts";
 
@@ -212,14 +212,6 @@ describe("an editor", () => {
     expect(entryText("duration", REPORTING, SCHEDULED)).toBe("6");
     expect(entryText("duration", { ...REPORTING, duration: undefined }, SCHEDULED)).toBe("");
   });
-
-  test("echoes the day or the number it reads, and nothing for what it refuses", () => {
-    expect(entryEcho("start", "12/9/2026")).toBe("= Wed, Dec 9, 2026");
-    expect(entryEcho("start", "12/9")).toBeUndefined();
-    expect(entryEcho("start", "")).toBeUndefined();
-    expect(entryEcho("duration", "1,200")).toBe("= 1200");
-    expect(entryEcho("duration", "x")).toBeUndefined();
-  });
 });
 
 describe("in a Gantt plan (design decision 8)", () => {
@@ -267,12 +259,6 @@ describe("in a Gantt plan (design decision 8)", () => {
 describe("in the ask's locale (settings-languages, task 9.2)", () => {
   const italian = { locale: "it-IT", language: "it-IT" } as const;
 
-  test("a start is typed day first and echoed in Italian", () => {
-    expect(entryEcho("start", "9/12/2026", italian)).toBe("= mer 9 dic 2026");
-    expect(entryEcho("start", "2026-12-09", italian)).toBe("= mer 9 dic 2026");
-    expect(entryEcho("start", "9/12/2026")).toBe("= Sat, Sep 12, 2026");
-  });
-
   test("an editor opens on the start as the Italian grid shows it", () => {
     if (REPORTING === undefined) throw new Error("no reporting row");
     expect(entryText("start", REPORTING, SCHEDULED, "it-IT")).toBe("04/12/2026");
@@ -284,7 +270,6 @@ describe("in the ask's locale (settings-languages, task 9.2)", () => {
       grouped.kind === "value" && taskOf(grouped.value as GanttOwnProps, "billing")?.duration,
     ).toBe(1200);
     expect(durationEntry(SENT, SENT, "billing", "2.001", italian).kind).toBe("refused");
-    expect(entryEcho("duration", "1.200", italian)).toBe("= 1200");
     const day = durationEntry(SENT, SENT, "billing", "30", italian);
     expect(day.kind === "value" && taskOf(day.value as GanttOwnProps, "billing")?.duration).toBe(
       30,

@@ -16,8 +16,8 @@ import {
   type GanttProps,
   type Locale,
 } from "@askboard/contract";
-import { numberEcho, parseNumber } from "../../shared/number.ts";
-import { type DateFormat, EN_US_FORMAT, echoDate, gridDate, parseDateEntry } from "./date.ts";
+import { parseNumber } from "../../shared/number.ts";
+import { type DateFormat, EN_US_FORMAT, gridDate, parseDateEntry } from "./date.ts";
 import { clearStart, requestStart, setDuration } from "./edits.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttColumn, type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
@@ -133,18 +133,4 @@ export const entryText = (
   if (column === "duration") return row.duration === undefined ? "" : String(row.duration);
   if (schedule?.kind === "scheduled") return gridDate(schedule.startDate, locale);
   return row.start === undefined ? "" : gridDate(row.start, locale);
-};
-
-/** The echo beside an editor: the day or the number it reads, or nothing. */
-export const entryEcho = (
-  column: EditedColumn,
-  text: string,
-  format: DateFormat = EN_US_FORMAT,
-): string | undefined => {
-  if (column === "start") {
-    const parsed = parseDateEntry(text, format);
-    return parsed.kind === "date" ? echoDate(parsed.date, format.locale) : undefined;
-  }
-  const parsed = parseNumber(text, format.locale, format.language);
-  return parsed.kind === "number" ? numberEcho(parsed.value, format.locale) : undefined;
 };

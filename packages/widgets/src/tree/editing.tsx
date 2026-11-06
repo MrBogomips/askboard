@@ -37,7 +37,11 @@ export type GridEditing = RowEditing & { readonly nodeId: string };
 
 // The editor's name: the column, then the node's name, as in "Optimistic of Customer portal".
 const labelOf = (value: TreeProps, row: TreeRow, cell: number): string =>
-  `${cell === 0 ? nameColumnOf(value) : (value.columns?.[cell - 1]?.label ?? "")} of ${row.node.label}`;
+  `${columnOf(value, cell)} of ${row.node.label}`;
+
+// The edited column's name, which a field error begins with.
+const columnOf = (value: TreeProps, cell: number): string =>
+  cell === 0 ? nameColumnOf(value) : (value.columns?.[cell - 1]?.label ?? "");
 
 export const useCellEditing = ({
   itemId,
@@ -129,6 +133,7 @@ export const useCellEditing = ({
       : {
           nodeId: editing.nodeId,
           cell: editing.cell,
+          column: columnOf(value, editing.cell),
           error: editing.error,
           errorId,
           editor: (

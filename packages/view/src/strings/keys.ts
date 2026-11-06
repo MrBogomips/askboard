@@ -157,6 +157,13 @@ export const STRING_KEYS = [
   "widget.yourChanges",
   "widget.more",
   "snapshot.copyPath",
+  // The Tree's work breakdown headers: a short label, and the full name as its tip (F-22).
+  "tree.expected",
+  "tree.expectedEffort",
+  "tree.spread",
+  // A grid field error names its column; an added Tree row's neutral note.
+  "widget.fieldError",
+  "tree.notComputed",
   // The renderer.
   "item.error",
   "item.loading",

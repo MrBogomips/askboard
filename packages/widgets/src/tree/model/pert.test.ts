@@ -16,6 +16,8 @@ import {
   pertText,
   pertTotal,
   pertValues,
+  rollupNote,
+  rollupText,
 } from "./pert.ts";
 import { visibleRows } from "./rows.ts";
 
@@ -264,5 +266,39 @@ describe("the derived values a work breakdown reports (contract spec, WBS answer
       `${TREE}.expected`,
       `${TREE}.spread`,
     ]);
+  });
+});
+
+describe("an added row's empty roll-ups (review F-11)", () => {
+  const error = { kind: "error", error: { error: "value", address: "a", detail: "x" } } as const;
+  const empty = { expected: error, spread: error };
+  const full = {
+    expected: { kind: "value", value: 1, text: "1.0 d" },
+    spread: { kind: "value", value: 1, text: "1.0 d" },
+  } as const;
+
+  test("an added row's missing value reads as a muted dash, a number as itself", () => {
+    expect(rollupText(error, true)).toEqual({ text: "\u2014", muted: true });
+    expect(rollupText(full.expected, true)).toEqual({ text: "1.0 d", muted: false });
+  });
+
+  test("another row's missing value reads as before: blank, not muted", () => {
+    expect(rollupText(error, false)).toEqual({ text: "", muted: false });
+  });
+
+  test("an added row has no note while it is the current row, then a neutral one", () => {
+    expect(rollupNote(empty, { added: true, current: true })).toBeUndefined();
+    expect(rollupNote(empty, { added: true, current: false })).toEqual({
+      text: PERT_NOT_COMPUTED,
+      neutral: true,
+    });
+  });
+
+  test("another row's note is the field error's, whether or not it is current", () => {
+    expect(rollupNote(empty, { added: false, current: true })).toEqual({
+      text: PERT_NOT_COMPUTED,
+      neutral: false,
+    });
+    expect(rollupNote(full, { added: true, current: false })).toBeUndefined();
   });
 });

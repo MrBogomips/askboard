@@ -12,8 +12,9 @@
 // right-aligned and never edited, and values in error show a field error under the row.
 
 import type { TreeColumn } from "@askboard/contract";
-import { useLocale } from "@askboard/view/catalog";
+import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, type ReactNode } from "react";
+import { errorSpan } from "../shared/field-error.ts";
 import { fieldText, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
 import {
   ADDED_BAR,
@@ -31,12 +32,13 @@ import {
   indentOf,
   NAME,
   NAME_CELL,
+  NEUTRAL_NOTE,
   PARENT_NAME,
   RENAMED,
   ROW,
 } from "./classes.ts";
 import type { NodeMark } from "./model/marks.ts";
-import { type PertRow, type PertValue, type PertValues, pertNote } from "./model/pert.ts";
+import { type PertRow, type PertValues, rollupNote, rollupText } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 
 // The chevron points right when closed and down when open. It has no role: the row's
@@ -75,6 +77,8 @@ const tabIndexOf = (stop: RowStop, at: RowStop): number => (stop === at ? 0 : -1
 export type RowEditing = {
   readonly cell: number;
   readonly editor: ReactNode;
+  /** The edited column's name, which begins the field error (review F-10). */
+  readonly column: string;
   readonly error: string | undefined;
   /** The error line's ID, which describes the editor while it shows. */
   readonly errorId: string;
@@ -87,35 +91,49 @@ const FieldError = ({
 }: {
   readonly editing: RowEditing;
   readonly cells: number;
-}) => (
-  // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid; the editor's aria-describedby reads it.
-  <tr role="presentation">
-    <td colSpan={cells} className={FIELD_ERROR}>
-      <span id={editing.errorId}>{editing.error}</span>
-    </td>
-  </tr>
-);
+}) => {
+  const text = useStrings();
+  const { skip, span } = errorSpan(editing.cell, cells);
+  return (
+    // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid; the editor's aria-describedby reads it.
+    <tr role="presentation">
+      {skip === 0 ? null : <td colSpan={skip} />}
+      <td colSpan={span} className={FIELD_ERROR}>
+        <span id={editing.errorId}>
+          <span className="font-medium">
+            {text("widget.fieldError", { column: editing.column })}
+          </span>{" "}
+          <span>{editing.error}</span>
+        </span>
+      </td>
+    </tr>
+  );
+};
 
 // The line under a row whose values are in error (DESIGN.md, Derived value); no row of the grid.
 export const ValueError = ({
   values,
   cells,
 }: {
+  added = false,
+  current = false,
   readonly values: PertValues;
   readonly cells: number;
 }) => {
-  const note = pertNote(values);
+  /** The row was just added: its note is neutral, and shows once the user leaves it. */
+  readonly added?: boolean;
+  readonly current?: boolean;
+  const text = useStrings();
+  const note = rollupNote(values, { added, current });
   return note === undefined ? null : (
     // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid.
     <tr role="presentation">
-      <td colSpan={cells} className={FIELD_ERROR}>
-        {note}
+      <td colSpan={cells} className={note.neutral ? NEUTRAL_NOTE : FIELD_ERROR}>
+        {text("tree.notComputed")}
       </td>
     </tr>
   );
 };
-
-const valueText = (value: PertValue): string => (value.kind === "value" ? value.text : "");
 
 /** A work breakdown's two value cells, from cell `first` on: read-only, right-aligned. */
 export const ValueCells = ({
@@ -123,20 +141,26 @@ export const ValueCells = ({
   first,
   stop,
 }: {
+  added = false,
   readonly values: PertValues;
   readonly first: number;
   readonly stop?: RowStop;
 }) =>
-  [values.expected, values.spread].map((value, at) => (
-    <td
-      key={PERT_VALUE_COLUMNS[at]}
-      data-cell={first + at}
-      tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
-      className={`${FIELD_CELL.number} ${FOCUS_RING}`}
-    >
-      {valueText(value)}
-    </td>
-  ));
+  /** An added row's missing values read as a muted dash (review F-11). */
+  readonly added?: boolean;
+  [values.expected, values.spread].map((value, at) => {
+    const { text, muted } = rollupText(value, added);
+    return (
+      <td
+        key={PERT_VALUE_COLUMNS[at]}
+        data-cell={first + at}
+        tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
+        className={`${FIELD_CELL.number} ${FOCUS_RING}${muted ? " text-muted-foreground" : ""}`}
+      >
+        {text}
+      </td>
+    );
+  });
 
 // The name, on the change fill when renamed, then the change dot when the row moved.
 const Name = ({ row, mark }: { readonly row: TreeRow; readonly mark: NodeMark | undefined }) => {
@@ -244,11 +268,13 @@ export const NodeRow = memo(function NodeRow({
           );
         })}
         {pert === undefined ? null : (
-          <ValueCells values={pert} first={1 + columns.length} stop={stop} />
+          <ValueCells values={pert} first={1 + columns.length} stop={stop} added={added} />
         )}
       </tr>
       {editing?.error === undefined ? null : <FieldError editing={editing} cells={cells} />}
-      {pert === undefined ? null : <ValueError values={pert} cells={cells} />}
+      {pert === undefined ? null : (
+        <ValueError values={pert} cells={cells} added={added} current={current} />
+      )}
     </>
   );
 });

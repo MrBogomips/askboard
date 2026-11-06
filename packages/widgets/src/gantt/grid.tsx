@@ -15,7 +15,8 @@ import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract
 import { questionTextId, useLocale, useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
 import { CellEditor, noteId } from "./cell-editor.tsx";
-import type { CellEditing } from "./editing.ts";
+import { errorSpan } from "../shared/field-error.ts";
+import type { CellEditing, Editing } from "./editing.ts";
 import { spansYears } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
 import type { TaskMarks } from "./model/marks.ts";
@@ -195,18 +196,42 @@ const TaskRow = (props: TaskRowProps) => {
   );
 };
 
-type NoteRowProps = { readonly itemId: string; readonly taskId: string; readonly note: string };
+// The column whose entry was refused in the task `taskId`, if it is.
+const refusedColumn = (editing: Editing | undefined, taskId: string): GanttColumn | undefined =>
+  editing?.taskId === taskId && editing.refusal !== undefined ? editing.column : undefined;
+
+type NoteRowProps = {
+  readonly itemId: string;
+  readonly taskId: string;
+  readonly note: string;
+  /** The column of a refused entry, which the note names and sits under; none for another note. */
+  readonly refused?: GanttColumn | undefined;
+};
 
 /** The line under a task's row that holds its note, in the field error's colour. */
-const NoteRow = ({ itemId, taskId, note }: NoteRowProps) => (
-  <tr data-gantt-note={taskId} className="h-[20px] text-body text-destructive-text">
-    <td colSpan={GANTT_COLUMNS.length} className="px-2">
-      <span id={noteId(itemId, taskId)} className="block truncate">
-        {note}
-      </span>
-    </td>
-  </tr>
-);
+const NoteRow = ({ itemId, taskId, note, refused }: NoteRowProps) => {
+  const text = useStrings();
+  const columns = GANTT_COLUMNS.length;
+  const { skip, span } =
+    refused === undefined
+      ? errorSpan(0, columns)
+      : errorSpan(GANTT_COLUMNS.indexOf(refused), columns);
+  return (
+    <tr data-gantt-note={taskId} className="h-[20px] text-body text-destructive-text">
+      {skip === 0 ? null : <td colSpan={skip} />}
+      <td colSpan={span} className="px-2">
+        <span id={noteId(itemId, taskId)} className="block truncate">
+          {refused === undefined ? null : (
+            <span className="font-medium">
+              {text("widget.fieldError", { column: HEADERS[refused] })}{" "}
+            </span>
+          )}
+          {note}
+        </span>
+      </td>
+    </tr>
+  );
+};
 
 export type GridProps = {
   readonly itemId: string;
@@ -269,7 +294,13 @@ export const Grid = (props: GridProps) => {
           );
           if (note === undefined) return [task];
           const line = (
-            <NoteRow key={`${row.id}:note`} itemId={itemId} taskId={row.id} note={note} />
+            <NoteRow
+              key={`${row.id}:note`}
+              itemId={itemId}
+              taskId={row.id}
+              note={note}
+              refused={refusedColumn(props.editing.editing, row.id)}
+            />
           );
           return [task, line];
         })}

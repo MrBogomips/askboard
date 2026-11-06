@@ -221,6 +221,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await pressTool(board, "Shift+Tab")).toBe("Add node");
         await board.page.keyboard.press("Enter");
         await expectNewNode(tree, "u-1");
+        // The new row's empty roll-ups read as dashes, with no error note and the added bar.
+        expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
+        expect(((await tree.row("u-1").textContent()) ?? "").split("\u2014")).toHaveLength(3);
+        expect(await board.view.getByText("could not be computed").count()).toBe(0);
         await board.page.keyboard.type(DASHBOARDS.label);
         expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });
         const estimates = [DASHBOARDS.optimistic, DASHBOARDS.mostLikely, DASHBOARDS.pessimistic];

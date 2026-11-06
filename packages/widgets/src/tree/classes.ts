@@ -154,8 +154,8 @@ const EDITOR_BASE =
   "text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 " +
   "focus-visible:outline-ring aria-invalid:border-destructive";
 
-/** The cell editor and, under it, a number's echo; it takes the cell's width. */
-export const EDITOR_BOX = "flex min-w-0 flex-1 flex-col gap-0.5 py-1";
+/** The cell editor; it takes the cell's width and never changes the row's height. */
+export const EDITOR_BOX = "flex min-w-0 flex-1 items-center";
 
 /** A name's or a text's editor, in the input atoms' look, its border `field-error`'s when refused. */
 export const EDITOR = EDITOR_BASE;
@@ -169,8 +169,8 @@ export const AFFIX_GROUP = "flex min-w-0 items-center gap-1";
 /** The unit affix after an input, in the code face and muted. */
 export const AFFIX = "shrink-0 font-mono text-code text-muted-foreground";
 
-/** A number's parsed value, echoed in the code face (DESIGN.md, Input atoms). */
-export const ECHO = "text-right font-mono text-code text-muted-foreground";
-
 /** The `field-error` line under the edited row (DESIGN.md, Field error). */
 export const FIELD_ERROR = "px-2 pb-1.5 text-body text-destructive-text";
+
+/** An added row's note and its dash roll-ups: neutral, not an error (review F-11). */
+export const NEUTRAL_NOTE = "px-2 pb-1.5 text-body text-muted-foreground";

@@ -51,7 +51,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             ["ArrowRight", { nodeId: "portal", cell: 1 }],
           ]);
           await typeIn(run, tree, "F2", "1.234,5");
-          expect(await tree.cell("portal", 1).textContent()).toContain("= 1234,5");
+          expect(await tree.cell("portal", 1).textContent()).not.toContain("=");
           expect(await pressIn(run.board, "Enter")).toEqual({ nodeId: "portal", cell: 1 });
           expect(((await tree.cell("portal", 1).textContent()) ?? "").trim()).toBe("1234,5");
           await typeIn(run, tree, "F2", "1,234.5");
@@ -78,7 +78,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             ["ArrowRight", { nodeId: "portal", cell: 1 }],
           ]);
           await typeIn(run, tree, "F2", "1.234,5");
-          expect(await tree.cell("portal", 1).textContent()).toContain("= 1234,5");
+          expect(await tree.cell("portal", 1).textContent()).not.toContain("=");
           await run.board.page.keyboard.press("Escape");
           await typeIn(run, tree, "F2", "1,234.5");
           await run.board.page.keyboard.press("Enter");
@@ -133,9 +133,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await keysTo(run.board, "reporting", "start");
           await run.board.page.keyboard.press("Enter");
           await run.board.page.keyboard.type("9/12/2026");
-          expect(await gantt.cell("reporting", "start").textContent()).toContain(
-            "= mer 9 dic 2026",
-          );
+          expect(await gantt.cell("reporting", "start").textContent()).not.toContain("=");
         },
         TEST_TIMEOUT_MS,
       );
