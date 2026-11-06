@@ -605,3 +605,15 @@ export {
   type PresentationKey,
   type ThemePreference,
 } from "./schemas/configuration/index.ts";
+
+// Widget registry (widget-registry, design decisions 1 to 3): the registry of the widget types a
+// question's items may hold, an entry's type and the registry's own check.
+
+export {
+  NON_WIDGET_ITEM_TYPES,
+  type RegistryProblem,
+  WIDGET_TYPES,
+  type WidgetType,
+  widgetRegistryProblems,
+  widgetTypeOf,
+} from "./widgets/registry.ts";

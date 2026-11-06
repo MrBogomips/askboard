@@ -3,6 +3,7 @@
 // Every result names its envelope's version and the output format's (finding F12).
 
 import type { SchemaSet } from "../../versions.ts";
+import { composeFetchResult } from "../../widgets/compose.ts";
 import type { GanttItem } from "../../widgets/gantt/index.ts";
 import type { TreeItem } from "../../widgets/tree/index.ts";
 import type {
@@ -25,13 +26,16 @@ import askUnavailable from "./ask-unavailable.json" with { type: "json" };
 import collectResult from "./collect-result.json" with { type: "json" };
 import fetchOutcome from "./fetch-outcome.json" with { type: "json" };
 import fetchPage from "./fetch-page.json" with { type: "json" };
-import fetchResult from "./fetch-result.json" with { type: "json" };
+import fetchResultBase from "./fetch-result.json" with { type: "json" };
 import snapshotOutcome from "./snapshot-outcome.json" with { type: "json" };
 import snapshotResult from "./snapshot-result.json" with { type: "json" };
 import definitions from "./tools.json" with { type: "json" };
 import updateOutcome from "./update-outcome.json" with { type: "json" };
 import updateResult from "./update-result.json" with { type: "json" };
 import versions from "./versions.json" with { type: "json" };
+
+// The `fetch` result with each registered type's item composed in.
+const fetchResult = composeFetchResult(fetchResultBase);
 
 export const TOOL_ENVELOPES_VERSION = "1.4";
 

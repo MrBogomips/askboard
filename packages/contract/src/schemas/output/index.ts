@@ -9,8 +9,7 @@
 import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { FormulaErrorKind } from "../../formula/errors.ts";
 import type { SchemaSet } from "../../versions.ts";
-import ganttChanges from "../../widgets/gantt/gantt-changes.json" with { type: "json" };
-import treeChanges from "../../widgets/tree/tree-changes.json" with { type: "json" };
+import { WIDGET_TYPES } from "../../widgets/registry.ts";
 import answerEvent from "./answer-event.json" with { type: "json" };
 import askState from "./ask-state.json" with { type: "json" };
 import closedEvent from "./closed-event.json" with { type: "json" };
@@ -52,8 +51,8 @@ export const outputFormat: SchemaSet = {
     followUpEvent,
     editChoiceEvent,
     closedEvent,
-    treeChanges,
-    ganttChanges,
+    // The widget types' changes schemas, in registry order (widget-registry, design decision 4).
+    ...WIDGET_TYPES.flatMap(({ edits }) => (edits === undefined ? [] : [edits.changes])),
   ],
 };
 

@@ -7,13 +7,17 @@
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
+import { composeBoardDocument } from "../../widgets/compose.ts";
 import type { GanttItem } from "../../widgets/gantt/index.ts";
 import type { TreeItem } from "../../widgets/tree/index.ts";
 import type { QuestionProps } from "../input/index.ts";
-import boardDocument from "./board-document.json" with { type: "json" };
+import boardDocumentBase from "./board-document.json" with { type: "json" };
 import excerptProps from "./excerpt-props.json" with { type: "json" };
 import imageProps from "./image-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
+
+// The board document with each registered type's item composed in.
+const boardDocument = composeBoardDocument(boardDocumentBase);
 
 export const BOARD_DOCUMENT_VERSION = "1.4";
 

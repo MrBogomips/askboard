@@ -43,8 +43,6 @@
         { "$ref": "#/$defs/excerpt" },
         { "$ref": "#/$defs/reference" },
         { "$ref": "#/$defs/image" },
-        { "$ref": "#/$defs/tree" },
-        { "$ref": "#/$defs/gantt" },
         { "$ref": "#/$defs/molecule" }
       ]
     },
@@ -74,26 +72,6 @@
         "type": { "const": "image" },
         "id": { "$ref": "urn:askboard:input:id" },
         "props": { "$ref": "urn:askboard:input:image-props" }
-      },
-      "required": ["type", "id", "props"],
-      "additionalProperties": false
-    },
-    "tree": {
-      "type": "object",
-      "properties": {
-        "type": { "const": "tree" },
-        "id": { "$ref": "urn:askboard:input:id" },
-        "props": { "$ref": "urn:askboard:input:tree-props" }
-      },
-      "required": ["type", "id", "props"],
-      "additionalProperties": false
-    },
-    "gantt": {
-      "type": "object",
-      "properties": {
-        "type": { "const": "gantt" },
-        "id": { "$ref": "urn:askboard:input:id" },
-        "props": { "$ref": "urn:askboard:input:gantt-props" }
       },
       "required": ["type", "id", "props"],
       "additionalProperties": false

@@ -9,10 +9,10 @@ import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
 import moleculeProps from "../../molecules/molecule-props.json" with { type: "json" };
 import type { SchemaSet } from "../../versions.ts";
-import ganttProps from "../../widgets/gantt/gantt-props.json" with { type: "json" };
+import { composeQuestionProps } from "../../widgets/compose.ts";
 import type { GanttItem } from "../../widgets/gantt/index.ts";
+import { WIDGET_TYPES } from "../../widgets/registry.ts";
 import type { TreeItem } from "../../widgets/tree/index.ts";
-import treeProps from "../../widgets/tree/tree-props.json" with { type: "json" };
 import area from "./area.json" with { type: "json" };
 import ask from "./ask.json" with { type: "json" };
 import excerptProps from "./excerpt-props.json" with { type: "json" };
@@ -20,9 +20,12 @@ import id from "./id.json" with { type: "json" };
 import imageProps from "./image-props.json" with { type: "json" };
 import pointer from "./pointer.json" with { type: "json" };
 import question from "./question.json" with { type: "json" };
-import questionProps from "./question-props.json" with { type: "json" };
+import questionPropsBase from "./question-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 import update from "./update.json" with { type: "json" };
+
+// The question props with each registered type's item composed in.
+const questionProps = composeQuestionProps(questionPropsBase);
 
 export const INPUT_FORMAT_VERSION = "1.5";
 
@@ -42,8 +45,8 @@ export const inputFormat: SchemaSet = {
     excerptProps,
     referenceProps,
     imageProps,
-    treeProps,
-    ganttProps,
+    // The widget types' props schemas, in registry order (widget-registry, design decision 4).
+    ...WIDGET_TYPES.map(({ props }) => props),
     moleculeProps,
     moleculeDefinition,
   ],

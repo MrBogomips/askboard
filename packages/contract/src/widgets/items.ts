@@ -1,46 +1,72 @@
 // Widget item checks (molecules design decision 6; contract spec, "Widget item checks"): a widget
-// item the contract defines, checked in the question that holds it, through the widget's own
-// validator, its schema then its checks, and for a Gantt plan its link; nothing of their own. Each
-// problem keeps the path the widget's checks give it, inside the item's props; an item of a type the
-// contract defines no widget for is refused whole, at `/`. `elementShapeOf` gives the shape the one
-// generic diff takes for an item (AD-20). The validators compile on their first call, not at import.
+// item whose type the registry holds, checked in the question that holds it through its entry: the
+// props schema, then the entry's checks, and the entry's checks against the question (a Gantt
+// plan's link); nothing of their own. Each problem keeps the path the entry's checks give it,
+// inside the item's props; an item of a type the registry does not hold is refused whole, at `/`.
+// `elementShapeOf` gives the shape the one generic diff takes for an item (AD-20). Each function
+// takes the registry as its last parameter, defaulting to the shipped one (widget-registry, design
+// decision 2). The validators compile on their first call, not at import.
 
-import type { Checked, Problem } from "../validate.ts";
+import type Ajv2020 from "ajv/dist/2020";
+import { compiled } from "../compiled.ts";
+import { isRecord } from "../problems.ts";
+import { type Checked, type Problem, validateAgainst } from "../validate.ts";
 import type { ElementShape } from "./element-diff.ts";
-import { ganttPlanLinkProblems } from "./gantt/checks.ts";
-import { ganttShape } from "./gantt/index.ts";
-import { validateGanttProps } from "./gantt/validate.ts";
-import { TREE_SHAPE } from "./tree/index.ts";
-import { validateTreeProps } from "./tree/validate.ts";
+import { WIDGET_TYPES, type WidgetOrigin, type WidgetType, widgetTypeOf } from "./registry.ts";
+import { widgetValidator } from "./validator.ts";
 
-/** Whether a widget's value is the agent's or the user's edit. */
-export type WidgetOrigin = "agent" | "edited";
+export type { WidgetOrigin };
 
-type Json = Readonly<Record<string, unknown>>;
+// The validator of a schema no schema set holds (a test type's), made on first use and kept.
+const validators = new WeakMap<object, (value: unknown) => Checked<unknown>>();
 
-const isRecord = (value: unknown): value is Json =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+// An entry's props through its schema: by `$id` where a set holds it (Tree and Gantt), else through
+// the widget validator, which adds the schema to its own Ajv.
+const schemaVerdict = (entry: WidgetType, props: unknown): Checked<unknown> => {
+  const ajv: Ajv2020 = compiled();
+  if (ajv.getSchema(entry.props.$id as string) !== undefined) {
+    return validateAgainst(entry.props.$id as string, props);
+  }
+  let validate = validators.get(entry.props);
+  if (validate === undefined) {
+    validate = widgetValidator([entry.props], entry.props.$id as string);
+    validators.set(entry.props, validate);
+  }
+  return validate(props);
+};
 
-const problemsOf = (checked: Checked<unknown>): readonly Problem[] =>
-  checked.ok ? [] : checked.problems;
+// The schema's problems, then the entry's checks: after a passing schema only, or, for an entry
+// that reads any value, beside the schema's, each problem once.
+const propsProblems = (
+  entry: WidgetType,
+  props: unknown,
+  origin: WidgetOrigin,
+): readonly Problem[] => {
+  const checked = schemaVerdict(entry, props);
+  if (!checked.ok && entry.checksInvalidProps !== true) return checked.problems;
+  const checks = entry.propsProblems(props, origin);
+  const fromSchema = checked.ok ? [] : checked.problems;
+  const seen = new Set(fromSchema.map(({ path, message }) => `${path}\n${message}`));
+  return [...fromSchema, ...checks.filter(({ path, message }) => !seen.has(`${path}\n${message}`))];
+};
 
 /**
  * The problems of a widget item `{type, id, props}` in `question`, the question that holds it:
- * a Tree's through `validateTreeProps`, a Gantt's through `validateGanttProps` and, for a plan,
- * `ganttPlanLinkProblems`; any other type one problem naming the item and its type.
+ * its entry's props schema and checks and, for an entry that has one, its checks against the
+ * question; any type the registry does not hold one problem naming the item and its type.
  */
 export const widgetItemProblems = (
   item: unknown,
   question: unknown,
   origin: WidgetOrigin,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): readonly Problem[] => {
   const type = isRecord(item) ? item.type : undefined;
-  const props = isRecord(item) ? item.props : undefined;
-  if (type === "tree") return problemsOf(validateTreeProps(props, origin));
-  if (type === "gantt") {
+  const entry = widgetTypeOf(type, types);
+  if (entry !== undefined) {
     return [
-      ...problemsOf(validateGanttProps(props, origin)),
-      ...ganttPlanLinkProblems(item, question),
+      ...propsProblems(entry, isRecord(item) ? item.props : undefined, origin),
+      ...(entry.itemProblems?.(item, question) ?? []),
     ];
   }
   const id = isRecord(item) && typeof item.id === "string" ? `item ${item.id}` : "an item";
@@ -49,9 +75,10 @@ export const widgetItemProblems = (
 };
 
 /** The element shape of a widget item for the generic diff; undefined for any other item. */
-export const elementShapeOf = (item: unknown): ElementShape | undefined => {
+export const elementShapeOf = (
+  item: unknown,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): ElementShape | undefined => {
   if (!isRecord(item)) return undefined;
-  if (item.type === "tree") return TREE_SHAPE;
-  if (item.type === "gantt") return ganttShape(isRecord(item.props) ? item.props : {});
-  return undefined;
+  return widgetTypeOf(item.type, types)?.edits?.shape(isRecord(item.props) ? item.props : {});
 };

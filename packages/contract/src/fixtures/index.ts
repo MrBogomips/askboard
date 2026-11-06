@@ -162,3 +162,8 @@ export {
   uj2WidgetTooLargeEvent,
   uj2WidgetWaitingState,
 } from "./widget-answers.ts";
+
+// Widget registry (widget-registry, design decision 2): the test-only widget type and the registry
+// that holds it.
+
+export { PROBE_TYPES, PROBE_WIDGET } from "./widget-registry.ts";

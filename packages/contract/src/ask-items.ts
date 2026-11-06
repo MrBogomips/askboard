@@ -25,15 +25,16 @@ import {
   type Wording,
 } from "./problems.ts";
 import { widgetRest } from "./widgets/paths.ts";
+import { CONTEXT_ONLY_ITEM_TYPES, WIDGET_TYPES, type WidgetType } from "./widgets/registry.ts";
+import { ID_SHAPE, text } from "./widgets/wording-parts.ts";
+
+export { ID_SHAPE, text };
 
 const ID = new RegExp(ID_PATTERN);
 
 /** An ID of the input format's shape. */
 export const isId = (value: unknown): value is string =>
   typeof value === "string" && ID.test(value);
-
-export const ID_SHAPE = "an ID of 1 to 64 characters from A-Z, a-z, 0-9, _ and -";
-export const text = (max: number) => `text of 1 to ${max} characters`;
 
 /** An item of the request, where it is, and how deep: 0 at the top level, 1 in an area. */
 export type Placed = {
@@ -59,15 +60,16 @@ const childrenOf = (item: unknown): readonly unknown[] => (isArea(item) ? listOf
 // A question's items, when it holds a list of them.
 const contextOf = (item: unknown): readonly unknown[] => (isQuestion(item) ? listOf(item) : []);
 
-/** The item types a question's `items` hold: context (excerpts, design decision 2) and widgets. */
-export const CONTEXT_ITEM_TYPES: readonly string[] = [
-  "excerpt",
-  "reference",
-  "image",
-  "tree",
-  "gantt",
-  "molecule",
-];
+/**
+ * The item types a question's `items` hold: context (excerpts, design decision 2), the registry's
+ * widgets, in its order, and the molecule reference (widget-registry, design decision 3).
+ */
+export const contextItemTypes = (
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): readonly string[] => [...CONTEXT_ONLY_ITEM_TYPES, ...types.map(({ type }) => type), "molecule"];
+
+/** The item types a question's `items` hold, of the shipped registry. */
+export const CONTEXT_ITEM_TYPES: readonly string[] = contextItemTypes();
 
 // A question's items, each where it is. An area or a question among them is left to the schema,
 // which refuses it at its type, rather than named as a nested area or checked as a question.
@@ -98,12 +100,12 @@ const entersItem = (rest: Segments): boolean =>
 
 // A question's fields, and its items' own fields by their type (`excerpt.props.pointer`), once the
 // type is one the input format defines; anything else reads as the question's.
-const questionKey = (question: unknown, rest: Segments): string => {
+const questionKey = (question: unknown, rest: Segments, types: readonly WidgetType[]): string => {
   if (entersItem(rest) && !(rest.length === 4 && rest[3] === "type")) {
     const inner = contextOf(question)[Number(rest[2])];
     const type = isRecord(inner) ? inner.type : undefined;
-    if (typeof type === "string" && CONTEXT_ITEM_TYPES.includes(type)) {
-      return `${type}.${keyOf(widgetRest(type, rest.slice(3)))}`;
+    if (typeof type === "string" && contextItemTypes(types).includes(type)) {
+      return `${type}.${keyOf(widgetRest(type, rest.slice(3), types))}`;
     }
   }
   return rest.length === 0 ? "question" : `question.${keyOf(rest)}`;
@@ -114,14 +116,18 @@ const questionKey = (question: unknown, rest: Segments): string => {
  * apart: `rest` is the path from the item. A question in an area reads as a question, and a
  * question's item by its own type.
  */
-export const itemKey = (item: unknown, rest: Segments): string => {
+export const itemKey = (
+  item: unknown,
+  rest: Segments,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): string => {
   if (isArea(item) && rest[0] === "props" && rest[1] === "items" && rest.length > 2) {
     if (rest.length === 3) return "area.props.items[]";
     if (rest.length === 4 && rest[3] === "type") return "area.props.items[].type";
-    return questionKey(childrenOf(item)[Number(rest[2])], rest.slice(3));
+    return questionKey(childrenOf(item)[Number(rest[2])], rest.slice(3), types);
   }
   if (isArea(item)) return rest.length === 0 ? "area" : `area.${keyOf(rest)}`;
-  return questionKey(item, rest);
+  return questionKey(item, rest, types);
 };
 
 /**
@@ -145,8 +151,20 @@ const POINTER = `a pointer of 1 to ${POINTER_MAX_CHARS} characters, path#anchor:
 /** A web reference's URL, in words (excerpts, design decision 2). */
 export const WEB_URL = `an absolute http or https URL of at most ${URL_MAX_CHARS} characters, with a host and no user name or password`;
 
-/** How a request's wording reads an item's fields, keyed as `itemKey` keys them. */
-export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
+// `"a", "b" or "c"`: the item types in words.
+const orList = (types: readonly string[]): string => {
+  const quoted = types.map((type) => JSON.stringify(type));
+  return `${quoted.slice(0, -1).join(", ")} or ${quoted.at(-1)}`;
+};
+
+/**
+ * How a request's wording reads an item's fields, keyed as `itemKey` keys them: the item types a
+ * question's items hold and the ID line of each are those of the registry (widget-registry,
+ * design decision 3).
+ */
+export const itemExpected = (
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): Readonly<Record<string, string>> => ({
   question: "an item {type, id, props}: a question, or at the top level an area",
   "question.type": '"question" or "area"',
   "question.id": `${ID_SHAPE}, unique in the ask`,
@@ -173,11 +191,9 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "area.props.items[]": 'a question {type: "question", id, props}',
   "area.props.items[].type": '"question": an area holds questions only',
   // A question's items (excerpts, design decision 2).
-  "question.props.items":
-    "a non-empty list of the question's items: context (excerpts, references, images) and widgets (a Tree, a Gantt, a molecule reference)",
-  "question.props.items[]":
-    'an item {type, id, props} whose type is "excerpt", "reference", "image", "tree", "gantt" or "molecule"',
-  "question.props.items[].type": '"excerpt", "reference", "image", "tree", "gantt" or "molecule"',
+  "question.props.items": `a non-empty list of the question's items: context (excerpts, references, images) and widgets (${[...types.map(({ noun }) => noun), "a molecule reference"].join(", ")})`,
+  "question.props.items[]": `an item {type, id, props} whose type is ${orList(contextItemTypes(types))}`,
+  "question.props.items[].type": orList(contextItemTypes(types)),
   "excerpt.id": `${ID_SHAPE}, unique in the ask`,
   "excerpt.props":
     "an excerpt's props {pointer, title?} or {text, title?}: exactly one of pointer and text",
@@ -196,10 +212,16 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "image.props.alt": text(IMAGE_ALT_MAX_CHARS),
   // A question's widget items (widget-answers, design decision 4); `widgets/wording.ts` words
   // their props, which `requests.ts` and `update-request.ts` add to these tables.
-  "tree.id": `${ID_SHAPE}, unique in the ask`,
-  "gantt.id": `${ID_SHAPE}, unique in the ask`,
-  "molecule.id": `${ID_SHAPE}, unique in the ask`,
-};
+  ...Object.fromEntries(
+    [...types.map(({ type }) => type), "molecule"].map((type) => [
+      `${type}.id`,
+      `${ID_SHAPE}, unique in the ask`,
+    ]),
+  ),
+});
+
+/** How a request's wording reads an item's fields, of the shipped registry. */
+export const ITEM_EXPECTED: Readonly<Record<string, string>> = itemExpected();
 
 /** What each of an item's objects holds, keyed as `itemKey` keys them. */
 export const ITEM_FIELDS: Readonly<Record<string, string>> = {

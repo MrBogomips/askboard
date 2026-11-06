@@ -7,6 +7,7 @@
 // `pert` that no plan names among them, add nothing.
 
 import { ID_PATTERN } from "@askboard/contract";
+import { BOARD_SOURCES, type BoardSource } from "./board-sources.ts";
 import {
   checkId,
   type GanttItem,
@@ -160,11 +161,26 @@ const planTasks = (
   });
 };
 
+// What the table maps a board item of another type to: nothing for a type with no entry of its own
+// (an inherited name such as `constructor` is none).
+const sourcedItems = (
+  sources: Readonly<Record<string, BoardSource>>,
+  item: Record<string, unknown>,
+): readonly GraphItem[] => {
+  const { type } = item;
+  if (typeof type !== "string" || !Object.hasOwn(sources, type)) return [];
+  return (sources[type] as BoardSource)(item as BoardSourceItem);
+};
+
 /**
  * The graph source of a board's items: every Gantt, and each Tree a Gantt plan names or with
- * `pert`, in order.
+ * `pert`, in order; and, for an item of any other type, what that type's entry in `sources` maps it
+ * to, in board order. A type with no entry adds nothing.
  */
-export const boardGraphSource = (items: readonly BoardSourceItem[]): GraphSource => {
+export const boardGraphSource = (
+  items: readonly BoardSourceItem[],
+  sources: Readonly<Record<string, BoardSource>> = BOARD_SOURCES,
+): GraphSource => {
   if (!Array.isArray(items)) refuse("the board's items are not a list");
   const trees = wbsTrees(items);
   const mapped = new Set<WorkPackages>();
@@ -176,7 +192,10 @@ export const boardGraphSource = (items: readonly BoardSourceItem[]): GraphSource
       mapped.add(tree);
       source.push(tree.item);
     }
-    if (item.type !== "gantt") continue;
+    if (item.type !== "gantt") {
+      if (item.type !== "tree") source.push(...sourcedItems(sources, item));
+      continue;
+    }
     const id = checkId(item.id, "item", "");
     if (!isRecord(item.props)) return refuse(`item ${id}: props is not an object`);
     const { workPackages } = item.props;
