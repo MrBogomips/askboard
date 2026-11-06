@@ -15,6 +15,7 @@ import { contentOf, contentProblem, textProblem } from "./answers.ts";
 import type { Entry, EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
+import { isWidgetProblem, widgetContentOf } from "./widget-values.ts";
 
 /** Why an act cannot apply. */
 export type ActRefusal =
@@ -127,7 +128,13 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   if (props === undefined) return staleRev(target);
   // A decline carries at most its reason; anything else on it is not read.
   const reason = act.note === undefined ? {} : { note: act.note };
-  const bad = contentProblem(declined ? reason : act, props, declined);
+  // Widget values and derived values (widget-answers): a decline reads none.
+  const widgets = declined ? undefined : widgetContentOf(act, props);
+  if (widgets !== undefined && isWidgetProblem(widgets)) {
+    return problem(widgets.refusal, widgets.detail, itemId);
+  }
+  const widgetChange = widgets !== undefined && Object.keys(widgets.values).length > 0;
+  const bad = contentProblem(declined ? reason : act, props, declined, widgetChange);
   if (bad !== undefined) return problem(bad.refusal, bad.detail, itemId);
   const late = whenProblem(target);
   if (late !== undefined) return late;

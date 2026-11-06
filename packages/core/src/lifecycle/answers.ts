@@ -63,6 +63,7 @@ export const contentProblem = (
   content: Readonly<Record<string, unknown>>,
   props: QuestionProps,
   declined: boolean,
+  widgetChange = false,
 ): ContentProblem | undefined => {
   const { choice, other, optionNotes, note } = content;
   if (choice !== undefined) {
@@ -74,8 +75,11 @@ export const contentProblem = (
     (optionNotes === undefined ? undefined : notesProblem(optionNotes, props)) ??
     (note === undefined ? undefined : textProblem(note, NOTE_MAX_CHARS, "the note"));
   if (problem !== undefined) return { refusal: "content", detail: problem };
-  if (!declined && choice === undefined && other === undefined) {
-    return { refusal: "content", detail: "the answer names no option and has no Other… text" };
+  if (!declined && !widgetChange && choice === undefined && other === undefined) {
+    return {
+      refusal: "content",
+      detail: "the answer names no option, has no Other… text and changes no Tree or Gantt",
+    };
   }
   return undefined;
 };
