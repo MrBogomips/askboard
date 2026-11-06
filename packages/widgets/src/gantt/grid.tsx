@@ -14,7 +14,13 @@
 
 import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract";
 import { questionTextId, type StringKey, useLocale, useStrings } from "@askboard/view/catalog";
-import type { FocusEventHandler, KeyboardEventHandler, ReactNode, Ref } from "react";
+import type {
+  FocusEventHandler,
+  KeyboardEventHandler,
+  MouseEventHandler,
+  ReactNode,
+  Ref,
+} from "react";
 import { errorSpan } from "../shared/field-error.ts";
 import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing, Editing } from "./editing.ts";
@@ -328,6 +334,7 @@ export type GridProps = {
   /** The cell that holds the grid's Tab stop. */
   readonly stop: GridFocus | undefined;
   readonly onKeyDown: KeyboardEventHandler<HTMLTableElement>;
+  readonly onDoubleClick: MouseEventHandler<HTMLTableElement>;
   readonly onFocus: FocusEventHandler<HTMLTableElement>;
   /** The TASK column's width in px, and the edge that resizes it, drawn in its header. */
   readonly taskWidth: number;
@@ -352,6 +359,7 @@ export const Grid = (props: GridProps) => {
       width={props.taskWidth + FIXED_COLUMNS_WIDTH}
       className="table-fixed border-collapse"
       onKeyDown={props.onKeyDown}
+      onDoubleClick={props.onDoubleClick}
       onFocus={props.onFocus}
     >
       <colgroup>

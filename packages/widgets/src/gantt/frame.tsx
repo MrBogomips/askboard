@@ -21,6 +21,7 @@ import { type Editing, useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
+import { gridDoubleClickHandler } from "./grid-pointer.ts";
 import { COLUMN_DEFAULT, clampWidth, fitWidth } from "./model/column-width.ts";
 import { dayNumber } from "./model/date.ts";
 import { clearDuration, clearStart, setDuration } from "./model/edits.ts";
@@ -238,6 +239,7 @@ export const GanttFrame = (props: FrameProps) => {
             table={table}
             stop={focus.stop}
             onKeyDown={onKeyDown}
+            onDoubleClick={gridDoubleClickHandler({ rows, editing, panels, editable })}
             onFocus={focus.onFocus}
             plan={!own}
             onUseEstimate={clearRequest}
