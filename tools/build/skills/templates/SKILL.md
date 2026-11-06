@@ -20,7 +20,7 @@ The user may set one rule:
 
 {{askingRules}}
 
-Without AskBoard's hooks a rule is only advisory: nothing stops an AskUserQuestion call, so apply the rule in effect yourself. The `ask` result reports it.
+Without AskBoard's hooks a rule is only advisory: nothing stops an AskUserQuestion call, so follow the rule the user set or asked for yourself.
 
 ## Keep asks cheap
 
@@ -39,6 +39,7 @@ A question is `{type: "question", id, props: {text, header?, options?, multiSele
 
 ## After you ask
 
+- An ask belongs to the agent that sent it: only that agent can `collect`, `update`, `fetch` or `snapshot` it, and a subagent's ask closes when the subagent finishes. To talk with the user while you keep working, start a background subagent that asks, waits and returns the answers.
 - Keep working after `ask`. The user gets a notice and a link. Never open the board or answer it yourself.
 - Answers reach you by push, or call `collect` with the latest cursor you received for each ask. Call it before you finish. Never build a cursor.
 - An event whose `seq` (the number after the dot in its cursor) you have already seen is a repeat: ignore it.

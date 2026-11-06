@@ -141,9 +141,23 @@ type Context = {
 const label = (resolved: Resolved, ctx: Context): string =>
   resolved.name === undefined ? typeParts(resolved, ctx).join(", ") : `\`${resolved.name}\``;
 
+// The bounds of a branch that is a list or a map: "at most 500 items" or "at most 500 entries".
+const branchBounds = (schema: Schema): string => {
+  const parts: string[] = [];
+  const count = (low: unknown, high: unknown, one: string, many: string) => {
+    if (typeof low === "number") parts.push(`at least ${low} ${plural(low, one, many)}`);
+    if (typeof high === "number") parts.push(`at most ${high} ${plural(high, one, many)}`);
+  };
+  count(schema.minItems, schema.maxItems, "item", "items");
+  count(schema.minProperties, schema.maxProperties, "entry", "entries");
+  return parts.length === 0 ? "" : ` (${parts.join(", ")})`;
+};
+
 const branchLabel = (branch: Schema, doc: Schema, ctx: Context): string => {
   const resolved = deref(branch, doc, ctx.resolve);
-  return typeof resolved.schema.title === "string" ? resolved.schema.title : label(resolved, ctx);
+  const name =
+    typeof resolved.schema.title === "string" ? resolved.schema.title : label(resolved, ctx);
+  return `${name}${branchBounds(resolved.schema)}`;
 };
 
 const typeParts = ({ schema, doc }: Resolved, ctx: Context): string[] => {

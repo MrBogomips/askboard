@@ -77,6 +77,32 @@ describe("fieldLines of the Gantt's props", () => {
     expect(lineOf(lines, "tasks.<key>.duration")).toContain("1 to 2000");
   });
 
+  test("a branch carries its bounds", () => {
+    const lines = fieldLines(
+      {
+        type: "object",
+        properties: {
+          v: {
+            anyOf: [
+              { title: "list", type: "array", maxItems: 500, items: { type: "string" } },
+              {
+                title: "map",
+                type: "object",
+                maxProperties: 500,
+                additionalProperties: { type: "string" },
+              },
+            ],
+          },
+        },
+      },
+      () => undefined,
+    );
+    const line = lines.find((entry) => entry.startsWith("- `v`")) ?? "";
+    expect(line).toContain("list (at most 500 items)");
+    expect(line).toContain("map (at most 500 entries)");
+    expect(lineOf(fieldLines(gantt.props, resolve), "tasks")).toContain("at most 500");
+  });
+
   test("states the start's format and that it is required", () => {
     expect(lineOf(lines, "start")).toContain("required");
     expect(lineOf(lines, "start")).toContain("^[0-9]{4}-");

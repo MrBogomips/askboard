@@ -7,7 +7,12 @@ import type { MoleculeDefinition } from "@askboard/contract";
 import { NON_WIDGET_ITEM_TYPES, type WidgetType } from "@askboard/contract";
 import type { MoleculeSkill } from "@askboard/molecules";
 import { type ExampleBody, exampleBlock } from "./blocks.ts";
-import { CONTEXT_TEACHING, type ItemExample, moleculeExampleItem } from "./context-examples.ts";
+import {
+  CONTEXT_TEACHING,
+  type ItemExample,
+  moleculeExampleId,
+  moleculeExampleItem,
+} from "./context-examples.ts";
 import { fieldLines, type Resolve, type Schema, stripCitations } from "./fields.ts";
 
 /** A rendered reference file and the examples its text holds, in order. */
@@ -94,20 +99,34 @@ const questionAround = (items: readonly ItemExample[], askId: string): unknown =
 });
 
 /**
- * The reference of one ready molecule. A molecule whose example names an item of its question
- * takes its `companion`, the molecule that supplies the item, and its example is an `ask` holding
- * both references.
+ * The reference of one ready molecule. A molecule whose teaching data names a `companion` (the
+ * item of its question that its example refers to, and the molecule that supplies it) has an `ask`
+ * example holding the companion's reference under `companion.id`, then its own. `ready` is the
+ * list of ready molecules the companion must be in.
  */
 export const renderMoleculeReference = (
   definition: MoleculeDefinition,
   skills: Readonly<Record<string, MoleculeSkill>>,
   resolve: Resolve,
-  companion?: MoleculeDefinition,
+  ready: readonly MoleculeDefinition[] = [definition],
 ): Rendered => {
   const name = definition.molecule;
   const skill = skills[name];
   if (skill === undefined) throw new Error(`the molecule "${name}" has no teaching data`);
   const parameters = definition.parameters as Schema;
+  const companion = skill.companion;
+  if (companion !== undefined) {
+    if (!ready.some(({ molecule }) => molecule === companion.molecule)) {
+      throw new Error(
+        `the molecule "${name}" needs "${companion.molecule}" as its companion, which is not ready`,
+      );
+    }
+    if (companion.id === moleculeExampleId(name)) {
+      throw new Error(
+        `the molecule "${name}" and its companion "${companion.molecule}" share the item ID "${companion.id}"`,
+      );
+    }
+  }
   const companionSkill = companion === undefined ? undefined : skills[companion.molecule];
   if (companion !== undefined && companionSkill === undefined) {
     throw new Error(`the molecule "${companion.molecule}" has no teaching data`);
@@ -119,7 +138,7 @@ export const renderMoleculeReference = (
       : {
           kind: "ask",
           value: questionAround(
-            [referenceItem(companion.molecule, companionSkill), item],
+            [{ ...referenceItem(companion.molecule, companionSkill), id: companion.id }, item],
             "plan-x7k2",
           ),
         };

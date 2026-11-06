@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { NON_WIDGET_ITEM_TYPES, WIDGET_TYPES } from "@askboard/contract";
 import { PROBE_WIDGET } from "@askboard/contract/fixtures";
-import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
+import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/molecules";
 import { taggedBlocks } from "./blocks.ts";
 import { CONTEXT_TEACHING } from "./context-examples.ts";
 import { contractSchemaResolver, type Schema } from "./fields.ts";
@@ -107,14 +107,51 @@ describe("renderMoleculeReference", () => {
   });
 
   test("a molecule that needs another's item is an `ask` example holding both references", () => {
-    const wbs = molecule("wbs-pert");
-    const { text } = renderMoleculeReference(molecule("gantt-plan"), MOLECULE_SKILLS, resolve, wbs);
+    const { text } = renderMoleculeReference(
+      molecule("gantt-plan"),
+      MOLECULE_SKILLS,
+      resolve,
+      READY_MOLECULES,
+    );
     const [block] = taggedBlocks(text);
     expect(block?.kind).toBe("ask");
     const ask = block?.value as { items: { props: { items: { id: string; props: unknown }[] } }[] };
     const items = ask.items[0]?.props.items ?? [];
     expect(items.map((item) => item.id)).toEqual(["wbs", "gantt"]);
     expect(items[1]?.props).toMatchObject({ molecule: "gantt-plan" });
+  });
+
+  test("a test-made companion is placed under companion.id, then the molecule's own item", () => {
+    const skills = {
+      ...MOLECULE_SKILLS,
+      "wbs-pert": {
+        ...(MOLECULE_SKILLS["wbs-pert"] as MoleculeSkill),
+        companion: { molecule: "gantt-plan", id: "plan-src" },
+      },
+    };
+    const { text } = renderMoleculeReference(
+      molecule("wbs-pert"),
+      skills,
+      resolve,
+      READY_MOLECULES,
+    );
+    const [block] = taggedBlocks(text);
+    const ask = block?.value as { items: { props: { items: { id: string }[] } }[] };
+    expect(ask.items[0]?.props.items.map(({ id }) => id)).toEqual(["plan-src", "wbs"]);
+  });
+
+  test("a companion that is not ready, or shares the molecule's item ID, fails naming both", () => {
+    const own = MOLECULE_SKILLS["gantt-plan"] as MoleculeSkill;
+    expect(() =>
+      renderMoleculeReference(molecule("gantt-plan"), MOLECULE_SKILLS, resolve, []),
+    ).toThrow('"gantt-plan" needs "wbs-pert"');
+    const same = {
+      ...MOLECULE_SKILLS,
+      "gantt-plan": { ...own, companion: { molecule: "wbs-pert", id: "gantt" } },
+    };
+    expect(() =>
+      renderMoleculeReference(molecule("gantt-plan"), same, resolve, READY_MOLECULES),
+    ).toThrow('"gantt-plan" and its companion "wbs-pert" share the item ID "gantt"');
   });
 
   test("a molecule without teaching data fails, naming it", () => {

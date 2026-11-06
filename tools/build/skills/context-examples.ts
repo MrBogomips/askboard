@@ -78,10 +78,3 @@ export const moleculeExampleItem = (name: string, skill: MoleculeSkill): ItemExa
   id: moleculeExampleId(name),
   props: { molecule: name, data: skill.example as Record<string, unknown> },
 });
-
-/**
- * The molecules whose example names an item of the same question, with the molecule that supplies
- * it: a Gantt plan takes its tasks from a work breakdown. Their reference is an `ask` example
- * holding both, since the molecule alone is no ask.
- */
-export const MOLECULE_COMPANIONS: Readonly<Record<string, string>> = { "gantt-plan": "wbs-pert" };

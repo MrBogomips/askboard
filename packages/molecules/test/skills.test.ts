@@ -3,8 +3,9 @@
 // an agent sends, which passes the molecule's parameters and the reference's own checks.
 
 import { describe, expect, test } from "bun:test";
+import { ID_PATTERN } from "@askboard/contract";
 import { moleculeDataValidator, validateMoleculeProps } from "@askboard/contract/validate";
-import { MOLECULE_SKILLS, READY_MOLECULES } from "../src/index.ts";
+import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "../src/index.ts";
 
 const names = READY_MOLECULES.map(({ molecule }) => molecule);
 
@@ -15,6 +16,31 @@ const keyProblems = (skills: Readonly<Record<string, unknown>>): string[] => [
     .map((key) => `"${key}" is no ready molecule`),
   ...names.filter((name) => !(name in skills)).map((name) => `"${name}" has no teaching data`),
 ];
+
+const ID = new RegExp(ID_PATTERN);
+
+const stringValues = (value: unknown): string[] =>
+  typeof value === "string"
+    ? [value]
+    : typeof value === "object" && value !== null
+      ? Object.values(value).flatMap(stringValues)
+      : [];
+
+/** The companions of a teaching table that name no other ready molecule, or an ID the example lacks. */
+const companionProblems = (skills: Readonly<Record<string, MoleculeSkill>>): string[] =>
+  Object.entries(skills).flatMap(([name, { companion, example }]) => {
+    if (companion === undefined) return [];
+    const problems: string[] = [];
+    if (companion.molecule === name) problems.push(`"${name}" names itself as its companion`);
+    else if (!names.includes(companion.molecule)) {
+      problems.push(`"${name}" names "${companion.molecule}", which is no ready molecule`);
+    }
+    if (!ID.test(companion.id)) problems.push(`"${name}": the companion's id is no valid ID`);
+    if (!stringValues(example).includes(companion.id)) {
+      problems.push(`"${name}": the example does not name the companion's id "${companion.id}"`);
+    }
+    return problems;
+  });
 
 /** The example data of a molecule, which the key check shows is there. */
 const exampleOf = <T>(name: string): T => {
@@ -79,6 +105,23 @@ describe("MOLECULE_SKILLS", () => {
   test("the plan example has one dependency, between tasks of the work breakdown", () => {
     const { dependencies } = exampleOf<{ dependencies: Record<string, string[]> }>("gantt-plan");
     expect(Object.values(dependencies).flat()).toHaveLength(1);
+  });
+
+  test("a companion is another ready molecule and its id is a value of the example", () => {
+    expect(companionProblems(MOLECULE_SKILLS)).toEqual([]);
+    expect(MOLECULE_SKILLS["gantt-plan"]?.companion).toEqual({ molecule: "wbs-pert", id: "wbs" });
+    expect(MOLECULE_SKILLS["wbs-pert"]?.companion).toBeUndefined();
+  });
+
+  test("an unknown companion, itself, or an id the example lacks fails naming the molecule", () => {
+    const base = MOLECULE_SKILLS["gantt-plan"] as MoleculeSkill;
+    const withCompanion = (companion: { molecule: string; id: string }) =>
+      companionProblems({ "gantt-plan": { ...base, companion } });
+    expect(withCompanion({ molecule: "kanban", id: "wbs" })[0]).toContain('"gantt-plan"');
+    expect(withCompanion({ molecule: "kanban", id: "wbs" })[0]).toContain("kanban");
+    expect(withCompanion({ molecule: "gantt-plan", id: "wbs" })[0]).toContain("itself");
+    expect(withCompanion({ molecule: "wbs-pert", id: "nope" })[0]).toContain('"gantt-plan"');
+    expect(withCompanion({ molecule: "wbs-pert", id: "Bad Id" })).not.toEqual([]);
   });
 
   test("an example with a field outside the parameters is refused", () => {

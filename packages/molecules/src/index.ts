@@ -37,6 +37,11 @@ export type MoleculeSkill = {
   readonly use: string;
   /** The `data` of a reference to it, as an agent sends it. */
   readonly example: unknown;
+  /**
+   * The molecule whose item the example names: the ID of that item in the same question and the
+   * molecule that supplies it (a Gantt plan takes its tasks from a work breakdown).
+   */
+  readonly companion?: { readonly molecule: string; readonly id: string };
 };
 
 /**

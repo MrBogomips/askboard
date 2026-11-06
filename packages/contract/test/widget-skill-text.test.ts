@@ -40,6 +40,14 @@ describe("the shipped types' teaching text", () => {
     expect(gantt?.skill?.use).toContain("schedule");
   });
 
+  test("the Gantt says when `tasks` is a list and when a map", () => {
+    const gantt = WIDGET_TYPES.find(({ type }) => type === "gantt");
+    const notes = gantt?.skill?.notes ?? [];
+    const named = notes.filter((note) => note.includes("workPackages") && note.includes("tasks"));
+    expect(named).toHaveLength(1);
+    expect(named[0]?.length).toBeLessThanOrEqual(300);
+  });
+
   test("pass the registry's check", () => {
     expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
   });

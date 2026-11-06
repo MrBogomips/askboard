@@ -20,6 +20,17 @@ import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { generateSkill } from "./skills/generate.ts";
 import { main } from "./skills.ts";
 
+// Whether the temporary volume treats `probe.txt` and `PROBE.TXT` as one file.
+function caseInsensitiveVolume(): boolean {
+  const probe = mkdtempSync(join(tmpdir(), "askboard-case-"));
+  try {
+    writeFileSync(join(probe, "probe.txt"), "p");
+    return existsSync(join(probe, "PROBE.TXT"));
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+}
+
 let root = "";
 let dir = "";
 let outside = "";
@@ -75,6 +86,19 @@ describe("write mode", () => {
     expect(existsSync(join(dir, "references", "old"))).toBe(false);
     expect(said()).toContain("notes.txt");
   });
+
+  // Skipped on a case-sensitive temporary volume, where `skill.md` and `SKILL.md` are two files and
+  // the collision this test is about cannot happen.
+  test.skipIf(!caseInsensitiveVolume())(
+    "keeps the file it wrote beside an extra one that differs only in case",
+    async () => {
+      write(join(dir, "skill.md"), "extra");
+      write(join(dir, "references", "Answers.md"), "extra");
+      expect(await run()).toBe(0);
+      expect(listing(dir)).toEqual(generated());
+      expect(await run("--check")).toBe(0);
+    },
+  );
 
   test("touches nothing outside skills/askboard/", async () => {
     const outsideOwn = (folder: string) =>

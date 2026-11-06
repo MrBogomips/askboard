@@ -3,7 +3,7 @@
 ## Reading answers
 
 - `collect` returns, for each ask, the events after the cursor you passed, each with the cursor that follows it. Pass the latest cursor back next time.
-- An event is an answer (a decline is an answer with `declined: true`), a postpone or its reopening, a note, a follow-up, an edit choice, a closing, or a discard.
+- An event is an answer (a decline is an answer with `declined: true`), a postpone, a reopening (the user undid a postpone or a decline), a note, a follow-up, an edit choice, a closing, or a discard.
 - An answer carries only what changed: for a widget, its `changes` and the derived values, not the whole item. `fetch` returns a whole item, in pages when it is long.
 - A revision names the answer it replaces. Take the latest.
 - A `discarded` ask is gone and its answers will not come.

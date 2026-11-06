@@ -109,21 +109,24 @@ export const driftProblems = (dir: string, generated: GeneratedSkill, found: Sca
   return problems;
 };
 
-// Writes the generated files and removes the rest, after the scan found nothing to refuse.
+// Removes the files nobody generates, then writes the generated ones, then removes the folders left
+// empty, after the scan found nothing to refuse. The removals come first: on a case-insensitive
+// volume an extra `skill.md` is the same file as a generated `SKILL.md`, and removing it after the
+// write would delete the file just written.
 const writeAll = (dir: string, generated: GeneratedSkill, found: Scan, log: Log): void => {
-  mkdirSync(dir, { recursive: true });
-  for (const [name, text] of generated.files) {
-    const target = insideOf(dir, name);
-    mkdirSync(dirname(target), { recursive: true });
-    if (lstat(target)?.isSymbolicLink()) throw new Error(`"${name}" is a symlink`);
-    writeFileSync(target, text);
-  }
   for (const name of found.files.filter((file) => !generated.files.has(file))) {
     const target = insideOf(dir, name);
     if (lstat(target)?.isFile()) {
       unlinkSync(target);
       log(`removed skills/askboard/${name}`);
     }
+  }
+  mkdirSync(dir, { recursive: true });
+  for (const [name, text] of generated.files) {
+    const target = insideOf(dir, name);
+    mkdirSync(dirname(target), { recursive: true });
+    if (lstat(target)?.isSymbolicLink()) throw new Error(`"${name}" is a symlink`);
+    writeFileSync(target, text);
   }
   // Deepest first, so a folder left empty by its files goes after them.
   for (const name of [...found.folders].sort().reverse()) {

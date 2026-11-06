@@ -17,7 +17,7 @@ import {
 import { lifecycleCollectResult } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/molecules";
 import { type ExampleBody, exampleBlock } from "./blocks.ts";
-import { CONTEXT_TEACHING, MOLECULE_COMPANIONS } from "./context-examples.ts";
+import { CONTEXT_TEACHING } from "./context-examples.ts";
 import { contractSchemaResolver, type Schema } from "./fields.ts";
 import {
   contextTypes,
@@ -131,15 +131,9 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
     rendered.set(`references/widgets/${entry.type}.md`, renderWidgetReference(entry, resolve));
   }
   for (const definition of molecules) {
-    const needs = MOLECULE_COMPANIONS[definition.molecule];
-    const companion =
-      needs === undefined ? undefined : molecules.find(({ molecule }) => molecule === needs);
-    if (needs !== undefined && companion === undefined) {
-      throw new Error(`the molecule "${definition.molecule}" needs "${needs}", which is not ready`);
-    }
     rendered.set(
       `references/molecules/${definition.molecule}.md`,
-      renderMoleculeReference(definition, skills, resolve, companion),
+      renderMoleculeReference(definition, skills, resolve, molecules),
     );
   }
 

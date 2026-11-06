@@ -123,7 +123,13 @@ describe("SKILL.md asking rules", () => {
 
   test("says that without hooks the rules are advisory and the agent applies the rule itself", () => {
     expect(skill).toContain("Without AskBoard's hooks a rule is only advisory");
-    expect(skill).toContain("apply the rule in effect yourself");
+    expect(skill).toContain("follow the rule the user set or asked for yourself");
+  });
+
+  test("names no tool result as the place a rule is reported", () => {
+    const paragraph = skill.split("\n").find((line) => line.startsWith("Without AskBoard's hooks"));
+    expect(paragraph).toBeDefined();
+    expect(paragraph?.toLowerCase()).not.toContain("result");
   });
 });
 
@@ -169,6 +175,16 @@ describe("SKILL.md delivery, follow-ups and fallbacks", () => {
   });
 });
 
+describe("SKILL.md ownership of an ask", () => {
+  test("says an ask belongs to its agent, closes with a subagent, and a background subagent can talk", () => {
+    const after = skill.slice(skill.indexOf("## After you ask"));
+    expect(after).toContain("An ask belongs to the agent that sent it");
+    expect(after).toContain("only that agent can `collect`, `update`, `fetch` or `snapshot` it");
+    expect(after).toContain("a subagent's ask closes when the subagent finishes");
+    expect(after).toContain("background subagent that asks, waits and returns the answers");
+  });
+});
+
 describe("SKILL.md item index", () => {
   const index = skill.slice(skill.indexOf("## Items"));
   const linked = [...index.matchAll(/\]\((references\/[^)]+)\)/g)].map((match) => match[1] ?? "");
@@ -197,6 +213,10 @@ describe("SKILL.md item index", () => {
 });
 
 describe("the answers reference", () => {
+  test("names a reopening as the undoing of a postpone or a decline", () => {
+    expect(answers).toContain("a reopening (the user undid a postpone or a decline)");
+  });
+
   test("says answers carry only what changed and fetch returns a whole item", () => {
     expect(answers).toContain("only what changed");
     expect(answers).toContain("`fetch` returns a whole item");
