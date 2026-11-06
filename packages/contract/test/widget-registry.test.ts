@@ -121,6 +121,66 @@ describe("widgetRegistryProblems", () => {
     },
   );
 
+  // The `$defs` keys of the composed schemas' base files, and the names every object inherits.
+  test.each([
+    "option",
+    "item",
+    "answer",
+    "contextItem",
+    "areaProps",
+    "questionProps",
+    "excerptProps",
+    "imageProps",
+    "__proto__",
+    "constructor",
+    "toString",
+  ])("refuses the type %s, which a composed schema's $defs or an object already holds", (type) => {
+    const entry = { ...PROBE_WIDGET, type };
+    const problems = widgetRegistryProblems([entry]);
+    expect(problems.filter(({ rule }) => rule === "reserved")).toEqual([
+      expect.objectContaining({ type, rule: "reserved" }),
+    ]);
+    expect(problems.find(({ rule }) => rule === "reserved")?.message).toContain(type);
+  });
+
+  test.each([
+    [
+      "null",
+      { type: ["object", "null"], required: ["pick"], properties: { pick: { type: "string" } } },
+    ],
+    ["{}", { type: "object", properties: { pick: { type: "string" } } }],
+    ["[]", { type: "array", items: { type: "string" } }],
+    ['""', { type: "string" }],
+  ])("refuses a result schema that accepts %s, naming it", (shown, body) => {
+    const { result } = PROBE_WIDGET;
+    if (result === undefined) throw new Error("the probe gives a result");
+    const { $id, $schema } = result.schema;
+    const entry: WidgetType = {
+      ...PROBE_WIDGET,
+      result: { ...result, schema: { $schema, $id, ...body } },
+    };
+    const problems = widgetRegistryProblems([entry]);
+    expect(rulesOf(problems)).toEqual(["probe:result-empty"]);
+    expect(problems[0]?.message).toContain(shown);
+  });
+
+  test("reports a result schema that does not compile under the same rule, never throwing", () => {
+    const { result } = PROBE_WIDGET;
+    if (result === undefined) throw new Error("the probe gives a result");
+    const schema = {
+      ...result.schema,
+      properties: { pick: { $ref: "urn:askboard:input:nothing" } },
+    };
+    const entry: WidgetType = { ...PROBE_WIDGET, result: { ...result, schema } };
+    const problems = widgetRegistryProblems([entry]);
+    expect(rulesOf(problems)).toEqual(["probe:result-empty"]);
+    expect(problems[0]?.message).toContain("does not compile");
+  });
+
+  test("takes a result schema that refuses the four, as the probe's does", () => {
+    expect(widgetRegistryProblems(PROBE_TYPES)).toEqual([]);
+  });
+
   test("refuses a type outside the ID pattern", () => {
     const entry = { ...PROBE_WIDGET, type: "pro be" };
     expect(rulesOf(widgetRegistryProblems([entry]))).toContain("pro be:type");

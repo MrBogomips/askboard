@@ -217,3 +217,22 @@ describe("the composition over a registry that also holds the test-only type", (
     expect(validate?.(fetched({ ...alone, props: { options: [] } }))).toBe(false);
   });
 });
+
+describe("a type named like a definition of the base schema", () => {
+  test.each([
+    ["the question props", composeQuestionProps, questionPropsBase, "option"],
+    ["the question props", composeQuestionProps, questionPropsBase, "item"],
+    ["the board document", composeBoardDocument, boardDocumentBase, "contextItem"],
+    ["the board document", composeBoardDocument, boardDocumentBase, "questionProps"],
+    ["the fetch result", composeFetchResult, fetchResultBase, "answer"],
+    ["the fetch result", composeFetchResult, fetchResultBase, "contextItem"],
+  ] as const)(
+    "%s: composing throws, naming the type that is a definition of it",
+    (_, compose, base, type) => {
+      const before = JSON.stringify(base);
+      const entry = { ...PROBE_WIDGET, type };
+      expect(() => compose(base as AnySchemaObject, [entry])).toThrow(`"${type}"`);
+      expect(JSON.stringify(base)).toBe(before);
+    },
+  );
+});

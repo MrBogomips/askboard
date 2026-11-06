@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { ganttShape, TREE_SHAPE } from "@askboard/contract";
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import { componentFacts, register } from "../catalog/port.ts";
+import { t } from "../strings/index.ts";
 import type { ViewQuestionProps } from "../view-document.ts";
 import { revisionDiff } from "./agent-change.ts";
-import { widgetChanges } from "./widget-changes.ts";
+import { widgetChanges, widgetTypeLabel } from "./widget-changes.ts";
 
 // The Tree's and the Gantt's chunks register their facts with their components (widget-registry,
 // design decision 8); the shell holds none, so these tests register what the chunks do.
@@ -86,5 +87,20 @@ describe("a widget type's facts come from its chunk, not from the shell (widget-
     const shapeless = (rows: Record<string, unknown>) =>
       ({ ...before, items: [{ type: "shapeless", id: "pad", props: { rows } }] }) as never;
     expect(widgetChanges(shapeless({ a: { x: 1 } }), shapeless({ a: { x: 2 } }))).toEqual([]);
+  });
+});
+
+describe("the label the notice gives a changed widget's type", () => {
+  const say = (key: Parameters<typeof t>[1]) => t("en-US", key);
+
+  test("is the name its chunk registered, looked up in the strings", () => {
+    expect(widgetTypeLabel("tree", say)).toBe("Tree");
+    expect(widgetTypeLabel("gantt", say)).toBe("Gantt");
+  });
+
+  test("is the type as sent when its chunk registered no name, or no chunk registered it", () => {
+    register("nameless", noComponent, { shape: () => TREE_SHAPE });
+    expect(widgetTypeLabel("nameless", say)).toBe("nameless");
+    expect(widgetTypeLabel("kanban", say)).toBe("kanban");
   });
 });

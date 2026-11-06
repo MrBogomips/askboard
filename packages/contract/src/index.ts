@@ -616,9 +616,9 @@ export {
   type RegistryProblem,
   WIDGET_TYPES,
   type WidgetType,
-  widgetRegistryProblems,
   widgetTypeOf,
 } from "./widgets/registry.ts";
+export { widgetRegistryProblems } from "./widgets/registry-check.ts";
 
 // Widget results (widget-registry, design decision 7): the generic result check and the
 // annotation's own.

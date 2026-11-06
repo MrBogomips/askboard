@@ -15,6 +15,9 @@
 import type { AnySchemaObject, ErrorObject } from "ajv/dist/2020";
 import { ID_PATTERN } from "../constants.ts";
 import type { Segments } from "../problems.ts";
+import boardDocumentBase from "../schemas/board-document/board-document.json" with { type: "json" };
+import questionPropsBase from "../schemas/input/question-props.json" with { type: "json" };
+import fetchResultBase from "../schemas/tool-envelopes/fetch-result.json" with { type: "json" };
 import type { Problem } from "../validate.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
@@ -110,12 +113,25 @@ export type RegistryProblem = {
     | "props-id"
     | "changes-id"
     | "result-id"
+    | "result-empty"
     | "wording"
     | "example";
   readonly message: string;
 };
 
 const ID = new RegExp(ID_PATTERN);
+
+// The `$defs` keys of the three base files a type's item is added beside: a type of that name
+// would replace the definition. Read from the files, so the list stays in step with them.
+const BASE_DEFINITIONS: ReadonlySet<string> = new Set(
+  [questionPropsBase, boardDocumentBase, fetchResultBase].flatMap((base) =>
+    Object.keys((base as { $defs: object }).$defs),
+  ),
+);
+
+// A type that is a definition of a base schema, or a name every object inherits (`__proto__`,
+// `constructor`), which the composers could not hold as an own key of `$defs`.
+const takesName = (type: string): boolean => BASE_DEFINITIONS.has(type) || type in Object.prototype;
 
 const idProblem = (
   entry: WidgetType,
@@ -164,6 +180,8 @@ const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): Reg
   seen.add(type);
   if (NON_WIDGET_ITEM_TYPES.includes(type)) {
     at("reserved", `"${type}" is a context, molecule, question or area type, no widget`);
+  } else if (takesName(type)) {
+    at("reserved", `"${type}" is a definition of the composed schemas or a name every object has`);
   }
   if (entry.noun === "") at("noun", `"${type}" has no noun for the wording`);
   problems.push(
@@ -179,13 +197,13 @@ const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): Reg
 };
 
 /**
- * What is wrong with a registry as a whole: a duplicate type, a type that is a context, molecule,
- * question or area type or outside the ID pattern, a schema whose `$id` is not its pattern, wording
+ * What is wrong with a registry as a whole, apart from what its result schemas accept (`registry-
+ * check.ts` adds that, which needs a validator this module may not import): a duplicate type, a
+ * type that is a context, molecule, question or area type, a definition of a composed schema, an
+ * inherited object name or outside the ID pattern, a schema whose `$id` is not its pattern, wording
  * keys outside the type, an example of another type. Empty when it holds together.
  */
-export const widgetRegistryProblems = (
-  types: readonly WidgetType[],
-): readonly RegistryProblem[] => {
+export const registryShapeProblems = (types: readonly WidgetType[]): readonly RegistryProblem[] => {
   const seen = new Set<string>();
   return types.flatMap((entry, index) => entryProblems(entry, index, seen));
 };

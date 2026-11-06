@@ -10,11 +10,13 @@ import { WIDGET_TYPES } from "@askboard/contract";
 const SRC = join(import.meta.dir, "../src");
 
 // What each chunk registered for the example props of its registry entry, as the child prints it.
+// A chunk is `src/<type>/index.tsx`, built from the entry, so a type added to the registry is
+// checked with no edit here.
+const CHUNKS = WIDGET_TYPES.map((entry) => join(SRC, entry.type, "index.tsx"));
 const SCRIPT = `
 import { WIDGET_TYPES } from "@askboard/contract";
 import { componentFacts } from "@askboard/view/catalog";
-await import(${JSON.stringify(join(SRC, "gantt/index.tsx"))});
-await import(${JSON.stringify(join(SRC, "tree/index.tsx"))});
+${CHUNKS.map((chunk) => `await import(${JSON.stringify(chunk)});`).join("\n")}
 console.log(JSON.stringify(WIDGET_TYPES.map((entry) => {
   const facts = componentFacts(entry.type);
   return { type: entry.type, name: facts?.name, shape: facts?.shape?.(entry.example.item.props) };
@@ -41,11 +43,14 @@ const registered = async (): Promise<
 describe("each registered widget type's chunk", () => {
   test("registers a notice name and the element shape its registry entry gives", async () => {
     const facts = await registered();
+    expect(CHUNKS).toHaveLength(WIDGET_TYPES.length);
     expect(facts.map(({ type }) => type)).toEqual(WIDGET_TYPES.map(({ type }) => type));
     for (const [at, entry] of WIDGET_TYPES.entries()) {
       expect(facts[at]?.name).toMatch(/^change\./);
-      expect(entry.edits).toBeDefined();
-      expect(facts[at]?.shape).toEqual(entry.edits?.shape(entry.example.item.props));
+      // A result-only widget has no edits, so no element shape to compare.
+      if (entry.edits !== undefined) {
+        expect(facts[at]?.shape).toEqual(entry.edits.shape(entry.example.item.props));
+      }
     }
   });
 });

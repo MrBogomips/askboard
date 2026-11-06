@@ -12,7 +12,7 @@
 - **THEN** the ask passes
 
 #### Scenario: A registry that contradicts itself
-- **WHEN** the registry's own check runs over a registry holding two entries named `probe`, or an entry named `excerpt`, or an entry whose props schema's `$id` is not `urn:askboard:input:<name>-props`
+- **WHEN** the registry's own check runs over a registry holding two entries named `probe`, or an entry named `excerpt`, `option`, `contextItem` or `__proto__` (a name of the composed schemas' definitions or one every object has), or an entry whose result schema accepts `null`, `{}`, `[]` or `""`, or an entry whose props schema's `$id` is not `urn:askboard:input:<name>-props`
 - **THEN** it fails, naming the entry and the rule it breaks
 
 ### Requirement: Widget items follow their registry entry
@@ -38,7 +38,7 @@ The input format's question items, the board document's question items and `fetc
 - **THEN** an ask, a board document and a `fetch` result holding a probe item validate, and one holding an item of type `kanban` fails at its type
 
 ### Requirement: Widget result declarations
-A registered type that gives a result SHALL declare its result schema, `urn:askboard:output:<type>-result`, a schema of the output format, and MAY declare checks of a result against the item's props. A result SHALL be checked by its type's schema, then by its checks; a type that declares no result SHALL take none (AD-7, FR-18).
+A registered type that gives a result SHALL declare its result schema, `urn:askboard:output:<type>-result`, a schema of the output format, and MAY declare checks of a result against the item's props. A result SHALL be checked by its type's schema, then by its checks; a type that declares no result SHALL take none, and a result schema SHALL refuse a result that holds nothing the user gave, none of `null`, `{}`, `[]` and `""` passing it (AD-7, FR-18, NFR-10).
 
 #### Scenario: A probe result
 - **WHEN** a result the probe's schema admits is checked for a probe item
@@ -47,6 +47,10 @@ A registered type that gives a result SHALL declare its result schema, `urn:askb
 #### Scenario: A result for a Tree
 - **WHEN** a result is checked for a Tree item
 - **THEN** it fails, saying that a Tree gives no result
+
+#### Scenario: A result schema that takes an empty result
+- **WHEN** the registry's check runs over an entry whose result schema accepts `{}`
+- **THEN** it fails with the rule `result-empty`, naming the entry and the empty value
 
 ### Requirement: The annotation shape
 The output format SHALL define the annotation `{id, target: {selector}, body: {text}}`, its item being the key of the answer's `results`: `id` an element ID, `text` of 1 to 2,000 characters, and `selector` one of `element` (`id`), `label` (`label`, optional `occurrence`), `region` (`value`, `xywh=percent:x,y,w,h`), `line` (`side` `old` or `new`, `path`, `line`), `quote` (`exact`, optional `prefix`, `suffix`) and `position` (`start`, `end`) (AD-7).

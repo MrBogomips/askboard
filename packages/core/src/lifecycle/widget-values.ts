@@ -101,6 +101,19 @@ const jsonRefusal = (value: unknown, what: string): ContentProblem | undefined =
   );
 };
 
+// Whether a JSON value holds a leaf (a string, number, boolean or null) at any depth: `{}`, `[]` and
+// `{annotations: []}` hold none. The value is already bounded by `jsonFault`.
+const holdsLeaf = (value: unknown): boolean => {
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const next = stack.pop();
+    const children = Array.isArray(next) ? next : isRecord(next) ? Object.values(next) : undefined;
+    if (children === undefined) return true;
+    for (const child of children) stack.push(child);
+  }
+  return false;
+};
+
 /** The question's props with each edited value in place of the item's props. */
 const editedProps = (
   props: QuestionProps,
@@ -173,6 +186,8 @@ const resultsProblem = (
     }
     const unfit = jsonRefusal(result, `the result of item "${id}"`);
     if (unfit !== undefined) return unfit;
+    // A result that holds nothing is no answer, whatever the type's schema takes (NFR-10, AD-10).
+    if (!holdsLeaf(result)) return refused(`the result of item "${id}" holds nothing`);
     const edited = Object.hasOwn(values, id) ? values[id] : item.props;
     const [first] = widgetResultProblems(item, result, edited, types);
     if (first !== undefined) return refused(`${first.message}${at(first.path)}`);

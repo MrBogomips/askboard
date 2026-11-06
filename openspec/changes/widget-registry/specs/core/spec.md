@@ -38,6 +38,13 @@
 - **WHEN** a decline carries `results`
 - **THEN** it is refused, with the log unchanged
 
+### Requirement: A result that holds nothing is no answer
+`ask-core` SHALL refuse a result that holds no string, number, boolean or null at any depth, whatever its type's schema admits, naming the item and saying it holds nothing, with the log unchanged (AD-10, NFR-10).
+
+#### Scenario: A result that holds nothing
+- **WHEN** an answer's only content is a result `{}` or `{annotations: []}` that its type's schema admits
+- **THEN** the answer is refused, saying the item's result holds nothing, and nothing is appended or published
+
 ### Requirement: Results and derived values are bounded JSON
 A result and a derived value SHALL be JSON nested no deeper than 64 levels, the contract's one bound (`JSON_MAX_DEPTH`); a deeper one, or one that holds itself, SHALL be refused naming the depth, never walked (AD-10, NFR-10).
 

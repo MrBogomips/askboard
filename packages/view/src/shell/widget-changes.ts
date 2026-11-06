@@ -4,7 +4,7 @@
 // item the agent added or removed has no earlier or later props to diff and is not listed.
 
 import { elementChanges } from "@askboard/contract";
-import { componentFacts } from "../catalog/port.ts";
+import { componentFacts, type Say } from "../catalog/port.ts";
 import type { ViewQuestionProps, WidgetItem } from "../view-document.ts";
 
 /** One changed widget item: its ID, its type as sent, and its element operations. */
@@ -37,3 +37,12 @@ export const widgetChanges = (
     const change = earlier === undefined ? undefined : changeOf(earlier, item);
     return change === undefined ? [] : [change];
   });
+
+/**
+ * What the agent-change notice calls a widget's type: the name its chunk registered with its
+ * component, looked up in the strings, else the type as sent (widget-registry, design decision 8).
+ */
+export const widgetTypeLabel = (type: string, say: Say): string => {
+  const name = componentFacts(type)?.name;
+  return name === undefined ? type : say(name);
+};

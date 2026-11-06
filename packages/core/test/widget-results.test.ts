@@ -152,6 +152,72 @@ describe("a result in an answer act", () => {
   });
 });
 
+// A type whose result schema takes `{}` and `{annotations: []}`: the case the registry check now
+// flags, which the core still refuses on its own (a result that holds nothing is no answer).
+const LOOSE_RESULT = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "urn:askboard:output:loose-result",
+  type: "object",
+  additionalProperties: false,
+  properties: { annotations: { type: "array" } },
+} as const;
+const LOOSE_WIDGET = {
+  ...PROBE_WIDGET,
+  type: "loose",
+  props: { ...PROBE_WIDGET.props, $id: "urn:askboard:input:loose-props" },
+  edits: undefined,
+  derived: undefined,
+  result: { schema: LOOSE_RESULT },
+};
+const LOOSE_ITEM: Item = { ...PROBE_ITEM, type: "loose", id: "note" };
+
+describe("a result that holds nothing", () => {
+  const types = [...PROBE_TYPES, LOOSE_WIDGET];
+  const looseRefusal = (acts: readonly unknown[]) => {
+    const { log, outcome } = checked(modelOf([LOOSE_ITEM]), acts, { types });
+    if (outcome.ok) throw new Error(`accepted: ${JSON.stringify(outcome.events)}`);
+    expect(log.latestSeq).toBe(0);
+    return outcome.problem;
+  };
+
+  test.each([
+    ["{}", {}],
+    ["{annotations: []}", { annotations: [] }],
+    ["empty lists and objects at any depth", { annotations: [[], {}, [{}]] }],
+  ])(
+    "%s is refused, naming the item and saying it holds nothing, with nothing appended",
+    (_, result) => {
+      const problem = looseRefusal([answerAct({ results: { note: result } })]);
+      expect(problem.refusal).toBe("content");
+      expect(problem.detail).toContain('the result of item "note" holds nothing');
+      expect(problem.itemId).toBe("choose");
+    },
+  );
+
+  test("a result with one leaf, even an empty string or false, is an answer", () => {
+    for (const result of [
+      { annotations: ["a"] },
+      { annotations: [""] },
+      { annotations: [[false]] },
+    ]) {
+      const { outcome } = checked(
+        modelOf([LOOSE_ITEM]),
+        [answerAct({ results: { note: result } })],
+        {
+          types,
+        },
+      );
+      expect(outcome.ok).toBe(true);
+      expect(outcome.ok && outcome.events).toHaveLength(1);
+    }
+  });
+
+  test("the probe's result, which requires a pick, is still logged", () => {
+    const { outcome } = checked(modelOf([PROBE_ITEM]), [answerAct({ results: PICK })]);
+    expect(outcome.ok).toBe(true);
+  });
+});
+
 describe("a result for a Tree through the ask-core", () => {
   const ASK_ID = uj2Ask.askId;
   type Act = Parameters<AskCore["act"]>[1];

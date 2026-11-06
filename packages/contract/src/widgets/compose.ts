@@ -27,7 +27,8 @@ const itemOf = (entry: WidgetType, description?: string): AnySchemaObject => ({
 const refTo = (type: string) => ({ $ref: `#/$defs/${type}` });
 
 // `schema` with the types' items added to `$defs` and `oneOf` of the union `union`, at the end of
-// its list or, with `before`, before that definition's reference.
+// its list or, with `before`, before that definition's reference. A type that is already a
+// definition of `schema` throws, naming it; `__proto__` is defined as an own key, never assigned.
 const withItems = (
   schema: AnySchemaObject,
   union: string,
@@ -36,7 +37,18 @@ const withItems = (
   before?: string,
 ): AnySchemaObject => {
   const defs: AnySchemaObject = { ...schema.$defs };
-  for (const entry of types) defs[entry.type] = itemOf(entry, describe(entry));
+  for (const entry of types) {
+    // A type named like a definition would replace it; `widgetRegistryProblems` reserves those names.
+    if (Object.hasOwn(defs, entry.type)) {
+      throw new Error(`the type "${entry.type}" is already a definition of the schema`);
+    }
+    Object.defineProperty(defs, entry.type, {
+      value: itemOf(entry, describe(entry)),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
   const refs: unknown[] = [...schema.$defs[union].oneOf];
   const at =
     before === undefined
