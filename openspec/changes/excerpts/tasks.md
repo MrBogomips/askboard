@@ -175,6 +175,7 @@ Each task writes its tests first and sees them fail for the right reason before 
 - [x] 9.2 Check that the proposal's open questions, design.md's Merge points and Handed on, and the notes describe what was built; where the apply changed a choice, revise the artifacts with `/opsx:update` and say so under the question. Verify that `openspec validate excerpts --strict` passes.
   - Note: Done 2026-11-05 with `/opsx:update`: design.md (decision 1's `panelClosed`, the placement in `BoardDraftState.placements`, `HostContext` and the message without a URL, the panel's wording, the session-process test choice, a Risks entry for the two low findings of 8.1) and proposal.md (open question 12, for the PO: a changed URL is read as the current one). `openspec validate excerpts --strict` passes.
 - [ ] 9.3 Run `openspec validate --all --strict --no-interactive`, `bun run format` (no file changed), the check, `bun run build:view` with the recorded sizes, the browser suite in the three engines twice in a row, and the conformance suite on Bun and Node 24. Verify that all pass, that no process started by the tests is still running, and record in the note the test counts, the coverage, the `context` chunk's size and each engine's result.
+  - Note (2026-11-06): not done at archive; left to a manual workflow_dispatch run, recorded in the backlog. Archived under the PO's 2026-11-06 handoff to finish the remaining work.
 
 ## Workflow follow-up
 
