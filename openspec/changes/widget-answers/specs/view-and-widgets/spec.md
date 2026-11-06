@@ -3,7 +3,7 @@
 ## REMOVED Requirements
 
 ### Requirement: The board page refuses widget answers for now
-**Reason**: Board protocol 1.2 carries a widget's value, so the refusal the `tree-widget` change built on purpose until then is lifted.
+**Reason**: Board protocol 1.5 carries a widget's value, so the refusal the `tree-widget` change built on purpose until then is lifted.
 **Migration**: Replaced by "The board page sends widget answers" and "Board documents with widget items". E1's `answer` command keeps refusing widget values, since it is the choice-only command of protocol 1.0 pages.
 
 ## MODIFIED Requirements
@@ -33,7 +33,7 @@ An answer SHALL carry the declared derived values of every computing item in its
 - **THEN** the answer act carries the option and the plan's derived values, and no `values`
 
 ### Requirement: Board documents with widget items
-The board page SHALL accept a board document whose questions hold Tree and Gantt items, validate it with the standalone validators of board document 1.2, and build the view from it; a board document holding a `molecule` item SHALL still be refused (AD-9, AD-10).
+The board page SHALL accept a board document whose questions hold Tree and Gantt items, validate it with the standalone validators of board document 1.4, and build the view from it; a board document holding a `molecule` item SHALL still be refused (AD-9, AD-10).
 
 #### Scenario: The UJ-2 board
 - **WHEN** `board-host` sends the UJ-2 ask's board document
