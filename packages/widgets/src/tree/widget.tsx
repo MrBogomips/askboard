@@ -41,7 +41,7 @@ import { marksOf, sameNodes } from "./model/marks.ts";
 import { pertValues } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 import { afterMove, isMove, type MoveEdit } from "./moving.ts";
-import { chevronNodeOf, focusTargetOf } from "./targets.ts";
+import { cellTargetOf, chevronNodeOf, focusTargetOf } from "./targets.ts";
 import { TreeToolbar } from "./toolbar.tsx";
 import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
@@ -249,6 +249,14 @@ export const TreeWidget = ({
     show(toggle(view, nodeId, value), holdsFocus);
   };
 
+  // A double click on a cell edits it, as Enter does on the focused one: its editor opens, or
+  // nothing opens where the cell takes no edit. An edit under way is left alone.
+  const onDoubleClick = (event: MouseEvent<HTMLTableElement>): void => {
+    const at = cellTargetOf(event.target);
+    if (editing !== undefined || at === undefined) return;
+    start(at);
+  };
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the frame takes no input; its focus handlers follow the focus of its toolbar and treegrid, which bubbles to it.
     <div className={FRAME} onFocus={focus.onFocus} onBlur={focus.onBlur}>
@@ -273,6 +281,7 @@ export const TreeWidget = ({
         onFocus={onFocus}
         onMouseDown={onMouseDown}
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
       />
     </div>
   );

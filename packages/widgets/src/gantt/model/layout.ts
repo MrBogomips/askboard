@@ -48,7 +48,10 @@ export const rowBoxes = (notes: readonly boolean[]): RowBoxes => {
   return Object.freeze({ boxes: Object.freeze(boxes), height: top });
 };
 
-/** A task's bar, from its start to its finish, both included, in its row. */
+/**
+ * A task's bar, from its start to its finish, both included, in its row; a milestone, which finishes
+ * before it starts, is as wide as nothing.
+ */
 export const barBox = (
   start: string,
   finish: string,
@@ -59,7 +62,7 @@ export const barBox = (
   Object.freeze({
     x: xOf(start, origin, zoom),
     y: row.middle - BAR_HEIGHT / 2,
-    width: (dayNumber(finish) - dayNumber(start) + 1) * PIXELS_PER_DAY[zoom],
+    width: Math.max(0, dayNumber(finish) - dayNumber(start) + 1) * PIXELS_PER_DAY[zoom],
     height: BAR_HEIGHT,
   });
 

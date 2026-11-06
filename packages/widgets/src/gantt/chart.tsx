@@ -2,12 +2,12 @@
 // with its zoom and not focusable, since the grid carries every keyboard path. The time axis on
 // `muted` with its labels and gridlines; per task in a row of the grid a bar in `gantt-bar`, or in
 // `critical` on the critical path; finish-to-start elbow arrows, 1px in `gantt-bar`, or 2px in
-// `critical` between two critical tasks, each with its arrowhead; in a plan, the baselines under
-// the bars. A task the graph cannot schedule has no bar and no arrow. The pointer drags a bar to
-// move it, or, in a Gantt with its own tasks, its end to resize it (`bars.tsx`, `bar-drag.ts`);
-// the drop reschedules through `drag.ts` and the draft, and the arrows follow once the graph is
-// rebuilt. Geometry is written as SVG attributes and colours and widths as classes built from
-// DESIGN.md's tokens: no `style` attribute (AD-8).
+// `critical` on a tight link between two critical tasks (`critical-link.ts`), each with its
+// arrowhead; in a plan, the baselines under the bars. A task the graph cannot schedule has no bar
+// and no arrow. The pointer drags a bar to move it, or, in a Gantt with its own tasks, its end to
+// resize it (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and
+// the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
+// and widths as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
 import { useLocale } from "@askboard/view/catalog";
 import { memo, useCallback, useMemo } from "react";
@@ -20,13 +20,14 @@ import {
   drawnBaselines,
   Guide,
 } from "./bars.tsx";
+import { isCriticalLink } from "./model/critical-link.ts";
 import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { AXIS_HEIGHT, arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
-import { PIXELS_PER_DAY, ticks, type Zoom } from "./model/scale.ts";
+import { labelLines, PIXELS_PER_DAY, type Tick, ticks, type Zoom } from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
@@ -38,7 +39,7 @@ const arrowsOf = (rows: readonly GanttRow[], bars: ReadonlyMap<string, DrawnBar>
     if (to === undefined) return [];
     return row.dependencies.flatMap((id) => {
       const from = bars.get(id);
-      return from === undefined ? [] : [{ from, to, critical: from.critical && to.critical }];
+      return from === undefined ? [] : [{ from, to, critical: isCriticalLink(from, to) }];
     });
   });
 
@@ -70,6 +71,32 @@ const Markers = memo(({ itemId }: { readonly itemId: string }) => (
     </marker>
   </defs>
 ));
+
+/** Where a label's lines sit in the axis band: one line, or two, the weekday over the day. */
+const LINE_Y = { one: 20, first: 14, second: 28 } as const;
+
+/**
+ * A tick's label: one line, or at day zoom the weekday over the day, so that it fits its column.
+ * The first line keeps its trailing space, so that the text reads `mer 11` whole.
+ */
+const TickLabel = ({ tick, zoom }: { readonly tick: Tick; readonly zoom: Zoom }) => {
+  const [first, second] = labelLines(tick.label, zoom);
+  const x = tick.x + 6;
+  return (
+    <text data-gantt-tick="" x={x} y={LINE_Y.one} className="fill-muted-foreground text-badge">
+      {second === undefined ? (
+        first
+      ) : (
+        <>
+          <tspan x={x} y={LINE_Y.first}>{`${first} `}</tspan>
+          <tspan x={x} y={LINE_Y.second}>
+            {second}
+          </tspan>
+        </>
+      )}
+    </text>
+  );
+};
 
 type AxisProps = {
   readonly span: ChartSpan;
@@ -110,14 +137,7 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
             y2={layout.height}
             className="stroke-border stroke-1"
           />
-          <text
-            data-gantt-tick=""
-            x={tick.x + 6}
-            y={20}
-            className="fill-muted-foreground text-badge"
-          >
-            {tick.label}
-          </text>
+          <TickLabel tick={tick} zoom={zoom} />
         </g>
       ))}
     </g>
