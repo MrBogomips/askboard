@@ -302,3 +302,15 @@ describe("an added row's empty roll-ups (review F-11)", () => {
     expect(rollupNote(full, { added: true, current: false })).toBeUndefined();
   });
 });
+
+describe("a leaf with no estimates at all (review F-11)", () => {
+  test("reads as not computed in the live graph, never as 0.0 d, and its row has the note", () => {
+    const nodes: readonly TreeNode[] = [...WBS.props.nodes, { id: "u-1", label: "New package" }];
+    const graph = graphOf([{ ...WBS, props: { ...WBS.props, nodes } }, PLAN]);
+    const row = visibleRows(nodes, new Set()).find((one) => one.node.id === "u-1");
+    if (row === undefined) throw new Error("no row");
+    const values = pertRow(graph, TREE, row);
+    expect([values.expected.kind, values.spread.kind]).toEqual(["error", "error"]);
+    expect(rollupNote(values, { added: false, current: false })?.text).toBe(PERT_NOT_COMPUTED);
+  });
+});
