@@ -52,6 +52,7 @@ import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./c
 import { formulaWarnings } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
+import { expansionEntries } from "./molecules/map.ts";
 import { expandSentItems } from "./molecules/on-ask.ts";
 import { referencesIn } from "./molecules/references.ts";
 import { valueInReferenceAddressing } from "./molecules/rewrite.ts";
@@ -903,6 +904,8 @@ export class AskCore {
       taker: takerOf(request, ask.who),
       ...(projectDir === undefined ? {} : { projectDir }),
       ...(asked === undefined ? {} : { asked }),
+      keptAnswerValues: this.keptAnswerValues(askId) ?? new Map(),
+      molecules: expansionEntries(ask.expansion),
     });
     return saveSnapshot(snapshots?.writer, data, this.ownerOf(askId) === undefined);
   }
