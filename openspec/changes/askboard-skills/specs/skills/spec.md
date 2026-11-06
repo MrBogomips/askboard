@@ -81,11 +81,19 @@ Every ask or item example in the shipped skill SHALL be accepted by `ask-core`'s
 - **THEN** the examples test fails naming the file and the example
 
 ### Requirement: Writing the skill
-Writing the skill SHALL leave exactly the generated files under `skills/askboard/`, also on a case-insensitive file system where a file the generator does not produce differs from a generated one only in case (AD-6, NFR-7).
+Writing the skill SHALL leave exactly the generated files under `skills/askboard/`, each file and folder in the generated name's case, also on a case-insensitive file system where a file or folder the generator does not produce differs from a generated one only in case. It SHALL refuse a generated name outside `skills/askboard/` before it removes or writes anything (AD-6, NFR-7).
 
 #### Scenario: A file named like a generated one but for case
 - **WHEN** `skills/askboard/skill.md` exists on a case-insensitive file system and the skill is written
 - **THEN** the folder holds exactly the generated files, `SKILL.md` among them, and the skill check passes
+
+#### Scenario: A folder named like a generated one but for case
+- **WHEN** `skills/askboard/References/answers.md` and `skills/askboard/References/Widgets/tree.md` exist on a case-insensitive file system and the skill is written
+- **THEN** the folder holds exactly the generated files and folders in their generated case, the skill check passes, and writing the skill again removes nothing
+
+#### Scenario: A generated name outside the folder
+- **WHEN** the generator produces a name that leaves `skills/askboard/` and a file nobody generates exists in the folder
+- **THEN** writing the skill fails naming the generated name, and the extra file and every file outside the folder are unchanged
 
 ### Requirement: Routing between AskBoard and AskUserQuestion
 `SKILL.md` SHALL define which questions go to AskBoard and which to AskUserQuestion: a question with references, a widget, more than four options, or several questions together goes to AskBoard; a yes/no or short choice without references goes to AskUserQuestion; a subagent asks every question through AskBoard; an asking rule overrides the choice (FR-29, FR-30).
@@ -120,11 +128,18 @@ Writing the skill SHALL leave exactly the generated files under `skills/askboard
 - **THEN** it holds each of those rules
 
 ### Requirement: Ownership of an ask
-`SKILL.md` SHALL teach that an ask belongs to the agent that sent it, which alone can collect, update, fetch or snapshot it, and that a subagent's ask closes when the subagent finishes; and that a dialogue with the user while the agent keeps working goes to a background subagent that asks, waits and returns the answers (FR-21, FR-25, AD-5).
+`SKILL.md` SHALL teach that, with AskBoard's hooks, an ask belongs to the agent that sent it, which alone can collect, update, fetch or snapshot it, and that a subagent's ask closes when the subagent finishes, so an answer given later, such as a postponed one, is lost and the main conversation can neither collect nor snapshot it (FR-25, AD-5). Without the hooks ownership is not checked, as the `ask` result's warning says.
 
 #### Scenario: The ownership line
-- **WHEN** the generated `SKILL.md`'s delivery section is read
-- **THEN** it holds the ownership line and the background-subagent advice
+- **WHEN** the generated `SKILL.md`'s "After you ask" section is read
+- **THEN** it holds the ownership line, stated as holding with AskBoard's hooks, and says that a subagent's ask closes when the subagent finishes and that an answer given later is lost
+
+### Requirement: Dialogues in a background subagent
+`SKILL.md` SHALL say that the agent's own asks never block it, so it asks itself and keeps working, and SHALL advise a background subagent that asks, waits and returns the answers only for a side dialogue whose answers are needed together when the subagent ends (FR-21, FR-25, UJ-2).
+
+#### Scenario: The background subagent kept to a side dialogue
+- **WHEN** the generated `SKILL.md`'s "After you ask" section is read
+- **THEN** it says the agent's own asks never block it, and it offers a background subagent only for a side dialogue whose answers are needed together at its end, never as the way to keep working while the user answers
 
 ### Requirement: When an ask cannot go on
 `SKILL.md` SHALL teach that when `ask` returns `unavailable` or AskBoard's tools are absent, the main conversation asks through AskUserQuestion and a subagent ends its turn and returns the question to the agent that started it; that a declined question is not asked again in the task; and that a discarded ask is asked again under a new ID if still needed (FR-4, FR-29, NFR-8, AD-18).
