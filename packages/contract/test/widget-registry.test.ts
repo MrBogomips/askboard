@@ -18,7 +18,7 @@ import {
   widgetRegistryProblems,
   widgetTypeOf,
 } from "../src/index.ts";
-import { validateAskRequest } from "../src/validate.ts";
+import { createAjv, validateAskRequest } from "../src/validate.ts";
 import ganttChanges from "../src/widgets/gantt/gantt-changes.json" with { type: "json" };
 import ganttProps from "../src/widgets/gantt/gantt-props.json" with { type: "json" };
 import treeChanges from "../src/widgets/tree/tree-changes.json" with { type: "json" };
@@ -179,6 +179,17 @@ describe("widgetRegistryProblems", () => {
 
   test("takes a result schema that refuses the four, as the probe's does", () => {
     expect(widgetRegistryProblems(PROBE_TYPES)).toEqual([]);
+  });
+
+  test("takes a result schema the shared Ajv already holds, as a shipped type's is", () => {
+    const { result } = PROBE_WIDGET;
+    if (result === undefined) throw new Error("the probe gives a result");
+    const held = createAjv().getSchema("urn:askboard:output:annotation")?.schema;
+    if (typeof held !== "object") throw new Error("the output set holds the annotation schema");
+    const entry: WidgetType = { ...PROBE_WIDGET, result: { ...result, schema: held } };
+    expect(
+      rulesOf(widgetRegistryProblems([entry])).filter((r) => r.endsWith("result-empty")),
+    ).toEqual([]);
   });
 
   test("refuses a type outside the ID pattern", () => {

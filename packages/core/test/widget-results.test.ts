@@ -184,6 +184,9 @@ describe("a result that holds nothing", () => {
     ["{}", {}],
     ["{annotations: []}", { annotations: [] }],
     ["empty lists and objects at any depth", { annotations: [[], {}, [{}]] }],
+    ["null", null],
+    ['""', ""],
+    ["nulls and empty strings at any depth", { pick: null, notes: [""] }],
   ])(
     "%s is refused, naming the item and saying it holds nothing, with nothing appended",
     (_, result) => {
@@ -194,10 +197,10 @@ describe("a result that holds nothing", () => {
     },
   );
 
-  test("a result with one leaf, even an empty string or false, is an answer", () => {
+  test("a result with one leaf of content, even false or 0, is an answer", () => {
     for (const result of [
       { annotations: ["a"] },
-      { annotations: [""] },
+      { annotations: ["", 0] },
       { annotations: [[false]] },
     ]) {
       const { outcome } = checked(

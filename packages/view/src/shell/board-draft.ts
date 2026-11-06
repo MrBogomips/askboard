@@ -9,7 +9,13 @@
 // agent until the user acts (AD-10). Each change makes new values; the stores are replaced, never
 // changed in place.
 
-import type { DraftQuestion, DraftRecord, HeldAct, LifecycleBoardState } from "@askboard/contract";
+import {
+  type DraftQuestion,
+  type DraftRecord,
+  type HeldAct,
+  type LifecycleBoardState,
+  resultHoldsNothing,
+} from "@askboard/contract";
 import { renderedOf } from "../catalog/components.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
@@ -446,7 +452,7 @@ export const restoreDraft = (
       }
       // Each result where it names a widget item of the question, as a value does.
       for (const [itemId, result] of Object.entries(keptResults)) {
-        if (widgets.has(itemId)) results?.set(itemId, result);
+        if (widgets.has(itemId) && !resultHoldsNothing(result)) results?.set(itemId, result);
       }
     }
     const held = staleAnswer
@@ -456,7 +462,7 @@ export const restoreDraft = (
     if (
       Object.keys(held).some((key) => key !== "rev") ||
       hasValuesIn(kept) ||
-      hasValuesIn(keptResults)
+      Object.values(keptResults).some((r) => !resultHoldsNothing(r))
     )
       work.set(question.id, held);
   }

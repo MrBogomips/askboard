@@ -39,7 +39,7 @@
 - **THEN** it is refused, with the log unchanged
 
 ### Requirement: A result that holds nothing is no answer
-`ask-core` SHALL refuse a result that holds no string, number, boolean or null at any depth, whatever its type's schema admits, naming the item and saying it holds nothing, with the log unchanged (AD-10, NFR-10).
+`ask-core` SHALL refuse a result that holds nothing, as the contract defines it (`null`, `""`, or an object or array whose every value holds nothing), whatever its type's schema admits, naming the item and saying it holds nothing, with the log unchanged (AD-10, NFR-10).
 
 #### Scenario: A result that holds nothing
 - **WHEN** an answer's only content is a result `{}` or `{annotations: []}` that its type's schema admits

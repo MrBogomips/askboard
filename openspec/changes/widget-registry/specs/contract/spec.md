@@ -38,7 +38,7 @@ The input format's question items, the board document's question items and `fetc
 - **THEN** an ask, a board document and a `fetch` result holding a probe item validate, and one holding an item of type `kanban` fails at its type
 
 ### Requirement: Widget result declarations
-A registered type that gives a result SHALL declare its result schema, `urn:askboard:output:<type>-result`, a schema of the output format, and MAY declare checks of a result against the item's props. A result SHALL be checked by its type's schema, then by its checks; a type that declares no result SHALL take none, and a result schema SHALL refuse a result that holds nothing the user gave, none of `null`, `{}`, `[]` and `""` passing it (AD-7, FR-18, NFR-10).
+A registered type that gives a result SHALL declare its result schema, `urn:askboard:output:<type>-result`, and MAY declare checks against the item's props. A result SHALL be checked by its schema, then its checks; a type with no result takes none. A result schema SHALL refuse a result that holds nothing: `null`, `""`, or an object or array of such values; `false`, `0` and other strings and numbers are content. `contract` exports that test as one function (AD-7, FR-18, NFR-10).
 
 #### Scenario: A probe result
 - **WHEN** a result the probe's schema admits is checked for a probe item

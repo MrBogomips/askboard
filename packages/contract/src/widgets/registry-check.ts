@@ -1,7 +1,8 @@
 // The registry's own check (widget-registry, contract spec, "The widget-type registry"): the
 // shape rules of `registry.ts` and the one rule that needs a validator, which the registry module
 // may not import (its import rule): a result schema must refuse a result that holds nothing the
-// user gave (NFR-10, AD-10; core refuses such a result too, whatever the schema says).
+// user gave, as `resultHoldsNothing` defines it (NFR-10, AD-10; core refuses such a result too,
+// whatever the schema says).
 
 import type { AnySchemaObject } from "ajv/dist/2020";
 import { createAjv } from "../validate.ts";
@@ -19,8 +20,10 @@ const EMPTY_RESULTS: readonly (readonly [string, unknown])[] = [
 // never reaches the one the widget validators share.
 const emptyValuesAccepted = (schema: AnySchemaObject): readonly string[] => {
   const ajv = createAjv();
-  ajv.addSchema(schema);
-  const validate = ajv.getSchema(schema.$id as string);
+  const id = schema.$id as string;
+  // A shipped type's result schema is already in the Ajv with the output set: use that one.
+  if (ajv.getSchema(id) === undefined) ajv.addSchema(schema);
+  const validate = ajv.getSchema(id);
   if (validate === undefined) throw new Error("the schema has no $id");
   return EMPTY_RESULTS.filter(([, value]) => validate(value)).map(([shown]) => shown);
 };

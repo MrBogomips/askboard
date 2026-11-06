@@ -184,6 +184,29 @@ describe("an item's result (widget-registry, design decision 9)", () => {
     expect(results.record().size).toBe(0);
   });
 
+  test.each([
+    ["{}", {}],
+    ["[]", []],
+    ["null", null],
+    ['""', ""],
+    ["{annotations: []}", { annotations: [] }],
+  ])(
+    "a result that holds nothing (%s) clears the item's result instead of storing it",
+    (_, empty) => {
+      const { results, onResultChange } = withResults();
+      onResultChange({ pick: "a" });
+      onResultChange(empty);
+      expect(results.record().has("sketch")).toBe(false);
+      expect(results.record().size).toBe(0);
+    },
+  );
+
+  test("false and 0 are content and are stored", () => {
+    const { results, onResultChange } = withResults();
+    onResultChange({ pick: false });
+    expect(results.valueOf("sketch")).toEqual({ pick: false });
+  });
+
   test("the step before a change runs first, as it does for a value, and nothing else is called", () => {
     const { steps, sent, onResultChange } = withResults();
     onResultChange({ pick: "a" });

@@ -625,3 +625,8 @@ export { widgetRegistryProblems } from "./widgets/registry-check.ts";
 
 export type { Annotation, AnnotationSelector } from "./schemas/output/index.ts";
 export { annotationProblems, widgetResultProblems } from "./widgets/results.ts";
+
+// One definition of a result that holds nothing (widget-registry): shared by core, the registry's
+// check and the board page.
+
+export { resultHoldsNothing } from "./widgets/result-content.ts";

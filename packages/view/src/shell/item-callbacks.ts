@@ -8,6 +8,7 @@
 // step (widget-registry, design decision 9). Also the value and the result an item shows.
 // Plain functions, tested without a DOM.
 
+import { resultHoldsNothing } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
 import type { DraftStore } from "./draft-store.ts";
 
@@ -55,7 +56,8 @@ export const itemCallbacks = ({
   onResultChange: (result) => {
     if (results === undefined) return;
     onBeforeChange?.();
-    results.set(itemId, result);
+    // A result that holds nothing is no result: it clears the item's, as none does.
+    results.set(itemId, resultHoldsNothing(result) ? undefined : result);
   },
   onValuesChange: (values) => {
     const outside = Object.keys(values).filter((id) => !itemIds.includes(id));

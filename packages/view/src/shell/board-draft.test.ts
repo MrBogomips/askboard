@@ -532,6 +532,19 @@ describe("results beside the draft record (widget-registry, design decision 9)",
     expect([...results.record().keys()]).toEqual(["sketch"]);
   });
 
+  test("a restored result that holds nothing is dropped, and with it the work it was", () => {
+    const { values, results, board } = withResults();
+    const stale: DraftRecord = {
+      delivery: "immediate",
+      questions: {
+        database: { rev: 1, results: { sketch: { annotations: [] } } },
+      },
+    };
+    restoreDraft(stale, document, openState(document), values, board, results);
+    expect(results.record().size).toBe(0);
+    expect(board.get().questions.get("database")).toBeUndefined();
+  });
+
   test("a record holding results alone is work, and comes back as work", () => {
     const { values, results, board } = withResults();
     const saved: DraftRecord = {
