@@ -482,38 +482,42 @@ describe("the derived values an answer carries (gantt-widget design decision 10;
   ]);
   const reported = (itemId: string) => reports.get(itemId);
 
-  test("those of the items the answer carries a value for, as they last reported them", () => {
-    expect(withDerived({ values: { release: ganttEditedValue } }, reported)).toEqual({
+  const ids = ["release", "sketch"];
+
+  test("those of every item of the question, changed or not, as they last reported them", () => {
+    expect(withDerived({ values: { release: ganttEditedValue } }, reported, ids)).toEqual({
       values: { release: ganttEditedValue },
-      derived: finish,
+      derived: { ...finish, "sketch.area": 16 },
+    });
+    expect(withDerived({ values: { sketch: { size: 4 } } }, reported, ids)).toEqual({
+      values: { sketch: { size: 4 } },
+      derived: { ...finish, "sketch.area": 16 },
     });
   });
 
-  test("each carried item's, in the order of the answer's values, which is the question's", () => {
-    const { derived } = withDerived(
-      { values: { release: ganttEditedValue, sketch: { size: 4 } } },
-      reported,
-    );
+  test("beside a choice or Other text with no value, in the order of the question's items", () => {
+    const { derived } = withDerived({ choice: ["SQLite"] }, reported, ids);
     expect(Object.keys(derived ?? {})).toEqual([
       "release.finish",
       "release.criticalPath",
       "sketch.area",
     ]);
-  });
-
-  test("none for an untouched Gantt, and no field when no carried item reported any", () => {
-    expect(withDerived({ values: { sketch: { size: 4 } } }, reported)).toEqual({
-      values: { sketch: { size: 4 } },
+    expect(withDerived({ other: "Else" }, reported, ["sketch"])).toEqual({
+      other: "Else",
       derived: { "sketch.area": 16 },
     });
-    const quiet = withDerived({ values: { sketch: { size: 4 } } }, () => undefined);
-    expect(quiet).toEqual({ values: { sketch: { size: 4 } } });
-    expect(Object.hasOwn(quiet, "derived")).toBe(false);
-    expect(withDerived({ choice: ["SQLite"] }, reported)).toEqual({ choice: ["SQLite"] });
-    expect(withDerived({}, reported)).toEqual({});
   });
 
-  test("Answer sends, for a question whose item reported derived values and has a value, those values beside it", () => {
+  test("never alone: a note or nothing carries none; no field when no item reported any", () => {
+    expect(withDerived({ note: "x" }, reported, ids)).toEqual({ note: "x" });
+    expect(withDerived({}, reported, ids)).toEqual({});
+    const quiet = withDerived({ values: { sketch: { size: 4 } } }, () => undefined, ids);
+    expect(quiet).toEqual({ values: { sketch: { size: 4 } } });
+    expect(Object.hasOwn(quiet, "derived")).toBe(false);
+    expect(withDerived({ choice: ["SQLite"] }, reported, [])).toEqual({ choice: ["SQLite"] });
+  });
+
+  test("Answer sends the derived values of every computing item beside the one value it carries", () => {
     const { sent, draft, derived, context } = setUp();
     derived.report("release", finish);
     derived.report("sketch", { "sketch.area": 16 });
@@ -525,13 +529,13 @@ describe("the derived values an answer carries (gantt-widget design decision 10;
         itemId: "schedule-review",
         rev: 1,
         values: { release: ganttEditedValue },
-        derived: finish,
+        derived: { ...finish, "sketch.area": 16 },
         when: expect.stringMatching(/Z$/),
       },
     ]);
   });
 
-  test("an answer with no widget value carries none, though its Gantt reported some (design decision 10: only the items in `values`)", () => {
+  test("an option picked beside an untouched Gantt carries the Gantt's derived values and no values", () => {
     // The plain question with the Gantt beside its options.
     const withGantt: ViewQuestion = {
       ...database,
@@ -547,8 +551,17 @@ describe("the derived values an answer carries (gantt-widget design decision 10;
         itemId: "database",
         rev: 1,
         choice: ["SQLite"],
+        derived: finish,
         when: expect.stringMatching(/Z$/),
       },
     ]);
+  });
+
+  test("a report of another question's item stays out", () => {
+    const { sent, draft, derived, context } = setUp();
+    derived.report("sketch", { "sketch.area": 16 });
+    draft.set("database", ["SQLite"]);
+    answer(database, context);
+    expect(Object.hasOwn(sent[0] ?? {}, "derived")).toBe(false);
   });
 });

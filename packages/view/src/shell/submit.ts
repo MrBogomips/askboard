@@ -16,6 +16,7 @@ import {
   type BoardDraft,
   type BoardDraftState,
   type Delivery,
+  itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
 import { nextHeldOrder, recommendedOf, revisionFor, withDerived } from "./card-acts.ts";
@@ -44,7 +45,7 @@ export const heldWorkOf = (document: ViewDocument, board: BoardDraftState): read
 const filled = (text: string | undefined): text is string => text !== undefined && text !== "";
 
 // One held act as the view act it sends, if it carries what its act needs: an answer with the
-// derived values its widget items last reported (gantt-widget design decision 10).
+// derived values its widget items last reported (widget-answers design decision 10).
 const actOf = (
   { question, work }: HeldWork,
   values: DraftRecord,
@@ -54,7 +55,11 @@ const actOf = (
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
-      const content = withDerived(answerContentOf(question, values, work), reported);
+      const content = withDerived(
+        answerContentOf(question, values, work),
+        reported,
+        itemIdsOf(question),
+      );
       if (content.choice === undefined && content.values === undefined && !filled(content.other)) {
         return [];
       }

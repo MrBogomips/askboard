@@ -210,6 +210,8 @@ describe("view messages, as App tool calls the board page answers itself (design
   });
 });
 
+const DERIVED_ALONE = 'comes only beside "choice", "values" or "other"';
+
 describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD-20, FR-12)", () => {
   // The Gantt question's answer: the Gantt's full edited value and its derived values.
   const base = {
@@ -309,14 +311,17 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     expect(problemsOf(call({ ...base, derived: { "release.deep": deep } }))).toEqual([]);
   });
 
-  test("derived values come only beside the widget values they derive from", () => {
+  test("derived values come beside any answer content, never alone (design decision 10)", () => {
     const { values: _, ...withoutValues } = base;
-    expect(problemsOf(call({ ...withoutValues, choice: ["Yes"], derived }))).toEqual([
-      { path: "/arguments/derived", message: 'comes only beside "values"' },
-    ]);
+    expect(problemsOf(call({ ...withoutValues, choice: ["Yes"], derived }))).toEqual([]);
+    expect(problemsOf(call({ ...withoutValues, other: "Maybe", derived }))).toEqual([]);
     expect(problemsOf(call({ ...withoutValues, derived }))).toEqual([
       { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
-      { path: "/arguments/derived", message: 'comes only beside "values"' },
+      { path: "/arguments/derived", message: DERIVED_ALONE },
+    ]);
+    expect(problemsOf(call({ ...withoutValues, note: "only a note", derived }))).toEqual([
+      { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments/derived", message: DERIVED_ALONE },
     ]);
   });
 
@@ -339,15 +344,13 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     });
   });
 
-  test("an answer act's derived values come only beside its widget values, the act and the field named", () => {
+  test("an answer act's derived values come beside any answer content, never alone, the act and the field named", () => {
     const { values: _, ...withoutValues } = base;
     const act = { type: "answer", ...withoutValues, choice: ["Yes"], derived };
-    expect(problemsOf(actCall(note, act))).toEqual([
-      { path: "/arguments/acts/1/derived", message: 'comes only beside "values"' },
-    ]);
+    expect(problemsOf(actCall(note, act))).toEqual([]);
     expect(problemsOf(actCall({ type: "answer", ...withoutValues, derived }))).toEqual([
       { path: "/arguments/acts/0", message: 'holds none of "choice", "values" and "other"' },
-      { path: "/arguments/acts/0/derived", message: 'comes only beside "values"' },
+      { path: "/arguments/acts/0/derived", message: DERIVED_ALONE },
     ]);
   });
 });

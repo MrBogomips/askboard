@@ -54,9 +54,9 @@ export const VIEW_ACTIVITY_INTERVAL_MS = 5_000;
 
 /**
  * What an answer carries: the question's choice, the full edited value of each widget item the
- * user changed (AD-20), or both (design decision 7), and beside those values the derived values
- * of the items they belong to, as they stood (gantt-widget design decision 10, FR-12). The view
- * never computes `changes`.
+ * user changed (AD-20), or both (design decision 7), and beside any of them the derived values
+ * of every computing item of the question, as they stood (widget-answers design decision 10,
+ * FR-12). The view never computes `changes`.
  */
 export type AnswerContent = {
   readonly choice?: readonly string[];
@@ -68,7 +68,7 @@ export type AnswerContent = {
   readonly optionNotes?: Readonly<Record<string, string>>;
   /** The open prompt's text, sent with the answer (FR-7). */
   readonly note?: string;
-  /** The derived values of the items `values` holds, by reference (AD-13), each a JSON value. */
+  /** The derived values of the question's computing items, by reference (AD-13), each a JSON value. */
   readonly derived?: Readonly<Record<string, unknown>>;
 };
 
@@ -428,12 +428,14 @@ const ANSWER: MessageFields = {
   optional: ["derived", "optionNotes", "note"],
 };
 
-// Derived values belong to the widget values they derive from (gantt-widget design decision 10):
-// without them, the board page would send the answer's choice and drop the derived values unsaid.
-// It holds wherever ANSWER's checks do, for the answer message and the answer act (cross-review M3).
+// Derived values never make an answer (widget-answers design decision 10): they come beside a
+// choice, widget values or "Other…" text, and an answer of derived values alone is refused, as
+// `ask-core` refuses it. It holds wherever ANSWER's checks do, for the answer message and the
+// answer act (cross-review M3).
 const derivedAlone = (args: Record<string, unknown>, at = "/arguments"): Problem[] =>
-  Object.hasOwn(args, "derived") && !Object.hasOwn(args, "values")
-    ? [{ path: `${at}/derived`, message: 'comes only beside "values"' }]
+  Object.hasOwn(args, "derived") &&
+  !["choice", "values", "other"].some((field) => Object.hasOwn(args, field))
+    ? [{ path: `${at}/derived`, message: 'comes only beside "choice", "values" or "other"' }]
     : [];
 
 // Each act type's fields, as the board protocol's act command has them.
