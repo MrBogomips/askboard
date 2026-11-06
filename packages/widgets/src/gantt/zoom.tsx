@@ -21,18 +21,13 @@ const LABELS: Readonly<Record<Zoom, string>> = { day: "Day", week: "Week", month
 /** Every zoom may be chosen, whether or not the Gantt takes edits. */
 const ENABLED: readonly boolean[] = ZOOMS.map(() => true);
 
-/** The sunken track with its border, `spacing.control-height` high. */
-const TRACK = "inline-flex h-[28px] items-stretch rounded-md border border-border bg-muted";
-
 /**
- * A segment: in `muted-foreground`, and once chosen on `card` in `primary-text`, semibold, with a
- * 2px `primary` underline, so it differs by weight and shape as well as hue (F-92).
+ * The segmented control's one look (`view/src/styles/segment.css`, review F-17): a sunken track and
+ * its segments, the chosen one underlined in `primary`. The names repeat `shell/segment-classes.ts`,
+ * which a widget cannot import (AD-1); a test holds the two together.
  */
-const SEGMENT =
-  "border-b-2 border-transparent px-3 text-control text-muted-foreground first:rounded-l-md " +
-  "last:rounded-r-md hover:text-foreground data-[state=on]:border-primary " +
-  "data-[state=on]:bg-card data-[state=on]:font-semibold data-[state=on]:text-primary-text " +
-  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+const TRACK = "askboard-segments";
+const SEGMENT = "askboard-segment";
 
 export type ZoomProps = {
   readonly zoom: Zoom;

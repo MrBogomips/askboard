@@ -8,6 +8,7 @@
 // the same segment.
 
 import type { PresentationSetting } from "@askboard/contract";
+import { SEGMENT, SEGMENTS } from "../shell/segment-classes.ts";
 import { segmentAfterKey } from "../shell/segment-keys.ts";
 import { element } from "./page-chrome.ts";
 import type { PanelControl, PanelData, PanelRow } from "./settings-panel-data.ts";
@@ -35,8 +36,6 @@ const LABEL = "text-label uppercase text-muted-foreground";
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 const BUTTON = `h-control-height shrink-0 rounded-md border border-border bg-muted px-md text-control text-foreground hover:bg-card ${FOCUS_RING}`;
-const SEGMENTS = "inline-flex shrink-0 items-center rounded-md border border-border bg-muted p-0.5";
-const SEGMENT = `h-6 rounded-sm px-sm text-control text-muted-foreground aria-checked:bg-card aria-checked:font-semibold aria-checked:text-foreground enabled:hover:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
 const READ_ONLY = "flex flex-col gap-1 rounded-md bg-muted p-sm";
 const CODE = "break-all font-mono text-code";
 const ERROR = "text-body text-destructive-text";

@@ -23,7 +23,14 @@ import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { SnapshotButton } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
-import { BUTTON_LINK, BUTTON_PRIMARY, BUTTON_SECONDARY, SECTION_LABEL, SEGMENT } from "./styles.ts";
+import {
+  BUTTON_LINK,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY,
+  SECTION_LABEL,
+  SEGMENT,
+  SEGMENTS,
+} from "./styles.ts";
 import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
 
 const DIALOG =
@@ -95,10 +102,7 @@ export const BottomBar = (props: BottomBarProps) => {
       <span id="askboard-delivery" className={SECTION_LABEL}>
         {text("bar.delivery")}
       </span>
-      <fieldset
-        aria-labelledby="askboard-delivery"
-        className="flex items-center gap-0.5 rounded-md border border-border bg-muted p-0.5"
-      >
+      <fieldset aria-labelledby="askboard-delivery" className={SEGMENTS}>
         <button
           type="button"
           className={SEGMENT}

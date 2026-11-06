@@ -4,13 +4,10 @@
 // says why, which a screen reader reads with the group.
 
 import { type KeyboardEvent, useId, useRef } from "react";
+import { SEGMENT, SEGMENTS } from "./segment-classes.ts";
 import { segmentAfterKey } from "./segment-keys.ts";
-import { FOCUS_RING } from "./styles.ts";
 
 export type Segment<T extends string> = { readonly value: T; readonly label: string };
-
-const GROUP = "inline-flex shrink-0 items-center rounded-md border border-border bg-muted p-0.5";
-const SEGMENT = `h-6 rounded-sm px-sm text-control text-muted-foreground aria-checked:bg-card aria-checked:font-semibold aria-checked:text-foreground enabled:hover:text-foreground disabled:opacity-50 ${FOCUS_RING}`;
 
 export const Segmented = <T extends string>({
   label,
@@ -43,7 +40,7 @@ export const Segmented = <T extends string>({
       aria-label={label}
       aria-describedby={readOnly ? describedBy : undefined}
       title={description}
-      className={GROUP}
+      className={SEGMENTS}
     >
       {segments.map((segment, at) => (
         // biome-ignore lint/a11y/useSemanticElements: the WAI-ARIA radio group of buttons; a native radio cannot take the segment's look.

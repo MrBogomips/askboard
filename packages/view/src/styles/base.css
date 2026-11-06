@@ -3,6 +3,7 @@
    font stack until the faces are adopted (design, Non-Goals). The view build adds it after
    Tailwind's preflight and the tokens, in the shell's styles and the board page's. */
 @import "./hover.css";
+@import "./segment.css";
 
 @layer base {
   html {
