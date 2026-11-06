@@ -1,6 +1,6 @@
 # Spine update draft: widget registry
 
-**Status: to apply in task 0.1.** The proposal's open questions 1, 2, 3 and 5 were answered on 2026-11-06 with their defaults, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly, as the spine stands on this change's base (`origin/main` fd80950b plus PR #38's archives), then gives the replacement. ADs are amended in place; no AD is added or renumbered. The PRD change that goes with block 4 is in `prd-update-draft.md`.
+**Status: applied in task 0.1 on 2026-11-06.** The proposal's open questions 1, 2, 3 and 5 were answered on 2026-11-06 with their defaults, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly, as the spine stands on this change's base (`origin/main` fd80950b plus PR #38's archives), then gives the replacement. ADs are amended in place; no AD is added or renumbered. The PRD change that goes with block 4 is in `prd-update-draft.md`.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 

@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:tool-envelopes:fetch-result",
+  "title": "Fetch result",
+  "description": "What fetch returns for an item of an open or closed ask whose full value fits one result (FR-20, AD-6): the versions, the epoch, the ask's ID and state, and the item as ask-core holds it now. Nothing of the draft record. A longer value comes in pages (fetch-page). An ask without an owner check is unchecked (AD-5). Since 1.2, a question's context items are the board document's without an excerpt's text, written or read, or an image's bytes, at any depth (excerpts, design decision 4).",
+  "type": "object",
+  "properties": {
+    "versions": {
+      "$ref": "urn:askboard:tool-envelopes:versions"
+    },
+    "epoch": {
+      "$ref": "urn:askboard:output:epoch"
+    },
+    "askId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "state": {
+      "$ref": "urn:askboard:output:ask-state"
+    },
+    "item": {
+      "$ref": "#/$defs/item"
+    },
+    "unchecked": {
+      "const": true
+    }
+  },
+  "required": ["versions", "epoch", "askId", "state", "item"],
+  "additionalProperties": false,
+  "$defs": {
+    "item": {
+      "description": "An item as ask-core holds it now: a question with its type, rev, props and state, its current answer when it is answered or declined, and its previous answer after a reopen; or an area with its title and questions, which has no rev or state of its own.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": ["question", "area", "tree", "gantt"]
+        },
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "props": {
+          "type": "object"
+        },
+        "questionId": {
+          "$ref": "urn:askboard:input:id"
+        },
+        "state": {
+          "$ref": "urn:askboard:output:question-state"
+        },
+        "answer": {
+          "$ref": "#/$defs/answer"
+        },
+        "previous": {
+          "$ref": "#/$defs/answer"
+        }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "type": {
+            "enum": ["tree", "gantt"]
+          }
+        }
+      },
+      "then": {
+        "description": "A widget item fetched alone, as the user left it: its question's ID and state, and its props (FR-20, AD-9).",
+        "required": ["questionId", "state"],
+        "properties": {
+          "questionId": true,
+          "state": true,
+          "rev": false,
+          "answer": false,
+          "previous": false,
+          "props": true
+        },
+        "if": { "properties": { "type": { "const": "tree" } } },
+        "then": { "properties": { "props": { "$ref": "urn:askboard:input:tree-props" } } },
+        "else": { "properties": { "props": { "$ref": "urn:askboard:input:gantt-props" } } }
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "type": {
+              "const": "area"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "questionId": false,
+            "rev": false,
+            "state": false,
+            "answer": false,
+            "previous": false,
+            "props": {
+              "$ref": "#/$defs/areaProps"
+            }
+          }
+        },
+        "else": {
+          "required": ["rev", "state"],
+          "properties": {
+            "questionId": false,
+            "props": {
+              "$ref": "#/$defs/questionProps"
+            },
+            "rev": true,
+            "state": true
+          },
+          "if": {
+            "properties": {
+              "state": {
+                "enum": ["answered", "declined"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answer": true
+            },
+            "required": ["answer"]
+          },
+          "else": {
+            "properties": {
+              "answer": false
+            }
+          }
+        }
+      }
+    },
+    "answer": {
+      "description": "An answer in full as ask-core holds it (FR-20): its content, who and when, and either the cursor of its answer event or recorded, for an answer the agent recorded, which has no event (proposal, open question 3).",
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "$ref": "urn:askboard:output:cursor"
+        },
+        "choice": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "other": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "optionNotes": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "values": {
+          "description": "Since 1.4: the full props of each widget item the answer changed, by item ID in reference addressing, as the user sent them (FR-20, AD-20).",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "derived": {
+          "description": "Since 1.4: the derived values of the question's computing items as the user's board reported them, by reference (AD-13, FR-12), each any JSON value.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:output:answer-event#/$defs/reference"
+          },
+          "additionalProperties": true
+        },
+        "declined": {
+          "const": true
+        },
+        "who": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "when": {
+          "$ref": "urn:askboard:output:time"
+        },
+        "recorded": {
+          "const": true
+        }
+      },
+      "required": ["who", "when"],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "recorded": {
+            "const": true
+          }
+        },
+        "required": ["recorded"]
+      },
+      "then": {
+        "properties": {
+          "cursor": false
+        }
+      },
+      "else": {
+        "properties": {
+          "cursor": true
+        },
+        "required": ["cursor"]
+      }
+    },
+    "areaProps": {
+      "description": "An area's title and questions, each as the question below.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/question" } }
+      },
+      "required": ["title", "items"],
+      "additionalProperties": false
+    },
+    "question": {
+      "description": "A question of an area, as the board document holds it, its props as fetch gives them.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "question" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "rev": { "type": "integer", "minimum": 1 },
+        "props": { "$ref": "#/$defs/questionProps" }
+      },
+      "required": ["type", "id", "rev", "props"],
+      "additionalProperties": false
+    },
+    "questionProps": {
+      "description": "A question's props as fetch gives them: the input format's fields, and its context items as the board document holds them, less excerpt text and image bytes (excerpts, design decision 4).",
+      "type": "object",
+      "properties": {
+        "text": { "$ref": "urn:askboard:input:question-props#/properties/text" },
+        "header": { "$ref": "urn:askboard:input:question-props#/properties/header" },
+        "options": { "$ref": "urn:askboard:input:question-props#/properties/options" },
+        "multiSelect": { "$ref": "urn:askboard:input:question-props#/properties/multiSelect" },
+        "allowOther": { "$ref": "urn:askboard:input:question-props#/properties/allowOther" },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/contextItem" } }
+      },
+      "required": ["text"],
+      "additionalProperties": false
+    },
+    "contextItem": {
+      "description": "A context item, picked by its type.",
+      "type": "object",
+      "discriminator": { "propertyName": "type" },
+      "oneOf": [
+        { "$ref": "#/$defs/excerpt" },
+        { "$ref": "#/$defs/reference" },
+        { "$ref": "#/$defs/image" },
+        { "$ref": "#/$defs/tree" },
+        { "$ref": "#/$defs/gantt" }
+      ]
+    },
+    "excerpt": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "excerpt" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "#/$defs/excerptProps" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "reference": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "reference" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:board-document:reference-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "image" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "#/$defs/imageProps" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "tree": {
+      "description": "A Tree as the board document holds it, a molecule's expanded one under its reference's ID.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "tree" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:tree-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "gantt": {
+      "description": "A Gantt as the board document holds it, a molecule's expanded one under its reference's ID.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "gantt" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:gantt-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "excerptProps": {
+      "description": "An excerpt without its text: by pointer, its status, and its media type and lines when resolved or its reason when not; written by the agent, its title only.",
+      "type": "object",
+      "properties": {
+        "pointer": { "$ref": "urn:askboard:input:pointer" },
+        "title": { "$ref": "urn:askboard:board-document:excerpt-props#/properties/title" },
+        "status": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/status" },
+        "reason": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/reason" },
+        "mediaType": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/textMediaType" },
+        "lines": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/lines" }
+      },
+      "additionalProperties": false,
+      "if": { "properties": { "pointer": true }, "required": ["pointer"] },
+      "then": {
+        "properties": { "status": true },
+        "required": ["status"],
+        "if": { "properties": { "status": { "const": "resolved" } } },
+        "then": {
+          "properties": { "mediaType": true, "lines": true, "reason": false },
+          "required": ["mediaType", "lines"]
+        },
+        "else": {
+          "properties": { "reason": true, "mediaType": false, "lines": false },
+          "required": ["reason"]
+        }
+      },
+      "else": {
+        "properties": { "status": false, "reason": false, "mediaType": false, "lines": false }
+      }
+    },
+    "imageProps": {
+      "description": "An image without its bytes: its pointer, alt text and status, and its media type when resolved or its reason when not.",
+      "type": "object",
+      "properties": {
+        "pointer": { "$ref": "urn:askboard:input:pointer" },
+        "alt": { "$ref": "urn:askboard:board-document:image-props#/properties/alt" },
+        "status": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/status" },
+        "reason": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/reason" },
+        "mediaType": { "$ref": "urn:askboard:board-document:excerpt-props#/$defs/imageMediaType" }
+      },
+      "required": ["pointer", "alt", "status"],
+      "additionalProperties": false,
+      "if": { "properties": { "status": { "const": "resolved" } } },
+      "then": { "properties": { "mediaType": true, "reason": false }, "required": ["mediaType"] },
+      "else": { "properties": { "reason": true, "mediaType": false }, "required": ["reason"] }
+    }
+  }
+}

@@ -366,7 +366,7 @@ An agent can name, in an ask, the user expected to answer it. Every answer recor
 
 #### FR-20: Only what changed
 
-For a widget the user edits, the answer carries only what changed from what the agent sent, together with the derived values. The agent can fetch the full result by ask ID and item ID when it needs it. When what changed and the derived values would not fit in one tool result, the answer says so and carries neither, and the agent fetches them.
+For a widget the user edits, the answer carries only what changed from what the agent sent, together with the derived values. The agent can fetch the full result by ask ID and item ID when it needs it. When what changed, the widgets' results and the derived values would not fit in one tool result, the answer says so and carries none of them, and the agent fetches them.
 
 **Consequences (testable):**
 - In a 200-node WBS where the user changed 3 nodes, the answer describes the 3 changes, not the 200 nodes.
