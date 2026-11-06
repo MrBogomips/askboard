@@ -16,7 +16,7 @@ import { contentOf, contentProblem, textProblem } from "./answers.ts";
 import type { Entry, EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
-import { type KeptAnswer, widgetFieldsOf } from "./widget-event.ts";
+import { type KeptAnswer, widgetFieldsOf, withinLimit } from "./widget-event.ts";
 import { isWidgetProblem, type WidgetContent, widgetContentOf } from "./widget-values.ts";
 
 /** Why an act cannot apply. */
@@ -160,7 +160,7 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   const body = declined ? { declined: true, ...reason } : contentOf(act);
   const widget = widgets === undefined ? {} : widgetFieldsOf(target.expansion, props, widgets);
   if (widgets !== undefined) keepWidgets(target, widgets);
-  return { ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent;
+  return withinLimit({ ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent);
 };
 
 const postponed = (target: Target): Built => {

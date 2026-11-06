@@ -4,7 +4,12 @@
 // derived values as sent are kept apart from the log, by the cursor of the event. Plain
 // ECMAScript (AD-1).
 
-import type { Change, QuestionProps } from "@askboard/contract";
+import {
+  ANSWER_EVENT_MAX_CHARS,
+  type AnswerEvent,
+  type Change,
+  type QuestionProps,
+} from "@askboard/contract";
 import { answerInReferenceAddressing } from "../molecules/addressing.ts";
 import type { ExpansionMap } from "../molecules/map.ts";
 import type { WidgetContent } from "./widget-values.ts";
@@ -46,4 +51,15 @@ export const widgetFieldsOf = (
     ...(addressed.changes.length === 0 ? {} : { changes: addressed.changes }),
     ...(Object.keys(addressed.derived).length === 0 ? {} : { derived: addressed.derived }),
   };
+};
+
+/**
+ * The event as `collect` returns it: over `ANSWER_EVENT_MAX_CHARS` serialized, it is logged
+ * without `changes` and `derived` and with `tooLarge: true`, and `fetch` has them (FR-20, AD-6).
+ * An event within the limit is returned as it is.
+ */
+export const withinLimit = (event: AnswerEvent): AnswerEvent => {
+  if (JSON.stringify(event).length <= ANSWER_EVENT_MAX_CHARS) return event;
+  const { changes: _changes, derived: _derived, ...rest } = event;
+  return { ...rest, tooLarge: true };
 };
