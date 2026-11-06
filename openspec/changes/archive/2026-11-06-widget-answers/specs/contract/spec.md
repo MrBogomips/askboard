@@ -116,6 +116,10 @@ The contract SHALL define the molecule definition format 1.0.0 in the schema `ur
 - **WHEN** a definition's `format` is `2.0.0`
 - **THEN** validation fails, naming the format versions the contract supports
 
+#### Scenario: Parameters that do not compile
+- **WHEN** a definition's parameters hold a keyword JSON Schema does not define
+- **THEN** validation fails, naming `parameters`
+
 ## REMOVED Requirements
 
 ### Requirement: Standalone widget schemas
