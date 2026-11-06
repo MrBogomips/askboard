@@ -42,13 +42,13 @@ const boardItemOf = (
           };
     case "image":
       return { ...item, props: { ...item.props, ...(resolution as ImageResolution) } };
-    // A Tree or a Gantt goes through as sent: nothing of it is read or resolved here.
-    case "tree":
-    case "gantt":
-      return item;
     case "molecule":
       // ask-core expands every reference before it builds the board document (design decision 5).
       throw new Error(`the molecule reference "${item.id}" reached the board document unexpanded`);
+    // Any other item is a widget's, whatever its type: it goes through as sent, nothing of it is
+    // read or resolved here (widget-registry design decision 2).
+    default:
+      return item;
   }
 };
 

@@ -20,6 +20,7 @@ const currentOf = (answer: AnswerView): CurrentAnswer => ({
   ...(answer.other === undefined ? {} : { other: answer.other }),
   ...(answer.optionNotes === undefined ? {} : { optionNotes: { ...answer.optionNotes } }),
   ...(answer.note === undefined ? {} : { note: answer.note }),
+  ...(answer.results === undefined ? {} : { results: { ...answer.results } }),
   ...(answer.declined ? { declined: true as const } : {}),
   when: answer.when,
   receipt: answer.delivered ? "delivered" : "sent",

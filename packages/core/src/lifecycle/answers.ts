@@ -78,7 +78,8 @@ export const contentProblem = (
   if (!declined && !widgetChange && choice === undefined && other === undefined) {
     return {
       refusal: "content",
-      detail: "the answer names no option, has no Other… text and changes no Tree or Gantt",
+      detail:
+        "the answer names no option, has no Other… text, changes no Tree or Gantt and gives no result",
     };
   }
   return undefined;

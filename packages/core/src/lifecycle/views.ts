@@ -29,10 +29,15 @@ export type AnswerView = AnswerContent & {
   readonly delivered: boolean;
   /** The full values of the widget items it changed, by expanded item ID (AD-20); none without. */
   readonly values?: Readonly<Record<string, unknown>>;
+  /** The results its widget items gave, by expanded item ID (AD-20); none without. */
+  readonly results?: Readonly<Record<string, unknown>>;
 };
 
 /** The widget content kept for each answer event, by cursor (AD-20). */
-export type KeptValues = ReadonlyMap<string, { readonly values: unknown }>;
+export type KeptValues = ReadonlyMap<
+  string,
+  { readonly values: unknown; readonly results?: unknown }
+>;
 
 /** A follow-up the user wrote, with the agent's replies under it (FR-10). */
 export type ThreadView = {
@@ -95,14 +100,23 @@ export const fullAnswer = (
 
 const seqOf = (cursor: string): number => Number(cursor.slice(cursor.indexOf(".") + 1));
 
+// A kept part of an answer's widget content, as a field of the view when it holds anything.
+const keptPart = (part: unknown): Readonly<Record<string, unknown>> | undefined =>
+  typeof part === "object" && part !== null && Object.keys(part).length > 0
+    ? (part as Readonly<Record<string, unknown>>)
+    : undefined;
+
 const answerView = (answer: FetchAnswer, received: number, kept: KeptValues): AnswerView => {
   const delivered = "cursor" in answer ? seqOf(answer.cursor) <= received : true;
-  const values = "cursor" in answer ? kept.get(answer.cursor)?.values : undefined;
-  const widgets =
-    typeof values === "object" && values !== null && Object.keys(values).length > 0
-      ? { values: values as Readonly<Record<string, unknown>> }
-      : {};
-  return { ...answer, delivered, ...widgets };
+  const held = "cursor" in answer ? kept.get(answer.cursor) : undefined;
+  const values = keptPart(held?.values);
+  const results = keptPart(held?.results);
+  return {
+    ...answer,
+    delivered,
+    ...(values === undefined ? {} : { values }),
+    ...(results === undefined ? {} : { results }),
+  };
 };
 
 const threadOf = (question: QuestionRecord, entries: readonly Entry[]): ThreadView[] =>
