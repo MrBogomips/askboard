@@ -215,7 +215,15 @@ A Tree SHALL hold at most 500 nodes, 8 levels and 8 columns; a name SHALL be 1 t
 - **THEN** validation fails, naming the node and the limit of 8 levels
 
 ### Requirement: Tree changes
-The contract SHALL define a Tree's `changes` in the schema `urn:askboard:output:tree-changes`, checked by `validateTreeChanges`, as a list of the output format's changes (AD-20) with the Tree's rules: `add`, `remove` and `move` target `item.node`; an `add`'s `value` holds the node's name and fields, without `id` or children; `set` targets `item.node.field`, the field `label` or a declared one, with a value of its type, or `null` to empty a field other than `label`.
+The contract SHALL define a Tree's `changes` in the schema `urn:askboard:output:tree-changes`, checked by `validateTreeChanges`, as a list of the output format's changes (AD-20) with the Tree's rules: `add`, `remove` and `move` target `item.node`, and `set` targets `item.node.field`. A bulk adjustment of values and a drag of a node SHALL give no operation but these (Tree bulk percentage adjustment; Tree drag and drop).
+
+#### Scenario: Operation values
+- **WHEN** a Tree's operations are validated
+- **THEN** an `add`'s `value` holds the node's name and fields, without `id` or children, and a `set`'s field is `label` or a declared one, with a value of its type, or `null` to empty a field other than `label`
+
+#### Scenario: A bulk adjustment or a drag
+- **WHEN** the user adjusts values in bulk or drags a node
+- **THEN** the changes hold one `set` for each value that differs from what the agent sent and one `move` for each node that is elsewhere, and no other operation
 
 #### Scenario: The approved UJ-2 answer
 - **WHEN** the operations of `answers/uj2-wbs-gantt.json` whose target starts with `wbs.` are validated as Tree changes
@@ -224,6 +232,14 @@ The contract SHALL define a Tree's `changes` in the schema `urn:askboard:output:
 #### Scenario: A set on the children
 - **WHEN** a `set` operation targets `wbs.build.children`
 - **THEN** validation fails, naming the target
+
+#### Scenario: A bulk adjustment
+- **WHEN** 12 leaves' most likely estimates are each raised by 10% and the diff runs
+- **THEN** it returns 12 `set` operations, each on `wbs.<node>.mostLikely` with the new number, and they validate as Tree changes
+
+#### Scenario: A drag and back
+- **WHEN** a node is moved and moved back, and the diff runs
+- **THEN** it returns no operation for it
 
 ### Requirement: Tree change positions
 A Tree's `add` and `move` SHALL name the parent node and the preceding sibling, omitting `parent` at the top level and `after` at the first place; a `parent` or `after` of `null` SHALL fail validation (AD-20).
@@ -317,7 +333,15 @@ The Gantt's props and changes SHALL be the schemas `urn:askboard:input:gantt-pro
 - **THEN** both compile, both are JSON Schema 2020-12 with those `$id`s, neither has a root combinator, and the input format lists `gantt-props` and the output format `gantt-changes`
 
 ### Requirement: Gantt item props
-The input format SHALL define a Gantt item's props as a `start` date and `tasks`. Without `workPackages`, `tasks` SHALL be a list of the Gantt's own tasks, each `{id, label, duration}`. With `workPackages`, the ID of a Tree item whose leaves are the tasks (the Gantt plan), `tasks` SHALL be a map from task ID to an entry. A task or an entry MAY hold a requested `start` and its `dependencies`, its predecessors' IDs; an entry holds nothing else. Any other key SHALL fail validation, naming it.
+The input format SHALL define a Gantt item's props as a `start` date and `tasks`. Without `workPackages`, `tasks` SHALL be a list of the Gantt's own tasks; with `workPackages`, the ID of a Tree item whose leaves are the tasks (the Gantt plan), `tasks` SHALL be a map from task ID to an entry. Any other key than those below SHALL fail validation, naming it.
+
+#### Scenario: A task's shape
+- **WHEN** a Gantt without `workPackages` lists tasks
+- **THEN** each is `{id, label, duration}` and MAY hold a requested `start` and its `dependencies`, its predecessors' IDs
+
+#### Scenario: An entry's shape
+- **WHEN** a Gantt plan maps a task ID to an entry
+- **THEN** the entry MAY hold a requested `start`, its `dependencies` and a requested `duration`, and nothing else
 
 #### Scenario: A Gantt's own tasks
 - **WHEN** a Gantt lists six tasks, each with an ID, a label and a duration, two of them with dependencies
@@ -325,6 +349,10 @@ The input format SHALL define a Gantt item's props as a `start` date and `tasks`
 
 #### Scenario: The UJ-2 plan
 - **WHEN** a plan over `wbs` maps `prototype`, `portal`, `billing` and `reporting` to entries holding their approved predecessors
+- **THEN** it passes
+
+#### Scenario: A plan entry with a duration
+- **WHEN** a plan's entry for `portal` holds `duration` 21
 - **THEN** it passes
 
 #### Scenario: A plan entry with a label
@@ -407,19 +435,27 @@ A Gantt SHALL hold at most 500 tasks; a task at most 50 predecessors; at most 50
 - **THEN** validation fails, naming the limit of 500 tasks
 
 ### Requirement: Gantt changes
-The output format SHALL define a Gantt's `changes` as `set` operations of AD-20's generic diff on a task's field: `item.task.duration`, only on a Gantt's own task; `item.task.start`, a date or `null` to clear the request; `item.task.dependencies`, the full list, or `null` for none. No other operation or field SHALL pass.
+The output format SHALL define a Gantt's `changes` as `set` operations of AD-20's generic diff on a task's field: `item.task.duration`, a whole number of working days of a Gantt's own task, or of a plan's entry as a requested duration, or `null` to clear a plan's request; `item.task.start`, a date or `null` to clear the request; `item.task.dependencies`, the full list, or `null` for none. No other operation or field SHALL pass.
 
 #### Scenario: The approved UJ-2 answer
 - **WHEN** the operation of `answers/uj2-wbs-gantt.json` whose target starts with `schedule.` is validated as a change of the plan `schedule`
 - **THEN** it passes
 
 #### Scenario: A plan's duration
-- **WHEN** a change of a Gantt plan sets `schedule.portal.duration`
-- **THEN** validation fails, saying that a plan's durations follow its work packages' estimates
+- **WHEN** a change of a Gantt plan sets `schedule.portal.duration` to 21, or to `null`
+- **THEN** it passes
+
+#### Scenario: A duration out of range
+- **WHEN** a change sets `schedule.portal.duration` to 0, to 2001 or to 2.5
+- **THEN** validation fails, naming the value and the range 1 to 2,000
 
 #### Scenario: A move
 - **WHEN** a Gantt's changes hold a `move` operation
 - **THEN** validation fails, naming the operation
+
+#### Scenario: The diff of a requested duration
+- **WHEN** a plan's edited value holds a requested duration the sent one did not, and the diff runs
+- **THEN** it returns one `set` of the entry's `duration`, valid as the plan's changes, and the diff of an edited value that dropped a sent request gives `null`
 
 ### Requirement: Computing a Gantt's changes
 A Gantt's `changes` SHALL be those the contract's one generic element diff gives for the Gantt's shape: its own tasks as a flat list, a plan's tasks as a keyed map, every key but `id` a field. The Gantt SHALL have no diff of its own (AD-20, FR-20).
