@@ -40,6 +40,9 @@ import {
 import type { LifecycleAskInput } from "./schemas/input/index.ts";
 import type { CollectRequest, ToolDefinition } from "./schemas/tool-envelopes/index.ts";
 import { SCHEMA_IDS } from "./sets.ts";
+import { elementOf } from "./widgets/paths.ts";
+import { widgetProblems, widgetSchemaErrors } from "./widgets/request-problems.ts";
+import { WIDGET_EXPECTED, WIDGET_FIELDS } from "./widgets/wording.ts";
 
 export type { RequestProblem } from "./problems.ts";
 
@@ -73,10 +76,12 @@ const ASK: Wording = {
     locale: '"en-US" or "it-IT"',
     items: "a non-empty list of questions, or of areas each holding questions",
     ...ITEM_EXPECTED,
+    ...WIDGET_EXPECTED,
   },
   fields: {
     "": "an ask holds only askId, title, agentName, expectedUser, presentation, delivery, language, locale and items",
     ...ITEM_FIELDS,
+    ...WIDGET_FIELDS,
   },
   // An item's fields by the item's type: `question.props.text`, `area.props.title`.
   keyOf: (ask, segments) =>
@@ -88,7 +93,9 @@ const ASK: Wording = {
     if (segments[0] !== "items" || segments.length < 3) return undefined;
     const inner = innerItemOf(itemsOf(ask)[Number(segments[1])], segments.slice(2));
     const id = isRecord(inner.item) ? inner.item.id : undefined;
-    return isId(id) ? { itemId: id, rest: inner.rest } : undefined;
+    if (!isId(id)) return undefined;
+    const element = elementOf(inner.item, inner.rest);
+    return { itemId: id, rest: inner.rest, ...(element === undefined ? {} : { element }) };
   },
 };
 
@@ -108,17 +115,19 @@ export const validateAskRequest = (value: unknown): CheckedRequest<LifecycleAskI
     ["askId"],
     isRecord(value) ? value.askId : undefined,
   ];
+  const schema = widgetSchemaErrors(schemaErrors(SCHEMA_IDS.ask, value), value)
+    .map(located)
+    .map((entry) => schemaProblem(ASK, value, entry))
+    .filter(({ path }) => !replaced.has(path));
   const problems = [
-    ...schemaErrors(SCHEMA_IDS.ask, value)
-      .map(located)
-      .map((entry) => schemaProblem(ASK, value, entry))
-      .filter(({ path }) => !replaced.has(path)),
+    ...schema,
     ...nested,
     ...areaRuleProblems(items, ["items"]),
     ...repeatedIdProblems(ASK, value, placed),
     ...reservedPrefixProblems(ASK, value, [askId, ...placedIds(placed)]),
     ...labelProblems(ASK, value, placed),
     ...contextProblems(ASK, value, placed),
+    ...widgetProblems(ASK, value, placed, schema),
   ];
   if (problems.length === 0) return { ok: true, value: value as LifecycleAskInput };
   return { ok: false, reason: "schema", problems: inDocumentOrder(value, problems) };

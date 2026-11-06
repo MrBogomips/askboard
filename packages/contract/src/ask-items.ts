@@ -24,6 +24,7 @@ import {
   type Segments,
   type Wording,
 } from "./problems.ts";
+import { widgetRest } from "./widgets/paths.ts";
 
 const ID = new RegExp(ID_PATTERN);
 
@@ -102,7 +103,7 @@ const questionKey = (question: unknown, rest: Segments): string => {
     const inner = contextOf(question)[Number(rest[2])];
     const type = isRecord(inner) ? inner.type : undefined;
     if (typeof type === "string" && CONTEXT_ITEM_TYPES.includes(type)) {
-      return `${type}.${keyOf(rest.slice(3))}`;
+      return `${type}.${keyOf(widgetRest(type, rest.slice(3)))}`;
     }
   }
   return rest.length === 0 ? "question" : `question.${keyOf(rest)}`;
@@ -193,7 +194,8 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "image.props": "an image's props {pointer, alt}",
   "image.props.pointer": `${POINTER} to a PNG, JPEG, GIF or WebP file, with no anchor`,
   "image.props.alt": text(IMAGE_ALT_MAX_CHARS),
-  // A question's widget items (widget-answers, design decision 4); task 1.3 words their props.
+  // A question's widget items (widget-answers, design decision 4); `widgets/wording.ts` words
+  // their props, which `requests.ts` and `update-request.ts` add to these tables.
   "tree.id": `${ID_SHAPE}, unique in the ask`,
   "gantt.id": `${ID_SHAPE}, unique in the ask`,
   "molecule.id": `${ID_SHAPE}, unique in the ask`,
