@@ -234,6 +234,8 @@ export type ChartProps = {
   readonly layout: RowBoxes;
   readonly span: ChartSpan;
   readonly zoom: Zoom;
+  /** The room the chart's frame gives it, in px: a span of fewer whole days than fill it is drawn that wide. */
+  readonly room: number;
   /** What the user changed, by task: a changed task's bar takes the change outline. */
   readonly marks: ReadonlyMap<string, TaskMarks>;
   /** Whether the bars take pointer edits. */
@@ -288,7 +290,10 @@ const ResizeLabel = ({
 export const Chart = (props: ChartProps) => {
   const { itemId, rows, schedules, layout, span, zoom, onMove, onResize } = props;
   const text = useStrings();
-  const width = (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
+  const width = Math.max(
+    (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom],
+    props.room,
+  );
   const bars = useMemo(
     () => drawnBars(rows, schedules, layout, span, zoom),
     [rows, schedules, layout, span, zoom],

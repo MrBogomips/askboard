@@ -371,7 +371,15 @@ export const TreeWidget = ({
   // dropped, never to show again unasked.
   const question =
     disabled || asked === undefined ? undefined : askedQuestion(value, asked, countDependents);
-  if (asked !== undefined && question === undefined) setAsked(undefined);
+  if (asked !== undefined && question === undefined) {
+    // A lock takes the question while its "Cancel" holds the focus: the focus goes to the tree, not
+    // to the selection tools that stay in a read-only toolbar.
+    const row = focus.toolbarRow.current;
+    if (disabled && row?.contains(row.ownerDocument.activeElement) === true) {
+      focus.moveFocusTo("grid");
+    }
+    setAsked(undefined);
+  }
   const asking =
     question === undefined || asked === undefined
       ? undefined

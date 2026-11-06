@@ -264,6 +264,7 @@ export const GanttFrame = (props: FrameProps) => {
               layout={layout}
               span={shownSpan}
               zoom={zoom}
+              room={box.width ?? 0}
               marks={marks}
               editable={editable}
               highlight={showCritical}

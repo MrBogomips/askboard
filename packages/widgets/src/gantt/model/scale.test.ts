@@ -320,6 +320,11 @@ describe("a short span stretched to the frame's width (review F-15)", () => {
     expect(stretchedLast(span, "month", 400)).toBe("2027-02-09");
   });
 
+  test("stays within a width that is no whole number of days", () => {
+    // 717px hold 179 days at 4px (716px), not 180 (720px), which would scroll.
+    expect(stretchedLast(span, "month", 717)).toBe("2027-04-29");
+  });
+
   test("leaves a span that already fills the width", () => {
     expect(stretchedLast(span, "week", 300)).toBe("2026-12-01");
     expect(stretchedLast(span, "week", 0)).toBe("2026-12-01");

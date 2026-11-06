@@ -137,15 +137,16 @@ export const openingZoom = (days: number, width: number): Zoom =>
   ZOOMS.find((zoom) => days * PIXELS_PER_DAY[zoom] <= width) ?? "month";
 
 /**
- * The axis's last day once a short span is stretched to the frame's width: on to the day that many
- * pixels need at the zoom, within the days a Gantt may name; the span's own when it is wider.
+ * The axis's last day once a short span is stretched to the frame's width: on to the last whole day
+ * that fits those pixels at the zoom, within the days a Gantt may name; the span's own when it is wider.
  */
 export const stretchedLast = (
   span: { readonly origin: string; readonly last: string },
   zoom: Zoom,
   width: number,
 ): string => {
-  const needed = Math.ceil(width / PIXELS_PER_DAY[zoom]);
+  // Whole days that fit: a day more would put the axis past the frame and make it scroll.
+  const needed = Math.floor(width / PIXELS_PER_DAY[zoom]);
   const first = dayNumber(span.origin);
   if (first + needed - 1 <= dayNumber(span.last)) return span.last;
   return dateOfDay(Math.min(LAST_DAY, first + needed - 1));

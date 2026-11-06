@@ -34,7 +34,7 @@ import type { TreeEdit } from "./model/edits.ts";
 import { toolbarFocus, toolbarStop } from "./model/focus.ts";
 import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
 import { OVERFLOW_TOOLS } from "./model/overflow.ts";
-import type { Selection } from "./model/selection.ts";
+import { type Selection, selectAll } from "./model/selection.ts";
 import { useCrowded } from "./use-crowded.ts";
 
 // The counter: "No changes", then each node the user changed, once, after the change dot; cut with
@@ -110,7 +110,8 @@ const itemsOf = (
     {
       key: "selectAll",
       label: "tree.select.all",
-      enabled: true,
+      // Nothing to select in an empty Tree, which leaves its toolbar stop to "Add node".
+      enabled: selectAll(tools.value).size > 0,
       overflow: true,
       run: tools.onSelectAll,
     },

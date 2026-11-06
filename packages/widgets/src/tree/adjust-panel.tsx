@@ -3,11 +3,12 @@
 // with no echo, a preview drawn from `planAdjustment`, "Apply" and "Cancel". "Apply" applies exactly
 // the plan the preview showed, and stays disabled while the percentage is refused, no column is
 // checked, nothing would change or a row would break the estimates' order or range. Enter in the
-// field submits; Escape and "Cancel" close the panel (the Popover around it closes it).
+// field applies; Escape and "Cancel" close the panel (the Popover around it closes it). The view's
+// sandbox has no `allow-forms`, so no form is ever submitted: "Apply" and Enter act themselves.
 
 import { TREE_PERT_MAX_ESTIMATE, type TreeProps } from "@askboard/contract";
 import { type Say, useLanguage, useLocale, useStrings } from "@askboard/view/catalog";
-import { type FormEvent, useId, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
 import { formatNumber } from "../shared/number.ts";
 import {
   EDITOR,
@@ -119,11 +120,17 @@ export const AdjustPanel = ({
   const problem = problemOf(entry, checked.length, text);
   const canApply = plan?.kind === "ready" && plan.changes.length > 0;
 
-  const submit = (event: FormEvent): void => {
-    event.preventDefault();
+  const apply = (): void => {
     if (canApply && entry.kind === "percent") {
       onApply({ plan, percent: percentLabel(entry.tenths, locale) });
     }
+  };
+  // A submission is the sandbox's to block, so the form's own is stopped, and Enter in the field applies.
+  const submit = (event: FormEvent): void => event.preventDefault();
+  const onFieldKey = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    apply();
   };
   const flip = (field: string): void =>
     setChecked((now) =>
@@ -158,6 +165,7 @@ export const AdjustPanel = ({
           aria-invalid={entry.kind === "refused" ? true : undefined}
           aria-describedby={problem === undefined ? undefined : `${ids}-problem`}
           onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={onFieldKey}
         />
       </label>
       {problem === undefined ? null : (
@@ -170,7 +178,7 @@ export const AdjustPanel = ({
         <button type="button" className={TOOL} onClick={onCancel}>
           {text("tree.adjust.cancel")}
         </button>
-        <button type="submit" className={TOOL} disabled={!canApply}>
+        <button type="button" className={TOOL} disabled={!canApply} onClick={apply}>
           {text("tree.adjust.apply")}
         </button>
       </div>
