@@ -29,11 +29,11 @@ describe("the versions of the sets", () => {
       envelopes: TOOL_ENVELOPES_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
-    }).toEqual({ output: "1.4", envelopes: "1.5", protocol: "1.6", snapshot: "1.1" });
+    }).toEqual({ output: "1.5", envelopes: "1.5", protocol: "1.6", snapshot: "1.1" });
   });
 
   test("the sets hold those constants", () => {
-    expect(setOf("output").version).toBe("1.4");
+    expect(setOf("output").version).toBe("1.5");
     expect(setOf("tool-envelopes").version).toBe("1.5");
     expect(setOf("board-protocol").version).toBe("1.6");
     expect(setOf("snapshot-data").version).toBe("1.1");
@@ -44,13 +44,13 @@ describe("the versions of the sets", () => {
       input: INPUT_FORMAT_VERSION,
       document: BOARD_DOCUMENT_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({ input: "1.4", document: "1.4", manifest: "1.1" });
+    }).toEqual({ input: "1.5", document: "1.4", manifest: "1.1" });
     expect(setOf("configuration").version).toBe(CONFIGURATION_VERSION);
   });
 
   test("a receiver at the new minor accepts the previous minor and refuses another major", () => {
     for (const [name, previous] of [
-      ["output", "1.3"],
+      ["output", "1.4"],
       ["tool-envelopes", "1.4"],
       ["board-protocol", "1.5"],
       ["snapshot-data", "1.0"],

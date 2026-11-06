@@ -8,7 +8,7 @@ import {
   type TreeProps,
 } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
-import { liveGraph, sentGraph } from "../../graph/index.ts";
+import { liveGraph, sentGraph } from "../../board-graph/index.ts";
 import { applyAdjustment, planAdjustment } from "./adjust.ts";
 import { marksOf } from "./marks.ts";
 import { pertDerived } from "./pert.ts";

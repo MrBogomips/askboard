@@ -115,7 +115,7 @@ A type's result schema is `urn:askboard:output:<type>-result`, listed in the out
 
 The output format, the tool envelopes, the board protocol and the Snapshot data each take the next minor after `main`'s (askboard-contract-versioning): the constant set to `main`'s minor plus one when group 2 starts, one appended sentence in each set module's header naming this change, and the binding at the rebase task. The input format and the board document widen nothing: their composed schemas equal today's. Schema descriptions, comments and test titles say "since widget-registry", never a number.
 
-Binding: (filled at task 5.3) "Bound on <date>, rebased onto origin/main <sha>: output format <n> (main <m>), tool envelopes …, board protocol …, Snapshot data …."
+Binding: Bound on 2026-11-06, rebased onto 9322a5a6 (PR #40, on origin/main 435939d7 with `widget-editing-plus` merged): output format 1.5 (main 1.4), tool envelopes 1.5 (main 1.4), board protocol 1.6 (main 1.5), Snapshot data 1.1 (main 1.0); input format 1.5 and board document 1.4 stay at main's.
 
 ## Merge points
 

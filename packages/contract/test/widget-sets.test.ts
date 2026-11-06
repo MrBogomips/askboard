@@ -35,12 +35,12 @@ describe("the widening as the next minor (widget-answers, design decision 1)", (
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
-    }).toEqual({ input: "1.5", output: "1.4", envelopes: "1.5", document: "1.4", protocol: "1.6" });
+    }).toEqual({ input: "1.5", output: "1.5", envelopes: "1.5", document: "1.4", protocol: "1.6" });
   });
 
   test("each set holds its constant, with the owner AD-7 gives it", () => {
     expect(setOf("input")).toMatchObject({ version: "1.5", owner: "contract" });
-    expect(setOf("output")).toMatchObject({ version: "1.4", owner: "contract" });
+    expect(setOf("output")).toMatchObject({ version: "1.5", owner: "contract" });
     expect(setOf("tool-envelopes")).toMatchObject({ version: "1.5", owner: "mcp-tools" });
     expect(setOf("board-document")).toMatchObject({ version: "1.4", owner: "ask-core" });
     expect(setOf("board-protocol")).toMatchObject({ version: "1.6", owner: "board-host" });
