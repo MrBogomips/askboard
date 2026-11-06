@@ -78,6 +78,14 @@ describe("validateGanttProps", () => {
     expect(says(problems, "/tasks/u-1", "u-1", "reserved")).toBe(true);
   });
 
+  test("accepts a plan entry's requested duration, from the agent and as edited", () => {
+    const plan = { ...PLAN, tasks: { ...PLAN.tasks, portal: { duration: 21 } } };
+    expect(validateGanttProps(plan, "agent").ok).toBe(true);
+    expect(validateGanttProps(plan, "edited").ok).toBe(true);
+    const bounds = { ...PLAN, tasks: { ux: { duration: 1 }, portal: { duration: 2_000 } } };
+    expect(validateGanttProps(bounds, "agent").ok).toBe(true);
+  });
+
   test("leaves cycles, unknown predecessors and entries for no leaf to the compute graph", () => {
     const cycle = own([task("a", { dependencies: ["b"] }), task("b", { dependencies: ["a"] })]);
     expect(validateGanttProps(cycle, "agent").ok).toBe(true);
@@ -99,12 +107,15 @@ describe("validateGanttProps", () => {
       "/tasks/portal/label",
       ["portal", "names", "Tree"],
     ],
-    [
-      "a plan entry with a duration",
-      { ...PLAN, tasks: { portal: { duration: 3 } } },
-      "/tasks/portal/duration",
-      ["portal", "durations", "estimates"],
-    ],
+    ...[0, 2_001, 2.5].map(
+      (duration) =>
+        [
+          `a plan entry with a duration of ${duration}`,
+          { ...PLAN, tasks: { portal: { duration } } },
+          "/tasks/portal/duration",
+          ["portal", String(duration), "1", "2000"],
+        ] as [string, unknown, string, string[]],
+    ),
     [
       "a day that does not exist",
       own([task("ux", { start: "2026-02-30" })]),
@@ -193,6 +204,13 @@ describe("validateGanttChanges", () => {
     expect(value).toEqual(changes);
   });
 
+  test("accepts a plan's requested duration, and null clearing it", () => {
+    for (const value of [21, 1, 2_000, null]) {
+      const changes = [set("schedule.portal.duration", value)];
+      expect(validateGanttChanges("schedule", changes, PLAN).ok).toBe(true);
+    }
+  });
+
   test("accepts each field of a Gantt's own task, null clearing a request and the predecessors", () => {
     const changes = [
       set("release.portal.duration", 15),
@@ -218,14 +236,17 @@ describe("validateGanttChanges", () => {
   });
 
   test.each([
-    [
-      "a duration on a plan",
-      "schedule",
-      [set("schedule.portal.duration", 3)],
-      PLAN,
-      "/0/target",
-      ["durations", "estimates"],
-    ],
+    ...[0, 2_001, 2.5].map(
+      (value) =>
+        [
+          `a duration of ${value} on a plan`,
+          "schedule",
+          [set("schedule.portal.duration", value)],
+          PLAN,
+          "/0/value",
+          ["portal", String(value), "1", "2000"],
+        ] as [string, string, unknown, unknown, string, string[]],
+    ),
     [
       "a target in another item",
       "release",

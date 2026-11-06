@@ -12,6 +12,9 @@ export {
   ganttPlanChanges,
   ganttPlanDerived,
   ganttPlanEditedValue,
+  ganttPlanRequestedChanges,
+  ganttPlanRequestedDerived,
+  ganttPlanRequestedValue,
 } from "./gantt.ts";
 export {
   boardProtocolExamples,

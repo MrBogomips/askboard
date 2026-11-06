@@ -24,7 +24,7 @@ import questionProps from "./question-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 import update from "./update.json" with { type: "json" };
 
-export const INPUT_FORMAT_VERSION = "1.4";
+export const INPUT_FORMAT_VERSION = "1.5";
 
 export const inputFormat: SchemaSet = {
   name: "input",

@@ -129,10 +129,30 @@ export const ganttPlanChanges: readonly GanttChange[] = [
 ];
 
 /**
+ * The plan after the user lengthened the portal's bar (widget-editing-plus): the portal at 21
+ * working days, a request that wins over the 13 its estimates give; nothing else changed.
+ */
+export const ganttPlanRequestedValue: GanttPlanProps = {
+  ...PLAN,
+  tasks: { ...PLAN.tasks, portal: { dependencies: ["architecture", "prototype"], duration: 21 } },
+};
+
+/** The answer's operation for that request: the diff of the plan as sent and as edited. */
+export const ganttPlanRequestedChanges: readonly GanttChange[] = [
+  { op: "set", target: "schedule.portal.duration", value: 21 },
+];
+
+/**
  * The approved answer's derived values of the plan, by `GANTT_ANSWER_DERIVED`: what `compute` gives
  * over the edited Tree and plan.
  */
 export const ganttPlanDerived: Readonly<Record<string, unknown>> = {
   "schedule.finish": "2026-12-02",
+  "schedule.criticalPath": ["ux", "prototype", "portal", "reporting"],
+};
+
+/** The derived values of the requested plan, over the Tree as sent (`GANTT_ANSWER_DERIVED`). */
+export const ganttPlanRequestedDerived: Readonly<Record<string, unknown>> = {
+  "schedule.finish": "2026-12-23",
   "schedule.criticalPath": ["ux", "prototype", "portal", "reporting"],
 };

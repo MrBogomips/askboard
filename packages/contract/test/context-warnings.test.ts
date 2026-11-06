@@ -31,9 +31,9 @@ describe("the versions (design decision 2)", () => {
       envelopes: TOOL_ENVELOPES_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
       // E7 (snapshot) took the envelopes and the protocol to 1.3 after E5's 1.2; E8 (settings and
-      // languages) took the protocol to 1.4; widget-answers took all three one minor further.
-    }).toEqual({ output: "1.3", envelopes: "1.4", protocol: "1.5" });
-    expect(RESULT_VERSIONS).toEqual({ result: "1.4", output: "1.3" });
+      // languages) took the protocol to 1.4; widget-answers took all three one minor further; widget-editing-plus took the output format to 1.4.
+    }).toEqual({ output: "1.4", envelopes: "1.4", protocol: "1.5" });
+    expect(RESULT_VERSIONS).toEqual({ result: "1.4", output: "1.4" });
   });
 });
 

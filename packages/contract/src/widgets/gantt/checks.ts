@@ -45,7 +45,6 @@ const isGanttDate = (value: unknown): value is string => {
 const DAYS = `a day from ${GANTT_FIRST_DATE} to ${GANTT_LAST_DATE}`;
 const RESERVED = `starts with ${VIEW_ID_PREFIX}, reserved for IDs the board makes`;
 const PLAN_NAMES = "a plan's tasks take their names from its Tree";
-const PLAN_DURATIONS = "a plan's durations follow its work packages' estimates";
 
 const isReserved = (id: unknown): boolean =>
   typeof id === "string" && id.startsWith(VIEW_ID_PREFIX);
@@ -116,7 +115,15 @@ const ownTaskProblems = (tasks: readonly unknown[], origin: GanttOrigin): Proble
   return [...problems, ...dependentsProblems(checked)];
 };
 
-/** A plan's entries: no name or duration, the view's prefix only in an edited value. */
+/** A task's duration, from the Gantt's least to its greatest, in whole working days. */
+const durationProblem = (task: string, value: unknown): string | undefined => {
+  const whole = Number.isSafeInteger(value);
+  const inRange = whole && (value as number) >= GANTT_MIN_DURATION;
+  if (inRange && (value as number) <= GANTT_MAX_DURATION) return undefined;
+  return `task ${task}: duration takes whole working days from ${GANTT_MIN_DURATION} to ${GANTT_MAX_DURATION}, not ${JSON.stringify(value)}`;
+};
+
+/** A plan's entries: no name, a requested duration within range, the view's prefix only in an edited value. */
 const planEntryProblems = (entries: Json, origin: GanttOrigin): Problem[] => {
   const problems: Problem[] = [];
   const checked: [string, string, Json][] = [];
@@ -129,9 +136,9 @@ const planEntryProblems = (entries: Json, origin: GanttOrigin): Problem[] => {
     if (entry.label !== undefined) {
       problems.push({ path: `${path}/label`, message: `task ${id}: ${PLAN_NAMES}` });
     }
-    if (entry.duration !== undefined) {
-      problems.push({ path: `${path}/duration`, message: `task ${id}: ${PLAN_DURATIONS}` });
-    }
+    const requested =
+      entry.duration === undefined ? undefined : durationProblem(id, entry.duration);
+    if (requested !== undefined) problems.push({ path: `${path}/duration`, message: requested });
     problems.push(...taskFieldProblems(entry, id, path, origin));
     checked.push([id, path, entry]);
   }
@@ -208,12 +215,15 @@ const FIELDS: ReadonlySet<string> = new Set(["duration", "start", "dependencies"
 /** AD-20's operations a Gantt never takes: it adds, removes or moves no task. */
 const NOT_SET: ReadonlySet<unknown> = new Set(["add", "remove", "move"]);
 
-const valueProblem = (task: string, field: string, value: unknown): string | undefined => {
+const valueProblem = (
+  task: string,
+  field: string,
+  value: unknown,
+  isPlan: boolean,
+): string | undefined => {
   if (field === "duration") {
-    const whole = Number.isSafeInteger(value);
-    const inRange = whole && (value as number) >= GANTT_MIN_DURATION;
-    if (inRange && (value as number) <= GANTT_MAX_DURATION) return undefined;
-    return `task ${task}: duration takes whole working days from ${GANTT_MIN_DURATION} to ${GANTT_MAX_DURATION}, not ${JSON.stringify(value)}`;
+    // A plan's request is cleared with null; a Gantt's own task always has its duration.
+    return value === null && isPlan ? undefined : durationProblem(task, value);
   }
   if (field === "start") {
     if (value === null || isGanttDate(value)) return undefined;
@@ -262,15 +272,11 @@ export const ganttChangesProblems = (
       });
       return;
     }
-    if (field === "duration" && isPlan) {
-      problems.push({ path: at, message: `task ${task}: ${PLAN_DURATIONS}` });
-      return;
-    }
     if (own !== undefined && !own.has(task)) {
       problems.push({ path: at, message: `task ${task} is no task of the Gantt ${itemId}` });
       return;
     }
-    const message = valueProblem(task, field, change.value);
+    const message = valueProblem(task, field, change.value, isPlan);
     if (message !== undefined) problems.push({ path: `/${index}/value`, message });
   });
   return problems;

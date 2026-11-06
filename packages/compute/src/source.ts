@@ -63,6 +63,8 @@ export type GanttPlanItem = {
   readonly dependencies?: Readonly<Record<string, readonly string[]>>;
   /** The start the user asked for, by task ID: the task starts then or as soon after as it can. */
   readonly starts?: Readonly<Record<string, string>>;
+  /** The duration the user asked for, by task ID, in whole working days: it wins over the effort. */
+  readonly durations?: Readonly<Record<string, number>>;
 };
 
 /** A task of a Gantt with its own tasks: its duration in working days, a whole number from 1. */

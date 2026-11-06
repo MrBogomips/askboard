@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:gantt-changes",
   "title": "Gantt changes",
-  "description": "A Gantt's changes (AD-20, FR-20): set operations of the one generic diff on a task's field, its duration, its requested start or its predecessors, addressed as item.task.field (AD-13's reference syntax without brackets). null clears a requested start or empties the predecessors. A Gantt never adds, removes or moves a task: a plan's tasks come from its Tree. Which field goes with which form, and value ranges, are the contract's checks.",
+  "description": "A Gantt's changes (AD-20, FR-20): set operations of the one generic diff on a task's field, its duration, its requested start or its predecessors, addressed as item.task.field (AD-13's reference syntax without brackets). null clears a requested start, a plan's requested duration, or empties the predecessors. Since output format 1.4 a plan's task may take a duration, its requested one. A Gantt never adds, removes or moves a task: a plan's tasks come from its Tree. Which field goes with which form, and value ranges, are the contract's checks.",
   "type": "array",
   "items": {
     "$ref": "#/$defs/set"

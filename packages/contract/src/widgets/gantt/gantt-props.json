@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:gantt-props",
   "title": "Gantt item props",
-  "description": "A Gantt's props (FR-11, FR-15): the plan's start and its tasks. Without workPackages, tasks is the Gantt's own list, in the agent's order, each with a label and a duration in whole working days. With workPackages, the ID of a Tree item whose leaves are the tasks (the Gantt plan), tasks maps a task ID to what the plan says of that task; names, durations and order come from the Tree. A task may carry a requested start, on or after which it starts, and its finish-to-start predecessors. Which form goes with workPackages, real days and the dependents limit are the contract's checks.",
+  "description": "A Gantt's props (FR-11, FR-15): the plan's start and its tasks. Without workPackages, tasks is the Gantt's own list, in the agent's order, each with a label and a duration in whole working days. With workPackages, the ID of a Tree item whose leaves are the tasks (the Gantt plan), tasks maps a task ID to what the plan says of that task; names, durations and order come from the Tree. A task may carry a requested start, on or after which it starts, and its finish-to-start predecessors; a plan's entry may also carry a requested duration in whole working days, which wins over the one its Tree's estimates give (since input format 1.5). Which form goes with workPackages, real days and the dependents limit are the contract's checks.",
   "type": "object",
   "properties": {
     "start": {
@@ -75,6 +75,11 @@
     "planEntry": {
       "type": "object",
       "properties": {
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
         "start": {
           "$ref": "#/$defs/fullDate"
         },

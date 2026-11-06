@@ -89,9 +89,9 @@ const TASK: Fields = {
   required: ["id", "label", "duration"],
 };
 
-/** A plan's entry: what the plan says of a task its Tree names and orders. */
+/** A plan's entry: what the plan says of a task its Tree names and orders (input 1.5: a duration). */
 const ENTRY: Fields = {
-  checks: { start: fullDate, dependencies: predecessors },
+  checks: { start: fullDate, duration, dependencies: predecessors },
   required: [],
 };
 

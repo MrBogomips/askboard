@@ -80,6 +80,25 @@ const startsOf = (given: unknown, where: string): ReadonlyMap<string, number> =>
   return out;
 };
 
+const isDuration = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+
+/** A plan's requested durations, by task ID: whole working days from 1. */
+const durationsOf = (given: unknown, where: string): ReadonlyMap<string, number> => {
+  if (given === undefined || given === null) return new Map();
+  if (!isRecord(given)) return refuse(`${where}: durations is not an object`);
+  const out = new Map<string, number>();
+  for (const task of Object.keys(given)) {
+    if (!ID.test(task)) refuse(`${where}: ${JSON.stringify(task)} in durations is not an ID`);
+    const days = given[task];
+    if (!isDuration(days)) {
+      refuse(`${where}: the requested duration of ${task} is not a positive whole number`);
+    }
+    out.set(task, days as number);
+  }
+  return out;
+};
+
 /**
  * The working days from the plan's first working day to the first working day on or after a
  * requested start, 0 when it comes no later. It is AskBoard's own code, since no whitelisted
@@ -182,7 +201,8 @@ const scheduleItem = ({
 
 /**
  * A Gantt plan as a `fields` item. `leavesOf` gives a `wbs-pert` item's leaves, or undefined when
- * the ID names none. Each task lasts its expected effort rounded up to whole working days.
+ * the ID names none. Each task lasts its requested duration, else its expected effort rounded up
+ * to whole working days.
  */
 export const expandGanttPlan = (
   plan: GanttPlanItem,
@@ -192,6 +212,7 @@ export const expandGanttPlan = (
   if (typeof plan.workPackages !== "string") refuse(`${where}: workPackages is not an item ID`);
   const dependencies = dependenciesOf(plan.dependencies, where);
   const starts = startsOf(plan.starts, where);
+  const durations = durationsOf(plan.durations, where);
   const warnings: FormulaError[] = [];
   const leaves = leavesOf(plan.workPackages);
   if (leaves === undefined) {
@@ -200,13 +221,12 @@ export const expandGanttPlan = (
   }
   const tasks = leaves?.map((task) => ({
     id: task,
-    duration: formula(`MAX(1,ROUNDUP([${plan.workPackages}.${task}.expected],0))`),
+    duration: durations.has(task)
+      ? ({ type: "number", value: durations.get(task) as number } as FieldInput)
+      : formula(`MAX(1,ROUNDUP([${plan.workPackages}.${task}.expected],0))`),
   }));
   return scheduleItem({ id: plan.id, start: plan.start, tasks, dependencies, starts, warnings });
 };
-
-const isDuration = (value: unknown): value is number =>
-  typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
 
 /** A Gantt with its own tasks as a `fields` item: each task's duration is a number input. */
 export const expandGantt = (gantt: GanttItem): ExpandedPlan => {

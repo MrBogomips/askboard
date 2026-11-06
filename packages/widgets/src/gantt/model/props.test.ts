@@ -107,6 +107,13 @@ describe("a Gantt's props, checked in the view as the agent's (gantt-widget desi
     expect(ganttProblems(withTask({ ...ux, label: "𝔊".repeat(200) }))).toEqual([]);
   });
 
+  test("a plan entry's requested duration is the agent's to send, from 1 to 2,000 days", () => {
+    expect(ganttProblems(withEntries({ portal: { duration: 21 } }))).toEqual([]);
+    expect(ganttProblems(withEntries({ portal: { duration: 0 } })).map((p) => p.path)).toContain(
+      "/tasks/portal/duration",
+    );
+  });
+
   test("the contract's checks come through: a reserved ID, a day that does not exist, an ID twice", () => {
     const problems = ganttProblems(
       withProps({
@@ -168,10 +175,10 @@ describe("a Gantt plan's props, checked in the view as the agent's (gantt-widget
     ],
     ["an entry with a name", withEntries({ ux: { label: "UX" } }), "/tasks/ux/label", "unknown"],
     [
-      "an entry with a duration",
-      withEntries({ ux: { duration: 6 } }),
+      "an entry with a duration past the limit",
+      withEntries({ ux: { duration: 2_001 } }),
       "/tasks/ux/duration",
-      "unknown",
+      "from 1 to 2,000",
     ],
     [
       "a requested start of 12/9",
@@ -200,18 +207,12 @@ describe("a Gantt plan's props, checked in the view as the agent's (gantt-widget
     });
   });
 
-  test("the contract's checks come through: a plan's names and durations, a reserved key, its tasks' form", () => {
+  test("the contract's checks come through: a plan's names, a reserved key, its tasks' form", () => {
     expect(
       ganttProblems(withEntries({ ux: { label: "UX", duration: 6 }, "u-1": {} })).map(
         ({ path }) => path,
       ),
-    ).toEqual([
-      "/tasks/ux/label",
-      "/tasks/ux/duration",
-      "/tasks/ux/label",
-      "/tasks/ux/duration",
-      "/tasks/u-1",
-    ]);
+    ).toEqual(["/tasks/ux/label", "/tasks/ux/label", "/tasks/u-1"]);
     expect(ganttProblems(withPlan({ tasks: sent.tasks }))).toContainEqual({
       path: "/tasks",
       message: expect.stringContaining("a plan's tasks are a map by task ID"),
