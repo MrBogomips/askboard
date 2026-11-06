@@ -63,8 +63,11 @@ export const uj2WidgetRefusedAct: ActCommand = {
 
 type StateQuestion = LifecycleBoardState["questions"][number];
 
-const planState = (extra: Partial<StateQuestion>): LifecycleBoardState => ({
-  ask: "waiting",
+const planState = (
+  extra: Partial<StateQuestion>,
+  ask: LifecycleBoardState["ask"] = "waiting",
+): LifecycleBoardState => ({
+  ask,
   questions: [{ itemId: "plan", rev: 1, state: "open", ...extra } as StateQuestion],
 });
 
@@ -87,17 +90,20 @@ export const uj2WidgetWaitingState = { version, type: "state", state: planState(
 export const uj2WidgetAnsweredState = {
   version,
   type: "state",
-  state: planState({
-    state: "answered",
-    answer: {
-      values: {
-        [WBS_TREE]: uj2ExpandedEditedValues[WBS_TREE] as Record<string, unknown>,
-        [SCHEDULE_PLAN]: uj2ExpandedEditedValues[SCHEDULE_PLAN] as Record<string, unknown>,
+  state: planState(
+    {
+      state: "answered",
+      answer: {
+        values: {
+          [WBS_TREE]: uj2ExpandedEditedValues[WBS_TREE] as Record<string, unknown>,
+          [SCHEDULE_PLAN]: uj2ExpandedEditedValues[SCHEDULE_PLAN] as Record<string, unknown>,
+        },
+        when,
+        receipt: "sent",
       },
-      when,
-      receipt: "sent",
-    },
-  } as Partial<StateQuestion>),
+    } as Partial<StateQuestion>,
+    "answered",
+  ),
 } as const;
 
 /** What `fetch` returns for the reference `wbs`: a Tree under its own ID, as the user left it. */
