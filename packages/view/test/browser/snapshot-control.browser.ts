@@ -170,7 +170,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "a session without CLAUDE_PROJECT_DIR: the failure names it, and nothing is saved",
       async () => {
-        const run = await start(lifecycleScenario(twoAsk, dist));
+        const run = await start({ ...lifecycleScenario(twoAsk, dist), withoutProject: true });
         const board = await openBoard(run, ["database", "cache"]);
         await snapshotButton(board).click({ timeout: STEP_TIMEOUT_MS });
         await says(board, "CLAUDE_PROJECT_DIR", RECONNECT_TIMEOUT_MS);

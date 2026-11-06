@@ -53,6 +53,11 @@ export type Scenario = {
    * owns it. Without it, a temporary folder is made and removed.
    */
   readonly projectDir?: string;
+  /**
+   * The session process starts without `CLAUDE_PROJECT_DIR`, as a session outside a project does
+   * (AD-12): its home and configuration folder stay its own. Session process target only.
+   */
+  readonly withoutProject?: boolean;
 };
 
 /** A file of the session project: its text or bytes, or a symbolic link to a target path. */

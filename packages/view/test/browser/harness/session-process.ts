@@ -432,7 +432,12 @@ const writeConfig = async (file: string, value: unknown): Promise<void> => {
  * configuration files, so that no developer's configuration reaches it (settings-languages, design
  * decision 14); an asker's project stands in for the project.
  */
-const isolated = async (dir: string, options: SessionProcessOptions, projectDir?: string) => {
+const isolated = async (
+  dir: string,
+  options: SessionProcessOptions,
+  projectDir?: string,
+  withoutProject = false,
+) => {
   const home = join(dir, "home");
   const configHome = join(dir, "config");
   const project = projectDir ?? join(dir, "project");
@@ -441,7 +446,11 @@ const isolated = async (dir: string, options: SessionProcessOptions, projectDir?
   );
   await writeConfig(join(configHome, "askboard", "config.json"), options.userConfig);
   await writeConfig(join(project, ".askboard", "config.json"), options.projectConfig);
-  return { HOME: home, XDG_CONFIG_HOME: configHome, CLAUDE_PROJECT_DIR: project };
+  return {
+    HOME: home,
+    XDG_CONFIG_HOME: configHome,
+    ...(withoutProject ? {} : { CLAUDE_PROJECT_DIR: project }),
+  };
 };
 
 // The ask with the asker's agent name and expected user.
@@ -471,7 +480,7 @@ const startFirst = async (
 
 /** A `BoardSession` over a new session process that has asked the scenario's ask. */
 export const startSessionProcess = async (
-  { transcript, view, ask, asker, files, projectDir: given, config }: Scenario,
+  { transcript, view, ask, asker, files, projectDir: given, config, withoutProject }: Scenario,
   extra: SessionProcessOptions = {},
 ): Promise<BoardSession> => {
   const options: SessionProcessOptions = {
@@ -492,7 +501,7 @@ export const startSessionProcess = async (
   if (projectDir !== undefined && files !== undefined) await writeFiles(projectDir, files);
   const cleanup = cleanupOf(stage, dir, place, plain);
   const linksFile = join(dir, "links");
-  const folders = await isolated(dir, options, projectDir);
+  const folders = await isolated(dir, options, projectDir, withoutProject);
   const problems: string[] = [];
   const context: LaunchContext = {
     ...(asker === undefined || place === undefined ? {} : { asker: { asker, place } }),
