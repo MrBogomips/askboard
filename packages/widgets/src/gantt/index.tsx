@@ -67,7 +67,11 @@ const Gantt = ({
     () => (sentBoard === undefined ? undefined : baselineOf(sentBoard, item.id, rows)),
     [sentBoard, item.id, rows],
   );
-  const { marks, count } = useMemo(
+  const {
+    marks,
+    count,
+    derived: followers,
+  } = useMemo(
     () => ganttMarks(current, sent, rows, schedules, baselines),
     [current, sent, rows, schedules, baselines],
   );
@@ -90,6 +94,7 @@ const Gantt = ({
       baselines={baselines}
       marks={marks}
       count={count}
+      derived={followers}
       current={current}
       sent={sent}
       onCommit={commit}

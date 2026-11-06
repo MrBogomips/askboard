@@ -46,12 +46,19 @@ const CELL =
 /** A cell the user changed: the change fill and text, with the change border (DESIGN.md). */
 const CHANGED = "bg-change-subtle text-change-text inset-ring inset-ring-change";
 
+/** A cell that only follows the plan's Tree: the change fill, with no border (design decision 11). */
+const DERIVED = "bg-change-subtle";
+
 /** A row the user added: the change bar on its left edge, as the Tree's added row has it. */
 const ADDED = "shadow-[inset_2px_0_0_0_var(--change)]";
 
 /** Whether the user changed what a cell shows, by its column. */
 const changedIn = (column: GanttColumn, mark: TaskMarks | undefined): boolean =>
   mark !== undefined && column !== "task" && mark[column];
+
+/** Whether a cell shows a value that only follows the Tree: a plan's duration. */
+const derivedIn = (column: GanttColumn, mark: TaskMarks | undefined): boolean =>
+  column === "duration" && mark?.derived === true && !mark.changed;
 
 /** The face of each column's values: dates and numbers in the code face. */
 const FACE: Readonly<Record<GanttColumn, string>> = {
@@ -144,10 +151,11 @@ const TaskRow = (props: TaskRowProps) => {
         <td
           key={column}
           data-gantt-column={column}
+          data-gantt-derived={derivedIn(column, mark) ? "" : undefined}
           data-editable={props.editable && editable && edited?.column !== column ? true : undefined}
           // While its editor is open, the editor holds the cell's Tab stop.
           tabIndex={index === stop && edited?.column !== column ? 0 : -1}
-          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : ""} ${added && column === "task" ? ADDED : ""}`}
+          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : derivedIn(column, mark) ? DERIVED : ""} ${added && column === "task" ? ADDED : ""}`}
         >
           {edited?.column === column ? (
             <CellEditor

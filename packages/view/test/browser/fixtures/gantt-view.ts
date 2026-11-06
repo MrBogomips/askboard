@@ -249,6 +249,14 @@ export const changeOutlines = (gantt: GanttParts) =>
     })),
   );
 
+/** The tasks whose bar carries the derived mark, the dotted outline, in the chart's order. */
+export const derivedOutlines = (gantt: GanttParts) =>
+  gantt.root
+    .locator("[data-gantt-derived]:not(td)")
+    .evaluateAll((outlines) =>
+      outlines.map((outline) => outline.getAttribute("data-gantt-derived") ?? ""),
+    );
+
 /** The body cells drawn in a background colour, as `task.column`, with their text's colour. */
 export const filledCells = (gantt: GanttParts, background: string) =>
   gantt.grid.locator("[data-gantt-column]").evaluateAll(

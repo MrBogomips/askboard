@@ -65,6 +65,8 @@ export type FrameProps = {
   /** What the user changed, by task, and how many tasks the toolbar counts. */
   readonly marks: ReadonlyMap<string, TaskMarks>;
   readonly count: number;
+  /** The tasks that follow the plan's Tree, which the counter names after the user's changes. */
+  readonly derived: number;
   /** The Gantt as it stands, and as the agent sent it, of one kind. */
   readonly current: GanttProps;
   readonly sent: GanttProps;
@@ -136,7 +138,11 @@ export const GanttFrame = (props: FrameProps) => {
     : undefined;
   return (
     <div className="flex flex-col rounded-md border border-border bg-card">
-      <Toolbar count={props.count} zoom={props.zoomable ? { zoom, onZoom: setZoom } : undefined} />
+      <Toolbar
+        count={props.count}
+        derived={props.derived}
+        zoom={props.zoomable ? { zoom, onZoom: setZoom } : undefined}
+      />
       <div className="flex">
         <div className="w-[480px] shrink-0 border-r border-border">
           <Grid
@@ -174,7 +180,7 @@ export const GanttFrame = (props: FrameProps) => {
           />
         </div>
       </div>
-      <Legend />
+      <Legend baseline={baselines?.some((baseline) => baseline !== undefined) === true} />
     </div>
   );
 };

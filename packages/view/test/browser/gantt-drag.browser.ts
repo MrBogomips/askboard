@@ -109,7 +109,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         const run = await opened(withTasks(tasks));
         const gantt = ganttOf(run.board);
-        const NONE_YET = "Changes vs agent's original · none yet";
+        const NONE_YET = "No changes";
         expect((await barDates(gantt)).reporting).toBe("2026-12-07..2026-12-14");
         await dragBy(run.board, await grabPoint(gantt, "reporting"), 5);
         expect((await barDates(gantt)).reporting).toBe("2026-12-07..2026-12-14");
@@ -182,7 +182,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(Number(await gantt.bar("portal").getAttribute("x"))).toBe(x);
         expect(await guideFacts(gantt)).toBeUndefined();
         expect(await barFacts(gantt)).toEqual(before);
-        expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+        expect(await counterText(gantt)).toBe("No changes");
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
       },
       TEST_TIMEOUT_MS,

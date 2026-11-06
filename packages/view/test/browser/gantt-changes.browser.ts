@@ -118,7 +118,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             expect(await view.evaluate(() => document.querySelector(".dark") !== null)).toBe(true);
           }
           const gantt = ganttOf(run.board);
-          expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+          expect(await counterText(gantt)).toBe("No changes");
           expect(await changeOutlines(gantt)).toEqual([]);
           await dragBy(run.board, await grabPoint(gantt, "reporting"), 5 * WEEK_PX);
           expect(await counterText(gantt)).toBe("Your changes: 1");
@@ -158,7 +158,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.page.keyboard.type("12/4/2026");
         await run.board.page.keyboard.press("Enter");
         expect(await run.board.answer.isDisabled()).toBe(true);
-        expect(await counterText(gantt)).toBe("Changes vs agent's original · none yet");
+        expect(await counterText(gantt)).toBe("No changes");
         // The fixture's two edits, by keyboard.
         await keysTo(run.board, "reporting", "start");
         await run.board.page.keyboard.press("Enter");

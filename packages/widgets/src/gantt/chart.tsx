@@ -172,6 +172,8 @@ const Arrows = memo(
   ),
 );
 
+const isDerived = (mark: TaskMarks | undefined): boolean => mark?.derived === true && !mark.changed;
+
 export type ChartProps = {
   readonly itemId: string;
   readonly rows: readonly GanttRow[];
@@ -259,6 +261,7 @@ export const Chart = (props: ChartProps) => {
             bar={bar}
             drawn={bar === dragged && drag ? draggedBox(bar, drag, span, zoom) : bar.box}
             changed={props.marks.get(bar.id)?.changed === true}
+            derived={isDerived(props.marks.get(bar.id))}
             draggable={props.editable}
             resizable={onResize !== undefined}
             onPress={press}

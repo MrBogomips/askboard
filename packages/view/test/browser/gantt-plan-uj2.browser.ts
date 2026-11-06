@@ -28,6 +28,7 @@ import {
 import {
   barDates,
   changeOutlines,
+  derivedOutlines,
   counterText,
   criticalTasks,
   ganttOf,
@@ -153,13 +154,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             "billing",
             "reporting",
           ]);
-          expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual([
-            "ux",
-            "portal",
-            "u-1",
-            "billing",
-          ]);
-          expect(await counterText(gantt)).toBe("Your changes: 1");
+          // `u-1` is the user's own change; the three re-estimated follow the WBS (review F-07).
+          expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["u-1"]);
+          expect(await derivedOutlines(gantt)).toEqual(["ux", "portal", "billing"]);
+          expect(await counterText(gantt)).toBe("Your changes: 1 · 3 follow from the WBS");
           // Nothing has left the view yet.
           await Bun.sleep(QUIET_MS);
           expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);

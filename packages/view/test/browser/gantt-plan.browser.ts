@@ -61,7 +61,7 @@ import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts
 
 const dist = await readViewBuild();
 
-const NONE_YET = "Changes vs agent's original · none yet";
+const NONE_YET = "No changes";
 
 /** A task's span on the axis at a zoom, from the chart's first day. */
 const spanAt = (start: string, finish: string, zoom: ZoomName) => ({

@@ -32,6 +32,7 @@ import {
   barDates,
   changeOutlines,
   colour,
+  derivedOutlines,
   counterText,
   criticalTasks,
   filledCells,
@@ -64,7 +65,7 @@ import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts
 
 const dist = await readViewBuild();
 
-const NONE_YET = "Changes vs agent's original · none yet";
+const NONE_YET = "No changes";
 
 /** Each task's bar as compute's UJ-2 plan schedules it, `start..finish`. */
 const UJ2_DATES: Record<string, string> = Object.fromEntries(
@@ -167,14 +168,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // The plan now ends on 12/18/2026, and the axis runs two weeks past it: 61 days.
         expect(Number(await chartAt(gantt, "week").getAttribute("width"))).toBe(61 * 15);
         expect(await baselineDates(gantt)).toEqual(SENT_BASELINES);
-        // Re-estimated in the Tree: the portal's bar takes the change outline and its duration the
-        // change fill; reporting, moved only by its predecessor, takes neither; the plan counts
-        // only its own entries' changes, and the Tree's draft enables "Answer".
-        expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["portal"]);
+        // Re-estimated in the Tree: the portal's bar takes the derived mark, a dotted outline, and
+        // its duration the change fill with no border; reporting, moved only by its predecessor,
+        // takes neither; the counter says so apart from the user's changes (F-07), and the Tree's
+        // draft enables "Answer".
+        expect(await changeOutlines(gantt)).toEqual([]);
+        expect(await derivedOutlines(gantt)).toEqual(["portal"]);
         expect(await filledCells(gantt, colour("change-subtle"))).toEqual([
-          { cell: "portal.duration", color: colour("change-text") },
+          { cell: "portal.duration", color: colour("foreground") },
         ]);
-        expect(await counterText(gantt)).toBe(NONE_YET);
+        expect(await counterText(gantt)).toBe("No changes · 1 follows from the WBS");
         expect(await board.answer.isEnabled()).toBe(true);
         // Back to 12 by hand: the plan as the agent sent it, and nothing to answer.
         await typeIn(run, tree, "F2", "12");
@@ -186,6 +189,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await rowTexts(gantt)).toEqual(PLAN_ROWS);
         expect(await barDates(gantt)).toEqual(UJ2_DATES);
         expect(await changeOutlines(gantt)).toEqual([]);
+        expect(await derivedOutlines(gantt)).toEqual([]);
+        expect(await counterText(gantt)).toBe(NONE_YET);
         expect(await board.answer.isDisabled()).toBe(true);
         await expectOnlyReady(run);
         expect(run.browser.errors).toEqual([]);

@@ -108,6 +108,8 @@ type BarShapeProps = {
   readonly drawn: BarBox;
   /** Whether the user changed the task: its bar takes the change outline. */
   readonly changed: boolean;
+  /** Whether the task only follows the plan's Tree: a dotted outline, no change border. */
+  readonly derived: boolean;
   /** Whether the user may drag it; a read-only Gantt's bars do not move. */
   readonly draggable: boolean;
   /** Whether its end resizes it: only a Gantt's own tasks take a duration. */
@@ -127,7 +129,7 @@ const diamondPoints = ({ x, y, height }: BarBox): string => {
   return `${x - half},${y + half} ${x},${y} ${x + half},${y + half} ${x},${y + height}`;
 };
 
-const Bar = ({ bar, drawn, changed, draggable, resizable, ...on }: BarShapeProps) => {
+const Bar = ({ bar, drawn, changed, derived, draggable, resizable, ...on }: BarShapeProps) => {
   const pointer = (kind: DragKind) =>
     draggable
       ? {
@@ -173,6 +175,16 @@ const Bar = ({ bar, drawn, changed, draggable, resizable, ...on }: BarShapeProps
           width={drawn.width + 2 * OUTLINE}
           height={drawn.height + 2 * OUTLINE}
           className="pointer-events-none fill-none stroke-change stroke-2"
+        />
+      ) : null}
+      {derived && !changed ? (
+        <rect
+          data-gantt-derived={bar.id}
+          x={drawn.x - OUTLINE}
+          y={drawn.y - OUTLINE}
+          width={drawn.width + 2 * OUTLINE}
+          height={drawn.height + 2 * OUTLINE}
+          className="pointer-events-none fill-none stroke-change stroke-1 [stroke-dasharray:1_2]"
         />
       ) : null}
       {draggable && resizable ? (
