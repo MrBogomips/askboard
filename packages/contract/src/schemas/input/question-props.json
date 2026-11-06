@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:question-props",
   "title": "Question props",
-  "description": "A question: its text, optional header chip, options, multiSelect, and allowOther, which offers the \"Other…\" row (FR-3). An option is its label, unique within the question, an optional description, preview and annotation, each plain text, and recommended, which at most one option of a question sets (proposal, open question 9); the contract's validation function checks the uniqueness rules. Since input format 1.2 a question's `items` hold its context, each picked by its `type`: excerpts, references and images (excerpts, design decision 2); widget items stay refused until the widget follow-up appends their types.",
+  "description": "A question: its text, optional header chip, options, multiSelect, and allowOther, which offers the \"Other…\" row (FR-3). An option is its label, unique within the question, an optional description, preview and annotation, each plain text, and recommended, which at most one option of a question sets (proposal, open question 9); the contract's validation function checks the uniqueness rules. Since input format 1.2 a question's `items` hold its context, each picked by its `type`: excerpts, references and images (excerpts, design decision 2). Since input format 1.4 `options` is optional and `items` also hold the widget items `tree`, `gantt` and `molecule`, each with its type's props (widget-answers, design decision 3); a question holds options, items or both, which the contract's validation function checks.",
   "type": "object",
   "properties": {
     "text": { "type": "string", "minLength": 1 },
@@ -20,7 +20,7 @@
       "items": { "$ref": "#/$defs/item" }
     }
   },
-  "required": ["text", "options"],
+  "required": ["text"],
   "additionalProperties": false,
   "$defs": {
     "option": {
@@ -36,13 +36,16 @@
       "additionalProperties": false
     },
     "item": {
-      "description": "An item of a question, picked by its type.",
+      "description": "An item of a question, picked by its type: a context item (excerpt, reference, image) or a widget item (tree, gantt, molecule).",
       "type": "object",
       "discriminator": { "propertyName": "type" },
       "oneOf": [
         { "$ref": "#/$defs/excerpt" },
         { "$ref": "#/$defs/reference" },
-        { "$ref": "#/$defs/image" }
+        { "$ref": "#/$defs/image" },
+        { "$ref": "#/$defs/tree" },
+        { "$ref": "#/$defs/gantt" },
+        { "$ref": "#/$defs/molecule" }
       ]
     },
     "excerpt": {
@@ -71,6 +74,36 @@
         "type": { "const": "image" },
         "id": { "$ref": "urn:askboard:input:id" },
         "props": { "$ref": "urn:askboard:input:image-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "tree": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "tree" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:tree-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "gantt": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "gantt" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:gantt-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "molecule": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "molecule" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:molecule-props" }
       },
       "required": ["type", "id", "props"],
       "additionalProperties": false

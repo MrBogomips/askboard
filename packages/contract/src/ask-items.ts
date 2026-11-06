@@ -24,6 +24,7 @@ import {
   type Segments,
   type Wording,
 } from "./problems.ts";
+import { widgetRest } from "./widgets/paths.ts";
 
 const ID = new RegExp(ID_PATTERN);
 
@@ -58,8 +59,15 @@ const childrenOf = (item: unknown): readonly unknown[] => (isArea(item) ? listOf
 // A question's items, when it holds a list of them.
 const contextOf = (item: unknown): readonly unknown[] => (isQuestion(item) ? listOf(item) : []);
 
-/** The item types a question's `items` hold (excerpts, design decision 2). */
-export const CONTEXT_ITEM_TYPES: readonly string[] = ["excerpt", "reference", "image"];
+/** The item types a question's `items` hold: context (excerpts, design decision 2) and widgets. */
+export const CONTEXT_ITEM_TYPES: readonly string[] = [
+  "excerpt",
+  "reference",
+  "image",
+  "tree",
+  "gantt",
+  "molecule",
+];
 
 // A question's items, each where it is. An area or a question among them is left to the schema,
 // which refuses it at its type, rather than named as a nested area or checked as a question.
@@ -95,7 +103,7 @@ const questionKey = (question: unknown, rest: Segments): string => {
     const inner = contextOf(question)[Number(rest[2])];
     const type = isRecord(inner) ? inner.type : undefined;
     if (typeof type === "string" && CONTEXT_ITEM_TYPES.includes(type)) {
-      return `${type}.${keyOf(rest.slice(3))}`;
+      return `${type}.${keyOf(widgetRest(type, rest.slice(3)))}`;
     }
   }
   return rest.length === 0 ? "question" : `question.${keyOf(rest)}`;
@@ -143,7 +151,7 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "question.type": '"question" or "area"',
   "question.id": `${ID_SHAPE}, unique in the ask`,
   "question.props":
-    "a question's props {text, header?, options, multiSelect?, allowOther?, items?}",
+    "a question's props {text, header?, options?, multiSelect?, allowOther?, items?}: options, items or both",
   "question.props.text": "non-empty text",
   "question.props.header": "non-empty text",
   "question.props.options":
@@ -166,10 +174,10 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "area.props.items[].type": '"question": an area holds questions only',
   // A question's items (excerpts, design decision 2).
   "question.props.items":
-    "a non-empty list of the question's context: excerpts, references and images",
+    "a non-empty list of the question's items: context (excerpts, references, images) and widgets (a Tree, a Gantt, a molecule reference)",
   "question.props.items[]":
-    'an item {type, id, props} whose type is "excerpt", "reference" or "image"',
-  "question.props.items[].type": '"excerpt", "reference" or "image"',
+    'an item {type, id, props} whose type is "excerpt", "reference", "image", "tree", "gantt" or "molecule"',
+  "question.props.items[].type": '"excerpt", "reference", "image", "tree", "gantt" or "molecule"',
   "excerpt.id": `${ID_SHAPE}, unique in the ask`,
   "excerpt.props":
     "an excerpt's props {pointer, title?} or {text, title?}: exactly one of pointer and text",
@@ -186,6 +194,11 @@ export const ITEM_EXPECTED: Readonly<Record<string, string>> = {
   "image.props": "an image's props {pointer, alt}",
   "image.props.pointer": `${POINTER} to a PNG, JPEG, GIF or WebP file, with no anchor`,
   "image.props.alt": text(IMAGE_ALT_MAX_CHARS),
+  // A question's widget items (widget-answers, design decision 4); `widgets/wording.ts` words
+  // their props, which `requests.ts` and `update-request.ts` add to these tables.
+  "tree.id": `${ID_SHAPE}, unique in the ask`,
+  "gantt.id": `${ID_SHAPE}, unique in the ask`,
+  "molecule.id": `${ID_SHAPE}, unique in the ask`,
 };
 
 /** What each of an item's objects holds, keyed as `itemKey` keys them. */
@@ -340,6 +353,27 @@ const questionProblems = (
   return problems;
 };
 
+// A question holds options, items or both (F1; widget-answers, input format 1.4).
+const emptyQuestionProblems = (
+  wording: Wording,
+  value: unknown,
+  { item, at }: Placed,
+): RequestProblem[] => {
+  const props = item.props;
+  if (!isRecord(props) || "options" in props || "items" in props) return [];
+  const message =
+    "{where}: a question needs options, items or both, and this one has neither; add options to choose from, or items such as a Tree";
+  return [
+    problemAt(
+      wording,
+      value,
+      [...at, "props"],
+      message,
+      expectedAt(wording, [...at, "props"], value),
+    ),
+  ];
+};
+
 /** The label checks of every question among the items. */
 export const labelProblems = (
   wording: Wording,
@@ -348,4 +382,7 @@ export const labelProblems = (
 ): RequestProblem[] =>
   placed
     .filter(({ item }) => item.type === "question")
-    .flatMap((entry) => questionProblems(wording, value, entry));
+    .flatMap((entry) => [
+      ...emptyQuestionProblems(wording, value, entry),
+      ...questionProblems(wording, value, entry),
+    ]);

@@ -284,7 +284,9 @@ describe("items in a question", () => {
       itemId: "rates",
       field: "type",
     });
-    expect(problem.expected).toContain('"excerpt", "reference" or "image"');
+    expect(problem.expected).toContain(
+      '"excerpt", "reference", "image", "tree", "gantt" or "molecule"',
+    );
   });
 
   test("an item type named after an inherited property is refused at its type alone", () => {

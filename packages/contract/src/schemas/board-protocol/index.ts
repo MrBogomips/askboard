@@ -43,7 +43,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.4";
+export const BOARD_PROTOCOL_VERSION = "1.5";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -232,6 +232,10 @@ export type AnswerAct = QuestionAct & {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since 1.5: each changed widget item's full edited props, by item ID (AD-20). */
+  readonly values?: Readonly<Record<string, unknown>>;
+  /** Since 1.5: the question's derived values as they stood, by reference (AD-13). */
+  readonly derived?: Readonly<Record<string, unknown>>;
   /** RFC 3339 UTC, stamped by the board when the user acted (FR-19). */
   readonly when: string;
 };
@@ -335,6 +339,8 @@ export type CurrentAnswer = {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since 1.5: the logged full props of each widget item the answer changed, by item ID. */
+  readonly values?: Readonly<Record<string, unknown>>;
   readonly declined?: true;
   readonly when: string;
   readonly receipt: Receipt;

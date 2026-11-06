@@ -3,6 +3,7 @@
 // so the board page, which cannot compile schemas, never loads Ajv.
 
 export {
+  ANSWER_EVENT_MAX_CHARS,
   ASK_TITLE_MAX_CHARS,
   BOARD_CLOSE_CODES,
   BOARD_HOST,
@@ -454,6 +455,7 @@ export type {
   BoardContextItem,
   BoardExcerptProps,
   BoardImageProps,
+  BoardQuestionItem,
   BoardQuestionProps,
   BoardReferenceProps,
   ContextLines,
@@ -472,10 +474,13 @@ export type {
   ExcerptProps,
   ImageItem,
   ImageProps,
+  MoleculeReferenceItem,
+  QuestionContentItem,
   ReferenceItem,
   ReferenceProps,
+  WidgetItem,
 } from "./schemas/input/index.ts";
-export type { UnresolvedPointerWarning } from "./schemas/output/index.ts";
+export type { FormulaWarning, UnresolvedPointerWarning } from "./schemas/output/index.ts";
 export type {
   FetchContextItem,
   FetchExcerptProps,

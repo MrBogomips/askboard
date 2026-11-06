@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:warning",
   "title": "Warning",
-  "description": "A typed warning in a successful result (AD-6). E1's one warning, no-hooks, says that the session runs without hooks, so push, ownership checks and the stop guard are unavailable and the agent must collect before it finishes (AD-5). Since 1.2, unresolved-pointer names a context item whose pointer did not resolve, with the pointer and the reason; it never refuses the ask (excerpts, design decision 4; FR-8).",
+  "description": "A typed warning in a successful result (AD-6). E1's one warning, no-hooks, says that the session runs without hooks, so push, ownership checks and the stop guard are unavailable and the agent must collect before it finishes (AD-5). Since 1.2, unresolved-pointer names a context item whose pointer did not resolve, with the pointer and the reason; it never refuses the ask (excerpts, design decision 4; FR-8). Since 1.3, formula names an item whose formulas the send-time graph check found in error: the item's ID in reference addressing, the address of the node in error, the formula error kind and a message; it never refuses the ask either (AD-13, FR-14).",
   "type": "object",
   "properties": {
     "code": {
-      "enum": ["no-hooks", "unresolved-pointer"]
+      "enum": ["no-hooks", "unresolved-pointer", "formula"]
     },
     "message": {
       "type": "string",
@@ -14,6 +14,19 @@
     },
     "itemId": { "$ref": "urn:askboard:input:id" },
     "pointer": { "$ref": "urn:askboard:input:pointer" },
+    "address": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "error": {
+      "enum": [
+        "syntax",
+        "over-limit",
+        "not-whitelisted",
+        "missing-reference",
+        "cycle",
+        "mixed-currencies",
+        "value",
+        "division-by-zero"
+      ]
+    },
     "reason": {
       "enum": [
         "no-root",
@@ -33,8 +46,35 @@
   "additionalProperties": false,
   "if": { "properties": { "code": { "const": "unresolved-pointer" } } },
   "then": {
-    "properties": { "itemId": true, "pointer": true, "reason": true },
+    "properties": {
+      "itemId": true,
+      "pointer": true,
+      "reason": true,
+      "address": false,
+      "error": false
+    },
     "required": ["itemId", "pointer", "reason"]
   },
-  "else": { "properties": { "itemId": false, "pointer": false, "reason": false } }
+  "else": {
+    "if": { "properties": { "code": { "const": "formula" } } },
+    "then": {
+      "properties": {
+        "itemId": true,
+        "address": true,
+        "error": true,
+        "pointer": false,
+        "reason": false
+      },
+      "required": ["itemId", "address", "error"]
+    },
+    "else": {
+      "properties": {
+        "itemId": false,
+        "pointer": false,
+        "reason": false,
+        "address": false,
+        "error": false
+      }
+    }
+  }
 }

@@ -144,3 +144,18 @@ export {
   snapshotTranscripts,
   takeoverSnapshotTranscript,
 } from "./snapshot-transcripts.ts";
+
+// Widget answers (widget-answers, task 1.5): the UJ-2 ask's answer act, board states, fetch result,
+// too-large event and recorded exchange.
+
+export { widgetAnswerTranscript, widgetTranscripts } from "./lifecycle-transcripts.ts";
+export {
+  UJ2_SESSION,
+  uj2WidgetActRefusal,
+  uj2WidgetAnswerAct,
+  uj2WidgetAnsweredState,
+  uj2WidgetFetchResult,
+  uj2WidgetRefusedAct,
+  uj2WidgetTooLargeEvent,
+  uj2WidgetWaitingState,
+} from "./widget-answers.ts";

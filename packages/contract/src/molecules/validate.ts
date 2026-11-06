@@ -1,16 +1,16 @@
-// The molecule formats' validators (design decision 2), each the shared widget validator of its
-// schema, returning E1's `Checked`; no Ajv and no error mapping of their own. A definition's
-// format major and item count are refused first, saying what this contract reads, as E1's
-// versioned validators refuse a major; then the schema; then the checks. Each widget validator is
-// made on the first call, not at import: `src/validate.ts` re-exports this module and
+// The molecule formats' validators (design decision 2), each the contract's shared validation of
+// its schema, a set part since widget-answers (design decision 3), returning E1's `Checked`; no
+// Ajv and no error mapping of their own. A definition's format major and item count are refused
+// first, saying what this contract reads, as E1's versioned validators refuse a major; then the
+// schema; then the checks. Only a definition's parameters, which are data, go through the widget
+// validator. Nothing is called at import: `src/validate.ts` re-exports this module and
 // `../widgets/validator.ts` imports from it, and the cycle is safe only while no module of it makes
 // a call at its top level.
 
 import type { AnySchemaObject } from "ajv/dist/2020";
 import { createAjv } from "../compiled.ts";
-import type { Checked, Problem } from "../validate.ts";
-import ganttProps from "../widgets/gantt/gantt-props.json" with { type: "json" };
-import treeProps from "../widgets/tree/tree-props.json" with { type: "json" };
+import { SCHEMA_IDS } from "../sets.ts";
+import { type Checked, type Problem, validateAgainst } from "../validate.ts";
 import { widgetValidator } from "../widgets/validator.ts";
 import { moleculeDefinitionProblems } from "./checks.ts";
 import {
@@ -20,24 +20,15 @@ import {
   type MoleculeDefinition,
   type MoleculeProps,
 } from "./index.ts";
-import moleculeDefinition from "./molecule-definition.json" with { type: "json" };
-import moleculeProps from "./molecule-props.json" with { type: "json" };
-
-/** Every widget props schema of the contract, which a molecule's parameters may reference. */
-const WIDGET_PROPS_SCHEMAS: readonly AnySchemaObject[] = [treeProps, ganttProps];
 
 const VERSION = new RegExp(MOLECULE_VERSION_PATTERN);
-
-let propsSchema: ((value: unknown) => Checked<MoleculeProps>) | undefined;
-let definitionSchema: ((value: unknown) => Checked<MoleculeDefinition>) | undefined;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Validates a molecule reference's props (AD-9). */
 export const validateMoleculeProps = (value: unknown): Checked<MoleculeProps> => {
-  propsSchema ??= widgetValidator<MoleculeProps>([moleculeProps], moleculeProps.$id);
-  return propsSchema(value);
+  return validateAgainst<MoleculeProps>(SCHEMA_IDS.moleculeProps, value);
 };
 
 // A format whose major this contract does not read, or a composition of other than one item.
@@ -66,9 +57,8 @@ const messageOf = (error: unknown): string =>
 // widget validator, which would keep their `$id` for the life of the process.
 const compileProblems = (parameters: AnySchemaObject): Problem[] => {
   try {
-    const ajv = createAjv();
-    for (const schema of WIDGET_PROPS_SCHEMAS) ajv.addSchema(schema);
-    ajv.compile(parameters);
+    // The contract's sets already hold every widget props schema.
+    createAjv().compile(parameters);
     return [];
   } catch (error) {
     const message = `the parameters do not compile in strict mode beside the contract's widget schemas: ${messageOf(error)}`;
@@ -83,11 +73,7 @@ const compileProblems = (parameters: AnySchemaObject): Problem[] => {
 export const validateMoleculeDefinition = (value: unknown): Checked<MoleculeDefinition> => {
   const refusal = formatRefusal(value);
   if (refusal !== undefined) return refusal;
-  definitionSchema ??= widgetValidator<MoleculeDefinition>(
-    [moleculeDefinition],
-    moleculeDefinition.$id,
-  );
-  const checked = definitionSchema(value);
+  const checked = validateAgainst<MoleculeDefinition>(SCHEMA_IDS.moleculeDefinition, value);
   if (!checked.ok) return checked;
   const checks = moleculeDefinitionProblems(checked.value);
   const problems = checks.length > 0 ? checks : compileProblems(checked.value.parameters);
@@ -106,6 +92,6 @@ export const moleculeDataValidator = (
   definition: MoleculeDefinition,
 ): ((data: unknown) => Checked<Readonly<Record<string, unknown>>>) =>
   widgetValidator<Readonly<Record<string, unknown>>>(
-    [...WIDGET_PROPS_SCHEMAS, definition.parameters],
+    [definition.parameters],
     String(definition.parameters.$id),
   );

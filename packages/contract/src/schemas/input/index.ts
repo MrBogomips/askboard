@@ -2,9 +2,17 @@
 // the ask level around it, in English (E1, design decision 1); E3's minor takes several questions,
 // areas, FR-3's remaining fields and `update`'s request (ask-lifecycle, design decision 2); E5's
 // takes a question's context items: excerpts, references and images (excerpts, design decision 2);
-// E8's takes it-IT as the ask's language and locale (settings-languages, design decision 2, B8).
+// E8's takes it-IT as the ask's language and locale (settings-languages, design decision 2, B8);
+// widget-answers' lists the widget and molecule schemas of the three earlier changes (design decision 3).
 
+import type { MoleculeProps } from "../../molecules/index.ts";
+import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
+import moleculeProps from "../../molecules/molecule-props.json" with { type: "json" };
 import type { SchemaSet } from "../../versions.ts";
+import ganttProps from "../../widgets/gantt/gantt-props.json" with { type: "json" };
+import type { GanttItem } from "../../widgets/gantt/index.ts";
+import type { TreeItem } from "../../widgets/tree/index.ts";
+import treeProps from "../../widgets/tree/tree-props.json" with { type: "json" };
 import area from "./area.json" with { type: "json" };
 import ask from "./ask.json" with { type: "json" };
 import excerptProps from "./excerpt-props.json" with { type: "json" };
@@ -16,7 +24,7 @@ import questionProps from "./question-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 import update from "./update.json" with { type: "json" };
 
-export const INPUT_FORMAT_VERSION = "1.3";
+export const INPUT_FORMAT_VERSION = "1.4";
 
 export const inputFormat: SchemaSet = {
   name: "input",
@@ -34,6 +42,10 @@ export const inputFormat: SchemaSet = {
     excerptProps,
     referenceProps,
     imageProps,
+    treeProps,
+    ganttProps,
+    moleculeProps,
+    moleculeDefinition,
   ],
 };
 
@@ -51,12 +63,13 @@ export type ChoiceOption = {
 export type QuestionProps = {
   readonly text: string;
   readonly header?: string;
-  readonly options: readonly ChoiceOption[];
+  /** Optional since input format 1.4: a question holds options, items or both (widget-answers). */
+  readonly options?: readonly ChoiceOption[];
   readonly multiSelect?: boolean;
   /** Offers the "Other…" row (FR-3). */
   readonly allowOther?: boolean;
-  /** The question's context, since input format 1.2 (excerpts, design decision 2). */
-  readonly items?: readonly [ContextItem, ...ContextItem[]];
+  /** The question's items: context since input format 1.2 (excerpts), widgets since 1.4. */
+  readonly items?: readonly [QuestionContentItem, ...QuestionContentItem[]];
 };
 
 export type QuestionItem = {
@@ -197,3 +210,18 @@ export type ImageItem = { readonly type: "image"; readonly id: string; readonly 
 
 /** An item of a question's context, picked by its type. */
 export type ContextItem = ExcerptItem | ReferenceItem | ImageItem;
+
+// Input format 1.4 (widget-answers, design decision 3): a question's widget items.
+
+/** A molecule reference, which ask-core expands into its widget item before the board shows it. */
+export type MoleculeReferenceItem = {
+  readonly type: "molecule";
+  readonly id: string;
+  readonly props: MoleculeProps;
+};
+
+/** A widget item of a question, picked by its type. */
+export type WidgetItem = TreeItem | GanttItem | MoleculeReferenceItem;
+
+/** An item of a question's `items`: a context item or a widget item. */
+export type QuestionContentItem = ContextItem | WidgetItem;

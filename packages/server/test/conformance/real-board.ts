@@ -5,7 +5,7 @@
 // the protocol's. The browser tests (9.3) cover the three engines; one is enough here. A board of
 // several questions finds each control inside its question's card (ask-lifecycle, task 7.2).
 
-import { type Browser, chromium, type Locator, type Page } from "playwright";
+import { type Browser, chromium, type FrameLocator, type Locator, type Page } from "playwright";
 
 const VIEW_FRAME = 'iframe[sandbox="allow-scripts"]';
 const LOAD_TIMEOUT_MS = 8_000;
@@ -13,6 +13,8 @@ export const STEP_TIMEOUT_MS = 5_000;
 
 export type RealBoard = {
   readonly page: Page;
+  /** The view's frame, for controls of a widget the board's own helpers do not name. */
+  readonly view: FrameLocator;
   /** The board-host messages the page received, in order. */
   readonly received: unknown[];
   /** Errors the board page or the view threw. */
@@ -58,6 +60,7 @@ export const openRealBoard = async (browser: Browser, link: string): Promise<Rea
   const card = (itemId: string) => view.locator(`[data-askboard-question="${itemId}"]`);
   return {
     page,
+    view,
     received,
     errors,
     loaded: (itemId) =>

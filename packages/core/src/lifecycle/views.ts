@@ -27,7 +27,12 @@ export type AnswerView = AnswerContent & {
   readonly cursor?: string;
   /** Whether `received` has passed its event; a recorded answer is the agent's own, so it has. */
   readonly delivered: boolean;
+  /** The full values of the widget items it changed, by expanded item ID (AD-20); none without. */
+  readonly values?: Readonly<Record<string, unknown>>;
 };
+
+/** The widget content kept for each answer event, by cursor (AD-20). */
+export type KeptValues = ReadonlyMap<string, { readonly values: unknown }>;
 
 /** A follow-up the user wrote, with the agent's replies under it (FR-10). */
 export type ThreadView = {
@@ -90,9 +95,14 @@ export const fullAnswer = (
 
 const seqOf = (cursor: string): number => Number(cursor.slice(cursor.indexOf(".") + 1));
 
-const answerView = (answer: FetchAnswer, received: number): AnswerView => {
+const answerView = (answer: FetchAnswer, received: number, kept: KeptValues): AnswerView => {
   const delivered = "cursor" in answer ? seqOf(answer.cursor) <= received : true;
-  return { ...answer, delivered };
+  const values = "cursor" in answer ? kept.get(answer.cursor)?.values : undefined;
+  const widgets =
+    typeof values === "object" && values !== null && Object.keys(values).length > 0
+      ? { values: values as Readonly<Record<string, unknown>> }
+      : {};
+  return { ...answer, delivered, ...widgets };
 };
 
 const threadOf = (question: QuestionRecord, entries: readonly Entry[]): ThreadView[] =>
@@ -120,16 +130,17 @@ export type QuestionFacts = {
 export const questionView = (
   { question, entries, status }: QuestionFacts,
   received: number,
+  kept: KeptValues = new Map(),
 ): LifecycleQuestionView => {
   const answer = fullAnswer(question, status.answer);
   return {
     itemId: question.id,
     rev: question.rev,
     state: status.state,
-    ...(answer === undefined ? {} : { answer: answerView(answer, received) }),
+    ...(answer === undefined ? {} : { answer: answerView(answer, received, kept) }),
     ...(question.previous === undefined
       ? {}
-      : { previous: answerView(question.previous, received) }),
+      : { previous: answerView(question.previous, received, kept) }),
     thread: threadOf(question, entries),
   };
 };

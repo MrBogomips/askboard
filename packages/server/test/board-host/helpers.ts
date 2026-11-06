@@ -158,6 +158,8 @@ export const startHost = (
     snapshots?: SnapshotPorts;
     /** The configuration's port (settings-languages). */
     config?: CorePorts["config"];
+    /** The molecule source a reference expands from (widget-answers). */
+    molecules?: CorePorts["molecules"];
   } = {},
 ): TestHost => {
   const reported: unknown[] = [];
@@ -186,6 +188,7 @@ export const startHost = (
     ...options.push,
     ...(options.snapshots === undefined ? {} : { snapshots: options.snapshots }),
     ...(options.config === undefined ? {} : { config: options.config }),
+    ...(options.molecules === undefined ? {} : { molecules: options.molecules }),
   });
   core = created;
   return {

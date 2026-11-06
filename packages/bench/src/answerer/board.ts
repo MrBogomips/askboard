@@ -110,7 +110,7 @@ export const answerBoard = async (options: AnswerBoardOptions): Promise<BoardRec
       if (status.state !== "open") return finish({ outcome: "not-open" });
       const { choice, matched } = chooseFor(
         plan,
-        item.props.options.map((option) => option.label),
+        (item.props.options ?? []).map((option) => option.label),
       );
       const answered = now();
       record = { ...record, itemId: item.id, rev: item.rev, choice, matched, answered };

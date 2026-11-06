@@ -56,7 +56,7 @@ describe("the ask level of the input format", () => {
       "text, header, options, multiSelect, allowOther and items",
     ],
     // Since input format 1.2 a question's items hold its context (excerpts, design decision 2).
-    ["items", ["items"], "props.items", "excerpts, references and images"],
+    ["items", ["items"], "props.items", "context (excerpts, references, images) and widgets"],
     [
       "an option colour",
       ["options", 0, "colour"],
@@ -159,13 +159,13 @@ describe("the ask level of the input format", () => {
     expect(problem.expected).toContain('"question"');
   });
 
-  test("a question without options names the item ID and says options is required", () => {
+  test("a question with neither options nor items names the item ID and says it needs one", () => {
     const value = ask();
     delete question(value).props.options;
     const problem = only(value);
-    expect(problem).toMatchObject({ itemId: "database", field: "props.options" });
-    expect(problem.message).toContain("props.options is required");
-    expect(problem.expected).toContain("non-empty list of options");
+    expect(problem).toMatchObject({ itemId: "database", field: "props" });
+    expect(problem.message).toContain("needs options, items or both");
+    expect(problem.expected).toContain("options, items or both");
   });
 
   test("the title, the agent name and the expected user have their limits", () => {

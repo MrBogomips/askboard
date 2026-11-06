@@ -7,13 +7,15 @@
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
+import type { GanttItem } from "../../widgets/gantt/index.ts";
+import type { TreeItem } from "../../widgets/tree/index.ts";
 import type { QuestionProps } from "../input/index.ts";
 import boardDocument from "./board-document.json" with { type: "json" };
 import excerptProps from "./excerpt-props.json" with { type: "json" };
 import imageProps from "./image-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 
-export const BOARD_DOCUMENT_VERSION = "1.3";
+export const BOARD_DOCUMENT_VERSION = "1.4";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",
@@ -137,7 +139,13 @@ export type BoardContextItem =
   | { readonly type: "reference"; readonly id: string; readonly props: BoardReferenceProps }
   | { readonly type: "image"; readonly id: string; readonly props: BoardImageProps };
 
+/**
+ * An item of a question as the board document holds it: a resolved context item, or since 1.4 a Tree
+ * or a Gantt as ask-core expanded it; a molecule reference is never one (widget-answers).
+ */
+export type BoardQuestionItem = BoardContextItem | TreeItem | GanttItem;
+
 /** A question's props as the board document holds them: its items resolved. */
 export type BoardQuestionProps = Omit<QuestionProps, "items"> & {
-  readonly items?: readonly [BoardContextItem, ...BoardContextItem[]];
+  readonly items?: readonly [BoardQuestionItem, ...BoardQuestionItem[]];
 };

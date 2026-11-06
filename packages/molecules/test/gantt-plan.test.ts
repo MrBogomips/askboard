@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { GANTT_MAX_TASKS, ganttPropsSchema, type MoleculeDefinition } from "@askboard/contract";
+import { GANTT_MAX_TASKS, type MoleculeDefinition } from "@askboard/contract";
 import {
   createAjv,
   moleculeDataValidator,
@@ -28,7 +28,7 @@ const definition = JSON.parse(await Bun.file(FILE).text()) as MoleculeDefinition
 // props schema, which the parameters reference; every strict-mode warning is kept.
 const warnings: unknown[] = [];
 const ajv = createAjv({ logger: { log() {}, warn: (...m) => warnings.push(m), error() {} } });
-ajv.addSchema(ganttPropsSchema).addSchema(definition.parameters);
+ajv.addSchema(definition.parameters);
 const validate = ajv.getSchema(PARAMETERS_ID);
 if (validate === undefined) throw new Error("the parameters are missing");
 

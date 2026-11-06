@@ -37,7 +37,7 @@ const notHeld = (value: Exclude<FullValue, Held>, epoch: string): ToolResult => 
   const why =
     value.kind === "deleted"
       ? ": it was deleted by an update, and an item ID is never reused"
-      : "; name a question or an area the ask holds";
+      : "; name a question, an area, a widget item or a molecule reference the ask holds, by the ID you sent";
   return errorResult(`The fetch was refused: the ask "${askId}" has no item "${itemId}"${why}.`);
 };
 

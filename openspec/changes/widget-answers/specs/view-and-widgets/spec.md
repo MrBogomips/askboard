@@ -3,13 +3,37 @@
 ## REMOVED Requirements
 
 ### Requirement: The board page refuses widget answers for now
-**Reason**: Board protocol 1.2 carries a widget's value, so the refusal the `tree-widget` change built on purpose until then is lifted.
+**Reason**: Board protocol 1.5 carries a widget's value, so the refusal the `tree-widget` change built on purpose until then is lifted.
 **Migration**: Replaced by "The board page sends widget answers" and "Board documents with widget items". E1's `answer` command keeps refusing widget values, since it is the choice-only command of protocol 1.0 pages.
+
+## MODIFIED Requirements
+
+### Requirement: Answering a question with a Gantt
+"Answer" SHALL send one answer message carrying each changed widget's full edited value and the declared derived values of every Gantt in the question as they stand, changed or not; an untouched Gantt sends no value, only its derived values. The question SHALL then be read-only (AD-10, AD-20, FR-12).
+
+#### Scenario: The UJ-2 edits by keyboard
+- **WHEN** the user makes the approved answer's edits with the keyboard, in the Tree and in the plan, and presses "Answer"
+- **THEN** one answer message leaves the view; the contract's diff of the sent and the edited plan equals the approved `schedule` operation, and its derived values are `schedule.finish` `2026-12-02` and `schedule.criticalPath` `ux`, `prototype`, `portal`, `reporting`
+
+#### Scenario: Nothing changed
+- **WHEN** a Gantt question opens and the user only zooms and moves the focus
+- **THEN** "Answer" stays disabled
 
 ## ADDED Requirements
 
+### Requirement: Derived values of every computing item in an answer
+An answer SHALL carry the declared derived values of every computing item in its question, a widget item whose widget declares answer-derived fields, changed or not, as they stood when the user answered, so that the agent never recomputes them. Derived values SHALL never be an answer's only content: they go beside a choice, "Other…" text or a widget value, and an answer with nothing else SHALL be refused (FR-12, AD-10).
+
+#### Scenario: Only the WBS edited
+- **WHEN** the user re-estimates one work package in the UJ-2 question's WBS, leaves the plan untouched and presses "Answer"
+- **THEN** the answer act's `values` hold `wbs__tree` alone, and its `derived` holds `schedule__plan.finish` and `schedule__plan.criticalPath` as the board showed them, beside the WBS's derived values
+
+#### Scenario: A choice beside an untouched plan
+- **WHEN** a question holding options and a Gantt plan is answered with an option alone
+- **THEN** the answer act carries the option and the plan's derived values, and no `values`
+
 ### Requirement: Board documents with widget items
-The board page SHALL accept a board document whose questions hold Tree and Gantt items, validate it with the standalone validators of board document 1.2, and build the view from it; a board document holding a `molecule` item SHALL still be refused (AD-9, AD-10).
+The board page SHALL accept a board document whose questions hold Tree and Gantt items, validate it with the standalone validators of board document 1.4, and build the view from it; a board document holding a `molecule` item SHALL still be refused (AD-9, AD-10).
 
 #### Scenario: The UJ-2 board
 - **WHEN** `board-host` sends the UJ-2 ask's board document

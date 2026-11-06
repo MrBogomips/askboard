@@ -289,8 +289,8 @@ describe("the approved plain-choice example, end to end", () => {
     onlyProtocol(session);
   });
 
-  for (const name of ["uj1-diff-graph", "uj2-wbs-gantt", "uj3-sales-review"]) {
-    test(`${name}, beyond E1's input format, is refused and creates nothing`, async () => {
+  for (const name of ["uj1-diff-graph", "uj3-sales-review"]) {
+    test(`${name}, still beyond the input format, is refused and creates nothing`, async () => {
       const free = firstFreePort();
       const session = await startSession();
       const asked = await session.call("ask", approved("asks", name));

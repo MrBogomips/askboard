@@ -15,6 +15,7 @@ import {
   type MoleculeItem,
   type MoleculeProps,
   pointerOf,
+  pointerTokens,
 } from "@askboard/contract";
 import {
   moleculeDataValidator,
@@ -160,6 +161,19 @@ const resolve = (
   return { resolved: { at: found.at, id, props, definition, expandedId } };
 };
 
+// The field of the data a problem is about, as the agent names it: `/dependencies/ux/0` is
+// `, data.dependencies.ux[0]`; a problem about the data as a whole names none, nor does one whose
+// message already quotes the key (an unknown field).
+const dataFieldOf = (path: string, message: string): string => {
+  const tokens = pointerTokens(path) ?? [];
+  if (tokens.length === 0 || message.includes(`"${tokens.at(-1)}"`)) return "";
+  const field = tokens.reduce(
+    (text, token) => (/^\d+$/.test(token) ? `${text}[${token}]` : `${text}.${token}`),
+    "data",
+  );
+  return `, ${field}`;
+};
+
 // Steps 2 and 3: the data against the parameters, then the fills; the item under its new ID.
 const fill = (
   reference: Resolved,
@@ -172,7 +186,7 @@ const fill = (
     problems: problems.map(({ path, message }) => ({
       itemId: id,
       path: under(base, path),
-      message: `${name}: ${message}`,
+      message: `${name}${dataFieldOf(path, message)}: ${message}`,
     })),
   });
   let checked: ReturnType<ReturnType<typeof moleculeDataValidator>>;

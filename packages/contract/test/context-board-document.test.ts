@@ -343,8 +343,9 @@ describe("items in a board document's question", () => {
     expect(validateBoardDocument(withItems([item]))).toMatchObject({ ok: false });
   });
 
-  test("a widget item is refused at its type", () => {
-    const checked = validateBoardDocument(withItems([{ type: "tree", id: "wbs", props: {} }]));
+  test("a molecule reference is refused at its type (a Tree and a Gantt are taken)", () => {
+    const props = { molecule: "wbs-pert", data: {} };
+    const checked = validateBoardDocument(withItems([{ type: "molecule", id: "wbs", props }]));
     expect(checked).toMatchObject({
       ok: false,
       problems: [{ path: "/items/0/props/items/0/type" }],

@@ -239,19 +239,21 @@ describe("question props: FR-3's fields", () => {
 });
 
 describe("what the input format still refuses", () => {
-  // Since input format 1.2 a question's items hold its context, and a widget item is refused at its
-  // type (excerpts, design decision 2).
-  test.each([
-    ["uj1-diff-graph", ["fix-diff", "retry-states"]],
-    ["uj2-wbs-gantt", ["wbs", "schedule"]],
-    ["uj3-sales-review", ["estimate"]],
-  ])("the approved %s ask is refused, naming each widget item and its type", async (name, ids) => {
-    const problems = problemsOf(await read(`asks/${name}.json`));
+  // A widget item of a type the input format does not define is refused at its type. Since input
+  // format 1.4 (widget-answers) `tree`, `gantt` and `molecule` are defined, so the approved uj2 and
+  // uj3 asks pass the contract: uj3's reference names a molecule no definition ships, which
+  // ask-core refuses, not the contract.
+  test("the approved uj1 ask is refused, naming each widget item and its type", async () => {
+    const problems = problemsOf(await read("asks/uj1-diff-graph.json"));
     const named = problems.filter((problem) => problem.field === "type");
-    expect(named.map((problem) => problem.itemId)).toEqual(ids);
+    expect(named.map((problem) => problem.itemId)).toEqual(["fix-diff", "retry-states"]);
     for (const problem of named) {
       expect(problem.message).toStartWith(`item "${problem.itemId}", type`);
     }
+  });
+
+  test.each(["uj2-wbs-gantt", "uj3-sales-review"])("the approved %s ask passes", async (name) => {
+    expect(problemsOf(await read(`asks/${name}.json`))).toEqual([]);
   });
 
   // Input format 1.2 accepts it-IT (settings-languages); any other value is still refused.

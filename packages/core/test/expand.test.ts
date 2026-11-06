@@ -240,6 +240,23 @@ describe("versions", () => {
   });
 });
 
+describe("data problems name the field", () => {
+  test("a bad date names the reference and data.start", () => {
+    const data = { ...copyOf(scheduleData), start: "11/02/2026" };
+    const items = [
+      question("plan", [
+        reference("wbs", "wbs-pert", copyOf(wbsData)),
+        reference("schedule", "gantt-plan", data),
+      ]),
+    ];
+    const result = expandMolecules(items, fakeMoleculeSource([wbsPert, ganttPlan]).source);
+    const messages = result.ok ? [] : result.problems.map(({ message }) => message);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain('"schedule"');
+    expect(messages[0]).toContain("data.start");
+  });
+});
+
 describe("refusing an expansion", () => {
   test("data outside the parameters is refused, naming the reference and the key", () => {
     const data = { ...copyOf(wbsData), calendar: "work-week" };

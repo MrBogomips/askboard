@@ -20,7 +20,7 @@ import {
 const document = lifecycleBoardDocument as unknown as ViewDocument;
 const AT = new Date("2026-10-31T17:42:05.000Z");
 const WHEN = "2026-10-31T17:42:05.000Z";
-// No widget item reported derived values (gantt-widget design decision 10).
+// No widget item reported derived values (widget-answers design decision 10).
 const NONE_REPORTED = () => undefined;
 
 const stateOf = (
@@ -158,7 +158,7 @@ describe("what Submit sends (AD-20; task 6.6)", () => {
   });
 });
 
-describe("what Submit's answers carry of the derived values (gantt-widget design decision 10; AD-20, FR-12)", () => {
+describe("what Submit's answers carry of the derived values (widget-answers design decision 10; AD-20, FR-12)", () => {
   const [schedule] = ganttBoardDocument.items;
   const gantt = ganttBoardDocument as unknown as ViewDocument;
   const finish = { "release.finish": "2026-12-16", "release.criticalPath": ["reporting"] };
@@ -178,6 +178,18 @@ describe("what Submit's answers carry of the derived values (gantt-widget design
         when: WHEN,
       },
     ]);
+  });
+
+  test("a held answer of Other text beside an untouched Gantt carries the Gantt's derived values and no values", () => {
+    const { values, board } = setUp("submitted", gantt);
+    board.edit(schedule.id, 1, (work) => ({
+      ...work,
+      other: "Later",
+      held: { act: "answer", order: 0 },
+    }));
+    const [act] = submitActsOf(heldWorkOf(gantt, board.get()), values.record(), AT, reported);
+    expect(act).toMatchObject({ type: "answer", other: "Later", derived: finish });
+    expect(Object.hasOwn(act ?? {}, "values")).toBe(false);
   });
 
   test("a held answer with no widget value carries none", () => {

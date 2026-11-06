@@ -231,7 +231,9 @@ describe("the ask's root", () => {
       status: "unresolved",
       reason: "no-root",
     });
-    expect(outcome.kind === "created" && outcome.warnings?.[0]?.reason).toBe("no-root");
+    expect(outcome.kind === "created" ? outcome.warnings?.[0] : undefined).toMatchObject({
+      reason: "no-root",
+    });
   });
 
   test("a core built without the SourceFiles port gives no-root", async () => {

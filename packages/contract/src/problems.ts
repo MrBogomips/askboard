@@ -40,7 +40,12 @@ export type Wording = {
   readonly keyOf?: (value: unknown, segments: Segments) => string;
 };
 
-export type ItemPath = { readonly itemId: string; readonly rest: Segments };
+export type ItemPath = {
+  readonly itemId: string;
+  readonly rest: Segments;
+  /** The element of a widget item the path is in, as `node "ux"`: named in the problem's text. */
+  readonly element?: string;
+};
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -52,7 +57,8 @@ export const pointer = (segments: Segments): string =>
     ? "/"
     : segments.map((part) => `/${part.replaceAll("~", "~0").replaceAll("/", "~1")}`).join("");
 
-const segmentsOf = (path: string): string[] =>
+/** The segments of a JSON Pointer; none for the whole value. */
+export const segmentsOf = (path: string): string[] =>
   path === "" || path === "/"
     ? []
     : path
@@ -106,7 +112,8 @@ export const problemAt = (
     : segments.length === 0
       ? wording.root
       : fieldOf(segments);
-  const where = item ? `item "${item.itemId}", ${field}` : field;
+  const element = item?.element === undefined ? "" : `${item.element}, `;
+  const where = item ? `item "${item.itemId}", ${element}${field}` : field;
   return {
     path: pointer(segments),
     ...(item ? { itemId: item.itemId } : {}),

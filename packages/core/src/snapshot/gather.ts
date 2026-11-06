@@ -3,8 +3,8 @@
 // It holds the current board document, the earlier revisions the log names, the board state as the
 // board receives it, the origin row `board-host` sends, and the whole log; it reads no draft record,
 // no board link, no agent record and no agent status (AD-20), since none is among its sources.
-// widget-answers' full values (`events[].values`) and molecules' expansion map (`molecules`) join
-// when those changes land (design.md, Handed on).
+// Widget answers add each answer event's full edited values (`events[].values`) and the expansion
+// map's entries (`molecules`), both left out when empty (widget-answers, design decision 7).
 
 import {
   BOARD_PROTOCOL_VERSION,
@@ -18,6 +18,7 @@ import {
   type SnapshotRevision,
 } from "@askboard/contract";
 import type { KeptRevisions } from "../lifecycle/views.ts";
+import type { ExpansionRecord } from "../molecules/map.ts";
 import type { WhoAsked } from "../push/ports.ts";
 import { boardStateOf, type OpenBoardView } from "./state.ts";
 
@@ -50,6 +51,10 @@ export type SnapshotSources = {
   readonly projectDir?: string;
   /** `AskCore.whoAsked(askId)`. */
   readonly asked?: WhoAsked;
+  /** `AskCore.keptAnswerValues(askId)`: the full edited values by event cursor, by item ID. */
+  readonly keptAnswerValues?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
+  /** `expansionEntries(map)` of the ask's expansion map. */
+  readonly molecules?: readonly ExpansionRecord[];
 };
 
 type LoggedEvent = Exclude<OutputEvent, DiscardedEvent>;
@@ -96,9 +101,15 @@ const revisionsOf = (
   );
 };
 
+// An event with the full values kept for it, when there are any.
+const loggedWith = (event: LoggedEvent, kept: SnapshotSources["keptAnswerValues"]) => {
+  const values = kept?.get(event.cursor);
+  return values === undefined || Object.keys(values).length === 0 ? { event } : { event, values };
+};
+
 /** The Snapshot's data, as the ask stands in `sources`. */
 export const gatherSnapshot = (sources: SnapshotSources): SnapshotData => {
-  const { epoch, board, kept, takenAt, taker, projectDir, asked } = sources;
+  const { epoch, board, kept, takenAt, taker, projectDir, asked, molecules } = sources;
   const log = sources.log.filter(isLogged);
   const origin =
     projectDir === undefined || asked === undefined
@@ -117,6 +128,7 @@ export const gatherSnapshot = (sources: SnapshotSources): SnapshotData => {
     revisions: revisionsOf(board, kept, log),
     state: boardStateOf(board),
     ...origin,
-    events: log.map((event) => ({ event })),
+    events: log.map((event) => loggedWith(event, sources.keptAnswerValues)),
+    ...(molecules === undefined || molecules.length === 0 ? {} : { molecules }),
   };
 };

@@ -137,7 +137,7 @@ describe("creating an ask", () => {
     await core.ask(request);
     (request.items[0].props.options as { label: string }[])[0] = { label: "Changed" };
     const document = core.board(request.askId)?.document;
-    expect(document?.items[0].props.options[0]?.label).toBe("PostgreSQL");
+    expect(document?.items[0].props.options?.[0]?.label).toBe("PostgreSQL");
     expect(Object.isFrozen(document)).toBe(true);
     expect(Object.isFrozen(document?.items[0].props.options)).toBe(true);
   });

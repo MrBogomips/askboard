@@ -16,7 +16,7 @@ import {
   sessionFilePath,
   sessionFolder,
 } from "@askboard/contract";
-import type { Clock } from "@askboard/core";
+import type { Clock, MoleculeSource } from "@askboard/core";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import type { BoardHostOptions, ParentArgv } from "../src/board-host/index.ts";
@@ -82,6 +82,7 @@ export const composedSessions = () => {
     clock?: Clock,
     parentArgv: ParentArgv = ORDINARY_PARENT,
     editorCommand?: BoardHostOptions["editorCommand"],
+    molecules?: MoleculeSource,
   ) => {
     const runtime = mkdtempSync("/tmp/abs-");
     runtimes.push(runtime);
@@ -114,6 +115,7 @@ export const composedSessions = () => {
       transport: serverEnd,
       ...(clock ? { clock } : {}),
       ...(editorCommand ? { editorCommand } : {}),
+      ...(molecules ? { molecules } : {}),
     });
     const connected = new Client(
       { name: client.name, version: client.version },

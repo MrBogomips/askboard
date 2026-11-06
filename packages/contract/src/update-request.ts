@@ -35,6 +35,8 @@ import type { CheckedRequest } from "./requests.ts";
 import type { UpdateInput } from "./schemas/input/index.ts";
 import type { FetchRequest } from "./schemas/tool-envelopes/index.ts";
 import { SCHEMA_IDS } from "./sets.ts";
+import { widgetProblems, widgetSchemaErrors } from "./widgets/request-problems.ts";
+import { WIDGET_EXPECTED, WIDGET_FIELDS } from "./widgets/wording.ts";
 
 const ACTIONS = ["add", "change", "delete", "reopen", "answer", "reply", "close"] as const;
 const ACTION_LIST = '"add", "change", "delete", "reopen", "answer", "reply" or "close"';
@@ -63,6 +65,7 @@ const UPDATE: Wording = {
     "add.parentId": "the ID of the area the question goes in; omitted at the top level",
     "add.after": "the ID of the item it follows; omitted to put it first",
     ...prefixed("add.", ITEM_EXPECTED),
+    ...prefixed("add.", WIDGET_EXPECTED),
     "change.itemId": ITEM_ID,
     "change.props": "an object of the props to change, each key replacing its old value whole",
     "delete.itemId": ITEM_ID,
@@ -88,6 +91,7 @@ const UPDATE: Wording = {
     reply: "a reply action holds only action, itemId, followUp and text",
     close: "a close action holds only action",
     ...prefixed("add.", ITEM_FIELDS),
+    ...prefixed("add.", WIDGET_FIELDS),
   },
   // A field by its action's name, and an added item's fields by the item's type.
   keyOf: (request, segments) => {
@@ -126,6 +130,18 @@ const addProblems = (request: unknown, action: unknown, index: number): Added =>
   return { nested: nestingProblems(UPDATE, request, placed), other };
 };
 
+// The widgets' own checks over the Tree and Gantt items of an added question.
+const addedWidgetProblems = (
+  request: unknown,
+  action: unknown,
+  index: number,
+  schema: readonly RequestProblem[],
+): RequestProblem[] => {
+  if (!isRecord(action) || action.action !== "add") return [];
+  const placed = placedItem(action.item, ["actions", String(index), "item"]);
+  return widgetProblems(UPDATE, request, placed, schema);
+};
+
 /**
  * Validates an `update` request against the input format: the schema, then the checks it cannot
  * express on each added item. It refines the tool's generic schema, so a request it accepts passes
@@ -135,13 +151,17 @@ export const validateUpdateRequest = (value: unknown): CheckedRequest<UpdateInpu
   const added = actionsOf(value).map((action, index) => addProblems(value, action, index));
   const nested = added.flatMap((entry) => entry.nested);
   const replaced = new Set(nested.map(({ path }) => path));
+  const schema = widgetSchemaErrors(schemaErrors(SCHEMA_IDS.update, value), value)
+    .map(located)
+    .map((entry) => schemaProblem(UPDATE, value, entry))
+    .filter(({ path }) => !replaced.has(path));
   const problems = [
-    ...schemaErrors(SCHEMA_IDS.update, value)
-      .map(located)
-      .map((entry) => schemaProblem(UPDATE, value, entry))
-      .filter(({ path }) => !replaced.has(path)),
+    ...schema,
     ...nested,
     ...added.flatMap((entry) => entry.other),
+    ...actionsOf(value).flatMap((action, index) =>
+      addedWidgetProblems(value, action, index, schema),
+    ),
   ];
   if (problems.length === 0) return { ok: true, value: value as UpdateInput };
   return { ok: false, reason: "schema", problems: inDocumentOrder(value, problems) };

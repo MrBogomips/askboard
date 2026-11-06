@@ -125,8 +125,11 @@ describe("the Tree fixtures (spec, Tree fixtures)", () => {
     expect(tree).toEqual({ type: "tree", id: "wbs", props: sent });
   });
 
-  test("E1's board document refuses it: no Tree reaches the board page yet", () => {
-    expect(validateBoardDocument(treeBoardDocument)).toMatchObject({ ok: false, reason: "schema" });
+  test("board document 1.4 takes it: a Tree is an item of a question (widget-answers)", () => {
+    expect(validateBoardDocument(treeBoardDocument)).toEqual({
+      ok: true,
+      value: treeBoardDocument,
+    });
   });
 
   test("the Tree and its edited value validate", () => {

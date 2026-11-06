@@ -135,7 +135,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           markupBoardDocument.title,
           question.props.text,
           question.props.header ?? "",
-          ...question.props.options.flatMap((option) => [option.label, option.description ?? ""]),
+          ...(question.props.options ?? []).flatMap((option) => [
+            option.label,
+            option.description ?? "",
+          ]),
         ]) {
           expect(shown).toContain(text);
         }

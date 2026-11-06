@@ -26,6 +26,7 @@ import { fetchItemOf } from "./context/fetch-item.ts";
 import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
 import { type PointerSource, pointerSourceOf } from "./context/source.ts";
 import { unresolvedWarnings } from "./context/warnings.ts";
+import { checkedFormulaWarnings } from "./graph-check.ts";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
 import { Connections } from "./lifecycle/connections.ts";
 import { type Entry, EventLog, frozenCopy } from "./lifecycle/log.ts";
@@ -41,6 +42,11 @@ import {
   questionValue,
   questionView,
 } from "./lifecycle/views.ts";
+import type { KeptAnswer } from "./lifecycle/widget-event.ts";
+import { areaInReference, questionInReference, widgetItemValue } from "./lifecycle/widget-fetch.ts";
+import type { WidgetUpdate } from "./lifecycle/widget-update.ts";
+import type { ExpansionMap } from "./molecules/map.ts";
+import type { MoleculeSource } from "./molecules/source.ts";
 import { cursorOf } from "./text.ts";
 
 export { frozenCopy } from "./lifecycle/log.ts";
@@ -81,6 +87,10 @@ export type AskInit = {
   readonly who: string;
   /** What the ask's send resolved of its questions' pointers, by question ID (excerpts). */
   readonly context?: ReadonlyMap<string, QuestionContext>;
+  /** Which expanded item of `input.items` belongs to which molecule reference (AD-9). */
+  readonly expansion?: ExpansionMap;
+  /** The molecule references as the agent sent them, by ID (a `change` merges into their props). */
+  readonly references?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 } & BoardLanguage;
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */
@@ -200,17 +210,26 @@ export class Ask {
   #stored: "closed" | "discarded" | undefined;
   // The events each applied action ID appended, by action ID (AD-20).
   #actions = new Map<string, readonly OutputEvent[]>();
+  // The full widget content of each answer event that has any, by the event's cursor: apart from
+  // the log, frozen, gone with the ask (AD-20).
+  #kept = new Map<string, KeptAnswer>();
   #closed: ClosedReason | undefined;
   // The highest cursor a read named as already received: the agent has acknowledged up to it.
   #acknowledged = 0;
   // The board's unsent work, apart from the log; only the restore path reads it (AD-20).
   #draft: DraftRecord | undefined;
   readonly #connections = new Connections();
+  // Which expanded item belongs to which molecule reference (AD-9); empty without references.
+  #expansion: ExpansionMap;
+  // Each reference's props as last sent or changed, by the reference's ID.
+  #references: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 
   constructor(init: AskInit) {
     this.epoch = init.epoch;
     this.askId = init.askId;
     this.#request = init.request;
+    this.#expansion = init.expansion ?? new Map();
+    this.#references = init.references ?? new Map();
     this.link = init.link;
     this.who = init.who;
     const { presentation, delivery, items } = init.input;
@@ -223,6 +242,11 @@ export class Ask {
       locale: init.locale,
     };
     this.#model = BoardModel.of(items, init.context);
+  }
+
+  /** The expansion map of the ask's molecule references (AD-9); empty once discarded. */
+  get expansion(): ExpansionMap {
+    return this.#expansion;
   }
 
   /** The first accepted request, canonicalized; empty once the ask is discarded. */
@@ -313,7 +337,7 @@ export class Ask {
       return { askId: this.askId, state: "discarded" };
     const questions = model
       .questions()
-      .map((question) => questionView(this.#facts(question), this.#received));
+      .map((question) => questionView(this.#facts(question), this.#received, this.#kept));
     const closed = this.#closed === undefined ? {} : { closed: this.#closed };
     return { askId: this.askId, state, document: model.document(this.#head), questions, ...closed };
   }
@@ -323,17 +347,37 @@ export class Ask {
     return (this.#model?.questions() ?? []).map(keptRevisionsOf);
   }
 
-  /** An item's full value (FR-20): an open or closed ask's, from its current board document. */
-  fullValue(itemId: string): FullValue {
+  /**
+   * The widget content kept for each answer event that has any, by the event's cursor, the values
+   * by expanded item ID as the board sent them; none for a tombstone (AD-20).
+   */
+  get keptAnswers(): ReadonlyMap<string, KeptAnswer> {
+    return this.#kept;
+  }
+
+  /**
+   * An item's full value (FR-20): an open or closed ask's, from its current board document, its
+   * widgets in reference addressing through `source`, the session's molecule source (AD-9).
+   */
+  fullValue(itemId: string, source?: MoleculeSource): FullValue {
     const { askId } = this;
     const model = this.#model;
     if (model === undefined) return { kind: "discarded", askId };
+    const fetch = { map: this.#expansion, source, kept: this.#kept };
     const question = model.question(itemId);
     if (question !== undefined) {
-      return this.#value(questionValue(this.#facts(question), model), question.generation);
+      const value = questionValue(this.#facts(question), model) as Parameters<
+        typeof questionInReference
+      >[0];
+      return this.#value(questionInReference(value, fetch), question.generation);
     }
     const area = model.area(itemId);
-    if (area !== undefined) return this.#value(areaValue(area, model), area.generation);
+    if (area !== undefined) {
+      const value = areaValue(area, model) as Parameters<typeof areaInReference>[0];
+      return this.#value(areaInReference(value, fetch), area.generation);
+    }
+    const widget = widgetItemValue(model, itemId, (each) => this.#status(each), fetch);
+    if (widget !== undefined) return this.#value(widget.item, widget.generation);
     return { kind: model.isDeleted(itemId) ? "deleted" : "missing", askId, itemId };
   }
 
@@ -403,13 +447,18 @@ export class Ask {
     actions: readonly UpdateAction[],
     now: string,
     context: ReadonlyMap<string, QuestionContext> = new Map(),
+    molecules?: MoleculeSource,
   ): { outcome: UpdateOutcome; effects?: UpdateEffects } {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) {
       throw new Error(`update: the ask is ${this.state}`);
     }
     const { askId, epoch, who } = this;
-    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
+    const widgets = this.#widgetsFor(molecules);
+    const applied = applyActions(
+      { askId, epoch, who, now, model, log: this.#log, widgets },
+      actions,
+    );
     if (!applied.ok) {
       const { ok: _, ...refusal } = applied;
       return { outcome: { kind: "refused", askId: this.askId, ...refusal } };
@@ -419,9 +468,27 @@ export class Ask {
       const resolved = context.get(question.id);
       if (resolved !== undefined) model.resolved(question.id, resolved);
     }
+    const graph =
+      revised.length === 0 ? undefined : checkedFormulaWarnings(model.items(), widgets.expansion);
+    if (graph?.ok === false) {
+      return {
+        outcome: {
+          kind: "refused",
+          askId: this.askId,
+          index: actions.length - 1,
+          refusal: "props",
+          detail: graph.detail,
+        },
+      };
+    }
     this.#model = model;
+    this.#expansion = widgets.expansion;
+    this.#references = widgets.references;
     if (applied.effects.closed) this.close("agent");
-    const warnings = unresolvedWarnings(revised.map((question) => model.boardQuestion(question)));
+    const warnings = [
+      ...unresolvedWarnings(revised.map((question) => model.boardQuestion(question))),
+      ...(graph?.warnings ?? []),
+    ];
     const outcome = {
       kind: "updated",
       askId: this.askId,
@@ -446,11 +513,19 @@ export class Ask {
    * question revisions it would create, at their props, and the image bytes the questions it leaves
    * as they are would still hold; undefined when E3's rules refuse it.
    */
-  preview(actions: readonly UpdateAction[], now: string): UpdatePreview | undefined {
+  preview(
+    actions: readonly UpdateAction[],
+    now: string,
+    molecules?: MoleculeSource,
+  ): UpdatePreview | undefined {
     const model = this.#model?.clone();
     if (model === undefined || this.#stored !== undefined) return undefined;
     const { askId, epoch, who } = this;
-    const applied = applyActions({ askId, epoch, who, now, model, log: this.#log }, actions);
+    const widgets = this.#widgetsFor(molecules);
+    const applied = applyActions(
+      { askId, epoch, who, now, model, log: this.#log, widgets },
+      actions,
+    );
     if (!applied.ok) return undefined;
     const revised = this.#revisedIn(model);
     let heldImageBytes = 0;
@@ -478,6 +553,15 @@ export class Ask {
       if (item !== undefined) return pointerSourceOf(item);
     }
     return undefined;
+  }
+
+  // Copies of the ask's molecules for one update, kept only if it applies.
+  #widgetsFor(source: MoleculeSource | undefined): WidgetUpdate {
+    return {
+      source,
+      expansion: new Map(this.#expansion),
+      references: new Map(this.#references),
+    };
   }
 
   // The questions whose revision `model`, an updated copy, changed or added, in board order.
@@ -535,6 +619,7 @@ export class Ask {
     this.#request = "";
     this.#draft = undefined;
     this.#actions = new Map();
+    this.#kept = new Map();
     this.#log.forgetItems();
     this.#log.dropThrough(this.#acknowledged);
     return entry?.event as DiscardedEvent;
@@ -584,7 +669,10 @@ export class Ask {
   // Checks the acts and appends their events in one step.
   #apply(acts: readonly unknown[]): ActOutcome {
     const model = this.#model as BoardModel;
-    const built = eventsOfActs({ epoch: this.epoch, who: this.who, model, log: this.#log }, acts);
+    const built = eventsOfActs(
+      { epoch: this.epoch, who: this.who, model, log: this.#log, expansion: this.#expansion },
+      acts,
+    );
     if (!built.ok) {
       const { refusal, detail, itemId } = built.problem;
       return {
@@ -597,6 +685,7 @@ export class Ask {
     }
     const entries = this.#log.append(built.events);
     model.noteEntries(entries);
+    for (const [cursor, kept] of built.kept) this.#kept.set(cursor, frozenCopy(kept));
     return { ok: true, events: entries.map((entry) => entry.event), repeated: false };
   }
 

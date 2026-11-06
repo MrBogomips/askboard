@@ -160,17 +160,19 @@
           "items": { "$ref": "#/$defs/contextItem" }
         }
       },
-      "required": ["text", "options"],
+      "required": ["text"],
       "additionalProperties": false
     },
     "contextItem": {
-      "description": "An item of a question, picked by its type.",
+      "description": "An item of a question, picked by its type: a resolved context item, or a Tree or a Gantt as ask-core expanded it (widget-answers); a molecule reference is never one.",
       "type": "object",
       "discriminator": { "propertyName": "type" },
       "oneOf": [
         { "$ref": "#/$defs/excerpt" },
         { "$ref": "#/$defs/reference" },
-        { "$ref": "#/$defs/image" }
+        { "$ref": "#/$defs/image" },
+        { "$ref": "#/$defs/tree" },
+        { "$ref": "#/$defs/gantt" }
       ]
     },
     "excerpt": {
@@ -199,6 +201,26 @@
         "type": { "const": "image" },
         "id": { "$ref": "urn:askboard:input:id" },
         "props": { "$ref": "urn:askboard:board-document:image-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "tree": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "tree" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:tree-props" }
+      },
+      "required": ["type", "id", "props"],
+      "additionalProperties": false
+    },
+    "gantt": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "gantt" },
+        "id": { "$ref": "urn:askboard:input:id" },
+        "props": { "$ref": "urn:askboard:input:gantt-props" }
       },
       "required": ["type", "id", "props"],
       "additionalProperties": false

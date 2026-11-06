@@ -110,6 +110,17 @@
           "minLength": 1,
           "maxLength": 10000
         },
+        "values": {
+          "description": "Since 1.5: the logged full props of each widget item the answer changed, by expanded item ID (AD-20); never a derived value, which the view recomputes.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
         "declined": {
           "const": true
         },

@@ -3,6 +3,8 @@
 // Every result names its envelope's version and the output format's (finding F12).
 
 import type { SchemaSet } from "../../versions.ts";
+import type { GanttItem } from "../../widgets/gantt/index.ts";
+import type { TreeItem } from "../../widgets/tree/index.ts";
 import type {
   BoardExcerptProps,
   BoardImageProps,
@@ -31,7 +33,7 @@ import updateOutcome from "./update-outcome.json" with { type: "json" };
 import updateResult from "./update-result.json" with { type: "json" };
 import versions from "./versions.json" with { type: "json" };
 
-export const TOOL_ENVELOPES_VERSION = "1.3";
+export const TOOL_ENVELOPES_VERSION = "1.4";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {
@@ -193,6 +195,10 @@ export type FetchAnswer = {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since 1.4: each changed widget item's full props, by item ID in reference addressing. */
+  readonly values?: Readonly<Record<string, unknown>>;
+  /** Since 1.4: the derived values as the board reported them, by reference. */
+  readonly derived?: Readonly<Record<string, unknown>>;
   readonly declined?: true;
   readonly who: string;
   readonly when: string;
@@ -216,6 +222,14 @@ export type FetchItem =
         readonly title: string;
         readonly items: readonly [FetchQuestion, ...FetchQuestion[]];
       };
+    }
+  | {
+      /** Since 1.4: a widget item alone, as the user left it, with its question's ID and state. */
+      readonly type: "tree" | "gantt";
+      readonly id: string;
+      readonly questionId: string;
+      readonly props: Readonly<Record<string, unknown>>;
+      readonly state: QuestionState;
     };
 
 export type FetchResult = {
@@ -263,7 +277,10 @@ export type FetchImageProps =
 export type FetchContextItem =
   | { readonly type: "excerpt"; readonly id: string; readonly props: FetchExcerptProps }
   | { readonly type: "reference"; readonly id: string; readonly props: BoardReferenceProps }
-  | { readonly type: "image"; readonly id: string; readonly props: FetchImageProps };
+  | { readonly type: "image"; readonly id: string; readonly props: FetchImageProps }
+  // Since tool envelopes 1.4 (widget-answers): a Tree or a Gantt as the board document holds it.
+  | TreeItem
+  | GanttItem;
 
 /** A question's props as `fetch` gives them. */
 export type FetchQuestionProps = Omit<QuestionProps, "items"> & {

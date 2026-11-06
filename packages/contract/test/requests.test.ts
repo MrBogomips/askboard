@@ -46,7 +46,7 @@ describe("a request with many problems", () => {
       "/items/0/props/multiSelect",
       "/items/0/props/recommended",
       "/items/1/props/text",
-      "/items/1/props/options",
+      "/items/1/props",
       "/locale",
       "/colour",
     ]);

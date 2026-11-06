@@ -10,6 +10,7 @@ import {
   CONTEXT_RESOLVE_BUDGET_MS,
   type ContextItem,
   type LifecycleAskInput,
+  type QuestionContentItem,
   type QuestionProps,
   type UnresolvedReason,
 } from "@askboard/contract";
@@ -51,9 +52,13 @@ const unresolved = (reason: UnresolvedReason): UnresolvedPointer => ({
   reason,
 });
 
-// The items whose props name a pointer: an excerpt or a reference given one, and every image.
-const pointerOf = (item: ContextItem): string | undefined =>
+// The items whose props name a pointer: an excerpt or a reference given one, and every image. A
+// widget item (widget-answers) names none.
+const pointerOf = (item: QuestionContentItem): string | undefined =>
   "pointer" in item.props ? item.props.pointer : undefined;
+
+const isContextItem = (item: QuestionContentItem): item is ContextItem =>
+  item.type === "excerpt" || item.type === "reference" || item.type === "image";
 
 /** Whether any item of the props names a pointer, so a send has something to read. */
 export const hasPointers = (props: QuestionProps): boolean =>
@@ -70,8 +75,8 @@ export const contextRequestsOf = (items: LifecycleAskInput["items"]): ContextReq
 const pointerItemsOf = (requests: readonly ContextRequest[]): PointerItem[] =>
   requests.flatMap(({ questionId, props }) =>
     (props.items ?? []).flatMap((item) => {
-      const pointer = pointerOf(item);
-      return pointer === undefined ? [] : [{ questionId, item, pointer }];
+      const pointer = isContextItem(item) ? pointerOf(item) : undefined;
+      return pointer === undefined || !isContextItem(item) ? [] : [{ questionId, item, pointer }];
     }),
   );
 

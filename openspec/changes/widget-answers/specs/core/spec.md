@@ -111,6 +111,10 @@ When an answer event with its `changes` and derived values would exceed the cont
 - **WHEN** the full value of a Tree whose question is still open is asked for
 - **THEN** it is the Tree as the agent sent it
 
+#### Scenario: A widget item beside an excerpt
+- **WHEN** a question holds an excerpt and a Tree, and the full value of the question is asked for
+- **THEN** the excerpt keeps the form the excerpts change gives `fetch` (no text, no bytes), and the Tree comes in full, as the user left it
+
 ### Requirement: Changing an item inside a question
 An `update` `change` naming a widget item or a molecule reference SHALL merge the given props into its props key by key, check them as an ask's are, re-expand a reference whole, and raise its question's `rev`; a question whose latest answer is logged SHALL NOT change unless reopened (AD-20, FR-6).
 
@@ -121,3 +125,14 @@ An `update` `change` naming a widget item or a molecule reference SHALL merge th
 #### Scenario: A change that does not expand
 - **WHEN** the agent changes `wbs`'s `data` to hold a node without `label`
 - **THEN** the update is refused, naming `wbs`, and the question keeps its `rev`
+
+### Requirement: Widget answers in a Snapshot
+`ask-core` SHALL give the Snapshot's gathering, for each answer event it logged with widget values, the full edited values kept for it, by item ID in reference addressing, and the expansion map's entries of the ask's molecule references, so that a Snapshot's data holds `events[].values` and `molecules` (FR-26, AD-15, AD-20).
+
+#### Scenario: A Snapshot of the answered UJ-2 ask
+- **WHEN** a Snapshot is taken of the ask after the UJ-2 answer
+- **THEN** the answer's event holds `values` for `wbs` and `schedule` as the user left them, and `molecules` lists the references `wbs` and `schedule` with their molecule and version
+
+#### Scenario: A Snapshot of an ask without widget answers
+- **WHEN** a Snapshot is taken of an ask whose answers are choices only
+- **THEN** no event holds `values` and the data holds no `molecules` entry

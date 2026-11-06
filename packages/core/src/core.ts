@@ -10,6 +10,7 @@ import {
   type ClosedReason,
   type DiscardReason,
   type DraftRecord,
+  type FormulaWarning,
   GRACE_PERIOD_MS,
   type LifecycleAskInput,
   type OutputEvent,
@@ -48,8 +49,13 @@ import {
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
+import { checkedFormulaWarnings, graphProblem } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
+import { expansionEntries } from "./molecules/map.ts";
+import { expandSentItems } from "./molecules/on-ask.ts";
+import { referencesIn } from "./molecules/references.ts";
+import { valueInReferenceAddressing } from "./molecules/rewrite.ts";
 import type { CorePorts } from "./ports.ts";
 import { AgentStatuses } from "./push/agent-status.ts";
 import { expectedAnswerer } from "./push/answerer.ts";
@@ -91,8 +97,11 @@ export type AskOutcome =
   | {
       readonly kind: "created" | "resent";
       readonly ask: AskSummary;
-      /** A created ask's unresolved pointers, in item order (excerpts, design decision 4). */
-      readonly warnings?: readonly UnresolvedPointerWarning[];
+      /**
+       * A created ask's unresolved pointers, in item order (excerpts, design decision 4), then the
+       * formula errors of its widgets' graph (widget-answers, design decision 5).
+       */
+      readonly warnings?: readonly (UnresolvedPointerWarning | FormulaWarning)[];
     }
   /** The ID is that of an ask of this epoch, and the request is not an identical resend. */
   | { readonly kind: "in-use"; readonly askId: string }
@@ -381,7 +390,7 @@ export class AskCore {
       await pending;
     }
     const now = timeOf(this.#ports.clock.now());
-    const preview = this.#asks.get(askId)?.preview(actions, now);
+    const preview = this.#asks.get(askId)?.preview(actions, now, this.#ports.molecules);
     if (preview === undefined || !preview.revisions.some(({ props }) => hasPointers(props))) {
       return this.#applyUpdate(askId, actions, new Map());
     }
@@ -438,7 +447,12 @@ export class AskCore {
 
   /** An item's full value for `fetch` (FR-20); an ask this epoch does not hold is discarded. */
   fullValue(askId: string, itemId: string): FullValue {
-    return this.#asks.get(askId)?.fullValue(itemId) ?? { kind: "discarded", askId };
+    return (
+      this.#asks.get(askId)?.fullValue(itemId, this.#ports.molecules) ?? {
+        kind: "discarded",
+        askId,
+      }
+    );
   }
 
   #graceEnded(askId: string): void {
@@ -461,6 +475,30 @@ export class AskCore {
    */
   keptRevisions(askId: string): readonly KeptRevisions[] | undefined {
     return this.#asks.get(askId)?.keptRevisions;
+  }
+
+  /**
+   * The full edited widget values kept for each answer event that has any, by the event's cursor:
+   * per event the values by item ID in reference addressing, as the user left them (AD-20), new on
+   * each read. None for a discarded ask, and undefined for an ask this epoch does not hold.
+   */
+  keptAnswerValues(
+    askId: string,
+  ): ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined {
+    const ask = this.#asks.get(askId);
+    if (ask === undefined) return undefined;
+    const source = this.#ports.molecules;
+    return new Map(
+      [...ask.keptAnswers].map(([cursor, { values }]) => [
+        cursor,
+        Object.fromEntries(
+          Object.entries(values).map(([itemId, props]) => {
+            const value = valueInReferenceAddressing(ask.expansion, source, itemId, props);
+            return [value.id, JSON.parse(JSON.stringify(value.props))];
+          }),
+        ),
+      ]),
+    );
   }
 
   #appended(askId: string, events: readonly OutputEvent[]): void {
@@ -664,6 +702,12 @@ export class AskCore {
     caller: Binding | undefined,
   ): Promise<AskOutcome> {
     const { askId } = input;
+    // Molecules (widget-answers, design decision 5): every reference expands before anything is
+    // created; the ask keeps the request as sent for the resend rule (AD-6).
+    const sent = expandSentItems(input.items, this.#ports.molecules);
+    if (!sent.ok) return { kind: "invalid", problems: sent.problems };
+    const graph = checkedFormulaWarnings(sent.items, sent.map);
+    if (!graph.ok) return { kind: "invalid", problems: [graphProblem(graph.detail)] };
     const showing = await this.#ports.showing.check();
     if (!showing.showable) {
       return { kind: "unavailable", askId, reason: showing.reason, detail: showing.detail };
@@ -687,7 +731,9 @@ export class AskCore {
       askId,
       request,
       title,
-      input,
+      input: { ...input, items: sent.items as LifecycleAskInput["items"] },
+      expansion: sent.map,
+      references: referencesIn(input.items),
       link,
       who,
       context,
@@ -697,7 +743,7 @@ export class AskCore {
     this.#configuration.ensureFolders();
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
-    const warnings = ask.contextWarnings;
+    const warnings = [...ask.contextWarnings, ...graph.warnings];
     return { kind: "created", ask: ask.summary, ...(warnings.length === 0 ? {} : { warnings }) };
   }
 
@@ -710,7 +756,12 @@ export class AskCore {
     const ask = this.#asks.get(askId);
     if (ask === undefined || ask.state === "discarded") return { kind: "discarded", askId };
     if (ask.state === "closed") return { kind: "closed", askId };
-    const { outcome, effects } = ask.update(actions, timeOf(this.#ports.clock.now()), context);
+    const { outcome, effects } = ask.update(
+      actions,
+      timeOf(this.#ports.clock.now()),
+      context,
+      this.#ports.molecules,
+    );
     if (effects?.document) this.#publish({ type: "document", askId });
     if (effects?.state) this.#publish({ type: "state", askId });
     if (effects?.closed) this.#publish({ type: "closed", askId, reason: "agent" });
@@ -855,6 +906,8 @@ export class AskCore {
       taker: takerOf(request, ask.who),
       ...(projectDir === undefined ? {} : { projectDir }),
       ...(asked === undefined ? {} : { asked }),
+      keptAnswerValues: this.keptAnswerValues(askId) ?? new Map(),
+      molecules: expansionEntries(ask.expansion),
     });
     return saveSnapshot(snapshots?.writer, data, this.ownerOf(askId) === undefined);
   }

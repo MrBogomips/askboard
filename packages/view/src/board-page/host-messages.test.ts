@@ -120,27 +120,30 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
     const { options: _, ...withoutOptions } = question.props;
     const instead = readHostMessage(boardWith({ ...withoutOptions, items: [probe] }));
     expect(instead).toMatchObject({ ok: false, reason: "schema" });
-    expect(problemsOf(boardWith({ ...withoutOptions, items: [probe] }))).toEqual(
-      expect.arrayContaining([
-        unknownItems,
-        { path: "/document/items/0/props/options", message: 'missing field "options"' },
-      ]),
-    );
+    // Since board document 1.4 `options` is optional: only the probe is refused.
+    expect(problemsOf(boardWith({ ...withoutOptions, items: [probe] }))).toEqual([unknownItems]);
   });
 
-  test("a board message holding the fixture Tree's question is refused as a schema error (view spec)", () => {
-    // Until the input format admits a Tree, the board page never builds a view from one.
+  test("a board message holding the fixture Tree's question is accepted (board document 1.4)", () => {
+    // Since widget-answers the board document takes a Tree and a Gantt among a question's items.
     const board = JSON.stringify({ version: "1.0", type: "board", document: treeBoardDocument });
-    expect(readHostMessage(board)).toMatchObject({ ok: false, reason: "schema" });
-    expect(problemsOf(board)).toEqual(
-      expect.arrayContaining([
-        {
-          path: "/document/items/0/props/items/0",
-          message: 'value of tag "type" must be in oneOf',
-        },
-        { path: "/document/items/0/props/options", message: 'missing field "options"' },
-      ]),
-    );
+    expect(readHostMessage(board)).toMatchObject({ ok: true });
+  });
+});
+
+describe("a board document with a molecule reference (widget-answers, task 5.1)", () => {
+  test("is refused: board-host sends molecules expanded, never as references", () => {
+    const [question] = treeBoardDocument.items;
+    const reference = { type: "molecule", id: "wbs", props: { molecule: "wbs-pert" } };
+    const message = JSON.stringify({
+      version: "1.0",
+      type: "board",
+      document: {
+        ...treeBoardDocument,
+        items: [{ ...question, props: { ...question?.props, items: [reference] } }],
+      },
+    });
+    expect(readHostMessage(message)).toMatchObject({ ok: false, reason: "schema" });
   });
 });
 

@@ -4,6 +4,7 @@
 import type { UnavailableReason } from "@askboard/contract";
 import type { Config } from "./config/ports.ts";
 import type { SourceFiles } from "./context/ports.ts";
+import type { MoleculeSource } from "./molecules/source.ts";
 import type { AgentRecords, Diagnose, HeaderPorts, Notices } from "./push/ports.ts";
 import type { SnapshotPorts } from "./snapshot/writer.ts";
 
@@ -105,4 +106,9 @@ export type CorePorts = {
   readonly snapshots?: SnapshotPorts;
   /** The configuration files (settings-languages); without it every key takes its default. */
   readonly config?: Config;
+  /**
+   * The molecule definitions an ask's references expand with (widget-answers, design decision 5);
+   * without it AskBoard ships no molecule and every reference is refused as unknown.
+   */
+  readonly molecules?: MoleculeSource;
 };

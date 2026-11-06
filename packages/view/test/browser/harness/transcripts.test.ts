@@ -182,7 +182,10 @@ describe("withDocument", () => {
       markupBoardDocument.title,
       question.props.text,
       question.props.header ?? "",
-      ...question.props.options.flatMap((option) => [option.label, option.description ?? ""]),
+      ...(question.props.options ?? []).flatMap((option) => [
+        option.label,
+        option.description ?? "",
+      ]),
     ];
     for (const text of strings) expect(text).toMatch(/<[a-z!/]/);
   });

@@ -32,7 +32,7 @@ export const choiceProblem = (choice: unknown, props: QuestionProps): string | u
   if (choice.length === 0) return "the choice is empty";
   if (new Set(choice).size !== choice.length) return "the choice names an option twice";
   if (props.multiSelect !== true && choice.length > 1) return "the question takes one option";
-  const labels = new Set(props.options.map((option) => option.label));
+  const labels = new Set((props.options ?? []).map((option) => option.label));
   const unknown = choice.find((label) => !labels.has(label));
   return unknown === undefined ? undefined : "the choice names a label that is not an option";
 };
@@ -41,7 +41,7 @@ const notesProblem = (notes: unknown, props: QuestionProps): string | undefined 
   if (!isRecord(notes)) return "the option notes are not an object of notes by label";
   const entries = Object.entries(notes);
   if (entries.length === 0) return "the option notes are empty";
-  const labels = new Set(props.options.map((option) => option.label));
+  const labels = new Set((props.options ?? []).map((option) => option.label));
   for (const [label, note] of entries) {
     if (!labels.has(label)) return `the option notes name "${label}", which is not an option`;
     const problem = textProblem(note, OPTION_NOTE_MAX_CHARS, `the note on "${label}"`);
@@ -63,6 +63,7 @@ export const contentProblem = (
   content: Readonly<Record<string, unknown>>,
   props: QuestionProps,
   declined: boolean,
+  widgetChange = false,
 ): ContentProblem | undefined => {
   const { choice, other, optionNotes, note } = content;
   if (choice !== undefined) {
@@ -74,8 +75,11 @@ export const contentProblem = (
     (optionNotes === undefined ? undefined : notesProblem(optionNotes, props)) ??
     (note === undefined ? undefined : textProblem(note, NOTE_MAX_CHARS, "the note"));
   if (problem !== undefined) return { refusal: "content", detail: problem };
-  if (!declined && choice === undefined && other === undefined) {
-    return { refusal: "content", detail: "the answer names no option and has no Other… text" };
+  if (!declined && !widgetChange && choice === undefined && other === undefined) {
+    return {
+      refusal: "content",
+      detail: "the answer names no option, has no Other… text and changes no Tree or Gantt",
+    };
   }
   return undefined;
 };

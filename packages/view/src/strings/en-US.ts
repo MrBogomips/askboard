@@ -118,6 +118,12 @@ export const EN_US = {
     other: "Your {count} changes on this question",
   },
   "change.show": "Show the agent's change",
+  "change.widget": {
+    one: "{item}, the {type}: {count} change by the agent",
+    other: "{item}, the {type}: {count} changes by the agent",
+  },
+  "change.widgetTree": "Tree",
+  "change.widgetGantt": "Gantt",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
