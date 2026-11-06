@@ -42,9 +42,13 @@ A plan entry gains `duration`, the requested duration, beside `start`. `compute`
 
 ### 3. Selection and the adjustment are pure model functions
 
-`tree/model/selection.ts` holds the selected set as node IDs with `toggle`, `extend` (a range from an anchor in the visible order, which collapsed rows are skipped in), `selectSubtree`, `selectAll` and the header's tri-state; parents derive their partial state from their subtree. `tree/model/adjust.ts` holds `parsePercent` (on the existing number parser in `shared/number.ts`, with the range of open question 5), `adjustValue` (decimal arithmetic on integers scaled by 10: `round(v × 10 × (1000 + 10p) / 1000)` computed with `BigInt` or scaled integers, half away from zero, so 3 × 1.1 is 3.3), `planAdjustment(value, selection, columns, percent)` returning the new value, the counts (changed, skipped-empty, refused-range) and the order warnings, and `applyAdjustment` returning a new frozen `TreeProps`. The panel renders `planAdjustment`'s preview and applies exactly what it showed.
+`tree/model/selection.ts` holds the selected set as node IDs with `toggle`, `extend` (a range from an anchor in the visible order, which collapsed rows are skipped in), `selectSubtree`, `selectAll` and the header's tri-state; parents derive their partial state from their subtree. `tree/model/adjust.ts` holds `parsePercent` (on the existing number parser in `shared/number.ts`, with the range of open question 5), `adjustValue` (decimal arithmetic on integers scaled by 10: `round(v × 10 × (1000 + 10p) / 1000)` computed with `BigInt` or scaled integers, half away from zero, so 3 × 1.1 is 3.3), `planAdjustment(value, selection, columns, percent)` returning either the new value and the counts (changed, skipped-empty) or the refusal with the offending rows (order or range, all or nothing), and `applyAdjustment` returning a new frozen `TreeProps`. The panel renders `planAdjustment`'s preview and applies exactly what it showed.
 
 *Alternative:* floats with `toFixed`: wrong on halves (2.475) and on 1.005-like values.
+
+### 3b. Coherence is one pure check
+
+`tree/model/coherence.ts` gives `estimateOrderProblem(value, nodeId, field, input)`, returning the message or `undefined`, used by the cell editor next to `estimateProblem` (range) and by `planAdjustment` for every row it would change; a row's order counts only among its non-empty estimates, and a row already out of order is refused only when the edit adds a violation (one more pair out of order, or a larger gap). *Alternative:* a warning, which the PO rejected; a refusal that also blocked rows the agent sent out of order, which would trap the user.
 
 ### 4. One undo slot for the adjustment
 
@@ -64,6 +68,10 @@ A drag has no keyboard form in Pragmatic drag and drop, so the Alt+Shift keys an
 
 The TASK header's edge is `role="separator"` with `aria-orientation="vertical"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax` and a name "Resize the Task column", one extra Tab stop in the grid's header, consistent with the grid being otherwise one Tab stop (a decision to note against the Gantt keyboard requirement; the header edge is outside the cell grid). The pointer drag uses pointer capture, like `bar-drag.ts`. The width goes into the grid's CSS template columns and the chart's x origin, so the bars and the time axis stay aligned.
 
+### 9. Double-click and hover are small, shared pieces
+
+The double-click handler of the Tree (PR #34, `tree/widget.tsx`, `onDoubleClick`) is the model for the Gantt grid's: it resolves the cell under the pointer and calls the editor the Enter key calls, and does nothing for a cell that `can` refuses. Hover feedback is one shared stylesheet rule set in `packages/view/src/styles` keyed on `data-interactive`, `data-editable` and `aria-disabled`, using DESIGN's hover tokens, so no component hand-rolls a hover; the audit (task 6.1) puts the attributes on the existing controls.
+
 ### 8. The critical switch is a presentation filter
 
 The chart receives `showCritical` and draws critical bars as ordinary when off; the compute graph's flags and any text (a screen-reader label naming a task as critical, the legend's critical entry) follow it for the visual parts only: the grid keeps no critical column, so nothing else changes. A Radix Switch is in the Stack's Radix list; to confirm when writing the task.
@@ -72,6 +80,7 @@ The chart receives `showCritical` and draws critical bars as ordinary when off; 
 
 - [Native drag may not work in the sandboxed frame] → Task 4.1 spikes it first in two engines; the pointer-drag fallback keeps every other task as it is.
 - [A requested duration hides a changed estimate] → The pin mark, the change highlight and the tooltip "Requested 21 days; the estimates give 18" show it; the PERT numbers stay visible in the WBS beside the plan.
+- [Refusing incoherent values makes a series of edits order-dependent, and a bulk change all or nothing] → The refusal's message names the rule and the row; a row the agent sent out of order is not made worse, so it can be fixed; the preview names the first offending rows before "Apply", so nothing is lost after the click.
 - [A bulk adjustment touches hundreds of values at once and the answer grows] → The preview states the counts before "Apply"; a Tree's `changes` over the answer limit take the existing "too large" path of FR-20 (scenario in the spec).
 - [Rounding to one decimal moves small estimates oddly] → The preview shows the first three changes and the refused and unchanged counts, and "Undo adjust" is one click; the unit of the estimates is a working day, so 0.1 is within the PERT inputs' practical precision.
 - [Selection checkboxes widen the Tree's grid] → The leading column is narrow (`{spacing.xl}`) and shown always, so the layout does not jump when a selection starts.

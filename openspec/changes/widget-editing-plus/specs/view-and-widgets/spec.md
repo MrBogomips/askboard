@@ -148,7 +148,7 @@ The percentage SHALL be read by AskBoard's number parser for the ask's locale, w
 ### Requirement: Tree bulk adjustment values
 "Apply" SHALL change the checked columns' values of the leaves among the selected nodes in one step: each new value is the old value times (1 + p/100), in decimal arithmetic, rounded half away from zero to one decimal (open question 5). Every derived value SHALL follow within the same interaction (FR-12).
 
-An empty field SHALL stay empty and count as skipped; a value that rounds to itself SHALL not count; one that would leave 0 to 100,000 working days SHALL stay and count as refused.
+An empty field SHALL stay empty and count as skipped; a value that rounds to itself SHALL not count.
 
 #### Scenario: Widening every likely estimate
 - **WHEN** the user selects all, keeps only "Most likely" checked, types `+10` and presses "Apply", and `portal` held 12
@@ -170,24 +170,54 @@ An empty field SHALL stay empty and count as skipped; a value that rounds to its
 - **WHEN** the selection holds a leaf with no pessimistic estimate and "Pessimistic" is checked
 - **THEN** the field stays empty and the preview counts it as skipped
 
-#### Scenario: Over the range
-- **WHEN** a value of 99,999 is adjusted by `+10`
-- **THEN** it stays 99,999, the preview counts it as refused for the range, and the other values still change
-
 #### Scenario: Parents are not edited
 - **WHEN** the selection is `build` and its three leaves
 - **THEN** only the leaves' values change, and `build`'s estimates roll up from them
 
 ### Requirement: Tree bulk adjustment preview
-The panel's preview SHALL read how many values change, how many are skipped and how many are refused, show the first three changes as "name column old → new", and warn, naming the count, when the result leaves a row with an optimistic estimate above its most likely or a most likely above its pessimistic, without refusing it. "Apply" SHALL close the panel, return focus to the toolbar's button and announce "Adjusted N values by P%. Undo" (open question 6).
-
-#### Scenario: Estimates out of order
-- **WHEN** the user adjusts only "Optimistic" by `+300` and a row's optimistic then exceeds its most likely
-- **THEN** the preview warns with the count of such rows, "Apply" still works, and the rows show the field check afterwards
+The panel's preview SHALL read how many values change and how many are skipped, show the first three changes as "name column old → new", and, when the adjustment would break the estimates' order or their range for any row, say so with the count and the first rows' names and disable "Apply". "Apply" SHALL close the panel, return focus to the toolbar's button and announce "Adjusted N values by P%. Undo" (open question 6).
 
 #### Scenario: Using it with the keyboard only
 - **WHEN** the user selects rows with Space, tabs to "Adjust by %…", presses Enter, unchecks "Optimistic" with Space, types `15` and presses Enter
 - **THEN** the adjustment applies once, and the page has not navigated
+
+### Requirement: Estimates stay in order
+In a WBS with PERT, an edit SHALL NOT be committed when it would leave a row with an optimistic above its most likely, a most likely above its pessimistic, or a value outside 0 to 100,000 working days. A refused cell edit SHALL show a message naming the rule, keep the focus and the text, and leave the draft unchanged (open question 6).
+
+#### Scenario: A cell edit that breaks the order
+- **WHEN** `portal` holds 6, 12 and 24 and the user types `15` in its optimistic cell and presses Enter
+- **THEN** the cell shows "Optimistic must not exceed Most likely.", keeps the focus and the text, and the draft is unchanged
+
+#### Scenario: A cell edit that keeps it
+- **WHEN** the user types `12` in that optimistic cell, equal to the most likely
+- **THEN** it commits
+
+#### Scenario: A negative value
+- **WHEN** the user types `-1` in an estimate cell
+- **THEN** the cell shows a message that an estimate is 0 to 100,000 working days, and the draft is unchanged
+
+#### Scenario: Raising all three in the right order
+- **WHEN** the user raises `portal`'s pessimistic to 40, then its most likely to 20, then its optimistic to 10
+- **THEN** each edit commits
+
+### Requirement: Estimates in order, the edge cases
+An empty estimate SHALL take no part in the order, and a row the agent sent out of order SHALL NOT be made worse. A bulk adjustment SHALL apply to no row if any row would break the rule: all or nothing.
+
+#### Scenario: A row that was already out of order
+- **WHEN** the agent sent `billing` with optimistic 9 above its most likely 5, and the user lowers its optimistic to 7
+- **THEN** it commits, because the row is not made worse
+
+#### Scenario: A bulk adjustment that would break one row
+- **WHEN** the user adjusts only "Optimistic" by `+300` and one selected row's optimistic would then exceed its most likely
+- **THEN** the preview names that row and its count, "Apply" is disabled, and no value of any row changes
+
+#### Scenario: A bulk adjustment beyond the range
+- **WHEN** a value of 99,999 is among those adjusted by `+10`
+- **THEN** the preview names it, "Apply" is disabled, and no value changes
+
+#### Scenario: A bulk adjustment that keeps every row coherent
+- **WHEN** the user adjusts all three estimates of every selected row by `+10` or by `-20`
+- **THEN** no row breaks the order, and it applies
 
 ### Requirement: A bulk adjustment is changes
 Each value an adjustment changed SHALL take the change fill and border, count with its node once in "Your changes: N", and reach the agent as one `set` of `item.node.field`, with the derived values as they stood.
@@ -263,6 +293,59 @@ The buttons and the Alt+Shift keys SHALL stay, and every move a drag makes SHALL
 #### Scenario: Read-only
 - **WHEN** the question is answered or locked
 - **THEN** rows do not drag and show no handle
+
+### Requirement: Double-click opens a cell's editor
+In a Tree's and a Gantt's grid, a double-click on an editable cell SHALL open its editor, as Enter and F2 do, with the same commit and cancel; on a cell that is not editable, and in a read-only widget, it SHALL do nothing, and it SHALL not start a drag or change the selection (EXPERIENCE Widgets, Tree and Gantt).
+
+#### Scenario: Editing an estimate
+- **WHEN** the user double-clicks `portal`'s most likely cell
+- **THEN** its editor opens with the value, Enter commits and Escape restores
+
+#### Scenario: A name
+- **WHEN** the user double-clicks `build`'s name
+- **THEN** the name editor opens
+
+#### Scenario: A Gantt start
+- **WHEN** the user double-clicks reporting's start in the grid
+- **THEN** the start editor opens, and a double-click on a predecessors cell opens the panel it opens with Enter
+
+#### Scenario: A cell that is not editable
+- **WHEN** the user double-clicks a parent's estimate cell, or any cell after "Answer"
+- **THEN** nothing opens
+
+### Requirement: Hover and focus feedback
+Every interactive control and every editable cell on the board SHALL give visible feedback on hover and on focus: a cursor that fits it (pointer, text, grab, column-resize) and a background or outline from DESIGN.md's tokens, in the light and the dark theme, different from the change highlight and the focus ring (DESIGN Components; NFR-12).
+
+#### Scenario: A toolbar button
+- **WHEN** the pointer rests on "Adjust by %…"
+- **THEN** the cursor is a pointer and the button's background takes the hover token
+
+#### Scenario: An editable cell
+- **WHEN** the pointer rests on an editable estimate cell
+- **THEN** the cell shows the hover surface and the cursor is a text cursor, and a cell that is not editable shows neither
+
+### Requirement: No hover feedback where nothing responds
+A disabled control SHALL show no hover change and the not-allowed cursor; a cell that is not editable, and every control of a read-only widget, SHALL show none.
+
+#### Scenario: A disabled control
+- **WHEN** the pointer rests on a disabled "Adjust by %…"
+- **THEN** its look does not change and the cursor reads not allowed
+
+#### Scenario: A drag handle and the column edge
+- **WHEN** the pointer rests on a row's drag handle, then on the TASK column's edge
+- **THEN** the cursors are grab and column-resize, and the edge shows the hover outline
+
+#### Scenario: Keyboard focus
+- **WHEN** the user tabs to a control
+- **THEN** it shows the focus ring, which hover alone does not give
+
+#### Scenario: Dark theme
+- **WHEN** the system theme is dark
+- **THEN** the same controls show their dark hover tokens
+
+#### Scenario: Read-only
+- **WHEN** a question is answered or locked
+- **THEN** its widget's cells and editing controls show no hover feedback
 
 ## MODIFIED Requirements
 

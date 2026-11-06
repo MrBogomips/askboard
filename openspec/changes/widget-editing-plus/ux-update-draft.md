@@ -1,6 +1,6 @@
 # UX update draft: widget editing plus
 
-**Status: not applied.** It applies only for the proposal's open questions the PO accepts (1, 2, 3, 8, 9 and 11); otherwise EXPERIENCE and DESIGN stay as they are, and the change's specs follow their current text. Sentence-level blocks for `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 9) and `DESIGN.md` (blocks 10 to 12); each quotes the text it changes word for word, as `main` holds it at a35a0b9b, then gives the replacement. A block that adds text keeps the quoted sentence and appends to it. The new labels are provisional and carry "(to review)" in the Localization table when applied (task 0.2).
+**Status: not applied.** It applies only for the proposal's open questions the PO accepts (1, 2, 3, 8, 9 and 11); otherwise EXPERIENCE and DESIGN stay as they are, and the change's specs follow their current text. Sentence-level blocks for `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 9 and 13) and `DESIGN.md` (blocks 10 to 12 and 14); each quotes the text it changes word for word, as `main` holds it at a35a0b9b, then gives the replacement. A block that adds text keeps the quoted sentence and appends to it. The new labels are provisional and carry "(to review)" in the Localization table when applied (task 0.2).
 
 How to apply: replace each quoted text, set `updated:` in each file's front matter to the apply date, then run `openspec validate --all --strict --no-interactive`. Task 0.2 checks that each current text stands once, word for word, just before the edit.
 
@@ -45,7 +45,7 @@ Deleting a package that has Gantt dependents asks for confirmation, then connect
 Replacement:
 
 ```text
-Deleting a package that has Gantt dependents asks for confirmation, then connects them to the package's own predecessors. With packages selected, "Adjust by %…" opens a panel: the estimates to change (Optimistic, Most likely, Pessimistic, all checked), a signed percentage from -99.9 to +1000 with at most one decimal, and a preview of how many values change, how many are skipped (empty, or beyond the range of an estimate), the first three changes and a warning when the estimates fall out of order. The panel changes the leaves among the selection by that percentage, rounded half away from zero to one decimal, as one step; the totals and the Gantt follow, the changed cells take the change highlight, and "Undo adjust" restores them until the next edit. Dragging a package moves it with its children, and the plan's tasks follow the new order.
+Deleting a package that has Gantt dependents asks for confirmation, then connects them to the package's own predecessors. With packages selected, "Adjust by %…" opens a panel: the estimates to change (Optimistic, Most likely, Pessimistic, all checked), a signed percentage from -99.9 to +1000 with at most one decimal, and a preview of how many values change, how many are skipped (empty), the first three changes and, when any row would fall out of order or out of the range of an estimate, a message naming the rows with "Apply" disabled: a change that breaks any row applies to none. A single estimate edit that breaks optimistic ≤ most likely ≤ pessimistic, or is negative, is refused with a Field error. The panel changes the leaves among the selection by that percentage, rounded half away from zero to one decimal, as one step; the totals and the Gantt follow, the changed cells take the change highlight, and "Undo adjust" restores them until the next edit. Dragging a package moves it with its children, and the plan's tasks follow the new order.
 ```
 
 ### Block 4: Molecules, Gantt plan row
@@ -191,4 +191,29 @@ Replacement:
 
 ```text
 the critical path highlighted unless the user switches it off, and the agent's original plan as a baseline under the bars
+```
+
+### Block 13: Component Patterns, Widgets and Primitives, the general feedback rule, and double-click
+
+Add under Interaction Primitives a bullet after "Drag."; there is no current text to quote, so the block adds:
+
+```text
+- **Hover and focus feedback.** Every interactive control and every editable cell shows on hover that it responds, with a cursor (pointer on buttons, switches, checkboxes and rows that act; text on editable cells; grab on drag handles; column-resize on the Task column's edge) and a surface or outline from DESIGN's tokens, and shows the focus ring on keyboard focus. A disabled control shows none of the hover and the not-allowed cursor; a cell that is not editable and every control of a read-only widget show none. Hover differs from the change highlight and from the focus ring (L160).
+- **Double-click edits.** In the Tree's and the Gantt's grids, a double-click on an editable cell opens its editor, as Enter and F2 do.
+```
+
+And in Accessibility Floor, Keyboard core, the Tree and Gantt lines (block 6) gain "Enter, F2 or a double-click starts editing a cell".
+
+### Block 14: DESIGN, Components, hover states
+
+Current (the Button row's lead and the Base controls introduction hold no hover rule for cells and rows; the tokens that exist are `{colors.primary-hover}` for the primary button and `{colors.primary-subtle}` for the answer button):
+
+```text
+shadcn's `accent` is a hover surface (an alias of `muted`), never the brand colour (L132).
+```
+
+Replacement:
+
+```text
+shadcn's `accent` is a hover surface (an alias of `muted`), never the brand colour (L132). It is the hover surface of rows, editable cells, toolbar buttons without a fill, switches and checkboxes, with `{colors.primary-hover}` and `{colors.primary-subtle}` kept for the buttons that have them; the pointer cursors are listed in EXPERIENCE, Interaction Primitives, Hover and focus feedback. The hover surface stays within the contrast pairs of the colour page, in light and dark, and is not `{colors.change}`.
 ```
