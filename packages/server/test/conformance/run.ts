@@ -3,7 +3,8 @@
 // (push delivery, task 9.5), one `bun test` each, and says how each went:
 // - mod and hooks: `mod-and-hooks.e2e.ts`, the built mod in the stand-in mod host and the hooks;
 // - mod disabled: E1's suite, `conformance.e2e.ts`, with its cases with hooks, the ask
-//   lifecycle's, `lifecycle.e2e.ts` (ask-lifecycle, task 7.2), and `mod-disabled.e2e.ts`;
+//   lifecycle's, `lifecycle.e2e.ts` (ask-lifecycle, task 7.2), `mod-disabled.e2e.ts`, and the
+//   widget answers' UJ-2 scenario, `widget-uj2.e2e.ts` (widget-answers, task 6.2);
 // - hooks disabled: E1's and the ask lifecycle's suites with the stand-in mod host beside every
 //   session process;
 // - in each, the configuration's scenarios, `settings.e2e.ts` (settings-languages, task 4.5).
@@ -37,6 +38,7 @@ const FILES: Readonly<Record<Configuration, readonly string[]>> = {
     "mod-disabled.e2e.ts",
     "settings.e2e.ts",
     "snapshot.e2e.ts",
+    "widget-uj2.e2e.ts",
   ],
   "hooks-disabled": [
     "conformance.e2e.ts",
