@@ -16,6 +16,12 @@ export const focusTargetOf = (target: EventTarget | null): TreeFocus | undefined
   return cell === null ? { nodeId } : { nodeId, cell: Number(cell) };
 };
 
+/** The node whose row holds an event's target, a cell, a chevron or the row itself. */
+export const rowNodeOf = (target: EventTarget | null): string | undefined =>
+  target instanceof Element
+    ? (target.closest(`[${NODE}]`)?.getAttribute(NODE) ?? undefined)
+    : undefined;
+
 /** The cell an event's target is in, or is: a double click on a cell's text is on it. */
 export const cellTargetOf = (target: EventTarget | null): TreeFocus | undefined => {
   if (!(target instanceof Element) || chevronNodeOf(target) !== undefined) return undefined;

@@ -221,6 +221,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         };
         // `design`, the first top-level node: "Move up", "Indent" and "Outdent".
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "Home")).toEqual({ nodeId: "design" });
         expect(await enabledTools(tree.tools)).toEqual([
           "Add node",
           "Add child",

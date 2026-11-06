@@ -72,7 +72,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             keys === null ? null : `${label} (${keys.replace(" ", " or ")})`,
           ),
         );
-        // On `design`, the first top-level node, "Move up", "Indent" and "Outdent" are disabled.
+        // No row is current yet: no row tool is enabled. On `design`, the first top-level node,
+        // "Move up", "Indent" and "Outdent" are disabled.
+        expect(await enabledTools(tree.tools)).toEqual([]);
+        await tree.cell("design", 0).click();
         expect(await enabledTools(tree.tools)).toEqual([
           "Add node",
           "Add child",
@@ -354,6 +357,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const fullTree = treeGridOf(full.board);
         expect(await fullTree.rows.count()).toBe(500);
         // On `p1`, the first top-level node: only "Move down" and "Delete" are left.
+        await fullTree.cell("p1", 0).click();
         expect(await enabledTools(fullTree.tools)).toEqual(["Move down", "Delete"]);
         expect(await tabIntoToolbar(full.board, plan.props.text)).toBe("Move down");
         expect(await toolStops(fullTree.toolbar)).toBe(1);

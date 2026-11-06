@@ -103,6 +103,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(board);
         const url = board.page.url();
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "Home")).toEqual({ nodeId: "design" });
         // The question replaces the tools in the toolbar row, the focus on "Cancel".
         await board.page.keyboard.press("Delete");
         const question = deleteQuestion(
@@ -149,6 +150,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = run;
         const tree = treeGridOf(board);
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "Home")).toEqual({ nodeId: "design" });
         // From the tree, by the keyboard: `design` goes with its 3 nodes, the focus to `build`.
         await board.page.keyboard.press("Delete");
         const design = deleteQuestion(board, "“Design” and the 3 nodes under it will be deleted.");
@@ -207,6 +209,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(board);
         const cancelOf = (question: Locator) => question.getByRole("button", { name: "Cancel" });
         expect(await tabIntoTree(board, plan.props.text)).toEqual({ nodeId: "design" });
+        expect(await pressIn(board, "Home")).toEqual({ nodeId: "design" });
         await board.page.keyboard.press("Delete");
         const design = deleteQuestion(board, "“Design” and the 3 nodes under it will be deleted.");
         await design.waitFor({ timeout: STEP_TIMEOUT_MS });

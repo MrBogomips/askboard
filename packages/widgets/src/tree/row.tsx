@@ -21,6 +21,9 @@ import {
   CHANGED_FIELD,
   CHEVRON,
   CHEVRON_OPEN,
+  CURRENT_ADDED_BAR,
+  CURRENT_BAR,
+  CURRENT_ROW,
   EDITED_FIELD_CELL,
   FIELD_CELL,
   FIELD_ERROR,
@@ -154,6 +157,10 @@ const Name = ({ row, mark }: { readonly row: TreeRow; readonly mark: NodeMark | 
   );
 };
 
+// The name cell's left-edge bar: the current row's, the added row's, both, or none.
+const barOf = (added: boolean, current: boolean): string =>
+  current ? (added ? CURRENT_ADDED_BAR : CURRENT_BAR) : added ? ADDED_BAR : "";
+
 // A field's cell by its column's type: as edited, as changed, or plain.
 const fieldClass = (column: TreeColumn, edited: boolean, changed: boolean): string =>
   edited
@@ -170,6 +177,8 @@ export const NodeRow = memo(function NodeRow({
   editing,
   mark,
   pert,
+  editable,
+  current,
 }: {
   readonly row: TreeRow;
   readonly columns: readonly TreeColumn[];
@@ -179,9 +188,15 @@ export const NodeRow = memo(function NodeRow({
   readonly mark: NodeMark | undefined;
   /** A work breakdown's values for the row; none in a Tree without `pert`. */
   readonly pert: PertRow | undefined;
+  /** The cells that take an edit, as a comma-separated list of their numbers (`editableCells`). */
+  readonly editable: string;
+  /** The row is the Tree's current row, the one its row tools act on (`model/current.ts`). */
+  readonly current: boolean;
 }) {
   const locale = useLocale();
   const edits = (cell: number): boolean => editing?.cell === cell;
+  const takesEdit = (cell: number): true | undefined =>
+    !edits(cell) && editable.split(",").includes(String(cell)) ? true : undefined;
   const added = mark?.added === true;
   const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_VALUE_COLUMNS.length);
   const textOf = (column: TreeColumn): string =>
@@ -197,15 +212,15 @@ export const NodeRow = memo(function NodeRow({
         aria-posinset={row.position}
         aria-setsize={row.setSize}
         aria-expanded={row.hasChildren ? row.expanded : undefined}
+        aria-current={current ? "true" : undefined}
         tabIndex={tabIndexOf(stop, ROW_STOP)}
-        className={`${ROW} ${FOCUS_RING}`}
+        className={current ? `${ROW} ${CURRENT_ROW} ${FOCUS_RING}` : `${ROW} ${FOCUS_RING}`}
       >
         <td
           data-cell={0}
+          data-editable={takesEdit(0)}
           tabIndex={tabIndexOf(stop, 0)}
-          className={
-            added ? `${NAME_CELL} ${ADDED_BAR} ${FOCUS_RING}` : `${NAME_CELL} ${FOCUS_RING}`
-          }
+          className={`${NAME_CELL} ${barOf(added, current)} ${FOCUS_RING}`}
         >
           <span className={`flex min-w-0 items-center gap-1.5 ${indentOf(row.level)}`}>
             {row.hasChildren ? <Chevron open={row.expanded} /> : <NoChevron />}
@@ -219,6 +234,7 @@ export const NodeRow = memo(function NodeRow({
             <td
               key={column.field}
               data-cell={at + 1}
+              data-editable={takesEdit(at + 1)}
               data-change={changed ? "field" : undefined}
               tabIndex={tabIndexOf(stop, at + 1)}
               className={`${fieldClass(column, edited, changed)} ${FOCUS_RING}`}

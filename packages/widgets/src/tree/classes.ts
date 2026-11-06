@@ -79,6 +79,18 @@ export const FIELD_HEADER: Readonly<Record<TreeColumnType, string>> = {
   text: "w-48 px-2 text-left",
 };
 
+/**
+ * The current row (spec, "Tree current row"): a `primary-subtle` fill on the row and a 2px
+ * `primary` bar on the name cell's left edge, shown whether or not the row has the keyboard focus.
+ * An added row keeps its change bar, inside the current one.
+ */
+export const CURRENT_ROW = "bg-primary-subtle";
+
+export const CURRENT_BAR = "shadow-[inset_2px_0_0_0_var(--primary)]";
+
+export const CURRENT_ADDED_BAR =
+  "shadow-[inset_2px_0_0_0_var(--primary),inset_4px_0_0_0_var(--change)]";
+
 /** The name's indent, `spacing.lg` per level below the first (DESIGN.md, Tree), by level. */
 export const INDENT: readonly string[] = [
   "pl-0",
