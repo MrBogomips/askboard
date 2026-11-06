@@ -163,5 +163,7 @@ export const useCellEditing = ({
     startAdd,
     /** The add whose new node the Tree, turned read-only, takes away in this render. */
     dropped: disabled ? state?.add : undefined,
+    /** The new node whose name is being entered, which shows as added at once; none otherwise. */
+    pendingId: editing?.add === undefined ? undefined : editing.nodeId,
   };
 };

@@ -75,7 +75,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // No row is current yet: no row tool is enabled. On `design`, the first top-level node,
         // "Move up", "Indent" and "Outdent" are disabled.
         expect(await enabledTools(tree.tools)).toEqual([]);
-        await tree.cell("design", 0).click();
+        // A press on the row marks it current without moving the focus into one of its cells.
+        await tree.row("design").dispatchEvent("mousedown");
         expect(await enabledTools(tree.tools)).toEqual([
           "Add node",
           "Add child",

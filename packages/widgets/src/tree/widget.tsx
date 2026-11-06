@@ -39,7 +39,7 @@ import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
-import { marksOf, sameNodes } from "./model/marks.ts";
+import { ADDED, marksOf, sameNodes } from "./model/marks.ts";
 import { pertValues } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
 import { afterMove, isMove, type MoveEdit } from "./moving.ts";
@@ -123,7 +123,7 @@ export const TreeWidget = ({
   const [currentId, setCurrent] = useState<Current>();
   const focus = useTreeFocus();
 
-  const { rows, editing, start, startAdd, dropped } = useCellEditing({
+  const { rows, editing, start, startAdd, dropped, pendingId } = useCellEditing({
     itemId,
     sent,
     value,
@@ -143,9 +143,18 @@ export const TreeWidget = ({
   const view = shownView(stored, rows);
   // A new node the Tree dropped on turning read-only goes as if taken away: the focus goes back
   // where its add started.
-  if (dropped !== undefined) setView(viewWithoutAdd(view, value, dropped));
+  if (dropped !== undefined) {
+    const back = viewWithoutAdd(view, value, dropped);
+    setView(back);
+    setCurrent(back.focus?.nodeId);
+  }
   const current = currentIn(value, currentId);
   const marks = useMemo(() => marksOf(sent, value), [sent, value]);
+  // The new node being named shows the added mark at once, though it is in no value yet.
+  const shownMarks = useMemo(
+    () => (pendingId === undefined ? marks.byNode : new Map(marks.byNode).set(pendingId, ADDED)),
+    [marks, pendingId],
+  );
   const pert = useMemo(
     () => (graph === undefined ? undefined : pertValues(graph, itemId, rows, value.nodes)),
     [graph, itemId, rows, value.nodes],
@@ -294,9 +303,9 @@ export const TreeWidget = ({
         pert={pert}
         rows={rows}
         focus={view.focus}
-        current={current}
+        current={pendingId ?? current}
         editing={editing}
-        marks={marks.byNode}
+        marks={shownMarks}
         labelledBy={labelledBy}
         onKeyDown={onKeyDown}
         onFocus={onFocus}

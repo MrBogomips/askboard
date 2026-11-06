@@ -177,6 +177,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      '"Add node" shows the new row at once with the added mark, "—" for its roll-ups and no error',
+      async () => {
+        const run = await host(dist, uj2ExpandedBoardDocument);
+        await readyIn(run);
+        const tree = treeGridOf(run.board);
+        await focusPortal(run, tree);
+        await addAndName(run, tree, "Add node");
+        const cells = tree.row("u-1").locator("td");
+        expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
+        const texts = await cells.allTextContents();
+        expect(texts.slice(-2)).toEqual(["\u2014", "\u2014"]);
+        expect(await run.board.view.getByText("could not be computed").count()).toBe(0);
+        expect(await pressIn(run.board, "Escape")).toEqual({ nodeId: "portal" });
+        expect(run.browser.errors).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a package whose linked edit would give Clickable prototype more than 50 dependents is refused at its name, which keeps the focus, and nothing is written",
       async () => {
         const run = await host(dist, crowdedDocument);

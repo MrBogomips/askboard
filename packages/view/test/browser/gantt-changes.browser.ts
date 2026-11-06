@@ -72,7 +72,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["launch", "Launch", "", "1 d", "ghost"],
         ]);
         const lined = await alignment(gantt);
-        expect(lined.map(({ row }) => row)).toEqual([32, 68, 104, 140, 176, 212, 248, 304, 360]);
+        expect(lined.map(({ row }) => row)).toEqual([32, 64, 96, 128, 160, 192, 224, 276, 328]);
         for (const { row, bar } of lined) if (bar !== undefined) expect(bar).toBe(row);
         expect(await run.board.answer.isDisabled()).toBe(true);
         // A change elsewhere: the question can be answered, the errors standing.

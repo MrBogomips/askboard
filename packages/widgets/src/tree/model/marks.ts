@@ -97,7 +97,13 @@ const changedFields = (was: TreeNode, node: TreeNode): readonly string[] =>
       .filter((field) => was[field] !== node[field]),
   );
 
-const ADDED: NodeMark = Object.freeze({ added: true, moved: false, renamed: false, fields: [] });
+/** The mark of a node the user added. */
+export const ADDED: NodeMark = Object.freeze({
+  added: true,
+  moved: false,
+  renamed: false,
+  fields: [],
+});
 
 // A kept node's mark, or `undefined` when nothing about it changed.
 const keptMark = (was: TreeNode, node: TreeNode, moved: boolean): NodeMark | undefined => {
