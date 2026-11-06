@@ -16,7 +16,7 @@
 // the origin row's project.
 
 import { randomBytes } from "node:crypto";
-import { AskCore, type Clock, type SourceFiles } from "@askboard/core";
+import { AskCore, type Clock, type MoleculeSource, type SourceFiles } from "@askboard/core";
 import type { Transport } from "@modelcontextprotocol/server";
 import type { EditorCommand } from "./board-host/editor.ts";
 import type { BoardHostOptions, ParentArgv } from "./board-host/index.ts";
@@ -32,6 +32,7 @@ import {
   serveSession,
   systemTimers,
 } from "./mcp-tools/index.ts";
+import { createMoleculeSource } from "./molecule-source/index.ts";
 import { createNotifier, type Environment } from "./notifier/index.ts";
 import { composePush, sessionProjectRoot } from "./push-composition.ts";
 import { composeSnapshots } from "./snapshot-composition.ts";
@@ -72,6 +73,12 @@ export type SessionProcessOptions = {
    * Only tests give another; the entry point gives none (excerpts, design decision 5).
    */
   readonly sources?: SourceFiles;
+  /**
+   * The molecules a molecule reference expands from: the shipped ones by default, read from the
+   * imported JSON and never looked up before the first ask that holds a reference (AD-2). Only
+   * tests give another (widget-answers, design decision 5).
+   */
+  readonly molecules?: MoleculeSource;
   /**
    * The editor command board-host starts on "Open in editor": the user file's `editor` by default.
    * Only tests give another; the entry point gives none.
@@ -129,6 +136,7 @@ export const startSessionProcess = (options: SessionProcessOptions): Session => 
     clock: options.clock ?? systemClock,
     ...push.ports,
     sources: options.sources ?? createSourceFiles({ projectRoot }),
+    molecules: options.molecules ?? createMoleculeSource(),
     ...(projectRoot === undefined ? {} : { projectRoot }),
     config: configFiles({ env: options.env }),
     ...snapshots.ports,
