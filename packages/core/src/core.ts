@@ -50,6 +50,7 @@ import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
+import { expandSentItems } from "./molecules/on-ask.ts";
 import type { CorePorts } from "./ports.ts";
 import { AgentStatuses } from "./push/agent-status.ts";
 import { expectedAnswerer } from "./push/answerer.ts";
@@ -664,6 +665,10 @@ export class AskCore {
     caller: Binding | undefined,
   ): Promise<AskOutcome> {
     const { askId } = input;
+    // Molecules (widget-answers, design decision 5): every reference expands before anything is
+    // created; the ask keeps the request as sent for the resend rule (AD-6).
+    const sent = expandSentItems(input.items, this.#ports.molecules);
+    if (!sent.ok) return { kind: "invalid", problems: sent.problems };
     const showing = await this.#ports.showing.check();
     if (!showing.showable) {
       return { kind: "unavailable", askId, reason: showing.reason, detail: showing.detail };
@@ -687,7 +692,8 @@ export class AskCore {
       askId,
       request,
       title,
-      input,
+      input: { ...input, items: sent.items as LifecycleAskInput["items"] },
+      expansion: sent.map,
       link,
       who,
       context,

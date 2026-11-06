@@ -41,6 +41,7 @@ import {
   questionValue,
   questionView,
 } from "./lifecycle/views.ts";
+import type { ExpansionMap } from "./molecules/map.ts";
 import { cursorOf } from "./text.ts";
 
 export { frozenCopy } from "./lifecycle/log.ts";
@@ -81,6 +82,8 @@ export type AskInit = {
   readonly who: string;
   /** What the ask's send resolved of its questions' pointers, by question ID (excerpts). */
   readonly context?: ReadonlyMap<string, QuestionContext>;
+  /** Which expanded item of `input.items` belongs to which molecule reference (AD-9). */
+  readonly expansion?: ExpansionMap;
 } & BoardLanguage;
 
 /** The user's explicit answer, as the board page's answer command carries it (AD-10). */
@@ -206,11 +209,14 @@ export class Ask {
   // The board's unsent work, apart from the log; only the restore path reads it (AD-20).
   #draft: DraftRecord | undefined;
   readonly #connections = new Connections();
+  // Which expanded item belongs to which molecule reference (AD-9); empty without references.
+  #expansion: ExpansionMap;
 
   constructor(init: AskInit) {
     this.epoch = init.epoch;
     this.askId = init.askId;
     this.#request = init.request;
+    this.#expansion = init.expansion ?? new Map();
     this.link = init.link;
     this.who = init.who;
     const { presentation, delivery, items } = init.input;
@@ -223,6 +229,11 @@ export class Ask {
       locale: init.locale,
     };
     this.#model = BoardModel.of(items, init.context);
+  }
+
+  /** The expansion map of the ask's molecule references (AD-9); empty once discarded. */
+  get expansion(): ExpansionMap {
+    return this.#expansion;
   }
 
   /** The first accepted request, canonicalized; empty once the ask is discarded. */
