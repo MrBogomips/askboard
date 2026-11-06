@@ -1,6 +1,6 @@
 # Spine update draft: askboard skills
 
-**Status: applied in task 0.1 on 2026-11-07.** The proposal's open question 1 was answered on 2026-11-06 with its default, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly, as the spine stands on this change's base (`widget-registry` at d5adfb2f), then gives the replacement. AD-19 is amended in place; no AD is added or renumbered. The PRD change that goes with it is in `prd-update-draft.md`.
+**Status: applied in task 0.1 on 2026-11-07; block 3's trigger amended on 2026-11-07 by the support-agents evaluation, applied to the spine by task 2.12.** The proposal's open question 1 was answered on 2026-11-06 with its default, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly, as the spine stands on this change's base (`widget-registry` at d5adfb2f), then gives the replacement. AD-19 is amended in place; no AD is added or renumbered. The PRD change that goes with it is in `prd-update-draft.md`.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
@@ -41,5 +41,5 @@ Current: none (a new row).
 Addition:
 
 ```text
-| Shipped agents (FR-29) | Subagents load the plugin's skill through the Skill tool, and no first-version task needs an agent of its own; each agent's description would load every session (PRD R5) | A task needs a dedicated subagent, or the benchmark shows subagents asking without the skill |
+| Shipped agents (FR-29) | Subagents load the plugin's skill through the Skill tool, and no first-version task needs an agent of its own; each agent's description would load every session (PRD R5) | In the benchmark, more than 1 of 5 S6 subagent runs call `ask` without loading the skill or need an `isError` retry; or a new case S7 (a delegated dialogue of three questions) shows an agent with the skill preloaded at least 15% below a general-purpose subagent with the skill on median output plus thinking tokens per question, with equally valid asks |
 ```

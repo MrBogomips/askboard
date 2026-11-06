@@ -33,22 +33,30 @@ Every file under `skills/askboard/` SHALL be the output of the skill generator, 
 - **THEN** the check fails naming the missing reference and `SKILL.md`
 
 ### Requirement: A reference for each widget type
-For each registered widget type, in registry order, the skill SHALL hold one reference file giving when to use it, its props' shape and fields from its props schema, any notes its registry entry gives, what its answer carries (edits, a result, derived values), and its example item, and `SKILL.md`'s item index SHALL list it with a link.
+For each registered widget type, in registry order, the skill SHALL hold one reference file giving when to use it, its props' shape and fields from its props schema, with the bounds of each branch of a field that takes one of several forms, any notes its registry entry gives, what its answer carries (edits, a result, derived values), and its example item, and `SKILL.md`'s item index SHALL list it with a link.
 
 #### Scenario: The Tree's reference
 - **WHEN** the generator runs on the shipped registry
 - **THEN** a Tree reference exists, names every top-level field of the Tree's props schema, says that the answer carries the edited nodes and the derived values, and holds the Tree's example item
+
+#### Scenario: The Gantt's two forms of tasks
+- **WHEN** the generator runs on the shipped registry
+- **THEN** the Gantt reference says when `tasks` is a list and when it maps a task ID of the Tree that `workPackages` names, and gives each form's bound
 
 #### Scenario: A type without teaching text
 - **WHEN** a registered type has no teaching text or no example
 - **THEN** the generator fails naming the type
 
 ### Requirement: A reference for each ready molecule
-For each ready molecule, the skill SHALL hold one reference file giving when to use it, its name and version, its parameters' fields from its parameter schema, and an example molecule reference, and `SKILL.md`'s item index SHALL list it with a link (FR-15).
+For each ready molecule, the skill SHALL hold one reference file giving when to use it, its name and version, its parameters' fields from its parameter schema, and an example molecule reference, and `SKILL.md`'s item index SHALL list it with a link (FR-15). When the molecule's teaching data names a companion, the example SHALL be an ask whose question holds the companion's example reference under the ID the teaching data gives, then the molecule's own.
 
 #### Scenario: The WBS with PERT
 - **WHEN** the generator runs on the shipped molecules
 - **THEN** the `wbs-pert` reference names the parameters `nodes` and `depth` and holds an example reference of type `molecule` naming `wbs-pert`
+
+#### Scenario: The Gantt plan with its work breakdown
+- **WHEN** the generator runs on the shipped molecules
+- **THEN** the `gantt-plan` reference holds an ask example whose question holds a `wbs-pert` reference under the ID that `gantt-plan`'s teaching data names, then the `gantt-plan` reference
 
 #### Scenario: A molecule without teaching data
 - **WHEN** a ready molecule has no teaching data
@@ -72,6 +80,13 @@ Every ask or item example in the shipped skill SHALL be accepted by `ask-core`'s
 - **WHEN** a schema change makes a shipped example invalid
 - **THEN** the examples test fails naming the file and the example
 
+### Requirement: Writing the skill
+Writing the skill SHALL leave exactly the generated files under `skills/askboard/`, also on a case-insensitive file system where a file the generator does not produce differs from a generated one only in case (AD-6, NFR-7).
+
+#### Scenario: A file named like a generated one but for case
+- **WHEN** `skills/askboard/skill.md` exists on a case-insensitive file system and the skill is written
+- **THEN** the folder holds exactly the generated files, `SKILL.md` among them, and the skill check passes
+
 ### Requirement: Routing between AskBoard and AskUserQuestion
 `SKILL.md` SHALL define which questions go to AskBoard and which to AskUserQuestion: a question with references, a widget, more than four options, or several questions together goes to AskBoard; a yes/no or short choice without references goes to AskUserQuestion; a subagent asks every question through AskBoard; an asking rule overrides the choice (FR-29, FR-30).
 
@@ -80,11 +95,15 @@ Every ask or item example in the shipped skill SHALL be accepted by `ask-core`'s
 - **THEN** it holds the routing section with each of those cases
 
 ### Requirement: Asking-rule texts from the contract
-`SKILL.md` SHALL state each asking rule of the contract's closed set with the contract's text for it, in the contract's order, and SHALL say that without hooks the rules are only advisory and the agent follows the rule in effect itself (FR-30, AD-16).
+`SKILL.md` SHALL state each asking rule of the contract's closed set with the contract's text for it, in the contract's order, and SHALL say that without hooks the rules are only advisory and the agent follows the rule the user set or asked for itself. It SHALL name no tool result as the source of the rule, since none carries it (FR-30, AD-16).
 
 #### Scenario: The rules as the hook applies them
 - **WHEN** the generated `SKILL.md` is read
 - **THEN** it holds every rule name with its contract text, the `with-references` text being the one the hook's predicate is described by
+
+#### Scenario: The advisory paragraph
+- **WHEN** the generated `SKILL.md`'s paragraph after the rules is read
+- **THEN** it says the rule is only advisory without hooks and that the agent follows the rule the user set or asked for, and it names no tool result
 
 ### Requirement: Cheap asks
 `SKILL.md` SHALL teach putting several questions in one ask, pointing to project files instead of copying them, using molecules by name, leaving totals, estimates, dates and margins to AskBoard, and choosing ask IDs as a task slug plus a short random suffix and item IDs that match the contract's ID pattern (FR-1, FR-5, FR-8, NFR-1).
@@ -99,6 +118,13 @@ Every ask or item example in the shipped skill SHALL be accepted by `ask-core`'s
 #### Scenario: The delivery section
 - **WHEN** the generated `SKILL.md` is read
 - **THEN** it holds each of those rules
+
+### Requirement: Ownership of an ask
+`SKILL.md` SHALL teach that an ask belongs to the agent that sent it, which alone can collect, update, fetch or snapshot it, and that a subagent's ask closes when the subagent finishes; and that a dialogue with the user while the agent keeps working goes to a background subagent that asks, waits and returns the answers (FR-21, FR-25, AD-5).
+
+#### Scenario: The ownership line
+- **WHEN** the generated `SKILL.md`'s delivery section is read
+- **THEN** it holds the ownership line and the background-subagent advice
 
 ### Requirement: When an ask cannot go on
 `SKILL.md` SHALL teach that when `ask` returns `unavailable` or AskBoard's tools are absent, the main conversation asks through AskUserQuestion and a subagent ends its turn and returns the question to the agent that started it; that a declined question is not asked again in the task; and that a discarded ask is asked again under a new ID if still needed (FR-4, FR-29, NFR-8, AD-18).
