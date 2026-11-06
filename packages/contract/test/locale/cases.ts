@@ -6,10 +6,12 @@ import {
   formatAxisLabel,
   formatDate,
   formatDateTime,
+  formatGridDate,
   formatLongDate,
   formatMoney,
   formatNumber,
   formatPercent,
+  formatShortDate,
   formatTime,
   type Locale,
 } from "../../src/index.ts";
@@ -47,6 +49,14 @@ const TABLE: readonly FormatCase[] = [
   row("axis day", (l) => formatAxisLabel("2026-11-02", "day", l), "Mon 2", "lun 2"),
   row("axis week", (l) => formatAxisLabel("2026-11-02", "week", l), "Nov 2", "2 nov"),
   row("axis month", (l) => formatAxisLabel("2026-11-02", "month", l), "Nov 2026", "nov 2026"),
+  row("grid date", (l) => formatGridDate("2026-11-02", l, false), "Mon 11/2", "lun 2/11"),
+  row(
+    "grid date with its year",
+    (l) => formatGridDate("2026-12-09", l, true),
+    "Wed 12/9/2026",
+    "mer 9/12/2026",
+  ),
+  row("short date", (l) => formatShortDate("2026-11-06", l), "11/6", "6/11"),
 ];
 
 const NUMBERS: readonly FormatCase[] = [

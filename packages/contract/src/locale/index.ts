@@ -6,7 +6,9 @@ export {
   formatAxisLabel,
   formatDate,
   formatDateTime,
+  formatGridDate,
   formatLongDate,
+  formatShortDate,
   formatTime,
 } from "./dates.ts";
 export {

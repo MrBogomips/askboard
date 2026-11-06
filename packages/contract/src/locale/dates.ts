@@ -13,6 +13,14 @@ export const formatDate = (date: string, locale: Locale): string =>
 export const formatLongDate = (date: string, locale: Locale): string =>
   tableOf(locale).longDate(parseFullDate(date));
 
+/** A Gantt grid's date: `Mon 11/2` in en-US, `lun 2/11` in it-IT; with its year when asked. */
+export const formatGridDate = (date: string, locale: Locale, withYear: boolean): string =>
+  tableOf(locale).gridDate(parseFullDate(date), withYear);
+
+/** A date's day and month alone: `11/6` in en-US, `6/11` in it-IT. */
+export const formatShortDate = (date: string, locale: Locale): string =>
+  tableOf(locale).shortDate(parseFullDate(date));
+
 /** A Gantt axis label at a zoom: `Mon 2`, `Nov 2` or `Nov 2026` in en-US. */
 export const formatAxisLabel = (date: string, zoom: AxisZoom, locale: Locale): string =>
   tableOf(locale).axis[zoom](parseFullDate(date));
