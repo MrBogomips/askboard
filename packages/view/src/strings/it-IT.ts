@@ -179,7 +179,7 @@ export const IT_IT = {
     one: "{count} deriva dalla WBS",
     other: "{count} derivano dalla WBS",
   },
-  "gantt.legend.baseline": "piano dell'agente",
+  "gantt.legend.baseline": "Baseline",
   "gantt.guide.earliest": "al più presto {date}",
   "gantt.duration": "{count} g",
   "tree.tools.name": "Strumenti dell'albero",

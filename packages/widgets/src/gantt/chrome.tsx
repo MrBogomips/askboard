@@ -2,7 +2,7 @@
 // Change highlight): the toolbar row on `muted`, `spacing.toolbar-row` high, whose counter on the
 // right reads "No changes", then "Your changes: N" after the `change` dot, and in a plan
 // "· M follow from the WBS" (`model/counter.ts`; EXPERIENCE State Patterns, Widget); and the legend
-// under the body: task, critical path, "your change" and, once one is drawn, "agent's plan"
+// under the body: task, critical path, "your change" and, once one is drawn, "Baseline"
 // (colour page). A plan's toolbar holds its zoom on the left
 // (`zoom.tsx`), a second Tab stop before the grid; a standalone Gantt's holds only the counter.
 

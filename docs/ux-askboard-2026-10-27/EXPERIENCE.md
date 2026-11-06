@@ -144,7 +144,7 @@ The brand voice lives in DESIGN.md, Brand & Style. For the things the user acts 
 | Tree and Gantt chrome | "Day / Week / Month" (to review) | "Giorno / Settimana / Mese" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
 | Tree and Gantt chrome | "Task / Start / Duration / Depends on" (to review) | "Attività / Inizio / Durata / Dipende da" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
 | Tree and Gantt chrome | "Work package / Optimistic / Most likely / Pessimistic / Expected / Spread" (to review) | "Pacchetto di lavoro / Ottimistica / Più probabile / Pessimistica / Atteso / Dispersione" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
-| Tree and Gantt chrome | "Critical path / agent's plan / earliest" (to review) | "Percorso critico / piano dell'agente / primo possibile" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
+| Tree and Gantt chrome | "Critical path / Baseline / earliest" (to review; "Baseline" decided by the PO, 2026-11-06) | "Percorso critico / Baseline / primo possibile" (to review; "Baseline" decided by the PO, 2026-11-06, the technical term kept in Italian) | OpenSpec change `widget-editing-plus`, F-04 |
 | Tree and Gantt chrome | "Adjust by %… / Apply / Cancel / Undo adjust" (to review) | "Modifica di %… / Applica / Annulla / Annulla modifica" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
 | Tree and Gantt chrome | "Select all / Select none / N selected" (to review) | "Seleziona tutto / Deseleziona / N selezionati" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
 | Tree and Gantt chrome | "Resize the Task column / Use estimate" (to review) | "Ridimensiona la colonna Attività / Usa la stima" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
