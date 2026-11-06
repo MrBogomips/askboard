@@ -10,6 +10,7 @@ import {
   type ClosedReason,
   type DiscardReason,
   type DraftRecord,
+  type FormulaWarning,
   GRACE_PERIOD_MS,
   type LifecycleAskInput,
   type OutputEvent,
@@ -48,6 +49,7 @@ import {
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
+import { formulaWarnings } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import { expandSentItems } from "./molecules/on-ask.ts";
@@ -92,8 +94,11 @@ export type AskOutcome =
   | {
       readonly kind: "created" | "resent";
       readonly ask: AskSummary;
-      /** A created ask's unresolved pointers, in item order (excerpts, design decision 4). */
-      readonly warnings?: readonly UnresolvedPointerWarning[];
+      /**
+       * A created ask's unresolved pointers, in item order (excerpts, design decision 4), then the
+       * formula errors of its widgets' graph (widget-answers, design decision 5).
+       */
+      readonly warnings?: readonly (UnresolvedPointerWarning | FormulaWarning)[];
     }
   /** The ID is that of an ask of this epoch, and the request is not an identical resend. */
   | { readonly kind: "in-use"; readonly askId: string }
@@ -703,7 +708,7 @@ export class AskCore {
     this.#configuration.ensureFolders();
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
-    const warnings = ask.contextWarnings;
+    const warnings = [...ask.contextWarnings, ...formulaWarnings(sent.items, sent.map)];
     return { kind: "created", ask: ask.summary, ...(warnings.length === 0 ? {} : { warnings }) };
   }
 
