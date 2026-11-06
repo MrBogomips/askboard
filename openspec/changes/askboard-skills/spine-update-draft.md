@@ -1,6 +1,6 @@
 # Spine update draft: askboard skills
 
-**Status: to apply in task 0.1.** The proposal's open question 1 was answered on 2026-11-06 with its default, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly, as the spine stands on this change's base (`widget-registry` at d5adfb2f), then gives the replacement. AD-19 is amended in place; no AD is added or renumbered. The PRD change that goes with it is in `prd-update-draft.md`.
+**Status: applied in task 0.1 on 2026-11-07.** The proposal's open question 1 was answered on 2026-11-06 with its default, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly, as the spine stands on this change's base (`widget-registry` at d5adfb2f), then gives the replacement. AD-19 is amended in place; no AD is added or renumbered. The PRD change that goes with it is in `prd-update-draft.md`.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 

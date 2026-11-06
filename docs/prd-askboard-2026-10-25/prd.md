@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-11-06
+updated: 2026-11-07
 ---
 
 # PRD: AskBoard
@@ -485,11 +485,11 @@ A user can install AskBoard at user level, so that it works in every project, or
 **Consequences (testable):**
 - After a user-level installation, AskBoard works in a project opened for the first time, with no further setup.
 - After a project-level installation, AskBoard works in that project and in no other.
-- One installation brings the MCP tools, the skills and the agents together.
+- One installation brings the MCP tools, the skills and any shipped agents together.
 
 #### FR-29: Skills and agents that teach AskBoard
 
-AskBoard ships skills and agents that teach Claude Code agents when to use AskBoard rather than AskUserQuestion, which widget or molecule fits a question, how to build and register a molecule, and how to keep asks cheap (several questions per ask, excerpts by pointer, molecules by name).
+AskBoard ships skills, and agents where a task needs one of its own, that teach Claude Code agents when to use AskBoard rather than AskUserQuestion, which widget or molecule fits a question, how to build and register a molecule, and how to keep asks cheap (several questions per ask, excerpts by pointer, molecules by name).
 
 **Consequences (testable):**
 - The shipped skills define which questions go to AskBoard and which to AskUserQuestion: for example, a question with references, a widget or more than four options goes to AskBoard, and a yes/no question without references goes to AskUserQuestion.

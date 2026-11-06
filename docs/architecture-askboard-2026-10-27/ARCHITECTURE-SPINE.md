@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-06'
+updated: '2026-11-07'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -31,6 +31,7 @@ sources:
   - 'OpenSpec change excerpts, proposal.md, open questions A1, A2, A4, A5, A6 and B1 (accepted by the PO, 2026-11-01)'
   - 'OpenSpec change settings-languages, proposal.md, open questions A1 to A6: configuration files, the first-ask folders, `with-references` and locale formats (accepted by the PO, 2026-11-01)'
   - 'OpenSpec change widget-registry, proposal.md, open questions 1 to 7: the registry of widget types, widget results and the annotation fields (accepted under the PO''s unattended handoff, 2026-11-06)'
+  - 'OpenSpec change askboard-skills, proposal.md, open questions 1 to 5: one generated skill, no shipped agent in the first version, the skill''s budgets (accepted under the PO''s unattended handoff, 2026-11-06)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -523,7 +524,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Bundle:**
     - AskBoard is released under the MIT licence.
-    - One Claude Code plugin from a GitHub marketplace carries the MCP server, the skills, the agents and `hooks/hooks.json`. That file declares both the settings hooks and the mod as the plugin's hooks module. The plugin installs at user or project scope (FR-28).
+    - One Claude Code plugin from a GitHub marketplace carries the MCP server, the skills, any shipped agents and `hooks/hooks.json`. That file declares both the settings hooks and the mod as the plugin's hooks module. The plugin installs at user or project scope (FR-28).
   - **Executable:**
     - The session process ships as a Bun-compiled executable for macOS and Linux on x64 and arm64, with Linux builds for glibc and musl.
     - No unit uses a Bun-only API: Bun is the build tool and the embedded runtime. CI also runs the session process on Node 24 and Node 26.
@@ -800,7 +801,7 @@ askboard/
     hooks/               # Claude Code hooks: out-of-process client of the local API (AD-1, AD-16)
     bench/               # benchmark runner, scripted answerer, report, cost model
   skills/                # Agent Skills, reference files generated from contract
-  agents/                # shipped agents
+  agents/                # shipped agents (none in the first version; Deferred)
   scripts/               # launcher: platform executable fetch, checksum, rename
   tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)
 ```
@@ -837,4 +838,5 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | A2UI inbound translator | Preference, not requirement (PRD OQ5) | A2UI v1.0 final with renderers and a table |
 | Table encoding for long lists in the input format (column names once, rows as arrays) | Lean JSON is simpler and more robust; the review of the model contract measured its cost on a 200-node WBS (AD-7) | The benchmark shows rich questions over the SM-1 target |
 | Molecule registry, export and repository (FR-16, FR-17); full benchmark settings | Out of the first version | Next version planning |
+| Shipped agents (FR-29) | Subagents load the plugin's skill through the Skill tool, and no first-version task needs an agent of its own; each agent's description would load every session (PRD R5) | A task needs a dedicated subagent, or the benchmark shows subagents asking without the skill |
 | MCP Apps rendering inside Claude hosts (needs a conforming host with a sandbox proxy); Claude Code surfaces other than the CLI; native Windows; remote hosts | Out of the first version (NFR-7, NFR-8, AD-22) | The Claude Code CLI renders MCP Apps, or the product adds a surface |
