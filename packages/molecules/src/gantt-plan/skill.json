@@ -1,0 +1,10 @@
+{
+  "use": "a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed",
+  "example": {
+    "workPackages": "wbs",
+    "start": "2026-11-02",
+    "dependencies": {
+      "portal": ["ux"]
+    }
+  }
+}

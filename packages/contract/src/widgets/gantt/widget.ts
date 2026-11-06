@@ -53,4 +53,7 @@ export const GANTT_WIDGET: WidgetType = {
       props: { start: "2026-01-05", tasks: [{ id: "build", label: "Build", duration: 5 }] },
     },
   },
+  skill: {
+    use: "a schedule the user adjusts: tasks, durations, dependencies, with dates and the critical path computed",
+  },
 };

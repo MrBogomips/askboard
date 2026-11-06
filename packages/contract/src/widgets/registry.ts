@@ -3,7 +3,7 @@
 // items and the molecule reference, in order, Tree then Gantt, later types appended. An entry
 // holds everything the contract says of its type: its props schema and checks, its element shape
 // and changes schema when the user edits the agent's content, its result schema and checks when it
-// gives one, its derived declarations, its agent-facing wording and an example item. Every check,
+// gives one, its derived declarations, its agent-facing wording, an example item and, since askboard-skills, its teaching text. Every check,
 // wording, element lookup and diff shape of a widget item reads its entry, so that registering a
 // type is enough for the contract to accept, check, word and diff its items.
 //
@@ -79,6 +79,15 @@ export type WidgetType = {
   readonly example: {
     readonly item: { readonly type: string; readonly id: string; readonly props: unknown };
   };
+  /**
+   * The teaching text of the generated skill (askboard-skills, design decision 3): when to use the
+   * widget, 1 to 200 characters, and notes, each 1 to 300. Optional here so a test-only type still
+   * type-checks; every shipped type carries it.
+   */
+  readonly skill?: {
+    readonly use: string;
+    readonly notes?: readonly string[];
+  };
 };
 
 /** The widget types a question's items may hold, in order. */
@@ -115,7 +124,8 @@ export type RegistryProblem = {
     | "result-id"
     | "result-empty"
     | "wording"
-    | "example";
+    | "example"
+    | "skill";
   readonly message: string;
 };
 
@@ -168,6 +178,32 @@ const wordingProblems = (entry: WidgetType): RegistryProblem[] => {
       ];
 };
 
+const SKILL_USE_MAX = 200;
+const SKILL_NOTE_MAX = 300;
+
+// The teaching text's bounds (askboard-skills): a use of 1 to 200 characters, each note 1 to 300.
+const skillProblems = (entry: WidgetType): RegistryProblem[] => {
+  const { skill } = entry;
+  if (skill === undefined) return [];
+  const problems: RegistryProblem[] = [];
+  const at = (message: string) => problems.push({ type: entry.type, rule: "skill", message });
+  const use = typeof skill.use === "string" ? skill.use.length : 0;
+  if (use < 1 || use > SKILL_USE_MAX) {
+    at(
+      `the teaching use of "${entry.type}" has ${use} characters, and a use has 1 to ${SKILL_USE_MAX}`,
+    );
+  }
+  (skill.notes ?? []).forEach((note, index) => {
+    const length = typeof note === "string" ? note.length : 0;
+    if (length < 1 || length > SKILL_NOTE_MAX) {
+      at(
+        `teaching note ${index + 1} of "${entry.type}" has ${length} characters, and a note has 1 to ${SKILL_NOTE_MAX}`,
+      );
+    }
+  });
+  return problems;
+};
+
 const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): RegistryProblem[] => {
   const type = typeof entry.type === "string" ? entry.type : `entry ${index}`;
   const problems: RegistryProblem[] = [];
@@ -189,6 +225,7 @@ const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): Reg
     ...idProblem(entry, entry.edits?.changes, "changes-id", `urn:askboard:output:${type}-changes`),
     ...idProblem(entry, entry.result?.schema, "result-id", `urn:askboard:output:${type}-result`),
     ...wordingProblems(entry),
+    ...skillProblems(entry),
   );
   if (entry.example.item.type !== type) {
     at("example", `the example of "${type}" is an item of the type "${entry.example.item.type}"`);
@@ -201,7 +238,8 @@ const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): Reg
  * check.ts` adds that, which needs a validator this module may not import): a duplicate type, a
  * type that is a context, molecule, question or area type, a definition of a composed schema, an
  * inherited object name or outside the ID pattern, a schema whose `$id` is not its pattern, wording
- * keys outside the type, an example of another type. Empty when it holds together.
+ * keys outside the type, an example of another type, a teaching text outside its bounds
+ * (askboard-skills). Empty when it holds together.
  */
 export const registryShapeProblems = (types: readonly WidgetType[]): readonly RegistryProblem[] => {
   const seen = new Set<string>();
