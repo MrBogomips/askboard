@@ -26,7 +26,7 @@ import { fetchItemOf } from "./context/fetch-item.ts";
 import { base64Bytes, type ContextRequest, type QuestionContext } from "./context/resolve.ts";
 import { type PointerSource, pointerSourceOf } from "./context/source.ts";
 import { unresolvedWarnings } from "./context/warnings.ts";
-import { formulaWarnings } from "./graph-check.ts";
+import { checkedFormulaWarnings } from "./graph-check.ts";
 import { type ActRefusal, eventsOfActs } from "./lifecycle/acts.ts";
 import { Connections } from "./lifecycle/connections.ts";
 import { type Entry, EventLog, frozenCopy } from "./lifecycle/log.ts";
@@ -468,13 +468,26 @@ export class Ask {
       const resolved = context.get(question.id);
       if (resolved !== undefined) model.resolved(question.id, resolved);
     }
+    const graph =
+      revised.length === 0 ? undefined : checkedFormulaWarnings(model.items(), widgets.expansion);
+    if (graph?.ok === false) {
+      return {
+        outcome: {
+          kind: "refused",
+          askId: this.askId,
+          index: actions.length - 1,
+          refusal: "props",
+          detail: graph.detail,
+        },
+      };
+    }
     this.#model = model;
     this.#expansion = widgets.expansion;
     this.#references = widgets.references;
     if (applied.effects.closed) this.close("agent");
     const warnings = [
       ...unresolvedWarnings(revised.map((question) => model.boardQuestion(question))),
-      ...(revised.length === 0 ? [] : formulaWarnings(model.items(), widgets.expansion)),
+      ...(graph?.warnings ?? []),
     ];
     const outcome = {
       kind: "updated",

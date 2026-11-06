@@ -3,8 +3,14 @@
 // in error returned as a `formula` warning in reference addressing. A graph problem never refuses a
 // request. Plain ECMAScript (AD-1).
 
-import { type BoardSourceItem, boardGraphSource, buildGraph } from "@askboard/compute";
+import {
+  type BoardSourceItem,
+  boardGraphSource,
+  buildGraph,
+  GraphSourceError,
+} from "@askboard/compute";
 import type { FormulaWarning } from "@askboard/contract";
+import type { RequestProblem } from "@askboard/contract/validate";
 import { referenceAddressing } from "./molecules/addressing.ts";
 import type { ExpansionMap } from "./molecules/map.ts";
 
@@ -50,3 +56,31 @@ export const formulaWarnings = (
     ),
   }));
 };
+
+export type GraphCheck =
+  | { readonly ok: true; readonly warnings: readonly FormulaWarning[] }
+  | { readonly ok: false; readonly detail: string };
+
+/**
+ * `formulaWarnings`, failing closed (AD-10): a board the graph cannot be built over, which the
+ * contract's checks should have kept out, is a refusal with its reason, never a thrown error.
+ */
+export const checkedFormulaWarnings = (
+  items: readonly unknown[],
+  map: ExpansionMap,
+): GraphCheck => {
+  try {
+    return { ok: true, warnings: formulaWarnings(items, map) };
+  } catch (error) {
+    if (!(error instanceof GraphSourceError)) throw error;
+    return { ok: false, detail: error.message };
+  }
+};
+
+/** The request problem a graph that cannot be built is refused with. */
+export const graphProblem = (detail: string): RequestProblem => ({
+  path: "/items",
+  field: "items",
+  expected: "widget items whose graph can be built",
+  message: detail,
+});

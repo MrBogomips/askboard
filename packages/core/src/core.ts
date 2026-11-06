@@ -49,7 +49,7 @@ import {
 } from "./context/resolve.ts";
 import { rootOf } from "./context/root.ts";
 import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./context/source.ts";
-import { formulaWarnings } from "./graph-check.ts";
+import { checkedFormulaWarnings, graphProblem } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import { expansionEntries } from "./molecules/map.ts";
@@ -706,6 +706,8 @@ export class AskCore {
     // created; the ask keeps the request as sent for the resend rule (AD-6).
     const sent = expandSentItems(input.items, this.#ports.molecules);
     if (!sent.ok) return { kind: "invalid", problems: sent.problems };
+    const graph = checkedFormulaWarnings(sent.items, sent.map);
+    if (!graph.ok) return { kind: "invalid", problems: [graphProblem(graph.detail)] };
     const showing = await this.#ports.showing.check();
     if (!showing.showable) {
       return { kind: "unavailable", askId, reason: showing.reason, detail: showing.detail };
@@ -741,7 +743,7 @@ export class AskCore {
     this.#configuration.ensureFolders();
     this.#push.created(ask, input, caller, forUser);
     this.#statuses.created(askId, this.#push.ownerOf(askId)?.ownerKey);
-    const warnings = [...ask.contextWarnings, ...formulaWarnings(sent.items, sent.map)];
+    const warnings = [...ask.contextWarnings, ...graph.warnings];
     return { kind: "created", ask: ask.summary, ...(warnings.length === 0 ? {} : { warnings }) };
   }
 
