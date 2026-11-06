@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: CPM scheduling
-A Gantt plan SHALL schedule its WBS's leaves in working days: duration the task's requested duration, else the expected effort rounded up, at least 1; earliest start the latest earliest finish of its predecessors; latest finish the earliest latest start of its successors, or the plan's finish; slack, a critical flag at zero slack, and start and finish dates from the first working day on or after the plan's start.
+A Gantt plan SHALL schedule its WBS's leaves in working days: duration the task's requested duration, else the expected effort rounded up, at least 1; earliest start the latest earliest finish of its predecessors; latest finish the earliest latest start of its successors, or the plan's finish; slack, a critical flag at zero slack, and start and finish dates from the first working day on or after the plan's start. Each plan task SHALL also give `effortDays`, the duration its estimates alone give (its expected effort rounded up, at least 1), which a requested duration does not change, so a view can tell a requested duration from the one that follows the WBS.
 
 #### Scenario: UJ-2's plan
 - **WHEN** UJ-2's plan starts on Monday 2026-11-02 with its four dependencies
@@ -22,6 +22,10 @@ A Gantt plan SHALL schedule its WBS's leaves in working days: duration the task'
 #### Scenario: A requested duration
 - **WHEN** the portal's expected effort rounds up to 18 days and its entry requests 21
 - **THEN** the portal lasts 21 working days, reporting starts three working days later than without the request, and the portal's expected effort in the WBS is as before
+
+#### Scenario: The estimates' duration beside a request
+- **WHEN** the portal's expected effort rounds up to 18 days and its entry requests 21
+- **THEN** the portal's duration is 21 and its `effortDays` is 18, and with no request both are 18
 
 #### Scenario: A request equal to the estimate
 - **WHEN** an entry requests the duration its expected effort rounds up to
