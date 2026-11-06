@@ -145,7 +145,7 @@ describe("the snapshot result", () => {
 
 describe("the registrations (Snapshot registrations are appended)", () => {
   test("the tool envelopes take their next minor, which every result names", () => {
-    // 1.4 since widget-answers, which took the next minor after E7's 1.3; 1.5 since widget-registry.
+    // The minors, in order: E7's, widget-answers' (the next after it), then widget-registry's.
     expect(TOOL_ENVELOPES_VERSION).toBe("1.5");
     expect(toolEnvelopes.version).toBe(TOOL_ENVELOPES_VERSION);
     expect(RESULT_VERSIONS).toEqual({ result: "1.5", output: OUTPUT_FORMAT_VERSION });

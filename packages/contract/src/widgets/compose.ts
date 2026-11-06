@@ -80,12 +80,12 @@ const conditional = (
 // has its `if` alone. Never a `properties` at the top, which would replace the branch's own.
 const propsBranch = (types: readonly WidgetType[]): AnySchemaObject => {
   const ifType = (entry: WidgetType) => ({ properties: { type: { const: entry.type } } });
-  // A type that gives a result also has its result checked by its schema; the others add nothing,
-  // so the Tree's and the Gantt's branches are as before.
+  // A type that gives a result has its result checked by its schema; one that declares none
+  // refuses a `result`, which the generic `true` of the item would otherwise let through.
   const props = (entry: WidgetType) => ({
     properties: {
       props: { $ref: entry.props.$id },
-      ...(entry.result === undefined ? {} : { result: { $ref: entry.result.schema.$id } }),
+      result: entry.result === undefined ? false : { $ref: entry.result.schema.$id },
     },
   });
   const [first, ...rest] = types as readonly [WidgetType, ...WidgetType[]];

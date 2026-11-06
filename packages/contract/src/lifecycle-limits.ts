@@ -33,6 +33,14 @@ export const OPTION_NOTE_MAX_CHARS = 2_000;
 export const DRAFT_RECORD_MAX_CHARS = 2_000_000;
 
 /**
+ * The deepest nesting a draft record may have: `ask-core` refuses a result or a derived value
+ * nested beyond 64 levels, and the record's own levels (questions, a question, its results, an
+ * item) come on top, so 80. A deeper record is refused, never walked: `JSON.stringify` throws on
+ * one nested far enough (widget-registry, design decision 6; NFR-10).
+ */
+export const DRAFT_RECORD_MAX_DEPTH = 80;
+
+/**
  * The most characters of an item's RFC 8785 JSON text one `fetch` page holds, so that a page with
  * its envelope stays under the result limit (proposal, open question 5).
  */

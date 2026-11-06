@@ -34,8 +34,9 @@ const schemasOf = (set: { readonly schemas: readonly object[] }): AnySchemaObjec
 const TREE_AND_GANTT = [TREE_WIDGET, GANTT_WIDGET];
 
 // `fetch`'s schema as `main` held it: without what the results seam adds to it (widget-registry,
-// task 2.3), the answer's `results` and a widget item's `result`, the one place where the three
-// golden copies of task 0.3 and the shipped schema differ. Nothing else is taken out.
+// tasks 2.3 and 2.5), the answer's `results`, a widget item's `result` and, in each type's branch,
+// the `result` that a type declaring none refuses: the one place where the three golden copies of
+// task 0.3 and the shipped schema differ. Nothing else is taken out.
 const withoutResults = (schema: AnySchemaObject): AnySchemaObject => {
   const copy = structuredClone(schema);
   const { item, answer } = copy.$defs;
@@ -44,6 +45,8 @@ const withoutResults = (schema: AnySchemaObject): AnySchemaObject => {
   delete item.then.properties.result;
   delete item.else.then.properties.result;
   delete item.else.else.properties.result;
+  delete item.then.then.properties.result;
+  delete item.then.else.properties.result;
   return copy;
 };
 

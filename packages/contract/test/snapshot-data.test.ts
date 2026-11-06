@@ -74,7 +74,7 @@ const problemPaths = (value: unknown): string[] => {
 };
 
 describe("the snapshot-data set", () => {
-  test("is listed at 1.1 (1.0 before widget-registry), owned by snapshot, as AD-7's table says", () => {
+  test("is listed at widget-registry's minor, owned by snapshot, as AD-7's table says", () => {
     expect(SCHEMA_SETS).toContain(snapshotDataSet);
     expect(snapshotDataSet).toMatchObject({
       name: "snapshot-data",

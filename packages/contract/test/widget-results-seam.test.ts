@@ -36,6 +36,7 @@ import {
   validateBoardMessage,
   validateSnapshotData,
 } from "../src/validate.ts";
+import { WIDGET_TYPES } from "../src/widgets/registry.ts";
 import { ajvOver, errorsOf } from "./probe-ajv.ts";
 
 // The paths of a refusal, each once: a bad key in a map is reported by the map and by its names.
@@ -257,19 +258,52 @@ describe("results in fetch results", () => {
     expect(fetchErrors(result({}))).not.toEqual([]);
   });
 
-  test("a question or an area holding result fails, naming it", () => {
-    const question = structuredClone(probeFetchResult) as { item: object };
-    const asked = { ...question, item: { ...question.item, result: { pick: "a" } } };
-    expect(
-      fetchErrors(asked).map((error) => error.params.additionalProperty ?? error.keyword),
-    ).not.toEqual([]);
-    const area = {
-      ...probeFetchResult,
-      item: { type: "area", id: "g", props: { title: "G", items: [] }, result: { pick: "a" } },
-    };
-    expect(fetchErrors(area)).not.toEqual([]);
-    // A question without result still passes: the failure is the result's.
+  // A question holding a probe item and a valid area holding that question: each passes as it is,
+  // so a failure with `result` added is the result's.
+  const question = (probeFetchResult as { item: object }).item;
+  const area = {
+    ...probeFetchResult,
+    item: {
+      type: "area",
+      id: "g",
+      props: {
+        title: "G",
+        items: [
+          {
+            type: "question",
+            id: "q",
+            rev: 1,
+            props: { text: "Which one?", items: [PROBE_TYPES[0]?.example.item] },
+          },
+        ],
+      },
+    },
+  };
+
+  test("a question or an area holding result fails at result", () => {
     expect(fetchErrors(probeFetchResult)).toEqual([]);
+    expect(fetchErrors(area)).toEqual([]);
+    const asked = { ...probeFetchResult, item: { ...question, result: { pick: "a" } } };
+    const areaItem = (area as { item: object }).item;
+    const grouped = { ...area, item: { ...areaItem, result: { pick: "a" } } };
+    for (const value of [asked, grouped]) {
+      const errors = fetchErrors(value);
+      expect(errors.map((error) => error.instancePath)).toContain("/item/result");
+    }
+  });
+
+  test("a Tree or a Gantt fetched alone gives no result, whichever schema validates it", () => {
+    const shipped = (value: unknown) => validateAgainst(SCHEMA_IDS.fetchResult, value);
+    for (const type of WIDGET_TYPES) {
+      const alone = { ...type.example.item, questionId: "q", state: "open" };
+      const whole = (item: unknown) => ({ ...probeFetchResult, item });
+      // Without result the item passes; with one it fails at the result.
+      expect(shipped(whole(alone)).ok).toBe(true);
+      const withResult = whole({ ...alone, result: { picked: true } });
+      const checked = shipped(withResult);
+      expect(checked.ok).toBe(false);
+      expect(pathsOf(checked)).toContain("/item/result");
+    }
   });
 });
 
