@@ -15,7 +15,7 @@ import { BUTTON_ANSWER, BUTTON_ANSWER_PRIMARY, BUTTON_SECONDARY, FOCUS_RING } fr
 const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
 
-const MENU_ITEM = `flex cursor-default items-center gap-sm rounded-md px-sm py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
+const MENU_ITEM = `flex cursor-pointer items-center gap-sm rounded-md px-sm py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
 
 export type ActionsRowProps = {
   /** An opened Snapshot: only the delivery receipt shows. */

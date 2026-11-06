@@ -46,8 +46,8 @@ export const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
 
 export const MENU_ITEM =
-  "flex cursor-default items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
-  "data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";
+  "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
+  "data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";
 
 /** The change dot, `{colors.change}`: the counter's mark, and a moved row's after its name. */
 export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
