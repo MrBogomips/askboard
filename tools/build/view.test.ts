@@ -94,7 +94,14 @@ describe("bun run build:view (design decision 7)", () => {
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
     // The Tree reads the board graph since the molecules change (design decision 13), and the
     // work breakdown's values need compute's `isFormulaError` and `roundNumber` (decision 14).
-    expect(manifest.chunks.tree?.needs).toEqual(["board-graph", "compute", "react", "shell"]);
+    // Its toolbar's "More" menu is Radix's (widget-editing-plus, review F-16).
+    expect(manifest.chunks.tree?.needs).toEqual([
+      "board-graph",
+      "compute",
+      "radix",
+      "react",
+      "shell",
+    ]);
     expect(manifest.chunks.radix?.needs).toEqual(["react"]);
     expect(manifest.boardPage.html.path).toBe("board-page.html");
   });

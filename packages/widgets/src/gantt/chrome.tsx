@@ -29,12 +29,13 @@ export const Toolbar = ({
       {zoom === undefined ? null : <ZoomControl {...zoom} />}
       <span
         data-gantt-counter=""
-        className="flex shrink-0 items-center gap-[6px] text-control text-foreground-secondary"
+        title={counterText(count, derived, text)}
+        className="flex min-w-0 items-center gap-[6px] text-control text-foreground-secondary"
       >
         {count > 0 ? (
           <span aria-hidden="true" className="size-[8px] shrink-0 rounded-full bg-change" />
         ) : null}
-        {counterText(count, derived, text)}
+        <span className="min-w-0 truncate">{counterText(count, derived, text)}</span>
       </span>
     </div>
   );

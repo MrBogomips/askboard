@@ -33,7 +33,7 @@ export const FIXTURE_ROWS = [
 export const FIXTURE_IDS = FIXTURE_ROWS.map((row) => row.id);
 
 /** The counter before the first change (EXPERIENCE, By surface: Widget). */
-export const NONE_YET = "Changes vs agent's original · none yet";
+export const NONE_YET = "No changes";
 
 /** DESIGN.md's focus ring: a 2px outline, offset by 1px. */
 export const RING = { style: "solid", width: "2px", offset: "1px" };

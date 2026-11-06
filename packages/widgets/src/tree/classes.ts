@@ -14,7 +14,7 @@ export const TOOLBAR =
   "flex h-[32px] items-center gap-2 rounded-t-md border-b border-border bg-muted px-2";
 
 /** The tools, on the toolbar row's left. */
-export const TOOLS = "flex items-center gap-[4px]";
+export const TOOLS = "flex shrink-0 items-center gap-[4px]";
 
 /**
  * A tool: `button-secondary`, `spacing.control-height` high, with the focus ring; a disabled tool
@@ -36,7 +36,18 @@ export const QUESTION_ROW = "flex min-w-0 items-center gap-2";
 
 /** The counter of the user's changes, at the toolbar row's right; the question never pushes it out. */
 export const COUNTER =
-  "ml-auto flex shrink-0 items-center gap-[6px] text-control text-foreground-secondary";
+  "ml-auto flex min-w-0 items-center gap-[6px] text-control text-foreground-secondary";
+
+/** The counter's text, cut with an ellipsis before it overprints a tool (review F-16). */
+export const COUNTER_TEXT = "min-w-0 truncate";
+
+/** The "More" menu's panel and its items, as the question card's menu looks. */
+export const MENU =
+  "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
+
+export const MENU_ITEM =
+  "flex cursor-default items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
+  "data-[highlighted]:bg-accent data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";
 
 /** The change dot, `{colors.change}`: the counter's mark, and a moved row's after its name. */
 export const CHANGE_DOT = "size-[8px] shrink-0 rounded-full bg-change";
