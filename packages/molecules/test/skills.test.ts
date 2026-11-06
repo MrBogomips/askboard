@@ -66,7 +66,9 @@ describe("MOLECULE_SKILLS", () => {
     const leaves = nodes.flatMap(({ children }) => children ?? []);
     expect(leaves.length).toBeGreaterThan(0);
     for (const leaf of leaves) {
-      expect(leaf).toMatchObject({
+      // A copy: Bun's toMatchObject writes its matchers into the object it checks, and this one is
+      // the molecule's shared example.
+      expect(structuredClone(leaf)).toMatchObject({
         optimistic: expect.any(Number),
         mostLikely: expect.any(Number),
         pessimistic: expect.any(Number),
