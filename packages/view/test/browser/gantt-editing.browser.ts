@@ -38,7 +38,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.page.keyboard.press("Enter");
         expect(await editor.count()).toBe(0);
         expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-          "12/9/2026",
+          "Wed 12/9",
         );
         expect((await barDates(gantt)).reporting).toBe("2026-12-09..2026-12-16");
         expect(await criticalTasks(gantt)).toEqual(["reporting"]);
@@ -72,7 +72,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.page.keyboard.type("30");
         expect(await gantt.cell("billing", "duration").textContent()).toContain("= 30");
         await run.board.page.keyboard.press("Enter");
-        expect(((await gantt.cell("billing", "duration").textContent()) ?? "").trim()).toBe("30");
+        expect(((await gantt.cell("billing", "duration").textContent()) ?? "").trim()).toBe("30 d");
         expect((await barDates(gantt)).billing).toBe("2026-11-06..2026-12-17");
         expect(await criticalTasks(gantt)).toEqual(["architecture", "billing"]);
         expect(await focusedCell(run.board)).toBe("billing.duration");
@@ -109,7 +109,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await editor.count()).toBe(0);
         expect(await gantt.note("reporting").count()).toBe(0);
         expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-          "12/4/2026",
+          "Fri 12/4",
         );
         expect(await focusedCell(run.board)).toBe("reporting.start");
         // A refused duration in a middle row: the rows under it move down with the chart's.

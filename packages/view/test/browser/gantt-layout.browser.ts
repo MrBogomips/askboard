@@ -163,12 +163,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Depends on",
         ]);
         expect(await rowTexts(gantt)).toEqual([
-          ["ux", "UX design", "11/2/2026", "6", ""],
-          ["architecture", "Architecture", "11/2/2026", "4", ""],
-          ["prototype", "Clickable prototype", "11/10/2026", "5", "UX design"],
-          ["portal", "Customer portal", "11/17/2026", "13", "Architecture, Clickable prototype"],
-          ["billing", "Billing integration", "11/6/2026", "9", "Architecture"],
-          ["reporting", "Reporting", "12/4/2026", "6", "Customer portal"],
+          ["ux", "UX design", "Mon 11/2", "6 d", ""],
+          ["architecture", "Architecture", "Mon 11/2", "4 d", ""],
+          ["prototype", "Clickable prototype", "Tue 11/10", "5 d", "UX design"],
+          ["portal", "Customer portal", "Tue 11/17", "13 d", "Architecture, Clickable prototype"],
+          ["billing", "Billing integration", "Fri 11/6", "9 d", "Architecture"],
+          ["reporting", "Reporting", "Fri 12/4", "6 d", "Customer portal"],
         ]);
         expect(await gantt.chart.count()).toBe(1);
         // Each grid row lines up with its row of the chart: 36px rows under a 32px header.
@@ -210,7 +210,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ].map((link) => ({
             link,
             critical: critical.has(link),
-            stroke: colour(critical.has(link) ? "critical" : "gantt-bar"),
+            stroke: colour(critical.has(link) ? "critical" : "border-strong"),
             width: critical.has(link) ? "2px" : "1px",
           })),
         );

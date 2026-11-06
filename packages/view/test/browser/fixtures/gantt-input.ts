@@ -183,12 +183,18 @@ export const dragBy = async (board: Board, from: Point, dx: number): Promise<voi
 
 /** The guide's day and x while a bar is dragged; undefined while none shows. */
 export const guideFacts = async (gantt: GanttParts) => {
-  const guide = gantt.root.locator("[data-gantt-guide]");
-  if ((await guide.count()) === 0) return undefined;
+  const group = gantt.root.locator("[data-gantt-guide]");
+  if ((await group.count()) === 0) return undefined;
+  const line = group.locator("line");
   return {
-    date: await guide.getAttribute("data-date"),
-    x: Math.floor(Number(await guide.getAttribute("x1"))),
-    stroke: await guide.evaluate((line) => getComputedStyle(line).stroke),
+    date: await group.getAttribute("data-date"),
+    x: Math.floor(Number(await line.getAttribute("x1"))),
+    stroke: await line.evaluate((element) => getComputedStyle(element).stroke),
+    width: await line.evaluate((element) => getComputedStyle(element).strokeWidth),
+    height: Math.round(
+      Number(await line.getAttribute("y2")) - Number(await line.getAttribute("y1")),
+    ),
+    label: ((await group.locator("[data-gantt-guide-label]").textContent()) ?? "").trim(),
   };
 };
 

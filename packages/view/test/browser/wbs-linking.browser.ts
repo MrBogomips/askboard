@@ -117,14 +117,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await pressIn(run.board, "Enter")).toEqual({ nodeId: "u-1", cell: at + 1 });
         }
         await eventually(
-          async () => (await rowOf(run, "u-1"))?.[2] === "11/17/2026",
+          async () => (await rowOf(run, "u-1"))?.[2] === "Tue 11/17",
           "u-1 to start on 11/17/2026",
         );
         expect(await rowOf(run, "u-1")).toEqual([
           "u-1",
           DASHBOARDS,
-          "11/17/2026",
-          "8",
+          "Tue 11/17",
+          "8 d",
           "Architecture, Clickable prototype",
         ]);
         expect(await run.board.answer.isDisabled()).toBe(false);

@@ -67,9 +67,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await criticalTasks(gantt)).toEqual([]);
         const rows = await rowTexts(gantt);
         expect(rows.slice(6)).toEqual([
-          ["qa", "QA sign-off", "", "2", "Release notes"],
-          ["docs", "Release notes", "", "3", "QA sign-off"],
-          ["launch", "Launch", "", "1", "ghost"],
+          ["qa", "QA sign-off", "", "2 d", "Release notes"],
+          ["docs", "Release notes", "", "3 d", "QA sign-off"],
+          ["launch", "Launch", "", "1 d", "ghost"],
         ]);
         const lined = await alignment(gantt);
         expect(lined.map(({ row }) => row)).toEqual([32, 68, 104, 140, 176, 212, 248, 304, 360]);

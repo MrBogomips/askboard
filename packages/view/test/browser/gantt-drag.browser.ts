@@ -81,10 +81,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const earliest = daysFrom(ORIGIN, "2026-12-04") * WEEK_PX;
         await pressAndMove(run.board, await grabPoint(gantt, "reporting"), -10 * WEEK_PX);
         expect(Number(await gantt.bar("reporting").getAttribute("x"))).toBe(earliest);
-        expect(await guideFacts(gantt)).toEqual({
+        // Full height, 2px dashed, with its date (review F-14).
+        expect(await guideFacts(gantt)).toMatchObject({
           date: "2026-12-04",
           x: earliest,
-          stroke: colour("muted-foreground"),
+          stroke: colour("foreground-secondary"),
+          width: "2px",
+          label: "earliest 12/4",
         });
         await run.board.page.mouse.up();
         expect((await barDates(gantt)).reporting).toBe("2026-12-04..2026-12-11");
@@ -135,7 +138,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dragBy(run.board, await grabPoint(gantt, "reporting"), 8 * WEEK_PX);
         expect((await barDates(gantt)).reporting).toBe("2026-12-14..2026-12-21");
         expect(((await gantt.cell("reporting", "start").textContent()) ?? "").trim()).toBe(
-          "12/14/2026",
+          "Mon 12/14",
         );
       },
       TEST_TIMEOUT_MS,
@@ -226,15 +229,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "2026-11-12..2026-11-18",
           "2026-12-08..2026-12-15",
         ]);
-        expect(((await gantt.cell("ux", "duration").textContent()) ?? "").trim()).toBe("8");
+        expect(((await gantt.cell("ux", "duration").textContent()) ?? "").trim()).toBe("8 d");
         await dragBy(run.board, await endPoint(gantt, "architecture"), -10 * WEEK_PX);
         expect((await barDates(gantt)).architecture).toBe("2026-11-02..2026-11-02");
         expect(((await gantt.cell("architecture", "duration").textContent()) ?? "").trim()).toBe(
-          "1",
+          "1 d",
         );
         await dragBy(run.board, await endPoint(gantt, "architecture"), -3 * WEEK_PX);
         expect(((await gantt.cell("architecture", "duration").textContent()) ?? "").trim()).toBe(
-          "1",
+          "1 d",
         );
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
         expect(run.browser.cspProblems()).toEqual([]);

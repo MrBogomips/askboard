@@ -19,22 +19,23 @@ import { focusedBox, focusedCell, keysTo } from "./fixtures/gantt-input.ts";
 import {
   addedRows,
   baselineFacts,
-  chartAt,
+  DAY_PX,
   PLAN_ROWS,
   planGantt,
   planQuestion,
   planTree,
   type RowText,
   tabIntoPlanGrid,
+  type ZoomName,
 } from "./fixtures/gantt-plan.ts";
 import {
   arrowFacts,
   barDates,
   changeOutlines,
   colour,
-  derivedOutlines,
   counterText,
   criticalTasks,
+  derivedOutlines,
   filledCells,
   ganttOf,
   panelFacts,
@@ -152,11 +153,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             portal: [
               "portal",
               "Customer portal",
-              "11/17/2026",
-              "18",
+              "Tue 11/17",
+              "18 d",
               "Architecture, Clickable prototype",
             ],
-            reporting: ["reporting", "Reporting", "12/11/2026", "6", "Customer portal"],
+            reporting: ["reporting", "Reporting", "Fri 12/11", "6 d", "Customer portal"],
           }),
         );
         expect(await barDates(gantt)).toEqual({
@@ -166,8 +167,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         expect(await criticalTasks(gantt)).toEqual(["ux", "prototype", "portal", "reporting"]);
         // The plan now ends on 12/18/2026, and the axis runs two weeks past it: 61 days.
-        expect(Number(await chartAt(gantt, "week").getAttribute("width"))).toBe(61 * 15);
-        expect(await baselineDates(gantt)).toEqual(SENT_BASELINES);
+        // (The axis may be stretched to the frame's width, so it holds at least those days.)
+        const opening = gantt.root.getByRole("img", { name: /^Gantt chart/ });
+        const zoom = ((await opening.getAttribute("aria-label")) ?? "").split(" ")[2] as ZoomName;
+        expect(Number(await opening.getAttribute("width"))).toBeGreaterThanOrEqual(
+          61 * DAY_PX[zoom],
+        );
+        // The portal and reporting moved: their baselines show the agent's dates, the rest none.
+        expect(await baselineDates(gantt)).toEqual(
+          SENT_BASELINES.filter((dates) => /^(portal|reporting) /.test(dates)),
+        );
         // Re-estimated in the Tree: the portal's bar takes the derived mark, a dotted outline, and
         // its duration the change fill with no border; reporting, moved only by its predecessor,
         // takes neither; the counter says so apart from the user's changes (F-07), and the Tree's
@@ -229,8 +238,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const added: RowText = [
           "u-1",
           DASHBOARDS.label,
-          "11/17/2026",
-          "8",
+          "Tue 11/17",
+          "8 d",
           "Architecture, Clickable prototype",
         ];
         expect(await rowTexts(gantt)).toEqual([
@@ -239,8 +248,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ...PLAN_ROWS.slice(4),
         ]);
         expect(await barDates(gantt)).toEqual({ ...UJ2_DATES, "u-1": "2026-11-17..2026-11-26" });
-        // No baseline: the agent sent no such task.
-        expect(await baselineDates(gantt)).toEqual(SENT_BASELINES);
+        // No baseline: the agent sent no such task, and no task moved.
+        expect(await baselineDates(gantt)).toEqual([]);
         // The added mark: the change outline on its bar and the change bar on its row's left
         // edge; its predecessors, an arrow from each and its changed "Depends on", which the
         // plan's counter counts.
@@ -291,8 +300,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await rowTexts(gantt))[5]).toEqual([
           "billing",
           "Billing integration",
-          "11/17/2026",
-          "9",
+          "Tue 11/17",
+          "9 d",
           "Architecture, Clickable prototype",
         ]);
         expect(
@@ -436,8 +445,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const child: RowText = [
           "u-1",
           DASHBOARDS.label,
-          "11/17/2026",
-          "8",
+          "Tue 11/17",
+          "8 d",
           "Architecture, Clickable prototype",
         ];
         const before = PLAN_ROWS.filter(([id]) => id !== "portal" && id !== "reporting");
@@ -483,8 +492,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await rowTexts(gantt)).find(([id]) => id === "reporting")).toEqual([
           "reporting",
           "Reporting",
-          "11/2/2026",
-          "6",
+          "Mon 11/2",
+          "6 d",
           "",
         ]);
         expect(await barDates(gantt)).toEqual({
