@@ -151,6 +151,26 @@ describe("widgetRegistryProblems", () => {
     ["{}", { type: "object", properties: { pick: { type: "string" } } }],
     ["[]", { type: "array", items: { type: "string" } }],
     ['""', { type: "string" }],
+    ["[null]", { type: "array", items: { type: ["string", "null"] } }],
+    ['[""]', { type: "array", items: { type: "string" }, minItems: 1 }],
+    [
+      '{"value":null}',
+      { type: "object", required: ["value"], properties: { value: { type: ["string", "null"] } } },
+    ],
+    [
+      '{"value":{"value":[""]}}',
+      {
+        type: "object",
+        required: ["value"],
+        properties: {
+          value: {
+            type: "object",
+            required: ["value"],
+            properties: { value: { type: "array", items: { type: "string" }, minItems: 1 } },
+          },
+        },
+      },
+    ],
   ])("refuses a result schema that accepts %s, naming it", (shown, body) => {
     const { result } = PROBE_WIDGET;
     if (result === undefined) throw new Error("the probe gives a result");

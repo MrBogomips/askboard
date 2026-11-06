@@ -8,12 +8,18 @@ import type { AnySchemaObject } from "ajv/dist/2020";
 import { createAjv } from "../validate.ts";
 import { type RegistryProblem, registryShapeProblems, type WidgetType } from "./registry.ts";
 
-// The values a result schema must refuse, as the problem shows them.
-const EMPTY_RESULTS: readonly (readonly [string, unknown])[] = [
+// The values a result schema must refuse, as the problem shows them. Each holds nothing under
+// `resultHoldsNothing` (a contract test checks it); the nested ones catch a schema that admits an
+// empty leaf inside a container, for the shapes they reach.
+export const EMPTY_RESULTS: readonly (readonly [string, unknown])[] = [
   ["null", null],
   ["{}", {}],
   ["[]", []],
   ['""', ""],
+  ["[null]", [null]],
+  ['[""]', [""]],
+  ['{"value":null}', { value: null }],
+  ['{"value":{"value":[""]}}', { value: { value: [""] } }],
 ];
 
 // The empty values `schema` accepts. Compiled in an Ajv of its own, so that a schema under test
@@ -48,8 +54,8 @@ const resultProblem = (entry: WidgetType, index: number): RegistryProblem | unde
 
 /**
  * What is wrong with a registry as a whole: the shape rules of `registryShapeProblems`, then each
- * result schema that accepts `null`, `{}`, `[]` or `""` (rule `result-empty`), found by validating
- * those four against it. Empty when it holds together.
+ * result schema that accepts a sample that holds nothing (`EMPTY_RESULTS`, rule `result-empty`), found by
+ * validating them against it. Empty when it holds together.
  */
 export const widgetRegistryProblems = (
   types: readonly WidgetType[],
