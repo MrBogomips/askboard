@@ -16,10 +16,12 @@ import { useStrings } from "@askboard/view/catalog";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Chart } from "./chart.tsx";
 import { Legend, Toolbar } from "./chrome.tsx";
+import { ColumnEdge } from "./column-edge.tsx";
 import { type Editing, useCellEditing } from "./editing.ts";
 import { Grid } from "./grid.tsx";
 import { cellElement, useGridFocus } from "./grid-focus.ts";
 import { gridKeyHandler } from "./grid-keys.ts";
+import { COLUMN_DEFAULT, clampWidth, fitWidth } from "./model/column-width.ts";
 import { dayNumber } from "./model/date.ts";
 import { clearStart, setDuration } from "./model/edits.ts";
 import { landOn } from "./model/entries.ts";
@@ -31,6 +33,7 @@ import { type Baseline, movedBaselines, type TaskSchedule } from "./model/schedu
 import { type GanttColumn, type GanttRow, isOwnGantt } from "./model/tasks.ts";
 import { usePanelState } from "./panel-state.ts";
 import { useChartBox } from "./use-chart-box.ts";
+import { useElementWidth } from "./use-element-width.ts";
 import { useRowHeight } from "./use-row-height.ts";
 
 /**
@@ -121,6 +124,15 @@ const EdgeCue = ({
     />
   ) : null;
 
+/** The widget's width until it is measured: wide enough that no limit bites. */
+const UNMEASURED = 10_000;
+
+/** The full width of each name the grid shows, which a fit of the TASK column reads. */
+const nameWidths = (table: HTMLTableElement | null): number[] =>
+  [...(table?.querySelectorAll<HTMLElement>('[data-gantt-column="task"] > span') ?? [])].map(
+    (name) => name.scrollWidth,
+  );
+
 export const GanttFrame = (props: FrameProps) => {
   const { itemId, rows, schedules, baselines, marks, current, sent, onCommit, editable } = props;
   // The zoom the user chose, else the one the plan opened at: the finest at which it fits.
@@ -128,6 +140,11 @@ export const GanttFrame = (props: FrameProps) => {
   const [opened, setOpened] = useState<Zoom | undefined>(undefined);
   const zoom = chosen ?? opened ?? "week";
   const scroller = useRef<HTMLDivElement>(null);
+  // The TASK column's width is view state, never part of the draft (design decision 7).
+  const frame = useRef<HTMLDivElement>(null);
+  const widget = useElementWidth(frame) ?? UNMEASURED;
+  const [wanted, setWanted] = useState(COLUMN_DEFAULT);
+  const taskWidth = clampWidth(wanted, widget);
   const box = useChartBox(scroller);
   const focus = useGridFocus(rows);
   const { table } = focus;
@@ -185,14 +202,14 @@ export const GanttFrame = (props: FrameProps) => {
     ? (taskId: string, duration: number) => onCommit(setDuration(current, sent, taskId, duration))
     : undefined;
   return (
-    <div className="flex flex-col rounded-md border border-border bg-card">
+    <div ref={frame} className="flex flex-col rounded-md border border-border bg-card">
       <Toolbar
         count={props.count}
         derived={props.derived}
         zoom={props.zoomable ? { zoom, onZoom: setChosen } : undefined}
       />
       <div className="flex">
-        <div className="w-[480px] shrink-0 border-r border-border">
+        <div className="shrink-0 border-r border-border">
           <Grid
             itemId={itemId}
             questionId={props.questionId}
@@ -208,6 +225,15 @@ export const GanttFrame = (props: FrameProps) => {
             stop={focus.stop}
             onKeyDown={onKeyDown}
             onFocus={focus.onFocus}
+            taskWidth={taskWidth}
+            edge={
+              <ColumnEdge
+                width={taskWidth}
+                widget={widget}
+                onWidth={setWanted}
+                onFit={() => setWanted(fitWidth(nameWidths(table.current), widget))}
+              />
+            }
           />
         </div>
         <div className="relative min-w-0 flex-1">

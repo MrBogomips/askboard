@@ -14,7 +14,7 @@
 
 import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract";
 import { questionTextId, type StringKey, useLocale, useStrings } from "@askboard/view/catalog";
-import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
+import type { FocusEventHandler, KeyboardEventHandler, ReactNode, Ref } from "react";
 import { errorSpan } from "../shared/field-error.ts";
 import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing, Editing } from "./editing.ts";
@@ -34,13 +34,20 @@ export const HEADERS: Readonly<Record<GanttColumn, StringKey>> = {
   dependencies: "gantt.column.dependencies",
 };
 
-/** Each column's width and alignment; the name takes what the others leave. */
+/** Each column's alignment. */
 const COLUMN: Readonly<Record<GanttColumn, string>> = {
   task: "px-2 text-left",
-  start: "w-[104px] px-2 text-left",
-  duration: "w-[80px] px-2 text-right",
-  dependencies: "w-[150px] px-2 text-left",
+  start: "px-2 text-left",
+  duration: "px-2 text-right",
+  dependencies: "px-2 text-left",
 };
+
+/** The width of each column but the name's, in px; the name's is the user's (`column-edge.tsx`). */
+const FIXED_WIDTH = { start: 104, duration: 80, dependencies: 150 } as const;
+
+/** The width of the grid's other columns together. */
+export const FIXED_COLUMNS_WIDTH =
+  FIXED_WIDTH.start + FIXED_WIDTH.duration + FIXED_WIDTH.dependencies;
 
 /** A body cell: the anchor of its editor's echo, and the focus ring on keyboard focus. */
 const CELL =
@@ -106,13 +113,14 @@ export const cellText = (
     : formatGridDate(scheduled.startDate, format.locale, format.withYear);
 };
 
-const HeaderRow = () => {
+const HeaderRow = ({ edge }: { readonly edge: ReactNode }) => {
   const text = useStrings();
   return (
     <tr className="h-header-row bg-muted text-label text-muted-foreground uppercase">
       {GANTT_COLUMNS.map((column) => (
-        <th key={column} scope="col" className={`${COLUMN[column]} font-semibold`}>
+        <th key={column} scope="col" className={`${COLUMN[column]} relative font-semibold`}>
           {text(HEADERS[column])}
+          {column === "task" ? edge : null}
         </th>
       ))}
     </tr>
@@ -179,6 +187,7 @@ const TaskRow = (props: TaskRowProps) => {
         <td
           key={column}
           data-gantt-column={column}
+          title={column === "task" ? row.label : undefined}
           data-gantt-derived={derivedIn(column, mark) ? "" : undefined}
           data-editable={props.editable && editable && edited?.column !== column ? true : undefined}
           // While its editor is open, the editor holds the cell's Tab stop.
@@ -259,6 +268,9 @@ export type GridProps = {
   readonly stop: GridFocus | undefined;
   readonly onKeyDown: KeyboardEventHandler<HTMLTableElement>;
   readonly onFocus: FocusEventHandler<HTMLTableElement>;
+  /** The TASK column's width in px, and the edge that resizes it, drawn in its header. */
+  readonly taskWidth: number;
+  readonly edge: ReactNode;
 };
 
 export const Grid = (props: GridProps) => {
@@ -273,12 +285,19 @@ export const Grid = (props: GridProps) => {
       // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: a grid is a table the user moves through (WAI-ARIA APG, Grid); the table gives its rows, cells and headers their roles.
       role="grid"
       aria-labelledby={questionTextId(props.questionId)}
-      className="w-full table-fixed border-collapse"
+      width={props.taskWidth + FIXED_COLUMNS_WIDTH}
+      className="table-fixed border-collapse"
       onKeyDown={props.onKeyDown}
       onFocus={props.onFocus}
     >
+      <colgroup>
+        <col width={props.taskWidth} />
+        <col width={FIXED_WIDTH.start} />
+        <col width={FIXED_WIDTH.duration} />
+        <col width={FIXED_WIDTH.dependencies} />
+      </colgroup>
       <thead>
-        <HeaderRow />
+        <HeaderRow edge={props.edge} />
       </thead>
       <tbody>
         {rows.flatMap((row, index) => {
