@@ -12,6 +12,8 @@ export type SnapshotLine = {
   readonly note?: string;
   readonly text: string;
   readonly code?: string;
+  /** A saved Snapshot's full path, which "Copy path" copies; `code` is then this path too. */
+  readonly savedPath?: string;
   /** The request went wrong. */
   readonly failed: boolean;
 };
@@ -56,7 +58,8 @@ export const refusedLineOf = (detail: string): SnapshotLine => ({
 export const feedbackLineOf = (feedback: SnapshotFeedback): SnapshotLine => {
   const note = noteOf(feedback.unsentWork);
   if (feedback.outcome === "saved") {
-    return { ...note, text: "Snapshot saved:", code: feedback.path, failed: false };
+    const { path } = feedback;
+    return { ...note, text: "Snapshot saved:", code: path, savedPath: path, failed: false };
   }
   const folder = feedback.reason === "write-failed" ? { code: feedback.folder } : {};
   return { ...note, text: FAILURE_TEXTS[feedback.reason], ...folder, failed: true };

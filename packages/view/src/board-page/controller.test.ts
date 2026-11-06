@@ -561,6 +561,7 @@ describe("a closed ask (ask-lifecycle: FR-6; Board banner, Closed and Unsent wor
       variant: "closed",
       text: "This ask was closed. The board is read-only.",
       snapshot: true,
+      copyPath: "Copy path",
       takesFocus: true,
     });
     expect(run.updates.at(-1)?.lock).toBe("closed");

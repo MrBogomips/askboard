@@ -114,6 +114,8 @@ export const Thread = ({
           ref={toggleRef}
           type="button"
           className={`${BUTTON_LINK} ml-auto`}
+          // A follow-up cannot be asked of a closed ask or a locked board (review F-18).
+          disabled={!readOnly && !usable}
           aria-expanded={false}
           aria-controls={id}
           onClick={() => {

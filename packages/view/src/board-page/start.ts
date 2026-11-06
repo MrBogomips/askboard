@@ -62,6 +62,11 @@ export const startBoardPage = (window: Window): void => {
     copyUnsentWork: () => void page?.copyUnsentWork(),
     takeSnapshot: () =>
       page?.takeSnapshot() ?? { outcome: "refused", detail: "the board is not open yet" },
+    copyPath: (path) => {
+      copyText(window, path).catch((error: unknown) =>
+        console.error("askboard: the Snapshot's path could not be copied:", error),
+      );
+    },
   });
   const panel = createSettingsPanel(document, chrome.frame, {
     choose: (setting) => void page?.setPresentation(setting),

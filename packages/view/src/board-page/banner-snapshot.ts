@@ -12,6 +12,7 @@ import {
   type SnapshotLine,
   takingLineOf,
 } from "../snapshot-line.ts";
+import { shownPath } from "../snapshot-path.ts";
 
 /** What the banner's Snapshot needs of the board page. */
 export type BannerSnapshotDeps = {
@@ -19,19 +20,36 @@ export type BannerSnapshotDeps = {
   readonly take: () => SnapshotRequestReply;
   /** The button's classes, as the banner's other actions have. */
   readonly buttonClass: string;
+  /** The saved path's "Copy path": the full path, on the clipboard. */
+  readonly copyPath: (path: string) => void;
 };
 
 export type BannerSnapshot = {
-  /** The button and the feedback, for a Closed banner just drawn. */
-  elements(document: Document): readonly HTMLElement[];
+  /**
+   * The button and the feedback, for a Closed banner just drawn: the button goes on the banner's
+   * row, the feedback on its own line under it (review F-06). `copyLabel` names "Copy path".
+   */
+  elements(
+    document: Document,
+    copyLabel: string,
+  ): { readonly button: HTMLButtonElement; readonly feedback: HTMLElement };
   /** How the request ended. */
   show(feedback: SnapshotFeedback): void;
 };
 
-const CODE = "rounded-sm bg-card px-1 font-mono break-all";
+// The path is cut in the middle by `shownPath`, shown on one line, its full text in the tooltip.
+const CODE = "min-w-0 truncate rounded-sm bg-card px-1 font-mono";
 
-// The line's nodes: the note, the words, the path or folder in code type.
-const lineNodes = (document: Document, line: SnapshotLine): HTMLElement[] => {
+const COPY =
+  "shrink-0 rounded-md text-control text-primary-text hover:underline " +
+  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+
+// The line's nodes: the note, the words, the path or folder in code type, and a saved path's copy.
+const lineNodes = (
+  document: Document,
+  line: SnapshotLine,
+  copy: { readonly label: string; readonly onCopy: (path: string) => void },
+): HTMLElement[] => {
   const span = (text: string, className: string) => {
     const node = document.createElement("span");
     node.className = className;
@@ -43,8 +61,18 @@ const lineNodes = (document: Document, line: SnapshotLine): HTMLElement[] => {
   if (line.code !== undefined) {
     const code = document.createElement("code");
     code.className = CODE;
-    code.textContent = line.code;
+    code.textContent = shownPath(line.code);
+    code.title = line.code;
     nodes.push(code);
+  }
+  const { savedPath } = line;
+  if (savedPath !== undefined) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = COPY;
+    button.textContent = copy.label;
+    button.addEventListener("click", () => copy.onCopy(savedPath));
+    nodes.push(button);
   }
   return nodes;
 };
@@ -53,12 +81,14 @@ const lineNodes = (document: Document, line: SnapshotLine): HTMLElement[] => {
 export const createBannerSnapshot = (deps: BannerSnapshotDeps): BannerSnapshot => {
   let line: SnapshotLine | undefined;
   let waiting = false;
+  let copyLabel = "";
   let drawn: { readonly button: HTMLButtonElement; readonly feedback: HTMLElement } | undefined;
   const draw = () => {
     if (drawn === undefined) return;
     drawn.button.disabled = waiting;
     const document = drawn.feedback.ownerDocument;
-    drawn.feedback.replaceChildren(...(line === undefined ? [] : lineNodes(document, line)));
+    const copy = { label: copyLabel, onCopy: deps.copyPath };
+    drawn.feedback.replaceChildren(...(line === undefined ? [] : lineNodes(document, line, copy)));
   };
   const press = () => {
     if (waiting) return;
@@ -72,7 +102,8 @@ export const createBannerSnapshot = (deps: BannerSnapshotDeps): BannerSnapshot =
     draw();
   };
   return {
-    elements: (document) => {
+    elements: (document, label) => {
+      copyLabel = label;
       const button = document.createElement("button");
       button.type = "button";
       button.className = deps.buttonClass;
@@ -81,10 +112,11 @@ export const createBannerSnapshot = (deps: BannerSnapshotDeps): BannerSnapshot =
       const feedback = document.createElement("p");
       feedback.setAttribute("role", "status");
       feedback.dataset.askboardSnapshotFeedback = "";
-      feedback.className = "flex min-w-0 flex-wrap items-baseline gap-x-2";
+      // Empty, it takes no room but stays in the page for the live region.
+      feedback.className = "flex min-w-0 items-baseline gap-x-2 empty:sr-only";
       drawn = { button, feedback };
       draw();
-      return [feedback, button];
+      return drawn;
     },
     show: (feedback) => {
       waiting = false;

@@ -68,6 +68,7 @@ export const BoardHeader = ({
   header,
   controls,
   theme,
+  ended = false,
 }: {
   readonly title: string;
   readonly pill: Pill;
@@ -78,6 +79,8 @@ export const BoardHeader = ({
   readonly controls: PresentationControls;
   /** An opened Snapshot's Theme control (snapshot task 8.3). */
   readonly theme?: Store<ThemeChoice> | undefined;
+  /** The ask is closed or discarded: no agent pill, which would be stale (review F-18). */
+  readonly ended?: boolean;
 }) => {
   const text = useStrings();
   return (
@@ -92,7 +95,7 @@ export const BoardHeader = ({
         </h1>
         <span className="text-label text-muted-foreground uppercase">{text("header.ask")}</span>
         <AskPill pill={pill} />
-        <AgentPill header={header} />
+        {ended ? null : <AgentPill header={header} />}
         {counts === undefined ? null : <Counts counts={counts} />}
         <QuickToggles controls={controls} />
         {theme === undefined ? null : <ThemeControl choice={theme} />}

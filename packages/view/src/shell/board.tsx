@@ -33,6 +33,7 @@ import type { BoardDraftState } from "./board-draft.ts";
 import { BoardHeader, type HeaderCounts } from "./board-header.tsx";
 import {
   askPillOf,
+  endedOf,
   type Group,
   groupsOf,
   markOf,
@@ -395,12 +396,16 @@ export const Board = ({
     sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
   });
   return (
-    <div className="flex min-h-screen flex-col">
+    <div
+      data-askboard-ended={endedOf(lock) ? "" : undefined}
+      className="group/board flex min-h-screen flex-col"
+    >
       {context.opened === undefined ? null : <SnapshotTopLine opened={context.opened} />}
       <BoardHeader
         title={document.title}
         pill={askPillOf(state, lock, language)}
-        counts={single ? undefined : counts}
+        counts={single || endedOf(lock) ? undefined : counts}
+        ended={endedOf(lock)}
         header={extras.header}
         controls={extras.presentation}
         theme={extras.theme}

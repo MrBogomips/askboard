@@ -5,6 +5,7 @@ import type { ViewArea, ViewDocument } from "../view-document.ts";
 import type { QuestionWork } from "./board-draft.ts";
 import {
   askPillOf,
+  endedOf,
   groupsOf,
   markOf,
   nextAfterRemoval,
@@ -331,5 +332,15 @@ describe("one question per view when the agent deletes the question in view (F-5
     expect(nextAfterRemoval(before, ["q1", "q4"], "q2")).toBe("q4");
     expect(nextAfterRemoval(before, ["q1", "q2", "q3"], "q4")).toBe("q3");
     expect(nextAfterRemoval(before, [], "q4")).toBeUndefined();
+  });
+});
+
+describe("an ended ask", () => {
+  // Review F-18: a closed or discarded ask looks closed; a board moved to another tab is only locked.
+  test("is a closed or a discarded lock, nothing else", () => {
+    expect(endedOf("closed")).toBe(true);
+    expect(endedOf("discarded")).toBe(true);
+    expect(endedOf("moved")).toBe(false);
+    expect(endedOf(undefined)).toBe(false);
   });
 });

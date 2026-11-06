@@ -138,6 +138,7 @@ describe("the bar's Snapshot line", () => {
       note: UNSENT_WORK_NOTE,
       text: "Snapshot saved:",
       code: PATH,
+      savedPath: PATH,
       failed: false,
     });
     expect(

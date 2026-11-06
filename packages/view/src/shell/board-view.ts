@@ -99,6 +99,14 @@ export type AskPill = {
   readonly label: string;
 };
 
+/**
+ * Whether the ask has ended, closed by the agent or discarded: its header drops the open count, the
+ * next-open jump and the agent pill, and its options and link-buttons look disabled (review F-18).
+ * A board moved to another tab is locked but not ended.
+ */
+export const endedOf = (lock: ViewLock | undefined): boolean =>
+  lock === "closed" || lock === "discarded";
+
 const counted = (state: LifecycleBoardState, which: string): number =>
   state.questions.filter((question) => question.state === which).length;
 
