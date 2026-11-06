@@ -242,7 +242,6 @@ export const EN_US = {
   "gantt.note.missingOne": "No dates: its predecessor {ids} names no task.",
   "gantt.note.missingMany": "No dates: its predecessors {ids} name no task.",
   "gantt.entry.whole": "A duration is a whole number of working days, from {min} to {max}.",
-  "gantt.entry.planDuration": "A plan's durations follow its work packages' estimates in its Tree.",
   "gantt.entry.notWorking": "{date} is not a working day: pick a day from Monday to Friday.",
   "gantt.entry.earliest": "The earliest start its predecessors allow is {date}.",
   "gantt.entry.pickDay": "Pick a day from {first} to {last}",

@@ -133,3 +133,17 @@ describe("the board's graph source with a requested duration", () => {
     expect(plan.durations).toEqual({});
   });
 });
+
+describe("a plan task's effort-derived duration", () => {
+  test("is its expected effort rounded up, at least 1, whatever the request", () => {
+    expect(without.values.read("schedule.portal.effortDays")).toBe(18);
+    expect(asked({ portal: 21 }).values.read("schedule.portal.effortDays")).toBe(18);
+    // The fixture's other leaves, whose expected efforts round up.
+    for (const id of ["ux", "architecture", "billing", "reporting"]) {
+      const expected = without.values.read(`wbs.${id}.expected`) as number;
+      expect(without.values.read(`schedule.${id}.effortDays`)).toBe(
+        Math.max(1, Math.ceil(expected)),
+      );
+    }
+  });
+});

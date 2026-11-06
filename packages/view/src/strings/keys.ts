@@ -231,7 +231,6 @@ export const STRING_KEYS = [
   "gantt.note.missingOne",
   "gantt.note.missingMany",
   "gantt.entry.whole",
-  "gantt.entry.planDuration",
   "gantt.entry.notWorking",
   "gantt.entry.earliest",
   "gantt.entry.pickDay",

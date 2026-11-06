@@ -5,9 +5,8 @@
 // there does, except that the day the agent's own request schedules the task on gives that request
 // back; a duration read by the shared number parser and refused unless whole and in range.
 // Each gives the Gantt's next value through `edits.ts`, the same value when nothing changes, or
-// the reason for its refusal. A start goes into a Gantt's own task or a plan's entry alike; a
-// plan's durations follow its Tree's estimates, so a typed one is refused there. Plain
-// ECMAScript: the working-day calendar is `compute`'s.
+// the reason for its refusal. A start and a duration go into a Gantt's own task or a plan's entry
+// alike, a plan's duration being a request. Plain ECMAScript: the working-day calendar is `compute`'s.
 
 import { firstWorkingDateFrom, isWorkingDate } from "@askboard/compute";
 import {
@@ -18,7 +17,7 @@ import {
 } from "@askboard/contract";
 import { parseNumber } from "../../shared/number.ts";
 import { type DateFormat, gridDate, parseDateEntry } from "./date.ts";
-import { clearStart, requestStart, setDuration } from "./edits.ts";
+import { clearDuration, clearStart, requestStart, setDuration } from "./edits.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttColumn, type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
 
@@ -106,24 +105,32 @@ export const startEntry = <V extends GanttProps>(
   return accepted(landOn(value, sent, taskId, day, schedule.earliestDate));
 };
 
-/** What a typed duration does to one of a Gantt's own tasks; a plan refuses it. */
-export const durationEntry = (
-  value: GanttProps,
-  sent: GanttProps,
+/**
+ * What a typed duration does to a task: a Gantt's own task takes it as its duration; a plan's
+ * entry takes it as a request, cleared when it is the duration the estimates give, which
+ * `schedule` holds; an empty field in a plan clears the request (design decision 2).
+ */
+export const durationEntry = <V extends GanttProps>(
+  value: V,
+  sent: V,
   taskId: string,
+  schedule: TaskSchedule | undefined,
   text: string,
   format: DateFormat,
-): Entry => {
-  if (!isOwnGantt(value) || !isOwnGantt(sent))
-    return refused(format.text("gantt.entry.planDuration"));
+): Entry<V> => {
   const parsed = parseNumber(text, format.locale, format.language);
   if (parsed.kind === "refused") return refused(parsed.reason);
-  if (parsed.kind === "empty") return refused(wholeNumber(format));
+  if (parsed.kind === "empty") {
+    return isOwnGantt(value)
+      ? refused(wholeNumber(format))
+      : accepted(clearDuration(value, sent, taskId));
+  }
   const days = parsed.value;
   if (!Number.isInteger(days) || days < GANTT_MIN_DURATION || days > GANTT_MAX_DURATION) {
     return refused(wholeNumber(format));
   }
-  return accepted(setDuration(value, sent, taskId, days));
+  const estimate = schedule?.kind === "scheduled" ? schedule.estimate : undefined;
+  return accepted(setDuration(value, sent, taskId, days, estimate));
 };
 
 /** The text an editor opens with: the start the grid shows, or the duration. */
@@ -133,7 +140,10 @@ export const entryText = (
   schedule: TaskSchedule | undefined,
   locale: Locale = "en-US",
 ): string => {
-  if (column === "duration") return row.duration === undefined ? "" : String(row.duration);
+  if (column === "duration") {
+    const days = row.duration ?? (schedule?.kind === "scheduled" ? schedule.duration : undefined);
+    return days === undefined ? "" : String(days);
+  }
   if (schedule?.kind === "scheduled") return gridDate(schedule.startDate, locale);
   return row.start === undefined ? "" : gridDate(row.start, locale);
 };

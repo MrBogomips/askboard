@@ -34,7 +34,14 @@ type Schedule = {
   readonly id: string;
   readonly start: unknown;
   /** Undefined when the plan's work packages name no WBS: there are no tasks to schedule. */
-  readonly tasks: readonly { readonly id: string; readonly duration: FieldInput }[] | undefined;
+  readonly tasks:
+    | readonly {
+        readonly id: string;
+        readonly duration: FieldInput;
+        /** A plan's task also gives the duration its estimates alone would give. */
+        readonly effortDays?: FieldInput;
+      }[]
+    | undefined;
   readonly dependencies: ReadonlyMap<string, readonly string[]>;
   /** Each requested start, as a serial, by task ID. */
   readonly starts: ReadonlyMap<string, number>;
@@ -181,14 +188,17 @@ const scheduleItem = ({
   }
   const children: GraphChild[] = (tasks ?? []).map((task) => ({
     id: task.id,
-    fields: taskFields(
-      id,
-      task.id,
-      task.duration,
-      dependencies.get(task.id) ?? [],
-      successors.get(task.id) ?? [],
-      starts.has(task.id) ? offsetOf(start, starts.get(task.id) as number) : undefined,
-    ),
+    fields: {
+      ...taskFields(
+        id,
+        task.id,
+        task.duration,
+        dependencies.get(task.id) ?? [],
+        successors.get(task.id) ?? [],
+        starts.has(task.id) ? offsetOf(start, starts.get(task.id) as number) : undefined,
+      ),
+      ...(task.effortDays === undefined ? {} : { effortDays: task.effortDays }),
+    },
   }));
   const fields: Fields = {
     start: { type: "date", value: start as string },
@@ -219,12 +229,16 @@ export const expandGanttPlan = (
     const detail = `the work packages ${plan.workPackages} name no WBS-with-PERT item`;
     warnings.push({ error: "missing-reference", address: `${plan.id}.workPackages`, detail });
   }
-  const tasks = leaves?.map((task) => ({
-    id: task,
-    duration: durations.has(task)
-      ? ({ type: "number", value: durations.get(task) as number } as FieldInput)
-      : formula(`MAX(1,ROUNDUP([${plan.workPackages}.${task}.expected],0))`),
-  }));
+  const tasks = leaves?.map((task) => {
+    const effort = formula(`MAX(1,ROUNDUP([${plan.workPackages}.${task}.expected],0))`);
+    const requested = durations.get(task);
+    return {
+      id: task,
+      duration:
+        requested === undefined ? effort : ({ type: "number", value: requested } as FieldInput),
+      effortDays: effort,
+    };
+  });
   return scheduleItem({ id: plan.id, start: plan.start, tasks, dependencies, starts, warnings });
 };
 

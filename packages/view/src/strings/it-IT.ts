@@ -250,8 +250,6 @@ export const IT_IT = {
   "gantt.note.missingOne": "Nessuna data: il predecessore {ids} non indica nessuna attività.",
   "gantt.note.missingMany": "Nessuna data: i predecessori {ids} non indicano nessuna attività.",
   "gantt.entry.whole": "Una durata è un numero intero di giorni lavorativi, da {min} a {max}.",
-  "gantt.entry.planDuration":
-    "Le durate di un piano seguono le stime dei suoi pacchetti di lavoro nell'albero.",
   "gantt.entry.notWorking":
     "{date} non è un giorno lavorativo: scegli un giorno da lunedì a venerdì.",
   "gantt.entry.earliest": "L'inizio più vicino consentito dai predecessori è {date}.",

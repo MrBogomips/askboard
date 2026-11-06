@@ -3,8 +3,9 @@
 // value, or the same value when nothing changes, since the draft record compares values by
 // identity. A field that comes back to the agent's value takes it again, and is left out when the
 // agent sent none; an empty predecessor list is left out. A plan's entry is created by its first
-// field and deleted once it holds none, unless the agent sent it empty; a plan's durations follow
-// its Tree, so only a Gantt's own tasks take `setDuration`. So an edit undone by hand gives no
+// field and deleted once it holds none, unless the agent sent it empty. A plan's duration is a
+// request, like its start: `setDuration` sets the entry's `duration`, or clears it when it equals
+// the one the estimates give (design decision 2). So an edit undone by hand gives no
 // change, and `sameGantt` tells the component to hold no draft value. Every result is valid as an
 // edited value and diffs to `set`s only, with `GANTT_SHAPE` or `GANTT_PLAN_SHAPE`. Plain
 // ECMAScript: no DOM, no `Date`.
@@ -32,8 +33,8 @@ import {
 
 type Field = "start" | "duration" | "dependencies";
 
-/** The fields of a plan's entry, and those both kinds of Gantt share. */
-type EntryField = Exclude<Field, "duration">;
+/** The fields of a plan's entry: the same three, a plan's duration being a request. */
+type EntryField = Field;
 
 const ID = new RegExp(ID_PATTERN);
 
@@ -114,12 +115,14 @@ const entryWith = (
   next: unknown,
 ): GanttPlanEntry => {
   const fields: Record<EntryField, unknown> = {
+    duration: entry?.duration,
     start: entry?.start,
     dependencies: entry?.dependencies,
   };
   fields[field] = next;
-  const { start, dependencies } = fields as GanttPlanEntry;
+  const { duration, start, dependencies } = fields as GanttPlanEntry;
   return Object.freeze({
+    ...(duration === undefined ? {} : { duration }),
     ...(start === undefined ? {} : { start }),
     ...(dependencies === undefined ? {} : { dependencies }),
   });
@@ -191,20 +194,38 @@ export const requestStart = <V extends GanttProps>(
 export const clearStart = <V extends GanttProps>(value: V, sent: V, taskId: string): V =>
   edit(value, sent, taskId, "start", undefined);
 
-/** Sets a task's duration, in whole working days. */
-export const setDuration = (
-  value: GanttOwnProps,
-  sent: GanttOwnProps,
-  taskId: string,
-  duration: number,
-): GanttOwnProps => {
+/** A duration of whole working days within the contract's range, or a refusal. */
+const wholeDays = (duration: number): number => {
   const whole = Number.isSafeInteger(duration);
   if (!whole || duration < GANTT_MIN_DURATION || duration > GANTT_MAX_DURATION) {
     throw new RangeError(
       `a duration takes whole working days from ${GANTT_MIN_DURATION} to ${GANTT_MAX_DURATION}, not ${duration}`,
     );
   }
-  return editTask(value, sent, taskId, "duration", duration);
+  return duration;
+};
+
+/**
+ * Sets a task's duration, in whole working days. In a Gantt with its own tasks that is the task's
+ * duration. In a plan it is a request: the entry's `duration`, cleared when it equals `estimate`,
+ * the duration the task's estimates give, so that dragging a bar back to it leaves no change.
+ */
+export const setDuration = <V extends GanttProps>(
+  value: V,
+  sent: V,
+  taskId: string,
+  duration: number,
+  estimate?: number,
+): V => {
+  wholeDays(duration);
+  if (isOwnGantt(value)) return edit(value, sent, taskId, "duration", duration);
+  return edit(value, sent, taskId, "duration", duration === estimate ? undefined : duration);
+};
+
+/** Clears a plan task's requested duration: it lasts as long as its estimates say. */
+export const clearDuration = <V extends GanttProps>(value: V, sent: V, taskId: string): V => {
+  if (isOwnGantt(value)) throw new RangeError("a Gantt's own task always holds a duration");
+  return edit(value, sent, taskId, "duration", undefined);
 };
 
 /** How many tasks list each task among their predecessors; in a plan, every entry counts. */

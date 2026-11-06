@@ -7,6 +7,8 @@ import {
   ganttPlanBoardDocument,
   ganttPlanDerived,
   ganttPlanEditedValue,
+  ganttPlanRequestedDerived,
+  ganttPlanRequestedValue,
   treeEditedValue,
 } from "@askboard/contract/fixtures";
 import { type BoardGraph, liveGraph, sentGraph } from "../../graph/board-graph.ts";
@@ -220,6 +222,20 @@ describe("a plan's schedule and baseline", () => {
   ]);
   const ANSWERED_ROWS = planTaskRows(ganttPlanEditedValue, treeEditedValue.nodes, TREE);
 
+  test("a requested duration lasts as asked, the estimates' duration stays beside it, and the plan follows", () => {
+    const requested = new Map<string, unknown>([["schedule", ganttPlanRequestedValue]]);
+    const live = graphIn(liveGraph(boardOf(requested)));
+    const portal = taskSchedule(live, "schedule", "portal");
+    expect(portal).toMatchObject({ kind: "scheduled", duration: 21, estimate: 13 });
+    expect(planFinish(live, "schedule")).toBe(
+      ganttPlanRequestedDerived["schedule.finish"] as string,
+    );
+    expect(taskSchedule(SENT_PLAN, "schedule", "portal")).toMatchObject({
+      duration: 13,
+      estimate: 13,
+    });
+  });
+
   test("reads the answered plan from the live graph, its derived values in Tree order", () => {
     const live = graphIn(liveGraph(boardOf(ANSWERED)));
     expect(taskSchedule(live, "schedule", "u-1")).toEqual({
@@ -229,6 +245,7 @@ describe("a plan's schedule and baseline", () => {
       duration: 8,
       earliestDate: "2026-11-16",
       critical: false,
+      estimate: 8,
     });
     const derived: Readonly<Record<string, unknown>> = answerDerived(
       live,

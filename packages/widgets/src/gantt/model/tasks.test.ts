@@ -94,7 +94,7 @@ const TREE = WBS.props.nodes;
 const PLAN_CELLS: readonly GanttCell[] = [
   { column: "task", editable: false },
   { column: "start", editable: true },
-  { column: "duration", editable: false },
+  { column: "duration", editable: true },
   { column: "dependencies", editable: true },
 ];
 
