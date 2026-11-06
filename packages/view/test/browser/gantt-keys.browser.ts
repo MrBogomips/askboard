@@ -23,12 +23,24 @@ import {
   withTasks,
 } from "./fixtures/gantt-view.ts";
 import { QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
+
+// What the Tab key reaches in a Gantt without a zoom: the critical path switch, the TASK column's
+// edge and the grid's one Tab stop.
+const GANTT_STOPS = 3;
+
+/** Presses a key until the condition holds, at most six times. */
+const pressUntil = async (board: Board, key: string, reached: () => Promise<boolean>) => {
+  for (let presses = 0; presses < 6 && !(await reached()); presses += 1) {
+    await board.page.keyboard.press(key);
+  }
+};
 
 // A Gantt taller than the view, so that a key the grid did not stop would scroll it.
 const tallGantt = withTasks(
@@ -51,8 +63,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // A second Gantt after the first, so that Tab has somewhere to go in every engine.
         const run = await opened(withSecondGantt("second"));
         const gantt = ganttOf(run.board);
-        expect(await tabStops(gantt)).toBe(1);
-        expect(await tabStops(ganttOf(run.board, "second"))).toBe(1);
+        expect(await tabStops(gantt)).toBe(GANTT_STOPS);
+        expect(await tabStops(ganttOf(run.board, "second"))).toBe(GANTT_STOPS);
         expect(await tabIntoGrid(run.board)).toBe("ux.task");
         expect(await focusedItem(run.board)).toBe(GANTT_ID);
         const ring = colour("ring");
@@ -75,12 +87,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         for (const [key] of moves.slice(9)) await run.board.page.keyboard.press(key);
         expect(await focusedCell(run.board)).toBe("reporting.dependencies");
-        expect(await tabStops(gantt)).toBe(1);
-        await run.board.page.keyboard.press("Tab");
+        expect(await tabStops(gantt)).toBe(GANTT_STOPS);
+        // On through the second Gantt's switch and column edge, to its grid, and back.
+        await pressUntil(run.board, "Tab", async () => (await focusedItem(run.board)) === "second");
+        await pressUntil(
+          run.board,
+          "Tab",
+          async () => (await focusedCell(run.board)) !== undefined,
+        );
         expect(await focusedItem(run.board)).toBe("second");
         expect(await focusedCell(run.board)).toBe("ux.task");
-        await run.board.page.keyboard.press("Shift+Tab");
-        expect(await focusedItem(run.board)).toBe(GANTT_ID);
+        await pressUntil(
+          run.board,
+          "Shift+Tab",
+          async () => (await focusedItem(run.board)) === GANTT_ID,
+        );
         expect(await focusedCell(run.board)).toBe("reporting.dependencies");
         expect(run.browser.cspProblems()).toEqual([]);
       },

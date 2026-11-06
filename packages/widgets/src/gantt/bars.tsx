@@ -15,6 +15,7 @@ import { memo, type PointerEvent } from "react";
 import type { DragKind } from "./bar-drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { type BarBox, barBox, baselineBox, type RowBox, type RowBoxes } from "./model/layout.ts";
+import { looksCritical } from "./model/legend.ts";
 import { xOf, type Zoom } from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
@@ -110,8 +111,10 @@ type BarShapeProps = {
   readonly derived: boolean;
   /** Whether the user may drag it; a read-only Gantt's bars do not move. */
   readonly draggable: boolean;
-  /** Whether its end resizes it: only a Gantt's own tasks take a duration. */
+  /** Whether its end resizes it: a task's duration, a plan's request for it. */
   readonly resizable: boolean;
+  /** Whether the critical path is highlighted: a critical bar takes its look only then. */
+  readonly highlight: boolean;
   readonly onPress: Press;
   readonly onMove: (event: PointerEvent<SVGElement>) => void;
   readonly onRelease: (event: PointerEvent<SVGElement>) => void;
@@ -127,7 +130,17 @@ const diamondPoints = ({ x, y, height }: BarBox): string => {
   return `${x - half},${y + half} ${x},${y} ${x + half},${y + half} ${x},${y + height}`;
 };
 
-const Bar = ({ bar, drawn, changed, derived, draggable, resizable, ...on }: BarShapeProps) => {
+const Bar = ({
+  bar,
+  drawn,
+  changed,
+  derived,
+  draggable,
+  resizable,
+  highlight,
+  ...on
+}: BarShapeProps) => {
+  const critical = looksCritical(bar.critical, highlight);
   const pointer = (kind: DragKind) =>
     draggable
       ? {
@@ -148,7 +161,7 @@ const Bar = ({ bar, drawn, changed, derived, draggable, resizable, ...on }: BarS
           data-critical={bar.critical}
           data-milestone=""
           points={diamondPoints(drawn)}
-          className={`${bar.critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
+          className={`${critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
           {...pointer("move")}
         />
       ) : (
@@ -161,7 +174,7 @@ const Bar = ({ bar, drawn, changed, derived, draggable, resizable, ...on }: BarS
           y={drawn.y}
           width={drawn.width}
           height={drawn.height}
-          className={`${bar.critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
+          className={`${critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
           {...pointer("move")}
         />
       )}

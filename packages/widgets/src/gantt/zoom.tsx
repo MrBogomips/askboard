@@ -11,7 +11,7 @@
 
 import { type StringKey, useStrings } from "@askboard/view/catalog";
 import { ToggleGroup } from "radix-ui";
-import { type FocusEvent, type KeyboardEvent, useRef, useState } from "react";
+import { type FocusEvent, type KeyboardEvent, type RefObject, useState } from "react";
 import { keyPressOf } from "./key-press.ts";
 import { nextTool, toolTabStop } from "./model/focus.ts";
 import { toolbarKeyMove } from "./model/keys.ts";
@@ -39,9 +39,15 @@ export type ZoomProps = {
   readonly onZoom: (zoom: Zoom) => void;
 };
 
-export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
+type ZoomControlProps = ZoomProps & {
+  /** The options' elements, filled by the control, which the toolbar's other tool reads. */
+  readonly options: RefObject<(HTMLButtonElement | null)[]>;
+  /** The right arrow on the last option: the toolbar's next tool takes the focus. */
+  readonly onAfter: () => void;
+};
+
+export const ZoomControl = ({ zoom, onZoom, options, onAfter }: ZoomControlProps) => {
   const text = useStrings();
-  const options = useRef<(HTMLButtonElement | null)[]>([]);
   // The option the focus is on while it is in the control: the Tab stop follows it, so that
   // Shift+Tab leaves; once the focus has left, the stop is the chosen zoom again.
   const [focused, setFocused] = useState<number | undefined>(undefined);
@@ -51,7 +57,8 @@ export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
     const move = press === undefined ? undefined : toolbarKeyMove(press);
     if (move === undefined || focused === undefined) return;
     event.preventDefault();
-    options.current[nextTool(ENABLED, focused, move)]?.focus();
+    if (move === "next" && focused === ZOOMS.length - 1) onAfter();
+    else options.current[nextTool(ENABLED, focused, move)]?.focus();
   };
   const onBlur = (event: FocusEvent<HTMLDivElement>) => {
     const to = event.relatedTarget;

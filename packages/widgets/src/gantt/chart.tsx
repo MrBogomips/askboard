@@ -25,6 +25,7 @@ import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
+import { looksCritical } from "./model/legend.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
 import {
@@ -166,31 +167,57 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
   );
 });
 
-const ArrowPath = memo(({ itemId, arrow }: { readonly itemId: string; readonly arrow: Arrow }) => (
-  <path
-    data-gantt-arrow=""
-    data-from={arrow.from.id}
-    data-to={arrow.to.id}
-    data-critical={arrow.critical}
-    d={arrowPath(arrow.from.box, arrow.to.box)}
-    markerEnd={`url(#${arrowMarkerId(itemId, arrow.critical)})`}
-    className={
-      arrow.critical
-        ? "fill-none stroke-critical stroke-2"
-        : "fill-none stroke-border-strong stroke-1"
-    }
-  />
-));
+const ArrowPath = memo(
+  ({
+    itemId,
+    arrow,
+    highlight,
+  }: {
+    readonly itemId: string;
+    readonly arrow: Arrow;
+    readonly highlight: boolean;
+  }) => {
+    const critical = looksCritical(arrow.critical, highlight);
+    return (
+      <path
+        data-gantt-arrow=""
+        data-from={arrow.from.id}
+        data-to={arrow.to.id}
+        data-critical={arrow.critical}
+        d={arrowPath(arrow.from.box, arrow.to.box)}
+        markerEnd={`url(#${arrowMarkerId(itemId, critical)})`}
+        className={
+          critical
+            ? "fill-none stroke-critical stroke-2"
+            : "fill-none stroke-border-strong stroke-1"
+        }
+      />
+    );
+  },
+);
 
 /**
  * The arrows between the drawn bars, built again only when the bars are: a pointer move draws the
  * dragged bar again, never the arrows, which follow once the drop has rebuilt the graph.
  */
 const Arrows = memo(
-  ({ itemId, arrows }: { readonly itemId: string; readonly arrows: readonly Arrow[] }) => (
+  ({
+    itemId,
+    arrows,
+    highlight,
+  }: {
+    readonly itemId: string;
+    readonly arrows: readonly Arrow[];
+    readonly highlight: boolean;
+  }) => (
     <g>
       {arrows.map((arrow) => (
-        <ArrowPath key={`${arrow.from.id}>${arrow.to.id}`} itemId={itemId} arrow={arrow} />
+        <ArrowPath
+          key={`${arrow.from.id}>${arrow.to.id}`}
+          itemId={itemId}
+          arrow={arrow}
+          highlight={highlight}
+        />
       ))}
     </g>
   ),
@@ -211,6 +238,8 @@ export type ChartProps = {
   readonly marks: ReadonlyMap<string, TaskMarks>;
   /** Whether the bars take pointer edits. */
   readonly editable: boolean;
+  /** Whether the critical path is highlighted (the toolbar's switch). */
+  readonly highlight: boolean;
   /**
    * A bar dropped on another day than it starts on: its task asks for it, holds no request on its
    * earliest start, or takes the agent's request back on the day that request schedules it on.
@@ -278,7 +307,7 @@ export const Chart = (props: ChartProps) => {
           <BaselineShape key={baseline.id} baseline={baseline} />
         ))}
       </g>
-      <Arrows itemId={itemId} arrows={arrows} />
+      <Arrows itemId={itemId} arrows={arrows} highlight={props.highlight} />
       <g>
         {[...bars.values()].map((bar) => (
           <BarShape
@@ -289,6 +318,7 @@ export const Chart = (props: ChartProps) => {
             derived={isDerived(props.marks.get(bar.id))}
             draggable={props.editable}
             resizable={onResize !== undefined}
+            highlight={props.highlight}
             onPress={press}
             onMove={move}
             onRelease={release}

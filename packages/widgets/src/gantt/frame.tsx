@@ -144,6 +144,8 @@ export const GanttFrame = (props: FrameProps) => {
   const frame = useRef<HTMLDivElement>(null);
   const widget = useElementWidth(frame) ?? UNMEASURED;
   const [wanted, setWanted] = useState(COLUMN_DEFAULT);
+  // The critical path's highlighting: on at open, view state like the zoom (design decision 8).
+  const [showCritical, setShowCritical] = useState(true);
   const taskWidth = clampWidth(wanted, widget);
   const box = useChartBox(scroller);
   const focus = useGridFocus(rows);
@@ -204,6 +206,8 @@ export const GanttFrame = (props: FrameProps) => {
   return (
     <div ref={frame} className="flex flex-col rounded-md border border-border bg-card">
       <Toolbar
+        itemId={itemId}
+        critical={{ on: showCritical, onChange: setShowCritical }}
         count={props.count}
         derived={props.derived}
         zoom={props.zoomable ? { zoom, onZoom: setChosen } : undefined}
@@ -248,6 +252,7 @@ export const GanttFrame = (props: FrameProps) => {
               zoom={zoom}
               marks={marks}
               editable={editable}
+              highlight={showCritical}
               onMove={(taskId, day, earliest) =>
                 onCommit(landOn(current, sent, taskId, day, earliest))
               }
@@ -258,7 +263,10 @@ export const GanttFrame = (props: FrameProps) => {
           <EdgeCue side="after" shown={box.edges.after} />
         </div>
       </div>
-      <Legend baseline={drawn?.some((baseline) => baseline !== undefined) === true} />
+      <Legend
+        baseline={drawn?.some((baseline) => baseline !== undefined) === true}
+        highlight={showCritical}
+      />
     </div>
   );
 };
