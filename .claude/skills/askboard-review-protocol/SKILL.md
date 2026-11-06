@@ -36,6 +36,15 @@ nobody noticed until later.
 Read only from the pinned worktree: `git -C <worktree> diff <base>..<head>`, and file paths under
 the worktree. Never read the main checkout's copy of a file under review.
 
+When the session is isolated in another worktree and refuses git commands in the pinned one, read
+the head from the pinned worktree's git metadata (`.git` names its gitdir, which holds `HEAD`), run
+`git diff <base>..<head>` from your own worktree (the object store is shared), and read files by
+their absolute paths under the pinned worktree, checking that each matches the head's blob
+(`git hash-object <file>` against `git rev-parse <head>:<path>`). To run tests at the head without
+touching a shared worktree, extract it into a temporary folder and install there:
+`D=$(mktemp -d); git archive <head> | tar -x -C "$D"; (cd "$D" && bun install --frozen-lockfile)`.
+Both reviewers did this on their own in the first evaluation (2026-11-06).
+
 ## 2. Kinds of review
 
 | Kind | Range | Reads | Default effort |

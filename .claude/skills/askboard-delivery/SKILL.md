@@ -14,7 +14,7 @@ the opsx skills.
 
 | Agent | Does | Model | Default effort | Raise to |
 |---|---|---|---|---|
-| `askboard-architect` | proposal, design, specs, tasks; `/opsx:update` | opus | xhigh | use high for small updates |
+| `askboard-architect` | proposal, design, specs, tasks; `/opsx:update` | opus | xhigh | none; lower to high for small updates |
 | `askboard-implementer` | one task group, tests first | sonnet | medium | high for contract and core groups, rebase conflicts, a second attempt |
 | `askboard-spec-reviewer` | conformance, scenarios to tests, versions and seams, documents | opus | medium | high for the pre-PR review |
 | `askboard-security-reviewer` | invariants and threats | opus | high | xhigh for the pre-PR review |
