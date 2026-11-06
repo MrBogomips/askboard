@@ -10,12 +10,14 @@ import {
   type OutputEvent,
   type QuestionProps,
 } from "@askboard/contract";
+import type { ExpansionMap } from "../molecules/map.ts";
 import { cursorOf, isRealUtcTime } from "../text.ts";
 import { contentOf, contentProblem, textProblem } from "./answers.ts";
 import type { Entry, EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
-import { isWidgetProblem, widgetContentOf } from "./widget-values.ts";
+import { type KeptAnswer, widgetFieldsOf } from "./widget-event.ts";
+import { isWidgetProblem, type WidgetContent, widgetContentOf } from "./widget-values.ts";
 
 /** Why an act cannot apply. */
 export type ActRefusal =
@@ -44,10 +46,17 @@ export type ActsContext = {
   readonly who: string;
   readonly model: BoardModel;
   readonly log: EventLog;
+  /** The ask's expansion map, for the addressing of an answer's widget content. */
+  readonly expansion: ExpansionMap;
 };
 
 export type ActsOutcome =
-  | { readonly ok: true; readonly events: readonly OutputEvent[] }
+  | {
+      readonly ok: true;
+      readonly events: readonly OutputEvent[];
+      /** The widget content kept for each answer event that has any, by the event's cursor. */
+      readonly kept: ReadonlyMap<string, KeptAnswer>;
+    }
   | { readonly ok: false; readonly index: number; readonly problem: ActProblem };
 
 type Fields = Readonly<Record<string, unknown>>;
@@ -64,6 +73,9 @@ type Target = {
   readonly entries: readonly Entry[];
   readonly status: QuestionStatus;
   readonly cursor: string;
+  readonly expansion: ExpansionMap;
+  /** What the acts of this command keep of their widget content, by cursor. */
+  readonly kept: Map<string, KeptAnswer>;
 };
 
 type Built = OutputEvent | ActProblem;
@@ -119,6 +131,12 @@ const propsFor = (target: Target, rev: number): QuestionProps | undefined => {
 const replacesOf = ({ status }: Target) =>
   status.answer?.kind === "logged" ? { replaces: status.answer.entry.event.cursor } : {};
 
+// What stays apart from the log: the full edited values and derived values as sent.
+const keepWidgets = (target: Target, { values, derived }: WidgetContent): void => {
+  if (Object.keys(values).length === 0 && Object.keys(derived).length === 0) return;
+  target.kept.set(target.cursor, { itemId: target.itemId, values, derived });
+};
+
 const answered = (target: Target, declined: boolean, who: string): Built => {
   const { act, itemId } = target;
   const shape = shapeProblem(act, itemId, { rev: "integer", when: "string" });
@@ -140,7 +158,9 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   if (late !== undefined) return late;
   const head = { cursor: target.cursor, type: "answer", itemId, rev, who, when: act.when };
   const body = declined ? { declined: true, ...reason } : contentOf(act);
-  return { ...head, ...body, ...replacesOf(target) } as AnswerEvent;
+  const widget = widgets === undefined ? {} : widgetFieldsOf(target.expansion, props, widgets);
+  if (widgets !== undefined) keepWidgets(target, widgets);
+  return { ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent;
 };
 
 const postponed = (target: Target): Built => {
@@ -270,8 +290,9 @@ const questionOf = (model: BoardModel, act: unknown): Target["question"] | ActPr
  * cursors after the log's latest. Either every act's event, or the first refusal with its index.
  */
 export const eventsOfActs = (context: ActsContext, acts: readonly unknown[]): ActsOutcome => {
-  const { epoch, who, model, log } = context;
+  const { epoch, who, model, log, expansion } = context;
   const pending: Entry[] = [];
+  const kept = new Map<string, KeptAnswer>();
   for (const [index, act] of acts.entries()) {
     const question = questionOf(model, act);
     if ("refusal" in question) return { ok: false, index, problem: question };
@@ -288,6 +309,8 @@ export const eventsOfActs = (context: ActsContext, acts: readonly unknown[]): Ac
       entries,
       status: questionStatus(question.mark, entries),
       cursor: cursorOf(epoch, seq),
+      expansion,
+      kept,
     };
     const built = BUILDERS[fields.type as string]?.(target, who);
     if (built === undefined || isProblem(built)) {
@@ -295,5 +318,5 @@ export const eventsOfActs = (context: ActsContext, acts: readonly unknown[]): Ac
     }
     pending.push({ seq, group: 0, event: built });
   }
-  return { ok: true, events: pending.map(({ event }) => event) };
+  return { ok: true, events: pending.map(({ event }) => event), kept };
 };

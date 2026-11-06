@@ -53,6 +53,7 @@ import { formulaWarnings } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
 import { expandSentItems } from "./molecules/on-ask.ts";
+import { valueInReferenceAddressing } from "./molecules/rewrite.ts";
 import type { CorePorts } from "./ports.ts";
 import { AgentStatuses } from "./push/agent-status.ts";
 import { expectedAnswerer } from "./push/answerer.ts";
@@ -467,6 +468,30 @@ export class AskCore {
    */
   keptRevisions(askId: string): readonly KeptRevisions[] | undefined {
     return this.#asks.get(askId)?.keptRevisions;
+  }
+
+  /**
+   * The full edited widget values kept for each answer event that has any, by the event's cursor:
+   * per event the values by item ID in reference addressing, as the user left them (AD-20), new on
+   * each read. None for a discarded ask, and undefined for an ask this epoch does not hold.
+   */
+  keptAnswerValues(
+    askId: string,
+  ): ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined {
+    const ask = this.#asks.get(askId);
+    if (ask === undefined) return undefined;
+    const source = this.#ports.molecules;
+    return new Map(
+      [...ask.keptAnswers].map(([cursor, { values }]) => [
+        cursor,
+        Object.fromEntries(
+          Object.entries(values).map(([itemId, props]) => {
+            const value = valueInReferenceAddressing(ask.expansion, source, itemId, props);
+            return [value.id, JSON.parse(JSON.stringify(value.props))];
+          }),
+        ),
+      ]),
+    );
   }
 
   #appended(askId: string, events: readonly OutputEvent[]): void {

@@ -41,6 +41,7 @@ import {
   questionValue,
   questionView,
 } from "./lifecycle/views.ts";
+import type { KeptAnswer } from "./lifecycle/widget-event.ts";
 import type { ExpansionMap } from "./molecules/map.ts";
 import { cursorOf } from "./text.ts";
 
@@ -203,6 +204,9 @@ export class Ask {
   #stored: "closed" | "discarded" | undefined;
   // The events each applied action ID appended, by action ID (AD-20).
   #actions = new Map<string, readonly OutputEvent[]>();
+  // The full widget content of each answer event that has any, by the event's cursor: apart from
+  // the log, frozen, gone with the ask (AD-20).
+  #kept = new Map<string, KeptAnswer>();
   #closed: ClosedReason | undefined;
   // The highest cursor a read named as already received: the agent has acknowledged up to it.
   #acknowledged = 0;
@@ -332,6 +336,14 @@ export class Ask {
   /** The revisions ask-core keeps of each question, in board order (AD-20); none for a tombstone. */
   get keptRevisions(): readonly KeptRevisions[] {
     return (this.#model?.questions() ?? []).map(keptRevisionsOf);
+  }
+
+  /**
+   * The widget content kept for each answer event that has any, by the event's cursor, the values
+   * by expanded item ID as the board sent them; none for a tombstone (AD-20).
+   */
+  get keptAnswers(): ReadonlyMap<string, KeptAnswer> {
+    return this.#kept;
   }
 
   /** An item's full value (FR-20): an open or closed ask's, from its current board document. */
@@ -546,6 +558,7 @@ export class Ask {
     this.#request = "";
     this.#draft = undefined;
     this.#actions = new Map();
+    this.#kept = new Map();
     this.#log.forgetItems();
     this.#log.dropThrough(this.#acknowledged);
     return entry?.event as DiscardedEvent;
@@ -595,7 +608,10 @@ export class Ask {
   // Checks the acts and appends their events in one step.
   #apply(acts: readonly unknown[]): ActOutcome {
     const model = this.#model as BoardModel;
-    const built = eventsOfActs({ epoch: this.epoch, who: this.who, model, log: this.#log }, acts);
+    const built = eventsOfActs(
+      { epoch: this.epoch, who: this.who, model, log: this.#log, expansion: this.#expansion },
+      acts,
+    );
     if (!built.ok) {
       const { refusal, detail, itemId } = built.problem;
       return {
@@ -608,6 +624,7 @@ export class Ask {
     }
     const entries = this.#log.append(built.events);
     model.noteEntries(entries);
+    for (const [cursor, kept] of built.kept) this.#kept.set(cursor, frozenCopy(kept));
     return { ok: true, events: entries.map((entry) => entry.event), repeated: false };
   }
 

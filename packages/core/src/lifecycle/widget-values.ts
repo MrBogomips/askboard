@@ -1,4 +1,4 @@
-// The widget content of an answer act (widget-answers design decision 6, steps 1, 2, 4 and 5; and
+// The widget content of an answer act (widget-answers design decision 6, steps 1 to 5; and
 // decision 10): the `values` and `derived` the board sent, checked against the revision the answer
 // names, since commands come from outside the process. `values` name `tree` or `gantt` items of the
 // question and are each checked through the widget's own checks in the question as edited; a value
@@ -6,19 +6,28 @@
 // field its widget declares, and each value is JSON. Plain ECMAScript (AD-1).
 
 import {
+  applyElementChanges,
+  elementChanges,
   GANTT_ANSWER_DERIVED,
   type QuestionProps,
   TREE_PERT_ANSWER_DERIVED,
 } from "@askboard/contract";
-import { widgetItemProblems } from "@askboard/contract/validate";
+import { elementShapeOf, widgetItemProblems } from "@askboard/contract/validate";
 import { canonicalize } from "../canonical.ts";
 import type { ContentProblem } from "./answers.ts";
 
 type Json = Readonly<Record<string, unknown>>;
 type Item = { readonly type: string; readonly id: string; readonly props: unknown };
 
-/** What an answer's widget fields hold once checked: the values that changed, and the derived values. */
-export type WidgetContent = { readonly values: Json; readonly derived: Json };
+/**
+ * What an answer's widget fields hold once checked: the values that changed, the derived values,
+ * and the revision's widget items as sent, which the changes are computed against.
+ */
+export type WidgetContent = {
+  readonly values: Json;
+  readonly derived: Json;
+  readonly sent: readonly Item[];
+};
 
 const isRecord = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -107,6 +116,27 @@ const addressProblem = (item: Item, rest: readonly string[], props: unknown) => 
     : `a Tree with pert declares ${fields.join(" and ")} and its nodes'`;
 };
 
+// Step 3: the changes of an edited value, applied to the item as sent, must give the value back;
+// one that they do not rebuild, such as an edit of a Tree's columns, would reach the agent as
+// changes that miss part of what the board sent.
+const roundTripProblem = (item: Item, edited: unknown): ContentProblem | undefined => {
+  const shape = elementShapeOf(item);
+  if (shape === undefined || !isRecord(item.props) || !isRecord(edited)) return undefined;
+  const changes = elementChanges(item.id, item.props, edited, shape);
+  let rebuilt: unknown;
+  try {
+    rebuilt = applyElementChanges(item.id, item.props, changes, shape);
+  } catch (error) {
+    const why = error instanceof Error ? error.message : String(error);
+    return refused(`the value of item "${item.id}" is not described by its changes: ${why}`);
+  }
+  return canonicalize(rebuilt) === canonicalize(edited)
+    ? undefined
+    : refused(
+        `the value of item "${item.id}" changes more than elements, which its changes cannot describe`,
+      );
+};
+
 // Step 5.
 const derivedProblem = (
   derived: Json,
@@ -146,7 +176,11 @@ export const widgetContentOf = (
     const item = widgets.get(id);
     return item !== undefined && !sameAs(item, edited);
   });
-  return { values: Object.fromEntries(changed), derived };
+  for (const [id, edited] of changed) {
+    const unsound = roundTripProblem(widgets.get(id) as Item, edited);
+    if (unsound !== undefined) return unsound;
+  }
+  return { values: Object.fromEntries(changed), derived, sent: [...widgets.values()] };
 };
 
 export const isWidgetProblem = (

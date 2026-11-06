@@ -25,7 +25,7 @@ export type Filled =
   | { readonly ok: false; readonly problems: readonly Problem[] };
 
 const INDEX = /^(0|[1-9][0-9]*)$/;
-const NO_PLACE: unique symbol = Symbol("no place");
+export const NO_PLACE: unique symbol = Symbol("no place");
 
 const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -41,7 +41,7 @@ const copyOf = (value: unknown, omit?: ReadonlySet<string>): unknown => {
 
 // `root` with `value` at `tokens`, copied along the path, or `NO_PLACE` when the parent is missing
 // or a list has no such index. A new key goes last; an existing one keeps its place.
-const withValueAt = (root: unknown, tokens: readonly string[], value: unknown): unknown => {
+export const withValueAt = (root: unknown, tokens: readonly string[], value: unknown): unknown => {
   const [head, ...rest] = tokens;
   if (head === undefined) return value;
   if (Array.isArray(root)) {
