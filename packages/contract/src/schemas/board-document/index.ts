@@ -13,7 +13,7 @@ import excerptProps from "./excerpt-props.json" with { type: "json" };
 import imageProps from "./image-props.json" with { type: "json" };
 import referenceProps from "./reference-props.json" with { type: "json" };
 
-export const BOARD_DOCUMENT_VERSION = "1.3";
+export const BOARD_DOCUMENT_VERSION = "1.4";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",

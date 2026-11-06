@@ -27,22 +27,20 @@ type Json = Record<string, unknown>;
 const moleculeIdsOfE1 = () =>
   Object.keys(compiled().schemas).filter((id) => id.startsWith("urn:askboard:molecule"));
 
-// First in this file, before either validator runs here: E1's shared validator never learns a
-// molecule schema, so the order of test files does not matter.
-describe("the contract's shared validator (spec, No import-time effects in the contract)", () => {
-  test("knows neither format's $id when the contract is imported, nor after both validators run", () => {
+// Since widget-answers (task 1.1) both formats are set parts, so the contract's shared validator
+// knows them from the start; a molecule's parameters schema is data and never joins it.
+describe("the contract's shared validator (spec, Widget schemas in the schema sets)", () => {
+  test("knows both formats' $ids, but never a molecule parameters schema", () => {
     for (const id of [PROPS, DEFINITION]) {
-      expect(() => validateAgainst(id, {})).toThrow(`the contract has no schema ${id}`);
+      expect(() => validateAgainst(id, {})).not.toThrow();
     }
     expect(validateMoleculeProps({ molecule: "wbs-pert", data: {} }).ok).toBe(true);
     expect(validateMoleculeDefinition(probeWbs).ok).toBe(true);
-    for (const id of [PROPS, DEFINITION]) {
-      expect(() => validateAgainst(id, {})).toThrow(`the contract has no schema ${id}`);
-    }
     expect(moleculeIdsOfE1()).toEqual([]);
     const ids = SCHEMA_SETS.flatMap((set) => set.schemas.map((s) => (s as { $id: string }).$id));
     for (const id of [PROPS, DEFINITION]) {
-      expect([...ids, ...Object.values(SCHEMA_IDS)]).not.toContain(id);
+      expect(ids).toContain(id);
+      expect(Object.values(SCHEMA_IDS)).toContain(id);
     }
   });
 });

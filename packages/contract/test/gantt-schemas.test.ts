@@ -33,7 +33,7 @@ const ask = await Bun.file(join(EXAMPLES, "asks/uj2-wbs-gantt.json")).json();
 const answer = await Bun.file(join(EXAMPLES, "answers/uj2-wbs-gantt.json")).json();
 
 const ajv = createAjv();
-ajv.addSchema(ganttPropsSchema).addSchema(ganttChangesSchema);
+// The contract's sets hold both schemas since widget-answers (task 1.1).
 const props = ajv.getSchema(GANTT_SCHEMA_IDS.props);
 const changes = ajv.getSchema(GANTT_SCHEMA_IDS.changes);
 if (props === undefined || changes === undefined)
@@ -100,16 +100,14 @@ describe("the Gantt's schemas", () => {
     });
   });
 
-  test("belong to no schema set, and the shared validator does not hold them", () => {
+  test("belong to the schema sets since widget-answers, so the shared validator holds them", () => {
     const ids = SCHEMA_SETS.flatMap((set) =>
       set.schemas.map((schema) => (schema as { $id?: string }).$id),
     );
-    expect(ids).not.toContain(GANTT_SCHEMA_IDS.props);
-    expect(ids).not.toContain(GANTT_SCHEMA_IDS.changes);
-    expect(Object.values(SCHEMA_IDS)).not.toContain(GANTT_SCHEMA_IDS.props);
-    expect(() => validateAgainst(GANTT_SCHEMA_IDS.props, OWN)).toThrow(
-      "the contract has no schema urn:askboard:input:gantt-props",
-    );
+    expect(ids).toContain(GANTT_SCHEMA_IDS.props);
+    expect(ids).toContain(GANTT_SCHEMA_IDS.changes);
+    expect(Object.values(SCHEMA_IDS)).toContain(GANTT_SCHEMA_IDS.props);
+    expect(() => validateAgainst(GANTT_SCHEMA_IDS.props, OWN)).not.toThrow();
   });
 
   test("hold the contract's limits", () => {

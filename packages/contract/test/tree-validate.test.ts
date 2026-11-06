@@ -16,21 +16,20 @@ const CHANGES = "urn:askboard:output:tree-changes";
 
 const unknownToE1 = (id: string) => () => validateAgainst(id, {});
 
-// First in this file, before either validator runs here: E1's shared validator never learns a
-// widget schema, so the order of test files does not matter.
-describe("the contract's shared validator (spec, No import-time effects in the contract)", () => {
-  test("knows neither $id when the contract is imported, nor after both validators run", () => {
+// Since widget-answers (task 1.1) both schemas are set parts, so the contract's shared validator
+// knows them from the start and the widget validators run against the same schemas.
+describe("the contract's shared validator (spec, Widget schemas in the schema sets)", () => {
+  test("knows both $ids, and the sets and SCHEMA_IDS list them", () => {
     for (const id of [PROPS, CHANGES]) {
-      expect(unknownToE1(id)).toThrow(`the contract has no schema ${id}`);
+      expect(unknownToE1(id)).not.toThrow();
     }
     expect(validateTreeProps({ nodes: [] }, "agent").ok).toBe(true);
     expect(validateTreeChanges("wbs", [], { nodes: [] }).ok).toBe(true);
-    for (const id of [PROPS, CHANGES]) {
-      expect(unknownToE1(id)).toThrow(`the contract has no schema ${id}`);
-    }
     const ids = SCHEMA_SETS.flatMap((set) => set.schemas.map((s) => (s as { $id: string }).$id));
-    expect([...ids, ...Object.values(SCHEMA_IDS)]).not.toContain(PROPS);
-    expect([...ids, ...Object.values(SCHEMA_IDS)]).not.toContain(CHANGES);
+    expect(ids).toContain(PROPS);
+    expect(ids).toContain(CHANGES);
+    expect(Object.values(SCHEMA_IDS)).toContain(PROPS);
+    expect(Object.values(SCHEMA_IDS)).toContain(CHANGES);
   });
 });
 

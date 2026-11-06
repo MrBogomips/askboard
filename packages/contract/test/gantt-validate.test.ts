@@ -175,12 +175,10 @@ describe("validateGanttProps", () => {
     expect(validateGanttProps(own(fifty), "agent").ok).toBe(true);
   });
 
-  test("refuses what is no object, and compiles nothing in the shared validator", () => {
+  test("refuses what is no object, and the shared validator holds the schema since the sets list it", () => {
     expect(problemsOf(validateGanttProps(3, "agent")).length).toBeGreaterThan(0);
     expect(ganttPropsProblems(null, "agent")).toEqual([]);
-    expect(() => validateAgainst("urn:askboard:input:gantt-props", OWN)).toThrow(
-      "the contract has no schema urn:askboard:input:gantt-props",
-    );
+    expect(validateAgainst("urn:askboard:input:gantt-props", OWN).ok).toBe(true);
   });
 });
 

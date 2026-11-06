@@ -43,7 +43,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.4";
+export const BOARD_PROTOCOL_VERSION = "1.5";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",

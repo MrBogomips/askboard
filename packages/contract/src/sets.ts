@@ -80,6 +80,13 @@ export const SCHEMA_IDS = {
   snapshotRequest: "urn:askboard:tool-envelopes:snapshot-request",
   snapshotResult: "urn:askboard:tool-envelopes:snapshot-result",
   snapshotOutcome: "urn:askboard:tool-envelopes:snapshot-outcome",
+  // The widget and molecule schemas, set parts since widget-answers (design decision 3).
+  treeProps: "urn:askboard:input:tree-props",
+  treeChanges: "urn:askboard:output:tree-changes",
+  ganttProps: "urn:askboard:input:gantt-props",
+  ganttChanges: "urn:askboard:output:gantt-changes",
+  moleculeProps: "urn:askboard:input:molecule-props",
+  moleculeDefinition: "urn:askboard:input:molecule-definition",
   // settings-languages (E8): the configuration set (design decision 2).
   configuration: "urn:askboard:configuration:config",
 } as const;

@@ -158,8 +158,9 @@ describe("the other output schemas", () => {
   });
 
   test("the output format names its version and holds no AXFX term (FR-18)", () => {
-    // 1.2 since the excerpts change's unresolved-pointer warning (excerpts, design decision 2).
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.2");
+    // 1.2 since the excerpts change's unresolved-pointer warning (excerpts, design decision 2);
+    // 1.3 since widget-answers (design decision 1).
+    expect(OUTPUT_FORMAT_VERSION).toBe("1.3");
     const text = JSON.stringify(outputFormat.schemas);
     expect(text).not.toMatch(/\b(axfx|verdict|gate|validator)\b/i);
   });

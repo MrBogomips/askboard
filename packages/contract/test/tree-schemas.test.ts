@@ -21,8 +21,6 @@ const DIALECT = "https://json-schema.org/draft/2020-12/schema";
 type Json = Record<string, unknown>;
 
 const ajv = createAjv();
-ajv.addSchema(treeProps);
-ajv.addSchema(treeChanges);
 
 const problemsOf = (id: string, value: unknown): Problem[] => {
   const validate = ajv.getSchema(id);
@@ -79,12 +77,12 @@ describe("the Tree's schemas (design decision 2)", () => {
     expect("minItems" in treeChanges).toBe(false);
   });
 
-  test("no schema set and no SCHEMA_IDS entry holds either $id", () => {
+  test("the sets and SCHEMA_IDS hold both $ids since widget-answers", () => {
     const ids = SCHEMA_SETS.flatMap((set) => set.schemas.map((schema) => (schema as Json).$id));
-    expect(ids).not.toContain(PROPS);
-    expect(ids).not.toContain(CHANGES);
-    expect(Object.values(SCHEMA_IDS)).not.toContain(PROPS);
-    expect(Object.values(SCHEMA_IDS)).not.toContain(CHANGES);
+    expect(ids).toContain(PROPS);
+    expect(ids).toContain(CHANGES);
+    expect(Object.values(SCHEMA_IDS)).toContain(PROPS);
+    expect(Object.values(SCHEMA_IDS)).toContain(CHANGES);
   });
 
   test("the schema states the contract's limits and field pattern", () => {

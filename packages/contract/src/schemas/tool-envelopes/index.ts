@@ -31,7 +31,7 @@ import updateOutcome from "./update-outcome.json" with { type: "json" };
 import updateResult from "./update-result.json" with { type: "json" };
 import versions from "./versions.json" with { type: "json" };
 
-export const TOOL_ENVELOPES_VERSION = "1.3";
+export const TOOL_ENVELOPES_VERSION = "1.4";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {

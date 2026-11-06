@@ -8,6 +8,8 @@
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
+import ganttChanges from "../../widgets/gantt/gantt-changes.json" with { type: "json" };
+import treeChanges from "../../widgets/tree/tree-changes.json" with { type: "json" };
 import answerEvent from "./answer-event.json" with { type: "json" };
 import askState from "./ask-state.json" with { type: "json" };
 import closedEvent from "./closed-event.json" with { type: "json" };
@@ -25,7 +27,7 @@ import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.2";
+export const OUTPUT_FORMAT_VERSION = "1.3";
 
 export const outputFormat: SchemaSet = {
   name: "output",
@@ -49,6 +51,8 @@ export const outputFormat: SchemaSet = {
     followUpEvent,
     editChoiceEvent,
     closedEvent,
+    treeChanges,
+    ganttChanges,
   ],
 };
 

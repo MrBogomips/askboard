@@ -24,8 +24,6 @@ const DIALECT = "https://json-schema.org/draft/2020-12/schema";
 type Json = Record<string, unknown>;
 
 const ajv = createAjv();
-ajv.addSchema(moleculeProps);
-ajv.addSchema(moleculeDefinition);
 
 const problemsOf = (id: string, value: unknown): Problem[] => {
   const validate = ajv.getSchema(id);
@@ -63,11 +61,11 @@ describe("the molecule formats' schemas (design decision 2)", () => {
     expect(keyword in moleculeDefinition).toBe(false);
   });
 
-  test("no schema set and no SCHEMA_IDS entry holds either $id", () => {
+  test("the sets and SCHEMA_IDS hold both $ids since widget-answers", () => {
     const ids = SCHEMA_SETS.flatMap((set) => set.schemas.map((schema) => (schema as Json).$id));
     for (const id of [PROPS, DEFINITION]) {
-      expect(ids).not.toContain(id);
-      expect(Object.values(SCHEMA_IDS)).not.toContain(id);
+      expect(ids).toContain(id);
+      expect(Object.values(SCHEMA_IDS)).toContain(id);
     }
   });
 
