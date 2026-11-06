@@ -3,6 +3,7 @@ import { calendarDay, dateOfDay, dayNumber } from "./date.ts";
 import {
   dateAt,
   isZoom,
+  labelLines,
   MAX_TICKS,
   PIXELS_PER_DAY,
   type Tick,
@@ -224,5 +225,17 @@ describe("the axis in the ask's locale (settings-languages, task 9.2)", () => {
       "nov 2026",
       "dic 2026",
     ]);
+  });
+});
+
+describe("an axis label's lines", () => {
+  test("at day zoom, the weekday over the day, as a day's column is too narrow for both side by side", () => {
+    expect(labelLines("Mon 2", "day")).toEqual(["Mon", "2"]);
+    expect(labelLines("mer 11", "day")).toEqual(["mer", "11"]);
+  });
+
+  test("at week and month zoom, one line: their columns hold it", () => {
+    expect(labelLines("2 nov", "week")).toEqual(["2 nov"]);
+    expect(labelLines("nov 2026", "month")).toEqual(["nov 2026"]);
   });
 });

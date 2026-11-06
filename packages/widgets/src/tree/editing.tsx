@@ -1,13 +1,14 @@
 // The Tree's cell editing (design decision 6; spec, "Tree editing" and "Tree adding nodes"): Enter
-// or F2 opens the editor on the focused name or field, a row's name when the row has the focus,
-// and an add opens it on the new node's empty name (`adding.ts`), the node showing only until its
-// name is committed. A commit goes through `entry.ts`: a value that changes goes in the draft, or
-// `undefined` once the nodes are the agent's again (`sameNodes`), so that "Answer" turns off;
-// nothing leaves the view (AD-9). A refused entry on Enter keeps the editor, its focus and the
-// draft, and shows its reason under the row; leaving a refused entry closes the editor and changes
-// nothing, which takes a new node away. A read-only Tree edits nothing: when the Tree turns
-// read-only (answered, being sent or locked), the edit under way is dropped, a new node with it,
-// and nothing it held goes in the draft, so it does not come back if the Tree turns editable again.
+// or F2 opens the editor on the focused name or field, a row's name when the row has the focus, and
+// a double click on a cell opens it on that cell, and an add opens it on the new node's empty name
+// (`adding.ts`), the node showing only until its name is committed. A commit goes through
+// `entry.ts`: a value that changes goes in the draft, or `undefined` once the nodes are the agent's
+// again (`sameNodes`), so that "Answer" turns off; nothing leaves the view (AD-9). A refused entry
+// on Enter keeps the editor, its focus and the draft, and shows its reason under the row; leaving a
+// refused entry closes the editor and changes nothing, which takes a new node away. A read-only Tree
+// edits nothing: when the Tree turns read-only (answered, being sent or locked), the edit under way
+// is dropped, a new node with it, and nothing it held goes in the draft, so it does not come back if
+// the Tree turns editable again.
 
 import type { TreeProps } from "@askboard/contract";
 import { useLanguage, useLocale } from "@askboard/view/catalog";

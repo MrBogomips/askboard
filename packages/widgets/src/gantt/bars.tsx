@@ -1,6 +1,7 @@
 // The chart's bars (design decision 9; DESIGN.md Widgets, Gantt): per task the graph scheduled, a
 // 14px bar in `gantt-bar`, or in `critical` on the critical path, with a 6px handle on its end
 // that resizes it in a Gantt with its own tasks; the press that drags either is `bar-drag.ts`'s. A
+// task of no duration, a plan's milestone, is a diamond on its start. A
 // task the user changed takes the 2px `change` outline, offset by 1px (`gantt-user-change`).
 // While a bar is dragged it is drawn where it would land (`model/preview.ts`), and a move shows
 // its earliest start as the guide, a 1px dashed line in `muted-foreground` over its row (proposal,
@@ -120,6 +121,12 @@ type BarShapeProps = {
 /** The outline's inset from the bar: a 2px stroke centred 2px out leaves a 1px gap. */
 const OUTLINE = 2;
 
+/** A milestone, a task of no duration, as a diamond as high as a bar, centred on its start. */
+const diamondPoints = ({ x, y, height }: BarBox): string => {
+  const half = height / 2;
+  return `${x - half},${y + half} ${x},${y} ${x + half},${y + half} ${x},${y + height}`;
+};
+
 const Bar = ({ bar, drawn, changed, draggable, resizable, ...on }: BarShapeProps) => {
   const pointer = (kind: DragKind) =>
     draggable
@@ -133,18 +140,31 @@ const Bar = ({ bar, drawn, changed, draggable, resizable, ...on }: BarShapeProps
       : {};
   return (
     <g>
-      <rect
-        data-gantt-bar={bar.id}
-        data-start={bar.start}
-        data-finish={bar.finish}
-        data-critical={bar.critical}
-        x={drawn.x}
-        y={drawn.y}
-        width={drawn.width}
-        height={drawn.height}
-        className={`${bar.critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
-        {...pointer("move")}
-      />
+      {drawn.width === 0 ? (
+        <polygon
+          data-gantt-bar={bar.id}
+          data-start={bar.start}
+          data-finish={bar.finish}
+          data-critical={bar.critical}
+          data-milestone=""
+          points={diamondPoints(drawn)}
+          className={`${bar.critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
+          {...pointer("move")}
+        />
+      ) : (
+        <rect
+          data-gantt-bar={bar.id}
+          data-start={bar.start}
+          data-finish={bar.finish}
+          data-critical={bar.critical}
+          x={drawn.x}
+          y={drawn.y}
+          width={drawn.width}
+          height={drawn.height}
+          className={`${bar.critical ? "fill-critical" : "fill-gantt-bar"} ${draggable ? "cursor-grab" : ""}`}
+          {...pointer("move")}
+        />
+      )}
       {changed ? (
         <rect
           data-gantt-change={bar.id}

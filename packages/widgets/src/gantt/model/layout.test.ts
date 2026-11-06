@@ -49,6 +49,16 @@ describe("a bar", () => {
     expect(barBox("2026-11-10", "2026-11-16", ORIGIN, "week", row).x).toBe(120);
     expect(barBox("2026-11-10", "2026-11-10", ORIGIN, "day", row).width).toBe(32);
   });
+
+  test("of a task of no duration, a milestone, is as wide as nothing, never negative", () => {
+    const row = { top: 32, height: 36, middle: 50 };
+    // A milestone finishes the working day before it starts: over a weekend, days before.
+    expect(barBox("2026-11-09", "2026-11-06", ORIGIN, "day", row)).toMatchObject({
+      x: 224,
+      width: 0,
+    });
+    expect(barBox("2026-11-04", "2026-11-03", ORIGIN, "week", row).width).toBe(0);
+  });
 });
 
 describe("a plan's baseline", () => {

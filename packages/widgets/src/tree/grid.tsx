@@ -34,6 +34,7 @@ export const TreeGrid = ({
   onFocus,
   onMouseDown,
   onClick,
+  onDoubleClick,
 }: {
   readonly ref: Ref<HTMLTableElement>;
   /** The name column's header. */
@@ -54,6 +55,7 @@ export const TreeGrid = ({
   readonly onFocus: FocusEventHandler<HTMLTableElement>;
   readonly onMouseDown: MouseEventHandler<HTMLTableElement>;
   readonly onClick: MouseEventHandler<HTMLTableElement>;
+  readonly onDoubleClick: MouseEventHandler<HTMLTableElement>;
 }) => (
   <table
     ref={ref}
@@ -65,6 +67,7 @@ export const TreeGrid = ({
     onFocus={onFocus}
     onMouseDown={onMouseDown}
     onClick={onClick}
+    onDoubleClick={onDoubleClick}
   >
     <thead>
       <tr className={HEADER_ROW}>

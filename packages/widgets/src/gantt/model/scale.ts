@@ -95,3 +95,13 @@ export const ticks = (
   });
   return Object.freeze(out);
 };
+
+/**
+ * The lines an axis label is drawn in: at day zoom, whose column is 32px, the weekday over the day
+ * (`mer` over `11`), since both side by side run into the next label; one line at the others,
+ * whose columns hold theirs.
+ */
+export const labelLines = (text: string, zoom: Zoom): readonly string[] => {
+  const space = text.lastIndexOf(" ");
+  return zoom === "day" && space > 0 ? [text.slice(0, space), text.slice(space + 1)] : [text];
+};
