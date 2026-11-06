@@ -195,6 +195,10 @@ export type FetchAnswer = {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since 1.4: each changed widget item's full props, by item ID in reference addressing. */
+  readonly values?: Readonly<Record<string, unknown>>;
+  /** Since 1.4: the derived values as the board reported them, by reference. */
+  readonly derived?: Readonly<Record<string, unknown>>;
   readonly declined?: true;
   readonly who: string;
   readonly when: string;
@@ -218,6 +222,14 @@ export type FetchItem =
         readonly title: string;
         readonly items: readonly [FetchQuestion, ...FetchQuestion[]];
       };
+    }
+  | {
+      /** Since 1.4: a widget item alone, as the user left it, with its question's ID and state. */
+      readonly type: "tree" | "gantt";
+      readonly id: string;
+      readonly questionId: string;
+      readonly props: Readonly<Record<string, unknown>>;
+      readonly state: QuestionState;
     };
 
 export type FetchResult = {

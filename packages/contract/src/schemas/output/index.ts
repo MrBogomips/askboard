@@ -7,6 +7,7 @@
 // finished (task 14.5). It holds no AXFX term (FR-18).
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
+import type { FormulaErrorKind } from "../../formula/errors.ts";
 import type { SchemaSet } from "../../versions.ts";
 import ganttChanges from "../../widgets/gantt/gantt-changes.json" with { type: "json" };
 import treeChanges from "../../widgets/tree/tree-changes.json" with { type: "json" };
@@ -103,6 +104,8 @@ export type AnswerEvent = {
   readonly declined?: true;
   /** The cursor of the answer this revision replaces (FR-22, AD-20). */
   readonly replaces?: string;
+  /** Since 1.3: `changes` and `derived` were over `ANSWER_EVENT_MAX_CHARS` and are left out; `fetch` has them. */
+  readonly tooLarge?: true;
 };
 
 export type DiscardReason = "session-exit" | "board-closed";
@@ -133,7 +136,7 @@ export type OutputEvent =
   | EditChoiceEvent
   | ClosedEvent;
 
-export type Warning = NoHooksWarning | UnresolvedPointerWarning;
+export type Warning = NoHooksWarning | UnresolvedPointerWarning | FormulaWarning;
 
 export type NoHooksWarning = { readonly code: "no-hooks"; readonly message: string };
 
@@ -144,6 +147,17 @@ export type UnresolvedPointerWarning = {
   readonly pointer: string;
   readonly reason: UnresolvedReason;
   /** The reason in plain words; it names no path outside the root. */
+  readonly message: string;
+};
+
+/** An item whose formulas the send-time graph check found in error, since output format 1.3 (AD-13). */
+export type FormulaWarning = {
+  readonly code: "formula";
+  /** The item's ID in reference addressing: the ID the agent sent. */
+  readonly itemId: string;
+  /** The address of the node in error. */
+  readonly address: string;
+  readonly error: FormulaErrorKind;
   readonly message: string;
 };
 

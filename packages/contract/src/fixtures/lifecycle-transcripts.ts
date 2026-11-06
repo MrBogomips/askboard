@@ -32,6 +32,15 @@ import {
   lifecycleWaiting,
   paymentRewording,
 } from "./lifecycle-messages.ts";
+import { uj2ExpandedBoardDocument } from "./molecules.ts";
+import {
+  UJ2_SESSION,
+  uj2WidgetActRefusal,
+  uj2WidgetAnswerAct,
+  uj2WidgetAnsweredState,
+  uj2WidgetRefusedAct,
+  uj2WidgetWaitingState,
+} from "./widget-answers.ts";
 
 const version = BOARD_PROTOCOL_VERSION;
 
@@ -154,4 +163,42 @@ export const lifecycleTranscripts: Readonly<Record<string, LifecycleTranscript>>
   takeoverDraft: takeoverDraftTranscript,
   restoredDraft: restoredDraftTranscript,
   closedAsk: closedAskTranscript,
+};
+
+// A widget answer on the approved UJ-2 ask (widget-answers, task 1.5): the board opens, an answer
+// that edits what an answer cannot change is refused whole, the answer the user sent is accepted and
+// logged with its values, and a reconnect gets the board and the answered state. Played against the
+// UJ-2 ask by board-host's replay once the session side exists (group 4); kept out of
+// `lifecycleTranscripts`, which replays against the lifecycle ask.
+export const widgetAnswerTranscript: LifecycleTranscript = {
+  askId: UJ2_SESSION.askId,
+  token: UJ2_SESSION.token,
+  steps: [
+    { socket: 1, from: "page", message: { version, type: "connect", token: UJ2_SESSION.token } },
+    {
+      socket: 1,
+      from: "host",
+      message: { version, type: "board", document: uj2ExpandedBoardDocument },
+    },
+    { socket: 1, from: "host", message: uj2WidgetWaitingState },
+    { socket: 1, from: "page", message: uj2WidgetRefusedAct },
+    { socket: 1, from: "host", message: uj2WidgetActRefusal },
+    { socket: 1, from: "host", message: uj2WidgetWaitingState },
+    { socket: 1, from: "page", message: uj2WidgetAnswerAct },
+    { socket: 1, from: "host", message: { version, type: "done", actionId: UJ2_SESSION.actionId } },
+    { socket: 1, from: "host", message: uj2WidgetAnsweredState },
+    { socket: 1, from: "network", drop: true },
+    { socket: 2, from: "page", message: { version, type: "connect", token: UJ2_SESSION.token } },
+    {
+      socket: 2,
+      from: "host",
+      message: { version, type: "board", document: uj2ExpandedBoardDocument },
+    },
+    { socket: 2, from: "host", message: uj2WidgetAnsweredState },
+  ],
+};
+
+/** The widget transcripts, by name, apart from `lifecycleTranscripts`. */
+export const widgetTranscripts: Readonly<Record<string, LifecycleTranscript>> = {
+  widgetAnswer: widgetAnswerTranscript,
 };

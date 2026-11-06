@@ -9,6 +9,14 @@ export const COLLECT_PROGRESS_INTERVAL_MS = 60 * 1000;
 /** The longest text a tool result holds; a longer `collect` result is paged (AD-6). */
 export const RESULT_MAX_CHARS = 30_000;
 
+/**
+ * The longest JSON text of an answer event, `changes` and `derived` included: over it, the event is
+ * logged without them and with `tooLarge` (AD-20). Chosen so that a `collect` result holding such an
+ * event and the most ask entries a `collect` takes stays under `RESULT_MAX_CHARS`, and the same
+ * budget as a `fetch` page.
+ */
+export const ANSWER_EVENT_MAX_CHARS = 24_000;
+
 /** The longest `isError` text of a tool result (AD-6). */
 export const ERROR_TEXT_MAX_CHARS = 4_000;
 

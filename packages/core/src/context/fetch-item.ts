@@ -45,6 +45,8 @@ const questionOf = (question: FetchQuestion): FetchQuestion => ({
 /** The item without its questions' excerpt text and image bytes. */
 export const fetchItemOf = (item: FetchItem): FetchItem => {
   if (item.type === "question") return { ...item, props: propsOf(item.props) };
+  // A widget item fetched alone holds no excerpt text or image bytes (widget-answers).
+  if (item.type !== "area") return item;
   const [first, ...others] = item.props.items;
   return {
     ...item,
