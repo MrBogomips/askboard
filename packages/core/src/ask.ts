@@ -42,7 +42,9 @@ import {
   questionView,
 } from "./lifecycle/views.ts";
 import type { KeptAnswer } from "./lifecycle/widget-event.ts";
+import { areaInReference, questionInReference, widgetItemValue } from "./lifecycle/widget-fetch.ts";
 import type { ExpansionMap } from "./molecules/map.ts";
+import type { MoleculeSource } from "./molecules/source.ts";
 import { cursorOf } from "./text.ts";
 
 export { frozenCopy } from "./lifecycle/log.ts";
@@ -346,17 +348,29 @@ export class Ask {
     return this.#kept;
   }
 
-  /** An item's full value (FR-20): an open or closed ask's, from its current board document. */
-  fullValue(itemId: string): FullValue {
+  /**
+   * An item's full value (FR-20): an open or closed ask's, from its current board document, its
+   * widgets in reference addressing through `source`, the session's molecule source (AD-9).
+   */
+  fullValue(itemId: string, source?: MoleculeSource): FullValue {
     const { askId } = this;
     const model = this.#model;
     if (model === undefined) return { kind: "discarded", askId };
+    const fetch = { map: this.#expansion, source, kept: this.#kept };
     const question = model.question(itemId);
     if (question !== undefined) {
-      return this.#value(questionValue(this.#facts(question), model), question.generation);
+      const value = questionValue(this.#facts(question), model) as Parameters<
+        typeof questionInReference
+      >[0];
+      return this.#value(questionInReference(value, fetch), question.generation);
     }
     const area = model.area(itemId);
-    if (area !== undefined) return this.#value(areaValue(area, model), area.generation);
+    if (area !== undefined) {
+      const value = areaValue(area, model) as Parameters<typeof areaInReference>[0];
+      return this.#value(areaInReference(value, fetch), area.generation);
+    }
+    const widget = widgetItemValue(model, itemId, (each) => this.#status(each), fetch);
+    if (widget !== undefined) return this.#value(widget.item, widget.generation);
     return { kind: model.isDeleted(itemId) ? "deleted" : "missing", askId, itemId };
   }
 

@@ -445,7 +445,12 @@ export class AskCore {
 
   /** An item's full value for `fetch` (FR-20); an ask this epoch does not hold is discarded. */
   fullValue(askId: string, itemId: string): FullValue {
-    return this.#asks.get(askId)?.fullValue(itemId) ?? { kind: "discarded", askId };
+    return (
+      this.#asks.get(askId)?.fullValue(itemId, this.#ports.molecules) ?? {
+        kind: "discarded",
+        askId,
+      }
+    );
   }
 
   #graceEnded(askId: string): void {
