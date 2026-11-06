@@ -56,7 +56,7 @@ The Tree host holds the value before the last adjustment as `undoSlot`; any othe
 
 ### 5. Drag and drop: the library behind a spike, the moves unchanged
 
-Pragmatic drag and drop 4.0.0 gives `draggable` and `dropTargetForElements` on rows, with the closest-edge hitbox (`attachClosestEdge`) turned into the three zones of the spec by `tree/model/drop.ts` (a pure function from a pointer's fraction of the row's height, the dragged node and the target to `{kind: "before" | "after" | "into"} | {kind: "refused", reason}`). `drop.ts` maps each kind to the existing edits: "into" is `indent`-like (`moveInto`), "before" and "after" are `moveBefore` and `moveAfter` added to `model/edits.ts` with the same limits checks the buttons use (`can`), so a drag and the buttons agree by construction, and the diff gives the same `move`. The spine of the work is task 4.1, a spike: native HTML5 drag inside the view's sandboxed frame (AD-8; EXPERIENCE Drag, "a spike item"), checked in Chromium and WebKit on the real board page and a scripted pointer test. If it fails, the fallback is an own pointer drag in `tree/drag.ts` (the Gantt's `bar-drag.ts` is the model), feeding the same `drop.ts`; the spec and the other tasks stay the same. The adoption rule of `addendum.md` (licence, stars, activity, pinned exactly) is checked by `check:licences` and recorded in the spike's note.
+Pragmatic drag and drop 4.0.0 gives `draggable` and `dropTargetForElements` on rows, with the closest-edge hitbox (`attachClosestEdge`) turned into the three zones of the spec by `tree/model/drop.ts` (a pure function from a pointer's fraction of the row's height, the dragged node and the target to `{kind: "before" | "after" | "into"} | {kind: "refused", reason}`). `drop.ts` maps each kind to the existing edits: "into" is `indent`-like (`moveInto`), "before" and "after" are `moveBefore` and `moveAfter` added to `model/edits.ts` with the same limits checks the buttons use (`can`), so a drag and the buttons agree by construction, and the diff gives the same `move`. The spine of the work is task 5.1, a spike: native HTML5 drag inside the view's sandboxed frame (AD-8; EXPERIENCE Drag, "a spike item"), checked in Chromium and WebKit on the real board page and a scripted pointer test. If it fails, the fallback is an own pointer drag in `tree/drag.ts` (the Gantt's `bar-drag.ts` is the model), feeding the same `drop.ts`; the spec and the other tasks stay the same. The adoption rule of `addendum.md` (licence, stars, activity, pinned exactly) is checked by `check:licences` and recorded in the spike's note.
 
 *Alternatives:* react-arborist (rejected by EXPERIENCE S-2); the horizontal-offset depth picker (open question 9): not explainable for the keyboard path, and the three zones reach every position.
 
@@ -68,23 +68,37 @@ A drag has no keyboard form in Pragmatic drag and drop, so the Alt+Shift keys an
 
 The TASK header's edge is `role="separator"` with `aria-orientation="vertical"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax` and a name "Resize the Task column", one extra Tab stop in the grid's header, consistent with the grid being otherwise one Tab stop (a decision to note against the Gantt keyboard requirement; the header edge is outside the cell grid). The pointer drag uses pointer capture, like `bar-drag.ts`. The width goes into the grid's CSS template columns and the chart's x origin, so the bars and the time axis stay aligned.
 
-### 9. Double-click and hover are small, shared pieces
-
-The double-click handler of the Tree (PR #34, `tree/widget.tsx`, `onDoubleClick`) is the model for the Gantt grid's: it resolves the cell under the pointer and calls the editor the Enter key calls, and does nothing for a cell that `can` refuses. Hover feedback is one shared stylesheet rule set in `packages/view/src/styles` keyed on `data-interactive`, `data-editable` and `aria-disabled`, using DESIGN's hover tokens, so no component hand-rolls a hover; the audit (task 6.1) puts the attributes on the existing controls.
-
 ### 8. The critical switch is a presentation filter
 
 The chart receives `showCritical` and draws critical bars as ordinary when off; the compute graph's flags and any text (a screen-reader label naming a task as critical, the legend's critical entry) follow it for the visual parts only: the grid keeps no critical column, so nothing else changes. A Radix Switch is in the Stack's Radix list; to confirm when writing the task.
 
+### 9. Double-click and hover are small, shared pieces
+
+The double-click handler of the Tree (PR #34, `tree/widget.tsx`, `onDoubleClick`) is the model for the Gantt grid's: it resolves the cell under the pointer and calls the editor the Enter key calls, and does nothing for a cell that `can` refuses. Hover feedback is one shared stylesheet rule set in `packages/view/src/styles` keyed on `data-interactive`, `data-editable` and `aria-disabled`, using DESIGN's hover tokens, so no component hand-rolls a hover; the audit (task 7.1) puts the attributes on the existing controls.
+
+### 10. The current row and the selected rows are two states
+
+The Tree host holds `currentId` (one node, set by a click or an arrow key, `undefined` at open) beside the selection set of decision 3. The toolbar's row tools read `currentId` and are disabled while it is `undefined`; "Adjust by %…" reads the selection. The mark is drawn from `currentId`, not from the browser's focus, so it stays after the focus leaves (review F-02). *Alternative:* using the focused row, which loses the target on any click outside.
+
+### 11. Derived changes are marked apart
+
+A plan task whose duration changes only because its estimates or its package were changed in the Tree is `derived`; a task the user changed in the Gantt (a requested start, duration or predecessors) is `direct`. The marks model (`gantt/model/marks.ts`) gives each task one of `direct`, `derived` or none, and the counter reads from it, so the marks and the count cannot disagree (review F-07). The pin of a requested duration is part of `direct`.
+
+### 12. One string catalogue for the widgets, and the hover layer in CSS
+
+All AskBoard strings of the Tree, the Gantt and the molecules move into the view's catalogue (`packages/view/src/strings`) with en-US and it-IT entries, and the widgets receive a `t` function from the host, so `widgets` keeps importing nothing from `view` (AD-1); the new labels of this change are written there from the start. The `hover` token pair, the cursors and the hover looks are CSS selectors on shared attributes (decision 9), so a new control gets them by carrying the attribute.
+
 ## Risks / Trade-offs
 
-- [Native drag may not work in the sandboxed frame] → Task 4.1 spikes it first in two engines; the pointer-drag fallback keeps every other task as it is.
+- [Group 1 touches most of the Tree's and the Gantt's view code before the features land, and the features then edit the same files] → Group 1 comes first by decision of the PO's lead, with its own check and browser run, so the feature groups start from the polished base and conflicts arise once, not per feature.
+- [Moving every widget string into the catalogue is a wide, mechanical edit] → A test fails on any literal string left in these widgets, so nothing is missed silently.
+- [Native drag may not work in the sandboxed frame] → task 5.1 spikes it first in two engines; the pointer-drag fallback keeps every other task as it is.
 - [A requested duration hides a changed estimate] → The pin mark, the change highlight and the tooltip "Requested 21 days; the estimates give 18" show it; the PERT numbers stay visible in the WBS beside the plan.
 - [Refusing incoherent values makes a series of edits order-dependent, and a bulk change all or nothing] → The refusal's message names the rule and the row; a row the agent sent out of order is not made worse, so it can be fixed; the preview names the first offending rows before "Apply", so nothing is lost after the click.
 - [A bulk adjustment touches hundreds of values at once and the answer grows] → The preview states the counts before "Apply"; a Tree's `changes` over the answer limit take the existing "too large" path of FR-20 (scenario in the spec).
 - [Rounding to one decimal moves small estimates oddly] → The preview shows the first three changes and the refused and unchanged counts, and "Undo adjust" is one click; the unit of the estimates is a working day, so 0.1 is within the PERT inputs' practical precision.
 - [Selection checkboxes widen the Tree's grid] → The leading column is narrow (`{spacing.xl}`) and shown always, so the layout does not jump when a selection starts.
-- [Contract version drift between this change and others in flight] → Read the constants at apply (task 1.1); the additions are optional and the relaxed rule only accepts more.
+- [Contract version drift between this change and others in flight] → Read the constants at apply (task 2.1); the additions are optional and the relaxed rule only accepts more.
 - [R4, scope growth] → The extension is bounded to five edits on the Tree and the Gantt, written into FR-11 as a list with its ceiling restated.
 
 ## Migration Plan

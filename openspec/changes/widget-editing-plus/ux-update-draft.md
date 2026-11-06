@@ -1,6 +1,6 @@
 # UX update draft: widget editing plus
 
-**Status: not applied.** It applies only for the proposal's open questions the PO accepts (1, 2, 3, 8, 9 and 11); otherwise EXPERIENCE and DESIGN stay as they are, and the change's specs follow their current text. Sentence-level blocks for `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 9 and 13) and `DESIGN.md` (blocks 10 to 12 and 14); each quotes the text it changes word for word, as `main` holds it at a35a0b9b, then gives the replacement. A block that adds text keeps the quoted sentence and appends to it. The new labels are provisional and carry "(to review)" in the Localization table when applied (task 0.2).
+**Status: not applied.** It applies only for the proposal's open questions the PO accepts (1, 2, 3, 8, 9 and 11); otherwise EXPERIENCE and DESIGN stay as they are, and the change's specs follow their current text. Sentence-level blocks for `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 9, 13 and 15 to 18) and `DESIGN.md` (blocks 10 to 12, 14 and 19); blocks 13, 14 and 15 to 19 come from the design review of 2026-11-06 (`drafts/design-review-2026-11-06.md`), whose finding IDs they cite; each quotes the text it changes word for word, as `main` holds it at a35a0b9b, then gives the replacement. A block that adds text keeps the quoted sentence and appends to it. The new labels are provisional and carry "(to review)" in the Localization table when applied (task 0.2).
 
 How to apply: replace each quoted text, set `updated:` in each file's front matter to the apply date, then run `openspec validate --all --strict --no-interactive`. Task 0.2 checks that each current text stands once, word for word, just before the edit.
 
@@ -198,15 +198,15 @@ the critical path highlighted unless the user switches it off, and the agent's o
 Add under Interaction Primitives a bullet after "Drag."; there is no current text to quote, so the block adds:
 
 ```text
-- **Hover and focus feedback.** Every interactive control and every editable cell shows on hover that it responds, with a cursor (pointer on buttons, switches, checkboxes and rows that act; text on editable cells; grab on drag handles; column-resize on the Task column's edge) and a surface or outline from DESIGN's tokens, and shows the focus ring on keyboard focus. A disabled control shows none of the hover and the not-allowed cursor; a cell that is not editable and every control of a read-only widget show none. Hover differs from the change highlight and from the focus ring (L160).
+- **Hover and focus feedback.** Every interactive control and every editable cell shows on hover that it responds, with a cursor (pointer on buttons, switches, segments, checkboxes, chevrons, links, option rows and rows that act; text on editable cells; grab on drag handles and Gantt bars; `ew-resize` on a bar's end; column-resize on the Task column's edge) and DESIGN's `hover` token pair (F-01), and shows the focus ring on keyboard focus. A disabled control shows none of the hover and the not-allowed cursor; a cell that is not editable and every control of a read-only widget show none. Hover differs from the change highlight and from the focus ring (L160).
 - **Double-click edits.** In the Tree's and the Gantt's grids, a double-click on an editable cell opens its editor, as Enter and F2 do.
 ```
 
 And in Accessibility Floor, Keyboard core, the Tree and Gantt lines (block 6) gain "Enter, F2 or a double-click starts editing a cell".
 
-### Block 14: DESIGN, Components, hover states
+### Block 14: DESIGN, the `hover` token pair (F-01)
 
-Current (the Button row's lead and the Base controls introduction hold no hover rule for cells and rows; the tokens that exist are `{colors.primary-hover}` for the primary button and `{colors.primary-subtle}` for the answer button):
+Current:
 
 ```text
 shadcn's `accent` is a hover surface (an alias of `muted`), never the brand colour (L132).
@@ -215,5 +215,46 @@ shadcn's `accent` is a hover surface (an alias of `muted`), never the brand colo
 Replacement:
 
 ```text
-shadcn's `accent` is a hover surface (an alias of `muted`), never the brand colour (L132). It is the hover surface of rows, editable cells, toolbar buttons without a fill, switches and checkboxes, with `{colors.primary-hover}` and `{colors.primary-subtle}` kept for the buttons that have them; the pointer cursors are listed in EXPERIENCE, Interaction Primitives, Hover and focus feedback. The hover surface stays within the contrast pairs of the colour page, in light and dark, and is not `{colors.change}`.
+shadcn's `accent` is a hover surface (an alias of `muted`), never the brand colour (L132); it is not the hover look of controls that rest on `muted`, where it would not show. A `hover` token pair gives it: `hover.on-card` is `{colors.muted}`, for rows, option rows and cards; `hover.on-muted` is `{colors.card}` with a 1px `{colors.border-strong}` border, for toolbar buttons that rest on `muted`; `hover.outline` is a 1px inset `{colors.border-strong}`, added to editable cells, which has 3.49:1 and is neither the 2px focus ring nor the plum change border. `{colors.primary-hover}` and `{colors.primary-subtle}` stay for the buttons that have them. Disabled controls take no hover.
 ```
+
+Add `hover` to the components list of DESIGN's front matter with these three entries, and to the colour page's pairs table.
+
+### Block 15: EXPERIENCE, Localization, widget strings (F-04)
+
+Add these rows to the Localization table; the Italian text is provisional, "(to review)". Every one goes through the view's string catalogue.
+
+| String (en-US) | it-IT (to review) |
+|---|---|
+| Add node / Add child | Aggiungi nodo / Aggiungi figlio |
+| Move up / Move down / Indent / Outdent / Delete | Sposta su / Sposta giù / Rientra / Riduci rientro / Elimina |
+| No changes / Your changes: N / M follow from the WBS | Nessuna modifica / Le tue modifiche: N / M derivano dalla WBS |
+| Day / Week / Month | Giorno / Settimana / Mese |
+| Task / Start / Duration / Depends on | Attività / Inizio / Durata / Dipende da |
+| Work package / Optimistic / Most likely / Pessimistic / Expected / Spread | Pacchetto di lavoro / Ottimistica / Più probabile / Pessimistica / Atteso / Dispersione |
+| Critical path / agent's plan / earliest | Percorso critico / piano dell'agente / primo possibile |
+| Adjust by %… / Apply / Cancel / Undo adjust | Modifica di %… / Applica / Annulla / Annulla modifica |
+| Select all / Select none / N selected | Seleziona tutto / Deseleziona / N selezionati |
+| Resize the Task column / Use estimate | Ridimensiona la colonna Attività / Usa la stima |
+| Cannot drop inside its own branch / At most 8 levels | Impossibile rilasciare nel suo stesso ramo / Al massimo 8 livelli |
+| More / Copy path | Altro / Copia percorso |
+
+### Block 16: EXPERIENCE, State Patterns, closed asks and banners (F-06, F-18)
+
+Add to State Patterns, By surface, for a closed or discarded ask:
+
+```text
+The header hides the open count and the next-open jump and shows the agent as ended; option rows and link-buttons take the disabled look. The Closed and Discarded banners sit directly under the context header, keep their message on one line, and show a saved Snapshot's path project-relative, cut in the middle, with the full path in a tooltip and a "Copy path" button, on its own line under the message. The bottom bar's Snapshot feedback does the same on its own line.
+```
+
+### Block 17: EXPERIENCE, Change highlight, By surface (F-07, F-16)
+
+Add: the idle text of the Tree's and the Gantt's counters is "No changes", not "Changes vs agent's original · none yet". In a plan, a task whose duration only follows an estimate or a package changed in the Tree takes the derived mark (`change-subtle` fill, a dotted outline on its bar, no border), is not counted among "Your changes: N", and is counted apart as "M follow from the WBS". A requested duration is a direct change, with a pin, and counts. The counter truncates before it overprints a tool.
+
+### Block 18: EXPERIENCE, Widgets and Molecules, the Tree and the Gantt (F-02, F-03, F-13, F-14, F-15, F-20 to F-21)
+
+Add to the Tree row: the current row, the one the tools act on, is marked with a `primary-subtle` fill and a 2px `primary` left bar, apart from the selected rows; the row tools are disabled until a row is current; a drag handle shows on hover and on the current row. Add to the Gantt plan row: it opens at the finest zoom that fits the whole plan in the chart's width (Month at most), and shows a scroll cue when the chart still overflows; the grid reads dates as "Mon 11/2" (the year only when the plan spans two) and durations as "6 d"; the axis labels its first period and shades non-working days at Day zoom; a drag shows the earliest start as a full-height dashed guide labelled "earliest 11/6", and a resize shows the live duration "8 d"; dependency arrows leave the bar end with a stub, run between rows and enter from the left, the non-critical ones in the neutral border colour.
+
+### Block 19: DESIGN, Components (F-02, F-08 to F-12, F-14, F-17, F-23, F-24)
+
+Add: **Tree current row**: `{colors.primary-subtle}` fill with a 2px `{colors.primary}` left bar. **Field error in grids**: begins with the column name, tied to the editor, indented to the edited cell. **Input atoms, echo**: in grid editors only when the parsed value differs from the typed text, on the editor's row; the Gantt date as a tip above the editor. **Derived value**: a new row's empty roll-ups read "—" in `{colors.muted-foreground}`. **Gantt baseline** (settles Open Items 8): a 2px dashed `{colors.border-strong}` line under a bar whose dates differ from the agent's. **Gantt guide** (settles Open Items 8): a full-height 2px dashed `{colors.foreground-secondary}` line with its label. **Working calendar** (settles Open Items 9): non-working days shaded on `{colors.muted}` at Day zoom. **Segmented control**: the 2px `{colors.primary}` underline on every selected segment. **Density**: Tree and Gantt rows 32 px compact, 40 px comfortable. **Image**: a frame on `{colors.muted}` with a border and a caption line.

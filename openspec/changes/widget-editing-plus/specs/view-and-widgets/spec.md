@@ -11,9 +11,13 @@ The user SHALL change the width of the Gantt grid's TASK column by dragging the 
 - **WHEN** the user drags the edge far left, then far right
 - **THEN** the width stops at 120 px, then at 60% of the widget's width
 
+#### Scenario: The default width at the viewport floor
+- **WHEN** the fixture plan opens in a 1280 px board with the column at its default width
+- **THEN** the whole plan, its last bar and its end date included, is visible in the chart without scrolling
+
 #### Scenario: Not an answer
 - **WHEN** the user has only resized the column
-- **THEN** "Answer" stays disabled, the draft is unchanged, and the toolbar reads "Changes vs agent's original · none yet"
+- **THEN** "Answer" stays disabled, the draft is unchanged, and the toolbar reads "No changes"
 
 #### Scenario: After "Answer"
 - **WHEN** the question is answered or locked
@@ -45,6 +49,10 @@ The Gantt's toolbar SHALL hold a switch "Critical path", on when the board opens
 - **WHEN** a plan or a Gantt with its own tasks opens
 - **THEN** its critical path is highlighted and the switch is on
 
+#### Scenario: Arrows with the highlighting off
+- **WHEN** the user turns "Critical path" off
+- **THEN** every arrow is drawn in the neutral border colour and routed as Gantt dependency arrows says, so the plain view stays readable
+
 #### Scenario: By keyboard
 - **WHEN** the user tabs to the toolbar, moves to "Critical path" with the arrow keys and presses Space
 - **THEN** the switch toggles and the page has not navigated
@@ -74,6 +82,17 @@ In a Gantt plan the user SHALL change a task's duration by dragging the end of i
 #### Scenario: Typing a duration
 - **WHEN** the user types `10` in the portal's duration and presses Enter
 - **THEN** the portal's duration is 10 with a pin, and `2.5` is refused with a message, the focus kept and the draft unchanged
+
+### Requirement: Duration resize feedback
+While the end of a bar is dragged, the Gantt SHALL show the live duration beside the bar ("8 d") and the earliest-end guide, the end of the bar SHALL show a visible grip on hover and the `ew-resize` cursor, and a requested duration's pin SHALL differ from the mark of a duration that follows the WBS (F3 review notes; design review).
+
+#### Scenario: Dragging the end
+- **WHEN** the user drags the end of the portal's bar two days to the right
+- **THEN** a label reads the live duration, "20 d", and the bar's end shows its grip
+
+#### Scenario: Pin and derived mark
+- **WHEN** the portal has a requested duration and the UX design's duration follows a WBS edit
+- **THEN** the portal's cell carries the pin and the change border, and the UX design's cell carries the derived mark and no pin
 
 ### Requirement: A requested duration is cleared by returning to the estimate
 A task whose requested duration equals its PERT expected effort rounded up SHALL have none. Dragging the end back to that length, pressing Delete on the duration cell, or "Use estimate" in the cell's menu SHALL clear the request; a change to the task's estimates in the Tree SHALL leave a requested duration as it is.
@@ -139,7 +158,7 @@ With a node selected, the Tree's toolbar SHALL offer "Adjust by %…": a panel w
 - **THEN** "Adjust by %…" is disabled and the selection controls only select
 
 ### Requirement: The adjustment percentage
-The percentage SHALL be read by AskBoard's number parser for the ask's locale, with its echo, at most one decimal, from -99.9 to +1000; anything else SHALL be refused with a message and "Apply" SHALL stay disabled.
+The percentage SHALL be read by AskBoard's number parser for the ask's locale, at most one decimal, from -99.9 to +1000, with the echo that Number entry echo says; anything else SHALL be refused with a message and "Apply" SHALL stay disabled.
 
 #### Scenario: A percentage that is refused
 - **WHEN** the user types `-100`, `+1001`, `12,5` in the en-US locale or `1.25`
@@ -175,7 +194,7 @@ An empty field SHALL stay empty and count as skipped; a value that rounds to its
 - **THEN** only the leaves' values change, and `build`'s estimates roll up from them
 
 ### Requirement: Tree bulk adjustment preview
-The panel's preview SHALL read how many values change and how many are skipped, show the first three changes as "name column old → new", and, when the adjustment would break the estimates' order or their range for any row, say so with the count and the first rows' names and disable "Apply". "Apply" SHALL close the panel, return focus to the toolbar's button and announce "Adjusted N values by P%. Undo" (open question 6).
+The panel's preview SHALL read how many values change and how many are skipped, show the first three changes as "name column old → new", and, when the adjustment would break the estimates' order or their range for any row, say so with the count and the first rows' names and columns, and disable "Apply". "Apply" SHALL close the panel, return focus to the toolbar's button and announce "Adjusted N values by P%. Undo" (open question 6).
 
 #### Scenario: Using it with the keyboard only
 - **WHEN** the user selects rows with Space, tabs to "Adjust by %…", presses Enter, unchecks "Optimistic" with Space, types `15` and presses Enter
@@ -209,7 +228,7 @@ An empty estimate SHALL take no part in the order, and a row the agent sent out 
 
 #### Scenario: A bulk adjustment that would break one row
 - **WHEN** the user adjusts only "Optimistic" by `+300` and one selected row's optimistic would then exceed its most likely
-- **THEN** the preview names that row and its count, "Apply" is disabled, and no value of any row changes
+- **THEN** the preview names that row and its column, "Optimistic", with the count, "Apply" is disabled, and no value of any row changes
 
 #### Scenario: A bulk adjustment beyond the range
 - **WHEN** a value of 99,999 is among those adjusted by `+10`
@@ -235,7 +254,7 @@ After an adjustment, the Tree's toolbar SHALL offer "Undo adjust", and Ctrl or C
 
 #### Scenario: Undoing
 - **WHEN** the user adjusts 12 leaves by `+10` and presses "Undo adjust"
-- **THEN** all 12 values are as before, the toolbar reads "Changes vs agent's original · none yet" if nothing else changed, and "Answer" is disabled again if the draft is empty
+- **THEN** all 12 values are as before, the toolbar reads "No changes" if nothing else changed, and "Answer" is disabled again if the draft is empty
 
 #### Scenario: After another edit
 - **WHEN** the user adjusts by `+10`, renames a node and looks at the toolbar
@@ -246,7 +265,7 @@ After an adjustment, the Tree's toolbar SHALL offer "Undo adjust", and Ctrl or C
 - **THEN** the adjustment is undone, and the browser has not undone anything else
 
 ### Requirement: Tree drag and drop
-The user SHALL move a node, with its subtree, by dragging its row's handle. Over a row, the top quarter SHALL mean before it, the bottom quarter after it, and the middle as its last child, with a drop indicator that shows which, or that the drop is not allowed. The drop SHALL make the same move the buttons make, the node SHALL keep its ID, and every roll-up and Gantt task SHALL follow within the same interaction (EXPERIENCE Interaction Primitives, Drag; open questions 8 and 9).
+The user SHALL move a node, with its subtree, by dragging its row's handle. Over a row, the top quarter SHALL mean before it, the bottom quarter after it, and the middle as its last child, with an indicator that shows which, or that the drop is not allowed. The drop SHALL make the same move the buttons make, the node SHALL keep its ID, and every roll-up and Gantt task SHALL follow within the same interaction (EXPERIENCE Interaction Primitives, Drag; open questions 8 and 9).
 
 #### Scenario: Reordering
 - **WHEN** the user drags `billing` onto the top quarter of `portal`
@@ -260,16 +279,23 @@ The user SHALL move a node, with its subtree, by dragging its row's handle. Over
 - **WHEN** the user drops `reporting` on the bottom quarter of `build`
 - **THEN** `reporting` follows `build` at the top level, and the subtree that went with it
 
+### Requirement: Tree drag handle
+The handle SHALL show on a row's hover and on the current row, with the `grab` cursor, and `grabbing` while dragging.
+
+#### Scenario: The handle
+- **WHEN** the pointer rests on a row
+- **THEN** its grip shows with the grab cursor, and the cursor reads grabbing during the drag
+
 ### Requirement: Tree drops that are refused
 A drop SHALL be refused, with no change, onto the node itself or inside its own subtree, and when it would break the Tree's limits of 8 levels or 500 nodes. Escape during a drag SHALL cancel it, a drop where the node already is SHALL change nothing, and focus SHALL follow the moved node.
 
 #### Scenario: Into its own subtree
 - **WHEN** the user drags `build` over `portal`
-- **THEN** the indicator reads not allowed, and dropping changes nothing
+- **THEN** the indicator reads not allowed, a tip says "Cannot drop inside its own branch", and dropping changes nothing
 
 #### Scenario: A deep drop
 - **WHEN** a drop would put a node at level 9
-- **THEN** the indicator reads not allowed and the draft is unchanged
+- **THEN** the indicator reads not allowed, a tip names the limit, "At most 8 levels", and the draft is unchanged
 
 #### Scenario: Cancelling
 - **WHEN** the user presses Escape during a drag
@@ -309,12 +335,16 @@ In a Tree's and a Gantt's grid, a double-click on an editable cell SHALL open it
 - **WHEN** the user double-clicks reporting's start in the grid
 - **THEN** the start editor opens, and a double-click on a predecessors cell opens the panel it opens with Enter
 
+#### Scenario: No text selected
+- **WHEN** the user double-clicks a cell of the Gantt grid, editable or not
+- **THEN** no text of the grid becomes selected
+
 #### Scenario: A cell that is not editable
 - **WHEN** the user double-clicks a parent's estimate cell, or any cell after "Answer"
 - **THEN** nothing opens
 
 ### Requirement: Hover and focus feedback
-Every interactive control and every editable cell on the board SHALL give visible feedback on hover and on focus: a cursor that fits it (pointer, text, grab, column-resize) and a background or outline from DESIGN.md's tokens, in the light and the dark theme, different from the change highlight and the focus ring (DESIGN Components; NFR-12).
+Every interactive control and every editable cell on the board SHALL give visible feedback on hover and on focus, in the light and the dark theme, different from the change highlight and the focus ring (DESIGN Components; NFR-12; review F-01).
 
 #### Scenario: A toolbar button
 - **WHEN** the pointer rests on "Adjust by %…"
@@ -323,6 +353,13 @@ Every interactive control and every editable cell on the board SHALL give visibl
 #### Scenario: An editable cell
 - **WHEN** the pointer rests on an editable estimate cell
 - **THEN** the cell shows the hover surface and the cursor is a text cursor, and a cell that is not editable shows neither
+
+### Requirement: Hover cursors and looks
+The cursor SHALL be a pointer on buttons, switches, segments, checkboxes, chevrons, links and option rows, text on editable cells, grab on handles and bars, and a resize cursor on edges. The look SHALL come from DESIGN.md's `hover` token pair: the `muted` fill on cards, a 1px `border-strong` inset outline on editable cells, and a `border-strong` border with the `card` fill on toolbar buttons.
+
+#### Scenario: A chevron and an option row
+- **WHEN** the pointer rests on a Tree chevron, then on an option row
+- **THEN** the cursor is a pointer both times and the option row takes the `muted` fill
 
 ### Requirement: No hover feedback where nothing responds
 A disabled control SHALL show no hover change and the not-allowed cursor; a cell that is not editable, and every control of a read-only widget, SHALL show none.
@@ -347,21 +384,181 @@ A disabled control SHALL show no hover change and the not-allowed cursor; a cell
 - **WHEN** a question is answered or locked
 - **THEN** its widget's cells and editing controls show no hover feedback
 
+### Requirement: Tree current row
+The Tree SHALL mark its current row, the one the toolbar's move, indent, outdent, add and delete tools act on, persistently and apart from keyboard focus: a `primary-subtle` fill and a 2px `primary` left bar, shown after a click or an arrow key. Until a row is current, the row tools SHALL be disabled. The current row, one at a time, SHALL be a different state from the selected rows, which "Adjust by %…" acts on, and each SHALL show its own mark (review F-02).
+
+#### Scenario: Clicking a row
+- **WHEN** the user clicks UX design
+- **THEN** the row carries the current-row mark although the focus ring is not shown, and "Move down" and "Delete" act on it
+
+#### Scenario: Nothing current
+- **WHEN** the Tree opens and no row has been clicked or reached by the keys
+- **THEN** no row carries the mark and the move, add and delete tools are disabled
+
+#### Scenario: Current and selected apart
+- **WHEN** the user selects `portal` and `billing` with the checkboxes and clicks `reporting`
+- **THEN** `reporting` is the one current row, the other two show the selected mark, and "Delete" acts on `reporting` only
+
+### Requirement: Gantt plan opening zoom
+A Gantt plan SHALL open at the finest of Day, Week and Month at which the whole plan fits the chart's width, and at Month when none does; a standalone Gantt SHALL open at Week (FR-15; review F-03).
+
+#### Scenario: The fixture at the floor
+- **WHEN** the fixture plan opens in a 1280 px board
+- **THEN** the zoom is the finest one that shows the plan's last bar and end date without scrolling
+
+#### Scenario: A long plan
+- **WHEN** a plan spans more than Month's width at 1280 px
+- **THEN** it opens at Month and the overflow cue shows
+
+### Requirement: Gantt overflow cue
+When the chart is wider than its frame, the Gantt SHALL show that it scrolls: a persistent horizontal scrollbar or an edge shadow on the side that has more (review F-03).
+
+#### Scenario: A cut chart
+- **WHEN** the chart is wider than its frame
+- **THEN** a persistent scroll cue shows without hovering
+
+### Requirement: Widget chrome follows the ask's language
+Every AskBoard string of the Tree, the Gantt and the two molecules, in the toolbar, headers, legend, counters, panels, tips and messages, SHALL come from the view's string catalog in the ask's language, en-US or it-IT, the new labels of this change included; the agent's strings stay as sent (EXPERIENCE Localization; review F-04).
+
+#### Scenario: An it-IT board
+- **WHEN** the UJ-2 ask opens in it-IT
+- **THEN** the Tree's tools, its counter and the molecule's column headers, the Gantt's columns, zoom, legend and counter, the "Critical path" switch and "Adjust by %…" panel show Italian text, and none of the English strings listed in the review remains
+
+#### Scenario: An English board
+- **WHEN** the same ask opens in en-US
+- **THEN** the strings are as before
+
+### Requirement: Closed banner layout
+The Closed and Discarded banners SHALL sit directly under the context header, keep their message on one line, and show a saved Snapshot's path project-relative with a middle ellipsis, the full path in a tooltip and a "Copy path" button, on its own line under the message; the bottom bar's Snapshot feedback SHALL do the same without moving its controls (EXPERIENCE Board banners; review F-06).
+
+#### Scenario: A closed ask with a Snapshot
+- **WHEN** the agent closes the ask after saving a Snapshot at an absolute path
+- **THEN** the banner is under the header, "This ask was closed. The board is read-only." is on one line, the path shows as `.askboard/snapshots/…html` cut in the middle, and "Copy path" copies the full path
+
+#### Scenario: The bottom bar
+- **WHEN** a Snapshot is saved from the bottom bar
+- **THEN** its path shows on its own line and "Select recommended" stays on the bar's row
+
+### Requirement: A closed ask looks closed
+On a closed or discarded ask, the header SHALL hide the open count and the next-open jump and show the agent as ended, and option rows and link-buttons such as "Ask a follow-up" SHALL show the disabled look (EXPERIENCE State Patterns; review F-18).
+
+#### Scenario: After the close
+- **WHEN** the agent closes an ask with two questions still open
+- **THEN** the header shows no "2 open" and no "Next open", the agent reads as ended, and the option rows are disabled
+
+### Requirement: Number entry echo
+A number or date entry in a grid editor SHALL echo the parsed value only when it differs from what was typed, on the editor's own row and never as a second line that grows the row; a Gantt date's echo SHALL show as a tip above the editor, with its weekday, and SHALL not cover another cell. A refused entry SHALL still show its message. A standalone number or money field keeps its echo beside it (DESIGN Input atoms; review F-08, F-09).
+
+#### Scenario: A plain number
+- **WHEN** the user types `6` in an estimate cell
+- **THEN** no echo shows and the row's height does not change
+
+#### Scenario: A normalised number
+- **WHEN** the user types `1,234.5` in an estimate cell
+- **THEN** the echo "1234.5" shows on the editor's row, and the row's height does not change
+
+#### Scenario: A date
+- **WHEN** the user types `11/9/2026` in a Gantt start
+- **THEN** a tip above the editor reads "Mon, Nov 9, 2026" and the Duration and Depends on cells stay visible
+
+### Requirement: Grid field errors name their field
+A refusal message in the Tree's and the Gantt's grids SHALL begin with the name of the column it is about, be tied to its editor for assistive technology, and sit under the row, indented to the edited cell when there is room (DESIGN Field error; review F-10).
+
+#### Scenario: An ambiguous estimate
+- **WHEN** the user types `1,5` in the most likely cell
+- **THEN** the message begins "Most likely:", and the editor names it as its description
+
+### Requirement: An added row's empty roll-ups
+A node the user has just added SHALL show its empty roll-ups as "—" in the muted colour, with no error, and the added-row bar at once; once the user leaves the row with an estimate still missing, a neutral note SHALL say so and the answer SHALL stay possible (review F-11).
+
+#### Scenario: Adding a node
+- **WHEN** the user chooses "Add node"
+- **THEN** the new row shows "—" for the expected effort and the spread, no error colour, and the change bar
+
+#### Scenario: Leaving it unestimated
+- **WHEN** the user names the node and leaves the row with no estimates
+- **THEN** a neutral note says the effort could not be computed, and "Answer" is not disabled by it
+
+### Requirement: Gantt dependency arrows
+An arrow SHALL leave the predecessor's bar end with a short stub, run in the gap between rows and enter the successor from the left at mid-height with a visible head; a non-critical arrow SHALL use the neutral border colour so it does not read as a grid line (DESIGN Gantt; review F-13).
+
+#### Scenario: A long link
+- **WHEN** a plan links architecture to the portal over several rows
+- **THEN** the arrow runs between rows, not along a row's rule, and ends with its head at the portal's left edge
+
+### Requirement: Gantt time axis
+The axis SHALL label its first period at every zoom, stretch a short span to the frame's width, and shade non-working days on the `muted` surface at the Day zoom (DESIGN open item 9; review F-15).
+
+#### Scenario: Month
+- **WHEN** the user chooses "Month" on a plan starting in November
+- **THEN** November is labelled, and the plan fills the chart's width
+
+#### Scenario: Day
+- **WHEN** the user chooses "Day"
+- **THEN** Saturdays and Sundays are shaded
+
+### Requirement: Tree toolbar overflow
+The Tree's counter SHALL truncate before it overprints a tool, and when the toolbar's tools do not fit, the move tools SHALL go into a "More" menu, with every tool still reachable by keyboard (review F-16).
+
+#### Scenario: A narrow board
+- **WHEN** the board is 1024 px wide in it-IT with the adjustment tools present
+- **THEN** no label overprints another and the move tools are in "More"
+
+### Requirement: Segmented controls show the selection by an underline
+Every segmented control, the header's Theme and Density, the settings panel's, the delivery switch and the Gantt zoom, SHALL mark its selected segment with the 2px `primary` underline besides the fill (DESIGN Segmented control; review F-17).
+
+#### Scenario: The header's Theme
+- **WHEN** the board opens with the system theme
+- **THEN** the selected Theme and Density segments carry the underline
+
+### Requirement: Gantt grid labels and dates
+The Gantt grid's duration SHALL read with its unit, "6 d", and its start with the weekday, "Mon 11/2", the year shown only when the plan spans two years; the Tree's "Expected effort" header SHALL fit on one line, the full name in its tip (review F-20 to F-22).
+
+#### Scenario: The fixture plan
+- **WHEN** the fixture plan opens
+- **THEN** UX design reads "Mon 11/2" and "6 d", and the Tree's headers are on one line
+
+### Requirement: Row heights follow density
+The Tree's and the Gantt's rows SHALL be 32 px in the compact density and 40 px in the comfortable one (DESIGN density tokens; review F-23).
+
+#### Scenario: Comfortable
+- **WHEN** the density is comfortable
+- **THEN** each row of the Tree and of the Gantt grid is 40 px high
+
+### Requirement: Board polish of images, excerpts and notes
+An image item SHALL show in a frame on `muted` with a border and a caption line; an unresolved excerpt SHALL offer no "Open in reading panel"; the reading panel SHALL show a configuration key in the code face without literal backticks; an option's "+ Add your note to this option" SHALL show on hover and on focus without moving the options below it (review F-24 to F-27).
+
+#### Scenario: An image
+- **WHEN** a question holds an image
+- **THEN** it shows inside a bordered frame with its caption
+
+#### Scenario: An unresolved excerpt
+- **WHEN** an excerpt's pointer does not resolve
+- **THEN** it shows no "Open in reading panel"
+
+#### Scenario: The editor hint
+- **WHEN** the reading panel says that no editor is set
+- **THEN** the key `editor` is in the code face and no backtick shows
+
+#### Scenario: The note line
+- **WHEN** the pointer rests on an option
+- **THEN** "+ Add your note to this option" shows and the following options stay where they were
+
 ## MODIFIED Requirements
 
 ### Requirement: Gantt layout
-The Gantt SHALL show, in the widget frame, a grid with one row per task (its name, start, duration and predecessors) beside AskBoard's own chart on a time axis: one bar per task, finish-to-start arrows, the critical path, while the "Critical path" switch is on, as solid bars in the critical colour with heavier arrows, and a legend reading task, critical path and your change. The grid's TASK column SHALL be resizable (Gantt task column resize). Every agent string SHALL render as text (AD-8; DESIGN.md Widgets, Gantt).
+The Gantt SHALL show, in the widget frame, a grid with one row per task (its name, start, duration and predecessors) beside AskBoard's own chart on a time axis: one bar per task, finish-to-start arrows, the critical path, while the "Critical path" switch is on, as solid bars in the critical colour with heavier arrows, and a legend reading task, critical path and your change (and, in a plan, the agent's plan). The grid's TASK column SHALL be resizable (Gantt task column resize). Every agent string SHALL render as text (AD-8; DESIGN.md Widgets, Gantt).
 
 #### Scenario: The UJ-2 plan opens
 - **WHEN** the fixture plan opens
-- **THEN** the grid lists the six work packages in the Tree's order, UX design starts on 11/2/2026, reporting ends on 12/11/2026, and the bars of UX design, the prototype, the portal and reporting are drawn as the critical path
+- **THEN** the grid lists the six work packages in the Tree's order, UX design starts on Mon 11/2, reporting ends on Fri 12/11, and the bars of UX design, the prototype, the portal and reporting are drawn as the critical path
 
 #### Scenario: Markup in agent strings
 - **WHEN** a task's name holds `<img src=x onerror=alert(1)>`
 - **THEN** the grid shows those characters as text, and no element is created from them
 
 ### Requirement: Gantt plan scope
-A Gantt plan SHALL take its tasks from the leaves of the Tree it names, in the Tree's order, draw no bar for a parent, and show each duration as its requested duration, else its PERT expected effort rounded up to whole working days; the user changes a duration as Gantt plan duration resize says. Its toolbar SHALL offer the zoom "Day | Week | Month", opening at week, and the "Critical path" switch (FR-11, FR-15; DESIGN.md and EXPERIENCE Molecules, Gantt plan).
+A Gantt plan SHALL take its tasks from the leaves of the Tree it names, in the Tree's order, draw no bar for a parent, and show each duration as its requested duration, else its PERT expected effort rounded up to whole working days; the user changes a duration as Gantt plan duration resize says. Its toolbar SHALL offer the zoom "Day | Week | Month", opening as Gantt plan opening zoom says, and the "Critical path" switch (FR-11, FR-15; DESIGN.md and EXPERIENCE Molecules, Gantt plan).
 
 #### Scenario: Zooming
 - **WHEN** the user chooses "Month" and then "Day"
@@ -399,3 +596,81 @@ The toolbar and the tree SHALL each be one Tab stop. In the tree, the arrow keys
 #### Scenario: Adding from the toolbar by keyboard
 - **WHEN** the user tabs to the toolbar, moves to "Add node" with the arrow keys and presses Enter
 - **THEN** a new node after the current one starts editing its name
+
+### Requirement: Gantt rescheduling by drag
+The user SHALL reschedule a task by dragging its bar with the pointer. The bar SHALL snap to working days and stop at the earliest start its predecessors allow, which SHALL show during the drag as a full-height 2px dashed guide with the label "earliest 11/6". Dropping it on its earliest start SHALL clear its requested start; Escape during the drag SHALL cancel it (EXPERIENCE Widgets, Gantt; F-24; review F-14).
+
+#### Scenario: Dragging past the predecessors
+- **WHEN** the user drags reporting's bar to start before the portal ends
+- **THEN** the bar stops at the day after the portal ends, the guide shows there with its label, and dropping it changes nothing
+
+#### Scenario: Dropping on a weekend
+- **WHEN** the user drops reporting's bar with its start over Saturday 12/12/2026
+- **THEN** reporting starts on Monday 12/14/2026
+
+### Requirement: Gantt editing in the grid
+The user SHALL edit a task's start and, in a Gantt with its own tasks or a plan, its duration in the grid: Enter, F2 or a double-click starts editing, Enter or leaving the field commits, Escape restores. A start SHALL be read by AskBoard's own en-US date parser, echoed as Number entry echo says, and refused with a message when it is no date, not a working day, or before the earliest start; an empty start SHALL clear the request.
+
+#### Scenario: Typing a start
+- **WHEN** the user types `12/9/2026` in reporting's start and presses Enter
+- **THEN** reporting starts on Wednesday 12/9/2026 and the draft holds the change
+
+#### Scenario: A start the predecessors do not allow
+- **WHEN** the user types `11/20/2026` in reporting's start and presses Enter
+- **THEN** the field shows a message beginning "Start:" naming 12/4/2026 as the earliest start, keeps the focus, and the draft is unchanged
+
+#### Scenario: A duration that is not whole
+- **WHEN** the user types `2.5` in a task's duration and presses Enter
+- **THEN** the field shows a message, keeps the focus, and the draft is unchanged
+
+### Requirement: Gantt change highlight
+A task the user changed in the Gantt SHALL take the change outline on its bar and the change fill on its changed cells; a plan task whose duration only follows an estimate or an added package the user changed in the Tree SHALL take the derived mark, the `change-subtle` fill with a dotted bar outline and no border. The toolbar SHALL read "No changes", then "Your changes: N" counting each task changed in the Gantt once, and, in a plan, "Your changes: N · M follow from the WBS" when M tasks carry the derived mark; a task that moved only because a predecessor moved SHALL carry neither (FR-11; EXPERIENCE Change highlight; review F-07).
+
+#### Scenario: Counting changes
+- **WHEN** the user, with `u-1` added in the Tree, moves reporting later and gives `u-1` two predecessors
+- **THEN** both bars carry the change outline, the portal's does not, and the toolbar reads "Your changes: 2"
+
+#### Scenario: A re-estimate in the Tree
+- **WHEN** the user changes UX design's estimates in the Tree so that its duration changes, and edits nothing in the Gantt
+- **THEN** UX design's bar and duration carry the derived mark, and the toolbar reads "No changes · 1 follows from the WBS"
+
+#### Scenario: Both kinds
+- **WHEN** the user also lengthens the portal's bar
+- **THEN** the portal carries the change outline and the toolbar reads "Your changes: 1 · 1 follows from the WBS"
+
+### Requirement: Gantt plan baseline
+A Gantt plan SHALL draw, under the bar of a task whose dates differ from the agent's, the dates the agent's plan gave it as a 2px dashed `border-strong` line, and none where they are the same or the agent sent none; its legend SHALL name "agent's plan" (FR-12; DESIGN Molecules, Gantt plan; review F-12).
+
+#### Scenario: A baseline after a move
+- **WHEN** the user moves reporting three working days later
+- **THEN** reporting's baseline still spans 12/4/2026 to 12/11/2026 under its moved bar
+
+#### Scenario: Nothing moved
+- **WHEN** the fixture plan opens
+- **THEN** no task shows a baseline, and the legend names the agent's plan only once one does
+
+#### Scenario: An added package
+- **WHEN** the user adds `u-1` in the Tree
+- **THEN** `u-1` has a bar and no baseline
+
+### Requirement: Tree editing
+The user SHALL rename a node and edit its fields in place: Enter, F2 or a double-click starts editing the name or field, Enter or leaving the field commits, Escape restores the previous value. A number field SHALL be a text input read by AskBoard's own en-US parser, echoed as Number entry echo says and refusing an ambiguous entry with a message, and an empty name SHALL NOT be committed.
+
+#### Scenario: Editing a number
+- **WHEN** the user types `1,234.5` in a number field and presses Enter
+- **THEN** the field holds 1234.5 and the draft holds the change
+
+#### Scenario: An ambiguous number
+- **WHEN** the user types `1,5` in a number field and presses Enter
+- **THEN** the field shows a message, keeps the focus, and the draft is unchanged
+
+#### Scenario: Escape
+- **WHEN** the user edits a name and presses Escape
+- **THEN** the name is as before and the draft is unchanged
+
+### Requirement: Tree change highlight
+The Tree SHALL show what the user changed against what the agent sent: changed names and fields in the change hue with its border, an added row with the change bar, a moved row with a change mark on its name. The toolbar SHALL read "No changes" until the first change, then "Your changes: N", counting each added, removed, moved or edited node once (FR-11; EXPERIENCE Change highlight, By surface).
+
+#### Scenario: Counting changes
+- **WHEN** the user renames `portal`, adds `u-1` and deletes `reporting`
+- **THEN** the renamed name and the added row carry the change highlight and the toolbar reads "Your changes: 3"
