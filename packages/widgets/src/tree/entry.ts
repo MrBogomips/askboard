@@ -16,6 +16,7 @@ import {
 import { parseNumber } from "../shared/number.ts";
 import { fieldText } from "./cells.ts";
 import { can, estimateProblem, rename, setField } from "./model/edits.ts";
+import { cellCount } from "./model/rows.ts";
 
 /** What a cell edits: the name, or a field of its column's type. */
 export type EntryKind = "name" | TreeColumn["type"];
@@ -57,6 +58,17 @@ export const entryKindAt = (
   return estimate && !can("editEstimate", value, nodeId)
     ? undefined
     : entryKindOf(value.columns, cell);
+};
+
+/**
+ * The cells of the node `nodeId` that take an edit, as a comma-separated list of their numbers: it
+ * is what the row marks `data-editable` for the hover layer, a primitive so that a row re-renders
+ * only when it changes. None once the Tree is read-only.
+ */
+export const editableCells = (value: TreeProps, nodeId: string, disabled = false): string => {
+  if (disabled) return "";
+  const cells = Array.from({ length: cellCount(value) }, (_, cell) => cell);
+  return cells.filter((cell) => entryKindAt(value, nodeId, cell) !== undefined).join(",");
 };
 
 /** The editor's starting text: the name, or the field as the cell shows it. */

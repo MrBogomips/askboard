@@ -140,10 +140,11 @@ const TaskRow = (props: TaskRowProps) => {
       data-gantt-added={added ? "" : undefined}
       className="h-[36px] border-t border-border text-body text-foreground"
     >
-      {row.cells.map(({ column }, index) => (
+      {row.cells.map(({ column, editable }, index) => (
         <td
           key={column}
           data-gantt-column={column}
+          data-editable={props.editable && editable && edited?.column !== column ? true : undefined}
           // While its editor is open, the editor holds the cell's Tab stop.
           tabIndex={index === stop && edited?.column !== column ? 0 : -1}
           className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : ""} ${added && column === "task" ? ADDED : ""}`}

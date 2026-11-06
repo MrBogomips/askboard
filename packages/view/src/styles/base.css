@@ -2,6 +2,8 @@
    page colours from the token variables, which `.dark` re-points, and the body text on the system
    font stack until the faces are adopted (design, Non-Goals). The view build adds it after
    Tailwind's preflight and the tokens, in the shell's styles and the board page's. */
+@import "./hover.css";
+
 @layer base {
   html {
     background: var(--background);

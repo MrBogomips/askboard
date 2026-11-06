@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { TreeProps } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import {
+  editableCells,
   enterCell,
   entryKindAt,
   entryKindOf,
@@ -164,5 +165,21 @@ describe("a number column in the ask's locale (settings-languages, task 9.1)", (
     expect(
       mixed.kind === "refused" && plain.kind === "refused" && mixed.reason !== plain.reason,
     ).toBe(true);
+  });
+});
+
+describe("the cells of a row that take an edit", () => {
+  test("the name and each field of a Tree with columns, as a list of cell numbers", () => {
+    expect(editableCells(tree, "a")).toBe("0,1,2");
+  });
+
+  test("none once the Tree is read-only", () => {
+    expect(editableCells(tree, "a", true)).toBe("");
+  });
+
+  test("a work breakdown parent's estimates and the value cells are left out", () => {
+    const wbs = uj2ExpandedBoardDocument.items[0].props.items[0].props;
+    expect(editableCells(wbs, "design")).toBe("0");
+    expect(editableCells(wbs, "portal")).toBe("0,1,2,3");
   });
 });

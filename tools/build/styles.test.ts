@@ -62,6 +62,17 @@ describe("Tailwind's input per chunk", () => {
     expect(css).toContain("ui-sans-serif");
   });
 
+  test("a document's styles hold the hover layer, which the dark scheme re-points", async () => {
+    const input = join(work, "hover.css");
+    await Bun.write(input, tailwindInput("document", [], work));
+    const css = await runTailwind(input, join(work, "hover.out.css"));
+    expect(css).toContain("--hover-fill:var(--muted)");
+    expect(css).toContain("cursor:pointer");
+    expect(css).toContain("cursor:not-allowed");
+    expect(css).toContain("[data-editable]");
+    expect(css).toContain("var(--hover-outline)");
+  });
+
   test("a failing run names the input", async () => {
     const input = join(work, "broken.css");
     await Bun.write(input, '@import "./missing.css";\n');
