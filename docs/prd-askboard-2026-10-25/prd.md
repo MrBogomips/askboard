@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-11-01
+updated: 2026-11-06
 ---
 
 # PRD: AskBoard
@@ -253,12 +253,12 @@ AskBoard ships the following widgets. An agent can put any of them in a question
 The "What the user does" column is each widget's first-version minimum. The widgets and molecules that the journeys reach (UJ-1 to UJ-3) have this further scope in the first version:
 - **Diff review:** a split or a unified view; two alternative fixes, compared one by one and against each other, which the agent gives as two patch files that apply to the project's files as they stand, and AskBoard diffs itself; accepting or rejecting a whole file at once.
 - **Graph:** comments pinned to nodes and edges; a layout that AskBoard computes when the graph opens, and again when the user asks.
-- **WBS with PERT (FR-15):** branches that expand and collapse; an excerpt per work package.
-- **Gantt plan (FR-15):** day, week and month zoom; the agent's original plan shown as a baseline; the critical path always highlighted.
+- **WBS with PERT (FR-15):** branches that expand and collapse; an excerpt per work package; selecting work packages and changing the optimistic, most likely or pessimistic estimates of the selection by a percentage, with a preview and an undo; dragging a work package, with its children, to a new place, by the pointer or by explicit move actions from the keyboard.
+- **Gantt plan (FR-15):** day, week and month zoom; the agent's original plan shown as a baseline; the critical path highlighted, which the user can switch off; a task column whose width the user changes; the length of a task changed by resizing its bar, as a duration the user requests, which the PERT expected effort does not overwrite.
 - **Approval:** a summary of the user's changes beside the decision.
 - **Sales estimate review (FR-15):** optional lines switched on and off rather than deleted; a minimum margin, with a warning below it.
 
-Every other widget, and the decision matrix, stays at its minimum, which is also its first-version ceiling, with one deliberate extension: the Form also offers an on/off field. Every editable widget highlights what the user changed against what the agent sent. The details are in `ux-askboard-2026-10-27/EXPERIENCE.md` (Widget Scope, Component Patterns).
+Every other widget, and the decision matrix, stays at its minimum, which is also its first-version ceiling, with two deliberate extensions: the Form also offers an on/off field, and the Tree and the Gantt offer on their own the editing that the WBS with PERT and the Gantt plan add to them (the selection and percentage change of number fields, dragging nodes, the critical path switch, the task column's width, and a task's requested duration). Every editable widget highlights what the user changed against what the agent sent. The details are in `ux-askboard-2026-10-27/EXPERIENCE.md` (Widget Scope, Component Patterns).
 
 **Consequences (testable):**
 - Each widget is done for the first version when the user can do what its row says, and what its further scope or extension above adds, and the answer reports it.
@@ -311,6 +311,9 @@ An agent can use ready-made molecules shipped with AskBoard, and can compose its
 **Consequences (testable):**
 - A ready-made molecule renders from data alone, and the agent sends no composition.
 - A WBS-with-PERT molecule computes the expected effort and its spread for every node from the user's three-point estimates.
+- In a WBS-with-PERT molecule, changing the estimates of selected work packages by a percentage changes every expected effort, spread and Gantt date that depends on them within the same interaction, is previewed before it applies, can be undone once, and reaches the agent as the changed estimates only.
+- A Gantt-plan molecule opens with the critical path highlighted and lets the user switch the highlighting off without changing the schedule or the answer.
+- A Gantt-plan molecule lets the user set a task's duration by resizing its bar; the dependent tasks, the critical path and the plan's end move with it, and the agent receives the requested duration as a change, next to the estimates it did not touch.
 - A sales-estimate-review molecule recomputes totals and margin as the user changes rates, effort or scope lines, and ends with an Approval.
 - A sales-estimate-review molecule warns when the margin falls below the minimum margin, which the agent may set and which otherwise comes from the project's default; with neither, it shows no warning.
 - A decision-matrix molecule recomputes each option's score as the user changes weights or ratings.
@@ -637,7 +640,7 @@ Outside the first version, as confirmed in the UX work, so that they are not reo
 - **R1. The push path may be disabled or change.** The architecture pushes answers and follow-ups to a working agent through a Claude Code mod: mods have been on by default since Claude Code 2.1.287, and the delivery spike showed the mod reaching the main conversation and running subagents, foreground and background, in every permission mode tested (addendum). An organization can disable mods, and part of what the mod relies on is observed rather than documented: one of the push calls Claude Code offers mods is already refused under auto mode. Either takes push delivery away, and with it part of the interactivity of FR-10, FR-21 and FR-22. Mitigation: every capability also works by pull, so the agent waits for or collects the answers and follow-ups at the point it needs them, and the board shows the user which answers have reached the agent (FR-22); CI runs against the minimum, `stable` and `latest` Claude Code.
 - **R2. Claude Code evolves.** It may render MCP Apps, extend AskUserQuestion, or change the limits AskBoard relies on: call timeouts, tool search, result size. Mitigation: keep the data contract independent of how a board is rendered, and track Claude Code releases; rendering inside Claude Code as an MCP App, which the CLI does not support today, would be an upside, not a prerequisite.
 - **R3. Plannotator closes the gap.** The closest competitor releases daily and already has follow-up threads and question cards; Document review and Diff review overlap with it. If it adds planning widgets or MCP App delivery, AskBoard's edge narrows. Mitigation: differentiate on planning widgets, molecules, typed answers and measured cost.
-- **R4. Widget scope grows.** All 18 widgets and four molecules are in the first version, and the research's "review-first" limit (show, annotate, approve, light edits) was not kept, so widgets could grow into planning tools in their own right. Mitigation: the UX work scoped each widget and molecule that the journeys (UJ-1 to UJ-3) reach to what they need, and kept every other widget and the decision matrix at its minimum, which is also its first-version ceiling (FR-11).
+- **R4. Widget scope grows.** All 18 widgets and four molecules are in the first version, and the research's "review-first" limit (show, annotate, approve, light edits) was not kept, so widgets could grow into planning tools in their own right. Mitigation: the UX work scoped each widget and molecule that the journeys (UJ-1 to UJ-3) reach to what they need, and kept every other widget and the decision matrix at its minimum, which is also its first-version ceiling (FR-11). After the product owner's tests of the Tree and the Gantt, five editing features were added to them and to the two molecules, and the list in FR-11 is the new ceiling for those widgets.
 - **R5. The plain-question target is at risk.** AskBoard's tool definitions, loaded at the start of every session, and the tool search before a session's first ask add cost and time that AskUserQuestion does not pay. The research puts the +25% cost target out of reach if those definitions exceed about 2,100 tokens. No budget is set. Mitigation: run the benchmark early and act on its results.
 - **R6. Component licences.** Features AskBoard needs, such as the Gantt critical path and automatic rescheduling, are paid features in the shortlisted components. Mitigation: AskBoard computes them itself (FR-12, NFR-6).
 

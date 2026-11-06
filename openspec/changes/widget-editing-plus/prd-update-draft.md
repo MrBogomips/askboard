@@ -1,6 +1,6 @@
 # PRD update draft: widget editing plus
 
-**Status: not applied.** It applies only for the proposal's open questions the PO accepts (1, 2, 3, 8, 9 and 11 reach the PRD; the others are design details); otherwise the PRD stays as it is, and the change's specs follow the PRD's current text, which gives the Tree and the Gantt their first-version scope. Four blocks, for FR-11, FR-15 and R4. FR IDs stay as they are. Each block quotes the current text exactly, as `main` holds it at a35a0b9b, then gives the replacement.
+**Status: applied on 2026-11-06 (task 0.2), all four blocks; the PO accepted questions 1, 2, 3, 8, 9 and 11. The text below is kept as the record of what was applied.** It applies only for the proposal's open questions the PO accepts (1, 2, 3, 8, 9 and 11 reach the PRD; the others are design details); otherwise the PRD stays as it is, and the change's specs follow the PRD's current text, which gives the Tree and the Gantt their first-version scope. Four blocks, for FR-11, FR-15 and R4. FR IDs stay as they are. Each block quotes the current text exactly, as `main` holds it at a35a0b9b, then gives the replacement.
 
 File: `docs/prd-askboard-2026-10-25/prd.md`.
 
