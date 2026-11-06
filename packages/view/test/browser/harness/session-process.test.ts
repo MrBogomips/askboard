@@ -8,7 +8,7 @@ import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/client/stdio";
 import { FakeChild, fakeMcpServer, fakeSpawn } from "./fake-child.ts";
 import { LINK_RECORDER, LINKS_VARIABLE } from "./link-recorder.ts";
-import type { BoardSession } from "./session.ts";
+import type { BoardSession, Scenario } from "./session.ts";
 import { type SessionProcessOptions, startSessionProcess } from "./session-process.ts";
 import { replayTranscripts } from "./transcripts.ts";
 import { fixtureViewBuild } from "./view-build.ts";
@@ -94,21 +94,25 @@ const answerEvent = { type: "answer", itemId: "database", rev: 1 };
 const start = async (
   fake: ReturnType<typeof fakeProcess>,
   options: Partial<SessionProcessOptions> = {},
+  given: Partial<Scenario> = {},
 ) => {
   const dir = await scratch();
   const bundle = join(dir, "askboard.mjs");
   await Bun.write(bundle, "// the session process\n");
   const approvedAsk = join(dir, "plain-choice.json");
   await Bun.write(approvedAsk, JSON.stringify(approved));
-  const session = await startSessionProcess(scenario, {
-    bundle,
-    approvedAsk,
-    spawn: fake.spawn,
-    runtime: "bun",
-    exitTimeoutMs: 200,
-    openTimeoutMs: 500,
-    ...options,
-  });
+  const session = await startSessionProcess(
+    { ...scenario, ...given },
+    {
+      bundle,
+      approvedAsk,
+      spawn: fake.spawn,
+      runtime: "bun",
+      exitTimeoutMs: 200,
+      openTimeoutMs: 500,
+      ...options,
+    },
+  );
   sessions.push(session);
   return session;
 };
@@ -185,6 +189,15 @@ describe("startSessionProcess", () => {
     expect(await read(join(projectDir, ".askboard", "config.json"))).toEqual(project);
     // The scenarios reach the user file through the session, to read what a board wrote.
     expect(session.userConfigPath).toBe(join(configHome, "askboard", "config.json"));
+  });
+
+  test("a scenario without a project starts the process without CLAUDE_PROJECT_DIR, the rest still its own", async () => {
+    const fake = fakeProcess();
+    await start(fake, {}, { withoutProject: true });
+    const env = fake.spawned[0]?.options.env ?? {};
+    expect(env).not.toHaveProperty("CLAUDE_PROJECT_DIR");
+    expect(String(env.HOME)).toStartWith(tmpdir());
+    expect(String(env.XDG_CONFIG_HOME)).toStartWith(tmpdir());
   });
 
   test("starts the bundle on Node when asked to", async () => {

@@ -49,7 +49,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const path = (await bannerFeedback(board).locator("code").textContent()) ?? "";
         expect(path).toMatch(new RegExp(`/\\.askboard/snapshots/${twoAsk.askId}-[^/]+\\.html$`));
         expect(await Bun.file(path).exists()).toBe(true);
-        expect(await enabledCount(board.view.getByRole("radio"))).toBe(0);
+        // The density and theme toggles are radios too, and stay usable; only the questions' are refused.
+        const answers = board.view.locator("[data-askboard-question]").getByRole("radio");
+        expect(await answers.count()).toBeGreaterThan(0);
+        expect(await enabledCount(answers)).toBe(0);
         expect(await enabledCount(board.answer)).toBe(0);
         // The bar's Snapshot stays offered on a closed ask.
         expect(await barButton(board, "Snapshot").isDisabled()).toBe(false);
