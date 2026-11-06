@@ -10,7 +10,11 @@ import {
   DRAFT_RECORD_MAX_CHARS,
   SCHEMA_IDS,
 } from "../src/index.ts";
-import { DRAFT_RECORD_MAX_DEPTH } from "../src/lifecycle-limits.ts";
+import {
+  DRAFT_RECORD_MAX_DEPTH,
+  DRAFT_RECORD_OWN_LEVELS,
+  JSON_MAX_DEPTH,
+} from "../src/lifecycle-limits.ts";
 import {
   type Checked,
   draftRecordProblems,
@@ -300,7 +304,7 @@ describe("the draft record", () => {
   };
 
   test("a record nested beyond the depth bound is refused at the record, not thrown", () => {
-    for (const levels of [DRAFT_RECORD_MAX_DEPTH + 1, 1_000_000]) {
+    for (const levels of [JSON_MAX_DEPTH + 1, 1_000_000]) {
       const record = {
         ...lifecycleDraftRecord,
         questions: { payment: { rev: 1, results: { pick: nested(levels) } } },
@@ -325,10 +329,15 @@ describe("the draft record", () => {
     expect(paths(result)).toEqual(["/record"]);
   });
 
+  test("the draft's depth bound is the one JSON bound plus the record's own levels", () => {
+    expect(JSON_MAX_DEPTH).toBe(64);
+    expect(DRAFT_RECORD_MAX_DEPTH).toBe(JSON_MAX_DEPTH + DRAFT_RECORD_OWN_LEVELS);
+  });
+
   test("a record nested at the depth bound passes", () => {
     const record = {
       ...lifecycleDraftRecord,
-      questions: { payment: { rev: 1, results: { pick: nested(DRAFT_RECORD_MAX_DEPTH - 5) } } },
+      questions: { payment: { rev: 1, results: { pick: nested(JSON_MAX_DEPTH) } } },
     };
     expect(validateBoardMessage("toHost", { ...draft, record }).ok).toBe(true);
   });

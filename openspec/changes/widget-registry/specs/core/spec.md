@@ -16,7 +16,7 @@
 - **THEN** no graph is built and no `formula` warning is given
 
 ### Requirement: Widget results in an answer
-`ask-core` SHALL accept an answer's `results` only when each key, an own property, names a widget item of the answered question in the named revision whose type declares a result, and each result passes that type's schema and checks against the item's edited value, else its props as sent. Any failure SHALL refuse the answer with the log unchanged. A result SHALL count as an answer's content (AD-10, AD-20, NFR-10).
+`ask-core` SHALL accept an answer's `results` only when each key, an own property, names a widget item of the answered question in the named revision whose type declares a result, and each result passes that type's schema and checks against the item's edited value, else its props as sent. Any failure SHALL refuse the answer with the log unchanged. A result SHALL count as an answer's content. A result and a derived value SHALL be JSON nested no deeper than 64 levels, the contract's one bound, and a deeper one SHALL be refused naming the depth, never walked (AD-10, AD-20, NFR-10).
 
 #### Scenario: A probe result
 - **WHEN** an answer carries a result its type admits for a probe item, and nothing else

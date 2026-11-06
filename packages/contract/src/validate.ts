@@ -159,7 +159,7 @@ const nestsWithin = (value: unknown, maxDepth: number): boolean => {
 // JSON is longer than the draft limit.
 const withinDraftLimit = <T>(checked: Checked<T>, record: unknown): Checked<T> => {
   if (!nestsWithin(record, DRAFT_RECORD_MAX_DEPTH)) {
-    const message = `the draft record nests deeper than the ${DRAFT_RECORD_MAX_DEPTH} levels the board protocol accepts`;
+    const message = `the draft record is nested deeper than ${DRAFT_RECORD_MAX_DEPTH} levels, the most the board protocol accepts`;
     return { ok: false, reason: "schema", problems: [{ path: "/record", message }] };
   }
   const size = JSON.stringify(record).length;

@@ -11,6 +11,7 @@
 import {
   applyElementChanges,
   elementChanges,
+  JSON_MAX_DEPTH,
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
@@ -66,29 +67,38 @@ const namesOf = (types: readonly WidgetType[]): string => {
 // Where in a result a problem lies, for the refusal's text.
 const at = (path: string): string => (path === "/" || path === "" ? "" : ` (at ${path})`);
 
-/** The deepest nesting a result or a derived value may have; deeper is refused, never walked. */
-export const JSON_MAX_DEPTH = 64;
-
 /**
- * Whether `value` is JSON, nested no deeper than `JSON_MAX_DEPTH`. An explicit stack walks it, so
- * that a value nested a million deep, or one that holds itself, is refused and never throws
+ * Why `value` is no JSON value of at most `JSON_MAX_DEPTH` levels, if it is not: nested deeper
+ * (`nested`, which a value that holds itself is too) or holding a value JSON has no form for. An
+ * explicit stack walks it, so that a value nested a million deep is refused and never throws
  * (AD-10, NFR-10).
  */
-const isJson = (value: unknown): boolean => {
+const jsonFault = (value: unknown): "nested" | "not-json" | undefined => {
   const stack: { readonly value: unknown; readonly depth: number }[] = [{ value, depth: 0 }];
   for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
     const { value: at, depth } = next;
     if (at === null || typeof at === "string" || typeof at === "boolean") continue;
     if (typeof at === "number") {
       if (Number.isFinite(at)) continue;
-      return false;
+      return "not-json";
     }
-    if (depth >= JSON_MAX_DEPTH) return false;
+    if (depth >= JSON_MAX_DEPTH) return "nested";
     const children = Array.isArray(at) ? at : isRecord(at) ? Object.values(at) : undefined;
-    if (children === undefined) return false;
+    if (children === undefined) return "not-json";
     for (const child of children) stack.push({ value: child, depth: depth + 1 });
   }
-  return true;
+  return undefined;
+};
+
+// The refusal of a value that is no bounded JSON, naming `what`, or none.
+const jsonRefusal = (value: unknown, what: string): ContentProblem | undefined => {
+  const fault = jsonFault(value);
+  if (fault === undefined) return undefined;
+  return refused(
+    fault === "nested"
+      ? `${what} is nested deeper than ${JSON_MAX_DEPTH} levels`
+      : `${what} is not JSON`,
+  );
 };
 
 /** The question's props with each edited value in place of the item's props. */
@@ -161,7 +171,8 @@ const resultsProblem = (
     if (item === undefined) {
       return refused(`results name "${id}", which is no ${namesOf(types)} item of the question`);
     }
-    if (!isJson(result)) return refused(`the result of item "${id}" is not JSON`);
+    const unfit = jsonRefusal(result, `the result of item "${id}"`);
+    if (unfit !== undefined) return unfit;
     const edited = Object.hasOwn(values, id) ? values[id] : item.props;
     const [first] = widgetResultProblems(item, result, edited, types);
     if (first !== undefined) return refused(`${first.message}${at(first.path)}`);
@@ -211,7 +222,8 @@ const derivedProblem = (
     const why = addressProblem(item, rest, props, types);
     if (why !== undefined)
       return refused(`the derived key "${key}" is no field its widget declares: ${why}`);
-    if (!isJson(value)) return refused(`the derived value of "${key}" is not JSON`);
+    const unfit = jsonRefusal(value, `the derived value of "${key}"`);
+    if (unfit !== undefined) return unfit;
   }
   return undefined;
 };

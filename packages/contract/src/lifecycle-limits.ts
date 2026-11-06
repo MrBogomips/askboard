@@ -33,12 +33,21 @@ export const OPTION_NOTE_MAX_CHARS = 2_000;
 export const DRAFT_RECORD_MAX_CHARS = 2_000_000;
 
 /**
- * The deepest nesting a draft record may have: `ask-core` refuses a result or a derived value
- * nested beyond 64 levels, and the record's own levels (questions, a question, its results, an
- * item) come on top, so 80. A deeper record is refused, never walked: `JSON.stringify` throws on
- * one nested far enough (widget-registry, design decision 6; NFR-10).
+ * The deepest nesting a result or a derived value may have, in levels of objects and arrays:
+ * `ask-core` refuses a deeper one and the draft record refuses a record that holds one, never
+ * walking it, since `JSON.stringify` throws on one nested far enough (widget-registry, design
+ * decision 6; AD-10, NFR-10). The one bound: no other module states its own.
  */
-export const DRAFT_RECORD_MAX_DEPTH = 80;
+export const JSON_MAX_DEPTH = 64;
+
+/** The levels a draft record has of its own above a result: the record, `questions`, a question, `results`. */
+export const DRAFT_RECORD_OWN_LEVELS = 4;
+
+/**
+ * The deepest nesting a draft record may have: a result at the JSON bound under the record's own
+ * levels, so a result `ask-core` accepts is one the draft mirror carries.
+ */
+export const DRAFT_RECORD_MAX_DEPTH = JSON_MAX_DEPTH + DRAFT_RECORD_OWN_LEVELS;
 
 /**
  * The most characters of an item's RFC 8785 JSON text one `fetch` page holds, so that a page with

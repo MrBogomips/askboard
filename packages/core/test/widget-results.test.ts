@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ANSWER_EVENT_MAX_CHARS, type AnswerEvent } from "@askboard/contract";
+import { ANSWER_EVENT_MAX_CHARS, type AnswerEvent, JSON_MAX_DEPTH } from "@askboard/contract";
 import { PROBE_TYPES, PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { validateAgainst } from "@askboard/contract/validate";
 import { AskCore } from "../src/index.ts";
@@ -96,10 +96,26 @@ describe("a result in an answer act", () => {
     cyclic.self = cyclic;
     for (const result of [deep, cyclic]) {
       const problem = refusal([answerAct({ results: { pick: result } })], model);
-      expect(problem.detail).toContain("is not JSON");
+      expect(problem.detail).toContain(`nested deeper than ${JSON_MAX_DEPTH} levels`);
+      expect(problem.detail).not.toContain("is not JSON");
     }
     const derived = refusal([answerAct({ derived: { "pick.count": deep } })], model);
-    expect(derived.detail).toContain("is not JSON");
+    expect(derived.detail).toContain(`nested deeper than ${JSON_MAX_DEPTH} levels`);
+  });
+
+  test("the depth bound is the contract's, 64 levels: one level more is refused, the bound itself passes", () => {
+    expect(JSON_MAX_DEPTH).toBe(64);
+    const model = modelOf([PROBE_ITEM]);
+    const nested = (levels: number): Json => {
+      let value: Json = { pick: "a" };
+      for (let level = 1; level < levels; level++) value = { pick: value };
+      return value;
+    };
+    // The probe's schema refuses the shape, but only after the depth check: the message tells which.
+    const over = refusal([answerAct({ results: { pick: nested(JSON_MAX_DEPTH + 1) } })], model);
+    expect(over.detail).toContain(`nested deeper than ${JSON_MAX_DEPTH} levels`);
+    const within = refusal([answerAct({ results: { pick: nested(JSON_MAX_DEPTH) } })], model);
+    expect(within.detail).not.toContain("nested deeper");
   });
 
   test("results that name nothing are no content", () => {
