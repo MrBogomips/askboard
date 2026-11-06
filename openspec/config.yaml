@@ -11,24 +11,25 @@ context: |
   AskBoard depends on nothing in AXFX. The contract AXFX requires of AskBoard lives in the AXFX PRD (§5.10, §6, §7) in the planning repository; changes to it are requested there.
   Designs and tasks cover macOS and Linux, including devcontainers and CI runners; Windows only through WSL (NFR-7).
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+# Per-artifact rules, added to the schema's own guidance. The agent harness (CLAUDE.md, Agent
+# harness) relies on them.
+rules:
+  design:
+    - List the changes in flight that this change touches (`openspec list` and their designs) as merge points, with every seam it borrows from them. Borrow only names present on main; a seam from an unmerged change is re-checked at the rebase before the pull request.
+    - Write a new version of a contract schema set as "next minor after main's", never as a number taken from another change in flight; the number is bound at the rebase before the pull request (the askboard-contract-versioning skill).
+    - Mark every assumption about Claude Code's run-time behaviour (the mod API, hooks, agent and teammate IDs, auto mode, permission prompts) "needs probe", and verify it against the documentation or with a probe task in group 0 before anything relies on it.
+  tasks:
+    - Each task names its tests first and carries a Verify clause.
+    - End each implementation group with a review checkpoint task. It is a spec review of the group's range. It adds a security review when the group touches the board host or its local API, hooks, the mod, the contract's schemas or validators, the view's sandbox or page policy, the file system or the network.
+    - Keep each as-built note to about five lines. Record what was built, the test counts and the deviations.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+# Per-operation guidance, advisory, for apply and archive.
+operations:
+  apply:
+    guidance:
+      - The session that runs apply coordinates through the askboard-delivery skill. It delegates each task group to the askboard-implementer agent. It runs each group's review checkpoint with askboard-spec-reviewer, and adds askboard-security-reviewer when the checkpoint asks for it.
+      - An askboard-implementer agent implements the group it was given directly and does not delegate it further.
+      - Raise the implementer's effort to high for contract and core groups, for rebase conflicts and for a second attempt at a task.
+  archive:
+    guidance:
+      - Archive only after the pull request is merged. Every Verify task must be ticked or have its reason recorded. The CLAUDE.md Status and "In code since" lines must describe the change as built. The PRD, the spine and the UX documents must carry the updates the change states.
