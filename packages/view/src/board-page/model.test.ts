@@ -216,22 +216,18 @@ describe("an answer from the view becomes an answer act only if it can be (AD-10
     expect(detailOf(ready(), { ...answer, choice: ["Oracle"] })).toContain('"Oracle"');
   });
 
-  test("not with widget values: the board protocol carries no widget value yet", () => {
-    // A test-only `probe` widget item's value (design decision 12).
+  test("not with widget values for an item the question does not hold, or with no content at all", () => {
+    // A test-only `probe` widget item's value: the plain-choice question holds no widget item.
     const values = { sketch: { size: 4 } };
-    expect(detailOf(ready(), { ...answer, values })).toBe(
-      "the board protocol carries no widget value yet",
-    );
+    const foreign =
+      'the answer carries a value for "sketch", which is not a widget item of the question';
+    expect(detailOf(ready(), { ...answer, values })).toBe(foreign);
     const { choice: _, ...widgetOnly } = answer;
-    expect(detailOf(ready(), { ...widgetOnly, values })).toBe(
-      "the board protocol carries no widget value yet",
-    );
+    expect(detailOf(ready(), { ...widgetOnly, values })).toBe(foreign);
     expect(detailOf(ready(), widgetOnly)).toBe(
-      "the answer carries no choice and no Other… text, and the board protocol carries no widget value yet",
+      "the answer carries no choice, no Other… text and no widget value",
     );
-    expect(detailOf(EMPTY_MODEL, { ...answer, values })).toBe(
-      "the board protocol carries no widget value yet",
-    );
+    expect(detailOf(EMPTY_MODEL, { ...answer, values })).toBe("there is no board yet");
   });
 
   test("one label, unless the question is multiSelect", () => {
@@ -301,18 +297,13 @@ describe("the user's acts become one act command only if each can be (ask-lifecy
     expect(actsFor(loaded(), acts)).toEqual({ ok: true, value: acts as never });
   });
 
-  test("an answer act's derived values never reach board-host (gantt-widget design decision 10; cross-review M3)", () => {
-    // A test-only `probe` widget item's value and derived value (design decision 12).
-    const values = { sketch: { size: 4 } };
-    const derived = { "sketch.area": 16 };
+  test("an answer act's derived values beside a choice reach board-host (design decision 10)", () => {
     const act = { type: "answer", itemId: "region", rev: 1, choice: ["EU"], when } as const;
-    // Beside widget values, refused as they are.
-    expect(detailOf([{ ...act, values, derived }])).toBe(
-      "the board protocol carries no widget value yet",
-    );
-    // The view protocol refuses derived values without widget values; were they to come, the
-    // board protocol's act would still carry none.
-    expect(actsFor(loaded(), [{ ...act, derived }])).toEqual({ ok: true, value: [act] });
+    const derived = { "plan.finish": "2026-12-02" };
+    expect(actsFor(loaded(), [{ ...act, derived }])).toEqual({
+      ok: true,
+      value: [{ ...act, derived }],
+    });
   });
 
   test("an answer's option notes name the question's options; Other only where it is offered", () => {

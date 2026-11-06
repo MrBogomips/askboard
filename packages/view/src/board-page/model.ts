@@ -189,10 +189,6 @@ export type ActsOrRefusal =
 
 const refuse = (detail: string): ActsOrRefusal => ({ ok: false, detail });
 
-// What the board protocol cannot carry yet: its answer act has a choice and no widget value
-// (design decision 7). The question stays open, since the view drops a refused act.
-const NO_WIDGET_VALUE = "the board protocol carries no widget value yet";
-
 type Known = {
   readonly document: LifecycleBoardDocument;
   readonly state: LifecycleBoardState;
@@ -225,8 +221,8 @@ const contentProblem = (
   answer: Extract<ViewAct, { readonly type: "answer" }>,
   question: ViewQuestion,
 ): string | undefined => {
-  if (answer.choice === undefined && answer.other === undefined) {
-    return `the answer carries no choice and no Other… text, and ${NO_WIDGET_VALUE}`;
+  if (answer.choice === undefined && answer.other === undefined && answer.values === undefined) {
+    return "the answer carries no choice, no Other… text and no widget value";
   }
   if (answer.rev !== question.rev) return undefined;
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
@@ -243,6 +239,20 @@ const contentProblem = (
   return undefined;
 };
 
+// Each key of an answer's widget values names a widget item of its question (design decision 8);
+// checked against the current revision only, since ask-core checks an earlier one it keeps.
+const valuesProblem = (
+  answer: Extract<ViewAct, { readonly type: "answer" }>,
+  question: ViewQuestion,
+): string | undefined => {
+  if (answer.values === undefined || answer.rev !== question.rev) return undefined;
+  const widgets = new Set((question.props.items ?? []).map((item) => item.id));
+  const foreign = Object.keys(answer.values).find((itemId) => !widgets.has(itemId));
+  return foreign === undefined
+    ? undefined
+    : `the answer carries a value for "${foreign}", which is not a widget item of the question`;
+};
+
 const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | undefined => {
   const { question } = known;
   if (model.failed.has(question.id)) return "the question's item failed in the view";
@@ -250,29 +260,17 @@ const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | und
   const revision = revisionProblem(act, question);
   if (revision !== undefined) return revision;
   if (act.type !== "answer") return undefined;
-  if (act.values !== undefined) return NO_WIDGET_VALUE;
-  return contentProblem(act, question);
-};
-
-// The board protocol's act for the view's: the same fields, without a widget value or the derived
-// values that come beside one (gantt-widget design decision 10; cross-review M3).
-const protocolAct = (act: ViewAct): Act => {
-  if (act.type !== "answer") return act as Act;
-  const { values: _, derived: _derived, ...answer } = act;
-  return answer as Act;
+  return valuesProblem(act, question) ?? contentProblem(act, question);
 };
 
 /**
  * The acts of one command, as the board protocol has them, or why the board page refuses the
  * command: each act must name a question of the board, visible and not failed, at the revision
- * the user acted on, with an answer's content the question offers and no widget value, on an ask
+ * the user acted on, with an answer's content the question offers and widget values only for its own widget items, on an ask
  * that is not closed (AD-9, AD-10, FR-6). `board-host` checks them again; this keeps the board
  * page from sending what it knows cannot be applied.
  */
 export const actsFor = (model: BoardModel, acts: readonly ViewAct[]): ActsOrRefusal => {
-  if (acts.some((act) => act.type === "answer" && act.values !== undefined)) {
-    return refuse(NO_WIDGET_VALUE);
-  }
   const { document, state } = model;
   if (document === undefined || state === undefined) return refuse("there is no board yet");
   if (state.ask === "closed") return refuse("the ask is closed");
@@ -287,7 +285,7 @@ export const actsFor = (model: BoardModel, acts: readonly ViewAct[]): ActsOrRefu
       return refuse(acts.length === 1 ? problem : `act ${index + 1}: ${problem}`);
     }
   }
-  const [first, ...rest] = acts.map(protocolAct);
+  const [first, ...rest] = acts as readonly Act[];
   return first === undefined
     ? refuse("the command holds no act")
     : { ok: true, value: [first, ...rest] };

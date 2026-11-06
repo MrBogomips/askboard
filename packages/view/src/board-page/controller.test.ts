@@ -120,7 +120,12 @@ describe("answers, as act commands with action IDs (FR-22, AD-10, AD-20)", () =>
     expect(run.acts(1)).toEqual([]);
   });
 
-  test("an answer carrying widget values is refused, saying why, and nothing goes (design decision 7)", async () => {
+  const foreign = (itemId: string) => ({
+    outcome: "refused",
+    detail: `the answer carries a value for "${itemId}", which is not a widget item of the question`,
+  });
+
+  test("an answer with a value for an item its question does not hold is refused, saying why, and nothing goes (design decision 8)", async () => {
     const run = await opened();
     // A test-only `probe` widget item's value (design decision 12).
     const values = { sketch: { size: 4 } };
@@ -129,22 +134,18 @@ describe("answers, as act commands with action IDs (FR-22, AD-10, AD-20)", () =>
       { ...answer, values },
       { ...widgetOnly, values },
     ]) {
-      expect(await run.view(message)).toEqual({
-        outcome: "refused",
-        detail: "the board protocol carries no widget value yet",
-      });
+      expect(await run.view(message)).toEqual(foreign("sketch"));
     }
-    expect(await run.view({ type: "act", acts: [{ ...answerAct, values }] })).toEqual({
-      outcome: "refused",
-      detail: "the board protocol carries no widget value yet",
-    });
+    expect(await run.view({ type: "act", acts: [{ ...answerAct, values }] })).toEqual(
+      foreign("sketch"),
+    );
     expect(run.acts(1)).toEqual([]);
     expect(run.updates.every((update) => update.pending === undefined)).toBe(true);
     expect(await run.view(answer)).toEqual(sent());
     expect(run.acts(1)).toEqual([command]);
   });
 
-  test("an answer or answer act carrying a Gantt's value and derived values is refused, saying why, and nothing goes (gantt-widget design decision 10; cross-review M3)", async () => {
+  test("an answer or answer act carrying a Gantt's value for an item of another question is refused, saying why, and nothing goes (design decision 8)", async () => {
     const run = await opened();
     const gantt = {
       values: { release: ganttEditedValue },
@@ -158,10 +159,7 @@ describe("answers, as act commands with action IDs (FR-22, AD-10, AD-20)", () =>
       { type: "act", acts: [{ ...answerAct, ...gantt }] } as const,
       { type: "act", acts: [{ ...widgetOnlyAct, ...gantt }] } as const,
     ]) {
-      expect(await run.view(message)).toEqual({
-        outcome: "refused",
-        detail: "the board protocol carries no widget value yet",
-      });
+      expect(await run.view(message)).toEqual(foreign("release"));
     }
     expect(run.acts(1)).toEqual([]);
     expect(run.updates.every((update) => update.pending === undefined)).toBe(true);

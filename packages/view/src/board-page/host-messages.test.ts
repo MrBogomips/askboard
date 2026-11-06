@@ -131,6 +131,22 @@ describe("the messages board-host sends, as the board page reads them (AD-7)", (
   });
 });
 
+describe("a board document with a molecule reference (widget-answers, task 5.1)", () => {
+  test("is refused: board-host sends molecules expanded, never as references", () => {
+    const [question] = treeBoardDocument.items;
+    const reference = { type: "molecule", id: "wbs", props: { molecule: "wbs-pert" } };
+    const message = JSON.stringify({
+      version: "1.0",
+      type: "board",
+      document: {
+        ...treeBoardDocument,
+        items: [{ ...question, props: { ...question?.props, items: [reference] } }],
+      },
+    });
+    expect(readHostMessage(message)).toMatchObject({ ok: false, reason: "schema" });
+  });
+});
+
 describe("push delivery's origin and agent messages (task 8.4, design decision 12)", () => {
   test.each([
     ["a subagent's origin", subagentOrigin],
