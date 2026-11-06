@@ -16,7 +16,7 @@
 - **THEN** no graph is built and no `formula` warning is given
 
 ### Requirement: Widget results in an answer
-`ask-core` SHALL accept an answer's `results` only when each key, an own property, names a widget item of the answered question in the named revision whose type declares a result, and each result passes that type's schema and checks against the item's edited value, else its props as sent. Any failure SHALL refuse the answer with the log unchanged. A result SHALL count as an answer's content. A result and a derived value SHALL be JSON nested no deeper than 64 levels, the contract's one bound, and a deeper one SHALL be refused naming the depth, never walked (AD-10, AD-20, NFR-10).
+`ask-core` SHALL accept an answer's `results` only when each key, an own property, names a widget item of the answered question in the named revision whose type declares a result, and each result passes that type's schema and checks against the item's edited value, else its props as sent. Any failure SHALL refuse the answer with the log unchanged. A result SHALL count as an answer's content (AD-10, AD-20, NFR-10).
 
 #### Scenario: A probe result
 - **WHEN** an answer carries a result its type admits for a probe item, and nothing else
@@ -37,6 +37,13 @@
 #### Scenario: A decline with a result
 - **WHEN** a decline carries `results`
 - **THEN** it is refused, with the log unchanged
+
+### Requirement: Results and derived values are bounded JSON
+A result and a derived value SHALL be JSON nested no deeper than 64 levels, the contract's one bound (`JSON_MAX_DEPTH`); a deeper one, or one that holds itself, SHALL be refused naming the depth, never walked (AD-10, NFR-10).
+
+#### Scenario: A result nested past the bound
+- **WHEN** an answer carries a result, or a derived value, nested deeper than 64 levels
+- **THEN** the answer is refused, saying it is nested deeper than 64 levels, with the log unchanged
 
 ### Requirement: Widget results logged and kept
 `ask-core` SHALL log an answer's results in its event's `results`, keyed in reference addressing, keep them with the answer's full edited values apart from the log until the ask is discarded, and give them to the board state's current and previous answers by expanded item ID (AD-9, AD-20).

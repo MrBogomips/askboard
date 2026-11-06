@@ -62,6 +62,12 @@ export type AnswerContent = {
   readonly choice?: readonly string[];
   /** Each changed widget item's full edited props, by item ID. */
   readonly values?: Readonly<Record<string, unknown>>;
+  /**
+   * The result each widget item of a type that declares one holds, by item ID, each any JSON
+   * value its type defines (widget-registry, design decision 9; AD-20). Content on its own: an
+   * answer may hold nothing else.
+   */
+  readonly results?: Readonly<Record<string, unknown>>;
   /** The "Other…" row's text (FR-3). */
   readonly other?: string;
   /** The user's notes on options, by option label (FR-3, FR-18). */
@@ -370,6 +376,15 @@ const derived: FieldCheck = (value) =>
     ? undefined
     : "is not an object of one or more references (AD-13), each to a JSON value";
 
+// Item IDs, each to a JSON value of the widget's own type, which whoever can carry it checks.
+const results: FieldCheck = (value) =>
+  isRecord(value) &&
+  Object.keys(value).length > 0 &&
+  Object.keys(value).every((key) => ID.test(key)) &&
+  isJsonValue(value)
+    ? undefined
+    : "is not an object of one or more widget item IDs, each to a JSON value";
+
 const utcTime: FieldCheck = (value) =>
   typeof value === "string" && UTC_TIME.test(value) ? undefined : "is not an RFC 3339 time in UTC";
 
@@ -418,24 +433,30 @@ const ANSWER: MessageFields = {
     rev: revision,
     choice,
     values,
+    results,
     derived,
     other: text(OTHER_MAX_CHARS),
     optionNotes,
     note: text(NOTE_MAX_CHARS),
     when: utcTime,
   },
-  someOf: ["choice", "values", "other"],
+  someOf: ["choice", "values", "results", "other"],
   optional: ["derived", "optionNotes", "note"],
 };
 
 // Derived values never make an answer (widget-answers design decision 10): they come beside a
-// choice, widget values or "Other…" text, and an answer of derived values alone is refused, as
+// choice, widget values, results or "Other…" text, and an answer of derived values alone is refused, as
 // `ask-core` refuses it. It holds wherever ANSWER's checks do, for the answer message and the
 // answer act (cross-review M3).
 const derivedAlone = (args: Record<string, unknown>, at = "/arguments"): Problem[] =>
   Object.hasOwn(args, "derived") &&
-  !["choice", "values", "other"].some((field) => Object.hasOwn(args, field))
-    ? [{ path: `${at}/derived`, message: 'comes only beside "choice", "values" or "other"' }]
+  !["choice", "values", "results", "other"].some((field) => Object.hasOwn(args, field))
+    ? [
+        {
+          path: `${at}/derived`,
+          message: 'comes only beside "choice", "values", "results" or "other"',
+        },
+      ]
     : [];
 
 // Each act type's fields, as the board protocol's act command has them.

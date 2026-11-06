@@ -7,7 +7,7 @@
 
 import { type FormulaError, isFormulaError, type NodeResult } from "@askboard/compute";
 import { GANTT_ANSWER_DERIVED } from "@askboard/contract";
-import type { BoardGraph } from "../../graph/board-graph.ts";
+import type { BoardGraph } from "../../board-graph/board-graph.ts";
 
 export type TaskSchedule =
   | {

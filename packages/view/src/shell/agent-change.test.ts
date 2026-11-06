@@ -53,6 +53,9 @@ describe("the agent-change notice (FR-6; task 6.7)", () => {
     };
     values.set("plan", { nodes: [] });
     expect(changeCountOf(widget, values.record(), { rev: 1 })).toBe(2);
+    // A result the user holds is a change too (widget-registry, design decision 9).
+    const results = new Map<string, unknown>([["plan", { pick: "a" }]]);
+    expect(changeCountOf(widget, values.record(), { rev: 1 }, results)).toBe(3);
     expect(changesLabel(1)).toBe("Your 1 change on this question");
     expect(changesLabel(17)).toBe("Your 17 changes on this question");
   });

@@ -51,16 +51,22 @@ const actOf = (
   values: DraftRecord,
   when: string,
   reported: DerivedStore["reported"],
+  results?: DraftRecord,
 ): ViewAct[] => {
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
       const content = withDerived(
-        answerContentOf(question, values, work),
+        answerContentOf(question, values, work, results),
         reported,
         itemIdsOf(question),
       );
-      if (content.choice === undefined && content.values === undefined && !filled(content.other)) {
+      if (
+        content.choice === undefined &&
+        content.values === undefined &&
+        content.results === undefined &&
+        !filled(content.other)
+      ) {
         return [];
       }
       const rev = revisionFor(question, work);
@@ -96,19 +102,21 @@ type Ordered = { readonly order: number; readonly acts: readonly ViewAct[] };
 
 /**
  * What Submit sends: each held act, in the order the user produced them, stamped with the time of
- * the click (FR-19); each answer with the derived values `reported` gives its widget items.
+ * the click (FR-19); each answer with the derived values `reported` gives its widget items, and
+ * with the `results` the widget items hold, which go with the held answer as values do.
  */
 export const submitActsOf = (
   held: readonly HeldWork[],
   values: DraftRecord,
   at: Date,
   reported: DerivedStore["reported"],
+  results?: DraftRecord,
 ): ViewAct[] => {
   const when = at.toISOString();
   return held
     .flatMap((each): Ordered[] => [
       ...undoOf(each),
-      { order: each.work.held.order, acts: actOf(each, values, when, reported) },
+      { order: each.work.held.order, acts: actOf(each, values, when, reported, results) },
     ])
     .sort((a, b) => a.order - b.order)
     .flatMap(({ acts }) => acts);

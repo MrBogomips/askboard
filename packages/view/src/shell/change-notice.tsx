@@ -8,7 +8,7 @@
 
 import type { CurrentAnswer } from "@askboard/contract";
 import { useState } from "react";
-import { useStrings } from "../catalog/port.ts";
+import { componentFacts, useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type FieldChange, type OptionChange, revisionDiff } from "./agent-change.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, CHIP, SECTION_LABEL } from "./styles.ts";
@@ -69,11 +69,13 @@ const OptionLine = ({ option }: { readonly option: OptionChange }) => {
 // element-level view waits for EXPERIENCE to record one (widget-answers, design decision 8).
 const WidgetLine = ({ change }: { readonly change: WidgetChange }) => {
   const text = useStrings();
+  // The name its chunk registered, else the type as sent (widget-registry, design decision 8).
+  const facts = componentFacts(change.type);
   return (
     <li data-askboard-change="widget" data-askboard-widget={change.itemId}>
       {text("change.widget", {
         item: change.itemId,
-        type: text(change.type === "tree" ? "change.widgetTree" : "change.widgetGantt"),
+        type: facts?.name === undefined ? change.type : text(facts.name),
         count: change.operations,
       })}
     </li>

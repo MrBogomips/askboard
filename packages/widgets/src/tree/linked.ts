@@ -16,7 +16,7 @@ import {
   linkedEdit,
   linkedPlans,
   type PlanRefusal,
-} from "../graph/index.ts";
+} from "../board-graph/index.ts";
 import { sameNodes } from "./model/marks.ts";
 import { locate, type Nodes } from "./model/nodes.ts";
 

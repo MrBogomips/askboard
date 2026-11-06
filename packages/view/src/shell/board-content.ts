@@ -59,6 +59,43 @@ const answeredOf = ({ document, state }: BoardSource): Answered => {
   return entries.length === 0 ? NO_ANSWERS : new Map(entries);
 };
 
+/**
+ * The result each widget item's question's latest answer holds for it, by item ID, read as an own
+ * property of the answer's `results` and only for the items the question holds: what an item
+ * shows of its result while the user holds none (widget-registry, design decision 9).
+ */
+export const answeredResultsOf = ({ document, state }: BoardSource): Answered => {
+  const entries = questionsOf(document).flatMap((question) => {
+    const status = statusOf(state, question.id);
+    if (status === undefined || (status.state !== "answered" && status.state !== "declined")) {
+      return [];
+    }
+    const { results }: AnswerContent = status.answer;
+    if (results === undefined) return [];
+    return (question.props.items ?? []).flatMap(({ id }) =>
+      Object.hasOwn(results, id) && results[id] !== undefined ? [[id, results[id]] as const] : [],
+    );
+  });
+  return entries.length === 0 ? NO_ANSWERS : new Map(entries);
+};
+
+/**
+ * A lookup of `answeredResultsOf` over the board as it stands now, made again only when the
+ * document or the state is replaced.
+ */
+export const createAnsweredResults = (
+  sourceOf: () => BoardSource,
+): ((itemId: string) => unknown) => {
+  let last: { readonly source: BoardSource; readonly results: Answered } | undefined;
+  return (itemId) => {
+    const source = sourceOf();
+    if (last?.source.document !== source.document || last.source.state !== source.state) {
+      last = { source, results: answeredResultsOf(source) };
+    }
+    return last.results.get(itemId);
+  };
+};
+
 const sameAnswers = (a: Answered, b: Answered): boolean =>
   a.size === b.size && [...a].every(([id, value]) => b.has(id) && Object.is(b.get(id), value));
 

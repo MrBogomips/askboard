@@ -82,6 +82,32 @@ const CHUNK_COMPONENTS: Readonly<Record<string, readonly string[]>> = {
 export const chunkComponents = (name: string): readonly string[] =>
   Object.hasOwn(CHUNK_COMPONENTS, name) ? (CHUNK_COMPONENTS[name] ?? [name]) : [name];
 
+/**
+ * What fails the build between the contract's widget types and the widgets' chunks (widget-registry,
+ * design decision 10): a registered type that no component chunk registers, and a chunk folder
+ * under `widgetsRoot` whose name is no registered type. The view's catalog chunks (`choice`,
+ * `context`) are no widget folders and are not checked against the registry.
+ */
+export const widgetChunkProblems = (
+  chunks: readonly Pick<ChunkDefinition, "name" | "kind" | "entry">[],
+  types: readonly { readonly type: string }[],
+  widgetsRoot: string = WIDGETS_SRC,
+): string[] => {
+  const components = chunks.filter((chunk) => chunk.kind === "component");
+  const registered = new Set(components.flatMap((chunk) => chunkComponents(chunk.name)));
+  const missing = types
+    .filter(({ type }) => !registered.has(type))
+    .map(({ type }) => `the widget type "${type}" has no component chunk registering it`);
+  const known = new Set(types.map(({ type }) => type));
+  const stray = components
+    .filter((chunk) => chunk.entry === entryOf(widgetsRoot, chunk.name) && !known.has(chunk.name))
+    .map(
+      (chunk) =>
+        `the folder ${join(widgetsRoot, chunk.name)} is a widget chunk, but the registry holds no type "${chunk.name}"`,
+    );
+  return [...missing, ...stray];
+};
+
 const HOST_ONLY = { hostOnly: true } as const;
 
 /** Every chunk, writing the library chunks' generated entries into `work`. */

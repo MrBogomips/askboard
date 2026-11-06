@@ -4,7 +4,8 @@
 // and the licence texts under `licences/`. It fails, naming the chunk, on a chunk that holds
 // `import.meta`, a script or style that cannot be inlined as it is, a package without a licence,
 // a board page that would compile schemas, a chunk that needs a host-only chunk without being one
-// (snapshot design decision 5), a manifest the contract refuses, a file whose hash does not match,
+// (snapshot design decision 5), a registered widget type with no chunk and a widget chunk of no
+// registered type (widget-registry, design decision 10), a manifest the contract refuses, a file whose hash does not match,
 // and a chunk grown more than 10% over `packages/view/chunk-sizes.json`.
 //
 // Usage: bun tools/build/view.ts [--record-sizes] [--out <dir>] [--sizes <file>]
@@ -22,6 +23,7 @@ import {
   VIEW_MANIFEST_FILE,
   VIEW_MANIFEST_VERSION,
   type ViewManifest,
+  WIDGET_TYPES,
 } from "@askboard/contract";
 import type { BunPlugin } from "bun";
 import { boardPageHtml } from "./board-page.ts";
@@ -38,6 +40,7 @@ import {
   chunkComponents,
   chunkDefinitions,
   stylePlanOf,
+  widgetChunkProblems,
 } from "./chunks.ts";
 import { collectNotices, LICENCE_TEXTS, type NoticeFile, staleLicenceTexts } from "./licences.ts";
 import { fileEntry, hashProblems, listedFiles, manifestProblems } from "./manifest.ts";
@@ -120,6 +123,7 @@ type BuiltChunk = Finished & {
 const buildChunks = async (work: string): Promise<BuiltChunk[]> => {
   const modules = sharedModules(await portExports());
   const definitions = await chunkDefinitions(work);
+  failIf(widgetChunkProblems(definitions, WIDGET_TYPES));
   return Promise.all(
     definitions.map(async ({ name, kind, entry, hostOnly }) => {
       const needs = new Set<string>();

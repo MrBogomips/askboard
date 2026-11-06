@@ -7,7 +7,7 @@ import {
   uj2ExpandedEditedValues,
 } from "@askboard/contract/fixtures";
 import type { BoardContent, BoardWidgetItem } from "@askboard/view/catalog";
-import { type BoardGraph, liveGraph, sentGraph } from "../../graph/index.ts";
+import { type BoardGraph, liveGraph, sentGraph } from "../../board-graph/index.ts";
 import {
   PERT_NOT_COMPUTED,
   pertDerived,

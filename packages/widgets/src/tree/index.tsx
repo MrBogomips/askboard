@@ -11,6 +11,7 @@
 // package's in its dependents' (design decision 12).
 
 import {
+  TREE_SHAPE,
   type TreeItem,
   type TreeProps,
   treeDerivedFields,
@@ -26,7 +27,7 @@ import {
   useStrings,
 } from "@askboard/view/catalog";
 import { useCallback, useEffect, useMemo } from "react";
-import { type BoardGraph, liveGraph, sentGraph } from "../graph/index.ts";
+import { type BoardGraph, liveGraph, sentGraph } from "../board-graph/index.ts";
 import { linkedAdd, linkedDelete, linkedDependents } from "./linked.ts";
 import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
@@ -145,4 +146,6 @@ const Tree = ({
   );
 };
 
-register(TREE, Tree);
+// The facts the shell needs of the Tree (widget-registry, design decision 8): the shape of its
+// elements for the agent's change, and its name in the notice.
+register(TREE, Tree, { shape: () => TREE_SHAPE, name: "change.widgetTree" });

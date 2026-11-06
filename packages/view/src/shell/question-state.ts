@@ -1,5 +1,5 @@
 // What a question card shows (EXPERIENCE.md, Question card, Answer and Delivery receipt): from the
-// question's status in the board state, its draft answer (the choice, and the value of each widget
+// question's status in the board state, its draft answer (the choice, and the value and the result of each widget
 // item the user changed, design decision 7; since the ask lifecycle also the "Other…" text, the
 // option notes and the open prompt's note), the command the user has just sent touching it, if
 // any, whether its items have loaded, whether the board page locked the board, and whether its
@@ -71,17 +71,31 @@ export const choiceOf = (value: unknown): readonly string[] => (Array.isArray(va
  * of its widget items that holds one, which a widget sets only while it differs from the agent's
  * content (design decision 7). Built with own properties only, so any item ID is a plain key.
  */
-export const draftAnswerOf = (question: ViewQuestion, record: DraftRecord): AnswerContent => {
+export const draftAnswerOf = (
+  question: ViewQuestion,
+  record: DraftRecord,
+  results: DraftRecord = NO_RESULTS,
+): AnswerContent => {
   const choice = choiceOf(record.get(question.id));
-  const changed = (question.props.items ?? []).flatMap(({ id }) => {
-    const value = record.get(id);
-    return value === undefined ? [] : [[id, value] as const];
-  });
+  const items = question.props.items ?? [];
+  const held = (store: DraftRecord) =>
+    items.flatMap(({ id }) => {
+      const value = store.get(id);
+      return value === undefined ? [] : [[id, value] as const];
+    });
+  const changed = held(record);
+  // The results the question's widget items hold, apart from their edited values, also built from
+  // entries so that any ID is a plain key (widget-registry, design decision 9).
+  const resulting = held(results);
   return {
     ...(choice.length === 0 ? {} : { choice }),
     ...(changed.length === 0 ? {} : { values: Object.fromEntries(changed) }),
+    ...(resulting.length === 0 ? {} : { results: Object.fromEntries(resulting) }),
   };
 };
+
+// No held results: the results store of a board that has none.
+const NO_RESULTS: DraftRecord = new Map();
 
 /**
  * What an item of the card shows in place of its draft value, if anything: the shown choice for
@@ -96,6 +110,20 @@ export const shownFor = (
   if (itemId === questionId) return shown.choice;
   const { values } = shown;
   return values !== undefined && Object.hasOwn(values, itemId) ? values[itemId] : undefined;
+};
+
+/**
+ * What a widget item of the card shows of its result in place of the one it holds, if anything:
+ * the result an answer, sent or logged, holds for it, looked up as an own property.
+ */
+export const shownResultFor = (
+  shown: AnswerContent | undefined,
+  questionId: string,
+  itemId: string,
+): unknown => {
+  if (shown === undefined || itemId === questionId) return undefined;
+  const { results } = shown;
+  return results !== undefined && Object.hasOwn(results, itemId) ? results[itemId] : undefined;
 };
 
 export const statusOf = (
@@ -149,7 +177,10 @@ export const cardState = ({
     };
   }
   const answers =
-    draft.choice !== undefined || draft.values !== undefined || draft.other !== undefined;
+    draft.choice !== undefined ||
+    draft.values !== undefined ||
+    draft.results !== undefined ||
+    draft.other !== undefined;
   // A note alone goes on an open or postponed question; on an answered one it is no revision.
   const noted = draft.note !== undefined && logged === undefined;
   return {
@@ -217,6 +248,7 @@ export const cardActions = (inputs: ActionInputs): CardActions => {
 export const contentOf = ({
   choice,
   values,
+  results,
   derived,
   other,
   optionNotes,
@@ -224,6 +256,7 @@ export const contentOf = ({
 }: AnswerContent): AnswerContent => ({
   ...(choice === undefined ? {} : { choice: [...choice] }),
   ...(values === undefined ? {} : { values }),
+  ...(results === undefined ? {} : { results }),
   ...(derived === undefined ? {} : { derived }),
   ...(other === undefined ? {} : { other }),
   ...(optionNotes === undefined ? {} : { optionNotes: { ...optionNotes } }),

@@ -10,7 +10,10 @@
 // also read the board, its items as sent and the draft record, and report their derived values
 // (gantt-widget design decision 10). Since the molecules change (design decision 11), a component
 // may put several items of its question into the draft record in one update, and an item shows the
-// board's shown value, its answer's on a question being revised, until the user changes it.
+// board's shown value, its answer's on a question being revised, until the user changes it. A
+// component also reports a result beside its value, into the results store beside the draft
+// record, and reads the result it holds, else its latest answer's (widget-registry, design
+// decision 9).
 
 import { Component, type ReactNode, useCallback, useMemo, useSyncExternalStore } from "react";
 import type { Rendered } from "../catalog/components.ts";
@@ -23,8 +26,8 @@ import {
   useStrings,
 } from "../catalog/port.ts";
 import type { DerivedStore } from "./derived-store.ts";
-import type { DraftRecord, DraftStore } from "./draft-store.ts";
-import { itemCallbacks, itemValueOf } from "./item-callbacks.ts";
+import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-store.ts";
+import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 
 export type RenderContext = {
@@ -33,7 +36,14 @@ export type RenderContext = {
   /** The board a component reads as its `board` prop, for a draft record (`board-content.ts`). */
   readonly boardContent: (draft: DraftRecord) => BoardContent;
   readonly derived: DerivedStore;
+  /** The results the widget items hold, beside the draft record; none: no item holds a result. */
+  readonly results?: DraftStore;
+  /** The result an item's question's latest answer holds for it (`createAnsweredResults`). */
+  readonly answeredResult?: (itemId: string) => unknown;
 };
+
+// What an item follows while the board has no results store: nothing is ever put into it.
+const NO_RESULTS = createDraftStore();
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -113,6 +123,8 @@ type RenderItemProps = Rendered & {
   readonly disabled: boolean;
   /** What the item shows in place of its draft value, such as the answer the log holds. */
   readonly shown?: unknown;
+  /** The result the item shows in place of the one it holds, such as the answer's being sent. */
+  readonly shownResult?: unknown;
   /** What the shell hands the component beside the port's props, such as Choice's extras. */
   readonly extras?: unknown;
   /** Runs before each value the component puts back, such as the start of a revision. */
@@ -131,13 +143,15 @@ export const RenderItem = ({
   context,
   disabled,
   shown,
+  shownResult,
   extras,
   onBeforeChange,
 }: RenderItemProps) => {
-  const { draft, tracker, boardContent, derived } = context;
+  const { draft, tracker, boardContent, derived, results = NO_RESULTS, answeredResult } = context;
   // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record);
   const board = boardContent(record);
+  const heldResults = useSyncExternalStore(results.subscribe, results.record);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
     [derived, item.id],
@@ -146,9 +160,19 @@ export const RenderItem = ({
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
     [tracker, item.id],
   );
-  const { onValueChange, onValuesChange } = useMemo(
-    () => itemCallbacks({ draft, itemId: item.id, questionId, itemIds, onBeforeChange, onError }),
-    [draft, item.id, questionId, itemIds, onBeforeChange, onError],
+  const heldStore = context.results;
+  const { onValueChange, onValuesChange, onResultChange } = useMemo(
+    () =>
+      itemCallbacks({
+        draft,
+        results: heldStore,
+        itemId: item.id,
+        questionId,
+        itemIds,
+        onBeforeChange,
+        onError,
+      }),
+    [draft, heldStore, item.id, questionId, itemIds, onBeforeChange, onError],
   );
   const Item = (componentFor(component) ?? Unregistered) as Rendering;
   return (
@@ -160,6 +184,8 @@ export const RenderItem = ({
           value={itemValueOf(shown, board, item.id)}
           onValueChange={onValueChange}
           onValuesChange={onValuesChange}
+          result={itemResultOf(shownResult, heldResults.get(item.id), answeredResult?.(item.id))}
+          onResultChange={onResultChange}
           disabled={disabled}
           ready={tracker.readyFor(item.id)}
           board={board}

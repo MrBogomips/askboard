@@ -3,30 +3,26 @@
 // number of element operations the contract's generic diff gives between the two revisions. An
 // item the agent added or removed has no earlier or later props to diff and is not listed.
 
-import { type ElementShape, elementChanges, ganttShape, TREE_SHAPE } from "@askboard/contract";
+import { elementChanges } from "@askboard/contract";
+import { componentFacts } from "../catalog/port.ts";
 import type { ViewQuestionProps, WidgetItem } from "../view-document.ts";
 
-/** One changed widget item: its ID, its type's name, and its element operations. */
+/** One changed widget item: its ID, its type as sent, and its element operations. */
 export type WidgetChange = {
   readonly itemId: string;
-  readonly type: "tree" | "gantt";
+  readonly type: string;
   readonly operations: number;
 };
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-// The shape the one generic diff takes for an item, as `elementShapeOf` gives it (AD-20).
-const shapeOf = (item: WidgetItem): ElementShape | undefined => {
-  if (item.type === "tree") return TREE_SHAPE;
-  if (item.type === "gantt") return ganttShape(isRecord(item.props) ? item.props : {});
-  return undefined;
-};
-
+// The item's changes, by the shape its type's chunk registered with its component (widget-registry,
+// design decision 8): a type whose chunk gave none is not listed, as an added item is not.
 const changeOf = (before: WidgetItem, after: WidgetItem): WidgetChange | undefined => {
-  const shape = shapeOf(after);
-  if ((after.type !== "tree" && after.type !== "gantt") || shape === undefined) return undefined;
   if (!isRecord(before.props) || !isRecord(after.props)) return undefined;
+  const shape = componentFacts(after.type)?.shape?.(after.props);
+  if (shape === undefined) return undefined;
   const operations = elementChanges(after.id, before.props, after.props, shape).length;
   return operations === 0 ? undefined : { itemId: after.id, type: after.type, operations };
 };

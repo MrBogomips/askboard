@@ -12,10 +12,10 @@
 // leaves the Gantt untouched. After each rebuild it reports its declared derived values, which
 // "Answer" carries; while its question is answered, being sent or locked, it takes no edit.
 
-import type { GanttItem, GanttProps } from "@askboard/contract";
+import { type GanttItem, type GanttProps, ganttShape } from "@askboard/contract";
 import { type ItemProps, register, useReadyAfterLayout } from "@askboard/view/catalog";
 import { useCallback, useEffect, useMemo } from "react";
-import { liveGraph, sentGraph } from "../graph/index.ts";
+import { liveGraph, sentGraph } from "../board-graph/index.ts";
 import { GanttFrame } from "./frame.tsx";
 import { sameGantt } from "./model/edits.ts";
 import { ganttMarks, ganttRows } from "./model/kinds.ts";
@@ -104,4 +104,9 @@ const Gantt = ({
   );
 };
 
-register(GANTT, Gantt);
+// The facts the shell needs of the Gantt (widget-registry, design decision 8): the shape of its
+// elements, which depends on its props, for the agent's change, and its name in the notice.
+register(GANTT, Gantt, {
+  shape: (props) => ganttShape(props as object),
+  name: "change.widgetGantt",
+});

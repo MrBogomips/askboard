@@ -23,7 +23,7 @@ import {
 export const CATALOG_PORT = "@askboard/view/catalog";
 
 /** The name the board graph is shared under; `widgets` exports no such entry. */
-export const BOARD_GRAPH = "@askboard/widgets/graph";
+export const BOARD_GRAPH = "@askboard/widgets/board-graph";
 
 /**
  * The shared modules imported by a relative path to their file, with the end of the paths that
@@ -32,7 +32,7 @@ export const BOARD_GRAPH = "@askboard/widgets/graph";
  */
 const BY_PATH: Readonly<Record<string, { readonly file: string; readonly tail: RegExp }>> = {
   [CATALOG_PORT]: { file: PORT_FILE, tail: /(^|\/)port\.ts$/ },
-  [BOARD_GRAPH]: { file: GRAPH_FILE, tail: /(^|\/)graph\/index\.ts$/ },
+  [BOARD_GRAPH]: { file: GRAPH_FILE, tail: /(^|\/)board-graph\/index\.ts$/ },
 };
 
 /** `*`: the whole module, as one object; a list: exactly those exports, so another fails the build. */

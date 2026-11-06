@@ -54,6 +54,7 @@ export type BottomBarProps = {
   readonly locked: boolean;
   readonly context: Senders & {
     readonly draft: DraftStore;
+    readonly results?: DraftStore;
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
@@ -88,6 +89,7 @@ export const BottomBar = (props: BottomBarProps) => {
       context.draft.record(),
       new Date(),
       context.derived.reported,
+      context.results?.record(),
     );
     const [first, ...rest] = acts;
     if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { WIDGET_TYPES } from "@askboard/contract";
 import {
   bundleChunk,
   type ChunkDefinition,
@@ -10,6 +11,7 @@ import {
   chunkDefinitions,
   componentChunks,
   HOST_ONLY_CHUNKS,
+  widgetChunkProblems,
 } from "./chunks.ts";
 import { collectNotices } from "./licences.ts";
 import { CATALOG_DIR, PORT_FILE, ROOT, WIDGETS_SRC } from "./paths.ts";
@@ -41,6 +43,7 @@ beforeAll(async () => {
   await write("widgets/probe/index.tsx", PROBE_SOURCE);
   await write("widgets/shared/ids.ts", "export {};\n");
   await write("twice/choice/index.tsx", "export {};\n");
+  await write("stray/kanban/index.tsx", "export {};\n");
 });
 
 afterAll(async () => {
@@ -149,5 +152,41 @@ describe("host-only chunks (snapshot design decision 5)", () => {
     const definitions = await chunkDefinitions(join(dir, "work"), roots());
     const marked = definitions.filter((definition) => definition.hostOnly === true);
     expect(marked.map(({ name, kind }) => `${kind} ${name}`)).toEqual(["library ext-apps"]);
+  });
+});
+
+describe("the widget types and their chunks (widget-registry, design decision 10)", () => {
+  const probe = { type: "probe" };
+
+  test("a registered type no component chunk registers fails, naming the type", async () => {
+    const chunks = await componentChunks([join(dir, "catalog")]);
+    const problems = widgetChunkProblems(chunks, [probe], join(dir, "widgets"));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('"probe"');
+  });
+
+  test("a widget folder holding a chunk whose name is no registered type fails, naming the folder", async () => {
+    const chunks = await componentChunks([join(dir, "stray")]);
+    const problems = widgetChunkProblems(chunks, [], join(dir, "stray"));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain(join(dir, "stray/kanban"));
+  });
+
+  test("a chunk for every registered type, and a catalog chunk beside them, pass", async () => {
+    const chunks = await componentChunks(roots());
+    expect(widgetChunkProblems(chunks, [probe], join(dir, "widgets"))).toEqual([]);
+  });
+
+  test("a type is registered by a chunk that lists it among its components, not only by its name", () => {
+    const context = {
+      name: "context",
+      kind: "component" as const,
+      entry: join(dir, "catalog/context/index.tsx"),
+    };
+    expect(widgetChunkProblems([context], [{ type: "image" }], join(dir, "widgets"))).toEqual([]);
+  });
+
+  test("today's catalogue passes: the Tree and the Gantt have their chunks, nothing else is a widget folder", async () => {
+    expect(widgetChunkProblems(await componentChunks(), WIDGET_TYPES)).toEqual([]);
   });
 });

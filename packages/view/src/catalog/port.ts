@@ -9,7 +9,7 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import type { Locale } from "@askboard/contract";
+import type { ElementShape, Locale } from "@askboard/contract";
 import { createContext, type ReactNode, useCallback, useContext, useLayoutEffect } from "react";
 import { type Slots, type StringKey, t } from "../strings/index.ts";
 
@@ -59,6 +59,17 @@ export type ItemProps<Item = unknown, Value = unknown> = {
    * changes nothing and fails the item (molecules, design decision 11).
    */
   readonly onValuesChange: (values: Readonly<Record<string, unknown>>) => void;
+  /**
+   * The item's result as it holds it: the one it put into the draft record, else its latest
+   * answer's, read-only once the question is answered; undefined while it has none. Distinct from
+   * `value`, the edited content (widget-registry, design decision 9).
+   */
+  readonly result: unknown;
+  /**
+   * Puts the item's result into the draft record, apart from its edited value, `undefined` for
+   * none; nothing leaves the view (AD-9). A widget holds no result while the user has given none.
+   */
+  readonly onResultChange: (result: unknown) => void;
   /** The item may not change: its question is answered, being sent or locked. */
   readonly disabled: boolean;
   /** Reports the item ready (AD-9); a component calls it through `useReadyAfterLayout`. */
@@ -76,23 +87,41 @@ export type CatalogComponent<Item = unknown, Value = unknown> = (
   props: ItemProps<Item, Value>,
 ) => ReactNode;
 
+/**
+ * What the shell needs of a component's widget type beyond rendering it (widget-registry, design
+ * decision 8), given by its chunk when it registers: the element shape of its props, for the one
+ * generic diff of the agent's change (a type with none is not listed), and the string key of its
+ * name in the agent-change notice (a type with none is named by its type as sent). The shell holds
+ * no table by widget type.
+ */
+export type ComponentFacts = {
+  readonly shape?: (props: unknown) => ElementShape;
+  readonly name?: StringKey;
+};
+
 const components = new Map<string, CatalogComponent>();
+const facts = new Map<string, ComponentFacts>();
 
 /**
- * Registers a component under its catalog name, once. The renderer hands it only the items its
- * name renders and the values it put in the draft record itself, which no type can say across
- * chunks: the registry keeps components by name alone.
+ * Registers a component under its catalog name, once, with the facts its chunk gives of its type,
+ * if any. The renderer hands it only the items its name renders and the values it put in the draft
+ * record itself, which no type can say across chunks: the registry keeps components by name alone.
  */
 export const register = <Item, Value>(
   name: string,
   component: CatalogComponent<Item, Value>,
+  componentFacts?: ComponentFacts,
 ): void => {
   if (components.has(name)) throw new Error(`the component "${name}" is registered twice`);
   components.set(name, component as unknown as CatalogComponent);
+  if (componentFacts !== undefined) facts.set(name, componentFacts);
 };
 
 /** The component registered under a name, if any. */
 export const componentFor = (name: string): CatalogComponent | undefined => components.get(name);
+
+/** The facts a component's chunk registered with it, if it gave any. */
+export const componentFacts = (name: string): ComponentFacts | undefined => facts.get(name);
 
 export const registeredComponents = (): string[] => [...components.keys()].sort();
 

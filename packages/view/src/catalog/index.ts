@@ -7,6 +7,8 @@ export {
   type BoardContent,
   type BoardWidgetItem,
   type CatalogComponent,
+  type ComponentFacts,
+  componentFacts,
   componentFor,
   type DerivedValues,
   type ItemProps,

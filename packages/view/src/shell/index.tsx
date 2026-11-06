@@ -43,7 +43,7 @@ import {
   type HeadingRequest,
   requestHeading,
 } from "./board.tsx";
-import { createBoardContent } from "./board-content.ts";
+import { createAnsweredResults, createBoardContent } from "./board-content.ts";
 import {
   type BoardDraft,
   connectDrafts,
@@ -52,6 +52,7 @@ import {
   itemIdsOf,
   type QuestionWork,
   restoreDraft,
+  resultIdsOf,
 } from "./board-draft.ts";
 import { BoardLanguage } from "./board-language.tsx";
 import { nextAfterRemoval, presentationOf } from "./board-view.ts";
@@ -100,6 +101,7 @@ const clearCarried = (
   flight: Flight,
   document: ViewDocument,
   draft: DraftStore,
+  results: DraftStore,
   board: BoardDraft,
   kept: Store<KeptChoices>,
 ): void => {
@@ -122,6 +124,7 @@ const clearCarried = (
     if (fields === undefined) continue;
     if (act.type === "answer" || act.type === "decline") {
       for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
+      for (const itemId of resultIdsOf(question)) results.set(itemId, undefined);
     }
     board.clear(question.id, fields);
   }
@@ -135,6 +138,7 @@ const focusedQuestion = (): string | undefined =>
 
 type Removal = {
   readonly draft: DraftStore;
+  readonly results: DraftStore;
   readonly board: BoardDraft;
   readonly focus: Store<HeadingRequest | undefined>;
   readonly removed: Store<boolean>;
@@ -188,9 +192,11 @@ const boot = (): void => {
   channel.onTheme(setTheme);
   const view = createStore<BoardView>({ document: data.document, state: data.state });
   const draft = createDraftStore();
+  // The results the widget items hold, beside the draft record (widget-registry, design decision 9).
+  const results = createDraftStore();
   const single = presentationOf(data.document) === "single";
   const board = createBoardDraft(single ? "immediate" : (data.document.delivery ?? "immediate"));
-  connectDrafts(() => view.get().document, draft, board);
+  connectDrafts(() => view.get().document, draft, board, results);
   const acts = createAnswerActs();
   const attention = createAttention(data.document, data.state);
   const revisions = createRevisions();
@@ -218,7 +224,7 @@ const boot = (): void => {
     const document = update.document ?? before;
     if (update.document !== undefined) {
       revisions.record(document);
-      onRemoval(before, document, { draft, board, focus, removed });
+      onRemoval(before, document, { draft, results, board, focus, removed });
       tracker.include(questionItemsOf(document));
       attention.documentChanged(document);
     }
@@ -230,10 +236,10 @@ const boot = (): void => {
     }
     if (update.restore !== undefined && update.restore.id > restored) {
       restored = update.restore.id;
-      restoreDraft(update.restore.record, document, update.state, draft, board);
+      restoreDraft(update.restore.record, document, update.state, draft, board, results);
     }
     for (const flight of acts.reconcile(update.pending ?? [], update.settled ?? [])) {
-      clearCarried(flight, document, draft, board, kept);
+      clearCarried(flight, document, draft, results, board, kept);
     }
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
@@ -245,14 +251,16 @@ const boot = (): void => {
       mirroring = false;
       report({
         type: "draft",
-        record: draftRecordOf(view.get().document, draft.record(), board.get()),
+        record: draftRecordOf(view.get().document, draft.record(), board.get(), results.record()),
       });
     });
   };
   draft.subscribe(mirror);
+  results.subscribe(mirror);
   board.subscribe(mirror);
   const context = {
     draft,
+    results,
     tracker,
     channel,
     acts,
@@ -266,6 +274,7 @@ const boot = (): void => {
     // The board components read follows the latest document, which an agent update replaces, and
     // the answers of the latest board state (molecules, design decision 11).
     boardContent: createBoardContent(() => view.get()),
+    answeredResult: createAnsweredResults(() => view.get()),
     derived: createDerivedStore(),
     opened,
   };
