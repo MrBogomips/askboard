@@ -11,6 +11,7 @@
 // where it is. Task names are agent strings, shown as text.
 
 import type { GanttProps } from "@askboard/contract";
+import { useStrings } from "@askboard/view/catalog";
 import { Checkbox } from "radix-ui";
 import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
 import { keyPressOf } from "./key-press.ts";
@@ -50,7 +51,8 @@ type PanelProps = {
 
 export const PredecessorsPanel = (props: PanelProps) => {
   const { itemId, row, panel } = props;
-  const boxes = panelBoxes(props.current, props.rows, row.id, panel.held, panel.opened);
+  const say = useStrings();
+  const boxes = panelBoxes(props.current, props.rows, row.id, panel.held, panel.opened, say);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   useLayoutEffect(() => {
     refs.current.find((box) => box !== null && !box.disabled)?.focus();
@@ -78,7 +80,7 @@ export const PredecessorsPanel = (props: PanelProps) => {
   };
   return (
     <fieldset
-      aria-label={`Depends on, ${row.label}`}
+      aria-label={say("gantt.panel.name", { task: row.label })}
       data-gantt-panel={row.id}
       className={PANEL}
       onKeyDown={onKeyDown}
@@ -121,7 +123,7 @@ export const PredecessorsPanel = (props: PanelProps) => {
       </ul>
       <div className="flex justify-end">
         <button type="button" onClick={props.onDone} className={DONE}>
-          Done
+          {say("gantt.panel.done")}
         </button>
       </div>
     </fieldset>

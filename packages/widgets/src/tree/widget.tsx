@@ -19,6 +19,7 @@
 // nothing and keeps the question open with the refusal.
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
+import { useStrings } from "@askboard/view/catalog";
 import { type FocusEvent, type KeyboardEvent, type MouseEvent, useMemo, useState } from "react";
 import type { BoardGraph } from "../graph/index.ts";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
@@ -114,6 +115,7 @@ export const TreeWidget = ({
    */
   readonly onLinkedDelete: (next: TreeProps, deleted: readonly string[]) => string | undefined;
 }) => {
+  const text = useStrings();
   const [stored, setView] = useState(() => openView(value));
   // The delete whose question is asked, the part it was asked from, and its refusal once refused.
   const [asked, setAsked] = useState<Asked>();
@@ -285,7 +287,7 @@ export const TreeWidget = ({
       />
       <TreeGrid
         ref={focus.grid}
-        nameColumn={nameColumnOf(value)}
+        nameColumn={nameColumnOf(value, text)}
         columns={value.columns ?? NO_COLUMNS}
         value={value}
         disabled={disabled}

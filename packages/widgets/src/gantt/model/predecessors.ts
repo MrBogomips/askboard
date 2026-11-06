@@ -13,6 +13,7 @@
 
 import type { GanttProps } from "@askboard/contract";
 import { precedenceIn } from "./edits.ts";
+import type { Say } from "./say.ts";
 import { type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
 
 export type PanelBox = {
@@ -24,9 +25,6 @@ export type PanelBox = {
   /** What a box for an ID that names no other task says of it; undefined for another task's. */
   readonly note: string | undefined;
 };
-
-const NAMES_NO_TASK = "Names no task";
-const NAMES_ITSELF = "Names this task itself";
 
 /** The Gantt holding the panel's predecessors for the task, a plan's entry made if need be. */
 const withHeld = (value: GanttProps, taskId: string, held: readonly string[]): GanttProps => {
@@ -58,6 +56,7 @@ const boxesNamingNoTask = (
   taskId: string,
   held: readonly string[],
   opened: readonly string[],
+  text: Say,
 ): readonly PanelBox[] => {
   const others = new Set(rows.filter((row) => row.id !== taskId).map((row) => row.id));
   return [...new Set(opened)]
@@ -67,7 +66,7 @@ const boxesNamingNoTask = (
       label: id,
       checked: held.includes(id),
       reason: undefined,
-      note: id === taskId ? NAMES_ITSELF : NAMES_NO_TASK,
+      note: text(id === taskId ? "gantt.panel.namesItself" : "gantt.panel.namesNoTask"),
     }));
 };
 
@@ -81,9 +80,14 @@ export const panelBoxes = (
   taskId: string,
   held: readonly string[],
   opened: readonly string[],
+  text: Say,
 ): readonly PanelBox[] => {
   // The rows and the dependents counted once for every box, not once per box.
-  const precedes = precedenceIn(withHeld(value, taskId, held), rowsWithHeld(rows, taskId, held));
+  const precedes = precedenceIn(
+    withHeld(value, taskId, held),
+    rowsWithHeld(rows, taskId, held),
+    text,
+  );
   const others = rows
     .filter((row) => row.id !== taskId)
     .map((row) => {
@@ -96,7 +100,7 @@ export const panelBoxes = (
         note: undefined,
       };
     });
-  return [...others, ...boxesNamingNoTask(rows, taskId, held, opened)];
+  return [...others, ...boxesNamingNoTask(rows, taskId, held, opened, text)];
 };
 
 /** The predecessors held once a box is checked, after those held, or unchecked. */

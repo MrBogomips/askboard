@@ -67,7 +67,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tree.cell("ux", 0).click({ timeout: STEP_TIMEOUT_MS });
         await tree.tool("Altro").focus();
         await run.board.page.keyboard.press("Enter");
-        const item = run.board.view.getByRole("menuitem", { name: "Move down" });
+        const item = run.board.view.getByRole("menuitem", { name: "Sposta giù" });
         await item.waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await run.board.view.getByRole("menuitem").count()).toBe(MOVES.length);
         await item.click({ timeout: STEP_TIMEOUT_MS });

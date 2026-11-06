@@ -16,6 +16,7 @@ import {
   type Locale,
   parseDate,
 } from "@askboard/contract";
+import type { Say } from "./say.ts";
 
 export type DateEntry =
   | { readonly kind: "date"; readonly date: string }
@@ -23,15 +24,11 @@ export type DateEntry =
   | { readonly kind: "refused"; readonly reason: string };
 
 /** The locale a date is typed and shown in, and the language its refusals are written in. */
-export type DateFormat = { readonly locale: Locale; readonly language: Locale };
-
-export const EN_US_FORMAT: DateFormat = Object.freeze({ locale: "en-US", language: "en-US" });
-
-/** The Gantt's own refusal of a day outside its range, in the ask's language. */
-const RANGE_REFUSALS: Readonly<Record<Locale, (first: string, last: string) => string>> = {
-  "en-US": (first, last) => `Pick a day from ${first} to ${last}`,
-  // Provisional, with the other Italian strings (UX draft block 1).
-  "it-IT": (first, last) => `Scegli un giorno dal ${first} al ${last}`,
+export type DateFormat = {
+  readonly locale: Locale;
+  readonly language: Locale;
+  /** The catalogue in `language`, which words the refusals. */
+  readonly text: Say;
 };
 
 const MONTHS = [
@@ -177,12 +174,12 @@ export const echoDate = (date: string, locale: Locale = "en-US"): string => {
  * What the user typed in a date field: a `full-date`, an empty field, or a refusal saying why, in
  * the format's language. A day outside the Gantt's range is refused too.
  */
-export const parseDateEntry = (text: string, format: DateFormat = EN_US_FORMAT): DateEntry => {
+export const parseDateEntry = (text: string, format: DateFormat): DateEntry => {
   const entry = parseDate(text, format.locale, format.language);
   if (entry.kind === "empty") return entry;
   if (entry.kind === "refused") return { kind: "refused", reason: entry.reason };
   if (isGanttDate(entry.date)) return entry;
   const first = gridDate(GANTT_FIRST_DATE, format.locale);
   const last = gridDate(GANTT_LAST_DATE, format.locale);
-  return { kind: "refused", reason: RANGE_REFUSALS[format.language](first, last) };
+  return { kind: "refused", reason: format.text("gantt.entry.pickDay", { first, last }) };
 };

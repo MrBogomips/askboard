@@ -13,7 +13,7 @@
 // (`grid-keys.ts`).
 
 import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract";
-import { questionTextId, useLocale, useStrings } from "@askboard/view/catalog";
+import { questionTextId, type StringKey, useLocale, useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
 import { errorSpan } from "../shared/field-error.ts";
 import { CellEditor, noteId } from "./cell-editor.tsx";
@@ -26,11 +26,12 @@ import { GANTT_COLUMNS, type GanttColumn, type GanttRow } from "./model/tasks.ts
 import { PredecessorsPanel } from "./panel.tsx";
 import type { PanelState } from "./panel-state.ts";
 
-export const HEADERS: Readonly<Record<GanttColumn, string>> = {
-  task: "Task",
-  start: "Start",
-  duration: "Duration",
-  dependencies: "Depends on",
+/** Each column's header string in the catalogue. */
+export const HEADERS: Readonly<Record<GanttColumn, StringKey>> = {
+  task: "gantt.column.task",
+  start: "gantt.column.start",
+  duration: "gantt.column.duration",
+  dependencies: "gantt.column.dependencies",
 };
 
 /** Each column's width and alignment; the name takes what the others leave. */
@@ -105,15 +106,18 @@ export const cellText = (
     : formatGridDate(scheduled.startDate, format.locale, format.withYear);
 };
 
-const HeaderRow = () => (
-  <tr className="h-header-row bg-muted text-label text-muted-foreground uppercase">
-    {GANTT_COLUMNS.map((column) => (
-      <th key={column} scope="col" className={`${COLUMN[column]} font-semibold`}>
-        {HEADERS[column]}
-      </th>
-    ))}
-  </tr>
-);
+const HeaderRow = () => {
+  const text = useStrings();
+  return (
+    <tr className="h-header-row bg-muted text-label text-muted-foreground uppercase">
+      {GANTT_COLUMNS.map((column) => (
+        <th key={column} scope="col" className={`${COLUMN[column]} font-semibold`}>
+          {text(HEADERS[column])}
+        </th>
+      ))}
+    </tr>
+  );
+};
 
 type TaskRowProps = {
   readonly itemId: string;
@@ -185,7 +189,7 @@ const TaskRow = (props: TaskRowProps) => {
             <CellEditor
               itemId={itemId}
               editing={edited}
-              label={`${HEADERS[column]}, ${row.label}`}
+              label={text("gantt.cellLabel", { column: text(HEADERS[column]), task: row.label })}
               onChange={editing.change}
               onCommit={editing.commit}
               onCancel={editing.cancel}
@@ -227,7 +231,7 @@ const NoteRow = ({ itemId, taskId, note, refused }: NoteRowProps) => {
         <span id={noteId(itemId, taskId)} className="block truncate">
           {refused === undefined ? null : (
             <span className="font-medium">
-              {text("widget.fieldError", { column: HEADERS[refused] })}{" "}
+              {text("widget.fieldError", { column: text(HEADERS[refused]) })}{" "}
             </span>
           )}
           {note}

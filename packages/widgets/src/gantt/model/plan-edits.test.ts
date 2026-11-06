@@ -21,6 +21,7 @@ import {
   treeEditedValue,
 } from "@askboard/contract/fixtures";
 import { validateGanttChanges, validateGanttProps } from "@askboard/contract/validate";
+import { EN_US_SAY } from "../en-us.ts";
 import { canPrecede, clearStart, requestStart, sameGantt, setPredecessors } from "./edits.ts";
 import { planChangeCount } from "./marks.ts";
 import { type GanttOwnProps, type GanttPlanProps, planTaskRows } from "./tasks.ts";
@@ -282,39 +283,41 @@ const followers = (count: number, taskId: string): Record<string, GanttPlanEntry
 describe("canPrecede in a plan", () => {
   test("walks the entries over the Tree's leaves: the prototype's dependents are refused", () => {
     const rows = rowsOver(PLAN);
-    expect(canPrecede(PLAN, rows, "prototype", "portal")).toEqual({
+    expect(canPrecede(PLAN, rows, "prototype", "portal", EN_US_SAY)).toEqual({
       ok: false,
       reason: "Customer portal already depends on Clickable prototype",
     });
-    expect(canPrecede(PLAN, rows, "prototype", "reporting")).toEqual({
+    expect(canPrecede(PLAN, rows, "prototype", "reporting", EN_US_SAY)).toEqual({
       ok: false,
       reason: "Reporting already depends on Clickable prototype",
     });
-    expect(canPrecede(PLAN, rows, "prototype", "billing")).toEqual({ ok: true });
+    expect(canPrecede(PLAN, rows, "prototype", "billing", EN_US_SAY)).toEqual({ ok: true });
   });
 
   test("offers a package added in the Tree every other task; linked, it is refused to its predecessors", () => {
     const rows = rowsOver(PLAN, treeEditedValue.nodes);
     for (const row of rows.filter((candidate) => candidate.id !== "u-1")) {
-      expect(canPrecede(PLAN, rows, "u-1", row.id)).toEqual({ ok: true });
+      expect(canPrecede(PLAN, rows, "u-1", row.id, EN_US_SAY)).toEqual({ ok: true });
     }
     const linked = rowsOver(ganttPlanEditedValue, treeEditedValue.nodes);
-    expect(canPrecede(ganttPlanEditedValue, linked, "prototype", "u-1")).toEqual({
+    expect(canPrecede(ganttPlanEditedValue, linked, "prototype", "u-1", EN_US_SAY)).toEqual({
       ok: false,
       reason: "Customer portal: dashboards already depends on Clickable prototype",
     });
-    expect(canPrecede(ganttPlanEditedValue, linked, "architecture", "u-1")).toEqual({
+    expect(canPrecede(ganttPlanEditedValue, linked, "architecture", "u-1", EN_US_SAY)).toEqual({
       ok: false,
       reason: "Customer portal: dashboards already depends on Architecture",
     });
-    expect(canPrecede(ganttPlanEditedValue, linked, "u-1", "billing")).toEqual({ ok: true });
+    expect(canPrecede(ganttPlanEditedValue, linked, "u-1", "billing", EN_US_SAY)).toEqual({
+      ok: true,
+    });
   });
 
   test("walks no entry that names no leaf, and offers no task that is no row", () => {
     const rows = rowsOver(PLAN, withoutPortal);
-    expect(canPrecede(PLAN, rows, "prototype", "reporting")).toEqual({ ok: true });
-    expect(() => canPrecede(PLAN, rows, "prototype", "portal")).toThrow(RangeError);
-    expect(() => canPrecede(PLAN, rows, "portal", "ux")).toThrow(RangeError);
+    expect(canPrecede(PLAN, rows, "prototype", "reporting", EN_US_SAY)).toEqual({ ok: true });
+    expect(() => canPrecede(PLAN, rows, "prototype", "portal", EN_US_SAY)).toThrow(RangeError);
+    expect(() => canPrecede(PLAN, rows, "portal", "ux", EN_US_SAY)).toThrow(RangeError);
   });
 
   test("counts every entry against the dependents limit, as the edit does", () => {
@@ -324,20 +327,20 @@ describe("canPrecede in a plan", () => {
       tasks: { ...PLAN.tasks, ...followers(GANTT_MAX_DEPENDENTS - 2, "architecture") },
     };
     const rows = rowsOver(full);
-    expect(canPrecede(full, rows, "reporting", "architecture")).toEqual({
+    expect(canPrecede(full, rows, "reporting", "architecture", EN_US_SAY)).toEqual({
       ok: false,
       reason: "Architecture already has 50 dependent tasks, the most a task can have",
     });
     expect(() => setPredecessors(full, full, "reporting", ["portal", "architecture"])).toThrow(
       RangeError,
     );
-    expect(canPrecede(full, rows, "billing", "architecture")).toEqual({ ok: true });
+    expect(canPrecede(full, rows, "billing", "architecture", EN_US_SAY)).toEqual({ ok: true });
   });
 
   test("counts a task's predecessors, one naming no leaf included, against the predecessor limit", () => {
     const many = Array.from({ length: GANTT_MAX_PREDECESSORS }, (_, n) => `gone${n}`);
     const full = { ...PLAN, tasks: { ...PLAN.tasks, billing: { dependencies: many } } };
-    expect(canPrecede(full, rowsOver(full), "billing", "ux")).toEqual({
+    expect(canPrecede(full, rowsOver(full), "billing", "ux", EN_US_SAY)).toEqual({
       ok: false,
       reason: "Billing integration already has 50 predecessors, the most a task can have",
     });

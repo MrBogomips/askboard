@@ -11,7 +11,7 @@
 // the Tree turns editable again.
 
 import type { TreeProps } from "@askboard/contract";
-import { useLanguage, useLocale } from "@askboard/view/catalog";
+import { type Say, useLanguage, useLocale, useStrings } from "@askboard/view/catalog";
 import { useMemo, useState } from "react";
 import { enterNewName, type PendingAdd, withPending } from "./adding.ts";
 import { affixOf, nameColumnOf } from "./cells.ts";
@@ -36,12 +36,12 @@ type Editing = {
 export type GridEditing = RowEditing & { readonly nodeId: string };
 
 // The editor's name: the column, then the node's name, as in "Optimistic of Customer portal".
-const labelOf = (value: TreeProps, row: TreeRow, cell: number): string =>
-  `${columnOf(value, cell)} of ${row.node.label}`;
+const labelOf = (value: TreeProps, row: TreeRow, cell: number, text: Say): string =>
+  text("tree.cellLabel", { column: columnOf(value, cell, text), label: row.node.label });
 
 // The edited column's name, which a field error begins with.
-const columnOf = (value: TreeProps, cell: number): string =>
-  cell === 0 ? nameColumnOf(value) : (value.columns?.[cell - 1]?.label ?? "");
+const columnOf = (value: TreeProps, cell: number, text: Say): string =>
+  cell === 0 ? nameColumnOf(value, text) : (value.columns?.[cell - 1]?.label ?? "");
 
 export const useCellEditing = ({
   itemId,
@@ -76,6 +76,7 @@ export const useCellEditing = ({
   // Numbers are read and shown in the ask's locale, and refused in its language.
   const locale = useLocale();
   const language = useLanguage();
+  const words = useStrings();
   // Dropped during this render, so the Tree never shows the edit once read-only.
   if (disabled && state !== undefined) setState(undefined);
   const add = disabled ? undefined : state?.add;
@@ -107,7 +108,7 @@ export const useCellEditing = ({
     const entry =
       editing.add === undefined
         ? enterCell(value, editing.nodeId, editing.cell, text, locale, language)
-        : enterNewName(value, editing.add, text);
+        : enterNewName(value, editing.add, text, language);
     const changed = entry.kind === "value" && entry.value !== value;
     const reason =
       entry.kind === "refused"
@@ -133,7 +134,7 @@ export const useCellEditing = ({
       : {
           nodeId: editing.nodeId,
           cell: editing.cell,
-          column: columnOf(value, editing.cell),
+          column: columnOf(value, editing.cell, words),
           error: editing.error,
           errorId,
           editor: (
@@ -145,7 +146,7 @@ export const useCellEditing = ({
                   ? startTextOf(value.columns, row.node, editing.cell, locale)
                   : ""
               }
-              label={labelOf(value, row, editing.cell)}
+              label={labelOf(value, row, editing.cell, words)}
               error={editing.error}
               errorId={errorId}
               onCommit={commit}

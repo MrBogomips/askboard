@@ -51,11 +51,11 @@ const valuesAt = (graph: BoardGraph, prefix: string): PertValues =>
 export const pertRow = (graph: BoardGraph, itemId: string, row: TreeRow): PertRow =>
   Object.freeze({ ...valuesAt(graph, `${itemId}.${row.node.id}`), estimates: !row.hasChildren });
 
-/** The field error under a row whose values are in error (AD-13: it never blocks "Answer"). */
-export const PERT_NOT_COMPUTED = "No expected effort or spread: they could not be computed.";
+/** The catalogue key of the field error under a row whose values are in error (AD-13: it never blocks "Answer"). */
+export const PERT_NOT_COMPUTED = "tree.notComputed";
 
-/** The field error under a row, the Total row's included; none while both values are numbers. */
-export const pertNote = ({ expected, spread }: PertValues): string | undefined =>
+/** The field error's key under a row, the Total row's included; none while both values are numbers. */
+export const pertNote = ({ expected, spread }: PertValues): typeof PERT_NOT_COMPUTED | undefined =>
   expected.kind === "error" || spread.kind === "error" ? PERT_NOT_COMPUTED : undefined;
 
 /** A value cell's text, and whether it reads muted: an added row's missing value is a dash. */
@@ -74,7 +74,7 @@ export const rollupText = (
 export const rollupNote = (
   values: PertValues,
   row: { readonly added: boolean; readonly current: boolean },
-): { readonly text: string; readonly neutral: boolean } | undefined => {
+): { readonly text: typeof PERT_NOT_COMPUTED; readonly neutral: boolean } | undefined => {
   const text = pertNote(values);
   if (text === undefined || (row.added && row.current)) return undefined;
   return { text, neutral: row.added };

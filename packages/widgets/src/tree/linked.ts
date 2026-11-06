@@ -7,7 +7,7 @@
 // limit, and nothing is written. Plain ECMAScript.
 
 import type { TreeProps } from "@askboard/contract";
-import type { BoardContent } from "@askboard/view/catalog";
+import type { BoardContent, Say } from "@askboard/view/catalog";
 import {
   afterAdd,
   afterDelete,
@@ -26,14 +26,13 @@ export type LinkedWrite =
   | { readonly ok: false; readonly reason: string };
 
 /** A refused linked edit's field error, naming the limit and the task past it by its label. */
-export const refusalText = (refusal: PlanRefusal, nodes: Nodes): string => {
-  if (refusal.limit === "entries") {
-    return `The plan would hold more than ${refusal.most} tasks, the most a plan can hold.`;
-  }
+export const refusalText = (refusal: PlanRefusal, nodes: Nodes, text: Say): string => {
+  if (refusal.limit === "entries") return text("tree.linked.entries", { most: refusal.most });
   const taskId = refusal.taskId ?? "";
   const label = locate(nodes, taskId)?.node.label ?? taskId;
-  const what = refusal.limit === "predecessors" ? "predecessors" : "dependent tasks";
-  return `${label} would have more than ${refusal.most} ${what}, the most a task can have.`;
+  const key =
+    refusal.limit === "predecessors" ? "tree.linked.predecessors" : "tree.linked.dependents";
+  return text(key, { label, most: refusal.most });
 };
 
 // The Tree's value as the draft holds it: `undefined` once its nodes are the agent's again.
@@ -46,13 +45,14 @@ const written = (
   sent: TreeProps,
   next: TreeProps,
   edit: LinkedValues | PlanRefusal,
+  text: Say,
 ): LinkedWrite =>
   edit.ok
     ? Object.freeze({
         ok: true,
         values: Object.freeze({ [treeId]: treeValue(sent, next), ...edit.values }),
       })
-    : Object.freeze({ ok: false, reason: refusalText(edit, next.nodes) });
+    : Object.freeze({ ok: false, reason: refusalText(edit, next.nodes, text) });
 
 /**
  * The draft update once the package `added` is named in the Tree `treeId` after, or under, the
@@ -65,10 +65,11 @@ export const linkedAdd = (
   next: TreeProps,
   added: string,
   anchor: string | undefined,
+  text: Say,
 ): LinkedWrite => {
   const plans = anchor === undefined ? [] : linkedPlans(board, treeId);
   const edit = linkedEdit(plans, (plan) => afterAdd(plan.value, plan.sent, added, anchor ?? ""));
-  return written(treeId, sent, next, edit);
+  return written(treeId, sent, next, edit, text);
 };
 
 /** How many tasks of the plans over the Tree `treeId` depend on the packages `ids`, outside them. */
@@ -93,8 +94,9 @@ export const linkedDelete = (
   sent: TreeProps,
   next: TreeProps,
   deleted: readonly string[],
+  text: Say,
 ): LinkedWrite => {
   const plans = linkedPlans(board, treeId);
   const edit = linkedEdit(plans, (plan) => afterDelete(plan.value, plan.sent, deleted));
-  return written(treeId, sent, next, edit);
+  return written(treeId, sent, next, edit, text);
 };

@@ -12,6 +12,7 @@
 // Both open a task's predecessors panel from its "Depends on", a plan's offering its Tree's leaves.
 
 import type { GanttProps } from "@askboard/contract";
+import { useStrings } from "@askboard/view/catalog";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Chart } from "./chart.tsx";
 import { Legend, Toolbar } from "./chrome.tsx";
@@ -42,13 +43,14 @@ const useNotes = (
   schedules: readonly TaskSchedule[],
   editing: Editing | undefined,
 ): ReadonlyMap<string, string> => {
+  const text = useStrings();
   const errors = useMemo(() => {
     const labels = new Map(rows.map((row) => [row.id, row.label]));
     return rows.flatMap((row, index) => {
-      const note = scheduleNote(itemId, row, schedules[index], labels);
+      const note = scheduleNote(itemId, row, schedules[index], labels, text);
       return note === undefined ? [] : [[row.id, note] as const];
     });
-  }, [itemId, rows, schedules]);
+  }, [itemId, rows, schedules, text]);
   const refusal = editing?.refusal;
   const taskId = editing?.taskId;
   return useMemo(

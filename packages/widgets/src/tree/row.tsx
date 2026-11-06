@@ -15,7 +15,7 @@ import type { TreeColumn } from "@askboard/contract";
 import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, type ReactNode } from "react";
 import { errorSpan } from "../shared/field-error.ts";
-import { fieldText, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
+import { fieldText, PERT_HEADERS, pertFieldText } from "./cells.ts";
 import {
   ADDED_BAR,
   CHANGE_DOT,
@@ -130,7 +130,7 @@ export const ValueError = ({
     // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid.
     <tr role="presentation">
       <td colSpan={cells} className={note.neutral ? NEUTRAL_NOTE : FIELD_ERROR}>
-        {text("tree.notComputed")}
+        {text(note.text)}
       </td>
     </tr>
   );
@@ -153,7 +153,7 @@ export const ValueCells = ({
     const { text, muted } = rollupText(value, added);
     return (
       <td
-        key={PERT_VALUE_COLUMNS[at]}
+        key={PERT_HEADERS[at]?.label}
         data-cell={first + at}
         tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
         className={`${FIELD_CELL.number} ${NOT_SELECTABLE} ${FOCUS_RING}${muted ? " text-muted-foreground" : ""}`}
@@ -226,7 +226,7 @@ export const NodeRow = memo(function NodeRow({
   const takesEdit = (cell: number): true | undefined =>
     !edits(cell) && editable.split(",").includes(String(cell)) ? true : undefined;
   const added = mark?.added === true;
-  const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_VALUE_COLUMNS.length);
+  const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_HEADERS.length);
   const textOf = (column: TreeColumn): string =>
     pert === undefined
       ? fieldText(row.node, column, locale)

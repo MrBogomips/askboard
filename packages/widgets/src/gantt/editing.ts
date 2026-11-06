@@ -6,7 +6,7 @@
 // back. The text and the refusal are view state: only a committed value reaches the draft.
 
 import type { GanttProps } from "@askboard/contract";
-import { useLanguage, useLocale } from "@askboard/view/catalog";
+import { useLanguage, useLocale, useStrings } from "@askboard/view/catalog";
 import { useCallback, useRef, useState } from "react";
 import type { DateFormat } from "./model/date.ts";
 import {
@@ -68,8 +68,9 @@ export const useCellEditing = (args: EditingArgs): CellEditing => {
   // Dates and numbers are read and shown in the ask's locale, and refused in its language.
   const locale = useLocale();
   const language = useLanguage();
-  const format = useRef<DateFormat>({ locale, language });
-  format.current = { locale, language };
+  const text = useStrings();
+  const format = useRef<DateFormat>({ locale, language, text });
+  format.current = { locale, language, text };
   const begin = useCallback(
     (row: GanttRow, column: EditedColumn) => {
       const index = latest.current.rows.indexOf(row);

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeColumn, TreePertProps } from "@askboard/contract";
-import { affixOf, fieldText, nameColumnOf, PERT_VALUE_COLUMNS, pertFieldText } from "./cells.ts";
+import { type Say, say } from "@askboard/view/catalog";
+import { affixOf, fieldText, nameColumnOf, PERT_HEADERS, pertFieldText } from "./cells.ts";
+
+const EN: Say = (key, slots) => say("en-US", key, slots);
 
 const days: TreeColumn = { field: "days", label: "Days", type: "number" };
 const note: TreeColumn = { field: "note", label: "Note", type: "text" };
@@ -34,12 +37,12 @@ describe("a work breakdown's cells (molecules design decision 14)", () => {
 
   test("the name column reads Work package with pert, Name without", () => {
     const wbs: TreePertProps = { columns: [optimistic], nodes: [], pert: true };
-    expect(nameColumnOf(wbs)).toBe("Work package");
-    expect(nameColumnOf({ nodes: [] })).toBe("Name");
+    expect(nameColumnOf(wbs, EN)).toBe("Work package");
+    expect(nameColumnOf({ nodes: [] }, EN)).toBe("Name");
   });
 
   test("the two value columns follow the fields, labelled Expected effort and Spread", () => {
-    expect(PERT_VALUE_COLUMNS).toEqual(["Expected effort", "Spread"]);
+    expect(PERT_HEADERS.map(({ tip }) => EN(tip))).toEqual(["Expected effort", "Spread"]);
   });
 
   test("a leaf's estimate shows with the d affix; a parent's shows nothing", () => {

@@ -6,6 +6,7 @@
 // in an input Alt+Shift with an arrow selects by word. The component prevents the default of
 // every key that has an action, possible or not, and leaves every other key to the browser.
 
+import type { StringKey } from "@askboard/view/catalog";
 import type { TreeEdit } from "./edits.ts";
 
 /** A key press: the fields of a DOM or React keyboard event the Tree reads. */
@@ -88,10 +89,10 @@ export const keyAction = (key: TreeKey, mode: KeyMode): KeyAction | undefined =>
   return BINDINGS[mode].find((one) => one.key === key.key && one.hold === hold)?.action;
 };
 
-/** A tool of the toolbar: its edit, its name and, for a tool with keys, its aria-keyshortcuts. */
+/** A tool of the toolbar: its edit, the catalogue key of its name and, for a tool with keys, its aria-keyshortcuts. */
 export type TreeTool = {
   readonly edit: TreeEdit;
-  readonly label: string;
+  readonly label: StringKey;
   readonly shortcut?: string;
 };
 
@@ -103,20 +104,20 @@ const shortcutOf = (edit: TreeEdit): string | undefined => {
   return keys.length === 0 ? undefined : keys.join(" ");
 };
 
-const tool = (edit: TreeEdit, label: string): TreeTool => {
+const tool = (edit: TreeEdit, label: StringKey): TreeTool => {
   const shortcut = shortcutOf(edit);
   return Object.freeze(shortcut === undefined ? { edit, label } : { edit, label, shortcut });
 };
 
 /** The toolbar's tools in order (design decision 6). */
 export const TREE_TOOLS: readonly TreeTool[] = Object.freeze([
-  tool("addAfter", "Add node"),
-  tool("addChild", "Add child"),
-  tool("moveUp", "Move up"),
-  tool("moveDown", "Move down"),
-  tool("indent", "Indent"),
-  tool("outdent", "Outdent"),
-  tool("remove", "Delete"),
+  tool("addAfter", "tree.tool.addAfter"),
+  tool("addChild", "tree.tool.addChild"),
+  tool("moveUp", "tree.tool.moveUp"),
+  tool("moveDown", "tree.tool.moveDown"),
+  tool("indent", "tree.tool.indent"),
+  tool("outdent", "tree.tool.outdent"),
+  tool("remove", "tree.tool.remove"),
 ]);
 
 /** A focus move among the toolbar's tools. */

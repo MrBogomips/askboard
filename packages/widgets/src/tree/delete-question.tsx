@@ -7,6 +7,7 @@
 // its buttons, announced (molecules, view spec, "Deleting a package with dependents"). The node's
 // name is text, never markup (AD-8).
 
+import { useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useId, useLayoutEffect, useRef } from "react";
 import {
   QUESTION,
@@ -29,6 +30,7 @@ export const DeleteQuestion = ({
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }) => {
+  const text = useStrings();
   const id = useId();
   const cancel = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
@@ -46,13 +48,15 @@ export const DeleteQuestion = ({
     <fieldset aria-labelledby={id} className={QUESTION_ROW} onKeyDown={onKeyDown}>
       <p id={id} className={QUESTION}>
         <span className={QUESTION_NAME}>“{question.label}”</span>{" "}
-        <span className={QUESTION_REST}>{deletedWith(question.under, question.dependents)}</span>
+        <span className={QUESTION_REST}>
+          {deletedWith(question.under, question.dependents, text)}
+        </span>
       </p>
       <button ref={cancel} type="button" className={TOOL} onClick={onCancel}>
-        Cancel
+        {text("tree.delete.cancel")}
       </button>
       <button type="button" className={TOOL} onClick={onConfirm}>
-        Delete
+        {text("tree.delete.confirm")}
       </button>
       {question.refusal === undefined ? null : (
         <p role="alert" className={QUESTION_ERROR}>

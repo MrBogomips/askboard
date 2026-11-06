@@ -9,6 +9,7 @@ import {
 } from "@askboard/contract";
 import { ganttBoardDocument, ganttEditedValue } from "@askboard/contract/fixtures";
 import { validateGanttChanges, validateGanttProps } from "@askboard/contract/validate";
+import { EN_US_SAY } from "../en-us.ts";
 import {
   canPrecede,
   clearStart,
@@ -331,7 +332,7 @@ const wide = (count: number): GanttOwnProps => ({
 
 /** `canPrecede` over a Gantt's own tasks, its rows as the grid shows them. */
 const precedes = (value: GanttOwnProps, taskId: string, candidateId: string) =>
-  canPrecede(value, ownTaskRows(value), taskId, candidateId);
+  canPrecede(value, ownTaskRows(value), taskId, candidateId, EN_US_SAY);
 
 describe("canPrecede", () => {
   test.each([

@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { GANTT_MAX_DEPENDENTS, GANTT_MAX_PREDECESSORS, GANTT_MAX_TASKS } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import type { BoardContent } from "@askboard/view/catalog";
+import { type Say, say } from "@askboard/view/catalog";
 import type { GanttPlanProps } from "../gantt/model/tasks.ts";
 import { linkedAdd, linkedDelete, linkedDependents, refusalText } from "./linked.ts";
 import { addAfter, addChild, remove } from "./model/edits.ts";
+
+const EN: Say = (key, slots) => say("en-US", key, slots);
 
 // The expanded UJ-2 board: the WBS `wbs__tree` and the plan `schedule__plan` over it, whose
 // entries are prototype [ux], portal [architecture, prototype], billing [architecture] and
@@ -25,7 +28,7 @@ const SPLIT = addAfter(SENT, "portal", DASHBOARDS);
 
 describe("a package added in a Tree a plan names (view spec, An added package's predecessors)", () => {
   test("puts the Tree's value and the plan's in one update, the package after the portal depending on the portal's predecessors", () => {
-    expect(linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", "portal")).toEqual({
+    expect(linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", "portal", EN)).toEqual({
       ok: true,
       values: {
         [WBS.id]: SPLIT,
@@ -39,7 +42,7 @@ describe("a package added in a Tree a plan names (view spec, An added package's 
 
   test("gives a child the predecessors of the package it was added under", () => {
     const next = addChild(SENT, "reporting", "Reporting: exports");
-    const write = linkedAdd(board(), WBS.id, SENT, next, "u-1", "reporting");
+    const write = linkedAdd(board(), WBS.id, SENT, next, "u-1", "reporting", EN);
     expect(write.ok && write.values[PLAN.id]).toEqual({
       ...SENT_PLAN,
       tasks: { ...SENT_PLAN.tasks, "u-1": { dependencies: ["portal"] } },
@@ -48,18 +51,18 @@ describe("a package added in a Tree a plan names (view spec, An added package's 
 
   test("names only the Tree when the anchor has no predecessors, or there is no anchor", () => {
     const next = addAfter(SENT, "ux", "Research");
-    expect(linkedAdd(board(), WBS.id, SENT, next, "u-1", "ux")).toEqual({
+    expect(linkedAdd(board(), WBS.id, SENT, next, "u-1", "ux", EN)).toEqual({
       ok: true,
       values: { [WBS.id]: next },
     });
-    expect(linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", undefined)).toEqual({
+    expect(linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", undefined, EN)).toEqual({
       ok: true,
       values: { [WBS.id]: SPLIT },
     });
   });
 
   test("gives the Tree `undefined` once its nodes are the agent's", () => {
-    expect(linkedAdd(board(), WBS.id, SENT, SENT, "u-1", "ux")).toEqual({
+    expect(linkedAdd(board(), WBS.id, SENT, SENT, "u-1", "ux", EN)).toEqual({
       ok: true,
       values: { [WBS.id]: undefined },
     });
@@ -74,7 +77,7 @@ describe("a package added in a Tree a plan names (view spec, An added package's 
     );
     const plan = { ...SENT_PLAN, tasks: { ...SENT_PLAN.tasks, ...crowded } };
     expect(
-      linkedAdd(board(new Map([[PLAN.id, plan]])), WBS.id, SENT, SPLIT, "u-1", "portal"),
+      linkedAdd(board(new Map([[PLAN.id, plan]])), WBS.id, SENT, SPLIT, "u-1", "portal", EN),
     ).toEqual({
       ok: false,
       reason: `Clickable prototype would have more than ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have.`,
@@ -105,7 +108,7 @@ describe("a package deleted in a Tree a plan names (view spec, Deleting a packag
 
   test("connects each dependent to the deleted package's predecessors, in one update with the Tree's value", () => {
     const next = remove(SENT, "portal");
-    expect(linkedDelete(board(), WBS.id, SENT, next, ["portal"])).toEqual({
+    expect(linkedDelete(board(), WBS.id, SENT, next, ["portal"], EN)).toEqual({
       ok: true,
       values: {
         [WBS.id]: next,
@@ -124,9 +127,9 @@ describe("a package deleted in a Tree a plan names (view spec, Deleting a packag
   });
 
   test("leaves neither value in the draft once a package the user added is deleted again", () => {
-    const added = linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", "portal");
+    const added = linkedAdd(board(), WBS.id, SENT, SPLIT, "u-1", "portal", EN);
     const shown = new Map(added.ok ? Object.entries(added.values) : []);
-    expect(linkedDelete(board(shown), WBS.id, SENT, SENT, ["u-1"])).toEqual({
+    expect(linkedDelete(board(shown), WBS.id, SENT, SENT, ["u-1"], EN)).toEqual({
       ok: true,
       values: { [WBS.id]: undefined, [PLAN.id]: undefined },
     });
@@ -135,7 +138,7 @@ describe("a package deleted in a Tree a plan names (view spec, Deleting a packag
   test("is refused, naming the limit, when a dependent's new predecessors would pass one", () => {
     const next = remove(SENT, "portal");
     const shown = new Map([[PLAN.id, crowded("prototype")]]);
-    expect(linkedDelete(board(shown), WBS.id, SENT, next, ["portal"])).toEqual({
+    expect(linkedDelete(board(shown), WBS.id, SENT, next, ["portal"], EN)).toEqual({
       ok: false,
       reason: `Clickable prototype would have more than ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have.`,
     });
@@ -148,6 +151,7 @@ describe("a refused linked edit's field error", () => {
       refusalText(
         { ok: false, limit: "predecessors", most: GANTT_MAX_PREDECESSORS, taskId: "reporting" },
         SENT.nodes,
+        EN,
       ),
     ).toBe(
       `Reporting would have more than ${GANTT_MAX_PREDECESSORS} predecessors, the most a task can have.`,
@@ -156,6 +160,7 @@ describe("a refused linked edit's field error", () => {
       refusalText(
         { ok: false, limit: "dependents", most: GANTT_MAX_DEPENDENTS, taskId: "t-9" },
         SENT.nodes,
+        EN,
       ),
     ).toBe(
       `t-9 would have more than ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have.`,
@@ -163,8 +168,8 @@ describe("a refused linked edit's field error", () => {
   });
 
   test("names the plan's limit of entries", () => {
-    expect(refusalText({ ok: false, limit: "entries", most: GANTT_MAX_TASKS }, SENT.nodes)).toBe(
-      `The plan would hold more than ${GANTT_MAX_TASKS} tasks, the most a plan can hold.`,
-    );
+    expect(
+      refusalText({ ok: false, limit: "entries", most: GANTT_MAX_TASKS }, SENT.nodes, EN),
+    ).toBe(`The plan would hold more than ${GANTT_MAX_TASKS} tasks, the most a plan can hold.`);
   });
 });

@@ -126,7 +126,7 @@ describe("the WBS's values (molecules design decision 14; view spec, WBS layout)
     const [first] = visibleRows(WBS.props.nodes, new Set());
     if (first === undefined) throw new Error("the fixture has no rows");
     expect(pertNote(pertRow(spreadOnly, TREE, first))).toBe(PERT_NOT_COMPUTED);
-    expect(PERT_NOT_COMPUTED).toBe("No expected effort or spread: they could not be computed.");
+    expect(PERT_NOT_COMPUTED).toBe("tree.notComputed");
     expect(pertNote(pertRow(graphOf([WBS, PLAN]), TREE, first))).toBeUndefined();
   });
 });

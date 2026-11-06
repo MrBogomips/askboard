@@ -9,7 +9,7 @@
 // the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
 // and widths as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
-import { useLocale } from "@askboard/view/catalog";
+import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, useCallback, useMemo } from "react";
 import { type BarDrag, useBarDrag } from "./bar-drag.ts";
 import {
@@ -38,6 +38,7 @@ import {
 } from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
+import { ZOOM_LABELS } from "./zoom.tsx";
 
 type Arrow = { readonly from: DrawnBar; readonly to: DrawnBar; readonly critical: boolean };
 
@@ -231,6 +232,7 @@ const draggedBox = (bar: DrawnBar, drag: BarDrag, span: ChartSpan, zoom: Zoom) =
 
 export const Chart = (props: ChartProps) => {
   const { itemId, rows, schedules, layout, span, zoom, onMove, onResize } = props;
+  const text = useStrings();
   const width = (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
   const bars = useMemo(
     () => drawnBars(rows, schedules, layout, span, zoom),
@@ -263,7 +265,7 @@ export const Chart = (props: ChartProps) => {
   return (
     <svg
       role="img"
-      aria-label={`Gantt chart, ${zoom} zoom`}
+      aria-label={text("gantt.chart.name", { zoom: text(ZOOM_LABELS[zoom]).toLowerCase() })}
       width={width}
       height={layout.height}
       viewBox={`0 0 ${width} ${layout.height}`}

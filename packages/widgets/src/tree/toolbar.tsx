@@ -9,7 +9,7 @@
 // cannot hold all the tools and the counter's minimum, the move tools go into a "More" menu, the
 // last stop of the toolbar (`model/overflow.ts`, review F-16).
 
-import { useLanguage, useStrings } from "@askboard/view/catalog";
+import { type Say, useLanguage, useStrings } from "@askboard/view/catalog";
 import { DropdownMenu } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
 import {
@@ -31,9 +31,6 @@ import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
 import { MOVE_TOOLS } from "./model/overflow.ts";
 import { useCrowded } from "./use-crowded.ts";
 
-/** The toolbar's name; the question's text names the tree. The wording is not recorded in EXPERIENCE.md. */
-const TOOLBAR_NAME = "Tree tools";
-
 // The counter: "No changes", then each node the user changed, once, after the change dot; cut with
 // an ellipsis, its whole text in the tooltip, before it overprints a tool.
 const ChangeCount = ({ count }: { readonly count: number }) => {
@@ -48,8 +45,10 @@ const ChangeCount = ({ count }: { readonly count: number }) => {
 };
 
 // "Move up (Alt+Shift+ArrowUp)", "Delete (Delete or Backspace)"; a tool with no keys has none.
-const titleOf = ({ label, shortcut }: TreeTool): string | undefined =>
-  shortcut === undefined ? undefined : `${label} (${shortcut.split(" ").join(" or ")})`;
+const titleOf = ({ label, shortcut }: TreeTool, text: Say): string | undefined =>
+  shortcut === undefined
+    ? undefined
+    : `${text(label)} (${shortcut.split(" ").join(text("tree.keysSeparator"))})`;
 
 /** A delete's question, while it is asked, and its answers. */
 export type Asking = {
@@ -103,10 +102,10 @@ const MoreMenu = ({
                     key={tool.edit}
                     className={MENU_ITEM}
                     disabled={enabled[at] !== true}
-                    title={titleOf(tool)}
+                    title={titleOf(tool, text)}
                     onSelect={() => onTool(tool.edit)}
                   >
-                    {tool.label}
+                    {text(tool.label)}
                   </DropdownMenu.Item>,
                 ]
               : [],
@@ -136,6 +135,7 @@ export const TreeToolbar = ({
 }) => {
   // The stop focused last, which keeps the Tab stop while it is enabled: a position among the
   // shown tools, then "More" when it is shown.
+  const text = useStrings();
   const [current, setCurrent] = useState(0);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const toolsRow = useRef<HTMLDivElement>(null);
@@ -158,7 +158,7 @@ export const TreeToolbar = ({
     <div
       ref={toolsRow}
       role="toolbar"
-      aria-label={TOOLBAR_NAME}
+      aria-label={text("tree.tools.name")}
       className={TOOLS}
       onKeyDown={onKeyDown}
     >
@@ -174,14 +174,14 @@ export const TreeToolbar = ({
             tabIndex={at === stop ? 0 : -1}
             aria-disabled={enabled[index] === true ? undefined : true}
             aria-keyshortcuts={tool.shortcut}
-            title={titleOf(tool)}
+            title={titleOf(tool, text)}
             className={TOOL}
             onFocus={() => setCurrent(at)}
             onClick={() => {
               if (enabled[index] === true) onTool(tool.edit);
             }}
           >
-            {tool.label}
+            {text(tool.label)}
           </button>
         );
       })}

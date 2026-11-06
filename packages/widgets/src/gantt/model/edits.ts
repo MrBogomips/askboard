@@ -21,6 +21,7 @@ import {
   ID_PATTERN,
 } from "@askboard/contract";
 import { isGanttDate } from "./date.ts";
+import type { Say } from "./say.ts";
 import {
   type GanttOwnProps,
   type GanttPlanProps,
@@ -336,26 +337,27 @@ const walkFrom = (rows: readonly GanttRow[], taskId: string): ReadonlySet<string
 export const precedenceIn = (
   value: GanttProps,
   rows: readonly GanttRow[],
+  text: Say,
 ): ((taskId: string, candidateId: string) => Precedence) => {
   const byId = rowsById(rows);
   const dependents = dependentCounts(value);
   return (taskId, candidateId) => {
     const task = rowOf(byId, taskId);
     const candidate = rowOf(byId, candidateId);
-    if (candidateId === taskId) return refused(`${task.label} cannot come before itself`);
+    if (candidateId === taskId) return refused(text("gantt.reason.self", { task: task.label }));
     const listed = task.dependencies;
     if (listed.includes(candidateId)) return OK;
     if (walkFrom(rows, taskId).has(candidateId)) {
-      return refused(`${candidate.label} already depends on ${task.label}`);
+      return refused(text("gantt.reason.cycle", { candidate: candidate.label, task: task.label }));
     }
     if (listed.length >= GANTT_MAX_PREDECESSORS) {
       return refused(
-        `${task.label} already has ${GANTT_MAX_PREDECESSORS} predecessors, the most a task can have`,
+        text("gantt.reason.predecessors", { task: task.label, most: GANTT_MAX_PREDECESSORS }),
       );
     }
     if ((dependents.get(candidateId) ?? 0) >= GANTT_MAX_DEPENDENTS) {
       return refused(
-        `${candidate.label} already has ${GANTT_MAX_DEPENDENTS} dependent tasks, the most a task can have`,
+        text("gantt.reason.dependents", { candidate: candidate.label, most: GANTT_MAX_DEPENDENTS }),
       );
     }
     return OK;
@@ -374,4 +376,5 @@ export const canPrecede = (
   rows: readonly GanttRow[],
   taskId: string,
   candidateId: string,
-): Precedence => precedenceIn(value, rows)(taskId, candidateId);
+  text: Say,
+): Precedence => precedenceIn(value, rows, text)(taskId, candidateId);

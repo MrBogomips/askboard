@@ -8,7 +8,7 @@ import {
   viewWithoutAdd,
   withPending,
 } from "./adding.ts";
-import { NAME_TOO_LONG } from "./entry.ts";
+import { nameTooLong } from "./entry.ts";
 import { focusOn, openView } from "./model/focus.ts";
 
 const tree: TreeProps = Object.freeze({
@@ -70,7 +70,7 @@ describe("a pending add", () => {
     expect(enterNewName(tree, add, "")).toEqual({ kind: "value", value: tree });
     expect(enterNewName(tree, add, "x".repeat(201))).toEqual({
       kind: "refused",
-      reason: NAME_TOO_LONG,
+      reason: nameTooLong("en-US"),
     });
     const after = enterNewName(empty, { edit: "addAfter", anchor: undefined }, "First");
     expect(after.kind === "value" && after.value.nodes).toEqual([{ id: "u-1", label: "First" }]);

@@ -51,15 +51,15 @@ export const Legend = ({ baseline }: { readonly baseline: boolean }) => {
     <div className="flex items-center gap-4 border-t border-border px-2 py-1.5 text-badge text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
         <Swatch className="h-[8px] w-[16px] bg-gantt-bar" />
-        task
+        {text("gantt.legend.task")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <Swatch className="h-[8px] w-[16px] bg-critical" />
-        critical path
+        {text("gantt.legend.critical")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <Swatch className="mx-0.5 h-[6px] w-[12px] outline-2 outline-offset-1 outline-change" />
-        your change
+        {text("gantt.legend.change")}
       </span>
       {baseline ? (
         <span data-gantt-legend-baseline="" className="inline-flex items-center gap-1.5">

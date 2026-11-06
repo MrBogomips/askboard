@@ -9,6 +9,7 @@
 // zoom shown keeps it: a toggle group would turn it off. The zoom is view state: it rescales the
 // chart and reaches no draft, and a read-only Gantt keeps it (AD-10).
 
+import { type StringKey, useStrings } from "@askboard/view/catalog";
 import { ToggleGroup } from "radix-ui";
 import { type FocusEvent, type KeyboardEvent, useRef, useState } from "react";
 import { keyPressOf } from "./key-press.ts";
@@ -16,7 +17,11 @@ import { nextTool, toolTabStop } from "./model/focus.ts";
 import { toolbarKeyMove } from "./model/keys.ts";
 import { isZoom, ZOOMS, type Zoom } from "./model/scale.ts";
 
-const LABELS: Readonly<Record<Zoom, string>> = { day: "Day", week: "Week", month: "Month" };
+export const ZOOM_LABELS: Readonly<Record<Zoom, StringKey>> = {
+  day: "gantt.zoom.day",
+  week: "gantt.zoom.week",
+  month: "gantt.zoom.month",
+};
 
 /** Every zoom may be chosen, whether or not the Gantt takes edits. */
 const ENABLED: readonly boolean[] = ZOOMS.map(() => true);
@@ -35,6 +40,7 @@ export type ZoomProps = {
 };
 
 export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
+  const text = useStrings();
   const options = useRef<(HTMLButtonElement | null)[]>([]);
   // The option the focus is on while it is in the control: the Tab stop follows it, so that
   // Shift+Tab leaves; once the focus has left, the stop is the chosen zoom again.
@@ -59,7 +65,7 @@ export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
         if (isZoom(next)) onZoom(next);
       }}
       rovingFocus={false}
-      aria-label="Zoom"
+      aria-label={text("gantt.zoom.name")}
       className={TRACK}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
@@ -75,7 +81,7 @@ export const ZoomControl = ({ zoom, onZoom }: ZoomProps) => {
           onFocus={() => setFocused(at)}
           className={SEGMENT}
         >
-          {LABELS[option]}
+          {text(ZOOM_LABELS[option])}
         </ToggleGroup.Item>
       ))}
     </ToggleGroup.Root>

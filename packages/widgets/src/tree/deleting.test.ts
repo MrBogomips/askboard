@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeProps } from "@askboard/contract";
+import { type Say, say } from "@askboard/view/catalog";
 import { afterDelete, branchIdsOf, deletedWith, deleteQuestionOf } from "./deleting.ts";
 import { focusOn, openView } from "./model/focus.ts";
+
+const EN: Say = (key, slots) => say("en-US", key, slots);
 
 const tree: TreeProps = Object.freeze({
   nodes: [
@@ -64,15 +67,15 @@ describe("deleting a node", () => {
   });
 
   test("says how many nodes go with it, in the singular for one", () => {
-    expect(deletedWith(1, 0)).toBe("and the node under it will be deleted.");
-    expect(deletedWith(3, 0)).toBe("and the 3 nodes under it will be deleted.");
-    expect(deletedWith(0, 0)).toBe("will be deleted.");
+    expect(deletedWith(1, 0, EN)).toBe("and the node under it will be deleted.");
+    expect(deletedWith(3, 0, EN)).toBe("and the 3 nodes under it will be deleted.");
+    expect(deletedWith(0, 0, EN)).toBe("will be deleted.");
   });
 
   test("says how many tasks depend on it, or on its branch", () => {
-    expect(deletedWith(0, 1)).toBe("will be deleted. 1 task in the plan depends on it.");
-    expect(deletedWith(0, 2)).toBe("will be deleted. 2 tasks in the plan depend on it.");
-    expect(deletedWith(1, 1)).toBe(
+    expect(deletedWith(0, 1, EN)).toBe("will be deleted. 1 task in the plan depends on it.");
+    expect(deletedWith(0, 2, EN)).toBe("will be deleted. 2 tasks in the plan depend on it.");
+    expect(deletedWith(1, 1, EN)).toBe(
       "and the node under it will be deleted. 1 task in the plan depends on them.",
     );
   });
