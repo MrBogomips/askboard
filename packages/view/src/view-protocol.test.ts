@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { type BoardState, type DraftRecord, SCHEMA_IDS, SCHEMA_SETS } from "@askboard/contract";
+import {
+  type BoardState,
+  type DraftRecord,
+  JSON_MAX_DEPTH,
+  SCHEMA_IDS,
+  SCHEMA_SETS,
+} from "@askboard/contract";
 import {
   ganttEditedValue,
   lifecycleBoardDocument,
@@ -305,10 +311,12 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     }
   });
 
-  test("a deep value is walked without overflowing the stack", () => {
+  test("a deep value is walked without overflowing the stack, and refused past the JSON bound (X-5)", () => {
     let deep: unknown = "ux";
     for (let level = 0; level < 200_000; level += 1) deep = [deep];
-    expect(problemsOf(call({ ...base, derived: { "release.deep": deep } }))).toEqual([]);
+    expect(
+      problemsOf(call({ ...base, derived: { "release.deep": deep } })).map(({ path }) => path),
+    ).toEqual(["/arguments/derived"]);
   });
 
   test("derived values come beside any answer content, never alone (design decision 10)", () => {
@@ -874,6 +882,30 @@ describe("an answer's results (widget-registry, design decision 9; AD-20)", () =
   ])("results that are %s are refused, naming results", (_, value) => {
     const found = problemsOf(call({ ...base, choice: ["Yes"], results: value }));
     expect(found.map(({ path }) => path)).toEqual(["/arguments/results"]);
+  });
+
+  const nested = (levels: number): unknown => {
+    let value: unknown = 1;
+    for (let at = 0; at < levels; at += 1) value = [value];
+    return value;
+  };
+
+  test("a result nested past the contract's JSON bound is refused, never thrown (X-3)", () => {
+    const bound = JSON_MAX_DEPTH;
+    for (const levels of [bound + 1, 1_000_000]) {
+      const found = problemsOf(
+        call({ ...base, choice: ["Yes"], results: { sketch: nested(levels) } }),
+      );
+      expect(found.map(({ path }) => path)).toEqual(["/arguments/results"]);
+    }
+    expect(problemsOf(call({ ...base, results: { sketch: nested(bound) } }))).toEqual([]);
+  });
+
+  test("derived values nested past the JSON bound are refused, naming derived (X-5)", () => {
+    const found = problemsOf(
+      call({ ...base, choice: ["Yes"], derived: { "sketch.count": nested(JSON_MAX_DEPTH + 1) } }),
+    );
+    expect(found.map(({ path }) => path)).toEqual(["/arguments/derived"]);
   });
 
   test("a result may be any JSON value, a key such as __proto__ among the keys", () => {

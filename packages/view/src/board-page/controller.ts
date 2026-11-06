@@ -20,6 +20,7 @@ import {
   type ActCommand,
   BOARD_PROTOCOL_VERSION,
   DRAFT_RECORD_MAX_CHARS,
+  DRAFT_RECORD_MAX_DEPTH,
   type DraftRecord,
   type LifecycleBoardDocument,
   type LifecycleStateMessage,
@@ -46,6 +47,7 @@ import type {
   ViewSetting,
   ViewUpdate,
 } from "../view-protocol.ts";
+import { nestsWithin } from "../view-protocol.ts";
 import {
   type Banner,
   type BoardStatus,
@@ -212,6 +214,9 @@ const draftRefusal = (
   record: DraftRecord,
   document: LifecycleBoardDocument | undefined,
 ): string | undefined => {
+  if (!nestsWithin(record, DRAFT_RECORD_MAX_DEPTH)) {
+    return `the draft record is nested deeper than ${DRAFT_RECORD_MAX_DEPTH} levels`;
+  }
   const check = hostMessageSchemas.draft;
   if (!check({ version, type: "draft", record })) {
     const [first] = check.errors ?? [];

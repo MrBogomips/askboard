@@ -324,9 +324,11 @@ describe("the draft record", () => {
       ...lifecycleDraftRecord,
       questions: { payment: { rev: 1, results: { pick: loop } } },
     };
-    const result = validateBoardMessage("toHost", { ...draft, record });
-    expect(result).toMatchObject({ ok: false, reason: "schema" });
-    expect(paths(result)).toEqual(["/record"]);
+    for (const direction of ["toHost", "toPage"] as const) {
+      const result = validateBoardMessage(direction, { ...draft, record });
+      expect(result).toMatchObject({ ok: false, reason: "schema" });
+      expect(paths(result)).toEqual(["/record"]);
+    }
   });
 
   test("the draft's depth bound is the one JSON bound plus the record's own levels", () => {

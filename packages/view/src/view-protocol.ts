@@ -22,6 +22,7 @@ import {
   type DraftRecord,
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
+  JSON_MAX_DEPTH,
   type LifecycleBoardState,
   NOTE_MAX_CHARS,
   OPTION_NOTE_MAX_CHARS,
@@ -344,25 +345,47 @@ const isContainer = (value: object): boolean => {
 };
 
 /**
+ * Whether `value` nests no deeper than `maxDepth` levels of objects and lists. A list walks it, so
+ * a value nested a million deep, or one that holds itself, is answered and never overflows the
+ * stack; the board page runs it before any `JSON.stringify`, which throws on a deep value.
+ */
+export const nestsWithin = (value: unknown, maxDepth: number): boolean => {
+  const stack: { readonly value: unknown; readonly depth: number }[] = [{ value, depth: 0 }];
+  for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
+    if (typeof next.value !== "object" || next.value === null) continue;
+    if (next.depth >= maxDepth) return false;
+    for (const child of Object.values(next.value)) {
+      stack.push({ value: child, depth: next.depth + 1 });
+    }
+  }
+  return true;
+};
+
+/**
  * A JSON value: text, a finite number, true, false, null, and lists and plain objects of them. It
  * is walked with a list rather than recursion, so that a deep value cannot overflow the board
  * page's stack, and an object reached twice, a cycle included, is refused: JSON shares no object,
  * and the walk stays linear in the value's size.
  */
-const isJsonValue = (root: unknown): boolean => {
+const isJsonValue = (root: unknown, maxDepth = Number.POSITIVE_INFINITY): boolean => {
   const seen = new Set<object>();
-  const pending: unknown[] = [root];
+  const pending: { readonly value: unknown; readonly depth: number }[] = [
+    { value: root, depth: 0 },
+  ];
   while (pending.length > 0) {
-    const value = pending.pop();
+    const { value, depth } = pending.pop() as { value: unknown; depth: number };
     if (value === null || typeof value === "string" || typeof value === "boolean") continue;
     if (typeof value === "number") {
       if (Number.isFinite(value)) continue;
       return false;
     }
     if (typeof value !== "object" || seen.has(value) || !isContainer(value)) return false;
+    if (depth >= maxDepth) return false;
     seen.add(value);
     // A list's holes read as undefined, which is refused.
-    for (const child of Array.isArray(value) ? value : Object.values(value)) pending.push(child);
+    for (const child of Array.isArray(value) ? value : Object.values(value)) {
+      pending.push({ value: child, depth: depth + 1 });
+    }
   }
   return true;
 };
@@ -372,18 +395,18 @@ const derived: FieldCheck = (value) =>
   isRecord(value) &&
   Object.keys(value).length > 0 &&
   Object.keys(value).every((key) => REFERENCE.test(key)) &&
-  isJsonValue(value)
+  isJsonValue(value, JSON_MAX_DEPTH + 1)
     ? undefined
-    : "is not an object of one or more references (AD-13), each to a JSON value";
+    : `is not an object of one or more references (AD-13), each to a JSON value nested at most ${JSON_MAX_DEPTH} levels`;
 
 // Item IDs, each to a JSON value of the widget's own type, which whoever can carry it checks.
 const results: FieldCheck = (value) =>
   isRecord(value) &&
   Object.keys(value).length > 0 &&
   Object.keys(value).every((key) => ID.test(key)) &&
-  isJsonValue(value)
+  isJsonValue(value, JSON_MAX_DEPTH + 1)
     ? undefined
-    : "is not an object of one or more widget item IDs, each to a JSON value";
+    : `is not an object of one or more widget item IDs, each to a JSON value nested at most ${JSON_MAX_DEPTH} levels`;
 
 const utcTime: FieldCheck = (value) =>
   typeof value === "string" && UTC_TIME.test(value) ? undefined : "is not an RFC 3339 time in UTC";

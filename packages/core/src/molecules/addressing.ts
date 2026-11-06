@@ -117,3 +117,22 @@ export const answerInReferenceAddressing = (
   });
   return { changes: addressing.changes(changes), derived: addressing.derived(derived) };
 };
+
+/**
+ * The results kept for each answer event, by the event's cursor, in reference addressing and
+ * copied (AD-9, AD-20): the mapping `AskCore.keptAnswerResults` applies, so that an expanded item
+ * ID never reaches a Snapshot. An event that kept no result is left out.
+ */
+export const keptResultsInReferenceAddressing = (
+  map: ExpansionMap,
+  kept: ReadonlyMap<string, { readonly results: Json }>,
+): ReadonlyMap<string, Json> => {
+  const addressing = referenceAddressing(map);
+  return new Map(
+    [...kept].flatMap(([cursor, { results }]) =>
+      Object.keys(results).length === 0
+        ? []
+        : [[cursor, JSON.parse(JSON.stringify(addressing.results(results))) as Json] as const],
+    ),
+  );
+};

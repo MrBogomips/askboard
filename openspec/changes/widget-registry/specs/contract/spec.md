@@ -79,11 +79,15 @@ The board protocol's `answer` act SHALL take `results`, an object from widget it
 - **THEN** it fails as a schema error naming `results`
 
 ### Requirement: Widget results in the draft record
-A draft record's question SHALL take `results`, from item ID to the result the view holds, any JSON value, beside `values`; its keys SHALL be checked as `values`' keys are (AD-20).
+A draft record's question SHALL take `results`, from item ID to the result the view holds, any JSON value nested no deeper than `JSON_MAX_DEPTH`, beside `values`; its keys SHALL be checked as `values`' keys are, and a record nested deeper than the draft depth bound (that bound plus the record's own four levels) SHALL be refused at `/record` in both directions (AD-20).
 
 #### Scenario: A held result
 - **WHEN** a draft record whose question holds a result for a probe item is validated
 - **THEN** it passes
+
+#### Scenario: A record nested too deep
+- **WHEN** a draft record holds a result nested past the draft depth bound, or one that holds itself
+- **THEN** the message fails at `/record` in both directions, with nothing thrown, and the board page refuses to mirror it
 
 #### Scenario: A key that names no question item
 - **WHEN** the record's question holds a result under an ID that is no item of that question in the board document
@@ -170,3 +174,14 @@ The board document's questions SHALL hold their widget items as `ask-core` expan
 #### Scenario: A reference in a board document
 - **WHEN** a board document's question holds a `molecule` item
 - **THEN** validation fails, naming the item and its type
+
+### Requirement: Lifecycle constants
+The contract SHALL hold, as shared constants: the reconnect grace period (120 s), the takeover flush wait, the longest note, "Other…" text, follow-up and reply, the longest option note, preview and annotation, the longest draft record and the longest `fetch` page, the one JSON depth bound (`JSON_MAX_DEPTH`, 64 levels) and the draft record's depth bound, and no unit SHALL define its own.
+
+#### Scenario: The grace period
+- **WHEN** `ask-core` starts a grace timer
+- **THEN** it uses the contract's grace period of 120 s
+
+#### Scenario: The depth bounds
+- **WHEN** `ask-core` and the board page check a result's depth and a draft record's
+- **THEN** they use the contract's `JSON_MAX_DEPTH` and draft depth bound, and define none

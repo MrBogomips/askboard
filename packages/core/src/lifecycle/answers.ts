@@ -8,8 +8,11 @@ import {
   OPTION_NOTE_MAX_CHARS,
   OTHER_MAX_CHARS,
   type QuestionProps,
+  WIDGET_TYPES,
+  type WidgetType,
 } from "@askboard/contract";
 import type { AnswerContent } from "./model.ts";
+import { namesOf } from "./widget-values.ts";
 
 export type ContentProblem = { readonly refusal: "choice" | "content"; readonly detail: string };
 
@@ -64,6 +67,7 @@ export const contentProblem = (
   props: QuestionProps,
   declined: boolean,
   widgetChange = false,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): ContentProblem | undefined => {
   const { choice, other, optionNotes, note } = content;
   if (choice !== undefined) {
@@ -78,8 +82,7 @@ export const contentProblem = (
   if (!declined && !widgetChange && choice === undefined && other === undefined) {
     return {
       refusal: "content",
-      detail:
-        "the answer names no option, has no Other… text, changes no Tree or Gantt and gives no result",
+      detail: `the answer names no option, has no Other… text, changes no ${namesOf(types)} and gives no result`,
     };
   }
   return undefined;

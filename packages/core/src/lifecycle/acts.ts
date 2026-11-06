@@ -178,7 +178,7 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   const widgetChange =
     widgets !== undefined &&
     (Object.keys(widgets.values).length > 0 || Object.keys(widgets.results).length > 0);
-  const bad = contentProblem(declined ? reason : act, props, declined, widgetChange);
+  const bad = contentProblem(declined ? reason : act, props, declined, widgetChange, target.types);
   if (bad !== undefined) return problem(bad.refusal, bad.detail, itemId);
   const late = whenProblem(target);
   if (late !== undefined) return late;

@@ -52,7 +52,7 @@ import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./c
 import { checkedFormulaWarnings, graphProblem } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
-import { referenceAddressing } from "./molecules/addressing.ts";
+import { keptResultsInReferenceAddressing } from "./molecules/addressing.ts";
 import { expansionEntries } from "./molecules/map.ts";
 import { expandSentItems } from "./molecules/on-ask.ts";
 import { referencesIn } from "./molecules/references.ts";
@@ -513,14 +513,7 @@ export class AskCore {
   ): ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined {
     const ask = this.#asks.get(askId);
     if (ask === undefined) return undefined;
-    const addressing = referenceAddressing(ask.expansion);
-    return new Map(
-      [...ask.keptAnswers].flatMap(([cursor, { results }]) =>
-        Object.keys(results).length === 0
-          ? []
-          : [[cursor, JSON.parse(JSON.stringify(addressing.results(results)))] as const],
-      ),
-    );
+    return keptResultsInReferenceAddressing(ask.expansion, ask.keptAnswers);
   }
 
   #appended(askId: string, events: readonly OutputEvent[]): void {

@@ -33,6 +33,7 @@ const snapshotOf = async (core: AskCore, written: readonly unknown[], askId: str
   expect(checked.ok ? [] : checked.problems).toEqual([]);
   return data as {
     events: { event: { type: string; cursor: string }; values?: Record<string, unknown> }[];
+    state: { questions: unknown[] };
     molecules?: { itemId: string; reference: string; molecule: string; version: string }[];
   };
 };
@@ -58,7 +59,11 @@ describe("a Snapshot of a widget ask", () => {
     const [answer] = data.events;
     expect(answer?.event.type).toBe("answer");
     expect(Object.keys(answer?.values ?? {}).sort()).toEqual(["schedule", "wbs"]);
-    expect(JSON.stringify(data)).not.toContain('wbs__tree":{');
+    // The logged events are in reference addressing (AD-9). The board state, like the live one,
+    // holds the answer's values by expanded ID (AD-20; widget-registry task 3.8).
+    expect(JSON.stringify(data.events)).not.toContain('wbs__tree":{');
+    const [plan] = data.state.questions as unknown as { answer: { values: object } }[];
+    expect(Object.keys(plan?.answer.values ?? {}).sort()).toEqual(["schedule__plan", "wbs__tree"]);
     expect(data.molecules?.map(({ reference }) => reference)).toContain("wbs");
     expect(new Set(data.molecules?.map(({ molecule }) => molecule))).toEqual(
       new Set(["wbs-pert", "gantt-plan"]),

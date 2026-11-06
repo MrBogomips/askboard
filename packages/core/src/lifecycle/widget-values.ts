@@ -58,7 +58,7 @@ const widgetsOf = (
 };
 
 /** The registry's types as the refusals name them: `Tree, Gantt or Probe` (the nouns, less `a`). */
-const namesOf = (types: readonly WidgetType[]): string => {
+export const namesOf = (types: readonly WidgetType[]): string => {
   const names = types.map(({ noun }) => noun.replace(/^an? /, ""));
   const last = names.pop();
   return names.length === 0 ? (last ?? "widget") : `${names.join(", ")} or ${last}`;
