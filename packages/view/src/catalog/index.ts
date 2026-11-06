@@ -16,4 +16,6 @@ export {
   useLanguage,
   useLocale,
   useReadyAfterLayout,
+  useStrings,
+  useStrings,
 } from "./port.ts";

@@ -152,9 +152,21 @@ export const STRING_KEYS = [
   "bar.switchBody",
   "bar.cancel",
   "bar.sendAndSwitch",
+  // The widgets' toolbars and the Snapshot path (widget-editing-plus; task 1.6 adds the rest).
+  "widget.noChanges",
+  "widget.yourChanges",
+  "widget.more",
+  "snapshot.copyPath",
   // The renderer.
   "item.error",
   "item.loading",
+  // The Gantt: the toolbar's counter, the legend, the drag guide and the grid's duration.
+  "gantt.counter.none",
+  "gantt.counter.yours",
+  "gantt.counter.follows",
+  "gantt.legend.baseline",
+  "gantt.guide.earliest",
+  "gantt.duration",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];
