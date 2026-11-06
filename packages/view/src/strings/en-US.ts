@@ -171,7 +171,7 @@ export const EN_US = {
     one: "{count} follows from the WBS",
     other: "{count} follow from the WBS",
   },
-  "gantt.legend.baseline": "agent's plan",
+  "gantt.legend.baseline": "Baseline",
   "gantt.guide.earliest": "earliest {date}",
   "gantt.duration": "{count} d",
   "tree.tools.name": "Tree tools",

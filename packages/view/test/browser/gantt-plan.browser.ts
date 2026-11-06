@@ -305,7 +305,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await baselineFacts(gantt)).toEqual(sent.filter(({ task }) => task === "reporting"));
         expect(await gantt.root.locator("[data-gantt-legend-baseline]").textContent()).toContain(
-          "agent's plan",
+          "Baseline",
         );
         const [reporting] = (await barFacts(gantt)).filter((bar) => bar.task === "reporting");
         expect(reporting?.x).toBe(spanAt("2026-12-09", "2026-12-16", "week").x);
