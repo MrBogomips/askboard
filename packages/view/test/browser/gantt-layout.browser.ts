@@ -171,10 +171,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["reporting", "Reporting", "Fri 12/4", "6 d", "Customer portal"],
         ]);
         expect(await gantt.chart.count()).toBe(1);
-        // Each grid row lines up with its row of the chart: 36px rows under a 32px header.
+        // Each grid row lines up with its row of the chart: 32px rows under a 32px header.
         expect(await rowLines(gantt)).toEqual({
           chart: 0,
-          rows: UJ2.map((_, index) => [32 + 36 * index, 36]),
+          rows: UJ2.map((_, index) => [32 + 32 * index, 32]),
         });
         const ticks = await gantt.ticks.allTextContents();
         expect(ticks.slice(0, 6)).toEqual([

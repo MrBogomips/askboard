@@ -30,6 +30,7 @@ import { type Baseline, movedBaselines, type TaskSchedule } from "./model/schedu
 import { type GanttColumn, type GanttRow, isOwnGantt } from "./model/tasks.ts";
 import { usePanelState } from "./panel-state.ts";
 import { useChartBox } from "./use-chart-box.ts";
+import { useRowHeight } from "./use-row-height.ts";
 
 /**
  * The note under each row: a refused entry's reason for the row being edited, else the field
@@ -141,7 +142,15 @@ export const GanttFrame = (props: FrameProps) => {
   });
   // A read-only Gantt shows no editor, and no refusal of one.
   const notes = useNotes(itemId, rows, schedules, editable ? editing.editing : undefined);
-  const layout = useMemo(() => rowBoxes(rows.map((row) => notes.has(row.id))), [rows, notes]);
+  const unit = useRowHeight();
+  const layout = useMemo(
+    () =>
+      rowBoxes(
+        rows.map((row) => notes.has(row.id)),
+        unit,
+      ),
+    [rows, notes, unit],
+  );
   const span = useMemo(
     () => spanOf(current.start, schedules, baselines ?? []),
     [current.start, schedules, baselines],

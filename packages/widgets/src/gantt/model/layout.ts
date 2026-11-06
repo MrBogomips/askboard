@@ -1,6 +1,6 @@
-// The chart's geometry (design decision 9; the UJ-2 mock): rows of 36px under an axis of 32px, so
-// that each lines up with its grid row; a row with a field error under it, taller by one line;
-// bars of 14px centred in their row's first 36px, spanning their calendar days; in a plan, the
+// The chart's geometry (design decision 9): rows and axis of the density's height, 32px compact and
+// 40px comfortable (review F-23), so that each lines up with its grid row; a row with a field
+// error under it, taller by one line; bars of 14px centred in their row's first line, spanning their calendar days; in a plan, the
 // baseline, a 4px bar under its task's bar; finish-to-start elbow arrows and their arrowheads'
 // IDs; and the axis's span, from the plan's start to two weeks past the last finish, room to drag
 // a task later. Plain numbers, which the chart writes as SVG attributes.
@@ -8,8 +8,9 @@
 import { dateOfDay, dayNumber, LAST_DAY } from "./date.ts";
 import { PIXELS_PER_DAY, xOf, type Zoom } from "./scale.ts";
 
+/** The compact density's `header-row` token, which a row and the axis take (DESIGN, density). */
 export const AXIS_HEIGHT = 32;
-export const ROW_HEIGHT = 36;
+export const ROW_HEIGHT = 32;
 /** The line a field error takes under its row. */
 export const NOTE_HEIGHT = 20;
 export const BAR_HEIGHT = 14;
@@ -23,11 +24,16 @@ export const AXIS_TAIL_DAYS = 14;
 export type RowBox = {
   readonly top: number;
   readonly height: number;
-  /** The middle of the row's first 36px, where its bar sits. */
+  /** The middle of the row's first line, where its bar sits. */
   readonly middle: number;
 };
 
-export type RowBoxes = { readonly boxes: readonly RowBox[]; readonly height: number };
+export type RowBoxes = {
+  readonly boxes: readonly RowBox[];
+  readonly height: number;
+  /** The axis's height: the same as a row's. */
+  readonly axis: number;
+};
 
 export type BarBox = {
   readonly x: number;
@@ -36,16 +42,19 @@ export type BarBox = {
   readonly height: number;
 };
 
-/** Each row's box under the axis, by whether a note sits under it; and the chart's height. */
-export const rowBoxes = (notes: readonly boolean[]): RowBoxes => {
-  let top = AXIS_HEIGHT;
+/**
+ * Each row's box under the axis, by whether a note sits under it; and the chart's height. The rows
+ * and the axis are `unit` high: the density's `header-row`.
+ */
+export const rowBoxes = (notes: readonly boolean[], unit: number = ROW_HEIGHT): RowBoxes => {
+  let top = unit;
   const boxes = notes.map((note) => {
-    const height = ROW_HEIGHT + (note ? NOTE_HEIGHT : 0);
-    const box = Object.freeze({ top, height, middle: top + ROW_HEIGHT / 2 });
+    const height = unit + (note ? NOTE_HEIGHT : 0);
+    const box = Object.freeze({ top, height, middle: top + unit / 2 });
     top += height;
     return box;
   });
-  return Object.freeze({ boxes: Object.freeze(boxes), height: top });
+  return Object.freeze({ boxes: Object.freeze(boxes), height: top, axis: unit });
 };
 
 /**

@@ -24,7 +24,7 @@ import { isCriticalLink } from "./model/critical-link.ts";
 import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
-import { AXIS_HEIGHT, arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
+import { arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
 import {
@@ -118,12 +118,12 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
   const locale = useLocale();
   return (
     <g>
-      <rect x={0} y={0} width={width} height={AXIS_HEIGHT} className="fill-muted" />
+      <rect x={0} y={0} width={width} height={layout.axis} className="fill-muted" />
       <line
         x1={0}
-        y1={AXIS_HEIGHT - 0.5}
+        y1={layout.axis - 0.5}
         x2={width}
-        y2={AXIS_HEIGHT - 0.5}
+        y2={layout.axis - 0.5}
         className="stroke-border stroke-1"
       />
       {zoom === "day"
@@ -132,9 +132,9 @@ const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
               key={date}
               data-gantt-weekend={date}
               x={xOf(date, span.origin, zoom)}
-              y={AXIS_HEIGHT}
+              y={layout.axis}
               width={PIXELS_PER_DAY[zoom]}
-              height={layout.height - AXIS_HEIGHT}
+              height={layout.height - layout.axis}
               className="fill-muted"
             />
           ))

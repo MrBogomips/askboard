@@ -24,6 +24,15 @@ export const WBS_NAME_COLUMN = "Work package";
 /** A work breakdown's value columns, after the fields: each row's expected effort and spread. */
 export const PERT_VALUE_COLUMNS = ["Expected effort", "Spread"] as const;
 
+/**
+ * The two value columns' headers from the catalogue: a label short enough for one line, and the
+ * column's full name as its tip (review F-22).
+ */
+export const PERT_HEADERS = [
+  { label: "tree.expected", tip: "tree.expectedEffort" },
+  { label: "tree.spread", tip: "tree.spread" },
+] as const;
+
 /** The name of a work breakdown's Total row, its item's roll-ups (provisional: design decision 14). */
 export const TOTAL_ROW = "Total";
 

@@ -33,6 +33,7 @@ import {
   NAME,
   NAME_CELL,
   NEUTRAL_NOTE,
+  NOT_SELECTABLE,
   PARENT_NAME,
   RENAMED,
   ROW,
@@ -76,9 +77,9 @@ const tabIndexOf = (stop: RowStop, at: RowStop): number => (stop === at ? 0 : -1
 /** The cell of a row being edited: its editor and the field error of a refused entry. */
 export type RowEditing = {
   readonly cell: number;
-  readonly editor: ReactNode;
   /** The edited column's name, which begins the field error (review F-10). */
   readonly column: string;
+  readonly editor: ReactNode;
   readonly error: string | undefined;
   /** The error line's ID, which describes the editor while it shows. */
   readonly errorId: string;
@@ -114,15 +115,15 @@ const FieldError = ({
 export const ValueError = ({
   values,
   cells,
-}: {
   added = false,
   current = false,
+}: {
   readonly values: PertValues;
   readonly cells: number;
-}) => {
   /** The row was just added: its note is neutral, and shows once the user leaves it. */
   readonly added?: boolean;
   readonly current?: boolean;
+}) => {
   const text = useStrings();
   const note = rollupNote(values, { added, current });
   return note === undefined ? null : (
@@ -140,14 +141,14 @@ export const ValueCells = ({
   values,
   first,
   stop,
-}: {
   added = false,
+}: {
   readonly values: PertValues;
   readonly first: number;
   readonly stop?: RowStop;
-}) =>
   /** An added row's missing values read as a muted dash (review F-11). */
   readonly added?: boolean;
+}) =>
   [values.expected, values.spread].map((value, at) => {
     const { text, muted } = rollupText(value, added);
     return (
@@ -155,7 +156,7 @@ export const ValueCells = ({
         key={PERT_VALUE_COLUMNS[at]}
         data-cell={first + at}
         tabIndex={stop === undefined ? undefined : tabIndexOf(stop, first + at)}
-        className={`${FIELD_CELL.number} ${FOCUS_RING}${muted ? " text-muted-foreground" : ""}`}
+        className={`${FIELD_CELL.number} ${NOT_SELECTABLE} ${FOCUS_RING}${muted ? " text-muted-foreground" : ""}`}
       >
         {text}
       </td>
@@ -192,6 +193,9 @@ const fieldClass = (column: TreeColumn, edited: boolean, changed: boolean): stri
     : changed
       ? `${FIELD_CELL[column.type]} ${CHANGED_FIELD}`
       : FIELD_CELL[column.type];
+
+// A cell takes a text selection only while its editor is open (review F-05).
+const selectable = (edited: boolean): string => (edited ? "" : NOT_SELECTABLE);
 
 // Each row re-renders only when its node, its place, its Tab stop, its editing or its mark changes.
 export const NodeRow = memo(function NodeRow({
@@ -244,7 +248,7 @@ export const NodeRow = memo(function NodeRow({
           data-cell={0}
           data-editable={takesEdit(0)}
           tabIndex={tabIndexOf(stop, 0)}
-          className={`${NAME_CELL} ${barOf(added, current)} ${FOCUS_RING}`}
+          className={`${NAME_CELL} ${selectable(edits(0))} ${barOf(added, current)} ${FOCUS_RING}`}
         >
           <span className={`flex min-w-0 items-center gap-1.5 ${indentOf(row.level)}`}>
             {row.hasChildren ? <Chevron open={row.expanded} /> : <NoChevron />}
@@ -261,7 +265,7 @@ export const NodeRow = memo(function NodeRow({
               data-editable={takesEdit(at + 1)}
               data-change={changed ? "field" : undefined}
               tabIndex={tabIndexOf(stop, at + 1)}
-              className={`${fieldClass(column, edited, changed)} ${FOCUS_RING}`}
+              className={`${fieldClass(column, edited, changed)} ${selectable(edited)} ${FOCUS_RING}`}
             >
               {edited ? editing?.editor : textOf(column)}
             </td>

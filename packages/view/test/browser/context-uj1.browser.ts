@@ -47,6 +47,27 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await column.locator('[data-askboard-item="gone"]').getByText("Unresolved").waitFor();
         await card(board, "fix").locator('[data-askboard-item="shot"] img').waitFor();
 
+        // An unresolved excerpt offers no "Open in reading panel", a resolved one does (review F-25).
+        const open = (id: string) =>
+          column.locator(`[data-askboard-item="${id}"]`).getByRole("button", {
+            name: "Open in reading panel",
+          });
+        expect(await open("gone").count()).toBe(0);
+        expect(await open("retry-adr").count()).toBe(1);
+
+        // An image sits in a bordered frame on `muted`, with its alt text as the caption (F-24).
+        const frame = card(board, "fix").locator('[data-askboard-item="shot"] figure');
+        const look = await frame.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return { border: style.borderTopWidth, fill: style.backgroundColor };
+        });
+        expect(look.border).toBe("1px");
+        expect(look.fill).not.toBe("rgba(0, 0, 0, 0)");
+        expect(await frame.locator("img").count()).toBe(1);
+        expect(((await frame.locator("figcaption").textContent()) ?? "").trim()).toBe(
+          "The retry log",
+        );
+
         // The reading panel opens at the anchor: the ADR's Decision section, from line 7 on.
         await board.view
           .locator('[data-askboard-item="retry-adr"]')

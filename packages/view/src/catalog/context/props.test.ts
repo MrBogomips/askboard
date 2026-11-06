@@ -1,7 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { IMAGE_MEDIA_TYPES } from "@askboard/contract";
 import { contextBoardDocument, ONE_PIXEL_PNG } from "@askboard/contract/fixtures";
-import { captionOf, excerptOf, imageOf, linesOf, referenceOf, SHOWN_IMAGE_TYPES } from "./props.ts";
+import {
+  captionOf,
+  excerptOf,
+  imageCaptionOf,
+  imageOf,
+  linesOf,
+  opensInPanel,
+  referenceOf,
+  SHOWN_IMAGE_TYPES,
+} from "./props.ts";
 
 const propsOf = (id: string): unknown => {
   for (const question of contextBoardDocument.items) {
@@ -189,5 +198,24 @@ describe("imageOf", () => {
     for (const props of [{}, { ...shown, mediaType: "image/png", alt: 1 }, { ...shown }]) {
       expect(() => imageOf(props)).toThrow("not an image");
     }
+  });
+});
+
+describe("an image's caption line (review F-24)", () => {
+  test("is its alt text, else its path", () => {
+    expect(imageCaptionOf(imageOf(propsOf("shot")))).toBe("The retry log");
+    const bare = { pointer: "shots/a.png", alt: "  ", status: "unresolved" };
+    expect(imageCaptionOf(imageOf(bare))).toBe("shots/a.png");
+  });
+});
+
+describe("opensInPanel (review F-25)", () => {
+  test("a resolved excerpt in a hosted view only: not a written one, not an unresolved pointer", () => {
+    const resolved = excerptOf(propsOf("retry-adr"));
+    expect(opensInPanel(resolved, true)).toBe(true);
+    expect(opensInPanel(resolved, false)).toBe(false);
+    const unresolved = excerptOf(propsOf("missing-doc"));
+    expect(opensInPanel(unresolved, true)).toBe(false);
+    expect(opensInPanel({ kind: "written", text: "x", wraps: false, start: 1 }, true)).toBe(false);
   });
 });

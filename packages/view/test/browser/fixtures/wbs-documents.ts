@@ -61,7 +61,7 @@ export const WBS_HEADERS = [
   "Optimistic",
   "Most likely",
   "Pessimistic",
-  "Expected effort",
+  "Expected",
   "Spread",
 ];
 

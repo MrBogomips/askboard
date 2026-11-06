@@ -171,8 +171,9 @@ export const barDates = async (gantt: GanttParts): Promise<Record<string, string
   );
 
 /**
- * Each grid row's top under the grid's header and its bar's top in the chart, less the 11px a bar
- * sits below its row's top: equal for every row that has a bar, so the two stay lined up.
+ * Each grid row's top under the grid's header and its bar's top in the chart, less what a bar sits
+ * below its row's top (the row's height less the bar's 14px, halved): equal for every row that has
+ * a bar, so the two stay lined up.
  */
 export const alignment = (gantt: GanttParts) =>
   gantt.root.evaluate((root) => {
@@ -184,7 +185,8 @@ export const alignment = (gantt: GanttParts) =>
     return [...grid.querySelectorAll("[data-gantt-row]")].map((row) => {
       const task = row.getAttribute("data-gantt-row") ?? "";
       const bar = chart.querySelector(`[data-gantt-bar="${task}"]`);
-      const barTop = bar === null ? undefined : bar.getBoundingClientRect().top - chartTop - 11;
+      const lift = (row.getBoundingClientRect().height - 14) / 2;
+      const barTop = bar === null ? undefined : bar.getBoundingClientRect().top - chartTop - lift;
       const rowTop = row.getBoundingClientRect().top - gridTop;
       return {
         task,

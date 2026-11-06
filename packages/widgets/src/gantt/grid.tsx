@@ -1,7 +1,8 @@
 // The Gantt's grid (design decision 9; EXPERIENCE Widgets, Gantt): a table whose role is `grid`,
 // so that its rows, cells and column headers take their roles from the HTML, labelled by its
-// question's text; a header row of 32px in `text-label` on `muted` ("Task", "Start", "Duration",
-// "Depends on"; provisional) and one row of 36px per task, lined up with its row of the chart: its
+// question's text; a header row, `header-row` high (32px compact, 40px comfortable), in `text-label` on `muted`
+// ("Task", "Start", "Duration", "Depends on"; provisional) and one row per task as tall as the
+// header, lined up with its row of the chart: its
 // name, its start as the grid's date (`12/9/2026`), its duration in working days, right-aligned,
 // and its predecessors' names, over their panel while it is open; a note, such as a refused
 // entry's reason, takes a line under its row. A plan's duration is its work package's PERT
@@ -14,8 +15,8 @@
 import { formatGridDate, type GanttProps, type Locale } from "@askboard/contract";
 import { questionTextId, useLocale, useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, Ref } from "react";
-import { CellEditor, noteId } from "./cell-editor.tsx";
 import { errorSpan } from "../shared/field-error.ts";
+import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing, Editing } from "./editing.ts";
 import { spansYears } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
@@ -43,6 +44,9 @@ const COLUMN: Readonly<Record<GanttColumn, string>> = {
 /** A body cell: the anchor of its editor's echo, and the focus ring on keyboard focus. */
 const CELL =
   "relative focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+
+/** A cell that is not being edited takes no text selection, so a double click opens its editor (review F-05). */
+const NOT_SELECTABLE = "select-none";
 
 /** A cell the user changed: the change fill and text, with the change border (DESIGN.md). */
 const CHANGED = "bg-change-subtle text-change-text inset-ring inset-ring-change";
@@ -102,7 +106,7 @@ export const cellText = (
 };
 
 const HeaderRow = () => (
-  <tr className="h-[32px] bg-muted text-label text-muted-foreground uppercase">
+  <tr className="h-header-row bg-muted text-label text-muted-foreground uppercase">
     {GANTT_COLUMNS.map((column) => (
       <th key={column} scope="col" className={`${COLUMN[column]} font-semibold`}>
         {HEADERS[column]}
@@ -165,7 +169,7 @@ const TaskRow = (props: TaskRowProps) => {
     <tr
       data-gantt-row={row.id}
       data-gantt-added={added ? "" : undefined}
-      className="h-[36px] border-t border-border text-body text-foreground"
+      className="h-header-row border-t border-border text-body text-foreground"
     >
       {row.cells.map(({ column, editable }, index) => (
         <td
@@ -175,7 +179,7 @@ const TaskRow = (props: TaskRowProps) => {
           data-editable={props.editable && editable && edited?.column !== column ? true : undefined}
           // While its editor is open, the editor holds the cell's Tab stop.
           tabIndex={index === stop && edited?.column !== column ? 0 : -1}
-          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${changedIn(column, mark) ? CHANGED : derivedIn(column, mark) ? DERIVED : ""} ${added && column === "task" ? ADDED : ""}`}
+          className={`${COLUMN[column]} ${FACE[column]} ${CELL} ${edited?.column === column ? "" : NOT_SELECTABLE} ${changedIn(column, mark) ? CHANGED : derivedIn(column, mark) ? DERIVED : ""} ${added && column === "task" ? ADDED : ""}`}
         >
           {edited?.column === column ? (
             <CellEditor

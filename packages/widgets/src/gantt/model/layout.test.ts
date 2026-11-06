@@ -17,23 +17,35 @@ import {
 const ORIGIN = "2026-11-02";
 
 describe("the chart's rows", () => {
-  test("are 36px under a 32px axis, with bars of 14px, as the UJ-2 mock draws them", () => {
-    expect([AXIS_HEIGHT, ROW_HEIGHT, BAR_HEIGHT, NOTE_HEIGHT]).toEqual([32, 36, 14, 20]);
+  test("are 32px under a 32px axis in the compact density, with bars of 14px (review F-23)", () => {
+    expect([AXIS_HEIGHT, ROW_HEIGHT, BAR_HEIGHT, NOTE_HEIGHT]).toEqual([32, 32, 14, 20]);
+  });
+
+  test("follow the density: 40px rows under a 40px axis in the comfortable one", () => {
+    expect(rowBoxes([false, true], 40)).toEqual({
+      axis: 40,
+      boxes: [
+        { top: 40, height: 40, middle: 60 },
+        { top: 80, height: 60, middle: 100 },
+      ],
+      height: 140,
+    });
   });
 
   test("stack under the axis, a row holding a note taller by one line", () => {
     expect(rowBoxes([false, true, false])).toEqual({
+      axis: 32,
       boxes: [
-        { top: 32, height: 36, middle: 50 },
-        { top: 68, height: 56, middle: 86 },
-        { top: 124, height: 36, middle: 142 },
+        { top: 32, height: 32, middle: 48 },
+        { top: 64, height: 52, middle: 80 },
+        { top: 116, height: 32, middle: 132 },
       ],
-      height: 160,
+      height: 148,
     });
   });
 
   test("leave only the axis when there is no row", () => {
-    expect(rowBoxes([])).toEqual({ boxes: [], height: 32 });
+    expect(rowBoxes([])).toEqual({ axis: 32, boxes: [], height: 32 });
   });
 });
 

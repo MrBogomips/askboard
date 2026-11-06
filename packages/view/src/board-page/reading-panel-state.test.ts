@@ -3,6 +3,7 @@ import { BOARD_PROTOCOL_VERSION, type SourceStateMessage } from "@askboard/contr
 import {
   LOADING,
   NO_EDITOR_NOTE,
+  noteRuns,
   outcomeNote,
   panelViewOf,
   pathOf,
@@ -92,5 +93,27 @@ describe("the reading panel's content (excerpts, task 6.6; DESIGN, Reading panel
     expect(sourceUrlOf({ askId: "ask-1", itemId: "spec", token: "a b&c", scheme: "light" })).toBe(
       "/s/ask-1/spec?t=a%20b%26c&scheme=light",
     );
+  });
+});
+
+describe("noteRuns (review F-26)", () => {
+  test("shows a key between backticks in the code face, with no backtick left", () => {
+    expect(noteRuns(NO_EDITOR_NOTE)).toEqual([
+      { text: "No editor set: ", code: false },
+      { text: "editor", code: true },
+      { text: " in ~/.config/askboard/config.json", code: false },
+    ]);
+    expect(
+      noteRuns(NO_EDITOR_NOTE)
+        .map((run) => run.text)
+        .join(""),
+    ).not.toContain("`");
+  });
+
+  test("a note with no backtick is one plain run, an empty one has none", () => {
+    expect(noteRuns("This file is not available")).toEqual([
+      { text: "This file is not available", code: false },
+    ]);
+    expect(noteRuns("")).toEqual([]);
   });
 });

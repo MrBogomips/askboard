@@ -9,6 +9,7 @@
 import { type ChoiceOption, OPTION_NOTE_MAX_CHARS, OTHER_MAX_CHARS } from "@askboard/contract";
 import { useEffect, useRef, useState } from "react";
 import { useStrings } from "../port.ts";
+import { noteReveal } from "./note-reveal.ts";
 import type { ChoiceExtras } from "./props.ts";
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
@@ -90,9 +91,7 @@ export const OptionDetails = ({
   const canNote = extras !== undefined && !disabled && !noteShown;
   // Shown on a selected option, and on any other under hover or keyboard focus (F-52).
   const text = useStrings();
-  const reveal = selected
-    ? "inline-flex"
-    : "hidden group-hover/option:inline-flex group-focus-within/option:inline-flex";
+  const reveal = noteReveal(selected);
   return (
     <>
       {option.annotation === undefined ? null : <Annotation text={option.annotation} />}

@@ -61,13 +61,16 @@ export const QUESTION_ERROR = "min-w-0 truncate text-control text-destructive-te
 export const GRID = "w-full table-fixed border-collapse";
 
 /** The header row of column names, `spacing.header-row` high, in `typography.label` on `muted`. */
-export const HEADER_ROW = "h-[32px] bg-muted text-label text-muted-foreground uppercase";
+export const HEADER_ROW = "h-header-row bg-muted text-label text-muted-foreground uppercase";
 
 /** The name column's header. */
 export const NAME_HEADER = "px-2 text-left";
 
-/** A node's row, as tall as the mockup's grid rows, with a rule above it. */
-export const ROW = "h-[36px] border-t border-border text-body text-foreground";
+/** A node's row, as tall as the header row (32px compact, 40px comfortable; review F-23), with a rule above it. */
+export const ROW = "h-header-row border-t border-border text-body text-foreground";
+
+/** A cell that is not being edited takes no text selection, so a double click opens its editor (review F-05). */
+export const NOT_SELECTABLE = "select-none";
 
 /** The name's cell, which takes the room the field columns leave. */
 export const NAME_CELL = "px-2";

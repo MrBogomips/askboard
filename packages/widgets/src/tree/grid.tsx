@@ -7,8 +7,9 @@
 // (molecules design decision 14).
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
+import { useStrings } from "@askboard/view/catalog";
 import type { FocusEventHandler, KeyboardEventHandler, MouseEventHandler, Ref } from "react";
-import { PERT_VALUE_COLUMNS } from "./cells.ts";
+import { PERT_HEADERS } from "./cells.ts";
 import { FIELD_HEADER, GRID, HEADER_ROW, NAME_HEADER } from "./classes.ts";
 import { editableCells } from "./entry.ts";
 import type { TreeFocus } from "./model/focus.ts";
@@ -20,6 +21,16 @@ import { TotalRow } from "./total-row.tsx";
 
 const stopIn = (focus: TreeFocus | undefined, nodeId: string): RowStop =>
   focus?.nodeId === nodeId ? (focus.cell ?? ROW_STOP) : undefined;
+
+// A work breakdown's two value columns' headers, each on one line with its full name as the tip.
+const PertHeaders = () => {
+  const text = useStrings();
+  return PERT_HEADERS.map(({ label, tip }) => (
+    <th scope="col" key={label} title={text(tip)} className={FIELD_HEADER.number}>
+      {text(label)}
+    </th>
+  ));
+};
 
 export const TreeGrid = ({
   ref,
@@ -89,13 +100,7 @@ export const TreeGrid = ({
             {column.label}
           </th>
         ))}
-        {pert === undefined
-          ? null
-          : PERT_VALUE_COLUMNS.map((label) => (
-              <th scope="col" key={label} className={FIELD_HEADER.number}>
-                {label}
-              </th>
-            ))}
+        {pert === undefined ? null : <PertHeaders />}
       </tr>
     </thead>
     <tbody>
