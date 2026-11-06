@@ -120,7 +120,7 @@ export const createStub = (options: StubOptions): Stub => {
 
   const answer = (ask: StubAsk, socket: ServerWebSocket<SocketData>, command: AnswerCommand) => {
     const item = ask.document.items[0];
-    const labels = item.props.options.map((option) => option.label);
+    const labels = (item.props.options ?? []).map((option) => option.label);
     const fits =
       ask.state === "waiting" &&
       command.itemId === item.id &&

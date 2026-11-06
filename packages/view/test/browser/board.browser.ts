@@ -31,7 +31,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 const dist = await readViewBuild();
 const { opening, answered, collected, reload } = replayTranscripts;
 const [question] = plainChoiceBoardDocument.items;
-const labels = question.props.options.map((option) => option.label);
+const labels = (question.props.options ?? []).map((option) => option.label);
 
 const visible = (locator: ReturnType<Board["receipt"]>) =>
   locator.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
@@ -89,7 +89,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           0,
         );
         expect(await board.options.count()).toBe(3);
-        for (const option of question.props.options) {
+        for (const option of question.props.options ?? []) {
           await board.option(option.label).waitFor({ timeout: STEP_TIMEOUT_MS });
           await card.getByText(option.description ?? "").waitFor({ timeout: STEP_TIMEOUT_MS });
         }

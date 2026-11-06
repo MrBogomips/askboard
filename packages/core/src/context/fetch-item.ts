@@ -22,7 +22,10 @@ const contextItemOf = (item: FetchContextItem): FetchContextItem => {
       const { bytes: _, ...props } = item.props as typeof item.props & { readonly bytes?: string };
       return { ...item, props };
     }
+    // A reference, and a Tree or a Gantt (widget-answers): nothing to drop.
     case "reference":
+    case "tree":
+    case "gantt":
       return item;
   }
 };

@@ -2,8 +2,9 @@
 // a schema under its CSP, so the build generates Ajv's standalone code for each message
 // `board-host` sends, push delivery's origin and agent messages included (design decision 12), with
 // the contract's own Ajv instance, and bundles it in place of the view's `board-page/validators.ts`,
-// which compiles the same schemas for tests. The code needs only Ajv's `ucs2length` helper at run
-// time and holds no `eval` or `new Function`.
+// which compiles the same schemas for tests. The code needs only Ajv's `ucs2length` helper and, since
+// the widget schemas joined the sets (widget-answers, task 1.2), its `equal` helper at run time, and
+// holds no `eval` or `new Function`.
 
 import { BOARD_PROTOCOL_MESSAGES, PUSH_HOST_MESSAGES, PUSH_SCHEMAS } from "@askboard/contract";
 import { createAjv } from "@askboard/contract/validate";
@@ -11,8 +12,11 @@ import standaloneCode from "ajv/dist/standalone";
 import type { BunPlugin } from "bun";
 import { VALIDATORS_FILE } from "./paths.ts";
 
-/** The one module the generated code requires, resolved from the board page's folder. */
-export const HOST_VALIDATORS_RUNTIME = "ajv/dist/runtime/ucs2length";
+/** The modules the generated code requires, resolved from the board page's folder. */
+export const HOST_VALIDATORS_RUNTIMES = [
+  "ajv/dist/runtime/ucs2length",
+  "ajv/dist/runtime/equal",
+] as const;
 
 /**
  * ESM exporting `hostMessageSchemas`, one validator per message type, as the view's module does.

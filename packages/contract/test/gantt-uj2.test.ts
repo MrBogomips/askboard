@@ -89,10 +89,10 @@ describe("the Gantt plan fixtures (spec, Gantt fixtures)", () => {
     expect(ganttPlanLinkProblems(schedule, question)).toEqual([]);
   });
 
-  test("E1's board document refuses it: no Gantt reaches the board page yet", () => {
-    expect(validateBoardDocument(ganttPlanBoardDocument)).toMatchObject({
-      ok: false,
-      reason: "schema",
+  test("board document 1.4 takes it: a Gantt is an item of a question (widget-answers)", () => {
+    expect(validateBoardDocument(ganttPlanBoardDocument)).toEqual({
+      ok: true,
+      value: ganttPlanBoardDocument,
     });
   });
 

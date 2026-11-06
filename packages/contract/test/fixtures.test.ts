@@ -170,7 +170,7 @@ describe.each(Object.entries(transcripts))("the %s transcript", (_name, transcri
 
   test("every answer names an option of the question at its revision", () => {
     const [question] = plainChoiceBoardDocument.items;
-    const labels = question.props.options.map((option) => option.label);
+    const labels = (question.props.options ?? []).map((option) => option.label);
     for (const step of steps) {
       if (!("message" in step) || step.message.type !== "answer") continue;
       expect(step.message.itemId).toBe(question.id);

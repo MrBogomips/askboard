@@ -454,6 +454,7 @@ export type {
   BoardContextItem,
   BoardExcerptProps,
   BoardImageProps,
+  BoardQuestionItem,
   BoardQuestionProps,
   BoardReferenceProps,
   ContextLines,
@@ -472,8 +473,11 @@ export type {
   ExcerptProps,
   ImageItem,
   ImageProps,
+  MoleculeReferenceItem,
+  QuestionContentItem,
   ReferenceItem,
   ReferenceProps,
+  WidgetItem,
 } from "./schemas/input/index.ts";
 export type { UnresolvedPointerWarning } from "./schemas/output/index.ts";
 export type {

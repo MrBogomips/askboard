@@ -3,6 +3,8 @@
 // Every result names its envelope's version and the output format's (finding F12).
 
 import type { SchemaSet } from "../../versions.ts";
+import type { GanttItem } from "../../widgets/gantt/index.ts";
+import type { TreeItem } from "../../widgets/tree/index.ts";
 import type {
   BoardExcerptProps,
   BoardImageProps,
@@ -263,7 +265,10 @@ export type FetchImageProps =
 export type FetchContextItem =
   | { readonly type: "excerpt"; readonly id: string; readonly props: FetchExcerptProps }
   | { readonly type: "reference"; readonly id: string; readonly props: BoardReferenceProps }
-  | { readonly type: "image"; readonly id: string; readonly props: FetchImageProps };
+  | { readonly type: "image"; readonly id: string; readonly props: FetchImageProps }
+  // Since tool envelopes 1.4 (widget-answers): a Tree or a Gantt as the board document holds it.
+  | TreeItem
+  | GanttItem;
 
 /** A question's props as `fetch` gives them. */
 export type FetchQuestionProps = Omit<QuestionProps, "items"> & {

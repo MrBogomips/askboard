@@ -3,7 +3,7 @@
 // pointer is resolved and confined again at each call, against the ask's root, so a file swapped
 // after the send is judged as it is now.
 
-import { type BoardContextItem, readPointer } from "@askboard/contract";
+import { type BoardQuestionItem, readPointer } from "@askboard/contract";
 import type { SourceState, SourceText, SourceUnavailable } from "./ports.ts";
 
 /** A source the reading panel and the source view read, each call reading the file again. */
@@ -30,8 +30,9 @@ export type PointerSource = {
 };
 
 /** The pointer source of a pointer excerpt or pointer reference; undefined for any other item. */
-export const pointerSourceOf = (item: BoardContextItem): PointerSource | undefined => {
-  if (item.type === "image" || !("pointer" in item.props)) return undefined;
+export const pointerSourceOf = (item: BoardQuestionItem): PointerSource | undefined => {
+  if (item.type !== "excerpt" && item.type !== "reference") return undefined;
+  if (!("pointer" in item.props)) return undefined;
   const { props } = item;
   if (props.status === "unresolved") return { pointer: props.pointer };
   if ("text" in props) {

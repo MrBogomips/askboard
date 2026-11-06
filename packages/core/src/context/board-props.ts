@@ -4,9 +4,9 @@
 // them, for the resend rule and the kept revisions (AD-20).
 
 import {
-  type BoardContextItem,
+  type BoardQuestionItem,
   type BoardQuestionProps,
-  type ContextItem,
+  type QuestionContentItem,
   type QuestionProps,
   webReferenceKind,
 } from "@askboard/contract";
@@ -23,7 +23,10 @@ import type { QuestionContext } from "./resolve.ts";
 const NOT_READ: UnresolvedPointer = { status: "unresolved", reason: "timeout" };
 
 // The context holds, by item ID, the resolution of the item's own operation.
-const boardItemOf = (item: ContextItem, context: QuestionContext | undefined): BoardContextItem => {
+const boardItemOf = (
+  item: QuestionContentItem,
+  context: QuestionContext | undefined,
+): BoardQuestionItem => {
   const resolution = context?.get(item.id) ?? NOT_READ;
   switch (item.type) {
     case "excerpt":
@@ -39,6 +42,13 @@ const boardItemOf = (item: ContextItem, context: QuestionContext | undefined): B
           };
     case "image":
       return { ...item, props: { ...item.props, ...(resolution as ImageResolution) } };
+    // A Tree or a Gantt goes through as sent: nothing of it is read or resolved here.
+    case "tree":
+    case "gantt":
+      return item;
+    case "molecule":
+      // ask-core expands every reference before it builds the board document (design decision 5).
+      throw new Error(`the molecule reference "${item.id}" reached the board document unexpanded`);
   }
 };
 

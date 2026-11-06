@@ -23,7 +23,7 @@ import {
   validateBoardMessage,
   validateOrigin,
 } from "@askboard/contract/validate";
-import { HOST_VALIDATORS_RUNTIME, hostValidatorsCode } from "./validators.ts";
+import { HOST_VALIDATORS_RUNTIMES, hostValidatorsCode } from "./validators.ts";
 
 type Check = ((value: unknown) => boolean) & { errors?: unknown[] | null };
 
@@ -34,9 +34,13 @@ let generated: Record<string, Check> = {};
 // The generated module needs Ajv's run-time helper by its package name, which resolves from the
 // board page's folder in the build; here it is pointed at this folder's resolution instead.
 const load = async (source: string, name: string): Promise<Record<string, Check>> => {
-  const runtime = Bun.resolveSync(HOST_VALIDATORS_RUNTIME, import.meta.dir);
   const file = join(dir, `${name}.mjs`);
-  await Bun.write(file, source.replaceAll(`"${HOST_VALIDATORS_RUNTIME}"`, JSON.stringify(runtime)));
+  const resolved = HOST_VALIDATORS_RUNTIMES.reduce(
+    (text, module) =>
+      text.replaceAll(`"${module}"`, JSON.stringify(Bun.resolveSync(module, import.meta.dir))),
+    source,
+  );
+  await Bun.write(file, resolved);
   return (await import(file)).hostMessageSchemas;
 };
 
@@ -50,9 +54,9 @@ afterAll(async () => {
 });
 
 describe("the board page's standalone validators (AD-7, design decision 7)", () => {
-  test("need nothing at run time but Ajv's ucs2length helper", () => {
+  test("need nothing at run time but Ajv's ucs2length and equal helpers", () => {
     const required = [...code.matchAll(/require\(\s*"([^"]+)"\s*\)/g)].map((match) => match[1]);
-    expect([...new Set(required)]).toEqual([HOST_VALIDATORS_RUNTIME]);
+    expect([...new Set(required)].sort()).toEqual([...HOST_VALIDATORS_RUNTIMES].sort());
     expect(code).not.toMatch(/\bimport\s*[{*\w]/);
   });
 
