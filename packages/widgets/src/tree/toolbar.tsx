@@ -9,15 +9,20 @@
 // cannot hold all the tools and the counter's minimum, the move tools go into a "More" menu, the
 // last stop of the toolbar (`model/overflow.ts`, review F-16).
 
+import type { TreeProps } from "@askboard/contract";
+import type { StringKey } from "@askboard/view/catalog";
 import { type Say, useLanguage, useStrings } from "@askboard/view/catalog";
-import { DropdownMenu } from "radix-ui";
+import { DropdownMenu, Popover } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
+import { AdjustPanel, type Applied } from "./adjust-panel.tsx";
 import {
   CHANGE_DOT,
   COUNTER,
   COUNTER_TEXT,
   MENU,
   MENU_ITEM,
+  SELECTION_COUNT,
+  STATUS,
   TOOL,
   TOOLBAR,
   TOOLS,
@@ -28,7 +33,8 @@ import { treeKeyOf } from "./key-event.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import { toolbarFocus, toolbarStop } from "./model/focus.ts";
 import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
-import { MOVE_TOOLS } from "./model/overflow.ts";
+import { OVERFLOW_TOOLS } from "./model/overflow.ts";
+import type { Selection } from "./model/selection.ts";
 import { useCrowded } from "./use-crowded.ts";
 
 // The counter: "No changes", then each node the user changed, once, after the change dot; cut with
@@ -59,24 +65,105 @@ export type Asking = {
   readonly onCancel: () => void;
 };
 
-// The tools of `TREE_TOOLS` the row shows, by index: all of them, or, when crowded, all but the
-// moves, which "More" holds.
-const shownTools = (crowded: boolean): readonly number[] =>
-  TREE_TOOLS.flatMap((tool, at) => (crowded && MOVE_TOOLS.has(tool.edit) ? [] : [at]));
+/** The selection and bulk adjustment tools of the toolbar (spec, Tree row selection and bulk adjustment). */
+export type SelectionTools = {
+  readonly selection: Selection;
+  /** The Tree, for the panel's columns and preview. */
+  readonly value: TreeProps;
+  /** The Tree is read-only: "Adjust by %…" is disabled, the selection controls still select. */
+  readonly disabled: boolean;
+  readonly onSelectAll: () => void;
+  readonly onSelectNone: () => void;
+  readonly onApply: (applied: Applied) => void;
+  /** Undoes the last adjustment; `undefined` once there is none to undo. */
+  readonly onUndo: (() => void) | undefined;
+};
 
-// The "More" menu, the last stop of the toolbar: the move tools, each disabled as its tool is. It
-// is not modal, as the question card's, so it locks no scroll and adds no style element.
+// One button of the row: a Tree tool, or a selection or adjustment tool, in order.
+type Item = {
+  readonly key: string;
+  readonly label: StringKey;
+  readonly enabled: boolean;
+  readonly title?: string;
+  readonly shortcut?: string;
+  /** Goes into "More" when the row is crowded. */
+  readonly overflow: boolean;
+  readonly run: () => void;
+};
+
+const SELECTION_TOOLS: ReadonlySet<string> = new Set([
+  "selectAll",
+  "selectNone",
+  "adjust",
+  "undoAdjust",
+]);
+
+const itemsOf = (
+  enabled: readonly boolean[],
+  onTool: (edit: TreeEdit) => void,
+  tools: SelectionTools,
+  open: () => void,
+  text: Say,
+): readonly Item[] => {
+  const some = tools.selection.size > 0;
+  const own: Item[] = [
+    {
+      key: "selectAll",
+      label: "tree.select.all",
+      enabled: true,
+      overflow: true,
+      run: tools.onSelectAll,
+    },
+    {
+      key: "selectNone",
+      label: "tree.select.none",
+      enabled: some,
+      overflow: true,
+      run: tools.onSelectNone,
+    },
+    {
+      key: "adjust",
+      label: "tree.tool.adjust",
+      enabled: some && !tools.disabled,
+      overflow: false,
+      run: open,
+    },
+  ];
+  if (tools.onUndo !== undefined) {
+    own.push({
+      key: "undoAdjust",
+      label: "tree.tool.undoAdjust",
+      enabled: !tools.disabled,
+      shortcut: "Control+Z Meta+Z",
+      overflow: false,
+      run: tools.onUndo,
+    });
+  }
+  const treeTools = TREE_TOOLS.map(
+    (tool, at): Item => ({
+      key: tool.edit,
+      label: tool.label,
+      enabled: enabled[at] === true,
+      title: titleOf(tool, text),
+      shortcut: tool.shortcut,
+      overflow: OVERFLOW_TOOLS.has(tool.edit),
+      run: () => onTool(tool.edit),
+    }),
+  );
+  return [...treeTools, ...own];
+};
+
+// The "More" menu, the last stop of the toolbar: the tools given up when crowded, each disabled as
+// its tool is. It is not modal, as the question card's, so it locks no scroll and adds no style element.
 const MoreMenu = ({
   buttonRef,
   tabIndex,
-  enabled,
-  onTool,
+  items,
   onFocus,
 }: {
   readonly buttonRef: (button: HTMLButtonElement | null) => void;
   readonly tabIndex: 0 | -1;
-  readonly enabled: readonly boolean[];
-  readonly onTool: (edit: TreeEdit) => void;
+  readonly items: readonly Item[];
   readonly onFocus: () => void;
 }) => {
   const text = useStrings();
@@ -95,21 +182,17 @@ const MoreMenu = ({
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content align="start" sideOffset={4} className={MENU}>
-          {TREE_TOOLS.flatMap((tool, at) =>
-            MOVE_TOOLS.has(tool.edit)
-              ? [
-                  <DropdownMenu.Item
-                    key={tool.edit}
-                    className={MENU_ITEM}
-                    disabled={enabled[at] !== true}
-                    title={titleOf(tool, text)}
-                    onSelect={() => onTool(tool.edit)}
-                  >
-                    {text(tool.label)}
-                  </DropdownMenu.Item>,
-                ]
-              : [],
-          )}
+          {items.map((item) => (
+            <DropdownMenu.Item
+              key={item.key}
+              className={MENU_ITEM}
+              disabled={!item.enabled}
+              title={item.title}
+              onSelect={item.run}
+            >
+              {text(item.label)}
+            </DropdownMenu.Item>
+          ))}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
@@ -122,6 +205,7 @@ export const TreeToolbar = ({
   onTool,
   asking,
   changes,
+  selecting,
 }: {
   /** The toolbar row's element, holding the tools or the question, for the Tree's focus. */
   readonly ref: Ref<HTMLDivElement>;
@@ -132,27 +216,57 @@ export const TreeToolbar = ({
   readonly asking: Asking | undefined;
   /** How many nodes the user changed against the agent's value (`marksOf`'s count). */
   readonly changes: number;
+  readonly selecting: SelectionTools;
 }) => {
   // The stop focused last, which keeps the Tab stop while it is enabled: a position among the
   // shown tools, then "More" when it is shown.
   const text = useStrings();
   const [current, setCurrent] = useState(0);
+  const [panel, setPanel] = useState(false);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const toolsRow = useRef<HTMLDivElement>(null);
   const crowded = useCrowded(toolsRow, useLanguage(), asking === undefined);
-  const shown = shownTools(crowded);
+  const items = itemsOf(enabled, onTool, selecting, () => setPanel(true), text);
+  const shown = items.filter((item) => !(crowded && item.overflow));
+  const given = items.filter((item) => crowded && item.overflow);
   // Each stop's enabled state: the shown tools', then "More", which is always enabled.
-  const stops = [...shown.map((at) => enabled[at] === true), ...(crowded ? [true] : [])];
+  const stops = [...shown.map((item) => item.enabled), ...(crowded ? [true] : [])];
   const stop = toolbarStop(stops, current);
+  const adjustAt = shown.findIndex((item) => item.key === "adjust");
+  const count = selecting.selection.size;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    // The "More" menu is portaled out of the toolbar but its keys bubble here: they are the menu's.
+    // The "More" menu and the panel are portaled out of the toolbar but their keys bubble here: they are theirs.
     if (!event.currentTarget.contains(event.target as Node)) return;
     const move = toolbarKey(treeKeyOf(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(stops, current, move)]?.focus();
   };
+
+  const button = (item: Item, at: number) => (
+    <button
+      key={item.key}
+      ref={(node) => {
+        buttons.current[at] = node;
+      }}
+      type="button"
+      tabIndex={at === stop ? 0 : -1}
+      aria-disabled={item.enabled ? undefined : true}
+      aria-keyshortcuts={item.shortcut}
+      data-selection-tool={SELECTION_TOOLS.has(item.key) ? "" : undefined}
+      aria-haspopup={item.key === "adjust" ? "dialog" : undefined}
+      aria-expanded={item.key === "adjust" ? panel : undefined}
+      title={item.title}
+      className={TOOL}
+      onFocus={() => setCurrent(at)}
+      onClick={() => {
+        if (item.enabled) item.run();
+      }}
+    >
+      {text(item.label)}
+    </button>
+  );
 
   const tools = (
     <div
@@ -162,37 +276,42 @@ export const TreeToolbar = ({
       className={TOOLS}
       onKeyDown={onKeyDown}
     >
-      {shown.map((index, at) => {
-        const tool = TREE_TOOLS[index] as TreeTool;
-        return (
-          <button
-            key={tool.edit}
-            ref={(button) => {
-              buttons.current[at] = button;
-            }}
-            type="button"
-            tabIndex={at === stop ? 0 : -1}
-            aria-disabled={enabled[index] === true ? undefined : true}
-            aria-keyshortcuts={tool.shortcut}
-            title={titleOf(tool, text)}
-            className={TOOL}
-            onFocus={() => setCurrent(at)}
-            onClick={() => {
-              if (enabled[index] === true) onTool(tool.edit);
-            }}
-          >
-            {text(tool.label)}
-          </button>
-        );
-      })}
+      {shown.map((item, at) =>
+        item.key === "adjust" ? (
+          <Popover.Root key={item.key} open={panel} onOpenChange={setPanel}>
+            <Popover.Anchor asChild>{button(item, at)}</Popover.Anchor>
+            <Popover.Portal>
+              <Popover.Content
+                align="start"
+                sideOffset={4}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  buttons.current[adjustAt]?.focus();
+                }}
+              >
+                <AdjustPanel
+                  value={selecting.value}
+                  selection={selecting.selection}
+                  onApply={(applied) => {
+                    setPanel(false);
+                    selecting.onApply(applied);
+                  }}
+                  onCancel={() => setPanel(false)}
+                />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        ) : (
+          button(item, at)
+        ),
+      )}
       {crowded ? (
         <MoreMenu
-          buttonRef={(button) => {
-            buttons.current[shown.length] = button;
+          buttonRef={(node) => {
+            buttons.current[shown.length] = node;
           }}
           tabIndex={shown.length === stop ? 0 : -1}
-          enabled={enabled}
-          onTool={onTool}
+          items={given}
           onFocus={() => setCurrent(shown.length)}
         />
       ) : null}
@@ -210,7 +329,12 @@ export const TreeToolbar = ({
           onCancel={asking.onCancel}
         />
       )}
-      <ChangeCount count={changes} />
+      <div className={STATUS}>
+        {count === 0 ? null : (
+          <p className={SELECTION_COUNT}>{text("tree.select.count", { count })}</p>
+        )}
+        <ChangeCount count={changes} />
+      </div>
     </div>
   );
 };

@@ -37,10 +37,14 @@ import {
   PARENT_NAME,
   RENAMED,
   ROW,
+  SELECT_COLUMN,
+  SELECTED_ROW,
 } from "./classes.ts";
 import type { NodeMark } from "./model/marks.ts";
 import { type PertRow, type PertValues, rollupNote, rollupText } from "./model/pert.ts";
-import type { TreeRow } from "./model/rows.ts";
+import { SELECT_CELLS, type TreeRow } from "./model/rows.ts";
+import type { CheckState } from "./model/selection.ts";
+import { SelectBox } from "./select-box.tsx";
 
 // The chevron points right when closed and down when open. It has no role: the row's
 // aria-expanded says what it shows.
@@ -98,7 +102,7 @@ const FieldError = ({
   return (
     // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the field error's line is no row of the treegrid; the editor's aria-describedby reads it.
     <tr role="presentation">
-      {skip === 0 ? null : <td colSpan={skip} />}
+      <td colSpan={skip + 1} />
       <td colSpan={span} className={FIELD_ERROR}>
         <span id={editing.errorId}>
           <span className="font-medium">
@@ -207,6 +211,7 @@ export const NodeRow = memo(function NodeRow({
   pert,
   editable,
   current,
+  selected,
 }: {
   readonly row: TreeRow;
   readonly columns: readonly TreeColumn[];
@@ -220,13 +225,16 @@ export const NodeRow = memo(function NodeRow({
   readonly editable: string;
   /** The row is the Tree's current row, the one its row tools act on (`model/current.ts`). */
   readonly current: boolean;
+  /** The row's check box: checked, partial for a parent with only part of its branch, or none. */
+  readonly selected: CheckState;
 }) {
   const locale = useLocale();
   const edits = (cell: number): boolean => editing?.cell === cell;
   const takesEdit = (cell: number): true | undefined =>
     !edits(cell) && editable.split(",").includes(String(cell)) ? true : undefined;
   const added = mark?.added === true;
-  const cells = 1 + columns.length + (pert === undefined ? 0 : PERT_HEADERS.length);
+  const text = useStrings();
+  const cells = SELECT_CELLS + 1 + columns.length + (pert === undefined ? 0 : PERT_HEADERS.length);
   const textOf = (column: TreeColumn): string =>
     pert === undefined
       ? fieldText(row.node, column, locale)
@@ -241,9 +249,17 @@ export const NodeRow = memo(function NodeRow({
         aria-setsize={row.setSize}
         aria-expanded={row.hasChildren ? row.expanded : undefined}
         aria-current={current ? "true" : undefined}
+        aria-selected={selected === "checked"}
         tabIndex={tabIndexOf(stop, ROW_STOP)}
-        className={current ? `${ROW} ${CURRENT_ROW} ${FOCUS_RING}` : `${ROW} ${FOCUS_RING}`}
+        className={`${ROW} ${SELECTED_ROW} ${current ? `${CURRENT_ROW} ` : ""}${FOCUS_RING}`}
       >
+        <td data-select-column="" className={SELECT_COLUMN}>
+          <SelectBox
+            state={selected}
+            node={row.node.id}
+            label={text("tree.select.row", { name: row.node.label })}
+          />
+        </td>
         <td
           data-cell={0}
           data-editable={takesEdit(0)}

@@ -59,13 +59,15 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
     modules: { react: "*", "react-dom": "*", "react-dom/client": "*", "react/jsx-runtime": "*" },
   },
   // Radix's controls, Toggle Group among them for the Gantt plan's zoom (gantt-widget design
-  // decision 10) and Switch for the Gantt's critical path (widget-editing-plus design decision 8).
+  // decision 10) Switch for the Gantt's critical path (widget-editing-plus design decision 8) and Popover for the
+  // Tree's percentage panel.
   radix: {
     modules: {
       "radix-ui": [
         "AlertDialog",
         "Checkbox",
         "DropdownMenu",
+        "Popover",
         "RadioGroup",
         "Switch",
         "Tabs",

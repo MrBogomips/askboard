@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { COUNTER_MIN, isCrowded, MOVE_TOOLS, ROW_PADDING } from "./overflow.ts";
+import { COUNTER_MIN, isCrowded, OVERFLOW_TOOLS, ROW_PADDING } from "./overflow.ts";
 
 // Review F-16: the counter gives way first; when the tools alone no longer leave it its minimum,
 // the move tools go into "More".
@@ -19,6 +19,6 @@ describe("the toolbar's overflow", () => {
   });
 
   test("the move tools are the four moves, no other", () => {
-    expect([...MOVE_TOOLS].sort()).toEqual(["indent", "moveDown", "moveUp", "outdent"]);
+    expect([...OVERFLOW_TOOLS].sort()).toEqual(["indent", "moveDown", "moveUp", "outdent"]);
   });
 });

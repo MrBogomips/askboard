@@ -127,6 +127,7 @@ describe("the shared modules and the chunks that provide them", () => {
       "AlertDialog",
       "Checkbox",
       "DropdownMenu",
+      "Popover",
       "RadioGroup",
       "Switch",
       "Tabs",

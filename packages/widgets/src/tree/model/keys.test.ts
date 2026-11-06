@@ -33,6 +33,11 @@ const NAVIGATION: [string, Modifier[], KeyAction][] = [
   ["End", [], { kind: "focus", move: "end" }],
   ["Enter", [], { kind: "startEdit" }],
   ["F2", [], { kind: "startEdit" }],
+  [" ", [], { kind: "select" }],
+  ["ArrowUp", ["shiftKey"], { kind: "extend", move: "up" }],
+  ["ArrowDown", ["shiftKey"], { kind: "extend", move: "down" }],
+  ["z", ["ctrlKey"], { kind: "undo" }],
+  ["z", ["metaKey"], { kind: "undo" }],
   ["ArrowUp", ["altKey", "shiftKey"], { kind: "edit", edit: "moveUp" }],
   ["ArrowDown", ["altKey", "shiftKey"], { kind: "edit", edit: "moveDown" }],
   ["ArrowRight", ["altKey", "shiftKey"], { kind: "edit", edit: "indent" }],
@@ -66,12 +71,28 @@ describe("the keys in navigation", () => {
     }
   });
 
-  test.each(["Escape", "Tab", " ", "a", "PageDown", "Insert", "F3"])(
+  test.each(["Escape", "Tab", "a", "PageDown", "Insert", "F3"])(
     "leave %p to the browser",
     (key) => {
       expect(keyAction(press(key), "navigation")).toBeUndefined();
     },
   );
+});
+
+describe("the selection keys and undo", () => {
+  test("a capital Z, as with Caps Lock, undoes too, and Ctrl+Meta or Shift+Ctrl does not", () => {
+    expect(keyAction(press("Z", "ctrlKey"), "navigation")).toEqual({ kind: "undo" });
+    expect(keyAction(press("z", "ctrlKey", "metaKey"), "navigation")).toBeUndefined();
+    expect(keyAction(press("z", "ctrlKey", "shiftKey"), "navigation")).toBeUndefined();
+  });
+
+  test("are none of the edit mode's, so a text input keeps its own Mod+Z", () => {
+    for (const held of [["ctrlKey"], ["metaKey"], ["shiftKey"], []] as Modifier[][]) {
+      for (const key of ["z", " ", "ArrowUp"]) {
+        expect(keyAction(press(key, ...held), "edit")).toBeUndefined();
+      }
+    }
+  });
 });
 
 describe("the keys in edit mode", () => {

@@ -70,7 +70,7 @@ export const totalRow = (tree: TreeGrid): Locator => tree.grid.locator("[data-to
 
 /** The texts of a row's cells, in order. */
 export const cellTexts = (row: Locator): Promise<string[]> =>
-  row.getByRole("gridcell").allTextContents();
+  row.locator("[data-cell]").allTextContents();
 
 /** The plan's props as sent, its entries by task. */
 type PlanProps = { readonly tasks: Readonly<Record<string, GanttPlanEntry>> };

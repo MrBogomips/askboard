@@ -105,6 +105,36 @@ export const CURRENT_BAR = "shadow-[inset_2px_0_0_0_var(--primary)]";
 export const CURRENT_ADDED_BAR =
   "shadow-[inset_2px_0_0_0_var(--primary),inset_4px_0_0_0_var(--change)]";
 
+/**
+ * The leading selection column (spec, "Tree row selection"): narrow and always shown, so that the
+ * layout does not jump when a selection starts; a selected row takes the `accent` fill.
+ */
+export const SELECT_COLUMN = "w-[32px] px-2 text-center";
+
+export const CHECKBOX =
+  "size-[14px] cursor-pointer align-middle accent-primary focus-visible:outline-2 " +
+  "focus-visible:outline-offset-1 focus-visible:outline-ring";
+
+export const SELECTED_ROW = "aria-selected:bg-accent";
+
+/** The toolbar's right end: the selection count, then the counter of the user's changes. */
+export const STATUS = "ml-auto flex min-w-0 items-center gap-3";
+
+export const SELECTION_COUNT = "shrink-0 text-control text-foreground-secondary";
+
+/** The percentage panel (Popover) and its parts, as the "More" menu's panel looks. */
+export const PANEL =
+  "z-20 flex w-72 flex-col gap-2 rounded-md border border-border bg-popover p-3 text-control " +
+  "text-foreground shadow-md";
+
+export const PANEL_GROUP = "flex flex-col gap-1 border-0 p-0";
+
+export const PANEL_LABEL = "flex items-center gap-2";
+
+export const PANEL_ACTIONS = "flex justify-end gap-2";
+
+export const PANEL_PREVIEW = "flex flex-col gap-0.5 text-control text-foreground-secondary";
+
 /** The name's indent, `spacing.lg` per level below the first (DESIGN.md, Tree), by level. */
 export const INDENT: readonly string[] = [
   "pl-0",

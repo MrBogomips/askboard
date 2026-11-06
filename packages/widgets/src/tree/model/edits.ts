@@ -21,6 +21,7 @@ import {
   type TreeProps,
 } from "@askboard/contract";
 import { nextViewId } from "../../shared/ids.ts";
+import { estimateOrderProblem } from "./coherence.ts";
 import {
   countNodes,
   frozenWith,
@@ -187,13 +188,16 @@ const refusedEstimate = (
 ): boolean =>
   isPert(value) &&
   ESTIMATES.has(field) &&
-  (!possible("editEstimate", value, place) || estimateProblem(value, field, input) !== undefined);
+  (!possible("editEstimate", value, place) ||
+    estimateProblem(value, field, input) !== undefined ||
+    estimateOrderProblem(value, place.node.id, field, input) !== undefined);
 
 /**
  * Sets the field `field` of the node `nodeId` to `input`, of its column's type; `undefined` or an
  * empty string empties it, removing the key. Nothing changes for a field no column declares, a
  * value of the wrong type or over the limit, the value it holds, or an unknown node; nor, in a
- * work breakdown, for an estimate `estimateProblem` refuses or a parent's estimate.
+ * work breakdown, for an estimate `estimateProblem` or `estimateOrderProblem` refuses or a
+ * parent's estimate.
  */
 export const setField = (
   value: TreeProps,

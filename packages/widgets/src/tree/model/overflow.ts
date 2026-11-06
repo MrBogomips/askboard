@@ -4,8 +4,8 @@
 
 import type { TreeEdit } from "./edits.ts";
 
-/** The tools that go into "More": the four moves. */
-export const MOVE_TOOLS: ReadonlySet<TreeEdit> = new Set<TreeEdit>([
+/** The Tree tools that go into "More" (with "Select all" and "Select none"): the four moves. */
+export const OVERFLOW_TOOLS: ReadonlySet<TreeEdit> = new Set<TreeEdit>([
   "moveUp",
   "moveDown",
   "indent",

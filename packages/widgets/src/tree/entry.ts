@@ -14,9 +14,10 @@ import {
   type TreeNode,
   type TreeProps,
 } from "@askboard/contract";
-import { say } from "@askboard/view/catalog";
+import { type StringKey, say } from "@askboard/view/catalog";
 import { parseNumber } from "../shared/number.ts";
 import { fieldText } from "./cells.ts";
+import { estimateOrderProblem, type OrderRule } from "./model/coherence.ts";
 import { can, estimateProblem, rename, setField } from "./model/edits.ts";
 import { cellCount } from "./model/rows.ts";
 
@@ -39,6 +40,13 @@ const estimateOutOfRange = (language: Locale): string =>
   say(language, "tree.entry.estimateRange", {
     max: TREE_PERT_MAX_ESTIMATE.toLocaleString(language),
   });
+
+// The catalogue's wording of each rule of the order of the estimates.
+const ORDER_TEXT: Readonly<Record<OrderRule, StringKey>> = {
+  optimisticLikely: "tree.entry.order.optimisticLikely",
+  likelyPessimistic: "tree.entry.order.likelyPessimistic",
+  optimisticPessimistic: "tree.entry.order.optimisticPessimistic",
+};
 
 // A length in code points, as the contract counts it.
 const lengthOf = (text: string): number => [...text].length;
@@ -119,7 +127,10 @@ export const enterCell = (
   const number = entry.kind === "number" ? entry.value : undefined;
   // A work breakdown's estimate outside its range (molecules design decision 14).
   const problem = estimateProblem(value, column.field, number);
-  return problem === undefined
+  if (problem !== undefined) return refused(estimateOutOfRange(language));
+  // A work breakdown's estimates stay in order, a row sent out of order not made worse.
+  const order = estimateOrderProblem(value, nodeId, column.field, number);
+  return order === undefined
     ? valued(setField(value, nodeId, column.field, number))
-    : refused(estimateOutOfRange(language));
+    : refused(say(language, ORDER_TEXT[order]));
 };

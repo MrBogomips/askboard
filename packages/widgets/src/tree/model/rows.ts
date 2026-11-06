@@ -44,6 +44,9 @@ export const visibleRows = (
   return Object.freeze(rows);
 };
 
+/** The leading selection column's cells, which carry no `data-cell` and are never focused. */
+export const SELECT_CELLS = 1;
+
 /** A work breakdown's value cells after its fields: the expected effort and the spread. */
 export const PERT_VALUE_CELLS = 2;
 

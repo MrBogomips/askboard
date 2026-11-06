@@ -48,14 +48,14 @@ export const treeGridOf = (board: Board): TreeGrid => {
   const toolbar = board.view.getByRole("toolbar");
   return {
     grid,
-    headers: grid.getByRole("columnheader"),
+    headers: grid.locator("thead th:not([data-select-column])"),
     rows: grid.locator("[data-node-id]"),
     row,
     cell: (nodeId, cell) => row(nodeId).locator(`[data-cell="${cell}"]`),
     chevron: (nodeId) => row(nodeId).locator("[data-chevron]"),
     editor: grid.getByRole("textbox"),
     toolbar,
-    tools: toolbar.getByRole("button"),
+    tools: toolbar.locator("button:not([data-selection-tool])"),
     tool: (label) => toolbar.getByRole("button", { name: label, exact: true }),
     counter: board.view.locator("p").filter({ hasText: COUNTER }),
     marks: (kind) => grid.locator(kind === undefined ? "[data-change]" : `[data-change="${kind}"]`),

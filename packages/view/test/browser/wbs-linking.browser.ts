@@ -184,7 +184,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(run.board);
         await focusPortal(run, tree);
         await addAndName(run, tree, "Add node");
-        const cells = tree.row("u-1").locator("td");
+        const cells = tree.row("u-1").locator("[data-cell]");
         expect(await tree.row("u-1").getAttribute("data-change")).toBe("added");
         const texts = await cells.allTextContents();
         expect(texts.slice(-2)).toEqual(["\u2014", "\u2014"]);

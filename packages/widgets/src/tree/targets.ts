@@ -29,6 +29,19 @@ export const cellTargetOf = (target: EventTarget | null): TreeFocus | undefined 
   return cell === null ? undefined : focusTargetOf(cell);
 };
 
+/** What a check box of the selection column selects: the whole Tree, or one row's node. */
+export type SelectTarget =
+  | { readonly all: true }
+  | { readonly all: false; readonly nodeId: string };
+
+/** The check box an event's target is, or `undefined` for anything else. */
+export const selectTargetOf = (target: EventTarget | null): SelectTarget | undefined => {
+  if (!(target instanceof HTMLInputElement)) return undefined;
+  if (target.hasAttribute("data-select-all")) return { all: true };
+  const nodeId = target.getAttribute("data-select");
+  return nodeId === null ? undefined : { all: false, nodeId };
+};
+
 /** The node whose chevron holds an event's target, if any. */
 export const chevronNodeOf = (target: EventTarget | null): string | undefined => {
   if (!(target instanceof Element)) return undefined;

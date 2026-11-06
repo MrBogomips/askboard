@@ -122,6 +122,76 @@ describe("a work breakdown's entries (molecules design decision 14; view spec, W
     expect(taken.kind === "value" ? nodeOf(taken.value, "portal")?.optimistic : undefined).toBe(4);
   });
 
+  // `portal` holds 6, 12 and 24; `billing` was sent with an optimistic of 9 above its most likely of 5.
+  const set = (value: TreeProps, id: string, fields: Record<string, number>): TreeProps => {
+    const walk = (list: TreeProps["nodes"]): TreeProps["nodes"] =>
+      list.map((one) => ({
+        ...one,
+        ...(one.id === id ? fields : {}),
+        ...(one.children === undefined ? {} : { children: walk(one.children) }),
+      }));
+    return { ...value, nodes: walk(value.nodes) } as TreeProps;
+  };
+  const ordered = set(
+    set(wbs, "portal", { optimistic: 6, mostLikely: 12, pessimistic: 24 }),
+    "billing",
+    { optimistic: 9, mostLikely: 5, pessimistic: 20 },
+  );
+  const field = (value: TreeProps, id: string, name: string) => nodeOf(value, id)?.[name];
+
+  test("an optimistic of 15 over a most likely of 12 is refused naming the rule, the value kept", () => {
+    expect(enterCell(ordered, "portal", 1, "15")).toEqual({
+      kind: "refused",
+      reason: "Optimistic must not exceed Most likely.",
+    });
+  });
+
+  test("a most likely above the pessimistic is refused, in Italian when the ask is", () => {
+    expect(enterCell(ordered, "portal", 2, "30")).toEqual({
+      kind: "refused",
+      reason: "Most likely must not exceed Pessimistic.",
+    });
+    expect(enterCell(ordered, "portal", 2, "30", "it-IT")).toEqual({
+      kind: "refused",
+      reason: "La più probabile non deve superare la pessimistica.",
+    });
+  });
+
+  test("an optimistic equal to the most likely commits, and a negative one names the range", () => {
+    const taken = enterCell(ordered, "portal", 1, "12");
+    expect(taken.kind === "value" ? field(taken.value, "portal", "optimistic") : undefined).toBe(
+      12,
+    );
+    expect(enterCell(ordered, "portal", 1, "-1")).toEqual({
+      kind: "refused",
+      reason: "An estimate is 0 to 100,000 working days.",
+    });
+  });
+
+  test("raising all three in the right order commits each edit", () => {
+    let value = ordered;
+    for (const [cell, text] of [
+      [3, "40"],
+      [2, "20"],
+      [1, "10"],
+    ] as const) {
+      const entry = enterCell(value, "portal", cell, text);
+      expect(entry.kind).toBe("value");
+      if (entry.kind === "value") value = entry.value;
+    }
+    expect(
+      ["optimistic", "mostLikely", "pessimistic"].map((n) => field(value, "portal", n)),
+    ).toEqual([10, 20, 40]);
+  });
+
+  test("a row the agent sent out of order is not made worse: lowering 9 to 7 commits, raising it does not", () => {
+    const lowered = enterCell(ordered, "billing", 1, "7");
+    expect(
+      lowered.kind === "value" ? field(lowered.value, "billing", "optimistic") : undefined,
+    ).toBe(7);
+    expect(enterCell(ordered, "billing", 1, "10").kind).toBe("refused");
+  });
+
   test("a parent's estimate cells, and the value cells past the fields, open no editor; a leaf's do", () => {
     expect(entryKindAt(wbs, "design", 1)).toBeUndefined();
     expect(entryKindAt(wbs, "design", 0)).toBe("name");
