@@ -2219,20 +2219,13 @@ An expression the contract's LaTeX check refuses SHALL NOT render: one holding a
 - **WHEN** the user types `\frac{` with `\over y}{x}` nested 11 times, or ``\char` {`` 130 times, then `x`, then `\over}` 130 times
 - **THEN** within 2 seconds the field error names the depth and the limit for the first and the command ``\char` `` for the second, KaTeX does not run, and Chromium's renderer does not crash
 
-### Requirement: LaTeX output bounded
-Before any node of a preview reaches the page, the board SHALL measure the depth, the node count and the most fractions nested on one path of the output KaTeX builds for the expression. An output past the board's bounds SHALL NOT render: its field error SHALL say the expression is too complex to preview, in the editable item, the read-only item and a Snapshot alike, the preview keeping its last render and "Answer" staying enabled (AD-8, NFR-5).
+#### Scenario: Stacked combining marks typed
+- **WHEN** the user types `x` followed by 130 combining circumflex accents (U+0302)
+- **THEN** the field error names the depth and the limit, KaTeX does not run, the preview keeps its last render or stays empty, and Chromium's renderer does not crash
 
-#### Scenario: Too complex to preview
-- **WHEN** an expression the contract's check passes has a KaTeX output deeper, larger or with more nested fractions than the board's bounds, typed by the user or sent by the agent
-- **THEN** no node of it reaches the page, the field error says the expression is too complex to preview, the preview keeps its last render or stays empty, "Answer" stays enabled, and the read-only item and a Snapshot of the answer show the source with the same field error
-
-#### Scenario: Nested fractions past the fraction bound
-- **WHEN** the board's fraction bound is 3 and its depth and node bounds are not reached, and the expression is `\frac{\frac{\frac{\frac{a}{b}}{c}}{d}}{e}`, then the same with one fraction fewer, then four fractions side by side
-- **THEN** the first is too complex to preview and inserts no node, and the other two render
-
-#### Scenario: A preview that would grow past its box
-- **WHEN** a LaTeX item's expression is `\raisebox{-1000000em}{X}`, sent by the agent or typed by the user
-- **THEN** the preview stays within 400 px high, scrolling inside, and the controls under it stay where they are on a board whose expression is at KaTeX's largest size
+#### Scenario: Stacked combining marks sent
+- **WHEN** the agent sends `x` followed by 130 combining circumflex accents (U+0302) in an `ask` or an `update`
+- **THEN** the request is refused, naming the item, and nothing reaches the board
 
 ### Requirement: LaTeX previews one at a time
 A board SHALL draw its LaTeX previews one per task, in the order they are asked for, an item's newest expression replacing its pending draw and a draw asked for after the user's edit going before draws still pending, so that the board answers input between draws (AD-8, NFR-5).
@@ -2555,3 +2548,10 @@ A Chart's highlighted points SHALL travel in the answer's `results` by item ID t
 #### Scenario: Answered and collected
 - **WHEN** the user highlights two points and answers, and the agent collects
 - **THEN** the answer event holds the item's `{points}` under `results`, and it validates against the output format
+
+### Requirement: LaTeX preview within its box
+The LaTeX preview SHALL stay within 400 px high, scrolling inside, whatever KaTeX draws, so the controls under it stay where they are (DESIGN Components: LaTeX; AD-8).
+
+#### Scenario: A preview that would grow past its box
+- **WHEN** a LaTeX item's expression is `\raisebox{-1000000em}{X}`, sent by the agent or typed by the user
+- **THEN** the preview stays within 400 px high, scrolling inside, and the controls under it stay where they are on a board whose expression is at KaTeX's largest size
