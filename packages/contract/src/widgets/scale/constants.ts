@@ -12,7 +12,11 @@ export const SCALE_LABEL_MAX_CHARS = 60;
 export const SCALE_UNIT_MAX_CHARS = 20;
 /** The step when the props give none. */
 export const SCALE_DEFAULT_STEP = 1;
-/** A value is on a step, and a scale divides into whole steps, within this fraction of a step. */
+/**
+ * A scale divides into whole steps, and a value is on a step, within this fraction of a step; for a
+ * value, a floor of a few units in the last place of the scale's magnitude widens it where the
+ * doubles are spaced wider than that (`scaleStepIndex`).
+ */
 export const SCALE_STEP_TOLERANCE = 1e-9;
 
 export const SCALE_DISPLAYS = /* @__PURE__ */ Object.freeze(["slider", "rating"] as const);

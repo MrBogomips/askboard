@@ -9,6 +9,8 @@ import {
   SCALE_RATING_MAX_VALUES,
   SCALE_SCHEMA_IDS,
   SCALE_WIDGET,
+  scalePropsProblems,
+  scaleResultProblems,
   scaleStepCount,
   scaleStepIndex,
   widgetRegistryProblems,
@@ -323,5 +325,76 @@ describe("the Scale's entry in the registry's own check", () => {
     expect(skill?.use).toContain("rating");
     expect(askProblems(TYPES, example.item)).toEqual([]);
     expect(askAccepted(TYPES, example.item)).toBe(true);
+  });
+});
+
+// Steps no float can reach (approval-scale-ranking, 7b.6 re-review X-2; design decision 8): when a
+// double's spacing at the scale's magnitude is large against the step, the double nearest `min +
+// k * step` is off the exact grid by more than a billionth of a step. The grid's tolerance has a
+// floor of a few units in the last place of that magnitude, so every step a float can name is on it.
+describe("a Scale whose step is small against its magnitude", () => {
+  const far: readonly { min: number; max: number; step: number }[] = [
+    { min: 1000000, max: 1000001, step: 0.001 },
+    { min: -1e9, max: -1e9 + 100, step: 0.1 },
+    { min: 999999965, max: 1000000000, step: 0.7 },
+  ];
+
+  test("the props are accepted", () => {
+    for (const props of far) expect(scalePropsProblems(props)).toEqual([]);
+  });
+
+  test("every step's value, the double nearest the exact step, is accepted and on its step", () => {
+    for (const props of far) {
+      const steps = scaleStepCount(props.min, props.max, props.step) as number;
+      for (let at = 0; at <= steps; at += 1) {
+        const value = at === steps ? props.max : props.min + at * props.step;
+        expect(scaleResultProblems({ value }, props), `${JSON.stringify(props)} ${at}`).toEqual([]);
+        expect(scaleStepIndex(value, props.min, props.step)).toBe(at);
+      }
+    }
+  });
+
+  test("a range of such steps takes its ends, and a value half a step off is still refused", () => {
+    for (const props of far) {
+      const range = { ...props, range: true };
+      const low = props.min + 2 * props.step;
+      const high = props.min + 7 * props.step;
+      expect(scaleResultProblems({ low, high }, range)).toEqual([]);
+      const half = props.min + 2.5 * props.step;
+      expect(scaleResultProblems({ value: half }, props)).toHaveLength(1);
+      expect(scaleResultProblems({ low: half, high }, range)).toHaveLength(1);
+    }
+  });
+
+  test("the floor is no wider than a few units in the last place: a tenth of a step off stays refused", () => {
+    for (const props of far) {
+      const off = props.min + 3.1 * props.step;
+      expect(scaleResultProblems({ value: off }, props)).toHaveLength(1);
+    }
+  });
+
+  test("a sweep of seeded props the contract accepts: each step's value is accepted", () => {
+    let seed = 20261107;
+    const next = (): number => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 2 ** 32;
+    };
+    let swept = 0;
+    for (let round = 0; round < 3000; round += 1) {
+      const magnitude = 10 ** Math.floor(next() * 10);
+      const min = Math.round((next() * 2 - 1) * magnitude * 1000) / 1000;
+      const step = [0.001, 0.01, 0.1, 0.25, 0.7, 3][Math.floor(next() * 6)] as number;
+      const count = 1 + Math.floor(next() * 400);
+      const max = min + count * step;
+      const props = { min, max, step };
+      if (scalePropsProblems(props).length > 0) continue;
+      swept += 1;
+      const steps = scaleStepCount(min, max, step) as number;
+      for (let at = 0; at <= steps; at += 1) {
+        const value = at === steps ? max : min + at * step;
+        expect(scaleResultProblems({ value }, props), `${JSON.stringify(props)} ${at}`).toEqual([]);
+      }
+    }
+    expect(swept).toBeGreaterThan(1000);
   });
 });

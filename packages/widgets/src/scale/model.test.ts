@@ -262,3 +262,55 @@ describe("a Scale's tiny numbers", () => {
     }
   });
 });
+
+// Steps no float can reach (approval-scale-ranking, 7b.6 re-review X-2): a scale far from zero with
+// a small step has doubles spaced wider than a billionth of a step. The contract's grid tolerance
+// has a floor of a few units in the last place, and every value the model gives is accepted.
+describe("a Scale far from zero with a small step", () => {
+  const far: readonly ScaleProps[] = [
+    { min: 1000000, max: 1000001, step: 0.001 },
+    { min: -1e9, max: -1e9 + 100, step: 0.1 },
+    { min: 999999965, max: 1000000000, step: 0.7 },
+  ];
+  const FRACTIONS = [0, 0.1, 0.26, 0.34, 0.52, 0.74, 0.9, 0.98, 1];
+
+  test("every value at a fraction of the track is accepted and lands on the step the fraction names", () => {
+    for (const props of far) {
+      expect(scalePropsProblems(props)).toEqual([]);
+      const steps = stepsOf(props);
+      for (const fraction of FRACTIONS) {
+        const value = valueAt(props, fraction);
+        expect(accepted(props, { value }), `${JSON.stringify(props)} ${fraction}`).toBe(true);
+        expect(scaleStepIndex(value, props.min, props.step ?? 1)).toBe(
+          Math.round(fraction * steps),
+        );
+      }
+    }
+  });
+
+  test("snapping each step's own number gives that step, accepted, over the whole scale", () => {
+    for (const props of far) {
+      const step = props.step ?? 1;
+      for (let at = 0; at <= stepsOf(props); at += 1) {
+        const value = snap(props, props.min + at * step);
+        expect(accepted(props, { value }), `${JSON.stringify(props)} ${at}`).toBe(true);
+        expect(scaleStepIndex(value, props.min, step)).toBe(at);
+      }
+    }
+  });
+
+  test("a range's ends are accepted, and a rating's values are distinct and each on its step", () => {
+    for (const props of far) {
+      const range = { ...props, range: true };
+      const low = snap(props, props.min + (props.step ?? 1) * 2.2);
+      expect(accepted(range, resultOf(range, [low, snap(props, props.max)]))).toBe(true);
+    }
+    const rating: ScaleProps = { min: 1000000, max: 1000001, step: 0.1, display: "rating" };
+    const values = ratingValues(rating);
+    expect(new Set(values).size).toBe(values.length);
+    for (const [index, value] of values.entries()) {
+      expect(accepted(rating, { value })).toBe(true);
+      expect(scaleStepIndex(value, rating.min, 0.1)).toBe(index);
+    }
+  });
+});

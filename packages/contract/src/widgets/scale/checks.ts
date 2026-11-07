@@ -43,15 +43,31 @@ export const scaleStepCount = (min: number, max: number, step: number): number |
     : undefined;
 };
 
+// How far, as a fraction of a step, a double near `value` may lie from the exact grid point it
+// stands for: a billionth of a step, or when the doubles at that magnitude are spaced wider than that,
+// a few units in the last place of it (approval-scale-ranking, 7b.6 re-review X-2). The sum
+// `min + k * step`, its rounding to the step's decimals and the subtraction here each move a double
+// by at most one unit in the last place of the larger magnitude (at most `Number.EPSILON` times it),
+// so eight of them reach every step a float can name and stay a small part of a step while the step
+// is several units wide. Where the step is only a few units wide the grid is finer than the doubles
+// there, and any double within the scale is as near a step as a double can say.
+const FLOOR_ULPS = 8;
+const gridTolerance = (value: number, min: number, step: number): number =>
+  Math.max(
+    SCALE_STEP_TOLERANCE,
+    (FLOOR_ULPS * Number.EPSILON * Math.max(Math.abs(min), Math.abs(value))) / step,
+  );
+
 /**
  * The number of the step `value` is on, counted from `min` (0 is `min` itself), or `undefined` when
- * it is not on a step, within a billionth of a step. A number below `min` or above `max` is on a
- * step outside 0 to the scale's step count.
+ * it is not on a step, within a billionth of a step, or a few units in the last place of the
+ * scale's magnitude where that is more. A number below `min` or above `max` is on a step outside 0
+ * to the scale's step count.
  */
 export const scaleStepIndex = (value: number, min: number, step: number): number | undefined => {
   const quotient = (value - min) / step;
   const whole = Math.round(quotient);
-  return Number.isFinite(quotient) && Math.abs(quotient - whole) <= SCALE_STEP_TOLERANCE
+  return Number.isFinite(quotient) && Math.abs(quotient - whole) <= gridTolerance(value, min, step)
     ? whole
     : undefined;
 };
