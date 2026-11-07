@@ -6,7 +6,7 @@ Packaging is how Claude Code loads AskBoard as one plugin and starts its session
 ## Requirements
 
 ### Requirement: The plugin and its server entry
-The repository SHALL load as a Claude Code plugin named `askboard` that declares one stdio MCP server named `askboard`. The server entry SHALL run the start script `scripts/askboard` through `sh`, which runs the built bundle on Node, with no launcher and no download; AD-22's launcher and AD-19's executable replace it once AXFX NFR-1 admits the executable. The server entry's `env` SHALL pass `CLAUDE_PROJECT_DIR`, and it SHALL set no per-server timeout below `collect`'s longest wait (Consistency Conventions, MCP names and plugin server entry).
+The repository SHALL load as a Claude Code plugin named `askboard` that declares one stdio MCP server named `askboard`. The server entry SHALL run `scripts/askboard` through `sh`, which runs the built bundle on Node with no launcher or download, until AD-22's launcher and AD-19's executable replace it. Its `env` SHALL pass `CLAUDE_PROJECT_DIR`, and it SHALL set no per-server timeout below `collect`'s longest wait (Consistency Conventions, MCP names and plugin server entry).
 
 #### Scenario: Loading the plugin from a checkout
 - **WHEN** Claude Code starts with `--plugin-dir` pointing at a built checkout, with Node 24.22.1 or later on `PATH`
