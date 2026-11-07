@@ -59,6 +59,17 @@ A component chunk MAY carry a package's stylesheet. The build SHALL inline its w
 - **WHEN** a chunk's package stylesheet holds `url(fonts/a.svg)` or `@import "b.css"`
 - **THEN** the build fails, naming the chunk and the URL or the import
 
+### Requirement: Font licences in a chunk's notices
+Fonts a chunk inlines SHALL be the package's font files unmodified, and the chunk's licence notices SHALL carry the fonts' own licence text when it differs from the package's, with the fonts' copyright and Reserved Font Name lines. The build SHALL fail when a chunk inlines fonts whose licence is not recorded (NFR-6, AD-19, PRD addendum, Adoption rule).
+
+#### Scenario: KaTeX's font licence
+- **WHEN** the view is built with a chunk carrying KaTeX's stylesheet
+- **THEN** that chunk's notice for `katex` names `MIT AND OFL-1.1` and its text holds KaTeX's MIT licence, the fonts' copyright lines, their Reserved Font Names and the full SIL Open Font License 1.1, and every inlined font decodes to the bytes of its woff2 file in the package
+
+#### Scenario: Fonts with no recorded licence
+- **WHEN** a chunk inlines the fonts of a package version that has no font licence entry, or an entry names a package version whose fonts no chunk inlines
+- **THEN** the build fails, naming the package version
+
 ### Requirement: Kanban columns and cards
 A Kanban SHALL show its columns side by side in the agent's order, each headed by its label and its number of cards, with each card under the column its value names, in the agent's order of `cards`, showing its label and its description (FR-11, DESIGN Kanban).
 
