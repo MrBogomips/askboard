@@ -65,7 +65,7 @@ The LaTeX's check SHALL refuse an expression holding a macro-definition command 
 - **THEN** each passes: a line break before the text `def`, `\left`, and a control word other than `\def`
 
 ### Requirement: LaTeX nesting bounded
-The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit. Levels are counted as KaTeX nests them: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_`; a brace KaTeX reads as text, in a comment, a `\verb`, a character code or the token `\show` consumes, closes none (AD-8, NFR-5).
+The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit, counting levels never fewer than KaTeX nests them: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_` (AD-8, NFR-5).
 
 #### Scenario: A nest at and past the limit
 - **WHEN** a LaTeX item's `expression` nests `\frac{` with `}{x}` to the limit, then one level more
@@ -75,9 +75,20 @@ The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_M
 - **WHEN** the depth of `x^{y^{z}}` is read
 - **THEN** it is 4: each script and each group is a level
 
+### Requirement: LaTeX nesting counted as KaTeX reads it
+The LaTeX's nesting count SHALL add one level to the group that holds an infix command (`\over`, `\atop`, `\above`, `\choose`, `\brace` or `\brack`), SHALL let no brace that KaTeX reads as text, in a comment, a `\verb`, a character code or the token `\show` consumes, close a level, and SHALL read no opener as such a character code or token (AD-8, NFR-5).
+
 #### Scenario: A brace KaTeX reads as text
 - **WHEN** a LaTeX item's `expression` repeats `\sqrt{%` and a line feed past the limit, then `\sqrt{\verb|}|`, then ``\sqrt{\char`}``, then `\sqrt{\show}`, each followed by its closing braces
 - **THEN** each fails naming its depth and the limit
+
+#### Scenario: An infix fraction
+- **WHEN** the depths of `a \over b`, of `{a \over b}` and of `\frac{` with `\over y}{x}` nested 3 times are read
+- **THEN** they are 1, 2 and 6: the infix makes a fraction of what comes before it in its group
+
+#### Scenario: An opener after a character code
+- **WHEN** the depths of ``\char` {`` repeated 3 times, then `x` and 3 closing braces, and of `\show%`, a line feed, a blank and `{x}` are read
+- **THEN** they are 3 and 1: KaTeX takes the blank as the token, and the brace after it opens a group
 
 ### Requirement: LaTeX changes
 A LaTeX item's element shape SHALL name `expression` alone, so its changes SHALL be one `set` of `<item>.expression` to a text of at most 2,000 characters; its changes schema SHALL admit nothing else (AD-20, FR-20).

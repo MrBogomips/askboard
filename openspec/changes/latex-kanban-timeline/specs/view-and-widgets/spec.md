@@ -49,7 +49,7 @@ The LaTeX preview SHALL render agent and user text as data: no command SHALL mak
 - **THEN** the first shows the field error naming `\gdef` and renders nothing new, and the second shows a parse error naming `\foo`
 
 ### Requirement: LaTeX bounded work
-An expression the contract's LaTeX check refuses SHALL NOT render: one holding a macro definition or a KaTeX internal command SHALL show a field error naming the command, one nested past the limit a field error naming its depth and the limit, and the preview SHALL keep its last render. Every other expression of at most 2,000 code points SHALL render or show a field error within 2 seconds in Chromium and WebKit, the board responding (AD-8, NFR-5).
+An expression the contract's LaTeX check refuses SHALL NOT render: one holding a macro definition or a KaTeX internal command SHALL show a field error naming the command, and one nested past the limit a field error naming its depth and the limit, the preview keeping its last render. Every expression of at most 2,000 code points SHALL render or show a field error within 2 seconds in Chromium and WebKit, the board responding (AD-8, NFR-5).
 
 #### Scenario: A macro definition
 - **WHEN** the user types `\def\a{\a}\a`, or `\def\b{` and 900 `x` then `}\def\a{` and `\b` 540 times then `}\a`
@@ -60,8 +60,26 @@ An expression the contract's LaTeX check refuses SHALL NOT render: one holding a
 - **THEN** the field error names `\current@color` within 2 seconds, KaTeX does not run, and the preview keeps its last render
 
 #### Scenario: Nests at and past the limit
-- **WHEN** the expression nests `\frac` numerators, `x^{`, `\sqrt{` or `\boxed{` to the nesting limit, alone or repeated side by side to 2,000 code points, then one level past the limit
+- **WHEN** the expression nests `\frac` or `\dfrac` numerators, `{` with `\over x}`, `x^{`, `\sqrt{` or `\boxed{` to the nesting limit, alone or repeated side by side to 2,000 code points, then one level past the limit
 - **THEN** at the limit the preview renders within 2 seconds in Chromium and WebKit with the board responding, and past it the field error names the depth and the limit, KaTeX does not run, and the preview keeps its last render
+
+#### Scenario: Nests the scan once missed
+- **WHEN** the user types `\frac{` with `\over y}{x}` nested 11 times, or ``\char` {`` 130 times, then `x`, then `\over}` 130 times
+- **THEN** within 2 seconds the field error names the depth and the limit, KaTeX does not run, and Chromium's renderer does not crash
+
+### Requirement: LaTeX output bounded
+Before any node of a preview reaches the page, the board SHALL measure the depth and the node count of the output KaTeX builds for the expression. An output past the board's bounds SHALL NOT render: its field error SHALL say the expression is too complex to preview, in the editable item, the read-only item and a Snapshot alike, the preview keeping its last render and "Answer" staying enabled (AD-8, NFR-5).
+
+#### Scenario: Too complex to preview
+- **WHEN** an expression the contract's check passes has a KaTeX output deeper or larger than the board's bounds, typed by the user or sent by the agent
+- **THEN** no node of it reaches the page, the field error says the expression is too complex to preview, the preview keeps its last render or stays empty, "Answer" stays enabled, and the read-only item and a Snapshot of the answer show the source with the same field error
+
+### Requirement: LaTeX previews one at a time
+A board SHALL draw its LaTeX previews one per task, in the order they are asked for, an item's newest expression replacing its pending draw and a draw asked for after the user's edit going before draws still pending, so that the board answers input between draws (AD-8, NFR-5).
+
+#### Scenario: Ten LaTeX items
+- **WHEN** a question holds ten LaTeX items, each the slowest expression the measurement found within the bounds, and the user types in the last item's field while the previews draw
+- **THEN** every preview draws, each key press is answered within 2 seconds, and the last item's preview or field error shows within 2 seconds of the input, in Chromium and WebKit
 
 ### Requirement: Package stylesheets in a chunk
 A component chunk MAY carry a package's stylesheet. The build SHALL inline its woff2 fonts as `data:` URLs, drop its other font formats, and list the stylesheet's package among the chunk's licence notices (AD-8, AD-9, NFR-6).
@@ -75,7 +93,7 @@ A component chunk MAY carry a package's stylesheet. The build SHALL inline its w
 - **THEN** the chunk's licence notices hold that package's notice
 
 ### Requirement: No URL in a chunk's styles
-The build SHALL parse every chunk's styles and the board page's as CSS, and SHALL fail on styles it cannot parse, on an `@import`, and on any URL other than a woff2 `data:` URL in the source of a `@font-face` rule, URLs in `image-set()` and `-webkit-image-set()` and escaped forms included, so that no chunk loads a file from anywhere (AD-8, NFR-9).
+The build SHALL parse every chunk's styles and the board page's as CSS, and SHALL fail on styles it cannot parse, on an `@import`, on any URL other than a woff2 `data:` URL in the source of a `@font-face` rule, URLs in `image-set()` and `-webkit-image-set()` and escaped forms included, and on a `var()` or `env()` inside `image-set()` or `-webkit-image-set()`, so that no chunk loads a file from anywhere (AD-8, NFR-9).
 
 #### Scenario: A stylesheet that names a file
 - **WHEN** a chunk's package stylesheet holds `url(fonts/a.svg)` or `@import "b.css"`
@@ -88,6 +106,10 @@ The build SHALL parse every chunk's styles and the board page's as CSS, and SHAL
 #### Scenario: A function whose name ends in url
 - **WHEN** a chunk's styles hold `#a{--v:xurl(data:a ")")}#b{background-image:image-set("http://h/x.png" 1x)}`
 - **THEN** the build fails, naming the chunk and `http://h/x.png`
+
+#### Scenario: A value substituted into image-set
+- **WHEN** a chunk's styles hold `#a{--a:"http://h/var.png";background-image:image-set(var(--a) 1x)}`, the same with `-webkit-image-set`, or `a{cursor:image-set(env(x) 1x),auto}`
+- **THEN** the build fails, naming the chunk
 
 #### Scenario: A data URL outside a font face
 - **WHEN** a chunk's styles hold `a{background:url(data:image/png;base64,AAAA)}`
