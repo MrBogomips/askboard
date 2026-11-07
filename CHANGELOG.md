@@ -2,6 +2,12 @@
 
 All notable changes to AskBoard are recorded here, newest first, in the layout of Keep a Changelog. Versions before 1.0.0 are 0.x releases: each ships what has merged at its release time (PRD §8).
 
+## Unreleased
+
+### Added
+
+- Widgets that the user edits and the answer carries as changes: LaTeX (one expression, a source field with a live preview drawn by KaTeX, and a refusal of macro definitions, KaTeX's internal commands and other commands a LaTeX item does not allow), Kanban (cards moved between columns, by drag or with "Move to...") and Timeline (milestones and ranges moved across lanes on the Gantt's time axis).
+
 ## 0.1.0 - 2026-11-07
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.
