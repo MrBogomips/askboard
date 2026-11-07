@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { LifecycleQuestionStatus } from "@askboard/contract";
 import {
   ganttBoardDocument,
   ganttEditedValue,
@@ -21,14 +22,17 @@ import {
   keepMine,
   nextHeldOrder,
   postpone,
+  pressAnswer,
   recommendedOf,
   reloadQuestion,
+  selectRecommendedOption,
   sendFollowUp,
   withDerived,
 } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
+import { settle } from "./revision-confirm.ts";
 
 const [database] = plainChoiceBoardDocument.items;
 const [scope] = lifecycleBoardDocument.items as unknown as readonly [ViewArea];
@@ -754,6 +758,126 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
     const { sent, context } = held("immediate", revise);
     decline(asked, undefined, context);
     expect(sent).toEqual([expect.objectContaining({ type: "act" })]);
+  });
+});
+
+describe("Accept recommended takes the path of Answer (approval-scale-ranking, design decision 6; F-63, AD-10)", () => {
+  // A test-only `verdict` type: `{decision: "revise"}` requires a reason, and the type asks first
+  // when its latest answer has been received.
+  const pair = { label: "question.reasonRequired", missing: "question.reasonMissing" } as const;
+  const facts = (type: string) =>
+    type === "verdict"
+      ? {
+          confirmsRevision: true as const,
+          reason: (result: unknown) =>
+            (result as { decision?: string }).decision === "revise" ? pair : undefined,
+        }
+      : undefined;
+  const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
+  const recommended: ViewQuestion = {
+    ...database,
+    props: {
+      text: "Which one?",
+      options: [
+        { label: "A", description: "a", recommended: true },
+        { label: "B", description: "b" },
+      ],
+      items: [verdict],
+    },
+  } as ViewQuestion;
+  const statusOf = (receipt: "queued" | "sent" | "delivered"): LifecycleQuestionStatus =>
+    ({
+      itemId: "database",
+      rev: 1,
+      state: "answered",
+      answer: { when: "2026-11-07T10:00:00Z", receipt },
+    }) as unknown as LifecycleQuestionStatus;
+  const accept = (
+    delivery: Delivery,
+    receipt: "queued" | "sent" | "delivered",
+    result: unknown,
+    note?: string,
+  ) => {
+    const set = setUp(delivery);
+    set.results.set("verdict", result);
+    if (note !== undefined) set.board.edit("database", 1, () => ({ rev: 1, note }));
+    const context = { ...set.context, facts };
+    const outcomes: unknown[] = [];
+    // What the card does: the selection, then Answer's path.
+    selectRecommendedOption(recommended, context);
+    const pressed = pressAnswer(recommended, context, statusOf(receipt), (o) => outcomes.push(o));
+    return { ...set, context, pressed, outcomes };
+  };
+  const revise = { decision: "revise" };
+  const reject = { decision: "reject" };
+
+  test("on a delivered verdict it selects the option and sends and marks nothing until confirmed", () => {
+    const { sent, draft, board, pressed } = accept("immediate", "delivered", reject);
+    expect(draft.valueOf("database")).toEqual(["A"]);
+    expect(pressed.kind).toBe("waiting");
+    expect(sent).toEqual([]);
+    expect(board.work("database")?.held).toBeUndefined();
+  });
+
+  test("Cancel leaves the option selected and sends nothing, and the act cannot run afterwards", () => {
+    const { sent, draft, pressed } = accept("immediate", "delivered", reject);
+    if (pressed.kind !== "waiting") throw new Error(pressed.kind);
+    settle(pressed.waiting, false);
+    settle(pressed.waiting, true);
+    expect(draft.valueOf("database")).toEqual(["A"]);
+    expect(sent).toEqual([]);
+  });
+
+  test("confirming sends one answer in immediate delivery", () => {
+    const { sent, pressed, outcomes } = accept("immediate", "delivered", reject);
+    if (pressed.kind !== "waiting") throw new Error(pressed.kind);
+    settle(pressed.waiting, true);
+    expect(sent).toEqual([
+      expect.objectContaining({ type: "answer", choice: ["A"], results: { verdict: reject } }),
+    ]);
+    expect(outcomes).toEqual([undefined]);
+  });
+
+  test("confirming marks the answer ready in submitted delivery, and sends nothing", () => {
+    const { sent, board, pressed } = accept("submitted", "delivered", reject);
+    if (pressed.kind !== "waiting") throw new Error(pressed.kind);
+    expect(board.work("database")?.held).toBeUndefined();
+    settle(pressed.waiting, true);
+    expect(board.work("database")?.held).toEqual({ act: "answer", order: 0 });
+    expect(sent).toEqual([]);
+  });
+
+  test("a missing reason returns needs-reason before any confirmation, and sends and marks nothing", () => {
+    for (const delivery of ["immediate", "submitted"] as const) {
+      const { sent, draft, board, pressed } = accept(delivery, "delivered", revise);
+      expect(pressed.kind).toBe("needs-reason");
+      expect(draft.valueOf("database")).toEqual(["A"]);
+      expect(sent).toEqual([]);
+      expect(board.work("database")?.held).toBeUndefined();
+    }
+  });
+
+  test("a note with a reason passes the check and then asks", () => {
+    expect(accept("immediate", "delivered", revise, "Cheaper.").pressed.kind).toBe("waiting");
+  });
+
+  test.each(["queued", "sent"] as const)(
+    "with a %s receipt it acts at once, as before",
+    (receipt) => {
+      const { sent, pressed } = accept("immediate", receipt, reject);
+      expect(pressed.kind).toBe("done");
+      expect(sent).toEqual([
+        expect.objectContaining({ type: "answer", choice: ["A"], results: { verdict: reject } }),
+      ]);
+    },
+  );
+
+  test("selecting alone sends nothing and unmarks a marked answer, as the selection changes it", () => {
+    const { sent, board, context } = accept("submitted", "sent", reject);
+    expect(board.work("database")?.held).toEqual({ act: "answer", order: 0 });
+    selectRecommendedOption(recommended, context);
+    expect(board.work("database")?.held).toBeUndefined();
+    expect(sent).toEqual([]);
   });
 });
 

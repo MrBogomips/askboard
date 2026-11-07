@@ -46,6 +46,7 @@ import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { answerOf } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
+import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
 export const EXPLAIN = t("en-US", "question.explainText");
@@ -422,15 +423,14 @@ export const recommendedOf = (question: ViewQuestion): ChoiceOption | undefined 
   question.props.options?.find((option) => option.recommended === true);
 
 /**
- * "Accept recommended": selects the recommended option, as the only one on a single choice (which
- * clears "Other…") or beside the others on a multiple one, and acts as "Answer" (L186).
+ * The selection of "Accept recommended": the recommended option, as the only one on a single choice
+ * (which clears "Other…") or beside the others on a multiple one; an answer marked ready is
+ * unmarked, since the selection changes it. It acts as nothing else: the press goes on through
+ * `pressAnswer`, as a press of "Answer" does.
  */
-export const acceptRecommended = (
-  question: ViewQuestion,
-  context: AnswerContext,
-): AnswerOutcome => {
+export const selectRecommendedOption = (question: ViewQuestion, context: AnswerContext): void => {
   const recommended = recommendedOf(question);
-  if (recommended === undefined) return undefined;
+  if (recommended === undefined) return;
   const { draft, board } = context;
   if (question.props.multiSelect === true) {
     const chosen = draft.valueOf(question.id);
@@ -447,5 +447,45 @@ export const acceptRecommended = (
   }
   const held = board.work(question.id)?.held;
   if (held?.act === "answer") board.clear(question.id, ["held"]);
+};
+
+/**
+ * "Accept recommended" with no confirmation: the selection, then "Answer". The card goes through
+ * `pressAnswer` instead, so that the reason check and the confirmation come between (L186).
+ */
+export const acceptRecommended = (
+  question: ViewQuestion,
+  context: AnswerContext,
+): AnswerOutcome => {
+  if (recommendedOf(question) === undefined) return undefined;
+  selectRecommendedOption(question, context);
   return answer(question, context);
+};
+
+/** What a press of "Answer" made of itself, for the card to show. */
+export type AnswerPress =
+  /** Nothing was sent or marked for want of the reason: the field error and the prompt. */
+  | { readonly kind: "needs-reason" }
+  /** The act waits for the user's confirmation. */
+  | { readonly kind: "waiting"; readonly waiting: Waiting }
+  /** The act ran now. */
+  | { readonly kind: "done" };
+
+/**
+ * A press of "Answer", or of "Accept recommended" once it has selected: the reason check first,
+ * before anything asks (F-63, AD-10), then the confirmation a received verdict needs, then the act
+ * itself, whose outcome `onOutcome` hears each time it runs, at once or on confirming.
+ */
+export const pressAnswer = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  status: LifecycleQuestionStatus | undefined,
+  onOutcome: (outcome: AnswerOutcome) => void,
+): AnswerPress => {
+  if (answerNeedsReason(question, context)) return { kind: "needs-reason" };
+  const held = context.board.work(question.id)?.held?.act;
+  const waiting = press(asksFirst("answer", question, status, held, context.facts), () =>
+    onOutcome(answer(question, context)),
+  );
+  return waiting === undefined ? { kind: "done" } : { kind: "waiting", waiting };
 };

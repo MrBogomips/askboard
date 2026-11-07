@@ -43,16 +43,15 @@ import {
 import { markOf } from "./board-view.ts";
 import {
   type AnswerContext,
-  acceptRecommended,
-  answer,
-  answerNeedsReason,
   CARD_ACTS,
   decline,
   explain,
   fillFrom,
   keepMine,
   postpone,
+  pressAnswer,
   reloadQuestion,
+  selectRecommendedOption,
   sendFollowUp,
 } from "./card-acts.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
@@ -239,7 +238,8 @@ const OptionsLabel = ({
 }: {
   readonly question: ViewQuestion;
   readonly disabled: boolean;
-  readonly onAccept: () => void;
+  /** Pressed on `control`, the button, which a confirmation gives focus back to. */
+  readonly onAccept: (control: HTMLElement) => void;
 }) => {
   const text = useStrings();
   return (
@@ -248,7 +248,12 @@ const OptionsLabel = ({
         {text(question.props.multiSelect === true ? "question.options" : "question.optionsPickOne")}
       </p>
       {question.props.options?.some((option) => option.recommended === true) !== true ? null : (
-        <button type="button" className={BUTTON_LINK} disabled={disabled} onClick={onAccept}>
+        <button
+          type="button"
+          className={BUTTON_LINK}
+          disabled={disabled}
+          onClick={(event) => onAccept(event.currentTarget)}
+        >
           {text("question.acceptRecommended")}
         </button>
       )}
@@ -351,18 +356,24 @@ export const QuestionCard = (props: CardProps) => {
   const [waiting, setWaiting] = useState<Confirmation<HTMLElement> | undefined>();
   const afterClose = useRef<FocusTarget<HTMLElement> | undefined>(undefined);
   const chosen = useRef(false);
-  const ask = (act: "answer" | "decline", control: HTMLElement | undefined, run: () => void) => {
-    const next = press(asksFirst(act, question, status, work?.held?.act), run);
+  const askDecline = (control: HTMLElement | undefined, run: () => void): boolean => {
+    const next = press(asksFirst("decline", question, status, work?.held?.act), run);
     chosen.current = false;
-    setWaiting(confirmationOf(act, next, control));
+    setWaiting(confirmationOf("decline", next, control));
     return next === undefined;
   };
+  // "Answer", and "Accept recommended" once it has selected, take one path: the reason check, then
+  // the confirmation, then the act.
   const onAnswer = (control: HTMLElement) => {
-    if (answerNeedsReason(question, acting)) return asking("needs-reason");
-    ask("answer", control, () => asking(answer(question, acting)));
+    const pressed = pressAnswer(question, acting, status, asking);
+    if (pressed.kind === "needs-reason") asking("needs-reason");
+    chosen.current = false;
+    setWaiting(
+      confirmationOf("answer", pressed.kind === "waiting" ? pressed.waiting : undefined, control),
+    );
   };
   const onDecline = (control: HTMLElement | undefined) =>
-    ask("decline", control, () => decline(question, status?.state, acting));
+    askDecline(control, () => decline(question, status?.state, acting));
   const focusAfterClose = () => {
     const target = afterClose.current;
     afterClose.current = undefined;
@@ -409,9 +420,10 @@ export const QuestionCard = (props: CardProps) => {
           <OptionsLabel
             question={shown}
             disabled={readOnly || pending}
-            onAccept={() => {
+            onAccept={(control) => {
               revise();
-              asking(acceptRecommended(shown, acting));
+              selectRecommendedOption(shown, acting);
+              onAnswer(control);
             }}
           />
         ) : null}
