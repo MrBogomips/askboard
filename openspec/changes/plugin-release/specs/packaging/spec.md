@@ -42,12 +42,26 @@ The start script SHALL be POSIX `sh`, find the plugin root from its own path, an
 - **THEN** the bundle runs in that mode with the same arguments, stdin and stdout
 
 
+### Requirement: The start script runs Node's own binary
+The start script SHALL read the version and the executable path from one run of `node` (`process.versions.node` and `process.execPath`) and SHALL replace itself with that executable, so that a version manager's shim never stands between Claude Code and the session process, whose parent process keys the session file (AD-5).
+
+#### Scenario: A version manager's shim
+- **WHEN** `node` on `PATH` is a shim that runs the real Node as its child, and the start script runs the session process
+- **THEN** the session process's parent is the process that ran the start script, and its session file is named by that process's ID
+
 ### Requirement: The start script runs outside the project
-Before any `node` runs, the start script SHALL export `CLAUDE_PROJECT_DIR`, keeping its value or taking the working directory when it is unset, and SHALL change to the plugin root, so that no file in the user's project can choose or run code through the runtime's start (NFR-5, AD-8, AD-19). The mod's client fallback SHALL run the same script, never `bun`.
+Before any `node` runs, the start script SHALL change to the plugin root, so that no file in the user's project can choose or run code through the runtime's start. It SHALL leave `CLAUDE_PROJECT_DIR` as the host gave it, never filling it from the working directory (AD-12), and SHALL pass the caller's working directory as `ASKBOARD_CALLER_CWD`, which the session process reads where it used its own working directory (NFR-5, AD-8, AD-12, AD-19).
 
 #### Scenario: A project's runtime hooks run nothing
 - **WHEN** the start script runs in hook mode from a project whose files configure the runtime's start (a Volta `hooks.json` naming a script, a `bunfig.toml` preload)
 - **THEN** no script of the project runs, and the session process and hooks still see the project through `CLAUDE_PROJECT_DIR` and the hook input's `cwd`
+
+#### Scenario: No project directory from the host
+- **WHEN** the start script runs with `CLAUDE_PROJECT_DIR` unset
+- **THEN** the session process gets no `CLAUDE_PROJECT_DIR`, its session file names no project directory, and `ASKBOARD_CALLER_CWD` holds the caller's working directory
+
+### Requirement: The mod's client fallback runs the start script
+The mod's client fallback SHALL run the start script in client mode, never `bun` (AD-19).
 
 #### Scenario: The mod's fallback names the start script
 - **WHEN** the mod's client fallback command is built for a plugin root
