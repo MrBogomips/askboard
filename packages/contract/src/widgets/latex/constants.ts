@@ -32,6 +32,41 @@ export const LATEX_DEFINING_COMMANDS: readonly string[] = /* @__PURE__ */ Object
   "\\providecommand",
 ]);
 
+/**
+ * The control words that open a level in the scan's depth, as KaTeX nests them (design decision 3):
+ * `\bgroup` expands to `{`, `\begingroup` and `{` open a group, `\begin` an environment and `\left`
+ * a pair of delimiters. The widgets' render test checks that no other KaTeX macro has a body whose
+ * braces do not balance.
+ */
+export const LATEX_LEVEL_OPENERS: readonly string[] = /* @__PURE__ */ Object.freeze([
+  "\\bgroup",
+  "\\begingroup",
+  "\\begin",
+  "\\left",
+]);
+
+/** The control words that close a level, one each: the openers' counterparts. */
+export const LATEX_LEVEL_CLOSERS: readonly string[] = /* @__PURE__ */ Object.freeze([
+  "\\egroup",
+  "\\endgroup",
+  "\\end",
+  "\\right",
+]);
+
+/**
+ * The control words of KaTeX 0.19.1 that read the next token raw, with what they do to it: `consumes`
+ * (`\char` and `\show` take it, so a brace after them closes nothing) or `pushesBack` (`\noexpand` and
+ * `\expandafter` read it and put it back, so it keeps its meaning). The other readers of raw tokens
+ * are the refused definitions and the `@` names (the widgets' render test checks the source).
+ */
+export const LATEX_RAW_TOKEN_COMMANDS: Readonly<Record<string, "consumes" | "pushesBack">> =
+  /* @__PURE__ */ Object.freeze({
+    "\\char": "consumes",
+    "\\show": "consumes",
+    "\\noexpand": "pushesBack",
+    "\\expandafter": "pushesBack",
+  } as const);
+
 export const LATEX_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
   props: "urn:askboard:input:latex-props",
   changes: "urn:askboard:output:latex-changes",

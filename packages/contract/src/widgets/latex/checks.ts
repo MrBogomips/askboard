@@ -8,6 +8,7 @@
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
 import { LATEX_DEFINING_COMMANDS, LATEX_EXPRESSION_MAX_CHARS } from "./constants.ts";
+import { scanLatex } from "./scan.ts";
 
 /**
  * What is wrong with a LaTeX's props, the schema's rules restated: an object holding `expression`,
@@ -56,49 +57,8 @@ export const cutLatexExpression = (text: string): string =>
     ? text
     : [...text].slice(0, LATEX_EXPRESSION_MAX_CHARS).join("");
 
-const DEFINING: ReadonlySet<string> = new Set(LATEX_DEFINING_COMMANDS);
-
-/** What the scan found in an expression. */
-export type LatexScan = {
-  /** The first control word that defines a macro or holds `@`, else nothing. */
-  readonly refused: string | undefined;
-};
-
 // A definition names itself; any other refused word holds `@`, KaTeX's internal namespace.
 const refusedMessage = (word: string): string =>
-  DEFINING.has(word)
+  LATEX_DEFINING_COMMANDS.includes(word)
     ? `the expression defines a macro with \`${word}\`, which a LaTeX item does not allow`
     : `the expression names \`${word}\`, one of KaTeX's internal commands, which a LaTeX item does not allow`;
-
-// A letter of a control word in KaTeX's lexer: `[A-Za-z@]`.
-const isControlLetter = (code: number): boolean =>
-  (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a) || code === 0x40;
-
-/**
- * What `text` holds that a LaTeX item may not (design decisions 3 and 7). Control words are read
- * as KaTeX 0.19.1's lexer reads them: a backslash then `[A-Za-z@]+` is a control word (`\default`
- * is a word of its own, `\left` is not `\let`); any other backslash and the one character after it
- * is a control symbol (`\\`, the line break, is one symbol, so `\\def` is a line break and the text
- * `def`). `refused` is the first control word that defines a macro (one of
- * `LATEX_DEFINING_COMMANDS`) or holds `@`: KaTeX also defines macros by side effect (`\tag` defines
- * `\df@tag`, `\color` defines `\current@color`) and its lexer lets the source call them, so every
- * word of its internal namespace is refused. One pass, each character read once, with no nested
- * quantifier. A comment or a `\verb` is not skipped: a command named in one is refused as well,
- * which only refuses more.
- */
-export const scanLatex = (text: string): LatexScan => {
-  let refused: string | undefined;
-  let at = text.indexOf("\\");
-  while (at !== -1 && refused === undefined) {
-    let end = at + 1;
-    while (end < text.length && isControlLetter(text.charCodeAt(end))) end += 1;
-    if (end === at + 1) {
-      at = text.indexOf("\\", at + 2);
-    } else {
-      const word = text.slice(at, end);
-      if (DEFINING.has(word) || word.includes("@")) refused = word;
-      at = text.indexOf("\\", end);
-    }
-  }
-  return { refused };
-};

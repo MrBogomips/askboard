@@ -4,7 +4,13 @@
 // command would put in the page; `renderInto` is run on stand-ins for the preview's element.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { LATEX_DEFINING_COMMANDS, scanLatex } from "@askboard/contract";
+import {
+  LATEX_DEFINING_COMMANDS,
+  LATEX_LEVEL_CLOSERS,
+  LATEX_LEVEL_OPENERS,
+  LATEX_RAW_TOKEN_COMMANDS,
+  scanLatex,
+} from "@askboard/contract";
 import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
 
@@ -305,6 +311,193 @@ describe("the macros KaTeX defines by side effect, read in katex.mjs (0.19.1)", 
     }
     // The definitions with author text are the two the review named, nothing else.
     expect(bodies.some(({ name }) => name === "\\tag")).toBe(true);
+  });
+});
+
+// Task 4.9, source guards (e) to (g) and the seeded property (h): the scan's depth is KaTeX's nesting.
+describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
+  const sourceText = async (): Promise<string> =>
+    await Bun.file(Bun.resolveSync("katex", import.meta.dir)).text();
+  const STRING = /"((?:[^"\\\n]|\\.)*)"/g;
+  const literal = (body: string | undefined): string => JSON.parse(`"${body}"`) as string;
+  // A statement of the source: from its opening to the next line that starts in column 0.
+  const statementAt = (text: string, from: number): string => {
+    const rest = text.slice(from);
+    const end = rest.slice(1).search(/\n[A-Za-z/]/);
+    return end === -1 ? rest : rest.slice(0, end + 1);
+  };
+
+  test("(e) a macro whose body's braces do not balance is an opener or a closer of the scan", async () => {
+    const text = await sourceText();
+    const unbalanced: string[] = [];
+    const calls = [...text.matchAll(/^defineMacro\(("(?:[^"\\\n]|\\.)*")/gm)];
+    expect(calls.length).toBeGreaterThan(300);
+    for (const call of calls) {
+      const name = JSON.parse(call[1] ?? '""') as string;
+      if (name.includes("@")) continue; // refused: no author can call it
+      const literals = [...statementAt(text, call.index ?? 0).matchAll(STRING)]
+        .map(([, body]) => literal(body))
+        .join("");
+      const balance = [...literals.replace(/\\[\s\S]/g, "")].reduce(
+        (sum, char) => sum + (char === "{" ? 1 : char === "}" ? -1 : 0),
+        0,
+      );
+      if (balance !== 0) unbalanced.push(name);
+    }
+    expect(unbalanced.sort()).toEqual(["\\bgroup", "\\egroup"]);
+    expect(LATEX_LEVEL_OPENERS).toContain("\\bgroup");
+    expect(LATEX_LEVEL_CLOSERS).toContain("\\egroup");
+  });
+
+  test("(f) what reads a raw token is refused, an @ name, or in the scan's table", async () => {
+    const lines = (await sourceText()).split("\n");
+    const expander = lines.findIndex((line) => /^ {2}popToken\(\) \{/.test(line));
+    expect(expander).toBeGreaterThan(0);
+    // The unit (the last line starting in column 0 above it) of each popToken() call before the
+    // expander's own methods.
+    const units = new Map<number, string>();
+    lines.slice(0, expander).forEach((line, at) => {
+      if (!/\bpopToken\(\)/.test(line)) return;
+      let header = at;
+      while (header > 0 && !/^[A-Za-z]/.test(lines[header] ?? "")) header -= 1;
+      units.set(header + 1, lines[header] ?? "");
+    });
+    expect([...units.values()]).toEqual([
+      "var getRHS = parser => {", // \let and \futurelet: refused
+      "defineFunction({", // \def and its family: refused
+      "defineFunction({", // \let and its family: refused
+      "defineFunction({", // \futurelet and its family: refused
+      'defineMacro("\\\\noexpand", function (context) {', // pushes the token back
+      'defineMacro("\\\\expandafter", function (context) {', // pushes the token back
+      'defineMacro("\\\\char", function (context) {', // consumes it
+      'defineMacro("\\\\show", context => {', // consumes it
+      "var braketHelper = one => context => {", // \bra@ket, \bra@set: @ names, only `|`
+    ]);
+    const typeable = (name: string) => !name.startsWith("\\\\");
+    for (const [line, header] of units) {
+      if (header !== "defineFunction({") continue;
+      const list = /names:\s*\[([^\]]*)\]/.exec(lines.slice(line, line + 4).join("\n"))?.[1];
+      const names = [...(list ?? "").matchAll(STRING)].map(([, body]) => literal(body));
+      expect(names.length).toBeGreaterThan(0);
+      for (const name of names) {
+        const refused = (LATEX_DEFINING_COMMANDS as readonly string[]).includes(name);
+        expect({ name, fine: refused || !typeable(name) }).toEqual({ name, fine: true });
+      }
+    }
+    expect({ ...LATEX_RAW_TOKEN_COMMANDS }).toEqual({
+      "\\char": "consumes",
+      "\\show": "consumes",
+      "\\noexpand": "pushesBack",
+      "\\expandafter": "pushesBack",
+    });
+  });
+
+  test("(g) a command that takes arguments and is allowed in an argument fails as its own argument", async () => {
+    const text = await sourceText();
+    const names: string[] = [];
+    for (const block of text.split("\ndefineFunction({").slice(1)) {
+      const head = block.slice(0, block.search(/\n\s+handler/));
+      if (!/allowedInArgument:\s*true/.test(head)) continue;
+      if (Number(/numArgs:\s*(\d+)/.exec(head)?.[1] ?? "0") === 0) continue;
+      const list = /names:\s*\[([\s\S]*?)\]/.exec(head)?.[1] ?? "";
+      for (const [, body] of list.matchAll(STRING)) {
+        const name = literal(body);
+        if (/^\\[A-Za-z]+$/.test(name)) names.push(name);
+      }
+    }
+    expect(names.length).toBeGreaterThan(20);
+    for (const name of ["\\frac", "\\binom", "\\mathrm", "\\text", "\\genfrac"]) {
+      expect(names).toContain(name);
+    }
+    for (const name of names) {
+      const expression = `${name} ${name}${" x".repeat(8)}`;
+      expect({ name, fails: parseProblem(expression) !== undefined }).toEqual({
+        name,
+        fails: true,
+      });
+    }
+  });
+
+  // (h) The depth of the MathML KaTeX builds, against the scan's depth. The elements of
+  // `output: "mathml"` are counted by their tags; the annotation holds the source as escaped text.
+  const mathDepth = (markup: string): number => {
+    let level = 0;
+    let deepest = 0;
+    for (const [, closing, , selfClosing] of markup.matchAll(
+      /<(\/?)([a-zA-Z][\w-]*)[^>]*?(\/?)>/g,
+    )) {
+      if (selfClosing) continue;
+      level += closing ? -1 : 1;
+      deepest = Math.max(deepest, level);
+    }
+    return deepest;
+  };
+
+  const mulberry32 = (seed: number) => {
+    let state = seed >>> 0;
+    return () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  const builders: readonly ((e: () => string, atom: () => string) => string)[] = [
+    (e) => `{${e()}}`,
+    (e) => `x^{${e()}}`,
+    (e) => `x_{${e()}}`,
+    (_e, atom) => `x^${atom()}`,
+    (e) => `\\frac{${e()}}{${e()}}`,
+    (e) => `\\sqrt{${e()}}`,
+    (e) => `\\left( ${e()} \\right)`,
+    (e) => `\\begin{matrix} ${e()} & ${e()} \\\\ ${e()} & ${e()} \\end{matrix}`,
+    (e) => `\\text{$${e()}$}`,
+    (e) => `${e()} %{{\n ${e()}`,
+    (e) => `\\verb|{x}| ${e()}`,
+    (e) => `\\char\`a ${e()}`,
+    (e) => `\\show x ${e()}`,
+    (e) => `\\bgroup ${e()}\\egroup`,
+    (e) => `\\begingroup ${e()}\\endgroup`,
+    (e) => `{${e()} \\over ${e()}}`,
+    (e) => `\\boxed{${e()}}`,
+    (e) => `\\hat{${e()}}`,
+    (e) => `\\overbrace{${e()}}^{${e()}}`,
+    (e) => `\\binom{${e()}}{${e()}}`,
+    (e) => `\\sqrt[3]{${e()}}`,
+    (e) => `${e()} ${e()}`,
+  ];
+
+  // The smallest a and b the seeded run allows: the MathML's depth is at most A * depth + B.
+  const A = 5;
+  const B = 5;
+
+  test("(h) the MathML's element depth is at most A x the scan's depth + B, over seeded expressions", () => {
+    const random = mulberry32(20261107);
+    const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
+    const atom = () => pick(["x", "y", "1", "\\alpha", "a+b"]);
+    const gen = (budget: number): string =>
+      budget <= 0 ? atom() : pick(builders)(() => gen(budget - 1), atom);
+    const printed = (["log", "warn", "error"] as const).map((method) =>
+      spyOn(console, method).mockImplementation(() => undefined),
+    );
+    const rows: { depth: number; math: number }[] = [];
+    for (let run = 0; run < 600; run += 1) {
+      const expression = gen(1 + Math.floor(random() * 7));
+      if (expression.length > 2_000) continue;
+      let markup: string;
+      try {
+        markup = katex.renderToString(expression, { ...renderOptions(), output: "mathml" });
+      } catch {
+        continue; // KaTeX does not parse it: nothing is drawn
+      }
+      rows.push({ depth: scanLatex(expression).depth, math: mathDepth(markup) });
+    }
+    for (const spy of printed) spy.mockRestore();
+    expect(rows.length).toBeGreaterThan(300);
+    expect(Math.max(...rows.map(({ depth }) => depth))).toBeGreaterThanOrEqual(6);
+    for (const { depth, math } of rows) expect(math).toBeLessThanOrEqual(A * depth + B);
   });
 });
 
