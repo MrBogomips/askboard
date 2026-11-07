@@ -39,7 +39,8 @@ A question is `{type: "question", id, props: {text, header?, options?, multiSele
 
 ## After you ask
 
-- An ask belongs to the agent that sent it: only that agent can `collect`, `update`, `fetch` or `snapshot` it, and a subagent's ask closes when the subagent finishes. To talk with the user while you keep working, start a background subagent that asks, waits and returns the answers.
+- With AskBoard's hooks, an ask belongs to the agent that sent it: only that agent can `collect`, `update`, `fetch` or `snapshot` it. A subagent's ask closes when the subagent finishes: an answer given later, such as a postponed one, is lost, and no one can collect or snapshot it.
+- Your own asks never block you: ask yourself and keep working. Only for a side dialogue whose answers you need together when it ends, start a background subagent that asks, waits and returns them.
 - Keep working after `ask`. The user gets a notice and a link. Never open the board or answer it yourself.
 - Answers reach you by push, or call `collect` with the latest cursor you received for each ask. Call it before you finish. Never build a cursor.
 - An event whose `seq` (the number after the dot in its cursor) you have already seen is a repeat: ignore it.

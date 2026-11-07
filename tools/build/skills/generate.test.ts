@@ -176,12 +176,20 @@ describe("SKILL.md delivery, follow-ups and fallbacks", () => {
 });
 
 describe("SKILL.md ownership of an ask", () => {
-  test("says an ask belongs to its agent, closes with a subagent, and a background subagent can talk", () => {
-    const after = skill.slice(skill.indexOf("## After you ask"));
-    expect(after).toContain("An ask belongs to the agent that sent it");
+  const after = skill.slice(skill.indexOf("## After you ask"));
+
+  test("says what ownership means with the hooks, and that a later answer to a subagent's ask is lost", () => {
+    expect(after).toContain("With AskBoard's hooks, an ask belongs to the agent that sent it");
     expect(after).toContain("only that agent can `collect`, `update`, `fetch` or `snapshot` it");
-    expect(after).toContain("a subagent's ask closes when the subagent finishes");
-    expect(after).toContain("background subagent that asks, waits and returns the answers");
+    expect(after).toContain("A subagent's ask closes when the subagent finishes");
+    expect(after).toMatch(/answer given later.*is lost, and no one can collect or snapshot it/);
+  });
+
+  test("advises asking yourself, a background subagent only for a side dialogue answered together", () => {
+    expect(after).toContain("Your own asks never block you");
+    expect(after).toContain("side dialogue whose answers you need together when it ends");
+    expect(after).toContain("background subagent that asks, waits and returns them");
+    expect(after).not.toContain("To talk with the user while you keep working");
   });
 });
 

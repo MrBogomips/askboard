@@ -29,6 +29,17 @@ const resolve = contractSchemaResolver(
   READY_MOLECULES.map(({ parameters }) => parameters as Schema),
 );
 
+describe("the Gantt reference", () => {
+  const gantt = widget("gantt");
+  const { text } = renderWidgetReference(gantt, resolve);
+
+  test("holds the note on the two forms of tasks and each form's limit", () => {
+    expect(text).toContain(gantt.skill?.notes?.[0] ?? "unreachable");
+    expect(text).toContain("`ownTasks` (at most 500 items)");
+    expect(text).toContain("`planTasks` (at most 500 entries)");
+  });
+});
+
 describe("renderWidgetReference", () => {
   const tree = widget("tree");
   const { text, examples } = renderWidgetReference(tree, resolve);
@@ -119,6 +130,9 @@ describe("renderMoleculeReference", () => {
     const items = ask.items[0]?.props.items ?? [];
     expect(items.map((item) => item.id)).toEqual(["wbs", "gantt"]);
     expect(items[1]?.props).toMatchObject({ molecule: "gantt-plan" });
+    const first = items[0] as { id: string; props: { molecule?: string } };
+    expect(first.props.molecule).toBe("wbs-pert");
+    expect(first.id).toBe(MOLECULE_SKILLS["gantt-plan"]?.companion?.id ?? "unreachable");
   });
 
   test("a test-made companion is placed under companion.id, then the molecule's own item", () => {

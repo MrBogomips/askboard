@@ -10,6 +10,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -99,6 +100,46 @@ describe("write mode", () => {
       expect(await run("--check")).toBe(0);
     },
   );
+
+  // Skipped on a case-sensitive volume, like the test above. The folders left empty go before the
+  // writes: a `References/` folder is the generated `references/` on a case-insensitive volume.
+  test.skipIf(!caseInsensitiveVolume())(
+    "fixes a folder that differs from a generated one only in case, in one run",
+    async () => {
+      write(join(dir, "References", "answers.md"), "extra");
+      write(join(dir, "References", "Widgets", "tree.md"), "extra");
+      expect(await run()).toBe(0);
+      const names = (readdirSync(dir, { recursive: true }) as string[]).sort();
+      const expected = [
+        ...new Set(
+          Object.keys(generated()).flatMap((name) => {
+            const parts = name.split("/");
+            return parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+          }),
+        ),
+      ].sort();
+      expect(names).toEqual(expected);
+      expect(await run("--check")).toBe(0);
+      log = [];
+      expect(await run()).toBe(0);
+      expect(said()).not.toContain("removed");
+    },
+  );
+
+  test("refuses a generated name outside the folder before it removes anything", async () => {
+    write(join(dir, "keep-me.md"), "extra");
+    write(join(root, "skills", "x.md"), "outside");
+    const before = statSync(join(root, "skills", "x.md"));
+    const good = generateSkill();
+    const bad = { ...good, files: new Map([...good.files, ["../x.md", "overwritten"]]) };
+    const code = await main([], (line) => log.push(line), dir, bad);
+    expect(code).toBe(1);
+    expect(said()).toContain("../x.md");
+    expect(existsSync(join(dir, "keep-me.md"))).toBe(true);
+    const after = statSync(join(root, "skills", "x.md"));
+    expect(readFileSync(join(root, "skills", "x.md"), "utf8")).toBe("outside");
+    expect(after.mtimeMs).toBe(before.mtimeMs);
+  });
 
   test("touches nothing outside skills/askboard/", async () => {
     const outsideOwn = (folder: string) =>

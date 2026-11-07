@@ -109,11 +109,15 @@ export const driftProblems = (dir: string, generated: GeneratedSkill, found: Sca
   return problems;
 };
 
-// Removes the files nobody generates, then writes the generated ones, then removes the folders left
-// empty, after the scan found nothing to refuse. The removals come first: on a case-insensitive
-// volume an extra `skill.md` is the same file as a generated `SKILL.md`, and removing it after the
-// write would delete the file just written.
+// Refuses a generated name outside the skill folder, then removes the files nobody generates, then
+// the folders left empty (deepest first), then writes the generated files, after the scan found
+// nothing to refuse. The names are checked before any removal, so a refusal leaves the folder as it
+// was. The removals come before the writes: on a case-insensitive volume an extra `skill.md` is the
+// same file as a generated `SKILL.md`, and a `References/` folder is the generated `references/`;
+// removed after the writes, they would delete the file just written or leave it in the wrong-case
+// folder.
 const writeAll = (dir: string, generated: GeneratedSkill, found: Scan, log: Log): void => {
+  for (const name of generated.files.keys()) insideOf(dir, name);
   for (const name of found.files.filter((file) => !generated.files.has(file))) {
     const target = insideOf(dir, name);
     if (lstat(target)?.isFile()) {
@@ -121,17 +125,16 @@ const writeAll = (dir: string, generated: GeneratedSkill, found: Scan, log: Log)
       log(`removed skills/askboard/${name}`);
     }
   }
+  for (const name of [...found.folders].sort().reverse()) {
+    const target = insideOf(dir, name);
+    if (lstat(target)?.isDirectory() && readdirSync(target).length === 0) rmdirSync(target);
+  }
   mkdirSync(dir, { recursive: true });
   for (const [name, text] of generated.files) {
     const target = insideOf(dir, name);
     mkdirSync(dirname(target), { recursive: true });
     if (lstat(target)?.isSymbolicLink()) throw new Error(`"${name}" is a symlink`);
     writeFileSync(target, text);
-  }
-  // Deepest first, so a folder left empty by its files goes after them.
-  for (const name of [...found.folders].sort().reverse()) {
-    const target = insideOf(dir, name);
-    if (lstat(target)?.isDirectory() && readdirSync(target).length === 0) rmdirSync(target);
   }
 };
 
