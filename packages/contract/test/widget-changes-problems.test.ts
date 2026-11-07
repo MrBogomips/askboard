@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import * as fixtures from "../src/fixtures/index.ts";
 import {
   ganttBoardDocument,
   ganttEditedValue,
@@ -13,15 +14,21 @@ import {
   treeAnswer,
   treeBoardDocument,
   treeEditedValue,
+  uj2ExpandedQuestion,
+  withWidgetTypes,
 } from "../src/fixtures/index.ts";
 import {
   type Change,
   elementChanges,
   GANTT_SHAPE,
+  KANBAN_WIDGET,
+  LATEX_WIDGET,
+  TIMELINE_WIDGET,
   TREE_SHAPE,
   type WidgetType,
   widgetChangesProblems,
 } from "../src/index.ts";
+import { elementShapeOf } from "../src/validate.ts";
 import { RANKING_WIDGET } from "../src/widgets/ranking/index.ts";
 
 const CHANGES = {
@@ -253,5 +260,109 @@ describe("the changes of every approved and fixture Tree and Gantt answer", () =
     expect(
       widgetChangesProblems({ type: "tree", id: "wbs" }, [{ op: "set", target: "wbs.a" }]),
     ).not.toEqual([]);
+  });
+});
+
+// Every answer and edited value the fixtures export, found by walking `src/fixtures/index.ts`
+// instead of naming them (task 1.8), so a later fixture is covered.
+describe("every answer event and edited value among the fixtures", () => {
+  const ALL = withWidgetTypes(LATEX_WIDGET, KANBAN_WIDGET, TIMELINE_WIDGET);
+  const exported = Object.entries(fixtures as Record<string, unknown>);
+
+  const isObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+  // Every widget item { type, id, props } in `value`, to its type; an ID with two types throws.
+  const collectItems = (value: unknown, into: Map<string, string>, seen = new Set<unknown>()) => {
+    if (!isObject(value) || seen.has(value)) return;
+    seen.add(value);
+    if (
+      typeof value.type === "string" &&
+      typeof value.id === "string" &&
+      isObject(value.props) &&
+      ALL.some(({ type }) => type === value.type)
+    ) {
+      const held = into.get(value.id);
+      if (held !== undefined && held !== value.type) {
+        throw new Error(`item ${value.id} has two types: ${held} and ${value.type}`);
+      }
+      into.set(value.id, value.type);
+    }
+    for (const inner of Object.values(value)) collectItems(inner, into, seen);
+  };
+
+  // Every object shaped as an answer event with changes, with the export it sits in.
+  const collectAnswers = (value: unknown, seen = new Set<unknown>()): Record<string, unknown>[] => {
+    if (!isObject(value) || seen.has(value)) return [];
+    seen.add(value);
+    const own = value.type === "answer" && Array.isArray(value.changes) ? [value] : [];
+    return [...own, ...Object.values(value).flatMap((inner) => collectAnswers(inner, seen))];
+  };
+
+  test("the changes of every answer event are checked against the type of the item they name", () => {
+    const types = new Map<string, string>();
+    for (const [, value] of exported) collectItems(value, types);
+    const answers = collectAnswers(Object.fromEntries(exported));
+    expect(answers.length).toBeGreaterThan(0);
+    expect(answers.some((answer) => answer === fixtures.approvalAnswerEvent)).toBe(true);
+    let checked = 0;
+    for (const answer of answers) {
+      const changes = answer.changes as Change[];
+      const groups = Object.entries(
+        Object.groupBy(changes, (change) => change.target.split(".")[0] as string),
+      );
+      for (const [id, group] of groups) {
+        const type = types.get(id);
+        if (type === undefined)
+          throw new Error(`a change names item ${id}, which no fixture sends`);
+        expect(widgetChangesProblems({ type, id }, group ?? [], ALL)).toEqual([]);
+        checked += group?.length ?? 0;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  // Each edited-value export, with the sent item (or question) it edits.
+  const [treeQuestion] = treeBoardDocument.items;
+  const [ganttQuestion] = ganttBoardDocument.items;
+  const planQuestion = fixtures.ganttPlanBoardDocument.items[0];
+  const PAIRS: Record<string, readonly { type: string; id: string; props: unknown }[]> = {
+    treeEditedValue: treeQuestion.props.items.slice(0, 1),
+    ganttEditedValue: ganttQuestion.props.items.slice(0, 1),
+    ganttPlanEditedValue: planQuestion.props.items.filter(({ id }) => id === "schedule"),
+    uj2ExpandedEditedValues: uj2ExpandedQuestion.props.items,
+  };
+  const ownProps = (name: string): Record<string, unknown> => {
+    const value = (fixtures as Record<string, unknown>)[name] as Record<string, unknown>;
+    // One item's edited props, or a map from item ID to its edited props.
+    return name === "uj2ExpandedEditedValues" ? value : { [PAIRS[name]?.[0]?.id ?? ""]: value };
+  };
+
+  test("every edited-value export is paired with its sent item, and its diff passes its type", () => {
+    const names = exported
+      .map(([name]) => name)
+      .filter((name) => /EditedValues?$/.test(name))
+      .sort();
+    const unpaired = names.filter((name) => PAIRS[name] === undefined);
+    expect(unpaired).toEqual([]);
+    expect(names).toEqual(Object.keys(PAIRS).sort());
+    let checked = 0;
+    for (const name of names) {
+      const edited = ownProps(name);
+      for (const item of PAIRS[name] ?? []) {
+        const shape = elementShapeOf(item, ALL);
+        expect(shape).toBeDefined();
+        if (shape === undefined) continue;
+        const changes = elementChanges(
+          item.id,
+          item.props as object,
+          edited[item.id] as object,
+          shape,
+        );
+        expect(widgetChangesProblems(item, changes, ALL)).toEqual([]);
+        checked += 1;
+      }
+    }
+    expect(checked).toBe(5);
   });
 });
