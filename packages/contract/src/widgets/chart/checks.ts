@@ -7,9 +7,10 @@
 // are compared through a `Set`, so a name every object inherits (`__proto__`, `constructor`) is an
 // ID like any other.
 
+import { ID_PATTERN } from "../../constants.ts";
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
-import { CHART_PIE_MAX_SLICES } from "./constants.ts";
+import { CHART_MAX_POINTS, CHART_PIE_MAX_SLICES } from "./constants.ts";
 
 const finite = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -133,4 +134,141 @@ export const chartPropsProblems = (props: unknown): readonly Problem[] => {
     });
   }
   return problems;
+};
+
+// The props a result is checked against: each series' values by its ID and each category's position
+// by its ID, the first of an ID held twice standing; undefined when the props hold no lists of
+// categories and series. Maps, so that an inherited name is no more an ID than any other.
+type Reading = {
+  readonly values: ReadonlyMap<string, readonly unknown[]>;
+  readonly positions: ReadonlyMap<string, number>;
+  readonly highlights: unknown;
+};
+
+const reading = (props: unknown): Reading | undefined => {
+  if (!isRecord(props) || !Array.isArray(props.categories) || !Array.isArray(props.series)) {
+    return undefined;
+  }
+  const positions = new Map<string, number>();
+  props.categories.forEach((category: unknown, index) => {
+    const id = isRecord(category) ? category.id : undefined;
+    if (typeof id === "string" && !positions.has(id)) positions.set(id, index);
+  });
+  const values = new Map<string, readonly unknown[]>();
+  for (const series of props.series as unknown[]) {
+    const id = isRecord(series) ? series.id : undefined;
+    if (typeof id === "string" && !values.has(id)) values.set(id, valuesOf(series));
+  }
+  return { values, positions, highlights: props.highlights };
+};
+
+// A point as a message shows it.
+const pointText = (series: unknown, category: unknown): string =>
+  `(series ${quoted(series)}, category ${quoted(category)})`;
+
+// The problems of one point of a result, `seen` holding the points before it.
+const pointProblems = (
+  point: unknown,
+  index: number,
+  read: Reading,
+  seen: Set<string>,
+): Problem[] => {
+  if (!isRecord(point)) return [];
+  const { series, category } = point;
+  if (typeof series !== "string" || typeof category !== "string") return [];
+  const at = (field: string, message: string): Problem => ({
+    path: `/points/${index}${field}`,
+    message,
+  });
+  const named = `the point ${pointText(series, category)}`;
+  const problems: Problem[] = [];
+  const values = read.values.get(series);
+  const position = read.positions.get(category);
+  if (values === undefined) {
+    problems.push(
+      at("/series", `${named} names the series ${quoted(series)}, which the chart does not hold`),
+    );
+  }
+  if (position === undefined) {
+    problems.push(
+      at(
+        "/category",
+        `${named} names the category ${quoted(category)}, which the chart does not hold`,
+      ),
+    );
+  }
+  if (values !== undefined && position !== undefined) {
+    if (!finite(values[position])) {
+      problems.push(at("", `${named} has no value: the chart holds null there`));
+    }
+    const key = JSON.stringify([series, category]);
+    if (seen.has(key)) problems.push(at("", `${named} is named twice`));
+    seen.add(key);
+  }
+  return problems;
+};
+
+/**
+ * What a schema-valid Chart result still gets wrong against the item's props: a point whose series
+ * or category the item does not hold or whose value there is null, a point named twice, more than
+ * one point for `highlights: "one"` and any point for `highlights: "none"`. Props that hold no
+ * categories and series refuse the result, since nothing can check it.
+ */
+export const chartResultProblems = (result: unknown, props: unknown): readonly Problem[] => {
+  const read = reading(props);
+  if (read === undefined) {
+    return [
+      { path: "/", message: "the item's props are no Chart's, so its points cannot be checked" },
+    ];
+  }
+  const points = isRecord(result) && Array.isArray(result.points) ? result.points : [];
+  if (read.highlights === "none") {
+    return [{ path: "/points", message: "this chart takes no highlight: its highlights are none" }];
+  }
+  const problems: Problem[] = [];
+  if (read.highlights === "one" && points.length !== 1) {
+    problems.push({
+      path: "/points",
+      message: `this chart takes one point, and the result names ${points.length}`,
+    });
+  }
+  const seen = new Set<string>();
+  points.forEach((point: unknown, index) => {
+    problems.push(...pointProblems(point, index, read, seen));
+  });
+  return problems;
+};
+
+const ID = new RegExp(ID_PATTERN);
+
+const isPoint = (point: unknown): boolean => {
+  if (!isRecord(point)) return false;
+  const keys = Object.keys(point);
+  const { series, category } = point;
+  return (
+    keys.length === 2 &&
+    typeof series === "string" &&
+    typeof category === "string" &&
+    ID.test(series) &&
+    ID.test(category)
+  );
+};
+
+/**
+ * Whether `result` has the shape of a Chart's result, the schema's rule in plain code: `points`
+ * alone, a list of 1 to 500 points, each `series` and `category` alone, each an ID. That the points
+ * are the item's own is the props check's.
+ */
+export const chartResultShape = (result: unknown): boolean => {
+  if (!isRecord(result)) return false;
+  const keys = Object.keys(result);
+  const { points } = result;
+  return (
+    keys.length === 1 &&
+    keys[0] === "points" &&
+    Array.isArray(points) &&
+    points.length >= 1 &&
+    points.length <= CHART_MAX_POINTS &&
+    points.every(isPoint)
+  );
 };

@@ -4,20 +4,35 @@
 // decision 10).
 
 import { describe, expect, test } from "bun:test";
-import { withWidgetTypes } from "../src/fixtures/index.ts";
+import {
+  CHART_FIXTURE_ITEMS,
+  CHART_RESULTS,
+  chartAct,
+  chartAnswerEvent,
+  chartFetchItemResult,
+  withWidgetTypes,
+} from "../src/fixtures/index.ts";
 import {
   CHART_HIGHLIGHTS,
   CHART_KINDS,
   CHART_MAX_CATEGORIES,
+  CHART_MAX_POINTS,
   CHART_MAX_SERIES,
   CHART_PIE_MAX_SLICES,
   CHART_SCHEMA_IDS,
   CHART_VALUE_LIMIT,
   CHART_WIDGET,
   chartPropsProblems,
+  chartResultProblems,
+  chartResultShape,
   WIDGET_TYPES,
+  widgetRegistryProblems,
 } from "../src/index.ts";
-import { askAccepted, askProblems } from "./result-widgets-support.ts";
+import { SCHEMA_IDS } from "../src/sets.ts";
+import { validateBoardMessage } from "../src/validate.ts";
+import { EMPTY_RESULTS } from "../src/widgets/registry-check.ts";
+import { ajvOver, errorsOf } from "./probe-ajv.ts";
+import { askAccepted, askProblems, resultProblemsOf } from "./result-widgets-support.ts";
 
 const TYPES = withWidgetTypes(CHART_WIDGET);
 const chart = (props: Record<string, unknown>, id = "failures") => ({ type: "chart", id, props });
@@ -488,5 +503,250 @@ describe("the Chart's entry", () => {
     ];
     expect(keys.length).toBeGreaterThan(10);
     for (const key of keys) expect(key.startsWith("chart.props")).toBe(true);
+  });
+});
+
+describe("Chart results", () => {
+  const ITEM = chart(BAR);
+  const check = (result: unknown, item = ITEM) => resultProblemsOf(TYPES, item, result);
+  const point = (series: string, category: string) => ({ series, category });
+  const text = (result: unknown, item = ITEM) =>
+    check(result, item)
+      .map(({ message }) => message)
+      .join("\n");
+
+  test("two points highlighted pass, in any order", () => {
+    expect(check({ points: [point("fails", "a"), point("fails", "b")] })).toEqual([]);
+    expect(check({ points: [point("fails", "b"), point("fails", "a")] })).toEqual([]);
+    expect(check({ points: [point("fails", "a")] })).toEqual([]);
+  });
+
+  test("a point whose category the chart does not hold fails, naming the item and the point", () => {
+    const found = check({ points: [point("fails", "a"), point("fails", "c")] });
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/points/1/category");
+    expect(found[0]?.message).toContain("item failures");
+    expect(found[0]?.message).toContain('series "fails", category "c"');
+    expect(found[0]?.message).toContain('category "c"');
+    expect(found[0]?.message).toContain("does not hold");
+  });
+
+  test("a series the chart does not hold fails, and both unknown give two problems", () => {
+    const series = check({ points: [point("cost", "a")] });
+    expect(series.map(({ path }) => path)).toEqual(["/points/0/series"]);
+    expect(series[0]?.message).toContain('series "cost"');
+    const both = check({ points: [point("cost", "z")] });
+    expect(both.map(({ path }) => path)).toEqual(["/points/0/series", "/points/0/category"]);
+  });
+
+  test("a point whose value is null fails, naming the point", () => {
+    const gap = chart({
+      kind: "line",
+      categories: CATEGORIES,
+      series: [{ id: "fails", label: "Failures", values: [4, null] }],
+    });
+    const found = check({ points: [point("fails", "b")] }, gap);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/points/0");
+    expect(found[0]?.message).toContain('series "fails", category "b"');
+    expect(found[0]?.message).toContain("no value");
+    expect(check({ points: [point("fails", "a")] }, gap)).toEqual([]);
+  });
+
+  test("the same point twice fails, naming it", () => {
+    const found = check({ points: [point("fails", "a"), point("fails", "a")] });
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/points/1");
+    expect(found[0]?.message).toContain("twice");
+    expect(found[0]?.message).toContain('series "fails", category "a"');
+  });
+
+  test("the same category in another series is another point", () => {
+    const two = chart({
+      ...BAR,
+      series: [
+        { id: "fails", label: "Failures", values: [4, 9] },
+        { id: "runs", label: "Runs", values: [1, 2] },
+      ],
+    });
+    expect(check({ points: [point("fails", "a"), point("runs", "a")] }, two)).toEqual([]);
+  });
+
+  test("a chart with highlights one takes exactly one point", () => {
+    const one = chart({ ...BAR, highlights: "one" });
+    expect(check({ points: [point("fails", "a")] }, one)).toEqual([]);
+    const found = check({ points: [point("fails", "a"), point("fails", "b")] }, one);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/points");
+    expect(found[0]?.message).toContain("item failures");
+    expect(found[0]?.message).toContain("this chart takes one point");
+  });
+
+  test("a chart with highlights none takes no result at all", () => {
+    const none = chart({ ...BAR, highlights: "none" });
+    const found = check({ points: [point("fails", "a")] }, none);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/points");
+    expect(found[0]?.message).toContain("item failures");
+    expect(found[0]?.message).toContain("this chart takes no highlight");
+    expect(check({ points: [] }, none)).not.toEqual([]);
+  });
+
+  test("highlights many and its absence are the same", () => {
+    const many = chart({ ...BAR, highlights: "many" });
+    const result = { points: [point("fails", "a"), point("fails", "b")] };
+    expect(check(result, many)).toEqual([]);
+    expect(check(result)).toEqual([]);
+  });
+
+  test("nothing highlighted fails at /points, by the schema", () => {
+    const found = check({ points: [] });
+    expect(found).not.toEqual([]);
+    expect(found[0]?.path).toBe("/points");
+  });
+
+  test("a result of the wrong shape fails by the schema", () => {
+    for (const result of [
+      {},
+      null,
+      [],
+      "a",
+      { points: "a" },
+      { points: [null] },
+      { points: [{ series: "fails" }] },
+      { points: [{ category: "a" }] },
+      { points: [{ series: "fails", category: "a b" }] },
+      { points: [{ series: 1, category: "a" }] },
+      { points: [{ series: "fails", category: "a", value: 4 }] },
+      { points: [point("fails", "a")], extra: 1 },
+    ]) {
+      expect(check(result), JSON.stringify(result)).not.toEqual([]);
+    }
+  });
+
+  test("500 points of a chart of 5 series by 100 categories pass and 501 fail the schema", () => {
+    const full = chart(sized(100, 5));
+    const all = Array.from({ length: 500 }, (_, at) =>
+      point(`s${Math.floor(at / 100)}`, `c${at % 100}`),
+    );
+    expect(CHART_MAX_POINTS).toBe(500);
+    expect(check({ points: all }, full)).toEqual([]);
+    const over = check({ points: [...all, point("s0", "c0")] }, full);
+    expect(over.length).toBeGreaterThan(0);
+    expect(over.some(({ path }) => path === "/points")).toBe(true);
+    expect(chartResultShape({ points: all })).toBe(true);
+    expect(chartResultShape({ points: [...all, point("s0", "c0")] })).toBe(false);
+  });
+
+  test("names every object inherits are points like any other", () => {
+    const names = chart({
+      kind: "bar",
+      categories: [
+        { id: "__proto__", label: "p" },
+        { id: "constructor", label: "c" },
+      ],
+      series: [{ id: "toString", label: "t", values: [1, 2] }],
+    });
+    expect(
+      check({ points: [point("toString", "__proto__"), point("toString", "constructor")] }, names),
+    ).toEqual([]);
+    const notHeld = check({ points: [point("constructor", "toString")] }, names);
+    expect(notHeld.map(({ path }) => path)).toEqual(["/points/0/series", "/points/0/category"]);
+    expect(
+      text({ points: [point("toString", "__proto__"), point("toString", "__proto__")] }, names),
+    ).toContain("twice");
+    expect(Object.keys(Object.prototype)).toEqual([]);
+  });
+
+  test("a result is refused, never thrown on, against props it cannot read", () => {
+    for (const props of [
+      null,
+      undefined,
+      {},
+      { categories: 3, series: [] },
+      { categories: [], series: 3 },
+    ]) {
+      const item = { type: "chart", id: "failures", props };
+      expect(() => resultProblemsOf(TYPES, item, { points: [point("a", "b")] })).not.toThrow();
+      const found = resultProblemsOf(TYPES, item, { points: [point("a", "b")] });
+      expect(found.length).toBeGreaterThan(0);
+    }
+    const garbled = {
+      kind: "bar",
+      categories: [null, { id: 3 }, { id: "a" }],
+      series: [null, { id: "s", values: 3 }, { id: "t", values: [1] }],
+    };
+    expect(() => chartResultProblems({ points: [point("t", "a")] }, garbled)).not.toThrow();
+    expect(() => chartResultProblems(null, garbled)).not.toThrow();
+    expect(() => chartResultProblems({ points: [null, 3, { series: 1 }] }, garbled)).not.toThrow();
+  });
+
+  test("the fixtures' results pass their items and the act and event are valid", () => {
+    const [bar, line, pie] = CHART_FIXTURE_ITEMS;
+    expect(bar && check(CHART_RESULTS.bar, bar)).toEqual([]);
+    expect(line && check(CHART_RESULTS.line, line)).toEqual([]);
+    expect(pie && check(CHART_RESULTS.pie, pie)).toEqual([]);
+    expect(askProblems(TYPES, ...CHART_FIXTURE_ITEMS)).toEqual([]);
+    expect(askAccepted(TYPES, ...CHART_FIXTURE_ITEMS)).toBe(true);
+    expect(validateBoardMessage("toHost", chartAct).ok).toBe(true);
+    expect(errorsOf(ajvOver(TYPES), SCHEMA_IDS.answerEvent, chartAnswerEvent)).toEqual([]);
+  });
+
+  test("a Chart fetched alone validates with its points, and fails with a Scale's result", () => {
+    const ajv = ajvOver(TYPES);
+    expect(errorsOf(ajv, SCHEMA_IDS.fetchResult, chartFetchItemResult)).toEqual([]);
+    const item = (chartFetchItemResult as { item: object }).item;
+    const withResult = (result: unknown) => ({
+      ...chartFetchItemResult,
+      item: { ...item, result },
+    });
+    const errors = errorsOf(ajv, SCHEMA_IDS.fetchResult, withResult({ value: 3 }));
+    expect(errors.map((error) => error.instancePath)).toContain("/item/result");
+  });
+});
+
+describe("the shape check agrees with the schema", () => {
+  const validate = (result: unknown) =>
+    errorsOf(ajvOver(TYPES), CHART_SCHEMA_IDS.result, result).length === 0;
+  const SAMPLES: readonly unknown[] = [
+    CHART_RESULTS.bar,
+    CHART_RESULTS.line,
+    CHART_RESULTS.pie,
+    { points: [{ series: "fails", category: "a" }] },
+    { points: [] },
+    { points: [{ series: "fails", category: "a b" }] },
+    { points: [{ series: "x".repeat(64), category: "y".repeat(64) }] },
+    { points: [{ series: "x".repeat(65), category: "a" }] },
+    { points: [{ series: "fails" }] },
+    { points: [{ series: "fails", category: "a", value: 1 }] },
+    { points: [{ series: "fails", category: "a" }], extra: 1 },
+    { points: "a" },
+    { points: [null] },
+    { points: [[]] },
+    { points: [{ series: 1, category: "a" }] },
+    { other: 1 },
+    {},
+    [],
+    null,
+    "points",
+    3,
+    ...EMPTY_RESULTS.map(([, value]) => value),
+  ];
+
+  test("on the scenarios' results and the empty values", () => {
+    for (const sample of SAMPLES) {
+      expect(chartResultShape(sample), JSON.stringify(sample)).toBe(validate(sample));
+    }
+  });
+});
+
+describe("the Chart's result in the registry's own check", () => {
+  test("passes over the registry holding it, result-empty included", () => {
+    expect(widgetRegistryProblems(TYPES)).toEqual([]);
+    expect(CHART_WIDGET.result?.schema.$id).toBe(CHART_SCHEMA_IDS.result);
+    expect(CHART_SCHEMA_IDS.result).toBe("urn:askboard:output:chart-result");
+    expect(CHART_WIDGET.result?.shape).toBe(chartResultShape);
+    expect(CHART_WIDGET.result?.problems).toBe(chartResultProblems);
+    expect(CHART_WIDGET.result?.answerProblems).toBeUndefined();
   });
 });

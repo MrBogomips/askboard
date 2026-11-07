@@ -2,7 +2,7 @@
 // result. Its schemas are standalone: they belong to no schema set until the entry is registered
 // (design decision 10), and nothing compiles them when this module loads.
 
-export { chartPropsProblems } from "./checks.ts";
+export { chartPropsProblems, chartResultProblems, chartResultShape } from "./checks.ts";
 export {
   CHART_HIGHLIGHTS,
   CHART_KINDS,

@@ -1,11 +1,12 @@
 // The Chart's registry entry (chart-widget, design decision 1): its props schema, checks, wording
 // and example. It imports no runtime value of `validate.ts`, `sets.ts` or a schema set module (the
-// registry's import rule). A Chart edits nothing and derives nothing: it will give a result, the
-// highlighted points (task 1.2).
+// registry's import rule). A Chart edits nothing and derives nothing: it gives a result, the
+// highlighted points.
 
 import type { WidgetType } from "../registry.ts";
 import chartProps from "./chart-props.json" with { type: "json" };
-import { chartPropsProblems } from "./checks.ts";
+import chartResult from "./chart-result.json" with { type: "json" };
+import { chartPropsProblems, chartResultProblems, chartResultShape } from "./checks.ts";
 import { CHART_EXPECTED, CHART_FIELDS, chartElementOf } from "./wording.ts";
 
 export const CHART_WIDGET: WidgetType = {
@@ -13,6 +14,7 @@ export const CHART_WIDGET: WidgetType = {
   noun: "a Chart",
   props: chartProps,
   propsProblems: chartPropsProblems,
+  result: { schema: chartResult, shape: chartResultShape, problems: chartResultProblems },
   wording: { expected: CHART_EXPECTED, fields: CHART_FIELDS, element: chartElementOf },
   example: {
     item: {

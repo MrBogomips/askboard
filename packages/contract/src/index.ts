@@ -756,7 +756,7 @@ export {
 } from "./widgets/timeline/index.ts";
 
 // The Chart (chart-widget, design decision 1): its entry, which `WIDGET_TYPES` holds once
-// registered, its constants, its props check and its types.
+// registered, its constants, its props and result checks and its types.
 
 export {
   CHART_HIGHLIGHTS,
@@ -780,4 +780,6 @@ export {
   type ChartResult,
   type ChartSeries,
   chartPropsProblems,
+  chartResultProblems,
+  chartResultShape,
 } from "./widgets/chart/index.ts";
