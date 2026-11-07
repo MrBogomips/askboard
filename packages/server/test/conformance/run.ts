@@ -6,6 +6,8 @@
 //   lifecycle's, `lifecycle.e2e.ts` (ask-lifecycle, task 7.2), `mod-disabled.e2e.ts`, and the
 //   widget answers' UJ-2 scenario, `widget-uj2.e2e.ts` (widget-answers, task 6.2), and
 //   its five editing features, `widget-uj2-editing.e2e.ts` (widget-editing-plus, task 6.1);
+//   in each configuration, the result widgets' answer, `widget-results.e2e.ts`
+//   (approval-scale-ranking, task 6.4);
 // - hooks disabled: E1's and the ask lifecycle's suites with the stand-in mod host beside every
 //   session process;
 // - in each, the configuration's scenarios, `settings.e2e.ts` (settings-languages, task 4.5).
@@ -32,7 +34,12 @@ const SUITE = "./packages/server/test/conformance";
 
 /** The suite's files in each configuration. */
 const FILES: Readonly<Record<Configuration, readonly string[]>> = {
-  "mod-and-hooks": ["mod-and-hooks.e2e.ts", "settings.e2e.ts", "snapshot.e2e.ts"],
+  "mod-and-hooks": [
+    "mod-and-hooks.e2e.ts",
+    "settings.e2e.ts",
+    "snapshot.e2e.ts",
+    "widget-results.e2e.ts",
+  ],
   "mod-disabled": [
     "conformance.e2e.ts",
     "lifecycle.e2e.ts",
@@ -41,12 +48,14 @@ const FILES: Readonly<Record<Configuration, readonly string[]>> = {
     "snapshot.e2e.ts",
     "widget-uj2.e2e.ts",
     "widget-uj2-editing.e2e.ts",
+    "widget-results.e2e.ts",
   ],
   "hooks-disabled": [
     "conformance.e2e.ts",
     "lifecycle.e2e.ts",
     "settings.e2e.ts",
     "snapshot.e2e.ts",
+    "widget-results.e2e.ts",
   ],
 };
 

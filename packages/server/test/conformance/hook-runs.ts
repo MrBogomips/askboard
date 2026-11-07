@@ -65,7 +65,7 @@ let calls = 0;
 export const callAs = async (
   session: Session,
   agent: Agent | undefined,
-  tool: "ask" | "collect" | "snapshot",
+  tool: "ask" | "collect" | "snapshot" | "fetch",
   args: Record<string, unknown>,
 ): Promise<AgentCall> => {
   calls += 1;
