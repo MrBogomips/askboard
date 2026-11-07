@@ -26,6 +26,15 @@ import { TREE_WIDGET } from "./tree/widget.ts";
 /** Whether a widget's value is the agent's or the user's edit. */
 export type WidgetOrigin = "agent" | "edited";
 
+/**
+ * What the answer a result travels in says to the result's own checks (approval-scale-ranking,
+ * design decision 2): the answer's note and whether its changes name any element.
+ */
+export type WidgetAnswer = {
+  readonly note: string | undefined;
+  readonly changed: boolean;
+};
+
 /** One widget type's contract (design decision 1). */
 export type WidgetType = {
   /** The item type, the component's name and its chunk's name. */
@@ -54,6 +63,12 @@ export type WidgetType = {
   readonly result?: {
     readonly schema: AnySchemaObject;
     readonly problems?: (result: unknown, props: unknown) => readonly Problem[];
+    /**
+     * What the answer the result travels in must hold or leave out, after the result's own checks
+     * (approval-scale-ranking, design decision 2): each message states what is wrong, and
+     * `widgetAnswerProblems` names the item.
+     */
+    readonly answerProblems?: (result: unknown, answer: WidgetAnswer) => readonly string[];
   };
   /** The derived values the answer carries: what is declared and the check of one address. */
   readonly derived?: {

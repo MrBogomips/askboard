@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:scale-result",
+  "title": "Scale result",
+  "description": "A Scale's result (FR-11, FR-18, approval-scale-ranking design decision 1): value, or low and high when the item has range, never both and never empty. That each number lies between min and max on a step, and which form the item takes, are checks of the type against the item's props. In no schema set until approval-scale-ranking registers it.",
+  "type": "object",
+  "properties": {
+    "value": { "type": "number", "minimum": -1000000000, "maximum": 1000000000 },
+    "low": { "type": "number", "minimum": -1000000000, "maximum": 1000000000 },
+    "high": { "type": "number", "minimum": -1000000000, "maximum": 1000000000 }
+  },
+  "oneOf": [
+    { "properties": { "value": true }, "required": ["value"] },
+    { "properties": { "low": true, "high": true }, "required": ["low", "high"] }
+  ],
+  "additionalProperties": false
+}

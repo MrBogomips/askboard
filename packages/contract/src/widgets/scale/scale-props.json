@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:scale-props",
+  "title": "Scale props",
+  "description": "A Scale item's props (FR-11, approval-scale-ranking design decision 1): the bounds min and max within a billion either way, an optional step above 0 (1 when absent), an optional range, a display (slider or rating, slider when absent), the labels of its two ends and a unit. What a schema cannot say (max above min, the step dividing the scale into whole steps, at most 1,000 of them, a rating of one value and at most 11 steps) is checked by scalePropsProblems. In no schema set until approval-scale-ranking registers it.",
+  "type": "object",
+  "properties": {
+    "min": { "type": "number", "minimum": -1000000000, "maximum": 1000000000 },
+    "max": { "type": "number", "minimum": -1000000000, "maximum": 1000000000 },
+    "step": { "type": "number", "exclusiveMinimum": 0, "maximum": 2000000000 },
+    "range": { "type": "boolean" },
+    "display": { "enum": ["slider", "rating"] },
+    "minLabel": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "maxLabel": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "unit": { "type": "string", "minLength": 1, "maxLength": 20 }
+  },
+  "required": ["min", "max"],
+  "additionalProperties": false
+}

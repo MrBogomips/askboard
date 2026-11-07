@@ -634,3 +634,40 @@ export { resultHoldsNothing } from "./widgets/result-content.ts";
 // Asking-rule texts (askboard-skills, design decision 6): one agent-facing text for each rule.
 
 export { ASKING_RULE_TEXTS } from "./push/asking-rules.ts";
+
+// Approval, Scale and Ranking (approval-scale-ranking, design decisions 1, 2 and 4): the three
+// entries, not in `WIDGET_TYPES` until each joins it, their constants, the Approval's rule and the
+// Scale's step arithmetic, and the check of what a result requires of its answer.
+
+export {
+  APPROVAL_DECISIONS,
+  APPROVAL_SCHEMA_IDS,
+  APPROVAL_WIDGET,
+  type ApprovalDecision,
+  type ApprovalItem,
+  type ApprovalResult,
+  approvalAnswerProblems,
+  approvalNeedsReason,
+} from "./widgets/approval/index.ts";
+export {
+  RANKING_MAX_ITEMS,
+  RANKING_SCHEMA_IDS,
+  RANKING_WIDGET,
+  type RankingElement,
+  type RankingItem,
+  type RankingProps,
+  type RankingResult,
+} from "./widgets/ranking/index.ts";
+export type { WidgetAnswer } from "./widgets/registry.ts";
+export { widgetAnswerProblems } from "./widgets/results.ts";
+export {
+  SCALE_MAX_STEPS,
+  SCALE_RATING_MAX_STEPS,
+  SCALE_SCHEMA_IDS,
+  SCALE_WIDGET,
+  type ScaleItem,
+  type ScaleProps,
+  type ScaleResult,
+  scaleStepCount,
+  scaleStepIndex,
+} from "./widgets/scale/index.ts";

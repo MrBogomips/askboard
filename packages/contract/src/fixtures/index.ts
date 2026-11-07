@@ -180,3 +180,23 @@ export {
   probeSnapshotEntry,
   probeTooLargeEvent,
 } from "./widget-registry.ts";
+
+// Approval, Scale and Ranking (approval-scale-ranking, design decisions 1, 2 and 10): the helper
+// that gives the registry the entries not yet in it, and the three types' items, results and answer.
+
+export {
+  APPROVAL_FIXTURE_ITEM,
+  APPROVAL_RESULTS,
+  approvalAct,
+  approvalAnswerEvent,
+  RANKING_FIXTURE_ITEM,
+  RANKING_RESULT,
+  RESULT_WIDGETS_RESULTS,
+  RESULT_WIDGETS_SESSION,
+  rankingFetchItemResult,
+  resultWidgetsAct,
+  resultWidgetsAnswerEvent,
+  SCALE_FIXTURE_ITEMS,
+  SCALE_RESULTS,
+  withWidgetTypes,
+} from "./approval-scale-ranking.ts";

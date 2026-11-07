@@ -8,7 +8,7 @@
 
 import { isRecord } from "../problems.ts";
 import type { Problem } from "../validate.ts";
-import { WIDGET_TYPES, type WidgetType, widgetTypeOf } from "./registry.ts";
+import { WIDGET_TYPES, type WidgetAnswer, type WidgetType, widgetTypeOf } from "./registry.ts";
 import { schemaVerdict } from "./schema-verdict.ts";
 
 /**
@@ -41,6 +41,23 @@ export const widgetResultProblems = (
   if (!checked.ok) return checked.problems.map(named);
   return (entry.result.problems?.(result, props) ?? []).map(named);
 };
+
+/**
+ * What the answer `result` travels in must hold or leave out, by the type's own rule
+ * (approval-scale-ranking, design decision 2): `answer` is the answer's note and whether its
+ * changes name any element. Each message is prefixed with the item. A type the registry does not
+ * hold, one that declares no result and one whose result has no such rule give none: the result's
+ * own check refuses the first two, and the third asks nothing of the answer.
+ */
+export const widgetAnswerProblems = (
+  item: { readonly type: string; readonly id: string },
+  result: unknown,
+  answer: WidgetAnswer,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): readonly string[] =>
+  (widgetTypeOf(item.type, types)?.result?.answerProblems?.(result, answer) ?? []).map(
+    (message) => `item ${item.id}: ${message}`,
+  );
 
 const REGION = /^xywh=percent:([0-9.]+),([0-9.]+),([0-9.]+),([0-9.]+)$/;
 

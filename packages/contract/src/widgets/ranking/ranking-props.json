@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:ranking-props",
+  "title": "Ranking props",
+  "description": "A Ranking item's props (FR-11, approval-scale-ranking design decision 1): 2 to 50 elements to put in order, each with its ID, its label and an optional description. That the IDs are unique within the item is checked by rankingPropsProblems. In no schema set until approval-scale-ranking registers it.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/element" }
+    }
+  },
+  "required": ["items"],
+  "additionalProperties": false,
+  "$defs": {
+    "element": {
+      "description": "An element of the ranking: its ID, unique in the item, its label and its description.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "urn:askboard:input:id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "required": ["id", "label"],
+      "additionalProperties": false
+    }
+  }
+}
