@@ -687,3 +687,7 @@ export {
 // the type's own checks alone, with no schema, for the board page's draft.
 
 export { widgetResultFits } from "./widgets/result-fits.ts";
+
+// The whole-field shape of the generic diff (latex-kanban-timeline, design decision 2).
+
+export type { FieldsShape } from "./widgets/element-diff.ts";
