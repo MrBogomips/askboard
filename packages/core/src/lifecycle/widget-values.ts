@@ -123,7 +123,7 @@ const editedProps = (
   };
 };
 
-// Steps 1 and 2: the keys, then each value through its widget's checks in the question as edited.
+// Steps 1 and 2: the keys, the types that take edits, then each value through its widget's checks in the question as edited.
 const valuesProblem = (
   values: Json,
   widgets: ReadonlyMap<string, Item>,
@@ -133,6 +133,15 @@ const valuesProblem = (
   for (const id of Object.keys(values)) {
     if (!widgets.has(id)) {
       return refused(`values name "${id}", which is no ${namesOf(types)} item of the question`);
+    }
+  }
+  // Only a type whose entry declares `edits` has an edited value; a value for any other would let
+  // a result be checked against props the agent never sent (values-only-for-edits, AD-10, NFR-10).
+  for (const [id, item] of widgets) {
+    if (!Object.hasOwn(values, id)) continue;
+    const entry = widgetTypeOf(item.type, types);
+    if (entry !== undefined && entry.edits === undefined) {
+      return refused(`values name item "${id}", ${entry.noun}, which takes no edited value`);
     }
   }
   const question = editedProps(props, values, types);
