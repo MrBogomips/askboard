@@ -1,6 +1,6 @@
 # UX update draft: atoms
 
-**Status: not applied.** Task 0.1 applies it, with the proposal's open questions 2, 5 to 8 and 10 answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on `origin/main` ea05608f, then gives the replacement. The Italian strings are provisional, "(to review)", as `settings-languages` wrote the others.
+**Status: applied on 2026-11-07 (task 0.1).** Applied with the proposal's open questions 2, 5 to 8 and 10 answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on `origin/main` ea05608f, then gives the replacement. The Italian strings are provisional, "(to review)", as `settings-languages` wrote the others.
 
 Files: `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 6) and `DESIGN.md` (block 7).
 

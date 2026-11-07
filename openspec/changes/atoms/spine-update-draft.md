@@ -1,6 +1,6 @@
 # Spine update draft: atoms
 
-**Status: not applied.** Task 0.1 applies it. The proposal's open questions 5 and 8 were answered on 2026-11-07 with their defaults, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on `origin/main` ea05608f, then gives the replacement. AD-7, AD-8 and AD-20 are amended in place; no AD is added or renumbered. The PRD needs no change.
+**Status: applied on 2026-11-07 (task 0.1).** The proposal's open questions 5 and 8 were answered on 2026-11-07 with their defaults, under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on `origin/main` ea05608f, then gives the replacement. AD-7, AD-8 and AD-20 are amended in place; no AD is added or renumbered. The PRD needs no change.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
