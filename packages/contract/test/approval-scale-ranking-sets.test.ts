@@ -140,3 +140,28 @@ describe("the previous minor refuses the three types", () => {
     },
   );
 });
+
+describe("the three types' schema descriptions", () => {
+  test("none says it is in no schema set, since each is in its set", () => {
+    for (const { type, props, result } of THE_THREE) {
+      const schemas = [props, result?.schema].filter((schema) => schema !== undefined);
+      expect(schemas.length).toBeGreaterThan(0);
+      for (const schema of schemas) {
+        expect({ type, id: schema.$id, text: schema.description }).toEqual({
+          type,
+          id: schema.$id,
+          text: expect.not.stringContaining("In no schema set"),
+        });
+      }
+    }
+  });
+
+  test("each ends by naming the format that holds it since approval-scale-ranking", () => {
+    for (const { props, result } of THE_THREE) {
+      expect(props.description).toEndWith("In the input format since approval-scale-ranking.");
+      expect(result?.schema.description).toEndWith(
+        "In the output format since approval-scale-ranking.",
+      );
+    }
+  });
+});

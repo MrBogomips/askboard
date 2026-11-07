@@ -18,7 +18,7 @@ export const APPROVAL_WIDGET: WidgetType = {
   wording: { expected: APPROVAL_EXPECTED, fields: APPROVAL_FIELDS },
   example: { item: { type: "approval", id: "verdict", props: {} } },
   skill: {
-    use: "a verdict on its question's content: approve, approve with changes or reject; put it last in the question it approves",
+    use: "a decision on its question's content: approve, approve with changes or reject; put it last in the question it approves",
     notes: [
       "The reason arrives as the answer's `note`; `approve-with-changes` always has one.",
       "An answer that edits the question's other items never carries `approve`.",

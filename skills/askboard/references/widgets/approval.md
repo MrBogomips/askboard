@@ -1,6 +1,6 @@
 # Approval
 
-Use for a verdict on its question's content: approve, approve with changes or reject; put it last in the question it approves.
+Use for a decision on its question's content: approve, approve with changes or reject; put it last in the question it approves.
 Item type `approval`: props are an Approval's props, an empty object {}.
 
 ## Fields

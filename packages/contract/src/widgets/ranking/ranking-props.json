@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:ranking-props",
   "title": "Ranking props",
-  "description": "A Ranking item's props (FR-11, approval-scale-ranking design decision 1): 2 to 50 elements to put in order, each with its ID, its label and an optional description. That the IDs are unique within the item is checked by rankingPropsProblems. In no schema set until approval-scale-ranking registers it.",
+  "description": "A Ranking item's props (FR-11, approval-scale-ranking design decision 1): 2 to 50 elements to put in order, each with its ID, its label and an optional description. That the IDs are unique within the item is checked by rankingPropsProblems. In the input format since approval-scale-ranking.",
   "type": "object",
   "properties": {
     "items": {
