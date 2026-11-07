@@ -523,6 +523,57 @@ describe("a Gantt plan's link at any depth", () => {
   });
 });
 
+describe("a Gantt plan's link through the ask's checks (review S-1)", () => {
+  const [QUESTION] = treeBoardDocument.items;
+  const [WBS] = QUESTION.props.items;
+  const PLAN = {
+    type: "gantt",
+    id: "schedule",
+    props: { start: "2026-12-01", workPackages: "wbs", tasks: {} },
+  } as unknown as Item;
+  const tree = WBS as unknown as Item;
+  const linkProblems = (...items: unknown[]) =>
+    problemsOf(askOf(...items)).filter(({ message }) => message.includes("plan schedule"));
+
+  test("a plan and its Tree in the same tab pass", () => {
+    expect(problemsOf(askOf(tabs("t", ["both", [tree, PLAN]], ["other", [field("f")]])))).toEqual(
+      [],
+    );
+  });
+
+  test("a plan and its Tree in two tabs pass", () => {
+    expect(problemsOf(askOf(tabs("t", ["plan", [PLAN]], ["tree", [tree]])))).toEqual([]);
+  });
+
+  test("a plan in a Group with its Tree at the top level passes, and a plan and Tree in a Stack too", () => {
+    expect(problemsOf(askOf(tree, group("g", PLAN)))).toEqual([]);
+    expect(problemsOf(askOf(stack("s", tree, PLAN)))).toEqual([]);
+  });
+
+  test("a plan with no Tree in its question still fails, naming the plan, at any depth", () => {
+    for (const items of [
+      [PLAN],
+      [group("g", PLAN)],
+      [tabs("t", ["plan", [PLAN]], ["other", [field("f")]])],
+      [stack("s", group("g", row("r", PLAN, field("f"))))],
+    ]) {
+      const [problem] = linkProblems(...items);
+      expect(problem?.message).toContain("name no item of its question");
+    }
+  });
+
+  test("a plan naming a Tree of another question of the ask still fails", () => {
+    const result = problemsOf({
+      askId: "arrange-ask-a1b2",
+      items: [
+        question("q1", tree),
+        question("q2", tabs("t", ["plan", [PLAN]], ["x", [field("f")]])),
+      ],
+    }).filter(({ message }) => message.includes("plan schedule"));
+    expect(result[0]?.message).toContain("name no item of its question");
+  });
+});
+
 describe("a molecule's item is no layout", () => {
   test("a definition whose one item is a Group is refused, naming the molecule", () => {
     const definition = copyOf(probeWbs) as unknown as {

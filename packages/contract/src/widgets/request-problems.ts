@@ -50,9 +50,10 @@ export const widgetProblems = (
 ): RequestProblem[] =>
   placed
     .filter((entry) => isWidget(entry, types))
-    .flatMap(({ item, at }) => {
+    .flatMap(({ item, at, questionAt }) => {
       if (schemaProblems.some((problem) => lies(problem, at))) return [];
-      const question = valueAt(value, at.slice(0, -3));
+      // The question that holds the item, at any depth of its layouts (review S-1).
+      const question = valueAt(value, questionAt ?? []);
       return widgetItemProblems(item, question, "agent", types).map(({ path, message }) => {
         const segments = [...at, "props", ...segmentsOf(path)];
         return problemAt(

@@ -48,8 +48,10 @@ export type Placed = {
   readonly item: Readonly<Record<string, unknown>>;
   readonly at: Segments;
   readonly depth: number;
-  /** Set on an item of a question's `items`, one level deeper than its question. */
+  /** Set on an item of a question's `items`, at any depth of its layouts. */
   readonly inQuestion?: true;
+  /** Where the question that holds the item sits, on an item with `inQuestion`. */
+  readonly questionAt?: Segments;
 };
 
 const isArea = (item: unknown): boolean => isRecord(item) && item.type === "area";
@@ -90,6 +92,7 @@ const placedContext = (question: unknown, at: Segments, depth: number): Placed[]
             at: entry.path,
             depth: depth + 1 + entry.depth,
             inQuestion: true as const,
+            questionAt: at,
           },
         ]
       : [],
