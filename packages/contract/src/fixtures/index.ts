@@ -257,3 +257,8 @@ export {
   TOGGLE_RESULTS,
   VALUE_FIXTURE_ITEMS,
 } from "./atoms.ts";
+
+// URLs of Markdown links with their verdicts (atoms, task 5.9): the table the view's and the board
+// page's link checks are both tested against.
+
+export { LINK_URL_TABLE, LONGEST_LINK_URL } from "./link-urls.ts";

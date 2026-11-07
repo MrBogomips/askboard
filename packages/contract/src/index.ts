@@ -909,3 +909,8 @@ export { ENTRY_MAX_CHARS } from "./lifecycle-constants.ts";
 // DateField's calendar draws in the ask's language.
 
 export { type LocaleTable, tableOf } from "./locale/index.ts";
+
+// The one check of a Markdown link's URL (atoms, task 5.9): the view's anchors and the board page's
+// opening both call it.
+
+export { isLinkUrl, LINK_URL_MAX_CHARS } from "./link-url.ts";

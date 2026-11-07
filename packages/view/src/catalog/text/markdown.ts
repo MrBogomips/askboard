@@ -9,7 +9,7 @@
 // Document review renders through this module too. Plain ECMAScript apart from the `win` it is
 // given: no request, no style, no script.
 
-import { agentTextRuns, TEXT_MAX_CHARS } from "@askboard/contract";
+import { agentTextRuns, isLinkUrl, TEXT_MAX_CHARS } from "@askboard/contract";
 import DOMPurify, { type Config, type DOMPurify as Purifier, type WindowLike } from "dompurify";
 import MarkdownIt, { type MarkdownIt as Parser, type Token } from "markdown-it";
 
@@ -68,19 +68,10 @@ export const MARKDOWN_ALLOWED_TAGS: readonly string[] = Object.freeze([
 export const MARKDOWN_ALLOWED_ATTR: readonly string[] = Object.freeze(["class", "href", "start"]);
 
 /**
- * Whether a link or image URL may be a link: `http:` or `https:` with a host and no user name or
- * password, as the board page opens (view-and-widgets spec: Markdown links in the view). Read by
- * the URL parser, so that no spelling of a credential slips past a pattern (review 2.3 and 4.4, U-2).
+ * Whether a link or image URL may be a link: the contract's one check, which the board page applies
+ * again before it opens one (view-and-widgets spec: Markdown links in the view; review 5.6, X-1).
  */
-export const isMarkdownLinkUrl = (url: string): boolean => {
-  if (!/^https?:/i.test(url)) return false;
-  try {
-    const { host, username, password } = new URL(url);
-    return host !== "" && username === "" && password === "";
-  } catch {
-    return false;
-  }
-};
+export const isMarkdownLinkUrl = isLinkUrl;
 
 /** Whether a list's `start` may stay: a whole number of at most nine digits. */
 export const keepStart = (value: string): boolean => /^[0-9]{1,9}$/.test(value);

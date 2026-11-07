@@ -192,6 +192,17 @@ describe("Markdown: only http and https make a link", () => {
     ]);
   });
 
+  test("a link whose URL is 2,049 characters shows as its source text and is no link; 2,048 stays one", () => {
+    const base = "https://example.com/";
+    const url = (length: number) => `${base}${"a".repeat(length - base.length)}`;
+    const long = `[docs](${url(2_049)})`;
+    const out = html(long);
+    expect(anchors(out)).toEqual([]);
+    expect(out).not.toContain("href");
+    expect(out).toContain("[docs](https://example.com/");
+    expect(anchors(html(`[docs](${url(2_048)})`))).toHaveLength(1);
+  });
+
   test("a user name or password makes no link: the text shows, never the anchor", () => {
     for (const url of [
       "https://user:pass@example.com/",
@@ -326,21 +337,28 @@ describe("Markdown: the output's size is bounded as well as the source's (checkp
     expect(MARKDOWN_HTML_MAX_CHARS).toBe(200_000);
   });
 
-  test("one long URL used as image and as link, up to the code-point limit, gives no HTML", () => {
-    for (const [url, use] of [
-      [5_000, "![r][r] [r][r]"],
-      [2_000, "![r][r]"],
-      [9_000, "![r][r]"],
-      [500, "[r][r]"],
-      [3_000, "[r]"],
+  test("one long URL used as image and as link: up to a link's limit it gives no HTML; past it the URL is no link, so the output stays small", () => {
+    for (const [url, use, refused] of [
+      [5_000, "![r][r] [r][r]", false],
+      [2_000, "![r][r]", true],
+      [9_000, "![r][r]", false],
+      [500, "[r][r]", true],
+      [3_000, "[r]", false],
     ] as const) {
       const source = repeated(url, use);
       expect(Array.from(source).length, `${url} ${use}`).toBeLessThanOrEqual(TEXT_MAX_CHARS);
-      expect(markdownHtml(source), `${url} ${use}`).toBeUndefined();
+      const out = markdownHtml(source);
+      if (refused) expect(out, `${url} ${use}`).toBeUndefined();
+      else {
+        // A URL over the link limit is no link (review 5.6, X-1): its labels show, the URL does not.
+        expect(out, `${url} ${use}`).toBeDefined();
+        expect(out?.length ?? 0, `${url} ${use}`).toBeLessThan(MARKDOWN_HTML_MAX_CHARS);
+        expect(out, `${url} ${use}`).not.toContain("href");
+      }
     }
   });
 
-  test("the same fixtures take no longer than 500 ms to be refused", () => {
+  test("the same fixtures take no longer than 500 ms to be answered", () => {
     const started = performance.now();
     for (const url of [5_000, 2_000, 9_000]) markdownHtml(repeated(url, "![r][r] [r][r]"));
     expect(performance.now() - started).toBeLessThan(500);

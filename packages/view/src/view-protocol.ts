@@ -23,6 +23,7 @@ import {
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
   JSON_MAX_DEPTH,
+  LINK_URL_MAX_CHARS,
   type LifecycleBoardState,
   NOTE_MAX_CHARS,
   OPTION_NOTE_MAX_CHARS,
@@ -178,7 +179,7 @@ export type ViewOpenReference = {
 export type ReferenceInset = { readonly top: number; readonly bottom: number };
 
 /** The most characters of a URL an open-link message carries (atoms, design decision 6). */
-export const OPEN_LINK_URL_MAX_CHARS = 2_048;
+export const OPEN_LINK_URL_MAX_CHARS = LINK_URL_MAX_CHARS;
 
 /**
  * The user clicks a link in Markdown (atoms, design decision 6): the message names the item whose
