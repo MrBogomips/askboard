@@ -33,6 +33,7 @@ sources:
   - 'OpenSpec change widget-registry, proposal.md, open questions 1 to 7: the registry of widget types, widget results and the annotation fields (accepted under the PO''s unattended handoff, 2026-11-06)'
   - 'OpenSpec change askboard-skills, proposal.md, open questions 1 to 5: one generated skill, no shipped agent in the first version, the skill''s budgets (accepted under the PO''s unattended handoff, 2026-11-06)'
   - 'OpenSpec change askboard-skills, support-agents evaluation (2026-11-07): a measurable trigger for a shipped agent'
+  - 'OpenSpec change skill-no-delegated-asks, proposal.md: no subagent asks on another agent''s behalf; the support-agents evaluation''s candidate C (a background dialogue) rejected (PO decision, 2026-11-07)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -839,5 +840,5 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | A2UI inbound translator | Preference, not requirement (PRD OQ5) | A2UI v1.0 final with renderers and a table |
 | Table encoding for long lists in the input format (column names once, rows as arrays) | Lean JSON is simpler and more robust; the review of the model contract measured its cost on a 200-node WBS (AD-7) | The benchmark shows rich questions over the SM-1 target |
 | Molecule registry, export and repository (FR-16, FR-17); full benchmark settings | Out of the first version | Next version planning |
-| Shipped agents (FR-29) | Subagents load the plugin's skill through the Skill tool, and no first-version task needs an agent of its own; each agent's description would load every session (PRD R5) | In the benchmark, more than 1 of 5 S6 subagent runs call `ask` without loading the skill or need an `isError` retry; or a new case S7 (a delegated dialogue of three questions) shows an agent with the skill preloaded at least 15% below a general-purpose subagent with the skill on median output plus thinking tokens per question, with equally valid asks |
+| Shipped agents (FR-29) | Subagents load the plugin's skill through the Skill tool, and no first-version task needs an agent of its own; each agent's description would load every session (PRD R5). A dialogue delegated to a subagent is no use for one: the skill advises against it (OpenSpec change `skill-no-delegated-asks`, which rejects the support-agents evaluation's candidate C). | In the benchmark, more than 1 of 5 S6 subagent runs call `ask` without loading the skill or need an `isError` retry |
 | MCP Apps rendering inside Claude hosts (needs a conforming host with a sandbox proxy); Claude Code surfaces other than the CLI; native Windows; remote hosts | Out of the first version (NFR-7, NFR-8, AD-22) | The Claude Code CLI renders MCP Apps, or the product adds a surface |
