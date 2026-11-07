@@ -489,3 +489,14 @@ describe("the source guard of nested items", () => {
     }
   });
 });
+
+describe("the one-level reader of the view (layouts, review U-1)", () => {
+  // `renderedOf` lists a question's own items only, which the card draws; every other reader of the
+  // view (the tracker, the chunk selection, the kept renders) goes through `nestedRenderedOf`.
+  test("renderedOf is called by the question card alone", async () => {
+    const callers = (await sourcesOf("view"))
+      .filter(({ text }) => /\brenderedOf\(/.test(text.replace(/\bnestedRenderedOf\(/g, "")))
+      .map(({ file }) => file);
+    expect(callers).toEqual(["packages/view/src/shell/question-card.tsx"]);
+  });
+});

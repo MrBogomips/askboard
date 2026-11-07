@@ -23,6 +23,7 @@ import {
   selectChunks,
   targetOf,
 } from "./index.ts";
+import { keptComponents } from "./kept-render.ts";
 
 // Kept diagram renders in a Snapshot (snapshot design decision 4, Kept renders; open question B3)
 // over a fixture manifest: a `probe-diagram` renderer chunk naming `probe-diagram-svg` as its
@@ -180,5 +181,24 @@ describe("kept-render selection (Kept diagram renders in a Snapshot)", () => {
     expect(chunks).toEqual(["ext-apps", "react", "radix", "shell", "choice", "probe-diagram"]);
     expect(srcdoc).toContain(rendererScript);
     expect(srcdoc).not.toContain(keptScript);
+  });
+});
+
+describe("kept renders of nested items (layouts, review U-1)", () => {
+  const nested = (items: readonly unknown[]): ViewDocument =>
+    ({
+      ...plainChoiceBoardDocument,
+      items: [{ ...question, rev: 2, props: { ...question.props, items } }],
+    }) as unknown as ViewDocument;
+  const inGroup = { type: "group", id: "frame", props: { title: "Frame", items: [sequence] } };
+
+  test("a nested item without a render keeps its component's renderer chunk", () => {
+    const covered = keptComponents(nested([flow, inGroup]), [render("flow")]);
+    expect(covered.has("probe-diagram")).toBe(false);
+  });
+
+  test("a nested item with a render, beside a top-level one, covers the component", () => {
+    const covered = keptComponents(nested([flow, inGroup]), [render("flow"), render("sequence")]);
+    expect(covered.has("probe-diagram")).toBe(true);
   });
 });

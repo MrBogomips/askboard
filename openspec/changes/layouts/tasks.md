@@ -63,7 +63,8 @@ Order: group 0 first, then group 1 (`contract`, at high effort). Then groups 2 (
   - Note: `referenceHeld` lost its `except` exemption: a reference ID is held against every plain item, its own question's included (the simple rule, consistent with references never pruned). `widget-update.test.ts` +1 test (refused, board unchanged, plan and `wbs` still change); failed before, 16 pass after; core 977 pass.
 - [ ] 3.9 X-2 (L), agent text wraps in layouts (DESIGN, agent-written labels). Tests first: a Group title of 200 and a description of 1,000 unspaced characters, and a tab title of 200, at the 1280-pixel floor: no sideways scroll, the text inside its card. Then wrap classes (break anywhere), never `style`. Verify: passes in Chromium and WebKit.
 - [ ] 3.10 S-4 (L), a tab title's full text on keyboard focus (EXPERIENCE, Agent-written labels): tests first, the cut title shows its full text on focus as on hover, by the board's existing pattern for agent labels. Verify: passes in Chromium and WebKit.
-- [ ] 3.11 U-1, kept renders of nested items: tests first, `keptComponents` (Snapshot kept renders) reads every level through the walker, and the source guard lists it. Verify: unit tests pass.
+- [x] 3.11 U-1, kept renders of nested items: tests first, `keptComponents` (Snapshot kept renders) reads every level through the walker, and the source guard lists it. Verify: unit tests pass.
+  - Note: `keptComponents` now reads `nestedRenderedOf`. `kept-render.test.ts` +2 (a nested item without a render keeps the renderer chunk, failed before; nested with a render covers it); the guard's `tools/nested-items.test.ts` +1: `renderedOf(` is called by the question card alone, so no other reader can stay one level (the direct-read table cannot see the call). 77 pass.
 
 ## 4. End to end
 
