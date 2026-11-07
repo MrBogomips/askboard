@@ -15,6 +15,7 @@ import {
 } from "@askboard/contract";
 import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
+import { renderTree, treeSizeOf } from "./tree.ts";
 
 const markupOf = (expression: string): string => katex.renderToString(expression, renderOptions());
 
@@ -28,6 +29,23 @@ const katexProblem = (expression: string): string | undefined => {
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
   }
+};
+
+// The control words KaTeX names: its functions' `names` and its `defineMacro` names.
+const katexNames = async (): Promise<readonly string[]> => {
+  const source = await Bun.file(Bun.resolveSync("katex", import.meta.dir)).text();
+  const literals = (text: string) =>
+    [...text.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map(
+      ([, body]) => JSON.parse(`"${body}"`) as string,
+    );
+  const found = new Set<string>();
+  for (const [, body] of source.matchAll(/names:\s*\[((?:[^\]"]|"(?:[^"\\\n]|\\.)*")*)\]/g)) {
+    for (const name of literals(body ?? "")) found.add(name);
+  }
+  for (const [, name] of source.matchAll(/defineMacro\(("(?:[^"\\\n]|\\.)*")/g)) {
+    found.add(JSON.parse(name ?? '""') as string);
+  }
+  return [...found].filter((name) => /^\\[A-Za-z@]+$/.test(name)).sort();
 };
 
 describe("the render options", () => {
@@ -178,23 +196,6 @@ describe("the macro definitions the contract refuses, read in KaTeX itself", () 
       }
     },
   );
-
-  // The control words KaTeX names: its functions' `names` and its `defineMacro` names.
-  const katexNames = async (): Promise<readonly string[]> => {
-    const source = await Bun.file(Bun.resolveSync("katex", import.meta.dir)).text();
-    const literals = (text: string) =>
-      [...text.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map(
-        ([, body]) => JSON.parse(`"${body}"`) as string,
-      );
-    const found = new Set<string>();
-    for (const [, body] of source.matchAll(/names:\s*\[((?:[^\]"]|"(?:[^"\\\n]|\\.)*")*)\]/g)) {
-      for (const name of literals(body ?? "")) found.add(name);
-    }
-    for (const [, name] of source.matchAll(/defineMacro\(("(?:[^"\\\n]|\\.)*")/g)) {
-      found.add(JSON.parse(name ?? '""') as string);
-    }
-    return [...found].filter((name) => /^\\[A-Za-z@]+$/.test(name)).sort();
-  };
 
   test("no control word without @ repeats its argument: three deep, it draws at most 5 times", async () => {
     const names = await katexNames();
@@ -547,24 +548,32 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
     (e) => `${e()} ${e()}`,
   ];
 
+  // The 600 seeded expressions of at most 2,000 code points, the same on every run.
+  const seededExpressions = (): string[] => {
+    const random = mulberry32(20261107);
+    const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
+    const atom = () => pick(["x", "y", "1", "\\alpha", "a+b"]);
+    const gen = (budget: number): string =>
+      budget <= 0 ? atom() : pick(builders)(() => gen(budget - 1), atom);
+    const expressions: string[] = [];
+    for (let run = 0; run < 600; run += 1) {
+      const expression = gen(1 + Math.floor(random() * 7));
+      if (expression.length <= 2_000) expressions.push(expression);
+    }
+    return expressions;
+  };
+
   // The smallest a and b the seeded run allows: the MathML's depth is at most A * depth + B. On
   // 0.19.1 the 600 expressions allow (1, 17), (2, 9), (3, 7), (4, 5) and (5, 5).
   const A = 4;
   const B = 5;
 
   test("(h) the MathML's element depth is at most A x the scan's depth + B and its mfrac chain at most the depth, over seeded expressions", () => {
-    const random = mulberry32(20261107);
-    const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
-    const atom = () => pick(["x", "y", "1", "\\alpha", "a+b"]);
-    const gen = (budget: number): string =>
-      budget <= 0 ? atom() : pick(builders)(() => gen(budget - 1), atom);
     const printed = (["log", "warn", "error"] as const).map((method) =>
       spyOn(console, method).mockImplementation(() => undefined),
     );
     const rows: { depth: number; math: number; chain: number }[] = [];
-    for (let run = 0; run < 600; run += 1) {
-      const expression = gen(1 + Math.floor(random() * 7));
-      if (expression.length > 2_000) continue;
+    for (const expression of seededExpressions()) {
       let markup: string;
       try {
         markup = katex.renderToString(expression, { ...renderOptions(), output: "mathml" });
@@ -585,6 +594,104 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
       expect(chain).toBeLessThanOrEqual(depth);
     }
     expect(Math.max(...rows.map(({ chain }) => chain))).toBeGreaterThanOrEqual(3);
+  });
+
+  // The start tags of a markup string and the deepest nesting of its elements, a void element
+  // (`<path/>`) counted at the level it stands on.
+  const tagsOf = (markup: string): { starts: number; depth: number } => {
+    let level = 0;
+    let deepest = 0;
+    let starts = 0;
+    for (const [, closing, , selfClosing] of markup.matchAll(
+      /<(\/?)([a-zA-Z][\w-]*)[^>]*?(\/?)>/g,
+    )) {
+      if (closing) {
+        level -= 1;
+        continue;
+      }
+      starts += 1;
+      deepest = Math.max(deepest, level + 1);
+      if (!selfClosing) level += 1;
+    }
+    return { starts, depth: deepest };
+  };
+
+  test("(k) the walk of a tree sees every element KaTeX emits: depth and nodes at least the markup's", async () => {
+    const printed = (["log", "warn", "error"] as const).map((method) =>
+      spyOn(console, method).mockImplementation(() => undefined),
+    );
+    const names = (await katexNames()).filter((name) => !name.includes("@"));
+    const body = "x".repeat(200);
+    const expressions = [
+      ...names.map((name) => `${name}{${name}{${name}{${body}}}}`),
+      ...seededExpressions(),
+    ];
+    let measured = 0;
+    let deepest = 0;
+    for (const expression of expressions) {
+      let tree: ReturnType<typeof renderTree>;
+      try {
+        tree = renderTree(expression, renderOptions());
+      } catch {
+        continue; // KaTeX does not parse it: nothing is drawn
+      }
+      const size = treeSizeOf(tree);
+      const tags = tagsOf(tree.toMarkup());
+      measured += 1;
+      deepest = Math.max(deepest, tags.depth);
+      expect({ expression, depth: size.depth >= tags.depth }).toEqual({ expression, depth: true });
+      expect({ expression, nodes: size.nodes >= tags.starts }).toEqual({ expression, nodes: true });
+    }
+    for (const spy of printed) spy.mockRestore();
+    expect(measured).toBeGreaterThan(600);
+    expect(deepest).toBeGreaterThan(20);
+  });
+});
+
+// Task 4.14, source guard (j): the internal function the board measures with, read in KaTeX's
+// source at the lines of 0.19.1 (a bump re-reads them).
+describe("the internal tree function, read in katex.mjs (0.19.1)", () => {
+  const sourceLines = async (): Promise<readonly string[]> =>
+    (await Bun.file(Bun.resolveSync("katex", import.meta.dir)).text()).split("\n");
+  const RENDER_LINE = 16312;
+  const RENDER_ERROR_LINE = 16346;
+  const DEFAULT_EXPORT_LINE = 16431;
+  const NAMED_EXPORT_LINE = 16470;
+
+  test("(j) __renderToDomTree is on the default export and exported by name", async () => {
+    const lines = await sourceLines();
+    expect(lines[DEFAULT_EXPORT_LINE - 1]).toBe("  __renderToDomTree: renderToDomTree,");
+    expect(lines[NAMED_EXPORT_LINE - 1]).toContain("renderToDomTree as __renderToDomTree");
+    expect(typeof (katex as unknown as Record<string, unknown>).__renderToDomTree).toBe("function");
+  });
+
+  test("(j) render empties its node, then appends renderToDomTree(expression, options).toNode()", async () => {
+    const lines = await sourceLines();
+    expect(lines.slice(RENDER_LINE - 1, RENDER_LINE + 4).map((line) => line.trim())).toEqual([
+      "var render = function render(expression, baseNode, options) {",
+      'baseNode.textContent = "";',
+      "var node = renderToDomTree(expression, options).toNode();",
+      "baseNode.appendChild(node);",
+      "};",
+    ]);
+    // renderToDomTree is the function the default export names.
+    expect(lines.filter((line) => /^var renderToDomTree = /.test(line))).toHaveLength(1);
+  });
+
+  test("(j) renderError rethrows under throwOnError", async () => {
+    const lines = await sourceLines();
+    expect(
+      lines.slice(RENDER_ERROR_LINE - 1, RENDER_ERROR_LINE + 3).map((line) => line.trim()),
+    ).toEqual([
+      "var renderError = function renderError(error, expression, options) {",
+      "if (options.throwOnError || !(error instanceof ParseError)) {",
+      "throw error;",
+      "}",
+    ]);
+    // Both of renderToDomTree's failure paths go through it.
+    expect(
+      lines.filter((line) => /return renderError\(error, expression, settings\);/.test(line)),
+    ).toHaveLength(2);
   });
 });
 
