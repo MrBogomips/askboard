@@ -17,7 +17,7 @@ export const VALUE_WIDGET: WidgetType = {
   example: {
     item: {
       type: "value",
-      id: "budget",
+      id: "forecast",
       props: { label: "Budget", kind: "money", amount: "12480.50", currency: "EUR" },
     },
   },

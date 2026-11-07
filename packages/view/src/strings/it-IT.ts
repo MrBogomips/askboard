@@ -383,4 +383,7 @@ export const IT_IT = {
   "chart.highlighted": "evidenziato",
   "chart.hint": "Le frecce spostano tra i punti. Spazio evidenzia.",
   "chart.role": "grafico",
+
+  // The atoms' texts are provisional, to review (atoms, task 5.2).
+  "value.days": { one: "{count} giorno", other: "{count} giorni" },
 } as const satisfies StringTable;

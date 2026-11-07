@@ -41,49 +41,45 @@
     }
   },
   "required": ["kind"],
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "number"
-          }
-        },
-        "required": ["kind"]
-      },
-      "then": {
-        "required": ["value"],
-        "properties": {
-          "value": true,
-          "amount": false,
-          "currency": false,
-          "date": false,
-          "days": false
-        }
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "number"
       }
     },
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "percent"
-          }
-        },
-        "required": ["kind"]
-      },
-      "then": {
-        "required": ["value"],
-        "properties": {
-          "value": true,
-          "unit": false,
-          "amount": false,
-          "currency": false,
-          "date": false,
-          "days": false
+    "required": ["kind"]
+  },
+  "then": {
+    "required": ["value"],
+    "properties": {
+      "value": true,
+      "amount": false,
+      "currency": false,
+      "date": false,
+      "days": false
+    }
+  },
+  "else": {
+    "if": {
+      "properties": {
+        "kind": {
+          "const": "percent"
         }
+      },
+      "required": ["kind"]
+    },
+    "then": {
+      "required": ["value"],
+      "properties": {
+        "value": true,
+        "unit": false,
+        "amount": false,
+        "currency": false,
+        "date": false,
+        "days": false
       }
     },
-    {
+    "else": {
       "if": {
         "properties": {
           "kind": {
@@ -102,50 +98,40 @@
           "date": false,
           "days": false
         }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "date"
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "date"
+            }
+          },
+          "required": ["kind"]
+        },
+        "then": {
+          "required": ["date"],
+          "properties": {
+            "date": true,
+            "value": false,
+            "unit": false,
+            "amount": false,
+            "currency": false,
+            "days": false
           }
         },
-        "required": ["kind"]
-      },
-      "then": {
-        "required": ["date"],
-        "properties": {
-          "date": true,
-          "value": false,
-          "unit": false,
-          "amount": false,
-          "currency": false,
-          "days": false
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "duration"
+        "else": {
+          "required": ["days"],
+          "properties": {
+            "days": true,
+            "value": false,
+            "unit": false,
+            "amount": false,
+            "currency": false,
+            "date": false
           }
-        },
-        "required": ["kind"]
-      },
-      "then": {
-        "required": ["days"],
-        "properties": {
-          "days": true,
-          "value": false,
-          "unit": false,
-          "amount": false,
-          "currency": false,
-          "date": false
         }
       }
     }
-  ],
+  },
   "additionalProperties": false
 }

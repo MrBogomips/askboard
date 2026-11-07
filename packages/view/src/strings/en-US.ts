@@ -370,4 +370,6 @@ export const EN_US = {
   "chart.highlighted": "highlighted",
   "chart.hint": "Arrow keys move between points. Space highlights.",
   "chart.role": "chart",
+
+  "value.days": { one: "{count} day", other: "{count} days" },
 } as const satisfies StringTable;

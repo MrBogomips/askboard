@@ -52,7 +52,7 @@ export const VALUE_FIXTURE_ITEMS = [
   { type: "value", id: "margin", props: { label: "Margin", kind: "percent", value: 0.185 } },
   {
     type: "value",
-    id: "budget",
+    id: "forecast",
     props: { label: "Budget", kind: "money", amount: "12480.50", currency: "EUR" },
   },
   { type: "value", id: "due", props: { label: "Due", kind: "date", date: "2026-12-09" } },

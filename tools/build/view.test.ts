@@ -96,6 +96,7 @@ describe("bun run build:view (design decision 7)", () => {
       choice: "component",
       context: "component",
       compute: "library",
+      divider: "component",
       dnd: "library",
       "ext-apps": "library",
       gantt: "component",
@@ -110,12 +111,18 @@ describe("bun run build:view (design decision 7)", () => {
       text: "component",
       timeline: "component",
       tree: "component",
+      value: "component",
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
     expect(manifest.chunks.tree?.components).toEqual(["tree"]);
     // The Text atom needs no Radix: markdown-it and DOMPurify are its own (atoms, design decision 4).
     expect(manifest.chunks.text?.components).toEqual(["text"]);
     expect(manifest.chunks.text?.needs).toEqual(["react", "shell"]);
+    // The display atoms are chunks of their own, each needing only React and the shell (task 5.2).
+    for (const atom of ["value", "divider"]) {
+      expect(manifest.chunks[atom]?.components).toEqual([atom]);
+      expect(manifest.chunks[atom]?.needs).toEqual(["react", "shell"]);
+    }
     // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
@@ -332,6 +339,7 @@ describe("bun run build:view (design decision 7)", () => {
       "choice",
       "compute",
       "context",
+      "divider",
       "dnd",
       "ext-apps",
       "gantt",
@@ -345,6 +353,7 @@ describe("bun run build:view (design decision 7)", () => {
       "text",
       "timeline",
       "tree",
+      "value",
     ]);
     expect(sizeProblems(await readSizes(SIZES_FILE), recorded)).toEqual([]);
   });

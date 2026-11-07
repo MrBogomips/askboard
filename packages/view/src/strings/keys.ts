@@ -342,6 +342,9 @@ export const STRING_KEYS = [
   "chart.highlighted",
   "chart.hint",
   "chart.role",
+
+  // The display atoms (atoms, task 5.2; ux-update-draft.md block 6; the Italian texts to review).
+  "value.days",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];
