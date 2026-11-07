@@ -215,9 +215,8 @@ describe("the shipped widget references (skills spec: The skill names the three)
       const text = files.get(`references/widgets/${entry.type}.md`) ?? "";
       const section = text.slice(text.indexOf("## In the answer"), text.indexOf("## Example"));
       expect(section, entry.type).toContain("`results`");
-      const properties = Object.keys(
-        (entry.result?.schema as { properties?: Record<string, unknown> }).properties ?? {},
-      );
+      const schema = entry.result?.schema as { properties?: Record<string, unknown> } | undefined;
+      const properties = Object.keys(schema?.properties ?? {});
       expect(properties.length, entry.type).toBeGreaterThan(0);
       for (const property of properties) expect(section, entry.type).toContain(`- \`${property}\``);
     }
