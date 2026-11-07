@@ -239,7 +239,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = run;
         const before = await markup(board);
         await source(board).fill("\\frac{1}{");
-        await hasError(board, "This expression does not render: KaTeX parse error");
+        await hasError(board, "This expression does not render: ");
         expect(await markup(board)).toBe(before);
         expect(await drawn(board)).toBe(1);
         expect(await board.answer.isEnabled()).toBe(true);
@@ -259,7 +259,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await host(dist, latexDocument("\\frac{1}{"));
         await readyIn(run);
         const { board } = run;
-        await hasError(board, "This expression does not render: KaTeX parse error");
+        await hasError(board, "This expression does not render: ");
         expect(await drawn(board)).toBe(0);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
       },
@@ -273,7 +273,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyIn(run);
         const { board } = run;
         await source(board).fill("\\frac{1\u202E}{");
-        await hasError(board, "This expression does not render: KaTeX parse error");
+        await hasError(board, "This expression does not render: ");
         const shown = await errorText(board);
         expect(shown).toContain("\\u202E");
         expect(shown).not.toContain("\u202E");
@@ -519,7 +519,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the counter in Italian",
         );
         await source(board).fill("\\frac{1}{");
-        await hasError(board, "Questa espressione non si visualizza: KaTeX parse error");
+        await hasError(board, "Questa espressione non si visualizza: ");
         await source(board).fill("\\def\\a{x}");
         await hasError(
           board,
@@ -533,7 +533,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await source(board).fill("\\show\\a");
         await hasError(board, "Questa espressione usa \\show, che un elemento LaTeX non consente.");
         await source(board).fill(`a${"\u0301".repeat(48)}`);
-        await hasError(board, "Questa espressione è troppo complessa per l'anteprima.");
+        await hasError(
+          board,
+          "Questa espressione ha 49 livelli di annidamento, oltre il limite di 11.",
+        );
         await source(board).fill(`${"\\frac{".repeat(12)}x${"}{x}".repeat(12)}`);
         await hasError(
           board,

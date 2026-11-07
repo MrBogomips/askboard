@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { STRINGS, t } from "./index.ts";
 
 // The LaTeX's strings (view-and-widgets spec: LaTeX, Kanban and Timeline strings; LaTeX parse
-// errors, "A failure with no message"; LaTeX bounded work; LaTeX output bounded; ux-update-draft.md
+// errors, "A failure with no message"; LaTeX bounded work; ux-update-draft.md
 // block 2): in both tables, an Italian board showing them in Italian. The Italian texts are to review.
 const KEYS = [
   "latex.source",

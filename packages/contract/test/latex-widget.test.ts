@@ -31,7 +31,9 @@ import {
   widgetChangesProblems,
   widgetRegistryProblems,
 } from "../src/index.ts";
+import { validateAskRequest } from "../src/requests.ts";
 import { SCHEMA_IDS } from "../src/sets.ts";
+import { validateUpdateRequest } from "../src/update-request.ts";
 import { elementShapeOf, validateBoardMessage } from "../src/validate.ts";
 import { LATEX_EXPECTED } from "../src/widgets/latex/wording.ts";
 import { ajvOver, errorsOf } from "./probe-ajv.ts";
@@ -462,6 +464,29 @@ describe("LaTeX nesting bounded", () => {
     expect(problem?.itemId).toBe("formula");
     expect(problem?.field).toBe("props.expression");
     expect(problem?.message).toContain("131 levels deep");
+  });
+
+  // Scenario "Stacked combining marks sent": the agent's own request is refused, naming the item.
+  test("x and 130 stacked U+0302 sent in an ask or an update is refused naming the item's field and the depth", () => {
+    const item = {
+      type: "latex",
+      id: "formula",
+      props: { expression: `x${"\u0302".repeat(130)}` },
+    };
+    const question = { type: "question", id: "q", props: { text: "Which?", items: [item] } };
+    const asked = validateAskRequest({ askId: "marks-ask-a1b2", items: [question] });
+    const updated = validateUpdateRequest({
+      askId: "marks-ask-a1b2",
+      actions: [{ action: "add", item: question }],
+    });
+    for (const checked of [asked, updated]) {
+      expect(checked.ok).toBe(false);
+      if (checked.ok) continue;
+      const text = checked.problems.map((problem) => problem.message).join("\n");
+      expect(text).toContain("props.expression");
+      expect(text).toContain("131 levels deep");
+      expect(text).toContain(`limit of ${LIMIT}`);
+    }
   });
 
   test("x and 10 stacked accents pass, 11 are refused", () => {

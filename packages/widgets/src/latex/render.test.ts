@@ -142,7 +142,7 @@ describe("parseProblem", () => {
   test("gives a message for any Error KaTeX throws, and no text for a value that is none (the component shows the string tables' fallback)", () => {
     for (const [thrown, message] of [
       [new RangeError("deep"), "deep"],
-      [new katex.ParseError("bad"), "KaTeX parse error: bad"],
+      [new katex.ParseError("bad"), new katex.ParseError("bad").message],
       ["plain text", ""],
       [undefined, ""],
       [{ message: "not an Error" }, ""],

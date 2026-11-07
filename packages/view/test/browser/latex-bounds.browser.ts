@@ -41,6 +41,7 @@ import {
 } from "./harness/latex-fixtures.ts";
 import { EXTRA_CONSTRUCTS } from "./harness/latex-forms.ts";
 import { LatexFrame, PARENT_ANSWER_MS } from "./harness/latex-frame.ts";
+import { unparsed } from "./harness/latex-parse.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -53,7 +54,7 @@ const LIMIT = LATEX_NESTING_MAX_DEPTH;
 // Every fixed family: the 17 constructs, and the infix, hidden-opener, environment and style forms.
 const FAMILIES = [...LATEX_CONSTRUCTS, ...EXTRA_CONSTRUCTS];
 
-// The text KaTeX gives for an expression it does not parse, which the board shows after this start.
+// The start of the board's own field error for an expression KaTeX does not parse.
 const NOT_RENDERED = "This expression does not render";
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
@@ -84,8 +85,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
               continue;
             }
             // A form of the extra families that KaTeX does not parse at this depth has nothing to
-            // draw; the 17 constructs always draw.
-            if (result.rendered.error !== undefined && !LATEX_CONSTRUCTS.includes(construct)) {
+            // draw (decided in Bun, before drawing); the 17 constructs always draw, and any other
+            // error is a failure.
+            if (!LATEX_CONSTRUCTS.includes(construct) && unparsed(expression)) {
+              expect(result.rendered.error, where).toBeDefined();
               continue;
             }
             // Drawn: no refusal, no error, and the elements are in the page.
@@ -350,8 +353,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
-    // latex-public-api (spec: LaTeX bounded work, scenario "Stacked combining marks"): typed by the
-    // user and sent by the agent, `x` and 130 U+0302 gives the depth's refusal, KaTeX does not run.
+    // latex-public-api (spec: LaTeX bounded work, scenario "Stacked combining marks typed"): `x` and
+    // 130 U+0302 typed gives the depth's refusal, KaTeX does not run. The agent's half is the
+    // contract's: `ask` and `update` refuse it (latex-widget.test.ts), so it never reaches a board.
     const STACKED = `x${"\u0302".repeat(130)}`;
     const STACKED_ERROR = `This expression nests 131 levels deep, more than the limit of ${LIMIT}.`;
 
@@ -373,22 +377,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
-    test(
-      "x and 130 stacked U+0302 sent by the agent shows the same field error on load, with no preview and no crash",
-      async () => {
-        const run = await host(dist, latexDocument(STACKED), { prepare: watching });
-        await readyIn(run);
-        await eventually(
-          async () => ((await shownAt(run.board, 0)).error ?? "").startsWith(STACKED_ERROR),
-          "the depth's field error on load",
-        );
-        expect((await shownAt(run.board, 0)).markup).toBe("");
-        expect(await keyAnswered(run.board, 0, "z")).toBeLessThan(SHOW_BOUND_MS);
-        expect(run.browser.errors).toEqual([]);
-      },
-      TEST_TIMEOUT_MS,
-    );
-
     // Each family of task 4.15 at the limit, alone, side by side and branching, through the field.
     test(
       "every family at the nesting limit, alone, side by side to 2,000 code points and branching, is drawn within 2 seconds and the board answers after each family",
@@ -401,8 +389,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             const where = `${family.name}, ${shape}`;
             const { settled, before } = await typed(run, expression);
             slowest.push({ where, ms: settled.ms });
-            // A form of the extra families that KaTeX does not parse at this depth has nothing to draw.
-            if (settled.error?.startsWith(NOT_RENDERED) && !LATEX_CONSTRUCTS.includes(family)) {
+            // A form of the extra families that KaTeX does not parse at this depth has nothing to
+            // draw (decided in Bun, before drawing); any other error is a failure.
+            if (!LATEX_CONSTRUCTS.includes(family) && unparsed(expression)) {
+              expect(settled.error, where).toStartWith(NOT_RENDERED);
               continue;
             }
             const refused = scanLatex(expression).refused;
@@ -428,7 +418,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "flat expressions of 2,000 code points draw: 2,000 plain glyphs, 666 \\le and a matrix of 400 cells; 666 \\ne gives KaTeX's Too many expansions",
+      "flat expressions of 2,000 code points draw: 2,000 plain glyphs, 666 \\le, a matrix of 400 cells and the widest matrix; 666 \\ne gives the field error",
       async () => {
         const run = await boardWith();
         const rows = Array.from({ length: 20 }, () => Array(20).fill("a").join("&")).join("\\\\");
@@ -437,6 +427,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["2,000 plain glyphs", "a".repeat(2_000)],
           ["666 \\le", "\\le".repeat(666)],
           ["a matrix of 400 cells", `\\begin{matrix}${rows}\\end{matrix}`],
+          ["a matrix of 1,975 empty cells", `\\begin{matrix}${"&".repeat(1_974)}\\end{matrix}`],
         ] as const) {
           expect([...expression].length, name).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
           const { settled } = await typed(run, expression);
@@ -448,8 +439,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { settled, before } = await typed(run, "\\ne".repeat(666));
         times.push(`666 \\ne ${Math.round(settled.ms)}`);
         console.log(`[6.8 ${engine}] flat expressions, ms: ${times.join("; ")}`);
-        expect(settled.error).toContain("Too many expansions");
-        expect(settled.error?.startsWith("This expression does not render")).toBe(true);
+        expect(unparsed("\\ne".repeat(666))).toBe(true);
+        expect(settled.error).toStartWith(NOT_RENDERED);
         expect((await shownAt(run.board, 0)).markup).toBe(before);
       },
       TEST_TIMEOUT_MS,

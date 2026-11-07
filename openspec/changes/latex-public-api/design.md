@@ -11,7 +11,7 @@ See proposal.md for why. Read on `origin/main` 0e151a84 (`latex-kanban-timeline`
   - Realistic formulas (the skill's example, matrices, sums with limits, a `\cfrac` 5 deep, a 10-row `aligned`, a 2,000-code-point polynomial) reach scan depth 6, markup depth 47, 5 nested fractions, 4,677 elements, 3.7 ms of KaTeX work.
   - Every form the scan counts, at its limit of 11: at most 11 nested fractions and markup depth 93; recorded at 211 ms in WebKit and 37 ms in Chromium. `\ne` 201 times hits `maxExpand`; `\rule{1000em}{1000em}` is capped by `maxSize`.
   - One known form passes the scan: stacked combining marks. KaTeX nests each consecutive mark of U+0300 to U+036F that it knows (12 of them, in math and text mode) as an accent: `x` and 130 U+0302 is the output of `\hat{` 130 deep (depth 656), a recorded Chromium crash form, in 131 code points; 1,999 marks give depth 10,001. Interleaved spaces, line feeds or comments make KaTeX refuse the marks; a zero-width joiner between them draws flat; marks of U+1AB0, U+1DC0, U+20D0 and U+FE20 draw flat or fail. Optional arguments (`\sqrt[`) nest only through braces, which the scan counts.
-  - Widest within the scan: about 2,000 empty matrix cells (`&` 1,985 times), 31,611 elements, 16 ms of KaTeX work; not timed in a browser (the browser lock was held).
+  - Widest within the scan: about 2,000 empty matrix cells (`&` 1,985 times), 31,611 elements, 16 ms of KaTeX work; timed in a browser at 1,975 cells (the widest that fits with `\begin{matrix}…\end{matrix}`): 118 ms Chromium, 415 ms WebKit.
 
 ## Goals / Non-Goals
 
@@ -85,7 +85,7 @@ Seams removed: `tree.ts` and its exports, `Rendered.tooComplex`, the `bounds` pa
 Known issues, kept as the PO asked, to fix as bugs when seen (task 4.2):
 
 - [K-1. A nesting form the scan does not count, today unknown or added by a KaTeX release, reaches Chromium's crash depth (about 130 levels): the board's tab crashes, on every load if the agent sent it] → the scan counts every form known on 0.19.1, its limit is about 12 times under the crash; the fix of such a bug is one more rule in the scan's count.
-- [K-2. A very wide expression, such as about 2,000 empty matrix cells (31,611 elements), takes about 0.5 to 1 second in WebKit on an M3 Max and may pass the 2-second rule on slower hardware] → the old node bound refused it; the render queue keeps other items and input answering between draws; no realistic formula comes near (4,677 elements at most).
+- [K-2. A very wide expression, such as about 2,000 empty matrix cells (31,611 elements), drew in 415 ms in WebKit and 118 ms in Chromium on an M3 Max (1,975 cells, measured) and may pass the 2-second rule on slower hardware] → the old node bound refused it; the render queue keeps other items and input answering between draws; no realistic formula comes near (4,677 elements at most). Trigger: a measured time over 2 seconds on supported hardware reopens K-2, for the PO to decide.
 - [K-3. A KaTeX release adds a defining, infix or raw-token command, which no test now finds] → the scan's lists follow KaTeX's documented function list; the review of a KaTeX bump reads its release notes for such commands, as any dependency review does.
 
 Other:
