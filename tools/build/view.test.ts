@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -30,6 +31,7 @@ import {
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
 import { hostOnlyNeedProblems, styleUrlProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
+import type { FontLicence, FontLicences } from "./licences.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
 import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
@@ -717,15 +719,45 @@ describe("package stylesheets in a chunk (latex-kanban-timeline, design decision
     return path;
   };
 
-  test("a listed stylesheet follows Tailwind's styles in its chunk, with its font inlined", async () => {
-    await Bun.write(join(dir, "pkg-fonts", "f.woff2"), FONT);
-    await Bun.write(join(dir, "pkg-fonts", "f.woff"), new Uint8Array([1]));
-    const path = await sheet(
-      "pkg.css",
+  // The stylesheet's fonts lie in a package, as a real package's do, whose font licence the build
+  // reads from a test table (task 3.4 moved this fixture from a bare temporary folder).
+  const PACKAGE_FONTS = (over: Partial<FontLicence> = {}): FontLicence => ({
+    licence: "OFL-1.1",
+    fonts: "pkg-fonts",
+    derived: [],
+    source: "https://example.com/OFL.txt",
+    date: "2026-11-07",
+    reason: "a test table",
+    text: "PKG FONT NOTICE\n",
+    ...over,
+  });
+  const TABLE: FontLicences = { "pkg@1.0.0": PACKAGE_FONTS() };
+  const noticeText = async (target: string, built: { manifest: ViewManifest }, name: string) => {
+    const notice = built.manifest.chunks.choice?.licences.find((n) => n.package === name);
+    const text = notice === undefined ? "" : await Bun.file(join(target, notice.path)).text();
+    return { notice, text };
+  };
+  const packageSheet = async () => {
+    const root = join(dir, "node_modules", "pkg");
+    await Bun.write(
+      join(root, "package.json"),
+      JSON.stringify({ name: "pkg", version: "1.0.0", license: "MIT" }),
+    );
+    await Bun.write(join(root, "LICENSE"), "MIT License\n\nCopyright (c) Pkg\n");
+    await Bun.write(join(root, "pkg-fonts", "f.woff2"), FONT);
+    await Bun.write(join(root, "pkg-fonts", "f.woff"), new Uint8Array([1]));
+    const path = join(root, "pkg.css");
+    await Bun.write(
+      path,
       "@font-face{font-family:P;src:url(pkg-fonts/f.woff2) format('woff2'),url(pkg-fonts/f.woff) format('woff')}.pkg{font-family:P}",
     );
+    return path;
+  };
+
+  test("a listed stylesheet follows Tailwind's styles in its chunk, with its font inlined", async () => {
+    const path = await packageSheet();
     const target = join(dir, "pkg-build");
-    const built = await buildView(target, { choice: [path] });
+    const built = await buildView(target, { choice: [path] }, TABLE);
     const file = built.manifest.chunks.choice?.styles[0]?.path ?? "";
     const css = await Bun.file(join(target, file)).text();
     expect(css).toContain("var(--");
@@ -733,20 +765,111 @@ describe("package stylesheets in a chunk (latex-kanban-timeline, design decision
     expect(css).toContain(`url(data:font/woff2;base64,${Buffer.from(FONT).toString("base64")})`);
     expect(css).not.toContain("f.woff");
     await expect(
-      buildView(join(dir, "pkg-build-2"), { choice: [path], nothing: [path] }),
+      buildView(join(dir, "pkg-build-2"), { choice: [path], nothing: [path] }, TABLE),
     ).rejects.toThrow('"nothing"');
+  }, 120_000);
+
+  test("a chunk whose script does not import the package still holds its notice, with the fonts' licence beside the package's (review X-3)", async () => {
+    const path = await packageSheet();
+    const target = join(dir, "pkg-notice-build");
+    const built = await buildView(target, { choice: [path] }, TABLE);
+    const { notice, text } = await noticeText(target, built, "pkg");
+    expect(notice).toMatchObject({ package: "pkg", version: "1.0.0", licence: "MIT AND OFL-1.1" });
+    const holds = text;
+    expect(holds).toContain("Copyright (c) Pkg");
+    expect(holds.indexOf("PKG FONT NOTICE")).toBeGreaterThan(holds.indexOf("Copyright (c) Pkg"));
+    const choice = built.manifest.chunks.choice;
+    expect(choice?.licences.map((n) => n.package)).not.toContain("react");
+  }, 120_000);
+
+  test("a stylesheet without fonts, from a package with no entry, still gives that package's notice (review X-3)", async () => {
+    const root = join(dir, "node_modules", "plainpkg");
+    await Bun.write(
+      join(root, "package.json"),
+      JSON.stringify({ name: "plainpkg", version: "3.0.0", license: "ISC" }),
+    );
+    await Bun.write(join(root, "LICENSE"), "ISC License\n\nCopyright (c) Plain\n");
+    await Bun.write(join(root, "plain.css"), ".plain{color:red}");
+    const target = join(dir, "plain-notice-build");
+    const built = await buildView(target, { choice: [join(root, "plain.css")] }, {});
+    const { notice, text } = await noticeText(target, built, "plainpkg");
+    expect(notice).toMatchObject({ version: "3.0.0", licence: "ISC" });
+    expect(text).toContain("Copyright (c) Plain");
+  }, 120_000);
+
+  test("inlined fonts of a package version with no entry fail the build, naming the package version and the chunk", async () => {
+    const path = await packageSheet();
+    const error = await buildView(join(dir, "no-entry-build"), { choice: [path] }, {}).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain("pkg@1.0.0");
+    expect(String(error)).toContain('"choice"');
+    expect(String(error)).toContain("no entry");
+  }, 120_000);
+
+  test("an entry no chunk inlines the fonts of or bundles a file derived from fails the build as stale", async () => {
+    const path = await packageSheet();
+    const table = { ...TABLE, "other@2.0.0": PACKAGE_FONTS() };
+    const error = await buildView(join(dir, "stale-build"), { choice: [path] }, table).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"other@2.0.0"');
+    expect(String(error)).toContain("stale");
+  }, 120_000);
+
+  test("an entry under a licence the rule does not admit fails the build", async () => {
+    const path = await packageSheet();
+    const table = { "pkg@1.0.0": PACKAGE_FONTS({ licence: "GPL-3.0-only" }) };
+    const error = await buildView(join(dir, "gpl-build"), { choice: [path] }, table).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"pkg@1.0.0"');
+    expect(String(error)).toContain("GPL-3.0-only");
+  }, 120_000);
+
+  test("KaTeX's stylesheet gives its chunk the `katex` 0.19.1 notice `MIT AND OFL-1.1` with KaTeX's licence and the OFL, and every font decodes to a woff2 file of the package", async () => {
+    const target = join(dir, "katex-build");
+    const built = await buildView(target, { choice: ["katex/dist/katex.min.css"] });
+    const { notice, text } = await noticeText(target, built, "katex");
+    expect(notice).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+    const holds = text;
+    expect(holds).toContain("Khan Academy and other contributors");
+    expect(holds).toContain("Permission is hereby granted");
+    expect(holds).toContain("Copyright (c) 2009-2010, Design Science, Inc.");
+    expect(holds).toContain("with Reserved Font Names KaTeX_AMS");
+    expect(holds).toContain("SIL OPEN FONT LICENSE");
+    const files = built.manifest.chunks.choice?.styles ?? [];
+    const css = await Bun.file(join(target, files[0]?.path ?? "none")).text();
+    const urls = [...css.matchAll(/url\(data:font\/woff2;base64,([A-Za-z0-9+/=]+)\)/g)];
+    expect(urls).toHaveLength(20);
+    const fontDir = join(ROOT, "packages/widgets/node_modules/katex/dist/fonts");
+    const hashes = new Set<string>();
+    for (const name of (await readdir(fontDir)).filter((file) => file.endsWith(".woff2"))) {
+      hashes.add(
+        createHash("sha256")
+          .update(await Bun.file(join(fontDir, name)).bytes())
+          .digest("hex"),
+      );
+    }
+    expect(hashes.size).toBe(20);
+    for (const [, base64] of urls) {
+      const bytes = Buffer.from(base64 as string, "base64");
+      expect(hashes.has(createHash("sha256").update(bytes).digest("hex"))).toBe(true);
+    }
   }, 120_000);
 
   test("a listed stylesheet that names a file fails the build, naming the chunk and the URL", async () => {
     const path = await sheet("bad.css", ".bad{background:url(img/a.svg)}");
-    const error = await buildView(join(dir, "bad-build"), { choice: [path] }).catch((e) => e);
+    const error = await buildView(join(dir, "bad-build"), { choice: [path] }, {}).catch((e) => e);
     expect(String(error)).toContain('"choice"');
     expect(String(error)).toContain("img/a.svg");
   }, 120_000);
 
   test("a listed stylesheet with an @import fails the build, naming the chunk and the import", async () => {
     const path = await sheet("import.css", '@import "other.css";.a{}');
-    const error = await buildView(join(dir, "import-build"), { choice: [path] }).catch((e) => e);
+    const error = await buildView(join(dir, "import-build"), { choice: [path] }, {}).catch(
+      (e) => e,
+    );
     expect(String(error)).toContain('"choice"');
     expect(String(error)).toContain("@import");
   }, 120_000);

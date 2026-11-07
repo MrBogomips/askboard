@@ -5,10 +5,17 @@ import { join } from "node:path";
 import {
   chunkInputs,
   collectNotices,
+  FONT_LICENCES,
+  type FontLicence,
+  type FontLicences,
+  fontEntryProblems,
   LICENCE_TEXTS,
   licencePath,
+  missingFontLicences,
+  staleFontLicences,
   staleLicenceTexts,
 } from "./licences.ts";
+import { ROOT } from "./paths.ts";
 
 let root = "";
 const write = (path: string, text: string) => Bun.write(join(root, path), text);
@@ -49,6 +56,18 @@ beforeAll(async () => {
   await write(`${unlicensed}/package.json`, json({ name: "unlicensed", version: "1.0.0" }));
   await write(`${unlicensed}/LICENSE`, "text\n");
   await write(`${unlicensed}/index.js`, "");
+  const fonty = store("fonty", "2.0.0");
+  await write(`${fonty}/package.json`, json({ name: "fonty", version: "2.0.0", license: "MIT" }));
+  await write(`${fonty}/LICENSE`, "MIT License\n\nCopyright (c) Fonty\n");
+  await write(`${fonty}/dist/code.mjs`, "");
+  await write(`${fonty}/dist/plain.js`, "");
+  const dual = store("dual", "1.0.0");
+  await write(
+    `${dual}/package.json`,
+    json({ name: "dual", version: "1.0.0", license: "MIT OR Apache-2.0" }),
+  );
+  await write(`${dual}/LICENSE`, "Dual licence text\n");
+  await write(`${dual}/index.js`, "");
 });
 
 afterAll(async () => {
@@ -198,5 +217,142 @@ describe("licence notices per chunk", () => {
     expect(licencePath("@radix-ui/react-radio-group", "1.5.1")).toBe(
       "licences/radix-ui-react-radio-group-1.5.1.txt",
     );
+  });
+});
+
+const fontEntry = (over: Partial<FontLicence> = {}): FontLicence => ({
+  licence: "OFL-1.1",
+  fonts: "dist/fonts",
+  derived: ["dist/code.mjs"],
+  source: "https://github.com/example/fonty/blob/0123456789abcdef0123456789abcdef01234567/OFL.txt",
+  date: "2026-11-07",
+  reason: "the fonts' name tables say OFL-1.1",
+  text: "Fonty 2.0.0: the fonts and glyph outlines.\n\nOFL text\n",
+  ...over,
+});
+
+describe("the fonts' licence in a package's notice (latex-kanban-timeline, task 3.4; review X-1)", () => {
+  const table: FontLicences = { "fonty@2.0.0": fontEntry() };
+  const fonty = (file: string) => at(`${store("fonty", "2.0.0")}/${file}`);
+
+  test("a package with an entry reads `<licence> AND OFL-1.1`, its text the package's then the entry's after a blank line", async () => {
+    const [file] = await collectNotices("latex", [fonty("dist/plain.js")], root, {}, table);
+    expect(file?.notice).toEqual({
+      package: "fonty",
+      version: "2.0.0",
+      licence: "MIT AND OFL-1.1",
+      path: "licences/fonty-2.0.0.txt",
+    });
+    expect(file?.text).toBe(
+      "MIT License\n\nCopyright (c) Fonty\n\nFonty 2.0.0: the fonts and glyph outlines.\n\nOFL text",
+    );
+    expect(file?.font).toEqual({ key: "fonty@2.0.0", derived: false });
+  });
+
+  test("a compound package licence is parenthesised", async () => {
+    const dual = { "dual@1.0.0": fontEntry() };
+    const input = at(`${store("dual", "1.0.0")}/index.js`);
+    const [file] = await collectNotices("latex", [input], root, {}, dual);
+    expect(file?.notice.licence).toBe("(MIT OR Apache-2.0) AND OFL-1.1");
+  });
+
+  test("a package with no entry keeps today's notice, and an entry for another version does not stand in", async () => {
+    const input = at(`${store("react", "19.3.1")}/index.js`);
+    const [plain] = await collectNotices("react", [input], root, {}, table);
+    expect(plain?.notice.licence).toBe("MIT");
+    expect(plain?.font).toBeUndefined();
+    const older = { "fonty@1.0.0": fontEntry() };
+    const [file] = await collectNotices("latex", [fonty("dist/plain.js")], root, {}, older);
+    expect(file?.notice.licence).toBe("MIT");
+    expect(file?.text).toBe("MIT License\n\nCopyright (c) Fonty");
+  });
+
+  test("a derived file among the inputs is marked, and the notice is one file though the package is linked twice", async () => {
+    const inputs = [fonty("dist/code.mjs"), fonty("dist/plain.js")];
+    const files = await collectNotices("latex", inputs, root, {}, table);
+    expect(files).toHaveLength(1);
+    expect(files[0]?.font).toEqual({ key: "fonty@2.0.0", derived: true });
+  });
+
+  test("KaTeX's script alone, with no stylesheet, gives the `katex` 0.19.1 notice `MIT AND OFL-1.1` (review X-1)", async () => {
+    // What Bun bundles for `import "katex"` from the widgets, read from a real bundle's inputs.
+    const entry = join(ROOT, "packages/widgets/virtual-katex-entry.ts");
+    const built = await Bun.build({
+      entrypoints: [entry],
+      files: { [entry]: 'import katex from "katex"; console.log(katex);' },
+      format: "iife",
+      target: "browser",
+      metafile: true,
+    });
+    if (built.metafile === undefined) throw new Error("the bundle has no metafile");
+    const inputs = chunkInputs(built.metafile, process.cwd());
+    const katex = FONT_LICENCES["katex@0.19.1"];
+    expect(katex?.derived).toEqual(["dist/katex.mjs"]);
+    expect(inputs.some((input) => input.endsWith("/katex/dist/katex.mjs"))).toBe(true);
+    const files = await collectNotices("latex", inputs, ROOT);
+    const notice = files.find((file) => file.notice.package === "katex");
+    expect(notice?.notice).toEqual({
+      package: "katex",
+      version: "0.19.1",
+      licence: "MIT AND OFL-1.1",
+      path: "licences/katex-0.19.1.txt",
+    });
+    expect(notice?.font).toEqual({ key: "katex@0.19.1", derived: true });
+    expect(notice?.text).toContain("Khan Academy");
+    expect(notice?.text).toContain("SIL OPEN FONT LICENSE");
+    expect(notice?.text).toContain("with Reserved Font Names KaTeX_AMS");
+  }, 60_000);
+});
+
+describe("the font licence table's checks (design decision 8)", () => {
+  const chunk = (name: string, fonts: string[], derived = false, keys: string[] = []) => ({
+    name,
+    fonts,
+    notices: keys.map((key) => ({
+      notice: { package: key, version: "1", licence: "MIT", path: `licences/${key}.txt` },
+      text: "",
+      font: { key, derived },
+    })),
+  });
+  const table: FontLicences = { "fonty@2.0.0": fontEntry() };
+
+  test("an entry whose licence is OFL-1.1 or permissive passes, any other fails, naming the entry", () => {
+    expect(fontEntryProblems(table)).toEqual([]);
+    expect(fontEntryProblems({ "a@1.0.0": fontEntry({ licence: "ISC" }) })).toEqual([]);
+    expect(fontEntryProblems({ "a@1.0.0": fontEntry({ licence: "MIT AND ISC" }) })).toEqual([]);
+    for (const licence of ["GPL-3.0-only", "OFL-1.0", "MPL-2.0", "", "OFL-1.1 OR GPL-3.0-only"]) {
+      const problems = fontEntryProblems({ "a@1.0.0": fontEntry({ licence }) });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('"a@1.0.0"');
+      expect(problems[0]).toContain("tools/font-licences.json");
+    }
+  });
+
+  test("inlined fonts of a package version with no entry fail, naming the chunk and the package version", () => {
+    expect(missingFontLicences(table, [chunk("latex", ["fonty@2.0.0"])])).toEqual([]);
+    const problems = missingFontLicences(table, [chunk("latex", ["fonty@3.0.0", "other@1.0.0"])]);
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('"latex"');
+    expect(problems[0]).toContain("fonty@3.0.0");
+    expect(problems[1]).toContain("other@1.0.0");
+  });
+
+  test("an entry no chunk inlines fonts for and no chunk bundles a derived file of is stale", () => {
+    expect(staleFontLicences(table, [chunk("latex", ["fonty@2.0.0"])])).toEqual([]);
+    const stale = staleFontLicences(table, [chunk("shell", []), chunk("latex", ["other@1.0.0"])]);
+    expect(stale).toHaveLength(1);
+    expect(stale[0]).toContain('"fonty@2.0.0"');
+    expect(stale[0]).toContain("stale");
+    expect(stale[0]).toContain("tools/font-licences.json");
+  });
+
+  test("an entry used only through a derived input is not stale; a notice taken without one does not use it", () => {
+    expect(staleFontLicences(table, [chunk("latex", [], true, ["fonty@2.0.0"])])).toEqual([]);
+    expect(staleFontLicences(table, [chunk("latex", [], false, ["fonty@2.0.0"])])).toHaveLength(1);
+  });
+
+  test("the real table is clean: its entry's licence stands in the rule", () => {
+    expect(fontEntryProblems(FONT_LICENCES)).toEqual([]);
+    expect(Object.keys(FONT_LICENCES)).toEqual(["katex@0.19.1"]);
   });
 });

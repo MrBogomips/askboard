@@ -6,6 +6,9 @@ import { styleUrlProblems } from "./checks.ts";
 import { resolveFromWidgets } from "./paths.ts";
 import { CHUNK_STYLESHEETS, inlineFontFaces, loadChunkStylesheets } from "./stylesheets.ts";
 
+// The stylesheets sit in a package folder under node_modules, as a real package's do: the build
+// names the package of a stylesheet whose fonts it inlines (task 3.4).
+let root = "";
 let dir = "";
 const WOFF2 = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 1, 2, 3]);
 const base64 = Buffer.from(WOFF2).toString("base64");
@@ -14,7 +17,9 @@ const fixture = (name: string, css: string) => Bun.write(join(dir, name), css);
 const resolver = (specifier: string) => join(dir, specifier);
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), "askboard-stylesheets-"));
+  root = await mkdtemp(join(tmpdir(), "askboard-stylesheets-"));
+  dir = join(root, "node_modules", "pkg");
+  await Bun.write(join(dir, "package.json"), '{"name":"pkg","version":"1.0.0"}');
   await mkdir(join(dir, "fonts"), { recursive: true });
   for (const name of ["a.woff2", "b.woff2"]) await Bun.write(join(dir, "fonts", name), WOFF2);
   for (const name of ["a.woff", "a.ttf", "b.woff", "b.ttf"]) {
@@ -35,7 +40,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await rm(dir, { recursive: true, force: true });
+  await rm(root, { recursive: true, force: true });
 });
 
 describe("the fonts of a package stylesheet (view spec, Package stylesheets in a chunk)", () => {
@@ -131,7 +136,82 @@ describe("the chunks' package stylesheets (design decision 8)", () => {
   });
 
   test("an empty table loads nothing", async () => {
-    expect(await loadChunkStylesheets({}, chunks)).toEqual({ styles: new Map(), problems: [] });
+    expect(await loadChunkStylesheets({}, chunks)).toEqual({
+      styles: new Map(),
+      files: new Map(),
+      fonts: new Map(),
+      problems: [],
+    });
+  });
+});
+
+describe("the package of a stylesheet whose fonts the build inlines (task 3.4, design decision 8)", () => {
+  const chunks = new Set(["latex", "kanban"]);
+
+  test("a stylesheet with inlined fonts reports its package version, once, and every listed file is reported", async () => {
+    await fixture("plain.css", ".a{color:red}");
+    const { files, fonts, problems } = await loadChunkStylesheets(
+      { latex: ["faces.css", "faces.css", "plain.css"], kanban: ["plain.css", "svg.css"] },
+      chunks,
+      resolver,
+    );
+    expect(problems).toEqual([]);
+    expect(fonts.get("latex")).toEqual(["pkg@1.0.0"]);
+    expect(fonts.get("kanban")).toBeUndefined();
+    expect(files.get("latex")).toEqual([
+      join(dir, "faces.css"),
+      join(dir, "faces.css"),
+      join(dir, "plain.css"),
+    ]);
+    expect(files.get("kanban")).toEqual([join(dir, "plain.css"), join(dir, "svg.css")]);
+  });
+
+  test("a scoped package is named with its scope", async () => {
+    const scoped = join(root, "node_modules", "@org", "fonts");
+    await Bun.write(join(scoped, "package.json"), '{"name":"@org/fonts","version":"2.3.4"}');
+    await Bun.write(join(scoped, "f.woff2"), WOFF2);
+    await Bun.write(
+      join(scoped, "s.css"),
+      "@font-face{font-family:S;src:url(f.woff2) format('woff2')}",
+    );
+    const { fonts, problems } = await loadChunkStylesheets(
+      { latex: ["s.css"] },
+      chunks,
+      (specifier) => join(scoped, specifier),
+    );
+    expect(problems).toEqual([]);
+    expect(fonts.get("latex")).toEqual(["@org/fonts@2.3.4"]);
+  });
+
+  test("an inlined font in a stylesheet outside any package fails, naming the chunk and the stylesheet", async () => {
+    const loose = join(root, "loose");
+    await Bun.write(join(loose, "f.woff2"), WOFF2);
+    await Bun.write(
+      join(loose, "own.css"),
+      "@font-face{font-family:L;src:url(f.woff2) format('woff2')}",
+    );
+    const { styles, problems } = await loadChunkStylesheets(
+      { latex: ["own.css"] },
+      chunks,
+      (specifier) => join(loose, specifier),
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('"latex"');
+    expect(problems[0]).toContain("own.css");
+    expect(problems[0]).toContain("no package");
+    expect(styles.has("latex")).toBe(false);
+  });
+
+  test("a stylesheet outside any package with no inlined font is fine", async () => {
+    const loose = join(root, "loose-plain");
+    await Bun.write(join(loose, "own.css"), ".a{color:red}");
+    const { fonts, problems } = await loadChunkStylesheets(
+      { latex: ["own.css"] },
+      chunks,
+      (specifier) => join(loose, specifier),
+    );
+    expect(problems).toEqual([]);
+    expect(fonts.size).toBe(0);
   });
 });
 
