@@ -10,8 +10,16 @@
 // 11).
 
 import type { ElementShape, Locale } from "@askboard/contract";
-import { createContext, type ReactNode, useCallback, useContext, useLayoutEffect } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useSyncExternalStore,
+} from "react";
 import { type Slots, type StringKey, t } from "../strings/index.ts";
+import type { Theme } from "../theme.ts";
 
 /** A widget item as the board document holds it: its type, its ID and its props, as sent. */
 export type BoardWidgetItem = {
@@ -243,3 +251,83 @@ export const useHosted = (): boolean => useContext(HostContext).hosted;
 
 export const useOpenReference = (): ((itemId: string) => void) =>
   useContext(HostContext).openReference;
+
+/** The theme in effect, as DESIGN's tokens resolve it: `dark` while the root holds the class. */
+export type { Theme };
+
+/** What the theme reads of a class list: a DOM token list, or the names themselves. */
+export type ClassList = Pick<DOMTokenList, "contains"> | readonly string[];
+
+/**
+ * The theme a class list gives (chart-widget, design decision 6): dark while it holds `dark` as a
+ * whole token, else light. The pure core of `useTheme`; `applyTheme` sets the class.
+ */
+export const themeOfClasses = (classes: ClassList): Theme =>
+  (Array.isArray(classes) ? classes.includes("dark") : (classes as DOMTokenList).contains("dark"))
+    ? "dark"
+    : "light";
+
+/** The subscription `useSyncExternalStore` takes, for the theme. */
+export type ThemeStore = {
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly getSnapshot: () => Theme;
+};
+
+/**
+ * A store of the theme of `root`, whose class attribute one observer watches for as long as any
+ * listener is subscribed, however many there are (chart-widget, design decision 6). `Observer` is
+ * the platform's `MutationObserver`, or a stand-in.
+ */
+export const createThemeStore = <Root extends { readonly classList: ClassList }>(
+  root: Root,
+  Observer: new (
+    callback: () => void,
+  ) => { observe(target: Root, options: MutationObserverInit): void; disconnect(): void },
+): ThemeStore => {
+  const listeners = new Set<() => void>();
+  let observer: { disconnect(): void } | undefined;
+  return {
+    getSnapshot: () => themeOfClasses(root.classList),
+    subscribe: (listener) => {
+      listeners.add(listener);
+      if (observer === undefined) {
+        const made = new Observer(() => {
+          for (const each of [...listeners]) each();
+        });
+        made.observe(root, { attributes: true, attributeFilter: ["class"] });
+        observer = made;
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0 && observer !== undefined) {
+          observer.disconnect();
+          observer = undefined;
+        }
+      };
+    },
+  };
+};
+
+const LIGHT_STORE: ThemeStore = { subscribe: () => () => {}, getSnapshot: () => "light" };
+
+let pageStore: { readonly root: HTMLElement; readonly store: ThemeStore } | undefined;
+
+// The store of the page's document root, made at first use; a page with no document has none.
+const storeOfPage = (): ThemeStore => {
+  if (typeof document === "undefined") return LIGHT_STORE;
+  const root = document.documentElement;
+  if (pageStore?.root !== root) {
+    pageStore = { root, store: createThemeStore<HTMLElement>(root, MutationObserver) };
+  }
+  return pageStore.store;
+};
+
+/**
+ * The theme in effect, light or dark, re-rendering the component when the document's root takes or
+ * loses the `dark` class (chart-widget, design decision 6; DESIGN, Dark theme mechanism): the same
+ * on the board and in a Snapshot, whose view sets the class itself. One observer serves the page.
+ */
+export const useTheme = (): Theme => {
+  const store = storeOfPage();
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+};

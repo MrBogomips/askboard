@@ -20,8 +20,11 @@ export {
   type Slots,
   type StringKey,
   say,
+  type Theme,
+  themeOfClasses,
   useLanguage,
   useLocale,
   useReadyAfterLayout,
   useStrings,
+  useTheme,
 } from "./port.ts";
