@@ -43,7 +43,7 @@ The registry SHALL hold `latex`, after the types `main` holds: an item `{type: "
 
 #### Scenario: Characters outside the Basic Multilingual Plane
 - **WHEN** a LaTeX item's `expression` holds 2,000 characters outside the Basic Multilingual Plane, then 2,001
-- **THEN** the first passes, and the second fails naming the item, `expression` and the count 2,001
+- **THEN** the first passes, and the second fails naming the item and `expression`; the LaTeX's own check words the count 2,001
 
 #### Scenario: A field the props do not define
 - **WHEN** a LaTeX item's props hold `displayMode`
