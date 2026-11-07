@@ -23,8 +23,15 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import {
+  answerOf,
+  lifecycleScenario,
+  openBoard,
+  sentActs,
+  sentDrafts,
+} from "./harness/lifecycle-test.ts";
 import {
   beginDrag,
   dragOver,
@@ -37,7 +44,7 @@ import {
 } from "./harness/ranking-drag.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost } from "./harness/widget-host-test.ts";
+import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 
@@ -49,6 +56,10 @@ const tool = (board: Board, name: string) =>
 
 const counterText = async (board: Board): Promise<string> =>
   ((await counter(board).textContent()) ?? "").trim();
+
+// Waits until the latest draft record the host page was sent holds `order` for the Ranking.
+const draftOrder = (run: WidgetHostRun, order: readonly string[], what: string): Promise<void> =>
+  eventually(() => draftHolds(run.drafts, "plan", "priorities", { order }), what);
 
 const expectOrder = (board: Board, order: readonly string[]): Promise<void> =>
   eventually(
@@ -77,6 +88,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await Bun.sleep(QUIET_MS);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
+        expect(run.drafts).toEqual([]);
+        expect(draftHolds(run.drafts, "plan", "priorities", undefined)).toBe(true);
         expect(run.browser.violations).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -93,6 +106,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isEnabled()).toBe(true);
         expect(await orderShown(board)).toEqual(SENT_ORDER);
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
+        await draftOrder(run, SENT_ORDER, "the draft to hold the agent's order");
       },
       TEST_TIMEOUT_MS,
     );
@@ -112,6 +126,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await expectDrop(board, "speed", half === HALF.top ? "before" : "after");
           await release(board);
           await expectOrder(board, order);
+          await draftOrder(run, order, `the draft to hold ${order.join(", ")}`);
           expect(await counterText(board)).toBe(moved);
           expect(await board.view.locator('[data-change="moved"]').count()).toBe(
             Number(moved.replace(/\D/g, "")),
@@ -141,6 +156,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await orderShown(board)).toEqual(SENT_ORDER);
         expect(await counterText(board)).toBe("No changes");
         expect(await board.answer.isDisabled()).toBe(true);
+        expect(run.drafts).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
@@ -159,6 +175,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await release(board);
         expect(await orderShown(board)).toEqual(SENT_ORDER);
         expect(await counterText(board)).toBe("No changes");
+        expect(draftHolds(run.drafts, "plan", "priorities", undefined)).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
@@ -182,8 +199,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(tool(board, "Move down")), "focus on Move down");
         await board.page.keyboard.press("Enter");
         await expectOrder(board, ["cost", "speed", "comfort"]);
+        await draftOrder(run, ["cost", "speed", "comfort"], "the draft to hold the first move");
         await board.page.keyboard.press("Enter");
         await expectOrder(board, ["cost", "comfort", "speed"]);
+        await draftOrder(run, ["cost", "comfort", "speed"], "the draft to hold the second move");
         expect(await current("speed")).toBe("true");
         expect(await counterText(board)).toBe("Your changes: 3 moved");
         // The last row: "Move down" is disabled and keeps the focus.
@@ -215,27 +234,51 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
   describe(`${engine}: the Ranking after an answer`, () => {
     const { start } = useEngine(engine);
+    const MOVED = ["speed", "comfort", "cost"];
 
     test(
-      "the answered Ranking shows its order read-only, with its moved rows marked, and nothing can move",
+      "once delivered it shows the logged order and stays editable; once the ask closes it is read-only and a click or key sends nothing",
       async () => {
         const run = await start(lifecycleScenario(rankingAsk, dist));
         const board = await openBoard(run, ["plan"]);
         await rowOf(board, "comfort").focus();
         await tool(board, "Move up").click({ timeout: STEP_TIMEOUT_MS });
-        await expectOrder(board, ["speed", "comfort", "cost"]);
+        await expectOrder(board, MOVED);
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "priorities", { order: MOVED }),
+          "the draft to hold the new order",
+        );
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await orderShown(board)).toEqual(["speed", "comfort", "cost"]);
+        const { events } = await run.session.collect();
+        expect(events[0]?.results).toEqual({ priorities: { order: MOVED } });
+        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        // Delivered, the question is answered and still open to a revision: handles and tools work.
+        expect(await orderShown(board)).toEqual(MOVED);
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(2);
+        expect(await board.view.locator("[data-drag-handle]").count()).toBe(MOVED.length);
+        expect(await tool(board, "Keep this order").getAttribute("aria-disabled")).not.toBe("true");
+        // The agent closes the ask: the list is read-only and the order stays.
+        await run.session.update([{ action: "close" }]);
+        await board
+          .banner(/closed/i)
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await board.view.locator("[data-drag-handle]").count()) === 0,
+          "the handles to go",
+        );
         for (const name of ["Move up", "Move down", "Keep this order"]) {
           expect(await tool(board, name).getAttribute("aria-disabled")).toBe("true");
         }
-        expect(await board.view.locator("[data-drag-handle]").count()).toBe(0);
-        const { events } = await run.session.collect();
-        expect(events[0]?.results).toEqual({
-          priorities: { order: ["speed", "comfort", "cost"] },
-        });
+        const [drafts, acts] = [sentDrafts(run).length, sentActs(run).length];
+        await tool(board, "Move down").click({ force: true });
+        await rowOf(board, "comfort").focus();
+        await board.page.keyboard.press("ArrowDown");
+        await board.page.keyboard.press("Enter");
+        await Bun.sleep(QUIET_MS);
+        expect(await orderShown(board)).toEqual(MOVED);
+        expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },
       TEST_TIMEOUT_MS,
     );

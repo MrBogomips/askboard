@@ -17,11 +17,18 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import {
+  answerOf,
+  lifecycleScenario,
+  openBoard,
+  sentActs,
+  sentDrafts,
+} from "./harness/lifecycle-test.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost } from "./harness/widget-host-test.ts";
+import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 
@@ -29,6 +36,10 @@ const SLIDER = { min: 0, max: 100, step: 5 };
 const unsetTrack = (board: Board) => board.view.locator("[data-scale-unset]");
 const value = (board: Board) => board.view.locator("[data-scale-value]");
 const thumbs = (board: Board) => board.view.getByRole("slider");
+
+// Waits until the latest draft record the host page was sent holds `expected` for the Scale.
+const draftHolding = (run: WidgetHostRun, expected: unknown, what: string): Promise<void> =>
+  eventually(() => draftHolds(run.drafts, "plan", "share", expected), what);
 
 // Clicks the unset track at `fraction` of its width, in page coordinates.
 const clickTrackAt = async (board: Board, fraction: number): Promise<void> => {
@@ -54,6 +65,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await Bun.sleep(QUIET_MS);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
+        expect(run.drafts).toEqual([]);
+        expect(draftHolds(run.drafts, "plan", "share", undefined)).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
@@ -69,6 +82,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await unsetTrack(board).count()).toBe(0);
         expect(await thumbs(board).first().getAttribute("aria-valuenow")).toBe("35");
         expect(await board.answer.isEnabled()).toBe(true);
+        await draftHolding(run, { value: 35 }, "the draft to hold 35");
       },
       TEST_TIMEOUT_MS,
     );
@@ -110,6 +124,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await thumbs(board).nth(1).focus();
         for (let step = 0; step < 6; step += 1) await board.page.keyboard.press("ArrowRight");
         await eventually(async () => (await value(board).textContent()) === "40 – 70", "40 – 70");
+        await draftHolding(run, { low: 40, high: 70 }, "the draft to hold 40 to 70");
         // The pointer: the upper thumb dragged back toward 50 of 100, to within a step of it.
         const thumb = await thumbs(board).nth(1).boundingBox();
         const track = await board.view.locator("[data-scale]").boundingBox();
@@ -151,8 +166,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await step("3").getAttribute("aria-checked")).toBe("false");
         expect(await value(board).textContent()).toBe("4");
         expect(await board.answer.isEnabled()).toBe(true);
+        await draftHolding(run, { value: 4 }, "the draft to hold 4");
         await step("4").click();
         await eventually(async () => (await value(board).textContent()) === "Not set", "cleared");
+        await draftHolding(run, undefined, "the draft to hold no result after the clear");
         expect(await board.answer.isDisabled()).toBe(true);
         expect(await board.view.getByRole("alert").count()).toBe(0);
       },
@@ -194,19 +211,43 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "the answered Scale shows its value read-only and nothing can be set",
+      "once delivered it shows the logged value and stays editable; once the ask closes it is read-only and a click or key sends nothing",
       async () => {
         const run = await start(lifecycleScenario(scaleAsk(SLIDER), dist));
         const board = await openBoard(run, ["plan"]);
         await unsetTrack(board).focus();
         await board.page.keyboard.press("End");
         await eventually(async () => (await value(board).textContent()) === "100", "the maximum");
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "share", { value: 100 }),
+          "the draft to hold 100",
+        );
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await value(board).textContent()).toBe("100");
-        expect(await thumbs(board).first().getAttribute("data-disabled")).not.toBeNull();
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({ share: { value: 100 } });
+        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        // Delivered, the question is answered and still open to a revision: the thumb works.
+        expect(await value(board).textContent()).toBe("100");
+        expect(await thumbs(board).first().getAttribute("data-disabled")).toBeNull();
+        // The agent closes the ask: the slider is read-only and the value stays.
+        await run.session.update([{ action: "close" }]);
+        await board
+          .banner(/closed/i)
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await thumbs(board).first().getAttribute("data-disabled")) !== null,
+          "the thumb to be disabled",
+        );
+        const [drafts, acts] = [sentDrafts(run).length, sentActs(run).length];
+        await thumbs(board).first().click({ force: true });
+        await thumbs(board).first().focus();
+        await board.page.keyboard.press("ArrowLeft");
+        await board.page.keyboard.press("Home");
+        await Bun.sleep(QUIET_MS);
+        expect(await value(board).textContent()).toBe("100");
+        expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },
       TEST_TIMEOUT_MS,
     );

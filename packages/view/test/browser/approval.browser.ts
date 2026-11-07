@@ -18,8 +18,15 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import {
+  answerOf,
+  lifecycleScenario,
+  openBoard,
+  sentActs,
+  sentDrafts,
+} from "./harness/lifecycle-test.ts";
 import { pressIn, treeGridOf } from "./harness/tree-grid.ts";
 import { enterField, expectSteps, focusPortal, readyIn, typeIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -33,6 +40,10 @@ const summary = (board: Board) => board.view.locator("[data-approval-summary]");
 const summaryTitle = (board: Board) => board.view.locator("[data-summary-title]");
 const prompt = (board: Board, label: string) =>
   board.view.getByRole("textbox", { name: label, exact: true });
+
+// Waits until the latest draft record the host page was sent holds `expected` for the Approval.
+const draftHolding = (run: WidgetHostRun, expected: unknown, what: string): Promise<void> =>
+  eventually(() => draftHolds(run.drafts, "plan", "verdict", expected), what);
 
 const pressed = async (board: Board, name: string): Promise<boolean> =>
   (await decision(board, name).getAttribute("aria-checked")) === "true";
@@ -56,15 +67,18 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyIn(run);
         const { board } = run;
         expect(await board.answer.isDisabled()).toBe(true);
+        expect(draftHolds(run.drafts, "plan", "verdict", undefined)).toBe(true);
         await decision(board, "Reject").click();
         await eventually(() => pressed(board, "Reject"), "Reject to show pressed");
         expect(await decision(board, "Reject").textContent()).toContain("✓");
         expect(await board.answer.isEnabled()).toBe(true);
+        await draftHolding(run, { decision: "reject" }, "the draft to hold reject");
         // Selecting sends nothing: the question's `ready` is the one view message.
         await Bun.sleep(QUIET_MS);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         await decision(board, "Reject").click();
         await eventually(async () => !(await pressed(board, "Reject")), "Reject to clear");
+        await draftHolding(run, undefined, "the draft to hold no result after the clear");
         expect(await decision(board, "Reject").textContent()).not.toContain("✓");
         expect(await board.answer.isDisabled()).toBe(true);
         expect(await board.view.getByRole("alert").count()).toBe(0);
@@ -103,16 +117,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = run;
         await decision(board, "Approve").click();
         await eventually(() => pressed(board, "Approve"), "Approve to show pressed");
+        await draftHolding(run, { decision: "approve" }, "the draft to hold approve");
         expect(await summaryTitle(board).textContent()).toBe("No changes");
         await renamePortal(run, "Customer portal: accounts");
         await eventually(() => decision(board, "Approve").isDisabled(), "Approve to be disabled");
         expect(await pressed(board, "Approve")).toBe(false);
+        // The held Approve left the draft with the edit: the draft holds the Tree's rename and
+        // no result for the Approval.
+        await draftHolding(run, undefined, "the draft to hold no result for the Approval");
+        expect(run.drafts.length).toBeGreaterThan(0);
         expect(await decision(board, "Approve with changes").isEnabled()).toBe(true);
         expect(await decision(board, "Reject").isEnabled()).toBe(true);
         expect(await summaryTitle(board).textContent()).toBe("1 change");
-        // Nothing is held for the Approval: the answer is the Tree's alone.
         await decision(board, "Approve with changes").click();
         await eventually(() => pressed(board, "Approve with changes"), "the decision to select");
+        await draftHolding(
+          run,
+          { decision: "approve-with-changes" },
+          "the draft to hold approve-with-changes",
+        );
         const tree = treeGridOf(board);
         await focusPortal(run, tree);
         await typeIn(run, tree, "Enter", "Customer portal");
@@ -208,20 +231,44 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "the answered Approval shows its decision read-only, with the Tree's summary",
+      "once delivered it shows the logged decision and stays editable; once the ask closes it is read-only and a click or key sends nothing",
       async () => {
         const run = await start(lifecycleScenario(approvalAsk, dist));
         const board = await openBoard(run, ["plan"]);
         await decision(board, "Reject").click();
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "verdict", { decision: "reject" }),
+          "the draft to hold reject",
+        );
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
-        for (const name of ["Approve", "Approve with changes", "Reject"]) {
-          expect(await decision(board, name).isDisabled()).toBe(true);
-        }
-        expect(await pressed(board, "Reject")).toBe(true);
-        expect(await summaryTitle(board).textContent()).toBe("No changes");
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({ verdict: { decision: "reject" } });
+        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        // Delivered, the question is answered and still open to a revision: the decisions work.
+        await eventually(() => pressed(board, "Reject"), "the logged decision to show");
+        for (const name of ["Approve with changes", "Reject"]) {
+          expect(await decision(board, name).isEnabled()).toBe(true);
+        }
+        expect(await summaryTitle(board).textContent()).toBe("No changes");
+        // The agent closes the ask: nothing can be edited and the result stays.
+        await run.session.update([{ action: "close" }]);
+        await board
+          .banner(/closed/i)
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        for (const name of ["Approve", "Approve with changes", "Reject"]) {
+          await eventually(() => decision(board, name).isDisabled(), `${name} to be disabled`);
+        }
+        expect(await pressed(board, "Reject")).toBe(true);
+        const [drafts, acts] = [sentDrafts(run).length, sentActs(run).length];
+        await decision(board, "Approve with changes").click({ force: true });
+        await decision(board, "Reject").focus();
+        await board.page.keyboard.press("Space");
+        await board.page.keyboard.press("ArrowRight");
+        await Bun.sleep(QUIET_MS);
+        expect(await pressed(board, "Reject")).toBe(true);
+        expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },
       TEST_TIMEOUT_MS,
     );
