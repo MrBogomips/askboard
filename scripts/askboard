@@ -50,7 +50,8 @@ CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-$PWD}
 export CLAUDE_PROJECT_DIR
 cd "$ROOT" || exit 1
 
-found=$(node -p process.versions.node 2>/dev/null) || found=
+# The probe reads nothing: the caller's stdin (a hook's input, the MCP stream) is for the exec below.
+found=$(node -p process.versions.node 2>/dev/null </dev/null) || found=
 if at_least "$found" "$REQUIRED"; then
   exec node "$ROOT/dist/askboard.mjs" "$@"
 fi

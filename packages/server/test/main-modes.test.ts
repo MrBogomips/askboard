@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LOCAL_API_ROUTES, pollPath } from "@askboard/contract";
 import {
@@ -121,5 +122,30 @@ describe("client <path> [<body>]", () => {
     expect(ran.code).toBe(2);
     expect(ran.stdout).toBe("");
     expect(ran.stderr).toContain("usage: askboard client <path> [<JSON body>]");
+  });
+});
+
+describe("the session process", () => {
+  test("reports the product version, the plugin manifest's, as its server version", async () => {
+    const initialize = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "main-modes-test", version: "0" },
+      },
+    };
+    const { code, stdout } = await run([], {}, `${JSON.stringify(initialize)}\n`);
+    const manifest = JSON.parse(
+      readFileSync(
+        join(import.meta.dir, "..", "..", "..", ".claude-plugin", "plugin.json"),
+        "utf8",
+      ),
+    );
+    const reply = JSON.parse(stdout.split("\n")[0] ?? "");
+    expect(reply.result.serverInfo).toEqual({ name: "askboard", version: manifest.version });
+    expect(code).toBe(0);
   });
 });

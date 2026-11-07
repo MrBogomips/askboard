@@ -83,6 +83,8 @@ const runScript = async (
     shims?: string;
     cwd?: string;
     env?: Record<string, string>;
+    /** Bytes written to the script's stdin; none (a closed stdin) when absent. */
+    input?: string;
   } = { version: "24.22.1" },
 ): Promise<Ran> => {
   const shims = options.shims ?? shimNode(folder());
@@ -95,10 +97,14 @@ const runScript = async (
       SHIM_LOG: log,
       ...options.env,
     },
-    stdin: "ignore",
+    stdin: options.input === undefined ? "ignore" : "pipe",
     stdout: "pipe",
     stderr: "pipe",
   });
+  if (options.input !== undefined) {
+    child.stdin?.write(options.input);
+    child.stdin?.end();
+  }
   const [stdout, stderr, code] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
@@ -343,6 +349,83 @@ describe("the start script runs outside the project (review 1.5, X-1)", () => {
       cwd: project,
     });
     expect(argsOf(ran.recorded)).toEqual([join(root, "dist", "askboard.mjs"), "x"]);
+  });
+});
+
+/**
+ * A `node` for the pass-through tests: the version probe (`-p`) records whatever it finds on its
+ * stdin in `$SHIM_PROBE_STDIN` and answers the version; any other run copies its stdin to
+ * `$SHIM_STDIN`, writes the marker "from node" to stdout and exits with `$SHIM_EXIT` (0 when unset).
+ */
+const ioShimNode = (into: string): string => {
+  mkdirSync(into, { recursive: true });
+  const shim = join(into, "node");
+  writeFileSync(
+    shim,
+    [
+      "#!/bin/sh",
+      'if [ "$1" = "-p" ]; then cat > "$SHIM_PROBE_STDIN"; printf \'%s\\n\' "$SHIM_VERSION"; exit 0; fi',
+      'cat > "$SHIM_STDIN"',
+      "printf 'from node\\n'",
+      `exit "\${SHIM_EXIT:-0}"`,
+      "",
+    ].join("\n"),
+  );
+  chmodSync(shim, 0o755);
+  return into;
+};
+
+/** Runs the script with the I/O shim, `input` on stdin; the bytes the shim and its probe received. */
+const runThrough = async (args: string[], input: string, version = "24.22.1") => {
+  const root = pluginRoot();
+  const scratch = folder();
+  const stdinFile = join(scratch, "stdin");
+  const probeFile = join(scratch, "probe");
+  const ran = await runScript(join(root, "scripts", "askboard"), args, {
+    version,
+    shims: ioShimNode(folder()),
+    input,
+    env: { SHIM_STDIN: stdinFile, SHIM_PROBE_STDIN: probeFile },
+  });
+  const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : undefined);
+  return { ran, received: read(stdinFile), probed: read(probeFile) };
+};
+
+// More than a pipe buffer holds (16 to 64 KiB), so that a script that does not hand stdin on whole
+// would show.
+const BIG = `${JSON.stringify({ tool_input: "x".repeat(100 * 1024) })}\n`;
+
+describe("hook and client modes pass stdin and stdout through (review 1.5, S-3)", () => {
+  test.each([
+    [["hook", "PreToolUse"]],
+    [["client", "/v1/mod/poll", '{"a":1}']],
+    [["client", "/v1/mod/poll"]],
+  ])("%p: the bytes sent arrive at node whole, and node's output comes back", async (args) => {
+    const { ran, received } = await runThrough(args, BIG);
+    expect(received).toBe(BIG);
+    expect(ran.stdout).toBe("from node\n");
+    expect(ran.code).toBe(0);
+  });
+
+  test("the version probe does not read the caller's stdin", async () => {
+    const { received, probed } = await runThrough(["hook", "PreToolUse"], BIG);
+    expect(probed).toBe("");
+    expect(received).toBe(BIG);
+  });
+
+  test("node's exit code is the script's", async () => {
+    const root = pluginRoot();
+    const ran = await runScript(join(root, "scripts", "askboard"), ["client", "/x"], {
+      version: "24.22.1",
+      shims: ioShimNode(folder()),
+      input: "",
+      env: {
+        SHIM_STDIN: join(folder(), "in"),
+        SHIM_PROBE_STDIN: join(folder(), "p"),
+        SHIM_EXIT: "3",
+      },
+    });
+    expect(ran.code).toBe(3);
   });
 });
 
@@ -693,7 +776,7 @@ describe("the real bundle", () => {
       child.stdin.flush();
       const answers: Record<
         number,
-        { result?: { serverInfo?: { name: string }; tools?: { name: string }[] } }
+        { result?: { serverInfo?: { name: string; version: string }; tools?: { name: string }[] } }
       > = {};
       const reader = child.stdout.getReader();
       let buffered = "";
@@ -712,6 +795,10 @@ describe("the real bundle", () => {
       const exited = await Promise.race([child.exited, Bun.sleep(10_000).then(() => "timeout")]);
       if (exited === "timeout") child.kill();
       expect(answers[1]?.result?.serverInfo?.name).toBe("askboard");
+      const manifest = JSON.parse(
+        readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"),
+      );
+      expect(answers[1]?.result?.serverInfo?.version).toBe(manifest.version);
       expect(answers[2]?.result?.tools?.map((tool) => tool.name)).toContain("ask");
       expect(exited).toBe(0);
     },
