@@ -124,30 +124,53 @@ const stylesOf = async (
   return css.includes("{") ? css : "";
 };
 
-// Inline-safe script, styles and notices for one bundled chunk or the board page. The chunk's
-// package stylesheet, when it has one, follows Tailwind's styles; no style may request a file. The
-// stylesheets' files join the inputs the notices are collected for, so the chunk holds the notice
-// of every package whose stylesheet it carries, even one its script does not import.
-const finish = async (
+/**
+ * A chunk's styles as the build assembles them: its own (Tailwind's output over its sources), then
+ * its package stylesheets, joined by a line feed with an empty part left out, and the problems of
+ * both checks over the whole: a style that would request a file and a style that cannot be
+ * inlined. Pure, so the checks' reach over the board page, every chunk and each part is a test,
+ * not a build (latex-kanban-timeline, design decision 8, group 3 review S-1).
+ */
+export const assembleChunkStyles = ({
+  chunk,
+  own,
+  packages,
+}: {
+  readonly chunk: string;
+  readonly own: string;
+  readonly packages?: string;
+}): { readonly css: string; readonly problems: readonly string[] } => {
+  const css = [own, packages ?? ""].filter((part) => part !== "").join("\n");
+  const problems = [...styleUrlProblems(chunk, css), inlineStyleProblem(chunk, css)];
+  return { css, problems: problems.filter((problem) => problem !== undefined) };
+};
+
+// Inline-safe script, styles and notices for one bundled chunk or the board page, through
+// `assembleChunkStyles`. The chunk's package stylesheet, when it has one, follows Tailwind's
+// styles. The stylesheets' files join the inputs the notices are collected for, so the chunk holds
+// the notice of every package whose stylesheet it carries, even one its script does not import.
+// `ownStyles` is Tailwind's output for the chunk; tests pass another.
+export const finish = async (
   name: string,
   plan: StylePlan | undefined,
   bundle: Bundle,
   work: string,
   fontLicences: FontLicences,
   packages?: ChunkPackages,
+  ownStyles: typeof stylesOf = stylesOf,
 ): Promise<Finished> => {
   const { code, problems } = inlineScript(name, bundle.code);
   failIf(problems);
-  const own = await stylesOf(name, plan, bundle.inputs, work);
-  const styles = [own, packages?.css ?? ""].filter((part) => part !== "").join("\n");
-  failIf([...styleUrlProblems(name, styles), inlineStyleProblem(name, styles)]);
+  const own = await ownStyles(name, plan, bundle.inputs, work);
+  const styles = assembleChunkStyles({ chunk: name, own, packages: packages?.css });
+  failIf([...styles.problems]);
   const inputs = [
     ...bundle.inputs,
     ...(plan === "document" ? [PREFLIGHT_FILE] : []),
     ...(packages?.files ?? []),
   ];
   const notices = await collectNotices(name, inputs, ROOT, LICENCE_TEXTS, fontLicences);
-  return { name, script: code, styles, notices, fonts: packages?.fonts ?? [] };
+  return { name, script: code, styles: styles.css, notices, fonts: packages?.fonts ?? [] };
 };
 
 type BuiltChunk = Finished & {
