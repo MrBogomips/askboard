@@ -61,11 +61,13 @@ const shownIn = (board: Board): Promise<string[]> =>
     .locator("[data-askboard-question]")
     .evaluate((card) => [
       card.textContent ?? "",
-      ...[...card.querySelectorAll("[aria-label], [title], [aria-valuetext]")].flatMap((element) => [
-        element.getAttribute("aria-label") ?? "",
-        element.getAttribute("title") ?? "",
-        element.getAttribute("aria-valuetext") ?? "",
-      ]),
+      ...[...card.querySelectorAll("[aria-label], [title], [aria-valuetext]")].flatMap(
+        (element) => [
+          element.getAttribute("aria-label") ?? "",
+          element.getAttribute("title") ?? "",
+          element.getAttribute("aria-valuetext") ?? "",
+        ],
+      ),
     ]);
 
 // None of the English strings is shown or named in the card, now (agent content is never one).
