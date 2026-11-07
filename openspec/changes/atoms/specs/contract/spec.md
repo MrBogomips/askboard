@@ -47,11 +47,15 @@ A `text-field` item SHALL hold `label`, an optional `description`, an optional `
 - **THEN** the first passes, and the others fail, naming the item and the limit or the line break
 
 ### Requirement: NumberField items and results
-A `number-field` item SHALL hold `label`, an optional `description`, optional `min` and `max` within ±1,000,000,000,000,000 with `max` not below `min`, an optional `step` above 0, an optional `integer` and an optional `unit` (1 to 20). Its result SHALL be a JSON number within the bounds, whole when `integer` is true, and on a step when `step` is given, counted from `min` (else 0) with the Scale's tolerance (FR-13).
+A `number-field` item SHALL hold `label`, an optional `description`, optional `min` and `max` within ±1,000,000,000,000,000 with `max` not below `min`, an optional `step` above 0, an optional `integer` and an optional `unit` (1 to 20). Its result SHALL be a JSON number within the bounds, whole when `integer` is true, and on a step when `step` is given, counted from `min` (else 0) within a billionth of a step (FR-13, AD-10).
 
 #### Scenario: Bounds and steps
 - **WHEN** a NumberField `{label: "Days", min: 0, max: 20, step: 0.5}` receives `3.5`, `21`, `3.25`
 - **THEN** `3.5` passes, and the others fail, naming the item and the bound or the step
+
+#### Scenario: A step finer than the doubles
+- **WHEN** a `number-field` holds `min` -1e15 and `step` 1, or bounds near 1e15 with `step` 2 or 3
+- **THEN** its props are refused, naming `step`, since a double there cannot tell a value on the step from one off it
 
 ### Requirement: MoneyField items and results
 A `money-field` item SHALL hold `label`, an optional `description`, exactly one of `currency` (an ISO 4217 code) and `currencies` (2 to 10 unique codes), and optional `min` and `max` as decimal strings. Its result SHALL be `{amount, currency}`: `amount` a decimal string of at most 15 integer digits and at most the currency's minor units in decimals, within `min` and `max` compared as decimals, never as binary floats; `currency` the item's `currency` or one of its `currencies` (FR-13, AD-7).
