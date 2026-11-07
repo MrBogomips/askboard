@@ -94,6 +94,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await entryOf(board, "launch").getAttribute("data-change")) === "moved",
           "launch to be moved",
         );
+        // A range moves too: `checkout` goes a week later, and the Snapshot keeps both its ends.
+        await entryOf(board, "checkout").focus();
+        await board.view
+          .getByRole("toolbar", { name: "Timeline tools" })
+          .getByRole("button", { name: "Move later", exact: true })
+          .click();
+        await eventually(
+          async () => (await entryOf(board, "checkout").getAttribute("data-change")) === "moved",
+          "checkout to be moved",
+        );
         await source("formula").fill("a^2+b^2=c^2");
         await source("complex").fill(COMPLEX);
         await source("raised").fill(RAISED);
@@ -193,6 +203,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(
             await page.locator('[data-timeline-entry="launch"]').getAttribute("data-change"),
           ).toBe("moved");
+          // The moved range: both ends and the highlight.
+          const checkout = page.locator('[data-timeline-entry="checkout"]');
+          expect({
+            start: await checkout.getAttribute("data-start"),
+            end: await checkout.getAttribute("data-end"),
+            change: await checkout.getAttribute("data-change"),
+          }).toEqual({ start: "2026-01-12", end: "2026-01-16", change: "moved" });
 
           // Nothing can be edited or moved.
           await sources.nth(0).click({ force: true });
@@ -230,9 +247,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
               .locator('[data-kanban-column="todo"] [data-kanban-card]')
               .evaluateAll((cards) => cards.map((found) => found.getAttribute("data-kanban-card"))),
           ).toEqual(["c"]);
-          expect(
-            await page.locator('[data-timeline-entry="checkout"]').getAttribute("data-start"),
-          ).toBe("2026-01-05");
+          expect({
+            start: await checkout.getAttribute("data-start"),
+            end: await checkout.getAttribute("data-end"),
+          }).toEqual({ start: "2026-01-12", end: "2026-01-16" });
 
           // No request but the file itself, so no font was fetched, and no CSP violation.
           expect(
