@@ -5,7 +5,7 @@
 
 import type { WidgetType } from "../registry.ts";
 import { latexPropsProblems } from "./checks.ts";
-import { LATEX_SHAPE } from "./constants.ts";
+import { LATEX_NESTING_MAX_DEPTH, LATEX_SHAPE } from "./constants.ts";
 import latexChanges from "./latex-changes.json" with { type: "json" };
 import latexProps from "./latex-props.json" with { type: "json" };
 import { LATEX_EXPECTED, LATEX_FIELDS } from "./wording.ts";
@@ -28,7 +28,7 @@ export const LATEX_WIDGET: WidgetType = {
     use: "one mathematical expression in LaTeX that the user reads and corrects, with a live preview",
     notes: [
       "The answer's change is one `set` of `<id>.expression`: the whole expression as the user wrote it, which may not parse.",
-      "KaTeX renders it: `\\href`, `\\url` and `\\includegraphics` show no link or image, a macro definition (`\\def`, `\\newcommand`, …) and a KaTeX internal command (a name holding `@`) are refused.",
+      `KaTeX renders it: \`\\href\`, \`\\url\` and \`\\includegraphics\` show no link or image; a macro definition (\`\\def\`, \`\\newcommand\`, …), a KaTeX internal command (a name holding \`@\`) and a nest deeper than ${LATEX_NESTING_MAX_DEPTH} levels are refused.`,
     ],
   },
 };

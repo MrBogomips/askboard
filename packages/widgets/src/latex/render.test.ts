@@ -8,6 +8,7 @@ import {
   LATEX_DEFINING_COMMANDS,
   LATEX_LEVEL_CLOSERS,
   LATEX_LEVEL_OPENERS,
+  LATEX_NESTING_MAX_DEPTH,
   LATEX_RAW_TOKEN_COMMANDS,
   scanLatex,
 } from "@askboard/contract";
@@ -15,6 +16,18 @@ import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
 
 const markupOf = (expression: string): string => katex.renderToString(expression, renderOptions());
+
+// KaTeX's own verdict on an expression, with the render options and without the contract's scan:
+// these tests pin what KaTeX does with the definitions and internal commands that `parseProblem`
+// and `renderInto` now refuse before KaTeX runs.
+const katexProblem = (expression: string): string | undefined => {
+  try {
+    markupOf(expression);
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+};
 
 describe("the render options", () => {
   test("do not trust the expression, and bound its size and expansion", () => {
@@ -92,9 +105,9 @@ describe("commands that would reach outside the expression", () => {
 
 describe("macros", () => {
   test("one render defines does not exist in the next", () => {
-    expect(parseProblem("\\gdef\\foo{1}")).toBeUndefined();
+    expect(katexProblem("\\gdef\\foo{1}")).toBeUndefined();
     expect(markupOf("\\gdef\\foo{1}\\foo")).toContain("1");
-    const second = parseProblem("\\foo");
+    const second = katexProblem("\\foo");
     expect(second).toContain("Undefined control sequence: \\foo");
   });
 
@@ -102,7 +115,7 @@ describe("macros", () => {
     "%s expands without end and fails within a second",
     (expression) => {
       const started = performance.now();
-      const problem = parseProblem(expression);
+      const problem = katexProblem(expression);
       expect(performance.now() - started).toBeLessThan(1_000);
       expect(problem).toContain("Too many expansions");
     },
@@ -152,13 +165,13 @@ describe("the macro definitions the contract refuses, read in KaTeX itself", () 
     "%s defines a name in the same render, which the name alone lacks",
     (command, form, name) => {
       expect(form).toContain(command);
-      expect(parseProblem(form)).toBeUndefined();
+      expect(katexProblem(form)).toBeUndefined();
       expect(scanLatex(form).refused).toBeDefined();
       // The definition took effect: the form draws what its body draws.
       const effect = drawn(form);
       expect(effect).toContain(">x<");
       if (name === "\\zq") {
-        expect(parseProblem(name)).toContain("Undefined control sequence: \\zq");
+        expect(katexProblem(name)).toContain("Undefined control sequence: \\zq");
       } else {
         expect(drawn(name)).not.toBe(effect);
       }
@@ -619,5 +632,66 @@ describe("renderInto", () => {
     };
     expect(draw(host, "x")).toEqual({ error: "no room" });
     expect(host.marks).toEqual(["last preview"]);
+  });
+});
+
+// Task 4.11 (view-and-widgets spec: LaTeX bounded work; design decisions 3 and 7): both functions run
+// the contract's scan first, so a refused expression never reaches KaTeX.
+describe("renderInto and parseProblem refuse before KaTeX", () => {
+  const LIMIT = LATEX_NESTING_MAX_DEPTH;
+  const nest = (depth: number) => `${"\\sqrt{".repeat(depth)}x${"}".repeat(depth)}`;
+  const REFUSED = [
+    ["a macro definition", "\\def\\a{x}\\a", { command: "\\def" }],
+    ["an internal command", "\\color{x}\\current@color", { command: "\\current@color" }],
+    ["one level past the limit", nest(LIMIT + 1), { depth: LIMIT + 1, limit: LIMIT }],
+    ["a deep nest", `${"x^{".repeat(130)}y${"}".repeat(130)}`, { depth: 260, limit: LIMIT }],
+  ] as const;
+  let spies: ReturnType<typeof spyOn>[] = [];
+  afterEach(() => {
+    for (const spy of spies) spy.mockRestore();
+    spies = [];
+  });
+  const watchKatex = () => {
+    spies = [spyOn(katex, "render"), spyOn(katex, "renderToString")];
+    return spies;
+  };
+
+  test.each(REFUSED)(
+    "parseProblem gives the refusal for %s and KaTeX does not run",
+    (_what, expression, refused) => {
+      const [render, renderToString] = watchKatex();
+      expect(parseProblem(expression)).toEqual({ refused });
+      expect(render).not.toHaveBeenCalled();
+      expect(renderToString).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(REFUSED)(
+    "renderInto gives the refusal for %s, KaTeX does not run, the element keeps its content",
+    (_what, expression, refused) => {
+      const host = hostHolding("last preview");
+      const [render, renderToString] = watchKatex();
+      expect(draw(host, expression)).toEqual({ refused });
+      expect(render).not.toHaveBeenCalled();
+      expect(renderToString).not.toHaveBeenCalled();
+      expect(host.marks).toEqual(["last preview"]);
+    },
+  );
+
+  test("an expression at the limit is not refused: KaTeX draws it", () => {
+    expect(parseProblem(nest(LIMIT))).toBeUndefined();
+    const host = hostHolding("old");
+    spies = [
+      spyOn(katex, "render").mockImplementation((_e, node) => {
+        (node as unknown as Node).childNodes = ["new"];
+      }),
+    ];
+    expect(draw(host, nest(LIMIT))).toEqual({});
+    expect(host.marks).toEqual(["new"]);
+  });
+
+  test("a refusal and a parse error stay apart: the error is KaTeX's own message", () => {
+    expect(parseProblem("\\frac{1}{")).toStartWith("KaTeX parse error:");
+    expect(draw(hostHolding(), "\\frac{1}{").refused).toBeUndefined();
   });
 });

@@ -22,6 +22,7 @@ import {
   elementChanges,
   LATEX_DEFINING_COMMANDS,
   LATEX_EXPRESSION_MAX_CHARS,
+  LATEX_NESTING_MAX_DEPTH,
   LATEX_SCHEMA_IDS,
   LATEX_SHAPE,
   LATEX_WIDGET,
@@ -368,6 +369,109 @@ describe("LaTeX internal commands refused", () => {
     );
     expect(source).not.toContain("every way KaTeX defines a macro");
     expect(source).toContain("`@`");
+  });
+});
+
+// The 4.7 re-review's X-2 (contract spec: LaTeX nesting bounded; design decisions 3 and 7, Bounded
+// work): a nest deeper than `LATEX_NESTING_MAX_DEPTH` is refused, naming the depth and the limit.
+// The constructs are those of the depth probe (`harness/latex-fixtures.ts` in the view's browser
+// tests), each nested to a depth the scan reads: a script and its group are two levels.
+const CONSTRUCTS: readonly (readonly [string, string, string, 1 | 2])[] = [
+  ["\\frac{", "}{x}", "frac", 1],
+  ["{", "\\over x}", "over", 1],
+  ["x^{", "}", "sup", 2],
+  ["x_{", "}", "sub", 2],
+  ["x^\\frac{", "}{x}", "sup frac", 1],
+  ["\\sqrt{", "}", "sqrt", 1],
+  ["\\hat{", "}", "hat", 1],
+  ["\\overbrace{", "}", "overbrace", 1],
+  ["\\underbrace{", "}", "underbrace", 1],
+  ["\\cancel{", "}", "cancel", 1],
+  ["\\stackrel{x}{", "}", "stackrel", 1],
+  ["\\boxed{", "}", "boxed", 1],
+  ["\\binom{", "}{x}", "binom", 1],
+  ["\\left(", "\\right)", "left", 1],
+  ["\\begin{matrix}", "\\end{matrix}", "matrix", 1],
+  ["\\text{$", "$}", "text", 1],
+  ["{", "}", "braces", 1],
+];
+
+const nested = (open: string, close: string, step: 1 | 2, depth: number): string => {
+  const levels = Math.floor(depth / step);
+  const text = `${open.repeat(levels)}x${close.repeat(levels)}`;
+  return depth % step === 0 ? text : `{${text}}`;
+};
+
+describe("LaTeX nesting bounded", () => {
+  const LIMIT = LATEX_NESTING_MAX_DEPTH;
+
+  test("the limit is a whole number of at least 8, and its depth is what the scan reads", () => {
+    expect(Number.isInteger(LIMIT)).toBe(true);
+    expect(LIMIT).toBeGreaterThanOrEqual(8);
+    expect(scanLatex(nested("\\frac{", "}{x}", 1, LIMIT)).depth).toBe(LIMIT);
+  });
+
+  test.each(CONSTRUCTS)(
+    "%s %s (%s) at the limit passes and one level deeper is refused",
+    (open, close, _name, step) => {
+      const atLimit = nested(open, close, step, LIMIT);
+      const past = nested(open, close, step, LIMIT + 1);
+      expect(scanLatex(atLimit).depth).toBe(LIMIT);
+      expect(scanLatex(past).depth).toBe(LIMIT + 1);
+      expect(latexPropsProblems({ expression: atLimit })).toEqual([]);
+      expect(problems(withExpression(atLimit))).toEqual([]);
+      expect(
+        latexPropsProblems({ expression: past }).map(({ path, message }) => [path, message]),
+      ).toEqual([
+        [
+          "/expression",
+          `the expression nests ${LIMIT + 1} levels deep, more than the limit of ${LIMIT}`,
+        ],
+      ]);
+      const [problem, ...rest] = problems(withExpression(past));
+      expect(rest).toEqual([]);
+      expect(problem?.itemId).toBe("formula");
+      expect(problem?.field).toBe("props.expression");
+      expect(problem?.message).toContain(`${LIMIT + 1} levels deep`);
+      expect(problem?.message).toContain(`limit of ${LIMIT}`);
+    },
+  );
+
+  test("the review's crash forms, x^{ and \\sqrt{ 130 deep, are refused naming their depth", () => {
+    const script = "x^{".repeat(130) + "y" + "}".repeat(130);
+    const root = "\\sqrt{".repeat(130) + "x" + "}".repeat(130);
+    expect(latexPropsProblems({ expression: script })[0]?.message).toContain("260 levels deep");
+    expect(latexPropsProblems({ expression: root })[0]?.message).toContain("130 levels deep");
+    expect(problems(withExpression(root))[0]?.message).toContain("limit of");
+  });
+
+  test("a nest past the limit that a comment or a \\verb hides from the closers is refused too", () => {
+    const hidden = "\\sqrt{%\n".repeat(LIMIT + 1) + "}".repeat(LIMIT + 1);
+    expect(latexPropsProblems({ expression: hidden })[0]?.message).toContain(
+      `${LIMIT + 1} levels deep`,
+    );
+  });
+
+  test("a command is named before the depth, and one problem is given", () => {
+    const both = `\\def\\a{x}${"{".repeat(LIMIT + 1)}`;
+    const refused = latexPropsProblems({ expression: both });
+    expect(refused).toHaveLength(1);
+    expect(refused[0]?.message).toContain("`\\def`");
+  });
+
+  test("an edited value past the limit is refused as well, so ask-core can", () => {
+    const refused = LATEX_WIDGET.propsProblems(
+      { expression: nested("\\sqrt{", "}", 1, LIMIT + 3) },
+      "edited",
+    );
+    expect(refused.map(({ message }) => message)).toEqual([
+      `the expression nests ${LIMIT + 3} levels deep, more than the limit of ${LIMIT}`,
+    ]);
+  });
+
+  test("the request's wording and the teaching text name the limit", () => {
+    expect(LATEX_EXPECTED["latex.props.expression"]).toContain(`${LIMIT} levels`);
+    expect(LATEX_WIDGET.skill?.notes?.join(" ")).toContain(`${LIMIT} levels`);
   });
 });
 

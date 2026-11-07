@@ -7,13 +7,17 @@
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
-import { LATEX_DEFINING_COMMANDS, LATEX_EXPRESSION_MAX_CHARS } from "./constants.ts";
+import {
+  LATEX_DEFINING_COMMANDS,
+  LATEX_EXPRESSION_MAX_CHARS,
+  LATEX_NESTING_MAX_DEPTH,
+} from "./constants.ts";
 import { scanLatex } from "./scan.ts";
 
 /**
  * What is wrong with a LaTeX's props, the schema's rules restated: an object holding `expression`,
- * a text of at most `LATEX_EXPRESSION_MAX_CHARS` code points holding no macro definition and no
- * KaTeX internal command, and no other key. The registry runs it after the schema, so it gives
+ * a text of at most `LATEX_EXPRESSION_MAX_CHARS` code points holding no macro definition, no
+ * KaTeX internal command and no nest deeper than `LATEX_NESTING_MAX_DEPTH`, and no other key. The registry runs it after the schema, so it gives
  * nothing for a value the schema passed that has neither.
  */
 export const latexPropsProblems = (props: unknown): readonly Problem[] => {
@@ -35,9 +39,14 @@ export const latexPropsProblems = (props: unknown): readonly Problem[] => {
       });
     } else {
       // Only within the limit, so that the scan reads a bounded text.
-      const { refused } = scanLatex(expression);
+      const { refused, depth } = scanLatex(expression);
       if (refused !== undefined) {
         problems.push({ path: "/expression", message: refusedMessage(refused) });
+      } else if (depth > LATEX_NESTING_MAX_DEPTH) {
+        problems.push({
+          path: "/expression",
+          message: `the expression nests ${depth} levels deep, more than the limit of ${LATEX_NESTING_MAX_DEPTH}`,
+        });
       }
     }
   }

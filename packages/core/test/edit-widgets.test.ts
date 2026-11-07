@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { KANBAN_WIDGET, LATEX_WIDGET, TIMELINE_WIDGET } from "@askboard/contract";
+import {
+  KANBAN_WIDGET,
+  LATEX_NESTING_MAX_DEPTH,
+  LATEX_WIDGET,
+  TIMELINE_WIDGET,
+} from "@askboard/contract";
 import {
   KANBAN_EDITED_PROPS,
   KANBAN_FIXTURE_ITEM,
@@ -103,6 +108,18 @@ describe("a LaTeX answer that defines a macro", () => {
     const problem = refusal([LATEX], { formula: { expression: "\\color{x}\\current@color" } });
     expect(problem.detail).toContain('"formula"');
     expect(problem.detail).toContain("\\current@color");
+  });
+
+  test("an expression one level past the nesting limit is refused naming the item, the depth and the limit", () => {
+    const limit = LATEX_NESTING_MAX_DEPTH;
+    const expression = `${"\\sqrt{".repeat(limit + 1)}x${"}".repeat(limit + 1)}`;
+    const problem = refusal([LATEX], { formula: { expression } });
+    expect(problem.detail).toContain('"formula"');
+    expect(problem.detail).toContain(`${limit + 1} levels deep`);
+    expect(problem.detail).toContain(`limit of ${limit}`);
+    // At the limit the same answer is logged.
+    const atLimit = `${"\\sqrt{".repeat(limit)}x${"}".repeat(limit)}`;
+    expect(logged([LATEX], { formula: { expression: atLimit } }).events).toHaveLength(1);
   });
 
   test("a \\newcommand is named as well, and a plain correction still passes", () => {

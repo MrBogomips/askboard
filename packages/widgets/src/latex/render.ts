@@ -6,10 +6,30 @@
 // expands a macro at most 1,000 times, and starts every render with an empty macro table, so that
 // `\gdef` never outlives its render.
 
+import { LATEX_NESTING_MAX_DEPTH, scanLatex } from "@askboard/contract";
 import katex, { type KatexOptions } from "katex";
 
-/** What `renderInto` gives back: KaTeX's message, or a fixed text for anything but an `Error`. */
-export type Rendered = { readonly error?: string };
+/**
+ * Why an expression was not given to KaTeX: it holds a macro definition or an internal command
+ * (`command`), or nests deeper than the limit (`depth` and `limit`), as the contract's scan reads it.
+ */
+export type Refused =
+  | { readonly command: string }
+  | { readonly depth: number; readonly limit: number };
+
+/**
+ * What `renderInto` gives back: KaTeX's message (or a fixed text for anything but an `Error`) when
+ * the expression does not render, or the refusal when KaTeX never ran.
+ */
+export type Rendered = { readonly error?: string; readonly refused?: Refused };
+
+// What the contract's scan refuses in `expression`, before KaTeX sees it: the bounds on work are on
+// the source (design decision 7, Bounded work), so every caller of this module is bounded.
+const refusalOf = (expression: string): Refused | undefined => {
+  const { refused, depth } = scanLatex(expression);
+  if (refused !== undefined) return { command: refused };
+  return depth > LATEX_NESTING_MAX_DEPTH ? { depth, limit: LATEX_NESTING_MAX_DEPTH } : undefined;
+};
 
 /** The text shown for a thrown value that is no `Error`. */
 const UNKNOWN_ERROR = "The expression could not be drawn.";
@@ -36,10 +56,14 @@ const messageOf = (error: unknown): string =>
 
 /**
  * KaTeX's message for an expression that does not render, or nothing for one that does (the empty
- * expression renders). For tests in Bun, which has no DOM: it builds markup that nothing ever puts
- * into a page.
+ * expression renders), or `{refused}` for one the scan refuses, which KaTeX never sees. For tests in
+ * Bun, which has no DOM: it builds markup that nothing ever puts into a page.
  */
-export const parseProblem = (expression: string): string | undefined => {
+export const parseProblem = (
+  expression: string,
+): string | { readonly refused: Refused } | undefined => {
+  const refused = refusalOf(expression);
+  if (refused !== undefined) return { refused };
   try {
     katex.renderToString(expression, renderOptions());
     return undefined;
@@ -50,11 +74,14 @@ export const parseProblem = (expression: string): string | undefined => {
 
 /**
  * Draws `expression` into `element`, replacing its content, and says what went wrong, if
- * anything: every error is caught, a `ParseError` and a browser's `RangeError` on a deep nest alike.
+ * anything: an expression the scan refuses is not drawn and leaves the element as it was, and every
+ * error is caught, a `ParseError` and a browser's `RangeError` on a deep nest alike.
  * `katex.render` empties its target before it parses, so it draws into a node of the element's
  * document first: an expression that fails leaves what the element held.
  */
 export const renderInto = (element: HTMLElement, expression: string): Rendered => {
+  const refused = refusalOf(expression);
+  if (refused !== undefined) return { refused };
   try {
     const scratch = element.ownerDocument.createElement("span");
     katex.render(expression, scratch, renderOptions());
