@@ -6,8 +6,8 @@
 export const SCALE_BOUND = 1_000_000_000;
 /** A scale divides into at most this many steps. */
 export const SCALE_MAX_STEPS = 1000;
-/** A rating shows at most this many steps, one toggle each. */
-export const SCALE_RATING_MAX_STEPS = 11;
+/** A rating shows at most this many values, one toggle each. */
+export const SCALE_RATING_MAX_VALUES = 11;
 export const SCALE_LABEL_MAX_CHARS = 60;
 export const SCALE_UNIT_MAX_CHARS = 20;
 /** The step when the props give none. */

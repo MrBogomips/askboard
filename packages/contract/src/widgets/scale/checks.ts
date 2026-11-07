@@ -1,6 +1,6 @@
 // The Scale's rules that its schemas cannot say (approval-scale-ranking, design decision 1): max
 // above min, the step dividing the scale into whole steps, at most 1,000 of them, a rating of one
-// value and at most 11 steps, and, of a result, which form its props take and that each number lies
+// value and at most 11 values, and, of a result, which form its props take and that each number lies
 // on a step between min and max. The step arithmetic is written once and serves props and result.
 //
 // Plain ECMAScript with no JSON and no Ajv: the scale chunk bundles it. Nothing here throws on a
@@ -12,15 +12,22 @@ import type { Problem } from "../../validate.ts";
 import {
   SCALE_DEFAULT_STEP,
   SCALE_MAX_STEPS,
-  SCALE_RATING_MAX_STEPS,
+  SCALE_RATING_MAX_VALUES,
   SCALE_STEP_TOLERANCE,
 } from "./constants.ts";
 
 const finite = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-// A count with thousands separators, as the limits read in a message.
+// A count with thousands separators, as the limits read in a message. Only a safe integer is
+// grouped: a larger count prints in exponent notation, where separators garble it.
 const grouped = (count: number): string => String(count).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+// "has 2,000 steps", or "has more than 1,000 steps" when the count is no safe integer.
+const stepsOver = (steps: number): string =>
+  Number.isSafeInteger(steps)
+    ? `has ${grouped(steps)} steps, over the limit of ${grouped(SCALE_MAX_STEPS)}`
+    : `has more than ${grouped(SCALE_MAX_STEPS)} steps`;
 
 /**
  * The number of steps `step` makes of the scale from `min` to `max`, or `undefined` when it does not
@@ -68,12 +75,12 @@ const reading = (props: unknown): Reading | undefined => {
   return steps === undefined ? undefined : { min, max, step, steps, range: props.range === true };
 };
 
-const RATING_TEXT = `a rating takes one value of at most ${SCALE_RATING_MAX_STEPS} steps`;
+const RATING_TEXT = `a rating takes one value out of at most ${SCALE_RATING_MAX_VALUES}`;
 
 /**
  * What a schema-valid Scale's props still get wrong: `max` not above `min`, a step that leaves the
  * scale in no whole number of steps or in more than 1,000, and a rating with a range or with more
- * than 11 steps. A value the schema refuses gives nothing here: the schema's problem stands.
+ * than 11 values. A value the schema refuses gives nothing here: the schema's problem stands.
  */
 export const scalePropsProblems = (props: unknown): readonly Problem[] => {
   if (!isRecord(props)) return [];
@@ -89,7 +96,7 @@ export const scalePropsProblems = (props: unknown): readonly Problem[] => {
     return [{ path: at, message }];
   }
   if (steps > SCALE_MAX_STEPS) {
-    const message = `the scale from ${min} to ${max} in steps of ${step} has ${grouped(steps)} steps, over the limit of ${grouped(SCALE_MAX_STEPS)}`;
+    const message = `the scale from ${min} to ${max} in steps of ${step} ${stepsOver(steps)}`;
     return [{ path: at, message }];
   }
   if (props.display !== "rating") return [];
@@ -97,27 +104,27 @@ export const scalePropsProblems = (props: unknown): readonly Problem[] => {
   if (props.range === true) {
     problems.push({ path: "/range", message: `${RATING_TEXT}: remove range` });
   }
-  if (steps + 1 > SCALE_RATING_MAX_STEPS) {
+  if (steps + 1 > SCALE_RATING_MAX_VALUES) {
     problems.push({
       path: "/display",
-      message: `${RATING_TEXT}, and the scale from ${min} to ${max} in steps of ${step} has ${steps + 1}`,
+      message: `${RATING_TEXT}, and the scale from ${min} to ${max} in steps of ${step} has ${steps + 1} values`,
     });
   }
   return problems;
 };
 
-// The problem of one number of a result: not on a step, or on a step outside the scale.
+// The problem of one number of a result: outside min to max exactly, or not on a step. The bounds
+// are exact; the billionth of a step is the grid's tolerance only.
 const numberProblem = (name: string, value: unknown, read: Reading): Problem | undefined => {
   if (!finite(value)) return undefined;
-  const index = scaleStepIndex(value, read.min, read.step);
-  if (index === undefined) {
-    return {
-      path: `/${name}`,
-      message: `${name} ${value} is not on a step of ${read.step} from ${read.min}`,
-    };
+  if (value < read.min || value > read.max) {
+    return { path: `/${name}`, message: `${name} ${value} is outside ${read.min} to ${read.max}` };
   }
-  return index < 0 || index > read.steps
-    ? { path: `/${name}`, message: `${name} ${value} is outside ${read.min} to ${read.max}` }
+  return scaleStepIndex(value, read.min, read.step) === undefined
+    ? {
+        path: `/${name}`,
+        message: `${name} ${value} is not on a step of ${read.step} from ${read.min}`,
+      }
     : undefined;
 };
 

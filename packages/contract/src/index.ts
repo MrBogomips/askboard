@@ -662,7 +662,7 @@ export type { WidgetAnswer } from "./widgets/registry.ts";
 export { widgetAnswerProblems } from "./widgets/results.ts";
 export {
   SCALE_MAX_STEPS,
-  SCALE_RATING_MAX_STEPS,
+  SCALE_RATING_MAX_VALUES,
   SCALE_SCHEMA_IDS,
   SCALE_WIDGET,
   type ScaleItem,

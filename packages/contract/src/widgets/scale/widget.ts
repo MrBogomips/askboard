@@ -24,7 +24,7 @@ export const SCALE_WIDGET: WidgetType = {
     },
   },
   skill: {
-    use: "a number on a slider, a range between two numbers, or a rating of up to 11 steps",
+    use: "a number on a slider, a range between two numbers, or a rating of up to 11 values",
     notes: [
       "Nothing is set until the user sets it: the result is `value`, or `low` and `high` with `range`.",
     ],

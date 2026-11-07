@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { SCALE_FIXTURE_ITEMS, SCALE_RESULTS, withWidgetTypes } from "../src/fixtures/index.ts";
 import {
   SCALE_MAX_STEPS,
-  SCALE_RATING_MAX_STEPS,
+  SCALE_RATING_MAX_VALUES,
   SCALE_SCHEMA_IDS,
   SCALE_WIDGET,
   scaleStepCount,
@@ -101,22 +101,50 @@ describe("Scale items", () => {
     expect(fieldsOf({ min: 0, max: 5, range: "yes" })).toEqual(["props.range"]);
   });
 
-  test("a rating takes one value of at most 11 steps", () => {
-    expect(SCALE_RATING_MAX_STEPS).toBe(11);
+  test("a rating takes one value out of at most 11", () => {
+    expect(SCALE_RATING_MAX_VALUES).toBe(11);
     const rating = (props: Record<string, unknown>) => ({ display: "rating", ...props });
     expect(problems(rating({ min: 1, max: 5 }))).toEqual([]);
     expect(problems(rating({ min: 0, max: 10 }))).toEqual([]);
     expect(problems(rating({ min: 0, max: 100, step: 10 }))).toEqual([]);
-    const [twelve] = problems(rating({ min: 0, max: 11 }));
+    const [twelve, ...more] = problems(rating({ min: 0, max: 11 }));
+    expect(more).toEqual([]);
     expect(twelve?.itemId).toBe("level");
-    expect(twelve?.message).toContain("a rating takes one value of at most 11 steps");
+    expect(twelve?.field).toBe("props.display");
+    expect(twelve?.message).toContain(
+      "a rating takes one value out of at most 11, and the scale from 0 to 11 in steps of 1 has 12 values",
+    );
     const [twenty] = problems(rating({ min: 0, max: 20 }));
-    expect(twenty?.message).toContain("a rating takes one value of at most 11 steps");
+    expect(twenty?.message).toContain("a rating takes one value out of at most 11");
     const [ranged] = problems(rating({ min: 1, max: 5, range: true }));
     expect(ranged?.field).toBe("props.range");
-    expect(ranged?.message).toContain("a rating takes one value of at most 11 steps");
+    expect(ranged?.message).toContain("a rating takes one value out of at most 11: remove range");
     expect(problems({ min: 1, max: 5, range: true })).toEqual([]);
     expect(problems({ min: 1, max: 5, range: false, display: "rating" })).toEqual([]);
+  });
+
+  test("the Scale's wording says values, not steps, of a rating", () => {
+    expect(SCALE_WIDGET.wording?.expected["scale.props.display"]).toBe(
+      '"slider" or "rating": a rating takes one value out of at most 11',
+    );
+    expect(SCALE_WIDGET.skill?.use).toBe(
+      "a number on a slider, a range between two numbers, or a rating of up to 11 values",
+    );
+  });
+
+  test("a step count too large for a count in words says more than 1,000 steps, with no count", () => {
+    for (const step of [1e-300, 1e-290]) {
+      const [problem, ...rest] = problems({ min: 0, max: 1, step });
+      expect(rest).toEqual([]);
+      expect(problem?.field).toBe("props.step");
+      expect(problem?.message).toContain(
+        `the scale from 0 to 1 in steps of ${step} has more than 1,000 steps`,
+      );
+      expect(problem?.message).not.toContain("e+");
+      expect(problem?.message).not.toMatch(/\.\d*,/);
+    }
+    const [two] = problems({ min: 0, max: 2000, step: 1 });
+    expect(two?.message).toContain("has 2,000 steps, over the limit of 1,000");
   });
 
   test("a check never throws on props it cannot read", () => {
@@ -162,6 +190,25 @@ describe("Scale results", () => {
       expect(found[0]?.path).toBe(field);
       expect(found[0]?.message).toContain("item share");
     }
+  });
+
+  test("a number a hair outside the bounds fails, naming the item and the field", () => {
+    const unit = scale({ min: 0, max: 10, step: 1 }, "u");
+    expect(check(unit, { value: 10 })).toEqual([]);
+    expect(check(unit, { value: 0 })).toEqual([]);
+    for (const value of [10.0000000005, -0.0000000005]) {
+      const found = check(unit, { value });
+      expect(found.length).toBeGreaterThan(0);
+      expect(found[0]?.path).toBe("/value");
+      expect(found[0]?.message).toContain("item u");
+    }
+    const ranged = scale({ min: 0, max: 10, step: 1, range: true }, "u");
+    expect(check(ranged, { low: 0, high: 10 })).toEqual([]);
+    expect(check(ranged, { low: -5e-10, high: 4 })[0]?.path).toBe("/low");
+    expect(check(ranged, { low: 2, high: 10 + 5e-10 })[0]?.path).toBe("/high");
+    const tenths = scale({ min: 0, max: 1, step: 0.1 }, "p");
+    expect(check(tenths, { value: 0.3 })).toEqual([]);
+    expect(check(tenths, { value: 1 })).toEqual([]);
   });
 
   test("a range of low and high on steps passes, equal ends included", () => {
