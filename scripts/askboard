@@ -42,6 +42,14 @@ at_least() {
   [ "$3" -ge "$6" ]
 }
 
+# Run outside the project (review 1.5, X-1): files in the user's project (a Volta hooks.json naming a
+# script, a version file a shim reads, a bunfig.toml preload) must not choose or run code when the
+# runtime starts. The session process reads the project from CLAUDE_PROJECT_DIR, which keeps its
+# value or takes the caller's directory, and the hooks read theirs from their input's cwd.
+CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-$PWD}
+export CLAUDE_PROJECT_DIR
+cd "$ROOT" || exit 1
+
 found=$(node -p process.versions.node 2>/dev/null) || found=
 if at_least "$found" "$REQUIRED"; then
   exec node "$ROOT/dist/askboard.mjs" "$@"

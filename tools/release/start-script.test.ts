@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -77,12 +78,23 @@ type Ran = {
 const runScript = async (
   script: string,
   args: string[],
-  options: { version: string; shims?: string } = { version: "24.22.1" },
+  options: {
+    version: string;
+    shims?: string;
+    cwd?: string;
+    env?: Record<string, string>;
+  } = { version: "24.22.1" },
 ): Promise<Ran> => {
   const shims = options.shims ?? shimNode(folder());
   const log = join(folder(), "shim.log");
   const child = Bun.spawn(["/bin/sh", script, ...args], {
-    env: { PATH: `${shims}:${SYSTEM_PATH}`, SHIM_VERSION: options.version, SHIM_LOG: log },
+    cwd: options.cwd,
+    env: {
+      PATH: `${shims}:${SYSTEM_PATH}`,
+      SHIM_VERSION: options.version,
+      SHIM_LOG: log,
+      ...options.env,
+    },
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -218,6 +230,120 @@ describe("a Node that is too old", () => {
       expect(ran.recorded).toEqual([]);
     },
   );
+});
+
+/**
+ * A `node` that appends, for every call, its working directory, `CLAUDE_PROJECT_DIR` and a marker
+ * when the working directory holds `.volta/hooks.json`, the way a runtime shim would read a
+ * project's file (review 1.5, X-1); it answers `-p` with the version.
+ */
+const projectShimNode = (into: string): string => {
+  mkdirSync(into, { recursive: true });
+  const shim = join(into, "node");
+  writeFileSync(
+    shim,
+    [
+      "#!/bin/sh",
+      "{",
+      "  printf 'pwd=%s\\n' \"$(pwd -P)\"",
+      // A template literal, so the shell's own ${...} is escaped and not read as a placeholder.
+      `  printf 'project=%s\\n' "\${CLAUDE_PROJECT_DIR-unset}"`,
+      "  if [ -e ./.volta/hooks.json ]; then printf 'marker=ran in %s\\n' \"$PWD\"; fi",
+      '} >> "$SHIM_LOG"',
+      'if [ "$1" = "-p" ]; then printf \'%s\\n\' "$SHIM_VERSION"; fi',
+      "",
+    ].join("\n"),
+  );
+  chmodSync(shim, 0o755);
+  return into;
+};
+
+/** A project folder whose files would run a script if a runtime shim read them from there. */
+const voltaProject = (): string => {
+  const project = folder("askboard-start-project-");
+  mkdirSync(join(project, ".volta"));
+  writeFileSync(join(project, ".volta", "hooks.json"), '{"node":{"distro":{"bin":"./d.sh"}}}\n');
+  writeFileSync(join(project, ".volta", "d.sh"), "#!/bin/sh\n");
+  return project;
+};
+
+const linesOf = (recorded: string[], key: string): string[] =>
+  recorded.filter((line) => line.startsWith(`${key}=`)).map((line) => line.slice(key.length + 1));
+
+describe("the start script runs outside the project (review 1.5, X-1)", () => {
+  test.each([[["hook", "PreToolUse"]], [[]]])(
+    "node runs in the plugin root, for the version probe and the exec, with args %p",
+    async (args) => {
+      const root = pluginRoot();
+      const project = voltaProject();
+      const ran = await runScript(join(root, "scripts", "askboard"), args, {
+        version: "24.22.1",
+        shims: projectShimNode(folder()),
+        cwd: project,
+      });
+      expect(linesOf(ran.recorded, "pwd")).toEqual([root, root]);
+      expect(linesOf(ran.recorded, "marker")).toEqual([]);
+    },
+  );
+
+  test("the refusal's probe runs in the plugin root too", async () => {
+    const root = pluginRoot();
+    const ran = await runScript(join(root, "scripts", "askboard"), ["hook", "PreToolUse"], {
+      version: "22.11.0",
+      shims: projectShimNode(folder()),
+      cwd: voltaProject(),
+    });
+    expect(ran.code).toBe(0);
+    expect(linesOf(ran.recorded, "pwd")).toEqual([root]);
+    expect(linesOf(ran.recorded, "marker")).toEqual([]);
+  });
+
+  test("CLAUDE_PROJECT_DIR unset reaches node as the caller's directory", async () => {
+    const root = pluginRoot();
+    const project = voltaProject();
+    const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
+      version: "24.22.1",
+      shims: projectShimNode(folder()),
+      cwd: project,
+    });
+    expect(linesOf(ran.recorded, "project")).toEqual([project, project]);
+  });
+
+  test("an empty CLAUDE_PROJECT_DIR takes the caller's directory too", async () => {
+    const root = pluginRoot();
+    const project = voltaProject();
+    const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
+      version: "24.22.1",
+      shims: projectShimNode(folder()),
+      cwd: project,
+      env: { CLAUDE_PROJECT_DIR: "" },
+    });
+    expect(linesOf(ran.recorded, "project")).toEqual([project, project]);
+  });
+
+  test("a CLAUDE_PROJECT_DIR the caller set is kept", async () => {
+    const root = pluginRoot();
+    const named = folder("askboard-start-named-");
+    const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
+      version: "24.22.1",
+      shims: projectShimNode(folder()),
+      cwd: voltaProject(),
+      env: { CLAUDE_PROJECT_DIR: named },
+    });
+    expect(linesOf(ran.recorded, "project")).toEqual([named, named]);
+  });
+
+  test("a relative call path from the project still finds the plugin root", async () => {
+    const root = pluginRoot();
+    const project = join(root, "project");
+    mkdirSync(project);
+    const ran = await runScript("../scripts/askboard", ["x"], {
+      version: "24.22.1",
+      shims: shimNode(folder()),
+      cwd: project,
+    });
+    expect(argsOf(ran.recorded)).toEqual([join(root, "dist", "askboard.mjs"), "x"]);
+  });
 });
 
 /** A folder holding only the external tools the script uses: no `node` is on a PATH made of it. */
@@ -588,6 +714,57 @@ describe("the real bundle", () => {
       expect(answers[1]?.result?.serverInfo?.name).toBe("askboard");
       expect(answers[2]?.result?.tools?.map((tool) => tool.name)).toContain("ask");
       expect(exited).toBe(0);
+    },
+    40_000,
+  );
+
+  test.skipIf(missing !== null || !usable)(
+    "the session process finds the project from the caller's directory, not the plugin root",
+    async () => {
+      const project = realpathSync(folder("askboard-start-project-"));
+      // Short, since the local API's socket path has a platform limit that tmpdir() can exceed.
+      const temp = realpathSync(mkdtempSync("/tmp/ab-"));
+      folders.push(temp);
+      const env: Record<string, string | undefined> = {
+        ...process.env,
+        XDG_RUNTIME_DIR: undefined,
+        CLAUDE_PROJECT_DIR: undefined,
+        TMPDIR: temp,
+      };
+      const child = Bun.spawn(["/bin/sh", SCRIPT], {
+        cwd: project,
+        env,
+        stdin: "pipe",
+        stdout: "ignore",
+        stderr: "pipe",
+      });
+      const init = {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "t", version: "0" },
+        },
+      };
+      // The local API, and with it the session file, starts at the first request after discovery.
+      const lines = [init, { jsonrpc: "2.0", id: 2, method: "tools/list" }];
+      child.stdin.write(`${lines.map((line) => JSON.stringify(line)).join("\n")}\n`);
+      child.stdin.flush();
+      // The one session file of the temporary session folder, whatever PID names it.
+      const folderOf = join(temp, `askboard-${process.getuid?.()}`);
+      const sessionFiles = (): string[] =>
+        existsSync(folderOf) ? readdirSync(folderOf).filter((name) => name.endsWith(".json")) : [];
+      const deadline = Date.now() + 20_000;
+      while (sessionFiles().length === 0 && Date.now() < deadline) await Bun.sleep(100);
+      const [name] = sessionFiles();
+      const session =
+        name === undefined ? undefined : JSON.parse(readFileSync(join(folderOf, name), "utf8"));
+      child.stdin.end();
+      const exited = await Promise.race([child.exited, Bun.sleep(10_000).then(() => "timeout")]);
+      if (exited === "timeout") child.kill();
+      expect(session?.projectDir).toBe(project);
     },
     40_000,
   );
