@@ -687,3 +687,70 @@ export {
 // the type's own checks alone, with no schema, for the board page's draft.
 
 export { widgetResultFits } from "./widgets/result-fits.ts";
+
+// The whole-field shape of the generic diff (latex-kanban-timeline, design decision 2).
+
+export type { FieldsShape } from "./widgets/element-diff.ts";
+
+// Changes checked against their type (latex-kanban-timeline, design decision 6).
+
+export { widgetChangesProblems } from "./widgets/results.ts";
+
+// LaTeX, Kanban and Timeline (latex-kanban-timeline, design decisions 1 and 3 to 5): the entries,
+// with their constants and checks; the three are in `WIDGET_TYPES`.
+
+export {
+  KANBAN_CARD_DESCRIPTION_MAX_CHARS,
+  KANBAN_CARD_LABEL_MAX_CHARS,
+  KANBAN_COLUMN_LABEL_MAX_CHARS,
+  KANBAN_MAX_CARDS,
+  KANBAN_MAX_COLUMNS,
+  KANBAN_MIN_CARDS,
+  KANBAN_MIN_COLUMNS,
+  KANBAN_SCHEMA_IDS,
+  KANBAN_SHAPE,
+  KANBAN_WIDGET,
+  type KanbanCard,
+  type KanbanChange,
+  type KanbanColumn,
+  type KanbanItem,
+  type KanbanProps,
+  kanbanPropsProblems,
+} from "./widgets/kanban/index.ts";
+export {
+  cutLatexExpression,
+  LATEX_DEFINING_COMMANDS,
+  LATEX_EXPRESSION_MAX_CHARS,
+  LATEX_INFIX_COMMANDS,
+  LATEX_LEVEL_CLOSERS,
+  LATEX_LEVEL_OPENERS,
+  LATEX_NESTING_MAX_DEPTH,
+  LATEX_RAW_TOKEN_COMMANDS,
+  LATEX_SCHEMA_IDS,
+  LATEX_SHAPE,
+  LATEX_WIDGET,
+  type LatexChange,
+  type LatexItem,
+  type LatexProps,
+  type LatexScan,
+  latexPropsProblems,
+  scanLatex,
+} from "./widgets/latex/index.ts";
+export {
+  TIMELINE_ENTRY_LABEL_MAX_CHARS,
+  TIMELINE_LANE_LABEL_MAX_CHARS,
+  TIMELINE_MAX_ENTRIES,
+  TIMELINE_MAX_LANES,
+  TIMELINE_MIN_ENTRIES,
+  TIMELINE_MIN_LANES,
+  TIMELINE_SCHEMA_IDS,
+  TIMELINE_SHAPE,
+  TIMELINE_WIDGET,
+  type TimelineChange,
+  type TimelineChangeField,
+  type TimelineEntry,
+  type TimelineItem,
+  type TimelineLane,
+  type TimelineProps,
+  timelinePropsProblems,
+} from "./widgets/timeline/index.ts";

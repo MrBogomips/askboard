@@ -644,6 +644,80 @@ describe("results beside the draft record (widget-registry, design decision 9)",
     expect(restored.board.work("database")).toEqual({ rev: 1 });
   });
 
+  // A widget with a value check, as the Kanban and the Timeline register: a value fits while it
+  // names the question's own tag (security review X-2).
+  describe("a value the shown revision does not fit", () => {
+    const tagged = {
+      ...document,
+      items: [
+        {
+          ...document.items[0],
+          props: {
+            ...(document.items[0] as { props: object }).props,
+            items: [{ type: "tagged", id: "cards", props: { tag: "a" } }],
+          },
+        },
+      ],
+    } as unknown as ViewDocument;
+    const valueFacts = (type: string) =>
+      type === "tagged"
+        ? {
+            valueFits: (value: unknown, props: unknown) =>
+              (value as { tag: string }).tag === (props as { tag: string }).tag,
+          }
+        : undefined;
+    const savedAt = (rev: number, value: unknown): DraftRecord => ({
+      delivery: "immediate",
+      questions: { database: { rev, values: { cards: value } } } as never,
+    });
+    const restoredFrom = (record: DraftRecord, shown: ViewDocument) => {
+      const values = createDraftStore();
+      const results = createDraftStore();
+      const board = createBoardDraft("immediate");
+      connectDrafts(shown, values, board, results);
+      restoreDraft(record, shown, openState(shown), values, board, results, valueFacts);
+      return { values, results, board };
+    };
+
+    test("work on this revision holds a value that fits and drops one that does not, with no work left", () => {
+      const fits = restoredFrom(savedAt(1, { tag: "a" }), tagged);
+      expect(fits.values.valueOf("cards")).toEqual({ tag: "a" });
+      expect(fits.board.work("database")).toEqual({ rev: 1 });
+      const refused = restoredFrom(savedAt(1, { tag: "b" }), tagged);
+      expect(refused.values.record().has("cards")).toBe(false);
+      expect(refused.board.work("database")).toBeUndefined();
+    });
+
+    test("work on an earlier revision stays for the notice and Keep mine to settle, as a result does", () => {
+      const rerevised = {
+        ...tagged,
+        items: [{ ...tagged.items[0], rev: 2 }],
+      } as unknown as ViewDocument;
+      const restored = restoredFrom(savedAt(1, { tag: "b" }), rerevised);
+      expect(restored.values.valueOf("cards")).toEqual({ tag: "b" });
+      expect(restored.board.work("database")).toEqual({ rev: 1 });
+    });
+
+    test("an item whose type registered no value check keeps its value", () => {
+      const restored = restoredFrom(savedAt(1, { tag: "b" }), document);
+      expect(restored.values.record().size).toBe(0);
+      const bare = {
+        ...tagged,
+        items: [
+          {
+            ...tagged.items[0],
+            props: {
+              ...(tagged.items[0] as { props: object }).props,
+              items: [{ type: "probe", id: "cards", props: {} }],
+            },
+          },
+        ],
+      } as unknown as ViewDocument;
+      const kept = restoredFrom(savedAt(1, { tag: "b" }), bare);
+      expect(kept.values.valueOf("cards")).toEqual({ tag: "b" });
+    });
+  });
+
   test("a record holding results alone is work, and comes back as work", () => {
     const { values, results, board } = withResults();
     const saved: DraftRecord = {

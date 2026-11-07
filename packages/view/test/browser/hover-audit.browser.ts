@@ -3,8 +3,9 @@
 // "No hover feedback where nothing responds"), on the controls this change added and the ones the
 // shared layer of task 1.1 could miss: a button, an editable cell, a disabled control, the drag
 // handle, the column edge and a Gantt bar, in the light and the dark scheme, and the read-only
-// widgets; and, since approval-scale-ranking (task 6.7), the controls of the Approval, the Scale
-// and the Ranking. `hover-layer.browser.ts` holds the first layer's own scenarios.
+// widgets; since approval-scale-ranking (task 6.7), the controls of the Approval, the Scale and
+// the Ranking; and, since latex-kanban-timeline (task 6.5), those of the LaTeX, the Kanban and the
+// Timeline. `hover-layer.browser.ts` holds the first layer's own scenarios.
 
 import { describe, expect, test } from "bun:test";
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
@@ -14,13 +15,18 @@ import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { approvalDocument } from "./fixtures/approval-documents.ts";
 import { chooseWeek, planGantt } from "./fixtures/gantt-plan.ts";
 import { ganttOf } from "./fixtures/gantt-view.ts";
+import { kanbanDocument } from "./fixtures/kanban-documents.ts";
+import { latexDocument } from "./fixtures/latex-documents.ts";
 import { rankingDocument } from "./fixtures/ranking-documents.ts";
 import { scaleDocument } from "./fixtures/scale-documents.ts";
+import { timelineDocument } from "./fixtures/timeline-documents.ts";
 import { plan } from "./fixtures/tree-documents.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { tokenColor } from "./harness/design-colors.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { cardOf } from "./harness/kanban-drag.ts";
 import { tabIntoGroup } from "./harness/tab-stops.ts";
+import { entryOf, shapeOf } from "./harness/timeline-drag.ts";
 import { handleOf } from "./harness/tree-drag.ts";
 import { enabledTools, pressIn, treeGridOf } from "./harness/tree-grid.ts";
 import { focusPortal, readyIn, typeIn } from "./harness/tree-steps.ts";
@@ -276,6 +282,136 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             async () => (await row("speed").getAttribute("aria-current")) === "true",
             "the pressed row to become current",
           );
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+}
+
+// The LaTeX, the Kanban and the Timeline (latex-kanban-timeline, task 6.5): their tools respond or
+// stay inert, a draggable card and a movable entry take the grab cursor, the source field takes the
+// text cursor and the ring from the keyboard, and a locked board's show nothing.
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the LaTeX, the Kanban and the Timeline`, () => {
+    const { host } = useWidgetHost(engine);
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, the Kanban's tool is inert until a card is current, then responds; a card grabs, takes the ring from the keyboard, and a locked board's show nothing`,
+        async () => {
+          const document = kanbanDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          const tool = board.view
+            .getByRole("toolbar", { name: "Kanban tools" })
+            .getByRole("button", { name: "Move to…", exact: true });
+          // No card is current: the tool is disabled and inert.
+          await expectInert(run, tool);
+          expect((await hovered(cardOf(board, "a"))).cursor).toBe("grab");
+          await cardOf(board, "a").click();
+          await eventually(
+            async () => (await tool.getAttribute("aria-disabled")) === null,
+            "Move to… to turn on",
+          );
+          await board.page.mouse.move(0, 0);
+          await expectResponds(tool, scheme);
+          await board.page.mouse.move(0, 0);
+          await cardOf(board, "c").focus();
+          await board.page.keyboard.press("ArrowUp");
+          await expectRing(cardOf(board, "a"));
+          await lock(run, document);
+          await eventually(
+            async () => (await tool.getAttribute("aria-disabled")) === "true",
+            "the tool to turn off",
+          );
+          await expectInert(run, tool);
+          expect((await hovered(cardOf(board, "a"))).cursor).not.toBe("grab");
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        `in the ${scheme} scheme, the Timeline's tools respond once an entry is current and are inert when none is or the board is locked, an entry's shape grabs and takes the ring from the keyboard`,
+        async () => {
+          const document = timelineDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          const tool = (name: string) =>
+            board.view
+              .getByRole("toolbar", { name: "Timeline tools" })
+              .getByRole("button", { name, exact: true });
+          await expectInert(run, tool("Move later"));
+          expect((await hovered(shapeOf(board, "checkout"))).cursor).toBe("grab");
+          await entryOf(board, "launch").focus();
+          await board.page.keyboard.press("ArrowUp");
+          // The entry holds the focus; its ring is the 2px stroke of the current mark, in `ring`.
+          expect(
+            await entryOf(board, "checkout").evaluate(
+              (el) => el === el.ownerDocument.activeElement,
+            ),
+          ).toBe(true);
+          const ring = await entryOf(board, "checkout")
+            .locator("[data-timeline-current]")
+            .evaluate((el) => {
+              const style = getComputedStyle(el);
+              return { stroke: style.stroke, width: style.strokeWidth };
+            });
+          expect(ring).toEqual({ stroke: tokenColor("ring", scheme), width: "2px" });
+          await eventually(
+            async () => (await tool("Move later").getAttribute("aria-disabled")) === null,
+            "Move later to turn on",
+          );
+          await board.page.mouse.move(0, 0);
+          await expectResponds(tool("Move later"), scheme);
+          await board.page.mouse.move(0, 0);
+          await expectResponds(tool("Move to lane…"), scheme);
+          await lock(run, document);
+          for (const name of ["Move earlier", "Move later", "Move to lane…"]) {
+            await eventually(
+              async () => (await tool(name).getAttribute("aria-disabled")) === "true",
+              `${name} to turn off`,
+            );
+            await expectInert(run, tool(name));
+          }
+          expect((await hovered(shapeOf(board, "checkout"))).cursor).not.toBe("grab");
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        `in the ${scheme} scheme, the LaTeX's source takes the text cursor and the ring from the keyboard, its preview shows no pointer, and a locked board's field changes no look under the pointer`,
+        async () => {
+          const document = latexDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          const field = board.view.locator("[data-latex-source]");
+          // The text cursor is the field's own: Chromium computes `text`, WebKit `auto`.
+          expect(["text", "auto"]).toContain((await hovered(field)).cursor);
+          expect((await hovered(board.view.locator("[data-latex-preview]"))).cursor).not.toBe(
+            "pointer",
+          );
+          await board.page.mouse.move(0, 0);
+          await field.focus();
+          await board.page.keyboard.press("ArrowRight");
+          await eventually(
+            async () => (await lookOf(field)).outline.includes("2px solid"),
+            "the ring on the field",
+          );
+          await expectRing(field);
+          await lock(run, document);
+          await eventually(
+            async () => (await field.getAttribute("readonly")) !== null,
+            "the field to turn read-only",
+          );
+          // A read-only field still selects text, so its cursor stays honest; its look does not change.
+          await expectInert(run, field, false);
           expect(run.browser.errors).toEqual([]);
         },
         TEST_TIMEOUT_MS,

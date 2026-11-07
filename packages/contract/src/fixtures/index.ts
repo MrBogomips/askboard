@@ -200,3 +200,29 @@ export {
   SCALE_RESULTS,
   withWidgetTypes,
 } from "./approval-scale-ranking.ts";
+
+// LaTeX, Kanban and Timeline (latex-kanban-timeline, design decisions 3 to 5): each type's items,
+// the act that sends an edit, the event that logs it and the `fetch` of the item.
+
+export {
+  EDIT_WIDGETS_SESSION,
+  KANBAN_CHANGES,
+  KANBAN_EDITED_PROPS,
+  KANBAN_FIXTURE_ITEM,
+  kanbanAct,
+  kanbanAnswerEvent,
+  kanbanFetchItemResult,
+  LATEX_CHANGES,
+  LATEX_EDITED_PROPS,
+  LATEX_FIXTURE_ITEM,
+  latexAct,
+  latexAnswerEvent,
+  latexFetchItemResult,
+  NOT_A_WIDGET,
+  TIMELINE_CHANGES,
+  TIMELINE_EDITED_PROPS,
+  TIMELINE_FIXTURE_ITEM,
+  timelineAct,
+  timelineAnswerEvent,
+  timelineFetchItemResult,
+} from "./latex-kanban-timeline.ts";

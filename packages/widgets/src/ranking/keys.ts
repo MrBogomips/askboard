@@ -2,8 +2,6 @@
 // the list's arrow keys move the current row and never the order, and the toolbar's tools are
 // enabled only where their act is possible. Pure.
 
-import type { ToolbarMove } from "../shared/toolbar-focus.ts";
-
 /** The tools of the toolbar, each enabled or not. */
 export type RankingTools = {
   readonly moveUp: boolean;
@@ -50,13 +48,5 @@ export const rankingTools = (
   return { moveUp: at > 0, moveDown: at >= 0 && at < order.length - 1, keep: true };
 };
 
-const TOOLBAR_KEYS: Readonly<Record<string, ToolbarMove>> = {
-  ArrowLeft: "previous",
-  ArrowRight: "next",
-  Home: "first",
-  End: "last",
-};
-
-/** The move among the toolbar's tools a key makes, or none: the horizontal arrows, Home and End. */
-export const toolbarMoveOf = (key: string): ToolbarMove | undefined =>
-  Object.hasOwn(TOOLBAR_KEYS, key) ? TOOLBAR_KEYS[key] : undefined;
+// The toolbar's keys are the shared toolbar's, since latex-kanban-timeline.
+export { toolbarMoveOf } from "../shared/toolbar-focus.ts";

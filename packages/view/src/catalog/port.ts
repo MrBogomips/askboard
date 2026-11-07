@@ -123,6 +123,14 @@ export type ComponentFacts = {
    * each chunk registers it over the contract's own functions.
    */
   readonly fits?: (result: unknown, props: unknown) => boolean;
+  /**
+   * Whether the item shows `value`, the whole edited props it put into the draft, on a revision
+   * whose props are `props` (latex-kanban-timeline, task 5b.2; security review X-2): the item's own
+   * `shownProps` asks the same function, and the shell holds a value across an agent's change only
+   * while it says true, so an answer sends what the item shows (AD-10, AD-20). A type that gives no
+   * such value registers none, and the shell keeps its values as they are.
+   */
+  readonly valueFits?: (value: unknown, props: unknown) => boolean;
 };
 
 /** The two strings a required reason uses: the open prompt's label and its field error. */

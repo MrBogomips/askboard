@@ -6,7 +6,8 @@
 // drags count calendar days with. The reading, the forms and the refusals are the contract's
 // (`locale/entry.ts`); this module adds the Gantt's range, and keeps en-US where no locale is
 // given. Plain arithmetic on the calendar, with no `Date`, time zone or runtime locale (AD-13).
-// Dates are the Gantt's: this module moves to `shared/` when a second widget needs it.
+// Shared by the Gantt and the Timeline (latex-kanban-timeline design decision 10); the range is
+// the Gantt's.
 
 import {
   dateEcho,

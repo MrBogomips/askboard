@@ -16,7 +16,7 @@ import {
   type Locale,
 } from "@askboard/contract";
 import { parseNumber } from "../../shared/number.ts";
-import { type DateFormat, gridDate, parseDateEntry } from "./date.ts";
+import { type DateFormat, gridDate, parseDateEntry } from "../../shared/time/date.ts";
 import { clearDuration, clearStart, requestStart, setDuration } from "./edits.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import { type GanttColumn, type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";

@@ -1,6 +1,6 @@
 // The chart's bars (design decision 9; DESIGN.md Widgets, Gantt): per task the graph scheduled, a
 // 14px bar in `gantt-bar`, or in `critical` on the critical path, with a 6px handle on its end
-// that resizes it, a plan's by requesting a duration; the press that drags either is `bar-drag.ts`'s. A
+// that resizes it, a plan's by requesting a duration; the press that drags either is `shared/pointer-drag.ts`'s. A
 // task of no duration, a plan's milestone, is a diamond on its start. A
 // task the user changed takes the 2px `change` outline, offset by 1px (`gantt-user-change`).
 // While a bar is dragged it is drawn where it would land (`model/preview.ts`), and a move shows
@@ -12,11 +12,11 @@
 import { formatShortDate } from "@askboard/contract";
 import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, type PointerEvent } from "react";
-import type { DragKind } from "./bar-drag.ts";
+import type { PointerDrag } from "../shared/pointer-travel.ts";
+import { PIXELS_PER_DAY, xOf, type Zoom } from "../shared/time/scale.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { type BarBox, barBox, baselineBox, type RowBox, type RowBoxes } from "./model/layout.ts";
 import { looksCritical } from "./model/legend.ts";
-import { PIXELS_PER_DAY, xOf, type Zoom } from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 
@@ -97,6 +97,12 @@ export const BaselineShape = memo(({ baseline }: { readonly baseline: DrawnBasel
     />
   );
 });
+
+/** What a drag of a bar does: it moves the bar, or resizes it by its end. */
+export type DragKind = "move" | "resize";
+
+/** A bar being dragged: its task (`id`), what the drag does, and the pointer's travel so far. */
+export type BarDrag = PointerDrag<DragKind>;
 
 /** Where the press lands: the bar, or its end's handle. */
 export type Press = (taskId: string, kind: DragKind, event: PointerEvent<SVGElement>) => void;

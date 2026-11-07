@@ -36,3 +36,7 @@ export const GRAPH_FILE = join(WIDGETS_SRC, "board-graph/index.ts");
 
 /** Packages the build resolves as the view does, from its folder (isolated linker). */
 export const resolveFromView = (specifier: string): string => Bun.resolveSync(specifier, VIEW_DIR);
+
+/** Packages the build resolves as the widgets do, from their folder (a chunk's package stylesheet). */
+export const resolveFromWidgets = (specifier: string): string =>
+  Bun.resolveSync(specifier, join(ROOT, "packages/widgets"));

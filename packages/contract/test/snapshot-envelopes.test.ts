@@ -145,11 +145,11 @@ describe("the snapshot result", () => {
 
 describe("the registrations (Snapshot registrations are appended)", () => {
   test("the tool envelopes take their next minor, which every result names", () => {
-    // The minors, in order: E7's, widget-answers' (the next after it), widget-registry's, then
-    // approval-scale-ranking's.
-    expect(TOOL_ENVELOPES_VERSION).toBe("1.6");
+    // The minors, in order: E7's, widget-answers' (the next after it), widget-registry's,
+    // approval-scale-ranking's, then latex-kanban-timeline's.
+    expect(TOOL_ENVELOPES_VERSION).toBe("1.7");
     expect(toolEnvelopes.version).toBe(TOOL_ENVELOPES_VERSION);
-    expect(RESULT_VERSIONS).toEqual({ result: "1.6", output: OUTPUT_FORMAT_VERSION });
+    expect(RESULT_VERSIONS).toEqual({ result: "1.7", output: OUTPUT_FORMAT_VERSION });
   });
 
   test("the envelopes' new schemas follow the earlier ones, in their order", () => {

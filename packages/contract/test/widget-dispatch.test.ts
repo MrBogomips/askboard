@@ -13,7 +13,7 @@ import {
   itemKey,
   placedItems,
 } from "../src/ask-items.ts";
-import { PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
+import { NOT_A_WIDGET, PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
 import type { RequestProblem, Wording } from "../src/problems.ts";
 import { elementShapeOf, widgetItemProblems } from "../src/validate.ts";
 import { GANTT_WIDGET } from "../src/widgets/gantt/widget.ts";
@@ -67,13 +67,13 @@ describe("widgetItemProblems with a registry", () => {
     ]);
   });
 
-  test("refuses kanban, naming the item, with or without the probe", () => {
-    const kanban = { type: "kanban", id: "board", props: {} };
+  test("refuses a type no widget defines, naming the item, with or without the probe", () => {
+    const stranger = { type: NOT_A_WIDGET, id: "board", props: {} };
     for (const types of [WIDGET_TYPES, PROBE_TYPES]) {
-      expect(widgetItemProblems(kanban, question(kanban), "agent", types)).toEqual([
+      expect(widgetItemProblems(stranger, question(stranger), "agent", types)).toEqual([
         {
           path: "/",
-          message: `item board has the type "kanban", which is no widget the contract defines`,
+          message: `item board has the type "${NOT_A_WIDGET}", which is no widget the contract defines`,
         },
       ]);
     }
@@ -89,7 +89,7 @@ describe("elementShapeOf, widgetRest and elementOf with a registry", () => {
   test("give the probe's shape, and none without the probe", () => {
     expect(elementShapeOf(PROBE, PROBE_TYPES)).toEqual({ elements: "options" });
     expect(elementShapeOf(PROBE)).toBeUndefined();
-    expect(elementShapeOf({ type: "kanban", id: "k", props: {} }, PROBE_TYPES)).toBeUndefined();
+    expect(elementShapeOf({ type: NOT_A_WIDGET, id: "k", props: {} }, PROBE_TYPES)).toBeUndefined();
   });
 
   test("a type with no folding keeps its path, and the Tree and Gantt fold as before", () => {

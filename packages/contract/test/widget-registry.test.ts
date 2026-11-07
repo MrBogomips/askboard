@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { dirname, resolve } from "node:path";
-import { PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
+import { NOT_A_WIDGET, PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
 import {
   GANTT_ANSWER_DERIVED,
   GANTT_PLAN_SHAPE,
@@ -94,7 +94,7 @@ describe("the registry's entries", () => {
 
   test("are found by type, and an inherited name is no type", () => {
     expect(widgetTypeOf("gantt")).toBe(GANTT);
-    expect(widgetTypeOf("kanban")).toBeUndefined();
+    expect(widgetTypeOf(NOT_A_WIDGET)).toBeUndefined();
     expect(widgetTypeOf("constructor")).toBeUndefined();
     expect(widgetTypeOf(undefined)).toBeUndefined();
     expect(widgetTypeOf("probe", PROBE_TYPES)).toBe(PROBE_WIDGET);

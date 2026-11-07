@@ -4,6 +4,7 @@ import {
   type Change,
   type ElementShape,
   elementChanges,
+  type FieldsShape,
   SCHEMA_IDS,
 } from "../src/index.ts";
 import { validateAgainst } from "../src/validate.ts";
@@ -249,7 +250,7 @@ const refusalOf = (change: Change): string | undefined => {
   return held === undefined ? undefined : `"${held[0]}" holds undefined`;
 };
 
-const checkRuns = (shape: ElementShape, run: (seed: number) => Run) => {
+const checkRuns = (shape: Exclude<ElementShape, FieldsShape>, run: (seed: number) => Run) => {
   const failures: string[] = [];
   const counts: Record<string, number> = { add: 0, remove: 0, move: 0, set: 0 };
   for (let seed = 1; seed <= RUNS; seed += 1) {

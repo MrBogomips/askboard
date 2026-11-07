@@ -22,8 +22,11 @@ import type { Problem } from "../validate.ts";
 import { APPROVAL_WIDGET } from "./approval/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
+import { KANBAN_WIDGET } from "./kanban/widget.ts";
+import { LATEX_WIDGET } from "./latex/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
+import { TIMELINE_WIDGET } from "./timeline/widget.ts";
 import { TREE_WIDGET } from "./tree/widget.ts";
 
 /** Whether a widget's value is the agent's or the user's edit. */
@@ -122,6 +125,9 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   APPROVAL_WIDGET,
   SCALE_WIDGET,
   RANKING_WIDGET,
+  LATEX_WIDGET,
+  KANBAN_WIDGET,
+  TIMELINE_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

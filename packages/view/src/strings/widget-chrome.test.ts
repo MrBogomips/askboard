@@ -8,7 +8,17 @@ import { STRINGS } from "./index.ts";
 // the catalogue's English texts may stand as a literal in the widgets' sources.
 
 const SOURCES = join(import.meta.dir, "../../../widgets/src");
-const PREFIXES = ["tree.", "gantt.", "widget.", "approval.", "scale.", "ranking."] as const;
+const PREFIXES = [
+  "tree.",
+  "gantt.",
+  "widget.",
+  "approval.",
+  "scale.",
+  "ranking.",
+  "latex.",
+  "kanban.",
+  "timeline.",
+] as const;
 
 const sourcesUnder = (dir: string): readonly string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

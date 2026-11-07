@@ -21,8 +21,8 @@ import {
   type GanttProps,
   ID_PATTERN,
 } from "@askboard/contract";
-import { isGanttDate } from "./date.ts";
-import type { Say } from "./say.ts";
+import { isGanttDate } from "../../shared/time/date.ts";
+import type { Say } from "../../shared/time/say.ts";
 import {
   type GanttOwnProps,
   type GanttPlanProps,

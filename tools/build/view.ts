@@ -5,8 +5,12 @@
 // `import.meta`, a script or style that cannot be inlined as it is, a package without a licence,
 // a board page that would compile schemas, a chunk that needs a host-only chunk without being one
 // (snapshot design decision 5), a registered widget type with no chunk and a widget chunk of no
-// registered type (widget-registry, design decision 10), a manifest the contract refuses, a file whose hash does not match,
-// and a chunk grown more than 10% over `packages/view/chunk-sizes.json`.
+// registered type (widget-registry, design decision 10), a style that requests a file (a `url(` that
+// is not a `data:` URL, an `@import`) or a listed package stylesheet that cannot be read
+// (latex-kanban-timeline, design decision 8), inlined fonts with no entry in
+// `tools/font-licences.json`, an entry no chunk used or one under a licence outside the rule, a
+// manifest the contract refuses, a file whose hash does not match, and a chunk grown more than 10%
+// over `packages/view/chunk-sizes.json`.
 //
 // Usage: bun tools/build/view.ts [--record-sizes] [--out <dir>] [--sizes <file>]
 //   --record-sizes  write the built sizes to the sizes file instead of checking them; a change
@@ -32,6 +36,7 @@ import {
   hostOnlyNeedProblems,
   inlineScript,
   inlineStyleProblem,
+  styleUrlProblems,
 } from "./checks.ts";
 import {
   type Bundle,
@@ -42,7 +47,17 @@ import {
   stylePlanOf,
   widgetChunkProblems,
 } from "./chunks.ts";
-import { collectNotices, LICENCE_TEXTS, type NoticeFile, staleLicenceTexts } from "./licences.ts";
+import {
+  collectNotices,
+  FONT_LICENCES,
+  type FontLicences,
+  fontEntryProblems,
+  LICENCE_TEXTS,
+  missingFontLicences,
+  type NoticeFile,
+  staleFontLicences,
+  staleLicenceTexts,
+} from "./licences.ts";
 import { fileEntry, hashProblems, listedFiles, manifestProblems } from "./manifest.ts";
 import { BOARD_PAGE_ENTRY, DIST_VIEW, ROOT, SIZES_FILE } from "./paths.ts";
 import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
@@ -61,6 +76,7 @@ import {
   tailwindInput,
   writeTokenFiles,
 } from "./styles.ts";
+import { CHUNK_STYLESHEETS, type ChunkStylesheets, loadChunkStylesheets } from "./stylesheets.ts";
 import { hostValidatorsCode, validatorsPlugin } from "./validators.ts";
 
 /** The board page's name among the recorded sizes. */
@@ -71,6 +87,15 @@ type Finished = {
   readonly script: string;
   readonly styles: string;
   readonly notices: readonly NoticeFile[];
+  /** The package versions whose fonts the chunk's package stylesheets inline. */
+  readonly fonts: readonly string[];
+};
+
+/** A chunk's package stylesheets, loaded: their styles, their files and the fonts' packages. */
+type ChunkPackages = {
+  readonly css?: string;
+  readonly files: readonly string[];
+  readonly fonts: readonly string[];
 };
 
 const failIf = (problems: readonly (string | undefined)[]): void => {
@@ -99,19 +124,53 @@ const stylesOf = async (
   return css.includes("{") ? css : "";
 };
 
-// Inline-safe script, styles and notices for one bundled chunk or the board page.
-const finish = async (
+/**
+ * A chunk's styles as the build assembles them: its own (Tailwind's output over its sources), then
+ * its package stylesheets, joined by a line feed with an empty part left out, and the problems of
+ * both checks over the whole: a style that would request a file and a style that cannot be
+ * inlined. Pure, so the checks' reach over the board page, every chunk and each part is a test,
+ * not a build (latex-kanban-timeline, design decision 8, group 3 review S-1).
+ */
+export const assembleChunkStyles = ({
+  chunk,
+  own,
+  packages,
+}: {
+  readonly chunk: string;
+  readonly own: string;
+  readonly packages?: string;
+}): { readonly css: string; readonly problems: readonly string[] } => {
+  const css = [own, packages ?? ""].filter((part) => part !== "").join("\n");
+  const problems = [...styleUrlProblems(chunk, css), inlineStyleProblem(chunk, css)];
+  return { css, problems: problems.filter((problem) => problem !== undefined) };
+};
+
+// Inline-safe script, styles and notices for one bundled chunk or the board page, through
+// `assembleChunkStyles`. The chunk's package stylesheet, when it has one, follows Tailwind's
+// styles. The stylesheets' files join the inputs the notices are collected for, so the chunk holds
+// the notice of every package whose stylesheet it carries, even one its script does not import.
+// `ownStyles` is Tailwind's output for the chunk; tests pass another.
+export const finish = async (
   name: string,
   plan: StylePlan | undefined,
   bundle: Bundle,
   work: string,
+  fontLicences: FontLicences,
+  packages?: ChunkPackages,
+  ownStyles: typeof stylesOf = stylesOf,
 ): Promise<Finished> => {
   const { code, problems } = inlineScript(name, bundle.code);
   failIf(problems);
-  const styles = await stylesOf(name, plan, bundle.inputs, work);
-  failIf([inlineStyleProblem(name, styles)]);
-  const inputs = plan === "document" ? [...bundle.inputs, PREFLIGHT_FILE] : bundle.inputs;
-  return { name, script: code, styles, notices: await collectNotices(name, inputs, ROOT) };
+  const own = await ownStyles(name, plan, bundle.inputs, work);
+  const styles = assembleChunkStyles({ chunk: name, own, packages: packages?.css });
+  failIf([...styles.problems]);
+  const inputs = [
+    ...bundle.inputs,
+    ...(plan === "document" ? [PREFLIGHT_FILE] : []),
+    ...(packages?.files ?? []),
+  ];
+  const notices = await collectNotices(name, inputs, ROOT, LICENCE_TEXTS, fontLicences);
+  return { name, script: code, styles: styles.css, notices, fonts: packages?.fonts ?? [] };
 };
 
 type BuiltChunk = Finished & {
@@ -120,26 +179,37 @@ type BuiltChunk = Finished & {
   readonly needs: readonly string[];
 };
 
-const buildChunks = async (work: string): Promise<BuiltChunk[]> => {
+const buildChunks = async (
+  work: string,
+  stylesheets: ChunkStylesheets,
+  fontLicences: FontLicences,
+): Promise<BuiltChunk[]> => {
   const modules = sharedModules(await portExports());
   const definitions = await chunkDefinitions(work);
   failIf(widgetChunkProblems(definitions, WIDGET_TYPES));
+  const packages = await loadChunkStylesheets(stylesheets, new Set(definitions.map((d) => d.name)));
+  failIf([...packages.problems]);
   return Promise.all(
     definitions.map(async ({ name, kind, entry, hostOnly }) => {
       const needs = new Set<string>();
       const plugins: BunPlugin[] = [sharedModulesPlugin(name, modules, needs)];
       const bundle = await bundleChunk({ name, entry }, plugins);
-      const finished = await finish(name, stylePlanOf(kind), bundle, work);
+      const loaded = {
+        css: packages.styles.get(name),
+        files: packages.files.get(name) ?? [],
+        fonts: packages.fonts.get(name) ?? [],
+      };
+      const finished = await finish(name, stylePlanOf(kind), bundle, work, fontLicences, loaded);
       return { ...finished, kind, ...(hostOnly ? { hostOnly } : {}), needs: [...needs].sort() };
     }),
   );
 };
 
-const buildBoardPage = async (work: string): Promise<Finished> => {
+const buildBoardPage = async (work: string, fontLicences: FontLicences): Promise<Finished> => {
   const plugins = [validatorsPlugin(hostValidatorsCode())];
   const bundle = await bundleChunk({ name: BOARD_PAGE, entry: BOARD_PAGE_ENTRY }, plugins);
   failIf(boardPageInputProblems(bundle.inputs.map((input) => relative(ROOT, input))));
-  return finish(BOARD_PAGE, "document", bundle, work);
+  return finish(BOARD_PAGE, "document", bundle, work, fontLicences);
 };
 
 // Every file of the build by its path in the folder, and the manifest that lists them.
@@ -227,13 +297,26 @@ const verifyBuild = async (out: string, manifest: ViewManifest): Promise<void> =
 export type BuiltView = { readonly manifest: ViewManifest; readonly sizes: ChunkSizes };
 
 /** Builds the view into `out`, replacing what is there. */
-export const buildView = async (out: string): Promise<BuiltView> => {
+export const buildView = async (
+  out: string,
+  stylesheets: ChunkStylesheets = CHUNK_STYLESHEETS,
+  fontLicences: FontLicences = FONT_LICENCES,
+): Promise<BuiltView> => {
   await checkReplaceable(out);
   const work = await mkdtemp(join(tmpdir(), "askboard-view-"));
   try {
     await writeTokenFiles(work);
-    const [page, chunks] = await Promise.all([buildBoardPage(work), buildChunks(work)]);
+    const [page, chunks] = await Promise.all([
+      buildBoardPage(work, fontLicences),
+      buildChunks(work, stylesheets, fontLicences),
+    ]);
     failIf(hostOnlyNeedProblems(chunks));
+    // Fonts need a recorded licence, and a recorded licence a chunk that uses it (task 3.4).
+    failIf([
+      ...fontEntryProblems(fontLicences),
+      ...missingFontLicences(fontLicences, [page, ...chunks]),
+      ...staleFontLicences(fontLicences, [page, ...chunks]),
+    ]);
     // A licence text recorded for a package that no chunk took is stale (ask-lifecycle, 6.6).
     const used = [page, ...chunks].flatMap(({ notices }) =>
       notices.flatMap(({ recorded }) => (recorded === undefined ? [] : [recorded])),

@@ -4,7 +4,8 @@
 // design decision 2); E5's carries a question's context items as ask-core resolved them (excerpts,
 // design decision 2), and E8's names the ask's language and locale (settings-languages, design
 // decision 7); approval-scale-ranking's carries the items of the Approval, the Scale and the
-// Ranking (design decision 11).
+// Ranking (design decision 11); latex-kanban-timeline's carries the items of the LaTeX, the Kanban and
+// the Timeline (design decision 13).
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -20,7 +21,7 @@ import referenceProps from "./reference-props.json" with { type: "json" };
 // The board document with each registered type's item composed in.
 const boardDocument = composeBoardDocument(boardDocumentBase);
 
-export const BOARD_DOCUMENT_VERSION = "1.5";
+export const BOARD_DOCUMENT_VERSION = "1.6";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",

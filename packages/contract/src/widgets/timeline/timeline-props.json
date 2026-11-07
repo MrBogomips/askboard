@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:timeline-props",
+  "title": "Timeline props",
+  "description": "A Timeline item's props (FR-11, latex-kanban-timeline design decision 5): 1 to 20 lanes and 1 to 200 entries, each entry in a lane and either a milestone with a date or a range with a start and an inclusive end. Dates are the Gantt's full-dates. That the IDs are unique within the item, that each entry's lane is one of the item's lanes, that an entry holds a date alone or a start and an end, that the days exist within the Gantt's days and that an end is not before its start are checked by timelinePropsProblems. In the input format since latex-kanban-timeline.",
+  "type": "object",
+  "properties": {
+    "lanes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/lane" }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "required": ["lanes", "entries"],
+  "additionalProperties": false,
+  "$defs": {
+    "lane": {
+      "description": "A lane: its ID, unique in the item, and its label.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "urn:askboard:input:id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 }
+      },
+      "required": ["id", "label"],
+      "additionalProperties": false
+    },
+    "entry": {
+      "description": "An entry: its ID, unique in the item, its label, the ID of its lane and its days: date alone for a milestone, start and end for a range (the rule is a check, so that its problem is one worded message).",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "urn:askboard:input:id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "lane": { "$ref": "urn:askboard:input:id" },
+        "date": { "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate" },
+        "start": { "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate" },
+        "end": { "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate" }
+      },
+      "required": ["id", "label", "lane"],
+      "additionalProperties": false
+    }
+  }
+}

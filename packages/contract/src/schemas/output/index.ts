@@ -6,7 +6,8 @@
 // to that minor the closed event, which ends an ask AskBoard closed because its owning subagent
 // finished (task 14.5). Widget-registry's minor adds the annotation and each widget type's result
 // schema, and a too-large answer carries no results; approval-scale-ranking's minor adds the result
-// schemas of the Approval, the Scale and the Ranking (design decision 11). It holds no AXFX term (FR-18).
+// schemas of the Approval, the Scale and the Ranking (design decision 11); latex-kanban-timeline's minor
+// adds the changes schemas of the LaTeX, the Kanban and the Timeline (design decision 13). It holds no AXFX term (FR-18).
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { FormulaErrorKind } from "../../formula/errors.ts";
@@ -30,7 +31,7 @@ import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.6";
+export const OUTPUT_FORMAT_VERSION = "1.7";
 
 export const outputFormat: SchemaSet = {
   name: "output",

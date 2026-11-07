@@ -1,7 +1,7 @@
 ---
 title: "PRD addendum: AskBoard"
 created: 2026-10-25
-updated: 2026-10-30
+updated: 2026-11-07
 ---
 
 # PRD addendum: AskBoard
@@ -38,7 +38,7 @@ The visual-companion research lists candidate open-source components per widget 
 
 **Adoption rule.** AskBoard's own rule under its MIT licence (NFR-6), restated from the research's proposal (../prd-agentxema-2026-10-21/research-visual-companion.md §7.1, §7.2, §8):
 
-- **Licence:** OSI-approved permissive (MIT, Apache-2.0, BSD) by default; MPL-2.0 or EPL-2.0 only for unmodified dependencies, and SIL OFL-1.1 only for unmodified font files shipped with their licence text; no AGPL or GPL in the shipped bundle; no source-available, "free/trial", licence-key or open-core feature AskBoard would depend on.
+- **Licence:** OSI-approved permissive (MIT, Apache-2.0, BSD) by default; MPL-2.0 or EPL-2.0 only for unmodified dependencies, and SIL OFL-1.1 only for unmodified font files, and for glyph outlines that the fonts' own upstream derived from them and ships in its package, each shipped with the OFL-1.1 text, the fonts' copyright lines and their Reserved Font Names; no AGPL or GPL in the shipped bundle; no source-available, "free/trial", licence-key or open-core feature AskBoard would depend on.
 - **Stars:** at least 1,000 on GitHub, or a named exception where the best fit is maintained by an established team (candidates: SVAR, Annotorious, Recogito, Temml).
 - **Activity:** a push within 6 months, a release within 12, not archived.
 - **Avoid:** licence-key, commercial or proprietary components (tldraw, Bryntum and Highcharts Gantt, gantt-schedule-timeline-calendar, Thesys C1, Tiptap Comments), archived ones (gantt-task-react, human-mcp, LangGraph Agent Inbox, assistant-ui tool-ui) and AGPL code (SwiftLaTeX, claudecodeui, Opcode). Further traps: the bpmn-js watermark, elkjs (EPL or GPL), BlockNote XL (GPL).

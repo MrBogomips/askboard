@@ -10,12 +10,14 @@
 
 import {
   applyElementChanges,
+  type Change,
   elementChanges,
   JSON_MAX_DEPTH,
   type QuestionProps,
   resultHoldsNothing,
   WIDGET_TYPES,
   type WidgetType,
+  widgetChangesProblems,
   widgetResultProblems,
   widgetTypeOf,
 } from "@askboard/contract";
@@ -183,29 +185,45 @@ const resultsProblem = (
   return undefined;
 };
 
-// Step 3: the changes of an edited value, applied to the item as sent, must give the value back;
-// one that they do not rebuild, such as an edit of a Tree's columns, would reach the agent as
-// changes that miss part of what the board sent.
+// Step 3: the changes of an edited value, computed once, then applied to the item as sent, must
+// give the value back; one that they do not rebuild, such as an edit of a Tree's columns, would
+// reach the agent as changes that miss part of what the board sent. A type with no element shape
+// gives no changes, `[]`, never `undefined`. A throw of the diff (a fields shape's key it does not
+// name) is a refusal naming the item and the key.
 const roundTripProblem = (
   item: Item,
   edited: unknown,
   types: readonly WidgetType[],
 ): ContentProblem | undefined => {
   const shape = elementShapeOf(item, types);
-  if (shape === undefined || !isRecord(item.props) || !isRecord(edited)) return undefined;
-  const changes = elementChanges(item.id, item.props, edited, shape);
+  if (shape === undefined || !isRecord(item.props) || !isRecord(edited)) {
+    return changesProblem(item, [], types);
+  }
+  let changes: readonly Change[];
   let rebuilt: unknown;
   try {
+    changes = elementChanges(item.id, item.props, edited, shape);
     rebuilt = applyElementChanges(item.id, item.props, changes, shape);
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error);
     return refused(`the value of item "${item.id}" is not described by its changes: ${why}`);
   }
   return canonicalize(rebuilt) === canonicalize(edited)
-    ? undefined
+    ? changesProblem(item, changes, types)
     : refused(
         `the value of item "${item.id}" changes more than elements, which its changes cannot describe`,
       );
+};
+
+// The changes against the changes schema of the item's type, for every type (design decision 6):
+// the first problem refuses the answer, naming the item and the operation.
+const changesProblem = (
+  item: Item,
+  changes: readonly Change[],
+  types: readonly WidgetType[],
+): ContentProblem | undefined => {
+  const [first] = widgetChangesProblems(item, changes, types);
+  return first === undefined ? undefined : refused(first.message);
 };
 
 // Step 5.

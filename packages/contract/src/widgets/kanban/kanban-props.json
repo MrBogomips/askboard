@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:kanban-props",
+  "title": "Kanban props",
+  "description": "A Kanban item's props (FR-11, latex-kanban-timeline design decision 4): 2 to 12 columns and 1 to 200 cards, each card naming its column by ID. That the IDs are unique within the item and that each card's column is one of the item's columns are checked by kanbanPropsProblems. In the input format since latex-kanban-timeline.",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/column" }
+    },
+    "cards": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/card" }
+    }
+  },
+  "required": ["columns", "cards"],
+  "additionalProperties": false,
+  "$defs": {
+    "column": {
+      "description": "A column: its ID, unique in the item, and its label.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "urn:askboard:input:id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 }
+      },
+      "required": ["id", "label"],
+      "additionalProperties": false
+    },
+    "card": {
+      "description": "A card: its ID, unique in the item, its label, an optional description and the ID of its column.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "urn:askboard:input:id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "column": { "$ref": "urn:askboard:input:id" }
+      },
+      "required": ["id", "label", "column"],
+      "additionalProperties": false
+    }
+  }
+}

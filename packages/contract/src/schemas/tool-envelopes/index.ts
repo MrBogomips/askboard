@@ -3,7 +3,8 @@
 // Every result names its envelope's version and the output format's (finding F12). Widget-registry's
 // minor adds the answer's results and a widget item's result to `fetch` (design decision 6);
 // approval-scale-ranking's minor adds the items of the Approval, the Scale and the Ranking to it
-// (design decision 11).
+// (design decision 11); latex-kanban-timeline's minor adds the items of the LaTeX, the Kanban and the
+// Timeline (design decision 13).
 
 import type { SchemaSet } from "../../versions.ts";
 import { composeFetchResult } from "../../widgets/compose.ts";
@@ -40,7 +41,7 @@ import versions from "./versions.json" with { type: "json" };
 // The `fetch` result with each registered type's item composed in.
 const fetchResult = composeFetchResult(fetchResultBase);
 
-export const TOOL_ENVELOPES_VERSION = "1.6";
+export const TOOL_ENVELOPES_VERSION = "1.7";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {

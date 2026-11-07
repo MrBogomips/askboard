@@ -8,7 +8,12 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const FOLDERS = [import.meta.dir, join(import.meta.dir, "../../board-graph")];
+const FOLDERS = [
+  import.meta.dir,
+  join(import.meta.dir, "../../board-graph"),
+  // The dates and the time scale the Gantt shares with the Timeline stay pure.
+  join(import.meta.dir, "../../shared/time"),
+];
 
 const sources = FOLDERS.flatMap((folder) =>
   readdirSync(folder)

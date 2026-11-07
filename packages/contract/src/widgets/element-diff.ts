@@ -2,7 +2,8 @@
 // edited, for elements that are objects keyed by `id`, in a flat list or a tree, or that are the
 // entries of an object keyed by element ID. A widget declares only its shape; every key of an
 // element but `id` and the children key is a field, compared as a JSON value. Elements are
-// addressed by ID, never by position. Plain ECMAScript: `ask-core` calls it at run time, and
+// addressed by ID, never by position. A fields shape names fields of the item itself instead
+// (latex-kanban-timeline): each changed one is one `set` of the whole field, `item.field`. Plain ECMAScript: `ask-core` calls it at run time, and
 // `applyElementChanges`, its inverse, checks it.
 //
 // The operations are the output format's `Change` (finding F4). A target is in AD-13's reference
@@ -23,7 +24,20 @@ type ListShape = { readonly elements: string; readonly children?: string; readon
  */
 type KeyedShape = { readonly elements: string; readonly keyed: true };
 
-export type ElementShape = ListShape | KeyedShape;
+/**
+ * Named fields of the item's props themselves (latex-kanban-timeline, design decision 2): each one
+ * the edited value changes is one `set` of `<item>.<field>` holding the whole field, `null` for a
+ * field that is gone, in the order named. A named field holding `null` reads as absent, as in the
+ * list and keyed shapes: a `set` to `null` applies as a delete, so an edited value that turns a
+ * field to `null` does not round-trip. A change to any other key is a problem, since the item's
+ * other fields may not change.
+ */
+export type FieldsShape = { readonly fields: readonly string[] };
+
+export type ElementShape = ListShape | KeyedShape | FieldsShape;
+
+// A fields shape is told apart by its `fields`; a list or keyed shape never holds one.
+const isFieldsShape = (shape: ElementShape): shape is FieldsShape => "fields" in shape;
 
 // A place inside this module: `null` for the top level and for the first position, where a change
 // omits `parent` or `after`.
@@ -210,6 +224,41 @@ const keyedChanges = (itemId: string, sent: object, edited: object, shape: Keyed
     );
 };
 
+// A key as a problem quotes it, cut so that a board's long key never fills a message.
+const SHOWN_KEY_MAX = 80;
+
+// The names a fields shape holds, each once, in the shape's order.
+const namesOf = (shape: FieldsShape): string[] => [...new Set(shape.fields)];
+
+// Whether a key stands the same in both values: held by neither, or by both with equal values.
+const sameKey = (sent: Json, edited: Json, key: string): boolean => {
+  const before = Object.hasOwn(sent, key);
+  return before === Object.hasOwn(edited, key) && (!before || jsonEqual(sent[key], edited[key]));
+};
+
+// A fields shape's `set`s: each named field that differs, in the shape's order, after a refusal of
+// any other key that differs, naming the item and the key.
+const fieldsChanges = (itemId: string, sent: Json, edited: Json, shape: FieldsShape) => {
+  const named = new Set(namesOf(shape));
+  const other = [...new Set([...Object.keys(sent), ...Object.keys(edited)])].find(
+    (key) => !named.has(key) && !sameKey(sent, edited, key),
+  );
+  if (other !== undefined) {
+    throw new Error(
+      `the value of item "${itemId}" changes "${other.slice(0, SHOWN_KEY_MAX)}", which its shape does not name as a field that can change`,
+    );
+  }
+  return namesOf(shape)
+    .filter((field) => !sameKey(sent, edited, field))
+    .map(
+      (field): Change => ({
+        op: "set",
+        target: `${itemId}.${field}`,
+        value: Object.hasOwn(edited, field) ? mutableCopy(edited[field]) : null,
+      }),
+    );
+};
+
 // An `add`'s or a `move`'s place as the output format writes it: each of `parent` and `after`
 // omitted when there is none.
 const placeOf = ({ parent, after }: Position) => ({
@@ -221,7 +270,9 @@ const placeOf = ({ parent, after }: Position) => ({
  * The operations that, applied in order to `sent`, give `edited`. In a list: for each edited
  * element in document order, its `add` or `move`, then a kept element's `set`s; then one `remove`
  * per removed element whose parent stays, in sent document order. In a keyed shape: only `set`s,
- * by element ID, then by field. Its inputs stay untouched and its output is frozen.
+ * by element ID, then by field. In a fields shape: one `set` of each named field that changed, in
+ * the shape's order, and a problem for a change to any other key. Its inputs stay untouched and its
+ * output is frozen.
  */
 export const elementChanges = (
   itemId: string,
@@ -229,6 +280,9 @@ export const elementChanges = (
   edited: object,
   shape: ElementShape,
 ): readonly Change[] => {
+  if (isFieldsShape(shape)) {
+    return frozenCopy(fieldsChanges(itemId, sent as Json, edited as Json, shape));
+  }
   if (shape.keyed === true) return frozenCopy(keyedChanges(itemId, sent, edited, shape));
   const before = indexOf(sent, shape, "sent");
   const after = indexOf(edited, shape, "edited");
@@ -423,6 +477,27 @@ const keyedApplier = (props: Json, shape: KeyedShape): Applier => {
   };
 };
 
+// A fields shape takes only `set`s of the fields it names, `item.field`; a `null` takes the field away.
+const fieldsApplier = (props: Json, shape: FieldsShape): Applier => {
+  const named = new Set(namesOf(shape));
+  return (itemId, change) => {
+    if (change.op !== "set") {
+      throw new Error(
+        `a fields shape takes only sets, not ${change.op === "add" || change.op === "remove" || change.op === "move" ? `a ${change.op}` : `"${String(change.op)}"`}`,
+      );
+    }
+    const prefix = `${itemId}.`;
+    const target = change.target;
+    if (typeof target !== "string" || !target.startsWith(prefix)) {
+      throw new Error(`its target addresses another item than "${itemId}"`);
+    }
+    const field = target.slice(prefix.length);
+    if (!named.has(field)) throw new Error(`"${field}" is no field the shape names`);
+    if (change.value === null) delete props[field];
+    else define(props, field, mutableCopy(change.value));
+  };
+};
+
 /**
  * Applies `changes` in order to `sent`: the inverse of `elementChanges`. The props' other keys
  * are kept; an element whose last child leaves holds no children list, and a keyed entry left with
@@ -436,7 +511,11 @@ export const applyElementChanges = <P extends object>(
   shape: ElementShape,
 ): P => {
   const props = mutableCopy(sent) as Json;
-  const apply = shape.keyed === true ? keyedApplier(props, shape) : listApplier(props, shape);
+  const apply = isFieldsShape(shape)
+    ? fieldsApplier(props, shape)
+    : shape.keyed === true
+      ? keyedApplier(props, shape)
+      : listApplier(props, shape);
   changes.forEach((change, at) => {
     try {
       apply(itemId, change as Json);

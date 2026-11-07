@@ -3,7 +3,8 @@
 // props, so checking them throws on any; the item's error boundary then fails it and its question
 // never counts as visible (AD-10). It reports its decision as the item's result and reads the
 // changes of the question's other widget items from the board, through the shapes their chunks
-// registered, for its summary and for refusing "Approve" beside them. Its facts tell the shell
+// registered, for its summary (a whole-field change is named by its widget's name in the notice)
+// and for refusing "Approve" beside them. Its facts tell the shell
 // that "Approve with changes" requires the reason in the open prompt and that revising a verdict
 // the agent has received asks first.
 
@@ -56,6 +57,10 @@ const Approval = ({
         shapeOf,
         locale,
         words: valueWordsOf(text),
+        widgetName: (type) => {
+          const name = componentFacts(type)?.name;
+          return name === undefined ? type : text(name);
+        },
       }),
     [board, questionId, item.id, locale, text],
   );

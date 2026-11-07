@@ -209,6 +209,43 @@ export const resultFits = (
   return item !== undefined && factsOf(item.type)?.fits?.(result, item.props) === true;
 };
 
+/**
+ * Whether the draft may hold `value` for the widget item `itemId` of `question`, as the question
+ * shows it: the item's type, by the `valueFits` its chunk registered, shows it on the item's props
+ * (latex-kanban-timeline, task 5b.2; security review X-2, "An answer sends what its widgets
+ * show"). A type that registered none keeps its values as they are; an item the question lacks
+ * takes none.
+ */
+export const valueFits = (
+  question: ViewQuestion,
+  itemId: string,
+  value: unknown,
+  factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
+): boolean => {
+  const item = (question.props.items ?? []).find((each) => each.id === itemId);
+  if (item === undefined) return false;
+  const fits = factsOf(item.type)?.valueFits;
+  return fits === undefined || fits(value, item.props);
+};
+
+/**
+ * Whether a held value no longer belongs to the card: its type registered a check and either the
+ * card shows a revision other than the one the work was made on, so that the work's base is not
+ * the shown props and the item would count the agent's own changes as the user's, or the shown
+ * revision does not fit it (`valueFits`).
+ */
+export const valueDropped = (
+  shown: ViewQuestion,
+  workRev: number,
+  itemId: string,
+  value: unknown,
+  factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
+): boolean => {
+  const item = (shown.props.items ?? []).find((each) => each.id === itemId);
+  if (item === undefined || factsOf(item.type)?.valueFits === undefined) return false;
+  return shown.rev !== workRev || !valueFits(shown, itemId, value, factsOf);
+};
+
 // No held results: the results store of a board that has none.
 const NO_RESULTS: ValueRecord = new Map();
 
@@ -470,8 +507,17 @@ export const restoreDraft = (
     // card's "Keep mine" checks against what the card then shows, and "Reload" drops.
     const takes = (itemId: string, result: unknown): boolean =>
       rest.rev !== question.rev || resultFits(question, itemId, result, factsOf);
+    // A widget's value is held on the same terms: on this revision only while the shown props fit
+    // it; work on an earlier revision keeps it for "Keep mine" to settle.
+    const takesValue = (itemId: string, value: unknown): boolean =>
+      rest.rev !== question.rev || valueFits(question, itemId, value, factsOf);
+    const keptValues = Object.fromEntries(
+      Object.entries(kept).filter(
+        ([itemId, value]) => !widgets.has(itemId) || takesValue(itemId, value),
+      ),
+    );
     if (!staleAnswer) {
-      for (const [itemId, value] of Object.entries(kept)) {
+      for (const [itemId, value] of Object.entries(keptValues)) {
         if (!items.has(itemId) || (itemId === question.id && !isLabels(value))) continue;
         values.set(itemId, value);
       }
@@ -489,7 +535,7 @@ export const restoreDraft = (
     // An entry holding only a placement is no work.
     if (
       Object.keys(held).some((key) => key !== "rev") ||
-      hasValuesIn(kept) ||
+      hasValuesIn(keptValues) ||
       Object.entries(keptResults).some(
         ([itemId, r]) => !resultHoldsNothing(r) && !(widgets.has(itemId) && !takes(itemId, r)),
       )

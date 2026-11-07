@@ -7,10 +7,17 @@
 // A package with no licence file and no recorded text, or no licence field, fails the build: its
 // notice cannot be shipped. So does a recorded text with nothing to do: one for a package that
 // ships its own licence file, or one no chunk used.
+//
+// A package's fonts, and package code holding glyph outlines derived from them, can carry a
+// licence other than the package's: `tools/font-licences.json` records it by package version, and
+// the notice of that package version then reads `<package licence> AND <entry licence>`, with the
+// package's text and the entry's (latex-kanban-timeline, design decision 8, task 3.4).
 
 import { readdir } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import type { LicenceNotice } from "@askboard/contract";
+import { classify } from "../check-licences.ts";
+import fontLicenceTable from "../font-licences.json" with { type: "json" };
 import recorded from "../licence-texts.json" with { type: "json" };
 
 /** A licence text recorded for a package version that ships none, with where it comes from. */
@@ -31,11 +38,37 @@ export type LicenceTexts = Readonly<Record<string, LicenceText>>;
 
 export const LICENCE_TEXTS: LicenceTexts = recorded;
 
+/** The licence of a package version's fonts and of the glyph outlines derived from them. */
+export type FontLicence = {
+  /** `OFL-1.1`, or an SPDX expression `classify` calls permissive. */
+  readonly licence: string;
+  /** The font folder within the package. */
+  readonly fonts: string;
+  /** The package's files whose code holds outlines its upstream derived from the fonts. */
+  readonly derived: readonly string[];
+  /** The licence text at a commit of the repository it comes from. */
+  readonly source: string;
+  /** The date of that commit. */
+  readonly date: string;
+  readonly reason: string;
+  /** The whole notice for the fonts: what they are, their copyright lines, the licence text. */
+  readonly text: string;
+};
+
+const FONTS_FILE = "tools/font-licences.json";
+
+/** The font licences, by `<name>@<version>`. */
+export type FontLicences = Readonly<Record<string, FontLicence>>;
+
+export const FONT_LICENCES: FontLicences = fontLicenceTable;
+
 export type NoticeFile = {
   readonly notice: LicenceNotice;
   readonly text: string;
   /** The key of the recorded text it took, if it took one. */
   readonly recorded?: string;
+  /** The font licence entry it took, and whether a `derived` file of it is among the inputs. */
+  readonly font?: { readonly key: string; readonly derived: boolean };
 };
 
 type Metafile = {
@@ -100,12 +133,30 @@ const spdxOf = (field: unknown): string | undefined => {
 const recordedFor = (texts: LicenceTexts, key: string): LicenceText | undefined =>
   Object.hasOwn(texts, key) ? texts[key] : undefined;
 
-const noticeOf = async (
-  at: PackageAt,
-  chunk: string,
-  root: string,
-  recordedTexts: LicenceTexts,
-): Promise<NoticeFile> => {
+const fontLicenceFor = (table: FontLicences, key: string): FontLicence | undefined =>
+  Object.hasOwn(table, key) ? table[key] : undefined;
+
+// The package's licence with the fonts' beside it: `(MIT OR ISC) AND OFL-1.1`.
+const withFonts = (file: NoticeFile, key: string, entry: FontLicence, derived: boolean) => {
+  const own = /\s/.test(file.notice.licence) ? `(${file.notice.licence})` : file.notice.licence;
+  return {
+    ...file,
+    notice: { ...file.notice, licence: `${own} AND ${entry.licence}` },
+    text: `${file.text}\n\n${entry.text.trimEnd()}`,
+    font: { key, derived },
+  };
+};
+
+type Sources = {
+  readonly chunk: string;
+  readonly root: string;
+  readonly recorded: LicenceTexts;
+  readonly fonts: FontLicences;
+  readonly inputs: ReadonlySet<string>;
+};
+
+const noticeOf = async (at: PackageAt, sources: Sources): Promise<NoticeFile> => {
+  const { chunk, root, recorded: recordedTexts } = sources;
   const manifest = await Bun.file(join(at.dir, "package.json")).json();
   const name = String(manifest.name);
   const version = String(manifest.version);
@@ -122,13 +173,25 @@ const noticeOf = async (
       `${where} ships its own licence file: the text recorded for "${key}" in ${TEXTS_FILE} is stale`,
     );
   }
+  let file: NoticeFile;
   if (own.length === 0 && !at.workspace && entry?.licence === licence) {
-    return { notice, text: entry.text.trimEnd(), recorded: key };
+    file = { notice, text: entry.text.trimEnd(), recorded: key };
+  } else {
+    const texts = own.length > 0 || !at.workspace ? own : await licenceTexts(root);
+    if (texts.length === 0) throw new Error(`${where} has no licence file`);
+    file = { notice, text: texts.map((text) => text.trimEnd()).join("\n\n") };
   }
-  const texts = own.length > 0 || !at.workspace ? own : await licenceTexts(root);
-  if (texts.length === 0) throw new Error(`${where} has no licence file`);
-  return { notice, text: texts.map((text) => text.trimEnd()).join("\n\n") };
+  const fonts = at.workspace ? undefined : fontLicenceFor(sources.fonts, key);
+  if (fonts === undefined) return file;
+  const derived = fonts.derived.some((path) => sources.inputs.has(join(at.dir, path)));
+  return withFonts(file, key, fonts, derived);
 };
+
+// One package version linked twice is one notice; a derived file among either's inputs counts.
+const merged = (a: NoticeFile, b: NoticeFile): NoticeFile =>
+  a.font === undefined || b.font === undefined
+    ? a
+    : { ...a, font: { key: a.font.key, derived: a.font.derived || b.font.derived } };
 
 /** The notices for a chunk's inputs, one per package, sorted by package name. */
 export const collectNotices = async (
@@ -136,18 +199,37 @@ export const collectNotices = async (
   inputs: readonly string[],
   root: string,
   recordedTexts: LicenceTexts = LICENCE_TEXTS,
+  fonts: FontLicences = FONT_LICENCES,
 ): Promise<NoticeFile[]> => {
   const packages = new Map<string, PackageAt>();
   for (const input of inputs) {
     const at = packageOf(input, root);
     if (at !== undefined) packages.set(at.dir, at);
   }
-  const notices = await Promise.all(
-    [...packages.values()].map((at) => noticeOf(at, chunk, root, recordedTexts)),
-  );
-  // One package version linked twice, once per set of peers, is one notice.
-  const unique = new Map(notices.map((file) => [file.notice.path, file]));
+  const sources = { chunk, root, recorded: recordedTexts, fonts, inputs: new Set(inputs) };
+  const notices = await Promise.all([...packages.values()].map((at) => noticeOf(at, sources)));
+  const unique = new Map<string, NoticeFile>();
+  for (const file of notices) {
+    const same = unique.get(file.notice.path);
+    unique.set(file.notice.path, same === undefined ? file : merged(same, file));
+  }
   return [...unique.values()].sort((a, b) => (a.notice.package < b.notice.package ? -1 : 1));
+};
+
+/**
+ * The innermost `node_modules` package a file lies in, as `<name>@<version>`, from its
+ * package.json; none for a file outside one.
+ */
+export const packageVersionOf = async (file: string): Promise<string | undefined> => {
+  const parts = file.split(sep);
+  const at = parts.lastIndexOf("node_modules");
+  if (at === -1) return undefined;
+  const end = at + (parts[at + 1]?.startsWith("@") === true ? 3 : 2);
+  if (end >= parts.length) return undefined;
+  const manifest = Bun.file(join(parts.slice(0, end).join(sep), "package.json"));
+  if (!(await manifest.exists())) return undefined;
+  const { name, version } = await manifest.json();
+  return `${String(name)}@${String(version)}`;
 };
 
 /** The recorded texts no chunk took: each is stale, and fails the build. */
@@ -158,3 +240,50 @@ export const staleLicenceTexts = (texts: LicenceTexts, used: ReadonlySet<string>
       (key) =>
         `the text recorded for "${key}" in ${TEXTS_FILE} is stale: no chunk holds that package without a licence file`,
     );
+
+/** What the font licence checks need to know of a chunk. */
+export type FontUse = {
+  readonly name: string;
+  /** The package versions whose fonts the chunk inlines. */
+  readonly fonts: readonly string[];
+  readonly notices: readonly NoticeFile[];
+};
+
+/** An entry's licence must be `OFL-1.1` or one the adoption rule calls permissive. */
+export const fontEntryProblems = (table: FontLicences): string[] =>
+  Object.entries(table)
+    .filter(([, { licence }]) => licence !== "OFL-1.1" && classify(licence) !== "permissive")
+    .map(
+      ([key, { licence }]) =>
+        `the entry "${key}" in ${FONTS_FILE} names the licence "${licence}", which the adoption rule does not admit for fonts`,
+    );
+
+/** Fonts a chunk inlines whose package version has no entry: their licence is not recorded. */
+export const missingFontLicences = (table: FontLicences, chunks: readonly FontUse[]): string[] =>
+  chunks.flatMap(({ name, fonts }) =>
+    fonts
+      .filter((key) => !Object.hasOwn(table, key))
+      .map(
+        (key) =>
+          `the chunk "${name}" inlines the fonts of ${key}, and ${FONTS_FILE} has no entry for it: read their name tables and record their licence`,
+      ),
+  );
+
+/**
+ * The entries no chunk used, each stale: used is a chunk inlining the package version's fonts or
+ * holding one of its `derived` files among its inputs.
+ */
+export const staleFontLicences = (table: FontLicences, chunks: readonly FontUse[]): string[] => {
+  const used = new Set(
+    chunks.flatMap(({ fonts, notices }) => [
+      ...fonts,
+      ...notices.flatMap(({ font }) => (font?.derived === true ? [font.key] : [])),
+    ]),
+  );
+  return Object.keys(table)
+    .filter((key) => !used.has(key))
+    .map(
+      (key) =>
+        `the entry "${key}" in ${FONTS_FILE} is stale: no chunk inlines those fonts or bundles a file derived from them`,
+    );
+};

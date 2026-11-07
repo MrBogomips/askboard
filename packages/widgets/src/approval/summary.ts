@@ -4,7 +4,13 @@
 // `label` when that is a string, else its ID; at most 20 lines, then how many more. Pure: the shape
 // lookup is passed in, the component counts and titles.
 
-import { type Change, type ElementShape, elementChanges, type Locale } from "@askboard/contract";
+import {
+  type Change,
+  type ElementShape,
+  elementChanges,
+  type FieldsShape,
+  type Locale,
+} from "@askboard/contract";
 import { formatValue, type ValueWords } from "./values.ts";
 
 /** At most this many lines show; the rest are counted. */
@@ -42,12 +48,15 @@ export type Summary = {
 
 type Json = Record<string, unknown>;
 
+// The shapes that name elements; a whole-field shape names fields of the item itself.
+type ElementsShape = Exclude<ElementShape, FieldsShape>;
+
 const isJson = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // The element `id` of `props`: in a keyed shape the entry of that key, else the first element with
 // that ID in the list, searching children.
-const find = (props: object, shape: ElementShape, id: string): Json | undefined => {
+const find = (props: object, shape: ElementsShape, id: string): Json | undefined => {
   const top = (props as Json)[shape.elements];
   if (shape.keyed === true) {
     const entry = isJson(top) && Object.hasOwn(top, id) ? top[id] : undefined;
@@ -72,7 +81,7 @@ const nameOf = (element: Json | undefined, id: string): string =>
 const lineOf = (
   change: Change,
   item: SummaryItem,
-  shape: ElementShape,
+  shape: ElementsShape,
   locale: Locale,
   words: ValueWords,
 ): SummaryLine => {
@@ -94,21 +103,51 @@ const lineOf = (
   return { ...base, name: nameOf(was ?? now, elementId) };
 };
 
+// A whole-field change (design decision 11): its line names the item's widget, there being no
+// element, and the field; the previous value is the field as sent, the new one the change's.
+const wholeFieldLine = (
+  change: Change,
+  item: SummaryItem,
+  widget: string,
+  locale: Locale,
+  words: ValueWords,
+): SummaryLine => {
+  // `item.field`: an item ID and a field name have no dot.
+  const [, field = ""] = change.target.split(".");
+  const base = { op: change.op, itemId: item.id, elementId: "", name: widget };
+  if (change.op !== "set") return base;
+  return {
+    ...base,
+    field,
+    previous: formatValue((item.sent as Json)[field], locale, words),
+    next: formatValue(change.value, locale, words),
+  };
+};
+
 /**
  * The summary of `items`' changes in `locale`. `shapeOf` gives a type's `edits.shape` from the
  * registry, called with the item's props as sent. An item whose type it gives no shape for is
- * skipped; one whose value the diff cannot read throws, and the Approval's boundary fails it.
+ * skipped. A change to a whole field of an item (its shape names fields, as the LaTeX's does) is one
+ * line naming the item's widget, by `widgetName` (the type itself when none is given), and the
+ * field. An item whose value the diff cannot read throws, and the Approval's boundary fails it.
  */
 export const summarise = (input: {
   readonly items: readonly SummaryItem[];
   readonly shapeOf: (type: string, props: object) => ElementShape | undefined;
   readonly locale: Locale;
   readonly words: ValueWords;
+  readonly widgetName?: (type: string) => string;
 }): Summary => {
-  const { items, shapeOf, locale, words } = input;
+  const { items, shapeOf, locale, words, widgetName } = input;
   const lines = items.flatMap((item) => {
     const shape = shapeOf(item.type, item.sent);
     if (shape === undefined) return [];
+    if ("fields" in shape) {
+      const widget = widgetName?.(item.type) ?? item.type;
+      return elementChanges(item.id, item.sent, item.shown, shape).map((change) =>
+        wholeFieldLine(change, item, widget, locale, words),
+      );
+    }
     return elementChanges(item.id, item.sent, item.shown, shape).map((change) =>
       lineOf(change, item, shape, locale, words),
     );

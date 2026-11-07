@@ -4,14 +4,18 @@
 // `critical` on the critical path; finish-to-start elbow arrows, 1px in `gantt-bar`, or 2px in
 // `critical` on a tight link between two critical tasks (`critical-link.ts`), each with its
 // arrowhead; in a plan, the baselines under the bars. A task the graph cannot schedule has no bar
-// and no arrow. The pointer drags a bar to move it, or its end to resize it (`bars.tsx`, `bar-drag.ts`); the drop reschedules through `drag.ts` and the draft, and
-// the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
+// and no arrow. The pointer drags a bar to move it, or its end to resize it (`bars.tsx`, `shared/pointer-drag.ts`); the drop reschedules through `drag.ts` and the draft,
+// and the arrows follow once the graph is rebuilt. Geometry is written as SVG attributes and colours
 // and widths as classes built from DESIGN.md's tokens: no `style` attribute (AD-8).
 
-import { useLocale, useStrings } from "@askboard/view/catalog";
+import { useStrings } from "@askboard/view/catalog";
 import { memo, useCallback, useMemo } from "react";
-import { type BarDrag, useBarDrag } from "./bar-drag.ts";
+import { usePointerDrag } from "../shared/pointer-drag.ts";
+import { Axis } from "../shared/time/axis.tsx";
+import { dayNumber } from "../shared/time/date.ts";
+import { PIXELS_PER_DAY, type Zoom } from "../shared/time/scale.ts";
 import {
+  type BarDrag,
   BarShape,
   BaselineShape,
   type DrawnBar,
@@ -21,22 +25,12 @@ import {
   ResizeFeedback,
 } from "./bars.tsx";
 import { isCriticalLink } from "./model/critical-link.ts";
-import { dayNumber } from "./model/date.ts";
 import { moveDrop, resizeDrop } from "./model/drag.ts";
 import type { ChartSpan } from "./model/layout.ts";
 import { arrowMarkerId, arrowPath, type RowBoxes } from "./model/layout.ts";
 import { looksCritical } from "./model/legend.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import { movedBox, resizedBox } from "./model/preview.ts";
-import {
-  axisTicks,
-  labelLines,
-  PIXELS_PER_DAY,
-  type Tick,
-  weekendDays,
-  xOf,
-  type Zoom,
-} from "./model/scale.ts";
 import type { Baseline, TaskSchedule } from "./model/schedule.ts";
 import type { GanttRow } from "./model/tasks.ts";
 import { ZOOM_LABELS } from "./zoom.tsx";
@@ -81,91 +75,6 @@ const Markers = memo(({ itemId }: { readonly itemId: string }) => (
     </marker>
   </defs>
 ));
-
-/** Where a label's lines sit in the axis band: one line, or two, the weekday over the day. */
-const LINE_Y = { one: 20, first: 14, second: 28 } as const;
-
-/**
- * A tick's label: one line, or at day zoom the weekday over the day, so that it fits its column.
- * The first line keeps its trailing space, so that the text reads `mer 11` whole.
- */
-const TickLabel = ({ tick, zoom }: { readonly tick: Tick; readonly zoom: Zoom }) => {
-  const [first, second] = labelLines(tick.label, zoom);
-  const x = tick.x + 6;
-  return (
-    <text data-gantt-tick="" x={x} y={LINE_Y.one} className="fill-muted-foreground text-badge">
-      {second === undefined ? (
-        first
-      ) : (
-        <>
-          <tspan x={x} y={LINE_Y.first}>{`${first} `}</tspan>
-          <tspan x={x} y={LINE_Y.second}>
-            {second}
-          </tspan>
-        </>
-      )}
-    </text>
-  );
-};
-
-type AxisProps = {
-  readonly span: ChartSpan;
-  readonly zoom: Zoom;
-  readonly width: number;
-  readonly layout: RowBoxes;
-};
-
-/** The axis band with its labels, a gridline per tick, and a line under each row. */
-const Axis = memo(({ span, zoom, width, layout }: AxisProps) => {
-  const locale = useLocale();
-  return (
-    <g>
-      <rect x={0} y={0} width={width} height={layout.axis} className="fill-muted" />
-      <line
-        x1={0}
-        y1={layout.axis - 0.5}
-        x2={width}
-        y2={layout.axis - 0.5}
-        className="stroke-border stroke-1"
-      />
-      {zoom === "day"
-        ? weekendDays(span.origin, span.last).map((date) => (
-            <rect
-              key={date}
-              data-gantt-weekend={date}
-              x={xOf(date, span.origin, zoom)}
-              y={layout.axis}
-              width={PIXELS_PER_DAY[zoom]}
-              height={layout.height - layout.axis}
-              className="fill-muted"
-            />
-          ))
-        : null}
-      {layout.boxes.map((box) => (
-        <line
-          key={box.top}
-          x1={0}
-          y1={box.top + box.height - 0.5}
-          x2={width}
-          y2={box.top + box.height - 0.5}
-          className="stroke-border stroke-1"
-        />
-      ))}
-      {axisTicks(span.origin, span.last, zoom, locale).map((tick) => (
-        <g key={tick.date}>
-          <line
-            x1={tick.x + 0.5}
-            y1={0}
-            x2={tick.x + 0.5}
-            y2={layout.height}
-            className="stroke-border stroke-1"
-          />
-          <TickLabel tick={tick} zoom={zoom} />
-        </g>
-      ))}
-    </g>
-  );
-});
 
 const ArrowPath = memo(
   ({
@@ -299,7 +208,7 @@ export const Chart = (props: ChartProps) => {
     [rows, schedules, layout, span, zoom],
   );
   const onDrop = useCallback(
-    ({ taskId, kind, dx }: BarDrag) => {
+    ({ id: taskId, kind, dx }: BarDrag) => {
       const bar = bars.get(taskId);
       if (bar === undefined) return;
       if (kind === "move") {
@@ -320,8 +229,8 @@ export const Chart = (props: ChartProps) => {
     [rows, props.baselines, layout, span, zoom],
   );
   const arrows = useMemo(() => arrowsOf(rows, bars), [rows, bars]);
-  const { drag, press, move, release, cancel } = useBarDrag(onDrop, props.editable);
-  const dragged = drag === undefined ? undefined : bars.get(drag.taskId);
+  const { drag, press, move, release, cancel } = usePointerDrag(onDrop, props.editable);
+  const dragged = drag === undefined ? undefined : bars.get(drag.id);
   return (
     <svg
       role="img"
@@ -332,7 +241,15 @@ export const Chart = (props: ChartProps) => {
       className="block touch-none select-none"
     >
       <Markers itemId={itemId} />
-      <Axis span={span} zoom={zoom} width={width} layout={layout} />
+      <Axis
+        origin={span.origin}
+        last={span.last}
+        zoom={zoom}
+        width={width}
+        axisHeight={layout.axis}
+        height={layout.height}
+        rows={layout.boxes}
+      />
       <g>
         {baselines.map((baseline) => (
           <BaselineShape key={baseline.id} baseline={baseline} />

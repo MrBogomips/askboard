@@ -12,8 +12,8 @@
 // records none. Plain ECMAScript.
 
 import type { GanttProps } from "@askboard/contract";
+import type { Say } from "../../shared/time/say.ts";
 import { precedenceIn } from "./edits.ts";
-import type { Say } from "./say.ts";
 import { type GanttRow, isOwnGantt, planEntry } from "./tasks.ts";
 
 export type PanelBox = {

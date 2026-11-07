@@ -8,7 +8,7 @@
 import type { GanttProps } from "@askboard/contract";
 import { useLanguage, useLocale, useStrings } from "@askboard/view/catalog";
 import { useCallback, useRef, useState } from "react";
-import type { DateFormat } from "./model/date.ts";
+import type { DateFormat } from "../shared/time/date.ts";
 import {
   durationEntry,
   type EditedColumn,

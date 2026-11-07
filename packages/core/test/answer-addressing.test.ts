@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { type Change, elementChanges } from "@askboard/contract";
 import {
+  NOT_A_WIDGET,
   uj2ExpandedDerived,
   uj2ExpandedEditedValues,
   uj2ExpandedQuestion,
@@ -106,7 +107,7 @@ describe("answerInReferenceAddressing", () => {
   test("a plain item of the question is left out, and an address of another item kept", () => {
     const plain = {
       ...question,
-      props: { ...question.props, items: [...sent, { type: "kanban", id: "k", props: {} }] },
+      props: { ...question.props, items: [...sent, { type: NOT_A_WIDGET, id: "k", props: {} }] },
     };
     const values = { ...uj2ExpandedEditedValues, k: { cards: [] } };
     expect(

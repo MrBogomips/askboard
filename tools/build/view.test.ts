@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,9 +14,12 @@ import {
   contextBoardDocument,
   ganttBoardDocument,
   ganttPlanBoardDocument,
+  KANBAN_FIXTURE_ITEM,
+  LATEX_FIXTURE_ITEM,
   lifecycleSnapshotData,
   plainChoiceBoardDocument,
   RANKING_FIXTURE_ITEM,
+  TIMELINE_FIXTURE_ITEM,
   treeBoardDocument,
   uj2ExpandedBoardDocument,
 } from "@askboard/contract/fixtures";
@@ -28,13 +32,15 @@ import {
   targetOf,
 } from "../../packages/view/src/assemble/index.ts";
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
-import { hostOnlyNeedProblems } from "./checks.ts";
+import { hostOnlyNeedProblems, styleUrlProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
+import { FONT_LICENCES, type FontLicence, type FontLicences } from "./licences.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
 import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
-import { main } from "./view.ts";
+import { CHUNK_STYLESHEETS } from "./stylesheets.ts";
+import { buildView, main } from "./view.ts";
 
 // One real build into a scratch folder, recording its sizes into a scratch file: the checks below
 // read what `bun run build:view` writes to dist/view/.
@@ -84,11 +90,14 @@ describe("bun run build:view (design decision 7)", () => {
       dnd: "library",
       "ext-apps": "library",
       gantt: "component",
+      kanban: "component",
+      latex: "component",
       radix: "library",
       ranking: "component",
       react: "library",
       scale: "component",
       shell: "shell",
+      timeline: "component",
       tree: "component",
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
@@ -105,6 +114,18 @@ describe("bun run build:view (design decision 7)", () => {
     // no compute (approval-scale-ranking, design decision 9).
     expect(manifest.chunks.ranking?.components).toEqual(["ranking"]);
     expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "react", "shell"]);
+    // The LaTeX draws with KaTeX, which its chunk bundles with its stylesheet: it needs no Radix
+    // control, no drag, no board graph and no compute (latex-kanban-timeline, design decision 8).
+    expect(manifest.chunks.latex?.components).toEqual(["latex"]);
+    expect(manifest.chunks.latex?.needs).toEqual(["react", "shell"]);
+    // The Kanban's drag comes from the dnd chunk and its "Move to…" menu is Radix's; it needs no
+    // board graph and no compute (latex-kanban-timeline, design decision 9).
+    expect(manifest.chunks.kanban?.components).toEqual(["kanban"]);
+    expect(manifest.chunks.kanban?.needs).toEqual(["dnd", "radix", "react", "shell"]);
+    // The Timeline moves by pointer, with no drag library; its "Move to lane…" menu is Radix's
+    // (latex-kanban-timeline, design decision 10).
+    expect(manifest.chunks.timeline?.components).toEqual(["timeline"]);
+    expect(manifest.chunks.timeline?.needs).toEqual(["radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -295,11 +316,14 @@ describe("bun run build:view (design decision 7)", () => {
       "dnd",
       "ext-apps",
       "gantt",
+      "kanban",
+      "latex",
       "radix",
       "ranking",
       "react",
       "scale",
       "shell",
+      "timeline",
       "tree",
     ]);
     expect(sizeProblems(await readSizes(SIZES_FILE), recorded)).toEqual([]);
@@ -475,6 +499,65 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(built.srcdoc).toContain(await text(chunkNamed("ranking").script.path));
     expect(built.srcdoc).toContain(await text(chunkNamed("dnd").script.path));
     expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+  });
+
+  test("a board whose only widget is a LaTeX inlines the LaTeX's chunk and no Tree, Ranking or drag chunk (latex-kanban-timeline, design decision 8)", async () => {
+    const [question] = treeBoardDocument.items;
+    const latexBoard = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [LATEX_FIXTURE_ITEM] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(latexBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("latex");
+    for (const other of ["tree", "ranking", "dnd", "compute", "gantt"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(latexBoard);
+    expect(built.chunks).toContain("latex");
+    expect(built.chunks).not.toContain("tree");
+    expect(built.srcdoc).toContain(await text(chunkNamed("latex").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+  });
+
+  test("a board whose only widget is a Kanban inlines the Kanban's chunk and the drag library's, and no Tree or Ranking chunk (latex-kanban-timeline, design decision 9)", async () => {
+    const [question] = treeBoardDocument.items;
+    const kanbanBoard = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [KANBAN_FIXTURE_ITEM] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(kanbanBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("kanban");
+    expect(names).toContain("dnd");
+    for (const other of ["tree", "ranking", "compute", "board-graph", "gantt", "latex"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(kanbanBoard);
+    expect(built.chunks).toContain("kanban");
+    expect(built.chunks).toContain("dnd");
+    expect(built.chunks).not.toContain("tree");
+    expect(built.chunks).not.toContain("ranking");
+    expect(built.srcdoc).toContain(await text(chunkNamed("kanban").script.path));
+    expect(built.srcdoc).toContain(await text(chunkNamed("dnd").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("ranking").script.path));
+  });
+
+  test("a board whose only widget is a Timeline inlines the Timeline's chunk and no drag, Gantt, Tree or Ranking chunk (latex-kanban-timeline, design decision 10)", async () => {
+    const [question] = treeBoardDocument.items;
+    const timelineBoard = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [TIMELINE_FIXTURE_ITEM] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(timelineBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("timeline");
+    for (const other of ["tree", "ranking", "dnd", "compute", "board-graph", "gantt", "kanban"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(timelineBoard);
+    expect(built.chunks).toContain("timeline");
+    expect(built.chunks).not.toContain("gantt");
+    expect(built.srcdoc).toContain(await text(chunkNamed("timeline").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("gantt").script.path));
   });
 
   test("the plain Choice board's srcdoc holds no Tree chunk, and the Tree board's holds it", async () => {
@@ -706,5 +789,204 @@ describe("build failures", () => {
     const logged: string[] = [];
     expect(await main(["--bogus"], (line) => logged.push(line))).toBe(1);
     expect(logged.join("\n")).toContain("--record-sizes");
+  });
+});
+
+describe("package stylesheets in a chunk (latex-kanban-timeline, design decision 8)", () => {
+  const FONT = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 7, 7, 7]);
+  const sheet = async (name: string, css: string) => {
+    const path = join(dir, name);
+    await Bun.write(path, css);
+    return path;
+  };
+
+  // The stylesheet's fonts lie in a package, as a real package's do, whose font licence the build
+  // reads from a test table (task 3.4 moved this fixture from a bare temporary folder).
+  const PACKAGE_FONTS = (over: Partial<FontLicence> = {}): FontLicence => ({
+    licence: "OFL-1.1",
+    fonts: "pkg-fonts",
+    derived: [],
+    source: "https://example.com/OFL.txt",
+    date: "2026-11-07",
+    reason: "a test table",
+    text: "PKG FONT NOTICE\n",
+    ...over,
+  });
+  const TABLE: FontLicences = { "pkg@1.0.0": PACKAGE_FONTS() };
+  const noticeText = async (target: string, built: { manifest: ViewManifest }, name: string) => {
+    const notice = built.manifest.chunks.choice?.licences.find((n) => n.package === name);
+    const text = notice === undefined ? "" : await Bun.file(join(target, notice.path)).text();
+    return { notice, text };
+  };
+  const packageSheet = async () => {
+    const root = join(dir, "node_modules", "pkg");
+    await Bun.write(
+      join(root, "package.json"),
+      JSON.stringify({ name: "pkg", version: "1.0.0", license: "MIT" }),
+    );
+    await Bun.write(join(root, "LICENSE"), "MIT License\n\nCopyright (c) Pkg\n");
+    await Bun.write(join(root, "pkg-fonts", "f.woff2"), FONT);
+    await Bun.write(join(root, "pkg-fonts", "f.woff"), new Uint8Array([1]));
+    const path = join(root, "pkg.css");
+    await Bun.write(
+      path,
+      "@font-face{font-family:P;src:url(pkg-fonts/f.woff2) format('woff2'),url(pkg-fonts/f.woff) format('woff')}.pkg{font-family:P}",
+    );
+    return path;
+  };
+
+  test("a listed stylesheet follows Tailwind's styles in its chunk, with its font inlined", async () => {
+    const path = await packageSheet();
+    const target = join(dir, "pkg-build");
+    const built = await buildView(target, { choice: [path] }, TABLE);
+    const file = built.manifest.chunks.choice?.styles[0]?.path ?? "";
+    const css = await Bun.file(join(target, file)).text();
+    expect(css).toContain("var(--");
+    expect(css.indexOf(".pkg{font-family:P}")).toBeGreaterThan(css.indexOf("var(--"));
+    expect(css).toContain(`url(data:font/woff2;base64,${Buffer.from(FONT).toString("base64")})`);
+    expect(css).not.toContain("f.woff");
+    await expect(
+      buildView(join(dir, "pkg-build-2"), { choice: [path], nothing: [path] }, TABLE),
+    ).rejects.toThrow('"nothing"');
+  }, 120_000);
+
+  test("a chunk whose script does not import the package still holds its notice, with the fonts' licence beside the package's (review X-3)", async () => {
+    const path = await packageSheet();
+    const target = join(dir, "pkg-notice-build");
+    const built = await buildView(target, { choice: [path] }, TABLE);
+    const { notice, text } = await noticeText(target, built, "pkg");
+    expect(notice).toMatchObject({ package: "pkg", version: "1.0.0", licence: "MIT AND OFL-1.1" });
+    const holds = text;
+    expect(holds).toContain("Copyright (c) Pkg");
+    expect(holds.indexOf("PKG FONT NOTICE")).toBeGreaterThan(holds.indexOf("Copyright (c) Pkg"));
+    const choice = built.manifest.chunks.choice;
+    expect(choice?.licences.map((n) => n.package)).not.toContain("react");
+  }, 120_000);
+
+  test("a stylesheet without fonts, from a package with no entry, still gives that package's notice (review X-3)", async () => {
+    const root = join(dir, "node_modules", "plainpkg");
+    await Bun.write(
+      join(root, "package.json"),
+      JSON.stringify({ name: "plainpkg", version: "3.0.0", license: "ISC" }),
+    );
+    await Bun.write(join(root, "LICENSE"), "ISC License\n\nCopyright (c) Plain\n");
+    await Bun.write(join(root, "plain.css"), ".plain{color:red}");
+    const target = join(dir, "plain-notice-build");
+    const built = await buildView(target, { choice: [join(root, "plain.css")] }, {});
+    const { notice, text } = await noticeText(target, built, "plainpkg");
+    expect(notice).toMatchObject({ version: "3.0.0", licence: "ISC" });
+    expect(text).toContain("Copyright (c) Plain");
+  }, 120_000);
+
+  test("inlined fonts of a package version with no entry fail the build, naming the package version and the chunk", async () => {
+    const path = await packageSheet();
+    const error = await buildView(join(dir, "no-entry-build"), { choice: [path] }, {}).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain("pkg@1.0.0");
+    expect(String(error)).toContain('"choice"');
+    expect(String(error)).toContain("no entry");
+  }, 120_000);
+
+  test("an entry no chunk inlines the fonts of or bundles a file derived from fails the build as stale", async () => {
+    const path = await packageSheet();
+    const table = { ...TABLE, "other@2.0.0": PACKAGE_FONTS() };
+    const error = await buildView(join(dir, "stale-build"), { choice: [path] }, table).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"other@2.0.0"');
+    expect(String(error)).toContain("stale");
+  }, 120_000);
+
+  test("with the real stylesheets, a font-licence entry no chunk uses fails the build as stale (task 5.1 removed the gate that skipped the check)", async () => {
+    const table = { ...FONT_LICENCES, "other@2.0.0": PACKAGE_FONTS() };
+    const error = await buildView(join(dir, "real-stale-build"), CHUNK_STYLESHEETS, table).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"other@2.0.0"');
+    expect(String(error)).toContain("stale");
+  }, 120_000);
+
+  test("the real build's latex chunk carries KaTeX's stylesheet and the `katex` 0.19.1 notice `MIT AND OFL-1.1` with the OFL text and the outlines' file named", async () => {
+    expect(CHUNK_STYLESHEETS).toEqual({ latex: ["katex/dist/katex.min.css"] });
+    const latex = chunkNamed("latex");
+    const notice = latex.licences.find((n) => n.package === "katex");
+    expect(notice).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+    const holds = await text(notice?.path ?? "none");
+    expect(holds).toContain("Khan Academy and other contributors");
+    expect(holds).toContain("SIL OPEN FONT LICENSE");
+    expect(holds).toContain("Reserved Font Name");
+    expect(holds).toContain("dist/katex.mjs");
+    const styles = await text(latex.styles[0]?.path ?? "none");
+    expect(styles).toContain(".katex");
+    expect(styles.match(/url\(data:font\/woff2;base64,/g)).toHaveLength(20);
+    expect(styles).not.toMatch(/url\((?!data:font\/woff2)/);
+    expect(latex.styles).toHaveLength(1);
+  });
+
+  test("an entry under a licence the rule does not admit fails the build", async () => {
+    const path = await packageSheet();
+    const table = { "pkg@1.0.0": PACKAGE_FONTS({ licence: "GPL-3.0-only" }) };
+    const error = await buildView(join(dir, "gpl-build"), { choice: [path] }, table).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"pkg@1.0.0"');
+    expect(String(error)).toContain("GPL-3.0-only");
+  }, 120_000);
+
+  test("KaTeX's stylesheet gives its chunk the `katex` 0.19.1 notice `MIT AND OFL-1.1` with KaTeX's licence and the OFL, and every font decodes to a woff2 file of the package", async () => {
+    const target = join(dir, "katex-build");
+    const built = await buildView(target, { choice: ["katex/dist/katex.min.css"] });
+    const { notice, text } = await noticeText(target, built, "katex");
+    expect(notice).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+    const holds = text;
+    expect(holds).toContain("Khan Academy and other contributors");
+    expect(holds).toContain("Permission is hereby granted");
+    expect(holds).toContain("Copyright (c) 2009-2010, Design Science, Inc.");
+    expect(holds).toContain("with Reserved Font Names KaTeX_AMS");
+    expect(holds).toContain("SIL OPEN FONT LICENSE");
+    const files = built.manifest.chunks.choice?.styles ?? [];
+    const css = await Bun.file(join(target, files[0]?.path ?? "none")).text();
+    const urls = [...css.matchAll(/url\(data:font\/woff2;base64,([A-Za-z0-9+/=]+)\)/g)];
+    expect(urls).toHaveLength(20);
+    const fontDir = join(ROOT, "packages/widgets/node_modules/katex/dist/fonts");
+    const hashes = new Set<string>();
+    for (const name of (await readdir(fontDir)).filter((file) => file.endsWith(".woff2"))) {
+      hashes.add(
+        createHash("sha256")
+          .update(await Bun.file(join(fontDir, name)).bytes())
+          .digest("hex"),
+      );
+    }
+    expect(hashes.size).toBe(20);
+    for (const [, base64] of urls) {
+      const bytes = Buffer.from(base64 as string, "base64");
+      expect(hashes.has(createHash("sha256").update(bytes).digest("hex"))).toBe(true);
+    }
+  }, 120_000);
+
+  test("a listed stylesheet that names a file fails the build, naming the chunk and the URL", async () => {
+    const path = await sheet("bad.css", ".bad{background:url(img/a.svg)}");
+    const error = await buildView(join(dir, "bad-build"), { choice: [path] }, {}).catch((e) => e);
+    expect(String(error)).toContain('"choice"');
+    expect(String(error)).toContain("img/a.svg");
+  }, 120_000);
+
+  test("a listed stylesheet with an @import fails the build, naming the chunk and the import", async () => {
+    const path = await sheet("import.css", '@import "other.css";.a{}');
+    const error = await buildView(join(dir, "import-build"), { choice: [path] }, {}).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"choice"');
+    expect(String(error)).toContain("@import");
+  }, 120_000);
+
+  test("every chunk's styles and the board page's pass the URL check", async () => {
+    const files = [
+      ...manifest.boardPage.styles,
+      ...Object.values(manifest.chunks).flatMap((c) => c.styles),
+    ];
+    expect(files.length).toBeGreaterThan(3);
+    for (const { path } of files) expect(styleUrlProblems(path, await text(path))).toEqual([]);
   });
 });

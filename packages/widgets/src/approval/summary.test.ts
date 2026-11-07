@@ -1,5 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { type ElementShape, ganttShape, TREE_SHAPE } from "@askboard/contract";
+import {
+  type ElementShape,
+  ganttShape,
+  KANBAN_SHAPE,
+  LATEX_SHAPE,
+  TREE_SHAPE,
+} from "@askboard/contract";
+import {
+  KANBAN_EDITED_PROPS,
+  KANBAN_FIXTURE_ITEM,
+  LATEX_EDITED_PROPS,
+  LATEX_FIXTURE_ITEM,
+} from "@askboard/contract/fixtures";
 import { SUMMARY_MAX_LINES, type SummaryItem, summarise } from "./summary.ts";
 import type { ValueWords } from "./values.ts";
 
@@ -15,8 +27,16 @@ const sentTree = {
   ],
 };
 
-const shapeOf = (type: string, props: object): ElementShape | undefined =>
-  type === "tree" ? TREE_SHAPE : type === "gantt" ? ganttShape(props) : undefined;
+const shapeOf = (type: string, props: object): ElementShape | undefined => {
+  if (type === "tree") return TREE_SHAPE;
+  if (type === "gantt") return ganttShape(props);
+  if (type === "latex") return LATEX_SHAPE;
+  if (type === "kanban") return KANBAN_SHAPE;
+  return undefined;
+};
+
+// What the component gives: the widget's name from the view's string tables.
+const widgetName = (type: string): string => (type === "latex" ? "LaTeX" : type);
 
 const run = (items: readonly SummaryItem[], locale: "en-US" | "it-IT" = "en-US") =>
   summarise({ items, shapeOf, locale, words });
@@ -183,5 +203,90 @@ describe("summarise", () => {
   test("an unchanged question gives none", () => {
     expect(run([tree(sentTree)])).toEqual({ count: 0, lines: [], more: 0 });
     expect(run([])).toEqual({ count: 0, lines: [], more: 0 });
+  });
+});
+
+// A whole-field change (view-and-widgets spec: The Approval summary of a whole-field change; design
+// decision 11): one line naming the item's widget and the field, with the previous and new values.
+describe("summarise, a whole-field change", () => {
+  const latex = (shown: object, sent: object = LATEX_FIXTURE_ITEM.props): SummaryItem => ({
+    id: LATEX_FIXTURE_ITEM.id,
+    type: "latex",
+    sent,
+    shown,
+  });
+  const named = (items: readonly SummaryItem[], locale: "en-US" | "it-IT" = "en-US") =>
+    summarise({ items, shapeOf, locale, words, widgetName });
+
+  test("a set of formula.expression is one line naming the LaTeX's widget and the field, the sent expression before the new one", () => {
+    expect(named([latex(LATEX_EDITED_PROPS)])).toEqual({
+      count: 1,
+      lines: [
+        {
+          op: "set",
+          itemId: "formula",
+          elementId: "",
+          name: "LaTeX",
+          field: "expression",
+          previous: "a^2+b^2",
+          next: "a^2+b^2=c^2",
+        },
+      ],
+      more: 0,
+    });
+  });
+
+  test("an expression emptied, and one the agent sent empty, are shown as the text they are", () => {
+    const [emptied] = named([latex({ expression: "" })]).lines;
+    expect(emptied).toMatchObject({ previous: "a^2+b^2", next: "" });
+    const [filled] = named([latex({ expression: "x" }, { expression: "" })]).lines;
+    expect(filled).toMatchObject({ previous: "", next: "x" });
+  });
+
+  test("both values are cut at 80 characters with an ellipsis, by code point", () => {
+    const long = "\\alpha".repeat(40);
+    const astral = "\u{1F600}".repeat(90);
+    const [line] = named([latex({ expression: astral }, { expression: long })]).lines;
+    expect(line?.previous).toBe(`${Array.from(long).slice(0, 80).join("")}…`);
+    expect(line?.next).toBe(`${"\u{1F600}".repeat(80)}…`);
+    const [exact] = named([
+      latex({ expression: "x".repeat(80) }, { expression: "y".repeat(80) }),
+    ]).lines;
+    expect(exact).toMatchObject({ previous: "y".repeat(80), next: "x".repeat(80) });
+  });
+
+  test("an unchanged expression gives no line, and the widget's type names it when no name is given", () => {
+    expect(named([latex(LATEX_FIXTURE_ITEM.props)])).toEqual({ count: 0, lines: [], more: 0 });
+    const [line] = run([latex(LATEX_EDITED_PROPS)]).lines;
+    expect(line).toMatchObject({ name: "latex", field: "expression" });
+  });
+
+  test("it sits beside the lines of an element shape, in item order, and counts with them", () => {
+    const shown = { nodes: [{ id: "a", label: "Design", effort: 1 }, sentTree.nodes[1]] };
+    const result = named([latex(LATEX_EDITED_PROPS), tree(shown)]);
+    expect(result.count).toBe(2);
+    expect(result.lines.map((line) => [line.itemId, line.name])).toEqual([
+      ["formula", "LaTeX"],
+      ["plan", "Design"],
+    ]);
+  });
+
+  test("a Kanban move is one line naming the card, as before", () => {
+    const result = named([
+      {
+        id: KANBAN_FIXTURE_ITEM.id,
+        type: "kanban",
+        sent: KANBAN_FIXTURE_ITEM.props,
+        shown: KANBAN_EDITED_PROPS,
+      },
+    ]);
+    expect(result.count).toBe(1);
+    expect(result.lines[0]).toMatchObject({
+      op: "set",
+      name: "Fix the login redirect",
+      field: "column",
+      previous: "todo",
+      next: "doing",
+    });
   });
 });

@@ -12,10 +12,10 @@
 import { type StringKey, useStrings } from "@askboard/view/catalog";
 import { ToggleGroup } from "radix-ui";
 import { type FocusEvent, type KeyboardEvent, type RefObject, useState } from "react";
+import { isZoom, ZOOMS, type Zoom } from "../shared/time/scale.ts";
 import { keyPressOf } from "./key-press.ts";
 import { nextTool, toolTabStop } from "./model/focus.ts";
 import { toolbarKeyMove } from "./model/keys.ts";
-import { isZoom, ZOOMS, type Zoom } from "./model/scale.ts";
 
 export const ZOOM_LABELS: Readonly<Record<Zoom, StringKey>> = {
   day: "gantt.zoom.day",
