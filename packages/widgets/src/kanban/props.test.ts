@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { KanbanProps } from "@askboard/contract";
 import { KANBAN_FIXTURE_ITEM } from "@askboard/contract/fixtures";
-import { checkedKanbanProps, shownProps } from "./props.ts";
+import { checkedKanbanProps, shownProps, valueFits } from "./props.ts";
 
 // The Kanban checks its props as an agent's before it shows (view-and-widgets spec: Kanban columns
 // and cards; design decision 9): the shape the view's unchecked props might lack, then the
@@ -97,5 +97,46 @@ describe("shownProps", () => {
     ]) {
       expect(shownProps("board", SENT, value)).toBe(SENT);
     }
+  });
+});
+
+// One predicate for "this value fits the shown revision" (security review X-2): the component's
+// `shownProps` and the shell's drops of a held value (the fact it registers) both ask it.
+describe("valueFits", () => {
+  const moved: KanbanProps = {
+    ...SENT,
+    cards: SENT.cards.map((card) =>
+      card.id === "fix-login" ? { ...card, column: "doing" } : card,
+    ),
+  };
+
+  test("is true for the agent's Kanban with cards moved, and for the agent's own", () => {
+    expect(valueFits(moved, SENT)).toBe(true);
+    expect(valueFits(SENT, SENT)).toBe(true);
+  });
+
+  test("is false for a value of another Kanban: other cards, labels, columns, or no Kanban at all", () => {
+    const relabelled = SENT.cards.map((card, at) =>
+      at === 0 ? { ...card, label: "Fix login, again" } : card,
+    );
+    for (const value of [
+      undefined,
+      null,
+      "x",
+      {},
+      { ...moved, cards: relabelled },
+      { ...moved, cards: moved.cards.slice(1) },
+      { ...moved, columns: SENT.columns.slice(0, 2) },
+    ]) {
+      expect(valueFits(value, SENT)).toBe(false);
+    }
+  });
+
+  test("is false against props that are no Kanban, and agrees with what shownProps shows", () => {
+    expect(valueFits(moved, { columns: [], cards: [] })).toBe(false);
+    expect(valueFits(moved, undefined)).toBe(false);
+    expect(shownProps("board", SENT, moved) === moved).toBe(valueFits(moved, SENT));
+    const other = { ...moved, cards: moved.cards.slice(1) };
+    expect(shownProps("board", SENT, other) === other).toBe(valueFits(other, SENT));
   });
 });

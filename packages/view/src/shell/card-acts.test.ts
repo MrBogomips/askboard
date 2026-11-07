@@ -1162,6 +1162,57 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     expect(results.valueOf("priorities")).toEqual(order);
   });
 
+  // A widget whose chunk registered `valueFits`, as the Kanban and the Timeline do: a value fits
+  // while it names the same tag as the props of the revision the card shows.
+  const tagged = (tag: string): WidgetItem => ({ type: "tagged", id: "cards", props: { tag } });
+  const valueFacts = (type: string) =>
+    type === "tagged"
+      ? {
+          valueFits: (value: unknown, props: unknown) =>
+            (value as { tag: string }).tag === (props as { tag: string }).tag,
+        }
+      : accepting();
+  const setUpValues = () => {
+    const set = setUp();
+    return { ...set, context: { ...set.context, facts: valueFacts } };
+  };
+
+  test("Keep mine, on the revision the work was made on, keeps a held value that revision shows", () => {
+    const { draft, board, context } = setUpValues();
+    const earlier = questionOf(tagged("a"));
+    const current = { ...questionOf(tagged("b")), rev: 2 };
+    board.edit("database", 1, () => ({ rev: 1 }));
+    draft.set("cards", { tag: "a" });
+    keepMine(current, context, earlier);
+    expect(draft.valueOf("cards")).toEqual({ tag: "a" });
+  });
+
+  test("Keep mine drops a held value the shown revision does not fit, and keeps the value of a type with no check", () => {
+    const { draft, board, sent, context } = setUpValues();
+    const earlier = {
+      ...questionOf(tagged("a"), { type: "tree", id: "wbs", props: {} } as WidgetItem),
+    };
+    const current = { ...earlier, rev: 2 };
+    board.edit("database", 1, () => ({ rev: 1 }));
+    draft.set("cards", { tag: "other" });
+    draft.set("wbs", { tag: "mine" });
+    keepMine(current, context, earlier);
+    expect(draft.record().has("cards")).toBe(false);
+    expect(draft.valueOf("wbs")).toEqual({ tag: "mine" });
+    expect(sent).toEqual([
+      expect.objectContaining({ type: "act", acts: [expect.objectContaining({ keptRev: 1 })] }),
+    ]);
+  });
+
+  test("Keep mine, on a card showing a later revision than the work, drops the value even when it fits: the work's base is gone", () => {
+    const { draft, board, context } = setUpValues();
+    const current = { ...questionOf(tagged("a")), rev: 2 };
+    board.edit("database", 1, () => ({ rev: 1 }));
+    draft.set("cards", { tag: "a" });
+    keepMine(current, context, current);
+    expect(draft.record().has("cards")).toBe(false);
+  });
+
   test("the leave-page prompt is armed after seeding, as the draft record the page mirrors shows", () => {
     const { draft, results, board, context } = setUp();
     const document = {

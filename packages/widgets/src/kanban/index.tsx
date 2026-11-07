@@ -16,7 +16,7 @@ import {
 } from "@askboard/view/catalog";
 import { useMemo } from "react";
 import { valueFor } from "./model.ts";
-import { checkedKanbanProps, shownProps } from "./props.ts";
+import { checkedKanbanProps, shownProps, valueFits } from "./props.ts";
 import { KanbanWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Kanban item's type. */
@@ -53,8 +53,10 @@ const Kanban = ({
 };
 
 // The facts the shell needs of the Kanban (widget-registry, design decision 8): the shape of its
-// cards, for the agent's change, and its name in the notice. It gives no result.
+// cards, for the agent's change, its name in the notice, and the check of a value it holds across a
+// revision. It gives no result.
 register(KANBAN, Kanban, {
   shape: () => KANBAN_SHAPE,
   name: "change.widgetKanban",
+  valueFits,
 });

@@ -16,7 +16,7 @@ import {
 } from "@askboard/view/catalog";
 import { useMemo } from "react";
 import { valueFor } from "./model.ts";
-import { checkedTimelineProps, shownProps } from "./props.ts";
+import { checkedTimelineProps, shownProps, valueFits } from "./props.ts";
 import { TimelineWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Timeline item's type. */
@@ -52,8 +52,10 @@ const Timeline = ({
 };
 
 // The facts the shell needs of the Timeline (widget-registry, design decision 8): the shape of its
-// entries, for the agent's change, and its name in the notice. It gives no result.
+// entries, for the agent's change, its name in the notice, and the check of a value it holds across a
+// revision. It gives no result.
 register(TIMELINE, Timeline, {
   shape: () => TIMELINE_SHAPE,
   name: "change.widgetTimeline",
+  valueFits,
 });

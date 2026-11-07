@@ -80,15 +80,21 @@ const sameKanban = (sent: KanbanProps, edited: KanbanProps): boolean =>
   });
 
 /**
- * The Kanban to show: the value the draft holds, while it is the agent's Kanban with cards moved,
- * else the agent's own. A value that is anything else was never made by this component.
+ * Whether the item shows `value` on a revision whose props are `props`: `value` is the agent's
+ * Kanban with cards moved. The one predicate of `shownProps` and of the shell's drops of a held
+ * value (the fact this chunk registers); a value, or props, that are no Kanban never fit.
  */
-export const shownProps = (itemId: string, sent: KanbanProps, value: unknown): KanbanProps => {
-  if (value === undefined) return sent;
+export const valueFits = (value: unknown, props: unknown): boolean => {
   try {
-    const edited = checkedKanbanProps(itemId, value);
-    return sameKanban(sent, edited) ? edited : sent;
+    return sameKanban(checkedKanbanProps("", props), checkedKanbanProps("", value));
   } catch {
-    return sent;
+    return false;
   }
 };
+
+/**
+ * The Kanban to show: the value the draft holds, while it fits the agent's Kanban (`valueFits`),
+ * else the agent's own. A value that is anything else was never made by this component.
+ */
+export const shownProps = (itemId: string, sent: KanbanProps, value: unknown): KanbanProps =>
+  value !== undefined && valueFits(value, sent) ? checkedKanbanProps(itemId, value) : sent;

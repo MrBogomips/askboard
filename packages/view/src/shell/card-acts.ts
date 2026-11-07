@@ -41,6 +41,7 @@ import {
   releaseHeld,
   resultFits,
   resultIdsOf,
+  valueDropped,
 } from "./board-draft.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
@@ -393,11 +394,16 @@ export const keepMine = (
 ): void => {
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
-  const { results, facts } = context;
+  const { results, facts, draft } = context;
   for (const itemId of resultIdsOf(shown)) {
     const held = results?.valueOf(itemId);
     if (held !== undefined && !resultFits(shown, itemId, held, facts))
       results?.set(itemId, undefined);
+    // A widget's value the card does not show on the revision the work was made on is dropped too
+    // (security review X-2): an answer sends what its widgets show.
+    const value = draft.valueOf(itemId);
+    if (value !== undefined && valueDropped(shown, work.rev, itemId, value, facts))
+      draft.set(itemId, undefined);
   }
   sendActs(context, [
     {

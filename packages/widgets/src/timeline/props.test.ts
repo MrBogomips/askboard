@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TimelineProps } from "@askboard/contract";
 import { TIMELINE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
-import { checkedTimelineProps, shownProps } from "./props.ts";
+import { checkedTimelineProps, shownProps, valueFits } from "./props.ts";
 
 // The Timeline checks its props as an agent's before it shows (view-and-widgets spec: Timeline
 // layout; design decision 10): the shape the view's unchecked props might lack, then the contract's
@@ -129,5 +129,42 @@ describe("shownProps", () => {
     ]) {
       expect(shownProps("roadmap", SENT, value)).toBe(SENT);
     }
+  });
+});
+
+// One predicate for "this value fits the shown revision" (security review X-2): the component's
+// `shownProps` and the shell's drops of a held value (the fact it registers) both ask it.
+describe("valueFits", () => {
+  const moved: TimelineProps = {
+    ...SENT,
+    entries: SENT.entries.map((entry) =>
+      entry.id === "launch" ? { ...entry, lane: "web", date: "2026-03-09" } : entry,
+    ),
+  };
+
+  test("is true for the agent's Timeline with entries moved, and for the agent's own", () => {
+    expect(valueFits(moved, SENT)).toBe(true);
+    expect(valueFits(SENT, SENT)).toBe(true);
+  });
+
+  test("is false for a value of another Timeline: other lanes, labels or kinds, or no Timeline", () => {
+    const [first, second] = SENT.entries;
+    for (const value of [
+      undefined,
+      null,
+      "x",
+      {},
+      { ...moved, lanes: SENT.lanes.slice(0, 1) },
+      { ...moved, lanes: SENT.lanes.map((lane) => ({ ...lane, label: "changed" })) },
+      { ...moved, entries: [{ ...first, label: "changed" }, second] },
+    ]) {
+      expect(valueFits(value, SENT)).toBe(false);
+    }
+  });
+
+  test("is false against props that are no Timeline, and agrees with what shownProps shows", () => {
+    expect(valueFits(moved, { lanes: [], entries: [] })).toBe(false);
+    expect(valueFits(moved, undefined)).toBe(false);
+    expect(shownProps("roadmap", SENT, moved) === moved).toBe(valueFits(moved, SENT));
   });
 });

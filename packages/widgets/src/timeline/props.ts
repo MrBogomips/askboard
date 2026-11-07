@@ -85,15 +85,21 @@ const sameTimeline = (sent: TimelineProps, edited: TimelineProps): boolean =>
   });
 
 /**
- * The Timeline to show: the value the draft holds, while it is the agent's Timeline with entries
- * moved, else the agent's own. A value that is anything else was never made by this component.
+ * Whether the item shows `value` on a revision whose props are `props`: `value` is the agent's
+ * Timeline with entries moved. The one predicate of `shownProps` and of the shell's drops of a held
+ * value (the fact this chunk registers); a value, or props, that are no Timeline never fit.
  */
-export const shownProps = (itemId: string, sent: TimelineProps, value: unknown): TimelineProps => {
-  if (value === undefined) return sent;
+export const valueFits = (value: unknown, props: unknown): boolean => {
   try {
-    const edited = checkedTimelineProps(itemId, value);
-    return sameTimeline(sent, edited) ? edited : sent;
+    return sameTimeline(checkedTimelineProps("", props), checkedTimelineProps("", value));
   } catch {
-    return sent;
+    return false;
   }
 };
+
+/**
+ * The Timeline to show: the value the draft holds, while it fits the agent's Timeline
+ * (`valueFits`), else the agent's own. A value that is anything else was never made by this component.
+ */
+export const shownProps = (itemId: string, sent: TimelineProps, value: unknown): TimelineProps =>
+  value !== undefined && valueFits(value, sent) ? checkedTimelineProps(itemId, value) : sent;
