@@ -173,12 +173,14 @@ export const itemExpected = (
   "question.props.text": "non-empty text",
   "question.props.header": "non-empty text",
   "question.props.options":
-    "a non-empty list of options, each {label, description?, preview?, annotation?, recommended?}",
+    "a non-empty list of options, each {label, description?, preview?, previewFormat?, annotation?, recommended?}",
   "question.props.options[]":
-    "an option {label, description?, preview?, annotation?, recommended?}",
+    "an option {label, description?, preview?, previewFormat?, annotation?, recommended?}",
   "question.props.options[].label": "non-empty text, unique within the question",
   "question.props.options[].description": "text",
   "question.props.options[].preview": text(PREVIEW_MAX_CHARS),
+  "question.props.options[].previewFormat":
+    '"plain" (the default) or "markdown", only beside a preview',
   "question.props.options[].annotation": text(ANNOTATION_MAX_CHARS),
   "question.props.options[].recommended": "true, on at most one option of the question",
   "question.props.multiSelect": "true or false",
@@ -233,7 +235,7 @@ export const ITEM_FIELDS: Readonly<Record<string, string>> = {
   "reference.props": "a reference's props hold only pointer, url and title",
   "image.props": "an image's props hold only pointer and alt",
   "question.props.options[]":
-    "an option holds only label, description, preview, annotation and recommended",
+    "an option holds only label, description, preview, previewFormat, annotation and recommended",
   area: "an area holds only type, id and props",
   "area.props": "an area's props hold only title and items",
   "area.props.items[]": "an item holds only type, id and props",
@@ -311,14 +313,28 @@ export const reservedPrefixProblems = (
 export const placedIds = (placed: readonly Placed[]): (readonly [Segments, unknown])[] =>
   placed.map(({ item, at }) => [[...at, "id"], item.id] as const);
 
-type Labelled = { readonly index: number; readonly label: string; readonly recommended: boolean };
+type Labelled = {
+  readonly index: number;
+  readonly label: string;
+  readonly recommended: boolean;
+  /** The option has `previewFormat` and no `preview` (atoms). */
+  readonly formatWithoutPreview: boolean;
+};
 
 const optionsOf = (question: Readonly<Record<string, unknown>>): Labelled[] => {
   const props = question.props;
   const options = isRecord(props) && Array.isArray(props.options) ? props.options : [];
   return options.flatMap((option, index) =>
     isRecord(option) && typeof option.label === "string"
-      ? [{ index, label: option.label, recommended: option.recommended === true }]
+      ? [
+          {
+            index,
+            label: option.label,
+            recommended: option.recommended === true,
+            formatWithoutPreview:
+              option.previewFormat !== undefined && option.preview === undefined,
+          },
+        ]
       : [],
   );
 };
@@ -361,6 +377,13 @@ const questionProblems = (
     const message = `{where}: the option labels take ${room} characters as a JSON list, more than the ${CHOICE_LABELS_MAX_CHARS} an answer can carry; shorten them`;
     const expected = `options whose labels take at most ${CHOICE_LABELS_MAX_CHARS} characters`;
     problems.push(problemAt(wording, value, [...at, "props", "options"], message, expected));
+  }
+  for (const { index, label } of options.filter((option) => option.formatWithoutPreview)) {
+    const segments = optionAt(index, "previewFormat");
+    const message = `{where}: the option ${JSON.stringify(label)} has a previewFormat and no preview; the format describes a preview`;
+    problems.push(
+      problemAt(wording, value, segments, message, expectedAt(wording, segments, value)),
+    );
   }
   const recommended = options.filter((option) => option.recommended);
   const [, second] = recommended;

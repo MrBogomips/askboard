@@ -5,7 +5,8 @@
 // design decision 2), and E8's names the ask's language and locale (settings-languages, design
 // decision 7); approval-scale-ranking's carries the items of the Approval, the Scale and the
 // Ranking (design decision 11); latex-kanban-timeline's carries the items of the LaTeX, the Kanban and
-// the Timeline (design decision 13); chart-widget's carries the Chart's item (design decision 11).
+// the Timeline (design decision 13); chart-widget's carries the Chart's item (design decision 11);
+// atoms' carries an option's `previewFormat` (design decision 11).
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";

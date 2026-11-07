@@ -234,7 +234,9 @@ describe("question props: FR-3's fields", () => {
     const value = ask([question("q", { options: [option("A", { colour: "red" })] })]);
     const problem = only(value);
     expect(problem.field).toBe("props.options[0].colour");
-    expect(problem.expected).toContain("label, description, preview, annotation and recommended");
+    expect(problem.expected).toContain(
+      "label, description, preview, previewFormat, annotation and recommended",
+    );
   });
 });
 
