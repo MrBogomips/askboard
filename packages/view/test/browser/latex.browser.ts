@@ -465,6 +465,75 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
   });
 
+  describe(`${engine}: the LaTeX preview's height`, () => {
+    const { host } = useWidgetHost(engine);
+
+    // Negative sizes KaTeX's `maxSize` does not cap (security review X-1): each would make the
+    // preview millions of pixels tall and push "Answer" out of reach.
+    const DOWNWARD = [
+      "\\raisebox{-1000000em}{X}",
+      "\\rule[-500em]{1em}{1em}",
+      "\\smash{\\raisebox{-500em}{X}}",
+    ] as const;
+
+    // The preview's height and where "Answer" starts, in the page's coordinates.
+    const layoutOf = async (run: WidgetHostRun) => {
+      const { board } = run;
+      const box = await preview(board).boundingBox();
+      const answer = await board.answer.boundingBox();
+      if (box === null || answer === null) throw new Error("the preview or Answer is not drawn");
+      return { previewHeight: box.height, answerTop: answer.y };
+    };
+
+    // The preview's cap (`PREVIEW`'s maximum height, in pixels): above KaTeX's positive maximum.
+    const CAP = 400;
+
+    // The largest preview KaTeX itself allows: a positive raise at its `maxSize`.
+    const reference = async (): Promise<{ previewHeight: number; answerTop: number }> => {
+      const run = await host(dist, latexDocument("\\raisebox{500em}{X}"));
+      await readyIn(run);
+      return layoutOf(run);
+    };
+
+    for (const expression of DOWNWARD) {
+      test(
+        `the agent's ${expression} keeps the preview within its cap and Answer within the cap's reach of where the largest allowed preview puts it`,
+        async () => {
+          const largest = await reference();
+          expect(largest.previewHeight).toBeLessThanOrEqual(CAP);
+          const run = await host(dist, latexDocument(expression));
+          await readyIn(run);
+          const shown = await layoutOf(run);
+          expect(shown.previewHeight).toBeLessThanOrEqual(CAP + 4);
+          expect(shown.answerTop).toBeLessThanOrEqual(
+            largest.answerTop + (CAP - largest.previewHeight) + 4,
+          );
+          expect(run.browser.violations).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        `${expression} typed by the user keeps the preview within its cap and Answer within the cap's reach of where the largest allowed preview puts it`,
+        async () => {
+          const largest = await reference();
+          const run = await host(dist, latexDocument("x"));
+          await readyIn(run);
+          const before = await markup(run.board);
+          await source(run.board).fill(expression);
+          await eventually(async () => (await markup(run.board)) !== before, "the new preview");
+          const shown = await layoutOf(run);
+          expect(shown.previewHeight).toBeLessThanOrEqual(CAP + 4);
+          expect(shown.answerTop).toBeLessThanOrEqual(
+            largest.answerTop + (CAP - largest.previewHeight) + 4,
+          );
+          expect(await run.board.answer.isEnabled()).toBe(true);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+
   describe(`${engine}: the LaTeX in Italian`, () => {
     const { host } = useWidgetHost(engine);
 

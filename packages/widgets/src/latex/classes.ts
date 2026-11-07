@@ -25,10 +25,12 @@ export const FIELD_ERROR = "break-words text-body text-destructive-text";
 
 /**
  * The preview, under the field on `{colors.card}`: a preview wider than the frame scrolls sideways,
- * and what is taller than the box is clipped, since KaTeX's `maxSize` caps no negative size.
+ * and one taller than 400px scrolls inside its box. KaTeX's `maxSize` caps a size upward (about
+ * 358px) and no negative one, so a raise downward would else make the box millions of pixels tall
+ * and push "Answer" out of reach (latex-kanban-timeline, security review X-1).
  */
 export const PREVIEW =
-  "min-h-[32px] overflow-x-auto overflow-y-hidden rounded-md border border-border bg-card px-2 " +
+  "max-h-[400px] min-h-[32px] overflow-x-auto overflow-y-auto rounded-md border border-border bg-card px-2 " +
   "text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 
 /** The counter under the preview: the change dot, then its text, in `muted-foreground`. */
