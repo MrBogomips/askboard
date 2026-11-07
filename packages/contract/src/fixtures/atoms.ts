@@ -2,7 +2,9 @@
 // the shipped registry through `withWidgetTypes` while a type is not registered yet, and each
 // type's example items and results. Tests only; no shipped unit imports them.
 
+import { DATE_FIELD_WIDGET } from "../widgets/date-field/widget.ts";
 import { DIVIDER_WIDGET } from "../widgets/divider/widget.ts";
+import { NUMBER_FIELD_WIDGET } from "../widgets/number-field/widget.ts";
 import type { WidgetType } from "../widgets/registry.ts";
 import { TEXT_WIDGET } from "../widgets/text/widget.ts";
 import { TEXT_FIELD_WIDGET } from "../widgets/text-field/widget.ts";
@@ -19,6 +21,8 @@ export const ATOM_TYPES: readonly WidgetType[] = [
   VALUE_WIDGET,
   DIVIDER_WIDGET,
   TEXT_FIELD_WIDGET,
+  NUMBER_FIELD_WIDGET,
+  DATE_FIELD_WIDGET,
   TOGGLE_WIDGET,
 ];
 
@@ -79,3 +83,29 @@ export const TOGGLE_FIXTURE_ITEM = {
 
 /** A Toggle's results: on, and off, which is an answer. */
 export const TOGGLE_RESULTS = { on: true, off: false } as const;
+
+/** A NumberField with bounds, a step and a unit, and one of whole numbers. */
+export const NUMBER_FIELD_FIXTURE_ITEMS = [
+  {
+    type: "number-field",
+    id: "days",
+    props: { label: "Days of leave", min: 0, max: 20, step: 0.5, unit: "days" },
+  },
+  { type: "number-field", id: "seats", props: { label: "Seats", integer: true, min: 1 } },
+] as const;
+
+/** A result of each NumberField above, in order. */
+export const NUMBER_FIELD_RESULTS = [3.5, 40] as const;
+
+/** A DateField with a first day, and one within a window. */
+export const DATE_FIELD_FIXTURE_ITEMS = [
+  { type: "date-field", id: "start", props: { label: "Start", min: "2026-01-01" } },
+  {
+    type: "date-field",
+    id: "review",
+    props: { label: "Review", min: "2026-03-01", max: "2026-06-30" },
+  },
+] as const;
+
+/** A result of each DateField above, in order. */
+export const DATE_FIELD_RESULTS = ["2026-03-02", "2026-06-30"] as const;

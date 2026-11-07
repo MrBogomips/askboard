@@ -59,12 +59,11 @@ describe("the input atoms of the fields in the registry", () => {
     expect(TYPES.map(({ type }) => type)).toEqual(expect.arrayContaining(["text-field", "toggle"]));
   });
 
-  test("the atoms follow the display atoms in the fixtures' registry order", () => {
-    expect(
-      ATOM_TYPES.map(({ type }) => type).filter(
-        (type) => type !== "text" && type !== "value" && type !== "divider",
-      ),
-    ).toEqual(["text-field", "toggle"]);
+  test("the atoms follow the display atoms in the fixtures' registry order, the Toggle last", () => {
+    const order = ATOM_TYPES.map(({ type }) => type);
+    expect(order.slice(0, 3)).toEqual(["text", "value", "divider"]);
+    expect(order.indexOf("text-field")).toBe(3);
+    expect(order.at(-1)).toBe("toggle");
   });
 
   test("each example item and fixture passes", () => {

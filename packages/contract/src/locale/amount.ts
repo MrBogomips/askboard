@@ -138,8 +138,7 @@ export const compareDecimal = (a: string, b: string): -1 | 0 | 1 => {
   const rightZero = right.whole === "" && right.fraction === "";
   if (leftZero && rightZero) return 0;
   if (left.sign !== right.sign) return left.sign < right.sign ? -1 : 1;
-  const width =
-    left.fraction.length > right.fraction.length ? left.fraction.length : right.fraction.length;
+  const width = Math.max(left.fraction.length, right.fraction.length);
   const magnitude =
     left.whole.length === right.whole.length
       ? compareText(

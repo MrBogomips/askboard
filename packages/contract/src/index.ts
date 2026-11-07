@@ -859,3 +859,28 @@ export {
   togglePropsProblems,
   toggleResultShape,
 } from "./widgets/toggle/index.ts";
+
+// The NumberField and the DateField (atoms, design decision 1), unregistered until their chunks
+// exist.
+
+export {
+  DATE_FIELD_SCHEMA_IDS,
+  DATE_FIELD_WIDGET,
+  type DateFieldItem,
+  type DateFieldProps,
+  type DateFieldResult,
+  dateFieldPropsProblems,
+  dateFieldResultProblems,
+  dateFieldResultShape,
+} from "./widgets/date-field/index.ts";
+export {
+  NUMBER_FIELD_SCHEMA_IDS,
+  NUMBER_FIELD_STEP_MAX,
+  NUMBER_FIELD_WIDGET,
+  type NumberFieldItem,
+  type NumberFieldProps,
+  type NumberFieldResult,
+  numberFieldPropsProblems,
+  numberFieldResultProblems,
+  numberFieldResultShape,
+} from "./widgets/number-field/index.ts";

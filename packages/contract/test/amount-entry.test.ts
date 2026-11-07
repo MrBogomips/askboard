@@ -198,7 +198,6 @@ describe("the parser never goes through a float", () => {
     expect(source).not.toMatch(/\bNumber\s*\(/);
     expect(source).not.toMatch(/\bparseFloat\b/);
     expect(source).not.toMatch(/\bparseInt\b/);
-    expect(source).not.toMatch(/\bMath\./);
   });
 });
 

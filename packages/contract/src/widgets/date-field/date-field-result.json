@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:date-field-result",
+  "title": "DateField result",
+  "description": "A DateField's result (FR-13, FR-18, atoms design decision 1): an RFC 3339 full-date. That the day exists, lies within the Gantt's days and within the item's min and max are checks of the type against the item's props. In the output format since atoms.",
+  "type": "string",
+  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+}
