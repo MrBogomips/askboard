@@ -218,4 +218,10 @@ export {
   latexAct,
   latexAnswerEvent,
   latexFetchItemResult,
+  TIMELINE_CHANGES,
+  TIMELINE_EDITED_PROPS,
+  TIMELINE_FIXTURE_ITEM,
+  timelineAct,
+  timelineAnswerEvent,
+  timelineFetchItemResult,
 } from "./latex-kanban-timeline.ts";

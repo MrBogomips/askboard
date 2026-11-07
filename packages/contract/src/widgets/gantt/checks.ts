@@ -33,8 +33,11 @@ const daysIn = (year: number, month: number): number => {
   return [4, 6, 9, 11].includes(month) ? 30 : 31;
 };
 
-/** A day that exists, from the Gantt's first day to its last, as a `full-date`. */
-const isGanttDate = (value: unknown): value is string => {
+/**
+ * A day that exists, from the Gantt's first day to its last, as a `full-date`. Exported for the
+ * widget whose days are the Gantt's (latex-kanban-timeline).
+ */
+export const isGanttDate = (value: unknown): value is string => {
   const match = typeof value === "string" ? FULL_DATE.exec(value) : null;
   if (match === null) return false;
   const [year, month, day] = match.slice(1).map(Number) as [number, number, number];

@@ -727,3 +727,21 @@ export {
   type LatexProps,
   latexPropsProblems,
 } from "./widgets/latex/index.ts";
+export {
+  TIMELINE_ENTRY_LABEL_MAX_CHARS,
+  TIMELINE_LANE_LABEL_MAX_CHARS,
+  TIMELINE_MAX_ENTRIES,
+  TIMELINE_MAX_LANES,
+  TIMELINE_MIN_ENTRIES,
+  TIMELINE_MIN_LANES,
+  TIMELINE_SCHEMA_IDS,
+  TIMELINE_SHAPE,
+  TIMELINE_WIDGET,
+  type TimelineChange,
+  type TimelineChangeField,
+  type TimelineEntry,
+  type TimelineItem,
+  type TimelineLane,
+  type TimelineProps,
+  timelinePropsProblems,
+} from "./widgets/timeline/index.ts";

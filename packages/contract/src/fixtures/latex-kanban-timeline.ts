@@ -8,6 +8,7 @@ import type { AnswerEvent } from "../schemas/output/index.ts";
 import { RESULT_VERSIONS } from "../schemas/tool-envelopes/index.ts";
 import type { KanbanItem } from "../widgets/kanban/index.ts";
 import type { LatexItem } from "../widgets/latex/index.ts";
+import type { TimelineItem } from "../widgets/timeline/index.ts";
 
 const SESSION = {
   epoch: "k3x9",
@@ -147,6 +148,88 @@ export const kanbanFetchItemResult: Readonly<Record<string, unknown>> = {
     id: KANBAN_FIXTURE_ITEM.id,
     questionId: SESSION.question,
     props: KANBAN_EDITED_PROPS,
+    state: "answered",
+  },
+  unchecked: true,
+};
+
+/** A Timeline of two lanes: a range in `web` and a milestone in `mobile`. */
+export const TIMELINE_FIXTURE_ITEM: TimelineItem = {
+  type: "timeline",
+  id: "roadmap",
+  props: {
+    lanes: [
+      { id: "web", label: "Web" },
+      { id: "mobile", label: "Mobile" },
+    ],
+    entries: [
+      {
+        id: "checkout",
+        label: "New checkout",
+        lane: "web",
+        start: "2026-01-05",
+        end: "2026-02-27",
+      },
+      { id: "launch", label: "Public launch", lane: "mobile", date: "2026-03-02" },
+    ],
+  },
+};
+
+/** The Timeline's props after the user moved `checkout` a week later and into `mobile`. */
+export const TIMELINE_EDITED_PROPS = {
+  ...TIMELINE_FIXTURE_ITEM.props,
+  entries: TIMELINE_FIXTURE_ITEM.props.entries.map((entry) =>
+    entry.id === "checkout"
+      ? { ...entry, lane: "mobile", start: "2026-01-12", end: "2026-03-06" }
+      : entry,
+  ),
+} as const;
+
+/** The changes of that move: its `end`, `lane` and `start`, in the diff's order. */
+export const TIMELINE_CHANGES = [
+  { op: "set", target: "roadmap.checkout.end", value: "2026-03-06" },
+  { op: "set", target: "roadmap.checkout.lane", value: "mobile" },
+  { op: "set", target: "roadmap.checkout.start", value: "2026-01-12" },
+] as const;
+
+/** The act that sends the moved range: the Timeline's value, with no change. */
+export const timelineAct: ActCommand = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "act",
+  actionId: "vP8rW3qBa7YxQ1zCd6hEuJ",
+  acts: [
+    {
+      type: "answer",
+      itemId: SESSION.question,
+      rev: 1,
+      values: { [TIMELINE_FIXTURE_ITEM.id]: TIMELINE_EDITED_PROPS },
+      when: WHEN,
+    },
+  ],
+};
+
+/** The event that logs the move. */
+export const timelineAnswerEvent: AnswerEvent = {
+  cursor: `${SESSION.epoch}.1`,
+  type: "answer",
+  itemId: SESSION.question,
+  rev: 1,
+  who: WHO,
+  when: WHEN,
+  changes: TIMELINE_CHANGES,
+};
+
+/** What `fetch` returns for the Timeline alone: its props as the user left them. */
+export const timelineFetchItemResult: Readonly<Record<string, unknown>> = {
+  versions: RESULT_VERSIONS,
+  epoch: SESSION.epoch,
+  askId: SESSION.askId,
+  state: "answered",
+  item: {
+    type: TIMELINE_FIXTURE_ITEM.type,
+    id: TIMELINE_FIXTURE_ITEM.id,
+    questionId: SESSION.question,
+    props: TIMELINE_EDITED_PROPS,
     state: "answered",
   },
   unchecked: true,
