@@ -65,7 +65,7 @@ An expression the contract's LaTeX check refuses SHALL NOT render: one holding a
 
 #### Scenario: Nests the scan once missed
 - **WHEN** the user types `\frac{` with `\over y}{x}` nested 11 times, or ``\char` {`` 130 times, then `x`, then `\over}` 130 times
-- **THEN** within 2 seconds the field error names the depth and the limit, KaTeX does not run, and Chromium's renderer does not crash
+- **THEN** within 2 seconds the field error names the depth and the limit for the first and the command ``\char` `` for the second, KaTeX does not run, and Chromium's renderer does not crash
 
 ### Requirement: LaTeX output bounded
 Before any node of a preview reaches the page, the board SHALL measure the depth, the node count and the most fractions nested on one path of the output KaTeX builds for the expression. An output past the board's bounds SHALL NOT render: its field error SHALL say the expression is too complex to preview, in the editable item, the read-only item and a Snapshot alike, the preview keeping its last render and "Answer" staying enabled (AD-8, NFR-5).
