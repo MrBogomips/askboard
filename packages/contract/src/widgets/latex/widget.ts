@@ -28,7 +28,7 @@ export const LATEX_WIDGET: WidgetType = {
     use: "one mathematical expression in LaTeX that the user reads and corrects, with a live preview",
     notes: [
       "The answer's change is one `set` of `<id>.expression`: the whole expression as the user wrote it, which may not parse.",
-      "KaTeX renders it: `\\href`, `\\url` and `\\includegraphics` show no link or image, and a macro definition (`\\def`, `\\newcommand`, …) is refused.",
+      "KaTeX renders it: `\\href`, `\\url` and `\\includegraphics` show no link or image, a macro definition (`\\def`, `\\newcommand`, …) and a KaTeX internal command (a name holding `@`) are refused.",
     ],
   },
 };

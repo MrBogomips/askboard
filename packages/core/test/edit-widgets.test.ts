@@ -99,6 +99,12 @@ describe("a LaTeX answer that defines a macro", () => {
     expect(problem.detail).toContain("\\def");
   });
 
+  test("an internal command is refused naming the item and the command, with nothing kept", () => {
+    const problem = refusal([LATEX], { formula: { expression: "\\color{x}\\current@color" } });
+    expect(problem.detail).toContain('"formula"');
+    expect(problem.detail).toContain("\\current@color");
+  });
+
   test("a \\newcommand is named as well, and a plain correction still passes", () => {
     expect(
       refusal([LATEX], { formula: { expression: "\\newcommand{\\c}{x}\\c" } }).detail,

@@ -12,7 +12,11 @@ export const LATEX_EXPRESSION_MAX_CHARS = 2_000;
  * 7): its `def` functions `\def`, `\gdef`, `\edef`, `\xdef`, `\global`, `\long`, `\let` and
  * `\futurelet`, and its macros `\newcommand`, `\renewcommand` and `\providecommand`. A LaTeX
  * holds none: an expansion's limit counts expansions, not what they emit, so a macro repeating a
- * long body froze the board. A KaTeX upgrade re-reads this list (the widgets' render test pins it).
+ * long body froze the board. KaTeX also defines macros by side effect (`\tag` defines `\df@tag`,
+ * `\color` defines `\current@color`, with the author's text); their names hold `@`, KaTeX's internal
+ * namespace, and the scan refuses every control word holding `@` as well (4.7 re-review X-1), so
+ * this list is the definitions the author could write by name. A KaTeX upgrade re-reads this list
+ * (the widgets' render test pins it and reads the side-effect definitions in KaTeX's source).
  */
 export const LATEX_DEFINING_COMMANDS: readonly string[] = /* @__PURE__ */ Object.freeze([
   "\\def",

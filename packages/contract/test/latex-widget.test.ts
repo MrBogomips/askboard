@@ -25,8 +25,8 @@ import {
   LATEX_SCHEMA_IDS,
   LATEX_SHAPE,
   LATEX_WIDGET,
-  latexDefiningCommand,
   latexPropsProblems,
+  scanLatex,
   widgetChangesProblems,
   widgetRegistryProblems,
 } from "../src/index.ts";
@@ -211,12 +211,12 @@ describe("LaTeX macro definitions refused", () => {
     expect([...LATEX_DEFINING_COMMANDS].sort()).toEqual([...DEFINING].sort());
     expect(Object.isFrozen(LATEX_DEFINING_COMMANDS)).toBe(true);
     for (const command of DEFINING) {
-      expect(latexDefiningCommand(`a ${command}`)).toBe(command);
-      expect(latexDefiningCommand(`${command}x`)).toBeUndefined();
+      expect(scanLatex(`a ${command}`).refused).toBe(command);
+      expect(scanLatex(`${command}x`).refused).toBeUndefined();
     }
-    expect(latexDefiningCommand("")).toBeUndefined();
-    expect(latexDefiningCommand("\\global\\def")).toBe("\\global");
-    expect(latexDefiningCommand("\\frac \\let")).toBe("\\let");
+    expect(scanLatex("").refused).toBeUndefined();
+    expect(scanLatex("\\global\\def").refused).toBe("\\global");
+    expect(scanLatex("\\frac \\let").refused).toBe("\\let");
   });
 
   test("the scan ends on 2,000 backslashes and on 2,000 code points of letters, with no command", () => {
@@ -230,7 +230,7 @@ describe("LaTeX macro definitions refused", () => {
       "\\de".repeat(500),
       "\\defa".repeat(333),
     ]) {
-      expect(latexDefiningCommand(text)).toBeUndefined();
+      expect(scanLatex(text).refused).toBeUndefined();
     }
   });
 
@@ -259,7 +259,6 @@ describe("LaTeX macro definitions refused", () => {
     for (const expression of [
       "a \\\\ def",
       "\\left( x \\right)",
-      "\\def@x",
       "\\default",
       "\\DEF",
       "\\\\def",
@@ -274,10 +273,101 @@ describe("LaTeX macro definitions refused", () => {
     }
   });
 
+  test("a control word holding @ is refused, so \\def@x no longer passes", () => {
+    expect(latexPropsProblems({ expression: "\\def@x" })[0]?.message).toContain("`\\def@x`");
+    for (const expression of ["\\default", "\\left( x \\right)", "a \\\\ def", "\\\\@x", "x@y"]) {
+      expect(latexPropsProblems({ expression }), expression).toEqual([]);
+    }
+  });
+
   test("a control symbol does not hide the word after it, and `\\\\` is a symbol of its own", () => {
     expect(latexPropsProblems({ expression: "\\,\\def\\a{x}" })).toHaveLength(1);
     expect(latexPropsProblems({ expression: "\\%\\let" })).toHaveLength(1);
     expect(latexPropsProblems({ expression: "\\\\\\def" })).toHaveLength(1);
+  });
+});
+
+// The 4.7 re-review's X-1 (contract spec: LaTeX macro definitions and internal commands refused;
+// design decisions 3 and 7, Bounded work): `\tag` and `\color` define macros by side effect, named
+// `\df@tag` and `\current@color`, which the source can call because KaTeX's lexer reads `@` as a
+// letter. Every control word holding `@` is refused.
+const TAG = `\\tag{$${"x".repeat(900)}$}${"\\df@tag".repeat(156)}`;
+const COLOR = `\\color{${"x".repeat(900)}}${"\\current@color".repeat(78)}`;
+const BOTH = `\\tag{$\\color{${"x".repeat(1_200)}}${"\\current@color".repeat(20)}$}${"\\df@tag".repeat(20)}`;
+
+describe("LaTeX internal commands refused", () => {
+  test.each([
+    ["\\tag and \\df@tag", TAG, "\\df@tag"],
+    ["\\color and \\current@color", COLOR, "\\current@color"],
+    ["both, multiplied", BOTH, "\\current@color"],
+  ])(
+    "the review's form %s is within the limit and refused, naming %s",
+    (_name, expression, word) => {
+      expect([...expression].length).toBeLessThanOrEqual(2_000);
+      const refused = latexPropsProblems({ expression });
+      expect(refused.map(({ path }) => path)).toEqual(["/expression"]);
+      expect(refused[0]?.message).toBe(
+        `the expression names \`${word}\`, one of KaTeX's internal commands, which a LaTeX item does not allow`,
+      );
+      const [problem, ...rest] = problems(withExpression(expression));
+      expect(rest).toEqual([]);
+      expect(problem?.itemId).toBe("formula");
+      expect(problem?.field).toBe("props.expression");
+      expect(problem?.message).toContain(word);
+    },
+  );
+
+  test("the scan gives the first word holding @, definition or internal, in the text's order", () => {
+    expect(scanLatex("\\def@x").refused).toBe("\\def@x");
+    expect(scanLatex("\\@").refused).toBe("\\@");
+    expect(scanLatex("a \\@ifnextchar b \\def").refused).toBe("\\@ifnextchar");
+    expect(scanLatex("\\def \\df@tag").refused).toBe("\\def");
+    expect(scanLatex("x \\tag@literal").refused).toBe("\\tag@literal");
+    for (const text of [
+      "\\\\@x",
+      "\\\\\\\\@",
+      "x@y",
+      "@",
+      "\\ @",
+      "\\,@",
+      "\\tag{x}",
+      "\\color{red}x",
+    ]) {
+      expect(scanLatex(text).refused, text).toBeUndefined();
+    }
+  });
+
+  test("an ask holding \\current@color is refused by the request's check, naming it", () => {
+    const [problem, ...rest] = problems(withExpression("\\color{x}\\current@color"));
+    expect(rest).toEqual([]);
+    expect(problem?.itemId).toBe("formula");
+    expect(problem?.message).toContain('item "formula"');
+    expect(problem?.message).toContain("\\current@color");
+  });
+
+  test("an edited value's check refuses it as well, so ask-core can", () => {
+    const refused = LATEX_WIDGET.propsProblems(
+      { expression: "\\color{x}\\current@color" },
+      "edited",
+    );
+    expect(refused.map(({ message }) => message)).toEqual([
+      "the expression names `\\current@color`, one of KaTeX's internal commands, which a LaTeX item does not allow",
+    ]);
+  });
+
+  test("the request's wording and the teaching text name the internal commands", () => {
+    expect(LATEX_EXPECTED["latex.props.expression"]).toContain("no internal command");
+    expect(LATEX_WIDGET.skill?.notes?.join(" ")).toContain("a KaTeX internal command");
+    expect(LATEX_WIDGET.skill?.notes?.join(" ")).toContain("a name holding `@`");
+  });
+
+  test("the list's comment no longer claims every way KaTeX defines a macro", () => {
+    const source = readFileSync(
+      new URL("../src/widgets/latex/constants.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).not.toContain("every way KaTeX defines a macro");
+    expect(source).toContain("`@`");
   });
 });
 

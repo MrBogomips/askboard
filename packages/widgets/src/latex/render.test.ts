@@ -4,7 +4,7 @@
 // command would put in the page; `renderInto` is run on stand-ins for the preview's element.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { LATEX_DEFINING_COMMANDS, latexDefiningCommand } from "@askboard/contract";
+import { LATEX_DEFINING_COMMANDS, scanLatex } from "@askboard/contract";
 import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
 
@@ -103,9 +103,11 @@ describe("macros", () => {
   );
 });
 
-// Group 4 review S-1 (task 4.5): the contract refuses a macro definition (`LATEX_DEFINING_COMMANDS`),
-// so the render's bound on work is the source. These guards read KaTeX 0.19.1, which a bump re-reads:
-// the list holds every way KaTeX defines a macro, and no built-in command repeats what it is given.
+// Group 4 review S-1 (task 4.5) and the 4.7 re-review's X-1 (task 4.8): the contract refuses a macro
+// definition (`LATEX_DEFINING_COMMANDS`) and every control word holding `@`, so the render's bound on
+// work is the source. These guards read KaTeX 0.19.1, which a bump re-reads: every macro KaTeX
+// defines by side effect holds `@` or has a fixed body, and no built-in command without `@`
+// repeats what it is given.
 describe("the macro definitions the contract refuses, read in KaTeX itself", () => {
   const withoutAnnotation = (markup: string) =>
     markup.replace(/<annotation[\s\S]*?<\/annotation>/, "");
@@ -145,7 +147,7 @@ describe("the macro definitions the contract refuses, read in KaTeX itself", () 
     (command, form, name) => {
       expect(form).toContain(command);
       expect(parseProblem(form)).toBeUndefined();
-      expect(latexDefiningCommand(form)).toBeDefined();
+      expect(scanLatex(form).refused).toBeDefined();
       // The definition took effect: the form draws what its body draws.
       const effect = drawn(form);
       expect(effect).toContain(">x<");
@@ -174,7 +176,7 @@ describe("the macro definitions the contract refuses, read in KaTeX itself", () 
     return [...found].filter((name) => /^\\[A-Za-z@]+$/.test(name)).sort();
   };
 
-  test("no control word KaTeX names repeats its argument: three deep, it draws at most 5 times", async () => {
+  test("no control word without @ repeats its argument: three deep, it draws at most 5 times", async () => {
     const names = await katexNames();
     // The names are read from the source: a few hundred, among them the ones the contract refuses.
     expect(names.length).toBeGreaterThan(300);
@@ -187,6 +189,7 @@ describe("the macro definitions the contract refuses, read in KaTeX itself", () 
     let drew = 0;
     let worst = 0;
     for (const name of names) {
+      if (name.includes("@")) continue; // refused by the contract: no author can call it
       const body = "x".repeat(200);
       const expression = `${name}{${name}{${name}{${body}}}}`;
       let markup: string | undefined;
@@ -202,6 +205,106 @@ describe("the macro definitions the contract refuses, read in KaTeX itself", () 
     for (const spy of printed) spy.mockRestore();
     expect(drew).toBeGreaterThan(0);
     expect(worst).toBeLessThanOrEqual(5);
+  });
+});
+
+// Task 4.8, source guards (a) to (c): the macros KaTeX defines by side effect, read in its source.
+describe("the macros KaTeX defines by side effect, read in katex.mjs (0.19.1)", () => {
+  type Literal = { readonly text: string; readonly line: number };
+
+  const sourceLines = async (): Promise<readonly string[]> =>
+    (await Bun.file(Bun.resolveSync("katex", import.meta.dir)).text()).split("\n");
+
+  // Code lines only: a line that is a comment on its own is skipped, so a quote in a comment pairs
+  // with nothing.
+  const codeLines = (lines: readonly string[]) =>
+    lines
+      .map((text, at) => ({ text, line: at + 1 }))
+      .filter(({ text }) => !/^\s*(\/\/|\/\*|\*)/.test(text));
+
+  const STRING = /"((?:[^"\\\n]|\\.)*)"/g;
+  const decoded = (body: string): string => JSON.parse(`"${body}"`) as string;
+
+  // The first argument of each `macros.set(` that is a string literal, with the line it stands on.
+  const setLiterals = (lines: readonly string[]): Literal[] =>
+    codeLines(lines).flatMap(({ text, line }) =>
+      [...text.matchAll(/macros\.set\(("(?:[^"\\\n]|\\.)*")/g)].map(([, name]) => ({
+        text: JSON.parse(name ?? '""') as string,
+        line,
+      })),
+    );
+
+  // Each name that a `\gdef`, `\def`, `\edef`, `\xdef` or `\global\def` inside a string defines.
+  const definedInStrings = (lines: readonly string[]): Literal[] =>
+    codeLines(lines).flatMap(({ text, line }) =>
+      [...text.matchAll(STRING)].flatMap(([, body]) =>
+        [...decoded(body ?? "").matchAll(/\\(?:global\s*\\)?[gex]?def\s*(\\[A-Za-z@]+)/g)].map(
+          ([, name]) => ({ text: name ?? "", line }),
+        ),
+      ),
+    );
+
+  // The names KaTeX sets to a fixed body that holds none of the author's text, with the lines they
+  // were read at on 0.19.1 (the test checks each line still names the macro).
+  const FIXED: Readonly<Record<string, readonly number[]>> = {
+    "\\cr": [7461, 9422], // "\\\\\\relax"
+    "\\color": [15391], // "\\textcolor", only with the colorIsTextColor setting
+    "|": [14264, 14283], // the \middle handler's own macro
+    "\\|": [14266, 14285],
+  };
+
+  test("every name set by side effect holds @ or has a fixed body, with its line", async () => {
+    const lines = await sourceLines();
+    const found = [...setLiterals(lines), ...definedInStrings(lines)];
+    // The ones the review named, read from the source and not from this test.
+    const names = new Set(found.map(({ text }) => text));
+    for (const name of ["\\df@tag", "\\current@color", "\\@eqnsw"]) expect(names).toContain(name);
+    for (const { text, line } of found) {
+      if (text.includes("@")) continue;
+      expect({ text, listed: FIXED[text]?.includes(line) ?? false }).toEqual({
+        text,
+        listed: true,
+      });
+    }
+    for (const [name, at] of Object.entries(FIXED)) {
+      for (const line of at) {
+        expect(lines[line - 1]).toContain(`macros.set(${JSON.stringify(name)}`);
+      }
+    }
+    expect(found.filter(({ text }) => !text.includes("@") && !(text in FIXED))).toEqual([]);
+  });
+
+  test("the macros.set calls with a name that is no literal are the refused commands' handlers", async () => {
+    // `\let` and `\futurelet` (7851), `\def` and its family (7940), `\newcommand` and its family (13662).
+    const lines = await sourceLines();
+    const calls = codeLines(lines)
+      .filter(({ text }) => /macros\.set\((?!")/.test(text))
+      .map(({ line }) => line);
+    expect(calls).toEqual([7851, 7940, 13662]);
+  });
+
+  test("no macro whose name lacks @ names, in its body, a name KaTeX defines with author text", async () => {
+    const lines = await sourceLines();
+    const text = lines.join("\n");
+    const calls = [...text.matchAll(/^defineMacro\(("(?:[^"\\\n]|\\.)*")/gm)];
+    expect(calls.length).toBeGreaterThan(300);
+    const bodies = calls.map((call) => {
+      const start = call.index ?? 0;
+      const rest = text.slice(start + call[0].length);
+      const end = rest.search(/\n[A-Za-z/]/);
+      return {
+        name: JSON.parse(call[1] ?? '""') as string,
+        body: end === -1 ? rest : rest.slice(0, end),
+      };
+    });
+    for (const { name, body } of bodies) {
+      if (name.includes("@")) continue;
+      for (const authored of ["df@tag", "current@color"]) {
+        expect({ name, names: body.includes(authored) }).toEqual({ name, names: false });
+      }
+    }
+    // The definitions with author text are the two the review named, nothing else.
+    expect(bodies.some(({ name }) => name === "\\tag")).toBe(true);
   });
 });
 

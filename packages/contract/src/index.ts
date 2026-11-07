@@ -727,8 +727,8 @@ export {
   type LatexChange,
   type LatexItem,
   type LatexProps,
-  latexDefiningCommand,
   latexPropsProblems,
+  scanLatex,
 } from "./widgets/latex/index.ts";
 export {
   TIMELINE_ENTRY_LABEL_MAX_CHARS,
