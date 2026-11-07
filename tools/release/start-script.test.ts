@@ -52,12 +52,17 @@ const shimNode = (into: string): string => {
 };
 
 /** A plugin folder with the start script and a stand-in bundle; its path is the physical one. */
-const pluginRoot = (parent = folder()): string => {
+const pluginRoot = (parent = folder(), version = "9.8.7"): string => {
   const root = join(parent, "plugin");
   mkdirSync(join(root, "scripts"), { recursive: true });
   mkdirSync(join(root, "dist"), { recursive: true });
   copyFileSync(SCRIPT, join(root, "scripts", "askboard"));
   writeFileSync(join(root, "dist", "askboard.mjs"), "// stand-in\n");
+  mkdirSync(join(root, ".claude-plugin"), { recursive: true });
+  writeFileSync(
+    join(root, ".claude-plugin", "plugin.json"),
+    `${JSON.stringify({ name: "askboard", version }, null, 2)}\n`,
+  );
   return root;
 };
 
@@ -213,6 +218,304 @@ describe("a Node that is too old", () => {
       expect(ran.recorded).toEqual([]);
     },
   );
+});
+
+/** A folder holding only the external tools the script uses: no `node` is on a PATH made of it. */
+const toolsWithoutNode = (): string => {
+  const into = folder("askboard-start-tools-");
+  for (const tool of ["dirname", "readlink", "sed", "awk", "tr", "cut", "head"]) {
+    const found = Bun.which(tool, { PATH: SYSTEM_PATH });
+    if (found !== null) symlinkSync(found, join(into, tool));
+  }
+  return into;
+};
+
+type Served = {
+  readonly send: (message: unknown | string) => void;
+  readonly next: () => Promise<Record<string, unknown>>;
+  readonly end: () => Promise<number | null>;
+  readonly running: () => boolean;
+  readonly stderr: () => Promise<string>;
+};
+
+/** Runs the script with no argument as Claude Code does: JSON-RPC lines over stdio. */
+const serve = (root: string, env: Record<string, string>): Served => {
+  const child = Bun.spawn(["/bin/sh", join(root, "scripts", "askboard")], {
+    env,
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const reader = child.stdout.getReader();
+  let buffered = "";
+  const decoder = new TextDecoder();
+  const nextLine = async (): Promise<string> => {
+    while (!buffered.includes("\n")) {
+      const { value, done } = await Promise.race([
+        reader.read(),
+        Bun.sleep(5000).then(() => ({ value: undefined, done: true })),
+      ]);
+      if (done || value === undefined)
+        throw new Error(`no more output; had ${JSON.stringify(buffered)}`);
+      buffered += decoder.decode(value);
+    }
+    const at = buffered.indexOf("\n");
+    const line = buffered.slice(0, at);
+    buffered = buffered.slice(at + 1);
+    return line;
+  };
+  return {
+    send: (message) => {
+      child.stdin.write(`${typeof message === "string" ? message : JSON.stringify(message)}\n`);
+      child.stdin.flush();
+    },
+    next: async () => JSON.parse(await nextLine()),
+    end: async () => {
+      child.stdin.end();
+      return await Promise.race([child.exited, Bun.sleep(5000).then(() => -1)]);
+    },
+    running: () => child.exitCode === null,
+    stderr: () => new Response(child.stderr).text(),
+  };
+};
+
+const request = (id: unknown, method: string, params?: unknown) => ({
+  jsonrpc: "2.0",
+  id,
+  method,
+  ...(params === undefined ? {} : { params }),
+});
+
+const INITIALIZE = request(1, "initialize", {
+  protocolVersion: "2025-03-26",
+  capabilities: {},
+  clientInfo: { name: "test", version: "1" },
+});
+
+const refusal = (found: string): { node: string; env: Record<string, string> } => {
+  if (found === "none") {
+    return { node: toolsWithoutNode(), env: {} };
+  }
+  return {
+    node: shimNode(folder()),
+    env: { SHIM_VERSION: found, SHIM_LOG: join(folder(), "log") },
+  };
+};
+
+const refusedSession = (found: string, root = pluginRoot()): { root: string; served: Served } => {
+  const { node, env } = refusal(found);
+  const path = found === "none" ? node : `${node}:${toolsWithoutNode()}`;
+  return { root, served: serve(root, { PATH: path, ...env }) };
+};
+
+describe("the session process refuses an unusable Node with a reason", () => {
+  test("Node 22 first on PATH: the handshake, no tools, the reason, and a clean end", async () => {
+    const { served } = refusedSession("22.11.0");
+    served.send(INITIALIZE);
+    const initialized = (await served.next()) as {
+      id: number;
+      result: {
+        protocolVersion: string;
+        capabilities: Record<string, unknown>;
+        serverInfo: { name: string; version: string };
+        instructions: string;
+      };
+    };
+    expect(initialized.id).toBe(1);
+    expect(initialized.result.protocolVersion).toBe("2025-03-26");
+    expect(initialized.result.capabilities).toEqual({ tools: {} });
+    expect(initialized.result.serverInfo).toEqual({ name: "askboard", version: "9.8.7" });
+    expect(initialized.result.instructions).toContain("24.22.1");
+    expect(initialized.result.instructions).toContain("22.11.0");
+    expect(initialized.result.instructions).toContain("ask the user another way");
+    served.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    served.send(request(2, "tools/list"));
+    expect(await served.next()).toEqual({ jsonrpc: "2.0", id: 2, result: { tools: [] } });
+    // Still running: Claude Code would cache an early exit as a failed server.
+    await Bun.sleep(100);
+    expect(served.running()).toBe(true);
+    expect(await served.end()).toBe(0);
+    const lines = (await served.stderr()).split("\n").filter(Boolean);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("24.22.1");
+    expect(lines[0]).toContain("22.11.0");
+  });
+
+  test("no node on PATH: the instructions say Node 24.22.1 or later was not found", async () => {
+    const { served } = refusedSession("none");
+    served.send(INITIALIZE);
+    const answer = (await served.next()) as { result: { instructions: string } };
+    expect(answer.result.instructions).toContain("24.22.1");
+    expect(answer.result.instructions).toContain("not found on PATH");
+    expect(await served.end()).toBe(0);
+    expect((await served.stderr()).split("\n").filter(Boolean)).toHaveLength(1);
+  });
+
+  test("ping answers {}, an unknown method -32601, a notification and a non-JSON line nothing", async () => {
+    const { served } = refusedSession("22.11.0");
+    served.send(request(3, "ping"));
+    served.send(request(4, "resources/list"));
+    served.send({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } });
+    served.send("this is not json");
+    served.send("{ broken");
+    served.send("");
+    served.send(request(5, "ping"));
+    expect(await served.next()).toEqual({ jsonrpc: "2.0", id: 3, result: {} });
+    const unknown = (await served.next()) as { id: number; error: { code: number } };
+    expect(unknown.id).toBe(4);
+    expect(unknown.error.code).toBe(-32601);
+    // The next answer is the ping after the ignored lines.
+    expect(await served.next()).toEqual({ jsonrpc: "2.0", id: 5, result: {} });
+    expect(await served.end()).toBe(0);
+  });
+
+  test.each([
+    ["a number", 7, "7"],
+    ["zero", 0, "0"],
+    ["a string", "req-1", '"req-1"'],
+    ["a string with quotes and a backslash", 'q"x\\y', null],
+  ])("a request ID that is %s is echoed as it came", async (_name, id) => {
+    const { served } = refusedSession("22.11.0");
+    served.send(request(id, "ping"));
+    const answer = (await served.next()) as { id: unknown };
+    expect(answer.id).toBe(id);
+    expect(typeof answer.id).toBe(typeof id);
+    await served.end();
+  });
+
+  test("the top-level id and method are read, not those inside params, in any key order", async () => {
+    const { served } = refusedSession("22.11.0");
+    served.send(
+      '{"params":{"id":99,"method":"initialize","protocolVersion":"2024-11-05"},"method":"ping","id":5,"jsonrpc":"2.0"}',
+    );
+    expect(await served.next()).toEqual({ jsonrpc: "2.0", id: 5, result: {} });
+    served.send(
+      ' {"jsonrpc":"2.0","id":6,"method":"initialize","params":{"nested":{"a":["]","}"]},"protocolVersion":"2024-11-05"}} ',
+    );
+    const initialized = (await served.next()) as {
+      id: number;
+      result: { protocolVersion: string };
+    };
+    expect(initialized.id).toBe(6);
+    expect(initialized.result.protocolVersion).toBe("2024-11-05");
+    await served.end();
+  });
+
+  test("an initialize without a protocol version still answers", async () => {
+    const { served } = refusedSession("22.11.0");
+    served.send(request(1, "initialize"));
+    const answer = (await served.next()) as { result: { protocolVersion: string } };
+    expect(typeof answer.result.protocolVersion).toBe("string");
+    expect(answer.result.protocolVersion).not.toBe("");
+    await served.end();
+  });
+
+  test("a found version with a quote and a backslash is escaped and the line stays one line", async () => {
+    const found = '2"2\\.0 {\\"x\\"}';
+    const { served } = refusedSession(found);
+    served.send(INITIALIZE);
+    const answer = (await served.next()) as { result: { instructions: string } };
+    expect(answer.result.instructions).toContain(found);
+    await served.end();
+    const stderr = await served.stderr();
+    expect(stderr.split("\n").filter(Boolean)).toHaveLength(1);
+    expect(stderr).toContain(found);
+  });
+
+  test("a found version with control characters cannot add lines or break the JSON", async () => {
+    const { served } = refusedSession("22.1\n1\t\u0007\u001b[31m");
+    served.send(INITIALIZE);
+    const answer = (await served.next()) as { result: { instructions: string } };
+    expect(answer.result.instructions).toContain("22.1");
+    await served.end();
+  });
+
+  test("the server version is the plugin manifest's, on the real script too", async () => {
+    const manifest = JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"));
+    const served = serve(ROOT, {
+      PATH: `${shimNode(folder())}:${toolsWithoutNode()}`,
+      SHIM_VERSION: "20.0.0",
+      SHIM_LOG: join(folder(), "log"),
+    });
+    served.send(request(1, "initialize"));
+    const answer = (await served.next()) as { result: { serverInfo: { version: string } } };
+    expect(answer.result.serverInfo.version).toBe(manifest.version);
+    await served.end();
+  });
+
+  test("a last line with no newline is answered when stdin closes", async () => {
+    const { root } = refusedSession("22.11.0");
+    const { node } = refusal("22.11.0");
+    const child = Bun.spawn(["/bin/sh", join(root, "scripts", "askboard")], {
+      env: { PATH: `${node}:${toolsWithoutNode()}`, SHIM_VERSION: "22.11.0" },
+      stdin: new Blob([JSON.stringify(request(9, "ping"))]),
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    expect(JSON.parse(await new Response(child.stdout).text())).toEqual({
+      jsonrpc: "2.0",
+      id: 9,
+      result: {},
+    });
+    expect(await child.exited).toBe(0);
+  });
+});
+
+describe("hooks and the client refuse an unusable Node quietly", () => {
+  const modes = async (found: string, args: string[]): Promise<Ran> => {
+    const root = pluginRoot();
+    const { node, env } = refusal(found);
+    const path = found === "none" ? node : `${node}:${toolsWithoutNode()}`;
+    const child = Bun.spawn(["/bin/sh", join(root, "scripts", "askboard"), ...args], {
+      env: { PATH: path, ...env },
+      stdin: new Blob(["{}"]),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    return { code, stdout, stderr, recorded: [] };
+  };
+
+  test.each(["22.11.0", "none", "24.22.0"])(
+    "hook PreToolUse with node %s exits 0, silent on stdout",
+    async (found) => {
+      const ran = await modes(found, ["hook", "PreToolUse"]);
+      expect(ran.code).toBe(0);
+      expect(ran.stdout).toBe("");
+      const lines = ran.stderr.split("\n").filter(Boolean);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain("24.22.1");
+    },
+  );
+
+  test.each(["22.11.0", "none"])(
+    "client /x with node %s exits 1 with one stderr line",
+    async (found) => {
+      const ran = await modes(found, ["client", "/x"]);
+      expect(ran.code).toBe(1);
+      expect(ran.stdout).toBe("");
+      const lines = ran.stderr.split("\n").filter(Boolean);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain("24.22.1");
+    },
+  );
+
+  test("any other argument exits 1 with one stderr line", async () => {
+    const ran = await modes("22.11.0", ["doctor"]);
+    expect(ran.code).toBe(1);
+    expect(ran.stderr.split("\n").filter(Boolean)).toHaveLength(1);
+  });
+
+  test("the stderr line is one line and names a found version that is hostile", async () => {
+    const ran = await modes("22\n\u001b[31mred\u0007", ["hook", "SubagentStop"]);
+    expect(ran.stderr.split("\n").filter(Boolean)).toHaveLength(1);
+    expect(ran.stderr).not.toContain("\u001b");
+    expect(ran.code).toBe(0);
+  });
 });
 
 describe("the real bundle", () => {
