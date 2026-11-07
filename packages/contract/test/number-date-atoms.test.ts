@@ -334,6 +334,34 @@ describe("the NumberField's step where the doubles are coarse (review 1.8 X-1)",
     expect(resultOf(wide, 5.0000000001)).toEqual([]);
   });
 
+  // The spec's scenario "The grid's tolerance" (checkpoints 2.3 and 4.4, S-1): within a billionth
+  // of a step, or eight times Number.EPSILON of the larger of |min| and the value where that is
+  // wider, and props whose bounds make that reach a quarter step are refused.
+  test("the grid's tolerance: {step: 8} near 1e15 accepts 999999999999993 and refuses 999999999999994", () => {
+    const eights = number({ step: 8 });
+    // On the grid at 999999999999992: one unit off is an eighth of a step, two a quarter, which the
+    // tolerance (8 x EPSILON x 1e15 / 8, about 0.222 of a step) reaches only for the first.
+    expect(resultOf(eights, 999999999999992)).toEqual([]);
+    expect(resultOf(eights, 999999999999993)).toEqual([]);
+    expect(fits(eights, 999999999999993)).toBe(true);
+    expect(resultOf(eights, 999999999999994)).toHaveLength(1);
+    expect(fits(eights, 999999999999994)).toBe(false);
+  });
+
+  test("the grid's tolerance: a step of 1 near 1e13 takes an off-step double within eight units in the last place and refuses one past them", () => {
+    const whole = number({ step: 1 });
+    expect(resultOf(whole, 10000000000000.015625)).toEqual([]);
+    expect(resultOf(whole, 10000000000000.03125)).toHaveLength(1);
+    expect(resultOf(whole, 10000000000000.25)).toHaveLength(1);
+  });
+
+  test("the props' refusal begins where the tolerance reaches a quarter step: 1.4e14 whole steps pass, 1.5e14 do not", () => {
+    expect(passes(number({ min: 0, max: 1.4e14, step: 1 }))).toBe(true);
+    expect(pathsOf(number({ min: 0, max: 1.5e14, step: 1 }))).toEqual(["/step"]);
+    // The step enters the ratio: the same magnitude with a step of 8 is far from it.
+    expect(passes(number({ min: 0, max: 1e15, step: 8 }))).toBe(true);
+  });
+
   test("the Scale's own step check is unchanged: it still takes the widened tolerance", () => {
     expect(scaleStepIndex(1e9, 0, 1e-9)).toBeDefined();
     expect(scaleStepIndex(0.25, -1e9, 1e-8)).toBeDefined();
