@@ -146,6 +146,8 @@ Seams this change creates, which later changes may borrow once it merges: `useTh
 - [Two light slots under 3:1 on the card] → legend, tooltip and live region name every point (DESIGN Open Items 7 as settled).
 - [Highlights depend on point IDs; an agent's change that renames a category drops a held highlight] → the draft filter drops what the current props refuse and the user sees the ring gone; accepted, as for the other result widgets.
 - [The keyboard path differs from a screen reader's virtual cursor in `role="application"`] → best effort (EXPERIENCE Accessibility Floor, Target); the live region carries each point.
+- [ECharts 6.1.0's canvas tooltip applies only the fill, padding and shadow of `textStyle`, so the tooltip draws in 12px sans-serif, not the theme's badge size and font stack (checkpoint 5.3 U-2, task 6.6)] → accepted under the PO's unattended handoff: DESIGN names no tooltip font, the colour follows the theme, and the test pins the drawn font so a library change that makes it follow the theme is noticed; an AskBoard-drawn tooltip is a later choice.
+- [A held Chart result is kept or dropped whole across a revision (`fits` is boolean): an agent's change that removes one highlighted point's category drops every highlighted point (task 6.1)] → accepted: what is sent equals what is shown (AD-10), and the agent-change notice names the Chart.
 
 ## Migration Plan
 
