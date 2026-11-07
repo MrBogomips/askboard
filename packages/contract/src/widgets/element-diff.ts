@@ -27,7 +27,9 @@ type KeyedShape = { readonly elements: string; readonly keyed: true };
 /**
  * Named fields of the item's props themselves (latex-kanban-timeline, design decision 2): each one
  * the edited value changes is one `set` of `<item>.<field>` holding the whole field, `null` for a
- * field that is gone, in the order named. A change to any other key is a problem, since the item's
+ * field that is gone, in the order named. A named field holding `null` reads as absent, as in the
+ * list and keyed shapes: a `set` to `null` applies as a delete, so an edited value that turns a
+ * field to `null` does not round-trip. A change to any other key is a problem, since the item's
  * other fields may not change.
  */
 export type FieldsShape = { readonly fields: readonly string[] };

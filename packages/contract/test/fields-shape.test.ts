@@ -216,3 +216,21 @@ describe("applying the sets of a fields shape", () => {
     expect(({} as Value).polluted).toBeUndefined();
   });
 });
+
+// A named field holding `null` reads as absent (contract spec, "A named field holding null reads
+// as absent"; design decision 2).
+describe("a named field holding null", () => {
+  const ONE: FieldsShape = { fields: ["a"] };
+
+  test("a value changed to null is one set of null, which applies as the field gone", () => {
+    const changes = diff({ a: 1 }, { a: null }, ONE);
+    expect(changes).toEqual([{ op: "set", target: `${ITEM}.a`, value: null }]);
+    expect(applyElementChanges<Value>(ITEM, { a: 1 }, changes, ONE)).toEqual({});
+  });
+
+  test("from absent to null, applying the diff leaves the sent value unchanged", () => {
+    const changes = diff({}, { a: null }, ONE);
+    expect(applyElementChanges(ITEM, {}, changes, ONE)).toEqual({});
+    expect(applyElementChanges(ITEM, { b: 2 }, changes, ONE)).toEqual({ b: 2 });
+  });
+});
