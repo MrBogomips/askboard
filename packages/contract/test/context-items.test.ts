@@ -7,6 +7,7 @@ import {
   POINTER_MAX_CHARS,
   SCHEMA_IDS,
   URL_MAX_CHARS,
+  WIDGET_TYPES,
 } from "../src/index.ts";
 import excerptProps from "../src/schemas/input/excerpt-props.json" with { type: "json" };
 import imageProps from "../src/schemas/input/image-props.json" with { type: "json" };
@@ -284,9 +285,10 @@ describe("items in a question", () => {
       itemId: "rates",
       field: "type",
     });
-    expect(problem.expected).toContain(
-      '"excerpt", "reference", "image", "tree", "gantt", "approval", "scale", "ranking" or "molecule"',
-    );
+    const quoted = ["excerpt", "reference", "image", ...WIDGET_TYPES.map(({ type }) => type)]
+      .concat("molecule")
+      .map((type) => `"${type}"`);
+    expect(problem.expected).toContain(`${quoted.slice(0, -1).join(", ")} or ${quoted.at(-1)}`);
   });
 
   test("an item type named after an inherited property is refused at its type alone", () => {

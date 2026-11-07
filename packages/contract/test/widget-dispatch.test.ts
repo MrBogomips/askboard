@@ -16,9 +16,11 @@ import {
 import { PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
 import type { RequestProblem, Wording } from "../src/problems.ts";
 import { elementShapeOf, widgetItemProblems } from "../src/validate.ts";
+import { GANTT_WIDGET } from "../src/widgets/gantt/widget.ts";
 import { elementOf, widgetRest } from "../src/widgets/paths.ts";
 import { WIDGET_TYPES } from "../src/widgets/registry.ts";
 import { widgetProblems, widgetSchemaErrors } from "../src/widgets/request-problems.ts";
+import { TREE_WIDGET } from "../src/widgets/tree/widget.ts";
 import {
   WIDGET_EXPECTED,
   WIDGET_FIELDS,
@@ -126,62 +128,84 @@ describe("the wording tables", () => {
     expect(widgetFields(PROBE_TYPES)["molecule.props"]).toBe(WIDGET_FIELDS["molecule.props"]);
   });
 
-  test("hold the Tree's, the Gantt's and the molecule's keys, as before, and the Approval's, the Scale's and the Ranking's", () => {
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("tree."))).toHaveLength(14);
+  test("hold the Tree's, the Gantt's and the molecule's keys, as before, and each appended type's own", () => {
+    const keysOf = (table: Readonly<Record<string, string>>, prefix: string) =>
+      Object.keys(table).filter((key) => key.startsWith(prefix));
+    expect(keysOf(WIDGET_EXPECTED, "tree.")).toHaveLength(14);
     // 16 since a plan's task entry's `duration` has its own key (gantt-wording.test.ts).
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("gantt."))).toHaveLength(16);
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("molecule."))).toHaveLength(
-      4,
-    );
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("approval."))).toHaveLength(
-      1,
-    );
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("scale."))).toHaveLength(9);
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("ranking."))).toHaveLength(
-      6,
-    );
-    expect(Object.keys(WIDGET_FIELDS)).toHaveLength(11);
+    expect(keysOf(WIDGET_EXPECTED, "gantt.")).toHaveLength(16);
+    expect(keysOf(WIDGET_EXPECTED, "molecule.")).toHaveLength(4);
+    expect(keysOf(WIDGET_FIELDS, "tree.")).toHaveLength(3);
+    expect(keysOf(WIDGET_FIELDS, "gantt.")).toHaveLength(3);
+    expect(keysOf(WIDGET_FIELDS, "molecule.")).toHaveLength(1);
+    // Every other type holds the keys its entry declares, found by its prefix.
+    for (const { type, wording } of WIDGET_TYPES.slice(2)) {
+      expect(keysOf(WIDGET_EXPECTED, `${type}.`).sort()).toEqual(
+        Object.keys(wording.expected).sort(),
+      );
+      expect(keysOf(WIDGET_FIELDS, `${type}.`).sort()).toEqual(Object.keys(wording.fields).sort());
+    }
+    const declared = WIDGET_TYPES.flatMap(({ wording }) => Object.keys(wording.fields));
+    expect(Object.keys(WIDGET_FIELDS)).toHaveLength(declared.length + 1);
   });
 
-  test("list the item types and nouns of the registry, today's text with Tree, Gantt, Approval, Scale and Ranking", () => {
-    expect(CONTEXT_ITEM_TYPES).toEqual([
+  test("list the item types and nouns of the registry, in its order", () => {
+    const types = WIDGET_TYPES.map(({ type }) => type);
+    expect(types.slice(0, 2)).toEqual(["tree", "gantt"]);
+    expect(CONTEXT_ITEM_TYPES).toEqual(["excerpt", "reference", "image", ...types, "molecule"]);
+    expect(contextItemTypes(PROBE_TYPES)).toEqual([
+      "excerpt",
+      "reference",
+      "image",
+      ...types,
+      "probe",
+      "molecule",
+    ]);
+    const quoted = CONTEXT_ITEM_TYPES.map((type) => `"${type}"`);
+    const orList = `${quoted.slice(0, -1).join(", ")} or ${quoted.at(-1)}`;
+    expect(ITEM_EXPECTED["question.props.items[].type"]).toBe(orList);
+    expect(ITEM_EXPECTED["question.props.items[]"]).toBe(
+      `an item {type, id, props} whose type is ${orList}`,
+    );
+    const nouns = [...WIDGET_TYPES.map(({ noun }) => noun), "a molecule reference"].join(", ");
+    expect(ITEM_EXPECTED["question.props.items"]).toBe(
+      `a non-empty list of the question's items: context (excerpts, references, images) and widgets (${nouns})`,
+    );
+    for (const type of [...types, "molecule"]) {
+      expect(ITEM_EXPECTED[`${type}.id`]).toBe(ITEM_EXPECTED["excerpt.id"] as string);
+    }
+  });
+
+  test("word the item types and nouns as before over an explicit registry of the Tree, the Gantt and the probe", () => {
+    const expected = itemExpected([TREE_WIDGET, GANTT_WIDGET, PROBE_WIDGET]);
+    expect(expected["question.props.items[].type"]).toBe(
+      '"excerpt", "reference", "image", "tree", "gantt", "probe" or "molecule"',
+    );
+    expect(expected["question.props.items[]"]).toBe(
+      'an item {type, id, props} whose type is "excerpt", "reference", "image", "tree", "gantt", "probe" or "molecule"',
+    );
+    expect(expected["question.props.items"]).toBe(
+      "a non-empty list of the question's items: context (excerpts, references, images) and widgets (a Tree, a Gantt, a Probe, a molecule reference)",
+    );
+    expect(expected["probe.id"]).toBe(expected["excerpt.id"] as string);
+    expect(contextItemTypes([TREE_WIDGET, GANTT_WIDGET])).toEqual([
       "excerpt",
       "reference",
       "image",
       "tree",
       "gantt",
-      "approval",
-      "scale",
-      "ranking",
       "molecule",
     ]);
-    expect(contextItemTypes(PROBE_TYPES)).toEqual([
-      ...CONTEXT_ITEM_TYPES.slice(0, 8),
-      "probe",
-      "molecule",
-    ]);
-    expect(ITEM_EXPECTED["question.props.items[].type"]).toBe(
-      '"excerpt", "reference", "image", "tree", "gantt", "approval", "scale", "ranking" or "molecule"',
-    );
-    expect(ITEM_EXPECTED["question.props.items[]"]).toBe(
-      'an item {type, id, props} whose type is "excerpt", "reference", "image", "tree", "gantt", "approval", "scale", "ranking" or "molecule"',
-    );
-    expect(ITEM_EXPECTED["question.props.items"]).toBe(
-      "a non-empty list of the question's items: context (excerpts, references, images) and widgets (a Tree, a Gantt, an Approval, a Scale, a Ranking, a molecule reference)",
-    );
-    for (const type of ["tree", "gantt", "approval", "scale", "ranking", "molecule"]) {
-      expect(ITEM_EXPECTED[`${type}.id`]).toBe(ITEM_EXPECTED["excerpt.id"] as string);
-    }
   });
 
-  test("list the probe's type, noun and ID with the probe's registry", () => {
+  test("list the probe's type, noun and ID with the probe's registry, after the shipped types", () => {
     const expected = itemExpected(PROBE_TYPES);
+    const quoted = contextItemTypes(PROBE_TYPES).map((type) => `"${type}"`);
     expect(expected["question.props.items[].type"]).toBe(
-      '"excerpt", "reference", "image", "tree", "gantt", "approval", "scale", "ranking", "probe" or "molecule"',
+      `${quoted.slice(0, -1).join(", ")} or ${quoted.at(-1)}`,
     );
-    expect(expected["question.props.items"]).toContain(
-      "(a Tree, a Gantt, an Approval, a Scale, a Ranking, a Probe, a molecule reference)",
-    );
+    expect(expected["question.props.items[].type"]).toEndWith('"probe" or "molecule"');
+    expect(expected["question.props.items"]).toEndWith("a Probe, a molecule reference)");
     expect(expected["probe.id"]).toBe(expected["excerpt.id"] as string);
   });
 
