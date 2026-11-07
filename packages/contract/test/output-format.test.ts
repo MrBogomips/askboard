@@ -160,8 +160,8 @@ describe("the other output schemas", () => {
   test("the output format names its version and holds no AXFX term (FR-18)", () => {
     // The minors, in order: the excerpts change's unresolved-pointer warning (excerpts, design
     // decision 2), widget-answers (design decision 1), widget-editing-plus (a plan's duration),
-    // widget-registry, approval-scale-ranking, then latex-kanban-timeline.
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.7");
+    // widget-registry, approval-scale-ranking, latex-kanban-timeline, then chart-widget.
+    expect(OUTPUT_FORMAT_VERSION).toBe("1.8");
     const text = JSON.stringify(outputFormat.schemas);
     expect(text).not.toMatch(/\b(axfx|verdict|gate|validator)\b/i);
   });

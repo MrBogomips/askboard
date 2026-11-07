@@ -226,3 +226,14 @@ export {
   timelineAnswerEvent,
   timelineFetchItemResult,
 } from "./latex-kanban-timeline.ts";
+
+// The Chart (chart-widget, design decisions 1 and 10): its items, results, answer and fetch result.
+
+export {
+  CHART_ANSWER_RESULTS,
+  CHART_FIXTURE_ITEMS,
+  CHART_RESULTS,
+  chartAct,
+  chartAnswerEvent,
+  chartFetchItemResult,
+} from "./chart-widget.ts";

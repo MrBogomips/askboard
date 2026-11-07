@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:chart-result",
+  "title": "Chart result",
+  "description": "A Chart's result (FR-11, FR-18, chart-widget design decision 1): 1 to 500 points the user highlighted, each the ID of a series and the ID of a category. That each point names a series and a category of the item's props whose value is a number, that no point is named twice, and how many points the item's highlights take are checks of the type against the item's props. Never empty. In the output format since chart-widget.",
+  "type": "object",
+  "properties": {
+    "points": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "properties": {
+          "series": { "$ref": "urn:askboard:input:id" },
+          "category": { "$ref": "urn:askboard:input:id" }
+        },
+        "required": ["series", "category"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["points"],
+  "additionalProperties": false
+}

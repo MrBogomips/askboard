@@ -5,7 +5,8 @@
 // that exact version in `tools/licence-texts.json`, with its source at a commit, its date and why,
 // under the licence its package.json names (ask-lifecycle, task 6.6); the build never fetches one.
 // A package with no licence file and no recorded text, or no licence field, fails the build: its
-// notice cannot be shipped. So does a recorded text with nothing to do: one for a package that
+// notice cannot be shipped. Its own licence files are the root ones; the texts of a `licenses/`
+// folder (code it embeds) follow them and never count as its own (chart-widget, task 7.4). So does a recorded text with nothing to do: one for a package that
 // ships its own licence file, or one no chunk used.
 //
 // A package's fonts, and package code holding glyph outlines derived from them, can carry a
@@ -13,7 +14,7 @@
 // the notice of that package version then reads `<package licence> AND <entry licence>`, with the
 // package's text and the entry's (latex-kanban-timeline, design decision 8, task 3.4).
 
-import { readdir } from "node:fs/promises";
+import { lstat, readdir } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import type { LicenceNotice } from "@askboard/contract";
 import { classify } from "../check-licences.ts";
@@ -117,10 +118,46 @@ const packageOf = (file: string, root: string): PackageAt | undefined => {
   return { dir: join(root, "packages", name), workspace: true };
 };
 
-const licenceTexts = async (dir: string): Promise<string[]> => {
-  const files = (await readdir(dir)).filter((file) => LICENCE_FILE.test(file)).sort();
-  return Promise.all(files.map((file) => Bun.file(join(dir, file)).text()));
+// The licence files of a folder, by name.
+const licenceFilesIn = async (dir: string): Promise<string[]> =>
+  (await readdir(dir)).filter((file) => LICENCE_FILE.test(file)).sort();
+
+// The texts of a package's `licenses/` folder, where echarts keeps the licence of the d3 code that
+// its `scale/Time.js` and `util/number.js` embed (chart-widget group 5, X-1). They are the licences
+// of code the package embeds, not its own: only a missing folder means none, and a folder that is
+// a file or a link, a licence file that is a link or anything else not a regular file, or an
+// error reading either, is reported, never skipped (chart-widget task 7.4, X-1).
+const embeddedTexts = async (dir: string): Promise<string[]> => {
+  const folder = join(dir, "licenses");
+  const found = await lstat(folder).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return undefined;
+    throw new Error(`the licence folder ${folder} cannot be read: ${error.code ?? error.message}`);
+  });
+  if (found === undefined) return [];
+  if (!found.isDirectory()) {
+    throw new Error(`${folder} is not a folder (a file or a link): its texts are not read`);
+  }
+  const entries = await readdir(folder, { withFileTypes: true }).catch(
+    (error: NodeJS.ErrnoException) => {
+      throw new Error(
+        `the licence folder ${folder} cannot be read: ${error.code ?? error.message}`,
+      );
+    },
+  );
+  const names = entries.filter(({ name }) => LICENCE_FILE.test(name));
+  const odd = names.find((entry) => !entry.isFile());
+  if (odd !== undefined) {
+    throw new Error(`${join(folder, odd.name)} is not a file (a link or a folder): it is not read`);
+  }
+  const files = names.map(({ name }) => join(folder, name)).sort();
+  return Promise.all(files.map((file) => Bun.file(file).text()));
 };
+
+// A package's own licence files, by name: the root files decide whether it has a licence.
+const ownTexts = async (dir: string): Promise<string[]> =>
+  Promise.all((await licenceFilesIn(dir)).map((file) => Bun.file(join(dir, file)).text()));
+
+const trimmed = (text: string): string => text.trimEnd();
 
 const spdxOf = (field: unknown): string | undefined => {
   if (typeof field === "string" && field !== "") return field;
@@ -166,20 +203,22 @@ const noticeOf = async (at: PackageAt, sources: Sources): Promise<NoticeFile> =>
   const notice = { package: name, version, licence, path: licencePath(name, version) };
   const key = `${name}@${version}`;
   const entry = recordedFor(recordedTexts, key);
-  // AskBoard's packages hold no licence file of their own: the repository's covers them.
-  const own = await licenceTexts(at.dir);
+  // AskBoard's packages hold no licence file of their own: the repository's covers them. The root
+  // files alone decide "has a licence" and "a recorded text is stale"; the `licenses/` texts follow.
+  const own = await ownTexts(at.dir);
   if (own.length > 0 && entry !== undefined) {
     throw new Error(
       `${where} ships its own licence file: the text recorded for "${key}" in ${TEXTS_FILE} is stale`,
     );
   }
+  const embedded = await embeddedTexts(at.dir);
   let file: NoticeFile;
   if (own.length === 0 && !at.workspace && entry?.licence === licence) {
-    file = { notice, text: entry.text.trimEnd(), recorded: key };
+    file = { notice, text: [entry.text, ...embedded].map(trimmed).join("\n\n"), recorded: key };
   } else {
-    const texts = own.length > 0 || !at.workspace ? own : await licenceTexts(root);
+    const texts = own.length > 0 || !at.workspace ? own : await ownTexts(root);
     if (texts.length === 0) throw new Error(`${where} has no licence file`);
-    file = { notice, text: texts.map((text) => text.trimEnd()).join("\n\n") };
+    file = { notice, text: [...texts, ...embedded].map(trimmed).join("\n\n") };
   }
   const fonts = at.workspace ? undefined : fontLicenceFor(sources.fonts, key);
   if (fonts === undefined) return file;

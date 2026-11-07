@@ -140,6 +140,8 @@ export const EN_US = {
   "change.widgetLatex": "LaTeX",
   "change.widgetKanban": "Kanban",
   "change.widgetTimeline": "Timeline",
+
+  "change.widgetChart": "Chart",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -362,4 +364,10 @@ export const EN_US = {
   "timeline.entryRangeYears": "{label}, {start}, {startYear} to {end}, {endYear}, {lane}",
   "timeline.entryMilestone": "{label}, milestone, {date}, {year}, {lane}",
   "timeline.entryUndated": "{label}, {lane}",
+
+  "chart.noPoints": "No points highlighted",
+  "chart.points": { one: "{count} point highlighted", other: "{count} points highlighted" },
+  "chart.highlighted": "highlighted",
+  "chart.hint": "Arrow keys move between points. Space highlights.",
+  "chart.role": "chart",
 } as const satisfies StringTable;

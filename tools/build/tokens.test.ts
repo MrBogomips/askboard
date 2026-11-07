@@ -150,4 +150,30 @@ describe("DESIGN.md's tokens as CSS variables", () => {
     expect(css).toContain("--bottom-bar:48px;");
     expect(css).toContain("--bottom-bar:56px;");
   });
+
+  // The Chart's palette (chart-widget, design decision 7): DESIGN's `chart-1` to `chart-5`, light and
+  // dark, reach the stylesheet through the generic colour rule, with no code of `tokens.ts` naming them.
+  test("the real DESIGN.md's chart palette is in the stylesheet, light and under .dark", async () => {
+    const css = tokensCss(readDesignTokens(await Bun.file(DESIGN_FILE).text()));
+    const [light = "", rest = ""] = css.split(".dark{");
+    const dark = rest.split(".comfortable{")[0] ?? "";
+    const LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#6250d6", "#eda100"];
+    const DARK = ["#3987e5", "#d95926", "#199e70", "#9085e9", "#c98500"];
+    LIGHT.forEach((value, at) => {
+      expect(light).toContain(`--chart-${at + 1}:${value};`);
+      expect(dark).not.toContain(`--chart-${at + 1}:${value};`);
+    });
+    DARK.forEach((value, at) => {
+      expect(dark).toContain(`--chart-${at + 1}:${value};`);
+      expect(light).not.toContain(`--chart-${at + 1}:${value};`);
+    });
+    expect(light).not.toContain("--chart-6");
+  });
+
+  test("Tailwind's theme maps the chart colours onto their variables", async () => {
+    const theme = themeCss(readDesignTokens(await Bun.file(DESIGN_FILE).text()));
+    for (const at of [1, 2, 3, 4, 5]) {
+      expect(theme).toContain(`--color-chart-${at}:var(--chart-${at});`);
+    }
+  });
 });

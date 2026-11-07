@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -68,9 +68,51 @@ beforeAll(async () => {
   );
   await write(`${dual}/LICENSE`, "Dual licence text\n");
   await write(`${dual}/index.js`, "");
+  await writeEmbedding();
 });
 
+// Packages with a `licenses/` folder (chart-widget, task 7.4): the folder holds the texts of code
+// the package embeds, not the package's own licence.
+const embedding = (name: string) => ({ name, version: "1.0.0", license: "MIT" });
+const writeEmbedding = async () => {
+  const only = store("only-embedded", "1.0.0");
+  await write(`${only}/package.json`, json(embedding("only-embedded")));
+  await write(`${only}/licenses/LICENSE-third`, "Third Party BSD text\n");
+  await write(`${only}/index.js`, "");
+  const both = store("both", "1.0.0");
+  await write(`${both}/package.json`, json(embedding("both")));
+  await write(`${both}/LICENSE`, "Both own MIT text\n");
+  await write(`${both}/licenses/LICENSE-third`, "Both third text\n");
+  await write(`${both}/licenses/readme.txt`, "not a licence file\n");
+  await write(`${both}/index.js`, "");
+  const flat = store("flat", "1.0.0");
+  await write(`${flat}/package.json`, json(embedding("flat")));
+  await write(`${flat}/LICENSE`, "Flat own text\n");
+  await write(`${flat}/licenses`, "a file where the folder should be\n");
+  await write(`${flat}/index.js`, "");
+  const linked = store("linked", "1.0.0");
+  await write(`${linked}/package.json`, json(embedding("linked")));
+  await write(`${linked}/LICENSE`, "Linked own text\n");
+  await write(`${linked}/elsewhere/LICENSE-x`, "Outside text\n");
+  await symlink("elsewhere", join(root, linked, "licenses"));
+  await write(`${linked}/index.js`, "");
+  const entry = store("entry-link", "1.0.0");
+  await write(`${entry}/package.json`, json(embedding("entry-link")));
+  await write(`${entry}/LICENSE`, "Entry own text\n");
+  await write(`${entry}/licenses/LICENSE-real`, "Real text\n");
+  await symlink("../LICENSE", join(root, entry, "licenses", "LICENSE-link"));
+  await write(`${entry}/index.js`, "");
+  const sealed = store("sealed", "1.0.0");
+  await write(`${sealed}/package.json`, json(embedding("sealed")));
+  await write(`${sealed}/LICENSE`, "Sealed own text\n");
+  await write(`${sealed}/licenses/LICENSE-x`, "Sealed third text\n");
+  await write(`${sealed}/index.js`, "");
+  await chmod(join(root, sealed, "licenses"), 0o000);
+};
+
 afterAll(async () => {
+  // A folder the tests made unreadable cannot be removed until it is readable again.
+  await chmod(join(root, store("sealed", "1.0.0"), "licenses"), 0o755).catch(() => undefined);
   await rm(root, { recursive: true, force: true });
 });
 
@@ -187,6 +229,68 @@ describe("licence notices per chunk", () => {
     await expect(collectNotices("react", [input], root, stale)).rejects.toThrow(
       'react 19.3.1 in the chunk "react" ships its own licence file: the text recorded for "react@19.3.1" in tools/licence-texts.json is stale',
     );
+  });
+
+  describe("a package's licenses/ folder holds the texts of code it embeds (chart-widget, task 7.4)", () => {
+    const input = (name: string) => at(`${store(name, "1.0.0")}/index.js`);
+    const recordedOnly = {
+      "only-embedded@1.0.0": { ...recorded["bare@1.0.0"], text: "Recorded own MIT text\n" },
+    };
+
+    test("a package with only that folder has no licence file of its own and is refused", async () => {
+      await expect(collectNotices("chart", [input("only-embedded")], root)).rejects.toThrow(
+        'only-embedded 1.0.0 in the chunk "chart" has no licence file',
+      );
+    });
+
+    test("the same package with a recorded text ships it, then the folder's, and the text is not stale", async () => {
+      const [notice] = await collectNotices("chart", [input("only-embedded")], root, recordedOnly);
+      expect(notice?.recorded).toBe("only-embedded@1.0.0");
+      expect(notice?.text).toBe("Recorded own MIT text\n\nThird Party BSD text");
+    });
+
+    test("a package with its own licence file ships it first, then the folder's licence files only", async () => {
+      const [notice] = await collectNotices("chart", [input("both")], root);
+      expect(notice?.text).toBe("Both own MIT text\n\nBoth third text");
+      expect(notice?.recorded).toBeUndefined();
+    });
+
+    test("a text recorded for a package that ships its own file is stale, with or without the folder", async () => {
+      const stale = { "both@1.0.0": { ...recorded["bare@1.0.0"] } };
+      await expect(collectNotices("chart", [input("both")], root, stale)).rejects.toThrow(
+        'both 1.0.0 in the chunk "chart" ships its own licence file',
+      );
+    });
+
+    test("a licenses entry that is a file is reported, not skipped", async () => {
+      await expect(collectNotices("chart", [input("flat")], root)).rejects.toThrow(
+        /flat.*licenses.*not a folder/,
+      );
+    });
+
+    test("a licenses folder that is a link is reported, not followed", async () => {
+      await expect(collectNotices("chart", [input("linked")], root)).rejects.toThrow(
+        /linked.*licenses.*not a folder/,
+      );
+    });
+
+    test("a link among the folder's licence files is reported, not read", async () => {
+      await expect(collectNotices("chart", [input("entry-link")], root)).rejects.toThrow(
+        /entry-link.*LICENSE-link.*not a file/,
+      );
+    });
+
+    test("a folder that cannot be read is reported: only a missing folder means none", async () => {
+      await expect(collectNotices("chart", [input("sealed")], root)).rejects.toThrow(
+        /sealed.*licenses.*EACCES/,
+      );
+      const [plain] = await collectNotices(
+        "react",
+        [at(`${store("react", "19.3.1")}/index.js`)],
+        root,
+      );
+      expect(plain?.text).toBe("MIT License\n\nCopyright (c) Meta");
+    });
   });
 
   test("a recorded text no chunk used is stale, and fails the build", () => {

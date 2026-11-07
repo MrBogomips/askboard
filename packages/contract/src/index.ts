@@ -754,3 +754,32 @@ export {
   type TimelineProps,
   timelinePropsProblems,
 } from "./widgets/timeline/index.ts";
+
+// The Chart (chart-widget, design decision 1): its entry, which `WIDGET_TYPES` holds once
+// registered, its constants, its props and result checks and its types.
+
+export {
+  CHART_HIGHLIGHTS,
+  CHART_KINDS,
+  CHART_LABEL_MAX_CHARS,
+  CHART_MAX_CATEGORIES,
+  CHART_MAX_POINTS,
+  CHART_MAX_SERIES,
+  CHART_PIE_MAX_SLICES,
+  CHART_SCHEMA_IDS,
+  CHART_TITLE_MAX_CHARS,
+  CHART_UNIT_MAX_CHARS,
+  CHART_VALUE_LIMIT,
+  CHART_WIDGET,
+  type ChartCategory,
+  type ChartHighlights,
+  type ChartItem,
+  type ChartKind,
+  type ChartPoint,
+  type ChartProps,
+  type ChartResult,
+  type ChartSeries,
+  chartPropsProblems,
+  chartResultProblems,
+  chartResultShape,
+} from "./widgets/chart/index.ts";

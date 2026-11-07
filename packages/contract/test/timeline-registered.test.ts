@@ -25,10 +25,10 @@ const refsOf = (schema: AnySchemaObject, union: string): string[] =>
   schema.$defs[union].oneOf.map(({ $ref }: { $ref: string }) => $ref.split("/").at(-1));
 
 describe("the Timeline in the composed schemas", () => {
-  test("the registry lists it after the Kanban, last", () => {
+  test("the registry lists it right after the Kanban", () => {
     const types = WIDGET_TYPES.map(({ type }) => type);
     expect(types.indexOf("timeline")).toBe(types.indexOf("kanban") + 1);
-    expect(types.at(-1)).toBe("timeline");
+    expect(types).toContain("timeline");
   });
 
   test("a question's items take its item after the Kanban's and before the molecule reference", () => {

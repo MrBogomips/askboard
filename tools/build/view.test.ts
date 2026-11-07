@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import {
   type BoardState,
   cspHashSource,
@@ -11,6 +11,7 @@ import {
   type ViewManifest,
 } from "@askboard/contract";
 import {
+  CHART_FIXTURE_ITEMS,
   contextBoardDocument,
   ganttBoardDocument,
   ganttPlanBoardDocument,
@@ -19,6 +20,7 @@ import {
   lifecycleSnapshotData,
   plainChoiceBoardDocument,
   RANKING_FIXTURE_ITEM,
+  SCALE_FIXTURE_ITEMS,
   TIMELINE_FIXTURE_ITEM,
   treeBoardDocument,
   uj2ExpandedBoardDocument,
@@ -37,7 +39,12 @@ import { bundleChunk } from "./chunks.ts";
 import { FONT_LICENCES, type FontLicence, type FontLicences } from "./licences.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
-import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
+import {
+  LIBRARY_CHUNKS,
+  portExports,
+  sharedModules,
+  sharedModulesPlugin,
+} from "./shared-modules.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
 import { CHUNK_STYLESHEETS } from "./stylesheets.ts";
 import { buildView, main } from "./view.ts";
@@ -84,6 +91,7 @@ describe("bun run build:view (design decision 7)", () => {
     expect(kinds).toEqual({
       approval: "component",
       "board-graph": "library",
+      chart: "component",
       choice: "component",
       context: "component",
       compute: "library",
@@ -106,6 +114,10 @@ describe("bun run build:view (design decision 7)", () => {
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
     expect(manifest.chunks.approval?.needs).toEqual(["radix", "react", "shell"]);
+    // The Chart's canvas renderer is in its own chunk, which needs React and the shell's port alone
+    // (chart-widget, design decision 8).
+    expect(manifest.chunks.chart?.components).toEqual(["chart"]);
+    expect(manifest.chunks.chart?.needs).toEqual(["react", "shell"]);
     // The Scale's slider and rating are Radix's Slider and Toggle Group, which the radix library
     // chunk has held since task 3.6 (design decision 9).
     expect(manifest.chunks.scale?.components).toEqual(["scale"]);
@@ -310,6 +322,7 @@ describe("bun run build:view (design decision 7)", () => {
       "approval",
       "board-graph",
       "board-page",
+      "chart",
       "choice",
       "compute",
       "context",
@@ -572,6 +585,156 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(plain.srcdoc).not.toContain(tree);
     expect(plain.policy).not.toContain(cspHashSource(script.sha256));
   });
+});
+
+describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, The Chart's chunk)", () => {
+  const boardOf = (...items: readonly unknown[]): ViewDocument => {
+    const [question] = treeBoardDocument.items;
+    return {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items } }],
+    } as unknown as ViewDocument;
+  };
+  const scaleBoard = boardOf(SCALE_FIXTURE_ITEMS[0]);
+  const chartBoard = boardOf(CHART_FIXTURE_ITEMS[0]);
+
+  test("a board holding only a Scale inlines no chart chunk, and a board holding a Chart inlines it", async () => {
+    const { script } = chunkNamed("chart");
+    const code = await text(script.path);
+    const names = (document: ViewDocument) =>
+      selectChunks(document, manifest).map(({ name }) => name);
+    expect(names(scaleBoard)).toContain("scale");
+    expect(names(scaleBoard)).not.toContain("chart");
+    expect(names(chartBoard)).toContain("chart");
+    expect(names(plainChoiceBoardDocument)).not.toContain("chart");
+    const withScale = await assembled(scaleBoard);
+    expect(withScale.chunks).not.toContain("chart");
+    expect(withScale.srcdoc).not.toContain(code);
+    expect(withScale.policy).not.toContain(cspHashSource(script.sha256));
+    const withChart = await assembled(chartBoard);
+    expect(withChart.chunks).toContain("chart");
+    expect(withChart.srcdoc).toContain(code);
+    expect(withChart.policy).toContain(cspHashSource(script.sha256));
+  });
+
+  test("the chunk registers chart, needs React and the shell alone, and is a component chunk", () => {
+    const chunk = chunkNamed("chart");
+    expect(chunk.kind).toBe("component");
+    expect(chunk.components).toEqual(["chart"]);
+    expect(chunk.needs).toEqual(["react", "shell"]);
+  });
+
+  test("its notices name echarts under Apache-2.0 with its NOTICE text, zrender under BSD-3-Clause and tslib under 0BSD", async () => {
+    const notices = chunkNamed("chart").licences;
+    expect(packagesIn(notices)).toEqual([
+      "@askboard/contract",
+      "@askboard/view",
+      "@askboard/widgets",
+      "echarts",
+      "tslib",
+      "zrender",
+    ]);
+    const by = Object.fromEntries(notices.map((entry) => [entry.package, entry]));
+    expect(by.echarts?.licence).toBe("Apache-2.0");
+    expect(by.zrender?.licence).toBe("BSD-3-Clause");
+    expect(by.tslib?.licence).toBe("0BSD");
+    const echarts = await text(by.echarts?.path ?? "");
+    expect(echarts).toContain("Apache License");
+    expect(echarts).toContain("Apache ECharts\nCopyright 2017-");
+    expect(echarts).toContain(
+      "This product includes software developed at\nThe Apache Software Foundation",
+    );
+    expect(await text(by.zrender?.path ?? "")).toContain("Baidu");
+    expect(await text(by.tslib?.path ?? "")).toContain(
+      "Permission to use, copy, modify, and/or distribute this software for any",
+    );
+  });
+
+  test("the library chunks are the six there were: the chart's library goes in its own chunk", () => {
+    expect(
+      Object.fromEntries(
+        Object.entries(LIBRARY_CHUNKS).map(([name, { modules }]) => [name, Object.keys(modules)]),
+      ),
+    ).toEqual({
+      react: ["react", "react-dom", "react-dom/client", "react/jsx-runtime"],
+      radix: ["radix-ui"],
+      "ext-apps": ["@modelcontextprotocol/ext-apps"],
+      compute: ["@askboard/compute"],
+      "board-graph": ["@askboard/widgets/board-graph"],
+      dnd: [
+        "@atlaskit/pragmatic-drag-and-drop/combine",
+        "@atlaskit/pragmatic-drag-and-drop/element/adapter",
+      ],
+    });
+    expect(Object.keys(manifest.chunks).filter((name) => name.includes("echarts"))).toEqual([]);
+    expect(Object.keys(manifest.chunks)).not.toContain("zrender");
+  });
+
+  // The d3-derived `quantile` of echarts' `util/number` stays out of the chunk. The minified chunk
+  // has no names to search: the same entry is bundled unminified, with a probe importing it to
+  // prove the search sees it. (Time.js, which the chunk does hold, has d3-derived tables too: the
+  // next test checks that d3's licence text ships.)
+  const unminified = async (entry: string): Promise<string> => {
+    const needs = new Set<string>();
+    const result = await Bun.build({
+      entrypoints: [entry],
+      format: "iife",
+      target: "browser",
+      minify: false,
+      define: { "process.env.NODE_ENV": '"production"' },
+      plugins: [sharedModulesPlugin("chart", sharedModules(await portExports()), needs)],
+    });
+    const output = result.outputs.find((file) => file.kind === "entry-point");
+    if (!result.success || output === undefined) throw new Error(result.logs.join("\n"));
+    return output.text();
+  };
+
+  test("the chunk holds none of echarts' d3-derived code", async () => {
+    const number = join(ROOT, "packages/widgets/node_modules/echarts/lib/util/number.js");
+    const probe = join(dir, "probe-quantile.ts");
+    await Bun.write(
+      probe,
+      `import { quantile } from ${JSON.stringify(number)};\nconsole.log(quantile);\n`,
+    );
+    expect(await unminified(probe)).toContain("quantile");
+    const chart = await unminified(join(ROOT, "packages/widgets/src/chart/index.tsx"));
+    expect(chart).not.toContain("quantile");
+  }, 60_000);
+
+  // A source file of echarts whose header says a third-party licence is embedded ("see
+  // </licenses/LICENSE-d3>") obliges the notices of the chunk holding it to carry that text
+  // (review of group 5, X-1). Each input file of the chunk, from the bundler's metafile, is read.
+  test("every third-party licence a bundled echarts file says it embeds is among the chunk's notices", async () => {
+    const result = await Bun.build({
+      entrypoints: [join(ROOT, "packages/widgets/src/chart/index.tsx")],
+      format: "iife",
+      target: "browser",
+      minify: false,
+      metafile: true,
+      define: { "process.env.NODE_ENV": '"production"' },
+      plugins: [
+        sharedModulesPlugin("chart", sharedModules(await portExports()), new Set<string>()),
+      ],
+    });
+    if (!result.success || result.metafile === undefined) throw new Error(result.logs.join("\n"));
+    const embedded = new Map<string, string[]>();
+    for (const input of Object.keys(result.metafile.inputs)) {
+      if (!input.includes("/echarts/")) continue;
+      const source = await Bun.file(resolve(ROOT, input)).text();
+      for (const [, name] of source.matchAll(/<\/?licenses\/(LICENSE-[A-Za-z0-9._-]+)>/g)) {
+        embedded.set(name ?? "", [...(embedded.get(name ?? "") ?? []), basename(input)]);
+      }
+    }
+    // The chunk does hold Time.js, which names LICENSE-d3.
+    expect(embedded.get("LICENSE-d3")).toContain("Time.js");
+    const notices = chunkNamed("chart").licences;
+    const echarts = await text(notices.find((entry) => entry.package === "echarts")?.path ?? "");
+    for (const name of embedded.keys()) {
+      const file = join(ROOT, "packages/widgets/node_modules/echarts/licenses", name);
+      const licence = (await Bun.file(file).text()).trim();
+      expect({ name, shipped: echarts.includes(licence) }).toEqual({ name, shipped: true });
+    }
+  }, 60_000);
 });
 
 describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec, The Gantt's chunks)", () => {
