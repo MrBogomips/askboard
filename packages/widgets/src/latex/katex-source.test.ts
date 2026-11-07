@@ -290,8 +290,8 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
       "defineFunction({", // \futurelet and its family: refused
       'defineMacro("\\\\noexpand", function (context) {', // pushes the token back
       'defineMacro("\\\\expandafter", function (context) {', // pushes the token back
-      'defineMacro("\\\\char", function (context) {', // consumes it
-      'defineMacro("\\\\show", context => {', // consumes it
+      'defineMacro("\\\\char", function (context) {', // refused after a backquote
+      'defineMacro("\\\\show", context => {', // refused
       "var braketHelper = one => context => {", // \bra@ket, \bra@set: @ names, only `|`
     ]);
     const typeable = (name: string) => !name.startsWith("\\\\");
@@ -306,8 +306,8 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
       }
     }
     expect({ ...LATEX_RAW_TOKEN_COMMANDS }).toEqual({
-      "\\char": "consumes",
-      "\\show": "consumes",
+      "\\char": "refusedWithBackquote",
+      "\\show": "refused",
       "\\noexpand": "pushesBack",
       "\\expandafter": "pushesBack",
     });

@@ -1,7 +1,8 @@
 // The LaTeX scan (latex-kanban-timeline, design decisions 3 and 7, Bounded work): one linear pass
 // over an expression that finds the first control word it may not hold and counts how deep KaTeX
 // nests it. The contract never parses LaTeX; this reads only what the lexer's own rules say, and
-// where it differs from KaTeX it errs towards refusing more: a depth never less than KaTeX's.
+// where it differs from KaTeX it errs towards refusing more, and a form it cannot read it refuses
+// by name; the board's output bound (design decision 7) covers the nesting it does not count.
 //
 // Plain ECMAScript with no JSON and no Ajv: the latex chunk bundles it.
 
@@ -135,40 +136,6 @@ const skipBlanksAndComments = (text: string, from: number): number => {
   return at;
 };
 
-// The end of one raw token at `at`: a control sequence, or one code point.
-const rawTokenEnd = (text: string, at: number): number => {
-  if (at >= text.length) return at;
-  if (text[at] === "\\") return controlEnd(text, at);
-  const code = text.charCodeAt(at);
-  const pair = code >= 0xd800 && code <= 0xdbff && at + 1 < text.length;
-  return at + (pair ? 2 : 1);
-};
-
-// Whether the token at `at` is one the scan must count rather than take: an opener of a level
-// (4.12 re-review X-2), or an infix command, which would otherwise lose its level.
-const isCounted = (token: string): boolean =>
-  token === "{" || OPENERS.has(token) || INFIX.has(token);
-
-// The token `\char` or `\show` reads raw, after blanks and comments: where it ends, and its text.
-// KaTeX's lexer drops blanks only after a control word, so after a quote or a comment a blank is
-// that token and what follows it is read as usual; the scan skips the blank instead, so it never
-// takes a token it must count, and where it differs from KaTeX it counts more.
-const rawToken = (text: string, from: number) => {
-  const at = skipBlanksAndComments(text, from);
-  const end = rawTokenEnd(text, at);
-  return { end, token: text.slice(at, end) };
-};
-
-// `\char` and `\show` read the next token raw: it closes nothing, a brace included; `\char` reads
-// another after a quote, a double quote or a backquote. A token the scan counts is left alone.
-const consumeRaw = (text: string, from: number, command: string): number => {
-  const first = rawToken(text, from);
-  if (first.token === "" || isCounted(first.token)) return from;
-  if (command !== "\\char" || !"'\"`".includes(first.token)) return first.end;
-  const second = rawToken(text, first.end);
-  return second.token === "" || isCounted(second.token) ? first.end : second.end;
-};
-
 // After `\begin` or `\end`, the environment's name in braces is no level.
 const skipEnvironmentName = (text: string, from: number): number => {
   const open = skipBlanksAndComments(text, from);
@@ -217,10 +184,20 @@ const scanQuiet = (text: string, from: number, to: number, state: State): void =
   }
 };
 
-// The first control word that defines a macro or holds `@`, wherever it stands, a comment included.
+// The first control word the check refuses, wherever it stands, a comment included: one that
+// defines a macro, holds `@`, or reads the token after it raw (`\show`).
 const noteRefused = (state: State, word: string): void => {
-  if (state.refused === undefined && (DEFINING.has(word) || word.includes("@"))) {
+  if (state.refused !== undefined) return;
+  if (DEFINING.has(word) || word.includes("@") || LATEX_RAW_TOKEN_COMMANDS[word] === "refused") {
     state.refused = word;
+  }
+};
+
+// `\char` and a backquote, after blanks and comments, which KaTeX's lexer does not read: refused as
+// the word and its backquote.
+const noteCharCode = (text: string, end: number, state: State): void => {
+  if (state.refused === undefined && text[skipBlanksAndComments(text, end)] === "`") {
+    state.refused = "\\char`";
   }
 };
 
@@ -253,7 +230,8 @@ const scanControl = (text: string, at: number, state: State): number => {
     return word === "\\end" ? skipEnvironmentName(text, end) : end;
   }
   take(state, "other");
-  return LATEX_RAW_TOKEN_COMMANDS[word] === "consumes" ? consumeRaw(text, end, word) : end;
+  if (LATEX_RAW_TOKEN_COMMANDS[word] === "refusedWithBackquote") noteCharCode(text, end, state);
+  return end;
 };
 
 /**
@@ -262,16 +240,16 @@ const scanControl = (text: string, at: number, state: State): number => {
  * is a word of its own, `\left` is not `\let`); any other backslash and the one character after it
  * is a control symbol (`\\`, the line break, is one symbol, so `\\def` is a line break and the text
  * `def`; `\{` is no level). `refused` is the first control word that defines a macro (one of
- * `LATEX_DEFINING_COMMANDS`) or holds `@`: KaTeX also defines macros by side effect (`\tag` defines
- * `\df@tag`, `\color` defines `\current@color`) and its lexer lets the source call them, so every
- * word of its internal namespace is refused. `depth` is the most levels open at once, as KaTeX
- * nests them: a level opens at `{` and at the control words of `LATEX_LEVEL_OPENERS`, closes at `}`
- * and at those of `LATEX_LEVEL_CLOSERS`, and `^` and `_` open one for their argument, which closes
- * with the group that opens next, else after the next token. An infix command (one of
- * `LATEX_INFIX_COMMANDS`) makes a fraction of its group, so it adds a level to the group that holds
- * it, the expression included. A brace KaTeX reads as text closes nothing: in a comment, in a
- * `\verb` body, after `\char`'s quote and after `\show`; but the scan never takes an opener or an
- * infix as such a token, since KaTeX's lexer reads a blank after a quote or a comment as the token.
+ * `LATEX_DEFINING_COMMANDS`), holds `@`, or is `\show` or `\char` before a backquote (below): KaTeX
+ * also defines macros by side effect (`\tag` defines `\df@tag`, `\color` defines `\current@color`)
+ * and its lexer lets the source call them, so every word of its internal namespace is refused.
+ * `depth` is the most levels open at once, as KaTeX nests them: a level opens at `{` and at the
+ * control words of `LATEX_LEVEL_OPENERS`, closes at `}` and at those of `LATEX_LEVEL_CLOSERS`, and
+ * `^` and `_` open one for their argument, which closes with the group that opens next, else after
+ * the next token. An infix command (one of `LATEX_INFIX_COMMANDS`) makes a fraction of its group, so
+ * it adds a level to the group that holds it, the expression included. A brace KaTeX reads as text closes nothing: in a comment and in a
+ * `\verb` body. `\show` and `\char` with a backquote take the next token whole, a `\verb|}|` token
+ * included, which this reading does not follow, so they are `refused` by name (4.19 re-review X-1).
  * One pass, each character read once, with no nested quantifier and no backtracking. A comment or
  * a `\verb` body is read as well as skipped (its openers count and a command named in it is
  * refused), which only refuses more.

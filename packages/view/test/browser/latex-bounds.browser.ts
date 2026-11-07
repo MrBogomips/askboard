@@ -111,23 +111,33 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       [
         "an infix fraction nested 11 times",
         `${"\\frac{".repeat(11)}x${"\\over y}{x}".repeat(11)}`,
-        22,
+        { depth: 22, limit: LIMIT },
       ],
       [
-        "a character code and a blank before an opener, 130 times",
+        "a character code and a blank before an opener, 130 times (refused by name since task 4.21)",
         `${"\\char` {".repeat(130)}x${"\\over}".repeat(130)}`,
-        260,
+        { command: "\\char`" },
+      ],
+      [
+        "\\show taking a \\verb token whole, in fractions (the 4.19 re-review's X-1)",
+        `${"\\frac{\\show\\verb|}|".repeat(18)}x${"}{x}".repeat(18)}`,
+        { command: "\\show" },
+      ],
+      [
+        "\\show taking a \\verb token whole, in batches of \\sqrt{ (the 4.19 re-review's X-1)",
+        `${`${"\\sqrt{".repeat(11)}\\show\\verb|${"}".repeat(11)}|`.repeat(12)}x${"}".repeat(132)}`,
+        { command: "\\show" },
       ],
     ] as const;
 
     test.each(FORMS_MISSED)(
-      "%s: the field error names the depth and the limit within 2 seconds, KaTeX does not run, the renderer does not crash",
-      async (_name, expression, depth) => {
+      "%s: the field error names the refusal within 2 seconds, KaTeX does not run, the renderer does not crash",
+      async (_name, expression, refused) => {
         const kept = await frame.rendering("x^2");
         if (!kept.ok) throw new Error(`${kept.reason}: ${kept.message}`);
         const result = await frame.rendering(expression);
         if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
-        expect(result.rendered).toEqual({ refused: { depth, limit: LIMIT } });
+        expect(result.rendered).toEqual({ refused });
         expect(result.ms).toBeLessThan(RENDER_BOUND_MS);
         expect(result.nodes).toBe(kept.nodes);
         expect(result.parentMs).toBeLessThan(PARENT_ANSWER_MS);

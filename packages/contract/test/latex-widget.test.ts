@@ -489,16 +489,16 @@ describe("LaTeX nesting bounded", () => {
     expect(latexPropsProblems({ expression: atLimit })).toEqual([]);
   });
 
-  test("the review's hidden form, \\char` { 130 times, x, \\over} 130 times, is refused naming its depth", () => {
+  test("the review's hidden form, \\char` { 130 times, x, \\over} 130 times, is refused naming the command (task 4.21)", () => {
     const hidden = `${"\\char` {".repeat(130)}x${"\\over}".repeat(130)}`;
     expect([...hidden]).toHaveLength(1_821);
     expect(latexPropsProblems({ expression: hidden })[0]?.message).toBe(
-      `the expression nests 260 levels deep, more than the limit of ${LIMIT}`,
+      "the expression uses ``\\char` ``, which a LaTeX item does not allow",
     );
     const [problem, ...rest] = problems(withExpression(hidden));
     expect(rest).toEqual([]);
     expect(problem?.itemId).toBe("formula");
-    expect(problem?.message).toContain("260 levels deep");
+    expect(problem?.message).toContain("\\char`");
   });
 
   test("a command is named before the depth, and one problem is given", () => {

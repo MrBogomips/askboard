@@ -69,18 +69,23 @@ export const LATEX_INFIX_COMMANDS: readonly string[] = /* @__PURE__ */ Object.fr
 ]);
 
 /**
- * The control words of KaTeX 0.19.1 that read the next token raw, with what they do to it: `consumes`
- * (`\char` and `\show` take it, so a brace after them closes nothing) or `pushesBack` (`\noexpand` and
- * `\expandafter` read it and put it back, so it keeps its meaning). The other readers of raw tokens
- * are the refused definitions and the `@` names (the widgets' render test checks the source).
+ * The control words of KaTeX 0.19.1 that read the next token raw, with what the check does about
+ * it (design decision 3, 4.19 re-review X-1). `\show` and `\char` with a backquote take a token
+ * whole, a `\verb|}|` included, which the scan does not read as KaTeX's lexer does: the check
+ * refuses `refused` always and `refusedWithBackquote` when a backquote follows (an author writes
+ * `\char"263A` or decimal digits instead, which read no token raw). `pushesBack` (`\noexpand` and
+ * `\expandafter`) reads the token and puts it back, so it keeps its meaning. The other readers of
+ * raw tokens are the refused definitions and the `@` names (the widgets' render test checks the
+ * source).
  */
-export const LATEX_RAW_TOKEN_COMMANDS: Readonly<Record<string, "consumes" | "pushesBack">> =
-  /* @__PURE__ */ Object.freeze({
-    "\\char": "consumes",
-    "\\show": "consumes",
-    "\\noexpand": "pushesBack",
-    "\\expandafter": "pushesBack",
-  } as const);
+export const LATEX_RAW_TOKEN_COMMANDS: Readonly<
+  Record<string, "refused" | "refusedWithBackquote" | "pushesBack">
+> = /* @__PURE__ */ Object.freeze({
+  "\\char": "refusedWithBackquote",
+  "\\show": "refused",
+  "\\noexpand": "pushesBack",
+  "\\expandafter": "pushesBack",
+} as const);
 
 /**
  * The deepest nest an expression may hold, in the levels the scan counts (design decisions 3 and 7).

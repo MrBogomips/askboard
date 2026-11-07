@@ -66,8 +66,17 @@ export const cutLatexExpression = (text: string): string =>
     ? text
     : [...text].slice(0, LATEX_EXPRESSION_MAX_CHARS).join("");
 
-// A definition names itself; any other refused word holds `@`, KaTeX's internal namespace.
-const refusedMessage = (word: string): string =>
-  LATEX_DEFINING_COMMANDS.includes(word)
-    ? `the expression defines a macro with \`${word}\`, which a LaTeX item does not allow`
-    : `the expression names \`${word}\`, one of KaTeX's internal commands, which a LaTeX item does not allow`;
+// A definition names itself, `\show` and a character code given by a backquote are named as they
+// are written, and any other refused word holds `@`, KaTeX's internal namespace.
+const refusedMessage = (word: string): string => {
+  if (LATEX_DEFINING_COMMANDS.includes(word)) {
+    return `the expression defines a macro with \`${word}\`, which a LaTeX item does not allow`;
+  }
+  if (word === "\\show") {
+    return `the expression uses \`${word}\`, which a LaTeX item does not allow`;
+  }
+  if (word === "\\char`") {
+    return `the expression uses \`\`${word} \`\`, which a LaTeX item does not allow`;
+  }
+  return `the expression names \`${word}\`, one of KaTeX's internal commands, which a LaTeX item does not allow`;
+};

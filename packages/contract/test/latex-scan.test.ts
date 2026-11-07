@@ -71,15 +71,10 @@ describe("the depth of an expression", () => {
     expect(depthOf("{a}}}{b{c}}")).toBe(2);
   });
 
-  test("a brace KaTeX reads as text closes nothing: a comment, a \\verb body, a character code, \\show", () => {
+  test("a brace KaTeX reads as text closes nothing: a comment, a \\verb body (\\char and \\show are refused, task 4.21)", () => {
     for (const n of [3, 10, 25]) {
       expect(depthOf(nest("\\sqrt{%\n", "", "}", n)), `comment ${n}`).toBe(n);
       expect(depthOf(nest("\\sqrt{\\verb|}|", "", "}", n)), `verb ${n}`).toBe(n);
-      expect(depthOf(nest("\\sqrt{\\char`}", "", "}", n)), `char ${n}`).toBe(n);
-      expect(depthOf(nest("\\sqrt{\\show}", "", "}", n)), `show ${n}`).toBe(n);
-      // The token after a comment is the one \show and \char read.
-      expect(depthOf(nest("\\sqrt{\\show%\n}", "", "}", n)), `show, comment ${n}`).toBe(n);
-      expect(depthOf(nest("\\sqrt{\\char%\n`%\n}", "", "}", n)), `char, comment ${n}`).toBe(n);
       expect(depthOf(nest("\\sqrt{\\verb*|}|", "", "}", n)), `verb* ${n}`).toBe(n);
     }
     expect(depthOf("\\verb|x|{a}{b}")).toBe(1);
@@ -180,72 +175,6 @@ describe("the depth of an infix fraction", () => {
   });
 });
 
-// The 4.12 re-review's X-2 (contract spec: scenario "An opener after a character code"): the raw
-// token after `\char` and its quote, or after `\show`, is read after blanks and comments, but
-// KaTeX's lexer drops blanks only after a control word, so a blank after a quote or a comment is
-// that token and the opener after it is a real group. The scan leaves an opener to be counted.
-describe("an opener after a character code or \\show", () => {
-  const hidden = (open: string, close: string, n: number) => `${open.repeat(n)}x${close.repeat(n)}`;
-
-  test.each([
-    ["a blank", "\\char` {"],
-    ["a line feed", "\\char`\n{"],
-    ["a tab", "\\char`\t{"],
-  ])("%s after the backquote: n openers with n closers are n deep", (_what, open) => {
-    for (const n of [1, 3, 14, 130]) {
-      expect(depthOf(hidden(open, "}", n)), String(n)).toBe(n);
-    }
-  });
-
-  test("a comment and a line feed, a blank and a group: 1", () => {
-    expect(depthOf("\\char`%c\n {x}")).toBe(1);
-    expect(depthOf("\\show%c\n {x}")).toBe(1);
-    expect(depthOf("\\show%\n {x}")).toBe(1);
-  });
-
-  test.each([
-    ["\\left(x\\right)"],
-    ["\\bgroup x\\egroup"],
-    ["\\begingroup x\\endgroup"],
-    ["\\begin{matrix}x\\end{matrix}"],
-    ["{x}"],
-  ])("a blank before %s: that level counts", (group) => {
-    expect(depthOf(`\\char\` ${group}`)).toBe(1);
-    expect(depthOf(`\\show ${group}`)).toBe(1);
-    expect(depthOf(`\\show%\n ${group}`)).toBe(1);
-  });
-
-  test("the hidden form of the review: \\char` { 130 times, x, \\over} 130 times", () => {
-    const text = `${"\\char` {".repeat(130)}x${"\\over}".repeat(130)}`;
-    expect([...text].length).toBe(1_821);
-    // Each group holds an infix: two levels each.
-    expect(depthOf(text)).toBe(260);
-  });
-
-  test("a token that is no opener is still taken: it closes nothing", () => {
-    for (const n of [3, 10, 25]) {
-      expect(depthOf(nest("\\sqrt{\\char`}", "", "}", n)), `char ${n}`).toBe(n);
-      expect(depthOf(nest("\\sqrt{\\show}", "", "}", n)), `show ${n}`).toBe(n);
-    }
-    expect(depthOf("\\char`a{x}")).toBe(1);
-    expect(depthOf("\\show\\alpha{x}")).toBe(1);
-  });
-
-  test("an infix is no token to take either: it keeps its level", () => {
-    expect(depthOf("{\\show\\over x}")).toBe(2);
-    expect(depthOf("{\\char`\\over x}")).toBe(2);
-  });
-
-  test("\\char and \\show at the end of the text take nothing", () => {
-    expect(depthOf("{\\char")).toBe(1);
-    expect(depthOf("{\\char`")).toBe(1);
-    expect(depthOf("{\\show")).toBe(1);
-    expect(depthOf("{\\show%")).toBe(1);
-  });
-
-  test("hostile texts end: 1,000 {\\over and 600 \\char` {", () => {
-    // No timing assertion: the security review probes the run time.
-    expect(depthOf("{\\over".repeat(1_000))).toBe(2_000);
-    expect(depthOf("\\char` {".repeat(600))).toBe(600);
-  });
-});
+// The 4.12 re-review's X-2 asked the scan to read the token after `\char` and a backquote, and after
+// `\show`; the 4.19 re-review's X-1 found more tokens it cannot read as KaTeX does (a `\verb` taken
+// whole), so both commands are refused instead (task 4.21; `latex-unread-tokens.test.ts`).

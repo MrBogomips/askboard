@@ -22,7 +22,11 @@ export const INFIX_CONSTRUCTS: readonly Construct[] = [
   construct("\\left( \\over y\\right)", "\\left(", "\\over y\\right)", 2),
 ];
 
-/** The openers a character code or `\show` hides from a reader that takes the next token (task 4.13). */
+/**
+ * The openers a character code or `\show` hides from a reader that takes the next token (task 4.13).
+ * The scan refuses both commands since task 4.21; the sweep still measures their output, which is
+ * what bounds any nest the scan does not count.
+ */
 export const HIDDEN_CONSTRUCTS: readonly Construct[] = [
   construct("\\char` { \\over}", "\\char` {", "\\over}", 2),
   construct("\\char`<LF>{ \\over}", "\\char`\n{", "\\over}", 2),

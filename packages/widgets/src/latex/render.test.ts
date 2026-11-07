@@ -451,7 +451,17 @@ describe("renderInto and parseProblem refuse before KaTeX", () => {
     [
       "the hidden form: a character code, a blank and an opener",
       `${"\\char` {".repeat(130)}x${"\\over}".repeat(130)}`,
-      { depth: 260, limit: LIMIT },
+      { command: "\\char`" },
+    ],
+    [
+      "\\show taking a \\verb token whole, in fractions",
+      `${"\\frac{\\show\\verb|}|".repeat(18)}x${"}{x}".repeat(18)}`,
+      { command: "\\show" },
+    ],
+    [
+      "\\show taking a \\verb token whole, in batches of \\sqrt{",
+      `${`${"\\sqrt{".repeat(11)}\\show\\verb|${"}".repeat(11)}|`.repeat(12)}x${"}".repeat(132)}`,
+      { command: "\\show" },
     ],
   ] as const;
   let spies: ReturnType<typeof spyOn>[] = [];
