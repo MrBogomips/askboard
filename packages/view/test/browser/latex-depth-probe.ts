@@ -6,15 +6,16 @@
 //   bun packages/view/test/browser/latex-depth-probe.ts --out <file.json> [--engines chromium,webkit]
 //     [--phases sweep,flat,realistic] [--from 4] [--to 24] [--only <regex on a family's name>]
 //   bun packages/view/test/browser/latex-depth-probe.ts --report <file.json>...
-//   bun packages/view/test/browser/latex-depth-probe.ts --verify <file.json> --nodes N --depth D
-//     --nesting S [--runs 3] [--out <verify.json>]
+//   bun packages/view/test/browser/latex-depth-probe.ts --verify <file.json> --nodes N --fractions F
+//     --depth D --nesting S [--runs 3] [--out <verify.json>]
 //
 // The first form measures every family of `harness/latex-fixtures.ts` and `harness/latex-forms.ts`
 // (task 4.10's constructs, the infix, hidden-opener, environment and style forms, and every control
 // word with arguments in each argument position) alone, side by side to 2,000 code points and
 // branching, flat content past 2,000 code points, and the realistic set, in each engine, and writes
 // every row to `--out`. The second reads such files and applies design decision 7's rules; the third
-// re-times the fixtures within the bounds, several runs each, and the ten-element runs of U-1.
+// re-times the fixtures within the bounds, several runs each, the combined form and the ten-element
+// runs of U-1.
 
 import { writeFileSync } from "node:fs";
 import { ENGINES, type Engine } from "./harness/engines.ts";
@@ -62,6 +63,7 @@ const options = (argv: readonly string[]) => {
       reportAt === -1 ? undefined : argv.slice(reportAt + 1).filter((a) => !a.startsWith("--")),
     verify: value("--verify"),
     nodes: Number(value("--nodes")),
+    fractions: Number(value("--fractions")),
     depth: Number(value("--depth")),
     nesting: Number(value("--nesting")),
     runs: Number(value("--runs") ?? 3),

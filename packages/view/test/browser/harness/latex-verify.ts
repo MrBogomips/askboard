@@ -1,14 +1,23 @@
 // The probe's check at the bounds (latex-kanban-timeline, task 4.15): every family in every shape at
 // its deepest nest within the bounds, and every row within them that took 250 ms or more, timed again
-// several runs each in a quiet engine; then U-1, ten copies of the slowest fixture drawn in one task
-// and one per task.
+// several runs each in a quiet engine, the combined form of design decision 7 at the bounds, and flat
+// content at the node bound; then U-1, ten copies of the slowest fixture drawn in one task and one
+// per task.
 
 import { readFile } from "node:fs/promises";
 import { LATEX_EXPRESSION_MAX_CHARS } from "@askboard/contract";
 import { ENGINES, type Engine } from "./engines.ts";
-import { FAST_MS, within } from "./latex-bounds-rules.ts";
-import { fixtureFor, katexControlWords, LATEX_CONSTRUCTS, type Shape } from "./latex-fixtures.ts";
+import { combinedFamilies, FAST_MS, within } from "./latex-bounds-rules.ts";
 import {
+  type Construct,
+  fixtureFor,
+  katexControlWords,
+  LATEX_CONSTRUCTS,
+  type Shape,
+} from "./latex-fixtures.ts";
+import {
+  type Combined,
+  combinedForm,
   controlWordConstructs,
   EXTRA_CONSTRUCTS,
   FLAT_KINDS,
@@ -17,7 +26,7 @@ import {
   optionalArgumentWords,
 } from "./latex-forms.ts";
 import { LatexFrame } from "./latex-frame.ts";
-import { LATEX_SOURCES, loadMeasurer } from "./latex-measure.ts";
+import { LATEX_SOURCES, loadMeasurer, type Measurer } from "./latex-measure.ts";
 import { type ProbeRecord, sampleOf } from "./latex-probe-report.ts";
 import type { Progress, Row } from "./latex-sweep.ts";
 
@@ -43,9 +52,32 @@ const medianOf = (runs: readonly (number | undefined)[]): number => {
 
 export type VerifyOptions = {
   readonly nodes: number;
+  readonly fractions: number;
   readonly depth: number;
   readonly nesting: number;
   readonly runs: number;
+};
+
+/** The combined form of the record's rows within the bounds, with the names of its two families. */
+const combinedOf = (
+  record: ProbeRecord,
+  bounds: { nodes: number; fractions: number; depth: number; nesting: number },
+  families: ReadonlyMap<string, Construct>,
+  measure: Measurer,
+): { found: Combined; fraction: string; plain: string } | undefined => {
+  const samples = record.rows.flatMap((row) => {
+    const sample = sampleOf(row);
+    return sample === undefined || row.shape === "realistic" || row.shape === "flat"
+      ? []
+      : [sample];
+  });
+  const { fraction, plain } = combinedFamilies(samples, bounds);
+  const fractionFamily = fraction === undefined ? undefined : families.get(fraction);
+  const plainFamily = plain === undefined ? undefined : families.get(plain);
+  if (fraction === undefined || plain === undefined) return undefined;
+  if (fractionFamily === undefined || plainFamily === undefined) return undefined;
+  const found = combinedForm(fractionFamily, plainFamily, bounds, measure);
+  return found === undefined ? undefined : { found, fraction, plain };
 };
 
 export const verify = async (
@@ -54,7 +86,12 @@ export const verify = async (
   _progress: Progress,
 ): Promise<{ readonly text: string; readonly record: unknown }> => {
   const record = JSON.parse(await readFile(file, "utf8")) as ProbeRecord;
-  const bounds = { nodes: given.nodes, depth: given.depth, nesting: given.nesting };
+  const bounds = {
+    nodes: given.nodes,
+    fractions: given.fractions,
+    depth: given.depth,
+    nesting: given.nesting,
+  };
   const measure = await loadMeasurer();
   const { forms } = controlWordConstructs(
     katexControlWords(LATEX_SOURCES.katex),
@@ -71,17 +108,23 @@ export const verify = async (
     return fixtureFor(family, row.shape as Shape, row.asked);
   };
   // What the contract admits: at most 2,000 code points, so flat content past that is no fixture here.
-  const inside = record.rows.filter((row) => {
-    const sample = sampleOf(row);
-    return (
-      sample !== undefined &&
-      row.shape !== "realistic" &&
-      row.length <= LATEX_EXPRESSION_MAX_CHARS &&
-      within(sample, bounds)
-    );
-  });
+  const insideBounds = (limits: typeof bounds) =>
+    record.rows.filter((row) => {
+      const sample = sampleOf(row);
+      return (
+        sample !== undefined &&
+        row.shape !== "realistic" &&
+        row.length <= LATEX_EXPRESSION_MAX_CHARS &&
+        within(sample, limits)
+      );
+    });
+  const inside = insideBounds(bounds);
+  // Rows within the three bounds of the output alone, whatever the scan says: the board never refuses
+  // them for their tree, so the ones that came near the limit are timed again too.
+  const insideTree = insideBounds({ ...bounds, nesting: Number.POSITIVE_INFINITY });
   const timed: Timed[] = [];
   const engines = Object.keys(record.versions) as Engine[];
+  const combined = combinedOf(record, bounds, families, measure);
   for (const engine of engines.filter((e) => (ENGINES as readonly string[]).includes(e))) {
     const own = inside.filter((row) => row.engine === engine);
     const deepest = new Map<string, Row>();
@@ -91,7 +134,9 @@ export const verify = async (
       if (held === undefined || row.asked > held.asked) deepest.set(key, row);
     }
     const chosen = new Set<Row>(deepest.values());
-    for (const row of own) if ((row.ms ?? 0) >= NEAR_MS) chosen.add(row);
+    for (const row of insideTree) {
+      if (row.engine === engine && (row.ms ?? 0) >= NEAR_MS) chosen.add(row);
+    }
     const frame = new LatexFrame(engine);
     try {
       for (const row of chosen) {
@@ -105,6 +150,19 @@ export const verify = async (
           engine,
           label: `${row.family} | ${row.shape} ${row.asked}`,
           expression,
+          runs,
+        });
+      }
+      if (combined !== undefined) {
+        const runs: (number | undefined)[] = [];
+        for (let run = 0; run < given.runs; run += 1) {
+          const result = await frame.render(combined.found.expression);
+          runs.push(result.ok ? result.ms : undefined);
+        }
+        timed.push({
+          engine,
+          label: `combined: ${combined.fraction} x${combined.found.fractionLevels} in ${combined.plain} x${combined.found.plainLevels}`,
+          expression: combined.found.expression,
           runs,
         });
       }
@@ -136,7 +194,10 @@ export const verify = async (
     }
   }
   const lines = [
-    `bounds: nodes ${given.nodes}, depth ${given.depth}, nesting ${given.nesting}; runs ${given.runs}`,
+    `bounds: nodes ${given.nodes}, fractions ${given.fractions}, depth ${given.depth}, nesting ${given.nesting}; runs ${given.runs}`,
+    combined === undefined
+      ? "combined form: none (no fraction family or no plain family within the bounds)"
+      : `combined form: ${combined.fraction} x${combined.found.fractionLevels} in ${combined.plain} x${combined.found.plainLevels}: ${combined.found.fractions} fractions, tree depth ${combined.found.treeDepth}, ${combined.found.nodes} nodes, ${[...combined.found.expression].length} chars`,
   ];
   for (const t of flatTimes) {
     lines.push(
@@ -145,6 +206,12 @@ export const verify = async (
   }
   const many: Record<string, unknown> = {};
   for (const engine of engines) {
+    for (const t of timed.filter((t) => t.engine === engine && t.label.startsWith("combined:"))) {
+      lines.push(
+        "",
+        `${engine}: ${t.label}: ${t.runs.map((r) => (r === undefined ? "FAIL" : Math.round(r))).join("/")} ms`,
+      );
+    }
     const own = timed
       .filter((t) => t.engine === engine)
       .sort((a, b) => maxOf(b.runs) - maxOf(a.runs));

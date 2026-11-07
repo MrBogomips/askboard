@@ -3,8 +3,9 @@
 // frame, and in the frame KaTeX's stylesheet with its woff2 fonts inlined as the build inlines them
 // and a bundle of the widgets' scan, render options and output tree that draws as `renderInto` will:
 // the scan, KaTeX's tree, the tree's size, then its nodes in place of the element's children. It
-// applies no refusal and no bound: a probe needs to see what they would stop. No server, no board. Every request is aborted, so nothing leaves the machine and a font
-// cannot arrive late; a render's time runs from the call to the end of a forced layout.
+// applies no refusal and no bound: a probe needs to see what they would stop. No server, no board.
+// Every request is aborted, so nothing leaves the machine and a font cannot arrive late; a render's
+// time runs from the call to the end of a forced layout.
 //
 // A crash ("Target crashed"), 10 seconds without an answer or a parent page that does not answer
 // an `evaluate` within 2 seconds is a failure; the engine is then discarded and the next render
@@ -34,7 +35,7 @@ export type Failure = {
 
 export type RenderResult = ({ readonly ok: true; readonly parentMs: number } & Drawn) | Failure;
 
-/** What one draw reports: its time, the page's elements, the tree's size and the work before the bound. */
+/** What one draw reports: its time, the page's elements, the tree's size (depth, nodes, fractions) and the work before the bound. */
 export type Drawn = {
   /** From the call to the end of a forced layout: the scan, the tree, its size, its nodes, the layout. */
   readonly ms: number;
@@ -43,6 +44,7 @@ export type Drawn = {
   readonly scanDepth: number;
   readonly treeDepth: number;
   readonly treeNodes: number;
+  readonly treeFractions: number;
   /** The scan, KaTeX's tree and its size, before any node is made. */
   readonly beforeMs: number;
 };
@@ -94,6 +96,7 @@ const draw = (expression: string, element: HTMLElement) => {
     scanDepth: scan.depth,
     treeDepth: size.depth,
     treeNodes: size.nodes,
+    treeFractions: size.fractions,
     beforeMs,
   };
 };

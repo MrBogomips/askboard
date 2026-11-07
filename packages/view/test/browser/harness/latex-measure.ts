@@ -1,6 +1,6 @@
 // What the board's scan and KaTeX's output tree say of an expression, measured in Bun (latex-kanban-
-// timeline, task 4.15): the scan's depth, whether KaTeX parses it, and the output tree's depth and
-// node count through `renderTree` and `treeSizeOf`. The view package does not depend on the widgets,
+// timeline, task 4.15): the scan's depth, whether KaTeX parses it, and the output tree's depth, node
+// count and nested fractions through `renderTree` and `treeSizeOf`. The view package does not depend on the widgets,
 // so the module is bundled from the widgets' sources and loaded from a temporary file, as the
 // frame's script is bundled for the browser. No DOM: the tree is measured, never drawn.
 
@@ -28,6 +28,8 @@ export type Measure = {
   readonly error?: string;
   readonly treeDepth?: number;
   readonly nodes?: number;
+  /** The most MathML fractions nested on one path of the tree. */
+  readonly fractions?: number;
   /** The time of the scan, `renderTree` and `treeSizeOf` in Bun, in milliseconds. */
   readonly beforeMs: number;
 };
@@ -50,7 +52,7 @@ const measured = (expression: string) => {
   const { refused, depth: scanDepth } = scanLatex(expression);
   try {
     const size = treeSizeOf(renderTree(expression, renderOptions()));
-    return { scanDepth, refused, parses: true, treeDepth: size.depth, nodes: size.nodes, beforeMs: performance.now() - started };
+    return { scanDepth, refused, parses: true, treeDepth: size.depth, nodes: size.nodes, fractions: size.fractions, beforeMs: performance.now() - started };
   } catch (error) {
     return { scanDepth, refused, parses: false, error: String(error instanceof Error ? error.message : error).slice(0, 120), beforeMs: performance.now() - started };
   }

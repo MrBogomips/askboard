@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { LATEX_EXPRESSION_MAX_CHARS } from "@askboard/contract";
 import {
+  construct,
   depthOfFixture,
   fixtureFor,
   katexControlWords,
@@ -9,6 +10,7 @@ import {
 } from "./latex-fixtures.ts";
 import {
   arityOf,
+  combinedForm,
   controlWordConstructs,
   ENVIRONMENT_CONSTRUCTS,
   EXTRA_CONSTRUCTS,
@@ -38,8 +40,15 @@ beforeAll(async () => {
 
 describe("the measurer", () => {
   test("gives the scan's depth and the output tree's size, pinned on KaTeX 0.19.1", () => {
-    expect(measure("x")).toMatchObject({ scanDepth: 0, parses: true, treeDepth: 8, nodes: 14 });
-    expect(measure("\\frac{x}{x}")).toMatchObject({ scanDepth: 1, parses: true });
+    expect(measure("x")).toMatchObject({
+      scanDepth: 0,
+      parses: true,
+      treeDepth: 8,
+      nodes: 14,
+      fractions: 0,
+    });
+    expect(measure("\\frac{x}{x}")).toMatchObject({ scanDepth: 1, parses: true, fractions: 1 });
+    expect(measure("\\frac{\\frac{x}{x}}{x}").fractions).toBe(2);
   });
 
   test("says why KaTeX builds no tree, and what the scan refuses", () => {
@@ -190,5 +199,58 @@ describe("flat content and the realistic set", () => {
       expect([...expression].length, name).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
     }
     expect(measure(matrixOf(20, 20)).nodes).toBeGreaterThan(3_000);
+  });
+});
+
+describe("the combined form", () => {
+  const fraction = construct("\\frac{ }{x}", "\\frac{", "}{x}");
+  const plain = construct("x^{ }", "x^{", "}", 2);
+  const bounds = { nodes: 21_344, fractions: 11, depth: 245 };
+
+  test("is the fraction family at the fraction bound inside the plain family, as deep as the bounds allow", () => {
+    const found = combinedForm(fraction, plain, bounds, measure);
+    if (found === undefined) throw new Error("no combined form");
+    const size = measure(found.expression);
+    expect(size.parses).toBe(true);
+    expect(size.fractions).toBe(11);
+    expect(found.fractionLevels).toBe(11);
+    expect(found.plainLevels).toBeGreaterThan(0);
+    expect(size.treeDepth).toBeLessThanOrEqual(bounds.depth);
+    expect(size.nodes).toBeLessThanOrEqual(bounds.nodes);
+    expect([...found.expression].length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
+    expect(found.expression.startsWith("x^{".repeat(found.plainLevels))).toBe(true);
+    expect(found.expression).toContain("\\frac{".repeat(11));
+    expect(found).toMatchObject({ treeDepth: size.treeDepth, nodes: size.nodes });
+  });
+
+  test("one more plain level would pass a bound or the limit of the expression", () => {
+    const found = combinedForm(fraction, plain, bounds, measure);
+    if (found === undefined) throw new Error("no combined form");
+    const levels = found.plainLevels + 1;
+    const wider = `${"x^{".repeat(levels)}${found.expression.slice("x^{".length * found.plainLevels, found.expression.length - "}".length * found.plainLevels)}${"}".repeat(levels)}`;
+    const size = measure(wider);
+    expect(
+      !size.parses ||
+        (size.treeDepth ?? 0) > bounds.depth ||
+        (size.nodes ?? 0) > bounds.nodes ||
+        (size.fractions ?? 0) > bounds.fractions ||
+        [...wider].length > LATEX_EXPRESSION_MAX_CHARS,
+    ).toBe(true);
+  });
+
+  test("a fraction bound the family cannot reach gives the most levels within the bounds, none gives undefined", () => {
+    const found = combinedForm(
+      fraction,
+      plain,
+      { nodes: 21_344, fractions: 3, depth: 245 },
+      measure,
+    );
+    expect(found?.fractionLevels).toBe(3);
+    expect(
+      combinedForm(fraction, plain, { nodes: 21_344, fractions: 0, depth: 245 }, measure),
+    ).toBeUndefined();
+    expect(
+      combinedForm(fraction, plain, { nodes: 21_344, fractions: 11, depth: 5 }, measure),
+    ).toBeUndefined();
   });
 });

@@ -5,6 +5,7 @@
 // a `Construct` of `latex-fixtures.ts`, so the sweep treats them all alike. No browser here.
 
 import { readFileSync } from "node:fs";
+import { LATEX_EXPRESSION_MAX_CHARS } from "@askboard/contract";
 import { type Construct, construct, nestAlone } from "./latex-fixtures.ts";
 import type { Measurer } from "./latex-measure.ts";
 
@@ -218,3 +219,70 @@ export const REALISTIC: readonly { readonly name: string; readonly expression: s
   { name: "666 \\le", expression: "\\le".repeat(666) },
   { name: "a matrix of 400 cells", expression: matrixOf(20, 20) },
 ];
+
+/** The combined form: its text, how it was built and what Bun measured of it. */
+export type Combined = {
+  readonly expression: string;
+  readonly fractionLevels: number;
+  readonly plainLevels: number;
+  readonly treeDepth: number;
+  readonly nodes: number;
+  readonly fractions: number;
+};
+
+const around = (c: Construct, inner: string, levels: number): string =>
+  `${c.open.repeat(levels)}${inner}${c.close.repeat(levels)}`;
+
+/**
+ * The combined form of design decision 7, Measuring: the fraction family nested as deep as the three
+ * bounds allow (so at the fraction bound), inside the plain family (the one without fractions) nested
+ * as deep as the bounds and the limit of the expression allow, so that WebKit's fraction cost meets
+ * Chromium's depth cost. `undefined` when the fraction family reaches no level within the bounds.
+ */
+export const combinedForm = (
+  fraction: Construct,
+  plain: Construct,
+  bounds: { readonly nodes: number; readonly fractions: number; readonly depth: number },
+  measure: Measurer,
+): Combined | undefined => {
+  const fits = (expression: string) => {
+    const size = measure(expression);
+    return size.parses &&
+      [...expression].length <= LATEX_EXPRESSION_MAX_CHARS &&
+      (size.treeDepth as number) <= bounds.depth &&
+      (size.nodes as number) <= bounds.nodes &&
+      (size.fractions as number) <= bounds.fractions
+      ? size
+      : undefined;
+  };
+  let best: Combined | undefined;
+  for (let levels = 1; levels <= LATEX_EXPRESSION_MAX_CHARS; levels += 1) {
+    const inner = around(fraction, fraction.middle, levels);
+    const size = fits(inner);
+    if (size === undefined) break;
+    best = {
+      expression: inner,
+      fractionLevels: levels,
+      plainLevels: 0,
+      treeDepth: size.treeDepth as number,
+      nodes: size.nodes as number,
+      fractions: size.fractions as number,
+    };
+  }
+  if (best === undefined) return undefined;
+  const inner = best.expression;
+  for (let levels = 1; levels <= LATEX_EXPRESSION_MAX_CHARS; levels += 1) {
+    const expression = around(plain, inner, levels);
+    const size = fits(expression);
+    if (size === undefined) break;
+    best = {
+      ...best,
+      expression,
+      plainLevels: levels,
+      treeDepth: size.treeDepth as number,
+      nodes: size.nodes as number,
+      fractions: size.fractions as number,
+    };
+  }
+  return best;
+};

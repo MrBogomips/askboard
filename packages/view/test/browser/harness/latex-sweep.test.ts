@@ -27,6 +27,7 @@ const parses = (depth: number, nodes = 100): Measure => ({
   parses: true,
   treeDepth: depth * 7,
   nodes,
+  fractions: depth,
   beforeMs: 1,
 });
 
@@ -57,6 +58,7 @@ const frameOf = (time: (expression: string) => number | "crash"): LatexFrame => 
             scanDepth: 1,
             treeDepth: 7,
             treeNodes: 9,
+            treeFractions: 0,
             beforeMs: 1,
             parentMs: 1,
           };
@@ -183,21 +185,50 @@ describe("the report", () => {
     row({ family: "x", shape: "flat", asked: 2_000, bun: { nodes: 4_000, treeDepth: 8 }, ms: 700 }),
     row({ family: "\\le", shape: "flat", asked: 2_000, bun: { nodes: 1_000, treeDepth: 8 } }),
     row({ family: "\\le", shape: "flat", asked: 3_000, bun: { parses: false } }),
-    row({ family: "f", asked: 8, bun: { scanDepth: 8, treeDepth: 56, nodes: 300 }, ms: 40 }),
-    row({ family: "f", asked: 9, bun: { scanDepth: 9, treeDepth: 63, nodes: 330 }, ms: 90 }),
-    row({ family: "f", asked: 10, bun: { scanDepth: 10, treeDepth: 70, nodes: 360 }, ms: 640 }),
-    row({ family: "f", asked: 11, bun: { scanDepth: 11, treeDepth: 77, nodes: 390 }, ms: 3_000 }),
+    row({
+      family: "f",
+      asked: 8,
+      bun: { scanDepth: 8, treeDepth: 56, nodes: 300, fractions: 8 },
+      ms: 40,
+    }),
+    row({
+      family: "f",
+      asked: 9,
+      bun: { scanDepth: 9, treeDepth: 63, nodes: 330, fractions: 9 },
+      ms: 90,
+    }),
+    row({
+      family: "f",
+      asked: 10,
+      bun: { scanDepth: 10, treeDepth: 70, nodes: 360, fractions: 10 },
+      ms: 640,
+    }),
+    row({
+      family: "f",
+      asked: 11,
+      bun: { scanDepth: 11, treeDepth: 77, nodes: 390, fractions: 11 },
+      ms: 3_000,
+    }),
+    // An engine that did not run a family at a depth has no sample there: its cell is "-".
+    row({
+      engine: "chromium",
+      family: "f",
+      asked: 8,
+      bun: { scanDepth: 8, treeDepth: 56, nodes: 300, fractions: 8 },
+      ms: 20,
+    }),
     row({
       family: "the skill's example",
       shape: "realistic",
       asked: 0,
-      bun: { scanDepth: 3, treeDepth: 25, nodes: 110 },
+      bun: { scanDepth: 3, treeDepth: 25, nodes: 110, fractions: 3 },
     }),
   ];
 
   test("a row KaTeX built no tree for has no sample", () => {
     expect(sampleOf(rows[3] as Row)).toBeUndefined();
     expect(sampleOf(rows[0] as Row)?.nodes).toBe(2_000);
+    expect(sampleOf(rows[0] as Row)?.fractions).toBe(4);
   });
 
   test("the flat series are per kind and engine, capped where KaTeX stopped", () => {
@@ -209,11 +240,12 @@ describe("the report", () => {
   });
 
   test("the bounds follow the rules on the rows", () => {
-    const { nodes, depth, nesting, bounds } = boundsOf(rows);
+    const { nodes, fractions, depth, nesting, bounds } = boundsOf(rows);
     expect(nodes.nodes).toBe(2_000);
-    expect(depth.depth).toBe(69);
+    expect(fractions.fractions).toBe(9);
+    expect(depth.depth).toBe(63);
     expect(nesting.depth).toBe(9);
-    expect(bounds).toEqual({ nodes: 2_000, depth: 69, nesting: 9 });
+    expect(bounds).toEqual({ nodes: 2_000, fractions: 9, depth: 63, nesting: 9 });
   });
 
   test("the report names the bounds, the tables and the realistic set", async () => {
@@ -230,9 +262,15 @@ describe("the report", () => {
       const text = await reportOf([file]);
       expect(text).toContain("machine: a machine");
       expect(text).toContain("LATEX_TREE_MAX_NODES 2000, limited by x in webkit");
-      expect(text).toContain("LATEX_TREE_MAX_DEPTH 69");
+      expect(text).toContain("LATEX_TREE_MAX_FRACTIONS 9");
+      expect(text).toContain("LATEX_TREE_MAX_DEPTH 63");
       expect(text).toContain("LATEX_NESTING_MAX_DEPTH 9");
-      expect(text).toContain("| the skill's example | 3 | 25 | 110 | 10 | yes |");
+      expect(text).toContain("| the skill's example | 3 | 25 | 110 | 3 | 10 | yes |");
+      expect(text).toContain("## by nested fractions");
+      expect(text).toContain("| 10 | webkit | 1 | 1 | 640 | 70 |");
+      expect(text).toContain("## stops");
+      expect(text).toContain("none: the nesting bound and the realistic set hold");
+      expect(text).toContain("| f | alone | 9 | 63 | 330 | 9 | 90 | - |");
       expect(text).toContain("## flat content");
       expect(text).toContain("webkit: f | alone 9");
       expect(text).toContain("control words skipped (no argument or no parsing form): 1");
