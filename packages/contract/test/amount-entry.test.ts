@@ -192,6 +192,38 @@ describe("comparing decimal strings", () => {
   });
 });
 
+describe("compareDecimal is linear in the digits (review 1.8 X-3)", () => {
+  const DIGITS = 100_000;
+  const BOUND_MS = 50;
+  const timed = (run: () => unknown): number => {
+    const started = performance.now();
+    run();
+    return performance.now() - started;
+  };
+
+  test("a 100,000-digit fraction ending in a 1 is compared in under 50 ms, and correctly", () => {
+    const long = `1.${"0".repeat(DIGITS)}1`;
+    let result: number | undefined;
+    const ms = timed(() => {
+      result = compareDecimal(long, "1");
+    });
+    expect(result).toBe(1);
+    expect(ms).toBeLessThan(BOUND_MS);
+    expect(compareDecimal("1", long)).toBe(-1);
+    expect(compareDecimal(long, long)).toBe(0);
+  });
+
+  test("so are a long run of zeros that is the whole fraction, and one before the point", () => {
+    const zeros = `1.${"0".repeat(DIGITS)}`;
+    const ms = timed(() => {
+      expect(compareDecimal(zeros, "1")).toBe(0);
+      expect(compareDecimal(`${"0".repeat(DIGITS)}5`, "5")).toBe(0);
+      expect(compareDecimal(`-0.${"0".repeat(DIGITS)}`, "0")).toBe(0);
+    });
+    expect(ms).toBeLessThan(BOUND_MS);
+  });
+});
+
 describe("the parser never goes through a float", () => {
   test("amount.ts calls no Number, parseFloat or parseInt", async () => {
     const source = await Bun.file(new URL("../src/locale/amount.ts", import.meta.url)).text();

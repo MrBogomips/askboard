@@ -112,13 +112,21 @@ export const amountEcho = (amount: string, currency: string, locale: Locale): st
   return `= ${sign}${whole}${mark}${shown} ${currency}`;
 };
 
+// The text without its trailing zeros, by a loop: `/0+$/` rescans a run of zeros from every start
+// when something follows it, which is quadratic on a long fraction (review 1.8 X-3).
+const withoutTrailingZeros = (text: string): string => {
+  let end = text.length;
+  while (end > 0 && text.charCodeAt(end - 1) === 48) end -= 1;
+  return text.slice(0, end);
+};
+
 // A decimal string split into its sign, its integer digits without leading zeros and its fraction
 // without trailing zeros; zero has no sign.
 const partsOf = (value: string): { sign: 1 | -1; whole: string; fraction: string } => {
   const negative = value.startsWith("-");
   const [whole = "", fraction = ""] = value.replace(/^[+-]/, "").split(".");
   const integer = whole.replace(/^0+/, "");
-  const decimals = fraction.replace(/0+$/, "");
+  const decimals = withoutTrailingZeros(fraction);
   const zero = integer === "" && decimals === "";
   return { sign: negative && !zero ? -1 : 1, whole: integer, fraction: decimals };
 };
