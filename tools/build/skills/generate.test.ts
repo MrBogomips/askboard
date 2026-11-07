@@ -217,7 +217,10 @@ describe("the shipped widget references (skills spec: The skill names the three)
       expect(section, entry.type).toContain("`results`");
       const schema = entry.result?.schema as { properties?: Record<string, unknown> } | undefined;
       const properties = Object.keys(schema?.properties ?? {});
-      expect(properties.length, entry.type).toBeGreaterThan(0);
+      // A result that is a bare value (the atoms': a text, a number, a date, a boolean) has no
+      // fields: the section says what it is, and never promises "an object with:" and lists none.
+      if (properties.length === 0) expect(section, entry.type).not.toContain("an object with");
+      else expect(section, entry.type).toContain("an object with");
       for (const property of properties) expect(section, entry.type).toContain(`- \`${property}\``);
     }
   });

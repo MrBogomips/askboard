@@ -109,7 +109,9 @@ describe("bun run build:view (design decision 7)", () => {
       shell: "shell",
       // The Text atom: markdown-it and DOMPurify in a chunk of its own (atoms, design decision 4).
       text: "component",
+      "text-field": "component",
       timeline: "component",
+      toggle: "component",
       tree: "component",
       value: "component",
     });
@@ -118,11 +120,13 @@ describe("bun run build:view (design decision 7)", () => {
     // The Text atom needs no Radix: markdown-it and DOMPurify are its own (atoms, design decision 4).
     expect(manifest.chunks.text?.components).toEqual(["text"]);
     expect(manifest.chunks.text?.needs).toEqual(["react", "shell"]);
-    // The display atoms are chunks of their own, each needing only React and the shell (task 5.2).
-    for (const atom of ["value", "divider"]) {
+    // The display atoms and the TextField are chunks of their own, each needing only React and the shell
+    // (tasks 5.2 and 5.3); the Toggle also needs Radix's Switch, which the radix library chunk holds.
+    for (const atom of ["value", "divider", "text-field"]) {
       expect(manifest.chunks[atom]?.components).toEqual([atom]);
       expect(manifest.chunks[atom]?.needs).toEqual(["react", "shell"]);
     }
+    expect(manifest.chunks.toggle?.needs).toEqual(["radix", "react", "shell"]);
     // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
@@ -351,7 +355,9 @@ describe("bun run build:view (design decision 7)", () => {
       "scale",
       "shell",
       "text",
+      "text-field",
       "timeline",
+      "toggle",
       "tree",
       "value",
     ]);

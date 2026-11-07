@@ -29,7 +29,9 @@ import { LATEX_WIDGET } from "./latex/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
 import { TEXT_WIDGET } from "./text/widget.ts";
+import { TEXT_FIELD_WIDGET } from "./text-field/widget.ts";
 import { TIMELINE_WIDGET } from "./timeline/widget.ts";
+import { TOGGLE_WIDGET } from "./toggle/widget.ts";
 import { TREE_WIDGET } from "./tree/widget.ts";
 import { VALUE_WIDGET } from "./value/widget.ts";
 
@@ -137,6 +139,8 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   TEXT_WIDGET,
   VALUE_WIDGET,
   DIVIDER_WIDGET,
+  TEXT_FIELD_WIDGET,
+  TOGGLE_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

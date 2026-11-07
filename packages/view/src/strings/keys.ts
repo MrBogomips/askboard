@@ -143,6 +143,8 @@ export const STRING_KEYS = [
   "change.widgetTimeline",
 
   "change.widgetChart",
+  "change.widgetTextField",
+  "change.widgetToggle",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -345,6 +347,11 @@ export const STRING_KEYS = [
 
   // The display atoms (atoms, task 5.2; ux-update-draft.md block 6; the Italian texts to review).
   "value.days",
+  // The TextField and the Toggle (atoms, task 5.3; ux-update-draft.md block 6; the Italian texts to review).
+  "toggle.notSet",
+  "toggle.on",
+  "toggle.off",
+  "toggle.clear",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

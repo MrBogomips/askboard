@@ -143,6 +143,8 @@ export const EN_US = {
   "change.widgetTimeline": "Timeline",
 
   "change.widgetChart": "Chart",
+  "change.widgetTextField": "TextField",
+  "change.widgetToggle": "Toggle",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -372,4 +374,8 @@ export const EN_US = {
   "chart.role": "chart",
 
   "value.days": { one: "{count} day", other: "{count} days" },
+  "toggle.notSet": "Not set",
+  "toggle.on": "On",
+  "toggle.off": "Off",
+  "toggle.clear": "Clear",
 } as const satisfies StringTable;

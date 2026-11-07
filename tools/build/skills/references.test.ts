@@ -83,6 +83,45 @@ describe("renderWidgetReference", () => {
     expect(rendered).toContain(PROBE_WIDGET.derived?.describe ?? "unreachable");
   });
 
+  test("a type whose result is a bare value says so, never `an object with:` and an empty list (atoms)", () => {
+    const bare = (result: Schema) => ({
+      ...PROBE_WIDGET,
+      skill: { use: "a bare answer" },
+      result: { schema: result as never },
+    });
+    const section = (result: Schema) => {
+      const { text } = renderWidgetReference(bare(result), contractSchemaResolver());
+      const answer = text.slice(text.indexOf("## In the answer"), text.indexOf("## Example"));
+      expect(answer).not.toContain("an object with");
+      return answer;
+    };
+    expect(section({ type: "boolean" })).toContain("`true` or `false`");
+    expect(section({ type: "string", minLength: 1, maxLength: 80 })).toContain(
+      "a text of 1 to 80 characters",
+    );
+    expect(section({ type: "string", minLength: 1 })).toContain("a text of at least 1 characters");
+    expect(section({ type: "string" })).toContain("a text");
+    expect(section({ type: "number", minimum: -5, maximum: 5 })).toContain("a number from -5 to 5");
+    expect(section({ type: "number" })).toContain("a number");
+    expect(
+      section({
+        type: "string",
+        pattern: "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+      }),
+    ).toContain("a date as `YYYY-MM-DD`");
+    expect(section({ type: "string", pattern: "^[a-z]+$" })).toContain("matching `^[a-z]+$`");
+    for (const type of ["boolean", "string", "number"]) {
+      expect(section({ type })).toContain("under the item's ID");
+    }
+  });
+
+  test("the atoms' references name their bare result", () => {
+    expect(renderWidgetReference(widget("text-field"), resolve).text).toContain(
+      "a text of 1 to 10000",
+    );
+    expect(renderWidgetReference(widget("toggle"), resolve).text).toContain("`true` or `false`");
+  });
+
   test("a type without teaching text fails, naming it", () => {
     expect(() => renderWidgetReference(PROBE_WIDGET, resolve)).toThrow(
       'the widget type "probe" has no teaching text',

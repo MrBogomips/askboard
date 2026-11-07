@@ -148,6 +148,8 @@ export const IT_IT = {
   "change.widgetTimeline": "Timeline",
 
   "change.widgetChart": "Grafico",
+  "change.widgetTextField": "Campo di testo",
+  "change.widgetToggle": "Interruttore",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -386,4 +388,8 @@ export const IT_IT = {
 
   // The atoms' texts are provisional, to review (atoms, task 5.2).
   "value.days": { one: "{count} giorno", other: "{count} giorni" },
+  "toggle.notSet": "Non impostato",
+  "toggle.on": "Attivo",
+  "toggle.off": "Disattivo",
+  "toggle.clear": "Cancella",
 } as const satisfies StringTable;

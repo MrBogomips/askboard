@@ -68,6 +68,16 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     { order: [...ids].reverse() },
     { order: ids.slice(1) },
     { order: [...ids, "extra"] },
+    // The atoms' bare results: a text, a boolean, a number, an amount and a date, each one some
+    // atom takes and the others refuse (atoms, design decision 1).
+    "text",
+    "",
+    true,
+    false,
+    3.5,
+    { amount: "12.50", currency: "EUR" },
+    { amount: 12.5, currency: "EUR" },
+    "2026-03-02",
     // Shapes no type takes, and one of each type's own with a field it lacks or a value off its kind.
     { value: "5" },
     { low: 1 },
