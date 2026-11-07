@@ -1,6 +1,6 @@
 # Spine update draft: latex-kanban-timeline
 
-**Status: to apply in task 0.1.** The proposal's open questions 2 and 8 were answered on 2026-11-07 with their defaults, under the PO's unattended handoff; the PO may revisit. Blocks 1 and 2 are `diagram-render`'s spine blocks 3 and 4 (its `spine-update-draft.md` at 9281d923), with a LaTeX expression as the example, since this change lands the whole-field shape first. Each block quotes the current text exactly as it stands on this change's base, then gives the replacement. AD-20 is amended in place; no AD is added or renumbered. The PRD needs no change.
+**Status: applied on 2026-11-07 (task 0.1), no other change had touched these lines.** The proposal's open questions 2 and 8 were answered on 2026-11-07 with their defaults, under the PO's unattended handoff; the PO may revisit. Blocks 1 and 2 are `diagram-render`'s spine blocks 3 and 4 (its `spine-update-draft.md` at 9281d923), with a LaTeX expression as the example, since this change lands the whole-field shape first. Each block quotes the current text exactly as it stands on this change's base, then gives the replacement. AD-20 is amended in place; no AD is added or renumbered. The PRD needs no change.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`, AD-20, Rule, Answers, second bullet.
 
