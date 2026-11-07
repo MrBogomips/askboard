@@ -13,6 +13,7 @@ import type { Locator } from "playwright";
 import type { ViewDocument } from "../../src/view-document.ts";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { approvalDocument } from "./fixtures/approval-documents.ts";
+import { atomDocument } from "./fixtures/atom-documents.ts";
 import { chooseWeek, planGantt } from "./fixtures/gantt-plan.ts";
 import { ganttOf } from "./fixtures/gantt-view.ts";
 import { kanbanDocument } from "./fixtures/kanban-documents.ts";
@@ -412,6 +413,86 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
           // A read-only field still selects text, so its cursor stays honest; its look does not change.
           await expectInert(run, field, false);
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+}
+
+// The atoms (atoms, task 6.4; spec, Hover cursors and looks): a field takes the text cursor and the
+// ring from the keyboard, the Toggle, "Clear", the calendar's button, a currency's segment and a day
+// respond with the pointer and the hover token pair, and a locked board's atoms show no change under
+// the pointer.
+const ATOM_ITEMS = [
+  { type: "text-field", id: "name", props: { label: "Name" } },
+  { type: "toggle", id: "notify", props: { label: "Notify" } },
+  { type: "number-field", id: "days", props: { label: "Days" } },
+  { type: "money-field", id: "price", props: { label: "Price", currencies: ["EUR", "USD"] } },
+  { type: "date-field", id: "due", props: { label: "Due", min: "2026-12-01", max: "2026-12-31" } },
+];
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the atoms`, () => {
+    const { host } = useWidgetHost(engine);
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, a field takes the text cursor and the ring from the keyboard; the Toggle and Clear point, the calendar button and a currency respond, a day takes the muted fill; a locked board's atoms change no look under the pointer`,
+        async () => {
+          const document = atomDocument(ATOM_ITEMS);
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { view, page } = run.board;
+          const name = view.getByLabel("Name", { exact: true });
+          // A text input's own cursor: `text` in Chromium, `auto` in WebKit.
+          expect(["text", "auto"]).toContain((await hovered(name)).cursor);
+          await page.mouse.move(0, 0);
+          await name.focus();
+          await expectRing(name);
+          await page.mouse.move(0, 0);
+          const toggle = view.getByRole("switch", { name: "Notify" });
+          expect((await hovered(toggle)).cursor).toBe("pointer");
+          await toggle.click();
+          const clear = view.getByRole("button", { name: "Clear", exact: true });
+          await clear.waitFor();
+          await page.mouse.move(0, 0);
+          // "Clear" is a text button: the pointer and an underline, no border or fill of its own.
+          await clear.hover();
+          expect(
+            await clear.evaluate((el) => {
+              const style = getComputedStyle(el);
+              return [style.cursor, style.textDecorationLine];
+            }),
+          ).toEqual(["pointer", "underline"]);
+          await page.mouse.move(0, 0);
+          await expectResponds(view.getByRole("radio", { name: "USD", exact: true }), scheme);
+          await page.mouse.move(0, 0);
+          const choose = view.getByRole("button", { name: "Choose a date", exact: true });
+          await expectResponds(choose, scheme);
+          await choose.click();
+          await page.mouse.move(0, 0);
+          // A day rests on the popover's card: it takes the `muted` fill, the layer's `hover.on-card`.
+          const day = view.getByRole("button", { name: "Wed, Dec 9, 2026" });
+          const resting = await lookOf(day);
+          const over = await hovered(day);
+          expect(over.cursor).toBe("pointer");
+          expect(over.background).toBe(tokenColor("muted", scheme));
+          expect(over.background).not.toBe(resting.background);
+          await page.keyboard.press("Escape");
+          // A locked board: the atoms respond to nothing.
+          await lock(run, document);
+          await eventually(() => toggle.isDisabled(), "the Toggle to be disabled");
+          await expectInert(run, toggle);
+          await eventually(
+            async () => (await name.getAttribute("readonly")) !== null,
+            "the field to turn read-only",
+          );
+          await expectInert(run, name, false);
+          await expectInert(run, view.getByLabel("Days", { exact: true }), false);
+          expect(await view.getByRole("button", { name: "Clear", exact: true }).count()).toBe(0);
+          expect(await choose.count()).toBe(0);
           expect(run.browser.errors).toEqual([]);
         },
         TEST_TIMEOUT_MS,
