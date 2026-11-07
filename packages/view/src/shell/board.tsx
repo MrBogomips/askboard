@@ -295,9 +295,13 @@ export const Board = ({
   const changed = changedOf(document, draft, kept);
   const known = questions.some((question) => question.id === draft.inView);
   const current = known ? draft.inView : undefined;
-  const go = (questionId: string) => {
+  // Brings a question into view and leaves the focus to the caller.
+  const show = (questionId: string) => {
     context.removed.set(false);
     context.board.setInView(questionId);
+  };
+  const go = (questionId: string) => {
+    show(questionId);
     focusHeading(questionId);
   };
   const target = nextOpenFrom(document, state, draft.questions, attention.unseen, current);
@@ -430,8 +434,10 @@ export const Board = ({
               );
             })
           }
+          // The card focuses its prompt itself: the heading's focus would run after it (the board's
+          // effect follows the card's) and take it away.
           onNeedsReason={(id) => {
-            go(id);
+            show(id);
             context.reasons.set({ questionId: id });
           }}
           onJump={go}

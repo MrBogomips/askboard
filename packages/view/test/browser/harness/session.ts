@@ -80,6 +80,13 @@ export type BoardSession = {
     readonly state: string;
     readonly events: readonly Record<string, unknown>[];
   }>;
+  /**
+   * The agent's `collect` as `collect` makes it, but the tool's whole JSON result, for a test that
+   * validates it against the schema; it moves the cursor on.
+   */
+  collectJson(): Promise<unknown>;
+  /** The agent's `fetch` of one item of the ask: the tool's whole JSON result. */
+  fetch(itemId: string): Promise<unknown>;
   /** The agent's `snapshot` of the ask: its absolute path and the ask's state. */
   snapshot(): Promise<{ readonly path: string; readonly state: string }>;
   /** The agent's `update` of the ask with these actions: its result. */

@@ -54,6 +54,7 @@ type FakeProcess = {
 const fakeProcess = (fake: FakeProcess = {}) => {
   const asked: unknown[] = [];
   const collected: unknown[] = [];
+  const fetched: unknown[] = [];
   const spawning = fakeSpawn((options, n) => {
     const epoch = `ep${n}`;
     const link = boardLink({
@@ -69,6 +70,10 @@ const fakeProcess = (fake: FakeProcess = {}) => {
           (fake.open ?? ((path, text) => appendFileSync(path, `1\t${text}\n`)))(file, link);
           const result = { epoch, askId, state: "waiting", cursor: `${epoch}.0`, board: link };
           return fake.ask?.(n) ?? { text: JSON.stringify({ versions: {}, ...result }) };
+        },
+        fetch: (args) => {
+          fetched.push(args);
+          return { text: JSON.stringify({ versions: {}, item: { id: "priorities" } }) };
         },
         collect: (args) => {
           collected.push(args);
@@ -86,7 +91,7 @@ const fakeProcess = (fake: FakeProcess = {}) => {
     fake.setUp?.(child, n);
     return child;
   });
-  return { ...spawning, asked, collected };
+  return { ...spawning, asked, collected, fetched };
 };
 
 const answerEvent = { type: "answer", itemId: "database", rev: 1 };
@@ -219,6 +224,20 @@ describe("startSessionProcess", () => {
     expect(session.problems()).toEqual([
       "collect after ep1.1 returned 0 answer events for the ask, not 1",
     ]);
+  });
+
+  test("collectJson gives the whole result and moves the cursor on; fetch gives an item's result", async () => {
+    const fake = fakeProcess({ events: () => [answerEvent] });
+    const session = await start(fake);
+    const json = await session.collectJson();
+    expect(json).toMatchObject({ asks: [{ askId, events: [answerEvent] }] });
+    await session.collect();
+    expect(fake.collected).toEqual([
+      { asks: [{ askId, after: "ep1.0" }] },
+      { asks: [{ askId, after: "ep1.1" }] },
+    ]);
+    expect(await session.fetch("priorities")).toMatchObject({ item: { id: "priorities" } });
+    expect(fake.fetched).toEqual([{ askId, itemId: "priorities" }]);
   });
 
   test("exit ends the process's input and expects it to exit with code 0", async () => {
