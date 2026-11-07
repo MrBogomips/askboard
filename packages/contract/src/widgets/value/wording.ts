@@ -14,7 +14,7 @@ export const VALUE_EXPECTED: Readonly<Record<string, string>> = {
   "value.props.value": `a number from -${ATOM_NUMBER_BOUND} to ${ATOM_NUMBER_BOUND}, for a number or a percent (a ratio: 0.185 is 18.5%)`,
   "value.props.unit": `${text(ATOM_UNIT_MAX_CHARS)}, for a number only`,
   "value.props.amount":
-    "a decimal string of at most 15 integer digits and 4 decimals, as in 12480.50, for money",
+    "a decimal string of at most 15 integer digits, as in 12480.50, with no more decimals than its currency takes (0 for JPY, 2 for EUR), for money",
   "value.props.currency": "an ISO 4217 code of three capital letters, as in EUR, for money",
   "value.props.date": `a full-date from ${GANTT_FIRST_DATE} to ${GANTT_LAST_DATE}, for a date`,
   "value.props.days": `a whole number of days from 0 to ${VALUE_MAX_DAYS}, for a duration`,

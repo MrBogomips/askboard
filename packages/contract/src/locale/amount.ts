@@ -41,6 +41,22 @@ export const minorUnitsOf = (currency: string): number =>
     ? (MINOR_UNITS[currency] ?? DEFAULT_MINOR_UNITS)
     : DEFAULT_MINOR_UNITS;
 
+/** The decimals of an amount's text. */
+export const decimalsOf = (amount: string): number => amount.split(".")[1]?.length ?? 0;
+
+/**
+ * Why an amount has more decimals than its currency takes, or undefined when it has no more. The
+ * MoneyField's result and a Value's amount both answer to it, so that the board never shows a
+ * figure the currency cannot hold (review 5.6, S-4).
+ */
+export const minorUnitsProblem = (amount: string, currency: string): string | undefined => {
+  const places = minorUnitsOf(currency);
+  const held = decimalsOf(amount);
+  if (held <= places) return undefined;
+  const takes = places === 0 ? "no decimals" : `at most ${places} decimals`;
+  return `${currency} takes ${takes}, and the amount ${amount} has ${held}`;
+};
+
 const refusal = (
   code: AmountRefusalCode,
   currency: string,

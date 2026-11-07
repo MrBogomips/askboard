@@ -3,7 +3,7 @@
 // ECMAScript with no JSON and no Ajv: the value chunk bundles it. Nothing here throws on a value
 // it cannot read; it gives a problem for it.
 
-import { AMOUNT_PATTERN } from "../../locale/amount.ts";
+import { AMOUNT_PATTERN, minorUnitsProblem } from "../../locale/amount.ts";
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
 import { isGanttDate } from "../gantt/checks.ts";
@@ -56,7 +56,7 @@ const fieldProblem = (field: string, value: unknown): string | undefined => {
     case "amount":
       return typeof value === "string" && AMOUNT_PATTERN.test(value)
         ? undefined
-        : "the amount is a decimal string of at most 15 integer digits and 4 decimals, as in 12480.50";
+        : "the amount is a decimal string of at most 15 integer digits and 4 decimals, as in 12480.50, and no finer than its currency takes";
     case "currency":
       return typeof value === "string" && CURRENCY.test(value)
         ? undefined
@@ -107,6 +107,18 @@ export const valuePropsProblems = (props: unknown): readonly Problem[] => {
     if (props[field] === undefined) continue;
     const problem = fieldProblem(field, props[field]);
     if (problem !== undefined) problems.push({ path: `/${field}`, message: problem });
+  }
+  // An amount finer than its currency: shown rounded, it would read as a figure the agent did not
+  // give.
+  const { amount, currency } = props;
+  if (
+    kind === "money" &&
+    problems.length === 0 &&
+    typeof amount === "string" &&
+    typeof currency === "string"
+  ) {
+    const finer = minorUnitsProblem(amount, currency);
+    if (finer !== undefined) problems.push({ path: "/amount", message: finer });
   }
   return problems;
 };

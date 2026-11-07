@@ -7,7 +7,13 @@
 // Plain ECMAScript with no JSON and no Ajv: the field chunks bundle it. Nothing here throws on a
 // value it cannot read, and a result against props it cannot read is refused (AD-10).
 
-import { AMOUNT_PATTERN, compareDecimal, minorUnitsOf } from "../../locale/amount.ts";
+import {
+  AMOUNT_PATTERN,
+  compareDecimal,
+  decimalsOf,
+  minorUnitsOf,
+  minorUnitsProblem,
+} from "../../locale/amount.ts";
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
 import {
@@ -28,9 +34,6 @@ const isAmount = (value: unknown): value is string =>
 
 const isCurrency = (value: unknown): value is string =>
   typeof value === "string" && CURRENCY.test(value);
-
-// The decimals of an amount's text.
-const decimalsOf = (amount: string): number => amount.split(".")[1]?.length ?? 0;
 
 // The first code among the item's currencies whose minor units a bound has too many decimals for:
 // the schema allows four decimals whatever the currency, so a bound of `0.005` in euros would show
@@ -158,11 +161,8 @@ export const moneyFieldResultProblems = (result: unknown, props: unknown): reado
   if (!offered.includes(currency)) {
     at("/currency", `the currency ${currency} is not one of the field's: ${offered.join(", ")}`);
   }
-  const places = minorUnitsOf(currency);
-  if (decimalsOf(amount) > places) {
-    const takes = places === 0 ? "no decimals" : `at most ${places} decimals`;
-    at("/amount", `${currency} takes ${takes}, and the amount ${amount} has ${decimalsOf(amount)}`);
-  }
+  const finer = minorUnitsProblem(amount, currency);
+  if (finer !== undefined) at("/amount", finer);
   if (isAmount(props.min) && compareDecimal(amount, props.min) < 0) {
     at("/amount", `the amount ${amount} is below the field's minimum ${props.min}`);
   }

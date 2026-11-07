@@ -213,10 +213,42 @@ describe("Value items", () => {
     expect(refused(amount("007"))).toBe(true);
     expect(refused(amount("+5"))).toBe(true);
     expect(refused(amount(12))).toBe(true);
-    for (const good of ["0", "-0.5", "999999999999999", "999999999999999.9999", "12"]) {
+    for (const good of ["0", "-0.5", "999999999999999", "999999999999999.99", "12"]) {
       expect(passes(amount(good)), good).toBe(true);
     }
+    // Four decimals belong to the currencies that take four (CLF), no other.
+    expect(
+      passes(item("value", { kind: "money", amount: "999999999999999.9999", currency: "CLF" })),
+    ).toBe(true);
     expect(valuePropsProblems({ kind: "money", amount: "1e3", currency: "EUR" })).toHaveLength(1);
+  });
+
+  test("a money Value's amount is within its currency's minor units: 0.5 JPY and -0.004 EUR fail naming amount, 12480 JPY and -0.01 EUR pass", () => {
+    const money = (amount: string, currency: string) =>
+      item("value", { kind: "money", amount, currency });
+    for (const [amount, currency] of [
+      ["0.5", "JPY"],
+      ["-0.004", "EUR"],
+      ["0.005", "EUR"],
+      ["1.2345", "KWD"],
+    ] as const) {
+      const bad = money(amount, currency);
+      // The schema lets four decimals through whatever the currency; the entry's checks refuse.
+      expect(checkedOnly(bad), `${amount} ${currency}`).toBe(true);
+      expect(pathsOf(bad), `${amount} ${currency}`).toContain("/amount");
+      expect(
+        valuePropsProblems({ kind: "money", amount, currency }).map(({ path }) => path),
+      ).toEqual(["/amount"]);
+      expect(problemsOf(bad)[0]?.message).toContain(currency);
+    }
+    for (const [amount, currency] of [
+      ["12480", "JPY"],
+      ["-0.01", "EUR"],
+      ["1.234", "KWD"],
+      ["0.5", "XYZ"],
+    ] as const) {
+      expect(passes(money(amount, currency)), `${amount} ${currency}`).toBe(true);
+    }
   });
 
   test("the currency is three capital letters", () => {
