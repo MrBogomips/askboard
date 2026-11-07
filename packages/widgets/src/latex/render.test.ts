@@ -4,7 +4,12 @@
 // command would put in the page; `renderInto` is run on stand-ins for the preview's element.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { LATEX_NESTING_MAX_DEPTH } from "@askboard/contract";
+import {
+  LATEX_EXPRESSION_MAX_CHARS,
+  LATEX_NESTING_MAX_DEPTH,
+  latexPropsProblems,
+  scanLatex,
+} from "@askboard/contract";
 import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
 import {
@@ -431,6 +436,67 @@ describe("no module of the package calls katex.render or katex.renderToString", 
       );
     }
   });
+});
+
+// Task 4.22 (4.19 re-review S-1; view-and-widgets spec: LaTeX output bounded, scenario "Too complex
+// to preview"): a real input the scan passes and the default bounds refuse. KaTeX makes one nested
+// accent for each combining mark after a character, at 5 levels or so each, which the scan does not
+// count: the output's depth bound is the only defence against the renderer's crash at about 131 code
+// points, so no pin of the constant stands in for it.
+describe("combining marks at the default bounds", () => {
+  const MARK = String.fromCodePoint(0x301);
+  const marks = (count: number, base = "a", close = "") => `${base}${MARK.repeat(count)}${close}`;
+  const CASES = [
+    ["a and 48 marks", marks(48)],
+    ["a and 130 marks", marks(130)],
+    ["\\text{a and 130 marks}", marks(130, "\\text{a", "}")],
+  ] as const;
+  const sizeOf = (expression: string) => treeSizeOf(renderTree(expression, renderOptions()));
+  let spies: ReturnType<typeof spyOn>[] = [];
+  afterEach(() => {
+    for (const spy of spies) spy.mockRestore();
+    spies = [];
+  });
+
+  test("the inputs are within the contract's limits and the scan counts no level in them", () => {
+    for (const [, expression] of CASES) {
+      expect([...expression].length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
+      expect(scanLatex(expression)).toEqual({
+        refused: undefined,
+        depth: expression.startsWith("\\text") ? 1 : 0,
+      });
+      expect(latexPropsProblems({ expression })).toEqual([]);
+    }
+  });
+
+  test("a and 47 marks is drawn: the tree is within the three bounds", () => {
+    const expression = marks(47);
+    const size = sizeOf(expression);
+    expect(size.depth).toBeLessThanOrEqual(LATEX_TREE_MAX_DEPTH);
+    expect(parseProblem(expression)).toBeUndefined();
+    const { spy, toNodes } = watchTrees();
+    spies = [spy];
+    const host = hostHolding(["old"]);
+    expect(draw(host, expression)).toEqual({});
+    expect(host.marks).toEqual(["drawn"]);
+    expect(toNodes.map((toNode) => toNode.mock.calls.length)).toEqual([1]);
+  });
+
+  test.each(CASES)(
+    "%s is too complex: no node is made and the element keeps its content",
+    (_name, expression) => {
+      const size = sizeOf(expression);
+      expect(size.depth).toBeGreaterThan(LATEX_TREE_MAX_DEPTH);
+      const { spy, toNodes } = watchTrees();
+      spies = [spy];
+      expect(parseProblem(expression)).toEqual({ tooComplex: size });
+      const host = hostHolding(["last preview"]);
+      expect(draw(host, expression)).toEqual({ tooComplex: size });
+      expect(host.marks).toEqual(["last preview"]);
+      expect(toNodes.length).toBeGreaterThan(0);
+      for (const toNode of toNodes) expect(toNode).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // Task 4.11 (view-and-widgets spec: LaTeX bounded work; design decisions 3 and 7): both functions run

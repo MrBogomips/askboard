@@ -149,6 +149,57 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
   });
 
+  // Task 4.22 (4.19 re-review S-1; view-and-widgets spec: LaTeX output bounded, scenario "Too
+  // complex to preview"): combining marks after a character, which the contract's scan passes with
+  // no level, at the board's default bounds. Drawn with no bound, 130 marks crash Chromium.
+  describe(`${engine}: combining marks at the default bounds`, () => {
+    const frame = new LatexFrame(engine);
+    afterAll(() => frame.close());
+    const MARK = String.fromCodePoint(0x301);
+    const marks = (count: number, base = "a", close = "") => `${base}${MARK.repeat(count)}${close}`;
+
+    test(
+      "a and 47 marks is drawn within the render bound and the page answers",
+      async () => {
+        const kept = await frame.rendering("x^2");
+        if (!kept.ok) throw new Error(`${kept.reason}: ${kept.message}`);
+        const result = await frame.rendering(marks(47));
+        if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
+        expect(result.rendered).toEqual({});
+        expect(result.ms).toBeLessThan(RENDER_BOUND_MS);
+        expect(result.nodes).toBeGreaterThan(kept.nodes);
+        expect(result.parentMs).toBeLessThan(PARENT_ANSWER_MS);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test.each([
+      ["a and 48 marks", marks(48)],
+      ["a and 130 marks", marks(130)],
+      ["\\text{a and 130 marks}", marks(130, "\\text{a", "}")],
+    ] as const)(
+      "%s: the contract passes it, the output is too complex, no node is inserted, the renderer does not crash and the page answers",
+      async (_name, expression) => {
+        expect(scanLatex(expression).refused).toBeUndefined();
+        expect(scanLatex(expression).depth).toBeLessThanOrEqual(LIMIT);
+        expect([...expression].length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
+        const kept = await frame.rendering("x^2");
+        if (!kept.ok) throw new Error(`${kept.reason}: ${kept.message}`);
+        const result = await frame.rendering(expression);
+        if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
+        expect(Object.keys(result.rendered)).toEqual(["tooComplex"]);
+        expect(result.rendered.tooComplex?.depth).toBeGreaterThan(245);
+        expect(result.ms).toBeLessThan(RENDER_BOUND_MS);
+        expect(result.nodes).toBe(kept.nodes);
+        expect(result.parentMs).toBeLessThan(PARENT_ANSWER_MS);
+        // The engine is still the same one: a draw after the refusal works.
+        const after = await frame.rendering("\\frac{a}{b}");
+        expect(after.ok && after.rendered).toEqual({});
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
   describe(`${engine}: an output past bounds lowered by the test`, () => {
     const frame = new LatexFrame(engine);
     afterAll(() => frame.close());
