@@ -725,6 +725,7 @@ export {
   type LatexChange,
   type LatexItem,
   type LatexProps,
+  cutLatexExpression,
   latexPropsProblems,
 } from "./widgets/latex/index.ts";
 export {

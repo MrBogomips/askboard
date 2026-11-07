@@ -11,7 +11,7 @@ import { LATEX_EXPRESSION_MAX_CHARS } from "./constants.ts";
 
 /**
  * What is wrong with a LaTeX's props, the schema's rules restated: an object holding `expression`,
- * a text of at most `LATEX_EXPRESSION_MAX_CHARS` characters, and no other key. The registry runs it
+ * a text of at most `LATEX_EXPRESSION_MAX_CHARS` code points, and no other key. The registry runs it
  * after the schema, so it gives nothing for a value the schema passed.
  */
 export const latexPropsProblems = (props: unknown): readonly Problem[] => {
@@ -24,11 +24,27 @@ export const latexPropsProblems = (props: unknown): readonly Problem[] => {
   const { expression } = props;
   if (typeof expression !== "string") {
     problems.push({ path: "/expression", message: "the expression is a text" });
-  } else if (expression.length > LATEX_EXPRESSION_MAX_CHARS) {
-    problems.push({
-      path: "/expression",
-      message: `the expression has ${expression.length} characters, more than the limit of ${LATEX_EXPRESSION_MAX_CHARS}`,
-    });
+  } else {
+    const count = codePointCount(expression);
+    if (count > LATEX_EXPRESSION_MAX_CHARS) {
+      problems.push({
+        path: "/expression",
+        message: `the expression has ${count} characters, more than the limit of ${LATEX_EXPRESSION_MAX_CHARS}`,
+      });
+    }
   }
   return problems;
 };
+
+/** The length in code points; UTF-16 units are never fewer, so a text within the limit skips the walk. */
+const codePointCount = (text: string): number =>
+  text.length <= LATEX_EXPRESSION_MAX_CHARS ? text.length : [...text].length;
+
+/**
+ * The text cut to its first `LATEX_EXPRESSION_MAX_CHARS` code points, never inside a surrogate
+ * pair: the board's source field keeps this much of a paste.
+ */
+export const cutLatexExpression = (text: string): string =>
+  text.length <= LATEX_EXPRESSION_MAX_CHARS
+    ? text
+    : [...text].slice(0, LATEX_EXPRESSION_MAX_CHARS).join("");

@@ -23,6 +23,7 @@ import {
   LATEX_SCHEMA_IDS,
   LATEX_SHAPE,
   LATEX_WIDGET,
+  cutLatexExpression,
   latexPropsProblems,
   widgetChangesProblems,
   widgetRegistryProblems,
@@ -74,6 +75,36 @@ describe("LaTeX items", () => {
     expect(problem?.message).toContain('item "formula"');
     expect(problem?.message).toContain("expression");
     expect(askAccepted(TYPES, withExpression("x".repeat(2_001)))).toBe(false);
+  });
+
+  test("the limit counts code points: 2,000 astral characters pass, 2,001 fail with the count", () => {
+    const astral = (n: number) => "\u{1D465}".repeat(n);
+    expect(problems(withExpression(astral(2_000)))).toEqual([]);
+    expect(askAccepted(TYPES, withExpression(astral(2_000)))).toBe(true);
+    expect(latexPropsProblems({ expression: astral(2_000) })).toEqual([]);
+    expect(askAccepted(TYPES, withExpression(astral(2_001)))).toBe(false);
+    const refused = latexPropsProblems({ expression: astral(2_001) });
+    expect(refused.map(({ path }) => path)).toEqual(["/expression"]);
+    expect(refused[0]?.message).toContain("2001 characters");
+    const check = (value: string) =>
+      widgetChangesProblems(
+        { type: "latex", id: "formula" },
+        [{ op: "set", target: "formula.expression", value }],
+        TYPES,
+      );
+    expect(check(astral(2_000))).toEqual([]);
+    expect(check(astral(2_001))).not.toEqual([]);
+  });
+
+  test("cutLatexExpression keeps the first 2,000 code points and never splits a pair", () => {
+    const astral = (n: number) => "\u{1D465}".repeat(n);
+    expect(cutLatexExpression(astral(1_999))).toBe(astral(1_999));
+    expect(cutLatexExpression(astral(2_000))).toBe(astral(2_000));
+    expect(cutLatexExpression(astral(2_001))).toBe(astral(2_000));
+    expect(cutLatexExpression("")).toBe("");
+    const mixed = `${"a".repeat(1_999)}\u{1D465}tail`;
+    expect(cutLatexExpression(mixed)).toBe(`${"a".repeat(1_999)}\u{1D465}`);
+    expect(cutLatexExpression("a".repeat(2_005))).toBe("a".repeat(2_000));
   });
 
   test("a field the props do not define fails, naming it", () => {

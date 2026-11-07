@@ -3,7 +3,7 @@
 // schema set until the entry is registered (design decision 12), and nothing compiles them when
 // this module loads.
 
-export { latexPropsProblems } from "./checks.ts";
+export { cutLatexExpression, latexPropsProblems } from "./checks.ts";
 export {
   LATEX_EXPRESSION_MAX_CHARS,
   LATEX_SCHEMA_IDS,
