@@ -119,6 +119,7 @@ Names borrowed from `main` (group 0 checks each): `chunkInputs`, `collectNotices
 - [The write token in a job that runs dependency code] → only `publish` has `contents: write`, and it runs git and `gh` alone.
 - [Release notes or the PRD sentence naming widgets that did not merge] → task 5.3 checks both against `main` just before the dispatch.
 - [Users stay on an old version: third-party marketplaces do not auto-update (K4)] → the README's Update section.
+- [Volta walks up from the plugin root to the nearest `package.json`, so a pin with a Volta `hooks.json` in a folder above the plugin's cache (`~`, `~/.claude`) still runs when Claude Code runs there (review 3.4, U-1)] → accepted under the PO's unattended handoff: whoever can write there can also edit the cached `scripts/askboard`; `cd /` would remove it but would also drop the development checkout's own Node pin. Hardening is a follow-up.
 
 ## Migration Plan
 
