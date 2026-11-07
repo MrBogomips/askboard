@@ -128,6 +128,8 @@ describe("the port carries any item and any value (design decision 7)", () => {
       ready: () => {},
       board: { items: [], draft: new Map(), shown: new Map() },
       onDerived: () => {},
+      entry: undefined,
+      onEntryChange: () => {},
     };
     componentFor("test-probe-props")?.(props);
     const [got] = seen;
@@ -158,6 +160,8 @@ describe("the port carries any item and any value (design decision 7)", () => {
       ready: () => {},
       board: { items: [sketch], draft: new Map(), shown: new Map() },
       onDerived: () => {},
+      entry: undefined,
+      onEntryChange: () => {},
     });
     seen[0]?.onValuesChange({ sketch: { size: 4 }, second: undefined });
     expect(updates).toEqual([{ sketch: { size: 4 }, second: undefined }]);
@@ -188,6 +192,8 @@ describe("the port gives a component its board and takes its derived values (gan
       ready: () => {},
       board,
       onDerived: (values) => reports.push(values),
+      entry: undefined,
+      onEntryChange: () => {},
     });
     const [got] = seen;
     expect(got?.board.items).toEqual([release]);

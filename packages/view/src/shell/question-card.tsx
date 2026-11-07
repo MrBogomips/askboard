@@ -58,6 +58,7 @@ import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
+import { answerHint, holdsEntry } from "./entries.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
@@ -138,13 +139,17 @@ const focusHeadingOf = (questionId: string) => () =>
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
 const useCard = ({ question, state, lock, context }: CardProps) => {
-  const { tracker, draft, results, acts, board, kept, revisions } = context;
+  const { tracker, draft, results, entries, acts, board, kept, revisions } = context;
   const language = useLanguage();
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const values = useSyncExternalStore(draft.subscribe, draft.record);
   const heldResults = useSyncExternalStore(
     results?.subscribe ?? NO_SUBSCRIPTION,
     () => results?.record() ?? NO_RECORD,
+  );
+  const heldEntries = useSyncExternalStore(
+    entries?.subscribe ?? NO_SUBSCRIPTION,
+    () => entries?.record() ?? NO_RECORD,
   );
   const work = useSyncExternalStore(board.subscribe, () => board.work(question.id));
   const keptChoices = useSyncExternalStore(kept.subscribe, kept.get);
@@ -168,8 +173,9 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     load,
     lock,
     ready: heldAct === "answer" || heldAct === "note",
-    editing: hasAnswerWork(shown, values, work, heldResults),
+    editing: hasAnswerWork(shown, values, work, heldResults, heldEntries),
     pending,
+    entry: holdsEntry(shown, heldEntries),
     language,
   });
   const actions = cardActions({
@@ -192,6 +198,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     shown,
     card,
     actions,
+    answerHint: answerHint(shown, heldEntries, language),
     followUp,
     choosing,
     placement,
@@ -326,6 +333,7 @@ export const QuestionCard = (props: CardProps) => {
     shown,
     card,
     actions,
+    answerHint: hint,
     followUp,
     choosing,
     placement,
@@ -535,6 +543,7 @@ export const QuestionCard = (props: CardProps) => {
             opened={opened}
             card={card}
             actions={actions}
+            answerHint={hint}
             locked={lock !== undefined}
             single={single}
             submitted={!single && delivery === "submitted"}

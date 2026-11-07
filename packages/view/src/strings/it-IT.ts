@@ -111,6 +111,7 @@ export const IT_IT = {
   "question.note": "Nota per l'agente (facoltativa)",
   "question.reasonRequired": "Motivo delle modifiche (obbligatorio)",
   "question.reasonMissing": "Aggiungi il motivo delle modifiche.",
+  "question.entryHint": "Correggi prima {label}.",
   "revision.confirmTitle": "Inviare una nuova risposta?",
   "revision.confirmBody":
     "L'agente ha già ricevuto la tua risposta precedente. Questa la sostituisce.",

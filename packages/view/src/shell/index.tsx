@@ -60,6 +60,7 @@ import { dropWork } from "./card-acts.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
+import { dropStaleEntries, entryIdsOf } from "./entries.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
 import { snapshotTitleOf } from "./opened-snapshot.ts";
@@ -103,6 +104,7 @@ const clearCarried = (
   document: ViewDocument,
   draft: DraftStore,
   results: DraftStore,
+  entries: DraftStore,
   board: BoardDraft,
   kept: Store<KeptChoices>,
 ): void => {
@@ -126,6 +128,7 @@ const clearCarried = (
     if (act.type === "answer" || act.type === "decline") {
       for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
       for (const itemId of resultIdsOf(question)) results.set(itemId, undefined);
+      for (const itemId of entryIdsOf(question)) entries.set(itemId, undefined);
     }
     board.clear(question.id, fields);
   }
@@ -140,6 +143,7 @@ const focusedQuestion = (): string | undefined =>
 type Removal = {
   readonly draft: DraftStore;
   readonly results: DraftStore;
+  readonly entries: DraftStore;
   readonly board: BoardDraft;
   readonly focus: Store<HeadingRequest | undefined>;
   readonly removed: Store<boolean>;
@@ -195,9 +199,11 @@ const boot = (): void => {
   const draft = createDraftStore();
   // The results the widget items hold, beside the draft record (widget-registry, design decision 9).
   const results = createDraftStore();
+  // The text the NumberField, MoneyField and DateField cannot read, beside them (atoms, decision 3).
+  const entries = createDraftStore();
   const single = presentationOf(data.document) === "single";
   const board = createBoardDraft(single ? "immediate" : (data.document.delivery ?? "immediate"));
-  connectDrafts(() => view.get().document, draft, board, results);
+  connectDrafts(() => view.get().document, draft, board, results, entries);
   const acts = createAnswerActs();
   const attention = createAttention(data.document, data.state);
   const revisions = createRevisions();
@@ -226,7 +232,8 @@ const boot = (): void => {
     const document = update.document ?? before;
     if (update.document !== undefined) {
       revisions.record(document);
-      onRemoval(before, document, { draft, results, board, focus, removed });
+      onRemoval(before, document, { draft, results, entries, board, focus, removed });
+      dropStaleEntries(document, entries);
       tracker.include(questionItemsOf(document));
       attention.documentChanged(document);
     }
@@ -238,10 +245,19 @@ const boot = (): void => {
     }
     if (update.restore !== undefined && update.restore.id > restored) {
       restored = update.restore.id;
-      restoreDraft(update.restore.record, document, update.state, draft, board, results);
+      restoreDraft(
+        update.restore.record,
+        document,
+        update.state,
+        draft,
+        board,
+        results,
+        undefined,
+        entries,
+      );
     }
     for (const flight of acts.reconcile(update.pending ?? [], update.settled ?? [])) {
-      clearCarried(flight, document, draft, results, board, kept);
+      clearCarried(flight, document, draft, results, entries, board, kept);
     }
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
@@ -253,16 +269,24 @@ const boot = (): void => {
       mirroring = false;
       report({
         type: "draft",
-        record: draftRecordOf(view.get().document, draft.record(), board.get(), results.record()),
+        record: draftRecordOf(
+          view.get().document,
+          draft.record(),
+          board.get(),
+          results.record(),
+          entries.record(),
+        ),
       });
     });
   };
   draft.subscribe(mirror);
   results.subscribe(mirror);
+  entries.subscribe(mirror);
   board.subscribe(mirror);
   const context = {
     draft,
     results,
+    entries,
     tracker,
     channel,
     acts,

@@ -12,6 +12,7 @@ const filled = (text: string | undefined): text is string => text !== undefined 
 const questionHasWork = (work: DraftQuestion): boolean =>
   Object.values(work.values ?? {}).some((value) => value !== undefined) ||
   Object.values(work.results ?? {}).some((value) => value !== undefined) ||
+  Object.values(work.entries ?? {}).some(filled) ||
   filled(work.other) ||
   Object.values(work.optionNotes ?? {}).some(filled) ||
   filled(work.note) ||
@@ -43,9 +44,16 @@ const resultLines = (work: DraftQuestion): string[] =>
     result === undefined ? [] : [`${itemId}: ${JSON.stringify(result)}`],
   );
 
+// The text a field could not read, as the user typed it, under its item's ID.
+const entryLines = (work: DraftQuestion): string[] =>
+  Object.entries(work.entries ?? {}).flatMap(([itemId, text]) =>
+    filled(text) ? [`${itemId}: ${JSON.stringify(text)}`] : [],
+  );
+
 const workLines = (questionId: string, work: DraftQuestion, language: Locale): string[] => [
   ...valueLines(questionId, work, language),
   ...resultLines(work),
+  ...entryLines(work),
   ...(filled(work.other) ? [t(language, "unsent.other", { text: work.other })] : []),
   ...Object.entries(work.optionNotes ?? {})
     .filter(([, note]) => filled(note))

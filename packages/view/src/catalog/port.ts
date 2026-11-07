@@ -95,6 +95,19 @@ export type ItemProps<Item = unknown, Value = unknown> = {
    * answer carries those of the items it carries a value for (AD-20, FR-12).
    */
   readonly onDerived: (values: DerivedValues) => void;
+  /**
+   * The text the item's field holds that it cannot read as a value, or whose value a bound refuses
+   * (atoms, design decision 3): kept in the draft record apart from the item's value and result,
+   * restored after a reload and never part of an answer. A field shows it as typed while there is
+   * one, else its result formatted for entry; undefined while it has none or the item is read-only.
+   */
+  readonly entry: string | undefined;
+  /**
+   * Puts the field's unreadable text into the draft record as its entry, cut at 200 code points, an
+   * empty text or `undefined` for none, which also clears the item's result; only the NumberField,
+   * MoneyField and DateField hold one, and nothing leaves the view (AD-9).
+   */
+  readonly onEntryChange: (entry: string | undefined) => void;
 };
 
 export type CatalogComponent<Item = unknown, Value = unknown> = (

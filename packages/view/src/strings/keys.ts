@@ -112,6 +112,7 @@ export const STRING_KEYS = [
   "question.note",
   "question.reasonRequired",
   "question.reasonMissing",
+  "question.entryHint",
   // Revising a verdict the agent has received (approval-scale-ranking, design decision 6).
   "revision.confirmTitle",
   "revision.confirmBody",
