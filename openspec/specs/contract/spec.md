@@ -1711,7 +1711,7 @@ The LaTeX's check SHALL refuse an expression holding a macro-definition command 
 - **THEN** each passes: a line break before the text `def`, `\left`, and a control word other than `\def`
 
 ### Requirement: LaTeX nesting bounded
-The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit, counting the levels its openers open: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_`. It is the agent's early refusal; nesting it does not count, such as stacked combining marks, is bounded by the board's output bound (view-and-widgets spec: LaTeX output bounded) (AD-8, NFR-5).
+The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit, counting the levels its openers open: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_`; a run of n stacked combining marks (U+0300 to U+036F) reaches n + 1 levels. It is the one bound on nesting, for the agent and the board alike (AD-8, NFR-5).
 
 #### Scenario: A nest at and past the limit
 - **WHEN** a LaTeX item's `expression` nests `\frac{` with `}{x}` to the limit, then one level more
@@ -1720,6 +1720,14 @@ The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_M
 #### Scenario: A script counts its argument
 - **WHEN** the depth of `x^{y^{z}}` is read
 - **THEN** it is 4: each script and each group is a level
+
+#### Scenario: Stacked combining marks
+- **WHEN** the depths of `x` followed by 10 combining circumflex accents (U+0302) and by 11 are read, then a LaTeX item's `expression` is `x` followed by 130 of them
+- **THEN** the depths are 11 and 12, and the item fails naming its depth and the limit
+
+#### Scenario: Accented text
+- **WHEN** the depth of `\text{café}` is read, its `é` written as `e` and a combining acute accent (U+0301)
+- **THEN** it is 3, and an item holding it passes
 
 ### Requirement: LaTeX nesting counted as KaTeX reads it
 The LaTeX's nesting count SHALL add one level to the group that holds an infix command (`\over`, `\atop`, `\above`, `\choose`, `\brace` or `\brack`), SHALL let no brace that KaTeX reads as text, in a comment or a `\verb`, close a level, and SHALL refuse `\show` and a character code given by a backquote (``\char` ``), whose following token it does not read as KaTeX does, naming the command (AD-8, NFR-5).
