@@ -17,8 +17,9 @@
 import { lstat, readdir } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import type { LicenceNotice } from "@askboard/contract";
-import { classify } from "../check-licences.ts";
+import { classify, type LicenceException } from "../check-licences.ts";
 import fontLicenceTable from "../font-licences.json" with { type: "json" };
+import exceptionTable from "../licence-exceptions.json" with { type: "json" };
 import recorded from "../licence-texts.json" with { type: "json" };
 
 /** A licence text recorded for a package version that ships none, with where it comes from. */
@@ -62,6 +63,26 @@ const FONTS_FILE = "tools/font-licences.json";
 export type FontLicences = Readonly<Record<string, FontLicence>>;
 
 export const FONT_LICENCES: FontLicences = fontLicenceTable;
+
+/** The addendum's named licence exceptions (atoms, design decision 9). */
+export const LICENCE_EXCEPTIONS: readonly LicenceException[] = exceptionTable;
+
+/**
+ * A chunk whose notices name an excepted package fails the build: the exception holds only while
+ * nothing ships the package.
+ */
+export const exceptedPackageProblems = (
+  exceptions: readonly LicenceException[],
+  chunks: readonly { readonly name: string; readonly notices: readonly NoticeFile[] }[],
+): string[] =>
+  chunks.flatMap(({ name, notices }) =>
+    notices
+      .filter(({ notice }) => exceptions.some((entry) => entry.name === notice.package))
+      .map(
+        ({ notice }) =>
+          `the chunk "${name}" ships ${notice.package} ${notice.version}, which only a named licence exception in tools/licence-exceptions.json admits, for a package no chunk contains`,
+      ),
+  );
 
 export type NoticeFile = {
   readonly notice: LicenceNotice;

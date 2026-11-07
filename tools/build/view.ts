@@ -49,9 +49,11 @@ import {
 } from "./chunks.ts";
 import {
   collectNotices,
+  exceptedPackageProblems,
   FONT_LICENCES,
   type FontLicences,
   fontEntryProblems,
+  LICENCE_EXCEPTIONS,
   LICENCE_TEXTS,
   missingFontLicences,
   type NoticeFile,
@@ -317,6 +319,8 @@ export const buildView = async (
       ...missingFontLicences(fontLicences, [page, ...chunks]),
       ...staleFontLicences(fontLicences, [page, ...chunks]),
     ]);
+    // A named licence exception holds only while no chunk ships the package (atoms, 3.1).
+    failIf(exceptedPackageProblems(LICENCE_EXCEPTIONS, [page, ...chunks]));
     // A licence text recorded for a package that no chunk took is stale (ask-lifecycle, 6.6).
     const used = [page, ...chunks].flatMap(({ notices }) =>
       notices.flatMap(({ recorded }) => (recorded === undefined ? [] : [recorded])),

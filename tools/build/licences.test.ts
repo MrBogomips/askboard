@@ -6,10 +6,12 @@ import { KATEX_VERSION } from "./katex-version.ts";
 import {
   chunkInputs,
   collectNotices,
+  exceptedPackageProblems,
   FONT_LICENCES,
   type FontLicence,
   type FontLicences,
   fontEntryProblems,
+  LICENCE_EXCEPTIONS,
   LICENCE_TEXTS,
   licencePath,
   missingFontLicences,
@@ -459,5 +461,40 @@ describe("the font licence table's checks (design decision 8)", () => {
   test("the real table is clean: its entry's licence stands in the rule", () => {
     expect(fontEntryProblems(FONT_LICENCES)).toEqual([]);
     expect(Object.keys(FONT_LICENCES)).toEqual([`katex@${KATEX_VERSION}`]);
+  });
+});
+
+describe("the named licence exceptions in a build (atoms, design decision 9)", () => {
+  const notice = (name: string, licence = "MIT") => ({
+    notice: { package: name, version: "1.0.0", licence, path: licencePath(name, "1.0.0") },
+    text: "",
+  });
+  const table = [
+    {
+      name: "argparse",
+      licence: "PSF-2.0",
+      reason: "r",
+      source: "s",
+      shippedIn: [] as string[],
+    },
+  ];
+
+  test("a chunk whose notices name argparse fails the build, naming the chunk", () => {
+    const problems = exceptedPackageProblems(table, [
+      { name: "markdown", notices: [notice("markdown-it"), notice("argparse", "PSF-2.0")] },
+    ]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('"markdown"');
+    expect(problems[0]).toContain("argparse");
+  });
+
+  test("chunks without an excepted package pass", () => {
+    expect(exceptedPackageProblems(table, [{ name: "shell", notices: [notice("react")] }])).toEqual(
+      [],
+    );
+  });
+
+  test("the real table names argparse alone", () => {
+    expect(LICENCE_EXCEPTIONS.map((entry) => entry.name)).toEqual(["argparse"]);
   });
 });

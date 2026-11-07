@@ -1,0 +1,9 @@
+[
+  {
+    "name": "argparse",
+    "licence": "PSF-2.0",
+    "reason": "markdown-it's command-line tool needs it; no shipped chunk contains it, and the view build fails if one does",
+    "source": "docs/prd-askboard-2026-10-25/addendum.md, Licence exceptions",
+    "shippedIn": []
+  }
+]
