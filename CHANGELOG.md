@@ -10,6 +10,7 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 
 - Asking by pull through five tools, `ask`, `update`, `collect`, `fetch` and `snapshot`: a board of several questions and areas in the browser, answered one at a time or together with Submit, with postpone, decline, revise and follow-up, and the board's unsent work kept across a reload.
 - Widgets: Choice (single and multiple), Tree (a work breakdown with optional PERT estimates, selection, bulk percentage change with undo, drag and drop) and Gantt (zoom, baseline, critical path, resizable task column, requested durations), with the answer carrying the edited values and the derived values such as the plan's finish and critical path.
+- Widgets that give a result: Approval (approve, approve with changes and a required reason, reject, with a summary of the question's changes), Scale (a slider, one value or a range, or a rating) and Ranking (reorder by drag or with Move up and Move down).
 - The ready molecules: the work breakdown with PERT and the Gantt plan, linked to each other.
 - The `askboard` skill, which tells the agent when to ask through AskBoard rather than AskUserQuestion and how to build each widget.
 - Push delivery: answers reach a working agent without it asking, through a Claude Code mod; hooks give each ask its owner, show the board link in the terminal and keep a subagent from finishing before it has its answers; a system notification announces a new board.
