@@ -15,7 +15,7 @@ import { widgetValidator } from "./validator.ts";
 // The validator of a schema no set holds, made on first use and kept.
 const validators = new WeakMap<object, (value: unknown) => Checked<unknown>>();
 
-// A registry that holds a layout the shipped sets do not: its props refer to the union composed
+// A registry that holds a layout the shipped sets do not (the Tabs, before it is registered): its props refer to the union composed
 // over that registry, so it is checked in an Ajv made over it.
 const overRegistry = (schema: AnySchemaObject, value: unknown, types: readonly WidgetType[]) => {
   const ajv = registryAjv(types);
@@ -35,10 +35,14 @@ export const schemaVerdict = (
   types: readonly WidgetType[] = WIDGET_TYPES,
 ): Checked<unknown> => {
   const ajv: Ajv2020 = compiled();
+  // A registry that holds a layout the shipped one does not: every schema is read over it, since
+  // the shipped sets' union of items lacks that layout.
+  if (types.some((entry) => isLayoutType(entry.type) && !WIDGET_TYPES.includes(entry))) {
+    return overRegistry(schema, value, types);
+  }
   if (ajv.getSchema(schema.$id as string) !== undefined) {
     return validateAgainst(schema.$id as string, value);
   }
-  if (types.some(({ type }) => isLayoutType(type))) return overRegistry(schema, value, types);
   let validate = validators.get(schema);
   if (validate === undefined) {
     validate = widgetValidator([schema], schema.$id as string);

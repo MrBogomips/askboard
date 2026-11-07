@@ -228,6 +228,11 @@ const VIEW_READS: readonly Read[] = [
     reason: HANDED,
   },
   {
+    file: "packages/view/src/catalog/layouts/layout.ts",
+    text: "props.items",
+    reason: "a layout's own item list, which it draws one level through the port's renderer",
+  },
+  {
     file: "packages/view/src/shell/board-content.ts",
     text: "nestedWidgetItemsOf(props.items)",
     reason: HANDED,

@@ -324,13 +324,14 @@ describe("problems inside layouts name the inner item", () => {
     expect((own.item as Item).id).toBe("t");
   });
 
-  test("words a question's items apart from its layouts, and not before the layouts are registered", () => {
+  test("words a question's items apart from its layouts, the Tabs layout apart from the shipped registry", () => {
     const withLayouts = itemExpected(TYPES)["question.props.items"] ?? "";
     expect(withLayouts).toContain("layouts (a Stack, a Row, a Group, a Tabs layout)");
     expect(withLayouts).not.toContain(
       "widgets (a Tree, a Gantt, an Approval, a Scale, a Ranking, a LaTeX, a Kanban, a Timeline, a Text, a Value, a Divider, a TextField, a NumberField, a MoneyField, a DateField, a Toggle, a Stack",
     );
-    expect(itemExpected()["question.props.items"]).not.toContain("layouts (");
+    expect(itemExpected()["question.props.items"]).toContain("layouts (a Stack, a Row, a Group)");
+    expect(itemExpected()["question.props.items"]).not.toContain("a Tabs layout");
   });
 });
 
@@ -398,7 +399,7 @@ describe("layout nesting depth", () => {
       askId: "arrange-ask-a1b2",
       actions: [{ action: "add", item: question("n", groups(4)) }],
     };
-    expect(validateUpdateRequest(four).ok).toBe(false); // the layouts are unregistered in the shipped schema
+    expect(validateUpdateRequest(four).ok).toBe(true); // four Groups deep pass the shipped schema
   });
 
   test("a change's props, which are an object whatever they hold, never throw", () => {

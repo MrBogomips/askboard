@@ -7,7 +7,9 @@
 // approval-scale-ranking's admits the Approval, the Scale and the Ranking as widget items (design decision 11);
 // latex-kanban-timeline's admits the LaTeX, the Kanban and the Timeline (design decision 13);
 // chart-widget's admits the Chart as a widget item (design decision 11);
-// atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11).
+// atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11);
+// layouts' admits the Stack, the Row and the Group as items, and the items they hold in a question's
+// items (design decisions 1, 3 and 8).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };

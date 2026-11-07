@@ -1,9 +1,10 @@
 // The layouts' teaching text within the skill's budgets (layouts, task 1.2; contract spec: Teaching
-// text of the layouts): the skill generated over the shipped registry with the layouts that are not
-// yet registered, so that the budgets are checked before the registration tasks regenerate the
-// files, and so that the shipped skill says nothing of layouts until they are registered.
+// text of the layouts): the skill generated over the shipped registry with the layouts not yet
+// registered, so that the budgets are checked whatever the registry holds, and the shipped skill
+// as the registered layouts make it.
 
 import { describe, expect, test } from "bun:test";
+import { WIDGET_TYPES } from "@askboard/contract";
 import { LAYOUT_WIDGETS, withWidgetTypes } from "@askboard/contract/fixtures";
 import { BUDGETS, budgetReport } from "./budgets.ts";
 import { generateSkill } from "./generate.ts";
@@ -57,10 +58,11 @@ describe("the skill with the layouts registered", () => {
   });
 });
 
-describe("the skill before the layouts are registered", () => {
-  test("says nothing of layouts", () => {
+describe("the shipped skill, as the layouts register", () => {
+  test("names the registered layouts, and the Tabs layout once it joins the registry", () => {
     const shipped = generateSkill().files.get("SKILL.md") ?? "";
-    expect(shipped).not.toContain("may sit in layouts");
-    expect(shipped).not.toContain("(`stack`)");
+    expect(shipped).toContain("may sit in layouts");
+    for (const type of ["stack", "row", "group"]) expect(shipped).toContain(`(\`${type}\`)`);
+    expect(shipped.includes("(`tabs`)")).toBe(WIDGET_TYPES.some(({ type }) => type === "tabs"));
   });
 });

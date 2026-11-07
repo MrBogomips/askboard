@@ -16,12 +16,14 @@ import {
   GROUP_DESCRIPTION_MAX_CHARS,
   GROUP_TITLE_MAX_CHARS,
   GROUP_WIDGET,
+  isLayoutType,
   ROW_MAX_ITEMS,
   ROW_WIDGET,
   STACK_WIDGET,
   TABS_MAX_TABS,
   TABS_TITLE_MAX_CHARS,
   TABS_WIDGET,
+  WIDGET_TYPES,
   widgetRegistryProblems,
   widgetResultProblems,
 } from "../src/index.ts";
@@ -77,7 +79,8 @@ const fromJson = (json: string): unknown => JSON.parse(json);
 describe("the layouts in the registry", () => {
   test("follow the shipped types, in the order stack, row, group, tabs", () => {
     expect(TYPES.slice(-4).map(({ type }) => type)).toEqual(["stack", "row", "group", "tabs"]);
-    expect(TYPES.slice(0, -4)).toEqual([...withWidgetTypes()]);
+    // The Stack, the Row and the Group are registered; the Tabs layout joins at its chunk.
+    expect(TYPES.slice(0, -1)).toEqual([...withWidgetTypes()]);
   });
 
   test("give no result, no edits and no derived values, each with its noun and a short teaching use", () => {
@@ -131,8 +134,11 @@ describe("the question props composed over the layouts", () => {
     expect(items.at(-1)).toBe("molecule");
   });
 
-  test("equal the base over the shipped registry, which has no layoutItem", () => {
-    const shipped = composeQuestionProps(questionPropsBase);
+  test("equal the base over a registry with no layout, which has no layoutItem", () => {
+    const shipped = composeQuestionProps(
+      questionPropsBase,
+      WIDGET_TYPES.filter(({ type }) => !isLayoutType(type)),
+    );
     expect(Object.hasOwn(shipped.$defs, "layoutItem")).toBe(false);
     expect(shipped.$defs.item.oneOf.map(({ $ref }: { $ref: string }) => $ref)).not.toContain(
       "#/$defs/stack",
