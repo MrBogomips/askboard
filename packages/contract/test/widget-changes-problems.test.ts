@@ -303,7 +303,8 @@ describe("every answer event and edited value among the fixtures", () => {
     const types = new Map<string, string>();
     for (const [, value] of exported) collectItems(value, types);
     const answers = collectAnswers(Object.fromEntries(exported));
-    expect(answers.length).toBeGreaterThan(0);
+    // Update both counts when a fixture adds an answer event or a change.
+    expect(answers.length).toBe(5);
     expect(answers.some((answer) => answer === fixtures.approvalAnswerEvent)).toBe(true);
     let checked = 0;
     for (const answer of answers) {
@@ -319,7 +320,7 @@ describe("every answer event and edited value among the fixtures", () => {
         checked += group?.length ?? 0;
       }
     }
-    expect(checked).toBeGreaterThan(0);
+    expect(checked).toBe(13);
   });
 
   // Each edited-value export, with the sent item (or question) it edits.

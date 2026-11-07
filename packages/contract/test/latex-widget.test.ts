@@ -83,6 +83,11 @@ describe("LaTeX items", () => {
     expect(askAccepted(TYPES, withExpression(astral(2_000)))).toBe(true);
     expect(latexPropsProblems({ expression: astral(2_000) })).toEqual([]);
     expect(askAccepted(TYPES, withExpression(astral(2_001)))).toBe(false);
+    // The schema refuses first, naming the item and the field; the check words the count.
+    const [schemaProblem, ...others] = problems(withExpression(astral(2_001)));
+    expect(others).toEqual([]);
+    expect(schemaProblem?.itemId).toBe("formula");
+    expect(schemaProblem?.field).toBe("props.expression");
     const refused = latexPropsProblems({ expression: astral(2_001) });
     expect(refused.map(({ path }) => path)).toEqual(["/expression"]);
     expect(refused[0]?.message).toContain("2001 characters");

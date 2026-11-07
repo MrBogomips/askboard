@@ -241,9 +241,12 @@ describe("a named field holding null", () => {
     expect(applyElementChanges<Value>(ITEM, { a: 1 }, changes, ONE)).toEqual({});
   });
 
-  test("from absent to null, applying the diff leaves the sent value unchanged", () => {
+  test("from absent to null is one set of null, which applies as absent and so is not the edited value", () => {
     const changes = diff({}, { a: null }, ONE);
-    expect(applyElementChanges(ITEM, {}, changes, ONE)).toEqual({});
-    expect(applyElementChanges(ITEM, { b: 2 }, changes, ONE)).toEqual({ b: 2 });
+    expect(changes).toEqual([{ op: "set", target: `${ITEM}.a`, value: null }]);
+    const applied = applyElementChanges<Value>(ITEM, {}, changes, ONE);
+    expect(applied).toEqual({});
+    expect(applied).not.toEqual({ a: null });
+    expect(applyElementChanges<Value>(ITEM, { b: 2 }, changes, ONE)).toEqual({ b: 2 });
   });
 });
