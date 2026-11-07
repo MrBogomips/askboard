@@ -7,8 +7,9 @@
 //   widget answers' UJ-2 scenario, `widget-uj2.e2e.ts` (widget-answers, task 6.2), and
 //   its five editing features, `widget-uj2-editing.e2e.ts` (widget-editing-plus, task 6.1);
 //   in each configuration, the result widgets' answer, `widget-results.e2e.ts`
-//   (approval-scale-ranking, task 6.4), and the LaTeX, Kanban and Timeline answer,
-//   `edit-widgets.e2e.ts` (latex-kanban-timeline, task 6.4);
+//   (approval-scale-ranking, task 6.4), the LaTeX, Kanban and Timeline answer,
+//   `edit-widgets.e2e.ts` (latex-kanban-timeline, task 6.4), and the Chart's,
+//   `chart-result.e2e.ts` (chart-widget, task 6.4);
 // - hooks disabled: E1's and the ask lifecycle's suites with the stand-in mod host beside every
 //   session process;
 // - in each, the configuration's scenarios, `settings.e2e.ts` (settings-languages, task 4.5).
@@ -41,6 +42,7 @@ const FILES: Readonly<Record<Configuration, readonly string[]>> = {
     "snapshot.e2e.ts",
     "widget-results.e2e.ts",
     "edit-widgets.e2e.ts",
+    "chart-result.e2e.ts",
   ],
   "mod-disabled": [
     "conformance.e2e.ts",
@@ -52,6 +54,7 @@ const FILES: Readonly<Record<Configuration, readonly string[]>> = {
     "widget-uj2-editing.e2e.ts",
     "widget-results.e2e.ts",
     "edit-widgets.e2e.ts",
+    "chart-result.e2e.ts",
   ],
   "hooks-disabled": [
     "conformance.e2e.ts",
@@ -60,6 +63,7 @@ const FILES: Readonly<Record<Configuration, readonly string[]>> = {
     "snapshot.e2e.ts",
     "widget-results.e2e.ts",
     "edit-widgets.e2e.ts",
+    "chart-result.e2e.ts",
   ],
 };
 
