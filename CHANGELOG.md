@@ -4,10 +4,6 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ## Unreleased
 
-### Added
-
-- Chart (bar, line and pie; highlighted points as the answer): the user reads a chart and highlights data points, by click or by keyboard, and the highlighted points come back as the answer's result, in the `results` of `collect` and `fetch`. The `askboard` skill teaches it.
-
 ## 0.1.0 - 2026-11-07
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.
@@ -24,6 +20,7 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 - Snapshots of a board: its data and visuals, for the agent to build a document from.
 - Languages (English and Italian) and settings.
 - A start script, `scripts/askboard`, that runs the session process and the hooks on Node and, when Node is missing or too old, tells the agent why instead of failing silently.
+- Chart (bar, line and pie; highlighted points as the answer): the user reads a chart and highlights data points, by click or by keyboard, and the highlighted points come back as the answer's result, in the `results` of `collect` and `fetch`. The `askboard` skill teaches it.
 
 ### Known limits
 
