@@ -184,6 +184,22 @@ const callBefore = (text: string, at: number): Call => {
   return name(3) === "url" ? "url" : "other";
 };
 
+// Whether the first non-blank character from `from` is a quote.
+const quoteAfter = (text: string, from: number): boolean => {
+  let at = from;
+  while (BLANKS.has(text[at] ?? "")) at += 1;
+  return text[at] === '"' || text[at] === "'";
+};
+
+// The position of the `)` that ends an unquoted url token opened before `from`, or the text's end.
+const urlTokenEnd = (text: string, from: number): number => {
+  for (let at = from; at < text.length; at += 1) {
+    if (text[at] === "\\") at += 1;
+    else if (text[at] === ")") return at;
+  }
+  return text.length;
+};
+
 /**
  * The positions of quoted strings inside `image-set(` or `-webkit-image-set(`, which a browser
  * reads as URLs; a string inside a `url(` there is that URL's own and the URL check's. One pass
@@ -201,6 +217,11 @@ const imageSetStrings = (text: string): number[] => {
       at = close === -1 ? text.length : close + 1;
     } else if (char === "(") {
       const call = callBefore(text, at);
+      if (call === "url" && !quoteAfter(text, at + 1)) {
+        // CSS reads an unquoted url( body as one token, up to the first unescaped `)`.
+        at = urlTokenEnd(text, at + 1);
+        continue;
+      }
       open.push(call);
       if (call === "image-set") sets += 1;
     } else if (char === ")") {

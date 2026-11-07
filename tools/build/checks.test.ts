@@ -182,6 +182,18 @@ describe("escaped and string URLs in styles (latex-kanban-timeline, task 3.5, re
     expect(styleUrlProblems("latex", ".a{b:image-set(\\22 x\\22  1x)}")).toEqual([]);
   });
 
+  test("an unquoted url( body is one token: a comment opener or a quote in it hides no image-set()", () => {
+    const sheets = [
+      '#a{background:url(data:x/*);}#a{background-image:image-set("http://h/c.png" 1x)}#z{background:url(data:y*/)}',
+      '#b{background:url(data:x"y);background-image:image-set("http://h/q.png" 1x)}',
+      "#b{background:url(data:x'y);background-image:image-set('http://h/q.png' 1x)}",
+    ];
+    for (const sheet of sheets) expect(styleUrlProblems("latex", sheet), sheet).toHaveLength(1);
+    // An escaped parenthesis stays inside the token; the unterminated body ends at the text's end.
+    expect(styleUrlProblems("latex", ".a{b:url(data:x\\)y)}")).toEqual([]);
+    expect(styleUrlProblems("latex", "url(data:x")).toEqual([]);
+  });
+
   test("an apostrophe in a comment or a string does not swallow an image-set() that follows", () => {
     for (const lead of ["/* it's */", '.a{content:"it\'s"}', "/* a */ /* b' */"]) {
       const problems = styleUrlProblems(
