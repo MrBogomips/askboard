@@ -4,7 +4,7 @@
 // entry through the registry parameter. Proven with a test-made entry.
 
 import { describe, expect, test } from "bun:test";
-import { PROBE_WIDGET, withWidgetTypes } from "../src/fixtures/index.ts";
+import { NOT_A_WIDGET, PROBE_WIDGET, withWidgetTypes } from "../src/fixtures/index.ts";
 import {
   WIDGET_TYPES,
   type WidgetType,
@@ -67,7 +67,7 @@ describe("widgetAnswerProblems", () => {
   });
 
   test("gives none for a type the registry does not hold: the result check refuses it", () => {
-    const stranger = { type: "spreadsheet", id: "board" };
+    const stranger = { type: NOT_A_WIDGET, id: "board" };
     expect(widgetAnswerProblems(stranger, PICK, { note: undefined, changed: true }, TYPES)).toEqual(
       [],
     );

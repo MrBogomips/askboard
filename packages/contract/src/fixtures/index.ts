@@ -218,6 +218,7 @@ export {
   latexAct,
   latexAnswerEvent,
   latexFetchItemResult,
+  NOT_A_WIDGET,
   TIMELINE_CHANGES,
   TIMELINE_EDITED_PROPS,
   TIMELINE_FIXTURE_ITEM,

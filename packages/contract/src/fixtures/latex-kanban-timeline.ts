@@ -234,3 +234,10 @@ export const timelineFetchItemResult: Readonly<Record<string, unknown>> = {
   },
   unchecked: true,
 };
+
+/**
+ * A widget type no change defines and none will register, for the tests that need "a type the
+ * contract does not know": named outside the catalogue (FR-11), so that registering a planned type
+ * never touches them (latex-kanban-timeline, group 5 review S-4).
+ */
+export const NOT_A_WIDGET = "not-a-widget";

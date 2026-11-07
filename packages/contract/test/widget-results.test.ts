@@ -4,7 +4,7 @@
 // selectors, and `annotationProblems`.
 
 import { describe, expect, test } from "bun:test";
-import { PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
+import { NOT_A_WIDGET, PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
 import { SCHEMA_SETS } from "../src/sets.ts";
 import { type Problem, validateAgainst } from "../src/validate.ts";
 import { WIDGET_TYPES } from "../src/widgets/registry.ts";
@@ -64,10 +64,10 @@ describe("a type that gives no result", () => {
   });
 
   test("a result for a type the registry does not hold fails, naming the item and the type", () => {
-    const problems = widgetResultProblems({ type: "spreadsheet", id: "board" }, {}, {});
+    const problems = widgetResultProblems({ type: NOT_A_WIDGET, id: "board" }, {}, {});
     expect(problems).toHaveLength(1);
     expect(problems[0]?.message).toContain("board");
-    expect(problems[0]?.message).toContain("spreadsheet");
+    expect(problems[0]?.message).toContain(NOT_A_WIDGET);
   });
 
   test("the Tree, the Gantt and the LaTeX declare no result, every type approval-scale-ranking adds does, and so does the probe", () => {
