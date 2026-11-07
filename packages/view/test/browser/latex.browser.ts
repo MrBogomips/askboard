@@ -5,7 +5,7 @@
 // typing gives a preview and a draft holding the whole props, an edit back to the agent's
 // expression clears it; a paste over the limit is cut; a parse error, a refused command, a nest
 // past the limit and an output too complex to preview each show their field error, keep the last
-// preview and leave "Answer" enabled; KaTeX's message shows its controls as escapes; a draw that
+// preview and leave "Answer" enabled; KaTeX's message shows its controls as marked escapes; a draw that
 // throws fails the item; an answered LaTeX is read-only; an Italian board shows it in Italian. No
 // font or other request is made and no Content Security Policy violation occurs.
 
@@ -279,7 +279,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const shown = await errorText(board);
         expect(shown).toContain("\\u202E");
         expect(shown).not.toContain("\u202E");
-        expect(await fieldError(board).locator("*").count()).toBe(0);
+        // The escape sits apart from the text around it, in the code type and muted (DESIGN.md,
+        // Agent-written labels, as the board's other escapes); nothing else in the error is an element.
+        const marks = fieldError(board).locator("*");
+        expect(await marks.count()).toBe(1);
+        expect(await marks.first().textContent()).toBe("\\u202E");
+        const classes = (await marks.first().getAttribute("class")) ?? "";
+        expect(classes.split(" ")).toEqual(
+          expect.arrayContaining(["text-code", "text-muted-foreground"]),
+        );
+        expect(await marks.first().getAttribute("data-latex-escape")).toBe("");
         expect(networkRequests(run)).toEqual(["/"]);
         expect(run.browser.violations).toEqual([]);
         expect(run.browser.errors).toEqual([]);

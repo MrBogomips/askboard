@@ -18,16 +18,42 @@ import {
   SOURCE,
   SOURCE_EDITED,
 } from "./classes.ts";
-import { fieldErrorOf } from "./model.ts";
+import { type FieldError, fieldErrorOf } from "./model.ts";
 import { renderQueue } from "./queue.ts";
 import { type Rendered, renderInto } from "./render.ts";
 
+// Stands for KaTeX's message while the sentence around it is filled.
+const MESSAGE_AT = "\u0000";
+
 // KaTeX's message quotes the agent's source: its controls, bidirectional ones included, are shown
-// as visible escapes (the contract's rule for agent text), as text.
-const asText = (message: string): string =>
-  agentTextRuns(message)
-    .map(({ text }) => text)
-    .join("");
+// as visible escapes (the contract's rule for agent text), each apart from the text around it, in
+// the code type and `muted-foreground` as the board's other escapes (DESIGN.md, Agent-written
+// labels), and everything as text. The sentence around the message is the string table's, filled
+// with a stand-in (its `fill` takes no node) and split where the message goes.
+const Message = ({ message }: { readonly message: string }) =>
+  agentTextRuns(message).map((run, at) =>
+    run.escape ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: the runs of one message never reorder.
+      <span key={at} className="font-mono text-code text-muted-foreground" data-latex-escape="">
+        {run.text}
+      </span>
+    ) : (
+      run.text
+    ),
+  );
+
+const FieldErrorText = ({ problem }: { readonly problem: FieldError }) => {
+  const text = useStrings();
+  if (problem.key !== "latex.parseError") return text(problem.key, problem.values);
+  const [before = "", after = ""] = text(problem.key, { message: MESSAGE_AT }).split(MESSAGE_AT);
+  return (
+    <>
+      {before}
+      <Message message={String(problem.values.message)} />
+      {after}
+    </>
+  );
+};
 
 export const LatexWidget = ({
   expression,
@@ -82,23 +108,14 @@ export const LatexWidget = ({
   useReadyAfterLayout(ready, settled);
 
   const problem = fieldErrorOf(rendered);
-  const words =
-    problem === undefined
-      ? undefined
-      : text(
-          problem.key,
-          problem.key === "latex.parseError"
-            ? { message: asText(String(problem.values.message)) }
-            : problem.values,
-        );
   const errorId = `${key}-error`;
   return (
     <div className={BLOCK} data-latex="">
       <textarea
         className={edited ? `${SOURCE} ${SOURCE_EDITED}` : SOURCE}
         aria-label={text("latex.source")}
-        aria-invalid={words === undefined ? undefined : true}
-        aria-describedby={words === undefined ? undefined : errorId}
+        aria-invalid={problem === undefined ? undefined : true}
+        aria-describedby={problem === undefined ? undefined : errorId}
         rows={3}
         spellCheck={false}
         autoCapitalize="off"
@@ -113,9 +130,9 @@ export const LatexWidget = ({
           onText(next);
         }}
       />
-      {words === undefined ? null : (
+      {problem === undefined ? null : (
         <p id={errorId} className={FIELD_ERROR} data-latex-error="">
-          {words}
+          <FieldErrorText problem={problem} />
         </p>
       )}
       {/* The preview scrolls sideways, so it takes the keyboard to be scrolled by it. */}
