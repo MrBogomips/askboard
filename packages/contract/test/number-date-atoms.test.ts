@@ -350,9 +350,9 @@ describe("the NumberField's step where the doubles are coarse (review 1.8 X-1)",
 
   test("the grid's tolerance: a step of 1 near 1e13 takes an off-step double within eight units in the last place and refuses one past them", () => {
     const whole = number({ step: 1 });
-    expect(resultOf(whole, 10000000000000.015625)).toEqual([]);
-    expect(resultOf(whole, 10000000000000.03125)).toHaveLength(1);
-    expect(resultOf(whole, 10000000000000.25)).toHaveLength(1);
+    expect(resultOf(whole, 1e13 + 2 ** -6)).toEqual([]);
+    expect(resultOf(whole, 1e13 + 2 ** -5)).toHaveLength(1);
+    expect(resultOf(whole, 1e13 + 0.25)).toHaveLength(1);
   });
 
   test("the props' refusal begins where the tolerance reaches a quarter step: 1.4e14 whole steps pass, 1.5e14 do not", () => {
