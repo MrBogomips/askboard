@@ -64,10 +64,10 @@ describe("a type that gives no result", () => {
   });
 
   test("a result for a type the registry does not hold fails, naming the item and the type", () => {
-    const problems = widgetResultProblems({ type: "kanban", id: "board" }, {}, {});
+    const problems = widgetResultProblems({ type: "spreadsheet", id: "board" }, {}, {});
     expect(problems).toHaveLength(1);
     expect(problems[0]?.message).toContain("board");
-    expect(problems[0]?.message).toContain("kanban");
+    expect(problems[0]?.message).toContain("spreadsheet");
   });
 
   test("the Tree, the Gantt and the LaTeX declare no result, every type approval-scale-ranking adds does, and so does the probe", () => {

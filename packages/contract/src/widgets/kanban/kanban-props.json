@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:kanban-props",
   "title": "Kanban props",
-  "description": "A Kanban item's props (FR-11, latex-kanban-timeline design decision 4): 2 to 12 columns and 1 to 200 cards, each card naming its column by ID. That the IDs are unique within the item and that each card's column is one of the item's columns are checked by kanbanPropsProblems. In no schema set until latex-kanban-timeline registers it.",
+  "description": "A Kanban item's props (FR-11, latex-kanban-timeline design decision 4): 2 to 12 columns and 1 to 200 cards, each card naming its column by ID. That the IDs are unique within the item and that each card's column is one of the item's columns are checked by kanbanPropsProblems. In the input format since latex-kanban-timeline.",
   "type": "object",
   "properties": {
     "columns": {

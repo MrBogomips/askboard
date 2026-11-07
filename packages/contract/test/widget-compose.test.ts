@@ -140,7 +140,7 @@ const probeQuestion = (item: unknown) => ({
   props: { text: "Which one?", items: [item] },
 });
 const PROBE = PROBE_WIDGET.example.item;
-const KANBAN = { type: "kanban", id: "board", props: { options: [] } };
+const SPREADSHEET = { type: "spreadsheet", id: "board", props: { options: [] } };
 
 describe("the composition over a registry that also holds the test-only type", () => {
   const ajv = ajvOver(PROBE_TYPES);
@@ -189,21 +189,21 @@ describe("the composition over a registry that also holds the test-only type", (
     ).not.toEqual([]);
   });
 
-  test("refuses an item of type kanban at its type in each of the three", () => {
+  test("refuses an item of type spreadsheet at its type in each of the three", () => {
     const at = (errors: readonly { instancePath: string }[]) => errors.map((e) => e.instancePath);
-    const ask = errorsOf(SCHEMA_IDS.ask, { askId: "a", items: [probeQuestion(KANBAN)] });
+    const ask = errorsOf(SCHEMA_IDS.ask, { askId: "a", items: [probeQuestion(SPREADSHEET)] });
     expect(at(ask)).toContain("/items/0/props/items/0");
     const document = {
       version: BOARD_DOCUMENT_VERSION,
       title: "Which one?",
       askId: "a",
-      items: [{ ...probeQuestion(KANBAN), rev: 1 }],
+      items: [{ ...probeQuestion(SPREADSHEET), rev: 1 }],
     };
     expect(at(errorsOf(SCHEMA_IDS.boardDocument, document))).toContain("/items/0/props/items/0");
     expect(
-      errorsOf(SCHEMA_IDS.fetchResult, fetched({ ...KANBAN, questionId: "q", state: "open" })),
+      errorsOf(SCHEMA_IDS.fetchResult, fetched({ ...SPREADSHEET, questionId: "q", state: "open" })),
     ).not.toEqual([]);
-    const question = { ...probeQuestion(KANBAN), rev: 1, state: "open" };
+    const question = { ...probeQuestion(SPREADSHEET), rev: 1, state: "open" };
     expect(errorsOf(SCHEMA_IDS.fetchResult, fetched(question))).not.toEqual([]);
   });
 

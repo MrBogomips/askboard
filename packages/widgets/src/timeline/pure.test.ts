@@ -11,6 +11,9 @@ const SOURCES = [
   "timeline/layout.ts",
   "timeline/model.ts",
   "kanban/model.ts",
+  "kanban/keys.ts",
+  "kanban/drop.ts",
+  "kanban/props.ts",
   "latex/model.ts",
 ].map((path) => join(import.meta.dir, "..", path));
 

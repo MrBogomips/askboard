@@ -67,7 +67,7 @@ describe("widgetAnswerProblems", () => {
   });
 
   test("gives none for a type the registry does not hold: the result check refuses it", () => {
-    const stranger = { type: "kanban", id: "board" };
+    const stranger = { type: "spreadsheet", id: "board" };
     expect(widgetAnswerProblems(stranger, PICK, { note: undefined, changed: true }, TYPES)).toEqual(
       [],
     );

@@ -61,11 +61,11 @@ describe("widgetItemProblems", () => {
   });
 
   test("a type the contract defines no widget for fails, naming the item and the type", () => {
-    const kanban = { type: "kanban", id: "board-1", props: {} };
-    const problems = widgetItemProblems(kanban, questionOf([kanban]), "agent");
+    const spreadsheet = { type: "spreadsheet", id: "board-1", props: {} };
+    const problems = widgetItemProblems(spreadsheet, questionOf([spreadsheet]), "agent");
     expect(problems).toEqual([{ path: "/", message: expect.any(String) }]);
     expect(problems[0]?.message).toContain("board-1");
-    expect(problems[0]?.message).toContain("kanban");
+    expect(problems[0]?.message).toContain("spreadsheet");
   });
 
   test("a value that is no item is a problem, never an exception", () => {
@@ -83,7 +83,7 @@ describe("elementShapeOf", () => {
     const own = { type: "gantt", id: "release", props: { start: "2026-11-02", tasks: [] } };
     expect(elementShapeOf(own)).toBe(GANTT_SHAPE);
     expect(elementShapeOf(TREE_QUESTION)).toBeUndefined();
-    expect(elementShapeOf({ type: "kanban", id: "k", props: {} })).toBeUndefined();
+    expect(elementShapeOf({ type: "spreadsheet", id: "k", props: {} })).toBeUndefined();
     expect(elementShapeOf(undefined)).toBeUndefined();
     expect(elementShapeOf({ type: "gantt", id: "g" })).toBe(GANTT_SHAPE);
   });

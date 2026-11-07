@@ -138,6 +138,7 @@ export const STRING_KEYS = [
   "change.widgetScale",
   "change.widgetRanking",
   "change.widgetLatex",
+  "change.widgetKanban",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -315,6 +316,12 @@ export const STRING_KEYS = [
   "latex.tooDeep",
   "latex.tooComplex",
   "latex.counterEdited",
+  // The Kanban (latex-kanban-timeline, task 5.2; ux-update-draft.md block 2; the Italian texts to review).
+  "kanban.tools",
+  "kanban.moveTo",
+  "kanban.columnName",
+  "kanban.cardName",
+  "kanban.counterMoved",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

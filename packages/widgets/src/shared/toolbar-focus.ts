@@ -1,9 +1,20 @@
 // The roving focus of a toolbar (the Tree's, since widget-editing; the Ranking's, since
-// approval-scale-ranking), pure: which tool a key moves to and which holds the Tab stop, skipping
+// approval-scale-ranking; the Kanban's and the Timeline's, since latex-kanban-timeline), pure: which tool a key moves to and which holds the Tab stop, skipping
 // disabled tools and stopping at the ends (Tree open question 10).
 
 /** A focus move among the toolbar's tools. */
 export type ToolbarMove = "previous" | "next" | "first" | "last";
+
+const TOOLBAR_KEYS: Readonly<Record<string, ToolbarMove>> = {
+  ArrowLeft: "previous",
+  ArrowRight: "next",
+  Home: "first",
+  End: "last",
+};
+
+/** The move among a toolbar's tools a key makes, or none: the horizontal arrows, Home and End. */
+export const toolbarMoveOf = (key: string): ToolbarMove | undefined =>
+  Object.hasOwn(TOOLBAR_KEYS, key) ? TOOLBAR_KEYS[key] : undefined;
 
 const enabledAt = (enabled: readonly boolean[]): number[] =>
   enabled.flatMap((on, at) => (on ? [at] : []));

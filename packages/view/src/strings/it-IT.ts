@@ -143,6 +143,7 @@ export const IT_IT = {
   "change.widgetScale": "Scala",
   "change.widgetRanking": "Classifica",
   "change.widgetLatex": "LaTeX",
+  "change.widgetKanban": "Kanban",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -348,4 +349,16 @@ export const IT_IT = {
   "latex.tooComplex":
     "Questa espressione è troppo complessa per l'anteprima. Semplificala per vederla disegnata.",
   "latex.counterEdited": "Le tue modifiche: espressione modificata",
+  // The Kanban's texts are provisional, to review (latex-kanban-timeline, task 5.2).
+  "kanban.tools": "Strumenti del Kanban",
+  "kanban.moveTo": "Sposta in…",
+  "kanban.columnName": {
+    one: "{label}, {count} scheda",
+    other: "{label}, {count} schede",
+  },
+  "kanban.cardName": "{label}, in {column}",
+  "kanban.counterMoved": {
+    one: "Le tue modifiche: {count} spostata",
+    other: "Le tue modifiche: {count} spostate",
+  },
 } as const satisfies StringTable;

@@ -138,6 +138,7 @@ export const EN_US = {
   "change.widgetScale": "Scale",
   "change.widgetRanking": "Ranking",
   "change.widgetLatex": "LaTeX",
+  "change.widgetKanban": "Kanban",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -337,4 +338,15 @@ export const EN_US = {
     "This expression nests {depth} levels deep, more than the limit of {limit}. Simplify it before you answer.",
   "latex.tooComplex": "This expression is too complex to preview. Simplify it to see it drawn.",
   "latex.counterEdited": "Your changes: expression edited",
+  "kanban.tools": "Kanban tools",
+  "kanban.moveTo": "Move to…",
+  "kanban.columnName": {
+    one: "{label}, {count} card",
+    other: "{label}, {count} cards",
+  },
+  "kanban.cardName": "{label}, in {column}",
+  "kanban.counterMoved": {
+    one: "Your changes: {count} moved",
+    other: "Your changes: {count} moved",
+  },
 } as const satisfies StringTable;

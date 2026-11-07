@@ -16,6 +16,7 @@ const PREFIXES = [
   "scale.",
   "ranking.",
   "latex.",
+  "kanban.",
 ] as const;
 
 const sourcesUnder = (dir: string): readonly string[] =>

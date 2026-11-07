@@ -14,6 +14,7 @@ import {
   contextBoardDocument,
   ganttBoardDocument,
   ganttPlanBoardDocument,
+  KANBAN_FIXTURE_ITEM,
   LATEX_FIXTURE_ITEM,
   lifecycleSnapshotData,
   plainChoiceBoardDocument,
@@ -88,6 +89,7 @@ describe("bun run build:view (design decision 7)", () => {
       dnd: "library",
       "ext-apps": "library",
       gantt: "component",
+      kanban: "component",
       latex: "component",
       radix: "library",
       ranking: "component",
@@ -114,6 +116,10 @@ describe("bun run build:view (design decision 7)", () => {
     // control, no drag, no board graph and no compute (latex-kanban-timeline, design decision 8).
     expect(manifest.chunks.latex?.components).toEqual(["latex"]);
     expect(manifest.chunks.latex?.needs).toEqual(["react", "shell"]);
+    // The Kanban's drag comes from the dnd chunk and its "Move to…" menu is Radix's; it needs no
+    // board graph and no compute (latex-kanban-timeline, design decision 9).
+    expect(manifest.chunks.kanban?.components).toEqual(["kanban"]);
+    expect(manifest.chunks.kanban?.needs).toEqual(["dnd", "radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -304,6 +310,7 @@ describe("bun run build:view (design decision 7)", () => {
       "dnd",
       "ext-apps",
       "gantt",
+      "kanban",
       "latex",
       "radix",
       "ranking",
@@ -503,6 +510,29 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(built.chunks).not.toContain("tree");
     expect(built.srcdoc).toContain(await text(chunkNamed("latex").script.path));
     expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+  });
+
+  test("a board whose only widget is a Kanban inlines the Kanban's chunk and the drag library's, and no Tree or Ranking chunk (latex-kanban-timeline, design decision 9)", async () => {
+    const [question] = treeBoardDocument.items;
+    const kanbanBoard = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [KANBAN_FIXTURE_ITEM] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(kanbanBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("kanban");
+    expect(names).toContain("dnd");
+    for (const other of ["tree", "ranking", "compute", "board-graph", "gantt", "latex"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(kanbanBoard);
+    expect(built.chunks).toContain("kanban");
+    expect(built.chunks).toContain("dnd");
+    expect(built.chunks).not.toContain("tree");
+    expect(built.chunks).not.toContain("ranking");
+    expect(built.srcdoc).toContain(await text(chunkNamed("kanban").script.path));
+    expect(built.srcdoc).toContain(await text(chunkNamed("dnd").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("ranking").script.path));
   });
 
   test("the plain Choice board's srcdoc holds no Tree chunk, and the Tree board's holds it", async () => {

@@ -94,7 +94,7 @@ describe("the registry's entries", () => {
 
   test("are found by type, and an inherited name is no type", () => {
     expect(widgetTypeOf("gantt")).toBe(GANTT);
-    expect(widgetTypeOf("kanban")).toBeUndefined();
+    expect(widgetTypeOf("spreadsheet")).toBeUndefined();
     expect(widgetTypeOf("constructor")).toBeUndefined();
     expect(widgetTypeOf(undefined)).toBeUndefined();
     expect(widgetTypeOf("probe", PROBE_TYPES)).toBe(PROBE_WIDGET);

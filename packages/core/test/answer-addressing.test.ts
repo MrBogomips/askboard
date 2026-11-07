@@ -106,7 +106,7 @@ describe("answerInReferenceAddressing", () => {
   test("a plain item of the question is left out, and an address of another item kept", () => {
     const plain = {
       ...question,
-      props: { ...question.props, items: [...sent, { type: "kanban", id: "k", props: {} }] },
+      props: { ...question.props, items: [...sent, { type: "spreadsheet", id: "k", props: {} }] },
     };
     const values = { ...uj2ExpandedEditedValues, k: { cards: [] } };
     expect(

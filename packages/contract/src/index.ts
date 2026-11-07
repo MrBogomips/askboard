@@ -697,8 +697,8 @@ export type { FieldsShape } from "./widgets/element-diff.ts";
 export { widgetChangesProblems } from "./widgets/results.ts";
 
 // LaTeX, Kanban and Timeline (latex-kanban-timeline, design decisions 1 and 3 to 5): the entries,
-// with their constants and checks; the LaTeX is in `WIDGET_TYPES`, the Kanban and the Timeline join
-// it with their chunks.
+// with their constants and checks; the LaTeX and the Kanban are in `WIDGET_TYPES`, the Timeline joins
+// it with its chunk.
 
 export {
   KANBAN_CARD_DESCRIPTION_MAX_CHARS,
