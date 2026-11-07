@@ -152,6 +152,7 @@ export const IT_IT = {
   "change.widgetToggle": "Interruttore",
   "change.widgetNumberField": "Campo numerico",
   "change.widgetMoneyField": "Campo importo",
+  "change.widgetDateField": "Campo data",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -400,4 +401,10 @@ export const IT_IT = {
   "field.step": "Un multiplo di {step} a partire da {base}.",
   "field.pickCurrency": "Scegli una valuta.",
   "field.currency": "Valuta",
+  "field.onOrAfter": "Dal {date} in poi.",
+  "field.onOrBefore": "Fino al {date}.",
+  "date.choose": "Scegli una data",
+  "date.previous": "Mese precedente",
+  "date.next": "Mese successivo",
+  "date.nav": "Navigazione tra i mesi",
 } as const satisfies StringTable;

@@ -18,8 +18,10 @@ type EntryFieldProps = {
   readonly echo: string | undefined;
   readonly error: string | undefined;
   readonly hasDescription: boolean;
-  /** What sits after the input: the currency control. */
+  /** What sits after the input: the currency control, the calendar button. */
   readonly after?: ReactNode;
+  /** The keyboard the input asks for on a touch device: `decimal` for amounts, `numeric` for dates. */
+  readonly inputMode?: "decimal" | "numeric";
 };
 
 export const EntryField = ({
@@ -32,6 +34,7 @@ export const EntryField = ({
   error,
   hasDescription,
   after,
+  inputMode = "decimal",
 }: EntryFieldProps) => {
   const ids = fieldIds(itemId);
   const noteId = `${itemId}:note`;
@@ -46,7 +49,7 @@ export const EntryField = ({
         <div className={GROUP}>
           <input
             type="text"
-            inputMode="decimal"
+            inputMode={inputMode}
             id={ids.control}
             value={text}
             readOnly={readOnly}

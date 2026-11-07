@@ -96,6 +96,7 @@ describe("bun run build:view (design decision 7)", () => {
       choice: "component",
       context: "component",
       compute: "library",
+      "date-field": "component",
       divider: "component",
       dnd: "library",
       "ext-apps": "library",
@@ -129,6 +130,10 @@ describe("bun run build:view (design decision 7)", () => {
       expect(manifest.chunks[atom]?.needs).toEqual(["react", "shell"]);
     }
     expect(manifest.chunks.toggle?.needs).toEqual(["radix", "react", "shell"]);
+    // The DateField's calendar is react-day-picker in Radix's Popover, with date-fns, all in its own
+    // chunk (task 5.5; design decision 9).
+    expect(manifest.chunks["date-field"]?.components).toEqual(["date-field"]);
+    expect(manifest.chunks["date-field"]?.needs).toEqual(["radix", "react", "shell"]);
     // The MoneyField's currency control is Radix's Toggle Group (task 5.4).
     expect(manifest.chunks["money-field"]?.components).toEqual(["money-field"]);
     expect(manifest.chunks["money-field"]?.needs).toEqual(["radix", "react", "shell"]);
@@ -348,6 +353,7 @@ describe("bun run build:view (design decision 7)", () => {
       "choice",
       "compute",
       "context",
+      "date-field",
       "divider",
       "dnd",
       "ext-apps",

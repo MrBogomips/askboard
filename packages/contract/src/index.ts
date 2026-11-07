@@ -904,3 +904,8 @@ export {
 // that gives no value.
 
 export { ENTRY_MAX_CHARS } from "./lifecycle-constants.ts";
+
+// The calendar's names (atoms, task 5.5): a locale's table, whose month and weekday names the
+// DateField's calendar draws in the ask's language.
+
+export { type LocaleTable, tableOf } from "./locale/index.ts";

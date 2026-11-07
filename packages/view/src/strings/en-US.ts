@@ -147,6 +147,7 @@ export const EN_US = {
   "change.widgetToggle": "Toggle",
   "change.widgetNumberField": "NumberField",
   "change.widgetMoneyField": "MoneyField",
+  "change.widgetDateField": "DateField",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -386,4 +387,10 @@ export const EN_US = {
   "field.step": "A multiple of {step} from {base}.",
   "field.pickCurrency": "Pick a currency.",
   "field.currency": "Currency",
+  "field.onOrAfter": "On or after {date}.",
+  "field.onOrBefore": "On or before {date}.",
+  "date.choose": "Choose a date",
+  "date.previous": "Previous month",
+  "date.next": "Next month",
+  "date.nav": "Month navigation",
 } as const satisfies StringTable;

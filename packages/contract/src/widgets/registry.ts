@@ -21,6 +21,7 @@ import fetchResultBase from "../schemas/tool-envelopes/fetch-result.json" with {
 import type { Problem } from "../validate.ts";
 import { APPROVAL_WIDGET } from "./approval/widget.ts";
 import { CHART_WIDGET } from "./chart/widget.ts";
+import { DATE_FIELD_WIDGET } from "./date-field/widget.ts";
 import { DIVIDER_WIDGET } from "./divider/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
@@ -144,6 +145,7 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   TEXT_FIELD_WIDGET,
   NUMBER_FIELD_WIDGET,
   MONEY_FIELD_WIDGET,
+  DATE_FIELD_WIDGET,
   TOGGLE_WIDGET,
 ];
 
