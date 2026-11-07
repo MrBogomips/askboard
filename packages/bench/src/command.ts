@@ -76,11 +76,16 @@ const ASKBOARD_TOOLS = [
   "mcp__askboard__collect",
 ];
 
-// The baseline gets the AskBoard arm's tools, so that the two first requests differ only by AskBoard.
+// The baseline gets the AskBoard arm's tools but Skill, so that the two first requests differ only by
+// AskBoard and what it adds: the skill's listing entry is part of T (askboard-skills, decision 9).
 const toolsOf = (run: CaseRun): { tools: string[]; allowed: string[] } => {
   if (run.arm === "auq") return { tools: [AUQ_TOOL, "ToolSearch"], allowed: ["ToolSearch"] };
   const agent = CASES[run.caseId].fromSubagent ? ["Agent"] : [];
-  return { tools: ["ToolSearch", ...agent], allowed: [...ASKBOARD_TOOLS, "ToolSearch", ...agent] };
+  const skill = run.arm === "askboard" ? ["Skill"] : [];
+  return {
+    tools: ["ToolSearch", ...skill, ...agent],
+    allowed: [...ASKBOARD_TOOLS, "ToolSearch", ...skill, ...agent],
+  };
 };
 
 export const buildLaunch = (

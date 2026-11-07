@@ -134,9 +134,9 @@ describe("buildLaunch", () => {
       "--settings",
       "/runs/r1/cases/S1-askboard-1/run-settings.json",
       "--tools",
-      "ToolSearch",
+      "ToolSearch,Skill",
       "--allowedTools",
-      "mcp__plugin_askboard_askboard__ask,mcp__plugin_askboard_askboard__collect,mcp__askboard__ask,mcp__askboard__collect,ToolSearch",
+      "mcp__plugin_askboard_askboard__ask,mcp__plugin_askboard_askboard__collect,mcp__askboard__ask,mcp__askboard__collect,ToolSearch,Skill",
       "--max-turns",
       "12",
       "--output-format",
@@ -167,8 +167,10 @@ describe("buildLaunch", () => {
       USER_ENV,
     );
     const tools = launch.args[launch.args.indexOf("--tools") + 1];
-    expect(tools).toBe("ToolSearch,Agent");
-    expect(launch.args[launch.args.indexOf("--allowedTools") + 1]).toEndWith(",ToolSearch,Agent");
+    expect(tools).toBe("ToolSearch,Skill,Agent");
+    expect(launch.args[launch.args.indexOf("--allowedTools") + 1]).toEndWith(
+      ",ToolSearch,Skill,Agent",
+    );
     expect(launch.env.MCP_PROTOCOL_NEGOTIATION).toBe("legacy");
   });
 
@@ -204,7 +206,7 @@ describe("buildLaunch", () => {
     expect(mcp.mcpServers.bench.args[0]).toBe(PERMISSION_HOST);
   });
 
-  test("the baseline: the AskBoard arm's tools without AskBoard, ended after one request", () => {
+  test("the baseline: the AskBoard arm's tools without AskBoard and without Skill, ended after one request", () => {
     const launch = buildLaunch(
       caseRun({ arm: "baseline", dir: "/runs/r1/cases/S1-baseline-1" }),
       "p",
@@ -212,8 +214,12 @@ describe("buildLaunch", () => {
     );
     const askboard = buildLaunch(caseRun(), "p", USER_ENV);
     const flag = (args: readonly string[], name: string) => args[args.indexOf(name) + 1];
-    expect(flag(launch.args, "--tools")).toBe(flag(askboard.args, "--tools"));
-    expect(flag(launch.args, "--allowedTools")).toBe(flag(askboard.args, "--allowedTools"));
+    expect(flag(launch.args, "--tools")).toBe("ToolSearch");
+    expect(flag(askboard.args, "--tools")).toBe("ToolSearch,Skill");
+    expect(flag(launch.args, "--allowedTools")).toBe(
+      flag(askboard.args, "--allowedTools")?.replace(",Skill", ""),
+    );
+    expect(flag(launch.args, "--allowedTools")).not.toContain("Skill");
     expect(flag(launch.args, "--max-turns")).toBe("1");
     expect(launch.args).not.toContain("--plugin-dir");
     expect(launch.args).not.toContain("--permission-prompt-tool");
