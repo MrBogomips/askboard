@@ -177,7 +177,9 @@ describe("SKILL.md delivery, follow-ups and fallbacks", () => {
 });
 
 describe("SKILL.md ownership of an ask", () => {
-  const after = skill.slice(skill.indexOf("## After you ask"));
+  const start = skill.indexOf("## After you ask");
+  const next = skill.indexOf("\n## ", start + 1);
+  const after = skill.slice(start, next === -1 ? undefined : next);
 
   test("says what ownership means with the hooks, and that a later answer to a subagent's ask is lost", () => {
     expect(after).toContain("With AskBoard's hooks, an ask belongs to the agent that sent it");
@@ -198,7 +200,7 @@ describe("SKILL.md ownership of an ask", () => {
   test("no generated file offers a subagent that asks on another agent's behalf", () => {
     for (const [name, text] of files)
       for (const phrase of ["background subagent", "side dialogue", "asks, waits and returns"])
-        expect(text, `${name}: ${phrase}`).not.toContain(phrase);
+        expect(text.toLowerCase(), `${name}: ${phrase}`).not.toContain(phrase);
   });
 });
 
