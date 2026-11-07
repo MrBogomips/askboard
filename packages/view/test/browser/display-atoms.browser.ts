@@ -241,5 +241,55 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
       }
     }
+
+    // A unit of 20 code points, full-width or emoji, beside the input at 320 px (review U-1, 5.14).
+    // MoneyField's affix is the three-letter currency code, so only the NumberField carries a long one.
+    for (const [shape, unit] of [
+      ["full-width", "\uFF37".repeat(20)],
+      ["emoji", "\u{1F600}".repeat(20)],
+    ] as const) {
+      test(
+        `a NumberField whose unit is 20 ${shape} characters keeps an input of 4 characters at 320 px, inside the card, with no sideways scroll`,
+        async () => {
+          const items = [
+            { type: "number-field", id: "days", props: { label: "Days", unit } },
+            { type: "money-field", id: "fee", props: { label: "Fee", currency: "EUR" } },
+          ];
+          const run = await host(dist, atomDocument(items));
+          await readyIn(run);
+          await run.board.page.setViewportSize({ width: 320, height: 800 });
+          const measured = await run.board.view.locator("body").evaluate(() => {
+            const card = document
+              .querySelector("[data-askboard-question]")
+              ?.getBoundingClientRect();
+            const input = document.querySelector('[data-askboard-item="days"] input');
+            if (card === undefined || input === null) throw new Error("no card or input");
+            const box = input.getBoundingClientRect();
+            const affix = input.parentElement?.querySelector("span")?.getBoundingClientRect();
+            const style = getComputedStyle(input);
+            const probe = document.createElement("span");
+            probe.style.cssText = `font:${style.font};position:absolute;visibility:hidden`;
+            probe.textContent = "0000";
+            document.body.append(probe);
+            const four = probe.getBoundingClientRect().width;
+            probe.remove();
+            return {
+              inputWidth: box.width,
+              four,
+              inputRight: box.right,
+              affixRight: affix?.right ?? Number.POSITIVE_INFINITY,
+              cardRight: card.right,
+              sideways: document.documentElement.scrollWidth - window.innerWidth,
+            };
+          });
+          expect(measured.inputWidth).toBeGreaterThanOrEqual(measured.four);
+          expect(measured.inputRight).toBeLessThanOrEqual(measured.cardRight + 0.5);
+          expect(measured.affixRight).toBeLessThanOrEqual(measured.cardRight + 0.5);
+          expect(measured.sideways).toBeLessThanOrEqual(0);
+          expect(run.browser.cspProblems()).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
   });
 }

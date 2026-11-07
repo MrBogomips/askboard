@@ -35,9 +35,12 @@ export const GROUP = "flex min-w-0 items-stretch";
 /** An input inside a group: it takes the width the affix leaves and squares its trailing corners. */
 export const GROUP_INPUT = `${INPUT} min-w-0 flex-1 aria-invalid:border-destructive has-[~span]:rounded-r-none`;
 
-/** The affix after the input: the unit or the currency code, in the code type on `muted`. */
+/**
+ * The affix after the input: the unit or the currency code, in the code type on `muted`. A long
+ * unit takes at most 40% of the group and breaks inside it, so the input keeps its width (5.14).
+ */
 export const AFFIX =
-  "flex shrink-0 items-center rounded-r-md border border-l-0 border-input bg-muted px-sm font-mono text-code text-muted-foreground";
+  "flex min-w-0 max-w-[40%] shrink-0 items-center break-all rounded-r-md border border-l-0 border-input bg-muted px-sm font-mono text-code text-muted-foreground";
 
 /** The line under the control holding the echo and the field error. */
 export const NOTES = "flex min-w-0 flex-wrap items-baseline gap-x-sm gap-y-xs";
