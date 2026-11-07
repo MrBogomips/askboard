@@ -169,7 +169,15 @@ A Ranking's list SHALL be one Tab stop whose arrow keys move the current row, an
 - **THEN** "Move down" is disabled and keeps the focus if it had it
 
 ### Requirement: Result widgets read-only
-An answered question's, a locked question's and an opened Snapshot's Approval, Scale and Ranking SHALL show their logged result disabled: the selected decision with the summary of the answer's changes, the value or the rating, the order with its moved rows marked (AD-15, AD-20).
+The Approval, Scale and Ranking of a question that cannot be answered (ask closed, board locked, answer in flight) or of an opened Snapshot SHALL show their logged result disabled: the decision with the summary, the value or rating, the order with moved rows marked (AD-15, AD-20). While the ask is open, an answered question's widgets SHALL show its result and stay editable (EXPERIENCE, Revisions).
+
+#### Scenario: An answered question while the ask is open
+- **WHEN** a question holding a Scale is answered at 100 and its receipt reads delivered
+- **THEN** the Scale shows 100 and is enabled, and setting another value starts a revision
+
+#### Scenario: The ask closed
+- **WHEN** the agent closes the ask after the question was answered
+- **THEN** each widget shows its logged result disabled, and nothing can be selected, moved or set
 
 #### Scenario: A Snapshot of an answered board
 - **WHEN** a Snapshot is opened of a board whose question was answered "approve-with-changes" with a Scale at 4 and a Ranking reordered
@@ -209,15 +217,15 @@ A result given on the board SHALL reach the agent through `collect` and push del
 - **THEN** the Scale shows that value and the leave-page prompt is armed
 
 ### Requirement: The three widgets' strings
-Every string the Approval, the Scale and the Ranking show SHALL come from the view's string tables in en-US and it-IT, and an Italian board SHALL show them in Italian (FR-34, EXPERIENCE Voice and Tone).
+Every string the Approval, the Scale and the Ranking show SHALL come from the view's string tables in en-US and it-IT, and an Italian board SHALL show them in Italian (FR-34, EXPERIENCE Voice and Tone). The Approval summary SHALL format the values it lists in the ask's locale, and a switched value, when a widget gives one, SHALL read "on" and "off", "attivo" and "disattivo" in it-IT.
 
 #### Scenario: An Italian board
 - **WHEN** a board in it-IT holds the three widgets
 - **THEN** it shows "Approvazione", "Approva con modifiche", "Mantieni quest'ordine" and "Sposta su", and no English chrome
 
-#### Scenario: A switched value in Italian
-- **WHEN** on an it-IT board the user turns off a boolean field of a Tree beside an Approval
-- **THEN** the summary's line reads "attivo" struck through before "disattivo"
+#### Scenario: A changed number in Italian
+- **WHEN** on an it-IT board the user changes a Tree node's `effort` from 1234.5 to 10 beside an Approval
+- **THEN** the summary's line reads "1.234,5" struck through before "10"
 
 ## MODIFIED Requirements
 
