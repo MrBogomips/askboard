@@ -1,9 +1,9 @@
-// A bare LaTeX render in a browser engine (latex-kanban-timeline, tasks 4.10, 4.11 and 6.8): the
+// A bare LaTeX render in a browser engine (latex-kanban-timeline, tasks 4.10, 4.11, 4.15 and 6.8): the
 // page the board page makes for the view, a parent page holding a `sandbox="allow-scripts"` srcdoc
 // frame, and in the frame KaTeX's stylesheet with its woff2 fonts inlined as the build inlines them
-// and a bundle of `katex` and `renderOptions` that renders into a scratch span and swaps it in, as
-// `renderInto` does. It runs no refusal of the contract: a probe needs to see a nest the check would
-// stop. No server, no board. Every request is aborted, so nothing leaves the machine and a font
+// and a bundle of the widgets' scan, render options and output tree that draws as `renderInto` will:
+// the scan, KaTeX's tree, the tree's size, then its nodes in place of the element's children. It
+// applies no refusal and no bound: a probe needs to see what they would stop. No server, no board. Every request is aborted, so nothing leaves the machine and a font
 // cannot arrive late; a render's time runs from the call to the end of a forced layout.
 //
 // A crash ("Target crashed"), 10 seconds without an answer or a parent page that does not answer
@@ -16,9 +16,9 @@ import { dirname, join } from "node:path";
 import type { Browser, BrowserContext, Frame, Page } from "playwright";
 import { launchEngine } from "./browser.ts";
 import type { Engine } from "./engines.ts";
+import { LATEX_SOURCES } from "./latex-measure.ts";
 
-const WIDGETS = join(import.meta.dir, "../../../../widgets");
-const RENDER_MODULE = join(WIDGETS, "src/latex/render.ts");
+const WIDGETS = LATEX_SOURCES.widgets;
 
 /** An answer is due within this, from the parent page's `evaluate` after each render. */
 export const PARENT_ANSWER_MS = 2_000;
@@ -26,13 +26,29 @@ export const PARENT_ANSWER_MS = 2_000;
 export const RENDER_TIMEOUT_MS = 10_000;
 const CLOSE_TIMEOUT_MS = 5_000;
 
-export type RenderResult =
-  | { readonly ok: true; readonly ms: number; readonly nodes: number; readonly parentMs: number }
-  | {
-      readonly ok: false;
-      readonly reason: "crash" | "timeout" | "parent" | "error";
-      readonly message: string;
-    };
+export type Failure = {
+  readonly ok: false;
+  readonly reason: "crash" | "timeout" | "parent" | "error";
+  readonly message: string;
+};
+
+export type RenderResult = ({ readonly ok: true; readonly parentMs: number } & Drawn) | Failure;
+
+/** What one draw reports: its time, the page's elements, the tree's size and the work before the bound. */
+export type Drawn = {
+  /** From the call to the end of a forced layout: the scan, the tree, its size, its nodes, the layout. */
+  readonly ms: number;
+  /** The elements the draw put in the page. */
+  readonly nodes: number;
+  readonly scanDepth: number;
+  readonly treeDepth: number;
+  readonly treeNodes: number;
+  /** The scan, KaTeX's tree and its size, before any node is made. */
+  readonly beforeMs: number;
+};
+
+/** Ten elements drawn in one task, or one per task: the total and the longest task. */
+export type Many = { readonly totalMs: number; readonly longestMs: number };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -52,25 +68,59 @@ const katexStyles = async (): Promise<string> => {
   return result;
 };
 
-// The script of the frame: `katex` and the widgets' render options, bundled for a browser.
+// The script of the frame: the widgets' scan, render options and output tree, bundled for a browser.
 const probeScript = async (): Promise<string> => {
   const folder = await mkdtemp(join(tmpdir(), "askboard-latex-frame-"));
   try {
-    const katex = Bun.resolveSync("katex", WIDGETS);
     const entry = join(folder, "entry.ts");
     await writeFile(
       entry,
-      `import katex from ${JSON.stringify(katex)};
-import { renderOptions } from ${JSON.stringify(RENDER_MODULE)};
+      `import { scanLatex } from ${JSON.stringify(LATEX_SOURCES.contract)};
+import { renderOptions } from ${JSON.stringify(LATEX_SOURCES.render)};
+import { renderTree, treeSizeOf } from ${JSON.stringify(LATEX_SOURCES.tree)};
 const target = document.getElementById("t") as HTMLElement;
-(window as unknown as Record<string, unknown>).__timed = (expression: string) => {
+const draw = (expression: string, element: HTMLElement) => {
   const started = performance.now();
-  const scratch = document.createElement("span");
-  katex.render(expression, scratch, renderOptions());
-  target.replaceChildren(...Array.from(scratch.childNodes));
-  target.getBoundingClientRect();
+  const scan = scanLatex(expression);
+  const tree = renderTree(expression, renderOptions());
+  const size = treeSizeOf(tree);
+  const beforeMs = performance.now() - started;
+  element.replaceChildren(tree.toNode());
+  element.getBoundingClientRect();
   document.documentElement.offsetHeight;
-  return { ms: performance.now() - started, nodes: target.getElementsByTagName("*").length };
+  return {
+    ms: performance.now() - started,
+    nodes: element.getElementsByTagName("*").length,
+    scanDepth: scan.depth,
+    treeDepth: size.depth,
+    treeNodes: size.nodes,
+    beforeMs,
+  };
+};
+const page = window as unknown as Record<string, unknown>;
+page.__timed = (expression: string) => draw(expression, target);
+// Ten elements: all drawn in one task, or one per task (a timeout of 0 between them).
+page.__many = async (expression: string, count: number, perTask: boolean) => {
+  const elements = Array.from({ length: count }, () => document.createElement("div"));
+  for (const element of elements) document.body.append(element);
+  const started = performance.now();
+  let longest = 0;
+  const one = (element: HTMLElement) => {
+    const at = performance.now();
+    draw(expression, element);
+    longest = Math.max(longest, performance.now() - at);
+  };
+  if (perTask) {
+    for (const element of elements) {
+      await new Promise<void>((resolve) => setTimeout(() => { one(element); resolve(); }, 0));
+    }
+  } else {
+    for (const element of elements) one(element);
+    longest = performance.now() - started;
+  }
+  const totalMs = performance.now() - started;
+  for (const element of elements) element.remove();
+  return { totalMs, longestMs: longest };
 };
 `,
     );
@@ -148,14 +198,39 @@ export class LatexFrame {
       await Promise.race([browser.close().catch(() => undefined), sleep(CLOSE_TIMEOUT_MS)]);
   }
 
-  /** Renders `expression`; a failure discards the engine, and the next call starts a new one. */
+  /** Draws `expression`; a failure discards the engine, and the next call starts a new one. */
   async render(expression: string, timeoutMs = RENDER_TIMEOUT_MS): Promise<RenderResult> {
+    const result = await this.#call<Drawn>(
+      `window.__timed(${JSON.stringify(expression)})`,
+      timeoutMs,
+    );
+    return result.ok ? { ok: true, ...result.value, parentMs: result.parentMs } : result;
+  }
+
+  /** Draws `count` copies of `expression` in as many elements, all in one task or one per task. */
+  async many(
+    expression: string,
+    count: number,
+    perTask: boolean,
+    timeoutMs = RENDER_TIMEOUT_MS * 6,
+  ): Promise<({ readonly ok: true; readonly parentMs: number } & Many) | Failure> {
+    const result = await this.#call<Many>(
+      `window.__many(${JSON.stringify(expression)}, ${count}, ${perTask})`,
+      timeoutMs,
+    );
+    return result.ok ? { ok: true, ...result.value, parentMs: result.parentMs } : result;
+  }
+
+  async #call<T>(
+    script: string,
+    timeoutMs: number,
+  ): Promise<{ readonly ok: true; readonly value: T; readonly parentMs: number } | Failure> {
     await this.#start();
     const page = this.#page as Page;
     const frame = this.#frame as Frame;
     const crashed = new Promise<"crash">((resolve) => page.once("crash", () => resolve("crash")));
-    const ran = frame.evaluate(`window.__timed(${JSON.stringify(expression)})`).then(
-      (value) => ({ value: value as { ms: number; nodes: number } }),
+    const ran = frame.evaluate(script).then(
+      (value) => ({ value: value as T }),
       (error: unknown) => ({ error: String(error) }),
     );
     const first = await Promise.race([
@@ -189,6 +264,6 @@ export class LatexFrame {
         message: `the parent page did not answer in ${PARENT_ANSWER_MS} ms`,
       };
     }
-    return { ok: true, ...first.value, parentMs: Date.now() - asked };
+    return { ok: true, value: first.value, parentMs: Date.now() - asked };
   }
 }

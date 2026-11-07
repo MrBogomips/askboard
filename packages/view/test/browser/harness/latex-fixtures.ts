@@ -6,22 +6,26 @@
 import { readFileSync } from "node:fs";
 import { LATEX_EXPRESSION_MAX_CHARS, scanLatex } from "@askboard/contract";
 
-/** A construct nested: `open` repeated, `middle`, then `close` repeated; a level adds `levelDepth`. */
+/**
+ * A construct nested: `open` repeated, `middle`, then `close` repeated; a level adds `levelDepth` to
+ * the scan's depth, after the `offset` the nest as a whole adds (an `array`'s column group).
+ */
 export type Construct = {
   readonly name: string;
   readonly open: string;
   readonly middle: string;
   readonly close: string;
-  readonly levelDepth: 1 | 2;
+  readonly levelDepth: number;
+  readonly offset: number;
 };
 
-const construct = (
+export const construct = (
   name: string,
   open: string,
   close: string,
-  levelDepth: 1 | 2 = 1,
-  middle = "x",
-): Construct => ({ name, open, middle, close, levelDepth });
+  levelDepth = 1,
+  offset = 0,
+): Construct => ({ name, open, middle: "x", close, levelDepth, offset });
 
 /** The constructs of task 4.10, each in the form the review named it. */
 export const LATEX_CONSTRUCTS: readonly Construct[] = [
@@ -44,11 +48,14 @@ export const LATEX_CONSTRUCTS: readonly Construct[] = [
   construct("{ }", "{", "}"),
 ];
 
-const levelsOf = (c: Construct, depth: number) => ({
-  levels: Math.floor(depth / c.levelDepth),
-  // An odd depth with two-level constructs gets one plain group around the nest.
-  wrapped: depth % c.levelDepth !== 0,
-});
+const levelsOf = (c: Construct, depth: number) => {
+  const own = depth - c.offset;
+  return {
+    levels: Math.floor(own / c.levelDepth),
+    // An odd depth with two-level constructs gets one plain group around the nest.
+    wrapped: own % c.levelDepth !== 0,
+  };
+};
 
 const wrap = (text: string, wrapped: boolean): string => (wrapped ? `{${text}}` : text);
 
@@ -119,6 +126,12 @@ export const katexControlWords = (katexModule: string): readonly string[] => {
   return [...found].filter((name) => /^\\[A-Za-z@]+$/.test(name)).sort();
 };
 
-/** A control word nested to `depth`, as task 4.5's guard nests it: `\name{\name{…x…}}`. */
-export const nestControlWord = (name: string, depth: number): string =>
-  `${`${name}{`.repeat(depth)}x${"}".repeat(depth)}`;
+/**
+ * A control word of `arity` arguments nested to `depth` in its argument at `position` (the first by
+ * default), its other arguments `x`: with one argument, task 4.5's guard form `\\name{\\name{x}}`.
+ */
+export const nestControlWord = (name: string, depth: number, position = 0, arity = 1): string => {
+  const before = "{x}".repeat(position);
+  const after = "{x}".repeat(arity - 1 - position);
+  return `${`${name}${before}{`.repeat(depth)}x${`}${after}`.repeat(depth)}`;
+};

@@ -8,5 +8,6 @@ exact = true
 coverageThreshold = 0.8
 coverageSkipTestFiles = true
 # The validators the build generates are loaded from a temporary folder by their tests; generated
-# code is no source of ours, and its line coverage follows the schemas, not the tests.
-coveragePathIgnorePatterns = ["**/askboard-validators-*/**"]
+# code is no source of ours, and its line coverage follows the schemas, not the tests. The same for
+# the bundle the LaTeX probe's tests load from a temporary folder.
+coveragePathIgnorePatterns = ["**/askboard-validators-*/**", "**/askboard-latex-measure-*/**"]
