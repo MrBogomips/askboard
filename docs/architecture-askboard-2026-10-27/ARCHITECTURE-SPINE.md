@@ -34,6 +34,7 @@ sources:
   - 'OpenSpec change askboard-skills, proposal.md, open questions 1 to 5: one generated skill, no shipped agent in the first version, the skill''s budgets (accepted under the PO''s unattended handoff, 2026-11-06)'
   - 'OpenSpec change askboard-skills, support-agents evaluation (2026-11-07): a measurable trigger for a shipped agent'
   - 'OpenSpec change skill-no-delegated-asks, proposal.md: no subagent asks on another agent''s behalf; the support-agents evaluation''s candidate C (a background dialogue) rejected (PO decision, 2026-11-07)'
+  - 'OpenSpec change plugin-release, design.md, decision 7 and open questions 1 to 7: the Node form of the plugin, the start script, the release branch and the first release (0.1.0), accepted under the PO''s unattended handoff (2026-11-07)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -527,11 +528,13 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Bundle:**
     - AskBoard is released under the MIT licence.
     - One Claude Code plugin from a GitHub marketplace carries the MCP server, the skills, any shipped agents and `hooks/hooks.json`. That file declares both the settings hooks and the mod as the plugin's hooks module. The plugin installs at user or project scope (FR-28).
+    - **Node form:** until the executable ships, the plugin carries the bundle and the view build; the server entry and every hook run `scripts/askboard`, a POSIX `sh` start script that `exec`s Node 24.22.1 or later on the bundle and makes no network request. When Node is missing or older, the server answers the MCP handshake with no tools and the reason in its instructions, and a hook exits 0 with one stderr line.
+    - **Releases:** a release commits the built plugin, with a marketplace file whose one plugin is the tree itself, to the `release` branch, tagged `v<version>`, and publishes the bundle, the tree and their SHA-256 as a GitHub release; `main` carries no build output and no marketplace file. The tree holds no `package.json` or lockfile, so installing runs nothing [F-a].
   - **Executable:**
     - The session process ships as a Bun-compiled executable for macOS and Linux on x64 and arm64, with Linux builds for glibc and musl.
     - No unit uses a Bun-only API: Bun is the build tool and the embedded runtime. CI also runs the session process on Node 24 and Node 26.
   - **Hooks:**
-    - Every hook runs the same executable in hook mode, `askboard hook <event>`, through the launcher.
+    - Every hook runs the same executable in hook mode, `askboard hook <event>`, through the start script in the Node form and the launcher in the executable form.
     - When the executable is missing, or the session process can't be reached, the hook exits 0 with no decision and writes one stderr line saying why. Each hook declares a timeout of 5 s.
   - **Browsers:** the supported browsers are the current and previous major versions of Chrome, Edge, Firefox and Safari. The bundler targets that baseline.
   - **Dependencies:**
@@ -596,6 +599,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** stale executables or session files left behind; sessions running mixed versions mid-session; undeclared launcher prerequisites; support requests with no way to see AskBoard's state; unsupported environments failing silently.
 - **Rule:**
   - **Executables:**
+    - These rules apply to the executable form; the Node form (AD-19) fetches nothing and caches nothing.
     - Executables are cached under `${CLAUDE_PLUGIN_DATA}/bin/<version>/`. When that variable is unset, empty or not substituted (a plugin loaded with `--plugin-dir` [F50]), the cache is `${XDG_CACHE_HOME:-$HOME/.cache}/askboard/bin/<version>/`. Each session runs the version its plugin pinned when the session started.
     - At start, versions the installed plugin no longer pins are pruned, along with session files whose process is gone.
     - The launcher sits in `scripts/` and fetches the executable from the release the plugin pins. It takes a lock by `mkdir`, breaks a lock whose owner is gone, removes partial files left by killed launchers, downloads to a temporary name, checks the SHA-256 shipped in the plugin, renames the file into place and `exec`s it, so Claude Code stays the parent of the session process.
@@ -804,7 +808,7 @@ askboard/
     bench/               # benchmark runner, scripted answerer, report, cost model
   skills/                # Agent Skills: SKILL.md and its references, all generated from contract and molecules
   agents/                # shipped agents (none in the first version; Deferred)
-  scripts/               # launcher: platform executable fetch, checksum, rename
+  scripts/               # start script (Node form); the launcher (executable form)
   tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)
 ```
 
@@ -833,6 +837,7 @@ Spike exit criteria are in `SOLUTION-DESIGN.md` (Spikes). All spikes run in the 
 | Item | Why it can wait | Revisit when |
 | --- | --- | --- |
 | The session-file key (the Claude Code PID) on Linux | Passed on macOS; AD-5 fixes the rule | Task 4.1 of the mod delivery spike, in a devcontainer |
+| The Bun executable form: the executables, the launcher and its cache, gzip assets, `askboard doctor`, the mirror and log-level keys (AD-19, AD-22) | AD-19 ships the Node form until AXFX NFR-1 admits the executable; 0.x needs none of the operations items | AXFX NFR-1 admits the executable (SOLUTION-DESIGN §11 entry 8), or the PO asks for `askboard doctor` |
 | Packaging checks left to the product owner: the WSL notices and `$BROWSER`, native Windows, a GitHub-hosted runner (x86-64 Linux, so far run only under emulation), Chrome's Memory Saver and Safari on a background board tab, model runs of a failed start and of the `command` source's background re-run | The packaging spike settled the delivery path and the detection rule (AD-18, AD-19, AD-22); these runs confirm them | The product owner's runs (`spike-packaging` tasks 4.4 and 7.1 to 7.5) |
 | Default port range, the container opt-in setting, the host-side address and port in printed links, whether VS Code Dev Containers' `BROWSER` helper and port forwarding make the container opt-in unnecessary there | AD-5, AD-8 and AD-11 fix the rules; the keys are named in the configuration schema. The reconnect grace period is a `contract` constant of 120 s (OpenSpec change `ask-lifecycle`), above the 90 s floor of SOLUTION-DESIGN §8 | Implementation |
 | `alwaysLoad` for the `ask` tool | No context budget in the PRD; decided by data | First benchmark run |

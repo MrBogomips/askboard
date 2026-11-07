@@ -2,7 +2,7 @@
 title: 'Solution design: AskBoard'
 status: final
 created: '2026-10-27'
-updated: '2026-11-03'
+updated: '2026-11-07'
 companions: ['ARCHITECTURE-SPINE.md']
 sources:
   - 'ARCHITECTURE-SPINE.md: AD-1 to AD-22, conventions, stack, Deferred (final, 2026-10-28)'
@@ -17,6 +17,7 @@ sources:
   - 'OpenSpec change spike-formula, findings.md: IronCalc 0.9.1 and the own restricted evaluator in Bun, Node, Chromium, Firefox and WebKit, and the function whitelist (2026-10-30)'
   - 'OpenSpec change spike-packaging, findings.md: the Bun executable, the launcher, Claude Code 2.1.314, Linux containers and background tabs (2026-10-30)'
   - 'OpenSpec change ask-lifecycle: the 120 s grace period (2026-10-31)'
+  - 'OpenSpec change plugin-release, design.md: Claude Code plugin facts K2, K3, K4 and K7, read on 2026-11-07 (facts F-a to F-d)'
 ---
 
 # Solution design: AskBoard
@@ -438,6 +439,7 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 ## 8. Operational envelope (AD-18, AD-22)
 
 - **Installation.** One GitHub-marketplace plugin carries the server, skills, agents and `hooks/hooks.json` (settings hooks plus the mod). Scopes are user, project and local [F23]; FR-28 uses the first two. Hooks match `mcp__plugin_askboard_askboard__<tool>` and, for `--mcp-config` loading, `mcp__askboard__<tool>`. The server entry passes `CLAUDE_PROJECT_DIR` and sets no `timeout` shorter than `collect`'s 20 minutes. Shipped agents declare no frontmatter hooks, servers or permission mode, which plugin agents ignore [F4].
+- **Releases.** Releases come from the `release` branch (AD-19): the built plugin tree and its marketplace file, tagged `v<version>`; `main` carries no build output.
 - **Offline.** Three paths, each checked by the packaging spike (run `offline`): copy the executable into `${CLAUDE_PLUGIN_DATA}/bin/<version>/askboard`; name a mirror (`http` or `file://`), whose file is still checked against the shipped SHA-256; or run the plain bundle on Node 24.22.1 or later. Without one, the launcher answers `unavailable` in about 50 ms.
 - **Platforms.** macOS and Linux, x64 and arm64, glibc and musl, where Claude Code runs [F34]. Browsers: current and previous major versions of Chrome, Edge, Firefox and Safari.
 - **Background board tabs.** No browser discarded, froze or disconnected a hidden board tab in 65 minutes, but Chrome runs a hidden tab's timers once per 60 s [F33]. Board liveness therefore comes from the WebSocket closing, and any heartbeat timeout the session process applies is at least 90 s. A discarded tab closes its socket and reloads only when activated, so its ask is discarded after the grace period (AD-21). Chrome's Memory Saver and Safari wait for the product owner's check.
@@ -709,6 +711,10 @@ All facts were checked on 2026-10-27. Status is empty when a primary source stat
 | F57 | IronCalc 0.9.1's `AND` and `OR` stop at the first deciding argument: `AND(FALSE,1/0)` is FALSE, where the fixtures, following Excel, expect `#DIV/0!` | AD-13 | Formula spike, run `ironcalc` (fixture `error:mixed-currencies`) | Verified in IronCalc; Excel itself not run |
 | F58 | IronCalc 0.9.1 has impure and indirect functions, among them `INDIRECT`, `OFFSET`, `NOW`, `TODAY`, `RAND`, `INFO`, `CELL`, `HYPERLINK` and `LAMBDA`; it accepts them all, so only a check before the engine keeps them out | AD-13 | `base/src/functions/mod.rs` at tag v0.9.1, https://github.com/ironcalc/IronCalc | Verified (formula spike, fixture `not-whitelisted`) |
 | F59 | Excel evaluates operators of equal precedence left to right, so `^` is left-associative (`2^3^2` is 64), and negation binds tighter than `^` (`-2^2` is 4) | AD-13 | https://support.microsoft.com/en-us/office/calculation-operators-and-precedence-in-excel-48be406d-4975-4d31-b2b8-7af9e0e2878a | Verified in LibreOffice (formula spike, run `lo-check`) and in both engines; Excel itself not run |
+| F-a | A plugin from a git source is cloned and copied to `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` with no build step, except one: when the plugin root holds `package.json` and a supported lockfile (`bun.lock` included), Claude Code runs that package manager's install, which cannot be turned off | AD-19 | https://code.claude.com/docs/en/plugin-marketplaces; https://code.claude.com/docs/en/plugins-reference | Read 2026-11-07 (plugin-release design, K3); the assembled tree, with neither file, installed with no install run (plugin-release task 2.4) |
+| F-b | `claude plugin marketplace add` accepts `owner/repo#ref` and `owner/repo@ref`, and a ref-pinned marketplace follows that ref, not the default branch; a `github` source naming the marketplace's own repository at another ref is not documented | AD-19 | https://code.claude.com/docs/en/plugin-marketplaces; https://code.claude.com/docs/en/discover-plugins | Read 2026-11-07 (K2); a GitHub run is the PO's (plugin-release task 5.3) |
+| F-c | A plugin manifest's `version` wins over the marketplace entry's (validate warns when both are set), and an unchanged version means no update; third-party marketplaces do not auto-update by default | AD-19 | https://code.claude.com/docs/en/plugin-marketplaces; https://code.claude.com/docs/en/discover-plugins | Read 2026-11-07 (K4) |
+| F-d | `${CLAUDE_PLUGIN_ROOT}` is substituted in a stdio server's `command`, `args` and `env` and in hook commands, and changes on update; no manifest field declares a minimum Claude Code version or a runtime prerequisite | AD-19 | https://code.claude.com/docs/en/plugins-reference | Read 2026-11-07 (K7) |
 
 ## 14. Glossary additions
 
