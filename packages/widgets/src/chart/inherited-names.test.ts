@@ -156,6 +156,21 @@ describe("agent text equal to an inherited name, drawn through the chart library
     },
   );
 
+  // A label of several words, one of them an inherited name: a slot that wrapped its text
+  // (`overflow: "break"`) would measure that word alone, so no such word may reach a width cache.
+  test.each(["bar", "line", "pie"] as const)(
+    "a %s chart whose labels hold an inherited name as a word of their own gives no built-in an own property",
+    (kind) => {
+      for (const word of NAMES) {
+        const label = `a ${word} b`;
+        for (const width of WIDTHS) draw(propsOf(kind, label), width);
+      }
+      expect(ownKeys(builtIns())).toEqual(before);
+      expect(Object.hasOwn(Object.prototype, "next")).toBe(false);
+      expect(Object.hasOwn(Object.prototype, "prev")).toBe(false);
+    },
+  );
+
   test("a plain object still has no inherited enumerable key after the drawing", () => {
     draw(propsOf("bar", "__proto__"), 640);
     const keys: string[] = [];

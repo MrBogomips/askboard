@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import {
   type BoardState,
   cspHashSource,
@@ -670,10 +670,10 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
     expect(Object.keys(manifest.chunks)).not.toContain("zrender");
   });
 
-  // The d3-derived `quantile` of echarts' `util/number` carries d3's BSD-3-Clause licence, whose
-  // text (`licenses/LICENSE-d3`) the notices do not collect, so it must stay out of the chunk. The
-  // minified chunk has no names to search: the same entry is bundled unminified, with a probe
-  // importing it to prove the search sees it.
+  // The d3-derived `quantile` of echarts' `util/number` stays out of the chunk. The minified chunk
+  // has no names to search: the same entry is bundled unminified, with a probe importing it to
+  // prove the search sees it. (Time.js, which the chunk does hold, has d3-derived tables too: the
+  // next test checks that d3's licence text ships.)
   const unminified = async (entry: string): Promise<string> => {
     const needs = new Set<string>();
     const result = await Bun.build({
@@ -699,7 +699,41 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
     expect(await unminified(probe)).toContain("quantile");
     const chart = await unminified(join(ROOT, "packages/widgets/src/chart/index.tsx"));
     expect(chart).not.toContain("quantile");
-    expect(chart).not.toContain("d3.js");
+  }, 60_000);
+
+  // A source file of echarts whose header says a third-party licence is embedded ("see
+  // </licenses/LICENSE-d3>") obliges the notices of the chunk holding it to carry that text
+  // (review of group 5, X-1). Each input file of the chunk, from the bundler's metafile, is read.
+  test("every third-party licence a bundled echarts file says it embeds is among the chunk's notices", async () => {
+    const result = await Bun.build({
+      entrypoints: [join(ROOT, "packages/widgets/src/chart/index.tsx")],
+      format: "iife",
+      target: "browser",
+      minify: false,
+      metafile: true,
+      define: { "process.env.NODE_ENV": '"production"' },
+      plugins: [
+        sharedModulesPlugin("chart", sharedModules(await portExports()), new Set<string>()),
+      ],
+    });
+    if (!result.success || result.metafile === undefined) throw new Error(result.logs.join("\n"));
+    const embedded = new Map<string, string[]>();
+    for (const input of Object.keys(result.metafile.inputs)) {
+      if (!input.includes("/echarts/")) continue;
+      const source = await Bun.file(resolve(ROOT, input)).text();
+      for (const [, name] of source.matchAll(/<\/?licenses\/(LICENSE-[A-Za-z0-9._-]+)>/g)) {
+        embedded.set(name ?? "", [...(embedded.get(name ?? "") ?? []), basename(input)]);
+      }
+    }
+    // The chunk does hold Time.js, which names LICENSE-d3.
+    expect(embedded.get("LICENSE-d3")).toContain("Time.js");
+    const notices = chunkNamed("chart").licences;
+    const echarts = await text(notices.find((entry) => entry.package === "echarts")?.path ?? "");
+    for (const name of embedded.keys()) {
+      const file = join(ROOT, "packages/widgets/node_modules/echarts/licenses", name);
+      const licence = (await Bun.file(file).text()).trim();
+      expect({ name, shipped: echarts.includes(licence) }).toEqual({ name, shipped: true });
+    }
   }, 60_000);
 });
 

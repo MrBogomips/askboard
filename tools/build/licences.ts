@@ -117,9 +117,20 @@ const packageOf = (file: string, root: string): PackageAt | undefined => {
   return { dir: join(root, "packages", name), workspace: true };
 };
 
+// The licence files of a folder, by name.
+const licenceFilesIn = async (dir: string): Promise<string[]> =>
+  (await readdir(dir)).filter((file) => LICENCE_FILE.test(file)).sort();
+
+// A package's own licence files, then those of its `licenses/` folder, where echarts keeps the
+// text of the d3 licence that its `scale/Time.js` and `util/number.js` embed (review of
+// chart-widget group 5, X-1).
 const licenceTexts = async (dir: string): Promise<string[]> => {
-  const files = (await readdir(dir)).filter((file) => LICENCE_FILE.test(file)).sort();
-  return Promise.all(files.map((file) => Bun.file(join(dir, file)).text()));
+  const own = (await licenceFilesIn(dir)).map((file) => join(dir, file));
+  const folder = join(dir, "licenses");
+  const more =
+    (await readdir(folder).catch(() => [])).length === 0 ? [] : await licenceFilesIn(folder);
+  const files = [...own, ...more.map((file) => join(folder, file))];
+  return Promise.all(files.map((file) => Bun.file(file).text()));
 };
 
 const spdxOf = (field: unknown): string | undefined => {
