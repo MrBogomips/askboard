@@ -118,7 +118,7 @@ The Chart SHALL be one component chunk, `chart`, holding the chart library's can
 
 #### Scenario: The notices
 - **WHEN** the view is built
-- **THEN** the `chart` chunk's notices name `echarts` under Apache-2.0 with its NOTICE text, `zrender` under BSD-3-Clause and `tslib` under 0BSD
+- **THEN** the `chart` chunk's notices name `echarts` under Apache-2.0 with its NOTICE text and the d3 BSD-3-Clause text its time scale embeds, `zrender` under BSD-3-Clause and `tslib` under 0BSD
 
 ### Requirement: The Chart's strings
 The Chart's own words (the counter, the live region's "highlighted", the keyboard hint, the chart's role description and its name in the agent-change notice) SHALL show in the ask's language, en-US or it-IT (FR-34).
