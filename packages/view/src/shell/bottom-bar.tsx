@@ -32,7 +32,7 @@ import {
   SEGMENT,
   SEGMENTS,
 } from "./styles.ts";
-import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
+import { type SubmitState, submitPress, updatesLabel } from "./submit.ts";
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
@@ -57,6 +57,8 @@ export type BottomBarProps = {
     readonly derived: DerivedStore;
   };
   readonly onSelectRecommended: () => void;
+  /** Submit found a held answer lacking the reason it requires: go to its prompt with the error. */
+  readonly onNeedsReason: (questionId: string) => void;
   readonly onJump: (questionId: string) => void;
   /** The bar's Snapshot, and whether the board offers it now. */
   readonly snapshot: SnapshotControl;
@@ -80,17 +82,26 @@ export const BottomBar = (props: BottomBarProps) => {
       </footer>
     );
   }
-  // Submit's one command: every held act, in the order the user produced them (AD-20).
-  const send = () => {
-    const acts = submitActsOf(
-      heldWorkOf(document, context.board.get()),
+  // Submit's one command: every held act, in the order the user produced them (AD-20), after a
+  // last check that every held answer has the reason its held result requires; one that lacks it
+  // sends nothing, keeps every act held and takes the board to that question's prompt. Returns
+  // whether the command went.
+  const send = (): boolean => {
+    const pressed = submitPress(
+      document,
+      context.board.get(),
       context.draft.record(),
       new Date(),
       context.derived.reported,
-      context.results?.record(),
+      { results: context.results?.record() },
     );
-    const [first, ...rest] = acts;
+    if (pressed.kind === "needs-reason") {
+      props.onNeedsReason(pressed.questionId);
+      return false;
+    }
+    const [first, ...rest] = pressed.acts;
     if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);
+    return true;
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
   const blockedSwitch = submit.held > 0 && delivery === "submitted" && submit.disabled;
@@ -169,8 +180,7 @@ export const BottomBar = (props: BottomBarProps) => {
                 className={BUTTON_PRIMARY}
                 disabled={submit.disabled}
                 onClick={() => {
-                  send();
-                  context.board.setDelivery("immediate");
+                  if (send()) context.board.setDelivery("immediate");
                 }}
               >
                 {text("bar.sendAndSwitch")}

@@ -16,7 +16,7 @@
 
 import { type LifecycleBoardState, NOTE_MAX_CHARS } from "@askboard/contract";
 import { AlertDialog } from "radix-ui";
-import { Fragment, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ChoiceExtras } from "../catalog/choice/props.ts";
 import { type Rendered, renderedOf } from "../catalog/components.ts";
 import { questionTextId, type ReasonStrings, useLanguage, useStrings } from "../catalog/port.ts";
@@ -70,7 +70,7 @@ import {
   shownResultFor,
   statusOf,
 } from "./question-state.ts";
-import { reasonAskedAfter, reasonOf } from "./reason.ts";
+import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import {
   asksFirst,
@@ -107,6 +107,8 @@ export type CardContext = RenderContext & {
   readonly kept: Store<KeptChoices>;
   /** Requests to open a question's thread at its latest reply (task 6.5). */
   readonly threads: ThreadRequests;
+  /** Requests for a card to ask for its reason, which Submit makes (design decision 6). */
+  readonly reasons: ReasonRequests;
   /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
   readonly opened?: OpenedSnapshot | undefined;
 };
@@ -339,11 +341,22 @@ export const QuestionCard = (props: CardProps) => {
   // does not bring the error back, only a press that asks does.
   if (reasonAsked && !reasonError) setReasonAsked(false);
   // "Answer" sent nothing for want of the reason: the error shows and focus goes to the prompt.
-  const asking = (outcome: "needs-reason" | undefined) => {
-    if (outcome === undefined) return;
-    setReasonAsked(true);
-    document.getElementById(noteFieldId(question.id))?.focus();
-  };
+  const asking = useCallback(
+    (outcome: "needs-reason" | undefined) => {
+      if (outcome === undefined) return;
+      setReasonAsked(true);
+      document.getElementById(noteFieldId(question.id))?.focus();
+    },
+    [question.id],
+  );
+  // Submit found this question's held answer without the reason it requires: the card asks for it
+  // as a press of "Answer" would, once.
+  const requested = useSyncExternalStore(context.reasons.subscribe, context.reasons.get);
+  useEffect(() => {
+    if (requested?.questionId !== question.id) return;
+    context.reasons.set(undefined);
+    asking("needs-reason");
+  }, [requested, question.id, context.reasons, asking]);
   const { header, text: questionText } = shown.props;
   const mark = markOf(question.id, state, context.board.get().questions);
   // An answer or decline names the revision the work was made on; the other acts the current one.

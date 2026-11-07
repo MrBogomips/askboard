@@ -5,14 +5,17 @@ import {
   ganttEditedValue,
   lifecycleBoardDocument,
 } from "@askboard/contract/fixtures";
+import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewArea, ViewDocument, ViewQuestion } from "../view-document.ts";
 import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
 import {
   hasRecommendation,
+  heldMissingReason,
   heldWorkOf,
   selectRecommended,
   submitActsOf,
+  submitPress,
   submitStateOf,
   updatesLabel,
 } from "./submit.ts";
@@ -353,5 +356,182 @@ describe("Select recommended (FR-3; task 6.6)", () => {
       ],
     };
     expect(hasRecommendation(plain)).toBe(false);
+  });
+});
+
+describe("every path to an answer checks the reason (approval-scale-ranking, design decision 6; AD-10)", () => {
+  // A test-only `verdict` item on the `region` question, which has a recommended option and whose
+  // result `{decision: "revise"}` requires a reason; `payment` has none.
+  const pair = { label: "question.reasonRequired", missing: "question.reasonMissing" } as const;
+  const FACTS: Readonly<Record<string, ComponentFacts>> = {
+    verdict: {
+      reason: (result) =>
+        (result as { decision?: string }).decision === "revise" ? pair : undefined,
+    },
+  };
+  const facts = (type: string): ComponentFacts | undefined =>
+    Object.hasOwn(FACTS, type) ? FACTS[type] : undefined;
+  const verdict = { type: "verdict", id: "verdict", props: {} };
+  const withVerdict = (): ViewDocument => {
+    const copy = structuredClone(document) as unknown as ViewDocument;
+    const area = copy.items[0] as ViewArea;
+    const [first] = area.props.items;
+    (first as unknown as { props: { items: unknown[] } }).props.items = [verdict];
+    return copy;
+  };
+  const doc = withVerdict();
+  const revise = { decision: "revise" };
+  const reject = { decision: "reject" };
+
+  const board3 = (delivery: Delivery = "submitted") => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const board = createBoardDraft(delivery);
+    connectDrafts(doc, values, board, results);
+    return { values, results, board };
+  };
+  const mark = (board: ReturnType<typeof board3>["board"], id: string, order: number) =>
+    board.edit(id, 1, (work) => ({ ...work, held: { act: "answer", order } }));
+
+  test("Select recommended selects the option, does not mark a question whose reason is missing, and counts it", () => {
+    const { values, results, board } = board3();
+    results.set("verdict", revise);
+    const count = selectRecommended(
+      doc,
+      stateOf(),
+      { draft: values, results, board, facts },
+      () => false,
+    );
+    expect(values.valueOf("region")).toEqual(["EU"]);
+    expect(board.work("region")?.held).toBeUndefined();
+    // `rollout` also has a recommended option and no reason to give: selected and marked.
+    expect(board.work("rollout")?.held?.act).toBe("answer");
+    expect(count).toBe(2);
+  });
+
+  test("with the reason in the note, or a result that needs none, it marks the question ready", () => {
+    const written = board3();
+    written.results.set("verdict", revise);
+    written.board.edit("region", 1, () => ({ rev: 1, note: "Cheaper." }));
+    selectRecommended(
+      doc,
+      stateOf(),
+      { draft: written.values, results: written.results, board: written.board, facts },
+      () => false,
+    );
+    expect(written.board.work("region")?.held).toEqual({
+      act: "answer",
+      order: 0,
+      byRecommended: true,
+    });
+    const plain = board3();
+    plain.results.set("verdict", reject);
+    selectRecommended(
+      doc,
+      stateOf(),
+      { draft: plain.values, results: plain.results, board: plain.board, facts },
+      () => false,
+    );
+    expect(plain.board.work("region")?.held?.act).toBe("answer");
+  });
+
+  test("heldMissingReason names the first held answer, in board order, whose reason is missing", () => {
+    const { values, results, board } = board3();
+    results.set("verdict", revise);
+    // `payment` is marked before `region`, which comes first on the board.
+    mark(board, "payment", 0);
+    mark(board, "region", 1);
+    const held = heldWorkOf(doc, board.get());
+    expect(heldMissingReason(doc, held, values.record(), results.record(), facts)?.id).toBe(
+      "region",
+    );
+  });
+
+  test("it names none when every held answer has its reason, or needs none", () => {
+    const { values, results, board } = board3();
+    results.set("verdict", revise);
+    board.edit("region", 1, () => ({
+      rev: 1,
+      note: "Cheaper.",
+      held: { act: "answer", order: 0 },
+    }));
+    expect(
+      heldMissingReason(
+        doc,
+        heldWorkOf(doc, board.get()),
+        values.record(),
+        results.record(),
+        facts,
+      ),
+    ).toBeUndefined();
+    results.set("verdict", reject);
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
+    expect(
+      heldMissingReason(
+        doc,
+        heldWorkOf(doc, board.get()),
+        values.record(),
+        results.record(),
+        facts,
+      ),
+    ).toBeUndefined();
+  });
+
+  test("a held decline or postpone is not an answer and needs no reason", () => {
+    const { values, results, board } = board3();
+    results.set("verdict", revise);
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "decline", order: 0 } }));
+    expect(
+      heldMissingReason(
+        doc,
+        heldWorkOf(doc, board.get()),
+        values.record(),
+        results.record(),
+        facts,
+      ),
+    ).toBeUndefined();
+  });
+
+  test("Submit with such a question sends nothing, keeps every act held and names the question", () => {
+    const { values, results, board } = board3();
+    results.set("verdict", revise);
+    values.set("payment", ["Stripe"]);
+    mark(board, "payment", 0);
+    mark(board, "region", 1);
+    const before = JSON.stringify([...board.get().questions]);
+    const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+      results: results.record(),
+      facts,
+    });
+    expect(pressed).toEqual({ kind: "needs-reason", questionId: "region" });
+    expect(JSON.stringify([...board.get().questions])).toBe(before);
+  });
+
+  test("Submit with every reason in place sends what submitActsOf builds", () => {
+    const { values, results, board } = board3();
+    results.set("verdict", revise);
+    values.set("region", ["EU"]);
+    board.edit("region", 1, () => ({
+      rev: 1,
+      note: "Cheaper.",
+      held: { act: "answer", order: 0 },
+    }));
+    const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+      results: results.record(),
+      facts,
+    });
+    expect(pressed.kind).toBe("send");
+    if (pressed.kind === "send") {
+      expect(pressed.acts).toEqual(
+        submitActsOf(
+          heldWorkOf(doc, board.get()),
+          values.record(),
+          AT,
+          NONE_REPORTED,
+          results.record(),
+        ),
+      );
+      expect(pressed.acts).toHaveLength(1);
+    }
   });
 });

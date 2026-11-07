@@ -7,6 +7,7 @@ import { type ComponentFacts, componentFacts, type ReasonStrings } from "../cata
 import type { ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import { shownResultFor } from "./question-state.ts";
+import type { Store } from "./store.ts";
 
 /** The facts a widget type's chunk registered, if any. */
 export type FactsOf = (type: string) => ComponentFacts | undefined;
@@ -51,3 +52,11 @@ export const reasonAskedAfter = (
   reason: ReasonStrings | undefined,
   note: string | undefined,
 ): boolean => asked && reason !== undefined && !noteHoldsReason(note);
+
+/**
+ * A request for a question's card to ask for its reason, as a press of "Answer" without one
+ * does: Submit makes it when a held answer lacks the reason its held result requires. The card
+ * takes it and sets the store back to none, so that a card mounted later does not repeat it.
+ */
+export type ReasonRequest = { readonly questionId: string };
+export type ReasonRequests = Store<ReasonRequest | undefined>;

@@ -66,6 +66,7 @@ import { snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
+import type { ReasonRequest } from "./reason.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
@@ -203,6 +204,7 @@ const boot = (): void => {
   revisions.record(data.document);
   const kept = createStore<KeptChoices>(new Map());
   const threads = createStore<ThreadRequest | undefined>(undefined);
+  const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
   const report = (message: ViewMessage): void => {
@@ -269,6 +271,7 @@ const boot = (): void => {
     revisions,
     kept,
     threads,
+    reasons,
     focus,
     removed,
     // The board components read follows the latest document, which an agent update replaces, and

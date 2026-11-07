@@ -429,6 +429,10 @@ export const Board = ({
               );
             })
           }
+          onNeedsReason={(id) => {
+            go(id);
+            context.reasons.set({ questionId: id });
+          }}
           onJump={go}
           snapshot={extras.snapshot}
           snapshotOffer={snapshotOfferOf(lock, connection)}

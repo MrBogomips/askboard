@@ -184,7 +184,7 @@ const now = () => new Date().toISOString();
 // unmarked whatever the note says.
 const reasonGate = (
   question: ViewQuestion,
-  { results, board, facts }: AnswerContext,
+  { results, board, facts }: Pick<AnswerContext, "results" | "board" | "facts">,
   content: AnswerContent,
 ): AnswerOutcome => {
   const requires = reasonOf(question, results?.record() ?? new Map(), undefined, facts);
@@ -198,7 +198,10 @@ const reasonGate = (
  * Whether "Answer" would send nothing for want of the reason a held result requires, which the
  * card shows as the field error: the same check "Answer" makes, before a confirmation asks.
  */
-export const answerNeedsReason = (question: ViewQuestion, context: AnswerContext): boolean => {
+export const answerNeedsReason = (
+  question: ViewQuestion,
+  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts">,
+): boolean => {
   const { draft, results, board } = context;
   const content = answerContentOf(
     question,
