@@ -16,7 +16,13 @@
 // earlier revision by "Keep mine" answers that revision. Every command is held by the view's acts
 // until the board page settles it; a refused one leaves the work in the draft.
 
-import type { ChoiceOption, HeldAct, LifecycleQuestionStatus, Locale } from "@askboard/contract";
+import {
+  type ChoiceOption,
+  type HeldAct,
+  type LifecycleQuestionStatus,
+  type Locale,
+  noteHoldsReason,
+} from "@askboard/contract";
 import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import {
@@ -39,7 +45,7 @@ import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { answerOf } from "./question-state.ts";
-import { type FactsOf, isReason, reasonOf } from "./reason.ts";
+import { type FactsOf, reasonOf } from "./reason.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
 export const EXPLAIN = t("en-US", "question.explainText");
@@ -182,7 +188,9 @@ const reasonGate = (
 ): AnswerOutcome => {
   const requires = reasonOf(question, results?.record() ?? new Map(), undefined, facts);
   const marked = board.work(question.id)?.held?.act === "answer";
-  return requires !== undefined && !isReason(content.note) && !marked ? "needs-reason" : undefined;
+  return requires !== undefined && !noteHoldsReason(content.note) && !marked
+    ? "needs-reason"
+    : undefined;
 };
 
 /**

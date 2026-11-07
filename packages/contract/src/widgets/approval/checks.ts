@@ -21,8 +21,14 @@ const isDecision = (result: unknown, decision: string): boolean =>
 export const approvalNeedsReason = (result: unknown): boolean =>
   isDecision(result, "approve-with-changes");
 
-/** The reason of an answer: a note holding a character other than white space. */
-const hasReason = (note: string | undefined): boolean => note !== undefined && /\S/.test(note);
+/**
+ * Whether a note is a reason: it holds a character other than white space, white space being what
+ * ECMAScript's `\s` matches plus U+0085 (NEXT LINE), which `\s` omits. Invisible format characters
+ * with no visible text (U+200B, U+3164 and the like) are not white space, so they count. The page
+ * and `ask-core` read this one rule (design decision 2).
+ */
+export const noteHoldsReason = (note: string | undefined): boolean =>
+  note !== undefined && /[^\s\u0085]/.test(note);
 
 /**
  * What an Approval's result requires of its answer: `approve-with-changes` needs a note holding a
@@ -33,7 +39,7 @@ export const approvalAnswerProblems = (
   result: unknown,
   answer: WidgetAnswer,
 ): readonly string[] => [
-  ...(approvalNeedsReason(result) && !hasReason(answer.note)
+  ...(approvalNeedsReason(result) && !noteHoldsReason(answer.note)
     ? ["approving with changes needs the reason in the note"]
     : []),
   ...(isDecision(result, "approve") && answer.changed

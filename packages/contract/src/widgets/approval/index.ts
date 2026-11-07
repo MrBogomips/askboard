@@ -3,7 +3,12 @@
 // standalone: they belong to no schema set until the entry is registered (design decision 10), and
 // nothing compiles them when this module loads.
 
-export { approvalAnswerProblems, approvalNeedsReason, approvalPropsProblems } from "./checks.ts";
+export {
+  approvalAnswerProblems,
+  approvalNeedsReason,
+  approvalPropsProblems,
+  noteHoldsReason,
+} from "./checks.ts";
 export {
   APPROVAL_DECISIONS,
   APPROVAL_SCHEMA_IDS,

@@ -2,6 +2,7 @@
 // the question's open prompt uses. Pure: it reads the facts a chunk registered for the type of
 // each of the question's widget items, through a lookup, and the results held or shown.
 
+import { noteHoldsReason } from "@askboard/contract";
 import { type ComponentFacts, componentFacts, type ReasonStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
@@ -38,10 +39,6 @@ export const reasonOf = (
   );
 };
 
-/** Whether a note is a reason: it holds a character that is not white space. */
-export const isReason = (note: string | undefined): boolean =>
-  note !== undefined && /\S/.test(note);
-
 /**
  * Whether the field error shows under the open prompt: it was asked for by a press of "Answer",
  * and a reason is still required and still missing. It clears when the note gains text and when
@@ -51,4 +48,4 @@ export const reasonErrorOf = (
   asked: boolean,
   reason: ReasonStrings | undefined,
   note: string | undefined,
-): boolean => asked && reason !== undefined && !isReason(note);
+): boolean => asked && reason !== undefined && !noteHoldsReason(note);

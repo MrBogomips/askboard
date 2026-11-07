@@ -648,6 +648,7 @@ export {
   type ApprovalResult,
   approvalAnswerProblems,
   approvalNeedsReason,
+  noteHoldsReason,
 } from "./widgets/approval/index.ts";
 export {
   RANKING_MAX_ITEMS,

@@ -3,9 +3,10 @@
 // data, with a lookup of facts for test types in place of the registry.
 
 import { describe, expect, test } from "bun:test";
+import { noteHoldsReason } from "@askboard/contract";
 import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
-import { isReason, reasonErrorOf, reasonOf } from "./reason.ts";
+import { reasonErrorOf, reasonOf } from "./reason.ts";
 
 const PAIR = { label: "question.reasonRequired", missing: "question.reasonMissing" } as const;
 const OTHER = { label: "question.note", missing: "question.explain" } as const;
@@ -113,12 +114,26 @@ describe("the reason an answer the card shows requires", () => {
 });
 
 describe("a note as a reason", () => {
-  test.each(["Cheaper.", " x ", "0"])("%j is a reason", (note) => {
-    expect(isReason(note)).toBe(true);
-  });
+  // The page reads the rule the core reads (design decision 2): the list holds what `\s` omits.
+  const NOTES = [
+    undefined,
+    "",
+    "   ",
+    "\n\t",
+    "\u00a0",
+    "\u2003\u2009",
+    "\u0085",
+    " \u0085\t",
+    "\uFEFF",
+    "\u00A0\u3000",
+    "Cheaper.",
+    " x ",
+    "0",
+    " \u0085x",
+  ];
 
-  test.each([undefined, "", "   ", "\n\t", "\u00a0", "\u2003\u2009"])("%j is not", (note) => {
-    expect(isReason(note)).toBe(false);
+  test.each(NOTES)("%j: the open prompt's error agrees with noteHoldsReason", (note) => {
+    expect(reasonErrorOf(true, PAIR, note)).toBe(!noteHoldsReason(note));
   });
 });
 

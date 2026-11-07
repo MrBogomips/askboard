@@ -62,7 +62,7 @@ describe("approving with changes and no reason", () => {
   });
 
   test("a note of white space only is refused", () => {
-    for (const note of ["   ", "\n\t ", "  "]) {
+    for (const note of ["   ", "\n\t ", "  ", "\u0085", " \u0085\t"]) {
       const problem = refusal({ results: verdict("approveWithChanges"), note });
       expect(problem.detail).toContain("needs the reason in the note");
     }

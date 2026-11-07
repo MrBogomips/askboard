@@ -16,6 +16,7 @@ import {
   APPROVAL_SCHEMA_IDS,
   APPROVAL_WIDGET,
   approvalNeedsReason,
+  noteHoldsReason,
   WIDGET_TYPES,
   widgetAnswerProblems,
   widgetRegistryProblems,
@@ -126,13 +127,28 @@ describe("the Approval's result", () => {
 
 describe("what the Approval requires of its answer", () => {
   test("approving with changes needs the reason in the note, whatever else the answer holds", () => {
-    for (const note of [undefined, "", "   ", "\n\t "]) {
+    for (const note of [undefined, "", "   ", "\n\t ", "\u0085", " \u0085\t"]) {
       const problems = answerProblems("approve-with-changes", note, false);
       expect(problems).toHaveLength(1);
       expect(problems[0]).toBe("item verdict: approving with changes needs the reason in the note");
     }
     expect(answerProblems("approve-with-changes", "Show training as optional", true)).toEqual([]);
     expect(answerProblems("approve-with-changes", " x ", false)).toEqual([]);
+  });
+
+  test("noteHoldsReason refuses what is only white space, NEXT LINE included", () => {
+    for (const note of [undefined, "", "\u0085", " \u0085\t", "\uFEFF", "\u00A0\u3000"]) {
+      expect(noteHoldsReason(note)).toBe(false);
+    }
+    expect(noteHoldsReason("x")).toBe(true);
+    expect(noteHoldsReason(" \u0085x")).toBe(true);
+  });
+
+  test("invisible format characters count as a reason (PO open question, default)", () => {
+    for (const note of ["\u200B", "\u3164"]) {
+      expect(noteHoldsReason(note)).toBe(true);
+      expect(answerProblems("approve-with-changes", note, false)).toEqual([]);
+    }
   });
 
   test("approving beside changes fails, and approving with nothing changed passes", () => {
