@@ -636,8 +636,8 @@ export { resultHoldsNothing } from "./widgets/result-content.ts";
 export { ASKING_RULE_TEXTS } from "./push/asking-rules.ts";
 
 // Approval, Scale and Ranking (approval-scale-ranking, design decisions 1, 2 and 4): the three
-// entries, not in `WIDGET_TYPES` until each joins it, their constants, the Approval's rule and the
-// Scale's step arithmetic, and the check of what a result requires of its answer.
+// entries, which `WIDGET_TYPES` holds, their constants, the Approval's rule and the Scale's step
+// arithmetic, and the check of what a result requires of its answer.
 
 export {
   APPROVAL_DECISIONS,

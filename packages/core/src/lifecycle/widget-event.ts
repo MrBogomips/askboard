@@ -80,7 +80,7 @@ export const widgetFieldsOf = (
 
 /**
  * Why the answer's note and changes do not satisfy what its results require, if they do not (the
- * registry's answer checks, the result-widgets change's design decisions 2 and 3): the first problem of
+ * registry's answer checks, approval-scale-ranking's design decisions 2 and 3): the first problem of
  * the first result that has one, naming its item. It reads the content `widgetContentOf` has
  * already checked, so each key names an item of the question, and runs after the result checks.
  */

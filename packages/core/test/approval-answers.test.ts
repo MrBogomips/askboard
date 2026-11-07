@@ -10,8 +10,8 @@ import { answerAct, checked, type Item, type Json, modelOf } from "./probe-fakes
 
 // Core spec: A result's requirements on its answer (approval-scale-ranking, design decisions 2 and
 // 3): ask-core runs each result's answer checks where the answer's changes exist, after the result
-// checks, and a refusal appends and keeps nothing. The Approval is not registered yet, so every
-// test passes the registry through `withWidgetTypes`.
+// checks, and a refusal appends and keeps nothing. Every test passes the registry through
+// `withWidgetTypes`, which adds the Approval to the shipped registry only if it lacks it.
 
 const TYPES = withWidgetTypes(APPROVAL_WIDGET);
 const TREE: Item = {
