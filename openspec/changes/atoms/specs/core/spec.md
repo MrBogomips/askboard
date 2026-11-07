@@ -15,6 +15,17 @@
 - **WHEN** a question of five TextFields is answered with 10,000 code points in each
 - **THEN** the answer is logged `tooLarge`, without its results, and `fetch` of each item returns its result
 
+### Requirement: Values only for items that take edits
+`ask-core` SHALL refuse an answer whose `values` hold a value for an item whose type takes no edits (its registry entry declares none: the atoms, the Approval, Scale, Ranking and Chart among them), naming the item, so that nothing is appended, kept or published; a result SHALL be checked against the props the agent sent, never against a value the answer supplies (AD-10, AD-20, NFR-10).
+
+#### Scenario: A forged value
+- **WHEN** an answer carries a value for a Ranking adding an element `drop-db` with a result ranking it first, or a value for a NumberField raising its `max`
+- **THEN** the answer is refused, naming the item, and nothing is appended or published
+
+#### Scenario: Edits still answered
+- **WHEN** an answer carries the edited value of a Tree or a Gantt plan
+- **THEN** it is taken as before
+
 ### Requirement: Entries stay in the draft
 `ask-core` SHALL hold a draft record's entries with the rest of the draft, apart from the log, and SHALL never expose them to `collect`, `fetch`, Snapshots, the mod or the local API (AD-20).
 
