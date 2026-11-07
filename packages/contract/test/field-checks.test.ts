@@ -16,7 +16,7 @@ import {
   widgetFieldCheck,
   widgetResultFits,
 } from "../src/index.ts";
-import { validateAskRequest } from "../src/validate.ts";
+import { validateAskRequest, validateUpdateRequest } from "../src/validate.ts";
 
 type Item = { readonly type: string; readonly id: string; readonly props: unknown };
 
@@ -309,5 +309,59 @@ describe("what a request says of the props", () => {
         props: { label: "N", min: 0 },
       }),
     ).toEqual([]);
+  });
+});
+
+// `update`'s `change` merges its props onto the item's key by key and then checks the merged item as
+// an ask would (`core`'s `updates.ts`); the contract checks the item that results, which an `add`
+// of the same props shows (`AskCore`'s own `change` is task 2.1's).
+describe("what update says of the merged props of a text field", () => {
+  const merged = (before: Record<string, unknown>, change: Record<string, unknown>) =>
+    validateUpdateRequest({
+      askId: "field-checks-a1b2",
+      actions: [
+        {
+          action: "add",
+          item: {
+            type: "question",
+            id: "q",
+            props: { text: "Which?", items: [textField({ ...before, ...change })] },
+          },
+        },
+      ],
+    });
+  const refusedAt = (result: ReturnType<typeof merged>, path: string) => {
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    // An added item's problems name its place in the request, `actions[0].item.props.items[0]…`.
+    const problem = result.problems.find((each) => each.path.endsWith(path));
+    expect(problem?.field).toStartWith("actions[0].item.props.items[0].props.");
+    return problem;
+  };
+
+  test("a pattern merged onto a field that holds maxLength 5000 is refused at maxLength", () => {
+    const problem = refusedAt(merged({ maxLength: 5_000 }, { pattern: "^a$" }), "/maxLength");
+    expect(problem?.message).toContain("1000");
+  });
+
+  test("maxLength 5000 merged onto a field that holds a pattern is refused at maxLength", () => {
+    const problem = refusedAt(merged({ pattern: "^a$" }, { maxLength: 5_000 }), "/maxLength");
+    expect(problem?.message).toContain("1000");
+  });
+
+  test("an unsafe pattern merged onto a field is refused at pattern", () => {
+    const problem = refusedAt(merged({ maxLength: 80 }, { pattern: "^(a+)+$" }), "/pattern");
+    expect(problem?.message).toContain("repeated group");
+  });
+
+  test("a pattern over the cost budget is refused at pattern, naming the count", () => {
+    const problem = refusedAt(merged({}, { pattern: "^\\d*\\d*\\d*\\d*$" }), "/pattern");
+    expect(problem?.message).toContain("costs 4 repetitions");
+  });
+
+  test("the same merges within the bounds are accepted", () => {
+    expect(merged({ maxLength: 1_000 }, { pattern: "^a$" }).ok).toBe(true);
+    expect(merged({ pattern: "^a$" }, { maxLength: 1_000 }).ok).toBe(true);
+    expect(merged({ maxLength: 5_000 }, { maxLength: 400 }).ok).toBe(true);
   });
 });

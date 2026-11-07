@@ -42,8 +42,8 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 - **THEN** `ask` refuses the first four, naming the item, the count (4 or more) and the limit of 3, and accepts the others
 
 #### Scenario: An update that makes a pattern unsafe
-- **WHEN** `update` changes a TextField so that its merged props hold `{pattern: "^a$", maxLength: 5000}`, or `{pattern: "^(a+)+$"}`
-- **THEN** `update` refuses it, naming the item, whether the `change` set the pattern or the `maxLength`, and applies nothing
+- **WHEN** `update` adds a question whose TextField holds `{pattern: "^a$", maxLength: 5000}`, or changes a TextField holding `{maxLength: 5000}` to set `pattern: "^a$"`, or one holding `{pattern: "^a$"}` to set `maxLength: 5000`, or sets `pattern: "^(a+)+$"`
+- **THEN** `update` refuses it at the offending prop, as `ask` does, and applies nothing
 
 #### Scenario: A long field with a pattern
 - **WHEN** an ask holds a TextField `{label: "Email", pattern: "^[^@]+@[^@]+$", maxLength: 5000}`
