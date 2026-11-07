@@ -61,15 +61,15 @@ describe("workspace layout", () => {
   });
 
   test.each(PACKAGES)(
-    "%s is a private ESM package at 0.0.0 with its entry and type configuration",
+    "%s is a private ESM package at the product version with its entry and type configuration",
     async (name) => {
       const manifest = await readJson(join(packageDir(name), "package.json"));
       expect(manifest).toMatchObject({
         name: `@askboard/${name}`,
-        version: "0.0.0",
         private: true,
         type: "module",
       });
+      expect(manifest.version).toBe((await readJson(join(root, "package.json"))).version);
       expect(manifest.exports["."]).toBe("./src/index.ts");
       for (const target of Object.values<string>(manifest.exports)) {
         expect(existsSync(join(packageDir(name), target))).toBe(true);

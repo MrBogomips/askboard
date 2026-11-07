@@ -17,7 +17,7 @@
     },
     "packages/bench": {
       "name": "@askboard/bench",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
       },
@@ -27,21 +27,21 @@
     },
     "packages/compute": {
       "name": "@askboard/compute",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
       },
     },
     "packages/contract": {
       "name": "@askboard/contract",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "ajv": "8.20.0",
       },
     },
     "packages/core": {
       "name": "@askboard/core",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/compute": "workspace:*",
         "@askboard/contract": "workspace:*",
@@ -49,7 +49,7 @@
     },
     "packages/hooks": {
       "name": "@askboard/hooks",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
       },
@@ -59,21 +59,21 @@
     },
     "packages/mod": {
       "name": "@askboard/mod",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
       },
     },
     "packages/molecules": {
       "name": "@askboard/molecules",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
       },
     },
     "packages/server": {
       "name": "@askboard/server",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
         "@askboard/core": "workspace:*",
@@ -90,7 +90,7 @@
     },
     "packages/view": {
       "name": "@askboard/view",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/contract": "workspace:*",
         "@modelcontextprotocol/client": "2.4.0",
@@ -111,7 +111,7 @@
     },
     "packages/widgets": {
       "name": "@askboard/widgets",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@askboard/compute": "workspace:*",
         "@askboard/contract": "workspace:*",
