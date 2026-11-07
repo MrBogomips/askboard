@@ -130,3 +130,93 @@ describe("styles that request nothing (design decision 8; view spec, Package sty
     expect(problem?.length ?? 0).toBeLessThan(300);
   });
 });
+
+// The group 3 review's probe forms (X-2): CSS Syntax decodes an identifier's escapes before it reads
+// `url(` and an at-rule's name, and `image-set()` reads a quoted string as a URL.
+describe("escaped and string URLs in styles (latex-kanban-timeline, task 3.5, review X-2)", () => {
+  const probes: [string, string][] = [
+    ["an escaped r", "u\\72l(http://h/x.png)"],
+    ["an escaped r and a blank before l", "u\\72 l(http://h/x.png)"],
+    ["an escaped u", "\\75rl(http://h/x.png)"],
+    ["an escaped @import", '@\\69mport "http://h/b.css"'],
+    ["a string in image-set()", 'image-set("http://h/x.png" 1x)'],
+    ["a string in -webkit-image-set()", '-webkit-image-set("http://h/x.png" 1x)'],
+    ["an escaped url in a font face", "@font-face{src:u\\72l(http://h/f.woff2)}"],
+  ];
+
+  for (const [what, css] of probes) {
+    test(`${what} gives one problem naming the chunk: ${css}`, () => {
+      const problems = styleUrlProblems("latex", `.a{background:${css}}`);
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('"latex"');
+      expect(problems[0]).toContain("http://h/");
+    });
+  }
+
+  test("a problem shows the text as the author wrote it, escapes and all, cut", () => {
+    const [problem] = styleUrlProblems("latex", `.a{b:u\\72l(http://h/${"x".repeat(500)}.png)}`);
+    expect(problem).toContain("u\\72l(http://h/");
+    expect(problem?.length ?? 0).toBeLessThan(300);
+  });
+
+  test("data: URLs pass, plain, escaped, inside url() of image-set(), and with an escaped letter", () => {
+    const pass = [
+      ".a{background:url(data:image/png;base64,AA)}",
+      ".a{background:image-set(url(data:image/png;base64,AA) 1x)}",
+      '.a{background:image-set(url("data:image/png;base64,AA") 1x, url(data:image/png;base64,BB) 2x)}',
+      ".a{background:u\\72l(data:image/png;base64,AA)}",
+      ".a{background:\\75\\72\\6c(data:image/png;base64,AA)}",
+      ".a{background:url(d\\61ta:image/png;base64,AA)}",
+    ];
+    for (const css of pass) expect(styleUrlProblems("latex", css), css).toEqual([]);
+  });
+
+  test("a comment inside the name ends the identifier: no function, no at-rule, no problem", () => {
+    expect(styleUrlProblems("latex", ".a{b:url/**/(http://h/x.png)}")).toEqual([]);
+    expect(styleUrlProblems("latex", '@im/**/port "http://h/b.css";')).toEqual([]);
+  });
+
+  test("an escaped parenthesis or quote is not syntax, so a string never hides an image-set()", () => {
+    expect(styleUrlProblems("latex", ".a{b:url\\28 x}")).toEqual([]);
+    expect(styleUrlProblems("latex", '.a{content:"image-set(\\"x\\")"}')).toEqual([]);
+    expect(styleUrlProblems("latex", ".a{b:image-set(\\22 x\\22  1x)}")).toEqual([]);
+  });
+
+  test("an apostrophe in a comment or a string does not swallow an image-set() that follows", () => {
+    for (const lead of ["/* it's */", '.a{content:"it\'s"}', "/* a */ /* b' */"]) {
+      const problems = styleUrlProblems(
+        "latex",
+        `${lead}.b{b:image-set("http://h/x.png" 1x)}/* c' */`,
+      );
+      expect(problems, lead).toHaveLength(1);
+    }
+  });
+
+  test("image-set() with a string in any of its sources, any case, or nested, is refused once per string", () => {
+    expect(
+      styleUrlProblems("x", ".a{b:IMAGE-SET(url(data:a) 1x, 'http://h/y.png' 2x)}"),
+    ).toHaveLength(1);
+    expect(styleUrlProblems("x", '.a{b:image-set("a" 1x, "b" 2x)}')).toHaveLength(2);
+    expect(styleUrlProblems("x", '.a{b:image-set(image-set("a" 1x) 1x)}')).toHaveLength(1);
+    expect(styleUrlProblems("x", '.a{b:image-set(url(data:a) 1x)}.c{content:"x"}')).toEqual([]);
+  });
+
+  test("an unterminated string, an unterminated function and a trailing backslash do not throw", () => {
+    expect(() => styleUrlProblems("x", '.a{b:image-set("http://h/x')).not.toThrow();
+    expect(styleUrlProblems("x", '.a{b:image-set("http://h/x')).toHaveLength(1);
+    expect(() => styleUrlProblems("x", ".a{b:url(")).not.toThrow();
+    expect(styleUrlProblems("x", ".a{b:c\\")).toEqual([]);
+  });
+
+  test("escapes of no code point, a surrogate or past U+10FFFF read as U+FFFD, a hex run stops at six digits", () => {
+    expect(styleUrlProblems("x", ".a{b:u\\0rl(http://h/x)}")).toEqual([]);
+    expect(styleUrlProblems("x", ".a{b:u\\D800 rl(http://h/x)}")).toEqual([]);
+    expect(styleUrlProblems("x", ".a{b:\\000075rl(http://h/x)}")).toHaveLength(1);
+    expect(styleUrlProblems("x", ".a{b:\\0000075rl(http://h/x)}")).toEqual([]);
+  });
+
+  test("a long run of backslashes and blanks is read in one pass (no timing assertion)", () => {
+    const hostile = `${"\\ ".repeat(50_000)}${" ".repeat(50_000)}url(${" ".repeat(50_000)}x)`;
+    expect(styleUrlProblems("x", hostile).length).toBeGreaterThan(0);
+  });
+});
