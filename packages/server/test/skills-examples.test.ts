@@ -109,18 +109,22 @@ describe("the shipped skill's examples", () => {
   );
 
   test.each(results.map((block) => [block.where, block] as const))(
-    "%s passes a tool result schema",
+    "%s passes the collect result's schema",
     (_, block) => {
-      const ids = [
-        SCHEMA_IDS.collectResult,
-        SCHEMA_IDS.askResult,
-        SCHEMA_IDS.updateResult,
-        SCHEMA_IDS.fetchResult,
-      ];
-      const verdicts = ids.map((id) => validateAgainst(id, block.value));
-      expect(verdicts.some(({ ok }) => ok)).toBe(true);
+      expect(validateAgainst(SCHEMA_IDS.collectResult, block.value).ok).toBe(true);
     },
   );
+
+  test("an ask-result-shaped block is refused by the collect result's schema", () => {
+    const [source] = results;
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    const askShaped = { ...(source.value as Record<string, unknown>) };
+    delete askShaped.asks;
+    askShaped.askId = "checkout-plan-p8r3";
+    askShaped.state = "open";
+    expect(validateAgainst(SCHEMA_IDS.collectResult, askShaped).ok).toBe(false);
+  });
 
   test("a copy of a widget example with an unknown prop is refused, naming the file and the block", async () => {
     const widgetTypes = WIDGET_TYPES.map(({ type }) => type);

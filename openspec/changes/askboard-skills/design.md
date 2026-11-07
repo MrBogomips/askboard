@@ -94,7 +94,7 @@ The plugin manifest stays as it is: `skills/` is the default path and adds nothi
 
 ### 9. The benchmark arm loads the skill
 
-`toolsOf` adds `Skill` to the AskBoard arm's `tools` and `allowed`; the AskUserQuestion arm and the baseline stay as they are. The report already counts a `Skill` call as preparation (`PREPARING_TOOLS`) and T as the first-request difference from the baseline, which now includes the skill's listing entry.
+`toolsOf` adds `Skill` to the AskBoard arm's `tools` and `allowed`; the AskUserQuestion arm and the baseline stay as they are. The report already counts a `Skill` call as preparation (`PREPARING_TOOLS`) and T as the first-request difference from the baseline, which now includes the skill's listing entry and the built-in Skill tool's own definition. early-benchmark's design is amended to match: its baseline and its Tools bullet no longer give both arms the same tools.
 
 ### 10. Versions
 
