@@ -12,8 +12,8 @@
 ```json result
 {
   "versions": {
-    "result": "1.6",
-    "output": "1.6"
+    "result": "1.7",
+    "output": "1.7"
   },
   "epoch": "k3x9",
   "asks": [

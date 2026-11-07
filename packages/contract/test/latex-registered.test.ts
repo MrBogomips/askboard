@@ -1,7 +1,6 @@
 // The LaTeX joins the registry and so the four sets it widens (contract spec, "LaTeX, Kanban and
-// Timeline in the sets' next minors"; latex-kanban-timeline, design decisions 12 and 13): while this
-// branch is stacked on approval-scale-ranking, a constant its base already holds past main's stays,
-// so each version is asserted at least the base's, and the number is bound at task 7.2.
+// Timeline in the sets' next minors"; latex-kanban-timeline, design decisions 12 and 13): each
+// version is one minor past main's, bound at task 7.2.
 
 import { describe, expect, test } from "bun:test";
 import type { AnySchemaObject } from "ajv/dist/2020";
@@ -15,6 +14,7 @@ import {
   WIDGET_TYPES,
 } from "../src/index.ts";
 import { widgetItemProblems } from "../src/validate.ts";
+import { unsupportedVersion } from "../src/versions.ts";
 import { APPROVAL_WIDGET } from "../src/widgets/approval/widget.ts";
 import { GANTT_WIDGET } from "../src/widgets/gantt/widget.ts";
 import { RANKING_WIDGET } from "../src/widgets/ranking/widget.ts";
@@ -37,18 +37,30 @@ const schemaOf = (set: string, id: string): AnySchemaObject => {
 const refsOf = (schema: AnySchemaObject, union: string): string[] =>
   schema.$defs[union].oneOf.map(({ $ref }: { $ref: string }) => $ref.split("/").at(-1));
 
-const minorOf = (version: string): number => Number(version.split(".")[1]);
-
 describe("the versions of the four sets latex-kanban-timeline widens", () => {
-  test("each is at least the value its base holds, and the sets hold the constants", () => {
-    expect(minorOf(INPUT_FORMAT_VERSION)).toBeGreaterThanOrEqual(6);
-    expect(minorOf(OUTPUT_FORMAT_VERSION)).toBeGreaterThanOrEqual(6);
-    expect(minorOf(TOOL_ENVELOPES_VERSION)).toBeGreaterThanOrEqual(6);
-    expect(minorOf(BOARD_DOCUMENT_VERSION)).toBeGreaterThanOrEqual(5);
+  test("each is one minor past main's, and the sets hold the constants", () => {
+    expect({
+      input: INPUT_FORMAT_VERSION,
+      output: OUTPUT_FORMAT_VERSION,
+      envelopes: TOOL_ENVELOPES_VERSION,
+      document: BOARD_DOCUMENT_VERSION,
+    }).toEqual({ input: "1.7", output: "1.7", envelopes: "1.7", document: "1.6" });
     expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
     expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);
+  });
+
+  test("a receiver at the new minor accepts the previous minor and refuses another major", () => {
+    for (const [name, previous] of [
+      ["input", "1.6"],
+      ["output", "1.6"],
+      ["tool-envelopes", "1.6"],
+      ["board-document", "1.5"],
+    ] as const) {
+      expect(unsupportedVersion(setOf(name), previous)).toBeUndefined();
+      expect(unsupportedVersion(setOf(name), "2.0")).toBeDefined();
+    }
   });
 
   test("each set module's header names this change", async () => {

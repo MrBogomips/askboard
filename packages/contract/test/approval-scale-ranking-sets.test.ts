@@ -48,7 +48,8 @@ describe("the versions of the four widened sets", () => {
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.6", output: "1.6", envelopes: "1.6", document: "1.5" });
+    }).toEqual({ input: "1.7", output: "1.7", envelopes: "1.7", document: "1.6" });
+
     expect({
       protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,

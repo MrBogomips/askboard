@@ -10,11 +10,11 @@ import {
 // taken 1.3 before E8 landed.
 describe("the minors settings-languages takes", () => {
   test("the input format is at approval-scale-ranking's minor, after widget-editing-plus's, whose predecessor accepts it-IT", () => {
-    expect(INPUT_FORMAT_VERSION).toBe("1.6");
+    expect(INPUT_FORMAT_VERSION).toBe("1.7");
   });
 
   test("the board document is at approval-scale-ranking's minor, after widget-answers', whose predecessor names the ask's language", () => {
-    expect(BOARD_DOCUMENT_VERSION).toBe("1.5");
+    expect(BOARD_DOCUMENT_VERSION).toBe("1.6");
   });
 
   test("the board protocol is at widget-registry's minor, after widget-answers' and settings-languages'", () => {

@@ -31,12 +31,12 @@ describe("the versions of the sets", () => {
       envelopes: TOOL_ENVELOPES_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
-    }).toEqual({ output: "1.6", envelopes: "1.6", protocol: "1.6", snapshot: "1.1" });
+    }).toEqual({ output: "1.7", envelopes: "1.7", protocol: "1.6", snapshot: "1.1" });
   });
 
   test("the sets hold those constants", () => {
-    expect(setOf("output").version).toBe("1.6");
-    expect(setOf("tool-envelopes").version).toBe("1.6");
+    expect(setOf("output").version).toBe("1.7");
+    expect(setOf("tool-envelopes").version).toBe("1.7");
     expect(setOf("board-protocol").version).toBe("1.6");
     expect(setOf("snapshot-data").version).toBe("1.1");
   });
@@ -46,7 +46,7 @@ describe("the versions of the sets", () => {
       input: INPUT_FORMAT_VERSION,
       document: BOARD_DOCUMENT_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({ input: "1.6", document: "1.5", manifest: "1.1" });
+    }).toEqual({ input: "1.7", document: "1.6", manifest: "1.1" });
     expect(setOf("configuration").version).toBe(CONFIGURATION_VERSION);
   });
 

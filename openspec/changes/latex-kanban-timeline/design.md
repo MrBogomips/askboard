@@ -163,7 +163,7 @@ As in `approval-scale-ranking` decision 10, an entry joins `WIDGET_TYPES` only i
 
 The input format, the output format, the tool envelopes and the board document each take the next minor after `main`'s (askboard-contract-versioning). Their composed schemas and the output set's list change only when a type registers, so the four constants move in task 5.1. While this branch is stacked on `approval-scale-ranking`, a constant its base already holds past `main`'s stays as it is, and this change's version test asserts at least that value. Task 7.2 binds each at `main`'s minor plus one, after `approval-scale-ranking` merges. Each set module's header gains one sentence naming this change. The board protocol (an act's `values` are any object by item ID), the Snapshot data, the view manifest (a chunk's styles are already a file entry) and the rest keep `main`'s. Descriptions, comments and test titles say "since latex-kanban-timeline", never a number.
 
-Binding: (filled at task 7.2) "Bound on <date>, rebased onto origin/main <sha>: input format <n> (main <m>), output format …, tool envelopes …, board document …."
+Binding: "Bound on 2026-11-07, rebased onto origin/main 35383721: input format 1.7 (main 1.6), output format 1.7 (main 1.6), tool envelopes 1.7 (main 1.6), board document 1.6 (main 1.5)."
 
 ### 14. The end-to-end proof
 
