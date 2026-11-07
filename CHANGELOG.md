@@ -22,6 +22,7 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 - A start script, `scripts/askboard`, that runs the session process and the hooks on Node and, when Node is missing or too old, tells the agent why instead of failing silently.
 - LaTeX draws its preview through KaTeX's documented interface alone (`katex.render`), after AskBoard's own scan of the source, which also counts stacked accents: an expression with 11 or more stacked combining marks on one character is refused as nested too deep. An expression whose KaTeX output is very large is no longer refused as too complex.
 - Chart (bar, line and pie; highlighted points as the answer): the user reads a chart and highlights data points, by click or by keyboard, and the highlighted points come back as the answer's result, in the `results` of `collect` and `fetch`. The `askboard` skill teaches it.
+- Atoms, the single-purpose items of a question: Text (plain or Markdown, shown as data in the sandboxed view, its `http:` and `https:` links opening in a new tab through the board page, its images as links), Value, Divider, and the input atoms TextField, NumberField, MoneyField (an amount in a currency the agent fixes or lets the user pick), DateField (with a calendar) and Toggle, each answering in the `results` of `collect` and `fetch`. An option's preview can be Markdown. Text a field cannot read stays in the field with its error and keeps "Answer" disabled until the user corrects or clears it. The `askboard` skill teaches the atoms.
 
 ### Known limits
 
