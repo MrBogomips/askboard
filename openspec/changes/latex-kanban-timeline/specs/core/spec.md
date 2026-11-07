@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: An answer's changes follow their type
-`ask-core` SHALL refuse an answer when the changes it computes for an edited widget item fall outside that item type's changes schema, naming the item and the operation, so that nothing is appended, kept or published; it SHALL check them after the edited value's own checks and its round trip, for every registered type (AD-7, AD-10, AD-20).
+`ask-core` SHALL refuse an answer when the changes it computes for an edited widget item fall outside that item type's changes schema, naming the item and the operation, so that nothing is appended, kept or published; it SHALL check them after the edited value's own checks and its round trip, for every registered type. A diff that fails, such as for a key a fields shape does not name, SHALL refuse the answer the same way, naming the item and the key (AD-7, AD-10, AD-20).
 
 #### Scenario: A Kanban reorder
 - **WHEN** an answer's value for a Kanban lists its cards in another order, each in its sent column
@@ -10,6 +10,10 @@
 #### Scenario: An edited card label
 - **WHEN** an answer's value for a Kanban renames a card
 - **THEN** it is refused, naming the item and the `set` of the card's `label`, with the log unchanged
+
+#### Scenario: A key a fields shape does not name
+- **WHEN** a type's props admit keys its fields shape does not name, and an answer's value changes one of them
+- **THEN** it is refused, naming the item and the key, with the log unchanged and nothing kept or published
 
 #### Scenario: Tree and Gantt answers
 - **WHEN** the Tree, Gantt, WBS and Gantt plan answers of the existing suites are given

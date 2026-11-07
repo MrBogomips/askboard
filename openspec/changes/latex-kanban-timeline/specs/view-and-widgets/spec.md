@@ -15,8 +15,15 @@ A LaTeX item SHALL show a source field in the code type holding its expression, 
 - **WHEN** the agent sends an empty expression
 - **THEN** the field is empty, the preview shows nothing, and the item counts as ready
 
+### Requirement: LaTeX source limit
+The LaTeX source field SHALL hold at most 2,000 characters, counted in code points as the contract counts them, so the board never offers an expression the contract refuses (FR-11, AD-10).
+
+#### Scenario: A paste over the limit
+- **WHEN** the user pastes text that would make the expression 2,001 characters, each outside the Basic Multilingual Plane
+- **THEN** the field keeps the first 2,000 and the draft holds them
+
 ### Requirement: LaTeX parse errors
-While the expression does not parse, the board SHALL show KaTeX's message under the source field as a field error and keep the last preview that rendered; an expression that never rendered SHALL leave the preview empty. A parse error SHALL NOT block "Answer": the answer carries the expression as written (FR-11, EXPERIENCE Answer).
+While the expression does not parse, the board SHALL show KaTeX's message under the source field as a field error, as text with its bidirectional controls shown as visible escapes, and keep the last preview that rendered; an expression that never rendered SHALL leave the preview empty. A parse error SHALL NOT block "Answer": the answer carries the expression as written (FR-11, EXPERIENCE Answer).
 
 #### Scenario: An unclosed brace
 - **WHEN** the user types `\frac{1}{` in the source field

@@ -19,8 +19,15 @@ AD-20's generic diff SHALL take a shape that names fields of the item itself. Ea
 - **WHEN** a shape names `__proto__` and the edited value changes it
 - **THEN** the diff gives one `set` of `<item>.__proto__`, and applying it sets an own key, never the prototype
 
+### Requirement: A named field holding null reads as absent
+In a fields shape, as in the list and keyed shapes, a named field holding `null` SHALL read as absent: a `set` to `null` SHALL apply as a delete, so an edited value that turns a field to `null` does not round-trip and `ask-core` refuses it (AD-10, AD-20).
+
+#### Scenario: A field set to null
+- **WHEN** a shape names `a`, the sent value is `{a: 1}` and the edited value is `{a: null}`
+- **THEN** the diff gives one `set` of `<item>.a` to `null`, and applying it gives `{}`, not the edited value
+
 ### Requirement: LaTeX items
-The registry SHALL hold `latex`, after the types `main` holds: an item `{type: "latex", id, props}` whose props hold `expression`, a text of 0 to 2,000 characters, and nothing else. The contract SHALL NOT parse the expression; the board renders it (FR-11, AD-7).
+The registry SHALL hold `latex`, after the types `main` holds: an item `{type: "latex", id, props}` whose props hold `expression`, a text of 0 to 2,000 characters counted in code points, as JSON Schema's `maxLength` counts them, and nothing else. The contract SHALL NOT parse the expression; the board renders it (FR-11, AD-7).
 
 #### Scenario: A LaTeX item in a question
 - **WHEN** an ask holds a question whose `items` hold `{type: "latex", id: "formula", props: {expression: "\\frac{a}{b}"}}`
@@ -33,6 +40,10 @@ The registry SHALL hold `latex`, after the types `main` holds: an item `{type: "
 #### Scenario: An expression over the limit
 - **WHEN** a LaTeX item's `expression` holds 2,001 characters
 - **THEN** validation fails, naming the item and `expression`
+
+#### Scenario: Characters outside the Basic Multilingual Plane
+- **WHEN** a LaTeX item's `expression` holds 2,000 characters outside the Basic Multilingual Plane, then 2,001
+- **THEN** the first passes, and the second fails naming the item, `expression` and the count 2,001
 
 #### Scenario: A field the props do not define
 - **WHEN** a LaTeX item's props hold `displayMode`
@@ -110,7 +121,7 @@ A Timeline item's element shape SHALL be the flat list of its `entries`, and its
 - **THEN** it fails, naming the operation
 
 ### Requirement: Changes checked against their type
-The contract SHALL check an item's changes against the changes schema of the item's type and return the first problem naming the item and the operation. A type with no changes schema SHALL take no change; a type the registry does not hold SHALL give no problem, its value having been refused first (AD-7, AD-10, AD-20).
+The contract SHALL check an item's changes against the changes schema of the item's type and return every problem, each naming the item and the operation; `ask-core` refuses an answer with the first. A type with no changes schema SHALL take no change; a type the registry does not hold SHALL give no problem, its value having been refused first (AD-7, AD-10, AD-20).
 
 #### Scenario: A Kanban reorder
 - **WHEN** the changes of a Kanban hold a `move` of the card `fix-login`
