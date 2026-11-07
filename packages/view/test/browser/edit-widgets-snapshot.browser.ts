@@ -5,7 +5,7 @@
 // value read-only with its change highlight, KaTeX's fonts are inline, the `askboard-licences`
 // block holds the `katex` 0.19.1 notice `MIT AND OFL-1.1` with the OFL text, nothing can be edited
 // or moved, and the file inlines the chunks `assemble` selects for the three types, `dnd` among
-// them. An answer too complex to preview (task 4.22) shows its source with the same field error and
+// them. An answer KaTeX does not parse shows its source with the same field error and
 // no drawn preview, and one raised a million em down (task 5b.1) holds its preview within the cap.
 // The session process serves this test whatever the target.
 
@@ -34,7 +34,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
 const ASKER: Asker = { project: "order-service", gitUser: "Sara Rossi" };
-const COMPLEX = `a${"́".repeat(48)}`;
+const UNPARSED = "\\frac{1}{";
 const RAISED = "\\raisebox{-1000000em}{X}";
 const CAP = 400;
 const ask = {
@@ -50,7 +50,7 @@ const ask = {
           kanbanItem(),
           timelineItem(),
           LATEX_FIXTURE_ITEM,
-          latexItem("x", "complex"),
+          latexItem("x", "unparsed"),
           latexItem("y", "raised"),
         ],
       },
@@ -77,7 +77,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const source = (id: string) =>
           board.view
             .locator(`[data-latex-source]`)
-            .nth(["formula", "complex", "raised"].indexOf(id));
+            .nth(["formula", "unparsed", "raised"].indexOf(id));
         await beginDrag(board, cardOf(board, "a"));
         await dragOver(board, columnOf(board, "doing"));
         await release(board);
@@ -105,7 +105,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "checkout to be moved",
         );
         await source("formula").fill("a^2+b^2=c^2");
-        await source("complex").fill(COMPLEX);
+        await source("unparsed").fill(UNPARSED);
         await source("raised").fill(RAISED);
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await board.header.getByText("Answered").waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -172,11 +172,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await page.locator("[data-latex-preview]").nth(0).locator(".katex").count()).toBe(
             1,
           );
-          // Too complex to preview: the source, the field error, no drawn node.
-          expect(await sources.nth(1).inputValue()).toBe(COMPLEX);
+          // An expression KaTeX does not parse: the source, the field error, no drawn node.
+          expect(await sources.nth(1).inputValue()).toBe(UNPARSED);
           expect(
             await page.locator("[data-latex]").nth(1).locator("[data-latex-error]").textContent(),
-          ).toContain("This expression is too complex to preview.");
+          ).toContain("This expression does not render");
           expect(await page.locator("[data-latex-preview]").nth(1).locator("*").count()).toBe(0);
           // Raised a million em down: the preview holds within its cap.
           const preview = await page.locator("[data-latex-preview]").nth(2).boundingBox();

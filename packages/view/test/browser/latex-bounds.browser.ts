@@ -1,14 +1,14 @@
-// The LaTeX bounds, in each engine (latex-kanban-timeline, tasks 4.11 and 4.16; view-and-widgets spec:
-// LaTeX bounded work, scenarios "Nests at and past the limit" and "Nests the scan once missed", and
-// LaTeX output bounded, scenario "Too complex to preview"; design decision 7, Bounded work and
-// Bounded output): every fixture of the depth probe at `LATEX_NESTING_MAX_DEPTH`, alone, side by
-// side to 2,000 code points and as a branching nest, goes through the board's `renderInto` with
-// KaTeX's fonts, is drawn in under 2 seconds with no crash, and the parent page answers after each;
-// the two forms the scan once missed give the depth's refusal; and an output past bounds lowered
-// from the test inserts no node. A bare render in a sandboxed frame: no server, no board. Since
-// task 6.8 the same bounds are also met through a board on the widget host (the second half of the
-// file), where the LaTeX item, its field, its queue and KaTeX's stylesheet and fonts as the `latex`
-// chunk carries them are the ones a user types into.
+// The LaTeX bounds, in each engine (latex-kanban-timeline, tasks 4.11 and 6.8; latex-public-api, task
+// 3.1; view-and-widgets spec: LaTeX bounded work, scenarios "Nests at and past the limit", "Nests the
+// scan once missed" and "Stacked combining marks", and LaTeX previews one at a time): every fixed
+// family of nests (the 17 constructs and the infix, hidden-opener, environment and style forms) at
+// `LATEX_NESTING_MAX_DEPTH`, alone, side by side to 2,000 code points and as a branching nest, goes
+// through the board's `renderInto` with KaTeX's fonts, is drawn in under 2 seconds with no crash,
+// and the parent page answers after each; the forms the scan once missed and stacked combining
+// marks give the depth's refusal. A bare render in a sandboxed frame: no server, no board. The same
+// bounds are also met through a board on the widget host (the second half of the file), where the
+// LaTeX item, its field, its queue and KaTeX's stylesheet and fonts as the `latex` chunk carries
+// them are the ones a user types into. No test here reads KaTeX's script or names its internals.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/latex-bounds.browser.ts
 
@@ -33,19 +33,14 @@ import {
   watching,
 } from "./harness/latex-board.ts";
 import {
+  construct,
   depthOfFixture,
   fixtureFor,
-  katexControlWords,
   LATEX_CONSTRUCTS,
   SHAPES,
 } from "./harness/latex-fixtures.ts";
-import {
-  controlWordConstructs,
-  EXTRA_CONSTRUCTS,
-  optionalArgumentWords,
-} from "./harness/latex-forms.ts";
+import { EXTRA_CONSTRUCTS } from "./harness/latex-forms.ts";
 import { LatexFrame, PARENT_ANSWER_MS } from "./harness/latex-frame.ts";
-import { LATEX_SOURCES, loadMeasurer } from "./harness/latex-measure.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -55,15 +50,11 @@ const RENDER_BOUND_MS = 2_000;
 const TEST_TIMEOUT_MS = 60_000;
 const LIMIT = LATEX_NESTING_MAX_DEPTH;
 
-// Every family task 4.15 measured: its 17 constructs, the infix, hidden-opener, environment and
-// style forms, and every control word with arguments in each argument position that KaTeX parses.
-const measure = await loadMeasurer();
-const FORMS = controlWordConstructs(
-  katexControlWords(LATEX_SOURCES.katex),
-  measure,
-  optionalArgumentWords(LATEX_SOURCES.katex),
-).forms;
-const FAMILIES = [...LATEX_CONSTRUCTS, ...EXTRA_CONSTRUCTS, ...FORMS];
+// Every fixed family: the 17 constructs, and the infix, hidden-opener, environment and style forms.
+const FAMILIES = [...LATEX_CONSTRUCTS, ...EXTRA_CONSTRUCTS];
+
+// The text KaTeX gives for an expression it does not parse, which the board shows after this start.
+const NOT_RENDERED = "This expression does not render";
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: a LaTeX nest at the limit`, () => {
@@ -76,8 +67,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         async () => {
           for (const shape of SHAPES) {
             const expression = fixtureFor(construct, shape, LIMIT);
-            // A nest KaTeX does not parse at this depth has nothing to draw.
-            if (!measure(expression).parses) continue;
             const where = `${construct.name}, ${shape}`;
             expect(depthOfFixture(expression), where).toBeLessThanOrEqual(LIMIT);
             if (LATEX_CONSTRUCTS.includes(construct)) {
@@ -94,7 +83,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
               expect(result.rendered, where).toEqual({ refused: { command: refused } });
               continue;
             }
-            // Drawn: no refusal, no "too complex", no error, and the elements are in the page.
+            // A form of the extra families that KaTeX does not parse at this depth has nothing to
+            // draw; the 17 constructs always draw.
+            if (result.rendered.error !== undefined && !LATEX_CONSTRUCTS.includes(construct)) {
+              continue;
+            }
+            // Drawn: no refusal, no error, and the elements are in the page.
             expect(result.rendered, where).toEqual({});
             expect(result.nodes, where).toBeGreaterThan(1);
             expect(result.ms, where).toBeLessThan(RENDER_BOUND_MS);
@@ -173,21 +167,23 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
   });
 
-  // Task 4.22 (4.19 re-review S-1; view-and-widgets spec: LaTeX output bounded, scenario "Too
-  // complex to preview"): combining marks after a character, which the contract's scan passes with
-  // no level, at the board's default bounds. Drawn with no bound, 130 marks crash Chromium.
-  describe(`${engine}: combining marks at the default bounds`, () => {
+  // latex-public-api (view-and-widgets spec: LaTeX bounded work, scenario "Stacked combining
+  // marks"): the contract's scan counts a run of combining marks as nesting, so the forms that
+  // crashed Chromium's renderer when drawn are refused before KaTeX runs.
+  describe(`${engine}: stacked combining marks`, () => {
     const frame = new LatexFrame(engine);
     afterAll(() => frame.close());
-    const MARK = String.fromCodePoint(0x301);
-    const marks = (count: number, base = "a", close = "") => `${base}${MARK.repeat(count)}${close}`;
+    const stacked = (count: number, mark = "\u0302", base = "x", close = "") =>
+      `${base}${mark.repeat(count)}${close}`;
 
     test(
-      "a and 47 marks is drawn within the render bound and the page answers",
+      "x and 10 marks is drawn within the render bound and the page answers",
       async () => {
+        const expression = stacked(LIMIT - 1);
+        expect(depthOfFixture(expression)).toBe(LIMIT);
         const kept = await frame.rendering("x^2");
         if (!kept.ok) throw new Error(`${kept.reason}: ${kept.message}`);
-        const result = await frame.rendering(marks(47));
+        const result = await frame.rendering(expression);
         if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
         expect(result.rendered).toEqual({});
         expect(result.ms).toBeLessThan(RENDER_BOUND_MS);
@@ -198,21 +194,20 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test.each([
-      ["a and 48 marks", marks(48)],
-      ["a and 130 marks", marks(130)],
-      ["\\text{a and 130 marks}", marks(130, "\\text{a", "}")],
+      ["x and 11 marks", stacked(LIMIT), LIMIT + 1],
+      ["x and 130 marks", stacked(130), 131],
+      ["a and 130 acute accents", stacked(130, "\u0301", "a"), 131],
+      ["\\text{a and 130 marks}", stacked(130, "\u0301", "\\text{a", "}"), 132],
     ] as const)(
-      "%s: the contract passes it, the output is too complex, no node is inserted, the renderer does not crash and the page answers",
-      async (_name, expression) => {
+      "%s: refused naming the depth and the limit, KaTeX does not run, the preview keeps its last render, the renderer does not crash and the page answers",
+      async (_name, expression, depth) => {
         expect(scanLatex(expression).refused).toBeUndefined();
-        expect(scanLatex(expression).depth).toBeLessThanOrEqual(LIMIT);
         expect([...expression].length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
         const kept = await frame.rendering("x^2");
         if (!kept.ok) throw new Error(`${kept.reason}: ${kept.message}`);
         const result = await frame.rendering(expression);
         if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
-        expect(Object.keys(result.rendered)).toEqual(["tooComplex"]);
-        expect(result.rendered.tooComplex?.depth).toBeGreaterThan(245);
+        expect(result.rendered).toEqual({ refused: { depth, limit: LIMIT } });
         expect(result.ms).toBeLessThan(RENDER_BOUND_MS);
         expect(result.nodes).toBe(kept.nodes);
         expect(result.parentMs).toBeLessThan(PARENT_ANSWER_MS);
@@ -222,57 +217,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
-  });
-
-  describe(`${engine}: an output past bounds lowered by the test`, () => {
-    const frame = new LatexFrame(engine);
-    afterAll(() => frame.close());
-    const LOWERED = [
-      ["a depth of 5", "\\frac{a}{b}", { depth: 5, nodes: 1_000, fractions: 11 }],
-      ["100 nodes", "x".repeat(2_000), { depth: 100, nodes: 100, fractions: 11 }],
-      [
-        "a fraction bound of 3",
-        "\\frac{\\frac{\\frac{\\frac{a}{b}}{c}}{d}}{e}",
-        { depth: 1_000, nodes: 100_000, fractions: 3 },
-      ],
-    ] as const;
-
-    test.each(LOWERED)(
-      "%s: too complex, no node inserted, the preview keeps its last render and the page answers",
-      async (_name, expression, bounds) => {
-        const kept = await frame.rendering("x^2");
-        if (!kept.ok) throw new Error(`${kept.reason}: ${kept.message}`);
-        const result = await frame.rendering(expression, bounds);
-        if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
-        expect(result.rendered.tooComplex).toBeDefined();
-        expect(Object.keys(result.rendered)).toEqual(["tooComplex"]);
-        expect(result.nodes).toBe(kept.nodes);
-        expect(result.parentMs).toBeLessThan(PARENT_ANSWER_MS);
-      },
-      TEST_TIMEOUT_MS,
-    );
 
     test(
-      "the scenario: with a fraction bound of 3, four nested fractions are too complex, three and four side by side are drawn",
+      "accented text is drawn: \\text{cafe} with a combining acute accent",
       async () => {
-        const bounds = { depth: 1_000, nodes: 100_000, fractions: 3 };
-        const expressions = [
-          "\\frac{\\frac{\\frac{\\frac{a}{b}}{c}}{d}}{e}",
-          "\\frac{\\frac{\\frac{a}{b}}{c}}{d}",
-          "\\frac{a}{b}\\frac{c}{d}\\frac{e}{f}\\frac{g}{h}",
-        ];
-        const results = [];
-        for (const expression of expressions) {
-          const result = await frame.rendering(expression, bounds);
-          if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
-          results.push(result);
-        }
-        expect(results[0]?.rendered.tooComplex).toBeDefined();
-        expect(results[1]?.rendered).toEqual({});
-        expect(results[2]?.rendered).toEqual({});
-        // The first inserted nothing: the page held the element of the draw before it.
-        expect(results[1]?.nodes).toBeGreaterThan(1);
-        expect(results[2]?.nodes).toBeGreaterThan(1);
+        const result = await frame.rendering("\\text{cafe\u0301}");
+        if (!result.ok) throw new Error(`${result.reason}: ${result.message}`);
+        expect(result.rendered).toEqual({});
+        expect(result.nodes).toBeGreaterThan(1);
       },
       TEST_TIMEOUT_MS,
     );
@@ -398,6 +350,45 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
+    // latex-public-api (spec: LaTeX bounded work, scenario "Stacked combining marks"): typed by the
+    // user and sent by the agent, `x` and 130 U+0302 gives the depth's refusal, KaTeX does not run.
+    const STACKED = `x${"\u0302".repeat(130)}`;
+    const STACKED_ERROR = `This expression nests 131 levels deep, more than the limit of ${LIMIT}.`;
+
+    test(
+      "x and 130 stacked U+0302 typed gives the depth's field error, creates no node, keeps the preview and the renderer survives",
+      async () => {
+        const run = await boardWith();
+        const { settled, before } = await typed(run, STACKED);
+        expect(settled.error).toStartWith(STACKED_ERROR);
+        expect(settled.created).toBe(0);
+        expect((await shownAt(run.board, 0)).markup).toBe(before);
+        expect(await keyAnswered(run.board, 0, "z")).toBeLessThan(SHOW_BOUND_MS);
+        // The same renderer draws again.
+        const after = await typed(run, "\\frac{a}{b}");
+        expect(after.settled.error).toBeNull();
+        expect(after.settled.drawn).toBe(true);
+        expect(run.browser.errors).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "x and 130 stacked U+0302 sent by the agent shows the same field error on load, with no preview and no crash",
+      async () => {
+        const run = await host(dist, latexDocument(STACKED), { prepare: watching });
+        await readyIn(run);
+        await eventually(
+          async () => ((await shownAt(run.board, 0)).error ?? "").startsWith(STACKED_ERROR),
+          "the depth's field error on load",
+        );
+        expect((await shownAt(run.board, 0)).markup).toBe("");
+        expect(await keyAnswered(run.board, 0, "z")).toBeLessThan(SHOW_BOUND_MS);
+        expect(run.browser.errors).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
     // Each family of task 4.15 at the limit, alone, side by side and branching, through the field.
     test(
       "every family at the nesting limit, alone, side by side to 2,000 code points and branching, is drawn within 2 seconds and the board answers after each family",
@@ -407,10 +398,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         for (const family of FAMILIES) {
           for (const shape of SHAPES) {
             const expression = fixtureFor(family, shape, LIMIT);
-            if (!measure(expression).parses) continue;
             const where = `${family.name}, ${shape}`;
             const { settled, before } = await typed(run, expression);
             slowest.push({ where, ms: settled.ms });
+            // A form of the extra families that KaTeX does not parse at this depth has nothing to draw.
+            if (settled.error?.startsWith(NOT_RENDERED) && !LATEX_CONSTRUCTS.includes(family)) {
+              continue;
+            }
             const refused = scanLatex(expression).refused;
             if (refused !== undefined) {
               expect(settled.error, where).toContain(refused);
@@ -467,7 +461,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 // expression within the scan's limit that task 4.15's measurement found in WebKit (`\\tfrac`'s first
 // argument nested to the limit, side by side; `\\dfrac` and `\\frac` follow within 5%), draws every
 // preview while keys and an edit in the last item's field are answered.
-const SLOWEST = FORMS.find((form) => form.name === "\\tfrac arg 1 of 2");
+const SLOWEST = construct("\\tfrac{ }{x}", "\\tfrac{", "}{x}");
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: ten LaTeX items`, () => {
@@ -476,7 +470,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "ten of the slowest expression draw every preview while a key press in the last field is answered within 2 seconds, and an expression typed in it shows within 2 seconds of the input",
       async () => {
-        if (SLOWEST === undefined) throw new Error("task 4.15's \\tfrac form is not measured");
         const expression = fixtureFor(SLOWEST, "side by side", LIMIT);
         expect(scanLatex(expression).refused).toBeUndefined();
         expect([...expression].length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);

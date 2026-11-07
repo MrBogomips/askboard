@@ -1,10 +1,11 @@
 // The LaTeX, in each engine, on the widget host and, for the answer and read-only scenarios, on
 // the session process (latex-kanban-timeline, task 5.1; spec view-and-widgets: LaTeX source and
 // preview, LaTeX source limit, LaTeX parse errors, LaTeX untrusted commands, LaTeX bounded work,
-// LaTeX output bounded, LaTeX, Kanban and Timeline read-only, LaTeX, Kanban and Timeline strings):
+// LaTeX preview within its box, LaTeX, Kanban and Timeline read-only, LaTeX, Kanban and Timeline
+// strings):
 // typing gives a preview and a draft holding the whole props, an edit back to the agent's
 // expression clears it; a paste over the limit is cut; a parse error, a refused command, a nest
-// past the limit and an output too complex to preview each show their field error, keep the last
+// past the limit each show their field error, keep the last
 // preview and leave "Answer" enabled; KaTeX's message shows its controls as marked escapes; a draw that
 // throws fails the item; an answered LaTeX is read-only; an Italian board shows it in Italian. No
 // font or other request is made and no Content Security Policy violation occurs.
@@ -76,9 +77,6 @@ const draftHolds = (run: WidgetHostRun, expression: string | undefined, what: st
       ),
     what,
   );
-
-// The combining marks the scan passes and the output bound refuses at 48 (task 4.22).
-const combined = (count: number): string => `a${"\u0301".repeat(count)}`;
 
 const hasError = (board: Board, start: string, at = 0) =>
   eventually(
@@ -432,48 +430,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
   });
 
-  describe(`${engine}: the LaTeX's output bound`, () => {
-    const { host } = useWidgetHost(engine);
-
-    test(
-      "a plus 48 U+0301 typed is too complex to preview: the last render stays, Answer is enabled and the draft holds the text; 47 draws",
-      async () => {
-        const run = await host(dist, latexDocument("x^2"));
-        await readyIn(run);
-        const { board } = run;
-        const before = await markup(board);
-        await source(board).fill(combined(48));
-        await hasError(board, "This expression is too complex to preview.");
-        expect(await errorText(board)).toBe(
-          "This expression is too complex to preview. Simplify it to see it drawn.",
-        );
-        expect(await markup(board)).toBe(before);
-        expect(await board.answer.isEnabled()).toBe(true);
-        await draftHolds(run, combined(48), "the draft to hold the text as typed");
-        await source(board).fill(combined(47));
-        await eventually(async () => (await fieldError(board).count()) === 0, "47 to be drawn");
-        expect(await drawn(board)).toBe(1);
-        expect(await markup(board)).not.toBe(before);
-      },
-      TEST_TIMEOUT_MS,
-    );
-
-    test(
-      "the agent's a plus 48 U+0301 shows the same field error on load, with no node inserted and no crash",
-      async () => {
-        const run = await host(dist, latexDocument(combined(48)));
-        await readyIn(run);
-        const { board } = run;
-        await hasError(board, "This expression is too complex to preview.");
-        expect(await drawn(board)).toBe(0);
-        expect(await preview(board).locator("*").count()).toBe(0);
-        expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.browser.errors).toEqual([]);
-      },
-      TEST_TIMEOUT_MS,
-    );
-  });
-
   describe(`${engine}: the LaTeX preview's height`, () => {
     const { host } = useWidgetHost(engine);
 
@@ -627,42 +583,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await Bun.sleep(QUIET_MS);
         expect(await fieldValue(board)).toBe("a^2+b^2=c^2");
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
-      },
-      TEST_TIMEOUT_MS,
-    );
-
-    test(
-      "an answered expression too complex to preview shows its source read-only with the same field error and no node",
-      async () => {
-        const complex = `a${"\u0301".repeat(48)}`;
-        const run = await start(lifecycleScenario(latexAsk, dist));
-        const board = await openBoard(run, ["plan"]);
-        await source(board).fill(complex);
-        await hasError(board, "This expression is too complex to preview.");
-        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
-        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
-        await run.session.collect();
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
-        await run.session.update([{ action: "close" }]);
-        await board
-          .banner(/closed/i)
-          .first()
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
-        // A reloaded board has no earlier preview to keep: the answer's expression is the first.
-        await reloadBoard(board, run, () =>
-          board.view
-            .locator('[data-askboard-question="plan"]:not([aria-busy="true"])')
-            .waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS }),
-        );
-        await eventually(
-          async () => (await source(board).getAttribute("readonly")) !== null,
-          "the field to turn read-only",
-        );
-        expect(await fieldValue(board)).toBe(complex);
-        expect(await errorText(board)).toBe(
-          "This expression is too complex to preview. Simplify it to see it drawn.",
-        );
-        expect(await preview(board).locator("*").count()).toBe(0);
       },
       TEST_TIMEOUT_MS,
     );
