@@ -44,10 +44,11 @@ at_least() {
 
 # Run outside the project (review 1.5, X-1): files in the user's project (a Volta hooks.json naming a
 # script, a version file a shim reads, a bunfig.toml preload) must not choose or run code when the
-# runtime starts. The session process reads the project from CLAUDE_PROJECT_DIR, which keeps its
-# value or takes the caller's directory, and the hooks read theirs from their input's cwd.
-CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-$PWD}
-export CLAUDE_PROJECT_DIR
+# runtime starts. CLAUDE_PROJECT_DIR stays as the host gave it, set or not: no folder stands in for
+# the session project root (AD-12). The caller's directory travels apart, for display only, in
+# ASKBOARD_CALLER_CWD, which the session process shows where it has no project root.
+ASKBOARD_CALLER_CWD=$PWD
+export ASKBOARD_CALLER_CWD
 cd "$ROOT" || exit 1
 
 # The probe reads nothing: the caller's stdin (a hook's input, the MCP stream) is for the exec below.

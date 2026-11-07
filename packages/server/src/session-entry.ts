@@ -5,6 +5,7 @@
 import { fileURLToPath } from "node:url";
 import { VIEW_DIRECTORY } from "@askboard/contract";
 import serverPackage from "../package.json" with { type: "json" };
+import { callerFolder } from "./caller-folder.ts";
 import { processOf } from "./mcp-tools/index.ts";
 import { startSessionProcess } from "./session-process.ts";
 
@@ -13,7 +14,7 @@ export const startEntryPoint = (bundleUrl: string): void => {
   startSessionProcess({
     env: process.env,
     platform: process.platform,
-    cwd: process.cwd(),
+    cwd: callerFolder(process.env, process.cwd()),
     view: fileURLToPath(new URL(`./${VIEW_DIRECTORY}/`, bundleUrl)),
     version: serverPackage.version,
     process: processOf(process),

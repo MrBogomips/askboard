@@ -254,6 +254,7 @@ const projectShimNode = (into: string): string => {
       "  printf 'pwd=%s\\n' \"$(pwd -P)\"",
       // A template literal, so the shell's own ${...} is escaped and not read as a placeholder.
       `  printf 'project=%s\\n' "\${CLAUDE_PROJECT_DIR-unset}"`,
+      `  printf 'caller=%s\\n' "\${ASKBOARD_CALLER_CWD-unset}"`,
       "  if [ -e ./.volta/hooks.json ]; then printf 'marker=ran in %s\\n' \"$PWD\"; fi",
       '} >> "$SHIM_LOG"',
       'if [ "$1" = "-p" ]; then printf \'%s\\n\' "$SHIM_VERSION"; fi',
@@ -304,27 +305,25 @@ describe("the start script runs outside the project (review 1.5, X-1)", () => {
     expect(linesOf(ran.recorded, "marker")).toEqual([]);
   });
 
-  test("CLAUDE_PROJECT_DIR unset reaches node as the caller's directory", async () => {
+  test("CLAUDE_PROJECT_DIR unset stays unset for node: no folder stands in for the project (AD-12)", async () => {
     const root = pluginRoot();
-    const project = voltaProject();
     const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
       version: "24.22.1",
       shims: projectShimNode(folder()),
-      cwd: project,
+      cwd: voltaProject(),
     });
-    expect(linesOf(ran.recorded, "project")).toEqual([project, project]);
+    expect(linesOf(ran.recorded, "project")).toEqual(["unset", "unset"]);
   });
 
-  test("an empty CLAUDE_PROJECT_DIR takes the caller's directory too", async () => {
+  test("an empty CLAUDE_PROJECT_DIR stays empty", async () => {
     const root = pluginRoot();
-    const project = voltaProject();
     const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
       version: "24.22.1",
       shims: projectShimNode(folder()),
-      cwd: project,
+      cwd: voltaProject(),
       env: { CLAUDE_PROJECT_DIR: "" },
     });
-    expect(linesOf(ran.recorded, "project")).toEqual([project, project]);
+    expect(linesOf(ran.recorded, "project")).toEqual(["", ""]);
   });
 
   test("a CLAUDE_PROJECT_DIR the caller set is kept", async () => {
@@ -337,6 +336,36 @@ describe("the start script runs outside the project (review 1.5, X-1)", () => {
       env: { CLAUDE_PROJECT_DIR: named },
     });
     expect(linesOf(ran.recorded, "project")).toEqual([named, named]);
+  });
+
+  test.each([[["hook", "PreToolUse"]], [[]]])(
+    "the caller's directory travels as ASKBOARD_CALLER_CWD, for the probe and the exec, with args %p",
+    async (args) => {
+      const root = pluginRoot();
+      const project = voltaProject();
+      const ran = await runScript(join(root, "scripts", "askboard"), args, {
+        version: "24.22.1",
+        shims: projectShimNode(folder()),
+        cwd: project,
+      });
+      expect(linesOf(ran.recorded, "caller")).toEqual([project, project]);
+    },
+  );
+
+  test("an ASKBOARD_CALLER_CWD from the environment is replaced by the real caller's directory", async () => {
+    const root = pluginRoot();
+    const project = voltaProject();
+    const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
+      version: "24.22.1",
+      shims: projectShimNode(folder()),
+      cwd: project,
+      env: { ASKBOARD_CALLER_CWD: "/somewhere/else" },
+    });
+    expect(linesOf(ran.recorded, "caller")).toEqual([project, project]);
+  });
+
+  test("the script's own text never fills CLAUDE_PROJECT_DIR", () => {
+    expect(readFileSync(SCRIPT, "utf8")).not.toMatch(/CLAUDE_PROJECT_DIR\s*=/);
   });
 
   test("a relative call path from the project still finds the plugin root", async () => {
@@ -844,7 +873,7 @@ describe("the real bundle", () => {
   );
 
   test.skipIf(missing !== null || !usable)(
-    "the session process finds the project from the caller's directory, not the plugin root",
+    "with CLAUDE_PROJECT_DIR unset the session file names no project directory (AD-12)",
     async () => {
       const project = realpathSync(folder("askboard-start-project-"));
       // Short, since the local API's socket path has a platform limit that tmpdir() can exceed.
@@ -889,7 +918,8 @@ describe("the real bundle", () => {
       child.stdin.end();
       const exited = await Promise.race([child.exited, Bun.sleep(10_000).then(() => "timeout")]);
       if (exited === "timeout") child.kill();
-      expect(session?.projectDir).toBe(project);
+      expect(session).toBeDefined();
+      expect(session).not.toHaveProperty("projectDir");
     },
     40_000,
   );
