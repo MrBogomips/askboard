@@ -81,6 +81,13 @@ export const valueExtent = (props: ChartProps): ValueExtent => {
   const highest = Math.max(0, ...numbers);
   if (lowest === 0 && highest === 0) return { min: 0, max: 1, interval: 0.2 };
   const interval = niceStep((highest - lowest) / 5);
+  // Values so small that the step underflows (subnormals) are drawn on a unit axis: they are zero
+  // at any scale a reader can see, and the axis must stay finite for the library and `pointCentre`.
+  if (!(Number.isFinite(interval) && interval > 0)) {
+    const min = lowest < 0 ? -1 : 0;
+    const max = highest > 0 || lowest >= 0 ? 1 : 0;
+    return { min, max, interval: clean((max - min) / 5) };
+  }
   const max = highest > 0 ? (Math.floor(highest / interval + EPSILON) + 1) * interval : 0;
   const min = lowest < 0 ? (Math.ceil(lowest / interval - EPSILON) - 1) * interval : 0;
   return { min: clean(min), max: clean(max), interval };

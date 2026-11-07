@@ -66,6 +66,35 @@ describe("valueExtent", () => {
     expect(valueExtent(zeros)).toEqual({ min: 0, max: 1, interval: 0.2 });
   });
 
+  // X-2 of the review of groups 1 to 4: values the contract admits, all subnormal, make the raw
+  // step underflow to zero, which must not become an axis of NaN.
+  test("gives values that are all subnormal a finite axis that holds them, with a positive step", () => {
+    for (const values of [
+      [5e-324],
+      [1e-323, 0],
+      [5e-324, -5e-324],
+      [-5e-324],
+      [3e-320, 1e-320],
+      [1e-310, -1e-310],
+    ]) {
+      const props: ChartProps = {
+        ...BAR,
+        categories: values.map((_, at) => ({ id: `c${at}`, label: `C${at}` })),
+        series: [{ id: "s", label: "S", values }],
+      };
+      const { min, max, interval } = valueExtent(props);
+      expect([min, max, interval].every(Number.isFinite), JSON.stringify(values)).toBe(true);
+      expect(interval, JSON.stringify(values)).toBeGreaterThan(0);
+      expect(min).toBeLessThanOrEqual(Math.min(0, ...values));
+      expect(max).toBeGreaterThanOrEqual(Math.max(0, ...values));
+      expect(max).toBeGreaterThan(min);
+      for (const [at, value] of values.entries()) {
+        const centre = pointCentre(props, { series: "s", category: `c${at}` }, BOX);
+        expect(Number.isFinite(centre?.x) && Number.isFinite(centre?.y), `${value}`).toBe(true);
+      }
+    }
+  });
+
   test("a gap holds no value", () => {
     const gap: ChartProps = { ...BAR, series: [{ id: "s", label: "S", values: [null, 4, null] }] };
     expect(valueExtent(gap).max).toBe(5);
