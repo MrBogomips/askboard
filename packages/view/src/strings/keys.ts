@@ -145,6 +145,8 @@ export const STRING_KEYS = [
   "change.widgetChart",
   "change.widgetTextField",
   "change.widgetToggle",
+  "change.widgetNumberField",
+  "change.widgetMoneyField",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -352,6 +354,13 @@ export const STRING_KEYS = [
   "toggle.on",
   "toggle.off",
   "toggle.clear",
+  // The NumberField and the MoneyField (atoms, task 5.4; ux-update-draft.md block 6; the Italian texts to review).
+  "field.atLeast",
+  "field.atMost",
+  "field.whole",
+  "field.step",
+  "field.pickCurrency",
+  "field.currency",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

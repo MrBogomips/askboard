@@ -26,6 +26,8 @@ import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
 import { KANBAN_WIDGET } from "./kanban/widget.ts";
 import { LATEX_WIDGET } from "./latex/widget.ts";
+import { MONEY_FIELD_WIDGET } from "./money-field/widget.ts";
+import { NUMBER_FIELD_WIDGET } from "./number-field/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
 import { TEXT_WIDGET } from "./text/widget.ts";
@@ -140,6 +142,8 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   VALUE_WIDGET,
   DIVIDER_WIDGET,
   TEXT_FIELD_WIDGET,
+  NUMBER_FIELD_WIDGET,
+  MONEY_FIELD_WIDGET,
   TOGGLE_WIDGET,
 ];
 

@@ -114,7 +114,7 @@ export const DATE_FIELD_RESULTS = ["2026-03-02", "2026-06-30"] as const;
 
 /** A MoneyField of one currency with a minimum, and one that offers two currencies. */
 export const MONEY_FIELD_FIXTURE_ITEMS = [
-  { type: "money-field", id: "budget", props: { label: "Budget", currency: "EUR", min: "0" } },
+  { type: "money-field", id: "fee", props: { label: "Fee", currency: "EUR", min: "0" } },
   {
     type: "money-field",
     id: "price",

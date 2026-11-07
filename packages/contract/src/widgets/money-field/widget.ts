@@ -27,7 +27,7 @@ export const MONEY_FIELD_WIDGET: WidgetType = {
   example: {
     item: {
       type: "money-field",
-      id: "budget",
+      id: "fee",
       props: { label: "Budget", currency: "EUR", min: "0" },
     },
   },

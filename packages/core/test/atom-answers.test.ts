@@ -52,7 +52,7 @@ describe("a question of atoms answered", () => {
     const results = {
       name: "Ada Lovelace",
       days: 3.5,
-      budget: { amount: "12480.50", currency: "EUR" },
+      fee: { amount: "12480.50", currency: "EUR" },
       notify: false,
     };
     const { outcome } = run({ results });
@@ -82,9 +82,9 @@ describe("a result past its bounds", () => {
       ["name", "x".repeat(41)],
       ["days", -1],
       ["days", 3.25],
-      ["budget", { amount: "12.505", currency: "EUR" }],
-      ["budget", { amount: "-1", currency: "EUR" }],
-      ["budget", { amount: "1", currency: "USD" }],
+      ["fee", { amount: "12.505", currency: "EUR" }],
+      ["fee", { amount: "-1", currency: "EUR" }],
+      ["fee", { amount: "1", currency: "USD" }],
       ["start", "2025-12-31"],
       ["start", "2026-02-30"],
       ["notify", "yes"],

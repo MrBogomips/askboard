@@ -102,6 +102,8 @@ describe("bun run build:view (design decision 7)", () => {
       gantt: "component",
       kanban: "component",
       latex: "component",
+      "money-field": "component",
+      "number-field": "component",
       radix: "library",
       ranking: "component",
       react: "library",
@@ -122,11 +124,14 @@ describe("bun run build:view (design decision 7)", () => {
     expect(manifest.chunks.text?.needs).toEqual(["react", "shell"]);
     // The display atoms and the TextField are chunks of their own, each needing only React and the shell
     // (tasks 5.2 and 5.3); the Toggle also needs Radix's Switch, which the radix library chunk holds.
-    for (const atom of ["value", "divider", "text-field"]) {
+    for (const atom of ["value", "divider", "text-field", "number-field"]) {
       expect(manifest.chunks[atom]?.components).toEqual([atom]);
       expect(manifest.chunks[atom]?.needs).toEqual(["react", "shell"]);
     }
     expect(manifest.chunks.toggle?.needs).toEqual(["radix", "react", "shell"]);
+    // The MoneyField's currency control is Radix's Toggle Group (task 5.4).
+    expect(manifest.chunks["money-field"]?.components).toEqual(["money-field"]);
+    expect(manifest.chunks["money-field"]?.needs).toEqual(["radix", "react", "shell"]);
     // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
@@ -349,6 +354,8 @@ describe("bun run build:view (design decision 7)", () => {
       "gantt",
       "kanban",
       "latex",
+      "money-field",
+      "number-field",
       "radix",
       "ranking",
       "react",

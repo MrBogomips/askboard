@@ -5,12 +5,13 @@
 import type { ReactNode } from "react";
 import { DESCRIPTION, FIELD, LABEL } from "./classes.ts";
 
-/** The DOM IDs of an item's control, its label, its description and its state text. */
+/** The DOM IDs of an item's control, its label, its description, its state text and its field error. */
 export const fieldIds = (itemId: string) => ({
   control: `${itemId}:field`,
   label: `${itemId}:label`,
   description: `${itemId}:description`,
   state: `${itemId}:state`,
+  error: `${itemId}:error`,
 });
 
 type FieldProps = {
