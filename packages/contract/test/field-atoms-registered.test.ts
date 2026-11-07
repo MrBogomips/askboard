@@ -41,17 +41,18 @@ const refsOf = (schema: AnySchemaObject, union: string): string[] =>
   schema.$defs[union].oneOf.map(({ $ref }: { $ref: string }) => $ref.split("/").at(-1));
 
 describe("the minors atoms binds", () => {
-  test("each widened set is one minor past main's at the rebase (task 7.2), and the sets carry the constants", () => {
-    // The one place the bound numbers stand, beside the constants (askboard-contract-versioning,
-    // Rule 1); main's were input 1.8, output 1.8, tool envelopes 1.8, board document 1.7 and board
-    // protocol 1.6.
+  test("each widened set is at atoms' minor or a later one, and the sets carry the constants", () => {
+    // Atoms' numbers (askboard-contract-versioning, Rule 1) stand here as lower bounds: main's were
+    // input 1.8, output 1.8, tool envelopes 1.8, board document 1.7 and board protocol 1.6, and a
+    // later change takes the next minor again; layouts-sets.test.ts pins the numbers of the latest.
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      input: INPUT_FORMAT_VERSION,
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-      protocol: BOARD_PROTOCOL_VERSION,
-    }).toEqual({ input: "1.9", output: "1.9", envelopes: "1.9", document: "1.8", protocol: "1.7" });
+      input: minor(INPUT_FORMAT_VERSION) >= 9,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 9,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 9,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 8,
+      protocol: minor(BOARD_PROTOCOL_VERSION) >= 7,
+    }).toEqual({ input: true, output: true, envelopes: true, document: true, protocol: true });
     expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
