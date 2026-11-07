@@ -136,6 +136,7 @@ Seams this change creates: `WidgetType.result.answerProblems` and `widgetAnswerP
 - [The summary reads values the user cannot see as names (keyed Gantt plans)] → the element's ID stands in when it has no `label`.
 - [Chunk growth: three chunks, `Slider` in `radix`, the composed validators in the board page] → each task records its sizes; the Tree's chunk shrinks by the library.
 - [Revisions now seed results] → it changes no answer already sent; tests cover the Tree beside an Approval and "Start from my previous answer".
+- [After a reload, "Keep mine" names the kept revision while the card shows the current one (accepted in E3), so a result the user makes on a widened widget (an order over a Ranking that gained an element, a range on a Scale that was none) is refused at the kept revision, and the board host's refusal reaches only the browser console] → accepted for this change under the PO's unattended handoff (7b.6 re-review U-1): the filter drops a held result the shown props refuse; the general cure, a refused answer shown to the user with its reason, is a follow-up outside this change, recorded in the workflow follow-up of `tasks.md`.
 
 ## Migration Plan
 
