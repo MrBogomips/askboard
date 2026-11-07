@@ -11,6 +11,7 @@ import {
   type FetchAnswer,
   type LifecycleAskInput,
   type LifecycleBoardDocument,
+  nestedItemsOf,
   type QuestionItem,
   type QuestionProps,
   type ThreadReply,
@@ -94,6 +95,17 @@ const copyQuestion = (question: QuestionRecord): QuestionRecord => ({
   context: new Map(question.context),
 });
 
+// The ID of every item a question's props hold, at every depth of its layouts (layouts, design
+// decision 5).
+export const itemIdsOf = (props: unknown): string[] => {
+  const { items } = (props ?? {}) as { readonly items?: unknown };
+  if (!Array.isArray(items)) return [];
+  return nestedItemsOf(items).flatMap(({ item }) => {
+    const { id } = (item ?? {}) as { readonly id?: unknown };
+    return typeof id === "string" ? [id] : [];
+  });
+};
+
 // Inserts `id` into `list` after `after`, or first without it.
 const place = (list: string[], id: string, after: string | undefined): void => {
   list.splice(after === undefined ? 0 : list.indexOf(after) + 1, 0, id);
@@ -116,6 +128,9 @@ export class BoardModel {
   readonly #questions: Map<string, QuestionRecord>;
   readonly #areas: Map<string, AreaRecord>;
   readonly #deleted: Set<string>;
+  // The ID of each item the questions' current revisions hold, at every depth, by the ID of the
+  // question that holds it; kept on add, revise and delete (layouts, design decision 5).
+  readonly #held: Map<string, string>;
   #recordedEver: boolean;
 
   private constructor(
@@ -125,6 +140,7 @@ export class BoardModel {
       questions: Map<string, QuestionRecord>;
       areas: Map<string, AreaRecord>;
       deleted: Set<string>;
+      held: Map<string, string>;
       recordedEver: boolean;
     },
   ) {
@@ -133,6 +149,7 @@ export class BoardModel {
     this.#questions = parts.questions;
     this.#areas = parts.areas;
     this.#deleted = parts.deleted;
+    this.#held = parts.held;
     this.#recordedEver = parts.recordedEver;
   }
 
@@ -150,6 +167,7 @@ export class BoardModel {
       questions: new Map(),
       areas: new Map(),
       deleted: new Set(),
+      held: new Map(),
       recordedEver: false,
     });
     let after: string | undefined;
@@ -172,6 +190,7 @@ export class BoardModel {
       questions: new Map([...this.#questions].map(([id, q]) => [id, copyQuestion(q)])),
       areas: new Map(areas as [string, AreaRecord][]),
       deleted: new Set(this.#deleted),
+      held: new Map(this.#held),
       recordedEver: this.#recordedEver,
     });
   }
@@ -193,9 +212,20 @@ export class BoardModel {
     return this.#deleted.has(id);
   }
 
-  /** Held now or deleted earlier: an ID never reused (FR-5). */
-  inUse(id: string): boolean {
-    return this.#questions.has(id) || this.#areas.has(id) || this.#deleted.has(id);
+  /**
+   * Held now or deleted earlier: an ID never reused (FR-5). A question, an area, or an item of a
+   * question's current revision at any depth holds it; with `except`, the items of that question
+   * do not count, for the question's own change. An item a change drops is free again.
+   */
+  inUse(id: string, except?: string): boolean {
+    if (this.#questions.has(id) || this.#areas.has(id) || this.#deleted.has(id)) return true;
+    const holder = this.#held.get(id);
+    return holder !== undefined && holder !== except;
+  }
+
+  /** The ID of the question whose current revision holds the item `id`, if one does. */
+  heldBy(id: string): string | undefined {
+    return this.#held.get(id);
   }
 
   /** The IDs of the siblings an item placed by `parentId` would sit among. */
@@ -280,9 +310,11 @@ export class BoardModel {
       });
       for (const question of item.props.items) {
         this.#questions.set(question.id, newQuestion(question, item.id));
+        this.#hold(question.id, question.props);
       }
     } else {
       this.#questions.set(item.id, newQuestion(item, parentId));
+      this.#hold(item.id, item.props);
     }
     const area = parentId === undefined ? undefined : this.#areas.get(parentId);
     place(area === undefined ? this.#top : area.questions, item.id, after);
@@ -291,8 +323,10 @@ export class BoardModel {
 
   /** A new revision of a question with these props (AD-20); returns it. */
   revise(question: QuestionRecord, props: QuestionProps): number {
+    this.#release(question.id, this.propsOf(question));
     question.rev += 1;
     question.revs.set(question.rev, frozenCopy(props));
+    this.#hold(question.id, props);
     question.generation += 1;
     this.#touchArea(question);
     this.#prune(question);
@@ -359,8 +393,26 @@ export class BoardModel {
   }
 
   #forget(id: string): void {
+    const question = this.#questions.get(id);
+    if (question !== undefined) {
+      const ids = itemIdsOf(this.propsOf(question));
+      this.#release(id, this.propsOf(question));
+      for (const held of ids) this.#deleted.add(held);
+    }
     this.#questions.delete(id);
     this.#deleted.add(id);
+  }
+
+  // The items of a question's revision are held by it.
+  #hold(questionId: string, props: unknown): void {
+    for (const id of itemIdsOf(props)) this.#held.set(id, questionId);
+  }
+
+  // The items of a question's revision are held no more.
+  #release(questionId: string, props: unknown): void {
+    for (const id of itemIdsOf(props)) {
+      if (this.#held.get(id) === questionId) this.#held.delete(id);
+    }
   }
 
   /**

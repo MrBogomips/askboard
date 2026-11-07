@@ -86,9 +86,10 @@ const CONTRACT_READS: readonly Read[] = [
 
 const START = "the question's own list, the walker's start: the layouts in it are walked from here";
 const MOLECULES = "molecule references stay in the question's own items, never in a layout";
-const LATER = "walks the layouts in task 2.2 (updates, IDs and fetch over nested items)";
+const REFERENCES =
+  "a molecule reference's items stay in the question's own list, where reference addressing reads them";
 
-/** The direct reads in `core`'s sources (layouts, task 2.1; task 2.2 retires the entries marked for it). */
+/** The direct reads in `core`'s sources (layouts, tasks 2.1 and 2.2). */
 const CORE_READS: readonly Read[] = [
   { file: "packages/core/src/graph-check.ts", text: "item.props.items", reason: START },
   { file: "packages/core/src/core.ts", text: "first.props.items[0]", reason: AREA },
@@ -105,8 +106,14 @@ const CORE_READS: readonly Read[] = [
   { file: "packages/core/src/lifecycle/model.ts", text: "item.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/updates.ts", text: "item.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "area.props.items", reason: AREA },
-  { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "{ items", reason: LATER },
-  { file: "packages/core/src/lifecycle/widget-update.ts", text: "{ items }", reason: LATER },
+  { file: "packages/core/src/lifecycle/model.ts", text: "{ items } = (props", reason: START },
+  {
+    file: "packages/core/src/lifecycle/widget-fetch.ts",
+    text: "{ items } = props",
+    reason: REFERENCES,
+  },
+  { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "{ items = [] }", reason: START },
+  { file: "packages/core/src/lifecycle/widget-update.ts", text: "{ items }", reason: START },
   {
     file: "packages/core/src/lifecycle/widget-values.ts",
     text: "{ items } = props",

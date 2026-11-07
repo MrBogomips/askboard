@@ -145,3 +145,37 @@ describe("fetching widget items and references", () => {
     });
   });
 });
+
+describe("fetching a layout", () => {
+  // Layouts (layouts, design decision 5): a layout is fetched with every item inside it, so a large
+  // Group pages like any item, and the pages join to its full value.
+  test("a large Group is fetched in pages whose joined text is the full Group", async () => {
+    const items = Array.from({ length: 300 }, (_, n) => ({
+      type: "text-field",
+      id: `field-${n}`,
+      props: { label: `Field number ${n} `.repeat(10) },
+    }));
+    const group = {
+      type: "group",
+      id: "wide",
+      questionId: "plan",
+      props: { title: "Wide", items },
+      state: "answered",
+    } as unknown as FetchItem;
+    const { call, close } = await fetchWith(holding(group), { itemId: "wide" });
+    const parts: string[] = [];
+    let continuation: string | undefined;
+    do {
+      const result = await call(continuation === undefined ? {} : { continuation });
+      expect(result.isError).toBeFalsy();
+      const json = jsonOf(result) as { part?: string; continuation?: string };
+      expect(json.part?.length ?? 0).toBeLessThanOrEqual(FETCH_PAGE_MAX_CHARS);
+      parts.push(json.part ?? "");
+      continuation = json.continuation;
+    } while (continuation !== undefined && parts.length < 50);
+    await close();
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.join("")).toBe(canonicalize(group));
+    expect(JSON.parse(parts.join("")).props.items).toHaveLength(300);
+  });
+});
