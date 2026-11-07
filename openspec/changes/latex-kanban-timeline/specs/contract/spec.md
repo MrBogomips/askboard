@@ -65,7 +65,7 @@ The LaTeX's check SHALL refuse an expression holding a macro-definition command 
 - **THEN** each passes: a line break before the text `def`, `\left`, and a control word other than `\def`
 
 ### Requirement: LaTeX nesting bounded
-The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit, counting levels never fewer than KaTeX nests them: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_` (AD-8, NFR-5).
+The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit, counting the levels its openers open: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_`. It is the agent's early refusal; nesting it does not count, such as stacked combining marks, is bounded by the board's output bound (view-and-widgets spec: LaTeX output bounded) (AD-8, NFR-5).
 
 #### Scenario: A nest at and past the limit
 - **WHEN** a LaTeX item's `expression` nests `\frac{` with `}{x}` to the limit, then one level more
@@ -76,11 +76,15 @@ The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_M
 - **THEN** it is 4: each script and each group is a level
 
 ### Requirement: LaTeX nesting counted as KaTeX reads it
-The LaTeX's nesting count SHALL add one level to the group that holds an infix command (`\over`, `\atop`, `\above`, `\choose`, `\brace` or `\brack`), SHALL let no brace that KaTeX reads as text, in a comment, a `\verb`, a character code or the token `\show` consumes, close a level, and SHALL read no opener as such a character code or token (AD-8, NFR-5).
+The LaTeX's nesting count SHALL add one level to the group that holds an infix command (`\over`, `\atop`, `\above`, `\choose`, `\brace` or `\brack`), SHALL let no brace that KaTeX reads as text, in a comment or a `\verb`, close a level, and SHALL refuse `\show` and a character code given by a backquote (``\char` ``), whose following token it does not read as KaTeX does, naming the command (AD-8, NFR-5).
 
 #### Scenario: A brace KaTeX reads as text
-- **WHEN** a LaTeX item's `expression` repeats `\sqrt{%` and a line feed past the limit, then `\sqrt{\verb|}|`, then ``\sqrt{\char`}``, then `\sqrt{\show}`, each followed by its closing braces
+- **WHEN** a LaTeX item's `expression` repeats `\sqrt{%` and a line feed past the limit, then `\sqrt{\verb|}|`, each followed by its closing braces
 - **THEN** each fails naming its depth and the limit
+
+#### Scenario: Commands whose next token the scan does not read
+- **WHEN** a LaTeX item's `expression` holds `\show\verb|}}|`, then ``\char`\{``
+- **THEN** each fails naming the command, whatever its depth
 
 #### Scenario: An infix fraction
 - **WHEN** the depths of `a \over b`, of `{a \over b}` and of `\frac{` with `\over y}{x}` nested 3 times are read

@@ -82,7 +82,7 @@ Before any node of a preview reaches the page, the board SHALL measure the depth
 A board SHALL draw its LaTeX previews one per task, in the order they are asked for, an item's newest expression replacing its pending draw and a draw asked for after the user's edit going before draws still pending, so that the board answers input between draws (AD-8, NFR-5).
 
 #### Scenario: Ten LaTeX items
-- **WHEN** a question holds ten LaTeX items, each the slowest expression the measurement found within the bounds, and the user types in the last item's field while the previews draw
+- **WHEN** a question holds ten LaTeX items, each the slowest expression the measurement found within the scan's limit (`\cfrac` or `\dfrac` side by side at the limit), and the user types in the last item's field while the previews draw
 - **THEN** every preview draws, each key press is answered within 2 seconds, and the last item's preview or field error shows within 2 seconds of the input, in Chromium and WebKit
 
 ### Requirement: Package stylesheets in a chunk
