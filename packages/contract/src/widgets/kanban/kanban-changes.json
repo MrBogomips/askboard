@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:kanban-changes",
+  "title": "Kanban changes",
+  "description": "A Kanban's changes (AD-20, FR-20, latex-kanban-timeline design decision 4): set operations of the one generic diff on a card's column, addressed as item.card.column (AD-13's reference syntax without brackets), the value the ID of the column the card moved to. A Kanban never adds, removes or moves a card, edits a label or a description, or changes a column, so a card's place within a column is no change. In no schema set until latex-kanban-timeline registers it.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/set" },
+  "$defs": {
+    "set": {
+      "type": "object",
+      "properties": {
+        "op": { "const": "set" },
+        "target": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}\\.column$"
+        },
+        "value": { "$ref": "urn:askboard:input:id" }
+      },
+      "required": ["op", "target", "value"],
+      "additionalProperties": false
+    }
+  }
+}

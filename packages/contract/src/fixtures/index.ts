@@ -206,6 +206,12 @@ export {
 
 export {
   EDIT_WIDGETS_SESSION,
+  KANBAN_CHANGES,
+  KANBAN_EDITED_PROPS,
+  KANBAN_FIXTURE_ITEM,
+  kanbanAct,
+  kanbanAnswerEvent,
+  kanbanFetchItemResult,
   LATEX_CHANGES,
   LATEX_EDITED_PROPS,
   LATEX_FIXTURE_ITEM,

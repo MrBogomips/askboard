@@ -6,6 +6,7 @@
 import { type ActCommand, BOARD_PROTOCOL_VERSION } from "../schemas/board-protocol/index.ts";
 import type { AnswerEvent } from "../schemas/output/index.ts";
 import { RESULT_VERSIONS } from "../schemas/tool-envelopes/index.ts";
+import type { KanbanItem } from "../widgets/kanban/index.ts";
 import type { LatexItem } from "../widgets/latex/index.ts";
 
 const SESSION = {
@@ -72,6 +73,80 @@ export const latexFetchItemResult: Readonly<Record<string, unknown>> = {
     id: LATEX_FIXTURE_ITEM.id,
     questionId: SESSION.question,
     props: LATEX_EDITED_PROPS,
+    state: "answered",
+  },
+  unchecked: true,
+};
+
+/** A Kanban of three columns and three cards, each in one of them. */
+export const KANBAN_FIXTURE_ITEM: KanbanItem = {
+  type: "kanban",
+  id: "board",
+  props: {
+    columns: [
+      { id: "todo", label: "To do" },
+      { id: "doing", label: "Doing" },
+      { id: "done", label: "Done" },
+    ],
+    cards: [
+      { id: "fix-login", label: "Fix the login redirect", column: "todo" },
+      { id: "write-docs", label: "Write the guide", description: "Two pages", column: "doing" },
+      { id: "release-notes", label: "Release notes", column: "done" },
+    ],
+  },
+};
+
+/** The Kanban's props after the user moved `fix-login` to Doing: the cards keep their order. */
+export const KANBAN_EDITED_PROPS = {
+  ...KANBAN_FIXTURE_ITEM.props,
+  cards: KANBAN_FIXTURE_ITEM.props.cards.map((card) =>
+    card.id === "fix-login" ? { ...card, column: "doing" } : card,
+  ),
+} as const;
+
+/** The changes of that move: one `set` of the card's column. */
+export const KANBAN_CHANGES = [
+  { op: "set", target: "board.fix-login.column", value: "doing" },
+] as const;
+
+/** The act that sends the moved card: the Kanban's value, with no change. */
+export const kanbanAct: ActCommand = {
+  version: BOARD_PROTOCOL_VERSION,
+  type: "act",
+  actionId: "uO7qV2pAz6XwP0yBc5gDtI",
+  acts: [
+    {
+      type: "answer",
+      itemId: SESSION.question,
+      rev: 1,
+      values: { [KANBAN_FIXTURE_ITEM.id]: KANBAN_EDITED_PROPS },
+      when: WHEN,
+    },
+  ],
+};
+
+/** The event that logs the move. */
+export const kanbanAnswerEvent: AnswerEvent = {
+  cursor: `${SESSION.epoch}.1`,
+  type: "answer",
+  itemId: SESSION.question,
+  rev: 1,
+  who: WHO,
+  when: WHEN,
+  changes: KANBAN_CHANGES,
+};
+
+/** What `fetch` returns for the Kanban alone: its props as the user left them. */
+export const kanbanFetchItemResult: Readonly<Record<string, unknown>> = {
+  versions: RESULT_VERSIONS,
+  epoch: SESSION.epoch,
+  askId: SESSION.askId,
+  state: "answered",
+  item: {
+    type: KANBAN_FIXTURE_ITEM.type,
+    id: KANBAN_FIXTURE_ITEM.id,
+    questionId: SESSION.question,
+    props: KANBAN_EDITED_PROPS,
     state: "answered",
   },
   unchecked: true,

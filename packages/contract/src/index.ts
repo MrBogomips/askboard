@@ -700,6 +700,24 @@ export { widgetChangesProblems } from "./widgets/results.ts";
 // not in `WIDGET_TYPES` until each joins it, with their constants and checks.
 
 export {
+  KANBAN_CARD_DESCRIPTION_MAX_CHARS,
+  KANBAN_CARD_LABEL_MAX_CHARS,
+  KANBAN_COLUMN_LABEL_MAX_CHARS,
+  KANBAN_MAX_CARDS,
+  KANBAN_MAX_COLUMNS,
+  KANBAN_MIN_CARDS,
+  KANBAN_MIN_COLUMNS,
+  KANBAN_SCHEMA_IDS,
+  KANBAN_SHAPE,
+  KANBAN_WIDGET,
+  type KanbanCard,
+  type KanbanChange,
+  type KanbanColumn,
+  type KanbanItem,
+  type KanbanProps,
+  kanbanPropsProblems,
+} from "./widgets/kanban/index.ts";
+export {
   LATEX_EXPRESSION_MAX_CHARS,
   LATEX_SCHEMA_IDS,
   LATEX_SHAPE,
