@@ -836,3 +836,26 @@ export {
   type ValueProps,
   valuePropsProblems,
 } from "./widgets/value/index.ts";
+
+// The TextField and the Toggle (atoms, design decision 1), unregistered until their chunks exist.
+
+export {
+  TEXT_FIELD_MAX_CHARS,
+  TEXT_FIELD_SCHEMA_IDS,
+  TEXT_FIELD_WIDGET,
+  type TextFieldItem,
+  type TextFieldProps,
+  type TextFieldResult,
+  textFieldPropsProblems,
+  textFieldResultProblems,
+  textFieldResultShape,
+} from "./widgets/text-field/index.ts";
+export {
+  TOGGLE_SCHEMA_IDS,
+  TOGGLE_WIDGET,
+  type ToggleItem,
+  type ToggleProps,
+  type ToggleResult,
+  togglePropsProblems,
+  toggleResultShape,
+} from "./widgets/toggle/index.ts";

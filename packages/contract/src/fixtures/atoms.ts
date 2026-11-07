@@ -5,6 +5,8 @@
 import { DIVIDER_WIDGET } from "../widgets/divider/widget.ts";
 import type { WidgetType } from "../widgets/registry.ts";
 import { TEXT_WIDGET } from "../widgets/text/widget.ts";
+import { TEXT_FIELD_WIDGET } from "../widgets/text-field/widget.ts";
+import { TOGGLE_WIDGET } from "../widgets/toggle/widget.ts";
 import { VALUE_WIDGET } from "../widgets/value/widget.ts";
 
 /**
@@ -12,7 +14,13 @@ import { VALUE_WIDGET } from "../widgets/value/widget.ts";
  * passes them to `withWidgetTypes(...ATOM_TYPES)`; the same test passes before and after a type
  * joins `WIDGET_TYPES`.
  */
-export const ATOM_TYPES: readonly WidgetType[] = [TEXT_WIDGET, VALUE_WIDGET, DIVIDER_WIDGET];
+export const ATOM_TYPES: readonly WidgetType[] = [
+  TEXT_WIDGET,
+  VALUE_WIDGET,
+  DIVIDER_WIDGET,
+  TEXT_FIELD_WIDGET,
+  TOGGLE_WIDGET,
+];
 
 /** A plain Text and a Markdown one. */
 export const TEXT_FIXTURE_ITEMS = [
@@ -47,3 +55,27 @@ export const VALUE_FIXTURE_ITEMS = [
 
 /** A Divider. */
 export const DIVIDER_FIXTURE_ITEM = { type: "divider", id: "rule", props: {} } as const;
+
+/** A TextField of each form: short, multiline, and capped. */
+export const TEXT_FIELD_FIXTURE_ITEMS = [
+  { type: "text-field", id: "name", props: { label: "Name", maxLength: 40 } },
+  {
+    type: "text-field",
+    id: "comment",
+    props: { label: "Comment", description: "Anything the reviewer should know.", multiline: true },
+  },
+  { type: "text-field", id: "ticket", props: { label: "Ticket" } },
+] as const;
+
+/** A result of each TextField above, in order. */
+export const TEXT_FIELD_RESULTS = ["Ada Lovelace", "First line\nsecond line", "ASK-142"] as const;
+
+/** A Toggle. */
+export const TOGGLE_FIXTURE_ITEM = {
+  type: "toggle",
+  id: "notify",
+  props: { label: "Notify me when it ships", description: "One message, no reminders." },
+} as const;
+
+/** A Toggle's results: on, and off, which is an answer. */
+export const TOGGLE_RESULTS = { on: true, off: false } as const;
