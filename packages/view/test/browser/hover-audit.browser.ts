@@ -3,22 +3,29 @@
 // "No hover feedback where nothing responds"), on the controls this change added and the ones the
 // shared layer of task 1.1 could miss: a button, an editable cell, a disabled control, the drag
 // handle, the column edge and a Gantt bar, in the light and the dark scheme, and the read-only
-// widgets. `hover-layer.browser.ts` holds the first layer's own scenarios.
+// widgets; and, since approval-scale-ranking (task 6.7), the controls of the Approval, the Scale
+// and the Ranking. `hover-layer.browser.ts` holds the first layer's own scenarios.
 
 import { describe, expect, test } from "bun:test";
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import type { Locator } from "playwright";
+import type { ViewDocument } from "../../src/view-document.ts";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
+import { approvalDocument } from "./fixtures/approval-documents.ts";
 import { chooseWeek, planGantt } from "./fixtures/gantt-plan.ts";
 import { ganttOf } from "./fixtures/gantt-view.ts";
+import { rankingDocument } from "./fixtures/ranking-documents.ts";
+import { scaleDocument } from "./fixtures/scale-documents.ts";
+import { plan } from "./fixtures/tree-documents.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { tokenColor } from "./harness/design-colors.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { tabIntoGroup } from "./harness/tab-stops.ts";
 import { handleOf } from "./harness/tree-drag.ts";
-import { enabledTools, treeGridOf } from "./harness/tree-grid.ts";
-import { readyIn } from "./harness/tree-steps.ts";
+import { enabledTools, pressIn, treeGridOf } from "./harness/tree-grid.ts";
+import { focusPortal, readyIn, typeIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost } from "./harness/widget-host-test.ts";
+import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 const ADJUST = "Adjust by %…";
@@ -112,5 +119,153 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+  });
+}
+
+// A control that responds: the pointer cursor, `border-strong` and the `card` fill while hovered,
+// and no focus ring from hover alone. Returns nothing; the look is the layer's, not the widget's.
+const expectResponds = async (control: Locator, scheme: "light" | "dark") => {
+  const look = await hovered(control);
+  expect(look.cursor).toBe("pointer");
+  expect(look.border).toBe(tokenColor("border-strong", scheme));
+  expect(look.background).toBe(tokenColor("card", scheme));
+  expect(look.outline).not.toContain("2px solid");
+};
+
+// A control that does not respond: not-allowed, and no change of look under the pointer.
+const expectInert = async (run: WidgetHostRun, control: Locator, cursor = true) => {
+  await run.board.page.mouse.move(0, 0);
+  const resting = await lookOf(control);
+  const look = await hovered(control);
+  if (cursor) expect(look.cursor).toBe("not-allowed");
+  expect(look.background).toBe(resting.background);
+  expect(look.border).toBe(resting.border);
+  expect(look.outline).toBe(resting.outline);
+};
+
+// The control holds the keyboard focus and shows the ring, which hover alone never gives.
+const expectRing = async (control: Locator) => {
+  expect(await control.evaluate((el) => el === el.ownerDocument.activeElement)).toBe(true);
+  expect((await lookOf(control)).outline).toContain("2px solid");
+};
+
+// The widget host's state for the document with the lock the board page sends (`moved`).
+const lock = (run: WidgetHostRun, document: ViewDocument) =>
+  run.update({ type: "state", state: openStateOf(document), lock: "moved" } as ViewUpdate);
+
+const decisionIn = (run: WidgetHostRun, name: string) =>
+  run.board.view.getByRole("radio", { name, exact: true });
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the Approval, the Scale and the Ranking`, () => {
+    const { host } = useWidgetHost(engine);
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, the Approval's decisions respond, a disabled one and a locked board's do not, and the keyboard focus shows the ring`,
+        async () => {
+          const document = approvalDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          // An edit beside the Approval disables "Approve", whose hover changes nothing.
+          const tree = treeGridOf(board);
+          await focusPortal(run, tree);
+          await typeIn(run, tree, "Enter", "Customer portal: accounts");
+          await pressIn(board, "Enter");
+          await eventually(() => decisionIn(run, "Approve").isDisabled(), "Approve to be disabled");
+          await expectInert(run, decisionIn(run, "Approve"));
+          await board.page.mouse.move(0, 0);
+          await expectResponds(decisionIn(run, "Approve with changes"), scheme);
+          await expectResponds(decisionIn(run, "Reject"), scheme);
+          // Tab into the group: the first enabled decision takes the ring.
+          await board.page.mouse.move(0, 0);
+          const group = board.view.locator("[data-approval]").getByRole("radiogroup");
+          await tabIntoGroup(board, plan.props.text, group);
+          await expectRing(decisionIn(run, "Approve with changes"));
+          // A locked board: every decision disabled, none responding.
+          await lock(run, document);
+          for (const name of ["Approve", "Approve with changes", "Reject"]) {
+            await eventually(() => decisionIn(run, name).isDisabled(), `${name} to be disabled`);
+            await expectInert(run, decisionIn(run, name));
+          }
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        `in the ${scheme} scheme, the Scale's rating steps respond and the slider's unset track points, its thumb takes the ring from the keyboard, and a locked board's show nothing`,
+        async () => {
+          const rating = scaleDocument({ min: 1, max: 5, display: "rating" });
+          const run = await host(dist, rating, { colorScheme: scheme });
+          await readyIn(run);
+          const step = (name: string) => decisionIn(run, name);
+          await expectResponds(step("3"), scheme);
+          await lock(run, rating);
+          await eventually(() => step("3").isDisabled(), "the steps to be disabled");
+          for (const name of ["1", "3", "5"]) await expectInert(run, step(name));
+
+          const slider = scaleDocument({ min: 0, max: 100, step: 5 });
+          const other = await host(dist, slider, { colorScheme: scheme });
+          await readyIn(other);
+          const track = other.board.view.locator("[data-scale-unset]");
+          expect((await hovered(track)).cursor).toBe("pointer");
+          await track.focus();
+          await other.board.page.keyboard.press("End");
+          const thumb = other.board.view.getByRole("slider").first();
+          await eventually(
+            () => thumb.evaluate((el) => el === el.ownerDocument.activeElement),
+            "focus on the thumb",
+          );
+          await expectRing(thumb);
+          await lock(other, slider);
+          await eventually(
+            async () => (await thumb.getAttribute("data-disabled")) !== null,
+            "the thumb to be disabled",
+          );
+          await expectInert(other, thumb, false);
+          expect(run.browser.errors).toEqual([]);
+          expect(other.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        `in the ${scheme} scheme, the Ranking's tools respond or stay inert, its handle grabs, its list takes the ring from the keyboard, and a locked board's show no handle and inert tools`,
+        async () => {
+          const document = rankingDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          const tool = (name: string) =>
+            board.view
+              .getByRole("toolbar", { name: "Ranking tools" })
+              .getByRole("button", { name, exact: true });
+          await expectResponds(tool("Keep this order"), scheme);
+          // The first row is current, so it cannot move up: that tool is disabled and inert.
+          await expectInert(run, tool("Move up"));
+          await board.view.locator('[data-ranking-row="cost"]').hover();
+          expect(
+            (await lookOf(board.view.locator('[data-ranking-row="cost"] [data-drag-handle]')))
+              .cursor,
+          ).toBe("grab");
+          await board.page.mouse.move(0, 0);
+          const list = board.view.getByRole("listbox");
+          await tabIntoGroup(board, plan.props.text, list);
+          await expectRing(board.view.locator('[data-ranking-row="speed"]'));
+          await lock(run, document);
+          await eventually(
+            async () => (await board.view.locator("[data-drag-handle]").count()) === 0,
+            "the handles to go",
+          );
+          for (const name of ["Move up", "Move down", "Keep this order"]) {
+            await expectInert(run, tool(name));
+          }
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
   });
 }
