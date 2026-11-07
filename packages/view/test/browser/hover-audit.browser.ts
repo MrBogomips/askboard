@@ -238,6 +238,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const run = await host(dist, document, { colorScheme: scheme });
           await readyIn(run);
           const { board } = run;
+          const row = (id: string) => board.view.locator(`[data-ranking-row="${id}"]`);
           const tool = (name: string) =>
             board.view
               .getByRole("toolbar", { name: "Ranking tools" })
@@ -250,6 +251,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             (await lookOf(board.view.locator('[data-ranking-row="cost"] [data-drag-handle]')))
               .cursor,
           ).toBe("grab");
+          // A row is an option row: the pointer cursor from the shared layer (spec review U-2).
+          expect((await hovered(row("speed"))).cursor).toBe("pointer");
           await board.page.mouse.move(0, 0);
           const list = board.view.getByRole("listbox");
           await tabIntoGroup(board, plan.props.text, list);
@@ -262,6 +265,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           for (const name of ["Move up", "Move down", "Keep this order"]) {
             await expectInert(run, tool(name));
           }
+          // A locked board's row still answers the pointer by becoming the current row, which is
+          // view state and no edit: its pointer cursor is honest, and nothing else changes.
+          expect((await hovered(row("speed"))).cursor).toBe("pointer");
+          await row("speed").click();
+          await eventually(
+            async () => (await row("speed").getAttribute("aria-current")) === "true",
+            "the pressed row to become current",
+          );
           expect(run.browser.errors).toEqual([]);
         },
         TEST_TIMEOUT_MS,
