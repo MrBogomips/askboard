@@ -83,14 +83,15 @@ export const LATEX_RAW_TOKEN_COMMANDS: Readonly<Record<string, "consumes" | "pus
   } as const);
 
 /**
- * The deepest nest an expression may hold, in the levels the scan counts (design decisions 3 and 7,
- * Bounded work). Output size does not bound render cost: about 130 nested vertical-list constructs
- * crash Chromium's renderer and each nested numerator doubles WebKit's MathML layout, with no macro.
- * Task 4.10 measured the limit, the largest depth at which every construct renders in under one
- * second in both engines, KaTeX's fonts loaded (see the design's "Measured" line); a KaTeX upgrade
- * re-runs the probe `latex-depth-probe.ts` in the view's browser tests.
+ * The deepest nest an expression may hold, in the levels the scan counts (design decisions 3 and 7).
+ * It is the agent's early answer, not the bound the board relies on: that is KaTeX's own output,
+ * measured before any node of it is made (`packages/widgets/src/latex/tree.ts`). Task 4.15 measured
+ * the limit by design decision 7's rule 4, the largest scan depth at which every measured fixture of
+ * that depth or less has an output within the board's three bounds (nodes, nested fractions, depth),
+ * so the scan never passes a measured form the board refuses (see the design's "Measured" line); a
+ * KaTeX upgrade re-runs the probe `latex-depth-probe.ts` in the view's browser tests.
  */
-export const LATEX_NESTING_MAX_DEPTH = 14;
+export const LATEX_NESTING_MAX_DEPTH = 11;
 
 export const LATEX_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
   props: "urn:askboard:input:latex-props",

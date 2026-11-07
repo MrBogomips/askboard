@@ -29,6 +29,34 @@ export type TreeSize = {
 
 const FRACTION = "mfrac";
 
+/** The bounds of an output tree: past any one of them the preview is not drawn (task 4.16). */
+export type TreeBounds = {
+  readonly depth: number;
+  readonly nodes: number;
+  readonly fractions: number;
+};
+
+// The bounds, from task 4.15's measurement (design decision 7, Measuring, "Measured:"), by rules 1 to
+// 3 in order, on 2026-11-07 on an Apple M3 Max in Chromium 156.0.8078.4 and WebKit 27.2 with KaTeX's
+// fonts loaded: every fixture within them rendered in under 500 ms in both engines, 351 ms at most
+// in WebKit. A KaTeX upgrade re-runs the probe `latex-depth-probe.ts` in the view's browser tests.
+
+/** The most nodes in an output tree: the flat fixtures' (`x`, `\le`, a matrix, `\frac{a}{b}`) 500 ms limit. */
+export const LATEX_TREE_MAX_NODES = 21_344;
+
+/** The most MathML fractions nested on one path: WebKit's layout costs about 1.7 times more per level. */
+export const LATEX_TREE_MAX_FRACTIONS = 11;
+
+/** The deepest output tree: the deepest measured within the two bounds above (172 ms at most; the sweep reached depth 319 in Chromium with no crash). */
+export const LATEX_TREE_MAX_DEPTH = 245;
+
+/** What `renderInto` and `parseProblem` measure an output against unless told otherwise. */
+export const LATEX_TREE_BOUNDS: TreeBounds = /* @__PURE__ */ Object.freeze({
+  depth: LATEX_TREE_MAX_DEPTH,
+  nodes: LATEX_TREE_MAX_NODES,
+  fractions: LATEX_TREE_MAX_FRACTIONS,
+});
+
 // KaTeX's types do not declare `__renderToDomTree`, which its documentation calls unstable; the
 // widgets' render test pins KaTeX at 0.19.1 and reads the function in its source.
 type TreeBuilder = (expression: string, options: KatexOptions) => KatexTree;

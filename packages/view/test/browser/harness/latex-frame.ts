@@ -1,9 +1,10 @@
 // A bare LaTeX render in a browser engine (latex-kanban-timeline, tasks 4.10, 4.11, 4.15 and 6.8): the
 // page the board page makes for the view, a parent page holding a `sandbox="allow-scripts"` srcdoc
 // frame, and in the frame KaTeX's stylesheet with its woff2 fonts inlined as the build inlines them
-// and a bundle of the widgets' scan, render options and output tree that draws as `renderInto` will:
-// the scan, KaTeX's tree, the tree's size, then its nodes in place of the element's children. It
-// applies no refusal and no bound: a probe needs to see what they would stop. No server, no board.
+// and a bundle of the widgets' scan, render options, output tree and `renderInto`. `render` draws as
+// `renderInto` does, step by step (the scan, KaTeX's tree, the tree's size, then its nodes in place
+// of the element's children), but applies no refusal and no bound: a probe needs to see what they
+// would stop; `rendering` is `renderInto` itself, with its refusals and bounds. No server, no board.
 // Every request is aborted, so nothing leaves the machine and a font cannot arrive late; a render's
 // time runs from the call to the end of a forced layout.
 //
@@ -49,6 +50,33 @@ export type Drawn = {
   readonly beforeMs: number;
 };
 
+/** What `renderInto` gave back, its time and the elements it left in the page. */
+export type Rendering = {
+  readonly rendered: {
+    readonly error?: string;
+    readonly refused?: {
+      readonly command?: string;
+      readonly depth?: number;
+      readonly limit?: number;
+    };
+    readonly tooComplex?: {
+      readonly depth: number;
+      readonly nodes: number;
+      readonly fractions: number;
+    };
+  };
+  readonly ms: number;
+  /** The elements in the page's target after the call. */
+  readonly nodes: number;
+};
+
+/** The bounds `renderInto` takes in place of its defaults. */
+export type FrameBounds = {
+  readonly depth: number;
+  readonly nodes: number;
+  readonly fractions: number;
+};
+
 /** Ten elements drawn in one task, or one per task: the total and the longest task. */
 export type Many = { readonly totalMs: number; readonly longestMs: number };
 
@@ -78,7 +106,7 @@ const probeScript = async (): Promise<string> => {
     await writeFile(
       entry,
       `import { scanLatex } from ${JSON.stringify(LATEX_SOURCES.contract)};
-import { renderOptions } from ${JSON.stringify(LATEX_SOURCES.render)};
+import { renderInto, renderOptions } from ${JSON.stringify(LATEX_SOURCES.render)};
 import { renderTree, treeSizeOf } from ${JSON.stringify(LATEX_SOURCES.tree)};
 const target = document.getElementById("t") as HTMLElement;
 const draw = (expression: string, element: HTMLElement) => {
@@ -102,6 +130,14 @@ const draw = (expression: string, element: HTMLElement) => {
 };
 const page = window as unknown as Record<string, unknown>;
 page.__timed = (expression: string) => draw(expression, target);
+// The board's own render, with its refusals and bounds (the bounds may be lowered by the caller).
+page.__rendered = (expression: string, bounds: { depth: number; nodes: number; fractions: number } | null) => {
+  const started = performance.now();
+  const rendered = bounds === null ? renderInto(target, expression) : renderInto(target, expression, bounds);
+  target.getBoundingClientRect();
+  document.documentElement.offsetHeight;
+  return { rendered, ms: performance.now() - started, nodes: target.getElementsByTagName("*").length };
+};
 // Ten elements: all drawn in one task, or one per task (a timeout of 0 between them).
 page.__many = async (expression: string, count: number, perTask: boolean) => {
   const elements = Array.from({ length: count }, () => document.createElement("div"));
@@ -205,6 +241,22 @@ export class LatexFrame {
   async render(expression: string, timeoutMs = RENDER_TIMEOUT_MS): Promise<RenderResult> {
     const result = await this.#call<Drawn>(
       `window.__timed(${JSON.stringify(expression)})`,
+      timeoutMs,
+    );
+    return result.ok ? { ok: true, ...result.value, parentMs: result.parentMs } : result;
+  }
+
+  /**
+   * Gives `expression` to the board's `renderInto`, with `bounds` in place of its defaults when given,
+   * and says what came back; the page keeps the draw, so the next call sees what the last left.
+   */
+  async rendering(
+    expression: string,
+    bounds?: FrameBounds,
+    timeoutMs = RENDER_TIMEOUT_MS,
+  ): Promise<({ readonly ok: true; readonly parentMs: number } & Rendering) | Failure> {
+    const result = await this.#call<Rendering>(
+      `window.__rendered(${JSON.stringify(expression)}, ${JSON.stringify(bounds ?? null)})`,
       timeoutMs,
     );
     return result.ok ? { ok: true, ...result.value, parentMs: result.parentMs } : result;

@@ -7,7 +7,15 @@
 // `\gdef` never outlives its render.
 
 import { LATEX_NESTING_MAX_DEPTH, scanLatex } from "@askboard/contract";
-import katex, { type KatexOptions } from "katex";
+import type { KatexOptions } from "katex";
+import {
+  type KatexTree,
+  LATEX_TREE_BOUNDS,
+  renderTree,
+  type TreeBounds,
+  type TreeSize,
+  treeSizeOf,
+} from "./tree.ts";
 
 /**
  * Why an expression was not given to KaTeX: it holds a macro definition or an internal command
@@ -19,9 +27,14 @@ export type Refused =
 
 /**
  * What `renderInto` gives back: KaTeX's message (or a fixed text for anything but an `Error`) when
- * the expression does not render, or the refusal when KaTeX never ran.
+ * the expression does not render, the refusal when KaTeX never ran, or the size of an output past
+ * the bounds, of which no node was made. An empty result is a drawn preview.
  */
-export type Rendered = { readonly error?: string; readonly refused?: Refused };
+export type Rendered = {
+  readonly error?: string;
+  readonly refused?: Refused;
+  readonly tooComplex?: TreeSize;
+};
 
 // What the contract's scan refuses in `expression`, before KaTeX sees it: the bounds on work are on
 // the source (design decision 7, Bounded work), so every caller of this module is bounded.
@@ -54,38 +67,67 @@ export const renderOptions = (): KatexOptions => ({
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : UNKNOWN_ERROR;
 
-/**
- * KaTeX's message for an expression that does not render, or nothing for one that does (the empty
- * expression renders), or `{refused}` for one the scan refuses, which KaTeX never sees. For tests in
- * Bun, which has no DOM: it builds markup that nothing ever puts into a page.
- */
-export const parseProblem = (
-  expression: string,
-): string | { readonly refused: Refused } | undefined => {
+// What KaTeX builds for `expression`, measured: the tree, or why there is none.
+type Built =
+  | { readonly tree: KatexTree }
+  | { readonly refused: Refused }
+  | { readonly tooComplex: TreeSize }
+  | { readonly error: string };
+
+// Design decision 7's steps 1 and 2: the scan's refusal, then KaTeX's output tree and its size
+// against `bounds`. No node of the page exists yet.
+const build = (expression: string, bounds: TreeBounds): Built => {
   const refused = refusalOf(expression);
   if (refused !== undefined) return { refused };
   try {
-    katex.renderToString(expression, renderOptions());
-    return undefined;
+    const tree = renderTree(expression, renderOptions());
+    const size = treeSizeOf(tree);
+    const past =
+      size.depth > bounds.depth || size.nodes > bounds.nodes || size.fractions > bounds.fractions;
+    return past ? { tooComplex: size } : { tree };
   } catch (error) {
-    return messageOf(error);
+    return { error: messageOf(error) };
   }
 };
 
 /**
- * Draws `expression` into `element`, replacing its content, and says what went wrong, if
- * anything: an expression the scan refuses is not drawn and leaves the element as it was, and every
- * error is caught, a `ParseError` and a browser's `RangeError` on a deep nest alike.
- * `katex.render` empties its target before it parses, so it draws into a node of the element's
- * document first: an expression that fails leaves what the element held.
+ * KaTeX's message for an expression that does not render, or nothing for one that does (the empty
+ * expression renders), or `{refused}` for one the scan refuses, which KaTeX never sees, or
+ * `{tooComplex}` for one whose output is past `bounds`. For tests in Bun, which has no DOM: it builds
+ * KaTeX's tree and measures it, and makes no node.
  */
-export const renderInto = (element: HTMLElement, expression: string): Rendered => {
-  const refused = refusalOf(expression);
-  if (refused !== undefined) return { refused };
+export const parseProblem = (
+  expression: string,
+  bounds: TreeBounds = LATEX_TREE_BOUNDS,
+): string | { readonly refused: Refused } | { readonly tooComplex: TreeSize } | undefined => {
+  const built = build(expression, bounds);
+  if ("error" in built) return built.error;
+  if ("tree" in built) return undefined;
+  return built;
+};
+
+/** The text shown when the page's document is not in standards mode, where KaTeX's styles fail. */
+const QUIRKS_ERROR = "KaTeX doesn't work in quirks mode.";
+
+/**
+ * Draws `expression` into `element`, replacing its content, and says what went wrong, if
+ * anything, in design decision 7's order: an expression the scan refuses is not given to KaTeX; an
+ * output tree past `bounds` is not drawn; every error is caught, a `ParseError` and a browser's
+ * `RangeError` on a deep nest alike. A failure of any kind leaves the element as it was. The tree
+ * KaTeX built is the one drawn (`toNode`), so no second parse and no scratch node: no node exists
+ * before the tree is measured. `katex.render` refuses a document that is not in standards mode and
+ * drawing the tree skips that check, so it is made here, and fails closed.
+ */
+export const renderInto = (
+  element: HTMLElement,
+  expression: string,
+  bounds: TreeBounds = LATEX_TREE_BOUNDS,
+): Rendered => {
+  const built = build(expression, bounds);
+  if (!("tree" in built)) return built;
   try {
-    const scratch = element.ownerDocument.createElement("span");
-    katex.render(expression, scratch, renderOptions());
-    element.replaceChildren(...Array.from(scratch.childNodes));
+    if (element.ownerDocument.compatMode !== "CSS1Compat") return { error: QUIRKS_ERROR };
+    element.replaceChildren(built.tree.toNode());
     return {};
   } catch (error) {
     return { error: messageOf(error) };

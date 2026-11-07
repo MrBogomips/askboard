@@ -405,6 +405,10 @@ const nested = (open: string, close: string, step: 1 | 2, depth: number): string
 describe("LaTeX nesting bounded", () => {
   const LIMIT = LATEX_NESTING_MAX_DEPTH;
 
+  test("the limit holds the value task 4.15's measurement gave: the largest scan depth whose every measured output is within the board's three bounds", () => {
+    expect(LIMIT).toBe(11);
+  });
+
   test("the limit is a whole number of at least 8, and its depth is what the scan reads", () => {
     expect(Number.isInteger(LIMIT)).toBe(true);
     expect(LIMIT).toBeGreaterThanOrEqual(8);
@@ -477,8 +481,10 @@ describe("LaTeX nesting bounded", () => {
       expect(problem?.message).toContain(`${depth} levels deep`);
       expect(problem?.message).toContain(`limit of ${LIMIT}`);
     }
-    // Half as many nests, at the limit, pass.
-    const atLimit = `${"\\frac{".repeat(LIMIT / 2)}x${"\\over y}{x}".repeat(LIMIT / 2)}`;
+    // Half as many nests (one plain group more when the limit is odd), at the limit, pass.
+    const half = Math.floor(LIMIT / 2);
+    const nests = `${"\\frac{".repeat(half)}x${"\\over y}{x}".repeat(half)}`;
+    const atLimit = LIMIT % 2 === 0 ? nests : `{${nests}}`;
     expect(scanLatex(atLimit).depth).toBe(LIMIT);
     expect(latexPropsProblems({ expression: atLimit })).toEqual([]);
   });
