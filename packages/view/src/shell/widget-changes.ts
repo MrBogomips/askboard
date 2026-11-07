@@ -5,6 +5,7 @@
 
 import { elementChanges } from "@askboard/contract";
 import { componentFacts, type Say } from "../catalog/port.ts";
+import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import type { ViewQuestionProps, WidgetItem } from "../view-document.ts";
 
 /** One changed widget item: its ID, its type as sent, and its element operations. */
@@ -32,9 +33,10 @@ export const widgetChanges = (
   before: ViewQuestionProps | undefined,
   after: ViewQuestionProps,
 ): readonly WidgetChange[] =>
-  (after.items ?? []).flatMap((item) => {
-    const earlier = before?.items?.find((each) => each.id === item.id && each.type === item.type);
-    const change = earlier === undefined ? undefined : changeOf(earlier, item);
+  valueItemsOf(after.items).flatMap((item) => {
+    const earlier = nestedItemById(before?.items, item.id);
+    const same = earlier?.type === item.type ? earlier : undefined;
+    const change = same === undefined ? undefined : changeOf(same, item);
     return change === undefined ? [] : [change];
   });
 

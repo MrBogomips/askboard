@@ -2,6 +2,7 @@
 // from the board document it holds, never from the view's message, and only for an item that is a
 // reference of that document whose URL is `http:` or `https:`.
 
+import { nestedWidgetItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type WidgetItem } from "../view-document.ts";
 
 /** The context item of the board document with this ID, if it holds one. */
@@ -12,7 +13,7 @@ export const boardItemOf = (
   document === undefined
     ? undefined
     : questionsOf(document)
-        .flatMap((question) => question.props.items ?? [])
+        .flatMap((question) => nestedWidgetItemsOf(question.props.items))
         .find((item) => item.id === itemId);
 
 const isWebUrl = (text: string): boolean => {

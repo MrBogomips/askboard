@@ -51,6 +51,12 @@ export type BoardContent = {
    * counters read the draft record.
    */
   readonly shown: ReadonlyMap<string, unknown>;
+  /**
+   * The IDs of the items whose fields hold an entry, text they cannot read as a value (layouts,
+   * design decision 6): the Tabs read it for the mark of a tab that holds a field to correct. The
+   * shell sets it on the board a rendered item reads; absent when no item holds one.
+   */
+  readonly entries?: ReadonlySet<string> | undefined;
 };
 
 /** Derived values, by AD-13's reference without brackets (`release.finish`), each a JSON value. */
@@ -108,6 +114,14 @@ export type ItemProps<Item = unknown, Value = unknown> = {
    * MoneyField and DateField hold one, and nothing leaves the view (AD-9).
    */
   readonly onEntryChange: (entry: string | undefined) => void;
+  /**
+   * Renders one item the layout holds through the port, in its own item frame and error boundary,
+   * with the question's ID, its item IDs, the card's read-only state, the shown answer and the
+   * revision step, so that a nested item has its own value, result and entry (layouts, design
+   * decision 6). The shell sets it on every item; a layout's component with no `renderItem`
+   * throws, which shows its error state.
+   */
+  readonly renderItem?: (item: BoardWidgetItem) => ReactNode;
 };
 
 export type CatalogComponent<Item = unknown, Value = unknown> = (

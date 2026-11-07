@@ -198,11 +198,130 @@ const SERVER_READS: readonly Read[] = [
   { file: "packages/server/src/mcp-tools/wait.ts", text: "question.props as", reason: START },
 ];
 
+const HANDED =
+  "the question's own list, handed to the view's walker (`nested-items.ts`), which walks the layouts";
+const CARD =
+  "the card's own list, which `renderedOf` keeps: a layout draws its items through the port";
+const VIEW_AREA = "an area's items are its questions, never layouts";
+
+/** The direct reads in `view`'s sources (layouts, task 3.1). */
+const VIEW_READS: readonly Read[] = [
+  {
+    file: "packages/view/src/board-page/model.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+    count: 2,
+  },
+  {
+    file: "packages/view/src/board-page/references.ts",
+    text: "nestedWidgetItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/catalog/components.ts",
+    text: "(question.props.items ?? [])",
+    reason: CARD,
+  },
+  {
+    file: "packages/view/src/catalog/components.ts",
+    text: "nestedWidgetItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/board-content.ts",
+    text: "nestedWidgetItemsOf(props.items)",
+    reason: HANDED,
+    count: 2,
+  },
+  {
+    file: "packages/view/src/shell/board-content.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+    count: 2,
+  },
+  {
+    file: "packages/view/src/shell/board-draft.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/board-draft.ts",
+    text: "nestedItemById(question.props.items",
+    reason: HANDED,
+    count: 2,
+  },
+  {
+    file: "packages/view/src/shell/board-draft.ts",
+    text: "nestedItemById(shown.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/board-view.ts",
+    text: "area.props.items",
+    reason: VIEW_AREA,
+    count: 3,
+  },
+  {
+    file: "packages/view/src/shell/entries.ts",
+    text: "nestedItemById(question.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/entries.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/question-state.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/reason.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/revision-confirm.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/view-document.ts",
+    text: "item.props.items",
+    reason: VIEW_AREA,
+    count: 2,
+  },
+];
+
+const RANKING_ELEMENTS = "a Ranking's items are its elements, never a question's items";
+
+/** The direct reads in `widgets`' sources: a Ranking's elements. */
+const WIDGETS_READS: readonly Read[] = [
+  {
+    file: "packages/widgets/src/ranking/model.ts",
+    text: "props.items.map",
+    reason: RANKING_ELEMENTS,
+  },
+  {
+    file: "packages/widgets/src/ranking/props.ts",
+    text: "{ items } = props",
+    reason: RANKING_ELEMENTS,
+  },
+  {
+    file: "packages/widgets/src/ranking/widget.tsx",
+    text: "props.items.map",
+    reason: RANKING_ELEMENTS,
+  },
+];
+
 const TABLES: Readonly<Record<string, readonly Read[]>> = {
   contract: CONTRACT_READS,
   core: CORE_READS,
   compute: COMPUTE_READS,
   server: SERVER_READS,
+  view: VIEW_READS,
+  widgets: WIDGETS_READS,
 };
 
 /** The lines of a source that read a question's `items` directly: `props.items`, `{ items } = props`, or the key `"items"` of a path. */
@@ -312,7 +431,7 @@ describe("the source guard of nested items", () => {
     }
   });
 
-  for (const name of ["core", "compute", "server"]) {
+  for (const name of ["core", "compute", "server", "view", "widgets"]) {
     test(`fails on a planted direct read in a ${name} source`, async () => {
       const sources = await sourcesOf(name);
       const file = `packages/${name}/src/planted.ts`;

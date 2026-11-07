@@ -18,6 +18,7 @@ import type {
   LifecycleQuestionStatus,
   Locale,
 } from "@askboard/contract";
+import { valueItemsOf } from "../nested-items.ts";
 import { type StringKey, t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { AnswerContent, ViewAnswer, ViewLock } from "../view-protocol.ts";
@@ -82,7 +83,7 @@ export const draftAnswerOf = (
   results: DraftRecord = NO_RESULTS,
 ): AnswerContent => {
   const choice = choiceOf(record.get(question.id));
-  const items = question.props.items ?? [];
+  const items = valueItemsOf(question.props.items);
   const held = (store: DraftRecord) =>
     items.flatMap(({ id }) => {
       const value = store.get(id);

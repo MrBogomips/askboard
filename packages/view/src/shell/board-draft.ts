@@ -16,8 +16,8 @@ import {
   type LifecycleBoardState,
   resultHoldsNothing,
 } from "@askboard/contract";
-import { renderedOf } from "../catalog/components.ts";
 import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
+import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
@@ -181,9 +181,15 @@ export const createBoardDraft = (delivery: Delivery): BoardDraft => {
   };
 };
 
-/** The items a question's draft values may name: its own ID with options, then its widgets'. */
-export const itemIdsOf = (question: ViewQuestion): readonly string[] =>
-  renderedOf(question).map(({ item }) => item.id);
+/**
+ * The items a question's draft values may name: its own ID with options, then its widgets', at
+ * every depth of its layouts and never a layout's, which holds nothing in the draft (layouts,
+ * design decision 6).
+ */
+export const itemIdsOf = (question: ViewQuestion): readonly string[] => [
+  ...(question.props.options === undefined ? [] : [question.id]),
+  ...valueItemsOf(question.props.items).map((item) => item.id),
+];
 
 /**
  * The items a question's results may name: its widget items, never the question itself, whose
@@ -206,7 +212,7 @@ export const resultFits = (
   result: unknown,
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
 ): boolean => {
-  const item = (question.props.items ?? []).find((each) => each.id === itemId);
+  const item = nestedItemById(question.props.items, itemId);
   return item !== undefined && factsOf(item.type)?.fits?.(result, item.props) === true;
 };
 
@@ -223,7 +229,7 @@ export const valueFits = (
   value: unknown,
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
 ): boolean => {
-  const item = (question.props.items ?? []).find((each) => each.id === itemId);
+  const item = nestedItemById(question.props.items, itemId);
   if (item === undefined) return false;
   const fits = factsOf(item.type)?.valueFits;
   return fits === undefined || fits(value, item.props);
@@ -242,7 +248,7 @@ export const valueDropped = (
   value: unknown,
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
 ): boolean => {
-  const item = (shown.props.items ?? []).find((each) => each.id === itemId);
+  const item = nestedItemById(shown.props.items, itemId);
   if (item === undefined || factsOf(item.type)?.valueFits === undefined) return false;
   return shown.rev !== workRev || !valueFits(shown, itemId, value, factsOf);
 };
