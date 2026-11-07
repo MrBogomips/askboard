@@ -53,7 +53,7 @@ const started = async () => {
   const tab = await openSocket(port, askId);
   tab.send({ version, type: "connect", token });
   await tab.next();
-  const waiting = (await tab.next()) as { type: string };
+  const waiting: unknown = await tab.next();
   return { fixture, tab, waiting, askId };
 };
 
@@ -83,7 +83,7 @@ const expectRefused = async (
     type: string;
     state: { questions: { itemId: string; state: string }[] };
   };
-  expect(state).toEqual(waiting);
+  expect(state as unknown).toEqual(waiting);
   expect(state.state.questions.map(({ itemId, state: each }) => [itemId, each])).toEqual([
     ["review", "open"],
     ["ranked", "open"],
