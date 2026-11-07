@@ -17,6 +17,7 @@ import {
   MILESTONE_WIDTH,
   openingZoomOf,
   spanOf,
+  TIMELINE_LEFT_INSET,
   TRACK_HEIGHT,
 } from "./layout.ts";
 
@@ -235,7 +236,7 @@ describe("an entry's shape and label", () => {
     const bar = placed(given, "wide");
     expect(bar).toMatchObject({
       kind: "range",
-      x: 0,
+      x: TIMELINE_LEFT_INSET,
       width: 5 * 32,
       height: BAR_HEIGHT,
       y: AXIS_HEIGHT + (TRACK_HEIGHT - BAR_HEIGHT) / 2,
@@ -244,7 +245,11 @@ describe("an entry's shape and label", () => {
 
   test("a range shows its label inside when it fits there, padded", () => {
     const bar = placed(given, "wide");
-    expect(bar?.label).toEqual({ x: 6, width: labelWidth("Checkout"), inside: true });
+    expect(bar?.label).toEqual({
+      x: TIMELINE_LEFT_INSET + 6,
+      width: labelWidth("Checkout"),
+      inside: true,
+    });
     expect(bar?.right).toBe(bar && bar.x + bar.width);
   });
 
@@ -260,14 +265,14 @@ describe("an entry's shape and label", () => {
     const day = xOf("2026-01-10", "2026-01-05", "day");
     expect(diamond).toMatchObject({
       kind: "milestone",
-      x: day + 16 - MILESTONE_WIDTH / 2,
+      x: TIMELINE_LEFT_INSET + day + 16 - MILESTONE_WIDTH / 2,
       width: MILESTONE_WIDTH,
       height: BAR_HEIGHT,
       lane: 1,
       track: 0,
     });
     expect(diamond?.label).toEqual({
-      x: day + 16 + MILESTONE_WIDTH / 2 + 6,
+      x: TIMELINE_LEFT_INSET + day + 16 + MILESTONE_WIDTH / 2 + 6,
       width: labelWidth("Launch"),
       inside: false,
     });
@@ -289,12 +294,82 @@ describe("an entry's shape and label", () => {
   });
 });
 
+describe("the left inset", () => {
+  // Group 4 review S-2 (view-and-widgets spec: Timeline layout, scenario "A milestone on the first
+  // day"): the diamond of a milestone on the span's first day draws whole, inside the chart.
+  const FIRST_DAY = props(
+    milestone("launch", "web", "2026-01-05"),
+    range("later", "web", "2026-02-02", "2026-02-06"),
+  );
+
+  test("is half a diamond, 7 pixels", () => {
+    expect(TIMELINE_LEFT_INSET).toBe(MILESTONE_WIDTH / 2);
+    expect(TIMELINE_LEFT_INSET).toBe(7);
+  });
+
+  test.each(["day", "week", "month"] as const)(
+    "a milestone on the first day draws whole at %s zoom: x from 0, right edge within the width",
+    (zoom) => {
+      const out = laidOut(FIRST_DAY, zoom);
+      const diamond = out.entries.find(({ id }) => id === "launch");
+      expect(diamond?.x).toBeGreaterThanOrEqual(0);
+      expect((diamond?.x ?? 0) + MILESTONE_WIDTH).toBeLessThanOrEqual(out.width);
+      expect(diamond?.label.x).toBeGreaterThanOrEqual(0);
+    },
+  );
+
+  test("at month zoom the diamond starts 2 pixels in, where it started 5 pixels out", () => {
+    const diamond = placed(FIRST_DAY, "launch", "month");
+    expect(PIXELS_PER_DAY.month).toBe(4);
+    expect(diamond?.x).toBe(TIMELINE_LEFT_INSET + 4 / 2 - MILESTONE_WIDTH / 2);
+    expect(diamond?.x).toBe(2);
+  });
+
+  test("a range on the first day starts at the inset, and its label follows it", () => {
+    const given = props(range("first", "web", "2026-01-05", "2026-01-09", "First"));
+    for (const zoom of ["day", "week", "month"] as const) {
+      const bar = placed(given, "first", zoom);
+      expect(bar?.x).toBe(TIMELINE_LEFT_INSET);
+      expect(bar?.x).toBe(7);
+      expect(bar?.label.x).toBeGreaterThanOrEqual(TIMELINE_LEFT_INSET);
+    }
+  });
+
+  test("the width grows by the inset, at every zoom", () => {
+    for (const zoom of ["day", "week", "month"] as const) {
+      const span = spanOf(FIRST_DAY, FIRST_DAY);
+      const days = dayNumber(span.last) - dayNumber(span.origin) + 1;
+      const out = layoutOf(FIRST_DAY, span, zoom);
+      expect(out.width).toBe(TIMELINE_LEFT_INSET + days * PIXELS_PER_DAY[zoom]);
+      expect(out.width).toBe(7 + days * PIXELS_PER_DAY[zoom]);
+    }
+  });
+
+  test("moves every box and label by the inset and no lane or height", () => {
+    const given = props(
+      range("a", "web", "2026-01-05", "2026-01-09", "Alpha"),
+      milestone("b", "mobile", "2026-01-12", "Beta"),
+    );
+    const out = laidOut(given);
+    for (const entry of out.entries) {
+      expect(entry.x - TIMELINE_LEFT_INSET).toBe(
+        xOf(entry.kind === "range" ? "2026-01-05" : "2026-01-12", "2026-01-05", "day") +
+          (entry.kind === "range" ? 0 : 16 - MILESTONE_WIDTH / 2),
+      );
+      expect(entry.right).toBe(
+        entry.label.inside ? entry.x + entry.width : entry.label.x + entry.label.width,
+      );
+    }
+    expect(out.lanes.map(({ top }) => top)).toEqual([AXIS_HEIGHT, AXIS_HEIGHT + TRACK_HEIGHT]);
+  });
+});
+
 describe("the layout as a whole", () => {
   test("is as wide as its span, or as its farthest label if that runs past it", () => {
     const given = props(range("a", "web", "2026-01-05", "2026-01-09"));
     const span = spanOf(given, given);
     const days = dayNumber(span.last) - dayNumber(span.origin) + 1;
-    expect(laidOut(given).width).toBe(days * 32);
+    expect(laidOut(given).width).toBe(TIMELINE_LEFT_INSET + days * 32);
     // At month zoom the tail is 56 pixels, and a long label runs past it.
     const late = props(milestone("m", "web", "2026-01-19", "x".repeat(150)));
     const out = laidOut(late, "month");
@@ -356,6 +431,13 @@ describe("the layout as a whole", () => {
           const lane = out.lanes[entry.lane];
           expect(entry.track).toBeLessThan(lane?.tracks ?? 0);
           expect(entry.right).toBeLessThanOrEqual(out.width);
+          expect({ seed, zoom, id: entry.id, x: entry.x >= 0 }).toEqual({
+            seed,
+            zoom,
+            id: entry.id,
+            x: true,
+          });
+          expect(entry.label.x).toBeGreaterThanOrEqual(0);
         }
         expect(out.lanes.every(({ tracks }) => tracks >= 1)).toBe(true);
       }

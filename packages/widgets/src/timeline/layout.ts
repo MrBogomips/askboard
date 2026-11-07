@@ -4,8 +4,8 @@
 // lanes as bands of tracks, entries in order of start, then of `entries`, each on the first track
 // of its lane where its box overlaps no other; and an entry's shape and label. A box is the shape
 // (a range's days, a milestone's diamond) plus its label after it, estimated at 7 pixels a
-// character and cut at 200; a range holds its label inside when it fits there. Rows and bars take
-// the Gantt's heights. Plain ECMAScript: no DOM, no `Date`.
+// character and cut at 200; a range holds its label inside when it fits there. Every x starts
+// `TIMELINE_LEFT_INSET` in from the origin day. Rows and bars take the Gantt's heights. Plain ECMAScript: no DOM, no `Date`.
 
 import { GANTT_FIRST_DATE, type TimelineEntry, type TimelineProps } from "@askboard/contract";
 import { AXIS_HEIGHT, BAR_HEIGHT, chartSpan, ROW_HEIGHT } from "../gantt/model/layout.ts";
@@ -22,6 +22,13 @@ export const LABEL_MAX_WIDTH = 200;
 /** From a shape to its label after it, and from a range's edge to its label inside it. */
 const LABEL_GAP = 6;
 const LABEL_PADDING = 6;
+/**
+ * The room left of the origin day: half a diamond, so that a milestone on the span's first day,
+ * centred in its day, draws whole at every zoom (at month zoom it hangs 5 pixels out of a bare
+ * origin). Every box and label starts this far in, and the chart's width counts it; the axis and
+ * the lanes of the component start their days here too.
+ */
+export const TIMELINE_LEFT_INSET = MILESTONE_WIDTH / 2;
 /** The least room between two boxes on one track. */
 const TRACK_GAP = 4;
 
@@ -108,9 +115,8 @@ const drawn = (entry: TimelineEntry, days: Days, origin: string, zoom: Zoom): Dr
   const width = days.range
     ? (dayNumber(days.last) - dayNumber(days.first) + 1) * perDay
     : MILESTONE_WIDTH;
-  const x = days.range
-    ? xOf(days.first, origin, zoom)
-    : xOf(days.first, origin, zoom) + perDay / 2 - MILESTONE_WIDTH / 2;
+  const start = TIMELINE_LEFT_INSET + xOf(days.first, origin, zoom);
+  const x = days.range ? start : start + perDay / 2 - MILESTONE_WIDTH / 2;
   const text = labelWidth(entry.label);
   const inside = days.range && width >= text + 2 * LABEL_PADDING;
   const labelX = inside ? x + LABEL_PADDING : x + width + LABEL_GAP;
@@ -177,7 +183,9 @@ export const layoutOf = (props: TimelineProps, span: TimelineSpan, zoom: Zoom): 
     const row = (lanes[lane] as LaneBand).top + track * TRACK_HEIGHT;
     return Object.freeze({ ...rest, lane, track, y: row + (TRACK_HEIGHT - BAR_HEIGHT) / 2 });
   });
-  const spanWidth = (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
+  const spanWidth =
+    TIMELINE_LEFT_INSET +
+    (dayNumber(span.last) - dayNumber(span.origin) + 1) * PIXELS_PER_DAY[zoom];
   return Object.freeze({
     width: Math.max(spanWidth, ...entries.map(({ right }) => right)),
     height: top,
