@@ -1008,3 +1008,22 @@ export {
 } from "./widgets/text-field/checks.ts";
 export { toggleFieldCheck } from "./widgets/toggle/checks.ts";
 export { widgetFieldCheck } from "./widgets/widget-field-check.ts";
+
+// The PickField (form-widget, design decision 4), unregistered until its component's chunk exists:
+// its entry with its limits and checks.
+
+export {
+  PICK_FIELD_MAX_OPTIONS,
+  PICK_FIELD_MIN_OPTIONS,
+  PICK_FIELD_SCHEMA_IDS,
+  PICK_FIELD_WIDGET,
+  PICK_FILTER_OVER,
+  type PickFieldItem,
+  type PickFieldProps,
+  type PickFieldResult,
+  type PickOption,
+  pickFieldFieldCheck,
+  pickFieldPropsProblems,
+  pickFieldResultProblems,
+  pickFieldResultShape,
+} from "./widgets/pick-field/index.ts";

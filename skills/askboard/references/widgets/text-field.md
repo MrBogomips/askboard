@@ -16,6 +16,7 @@ Item type `text-field`: props are a TextField's props {label, description?, requ
 ## Notes
 
 - `multiline` allows line breaks; `maxLength` (up to 10,000 characters) caps the text. The result is the text itself, and an empty field gives none.
+- `minLength` sets the fewest characters; `pattern` is a regular expression the text must match, unanchored, with no backreference, lookaround or repeated group holding a quantifier or a `|`, on a field of at most 1,000 characters. `required` makes an answer wait for a value.
 
 ## In the answer
 

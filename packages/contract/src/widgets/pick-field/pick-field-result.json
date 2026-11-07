@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:pick-field-result",
+  "title": "PickField result",
+  "description": "A PickField's result (FR-11, FR-18, form-widget design decision 4): an option ID for a single pick, or a list of 1 to 50 distinct option IDs for a multiple pick, never empty. The schema reads a string as an ID and anything else as the list, with no root combinator and no union type. That the IDs are the item's options', that a single pick gives one ID and a multiple pick a list, and that the list is in the options' order are checks of the type against the item's props. In the output format since form-widget.",
+  "if": { "type": "string" },
+  "then": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+  "else": {
+    "type": "array",
+    "minItems": 1,
+    "maxItems": 50,
+    "uniqueItems": true,
+    "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" }
+  }
+}

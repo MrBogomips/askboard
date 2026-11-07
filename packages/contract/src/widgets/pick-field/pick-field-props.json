@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:pick-field-props",
+  "title": "PickField props",
+  "description": "A PickField item's props (FR-11, FR-13, form-widget design decision 4): a label of 1 to 200 characters, an optional description of 1 to 1000, an optional required, 2 to 50 options each with an ID, a label of 1 to 200 characters and an optional description of 1 to 1000, an optional multiple and, only with multiple, an optional minItems and maxItems. That the option IDs are unique in the item and do not start with u-, and that minItems is at most maxItems, which is at most the number of options, are checks of pickFieldPropsProblems. In the input format since form-widget.",
+  "type": "object",
+  "properties": {
+    "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "required": { "type": "boolean" },
+    "options": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/option" }
+    },
+    "multiple": { "type": "boolean" },
+    "minItems": { "type": "integer", "minimum": 1, "maximum": 50 },
+    "maxItems": { "type": "integer", "minimum": 1, "maximum": 50 }
+  },
+  "required": ["label", "options"],
+  "additionalProperties": false,
+  "$defs": {
+    "option": {
+      "description": "An option: its ID, unique in the item, its label and an optional description.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "urn:askboard:input:id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      },
+      "required": ["id", "label"],
+      "additionalProperties": false
+    }
+  }
+}

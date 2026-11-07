@@ -4,7 +4,7 @@
 // molecule with no teaching, so that registering one without it cannot ship.
 
 import type { MoleculeDefinition } from "@askboard/contract";
-import { NON_WIDGET_ITEM_TYPES, type WidgetType } from "@askboard/contract";
+import { ID_PATTERN, NON_WIDGET_ITEM_TYPES, type WidgetType } from "@askboard/contract";
 import type { MoleculeSkill } from "@askboard/molecules";
 import { type ExampleBody, exampleBlock } from "./blocks.ts";
 import {
@@ -48,6 +48,8 @@ const bareResult = (schema: Schema): string => {
     maximum?: number;
   };
   if (type === "boolean") return "`true` or `false`";
+  // The one ID-shaped result is a pick's: an ID among the item's options (form-widget).
+  if (pattern === ID_PATTERN) return "an option ID";
   if (type === "number" || type === "integer") {
     return minimum !== undefined && maximum !== undefined
       ? `a number from ${minimum} to ${maximum}`
@@ -59,6 +61,18 @@ const bareResult = (schema: Schema): string => {
     return `a text of ${minLength} to ${maxLength} characters`;
   }
   return minLength === undefined ? "a text" : `a text of at least ${minLength} characters`;
+};
+
+// A result that is one thing or a list of it, written as an `if` on a string with the list as its
+// `else` (no root combinator, no union type): the PickField's option ID or list of IDs.
+const twoTypeResult = (schema: Schema): string | undefined => {
+  const { then: one, else: many } = schema as {
+    then?: Schema;
+    else?: { type?: unknown; items?: Schema };
+  };
+  if (schema.if === undefined || one?.type !== "string" || many?.type !== "array") return undefined;
+  const plural = many.items?.pattern === ID_PATTERN ? "option IDs" : "texts";
+  return `${bareResult(one)}, or a list of ${plural}`;
 };
 
 // What the answer carries for a widget type: its edits, its result, its derived values.
@@ -74,7 +88,9 @@ const answerLines = (entry: WidgetType, resolve: Resolve): string[] => {
     const fields = fieldLines(schema, resolve);
     lines.push(
       ...(fields.length === 0
-        ? [`- Result: \`results\` holds, under the item's ID, ${bareResult(schema)}.`]
+        ? [
+            `- Result: \`results\` holds, under the item's ID, ${twoTypeResult(schema) ?? bareResult(schema)}.`,
+          ]
         : [
             "- Result: `results` holds, under the item's ID, an object with:",
             ...fields.map((line) => `  ${line}`),
