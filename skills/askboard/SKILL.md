@@ -48,7 +48,6 @@ A question (`question`) is `{type: "question", id, props: {text, header?, option
 - a LaTeX (`latex`): one mathematical expression in LaTeX that the user reads and corrects, with a live preview → [latex](references/widgets/latex.md)
 - a Kanban (`kanban`): cards the user moves between 2 to 12 columns, such as statuses, priorities or owners → [kanban](references/widgets/kanban.md)
 - a Timeline (`timeline`): milestones and date ranges the user moves in time and across lanes, as in a roadmap → [timeline](references/widgets/timeline.md)
-
 - a Chart (`chart`): a bar, line or pie chart the user reads and may highlight points on → [chart](references/widgets/chart.md)
 - `gantt-plan`: a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed → [gantt-plan](references/molecules/gantt-plan.md)
 - `wbs-pert`: a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up → [wbs-pert](references/molecules/wbs-pert.md)

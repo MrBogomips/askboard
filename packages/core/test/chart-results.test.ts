@@ -58,7 +58,7 @@ describe("a Chart's result", () => {
   });
 
   test("a pie's one slice is logged", () => {
-    const { outcome } = run(modelOf([PIE]), { results: { share: CHART_RESULTS.pie } });
+    const { outcome } = run(modelOf([PIE]), { results: { split: CHART_RESULTS.pie } });
     expect(outcome.ok).toBe(true);
   });
 });

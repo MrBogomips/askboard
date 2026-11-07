@@ -111,7 +111,7 @@ As in `approval-scale-ranking` decision 10: `CHART_WIDGET` joins `WIDGET_TYPES` 
 
 The input format, the output format, the tool envelopes and the board document each take the next minor after `main`'s (askboard-contract-versioning): their composed schemas and the output set's list change only when the type registers, so the four constants move in task 5.1, each set module's header gaining one sentence naming this change; the binding is task 7.2's. The board protocol (results are any JSON by item ID), the Snapshot data and the view manifest keep `main`'s. Descriptions, comments and test titles say "since chart-widget", never a number.
 
-Binding: (filled at task 7.2) "Bound on <date>, rebased onto origin/main <sha>: input format <n> (main <m>), output format …, tool envelopes …, board document …."
+Bound on 2026-11-07, rebased onto origin/main f2dfb6f3 (after `latex-kanban-timeline`, #52, which took 1.7, 1.7, 1.7 and 1.6): input format 1.8 (main 1.7), output format 1.8 (main 1.7), tool envelopes 1.8 (main 1.7), board document 1.7 (main 1.6); the board protocol stays at main's 1.6, the Snapshot data at 1.1 and the view manifest at 1.1.
 
 ### 12. The end-to-end proof
 

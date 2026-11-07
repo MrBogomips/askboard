@@ -51,7 +51,7 @@ const LINE: ChartItem = {
 
 const PIE: ChartItem = {
   type: "chart",
-  id: "share",
+  id: "split",
   props: {
     kind: "pie",
     categories: [

@@ -93,9 +93,9 @@ describe("the versions of the four widened sets", () => {
 });
 
 describe("the Chart in the composed schemas", () => {
-  test("the registry ends with the Chart, after the Ranking", () => {
+  test("the registry ends with the Chart, after the Timeline", () => {
     expect(WIDGET_TYPES.at(-1)).toBe(CHART_WIDGET);
-    expect(WIDGET_TYPES.map(({ type }) => type).slice(-2)).toEqual(["ranking", "chart"]);
+    expect(WIDGET_TYPES.map(({ type }) => type).slice(-2)).toEqual(["timeline", "chart"]);
     expect(widgetTypeOf("chart")).toBe(CHART_WIDGET);
   });
 
