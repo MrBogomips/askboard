@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { type BoardState, type DraftRecord, SCHEMA_IDS, SCHEMA_SETS } from "@askboard/contract";
+import {
+  type BoardState,
+  type DraftRecord,
+  JSON_MAX_DEPTH,
+  SCHEMA_IDS,
+  SCHEMA_SETS,
+} from "@askboard/contract";
 import {
   ganttEditedValue,
   lifecycleBoardDocument,
@@ -107,7 +113,7 @@ describe("view messages, as App tool calls the board page answers itself (design
   test("an answer with neither a choice, values nor Other text is refused", () => {
     const args = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z", note: "only a note" };
     expect(problemsOf({ name: "askboard.view.answer", arguments: args })).toEqual([
-      { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments", message: 'holds none of "choice", "values", "results" and "other"' },
     ]);
   });
 
@@ -210,7 +216,7 @@ describe("view messages, as App tool calls the board page answers itself (design
   });
 });
 
-const DERIVED_ALONE = 'comes only beside "choice", "values" or "other"';
+const DERIVED_ALONE = 'comes only beside "choice", "values", "results" or "other"';
 
 describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD-20, FR-12)", () => {
   // The Gantt question's answer: the Gantt's full edited value and its derived values.
@@ -305,10 +311,12 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     }
   });
 
-  test("a deep value is walked without overflowing the stack", () => {
+  test("a deep value is walked without overflowing the stack, and refused past the JSON bound (X-5)", () => {
     let deep: unknown = "ux";
     for (let level = 0; level < 200_000; level += 1) deep = [deep];
-    expect(problemsOf(call({ ...base, derived: { "release.deep": deep } }))).toEqual([]);
+    expect(
+      problemsOf(call({ ...base, derived: { "release.deep": deep } })).map(({ path }) => path),
+    ).toEqual(["/arguments/derived"]);
   });
 
   test("derived values come beside any answer content, never alone (design decision 10)", () => {
@@ -316,11 +324,11 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     expect(problemsOf(call({ ...withoutValues, choice: ["Yes"], derived }))).toEqual([]);
     expect(problemsOf(call({ ...withoutValues, other: "Maybe", derived }))).toEqual([]);
     expect(problemsOf(call({ ...withoutValues, derived }))).toEqual([
-      { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments", message: 'holds none of "choice", "values", "results" and "other"' },
       { path: "/arguments/derived", message: DERIVED_ALONE },
     ]);
     expect(problemsOf(call({ ...withoutValues, note: "only a note", derived }))).toEqual([
-      { path: "/arguments", message: 'holds none of "choice", "values" and "other"' },
+      { path: "/arguments", message: 'holds none of "choice", "values", "results" and "other"' },
       { path: "/arguments/derived", message: DERIVED_ALONE },
     ]);
   });
@@ -349,7 +357,10 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     const act = { type: "answer", ...withoutValues, choice: ["Yes"], derived };
     expect(problemsOf(actCall(note, act))).toEqual([]);
     expect(problemsOf(actCall({ type: "answer", ...withoutValues, derived }))).toEqual([
-      { path: "/arguments/acts/0", message: 'holds none of "choice", "values" and "other"' },
+      {
+        path: "/arguments/acts/0",
+        message: 'holds none of "choice", "values", "results" and "other"',
+      },
       { path: "/arguments/acts/0/derived", message: DERIVED_ALONE },
     ]);
   });
@@ -819,5 +830,106 @@ describe("the presentation messages the view sends (settings-languages, task 8.3
       arguments: { panel: "x" },
     });
     expect(refused.ok).toBe(false);
+  });
+});
+
+describe("an answer's results (widget-registry, design decision 9; AD-20)", () => {
+  const base = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z" };
+  const call = (args: Record<string, unknown>) => ({
+    name: "askboard.view.answer",
+    arguments: args,
+  });
+  const results = { sketch: { pick: "a" } };
+
+  test("results alone are an answer, and read back as sent", () => {
+    expect(problemsOf(call({ ...base, results }))).toEqual([]);
+    const checked = readViewMessage(call({ ...base, results }));
+    expect(
+      checked.ok && checked.value.type === "answer" ? checked.value.results : undefined,
+    ).toEqual(results);
+  });
+
+  test("results go beside a choice, widget values, Other text and derived values", () => {
+    const derived = { "sketch.count": 3 };
+    expect(problemsOf(call({ ...base, choice: ["Yes"], results }))).toEqual([]);
+    expect(problemsOf(call({ ...base, values: { sketch: {} }, results, derived }))).toEqual([]);
+    expect(problemsOf(call({ ...base, other: "Maybe", results }))).toEqual([]);
+    expect(problemsOf(call({ ...base, results, derived }))).toEqual([]);
+  });
+
+  test("derived values alone, or beside a note alone, are still no answer", () => {
+    const derived = { "sketch.count": 3 };
+    expect(problemsOf(call({ ...base, derived })).map(({ path }) => path)).toContain(
+      "/arguments/derived",
+    );
+  });
+
+  test.each([
+    ["no object", [] as unknown],
+    ["empty", {}],
+    ["a key that is no item ID", { "a b": 1 }],
+    ["a value that is no JSON", { sketch: undefined }],
+    ["a value that holds a function", { sketch: () => 1 }],
+    [
+      "a value that holds itself",
+      (() => {
+        const loop: Record<string, unknown> = {};
+        loop.self = loop;
+        return { sketch: loop };
+      })(),
+    ],
+    ["a date", { sketch: new Date(0) }],
+  ])("results that are %s are refused, naming results", (_, value) => {
+    const found = problemsOf(call({ ...base, choice: ["Yes"], results: value }));
+    expect(found.map(({ path }) => path)).toEqual(["/arguments/results"]);
+  });
+
+  const nested = (levels: number): unknown => {
+    let value: unknown = 1;
+    for (let at = 0; at < levels; at += 1) value = [value];
+    return value;
+  };
+
+  test("a result nested past the contract's JSON bound is refused, never thrown (X-3)", () => {
+    const bound = JSON_MAX_DEPTH;
+    for (const levels of [bound + 1, 1_000_000]) {
+      const found = problemsOf(
+        call({ ...base, choice: ["Yes"], results: { sketch: nested(levels) } }),
+      );
+      expect(found.map(({ path }) => path)).toEqual(["/arguments/results"]);
+    }
+    expect(problemsOf(call({ ...base, results: { sketch: nested(bound) } }))).toEqual([]);
+  });
+
+  test("derived values nested past the JSON bound are refused, naming derived (X-5)", () => {
+    const found = problemsOf(
+      call({ ...base, choice: ["Yes"], derived: { "sketch.count": nested(JSON_MAX_DEPTH + 1) } }),
+    );
+    expect(found.map(({ path }) => path)).toEqual(["/arguments/derived"]);
+  });
+
+  test("a result may be any JSON value, a key such as __proto__ among the keys", () => {
+    for (const value of [null, 3, "text", true, [1, [2]], { deep: { deeper: [] } }]) {
+      expect(problemsOf(call({ ...base, results: { sketch: value } }))).toEqual([]);
+    }
+    const text = `{"itemId":"q","rev":1,"when":"2026-10-30T09:41:27Z","results":{"__proto__":1}}`;
+    const checked = readViewMessage({
+      name: "askboard.view.answer",
+      arguments: JSON.parse(text),
+    });
+    const read = checked.ok && checked.value.type === "answer" ? checked.value.results : {};
+    expect(Object.hasOwn(read ?? {}, "__proto__")).toBe(true);
+  });
+
+  test("an answer act holds results the same way", () => {
+    const act = { type: "answer", ...base, results } as const;
+    expect(problemsOf({ name: "askboard.view.act", arguments: { acts: [act] } })).toEqual([]);
+    const { results: _, ...bare } = act;
+    expect(
+      problemsOf({
+        name: "askboard.view.act",
+        arguments: { acts: [{ ...bare, derived: { "a.b": 1 } }] },
+      }),
+    ).not.toEqual([]);
   });
 });

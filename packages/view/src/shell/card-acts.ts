@@ -33,6 +33,7 @@ import {
   itemIdsOf,
   type QuestionWork,
   releaseHeld,
+  resultIdsOf,
 } from "./board-draft.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
@@ -78,6 +79,8 @@ export const nextHeldOrder = (board: BoardDraft): number =>
 
 export type AnswerContext = Senders & {
   readonly draft: DraftStore;
+  /** The results the widget items hold, beside the draft record (widget-registry, design decision 9). */
+  readonly results?: DraftStore;
   readonly board: BoardDraft;
   /** The derived values each widget item last reported (widget-answers design decision 10). */
   readonly derived: DerivedStore;
@@ -89,14 +92,19 @@ export type AnswerContext = Senders & {
  * The answer with the derived values every computing item of the question last reported (widget-
  * answers design decision 10, FR-12), changed or not, in the order of the question's `itemIds`; no
  * `derived` field when none reported any. They never make an answer: an answer with no choice,
- * value or "Other…" text carries none.
+ * value, result or "Other…" text carries none.
  */
 export const withDerived = (
   answer: AnswerContent,
   reported: DerivedStore["reported"],
   itemIds: readonly string[],
 ): AnswerContent => {
-  if (answer.choice === undefined && answer.values === undefined && answer.other === undefined) {
+  if (
+    answer.choice === undefined &&
+    answer.values === undefined &&
+    answer.results === undefined &&
+    answer.other === undefined
+  ) {
     return answer;
   }
   const entries = itemIds.flatMap((itemId) => Object.entries(reported(itemId) ?? {}));
@@ -161,15 +169,18 @@ const now = () => new Date().toISOString();
 
 /** "Answer": sends, marks ready or unmarks, or sends or holds the note alone (FR-7, FR-22). */
 export const answer = (question: ViewQuestion, context: AnswerContext): void => {
-  const { draft, board, derived, delivery } = context;
+  const { draft, results, board, derived, delivery } = context;
   const work = board.work(question.id);
   const content = withDerived(
-    answerContentOf(question, draft.record(), work),
+    answerContentOf(question, draft.record(), work, results?.record()),
     derived.reported,
     itemIdsOf(question),
   );
   const answers =
-    content.choice !== undefined || content.values !== undefined || content.other !== undefined;
+    content.choice !== undefined ||
+    content.values !== undefined ||
+    content.results !== undefined ||
+    content.other !== undefined;
   if (!answers) {
     if (content.note === undefined) return;
     if (delivery === "submitted") {
@@ -291,12 +302,13 @@ export const sendFollowUp = (question: ViewQuestion, context: AnswerContext): vo
   sendActs(context, [followUp(question, text)]);
 };
 
-/** Drops the question's draft: its items' values and its work, its revision included. */
+/** Drops the question's draft: its items' values and results and its work, its revision included. */
 export const dropWork = (
   question: ViewQuestion,
-  { draft, board }: Pick<AnswerContext, "draft" | "board">,
+  { draft, results, board }: Pick<AnswerContext, "draft" | "results" | "board">,
 ): void => {
   for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
+  for (const itemId of resultIdsOf(question)) results?.set(itemId, undefined);
   board.forget(question.id);
 };
 

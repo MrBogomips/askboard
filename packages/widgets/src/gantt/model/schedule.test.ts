@@ -11,7 +11,7 @@ import {
   ganttPlanRequestedValue,
   treeEditedValue,
 } from "@askboard/contract/fixtures";
-import { type BoardGraph, liveGraph, sentGraph } from "../../graph/board-graph.ts";
+import { type BoardGraph, liveGraph, sentGraph } from "../../board-graph/board-graph.ts";
 import {
   answerDerived,
   baselineOf,

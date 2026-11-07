@@ -44,16 +44,18 @@ const setUp = (delivery: Delivery = "immediate") => {
     onTheme: () => () => {},
   };
   const draft = createDraftStore();
+  const results = createDraftStore();
   const board = createBoardDraft(delivery);
   const acts = createAnswerActs();
   const derived = createDerivedStore();
   return {
     sent,
     draft,
+    results,
     board,
     acts,
     derived,
-    context: { channel, acts, draft, board, derived, delivery },
+    context: { channel, acts, draft, results, board, derived, delivery },
   };
 };
 
@@ -563,5 +565,65 @@ describe("the derived values an answer carries (gantt-widget design decision 10;
     draft.set("database", ["SQLite"]);
     answer(database, context);
     expect(Object.hasOwn(sent[0] ?? {}, "derived")).toBe(false);
+  });
+});
+
+describe("the results an answer carries (widget-registry, design decision 9; AD-20)", () => {
+  const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
+  const asked: ViewQuestion = {
+    ...database,
+    props: { text: "Which one?", items: [sketch] },
+  };
+  const result = { pick: "a" };
+
+  test("Answer sends a result alone as an answer with results and no values", () => {
+    const { sent, results, context } = setUp();
+    results.set("sketch", result);
+    answer(asked, context);
+    expect(sent).toEqual([
+      {
+        type: "answer",
+        itemId: "database",
+        rev: 1,
+        results: { sketch: result },
+        when: expect.stringMatching(/Z$/),
+      },
+    ]);
+    expect(Object.hasOwn(sent[0] ?? {}, "values")).toBe(false);
+  });
+
+  test("the derived values of the question's items go beside a result, which makes the answer", () => {
+    expect(
+      withDerived({ results: { sketch: result } }, () => ({ "sketch.n": 1 }), ["sketch"]),
+    ).toEqual({ results: { sketch: result }, derived: { "sketch.n": 1 } });
+  });
+
+  test("in submitted delivery the result is held for Submit, not sent", () => {
+    const { sent, results, board, context } = setUp("submitted");
+    results.set("sketch", result);
+    answer(asked, context);
+    expect(sent).toEqual([]);
+    expect(board.work("database")?.held).toEqual({ act: "answer", order: 0 });
+  });
+
+  test("nothing held, nothing sent: no result, no answer", () => {
+    const { sent, context } = setUp();
+    answer(asked, context);
+    expect(sent).toEqual([]);
+  });
+
+  test("Keep mine keeps a held result, and Reload, losing my work drops it", () => {
+    const changed = { ...asked, rev: 2 } as ViewQuestion;
+    const kept = setUp("submitted");
+    kept.results.set("sketch", result);
+    kept.board.edit("database", 1, (work) => work);
+    keepMine(changed, kept.context);
+    expect(kept.results.valueOf("sketch")).toBe(result);
+    const reloaded = setUp("submitted");
+    reloaded.results.set("sketch", result);
+    reloaded.board.edit("database", 1, (work) => work);
+    reloadQuestion(changed, reloaded.context);
+    expect(reloaded.results.valueOf("sketch")).toBeUndefined();
+    expect(reloaded.board.work("database")).toBeUndefined();
   });
 });

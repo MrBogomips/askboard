@@ -4,7 +4,14 @@
 // widget item or a molecule reference alone comes as the user left it. An expanded ID is no item
 // the agent sent, so it is none here. Pure over what the ask holds. Plain ECMAScript (AD-1).
 
-import type { FetchAnswer, FetchItem, QuestionState } from "@askboard/contract";
+import {
+  type FetchAnswer,
+  type FetchItem,
+  type QuestionState,
+  WIDGET_TYPES,
+  type WidgetType,
+  widgetTypeOf,
+} from "@askboard/contract";
 import { referenceAddressing } from "../molecules/addressing.ts";
 import type { ExpansionMap } from "../molecules/map.ts";
 import { valueInReferenceAddressing } from "../molecules/rewrite.ts";
@@ -16,7 +23,7 @@ import type { KeptAnswer } from "./widget-event.ts";
 type Json = Readonly<Record<string, unknown>>;
 type Question = Extract<FetchItem, { readonly type: "question" }>;
 type Area = Extract<FetchItem, { readonly type: "area" }>;
-type WidgetItem = Extract<FetchItem, { readonly type: "tree" | "gantt" }>;
+type WidgetItem = Exclude<FetchItem, { readonly type: "question" | "area" }>;
 type SentItem = { readonly type: string; readonly id: string; readonly props: unknown };
 
 /** What the addressing reads: the ask's map, its molecule source and the kept answer values. */
@@ -25,8 +32,6 @@ export type WidgetFetch = {
   readonly source: MoleculeSource | undefined;
   readonly kept: ReadonlyMap<string, KeptAnswer>;
 };
-
-const isWidget = (item: SentItem): boolean => item.type === "tree" || item.type === "gantt";
 
 // An item of a question's props with its ID and props in reference addressing.
 const itemInReference = (item: SentItem, { map, source }: WidgetFetch): SentItem => {
@@ -41,8 +46,8 @@ const propsInReference = <P extends object>(props: P, fetch: WidgetFetch): P => 
   return { ...props, items: items.map((item) => itemInReference(item, fetch)) };
 };
 
-// The answer with the widget content its event has kept: the full edited values and the derived
-// values, by the event's cursor.
+// The answer with the widget content its event has kept: the full edited values, the results and
+// the derived values, by the event's cursor.
 const answerInReference = (answer: FetchAnswer, fetch: WidgetFetch): FetchAnswer => {
   const kept = "cursor" in answer ? fetch.kept.get(answer.cursor) : undefined;
   if (kept === undefined) return answer;
@@ -52,10 +57,13 @@ const answerInReference = (answer: FetchAnswer, fetch: WidgetFetch): FetchAnswer
       return [value.id, value.props];
     }),
   );
-  const derived = referenceAddressing(fetch.map).derived(kept.derived);
+  const addressing = referenceAddressing(fetch.map);
+  const derived = addressing.derived(kept.derived);
+  const results = addressing.results(kept.results);
   return {
     ...answer,
     ...(Object.keys(values).length === 0 ? {} : { values }),
+    ...(Object.keys(results).length === 0 ? {} : { results }),
     ...(Object.keys(derived).length === 0 ? {} : { derived }),
   };
 };
@@ -89,11 +97,16 @@ type Found = { readonly question: QuestionRecord; readonly item: SentItem };
 
 // The widget item or reference the agent names `itemId` among the questions' current items: an
 // item no reference expanded, or a reference's expanded item; never an expanded ID.
-const findWidget = (model: BoardModel, itemId: string, { map }: WidgetFetch): Found | undefined => {
+const findWidget = (
+  model: BoardModel,
+  itemId: string,
+  { map }: WidgetFetch,
+  types: readonly WidgetType[],
+): Found | undefined => {
   for (const question of model.questions()) {
     const { items = [] } = model.propsOf(question) as { readonly items?: readonly SentItem[] };
     for (const item of items) {
-      if (!isWidget(item)) continue;
+      if (widgetTypeOf(item.type, types) === undefined) continue;
       const entry = map.get(item.id);
       if (entry === undefined ? item.id === itemId : entry.reference === itemId) {
         return { question, item };
@@ -111,6 +124,21 @@ const valueLeft = (found: Found, status: QuestionStatus, fetch: WidgetFetch): un
   return Object.hasOwn(edited, found.item.id) ? edited[found.item.id] : found.item.props;
 };
 
+// The result the latest answer gave for the item, when its type declares a result: what is kept
+// for a type that declares none is never returned (AD-10, NFR-10).
+const resultLeft = (
+  found: Found,
+  status: QuestionStatus,
+  fetch: WidgetFetch,
+  types: readonly WidgetType[],
+): { readonly value: unknown } | undefined => {
+  if (widgetTypeOf(found.item.type, types)?.result === undefined) return undefined;
+  const answer = status.answer;
+  const kept = answer?.kind === "logged" ? fetch.kept.get(answer.entry.event.cursor) : undefined;
+  const given: Json = kept?.results ?? {};
+  return Object.hasOwn(given, found.item.id) ? { value: given[found.item.id] } : undefined;
+};
+
 /**
  * A widget item or a reference alone, as the user left it, with its question's ID and state;
  * undefined for an ID that names none, an expanded ID among them.
@@ -120,8 +148,9 @@ export const widgetItemValue = (
   itemId: string,
   statusOf: (question: QuestionRecord) => QuestionStatus,
   fetch: WidgetFetch,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): { readonly item: WidgetItem; readonly generation: number } | undefined => {
-  const found = findWidget(model, itemId, fetch);
+  const found = findWidget(model, itemId, fetch, types);
   if (found === undefined) return undefined;
   const status = statusOf(found.question);
   const props = valueLeft(found, status, fetch);
@@ -131,12 +160,14 @@ export const widgetItemValue = (
     found.item.id,
     props,
   );
+  const result = resultLeft(found, status, fetch, types);
   const item: WidgetItem = {
     type: found.item.type as WidgetItem["type"],
     id,
     questionId: found.question.id,
     props: addressed as WidgetItem["props"],
     state: status.state as QuestionState,
+    ...(result === undefined ? {} : { result: result.value }),
   };
   return { item, generation: found.question.generation };
 };

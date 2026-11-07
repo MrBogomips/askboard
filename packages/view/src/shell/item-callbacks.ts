@@ -3,14 +3,19 @@
 // `onValuesChange` the values of several items of its question in one draft update, as a linked
 // edit does; each first runs the shell's step before a change, such as the start of a revision
 // (ask-lifecycle, task 6.7), once. An update naming an item outside the question changes nothing
-// and goes to the item's error path, as a thrown render error does. Also the value an item shows.
+// and goes to the item's error path, as a thrown render error does. `onResultChange` puts the
+// item's result into the results store beside the draft record, none removing it, after the same
+// step (widget-registry, design decision 9). Also the value and the result an item shows.
 // Plain functions, tested without a DOM.
 
+import { resultHoldsNothing } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
 import type { DraftStore } from "./draft-store.ts";
 
 export type ItemCallbackInputs = {
   readonly draft: DraftStore;
+  /** The results store beside the draft record; without one, a reported result is not held. */
+  readonly results?: DraftStore | undefined;
   readonly itemId: string;
   /** The question the item sits in. */
   readonly questionId: string;
@@ -25,6 +30,7 @@ export type ItemCallbackInputs = {
 export type ItemCallbacks = {
   readonly onValueChange: (value: unknown) => void;
   readonly onValuesChange: (values: Readonly<Record<string, unknown>>) => void;
+  readonly onResultChange: (result: unknown) => void;
 };
 
 const quoted = (ids: readonly string[]): string => {
@@ -36,6 +42,7 @@ const quoted = (ids: readonly string[]): string => {
 
 export const itemCallbacks = ({
   draft,
+  results,
   itemId,
   questionId,
   itemIds,
@@ -45,6 +52,12 @@ export const itemCallbacks = ({
   onValueChange: (value) => {
     onBeforeChange?.();
     draft.set(itemId, value);
+  },
+  onResultChange: (result) => {
+    if (results === undefined) return;
+    onBeforeChange?.();
+    // A result that holds nothing is no result: it clears the item's, as none does.
+    results.set(itemId, resultHoldsNothing(result) ? undefined : result);
   },
   onValuesChange: (values) => {
     const outside = Object.keys(values).filter((id) => !itemIds.includes(id));
@@ -69,3 +82,11 @@ export const itemCallbacks = ({
  */
 export const itemValueOf = (cardShown: unknown, board: BoardContent, itemId: string): unknown =>
   cardShown ?? board.shown.get(itemId);
+
+/**
+ * The result an item shows: what the card shows in place of the draft, such as the answer being
+ * sent or the logged one, else the result the user holds, else its question's latest answer's,
+ * which stays while the question is revised; none when it has none.
+ */
+export const itemResultOf = (cardShown: unknown, held: unknown, answered: unknown): unknown =>
+  cardShown ?? held ?? answered;

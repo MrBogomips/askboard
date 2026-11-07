@@ -3,6 +3,7 @@
 // Plain ECMAScript: it runs in the view and in the session process alike (AD-1).
 
 export { type BoardSourceItem, boardGraphSource } from "./board.ts";
+export { BOARD_SOURCES, type BoardSource } from "./board-sources.ts";
 export {
   addWorkingDays,
   firstWorkingDateFrom,

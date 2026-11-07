@@ -15,7 +15,7 @@ import {
   type ViewQuestion,
   type ViewQuestionProps,
 } from "../view-document.ts";
-import { itemIdsOf, type QuestionWork } from "./board-draft.ts";
+import { itemIdsOf, type QuestionWork, resultIdsOf } from "./board-draft.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import { type WidgetChange, widgetChanges } from "./widget-changes.ts";
 
@@ -43,13 +43,17 @@ export const changeCountOf = (
   question: ViewQuestion,
   values: DraftRecord,
   work: QuestionWork | undefined,
+  results: DraftRecord = new Map(),
 ): number => {
   const items = itemIdsOf(question).filter((itemId) => values.get(itemId) !== undefined).length;
+  const resulting = resultIdsOf(question).filter(
+    (itemId) => results.get(itemId) !== undefined,
+  ).length;
   const notes = Object.values(work?.optionNotes ?? {}).filter((note) => note !== "").length;
   const texts = [work?.other, work?.note, work?.composer].filter(
     (text) => text !== undefined && text !== "",
   ).length;
-  return items + notes + texts;
+  return items + resulting + notes + texts;
 };
 
 /** The notice's count (EXPERIENCE.md, Voice and Tone: "Your 17 changes on this question"). */

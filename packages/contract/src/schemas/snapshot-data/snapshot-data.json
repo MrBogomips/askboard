@@ -159,10 +159,42 @@
           "propertyNames": {
             "$ref": "urn:askboard:output:answer-event#/$defs/reference"
           }
+        },
+        "results": {
+          "description": "Since widget-registry: the results ask-core keeps for an answer event logged tooLarge, which carries none itself, by item ID in reference addressing, each any JSON value its item's type defines (AD-15). An event logged whole holds none here: its own results are the record.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:output:answer-event#/$defs/reference"
+          },
+          "additionalProperties": true
         }
       },
       "required": ["event"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "event": {
+            "type": "object",
+            "properties": {
+              "tooLarge": {
+                "const": true
+              }
+            },
+            "required": ["tooLarge"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "results": true
+        }
+      },
+      "else": {
+        "properties": {
+          "results": false
+        }
+      }
     },
     "event": {
       "description": "An event of the output format, picked by its type: every one an ask that is not discarded can log, so no discarded event.",

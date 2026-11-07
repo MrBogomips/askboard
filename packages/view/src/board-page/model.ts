@@ -221,8 +221,13 @@ const contentProblem = (
   answer: Extract<ViewAct, { readonly type: "answer" }>,
   question: ViewQuestion,
 ): string | undefined => {
-  if (answer.choice === undefined && answer.other === undefined && answer.values === undefined) {
-    return "the answer carries no choice, no Other… text and no widget value";
+  if (
+    answer.choice === undefined &&
+    answer.other === undefined &&
+    answer.values === undefined &&
+    answer.results === undefined
+  ) {
+    return "the answer carries no choice, no Other… text, no widget value and no result";
   }
   if (answer.rev !== question.rev) return undefined;
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
@@ -253,6 +258,21 @@ const valuesProblem = (
     : `the answer carries a value for "${foreign}", which is not a widget item of the question`;
 };
 
+// Each key of an answer's results names a widget item of its question, as the values' keys do
+// (widget-registry, design decision 9): own keys only, so `__proto__` names nothing. Whether the
+// item's type declares a result, and the result itself, are ask-core's to check.
+const resultsProblem = (
+  answer: Extract<ViewAct, { readonly type: "answer" }>,
+  question: ViewQuestion,
+): string | undefined => {
+  if (answer.results === undefined || answer.rev !== question.rev) return undefined;
+  const widgets = new Set((question.props.items ?? []).map((item) => item.id));
+  const foreign = Object.keys(answer.results).find((itemId) => !widgets.has(itemId));
+  return foreign === undefined
+    ? undefined
+    : `the answer carries a result for "${foreign}", which is not a widget item of the question`;
+};
+
 const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | undefined => {
   const { question } = known;
   if (model.failed.has(question.id)) return "the question's item failed in the view";
@@ -260,7 +280,9 @@ const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | und
   const revision = revisionProblem(act, question);
   if (revision !== undefined) return revision;
   if (act.type !== "answer") return undefined;
-  return valuesProblem(act, question) ?? contentProblem(act, question);
+  return (
+    valuesProblem(act, question) ?? resultsProblem(act, question) ?? contentProblem(act, question)
+  );
 };
 
 /**

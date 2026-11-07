@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { BoardContent } from "../catalog/port.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { itemCallbacks, itemValueOf } from "./item-callbacks.ts";
+import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 
 // Test-only `probe` widget values, as a widget's model returns them: a new frozen object per edit
 // (tree-widget design decision 12).
@@ -147,5 +147,103 @@ describe("the value an item shows (molecules, design decision 11)", () => {
   test("else the board's shown value: on a question being revised, the answer's until the user changes it", () => {
     expect(itemValueOf(undefined, board(new Map([["sketch", answered]])), "sketch")).toBe(answered);
     expect(itemValueOf(undefined, board(new Map()), "sketch")).toBeUndefined();
+  });
+});
+
+describe("an item's result (widget-registry, design decision 9)", () => {
+  const withResults = () => {
+    const draft = createDraftStore();
+    const results = createDraftStore();
+    const steps: string[] = [];
+    const sent = mock(() => {});
+    const callbacks = itemCallbacks({
+      draft,
+      results,
+      itemId: "sketch",
+      questionId: "plan",
+      itemIds: ITEM_IDS,
+      onBeforeChange: () => steps.push("before"),
+      onError: sent,
+    });
+    return { draft, results, steps, sent, ...callbacks };
+  };
+
+  test("a reported result goes into the results store, beside the draft record and apart from it", () => {
+    const { draft, results, onResultChange } = withResults();
+    const result = { pick: "a" };
+    onResultChange(result);
+    expect(results.valueOf("sketch")).toBe(result);
+    expect(draft.record().size).toBe(0);
+  });
+
+  test("none removes the entry, so an item with no result holds none", () => {
+    const { results, onResultChange } = withResults();
+    onResultChange({ pick: "a" });
+    onResultChange(undefined);
+    expect(results.record().has("sketch")).toBe(false);
+    expect(results.record().size).toBe(0);
+  });
+
+  test.each([
+    ["{}", {}],
+    ["[]", []],
+    ["null", null],
+    ['""', ""],
+    ["{annotations: []}", { annotations: [] }],
+  ])(
+    "a result that holds nothing (%s) clears the item's result instead of storing it",
+    (_, empty) => {
+      const { results, onResultChange } = withResults();
+      onResultChange({ pick: "a" });
+      onResultChange(empty);
+      expect(results.record().has("sketch")).toBe(false);
+      expect(results.record().size).toBe(0);
+    },
+  );
+
+  test("false and 0 are content and are stored", () => {
+    const { results, onResultChange } = withResults();
+    onResultChange({ pick: false });
+    expect(results.valueOf("sketch")).toEqual({ pick: false });
+  });
+
+  test("the step before a change runs first, as it does for a value, and nothing else is called", () => {
+    const { steps, sent, onResultChange } = withResults();
+    onResultChange({ pick: "a" });
+    expect(steps).toEqual(["before"]);
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  test("an item ID such as __proto__ is a key like any other", () => {
+    const results = createDraftStore();
+    const { onResultChange } = itemCallbacks({
+      draft: createDraftStore(),
+      results,
+      itemId: "__proto__",
+      questionId: "plan",
+      itemIds: ["plan", "__proto__"],
+      onError: () => {},
+    });
+    onResultChange(1);
+    expect(results.valueOf("__proto__")).toBe(1);
+    expect(Object.getPrototypeOf(results.record())).toBe(Map.prototype);
+  });
+
+  test("with no results store, a reported result is not held", () => {
+    const { onResultChange } = itemCallbacks({
+      draft: createDraftStore(),
+      itemId: "sketch",
+      questionId: "plan",
+      itemIds: ITEM_IDS,
+      onError: () => {},
+    });
+    expect(() => onResultChange({ pick: "a" })).not.toThrow();
+  });
+
+  test("the result an item shows: what the card shows, else the held one, else its latest answer's", () => {
+    expect(itemResultOf("card", "held", "answered")).toBe("card");
+    expect(itemResultOf(undefined, "held", "answered")).toBe("held");
+    expect(itemResultOf(undefined, undefined, "answered")).toBe("answered");
+    expect(itemResultOf(undefined, undefined, undefined)).toBeUndefined();
   });
 });

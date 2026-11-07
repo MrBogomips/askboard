@@ -32,7 +32,7 @@
       "type": "object",
       "properties": {
         "type": {
-          "enum": ["question", "area", "tree", "gantt"]
+          "enum": ["question", "area"]
         },
         "id": {
           "$ref": "urn:askboard:input:id"
@@ -55,17 +55,13 @@
         },
         "previous": {
           "$ref": "#/$defs/answer"
+        },
+        "result": {
+          "description": "Since widget-registry: a widget item fetched alone with the result its latest answer gave for it, any JSON value its type defines (FR-20); never on a question or an area."
         }
       },
       "required": ["type", "id", "props"],
       "additionalProperties": false,
-      "if": {
-        "properties": {
-          "type": {
-            "enum": ["tree", "gantt"]
-          }
-        }
-      },
       "then": {
         "description": "A widget item fetched alone, as the user left it: its question's ID and state, and its props (FR-20, AD-9).",
         "required": ["questionId", "state"],
@@ -75,11 +71,9 @@
           "rev": false,
           "answer": false,
           "previous": false,
+          "result": true,
           "props": true
-        },
-        "if": { "properties": { "type": { "const": "tree" } } },
-        "then": { "properties": { "props": { "$ref": "urn:askboard:input:tree-props" } } },
-        "else": { "properties": { "props": { "$ref": "urn:askboard:input:gantt-props" } } }
+        }
       },
       "else": {
         "if": {
@@ -96,6 +90,7 @@
             "state": false,
             "answer": false,
             "previous": false,
+            "result": false,
             "props": {
               "$ref": "#/$defs/areaProps"
             }
@@ -105,6 +100,7 @@
           "required": ["rev", "state"],
           "properties": {
             "questionId": false,
+            "result": false,
             "props": {
               "$ref": "#/$defs/questionProps"
             },
@@ -180,6 +176,15 @@
           "additionalProperties": {
             "type": "object"
           }
+        },
+        "results": {
+          "description": "Since widget-registry: the result each widget item gave, by item ID in reference addressing, each any JSON value its item's type defines (FR-20, AD-20).",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": true
         },
         "derived": {
           "description": "Since 1.4: the derived values of the question's computing items as the user's board reported them, by reference (AD-13, FR-12), each any JSON value.",
@@ -270,9 +275,7 @@
       "oneOf": [
         { "$ref": "#/$defs/excerpt" },
         { "$ref": "#/$defs/reference" },
-        { "$ref": "#/$defs/image" },
-        { "$ref": "#/$defs/tree" },
-        { "$ref": "#/$defs/gantt" }
+        { "$ref": "#/$defs/image" }
       ]
     },
     "excerpt": {
@@ -301,28 +304,6 @@
         "type": { "const": "image" },
         "id": { "$ref": "urn:askboard:input:id" },
         "props": { "$ref": "#/$defs/imageProps" }
-      },
-      "required": ["type", "id", "props"],
-      "additionalProperties": false
-    },
-    "tree": {
-      "description": "A Tree as the board document holds it, a molecule's expanded one under its reference's ID.",
-      "type": "object",
-      "properties": {
-        "type": { "const": "tree" },
-        "id": { "$ref": "urn:askboard:input:id" },
-        "props": { "$ref": "urn:askboard:input:tree-props" }
-      },
-      "required": ["type", "id", "props"],
-      "additionalProperties": false
-    },
-    "gantt": {
-      "description": "A Gantt as the board document holds it, a molecule's expanded one under its reference's ID.",
-      "type": "object",
-      "properties": {
-        "type": { "const": "gantt" },
-        "id": { "$ref": "urn:askboard:input:id" },
-        "props": { "$ref": "urn:askboard:input:gantt-props" }
       },
       "required": ["type", "id", "props"],
       "additionalProperties": false

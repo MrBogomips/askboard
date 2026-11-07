@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-05'
+updated: '2026-11-06'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -30,6 +30,7 @@ sources:
   - 'OpenSpec change ask-lifecycle, proposal.md, open question 12: the "More" menu on Radix Dropdown Menu, added to the Stack row of radix-ui (accepted by the PO, 2026-11-03)'
   - 'OpenSpec change excerpts, proposal.md, open questions A1, A2, A4, A5, A6 and B1 (accepted by the PO, 2026-11-01)'
   - 'OpenSpec change settings-languages, proposal.md, open questions A1 to A6: configuration files, the first-ask folders, `with-references` and locale formats (accepted by the PO, 2026-11-01)'
+  - 'OpenSpec change widget-registry, proposal.md, open questions 1 to 7: the registry of widget types, widget results and the annotation fields (accepted under the PO''s unattended handoff, 2026-11-06)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -254,7 +255,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - diagram anchors as node or edge IDs as written in the diagram source, else the quoted label;
       - diff anchors as side (`old` or `new`), file path and line on that side;
       - text anchors as quote or position selectors.
-    - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built.
+    - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built: `{id, target: {selector}, body: {text}}`, the item ID being the key of the answer's `results`, with one selector type per kind of position above (`element` and `label` for diagrams and graphs, `region` for images, `line` for diffs, `quote` and `position` for text).
     - **Values:**
       - calendar dates are RFC 3339 `full-date` strings;
       - durations are integer days against the item's working calendar, which is optional and defaults to Monday to Friday with no holidays;
@@ -263,6 +264,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - **Questions:** a question's props hold its `text`, an optional `header`, its `options` and `multiSelect`; its widgets, excerpts and molecules go in its `items`, each an item as in AD-6. The agent sends no layout: an excerpt goes beside its question because of its type (FR-13).
     - **Areas:** an area is an item `{type: "area", id, props: {title, items}}` at the top level of an ask, whose `items` hold its questions. Areas do not nest, and either every top-level item of an ask is an area or none is; an ask without areas shows its questions as one group (FR-2). `update` adds a question to an area by naming the area as its parent.
     - **Widgets and the open prompt:** a widget either sits in a question, and so has the open prompt (FR-7), or is display-only and returns no answer.
+    - **Widget types:** `contract` holds one registry of widget types. Per type it gives the props schema and checks, the element shape and `changes` schema when the user edits the agent's content, the result schema and checks when the widget gives a result, the derived declarations of AD-13, the agent-facing wording and an example item. Every unit that handles a widget item dispatches on the registry, so a widget is added by registering it; a widget's chunk gives the view what the shell needs of its type through the `CatalogRenderer` port (AD-9), so the shell does not grow with the catalogue.
     - **Diff review alternatives:** a Diff review item may give two alternative fixes as pointers to two patch files under the ask's root. They apply to the files under the ask's root as they stand at send time, never to a git revision, so the item names no base. The agent never writes diff text: AskBoard computes the diffs (AD-12). Branches and commits are not accepted in the first version, since a worktree's object store lies outside the ask's root.
   - **IDs:**
     - Ask IDs, item IDs and the IDs of child elements (tree nodes, table rows, Gantt tasks) are chosen by the agent and match `[A-Za-z0-9_-]{1,64}`.
@@ -460,7 +462,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **Content:**
     - A Snapshot is one HTML file built by `assemble` (AD-9).
-    - The `askboard-data` block, `<script type="application/json" id="askboard-data">`, comes before every style and script, after the charset declaration and the view CSP meta tag, with `<` escaped. It holds the Snapshot's own record (when it was taken, by the agent or by whom, and whether a board's Snapshot left unsent work out); the current board document and every earlier revision an event names (AD-12); the board state the live board receives, with each question's state, current and previous answer, whether it was recorded, its receipt and its follow-up thread; the ask's origin (AD-5); every event in the ask's log, each answer carried with the full edited values `ask-core` keeps for it (AD-20); the molecule expansion map; and the kept light and dark render of each diagram (AD-9). The board document, revisions and board state use expanded IDs, as the view renders them; events and their values use the molecule references, as `collect` returns them.
+    - The `askboard-data` block, `<script type="application/json" id="askboard-data">`, comes before every style and script, after the charset declaration and the view CSP meta tag, with `<` escaped. It holds the Snapshot's own record (when it was taken, by the agent or by whom, and whether a board's Snapshot left unsent work out); the current board document and every earlier revision an event names (AD-12); the board state the live board receives, with each question's state, current and previous answer, whether it was recorded, its receipt and its follow-up thread; the ask's origin (AD-5); every event in the ask's log, each answer carried with the full edited values `ask-core` keeps for it and, for an answer logged `tooLarge`, the results and derived values it kept apart (AD-20); the molecule expansion map; and the kept light and dark render of each diagram (AD-9). The board document, revisions and board state use expanded IDs, as the view renders them; events and their values use the molecule references, as `collect` returns them.
     - After the data block come the styles and scripts of the chunks the board uses, then the licence notices of the inlined code, as the JSON block `<script type="application/json" id="askboard-licences">`, with `<` escaped. A diagram whose renders the data block holds needs no renderer chunk.
     - A Snapshot never includes a draft record. A Snapshot taken from the board says so when unsent work exists.
   - **Writing:**
@@ -551,9 +553,9 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - An `update` that changes a question whose answer is in the log is refused, naming that answer's `seq`, unless it reopens the question, which starts a new revision with no answer.
     - `ask-core` keeps every revision that an event names, until discard.
   - **Answers:**
-    - A view answer message carries the item's full edited value in its input-format shape, plus its derived values.
+    - A view answer message carries the item's full edited value in its input-format shape, plus its derived values. What a widget gives that is not an edit of the agent's content (a decision, a value, an order, annotations, highlights) is its result, held apart from its edited value; the message carries it in `results` by item ID, and `ask-core` checks it against the result its type declares in `contract` (AD-7) and logs it in the answer's `results`.
     - `ask-core` alone computes the answer's `changes`, with one generic diff defined in `contract` (`add`, `remove`, `move`, `set`) that addresses elements by ID, never by array index. `contract` holds both the format and the pure function that computes it from the sent and the edited value, generic over ID-keyed elements in a flat list, a tree or an object keyed by element ID, each widget declaring only its shape; `ask-core` is the only unit that calls it at run time. Each operation's target uses AD-13's reference syntax without brackets (`item.child.field`), and `add` and `move` name the parent and the preceding sibling, each omitted when there is none: the top level, the first position. Elements in an object keyed by element ID change only by `set`s, one per changed field, with `null` for a field or an element that is gone. Widgets never emit diffs.
-    - `ask-core` stores the full edited value; `fetch` and Snapshots read it. It computes an answer's `changes` once, when it appends the answer, from the revision the answer names, so a revised answer's `changes` are again from what the agent sent, never from the answer it replaces. An answer whose `changes` and derived values would not fit one result is logged without them, marked `tooLarge`, and `fetch` returns them (FR-20).
+    - `ask-core` stores the full edited value and the results; `fetch` and Snapshots read them. It computes an answer's `changes` once, when it appends the answer, from the revision the answer names, so a revised answer's `changes` are again from what the agent sent, never from the answer it replaces. An answer whose `changes`, results and derived values would not fit one result is logged without them, marked `tooLarge`, and `fetch` returns them (FR-20).
     - A later answer to the same question is a new event that names the `seq` it replaces. The latest answer per question wins.
     - **Decline:** `declined` is an answer kind, carrying the optional reason from the question's open prompt. Like an answer, it closes the question (AD-10), names the question's `rev`, follows the delivery mode and is superseded by a later answer or decline. The shipped skills tell the agent not to ask a declined question again within its task; nothing about it outlives the ask (AD-14, FR-25).
     - **Reopening:** undoing a postpone or a decline that has been sent (it is in the log) appends the event "question reopened by the user", which `collect` and the mod deliver like any other (AD-3). Undoing one still held only removes it from the draft record.
@@ -566,7 +568,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Every board command carries an action ID that the board page makes. `ask-core` applies each action ID once per ask, so a command resent after a dropped connection, a submit or a revision included, is never appended twice.
     - Switching to immediate delivery sends what is held, the same way.
   - **Drafts:**
-    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers and the user's notes on options. For the board it holds the delivery mode and the open tab or the question in view.
+    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers and the user's notes on options. For the board it holds the delivery mode and the open tab or the question in view.
     - The board page mirrors the draft record to `ask-core` over the board protocol. `ask-core` holds it apart from the log and never exposes it to `collect`, `fetch`, Snapshots, the mod or the local API.
     - A reconnecting or taking-over board restores it from `ask-core`. No AskBoard page uses Web Storage, IndexedDB or cookies.
 

@@ -219,8 +219,10 @@ export {
 export {
   ANNOTATION_MAX_CHARS,
   DRAFT_RECORD_MAX_CHARS,
+  DRAFT_RECORD_MAX_DEPTH,
   FETCH_PAGE_MAX_CHARS,
   FOLLOW_UP_MAX_CHARS,
+  JSON_MAX_DEPTH,
   NOTE_MAX_CHARS,
   OPTION_NOTE_MAX_CHARS,
   OTHER_MAX_CHARS,
@@ -605,3 +607,26 @@ export {
   type PresentationKey,
   type ThemePreference,
 } from "./schemas/configuration/index.ts";
+
+// Widget registry (widget-registry, design decisions 1 to 3): the registry of the widget types a
+// question's items may hold, an entry's type and the registry's own check.
+
+export {
+  NON_WIDGET_ITEM_TYPES,
+  type RegistryProblem,
+  WIDGET_TYPES,
+  type WidgetType,
+  widgetTypeOf,
+} from "./widgets/registry.ts";
+export { widgetRegistryProblems } from "./widgets/registry-check.ts";
+
+// Widget results (widget-registry, design decision 7): the generic result check and the
+// annotation's own.
+
+export type { Annotation, AnnotationSelector } from "./schemas/output/index.ts";
+export { annotationProblems, widgetResultProblems } from "./widgets/results.ts";
+
+// One definition of a result that holds nothing (widget-registry): shared by core, the registry's
+// check and the board page.
+
+export { resultHoldsNothing } from "./widgets/result-content.ts";

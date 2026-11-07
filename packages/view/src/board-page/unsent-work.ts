@@ -11,6 +11,7 @@ const filled = (text: string | undefined): text is string => text !== undefined 
 
 const questionHasWork = (work: DraftQuestion): boolean =>
   Object.values(work.values ?? {}).some((value) => value !== undefined) ||
+  Object.values(work.results ?? {}).some((value) => value !== undefined) ||
   filled(work.other) ||
   Object.values(work.optionNotes ?? {}).some(filled) ||
   filled(work.note) ||
@@ -36,8 +37,15 @@ const valueLines = (questionId: string, work: DraftQuestion, language: Locale): 
     return [`${itemId}: ${JSON.stringify(value)}`];
   });
 
+// Each held result as JSON under its item's ID, as a widget's edited value is.
+const resultLines = (work: DraftQuestion): string[] =>
+  Object.entries(work.results ?? {}).flatMap(([itemId, result]) =>
+    result === undefined ? [] : [`${itemId}: ${JSON.stringify(result)}`],
+  );
+
 const workLines = (questionId: string, work: DraftQuestion, language: Locale): string[] => [
   ...valueLines(questionId, work, language),
+  ...resultLines(work),
   ...(filled(work.other) ? [t(language, "unsent.other", { text: work.other })] : []),
   ...Object.entries(work.optionNotes ?? {})
     .filter(([, note]) => filled(note))

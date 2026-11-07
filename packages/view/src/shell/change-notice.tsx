@@ -12,7 +12,7 @@ import { useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type FieldChange, type OptionChange, revisionDiff } from "./agent-change.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, CHIP, SECTION_LABEL } from "./styles.ts";
-import type { WidgetChange } from "./widget-changes.ts";
+import { type WidgetChange, widgetTypeLabel } from "./widget-changes.ts";
 
 /** `agent-change-notice`: info colours with a 3px left rule. */
 const NOTICE =
@@ -73,7 +73,7 @@ const WidgetLine = ({ change }: { readonly change: WidgetChange }) => {
     <li data-askboard-change="widget" data-askboard-widget={change.itemId}>
       {text("change.widget", {
         item: change.itemId,
-        type: text(change.type === "tree" ? "change.widgetTree" : "change.widgetGantt"),
+        type: widgetTypeLabel(change.type, text),
         count: change.operations,
       })}
     </li>

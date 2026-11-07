@@ -225,7 +225,7 @@ describe("an answer from the view becomes an answer act only if it can be (AD-10
     const { choice: _, ...widgetOnly } = answer;
     expect(detailOf(ready(), { ...widgetOnly, values })).toBe(foreign);
     expect(detailOf(ready(), widgetOnly)).toBe(
-      "the answer carries no choice, no Other… text and no widget value",
+      "the answer carries no choice, no Other… text, no widget value and no result",
     );
     expect(detailOf(EMPTY_MODEL, { ...answer, values })).toBe("there is no board yet");
   });

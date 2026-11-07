@@ -202,6 +202,45 @@ describe("what Submit's answers carry of the derived values (widget-answers desi
   });
 });
 
+describe("what Submit's answers carry of the results (widget-registry, design decision 9; AD-20)", () => {
+  // A test-only `probe` widget item on the Gantt's question, and the result it holds.
+  const [schedule] = ganttBoardDocument.items;
+  const sketch = { type: "probe", id: "sketch", props: { size: 3 } };
+  const withSketch = {
+    ...ganttBoardDocument,
+    items: [
+      { ...schedule, props: { ...schedule.props, items: [...schedule.props.items, sketch] } },
+    ],
+  } as unknown as ViewDocument;
+  const result = { pick: "a" };
+  const none = () => undefined;
+
+  test("a held answer whose only content is a result goes with it and no values", () => {
+    const { values, board } = setUp("submitted", withSketch);
+    const results = new Map<string, unknown>([["sketch", result]]);
+    board.edit(schedule.id, 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    const acts = submitActsOf(
+      heldWorkOf(withSketch, board.get()),
+      values.record(),
+      AT,
+      none,
+      results,
+    );
+    expect(acts).toEqual([
+      { type: "answer", itemId: schedule.id, rev: 1, results: { sketch: result }, when: WHEN },
+    ]);
+    expect(Object.hasOwn(acts[0] ?? {}, "values")).toBe(false);
+  });
+
+  test("with no result held, the same held answer carries nothing and is left out", () => {
+    const { values, board } = setUp("submitted", withSketch);
+    board.edit(schedule.id, 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    expect(
+      submitActsOf(heldWorkOf(withSketch, board.get()), values.record(), AT, none, new Map()),
+    ).toEqual([]);
+  });
+});
+
 describe("whether Submit can go (FR-22, AD-20)", () => {
   const base = {
     document,

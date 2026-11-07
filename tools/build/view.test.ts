@@ -441,7 +441,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
     const graph = await text(chunkNamed("board-graph").script.path);
     expect(gantt).toContain('"gantt"');
     expect(compute).toContain('"@askboard/compute"');
-    expect(graph).toContain('"@askboard/widgets/graph"');
+    expect(graph).toContain('"@askboard/widgets/board-graph"');
     for (const script of [gantt, compute, graph]) {
       expect(script).not.toContain("urn:askboard");
       expect(script).not.toMatch(/\bajv\b/i);

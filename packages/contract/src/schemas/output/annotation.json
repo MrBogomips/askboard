@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:annotation",
+  "title": "Annotation",
+  "description": "A note a user attached to a place in the content of a widget item (widget-registry, design decision 7): an ID, a target, the selector that finds the place, and a body of text. A widget's result schema references it for the annotations the widget gives, as the answer's results hold them. The selector is picked by its type: element (an element's ID), label (a label and which occurrence), region (xywh=percent:x,y,w,h), line (a side of a diff, a path and a line), quote (the exact text with optional context) or position (a start and an end). annotationProblems adds what a schema cannot say: a start after the end, a region outside 100 by 100. A later selector is a minor.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/selector"
+        }
+      },
+      "required": ["selector"],
+      "additionalProperties": false
+    },
+    "body": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": ["text"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["id", "target", "body"],
+  "additionalProperties": false,
+  "$defs": {
+    "selector": {
+      "description": "A selector, picked by its type.",
+      "type": "object",
+      "discriminator": {
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/element"
+        },
+        {
+          "$ref": "#/$defs/label"
+        },
+        {
+          "$ref": "#/$defs/region"
+        },
+        {
+          "$ref": "#/$defs/line"
+        },
+        {
+          "$ref": "#/$defs/quote"
+        },
+        {
+          "$ref": "#/$defs/position"
+        }
+      ]
+    },
+    "element": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "element"
+        },
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        }
+      },
+      "required": ["type", "id"],
+      "additionalProperties": false
+    },
+    "label": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "label"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "occurrence": {
+          "description": "Which element with this label, counting from 1; the first when left out.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["type", "label"],
+      "additionalProperties": false
+    },
+    "region": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "region"
+        },
+        "value": {
+          "description": "xywh=percent:x,y,w,h, each a number of percent of the item's width or height; annotationProblems checks that the region lies inside 100 by 100.",
+          "type": "string",
+          "maxLength": 100,
+          "pattern": "^xywh=percent:[0-9]+(\\.[0-9]+)?,[0-9]+(\\.[0-9]+)?,[0-9]+(\\.[0-9]+)?,[0-9]+(\\.[0-9]+)?$"
+        }
+      },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "line": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "line"
+        },
+        "side": {
+          "enum": ["old", "new"]
+        },
+        "path": {
+          "description": "The path of the file, as a pointer's path.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["type", "side", "path", "line"],
+      "additionalProperties": false
+    },
+    "quote": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "quote"
+        },
+        "exact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "prefix": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "suffix": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": ["type", "exact"],
+      "additionalProperties": false
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "position"
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["type", "start", "end"],
+      "additionalProperties": false
+    }
+  }
+}

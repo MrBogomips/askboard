@@ -1,5 +1,5 @@
 // The widgets' own checks over the widget items of a request (widget-answers, design decision 4):
-// each Tree and Gantt item goes through `widgetItemProblems` with the agent as origin, in the
+// each item of a registered type goes through `widgetItemProblems` with the agent as origin, in the
 // question that holds it, so that a plan's link is checked against its own question and never the
 // board's. A problem is located under its item with `problemAt`, which gives it the item's ID and
 // the element it is in, and sorts it in document order. An item the request's schema already
@@ -17,6 +17,7 @@ import {
   type Wording,
 } from "../problems.ts";
 import { widgetItemProblems } from "./items.ts";
+import { WIDGET_TYPES, type WidgetType, widgetTypeOf } from "./registry.ts";
 
 const valueAt = (value: unknown, segments: Segments): unknown =>
   segments.reduce<unknown>(
@@ -27,8 +28,8 @@ const valueAt = (value: unknown, segments: Segments): unknown =>
     value,
   );
 
-const isWidget = ({ item, inQuestion }: Placed): boolean =>
-  inQuestion === true && (item.type === "tree" || item.type === "gantt");
+const isWidget = ({ item, inQuestion }: Placed, types: readonly WidgetType[]): boolean =>
+  inQuestion === true && widgetTypeOf(item.type, types) !== undefined;
 
 // Whether a problem lies at or under the item at `at`.
 const lies = (problem: RequestProblem, at: Segments): boolean => {
@@ -37,53 +38,41 @@ const lies = (problem: RequestProblem, at: Segments): boolean => {
 };
 
 /**
- * The problems of the Tree and Gantt items among `placed`, in the question each is in: those that
- * `schemaProblems` leaves clean. An item's problems read `item "wbs", props.nodes[0].id: node ux …`.
+ * The problems of the widget items the registry holds among `placed`, in the question each is in:
+ * those that `schemaProblems` leaves clean. An item's problems read `item "wbs", props.nodes[0].id: node ux …`.
  */
 export const widgetProblems = (
   wording: Wording,
   value: unknown,
   placed: readonly Placed[],
   schemaProblems: readonly RequestProblem[],
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): RequestProblem[] =>
-  placed.filter(isWidget).flatMap(({ item, at }) => {
-    if (schemaProblems.some((problem) => lies(problem, at))) return [];
-    const question = valueAt(value, at.slice(0, -3));
-    return widgetItemProblems(item, question, "agent").map(({ path, message }) => {
-      const segments = [...at, "props", ...segmentsOf(path)];
-      return problemAt(
-        wording,
-        value,
-        segments,
-        `{where}: ${message}`,
-        expectedAt(wording, segments, value),
-      );
+  placed
+    .filter((entry) => isWidget(entry, types))
+    .flatMap(({ item, at }) => {
+      if (schemaProblems.some((problem) => lies(problem, at))) return [];
+      const question = valueAt(value, at.slice(0, -3));
+      return widgetItemProblems(item, question, "agent", types).map(({ path, message }) => {
+        const segments = [...at, "props", ...segmentsOf(path)];
+        return problemAt(
+          wording,
+          value,
+          segments,
+          `{where}: ${message}`,
+          expectedAt(wording, segments, value),
+        );
+      });
     });
-  });
-
-const TASKS = "/props/tasks";
 
 /**
- * The schema errors of a request, with those of a Gantt's `tasks` cleared of the choice between
- * its two forms: `tasks` is a list or a map by task ID, so that an `anyOf` error and the `type`
- * error of the form it is not would hide what is wrong with the form it is. A list or a map keeps
- * its own errors; any other value keeps the `anyOf` error alone.
+ * The schema errors of a request, as each registered type's entry words them: a Gantt's `tasks`
+ * cleared of the choice between its two forms, for one. A type that words none of its own leaves
+ * the errors as they are.
  */
 export const widgetSchemaErrors = (
   errors: readonly ErrorObject[],
   value: unknown,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): readonly ErrorObject[] =>
-  errors.filter((error) => {
-    const { instancePath, keyword } = error;
-    if (!instancePath.endsWith(TASKS) || (keyword !== "anyOf" && keyword !== "type")) return true;
-    const item = valueAt(value, segmentsOf(instancePath.slice(0, -TASKS.length)));
-    if (
-      typeof item !== "object" ||
-      item === null ||
-      (item as { type?: unknown }).type !== "gantt"
-    ) {
-      return true;
-    }
-    const tasks = valueAt(item, ["props", "tasks"]);
-    return keyword === "anyOf" && (typeof tasks !== "object" || tasks === null);
-  });
+  types.reduce((kept, entry) => entry.wording.schemaErrors?.(kept, value) ?? kept, errors);

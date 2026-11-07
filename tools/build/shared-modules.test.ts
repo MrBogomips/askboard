@@ -99,8 +99,8 @@ describe("the shared modules and the chunks that provide them", () => {
 
   test("the board graph comes from the board-graph chunk, under a name of its own (molecules, design decision 13)", () => {
     expect(modules.get(BOARD_GRAPH)?.chunk).toBe("board-graph");
-    expect(BOARD_GRAPH).toBe("@askboard/widgets/graph");
-    expect(GRAPH_FILE).toBe(join(WIDGETS_SRC, "graph/index.ts"));
+    expect(BOARD_GRAPH).toBe("@askboard/widgets/board-graph");
+    expect(GRAPH_FILE).toBe(join(WIDGETS_SRC, "board-graph/index.ts"));
   });
 
   test("the shell provides the CatalogRenderer port, with the names its module exports", () => {
@@ -154,7 +154,7 @@ describe("the shared modules and the chunks that provide them", () => {
   });
 
   test("a widget reaches the board graph's modules at run time only through its index, so one module instance holds the memo", async () => {
-    const graph = join(WIDGETS_SRC, "graph");
+    const graph = join(WIDGETS_SRC, "board-graph");
     const around = (await runTimeImports(WIDGETS_SRC)).filter(
       ({ file, target }) => !file.startsWith(`${graph}/`) && target.startsWith(`${graph}/`),
     );
@@ -186,8 +186,8 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     "./port.ts",
     "../port.ts",
     BOARD_GRAPH,
-    "../graph/index.ts",
-    "../../graph/index.ts",
+    "../board-graph/index.ts",
+    "../../board-graph/index.ts",
   ])("matches %s", (specifier) => {
     expect(filter.test(specifier)).toBe(true);
   });
@@ -203,7 +203,7 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     "./portal.ts",
     "./export.ts",
     "./index.ts",
-    "../graph/board-graph.ts",
+    "../board-graph/board-graph.ts",
     "@askboard/widgets",
   ])("leaves %s alone", (specifier) => {
     expect(filter.test(specifier)).toBe(false);
@@ -239,24 +239,26 @@ describe("which chunk an import comes from", () => {
   test("a relative import of the board graph's index comes from the board-graph chunk, unless the chunk is that one (molecules, design decision 13)", () => {
     const tree = join(WIDGETS_SRC, "tree/index.tsx");
     const plan = join(WIDGETS_SRC, "gantt/model/plan.ts");
-    expect(providerOf(modules, "tree", "../graph/index.ts", tree)).toEqual({
+    expect(providerOf(modules, "tree", "../board-graph/index.ts", tree)).toEqual({
       module: BOARD_GRAPH,
       chunk: "board-graph",
     });
-    expect(providerOf(modules, "gantt", "../../graph/index.ts", plan)?.chunk).toBe("board-graph");
-    expect(providerOf(modules, "board-graph", "../graph/index.ts", tree)).toBeUndefined();
+    expect(providerOf(modules, "gantt", "../../board-graph/index.ts", plan)?.chunk).toBe(
+      "board-graph",
+    );
+    expect(providerOf(modules, "board-graph", "../board-graph/index.ts", tree)).toBeUndefined();
   });
 
-  test("another graph/index.ts, or another file of the graph, is not the board graph", () => {
+  test("another board-graph/index.ts, or another file of the graph, is not the board graph", () => {
     const elsewhere = join(VIEW_SRC, "catalog/choice/index.tsx");
-    expect(providerOf(modules, "choice", "../graph/index.ts", elsewhere)).toBeUndefined();
+    expect(providerOf(modules, "choice", "../board-graph/index.ts", elsewhere)).toBeUndefined();
     const tree = join(WIDGETS_SRC, "tree/index.tsx");
-    expect(providerOf(modules, "tree", "../graph/board-graph.ts", tree)).toBeUndefined();
+    expect(providerOf(modules, "tree", "../board-graph/board-graph.ts", tree)).toBeUndefined();
   });
 
   test("a shared name is the module a relative import of its file names, else the specifier", () => {
     const tree = join(WIDGETS_SRC, "tree/index.tsx");
-    expect(sharedNameOf("../graph/index.ts", tree)).toBe(BOARD_GRAPH);
+    expect(sharedNameOf("../board-graph/index.ts", tree)).toBe(BOARD_GRAPH);
     expect(sharedNameOf("../port.ts", importer)).toBe(CATALOG_PORT);
     expect(sharedNameOf("./widget.tsx", tree)).toBe("./widget.tsx");
     expect(sharedNameOf("react", tree)).toBe("react");

@@ -53,6 +53,8 @@ export type SnapshotSources = {
   readonly asked?: WhoAsked;
   /** `AskCore.keptAnswerValues(askId)`: the full edited values by event cursor, by item ID. */
   readonly keptAnswerValues?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
+  /** `AskCore.keptAnswerResults(askId)`: the kept results by event cursor, by item ID. */
+  readonly keptAnswerResults?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
   /** `expansionEntries(map)` of the ask's expansion map. */
   readonly molecules?: readonly ExpansionRecord[];
 };
@@ -101,10 +103,20 @@ const revisionsOf = (
   );
 };
 
-// An event with the full values kept for it, when there are any.
-const loggedWith = (event: LoggedEvent, kept: SnapshotSources["keptAnswerValues"]) => {
-  const values = kept?.get(event.cursor);
-  return values === undefined || Object.keys(values).length === 0 ? { event } : { event, values };
+// An event with the full values kept for it, when there are any, and, for an answer logged
+// `tooLarge`, which carries no results of its own, the results kept for it (widget-registry). An
+// event logged whole holds none beside it: its own results are the record.
+const loggedWith = (event: LoggedEvent, sources: SnapshotSources) => {
+  const values = sources.keptAnswerValues?.get(event.cursor);
+  const results =
+    event.type === "answer" && event.tooLarge === true
+      ? sources.keptAnswerResults?.get(event.cursor)
+      : undefined;
+  return {
+    event,
+    ...(values === undefined || Object.keys(values).length === 0 ? {} : { values }),
+    ...(results === undefined || Object.keys(results).length === 0 ? {} : { results }),
+  };
 };
 
 /** The Snapshot's data, as the ask stands in `sources`. */
@@ -128,7 +140,7 @@ export const gatherSnapshot = (sources: SnapshotSources): SnapshotData => {
     revisions: revisionsOf(board, kept, log),
     state: boardStateOf(board),
     ...origin,
-    events: log.map((event) => loggedWith(event, sources.keptAnswerValues)),
+    events: log.map((event) => loggedWith(event, sources)),
     ...(molecules === undefined || molecules.length === 0 ? {} : { molecules }),
   };
 };

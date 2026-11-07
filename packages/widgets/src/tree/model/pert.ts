@@ -10,7 +10,7 @@
 
 import { type FormulaError, isFormulaError, roundNumber } from "@askboard/compute";
 import { TREE_PERT_ANSWER_DERIVED, type TreeNode } from "@askboard/contract";
-import type { BoardGraph } from "../../graph/index.ts";
+import type { BoardGraph } from "../../board-graph/index.ts";
 import type { TreeRow } from "./rows.ts";
 
 /** A value as a cell shows it, or the formula error it reads as. */

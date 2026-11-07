@@ -52,6 +52,7 @@ import { type EditorLaunchTarget, MISSING, type Source, sourcePathOf } from "./c
 import { checkedFormulaWarnings, graphProblem } from "./graph-check.ts";
 import type { UpdateOutcome as AskUpdateOutcome } from "./lifecycle/updates.ts";
 import type { KeptRevisions, LifecycleBoardView } from "./lifecycle/views.ts";
+import { keptResultsInReferenceAddressing } from "./molecules/addressing.ts";
 import { expansionEntries } from "./molecules/map.ts";
 import { expandSentItems } from "./molecules/on-ask.ts";
 import { referencesIn } from "./molecules/references.ts";
@@ -501,6 +502,20 @@ export class AskCore {
     );
   }
 
+  /**
+   * The results kept for each answer event that gave any, by the event's cursor: per event the
+   * result by item ID in reference addressing, new on each read. The Snapshot's gathering takes
+   * those of the events logged `tooLarge`. None for a discarded ask, and undefined for an ask this
+   * epoch does not hold.
+   */
+  keptAnswerResults(
+    askId: string,
+  ): ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined {
+    const ask = this.#asks.get(askId);
+    if (ask === undefined) return undefined;
+    return keptResultsInReferenceAddressing(ask.expansion, ask.keptAnswers);
+  }
+
   #appended(askId: string, events: readonly OutputEvent[]): void {
     const [event] = events;
     if (event !== undefined) this.#publish({ type: "appended", askId, event, events });
@@ -907,6 +922,7 @@ export class AskCore {
       ...(projectDir === undefined ? {} : { projectDir }),
       ...(asked === undefined ? {} : { asked }),
       keptAnswerValues: this.keptAnswerValues(askId) ?? new Map(),
+      keptAnswerResults: this.keptAnswerResults(askId) ?? new Map(),
       molecules: expansionEntries(ask.expansion),
     });
     return saveSnapshot(snapshots?.writer, data, this.ownerOf(askId) === undefined);

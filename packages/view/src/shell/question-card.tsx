@@ -66,6 +66,7 @@ import {
   cardState,
   contentOf,
   shownFor,
+  shownResultFor,
   statusOf,
 } from "./question-state.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
@@ -102,6 +103,10 @@ type CardProps = {
   readonly context: CardContext;
 };
 
+// What the card follows while the board has no results store.
+const NO_SUBSCRIPTION = () => () => {};
+const NO_RECORD: ReadonlyMap<string, unknown> = new Map();
+
 const noteFieldId = (questionId: string) => `${questionId}:note`;
 
 const focusHeadingOf = (questionId: string) => () =>
@@ -110,10 +115,14 @@ const focusHeadingOf = (questionId: string) => () =>
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
 const useCard = ({ question, state, lock, context }: CardProps) => {
-  const { tracker, draft, acts, board, kept, revisions } = context;
+  const { tracker, draft, results, acts, board, kept, revisions } = context;
   const language = useLanguage();
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const values = useSyncExternalStore(draft.subscribe, draft.record);
+  const heldResults = useSyncExternalStore(
+    results?.subscribe ?? NO_SUBSCRIPTION,
+    () => results?.record() ?? NO_RECORD,
+  );
   const work = useSyncExternalStore(board.subscribe, () => board.work(question.id));
   const keptChoices = useSyncExternalStore(kept.subscribe, kept.get);
   const flight = useSyncExternalStore(acts.subscribe, () => acts.of(question.id, CARD_ACTS));
@@ -128,21 +137,21 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   const pending = changePending(question, work, keptChoices);
   // The revision the card works on: the one the work was made on, while it is earlier.
   const shown = workingQuestion(question, work, revisions);
-  const held = work?.held?.act;
+  const heldAct = work?.held?.act;
   const card = cardState({
     status,
-    draft: answerContentOf(shown, values, work),
+    draft: answerContentOf(shown, values, work, heldResults),
     flight,
     load,
     lock,
-    ready: held === "answer" || held === "note",
-    editing: hasAnswerWork(shown, values, work),
+    ready: heldAct === "answer" || heldAct === "note",
+    editing: hasAnswerWork(shown, values, work, heldResults),
     pending,
     language,
   });
   const actions = cardActions({
     status,
-    held,
+    held: heldAct,
     undone: work?.undo !== undefined,
     sending: flight !== undefined,
     load,
@@ -153,6 +162,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   return {
     load,
     values,
+    results: heldResults,
     work,
     status,
     pending,
@@ -262,6 +272,7 @@ export const QuestionCard = (props: CardProps) => {
   const {
     load,
     values,
+    results,
     work,
     status,
     pending,
@@ -286,7 +297,8 @@ export const QuestionCard = (props: CardProps) => {
   const seeding = useRef(false);
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
-    if (hasAnswerWork(shown, context.draft.record(), context.board.work(question.id))) return;
+    const held = context.results?.record();
+    if (hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held)) return;
     seeding.current = true;
     queueMicrotask(() => {
       seeding.current = false;
@@ -331,6 +343,7 @@ export const QuestionCard = (props: CardProps) => {
           context={context}
           disabled={readOnly}
           shown={shownFor(card.shown, question.id, item.id)}
+          shownResult={shownResultFor(card.shown, question.id, item.id)}
           onBeforeChange={revise}
           {...(item === shown ? { extras } : {})}
         />
@@ -360,7 +373,7 @@ export const QuestionCard = (props: CardProps) => {
           earlier={
             work === undefined ? undefined : context.revisions.question(question.id, work.rev)
           }
-          stake={changesLabel(changeCountOf(shown, values, work), language)}
+          stake={changesLabel(changeCountOf(shown, values, work, results), language)}
           busy={!usable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
           onKeep={() => keepMine(question, acting)}

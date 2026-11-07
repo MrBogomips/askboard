@@ -4,7 +4,13 @@
 // again, replacing its items and its entries in the expansion map. Works on the update's own
 // copies: the aggregate keeps them only when every action applies. Plain ECMAScript (AD-1).
 
-import type { LifecycleAskInput, QuestionProps } from "@askboard/contract";
+import {
+  type LifecycleAskInput,
+  type QuestionProps,
+  WIDGET_TYPES,
+  type WidgetType,
+  widgetTypeOf,
+} from "@askboard/contract";
 import type { ExpansionEntry } from "../molecules/map.ts";
 import { expandSentItems } from "../molecules/on-ask.ts";
 import { referencesIn } from "../molecules/references.ts";
@@ -39,17 +45,19 @@ const itemsOf = (props: unknown): readonly SentItem[] => {
   return items ?? [];
 };
 
-const sentWidget = ({ type }: SentItem): boolean => type === "tree" || type === "gantt";
+const sentWidget = ({ type }: SentItem, types: readonly WidgetType[]): boolean =>
+  widgetTypeOf(type, types) !== undefined;
 
 /** The widget item or reference named `itemId` in the questions' current items; never an expanded ID. */
 export const holderOf = (
   model: BoardModel,
   widgets: WidgetUpdate,
   itemId: string,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): WidgetHolder | undefined => {
   for (const question of model.questions()) {
     for (const item of itemsOf(model.propsOf(question))) {
-      if (!sentWidget(item)) continue;
+      if (!sentWidget(item, types)) continue;
       const entry = widgets.expansion.get(item.id);
       if (entry === undefined ? item.id === itemId : entry.reference === itemId) {
         return { question, item, ...(entry === undefined ? {} : { reference: entry.reference }) };
@@ -60,10 +68,16 @@ export const holderOf = (
 };
 
 // Every ID of a widget item, an expanded item or a reference the ask holds.
-const widgetIdsOf = (model: BoardModel, widgets: WidgetUpdate): Set<string> => {
+const widgetIdsOf = (
+  model: BoardModel,
+  widgets: WidgetUpdate,
+  types: readonly WidgetType[],
+): Set<string> => {
   const ids = new Set(widgets.references.keys());
   for (const question of model.questions()) {
-    for (const item of itemsOf(model.propsOf(question))) if (sentWidget(item)) ids.add(item.id);
+    for (const item of itemsOf(model.propsOf(question))) {
+      if (sentWidget(item, types)) ids.add(item.id);
+    }
   }
   return ids;
 };
@@ -86,13 +100,14 @@ export const expandAdded = (
   model: BoardModel,
   widgets: WidgetUpdate,
   item: AddedItem,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): { readonly ok: true; readonly item: AddedItem } | Extract<WidgetStep, { ok: false }> => {
   const references = referencesIn([item]);
   if (references.size === 0) return { ok: true, item };
   const sent = expandSentItems([item], widgets.source);
   if (!sent.ok)
     return { ok: false, detail: inWords(sent.problems), itemId: sent.problems[0]?.itemId };
-  const held = widgetIdsOf(model, widgets);
+  const held = widgetIdsOf(model, widgets, types);
   const taken = [...references.keys(), ...sent.map.keys()].find((id) => held.has(id));
   if (taken !== undefined) {
     return { ok: false, detail: `the ID "${taken}" is in use in the ask`, itemId: taken };

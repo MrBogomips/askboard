@@ -8,7 +8,7 @@
 // and `derived` in reference addressing, the fold the widening calls when it appends an answer.
 // Pure: nothing is changed in place. Plain ECMAScript (AD-1).
 
-import { type Change, elementChanges } from "@askboard/contract";
+import { type Change, elementChanges, WIDGET_TYPES, type WidgetType } from "@askboard/contract";
 import { elementShapeOf } from "@askboard/contract/validate";
 import type { ExpansionMap } from "./map.ts";
 
@@ -27,6 +27,11 @@ export type ReferenceAddressing = {
   readonly changes: (changes: readonly Change[]) => readonly Change[];
   /** An answer's derived values, each key in reference addressing, in the same order. */
   readonly derived: (derived: Json) => Json;
+  /**
+   * An answer's results, each key (an item ID) in reference addressing, in the same order. A
+   * result's content is the widget's and names no item ID, so it is left as it is.
+   */
+  readonly results: (results: Json) => Json;
   /** A warning or problem, its address fields and texts in reference addressing, at any depth. */
   readonly warning: <T>(warning: T) => T;
 };
@@ -69,6 +74,8 @@ export const referenceAddressing = (map: ExpansionMap): ReferenceAddressing => {
       changes.map((change) => ({ ...change, target: toReference(change.target) })),
     derived: (derived) =>
       Object.fromEntries(Object.entries(derived).map(([key, value]) => [toReference(key), value])),
+    results: (results) =>
+      Object.fromEntries(Object.entries(results).map(([key, value]) => [toReference(key), value])),
     warning: <T>(warning: T): T => mapped(warning) as T,
   };
 };
@@ -97,15 +104,35 @@ export const answerInReferenceAddressing = (
   sentItems: readonly SentItem[],
   editedValues: Json,
   derived: Json,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): AddressedAnswer => {
   const addressing = referenceAddressing(map);
   const changes = itemsOf(question).flatMap((item) => {
     if (!Object.hasOwn(editedValues, item.id)) return [];
-    const shape = elementShapeOf(item);
+    const shape = elementShapeOf(item, types);
     const edited = editedValues[item.id];
     if (shape === undefined || !isObject(edited)) return [];
     const sent = sentItems.find((each) => each.id === item.id) ?? item;
     return elementChanges(item.id, isObject(sent.props) ? sent.props : {}, edited, shape);
   });
   return { changes: addressing.changes(changes), derived: addressing.derived(derived) };
+};
+
+/**
+ * The results kept for each answer event, by the event's cursor, in reference addressing and
+ * copied (AD-9, AD-20): the mapping `AskCore.keptAnswerResults` applies, so that an expanded item
+ * ID never reaches a Snapshot. An event that kept no result is left out.
+ */
+export const keptResultsInReferenceAddressing = (
+  map: ExpansionMap,
+  kept: ReadonlyMap<string, { readonly results: Json }>,
+): ReadonlyMap<string, Json> => {
+  const addressing = referenceAddressing(map);
+  return new Map(
+    [...kept].flatMap(([cursor, { results }]) =>
+      Object.keys(results).length === 0
+        ? []
+        : [[cursor, JSON.parse(JSON.stringify(addressing.results(results))) as Json] as const],
+    ),
+  );
 };

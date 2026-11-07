@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const FOLDERS = [import.meta.dir, join(import.meta.dir, "../../graph")];
+const FOLDERS = [import.meta.dir, join(import.meta.dir, "../../board-graph")];
 
 const sources = FOLDERS.flatMap((folder) =>
   readdirSync(folder)

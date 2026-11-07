@@ -34,7 +34,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { BoardGraph } from "../graph/index.ts";
+import type { BoardGraph } from "../board-graph/index.ts";
 import { type AddEdit, pendingAdd, viewOfAdd, viewWithoutAdd } from "./adding.ts";
 import type { Applied } from "./adjust-panel.tsx";
 import { nameColumnOf } from "./cells.ts";

@@ -9,6 +9,8 @@ import {
   NOTE_MAX_CHARS,
   type OutputEvent,
   type QuestionProps,
+  WIDGET_TYPES,
+  type WidgetType,
 } from "@askboard/contract";
 import type { ExpansionMap } from "../molecules/map.ts";
 import { cursorOf, isRealUtcTime } from "../text.ts";
@@ -16,8 +18,13 @@ import { contentOf, contentProblem, textProblem } from "./answers.ts";
 import type { Entry, EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
-import { type KeptAnswer, widgetFieldsOf, withinLimit } from "./widget-event.ts";
-import { isWidgetProblem, type WidgetContent, widgetContentOf } from "./widget-values.ts";
+import {
+  type KeptAnswer,
+  sharedResultAddress,
+  widgetFieldsOf,
+  withinLimit,
+} from "./widget-event.ts";
+import { type WidgetContent, widgetContentOf } from "./widget-values.ts";
 
 /** Why an act cannot apply. */
 export type ActRefusal =
@@ -48,6 +55,8 @@ export type ActsContext = {
   readonly log: EventLog;
   /** The ask's expansion map, for the addressing of an answer's widget content. */
   readonly expansion: ExpansionMap;
+  /** The widget types the answers' content is checked through; the shipped registry unless a test passes one. */
+  readonly types?: readonly WidgetType[];
 };
 
 export type ActsOutcome =
@@ -74,6 +83,7 @@ type Target = {
   readonly status: QuestionStatus;
   readonly cursor: string;
   readonly expansion: ExpansionMap;
+  readonly types: readonly WidgetType[];
   /** What the acts of this command keep of their widget content, by cursor. */
   readonly kept: Map<string, KeptAnswer>;
 };
@@ -131,10 +141,20 @@ const propsFor = (target: Target, rev: number): QuestionProps | undefined => {
 const replacesOf = ({ status }: Target) =>
   status.answer?.kind === "logged" ? { replaces: status.answer.entry.event.cursor } : {};
 
-// What stays apart from the log: the full edited values and derived values as sent.
-const keepWidgets = (target: Target, { values, derived }: WidgetContent): void => {
-  if (Object.keys(values).length === 0 && Object.keys(derived).length === 0) return;
-  target.kept.set(target.cursor, { itemId: target.itemId, values, derived });
+// What stays apart from the log: the full edited values, the results and the derived values as sent.
+const keepWidgets = (target: Target, { values, results, derived }: WidgetContent): void => {
+  const held = [values, results, derived].some((part) => Object.keys(part).length > 0);
+  if (held) target.kept.set(target.cursor, { itemId: target.itemId, values, results, derived });
+};
+
+// What an answer's widget content makes of it: Widget values, results and derived values
+// (widget-answers; widget-registry), or why it is refused. A decline reads none of them, and
+// refuses results: a result is the user's answer, which a decline is not.
+const widgetsOf = (target: Target, props: QuestionProps, declined: boolean) => {
+  if (!declined) return widgetContentOf(target.act, props, target.types);
+  return target.act.results === undefined
+    ? undefined
+    : problem("content", "a decline carries no results", target.itemId);
 };
 
 const answered = (target: Target, declined: boolean, who: string): Built => {
@@ -146,19 +166,26 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   if (props === undefined) return staleRev(target);
   // A decline carries at most its reason; anything else on it is not read.
   const reason = act.note === undefined ? {} : { note: act.note };
-  // Widget values and derived values (widget-answers): a decline reads none.
-  const widgets = declined ? undefined : widgetContentOf(act, props);
-  if (widgets !== undefined && isWidgetProblem(widgets)) {
+  const widgets = widgetsOf(target, props, declined);
+  if (widgets !== undefined && "refusal" in widgets) {
     return problem(widgets.refusal, widgets.detail, itemId);
   }
-  const widgetChange = widgets !== undefined && Object.keys(widgets.values).length > 0;
-  const bad = contentProblem(declined ? reason : act, props, declined, widgetChange);
+  const shared =
+    widgets === undefined ? undefined : sharedResultAddress(target.expansion, widgets.results);
+  if (shared !== undefined) {
+    return problem("content", `two results would be given as "${shared}"`, itemId);
+  }
+  const widgetChange =
+    widgets !== undefined &&
+    (Object.keys(widgets.values).length > 0 || Object.keys(widgets.results).length > 0);
+  const bad = contentProblem(declined ? reason : act, props, declined, widgetChange, target.types);
   if (bad !== undefined) return problem(bad.refusal, bad.detail, itemId);
   const late = whenProblem(target);
   if (late !== undefined) return late;
   const head = { cursor: target.cursor, type: "answer", itemId, rev, who, when: act.when };
   const body = declined ? { declined: true, ...reason } : contentOf(act);
-  const widget = widgets === undefined ? {} : widgetFieldsOf(target.expansion, props, widgets);
+  const widget =
+    widgets === undefined ? {} : widgetFieldsOf(target.expansion, props, widgets, target.types);
   if (widgets !== undefined) keepWidgets(target, widgets);
   return withinLimit({ ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent);
 };
@@ -290,7 +317,7 @@ const questionOf = (model: BoardModel, act: unknown): Target["question"] | ActPr
  * cursors after the log's latest. Either every act's event, or the first refusal with its index.
  */
 export const eventsOfActs = (context: ActsContext, acts: readonly unknown[]): ActsOutcome => {
-  const { epoch, who, model, log, expansion } = context;
+  const { epoch, who, model, log, expansion, types = WIDGET_TYPES } = context;
   const pending: Entry[] = [];
   const kept = new Map<string, KeptAnswer>();
   for (const [index, act] of acts.entries()) {
@@ -310,6 +337,7 @@ export const eventsOfActs = (context: ActsContext, acts: readonly unknown[]): Ac
       status: questionStatus(question.mark, entries),
       cursor: cursorOf(epoch, seq),
       expansion,
+      types,
       kept,
     };
     const built = BUILDERS[fields.type as string]?.(target, who);

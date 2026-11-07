@@ -89,4 +89,6 @@ export const SCHEMA_IDS = {
   moleculeDefinition: "urn:askboard:input:molecule-definition",
   // settings-languages (E8): the configuration set (design decision 2).
   configuration: "urn:askboard:configuration:config",
+  // widget-registry: the annotation widget results are made of (design decision 7).
+  annotation: "urn:askboard:output:annotation",
 } as const;

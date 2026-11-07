@@ -7,7 +7,9 @@
 // minor appends the reading panel's and the editor's messages (excerpts, design decision 5), and
 // E8's minor appends the settings in effect and a board's write of one presentation key
 // (settings-languages, design decision 6).
-// E7's the Snapshot request and its two replies (snapshot design decision 2).
+// E7's the Snapshot request and its two replies (snapshot design decision 2). Widget-registry's
+// minor adds the widget results to the answer act, the draft record and the board state (design
+// decision 6).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -43,7 +45,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.5";
+export const BOARD_PROTOCOL_VERSION = "1.6";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -234,6 +236,8 @@ export type AnswerAct = QuestionAct & {
   readonly note?: string;
   /** Since 1.5: each changed widget item's full edited props, by item ID (AD-20). */
   readonly values?: Readonly<Record<string, unknown>>;
+  /** Since widget-registry: each widget item's result, by item ID (AD-20). */
+  readonly results?: Readonly<Record<string, unknown>>;
   /** Since 1.5: the question's derived values as they stood, by reference (AD-13). */
   readonly derived?: Readonly<Record<string, unknown>>;
   /** RFC 3339 UTC, stamped by the board when the user acted (FR-19). */
@@ -304,6 +308,8 @@ export type DraftQuestion = {
   readonly rev: number;
   /** Each item's value, by item ID, as the view's draft store holds it. */
   readonly values?: Readonly<Record<string, unknown>>;
+  /** Since widget-registry: each widget item's result, by item ID, as the results store holds it. */
+  readonly results?: Readonly<Record<string, unknown>>;
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   /** The open prompt's text. */
@@ -341,6 +347,8 @@ export type CurrentAnswer = {
   readonly note?: string;
   /** Since 1.5: the logged full props of each widget item the answer changed, by item ID. */
   readonly values?: Readonly<Record<string, unknown>>;
+  /** Since widget-registry: the logged result of each widget item, by expanded item ID. */
+  readonly results?: Readonly<Record<string, unknown>>;
   readonly declined?: true;
   readonly when: string;
   readonly receipt: Receipt;

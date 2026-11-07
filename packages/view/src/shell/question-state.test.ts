@@ -16,6 +16,7 @@ import {
   choiceOf,
   draftAnswerOf,
   shownFor,
+  shownResultFor,
   statusOf,
 } from "./question-state.ts";
 
@@ -408,5 +409,98 @@ describe("the derived values an answer carries (gantt-widget design decision 10;
   test("the act keeps them, and they enable nothing on their own", () => {
     expect(card({ flight: flightOf([answerAct(sent)], "sent") }).shown).toEqual(sent);
     expect(card({ draft: { derived: finish } }).canAnswer).toBe(false);
+  });
+});
+
+describe("a question with widget results (widget-registry, design decision 9)", () => {
+  // Test-only `probe` widget items, one of which reports a result (design decision 12).
+  const sketch: WidgetItem = { type: "probe", id: "sketch", props: { size: 3 } };
+  const second: WidgetItem = { type: "probe", id: "second", props: { size: 1 } };
+  const asked: ViewQuestion = {
+    ...question,
+    props: { text: "Which one?", items: [sketch, second] },
+  };
+  const result = { pick: "a" };
+  const none = new Map<string, unknown>();
+  const held = new Map<string, unknown>([["sketch", result]]);
+
+  test("the draft's answer holds the held results of the question's widget items, beside no values", () => {
+    expect(draftAnswerOf(asked, none, held)).toEqual({ results: { sketch: result } });
+  });
+
+  test("the results go beside the choice and the values, and an item of another question adds none", () => {
+    const record = new Map<string, unknown>([["sketch", { size: 4 }]]);
+    expect(draftAnswerOf(asked, record, held)).toEqual({
+      values: { sketch: { size: 4 } },
+      results: { sketch: result },
+    });
+    expect(draftAnswerOf(asked, none, new Map([["other", result]]))).toEqual({});
+    expect(draftAnswerOf(asked, none, new Map([["database", result]]))).toEqual({});
+  });
+
+  test("with no results store the answer is what it was", () => {
+    expect(draftAnswerOf(asked, new Map([["sketch", { size: 4 }]]))).toEqual({
+      values: { sketch: { size: 4 } },
+    });
+  });
+
+  test("an item ID such as __proto__ is a plain key in the results", () => {
+    const proto = { ...sketch, id: "__proto__" };
+    const question2: ViewQuestion = { ...asked, props: { text: "t", items: [proto] } };
+    const answer = draftAnswerOf(question2, none, new Map([["__proto__", result]]));
+    expect(Object.hasOwn(answer.results ?? {}, "__proto__")).toBe(true);
+    expect(Object.getPrototypeOf(answer.results)).toBe(Object.prototype);
+  });
+
+  test("Answer is enabled by a result alone, on a visible, open question", () => {
+    const draft = { results: { sketch: result } };
+    expect(card({ draft })).toMatchObject({ phase: "open", readOnly: false, canAnswer: true });
+    expect(card({ draft }).noteOnly).toBe(false);
+    expect(card({ draft, load: "loading" }).canAnswer).toBe(false);
+    expect(card({ draft, lock: "moved" }).canAnswer).toBe(false);
+  });
+
+  test("derived values alone are still no content", () => {
+    expect(card({ draft: { derived: { "sketch.count": 1 } } }).canAnswer).toBe(false);
+  });
+
+  test("the answer sends the results and no values", () => {
+    const at = new Date("2026-11-06T09:41:27.123Z");
+    expect(answerOf(asked, draftAnswerOf(asked, none, held), at)).toEqual({
+      type: "answer",
+      itemId: "database",
+      rev: 1,
+      results: { sketch: result },
+      when: "2026-11-06T09:41:27.123Z",
+    });
+  });
+
+  test("the act shows the sent results, each on its item, and a logged answer's results read-only", () => {
+    const sending = card({
+      flight: flightOf([answerAct({ results: { sketch: result } })], "sent"),
+    });
+    expect(sending).toMatchObject({ phase: "sending", shown: { results: { sketch: result } } });
+    expect(shownResultFor(sending.shown, "database", "sketch")).toBe(result);
+    expect(shownResultFor(sending.shown, "database", "second")).toBeUndefined();
+    expect(shownResultFor(sending.shown, "database", "constructor")).toBeUndefined();
+    expect(shownResultFor(sending.shown, "database", "database")).toBeUndefined();
+    expect(shownResultFor(undefined, "database", "sketch")).toBeUndefined();
+    const logged = {
+      itemId: "database",
+      rev: 1,
+      state: "answered",
+      answer: {
+        results: { sketch: result },
+        when: "2026-11-06T09:41:27Z",
+        receipt: "delivered",
+      },
+    } as LifecycleQuestionStatus;
+    const shown = card({ status: logged });
+    expect(shown).toMatchObject({
+      phase: "answered",
+      readOnly: false,
+      shown: { results: { sketch: result } },
+    });
+    expect(shownResultFor(shown.shown, "database", "sketch")).toEqual(result);
   });
 });

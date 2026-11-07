@@ -32,7 +32,7 @@ export const BASE_CSS = join(VIEW_SRC, "styles/base.css");
  */
 export const WIDGETS_SRC = join(ROOT, "packages/widgets/src");
 /** The board graph's entry, the library chunk `board-graph` (molecules, design decision 13). */
-export const GRAPH_FILE = join(WIDGETS_SRC, "graph/index.ts");
+export const GRAPH_FILE = join(WIDGETS_SRC, "board-graph/index.ts");
 
 /** Packages the build resolves as the view does, from its folder (isolated linker). */
 export const resolveFromView = (specifier: string): string => Bun.resolveSync(specifier, VIEW_DIR);

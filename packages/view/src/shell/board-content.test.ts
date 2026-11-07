@@ -15,7 +15,12 @@ import {
   type ViewQuestion,
   type WidgetItem,
 } from "../view-document.ts";
-import { boardItemsOf, createBoardContent } from "./board-content.ts";
+import {
+  answeredResultsOf,
+  boardItemsOf,
+  createAnsweredResults,
+  createBoardContent,
+} from "./board-content.ts";
 import { createDraftStore } from "./draft-store.ts";
 
 // The board state with each question open, or with the statuses given in place of some.
@@ -258,5 +263,54 @@ describe("the board as the user sees it (molecules, design decision 11, option A
     const edited = boardOf(draft.record());
     expect(edited).not.toBe(first);
     expect(edited.shown.get("wbs")).toBe(treeEditedValue);
+  });
+});
+
+describe("the results the board's answers hold (widget-registry, design decision 9)", () => {
+  const result = { pick: "a" };
+  // The plain question with the test-only `sketch` item, answered with a result for it.
+  const question = holding([sketch]);
+  const document = { ...plainChoiceBoardDocument, items: [question] } as unknown as ViewDocument;
+  const loggedWith = (results: Record<string, unknown>) =>
+    ({
+      itemId: question.id,
+      rev: 1,
+      state: "answered",
+      answer: { results, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
+    }) as unknown as LifecycleQuestionStatus;
+  const sourceOf = (statuses: readonly LifecycleQuestionStatus[]) => ({
+    document,
+    state: stateOf(document, statuses),
+  });
+
+  test("an item gets the result its question's latest answer holds for it, read as an own property", () => {
+    const results = answeredResultsOf(sourceOf([loggedWith({ sketch: result })]));
+    expect(results.get("sketch")).toBe(result);
+    expect(results.size).toBe(1);
+  });
+
+  test("a result for an item the question does not hold, or under a prototype key, is not shown", () => {
+    const proto = JSON.parse('{"__proto__": 1, "constructor": 2, "elsewhere": 3}');
+    expect(answeredResultsOf(sourceOf([loggedWith(proto)])).size).toBe(0);
+  });
+
+  test("an open question and an answer with no results show none", () => {
+    expect(answeredResultsOf(sourceOf([])).size).toBe(0);
+    expect(answeredResultsOf(sourceOf([answered(question.id)])).size).toBe(0);
+  });
+
+  test("the board's content is unchanged by results: its shown values are the draft's and the answer's values", () => {
+    const board = createBoardContent(() => sourceOf([loggedWith({ sketch: result })]))(new Map());
+    expect(board.shown.size).toBe(0);
+  });
+
+  test("the lookup follows the board's latest state and document", () => {
+    let source = sourceOf([]);
+    const resultOf = createAnsweredResults(() => source);
+    expect(resultOf("sketch")).toBeUndefined();
+    source = sourceOf([loggedWith({ sketch: result })]);
+    expect(resultOf("sketch")).toBe(result);
+    expect(resultOf("elsewhere")).toBeUndefined();
+    expect(resultOf("constructor")).toBeUndefined();
   });
 });

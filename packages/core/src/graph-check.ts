@@ -9,7 +9,12 @@ import {
   buildGraph,
   GraphSourceError,
 } from "@askboard/compute";
-import type { FormulaWarning } from "@askboard/contract";
+import {
+  type FormulaWarning,
+  WIDGET_TYPES,
+  type WidgetType,
+  widgetTypeOf,
+} from "@askboard/contract";
 import type { RequestProblem } from "@askboard/contract/validate";
 import { referenceAddressing } from "./molecules/addressing.ts";
 import type { ExpansionMap } from "./molecules/map.ts";
@@ -42,9 +47,11 @@ const itemOf = (address: string): string => address.split(".", 1)[0] ?? address;
 export const formulaWarnings = (
   items: readonly unknown[],
   map: ExpansionMap,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): readonly FormulaWarning[] => {
   const widgets = questionItems(items);
-  if (!widgets.some(({ type }) => type === "tree" || type === "gantt")) return [];
+  // A graph is built only when a type that declares derived values is present (AD-13).
+  if (!widgets.some(({ type }) => widgetTypeOf(type, types)?.derived !== undefined)) return [];
   const addressing = referenceAddressing(map);
   return buildGraph(boardGraphSource(widgets)).warnings.map(({ error, address, detail }) => ({
     code: "formula",
@@ -68,9 +75,10 @@ export type GraphCheck =
 export const checkedFormulaWarnings = (
   items: readonly unknown[],
   map: ExpansionMap,
+  types: readonly WidgetType[] = WIDGET_TYPES,
 ): GraphCheck => {
   try {
-    return { ok: true, warnings: formulaWarnings(items, map) };
+    return { ok: true, warnings: formulaWarnings(items, map, types) };
   } catch (error) {
     if (!(error instanceof GraphSourceError)) throw error;
     return { ok: false, detail: error.message };

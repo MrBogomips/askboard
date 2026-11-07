@@ -7,8 +7,10 @@ import { describe, expect, test } from "bun:test";
 import {
   BOARD_CLOSE_CODES,
   type BoardState,
+  DRAFT_RECORD_MAX_DEPTH,
   type DraftRecord,
   type HostMessage,
+  JSON_MAX_DEPTH,
 } from "@askboard/contract";
 import {
   contextBoardDocument,
@@ -500,6 +502,28 @@ describe("the draft mirror and its restore (ask-lifecycle, design decision 6; AD
     expect((await run.view({ type: "draft", record: wrong })).outcome).toBe("refused");
     run.page.flushDraft();
     expect(run.drafts(1)).toEqual([]);
+  });
+
+  test("a record nested past the contract's draft depth bound is refused, never mirrored (S-11)", async () => {
+    const run = await opened();
+    const nested = (levels: number): unknown => {
+      let value: unknown = 1;
+      for (let at = 0; at < levels; at += 1) value = [value];
+      return value;
+    };
+    const deep = (levels: number): DraftRecord =>
+      ({
+        delivery: "immediate",
+        questions: { database: { rev: 1, results: { pick: nested(levels) } } },
+      }) as unknown as DraftRecord;
+    for (const levels of [JSON_MAX_DEPTH + 1, 1_000_000]) {
+      const reply = await run.view({ type: "draft", record: deep(levels) });
+      expect(reply.outcome).toBe("refused");
+      expect(reply.detail).toContain(String(DRAFT_RECORD_MAX_DEPTH));
+    }
+    run.page.flushDraft();
+    expect(run.drafts(1)).toEqual([]);
+    expect(await run.view({ type: "draft", record: deep(JSON_MAX_DEPTH) })).toEqual({});
   });
 
   test("told the board moved, it sends its last record at once, before it locks", async () => {

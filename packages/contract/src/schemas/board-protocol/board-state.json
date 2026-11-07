@@ -121,6 +121,15 @@
             "type": "object"
           }
         },
+        "results": {
+          "description": "Since widget-registry: the logged result of each widget item the answer gave one for, by expanded item ID, each any JSON value its item's type defines (AD-20).",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": true
+        },
         "declined": {
           "const": true
         },

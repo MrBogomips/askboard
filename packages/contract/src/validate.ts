@@ -5,7 +5,7 @@
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
 import { AJV_OPTIONS, schemaErrors } from "./compiled.ts";
 import { contextDocumentProblems } from "./context/document.ts";
-import { DRAFT_RECORD_MAX_CHARS } from "./lifecycle-limits.ts";
+import { DRAFT_RECORD_MAX_CHARS, DRAFT_RECORD_MAX_DEPTH } from "./lifecycle-limits.ts";
 import { type BoardDocument, boardDocumentSet } from "./schemas/board-document/index.ts";
 import {
   BOARD_PROTOCOL_MESSAGES,
@@ -142,8 +142,26 @@ export function validateBoardMessage(
   return checked.ok && value.type === "draft" ? withinDraftLimit(checked, value.record) : checked;
 }
 
-// A draft message the schema accepts, unless its record's JSON is longer than the draft limit.
+// Whether `value` nests no deeper than `maxDepth` levels of objects and arrays. An explicit stack
+// walks it, so a value nested a million deep or one that holds itself is answered, never thrown on.
+const nestsWithin = (value: unknown, maxDepth: number): boolean => {
+  const stack: { readonly value: unknown; readonly depth: number }[] = [{ value, depth: 0 }];
+  for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
+    const { value: at, depth } = next;
+    if (typeof at !== "object" || at === null) continue;
+    if (depth >= maxDepth) return false;
+    for (const child of Object.values(at)) stack.push({ value: child, depth: depth + 1 });
+  }
+  return true;
+};
+
+// A draft message the schema accepts, unless its record nests deeper than the draft depth or its
+// JSON is longer than the draft limit.
 const withinDraftLimit = <T>(checked: Checked<T>, record: unknown): Checked<T> => {
+  if (!nestsWithin(record, DRAFT_RECORD_MAX_DEPTH)) {
+    const message = `the draft record is nested deeper than ${DRAFT_RECORD_MAX_DEPTH} levels, the most the board protocol accepts`;
+    return { ok: false, reason: "schema", problems: [{ path: "/record", message }] };
+  }
   const size = JSON.stringify(record).length;
   if (size <= DRAFT_RECORD_MAX_CHARS) return checked;
   const message = `the draft record takes ${size} characters of JSON, more than the ${DRAFT_RECORD_MAX_CHARS} the board protocol accepts`;

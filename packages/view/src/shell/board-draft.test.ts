@@ -430,3 +430,156 @@ describe("the board's default placement (settings-languages, task 8.5; FR-13)", 
     expect(board.effectivePlacement("region")).toBe("inline");
   });
 });
+
+describe("results beside the draft record (widget-registry, design decision 9)", () => {
+  // The plain question with a test-only `probe` widget item `sketch`, and its logged state.
+  const [asked] = plainChoiceBoardDocument.items;
+  const document = {
+    ...plainChoiceBoardDocument,
+    items: [
+      {
+        ...asked,
+        props: { ...asked.props, items: [{ type: "probe", id: "sketch", props: { size: 3 } }] },
+      },
+    ],
+  } as unknown as ViewDocument;
+  const [question] = questionsOf(document) as [ViewQuestion];
+  const result = { pick: "a" };
+
+  const withResults = () => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const board = createBoardDraft("immediate");
+    connectDrafts(document, values, board, results);
+    return {
+      values,
+      results,
+      board,
+      record: () => draftRecordOf(document, values.record(), board.get(), results.record()),
+    };
+  };
+
+  test("a held result starts the question's work and is mirrored under results, none under values", () => {
+    const { results, board, record } = withResults();
+    results.set("sketch", result);
+    expect(board.work("database")).toEqual({ rev: 1 });
+    expect(record()).toEqual({
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { sketch: result } } },
+    });
+  });
+
+  test("a result reported and then removed leaves no entry and no work", () => {
+    const { results, board, record } = withResults();
+    results.set("sketch", result);
+    results.set("sketch", undefined);
+    expect(record()).toEqual({ delivery: "immediate", questions: {} });
+    expect(board.work("database")).toBeUndefined();
+  });
+
+  test("a result is answer work, which a revision of an answered question is made of", () => {
+    expect(hasAnswerWork(question, new Map(), undefined, new Map([["sketch", result]]))).toBe(true);
+    expect(hasAnswerWork(question, new Map(), undefined, new Map())).toBe(false);
+    expect(hasAnswerWork(question, new Map(), undefined)).toBe(false);
+  });
+
+  test("an edit of a held result makes a ready answer not ready, as an edit of a value does", () => {
+    const { results, board } = withResults();
+    results.set("sketch", result);
+    board.edit("database", 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    results.set("sketch", { pick: "b" });
+    expect(board.work("database")?.held).toBeUndefined();
+  });
+
+  test("the answer's content holds the results, none when none is held", () => {
+    expect(answerContentOf(question, new Map(), undefined, new Map([["sketch", result]]))).toEqual({
+      results: { sketch: result },
+    });
+    expect(answerContentOf(question, new Map(), undefined)).toEqual({});
+  });
+
+  test("a mirrored record comes back whole after a reload, the component's result among it", () => {
+    const first = withResults();
+    first.results.set("sketch", result);
+    first.values.set("sketch", { size: 4 });
+    const mirrored = first.record();
+    const second = withResults();
+    restoreDraft(
+      mirrored,
+      document,
+      openState(document),
+      second.values,
+      second.board,
+      second.results,
+    );
+    expect(second.results.valueOf("sketch")).toEqual(result);
+    expect(second.values.valueOf("sketch")).toEqual({ size: 4 });
+    expect(second.record()).toEqual(mirrored);
+  });
+
+  test("a restored result naming no widget item of the question, or the question itself, is left out", () => {
+    const { values, results, board } = withResults();
+    const stale: DraftRecord = {
+      delivery: "immediate",
+      questions: {
+        database: {
+          rev: 1,
+          results: { sketch: result, database: 1, elsewhere: 2, constructor: 3 },
+        },
+      },
+    };
+    restoreDraft(stale, document, openState(document), values, board, results);
+    expect([...results.record().keys()]).toEqual(["sketch"]);
+  });
+
+  test("a restored result that holds nothing is dropped, and with it the work it was", () => {
+    const { values, results, board } = withResults();
+    const stale: DraftRecord = {
+      delivery: "immediate",
+      questions: {
+        database: { rev: 1, results: { sketch: { annotations: [] } } },
+      },
+    };
+    restoreDraft(stale, document, openState(document), values, board, results);
+    expect(results.record().size).toBe(0);
+    expect(board.get().questions.get("database")).toBeUndefined();
+  });
+
+  test("a record holding results alone is work, and comes back as work", () => {
+    const { values, results, board } = withResults();
+    const saved: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { sketch: result } } },
+    };
+    restoreDraft(saved, document, openState(document), values, board, results);
+    expect(board.work("database")).toEqual({ rev: 1 });
+  });
+
+  test("a mirror of the logged answer's own results is stale, one of other results a revision", () => {
+    const state: LifecycleBoardState = {
+      ask: "answered",
+      questions: [
+        {
+          itemId: "database",
+          rev: 1,
+          state: "answered",
+          answer: {
+            results: { sketch: result },
+            when: "2026-11-06T09:30:00Z",
+            receipt: "delivered",
+          },
+        },
+      ],
+    };
+    const mirror = (shown: unknown): DraftRecord => ({
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { sketch: shown } } } as never,
+    });
+    const same = withResults();
+    restoreDraft(mirror({ pick: "a" }), document, state, same.values, same.board, same.results);
+    expect(same.results.record().size).toBe(0);
+    const other = withResults();
+    restoreDraft(mirror({ pick: "b" }), document, state, other.values, other.board, other.results);
+    expect(other.results.valueOf("sketch")).toEqual({ pick: "b" });
+  });
+});

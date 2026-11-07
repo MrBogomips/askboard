@@ -9,7 +9,13 @@
 // agent until the user acts (AD-10). Each change makes new values; the stores are replaced, never
 // changed in place.
 
-import type { DraftQuestion, DraftRecord, HeldAct, LifecycleBoardState } from "@askboard/contract";
+import {
+  type DraftQuestion,
+  type DraftRecord,
+  type HeldAct,
+  type LifecycleBoardState,
+  resultHoldsNothing,
+} from "@askboard/contract";
 import { renderedOf } from "../catalog/components.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
@@ -17,7 +23,7 @@ import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
 import { draftAnswerOf } from "./question-state.ts";
 
 /** A question's work besides its items' values, on the revision it was made on. */
-export type QuestionWork = Omit<DraftQuestion, "values"> & {
+export type QuestionWork = Omit<DraftQuestion, "values" | "results"> & {
   /**
    * The held undo (`reopen`) of a sent postpone or decline that a later answer, decline or note
    * was held over: it is held again when that act is taken back or made not ready, so the undo is
@@ -177,23 +183,46 @@ export const createBoardDraft = (delivery: Delivery): BoardDraft => {
 export const itemIdsOf = (question: ViewQuestion): readonly string[] =>
   renderedOf(question).map(({ item }) => item.id);
 
-const hasValues = (question: ViewQuestion, values: ValueRecord): boolean =>
-  itemIdsOf(question).some((itemId) => values.get(itemId) !== undefined);
+/**
+ * The items a question's results may name: its widget items, never the question itself, whose
+ * options give no result (widget-registry, design decision 9).
+ */
+export const resultIdsOf = (question: ViewQuestion): readonly string[] =>
+  itemIdsOf(question).filter((itemId) => itemId !== question.id);
 
-const sameValues = (question: ViewQuestion, a: ValueRecord, b: ValueRecord): boolean =>
-  itemIdsOf(question).every((itemId) => Object.is(a.get(itemId), b.get(itemId)));
+// No held results: the results store of a board that has none.
+const NO_RESULTS: ValueRecord = new Map();
+
+const hasValues = (
+  question: ViewQuestion,
+  values: ValueRecord,
+  results: ValueRecord = NO_RESULTS,
+): boolean =>
+  itemIdsOf(question).some((itemId) => values.get(itemId) !== undefined) ||
+  resultIdsOf(question).some((itemId) => results.get(itemId) !== undefined);
+
+const sameValues = (
+  question: ViewQuestion,
+  a: ValueRecord,
+  b: ValueRecord,
+  resultsA: ValueRecord = NO_RESULTS,
+  resultsB: ValueRecord = NO_RESULTS,
+): boolean =>
+  itemIdsOf(question).every((itemId) => Object.is(a.get(itemId), b.get(itemId))) &&
+  resultIdsOf(question).every((itemId) => Object.is(resultsA.get(itemId), resultsB.get(itemId)));
 
 /**
- * Whether the question's draft holds answer work: an item's value, "Other…" chosen, an option note
- * or the open prompt's text. The composer's text and a held act are no answer work: on an answered
+ * Whether the question's draft holds answer work: an item's value or result, "Other…" chosen, an
+ * option note or the open prompt's text. The composer's text and a held act are no answer work: on an answered
  * question, answer work is a revision (ask-lifecycle, task 6.7).
  */
 export const hasAnswerWork = (
   question: ViewQuestion,
   values: ValueRecord,
   work: QuestionWork | undefined,
+  results: ValueRecord = NO_RESULTS,
 ): boolean =>
-  hasValues(question, values) ||
+  hasValues(question, values, results) ||
   work?.other !== undefined ||
   Object.keys(work?.optionNotes ?? {}).length > 0 ||
   (work?.note !== undefined && work.note !== "");
@@ -210,36 +239,43 @@ export const connectDrafts = (
   document: ViewDocument | (() => ViewDocument),
   values: DraftStore,
   board: BoardDraft,
+  results?: DraftStore,
 ): (() => void) => {
   const documentOf = typeof document === "function" ? document : () => document;
+  const resultsNow = () => results?.record() ?? NO_RESULTS;
   let previous = values.record();
+  let previousResults = resultsNow();
   const onValues = () => {
     const record = values.record();
+    const held = resultsNow();
     for (const question of questionsOf(documentOf())) {
-      if (sameValues(question, previous, record)) continue;
+      if (sameValues(question, previous, record, previousResults, held)) continue;
       const work = board.work(question.id);
-      if (hasValues(question, record) && work === undefined) {
+      if (hasValues(question, record, held) && work === undefined) {
         board.edit(question.id, question.rev, (fresh) => fresh);
       } else if (work !== undefined && isAnswerHeld(work.held)) {
         board.edit(question.id, work.rev, releaseHeld);
       }
     }
     previous = record;
+    previousResults = held;
     prune();
   };
   const prune = () => {
     const record = values.record();
     for (const question of questionsOf(documentOf())) {
       const work = board.work(question.id);
-      if (work !== undefined && isBare(work) && !hasValues(question, record)) {
+      if (work !== undefined && isBare(work) && !hasValues(question, record, resultsNow())) {
         board.forget(question.id);
       }
     }
   };
   const stopValues = values.subscribe(onValues);
+  const stopResults = results?.subscribe(onValues);
   const stopBoard = board.subscribe(prune);
   return () => {
     stopValues();
+    stopResults?.();
     stopBoard();
   };
 };
@@ -257,6 +293,7 @@ const filledNotes = (
 const questionEntry = (
   question: ViewQuestion,
   values: ValueRecord,
+  results: ValueRecord,
   work: QuestionWork | undefined,
   placement: ContextPlacement | undefined,
 ): DraftQuestion | undefined => {
@@ -264,9 +301,14 @@ const questionEntry = (
     const value = values.get(itemId);
     return value === undefined ? [] : [[itemId, value] as const];
   });
+  const resulting = resultIdsOf(question).flatMap((itemId) => {
+    const value = results.get(itemId);
+    return value === undefined ? [] : [[itemId, value] as const];
+  });
   const optionNotes = filledNotes(work?.optionNotes);
   const fields = {
     ...(held.length === 0 ? {} : { values: Object.fromEntries(held) }),
+    ...(resulting.length === 0 ? {} : { results: Object.fromEntries(resulting) }),
     ...(work?.other === undefined ? {} : { other: work.other }),
     ...(optionNotes === undefined ? {} : { optionNotes }),
     ...(filled(work?.note) ? { note: work.note } : {}),
@@ -284,12 +326,14 @@ export const draftRecordOf = (
   document: ViewDocument,
   values: ValueRecord,
   board: BoardDraftState,
+  results: ValueRecord = NO_RESULTS,
 ): DraftRecord => {
   const questions = questionsOf(document);
   const entries = questions.flatMap((question) => {
     const entry = questionEntry(
       question,
       values,
+      results,
       board.questions.get(question.id),
       board.placements?.get(question.id),
     );
@@ -331,6 +375,21 @@ const sameTextRecord = (
 const hasValuesIn = (values: Readonly<Record<string, unknown>>): boolean =>
   Object.keys(values).length > 0;
 
+const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null;
+
+// Deep equality of two JSON values, objects by own keys, whatever their order. A mirrored record
+// is at most as deep as the board protocol takes, so the recursion is bounded.
+const sameJson = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (!isObject(a) || !isObject(b) || Array.isArray(a) !== Array.isArray(b)) return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && sameJson(a[key], b[key]))
+  );
+};
+
 const isRestoredAnswer = (
   question: ViewQuestion,
   entry: DraftQuestion,
@@ -353,6 +412,7 @@ const isRestoredAnswer = (
   if (choice !== undefined && !isLabels(choice)) return false;
   return (
     sameLabels(status.answer.choice, choice as readonly string[] | undefined) &&
+    sameJson(status.answer.results ?? {}, entry.results ?? {}) &&
     status.answer.other === entry.other &&
     status.answer.note === entry.note &&
     sameTextRecord(status.answer.optionNotes, entry.optionNotes)
@@ -372,6 +432,7 @@ export const restoreDraft = (
   state: LifecycleBoardState,
   values: DraftStore,
   board: BoardDraft,
+  results?: DraftStore,
 ): void => {
   const questions = questionsOf(document);
   const work = new Map<string, QuestionWork>();
@@ -380,20 +441,29 @@ export const restoreDraft = (
     if (!Object.hasOwn(record.questions, question.id)) continue;
     const entry = record.questions[question.id] as DraftQuestion;
     const staleAnswer = isRestoredAnswer(question, entry, state);
-    const { values: kept = {}, context, ...rest } = entry;
+    const { values: kept = {}, results: keptResults = {}, context, ...rest } = entry;
     if (context !== undefined) placements.set(question.id, context);
     const items = new Set(itemIdsOf(question));
+    const widgets = new Set(resultIdsOf(question));
     if (!staleAnswer) {
       for (const [itemId, value] of Object.entries(kept)) {
         if (!items.has(itemId) || (itemId === question.id && !isLabels(value))) continue;
         values.set(itemId, value);
+      }
+      // Each result where it names a widget item of the question, as a value does.
+      for (const [itemId, result] of Object.entries(keptResults)) {
+        if (widgets.has(itemId) && !resultHoldsNothing(result)) results?.set(itemId, result);
       }
     }
     const held = staleAnswer
       ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
       : rest;
     // An entry holding only a placement is no work.
-    if (Object.keys(held).some((key) => key !== "rev") || hasValuesIn(kept))
+    if (
+      Object.keys(held).some((key) => key !== "rev") ||
+      hasValuesIn(kept) ||
+      Object.values(keptResults).some((r) => !resultHoldsNothing(r))
+    )
       work.set(question.id, held);
   }
   const inView = questions.some((question) => question.id === record.inView)
@@ -404,18 +474,19 @@ export const restoreDraft = (
 };
 
 /**
- * What "Answer" sends for a question: its choice and each changed widget item's value (the
- * seam's), the "Other…" text while "Other…" is chosen and has text, the notes on options and the
+ * What "Answer" sends for a question: its choice, each changed widget item's value (the
+ * seam's) and each result a widget item holds, the "Other…" text while "Other…" is chosen and has text, the notes on options and the
  * open prompt's note, each only when given (FR-3, FR-7, FR-18).
  */
 export const answerContentOf = (
   question: ViewQuestion,
   values: ValueRecord,
   work: QuestionWork | undefined,
+  results: ValueRecord = NO_RESULTS,
 ): AnswerContent => {
   const optionNotes = filledNotes(work?.optionNotes);
   return {
-    ...draftAnswerOf(question, values),
+    ...draftAnswerOf(question, values, results),
     ...(filled(work?.other) ? { other: work.other } : {}),
     ...(optionNotes === undefined ? {} : { optionNotes }),
     ...(filled(work?.note) ? { note: work.note } : {}),
