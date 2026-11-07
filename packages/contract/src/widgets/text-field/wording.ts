@@ -19,7 +19,7 @@ export const TEXT_FIELD_EXPECTED: Readonly<Record<string, string>> = {
     "true, for a field that must hold a value before the question is answered",
   "text-field.props.multiline": "true, for a field whose text may hold line breaks",
   "text-field.props.minLength": `a whole number from 1 to ${TEXT_FIELD_MAX_CHARS}, the fewest characters the text may hold, not above the most it holds`,
-  "text-field.props.pattern": `a regular expression of 1 to ${PATTERN_MAX_CHARS} characters, read with the u flag and unanchored, that the text must match: no backreference, lookahead or lookbehind, no repeated group holding a quantifier or a |, and at most ${PATTERN_MAX_REPEATS} repetitions (each ?, *, +, {n,} or {n,m}, each group holding a |, and one more with no leading ^); a field with a pattern holds at most ${PATTERN_TEXT_MAX_CHARS} characters`,
+  "text-field.props.pattern": `a regular expression of 1 to ${PATTERN_MAX_CHARS} characters, read with the u flag and unanchored, that the text must match: no backreference, lookahead or lookbehind, no group form but (?: and (?<name>, no repeated group holding a quantifier or a |, and at most ${PATTERN_MAX_REPEATS} repetitions (each ?, *, +, {n,} or {n,m}, each group holding a |, and one more with no leading ^); a field with a pattern holds at most ${PATTERN_TEXT_MAX_CHARS} characters`,
   "text-field.props.maxLength": `a whole number from 1 to ${TEXT_FIELD_MAX_CHARS}, the most characters the text may hold, ${TEXT_FIELD_MAX_CHARS} when absent`,
 };
 

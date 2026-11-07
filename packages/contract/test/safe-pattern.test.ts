@@ -118,22 +118,29 @@ describe("named groups and lookbehind", () => {
     accepted("^(?<n>a+)?$");
   });
 
-  test("a group with a modifier is read like any other", () => {
-    // Modifiers (ES2025) compile only where the engine knows them; where they do, they are groups.
-    const compiles = (() => {
-      try {
-        /(?i:a)/u;
-        return true;
-      } catch {
-        return false;
-      }
-    })();
-    if (compiles) {
-      accepted("(?i:a)");
-      refusedFor("^(?i:a+)+$", "repeated group");
-    } else {
-      refusedFor("(?i:a)", "does not compile");
-    }
+  test("a modifier group is refused whether or not this engine compiles it", () => {
+    refusedFor("(?i:a)", "group form");
+    refusedFor("(?-i:a)", "group form");
+    refusedFor("(?i-m:a)b", "group form");
+    refusedFor("^(?s:a)$", "group form");
+  });
+
+  test("(?: and (?<name> stay inside the subset", () => {
+    accepted("(?:a)");
+    accepted("(?<name>a)");
+    accepted("^(?<a>x)(?<b>y)$");
+    accepted("^(?<a>x)(?:y)$");
+  });
+
+  test("a group name used twice is refused, in a row or in two branches", () => {
+    refusedFor("(?<a>x)|(?<a>y)", "twice");
+    // In one branch every engine refuses it at the compile; the check says so too.
+    expect(patternProblem("^(?<a>x)(?<a>y)$")).toBeString();
+    refusedFor("^(?:(?<a>x)|(?<a>y))$", "twice");
+  });
+
+  test("a group name spelled with an escape is refused, whatever it spells", () => {
+    refusedFor("(?<\\u0061>x)|(?<a>y)", "escape");
   });
 });
 

@@ -2,9 +2,10 @@
 // `ask` and `update` accept, decided in one pass over the pattern after a compile with the `u` flag.
 // The pattern runs only in the view, on the user's text; this check never runs it.
 //
-// The subset leaves no backreference, no lookahead or lookbehind, and no group repeated by `*`, `+`
-// or a braced quantifier other than `{0}` and `{1}` that holds a quantifier or an alternation, the
-// shapes whose matching time grows exponentially with the text. It also holds a cost budget, `PATTERN_MAX_REPEATS`: the matching time
+// The subset leaves no backreference, no lookahead or lookbehind, no group form but `(?:` and
+// `(?<name>` (a name used once), and no group repeated by `*`, `+` or a braced quantifier other than
+// `{0}` and `{1}` that holds a quantifier or an alternation, the shapes whose matching time grows
+// exponentially with the text. It also holds a cost budget, `PATTERN_MAX_REPEATS`: the matching time
 // grows with the number of variable quantifiers and alternations written in a row, so each
 // quantifier with a range (`?`, `*`, `+`, `{n,}`, `{n,m}` with m over n), each group holding a `|`
 // (the whole pattern counts as one when it holds a top-level `|`) and a pattern with no leading `^`
@@ -89,25 +90,33 @@ const classEnd = (chars: readonly string[], at: number): number => {
   return each + 1;
 };
 
-/** What follows `(` at `at`, as `(?` forms: the kind of group and where its header ends. */
+/**
+ * What follows `(` at `at`: the kind of group and where its header ends. Only `(`, `(?:` and
+ * `(?<name>` are inside the subset, with a name used once and spelled without an escape: a modifier
+ * group (`(?i:…)`) or a repeated name compiles on some engines and not on the user's browser.
+ */
 const groupHeader = (
   chars: readonly string[],
   at: number,
+  names: Set<string>,
 ): { readonly refusal?: string; readonly end: number } => {
   if (chars[at + 1] !== "?") return { end: at + 1 };
   const kind = chars[at + 2];
   if (kind === "=" || kind === "!") return { refusal: "holds a lookahead", end: at + 3 };
-  if (kind === "<") {
-    const sign = chars[at + 3];
-    if (sign === "=" || sign === "!") return { refusal: "holds a lookbehind", end: at + 4 };
-    const close = chars.indexOf(">", at + 3);
-    return { end: close === -1 ? chars.length : close + 1 };
-  }
   if (kind === ":") return { end: at + 3 };
-  // A modifier group, `(?i:…)`, which compiles only where the engine reads it: a group like any.
-  const colon = chars.indexOf(":", at + 2);
-  return { end: colon === -1 ? chars.length : colon + 1 };
+  if (kind !== "<") return { refusal: MODIFIER, end: at + 2 };
+  const sign = chars[at + 3];
+  if (sign === "=" || sign === "!") return { refusal: "holds a lookbehind", end: at + 4 };
+  const close = chars.indexOf(">", at + 3);
+  const name = chars.slice(at + 3, close === -1 ? chars.length : close).join("");
+  if (name.includes("\\")) return { refusal: `names a group with an escape (${name})`, end: at };
+  if (names.has(name)) return { refusal: `names the group ${name} twice`, end: at };
+  names.add(name);
+  return { end: close === -1 ? chars.length : close + 1 };
 };
+
+const MODIFIER =
+  "holds a group form other than (?: and (?<name>, such as a modifier group, which not every browser reads";
 
 const REPEATED =
   "holds a repeated group that itself holds a quantifier or an alternation, which can match in exponential time";
@@ -127,6 +136,7 @@ export const patternProblem = (pattern: string): string | undefined => {
     return "does not compile as an ECMAScript regular expression with the u flag";
   }
   const groups: Frame[] = [];
+  const names = new Set<string>();
   let repeats = chars[0] === "^" ? 0 : 1;
   let topPiped = false;
   const top = (): Frame | undefined => groups[groups.length - 1];
@@ -141,7 +151,7 @@ export const patternProblem = (pattern: string): string | undefined => {
       at = escapeEnd(chars, at);
     } else if (char === "[") at = classEnd(chars, at);
     else if (char === "(") {
-      const header = groupHeader(chars, at);
+      const header = groupHeader(chars, at, names);
       if (header.refusal !== undefined) return header.refusal;
       groups.push({ quantifier: false, alternation: false, piped: false });
       at = header.end;
