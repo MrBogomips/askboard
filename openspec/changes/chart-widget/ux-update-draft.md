@@ -1,6 +1,6 @@
 # UX update draft: Chart
 
-**Status: to apply by task 0.1.** The proposal's open questions 1 to 5 carry their answers; a question answered otherwise changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization).
+**Status: applied by task 0.1 on 2026-11-07.** The proposal's open questions 1 to 5 carry their answers; a question answered otherwise changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization).
 
 How to apply: replace each quoted text in `docs/ux-askboard-2026-10-27/EXPERIENCE.md` or `DESIGN.md`, set `updated:` in each file's front matter to the apply date, then run `openspec validate --all --strict --no-interactive`. Task 0.1 checks that each current text stands once, word for word, just before the edit. Every block keeps the lines `latex-kanban-timeline`'s draft replaces, and the lines next to them, untouched (design.md, Merge points), which is why block 3 adds a line after the Approval's rather than editing the list's earlier lines.
 

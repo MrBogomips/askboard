@@ -63,6 +63,12 @@ colors:
   diff-del: '#f8e3e3'
   diff-del-mark: '#b42335'
   gantt-bar: '#8f877a'
+  # Chart categorical palette (AskBoard extension; settles Open Items 7)
+  chart-1: '#2a78d6'
+  chart-2: '#eb6834'
+  chart-3: '#1baf7a'
+  chart-4: '#6250d6'
+  chart-5: '#eda100'
   # syntax highlighting (AskBoard extension), set through classes
   syntax-keyword: '#6b3fa0'
   syntax-string: '#1d6b52'
@@ -135,6 +141,12 @@ colors:
   diff-del-dark: '#3b1c20'
   diff-del-mark-dark: '#ec8590'
   gantt-bar-dark: '#7a7266'
+  # Chart categorical palette (AskBoard extension)
+  chart-1-dark: '#3987e5'
+  chart-2-dark: '#d95926'
+  chart-3-dark: '#199e70'
+  chart-4-dark: '#9085e9'
+  chart-5-dark: '#c98500'
   # syntax highlighting (AskBoard extension), set through classes
   syntax-keyword-dark: '#c3a6f0'
   syntax-string-dark: '#8fd1b0'
@@ -722,6 +734,11 @@ The first AXFX family palette is variation 3 of the colour page, "Warm Paper & P
 |  | removed mark | `diff-del-mark` † | `#b42335` | `#ec8590` |
 | Gantt | task bar | `gantt-bar` † | `#8f877a` | `#7a7266` |
 |  | critical path | `critical` † → `foreground` | `#2b2722` | `#ebe6dd` |
+| Chart | series 1 · blue | `chart-1` † | `#2a78d6` | `#3987e5` |
+|  | series 2 · orange | `chart-2` † | `#eb6834` | `#d95926` |
+|  | series 3 · aqua | `chart-3` † | `#1baf7a` | `#199e70` |
+|  | series 4 · violet | `chart-4` † | `#6250d6` | `#9085e9` |
+|  | series 5 · yellow | `chart-5` † | `#eda100` | `#c98500` |
 | Recommended badge | text, border | `recommended` † → `agent-text` | `#34489a` | `#b0bef2` |
 |  | background | `recommended-subtle` † → `agent-subtle` | `#eceff9` | `#222943` |
 | Syntax | keywords | `syntax-keyword` † | `#6b3fa0` | `#c3a6f0` |
@@ -1008,7 +1025,7 @@ AskBoard's own chrome controls, not FR-13 atoms (TC §1.3).
 | **LaTeX** | A source field in `{typography.code}` with the input atoms' look, the KaTeX preview under it on `{colors.card}`, and a parse error as a `field-error` under the field (F-36). The field takes a `{colors.change}` border while it differs from the agent's expression, and a counter under the preview reads "Your changes: expression edited" in `{colors.muted-foreground}` (provisional). A preview wider than the frame scrolls sideways, and one taller than 400 px stays at that height and scrolls inside, so the controls under it stay in reach. Read-only, the field takes the read-only look. Not mocked. |
 | **Table** | shadcn Table styling: a header row on `{colors.muted}` with headers in `{typography.label}`, rows separated by 1px `{colors.border}` rules, cells in `{typography.body}`, and numbers and money right-aligned in `{typography.code}`. Editable cells are input atoms, and totals and formula columns are Values in footer rows, the first set off by a `{colors.border-strong}` rule, with the row labels semibold. Changed cells take the change highlight, and a failing cell shows a `field-error` (F-36). Mock: [key-uj3-estimate-approval](mockups/key-uj3-estimate-approval.html), inside the sales estimate review; not mocked: a failing cell. |
 | **Spreadsheet** | An A1 grid: column letters and row numbers on `{colors.muted}` in `{typography.label}`, cells in `{typography.code}`, the selected cell outlined 2px in `{colors.primary}`, and a formula bar above the grid with the cell's address and formula in `{typography.code}`. Changed cells take the change highlight, and a formula error is a `field-error` (F-36). Not mocked. |
-| **Chart** | Drawn on canvas with a theme built from the tokens and rebuilt on a theme switch (L160): axes and grid lines in `{colors.border}`, labels in `{typography.badge}` and `{colors.muted-foreground}`, tooltips on `{colors.popover}`. A data point the user highlights takes a `{colors.change}` ring (F-36). Its categorical palette is open (Open Items, 7). Not mocked. |
+| **Chart** | Drawn on canvas with a theme built from the tokens and rebuilt on a theme switch (L160): axes and grid lines in `{colors.border}`, labels in `{typography.badge}` and `{colors.muted-foreground}`, tooltips drawn on the canvas on `{colors.popover}` with `{colors.popover-foreground}` text and a `{colors.border}` edge. Series and pie slices take `chart-1` to `chart-5` in order, never cycled, so a chart holds at most five (settles Open Items 7). Bars have 4px rounded ends away from the axis and a 2px gap between the bars of a category; lines are 2px with 8px markers; pie slices are parted by a 2px `{colors.card}` gap and labelled with their category. A legend above the plot names the series of a bar or line chart of two or more. The title sits above the chart in `{typography.label}`. A data point the user highlights takes a 2px `{colors.change}` ring (F-36); the counter under the chart is in `{typography.body}` and `{colors.muted-foreground}`. Focused, the chart takes `{components.focus-ring}` and its current point shows its tooltip. The plot is 320px high and as wide as the widget frame. Not mocked. |
 | **Tree** | Rows in the widget frame, under a header row of column names in `{typography.label}` on `{colors.muted}`, indented by `{spacing.lg}` per level, each with a chevron, the node name in `{typography.body}` (semibold on parent rows) and the node's fields as columns; roll-ups are Values. The chevron, in `{colors.muted-foreground}`, points right when closed and down when open (L199). A drag shows the drop indicator, as in Ranking: a line above or below the row for before and after, `{colors.primary}` outline on the row for into, and a `{colors.destructive-text}` cue for a drop that is not allowed; the row has a grip handle at its start, in `{colors.muted-foreground}`, and a leading checkbox column holds the selection, with a tri-state one in the header. "Adjust by %…" opens a popover under the toolbar: check boxes, a signed percentage field (no echo), the preview in `{typography.body}` and the warning in the Field error pattern, "Apply" as the primary button. Changed nodes take the change highlight (F-36). The current row takes `{colors.primary-subtle}` with a 2px `{colors.primary}` left bar. Rows are 32px compact and 40px comfortable. A new row's empty roll-ups read "—" in `{colors.muted-foreground}`. Mock: [key-uj2-wbs-gantt](mockups/key-uj2-wbs-gantt.html), inside the WBS with PERT; not mocked: the drag. |
 | **Gantt** | **Surface.** AskBoard draws the Gantt itself, in SVG, with its grid on TanStack Table (L160).<br>**Anatomy.** A time axis on `{colors.muted}`, with its labels in `{typography.badge}` and `{colors.muted-foreground}` and its gridlines in `{colors.border}`. Task bars in `{colors.gantt-bar}`, with 1px finish-to-start elbow arrows in the same colour. The critical path in `{colors.critical}`, as solid bars with 2px arrows (`gantt-critical`; F-51). A legend under the chart reads task, critical path and "your change" (colour page).<br>**States.** A user-changed task has a 2px `{colors.change}` outline, offset by 1px (`gantt-user-change`). During a drag, the earliest start the dependencies allow shows as a guide (F-24). The Task column's header edge is a 1px `{colors.border}` line, 8px wide to grab, that takes `{components.focus-ring}` on focus and a col-resize cursor. A "Critical path" switch sits in the toolbar, on when the Gantt opens; off, critical bars and arrows are drawn as ordinary ones and the legend drops its critical entry. A requested duration shows a pin mark in its cell. The guide's look and how the working calendar shows on the axis are open (Open Items, 8 and 9). A bar whose dates differ from the agent's carries a baseline, a 2px dashed `{colors.border-strong}` line under it (settles Open Items 8). The drag guide is a full-height 2px dashed `{colors.foreground-secondary}` line with its label (settles Open Items 8). At Day zoom non-working days are shaded on `{colors.muted}` (settles Open Items 9). Rows are 32px compact and 40px comfortable.<br>Mock: [key-uj2-wbs-gantt](mockups/key-uj2-wbs-gantt.html), inside the Gantt plan; not mocked: the drag guide. |
 | **Timeline** | Lanes as rows on the Gantt's time axis (L160), ranges as `{colors.gantt-bar}` bars and milestones as diamonds in `{colors.foreground}`. A moved item takes the `gantt-user-change` outline (F-36). Lane labels sit in a fixed column at the left in `{typography.label}`, cut with an ellipsis; a lane whose entries overlap grows one track per overlap, each the Gantt's row height. An entry's label, in `{typography.badge}`, sits after its shape, or inside a range bar wide enough for it. The current entry takes `{components.focus-ring}`. The toolbar holds "Move earlier", "Move later" and "Move to lane…" as `button-secondary`s, and the counter at its right, as the Tree's toolbar does (provisional). Not mocked. |
@@ -1077,7 +1094,7 @@ Not blocking. They stay open until the stories close them (L145).
 **Colour roles and palettes**
 
 6. **Agent-authored content.** It is not decided whether follow-up replies and the agent's option annotations carry the agent hue (L132 names only "Agent: Working" and the Recommended badge).
-7. **Chart colours** (F-73). No categorical palette is chosen for the Chart widget (shadcn's `chart-*` variables are not set). The inherited shadcn default is the fallback until a Chart is mocked.
+7. **Chart colours** (F-73). Settled by the OpenSpec change `chart-widget` (2026-11-07): the tokens `chart-1` to `chart-5`, light and dark (Colors), checked on the card colour of each theme: every pair of neighbouring slots, the last and the first included for a pie, is at least ΔE 8 apart under protanopia, deuteranopia and tritanopia and at least ΔE 15 for normal vision (OKLab ×100). `chart-3` and `chart-5` sit under 3:1 on the light card, so the legend, the tooltip and the keyboard reading name every point. The order holds no magenta or red, which the change highlight and destructive states take. shadcn's `chart-*` defaults were set aside: two of their light slots are near oranges.
 
 **Left open by the mock review** (L201)
 
