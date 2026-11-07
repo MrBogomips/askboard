@@ -4,7 +4,8 @@ name: Release
 # branch, tagged `v<version>`, and the bundle, the tree as a zip and their SHA-256 become a GitHub
 # release. Manual only, and only on `main`. Nothing runs on a pull request or a push: merging a change
 # never releases. `build` and `smoke-linux` only read; `publish` is the one job with a write token,
-# and it runs git and gh alone. No `github` context reaches a `run:` script except through `env:`.
+# and it runs git and gh alone, trusting nothing in the artifact beyond the zip it verifies and
+# opens (see the comment in that job). No `github` context reaches a `run:` script except through `env:`.
 on:
   workflow_dispatch:
 
@@ -97,42 +98,84 @@ jobs:
         with:
           name: release
           path: release
-      - name: Verify the files and read the version
+      # The artifact is the build job's output, and that job runs dependency code: nothing in it is
+      # trusted beyond the zip it names. The steps below read the version as one whole string, check the
+      # zip against its SHA-256, open the zip into a fresh folder, require the uploaded tree to be that
+      # folder, and commit the folder with a repository (GIT_DIR) that lives outside the artifact, so git
+      # reads no file of the artifact as configuration. The token goes only to the steps that reach
+      # GitHub (tests: tools/release/publish.test.ts runs these scripts on local files).
+      - name: Read the version and verify the files
         run: |
-          VERSION=$(jq -r .version release/tree/.claude-plugin/plugin.json)
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          cd release
+          VERSION=$(jq -r .version tree/.claude-plugin/plugin.json)
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::The tree's version is not major.minor.patch."
             exit 1
           fi
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-          cd release
           sha256sum -c SHA256SUMS
-      - name: Commit the tree to the release branch and tag it
+          for kind in mjs zip; do
+            if ! grep -Eq "^[[:xdigit:]]{64}  askboard-${VERSION}\.${kind}\$" SHA256SUMS; then
+              echo "::error::SHA256SUMS does not name askboard-${VERSION}.${kind}."
+              exit 1
+            fi
+          done
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+      - name: Open the verified zip and require the tree to be its contents
         run: |
-          git init --quiet work
-          cd work
-          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          cd release
+          LIST="$RUNNER_TEMP/release-zip-list"
+          unzip -Z1 "askboard-${VERSION}.zip" > "$LIST"
+          if grep -Eq '(^|/)\.git|^/|(^|/)\.\.(/|$)' "$LIST"; then
+            echo "::error::The zip holds a .git path, an absolute path or a parent path."
+            exit 1
+          fi
+          mkdir "$RUNNER_TEMP/release-tree"
+          unzip -q "askboard-${VERSION}.zip" -d "$RUNNER_TEMP/release-tree"
+          if [ -n "$(find "$RUNNER_TEMP/release-tree" tree ! -type f ! -type d)" ]; then
+            echo "::error::The zip or the tree holds a link or a special file."
+            exit 1
+          fi
+          if ! diff -r -q tree "$RUNNER_TEMP/release-tree"; then
+            echo "::error::The uploaded tree differs from the verified zip."
+            exit 1
+          fi
+      - name: Refuse an existing tag and fetch the release branch
+        run: |
           gh auth setup-git
-          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" > /dev/null; then
+          export GIT_DIR="$RUNNER_TEMP/release.git"
+          git init --quiet --template=
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          TAGS=$(git ls-remote --tags origin "refs/tags/v${VERSION}")
+          if [ -n "$TAGS" ]; then
             echo "::error::The tag v${VERSION} already exists."
             exit 1
           fi
-          if git ls-remote --exit-code --heads origin release > /dev/null; then
-            git fetch --quiet --depth 1 origin release
-            git checkout --quiet -B release FETCH_HEAD
-          else
-            git checkout --quiet --orphan release
+          HEADS=$(git ls-remote --heads origin release)
+          if [ -n "$HEADS" ]; then
+            git fetch --quiet --depth 1 origin release:refs/remotes/origin/release
           fi
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -R ../release/tree/. .
-          git add --all
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit --quiet -m "release: v${VERSION} from ${GITHUB_SHA}"
-          git tag "v${VERSION}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit the zip's files to the release branch and tag it
+        run: |
+          export GIT_DIR="$RUNNER_TEMP/release.git"
+          export GIT_WORK_TREE="$RUNNER_TEMP/release-tree"
+          export GIT_INDEX_FILE="$RUNNER_TEMP/release.index"
+          cd "$GIT_WORK_TREE"
+          git add --all
+          TREE=$(git write-tree)
+          PARENT=
+          if git show-ref --verify --quiet refs/remotes/origin/release; then
+            PARENT=$(git rev-parse refs/remotes/origin/release)
+          fi
+          COMMIT=$(git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit-tree "$TREE" ${PARENT:+-p "$PARENT"} -m "release: v${VERSION} from ${GITHUB_SHA}")
+          git update-ref refs/heads/release "$COMMIT"
+          git symbolic-ref HEAD refs/heads/release
+          git tag "v${VERSION}" "$COMMIT"
       - name: Push the branch and the tag together
         run: |
-          cd work
+          gh auth setup-git
+          export GIT_DIR="$RUNNER_TEMP/release.git"
           git push --atomic origin HEAD:refs/heads/release "refs/tags/v${VERSION}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

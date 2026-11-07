@@ -198,7 +198,7 @@ describe("the release workflow", () => {
     ).toBe("package.json");
   });
 
-  test("publish runs git and gh only: no checkout, no setup, no package manager or code of the repository", () => {
+  test("publish runs no code of the repository or the artifact: no checkout, no setup, no package manager", () => {
     for (const step of steps("publish")) {
       expect(step.uses?.startsWith("actions/checkout@") ?? false).toBe(false);
       expect(step.uses?.startsWith("actions/setup-") ?? false).toBe(false);
@@ -214,7 +214,7 @@ describe("the release workflow", () => {
   test("publish verifies the sums, then commits the tree to release, tags it and pushes both at once", () => {
     const script = runs("publish").join("\n");
     const sums = script.indexOf("sha256sum -c SHA256SUMS");
-    const commit = script.indexOf(" commit --quiet -m ");
+    const commit = script.indexOf(" commit-tree ");
     const tag = script.indexOf("git tag");
     const push = script.indexOf("git push");
     const release = script.indexOf("gh release create");
@@ -229,6 +229,10 @@ describe("the release workflow", () => {
     );
     // The tag is checked in advance too, so that a refusal does not leave a release branch commit.
     expect(script).not.toMatch(/--force|-f\b/);
+    // The commit is made with a repository outside the artifact, from the zip's files.
+    expect(script).toContain('GIT_DIR="$RUNNER_TEMP/release.git"');
+    expect(script).toContain('GIT_WORK_TREE="$RUNNER_TEMP/release-tree"');
+    expect(script).toContain("unzip -q");
   });
 
   test("the GitHub release carries the notes and the three files", () => {
@@ -240,10 +244,19 @@ describe("the release workflow", () => {
     expect(script).toContain("--verify-tag");
   });
 
-  test("the version that publish uses comes from the artifact and is checked to be x.y.z", () => {
+  test("the version that publish uses comes from the artifact and is checked whole to be x.y.z", () => {
     const script = runs("publish").join("\n");
-    expect(script).toContain("release/tree/.claude-plugin/plugin.json");
-    expect(script).toMatch(/\^\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$/);
+    expect(script).toContain("tree/.claude-plugin/plugin.json");
+    // One bash match on the whole string: a line-by-line grep would pass a version with a second line.
+    expect(script).toContain("[[ ! $VERSION =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]");
+    expect(script).not.toMatch(/printf .*\| grep/);
+    // GITHUB_ENV is written after the version check and the sums, never before.
+    const version = script.indexOf("=~");
+    const sums = script.indexOf("sha256sum -c SHA256SUMS");
+    const env = script.indexOf('>> "$GITHUB_ENV"');
+    expect(version).toBeGreaterThanOrEqual(0);
+    expect(env).toBeGreaterThan(sums);
+    expect(env).toBeGreaterThan(version);
   });
 
   test("every job has a timeout", () => {
