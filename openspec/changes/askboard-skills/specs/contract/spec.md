@@ -12,7 +12,7 @@ The contract SHALL hold one agent-facing text for each asking rule of its closed
 - **THEN** they are the same text
 
 ### Requirement: A widget type's teaching text
-A widget type's registry entry MAY carry teaching text: when to use the widget, 1 to 200 characters, and notes, each 1 to 300 characters. The registry check SHALL refuse teaching text outside those bounds, naming the type; every shipped type SHALL carry teaching text (FR-29).
+A widget type's registry entry MAY carry teaching text: when to use the widget, 1 to 200 characters, and notes, each 1 to 300 characters. The registry check SHALL refuse teaching text outside those bounds or of another shape, naming the type, and SHALL report it rather than stop, so that the other entries' problems are reported too; every shipped type SHALL carry teaching text (FR-29).
 
 #### Scenario: Shipped types carry teaching text
 - **WHEN** the shipped registry is read
@@ -21,3 +21,7 @@ A widget type's registry entry MAY carry teaching text: when to use the widget, 
 #### Scenario: A teaching text too long
 - **WHEN** the registry check runs on an entry whose teaching text has 201 characters
 - **THEN** it reports a problem naming the type
+
+#### Scenario: A teaching text of another shape
+- **WHEN** the registry check runs on entries one of which has a teaching text that is not an object, or notes that are not a list
+- **THEN** it reports a problem naming that type, and still reports the other entries' problems

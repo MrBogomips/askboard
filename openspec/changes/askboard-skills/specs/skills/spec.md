@@ -113,6 +113,17 @@ Writing the skill SHALL leave exactly the generated files under `skills/askboard
 - **WHEN** the generated `SKILL.md`'s paragraph after the rules is read
 - **THEN** it says the rule is only advisory without hooks and that the agent follows the rule the user set or asked for, and it names no tool result
 
+### Requirement: Every item type named
+`SKILL.md` SHALL name, in backticks, every item type of the input format: each non-widget item type of the contract (questions, areas, molecule references and the context items) and each registered widget type, the latter in its item index line. It SHALL teach the area's shape and that areas stand at the top level only, holding questions, and that once one top-level item is an area every one is (FR-2, AD-6).
+
+#### Scenario: Every type named
+- **WHEN** the generator runs on the contract's non-widget item types and the shipped registry
+- **THEN** each of those types is named in `SKILL.md` as `` `<type>` ``
+
+#### Scenario: Areas taught
+- **WHEN** the generated `SKILL.md` is read
+- **THEN** it gives the area's shape `{type: "area", id, props: {title, items}}`, says areas stand at the top level only and hold questions, and says that once one top-level item is an area every one is
+
 ### Requirement: Cheap asks
 `SKILL.md` SHALL teach putting several questions in one ask, pointing to project files instead of copying them, using molecules by name, leaving totals, estimates, dates and margins to AskBoard, and choosing ask IDs as a task slug plus a short random suffix and item IDs that match the contract's ID pattern (FR-1, FR-5, FR-8, NFR-1).
 
@@ -149,11 +160,15 @@ Writing the skill SHALL leave exactly the generated files under `skills/askboard
 - **THEN** it holds the main-conversation and subagent fallbacks, the declined rule and the discarded rule
 
 ### Requirement: Answers and Snapshots
-The skill SHALL teach that answers carry only what changed and `fetch` returns a whole item, and that `snapshot` returns a file's path in the Snapshot folder, whose board data is in the element the contract names; it SHALL hold one `collect` result example (FR-20, FR-26, FR-27).
+The skill SHALL teach that answers carry only what changed and `fetch` returns a whole item, that an answer marked `tooLarge` carries no changes, derived values or results and `fetch` returns them, and that `snapshot` returns a file's path in the Snapshot folder, whose board data is in the element the contract names; it SHALL hold one `collect` result example (FR-20, FR-26, FR-27).
 
 #### Scenario: Reading answers and Snapshots
 - **WHEN** the generated answers reference is read
 - **THEN** it names the Snapshot folder and data element from the contract and holds a `collect` result example
+
+#### Scenario: A too-large answer
+- **WHEN** the generated answers reference is read
+- **THEN** it says that an answer marked `tooLarge` carries no changes, derived values or results, and that `fetch` returns them
 
 ### Requirement: The skill's token budget
 The skill check SHALL fail when the description exceeds 600 characters, `SKILL.md` exceeds 9,000 characters or 250 lines, any reference exceeds 6,000 characters, or the always-loaded total (the compact tool definitions, the server instructions and the skill's name and description) exceeds 8,400 characters (NFR-1, PRD R5).
@@ -167,8 +182,19 @@ The skill check SHALL fail when the description exceeds 600 characters, `SKILL.m
 - **THEN** it prints the always-loaded total and passes only when it is at most 8,400 characters
 
 ### Requirement: The benchmark arm loads the skill
-The benchmark's AskBoard arm SHALL include the Skill tool among its tools and allowed tools, so that the context the skill adds is part of what the benchmark measures; the AskUserQuestion and baseline arms SHALL be unchanged (NFR-1, AD-17).
+The benchmark's AskBoard arm SHALL include the Skill tool among its tools and SHALL allow only AskBoard's skill, `Skill(askboard:askboard)`, never every skill; every arm SHALL run with Claude Code's bundled skills switched off; the tools of the AskUserQuestion and baseline arms SHALL be unchanged (NFR-1, AD-17, PRD R5).
 
 #### Scenario: The AskBoard arm's tools
 - **WHEN** the benchmark builds the AskBoard arm's command
-- **THEN** its tools and allowed tools include `Skill`, and the other arms' do not
+- **THEN** its tools include `Skill`, its allowed tools include `Skill(askboard:askboard)` and no bare `Skill`, and the other arms' tools and allowed tools hold no `Skill`
+
+#### Scenario: Bundled skills switched off
+- **WHEN** the benchmark builds any arm's command
+- **THEN** its environment switches Claude Code's bundled skills off
+
+### Requirement: The benchmark reports the skills loaded
+The benchmark report SHALL list the skills each arm's sessions started with and flag a run whose listing holds a skill other than AskBoard's, so that the context the skill adds is what the benchmark measures (AD-17, PRD R5).
+
+#### Scenario: Another skill in the listing
+- **WHEN** a run's init event lists a skill other than `askboard:askboard`
+- **THEN** the report lists that skill for the run's arm and flags the run

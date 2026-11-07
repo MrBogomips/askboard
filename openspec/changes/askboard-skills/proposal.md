@@ -13,7 +13,7 @@ FR-29 asks for shipped skills that teach agents when to use AskBoard rather than
 - **Asking-rule texts in `contract`** (AD-16, FR-30): one text per rule of `ASKING_RULES`, the `with-references` text being the one the hook's predicate is described by.
 - **A token budget, tested** (NFR-1, AD-6, AD-17, PRD R5): the skill's description, `SKILL.md`, each reference, and the always-loaded total (tool definitions, server instructions and the skill's description) each have a character budget that `check:skills` enforces.
 - **No shipped agent in the first version** (FR-28, FR-29; open question 1): subagents load plugin skills through the Skill tool, so no task needs an agent of its own. `prd-update-draft.md` (FR-28, FR-29) and `spine-update-draft.md` (AD-19's bundle, the Structural Seed's `agents/`, a Deferred row) say so, applied in task 0.1.
-- **The benchmark's AskBoard arm may load the skill** (NFR-1, AD-17): `Skill` joins that arm's tools, so the context the skill adds is measured.
+- **The benchmark's AskBoard arm may load the skill, and only it** (NFR-1, AD-17): `Skill` joins that arm's tools, allowed only as `Skill(askboard:askboard)`; every arm runs with Claude Code's bundled skills switched off, and the report lists and flags the skills each run lists, so the context measured is the skill's own.
 - **Versions**: no schema set changes; every set keeps the base's version.
 - **Not in this change**: building and registering molecules (FR-16 is a later version; open question 3); a live check that agents follow the skill, which is a PO run (task 4.1); any widget, molecule or tool text change.
 
@@ -32,7 +32,7 @@ FR-29 asks for shipped skills that teach agents when to use AskBoard rather than
 ## Impact
 
 - New: `skills/askboard/` (generated, committed), `tools/build/skills.ts` and `tools/build/skills/` (generator, templates, tests), `packages/server/test/skills-examples.test.ts` (examples sent through `ask-core`), `packages/molecules/src/<name>/skill.json`.
-- Changed: `packages/contract` (`push/asking-rules.ts`, `widgets/registry.ts`, the Tree's and Gantt's `widget.ts`, an appended export block), `packages/molecules/src/index.ts`, `packages/bench/src/command.ts`, root `package.json` (`build:skills`, `check:skills`, workspace dev dependencies for the generator), `CLAUDE.md`, the PRD and the spine through the drafts.
+- Changed: `packages/contract` (`push/asking-rules.ts`, `widgets/registry.ts`, the Tree's and Gantt's `widget.ts`, an appended export block), `packages/molecules/src/index.ts`, `packages/bench/src/` (`command.ts`, the init event's skills in `transcript.ts` and the report), root `package.json` (`build:skills`, `check:skills`, workspace dev dependencies for the generator), `CLAUDE.md`, the PRD and the spine through the drafts.
 - No new third-party dependency; no licence change (NFR-6); no outbound connection (NFR-9); no view chunk changes.
 - Merge points with `widget-registry` (this branch's base, unmerged) and `diagram-render` (proposed): design.md, Merge points.
 - IDs served: FR-28, FR-29, FR-30, FR-4, FR-15, FR-21, FR-26, FR-27; NFR-1, NFR-8, NFR-11; SM-1, SM-2; R5. ADs: AD-3, AD-6, AD-16, AD-17, AD-18, AD-19.
