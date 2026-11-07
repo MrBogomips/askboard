@@ -49,7 +49,7 @@ The licence check needs network access: it reads the licences of other platforms
 
 The end-to-end tests run the built session process with Playwright's Chromium, Firefox and WebKit; install them once with `node_modules/.bin/playwright install chromium firefox webkit`.
 
-To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a few choice questions with AskBoard (single or multiple choice), or to ask for a work breakdown with a plan (a Tree, a Gantt or the work breakdown molecule). The board opens in your browser with a system notification, and the terminal shows its link. Answer it there: the answers reach the agent by themselves, through the plugin's mod, or when the agent collects them. `/hooks` lists AskBoard's hooks; with mods turned off, answers still arrive when the agent collects them.
+To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a few choice questions with AskBoard (single or multiple choice), or to ask for a work breakdown with a plan (a Tree, a Gantt or the work breakdown molecule). The board opens in your browser with a system notification, and the terminal shows its link. Answer it there: the answers reach the agent by themselves, through the plugin's mod, or when the agent collects them. The plugin also carries a skill, `askboard`, which tells the agent when to ask through AskBoard rather than AskUserQuestion and how to build each widget; Claude Code lists it among its skills. `/hooks` lists AskBoard's hooks; with mods turned off, answers still arrive when the agent collects them.
 
 ## Licence
 
