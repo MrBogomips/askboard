@@ -432,7 +432,7 @@ describe("hook and client modes pass stdin and stdout through (review 1.5, S-3)"
 /** A folder holding only the external tools the script uses: no `node` is on a PATH made of it. */
 const toolsWithoutNode = (): string => {
   const into = folder("askboard-start-tools-");
-  for (const tool of ["dirname", "readlink", "sed", "awk", "tr", "cut", "head"]) {
+  for (const tool of ["dirname", "readlink", "sed", "awk", "tr", "cut", "head", "cat"]) {
     const found = Bun.which(tool, { PATH: SYSTEM_PATH });
     if (found !== null) symlinkSync(found, join(into, tool));
   }
@@ -698,6 +698,44 @@ describe("hooks and the client refuse an unusable Node quietly", () => {
       const lines = ran.stderr.split("\n").filter(Boolean);
       expect(lines).toHaveLength(1);
       expect(lines[0]).toContain("24.22.1");
+    },
+  );
+
+  test.each(["22.11.0", "none"])(
+    "hook PreToolUse with node %s reads and drops its whole input, more than a pipe holds (U-1)",
+    async (found) => {
+      const root = pluginRoot();
+      const { node, env } = refusal(found);
+      const path = found === "none" ? node : `${node}:${toolsWithoutNode()}`;
+      const finished = join(folder(), "finished");
+      // The writer leaves its marker only if every byte was taken: a reader that exits first makes
+      // `head` fail on its write (EPIPE, or SIGPIPE), and the marker is not written.
+      const child = Bun.spawn(
+        [
+          "/bin/sh",
+          "-c",
+          '{ head -c 300000 /dev/zero && echo done > "$FINISHED"; } | /bin/sh "$SCRIPT" hook PreToolUse',
+        ],
+        {
+          env: {
+            PATH: `${path}:${SYSTEM_PATH}`,
+            ...env,
+            FINISHED: finished,
+            SCRIPT: join(root, "scripts", "askboard"),
+          },
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+      const [stdout, stderr, code] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      expect(code).toBe(0);
+      expect(stdout).toBe("");
+      expect(stderr.split("\n").filter(Boolean)).toHaveLength(1);
+      expect(existsSync(finished)).toBe(true);
     },
   );
 

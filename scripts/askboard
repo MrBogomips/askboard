@@ -69,7 +69,11 @@ printf 'askboard: %s\n' "$reason" >&2
 
 case ${1-} in
   '') ;;
-  hook) exit 0 ;;
+  # Claude Code writes the hook's input to the pipe: take it all, so that its write does not fail.
+  hook)
+    cat >/dev/null
+    exit 0
+    ;;
   *) exit 1 ;;
 esac
 
