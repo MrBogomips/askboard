@@ -33,9 +33,11 @@ Without AskBoard's hooks a rule is only advisory: nothing stops an AskUserQuesti
 
 ## Items
 
-A question is `{type: "question", id, props: {text, header?, options?, multiSelect?, allowOther?, items?}}`. Its `items` hold context, widgets and molecules, each `{type, id, props}`. Read the reference of a type before you use it:
+A question (`question`) is `{type: "question", id, props: {text, header?, options?, multiSelect?, allowOther?, items?}}`. Its `items` hold context, widgets and molecule references (`molecule`), each `{type, id, props}`. Read the reference of a type before you use it:
 
 {{itemIndex}}
+
+At the top level an ask's `items` may be areas (`area`) instead of questions: `{type: "area", id, props: {title, items}}`, a titled group of questions. Once one top-level item is an area, every one is.
 
 ## After you ask
 

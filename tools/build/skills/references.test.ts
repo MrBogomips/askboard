@@ -2,7 +2,7 @@
 // each widget type, each ready molecule and the context items).
 
 import { describe, expect, test } from "bun:test";
-import { NON_WIDGET_ITEM_TYPES, WIDGET_TYPES } from "@askboard/contract";
+import { NON_WIDGET_ITEM_TYPES, WIDGET_TYPES, type WidgetType } from "@askboard/contract";
 import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/molecules";
 import { taggedBlocks } from "./blocks.ts";
@@ -87,6 +87,16 @@ describe("renderWidgetReference", () => {
     expect(() => renderWidgetReference(PROBE_WIDGET, resolve)).toThrow(
       'the widget type "probe" has no teaching text',
     );
+  });
+
+  test("a type whose example is missing, empty or not an object fails, naming it", () => {
+    const withExample = (example: unknown) =>
+      ({ ...PROBE_WIDGET, skill: { use: "a pick" }, example }) as unknown as WidgetType;
+    for (const example of [undefined, {}, { item: "text" }, { item: null }]) {
+      expect(() => renderWidgetReference(withExample(example), resolve)).toThrow(
+        'the widget type "probe" has no example item',
+      );
+    }
   });
 
   test("an entry that names a props schema outside the contract fails, naming the reference", () => {

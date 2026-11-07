@@ -63,8 +63,12 @@ export const renderWidgetReference = (entry: WidgetType, resolve: Resolve): Rend
   if (entry.skill === undefined) {
     throw new Error(`the widget type "${entry.type}" has no teaching text (its \`skill\`)`);
   }
+  const item: unknown = (entry.example as { item?: unknown } | undefined)?.item;
+  if (typeof item !== "object" || item === null) {
+    throw new Error(`the widget type "${entry.type}" has no example item (its \`example.item\`)`);
+  }
   const shape = entry.wording.expected[`${entry.type}.props`];
-  const example: ExampleBody = { kind: "item", value: entry.example.item };
+  const example: ExampleBody = { kind: "item", value: item };
   const text = [
     `# ${widgetTitle(entry)}`,
     "",

@@ -27,6 +27,7 @@ const init = (arm: "askboard" | "auq" | "baseline") => ({
           { name: "claude.ai Docs", status: "connected" },
         ],
   plugins: arm === "askboard" ? [{ name: "askboard", path: "/repo" }] : [],
+  skills: arm === "askboard" ? ["askboard:askboard"] : [],
   result: { subtype: "success", isError: false },
 });
 
@@ -169,7 +170,9 @@ describe("buildReport", () => {
     expect(report.arms.askboard).toMatchObject({
       mcpServers: ["claude.ai Docs (connected)", "plugin:askboard:askboard (connected)"],
       plugins: ["askboard (/repo)"],
+      skills: ["askboard:askboard"],
     });
+    expect(report.arms.auq.skills).toEqual([]);
     expect(report.arms.auq.mcpServers).toContain("bench (connected)");
     expect(report.loading).toContain("--plugin-dir /repo");
     expect(report.rules.join(" ")).toContain("requestId");
@@ -188,6 +191,21 @@ describe("buildReport", () => {
       "effort: medium in the transcripts, high pinned",
       "Claude Code: 2.1.314 in the transcripts, 2.1.315 at preflight",
     ]);
+  });
+
+  test("flags a skill other than askboard:askboard, naming it, and nothing for the expected lists", () => {
+    expect(report.differences.join(" ")).not.toContain("skill");
+    const [first, ...rest] = measures;
+    if (first === undefined || first.init === undefined) throw new Error("no measure");
+    const extra = {
+      ...first,
+      init: { ...first.init, skills: ["askboard:askboard", "deep-research"] },
+    };
+    const flagged = buildReport([extra, ...rest], context);
+    expect(flagged.differences).toHaveLength(1);
+    expect(flagged.differences[0]).toContain("deep-research");
+    expect(flagged.differences[0]).not.toContain("askboard:askboard (");
+    expect(renderMarkdown(flagged)).toContain("skills askboard:askboard, deep-research");
   });
 
   test("a run that wrote both 5-minute and 1-hour caches is flagged", () => {

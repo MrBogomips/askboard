@@ -93,7 +93,7 @@ const itemIndex = (
     }),
     ...widgets.map(
       ({ type, noun, skill }) =>
-        `- ${noun}: ${skill?.use} → ${link(type, `references/widgets/${type}.md`)}`,
+        `- ${noun} (\`${type}\`): ${skill?.use} → ${link(type, `references/widgets/${type}.md`)}`,
     ),
     ...molecules.map(
       ({ molecule }) =>

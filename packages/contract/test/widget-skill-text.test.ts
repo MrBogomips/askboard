@@ -104,8 +104,39 @@ describe("the skill rule in the registry's shape check", () => {
     expect(registryShapeProblems(PROBE_TYPES)).toEqual([]);
   });
 
-  test("a malformed entry, with no usable use, is refused rather than thrown at", () => {
+  test("a use that is not a string is refused rather than thrown at", () => {
     const malformed = { ...PROBE_WIDGET, skill: { use: 3 } } as unknown as WidgetType;
     expect(rulesOf(registryShapeProblems([malformed]))).toEqual(["probe:skill"]);
+  });
+
+  // A teaching text of another shape is one problem naming the type, and the other entries of the
+  // list are still checked (security review U-1).
+  const shapes: readonly [string, unknown][] = [
+    ["null", null],
+    ["a notes string", { use: "ok", notes: "a note" }],
+    ["a notes object", { use: "ok", notes: { a: "b" } }],
+    ["a notes number", { use: "ok", notes: 3 }],
+  ];
+  const checks = [
+    ["registryShapeProblems", registryShapeProblems],
+    ["widgetRegistryProblems", widgetRegistryProblems],
+  ] as const;
+
+  for (const [name, check] of checks) {
+    for (const [label, skill] of shapes) {
+      test(`${name}: a skill of ${label} is one problem naming the type, with no throw`, () => {
+        const malformed = { ...PROBE_WIDGET, skill } as unknown as WidgetType;
+        const [tree] = WIDGET_TYPES;
+        if (tree === undefined) throw new Error("no tree");
+        const long = { ...tree, skill: { use: "a".repeat(201) } };
+        const problems = check([malformed, long]).filter(({ rule }) => rule === "skill");
+        expect(rulesOf(problems)).toEqual(["probe:skill", `${tree.type}:skill`]);
+      });
+    }
+  }
+
+  test("a notes of null is treated as absent", () => {
+    const entry = { ...PROBE_WIDGET, skill: { use: "ok", notes: null } } as unknown as WidgetType;
+    expect(registryShapeProblems([entry])).toEqual([]);
   });
 });

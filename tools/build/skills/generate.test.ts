@@ -7,6 +7,7 @@ import {
   ASKING_RULE_TEXTS,
   ASKING_RULES,
   ID_PATTERN,
+  NON_WIDGET_ITEM_TYPES,
   SNAPSHOT_DATA_ELEMENT,
   SNAPSHOT_FOLDER,
   WIDGET_TYPES,
@@ -215,6 +216,23 @@ describe("SKILL.md item index", () => {
     for (const { use } of Object.values(MOLECULE_SKILLS)) expect(index).toContain(use);
   });
 
+  test("names every item type of the contract in backticks, a test-made one included", () => {
+    for (const type of [...NON_WIDGET_ITEM_TYPES, ...WIDGET_TYPES.map((entry) => entry.type)]) {
+      expect(skill, type).toContain(`\`${type}\``);
+    }
+    const extra = { ...PROBE_WIDGET, skill: { use: "a pick among options" } };
+    const more = generateSkill({ widgets: [...WIDGET_TYPES, extra] }).files.get("SKILL.md") ?? "";
+    expect(more.slice(more.indexOf("## Items"))).toContain("(`probe`)");
+  });
+
+  test("teaches the area: its shape, top level only, holding questions, all or none", () => {
+    const items = skill.slice(skill.indexOf("## Items"));
+    expect(items).toContain('{type: "area", id, props: {title, items}}');
+    expect(items).toContain("At the top level");
+    expect(items).toContain("group of questions");
+    expect(items).toContain("Once one top-level item is an area, every one is");
+  });
+
   test("links the answers reference from the delivery section", () => {
     expect(skill).toContain("](references/answers.md)");
   });
@@ -233,6 +251,12 @@ describe("the answers reference", () => {
   test("names the Snapshot folder and data element from the contract", () => {
     expect(answers).toContain(SNAPSHOT_FOLDER);
     expect(answers).toContain(SNAPSHOT_DATA_ELEMENT);
+  });
+
+  test("says an answer marked tooLarge carries no changes, derived values or results, and to fetch", () => {
+    expect(answers).toContain("`tooLarge`");
+    expect(answers).toContain("`changes`, derived values or `results`");
+    expect(answers).toContain("`fetch` the item");
   });
 
   test("holds one collect result example", () => {
@@ -269,6 +293,6 @@ describe("generateSkill's inputs", () => {
     const extra = { ...PROBE_WIDGET, skill: { use: "a pick among options" } };
     const more = generateSkill({ widgets: [...WIDGET_TYPES, extra] });
     expect(more.files.has("references/widgets/probe.md")).toBe(true);
-    expect(more.files.get("SKILL.md")).toContain("a Probe: a pick among options");
+    expect(more.files.get("SKILL.md")).toContain("a Probe (`probe`): a pick among options");
   });
 });

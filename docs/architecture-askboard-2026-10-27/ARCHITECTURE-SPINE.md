@@ -801,7 +801,7 @@ askboard/
     mod/                 # Claude Code mod: push transport, pending-asks status
     hooks/               # Claude Code hooks: out-of-process client of the local API (AD-1, AD-16)
     bench/               # benchmark runner, scripted answerer, report, cost model
-  skills/                # Agent Skills, reference files generated from contract
+  skills/                # Agent Skills: SKILL.md and its references, all generated from contract and molecules
   agents/                # shipped agents (none in the first version; Deferred)
   scripts/               # launcher: platform executable fetch, checksum, rename
   tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)

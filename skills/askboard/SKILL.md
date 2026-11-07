@@ -35,15 +35,17 @@ Without AskBoard's hooks a rule is only advisory: nothing stops an AskUserQuesti
 
 ## Items
 
-A question is `{type: "question", id, props: {text, header?, options?, multiSelect?, allowOther?, items?}}`. Its `items` hold context, widgets and molecules, each `{type, id, props}`. Read the reference of a type before you use it:
+A question (`question`) is `{type: "question", id, props: {text, header?, options?, multiSelect?, allowOther?, items?}}`. Its `items` hold context, widgets and molecule references (`molecule`), each `{type, id, props}`. Read the reference of a type before you use it:
 
 - `excerpt`: a passage of a project file beside the question: a pointer, which AskBoard resolves when the ask is sent, or text you wrote, never both → [context](references/context.md)
 - `reference`: a file or a web page the user opens in one click: a pointer or an http or https URL, never both → [context](references/context.md)
 - `image`: a screenshot or picture saved as a project file, with the text that describes it → [context](references/context.md)
-- a Tree: a work breakdown or any hierarchy the user edits: add, move, rename, remove nodes, adjust estimates → [tree](references/widgets/tree.md)
-- a Gantt: a schedule the user adjusts: tasks, durations, dependencies, with dates and the critical path computed → [gantt](references/widgets/gantt.md)
+- a Tree (`tree`): a work breakdown or any hierarchy the user edits: add, move, rename, remove nodes, adjust estimates → [tree](references/widgets/tree.md)
+- a Gantt (`gantt`): a schedule the user adjusts: tasks, durations, dependencies, with dates and the critical path computed → [gantt](references/widgets/gantt.md)
 - `gantt-plan`: a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed → [gantt-plan](references/molecules/gantt-plan.md)
 - `wbs-pert`: a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up → [wbs-pert](references/molecules/wbs-pert.md)
+
+At the top level an ask's `items` may be areas (`area`) instead of questions: `{type: "area", id, props: {title, items}}`, a titled group of questions. Once one top-level item is an area, every one is.
 
 ## After you ask
 

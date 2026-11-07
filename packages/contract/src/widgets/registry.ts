@@ -187,13 +187,20 @@ const skillProblems = (entry: WidgetType): RegistryProblem[] => {
   if (skill === undefined) return [];
   const problems: RegistryProblem[] = [];
   const at = (message: string) => problems.push({ type: entry.type, rule: "skill", message });
+  if (typeof skill !== "object" || skill === null) {
+    at(`the teaching text of "${entry.type}" is no object with a use and notes`);
+    return problems;
+  }
+  if (skill.notes !== undefined && skill.notes !== null && !Array.isArray(skill.notes)) {
+    at(`the teaching notes of "${entry.type}" are no list`);
+  }
   const use = typeof skill.use === "string" ? skill.use.length : 0;
   if (use < 1 || use > SKILL_USE_MAX) {
     at(
       `the teaching use of "${entry.type}" has ${use} characters, and a use has 1 to ${SKILL_USE_MAX}`,
     );
   }
-  (skill.notes ?? []).forEach((note, index) => {
+  (Array.isArray(skill.notes) ? skill.notes : []).forEach((note, index) => {
     const length = typeof note === "string" ? note.length : 0;
     if (length < 1 || length > SKILL_NOTE_MAX) {
       at(
