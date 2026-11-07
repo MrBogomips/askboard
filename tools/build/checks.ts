@@ -76,3 +76,36 @@ export const hostOnlyNeedProblems = (chunks: readonly NeedingChunk[]): string[] 
         ),
     );
 };
+
+const URL_CALL = /url\(/gi;
+const IMPORT_RULE = /@import\b/gi;
+const SHOWN_CHARACTERS = 80;
+
+// The text at a match, cut: a URL or an import as the author wrote it, never a whole stylesheet.
+const shown = (css: string, from: number): string => {
+  const rest = css.slice(from, from + SHOWN_CHARACTERS + 1);
+  return rest.length > SHOWN_CHARACTERS ? `${rest.slice(0, SHOWN_CHARACTERS)}...` : rest;
+};
+
+/**
+ * A chunk's styles that would request a file (AD-8, AD-9, NFR-9): any `url(` not followed by
+ * `data:`, and any `@import`. A chunk's styles are inlined into the view, whose policy admits no
+ * other font or style source, so the build fails here rather than the board in the browser.
+ */
+export const styleUrlProblems = (chunk: string, css: string): string[] => {
+  const problems: string[] = [];
+  for (const { index } of css.matchAll(URL_CALL)) {
+    const after = css.slice(index + 4).replace(/^\s*["']?\s*/, "");
+    if (!/^data:/i.test(after)) {
+      problems.push(
+        `the chunk "${chunk}" styles name a file it would request: ${shown(css, index)}`,
+      );
+    }
+  }
+  for (const { index } of css.matchAll(IMPORT_RULE)) {
+    problems.push(
+      `the chunk "${chunk}" styles hold an @import, which would request a file: ${shown(css, index)}`,
+    );
+  }
+  return problems;
+};

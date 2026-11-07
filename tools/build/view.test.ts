@@ -28,13 +28,13 @@ import {
   targetOf,
 } from "../../packages/view/src/assemble/index.ts";
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
-import { hostOnlyNeedProblems } from "./checks.ts";
+import { hostOnlyNeedProblems, styleUrlProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
 import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
-import { main } from "./view.ts";
+import { buildView, main } from "./view.ts";
 
 // One real build into a scratch folder, recording its sizes into a scratch file: the checks below
 // read what `bun run build:view` writes to dist/view/.
@@ -706,5 +706,57 @@ describe("build failures", () => {
     const logged: string[] = [];
     expect(await main(["--bogus"], (line) => logged.push(line))).toBe(1);
     expect(logged.join("\n")).toContain("--record-sizes");
+  });
+});
+
+describe("package stylesheets in a chunk (latex-kanban-timeline, design decision 8)", () => {
+  const FONT = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 7, 7, 7]);
+  const sheet = async (name: string, css: string) => {
+    const path = join(dir, name);
+    await Bun.write(path, css);
+    return path;
+  };
+
+  test("a listed stylesheet follows Tailwind's styles in its chunk, with its font inlined", async () => {
+    await Bun.write(join(dir, "pkg-fonts", "f.woff2"), FONT);
+    await Bun.write(join(dir, "pkg-fonts", "f.woff"), new Uint8Array([1]));
+    const path = await sheet(
+      "pkg.css",
+      "@font-face{font-family:P;src:url(pkg-fonts/f.woff2) format('woff2'),url(pkg-fonts/f.woff) format('woff')}.pkg{font-family:P}",
+    );
+    const target = join(dir, "pkg-build");
+    const built = await buildView(target, { choice: [path] });
+    const file = built.manifest.chunks.choice?.styles[0]?.path ?? "";
+    const css = await Bun.file(join(target, file)).text();
+    expect(css).toContain("var(--");
+    expect(css.indexOf(".pkg{font-family:P}")).toBeGreaterThan(css.indexOf("var(--"));
+    expect(css).toContain(`url(data:font/woff2;base64,${Buffer.from(FONT).toString("base64")})`);
+    expect(css).not.toContain("f.woff");
+    await expect(
+      buildView(join(dir, "pkg-build-2"), { choice: [path], nothing: [path] }),
+    ).rejects.toThrow('"nothing"');
+  }, 120_000);
+
+  test("a listed stylesheet that names a file fails the build, naming the chunk and the URL", async () => {
+    const path = await sheet("bad.css", ".bad{background:url(img/a.svg)}");
+    const error = await buildView(join(dir, "bad-build"), { choice: [path] }).catch((e) => e);
+    expect(String(error)).toContain('"choice"');
+    expect(String(error)).toContain("img/a.svg");
+  }, 120_000);
+
+  test("a listed stylesheet with an @import fails the build, naming the chunk and the import", async () => {
+    const path = await sheet("import.css", '@import "other.css";.a{}');
+    const error = await buildView(join(dir, "import-build"), { choice: [path] }).catch((e) => e);
+    expect(String(error)).toContain('"choice"');
+    expect(String(error)).toContain("@import");
+  }, 120_000);
+
+  test("every chunk's styles and the board page's pass the URL check", async () => {
+    const files = [
+      ...manifest.boardPage.styles,
+      ...Object.values(manifest.chunks).flatMap((c) => c.styles),
+    ];
+    expect(files.length).toBeGreaterThan(3);
+    for (const { path } of files) expect(styleUrlProblems(path, await text(path))).toEqual([]);
   });
 });

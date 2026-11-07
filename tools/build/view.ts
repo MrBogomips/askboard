@@ -5,8 +5,10 @@
 // `import.meta`, a script or style that cannot be inlined as it is, a package without a licence,
 // a board page that would compile schemas, a chunk that needs a host-only chunk without being one
 // (snapshot design decision 5), a registered widget type with no chunk and a widget chunk of no
-// registered type (widget-registry, design decision 10), a manifest the contract refuses, a file whose hash does not match,
-// and a chunk grown more than 10% over `packages/view/chunk-sizes.json`.
+// registered type (widget-registry, design decision 10), a style that requests a file (a `url(` that
+// is not a `data:` URL, an `@import`) or a listed package stylesheet that cannot be read
+// (latex-kanban-timeline, design decision 8), a manifest the contract refuses, a file whose hash
+// does not match, and a chunk grown more than 10% over `packages/view/chunk-sizes.json`.
 //
 // Usage: bun tools/build/view.ts [--record-sizes] [--out <dir>] [--sizes <file>]
 //   --record-sizes  write the built sizes to the sizes file instead of checking them; a change
@@ -32,6 +34,7 @@ import {
   hostOnlyNeedProblems,
   inlineScript,
   inlineStyleProblem,
+  styleUrlProblems,
 } from "./checks.ts";
 import {
   type Bundle,
@@ -61,6 +64,7 @@ import {
   tailwindInput,
   writeTokenFiles,
 } from "./styles.ts";
+import { CHUNK_STYLESHEETS, type ChunkStylesheets, loadChunkStylesheets } from "./stylesheets.ts";
 import { hostValidatorsCode, validatorsPlugin } from "./validators.ts";
 
 /** The board page's name among the recorded sizes. */
@@ -99,17 +103,20 @@ const stylesOf = async (
   return css.includes("{") ? css : "";
 };
 
-// Inline-safe script, styles and notices for one bundled chunk or the board page.
+// Inline-safe script, styles and notices for one bundled chunk or the board page. The chunk's
+// package stylesheet, when it has one, follows Tailwind's styles; no style may request a file.
 const finish = async (
   name: string,
   plan: StylePlan | undefined,
   bundle: Bundle,
   work: string,
+  packageStyles?: string,
 ): Promise<Finished> => {
   const { code, problems } = inlineScript(name, bundle.code);
   failIf(problems);
-  const styles = await stylesOf(name, plan, bundle.inputs, work);
-  failIf([inlineStyleProblem(name, styles)]);
+  const own = await stylesOf(name, plan, bundle.inputs, work);
+  const styles = [own, packageStyles ?? ""].filter((part) => part !== "").join("\n");
+  failIf([...styleUrlProblems(name, styles), inlineStyleProblem(name, styles)]);
   const inputs = plan === "document" ? [...bundle.inputs, PREFLIGHT_FILE] : bundle.inputs;
   return { name, script: code, styles, notices: await collectNotices(name, inputs, ROOT) };
 };
@@ -120,16 +127,24 @@ type BuiltChunk = Finished & {
   readonly needs: readonly string[];
 };
 
-const buildChunks = async (work: string): Promise<BuiltChunk[]> => {
+const buildChunks = async (work: string, stylesheets: ChunkStylesheets): Promise<BuiltChunk[]> => {
   const modules = sharedModules(await portExports());
   const definitions = await chunkDefinitions(work);
   failIf(widgetChunkProblems(definitions, WIDGET_TYPES));
+  const packages = await loadChunkStylesheets(stylesheets, new Set(definitions.map((d) => d.name)));
+  failIf([...packages.problems]);
   return Promise.all(
     definitions.map(async ({ name, kind, entry, hostOnly }) => {
       const needs = new Set<string>();
       const plugins: BunPlugin[] = [sharedModulesPlugin(name, modules, needs)];
       const bundle = await bundleChunk({ name, entry }, plugins);
-      const finished = await finish(name, stylePlanOf(kind), bundle, work);
+      const finished = await finish(
+        name,
+        stylePlanOf(kind),
+        bundle,
+        work,
+        packages.styles.get(name),
+      );
       return { ...finished, kind, ...(hostOnly ? { hostOnly } : {}), needs: [...needs].sort() };
     }),
   );
@@ -227,12 +242,18 @@ const verifyBuild = async (out: string, manifest: ViewManifest): Promise<void> =
 export type BuiltView = { readonly manifest: ViewManifest; readonly sizes: ChunkSizes };
 
 /** Builds the view into `out`, replacing what is there. */
-export const buildView = async (out: string): Promise<BuiltView> => {
+export const buildView = async (
+  out: string,
+  stylesheets: ChunkStylesheets = CHUNK_STYLESHEETS,
+): Promise<BuiltView> => {
   await checkReplaceable(out);
   const work = await mkdtemp(join(tmpdir(), "askboard-view-"));
   try {
     await writeTokenFiles(work);
-    const [page, chunks] = await Promise.all([buildBoardPage(work), buildChunks(work)]);
+    const [page, chunks] = await Promise.all([
+      buildBoardPage(work),
+      buildChunks(work, stylesheets),
+    ]);
     failIf(hostOnlyNeedProblems(chunks));
     // A licence text recorded for a package that no chunk took is stale (ask-lifecycle, 6.6).
     const used = [page, ...chunks].flatMap(({ notices }) =>

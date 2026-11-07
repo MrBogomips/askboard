@@ -12,6 +12,7 @@
     "@askboard/contract": "workspace:*",
     "@askboard/view": "workspace:*",
     "@atlaskit/pragmatic-drag-and-drop": "4.0.0",
+    "katex": "0.19.1",
     "radix-ui": "1.8.1",
     "react": "19.3.1"
   },

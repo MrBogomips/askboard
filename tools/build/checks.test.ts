@@ -5,6 +5,7 @@ import {
   importMetaProblem,
   inlineScript,
   inlineStyleProblem,
+  styleUrlProblems,
 } from "./checks.ts";
 
 describe("import.meta in a chunk (AD-9)", () => {
@@ -87,5 +88,45 @@ describe("host-only chunks are needed only by host-only chunks (snapshot design 
       'the chunk "shell" needs the host-only chunk "ext-apps", which only a view with a host loads: take it from the shared-module registry when there is one, never by an import',
       'the chunk "choice" needs the host-only chunk "ext-apps", which only a view with a host loads: take it from the shared-module registry when there is one, never by an import',
     ]);
+  });
+});
+
+describe("styles that request nothing (design decision 8; view spec, Package stylesheets in a chunk)", () => {
+  test("styles with data: URLs and no import pass", () => {
+    const css =
+      '@font-face{font-family:A;src:url(data:font/woff2;base64,AAAA) format("woff2")}.a{background:url( "data:image/png;base64,AA" )}.b{color:red}';
+    expect(styleUrlProblems("latex", css)).toEqual([]);
+    expect(styleUrlProblems("latex", "")).toEqual([]);
+  });
+
+  test("a url naming a file fails, naming the chunk and the URL", () => {
+    const [problem, ...rest] = styleUrlProblems("latex", ".a{src:url(fonts/a.svg)}");
+    expect(rest).toEqual([]);
+    expect(problem).toContain('"latex"');
+    expect(problem).toContain("fonts/a.svg");
+  });
+
+  test("quoted, spaced and upper-case urls fail too, each once", () => {
+    const problems = styleUrlProblems(
+      "kanban",
+      ".a{background:url(\"x.png\")}.b{background:URL( 'y.png' )}.c{background:url(https://example.com/z.png)}",
+    );
+    expect(problems).toHaveLength(3);
+    expect(problems.join("\n")).toContain("x.png");
+    expect(problems.join("\n")).toContain("y.png");
+    expect(problems.join("\n")).toContain("https://example.com/z.png");
+  });
+
+  test("an @import fails, naming the chunk and the import, with a string or a url", () => {
+    const [first] = styleUrlProblems("shell", '@import "b.css";.a{}');
+    expect(first).toContain('"shell"');
+    expect(first).toContain("@import");
+    expect(first).toContain("b.css");
+    expect(styleUrlProblems("shell", "@IMPORT url(data:text/css,a{});").length).toBeGreaterThan(0);
+  });
+
+  test("a very long url is cut in the message", () => {
+    const [problem] = styleUrlProblems("x", `.a{background:url(${"a".repeat(500)})}`);
+    expect(problem?.length ?? 0).toBeLessThan(300);
   });
 });
