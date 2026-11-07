@@ -8,7 +8,7 @@
 // and the toolbar's roving focus.
 
 import type { TreeProps } from "@askboard/contract";
-import type { FocusMove, ToolbarMove } from "./keys.ts";
+import type { FocusMove } from "./keys.ts";
 import { locate, nodeIds } from "./nodes.ts";
 import { cellCount, openingCollapsed, type TreeRow, visibleRows } from "./rows.ts";
 
@@ -194,37 +194,5 @@ export const focusAfterRemove = (view: TreeView, value: TreeProps, nodeId: strin
   return updated(view, focus, expanding(view.collapsed, nodeIds([place.node])));
 };
 
-const enabledAt = (enabled: readonly boolean[]): number[] =>
-  enabled.flatMap((on, at) => (on ? [at] : []));
-
-/**
- * The tool the toolbar's focus moves to from `current` on `move`, skipping disabled tools and
- * stopping at the ends (open question 10); `current` when no other tool fits.
- */
-export const toolbarFocus = (
-  enabled: readonly boolean[],
-  current: number,
-  move: ToolbarMove,
-): number => {
-  const tools = enabledAt(enabled);
-  switch (move) {
-    case "previous":
-      return tools.findLast((at) => at < current) ?? current;
-    case "next":
-      return tools.find((at) => at > current) ?? current;
-    case "first":
-      return tools[0] ?? current;
-    case "last":
-      return tools.at(-1) ?? current;
-  }
-};
-
-/**
- * The tool that holds the toolbar's Tab stop: `current` while enabled, else the nearest enabled
- * tool after it, else before it; `undefined` when every tool is disabled, as in a read-only Tree.
- */
-export const toolbarStop = (enabled: readonly boolean[], current: number): number | undefined => {
-  if (enabled[current] === true) return current;
-  const tools = enabledAt(enabled);
-  return tools.find((at) => at > current) ?? tools.findLast((at) => at < current);
-};
+// The toolbar's roving focus is shared with the Ranking's toolbar (approval-scale-ranking).
+export { toolbarFocus, toolbarStop } from "../../shared/toolbar-focus.ts";
