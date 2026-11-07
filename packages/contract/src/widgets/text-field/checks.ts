@@ -1,20 +1,24 @@
 // The TextField's checks (atoms, design decision 1): its props' limits restated plain for the
 // component, and of a result, the shape the schema takes and what the item's props add: the text
-// fits `maxLength` in code points and holds no line break unless the field is multiline.
+// fits `maxLength` in code points and holds no line break unless the field is multiline. Since
+// form-widget it also holds the field's checks: `required` and `minLength` for `ask-core` and the
+// board, and the pattern, which only the board runs (design decisions 2 and 3).
 //
 // Plain ECMAScript with no JSON and no Ajv: the field chunks bundle it. Nothing here throws on a
 // value it cannot read, and a result against props it cannot read is refused (AD-10).
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
+import { type FieldCheckFailure, requiredFailure, requiredPropProblems } from "../field-checks.ts";
 import {
   ATOM_DESCRIPTION_MAX_CHARS,
   ATOM_LABEL_MAX_CHARS,
   codePointCount,
 } from "../shared/atoms.ts";
+import { PATTERN_MAX_CHARS, PATTERN_TEXT_MAX_CHARS, patternProblem } from "../shared/pattern.ts";
 import { TEXT_FIELD_MAX_CHARS } from "./constants.ts";
 
-const KEYS = ["label", "description", "multiline", "maxLength"];
+const KEYS = ["label", "description", "multiline", "maxLength", "required", "minLength", "pattern"];
 
 const textWithin = (value: unknown, max: number): boolean =>
   typeof value === "string" && codePointCount(value) >= 1 && codePointCount(value) <= max;
@@ -32,6 +36,7 @@ export const textFieldPropsProblems = (props: unknown): readonly Problem[] => {
     .filter((key) => !KEYS.includes(key))
     .map((key) => ({ path: `/${key}`, message: `unknown field "${key}"` }));
   const at = (path: string, message: string) => problems.push({ path, message });
+  problems.push(...requiredPropProblems(props));
   if (!textWithin(props.label, ATOM_LABEL_MAX_CHARS)) {
     at("/label", `the label is a text of 1 to ${ATOM_LABEL_MAX_CHARS} characters`);
   }
@@ -58,6 +63,69 @@ export const textFieldPropsProblems = (props: unknown): readonly Problem[] => {
   ) {
     at("/maxLength", `maxLength is a whole number from 1 to ${TEXT_FIELD_MAX_CHARS}`);
   }
+  problems.push(...lengthProblems(props), ...patternProblems(props));
+  return problems;
+};
+
+/**
+ * The most code points the field's text holds: `maxLength`, else `PATTERN_TEXT_MAX_CHARS` for a
+ * field with a pattern, which the board runs on the text, else `TEXT_FIELD_MAX_CHARS`.
+ */
+export const textFieldLimit = (props: Readonly<Record<string, unknown>>): number =>
+  typeof props.maxLength === "number"
+    ? props.maxLength
+    : props.pattern === undefined
+      ? TEXT_FIELD_MAX_CHARS
+      : PATTERN_TEXT_MAX_CHARS;
+
+const isWhole = (value: unknown, max: number): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= max;
+
+// `minLength`: a whole number from 1 to the field's own limit, which `maxLength` or a pattern sets.
+const lengthProblems = (props: Readonly<Record<string, unknown>>): readonly Problem[] => {
+  const { minLength } = props;
+  if (minLength === undefined) return [];
+  if (!isWhole(minLength, TEXT_FIELD_MAX_CHARS)) {
+    return [
+      {
+        path: "/minLength",
+        message: `minLength is a whole number from 1 to ${TEXT_FIELD_MAX_CHARS}`,
+      },
+    ];
+  }
+  const limit = textFieldLimit(props);
+  return minLength > limit
+    ? [
+        {
+          path: "/minLength",
+          message: `minLength ${minLength} is above the most the field holds, ${limit} characters`,
+        },
+      ]
+    : [];
+};
+
+// `pattern`: a text of 1 to `PATTERN_MAX_CHARS` code points inside the safe subset, on a field of at
+// most `PATTERN_TEXT_MAX_CHARS` characters (NFR-5, AD-8).
+const patternProblems = (props: Readonly<Record<string, unknown>>): readonly Problem[] => {
+  const { pattern, maxLength } = props;
+  if (pattern === undefined) return [];
+  if (typeof pattern !== "string" || pattern === "") {
+    return [
+      {
+        path: "/pattern",
+        message: `the pattern is a text of 1 to ${PATTERN_MAX_CHARS} characters`,
+      },
+    ];
+  }
+  const problems: Problem[] = [];
+  const why = patternProblem(pattern);
+  if (why !== undefined) problems.push({ path: "/pattern", message: `the pattern ${why}` });
+  if (typeof maxLength === "number" && maxLength > PATTERN_TEXT_MAX_CHARS) {
+    problems.push({
+      path: "/maxLength",
+      message: `a field with a pattern holds at most ${PATTERN_TEXT_MAX_CHARS} characters, and maxLength is ${maxLength}`,
+    });
+  }
   return problems;
 };
 
@@ -65,7 +133,8 @@ const LINE_BREAK = /[\n\r]/;
 
 /**
  * What a schema-valid TextField result still gets wrong against the item's props: more code points
- * than `maxLength` (`TEXT_FIELD_MAX_CHARS` when absent), and a line feed or carriage return in a
+ * than `textFieldLimit` (`maxLength`, else 1,000 for a field with a pattern, else
+ * `TEXT_FIELD_MAX_CHARS`), and a line feed or carriage return in a
  * field that is not multiline. Props that are no TextField's refuse the result, since nothing can
  * check it.
  */
@@ -79,7 +148,7 @@ export const textFieldResultProblems = (result: unknown, props: unknown): readon
     ];
   }
   if (typeof result !== "string") return [];
-  const limit = typeof props.maxLength === "number" ? props.maxLength : TEXT_FIELD_MAX_CHARS;
+  const limit = textFieldLimit(props);
   const count = codePointCount(result);
   const problems: Problem[] = [];
   if (count > limit) {
@@ -100,3 +169,62 @@ export const textFieldResultProblems = (result: unknown, props: unknown): readon
  */
 export const textFieldResultShape = (result: unknown): boolean =>
   textWithin(result, TEXT_FIELD_MAX_CHARS);
+
+/**
+ * The TextField's field check (form-widget, design decision 2): `required`, then `minLength` in code
+ * points. It never reads `pattern`: only the board runs that, so the session process runs no agent
+ * pattern on user text. A text that fails it still fits.
+ */
+export const textFieldFieldCheck = (
+  result: unknown,
+  props: unknown,
+): FieldCheckFailure | undefined => {
+  const required = requiredFailure(props, result);
+  if (required !== undefined) return required;
+  if (typeof result !== "string" || !isRecord(props)) return undefined;
+  const { minLength } = props;
+  return isWhole(minLength, TEXT_FIELD_MAX_CHARS) && codePointCount(result) < minLength
+    ? { code: "min-length", min: minLength }
+    : undefined;
+};
+
+// The patterns compiled so far, by text, at most `COMPILED_MAX`: the oldest goes first. A pattern
+// that does not compile is held as `null` and fails every text.
+const COMPILED_MAX = 64;
+const compiled = new Map<string, RegExp | null>();
+
+const compiledPattern = (pattern: string): RegExp | null => {
+  const known = compiled.get(pattern);
+  if (known !== undefined) return known;
+  let regex: RegExp | null;
+  try {
+    regex = new RegExp(pattern, "u");
+  } catch {
+    regex = null;
+  }
+  if (compiled.size >= COMPILED_MAX) {
+    const oldest = compiled.keys().next();
+    if (!oldest.done) compiled.delete(oldest.value);
+  }
+  compiled.set(pattern, regex);
+  return regex;
+};
+
+/**
+ * The TextField's pattern check, which only the board runs, on the user's text (form-widget, design
+ * decision 3): the pattern read with the `u` flag and unanchored, as JSON Schema reads `pattern`.
+ * A pattern that does not compile fails; a field with no pattern, no text or props that are no
+ * TextField's never does. The session process never calls it (NFR-5, AD-8).
+ */
+export const textFieldPatternFailure = (
+  result: unknown,
+  props: unknown,
+): FieldCheckFailure | undefined => {
+  if (typeof result !== "string" || !isRecord(props) || !Object.hasOwn(props, "pattern")) {
+    return undefined;
+  }
+  const { pattern } = props;
+  if (typeof pattern !== "string") return undefined;
+  const regex = compiledPattern(pattern);
+  return regex === null || !regex.test(result) ? { code: "pattern" } : undefined;
+};

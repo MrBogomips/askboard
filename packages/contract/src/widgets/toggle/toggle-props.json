@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:toggle-props",
   "title": "Toggle props",
-  "description": "A Toggle item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters and an optional description of 1 to 1000. It starts unset. In the input format since atoms.",
+  "description": "A Toggle item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters and an optional description of 1 to 1000. It starts unset. `required` since form-widget. In the input format since atoms.",
   "type": "object",
   "properties": {
     "label": { "type": "string", "minLength": 1, "maxLength": 200 },
-    "description": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "required": { "type": "boolean" }
   },
   "required": ["label"],
   "additionalProperties": false

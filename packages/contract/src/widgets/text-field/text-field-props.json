@@ -2,13 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:text-field-props",
   "title": "TextField props",
-  "description": "A TextField item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters, an optional description of 1 to 1000, an optional multiline and an optional maxLength from 1 to 10000 (10000 when absent), counted in characters (code points). In the input format since atoms.",
+  "description": "A TextField item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters, an optional description of 1 to 1000, an optional multiline and an optional maxLength from 1 to 10000 (10000 when absent), counted in characters (code points). `required` since form-widget, and `minLength` and `pattern`: a minimum of 1 to 10000 characters, and a pattern of 1 to 200 characters that checks.ts holds to the safe subset. In the input format since atoms.",
   "type": "object",
   "properties": {
     "label": { "type": "string", "minLength": 1, "maxLength": 200 },
     "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
     "multiline": { "type": "boolean" },
-    "maxLength": { "type": "integer", "minimum": 1, "maximum": 10000 }
+    "maxLength": { "type": "integer", "minimum": 1, "maximum": 10000 },
+    "minLength": { "type": "integer", "minimum": 1, "maximum": 10000 },
+    "pattern": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "required": { "type": "boolean" }
   },
   "required": ["label"],
   "additionalProperties": false

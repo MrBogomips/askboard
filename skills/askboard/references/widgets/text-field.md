@@ -1,7 +1,7 @@
 # TextField
 
 Use for a short or long free text the user types, such as a name or a comment.
-Item type `text-field`: props are a TextField's props {label, description?, multiline?, maxLength?}.
+Item type `text-field`: props are a TextField's props {label, description?, required?, multiline?, minLength?, maxLength?, pattern?}.
 
 ## Fields
 
@@ -9,6 +9,9 @@ Item type `text-field`: props are a TextField's props {label, description?, mult
 - `description` (string, 1 to 1000 characters)
 - `multiline` (true or false)
 - `maxLength` (whole number, 1 to 10000)
+- `minLength` (whole number, 1 to 10000)
+- `pattern` (string, 1 to 200 characters)
+- `required` (true or false)
 
 ## Notes
 

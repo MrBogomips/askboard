@@ -2,13 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:date-field-props",
   "title": "DateField props",
-  "description": "A DateField item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters, an optional description of 1 to 1000 and optional min and max, the Gantt's full-dates. That the days exist within the Gantt's days and that max is not before min are checks of dateFieldPropsProblems. In the input format since atoms.",
+  "description": "A DateField item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters, an optional description of 1 to 1000 and optional min and max, the Gantt's full-dates. That the days exist within the Gantt's days and that max is not before min are checks of dateFieldPropsProblems. `required` since form-widget. In the input format since atoms.",
   "type": "object",
   "properties": {
     "label": { "type": "string", "minLength": 1, "maxLength": 200 },
     "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
     "min": { "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate" },
-    "max": { "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate" }
+    "max": { "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate" },
+    "required": { "type": "boolean" }
   },
   "required": ["label"],
   "additionalProperties": false

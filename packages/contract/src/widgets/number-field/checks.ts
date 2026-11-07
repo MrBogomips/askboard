@@ -9,6 +9,7 @@
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
+import { type FieldCheckFailure, requiredFailure, requiredPropProblems } from "../field-checks.ts";
 import {
   ATOM_DESCRIPTION_MAX_CHARS,
   ATOM_LABEL_MAX_CHARS,
@@ -22,7 +23,7 @@ import {
   NUMBER_FIELD_STEP_UNDECIDABLE,
 } from "./constants.ts";
 
-const KEYS = ["label", "description", "min", "max", "step", "integer", "unit"];
+const KEYS = ["label", "description", "min", "max", "step", "integer", "unit", "required"];
 
 const textWithin = (value: unknown, max: number): boolean =>
   typeof value === "string" && codePointCount(value) >= 1 && codePointCount(value) <= max;
@@ -68,6 +69,7 @@ export const numberFieldPropsProblems = (props: unknown): readonly Problem[] => 
     .filter((key) => !KEYS.includes(key))
     .map((key) => ({ path: `/${key}`, message: `unknown field "${key}"` }));
   const at = (path: string, message: string) => problems.push({ path, message });
+  problems.push(...requiredPropProblems(props));
   if (!textWithin(props.label, ATOM_LABEL_MAX_CHARS)) {
     at("/label", `the label is a text of 1 to ${ATOM_LABEL_MAX_CHARS} characters`);
   }
@@ -167,3 +169,12 @@ export const numberFieldResultProblems = (result: unknown, props: unknown): read
  * finite number within `ATOM_NUMBER_BOUND` either way. What the item's props add is the check's.
  */
 export const numberFieldResultShape = (result: unknown): boolean => bounded(result);
+
+/**
+ * The NumberField's field check (form-widget, design decision 2): `required`, the one check it has.
+ * A value that fails only it still fits.
+ */
+export const numberFieldFieldCheck = (
+  result: unknown,
+  props: unknown,
+): FieldCheckFailure | undefined => requiredFailure(props, result);

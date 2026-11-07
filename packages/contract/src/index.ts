@@ -988,3 +988,23 @@ export {
   PATTERN_TEXT_MAX_CHARS,
   patternProblem,
 } from "./widgets/shared/pattern.ts";
+
+// The field checks of the input fields (form-widget, design decision 2): the failure a value can
+// have, `required` and the TextField's length and pattern, and the check through the registry.
+
+export { dateFieldFieldCheck } from "./widgets/date-field/checks.ts";
+export {
+  type FieldCheckFailure,
+  fieldCheckMessage,
+  requiredFailure,
+  requiredPropProblems,
+} from "./widgets/field-checks.ts";
+export { moneyFieldFieldCheck } from "./widgets/money-field/checks.ts";
+export { numberFieldFieldCheck } from "./widgets/number-field/checks.ts";
+export {
+  textFieldFieldCheck,
+  textFieldLimit,
+  textFieldPatternFailure,
+} from "./widgets/text-field/checks.ts";
+export { toggleFieldCheck } from "./widgets/toggle/checks.ts";
+export { widgetFieldCheck } from "./widgets/widget-field-check.ts";

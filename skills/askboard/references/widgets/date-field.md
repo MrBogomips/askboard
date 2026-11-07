@@ -1,7 +1,7 @@
 # DateField
 
 Use for a calendar day the user types or picks, optionally within a range.
-Item type `date-field`: props are a DateField's props {label, description?, min?, max?}.
+Item type `date-field`: props are a DateField's props {label, description?, required?, min?, max?}.
 
 ## Fields
 
@@ -9,6 +9,7 @@ Item type `date-field`: props are a DateField's props {label, description?, min?
 - `description` (string, 1 to 1000 characters)
 - `min` (string, matching `^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$`): An RFC 3339 full-date; whether the day exists is a check.
 - `max` (string, matching `^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$`): An RFC 3339 full-date; whether the day exists is a check.
+- `required` (true or false)
 
 ## Notes
 

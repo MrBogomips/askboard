@@ -14,9 +14,11 @@ const BOUND = `a number from -${ATOM_NUMBER_BOUND} to ${ATOM_NUMBER_BOUND}`;
 
 export const NUMBER_FIELD_EXPECTED: Readonly<Record<string, string>> = {
   "number-field.props":
-    "a NumberField's props {label, description?, min?, max?, step?, integer?, unit?}",
+    "a NumberField's props {label, description?, required?, min?, max?, step?, integer?, unit?}",
   "number-field.props.label": text(ATOM_LABEL_MAX_CHARS),
   "number-field.props.description": text(ATOM_DESCRIPTION_MAX_CHARS),
+  "number-field.props.required":
+    "true, for a field that must hold a value before the question is answered",
   "number-field.props.min": `${BOUND}, the lowest value`,
   "number-field.props.max": `${BOUND}, the highest value, not below min`,
   "number-field.props.step": `a number above 0 and at most ${NUMBER_FIELD_STEP_MAX}: values lie on it, counted from min, else from 0`,
@@ -26,5 +28,5 @@ export const NUMBER_FIELD_EXPECTED: Readonly<Record<string, string>> = {
 
 export const NUMBER_FIELD_FIELDS: Readonly<Record<string, string>> = {
   "number-field.props":
-    "a NumberField's props hold only label, description, min, max, step, integer and unit",
+    "a NumberField's props hold only label, description, required, min, max, step, integer and unit",
 };

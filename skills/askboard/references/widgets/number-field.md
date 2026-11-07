@@ -1,7 +1,7 @@
 # NumberField
 
 Use for a number the user types, with optional bounds, a step and a unit.
-Item type `number-field`: props are a NumberField's props {label, description?, min?, max?, step?, integer?, unit?}.
+Item type `number-field`: props are a NumberField's props {label, description?, required?, min?, max?, step?, integer?, unit?}.
 
 ## Fields
 
@@ -12,6 +12,7 @@ Item type `number-field`: props are a NumberField's props {label, description?, 
 - `step` (number, above 0, at most 2000000000000000)
 - `integer` (true or false)
 - `unit` (string, 1 to 20 characters)
+- `required` (true or false)
 
 ## Notes
 

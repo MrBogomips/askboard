@@ -1,7 +1,7 @@
 # MoneyField
 
 Use for an amount of money the user types, in one currency or one picked from a list.
-Item type `money-field`: props are a MoneyField's props {label, description?, currency or currencies, min?, max?}.
+Item type `money-field`: props are a MoneyField's props {label, description?, required?, currency or currencies, min?, max?}.
 
 ## Fields
 
@@ -11,6 +11,7 @@ Item type `money-field`: props are a MoneyField's props {label, description?, cu
 - `currencies` (list of string, matching `^[A-Z]{3}$`, 2 to 10 items, each once)
 - `min` (string, matching `^-?(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`)
 - `max` (string, matching `^-?(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`)
+- `required` (true or false)
 
 ## Notes
 

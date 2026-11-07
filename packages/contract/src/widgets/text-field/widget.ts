@@ -4,7 +4,12 @@
 // it gives a result, the text.
 
 import type { WidgetType } from "../registry.ts";
-import { textFieldPropsProblems, textFieldResultProblems, textFieldResultShape } from "./checks.ts";
+import {
+  textFieldFieldCheck,
+  textFieldPropsProblems,
+  textFieldResultProblems,
+  textFieldResultShape,
+} from "./checks.ts";
 import textFieldProps from "./text-field-props.json" with { type: "json" };
 import textFieldResult from "./text-field-result.json" with { type: "json" };
 import { TEXT_FIELD_EXPECTED, TEXT_FIELD_FIELDS } from "./wording.ts";
@@ -14,6 +19,7 @@ export const TEXT_FIELD_WIDGET: WidgetType = {
   noun: "a TextField",
   props: textFieldProps,
   propsProblems: textFieldPropsProblems,
+  fieldCheck: textFieldFieldCheck,
   result: {
     schema: textFieldResult,
     shape: textFieldResultShape,

@@ -4,6 +4,7 @@
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
+import { type FieldCheckFailure, requiredFailure, requiredPropProblems } from "../field-checks.ts";
 import {
   ATOM_DESCRIPTION_MAX_CHARS,
   ATOM_LABEL_MAX_CHARS,
@@ -23,8 +24,9 @@ export const togglePropsProblems = (props: unknown): readonly Problem[] => {
     return [{ path: "/", message: "a Toggle's props are an object {label, description?}" }];
   }
   const problems: Problem[] = Object.keys(props)
-    .filter((key) => key !== "label" && key !== "description")
+    .filter((key) => key !== "label" && key !== "description" && key !== "required")
     .map((key) => ({ path: `/${key}`, message: `unknown field "${key}"` }));
+  problems.push(...requiredPropProblems(props));
   if (!textWithin(props.label, ATOM_LABEL_MAX_CHARS)) {
     problems.push({
       path: "/label",
@@ -45,3 +47,10 @@ export const togglePropsProblems = (props: unknown): readonly Problem[] => {
 
 /** Whether `result` has the shape of a Toggle's result, the schema's rule in plain code: a boolean. */
 export const toggleResultShape = (result: unknown): boolean => typeof result === "boolean";
+
+/**
+ * The Toggle's field check (form-widget, design decision 2): `required`, the one check it has.
+ * A value that fails only it still fits.
+ */
+export const toggleFieldCheck = (result: unknown, props: unknown): FieldCheckFailure | undefined =>
+  requiredFailure(props, result);

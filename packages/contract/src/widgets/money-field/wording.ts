@@ -10,9 +10,11 @@ const DECIMAL = "a decimal string of at most 15 integer digits and 4 decimals, a
 
 export const MONEY_FIELD_EXPECTED: Readonly<Record<string, string>> = {
   "money-field.props":
-    "a MoneyField's props {label, description?, currency or currencies, min?, max?}",
+    "a MoneyField's props {label, description?, required?, currency or currencies, min?, max?}",
   "money-field.props.label": text(ATOM_LABEL_MAX_CHARS),
   "money-field.props.description": text(ATOM_DESCRIPTION_MAX_CHARS),
+  "money-field.props.required":
+    "true, for a field that must hold a value before the question is answered",
   "money-field.props.currency": `${CODE}: the one currency, given instead of currencies`,
   "money-field.props.currencies": `a list of ${MONEY_FIELD_MIN_CURRENCIES} to ${MONEY_FIELD_MAX_CURRENCIES} unique ISO 4217 codes the user picks from, given instead of currency`,
   "money-field.props.currencies[]": CODE,
@@ -22,5 +24,5 @@ export const MONEY_FIELD_EXPECTED: Readonly<Record<string, string>> = {
 
 export const MONEY_FIELD_FIELDS: Readonly<Record<string, string>> = {
   "money-field.props":
-    "a MoneyField's props hold only label, description, currency, currencies, min and max",
+    "a MoneyField's props hold only label, description, required, currency, currencies, min and max",
 };

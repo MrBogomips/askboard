@@ -24,6 +24,7 @@ import { CHART_WIDGET } from "./chart/widget.ts";
 import { DATE_FIELD_WIDGET } from "./date-field/widget.ts";
 import { DIVIDER_WIDGET } from "./divider/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
+import type { FieldCheckFailure } from "./field-checks.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
 import { GROUP_WIDGET } from "./group/widget.ts";
 import { KANBAN_WIDGET } from "./kanban/widget.ts";
@@ -130,6 +131,14 @@ export type WidgetType = {
     readonly use: string;
     readonly notes?: readonly string[];
   };
+  /**
+   * The check of an input field's value against its props (form-widget, design decision 2):
+   * `required`, a text's `minLength`, a pick's counts; `result` is `undefined` when the item has
+   * none. A failure is apart from fit: a result that fails only this check still fits, so the
+   * board keeps it as the user's draft and shows the failure, and `ask-core` refuses an answer that
+   * holds one, except a pattern, which only the board runs.
+   */
+  readonly fieldCheck?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
 };
 
 /** The widget types a question's items may hold, in order. */
