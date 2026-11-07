@@ -116,7 +116,17 @@ const textParts = (schema: Schema): string[] => {
 
 const numberParts = (schema: Schema): string[] => {
   const bounds = range(schema.minimum, schema.maximum, "");
-  return [schema.type === "integer" ? "whole number" : "number", ...(bounds ? [bounds] : [])];
+  // An exclusive bound reads "above" or "below": the Scale's `step` is above 0.
+  const above =
+    typeof schema.exclusiveMinimum === "number" ? [`above ${schema.exclusiveMinimum}`] : [];
+  const below =
+    typeof schema.exclusiveMaximum === "number" ? [`below ${schema.exclusiveMaximum}`] : [];
+  return [
+    schema.type === "integer" ? "whole number" : "number",
+    ...above,
+    ...below,
+    ...(bounds ? [bounds] : []),
+  ];
 };
 
 const countParts = (schema: Schema, itemType: string): string[] => {

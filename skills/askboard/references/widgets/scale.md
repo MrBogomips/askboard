@@ -7,7 +7,7 @@ Item type `scale`: props are a Scale's props {min, max, step?, range?, display?,
 
 - `min` (required, number, -1000000000 to 1000000000)
 - `max` (required, number, -1000000000 to 1000000000)
-- `step` (number, at most 2000000000)
+- `step` (number, above 0, at most 2000000000)
 - `range` (true or false)
 - `display` (one of "slider", "rating")
 - `minLabel` (string, 1 to 60 characters)

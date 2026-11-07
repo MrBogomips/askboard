@@ -195,6 +195,26 @@ describe("fieldLines", () => {
   });
 });
 
+describe("fieldLines of a number with an exclusive bound (approval-scale-ranking, spec S-3)", () => {
+  const line = (schema: object): string =>
+    fieldLines(
+      { $id: "urn:x", type: "object", properties: { n: { type: "number", ...schema } } },
+      () => undefined,
+    )[0] ?? "";
+
+  test('renders `exclusiveMinimum` as "above" and `exclusiveMaximum` as "below"', () => {
+    expect(line({ exclusiveMinimum: 0 })).toBe("- `n` (number, above 0)");
+    expect(line({ exclusiveMaximum: 10 })).toBe("- `n` (number, below 10)");
+    expect(line({ exclusiveMinimum: 0, maximum: 5 })).toBe("- `n` (number, above 0, at most 5)");
+  });
+
+  test('the Scale\'s step reads "above 0"', () => {
+    const scale = WIDGET_TYPES.find(({ type }) => type === "scale");
+    if (scale === undefined) throw new Error("the registry lost the Scale");
+    expect(lineOf(fieldLines(scale.props, resolve), "step")).toContain("above 0");
+  });
+});
+
 describe("stripCitations", () => {
   test("drops a parenthesis that cites a requirement, a decision or a design decision", () => {
     expect(stripCitations("A node (FR-11, design decision 2): its name.")).toBe(

@@ -204,6 +204,39 @@ describe("SKILL.md ownership of an ask", () => {
   });
 });
 
+describe("the shipped widget references (skills spec: The skill names the three)", () => {
+  const typed = WIDGET_TYPES.filter((entry) => entry.result !== undefined);
+
+  test("every type with a result lists the result's fields under the answer's `results`", () => {
+    expect(typed.map(({ type }) => type)).toEqual(
+      expect.arrayContaining(["approval", "scale", "ranking"]),
+    );
+    for (const entry of typed) {
+      const text = files.get(`references/widgets/${entry.type}.md`) ?? "";
+      const section = text.slice(text.indexOf("## In the answer"), text.indexOf("## Example"));
+      expect(section, entry.type).toContain("`results`");
+      const properties = Object.keys(
+        (entry.result?.schema as { properties?: Record<string, unknown> }).properties ?? {},
+      );
+      expect(properties.length, entry.type).toBeGreaterThan(0);
+      for (const property of properties) expect(section, entry.type).toContain(`- \`${property}\``);
+    }
+  });
+
+  test("a reference whose props have no fields of their own has no empty Fields section", () => {
+    for (const entry of WIDGET_TYPES) {
+      const text = files.get(`references/widgets/${entry.type}.md`) ?? "";
+      expect(text, entry.type).not.toMatch(/## Fields\n\n\n/);
+    }
+    expect(files.get("references/widgets/approval.md")).not.toContain("## Fields");
+    expect(files.get("references/widgets/scale.md")).toContain("## Fields");
+  });
+
+  test("the Scale's reference teaches that `step` is above 0", () => {
+    expect(files.get("references/widgets/scale.md")).toContain("- `step` (number, above 0");
+  });
+});
+
 describe("SKILL.md item index", () => {
   const index = skill.slice(skill.indexOf("## Items"));
   const linked = [...index.matchAll(/\]\((references\/[^)]+)\)/g)].map((match) => match[1] ?? "");
