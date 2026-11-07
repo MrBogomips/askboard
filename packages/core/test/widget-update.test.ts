@@ -249,6 +249,23 @@ describe("a molecule reference's ID on update", () => {
     expect(outcome).toMatchObject({ kind: "refused", refusal: "in-use", itemId: "wbs" });
   });
 
+  test("an in-use refusal caused by an expanded ID names the reference's ID", async () => {
+    const { core } = await setup();
+    const outcome = await send(core, [{ action: "add", item: plainQuestion("q4", "wbs__tree") }]);
+    if (outcome.kind !== "refused") throw new Error(outcome.kind);
+    expect(outcome).toMatchObject({ refusal: "in-use", itemId: "wbs" });
+    expect(JSON.stringify(outcome)).not.toContain("wbs__tree");
+    expect(outcome.detail).toContain('held by the molecule reference "wbs" of the question "plan"');
+    const added = await send(core, [{ action: "add", item: plainQuestion("q5", "tree-five") }]);
+    expect(added).toMatchObject({ kind: "updated" });
+    const changed = await send(core, [
+      { action: "change", itemId: "q5", props: { items: [{ ...tree(), id: "schedule__plan" }] } },
+    ]);
+    if (changed.kind !== "refused") throw new Error(changed.kind);
+    expect(changed).toMatchObject({ refusal: "in-use", itemId: "schedule" });
+    expect(JSON.stringify(changed)).not.toContain("schedule__plan");
+  });
+
   test("the question holding the references still changes", async () => {
     const { core } = await setup();
     const outcome = await change(core, "wbs", { data: dataOf(0) });

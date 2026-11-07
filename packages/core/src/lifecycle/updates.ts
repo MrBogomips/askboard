@@ -242,6 +242,13 @@ const inUseRefusal = (
   );
   if (used === undefined) return undefined;
   const holder = model.heldBy(used);
+  // An expanded ID is no item the agent can name: the refusal names its reference's ID instead.
+  const entry = context.widgets.expansion.get(used);
+  if (entry !== undefined) {
+    const by = holder === undefined ? "" : ` of the question "${holder}"`;
+    const detail = `the ID "${entry.reference}" is in use in the ask, held by the molecule reference "${entry.reference}"${by}; item IDs are unique`;
+    return refuse("in-use", detail, entry.reference);
+  }
   const deleted = model.isDeleted(used) ? ", by an item deleted earlier" : "";
   const by = holder === undefined ? "" : `, held by an item of the question "${holder}"`;
   const reuse = holder === undefined ? "; item IDs are never reused" : "; item IDs are unique";
