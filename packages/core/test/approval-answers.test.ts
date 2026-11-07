@@ -32,6 +32,9 @@ const refusal = (fields: Json, m = model()) => {
   const { log, outcome } = run(fields, m);
   if (outcome.ok) throw new Error(`accepted: ${JSON.stringify(outcome.events)}`);
   expect(log.latestSeq).toBe(0);
+  // Nothing kept: the model keeps an answer's widget content only from the `kept` of an accepted
+  // outcome (`AskCore` copies `built.kept` after the append), so a refusal carries none and no events.
+  expect(Object.keys(outcome).sort()).toEqual(["index", "ok", "problem"]);
   return outcome.problem;
 };
 
@@ -79,6 +82,19 @@ describe("approving with changes and no reason", () => {
       note: "  ",
     });
     expect(problem.detail).toContain("item verdict");
+  });
+
+  test("a refused answer keeps no values, no results and no derived values: nothing kept", () => {
+    const { log, outcome } = run({
+      values: { wbs: EDITED },
+      results: verdict("approveWithChanges"),
+      derived: {},
+      note: "  ",
+    });
+    expect(outcome.ok).toBe(false);
+    expect("kept" in outcome).toBe(false);
+    expect("events" in outcome).toBe(false);
+    expect(log.latestSeq).toBe(0);
   });
 });
 
