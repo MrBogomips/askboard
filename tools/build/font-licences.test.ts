@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { KATEX_VERSION } from "./katex-version.ts";
 import { FONT_LICENCES } from "./licences.ts";
 import { resolveFromWidgets } from "./paths.ts";
 
@@ -46,8 +47,9 @@ const packageDirOf = (key: string): string => {
 };
 
 describe("tools/font-licences.json against the fonts it speaks for", () => {
-  test("the table holds `katex@0.19.1`, with its source at a commit, its date and why", () => {
-    expect(Object.keys(FONT_LICENCES)).toEqual(["katex@0.19.1"]);
+  // The one edit a KaTeX bump needs: this key and its text, after the fonts' name tables are read again.
+  test("the table holds `katex` at the installed version, with its source at a commit, its date and why", () => {
+    expect(Object.keys(FONT_LICENCES)).toEqual([`katex@${KATEX_VERSION}`]);
     for (const entry of Object.values(FONT_LICENCES)) {
       expect(entry.licence).toBe("OFL-1.1");
       expect(entry.source).toMatch(

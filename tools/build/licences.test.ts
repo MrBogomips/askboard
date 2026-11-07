@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { chmod, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { KATEX_VERSION } from "./katex-version.ts";
 import {
   chunkInputs,
   collectNotices,
@@ -378,7 +379,7 @@ describe("the fonts' licence in a package's notice (latex-kanban-timeline, task 
     expect(files[0]?.font).toEqual({ key: "fonty@2.0.0", derived: true });
   });
 
-  test("KaTeX's script alone, with no stylesheet, gives the `katex` 0.19.1 notice `MIT AND OFL-1.1` (review X-1)", async () => {
+  test("KaTeX's script alone, with no stylesheet, gives the `katex` notice `MIT AND OFL-1.1` (review X-1)", async () => {
     // What Bun bundles for `import "katex"` from the widgets, read from a real bundle's inputs.
     const entry = join(ROOT, "packages/widgets/virtual-katex-entry.ts");
     const built = await Bun.build({
@@ -390,18 +391,18 @@ describe("the fonts' licence in a package's notice (latex-kanban-timeline, task 
     });
     if (built.metafile === undefined) throw new Error("the bundle has no metafile");
     const inputs = chunkInputs(built.metafile, process.cwd());
-    const katex = FONT_LICENCES["katex@0.19.1"];
+    const katex = FONT_LICENCES[`katex@${KATEX_VERSION}`];
     expect(katex?.derived).toEqual(["dist/katex.mjs"]);
     expect(inputs.some((input) => input.endsWith("/katex/dist/katex.mjs"))).toBe(true);
     const files = await collectNotices("latex", inputs, ROOT);
     const notice = files.find((file) => file.notice.package === "katex");
     expect(notice?.notice).toEqual({
       package: "katex",
-      version: "0.19.1",
+      version: KATEX_VERSION,
       licence: "MIT AND OFL-1.1",
-      path: "licences/katex-0.19.1.txt",
+      path: `licences/katex-${KATEX_VERSION}.txt`,
     });
-    expect(notice?.font).toEqual({ key: "katex@0.19.1", derived: true });
+    expect(notice?.font).toEqual({ key: `katex@${KATEX_VERSION}`, derived: true });
     expect(notice?.text).toContain("Khan Academy");
     expect(notice?.text).toContain("SIL OPEN FONT LICENSE");
     expect(notice?.text).toContain("with Reserved Font Names KaTeX_AMS");
@@ -457,6 +458,6 @@ describe("the font licence table's checks (design decision 8)", () => {
 
   test("the real table is clean: its entry's licence stands in the rule", () => {
     expect(fontEntryProblems(FONT_LICENCES)).toEqual([]);
-    expect(Object.keys(FONT_LICENCES)).toEqual(["katex@0.19.1"]);
+    expect(Object.keys(FONT_LICENCES)).toEqual([`katex@${KATEX_VERSION}`]);
   });
 });

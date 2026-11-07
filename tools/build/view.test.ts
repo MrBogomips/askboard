@@ -36,6 +36,7 @@ import {
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
 import { hostOnlyNeedProblems, styleUrlProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
+import { KATEX_VERSION } from "./katex-version.ts";
 import { FONT_LICENCES, type FontLicence, type FontLicences } from "./licences.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
@@ -1070,11 +1071,11 @@ describe("package stylesheets in a chunk (latex-kanban-timeline, design decision
     expect(String(error)).toContain("stale");
   }, 120_000);
 
-  test("the real build's latex chunk carries KaTeX's stylesheet and the `katex` 0.19.1 notice `MIT AND OFL-1.1` with the OFL text and the outlines' file named", async () => {
+  test("the real build's latex chunk carries KaTeX's stylesheet and the `katex` notice `MIT AND OFL-1.1` with the OFL text and the outlines' file named", async () => {
     expect(CHUNK_STYLESHEETS).toEqual({ latex: ["katex/dist/katex.min.css"] });
     const latex = chunkNamed("latex");
     const notice = latex.licences.find((n) => n.package === "katex");
-    expect(notice).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+    expect(notice).toMatchObject({ version: KATEX_VERSION, licence: "MIT AND OFL-1.1" });
     const holds = await text(notice?.path ?? "none");
     expect(holds).toContain("Khan Academy and other contributors");
     expect(holds).toContain("SIL OPEN FONT LICENSE");
@@ -1097,11 +1098,11 @@ describe("package stylesheets in a chunk (latex-kanban-timeline, design decision
     expect(String(error)).toContain("GPL-3.0-only");
   }, 120_000);
 
-  test("KaTeX's stylesheet gives its chunk the `katex` 0.19.1 notice `MIT AND OFL-1.1` with KaTeX's licence and the OFL, and every font decodes to a woff2 file of the package", async () => {
+  test("KaTeX's stylesheet gives its chunk the `katex` notice `MIT AND OFL-1.1` with KaTeX's licence and the OFL, and every font decodes to a woff2 file of the package", async () => {
     const target = join(dir, "katex-build");
     const built = await buildView(target, { choice: ["katex/dist/katex.min.css"] });
     const { notice, text } = await noticeText(target, built, "katex");
-    expect(notice).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+    expect(notice).toMatchObject({ version: KATEX_VERSION, licence: "MIT AND OFL-1.1" });
     const holds = text;
     expect(holds).toContain("Khan Academy and other contributors");
     expect(holds).toContain("Permission is hereby granted");

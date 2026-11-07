@@ -3,7 +3,7 @@
 // the agent takes the Snapshot after the answer, the session process exits, and the file opens
 // from `file://` offline with no CSP violation and no request. Each widget shows the answer's
 // value read-only with its change highlight, KaTeX's fonts are inline, the `askboard-licences`
-// block holds the `katex` 0.19.1 notice `MIT AND OFL-1.1` with the OFL text, nothing can be edited
+// block holds the `katex` notice `MIT AND OFL-1.1` with the OFL text, nothing can be edited
 // or moved, and the file inlines the chunks `assemble` selects for the three types, `dnd` among
 // them. An answer KaTeX does not parse shows its source with the same field error and
 // no drawn preview, and one raised a million em down (task 5b.1) holds its preview within the cap.
@@ -28,6 +28,7 @@ import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harne
 import { launchEngine } from "./harness/browser.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { beginDrag, cardOf, columnOf, dragOver, release } from "./harness/kanban-drag.ts";
+import { KATEX_VERSION } from "./harness/katex-version.ts";
 import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { entryOf } from "./harness/timeline-drag.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -133,7 +134,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         >(html, SNAPSHOT_LICENCES_ELEMENT);
         const katex = notices.filter((notice) => notice.package === "katex");
         expect(katex).toHaveLength(1);
-        expect(katex[0]).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+        expect(katex[0]).toMatchObject({ version: KATEX_VERSION, licence: "MIT AND OFL-1.1" });
         expect(katex[0]?.text).toContain("SIL OPEN FONT LICENSE");
         // The fonts travel inside the file: every url() in its styles is a data URL.
         expect(html).toMatch(/@font-face/);
