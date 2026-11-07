@@ -19,7 +19,7 @@ In Markdown, an image SHALL show as a link to its source labelled with its alt t
 - **THEN** the image shows as a link labelled "logo" and is never loaded, and the table's alignment is a class with no CSP violation
 
 ### Requirement: Markdown links in the view
-A link in Markdown SHALL be a link only when its URL is a non-empty `http:` or `https:` URL with no user name or password; any other shows as its source text. On the live board, a click on a link SHALL send the board page an open-link message naming the item and the URL, and SHALL NOT navigate the view. In a Snapshot, which has no board page, a link SHALL open natively in a new tab with `rel="noopener noreferrer"` (AD-8, NFR-9).
+A link in Markdown SHALL be a link only when its URL is a non-empty `http:` or `https:` URL of at most 2,048 characters with no user name or password, the board page's own check. On the live board, a click on a link SHALL send the board page an open-link message naming the item and the URL and SHALL NOT navigate the view. In a Snapshot, which has no board page, a link SHALL open natively in a new tab with `rel="noopener noreferrer"` (AD-8, NFR-9).
 
 #### Scenario: A link clicked on the board
 - **WHEN** the user clicks `[docs](https://example.com/docs)` in a Markdown Text
@@ -27,6 +27,17 @@ A link in Markdown SHALL be a link only when its URL is a non-empty `http:` or `
 
 #### Scenario: Another scheme
 - **WHEN** a Markdown Text holds `[x](javascript:alert(1))`
+- **THEN** it shows as its source text and is no link
+
+### Requirement: Refused Markdown links
+A Markdown link that is no link SHALL show as its source text, except that one with nothing but spaces between its parentheses SHALL show its label; an image whose source is refused SHALL show its alt text, or its source text when the alt is empty (AD-8).
+
+#### Scenario: Empty destinations
+- **WHEN** a Markdown Text holds `[a]()`, `[a]( )`, `[a](<>)`, `![x]()` and `![]()`
+- **THEN** they read `a`, `a`, `[a](<>)`, `x` and `![]()` as text, and none is a link
+
+#### Scenario: A link too long
+- **WHEN** a Markdown Text holds a link whose URL is 2,049 characters
 - **THEN** it shows as its source text and is no link
 
 ### Requirement: The board page opens Markdown links
@@ -55,11 +66,15 @@ An option whose `previewFormat` is `markdown` SHALL show its preview, when opene
 - **THEN** the preview shows the code block in the code type, and the board carries the Text atom's chunk
 
 ### Requirement: Display atoms
-A Text SHALL show its text in the body type, plain text keeping its line breaks; a Value SHALL show its label, if any, and its value in the code type formatted in the ask's locale (numbers, percentages, money, long dates, and durations as days); a Divider SHALL show a rule. None of them SHALL take focus or give an answer (FR-13, DESIGN Primitives).
+A Text SHALL show its text in the body type, plain text keeping its line breaks; a Value SHALL show its label, if any, and its value in the code type formatted in the ask's locale (numbers, percentages, money, long dates, and durations as days); a Divider SHALL show a rule. None of them SHALL give an answer, and none SHALL take focus except a Markdown Text's links; a label SHALL wrap, never pushing the value out of the card (FR-13, DESIGN Primitives).
 
 #### Scenario: Values in Italian
 - **WHEN** an it-IT board shows Values of 1234.5, 0.185 as a percent, `12480` EUR, `2026-12-09` and 12 days
 - **THEN** they read `1.234,5`, `18,5%`, `€ 12.480,00`, `mer 9 dic 2026` and `12 giorni`
+
+#### Scenario: A long label
+- **WHEN** a Value's label is 200 characters, in a window 320 pixels wide
+- **THEN** the label wraps, the figure stays inside the card, and the page does not scroll sideways
 
 ### Requirement: Input atoms fill the draft only
 Each input atom SHALL start unset and show nothing as set before the user acts; a value the user sets SHALL go into the draft as the item's result, and clearing it SHALL remove the result; nothing SHALL be sent before the question's "Answer" (EXPERIENCE Explicit acts, AD-10). Each SHALL show its label, visibly, and its description under it, and each control SHALL work from the keyboard (NFR-12).

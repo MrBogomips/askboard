@@ -26,11 +26,15 @@ A `text` item SHALL hold `text`, 1 to 10,000 code points, and an optional `forma
 - **THEN** the first passes and the others fail, naming the item and the field
 
 ### Requirement: Value items
-A `value` item SHALL hold an optional `label` and a `kind` with its value: `number` or `percent` with a number `value` within ±1,000,000,000,000,000 and an optional `unit` (1 to 20) for `number`; `money` with an `amount` decimal string and a `currency` ISO 4217 code; `date` with a `date` full-date within the Gantt's first and last dates; `duration` with whole `days` from 0 to 100,000. Any other field for the kind SHALL fail, naming it (FR-13, AD-7).
+A `value` item SHALL hold an optional `label` and a `kind` with its value: `number` or `percent` with a number `value` within ±1,000,000,000,000,000 and an optional `unit` (1 to 20) for `number`; `money` with an `amount` decimal string within the currency's minor units and a `currency` ISO 4217 code; `date` with a `date` full-date within the Gantt's first and last dates; `duration` with whole `days` from 0 to 100,000. Any other field for the kind SHALL fail, naming it (FR-13, AD-7).
 
 #### Scenario: Each kind
 - **WHEN** Values of each kind are sent with their fields
 - **THEN** they pass, and a `money` Value without `currency`, a `date` Value with `2026-02-30` and a `percent` Value holding `unit` fail, naming the item and the field
+
+#### Scenario: An amount finer than its currency
+- **WHEN** a `money` Value holds `0.5` in JPY or `-0.004` in EUR
+- **THEN** it fails, naming the item and `amount`
 
 ### Requirement: Divider items
 A `divider` item SHALL hold empty props (FR-13).
