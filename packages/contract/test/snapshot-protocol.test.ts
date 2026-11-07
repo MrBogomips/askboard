@@ -67,7 +67,7 @@ describe("the registrations", () => {
   });
 
   test("the board protocol is at widget-registry's minor, after widget-answers'", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.6");
+    expect(BOARD_PROTOCOL_VERSION).toBe("1.7");
     expect(boardProtocol.version).toBe(BOARD_PROTOCOL_VERSION);
   });
 

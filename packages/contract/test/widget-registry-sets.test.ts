@@ -37,7 +37,7 @@ describe("the versions of the sets", () => {
   test("the sets hold those constants", () => {
     expect(setOf("output").version).toBe("1.8");
     expect(setOf("tool-envelopes").version).toBe("1.8");
-    expect(setOf("board-protocol").version).toBe("1.6");
+    expect(setOf("board-protocol").version).toBe("1.7");
     expect(setOf("snapshot-data").version).toBe("1.1");
   });
 

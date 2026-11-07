@@ -9,7 +9,8 @@
 // (settings-languages, design decision 6).
 // E7's the Snapshot request and its two replies (snapshot design decision 2). Widget-registry's
 // minor adds the widget results to the answer act, the draft record and the board state (design
-// decision 6).
+// decision 6); atoms' minor adds the entries of the input atoms to the draft record (design
+// decision 3).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -45,7 +46,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.6";
+export const BOARD_PROTOCOL_VERSION = "1.7";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -310,6 +311,11 @@ export type DraftQuestion = {
   readonly values?: Readonly<Record<string, unknown>>;
   /** Since widget-registry: each widget item's result, by item ID, as the results store holds it. */
   readonly results?: Readonly<Record<string, unknown>>;
+  /**
+   * Since atoms: the text each input atom holds that gives no value, by item ID, 1 to
+   * `ENTRY_MAX_CHARS` characters; never part of an answer.
+   */
+  readonly entries?: Readonly<Record<string, string>>;
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   /** The open prompt's text. */

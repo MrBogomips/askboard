@@ -43,7 +43,7 @@ describe("the widening as the next minor (widget-answers, design decision 1)", (
     expect(setOf("output")).toMatchObject({ version: "1.8", owner: "contract" });
     expect(setOf("tool-envelopes")).toMatchObject({ version: "1.8", owner: "mcp-tools" });
     expect(setOf("board-document")).toMatchObject({ version: "1.7", owner: "ask-core" });
-    expect(setOf("board-protocol")).toMatchObject({ version: "1.6", owner: "board-host" });
+    expect(setOf("board-protocol")).toMatchObject({ version: "1.7", owner: "board-host" });
   });
 
   test("an earlier minor's version string is still accepted by major", () => {

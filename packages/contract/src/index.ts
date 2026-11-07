@@ -899,3 +899,8 @@ export {
   moneyFieldResultProblems,
   moneyFieldResultShape,
 } from "./widgets/money-field/index.ts";
+
+// The draft record's entries (atoms, design decision 3): the longest text an input atom keeps
+// that gives no value.
+
+export { ENTRY_MAX_CHARS } from "./lifecycle-constants.ts";

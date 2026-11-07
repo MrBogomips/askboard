@@ -18,6 +18,6 @@ describe("the minors settings-languages takes", () => {
   });
 
   test("the board protocol is at widget-registry's minor, after widget-answers' and settings-languages'", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.6");
+    expect(BOARD_PROTOCOL_VERSION).toBe("1.7");
   });
 });
