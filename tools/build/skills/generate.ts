@@ -8,6 +8,7 @@ import {
   ASKING_RULE_TEXTS,
   ASKING_RULES,
   ID_PATTERN,
+  LAYOUT_TYPES,
   type MoleculeDefinition,
   SNAPSHOT_DATA_ELEMENT,
   SNAPSHOT_FOLDER,
@@ -78,6 +79,16 @@ const fill = (
 const askingRules = (): string =>
   ASKING_RULES.map((rule) => `- \`${rule}\`: ${ASKING_RULE_TEXTS[rule]}`).join("\n");
 
+// The sentence that a question's items may sit in layouts, when the registry holds any (layouts,
+// design decision 3): empty before they are registered, so that the skill teaches nothing the
+// contract refuses.
+const layoutNote = (widgets: readonly WidgetType[]): string => {
+  const held = LAYOUT_TYPES.filter((layout) => widgets.some(({ type }) => type === layout));
+  if (held.length === 0) return "";
+  const names = held.map((layout) => `\`${layout}\``).join(", ");
+  return `\n\nA question's \`items\` may sit in layouts (${names}) that hold atoms, widgets and other layouts, four deep at most; context items and molecule references stay in the question's own \`items\`. Item IDs are unique at every depth.`;
+};
+
 const link = (label: string, path: string): string => `[${label}](${path})`;
 
 // One line for each item type a question's `items` may hold, with where to read about it.
@@ -122,7 +133,10 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
   const molecules = inputs.molecules ?? READY_MOLECULES;
   const skills = inputs.moleculeSkills ?? MOLECULE_SKILLS;
   const templates = inputs.templates ?? TEMPLATES;
-  const resolve = contractSchemaResolver(molecules.map(({ parameters }) => parameters as Schema));
+  const resolve = contractSchemaResolver(
+    molecules.map(({ parameters }) => parameters as Schema),
+    widgets,
+  );
   const collect = collectExample();
 
   const rendered = new Map<string, { text: string; examples: readonly ExampleBody[] }>();
@@ -142,6 +156,7 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
     {
       askingRules: askingRules(),
       itemIndex: itemIndex(widgets, molecules, skills),
+      layoutNote: layoutNote(widgets),
       idPattern: ID_PATTERN.slice(1, -1),
       snapshotFolder: SNAPSHOT_FOLDER,
       snapshotElement: SNAPSHOT_DATA_ELEMENT,

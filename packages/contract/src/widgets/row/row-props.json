@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:row-props",
+  "title": "Row props",
+  "description": "A Row item's props (FR-13, layouts design decision 1): 2 to 4 items side by side, each an atom, a widget or a layout as the input format writes it, and optional relative widths, a weight from 1 to 4 keyed by the ID of one of the items. That each key names an item of the Row is checked by rowPropsProblems. A Row gives no result. In the input format since layouts.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": { "$ref": "urn:askboard:input:question-props#/$defs/layoutItem" }
+    },
+    "widths": {
+      "type": "object",
+      "propertyNames": { "$ref": "urn:askboard:input:id" },
+      "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 4 },
+      "maxProperties": 4
+    }
+  },
+  "required": ["items"],
+  "additionalProperties": false
+}

@@ -6,18 +6,39 @@
 import type Ajv2020 from "ajv/dist/2020";
 import type { AnySchemaObject } from "ajv/dist/2020";
 import { compiled } from "../compiled.ts";
-import { type Checked, validateAgainst } from "../validate.ts";
+import { isLayoutType } from "../nested-items.ts";
+import { type Checked, problemOf, validateAgainst } from "../validate.ts";
+import { WIDGET_TYPES, type WidgetType } from "./registry.ts";
+import { registryAjv } from "./registry-ajv.ts";
 import { widgetValidator } from "./validator.ts";
 
 // The validator of a schema no set holds, made on first use and kept.
 const validators = new WeakMap<object, (value: unknown) => Checked<unknown>>();
 
-/** `value` against `schema`, a schema with an `$id`. */
-export const schemaVerdict = (schema: AnySchemaObject, value: unknown): Checked<unknown> => {
+// A registry that holds a layout the shipped sets do not: its props refer to the union composed
+// over that registry, so it is checked in an Ajv made over it.
+const overRegistry = (schema: AnySchemaObject, value: unknown, types: readonly WidgetType[]) => {
+  const ajv = registryAjv(types);
+  const validate = ajv.getSchema(schema.$id as string);
+  if (validate === undefined) throw new Error(`no schema ${String(schema.$id)}`);
+  if (validate(value)) return { ok: true, value } as const;
+  return { ok: false, reason: "schema", problems: (validate.errors ?? []).map(problemOf) } as const;
+};
+
+/**
+ * `value` against `schema`, a schema with an `$id`; `types` is the registry it belongs to, which
+ * matters only to a layout that is not yet in the shipped sets.
+ */
+export const schemaVerdict = (
+  schema: AnySchemaObject,
+  value: unknown,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): Checked<unknown> => {
   const ajv: Ajv2020 = compiled();
   if (ajv.getSchema(schema.$id as string) !== undefined) {
     return validateAgainst(schema.$id as string, value);
   }
+  if (types.some(({ type }) => isLayoutType(type))) return overRegistry(schema, value, types);
   let validate = validators.get(schema);
   if (validate === undefined) {
     validate = widgetValidator([schema], schema.$id as string);

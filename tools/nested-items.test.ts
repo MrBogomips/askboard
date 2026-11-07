@@ -60,6 +60,11 @@ const CONTRACT_READS: readonly Read[] = [
   { file: "packages/contract/src/requests.ts", text: 'segments[0] === "items"', reason: PATH },
   { file: "packages/contract/src/requests.ts", text: 'segments[0] !== "items"', reason: PATH },
   { file: "packages/contract/src/widgets/gantt/checks.ts", text: "props.items", reason: THROUGH },
+  {
+    file: "packages/contract/src/widgets/row/checks.ts",
+    text: "props.items",
+    reason: "a Row's own items, the IDs its widths may name; the items inside them are another's",
+  },
   { file: "packages/contract/src/widgets/ranking/checks.ts", text: "props.items", reason: RANKING },
   {
     file: "packages/contract/src/widgets/ranking/wording.ts",

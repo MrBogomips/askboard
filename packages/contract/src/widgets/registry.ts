@@ -31,6 +31,7 @@ import { MONEY_FIELD_WIDGET } from "./money-field/widget.ts";
 import { NUMBER_FIELD_WIDGET } from "./number-field/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
+import { LAYOUT_ITEM_DEFINITION } from "./shared/layouts.ts";
 import { TEXT_WIDGET } from "./text/widget.ts";
 import { TEXT_FIELD_WIDGET } from "./text-field/widget.ts";
 import { TIMELINE_WIDGET } from "./timeline/widget.ts";
@@ -189,11 +190,13 @@ const ID = new RegExp(ID_PATTERN);
 
 // The `$defs` keys of the three base files a type's item is added beside: a type of that name
 // would replace the definition. Read from the files, so the list stays in step with them.
-const BASE_DEFINITIONS: ReadonlySet<string> = new Set(
-  [questionPropsBase, boardDocumentBase, fetchResultBase].flatMap((base) =>
+const BASE_DEFINITIONS: ReadonlySet<string> = new Set([
+  ...[questionPropsBase, boardDocumentBase, fetchResultBase].flatMap((base) =>
     Object.keys((base as { $defs: object }).$defs),
   ),
-);
+  // The union the layouts' props hold, composed beside the types' items (layouts, design decision 3).
+  LAYOUT_ITEM_DEFINITION,
+]);
 
 // A type that is a definition of a base schema, or a name every object inherits (`__proto__`,
 // `constructor`), which the composers could not hold as an own key of `$defs`.

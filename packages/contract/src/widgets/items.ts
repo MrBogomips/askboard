@@ -21,8 +21,9 @@ const propsProblems = (
   entry: WidgetType,
   props: unknown,
   origin: WidgetOrigin,
+  types: readonly WidgetType[],
 ): readonly Problem[] => {
-  const checked = schemaVerdict(entry.props, props);
+  const checked = schemaVerdict(entry.props, props, types);
   if (!checked.ok && entry.checksInvalidProps !== true) return checked.problems;
   const checks = entry.propsProblems(props, origin);
   const fromSchema = checked.ok ? [] : checked.problems;
@@ -45,7 +46,7 @@ export const widgetItemProblems = (
   const entry = widgetTypeOf(type, types);
   if (entry !== undefined) {
     return [
-      ...propsProblems(entry, isRecord(item) ? item.props : undefined, origin),
+      ...propsProblems(entry, isRecord(item) ? item.props : undefined, origin, types),
       ...(entry.itemProblems?.(item, question) ?? []),
     ];
   }
