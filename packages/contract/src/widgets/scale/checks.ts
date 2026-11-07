@@ -150,9 +150,8 @@ export const scaleResultProblems = (result: unknown, props: unknown): readonly P
       numberProblem("high", result.high, read),
     ].filter((problem): problem is Problem => problem !== undefined);
     if (found.length > 0) return found;
-    const low = scaleStepIndex(result.low as number, read.min, read.step) ?? 0;
-    const high = scaleStepIndex(result.high as number, read.min, read.step) ?? 0;
-    return low > high
+    // The order is the numbers' own: the step grid's tolerance never widens it.
+    return (result.low as number) > (result.high as number)
       ? [{ path: "/low", message: `low ${result.low} is above high ${result.high}` }]
       : [];
   }

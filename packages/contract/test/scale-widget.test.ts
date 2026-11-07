@@ -225,6 +225,22 @@ describe("Scale results", () => {
     expect(check(RANGED, { low: 10, high: 22 })[0]?.path).toBe("/high");
   });
 
+  test("a range's order is compared as numbers, a hair inverted fails", () => {
+    const ranged = scale({ min: 0, max: 10, step: 1, range: true }, "u");
+    for (const result of [
+      { low: 5.0000000001, high: 5 },
+      { low: 5, high: 4.9999999999 },
+    ]) {
+      const found = check(ranged, result);
+      expect(found).toHaveLength(1);
+      expect(found[0]?.path).toBe("/low");
+      expect(found[0]?.message).toContain("item u");
+      expect(found[0]?.message).toMatch(/low .* is above high /);
+    }
+    expect(check(ranged, { low: 5, high: 5 })).toEqual([]);
+    expect(check(ranged, { low: 0, high: 10 })).toEqual([]);
+  });
+
   test("decimal steps: 0.3 passes on a scale from 0 to 1 by 0.1, 0.35 fails", () => {
     const tenths = scale({ min: 0, max: 1, step: 0.1 }, "p");
     expect(check(tenths, { value: 0.3 })).toEqual([]);
