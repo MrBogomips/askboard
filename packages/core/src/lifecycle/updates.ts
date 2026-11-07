@@ -13,6 +13,7 @@ import {
   type WidgetType,
 } from "@askboard/contract";
 import { validateAskRequestOver } from "@askboard/contract/validate";
+import { referencesIn } from "../molecules/references.ts";
 import { parseCursor } from "../text.ts";
 import { contentOf, contentProblem } from "./answers.ts";
 import type { EventLog } from "./log.ts";
@@ -220,15 +221,32 @@ const idsHeldBy = (item: Action<"add">["item"]): string[] => {
   return [item.id, ...itemIdsOf(item.props)];
 };
 
+// Whether a molecule reference's ID is held against `id`: the update's references are never pruned,
+// so one stays held after its question is deleted, and its own question (`except`) may keep it. The
+// reference's own question holds the expanded items of its entries (layouts, review X-1).
+const referenceHeld = (context: UpdateContext, id: string, except: string | undefined): boolean => {
+  const { model, widgets } = context;
+  if (!widgets.references.has(id)) return false;
+  if (except === undefined) return true;
+  for (const [itemId, entry] of widgets.expansion) {
+    if (entry.reference === id && model.heldBy(itemId) === except) return false;
+  }
+  return true;
+};
+
 // The refusal of an ID the ask holds elsewhere or held: `except` names the question whose own items
-// do not count, for its change.
+// do not count, for its change; `sending` names the references of the item being added, which its
+// expansion checks itself.
 const inUseRefusal = (
   context: UpdateContext,
   ids: readonly string[],
   except?: string,
+  sending: ReadonlySet<string> = new Set(),
 ): Refusal | undefined => {
   const { model } = context;
-  const used = ids.find((id) => model.inUse(id, except));
+  const used = ids.find(
+    (id) => model.inUse(id, except) || (!sending.has(id) && referenceHeld(context, id, except)),
+  );
   if (used === undefined) return undefined;
   const holder = model.heldBy(used);
   const deleted = model.isDeleted(used) ? ", by an item deleted earlier" : "";
@@ -239,7 +257,12 @@ const inUseRefusal = (
 
 const add = (context: UpdateContext, action: Action<"add">): Step => {
   const { item } = action;
-  const taken = inUseRefusal(context, idsHeldBy(item));
+  const taken = inUseRefusal(
+    context,
+    idsHeldBy(item),
+    undefined,
+    new Set(referencesIn([item]).keys()),
+  );
   if (taken !== undefined) return taken;
   const misplaced = placementProblem(context, action);
   if (misplaced !== undefined) return misplaced;
