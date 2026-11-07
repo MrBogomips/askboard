@@ -20,7 +20,7 @@ AskBoard gives the agent five tools:
 
 ## Requirements
 
-- Node 24.22.1 or later as the default `node` on the `PATH` that Claude Code gives its plugins. The plugin runs the session process and the hooks on Node through a small start script, and its folder pins no Node version: with Volta, run `volta install node@24` so that the default Node qualifies (Volta follows a project's own Node pin, so a pinned project may work while others do not). Without a qualifying Node, AskBoard offers no tools and says why in its instructions, and the agent asks another way.
+- Node 24.22.1 or later as the default `node` on the `PATH` that Claude Code gives its plugins. The plugin runs the session process and the hooks on Node through a small start script, and its folder pins no Node version: with Volta, run `volta install node@24` so that the default Node qualifies (the start script runs Node from the plugin's folder, so a project's own Node pin is not used, only the default Node). Without a qualifying Node, AskBoard offers no tools and says why in its instructions, and the agent asks another way.
 - Claude Code 2.1.311 or later (the `stable` channel reaches it), with mods on (the default): they give push delivery. Without mods, answers still arrive when the agent collects them.
 - macOS or Linux, including devcontainers. On Windows, use WSL.
 - A browser on the same machine, for the board.
@@ -52,7 +52,7 @@ To hold a version rather than follow releases, add the marketplace at its tag:
 claude plugin marketplace add MrBogomips/askboard#v0.1.0
 ```
 
-Check it with `claude mcp list` (AskBoard is connected) and, in a session, `/hooks`. Then ask the agent to ask you a few choice questions with AskBoard.
+Check it with `claude mcp list`, which shows AskBoard as connected (it also does when Node is too old, because the server then answers with no tools), and, in a session, `/mcp`, which lists its five tools (with none, the server's instructions name the Node version it found), and `/hooks`. Then ask the agent to ask you a few choice questions with AskBoard.
 
 ## Update
 
@@ -106,7 +106,7 @@ The licence check needs network access: it reads the licences of other platforms
 
 The end-to-end tests run the built session process with Playwright's Chromium, Firefox and WebKit; install them once with `node_modules/.bin/playwright install chromium firefox webkit`.
 
-The plugin's server and hooks run on Node through `scripts/askboard`, a POSIX `sh` start script, with the same files that a release ships: the development plugin needs Node 24.22.1 or later as the default `node` too. To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a few choice questions with AskBoard (single or multiple choice), or to ask for a work breakdown with a plan (a Tree, a Gantt or the work breakdown molecule). The board opens in your browser with a system notification, and the terminal shows its link. Answer it there: the answers reach the agent by themselves, through the plugin's mod, or when the agent collects them. The plugin also carries a skill, `askboard`, which tells the agent when to ask through AskBoard rather than AskUserQuestion and how to build each widget; Claude Code lists it among its skills. `/hooks` lists AskBoard's hooks; with mods turned off, answers still arrive when the agent collects them.
+The plugin's server and hooks run on Node through `scripts/askboard`, a POSIX `sh` start script, with the same files that a release ships: the development plugin needs Node 24.22.1 or later as the default `node` too (with Volta, the checkout's own Node pin applies to `--plugin-dir`). To try AskBoard in Claude Code, build it, then start `claude --plugin-dir <this checkout>` in any project and ask the agent to ask you a few choice questions with AskBoard (single or multiple choice), or to ask for a work breakdown with a plan (a Tree, a Gantt or the work breakdown molecule). The board opens in your browser with a system notification, and the terminal shows its link. Answer it there: the answers reach the agent by themselves, through the plugin's mod, or when the agent collects them. The plugin also carries a skill, `askboard`, which tells the agent when to ask through AskBoard rather than AskUserQuestion and how to build each widget; Claude Code lists it among its skills. `/hooks` lists AskBoard's hooks; with mods turned off, answers still arrive when the agent collects them.
 
 Release commands (maintainers; the release workflow runs them on `main`, dispatched by hand, and merging a change does not release):
 

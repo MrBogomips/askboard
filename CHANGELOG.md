@@ -17,8 +17,6 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 - Languages (English and Italian) and settings.
 - A start script, `scripts/askboard`, that runs the session process and the hooks on Node and, when Node is missing or too old, tells the agent why instead of failing silently.
 
-If open pull requests that add widgets merge before this release is dispatched, those widgets join this list.
-
 ### Known limits
 
 - The repository is private: installing needs read access and git credentials.
