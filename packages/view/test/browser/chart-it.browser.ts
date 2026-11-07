@@ -127,31 +127,40 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = run;
         const frame = await board.viewFrame();
         const { box, centre } = await barOf(board, RIG, 0, 0);
+        // The record holds every text drawn since load, the axis labels among them, "Correzione A"
+        // included: only what is drawn after the hover, in the tooltip's own fill (the popover
+        // foreground; the axis labels use the muted one), is the tooltip (review S-2, task 7.5).
+        const theme = await chartOf(board).evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            size: style.getPropertyValue("--fs-badge").trim(),
+            foreground: style.getPropertyValue("--popover-foreground").trim(),
+            muted: style.getPropertyValue("--muted-foreground").trim(),
+          };
+        });
+        expect(theme.foreground.toLowerCase()).not.toBe(theme.muted.toLowerCase());
+        const beforeHover = (await drawnTexts(frame)).length;
         await board.page.mouse.move(box.x + centre.x - 6, box.y + centre.y);
         await board.page.mouse.move(box.x + centre.x, box.y + centre.y, { steps: 4 });
         const tip = async () =>
-          (await drawnTexts(frame)).filter(({ text }) => visibleText(text).includes("1.234,5"));
-        await eventually(async () => (await tip()).length > 0, "the tooltip's value on the canvas");
-        const drawn = (await drawnTexts(frame)).map((each) => ({
-          ...each,
-          text: visibleText(each.text),
-        }));
-        const lines = drawn.filter(({ text }) => /Correzione A|Costo: 1\.234,5 €/.test(text));
-        expect(lines.map(({ text }) => text).join("|")).toContain("Costo: 1.234,5 €");
-        expect(lines.map(({ text }) => text).join("|")).toContain("Correzione A");
+          (await drawnTexts(frame))
+            .slice(beforeHover)
+            .map((each) => ({ ...each, text: visibleText(each.text) }))
+            .filter(({ fill }) => fill.toLowerCase() === theme.foreground.toLowerCase());
+        await eventually(
+          async () => (await tip()).some(({ text }) => text.includes("1.234,5")),
+          "the tooltip's value on the canvas",
+        );
+        const drawn = await tip();
+        const lines = drawn.map(({ text }) => text);
+        expect(lines.join("|")).toContain("Costo: 1.234,5 €");
+        expect(lines).toContain("Correzione A");
         // Review U-2, read: ECharts' rich-text tooltip never applies `textStyle`'s font (its
         // `TooltipRichContent.setContent` sets the fill, the padding and the shadow only), so the
         // line is drawn in the library's default, "12px sans-serif", in Chromium and in WebKit,
         // not in the theme's 11.5px badge size and font stack; its colour is the theme's
         // popover-foreground. The assertion states what is drawn: a change of either the library
         // or the option that makes the font follow the theme fails it, and is then the news.
-        const theme = await chartOf(board).evaluate((element) => {
-          const style = getComputedStyle(element);
-          return {
-            size: style.getPropertyValue("--fs-badge").trim(),
-            foreground: style.getPropertyValue("--popover-foreground").trim(),
-          };
-        });
         const value = drawn.find(({ text }) => text.includes("1.234,5") && text.includes("Costo"));
         if (value === undefined) throw new Error("no tooltip line holds the value");
         expect(theme.size).toBe("11.5px");
