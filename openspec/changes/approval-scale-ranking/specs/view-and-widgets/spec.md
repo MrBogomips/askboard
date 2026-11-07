@@ -116,6 +116,17 @@ The first edit of an answered question SHALL put its latest answer's results int
 - **WHEN** the user presses "Start from my previous answer" on a reopened question whose previous answer held a Scale's value
 - **THEN** the draft holds that value for the Scale
 
+### Requirement: A draft holds only results its items accept
+The draft SHALL never hold a result that its item's type refuses against the item's current props: a result put back from an earlier answer, or held while the agent changes the item, that the type's check refuses is dropped, and the item shows as untouched (AD-10, AD-20).
+
+#### Scenario: A previous result the revision no longer accepts
+- **WHEN** the agent reopens an answered question and adds an element to its Ranking and turns its Scale into a range, and the user presses "Start from my previous answer"
+- **THEN** the draft holds no result for the Ranking or the Scale, both show as untouched, the Approval's decision is put back, and "Answer" sends nothing the board host refuses
+
+#### Scenario: Keeping a draft across a change that refuses its result
+- **WHEN** the user holds a Scale value and the agent changes that Scale's `max` below it, and the user keeps their draft
+- **THEN** the draft holds no result for the Scale, which shows as unset
+
 ### Requirement: Scale as a slider
 A Scale slider SHALL start unset, with no thumb and "Not set" beside it. A click on the unset track SHALL set the value at the clicked point, snapped to a step; Home or an arrow key SHALL set `min`, End `max`; after that the slider SHALL move by its steps. A range SHALL start both thumbs at the first value. Values SHALL show in the ask's locale (FR-11, AD-10, renderer spike row 22).
 
