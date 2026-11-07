@@ -177,5 +177,69 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    // A label of 200 characters, in words and in one unbroken run (review 5.6, S-1).
+    const WORDS = `${"label ".repeat(34)}label`.slice(0, 200);
+    const RUN = "L".repeat(200);
+
+    for (const [shape, label] of [
+      ["words", WORDS],
+      ["no spaces", RUN],
+    ] as const) {
+      for (const width of [1280, 320]) {
+        test(
+          `a Value, a TextField, a NumberField and a MoneyField labelled with 200 characters (${shape}) wrap inside the card at ${width} px, the figure on screen and the page with no sideways scroll`,
+          async () => {
+            const items = [
+              { type: "value", id: "total", props: { label, kind: "number", value: 1234.5 } },
+              { type: "text-field", id: "name", props: { label } },
+              { type: "number-field", id: "days", props: { label } },
+              { type: "money-field", id: "fee", props: { label, currency: "EUR" } },
+            ];
+            const run = await host(dist, atomDocument(items));
+            await readyIn(run);
+            await run.board.page.setViewportSize({ width, height: 800 });
+            const measured = await run.board.view.locator("body").evaluate(
+              (_body, ids) => {
+                const card = document.querySelector("[data-askboard-question]");
+                if (card === null) throw new Error("no question card");
+                const cardBox = card.getBoundingClientRect();
+                const outside = (el: Element) => {
+                  const box = el.getBoundingClientRect();
+                  return box.left < cardBox.left - 0.5 || box.right > cardBox.right + 0.5;
+                };
+                const out = ids.map((id) => {
+                  const root = document.querySelector(`[data-askboard-item="${id}"]`);
+                  const parts = [...(root?.querySelectorAll("dt, dd, label, input, [role]") ?? [])];
+                  return { id, parts: parts.length, outside: parts.filter(outside).length };
+                });
+                const dd = document.querySelector('[data-askboard-item="total"] dd');
+                return {
+                  out,
+                  figureWidth: dd?.getBoundingClientRect().width ?? 0,
+                  figureLeft: dd?.getBoundingClientRect().left ?? -1,
+                  wrapped:
+                    (document
+                      .querySelector('[data-askboard-item="total"] dt')
+                      ?.getBoundingClientRect().height ?? 0) > 0,
+                  sideways: document.documentElement.scrollWidth - window.innerWidth,
+                  inner: window.innerWidth,
+                };
+              },
+              ["total", "name", "days", "fee"],
+            );
+            for (const entry of measured.out) {
+              expect(entry.parts, entry.id).toBeGreaterThan(0);
+              expect(entry.outside, entry.id).toBe(0);
+            }
+            expect(measured.figureWidth).toBeGreaterThan(0);
+            expect(measured.figureLeft).toBeGreaterThanOrEqual(0);
+            expect(measured.sideways).toBeLessThanOrEqual(0);
+            expect(run.browser.cspProblems()).toEqual([]);
+          },
+          TEST_TIMEOUT_MS,
+        );
+      }
+    }
   });
 }

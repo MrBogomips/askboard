@@ -1,11 +1,12 @@
 // The Value's classes (DESIGN.md: Primitives, Display atoms), on the token utilities only, each
 // written out in full so that Tailwind finds it in the chunk's own sources.
 
-/** The label and the figure side by side: the figure takes what the label leaves and wraps. */
+/** The label and the figure side by side: the label wraps within 60% of the card, the figure takes the rest and wraps (review 5.6, S-1). */
 export const VALUE = "m-0 flex min-w-0 items-baseline justify-between gap-md";
 
 /** The label type in the muted colour, as the section labels are. */
-export const LABEL = "m-0 shrink-0 text-label text-muted-foreground uppercase";
+export const LABEL =
+  "m-0 min-w-0 max-w-[60%] break-words text-label text-muted-foreground uppercase";
 
 /**
  * The figure in the code type, right-aligned. `break-all` lets a number the contract bounds but a
