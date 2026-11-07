@@ -358,11 +358,18 @@ describe("the Form fixtures", () => {
       expect(widgetItemProblems(field, form, "agent", TYPES), field.id).toEqual([]);
   });
 
-  test("FORM_QUESTION passes the whole request check once the PickField is registered", () => {
-    if (!WIDGET_TYPES.some(({ type }) => type === "pick-field")) return;
-    const result = validateAskRequestOver({ askId: "form-ask-a1b2", items: [form] }, WIDGET_TYPES);
-    expect(result.ok ? [] : result.problems).toEqual([]);
-  });
+  // Reports a skip, not a pass, until task 3.3 registers the PickField.
+  const registered = WIDGET_TYPES.some(({ type }) => type === "pick-field");
+  test.skipIf(!registered)(
+    "FORM_QUESTION passes the whole request check once the PickField is registered",
+    () => {
+      const result = validateAskRequestOver(
+        { askId: "form-ask-a1b2", items: [form] },
+        WIDGET_TYPES,
+      );
+      expect(result.ok ? [] : result.problems).toEqual([]);
+    },
+  );
 
   test("FORM_QUESTION is valid as a board document", () => {
     const document = structuredClone(lifecycleBoardDocument) as unknown as {
