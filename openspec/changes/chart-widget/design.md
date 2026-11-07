@@ -100,7 +100,7 @@ Checked on 2026-11-07, against the addendum's rule:
 | `zrender` (its dependency, exact) | 6.1.0 | BSD-3-Clause | 6,310 | 2026-11-03 | 6.1.0 | no |
 | `tslib` (exact dependency of both) | 2.3.0 | 0BSD | — | — | — | — |
 
-`bun.lock` gains the three (Bun hoists `tslib@2.3.0` to the root and nests 2.8.1 beside its six earlier consumers, whose versions do not change); `check:licences` passes them (`PERMISSIVE` holds the three licences); no font, image or other asset is bundled; Apache-2.0's NOTICE reaches the chunk's notices through `LICENCE_FILE`. No spine change: the Stack already pins `echarts` 6.1.0.
+`bun.lock` gains the three (Bun hoists `tslib@2.3.0` to the root and nests 2.8.1 beside its six earlier consumers, whose versions do not change); `check:licences` passes them (`PERMISSIVE` holds the three licences); no font, image or other asset is bundled; Apache-2.0's NOTICE reaches the chunk's notices through `LICENCE_FILE`, and so must every third-party licence an included echarts source embeds: `lib/scale/Time.js` (the time scale that `GridComponent` registers) copies d3's scale levels under BSD-3-Clause, which echarts' LICENSE does not list, so the chunk ships d3's licence text too (checkpoint 5.3, X-1; task 5.5). No spine change: the Stack already pins `echarts` 6.1.0.
 
 ### 10. Registration waits for the chunk
 
