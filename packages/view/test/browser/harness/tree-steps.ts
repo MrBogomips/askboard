@@ -92,6 +92,16 @@ export const focusPortal = async (run: WidgetHostRun, tree: TreeGrid): Promise<v
   );
 };
 
+/**
+ * Tabs into the fixture Tree again after an edit of `portal`: the grid kept its one Tab stop on the
+ * row the edit left, so the Tab lands on `portal`, not on the first row as in a fresh Tree
+ * (`focusPortal`).
+ */
+export const tabBackToPortal = async (run: WidgetHostRun, tree: TreeGrid): Promise<void> => {
+  expect(await tabIntoTree(run.board, plan.props.text)).toEqual({ nodeId: "portal" });
+  expect(await tabStops(tree.grid)).toBe(1);
+};
+
 /** Opens the editor with `key` and types `text` over the cell's text, which it selects. */
 export const typeIn = async (run: WidgetHostRun, tree: TreeGrid, key: string, text: string) => {
   await run.board.page.keyboard.press(key);

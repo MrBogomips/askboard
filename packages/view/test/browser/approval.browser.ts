@@ -9,6 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { approvalAsk, approvalDocument } from "./fixtures/approval-documents.ts";
+import { plan } from "./fixtures/tree-documents.ts";
 import {
   eventually,
   isFocused,
@@ -27,8 +28,16 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { tabIntoGroup, tabLeavesGroup } from "./harness/tab-stops.ts";
 import { pressIn, treeGridOf } from "./harness/tree-grid.ts";
-import { enterField, expectSteps, focusPortal, readyIn, typeIn } from "./harness/tree-steps.ts";
+import {
+  enterField,
+  expectSteps,
+  focusPortal,
+  readyIn,
+  tabBackToPortal,
+  typeIn,
+} from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
@@ -87,11 +96,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "the decisions are one Tab stop: the right arrow key moves to the next one and Space selects it",
+      "the decisions are one Tab stop: Tab lands on the first enabled one, or on the selected one, and the next Tab leaves; the arrow keys move and Space selects",
       async () => {
         const run = await host(dist, approvalDocument());
         await readyIn(run);
         const { board } = run;
+        const group = board.view.locator("[data-approval]").getByRole("radiogroup");
+        expect(await group.getByRole("radio").count()).toBe(3);
+        // Nothing selected: the first enabled decision takes the Tab, and one more Tab leaves.
+        expect(await tabIntoGroup(board, plan.props.text, group)).toBe("Approve");
+        expect(await tabLeavesGroup(board, group)).toBe(true);
         await decision(board, "Approve").focus();
         await board.page.keyboard.press("ArrowRight");
         await eventually(
@@ -100,11 +114,24 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await board.page.keyboard.press("Space");
         await eventually(() => pressed(board, "Approve with changes"), "the decision to select");
-        const stops = await board.view
-          .getByRole("group", { name: "Approval" })
-          .getByRole("radio")
-          .evaluateAll((radios) => radios.filter((radio) => radio.tabIndex === 0).length);
-        expect(stops).toBe(1);
+        // Selected: the next Tab in lands on it, not on the first.
+        expect(await tabIntoGroup(board, plan.props.text, group)).toBe("Approve with changes");
+        expect(await tabLeavesGroup(board, group)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "beside a change the first enabled decision takes the Tab: Approve is skipped",
+      async () => {
+        const run = await host(dist, approvalDocument());
+        await readyIn(run);
+        const { board } = run;
+        await renamePortal(run, "Customer portal: accounts");
+        await eventually(() => decision(board, "Approve").isDisabled(), "Approve to be disabled");
+        const group = board.view.locator("[data-approval]").getByRole("radiogroup");
+        expect(await tabIntoGroup(board, plan.props.text, group)).toBe("Approve with changes");
+        expect(await tabLeavesGroup(board, group)).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
@@ -136,8 +163,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { decision: "approve-with-changes" },
           "the draft to hold approve-with-changes",
         );
+        // Back into the Tree: its Tab stop stayed on the row the first rename left, `portal`.
         const tree = treeGridOf(board);
-        await focusPortal(run, tree);
+        await tabBackToPortal(run, tree);
         await typeIn(run, tree, "Enter", "Customer portal");
         await pressIn(board, "Enter");
         await eventually(() => decision(board, "Approve").isEnabled(), "Approve enabled again");
