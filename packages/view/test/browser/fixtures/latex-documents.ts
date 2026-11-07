@@ -6,6 +6,7 @@ import type { Locale } from "@askboard/contract";
 import { LATEX_FIXTURE_ITEM, treeBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import type { WidgetHostRun } from "../harness/widget-host-test.ts";
+import { VERDICT } from "./approval-documents.ts";
 import { plan } from "./tree-documents.ts";
 
 /** The LaTeX item `formula` with `expression`, as the agent sends it. */
@@ -28,6 +29,10 @@ const documentOf = (items: readonly unknown[], language?: Locale): ViewDocument 
 /** The question `plan` holding one LaTeX `formula`, in `language` (en-US by default). */
 export const latexDocument = (expression: string = SENT_EXPRESSION, language?: Locale) =>
   documentOf([latexItem(expression)], language);
+
+/** The question `plan` holding the LaTeX `formula` and, last, the Approval `verdict`. */
+export const latexApprovalDocument = (language?: Locale): ViewDocument =>
+  documentOf([LATEX_FIXTURE_ITEM, VERDICT], language);
 
 /** The question `plan` holding the LaTeX items given, in order. */
 export const latexItemsDocument = (items: readonly ReturnType<typeof latexItem>[]) =>
