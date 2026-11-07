@@ -9,6 +9,7 @@ import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewArea, ViewDocument, ViewQuestion } from "../view-document.ts";
 import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
+import { press as confirmPress, settle } from "./revision-confirm.ts";
 import {
   hasRecommendation,
   heldMissingReason,
@@ -502,6 +503,7 @@ describe("every path to an answer checks the reason (approval-scale-ranking, des
     const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
       results: results.record(),
       facts,
+      state: stateOf(),
     });
     expect(pressed).toEqual({ kind: "needs-reason", questionId: "region" });
     expect(JSON.stringify([...board.get().questions])).toBe(before);
@@ -519,6 +521,7 @@ describe("every path to an answer checks the reason (approval-scale-ranking, des
     const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
       results: results.record(),
       facts,
+      state: stateOf(),
     });
     expect(pressed.kind).toBe("send");
     if (pressed.kind === "send") {
@@ -533,5 +536,95 @@ describe("every path to an answer checks the reason (approval-scale-ranking, des
       );
       expect(pressed.acts).toHaveLength(1);
     }
+  });
+});
+
+describe("Submit asks before replacing a received verdict (approval-scale-ranking, design decision 6; F-63)", () => {
+  const facts = (type: string): ComponentFacts | undefined =>
+    type === "verdict" ? { confirmsRevision: true } : undefined;
+  const verdict = { type: "verdict", id: "verdict", props: {} };
+  const doc = (() => {
+    const copy = structuredClone(document) as unknown as ViewDocument;
+    const area = copy.items[0] as ViewArea;
+    const [first] = area.props.items;
+    (first as unknown as { props: { items: unknown[] } }).props.items = [verdict];
+    return copy;
+  })();
+  const stateWith = (receipt: "queued" | "sent" | "delivered"): LifecycleBoardState => {
+    const base = stateOf();
+    return {
+      ...base,
+      questions: base.questions.map((status) =>
+        status.itemId === "region"
+          ? { itemId: "region", rev: 1, state: "answered", answer: { when: WHEN, receipt } }
+          : status,
+      ),
+    } as unknown as LifecycleBoardState;
+  };
+  const marked = () => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const board = createBoardDraft("submitted");
+    connectDrafts(doc, values, board, results);
+    values.set("region", ["EU"]);
+    results.set("verdict", { decision: "reject" });
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
+    return { values, results, board };
+  };
+  const press = (receipt: "queued" | "sent" | "delivered") => {
+    const { values, results, board } = marked();
+    return {
+      board,
+      pressed: submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+        results: results.record(),
+        facts,
+        state: stateWith(receipt),
+      }),
+    };
+  };
+
+  test("the receipt turned delivered after the mark: the press asks, naming the question", () => {
+    const { pressed } = press("delivered");
+    expect(pressed.kind).toBe("confirm");
+    if (pressed.kind === "confirm") {
+      expect(pressed.questions.map(({ id }) => id)).toEqual(["region"]);
+      expect(pressed.acts).toHaveLength(1);
+    }
+  });
+
+  test("a receipt that reads sent or queued sends at once", () => {
+    for (const receipt of ["queued", "sent"] as const) {
+      expect(press(receipt).pressed.kind).toBe("send");
+    }
+  });
+
+  test("the reason check comes first: a question lacking its reason is named before any asking", () => {
+    const { values, results, board } = marked();
+    const needing: ComponentFacts = {
+      confirmsRevision: true,
+      reason: () => ({ label: "question.reasonRequired", missing: "question.reasonMissing" }),
+    };
+    const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+      results: results.record(),
+      facts: () => needing,
+      state: stateWith("delivered"),
+    });
+    expect(pressed).toEqual({ kind: "needs-reason", questionId: "region" });
+  });
+
+  test("Cancel sends nothing and keeps every act held; confirming sends the command once", () => {
+    const { board, pressed } = press("delivered");
+    if (pressed.kind !== "confirm") throw new Error(pressed.kind);
+    const before = JSON.stringify([...board.get().questions]);
+    const sent: unknown[] = [];
+    const cancelled = confirmPress(true, () => sent.push(pressed.acts));
+    settle(cancelled, false);
+    settle(cancelled, true);
+    expect(sent).toEqual([]);
+    expect(JSON.stringify([...board.get().questions])).toBe(before);
+    const confirmed = confirmPress(true, () => sent.push(pressed.acts));
+    settle(confirmed, true);
+    settle(confirmed, true);
+    expect(sent).toEqual([pressed.acts]);
   });
 });

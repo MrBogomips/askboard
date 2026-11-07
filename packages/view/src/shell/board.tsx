@@ -415,6 +415,7 @@ export const Board = ({
         <BottomBar
           single={single}
           document={document}
+          state={state}
           delivery={delivery}
           warning={postponedWarningOf(document, state, draft.questions, language)}
           submit={submit}

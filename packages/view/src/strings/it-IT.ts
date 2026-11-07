@@ -116,6 +116,9 @@ export const IT_IT = {
     "L'agente ha già ricevuto la tua risposta precedente. Questa la sostituisce.",
   "revision.confirmSend": "Invia",
   "revision.confirmCancel": "Annulla",
+  "revision.submitTitle": "Inviare nuove risposte?",
+  "revision.submitBody":
+    "L'agente ha già ricevuto le tue risposte precedenti a queste domande. L'invio le sostituisce:",
   "option.agent": "Agente:",
   "option.showPreview": "Mostra anteprima",
   "option.addNote": "+ Aggiungi una nota a questa opzione",

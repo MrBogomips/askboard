@@ -11,16 +11,18 @@
 // single-question board the bar shows only the postponed warning line, while there is one, and
 // "Snapshot".
 
+import type { LifecycleBoardState } from "@askboard/contract";
 import { AlertDialog } from "radix-ui";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
-import type { ViewDocument } from "../view-document.ts";
+import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
+import { press, settle, type Waiting } from "./revision-confirm.ts";
 import { SnapshotButton, SnapshotFeedback } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import {
@@ -44,6 +46,8 @@ const Warning = ({ warning }: { readonly warning: string }) => (
 export type BottomBarProps = {
   readonly single: boolean;
   readonly document: ViewDocument;
+  /** The state of the board: the receipts of the answers Submit would replace. */
+  readonly state: LifecycleBoardState;
   readonly delivery: Delivery;
   readonly warning: string | undefined;
   readonly submit: SubmitState;
@@ -66,8 +70,14 @@ export type BottomBarProps = {
 };
 
 export const BottomBar = (props: BottomBarProps) => {
-  const { single, document, delivery, warning, submit, recommendations, locked, context } = props;
+  const { single, document, state, delivery, warning, submit, recommendations, locked, context } =
+    props;
   const [confirming, setConfirming] = useState(false);
+  // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
+  const [replacing, setReplacing] = useState<
+    { readonly questions: readonly ViewQuestion[]; readonly waiting: Waiting } | undefined
+  >();
+  const submitButton = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   const language = useLanguage();
   const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
@@ -83,25 +93,35 @@ export const BottomBar = (props: BottomBarProps) => {
     );
   }
   // Submit's one command: every held act, in the order the user produced them (AD-20), after a
-  // last check that every held answer has the reason its held result requires; one that lacks it
-  // sends nothing, keeps every act held and takes the board to that question's prompt. Returns
-  // whether the command went.
-  const send = (): boolean => {
+  // last check that every held answer has the reason its held result requires: one that lacks it
+  // sends nothing, keeps every act held and takes the board to that question's prompt. Then, when
+  // the command would replace a verdict the agent has received, the dialog asks; Cancel or Escape
+  // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
+  // immediate delivery does.
+  const send = (then?: () => void): void => {
     const pressed = submitPress(
       document,
       context.board.get(),
       context.draft.record(),
       new Date(),
       context.derived.reported,
-      { results: context.results?.record() },
+      { results: context.results?.record(), state },
     );
     if (pressed.kind === "needs-reason") {
       props.onNeedsReason(pressed.questionId);
-      return false;
+      return;
     }
-    const [first, ...rest] = pressed.acts;
-    if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);
-    return true;
+    const go = () => {
+      const [first, ...rest] = pressed.acts;
+      if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);
+      then?.();
+    };
+    if (pressed.kind === "send") {
+      go();
+      return;
+    }
+    const waiting = press(true, go);
+    if (waiting !== undefined) setReplacing({ questions: pressed.questions, waiting });
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
   const blockedSwitch = submit.held > 0 && delivery === "submitted" && submit.disabled;
@@ -157,7 +177,13 @@ export const BottomBar = (props: BottomBarProps) => {
             {updatesLabel(submit.blocked.length, language)}
           </button>
         )}
-        <button type="button" className={BUTTON_PRIMARY} disabled={submit.disabled} onClick={send}>
+        <button
+          ref={submitButton}
+          type="button"
+          className={BUTTON_PRIMARY}
+          disabled={submit.disabled}
+          onClick={() => send()}
+        >
           {text("bar.submit")}
         </button>
       </span>
@@ -179,11 +205,55 @@ export const BottomBar = (props: BottomBarProps) => {
               <AlertDialog.Action
                 className={BUTTON_PRIMARY}
                 disabled={submit.disabled}
-                onClick={() => {
-                  if (send()) context.board.setDelivery("immediate");
-                }}
+                onClick={() => send(() => context.board.setDelivery("immediate"))}
               >
                 {text("bar.sendAndSwitch")}
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+      <AlertDialog.Root
+        open={replacing !== undefined}
+        onOpenChange={(open) => {
+          if (open) return;
+          settle(replacing?.waiting, false);
+          setReplacing(undefined);
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
+          <AlertDialog.Content
+            className={DIALOG}
+            onCloseAutoFocus={(event) => {
+              // The dialog has no trigger, so Radix restores no focus: it goes back to Submit.
+              event.preventDefault();
+              submitButton.current?.focus();
+            }}
+          >
+            <AlertDialog.Title className="text-body-lg font-semibold">
+              {text("revision.submitTitle")}
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-body text-foreground-secondary">
+              {text("revision.submitBody")}
+            </AlertDialog.Description>
+            <ul className="list-disc pl-lg text-body text-foreground">
+              {(replacing?.questions ?? []).map((question) => (
+                <li key={question.id}>{question.props.text}</li>
+              ))}
+            </ul>
+            <div className="mt-sm flex justify-end gap-sm">
+              <AlertDialog.Cancel className={BUTTON_SECONDARY}>
+                {text("bar.cancel")}
+              </AlertDialog.Cancel>
+              <AlertDialog.Action
+                className={BUTTON_PRIMARY}
+                onClick={() => {
+                  settle(replacing?.waiting, true);
+                  setReplacing(undefined);
+                }}
+              >
+                {text("bar.submit")}
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

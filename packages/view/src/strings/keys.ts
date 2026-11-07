@@ -117,6 +117,9 @@ export const STRING_KEYS = [
   "revision.confirmBody",
   "revision.confirmSend",
   "revision.confirmCancel",
+  // Submit asks before replacing a received verdict (design decision 6; texts to review).
+  "revision.submitTitle",
+  "revision.submitBody",
   "option.agent",
   "option.showPreview",
   "option.addNote",

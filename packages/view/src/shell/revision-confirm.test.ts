@@ -3,15 +3,16 @@
 // test type in place of the registry.
 
 import { describe, expect, mock, test } from "bun:test";
-import type { LifecycleQuestionStatus } from "@askboard/contract";
+import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import type { ComponentFacts } from "../catalog/port.ts";
-import type { ViewQuestion } from "../view-document.ts";
+import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import {
   asksFirst,
   type Confirmation,
   confirmationOf,
   confirmsRevisionOf,
   press,
+  questionsToConfirm,
   settle,
   settleConfirmation,
 } from "./revision-confirm.ts";
@@ -217,5 +218,95 @@ describe("a confirmation keeps the control pressed (design decision 6; NFR-12)",
   test("settling no confirmation gives no target", () => {
     expect(settleConfirmation(undefined, false)).toBeUndefined();
     expect(settleConfirmation(undefined, true)).toBeUndefined();
+  });
+});
+
+describe("which held acts Submit asks about (design decision 6; F-63)", () => {
+  const named = (id: string, ...types: string[]): ViewQuestion =>
+    ({
+      ...questionOf(...types),
+      id,
+    }) as ViewQuestion;
+  // Board order: first, second, third, plain.
+  const questions = [
+    named("first", "verdict"),
+    named("second", "verdict"),
+    named("third", "verdict"),
+    named("plain", "grade"),
+  ];
+  const document = { items: questions } as unknown as ViewDocument;
+  const stateOf = (
+    receipts: Readonly<Record<string, "queued" | "sent" | "delivered" | "open">>,
+  ): LifecycleBoardState =>
+    ({
+      ask: "waiting",
+      questions: questions.map(({ id }) =>
+        receipts[id] === undefined || receipts[id] === "open"
+          ? { itemId: id, rev: 1, state: "open" }
+          : { ...logged("answered", receipts[id]), itemId: id },
+      ),
+    }) as unknown as LifecycleBoardState;
+  const held = (...entries: readonly [string, HeldAct["act"]][]) =>
+    entries.map(([id, act]) => ({
+      question: questions.find((question) => question.id === id) as ViewQuestion,
+      work: { held: { act } },
+    }));
+  const ids = (list: readonly ViewQuestion[]) => list.map((question) => question.id);
+
+  test("a held answer or decline replacing a delivered one is listed, in board order", () => {
+    const state = stateOf({ first: "delivered", second: "delivered", third: "delivered" });
+    // Held in the order third, first, second: the list follows the board.
+    const list = questionsToConfirm(
+      document,
+      held(["third", "decline"], ["first", "answer"], ["second", "answer"]),
+      state,
+      factsOf,
+    );
+    expect(ids(list)).toEqual(["first", "second", "third"]);
+  });
+
+  test("a delivered decline replaced by a held answer counts too", () => {
+    const state = {
+      ask: "waiting",
+      questions: [{ ...logged("declined", "delivered"), itemId: "first" }],
+    } as unknown as LifecycleBoardState;
+    expect(ids(questionsToConfirm(document, held(["first", "answer"]), state, factsOf))).toEqual([
+      "first",
+    ]);
+  });
+
+  test("none for a receipt that reads queued or sent", () => {
+    const state = stateOf({ first: "queued", second: "sent" });
+    expect(
+      questionsToConfirm(
+        document,
+        held(["first", "answer"], ["second", "decline"]),
+        state,
+        factsOf,
+      ),
+    ).toEqual([]);
+  });
+
+  test("none without the fact: an item that does not ask, or a question with nothing received", () => {
+    const state = stateOf({ plain: "delivered", third: "open" });
+    expect(
+      questionsToConfirm(document, held(["plain", "answer"], ["third", "answer"]), state, factsOf),
+    ).toEqual([]);
+  });
+
+  test("only answers and declines replace one: a held postpone, note or reopen does not", () => {
+    const state = stateOf({ first: "delivered", second: "delivered", third: "delivered" });
+    expect(
+      questionsToConfirm(
+        document,
+        held(["first", "postpone"], ["second", "note"], ["third", "reopen"]),
+        state,
+        factsOf,
+      ),
+    ).toEqual([]);
+  });
+
+  test("nothing held, nothing listed", () => {
+    expect(questionsToConfirm(document, [], stateOf({ first: "delivered" }), factsOf)).toEqual([]);
   });
 });

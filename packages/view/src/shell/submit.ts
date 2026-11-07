@@ -36,6 +36,7 @@ import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { contentOf } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
+import { questionsToConfirm } from "./revision-confirm.ts";
 
 /** A question with an act held for Submit, and the work that carries it. */
 export type HeldWork = {
@@ -260,15 +261,23 @@ export const heldMissingReason = (
   return undefined;
 };
 
-/** What a press of Submit comes to: a question whose reason is missing, else the acts to send. */
+/** What a press of Submit comes to: a question whose reason is missing, the acts to send, or the acts and the questions to ask about first. */
 export type SubmitPress =
   | { readonly kind: "needs-reason"; readonly questionId: string }
-  | { readonly kind: "send"; readonly acts: ViewAct[] };
+  | { readonly kind: "send"; readonly acts: ViewAct[] }
+  | {
+      readonly kind: "confirm";
+      readonly acts: ViewAct[];
+      /** The questions whose received verdict the acts replace, in board order. */
+      readonly questions: readonly ViewQuestion[];
+    };
 
 /**
- * A press of Submit (design decision 6): the last reason check over every held answer comes before
- * anything else; one that fails sends nothing and leaves every act held, naming the question the
- * board goes to; otherwise the one command, every held act in the order the user produced them.
+ * A press of Submit (design decision 6): the last reason check over every held answer comes
+ * before anything else; one that fails sends nothing and leaves every act held, naming the
+ * question the board goes to. Then, when a held answer or decline would replace a received
+ * verdict, the questions to ask about with the acts; otherwise the one command, every held act in
+ * the order the user produced them.
  */
 export const submitPress = (
   document: ViewDocument,
@@ -277,13 +286,17 @@ export const submitPress = (
   at: Date,
   reported: DerivedStore["reported"],
   options: {
+    /** The board's state, for the receipts of the answers the held acts would replace. */
+    readonly state: LifecycleBoardState;
     readonly results?: DraftRecord | undefined;
     readonly facts?: FactsOf | undefined;
-  } = {},
+  },
 ): SubmitPress => {
-  const { results, facts } = options;
+  const { results, facts, state } = options;
   const held = heldWorkOf(document, board);
   const missing = heldMissingReason(document, held, values, results, facts);
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
-  return { kind: "send", acts: submitActsOf(held, values, at, reported, results) };
+  const acts = submitActsOf(held, values, at, reported, results);
+  const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
+  return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
 };

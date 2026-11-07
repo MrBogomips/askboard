@@ -111,6 +111,9 @@ export const EN_US = {
     "The agent has already received your earlier answer. This one replaces it.",
   "revision.confirmSend": "Send",
   "revision.confirmCancel": "Cancel",
+  "revision.submitTitle": "Send new answers?",
+  "revision.submitBody":
+    "The agent has already received your earlier answers to these questions. Submit replaces them:",
   "option.agent": "Agent:",
   "option.showPreview": "Show preview",
   "option.addNote": "+ Add your note to this option",

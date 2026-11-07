@@ -3,9 +3,9 @@
 // heard and the facts the chunks of the question's items registered, and how a press waits for
 // it. The dialog is the card's.
 
-import type { HeldAct, LifecycleQuestionStatus } from "@askboard/contract";
+import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
-import type { ViewQuestion } from "../view-document.ts";
+import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 
 /**
  * Whether "Answer" or Decline on the question asks first: its latest answer or decline has been
@@ -104,3 +104,29 @@ export const settleConfirmation = <Control>(
     ? undefined
     : { to: "control", control: confirmation.control };
 };
+
+/** A question with an act held for Submit; the work is read for the act alone. */
+export type HeldEntry = {
+  readonly question: ViewQuestion;
+  readonly work: { readonly held: { readonly act: HeldAct["act"] } };
+};
+
+/**
+ * The questions Submit asks about, in board order: those whose held answer or decline would
+ * replace a latest answer or decline the agent has received (its receipt reads `delivered`) on a
+ * question holding an item whose chunk asks for it, whether or not the press that held the act
+ * asked, the receipt having possibly turned `delivered` since. A held postpone, note or reopen
+ * replaces nothing.
+ */
+export const questionsToConfirm = (
+  document: ViewDocument,
+  held: readonly HeldEntry[],
+  state: LifecycleBoardState,
+  factsOf?: (type: string) => ComponentFacts | undefined,
+): readonly ViewQuestion[] =>
+  questionsOf(document).filter((question) => {
+    const act = held.find((entry) => entry.question.id === question.id)?.work.held.act;
+    if (act !== "answer" && act !== "decline") return false;
+    const status = state.questions.find((each) => each.itemId === question.id);
+    return confirmsRevisionOf(question, status, factsOf);
+  });
