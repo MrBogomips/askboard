@@ -48,9 +48,11 @@ export const scaleStepCount = (min: number, max: number, step: number): number |
 // a few units in the last place of it (approval-scale-ranking, 7b.6 re-review X-2). The sum
 // `min + k * step`, its rounding to the step's decimals and the subtraction here each move a double
 // by at most one unit in the last place of the larger magnitude (at most `Number.EPSILON` times it),
-// so eight of them reach every step a float can name and stay a small part of a step while the step
-// is several units wide. Where the step is only a few units wide the grid is finer than the doubles
-// there, and any double within the scale is as near a step as a double can say.
+// so eight times `Number.EPSILON` of the magnitude (8 to 16 units in the last place) reaches every
+// step a float can name. It stays a small part of a step while the step is many units wide; once the
+// step is under about 16 units of the magnitude, the floor passes half a step and any double between
+// the bounds is accepted. The schema caps every number at 1e9, so the floor never exceeds about 1.8e-6;
+// the bounds stay exact, and the board sends snapped values only (accepted, 7b.10 re-review X-1).
 const FLOOR_ULPS = 8;
 const gridTolerance = (value: number, min: number, step: number): number =>
   Math.max(
