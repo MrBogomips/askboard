@@ -19,7 +19,7 @@ In Markdown, an image SHALL show as a link to its source labelled with its alt t
 - **THEN** the image shows as a link labelled "logo" and is never loaded, and the table's alignment is a class with no CSP violation
 
 ### Requirement: Markdown links in the view
-A link in Markdown SHALL be a link only when its URL is `http:` or `https:`; any other shows as its source text. On the live board, a click on a link SHALL send the board page an open-link message naming the item and the URL, and SHALL NOT navigate the view. In a Snapshot, which has no board page, a link SHALL open natively in a new tab with `rel="noopener noreferrer"` (AD-8, NFR-9).
+A link in Markdown SHALL be a link only when its URL is a non-empty `http:` or `https:` URL with no user name or password; any other shows as its source text. On the live board, a click on a link SHALL send the board page an open-link message naming the item and the URL, and SHALL NOT navigate the view. In a Snapshot, which has no board page, a link SHALL open natively in a new tab with `rel="noopener noreferrer"` (AD-8, NFR-9).
 
 #### Scenario: A link clicked on the board
 - **WHEN** the user clicks `[docs](https://example.com/docs)` in a Markdown Text
@@ -30,7 +30,7 @@ A link in Markdown SHALL be a link only when its URL is `http:` or `https:`; any
 - **THEN** it shows as its source text and is no link
 
 ### Requirement: The board page opens Markdown links
-The board page SHALL open an open-link message's URL in a new tab with `noopener` and `noreferrer` only when it is `http:` or `https:`, at most 2,048 characters, and the item it names holds Markdown in the board document; it SHALL open nothing otherwise (AD-8).
+The board page SHALL open an open-link message's URL in a new tab with `noopener` and `noreferrer` only when it is `http:` or `https:` with no user name or password, at most 2,048 characters, and the item it names holds Markdown in the board document; it SHALL open nothing otherwise (AD-8).
 
 #### Scenario: A link opened
 - **WHEN** the board page receives an open-link message for `https://example.com/docs` from a Markdown Text

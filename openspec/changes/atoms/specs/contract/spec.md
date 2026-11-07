@@ -47,11 +47,15 @@ A `text-field` item SHALL hold `label`, an optional `description`, an optional `
 - **THEN** the first passes, and the others fail, naming the item and the limit or the line break
 
 ### Requirement: NumberField items and results
-A `number-field` item SHALL hold `label`, an optional `description`, optional `min` and `max` within ±1,000,000,000,000,000 with `max` not below `min`, an optional `step` above 0, an optional `integer` and an optional `unit` (1 to 20). Its result SHALL be a JSON number within the bounds, whole when `integer` is true, and on a step when `step` is given, counted from `min` (else 0) within a billionth of a step (FR-13, AD-10).
+A `number-field` item SHALL hold `label`, an optional `description`, optional `min` and `max` within ±1,000,000,000,000,000 with `max` not below `min`, an optional `step` above 0, an optional `integer` and an optional `unit` (1 to 20). Its result SHALL be a JSON number within the bounds, whole when `integer` is true, and on a step when `step` is given, counted from `min` (else 0) within the grid's tolerance, which props keep under a quarter step (FR-13, AD-10).
 
 #### Scenario: Bounds and steps
 - **WHEN** a NumberField `{label: "Days", min: 0, max: 20, step: 0.5}` receives `3.5`, `21`, `3.25`
 - **THEN** `3.5` passes, and the others fail, naming the item and the bound or the step
+
+#### Scenario: The grid's tolerance
+- **WHEN** a value lies off its step by less than a billionth of a step, or by less than eight times `Number.EPSILON` of the larger of `|min|` and the value when that is wider
+- **THEN** it counts as on the step, so `{step: 8}` near 1e15 accepts 999999999999993
 
 #### Scenario: A step finer than the doubles
 - **WHEN** a `number-field` holds `min` -1e15 and `step` 1, or bounds near 1e15 with `step` 2 or 3
