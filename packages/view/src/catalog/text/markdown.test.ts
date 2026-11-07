@@ -118,6 +118,10 @@ describe("Markdown: an image is a link labelled with its alt text", () => {
     );
   });
 
+  test("an image with a refused source reads as its source text, exactly (atoms 5.13)", () => {
+    expect(html("![x](javascript:alert(1))")).toBe("<p>![x](javascript:alert(1))</p>\n");
+  });
+
   test("an image whose source is no web URL shows as its source text and loads nothing", () => {
     for (const source of [
       "![x](javascript:alert(1))",
