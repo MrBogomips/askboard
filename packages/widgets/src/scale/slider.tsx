@@ -143,6 +143,7 @@ export const ScaleSlider = ({
           // biome-ignore lint/suspicious/noArrayIndexKey: a thumb is its place among one or two
           key={at}
           className={THUMB}
+          data-grab=""
           {...(props.range === true
             ? { "aria-label": labels[at] }
             : { "aria-labelledby": labelledBy })}

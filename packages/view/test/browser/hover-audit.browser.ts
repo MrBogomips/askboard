@@ -219,12 +219,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             "focus on the thumb",
           );
           await expectRing(thumb);
+          // The thumb is a drag handle: grab on an open board (task 6.11).
+          expect((await hovered(thumb)).cursor).toBe("grab");
           await lock(other, slider);
           await eventually(
             async () => (await thumb.getAttribute("data-disabled")) !== null,
             "the thumb to be disabled",
           );
-          await expectInert(other, thumb, false);
+          // A locked board's thumb is disabled: not-allowed, and no look change.
+          await expectInert(other, thumb);
           expect(run.browser.errors).toEqual([]);
           expect(other.browser.errors).toEqual([]);
         },
