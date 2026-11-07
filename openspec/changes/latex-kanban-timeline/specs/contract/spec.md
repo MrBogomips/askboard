@@ -49,16 +49,35 @@ The registry SHALL hold `latex`, after the types `main` holds: an item `{type: "
 - **WHEN** a LaTeX item's props hold `displayMode`
 - **THEN** validation fails, naming the item and `displayMode`
 
-### Requirement: LaTeX macro definitions refused
-The LaTeX's check SHALL refuse an expression holding a macro-definition command, read as KaTeX's lexer reads control words: `\def`, `\gdef`, `\edef`, `\xdef`, `\global`, `\long`, `\let`, `\futurelet`, `\newcommand`, `\renewcommand` or `\providecommand`, its problem naming the command (AD-8, NFR-5).
+### Requirement: LaTeX macro definitions and internal commands refused
+The LaTeX's check SHALL refuse an expression holding a macro-definition command (`\def`, `\gdef`, `\edef`, `\xdef`, `\global`, `\long`, `\let`, `\futurelet`, `\newcommand`, `\renewcommand` or `\providecommand`) or any control word holding `@`, KaTeX's internal names, reading control words as KaTeX's lexer reads them, its problem naming the command (AD-8, NFR-5).
 
 #### Scenario: A macro definition
 - **WHEN** a LaTeX item's `expression` is `\def\b{xxx}\def\a{\b\b}\a`, then `\newcommand{\c}{x}\c`
 - **THEN** each fails naming the item, the first naming `\def` and the second `\newcommand`
 
+#### Scenario: An internal command
+- **WHEN** a LaTeX item's `expression` is `\tag{$xxx$}\df@tag\df@tag`, then `\color{xxx}\current@color\current@color`, then `\def@x`
+- **THEN** each fails naming the item and `\df@tag`, `\current@color` and `\def@x` in turn
+
 #### Scenario: A control word that only looks like one
-- **WHEN** a LaTeX item's `expression` is `a \\ def`, then `\left( x \right)`, then `\def@x`
+- **WHEN** a LaTeX item's `expression` is `a \\ def`, then `\left( x \right)`, then `\default`
 - **THEN** each passes: a line break before the text `def`, `\left`, and a control word other than `\def`
+
+### Requirement: LaTeX nesting bounded
+The LaTeX's check SHALL refuse an expression nested deeper than `LATEX_NESTING_MAX_DEPTH` levels, its problem naming the depth and the limit. Levels are counted as KaTeX nests them: a level opens at `{`, `\bgroup`, `\begingroup`, `\begin` and `\left`, and for the argument of `^` and `_`; a brace KaTeX reads as text, in a comment, a `\verb`, a character code or the token `\show` consumes, closes none (AD-8, NFR-5).
+
+#### Scenario: A nest at and past the limit
+- **WHEN** a LaTeX item's `expression` nests `\frac{` with `}{x}` to the limit, then one level more
+- **THEN** the first passes, and the second fails naming the item, its depth and the limit
+
+#### Scenario: A script counts its argument
+- **WHEN** the depth of `x^{y^{z}}` is read
+- **THEN** it is 4: each script and each group is a level
+
+#### Scenario: A brace KaTeX reads as text
+- **WHEN** a LaTeX item's `expression` repeats `\sqrt{%` and a line feed past the limit, then `\sqrt{\verb|}|`, then ``\sqrt{\char`}``, then `\sqrt{\show}`, each followed by its closing braces
+- **THEN** each fails naming its depth and the limit
 
 ### Requirement: LaTeX changes
 A LaTeX item's element shape SHALL name `expression` alone, so its changes SHALL be one `set` of `<item>.expression` to a text of at most 2,000 characters; its changes schema SHALL admit nothing else (AD-20, FR-20).

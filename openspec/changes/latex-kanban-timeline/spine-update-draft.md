@@ -1,6 +1,6 @@
 # Spine update draft: latex-kanban-timeline
 
-**Status: applied on 2026-11-07 (task 0.1), no other change had touched these lines.** The proposal's open questions 2 and 8 were answered on 2026-11-07 with their defaults, under the PO's unattended handoff; the PO may revisit. Blocks 1 and 2 are `diagram-render`'s spine blocks 3 and 4 (its `spine-update-draft.md` at 9281d923), with a LaTeX expression as the example, since this change lands the whole-field shape first. Each block quotes the current text exactly as it stands on this change's base, then gives the replacement. AD-20 is amended in place; no AD is added or renumbered. The PRD needs no change.
+**Status: blocks 1 to 3 applied on 2026-11-07 (task 0.1), no other change had touched these lines. Block 4 added on 2026-11-07 (4.7 re-review X-3, proposal open question 14), to be applied by task 3.9.** The proposal's open questions 2 and 8 were answered on 2026-11-07 with their defaults, under the PO's unattended handoff; the PO may revisit. Blocks 1 and 2 are `diagram-render`'s spine blocks 3 and 4 (its `spine-update-draft.md` at 9281d923), with a LaTeX expression as the example, since this change lands the whole-field shape first. Each block quotes the current text exactly as it stands on this change's base, then gives the replacement. AD-20 is amended in place; no AD is added or renumbered. The PRD needs no change.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`, AD-20, Rule, Answers, second bullet.
 
@@ -46,4 +46,23 @@ Replacement:
 
 ```text
 `ask-core` is the only unit that calls it at run time, and it refuses an answer whose changes fall outside the changes schema the item's type declares (AD-7).
+```
+
+## Block 4: lightningcss in the Stack (open question 14)
+
+File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`, Stack, the table. Applied by task 3.9, only if it adopts lightningcss (if it falls back to the hand scanner, mark this block dropped with the date).
+
+How to apply: check that the current row stands once (`git grep -c -F`), replace it with the replacement (the row, then the new row under it), set `updated:` to the apply date, and append to `sources:` the line `'OpenSpec change latex-kanban-timeline, proposal.md, open question 14: lightningcss for the view build''s URL check (accepted under the PO''s unattended handoff, 2026-11-07)'`. Then run `openspec validate --all --strict --no-interactive`. If another change has added rows under it meanwhile, keep them and put this row after them.
+
+Current row:
+
+```text
+| `tailwindcss`, `@tailwindcss/cli` (build-time styles) | 4.3.3 |
+```
+
+Replacement:
+
+```text
+| `tailwindcss`, `@tailwindcss/cli` (build-time styles) | 4.3.3 |
+| `lightningcss` (build-time: the view build's check of URLs in styles; Tailwind's own CSS engine; MPL-2.0, unmodified) | 1.32.0 |
 ```

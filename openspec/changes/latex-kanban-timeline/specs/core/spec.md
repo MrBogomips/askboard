@@ -30,6 +30,10 @@
 - **WHEN** an answer's value for the LaTeX item `formula` holds `\def\a{x}\a`
 - **THEN** it is refused, naming the item and `\def`, with the log unchanged and nothing kept or published
 
+#### Scenario: A corrected expression past the LaTeX's bounds
+- **WHEN** an answer's value for the LaTeX item `formula` holds `\color{x}\current@color`, then a nest one level past the limit
+- **THEN** each is refused, naming the item and `\current@color`, then the depth and the limit, with the log unchanged and nothing kept or published
+
 #### Scenario: A moved card
 - **WHEN** the user answers with a Kanban card moved from `todo` to `done`
 - **THEN** the answer event's `changes` hold one `set` of the card's `column` to `done`

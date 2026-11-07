@@ -49,22 +49,33 @@ The LaTeX preview SHALL render agent and user text as data: no command SHALL mak
 - **THEN** the first shows the field error naming `\gdef` and renders nothing new, and the second shows a parse error naming `\foo`
 
 ### Requirement: LaTeX bounded work
-An expression holding a macro definition SHALL NOT render: the field SHALL show a field error naming the command, and the preview SHALL keep its last render. Every expression of at most 2,000 code points SHALL render or show a field error within 2 seconds, the board responding (AD-8, NFR-5).
+An expression the contract's LaTeX check refuses SHALL NOT render: one holding a macro definition or a KaTeX internal command SHALL show a field error naming the command, one nested past the limit a field error naming its depth and the limit, and the preview SHALL keep its last render. Every other expression of at most 2,000 code points SHALL render or show a field error within 2 seconds in Chromium and WebKit, the board responding (AD-8, NFR-5).
 
 #### Scenario: A macro definition
 - **WHEN** the user types `\def\a{\a}\a`, or `\def\b{` and 900 `x` then `}\def\a{` and `\b` 540 times then `}\a`
 - **THEN** the field error names `\def` within 2 seconds, KaTeX does not run, the preview keeps its last render, and the board keeps responding
 
-#### Scenario: Long expressions without definitions
-- **WHEN** the expression is a nest of 2,000 code points without definitions, such as `\sqrt{` repeated to the limit with its closing braces
-- **THEN** within 2 seconds the preview renders it or the field shows an error, in Chromium and WebKit, and the board keeps responding
+#### Scenario: An internal command
+- **WHEN** the user types `\color{` and 900 `x` then `}` and `\current@color` 78 times
+- **THEN** the field error names `\current@color` within 2 seconds, KaTeX does not run, and the preview keeps its last render
+
+#### Scenario: Nests at and past the limit
+- **WHEN** the expression nests `\frac` numerators, `x^{`, `\sqrt{` or `\boxed{` to the nesting limit, alone or repeated side by side to 2,000 code points, then one level past the limit
+- **THEN** at the limit the preview renders within 2 seconds in Chromium and WebKit with the board responding, and past it the field error names the depth and the limit, KaTeX does not run, and the preview keeps its last render
 
 ### Requirement: Package stylesheets in a chunk
-A component chunk MAY carry a package's stylesheet. The build SHALL inline its woff2 fonts as `data:` URLs, drop its other font formats, and list the stylesheet's package among the chunk's licence notices. In every chunk's styles and the board page's, the build SHALL fail on any other `url(`, on an `@import` and on a quoted string in `image-set()` or `-webkit-image-set()`, reading CSS escapes as the browser does, so that no chunk loads a file from anywhere (AD-8, AD-9, NFR-6, NFR-9).
+A component chunk MAY carry a package's stylesheet. The build SHALL inline its woff2 fonts as `data:` URLs, drop its other font formats, and list the stylesheet's package among the chunk's licence notices (AD-8, AD-9, NFR-6).
 
 #### Scenario: KaTeX's fonts
 - **WHEN** a board holding a LaTeX item opens in Chromium or WebKit
 - **THEN** the preview uses KaTeX's fonts, no font is requested, and no CSP violation is logged
+
+#### Scenario: A stylesheet from a package the script does not import
+- **WHEN** a chunk lists a package's stylesheet and its script imports nothing from that package
+- **THEN** the chunk's licence notices hold that package's notice
+
+### Requirement: No URL in a chunk's styles
+The build SHALL parse every chunk's styles and the board page's as CSS, and SHALL fail on styles it cannot parse, on an `@import`, and on any URL other than a woff2 `data:` URL in the source of a `@font-face` rule, URLs in `image-set()` and `-webkit-image-set()` and escaped forms included, so that no chunk loads a file from anywhere (AD-8, NFR-9).
 
 #### Scenario: A stylesheet that names a file
 - **WHEN** a chunk's package stylesheet holds `url(fonts/a.svg)` or `@import "b.css"`
@@ -74,13 +85,21 @@ A component chunk MAY carry a package's stylesheet. The build SHALL inline its w
 - **WHEN** a chunk's styles hold `u\72l(http://h/x.png)`, `\75rl(http://h/x.png)`, `@\69mport "http://h/b.css"` or `image-set("http://h/x.png" 1x)`
 - **THEN** the build fails, naming the chunk
 
+#### Scenario: A function whose name ends in url
+- **WHEN** a chunk's styles hold `#a{--v:xurl(data:a ")")}#b{background-image:image-set("http://h/x.png" 1x)}`
+- **THEN** the build fails, naming the chunk and `http://h/x.png`
+
+#### Scenario: A data URL outside a font face
+- **WHEN** a chunk's styles hold `a{background:url(data:image/png;base64,AAAA)}`
+- **THEN** the build fails, naming the chunk
+
+#### Scenario: Styles that do not parse
+- **WHEN** a chunk's styles hold `a{background:url(http://h/x y.png)}`
+- **THEN** the build fails, naming the chunk and the parser's message
+
 #### Scenario: A chunk's own styles and the board page's
 - **WHEN** a chunk's own styles, or the board page's, hold `url(x.png)`
 - **THEN** the build fails, naming the chunk or the board page
-
-#### Scenario: A stylesheet from a package the script does not import
-- **WHEN** a chunk lists a package's stylesheet and its script imports nothing from that package
-- **THEN** the chunk's licence notices hold that package's notice
 
 ### Requirement: Font licences in a chunk's notices
 Fonts a chunk inlines SHALL be the package's font files unmodified, and the chunk's licence notices SHALL carry the fonts' own licence text when it differs from the package's, with the fonts' copyright and Reserved Font Name lines, wherever the chunk carries those fonts or package code holding glyph outlines derived from them. The build SHALL fail when a chunk inlines fonts whose licence is not recorded (NFR-6, AD-19, PRD addendum, Adoption rule, as amended by this change).
