@@ -914,3 +914,20 @@ export { type LocaleTable, tableOf } from "./locale/index.ts";
 // opening both call it.
 
 export { isLinkUrl, LINK_URL_MAX_CHARS } from "./link-url.ts";
+
+// The walker of layouts (layouts, design decision 2): which items a layout holds, and every item
+// of a question at every depth.
+
+export {
+  isLayoutType,
+  LAYOUT_MAX_DEPTH,
+  LAYOUT_TYPES,
+  type LayoutDepthProblem,
+  type LayoutList,
+  type LayoutType,
+  layoutDepthProblem,
+  layoutListsOf,
+  mapNestedItems,
+  type NestedItem,
+  nestedItemsOf,
+} from "./nested-items.ts";
