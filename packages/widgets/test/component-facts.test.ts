@@ -27,7 +27,7 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     ({ id }) => id,
   );
   return [
-    { decision: "approve" },
+    ...APPROVAL_DECISIONS.map((decision) => ({ decision })),
     { value: 3 },
     { value: 9 },
     { value: 1e-200 },
@@ -55,6 +55,9 @@ console.log(JSON.stringify(WIDGET_TYPES.map((entry, at) => {
     fits: facts?.fits === undefined ? undefined : probes[at].map(
       (result) => facts.fits(result, entry.example.item.props),
     ),
+    probeReasons: facts?.reason === undefined ? undefined : probes[at].map(
+      (result) => facts.reason(result) ?? null,
+    ),
     reasons: facts?.reason === undefined ? undefined : ${JSON.stringify(APPROVAL_DECISIONS)}.map(
       (decision) => facts.reason({ decision }) ?? null,
     ),
@@ -68,6 +71,7 @@ type Facts = {
   shape?: unknown;
   confirmsRevision?: true;
   fits?: readonly boolean[];
+  probeReasons?: readonly ({ label: string; missing: string } | null)[];
   reasons?: readonly ({ label: string; missing: string } | null)[];
 };
 
@@ -146,12 +150,41 @@ describe("the Approval's chunk", () => {
       }
     }
   });
+});
 
-  test("the types that give no reason or confirmation register none", async () => {
-    for (const facts of await registered()) {
-      if (facts.type === "approval") continue;
-      expect(facts.reasons).toBeUndefined();
-      expect(facts.confirmsRevision).toBeUndefined();
+// The seams of design decision 5 stay open to later widgets: this lists no type that may use them,
+// it checks what they promise of any type that does.
+describe("the facts `reason` and `confirmsRevision` of any registered type", () => {
+  const refused = (entry: WidgetType, result: unknown): boolean =>
+    widgetAnswerProblems(entry.example.item, result, { note: undefined, changed: false }).length >
+    0;
+
+  test("a type that registers `reason` gives a pair for a result exactly when its answer check refuses that result with no note and nothing changed, and has such a result", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      const pairs = facts[at]?.probeReasons;
+      if (pairs === undefined) continue;
+      const probes = probesOf(entry);
+      expect(entry.result, `${entry.type} registers a reason and gives no result`).toBeDefined();
+      expect(
+        probes.some((result) => refused(entry, result)),
+        `${entry.type} can need a reason`,
+      ).toBe(true);
+      for (const [index, result] of probes.entries()) {
+        const pair = pairs[index];
+        expect(
+          pair !== null && pair !== undefined,
+          `${entry.type}: ${JSON.stringify(result)}`,
+        ).toBe(refused(entry, result));
+      }
+    }
+  });
+
+  test("a type that registers `confirmsRevision` gives a result, which a revision replaces", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      if (facts[at]?.confirmsRevision === undefined) continue;
+      expect(entry.result, `${entry.type} confirms a revision and gives no result`).toBeDefined();
     }
   });
 });
