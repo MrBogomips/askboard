@@ -16,7 +16,7 @@ The registry SHALL hold `approval`, whose props are an empty object and whose re
 - **THEN** it passes, and `{decision: "maybe"}` and `{decision: "approve", reason: "ok"}` fail, naming the field
 
 ### Requirement: Scale items
-The registry SHALL hold `scale`: `min` and `max` within ±1,000,000,000 with `max` above `min`, an optional `step` above 0 (1 when absent) dividing `max − min` into at most 1,000 steps, optional `range` and `display` (`slider` or `rating`), and optional `minLabel`, `maxLabel` (1 to 60 characters) and `unit` (1 to 20). A rating SHALL hold at most 11 steps and no range (FR-11).
+The registry SHALL hold `scale`: `min` and `max` within ±1,000,000,000 with `max` above `min`, an optional `step` above 0 (1 when absent) dividing `max − min` into at most 1,000 steps, optional `range` and `display` (`slider` or `rating`), and optional `minLabel`, `maxLabel` (1 to 60 characters) and `unit` (1 to 20). A rating SHALL hold at most 11 values, one toggle for each value from `min` to `max`, and no range (FR-11).
 
 #### Scenario: A slider and a rating
 - **WHEN** an ask holds a Scale `{min: 0, max: 100, step: 5, unit: "%"}` and a Scale `{min: 1, max: 5, display: "rating", minLabel: "Low", maxLabel: "High"}`
@@ -28,10 +28,14 @@ The registry SHALL hold `scale`: `min` and `max` within ±1,000,000,000 with `ma
 
 #### Scenario: A rating range
 - **WHEN** a Scale has `display: "rating"` with `range: true`, or a rating from 0 to 20
-- **THEN** validation fails, naming the item and saying a rating takes one value of at most 11 steps
+- **THEN** validation fails, naming the item and saying a rating takes one value out of at most 11
+
+#### Scenario: Eleven values and twelve
+- **WHEN** a Scale has `display: "rating"` from 0 to 10, and another from 0 to 11
+- **THEN** the first passes, and the second fails, naming the item and saying a rating takes one value out of at most 11 and that this scale has 12 values
 
 ### Requirement: Scale results
-A Scale's result SHALL be `{value}` when its props have no `range`, else `{low, high}` with `low` not above `high`; each number SHALL lie between `min` and `max` on a step, `min` plus a whole number of steps within a billionth of a step (FR-11, FR-18).
+A Scale's result SHALL be `{value}` when its props have no `range`, else `{low, high}` with `low` not above `high`; each number SHALL lie within `min` and `max` exactly, and on a step: `min` plus a whole number of steps within a billionth of a step. The billionth-of-a-step tolerance applies to the step grid only, never to the bounds (FR-11, FR-18, AD-10).
 
 #### Scenario: A value on a step
 - **WHEN** a result `{value: 35}` is checked for a Scale from 0 to 100 by 5
@@ -44,6 +48,10 @@ A Scale's result SHALL be `{value}` when its props have no `range`, else `{low, 
 #### Scenario: Decimal steps
 - **WHEN** a result `{value: 0.3}` is checked for a Scale from 0 to 1 by 0.1
 - **THEN** it passes
+
+#### Scenario: A hair outside the bounds
+- **WHEN** a result `{value: 10.0000000005}` (`max` plus 5e-10) or `{value: -0.0000000005}` (`min` minus 5e-10) is checked for a Scale from 0 to 10 by 1
+- **THEN** it fails, naming the item and the field, though each lies within a billionth of a step of a step
 
 ### Requirement: Ranking items
 The registry SHALL hold `ranking`, whose props hold `items`: 2 to 50 elements `{id, label, description?}`, IDs matching the ID pattern and unique within the item, `label` 1 to 200 characters, `description` 1 to 500 (FR-11, AD-7).
