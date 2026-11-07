@@ -71,7 +71,7 @@ import {
   shownResultFor,
   statusOf,
 } from "./question-state.ts";
-import { reasonErrorOf, reasonOf } from "./reason.ts";
+import { reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import { asksFirst, press, settle, type Waiting } from "./revision-confirm.ts";
 import type { Store } from "./store.ts";
@@ -322,8 +322,10 @@ export const QuestionCard = (props: CardProps) => {
   const reason = reasonOf(shown, results, card.shown);
   const [reasonAsked, setReasonAsked] = useState(false);
   const noteText = card.shown?.note ?? work?.note ?? "";
-  const reasonError = reasonErrorOf(reasonAsked, reason, noteText);
-  if (reasonAsked && reason === undefined) setReasonAsked(false);
+  const reasonError = reasonAskedAfter(reasonAsked, reason, noteText);
+  // Stored cleared as soon as the note holds a reason or no pair applies: deleting the text later
+  // does not bring the error back, only a press that asks does.
+  if (reasonAsked && !reasonError) setReasonAsked(false);
   // "Answer" sent nothing for want of the reason: the error shows and focus goes to the prompt.
   const asking = (outcome: "needs-reason" | undefined) => {
     if (outcome === undefined) return;

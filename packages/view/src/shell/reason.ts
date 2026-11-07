@@ -40,11 +40,13 @@ export const reasonOf = (
 };
 
 /**
- * Whether the field error shows under the open prompt: it was asked for by a press of "Answer",
- * and a reason is still required and still missing. It clears when the note gains text and when
- * no held result requires a reason any more.
+ * Whether the field error shows under the open prompt, and the next value of the flag a press of
+ * "Answer" sets: it was asked for, a reason is still required and still missing. It clears when
+ * the note gains a reason and when no held result requires one any more, and the card stores it
+ * cleared, so that it stays cleared if the text is deleted later; only a press that asks sets the
+ * flag again (approval-scale-ranking, design decision 6).
  */
-export const reasonErrorOf = (
+export const reasonAskedAfter = (
   asked: boolean,
   reason: ReasonStrings | undefined,
   note: string | undefined,

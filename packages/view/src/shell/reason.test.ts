@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { noteHoldsReason } from "@askboard/contract";
 import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
-import { reasonErrorOf, reasonOf } from "./reason.ts";
+import { reasonAskedAfter, reasonOf } from "./reason.ts";
 
 const PAIR = { label: "question.reasonRequired", missing: "question.reasonMissing" } as const;
 const OTHER = { label: "question.note", missing: "question.explain" } as const;
@@ -133,25 +133,68 @@ describe("a note as a reason", () => {
   ];
 
   test.each(NOTES)("%j: the open prompt's error agrees with noteHoldsReason", (note) => {
-    expect(reasonErrorOf(true, PAIR, note)).toBe(!noteHoldsReason(note));
+    expect(reasonAskedAfter(true, PAIR, note)).toBe(!noteHoldsReason(note));
   });
 });
 
 describe("the field error under the open prompt", () => {
   test("shows while it was asked for, a pair applies and the note is no reason", () => {
-    expect(reasonErrorOf(true, PAIR, "")).toBe(true);
-    expect(reasonErrorOf(true, PAIR, "  ")).toBe(true);
+    expect(reasonAskedAfter(true, PAIR, "")).toBe(true);
+    expect(reasonAskedAfter(true, PAIR, "  ")).toBe(true);
   });
 
   test("clears once the note holds text", () => {
-    expect(reasonErrorOf(true, PAIR, "a")).toBe(false);
+    expect(reasonAskedAfter(true, PAIR, "a")).toBe(false);
   });
 
   test("clears when no item requires a reason any more", () => {
-    expect(reasonErrorOf(true, undefined, "")).toBe(false);
+    expect(reasonAskedAfter(true, undefined, "")).toBe(false);
   });
 
   test("is never shown before it was asked for", () => {
-    expect(reasonErrorOf(false, PAIR, "")).toBe(false);
+    expect(reasonAskedAfter(false, PAIR, "")).toBe(false);
+  });
+});
+
+describe("the reason error stays cleared once the reason is written (design decision 6)", () => {
+  // The card keeps the flag a press of "Answer" sets and replaces it by this helper's result on
+  // every render; the steps below replay that.
+  const replay = (steps: readonly (readonly [pair: typeof PAIR | undefined, note: string])[]) => {
+    let asked = true; // a press that asked
+    const shown: boolean[] = [];
+    for (const [pair, note] of steps) {
+      asked = reasonAskedAfter(asked, pair, note);
+      shown.push(asked);
+    }
+    return shown;
+  };
+
+  test("gives false once the note holds a reason, and stays false when the text is deleted", () => {
+    expect(
+      replay([
+        [PAIR, ""],
+        [PAIR, "a"],
+        [PAIR, ""],
+        [PAIR, "  "],
+      ]),
+    ).toEqual([true, false, false, false]);
+  });
+
+  test("gives false once no pair applies, and stays false when one applies again", () => {
+    expect(
+      replay([
+        [PAIR, ""],
+        [undefined, ""],
+        [PAIR, ""],
+      ]),
+    ).toEqual([true, false, false]);
+  });
+
+  test("only a press that asks sets it again", () => {
+    let asked = reasonAskedAfter(true, PAIR, "a");
+    asked = reasonAskedAfter(asked, PAIR, "");
+    expect(asked).toBe(false);
+    asked = true; // the next press of "Answer" finds the note empty and asks
+    expect(reasonAskedAfter(asked, PAIR, "")).toBe(true);
   });
 });
