@@ -22,7 +22,6 @@ import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
-import { press, settle, type Waiting } from "./revision-confirm.ts";
 import { SnapshotButton, SnapshotFeedback } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import {
@@ -34,7 +33,7 @@ import {
   SEGMENT,
   SEGMENTS,
 } from "./styles.ts";
-import { type SubmitState, submitPress, updatesLabel } from "./submit.ts";
+import { confirmedPress, type SubmitState, submitPress, updatesLabel } from "./submit.ts";
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
@@ -75,7 +74,8 @@ export const BottomBar = (props: BottomBarProps) => {
   const [confirming, setConfirming] = useState(false);
   // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
   const [replacing, setReplacing] = useState<
-    { readonly questions: readonly ViewQuestion[]; readonly waiting: Waiting } | undefined
+    | { readonly questions: readonly ViewQuestion[]; readonly then: (() => void) | undefined }
+    | undefined
   >();
   const submitButton = useRef<HTMLButtonElement>(null);
   const text = useStrings();
@@ -92,14 +92,9 @@ export const BottomBar = (props: BottomBarProps) => {
       </footer>
     );
   }
-  // Submit's one command: every held act, in the order the user produced them (AD-20), after a
-  // last check that every held answer has the reason its held result requires: one that lacks it
-  // sends nothing, keeps every act held and takes the board to that question's prompt. Then, when
-  // the command would replace a verdict the agent has received, the dialog asks; Cancel or Escape
-  // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
-  // immediate delivery does.
-  const send = (then?: () => void): void => {
-    const pressed = submitPress(
+  // The press of Submit against the held work as it is now.
+  const pressNow = () =>
+    submitPress(
       document,
       context.board.get(),
       context.draft.record(),
@@ -107,21 +102,38 @@ export const BottomBar = (props: BottomBarProps) => {
       context.derived.reported,
       { results: context.results?.record(), state },
     );
+  // Submit's one command: every held act, in the order the user produced them (AD-20), after a
+  // last check that every held answer has the reason its held result requires: one that lacks it
+  // sends nothing, keeps every act held and takes the board to that question's prompt. Then, when
+  // the command would replace a verdict the agent has received, the dialog asks; Cancel or Escape
+  // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
+  // immediate delivery does.
+  const sendActsOf = (acts: readonly ViewAct[], then?: () => void): void => {
+    const [first, ...rest] = acts;
+    if (first !== undefined) sendActs(context, [first, ...rest]);
+    then?.();
+  };
+  const send = (then?: () => void): void => {
+    const pressed = pressNow();
     if (pressed.kind === "needs-reason") {
       props.onNeedsReason(pressed.questionId);
       return;
     }
-    const go = () => {
-      const [first, ...rest] = pressed.acts;
-      if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);
-      then?.();
-    };
-    if (pressed.kind === "send") {
-      go();
+    if (pressed.kind === "send") sendActsOf(pressed.acts, then);
+    else setReplacing({ questions: pressed.questions, then });
+  };
+  // The dialog's Submit presses again against the held work as it is now, and sends only what that
+  // press sends: it goes nowhere while Submit waits, and it asks again when the questions changed.
+  const confirmReplacing = () => {
+    const outcome = confirmedPress(replacing?.questions ?? [], submit.disabled, pressNow());
+    const then = replacing?.then;
+    if (outcome.kind === "ask") {
+      setReplacing({ questions: outcome.questions, then });
       return;
     }
-    const waiting = press(true, go);
-    if (waiting !== undefined) setReplacing({ questions: pressed.questions, waiting });
+    setReplacing(undefined);
+    if (outcome.kind === "needs-reason") props.onNeedsReason(outcome.questionId);
+    else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
   const blockedSwitch = submit.held > 0 && delivery === "submitted" && submit.disabled;
@@ -216,9 +228,7 @@ export const BottomBar = (props: BottomBarProps) => {
       <AlertDialog.Root
         open={replacing !== undefined}
         onOpenChange={(open) => {
-          if (open) return;
-          settle(replacing?.waiting, false);
-          setReplacing(undefined);
+          if (!open) setReplacing(undefined);
         }}
       >
         <AlertDialog.Portal>
@@ -248,9 +258,11 @@ export const BottomBar = (props: BottomBarProps) => {
               </AlertDialog.Cancel>
               <AlertDialog.Action
                 className={BUTTON_PRIMARY}
-                onClick={() => {
-                  settle(replacing?.waiting, true);
-                  setReplacing(undefined);
+                disabled={submit.disabled}
+                onClick={(event) => {
+                  // The dialog stays open when it must ask again: it closes by its own state.
+                  event.preventDefault();
+                  confirmReplacing();
                 }}
               >
                 {text("bar.submit")}

@@ -11,6 +11,7 @@ import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts
 import { createDraftStore } from "./draft-store.ts";
 import { press as confirmPress, settle } from "./revision-confirm.ts";
 import {
+  confirmedPress,
   hasRecommendation,
   heldMissingReason,
   heldWorkOf,
@@ -626,5 +627,108 @@ describe("Submit asks before replacing a received verdict (approval-scale-rankin
     settle(confirmed, true);
     settle(confirmed, true);
     expect(sent).toEqual([pressed.acts]);
+  });
+});
+
+describe("the confirmation sends what is held when it is confirmed (approval-scale-ranking, task 4b.15; AD-20, NFR-10)", () => {
+  const facts = (type: string): ComponentFacts | undefined =>
+    type === "verdict" ? { confirmsRevision: true } : undefined;
+  const verdict = { type: "verdict", id: "verdict", props: {} };
+  const doc = (() => {
+    const copy = structuredClone(document) as unknown as ViewDocument;
+    const area = copy.items[0] as ViewArea;
+    const [first] = area.props.items;
+    (first as unknown as { props: { items: unknown[] } }).props.items = [verdict];
+    return copy;
+  })();
+  const delivered = (() => {
+    const base = stateOf();
+    return {
+      ...base,
+      questions: base.questions.map((status) =>
+        status.itemId === "region"
+          ? {
+              itemId: "region",
+              rev: 1,
+              state: "answered",
+              answer: { when: WHEN, receipt: "delivered" },
+            }
+          : status,
+      ),
+    } as unknown as LifecycleBoardState;
+  })();
+  // A fresh board for each test: a change of a result releases the mark, as the card does.
+  const fixture = () => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const board = createBoardDraft("submitted");
+    connectDrafts(doc, values, board, results);
+    values.set("region", ["EU"]);
+    results.set("verdict", { decision: "reject" });
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
+    const pressNow = (resultFacts: (type: string) => ComponentFacts | undefined = facts) =>
+      submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+        results: results.record(),
+        facts: resultFacts,
+        state: delivered,
+      });
+    const first = pressNow();
+    if (first.kind !== "confirm") throw new Error(first.kind);
+    return { values, results, board, pressNow, asked: first };
+  };
+
+  test("Submit's state disabled since the dialog opened: nothing is sent", () => {
+    const { asked, pressNow } = fixture();
+    expect(confirmedPress(asked.questions, true, pressNow())).toEqual({ kind: "blocked" });
+  });
+
+  test("the reason went missing since: nothing is sent, and the question is named", () => {
+    const { asked, pressNow } = fixture();
+    const needing: ComponentFacts = {
+      confirmsRevision: true,
+      reason: () => ({ label: "question.reasonRequired", missing: "question.reasonMissing" }),
+    };
+    expect(
+      confirmedPress(
+        asked.questions,
+        false,
+        pressNow(() => needing),
+      ),
+    ).toEqual({
+      kind: "needs-reason",
+      questionId: "region",
+    });
+  });
+
+  test("the same questions: the acts are those of the press now, not those of the first press", () => {
+    const { asked, results, board, pressNow } = fixture();
+    // The held answer changed since: a new note, which keeps the mark.
+    board.edit("region", 1, (work) => ({ ...work, note: "Changed my mind." }));
+    results.set("verdict", { decision: "approve" });
+    board.edit("region", 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    const now = pressNow();
+    const outcome = confirmedPress(asked.questions, false, now);
+    expect(outcome.kind).toBe("send");
+    if (outcome.kind === "send" && now.kind === "confirm") {
+      expect(outcome.acts).toEqual(now.acts);
+      expect(outcome.acts).not.toEqual(asked.acts);
+    }
+  });
+
+  test("other questions would now be replaced: nothing is sent, and it asks again with the new list", () => {
+    const { pressNow } = fixture();
+    const outcome = confirmedPress([], false, pressNow());
+    expect(outcome.kind).toBe("ask");
+    if (outcome.kind === "ask") expect(outcome.questions.map(({ id }) => id)).toEqual(["region"]);
+  });
+
+  test("nothing is replaced any more: the press now sends its acts", () => {
+    const { asked, pressNow } = fixture();
+    const sendNow = pressNow(() => undefined);
+    expect(sendNow.kind).toBe("send");
+    expect(confirmedPress(asked.questions, false, sendNow)).toEqual({
+      kind: "send",
+      acts: sendNow.kind === "send" ? sendNow.acts : [],
+    });
   });
 });

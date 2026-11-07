@@ -306,3 +306,31 @@ export const submitPress = (
   const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
   return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
 };
+
+/** What the confirmation's Submit comes to, once pressed again against the held work as it is. */
+export type ConfirmedPress =
+  | { readonly kind: "blocked" }
+  | { readonly kind: "needs-reason"; readonly questionId: string }
+  | { readonly kind: "ask"; readonly questions: readonly ViewQuestion[] }
+  | { readonly kind: "send"; readonly acts: ViewAct[] };
+
+/**
+ * The confirmation's Submit (design decision 6): `now` is the press made again, against the held
+ * work as it is when the user confirms, not as it was when the dialog opened. Nothing is sent when
+ * Submit has been disabled meanwhile (a notice, a lost connection, a lock, a command on its way),
+ * or when a held answer now lacks its reason; when the press now asks about other questions than
+ * the dialog listed, it asks again with the new list; otherwise the acts are the press's now.
+ */
+export const confirmedPress = (
+  asked: readonly ViewQuestion[],
+  disabled: boolean,
+  now: SubmitPress,
+): ConfirmedPress => {
+  if (disabled) return { kind: "blocked" };
+  if (now.kind === "needs-reason") return now;
+  if (now.kind === "send") return now;
+  const same =
+    now.questions.length === asked.length &&
+    now.questions.every((question, index) => question.id === asked[index]?.id);
+  return same ? { kind: "send", acts: now.acts } : { kind: "ask", questions: now.questions };
+};
