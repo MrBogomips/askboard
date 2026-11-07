@@ -19,7 +19,7 @@ type HooksFile = { hooks: Record<string, Group[]>; modules?: unknown };
 const FILE = join(import.meta.dir, "..", "..", "..", "hooks", "hooks.json");
 const file = (await Bun.file(FILE).json()) as HooksFile;
 
-const commandOf = (event: string) => `bun "\${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs" hook ${event}`;
+const commandOf = (event: string) => `sh "\${CLAUDE_PLUGIN_ROOT}/scripts/askboard" hook ${event}`;
 
 // Claude Code reads a matcher as a regular expression over the whole tool name.
 const matches = (matcher: string, toolName: string) =>

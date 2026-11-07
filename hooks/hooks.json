@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs\" hook PreToolUse",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/askboard\" hook PreToolUse",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs\" hook PreToolUse",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/askboard\" hook PreToolUse",
             "timeout": 5
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs\" hook PostToolUse",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/askboard\" hook PostToolUse",
             "timeout": 5
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs\" hook SubagentStop",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/askboard\" hook SubagentStop",
             "timeout": 5
           }
         ]

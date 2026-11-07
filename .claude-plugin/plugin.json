@@ -5,8 +5,8 @@
   "license": "MIT",
   "mcpServers": {
     "askboard": {
-      "command": "bun",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/askboard.mjs"],
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/askboard"],
       "env": {
         "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
       }

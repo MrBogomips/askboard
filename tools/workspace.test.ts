@@ -154,6 +154,27 @@ describe("workspace layout", () => {
   );
 });
 
+// Packaging spec, The plugin and its server entry (plugin-release, design decision 1): the server
+// runs the start script through sh, which runs the bundle on Node.
+describe("the plugin's server entry", () => {
+  const entry = async () =>
+    (await readJson(join(root, ".claude-plugin", "plugin.json"))).mcpServers.askboard;
+
+  test("is sh with the start script and CLAUDE_PROJECT_DIR, with no timeout key", async () => {
+    expect(await entry()).toEqual({
+      command: "sh",
+      args: [`\${CLAUDE_PLUGIN_ROOT}/scripts/askboard`],
+      env: { CLAUDE_PROJECT_DIR: `\${CLAUDE_PROJECT_DIR}` },
+    });
+    expect(Object.keys(await entry())).not.toContain("timeout");
+  });
+
+  test("names neither bun nor the bundle, and the script it names exists", async () => {
+    expect(JSON.stringify(await entry())).not.toMatch(/bun|askboard\.mjs/);
+    expect(existsSync(join(root, "scripts", "askboard"))).toBe(true);
+  });
+});
+
 // Packaging spec, The plugin's skill and agents (askboard-skills, design decision 8): the plugin
 // carries its skill by the default folder `skills/<name>/SKILL.md`, which Claude Code finds without
 // a manifest key, and no agents.
