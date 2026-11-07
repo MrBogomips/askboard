@@ -143,7 +143,7 @@ Fonts a chunk inlines SHALL be the package's font files unmodified, and the chun
 - **THEN** that chunk's notice for `katex` names `MIT AND OFL-1.1` and holds the same text as with the stylesheet
 
 ### Requirement: An answer sends what its widgets show
-A Kanban's or a Timeline's value in the draft SHALL be one the item can show on the revision the card shows, so that the answer sends what the item shows. "Keep mine" SHALL drop such a value when the card shows a revision other than the one the work was made on (the page no longer holds that revision's props after a reload) or when the shown revision cannot show it; the item then shows the agent's props as untouched. The user's moves SHALL be counted against the revision they were made on, never counting the agent's own changes (AD-10, AD-20, NFR-10).
+A Kanban's or a Timeline's value in the draft SHALL be one the item can show on the revision the card shows, so that the answer sends what the item shows. "Keep mine" SHALL drop such a value when the card shows a revision other than the one the work was made on, or one that cannot show it; the item then shows the agent's props as untouched. The user's moves SHALL be counted against the revision they were made on, never counting the agent's own changes (AD-10, AD-20, NFR-10).
 
 #### Scenario: Keeping a Kanban move across a reload and an agent's change
 - **WHEN** the user moves card `a` to Doing, the agent changes the Kanban, the tab reloads, the user keeps their draft and presses "Answer"
