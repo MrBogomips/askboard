@@ -54,17 +54,27 @@ const ENGLISH = [
   "and 2 more",
 ] as const;
 
-// What the question card shows and names: its text and every accessible label and title in it.
+// What the question card shows and names: its text and every accessible label, title and value
+// text in it.
 const shownIn = (board: Board): Promise<string[]> =>
   board.view
     .locator("[data-askboard-question]")
     .evaluate((card) => [
       card.textContent ?? "",
-      ...[...card.querySelectorAll("[aria-label], [title]")].flatMap((element) => [
+      ...[...card.querySelectorAll("[aria-label], [title], [aria-valuetext]")].flatMap((element) => [
         element.getAttribute("aria-label") ?? "",
         element.getAttribute("title") ?? "",
+        element.getAttribute("aria-valuetext") ?? "",
       ]),
     ]);
+
+// None of the English strings is shown or named in the card, now (agent content is never one).
+const expectNoEnglish = async (board: Board): Promise<string> => {
+  const shown = (await shownIn(board)).join("\n");
+  for (const english of ENGLISH)
+    expect({ english, shown: shown.includes(english) }).toEqual({ english, shown: false });
+  return shown;
+};
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the three result widgets on an Italian board`, () => {
@@ -96,6 +106,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.view.locator("[data-ranking-counter]").textContent()).toBe(
           "Nessuna modifica",
         );
+        // Before the user's first act: the unset rating and slider, the Approval with no decision
+        // and the Ranking's first counter name nothing in English (spec review S-1 of group 6).
+        await expectNoEnglish(board);
         // The user acts: the reason's label, the rating, the kept order and the Ranking's move.
         await board.view.getByRole("radio", { name: "Approva con modifiche", exact: true }).click();
         await board.view
@@ -119,12 +132,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .getByRole("toolbar", { name: "Strumenti della classifica" })
           .getByRole("button", { name: "Mantieni quest'ordine", exact: true })
           .click();
-        const shown = (await shownIn(board)).join("\n");
-        for (const english of ENGLISH)
-          expect({ english, shown: shown.includes(english) }).toEqual({
-            english,
-            shown: false,
-          });
+        const shown = await expectNoEnglish(board);
         expect(shown).toContain("Trascina Speed");
         expect(run.browser.errors).toEqual([]);
       },
