@@ -40,9 +40,9 @@ import { type Configuration, configurationNamed } from "./options.ts";
 const ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
 // The Node the repository pins, as a real binary: the start script, which the mod's client fallback
-// runs, needs a `node` on PATH that is 24.22.1 or later and is not a version manager's shim (a shim
-// forks the real Node, so the session's parent PID would be the shim's, not the mod's), and the
-// session's home folder is a throwaway one, where a shim finds no tools.
+// runs, needs a `node` on PATH that is 24.22.1 or later, and the session's home folder is a throwaway
+// one, where a version manager's shim finds no tools. (A forking shim in this place passes the suite
+// too, since the start script execs Node's own binary: plugin-release task 1.13.)
 const NODE_FOLDER = dirname(
   Bun.spawnSync(["node", "-p", "process.execPath"], { cwd: ROOT, stderr: "pipe" })
     .stdout.toString()

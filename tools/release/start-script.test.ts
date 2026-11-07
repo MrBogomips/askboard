@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sessionFilePath } from "@askboard/contract";
 
 // The start script (plugin-release, design decision 1; packaging spec, "The start script runs the
 // bundle on Node"). Every test runs it under /bin/sh with shim `node` executables first on PATH, in
@@ -35,7 +36,9 @@ afterEach(() => {
   for (const path of folders.splice(0)) rmSync(path, { recursive: true, force: true });
 });
 
-/** A `node` that answers `-p` with `version` and otherwise records its parent PID and arguments. */
+/**
+ * A `node` that answers the version probe (`-p`) with `version` and its own path, as a real Node
+ * prints `process.versions.node` and `process.execPath` (task 1.13), and otherwise records its parent PID and arguments. */
 const shimNode = (into: string): string => {
   mkdirSync(into, { recursive: true });
   const shim = join(into, "node");
@@ -43,7 +46,7 @@ const shimNode = (into: string): string => {
     shim,
     [
       "#!/bin/sh",
-      'if [ "$1" = "-p" ]; then printf \'%s\\n\' "$SHIM_VERSION"; exit 0; fi',
+      'if [ "$1" = "-p" ]; then printf \'%s %s\\n\' "$SHIM_VERSION" "$0"; exit 0; fi',
       '{ printf \'ppid=%s\\n\' "$PPID"; for a in "$@"; do printf \'arg=%s\\n\' "$a"; done; } > "$SHIM_LOG"',
       "",
     ].join("\n"),
@@ -257,7 +260,7 @@ const projectShimNode = (into: string): string => {
       `  printf 'caller=%s\\n' "\${ASKBOARD_CALLER_CWD-unset}"`,
       "  if [ -e ./.volta/hooks.json ]; then printf 'marker=ran in %s\\n' \"$PWD\"; fi",
       '} >> "$SHIM_LOG"',
-      'if [ "$1" = "-p" ]; then printf \'%s\\n\' "$SHIM_VERSION"; fi',
+      'if [ "$1" = "-p" ]; then printf \'%s %s\\n\' "$SHIM_VERSION" "$0"; fi',
       "",
     ].join("\n"),
   );
@@ -393,7 +396,7 @@ const ioShimNode = (into: string): string => {
     shim,
     [
       "#!/bin/sh",
-      'if [ "$1" = "-p" ]; then cat > "$SHIM_PROBE_STDIN"; printf \'%s\\n\' "$SHIM_VERSION"; exit 0; fi',
+      'if [ "$1" = "-p" ]; then cat > "$SHIM_PROBE_STDIN"; printf \'%s %s\\n\' "$SHIM_VERSION" "$0"; exit 0; fi',
       'cat > "$SHIM_STDIN"',
       "printf 'from node\\n'",
       `exit "\${SHIM_EXIT:-0}"`,
@@ -649,7 +652,7 @@ describe("the session process refuses an unusable Node with a reason", () => {
   });
 
   test("a found version with a quote and a backslash is escaped and the line stays one line", async () => {
-    const found = '2"2\\.0 {\\"x\\"}';
+    const found = '2"2\\.0{\\"x\\"}';
     const { served } = refusedSession(found);
     served.send(INITIALIZE);
     const answer = (await served.next()) as { result: { instructions: string } };
@@ -794,6 +797,145 @@ describe("hooks and the client refuse an unusable Node quietly", () => {
   });
 });
 
+/** The machine's real Node binary and whether it is 24.22.1 or later, read from the repository. */
+const realNode = ((): { path: string; usable: boolean } => {
+  const probe = Bun.spawnSync(["node", "-p", 'process.versions.node + " " + process.execPath'], {
+    cwd: ROOT,
+    stderr: "pipe",
+  })
+    .stdout.toString()
+    .trim();
+  const at = probe.indexOf(" ");
+  const [major = 0, minor = 0, patch = 0] = probe.slice(0, at).split(".").map(Number);
+  return {
+    path: probe.slice(at + 1),
+    usable:
+      at > 0 && (major > 24 || (major === 24 && (minor > 22 || (minor === 22 && patch >= 1)))),
+  };
+})();
+
+/**
+ * What a version manager's `node` is: a script that runs the real Node as its child and does not
+ * replace itself with it (Volta forks the real binary), counting its calls in `$SHIM_CALLS`.
+ */
+const forkingNode = (into: string): string => {
+  mkdirSync(into, { recursive: true });
+  const shim = join(into, "node");
+  writeFileSync(
+    shim,
+    ["#!/bin/sh", 'echo "call $*" >> "$SHIM_CALLS"', '"$REAL_NODE" "$@"', ""].join("\n"),
+  );
+  chmodSync(shim, 0o755);
+  return into;
+};
+
+describe("the start script runs Node's own binary (task 1.13)", () => {
+  test.skipIf(!realNode.usable)(
+    "behind a forking shim the bundle's parent is the script's caller, and one node run reads version and path",
+    async () => {
+      const root = pluginRoot();
+      const scratch = folder();
+      const parentFile = join(scratch, "ppid");
+      writeFileSync(
+        join(root, "dist", "askboard.mjs"),
+        'import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.PARENT_FILE, String(process.ppid));\n',
+      );
+      const calls = join(scratch, "calls");
+      const ran = await runScript(join(root, "scripts", "askboard"), [], {
+        version: "unused",
+        shims: forkingNode(folder()),
+        env: { REAL_NODE: realNode.path, SHIM_CALLS: calls, PARENT_FILE: parentFile },
+      });
+      expect(ran.code).toBe(0);
+      // Not the shim's PID: the shim stays behind the exec, so the bundle's parent is this test.
+      expect(readFileSync(parentFile, "utf8")).toBe(String(process.pid));
+      // The one run is the probe; the bundle ran from the path the probe printed, not from the shim.
+      expect(readFileSync(calls, "utf8").split("\n").filter(Boolean)).toHaveLength(1);
+    },
+  );
+
+  test("the probe asks for the version and the path in one run, and the script execs the path", async () => {
+    const root = pluginRoot();
+    const into = folder();
+    const real = join(into, "a folder with spaces", "real-node");
+    mkdirSync(join(into, "a folder with spaces"));
+    const recorder = join(folder(), "run.log");
+    writeFileSync(
+      real,
+      [
+        "#!/bin/sh",
+        '{ printf \'ppid=%s\\n\' "$PPID"; for a in "$@"; do printf \'arg=%s\\n\' "$a"; done; } > "$SHIM_LOG"',
+        "",
+      ].join("\n"),
+    );
+    chmodSync(real, 0o755);
+    const shim = join(folder(), "node");
+    writeFileSync(
+      shim,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "-p" ]; then printf \'%s\\n\' "$2" > "$SHIM_PROBE"; printf \'24.22.1 %s\\n\' "$REAL"; exit 0; fi',
+        'echo "the shim ran the bundle" > "$SHIM_LOG"',
+        "",
+      ].join("\n"),
+    );
+    chmodSync(shim, 0o755);
+    const probe = join(folder(), "probe");
+    const ran = await runScript(join(root, "scripts", "askboard"), ["hook", "PreToolUse"], {
+      version: "unused",
+      shims: join(shim, ".."),
+      env: { REAL: real, SHIM_PROBE: probe, SHIM_LOG: recorder },
+    });
+    expect(ran.code).toBe(0);
+    const program = readFileSync(probe, "utf8");
+    expect(program).toContain("process.versions.node");
+    expect(program).toContain("process.execPath");
+    expect(readFileSync(recorder, "utf8").split("\n").filter(Boolean)).toEqual([
+      `ppid=${process.pid}`,
+      `arg=${join(root, "dist", "askboard.mjs")}`,
+      "arg=hook",
+      "arg=PreToolUse",
+    ]);
+  });
+
+  test.each([
+    ["no path", "24.22.1"],
+    ["a relative path", "24.22.1 bin/node"],
+    ["a path that is not there", "24.22.1 /nonexistent/askboard-test/node"],
+  ])("a probe with %s falls back to `node` on PATH", async (_name, output) => {
+    const root = pluginRoot();
+    const into = folder();
+    const shim = join(into, "node");
+    writeFileSync(
+      shim,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "-p" ]; then printf \'%s\\n\' "$SHIM_OUTPUT"; exit 0; fi',
+        '{ printf \'ppid=%s\\n\' "$PPID"; for a in "$@"; do printf \'arg=%s\\n\' "$a"; done; } > "$SHIM_LOG"',
+        "",
+      ].join("\n"),
+    );
+    chmodSync(shim, 0o755);
+    const ran = await runScript(join(root, "scripts", "askboard"), ["x"], {
+      version: "unused",
+      shims: into,
+      env: { SHIM_OUTPUT: output },
+    });
+    expect(argsOf(ran.recorded)).toEqual([join(root, "dist", "askboard.mjs"), "x"]);
+    expect(ran.recorded).toContain(`ppid=${process.pid}`);
+  });
+
+  test("a refusal names the version found and not the path", async () => {
+    const root = pluginRoot();
+    const ran = await runScript(join(root, "scripts", "askboard"), ["hook", "PreToolUse"], {
+      version: "22.11.0",
+    });
+    const [line] = ran.stderr.split("\n").filter(Boolean);
+    expect(line).toContain("found 22.11.0");
+    expect(line).not.toContain("/node");
+  });
+});
+
 describe("the real bundle", () => {
   const nodeVersion = Bun.spawnSync(["node", "-p", "process.versions.node"], {
     cwd: ROOT,
@@ -920,6 +1062,49 @@ describe("the real bundle", () => {
       if (exited === "timeout") child.kill();
       expect(session).toBeDefined();
       expect(session).not.toHaveProperty("projectDir");
+    },
+    40_000,
+  );
+
+  test.skipIf(missing !== null || !realNode.usable)(
+    "behind a forking shim the session file is named by the caller's PID (AD-5)",
+    async () => {
+      const temp = realpathSync(mkdtempSync("/tmp/ab-"));
+      folders.push(temp);
+      const child = Bun.spawn(["/bin/sh", SCRIPT], {
+        cwd: ROOT,
+        env: {
+          PATH: `${forkingNode(folder())}:${SYSTEM_PATH}`,
+          REAL_NODE: realNode.path,
+          SHIM_CALLS: join(temp, "calls"),
+          TMPDIR: temp,
+        },
+        stdin: "pipe",
+        stdout: "ignore",
+        stderr: "pipe",
+      });
+      const init = {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "t", version: "0" },
+        },
+      };
+      const lines = [init, { jsonrpc: "2.0", id: 2, method: "tools/list" }];
+      child.stdin.write(`${lines.map((line) => JSON.stringify(line)).join("\n")}\n`);
+      child.stdin.flush();
+      const folderOf = join(temp, `askboard-${process.getuid?.()}`);
+      const file = sessionFilePath(folderOf, process.pid);
+      const deadline = Date.now() + 20_000;
+      while (!existsSync(file) && Date.now() < deadline) await Bun.sleep(100);
+      const named = existsSync(folderOf) ? readdirSync(folderOf) : [];
+      child.stdin.end();
+      const exited = await Promise.race([child.exited, Bun.sleep(10_000).then(() => "timeout")]);
+      if (exited === "timeout") child.kill();
+      expect(named).toContain(`${process.pid}.json`);
     },
     40_000,
   );

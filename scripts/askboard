@@ -1,8 +1,8 @@
 #!/bin/sh
 # The plugin's start script (plugin-release, design decision 1; AD-19, Node form). The server entry
 # and every hook run it as `sh scripts/askboard [hook <event> | client <path> [<body>]]`. When
-# `node` on PATH is 24.22.1 or later it replaces itself with Node on the bundle, so Claude Code
-# stays the parent of the session process (AD-5). It makes no network request.
+# `node` on PATH is 24.22.1 or later it replaces itself with that Node's own binary on the bundle, so
+# Claude Code stays the parent of the session process (AD-5). It makes no network request.
 #
 # When Node is missing or older, each mode refuses in its own way (decision 2, AD-19, NFR-8): the
 # session process answers the MCP handshake with no tools and the reason in its instructions, until
@@ -51,10 +51,30 @@ ASKBOARD_CALLER_CWD=$PWD
 export ASKBOARD_CALLER_CWD
 cd "$ROOT" || exit 1
 
-# The probe reads nothing: the caller's stdin (a hook's input, the MCP stream) is for the exec below.
-found=$(node -p process.versions.node 2>/dev/null </dev/null) || found=
+# One run of node reads both the version and the executable's own path (process.execPath), and the
+# bundle runs from that path: a version manager's `node` is a shim that forks the real binary (Volta
+# does), and a shim left standing between Claude Code and the session process would become its
+# parent, which keys the session file (AD-5). The probe reads nothing: the caller's stdin (a hook's
+# input, the MCP stream) is for the exec below.
+probe=$(node -p 'process.versions.node + " " + process.execPath' 2>/dev/null </dev/null) || probe=
+case $probe in
+  *' '*)
+    found=${probe%% *}
+    node_path=${probe#* }
+    ;;
+  *)
+    found=$probe
+    node_path=
+    ;;
+esac
 if at_least "$found" "$REQUIRED"; then
-  exec node "$ROOT/dist/askboard.mjs" "$@"
+  # An execPath that is not an absolute, executable file cannot be run as it stands: the node found
+  # on PATH, which passed the version check, runs instead.
+  case $node_path in
+    /*) [ -x "$node_path" ] || node_path=node ;;
+    *) node_path=node ;;
+  esac
+  exec "$node_path" "$ROOT/dist/askboard.mjs" "$@"
 fi
 
 # --- Refusals -------------------------------------------------------------------------------------
