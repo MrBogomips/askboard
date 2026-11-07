@@ -70,8 +70,18 @@ describe("a type that gives no result", () => {
     expect(problems[0]?.message).toContain("kanban");
   });
 
-  test("the shipped registry declares no result, and the probe does", () => {
-    expect(WIDGET_TYPES.map(({ result }) => result)).toEqual([undefined, undefined]);
+  test("the Tree and the Gantt declare no result, every type approval-scale-ranking adds does, and so does the probe", () => {
+    expect(
+      WIDGET_TYPES.map(({ type, result }) => [type, result === undefined] as const).filter(
+        ([type]) => type === "tree" || type === "gantt",
+      ),
+    ).toEqual([
+      ["tree", true],
+      ["gantt", true],
+    ]);
+    for (const { type, result } of WIDGET_TYPES.slice(2)) {
+      expect([type, result !== undefined]).toEqual([type, true]);
+    }
     expect(PROBE_WIDGET.result).toBeDefined();
     // The probe is no shipped type: the default registry refuses its result.
     expect(widgetResultProblems(probeItem, { pick: "a" }, PROBE.props)).toHaveLength(1);

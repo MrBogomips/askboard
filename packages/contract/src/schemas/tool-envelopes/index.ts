@@ -1,7 +1,9 @@
 // The tool request and result envelopes (owner `mcp-tools`, AD-7). The requests are the input
 // schemas of the approved tool definitions, generic as AD-6 asks: a tool request names no version.
 // Every result names its envelope's version and the output format's (finding F12). Widget-registry's
-// minor adds the answer's results and a widget item's result to `fetch` (design decision 6).
+// minor adds the answer's results and a widget item's result to `fetch` (design decision 6);
+// approval-scale-ranking's minor adds the items of the Approval, the Scale and the Ranking to it
+// (design decision 11).
 
 import type { SchemaSet } from "../../versions.ts";
 import { composeFetchResult } from "../../widgets/compose.ts";
@@ -38,7 +40,7 @@ import versions from "./versions.json" with { type: "json" };
 // The `fetch` result with each registered type's item composed in.
 const fetchResult = composeFetchResult(fetchResultBase);
 
-export const TOOL_ENVELOPES_VERSION = "1.5";
+export const TOOL_ENVELOPES_VERSION = "1.6";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {

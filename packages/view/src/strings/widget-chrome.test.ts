@@ -8,7 +8,7 @@ import { STRINGS } from "./index.ts";
 // the catalogue's English texts may stand as a literal in the widgets' sources.
 
 const SOURCES = join(import.meta.dir, "../../../widgets/src");
-const PREFIXES = ["tree.", "gantt.", "widget."] as const;
+const PREFIXES = ["tree.", "gantt.", "widget.", "approval."] as const;
 
 const sourcesUnder = (dir: string): readonly string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -41,7 +41,8 @@ const texts = chrome.flatMap(([, template]) =>
 const literals = new Set(texts.flatMap(fragmentsOf));
 
 // Phrases the catalogue shares with a name that is no chrome, such as a column ID, a key name or a CSS value.
-const ALLOWED = new Set<string>(["Delete", "Zoom", "task"]);
+// "off", "added" and "moved" are also the Tree's and the Gantt's own mark kinds and switch states.
+const ALLOWED = new Set<string>(["Delete", "Zoom", "task", "off", "added", "moved"]);
 
 describe("the widgets' sources hold no chrome string as a literal", () => {
   const files = sourcesUnder(SOURCES).map((path) => ({

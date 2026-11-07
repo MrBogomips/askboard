@@ -3,7 +3,8 @@
 // several questions or areas, and the presentation and delivery the ask requests (ask-lifecycle,
 // design decision 2); E5's carries a question's context items as ask-core resolved them (excerpts,
 // design decision 2), and E8's names the ask's language and locale (settings-languages, design
-// decision 7).
+// decision 7); approval-scale-ranking's carries the items of the Approval, the Scale and the
+// Ranking (design decision 11).
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -19,7 +20,7 @@ import referenceProps from "./reference-props.json" with { type: "json" };
 // The board document with each registered type's item composed in.
 const boardDocument = composeBoardDocument(boardDocumentBase);
 
-export const BOARD_DOCUMENT_VERSION = "1.4";
+export const BOARD_DOCUMENT_VERSION = "1.5";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",

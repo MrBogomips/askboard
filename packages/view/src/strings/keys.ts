@@ -134,6 +134,7 @@ export const STRING_KEYS = [
   "change.widget",
   "change.widgetTree",
   "change.widgetGantt",
+  "change.widgetApproval",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -276,6 +277,18 @@ export const STRING_KEYS = [
   "gantt.entry.notWorking",
   "gantt.entry.earliest",
   "gantt.entry.pickDay",
+  // The Approval (approval-scale-ranking, task 5.1; ux-update-draft.md blocks 1, 4 and 5).
+  "approval.label",
+  "approval.approve",
+  "approval.approveWithChanges",
+  "approval.reject",
+  "approval.title",
+  "approval.more",
+  "approval.on",
+  "approval.off",
+  "approval.added",
+  "approval.removed",
+  "approval.moved",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:approval-result",
   "title": "Approval result",
-  "description": "An Approval's result (FR-11, FR-18, approval-scale-ranking design decision 1): the user's verdict, one of approve, approve-with-changes or reject, and nothing else. The reason travels as the answer's note, never here; what the answer must hold beside a verdict is a check of the type (design decision 2). Never empty: the decision is required. In no schema set until approval-scale-ranking registers it.",
+  "description": "An Approval's result (FR-11, FR-18, approval-scale-ranking design decision 1): the user's decision, one of approve, approve-with-changes or reject, and nothing else. The reason travels as the answer's note, never here; what the answer must hold beside a decision is a check of the type (design decision 2). Never empty: the decision is required. In the output format since approval-scale-ranking.",
   "type": "object",
   "properties": {
     "decision": {

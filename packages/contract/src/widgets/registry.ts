@@ -19,6 +19,7 @@ import boardDocumentBase from "../schemas/board-document/board-document.json" wi
 import questionPropsBase from "../schemas/input/question-props.json" with { type: "json" };
 import fetchResultBase from "../schemas/tool-envelopes/fetch-result.json" with { type: "json" };
 import type { Problem } from "../validate.ts";
+import { APPROVAL_WIDGET } from "./approval/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
 import { TREE_WIDGET } from "./tree/widget.ts";
@@ -106,7 +107,7 @@ export type WidgetType = {
 };
 
 /** The widget types a question's items may hold, in order. */
-export const WIDGET_TYPES: readonly WidgetType[] = [TREE_WIDGET, GANTT_WIDGET];
+export const WIDGET_TYPES: readonly WidgetType[] = [TREE_WIDGET, GANTT_WIDGET, APPROVAL_WIDGET];
 
 /** The entry of an item type, when the registry holds it. */
 export const widgetTypeOf = (

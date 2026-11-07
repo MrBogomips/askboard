@@ -75,6 +75,7 @@ describe("bun run build:view (design decision 7)", () => {
       Object.entries(manifest.chunks).map(([name, chunk]) => [name, chunk.kind]),
     );
     expect(kinds).toEqual({
+      approval: "component",
       "board-graph": "library",
       choice: "component",
       context: "component",
@@ -89,6 +90,10 @@ describe("bun run build:view (design decision 7)", () => {
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
     expect(manifest.chunks.tree?.components).toEqual(["tree"]);
+    // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
+    // (approval-scale-ranking, design decision 8).
+    expect(manifest.chunks.approval?.components).toEqual(["approval"]);
+    expect(manifest.chunks.approval?.needs).toEqual(["radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -270,6 +275,7 @@ describe("bun run build:view (design decision 7)", () => {
   test("the recorded sizes are the build's, and packages/view/chunk-sizes.json is up to date", async () => {
     const recorded = await readSizes(sizesFile);
     expect(Object.keys(recorded).sort()).toEqual([
+      "approval",
       "board-graph",
       "board-page",
       "choice",

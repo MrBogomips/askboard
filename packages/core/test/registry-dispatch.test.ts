@@ -51,17 +51,19 @@ describe("values and derived keys of a probe item", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { pick: withOptions("a") } }, model, WIDGET_TYPES);
     expect(isWidgetProblem(checked) && checked.detail).toContain('"pick"');
-    expect(isWidgetProblem(checked) && checked.detail).toContain("no Tree or Gantt item");
+    expect(isWidgetProblem(checked) && checked.detail).toContain("no Tree, Gantt or Approval item");
   });
 
   test("the refusal names the registry's own types", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { nothing: {} } }, model);
-    expect(isWidgetProblem(checked) && checked.detail).toContain("no Tree, Gantt or Probe item");
+    expect(isWidgetProblem(checked) && checked.detail).toContain(
+      "no Tree, Gantt, Approval or Probe item",
+    );
   });
 
   test("a derived key of an item whose type declares none is refused", () => {
-    const bare = { ...PROBE_TYPES[2], derived: undefined } as never;
+    const bare = { ...PROBE_TYPES.at(-1), derived: undefined } as never;
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ derived: { "pick.count": 2 } }, model, [bare]);
     expect(isWidgetProblem(checked) && checked.detail).toContain("declares no derived values");

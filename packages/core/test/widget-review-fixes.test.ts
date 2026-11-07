@@ -65,15 +65,17 @@ describe("a Snapshot's board state holds the answer's values and results (S-7)",
 describe("the empty-answer refusal names the registry's nouns (S-8)", () => {
   const props = { options: [{ id: "a", label: "A" }] } as unknown as QuestionProps;
 
-  test("with the shipped types it still names Tree or Gantt", () => {
-    expect(contentProblem({}, props, false)?.detail).toContain("changes no Tree or Gantt and");
+  test("with the shipped types it names Tree, Gantt or Approval", () => {
+    expect(contentProblem({}, props, false)?.detail).toContain(
+      "changes no Tree, Gantt or Approval and",
+    );
   });
 
   test("with the probe registry it names Probe too, from its noun", () => {
     const detail = contentProblem({}, props, false, false, PROBE_TYPES)?.detail;
-    expect(detail).toContain("changes no Tree, Gantt or Probe and");
-    expect(contentProblem({}, props, false, false, [PROBE_TYPES[2] as never])?.detail).toContain(
-      "changes no Probe and",
-    );
+    expect(detail).toContain("changes no Tree, Gantt, Approval or Probe and");
+    expect(
+      contentProblem({}, props, false, false, [PROBE_TYPES.at(-1) as never])?.detail,
+    ).toContain("changes no Probe and");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type AnswerEvent, APPROVAL_WIDGET } from "@askboard/contract";
+import { type AnswerEvent, APPROVAL_WIDGET, WIDGET_TYPES } from "@askboard/contract";
 import {
   APPROVAL_FIXTURE_ITEM,
   APPROVAL_RESULTS,
@@ -172,8 +172,9 @@ describe("the answer check runs after the result check", () => {
   });
 
   test("a result no registry type holds is refused by the result check", () => {
+    // The registry without the Approval, which the shipped one now holds.
     const { outcome } = checked(model(), [answerAct({ results: verdict("approveWithChanges") })], {
-      types: withWidgetTypes(),
+      types: WIDGET_TYPES.filter(({ type }) => type !== "approval"),
     });
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.problem.detail).toContain('results name "verdict"');

@@ -35,8 +35,8 @@ const rulesOf = (problems: readonly RegistryProblem[]) =>
   problems.map(({ type, rule }) => `${type}:${rule}`);
 
 describe("the registry's entries", () => {
-  test("hold the Tree then the Gantt, in that order", () => {
-    expect(WIDGET_TYPES.map(({ type }) => type)).toEqual(["tree", "gantt"]);
+  test("hold the Tree then the Gantt, in that order, then the types later changes append", () => {
+    expect(WIDGET_TYPES.map(({ type }) => type).slice(0, 2)).toEqual(["tree", "gantt"]);
     expect(TREE.noun).toBe("a Tree");
     expect(GANTT.noun).toBe("a Gantt");
   });
@@ -309,7 +309,7 @@ describe("the contract's property of importing", () => {
         stderr: "pipe",
       });
       expect(run.stderr.toString()).toBe("");
-      expect(JSON.parse(run.stdout.toString())).toEqual(["tree", "gantt"]);
+      expect(JSON.parse(run.stdout.toString())).toEqual(WIDGET_TYPES.map(({ type }) => type));
     },
   );
 });

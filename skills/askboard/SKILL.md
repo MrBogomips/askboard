@@ -42,6 +42,7 @@ A question (`question`) is `{type: "question", id, props: {text, header?, option
 - `image`: a screenshot or picture saved as a project file, with the text that describes it → [context](references/context.md)
 - a Tree (`tree`): a work breakdown or any hierarchy the user edits: add, move, rename, remove nodes, adjust estimates → [tree](references/widgets/tree.md)
 - a Gantt (`gantt`): a schedule the user adjusts: tasks, durations, dependencies, with dates and the critical path computed → [gantt](references/widgets/gantt.md)
+- an Approval (`approval`): a verdict on its question's content: approve, approve with changes or reject; put it last in the question it approves → [approval](references/widgets/approval.md)
 - `gantt-plan`: a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed → [gantt-plan](references/molecules/gantt-plan.md)
 - `wbs-pert`: a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up → [wbs-pert](references/molecules/wbs-pert.md)
 

@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { WIDGET_TYPES } from "@askboard/contract";
+import { APPROVAL_DECISIONS, WIDGET_TYPES, widgetAnswerProblems } from "@askboard/contract";
 
 const SRC = join(import.meta.dir, "../src");
 
@@ -19,13 +19,27 @@ import { componentFacts } from "@askboard/view/catalog";
 ${CHUNKS.map((chunk) => `await import(${JSON.stringify(chunk)});`).join("\n")}
 console.log(JSON.stringify(WIDGET_TYPES.map((entry) => {
   const facts = componentFacts(entry.type);
-  return { type: entry.type, name: facts?.name, shape: facts?.shape?.(entry.example.item.props) };
+  return {
+    type: entry.type,
+    name: facts?.name,
+    shape: facts?.shape?.(entry.example.item.props),
+    confirmsRevision: facts?.confirmsRevision,
+    reasons: facts?.reason === undefined ? undefined : ${JSON.stringify(APPROVAL_DECISIONS)}.map(
+      (decision) => facts.reason({ decision }) ?? null,
+    ),
+  };
 })));
 `;
 
-const registered = async (): Promise<
-  readonly { type: string; name?: string; shape?: unknown }[]
-> => {
+type Facts = {
+  type: string;
+  name?: string;
+  shape?: unknown;
+  confirmsRevision?: true;
+  reasons?: readonly ({ label: string; missing: string } | null)[];
+};
+
+const registered = async (): Promise<readonly Facts[]> => {
   const child = Bun.spawn([process.execPath, "-e", SCRIPT], {
     cwd: join(import.meta.dir, ".."),
     stdout: "pipe",
@@ -51,6 +65,43 @@ describe("each registered widget type's chunk", () => {
       if (entry.edits !== undefined) {
         expect(facts[at]?.shape).toEqual(entry.edits.shape(entry.example.item.props));
       }
+    }
+  });
+});
+
+describe("the Approval's chunk", () => {
+  test("asks to confirm a revision and names the notice for its type", async () => {
+    const facts = (await registered()).find(({ type }) => type === "approval");
+    expect(facts?.confirmsRevision).toBe(true);
+    expect(facts?.name).toBe("change.widgetApproval");
+  });
+
+  test("requires a reason for a decision exactly when the contract's answer check refuses it with no note", async () => {
+    const facts = (await registered()).find(({ type }) => type === "approval");
+    expect(facts?.reasons).toHaveLength(APPROVAL_DECISIONS.length);
+    for (const [at, decision] of APPROVAL_DECISIONS.entries()) {
+      const refused =
+        widgetAnswerProblems(
+          { type: "approval", id: "verdict" },
+          { decision },
+          { note: undefined, changed: false },
+        ).length > 0;
+      const pair = facts?.reasons?.[at];
+      expect(pair !== null && pair !== undefined).toBe(refused);
+      if (refused) {
+        expect(pair).toEqual({
+          label: "question.reasonRequired",
+          missing: "question.reasonMissing",
+        });
+      }
+    }
+  });
+
+  test("the types that give no reason or confirmation register none", async () => {
+    for (const facts of await registered()) {
+      if (facts.type === "approval") continue;
+      expect(facts.reasons).toBeUndefined();
+      expect(facts.confirmsRevision).toBeUndefined();
     }
   });
 });

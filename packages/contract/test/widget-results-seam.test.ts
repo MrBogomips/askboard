@@ -302,7 +302,9 @@ describe("results in fetch results", () => {
       const withResult = whole({ ...alone, result: { picked: true } });
       const checked = shipped(withResult);
       expect(checked.ok).toBe(false);
-      expect(pathsOf(checked)).toContain("/item/result");
+      // A type with no result refuses it at the result; one that has a schema refuses this one inside it.
+      if (type.result === undefined) expect(pathsOf(checked)).toContain("/item/result");
+      else expect(pathsOf(checked).some((path) => path.startsWith("/item/result/"))).toBe(true);
     }
   });
 });
