@@ -140,6 +140,7 @@ export const IT_IT = {
   "change.widgetTree": "Albero",
   "change.widgetGantt": "Gantt",
   "change.widgetApproval": "Approvazione",
+  "change.widgetScale": "Scala",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -316,4 +317,7 @@ export const IT_IT = {
   "approval.added": "aggiunto",
   "approval.removed": "rimosso",
   "approval.moved": "spostato",
+  "scale.notSet": "Non impostato",
+  "scale.low": "Valore minimo",
+  "scale.high": "Valore massimo",
 } as const satisfies StringTable;

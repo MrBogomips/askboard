@@ -285,7 +285,7 @@ describe("items in a question", () => {
       field: "type",
     });
     expect(problem.expected).toContain(
-      '"excerpt", "reference", "image", "tree", "gantt", "approval" or "molecule"',
+      '"excerpt", "reference", "image", "tree", "gantt", "approval", "scale" or "molecule"',
     );
   });
 

@@ -51,14 +51,16 @@ describe("values and derived keys of a probe item", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { pick: withOptions("a") } }, model, WIDGET_TYPES);
     expect(isWidgetProblem(checked) && checked.detail).toContain('"pick"');
-    expect(isWidgetProblem(checked) && checked.detail).toContain("no Tree, Gantt or Approval item");
+    expect(isWidgetProblem(checked) && checked.detail).toContain(
+      "no Tree, Gantt, Approval or Scale item",
+    );
   });
 
   test("the refusal names the registry's own types", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { nothing: {} } }, model);
     expect(isWidgetProblem(checked) && checked.detail).toContain(
-      "no Tree, Gantt, Approval or Probe item",
+      "no Tree, Gantt, Approval, Scale or Probe item",
     );
   });
 

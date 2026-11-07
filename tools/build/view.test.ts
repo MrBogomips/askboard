@@ -85,6 +85,7 @@ describe("bun run build:view (design decision 7)", () => {
       gantt: "component",
       radix: "library",
       react: "library",
+      scale: "component",
       shell: "shell",
       tree: "component",
     });
@@ -94,6 +95,10 @@ describe("bun run build:view (design decision 7)", () => {
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
     expect(manifest.chunks.approval?.needs).toEqual(["radix", "react", "shell"]);
+    // The Scale's slider and rating are Radix's Slider and Toggle Group, which the radix library
+    // chunk has held since task 3.6 (design decision 9).
+    expect(manifest.chunks.scale?.components).toEqual(["scale"]);
+    expect(manifest.chunks.scale?.needs).toEqual(["radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -286,6 +291,7 @@ describe("bun run build:view (design decision 7)", () => {
       "gantt",
       "radix",
       "react",
+      "scale",
       "shell",
       "tree",
     ]);

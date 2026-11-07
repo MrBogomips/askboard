@@ -180,9 +180,7 @@ describe("the shared modules and the chunks that provide them", () => {
 
   // Names a chunk lists before the source that imports them lands, each with the task that lands
   // it. An entry the sources already import fails the test, so none outlives its task.
-  const LISTED_AHEAD: Readonly<Record<string, string>> = {
-    "radix-ui:Slider": "task 5.2 of approval-scale-ranking, the Scale",
-  };
+  const LISTED_AHEAD: Readonly<Record<string, string>> = {};
 
   test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
     const imported = await namedImports();

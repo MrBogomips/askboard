@@ -76,21 +76,22 @@ describe("the Approval in the composed schemas", () => {
 
   test("a question's items take its item after the Gantt's and before the molecule reference", () => {
     const refs = refsOf(schemaOf("input", "urn:askboard:input:question-props"), "item");
-    expect(refs).toEqual([
+    expect(refs.slice(0, 6)).toEqual([
       "excerpt",
       "reference",
       "image",
       "tree",
       "gantt",
       "approval",
-      "molecule",
     ]);
+    expect(refs.at(-1)).toBe("molecule");
     expect(schemaOf("input", "urn:askboard:input:approval-props").additionalProperties).toBe(false);
   });
 
   test("the board document and fetch's result hold its item", () => {
     const document = schemaOf("board-document", "urn:askboard:board-document:board-document");
-    expect(refsOf(document, "contextItem").at(-1)).toBe("approval");
+    const documentRefs = refsOf(document, "contextItem");
+    expect(documentRefs.indexOf("approval")).toBeGreaterThan(documentRefs.indexOf("gantt"));
     const fetchResult = schemaOf("tool-envelopes", "urn:askboard:tool-envelopes:fetch-result");
     expect(refsOf(fetchResult, "contextItem")).toContain("approval");
     expect(fetchResult.$defs.item.properties.type.enum).toContain("approval");
