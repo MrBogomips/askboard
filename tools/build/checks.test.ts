@@ -371,3 +371,74 @@ describe("a value substituted into image-set() (task 4.18, review X-4)", () => {
     ).toHaveLength(2);
   });
 });
+
+// The 4.19 re-review's X-2 (latex-kanban-timeline, task 4.23; design decision 8): a CSS custom
+// function, `@function --u(){result:"http://..."}` called as `--u()` inside `image-set()`, puts a
+// string where a browser reads a URL, as `var()` and `env()` do. lightningcss gives the rule as an
+// `unknown` rule named `function` and the call as a `function` node named `--u`.
+describe("a CSS custom function (task 4.23, review X-2)", () => {
+  const RULE = '@function --u(){result:"http://127.0.0.1:9/fn.png"}';
+  const WITH_RULE = [
+    ["image-set()", `${RULE} #a{background-image:image-set(--u() 1x)}`],
+    ["-webkit-image-set()", `${RULE} #a{background-image:-webkit-image-set(--u() 1x)}`],
+    ["a cursor list", `${RULE} a{cursor:image-set(--u() 1x),auto}`],
+  ] as const;
+
+  test.each(WITH_RULE)(
+    "the rule and its call in %s are two problems naming the chunk",
+    (_what, css) => {
+      const problems = styleUrlProblems("latex", css);
+      expect(problems, css).toHaveLength(2);
+      for (const problem of problems) expect(problem).toContain('"latex"');
+      expect(problems.some((problem) => problem.includes("@function"))).toBe(true);
+      expect(
+        problems.some((problem) => problem.includes("a value substituted into image-set()")),
+      ).toBe(true);
+    },
+  );
+
+  test.each([
+    ["image-set()", "#a{background-image:image-set(--u() 1x)}"],
+    ["-webkit-image-set()", "#a{background-image:-webkit-image-set(--u() 1x)}"],
+    ["a cursor list", "a{cursor:image-set(--c() 1x),auto}"],
+    ["any case", "a{background-image:IMAGE-SET(--U(1) 1x)}"],
+    ["a call with arguments", "a{background-image:image-set(--u(1, 2) 1x)}"],
+    ["a call nested in another function", "a{background-image:image-set(foo(--u()) 1x)}"],
+    ["a custom property holding the whole function", "a{--q:image-set(--u() 1x)}"],
+  ] as const)("a call of a custom function inside %s is a problem on its own", (_what, css) => {
+    const problems = styleUrlProblems("latex", css);
+    expect(problems, css).toHaveLength(1);
+    expect(problems[0]).toContain('"latex"');
+    expect(problems[0]).toContain("a value substituted into image-set() could request a file");
+  });
+
+  test.each([
+    ["at the top level", RULE],
+    [
+      "with typed parameters and a return type",
+      "@function --u(--a <length>) returns <length>{result:1px}",
+    ],
+    ["in capitals", '@FUNCTION --u(){result:"x"}'],
+    ["spelled with an escape", '@fun\\63tion --u(){result:"x"}'],
+    ["inside @media", '@media print{@function --u(){result:"x"}}'],
+    [
+      "inside @supports and @layer",
+      '@layer a{@supports (display:grid){@function --u(){result:"x"}}}',
+    ],
+    ["inside a nested rule", '.a{.b{@function --u(){result:"x"}}}'],
+  ] as const)("an @function rule %s is one problem naming the chunk", (_what, css) => {
+    const problems = styleUrlProblems("latex", css);
+    expect(problems, css).toHaveLength(1);
+    expect(problems[0]).toContain('"latex"');
+    expect(problems[0]).toContain("@function");
+  });
+
+  test("a call outside image-set(), a custom property and a dashed identifier are no problem", () => {
+    expect(styleUrlProblems("latex", "a{width:--u()}")).toEqual([]);
+    expect(styleUrlProblems("latex", "a{--a:1px;width:var(--a)}")).toEqual([]);
+    expect(styleUrlProblems("latex", "a{background-image:image-set(none 1x);--u:none}")).toEqual(
+      [],
+    );
+    expect(styleUrlProblems("latex", "@keyframes a{from{opacity:0}to{opacity:1}}")).toEqual([]);
+  });
+});

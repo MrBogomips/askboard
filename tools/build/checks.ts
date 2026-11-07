@@ -119,22 +119,33 @@ const imageSetName = (node: Node): boolean =>
   IMAGE_SET_FUNCTIONS.has(node.value.name.toLowerCase());
 
 // `var()` and `env()` as the parser gives them: its own node types, or a function by name (in any
-// case, when it does not recognise the spelling).
-const substitutes = (node: Node): boolean =>
-  node.type === "var" ||
-  node.type === "env" ||
-  (node.type === "function" &&
-    isNode(node.value) &&
-    typeof node.value.name === "string" &&
-    SUBSTITUTING_FUNCTIONS.has(node.value.name.toLowerCase()));
+// case, when it does not recognise the spelling); and a call of a CSS custom function, a function
+// named by a dashed ident (`--u()`), whose `@function` rule puts what it likes in its result.
+const substitutes = (node: Node): boolean => {
+  if (node.type === "var" || node.type === "env") return true;
+  if (node.type !== "function" || !isNode(node.value) || typeof node.value.name !== "string") {
+    return false;
+  }
+  return (
+    SUBSTITUTING_FUNCTIONS.has(node.value.name.toLowerCase()) || node.value.name.startsWith("--")
+  );
+};
+
+// An `@function` rule: the parser keeps it as an unknown rule named by its spelling, an escape
+// decoded.
+const definesFunction = (node: Node): boolean =>
+  node.type === "unknown" &&
+  isNode(node.value) &&
+  typeof node.value.name === "string" &&
+  node.value.name.toLowerCase() === "function";
 
 type Reach = { readonly node: unknown; readonly inImageSet: boolean };
 
 /**
  * What a stylesheet's tree asks a browser to fetch, in document order: an `import` rule, every
  * node holding a `url` string except a font face's woff2 data: URL, every string token of an
- * `image-set()` (which a browser reads as a URL), and every `var()` or `env()` inside one (which
- * could put a string there). The walk is iterative, so a deep nest ends in the
+ * `image-set()` (which a browser reads as a URL), every `var()`, `env()` or call of a custom
+ * function inside one (which could put a string there), and every `@function` rule. The walk is iterative, so a deep nest ends in the
  * parser's verdict and not in a stack overflow here.
  */
 const requests = (sheet: unknown, chunk: string): string[] => {
@@ -167,6 +178,11 @@ const requests = (sheet: unknown, chunk: string): string[] => {
     ) {
       request("hold a string in image-set(), which would request a file", node.value.value);
     }
+    if (definesFunction(node)) {
+      problems.push(
+        `the chunk "${chunk}" styles define a CSS function with @function, whose result could put a file into a value`,
+      );
+    }
     if (inImageSet && substitutes(node)) {
       problems.push(
         `the chunk "${chunk}" styles: a value substituted into image-set() could request a file`,
@@ -185,10 +201,11 @@ const requests = (sheet: unknown, chunk: string): string[] => {
  * A chunk's styles that would request a file (AD-8, AD-9, NFR-9). The styles are parsed with
  * lightningcss, as CSS Syntax reads them (escapes decoded, `xurl(` a function and only `url(` a
  * URL), and its tree is walked: an `@import`, any URL other than a woff2 `data:` URL in the source
- * of a `@font-face`, any string in `image-set()` or `-webkit-image-set()`, and any `var()` or `env()`
- * inside one are problems, and so are styles that do not parse, so the check fails closed. A chunk's styles are inlined into the
- * view, whose policy admits no other font or style source, so the build fails here rather than the
- * board in the browser.
+ * of a `@font-face`, any string in `image-set()` or `-webkit-image-set()`, any `var()`, `env()` or
+ * call of a custom function (`--u()`) inside one, and any `@function` rule are problems, and so are
+ * styles that do not parse, so the check fails closed. A chunk's styles are inlined into the view,
+ * whose policy admits no other font or style source, so the build fails here rather than the board
+ * in the browser.
  */
 export const styleUrlProblems = (chunk: string, css: string): string[] => {
   let sheet: unknown;
