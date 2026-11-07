@@ -27,7 +27,7 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 - **THEN** `ask` refuses it at `minLength`, naming the item
 
 ### Requirement: Safe patterns
-`ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile with the `u` flag, or holds a backreference, a lookahead or lookbehind, or a group repeated by `*`, `+` or a braced quantifier other than `{0}` and `{1}` that holds a quantifier or an alternation; and a TextField with a `pattern` whose `maxLength` is over 1,000 (1,000 when absent). Each refusal SHALL name the item and the rule (NFR-5, AD-8).
+`ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile (`u` flag), holds a backreference, a lookaround or a repeated group holding a quantifier or an alternation, or costs over 3 repetitions (each `?`, `*`, `+`, `{n,}`, `{n,m}` and group holding a `|`; one more with no leading `^`); and one with `maxLength` over 1,000 (1,000 when absent). Each refusal SHALL name the item and the rule (NFR-5, AD-8).
 
 #### Scenario: Patterns inside the subset
 - **WHEN** an ask holds TextFields with the patterns `^[A-Z][a-z]+$`, `^\+?\d{6,15}$`, `^[^@\s]+@[^@\s]+\.[a-z]{2,}$`, `^(?:[a-z0-9-]+\.)?example\.com$`, `^(?<key>[A-Z]+)-\d+$`, `^(?:dev|test|prod)$` and `[(+*)]`
@@ -36,6 +36,14 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 #### Scenario: Patterns outside the subset
 - **WHEN** an ask holds a TextField with the pattern `(a)\1`, `\k<x>`, `a(?=b)`, `a(?!b)`, `(?<=a)b`, `(?<!a)b`, `^(a+)+$`, `^(\d{2,})+$`, `^((ab)*c)+$`, `^(a|aa)*$`, `^(?:x|y){2,}$` or `(`
 - **THEN** `ask` refuses it, naming the item and what the pattern holds
+
+#### Scenario: A pattern with too many repetitions
+- **WHEN** an ask holds a TextField with the pattern `^\d*\d*\d*\d*$`, `\d+\d+\d+x`, `^(?:a|a)(?:a|a)(?:a|a)(?:a|a)$` or `a?a?a?a?`, and another with `^\d*\d*\d*$`, `\d+\d+x` or `^(?:a|b)(?:c|d)(?:e|f)$`
+- **THEN** `ask` refuses the first four, naming the item, the count (4 or more) and the limit of 3, and accepts the others
+
+#### Scenario: An update that makes a pattern unsafe
+- **WHEN** `update` changes a TextField so that its merged props hold `{pattern: "^a$", maxLength: 5000}`, or `{pattern: "^(a+)+$"}`
+- **THEN** `update` refuses it, naming the item, whether the `change` set the pattern or the `maxLength`, and applies nothing
 
 #### Scenario: A long field with a pattern
 - **WHEN** an ask holds a TextField `{label: "Email", pattern: "^[^@]+@[^@]+$", maxLength: 5000}`

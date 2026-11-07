@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { patternProblem } from "@askboard/contract";
+import { PATTERN_MAX_REPEATS, patternProblem } from "@askboard/contract";
 import {
   ENDINGS,
   FIXTURES,
@@ -22,13 +22,18 @@ import {
 const SOURCE = new URL("./pattern-timing.ts", import.meta.url);
 
 describe("the fixtures", () => {
-  test("hold the four patterns of the task, each over a run of its class", () => {
+  test("hold the four patterns of the task and the budget's worst shapes, each over a run of its class", () => {
     expect(FIXTURES.map(({ pattern }) => pattern)).toEqual([
       "^\\d*\\d*\\d*$",
       "\\d+\\d+x",
       "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
       "^(?:[a-z0-9-]+\\.)?[a-z0-9-]+$",
+      "^(?:\\d|1)\\d*\\d*$",
+      "(?:\\d|1)\\d*x",
+      "^(?:\\d|1)(?:\\d|1)(?:\\d|1)$",
+      "\\d*\\d*$",
     ]);
+    expect(FIXTURES.length).toBeGreaterThan(PATTERN_MAX_REPEATS);
     for (const { pattern, run } of FIXTURES) {
       expect(run.length, pattern).toBe(1);
     }

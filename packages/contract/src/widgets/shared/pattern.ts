@@ -4,19 +4,33 @@
 //
 // The subset leaves no backreference, no lookahead or lookbehind, and no group repeated by `*`, `+`
 // or a braced quantifier other than `{0}` and `{1}` that holds a quantifier or an alternation, the
-// shapes whose matching time grows exponentially with the text. The one pass is linear in the
-// pattern: it tracks escapes, classes and a stack of groups, and builds no regular expression but
-// the compile that proves the pattern is one. Plain ECMAScript, no DOM, Node or Bun API.
+// shapes whose matching time grows exponentially with the text. It also holds a cost budget, `PATTERN_MAX_REPEATS`: the matching time
+// grows with the number of variable quantifiers and alternations written in a row, so each
+// quantifier with a range (`?`, `*`, `+`, `{n,}`, `{n,m}` with m over n), each group holding a `|`
+// (the whole pattern counts as one when it holds a top-level `|`) and a pattern with no leading `^`
+// count one each. The one pass is linear in the pattern: it tracks escapes, classes and a stack of
+// groups, and builds no regular expression but the compile that proves the pattern is one. Plain
+// ECMAScript, no DOM, Node or Bun API.
 
 /** A pattern is at most this many code points. */
 export const PATTERN_MAX_CHARS = 200;
 /** A TextField with a pattern holds at most this many code points, 1,000 when `maxLength` is absent. */
 export const PATTERN_TEXT_MAX_CHARS = 1_000;
+/** A pattern costs at most this many repetitions (see the header), read by every layer. */
+export const PATTERN_MAX_REPEATS = 3;
 
-type Frame = { quantifier: boolean; alternation: boolean };
+/** `quantifier` and `alternation` reach the parent group; `piped` is this group's own `|`. */
+type Frame = { quantifier: boolean; alternation: boolean; piped: boolean };
 
-/** A quantifier read at a position: where it ends and whether it repeats without a fixed 0 or 1. */
-type Quantifier = { readonly end: number; readonly repeats: boolean };
+/**
+ * A quantifier read at a position: where it ends, whether it repeats without a fixed 0 or 1, and
+ * whether its count can vary (`?`, `*`, `+`, `{n,}`, `{n,m}` with m over n), which the budget counts.
+ */
+type Quantifier = {
+  readonly end: number;
+  readonly repeats: boolean;
+  readonly variable: boolean;
+};
 
 const isDigit = (char: string | undefined): boolean =>
   char !== undefined && char >= "0" && char <= "9";
@@ -40,16 +54,22 @@ const quantifierAt = (chars: readonly string[], at: number): Quantifier | undefi
   const char = chars[at];
   let end = at + 1;
   let repeats = true;
+  let variable = true;
   if (char === "?") repeats = false;
   else if (char === "{") {
     const low = numberAt(chars, end);
     end = low.end;
     const ranged = chars[end] === ",";
-    if (ranged) end = numberAt(chars, end + 1).end;
+    variable = false;
+    if (ranged) {
+      const high = numberAt(chars, end + 1);
+      variable = high.end === end + 1 || high.value > low.value;
+      end = high.end;
+    }
     repeats = ranged || low.value > 1;
     end += 1;
   } else if (char !== "*" && char !== "+") return undefined;
-  return { end: chars[end] === "?" ? end + 1 : end, repeats };
+  return { end: chars[end] === "?" ? end + 1 : end, repeats, variable };
 };
 
 /** Where the escape that starts at `at` (a backslash) ends, past a braced `\p{…}` or `\u{…}`. */
@@ -107,6 +127,8 @@ export const patternProblem = (pattern: string): string | undefined => {
     return "does not compile as an ECMAScript regular expression with the u flag";
   }
   const groups: Frame[] = [];
+  let repeats = chars[0] === "^" ? 0 : 1;
+  let topPiped = false;
   const top = (): Frame | undefined => groups[groups.length - 1];
   let at = 0;
   while (at < chars.length) {
@@ -121,7 +143,7 @@ export const patternProblem = (pattern: string): string | undefined => {
     else if (char === "(") {
       const header = groupHeader(chars, at);
       if (header.refusal !== undefined) return header.refusal;
-      groups.push({ quantifier: false, alternation: false });
+      groups.push({ quantifier: false, alternation: false, piped: false });
       at = header.end;
     } else if (char === ")") {
       const frame = groups.pop();
@@ -129,6 +151,8 @@ export const patternProblem = (pattern: string): string | undefined => {
       if (frame !== undefined && quantifier?.repeats && (frame.quantifier || frame.alternation)) {
         return REPEATED;
       }
+      if (frame?.piped) repeats += 1;
+      if (quantifier?.variable) repeats += 1;
       const parent = top();
       if (parent !== undefined && frame !== undefined) {
         parent.quantifier ||= frame.quantifier || quantifier !== undefined;
@@ -137,7 +161,11 @@ export const patternProblem = (pattern: string): string | undefined => {
       at = quantifier === undefined ? at + 1 : quantifier.end;
     } else if (char === "|") {
       const frame = top();
-      if (frame !== undefined) frame.alternation = true;
+      if (frame === undefined) topPiped = true;
+      else {
+        frame.alternation = true;
+        frame.piped = true;
+      }
       at += 1;
     } else {
       const quantifier = quantifierAt(chars, at);
@@ -145,9 +173,14 @@ export const patternProblem = (pattern: string): string | undefined => {
       else {
         const frame = top();
         if (frame !== undefined) frame.quantifier = true;
+        if (quantifier.variable) repeats += 1;
         at = quantifier.end;
       }
     }
+  }
+  if (topPiped) repeats += 1;
+  if (repeats > PATTERN_MAX_REPEATS) {
+    return `costs ${repeats} repetitions, over the limit of ${PATTERN_MAX_REPEATS} (each ?, *, +, {n,} and {n,m}, each group holding a |, and no leading ^ count one)`;
   }
   return undefined;
 };

@@ -1,7 +1,7 @@
 // Times the worst patterns the safe subset still admits (form-widget, design decision 3; the PO's
-// rule of 2026-11-07): the subset leaves no exponential case, but adjacent quantifiers over
-// overlapping classes backtrack polynomially, and a TextField with a pattern holds at most 1,000
-// characters. Each pattern is run unanchored, as the board runs it (`RegExp.test`, the `u` flag),
+// rule of 2026-11-07): the subset leaves no exponential case and spends at most
+// `PATTERN_MAX_REPEATS` repetitions, but adjacent quantifiers over overlapping classes still
+// backtrack polynomially, and a TextField with a pattern holds at most 1,000 characters. Each pattern is run unanchored, as the board runs it (`RegExp.test`, the `u` flag),
 // against a run of its class of 100, 300 and 1,000 characters followed by one ending that makes it
 // fail late: `x`, `!` and U+2028. A size runs only while the one before took under `GATE_MS`.
 //
@@ -33,6 +33,13 @@ export const FIXTURES: readonly TimingFixture[] = [
   { pattern: "\\d+\\d+x", run: "1" },
   { pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", run: "a" },
   { pattern: "^(?:[a-z0-9-]+\\.)?[a-z0-9-]+$", run: "a" },
+  // The budget's worst shapes (PATTERN_MAX_REPEATS = 3: each range quantifier, each group holding
+  // a |, and one more with no leading ^): an alternation group beside two quantifiers anchored,
+  // beside one unanchored, three alternation groups, and two quantifiers before `$` unanchored.
+  { pattern: "^(?:\\d|1)\\d*\\d*$", run: "1" },
+  { pattern: "(?:\\d|1)\\d*x", run: "1" },
+  { pattern: "^(?:\\d|1)(?:\\d|1)(?:\\d|1)$", run: "1" },
+  { pattern: "\\d*\\d*$", run: "1" },
 ];
 
 export const ENDINGS: readonly Ending[] = [

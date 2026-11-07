@@ -4,7 +4,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { PATTERN_MAX_CHARS, PATTERN_TEXT_MAX_CHARS, patternProblem } from "../src/index.ts";
+import {
+  PATTERN_MAX_CHARS,
+  PATTERN_MAX_REPEATS,
+  PATTERN_TEXT_MAX_CHARS,
+  patternProblem,
+} from "../src/index.ts";
 
 const accepted = (pattern: string) => expect(patternProblem(pattern)).toBeUndefined();
 const refusedFor = (pattern: string, words: string) => {
@@ -182,8 +187,92 @@ describe("the repetitions a group may have", () => {
   });
 
   test("a quantifier after the repeated group is read once", () => {
-    accepted("^(?:a+)?(?:b+)?$");
+    accepted("^(?:ab)?(?:b+)?$");
     refusedFor("^(?:a+)?(?:b|c)+$", "repeated group");
+  });
+});
+
+describe("the cost budget", () => {
+  const limit = `over the limit of ${PATTERN_MAX_REPEATS}`;
+
+  test("the budget is 3", () => {
+    expect(PATTERN_MAX_REPEATS).toBe(3);
+  });
+
+  test.each([
+    ["^\\d*\\d*\\d*\\d*$", 4],
+    ["\\d+\\d+\\d+x", 4],
+    ["^(?:a|a)(?:a|a)(?:a|a)(?:a|a)$", 4],
+    ["a?a?a?a?", 5],
+  ] as const)("refuses %s, naming %p repetitions and the limit", (pattern, count) => {
+    refusedFor(pattern, `costs ${count} repetitions`);
+    refusedFor(pattern, limit);
+  });
+
+  test("refuses the unrolled shapes of the review, at their length", () => {
+    refusedFor(`^${"\\d*".repeat(60)}$`, "costs 60 repetitions");
+    refusedFor(`^${"(a|a)".repeat(30)}$`, "costs 30 repetitions");
+  });
+
+  test("accepts what spends exactly 3", () => {
+    accepted("^\\d*\\d*\\d*$");
+    accepted("\\d+\\d+x");
+    accepted("^(?:a|a)(?:b|b)(?:c|c)$");
+    accepted("^a?a?a?$");
+    accepted("^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$");
+    accepted("^(?:[a-z0-9-]+\\.)?[a-z0-9-]+$");
+  });
+
+  test("a pattern with no leading ^ pays one more", () => {
+    accepted("^a*b*c*$");
+    refusedFor("a*b*c*$", "costs 4");
+    accepted("a*b*");
+    refusedFor("a*b*c*", "costs 4");
+    refusedFor("(?:^a*b*c*)$", "costs 4");
+  });
+
+  test("a group pays for its | and for its own quantifier, once each", () => {
+    accepted("^(?:a|b)$");
+    accepted("^(?:a|b|c|d|e|f|g|h|i|j)$");
+    accepted("^(?:a|b)?c*$");
+    refusedFor("^(?:a|b)?c*d*$", "costs 4");
+    refusedFor("^(?:a|b)(?:c|d)(?:e|f)(?:g|h)$", "costs 4");
+    refusedFor("^(?:(?:a|b)|(?:c|d))(?:e|f)(?:g|h)$", "costs 5");
+  });
+
+  test("a top-level | costs one, once", () => {
+    accepted("^a$|^b$");
+    refusedFor("^a*b*|c*$", "costs 4");
+    refusedFor("^a|b|c|d*e*f*$", "costs 4");
+  });
+
+  test("a braced quantifier costs only when its count can vary", () => {
+    accepted("^a{3}a{3}a{3}a{3}a{3}$");
+    accepted("^a{2,2}a{2,2}a{2,2}a{2,2}$");
+    accepted("^a{0}a{1}a{0,0}a{4}$");
+    refusedFor("^a{2,3}a{2,3}a{2,3}a{2,3}$", "costs 4");
+    refusedFor("^a{2,}a{2,}a{2,}a{2,}$", "costs 4");
+    refusedFor("^a{0,1}a{0,1}a{0,1}a{0,1}$", "costs 4");
+  });
+
+  test("a lazy marker is no second quantifier", () => {
+    accepted("^a*?b+?c??$");
+    refusedFor("^a*?b+?c??d*?$", "costs 4");
+  });
+
+  test("escaped and classed metacharacters cost nothing", () => {
+    accepted("^\\*\\+\\?\\|\\{2,\\}[*+?|]x$");
+    accepted("^[*+?]*[*+?]*[*+?]*$");
+    accepted("^\\(a\\)\\|\\p{L}{1,}$");
+  });
+
+  test("a quantifier on a group is read once, whatever the group holds", () => {
+    accepted("^(?:ab)*(?:cd)*(?:ef)*$");
+    refusedFor("^(?:ab)*(?:cd)*(?:ef)*(?:gh)*$", "costs 4");
+  });
+
+  test("the empty pattern pays only for the missing ^", () => {
+    accepted("");
   });
 });
 
@@ -220,7 +309,7 @@ describe("names that are not patterns", () => {
 
 describe("the check is one pass", () => {
   test("a 200-character pattern is checked in under 5 ms", () => {
-    const worst = `${"(?:a|b)?".repeat(25)}`;
+    const worst = `^${"(?:ab)".repeat(33)}`;
     expect(Array.from(worst).length).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
     patternProblem(worst);
     const started = performance.now();
@@ -229,7 +318,7 @@ describe("the check is one pass", () => {
   });
 
   test("a deeply nested pattern is checked in under 5 ms", () => {
-    const nested = `${"(?:".repeat(39)}a${")?".repeat(39)}`;
+    const nested = `^${"(?:".repeat(39)}a${")".repeat(39)}$`;
     expect(Array.from(nested).length).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
     const started = performance.now();
     expect(patternProblem(nested)).toBeUndefined();

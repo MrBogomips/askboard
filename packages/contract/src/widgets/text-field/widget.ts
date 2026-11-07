@@ -4,6 +4,7 @@
 // it gives a result, the text.
 
 import type { WidgetType } from "../registry.ts";
+import { PATTERN_MAX_REPEATS } from "../shared/pattern.ts";
 import {
   textFieldFieldCheck,
   textFieldPropsProblems,
@@ -41,7 +42,9 @@ export const TEXT_FIELD_WIDGET: WidgetType = {
     use: "a short or long free text the user types, such as a name or a comment",
     notes: [
       "`multiline` allows line breaks; `maxLength` (up to 10,000 characters) caps the text. The result is the text itself, and an empty field gives none.",
-      "`minLength` sets the fewest characters; `pattern` is a regular expression the text must match, unanchored, with no backreference, lookaround or repeated group holding a quantifier or a `|`, on a field of at most 1,000 characters. `required` makes an answer wait for a value.",
+      "`minLength` sets the fewest characters; `pattern` is a regular expression the text must match, unanchored, with no backreference, lookaround or repeated group holding a quantifier or a `|`, and at most " +
+        String(PATTERN_MAX_REPEATS) +
+        " repetitions (each `?`, `*`, `+`, `{n,}` or `{n,m}`, each group holding a `|`, and one more with no leading `^`), on a field of at most 1,000 characters. `required` makes an answer wait for a value.",
     ],
   },
 };

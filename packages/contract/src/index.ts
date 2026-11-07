@@ -985,6 +985,7 @@ export {
 
 export {
   PATTERN_MAX_CHARS,
+  PATTERN_MAX_REPEATS,
   PATTERN_TEXT_MAX_CHARS,
   patternProblem,
 } from "./widgets/shared/pattern.ts";
