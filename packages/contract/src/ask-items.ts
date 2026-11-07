@@ -15,6 +15,13 @@ import {
 import { ANNOTATION_MAX_CHARS, PREVIEW_MAX_CHARS } from "./lifecycle-limits.ts";
 import { CHOICE_LABELS_MAX_CHARS } from "./limits.ts";
 import {
+  isLayoutType,
+  LAYOUT_MAX_DEPTH,
+  layoutDepthProblem,
+  layoutListsOf,
+  nestedItemsOf,
+} from "./nested-items.ts";
+import {
   expectedAt,
   isRecord,
   keyOf,
@@ -71,12 +78,20 @@ export const contextItemTypes = (
 /** The item types a question's `items` hold, of the shipped registry. */
 export const CONTEXT_ITEM_TYPES: readonly string[] = contextItemTypes();
 
-// A question's items, each where it is. An area or a question among them is left to the schema,
-// which refuses it at its type, rather than named as a nested area or checked as a question.
+// A question's items, each where it is, and, after each layout, the items it holds at every depth
+// (layouts, design decision 4). An area or a question among them is left to the schema, which
+// refuses it at its type, rather than named as a nested area or checked as a question.
 const placedContext = (question: unknown, at: Segments, depth: number): Placed[] =>
-  contextOf(question).flatMap((item, index) =>
-    isRecord(item) && !isArea(item) && !isQuestion(item)
-      ? [{ item, at: [...at, "props", "items", String(index)], depth: depth + 1, inQuestion: true }]
+  nestedItemsOf(contextOf(question), [...at, "props", "items"]).flatMap((entry) =>
+    isRecord(entry.item) && !isArea(entry.item) && !isQuestion(entry.item)
+      ? [
+          {
+            item: entry.item,
+            at: entry.path,
+            depth: depth + 1 + entry.depth,
+            inQuestion: true as const,
+          },
+        ]
       : [],
   );
 
@@ -99,13 +114,18 @@ const entersItem = (rest: Segments): boolean =>
   rest[0] === "props" && rest[1] === "items" && rest.length > 3;
 
 // A question's fields, and its items' own fields by their type (`excerpt.props.pointer`), once the
-// type is one the input format defines; anything else reads as the question's.
+// type is one the input format defines, at any depth of its layouts (`number-field.props.max`);
+// anything else reads as the question's.
 const questionKey = (question: unknown, rest: Segments, types: readonly WidgetType[]): string => {
   if (entersItem(rest) && !(rest.length === 4 && rest[3] === "type")) {
-    const inner = contextOf(question)[Number(rest[2])];
-    const type = isRecord(inner) ? inner.type : undefined;
-    if (typeof type === "string" && contextItemTypes(types).includes(type)) {
-      return `${type}.${keyOf(widgetRest(type, rest.slice(3), types))}`;
+    const inner = innerItemOf(question, rest);
+    const type = isRecord(inner.item) ? inner.item.type : undefined;
+    if (
+      inner.item !== question &&
+      typeof type === "string" &&
+      contextItemTypes(types).includes(type)
+    ) {
+      return `${type}.${keyOf(widgetRest(type, inner.rest, types))}`;
     }
   }
   return rest.length === 0 ? "question" : `question.${keyOf(rest)}`;
@@ -114,7 +134,7 @@ const questionKey = (question: unknown, rest: Segments, types: readonly WidgetTy
 /**
  * The wording keys of an item's fields by its type, so that an area's fields and a question's read
  * apart: `rest` is the path from the item. A question in an area reads as a question, and a
- * question's item by its own type.
+ * question's item, at any depth of its layouts, by its own type.
  */
 export const itemKey = (
   item: unknown,
@@ -130,20 +150,39 @@ export const itemKey = (
   return questionKey(item, rest, types);
 };
 
+// The item a path from a layout enters, and the path from it: through the list the path names,
+// when it goes past the item's type; nothing when it stays at the layout or at its list's item.
+const enterLayout = (
+  layout: unknown,
+  rest: Segments,
+): { readonly item: unknown; readonly rest: Segments } | undefined => {
+  for (const list of layoutListsOf(layout)) {
+    const length = list.path.length;
+    if (!list.path.every((segment, at) => rest[at] === segment)) continue;
+    const after = rest.slice(length + 1);
+    if (after.length === 0 || (after.length === 1 && after[0] === "type")) return undefined;
+    const inner = list.items[Number(rest[length])];
+    return isRecord(inner) && isId(inner.id) ? { item: inner, rest: after } : undefined;
+  }
+  return undefined;
+};
+
 /**
- * The item a path from an item is in: an area's question when the path enters one, and a
- * question's item when it enters one in turn.
+ * The item a path from an item is in: an area's question when the path enters one, a question's
+ * item when it enters one in turn, and an item of a layout, at any depth, when it enters that.
  */
 export const innerItemOf = (
   item: unknown,
   rest: Segments,
 ): { readonly item: unknown; readonly rest: Segments } => {
+  if (isRecord(item) && isLayoutType(item.type)) {
+    const entered = enterLayout(item, rest);
+    return entered === undefined ? { item, rest } : innerItemOf(entered.item, entered.rest);
+  }
   if (!entersItem(rest)) return { item, rest };
   const inner = (isArea(item) ? childrenOf(item) : contextOf(item))[Number(rest[2])];
   if (!isRecord(inner) || !isId(inner.id)) return { item, rest };
-  return isQuestion(inner) && isArea(item)
-    ? innerItemOf(inner, rest.slice(3))
-    : { item: inner, rest: rest.slice(3) };
+  return innerItemOf(inner, rest.slice(3));
 };
 
 const POINTER = `a pointer of 1 to ${POINTER_MAX_CHARS} characters, path#anchor: a path from the project's root, then # and L<start>-L<end>, a heading or an ID`;
@@ -155,6 +194,18 @@ export const WEB_URL = `an absolute http or https URL of at most ${URL_MAX_CHARS
 const orList = (types: readonly string[]): string => {
   const quoted = types.map((type) => JSON.stringify(type));
   return `${quoted.slice(0, -1).join(", ")} or ${quoted.at(-1)}`;
+};
+
+// A question's item list in words: context, the registry's widgets and, when it holds layouts, the
+// layouts apart from the widgets (layouts, design decision 4).
+const itemsExpected = (types: readonly WidgetType[]): string => {
+  const layouts = types.filter(({ type }) => isLayoutType(type)).map(({ noun }) => noun);
+  const widgets = [
+    ...types.filter(({ type }) => !isLayoutType(type)).map(({ noun }) => noun),
+    "a molecule reference",
+  ];
+  const held = layouts.length === 0 ? "" : `, and layouts (${layouts.join(", ")})`;
+  return `a non-empty list of the question's items: context (excerpts, references, images) and widgets (${widgets.join(", ")})${held}`;
 };
 
 /**
@@ -193,7 +244,7 @@ export const itemExpected = (
   "area.props.items[]": 'a question {type: "question", id, props}',
   "area.props.items[].type": '"question": an area holds questions only',
   // A question's items (excerpts, design decision 2).
-  "question.props.items": `a non-empty list of the question's items: context (excerpts, references, images) and widgets (${[...types.map(({ noun }) => noun), "a molecule reference"].join(", ")})`,
+  "question.props.items": itemsExpected(types),
   "question.props.items[]": `an item {type, id, props} whose type is ${orList(contextItemTypes(types))}`,
   "question.props.items[].type": orList(contextItemTypes(types)),
   "excerpt.id": `${ID_SHAPE}, unique in the ask`,
@@ -239,6 +290,56 @@ export const ITEM_FIELDS: Readonly<Record<string, string>> = {
   area: "an area holds only type, id and props",
   "area.props": "an area's props hold only title and items",
   "area.props.items[]": "an item holds only type, id and props",
+};
+
+// The first layout past the depth bound among a question's items, or an area's questions'.
+const questionDepthProblem = (question: unknown, at: Segments) =>
+  layoutDepthProblem(contextOf(question), [...at, "props", "items"]);
+
+/**
+ * The first layout, in document order, that nests more than `LAYOUT_MAX_DEPTH` deep inside `item`,
+ * an ask's top-level item or one an update adds, at `place` (layouts, design decision 3), worded
+ * as a problem of the request. The check runs before the schema, and stops at the first, so a
+ * request nested without end is refused and never walked (AD-10).
+ */
+export const layoutDepthItemProblem = (
+  wording: Wording,
+  value: unknown,
+  item: unknown,
+  place: Segments,
+): RequestProblem | undefined => {
+  const found = isArea(item)
+    ? childrenOf(item)
+        .map((question, each) =>
+          questionDepthProblem(question, [...place, "props", "items", String(each)]),
+        )
+        .find((problem) => problem !== undefined)
+    : questionDepthProblem(item, place);
+  if (found === undefined) return undefined;
+  // At the layout's props: a path that ends at its type would name the layout that holds it.
+  const segments = [...found.path, "props"];
+  const message = `{where}: layouts nest at most ${LAYOUT_MAX_DEPTH} deep, and this one sits ${found.depth} deep; arrange the items in fewer layers, or split them across questions`;
+  return problemAt(
+    wording,
+    value,
+    segments,
+    message,
+    `layouts nested at most ${LAYOUT_MAX_DEPTH} deep`,
+  );
+};
+
+/** `layoutDepthItemProblem` over a list of items at `at`: the first problem. */
+export const layoutDepthRequestProblem = (
+  wording: Wording,
+  value: unknown,
+  items: readonly unknown[],
+  at: Segments,
+): RequestProblem | undefined => {
+  for (const [index, item] of items.entries()) {
+    const found = layoutDepthItemProblem(wording, value, item, [...at, String(index)]);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 };
 
 /** Areas inside areas, each named at its type: areas sit only at the top level (FR-2). */

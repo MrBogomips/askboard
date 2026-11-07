@@ -9,6 +9,7 @@
 // Plain ECMAScript with no JSON and no Ajv. Problems are E1's, at a JSON Pointer into the
 // definition, naming the parameter, the pointer or the string.
 
+import { isLayoutType } from "../nested-items.ts";
 import type { Problem } from "../validate.ts";
 import type { MoleculeDefinition, MoleculeFill } from "./index.ts";
 import { pointerOf, pointerTokens, valueAt } from "./pointer.ts";
@@ -167,11 +168,21 @@ const codeProblems = (value: unknown, path: Path): Problem[] => {
   });
 };
 
+// A molecule composes one widget, so an item that is a layout is refused (layouts, design decision
+// 4): no expanded ID goes unprefixed.
+const layoutProblems = ({ molecule, items }: MoleculeDefinition): Problem[] => {
+  const [item] = items;
+  if (!isObject(item) || !isLayoutType(item.type)) return [];
+  const message = `the molecule "${molecule}" composes a ${item.type}, a layout; a molecule composes one widget, not a layout`;
+  return [{ path: "/items/0/type", message }];
+};
+
 /**
  * What the definition format's schema cannot say about a definition that passed it: its
  * parameters, its fills and the absence of code. Never throws.
  */
 export const moleculeDefinitionProblems = (definition: MoleculeDefinition): Problem[] => [
+  ...layoutProblems(definition),
   ...parametersProblems(definition),
   ...fillsProblems(definition),
   ...codeProblems(definition, []),

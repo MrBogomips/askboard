@@ -11,11 +11,12 @@ type Read = { readonly file: string; readonly text: string; readonly reason: str
 const CONTEXT = "context items and molecule references stay in the question's own items";
 const AREA = "an area's items are its questions, never layouts";
 const RANKING = "a Ranking's items are its elements, never a question's items";
-const PATH = "the request's own path wording, which task 1.3 reads through the walker";
+const PATH = "the path of an item as the request names it, from which the walker's paths continue";
 const FIXTURE = "a fixture's own area or question, whose items hold no layout";
-const THROUGH = "the question's own list, which task 1.3 reads through the walker";
+const THROUGH =
+  "the question's own list, the walker's start: the layouts in it are walked from here (task 1.3)";
 
-/** The direct reads in `contract`'s sources (task 1.1); task 1.3 moves the walking ones to the walker. */
+/** The direct reads in `contract`'s sources: each starts from a question's own list or names a path. */
 const CONTRACT_READS: readonly Read[] = [
   {
     file: "packages/contract/src/ask-items.ts",
