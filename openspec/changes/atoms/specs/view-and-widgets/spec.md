@@ -30,11 +30,15 @@ A link in Markdown SHALL be a link only when its URL is a non-empty `http:` or `
 - **THEN** it shows as its source text and is no link
 
 ### Requirement: Refused Markdown links
-A Markdown link that is no link SHALL show as its source text, except that one with nothing but spaces between its parentheses SHALL show its label; an image whose source is refused SHALL show its alt text, or its source text when the alt is empty (AD-8).
+A Markdown link that is no link SHALL show as its source text, except that one with nothing but spaces between its parentheses SHALL show its label; an image whose source is empty SHALL show its alt text, or its source text when the alt is empty too, and an image whose source is otherwise refused SHALL show its source text (AD-8).
 
 #### Scenario: Empty destinations
 - **WHEN** a Markdown Text holds `[a]()`, `[a]( )`, `[a](<>)`, `![x]()` and `![]()`
 - **THEN** they read `a`, `a`, `[a](<>)`, `x` and `![]()` as text, and none is a link
+
+#### Scenario: An image with a refused source
+- **WHEN** a Markdown Text holds `![x](javascript:alert(1))`
+- **THEN** it reads `![x](javascript:alert(1))` as text and is no link
 
 #### Scenario: A link too long
 - **WHEN** a Markdown Text holds a link whose URL is 2,049 characters
