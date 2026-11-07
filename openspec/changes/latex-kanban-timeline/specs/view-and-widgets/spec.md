@@ -78,6 +78,10 @@ Before any node of a preview reaches the page, the board SHALL measure the depth
 - **WHEN** the board's fraction bound is 3 and its depth and node bounds are not reached, and the expression is `\frac{\frac{\frac{\frac{a}{b}}{c}}{d}}{e}`, then the same with one fraction fewer, then four fractions side by side
 - **THEN** the first is too complex to preview and inserts no node, and the other two render
 
+#### Scenario: A preview that would grow past its box
+- **WHEN** a LaTeX item's expression is `\raisebox{-1000000em}{X}`, sent by the agent or typed by the user
+- **THEN** the preview stays within 400 px high, scrolling inside, and the controls under it stay where they are on a board whose expression is at KaTeX's largest size
+
 ### Requirement: LaTeX previews one at a time
 A board SHALL draw its LaTeX previews one per task, in the order they are asked for, an item's newest expression replacing its pending draw and a draw asked for after the user's edit going before draws still pending, so that the board answers input between draws (AD-8, NFR-5).
 
@@ -97,7 +101,11 @@ A component chunk MAY carry a package's stylesheet. The build SHALL inline its w
 - **THEN** the chunk's licence notices hold that package's notice
 
 ### Requirement: No URL in a chunk's styles
-The build SHALL parse every chunk's styles and the board page's as CSS, and SHALL fail on styles it cannot parse, on an `@import`, on any URL other than a woff2 `data:` URL in the source of a `@font-face` rule, URLs in `image-set()` and `-webkit-image-set()` and escaped forms included, and on a `var()` or `env()` inside `image-set()` or `-webkit-image-set()`, so that no chunk loads a file from anywhere (AD-8, NFR-9).
+The build SHALL parse every chunk's styles and the board page's as CSS, and SHALL fail on styles it cannot parse, on an `@import`, on any URL other than a woff2 `data:` URL in the source of a `@font-face` rule, URLs in `image-set()` and escaped forms included, and on any substitution that could put one there, so that no chunk loads a file from anywhere (AD-8, NFR-9).
+
+#### Scenario: Substitutions that could request a file
+- **WHEN** a chunk's styles hold a `var()`, an `env()` or a custom function (`--name()`) inside `image-set()`, `-webkit-image-set()` or a cursor list, or an `@function` rule anywhere
+- **THEN** the build fails naming the chunk
 
 #### Scenario: A stylesheet that names a file
 - **WHEN** a chunk's package stylesheet holds `url(fonts/a.svg)` or `@import "b.css"`
