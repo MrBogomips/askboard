@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:draft-record",
   "title": "Draft record",
-  "description": "The board's unsent work (AD-20), held apart from the log and never sent to the agent: the delivery mode, the question in view, and per question, by its item ID, the revision the work was made on, the values of its items by item ID as the view holds them, and, since widget-registry, the results of its widget items by item ID, the \"Other…\" text, the option notes, the open prompt's text (note), the follow-up composer's text, and any act held for Submit (an answer, a decline, a postpone, a note alone, or the undo of a sent postpone or decline as reopen) with its order and whether \"Select recommended\" made it. Its keys are checked as IDs here, and as own properties naming the ask's questions where the board document is known (draftRecordProblems). A record longer than the contract's draft limit, as JSON, is refused.",
+  "description": "The board's unsent work (AD-20), held apart from the log and never sent to the agent: the delivery mode, the question in view, and per question, by its item ID, the revision the work was made on, the values of its items by item ID as the view holds them, and, since widget-registry, the results of its widget items by item ID, since atoms the entries of its input atoms by item ID, the \"Other…\" text, the option notes, the open prompt's text (note), the follow-up composer's text, and any act held for Submit (an answer, a decline, a postpone, a note alone, or the undo of a sent postpone or decline as reopen) with its order and whether \"Select recommended\" made it. Its keys are checked as IDs here, and as own properties naming the ask's questions where the board document is known (draftRecordProblems). A record longer than the contract's draft limit, as JSON, is refused.",
   "type": "object",
   "properties": {
     "delivery": {
@@ -43,6 +43,18 @@
           "type": "object",
           "propertyNames": {
             "$ref": "urn:askboard:input:id"
+          }
+        },
+        "entries": {
+          "description": "Since atoms: the text each input atom of the question holds that gives no value (unreadable, or outside its bounds), by item ID, 1 to 200 characters each. Unsent work like the values; an entry keeps the question from being answered until the user corrects or clears it, and is never part of an answer.",
+          "type": "object",
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "other": {

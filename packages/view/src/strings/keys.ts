@@ -112,6 +112,7 @@ export const STRING_KEYS = [
   "question.note",
   "question.reasonRequired",
   "question.reasonMissing",
+  "question.entryHint",
   // Revising a verdict the agent has received (approval-scale-ranking, design decision 6).
   "revision.confirmTitle",
   "revision.confirmBody",
@@ -142,6 +143,11 @@ export const STRING_KEYS = [
   "change.widgetTimeline",
 
   "change.widgetChart",
+  "change.widgetTextField",
+  "change.widgetToggle",
+  "change.widgetNumberField",
+  "change.widgetMoneyField",
+  "change.widgetDateField",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -341,6 +347,28 @@ export const STRING_KEYS = [
   "chart.highlighted",
   "chart.hint",
   "chart.role",
+
+  // The display atoms (atoms, task 5.2; ux-update-draft.md block 6; the Italian texts to review).
+  "value.days",
+  // The TextField and the Toggle (atoms, task 5.3; ux-update-draft.md block 6; the Italian texts to review).
+  "toggle.notSet",
+  "toggle.on",
+  "toggle.off",
+  "toggle.clear",
+  // The NumberField and the MoneyField (atoms, task 5.4; ux-update-draft.md block 6; the Italian texts to review).
+  "field.atLeast",
+  "field.atMost",
+  "field.whole",
+  "field.step",
+  "field.pickCurrency",
+  "field.currency",
+  // The DateField (atoms, task 5.5; ux-update-draft.md block 6; the Italian texts to review).
+  "field.onOrAfter",
+  "field.onOrBefore",
+  "date.choose",
+  "date.previous",
+  "date.next",
+  "date.nav",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

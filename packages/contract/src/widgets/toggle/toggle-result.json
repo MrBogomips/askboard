@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:toggle-result",
+  "title": "Toggle result",
+  "description": "A Toggle's result (FR-13, FR-18, atoms design decision 1): true or false. False is an answer, and an untouched Toggle gives none. In the output format since atoms.",
+  "type": "boolean"
+}

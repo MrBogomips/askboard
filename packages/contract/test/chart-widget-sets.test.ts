@@ -46,24 +46,27 @@ const refsOf = (schema: AnySchemaObject, union: string): string[] =>
 
 describe("the versions of the four widened sets", () => {
   test("each is one minor past main's", () => {
+    // A later change takes the next minor again (atoms'): these hold this change's minors or a
+    // later one, and the atoms' version tests pin the numbers of the latest.
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      input: INPUT_FORMAT_VERSION,
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.8", output: "1.8", envelopes: "1.8", document: "1.7" });
+      input: minor(INPUT_FORMAT_VERSION) >= 8,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 8,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 8,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 7,
+    }).toEqual({ input: true, output: true, envelopes: true, document: true });
   });
 
-  test("every other set equals main's", () => {
+  test("every other set equals main's, the protocol at it or a later change's minor", () => {
     expect({
-      protocol: BOARD_PROTOCOL_VERSION,
+      protocol: Number(BOARD_PROTOCOL_VERSION.split(".")[1]) >= 6,
       snapshot: SNAPSHOT_DATA_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
-      protocol: "1.6",
+      protocol: true,
       snapshot: "1.1",
       manifest: "1.1",
       configuration: "1.0",
@@ -93,22 +96,24 @@ describe("the versions of the four widened sets", () => {
 });
 
 describe("the Chart in the composed schemas", () => {
-  test("the registry ends with the Chart, after the Timeline", () => {
-    expect(WIDGET_TYPES.at(-1)).toBe(CHART_WIDGET);
-    expect(WIDGET_TYPES.map(({ type }) => type).slice(-2)).toEqual(["timeline", "chart"]);
+  test("the registry holds the Chart right after the Timeline", () => {
+    const types = WIDGET_TYPES.map(({ type }) => type);
+    expect(types.indexOf("chart")).toBe(types.indexOf("timeline") + 1);
+    expect(WIDGET_TYPES).toContain(CHART_WIDGET);
     expect(widgetTypeOf("chart")).toBe(CHART_WIDGET);
   });
 
-  test("a question's items take the Chart's item last but for the molecule reference", () => {
+  test("a question's items take the Chart's item after the Timeline's, before the molecule reference", () => {
     const refs = refsOf(schemaOf("input", "urn:askboard:input:question-props"), "item");
     expect(refs.at(-1)).toBe("molecule");
-    expect(refs.at(-2)).toBe("chart");
+    expect(refs.indexOf("chart")).toBe(refs.indexOf("timeline") + 1);
     expect(schemaOf("input", "urn:askboard:input:chart-props").additionalProperties).toBe(false);
   });
 
   test("the board document and fetch's result hold its item", () => {
     const document = schemaOf("board-document", "urn:askboard:board-document:board-document");
-    expect(refsOf(document, "contextItem").at(-1)).toBe("chart");
+    const held = refsOf(document, "contextItem");
+    expect(held.indexOf("chart")).toBe(held.indexOf("timeline") + 1);
     const fetchResult = schemaOf("tool-envelopes", "urn:askboard:tool-envelopes:fetch-result");
     expect(refsOf(fetchResult, "contextItem")).toContain("chart");
     expect(fetchResult.$defs.item.properties.type.enum).toContain("chart");

@@ -146,3 +146,53 @@ export const dateRefusalText = (
   language: Locale,
   slots: DateSlots,
 ): string => DATE_TEXTS[language][code](slots);
+
+/**
+ * The two refusals only an amount has (atoms, design decision 2): more decimals than the
+ * currency's minor units, and more than 15 digits before the decimal mark. The amount's other
+ * refusals are the number entry's.
+ */
+export type AmountRefusalCode = "decimals" | "too-large";
+
+/** What an amount refusal's sentence reads: the currency, its minor units and the locale's mark. */
+type AmountSlots = {
+  readonly currency: string;
+  /** The currency's minor units: decimals it takes. */
+  readonly places: number;
+  /** The locale's decimal mark, `.` or `,`. */
+  readonly decimal: string;
+  /** The most integer digits an amount holds. */
+  readonly digits: number;
+};
+
+// A two-decimal amount reads 12.50; a currency of n places shows n digits of the same, or a whole
+// number when it takes none.
+const amountExample = ({ places, decimal }: AmountSlots): string =>
+  places === 0 ? "50" : `12${decimal}${"50".padEnd(places, "0").slice(0, places)}`;
+
+const AMOUNT_TEXTS: Readonly<
+  Record<Locale, Readonly<Record<AmountRefusalCode, (slots: AmountSlots) => string>>>
+> = {
+  "en-US": {
+    decimals: (s) =>
+      s.places === 0
+        ? `${s.currency} takes no decimals, as in ${amountExample(s)}.`
+        : `${s.currency} takes at most ${s.places} ${s.places === 1 ? "decimal" : "decimals"}, as in ${amountExample(s)}.`,
+    "too-large": (s) =>
+      `The amount is too large: use at most ${s.digits} digits before the decimal ${s.decimal === "." ? "point" : "comma"}.`,
+  },
+  "it-IT": {
+    decimals: (s) =>
+      s.places === 0
+        ? `${s.currency} non ammette decimali, come in ${amountExample(s)}.`
+        : `${s.currency} ammette al massimo ${s.places} ${s.places === 1 ? "decimale" : "decimali"}, come in ${amountExample(s)}.`,
+    "too-large": (s) =>
+      `L'importo è troppo grande: usa al massimo ${s.digits} cifre prima ${s.decimal === "." ? "del punto decimale" : "della virgola decimale"}.`,
+  },
+};
+
+export const amountRefusalText = (
+  code: AmountRefusalCode,
+  language: Locale,
+  slots: AmountSlots,
+): string => AMOUNT_TEXTS[language][code](slots);

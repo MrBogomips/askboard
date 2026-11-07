@@ -552,6 +552,34 @@ describe("the lifecycle's view messages (ask-lifecycle, design decision 6)", () 
     );
   });
 
+  test("an open-link message names an item and a URL of at most 2,048 characters, and nothing else (atoms, task 4.2)", () => {
+    const message: ViewMessage = {
+      type: "open-link",
+      itemId: "notes",
+      url: "https://example.com/docs",
+    };
+    expect(toolCallOf(message).name).toBe("askboard.view.open-link");
+    expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
+    const refusedAt = (arguments_: Record<string, unknown>) => {
+      const read = readViewMessage({ name: "askboard.view.open-link", arguments: arguments_ });
+      return read.ok ? undefined : read.problems[0]?.path;
+    };
+    const longUrl = (length: number) => `https://example.com/${"a".repeat(length - 20)}`;
+    expect(readViewMessage(toolCallOf({ ...message, url: longUrl(2048) })).ok).toBe(true);
+    expect(refusedAt({ itemId: "notes", url: longUrl(2049) })).toBe("/arguments/url");
+    expect(refusedAt({ url: "https://example.com/" })).toBe("/arguments/itemId");
+    expect(refusedAt({ itemId: "not an id", url: "https://example.com/" })).toBe(
+      "/arguments/itemId",
+    );
+    expect(refusedAt({ itemId: "notes" })).toBe("/arguments/url");
+    for (const url of [5, null, ["https://example.com/"], {}, true]) {
+      expect(refusedAt({ itemId: "notes", url }), String(url)).toBe("/arguments/url");
+    }
+    expect(refusedAt({ itemId: "notes", url: "https://example.com/", inset: {} })).toBe(
+      "/arguments/inset",
+    );
+  });
+
   test("a draft message carries the whole draft record, checked only for its shape here", () => {
     const message: ViewMessage = { type: "draft", record: lifecycleDraftRecord };
     expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });

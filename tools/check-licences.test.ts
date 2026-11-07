@@ -1,15 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   checkArchives,
   checkPackages,
   classify,
+  exceptionProblems,
   type Installed,
+  type LicenceException,
   licenceOf,
   main,
   type Override,
+  parseExceptions,
   parseOverrides,
   readRegistry,
   repositoryOf,
@@ -182,6 +185,87 @@ describe("the overrides file", () => {
     expect(parseOverrides([noEvidence]).errors[0]).toContain("evidence");
     expect(parseOverrides([{ ...override(), licence: "" }]).errors[0]).toContain("licence");
     expect(parseOverrides(["MIT"]).errors).toHaveLength(1);
+  });
+});
+
+const exception = (fields: Partial<LicenceException> = {}): LicenceException => ({
+  name: "argparse",
+  licence: "PSF-2.0",
+  reason: "markdown-it's command-line tool; no chunk",
+  source: "docs/prd-askboard-2026-10-25/addendum.md, Licence exceptions",
+  shippedIn: [],
+  ...fields,
+});
+
+describe("the named licence exceptions (atoms, design decision 9)", () => {
+  const EXCEPTIONS = JSON.parse(
+    readFileSync(new URL("./licence-exceptions.json", import.meta.url), "utf8"),
+  ) as unknown;
+
+  test("argparse at PSF-2.0 is admitted only through the table", () => {
+    const argparse = installed("argparse", "PSF-2.0", "3.0.4");
+    const refused = checkPackages([argparse], [], new Set());
+    expect(refused).toHaveLength(1);
+    expect(refused[0]).toContain("argparse@3.0.4");
+    expect(checkPackages([argparse], [], new Set(), [exception()])).toEqual([]);
+  });
+
+  test("a name not in the table is still refused, and so is the entry's name at another licence", () => {
+    const table = [exception()];
+    const argparse = installed("argparse", "PSF-2.0");
+    const other = checkPackages([argparse, installed("difflib", "PSF-2.0")], [], new Set(), table);
+    expect(other).toHaveLength(1);
+    expect(other[0]).toContain("difflib@1.0.0");
+    const gpl = checkPackages(
+      [argparse, installed("argparse", "GPL-3.0-only", "2.0.0")],
+      [],
+      new Set(),
+      table,
+    );
+    expect(gpl).toHaveLength(1);
+    expect(gpl[0]).toContain("argparse@2.0.0");
+  });
+
+  test("an entry that matches no installed package is stale", () => {
+    const problems = checkPackages([installed("a", "MIT")], [], new Set(), [exception()]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("exception argparse");
+  });
+
+  test("an entry must say why and from where, and can have shipped in no chunk", () => {
+    expect(parseExceptions([exception()])).toEqual({ exceptions: [exception()], errors: [] });
+    expect(parseExceptions({}).errors).toHaveLength(1);
+    expect(parseExceptions([{ ...exception(), reason: "" }]).errors[0]).toContain("reason");
+    expect(parseExceptions([{ ...exception(), shippedIn: ["shell"] }]).errors[0]).toContain(
+      "shippedIn",
+    );
+    expect(parseExceptions([{ ...exception(), licence: "GPL-3.0-only" }]).errors[0]).toContain(
+      "GPL-3.0-only",
+    );
+  });
+
+  test("the file's names equal the addendum's Licence exceptions line", () => {
+    const addendum = readFileSync(
+      new URL("../docs/prd-askboard-2026-10-25/addendum.md", import.meta.url),
+      "utf8",
+    );
+    const line = addendum.split("\n").find((text) => text.includes("**Licence exceptions:**"));
+    const named = [...(line ?? "").matchAll(/`([^`]+)` \(([^)]+)\)/g)].map((m) => [
+      m[1] ?? "",
+      m[2] ?? "",
+    ]);
+    const { exceptions, errors } = parseExceptions(EXCEPTIONS);
+    expect(errors).toEqual([]);
+    expect(named.length).toBeGreaterThan(0);
+    expect(exceptions.map((entry) => [entry.name, entry.licence])).toEqual(named);
+    expect(exceptionProblems(exceptions)).toEqual([]);
+  });
+
+  test("DOMPurify's OR expression is admitted, as an OR with a permissive member", () => {
+    expect(classify("(MPL-2.0 OR Apache-2.0)")).toBe("permissive");
+    expect(
+      checkPackages([installed("dompurify", "(MPL-2.0 OR Apache-2.0)")], [], new Set()),
+    ).toEqual([]);
   });
 });
 
@@ -424,6 +508,7 @@ describe("the installed tree and the command", () => {
     workspaceDirect?: Record<string, string>;
     patched?: string[];
     overrides?: string;
+    exceptions?: string;
     // Nested lockfile keys that repeat a package, as Bun writes them, mapped to its name.
     nested?: Record<string, string>;
     // Lockfile keys `<parent key>/<name>` of bundled dependencies, as Bun writes them, mapped to
@@ -473,6 +558,7 @@ describe("the installed tree and the command", () => {
     const shaped = options.reshape ? options.reshape(lock) : lock;
     write("bun.lock", JSON.stringify(shaped, null, 2).replace(/\n(\s*)([}\]])/g, ",\n$1$2"));
     if (options.overrides !== undefined) write("tools/licence-overrides.json", options.overrides);
+    write("tools/licence-exceptions.json", options.exceptions ?? "[]\n");
   };
   // The npm registry replies with `registry[<name>/<version>]`, MIT when unlisted, 404 when null;
   // GitHub replies with `archived`.

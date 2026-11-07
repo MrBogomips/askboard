@@ -237,3 +237,28 @@ export {
   chartAnswerEvent,
   chartFetchItemResult,
 } from "./chart-widget.ts";
+
+// The atoms (atoms, design decisions 1 and 10): the entries a test gives the registry through
+// `withWidgetTypes`, and the display atoms' example items.
+
+export {
+  ATOM_TYPES,
+  DATE_FIELD_FIXTURE_ITEMS,
+  DATE_FIELD_RESULTS,
+  DIVIDER_FIXTURE_ITEM,
+  MONEY_FIELD_FIXTURE_ITEMS,
+  MONEY_FIELD_RESULTS,
+  NUMBER_FIELD_FIXTURE_ITEMS,
+  NUMBER_FIELD_RESULTS,
+  TEXT_FIELD_FIXTURE_ITEMS,
+  TEXT_FIELD_RESULTS,
+  TEXT_FIXTURE_ITEMS,
+  TOGGLE_FIXTURE_ITEM,
+  TOGGLE_RESULTS,
+  VALUE_FIXTURE_ITEMS,
+} from "./atoms.ts";
+
+// URLs of Markdown links with their verdicts (atoms, task 5.9): the table the view's and the board
+// page's link checks are both tested against.
+
+export { LINK_URL_TABLE, LONGEST_LINK_URL } from "./link-urls.ts";

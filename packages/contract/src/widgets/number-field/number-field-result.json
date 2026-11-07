@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:number-field-result",
+  "title": "NumberField result",
+  "description": "A NumberField's result (FR-13, FR-18, atoms design decision 1): a JSON number within a quadrillion either way. That it lies within the item's min and max, is whole when the item is integer and is on the item's step are checks of the type against the item's props. In the output format since atoms.",
+  "type": "number",
+  "minimum": -1000000000000000,
+  "maximum": 1000000000000000
+}

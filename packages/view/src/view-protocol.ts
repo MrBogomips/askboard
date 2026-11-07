@@ -23,6 +23,7 @@ import {
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
   JSON_MAX_DEPTH,
+  LINK_URL_MAX_CHARS,
   type LifecycleBoardState,
   NOTE_MAX_CHARS,
   OPTION_NOTE_MAX_CHARS,
@@ -177,6 +178,20 @@ export type ViewOpenReference = {
 /** The view's header and bottom bar heights in CSS pixels: where the reading panel may sit. */
 export type ReferenceInset = { readonly top: number; readonly bottom: number };
 
+/** The most characters of a URL an open-link message carries (atoms, design decision 6). */
+export const OPEN_LINK_URL_MAX_CHARS = LINK_URL_MAX_CHARS;
+
+/**
+ * The user clicks a link in Markdown (atoms, design decision 6): the message names the item whose
+ * Markdown holds it and the URL. The URL is agent content: the board page opens it only when it is
+ * `http:` or `https:` and the item holds Markdown in the board document it holds (AD-8).
+ */
+export type ViewOpenLink = {
+  readonly type: "open-link";
+  readonly itemId: string;
+  readonly url: string;
+};
+
 export type ViewMessage =
   | ViewAnswer
   | ViewReady
@@ -187,7 +202,8 @@ export type ViewMessage =
   | ViewSetting
   | ViewOpenSettings
   | ViewOpenReference
-  | ViewSnapshot;
+  | ViewSnapshot
+  | ViewOpenLink;
 
 /**
  * The board page's reply to an answer: sent on the board's socket, queued while the connection is
@@ -583,6 +599,11 @@ const inset: FieldCheck = (value) => {
     : `is not the header's and the bottom bar's heights, "top" and "bottom", each from 0 to ${INSET_MAX}`;
 };
 
+const linkUrl: FieldCheck = (value) =>
+  typeof value === "string" && value.length <= OPEN_LINK_URL_MAX_CHARS
+    ? undefined
+    : `is not a text of at most ${OPEN_LINK_URL_MAX_CHARS} characters`;
+
 // Each message type's fields; a call's arguments hold only these, and all but `someOf`'s and
 // `optional`'s.
 const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
@@ -601,6 +622,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
   "open-settings": { checks: {} },
   "open-reference": { checks: { itemId, inset } },
   snapshot: { checks: {} },
+  "open-link": { checks: { itemId, url: linkUrl } },
 };
 
 const refused = (path: string, message: string): Checked<ViewMessage> => ({

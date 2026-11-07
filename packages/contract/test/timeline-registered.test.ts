@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { AnySchemaObject } from "ajv/dist/2020";
+import { ATOM_TYPES } from "../src/fixtures/index.ts";
 import { SCHEMA_SETS, TIMELINE_WIDGET, WIDGET_TYPES } from "../src/index.ts";
 import { widgetItemProblems } from "../src/validate.ts";
 import { askAccepted, question } from "./result-widgets-support.ts";
@@ -29,6 +30,9 @@ describe("the Timeline in the composed schemas", () => {
     const types = WIDGET_TYPES.map(({ type }) => type);
     expect(types.indexOf("timeline")).toBe(types.indexOf("kanban") + 1);
     expect(types).toContain("timeline");
+    // The atoms come after the Chart, which a later change registered after the Timeline.
+    const atoms = ATOM_TYPES.map(({ type }) => type);
+    for (const type of types.slice(types.indexOf("chart") + 1)) expect(atoms).toContain(type);
   });
 
   test("a question's items take its item after the Kanban's and before the molecule reference", () => {

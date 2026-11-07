@@ -10,6 +10,7 @@ import { type ChoiceOption, OPTION_NOTE_MAX_CHARS, OTHER_MAX_CHARS } from "@askb
 import { useEffect, useRef, useState } from "react";
 import { useStrings } from "../port.ts";
 import { noteReveal } from "./note-reveal.ts";
+import { OptionPreview } from "./preview.tsx";
 import type { ChoiceExtras } from "./props.ts";
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
@@ -116,12 +117,12 @@ export const OptionDetails = ({
         </div>
       )}
       {previewOpen && option.preview !== undefined ? (
-        <p
+        <OptionPreview
           id={previewId(itemId, index)}
-          className="ml-xl whitespace-pre-wrap rounded-md border border-border bg-muted p-sm text-body text-foreground"
-        >
-          {option.preview}
-        </p>
+          itemId={itemId}
+          preview={option.preview}
+          {...(option.previewFormat === undefined ? {} : { format: option.previewFormat })}
+        />
       ) : null}
       {noteShown && extras !== undefined ? (
         <NoteField

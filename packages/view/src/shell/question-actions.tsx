@@ -6,7 +6,7 @@
 // The menu is not modal, so it locks no scroll and adds no style element.
 
 import { DropdownMenu } from "radix-ui";
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { useStrings } from "../catalog/port.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { CardActions, CardState } from "./question-state.ts";
@@ -22,6 +22,11 @@ export type ActionsRowProps = {
   readonly opened?: boolean;
   readonly card: CardState;
   readonly actions: CardActions;
+  /**
+   * While a field holds text it cannot read, what describes the disabled "Answer": "Correct {label}
+   * first." (atoms, design decision 3).
+   */
+  readonly answerHint?: string | undefined;
   /** The board is locked: nothing in the row acts. */
   readonly locked: boolean;
   readonly single: boolean;
@@ -43,6 +48,7 @@ export const ActionsRow = ({
   opened = false,
   card,
   actions,
+  answerHint,
   locked,
   single,
   submitted,
@@ -54,6 +60,7 @@ export const ActionsRow = ({
 }: ActionsRowProps) => {
   // Decline moves focus to the heading once the menu has closed, instead of back to "More".
   const toHeading = useRef(false);
+  const hintId = useId();
   const more = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   if (opened) {
@@ -124,6 +131,7 @@ export const ActionsRow = ({
         <button
           type="button"
           disabled={!card.canAnswer}
+          aria-describedby={answerHint === undefined ? undefined : hintId}
           onClick={(event) => onAnswer(event.currentTarget)}
           aria-pressed={submitted ? card.ready : undefined}
           className={single ? BUTTON_ANSWER_PRIMARY : BUTTON_ANSWER}
@@ -131,6 +139,11 @@ export const ActionsRow = ({
           {card.ready ? <QuestionMarker mark="ready" /> : null}
           {text("question.answer")}
         </button>
+        {answerHint === undefined ? null : (
+          <span id={hintId} className="sr-only">
+            {answerHint}
+          </span>
+        )}
       </span>
     </div>
   );

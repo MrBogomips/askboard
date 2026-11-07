@@ -4,6 +4,7 @@
 // in a process of their own: loaded here they would count, unrun, against the files' coverage.
 
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   APPROVAL_DECISIONS,
@@ -15,11 +16,16 @@ import {
 } from "@askboard/contract";
 
 const SRC = join(import.meta.dir, "../src");
+// The atoms' chunks are catalog components of the view (atoms, design decision 4), not widgets'.
+const CATALOG = join(import.meta.dir, "../../view/src/catalog");
 
 // What each chunk registered for the example props of its registry entry, as the child prints it.
 // A chunk is `src/<type>/index.tsx`, built from the entry, so a type added to the registry is
-// checked with no edit here.
-const CHUNKS = WIDGET_TYPES.map((entry) => join(SRC, entry.type, "index.tsx"));
+// checked with no edit here; an atom's is `view/src/catalog/<type>/index.tsx`.
+const CHUNKS = WIDGET_TYPES.map((entry) => {
+  const widget = join(SRC, entry.type, "index.tsx");
+  return existsSync(widget) ? widget : join(CATALOG, entry.type, "index.tsx");
+});
 
 // Results to put to every type's `fits`, a type's own and others': each type's check must agree
 // with the contract's whatever the shape, over the example props of its entry.
@@ -62,6 +68,16 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     { order: [...ids].reverse() },
     { order: ids.slice(1) },
     { order: [...ids, "extra"] },
+    // The atoms' bare results: a text, a boolean, a number, an amount and a date, each one some
+    // atom takes and the others refuse (atoms, design decision 1).
+    "text",
+    "",
+    true,
+    false,
+    3.5,
+    { amount: "12.50", currency: "EUR" },
+    { amount: 12.5, currency: "EUR" },
+    "2026-03-02",
     // Shapes no type takes, and one of each type's own with a field it lacks or a value off its kind.
     { value: "5" },
     { low: 1 },
@@ -130,6 +146,11 @@ describe("each registered widget type's chunk", () => {
     expect(CHUNKS).toHaveLength(WIDGET_TYPES.length);
     expect(facts.map(({ type }) => type)).toEqual(WIDGET_TYPES.map(({ type }) => type));
     for (const [at, entry] of WIDGET_TYPES.entries()) {
+      // A display atom gives no answer and edits nothing: it registers no facts, so no name.
+      if (entry.result === undefined && entry.edits === undefined) {
+        expect(facts[at]?.name, `${entry.type} names no notice`).toBeUndefined();
+        continue;
+      }
       expect(facts[at]?.name).toMatch(/^change\./);
       // A result-only widget has no edits, so no element shape to compare.
       if (entry.edits !== undefined) {

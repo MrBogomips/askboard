@@ -111,6 +111,7 @@ export const IT_IT = {
   "question.note": "Nota per l'agente (facoltativa)",
   "question.reasonRequired": "Motivo delle modifiche (obbligatorio)",
   "question.reasonMissing": "Aggiungi il motivo delle modifiche.",
+  "question.entryHint": "Correggi prima {label}.",
   "revision.confirmTitle": "Inviare una nuova risposta?",
   "revision.confirmBody":
     "L'agente ha già ricevuto la tua risposta precedente. Questa la sostituisce.",
@@ -147,6 +148,11 @@ export const IT_IT = {
   "change.widgetTimeline": "Timeline",
 
   "change.widgetChart": "Grafico",
+  "change.widgetTextField": "Campo di testo",
+  "change.widgetToggle": "Interruttore",
+  "change.widgetNumberField": "Campo numerico",
+  "change.widgetMoneyField": "Campo importo",
+  "change.widgetDateField": "Campo data",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -382,4 +388,23 @@ export const IT_IT = {
   "chart.highlighted": "evidenziato",
   "chart.hint": "Le frecce spostano tra i punti. Spazio evidenzia.",
   "chart.role": "grafico",
+
+  // The atoms' texts are provisional, to review (atoms, task 5.2).
+  "value.days": { one: "{count} giorno", other: "{count} giorni" },
+  "toggle.notSet": "Non impostato",
+  "toggle.on": "Attivo",
+  "toggle.off": "Disattivo",
+  "toggle.clear": "Cancella",
+  "field.atLeast": "Almeno {min}.",
+  "field.atMost": "Al massimo {max}.",
+  "field.whole": "Un numero intero.",
+  "field.step": "Un multiplo di {step} a partire da {base}.",
+  "field.pickCurrency": "Scegli una valuta.",
+  "field.currency": "Valuta",
+  "field.onOrAfter": "Dal {date} in poi.",
+  "field.onOrBefore": "Fino al {date}.",
+  "date.choose": "Scegli una data",
+  "date.previous": "Mese precedente",
+  "date.next": "Mese successivo",
+  "date.nav": "Navigazione tra i mesi",
 } as const satisfies StringTable;

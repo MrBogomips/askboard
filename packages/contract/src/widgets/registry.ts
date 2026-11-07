@@ -21,14 +21,22 @@ import fetchResultBase from "../schemas/tool-envelopes/fetch-result.json" with {
 import type { Problem } from "../validate.ts";
 import { APPROVAL_WIDGET } from "./approval/widget.ts";
 import { CHART_WIDGET } from "./chart/widget.ts";
+import { DATE_FIELD_WIDGET } from "./date-field/widget.ts";
+import { DIVIDER_WIDGET } from "./divider/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
 import { KANBAN_WIDGET } from "./kanban/widget.ts";
 import { LATEX_WIDGET } from "./latex/widget.ts";
+import { MONEY_FIELD_WIDGET } from "./money-field/widget.ts";
+import { NUMBER_FIELD_WIDGET } from "./number-field/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
+import { TEXT_WIDGET } from "./text/widget.ts";
+import { TEXT_FIELD_WIDGET } from "./text-field/widget.ts";
 import { TIMELINE_WIDGET } from "./timeline/widget.ts";
+import { TOGGLE_WIDGET } from "./toggle/widget.ts";
 import { TREE_WIDGET } from "./tree/widget.ts";
+import { VALUE_WIDGET } from "./value/widget.ts";
 
 /** Whether a widget's value is the agent's or the user's edit. */
 export type WidgetOrigin = "agent" | "edited";
@@ -130,6 +138,15 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   KANBAN_WIDGET,
   TIMELINE_WIDGET,
   CHART_WIDGET,
+  // The atoms, as their chunks land (atoms, design decision 10), in design decision 1's order.
+  TEXT_WIDGET,
+  VALUE_WIDGET,
+  DIVIDER_WIDGET,
+  TEXT_FIELD_WIDGET,
+  NUMBER_FIELD_WIDGET,
+  MONEY_FIELD_WIDGET,
+  DATE_FIELD_WIDGET,
+  TOGGLE_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

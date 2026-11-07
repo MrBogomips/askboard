@@ -41,6 +41,7 @@ import type {
   SnapshotRequestReply,
   ViewItemError,
   ViewMessage,
+  ViewOpenLink,
   ViewOpenReference,
   ViewPresentation,
   ViewReady,
@@ -60,6 +61,7 @@ import {
 } from "./board-status.ts";
 import { createDraftMirror, type DraftMirror } from "./draft-mirror.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
+import { openLinkRefusal } from "./markdown-links.ts";
 import {
   type ActsOrRefusal,
   actsFor,
@@ -411,6 +413,7 @@ class BoardPageController implements BoardPage {
       return {};
     },
     "open-reference": (message) => this.#openReference(message),
+    "open-link": (message) => this.#openLink(message),
     snapshot: () => this.#takeSnapshot("view"),
   };
 
@@ -477,6 +480,20 @@ class BoardPageController implements BoardPage {
       },
     );
     this.#socket?.send({ version, type: "open-source", itemId });
+    return {};
+  }
+
+  // A click on a link in Markdown: the URL opens in a new tab only when it is a web URL and the item
+  // holds Markdown in the board document the page holds; otherwise nothing opens and the reason is
+  // logged, with no agent text (atoms, design decision 6; AD-8).
+  #openLink({ itemId, url }: ViewOpenLink): ViewReply {
+    const document = this.#model.document as ViewDocument | undefined;
+    const refusal = openLinkRefusal(document, itemId, url);
+    if (refusal !== undefined) {
+      this.#deps.log(`open-link refused: ${refusal}`);
+      return {};
+    }
+    this.#deps.openLink?.(url);
     return {};
   }
 

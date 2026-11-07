@@ -122,16 +122,23 @@ describe("types with no shape", () => {
     return { priorities: { items: [...rest, first] } };
   };
 
-  test("a Ranking answer with an edited value and its result is logged, with no changes", () => {
+  test("a Ranking answer with its result alone is logged, with no changes", () => {
     const { outcome } = send([structuredClone(RANKING_FIXTURE_ITEM) as unknown as Item], {
-      values: rankingEdit(),
       results: { priorities: RANKING_RESULT },
     });
     if (!outcome.ok) throw new Error(JSON.stringify(outcome.problem));
     const [event] = outcome.events;
     expect(event).toMatchObject({ results: { priorities: RANKING_RESULT } });
     expect(event).not.toHaveProperty("changes");
-    expect([...outcome.kept.values()][0]?.values).toEqual(rankingEdit());
+    expect([...outcome.kept.values()][0]?.values).toEqual({});
+  });
+
+  test("a Ranking answer with an edited value is refused: a Ranking takes no edits", () => {
+    const problem = refusal([structuredClone(RANKING_FIXTURE_ITEM) as unknown as Item], {
+      values: rankingEdit(),
+      results: { priorities: RANKING_RESULT },
+    });
+    expect(problem.detail).toContain("priorities");
   });
 
   test("an Approval answer is logged as before", () => {

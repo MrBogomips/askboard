@@ -29,12 +29,29 @@ export const renderedOf = (question: ViewQuestion): readonly Rendered[] => [
   ...(question.props.items ?? []).map((item) => ({ item, component: item.type })),
 ];
 
-/** The components a board needs, each once, by name: every question's, areas' included. */
+/** The Text atom: plain text or Markdown, and the renderer of an option's Markdown preview. */
+export const TEXT = "text";
+
+// Whether an option of the question shows a preview as Markdown, which Choice draws through the Text
+// atom's component (atoms, design decision 5): the item is no item of its own, so `renderedOf` stays.
+const hasMarkdownPreview = (question: ViewQuestion): boolean =>
+  (question.props.options ?? []).some(
+    (option) =>
+      option.previewFormat === "markdown" &&
+      typeof option.preview === "string" &&
+      option.preview !== "",
+  );
+
+/**
+ * The components a board needs, each once, by name: every question's, areas' included, and `text`
+ * for a question whose option previews are Markdown.
+ */
 export const componentsOf = (document: ViewDocument): string[] =>
   [
     ...new Set(
-      questionsOf(document).flatMap((question) =>
-        renderedOf(question).map(({ component }) => component),
-      ),
+      questionsOf(document).flatMap((question) => [
+        ...renderedOf(question).map(({ component }) => component),
+        ...(hasMarkdownPreview(question) ? [TEXT] : []),
+      ]),
     ),
   ].sort();

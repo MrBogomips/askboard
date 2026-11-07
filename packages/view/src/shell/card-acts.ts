@@ -46,6 +46,7 @@ import {
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
+import { entryIdsOf, holdsEntry } from "./entries.ts";
 import { answerOf } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
@@ -91,6 +92,8 @@ export type AnswerContext = Senders & {
   readonly draft: DraftStore;
   /** The results the widget items hold, beside the draft record (widget-registry, design decision 9). */
   readonly results?: DraftStore;
+  /** The entries the fields hold, beside the draft record (atoms, design decision 3). */
+  readonly entries?: DraftStore;
   readonly board: BoardDraft;
   /** The derived values each widget item last reported (widget-answers design decision 10). */
   readonly derived: DerivedStore;
@@ -228,6 +231,9 @@ export const answerNeedsReason = (
  */
 export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOutcome => {
   const { draft, results, board, derived, delivery } = context;
+  // A field holds text it cannot read: the answer would leave it out, so nothing is sent, marked or
+  // held (atoms, design decision 3; NFR-10).
+  if (holdsEntry(question, context.entries?.record() ?? new Map())) return undefined;
   const work = board.work(question.id);
   const content = withDerived(
     answerContentOf(question, draft.record(), work, results?.record()),
@@ -365,10 +371,16 @@ export const sendFollowUp = (question: ViewQuestion, context: AnswerContext): vo
 /** Drops the question's draft: its items' values and results and its work, its revision included. */
 export const dropWork = (
   question: ViewQuestion,
-  { draft, results, board }: Pick<AnswerContext, "draft" | "results" | "board">,
+  {
+    draft,
+    results,
+    entries,
+    board,
+  }: Pick<AnswerContext, "draft" | "results" | "entries" | "board">,
 ): void => {
   for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
   for (const itemId of resultIdsOf(question)) results?.set(itemId, undefined);
+  for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
   board.forget(question.id);
 };
 
@@ -426,7 +438,13 @@ export const keepMine = (
 export const fillFrom = (
   question: ViewQuestion,
   content: AnswerContent,
-  { draft, results, board, facts }: Pick<AnswerContext, "draft" | "results" | "board" | "facts">,
+  {
+    draft,
+    results,
+    entries,
+    board,
+    facts,
+  }: Pick<AnswerContext, "draft" | "results" | "entries" | "board" | "facts">,
 ): void => {
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
   const choice = (content.choice ?? []).filter((label) => labels.has(label));
@@ -441,6 +459,9 @@ export const fillFrom = (
     const result = given !== undefined && Object.hasOwn(given, itemId) ? given[itemId] : undefined;
     results?.set(itemId, resultFits(question, itemId, result, facts) ? result : undefined);
   }
+  // The start of a revision, or "Start from my previous answer", replaces the draft: text a field
+  // could not read goes, as a result of the answer takes the item's place.
+  for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
   board.edit(question.id, question.rev, ({ other: _o, optionNotes: _n, note: _t, ...rest }) => ({
     ...rest,
     ...(other === undefined ? {} : { other }),

@@ -110,3 +110,20 @@ describe("a held result is unsent work (widget-registry, design decision 9)", ()
     expect(text).toContain(`${WIDGET}: {"pick":"a"}`);
   });
 });
+
+describe("a held entry is unsent work (atoms, task 4.3; design decision 3)", () => {
+  const record = (work: object): DraftRecord => ({
+    delivery: "immediate",
+    questions: { plan: { rev: 1, ...work } },
+  });
+
+  test("an entry arms the leave-page prompt; an empty one does not", () => {
+    expect(hasUnsentWork(record({ entries: { [WIDGET]: "21x" } }))).toBe(true);
+    expect(hasUnsentWork(record({ entries: {} }))).toBe(false);
+  });
+
+  test("the copy of the unsent work holds the text the user typed, under its item", () => {
+    const text = unsentWorkText(uj2ExpandedBoardDocument, record({ entries: { [WIDGET]: "21x" } }));
+    expect(text).toContain(`${WIDGET}: "21x"`);
+  });
+});
