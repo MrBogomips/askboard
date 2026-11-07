@@ -881,6 +881,83 @@ describe("Accept recommended takes the path of Answer (approval-scale-ranking, d
   });
 });
 
+describe("a held answer pressed again where the press sends (approval-scale-ranking, task 4b.14; F-63, AD-10)", () => {
+  // The board draft is in submitted delivery and holds a marked answer, while the card answers at
+  // once: the single-question board an agent's deletes left, or "Send and switch" whose command
+  // was refused. A press of "Answer" there sends, so the exemptions of a press that only takes
+  // the mark back do not apply.
+  const pair = { label: "question.reasonRequired", missing: "question.reasonMissing" } as const;
+  const facts = (type: string) =>
+    type === "verdict"
+      ? {
+          confirmsRevision: true as const,
+          reason: (result: unknown) =>
+            (result as { decision?: string }).decision === "revise" ? pair : undefined,
+        }
+      : undefined;
+  const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
+  const asked: ViewQuestion = { ...database, props: { text: "Which one?", items: [verdict] } };
+  const delivered = {
+    itemId: "database",
+    rev: 1,
+    state: "answered",
+    answer: { when: "2026-11-07T10:00:00Z", receipt: "delivered" },
+  } as unknown as LifecycleQuestionStatus;
+  const reject = { decision: "reject" };
+  const revise = { decision: "revise" };
+
+  const marked = (cardDelivery: Delivery, result: unknown, note?: string) => {
+    const set = setUp("submitted");
+    set.results.set("verdict", result);
+    set.board.edit("database", 1, () => ({
+      rev: 1,
+      ...(note === undefined ? {} : { note }),
+      held: { act: "answer", order: 0 },
+    }));
+    const outcomes: unknown[] = [];
+    const context = { ...set.context, delivery: cardDelivery, facts };
+    const pressed = pressAnswer(asked, context, delivered, (o) => outcomes.push(o));
+    return { ...set, context, pressed, outcomes };
+  };
+
+  test("in immediate delivery a marked answer on a delivered verdict asks first and sends nothing", () => {
+    const { sent, pressed, board } = marked("immediate", reject);
+    expect(pressed.kind).toBe("waiting");
+    expect(sent).toEqual([]);
+    expect(board.work("database")?.held?.act).toBe("answer");
+  });
+
+  test("confirming then sends the answer", () => {
+    const { sent, pressed } = marked("immediate", reject);
+    if (pressed.kind !== "waiting") throw new Error(pressed.kind);
+    settle(pressed.waiting, true);
+    expect(sent).toEqual([
+      expect.objectContaining({ type: "answer", results: { verdict: reject } }),
+    ]);
+  });
+
+  test("in immediate delivery a marked answer lacking its reason is refused, and nothing is sent", () => {
+    const set = marked("immediate", revise, "  ");
+    expect(set.pressed.kind).toBe("needs-reason");
+    expect(set.sent).toEqual([]);
+    expect(answerNeedsReason(asked, set.context)).toBe(true);
+  });
+
+  test("in submitted delivery the press still only takes the mark back, with no confirmation", () => {
+    const { sent, pressed, board } = marked("submitted", reject);
+    expect(pressed.kind).toBe("done");
+    expect(board.work("database")?.held).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("in submitted delivery unmarking a marked answer lacking its reason is never refused", () => {
+    const { sent, pressed, board } = marked("submitted", revise, "  ");
+    expect(pressed.kind).toBe("done");
+    expect(board.work("database")?.held).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+});
+
 describe("a revision keeps the widgets' results (approval-scale-ranking, design decision 6; AD-20)", () => {
   const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
   const second: WidgetItem = { type: "verdict", id: "second", props: {} };

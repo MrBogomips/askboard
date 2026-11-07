@@ -222,7 +222,13 @@ export const selectRecommended = (
       continue;
     }
     draft.set(question.id, [recommended.label]);
-    const lacksReason = answerNeedsReason(question, { draft, results, board, facts });
+    const lacksReason = answerNeedsReason(question, {
+      draft,
+      results,
+      board,
+      facts,
+      delivery: board.get().delivery,
+    });
     if (board.get().delivery === "submitted" && !lacksReason) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({

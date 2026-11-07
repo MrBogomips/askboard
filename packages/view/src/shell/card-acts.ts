@@ -180,15 +180,21 @@ const takeBackUndo = (question: ViewQuestion, board: BoardDraft): void =>
 
 const now = () => new Date().toISOString();
 
-// Whether a held result requires a reason the note does not give; an answer marked ready is
-// unmarked whatever the note says.
+// Whether a held result requires a reason the note does not give; in submitted delivery an answer
+// marked ready is unmarked whatever the note says, since the press only takes the mark back. Where
+// the card answers at once the press sends, so a mark excuses nothing.
 const reasonGate = (
   question: ViewQuestion,
-  { results, board, facts }: Pick<AnswerContext, "results" | "board" | "facts">,
+  {
+    results,
+    board,
+    facts,
+    delivery,
+  }: Pick<AnswerContext, "results" | "board" | "facts" | "delivery">,
   content: AnswerContent,
 ): AnswerOutcome => {
   const requires = reasonOf(question, results?.record() ?? new Map(), undefined, facts);
-  const marked = board.work(question.id)?.held?.act === "answer";
+  const marked = delivery === "submitted" && board.work(question.id)?.held?.act === "answer";
   return requires !== undefined && !noteHoldsReason(content.note) && !marked
     ? "needs-reason"
     : undefined;
@@ -200,7 +206,7 @@ const reasonGate = (
  */
 export const answerNeedsReason = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts">,
+  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts" | "delivery">,
 ): boolean => {
   const { draft, results, board } = context;
   const content = answerContentOf(
@@ -486,7 +492,9 @@ export const pressAnswer = (
   onOutcome: (outcome: AnswerOutcome) => void,
 ): AnswerPress => {
   if (answerNeedsReason(question, context)) return { kind: "needs-reason" };
-  const held = context.board.work(question.id)?.held?.act;
+  // The held act excuses the confirmation only where the press takes it back: in submitted delivery.
+  const held =
+    context.delivery === "submitted" ? context.board.work(question.id)?.held?.act : undefined;
   const waiting = press(asksFirst("answer", question, status, held, context.facts), () =>
     onOutcome(answer(question, context)),
   );
