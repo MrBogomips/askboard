@@ -19,6 +19,14 @@ export const MARKDOWN_NESTING_MAX = 20;
 /** A source holds at most this many code points, a Text's and an option preview's limit. */
 export const MARKDOWN_MAX_CHARS = TEXT_MAX_CHARS;
 
+/**
+ * The HTML markdown-it writes is at most this many characters before the sanitizer sees it: a
+ * reference definition used by many images or links grows a source of `MARKDOWN_MAX_CHARS` code
+ * points into megabytes, and past the bound the item shows its source as plain text (checkpoint
+ * 1.8 X-2, design decision 5).
+ */
+export const MARKDOWN_HTML_MAX_CHARS = 200_000;
+
 /** The classes a table cell may carry: the alignment, in place of a `style` attribute. */
 export const ALIGN_CLASSES: readonly string[] = Object.freeze([
   "md-align-left",
@@ -135,12 +143,14 @@ let markdown: Parser | undefined;
 
 /**
  * The HTML markdown-it writes for a source, or none when the source is over `MARKDOWN_MAX_CHARS`
- * code points: the caller then shows it as plain text. Not yet sanitized.
+ * code points or its HTML over `MARKDOWN_HTML_MAX_CHARS` characters: the caller then shows the
+ * source as plain text. Not yet sanitized.
  */
 export const markdownHtml = (source: string): string | undefined => {
   if (Array.from(source).length > MARKDOWN_MAX_CHARS) return undefined;
   markdown ??= create();
-  return markdown.render(source);
+  const html = markdown.render(source);
+  return html.length > MARKDOWN_HTML_MAX_CHARS ? undefined : html;
 };
 
 // Passed with every call: DOMPurify ignores a call's config once `setConfig` has been used.
@@ -184,8 +194,8 @@ export const sanitizeHtml = (dirty: string, win: WindowLike): DocumentFragment |
   sanitizerFor(win)?.sanitize(dirty, SANITIZE_CONFIG);
 
 /**
- * A source as sanitized nodes of the window's document, ready to append; none when the source is
- * over its bound or the window cannot sanitize, and the caller then shows plain text.
+ * A source as sanitized nodes of the window's document, ready to append; none when the source or its
+ * HTML is over its bound or the window cannot sanitize, and the caller then shows plain text.
  */
 export const renderMarkdown = (source: string, win: WindowLike): DocumentFragment | undefined => {
   const dirty = markdownHtml(source);

@@ -8,6 +8,7 @@ import {
   keepStart,
   MARKDOWN_ALLOWED_ATTR,
   MARKDOWN_ALLOWED_TAGS,
+  MARKDOWN_HTML_MAX_CHARS,
   MARKDOWN_NESTING_MAX,
   markdownHtml,
   renderMarkdown,
@@ -253,6 +254,61 @@ describe("Markdown: bounded work", () => {
 
   test("an empty source renders as nothing", () => {
     expect(html("")).toBe("");
+  });
+});
+
+// A reference definition repeated by many images or links grows a source of 10,000 code points into
+// megabytes of HTML (checkpoint 1.8 X-2). The fixtures hold a URL of `url` characters and as many
+// uses of it as the source's limit allows, `uses` marking each as an image, a link or either.
+const repeated = (url: number, use: string): string => {
+  const definition = `\n\n[r]: https://e.test/${"a".repeat(url - 14)}`;
+  const count = Math.floor((TEXT_MAX_CHARS - definition.length) / (use.length + 1));
+  return `${Array.from({ length: count }, () => use).join(" ")}${definition}`;
+};
+
+describe("Markdown: the output's size is bounded as well as the source's (checkpoint 1.8 X-2)", () => {
+  test("the bound is 200,000 characters of HTML before the sanitizer", () => {
+    expect(MARKDOWN_HTML_MAX_CHARS).toBe(200_000);
+  });
+
+  test("one long URL used as image and as link, up to the code-point limit, gives no HTML", () => {
+    for (const [url, use] of [
+      [5_000, "![r][r] [r][r]"],
+      [2_000, "![r][r]"],
+      [9_000, "![r][r]"],
+      [500, "[r][r]"],
+      [3_000, "[r]"],
+    ] as const) {
+      const source = repeated(url, use);
+      expect(Array.from(source).length, `${url} ${use}`).toBeLessThanOrEqual(TEXT_MAX_CHARS);
+      expect(markdownHtml(source), `${url} ${use}`).toBeUndefined();
+    }
+  });
+
+  test("the same fixtures take no longer than 500 ms to be refused", () => {
+    const started = performance.now();
+    for (const url of [5_000, 2_000, 9_000]) markdownHtml(repeated(url, "![r][r] [r][r]"));
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  test("a source whose HTML stands under the bound still renders", () => {
+    const out = html(repeated(100, "[r][r]"));
+    expect(out.length).toBeLessThanOrEqual(MARKDOWN_HTML_MAX_CHARS);
+    expect(out).toContain("https://e.test/");
+    // Many short items: every one of them stays.
+    const many = html(Array.from({ length: 800 }, (_, at) => `- item ${at}`).join("\n"));
+    expect(many.length).toBeLessThanOrEqual(MARKDOWN_HTML_MAX_CHARS);
+    expect(many).toContain("item 799");
+  });
+
+  test("the cap counts the HTML, so a table of 500 cells within it renders", () => {
+    const cells = Array.from({ length: 500 }, (_, at) => `c${at}`);
+    const rows = Array.from(
+      { length: 50 },
+      (_, row) => `| ${cells.slice(row * 10, row * 10 + 10).join(" | ")} |`,
+    );
+    const out = html(`| ${"h | ".repeat(9)}h |\n|${"---|".repeat(10)}\n${rows.join("\n")}`);
+    expect(out).toContain("<td>c499</td>");
   });
 });
 

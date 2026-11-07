@@ -27,6 +27,7 @@ import { KANBAN_WIDGET } from "./kanban/widget.ts";
 import { LATEX_WIDGET } from "./latex/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
+import { TEXT_WIDGET } from "./text/widget.ts";
 import { TIMELINE_WIDGET } from "./timeline/widget.ts";
 import { TREE_WIDGET } from "./tree/widget.ts";
 
@@ -130,6 +131,8 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   KANBAN_WIDGET,
   TIMELINE_WIDGET,
   CHART_WIDGET,
+  // The atoms, as their chunks land (atoms, design decision 10), in design decision 1's order.
+  TEXT_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

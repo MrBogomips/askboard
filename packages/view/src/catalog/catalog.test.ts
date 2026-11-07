@@ -83,6 +83,50 @@ describe("which component renders an item (AD-9, design decision 7)", () => {
   });
 });
 
+describe("a Markdown option preview needs the Text atom's chunk (atoms, design decision 5)", () => {
+  const withOptions = (options: unknown[]): ViewDocument => {
+    const { items } = plainChoiceBoardDocument;
+    return {
+      ...plainChoiceBoardDocument,
+      items: items.map((one) => ({ ...one, props: { ...one.props, options } })),
+    } as unknown as ViewDocument;
+  };
+
+  test("a question holding an option marked as Markdown adds text, once, beside choice", () => {
+    const markdown = { label: "A", preview: "`code`", previewFormat: "markdown" };
+    expect(componentsOf(withOptions([markdown, { ...markdown, label: "B" }]))).toEqual([
+      "choice",
+      "text",
+    ]);
+  });
+
+  test("a plain preview, a format with no preview and no preview add nothing", () => {
+    expect(
+      componentsOf(withOptions([{ label: "A", preview: "x", previewFormat: "plain" }])),
+    ).toEqual(["choice"]);
+    expect(componentsOf(withOptions([{ label: "A", preview: "x" }]))).toEqual(["choice"]);
+    expect(componentsOf(withOptions([{ label: "A", previewFormat: "markdown" }]))).toEqual([
+      "choice",
+    ]);
+    expect(componentsOf(withOptions([{ label: "A" }]))).toEqual(["choice"]);
+  });
+
+  test("it renders no item of its own: renderedOf is unchanged", () => {
+    const markdown = { label: "A", preview: "x", previewFormat: "markdown" };
+    const [first] = (withOptions([markdown]) as unknown as { items: [ViewQuestion] }).items;
+    expect(renderedOf(first)).toEqual([{ item: first, component: "choice" }]);
+  });
+
+  test("a Markdown Text item and a Markdown preview together still name text once", () => {
+    const markdown = { label: "A", preview: "x", previewFormat: "markdown" };
+    const document = withOptions([markdown]) as unknown as { items: [ViewQuestion] };
+    const text: WidgetItem = { type: "text", id: "intro", props: { text: "a" } };
+    const [first] = document.items;
+    const both = { ...document, items: [{ ...first, props: { ...first.props, items: [text] } }] };
+    expect(componentsOf(both as unknown as ViewDocument)).toEqual(["choice", "text"]);
+  });
+});
+
 describe("the CatalogRenderer port", () => {
   const component: CatalogComponent = () => null;
 

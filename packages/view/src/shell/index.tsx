@@ -309,6 +309,7 @@ const boot = (): void => {
   const host: port.ViewHost = {
     hosted,
     openReference: (itemId) => report({ type: "open-reference", itemId, inset: measureInset() }),
+    openLink: (itemId, url) => report({ type: "open-link", itemId, url }),
   };
   const controls = startPresentation(data, channel, {
     hosted,

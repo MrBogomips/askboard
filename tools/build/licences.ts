@@ -44,9 +44,15 @@ export const LICENCE_TEXTS: LicenceTexts = recorded;
 export type FontLicence = {
   /** `OFL-1.1`, or an SPDX expression `classify` calls permissive. */
   readonly licence: string;
-  /** The font folder within the package. */
-  readonly fonts: string;
-  /** The package's files whose code holds outlines its upstream derived from the fonts. */
+  /**
+   * The font folder within the package; none for an entry that speaks only for derived code, such
+   * as a helper's licence text the package does not carry (atoms, task 5.1).
+   */
+  readonly fonts?: string;
+  /**
+   * The package's files whose code holds outlines its upstream derived from the fonts, or code
+   * under the licence this entry records.
+   */
   readonly derived: readonly string[];
   /** The licence text at a commit of the repository it comes from. */
   readonly source: string;
@@ -194,9 +200,22 @@ const recordedFor = (texts: LicenceTexts, key: string): LicenceText | undefined 
 const fontLicenceFor = (table: FontLicences, key: string): FontLicence | undefined =>
   Object.hasOwn(table, key) ? table[key] : undefined;
 
+// Whether one pair of parentheses wraps the whole expression: `(A OR B)`, not `(A) AND (B)`.
+const wrapped = (licence: string): boolean => {
+  if (!licence.startsWith("(") || !licence.endsWith(")")) return false;
+  let depth = 0;
+  for (let at = 0; at < licence.length; at += 1) {
+    if (licence[at] === "(") depth += 1;
+    if (licence[at] === ")") depth -= 1;
+    if (depth === 0) return at === licence.length - 1;
+  }
+  return false;
+};
+
 // The package's licence with the fonts' beside it: `(MIT OR ISC) AND OFL-1.1`.
 const withFonts = (file: NoticeFile, key: string, entry: FontLicence, derived: boolean) => {
-  const own = /\s/.test(file.notice.licence) ? `(${file.notice.licence})` : file.notice.licence;
+  const { licence } = file.notice;
+  const own = /\s/.test(licence) && !wrapped(licence) ? `(${licence})` : licence;
   return {
     ...file,
     notice: { ...file.notice, licence: `${own} AND ${entry.licence}` },

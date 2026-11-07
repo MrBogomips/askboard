@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   HostContext,
   useHosted,
+  useOpenLink,
   useOpenReference,
   useReadyAfterLayout,
   type ViewHost,
@@ -20,8 +21,10 @@ Object.assign(globalThis, {
 const Probe = ({ onOpen }: { readonly onOpen: (itemId: string) => void }): ReactNode => {
   const hosted = useHosted();
   const open = useOpenReference();
+  const link = useOpenLink();
   useReadyAfterLayout(() => {});
   if (hosted) open("probe");
+  if (hosted) link("probe-text", "https://example.com/docs");
   onOpen("read");
   return createElement("span", null, String(hosted));
 };
@@ -41,11 +44,17 @@ describe("what the view has of its host (excerpts, task 6.4 and 6.5)", () => {
 
   test("the shell's host says whether the view has a parent and carries the request to open", () => {
     const opened: string[] = [];
-    const hosted = render({ hosted: true, openReference: (id) => opened.push(id) }, () => {});
-    expect(hosted).toBe("<span>true</span>");
+    const links: string[] = [];
+    const host = (hosted: boolean): ViewHost => ({
+      hosted,
+      openReference: (id) => opened.push(id),
+      openLink: (id, url) => links.push(`${id} ${url}`),
+    });
+    expect(render(host(true), () => {})).toBe("<span>true</span>");
     expect(opened).toEqual(["probe"]);
-    const snapshot = render({ hosted: false, openReference: (id) => opened.push(id) }, () => {});
-    expect(snapshot).toBe("<span>false</span>");
+    expect(links).toEqual(["probe-text https://example.com/docs"]);
+    expect(render(host(false), () => {})).toBe("<span>false</span>");
     expect(opened).toEqual(["probe"]);
+    expect(links).toHaveLength(1);
   });
 });

@@ -22,8 +22,11 @@ export {
   say,
   type Theme,
   themeOfClasses,
+
+  useHosted,
   useLanguage,
   useLocale,
+  useOpenLink,
   useReadyAfterLayout,
   useStrings,
   useTheme,

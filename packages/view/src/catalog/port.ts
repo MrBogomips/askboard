@@ -256,9 +256,19 @@ export type ViewHost = {
   readonly hosted: boolean;
   /** Asks the board page to open a reference, or an excerpt's source, by its item ID. */
   readonly openReference: (itemId: string) => void;
+  /**
+   * Asks the board page to open a link of Markdown in a new tab (atoms, design decision 6): the
+   * item that holds the Markdown, a Text or the question whose option preview holds it, and the
+   * URL. The page opens it only when its own board document says the item holds Markdown.
+   */
+  readonly openLink: (itemId: string, url: string) => void;
 };
 
-export const HostContext = createContext<ViewHost>({ hosted: true, openReference: () => {} });
+export const HostContext = createContext<ViewHost>({
+  hosted: true,
+  openReference: () => {},
+  openLink: () => {},
+});
 
 export const useHosted = (): boolean => useContext(HostContext).hosted;
 
@@ -344,3 +354,6 @@ export const useTheme = (): Theme => {
   const store = storeOfPage();
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 };
+
+export const useOpenLink = (): ((itemId: string, url: string) => void) =>
+  useContext(HostContext).openLink;
