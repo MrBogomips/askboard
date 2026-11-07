@@ -25,7 +25,6 @@ import {
   eventually,
   LOAD_TIMEOUT_MS,
   QUIET_MS,
-  reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,

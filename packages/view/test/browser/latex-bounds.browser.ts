@@ -239,7 +239,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 // to its answer afterwards. "KaTeX does not run" is read as the page creating no MathML element
 // (only KaTeX's output makes one), the preview's markup staying as it was and the field error being
 // the board's own words, which only the scan writes before KaTeX is asked.
-const nestedPast = (depth: number) => `${"\\frac{".repeat(depth)}x${"}{x}".repeat(depth)}`;
 const REFUSED_BY_NAME =
   (name: string, rest = "") =>
   (error: string | null) =>
