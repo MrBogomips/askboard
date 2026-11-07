@@ -661,6 +661,7 @@ export {
 export type { WidgetAnswer } from "./widgets/registry.ts";
 export { widgetAnswerProblems } from "./widgets/results.ts";
 export {
+  SCALE_DEFAULT_STEP,
   SCALE_MAX_STEPS,
   SCALE_RATING_MAX_VALUES,
   SCALE_SCHEMA_IDS,
@@ -668,6 +669,8 @@ export {
   type ScaleItem,
   type ScaleProps,
   type ScaleResult,
+  scalePropsProblems,
+  scaleResultProblems,
   scaleStepCount,
   scaleStepIndex,
 } from "./widgets/scale/index.ts";
