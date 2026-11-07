@@ -108,11 +108,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
     }
 
     test(
-      "the growing sources give no HTML: the item shows its source as plain text",
+      "the growing sources give no HTML, the item showing its source as plain text, and a URL past a link's limit gives a small output with no link",
       async () => {
-        for (const [name, source] of FIXTURES.filter(([label]) => label.includes("long URL"))) {
+        // A URL over a link's 2,048 characters is no link (review 5.6, X-1), so its uses stay small.
+        const grows = (label: string) => /long URL/.test(label) && !/(5,000|9,000)/.test(label);
+        for (const [name, source] of FIXTURES.filter(([label]) => grows(label))) {
           const shown = await frame.render(source);
           expect(shown.html, name).toBeUndefined();
+        }
+        for (const [name, source] of FIXTURES.filter(([label]) => /(5,000|9,000)/.test(label))) {
+          const shown = await frame.render(source);
+          expect(shown.html, name).toBeDefined();
+          expect(
+            shown.attributes.filter((line) => line.startsWith("a ")),
+            name,
+          ).toEqual([]);
         }
       },
       TEST_TIMEOUT_MS,
