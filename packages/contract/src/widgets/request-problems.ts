@@ -31,10 +31,19 @@ const valueAt = (value: unknown, segments: Segments): unknown =>
 const isWidget = ({ item, inQuestion }: Placed, types: readonly WidgetType[]): boolean =>
   inQuestion === true && widgetTypeOf(item.type, types) !== undefined;
 
-// Whether a problem lies at or under the item at `at`.
-const lies = (problem: RequestProblem, at: Segments): boolean => {
-  const where = pointer(at);
-  return problem.path === where || problem.path.startsWith(`${where}/`);
+// Each problem's path and every ancestor of it, as pointers: the item at `at` has a problem at or
+// under it exactly when `pointer(at)` is among them. Built once for the request, so refusing many
+// items takes time linear in them and not in their pairs (review X-2).
+const pathsWithProblems = (problems: readonly RequestProblem[]): ReadonlySet<string> => {
+  const held = new Set<string>();
+  for (const { path } of problems) {
+    for (let end = path.length; end > 0; end = path.lastIndexOf("/", end - 1)) {
+      const prefix = path.slice(0, end);
+      if (held.has(prefix)) break;
+      held.add(prefix);
+    }
+  }
+  return held;
 };
 
 /**
@@ -47,11 +56,12 @@ export const widgetProblems = (
   placed: readonly Placed[],
   schemaProblems: readonly RequestProblem[],
   types: readonly WidgetType[] = WIDGET_TYPES,
-): RequestProblem[] =>
-  placed
+): RequestProblem[] => {
+  const refused = pathsWithProblems(schemaProblems);
+  return placed
     .filter((entry) => isWidget(entry, types))
     .flatMap(({ item, at, questionAt }) => {
-      if (schemaProblems.some((problem) => lies(problem, at))) return [];
+      if (refused.has(pointer(at))) return [];
       // The question that holds the item, at any depth of its layouts (review S-1).
       const question = valueAt(value, questionAt ?? []);
       return widgetItemProblems(item, question, "agent", types).map(({ path, message }) => {
@@ -65,6 +75,7 @@ export const widgetProblems = (
         );
       });
     });
+};
 
 /**
  * The schema errors of a request, as each registered type's entry words them: a Gantt's `tasks`

@@ -574,6 +574,25 @@ describe("a Gantt plan's link through the ask's checks (review S-1)", () => {
   });
 });
 
+describe("refusing many bad items (review X-2)", () => {
+  test("8,000 empty-label TextFields four layouts deep are refused in linear time", () => {
+    const bad = Array.from({ length: 8_000 }, (_, n) => ({
+      type: "text-field",
+      id: `bad-${n}`,
+      props: { label: "" },
+    })) as unknown as Item[];
+    const nested = stack("s1", group("g1", stack("s2", group("g2", ...bad))));
+    const request = askOf(nested);
+    const started = performance.now();
+    const result = validateAskRequestOver(request, TYPES);
+    const took = performance.now() - started;
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.problems.length).toBeGreaterThanOrEqual(8_000);
+    // Quadratic work took about 24 s at this size; linear work takes well under a second.
+    expect(took).toBeLessThan(2_000);
+  });
+});
+
 describe("a molecule's item is no layout", () => {
   test("a definition whose one item is a Group is refused, naming the molecule", () => {
     const definition = copyOf(probeWbs) as unknown as {
