@@ -624,6 +624,8 @@ AskBoard may arrive after AXFX's Day 1, and possibly after the phase in which AX
 - The full widget catalogue (FR-11) and the four ready-made molecules (FR-15).
 - A light benchmark (FR-32, FR-33): a small fixed question set, AskBoard and AskUserQuestion side by side, 5 runs per case compared on medians, the three KPIs and the cost of 100 questions, with the settings it ran with reported.
 
+**Releases before the first version.** AskBoard is released as 0.x versions before the first version, 1.0.0, which holds the whole of §8.1. Each 0.x release ships the capabilities merged at its release time: 0.1.0 ships asking, context, typed answers, the question lifecycle with push delivery, Snapshots, languages and settings, setup and independence, the Choice, Tree, Gantt, Approval, Scale and Ranking widgets and the two ready molecules (the WBS with PERT and the Gantt plan), and any further widgets merged before it; the remaining widgets of FR-11, the other molecules of FR-15 and the light benchmark come in later 0.x releases.
+
 ### 8.2 Out of Scope for MVP
 Deferred to a later version:
 - Registering molecules for reuse (FR-16).

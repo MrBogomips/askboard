@@ -28,12 +28,13 @@ import { answerAt, entryOf, MAIN_ASK, pollOf } from "./fake-local-api.ts";
 import { fakeModApi, fakeOn, settle } from "./fake-mod-api.ts";
 
 // The fallback against the real client mode (task 7.5): the session process's entry point built as
-// the plugin's bundle, `dist/askboard.mjs`, and run by the mod's own client command through a real
-// `$.process.run`, as a child of this test, which stands for Claude Code: the client finds the
+// the plugin's bundle, `dist/askboard.mjs`, and run through the plugin's start script by the mod's
+// own client command through a real `$.process.run`, as a child of this test, which stands for Claude Code: the client finds the
 // session file named by its parent's PID, as the mod does through its own PID command. The local
 // API is a stand-in on a real Unix socket; `$.http.fetch` is refused by policy.
 
 const ENTRY = join(import.meta.dir, "..", "..", "server", "src", "main.ts");
+const START_SCRIPT = join(import.meta.dir, "..", "..", "..", "scripts", "askboard");
 const REFUSAL = "$.http.fetch: probe-fetch-block: network requests are refused by policy";
 const TOKEN = "Hc4nQ8vLw2Zr7TxB5mKp9A";
 const UID = process.getuid?.() ?? 0;
@@ -80,6 +81,9 @@ beforeAll(async () => {
   if (!built.success || bundle === undefined) throw new Error(built.logs.join("\n"));
   mkdirSync(join(plugin, "dist"));
   await Bun.write(join(plugin, "dist", "askboard.mjs"), bundle);
+  // The start script the mod's client command runs, which needs Node 24.22.1 or later on PATH.
+  mkdirSync(join(plugin, "scripts"));
+  await Bun.write(join(plugin, "scripts", "askboard"), Bun.file(START_SCRIPT));
   // Short, for the socket path's limit.
   runtime = mkdtempSync("/tmp/abm-");
   const folder = sessionFolder({ env: { XDG_RUNTIME_DIR: runtime }, uid: UID });
@@ -109,8 +113,19 @@ afterAll(async () => {
 
 const folderOf = () => sessionFolder({ env: { XDG_RUNTIME_DIR: runtime }, uid: UID });
 
+// The Node the repository pins, found from the repository (a version manager's shim picks its
+// version by the working directory, and the start script runs in the plugin folder, outside it).
+const NODE_FOLDER = dirname(
+  Bun.spawnSync(["node", "-p", "process.execPath"], {
+    cwd: join(import.meta.dir, "..", "..", ".."),
+    stderr: "pipe",
+  })
+    .stdout.toString()
+    .trim(),
+);
+
 const ENV = (): Record<string, string> => ({
-  PATH: `${dirname(process.execPath)}:${process.env.PATH ?? ""}`,
+  PATH: `${NODE_FOLDER}:${dirname(process.execPath)}:${process.env.PATH ?? ""}`,
   HOME: plugin,
   XDG_RUNTIME_DIR: runtime,
 });

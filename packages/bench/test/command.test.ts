@@ -91,6 +91,36 @@ describe("plugin directories", () => {
     expect(() => preflightPlugin("e1", dir)).not.toThrow();
   });
 
+  test("an E1 plugin whose server is the start script needs the bundle beside it", () => {
+    const dir = scratch("bench-plugin-");
+    mkdirSync(join(dir, ".claude-plugin"));
+    writeFileSync(
+      join(dir, ".claude-plugin", "plugin.json"),
+      JSON.stringify({
+        mcpServers: {
+          askboard: { command: "sh", args: [`\${CLAUDE_PLUGIN_ROOT}/scripts/askboard`] },
+        },
+      }),
+    );
+    expect(readPluginServer(dir, "/p")).toEqual({
+      command: "sh",
+      args: [`${dir}/scripts/askboard`],
+      env: {},
+    });
+    expect(() => preflightPlugin("e1", dir)).toThrow(
+      new PreflightError(
+        `E1's session process is not built: ${dir}/dist/askboard.mjs is missing; run bun run build`,
+      ),
+    );
+    mkdirSync(join(dir, "dist"));
+    writeFileSync(join(dir, "dist", "askboard.mjs"), "");
+    expect(() => preflightPlugin("e1", dir)).not.toThrow();
+  });
+
+  test("the stub plugin's session needs no bundle", () => {
+    expect(() => preflightPlugin("stub", scratch("bench-plugin-"))).toThrow(/no plugin manifest/);
+  });
+
   test("no manifest", () => {
     const dir = scratch("bench-plugin-");
     expect(() => readPluginServer(dir, "/p")).toThrow(

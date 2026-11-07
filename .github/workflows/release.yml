@@ -1,0 +1,201 @@
+name: Release
+
+# Publishes the plugin (plugin-release, design decision 6): the built tree goes to the `release`
+# branch, tagged `v<version>`, and the bundle, the tree as a zip and their SHA-256 become a GitHub
+# release. Manual only, and only on `main`. Nothing runs on a pull request or a push: merging a change
+# never releases. `build` and `smoke-linux` only read; `publish` is the one job with a write token,
+# and it runs git and gh alone, trusting nothing in the artifact beyond the zip it verifies and
+# opens: the bundle asset and the notes must equal the zip's own file and CHANGELOG section (see the
+# comment in that job). No `github` context reaches a `run:` script except through `env:`.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Check, build, assemble and smoke on macOS
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Refuse any ref but main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::A release runs only from main."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+      - name: Preflight
+        run: bun tools/release/preflight.ts
+      - name: Check
+        run: bun run check
+        env:
+          # The licence check asks the GitHub API whether direct dependencies are archived.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: bun run build
+      - name: Assemble the tree
+        run: bun tools/release/assemble.ts --out release/tree
+      - name: Write the tool names the smoke expects
+        run: bun tools/release/tool-names.ts --out release/tools.json
+      - name: Smoke the tree on Node
+        run: node tools/release/smoke.ts release/tree --tools release/tools.json
+      - name: Write the release files
+        run: bun tools/release/package.ts --tree release/tree --out release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: release/
+          # The tree holds .claude-plugin/, which is hidden.
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke-linux:
+    name: Smoke on Linux
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: package.json
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+      - name: Smoke the tree on Node
+        run: node tools/release/smoke.ts release/tree --tools release/tools.json
+      - name: Verify the SHA-256 file
+        run: |
+          cd release
+          sha256sum -c SHA256SUMS
+
+  publish:
+    name: Publish the release branch, the tag and the GitHub release
+    needs: [build, smoke-linux]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+      # The artifact is the build job's output, and that job runs dependency code: nothing in it is
+      # trusted beyond the zip it names. The steps below read the version as one whole string, check the
+      # zip against its SHA-256, open the zip into a fresh folder, require the uploaded tree, the bundle asset and the
+      # notes to be that folder's files and CHANGELOG section, and commit the folder with a repository (GIT_DIR) that lives outside the artifact, so git
+      # reads no file of the artifact as configuration. The token goes only to the steps that reach
+      # GitHub (tests: tools/release/publish.test.ts runs these scripts on local files).
+      - name: Read the version and verify the files
+        run: |
+          cd release
+          VERSION=$(jq -r .version tree/.claude-plugin/plugin.json)
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The tree's version is not major.minor.patch."
+            exit 1
+          fi
+          sha256sum -c SHA256SUMS
+          for kind in mjs zip; do
+            if ! grep -Eq "^[[:xdigit:]]{64}  askboard-${VERSION}\.${kind}\$" SHA256SUMS; then
+              echo "::error::SHA256SUMS does not name askboard-${VERSION}.${kind}."
+              exit 1
+            fi
+          done
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+      - name: Open the verified zip and require the tree to be its contents
+        run: |
+          cd release
+          LIST="$RUNNER_TEMP/release-zip-list"
+          unzip -Z1 "askboard-${VERSION}.zip" > "$LIST"
+          if grep -Eq '(^|/)\.git|^/|(^|/)\.\.(/|$)' "$LIST"; then
+            echo "::error::The zip holds a .git path, an absolute path or a parent path."
+            exit 1
+          fi
+          mkdir "$RUNNER_TEMP/release-tree"
+          unzip -q "askboard-${VERSION}.zip" -d "$RUNNER_TEMP/release-tree"
+          if [ -n "$(find . "$RUNNER_TEMP/release-tree" ! -type f ! -type d)" ]; then
+            echo "::error::The release folder or the zip holds a link or a special file."
+            exit 1
+          fi
+          if ! diff -r -q tree "$RUNNER_TEMP/release-tree"; then
+            echo "::error::The uploaded tree differs from the verified zip."
+            exit 1
+          fi
+          if ! cmp "askboard-${VERSION}.mjs" "$RUNNER_TEMP/release-tree/dist/askboard.mjs"; then
+            echo "::error::The bundle asset is not the zip's dist/askboard.mjs."
+            exit 1
+          fi
+          # The notes are the body of the zip's CHANGELOG section for the version, as package.ts writes them.
+          awk -v h="## ${VERSION}" '
+            f && /^## / { exit }
+            f { if ($0 ~ /^[[:space:]]*$/) { if (started) pend = pend $0 "\n" } else { printf "%s%s\n", pend, $0; pend = ""; started = 1 } }
+            !f && ($0 == h || index($0, h " - ") == 1) { f = 1 }
+          ' "$RUNNER_TEMP/release-tree/CHANGELOG.md" > "$RUNNER_TEMP/release-notes.md"
+          if ! cmp notes.md "$RUNNER_TEMP/release-notes.md"; then
+            echo "::error::The release notes are not the zip's CHANGELOG section."
+            exit 1
+          fi
+      - name: Refuse an existing tag and fetch the release branch
+        run: |
+          gh auth setup-git
+          export GIT_DIR="$RUNNER_TEMP/release.git"
+          git init --quiet --template=
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          TAGS=$(git ls-remote --tags origin "refs/tags/v${VERSION}")
+          if [ -n "$TAGS" ]; then
+            echo "::error::The tag v${VERSION} already exists."
+            exit 1
+          fi
+          HEADS=$(git ls-remote --heads origin release)
+          if [ -n "$HEADS" ]; then
+            git fetch --quiet --depth 1 origin release:refs/remotes/origin/release
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit the zip's files to the release branch and tag it
+        run: |
+          export GIT_DIR="$RUNNER_TEMP/release.git"
+          export GIT_WORK_TREE="$RUNNER_TEMP/release-tree"
+          export GIT_INDEX_FILE="$RUNNER_TEMP/release.index"
+          cd "$GIT_WORK_TREE"
+          git add --all
+          TREE=$(git write-tree)
+          PARENT=
+          if git show-ref --verify --quiet refs/remotes/origin/release; then
+            PARENT=$(git rev-parse refs/remotes/origin/release)
+          fi
+          COMMIT=$(git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit-tree "$TREE" ${PARENT:+-p "$PARENT"} -m "release: v${VERSION} from ${GITHUB_SHA}")
+          git update-ref refs/heads/release "$COMMIT"
+          git symbolic-ref HEAD refs/heads/release
+          git tag "v${VERSION}" "$COMMIT"
+      - name: Push the branch and the tag together
+        run: |
+          gh auth setup-git
+          export GIT_DIR="$RUNNER_TEMP/release.git"
+          git push --atomic origin HEAD:refs/heads/release "refs/tags/v${VERSION}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create the GitHub release
+        run: |
+          gh release create "v${VERSION}" --repo "$GITHUB_REPOSITORY" --title "v${VERSION}" --notes-file "release/notes.md" --verify-tag "release/askboard-${VERSION}.mjs" "release/askboard-${VERSION}.zip" "release/SHA256SUMS"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

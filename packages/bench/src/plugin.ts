@@ -58,11 +58,21 @@ export const readPluginServer = (pluginDir: string, projectDir: string): ServerC
   return { command: substitute(server.command), args, env };
 };
 
+/** The start script, `scripts/askboard` (plugin-release): it runs the bundle beside it in `dist/`. */
+const START_SCRIPT = /(^|[/\\])scripts[/\\]askboard$/;
+
+/** The built file E1's server entry runs: the script it names, or the start script's bundle. */
+const builtFileOf = (server: ServerCommand, pluginDir: string): string | undefined => {
+  const scripts = server.args.filter((arg) => isAbsolute(arg));
+  if (scripts.some((arg) => START_SCRIPT.test(arg))) return join(pluginDir, "dist", "askboard.mjs");
+  return scripts.find((arg) => /\.(m?js|ts)$/.test(arg));
+};
+
 /** Fails when the session's plugin cannot start: no manifest, no server, or E1's not built. */
 export const preflightPlugin = (session: Session, pluginDir: string): void => {
   const server = readPluginServer(pluginDir, pluginDir);
   if (session !== "e1") return;
-  const script = server.args.find((arg) => isAbsolute(arg) && /\.(m?js|ts)$/.test(arg));
+  const script = builtFileOf(server, pluginDir);
   if (script !== undefined && !existsSync(script)) {
     throw new PreflightError(
       `E1's session process is not built: ${script} is missing; run bun run build`,

@@ -61,15 +61,15 @@ describe("workspace layout", () => {
   });
 
   test.each(PACKAGES)(
-    "%s is a private ESM package at 0.0.0 with its entry and type configuration",
+    "%s is a private ESM package at the product version with its entry and type configuration",
     async (name) => {
       const manifest = await readJson(join(packageDir(name), "package.json"));
       expect(manifest).toMatchObject({
         name: `@askboard/${name}`,
-        version: "0.0.0",
         private: true,
         type: "module",
       });
+      expect(manifest.version).toBe((await readJson(join(root, "package.json"))).version);
       expect(manifest.exports["."]).toBe("./src/index.ts");
       for (const target of Object.values<string>(manifest.exports)) {
         expect(existsSync(join(packageDir(name), target))).toBe(true);
@@ -152,6 +152,27 @@ describe("workspace layout", () => {
       expect(own.types).toEqual([]);
     },
   );
+});
+
+// Packaging spec, The plugin and its server entry (plugin-release, design decision 1): the server
+// runs the start script through sh, which runs the bundle on Node.
+describe("the plugin's server entry", () => {
+  const entry = async () =>
+    (await readJson(join(root, ".claude-plugin", "plugin.json"))).mcpServers.askboard;
+
+  test("is sh with the start script and CLAUDE_PROJECT_DIR, with no timeout key", async () => {
+    expect(await entry()).toEqual({
+      command: "sh",
+      args: [`\${CLAUDE_PLUGIN_ROOT}/scripts/askboard`],
+      env: { CLAUDE_PROJECT_DIR: `\${CLAUDE_PROJECT_DIR}` },
+    });
+    expect(Object.keys(await entry())).not.toContain("timeout");
+  });
+
+  test("names neither bun nor the bundle, and the script it names exists", async () => {
+    expect(JSON.stringify(await entry())).not.toMatch(/bun|askboard\.mjs/);
+    expect(existsSync(join(root, "scripts", "askboard"))).toBe(true);
+  });
 });
 
 // Packaging spec, The plugin's skill and agents (askboard-skills, design decision 8): the plugin
