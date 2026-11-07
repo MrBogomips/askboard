@@ -6,7 +6,13 @@ import { join, relative } from "node:path";
 // reads one level. A read that is not listed fails, so a unit that should walk the layouts cannot
 // be added unseen, and an entry that no read matches fails too, so the table does not go stale.
 
-type Read = { readonly file: string; readonly text: string; readonly reason: string };
+type Read = {
+  readonly file: string;
+  readonly text: string;
+  readonly reason: string;
+  /** How many lines of the file the entry covers: one unless it says more. */
+  readonly count?: number;
+};
 
 const CONTEXT = "context items and molecule references stay in the question's own items";
 const AREA = "an area's items are its questions, never layouts";
@@ -21,16 +27,41 @@ const CONTRACT_READS: readonly Read[] = [
   {
     file: "packages/contract/src/ask-items.ts",
     text: "Array.isArray(props.items)",
-    reason: THROUGH,
+    reason: "the list an area or a question holds: the walker's start, and the area's questions",
   },
-  { file: "packages/contract/src/ask-items.ts", text: '"props", "items"', reason: THROUGH },
-  { file: "packages/contract/src/ask-items.ts", text: 'rest[1] === "items"', reason: PATH },
+  {
+    file: "packages/contract/src/ask-items.ts",
+    text: 'contextOf(question), [...at, "props", "items"]',
+    reason: THROUGH,
+    count: 2,
+  },
+  {
+    file: "packages/contract/src/ask-items.ts",
+    text: 'placedItems(childrenOf(item), [...at, "props", "items"]',
+    reason: AREA,
+  },
+  {
+    file: "packages/contract/src/ask-items.ts",
+    text: '[...place, "props", "items", String(each)]',
+    reason: AREA,
+  },
+  {
+    file: "packages/contract/src/ask-items.ts",
+    text: 'isArea(item) && rest[0] === "props"',
+    reason: `${AREA}; the path below it names a question`,
+  },
+  { file: "packages/contract/src/ask-items.ts", text: "rest.length > 3", reason: PATH },
   {
     file: "packages/contract/src/ask-items.ts",
     text: '"items" in props',
     reason: "a question with options and items together is refused for its options",
   },
-  { file: "packages/contract/src/context/document.ts", text: "props.items", reason: CONTEXT },
+  {
+    file: "packages/contract/src/context/document.ts",
+    text: "props.items",
+    reason: CONTEXT,
+    count: 2,
+  },
   {
     file: "packages/contract/src/draft-record.ts",
     text: "item.props.items : [item]",
@@ -46,8 +77,14 @@ const CONTRACT_READS: readonly Read[] = [
     file: "packages/contract/src/fixtures/lifecycle-messages.ts",
     text: "props.items",
     reason: FIXTURE,
+    count: 2,
   },
-  { file: "packages/contract/src/fixtures/lifecycle.ts", text: "props.items", reason: FIXTURE },
+  {
+    file: "packages/contract/src/fixtures/lifecycle.ts",
+    text: "props.items",
+    reason: FIXTURE,
+    count: 2,
+  },
   {
     file: "packages/contract/src/fixtures/lifecycle.ts",
     text: "...regionProps } = region.props",
@@ -62,6 +99,7 @@ const CONTRACT_READS: readonly Read[] = [
     file: "packages/contract/src/fixtures/snapshot.ts",
     text: "delivery.props.items",
     reason: FIXTURE,
+    count: 2,
   },
   { file: "packages/contract/src/requests.ts", text: 'segments[0] === "items"', reason: PATH },
   { file: "packages/contract/src/requests.ts", text: 'segments[0] !== "items"', reason: PATH },
@@ -71,7 +109,12 @@ const CONTRACT_READS: readonly Read[] = [
     text: "props.items",
     reason: "a Row's own items, the IDs its widths may name; the items inside them are another's",
   },
-  { file: "packages/contract/src/widgets/ranking/checks.ts", text: "props.items", reason: RANKING },
+  {
+    file: "packages/contract/src/widgets/ranking/checks.ts",
+    text: "props.items",
+    reason: RANKING,
+    count: 2,
+  },
   {
     file: "packages/contract/src/widgets/ranking/wording.ts",
     text: '!== "items"',
@@ -101,9 +144,14 @@ const CORE_READS: readonly Read[] = [
   { file: "packages/core/src/context/board-props.ts", text: "...rest } = props", reason: CONTEXT },
   { file: "packages/core/src/context/fetch-item.ts", text: "item.props.items", reason: AREA },
   { file: "packages/core/src/context/fetch-item.ts", text: "{ items } = props", reason: CONTEXT },
-  { file: "packages/core/src/context/resolve.ts", text: "props.items", reason: CONTEXT },
+  { file: "packages/core/src/context/resolve.ts", text: "props.items", reason: CONTEXT, count: 3 },
   { file: "packages/core/src/context/warnings.ts", text: "props.items", reason: CONTEXT },
-  { file: "packages/core/src/lifecycle/model.ts", text: "item.props.items", reason: AREA },
+  {
+    file: "packages/core/src/lifecycle/model.ts",
+    text: "item.props.items",
+    reason: AREA,
+    count: 2,
+  },
   { file: "packages/core/src/lifecycle/updates.ts", text: "item.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "area.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/model.ts", text: "{ items } = (props", reason: START },
@@ -118,11 +166,27 @@ const CORE_READS: readonly Read[] = [
     file: "packages/core/src/lifecycle/widget-values.ts",
     text: "{ items } = props",
     reason: START,
+    count: 2,
   },
   { file: "packages/core/src/molecules/addressing.ts", text: "question.props as", reason: START },
-  { file: "packages/core/src/molecules/expand.ts", text: "props.items", reason: MOLECULES },
-  { file: "packages/core/src/molecules/expand.ts", text: '"props", "items"', reason: MOLECULES },
-  { file: "packages/core/src/molecules/references.ts", text: "props.items", reason: MOLECULES },
+  {
+    file: "packages/core/src/molecules/expand.ts",
+    text: "props.items",
+    reason: MOLECULES,
+    count: 2,
+  },
+  {
+    file: "packages/core/src/molecules/expand.ts",
+    text: '"props", "items"',
+    reason: MOLECULES,
+    count: 3,
+  },
+  {
+    file: "packages/core/src/molecules/references.ts",
+    text: "props.items",
+    reason: MOLECULES,
+    count: 2,
+  },
 ];
 
 /** `compute` reads no question's items: the graph source takes the flat list `core` hands it. */
@@ -165,19 +229,30 @@ export const directReadsOf = (source: string): string[] => {
 
 type Source = { readonly file: string; readonly text: string };
 
-/** The reads no entry of `table` covers, and the entries no read matches. */
+/**
+ * The reads no entry of `table` covers, and the entries no read matches. An entry covers `count`
+ * lines (one unless it says more) of its file that contain its text: a further matching line is a
+ * new read, listed or not, and an entry with fewer lines than it says is stale.
+ */
 export const guardProblems = (sources: readonly Source[], table: readonly Read[]): string[] => {
   const problems: string[] = [];
-  const used = new Set<Read>();
+  const used = new Map<Read, number>();
   for (const { file, text } of sources) {
     for (const read of directReadsOf(text)) {
-      const entry = table.find((each) => each.file === file && read.includes(each.text));
-      if (entry === undefined) problems.push(`${file}: unlisted direct read of items: ${read}`);
-      else used.add(entry);
+      const open = table.find(
+        (each) =>
+          each.file === file &&
+          read.includes(each.text) &&
+          (used.get(each) ?? 0) < (each.count ?? 1),
+      );
+      if (open === undefined) problems.push(`${file}: unlisted direct read of items: ${read}`);
+      else used.set(open, (used.get(open) ?? 0) + 1);
     }
   }
   for (const entry of table) {
-    if (!used.has(entry)) problems.push(`${entry.file}: stale entry: ${entry.text}`);
+    if ((used.get(entry) ?? 0) < (entry.count ?? 1)) {
+      problems.push(`${entry.file}: stale entry: ${entry.text}`);
+    }
   }
   return problems;
 };
@@ -215,6 +290,26 @@ describe("the source guard of nested items", () => {
     expect(guardProblems(planted, CONTRACT_READS)).toEqual([
       `${file}: unlisted direct read of items: export const a = (q: Q) => q.props.items;`,
     ]);
+  });
+
+  test("fails on a second matching read added to a file already listed (review S-2)", async () => {
+    const sources = await sourcesOf("contract");
+    const file = "packages/contract/src/ask-items.ts";
+    const extra = "export const again = (q: Q) => q.props.items.length;\n";
+    const planted = sources.map((source) =>
+      source.file === file ? { ...source, text: `${source.text}\n${extra}` } : source,
+    );
+    expect(guardProblems(planted, CONTRACT_READS)).toEqual([
+      `${file}: unlisted direct read of items: export const again = (q: Q) => q.props.items.length;`,
+    ]);
+    // The same text planted in another listed file, and in a core file, fails the same way.
+    for (const name of ["draft-record.ts", "context/document.ts"]) {
+      const at = `packages/contract/src/${name}`;
+      const again = sources.map((source) =>
+        source.file === at ? { ...source, text: `${source.text}\n${extra}` } : source,
+      );
+      expect(guardProblems(again, CONTRACT_READS)).toHaveLength(1);
+    }
   });
 
   for (const name of ["core", "compute", "server"]) {
