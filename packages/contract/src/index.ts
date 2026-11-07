@@ -652,12 +652,14 @@ export {
 } from "./widgets/approval/index.ts";
 export {
   RANKING_MAX_ITEMS,
+  RANKING_MIN_ITEMS,
   RANKING_SCHEMA_IDS,
   RANKING_WIDGET,
   type RankingElement,
   type RankingItem,
   type RankingProps,
   type RankingResult,
+  rankingPropsProblems,
 } from "./widgets/ranking/index.ts";
 export type { WidgetAnswer } from "./widgets/registry.ts";
 export { widgetAnswerProblems } from "./widgets/results.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { RANKING_WIDGET, type RankingProps } from "@askboard/contract";
-import { dropAt, moveBy, movedOf, orderOf } from "./model.ts";
+import { dropAt, holdsOrder, moveBy, movedOf, orderOf } from "./model.ts";
 
 // The Ranking's model (view-and-widgets spec: Ranking reorder, Ranking at the keyboard; design
 // decision 8): the order as a list of element IDs, moved by one step or dropped before or after a
@@ -142,5 +142,20 @@ describe("every order is one the contract accepts", () => {
         }
       }
     }
+  });
+});
+
+describe("holdsOrder", () => {
+  test("is true for a result that names exactly the props' elements, the agent's order included", () => {
+    expect(holdsOrder({ order: ["c", "a", "d", "b"] }, props)).toBe(true);
+    expect(holdsOrder({ order: sent }, props)).toBe(true);
+  });
+
+  test("is false for none and for a result that does not fit the props", () => {
+    expect(holdsOrder(undefined, props)).toBe(false);
+    expect(holdsOrder({ order: ["a", "b"] }, props)).toBe(false);
+    expect(holdsOrder({ order: ["a", "a", "c", "d"] }, props)).toBe(false);
+    expect(holdsOrder({ order: "abcd" }, props)).toBe(false);
+    expect(holdsOrder(null, props)).toBe(false);
   });
 });

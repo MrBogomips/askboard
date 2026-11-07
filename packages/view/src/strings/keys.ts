@@ -136,6 +136,7 @@ export const STRING_KEYS = [
   "change.widgetGantt",
   "change.widgetApproval",
   "change.widgetScale",
+  "change.widgetRanking",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -294,6 +295,14 @@ export const STRING_KEYS = [
   "scale.notSet",
   "scale.low",
   "scale.high",
+  // The Ranking (approval-scale-ranking, task 5.3; ux-update-draft.md block 2).
+  "ranking.tools",
+  "ranking.moveUp",
+  "ranking.moveDown",
+  "ranking.keep",
+  "ranking.handle",
+  "ranking.counterKept",
+  "ranking.counterMoved",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

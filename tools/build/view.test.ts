@@ -15,6 +15,7 @@ import {
   ganttPlanBoardDocument,
   lifecycleSnapshotData,
   plainChoiceBoardDocument,
+  RANKING_FIXTURE_ITEM,
   treeBoardDocument,
   uj2ExpandedBoardDocument,
 } from "@askboard/contract/fixtures";
@@ -84,6 +85,7 @@ describe("bun run build:view (design decision 7)", () => {
       "ext-apps": "library",
       gantt: "component",
       radix: "library",
+      ranking: "component",
       react: "library",
       scale: "component",
       shell: "shell",
@@ -99,6 +101,10 @@ describe("bun run build:view (design decision 7)", () => {
     // chunk has held since task 3.6 (design decision 9).
     expect(manifest.chunks.scale?.components).toEqual(["scale"]);
     expect(manifest.chunks.scale?.needs).toEqual(["radix", "react", "shell"]);
+    // The Ranking's drag comes from the dnd chunk; it needs no Radix control, no board graph and
+    // no compute (approval-scale-ranking, design decision 9).
+    expect(manifest.chunks.ranking?.components).toEqual(["ranking"]);
+    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -290,6 +296,7 @@ describe("bun run build:view (design decision 7)", () => {
       "ext-apps",
       "gantt",
       "radix",
+      "ranking",
       "react",
       "scale",
       "shell",
@@ -443,6 +450,31 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(withTree.chunks).toContain("dnd");
     expect(withTree.srcdoc).toContain(await text(library.script.path));
     expect(withTree.policy).toContain(cspHashSource(library.script.sha256));
+  });
+
+  test("a board whose only widget is a Ranking inlines the Ranking's chunk and the drag library's, and no Tree chunk (approval-scale-ranking, design decision 9)", async () => {
+    const [question] = treeBoardDocument.items;
+    const rankingBoard = {
+      ...treeBoardDocument,
+      items: [
+        {
+          ...question,
+          props: { ...question.props, items: [RANKING_FIXTURE_ITEM] },
+        },
+      ],
+    } as unknown as ViewDocument;
+    const names = selectChunks(rankingBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("ranking");
+    expect(names).toContain("dnd");
+    expect(names).not.toContain("tree");
+    expect(names).not.toContain("compute");
+    const built = await assembled(rankingBoard);
+    expect(built.chunks).toContain("ranking");
+    expect(built.chunks).toContain("dnd");
+    expect(built.chunks).not.toContain("tree");
+    expect(built.srcdoc).toContain(await text(chunkNamed("ranking").script.path));
+    expect(built.srcdoc).toContain(await text(chunkNamed("dnd").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
   });
 
   test("the plain Choice board's srcdoc holds no Tree chunk, and the Tree board's holds it", async () => {

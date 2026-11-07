@@ -136,6 +136,7 @@ export const EN_US = {
   "change.widgetGantt": "Gantt",
   "change.widgetApproval": "Approval",
   "change.widgetScale": "Scale",
+  "change.widgetRanking": "Ranking",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -311,4 +312,14 @@ export const EN_US = {
   "scale.notSet": "Not set",
   "scale.low": "Lower value",
   "scale.high": "Upper value",
+  "ranking.tools": "Ranking tools",
+  "ranking.moveUp": "Move up",
+  "ranking.moveDown": "Move down",
+  "ranking.keep": "Keep this order",
+  "ranking.handle": "Drag {name}",
+  "ranking.counterKept": "Order kept",
+  "ranking.counterMoved": {
+    one: "Your changes: {count} moved",
+    other: "Your changes: {count} moved",
+  },
 } as const satisfies StringTable;

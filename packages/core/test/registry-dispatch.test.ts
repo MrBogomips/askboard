@@ -52,7 +52,7 @@ describe("values and derived keys of a probe item", () => {
     const checked = content({ values: { pick: withOptions("a") } }, model, WIDGET_TYPES);
     expect(isWidgetProblem(checked) && checked.detail).toContain('"pick"');
     expect(isWidgetProblem(checked) && checked.detail).toContain(
-      "no Tree, Gantt, Approval or Scale item",
+      "no Tree, Gantt, Approval, Scale or Ranking item",
     );
   });
 
@@ -60,7 +60,7 @@ describe("values and derived keys of a probe item", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { nothing: {} } }, model);
     expect(isWidgetProblem(checked) && checked.detail).toContain(
-      "no Tree, Gantt, Approval, Scale or Probe item",
+      "no Tree, Gantt, Approval, Scale, Ranking or Probe item",
     );
   });
 

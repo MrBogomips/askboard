@@ -141,6 +141,7 @@ export const IT_IT = {
   "change.widgetGantt": "Gantt",
   "change.widgetApproval": "Approvazione",
   "change.widgetScale": "Scala",
+  "change.widgetRanking": "Classifica",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -320,4 +321,14 @@ export const IT_IT = {
   "scale.notSet": "Non impostato",
   "scale.low": "Valore minimo",
   "scale.high": "Valore massimo",
+  "ranking.tools": "Strumenti della classifica",
+  "ranking.moveUp": "Sposta su",
+  "ranking.moveDown": "Sposta giù",
+  "ranking.keep": "Mantieni quest'ordine",
+  "ranking.handle": "Trascina {name}",
+  "ranking.counterKept": "Ordine mantenuto",
+  "ranking.counterMoved": {
+    one: "Le tue modifiche: {count} spostato",
+    other: "Le tue modifiche: {count} spostati",
+  },
 } as const satisfies StringTable;
