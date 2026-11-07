@@ -42,8 +42,8 @@ At the top level an ask's `items` may be areas (`area`) instead of questions: `{
 ## After you ask
 
 - With AskBoard's hooks, an ask belongs to the agent that sent it: only that agent can `collect`, `update`, `fetch` or `snapshot` it. A subagent's ask closes when the subagent finishes: an answer given later, such as a postponed one, is lost, and no one can collect or snapshot it.
-- Your own asks never block you: ask yourself and keep working. Only for a side dialogue whose answers you need together when it ends, start a background subagent that asks, waits and returns them.
-- Keep working after `ask`. The user gets a notice and a link. Never open the board or answer it yourself.
+- Ask from the agent that needs the answers. Your own asks never block you: keep working while the user answers. Never hand your questions to a subagent to ask for you: its ask closes when it finishes, and later answers are lost.
+- After `ask`, the user gets a notice and a link. Never open the board or answer it yourself.
 - Answers reach you by push, or call `collect` with the latest cursor you received for each ask. Call it before you finish. Never build a cursor.
 - An event whose `seq` (the number after the dot in its cursor) you have already seen is a repeat: ignore it.
 - Reply to a follow-up at once with `update` (`reply`): the user is waiting.
