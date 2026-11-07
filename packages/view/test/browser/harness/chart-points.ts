@@ -20,7 +20,13 @@ export type BarChart = {
   readonly series: number;
   /** The value axis' top, which the axis' round step puts above the highest value. */
   readonly axisMax: number;
+  /** The chart has a `valueLabel` (a name row above the plot). */
+  readonly valueName?: boolean;
+  /** The chart has a `categoryLabel` (a name row under the axis labels). */
+  readonly categoryName?: boolean;
 };
+
+const NAME_ROW = 20;
 
 /** Where a bar's centre is in the chart's box, for the value at (`series`, `category`). */
 export const barCentre = (
@@ -29,10 +35,10 @@ export const barCentre = (
   at: { readonly series: number; readonly category: number; readonly value: number },
 ): { readonly x: number; readonly y: number } => {
   const legend = chart.series >= 2 ? LEGEND_ROW : 0;
-  const top = TOP_PAD + legend;
+  const top = TOP_PAD + legend + (chart.valueName === true ? NAME_ROW : 0);
   const plot = {
     width: box.width - GRID_LEFT - GRID_RIGHT,
-    height: box.height - top - AXIS_LABEL_ROW,
+    height: box.height - top - AXIS_LABEL_ROW - (chart.categoryName === true ? NAME_ROW : 0),
   };
   const band = plot.width / chart.categories;
   const barWidth = (band * (1 - CATEGORY_GAP_RATIO) - (chart.series - 1) * GAP) / chart.series;
@@ -40,6 +46,36 @@ export const barCentre = (
   const left = GRID_LEFT + band * at.category + (band - group) / 2 + at.series * (barWidth + GAP);
   const yOf = (value: number) => top + (plot.height * (chart.axisMax - value)) / chart.axisMax;
   return { x: left + barWidth / 2, y: (yOf(0) + yOf(at.value)) / 2 };
+};
+
+/** Where a line chart's marker is: the middle of its category's band, at its value. */
+export const markerCentre = (
+  chart: BarChart,
+  box: { readonly width: number; readonly height: number },
+  at: { readonly category: number; readonly value: number },
+): { readonly x: number; readonly y: number } => {
+  const top =
+    TOP_PAD + (chart.series >= 2 ? LEGEND_ROW : 0) + (chart.valueName === true ? NAME_ROW : 0);
+  const height = box.height - top - AXIS_LABEL_ROW - (chart.categoryName === true ? NAME_ROW : 0);
+  const yAtValue = top + (height * (chart.axisMax - at.value)) / chart.axisMax;
+  const band = (box.width - GRID_LEFT - GRID_RIGHT) / chart.categories;
+  return { x: GRID_LEFT + band * (at.category + 0.5), y: yAtValue };
+};
+
+/** Where a pie's slice is: the middle of the slice, at 0.36 of the shorter half-side. */
+export const sliceCentre = (
+  box: { readonly width: number; readonly height: number },
+  slices: readonly number[],
+  index: number,
+): { readonly x: number; readonly y: number } => {
+  const total = slices.reduce((sum, value) => sum + value, 0);
+  const before = slices.slice(0, index).reduce((sum, value) => sum + value, 0);
+  const turn = ((before + (slices[index] ?? 0) / 2) / total) * 2 * Math.PI;
+  const radius = 0.6 * (Math.min(box.width, box.height) / 2) * 0.6;
+  return {
+    x: box.width / 2 + radius * Math.sin(turn),
+    y: box.height / 2 - radius * Math.cos(turn),
+  };
 };
 
 /** The Chart's box in page coordinates, once scrolled into view. */
@@ -106,3 +142,21 @@ export const wearsRing = async (
   }
   return false;
 };
+
+// The colour of the canvas pixel at (`x`, `y`) in the chart's box, as "#rrggbb"; it runs in the view.
+const pixelAtPoint = (element: Element, [x, y]: readonly [number, number]): string | undefined => {
+  const canvas = element.querySelector("canvas");
+  const context = canvas?.getContext("2d");
+  if (canvas === null || canvas === undefined || context === null || context === undefined) {
+    return undefined;
+  }
+  const ratio = canvas.width / canvas.getBoundingClientRect().width;
+  const { data } = context.getImageData(Math.floor(x * ratio), Math.floor(y * ratio), 1, 1);
+  return `#${[0, 1, 2].map((at) => (data[at] ?? 0).toString(16).padStart(2, "0")).join("")}`;
+};
+
+/** The canvas colour at a position of the chart's box, such as the middle of a bar. */
+export const pixelAt = (
+  chart: Locator,
+  at: { readonly x: number; readonly y: number },
+): Promise<string | undefined> => chart.evaluate(pixelAtPoint, [at.x, at.y] as const);
