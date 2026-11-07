@@ -8,8 +8,8 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-/** The real folder of `zrender`, the one `echarts` resolves, beside `echarts`' own. */
-export const zrenderDir = (): string => {
+// The real folder of `echarts`: the entry's folder walked up to the package's own.
+const echartsFolder = (): string => {
   const entry = realpathSync(createRequire(import.meta.url).resolve("echarts"));
   let folder = dirname(entry);
   while (!folder.endsWith("/echarts")) {
@@ -17,8 +17,14 @@ export const zrenderDir = (): string => {
     if (parent === folder) throw new Error(`no echarts folder above ${entry}`);
     folder = parent;
   }
-  return realpathSync(join(dirname(folder), "zrender"));
+  return folder;
 };
+
+/** A file of `echarts` by its path under the package (`package.json`). */
+export const echartsFile = (path: string): string => join(echartsFolder(), path);
+
+/** The real folder of `zrender`, the one `echarts` resolves, beside `echarts`' own. */
+export const zrenderDir = (): string => realpathSync(join(dirname(echartsFolder()), "zrender"));
 
 /** A file of `zrender` by its path under the package (`lib/graphic/helper/parseText.js`). */
 export const zrenderFile = (path: string): string => join(zrenderDir(), path);

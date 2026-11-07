@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { importZrender, zrenderFile } from "../../test/zrender.ts";
+import { echartsFile, importZrender, zrenderFile } from "../../test/zrender.ts";
 import { chartText, escapedText, formatChartValue, formatReadingValue } from "./text.ts";
 
 // View-and-widgets spec: Agent text on a chart, Chart tooltips (chart-widget, design decision 3):
@@ -181,6 +181,16 @@ describe("the source guard (design decision 3)", () => {
 
   test("reads the zrender that echarts depends on, at the pinned version", () => {
     const own = JSON.parse(readFileSync(zrenderFile("package.json"), "utf8")) as {
+      version: string;
+    };
+    expect(own.version).toBe("6.1.0");
+  });
+
+  // U-1 of the review of groups 1 to 4: the guards above read zrender, but what ECharts does with
+  // a function formatter's text (no templating of its output, no text path of its own) is its own
+  // code, so a bump of `echarts` alone re-opens decision 3 until these guards are read again.
+  test("reads the echarts the option is written for, at the pinned version", () => {
+    const own = JSON.parse(readFileSync(echartsFile("package.json"), "utf8")) as {
       version: string;
     };
     expect(own.version).toBe("6.1.0");
