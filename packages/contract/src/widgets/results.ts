@@ -43,6 +43,56 @@ export const widgetResultProblems = (
   return resultFitProblems(entry, result, props).map(named);
 };
 
+const SHOWN_TARGET_MAX = 80;
+
+// An operation as a problem names it: its place in the list, its kind and its target, the target cut
+// so that a board's long text never fills a message.
+const operationOf = (changes: unknown, path: string): string | undefined => {
+  const at = /^\/(\d+)(?:\/|$)/.exec(path)?.[1];
+  if (at === undefined || !Array.isArray(changes)) return undefined;
+  const change: unknown = changes[Number(at)];
+  const record = isRecord(change) ? change : {};
+  const op = typeof record.op === "string" ? record.op.slice(0, 20) : "?";
+  const target = typeof record.target === "string" ? record.target : JSON.stringify(record.target);
+  const shown = (target ?? "none").slice(0, SHOWN_TARGET_MAX);
+  return `operation ${at} (${op} of ${shown})`;
+};
+
+/**
+ * The problems of `changes`, the changes an answer gives for the widget item `item`, against the
+ * changes schema of the item's type (latex-kanban-timeline, design decision 6); each names the
+ * item and, for a problem inside an operation, the operation: its place, its kind and its target.
+ * A type that declares no changes schema takes no change, so any change is one problem at `/`; a
+ * type the registry does not hold gives none, its value having been refused first. A list of no
+ * change always passes.
+ */
+export const widgetChangesProblems = (
+  item: { readonly type: string; readonly id: string },
+  changes: unknown,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): readonly Problem[] => {
+  const entry = widgetTypeOf(item.type, types);
+  if (entry === undefined) return [];
+  if (entry.edits === undefined) {
+    const none = Array.isArray(changes) && changes.length === 0;
+    return none
+      ? []
+      : [
+          {
+            path: "/",
+            message: `item ${item.id} is ${entry.noun}, and ${entry.noun} takes no change`,
+          },
+        ];
+  }
+  const checked = schemaVerdict(entry.edits.changes, changes);
+  if (checked.ok) return [];
+  return checked.problems.map(({ path, message }) => {
+    const operation = operationOf(changes, path);
+    const where = operation === undefined ? "its changes" : operation;
+    return { path, message: `item ${item.id}: ${where}: ${message}` };
+  });
+};
+
 /**
  * What the answer `result` travels in must hold or leave out, by the type's own rule
  * (approval-scale-ranking, design decision 2): `answer` is the answer's note and whether its

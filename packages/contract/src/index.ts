@@ -691,3 +691,7 @@ export { widgetResultFits } from "./widgets/result-fits.ts";
 // The whole-field shape of the generic diff (latex-kanban-timeline, design decision 2).
 
 export type { FieldsShape } from "./widgets/element-diff.ts";
+
+// Changes checked against their type (latex-kanban-timeline, design decision 6).
+
+export { widgetChangesProblems } from "./widgets/results.ts";
