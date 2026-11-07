@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
+import { type DraftRecord, type LifecycleBoardState, widgetResultFits } from "@askboard/contract";
 import {
   lifecycleBoardDocument,
   lifecycleDraftRecord,
@@ -446,6 +446,9 @@ describe("results beside the draft record (widget-registry, design decision 9)",
   const [question] = questionsOf(document) as [ViewQuestion];
   const result = { pick: "a" };
 
+  // What the probe's chunk would register: its type takes any result (the check of a result's
+  // type is the chunks' and the contract's, tested there).
+  const accepting = () => ({ fits: () => true });
   const withResults = () => {
     const values = createDraftStore();
     const results = createDraftStore();
@@ -511,6 +514,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       second.values,
       second.board,
       second.results,
+      accepting,
     );
     expect(second.results.valueOf("sketch")).toEqual(result);
     expect(second.values.valueOf("sketch")).toEqual({ size: 4 });
@@ -528,7 +532,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
         },
       },
     };
-    restoreDraft(stale, document, openState(document), values, board, results);
+    restoreDraft(stale, document, openState(document), values, board, results, accepting);
     expect([...results.record().keys()]).toEqual(["sketch"]);
   });
 
@@ -540,9 +544,104 @@ describe("results beside the draft record (widget-registry, design decision 9)",
         database: { rev: 1, results: { sketch: { annotations: [] } } },
       },
     };
-    restoreDraft(stale, document, openState(document), values, board, results);
+    restoreDraft(stale, document, openState(document), values, board, results, accepting);
     expect(results.record().size).toBe(0);
     expect(board.get().questions.get("database")).toBeUndefined();
+  });
+
+  test("a restored result the item's type refuses against its props now is dropped, and so is the work it was", () => {
+    const ranked = {
+      ...document,
+      items: [
+        {
+          ...asked,
+          props: {
+            ...asked.props,
+            items: [
+              {
+                type: "ranking",
+                id: "priorities",
+                props: { items: ["speed", "comfort"].map((id) => ({ id, label: id })) },
+              },
+              { type: "probe", id: "sketch", props: {} },
+            ],
+          },
+        },
+      ],
+    } as unknown as ViewDocument;
+    const saved = (results: Record<string, unknown>): DraftRecord => ({
+      delivery: "immediate",
+      questions: { database: { rev: 1, results } } as never,
+    });
+    const refused = { order: ["cost", "speed", "comfort"] };
+    const fitting = (type: string) =>
+      type === "probe"
+        ? accepting()
+        : type === "ranking"
+          ? {
+              fits: (result: unknown, props: unknown) =>
+                widgetResultFits({ type, id: "x" }, result, props),
+            }
+          : undefined;
+    const alone = withResults();
+    restoreDraft(
+      saved({ priorities: refused }),
+      ranked,
+      openState(ranked),
+      alone.values,
+      alone.board,
+      alone.results,
+      fitting,
+    );
+    expect(alone.results.record().size).toBe(0);
+    expect(alone.board.get().questions.get("database")).toBeUndefined();
+    const beside = withResults();
+    restoreDraft(
+      saved({ priorities: refused, sketch: result }),
+      ranked,
+      openState(ranked),
+      beside.values,
+      beside.board,
+      beside.results,
+      fitting,
+    );
+    expect([...beside.results.record().keys()]).toEqual(["sketch"]);
+    expect(beside.board.work("database")).toEqual({ rev: 1 });
+    const fits = withResults();
+    restoreDraft(
+      saved({ priorities: { order: ["comfort", "speed"] } }),
+      ranked,
+      openState(ranked),
+      fits.values,
+      fits.board,
+      fits.results,
+      fitting,
+    );
+    expect(fits.results.valueOf("priorities")).toEqual({ order: ["comfort", "speed"] });
+  });
+
+  test("a restored result made on an earlier revision stays, for the notice and Keep mine to settle", () => {
+    const rerevised = {
+      ...document,
+      items: [{ ...document.items[0], rev: 2 }],
+    } as unknown as ViewDocument;
+    const saved: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { sketch: result } } } as never,
+    };
+    const never = () => ({ fits: () => false });
+    const restored = withResults();
+    restoreDraft(
+      saved,
+      rerevised,
+      openState(rerevised),
+      restored.values,
+      restored.board,
+      restored.results,
+      never,
+    );
+    expect(restored.results.valueOf("sketch")).toEqual(result);
+    expect(restored.board.work("database")).toEqual({ rev: 1 });
   });
 
   test("a record holding results alone is work, and comes back as work", () => {
@@ -551,7 +650,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       delivery: "immediate",
       questions: { database: { rev: 1, results: { sketch: result } } },
     };
-    restoreDraft(saved, document, openState(document), values, board, results);
+    restoreDraft(saved, document, openState(document), values, board, results, accepting);
     expect(board.work("database")).toEqual({ rev: 1 });
   });
 
@@ -576,10 +675,26 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       questions: { database: { rev: 1, results: { sketch: shown } } } as never,
     });
     const same = withResults();
-    restoreDraft(mirror({ pick: "a" }), document, state, same.values, same.board, same.results);
+    restoreDraft(
+      mirror({ pick: "a" }),
+      document,
+      state,
+      same.values,
+      same.board,
+      same.results,
+      accepting,
+    );
     expect(same.results.record().size).toBe(0);
     const other = withResults();
-    restoreDraft(mirror({ pick: "b" }), document, state, other.values, other.board, other.results);
+    restoreDraft(
+      mirror({ pick: "b" }),
+      document,
+      state,
+      other.values,
+      other.board,
+      other.results,
+      accepting,
+    );
     expect(other.results.valueOf("sketch")).toEqual({ pick: "b" });
   });
 });

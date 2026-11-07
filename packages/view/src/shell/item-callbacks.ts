@@ -4,12 +4,14 @@
 // edit does; each first runs the shell's step before a change, such as the start of a revision
 // (ask-lifecycle, task 6.7), once. An update naming an item outside the question changes nothing
 // and goes to the item's error path, as a thrown render error does. `onResultChange` puts the
-// item's result into the results store beside the draft record, none removing it, after the same
-// step (widget-registry, design decision 9). Also the value and the result an item shows.
+// item's result into the results store beside the draft record, none (`undefined`) removing it, after
+// the same step (widget-registry, design decision 9), and refuses one that is not JSON. Also the value and
+// the result an item shows.
 // Plain functions, tested without a DOM.
 
-import { resultHoldsNothing } from "@askboard/contract";
+import { JSON_MAX_DEPTH, resultHoldsNothing } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
+import { isJsonValue } from "../view-protocol.ts";
 import type { DraftStore } from "./draft-store.ts";
 
 export type ItemCallbackInputs = {
@@ -55,6 +57,25 @@ export const itemCallbacks = ({
   },
   onResultChange: (result) => {
     if (results === undefined) return;
+    // `undefined` is the component's report of no result (the port's "`undefined` for none"): it
+    // clears the item's result after the step before a change and is no error.
+    if (result === undefined) {
+      onBeforeChange?.();
+      results.set(itemId, undefined);
+      return;
+    }
+    // A result that is not JSON, one that holds itself included, is held nowhere and fails the
+    // item, so that the rest of the board still answers (approval-scale-ranking, decision 4). It
+    // is no change the user made, so it starts no revision.
+    if (!isJsonValue(result, JSON_MAX_DEPTH)) {
+      results.set(itemId, undefined);
+      onError(
+        new Error(
+          `the item "${itemId}" reported a result that is not JSON nested at most ${JSON_MAX_DEPTH} levels`,
+        ),
+      );
+      return;
+    }
     onBeforeChange?.();
     // A result that holds nothing is no result: it clears the item's, as none does.
     results.set(itemId, resultHoldsNothing(result) ? undefined : result);

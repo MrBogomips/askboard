@@ -634,3 +634,56 @@ export { resultHoldsNothing } from "./widgets/result-content.ts";
 // Asking-rule texts (askboard-skills, design decision 6): one agent-facing text for each rule.
 
 export { ASKING_RULE_TEXTS } from "./push/asking-rules.ts";
+
+// Approval, Scale and Ranking (approval-scale-ranking, design decisions 1, 2 and 4): the three
+// entries, which `WIDGET_TYPES` holds, their constants, the Approval's rule and the Scale's step
+// arithmetic, and the check of what a result requires of its answer.
+
+export {
+  APPROVAL_DECISIONS,
+  APPROVAL_SCHEMA_IDS,
+  APPROVAL_WIDGET,
+  type ApprovalDecision,
+  type ApprovalItem,
+  type ApprovalResult,
+  approvalAnswerProblems,
+  approvalNeedsReason,
+  approvalResultShape,
+  noteHoldsReason,
+} from "./widgets/approval/index.ts";
+export {
+  RANKING_MAX_ITEMS,
+  RANKING_MIN_ITEMS,
+  RANKING_SCHEMA_IDS,
+  RANKING_WIDGET,
+  type RankingElement,
+  type RankingItem,
+  type RankingProps,
+  type RankingResult,
+  rankingPropsProblems,
+  rankingResultProblems,
+  rankingResultShape,
+} from "./widgets/ranking/index.ts";
+export type { WidgetAnswer } from "./widgets/registry.ts";
+export { widgetAnswerProblems } from "./widgets/results.ts";
+export {
+  SCALE_DEFAULT_STEP,
+  SCALE_DISPLAYS,
+  SCALE_MAX_STEPS,
+  SCALE_RATING_MAX_VALUES,
+  SCALE_SCHEMA_IDS,
+  SCALE_WIDGET,
+  type ScaleItem,
+  type ScaleProps,
+  type ScaleResult,
+  scalePropsProblems,
+  scaleResultProblems,
+  scaleResultShape,
+  scaleStepCount,
+  scaleStepIndex,
+} from "./widgets/scale/index.ts";
+
+// A result against the props it would be answered for (approval-scale-ranking, pre-PR reviews):
+// the type's own checks alone, with no schema, for the board page's draft.
+
+export { widgetResultFits } from "./widgets/result-fits.ts";

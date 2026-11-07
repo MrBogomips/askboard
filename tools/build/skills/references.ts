@@ -69,26 +69,23 @@ export const renderWidgetReference = (entry: WidgetType, resolve: Resolve): Rend
   }
   const shape = entry.wording.expected[`${entry.type}.props`];
   const example: ExampleBody = { kind: "item", value: item };
+  const fields = fieldLines(entry.props as Schema, resolve);
+  // The sections, each after one blank line: a type whose props have no fields (the Approval's
+  // `{}`) has no Fields section.
+  const sections = [
+    ...(fields.length === 0 ? [] : [["## Fields", "", ...fields]]),
+    ...(entry.skill.notes === undefined
+      ? []
+      : [["## Notes", "", ...entry.skill.notes.map((note) => `- ${note}`)]]),
+    ["## In the answer", "", ...answerLines(entry, resolve)],
+    ["## Example", "", exampleBlock(example)],
+  ];
   const text = [
     `# ${widgetTitle(entry)}`,
     "",
     `Use for ${sentence(entry.skill.use)}`,
     `Item type \`${entry.type}\`${shape === undefined ? "" : `: props are ${shape}`}.`,
-    "",
-    "## Fields",
-    "",
-    ...fieldLines(entry.props as Schema, resolve),
-    ...(entry.skill.notes === undefined
-      ? []
-      : ["", "## Notes", "", ...entry.skill.notes.map((note) => `- ${note}`)]),
-    "",
-    "## In the answer",
-    "",
-    ...answerLines(entry, resolve),
-    "",
-    "## Example",
-    "",
-    exampleBlock(example),
+    ...sections.flatMap((section) => ["", ...section]),
     "",
   ].join("\n");
   return { text, examples: [example] };

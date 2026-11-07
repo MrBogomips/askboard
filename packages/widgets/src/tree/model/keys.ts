@@ -9,6 +9,7 @@
 // every key that has an action, possible or not, and leaves every other key to the browser.
 
 import type { StringKey } from "@askboard/view/catalog";
+import type { ToolbarMove } from "../../shared/toolbar-focus.ts";
 import type { TreeEdit } from "./edits.ts";
 
 /** A key press: the fields of a DOM or React keyboard event the Tree reads. */
@@ -134,8 +135,7 @@ export const TREE_TOOLS: readonly TreeTool[] = Object.freeze([
   tool("remove", "tree.tool.remove"),
 ]);
 
-/** A focus move among the toolbar's tools. */
-export type ToolbarMove = "previous" | "next" | "first" | "last";
+export type { ToolbarMove };
 
 const TOOLBAR_KEYS: ReadonlyMap<string, ToolbarMove> = new Map([
   ["ArrowLeft", "previous"],

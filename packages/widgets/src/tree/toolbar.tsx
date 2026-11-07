@@ -14,6 +14,7 @@ import type { StringKey } from "@askboard/view/catalog";
 import { type Say, useLanguage, useStrings } from "@askboard/view/catalog";
 import { DropdownMenu, Popover } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
+import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
 import { AdjustPanel, type Applied } from "./adjust-panel.tsx";
 import {
   CHANGE_DOT,
@@ -31,7 +32,6 @@ import { DeleteQuestion } from "./delete-question.tsx";
 import type { DeleteQuestion as Question } from "./deleting.ts";
 import { treeKeyOf } from "./key-event.ts";
 import type { TreeEdit } from "./model/edits.ts";
-import { toolbarFocus, toolbarStop } from "./model/focus.ts";
 import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
 import { OVERFLOW_TOOLS } from "./model/overflow.ts";
 import { type Selection, selectAll } from "./model/selection.ts";

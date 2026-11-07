@@ -6,7 +6,7 @@
    - `data-chevron` on a Tree chevron, `data-interactive` on any other control with no role or
      element of its own: pointer;
    - `data-interactive="row"` on an option row or a card: pointer, the `muted` fill;
-   - `data-grab` on a drag handle: grab; `data-resize="column"` on a column's edge: col-resize,
+   - `data-grab` on a drag handle: grab, not-allowed once disabled; `data-resize="column"` on a column's edge: col-resize,
      with the hover outline.
    Every toolbar and secondary button, which rests on `muted` with a border, takes the `border-strong`
    border and the `card` fill. Hover alone never shows the focus ring (that is `focus-visible`). */
@@ -59,6 +59,11 @@
 
   [data-grab] {
     cursor: grab;
+  }
+
+  /* A handle that stays on a locked board (the Scale's thumb) reads not allowed, not grab. */
+  [data-grab]:is([data-disabled], [aria-disabled="true"]) {
+    cursor: not-allowed;
   }
 
   [data-resize="column"] {

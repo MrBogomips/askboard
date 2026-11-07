@@ -20,6 +20,9 @@ import {
 
 const modules: SharedModules = sharedModules(["register", "componentFor"]);
 
+const DRAG_COMBINE = "@atlaskit/pragmatic-drag-and-drop/combine";
+const DRAG_ADAPTER = "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+
 // The value names `@askboard/view/catalog` exports: the file the package's `./catalog` maps to.
 const catalogEntryExports = async (): Promise<string[]> => {
   const manifest = (await Bun.file(join(VIEW_DIR, "package.json")).json()) as {
@@ -103,6 +106,16 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(GRAPH_FILE).toBe(join(WIDGETS_SRC, "board-graph/index.ts"));
   });
 
+  test("the drag library's two modules come from the dnd chunk (approval-scale-ranking, design decision 9)", () => {
+    expect(modules.get(DRAG_COMBINE)?.chunk).toBe("dnd");
+    expect(modules.get(DRAG_ADAPTER)?.chunk).toBe("dnd");
+    expect(LIBRARY_CHUNKS.dnd?.modules[DRAG_COMBINE]).toEqual(["combine"]);
+    expect(LIBRARY_CHUNKS.dnd?.modules[DRAG_ADAPTER]).toEqual([
+      "draggable",
+      "dropTargetForElements",
+    ]);
+  });
+
   test("the shell provides the CatalogRenderer port, with the names its module exports", () => {
     expect(modules.get(CATALOG_PORT)).toEqual({
       chunk: "shell",
@@ -110,10 +123,11 @@ describe("the shared modules and the chunks that provide them", () => {
     });
   });
 
-  test("the library chunks are React, Radix, ext-apps, compute and the board graph", () => {
+  test("the library chunks are React, Radix, ext-apps, compute, the board graph and the drag library", () => {
     expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual([
       "board-graph",
       "compute",
+      "dnd",
       "ext-apps",
       "radix",
       "react",
@@ -122,13 +136,15 @@ describe("the shared modules and the chunks that provide them", () => {
 
   test("Radix provides the components that sources import, and no other yet", () => {
     // Toggle Group joined with its first control, the Gantt plan's zoom (gantt-widget design
-    // decision 10); Switch with the Gantt's critical path switch (widget-editing-plus decision 8).
+    // decision 10); Switch with the Gantt's critical path switch (widget-editing-plus decision 8);
+    // Slider with the Scale's (approval-scale-ranking decision 9).
     expect(LIBRARY_CHUNKS.radix?.modules["radix-ui"]).toEqual([
       "AlertDialog",
       "Checkbox",
       "DropdownMenu",
       "Popover",
       "RadioGroup",
+      "Slider",
       "Switch",
       "Tabs",
       "ToggleGroup",
@@ -162,14 +178,39 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(around.filter(({ target }) => target !== GRAPH_FILE)).toEqual([]);
   });
 
+  // Names a chunk lists before the source that imports them lands, each with the task that lands
+  // it. An entry the sources already import fails the test, so none outlives its task.
+  const LISTED_AHEAD: Readonly<Record<string, string>> = {};
+
   test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
     const imported = await namedImports();
     const unused = Object.values(LIBRARY_CHUNKS).flatMap(({ modules }) =>
       Object.entries(modules).flatMap(([module, names]) =>
-        names === "*" ? [] : names.filter((name) => !imported.has(`${module}:${name}`)),
+        names === "*"
+          ? []
+          : names.filter(
+              (name) =>
+                !imported.has(`${module}:${name}`) &&
+                !Object.hasOwn(LISTED_AHEAD, `${module}:${name}`),
+            ),
       ),
     );
     expect(unused).toEqual([]);
+  });
+
+  test("a name listed ahead of its source is still unlisted by every source, so the allowance ends with its task", async () => {
+    const imported = await namedImports();
+    expect(Object.keys(LISTED_AHEAD).filter((entry) => imported.has(entry))).toEqual([]);
+  });
+
+  test("the drag library provides exactly the names the widgets' sources import from its two modules", async () => {
+    const imported = [...(await namedImports())].filter((entry) =>
+      entry.startsWith("@atlaskit/pragmatic-drag-and-drop/"),
+    );
+    const listed = Object.entries(LIBRARY_CHUNKS.dnd?.modules ?? {}).flatMap(([module, names]) =>
+      names === "*" ? [] : names.map((name) => `${module}:${name}`),
+    );
+    expect(imported.sort()).toEqual(listed.sort());
   });
 });
 
@@ -369,6 +410,34 @@ describe("a chunk built with the plugin", () => {
     );
     expect(result.success).toBe(false);
     expect(result.logs.map(String).join("\n")).toContain("addWorkingDays");
+  });
+
+  test("a widget importing the drag library leaves it out and needs the dnd chunk", async () => {
+    const { result, needs } = await build(
+      `import { combine } from "${DRAG_COMBINE}";\nimport { draggable } from "${DRAG_ADAPTER}";\n(globalThis as any).x = [combine, draggable];\n`,
+    );
+    expect(result.success).toBe(true);
+    expect([...needs]).toEqual(["dnd"]);
+    const code = (await result.outputs[0]?.text()) ?? "";
+    expect(code).toContain(`shared("${DRAG_ADAPTER}")`);
+    expect(code.length).toBeLessThan(5_000);
+  });
+
+  test("fails on a name of the drag library the chunk does not provide, naming it", async () => {
+    const { result } = await build(
+      `import { monitorForElements } from "${DRAG_ADAPTER}";\n(globalThis as any).x = monitorForElements;\n`,
+    );
+    expect(result.success).toBe(false);
+    expect(result.logs.map(String).join("\n")).toContain("monitorForElements");
+  });
+
+  test("the dnd chunk's entry imports each module from the widgets' folder, which declares the library", () => {
+    const entry = libraryEntrySource("dnd");
+    expect(entry).toContain(`provide("${DRAG_COMBINE}"`);
+    expect(entry).toContain(`provide("${DRAG_ADAPTER}"`);
+    expect(entry).toContain("combine as m0_combine");
+    expect(entry).toContain("draggable as m1_draggable");
+    expect(entry).toContain("dropTargetForElements as m1_dropTargetForElements");
   });
 
   test("fails on a name the library chunk does not provide", async () => {

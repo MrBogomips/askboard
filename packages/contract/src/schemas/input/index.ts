@@ -3,7 +3,8 @@
 // areas, FR-3's remaining fields and `update`'s request (ask-lifecycle, design decision 2); E5's
 // takes a question's context items: excerpts, references and images (excerpts, design decision 2);
 // E8's takes it-IT as the ask's language and locale (settings-languages, design decision 2, B8);
-// widget-answers' lists the widget and molecule schemas of the three earlier changes (design decision 3).
+// widget-answers' lists the widget and molecule schemas of the three earlier changes (design decision 3);
+// approval-scale-ranking's admits the Approval, the Scale and the Ranking as widget items (design decision 11).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
@@ -27,7 +28,7 @@ import update from "./update.json" with { type: "json" };
 // The question props with each registered type's item composed in.
 const questionProps = composeQuestionProps(questionPropsBase);
 
-export const INPUT_FORMAT_VERSION = "1.5";
+export const INPUT_FORMAT_VERSION = "1.6";
 
 export const inputFormat: SchemaSet = {
   name: "input",

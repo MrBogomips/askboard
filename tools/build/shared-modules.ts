@@ -46,7 +46,7 @@ type LibraryChunk = {
   readonly from?: string;
 };
 
-/** The widgets' package, which declares `compute` (the tree-widget change's manifest). */
+/** The widgets' package, which declares `compute` and the drag library. */
 const WIDGETS_DIR = dirname(WIDGETS_SRC);
 
 /**
@@ -59,8 +59,9 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
     modules: { react: "*", "react-dom": "*", "react-dom/client": "*", "react/jsx-runtime": "*" },
   },
   // Radix's controls, Toggle Group among them for the Gantt plan's zoom (gantt-widget design
-  // decision 10) Switch for the Gantt's critical path (widget-editing-plus design decision 8) and Popover for the
-  // Tree's percentage panel.
+  // decision 10) Switch for the Gantt's critical path (widget-editing-plus design decision 8),
+  // Popover for the Tree's percentage panel and Slider for the Scale's (approval-scale-ranking
+  // design decision 9).
   radix: {
     modules: {
       "radix-ui": [
@@ -69,6 +70,7 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
         "DropdownMenu",
         "Popover",
         "RadioGroup",
+        "Slider",
         "Switch",
         "Tabs",
         "ToggleGroup",
@@ -112,6 +114,16 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
         "liveGraph",
         "sentGraph",
       ],
+    },
+  },
+  // Pragmatic drag and drop, one module instance for the Tree's rows and the Ranking's, loaded
+  // only by boards holding one of them (approval-scale-ranking, design decision 9). A widget that
+  // needs another export of these modules adds it here.
+  dnd: {
+    from: WIDGETS_DIR,
+    modules: {
+      "@atlaskit/pragmatic-drag-and-drop/combine": ["combine"],
+      "@atlaskit/pragmatic-drag-and-drop/element/adapter": ["draggable", "dropTargetForElements"],
     },
   },
 };

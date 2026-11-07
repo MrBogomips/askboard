@@ -12,6 +12,9 @@ import {
 } from "../src/index.ts";
 import { registryShapeProblems } from "../src/widgets/registry.ts";
 
+// The terms `output-format.test.ts` refuses in the output set.
+const TERMS = /\b(axfx|verdict|gate|validator)\b/i;
+
 const rulesOf = (problems: readonly RegistryProblem[]) =>
   problems.map(({ type, rule }) => `${type}:${rule}`);
 
@@ -31,6 +34,13 @@ describe("the shipped types' teaching text", () => {
         expect(note.length).toBeGreaterThanOrEqual(1);
         expect(note.length).toBeLessThanOrEqual(300);
       }
+    }
+  });
+
+  test("hold no AXFX term, as the output format's term test reads them (FR-18)", () => {
+    for (const { type, skill } of WIDGET_TYPES) {
+      const text = JSON.stringify([skill?.use, skill?.notes]);
+      expect({ type, text }).toEqual({ type, text: expect.not.stringMatching(TERMS) });
     }
   });
 

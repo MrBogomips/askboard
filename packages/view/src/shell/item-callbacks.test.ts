@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { JSON_MAX_DEPTH } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
@@ -177,11 +178,30 @@ describe("an item's result (widget-registry, design decision 9)", () => {
   });
 
   test("none removes the entry, so an item with no result holds none", () => {
-    const { results, onResultChange } = withResults();
+    const { results, steps, sent, onResultChange } = withResults();
     onResultChange({ pick: "a" });
     onResultChange(undefined);
     expect(results.record().has("sketch")).toBe(false);
     expect(results.record().size).toBe(0);
+    // None is a component's report of no result, not an error (the port's `undefined` for none),
+    // and runs the step before a change as it did before the JSON check.
+    expect(sent).toHaveBeenCalledTimes(0);
+    expect(steps).toEqual(["before", "before"]);
+  });
+
+  test("none with nothing held leaves nothing held and calls no error", () => {
+    const { results, sent, onResultChange } = withResults();
+    onResultChange(undefined);
+    expect(results.record().size).toBe(0);
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  test("a field inside the result holding undefined is still refused, with one error", () => {
+    const { results, sent, onResultChange } = withResults();
+    onResultChange({ pick: "a" });
+    onResultChange({ a: undefined });
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(results.record().has("sketch")).toBe(false);
   });
 
   test.each([
@@ -212,6 +232,60 @@ describe("an item's result (widget-registry, design decision 9)", () => {
     onResultChange({ pick: "a" });
     expect(steps).toEqual(["before"]);
     expect(sent).not.toHaveBeenCalled();
+  });
+
+  describe("a result that is not JSON (approval-scale-ranking, design decision 4)", () => {
+    const holdsItself = () => {
+      const result: Record<string, unknown> = { pick: "a" };
+      result.again = result;
+      return result;
+    };
+    const tooDeep = () => {
+      let result: unknown = { pick: "a" };
+      for (let level = 0; level < JSON_MAX_DEPTH + 2; level++) result = [result];
+      return result;
+    };
+
+    test.each([
+      ["holds itself", holdsItself],
+      ["is nested past the bound", tooDeep],
+      ["holds a number that is not finite", () => ({ pick: Number.NaN })],
+      ["holds a function", () => ({ pick: () => 1 })],
+    ])("a result that %s returns, calls onError once and leaves no held result", (_, make) => {
+      const { results, steps, sent, onResultChange } = withResults();
+      expect(() => onResultChange(make())).not.toThrow();
+      expect(sent).toHaveBeenCalledTimes(1);
+      expect((sent.mock.calls as unknown[][])[0]?.[0]).toBeInstanceOf(Error);
+      expect(results.record().has("sketch")).toBe(false);
+      // A refused result starts no revision.
+      expect(steps).toEqual([]);
+    });
+
+    test("a refused result clears the result the item held", () => {
+      const { results, sent, onResultChange } = withResults();
+      onResultChange({ pick: "a" });
+      expect(results.valueOf("sketch")).toEqual({ pick: "a" });
+      onResultChange(holdsItself());
+      expect(results.record().has("sketch")).toBe(false);
+      expect(sent).toHaveBeenCalledTimes(1);
+    });
+
+    test("a valid result after a refused one is held", () => {
+      const { results, sent, onResultChange } = withResults();
+      onResultChange(holdsItself());
+      onResultChange({ pick: "b" });
+      expect(results.valueOf("sketch")).toEqual({ pick: "b" });
+      expect(sent).toHaveBeenCalledTimes(1);
+    });
+
+    test("a result nested exactly to the bound is held", () => {
+      const { results, sent, onResultChange } = withResults();
+      let result: unknown = "leaf";
+      for (let level = 0; level < JSON_MAX_DEPTH; level++) result = [result];
+      onResultChange(result);
+      expect(results.valueOf("sketch")).toEqual(result);
+      expect(sent).not.toHaveBeenCalled();
+    });
   });
 
   test("an item ID such as __proto__ is a key like any other", () => {

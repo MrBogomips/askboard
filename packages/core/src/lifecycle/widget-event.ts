@@ -11,6 +11,7 @@ import {
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
+  widgetAnswerProblems,
 } from "@askboard/contract";
 import { answerInReferenceAddressing, referenceAddressing } from "../molecules/addressing.ts";
 import type { ExpansionMap } from "../molecules/map.ts";
@@ -75,6 +76,28 @@ export const widgetFieldsOf = (
     ...(Object.keys(results).length === 0 ? {} : { results }),
     ...(Object.keys(addressed.derived).length === 0 ? {} : { derived: addressed.derived }),
   };
+};
+
+/**
+ * Why the answer's note and changes do not satisfy what its results require, if they do not (the
+ * registry's answer checks, approval-scale-ranking's design decisions 2 and 3): the first problem of
+ * the first result that has one, naming its item. It reads the content `widgetContentOf` has
+ * already checked, so each key names an item of the question, and runs after the result checks.
+ */
+export const answerRequirementProblem = (
+  content: WidgetContent,
+  fields: WidgetFields,
+  note: string | undefined,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): string | undefined => {
+  const answer = { note, changed: (fields.changes?.length ?? 0) > 0 };
+  for (const [id, result] of Object.entries(content.results)) {
+    const item = content.sent.find((sent) => sent.id === id);
+    if (item === undefined) continue;
+    const [first] = widgetAnswerProblems({ type: item.type, id }, result, answer, types);
+    if (first !== undefined) return first;
+  }
+  return undefined;
 };
 
 /**

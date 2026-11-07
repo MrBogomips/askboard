@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type QuestionProps, WIDGET_TYPES } from "@askboard/contract";
+import { type QuestionProps, WIDGET_TYPES, type WidgetType } from "@askboard/contract";
 import { PROBE_SESSION, PROBE_TYPES } from "@askboard/contract/fixtures";
 import { fetchItemOf } from "../src/context/fetch-item.ts";
 import { formulaWarnings } from "../src/graph-check.ts";
@@ -13,6 +13,15 @@ import { modelOf, PROBE_ITEM } from "./probe-fakes.ts";
 // Core spec: ask-core dispatches on the widget-type registry (widget-registry design decision 2):
 // the probe type, which only the registry holds, is found, checked, diffed, fetched and held by its
 // entry; Tree and Gantt keep their outcomes; a board with no computing type builds no graph.
+
+const PROBE = PROBE_TYPES.at(-1) as WidgetType;
+const TREE_AND_GANTT = WIDGET_TYPES.filter(({ type }) => type === "tree" || type === "gantt");
+
+// The registry's nouns as a refusal lists them: `Tree, Gantt or Probe` (each noun less `a`).
+const nounsOf = (types: readonly WidgetType[]): string => {
+  const names = types.map(({ noun }) => noun.replace(/^an? /, ""));
+  return `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`;
+};
 
 const props = (model: BoardModel): QuestionProps =>
   model.propsOf(model.question("choose") as never);
@@ -51,17 +60,28 @@ describe("values and derived keys of a probe item", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { pick: withOptions("a") } }, model, WIDGET_TYPES);
     expect(isWidgetProblem(checked) && checked.detail).toContain('"pick"');
-    expect(isWidgetProblem(checked) && checked.detail).toContain("no Tree or Gantt item");
+    expect(isWidgetProblem(checked) && checked.detail).toContain(
+      `no ${nounsOf(WIDGET_TYPES)} item`,
+    );
   });
 
-  test("the refusal names the registry's own types", () => {
+  test("the refusal names the registry's own types, shipped and probe", () => {
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ values: { nothing: {} } }, model);
+    expect(isWidgetProblem(checked) && checked.detail).toContain(`no ${nounsOf(PROBE_TYPES)} item`);
+    expect(isWidgetProblem(checked) && checked.detail).toContain("Probe item");
+  });
+
+  test("the refusal's format is fixed over an explicit registry", () => {
+    const model = modelOf([PROBE_ITEM]);
+    const checked = content({ values: { nothing: {} } }, model, [...TREE_AND_GANTT, PROBE]);
     expect(isWidgetProblem(checked) && checked.detail).toContain("no Tree, Gantt or Probe item");
+    const shipped = content({ values: { pick: withOptions("a") } }, model, TREE_AND_GANTT);
+    expect(isWidgetProblem(shipped) && shipped.detail).toContain("no Tree or Gantt item");
   });
 
   test("a derived key of an item whose type declares none is refused", () => {
-    const bare = { ...PROBE_TYPES[2], derived: undefined } as never;
+    const bare = { ...PROBE_TYPES.at(-1), derived: undefined } as never;
     const model = modelOf([PROBE_ITEM]);
     const checked = content({ derived: { "pick.count": 2 } }, model, [bare]);
     expect(isWidgetProblem(checked) && checked.detail).toContain("declares no derived values");

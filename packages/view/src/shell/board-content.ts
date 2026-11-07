@@ -37,6 +37,28 @@ export const boardItemsOf = (document: ViewDocument): readonly BoardWidgetItem[]
   return items;
 };
 
+// Each board document's question-to-items map, as `ITEMS` is.
+const QUESTION_ITEMS = new WeakMap<ViewDocument, ReadonlyMap<string, readonly string[]>>();
+
+/**
+ * Each question's widget items' IDs, in order, by question ID (approval-scale-ranking, design
+ * decision 7), for every question of the board, areas' included, and an empty list for a question
+ * with none; frozen, and the same for the same document. A component reads its siblings from it.
+ */
+export const widgetItemsByQuestion = (
+  document: ViewDocument,
+): ReadonlyMap<string, readonly string[]> => {
+  const known = QUESTION_ITEMS.get(document);
+  if (known !== undefined) return known;
+  const byQuestion = new Map(
+    questionsOf(document).map(
+      ({ id, props }) => [id, Object.freeze((props.items ?? []).map((item) => item.id))] as const,
+    ),
+  );
+  QUESTION_ITEMS.set(document, byQuestion);
+  return byQuestion;
+};
+
 /** Item ID to the value its question's latest answer holds for it. */
 type Answered = ReadonlyMap<string, unknown>;
 
@@ -139,7 +161,12 @@ export const createBoardContent = (
     byAnswers.set(answered, byRecord);
     const known = byRecord.get(draft);
     if (known !== undefined) return known;
-    const board: BoardContent = Object.freeze({ items, draft, shown: shownOf(draft, answered) });
+    const board: BoardContent = Object.freeze({
+      items,
+      questionItems: widgetItemsByQuestion(source.document),
+      draft,
+      shown: shownOf(draft, answered),
+    });
     byRecord.set(draft, board);
     return board;
   };

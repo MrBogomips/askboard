@@ -19,12 +19,24 @@ import boardDocumentBase from "../schemas/board-document/board-document.json" wi
 import questionPropsBase from "../schemas/input/question-props.json" with { type: "json" };
 import fetchResultBase from "../schemas/tool-envelopes/fetch-result.json" with { type: "json" };
 import type { Problem } from "../validate.ts";
+import { APPROVAL_WIDGET } from "./approval/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
+import { RANKING_WIDGET } from "./ranking/widget.ts";
+import { SCALE_WIDGET } from "./scale/widget.ts";
 import { TREE_WIDGET } from "./tree/widget.ts";
 
 /** Whether a widget's value is the agent's or the user's edit. */
 export type WidgetOrigin = "agent" | "edited";
+
+/**
+ * What the answer a result travels in says to the result's own checks (approval-scale-ranking,
+ * design decision 2): the answer's note and whether its changes name any element.
+ */
+export type WidgetAnswer = {
+  readonly note: string | undefined;
+  readonly changed: boolean;
+};
 
 /** One widget type's contract (design decision 1). */
 export type WidgetType = {
@@ -53,7 +65,20 @@ export type WidgetType = {
   /** For a widget that gives a result: its schema, `urn:askboard:output:<type>-result`, and checks. */
   readonly result?: {
     readonly schema: AnySchemaObject;
+    /**
+     * The schema's own rule in plain ECMAScript, with no Ajv: whether `result` has the shape the
+     * schema takes. The board page checks it, with `problems`, before it holds or seeds a result
+     * (`widgetResultFits`); a type with a result and no shape fits no result there, never any
+     * (approval-scale-ranking, pre-PR reviews, security X-1).
+     */
+    readonly shape?: (result: unknown) => boolean;
     readonly problems?: (result: unknown, props: unknown) => readonly Problem[];
+    /**
+     * What the answer the result travels in must hold or leave out, after the result's own checks
+     * (approval-scale-ranking, design decision 2): each message states what is wrong, and
+     * `widgetAnswerProblems` names the item.
+     */
+    readonly answerProblems?: (result: unknown, answer: WidgetAnswer) => readonly string[];
   };
   /** The derived values the answer carries: what is declared and the check of one address. */
   readonly derived?: {
@@ -91,7 +116,13 @@ export type WidgetType = {
 };
 
 /** The widget types a question's items may hold, in order. */
-export const WIDGET_TYPES: readonly WidgetType[] = [TREE_WIDGET, GANTT_WIDGET];
+export const WIDGET_TYPES: readonly WidgetType[] = [
+  TREE_WIDGET,
+  GANTT_WIDGET,
+  APPROVAL_WIDGET,
+  SCALE_WIDGET,
+  RANKING_WIDGET,
+];
 
 /** The entry of an item type, when the registry holds it. */
 export const widgetTypeOf = (

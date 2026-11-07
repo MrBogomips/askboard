@@ -24,7 +24,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
-import { Agent } from "./agent.ts";
+import { Agent, collectedAskOf } from "./agent.ts";
 import type { Asker } from "./asker.ts";
 import {
   type AskerPlace,
@@ -192,6 +192,18 @@ class ProcessSession implements BoardSession {
     const collected = await life.agent.collect(life.link.askId, life.cursor);
     life.cursor = collected.cursor;
     return { state: collected.state, events: collected.events };
+  }
+
+  async collectJson(): Promise<unknown> {
+    const life = this.#current;
+    const json = await life.agent.collectJson(life.link.askId, life.cursor);
+    life.cursor = collectedAskOf(json, life.link.askId).cursor;
+    return json;
+  }
+
+  fetch(itemId: string): Promise<unknown> {
+    const life = this.#current;
+    return life.agent.fetch(life.link.askId, itemId);
   }
 
   snapshot(): Promise<{ readonly path: string; readonly state: string }> {

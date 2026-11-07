@@ -367,7 +367,7 @@ export const nestsWithin = (value: unknown, maxDepth: number): boolean => {
  * page's stack, and an object reached twice, a cycle included, is refused: JSON shares no object,
  * and the walk stays linear in the value's size.
  */
-const isJsonValue = (root: unknown, maxDepth = Number.POSITIVE_INFINITY): boolean => {
+export const isJsonValue = (root: unknown, maxDepth = Number.POSITIVE_INFINITY): boolean => {
   const seen = new Set<object>();
   const pending: { readonly value: unknown; readonly depth: number }[] = [
     { value: root, depth: 0 },

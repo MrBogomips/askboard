@@ -110,6 +110,16 @@ export const STRING_KEYS = [
   "question.recommended",
   "question.acceptRecommended",
   "question.note",
+  "question.reasonRequired",
+  "question.reasonMissing",
+  // Revising a verdict the agent has received (approval-scale-ranking, design decision 6).
+  "revision.confirmTitle",
+  "revision.confirmBody",
+  "revision.confirmSend",
+  "revision.confirmCancel",
+  // Submit asks before replacing a received verdict (design decision 6; texts to review).
+  "revision.submitTitle",
+  "revision.submitBody",
   "option.agent",
   "option.showPreview",
   "option.addNote",
@@ -124,6 +134,9 @@ export const STRING_KEYS = [
   "change.widget",
   "change.widgetTree",
   "change.widgetGantt",
+  "change.widgetApproval",
+  "change.widgetScale",
+  "change.widgetRanking",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -266,6 +279,30 @@ export const STRING_KEYS = [
   "gantt.entry.notWorking",
   "gantt.entry.earliest",
   "gantt.entry.pickDay",
+  // The Approval (approval-scale-ranking, task 5.1; ux-update-draft.md blocks 1, 4 and 5).
+  "approval.label",
+  "approval.approve",
+  "approval.approveWithChanges",
+  "approval.reject",
+  "approval.title",
+  "approval.more",
+  "approval.on",
+  "approval.off",
+  "approval.added",
+  "approval.removed",
+  "approval.moved",
+  // The Scale (approval-scale-ranking, task 5.2; ux-update-draft.md blocks 2 and 9).
+  "scale.notSet",
+  "scale.low",
+  "scale.high",
+  // The Ranking (approval-scale-ranking, task 5.3; ux-update-draft.md block 2).
+  "ranking.tools",
+  "ranking.moveUp",
+  "ranking.moveDown",
+  "ranking.keep",
+  "ranking.handle",
+  "ranking.counterKept",
+  "ranking.counterMoved",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

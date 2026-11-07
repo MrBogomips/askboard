@@ -16,7 +16,13 @@
 // earlier revision by "Keep mine" answers that revision. Every command is held by the view's acts
 // until the board page settles it; a refused one leaves the work in the draft.
 
-import type { ChoiceOption, HeldAct, LifecycleQuestionStatus, Locale } from "@askboard/contract";
+import {
+  type ChoiceOption,
+  type HeldAct,
+  type LifecycleQuestionStatus,
+  type Locale,
+  noteHoldsReason,
+} from "@askboard/contract";
 import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import {
@@ -33,12 +39,15 @@ import {
   itemIdsOf,
   type QuestionWork,
   releaseHeld,
+  resultFits,
   resultIdsOf,
 } from "./board-draft.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { answerOf } from "./question-state.ts";
+import { type FactsOf, reasonOf } from "./reason.ts";
+import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
 export const EXPLAIN = t("en-US", "question.explainText");
@@ -86,7 +95,12 @@ export type AnswerContext = Senders & {
   readonly derived: DerivedStore;
   /** The delivery the question answers in: immediate on a single-question board. */
   readonly delivery: Delivery;
+  /** The facts of each widget type, which say whether an item's result requires a reason. */
+  readonly facts?: FactsOf;
 };
+
+/** What "Answer" gave: nothing to report, or that the answer lacks the reason it requires. */
+export type AnswerOutcome = "needs-reason" | undefined;
 
 /**
  * The answer with the derived values every computing item of the question last reported (widget-
@@ -167,8 +181,51 @@ const takeBackUndo = (question: ViewQuestion, board: BoardDraft): void =>
 
 const now = () => new Date().toISOString();
 
-/** "Answer": sends, marks ready or unmarks, or sends or holds the note alone (FR-7, FR-22). */
-export const answer = (question: ViewQuestion, context: AnswerContext): void => {
+// Whether a held result requires a reason the note does not give; in submitted delivery an answer
+// marked ready is unmarked whatever the note says, since the press only takes the mark back. Where
+// the card answers at once the press sends, so a mark excuses nothing.
+const reasonGate = (
+  question: ViewQuestion,
+  {
+    results,
+    board,
+    facts,
+    delivery,
+  }: Pick<AnswerContext, "results" | "board" | "facts" | "delivery">,
+  content: AnswerContent,
+): AnswerOutcome => {
+  const requires = reasonOf(question, results?.record() ?? new Map(), undefined, facts);
+  const marked = delivery === "submitted" && board.work(question.id)?.held?.act === "answer";
+  return requires !== undefined && !noteHoldsReason(content.note) && !marked
+    ? "needs-reason"
+    : undefined;
+};
+
+/**
+ * Whether "Answer" would send nothing for want of the reason a held result requires, which the
+ * card shows as the field error: the same check "Answer" makes, before a confirmation asks.
+ */
+export const answerNeedsReason = (
+  question: ViewQuestion,
+  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts" | "delivery">,
+): boolean => {
+  const { draft, results, board } = context;
+  const content = answerContentOf(
+    question,
+    draft.record(),
+    board.work(question.id),
+    results?.record(),
+  );
+  return reasonGate(question, context, content) === "needs-reason";
+};
+
+/**
+ * "Answer": sends, marks ready or unmarks, or sends or holds the note alone (FR-7, FR-22). While a
+ * held result requires a reason (approval-scale-ranking, design decision 6) and the note holds no
+ * character but white space, it sends and marks nothing and says so, so that the card shows the
+ * field error and moves focus to the prompt; unmarking an answer marked ready is never refused.
+ */
+export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOutcome => {
   const { draft, results, board, derived, delivery } = context;
   const work = board.work(question.id);
   const content = withDerived(
@@ -182,24 +239,26 @@ export const answer = (question: ViewQuestion, context: AnswerContext): void => 
     content.results !== undefined ||
     content.other !== undefined;
   if (!answers) {
-    if (content.note === undefined) return;
+    if (content.note === undefined) return undefined;
     if (delivery === "submitted") {
       toggleHeld(question, context, "note");
-      return;
+      return undefined;
     }
     sendActs(context, [
       { type: "note", itemId: question.id, rev: question.rev, note: content.note, when: now() },
     ]);
-    return;
+    return undefined;
   }
+  if (reasonGate(question, context, content) === "needs-reason") return "needs-reason";
   if (delivery === "submitted") {
     toggleHeld(question, context, "answer");
-    return;
+    return undefined;
   }
   const rev = revisionFor(question, work);
   const message = answerOf({ ...question, rev }, content, new Date());
   const { type: _, ...fields } = message;
   dispatch(context, [{ type: "answer", ...fields }], message);
+  return undefined;
 };
 
 /**
@@ -320,10 +379,26 @@ export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): 
   dropWork(question, context);
 };
 
-/** "Keep mine": an `ignore` keeping the revision the work was made on, at once (FR-6). */
-export const keepMine = (question: ViewQuestion, context: AnswerContext): void => {
+/**
+ * "Keep mine": an `ignore` keeping the revision the work was made on, at once (FR-6). `shown` is
+ * the revision the card shows, the one the work was made on when the page has seen it, else the
+ * current one: a result the draft holds that `shown` refuses, as when the page was reloaded after
+ * the agent's change and shows the new props, is dropped, and its item shows as untouched
+ * (approval-scale-ranking, pre-PR reviews, "A draft holds only results its items accept").
+ */
+export const keepMine = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  shown: ViewQuestion = question,
+): void => {
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
+  const { results, facts } = context;
+  for (const itemId of resultIdsOf(shown)) {
+    const held = results?.valueOf(itemId);
+    if (held !== undefined && !resultFits(shown, itemId, held, facts))
+      results?.set(itemId, undefined);
+  }
   sendActs(context, [
     {
       type: "edit-choice",
@@ -337,20 +412,29 @@ export const keepMine = (question: ViewQuestion, context: AnswerContext): void =
 
 /**
  * Fills the question's draft from an answer, as far as the question's revision offers it: its
- * labels, "Other…" text where it is offered, the notes on its labels, and the note, in place of
- * those of the draft; the composer's text stays. Nothing is sent (AD-10): "Start from my previous
- * answer", and the start of a revision.
+ * labels, "Other…" text where it is offered, the notes on its labels, the note, and the results of
+ * the widget items it holds (approval-scale-ranking, design decision 6), in place of those of the
+ * draft; the composer's text stays. Nothing is sent (AD-10): "Start from my previous answer", and
+ * the start of a revision.
  */
 export const fillFrom = (
   question: ViewQuestion,
   content: AnswerContent,
-  { draft, board }: Pick<AnswerContext, "draft" | "board">,
+  { draft, results, board, facts }: Pick<AnswerContext, "draft" | "results" | "board" | "facts">,
 ): void => {
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
   const choice = (content.choice ?? []).filter((label) => labels.has(label));
   const notes = Object.entries(content.optionNotes ?? {}).filter(([label]) => labels.has(label));
   const other = question.props.allowOther === true ? content.other : undefined;
   draft.set(question.id, choice.length === 0 ? undefined : choice);
+  // Each widget item the revision holds takes the answer's result for it, as an own property, or
+  // none; an item the revision no longer holds, a key that names none and a result the item's type
+  // refuses against its current props seed nothing, and the item shows as untouched.
+  for (const itemId of resultIdsOf(question)) {
+    const given = content.results;
+    const result = given !== undefined && Object.hasOwn(given, itemId) ? given[itemId] : undefined;
+    results?.set(itemId, resultFits(question, itemId, result, facts) ? result : undefined);
+  }
   board.edit(question.id, question.rev, ({ other: _o, optionNotes: _n, note: _t, ...rest }) => ({
     ...rest,
     ...(other === undefined ? {} : { other }),
@@ -364,10 +448,12 @@ export const recommendedOf = (question: ViewQuestion): ChoiceOption | undefined 
   question.props.options?.find((option) => option.recommended === true);
 
 /**
- * "Accept recommended": selects the recommended option, as the only one on a single choice (which
- * clears "Other…") or beside the others on a multiple one, and acts as "Answer" (L186).
+ * The selection of "Accept recommended": the recommended option, as the only one on a single choice
+ * (which clears "Other…") or beside the others on a multiple one; an answer marked ready is
+ * unmarked, since the selection changes it. It acts as nothing else: the press goes on through
+ * `pressAnswer`, as a press of "Answer" does.
  */
-export const acceptRecommended = (question: ViewQuestion, context: AnswerContext): void => {
+export const selectRecommendedOption = (question: ViewQuestion, context: AnswerContext): void => {
   const recommended = recommendedOf(question);
   if (recommended === undefined) return;
   const { draft, board } = context;
@@ -386,5 +472,47 @@ export const acceptRecommended = (question: ViewQuestion, context: AnswerContext
   }
   const held = board.work(question.id)?.held;
   if (held?.act === "answer") board.clear(question.id, ["held"]);
-  answer(question, context);
+};
+
+/**
+ * "Accept recommended" with no confirmation: the selection, then "Answer". The card goes through
+ * `pressAnswer` instead, so that the reason check and the confirmation come between (L186).
+ */
+export const acceptRecommended = (
+  question: ViewQuestion,
+  context: AnswerContext,
+): AnswerOutcome => {
+  if (recommendedOf(question) === undefined) return undefined;
+  selectRecommendedOption(question, context);
+  return answer(question, context);
+};
+
+/** What a press of "Answer" made of itself, for the card to show. */
+export type AnswerPress =
+  /** Nothing was sent or marked for want of the reason: the field error and the prompt. */
+  | { readonly kind: "needs-reason" }
+  /** The act waits for the user's confirmation. */
+  | { readonly kind: "waiting"; readonly waiting: Waiting }
+  /** The act ran now. */
+  | { readonly kind: "done" };
+
+/**
+ * A press of "Answer", or of "Accept recommended" once it has selected: the reason check first,
+ * before anything asks (F-63, AD-10), then the confirmation a received verdict needs, then the act
+ * itself, whose outcome `onOutcome` hears each time it runs, at once or on confirming.
+ */
+export const pressAnswer = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  status: LifecycleQuestionStatus | undefined,
+  onOutcome: (outcome: AnswerOutcome) => void,
+): AnswerPress => {
+  if (answerNeedsReason(question, context)) return { kind: "needs-reason" };
+  // The held act excuses the confirmation only where the press takes it back: in submitted delivery.
+  const held =
+    context.delivery === "submitted" ? context.board.work(question.id)?.held?.act : undefined;
+  const waiting = press(asksFirst("answer", question, status, held, context.facts), () =>
+    onOutcome(answer(question, context)),
+  );
+  return waiting === undefined ? { kind: "done" } : { kind: "waiting", waiting };
 };

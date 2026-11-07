@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:approval-props",
+  "title": "Approval props",
+  "description": "An Approval item's props (FR-11, approval-scale-ranking design decision 1): none, an empty object. The Approval gives a decision on the content of the question that holds it, which the board reads from the question's other items. In the input format since approval-scale-ranking.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

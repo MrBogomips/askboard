@@ -20,6 +20,7 @@ import {
   boardItemsOf,
   createAnsweredResults,
   createBoardContent,
+  widgetItemsByQuestion,
 } from "./board-content.ts";
 import { createDraftStore } from "./draft-store.ts";
 
@@ -312,5 +313,54 @@ describe("the results the board's answers hold (widget-registry, design decision
     expect(resultOf("sketch")).toBe(result);
     expect(resultOf("elsewhere")).toBeUndefined();
     expect(resultOf("constructor")).toBeUndefined();
+  });
+});
+
+describe("a component's question items (approval-scale-ranking, design decision 7)", () => {
+  const second = { ...sketch, id: "second" };
+  const other: ViewQuestion = {
+    ...plain,
+    id: "other",
+    props: { ...plain.props, items: [{ ...sketch, id: "elsewhere" }] },
+  };
+  const twoQuestions: ViewDocument = {
+    ...plainChoiceBoardDocument,
+    items: [holding([sketch, second]), other],
+  };
+
+  test("a board of two questions maps each to its widget items, in order", () => {
+    const map = widgetItemsByQuestion(twoQuestions);
+    expect(map.get(plain.id)).toEqual(["sketch", "second"]);
+    expect(map.get("other")).toEqual(["elsewhere"]);
+    expect([...map.keys()]).toEqual([plain.id, "other"]);
+  });
+
+  test("a question with no widget items maps to an empty list", () => {
+    expect(widgetItemsByQuestion(plainChoiceBoardDocument).get(plain.id)).toEqual([]);
+  });
+
+  test("a board of areas maps the questions of every area", () => {
+    const map = widgetItemsByQuestion(areaBoard);
+    expect(map.get(schedule.id)).toEqual(["release"]);
+    expect(map.get(plain.id)).toEqual(["sketch"]);
+    expect(map.get(planQuestion.id)).toEqual([wbs.id, plan.id]);
+  });
+
+  test("the same map for the same document, a new one for another, and the lists are frozen", () => {
+    const map = widgetItemsByQuestion(twoQuestions);
+    expect(widgetItemsByQuestion(twoQuestions)).toBe(map);
+    expect(widgetItemsByQuestion({ ...twoQuestions })).not.toBe(map);
+    expect(Object.isFrozen(map.get(plain.id))).toBe(true);
+  });
+
+  test("the board carries it, the same object across draft records while the document is", () => {
+    const draft = createDraftStore();
+    const boardOf = boardOver(twoQuestions);
+    const before = boardOf(draft.record());
+    draft.set("sketch", { size: 4 });
+    const after = boardOf(draft.record());
+    expect(after).not.toBe(before);
+    expect(before.questionItems).toBe(widgetItemsByQuestion(twoQuestions));
+    expect(after.questionItems).toBe(before.questionItems);
   });
 });

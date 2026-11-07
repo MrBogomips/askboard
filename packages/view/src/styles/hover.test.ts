@@ -41,6 +41,12 @@ describe("the shared hover, cursor and focus layer", () => {
     expect(ruleOf('[data-resize="column"] {')).toContain("cursor: col-resize");
   });
 
+  test("a disabled handle reads not allowed, not grab", () => {
+    expect(ruleOf('[data-grab]:is([data-disabled], [aria-disabled="true"]) {')).toContain(
+      "cursor: not-allowed",
+    );
+  });
+
   test("the hover pair is the muted fill, the border-strong outline and the card fill", () => {
     const pair = ruleOf(":is(:root, .dark) {");
     expect(pair).toContain("--hover-fill: var(--muted)");

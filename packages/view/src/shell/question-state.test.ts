@@ -14,6 +14,7 @@ import {
   cardActions,
   cardState,
   choiceOf,
+  contentOf,
   draftAnswerOf,
   shownFor,
   shownResultFor,
@@ -502,5 +503,17 @@ describe("a question with widget results (widget-registry, design decision 9)", 
       shown: { results: { sketch: result } },
     });
     expect(shownResultFor(shown.shown, "database", "sketch")).toEqual(result);
+  });
+});
+
+describe("an answer's content, results included (approval-scale-ranking, design decision 6)", () => {
+  test("carries the results of the answer, and none when it has none", () => {
+    const results = { sketch: { pick: "a" } };
+    expect(contentOf({ choice: ["SQLite"], results, note: "Ok." })).toEqual({
+      choice: ["SQLite"],
+      results,
+      note: "Ok.",
+    });
+    expect(Object.hasOwn(contentOf({ choice: ["SQLite"] }), "results")).toBe(false);
   });
 });

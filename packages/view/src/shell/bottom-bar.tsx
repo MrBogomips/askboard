@@ -11,30 +11,30 @@
 // single-question board the bar shows only the postponed warning line, while there is one, and
 // "Snapshot".
 
+import type { LifecycleBoardState } from "@askboard/contract";
 import { AlertDialog } from "radix-ui";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
-import type { ViewDocument } from "../view-document.ts";
+import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
+import { ReplacedQuestions } from "./replaced-questions.tsx";
 import { SnapshotButton, SnapshotFeedback } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import {
   BUTTON_LINK,
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
+  DIALOG,
   SECTION_LABEL,
   SEGMENT,
   SEGMENTS,
 } from "./styles.ts";
-import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
-
-const DIALOG =
-  "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-sm rounded-lg border border-border bg-popover p-lg text-foreground shadow-lg";
+import { confirmedPress, type SubmitState, submitPress, updatesLabel } from "./submit.ts";
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
@@ -46,6 +46,8 @@ const Warning = ({ warning }: { readonly warning: string }) => (
 export type BottomBarProps = {
   readonly single: boolean;
   readonly document: ViewDocument;
+  /** The state of the board: the receipts of the answers Submit would replace. */
+  readonly state: LifecycleBoardState;
   readonly delivery: Delivery;
   readonly warning: string | undefined;
   readonly submit: SubmitState;
@@ -59,6 +61,8 @@ export type BottomBarProps = {
     readonly derived: DerivedStore;
   };
   readonly onSelectRecommended: () => void;
+  /** Submit found a held answer lacking the reason it requires: go to its prompt with the error. */
+  readonly onNeedsReason: (questionId: string) => void;
   readonly onJump: (questionId: string) => void;
   /** The bar's Snapshot, and whether the board offers it now. */
   readonly snapshot: SnapshotControl;
@@ -66,8 +70,15 @@ export type BottomBarProps = {
 };
 
 export const BottomBar = (props: BottomBarProps) => {
-  const { single, document, delivery, warning, submit, recommendations, locked, context } = props;
+  const { single, document, state, delivery, warning, submit, recommendations, locked, context } =
+    props;
   const [confirming, setConfirming] = useState(false);
+  // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
+  const [replacing, setReplacing] = useState<
+    | { readonly questions: readonly ViewQuestion[]; readonly then: (() => void) | undefined }
+    | undefined
+  >();
+  const submitButton = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   const language = useLanguage();
   const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
@@ -82,17 +93,48 @@ export const BottomBar = (props: BottomBarProps) => {
       </footer>
     );
   }
-  // Submit's one command: every held act, in the order the user produced them (AD-20).
-  const send = () => {
-    const acts = submitActsOf(
-      heldWorkOf(document, context.board.get()),
+  // The press of Submit against the held work as it is now.
+  const pressNow = () =>
+    submitPress(
+      document,
+      context.board.get(),
       context.draft.record(),
       new Date(),
       context.derived.reported,
-      context.results?.record(),
+      { results: context.results?.record(), state },
     );
+  // Submit's one command: every held act, in the order the user produced them (AD-20), after a
+  // last check that every held answer has the reason its held result requires: one that lacks it
+  // sends nothing, keeps every act held and takes the board to that question's prompt. Then, when
+  // the command would replace a verdict the agent has received, the dialog asks; Cancel or Escape
+  // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
+  // immediate delivery does.
+  const sendActsOf = (acts: readonly ViewAct[], then?: () => void): void => {
     const [first, ...rest] = acts;
-    if (first !== undefined) sendActs(context, [first, ...rest] as [ViewAct, ...ViewAct[]]);
+    if (first !== undefined) sendActs(context, [first, ...rest]);
+    then?.();
+  };
+  const send = (then?: () => void): void => {
+    const pressed = pressNow();
+    if (pressed.kind === "needs-reason") {
+      props.onNeedsReason(pressed.questionId);
+      return;
+    }
+    if (pressed.kind === "send") sendActsOf(pressed.acts, then);
+    else setReplacing({ questions: pressed.questions, then });
+  };
+  // The dialog's Submit presses again against the held work as it is now, and sends only what that
+  // press sends: it goes nowhere while Submit waits, and it asks again when the questions changed.
+  const confirmReplacing = () => {
+    const outcome = confirmedPress(replacing?.questions ?? [], submit.disabled, pressNow());
+    const then = replacing?.then;
+    if (outcome.kind === "ask") {
+      setReplacing({ questions: outcome.questions, then });
+      return;
+    }
+    setReplacing(undefined);
+    if (outcome.kind === "needs-reason") props.onNeedsReason(outcome.questionId);
+    else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
   const blockedSwitch = submit.held > 0 && delivery === "submitted" && submit.disabled;
@@ -148,7 +190,13 @@ export const BottomBar = (props: BottomBarProps) => {
             {updatesLabel(submit.blocked.length, language)}
           </button>
         )}
-        <button type="button" className={BUTTON_PRIMARY} disabled={submit.disabled} onClick={send}>
+        <button
+          ref={submitButton}
+          type="button"
+          className={BUTTON_PRIMARY}
+          disabled={submit.disabled}
+          onClick={() => send()}
+        >
           {text("bar.submit")}
         </button>
       </span>
@@ -170,12 +218,51 @@ export const BottomBar = (props: BottomBarProps) => {
               <AlertDialog.Action
                 className={BUTTON_PRIMARY}
                 disabled={submit.disabled}
-                onClick={() => {
-                  send();
-                  context.board.setDelivery("immediate");
-                }}
+                onClick={() => send(() => context.board.setDelivery("immediate"))}
               >
                 {text("bar.sendAndSwitch")}
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+      <AlertDialog.Root
+        open={replacing !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setReplacing(undefined);
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
+          <AlertDialog.Content
+            className={DIALOG}
+            onCloseAutoFocus={(event) => {
+              // The dialog has no trigger, so Radix restores no focus: it goes back to Submit.
+              event.preventDefault();
+              submitButton.current?.focus();
+            }}
+          >
+            <AlertDialog.Title className="text-body-lg font-semibold">
+              {text("revision.submitTitle")}
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-body text-foreground-secondary">
+              {text("revision.submitBody")}
+            </AlertDialog.Description>
+            <ReplacedQuestions questions={replacing?.questions ?? []} />
+            <div className="mt-sm flex justify-end gap-sm">
+              <AlertDialog.Cancel className={BUTTON_SECONDARY}>
+                {text("bar.cancel")}
+              </AlertDialog.Cancel>
+              <AlertDialog.Action
+                className={BUTTON_PRIMARY}
+                disabled={submit.disabled}
+                onClick={(event) => {
+                  // The dialog stays open when it must ask again: it closes by its own state.
+                  event.preventDefault();
+                  confirmReplacing();
+                }}
+              >
+                {text("bar.submit")}
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

@@ -13,6 +13,7 @@ export {
   type DerivedValues,
   type ItemProps,
   questionTextId,
+  type ReasonStrings,
   register,
   registeredComponents,
   type Say,

@@ -29,6 +29,12 @@ export type BoardWidgetItem = {
  */
 export type BoardContent = {
   readonly items: readonly BoardWidgetItem[];
+  /**
+   * Question ID to its widget items' IDs, in order (approval-scale-ranking, design decision 7):
+   * what a component reads of the items beside it. The shell always sets it, for the live board
+   * and a Snapshot; optional in the type so a component's fixtures stand without it.
+   */
+  readonly questionItems?: ReadonlyMap<string, readonly string[]> | undefined;
   readonly draft: ReadonlyMap<string, unknown>;
   /**
    * Item ID to the value the item shows: its draft value, else the value its question's latest
@@ -97,7 +103,30 @@ export type CatalogComponent<Item = unknown, Value = unknown> = (
 export type ComponentFacts = {
   readonly shape?: (props: unknown) => ElementShape;
   readonly name?: StringKey;
+  /**
+   * Whether the item's result requires a reason (approval-scale-ranking, design decision 5): while
+   * it gives a pair for the result the item holds or shows, the question's open prompt reads
+   * `label` and is required, and `missing` is its field error.
+   */
+  readonly reason?: (result: unknown) => ReasonStrings | undefined;
+  /**
+   * A revision of a question holding such an item asks first once the agent has received the
+   * latest answer (approval-scale-ranking, design decision 5).
+   */
+  readonly confirmsRevision?: true;
+  /**
+   * Whether the type takes `result` for an item with `props`, by the contract's shape check and
+   * its check of a result against props, the two `widgetResultFits` runs (approval-scale-ranking,
+   * pre-PR reviews): the shell holds or seeds a result only while this says true, so a draft never
+   * holds one `ask-core` would refuse. Every type that gives a result registers it; the shell
+   * takes no result for a type that did not, never any. The shell cannot import the registry, so
+   * each chunk registers it over the contract's own functions.
+   */
+  readonly fits?: (result: unknown, props: unknown) => boolean;
 };
+
+/** The two strings a required reason uses: the open prompt's label and its field error. */
+export type ReasonStrings = { readonly label: StringKey; readonly missing: StringKey };
 
 const components = new Map<string, CatalogComponent>();
 const facts = new Map<string, ComponentFacts>();

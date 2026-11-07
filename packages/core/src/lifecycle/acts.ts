@@ -19,8 +19,10 @@ import type { Entry, EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
 import {
+  answerRequirementProblem,
   type KeptAnswer,
   sharedResultAddress,
+  type WidgetFields,
   widgetFieldsOf,
   withinLimit,
 } from "./widget-event.ts";
@@ -184,8 +186,18 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   if (late !== undefined) return late;
   const head = { cursor: target.cursor, type: "answer", itemId, rev, who, when: act.when };
   const body = declined ? { declined: true, ...reason } : contentOf(act);
-  const widget =
+  const widget: WidgetFields =
     widgets === undefined ? {} : widgetFieldsOf(target.expansion, props, widgets, target.types);
+  const unmet =
+    widgets === undefined
+      ? undefined
+      : answerRequirementProblem(
+          widgets,
+          widget,
+          typeof act.note === "string" ? act.note : undefined,
+          target.types,
+        );
+  if (unmet !== undefined) return problem("content", unmet, itemId);
   if (widgets !== undefined) keepWidgets(target, widgets);
   return withinLimit({ ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent);
 };

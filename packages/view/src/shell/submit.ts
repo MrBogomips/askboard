@@ -7,7 +7,12 @@
 // with held work. "Select recommended" only selects, and in submitted delivery holds each selection
 // for Submit. Pure functions of the board document, the drafts and the board's state.
 
-import type { HeldAct, LifecycleBoardState, Locale } from "@askboard/contract";
+import {
+  type HeldAct,
+  type LifecycleBoardState,
+  type Locale,
+  noteHoldsReason,
+} from "@askboard/contract";
 import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { ViewAct, ViewLock } from "../view-protocol.ts";
@@ -19,10 +24,19 @@ import {
   itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
-import { nextHeldOrder, recommendedOf, revisionFor, withDerived } from "./card-acts.ts";
+import {
+  type AnswerContext,
+  answerNeedsReason,
+  nextHeldOrder,
+  recommendedOf,
+  revisionFor,
+  withDerived,
+} from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { contentOf } from "./question-state.ts";
+import { type FactsOf, reasonOf } from "./reason.ts";
+import { questionsToConfirm } from "./revision-confirm.ts";
 
 /** A question with an act held for Submit, and the work that carries it. */
 export type HeldWork = {
@@ -177,12 +191,24 @@ const hasChoice = (question: ViewQuestion, values: DraftRecord, work: QuestionWo
  * "Select recommended": the recommended option on every question that is open (not answered,
  * declined or postponed), holds no act but a note, and where the user has chosen nothing, unless
  * `skip` says the question cannot take it now. In submitted delivery each selection is held for
- * Submit, marked as made by it; nothing is sent (AD-10). Returns how many it selected.
+ * Submit, marked as made by it, unless a held result requires a reason the note lacks: that
+ * question keeps its selection and is not marked ready, as "Answer" would refuse it; nothing is
+ * sent (AD-10). Returns how many it selected, marked or not.
  */
 export const selectRecommended = (
   document: ViewDocument,
   state: LifecycleBoardState,
-  { draft, board }: { readonly draft: DraftStore; readonly board: BoardDraft },
+  {
+    draft,
+    results,
+    board,
+    facts,
+  }: {
+    readonly draft: DraftStore;
+    readonly results?: DraftStore | undefined;
+    readonly board: BoardDraft;
+    readonly facts?: AnswerContext["facts"];
+  },
   skip: (questionId: string) => boolean,
 ): number => {
   let count = 0;
@@ -196,7 +222,14 @@ export const selectRecommended = (
       continue;
     }
     draft.set(question.id, [recommended.label]);
-    if (board.get().delivery === "submitted") {
+    const lacksReason = answerNeedsReason(question, {
+      draft,
+      results,
+      board,
+      facts,
+      delivery: board.get().delivery,
+    });
+    if (board.get().delivery === "submitted" && !lacksReason) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({
         ...current,
@@ -206,4 +239,98 @@ export const selectRecommended = (
     count += 1;
   }
   return count;
+};
+
+/**
+ * The first question, in board order, whose held answer lacks the reason a held result of its own
+ * requires: a note holding a character other than white space. A held answer is a marked one; the
+ * mark does not excuse it here, since the note may have lost its text since (design decision 6).
+ */
+export const heldMissingReason = (
+  document: ViewDocument,
+  held: readonly HeldWork[],
+  values: DraftRecord,
+  results: DraftRecord | undefined,
+  facts?: FactsOf,
+): ViewQuestion | undefined => {
+  for (const question of questionsOf(document)) {
+    const entry = held.find((each) => each.question.id === question.id);
+    if (entry === undefined || entry.work.held.act !== "answer") continue;
+    const content = answerContentOf(question, values, entry.work, results);
+    if (
+      reasonOf(question, results ?? new Map(), undefined, facts) !== undefined &&
+      !noteHoldsReason(content.note)
+    ) {
+      return question;
+    }
+  }
+  return undefined;
+};
+
+/** What a press of Submit comes to: a question whose reason is missing, the acts to send, or the acts and the questions to ask about first. */
+export type SubmitPress =
+  | { readonly kind: "needs-reason"; readonly questionId: string }
+  | { readonly kind: "send"; readonly acts: ViewAct[] }
+  | {
+      readonly kind: "confirm";
+      readonly acts: ViewAct[];
+      /** The questions whose received verdict the acts replace, in board order. */
+      readonly questions: readonly ViewQuestion[];
+    };
+
+/**
+ * A press of Submit (design decision 6): the last reason check over every held answer comes
+ * before anything else; one that fails sends nothing and leaves every act held, naming the
+ * question the board goes to. Then, when a held answer or decline would replace a received
+ * verdict, the questions to ask about with the acts; otherwise the one command, every held act in
+ * the order the user produced them.
+ */
+export const submitPress = (
+  document: ViewDocument,
+  board: BoardDraftState,
+  values: DraftRecord,
+  at: Date,
+  reported: DerivedStore["reported"],
+  options: {
+    /** The board's state, for the receipts of the answers the held acts would replace. */
+    readonly state: LifecycleBoardState;
+    readonly results?: DraftRecord | undefined;
+    readonly facts?: FactsOf | undefined;
+  },
+): SubmitPress => {
+  const { results, facts, state } = options;
+  const held = heldWorkOf(document, board);
+  const missing = heldMissingReason(document, held, values, results, facts);
+  if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
+  const acts = submitActsOf(held, values, at, reported, results);
+  const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
+  return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
+};
+
+/** What the confirmation's Submit comes to, once pressed again against the held work as it is. */
+export type ConfirmedPress =
+  | { readonly kind: "blocked" }
+  | { readonly kind: "needs-reason"; readonly questionId: string }
+  | { readonly kind: "ask"; readonly questions: readonly ViewQuestion[] }
+  | { readonly kind: "send"; readonly acts: ViewAct[] };
+
+/**
+ * The confirmation's Submit (design decision 6): `now` is the press made again, against the held
+ * work as it is when the user confirms, not as it was when the dialog opened. Nothing is sent when
+ * Submit has been disabled meanwhile (a notice, a lost connection, a lock, a command on its way),
+ * or when a held answer now lacks its reason; when the press now asks about other questions than
+ * the dialog listed, it asks again with the new list; otherwise the acts are the press's now.
+ */
+export const confirmedPress = (
+  asked: readonly ViewQuestion[],
+  disabled: boolean,
+  now: SubmitPress,
+): ConfirmedPress => {
+  if (disabled) return { kind: "blocked" };
+  if (now.kind === "needs-reason") return now;
+  if (now.kind === "send") return now;
+  const same =
+    now.questions.length === asked.length &&
+    now.questions.every((question, index) => question.id === asked[index]?.id);
+  return same ? { kind: "send", acts: now.acts } : { kind: "ask", questions: now.questions };
 };

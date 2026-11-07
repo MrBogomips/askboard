@@ -112,6 +112,8 @@ export const startTestServer = async ({ transcript, view }: Scenario): Promise<B
     link: boardLink({ port: server.port ?? 0, askId, token }),
     collected: () => replay.trigger("collected"),
     collect: () => Promise.reject(new Error(NO_AGENT)),
+    collectJson: () => Promise.reject(new Error(NO_AGENT)),
+    fetch: () => Promise.reject(new Error(NO_AGENT)),
     update: () => Promise.reject(new Error(NO_AGENT)),
     snapshot: () => Promise.reject(new Error(NO_AGENT)),
     agentWaits: () => replay.trigger("waiting"),

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:ranking-result",
+  "title": "Ranking result",
+  "description": "A Ranking's result (FR-11, FR-18, approval-scale-ranking design decision 1): the IDs of the item's elements in the user's order. That each of the item's elements is named exactly once is a check of the type against the item's props. Never empty. In the output format since approval-scale-ranking.",
+  "type": "object",
+  "properties": {
+    "order": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 50,
+      "items": { "$ref": "urn:askboard:input:id" }
+    }
+  },
+  "required": ["order"],
+  "additionalProperties": false
+}

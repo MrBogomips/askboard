@@ -116,11 +116,22 @@ export class Agent {
   }
 
   async collect(askId: string, after: string): Promise<CollectedAsk> {
+    return collectedAskOf(await this.collectJson(askId, after), askId);
+  }
+
+  /** The whole JSON of a `collect` result, for a test that validates it against the schema. */
+  async collectJson(askId: string, after: string): Promise<unknown> {
     const result = await this.#client.callTool({
       name: "collect",
       arguments: { asks: [{ askId, after }] },
     });
-    return collectedAskOf(toolJson("collect", result), askId);
+    return toolJson("collect", result);
+  }
+
+  /** The agent's `fetch` of one item (widget-answers): the whole JSON of its result. */
+  async fetch(askId: string, itemId: string): Promise<unknown> {
+    const result = await this.#client.callTool({ name: "fetch", arguments: { askId, itemId } });
+    return toolJson("fetch", result);
   }
 
   /** Lists the tools: a first request, which starts the session process's local API (AD-2). */

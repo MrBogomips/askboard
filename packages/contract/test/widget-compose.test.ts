@@ -81,11 +81,11 @@ describe("the composition over the Tree and the Gantt", () => {
     );
   });
 
-  test("is what the schema sets hold", () => {
-    expect(shipped(SCHEMA_IDS.questionProps)).toEqual(goldenQuestionProps);
-    expect(shipped(SCHEMA_IDS.boardDocument)).toEqual(goldenBoardDocument);
-    expect(withoutResults(shipped(SCHEMA_IDS.fetchResult))).toEqual(goldenFetchResult);
-    expect(WIDGET_TYPES).toEqual(TREE_AND_GANTT);
+  test("is what the schema sets hold over the shipped registry, which starts with the Tree and the Gantt", () => {
+    expect(WIDGET_TYPES.slice(0, TREE_AND_GANTT.length)).toEqual(TREE_AND_GANTT);
+    expect(shipped(SCHEMA_IDS.questionProps)).toEqual(composeQuestionProps(questionPropsBase));
+    expect(shipped(SCHEMA_IDS.boardDocument)).toEqual(composeBoardDocument(boardDocumentBase));
+    expect(shipped(SCHEMA_IDS.fetchResult)).toEqual(composeFetchResult(fetchResultBase));
   });
 
   test("changes nothing it reads", () => {
@@ -102,7 +102,10 @@ describe("the composition over the Tree and the Gantt", () => {
         ({ $id }) => $id,
       );
     for (const { props } of WIDGET_TYPES) expect(ids("input")).toContain(props.$id);
-    for (const { edits } of WIDGET_TYPES) expect(ids("output")).toContain(edits?.changes.$id);
+    for (const { edits, result } of WIDGET_TYPES) {
+      if (edits !== undefined) expect(ids("output")).toContain(edits.changes.$id);
+      if (result !== undefined) expect(ids("output")).toContain(result.schema.$id);
+    }
   });
 });
 
