@@ -31,7 +31,9 @@ import {
   widgetChangesProblems,
   widgetRegistryProblems,
 } from "../src/index.ts";
+import { validateAskRequest } from "../src/requests.ts";
 import { SCHEMA_IDS } from "../src/sets.ts";
+import { validateUpdateRequest } from "../src/update-request.ts";
 import { elementShapeOf, validateBoardMessage } from "../src/validate.ts";
 import { LATEX_EXPECTED } from "../src/widgets/latex/wording.ts";
 import { ajvOver, errorsOf } from "./probe-ajv.ts";
@@ -153,7 +155,7 @@ describe("LaTeX items", () => {
 });
 
 // Group 4 review S-1 (contract spec: LaTeX macro definitions refused; design decisions 3 and 7): a
-// macro definition is refused, named, read as KaTeX 0.19.1's lexer reads control words.
+// macro definition is refused, named, read as KaTeX's lexer reads control words.
 const DEFINING = [
   "\\def",
   "\\gdef",
@@ -374,8 +376,8 @@ describe("LaTeX internal commands refused", () => {
 
 // The 4.7 re-review's X-2 (contract spec: LaTeX nesting bounded; design decisions 3 and 7, Bounded
 // work): a nest deeper than `LATEX_NESTING_MAX_DEPTH` is refused, naming the depth and the limit.
-// The constructs are those of the depth probe (`harness/latex-fixtures.ts` in the view's browser
-// tests), each nested to a depth the scan reads: a script and its group are two levels.
+// The constructs are those the view's browser tests nest (`harness/latex-fixtures.ts`), each nested
+// to a depth the scan reads: a script and its group are two levels.
 const CONSTRUCTS: readonly (readonly [string, string, string, 1 | 2])[] = [
   ["\\frac{", "}{x}", "frac", 1],
   ["{", "\\over x}", "over", 2],
@@ -447,6 +449,61 @@ describe("LaTeX nesting bounded", () => {
     expect(latexPropsProblems({ expression: script })[0]?.message).toContain("260 levels deep");
     expect(latexPropsProblems({ expression: root })[0]?.message).toContain("130 levels deep");
     expect(problems(withExpression(root))[0]?.message).toContain("limit of");
+  });
+
+  // latex-public-api (contract spec: LaTeX nesting bounded, scenarios "Stacked combining marks" and
+  // "Accented text"): the registry refuses stacked accents past the limit, like any nest.
+  test("x and 130 stacked U+0302 is refused naming its depth, through the plain check and the registry", () => {
+    const expression = `x${"\u0302".repeat(130)}`;
+    expect(scanLatex(expression).depth).toBe(131);
+    expect(latexPropsProblems({ expression }).map(({ path, message }) => [path, message])).toEqual([
+      ["/expression", `the expression nests 131 levels deep, more than the limit of ${LIMIT}`],
+    ]);
+    const [problem, ...rest] = problems(withExpression(expression));
+    expect(rest).toEqual([]);
+    expect(problem?.itemId).toBe("formula");
+    expect(problem?.field).toBe("props.expression");
+    expect(problem?.message).toContain("131 levels deep");
+  });
+
+  // Scenario "Stacked combining marks sent": the agent's own request is refused, naming the item.
+  test("x and 130 stacked U+0302 sent in an ask or an update is refused naming the item's field and the depth", () => {
+    const item = {
+      type: "latex",
+      id: "formula",
+      props: { expression: `x${"\u0302".repeat(130)}` },
+    };
+    const question = { type: "question", id: "q", props: { text: "Which?", items: [item] } };
+    const asked = validateAskRequest({ askId: "marks-ask-a1b2", items: [question] });
+    const updated = validateUpdateRequest({
+      askId: "marks-ask-a1b2",
+      actions: [{ action: "add", item: question }],
+    });
+    for (const checked of [asked, updated]) {
+      expect(checked.ok).toBe(false);
+      if (checked.ok) continue;
+      const text = checked.problems.map((problem) => problem.message).join("\n");
+      expect(text).toContain("props.expression");
+      expect(text).toContain("131 levels deep");
+      expect(text).toContain(`limit of ${LIMIT}`);
+    }
+  });
+
+  test("x and 10 stacked accents pass, 11 are refused", () => {
+    const stacked = (n: number) => `x${"\u0302".repeat(n)}`;
+    expect(latexPropsProblems({ expression: stacked(LIMIT - 1) })).toEqual([]);
+    expect(problems(withExpression(stacked(LIMIT - 1)))).toEqual([]);
+    expect(problems(withExpression(stacked(LIMIT)))).toHaveLength(1);
+    expect(latexPropsProblems({ expression: stacked(LIMIT) }).map(({ path }) => path)).toEqual([
+      "/expression",
+    ]);
+  });
+
+  test("accented text passes: \\text{cafe} with a combining acute accent is 3 deep", () => {
+    const expression = "\\text{cafe\u0301}";
+    expect(scanLatex(expression).depth).toBe(3);
+    expect(latexPropsProblems({ expression })).toEqual([]);
+    expect(problems(withExpression(expression))).toEqual([]);
   });
 
   test("a nest past the limit that a comment or a \\verb hides from the closers is refused too", () => {

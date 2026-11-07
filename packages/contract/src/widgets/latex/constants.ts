@@ -8,15 +8,15 @@ import type { FieldsShape } from "../element-diff.ts";
 export const LATEX_EXPRESSION_MAX_CHARS = 2_000;
 
 /**
- * The commands that define a macro, as KaTeX 0.19.1 names them (group 4 review S-1, design decision
+ * The commands that define a macro, as KaTeX's documentation names them (Supported Functions) (group 4 review S-1, design decision
  * 7): its `def` functions `\def`, `\gdef`, `\edef`, `\xdef`, `\global`, `\long`, `\let` and
  * `\futurelet`, and its macros `\newcommand`, `\renewcommand` and `\providecommand`. A LaTeX
  * holds none: an expansion's limit counts expansions, not what they emit, so a macro repeating a
  * long body froze the board. KaTeX also defines macros by side effect (`\tag` defines `\df@tag`,
  * `\color` defines `\current@color`, with the author's text); their names hold `@`, KaTeX's internal
  * namespace, and the scan refuses every control word holding `@` as well (4.7 re-review X-1), so
- * this list is the definitions the author could write by name. A KaTeX upgrade re-reads this list
- * (the widgets' render test pins it and reads the side-effect definitions in KaTeX's source).
+ * this list is the definitions the author could write by name. A KaTeX upgrade re-reads its release
+ * notes for a new defining command (latex-public-api, risks K-3).
  */
 export const LATEX_DEFINING_COMMANDS: readonly string[] = /* @__PURE__ */ Object.freeze([
   "\\def",
@@ -35,8 +35,7 @@ export const LATEX_DEFINING_COMMANDS: readonly string[] = /* @__PURE__ */ Object
 /**
  * The control words that open a level in the scan's depth, as KaTeX nests them (design decision 3):
  * `\bgroup` expands to `{`, `\begingroup` and `{` open a group, `\begin` an environment and `\left`
- * a pair of delimiters. The widgets' render test checks that no other KaTeX macro has a body whose
- * braces do not balance.
+ * a pair of delimiters, as KaTeX's documentation lists them.
  */
 export const LATEX_LEVEL_OPENERS: readonly string[] = /* @__PURE__ */ Object.freeze([
   "\\bgroup",
@@ -54,10 +53,9 @@ export const LATEX_LEVEL_CLOSERS: readonly string[] = /* @__PURE__ */ Object.fre
 ]);
 
 /**
- * The infix commands of KaTeX 0.19.1, its `infix: true` functions (design decision 3, 4.12 re-review
- * X-1): each makes a fraction of everything before it in its group, so the numerator nests one
- * level deeper with no brace, and the scan adds a level to the group that holds one. The widgets'
- * render test checks that these are exactly the names of the `infix: true` functions in KaTeX's source.
+ * The infix commands of KaTeX's documentation (Supported Functions, "Infix": design decision 3,
+ * 4.12 re-review X-1): each makes a fraction of everything before it in its group, so the numerator nests one
+ * level deeper with no brace, and the scan adds a level to the group that holds one.
  */
 export const LATEX_INFIX_COMMANDS: readonly string[] = /* @__PURE__ */ Object.freeze([
   "\\over",
@@ -69,14 +67,13 @@ export const LATEX_INFIX_COMMANDS: readonly string[] = /* @__PURE__ */ Object.fr
 ]);
 
 /**
- * The control words of KaTeX 0.19.1 that read the next token raw, with what the check does about
+ * The control words of KaTeX that read the next token raw, with what the check does about
  * it (design decision 3, 4.19 re-review X-1). `\show` and `\char` with a backquote take a token
  * whole, a `\verb|}|` included, which the scan does not read as KaTeX's lexer does: the check
  * refuses `refused` always and `refusedWithBackquote` when a backquote follows (an author writes
  * `\char"263A` or decimal digits instead, which read no token raw). `pushesBack` (`\noexpand` and
  * `\expandafter`) reads the token and puts it back, so it keeps its meaning. The other readers of
- * raw tokens are the refused definitions and the `@` names (the widgets' render test checks the
- * source).
+ * raw tokens are the refused definitions and the `@` names.
  */
 export const LATEX_RAW_TOKEN_COMMANDS: Readonly<
   Record<string, "refused" | "refusedWithBackquote" | "pushesBack">
@@ -89,12 +86,9 @@ export const LATEX_RAW_TOKEN_COMMANDS: Readonly<
 
 /**
  * The deepest nest an expression may hold, in the levels the scan counts (design decisions 3 and 7).
- * It is the agent's early answer, not the bound the board relies on: that is KaTeX's own output,
- * measured before any node of it is made (`packages/widgets/src/latex/tree.ts`). Task 4.15 measured
- * the limit by design decision 7's rule 4, the largest scan depth at which every measured fixture of
- * that depth or less has an output within the board's three bounds (nodes, nested fractions, depth),
- * so the scan never passes a measured form the board refuses (see the design's "Measured" line); a
- * KaTeX upgrade re-runs the probe `latex-depth-probe.ts` in the view's browser tests.
+ * It is the one bound on nesting, for the agent and the board alike (latex-public-api): the limit
+ * comes from one measurement in Chromium and WebKit, at which every form the scan counts drew in
+ * 211 ms or less, far under the depth at which a browser fails.
  */
 export const LATEX_NESTING_MAX_DEPTH = 11;
 

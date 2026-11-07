@@ -317,7 +317,6 @@ export const STRING_KEYS = [
   "latex.internalCommand",
   "latex.refusedCommand",
   "latex.tooDeep",
-  "latex.tooComplex",
   "latex.counterEdited",
   // The Kanban (latex-kanban-timeline, task 5.2; ux-update-draft.md block 2; the Italian texts to review).
   "kanban.tools",

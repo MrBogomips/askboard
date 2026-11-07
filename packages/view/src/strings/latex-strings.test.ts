@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { STRINGS, t } from "./index.ts";
 
 // The LaTeX's strings (view-and-widgets spec: LaTeX, Kanban and Timeline strings; LaTeX parse
-// errors, "A failure with no message"; LaTeX bounded work; LaTeX output bounded; ux-update-draft.md
+// errors, "A failure with no message"; LaTeX bounded work; ux-update-draft.md
 // block 2): in both tables, an Italian board showing them in Italian. The Italian texts are to review.
 const KEYS = [
   "latex.source",
@@ -13,7 +13,6 @@ const KEYS = [
   "latex.internalCommand",
   "latex.refusedCommand",
   "latex.tooDeep",
-  "latex.tooComplex",
   "latex.counterEdited",
   "change.widgetLatex",
 ] as const;
@@ -45,9 +44,6 @@ describe("the LaTeX's strings", () => {
     expect(t("en-US", "latex.tooDeep", { depth: 12, limit: 11 })).toBe(
       "This expression nests 12 levels deep, more than the limit of 11. Simplify it before you answer.",
     );
-    expect(t("en-US", "latex.tooComplex")).toBe(
-      "This expression is too complex to preview. Simplify it to see it drawn.",
-    );
     expect(t("en-US", "latex.counterEdited")).toBe("Your changes: expression edited");
     expect(t("en-US", "change.widgetLatex")).toBe("LaTeX");
   });
@@ -70,9 +66,6 @@ describe("the LaTeX's strings", () => {
     );
     expect(t("it-IT", "latex.tooDeep", { depth: 12, limit: 11 })).toBe(
       "Questa espressione ha 12 livelli di annidamento, oltre il limite di 11. Semplificala prima di rispondere.",
-    );
-    expect(t("it-IT", "latex.tooComplex")).toBe(
-      "Questa espressione è troppo complessa per l'anteprima. Semplificala per vederla disegnata.",
     );
     expect(t("it-IT", "latex.counterEdited")).toBe("Le tue modifiche: espressione modificata");
     expect(t("it-IT", "change.widgetLatex")).toBe("LaTeX");

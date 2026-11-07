@@ -1,9 +1,8 @@
-// The LaTeX nests the depth probe and the bounds browser file render (latex-kanban-timeline, tasks
+// The LaTeX nests the bounds browser file renders (latex-kanban-timeline, tasks
 // 4.10, 4.11 and 6.8): one construct nested to a depth the contract's scan reads, alone, repeated
 // side by side to 2,000 code points, and as a branching nest. No browser here, so the fixtures have
 // a unit test beside them.
 
-import { readFileSync } from "node:fs";
 import { LATEX_EXPRESSION_MAX_CHARS, scanLatex } from "@askboard/contract";
 
 /**
@@ -106,32 +105,5 @@ export const fixtureFor = (c: Construct, shape: Shape, depth: number): string =>
       ? nestSideBySide(c, depth)
       : nestBranching(c, depth);
 
-/** The depth the contract's scan reads in a fixture: what the probe records it under. */
+/** The depth the contract's scan reads in a fixture: what the fixtures are checked against. */
 export const depthOfFixture = (expression: string): number => scanLatex(expression).depth;
-
-/** The control words KaTeX names, from its source (functions' `names`, `defineMacro` names). */
-export const katexControlWords = (katexModule: string): readonly string[] => {
-  const source = readFileSync(katexModule, "utf8");
-  const literals = (text: string) =>
-    [...text.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map(
-      ([, body]) => JSON.parse(`"${body}"`) as string,
-    );
-  const found = new Set<string>();
-  for (const [, body] of source.matchAll(/names:\s*\[((?:[^\]"]|"(?:[^"\\\n]|\\.)*")*)\]/g)) {
-    for (const name of literals(body ?? "")) found.add(name);
-  }
-  for (const [, name] of source.matchAll(/defineMacro\(("(?:[^"\\\n]|\\.)*")/g)) {
-    found.add(JSON.parse(name ?? '""') as string);
-  }
-  return [...found].filter((name) => /^\\[A-Za-z@]+$/.test(name)).sort();
-};
-
-/**
- * A control word of `arity` arguments nested to `depth` in its argument at `position` (the first by
- * default), its other arguments `x`: with one argument, task 4.5's guard form `\\name{\\name{x}}`.
- */
-export const nestControlWord = (name: string, depth: number, position = 0, arity = 1): string => {
-  const before = "{x}".repeat(position);
-  const after = "{x}".repeat(arity - 1 - position);
-  return `${`${name}${before}{`.repeat(depth)}x${`}${after}`.repeat(depth)}`;
-};

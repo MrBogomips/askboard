@@ -20,10 +20,13 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 - Snapshots of a board: its data and visuals, for the agent to build a document from.
 - Languages (English and Italian) and settings.
 - A start script, `scripts/askboard`, that runs the session process and the hooks on Node and, when Node is missing or too old, tells the agent why instead of failing silently.
+- LaTeX draws its preview through KaTeX's documented interface alone (`katex.render`), after AskBoard's own scan of the source, which also counts stacked accents: an expression with 11 or more stacked combining marks on one character is refused as nested too deep. An expression whose KaTeX output is very large is no longer refused as too complex.
 - Chart (bar, line and pie; highlighted points as the answer): the user reads a chart and highlights data points, by click or by keyboard, and the highlighted points come back as the answer's result, in the `results` of `collect` and `fetch`. The `askboard` skill teaches it.
 
 ### Known limits
 
 - The repository is private: installing needs read access and git credentials.
 - No automatic updates: a third-party marketplace does not update by itself (see the README).
+- LaTeX, K-1: a nesting form the scan does not count, unknown today or added by a KaTeX release, can reach Chromium's crash depth (about 130 levels) and crash the board's tab, on every load if the agent sent it. The scan counts every form known on KaTeX 0.19.1, and its limit is about 12 times under the crash.
+- LaTeX, K-2: a very wide expression, such as about 2,000 empty matrix cells, drew in 118 ms in Chromium and 415 ms in WebKit (measured on an M3 Max), and may pass the 2-second rule on slow hardware; no realistic formula comes near.
 - The Bun executable form, `askboard doctor`, the light benchmark and the remaining widgets and molecules of the PRD come in later releases.

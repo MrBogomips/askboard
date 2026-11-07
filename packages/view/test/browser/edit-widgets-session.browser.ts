@@ -78,7 +78,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(
           async () =>
             ((await fieldError(board).textContent()) ?? "").startsWith(
-              "This expression does not render: KaTeX parse error",
+              "This expression does not render: ",
             ),
           "the parse error in the field",
         );

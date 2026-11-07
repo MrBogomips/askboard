@@ -1,19 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
 import { LATEX_EXPRESSION_MAX_CHARS } from "@askboard/contract";
 import {
   depthOfFixture,
   fixtureFor,
-  katexControlWords,
   LATEX_CONSTRUCTS,
   nestBranching,
-  nestControlWord,
   SHAPES,
 } from "./latex-fixtures.ts";
 
 const DEPTHS = [4, 5, 8, 11, 12, 16, 23, 24];
 
-describe("the LaTeX fixtures of the depth probe", () => {
+describe("the LaTeX fixtures of the bounds scenarios", () => {
   test("the constructs are the seventeen of task 4.10, each named once", () => {
     expect(LATEX_CONSTRUCTS).toHaveLength(17);
     expect(new Set(LATEX_CONSTRUCTS.map(({ name }) => name)).size).toBe(17);
@@ -44,15 +41,5 @@ describe("the LaTeX fixtures of the depth probe", () => {
     expect(branching.length).toBeGreaterThan(fixtureFor(frac, "alone", 12).length);
     expect(branching.length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
     expect(branching.length).toBeGreaterThan(LATEX_EXPRESSION_MAX_CHARS / 2);
-  });
-
-  test("the control words come from KaTeX's source, and nest to the depth asked", () => {
-    const names = katexControlWords(
-      Bun.resolveSync("katex", join(import.meta.dir, "../../../../widgets")),
-    );
-    expect(names.length).toBeGreaterThan(300);
-    expect(names).toContain("\\frac");
-    expect(names).toContain("\\tag@literal");
-    expect(nestControlWord("\\frac", 3)).toBe("\\frac{\\frac{\\frac{x}}}");
   });
 });

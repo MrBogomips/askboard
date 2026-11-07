@@ -2,7 +2,7 @@
 // over an expression that finds the first control word it may not hold and counts how deep KaTeX
 // nests it. The contract never parses LaTeX; this reads only what the lexer's own rules say, and
 // where it differs from KaTeX it errs towards refusing more, and a form it cannot read it refuses
-// by name; the board's output bound (design decision 7) covers the nesting it does not count.
+// by name. It is the one bound on nesting, for the agent and the board alike (latex-public-api).
 //
 // Plain ECMAScript with no JSON and no Ajv: the latex chunk bundles it.
 
@@ -123,6 +123,29 @@ const controlEnd = (text: string, at: number): number => {
   return end === at + 1 ? Math.min(at + 2, text.length) : end;
 };
 
+// A combining mark: a code point of U+0300 to U+036F, the block KaTeX's lexer joins to the character
+// before it, each mark an accent around what comes before (latex-public-api, design decision 3).
+// The whole block is counted, not the marks KaTeX knows today.
+const isMark = (code: number): boolean => code >= 0x300 && code <= 0x36f;
+
+// The end of the run of marks that starts at `from`, which `text` holds up to `to`.
+const markRunEnd = (text: string, from: number, to: number): number => {
+  let end = from;
+  while (end < to && isMark(text.charCodeAt(end))) end += 1;
+  return end;
+};
+
+// A run of `count` marks reaches `count + 1` levels below the level that holds it: one per accent,
+// and one for the script that the marked character may be the argument of. The run is a token.
+const reach = (state: State, count: number): void => {
+  if (count + 1 > (state.inners[top(state)] ?? 0)) state.inners[top(state)] = count + 1;
+};
+
+const takeMarks = (state: State, count: number): void => {
+  take(state, "other");
+  reach(state, count);
+};
+
 // The next position after blanks and comments, which are no token.
 const skipBlanksAndComments = (text: string, from: number): number => {
   let at = from;
@@ -175,6 +198,11 @@ const scanQuiet = (text: string, from: number, to: number, state: State): void =
       const word = text.slice(at, end);
       noteRefused(state, word);
       if (OPENERS.has(word)) take(state, "open");
+      at = end;
+    } else if (isMark(text.charCodeAt(at))) {
+      // Reached, not taken: a comment is no token, so a script that waits keeps waiting.
+      const end = markRunEnd(text, at, to);
+      reach(state, end - at);
       at = end;
     } else {
       if (char === "{") take(state, "open");
@@ -236,7 +264,7 @@ const scanControl = (text: string, at: number, state: State): number => {
 
 /**
  * What `text` holds that a LaTeX item may not (design decisions 3 and 7). Control words are read
- * as KaTeX 0.19.1's lexer reads them: a backslash then `[A-Za-z@]+` is a control word (`\default`
+ * as KaTeX's lexer reads them: a backslash then `[A-Za-z@]+` is a control word (`\default`
  * is a word of its own, `\left` is not `\let`); any other backslash and the one character after it
  * is a control symbol (`\\`, the line break, is one symbol, so `\\def` is a line break and the text
  * `def`; `\{` is no level). `refused` is the first control word that defines a macro (one of
@@ -247,8 +275,10 @@ const scanControl = (text: string, at: number, state: State): number => {
  * control words of `LATEX_LEVEL_OPENERS`, closes at `}` and at those of `LATEX_LEVEL_CLOSERS`, and
  * `^` and `_` open one for their argument, which closes with the group that opens next, else after
  * the next token. An infix command (one of `LATEX_INFIX_COMMANDS`) makes a fraction of its group, so
- * it adds a level to the group that holds it, the expression included. A brace KaTeX reads as text closes nothing: in a comment and in a
- * `\verb` body. `\show` and `\char` with a backquote take the next token whole, a `\verb|}|` token
+ * it adds a level to the group that holds it, the expression included. A run of n stacked combining
+ * marks (U+0300 to U+036F) reaches n + 1 levels below the level that holds it, in a comment and in a
+ * `\verb` body too (latex-public-api). A brace KaTeX reads as text closes nothing: in a comment and
+ * in a `\verb` body. `\show` and `\char` with a backquote take the next token whole, a `\verb|}|` token
  * included, which this reading does not follow, so they are `refused` by name (4.19 re-review X-1).
  * One pass, each character read once, with no nested quantifier and no backtracking. A comment or
  * a `\verb` body is read as well as skipped (its openers count and a command named in it is
@@ -266,6 +296,10 @@ export const scanLatex = (text: string): LatexScan => {
       const to = end === -1 ? text.length : end;
       scanQuiet(text, at + 1, to, state);
       at = to + 1;
+    } else if (isMark(text.charCodeAt(at))) {
+      const end = markRunEnd(text, at, text.length);
+      takeMarks(state, end - at);
+      at = end;
     } else {
       if (char === "{") take(state, "open");
       else if (char === "}") take(state, "close");

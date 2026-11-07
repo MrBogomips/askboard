@@ -178,3 +178,109 @@ describe("the depth of an infix fraction", () => {
 // The 4.12 re-review's X-2 asked the scan to read the token after `\char` and a backquote, and after
 // `\show`; the 4.19 re-review's X-1 found more tokens it cannot read as KaTeX does (a `\verb` taken
 // whole), so both commands are refused instead (task 4.21; `latex-unread-tokens.test.ts`).
+
+// latex-public-api (contract spec: LaTeX nesting bounded, scenarios "Stacked combining marks" and
+// "Accented text"; design decision 3): a run of n code points of U+0300 to U+036F reaches n + 1
+// levels below the level that holds it, in a comment and in a \verb body too.
+describe("stacked combining marks", () => {
+  const marks = (n: number, mark = "̂"): string => mark.repeat(n);
+
+  test("x and n marks reads n + 1, and a run of one is 2", () => {
+    expect(depthOf("x")).toBe(0);
+    expect(depthOf(`x${marks(1)}`)).toBe(2);
+    expect(depthOf(`x${marks(10)}`)).toBe(11);
+    expect(depthOf(`x${marks(11)}`)).toBe(12);
+    expect(depthOf(`x${marks(130)}`)).toBe(131);
+  });
+
+  test("the whole block counts, whichever mark: first and last of U+0300 to U+036F, and a mix", () => {
+    expect(depthOf(`x${marks(5, "̀")}`)).toBe(6);
+    expect(depthOf(`x${marks(5, "ͯ")}`)).toBe(6);
+    expect(depthOf(`x̀́̂ͯ`)).toBe(5);
+    // The code points just outside the block end a run.
+    expect(depthOf(`x${marks(5, "˿")}`)).toBe(0);
+    expect(depthOf(`x${marks(5, "Ͱ")}`)).toBe(0);
+  });
+
+  test("the + 1 stands for the script: x^y and 10 marks read 11, as x and 10 marks do", () => {
+    expect(depthOf(`x^y${marks(10)}`)).toBe(11);
+    expect(depthOf(`x^y${marks(10)}`)).toBe(depthOf(`x${marks(10)}`));
+  });
+
+  test("a zero-width joiner between marks makes each its own run of one", () => {
+    expect(depthOf(`x${"‍̂".repeat(20)}`)).toBe(2);
+  });
+
+  test("any other code point ends a run, a blank included", () => {
+    expect(depthOf(`x${marks(5)} ${marks(5)}`)).toBe(6);
+    expect(depthOf(`x${marks(5)}y${marks(5)}`)).toBe(6);
+  });
+
+  test("a mark as the first code point counts", () => {
+    expect(depthOf(marks(1))).toBe(2);
+    expect(depthOf(marks(10))).toBe(11);
+  });
+
+  test("marks in a comment and in a \\verb body count", () => {
+    expect(depthOf(`%${marks(10)}`)).toBe(11);
+    expect(depthOf(`x % ${marks(10)}\ny`)).toBe(11);
+    expect(depthOf(`\\verb|${marks(10)}|`)).toBe(11);
+  });
+
+  test("the level that holds the run counts below it: marks inside a group add to the group", () => {
+    expect(depthOf(`{x${marks(10)}}`)).toBe(12);
+    expect(depthOf(`\\text{caf${"é"}}`)).toBe(3);
+    expect(depthOf(`\\frac{x${marks(3)}}{y}`)).toBe(5);
+  });
+
+  test("a run ends at the end of the text, and a surrogate pair is no mark", () => {
+    expect(depthOf(`x${marks(2)}\u{1d400}`)).toBe(3);
+    expect(depthOf(`x\u{1d400}\u{1d400}`)).toBe(0);
+  });
+
+  test("a hostile text of 2,000 marks ends, reading 2,001", () => {
+    expect(depthOf(marks(2_000))).toBe(2_001);
+  });
+});
+
+describe("a combining mark in a comment or a verb body (latex-public-api review X-1)", () => {
+  const MARK = "̂";
+  const withoutMarks = (text: string): string => text.replaceAll(MARK, "");
+
+  test("a mark in a comment does not close the script that waits for its argument", () => {
+    const comment = `{x^%a${MARK}\n`;
+    expect(depthOf(`${comment.repeat(130)}{y}${"}".repeat(130)}`)).toBeGreaterThanOrEqual(261);
+    expect(depthOf(`x^%a${MARK}\n${"{".repeat(11)}${"}".repeat(11)}`)).toBeGreaterThanOrEqual(12);
+  });
+
+  test("the scan never reads less with marks in a comment or a verb body than without them", () => {
+    const pieces = [
+      `x^%a${MARK}\n`,
+      `x_%a${MARK}${MARK}\n`,
+      `\\verb|a${MARK}{|`,
+      `\\verb|^${MARK}|`,
+      "{",
+      "}",
+      "^",
+      "_",
+      "y",
+      `${MARK}`,
+      `%${MARK}{\n`,
+      "\\frac",
+      "\\left(",
+      "\\right)",
+    ];
+    let seed = 7;
+    const next = (): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed;
+    };
+    for (let run = 0; run < 400; run += 1) {
+      let text = "";
+      for (let k = 0; k < 12; k += 1) text += pieces[next() % pieces.length];
+      expect(depthOf(text), JSON.stringify(text)).toBeGreaterThanOrEqual(
+        depthOf(withoutMarks(text)),
+      );
+    }
+  });
+});
