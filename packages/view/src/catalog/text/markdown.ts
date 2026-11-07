@@ -118,8 +118,9 @@ const tidy = (token: Token): void => {
   token.attrs = kept.length === 0 ? null : kept;
 };
 
-// A link whose destination is empty (`[a]()`, `[a](<>)`): markdown-it never asks `validateLink`
-// for it, so its text stays and its link goes (review 2.3 and 4.4, S-2).
+// A link whose destination is empty (`[a]()`, `[a]( )`): markdown-it never asks `validateLink` for
+// it, so its text stays and its link goes. `[a](<>)` is no link to markdown-it and shows as its
+// source text (review 2.3 and 4.4, S-2; review 5.6, S-2).
 const withoutEmptyLinks = (children: Token[]): Token[] => {
   const kept: Token[] = [];
   let dropping = false;
@@ -155,12 +156,13 @@ const create = (): Parser => {
   rules.code_block = (tokens, at) => `<pre><code>${textOf(tokens, at)}</code></pre>\n`;
   rules.fence = rules.code_block;
   // An image is never loaded: a link to its source, labelled with its alt text, or with the source
-  // when there is none, so that no link is empty.
+  // when there is none, so that no link is empty. An image with no source shows its alt text, or
+  // `![]()` when it has neither (an empty source and an empty alt leave nothing else to show).
   rules.image = (tokens, at, options, env, self) => {
     const token = tokens[at];
     const source = String(token?.attrGet("src") ?? "");
     const alt = visible(self.renderInlineAsText(token?.children ?? [], options, env));
-    if (source === "") return escapeHtml(alt);
+    if (source === "") return escapeHtml(alt === "" ? "![]()" : alt);
     return `<a href="${escapeHtml(source)}">${escapeHtml(alt === "" ? source : alt)}</a>`;
   };
   return md;

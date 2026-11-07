@@ -172,7 +172,7 @@ describe("Markdown: only http and https make a link", () => {
     }
   });
 
-  test("an empty destination makes no link: [a](), [a](<>), ![x]() and ![]() show as text with no anchor", () => {
+  test("an empty destination makes no link: the five forms read as the spec says, exactly, with no anchor", () => {
     const shown = (source: string) => {
       const out = html(source);
       expect(anchors(out), source).toEqual([]);
@@ -180,11 +180,11 @@ describe("Markdown: only http and https make a link", () => {
       expect(out, source).not.toContain("href");
       return out;
     };
-    expect(shown("[a]()")).toContain("a");
-    expect(shown("[a](<>)")).toContain("a");
-    expect(shown("![x]()")).toContain("x");
-    expect(shown("![]()")).toBe("<p></p>\n");
+    expect(shown("[a]()")).toBe("<p>a</p>\n");
     expect(shown("[a]( )")).toBe("<p>a</p>\n");
+    expect(shown("[a](<>)")).toBe("<p>[a](&lt;&gt;)</p>\n");
+    expect(shown("![x]()")).toBe("<p>x</p>\n");
+    expect(shown("![]()")).toBe("<p>![]()</p>\n");
     expect(shown("**[b]()**")).toContain("<strong>b</strong>");
     // The link's other forms keep their anchors beside an empty one.
     expect(anchors(html("[a]() and [b](https://example.com/b)"))).toEqual([
