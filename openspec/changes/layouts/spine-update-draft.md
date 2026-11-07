@@ -1,6 +1,6 @@
 # Spine update draft: layouts
 
-**Status: draft, applied by task 0.1.** It rests on the proposal's open questions 1 to 3 and 6, answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on the base c3cb6241 (`atoms` applied its own blocks there; none of these phrases), then gives the replacement. AD-7 and AD-9 are amended in place; no AD is added or renumbered. The PRD needs no change: FR-13 already lets the agent arrange items with layouts.
+**Status: applied by task 0.1 on 2026-11-07.** It rests on the proposal's open questions 1 to 3 and 6, answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on the base c3cb6241 (`atoms` applied its own blocks there; none of these phrases), then gives the replacement. AD-7 and AD-9 are amended in place; no AD is added or renumbered. The PRD needs no change: FR-13 already lets the agent arrange items with layouts.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
