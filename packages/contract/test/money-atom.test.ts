@@ -181,7 +181,7 @@ describe("MoneyField items", () => {
 
   test("min and max are decimal strings: 15 digits pass, 16, an exponent and a number fail", () => {
     expect(
-      passes(money({ currency: "EUR", min: "-999999999999999.9999", max: "999999999999999" })),
+      passes(money({ currency: "EUR", min: "-999999999999999.99", max: "999999999999999" })),
     ).toBe(true);
     for (const bad of ["1000000000000000", "1e3", "007", "1.23456", 5, ""]) {
       expect(refused(money({ currency: "EUR", min: bad })), String(bad)).toBe(true);
@@ -204,6 +204,47 @@ describe("MoneyField items", () => {
     expect(passes(money({ currency: "EUR", min: "10", max: "10.00" }))).toBe(true);
     expect(passes(money({ currency: "EUR", min: "-5", max: "-4.5" }))).toBe(true);
     expect(pathsOf(money({ currency: "EUR", min: "-4.5", max: "-5" }))).toEqual(["/max"]);
+  });
+
+  // Review 1.8 U-2: the schema takes four decimals in a bound whatever the currency, so a bound the
+  // currency cannot express was accepted and its field error read "At most 0.01" while 0.01 failed.
+  test("min and max take at most the currency's minor units: more decimals fail, naming the bound and the currency", () => {
+    const eurMax = money({ currency: "EUR", max: "0.005" });
+    expect(checkedOnly(eurMax)).toBe(true);
+    expect(pathsOf(eurMax)).toEqual(["/max"]);
+    const message = problemsOf(eurMax)[0]?.message ?? "";
+    expect(message).toContain("max");
+    expect(message).toContain("0.005");
+    expect(message).toContain("EUR");
+    const mixed = money({ currencies: ["EUR", "JPY"], min: "0.5", max: "0.9" });
+    expect(checkedOnly(mixed)).toBe(true);
+    expect(pathsOf(mixed)).toEqual(["/min", "/max"]);
+    expect(problemsOf(mixed)[0]?.message).toContain("JPY");
+    expect(pathsOf(money({ currency: "JPY", min: "1.5" }))).toEqual(["/min"]);
+    expect(pathsOf(money({ currency: "XYZ", max: "1.234" }))).toEqual(["/max"]);
+    expect(pathsOf(money({ currencies: ["EUR", "USD"], min: "-0.005" }))).toEqual(["/min"]);
+  });
+
+  test("a bound the currencies can all express passes, trailing zeros as typed counting as decimals", () => {
+    for (const props of [
+      { currency: "EUR", min: "0", max: "99.99" },
+      { currency: "EUR", max: "10" },
+      { currency: "JPY", min: "0", max: "1500" },
+      { currencies: ["EUR", "JPY"], min: "1", max: "900" },
+      { currencies: ["EUR", "USD"], min: "-5.5", max: "0.01" },
+      { currency: "XYZ", max: "12.34" },
+    ]) {
+      expect(passes(money(props)), JSON.stringify(props)).toBe(true);
+    }
+    // A zero fraction still has decimals the currency cannot express: the parser refuses `1500.0` too.
+    expect(pathsOf(money({ currency: "JPY", max: "1500.0" }))).toEqual(["/max"]);
+    expect(pathsOf(money({ currency: "EUR", max: "9.990" }))).toEqual(["/max"]);
+  });
+
+  test("a result is refused against props whose bound the currency cannot express", () => {
+    const props = money({ currency: "EUR", max: "0.005" });
+    expect(resultOf(props, eur("0.00")).length).toBeGreaterThan(0);
+    expect(fits(props, eur("0.00"))).toBe(false);
   });
 
   test("a field of no kind, a missing label and a non-object are refused", () => {

@@ -29,6 +29,19 @@ const isAmount = (value: unknown): value is string =>
 const isCurrency = (value: unknown): value is string =>
   typeof value === "string" && CURRENCY.test(value);
 
+// The decimals of an amount's text.
+const decimalsOf = (amount: string): number => amount.split(".")[1]?.length ?? 0;
+
+// The first code among the item's currencies whose minor units a bound has too many decimals for:
+// the schema allows four decimals whatever the currency, so a bound of `0.005` in euros would show
+// "At most 0.01" while 0.01 is refused (review 1.8 U-2).
+const inexpressible = (props: Record<string, unknown>, bound: string): string | undefined => {
+  const offered = Array.isArray(props.currencies) ? props.currencies : [props.currency];
+  return offered.find(
+    (code): code is string => isCurrency(code) && decimalsOf(bound) > minorUnitsOf(code),
+  );
+};
+
 // The problems of a `currencies` list: its size, a code that is none, a duplicate.
 const currenciesProblems = (currencies: unknown): Problem[] => {
   const at = (path: string, message: string): Problem => ({ path, message });
@@ -62,7 +75,8 @@ const currenciesProblems = (currencies: unknown): Problem[] => {
  * What is wrong with a MoneyField's props, the schema's rules restated and the two it cannot say:
  * a label of 1 to `ATOM_LABEL_MAX_CHARS` code points, an optional description, exactly one of
  * `currency` (a code) and `currencies` (2 to 10 unique codes), `min` and `max` decimal strings with
- * `max` not below `min`, and no other key.
+ * `max` not below `min`, each within the minor units of every currency the item offers, and no
+ * other key.
  */
 export const moneyFieldPropsProblems = (props: unknown): readonly Problem[] => {
   if (!isRecord(props)) {
@@ -102,6 +116,16 @@ export const moneyFieldPropsProblems = (props: unknown): readonly Problem[] => {
   if (isAmount(props.min) && isAmount(props.max) && compareDecimal(props.min, props.max) > 0) {
     at("/max", `max ${props.max} is below min ${props.min}`);
   }
+  for (const key of ["min", "max"] as const) {
+    const bound = props[key];
+    const code = isAmount(bound) ? inexpressible(props, bound) : undefined;
+    if (isAmount(bound) && code !== undefined) {
+      at(
+        `/${key}`,
+        `${key} ${bound} has more decimals than ${code} takes (${minorUnitsOf(code)}), so no ${code} amount can lie on it`,
+      );
+    }
+  }
   return problems;
 };
 
@@ -110,9 +134,6 @@ const isResult = (result: unknown): result is { amount: string; currency: string
   Object.keys(result).length === 2 &&
   isAmount(result.amount) &&
   isCurrency(result.currency);
-
-// The decimals of an amount's text.
-const decimalsOf = (amount: string): number => amount.split(".")[1]?.length ?? 0;
 
 /**
  * What a schema-valid MoneyField result still gets wrong against the item's props: a currency that
