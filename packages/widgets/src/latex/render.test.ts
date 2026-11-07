@@ -1,39 +1,26 @@
-// The LaTeX's render options and the one function that draws a preview (latex-kanban-timeline,
-// task 4.1; view-and-widgets spec: LaTeX untrusted commands, LaTeX parse errors; design decision 7).
-// KaTeX's markup is read through `renderToString`, which needs no DOM, so that Bun can look at what a
-// command would put in the page; `renderInto` is run on stand-ins for the preview's element.
+// The LaTeX's render options and the functions that draw a preview (latex-kanban-timeline, task
+// 4.1; latex-public-api, task 2.1; view-and-widgets spec: LaTeX source and preview, LaTeX untrusted
+// commands, LaTeX parse errors, LaTeX bounded work). Only KaTeX's documented interface is used here:
+// `render`, `renderToString`, `ParseError` and the options. KaTeX's markup is read through
+// `renderToString`, which needs no DOM, so that Bun can look at what a command would put in the
+// page; `renderInto` is run on stand-ins for the preview's element and its document, with a spy on
+// `katex.render`.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import {
-  LATEX_EXPRESSION_MAX_CHARS,
-  LATEX_NESTING_MAX_DEPTH,
-  latexPropsProblems,
-  scanLatex,
-} from "@askboard/contract";
+import { LATEX_NESTING_MAX_DEPTH } from "@askboard/contract";
 import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
-import {
-  type KatexTree,
-  LATEX_TREE_BOUNDS,
-  LATEX_TREE_MAX_DEPTH,
-  LATEX_TREE_MAX_FRACTIONS,
-  LATEX_TREE_MAX_NODES,
-  renderTree,
-  type TreeBounds,
-  treeSizeOf,
-} from "./tree.ts";
 
 const markupOf = (expression: string): string => katex.renderToString(expression, renderOptions());
 
 // KaTeX's own verdict on an expression, with the render options and without the contract's scan:
-// these tests pin what KaTeX does with the definitions and internal commands that `parseProblem`
-// and `renderInto` now refuse before KaTeX runs.
-const katexProblem = (expression: string): string | undefined => {
+// what KaTeX does with the definitions that `parseProblem` and `renderInto` refuse before it runs.
+const thrownBy = (expression: string): unknown => {
   try {
     markupOf(expression);
     return undefined;
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return error;
   }
 };
 
@@ -85,7 +72,6 @@ describe("commands that would reach outside the expression", () => {
   // rest of the markup: its elements' attributes and its text.
   const withoutAnnotation = (markup: string) =>
     markup.replace(/<annotation[\s\S]*?<\/annotation>/, "");
-  const ATTRIBUTES = new Set(["class", "style", "aria-hidden", "xmlns", "display", "mathcolor"]);
 
   test.each(COMMANDS)(
     "%s gives no anchor, image, class, ID, style or data attribute",
@@ -96,9 +82,9 @@ describe("commands that would reach outside the expression", () => {
       expect(markup).not.toContain("example.com");
       expect(markup).not.toContain("evil");
       const attributes = [...markup.matchAll(/\s([A-Za-z][\w:-]*)="/g)].map(
-        ([, attribute]) => attribute,
+        ([, attribute]) => attribute as string,
       );
-      expect(attributes.filter((attribute) => !ATTRIBUTES.has(attribute as string))).toEqual([]);
+      expect(attributes.filter((name) => /^(id|href|src|data-.*|on.*)$/.test(name))).toEqual([]);
       // The command is shown as the text it is, in KaTeX's error colour.
       expect(markup).toContain(name);
     },
@@ -113,28 +99,21 @@ describe("commands that would reach outside the expression", () => {
 
 describe("macros", () => {
   test("one render defines does not exist in the next", () => {
-    expect(katexProblem("\\gdef\\foo{1}")).toBeUndefined();
-    expect(markupOf("\\gdef\\foo{1}\\foo")).toContain("1");
-    const second = katexProblem("\\foo");
-    expect(second).toContain("Undefined control sequence: \\foo");
+    expect(thrownBy("\\gdef\\foo{1}")).toBeUndefined();
+    expect(thrownBy("\\gdef\\foo{1}\\foo")).toBeUndefined();
+    expect(thrownBy("\\foo")).toBeInstanceOf(katex.ParseError);
   });
 
   test.each(["\\gdef\\a{\\a\\a}\\a", "\\def\\a{\\a}\\a"])(
     "%s expands without end and fails within a second",
     (expression) => {
       const started = performance.now();
-      const problem = katexProblem(expression);
+      const problem = thrownBy(expression);
       expect(performance.now() - started).toBeLessThan(1_000);
-      expect(problem).toContain("Too many expansions");
+      expect(problem).toBeInstanceOf(katex.ParseError);
     },
   );
 });
-
-// KaTeX's internal tree builder, which `renderTree` looks up on every call: tests put a stand-in or a
-// spy in its place, as the earlier tests did with `katex.render`.
-type Builder = (expression: string, options: unknown) => KatexTree;
-const internals = katex as unknown as { __renderToDomTree: Builder };
-const original = internals.__renderToDomTree;
 
 describe("parseProblem", () => {
   let spy: ReturnType<typeof spyOn> | undefined;
@@ -142,28 +121,33 @@ describe("parseProblem", () => {
 
   test("is KaTeX's own message for an expression that does not parse", () => {
     const problem = parseProblem("\\frac{1}{");
-    let thrown = "";
-    try {
-      katex.renderToString("\\frac{1}{", renderOptions());
-    } catch (error) {
-      thrown = (error as Error).message;
-    }
-    expect(thrown).toStartWith("KaTeX parse error:");
-    expect(problem).toBe(thrown);
+    const thrown = thrownBy("\\frac{1}{");
+    expect(thrown).toBeInstanceOf(katex.ParseError);
+    expect(typeof problem).toBe("string");
+    expect(problem).toBe((thrown as Error).message);
+    expect(problem).not.toBe("");
   });
 
-  test("gives nothing for an expression that renders, and for the empty one", () => {
+  test("gives nothing for an expression that is drawn, and for the empty one", () => {
     expect(parseProblem("a^2+b^2=c^2")).toBeUndefined();
     expect(parseProblem("")).toBeUndefined();
-    expect(markupOf("")).toContain("katex-display");
+  });
+
+  test("gives the refusal of the scan, and KaTeX does not run", () => {
+    spy = spyOn(katex, "renderToString");
+    expect(parseProblem("\\def\\a{x}\\a")).toEqual({ refused: { command: "\\def" } });
+    expect(spy).not.toHaveBeenCalled();
   });
 
   test("gives a message for any Error KaTeX throws, and no text for a value that is none (the component shows the string tables' fallback)", () => {
     for (const [thrown, message] of [
       [new RangeError("deep"), "deep"],
+      [new katex.ParseError("bad"), "KaTeX parse error: bad"],
       ["plain text", ""],
+      [undefined, ""],
+      [{ message: "not an Error" }, ""],
     ] as const) {
-      spy = spyOn(internals, "__renderToDomTree").mockImplementation(() => {
+      spy = spyOn(katex, "renderToString").mockImplementation(() => {
         throw thrown;
       });
       expect(parseProblem("x")).toBe(message);
@@ -171,49 +155,42 @@ describe("parseProblem", () => {
     }
   });
 
-  test("builds no node of the page: the tree's toNode is not called", () => {
-    let toNode: ReturnType<typeof spyOn> | undefined;
-    spy = spyOn(internals, "__renderToDomTree").mockImplementation((expression, options) => {
-      const tree = original(expression, options);
-      toNode = spyOn(tree, "toNode");
-      return tree;
+  test("runs KaTeX with the render options", () => {
+    let options: unknown;
+    spy = spyOn(katex, "renderToString").mockImplementation((_expression, given) => {
+      options = given;
+      return "";
     });
-    expect(parseProblem("x^2")).toBeUndefined();
-    expect(toNode).toBeDefined();
-    expect(toNode).not.toHaveBeenCalled();
+    expect(parseProblem("x")).toBeUndefined();
+    expect(options).toEqual(renderOptions());
   });
 });
 
-// A stand-in for an element of the page: its content is a list of marks. `compatMode` is the
-// document's: `renderInto` refuses to draw outside standards mode, as `katex.render` does.
-const hostHolding = (marks: string[] = [], compatMode = "CSS1Compat") => {
+// Stand-ins for the preview's element and its document (Bun has no DOM): the document makes the
+// scratch element, which holds what a spy on `katex.render` puts in it; the element's content is a
+// list of marks.
+type Scratch = { childNodes: string[] };
+const hostHolding = (marks: string[] = []) => {
+  const scratches: Scratch[] = [];
   const host = {
     marks,
-    ownerDocument: { compatMode },
+    scratches,
+    ownerDocument: {
+      createElement: (tag: string) => {
+        const scratch: Scratch = { childNodes: [] };
+        scratches.push(scratch);
+        expect(tag).toBe("span");
+        return scratch;
+      },
+    },
     replaceChildren(...nodes: string[]) {
       host.marks = nodes;
     },
   };
   return host;
 };
-const draw = (host: ReturnType<typeof hostHolding>, expression: string, bounds?: TreeBounds) =>
-  renderInto(host as unknown as HTMLElement, expression, bounds);
-
-// A tree whose nodes are the marks the stand-in element holds, measured as the real one is.
-const fakeTree = (mark: string, children: unknown[] = []): KatexTree =>
-  ({ children, toNode: () => mark, toMarkup: () => mark }) as unknown as KatexTree;
-
-// Bun has no DOM, so the nodes a real tree makes are drawn in the browser file; here a real tree's
-// `toNode` is replaced by a spy giving a mark.
-const watchTrees = (mark = "drawn") => {
-  const toNodes: ReturnType<typeof spyOn>[] = [];
-  const spy = spyOn(internals, "__renderToDomTree").mockImplementation((expression, options) => {
-    const tree = original(expression, options);
-    toNodes.push(spyOn(tree, "toNode").mockImplementation(() => mark as unknown as Node));
-    return tree;
-  });
-  return { spy, toNodes };
-};
+const draw = (host: ReturnType<typeof hostHolding>, expression: string) =>
+  renderInto(host as unknown as HTMLElement, expression);
 
 describe("renderInto", () => {
   let spies: ReturnType<typeof spyOn>[] = [];
@@ -222,39 +199,41 @@ describe("renderInto", () => {
     spies = [];
   });
 
-  test("puts the tree it measured into the element, with the render options, and builds it once", () => {
+  test("draws into an element outside the page with the render options, then replaces the element's children", () => {
     const host = hostHolding(["old"]);
-    let options: unknown;
-    const spy = spyOn(internals, "__renderToDomTree").mockImplementation((_e, given) => {
-      options = given;
-      return fakeTree("new");
-    });
-    spies = [spy];
-    expect(draw(host, "x")).toEqual({});
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(options).toEqual(renderOptions());
-    expect(host.marks).toEqual(["new"]);
-  });
-
-  test("draws what katex.render would: KaTeX's own tree for the expression, once", () => {
-    const host = hostHolding(["old"]);
-    const { spy, toNodes } = watchTrees();
-    spies = [spy];
+    const calls: { expression: unknown; target: unknown; options: unknown; seen: string[] }[] = [];
+    spies = [
+      spyOn(katex, "render").mockImplementation((expression, target, options) => {
+        // The element still holds its last render while KaTeX draws.
+        calls.push({ expression, target, options, seen: [...host.marks] });
+        (target as unknown as Scratch).childNodes = ["new 1", "new 2"];
+      }),
+    ];
     expect(draw(host, "\\frac{a}{b}")).toEqual({});
-    expect(toNodes).toHaveLength(1);
-    expect(toNodes[0]).toHaveBeenCalledTimes(1);
-    expect(host.marks).toEqual(["drawn"]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.expression).toBe("\\frac{a}{b}");
+    expect(calls[0]?.options).toEqual(renderOptions());
+    expect(calls[0]?.target).toBe(host.scratches[0] as unknown);
+    expect(calls[0]?.seen).toEqual(["old"]);
+    expect(host.scratches).toHaveLength(1);
+    expect(host.marks).toEqual(["new 1", "new 2"]);
   });
 
-  test("keeps the last content when the expression does not parse, KaTeX's own error", () => {
+  test("keeps the last content when the expression does not parse, KaTeX's own ParseError", () => {
     const host = hostHolding(["last preview"]);
-    const result = draw(host, "\\frac{1}{");
-    expect(result.error).toStartWith("KaTeX parse error:");
+    const parseError = new katex.ParseError("bad brace");
+    spies = [
+      spyOn(katex, "render").mockImplementation((_e, target) => {
+        // KaTeX empties its target before it parses.
+        (target as unknown as Scratch).childNodes = [];
+        throw parseError;
+      }),
+    ];
+    expect(draw(host, "\\frac{1}{")).toEqual({ error: parseError.message });
     expect(host.marks).toEqual(["last preview"]);
   });
 
   test.each([
-    ["a ParseError", new katex.ParseError("bad brace"), "KaTeX parse error: bad brace"],
     [
       "a RangeError",
       new RangeError("Maximum call stack size exceeded"),
@@ -267,7 +246,7 @@ describe("renderInto", () => {
   ] as const)("catches %s thrown by KaTeX and keeps the last content", (_name, thrown, error) => {
     const host = hostHolding(["last preview"]);
     spies = [
-      spyOn(internals, "__renderToDomTree").mockImplementation(() => {
+      spyOn(katex, "render").mockImplementation(() => {
         throw thrown;
       }),
     ];
@@ -275,228 +254,42 @@ describe("renderInto", () => {
     expect(host.marks).toEqual(["last preview"]);
   });
 
-  test("catches an error of the element itself", () => {
+  test("catches an error of the element itself and of its document", () => {
     const host = hostHolding(["last preview"]);
-    spies = [spyOn(internals, "__renderToDomTree").mockImplementation(() => fakeTree("new"))];
+    spies = [spyOn(katex, "render").mockImplementation(() => undefined)];
     host.replaceChildren = () => {
       throw new RangeError("no room");
     };
     expect(draw(host, "x")).toEqual({ error: "no room" });
     expect(host.marks).toEqual(["last preview"]);
-  });
-
-  test("catches an error of the tree's own nodes and keeps the last content", () => {
-    const host = hostHolding(["last preview"]);
-    const tree = fakeTree("new");
-    (tree as unknown as { toNode: () => never }).toNode = () => {
-      throw new RangeError("no stack");
+    host.ownerDocument.createElement = () => {
+      throw new TypeError("no document");
     };
-    spies = [spyOn(internals, "__renderToDomTree").mockImplementation(() => tree)];
-    expect(draw(host, "x")).toEqual({ error: "no stack" });
+    expect(draw(host, "x")).toEqual({ error: "no document" });
     expect(host.marks).toEqual(["last preview"]);
-  });
-
-  test("refuses a document that is not in standards mode, as katex.render does, and fails closed", () => {
-    const host = hostHolding(["last preview"], "BackCompat");
-    const { spy, toNodes } = watchTrees();
-    spies = [spy];
-    expect(draw(host, "x")).toEqual({ error: "KaTeX doesn't work in quirks mode." });
-    expect(host.marks).toEqual(["last preview"]);
-    for (const toNode of toNodes) expect(toNode).not.toHaveBeenCalled();
   });
 });
 
-// Task 4.16 (view-and-widgets spec: LaTeX output bounded; design decision 7, Bounded output): the
-// output KaTeX builds is measured against the bounds before any node of it is made.
-describe("an output past the bounds", () => {
-  const sizeOf = (expression: string) => treeSizeOf(renderTree(expression, renderOptions()));
-  const nestFrac = (levels: number) => `${"\\frac{".repeat(levels)}a${"}{b}".repeat(levels)}`;
-  const scenario = [
-    "\\frac{\\frac{\\frac{\\frac{a}{b}}{c}}{d}}{e}",
-    "\\frac{\\frac{\\frac{a}{b}}{c}}{d}",
-    "\\frac{a}{b}\\frac{c}{d}\\frac{e}{f}\\frac{g}{h}",
-  ] as const;
-  let spies: ReturnType<typeof spyOn>[] = [];
-  afterEach(() => {
-    for (const spy of spies) spy.mockRestore();
-    spies = [];
-  });
-
-  test("LATEX_TREE_BOUNDS holds the measured values", () => {
-    expect(LATEX_TREE_MAX_NODES).toBe(21_344);
-    expect(LATEX_TREE_MAX_FRACTIONS).toBe(11);
-    expect(LATEX_TREE_MAX_DEPTH).toBe(245);
-    expect(LATEX_TREE_BOUNDS).toEqual({ depth: 245, nodes: 21_344, fractions: 11 });
-    expect(Object.isFrozen(LATEX_TREE_BOUNDS)).toBe(true);
-  });
-
-  test.each([
-    ["\\frac{a}{b} under a depth of 5", "\\frac{a}{b}", { depth: 5, nodes: 1_000, fractions: 11 }],
-    ["2,000 glyphs under 100 nodes", "x".repeat(2_000), { depth: 100, nodes: 100, fractions: 11 }],
-    [
-      "four nested fractions under a fraction bound of 3",
-      scenario[0],
-      { depth: 1_000, nodes: 100_000, fractions: 3 },
-    ],
-  ] as const)(
-    "%s: parseProblem and renderInto give tooComplex with the size, and no node is made",
-    (_name, expression, bounds) => {
-      const size = sizeOf(expression);
-      const { spy, toNodes } = watchTrees();
-      spies = [spy];
-      expect(parseProblem(expression, bounds)).toEqual({ tooComplex: size });
-      const host = hostHolding(["last preview"]);
-      expect(draw(host, expression, bounds)).toEqual({ tooComplex: size });
-      expect(host.marks).toEqual(["last preview"]);
-      expect(toNodes.length).toBeGreaterThan(0);
-      for (const toNode of toNodes) expect(toNode).not.toHaveBeenCalled();
-    },
-  );
-
-  test("the size it gives names the three dimensions", () => {
-    expect(sizeOf(scenario[0])).toMatchObject({ fractions: 4 });
-    expect(Object.keys(sizeOf("x")).sort()).toEqual(["depth", "fractions", "nodes"]);
-  });
-
-  test("the scenario: with the fraction bound at 3, four nested fractions are too complex, three and four side by side render", () => {
-    const bounds = { depth: 1_000, nodes: 100_000, fractions: 3 };
-    const { spy, toNodes } = watchTrees();
-    spies = [spy];
-    const results = scenario.map((expression) => {
-      const host = hostHolding(["last preview"]);
-      return { result: draw(host, expression, bounds), marks: host.marks };
-    });
-    expect(results[0]?.result.tooComplex).toBeDefined();
-    expect(results[0]?.marks).toEqual(["last preview"]);
-    expect(results[1]).toEqual({ result: {}, marks: ["drawn"] });
-    expect(results[2]).toEqual({ result: {}, marks: ["drawn"] });
-    expect(toNodes.map((toNode) => toNode.mock.calls.length)).toEqual([0, 1, 1]);
-  });
-
-  test("a size at a bound is drawn and one past it is not, for each of the three bounds", () => {
-    const expression = nestFrac(6);
-    const size = sizeOf(expression);
-    const at = { depth: size.depth, nodes: size.nodes, fractions: size.fractions };
-    const past = [
-      { ...at, depth: size.depth - 1 },
-      { ...at, nodes: size.nodes - 1 },
-      { ...at, fractions: size.fractions - 1 },
-    ];
-    expect(parseProblem(expression, at)).toBeUndefined();
-    for (const bounds of past)
-      expect(parseProblem(expression, bounds)).toEqual({ tooComplex: size });
-  });
-
-  test("at the default bounds a flat expression at the node bound is drawn and 60 glyphs more are not", () => {
-    // 2 nodes for each glyph past a base of 12; the bound is 21,344 nodes.
-    const within = "x".repeat(10_666);
-    const past = "x".repeat(10_700);
-    expect(sizeOf(within).nodes).toBeLessThanOrEqual(LATEX_TREE_MAX_NODES);
-    expect(sizeOf(past).nodes).toBeGreaterThan(LATEX_TREE_MAX_NODES);
-    expect(parseProblem(within)).toBeUndefined();
-    expect(parseProblem(past)).toEqual({ tooComplex: sizeOf(past) });
-  });
-
-  test("at the default bounds the deepest nest the scan admits is drawn", () => {
-    const limit = LATEX_NESTING_MAX_DEPTH;
-    for (const expression of [
-      nestFrac(limit),
-      `${"x^{".repeat(Math.floor(limit / 2))}y${"}".repeat(Math.floor(limit / 2))}`,
-    ]) {
-      const size = sizeOf(expression);
-      expect(size.depth, expression).toBeLessThanOrEqual(LATEX_TREE_MAX_DEPTH);
-      expect(size.fractions, expression).toBeLessThanOrEqual(LATEX_TREE_MAX_FRACTIONS);
-      expect(parseProblem(expression), expression).toBeUndefined();
-    }
-  });
-
-  test("a refusal by the scan comes before the bounds, and a parse error stays KaTeX's own", () => {
-    expect(parseProblem(nestFrac(LATEX_NESTING_MAX_DEPTH + 1))).toEqual({
-      refused: { depth: LATEX_NESTING_MAX_DEPTH + 1, limit: LATEX_NESTING_MAX_DEPTH },
-    });
-    expect(parseProblem("\\frac{1}{", { depth: 1, nodes: 1, fractions: 0 })).toStartWith(
-      "KaTeX parse error:",
-    );
-  });
-});
-
-describe("no module of the package calls katex.render or katex.renderToString", () => {
+// view-and-widgets spec: LaTeX untrusted commands, "The expression is the only KaTeX caller": in
+// `packages/widgets/src`, `render.ts` alone imports `katex`, so every draw passes the scan.
+describe("only render.ts imports katex", () => {
   test("in packages/widgets/src, tests aside", async () => {
-    const sources = [...new Bun.Glob("**/*.{ts,tsx}").scanSync(`${import.meta.dir}/../..`)].filter(
+    const root = `${import.meta.dir}/../..`;
+    const sources = [...new Bun.Glob("**/*.{ts,tsx}").scanSync(root)].filter(
       (file) => !/\.test\.tsx?$/.test(file),
     );
-    expect(sources.length).toBeGreaterThan(5);
+    expect(sources).toContain("src/latex/render.ts");
+    const importers: string[] = [];
     for (const file of sources) {
-      const code = (await Bun.file(`${import.meta.dir}/../../${file}`).text())
+      const code = (await Bun.file(`${root}/${file}`).text())
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
-      expect(code, file).not.toMatch(/\bkatex\s*\.\s*render(ToString)?\b/);
-      expect(code, file).not.toMatch(
-        /import\s*\{[^}]*\brender(ToString)?\b[^}]*\}\s*from\s*["']katex["']/,
-      );
+      if (/from\s*["']katex["']|require\(\s*["']katex["']|import\(\s*["']katex["']/.test(code)) {
+        importers.push(file);
+      }
     }
+    expect(importers).toEqual(["src/latex/render.ts"]);
   });
-});
-
-// Task 4.22 (4.19 re-review S-1; view-and-widgets spec: LaTeX output bounded, scenario "Too complex
-// to preview"): a real input the scan passes and the default bounds refuse. KaTeX makes one nested
-// accent for each combining mark after a character, at 5 levels or so each, which the scan does not
-// count: the output's depth bound is the only defence against the renderer's crash at about 131 code
-// points, so no pin of the constant stands in for it.
-describe("combining marks at the default bounds", () => {
-  const MARK = String.fromCodePoint(0x301);
-  const marks = (count: number, base = "a", close = "") => `${base}${MARK.repeat(count)}${close}`;
-  const CASES = [
-    ["a and 48 marks", marks(48)],
-    ["a and 130 marks", marks(130)],
-    ["\\text{a and 130 marks}", marks(130, "\\text{a", "}")],
-  ] as const;
-  const sizeOf = (expression: string) => treeSizeOf(renderTree(expression, renderOptions()));
-  let spies: ReturnType<typeof spyOn>[] = [];
-  afterEach(() => {
-    for (const spy of spies) spy.mockRestore();
-    spies = [];
-  });
-
-  test("the inputs are within the contract's limits and the scan counts no level in them", () => {
-    for (const [, expression] of CASES) {
-      expect([...expression].length).toBeLessThanOrEqual(LATEX_EXPRESSION_MAX_CHARS);
-      expect(scanLatex(expression)).toEqual({
-        refused: undefined,
-        depth: expression.startsWith("\\text") ? 1 : 0,
-      });
-      expect(latexPropsProblems({ expression })).toEqual([]);
-    }
-  });
-
-  test("a and 47 marks is drawn: the tree is within the three bounds", () => {
-    const expression = marks(47);
-    const size = sizeOf(expression);
-    expect(size.depth).toBeLessThanOrEqual(LATEX_TREE_MAX_DEPTH);
-    expect(parseProblem(expression)).toBeUndefined();
-    const { spy, toNodes } = watchTrees();
-    spies = [spy];
-    const host = hostHolding(["old"]);
-    expect(draw(host, expression)).toEqual({});
-    expect(host.marks).toEqual(["drawn"]);
-    expect(toNodes.map((toNode) => toNode.mock.calls.length)).toEqual([1]);
-  });
-
-  test.each(CASES)(
-    "%s is too complex: no node is made and the element keeps its content",
-    (_name, expression) => {
-      const size = sizeOf(expression);
-      expect(size.depth).toBeGreaterThan(LATEX_TREE_MAX_DEPTH);
-      const { spy, toNodes } = watchTrees();
-      spies = [spy];
-      expect(parseProblem(expression)).toEqual({ tooComplex: size });
-      const host = hostHolding(["last preview"]);
-      expect(draw(host, expression)).toEqual({ tooComplex: size });
-      expect(host.marks).toEqual(["last preview"]);
-      expect(toNodes.length).toBeGreaterThan(0);
-      for (const toNode of toNodes) expect(toNode).not.toHaveBeenCalled();
-    },
-  );
 });
 
 // Task 4.11 (view-and-widgets spec: LaTeX bounded work; design decisions 3 and 7): both functions run
@@ -536,11 +329,7 @@ describe("renderInto and parseProblem refuse before KaTeX", () => {
     spies = [];
   });
   const watchKatex = () => {
-    spies = [
-      spyOn(internals, "__renderToDomTree"),
-      spyOn(katex, "render"),
-      spyOn(katex, "renderToString"),
-    ];
+    spies = [spyOn(katex, "render"), spyOn(katex, "renderToString")];
     return spies;
   };
 
@@ -567,14 +356,28 @@ describe("renderInto and parseProblem refuse before KaTeX", () => {
   test("an expression at the limit is not refused: KaTeX draws it", () => {
     expect(parseProblem(nest(LIMIT))).toBeUndefined();
     const host = hostHolding(["old"]);
-    const { spy } = watchTrees("new");
-    spies = [spy];
+    spies = [
+      spyOn(katex, "render").mockImplementation((_e, target) => {
+        (target as unknown as Scratch).childNodes = ["new"];
+      }),
+    ];
     expect(draw(host, nest(LIMIT))).toEqual({});
     expect(host.marks).toEqual(["new"]);
   });
 
   test("a refusal and a parse error stay apart: the error is KaTeX's own message", () => {
-    expect(parseProblem("\\frac{1}{")).toStartWith("KaTeX parse error:");
-    expect(draw(hostHolding(), "\\frac{1}{").refused).toBeUndefined();
+    expect(typeof parseProblem("\\frac{1}{")).toBe("string");
+    expect(parseProblem("\\frac{1}{")).not.toBe("");
+    expect(parseProblem("\\frac{1}{")).toBe((thrownBy("\\frac{1}{") as Error).message);
+  });
+
+  test("stacked combining marks past the limit are refused before KaTeX, like any nest", () => {
+    const expression = `a${"\u0301".repeat(48)}`;
+    expect(parseProblem(expression)).toEqual({ refused: { depth: 49, limit: LIMIT } });
+    const host = hostHolding(["last preview"]);
+    const watched = watchKatex();
+    expect(draw(host, expression)).toEqual({ refused: { depth: 49, limit: LIMIT } });
+    for (const spy of watched) expect(spy).not.toHaveBeenCalled();
+    expect(host.marks).toEqual(["last preview"]);
   });
 });

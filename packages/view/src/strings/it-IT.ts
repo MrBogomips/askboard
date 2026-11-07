@@ -349,8 +349,6 @@ export const IT_IT = {
     "Questa espressione usa {command}, che un elemento LaTeX non consente. Rimuovilo prima di rispondere.",
   "latex.tooDeep":
     "Questa espressione ha {depth} livelli di annidamento, oltre il limite di {limit}. Semplificala prima di rispondere.",
-  "latex.tooComplex":
-    "Questa espressione è troppo complessa per l'anteprima. Semplificala per vederla disegnata.",
   "latex.counterEdited": "Le tue modifiche: espressione modificata",
   // The Kanban's texts are provisional, to review (latex-kanban-timeline, task 5.2).
   "kanban.tools": "Strumenti del Kanban",

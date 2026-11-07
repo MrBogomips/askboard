@@ -57,7 +57,7 @@ describe("the LaTeX's value", () => {
 });
 
 // The field error of each kind of `renderInto`'s result (design decision 7; view-and-widgets spec:
-// LaTeX parse errors, LaTeX bounded work, LaTeX output bounded): the string key and its values.
+// LaTeX parse errors, LaTeX bounded work): the string key and its values.
 describe("the LaTeX's field error", () => {
   test("is none for a drawn expression", () => {
     expect(fieldErrorOf({})).toBeUndefined();
@@ -110,13 +110,6 @@ describe("the LaTeX's field error", () => {
     });
   });
 
-  test("says an output past the bounds is too complex to preview", () => {
-    expect(fieldErrorOf({ tooComplex: { depth: 300, nodes: 1, fractions: 0 } })).toEqual({
-      key: "latex.tooComplex",
-      values: {},
-    });
-  });
-
   test("agrees with what the scan and the bounds give for real expressions", () => {
     const keyOf = (expression: string) => {
       const problem = parseProblem(expression);
@@ -129,6 +122,10 @@ describe("the LaTeX's field error", () => {
     expect(keyOf("\\show\\a")).toBe("latex.refusedCommand");
     expect(keyOf(`${"\\frac{".repeat(12)}x${"}{x}".repeat(12)}`)).toBe("latex.tooDeep");
     expect(keyOf("\\frac{1}{")).toBe("latex.parseError");
-    expect(keyOf(`a${"\u0301".repeat(48)}`)).toBe("latex.tooComplex");
+    expect(keyOf(`a${"\u0301".repeat(48)}`)).toBe("latex.tooDeep");
+    expect(fieldErrorOf({ refused: { depth: 49, limit: 11 } })?.values).toEqual({
+      depth: 49,
+      limit: 11,
+    });
   });
 });

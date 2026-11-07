@@ -339,7 +339,6 @@ export const EN_US = {
     "This expression uses {command}, which a LaTeX item does not allow. Remove it before you answer.",
   "latex.tooDeep":
     "This expression nests {depth} levels deep, more than the limit of {limit}. Simplify it before you answer.",
-  "latex.tooComplex": "This expression is too complex to preview. Simplify it to see it drawn.",
   "latex.counterEdited": "Your changes: expression edited",
   "kanban.tools": "Kanban tools",
   "kanban.moveTo": "Move to…",
