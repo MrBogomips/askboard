@@ -196,8 +196,8 @@ export const resultIdsOf = (question: ViewQuestion): readonly string[] =>
  * it: the item's type takes it against the item's props, by the `fits` its chunk registered
  * (approval-scale-ranking, pre-PR reviews, "A draft holds only results its items accept"). The
  * board page then never holds a result that `ask-core` would refuse, so "Answer" is never enabled
- * by work the item shows as untouched (AD-10, AD-20). A type that registered no check takes any
- * result its schema takes; an item the question lacks takes none.
+ * by work the item shows as untouched (AD-10, AD-20). A type that registered no `fits`, and one
+ * with no facts at all, takes no result, never any; an item the question lacks takes none.
  */
 export const resultFits = (
   question: ViewQuestion,
@@ -206,7 +206,7 @@ export const resultFits = (
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
 ): boolean => {
   const item = (question.props.items ?? []).find((each) => each.id === itemId);
-  return item !== undefined && (factsOf(item.type)?.fits?.(result, item.props) ?? true);
+  return item !== undefined && factsOf(item.type)?.fits?.(result, item.props) === true;
 };
 
 // No held results: the results store of a board that has none.

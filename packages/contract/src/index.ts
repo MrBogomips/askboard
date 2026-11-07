@@ -648,6 +648,7 @@ export {
   type ApprovalResult,
   approvalAnswerProblems,
   approvalNeedsReason,
+  approvalResultShape,
   noteHoldsReason,
 } from "./widgets/approval/index.ts";
 export {
@@ -661,6 +662,7 @@ export {
   type RankingResult,
   rankingPropsProblems,
   rankingResultProblems,
+  rankingResultShape,
 } from "./widgets/ranking/index.ts";
 export type { WidgetAnswer } from "./widgets/registry.ts";
 export { widgetAnswerProblems } from "./widgets/results.ts";
@@ -676,6 +678,7 @@ export {
   type ScaleResult,
   scalePropsProblems,
   scaleResultProblems,
+  scaleResultShape,
   scaleStepCount,
   scaleStepIndex,
 } from "./widgets/scale/index.ts";

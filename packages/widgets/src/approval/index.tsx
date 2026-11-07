@@ -7,7 +7,7 @@
 // that "Approve with changes" requires the reason in the open prompt and that revising a verdict
 // the agent has received asks first.
 
-import { approvalNeedsReason } from "@askboard/contract";
+import { approvalNeedsReason, approvalResultShape } from "@askboard/contract";
 import {
   componentFacts,
   type ItemProps,
@@ -77,7 +77,9 @@ const Approval = ({
 };
 
 // The facts the shell needs of the Approval (design decision 5): its name in the notice, the
-// reason "Approve with changes" requires, and the confirmation a received verdict's revision asks.
+// reason "Approve with changes" requires, the confirmation a received verdict's revision asks, and
+// whether a result fits (`fits`): the contract's shape check, since an Approval has no props to
+// check it against.
 register(APPROVAL, Approval, {
   name: "change.widgetApproval",
   reason: (result) =>
@@ -85,4 +87,5 @@ register(APPROVAL, Approval, {
       ? { label: "question.reasonRequired", missing: "question.reasonMissing" }
       : undefined,
   confirmsRevision: true,
+  fits: (result) => approvalResultShape(result),
 });

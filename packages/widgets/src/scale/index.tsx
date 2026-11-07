@@ -5,7 +5,7 @@
 // visible (AD-10). It shows nothing set until the user sets it, and reports its value as the
 // item's result, `{value}` or `{low, high}` with `range`; a rating cleared reports none.
 
-import { type ScaleProps, scaleResultProblems } from "@askboard/contract";
+import { type ScaleProps, scaleResultProblems, scaleResultShape } from "@askboard/contract";
 import {
   type ItemProps,
   questionTextId,
@@ -58,9 +58,11 @@ const Scale = ({
 };
 
 // The facts the shell needs of the Scale (widget-registry, design decision 8): its name in the
-// notice, and whether a result fits its props, by the contract's check (`fits`). It edits nothing
+// notice, and whether a result fits its props, by the contract's shape and props checks (`fits`),
+// the two `widgetResultFits` runs. It edits nothing
 // and asks for no reason or confirmation.
 register(SCALE, Scale, {
   name: "change.widgetScale",
-  fits: (result, props) => scaleResultProblems(result, props).length === 0,
+  fits: (result, props) =>
+    scaleResultShape(result) && scaleResultProblems(result, props).length === 0,
 });

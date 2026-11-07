@@ -39,6 +39,11 @@ const [scope] = lifecycleBoardDocument.items as unknown as readonly [ViewArea];
 const [region, payment] = scope.props.items as unknown as readonly [ViewQuestion, ViewQuestion];
 const ACTION_ID = "AAAAAAAAAAAAAAAAAAAAAA";
 
+// What the test-only widget types' chunks would register: each takes any result. The check of a
+// result's type is the chunks' and the contract's, tested there and under "a result the type
+// refuses" below.
+const accepting = () => ({ fits: () => true });
+
 const setUp = (delivery: Delivery = "immediate") => {
   const sent: ViewMessage[] = [];
   const channel: ViewChannel = {
@@ -61,7 +66,7 @@ const setUp = (delivery: Delivery = "immediate") => {
     board,
     acts,
     derived,
-    context: { channel, acts, draft, results, board, derived, delivery },
+    context: { channel, acts, draft, results, board, derived, delivery, facts: accepting },
   };
 };
 
@@ -1033,12 +1038,12 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
   const order = { order: ["cost", "speed", "comfort"] };
   // What the Scale and Ranking chunks register: each type's own check, through the contract's.
   const facts = (type: string) =>
-    type === "scale" || type === "ranking"
+    type === "scale" || type === "ranking" || type === "approval"
       ? {
           fits: (result: unknown, props: unknown) =>
             widgetResultFits({ type, id: "x" }, result, props),
         }
-      : undefined;
+      : accepting();
   const setUpFits = () => {
     const set = setUp();
     return { ...set, context: { ...set.context, facts } };
@@ -1075,6 +1080,43 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
       fillFrom(questionOf(scale(props)), { results: { share: { value } } }, context);
       expect(results.record().has("share")).toBe(false);
     }
+  });
+
+  test("a result of another type's shape is seeded into no item, as when a revision changed the type under the ID", () => {
+    const approval: WidgetItem = { type: "approval", id: "share", props: {} };
+    const scaled: WidgetItem = {
+      type: "scale",
+      id: "priorities",
+      props: { min: 0, max: 100, step: 5 },
+    };
+    const { results, context } = setUpFits();
+    fillFrom(
+      questionOf(approval, scaled),
+      { results: { share: { value: 50 }, priorities: order } },
+      context,
+    );
+    expect(results.record().size).toBe(0);
+    const turned = setUpFits();
+    fillFrom(
+      questionOf(ranking("speed", "comfort"), { ...approval, id: "other" }),
+      { results: { priorities: { decision: "approve" }, other: { decision: "approve" } } },
+      turned.context,
+    );
+    expect([...turned.results.record().keys()]).toEqual(["other"]);
+  });
+
+  test("a type whose chunk registered no check, or none at all, is seeded no result, never any", () => {
+    const set = setUpFits();
+    const bare: WidgetItem = { type: "bare", id: "share", props: {} };
+    const unknown: WidgetItem = { type: "unknown", id: "priorities", props: {} };
+    const noFits = (type: string) =>
+      type === "bare" ? { confirmsRevision: true as const } : undefined;
+    fillFrom(
+      questionOf(bare, unknown),
+      { results: { share: { value: 50 }, priorities: { order: ["a", "b"] } } },
+      { ...set.context, facts: noFits },
+    );
+    expect(set.results.record().size).toBe(0);
   });
 
   test("a Scale value still on the grid is seeded", () => {

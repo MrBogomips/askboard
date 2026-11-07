@@ -5,7 +5,7 @@
 // visible (AD-10). An untouched Ranking reports no result; a move, a drop or "Keep this order"
 // reports `{order}`, the IDs of every element in the user's order.
 
-import { rankingResultProblems } from "@askboard/contract";
+import { rankingResultProblems, rankingResultShape } from "@askboard/contract";
 import {
   type ItemProps,
   questionTextId,
@@ -51,9 +51,11 @@ const Ranking = ({
 };
 
 // The facts the shell needs of the Ranking (widget-registry, design decision 8): its name in the
-// notice, and whether a result fits its props, by the contract's check (`fits`). It edits nothing
+// notice, and whether a result fits its props, by the contract's shape and props checks (`fits`),
+// the two `widgetResultFits` runs. It edits nothing
 // and asks for no reason or confirmation.
 register(RANKING, Ranking, {
   name: "change.widgetRanking",
-  fits: (result, props) => rankingResultProblems(result, props).length === 0,
+  fits: (result, props) =>
+    rankingResultShape(result) && rankingResultProblems(result, props).length === 0,
 });

@@ -4,7 +4,7 @@
 // gives an order.
 
 import type { WidgetType } from "../registry.ts";
-import { rankingPropsProblems, rankingResultProblems } from "./checks.ts";
+import { rankingPropsProblems, rankingResultProblems, rankingResultShape } from "./checks.ts";
 import rankingProps from "./ranking-props.json" with { type: "json" };
 import rankingResult from "./ranking-result.json" with { type: "json" };
 import { RANKING_EXPECTED, RANKING_FIELDS, rankingElementOf } from "./wording.ts";
@@ -14,7 +14,7 @@ export const RANKING_WIDGET: WidgetType = {
   noun: "a Ranking",
   props: rankingProps,
   propsProblems: rankingPropsProblems,
-  result: { schema: rankingResult, problems: rankingResultProblems },
+  result: { schema: rankingResult, shape: rankingResultShape, problems: rankingResultProblems },
   wording: { expected: RANKING_EXPECTED, fields: RANKING_FIELDS, element: rankingElementOf },
   example: {
     item: {

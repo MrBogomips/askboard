@@ -6,6 +6,7 @@
 export {
   scalePropsProblems,
   scaleResultProblems,
+  scaleResultShape,
   scaleStepCount,
   scaleStepIndex,
 } from "./checks.ts";

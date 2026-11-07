@@ -4,7 +4,7 @@
 // with no schema and no Ajv, as `ask-core` runs them on the answer.
 
 import { describe, expect, test } from "bun:test";
-import { widgetResultFits, widgetResultProblems } from "../src/index.ts";
+import { WIDGET_TYPES, widgetResultFits, widgetResultProblems } from "../src/index.ts";
 
 const ranking = (...ids: string[]) => ({
   type: "ranking",
@@ -44,6 +44,83 @@ describe("widgetResultFits", () => {
     expect(widgetResultFits(approval, { decision: "approve" }, approval.props)).toBe(true);
   });
 
+  test("an Approval's result of another shape, or with a decision it lacks, fits nothing", () => {
+    for (const result of [
+      { value: 50 },
+      { order: ["a", "b"] },
+      { low: 1, high: 2 },
+      { decision: "maybe" },
+      { decision: "approve", extra: 1 },
+      {},
+      [],
+      null,
+      "approve",
+    ]) {
+      expect(widgetResultFits(approval, result, approval.props)).toBe(false);
+    }
+  });
+
+  test("a Scale's result of another shape, or of both forms, or off the schema's numbers, fits nothing", () => {
+    const slider = scale({ min: 0, max: 100, step: 5 });
+    const range = scale({ min: 0, max: 100, step: 5, range: true });
+    for (const result of [
+      { order: ["a", "b"] },
+      { decision: "approve" },
+      { value: "5" },
+      { value: 5, extra: 1 },
+      { value: 5, low: 5, high: 10 },
+      { value: Number.NaN },
+      { value: 5000000000 },
+      {},
+      [],
+      null,
+    ]) {
+      expect(widgetResultFits(slider, result, slider.props)).toBe(false);
+    }
+    for (const result of [
+      { order: ["a", "b"] },
+      { decision: "approve" },
+      { low: 5 },
+      { high: 5 },
+    ]) {
+      expect(widgetResultFits(range, result, range.props)).toBe(false);
+    }
+  });
+
+  test("a Ranking's result of another shape, or an order off the schema's, fits nothing", () => {
+    const item = ranking("speed", "comfort");
+    for (const result of [
+      { value: 50 },
+      { decision: "approve" },
+      { order: "speed" },
+      { order: [1, 2] },
+      { order: ["speed"] },
+      { order: ["speed", "comfort"], extra: 1 },
+      {},
+      [],
+      null,
+    ]) {
+      expect(widgetResultFits(item, result, item.props)).toBe(false);
+    }
+  });
+
+  test("a type that gives a result and no shape check fits no result, never any", () => {
+    const shapeless = WIDGET_TYPES.map((entry) =>
+      entry.type === "approval" && entry.result !== undefined
+        ? { ...entry, result: { schema: entry.result.schema } }
+        : entry,
+    );
+    expect(widgetResultFits(approval, { decision: "approve" }, approval.props, shapeless)).toBe(
+      false,
+    );
+  });
+
+  test("every registered type that gives a result has a shape check", () => {
+    for (const entry of WIDGET_TYPES.filter(({ result }) => result !== undefined)) {
+      expect(entry.result?.shape, entry.type).toBeFunction();
+    }
+  });
+
   test("a type the registry lacks, or one that gives no result, fits nothing", () => {
     expect(widgetResultFits({ type: "verdict", id: "v" }, { decision: "approve" }, {})).toBe(false);
     expect(widgetResultFits({ type: "tree", id: "wbs" }, { order: [] }, {})).toBe(false);
@@ -59,5 +136,41 @@ describe("widgetResultFits", () => {
         widgetResultProblems(item, result, item.props).length === 0,
       );
     }
+  });
+});
+
+describe("widgetResultFits and widgetResultProblems over every type and every shape (security X-1, 7b.6)", () => {
+  // The review's probes: a result put to an item of another type, as when a revision turns a Scale
+  // into an Approval under the same ID, and the results of each type put to each.
+  const items = [
+    approval,
+    scale({ min: 0, max: 100, step: 5 }),
+    scale({ min: 0, max: 100, step: 5, range: true }),
+    ranking("speed", "comfort"),
+  ];
+  const results = [
+    { decision: "approve" },
+    { decision: "reject" },
+    { value: 50 },
+    { value: "5" },
+    { low: 5, high: 50 },
+    { order: ["speed", "comfort"] },
+    { order: ["comfort", "speed"] },
+    { order: ["speed"] },
+    {},
+  ];
+
+  test("they agree on every pair, and both answers occur", () => {
+    const seen = new Set<boolean>();
+    for (const item of items) {
+      for (const result of results) {
+        const fits = widgetResultFits(item, result, item.props);
+        expect(fits, `${item.type} ${JSON.stringify(item.props)} ${JSON.stringify(result)}`).toBe(
+          widgetResultProblems(item, result, item.props).length === 0,
+        );
+        seen.add(fits);
+      }
+    }
+    expect(seen.size).toBe(2);
   });
 });

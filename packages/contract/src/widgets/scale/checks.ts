@@ -161,3 +161,27 @@ export const scaleResultProblems = (result: unknown, props: unknown): readonly P
   const problem = numberProblem("value", result.value, read);
   return problem === undefined ? [] : [problem];
 };
+
+// The bound of the result schema's numbers (`scale-result.json`).
+const RESULT_BOUND = 1_000_000_000;
+
+const boundedNumber = (value: unknown): boolean =>
+  finite(value) && value >= -RESULT_BOUND && value <= RESULT_BOUND;
+
+/**
+ * Whether `result` has the shape of a Scale's result, the schema's rule in plain code (pre-PR
+ * reviews, security X-1; 7b.6): `value` alone, or `low` and `high` alone, each a number within
+ * the schema's bound, and no other key. Which form the item takes is the props check's.
+ */
+export const scaleResultShape = (result: unknown): boolean => {
+  if (!isRecord(result)) return false;
+  const keys = Object.keys(result);
+  if (keys.length === 1 && keys[0] === "value") return boundedNumber(result.value);
+  return (
+    keys.length === 2 &&
+    keys.includes("low") &&
+    keys.includes("high") &&
+    boundedNumber(result.low) &&
+    boundedNumber(result.high)
+  );
+};

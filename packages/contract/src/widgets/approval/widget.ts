@@ -6,7 +6,7 @@
 import type { WidgetType } from "../registry.ts";
 import approvalProps from "./approval-props.json" with { type: "json" };
 import approvalResult from "./approval-result.json" with { type: "json" };
-import { approvalAnswerProblems, approvalPropsProblems } from "./checks.ts";
+import { approvalAnswerProblems, approvalPropsProblems, approvalResultShape } from "./checks.ts";
 import { APPROVAL_EXPECTED, APPROVAL_FIELDS } from "./wording.ts";
 
 export const APPROVAL_WIDGET: WidgetType = {
@@ -14,7 +14,11 @@ export const APPROVAL_WIDGET: WidgetType = {
   noun: "an Approval",
   props: approvalProps,
   propsProblems: approvalPropsProblems,
-  result: { schema: approvalResult, answerProblems: approvalAnswerProblems },
+  result: {
+    schema: approvalResult,
+    shape: approvalResultShape,
+    answerProblems: approvalAnswerProblems,
+  },
   wording: { expected: APPROVAL_EXPECTED, fields: APPROVAL_FIELDS },
   example: { item: { type: "approval", id: "verdict", props: {} } },
   skill: {

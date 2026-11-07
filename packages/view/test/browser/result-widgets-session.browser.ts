@@ -242,6 +242,49 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
+    test(
+      "the agent reopens an answered Ranking, Scale and Approval and gives each ID another type: Start from my previous answer puts back no result, and Answer stays disabled",
+      async () => {
+        const run = await start(lifecycleScenario(threeAsk, dist));
+        const board = await openBoard(run, ["plan"]);
+        await ranked(board, "Keep this order").click();
+        await setToMaximum(board);
+        await decisionOf(board, "plan", "Approve").click();
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await card(board, "plan").getByText("sent", { exact: true }).waitFor();
+        await actsDone(run, 1);
+        // Each ID keeps its place and takes the next type: the Ranking's is now a Scale, the
+        // Scale's an Approval, the Approval's a Ranking, so each holds another type's result.
+        await run.session.update([
+          { action: "reopen", itemId: "plan" },
+          {
+            action: "change",
+            itemId: "plan",
+            props: {
+              ...threeAsk.items[0].props,
+              items: [
+                { type: "scale", id: RANKING_FIXTURE_ITEM.id, props: SLIDER },
+                { type: "approval", id: "share", props: {} },
+                { ...RANKING_FIXTURE_ITEM, id: "verdict" },
+              ],
+            },
+          },
+        ]);
+        const reopened = card(board, "plan").locator('[data-askboard-notice="reopened"]');
+        await reopened.getByText("Reopened by the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reopened.getByRole("button", { name: "Start from my previous answer" }).click();
+        await Bun.sleep(QUIET_MS);
+        for (const id of [RANKING_FIXTURE_ITEM.id, "share", "verdict"]) {
+          expect(draftHolds(sentDrafts(run), "plan", id, undefined), id).toBe(true);
+        }
+        expect(await value(board).first().textContent()).toBe("Not set");
+        expect(await answerOf(board, "plan").isDisabled()).toBe(true);
+        expect(sentActs(run)).toHaveLength(1);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
     // A held Scale value, 100 of 100, and the agent's change of its `max` to 50.
     const heldThenLowered = async (run: Awaited<ReturnType<typeof start>>) => {
       const board = await openBoard(run, ["plan"]);

@@ -2,7 +2,7 @@
 // result is `{order}`. Its schemas are standalone: they belong to no schema set until the entry is
 // registered (design decision 10), and nothing compiles them when this module loads.
 
-export { rankingPropsProblems, rankingResultProblems } from "./checks.ts";
+export { rankingPropsProblems, rankingResultProblems, rankingResultShape } from "./checks.ts";
 export {
   RANKING_DESCRIPTION_MAX_CHARS,
   RANKING_LABEL_MAX_CHARS,

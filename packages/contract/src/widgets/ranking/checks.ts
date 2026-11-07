@@ -72,3 +72,26 @@ export const rankingResultProblems = (result: unknown, props: unknown): readonly
   }
   return problems;
 };
+
+// The bounds of the result schema's order (`ranking-result.json`).
+const ORDER_MIN = 2;
+const ORDER_MAX = 50;
+
+/**
+ * Whether `result` has the shape of a Ranking's result, the schema's rule in plain code (pre-PR
+ * reviews, security X-1; 7b.6): `order` alone, a list of 2 to 50 strings. That the strings are the
+ * item's own element IDs, each once, is the props check's.
+ */
+export const rankingResultShape = (result: unknown): boolean => {
+  if (!isRecord(result)) return false;
+  const keys = Object.keys(result);
+  const { order } = result;
+  return (
+    keys.length === 1 &&
+    keys[0] === "order" &&
+    Array.isArray(order) &&
+    order.length >= ORDER_MIN &&
+    order.length <= ORDER_MAX &&
+    order.every((id) => typeof id === "string")
+  );
+};

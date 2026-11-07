@@ -4,7 +4,7 @@
 // gives a result.
 
 import type { WidgetType } from "../registry.ts";
-import { scalePropsProblems, scaleResultProblems } from "./checks.ts";
+import { scalePropsProblems, scaleResultProblems, scaleResultShape } from "./checks.ts";
 import scaleProps from "./scale-props.json" with { type: "json" };
 import scaleResult from "./scale-result.json" with { type: "json" };
 import { SCALE_EXPECTED, SCALE_FIELDS } from "./wording.ts";
@@ -14,7 +14,7 @@ export const SCALE_WIDGET: WidgetType = {
   noun: "a Scale",
   props: scaleProps,
   propsProblems: scalePropsProblems,
-  result: { schema: scaleResult, problems: scaleResultProblems },
+  result: { schema: scaleResult, shape: scaleResultShape, problems: scaleResultProblems },
   wording: { expected: SCALE_EXPECTED, fields: SCALE_FIELDS },
   example: {
     item: {

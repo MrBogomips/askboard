@@ -65,6 +65,13 @@ export type WidgetType = {
   /** For a widget that gives a result: its schema, `urn:askboard:output:<type>-result`, and checks. */
   readonly result?: {
     readonly schema: AnySchemaObject;
+    /**
+     * The schema's own rule in plain ECMAScript, with no Ajv: whether `result` has the shape the
+     * schema takes. The board page checks it, with `problems`, before it holds or seeds a result
+     * (`widgetResultFits`); a type with a result and no shape fits no result there, never any
+     * (approval-scale-ranking, pre-PR reviews, security X-1).
+     */
+    readonly shape?: (result: unknown) => boolean;
     readonly problems?: (result: unknown, props: unknown) => readonly Problem[];
     /**
      * What the answer the result travels in must hold or leave out, after the result's own checks

@@ -5,8 +5,10 @@
 // Plain ECMAScript with no JSON and no Ajv: the approval chunk bundles it. Nothing throws on a
 // value it cannot read as an Approval's result; it gives no problem, since the schema refuses it.
 
+import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
 import type { WidgetAnswer } from "../registry.ts";
+import { APPROVAL_DECISIONS } from "./constants.ts";
 
 const isDecision = (result: unknown, decision: string): boolean =>
   typeof result === "object" &&
@@ -49,3 +51,18 @@ export const approvalAnswerProblems = (
 
 /** An Approval has no props, so the schema says it all. */
 export const approvalPropsProblems = (): readonly Problem[] => [];
+
+/**
+ * Whether `result` has the shape of an Approval's result, the schema's rule in plain code
+ * (pre-PR reviews, security X-1; 7b.6): one key, `decision`, one of the three verdicts. The board
+ * page reads it, with no Ajv, before it holds or seeds a result.
+ */
+export const approvalResultShape = (result: unknown): boolean => {
+  if (!isRecord(result)) return false;
+  const keys = Object.keys(result);
+  return (
+    keys.length === 1 &&
+    keys[0] === "decision" &&
+    (APPROVAL_DECISIONS as readonly unknown[]).includes(result.decision)
+  );
+};

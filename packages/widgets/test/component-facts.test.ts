@@ -11,6 +11,7 @@ import {
   type WidgetType,
   widgetAnswerProblems,
   widgetResultFits,
+  widgetResultProblems,
 } from "@askboard/contract";
 
 const SRC = join(import.meta.dir, "../src");
@@ -37,6 +38,15 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     { order: [...ids].reverse() },
     { order: ids.slice(1) },
     { order: [...ids, "extra"] },
+    // Shapes no type takes, and one of each type's own with a field it lacks or a value off its kind.
+    { value: "5" },
+    { low: 1 },
+    { decision: "maybe" },
+    { decision: "approve", extra: 1 },
+    { order: "speed" },
+    {},
+    [],
+    null,
   ];
 };
 
@@ -106,11 +116,13 @@ describe("each registered widget type's chunk", () => {
 });
 
 describe("a chunk's fact `fits`", () => {
-  test("is registered exactly when the type's entry checks a result against props, and agrees with the contract's check", async () => {
+  test("is registered exactly when the type's entry gives a result, and agrees with the contract's check", async () => {
     const facts = await registered();
     for (const [at, entry] of WIDGET_TYPES.entries()) {
       const fits = facts[at]?.fits;
-      expect(fits !== undefined).toBe(entry.result?.problems !== undefined);
+      expect(fits !== undefined, `${entry.type}: fits registered exactly with a result`).toBe(
+        entry.result !== undefined,
+      );
       if (fits === undefined) continue;
       expect(fits).toEqual(
         probesOf(entry).map((result) =>
@@ -119,6 +131,18 @@ describe("a chunk's fact `fits`", () => {
       );
       // A check that said yes to everything or no to everything would pass the agreement trivially.
       expect(new Set(fits).size).toBe(2);
+    }
+  });
+
+  test("is false for every result the contract's check, schema included, refuses", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      const fits = facts[at]?.fits;
+      if (fits === undefined) continue;
+      for (const [index, result] of probesOf(entry).entries()) {
+        const refused = widgetResultProblems(entry.example.item, result, entry.example.item.props);
+        expect(fits[index], `${entry.type}: ${JSON.stringify(result)}`).toBe(refused.length === 0);
+      }
     }
   });
 });

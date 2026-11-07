@@ -115,11 +115,12 @@ export type ComponentFacts = {
    */
   readonly confirmsRevision?: true;
   /**
-   * Whether the type takes `result` for an item with `props`, by the type's own check of a result
-   * against props (approval-scale-ranking, pre-PR reviews): the shell holds or seeds a result only
-   * while this says true, so a draft never holds one `ask-core` would refuse. A type with no such
-   * check gives none, and any result it holds fits. The check is the contract's, the one the type's
-   * registry entry holds (`widgetResultFits`), which the shell cannot import with the registry.
+   * Whether the type takes `result` for an item with `props`, by the contract's shape check and
+   * its check of a result against props, the two `widgetResultFits` runs (approval-scale-ranking,
+   * pre-PR reviews): the shell holds or seeds a result only while this says true, so a draft never
+   * holds one `ask-core` would refuse. Every type that gives a result registers it; the shell
+   * takes no result for a type that did not, never any. The shell cannot import the registry, so
+   * each chunk registers it over the contract's own functions.
    */
   readonly fits?: (result: unknown, props: unknown) => boolean;
 };

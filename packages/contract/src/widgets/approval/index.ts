@@ -7,6 +7,7 @@ export {
   approvalAnswerProblems,
   approvalNeedsReason,
   approvalPropsProblems,
+  approvalResultShape,
   noteHoldsReason,
 } from "./checks.ts";
 export {

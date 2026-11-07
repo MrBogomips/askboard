@@ -446,6 +446,9 @@ describe("results beside the draft record (widget-registry, design decision 9)",
   const [question] = questionsOf(document) as [ViewQuestion];
   const result = { pick: "a" };
 
+  // What the probe's chunk would register: its type takes any result (the check of a result's
+  // type is the chunks' and the contract's, tested there).
+  const accepting = () => ({ fits: () => true });
   const withResults = () => {
     const values = createDraftStore();
     const results = createDraftStore();
@@ -511,6 +514,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       second.values,
       second.board,
       second.results,
+      accepting,
     );
     expect(second.results.valueOf("sketch")).toEqual(result);
     expect(second.values.valueOf("sketch")).toEqual({ size: 4 });
@@ -528,7 +532,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
         },
       },
     };
-    restoreDraft(stale, document, openState(document), values, board, results);
+    restoreDraft(stale, document, openState(document), values, board, results, accepting);
     expect([...results.record().keys()]).toEqual(["sketch"]);
   });
 
@@ -540,7 +544,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
         database: { rev: 1, results: { sketch: { annotations: [] } } },
       },
     };
-    restoreDraft(stale, document, openState(document), values, board, results);
+    restoreDraft(stale, document, openState(document), values, board, results, accepting);
     expect(results.record().size).toBe(0);
     expect(board.get().questions.get("database")).toBeUndefined();
   });
@@ -571,12 +575,14 @@ describe("results beside the draft record (widget-registry, design decision 9)",
     });
     const refused = { order: ["cost", "speed", "comfort"] };
     const fitting = (type: string) =>
-      type === "ranking"
-        ? {
-            fits: (result: unknown, props: unknown) =>
-              widgetResultFits({ type, id: "x" }, result, props),
-          }
-        : undefined;
+      type === "probe"
+        ? accepting()
+        : type === "ranking"
+          ? {
+              fits: (result: unknown, props: unknown) =>
+                widgetResultFits({ type, id: "x" }, result, props),
+            }
+          : undefined;
     const alone = withResults();
     restoreDraft(
       saved({ priorities: refused }),
@@ -644,7 +650,7 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       delivery: "immediate",
       questions: { database: { rev: 1, results: { sketch: result } } },
     };
-    restoreDraft(saved, document, openState(document), values, board, results);
+    restoreDraft(saved, document, openState(document), values, board, results, accepting);
     expect(board.work("database")).toEqual({ rev: 1 });
   });
 
@@ -669,10 +675,26 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       questions: { database: { rev: 1, results: { sketch: shown } } } as never,
     });
     const same = withResults();
-    restoreDraft(mirror({ pick: "a" }), document, state, same.values, same.board, same.results);
+    restoreDraft(
+      mirror({ pick: "a" }),
+      document,
+      state,
+      same.values,
+      same.board,
+      same.results,
+      accepting,
+    );
     expect(same.results.record().size).toBe(0);
     const other = withResults();
-    restoreDraft(mirror({ pick: "b" }), document, state, other.values, other.board, other.results);
+    restoreDraft(
+      mirror({ pick: "b" }),
+      document,
+      state,
+      other.values,
+      other.board,
+      other.results,
+      accepting,
+    );
     expect(other.results.valueOf("sketch")).toEqual({ pick: "b" });
   });
 });
