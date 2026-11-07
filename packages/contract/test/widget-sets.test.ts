@@ -28,22 +28,35 @@ const idsOf = (name: string) =>
   setOf(name).schemas.map((schema) => (schema as { $id: string }).$id);
 
 describe("the widening as the next minor (widget-answers, design decision 1)", () => {
+  // Later changes take the next minor again: these hold widget-answers' minors or a later one, and
+  // the atoms' version test pins the numbers of the latest.
+  const minor = (version: string): number => Number(version.split(".")[1]);
+
   test("the five versions", () => {
     expect({
-      input: INPUT_FORMAT_VERSION,
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-      protocol: BOARD_PROTOCOL_VERSION,
-    }).toEqual({ input: "1.8", output: "1.8", envelopes: "1.8", document: "1.7", protocol: "1.6" });
+      input: minor(INPUT_FORMAT_VERSION) >= 4,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 3,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 3,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 3,
+      protocol: minor(BOARD_PROTOCOL_VERSION) >= 5,
+    }).toEqual({ input: true, output: true, envelopes: true, document: true, protocol: true });
   });
 
   test("each set holds its constant, with the owner AD-7 gives it", () => {
-    expect(setOf("input")).toMatchObject({ version: "1.8", owner: "contract" });
-    expect(setOf("output")).toMatchObject({ version: "1.8", owner: "contract" });
-    expect(setOf("tool-envelopes")).toMatchObject({ version: "1.8", owner: "mcp-tools" });
-    expect(setOf("board-document")).toMatchObject({ version: "1.7", owner: "ask-core" });
-    expect(setOf("board-protocol")).toMatchObject({ version: "1.6", owner: "board-host" });
+    expect(setOf("input")).toMatchObject({ version: INPUT_FORMAT_VERSION, owner: "contract" });
+    expect(setOf("output")).toMatchObject({ version: OUTPUT_FORMAT_VERSION, owner: "contract" });
+    expect(setOf("tool-envelopes")).toMatchObject({
+      version: TOOL_ENVELOPES_VERSION,
+      owner: "mcp-tools",
+    });
+    expect(setOf("board-document")).toMatchObject({
+      version: BOARD_DOCUMENT_VERSION,
+      owner: "ask-core",
+    });
+    expect(setOf("board-protocol")).toMatchObject({
+      version: BOARD_PROTOCOL_VERSION,
+      owner: "board-host",
+    });
   });
 
   test("an earlier minor's version string is still accepted by major", () => {

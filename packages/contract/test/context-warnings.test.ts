@@ -26,18 +26,23 @@ const NO_HOOKS = { code: "no-hooks", message: "This session runs without hooks."
 
 describe("the versions (design decision 2)", () => {
   test("the output format, the tool envelopes and the board protocol take the minor after 1.1, the protocol a later one (settings-languages)", () => {
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      protocol: BOARD_PROTOCOL_VERSION,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 8,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 8,
+      protocol: minor(BOARD_PROTOCOL_VERSION) >= 6,
       // E7 (snapshot) took the envelopes and the protocol to 1.3 after E5's 1.2; E8 (settings and
       // languages) took the protocol to 1.4; widget-answers took all three one minor further;
       // widget-editing-plus took the output format one minor, widget-registry the output format,
       // the envelopes and the protocol one more, approval-scale-ranking the output format and
       // the envelopes one more, latex-kanban-timeline the output format and the envelopes one more,
-      // and chart-widget the output format and the envelopes one more again.
-    }).toEqual({ output: "1.8", envelopes: "1.8", protocol: "1.6" });
-    expect(RESULT_VERSIONS).toEqual({ result: "1.8", output: "1.8" });
+      // chart-widget the output format and the envelopes one more again, and atoms once more
+      // (these hold chart-widget's minors or a later one; the atoms' version test pins the latest).
+    }).toEqual({ output: true, envelopes: true, protocol: true });
+    expect(RESULT_VERSIONS).toEqual({
+      result: TOOL_ENVELOPES_VERSION,
+      output: OUTPUT_FORMAT_VERSION,
+    });
   });
 });
 

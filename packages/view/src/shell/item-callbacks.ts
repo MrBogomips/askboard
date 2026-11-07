@@ -5,19 +5,26 @@
 // (ask-lifecycle, task 6.7), once. An update naming an item outside the question changes nothing
 // and goes to the item's error path, as a thrown render error does. `onResultChange` puts the
 // item's result into the results store beside the draft record, none (`undefined`) removing it, after
-// the same step (widget-registry, design decision 9), and refuses one that is not JSON. Also the value and
-// the result an item shows.
+// the same step (widget-registry, design decision 9), and refuses one that is not JSON. `onEntryChange`
+// puts the text a field cannot read into the entries store, cut at the limit, none removing it, and
+// clears the item's result, as a result clears its entry: an item holds one or the other, never both
+// (atoms, design decision 3). Also the value and the result an item shows.
 // Plain functions, tested without a DOM.
 
 import { JSON_MAX_DEPTH, resultHoldsNothing } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
 import { isJsonValue } from "../view-protocol.ts";
 import type { DraftStore } from "./draft-store.ts";
+import { cutEntry } from "./entries.ts";
 
 export type ItemCallbackInputs = {
   readonly draft: DraftStore;
   /** The results store beside the draft record; without one, a reported result is not held. */
   readonly results?: DraftStore | undefined;
+  /** The entries store beside the draft record; without one, a reported entry is not held. */
+  readonly entries?: DraftStore | undefined;
+  /** The item's type holds an entry (`isEntryType`); an item that reports one without it fails. */
+  readonly entryAllowed?: boolean | undefined;
   readonly itemId: string;
   /** The question the item sits in. */
   readonly questionId: string;
@@ -33,6 +40,7 @@ export type ItemCallbacks = {
   readonly onValueChange: (value: unknown) => void;
   readonly onValuesChange: (values: Readonly<Record<string, unknown>>) => void;
   readonly onResultChange: (result: unknown) => void;
+  readonly onEntryChange: (entry: string | undefined) => void;
 };
 
 const quoted = (ids: readonly string[]): string => {
@@ -45,6 +53,8 @@ const quoted = (ids: readonly string[]): string => {
 export const itemCallbacks = ({
   draft,
   results,
+  entries,
+  entryAllowed = false,
   itemId,
   questionId,
   itemIds,
@@ -77,8 +87,32 @@ export const itemCallbacks = ({
       return;
     }
     onBeforeChange?.();
-    // A result that holds nothing is no result: it clears the item's, as none does.
-    results.set(itemId, resultHoldsNothing(result) ? undefined : result);
+    // A result that holds nothing is no result: it clears the item's, as none does. A result
+    // takes the item's entry out: the text was read.
+    const held = resultHoldsNothing(result) ? undefined : result;
+    results.set(itemId, held);
+    if (held !== undefined) entries?.set(itemId, undefined);
+  },
+  onEntryChange: (entry) => {
+    if (entries === undefined) return;
+    if (entry === undefined || entry === "") {
+      onBeforeChange?.();
+      entries.set(itemId, undefined);
+      return;
+    }
+    if (!entryAllowed || typeof entry !== "string") {
+      onError(
+        new Error(
+          entryAllowed
+            ? `the item "${itemId}" reported an entry that is no text`
+            : `the item "${itemId}" reported an entry, which its type does not hold`,
+        ),
+      );
+      return;
+    }
+    onBeforeChange?.();
+    entries.set(itemId, cutEntry(entry));
+    results?.set(itemId, undefined);
   },
   onValuesChange: (values) => {
     const outside = Object.keys(values).filter((id) => !itemIds.includes(id));

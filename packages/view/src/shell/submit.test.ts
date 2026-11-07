@@ -732,3 +732,128 @@ describe("the confirmation sends what is held when it is confirmed (approval-sca
     });
   });
 });
+
+describe("Select recommended and Submit with an entry held (checkpoints 2.3 and 4.4, X-1; AD-10, AD-20)", () => {
+  // A test-only NumberField `days` on the `region` question, which has a recommended option. The
+  // user typed `21` into it: the entry is held, the field has no result and "Answer" is disabled.
+  const days = { type: "number-field", id: "days", props: { label: "Days", max: 20 } };
+  const doc = (() => {
+    const copy = structuredClone(document) as unknown as ViewDocument;
+    const area = copy.items[0] as ViewArea;
+    const [first] = area.props.items;
+    (first as unknown as { props: { items: unknown[] } }).props.items = [days];
+    return copy;
+  })();
+  const stores = (delivery: Delivery = "submitted") => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const entries = createDraftStore();
+    const board = createBoardDraft(delivery);
+    connectDrafts(doc, values, board, results, entries);
+    return { values, results, entries, board };
+  };
+  const mark = (board: ReturnType<typeof stores>["board"], id: string, order: number) =>
+    board.edit(id, 1, (work) => ({ ...work, held: { act: "answer", order } }));
+  const base = {
+    document: doc,
+    delivery: "submitted" as const,
+    connection: undefined,
+    lock: undefined,
+    pending: () => false,
+    sending: () => false,
+  };
+
+  test("Select recommended selects the option, does not mark a question holding an entry, and counts it", () => {
+    const { values, results, entries, board } = stores();
+    entries.set("days", "21");
+    const count = selectRecommended(
+      doc,
+      stateOf(),
+      { draft: values, results, entries, board },
+      () => false,
+    );
+    expect(values.valueOf("region")).toEqual(["EU"]);
+    expect(board.work("region")?.held).toBeUndefined();
+    // `rollout` has a recommended option and no entry: selected and marked, as before.
+    expect(board.work("rollout")?.held?.act).toBe("answer");
+    expect(count).toBe(2);
+    expect(entries.valueOf("days")).toBe("21");
+  });
+
+  test("with the entry corrected or cleared, Select recommended marks the question ready", () => {
+    const { values, results, entries, board } = stores();
+    selectRecommended(doc, stateOf(), { draft: values, results, entries, board }, () => false);
+    expect(board.work("region")?.held).toEqual({ act: "answer", order: 0, byRecommended: true });
+  });
+
+  test("in immediate delivery it only selects, entry or none", () => {
+    const { values, results, entries, board } = stores("immediate");
+    entries.set("days", "21");
+    selectRecommended(doc, stateOf(), { draft: values, results, entries, board }, () => false);
+    expect(values.valueOf("region")).toEqual(["EU"]);
+    expect(board.work("region")?.held).toBeUndefined();
+  });
+
+  test("Submit with a held answer whose question holds an entry sends nothing and names the question", () => {
+    const { values, results, entries, board } = stores();
+    values.set("payment", ["Stripe"]);
+    mark(board, "payment", 0);
+    values.set("region", ["EU"]);
+    mark(board, "region", 1);
+    // A held mark that outlived the entry, as a path other than the card's could leave it.
+    entries.set("days", "21");
+    mark(board, "region", 1);
+    const before = JSON.stringify([...board.get().questions]);
+    const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+      results: results.record(),
+      entries: entries.record(),
+      state: stateOf(),
+    });
+    expect(pressed).toEqual({ kind: "has-entry", questionId: "region" });
+    expect(JSON.stringify([...board.get().questions])).toBe(before);
+  });
+
+  test("the reason check still comes first, and an entry on a question with no held answer blocks nothing", () => {
+    const { values, results, entries, board } = stores();
+    values.set("payment", ["Stripe"]);
+    mark(board, "payment", 0);
+    entries.set("days", "21");
+    const pressed = submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+      results: results.record(),
+      entries: entries.record(),
+      state: stateOf(),
+    });
+    expect(pressed.kind).toBe("send");
+    // A held decline or postpone on the question with the entry carries none of it.
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "postpone", order: 1 } }));
+    expect(
+      submitPress(doc, board.get(), values.record(), AT, NONE_REPORTED, {
+        entries: entries.record(),
+        state: stateOf(),
+      }).kind,
+    ).toBe("send");
+  });
+
+  test("the confirmation's Submit refuses to send it too, naming the question", () => {
+    const entry = { kind: "has-entry", questionId: "region" } as const;
+    expect(confirmedPress([], false, entry)).toEqual(entry);
+    expect(confirmedPress([], true, entry)).toEqual({ kind: "blocked" });
+  });
+
+  test("Submit's state is disabled while a held answer's question holds an entry", () => {
+    const { board, entries } = stores();
+    mark(board, "region", 0);
+    expect(submitStateOf({ ...base, board: board.get() }).disabled).toBe(false);
+    entries.set("days", "21");
+    mark(board, "region", 0);
+    expect(submitStateOf({ ...base, board: board.get(), entries: entries.record() }).disabled).toBe(
+      true,
+    );
+    expect(submitStateOf({ ...base, board: board.get(), entries: entries.record() }).held).toBe(1);
+    // An entry on a question holding no answer for Submit leaves it enabled.
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "postpone", order: 0 } }));
+    expect(submitStateOf({ ...base, board: board.get(), entries: entries.record() }).disabled).toBe(
+      false,
+    );
+  });
+});

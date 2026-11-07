@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:divider-props",
+  "title": "Divider props",
+  "description": "A Divider item's props (FR-13, atoms design decision 1): none. It separates the items of a question and gives no result. In the input format since atoms.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

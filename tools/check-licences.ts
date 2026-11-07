@@ -27,6 +27,16 @@ export type Override = {
   evidence: string;
 };
 
+// A licence exception the addendum names (atoms, design decision 9): admitted for this exact
+// package name at this exact licence only, and for a package that ships in no chunk.
+export type LicenceException = {
+  name: string;
+  licence: string;
+  reason: string;
+  source: string;
+  shippedIn: string[];
+};
+
 type Repository = { owner: string; repo: string };
 type Direct = { name: string; repository: unknown };
 
@@ -44,6 +54,8 @@ const DEPENDENCY_FIELDS = [
 ];
 const OVERRIDE_FIELDS = ["package", "version", "licence", "evidence"] as const;
 const OVERRIDES_FILE = "tools/licence-overrides.json";
+const EXCEPTIONS_FILE = "tools/licence-exceptions.json";
+const EXCEPTION_FIELDS = ["name", "licence", "reason", "source"] as const;
 const GITHUB_API = "https://api.github.com/repos";
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
@@ -147,10 +159,58 @@ export const parseOverrides = (raw: unknown): { overrides: Override[]; errors: s
   return { overrides, errors };
 };
 
+/**
+ * What the exceptions table says wrong of itself: an entry may not admit a licence the rule
+ * already admits (it would be no exception) or one that names a conjunction with an excluded term.
+ */
+export const parseExceptions = (
+  raw: unknown,
+): { exceptions: LicenceException[]; errors: string[] } => {
+  if (!Array.isArray(raw)) {
+    return { exceptions: [], errors: [`${EXCEPTIONS_FILE} must be a list`] };
+  }
+  const exceptions: LicenceException[] = [];
+  const errors: string[] = [];
+  raw.forEach((entry: unknown, index) => {
+    const record = (typeof entry === "object" && entry !== null ? entry : {}) as Record<
+      string,
+      unknown
+    >;
+    const where = `${EXCEPTIONS_FILE} entry ${index}`;
+    const missing = EXCEPTION_FIELDS.filter(
+      (field) => typeof record[field] !== "string" || record[field] === "",
+    );
+    if (missing.length > 0) {
+      errors.push(`${where}: ${missing.join(", ")} must be non-empty strings`);
+    } else if (!Array.isArray(record.shippedIn) || record.shippedIn.length > 0) {
+      errors.push(
+        `${where}: shippedIn must be an empty list: an exception holds only while no chunk ships the package`,
+      );
+    } else if (/^(GPL|AGPL|LGPL)/i.test(String(record.licence))) {
+      errors.push(
+        `${where}: the licence ${record.licence} is a copyleft licence the table does not admit`,
+      );
+    } else {
+      exceptions.push(record as unknown as LicenceException);
+    }
+  });
+  return { exceptions, errors };
+};
+
+/** An entry the rule already admits is no exception and stays out of the table. */
+export const exceptionProblems = (exceptions: readonly LicenceException[]): string[] =>
+  exceptions
+    .filter(({ licence }) => classify(licence) !== "outside")
+    .map(
+      ({ name, licence }) =>
+        `${EXCEPTIONS_FILE}: ${name} at ${licence} needs no exception: the adoption rule admits it`,
+    );
+
 const checkPackage = (
   pkg: Installed,
   override: Override | undefined,
   patched: ReadonlySet<string>,
+  exceptions: readonly LicenceException[],
 ): string[] => {
   const id = `${pkg.name}@${pkg.version}`;
   let licence = pkg.licence;
@@ -167,6 +227,8 @@ const checkPackage = (
   }
   const verdict = classify(licence);
   if (verdict === "outside") {
+    // The table admits one name at one licence, as the addendum names it, and nothing else.
+    if (exceptions.some((entry) => entry.name === pkg.name && entry.licence === licence)) return [];
     return [
       licence === undefined
         ? `${id}: no licence`
@@ -183,6 +245,7 @@ export const checkPackages = (
   packages: readonly Installed[],
   overrides: readonly Override[],
   patched: ReadonlySet<string>,
+  exceptions: readonly LicenceException[] = [],
 ): string[] => {
   const used = new Set<Override>();
   const problems = packages.flatMap((pkg) => {
@@ -190,8 +253,13 @@ export const checkPackages = (
       (entry) => entry.package === pkg.name && entry.version === pkg.version,
     );
     if (override) used.add(override);
-    return checkPackage(pkg, override, patched);
+    return checkPackage(pkg, override, patched, exceptions);
   });
+  for (const entry of exceptions) {
+    if (!packages.some((pkg) => pkg.name === entry.name && pkg.licence === entry.licence)) {
+      problems.push(`exception ${entry.name} (${entry.licence}) matches no installed package`);
+    }
+  }
   for (const override of overrides) {
     if (!used.has(override)) {
       problems.push(
@@ -505,6 +573,20 @@ const readOverrides = async (
   }
 };
 
+const readExceptions = async (
+  root: string,
+): Promise<{ exceptions: LicenceException[]; errors: string[] }> => {
+  try {
+    const { exceptions, errors } = parseExceptions(
+      await Bun.file(join(root, EXCEPTIONS_FILE)).json(),
+    );
+    return { exceptions, errors: [...errors, ...exceptionProblems(exceptions)] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { exceptions: [], errors: [`cannot read ${EXCEPTIONS_FILE}: ${message}`] };
+  }
+};
+
 export const main = async (
   args: readonly string[],
   dependencies: {
@@ -523,6 +605,7 @@ export const main = async (
     return 1;
   }
   const { overrides, errors } = await readOverrides(root);
+  const named = await readExceptions(root);
   const remote = await readRegistry(tree.otherPlatforms, fetcher, tree.bundled);
   const token = env.GITHUB_TOKEN || undefined;
   const archive = await checkArchives(tree.direct, {
@@ -533,8 +616,14 @@ export const main = async (
   const problems = [
     ...tree.problems,
     ...errors,
+    ...named.errors,
     ...remote.problems,
-    ...checkPackages([...tree.packages, ...remote.packages], overrides, tree.patched),
+    ...checkPackages(
+      [...tree.packages, ...remote.packages],
+      overrides,
+      tree.patched,
+      named.exceptions,
+    ),
     ...archive.problems,
   ];
   for (const problem of problems) log(problem);

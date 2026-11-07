@@ -95,6 +95,19 @@ export type ItemProps<Item = unknown, Value = unknown> = {
    * answer carries those of the items it carries a value for (AD-20, FR-12).
    */
   readonly onDerived: (values: DerivedValues) => void;
+  /**
+   * The text the item's field holds that it cannot read as a value, or whose value a bound refuses
+   * (atoms, design decision 3): kept in the draft record apart from the item's value and result,
+   * restored after a reload and never part of an answer. A field shows it as typed while there is
+   * one, else its result formatted for entry; undefined while it has none or the item is read-only.
+   */
+  readonly entry: string | undefined;
+  /**
+   * Puts the field's unreadable text into the draft record as its entry, cut at 200 code points, an
+   * empty text or `undefined` for none, which also clears the item's result; only the NumberField,
+   * MoneyField and DateField hold one, and nothing leaves the view (AD-9).
+   */
+  readonly onEntryChange: (entry: string | undefined) => void;
 };
 
 export type CatalogComponent<Item = unknown, Value = unknown> = (
@@ -243,9 +256,19 @@ export type ViewHost = {
   readonly hosted: boolean;
   /** Asks the board page to open a reference, or an excerpt's source, by its item ID. */
   readonly openReference: (itemId: string) => void;
+  /**
+   * Asks the board page to open a link of Markdown in a new tab (atoms, design decision 6): the
+   * item that holds the Markdown, a Text or the question whose option preview holds it, and the
+   * URL. The page opens it only when its own board document says the item holds Markdown.
+   */
+  readonly openLink: (itemId: string, url: string) => void;
 };
 
-export const HostContext = createContext<ViewHost>({ hosted: true, openReference: () => {} });
+export const HostContext = createContext<ViewHost>({
+  hosted: true,
+  openReference: () => {},
+  openLink: () => {},
+});
 
 export const useHosted = (): boolean => useContext(HostContext).hosted;
 
@@ -331,3 +354,6 @@ export const useTheme = (): Theme => {
   const store = storeOfPage();
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 };
+
+export const useOpenLink = (): ((itemId: string, url: string) => void) =>
+  useContext(HostContext).openLink;

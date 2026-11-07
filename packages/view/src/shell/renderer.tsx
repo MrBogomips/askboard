@@ -27,6 +27,7 @@ import {
 } from "../catalog/port.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-store.ts";
+import { isEntryType } from "./entries.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 
@@ -38,12 +39,15 @@ export type RenderContext = {
   readonly derived: DerivedStore;
   /** The results the widget items hold, beside the draft record; none: no item holds a result. */
   readonly results?: DraftStore;
+  /** The entries the fields hold, beside the draft record; none: no item holds an entry. */
+  readonly entries?: DraftStore;
   /** The result an item's question's latest answer holds for it (`createAnsweredResults`). */
   readonly answeredResult?: (itemId: string) => unknown;
 };
 
 // What an item follows while the board has no results store: nothing is ever put into it.
 const NO_RESULTS = createDraftStore();
+const NO_ENTRIES = createDraftStore();
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -134,6 +138,11 @@ type RenderItemProps = Rendered & {
 // A component as the renderer calls it: the port's props, and the extras the shell has for it.
 type Rendering = (props: ItemProps & { readonly extras?: unknown }) => ReactNode;
 
+// The entry an item shows: the one the user holds, never while the card shows an answer in its
+// place (the answer being sent, or the logged one), whose fields are read-only.
+const entryShown = (shown: unknown, shownResult: unknown, held: unknown): string | undefined =>
+  shown === undefined && shownResult === undefined && typeof held === "string" ? held : undefined;
+
 /** One item through the port, in its frame and its error boundary. */
 export const RenderItem = ({
   item,
@@ -147,11 +156,20 @@ export const RenderItem = ({
   extras,
   onBeforeChange,
 }: RenderItemProps) => {
-  const { draft, tracker, boardContent, derived, results = NO_RESULTS, answeredResult } = context;
+  const {
+    draft,
+    tracker,
+    boardContent,
+    derived,
+    results = NO_RESULTS,
+    entries = NO_ENTRIES,
+    answeredResult,
+  } = context;
   // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record);
   const board = boardContent(record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record);
+  const heldEntries = useSyncExternalStore(entries.subscribe, entries.record);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
     [derived, item.id],
@@ -161,18 +179,31 @@ export const RenderItem = ({
     [tracker, item.id],
   );
   const heldStore = context.results;
-  const { onValueChange, onValuesChange, onResultChange } = useMemo(
+  const entryStore = context.entries;
+  const { onValueChange, onValuesChange, onResultChange, onEntryChange } = useMemo(
     () =>
       itemCallbacks({
         draft,
         results: heldStore,
+        entries: entryStore,
+        entryAllowed: isEntryType(item.type),
         itemId: item.id,
         questionId,
         itemIds,
         onBeforeChange,
         onError,
       }),
-    [draft, heldStore, item.id, questionId, itemIds, onBeforeChange, onError],
+    [
+      draft,
+      heldStore,
+      entryStore,
+      item.type,
+      item.id,
+      questionId,
+      itemIds,
+      onBeforeChange,
+      onError,
+    ],
   );
   const Item = (componentFor(component) ?? Unregistered) as Rendering;
   return (
@@ -190,6 +221,8 @@ export const RenderItem = ({
           ready={tracker.readyFor(item.id)}
           board={board}
           onDerived={onDerived}
+          entry={entryShown(shown, shownResult, heldEntries.get(item.id))}
+          onEntryChange={onEntryChange}
           {...(extras === undefined ? {} : { extras })}
         />
       </ItemErrorBoundary>

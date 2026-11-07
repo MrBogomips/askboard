@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:text-props",
+  "title": "Text props",
+  "description": "A Text item's props (FR-13, atoms design decision 1): 1 to 10000 characters of text, plain (the default) or Markdown, which the board shows as data and never as markup. It gives no result. In the input format since atoms.",
+  "type": "object",
+  "properties": {
+    "text": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "format": { "enum": ["plain", "markdown"] }
+  },
+  "required": ["text"],
+  "additionalProperties": false
+}

@@ -783,3 +783,134 @@ export {
   chartResultProblems,
   chartResultShape,
 } from "./widgets/chart/index.ts";
+
+// The amount entry (atoms, design decision 2): the MoneyField's parser, echo and comparison.
+
+export {
+  AMOUNT_MAX_INTEGER_DIGITS,
+  AMOUNT_PATTERN,
+  type AmountEntry,
+  type AmountRefusalCode,
+  amountEcho,
+  compareDecimal,
+  minorUnitsOf,
+  parseAmount,
+} from "./locale/index.ts";
+
+// The display atoms (atoms, design decision 1): the Text, the Value and the Divider, unregistered
+// until their chunks exist, and what the atoms share.
+
+export {
+  DIVIDER_SCHEMA_IDS,
+  DIVIDER_WIDGET,
+  type DividerItem,
+  type DividerProps,
+  dividerPropsProblems,
+} from "./widgets/divider/index.ts";
+export {
+  ATOM_DESCRIPTION_MAX_CHARS,
+  ATOM_LABEL_MAX_CHARS,
+  ATOM_NUMBER_BOUND,
+  ATOM_UNIT_MAX_CHARS,
+  codePointCount,
+} from "./widgets/shared/atoms.ts";
+export {
+  TEXT_FORMATS,
+  TEXT_MAX_CHARS,
+  TEXT_SCHEMA_IDS,
+  TEXT_WIDGET,
+  type TextItem,
+  type TextProps,
+  textPropsProblems,
+} from "./widgets/text/index.ts";
+export {
+  VALUE_FIELDS,
+  VALUE_KIND_FIELDS,
+  VALUE_KINDS,
+  VALUE_MAX_DAYS,
+  VALUE_REQUIRED_FIELDS,
+  VALUE_SCHEMA_IDS,
+  VALUE_WIDGET,
+  type ValueItem,
+  type ValueKind,
+  type ValueProps,
+  valuePropsProblems,
+} from "./widgets/value/index.ts";
+
+// The TextField and the Toggle (atoms, design decision 1), unregistered until their chunks exist.
+
+export {
+  TEXT_FIELD_MAX_CHARS,
+  TEXT_FIELD_SCHEMA_IDS,
+  TEXT_FIELD_WIDGET,
+  type TextFieldItem,
+  type TextFieldProps,
+  type TextFieldResult,
+  textFieldPropsProblems,
+  textFieldResultProblems,
+  textFieldResultShape,
+} from "./widgets/text-field/index.ts";
+export {
+  TOGGLE_SCHEMA_IDS,
+  TOGGLE_WIDGET,
+  type ToggleItem,
+  type ToggleProps,
+  type ToggleResult,
+  togglePropsProblems,
+  toggleResultShape,
+} from "./widgets/toggle/index.ts";
+
+// The NumberField and the DateField (atoms, design decision 1), unregistered until their chunks
+// exist.
+
+export {
+  DATE_FIELD_SCHEMA_IDS,
+  DATE_FIELD_WIDGET,
+  type DateFieldItem,
+  type DateFieldProps,
+  type DateFieldResult,
+  dateFieldPropsProblems,
+  dateFieldResultProblems,
+  dateFieldResultShape,
+} from "./widgets/date-field/index.ts";
+export {
+  NUMBER_FIELD_SCHEMA_IDS,
+  NUMBER_FIELD_STEP_MAX,
+  NUMBER_FIELD_WIDGET,
+  type NumberFieldItem,
+  type NumberFieldProps,
+  type NumberFieldResult,
+  numberFieldPropsProblems,
+  numberFieldResultProblems,
+  numberFieldResultShape,
+} from "./widgets/number-field/index.ts";
+
+// The MoneyField (atoms, design decisions 1 and 2), unregistered until its chunk exists.
+
+export {
+  MONEY_FIELD_MAX_CURRENCIES,
+  MONEY_FIELD_MIN_CURRENCIES,
+  MONEY_FIELD_SCHEMA_IDS,
+  MONEY_FIELD_WIDGET,
+  type MoneyFieldItem,
+  type MoneyFieldProps,
+  type MoneyFieldResult,
+  moneyFieldPropsProblems,
+  moneyFieldResultProblems,
+  moneyFieldResultShape,
+} from "./widgets/money-field/index.ts";
+
+// The draft record's entries (atoms, design decision 3): the longest text an input atom keeps
+// that gives no value.
+
+export { ENTRY_MAX_CHARS } from "./lifecycle-constants.ts";
+
+// The calendar's names (atoms, task 5.5): a locale's table, whose month and weekday names the
+// DateField's calendar draws in the ask's language.
+
+export { type LocaleTable, tableOf } from "./locale/index.ts";
+
+// The one check of a Markdown link's URL (atoms, task 5.9): the view's anchors and the board page's
+// opening both call it.
+
+export { isLinkUrl, LINK_URL_MAX_CHARS } from "./link-url.ts";

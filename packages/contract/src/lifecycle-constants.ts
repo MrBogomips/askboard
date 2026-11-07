@@ -13,3 +13,9 @@ export const GRACE_PERIOD_MS = 120_000;
 
 /** How long board-host takes a moved tab's last draft record after a takeover (design decision 5). */
 export const TAKEOVER_FLUSH_WAIT_MS = 1_000;
+
+/**
+ * The longest entry in a draft record, in code points (atoms, design decision 3): the text an
+ * input atom holds that gives no value. An atom caps its field at this, so an entry always fits.
+ */
+export const ENTRY_MAX_CHARS = 200;

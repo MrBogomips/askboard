@@ -24,4 +24,17 @@ export {
 } from "./entry.ts";
 export { type BoardLanguage, languageOf } from "./language-of.ts";
 export { type FractionDigits, formatMoney, formatNumber, formatPercent } from "./numbers.ts";
-export { type AxisZoom, LOCALES, type Locale } from "./tables.ts";
+export { type AxisZoom, LOCALES, type Locale, type LocaleTable, tableOf } from "./tables.ts";
+
+// The amount entry (atoms, design decision 2): the MoneyField's parser, echo and comparison.
+
+export {
+  AMOUNT_MAX_INTEGER_DIGITS,
+  AMOUNT_PATTERN,
+  type AmountEntry,
+  type AmountRefusalCode,
+  amountEcho,
+  compareDecimal,
+  minorUnitsOf,
+  parseAmount,
+} from "./amount.ts";

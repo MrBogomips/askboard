@@ -6,7 +6,8 @@
 // widget-answers' lists the widget and molecule schemas of the three earlier changes (design decision 3);
 // approval-scale-ranking's admits the Approval, the Scale and the Ranking as widget items (design decision 11);
 // latex-kanban-timeline's admits the LaTeX, the Kanban and the Timeline (design decision 13);
-// chart-widget's admits the Chart as a widget item (design decision 11).
+// chart-widget's admits the Chart as a widget item (design decision 11);
+// atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
@@ -30,7 +31,7 @@ import update from "./update.json" with { type: "json" };
 // The question props with each registered type's item composed in.
 const questionProps = composeQuestionProps(questionPropsBase);
 
-export const INPUT_FORMAT_VERSION = "1.8";
+export const INPUT_FORMAT_VERSION = "1.9";
 
 export const inputFormat: SchemaSet = {
   name: "input",
@@ -58,8 +59,10 @@ export const inputFormat: SchemaSet = {
 export type ChoiceOption = {
   readonly label: string;
   readonly description?: string;
-  /** Plain text shown beside the option (FR-3; proposal, open question 9). */
+  /** Text shown beside the option, plain unless `previewFormat` says Markdown (FR-3). */
   readonly preview?: string;
+  /** `plain` when absent; only beside a `preview` (atoms, design decision 11). */
+  readonly previewFormat?: "plain" | "markdown";
   /** The agent's note on the option, plain text. */
   readonly annotation?: string;
   /** Only labelled: the user still chooses (AD-10). At most one option of a question sets it. */

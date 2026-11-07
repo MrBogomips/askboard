@@ -24,29 +24,33 @@ const setOf = (name: string) => {
   return set;
 };
 
+// A later change takes the next minor again (atoms', after chart-widget's): these hold the minors
+// bound so far or a later one, and the atoms' version test pins the numbers of the latest.
+const minor = (version: string): number => Number(version.split(".")[1]);
+
 describe("the versions of the sets", () => {
   test("the four widened sets hold the minors bound so far", () => {
     expect({
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      protocol: BOARD_PROTOCOL_VERSION,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 8,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 8,
+      protocol: minor(BOARD_PROTOCOL_VERSION) >= 6,
       snapshot: SNAPSHOT_DATA_VERSION,
-    }).toEqual({ output: "1.8", envelopes: "1.8", protocol: "1.6", snapshot: "1.1" });
+    }).toEqual({ output: true, envelopes: true, protocol: true, snapshot: "1.1" });
   });
 
   test("the sets hold those constants", () => {
-    expect(setOf("output").version).toBe("1.8");
-    expect(setOf("tool-envelopes").version).toBe("1.8");
-    expect(setOf("board-protocol").version).toBe("1.6");
+    expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
+    expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
+    expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
     expect(setOf("snapshot-data").version).toBe("1.1");
   });
 
   test("the sets this change does not widen hold the minors bound so far", () => {
     expect({
-      input: INPUT_FORMAT_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
+      input: minor(INPUT_FORMAT_VERSION) >= 8,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 7,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({ input: "1.8", document: "1.7", manifest: "1.1" });
+    }).toEqual({ input: true, document: true, manifest: "1.1" });
     expect(setOf("configuration").version).toBe(CONFIGURATION_VERSION);
   });
 

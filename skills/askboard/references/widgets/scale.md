@@ -1,6 +1,6 @@
 # Scale
 
-Use for a number on a slider, a range between two numbers, or a rating of up to 11 values.
+Use for a number on a slider (the Slider), a range between two numbers, or a rating of up to 11 values.
 Item type `scale`: props are a Scale's props {min, max, step?, range?, display?, minLabel?, maxLabel?, unit?}.
 
 ## Fields

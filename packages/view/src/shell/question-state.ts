@@ -47,6 +47,11 @@ export type CardInputs = {
   readonly editing?: boolean;
   /** An agent-change notice waits for the user's choice (FR-6). */
   readonly pending?: boolean;
+  /**
+   * An item of the question holds an entry, text its field cannot read or a bound refuses: the
+   * answer would leave that field out, so "Answer" is disabled (atoms, design decision 3; NFR-10).
+   */
+  readonly entry?: boolean;
   /** The ask's language, for the receipt: en-US when not given. */
   readonly language?: Locale;
 };
@@ -149,6 +154,7 @@ export const cardState = ({
   ready,
   editing = false,
   pending = false,
+  entry = false,
   language = "en-US",
 }: CardInputs): CardState => {
   const logged = status?.state === "answered" || status?.state === "declined" ? status : undefined;
@@ -187,7 +193,7 @@ export const cardState = ({
     phase: "open",
     ...receipt,
     readOnly: !answerable,
-    canAnswer: answerable && !pending && (answers || noted),
+    canAnswer: answerable && !pending && !entry && (answers || noted),
     noteOnly: !answers && noted,
     ready,
   };

@@ -33,6 +33,9 @@ const schemasOf = (set: { readonly schemas: readonly object[] }): AnySchemaObjec
 
 const TREE_AND_GANTT = [TREE_WIDGET, GANTT_WIDGET];
 
+// The golden question props also hold an option's `previewFormat`, which atoms added to the base
+// file after the golden copies were taken: the one edit made to a golden file since task 0.3.
+
 // `fetch`'s schema as `main` held it: without what the results seam adds to it (widget-registry,
 // tasks 2.3 and 2.5), the answer's `results`, a widget item's `result` and, in each type's branch,
 // the `result` that a type declaring none refuses: the one place where the three golden copies of

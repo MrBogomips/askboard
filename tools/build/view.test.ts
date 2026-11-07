@@ -96,21 +96,47 @@ describe("bun run build:view (design decision 7)", () => {
       choice: "component",
       context: "component",
       compute: "library",
+      "date-field": "component",
+      divider: "component",
       dnd: "library",
       "ext-apps": "library",
       gantt: "component",
       kanban: "component",
       latex: "component",
+      "money-field": "component",
+      "number-field": "component",
       radix: "library",
       ranking: "component",
       react: "library",
       scale: "component",
       shell: "shell",
+      // The Text atom: markdown-it and DOMPurify in a chunk of its own (atoms, design decision 4).
+      text: "component",
+      "text-field": "component",
       timeline: "component",
+      toggle: "component",
       tree: "component",
+      value: "component",
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
     expect(manifest.chunks.tree?.components).toEqual(["tree"]);
+    // The Text atom needs no Radix: markdown-it and DOMPurify are its own (atoms, design decision 4).
+    expect(manifest.chunks.text?.components).toEqual(["text"]);
+    expect(manifest.chunks.text?.needs).toEqual(["react", "shell"]);
+    // The display atoms and the TextField are chunks of their own, each needing only React and the shell
+    // (tasks 5.2 and 5.3); the Toggle also needs Radix's Switch, which the radix library chunk holds.
+    for (const atom of ["value", "divider", "text-field", "number-field"]) {
+      expect(manifest.chunks[atom]?.components).toEqual([atom]);
+      expect(manifest.chunks[atom]?.needs).toEqual(["react", "shell"]);
+    }
+    expect(manifest.chunks.toggle?.needs).toEqual(["radix", "react", "shell"]);
+    // The DateField's calendar is react-day-picker in Radix's Popover, with date-fns, all in its own
+    // chunk (task 5.5; design decision 9).
+    expect(manifest.chunks["date-field"]?.components).toEqual(["date-field"]);
+    expect(manifest.chunks["date-field"]?.needs).toEqual(["radix", "react", "shell"]);
+    // The MoneyField's currency control is Radix's Toggle Group (task 5.4).
+    expect(manifest.chunks["money-field"]?.components).toEqual(["money-field"]);
+    expect(manifest.chunks["money-field"]?.needs).toEqual(["radix", "react", "shell"]);
     // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
@@ -327,18 +353,26 @@ describe("bun run build:view (design decision 7)", () => {
       "choice",
       "compute",
       "context",
+      "date-field",
+      "divider",
       "dnd",
       "ext-apps",
       "gantt",
       "kanban",
       "latex",
+      "money-field",
+      "number-field",
       "radix",
       "ranking",
       "react",
       "scale",
       "shell",
+      "text",
+      "text-field",
       "timeline",
+      "toggle",
       "tree",
+      "value",
     ]);
     expect(sizeProblems(await readSizes(SIZES_FILE), recorded)).toEqual([]);
   });

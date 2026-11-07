@@ -203,7 +203,7 @@ describe("the board protocol (owner board-host)", () => {
 });
 
 describe("minor versions of the board protocol (design decision 2)", () => {
-  const later = "1.7";
+  const later = "1.8";
   test.each([
     ...Object.entries(toHost).map(([type, message]) => ["toHost", type, message] as const),
     ...Object.entries(toPage).map(([type, message]) => ["toPage", type, message] as const),

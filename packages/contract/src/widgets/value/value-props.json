@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:value-props",
+  "title": "Value props",
+  "description": "A Value item's props (FR-13, atoms design decision 1): an optional label and a kind with its value. number holds value within a quadrillion either way and an optional unit; percent holds value, a ratio (0.185 is 18.5%); money holds amount, a decimal string, and currency, an ISO 4217 code; date holds date, a full-date; duration holds days, whole days. A field of another kind is refused. That a date exists within the Gantt's days is a check of valuePropsProblems. It gives no result. In the input format since atoms.",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "kind": {
+      "enum": ["number", "percent", "money", "date", "duration"]
+    },
+    "value": {
+      "type": "number",
+      "minimum": -1000000000000000,
+      "maximum": 1000000000000000
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "amount": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "date": {
+      "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate"
+    },
+    "days": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000
+    }
+  },
+  "required": ["kind"],
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "number"
+      }
+    },
+    "required": ["kind"]
+  },
+  "then": {
+    "required": ["value"],
+    "properties": {
+      "value": true,
+      "amount": false,
+      "currency": false,
+      "date": false,
+      "days": false
+    }
+  },
+  "else": {
+    "if": {
+      "properties": {
+        "kind": {
+          "const": "percent"
+        }
+      },
+      "required": ["kind"]
+    },
+    "then": {
+      "required": ["value"],
+      "properties": {
+        "value": true,
+        "unit": false,
+        "amount": false,
+        "currency": false,
+        "date": false,
+        "days": false
+      }
+    },
+    "else": {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "money"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "required": ["amount", "currency"],
+        "properties": {
+          "amount": true,
+          "currency": true,
+          "value": false,
+          "unit": false,
+          "date": false,
+          "days": false
+        }
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "date"
+            }
+          },
+          "required": ["kind"]
+        },
+        "then": {
+          "required": ["date"],
+          "properties": {
+            "date": true,
+            "value": false,
+            "unit": false,
+            "amount": false,
+            "currency": false,
+            "days": false
+          }
+        },
+        "else": {
+          "required": ["days"],
+          "properties": {
+            "days": true,
+            "value": false,
+            "unit": false,
+            "amount": false,
+            "currency": false,
+            "date": false
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

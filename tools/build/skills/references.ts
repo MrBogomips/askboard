@@ -34,6 +34,33 @@ const capitalised = (text: string): string => text.charAt(0).toUpperCase() + tex
 
 const widgetTitle = (entry: WidgetType): string => entry.noun.replace(/^an? /i, "");
 
+// The full-date pattern the DateField's result and the Gantt's dates share, by its opening.
+const DATE_PATTERN = "^[0-9]{4}-(0[1-9]|1[0-2])-";
+
+// What a bare result is, in words (atoms: a text, a number, a date or a boolean, no fields to list).
+const bareResult = (schema: Schema): string => {
+  const { type, pattern, minLength, maxLength, minimum, maximum } = schema as {
+    type?: unknown;
+    pattern?: string;
+    minLength?: number;
+    maxLength?: number;
+    minimum?: number;
+    maximum?: number;
+  };
+  if (type === "boolean") return "`true` or `false`";
+  if (type === "number" || type === "integer") {
+    return minimum !== undefined && maximum !== undefined
+      ? `a number from ${minimum} to ${maximum}`
+      : "a number";
+  }
+  if (pattern?.startsWith(DATE_PATTERN) === true) return "a date as `YYYY-MM-DD`";
+  if (pattern !== undefined) return `a text matching \`${pattern}\``;
+  if (minLength !== undefined && maxLength !== undefined) {
+    return `a text of ${minLength} to ${maxLength} characters`;
+  }
+  return minLength === undefined ? "a text" : `a text of at least ${minLength} characters`;
+};
+
 // What the answer carries for a widget type: its edits, its result, its derived values.
 const answerLines = (entry: WidgetType, resolve: Resolve): string[] => {
   const lines: string[] = [];
@@ -43,9 +70,15 @@ const answerLines = (entry: WidgetType, resolve: Resolve): string[] => {
     );
   }
   if (entry.result !== undefined) {
+    const schema = entry.result.schema as Schema;
+    const fields = fieldLines(schema, resolve);
     lines.push(
-      "- Result: `results` holds, under the item's ID, an object with:",
-      ...fieldLines(entry.result.schema as Schema, resolve).map((line) => `  ${line}`),
+      ...(fields.length === 0
+        ? [`- Result: \`results\` holds, under the item's ID, ${bareResult(schema)}.`]
+        : [
+            "- Result: `results` holds, under the item's ID, an object with:",
+            ...fields.map((line) => `  ${line}`),
+          ]),
     );
   }
   if (entry.derived !== undefined) {

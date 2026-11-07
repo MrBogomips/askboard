@@ -6,10 +6,12 @@ import { KATEX_VERSION } from "./katex-version.ts";
 import {
   chunkInputs,
   collectNotices,
+  exceptedPackageProblems,
   FONT_LICENCES,
   type FontLicence,
   type FontLicences,
   fontEntryProblems,
+  LICENCE_EXCEPTIONS,
   LICENCE_TEXTS,
   licencePath,
   missingFontLicences,
@@ -379,6 +381,66 @@ describe("the fonts' licence in a package's notice (latex-kanban-timeline, task 
     expect(files[0]?.font).toEqual({ key: "fonty@2.0.0", derived: true });
   });
 
+  test("an entry with no font folder, only derived code, reads `<licence> AND <entry licence>` as well (atoms, task 5.1)", async () => {
+    const { fonts: _fonts, ...helpers } = fontEntry({ licence: "MIT", derived: ["index.js"] });
+    const input = at(`${store("dual", "1.0.0")}/index.js`);
+    const [file] = await collectNotices("text", [input], root, {}, { "dual@1.0.0": helpers });
+    expect(file?.notice.licence).toBe("(MIT OR Apache-2.0) AND MIT");
+    expect(file?.font).toEqual({ key: "dual@1.0.0", derived: true });
+    expect(file?.text).toContain("Fonty 2.0.0: the fonts and glyph outlines.");
+  });
+
+  test("DOMPurify's chunk reads `(MPL-2.0 OR Apache-2.0) AND MIT` and carries Babel's helper text, which its own licence files lack (atoms, task 5.1)", async () => {
+    const entry = join(ROOT, "packages/view/virtual-purify-entry.ts");
+    const built = await Bun.build({
+      entrypoints: [entry],
+      files: { [entry]: 'import purify from "dompurify"; console.log(purify);' },
+      format: "iife",
+      target: "browser",
+      metafile: true,
+    });
+    if (built.metafile === undefined) throw new Error("the bundle has no metafile");
+    const inputs = chunkInputs(built.metafile, process.cwd());
+    const purify = FONT_LICENCES["dompurify@3.4.17"];
+    expect(purify?.derived).toEqual(["dist/purify.es.mjs"]);
+    expect(purify?.fonts).toBeUndefined();
+    const files = await collectNotices("text", inputs, ROOT);
+    const notice = files.find((file) => file.notice.package === "dompurify");
+    expect(notice?.notice).toEqual({
+      package: "dompurify",
+      version: "3.4.17",
+      licence: "(MPL-2.0 OR Apache-2.0) AND MIT",
+      path: "licences/dompurify-3.4.17.txt",
+    });
+    expect(notice?.font).toEqual({ key: "dompurify@3.4.17", derived: true });
+    expect(notice?.text).toContain("Apache License");
+    expect(notice?.text).toContain("Facebook, Inc. (ONLY ./src/helpers/regenerator* files)");
+    expect(notice?.text).toContain("Permission is hereby granted");
+  }, 60_000);
+
+  test("markdown-it's chunk reads `BSD-2-Clause AND MIT` for entities and carries he's licence text, which entities' own LICENSE lacks (atoms, task 5.1; review 4.4 U-1)", async () => {
+    const entry = join(ROOT, "packages/view/virtual-markdown-entry.ts");
+    const built = await Bun.build({
+      entrypoints: [entry],
+      files: { [entry]: 'import md from "markdown-it"; console.log(md);' },
+      format: "iife",
+      target: "browser",
+      metafile: true,
+    });
+    if (built.metafile === undefined) throw new Error("the bundle has no metafile");
+    const inputs = chunkInputs(built.metafile, process.cwd());
+    const entities = FONT_LICENCES["entities@8.1.0"];
+    expect(entities?.derived).toEqual(["dist/decode-codepoint.js"]);
+    expect(entities?.fonts).toBeUndefined();
+    expect(inputs.some((input) => input.endsWith("/entities/dist/decode-codepoint.js"))).toBe(true);
+    const files = await collectNotices("text", inputs, ROOT);
+    const notice = files.find((file) => file.notice.package === "entities");
+    expect(notice?.notice.licence).toBe("BSD-2-Clause AND MIT");
+    expect(notice?.font).toEqual({ key: "entities@8.1.0", derived: true });
+    expect(notice?.text).toContain("Felix Böhm");
+    expect(notice?.text).toContain("Copyright Mathias Bynens <https://mathiasbynens.be/>");
+  }, 60_000);
+
   test("KaTeX's script alone, with no stylesheet, gives the `katex` notice `MIT AND OFL-1.1` (review X-1)", async () => {
     // What Bun bundles for `import "katex"` from the widgets, read from a real bundle's inputs.
     const entry = join(ROOT, "packages/widgets/virtual-katex-entry.ts");
@@ -458,6 +520,45 @@ describe("the font licence table's checks (design decision 8)", () => {
 
   test("the real table is clean: its entry's licence stands in the rule", () => {
     expect(fontEntryProblems(FONT_LICENCES)).toEqual([]);
-    expect(Object.keys(FONT_LICENCES)).toEqual([`katex@${KATEX_VERSION}`]);
+    expect(Object.keys(FONT_LICENCES)).toEqual([
+      `katex@${KATEX_VERSION}`,
+      "dompurify@3.4.17",
+      "entities@8.1.0",
+    ]);
+  });
+});
+
+describe("the named licence exceptions in a build (atoms, design decision 9)", () => {
+  const notice = (name: string, licence = "MIT") => ({
+    notice: { package: name, version: "1.0.0", licence, path: licencePath(name, "1.0.0") },
+    text: "",
+  });
+  const table = [
+    {
+      name: "argparse",
+      licence: "PSF-2.0",
+      reason: "r",
+      source: "s",
+      shippedIn: [] as string[],
+    },
+  ];
+
+  test("a chunk whose notices name argparse fails the build, naming the chunk", () => {
+    const problems = exceptedPackageProblems(table, [
+      { name: "markdown", notices: [notice("markdown-it"), notice("argparse", "PSF-2.0")] },
+    ]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('"markdown"');
+    expect(problems[0]).toContain("argparse");
+  });
+
+  test("chunks without an excepted package pass", () => {
+    expect(exceptedPackageProblems(table, [{ name: "shell", notices: [notice("react")] }])).toEqual(
+      [],
+    );
+  });
+
+  test("the real table names argparse alone", () => {
+    expect(LICENCE_EXCEPTIONS.map((entry) => entry.name)).toEqual(["argparse"]);
   });
 });

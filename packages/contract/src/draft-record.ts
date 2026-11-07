@@ -24,7 +24,7 @@ const draftItemsOf = (question: BoardQuestion): ReadonlySet<string> => {
 
 /**
  * What a draft record the board protocol accepts says that its ask's board document cannot hold
- * (contract spec, Draft record message): a question key, a question in view, or a value or result key that
+ * (contract spec, Draft record message): a question key, a question in view, or a value, result or entry key that
  * names no question or item of the ask, or a revision past the question's. Keys are read as own
  * properties and looked up in sets, so an inherited name such as `constructor` is an unknown ID.
  * Paths are JSON Pointers into the record.
@@ -51,7 +51,7 @@ export const draftRecordProblems = (
       problems.push({ path: `${at}/rev`, message });
     }
     const items = draftItemsOf(question);
-    for (const field of ["values", "results"] as const) {
+    for (const field of ["values", "results", "entries"] as const) {
       for (const itemId of Object.keys(draft[field] ?? {})) {
         if (items.has(itemId)) continue;
         const message = `${JSON.stringify(itemId)} names no item of the question "${key}"`;

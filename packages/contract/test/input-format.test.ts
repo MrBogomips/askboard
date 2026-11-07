@@ -61,7 +61,7 @@ describe("the ask level of the input format", () => {
       "an option colour",
       ["options", 0, "colour"],
       "props.options[0].colour",
-      "label, description, preview, annotation and recommended",
+      "label, description, preview, previewFormat, annotation and recommended",
     ],
   ] as const)(
     "a question's %s is refused, naming the item ID and the field",
