@@ -55,56 +55,68 @@ export type AxisProps = {
   readonly height: number;
   /** The rows under the band, each with a line at its bottom. Keep the list stable between draws. */
   readonly rows: readonly { readonly top: number; readonly height: number }[];
+  /**
+   * The room left of the origin day, in px: the days, their gridlines and labels start this far in,
+   * while the band and the lines under the rows still run from the left edge (the Timeline's, so
+   * that a milestone on the first day draws whole; none for the Gantt).
+   */
+  readonly inset?: number;
 };
 
 /** The axis band with its labels, a gridline per tick, and a line under each row. */
-export const Axis = memo(({ origin, last, zoom, width, axisHeight, height, rows }: AxisProps) => {
-  const locale = useLocale();
-  return (
-    <g>
-      <rect x={0} y={0} width={width} height={axisHeight} className="fill-muted" />
-      <line
-        x1={0}
-        y1={axisHeight - 0.5}
-        x2={width}
-        y2={axisHeight - 0.5}
-        className="stroke-border stroke-1"
-      />
-      {zoom === "day"
-        ? weekendDays(origin, last).map((date) => (
-            <rect
-              key={date}
-              data-gantt-weekend={date}
-              x={xOf(date, origin, zoom)}
-              y={axisHeight}
-              width={PIXELS_PER_DAY[zoom]}
-              height={height - axisHeight}
-              className="fill-muted"
-            />
-          ))
-        : null}
-      {rows.map((row) => (
+export const Axis = memo(
+  ({ origin, last, zoom, width, axisHeight, height, rows, inset = 0 }: AxisProps) => {
+    const locale = useLocale();
+    return (
+      <g>
+        <rect x={0} y={0} width={width} height={axisHeight} className="fill-muted" />
         <line
-          key={row.top}
           x1={0}
-          y1={row.top + row.height - 0.5}
+          y1={axisHeight - 0.5}
           x2={width}
-          y2={row.top + row.height - 0.5}
+          y2={axisHeight - 0.5}
           className="stroke-border stroke-1"
         />
-      ))}
-      {axisTicks(origin, last, zoom, locale).map((tick) => (
-        <g key={tick.date}>
+        <g transform={inset === 0 ? undefined : `translate(${inset} 0)`}>
+          {zoom === "day"
+            ? weekendDays(origin, last).map((date) => (
+                <rect
+                  key={date}
+                  data-gantt-weekend={date}
+                  x={xOf(date, origin, zoom)}
+                  y={axisHeight}
+                  width={PIXELS_PER_DAY[zoom]}
+                  height={height - axisHeight}
+                  className="fill-muted"
+                />
+              ))
+            : null}
+        </g>
+        {rows.map((row) => (
           <line
-            x1={tick.x + 0.5}
-            y1={0}
-            x2={tick.x + 0.5}
-            y2={height}
+            key={row.top}
+            x1={0}
+            y1={row.top + row.height - 0.5}
+            x2={width}
+            y2={row.top + row.height - 0.5}
             className="stroke-border stroke-1"
           />
-          <TickLabel tick={tick} zoom={zoom} />
+        ))}
+        <g data-axis-days="" transform={inset === 0 ? undefined : `translate(${inset} 0)`}>
+          {axisTicks(origin, last, zoom, locale).map((tick) => (
+            <g key={tick.date}>
+              <line
+                x1={tick.x + 0.5}
+                y1={0}
+                x2={tick.x + 0.5}
+                y2={height}
+                className="stroke-border stroke-1"
+              />
+              <TickLabel tick={tick} zoom={zoom} />
+            </g>
+          ))}
         </g>
-      ))}
-    </g>
-  );
-});
+      </g>
+    );
+  },
+);

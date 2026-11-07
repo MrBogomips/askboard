@@ -144,6 +144,7 @@ export const IT_IT = {
   "change.widgetRanking": "Classifica",
   "change.widgetLatex": "LaTeX",
   "change.widgetKanban": "Kanban",
+  "change.widgetTimeline": "Timeline",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -361,4 +362,17 @@ export const IT_IT = {
     one: "Le tue modifiche: {count} spostata",
     other: "Le tue modifiche: {count} spostate",
   },
+  // The Timeline's texts are provisional, to review (latex-kanban-timeline, task 5.3).
+  "timeline.tools": "Strumenti della timeline",
+  "timeline.moveEarlier": "Sposta prima",
+  "timeline.moveLater": "Sposta dopo",
+  "timeline.moveToLane": "Sposta nella corsia…",
+  "timeline.counterMoved": {
+    one: "Le tue modifiche: {count} spostato",
+    other: "Le tue modifiche: {count} spostati",
+  },
+  "timeline.entryRange": "{label}, dal {start} al {end} {year}, {lane}",
+  "timeline.entryRangeYears": "{label}, dal {start} {startYear} al {end} {endYear}, {lane}",
+  "timeline.entryMilestone": "{label}, traguardo, {date} {year}, {lane}",
+  "timeline.entryUndated": "{label}, {lane}",
 } as const satisfies StringTable;

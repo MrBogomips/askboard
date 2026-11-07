@@ -139,6 +139,7 @@ export const STRING_KEYS = [
   "change.widgetRanking",
   "change.widgetLatex",
   "change.widgetKanban",
+  "change.widgetTimeline",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -322,6 +323,16 @@ export const STRING_KEYS = [
   "kanban.columnName",
   "kanban.cardName",
   "kanban.counterMoved",
+  // The Timeline (latex-kanban-timeline, task 5.3; ux-update-draft.md block 2; the Italian texts to review).
+  "timeline.tools",
+  "timeline.moveEarlier",
+  "timeline.moveLater",
+  "timeline.moveToLane",
+  "timeline.counterMoved",
+  "timeline.entryRange",
+  "timeline.entryRangeYears",
+  "timeline.entryMilestone",
+  "timeline.entryUndated",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

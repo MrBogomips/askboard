@@ -19,6 +19,7 @@ import {
   lifecycleSnapshotData,
   plainChoiceBoardDocument,
   RANKING_FIXTURE_ITEM,
+  TIMELINE_FIXTURE_ITEM,
   treeBoardDocument,
   uj2ExpandedBoardDocument,
 } from "@askboard/contract/fixtures";
@@ -96,6 +97,7 @@ describe("bun run build:view (design decision 7)", () => {
       react: "library",
       scale: "component",
       shell: "shell",
+      timeline: "component",
       tree: "component",
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
@@ -120,6 +122,10 @@ describe("bun run build:view (design decision 7)", () => {
     // board graph and no compute (latex-kanban-timeline, design decision 9).
     expect(manifest.chunks.kanban?.components).toEqual(["kanban"]);
     expect(manifest.chunks.kanban?.needs).toEqual(["dnd", "radix", "react", "shell"]);
+    // The Timeline moves by pointer, with no drag library; its "Move to lane…" menu is Radix's
+    // (latex-kanban-timeline, design decision 10).
+    expect(manifest.chunks.timeline?.components).toEqual(["timeline"]);
+    expect(manifest.chunks.timeline?.needs).toEqual(["radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -317,6 +323,7 @@ describe("bun run build:view (design decision 7)", () => {
       "react",
       "scale",
       "shell",
+      "timeline",
       "tree",
     ]);
     expect(sizeProblems(await readSizes(SIZES_FILE), recorded)).toEqual([]);
@@ -533,6 +540,24 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(built.srcdoc).toContain(await text(chunkNamed("dnd").script.path));
     expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
     expect(built.srcdoc).not.toContain(await text(chunkNamed("ranking").script.path));
+  });
+
+  test("a board whose only widget is a Timeline inlines the Timeline's chunk and no drag, Gantt, Tree or Ranking chunk (latex-kanban-timeline, design decision 10)", async () => {
+    const [question] = treeBoardDocument.items;
+    const timelineBoard = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [TIMELINE_FIXTURE_ITEM] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(timelineBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("timeline");
+    for (const other of ["tree", "ranking", "dnd", "compute", "board-graph", "gantt", "kanban"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(timelineBoard);
+    expect(built.chunks).toContain("timeline");
+    expect(built.chunks).not.toContain("gantt");
+    expect(built.srcdoc).toContain(await text(chunkNamed("timeline").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("gantt").script.path));
   });
 
   test("the plain Choice board's srcdoc holds no Tree chunk, and the Tree board's holds it", async () => {

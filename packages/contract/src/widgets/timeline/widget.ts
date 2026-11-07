@@ -25,7 +25,7 @@ export const TIMELINE_WIDGET: WidgetType = {
   example: {
     item: {
       type: "timeline",
-      id: "plan",
+      id: "roadmap",
       props: {
         lanes: [
           { id: "web", label: "Web" },

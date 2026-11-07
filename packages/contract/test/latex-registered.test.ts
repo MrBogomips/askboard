@@ -63,7 +63,7 @@ describe("the versions of the four sets latex-kanban-timeline widens", () => {
 });
 
 describe("the LaTeX in the composed schemas", () => {
-  test("the registry lists it after the Ranking, and the Timeline is not in it", () => {
+  test("the registry lists it after the Ranking", () => {
     expect(WIDGET_TYPES.map(({ type }) => type).slice(0, 6)).toEqual([
       "tree",
       "gantt",
@@ -72,7 +72,6 @@ describe("the LaTeX in the composed schemas", () => {
       "ranking",
       "latex",
     ]);
-    expect(WIDGET_TYPES.map(({ type }) => type)).not.toContain("timeline");
   });
 
   test("a question's items take its item after the Ranking's and before the molecule reference", () => {

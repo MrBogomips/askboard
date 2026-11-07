@@ -10,6 +10,9 @@ import { join } from "node:path";
 const SOURCES = [
   "timeline/layout.ts",
   "timeline/model.ts",
+  "timeline/keys.ts",
+  "timeline/drop.ts",
+  "timeline/props.ts",
   "kanban/model.ts",
   "kanban/keys.ts",
   "kanban/drop.ts",

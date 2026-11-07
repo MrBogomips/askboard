@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:timeline-props",
   "title": "Timeline props",
-  "description": "A Timeline item's props (FR-11, latex-kanban-timeline design decision 5): 1 to 20 lanes and 1 to 200 entries, each entry in a lane and either a milestone with a date or a range with a start and an inclusive end. Dates are the Gantt's full-dates. That the IDs are unique within the item, that each entry's lane is one of the item's lanes, that an entry holds a date alone or a start and an end, that the days exist within the Gantt's days and that an end is not before its start are checked by timelinePropsProblems. In no schema set until latex-kanban-timeline registers it.",
+  "description": "A Timeline item's props (FR-11, latex-kanban-timeline design decision 5): 1 to 20 lanes and 1 to 200 entries, each entry in a lane and either a milestone with a date or a range with a start and an inclusive end. Dates are the Gantt's full-dates. That the IDs are unique within the item, that each entry's lane is one of the item's lanes, that an entry holds a date alone or a start and an end, that the days exist within the Gantt's days and that an end is not before its start are checked by timelinePropsProblems. In the input format since latex-kanban-timeline.",
   "type": "object",
   "properties": {
     "lanes": {

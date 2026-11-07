@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:timeline-changes",
   "title": "Timeline changes",
-  "description": "A Timeline's changes (AD-20, FR-20, latex-kanban-timeline design decision 5): set operations of the one generic diff on an entry's lane, date, start or end, addressed as item.entry.field (AD-13's reference syntax without brackets): a lane's ID for lane, a full-date for the others, never null, so no day can be taken away. A Timeline never adds, removes or moves an entry, edits a label or changes a lane. Whether a moved range keeps its length is no check of the changes. In no schema set until latex-kanban-timeline registers it.",
+  "description": "A Timeline's changes (AD-20, FR-20, latex-kanban-timeline design decision 5): set operations of the one generic diff on an entry's lane, date, start or end, addressed as item.entry.field (AD-13's reference syntax without brackets): a lane's ID for lane, a full-date for the others, never null, so no day can be taken away. A Timeline never adds, removes or moves an entry, edits a label or changes a lane. Whether a moved range keeps its length is no check of the changes. In the output format since latex-kanban-timeline.",
   "type": "array",
   "items": { "$ref": "#/$defs/set" },
   "$defs": {
