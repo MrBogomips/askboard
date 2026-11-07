@@ -57,6 +57,7 @@ export type BottomBarProps = {
   readonly context: Senders & {
     readonly draft: DraftStore;
     readonly results?: DraftStore;
+    readonly entries?: DraftStore;
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
@@ -101,7 +102,7 @@ export const BottomBar = (props: BottomBarProps) => {
       context.draft.record(),
       new Date(),
       context.derived.reported,
-      { results: context.results?.record(), state },
+      { results: context.results?.record(), entries: context.entries?.record(), state },
     );
   // Submit's one command: every held act, in the order the user produced them (AD-20), after a
   // last check that every held answer has the reason its held result requires: one that lacks it
@@ -120,6 +121,11 @@ export const BottomBar = (props: BottomBarProps) => {
       props.onNeedsReason(pressed.questionId);
       return;
     }
+    // A held answer's question holds an entry: nothing is sent, the board goes to the field.
+    if (pressed.kind === "has-entry") {
+      props.onJump(pressed.questionId);
+      return;
+    }
     if (pressed.kind === "send") sendActsOf(pressed.acts, then);
     else setReplacing({ questions: pressed.questions, then });
   };
@@ -134,6 +140,7 @@ export const BottomBar = (props: BottomBarProps) => {
     }
     setReplacing(undefined);
     if (outcome.kind === "needs-reason") props.onNeedsReason(outcome.questionId);
+    else if (outcome.kind === "has-entry") props.onJump(outcome.questionId);
     else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
