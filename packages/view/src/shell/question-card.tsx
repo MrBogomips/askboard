@@ -15,10 +15,11 @@
 // F-17). Every agent string renders as text (AD-8).
 
 import { type LifecycleBoardState, NOTE_MAX_CHARS } from "@askboard/contract";
-import { Fragment, useRef, useSyncExternalStore } from "react";
+import { AlertDialog } from "radix-ui";
+import { Fragment, useRef, useState, useSyncExternalStore } from "react";
 import type { ChoiceExtras } from "../catalog/choice/props.ts";
 import { type Rendered, renderedOf } from "../catalog/components.ts";
-import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
+import { questionTextId, type ReasonStrings, useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
 import {
@@ -44,6 +45,7 @@ import {
   type AnswerContext,
   acceptRecommended,
   answer,
+  answerNeedsReason,
   CARD_ACTS,
   decline,
   explain,
@@ -69,9 +71,22 @@ import {
   shownResultFor,
   statusOf,
 } from "./question-state.ts";
+import { reasonErrorOf, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
+import { asksFirst, press, settle, type Waiting } from "./revision-confirm.ts";
 import type { Store } from "./store.ts";
-import { BUTTON_LINK, CHIP, FOCUS_RING, SECTION_LABEL, TEXT_FIELD } from "./styles.ts";
+import {
+  BUTTON_LINK,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY,
+  CHIP,
+  DIALOG,
+  FIELD_ERROR,
+  FOCUS_RING,
+  SECTION_LABEL,
+  TEXT_FIELD,
+  TEXT_FIELD_INVALID,
+} from "./styles.ts";
 import { Thread, type ThreadRequests } from "./thread.tsx";
 import { explainPending } from "./thread-text.ts";
 
@@ -234,23 +249,32 @@ const OptionsLabel = ({
   );
 };
 
-// The open prompt (FR-7): one field per question, its text leaving only with an act.
+// The open prompt (FR-7): one field per question, its text leaving only with an act. While a held
+// result requires a reason, its label says so and a press of "Answer" without one shows the field
+// error under it (approval-scale-ranking, design decision 6).
 const OpenPrompt = ({
   questionId,
   note,
   readOnly,
+  reason,
+  error,
   onChange,
 }: {
   readonly questionId: string;
   readonly note: string;
   readonly readOnly: boolean;
+  /** The strings of the reason the answer requires, if it requires one. */
+  readonly reason: ReasonStrings | undefined;
+  /** Whether the field error shows. */
+  readonly error: boolean;
   readonly onChange: (text: string) => void;
 }) => {
   const text = useStrings();
+  const errorId = `${noteFieldId(questionId)}:error`;
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={noteFieldId(questionId)} className="text-body text-foreground-secondary">
-        {text("question.note")}
+        {text(reason?.label ?? "question.note")}
       </label>
       <textarea
         id={noteFieldId(questionId)}
@@ -258,9 +282,17 @@ const OpenPrompt = ({
         readOnly={readOnly}
         maxLength={NOTE_MAX_CHARS}
         rows={2}
+        aria-required={reason !== undefined}
+        aria-invalid={error}
+        aria-describedby={error ? errorId : undefined}
         onChange={(event) => onChange(event.target.value)}
-        className={TEXT_FIELD}
+        className={error ? `${TEXT_FIELD} ${TEXT_FIELD_INVALID}` : TEXT_FIELD}
       />
+      {error && reason !== undefined ? (
+        <p id={errorId} className={FIELD_ERROR}>
+          {text(reason.missing)}
+        </p>
+      ) : null}
     </div>
   );
 };
@@ -269,6 +301,7 @@ export const QuestionCard = (props: CardProps) => {
   const { question, state, lock, delivery, single, context, level = 2 } = props;
   const Heading = level === 3 ? "h3" : "h2";
   const language = useLanguage();
+  const text = useStrings();
   const {
     load,
     values,
@@ -285,15 +318,43 @@ export const QuestionCard = (props: CardProps) => {
   } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
-  const { header, text } = shown.props;
+  // The reason the answer requires, if any, and whether a press of "Answer" asked for it.
+  const reason = reasonOf(shown, results, card.shown);
+  const [reasonAsked, setReasonAsked] = useState(false);
+  const noteText = card.shown?.note ?? work?.note ?? "";
+  const reasonError = reasonErrorOf(reasonAsked, reason, noteText);
+  if (reasonAsked && reason === undefined) setReasonAsked(false);
+  // "Answer" sent nothing for want of the reason: the error shows and focus goes to the prompt.
+  const asking = (outcome: "needs-reason" | undefined) => {
+    if (outcome === undefined) return;
+    setReasonAsked(true);
+    document.getElementById(noteFieldId(question.id))?.focus();
+  };
+  const { header, text: questionText } = shown.props;
   const mark = markOf(question.id, state, context.board.get().questions);
   // An answer or decline names the revision the work was made on; the other acts the current one.
   const acting: AnswerContext = { ...context, delivery };
   const focusHeading = focusHeadingOf(question.id);
+  // "Answer" and Decline on a verdict the agent has received wait for the user's confirmation, in
+  // a modal dialog (design decision 6): confirming acts as the button does, Cancel changes nothing.
+  const [waiting, setWaiting] = useState<
+    { readonly act: "answer" | "decline"; readonly waiting: Waiting } | undefined
+  >();
+  const ask = (act: "answer" | "decline", run: () => void): boolean => {
+    const next = press(asksFirst(act, question, status, work?.held?.act), run);
+    setWaiting(next === undefined ? undefined : { act, waiting: next });
+    return next === undefined;
+  };
+  const onAnswer = () => {
+    if (answerNeedsReason(question, acting)) return asking("needs-reason");
+    ask("answer", () => asking(answer(question, acting)));
+  };
+  const onDecline = () => ask("decline", () => decline(question, status?.state, acting));
   // The first edit of an answered question starts the revision from its latest answer, once per
   // gesture: a gesture that clears the choice and then chooses "Other…" seeds only before the first.
   // It seeds no widget value: an item the revision leaves alone shows its answer's value through
-  // the board (molecules, design decision 11).
+  // the board (molecules, design decision 11); it seeds the widgets' results, which an answer
+  // carries only while the draft holds them (approval-scale-ranking, design decision 6).
   const seeding = useRef(false);
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
@@ -319,7 +380,7 @@ export const QuestionCard = (props: CardProps) => {
       tabIndex={-1}
       className={`text-question text-foreground ${FOCUS_RING}`}
     >
-      {text}
+      {questionText}
     </Heading>
   );
   const itemsOf = (list: readonly Rendered[]) =>
@@ -331,7 +392,7 @@ export const QuestionCard = (props: CardProps) => {
             disabled={readOnly || pending}
             onAccept={() => {
               revise();
-              acceptRecommended(shown, acting);
+              asking(acceptRecommended(shown, acting));
             }}
           />
         ) : null}
@@ -415,8 +476,10 @@ export const QuestionCard = (props: CardProps) => {
         <>
           <OpenPrompt
             questionId={question.id}
-            note={card.shown?.note ?? work?.note ?? ""}
+            note={noteText}
             readOnly={readOnly}
+            reason={reason}
+            error={reasonError}
             onChange={(note) => {
               revise();
               context.board.edit(question.id, question.rev, ({ note: _, ...rest }) =>
@@ -431,10 +494,10 @@ export const QuestionCard = (props: CardProps) => {
             locked={lock !== undefined}
             single={single}
             submitted={!single && delivery === "submitted"}
-            onAnswer={() => answer(question, acting)}
+            onAnswer={onAnswer}
             onPostpone={() => postpone(question, status?.state, acting)}
             onExplain={() => explain(question, acting, language)}
-            onDecline={() => decline(question, status?.state, acting)}
+            onDecline={onDecline}
             focusHeading={focusHeading}
           />
           <Thread
@@ -454,6 +517,41 @@ export const QuestionCard = (props: CardProps) => {
           />
         </>
       )}
+      <AlertDialog.Root
+        open={waiting !== undefined}
+        onOpenChange={(open) => {
+          if (open) return;
+          settle(waiting?.waiting, false);
+          setWaiting(undefined);
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
+          <AlertDialog.Content className={DIALOG}>
+            <AlertDialog.Title className="text-body-lg font-semibold">
+              {text("revision.confirmTitle")}
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-body text-foreground-secondary">
+              {text("revision.confirmBody")}
+            </AlertDialog.Description>
+            <div className="mt-sm flex justify-end gap-sm">
+              <AlertDialog.Cancel className={BUTTON_SECONDARY}>
+                {text("revision.confirmCancel")}
+              </AlertDialog.Cancel>
+              <AlertDialog.Action
+                className={BUTTON_PRIMARY}
+                onClick={() => {
+                  settle(waiting?.waiting, true);
+                  if (waiting?.act === "decline") focusHeading();
+                  setWaiting(undefined);
+                }}
+              >
+                {text("revision.confirmSend")}
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </section>
   );
 };

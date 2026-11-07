@@ -29,7 +29,8 @@ export type ActionsRowProps = {
   readonly onAnswer: () => void;
   readonly onPostpone: () => void;
   readonly onExplain: () => void;
-  readonly onDecline: () => void;
+  /** Whether the decline went through; false while a confirmation waits for the user. */
+  readonly onDecline: () => boolean;
   /** Moves focus to the question's heading. */
   readonly focusHeading: () => void;
 };
@@ -98,8 +99,7 @@ export const ActionsRow = ({
               checked={actions.declined}
               disabled={!actions.canDecline}
               onSelect={() => {
-                toHeading.current = true;
-                onDecline();
+                toHeading.current = onDecline();
               }}
             >
               <span aria-hidden="true" className="flex size-3 items-center justify-center">

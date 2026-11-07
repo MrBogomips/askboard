@@ -109,6 +109,13 @@ export const IT_IT = {
   "question.recommended": "Consigliata",
   "question.acceptRecommended": "Accetta la consigliata",
   "question.note": "Nota per l'agente (facoltativa)",
+  "question.reasonRequired": "Motivo delle modifiche (obbligatorio)",
+  "question.reasonMissing": "Aggiungi il motivo delle modifiche.",
+  "revision.confirmTitle": "Inviare una nuova risposta?",
+  "revision.confirmBody":
+    "L'agente ha già ricevuto la tua risposta precedente. Questa la sostituisce.",
+  "revision.confirmSend": "Invia",
+  "revision.confirmCancel": "Annulla",
   "option.agent": "Agente:",
   "option.showPreview": "Mostra anteprima",
   "option.addNote": "+ Aggiungi una nota a questa opzione",

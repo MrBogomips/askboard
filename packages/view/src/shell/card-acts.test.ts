@@ -5,13 +5,15 @@ import {
   lifecycleBoardDocument,
   plainChoiceBoardDocument,
 } from "@askboard/contract/fixtures";
+import { hasUnsentWork } from "../board-page/unsent-work.ts";
 import type { ViewArea, ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
-import { connectDrafts, createBoardDraft, type Delivery } from "./board-draft.ts";
+import { connectDrafts, createBoardDraft, type Delivery, draftRecordOf } from "./board-draft.ts";
 import {
   acceptRecommended,
   answer,
+  answerNeedsReason,
   decline,
   EXPLAIN,
   explain,
@@ -625,5 +627,208 @@ describe("the results an answer carries (widget-registry, design decision 9; AD-
     reloadQuestion(changed, reloaded.context);
     expect(reloaded.results.valueOf("sketch")).toBeUndefined();
     expect(reloaded.board.work("database")).toBeUndefined();
+  });
+});
+
+describe("a reason the answer requires (approval-scale-ranking, design decision 6; NFR-10)", () => {
+  // A test-only `verdict` type: its result `{decision: "revise"}` requires a reason.
+  const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
+  const asked: ViewQuestion = { ...database, props: { text: "Which one?", items: [verdict] } };
+  const pair = { label: "question.reasonRequired", missing: "question.reasonMissing" } as const;
+  const facts = (type: string) =>
+    type === "verdict"
+      ? {
+          reason: (result: unknown) =>
+            (result as { decision?: string }).decision === "revise" ? pair : undefined,
+        }
+      : undefined;
+  const revise = { decision: "revise" };
+  const accept = { decision: "accept" };
+
+  const held = (delivery: Delivery, result: unknown, note?: string) => {
+    const set = setUp(delivery);
+    set.results.set("verdict", result);
+    if (note !== undefined) set.board.edit("database", 1, () => ({ rev: 1, note }));
+    return { ...set, context: { ...set.context, facts } };
+  };
+
+  test.each(["immediate", "submitted"] as const)(
+    "in %s delivery an empty note sends nothing, marks nothing and asks for the error",
+    (delivery) => {
+      const { sent, board, context } = held(delivery, revise);
+      expect(answer(asked, context)).toBe("needs-reason");
+      expect(sent).toEqual([]);
+      expect(board.work("database")?.held).toBeUndefined();
+    },
+  );
+
+  test.each(["immediate", "submitted"] as const)(
+    "in %s delivery a note of white space only is no reason",
+    (delivery) => {
+      for (const note of ["   ", "\n\t", "\u00a0\u2003"]) {
+        const { sent, board, context } = held(delivery, revise, note);
+        expect(answer(asked, context)).toBe("needs-reason");
+        expect(sent).toEqual([]);
+        expect(board.work("database")?.held).toBeUndefined();
+      }
+    },
+  );
+
+  test("a note with text sends the answer carrying it, in immediate delivery", () => {
+    const { sent, context } = held("immediate", revise, "Cheaper.");
+    expect(answer(asked, context)).toBeUndefined();
+    expect(sent).toEqual([
+      expect.objectContaining({
+        type: "answer",
+        results: { verdict: revise },
+        note: "Cheaper.",
+      }),
+    ]);
+  });
+
+  test("a note with text marks the answer ready, in submitted delivery", () => {
+    const { sent, board, context } = held("submitted", revise, "Cheaper.");
+    expect(answer(asked, context)).toBeUndefined();
+    expect(board.work("database")?.held).toEqual({ act: "answer", order: 0 });
+    expect(sent).toEqual([]);
+  });
+
+  test("a result that requires no reason sends with no note", () => {
+    const { sent, context } = held("immediate", accept);
+    expect(answer(asked, context)).toBeUndefined();
+    expect(sent).toEqual([
+      expect.objectContaining({ type: "answer", results: { verdict: accept } }),
+    ]);
+  });
+
+  test("with no facts for the type, nothing is required", () => {
+    const { sent, context } = held("immediate", revise);
+    expect(answer(asked, { ...context, facts: () => undefined })).toBeUndefined();
+    expect(sent).toHaveLength(1);
+  });
+
+  test("pressed again on an answer already marked ready, it unmarks, as it does without a reason", () => {
+    const { board, context } = held("submitted", revise, "Cheaper.");
+    answer(asked, context);
+    expect(board.work("database")?.held?.act).toBe("answer");
+    answer(asked, context);
+    expect(board.work("database")?.held).toBeUndefined();
+  });
+
+  test("Accept recommended answers through the same gate", () => {
+    const recommended: ViewQuestion = {
+      ...asked,
+      props: {
+        ...asked.props,
+        options: [
+          { label: "A", description: "a", recommended: true },
+          { label: "B", description: "b" },
+        ],
+      },
+    } as ViewQuestion;
+    const { sent, context } = held("immediate", revise);
+    expect(acceptRecommended(recommended, context)).toBe("needs-reason");
+    expect(sent).toEqual([]);
+  });
+
+  test("answerNeedsReason is the check Answer makes, without sending anything", () => {
+    const empty = held("immediate", revise);
+    expect(answerNeedsReason(asked, empty.context)).toBe(true);
+    const written = held("immediate", revise, "Cheaper.");
+    expect(answerNeedsReason(asked, written.context)).toBe(false);
+    expect(answerNeedsReason(asked, held("immediate", accept).context)).toBe(false);
+    expect(empty.sent).toEqual([]);
+  });
+
+  test("Decline needs no reason", () => {
+    const { sent, context } = held("immediate", revise);
+    decline(asked, undefined, context);
+    expect(sent).toEqual([expect.objectContaining({ type: "act" })]);
+  });
+});
+
+describe("a revision keeps the widgets' results (approval-scale-ranking, design decision 6; AD-20)", () => {
+  const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
+  const second: WidgetItem = { type: "verdict", id: "second", props: {} };
+  const asked: ViewQuestion = { ...database, props: { text: "Which one?", items: [verdict] } };
+  const both: ViewQuestion = {
+    ...database,
+    props: { text: "Which one?", items: [verdict, second] },
+  };
+  const rejected = { decision: "reject" };
+  const picked = { decision: "approve" };
+
+  test("filling from an answer seeds its results for the items the revision holds", () => {
+    const { sent, results, context } = setUp();
+    fillFrom(asked, { results: { verdict: rejected }, note: "No." }, context);
+    expect(results.valueOf("verdict")).toEqual(rejected);
+    expect(sent).toEqual([]);
+  });
+
+  test("an item the current revision no longer holds gets none", () => {
+    const { results, context } = setUp();
+    fillFrom(asked, { results: { verdict: rejected, gone: { pick: 1 } } }, context);
+    expect(results.record().has("gone")).toBe(false);
+    expect([...results.record().keys()]).toEqual(["verdict"]);
+  });
+
+  test("the question's own ID is never a result's key", () => {
+    const { results, context } = setUp();
+    fillFrom(asked, { results: { database: { pick: 1 } } }, context);
+    expect(results.record().size).toBe(0);
+  });
+
+  test("an answer given without results seeds none, and drops the ones held in its place", () => {
+    const { results, context } = setUp();
+    fillFrom(asked, { choice: ["SQLite"] }, context);
+    expect(results.record().size).toBe(0);
+    results.set("verdict", picked);
+    fillFrom(asked, { choice: ["SQLite"] }, context);
+    expect(results.record().size).toBe(0);
+  });
+
+  test("each item takes its own result: one the answer lacks is cleared, none leaks across items", () => {
+    const { results, context } = setUp();
+    results.set("second", picked);
+    fillFrom(both, { results: { verdict: rejected } }, context);
+    expect(results.valueOf("verdict")).toEqual(rejected);
+    expect(results.record().has("second")).toBe(false);
+  });
+
+  test("results are read as own properties of the answer's: a prototype key seeds nothing", () => {
+    const { results, context } = setUp();
+    const proto = { results: JSON.parse('{"constructor": 1, "__proto__": 2}') };
+    const constructorItem: WidgetItem = { type: "verdict", id: "constructor", props: {} };
+    const question = {
+      ...database,
+      props: { text: "Q?", items: [constructorItem] },
+    } as ViewQuestion;
+    fillFrom(question, proto, context);
+    expect(results.valueOf("constructor")).toBe(1);
+    expect(Object.getPrototypeOf(results.record())).toBe(Map.prototype);
+  });
+
+  test("the leave-page prompt is armed after seeding, as the draft record the page mirrors shows", () => {
+    const { draft, results, board, context } = setUp();
+    const document = {
+      ...plainChoiceBoardDocument,
+      items: [asked],
+    } as typeof plainChoiceBoardDocument;
+    connectDrafts(document, draft, board, results);
+    expect(
+      hasUnsentWork(draftRecordOf(document, draft.record(), board.get(), results.record())),
+    ).toBe(false);
+    fillFrom(asked, { results: { verdict: rejected } }, context);
+    expect(board.work("database")).toBeDefined();
+    expect(
+      hasUnsentWork(draftRecordOf(document, draft.record(), board.get(), results.record())),
+    ).toBe(true);
+  });
+
+  test("a board with no results store seeds nothing and does not throw", () => {
+    const { draft, board } = setUp();
+    expect(() =>
+      fillFrom(asked, { results: { verdict: rejected } }, { draft, board }),
+    ).not.toThrow();
   });
 });

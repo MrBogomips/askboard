@@ -79,6 +79,7 @@ describe("bun run build:view (design decision 7)", () => {
       choice: "component",
       context: "component",
       compute: "library",
+      dnd: "library",
       "ext-apps": "library",
       gantt: "component",
       radix: "library",
@@ -94,10 +95,12 @@ describe("bun run build:view (design decision 7)", () => {
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
     // The Tree reads the board graph since the molecules change (design decision 13), and the
     // work breakdown's values need compute's `isFormulaError` and `roundNumber` (decision 14).
-    // Its toolbar's "More" menu is Radix's (widget-editing-plus, review F-16).
+    // Its toolbar's "More" menu is Radix's (widget-editing-plus, review F-16), and its drag comes
+    // from the dnd library chunk (approval-scale-ranking, design decision 9).
     expect(manifest.chunks.tree?.needs).toEqual([
       "board-graph",
       "compute",
+      "dnd",
       "radix",
       "react",
       "shell",
@@ -180,26 +183,26 @@ describe("bun run build:view (design decision 7)", () => {
     expect(await text(own?.path ?? "")).toContain("MIT License");
   });
 
-  test("the Tree's chunk holds AskBoard's own code under the repository's MIT licence, and the drag library with its three dependencies under their own", async () => {
+  test("the Tree's chunk holds AskBoard's own code under the repository's MIT licence, and the dnd chunk the drag library with its three dependencies under their own", async () => {
     // React and the port come from the react chunk and the shell (design decision 8); of `view`,
     // the chunk holds only the shared-module registry its imports of them read. Pragmatic drag
-    // and drop 4.0.0 (widget-editing-plus, task 5.1) is bundled with raf-schd, bind-event-listener
-    // and @babel/runtime, each shipping its licence text.
-    const notices = chunkNamed("tree").licences;
+    // and drop (widget-editing-plus, task 5.1) is bundled with raf-schd, bind-event-listener and
+    // @babel/runtime, each shipping its licence text, in the dnd chunk since approval-scale-ranking.
+    const own = chunkNamed("tree").licences;
+    expect(packagesIn(own)).toEqual(["@askboard/contract", "@askboard/view", "@askboard/widgets"]);
+    const repository = (await Bun.file(join(ROOT, "LICENSE")).text()).trimEnd();
+    for (const notice of own.filter((entry) => entry.package.startsWith("@askboard/"))) {
+      expect(notice.licence).toBe("MIT");
+      expect((await text(notice.path)).trimEnd()).toBe(repository);
+    }
+    const notices = chunkNamed("dnd").licences;
     expect(packagesIn(notices)).toEqual([
-      "@askboard/contract",
       "@askboard/view",
-      "@askboard/widgets",
       "@atlaskit/pragmatic-drag-and-drop",
       "@babel/runtime",
       "bind-event-listener",
       "raf-schd",
     ]);
-    const repository = (await Bun.file(join(ROOT, "LICENSE")).text()).trimEnd();
-    for (const notice of notices.filter((entry) => entry.package.startsWith("@askboard/"))) {
-      expect(notice.licence).toBe("MIT");
-      expect((await text(notice.path)).trimEnd()).toBe(repository);
-    }
     const licences = Object.fromEntries(notices.map((entry) => [entry.package, entry.licence]));
     expect(licences).toMatchObject({
       "@atlaskit/pragmatic-drag-and-drop": "Apache-2.0",
@@ -209,6 +212,18 @@ describe("bun run build:view (design decision 7)", () => {
     });
     const library = notices.find((entry) => entry.package === "@atlaskit/pragmatic-drag-and-drop");
     expect(await text(library?.path ?? "")).toContain("Apache License");
+  });
+
+  test("the drag library is in the dnd chunk only, which needs nothing, and the Tree loads it from there (approval-scale-ranking, design decision 9)", async () => {
+    // The library adds an element named for its "honey pot" to the page while a drag runs.
+    const marker = "data-pdnd-honey-pot";
+    expect(chunkNamed("dnd").kind).toBe("library");
+    expect(chunkNamed("dnd").needs).toEqual([]);
+    expect(await text(chunkNamed("dnd").script.path)).toContain(marker);
+    expect(await text(chunkNamed("tree").script.path)).not.toContain(marker);
+    expect(await text(chunkNamed("tree").script.path)).toContain(
+      '"@atlaskit/pragmatic-drag-and-drop/element/adapter"',
+    );
   });
 
   test("the Tree's chunk holds no schema and no Ajv (design, Risks / Trade-offs)", async () => {
@@ -260,6 +275,7 @@ describe("bun run build:view (design decision 7)", () => {
       "choice",
       "compute",
       "context",
+      "dnd",
       "ext-apps",
       "gantt",
       "radix",
@@ -390,6 +406,7 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(names(treeBoardDocument)).toEqual([
       "compute",
       "board-graph",
+      "dnd",
       "ext-apps",
       "react",
       "radix",
@@ -398,6 +415,22 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     ]);
     expect(names(plainChoiceBoardDocument)).toContain("choice");
     expect(names(plainChoiceBoardDocument)).not.toContain("tree");
+  });
+
+  test("the drag library's chunk goes with a Tree, and a board of Choice alone loads none (approval-scale-ranking, design decision 9)", async () => {
+    const names = (document: ViewDocument) =>
+      selectChunks(document, manifest).map(({ name }) => name);
+    expect(names(treeBoardDocument)).toContain("dnd");
+    expect(names(ganttBoardDocument)).not.toContain("dnd");
+    expect(names(plainChoiceBoardDocument)).not.toContain("dnd");
+    const library = chunkNamed("dnd");
+    const plain = await assembled(plainChoiceBoardDocument);
+    const withTree = await assembled(treeBoardDocument);
+    expect(plain.chunks).not.toContain("dnd");
+    expect(plain.srcdoc).not.toContain(await text(library.script.path));
+    expect(withTree.chunks).toContain("dnd");
+    expect(withTree.srcdoc).toContain(await text(library.script.path));
+    expect(withTree.policy).toContain(cspHashSource(library.script.sha256));
   });
 
   test("the plain Choice board's srcdoc holds no Tree chunk, and the Tree board's holds it", async () => {
@@ -473,6 +506,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
     expect(names).toEqual([
       "compute",
       "board-graph",
+      "dnd",
       "ext-apps",
       "react",
       "radix",

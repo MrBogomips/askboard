@@ -110,6 +110,13 @@ export const STRING_KEYS = [
   "question.recommended",
   "question.acceptRecommended",
   "question.note",
+  "question.reasonRequired",
+  "question.reasonMissing",
+  // Revising a verdict the agent has received (approval-scale-ranking, design decision 6).
+  "revision.confirmTitle",
+  "revision.confirmBody",
+  "revision.confirmSend",
+  "revision.confirmCancel",
   "option.agent",
   "option.showPreview",
   "option.addNote",

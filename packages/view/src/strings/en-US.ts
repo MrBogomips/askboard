@@ -104,6 +104,13 @@ export const EN_US = {
   "question.recommended": "Recommended",
   "question.acceptRecommended": "Accept recommended",
   "question.note": "Note for the agent (optional)",
+  "question.reasonRequired": "Reason for the changes (required)",
+  "question.reasonMissing": "Add the reason for your changes.",
+  "revision.confirmTitle": "Send a new answer?",
+  "revision.confirmBody":
+    "The agent has already received your earlier answer. This one replaces it.",
+  "revision.confirmSend": "Send",
+  "revision.confirmCancel": "Cancel",
   "option.agent": "Agent:",
   "option.showPreview": "Show preview",
   "option.addNote": "+ Add your note to this option",

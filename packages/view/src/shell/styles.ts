@@ -50,4 +50,14 @@ export const TEXT_FIELD =
   `w-full rounded-md border border-input bg-card p-sm text-body text-foreground ${FOCUS_RING} ` +
   "read-only:border-border read-only:bg-muted";
 
+/** The content of a modal dialog, on the popover surface (DESIGN.md, Mode-switch confirmation). */
+export const DIALOG =
+  "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-sm rounded-lg border border-border bg-popover p-lg text-foreground shadow-lg";
+
+/** A text field refused by a field check: its border turns destructive (DESIGN.md, Field error). */
+export const TEXT_FIELD_INVALID = "aria-invalid:border-destructive";
+
+/** The one-line message under a refused field (DESIGN.md, Field error). */
+export const FIELD_ERROR = "text-body text-destructive-text";
+
 export { SEGMENT, SEGMENTS } from "./segment-classes.ts";

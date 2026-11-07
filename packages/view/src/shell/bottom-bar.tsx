@@ -27,14 +27,12 @@ import {
   BUTTON_LINK,
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
+  DIALOG,
   SECTION_LABEL,
   SEGMENT,
   SEGMENTS,
 } from "./styles.ts";
 import { heldWorkOf, type SubmitState, submitActsOf, updatesLabel } from "./submit.ts";
-
-const DIALOG =
-  "fixed top-24 left-1/2 z-30 flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-sm rounded-lg border border-border bg-popover p-lg text-foreground shadow-lg";
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
