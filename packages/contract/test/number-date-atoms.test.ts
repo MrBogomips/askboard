@@ -26,6 +26,7 @@ import {
   numberFieldResultProblems,
   numberFieldResultShape,
   scaleStepCount,
+  scaleStepIndex,
   widgetRegistryProblems,
   widgetResultFits,
   widgetResultProblems,
@@ -260,6 +261,82 @@ describe("NumberField results", () => {
     expect(resultOf(tenths, 0.3)).toEqual([]);
     expect(resultOf(tenths, 0.7)).toEqual([]);
     expect(resultOf(tenths, 0.35)).toHaveLength(1);
+  });
+});
+
+// The NumberField counts its own steps (atoms, task 1.9; review 1.8 X-1): within a billionth of a
+// step, or where the doubles are spaced wider than that, within a few units in the last place, and
+// it refuses what that cannot decide: props whose bounds make the doubles coarser than a quarter
+// step, and a result at a magnitude where they are.
+describe("the NumberField's step where the doubles are coarse (review 1.8 X-1)", () => {
+  test("a lower limit of -1e15 with whole steps is refused as props, naming step, and refuses 0.25", () => {
+    const field = number({ min: -1e15, step: 1 });
+    expect(checkedOnly(field)).toBe(true);
+    expect(pathsOf(field)).toEqual(["/step"]);
+    expect(problemsOf(field)[0]?.message).toContain("step");
+    for (const result of [0.25, 0, 7, -1e15]) {
+      expect(resultOf(field, result).length, String(result)).toBeGreaterThan(0);
+      expect(fits(field, result), String(result)).toBe(false);
+    }
+  });
+
+  test("bounds near 1e15 with a step of 2 or 3 are refused as props, naming step", () => {
+    for (const props of [
+      { min: 0, max: 1e15, step: 2 },
+      { min: 0, max: 1e15, step: 3 },
+      { min: -1e15, max: 1e15, step: 1 },
+      { min: 7e14, max: 9e14, step: 2 },
+    ]) {
+      expect(pathsOf(number(props)), JSON.stringify(props)).toEqual(["/step"]);
+      expect(checkedOnly(number(props)), JSON.stringify(props)).toBe(true);
+    }
+  });
+
+  test("props whose doubles stay finer than a quarter step pass", () => {
+    for (const props of [
+      { min: 0, max: 1e15, step: 8 },
+      { min: 0, max: 1e9, step: 0.001 },
+      { min: 1000000, max: 1000001, step: 0.001 },
+      { min: -1e9, max: -1e9 + 100, step: 0.1 },
+      { min: -1e15, step: 1e6 },
+      { step: 2 },
+    ]) {
+      expect(passes(number(props)), JSON.stringify(props)).toBe(true);
+    }
+  });
+
+  test("with no bound, a result where the doubles cannot tell a step from half of one is refused, worded", () => {
+    const two = number({ step: 2 });
+    for (const result of [999999999999999, 700000000000001]) {
+      const problems = resultOf(two, result);
+      expect(problems, String(result)).toHaveLength(1);
+      expect(problems[0]?.message).toContain("item days");
+      expect(problems[0]?.message).toContain("step of 2");
+      expect(fits(two, result)).toBe(false);
+    }
+    expect(resultOf(number({ step: 3 }), 999999999999997)).toHaveLength(1);
+    expect(fits(number({ step: 3 }), 999999999999997)).toBe(false);
+    // The same steps at a magnitude the doubles tell apart still pass, on the step and off it.
+    expect(resultOf(two, 1000000)).toEqual([]);
+    expect(resultOf(two, 1000001)).toHaveLength(1);
+    expect(resultOf(number({ step: 1 }), 40000000000000)).toEqual([]);
+  });
+
+  test("a step counts within a billionth of a step, no wider where the doubles are fine", () => {
+    const tenths = number({ min: 0, max: 100, step: 0.1 });
+    expect(resultOf(tenths, 0.1 + 0.2)).toEqual([]);
+    expect(resultOf(tenths, 0.3 + 1e-12)).toEqual([]);
+    expect(resultOf(tenths, 0.3 + 1e-6)).toHaveLength(1);
+    expect(resultOf(tenths, 0.35)).toHaveLength(1);
+    // A fraction of a step off the grid is never taken for on it.
+    const wide = number({ min: 0, max: 1e6, step: 1 });
+    expect(resultOf(wide, 5.25)).toHaveLength(1);
+    expect(resultOf(wide, 5.0000000001)).toEqual([]);
+  });
+
+  test("the Scale's own step check is unchanged: it still takes the widened tolerance", () => {
+    expect(scaleStepIndex(1e9, 0, 1e-9)).toBeDefined();
+    expect(scaleStepIndex(0.25, -1e9, 1e-8)).toBeDefined();
   });
 });
 

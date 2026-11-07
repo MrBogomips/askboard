@@ -1,14 +1,14 @@
 // The NumberField's checks (atoms, design decision 1): its props' limits restated plain for the
 // component, with the one the schema cannot say (max not below min), and of a result, the shape
 // the schema takes and what the item's props add: the bounds, a whole number when `integer`, and a
-// step counted from `min` (else 0), with the Scale's grid tolerance.
+// step counted from `min` (else 0), within a billionth of a step or the doubles' own spacing there,
+// and refused where that spacing reaches a quarter step (review 1.8 X-1).
 //
 // Plain ECMAScript with no JSON and no Ajv: the field chunks bundle it. Nothing here throws on a
 // value it cannot read, and a result against props it cannot read is refused (AD-10).
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
-import { scaleStepIndex } from "../scale/checks.ts";
 import {
   ATOM_DESCRIPTION_MAX_CHARS,
   ATOM_LABEL_MAX_CHARS,
@@ -16,7 +16,11 @@ import {
   ATOM_UNIT_MAX_CHARS,
   codePointCount,
 } from "../shared/atoms.ts";
-import { NUMBER_FIELD_STEP_MAX } from "./constants.ts";
+import {
+  NUMBER_FIELD_STEP_MAX,
+  NUMBER_FIELD_STEP_TOLERANCE,
+  NUMBER_FIELD_STEP_UNDECIDABLE,
+} from "./constants.ts";
 
 const KEYS = ["label", "description", "min", "max", "step", "integer", "unit"];
 
@@ -28,6 +32,27 @@ const bounded = (value: unknown): value is number =>
   Number.isFinite(value) &&
   value >= -ATOM_NUMBER_BOUND &&
   value <= ATOM_NUMBER_BOUND;
+
+// How far, in steps, the double nearest `min + k * step` may lie from its exact grid point at this
+// magnitude: a billionth of a step, or eight units in the last place of the magnitude where those
+// are wider (the sum, its rounding and the subtraction each move a double by one such unit).
+const stepTolerance = (magnitude: number, step: number): number =>
+  Math.max(NUMBER_FIELD_STEP_TOLERANCE, (8 * Number.EPSILON * magnitude) / step);
+
+/**
+ * The step `value` is on, counted from `min`, or `undefined` when it is off the grid, or when the
+ * doubles at its magnitude are spaced so wide that the check cannot tell (a quarter step or more).
+ */
+const stepIndex = (value: number, min: number, step: number): number | undefined => {
+  const tolerance = stepTolerance(Math.max(Math.abs(min), Math.abs(value)), step);
+  const quotient = (value - min) / step;
+  const whole = Math.round(quotient);
+  return Number.isFinite(quotient) &&
+    tolerance < NUMBER_FIELD_STEP_UNDECIDABLE &&
+    Math.abs(quotient - whole) <= tolerance
+    ? whole
+    : undefined;
+};
 
 /**
  * What is wrong with a NumberField's props, the schema's rules restated and `max` not below `min`:
@@ -81,13 +106,30 @@ export const numberFieldPropsProblems = (props: unknown): readonly Problem[] => 
   if (bounded(props.min) && bounded(props.max) && props.max < props.min) {
     at("/max", `max ${props.max} is below min ${props.min}`);
   }
-  return problems;
+  return [...problems, ...stepProblems(props)];
+};
+
+// A step the doubles cannot tell from half of one between the item's own bounds is refused: the
+// bounds' magnitude, with 0 for one that is absent, sets the spacing (review 1.8 X-1).
+const stepProblems = (props: Record<string, unknown>): Problem[] => {
+  const { step, min, max } = props;
+  if (typeof step !== "number" || !(step > 0) || !Number.isFinite(step)) return [];
+  const magnitude = Math.max(bounded(min) ? Math.abs(min) : 0, bounded(max) ? Math.abs(max) : 0);
+  return stepTolerance(magnitude, step) < NUMBER_FIELD_STEP_UNDECIDABLE
+    ? []
+    : [
+        {
+          path: "/step",
+          message: `step ${step} is too fine for bounds this large: the numbers up to ${magnitude} cannot tell a value on the step from one off it`,
+        },
+      ];
 };
 
 /**
  * What a schema-valid NumberField result still gets wrong against the item's props: outside `min`
  * to `max`, not whole when the item is `integer`, and not on a step of `step` counted from `min`
- * (else 0), within the Scale's grid tolerance. Props that are no NumberField's refuse the result,
+ * (else 0), within a billionth of a step or the doubles' spacing there, and refused where that
+ * reaches a quarter step. Props that are no NumberField's refuse the result,
  * since nothing can check it.
  */
 export const numberFieldResultProblems = (result: unknown, props: unknown): readonly Problem[] => {
@@ -111,10 +153,10 @@ export const numberFieldResultProblems = (result: unknown, props: unknown): read
       message: `${result} is not a whole number, and this field takes whole numbers`,
     });
   }
-  if (step !== undefined && scaleStepIndex(result, min ?? 0, step) === undefined) {
+  if (step !== undefined && stepIndex(result, min ?? 0, step) === undefined) {
     problems.push({
       path: "/",
-      message: `${result} is not on a step of ${step} from ${min ?? 0}`,
+      message: `${result} is not on a step of ${step} from ${min ?? 0}, or is too large for the step to be told`,
     });
   }
   return problems;
