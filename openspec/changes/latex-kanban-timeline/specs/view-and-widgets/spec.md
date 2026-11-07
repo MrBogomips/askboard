@@ -33,6 +33,10 @@ While the expression does not parse, the board SHALL show KaTeX's message under 
 - **WHEN** the agent sends `\frac{1}{`
 - **THEN** the field error shows, the preview is empty, and the item counts as ready
 
+#### Scenario: A failure with no message
+- **WHEN** rendering fails with a thrown value that carries no message
+- **THEN** the field error shows the string tables' fixed text, "The expression could not be drawn." in en-US, and the last preview stays
+
 ### Requirement: LaTeX untrusted commands
 The LaTeX preview SHALL render agent and user text as data: no command SHALL make a link, an image, a class, an ID, a style attribute or a request, a macro defined in one render SHALL NOT exist in the next, and macro expansion SHALL be bounded (AD-8, NFR-5, NFR-9).
 
@@ -49,7 +53,7 @@ The LaTeX preview SHALL render agent and user text as data: no command SHALL mak
 - **THEN** the preview shows a parse error and the board keeps responding
 
 ### Requirement: Package stylesheets in a chunk
-A component chunk MAY carry a package's stylesheet. The build SHALL inline its woff2 fonts as `data:` URLs, drop its other font formats, and fail on any other `url(` or on an `@import`, so that no chunk loads a file from anywhere (AD-8, AD-9, NFR-9).
+A component chunk MAY carry a package's stylesheet. The build SHALL inline its woff2 fonts as `data:` URLs, drop its other font formats, and list the stylesheet's package among the chunk's licence notices. In every chunk's styles and the board page's, the build SHALL fail on any other `url(`, on an `@import` and on a quoted string in `image-set()` or `-webkit-image-set()`, reading CSS escapes as the browser does, so that no chunk loads a file from anywhere (AD-8, AD-9, NFR-6, NFR-9).
 
 #### Scenario: KaTeX's fonts
 - **WHEN** a board holding a LaTeX item opens in Chromium or WebKit
@@ -59,16 +63,32 @@ A component chunk MAY carry a package's stylesheet. The build SHALL inline its w
 - **WHEN** a chunk's package stylesheet holds `url(fonts/a.svg)` or `@import "b.css"`
 - **THEN** the build fails, naming the chunk and the URL or the import
 
+#### Scenario: Escaped and string URLs
+- **WHEN** a chunk's styles hold `u\72l(http://h/x.png)`, `\75rl(http://h/x.png)`, `@\69mport "http://h/b.css"` or `image-set("http://h/x.png" 1x)`
+- **THEN** the build fails, naming the chunk
+
+#### Scenario: A chunk's own styles and the board page's
+- **WHEN** a chunk's own styles, or the board page's, hold `url(x.png)`
+- **THEN** the build fails, naming the chunk or the board page
+
+#### Scenario: A stylesheet from a package the script does not import
+- **WHEN** a chunk lists a package's stylesheet and its script imports nothing from that package
+- **THEN** the chunk's licence notices hold that package's notice
+
 ### Requirement: Font licences in a chunk's notices
-Fonts a chunk inlines SHALL be the package's font files unmodified, and the chunk's licence notices SHALL carry the fonts' own licence text when it differs from the package's, with the fonts' copyright and Reserved Font Name lines. The build SHALL fail when a chunk inlines fonts whose licence is not recorded (NFR-6, AD-19, PRD addendum, Adoption rule).
+Fonts a chunk inlines SHALL be the package's font files unmodified, and the chunk's licence notices SHALL carry the fonts' own licence text when it differs from the package's, with the fonts' copyright and Reserved Font Name lines, wherever the chunk carries those fonts or package code holding glyph outlines derived from them. The build SHALL fail when a chunk inlines fonts whose licence is not recorded (NFR-6, AD-19, PRD addendum, Adoption rule, as amended by this change).
 
 #### Scenario: KaTeX's font licence
 - **WHEN** the view is built with a chunk carrying KaTeX's stylesheet
 - **THEN** that chunk's notice for `katex` names `MIT AND OFL-1.1` and its text holds KaTeX's MIT licence, the fonts' copyright lines, their Reserved Font Names and the full SIL Open Font License 1.1, and every inlined font decodes to the bytes of its woff2 file in the package
 
 #### Scenario: Fonts with no recorded licence
-- **WHEN** a chunk inlines the fonts of a package version that has no font licence entry, or an entry names a package version whose fonts no chunk inlines
+- **WHEN** a chunk inlines the fonts of a package version that has no font licence entry, or an entry names a package version whose fonts and derived files no chunk carries
 - **THEN** the build fails, naming the package version
+
+#### Scenario: KaTeX's script without its stylesheet
+- **WHEN** a chunk bundles KaTeX's script, whose glyph outlines derive from KaTeX's fonts, and lists no KaTeX stylesheet
+- **THEN** that chunk's notice for `katex` names `MIT AND OFL-1.1` and holds the same text as with the stylesheet
 
 ### Requirement: Kanban columns and cards
 A Kanban SHALL show its columns side by side in the agent's order, each headed by its label and its number of cards, with each card under the column its value names, in the agent's order of `cards`, showing its label and its description (FR-11, DESIGN Kanban).
