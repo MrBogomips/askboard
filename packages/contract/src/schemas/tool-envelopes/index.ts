@@ -6,8 +6,8 @@
 // (design decision 11); latex-kanban-timeline's minor adds the items of the LaTeX, the Kanban and the
 // Timeline (design decision 13), chart-widget's the Chart's (design decision 11); atoms' minor adds
 // an option's `previewFormat` to the question `fetch` returns (design decision 11); layouts' minor
-// adds the items of the Stack, the Row and the Group, and the items they hold, to it (design
-// decision 8).
+// adds the items of the Stack, the Row, the Group and the Tabs layout, and the items they hold, to it
+// (design decision 8).
 
 import type { SchemaSet } from "../../versions.ts";
 import { composeFetchResult } from "../../widgets/compose.ts";

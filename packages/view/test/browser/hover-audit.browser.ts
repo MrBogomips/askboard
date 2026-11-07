@@ -500,3 +500,49 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     }
   });
 }
+
+// The Tabs layout's triggers (layouts, task 3.3): buttons with the role of a tab, so the shared layer
+// gives them the pointer, the keyboard focus shows the ring, and a locked board's stay enabled.
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the Tabs layout`, () => {
+    const { host } = useWidgetHost(engine);
+    const field = (id: string, label: string) => ({ type: "text-field", id, props: { label } });
+    const tabs = {
+      type: "tabs",
+      id: "sections",
+      props: {
+        tabs: [
+          { id: "a", title: "First", items: [field("one", "One")] },
+          { id: "b", title: "Second", items: [field("two", "Two")] },
+        ],
+      },
+    };
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, a tab shows the pointer under the cursor, takes the ring from the keyboard, and a locked board's tabs still respond`,
+        async () => {
+          const document = atomDocument([tabs]);
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          const second = board.view.getByRole("tab", { name: "Second" });
+          expect((await hovered(second)).cursor).toBe("pointer");
+          await board.page.mouse.move(0, 0);
+          await board.view.getByRole("tab", { name: "First" }).focus();
+          await board.page.keyboard.press("ArrowRight");
+          await expectRing(second);
+          await lock(run, document);
+          await eventually(
+            async () => (await board.view.getByLabel("One").getAttribute("readonly")) !== null,
+            "the field to turn read-only",
+          );
+          expect(await second.isEnabled()).toBe(true);
+          expect((await hovered(second)).cursor).toBe("pointer");
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+}

@@ -324,14 +324,15 @@ describe("problems inside layouts name the inner item", () => {
     expect((own.item as Item).id).toBe("t");
   });
 
-  test("words a question's items apart from its layouts, the Tabs layout apart from the shipped registry", () => {
+  test("words a question's items apart from its layouts", () => {
     const withLayouts = itemExpected(TYPES)["question.props.items"] ?? "";
     expect(withLayouts).toContain("layouts (a Stack, a Row, a Group, a Tabs layout)");
     expect(withLayouts).not.toContain(
       "widgets (a Tree, a Gantt, an Approval, a Scale, a Ranking, a LaTeX, a Kanban, a Timeline, a Text, a Value, a Divider, a TextField, a NumberField, a MoneyField, a DateField, a Toggle, a Stack",
     );
-    expect(itemExpected()["question.props.items"]).toContain("layouts (a Stack, a Row, a Group)");
-    expect(itemExpected()["question.props.items"]).not.toContain("a Tabs layout");
+    expect(itemExpected()["question.props.items"]).toContain(
+      "layouts (a Stack, a Row, a Group, a Tabs layout)",
+    );
   });
 });
 
@@ -549,6 +550,22 @@ describe("a Gantt plan's link through the ask's checks (review S-1)", () => {
   test("a plan in a Group with its Tree at the top level passes, and a plan and Tree in a Stack too", () => {
     expect(problemsOf(askOf(tree, group("g", PLAN)))).toEqual([]);
     expect(problemsOf(askOf(stack("s", tree, PLAN)))).toEqual([]);
+  });
+
+  test("the shipped registry takes a plan and its Tree in two tabs, through ask and update's add (layouts, task 3.3)", () => {
+    const body = tabs("t", ["plan", [PLAN]], ["tree", [tree]]);
+    expect(validateAskRequest(askOf(body)).ok).toBe(true);
+    const add = (item: unknown) => ({
+      askId: "arrange-ask-a1b2",
+      actions: [{ action: "add", item }],
+    });
+    expect(validateUpdateRequest(add(question("n", body))).ok).toBe(true);
+    const lonely = validateUpdateRequest(
+      add(question("n", tabs("t", ["a", [PLAN]], ["b", [field("f")]]))),
+    );
+    expect(lonely.ok).toBe(false);
+    if (!lonely.ok)
+      expect(JSON.stringify(lonely.problems)).toContain("name no item of its question");
   });
 
   test("a plan with no Tree in its question still fails, naming the plan, at any depth", () => {

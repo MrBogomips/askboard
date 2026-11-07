@@ -113,6 +113,7 @@ describe("bun run build:view (design decision 7)", () => {
       scale: "component",
       shell: "shell",
       stack: "component",
+      tabs: "component",
       // The Text atom: markdown-it and DOMPurify in a chunk of its own (atoms, design decision 4).
       text: "component",
       "text-field": "component",
@@ -373,6 +374,7 @@ describe("bun run build:view (design decision 7)", () => {
       "scale",
       "shell",
       "stack",
+      "tabs",
       "text",
       "text-field",
       "timeline",

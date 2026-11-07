@@ -32,7 +32,10 @@ describe("the Timeline in the composed schemas", () => {
     expect(types).toContain("timeline");
     // The atoms come after the Chart, which a later change registered after the Timeline.
     const atoms = ATOM_TYPES.map(({ type }) => type);
-    for (const type of types.slice(types.indexOf("chart") + 1)) expect(atoms).toContain(type);
+    const layouts = ["stack", "row", "group", "tabs"];
+    for (const type of types.slice(types.indexOf("chart") + 1)) {
+      expect([...atoms, ...layouts]).toContain(type);
+    }
   });
 
   test("a question's items take its item after the Kanban's and before the molecule reference", () => {

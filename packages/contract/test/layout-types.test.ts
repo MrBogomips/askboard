@@ -79,8 +79,7 @@ const fromJson = (json: string): unknown => JSON.parse(json);
 describe("the layouts in the registry", () => {
   test("follow the shipped types, in the order stack, row, group, tabs", () => {
     expect(TYPES.slice(-4).map(({ type }) => type)).toEqual(["stack", "row", "group", "tabs"]);
-    // The Stack, the Row and the Group are registered; the Tabs layout joins at its chunk.
-    expect(TYPES.slice(0, -1)).toEqual([...withWidgetTypes()]);
+    expect(TYPES).toEqual([...WIDGET_TYPES]);
   });
 
   test("give no result, no edits and no derived values, each with its noun and a short teaching use", () => {

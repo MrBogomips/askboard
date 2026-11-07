@@ -8,7 +8,7 @@
 // latex-kanban-timeline's admits the LaTeX, the Kanban and the Timeline (design decision 13);
 // chart-widget's admits the Chart as a widget item (design decision 11);
 // atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11);
-// layouts' admits the Stack, the Row and the Group as items, and the items they hold in a question's
+// layouts' admits the Stack, the Row, the Group and the Tabs layout as items, and the items they hold in a question's
 // items (design decisions 1, 3 and 8).
 
 import type { MoleculeProps } from "../../molecules/index.ts";

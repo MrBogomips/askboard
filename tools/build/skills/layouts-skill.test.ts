@@ -4,7 +4,6 @@
 // as the registered layouts make it.
 
 import { describe, expect, test } from "bun:test";
-import { WIDGET_TYPES } from "@askboard/contract";
 import { LAYOUT_WIDGETS, withWidgetTypes } from "@askboard/contract/fixtures";
 import { BUDGETS, budgetReport } from "./budgets.ts";
 import { generateSkill } from "./generate.ts";
@@ -59,10 +58,10 @@ describe("the skill with the layouts registered", () => {
 });
 
 describe("the shipped skill, as the layouts register", () => {
-  test("names the registered layouts, and the Tabs layout once it joins the registry", () => {
+  test("names the four layouts", () => {
     const shipped = generateSkill().files.get("SKILL.md") ?? "";
     expect(shipped).toContain("may sit in layouts");
-    for (const type of ["stack", "row", "group"]) expect(shipped).toContain(`(\`${type}\`)`);
-    expect(shipped.includes("(`tabs`)")).toBe(WIDGET_TYPES.some(({ type }) => type === "tabs"));
+    for (const type of ["stack", "row", "group", "tabs"])
+      expect(shipped).toContain(`(\`${type}\`)`);
   });
 });

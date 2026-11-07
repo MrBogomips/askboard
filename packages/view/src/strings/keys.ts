@@ -355,6 +355,8 @@ export const STRING_KEYS = [
   "toggle.on",
   "toggle.off",
   "toggle.clear",
+  // The Tabs layout's mark (layouts, task 3.3; ux-update-draft.md block 4; the Italian text to review).
+  "tabs.needsCorrection",
   // The NumberField and the MoneyField (atoms, task 5.4; ux-update-draft.md block 6; the Italian texts to review).
   "field.atLeast",
   "field.atMost",
