@@ -42,7 +42,7 @@ import versions from "./versions.json" with { type: "json" };
 // The `fetch` result with each registered type's item composed in.
 const fetchResult = composeFetchResult(fetchResultBase);
 
-export const TOOL_ENVELOPES_VERSION = "1.8";
+export const TOOL_ENVELOPES_VERSION = "1.9";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {

@@ -22,7 +22,6 @@ export {
   say,
   type Theme,
   themeOfClasses,
-
   useHosted,
   useLanguage,
   useLocale,

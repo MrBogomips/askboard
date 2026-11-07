@@ -111,6 +111,8 @@ As in `latex-kanban-timeline` decision 12, an entry joins `WIDGET_TYPES` only in
 
 The input format (option `previewFormat`, the atoms' props), the output format (the atoms' results), the tool envelopes and the board document (their composed schemas, the option field in their question schemas), and the board protocol (`entries`) each take the next minor after `main`'s (askboard-contract-versioning). Each constant moves in the first task that changes its set: the input format, the board document and the tool envelopes in task 1.6, the board protocol in task 1.7, the output format in task 5.3 (the first registered result). The view manifest, the Snapshot data and the rest keep `main`'s. Comments, schema descriptions and test titles say "since atoms", never a number. Task 7.2 binds each at `main`'s minor plus one.
 
+Bound on 2026-11-07, rebased onto origin/main 0e151a84 (`chart-widget` merged): input format 1.9 (main 1.8), output format 1.9 (main 1.8), tool envelopes 1.9 (main 1.8), board document 1.8 (main 1.7), board protocol 1.7 (main 1.6).
+
 ### 12. The end-to-end proof
 
 | Scenario | Where |

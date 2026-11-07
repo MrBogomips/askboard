@@ -66,8 +66,8 @@ describe("the registrations", () => {
     expect([byType.snapshot, byType["snapshot-saved"], byType["snapshot-failed"]]).toEqual(ids);
   });
 
-  test("the board protocol is at widget-registry's minor, after widget-answers'", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.7");
+  test("the board protocol is at widget-registry's minor or a later one", () => {
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(6);
     expect(boardProtocol.version).toBe(BOARD_PROTOCOL_VERSION);
   });
 

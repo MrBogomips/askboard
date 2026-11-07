@@ -170,9 +170,9 @@ describe("the three sets' versions since atoms", () => {
 
   test("a receiver at the new minor accepts the previous minor and refuses another major", () => {
     for (const [name, previous] of [
-      ["input", "1.7"],
-      ["board-document", "1.6"],
-      ["tool-envelopes", "1.7"],
+      ["input", "1.8"],
+      ["board-document", "1.7"],
+      ["tool-envelopes", "1.8"],
     ] as const) {
       expect(unsupportedVersion(setOf(name), previous)).toBeUndefined();
       expect(unsupportedVersion(setOf(name), "2.0")).toBeDefined();

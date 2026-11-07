@@ -12,10 +12,14 @@ import {
   TOGGLE_FIXTURE_ITEM,
 } from "../src/fixtures/index.ts";
 import {
+  BOARD_DOCUMENT_VERSION,
+  BOARD_PROTOCOL_VERSION,
+  INPUT_FORMAT_VERSION,
   OUTPUT_FORMAT_VERSION,
   SCHEMA_SETS,
   TEXT_FIELD_WIDGET,
   TOGGLE_WIDGET,
+  TOOL_ENVELOPES_VERSION,
   WIDGET_TYPES,
 } from "../src/index.ts";
 import { widgetItemProblems } from "../src/validate.ts";
@@ -36,11 +40,23 @@ const schemaOf = (set: string, id: string): AnySchemaObject => {
 const refsOf = (schema: AnySchemaObject, union: string): string[] =>
   schema.$defs[union].oneOf.map(({ $ref }: { $ref: string }) => $ref.split("/").at(-1));
 
-describe("the output format's minor", () => {
-  test("the first registered result moves it to the next minor after main's, and the set carries it", () => {
-    // main's output format at the base is 1.7 (atoms, design decision 11; bound at task 7.2).
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.8");
+describe("the minors atoms binds", () => {
+  test("each widened set is one minor past main's at the rebase (task 7.2), and the sets carry the constants", () => {
+    // The one place the bound numbers stand, beside the constants (askboard-contract-versioning,
+    // Rule 1); main's were input 1.8, output 1.8, tool envelopes 1.8, board document 1.7 and board
+    // protocol 1.6.
+    expect({
+      input: INPUT_FORMAT_VERSION,
+      output: OUTPUT_FORMAT_VERSION,
+      envelopes: TOOL_ENVELOPES_VERSION,
+      document: BOARD_DOCUMENT_VERSION,
+      protocol: BOARD_PROTOCOL_VERSION,
+    }).toEqual({ input: "1.9", output: "1.9", envelopes: "1.9", document: "1.8", protocol: "1.7" });
+    expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
+    expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
+    expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);
+    expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
   });
 });
 

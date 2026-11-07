@@ -22,7 +22,7 @@ import referenceProps from "./reference-props.json" with { type: "json" };
 // The board document with each registered type's item composed in.
 const boardDocument = composeBoardDocument(boardDocumentBase);
 
-export const BOARD_DOCUMENT_VERSION = "1.7";
+export const BOARD_DOCUMENT_VERSION = "1.8";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",
