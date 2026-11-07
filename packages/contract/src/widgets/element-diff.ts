@@ -224,6 +224,9 @@ const keyedChanges = (itemId: string, sent: object, edited: object, shape: Keyed
     );
 };
 
+// A key as a problem quotes it, cut so that a board's long key never fills a message.
+const SHOWN_KEY_MAX = 80;
+
 // The names a fields shape holds, each once, in the shape's order.
 const namesOf = (shape: FieldsShape): string[] => [...new Set(shape.fields)];
 
@@ -242,7 +245,7 @@ const fieldsChanges = (itemId: string, sent: Json, edited: Json, shape: FieldsSh
   );
   if (other !== undefined) {
     throw new Error(
-      `the value of item "${itemId}" changes "${other}", which its shape does not name as a field that can change`,
+      `the value of item "${itemId}" changes "${other.slice(0, SHOWN_KEY_MAX)}", which its shape does not name as a field that can change`,
     );
   }
   return namesOf(shape)

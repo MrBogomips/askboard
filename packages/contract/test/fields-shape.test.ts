@@ -78,6 +78,19 @@ describe("the diff of a fields shape", () => {
     );
   });
 
+  test("the key in the problem is cut at 80 characters, as an operation's target is", () => {
+    const key = `k${"y".repeat(199)}`;
+    const edited = { expression: "x", [key]: 1 };
+    let message = "";
+    try {
+      elementChanges(ITEM, { expression: "x" }, edited, EXPRESSION);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain(`"${key.slice(0, 80)}"`);
+    expect(message).not.toContain(key.slice(0, 81));
+  });
+
   test("an unnamed key that changes or goes fails, one that stays equal does not", () => {
     const sent = { expression: "x", display: false };
     expect(() =>
