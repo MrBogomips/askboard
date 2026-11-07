@@ -34,11 +34,13 @@ const Group = ({ item, ready, renderItem }: ItemProps<UncheckedGroupItem>) => {
       aria-labelledby={titleId}
       className="flex min-w-0 flex-col gap-md rounded-md border border-border p-md"
     >
-      <p id={titleId} className="m-0 text-label text-foreground">
+      <p id={titleId} className="m-0 min-w-0 wrap-break-word text-label text-foreground">
         {title}
       </p>
       {description === undefined ? null : (
-        <p className="m-0 text-body text-foreground-secondary">{description}</p>
+        <p className="m-0 min-w-0 wrap-break-word text-body text-foreground-secondary">
+          {description}
+        </p>
       )}
       {items.map((child) => render(child))}
     </div>

@@ -17,6 +17,7 @@ import { useWidgetHost } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 
+type Item = { readonly type: string; readonly id: string; readonly props: unknown };
 const field = (id: string, label: string) => ({ type: "text-field", id, props: { label } });
 const CONTACT = {
   type: "group",
@@ -161,6 +162,103 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const sent = run.messages.find((message) => message.type === "answer");
         expect(sent).toMatchObject({ type: "answer", itemId: "plan", results: { hours: 12 } });
         expect(Object.keys((sent as { results?: object }).results ?? {})).toEqual(["hours"]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // A nested item that throws (view-and-widgets spec: Items inside layouts, "A nested item that
+    // throws"): a Group with no title cannot be drawn. The item shows its error state, the question
+    // offers no "Answer", and the item beside it still renders (the failed question locks its fields).
+    const BAD = {
+      type: "group",
+      id: "bad",
+      props: { title: "", items: [field("inner", "Inner")] },
+    };
+    const THROWING: readonly { readonly name: string; readonly items: readonly Item[] }[] = [
+      {
+        name: "a Row",
+        items: [{ type: "row", id: "beside", props: { items: [BAD, field("ok", "Fine")] } }],
+      },
+      {
+        name: "a Group",
+        items: [
+          {
+            type: "group",
+            id: "frame",
+            props: { title: "Frame", items: [BAD, field("ok", "Fine")] },
+          },
+        ],
+      },
+      {
+        name: "a Tabs",
+        items: [
+          {
+            type: "tabs",
+            id: "sections",
+            props: { tabs: [{ id: "one", title: "One", items: [BAD, field("ok", "Fine")] }] },
+          },
+        ],
+      },
+    ];
+    for (const { name, items } of THROWING) {
+      test(
+        `a nested item that throws, in ${name}, shows its error state, offers no Answer, and the item beside it renders`,
+        async () => {
+          const run = await host(dist, atomDocument(items));
+          const { view } = run.board;
+          await eventually(
+            () => run.messages.some((message) => message.type === "item-error"),
+            "the item error",
+          );
+          expect(run.messages).toContainEqual(
+            expect.objectContaining({ type: "item-error", itemId: "bad" }),
+          );
+          expect(
+            await view.getByRole("alert").filter({ hasText: "could not be shown" }).count(),
+          ).toBe(1);
+          expect(await run.board.answer.count()).toBe(0);
+          const sibling = view.getByLabel("Fine", { exact: true });
+          expect(await sibling.isVisible()).toBe(true);
+          expect(run.messages.some((message) => message.type === "answer")).toBe(false);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+
+    // Agent text wraps (DESIGN, agent-written labels; review X-2): a Group's title and description
+    // of unspaced characters stay inside the card, at the 1280 pixel floor, with no sideways scroll.
+    test(
+      "a Group's 200-character title and 1,000-character description wrap inside it, with no sideways scroll",
+      async () => {
+        const long = {
+          type: "group",
+          id: "long",
+          props: {
+            title: "W".repeat(200),
+            description: "x".repeat(1000),
+            items: [field("phone", "Phone")],
+          },
+        };
+        const run = await host(dist, atomDocument([long]));
+        await readyIn(run);
+        const { view, page } = run.board;
+        await page.setViewportSize({ width: 1280, height: 800 });
+        const group = view.getByRole("group", { name: "W".repeat(200) });
+        const frame = await group.boundingBox();
+        const title = await group.locator("p").nth(0).boundingBox();
+        const description = await group.locator("p").nth(1).boundingBox();
+        if (frame === null || title === null || description === null) throw new Error("no box");
+        for (const box of [title, description]) {
+          expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
+        }
+        const wider = await view
+          .locator("html")
+          .evaluate((root) => root.scrollWidth > root.clientWidth);
+        expect(wider).toBe(false);
+        const overflowing = await group
+          .locator("p")
+          .evaluateAll((paragraphs) => paragraphs.map((p) => p.scrollWidth > p.clientWidth));
+        expect(overflowing).toEqual([false, false]);
       },
       TEST_TIMEOUT_MS,
     );
