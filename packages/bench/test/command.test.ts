@@ -134,9 +134,9 @@ describe("buildLaunch", () => {
       "--settings",
       "/runs/r1/cases/S1-askboard-1/run-settings.json",
       "--tools",
-      "ToolSearch",
+      "ToolSearch,Skill",
       "--allowedTools",
-      "mcp__plugin_askboard_askboard__ask,mcp__plugin_askboard_askboard__collect,mcp__askboard__ask,mcp__askboard__collect,ToolSearch",
+      "mcp__plugin_askboard_askboard__ask,mcp__plugin_askboard_askboard__collect,mcp__askboard__ask,mcp__askboard__collect,ToolSearch,Skill(askboard:askboard)",
       "--max-turns",
       "12",
       "--output-format",
@@ -152,6 +152,7 @@ describe("buildLaunch", () => {
       ENABLE_TOOL_SEARCH: "true",
       FORCE_PROMPT_CACHING_5M: "1",
       BROWSER: "/runs/r1/cases/S1-askboard-1/browser.sh",
+      CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1",
     });
     const files = Object.fromEntries(launch.files.map((file) => [file.path, file.content]));
     expect(JSON.parse(files["/runs/r1/cases/S1-askboard-1/run-settings.json"] ?? "")).toEqual({});
@@ -167,8 +168,10 @@ describe("buildLaunch", () => {
       USER_ENV,
     );
     const tools = launch.args[launch.args.indexOf("--tools") + 1];
-    expect(tools).toBe("ToolSearch,Agent");
-    expect(launch.args[launch.args.indexOf("--allowedTools") + 1]).toEndWith(",ToolSearch,Agent");
+    expect(tools).toBe("ToolSearch,Skill,Agent");
+    expect(launch.args[launch.args.indexOf("--allowedTools") + 1]).toEndWith(
+      ",ToolSearch,Skill(askboard:askboard),Agent",
+    );
     expect(launch.env.MCP_PROTOCOL_NEGOTIATION).toBe("legacy");
   });
 
@@ -204,7 +207,36 @@ describe("buildLaunch", () => {
     expect(mcp.mcpServers.bench.args[0]).toBe(PERMISSION_HOST);
   });
 
-  test("the baseline: the AskBoard arm's tools without AskBoard, ended after one request", () => {
+  test("only the AskBoard arm has Skill, allowed only as the scoped rule, never bare", () => {
+    const flagList = (run: CaseRun, name: string) => {
+      const args = buildLaunch(run, "p", USER_ENV).args;
+      return (args[args.indexOf(name) + 1] ?? "").split(",");
+    };
+    const askboard = caseRun();
+    expect(flagList(askboard, "--tools")).toContain("Skill");
+    expect(flagList(askboard, "--allowedTools")).toContain("Skill(askboard:askboard)");
+    expect(flagList(askboard, "--allowedTools")).not.toContain("Skill");
+    for (const arm of ["baseline", "auq"] as const) {
+      const other = caseRun({ arm, dir: `/runs/r1/cases/S1-${arm}-1` });
+      for (const name of ["--tools", "--allowedTools"]) {
+        expect(flagList(other, name).filter((tool) => tool.startsWith("Skill"))).toEqual([]);
+      }
+    }
+  });
+
+  test("every arm switches Claude Code's bundled skills off and records the variable's name", () => {
+    for (const arm of ["askboard", "baseline", "auq"] as const) {
+      const launch = buildLaunch(
+        caseRun({ arm, dir: `/runs/r1/cases/S1-${arm}-1` }),
+        "p",
+        USER_ENV,
+      );
+      expect(launch.env.CLAUDE_CODE_DISABLE_BUNDLED_SKILLS).toBe("1");
+      expect(launch.envNames).toContain("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS");
+    }
+  });
+
+  test("the baseline: the AskBoard arm's tools without AskBoard and without Skill, ended after one request", () => {
     const launch = buildLaunch(
       caseRun({ arm: "baseline", dir: "/runs/r1/cases/S1-baseline-1" }),
       "p",
@@ -212,8 +244,12 @@ describe("buildLaunch", () => {
     );
     const askboard = buildLaunch(caseRun(), "p", USER_ENV);
     const flag = (args: readonly string[], name: string) => args[args.indexOf(name) + 1];
-    expect(flag(launch.args, "--tools")).toBe(flag(askboard.args, "--tools"));
-    expect(flag(launch.args, "--allowedTools")).toBe(flag(askboard.args, "--allowedTools"));
+    expect(flag(launch.args, "--tools")).toBe("ToolSearch");
+    expect(flag(askboard.args, "--tools")).toBe("ToolSearch,Skill");
+    expect(flag(launch.args, "--allowedTools")).toBe(
+      flag(askboard.args, "--allowedTools")?.replace(",Skill(askboard:askboard)", ""),
+    );
+    expect(flag(launch.args, "--allowedTools")).not.toContain("Skill");
     expect(flag(launch.args, "--max-turns")).toBe("1");
     expect(launch.args).not.toContain("--plugin-dir");
     expect(launch.args).not.toContain("--permission-prompt-tool");

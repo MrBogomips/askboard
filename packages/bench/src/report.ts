@@ -83,6 +83,7 @@ export type Report = {
       {
         readonly mcpServers: readonly string[];
         readonly plugins: readonly string[];
+        readonly skills: readonly string[];
         readonly tools: readonly string[];
       }
     >
@@ -272,6 +273,7 @@ const armsOf = (measures: readonly RunMeasure[]): Report["arms"] => {
         inits.flatMap((init) => init.mcpServers.map((s) => `${s.name} (${s.status})`)),
       ),
       plugins: distinct(inits.flatMap((init) => init.plugins.map((p) => `${p.name} (${p.path})`))),
+      skills: distinct(inits.flatMap((init) => init.skills)),
       tools: distinct(inits.flatMap((init) => init.tools)),
     };
   };
@@ -305,11 +307,25 @@ const observedOf = (measures: readonly RunMeasure[]): Report["observed"] => {
   };
 };
 
-const differencesOf = (observed: Report["observed"], context: ReportContext): string[] => {
+const EXPECTED_SKILL = "askboard:askboard";
+
+const differencesOf = (
+  observed: Report["observed"],
+  context: ReportContext,
+  arms: Report["arms"],
+): string[] => {
   const differs = (values: readonly string[], pinned: string | undefined) =>
     pinned !== undefined && values.length > 0 && values.some((value) => value !== pinned);
   const { settings } = context;
+  const unexpected = distinct(
+    Object.values(arms).flatMap((arm) => arm.skills.filter((skill) => skill !== EXPECTED_SKILL)),
+  );
   return [
+    ...(unexpected.length > 0
+      ? [
+          `skills: ${unexpected.join(", ")} listed beside ${EXPECTED_SKILL}; the listing is part of T and a call to one counts as preparation`,
+        ]
+      : []),
     ...(differs(observed.models, settings.model)
       ? [`model: ${observed.models.join(", ")} in the transcripts, ${settings.model} pinned`]
       : []),
@@ -380,6 +396,7 @@ export const buildReport = (measures: readonly RunMeasure[], context: ReportCont
         ),
       ),
   );
+  const arms = armsOf(measures);
   return {
     version: REPORT_VERSION,
     runId: context.runId,
@@ -390,9 +407,9 @@ export const buildReport = (measures: readonly RunMeasure[], context: ReportCont
       platform: context.platform,
     },
     loading: loadingOf(context),
-    arms: armsOf(measures),
+    arms,
     observed,
-    differences: differencesOf(observed, context),
+    differences: differencesOf(observed, context, arms),
     rows,
     targets: [
       ...kpiTargets,
@@ -590,7 +607,7 @@ const observedSection = (report: Report): string => {
   const o = report.observed;
   const arms = ARMS.map(
     (arm) =>
-      `- ${ARM_NAMES[arm]}: MCP servers ${report.arms[arm].mcpServers.join(", ") || "none"}; plugins ${report.arms[arm].plugins.join(", ") || "none"}; tools ${report.arms[arm].tools.join(", ") || "none"}`,
+      `- ${ARM_NAMES[arm]}: MCP servers ${report.arms[arm].mcpServers.join(", ") || "none"}; plugins ${report.arms[arm].plugins.join(", ") || "none"}; skills ${report.arms[arm].skills.join(", ") || "none"}; tools ${report.arms[arm].tools.join(", ") || "none"}`,
   );
   return [
     `- Claude Code ${o.versions.join(", ") || "not observed"}; model ${o.models.join(", ") || "not observed"}; effort ${o.efforts.join(", ") || "not observed"}; cache writes ${o.ttl}.`,

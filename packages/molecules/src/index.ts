@@ -5,6 +5,8 @@
 
 import type { MoleculeDefinition } from "@askboard/contract";
 import ganttPlan from "./gantt-plan/gantt-plan.json" with { type: "json" };
+import ganttPlanSkill from "./gantt-plan/skill.json" with { type: "json" };
+import wbsPertSkill from "./wbs-pert/skill.json" with { type: "json" };
 import wbsPert from "./wbs-pert/wbs-pert.json" with { type: "json" };
 
 const deepFreeze = <T>(value: T): T => {
@@ -28,3 +30,26 @@ export const READY_MOLECULES: readonly MoleculeDefinition[] = deepFreeze([
   asDefinition(ganttPlan),
   asDefinition(wbsPert),
 ]);
+
+/** What the generated skill teaches of one ready molecule (askboard-skills, design decision 3). */
+export type MoleculeSkill = {
+  /** When to use the molecule, 1 to 200 characters. */
+  readonly use: string;
+  /** The `data` of a reference to it, as an agent sends it. */
+  readonly example: unknown;
+  /**
+   * The molecule whose item the example names: the ID of that item in the same question and the
+   * molecule that supplies it (a Gantt plan takes its tasks from a work breakdown).
+   */
+  readonly companion?: { readonly molecule: string; readonly id: string };
+};
+
+/**
+ * The teaching data of every ready molecule, keyed by molecule name, frozen: when to use it and
+ * an example of the data an agent sends (each checked by this package's tests against the
+ * definition's parameters and the reference's checks).
+ */
+export const MOLECULE_SKILLS: Readonly<Record<string, MoleculeSkill>> = deepFreeze({
+  "gantt-plan": ganttPlanSkill,
+  "wbs-pert": wbsPertSkill,
+});

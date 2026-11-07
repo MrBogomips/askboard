@@ -170,6 +170,7 @@ describe("parseInit", () => {
           { name: "claude.ai Docs", status: "connected" },
         ],
         plugins: [{ name: "askboard", path: "/repo" }],
+        skills: ["askboard:askboard", 3],
       }),
       "garbage",
       JSON.stringify({ type: "result", subtype: "success", is_error: false, num_turns: 6 }),
@@ -183,8 +184,14 @@ describe("parseInit", () => {
         { name: "claude.ai Docs", status: "connected" },
       ],
       plugins: [{ name: "askboard", path: "/repo" }],
+      skills: ["askboard:askboard"],
       result: { subtype: "success", isError: false },
     });
     expect(parseInit("")).toBeUndefined();
+  });
+
+  test("an init without skills gives an empty list", () => {
+    const stream = JSON.stringify({ type: "system", subtype: "init" });
+    expect(parseInit(stream)?.skills).toEqual([]);
   });
 });

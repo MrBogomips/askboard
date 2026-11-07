@@ -56,4 +56,7 @@ export const TREE_WIDGET: WidgetType = {
       props: { nodes: [{ id: "design", label: "Design", children: [{ id: "ux", label: "UX" }] }] },
     },
   },
+  skill: {
+    use: "a work breakdown or any hierarchy the user edits: add, move, rename, remove nodes, adjust estimates",
+  },
 };

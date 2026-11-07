@@ -62,7 +62,7 @@ bench ◀── transcripts (<projects>/*/<uuid>.jsonl, subagents/) + answerer r
 
 - Each run gets its own scratch project under the system temporary folder, outside any repository, so no `CLAUDE.md` of the AskBoard checkout loads. Its own folder is `.askboard/bench/<run>/cases/<case>-<arm>-<n>/`.
 - `--session-id` is a UUID that `bench` draws, so it finds the transcript under any project folder name, without assuming how Claude Code names it.
-- **The baseline** exists to measure what AskBoard adds before the first ask. The AskUserQuestion arm cannot serve: its first request also carries AskUserQuestion's own definition, which the AskBoard arm's `--tools` leaves out, so the difference between the arms would understate AskBoard's context by that definition. The baseline gets the AskBoard arm's prompt, `--tools` and allowed tools, without `--plugin-dir` and `BROWSER`, and `--max-turns 1`: one request, whose input is all it measures.
+- **The baseline** exists to measure what AskBoard adds before the first ask. The AskUserQuestion arm cannot serve: its first request also carries AskUserQuestion's own definition, which the AskBoard arm's `--tools` leaves out, so the difference between the arms would understate AskBoard's context by that definition. The baseline gets the AskBoard arm's prompt, and its `--tools` and allowed tools without `Skill` (askboard-skills design decision 9: the baseline has no skill to load), without `--plugin-dir` and `BROWSER`, and `--max-turns 1`: one request, whose input is all it measures.
 
 ### 3. The pinned command
 
@@ -76,14 +76,15 @@ claude -p <prompt> --session-id <uuid> --model <model> --effort <effort>
 
 - **Environment.** `HOME`, `USER`, `LOGNAME`, `SHELL`, `PATH`, `TERM`, `LANG` and `TMPDIR` come from the user's. So do the credentials Claude Code reads, when set: `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and `CLAUDE_CONFIG_DIR`. Nothing else is inherited (O5). `bench` then adds:
   - `DISABLE_AUTOUPDATER=1`;
+  - `CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1`, every arm, so that no session lists Claude Code's own skills (askboard-skills design decision 9);
   - `ENABLE_TOOL_SEARCH=<mode>`;
   - `FORCE_PROMPT_CACHING_5M=1` or `ENABLE_PROMPT_CACHING_1H=1`;
   - `BROWSER` (AskBoard arm);
   - `MCP_PROTOCOL_NEGOTIATION=legacy` (AskUserQuestion arm with the permission host, decision 6).
 - **Tools.**
-  - AskBoard arm and baseline: `ToolSearch`, plus `Agent` for S6. Allowed tools: AskBoard's `ask` and `collect` under both of the names AD-19's hooks match.
+  - AskBoard arm: `ToolSearch`, `Skill`, plus `Agent` for S6; the baseline: `ToolSearch`, plus `Agent` for S6 (askboard-skills design decision 9). Allowed tools of both: AskBoard's `ask` and `collect` under both of the names AD-19's hooks match, then the arm's own tools, the Skill tool allowed only as `Skill(askboard:askboard)`, never bare.
   - AskUserQuestion arm: `AskUserQuestion` and `ToolSearch`. AskUserQuestion is not in the allowed tools: the hook decides.
-- **`stream-json`** is kept only for its `system/init` message, which lists the MCP servers, plugins, model and tools the session started with (AD-17: "lists the MCP servers connected"). Figures come from transcripts, never from the `result` message (spike finding on woken turns).
+- **`stream-json`** is kept only for its `system/init` message, which lists the MCP servers, plugins, skills, model and tools the session started with (AD-17: "lists the MCP servers connected"); the report flags a run that lists a skill other than `askboard:askboard` (askboard-skills design decision 9). Figures come from transcripts, never from the `result` message (spike finding on woken turns).
 - **Preflight**, before any run: `claude --version` is read, and checked against `--claude-version` when the user pins one. The session's plugin manifest must exist. With `--session e1`, the server's script must be built (`dist/askboard.mjs`).
 
 ### 4. One setting for the session process

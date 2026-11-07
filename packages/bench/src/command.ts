@@ -69,6 +69,8 @@ export const cleanEnv = (
     }),
   );
 
+const ASKBOARD_SKILL_RULE = "Skill(askboard:askboard)";
+
 const ASKBOARD_TOOLS = [
   "mcp__plugin_askboard_askboard__ask",
   "mcp__plugin_askboard_askboard__collect",
@@ -76,11 +78,19 @@ const ASKBOARD_TOOLS = [
   "mcp__askboard__collect",
 ];
 
-// The baseline gets the AskBoard arm's tools, so that the two first requests differ only by AskBoard.
+// The baseline gets the AskBoard arm's tools but Skill, so that the two first requests differ only by
+// AskBoard and what it adds: the skill's listing entry is part of T (askboard-skills, decision 9).
+// The AskBoard arm lists the Skill tool but allows only AskBoard's skill: a bare `Skill` rule would
+// pre-approve every skill the session lists.
 const toolsOf = (run: CaseRun): { tools: string[]; allowed: string[] } => {
   if (run.arm === "auq") return { tools: [AUQ_TOOL, "ToolSearch"], allowed: ["ToolSearch"] };
   const agent = CASES[run.caseId].fromSubagent ? ["Agent"] : [];
-  return { tools: ["ToolSearch", ...agent], allowed: [...ASKBOARD_TOOLS, "ToolSearch", ...agent] };
+  const listed = run.arm === "askboard" ? ["Skill"] : [];
+  const allowedSkill = run.arm === "askboard" ? [ASKBOARD_SKILL_RULE] : [];
+  return {
+    tools: ["ToolSearch", ...listed, ...agent],
+    allowed: [...ASKBOARD_TOOLS, "ToolSearch", ...allowedSkill, ...agent],
+  };
 };
 
 export const buildLaunch = (
@@ -148,6 +158,8 @@ export const buildLaunch = (
   const env: Record<string, string> = {
     ...cleanEnv(userEnv),
     DISABLE_AUTOUPDATER: "1",
+    // No session lists Claude Code's own skills: T counts only what AskBoard adds (decision 9).
+    CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1",
     ENABLE_TOOL_SEARCH: settings.toolSearch,
     ...(settings.cacheTtl === "1h"
       ? { ENABLE_PROMPT_CACHING_1H: "1" }

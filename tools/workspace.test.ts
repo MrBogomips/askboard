@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { TOOL_DEFINITIONS } from "@askboard/contract";
 
 // The workspace layout of design decision 2, from the spine's layer table.
 const PACKAGES = [
@@ -151,4 +152,31 @@ describe("workspace layout", () => {
       expect(own.types).toEqual([]);
     },
   );
+});
+
+// Packaging spec, The plugin's skill and agents (askboard-skills, design decision 8): the plugin
+// carries its skill by the default folder `skills/<name>/SKILL.md`, which Claude Code finds without
+// a manifest key, and no agents.
+describe("the plugin carries the skill", () => {
+  const skillText = () => Bun.file(join(root, "skills", "askboard", "SKILL.md")).text();
+
+  test("skills/askboard/SKILL.md exists and names itself askboard", async () => {
+    expect(existsSync(join(root, "skills", "askboard", "SKILL.md"))).toBe(true);
+    expect(await skillText()).toMatch(/^---\nname: askboard\n/);
+  });
+
+  test("the plugin manifest has no skills or agents key, and there is no agents folder", async () => {
+    const manifest = await readJson(join(root, ".claude-plugin", "plugin.json"));
+    expect(Object.keys(manifest)).not.toContain("skills");
+    expect(Object.keys(manifest)).not.toContain("agents");
+    expect(existsSync(join(root, "agents"))).toBe(false);
+  });
+
+  test("the skill named in ask's description is the skill's name", async () => {
+    const description = TOOL_DEFINITIONS.find(({ name }) => name === "ask")?.description ?? "";
+    const named = /The (\S+) skill/.exec(description)?.[1];
+    const own = /^name: (.+)$/m.exec(await skillText())?.[1];
+    expect(named).toBeDefined();
+    expect(named).toBe(own);
+  });
 });

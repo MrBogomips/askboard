@@ -234,6 +234,7 @@ export type Init = {
   readonly tools: readonly string[];
   readonly mcpServers: readonly { readonly name: string; readonly status: string }[];
   readonly plugins: readonly { readonly name: string; readonly path: string }[];
+  readonly skills: readonly string[];
   readonly result: { readonly subtype: string; readonly isError: boolean } | undefined;
 };
 
@@ -255,6 +256,9 @@ export const parseInit = (stream: string): Init | undefined => {
       status: String(item.status),
     })),
     plugins: listOf(init.plugins, (item) => ({ name: String(item.name), path: String(item.path) })),
+    skills: Array.isArray(init.skills)
+      ? init.skills.filter((skill): skill is string => typeof skill === "string")
+      : [],
     result:
       result === undefined
         ? undefined

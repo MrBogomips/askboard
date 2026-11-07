@@ -630,3 +630,7 @@ export { annotationProblems, widgetResultProblems } from "./widgets/results.ts";
 // check and the board page.
 
 export { resultHoldsNothing } from "./widgets/result-content.ts";
+
+// Asking-rule texts (askboard-skills, design decision 6): one agent-facing text for each rule.
+
+export { ASKING_RULE_TEXTS } from "./push/asking-rules.ts";
