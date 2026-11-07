@@ -715,6 +715,16 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
     expect(board.work("database")?.held).toBeUndefined();
   });
 
+  test("unmarking is never refused: a marked answer whose note holds no reason unmarks, sends nothing", () => {
+    const { sent, board, context } = held("submitted", revise);
+    // State built directly: the answer was marked ready, then the note lost its text.
+    board.edit("database", 1, (work) => ({ ...work, rev: 1, held: { act: "answer", order: 0 } }));
+    expect(answerNeedsReason(asked, context)).toBe(false);
+    expect(answer(asked, context)).toBeUndefined();
+    expect(board.work("database")?.held).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
   test("Accept recommended answers through the same gate", () => {
     const recommended: ViewQuestion = {
       ...asked,
