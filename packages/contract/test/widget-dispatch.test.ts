@@ -128,7 +128,8 @@ describe("the wording tables", () => {
 
   test("hold the Tree's, the Gantt's and the molecule's keys, as before", () => {
     expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("tree."))).toHaveLength(14);
-    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("gantt."))).toHaveLength(15);
+    // 16 since a plan's task entry's `duration` has its own key (gantt-wording.test.ts).
+    expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("gantt."))).toHaveLength(16);
     expect(Object.keys(WIDGET_EXPECTED).filter((key) => key.startsWith("molecule."))).toHaveLength(
       4,
     );

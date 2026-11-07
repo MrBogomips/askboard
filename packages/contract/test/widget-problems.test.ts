@@ -142,7 +142,7 @@ describe("a Gantt's props refused", () => {
     const [problem] = problemsOf(value);
     expect(problem?.message).toContain('task "ux"');
     expect(problem?.message).toContain("colour is not accepted");
-    expect(problem?.message).toContain("start and dependencies");
+    expect(problem?.message).toContain("duration, start and dependencies");
   });
 });
 

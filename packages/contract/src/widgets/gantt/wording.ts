@@ -2,7 +2,8 @@
 // design decision 5): the expected shape and the field list of each of its objects, keyed
 // `gantt.props.tasks[].duration`, how a plan's task map folds into such a key, which task a path is
 // in, and the schema errors of `tasks` cleared of the choice between its two forms. Moved here from
-// `widgets/wording.ts`, `widgets/paths.ts` and `widgets/request-problems.ts`, word for word.
+// `widgets/wording.ts`, `widgets/paths.ts` and `widgets/request-problems.ts`, word for word; a plan's
+// task entry is worded with the `duration` widget-editing-plus gave it.
 // Nothing here validates.
 
 import type { ErrorObject } from "ajv/dist/2020";
@@ -25,7 +26,7 @@ export const GANTT_EXPECTED: Readonly<Record<string, string>> = {
   "gantt.props": "a Gantt's props {start, tasks, workPackages?}",
   "gantt.props.start": `${DAY}: the day the plan starts`,
   "gantt.props.workPackages": "the ID of the Tree of the same question whose leaves are the tasks",
-  "gantt.props.tasks": `a list of at most ${GANTT_MAX_TASKS} tasks {id, label, duration, start?, dependencies?}, or with workPackages a map from task ID to {start?, dependencies?}`,
+  "gantt.props.tasks": `a list of at most ${GANTT_MAX_TASKS} tasks {id, label, duration, start?, dependencies?}, or with workPackages a map from task ID to {duration?, start?, dependencies?}`,
   "gantt.props.tasks[]": "a task {id, label, duration, start?, dependencies?}",
   "gantt.props.tasks[].id": `${TASK_ID}, unique in the Gantt`,
   "gantt.props.tasks[].label": text(GANTT_LABEL_MAX_CHARS),
@@ -33,7 +34,8 @@ export const GANTT_EXPECTED: Readonly<Record<string, string>> = {
   "gantt.props.tasks[].start": `${DAY}: the day on or after which the task starts`,
   "gantt.props.tasks[].dependencies": PREDECESSORS,
   "gantt.props.tasks[].dependencies[]": TASK_ID,
-  "gantt.props.tasks.{task}": "what the plan says of the task {start?, dependencies?}",
+  "gantt.props.tasks.{task}": "what the plan says of the task {duration?, start?, dependencies?}",
+  "gantt.props.tasks.{task}.duration": `${DURATION}, which wins over the one the Tree's estimates give`,
   "gantt.props.tasks.{task}.start": `${DAY}: the day on or after which the task starts`,
   "gantt.props.tasks.{task}.dependencies": PREDECESSORS,
   "gantt.props.tasks.{task}.dependencies[]": TASK_ID,
@@ -42,7 +44,7 @@ export const GANTT_EXPECTED: Readonly<Record<string, string>> = {
 export const GANTT_FIELDS: Readonly<Record<string, string>> = {
   "gantt.props": "a Gantt's props hold only start, workPackages and tasks",
   "gantt.props.tasks[]": "a task holds only id, label, duration, start and dependencies",
-  "gantt.props.tasks.{task}": "a plan's task holds only start and dependencies",
+  "gantt.props.tasks.{task}": "a plan's task holds only duration, start and dependencies",
 };
 
 /** A map key of a plan's tasks is `{task}`. */
