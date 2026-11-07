@@ -186,7 +186,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       ["words", WORDS],
       ["no spaces", RUN],
     ] as const) {
-      for (const width of [1280, 320]) {
+      for (const width of [1280]) {
         test(
           `a Value, a TextField, a NumberField and a MoneyField labelled with 200 characters (${shape}) wrap inside the card at ${width} px, the figure on screen and the page with no sideways scroll`,
           async () => {
@@ -242,14 +242,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       }
     }
 
-    // A unit of 20 code points, full-width or emoji, beside the input at 320 px (review U-1, 5.14).
+    // A unit of 20 code points, full-width or emoji, beside the input at 1280 px, DESIGN's viewport-floor (review U-1, 5.14).
     // MoneyField's affix is the three-letter currency code, so only the NumberField carries a long one.
     for (const [shape, unit] of [
       ["full-width", "\uFF37".repeat(20)],
       ["emoji", "\u{1F600}".repeat(20)],
     ] as const) {
       test(
-        `a NumberField whose unit is 20 ${shape} characters keeps an input of 4 characters at 320 px, inside the card, with no sideways scroll`,
+        `a NumberField whose unit is 20 ${shape} characters keeps an input of 4 characters at 1280 px, inside the card, with no sideways scroll`,
         async () => {
           const items = [
             { type: "number-field", id: "days", props: { label: "Days", unit } },
@@ -257,7 +257,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ];
           const run = await host(dist, atomDocument(items));
           await readyIn(run);
-          await run.board.page.setViewportSize({ width: 320, height: 800 });
+          await run.board.page.setViewportSize({ width: 1280, height: 800 });
           const measured = await run.board.view.locator("body").evaluate(() => {
             const card = document
               .querySelector("[data-askboard-question]")

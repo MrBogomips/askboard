@@ -6,11 +6,11 @@
 /** A field: its label, description and control stacked, taking the width the card gives. */
 export const FIELD = "flex min-w-0 flex-col gap-xs";
 
-/** The label, always visible, above the control. */
-export const LABEL = "text-body font-semibold text-foreground";
+/** The label, always visible, above the control; a run with no spaces breaks inside the card (5.7, 5.16). */
+export const LABEL = "min-w-0 break-words text-body font-semibold text-foreground";
 
 /** The description under the label, in `muted-foreground`. */
-export const DESCRIPTION = "m-0 text-body text-muted-foreground";
+export const DESCRIPTION = "m-0 min-w-0 break-words text-body text-muted-foreground";
 
 /**
  * A text input or textarea: `{colors.input}` border on `card`; answered or locked it takes the

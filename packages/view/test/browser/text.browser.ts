@@ -8,6 +8,7 @@
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/text.browser.ts
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { URL_MAX_CHARS } from "@askboard/contract";
 import type { Browser, BrowserContext, Page } from "playwright";
 import { selectChunks } from "../../src/assemble/index.ts";
 import type { ViewDocument } from "../../src/view-document.ts";
@@ -134,14 +135,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "a Markdown source over its bound shows as plain text, never half-rendered",
       async () => {
-        const source =
-          `[r]: https://e.test/${"a".repeat(5_000)}\n\n${"![r][r] ".repeat(500)}`.slice(0, 10_000);
+        // One reference definition of the longest URL a link may hold (2,048 characters), used by
+        // about 1,400 links: about three million HTML characters, over the 200,000 cap, and still
+        // links (a URL over 2,048 characters is no link, 5.9; a longer one would fail here).
+        const target = "https://e.test/".padEnd(URL_MAX_CHARS, "a");
+        const source = `[r]: ${target}\n\n${"[r][r] ".repeat(1_500)}`.slice(0, 10_000);
         const run = await host(dist, atomDocument([intro(source, "markdown")]));
         await readyIn(run);
         const text = run.board.view.locator('[data-askboard-item="intro"] [data-text-format]');
         expect(await text.getAttribute("data-text-format")).toBe("plain");
         expect(await text.locator("a").count()).toBe(0);
-        expect((await text.textContent())?.startsWith("[r]: https://e.test/")).toBe(true);
+        expect((await text.textContent())?.startsWith("[r]: https://e.test/aaa")).toBe(true);
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,
