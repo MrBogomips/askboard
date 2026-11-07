@@ -142,6 +142,17 @@ Fonts a chunk inlines SHALL be the package's font files unmodified, and the chun
 - **WHEN** a chunk bundles KaTeX's script, whose glyph outlines derive from KaTeX's fonts, and lists no KaTeX stylesheet
 - **THEN** that chunk's notice for `katex` names `MIT AND OFL-1.1` and holds the same text as with the stylesheet
 
+### Requirement: An answer sends what its widgets show
+A Kanban's or a Timeline's value in the draft SHALL be one the item can show on the revision the card shows: a value kept across an agent's change (by "Keep mine" or a draft restored after a reload) that the shown revision does not hold, or holds differently, is dropped, and the item shows the agent's props as untouched. The user's moves SHALL be counted against the shown revision only, never counting the agent's own changes (AD-10, AD-20, NFR-10).
+
+#### Scenario: Keeping a Kanban move across a reload and an agent's change
+- **WHEN** the user moves card `a` to Doing, the agent changes the Kanban, the tab reloads, the user keeps their draft and presses "Answer"
+- **THEN** what the answer sends equals what the Kanban shows: the move when the shown revision holds it, nothing for the Kanban when it shows "No changes"
+
+#### Scenario: The agent's own move is not the user's
+- **WHEN** the agent moves card `b` to Doing while the user's draft holds a move of card `a`
+- **THEN** the Kanban counts only the user's move of `a`, and `b` is not marked as the user's
+
 ### Requirement: Kanban columns and cards
 A Kanban SHALL show its columns side by side in the agent's order, each headed by its label and its number of cards, with each card under the column its value names, in the agent's order of `cards`, showing its label and its description (FR-11, DESIGN Kanban).
 
