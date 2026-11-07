@@ -27,11 +27,15 @@ While another widget item of the Approval's question shows a change against what
 - **THEN** "Approve" is enabled again
 
 ### Requirement: The Approval summary
-Beside the decisions, the Approval SHALL list the changes the user made to the other widget items of its question, from the generic diff of each item's shown value against its props as sent: a title counting them ("2 changes"), then one line per change naming the element and, for a field, its previous and new values in the ask's locale; at most 20 lines, then "and N more" (FR-11, L74, F-04).
+Beside the decisions, the Approval SHALL list the changes the user made to the other widget items of its question, from the generic diff of each item's shown value against its props as sent: a title counting them ("2 changes"), then one line per change naming the element, by its name as the agent sent it (as shown only for an element the user added), and, for a field, its previous and new values in the ask's locale; at most 20 lines, then "and N more" (FR-11, L74, F-04).
 
 #### Scenario: Two changed fields
 - **WHEN** the user changes a Tree node's `effort` from 12 to 10 and renames another node
 - **THEN** the summary is titled "2 changes" and holds two lines, each naming its node, with 12 struck through before 10
+
+#### Scenario: A node renamed and moved
+- **WHEN** the user renames a Tree node from "Build" to "Construction" and moves it to the top
+- **THEN** both the move's line and the rename's line name it "Build"
 
 #### Scenario: Nothing changed
 - **WHEN** the question's other items show no change
@@ -42,7 +46,7 @@ Beside the decisions, the Approval SHALL list the changes the user made to the o
 - **THEN** the summary is titled "25 changes" and shows 20 lines and "and 5 more"
 
 ### Requirement: A reason the answer requires
-When an item's held result requires the open prompt, "Answer" SHALL stay enabled; pressed with the prompt empty or white space only, it SHALL send and mark nothing, show the field error "Add the reason for your changes." under the prompt and move focus there. The error SHALL clear once the prompt holds text or no held result requires it (FR-11, L198, AD-10).
+When an item's held result requires the open prompt, "Answer" SHALL stay enabled; pressed with the prompt empty or white space only, it SHALL send and mark nothing, show the field error "Add the reason for your changes." under the prompt and move focus there. The error SHALL clear once the prompt holds a reason or no held result requires it, and SHALL NOT return when the text is then deleted until a press asks for the reason again (FR-11, L198, AD-10).
 
 #### Scenario: Approve with changes and an empty reason
 - **WHEN** the user selects "Approve with changes" and presses "Answer" with the open prompt empty
@@ -56,16 +60,50 @@ When an item's held result requires the open prompt, "Answer" SHALL stay enabled
 - **WHEN** the board is in submitted delivery and the user presses "Answer" with "Approve with changes" selected and no reason
 - **THEN** the answer is not marked ready and the field error shows
 
+#### Scenario: Deleting the reason
+- **WHEN** the field error shows, the user writes a reason, then deletes it
+- **THEN** the error is gone once the reason is written and does not return until "Answer" is pressed again
+
+### Requirement: Every path to an answer checks the reason
+"Accept recommended" SHALL run the reason check of "Answer" after selecting the recommended option. In submitted delivery, "Select recommended" SHALL NOT mark ready a question whose held result requires a reason its note lacks, and Submit SHALL send nothing while a held answer lacks a reason its held result requires, moving focus to that question's prompt with the error (FR-11, L186, AD-10).
+
+#### Scenario: Accept recommended without the reason
+- **WHEN** a question holds options with a recommended one and an Approval with "Approve with changes" selected, the prompt is empty, and the user presses "Accept recommended"
+- **THEN** the recommended option is selected, nothing is sent or marked ready, and the field error shows with focus in the prompt
+
+#### Scenario: Select recommended without the reason
+- **WHEN** the board is in submitted delivery, the same question has no option chosen, and the user presses "Select recommended"
+- **THEN** the recommended option is selected and the question is not marked ready
+
+#### Scenario: Submit with a held answer missing its reason
+- **WHEN** Submit is pressed while a held answer's question holds "Approve with changes" and a note with no reason
+- **THEN** no command is sent, every held act stays held, and focus moves to that question's prompt with the field error
+
 ### Requirement: Revising a received verdict asks first
-On a question holding an item whose chunk asks for it, such as an Approval, whose latest answer the agent has received, "Answer" and "Decline" SHALL first ask the user to confirm, in a modal dialog; confirming SHALL act as the button does, and cancelling SHALL send nothing and keep the draft (F-63, FR-22).
+On a question holding an item whose chunk asks for it, such as an Approval, whose latest answer the agent has received, "Answer", "Accept recommended" and "Decline" SHALL first ask the user to confirm, in a modal dialog; confirming SHALL act as the button does, and cancelling, by "Cancel" or Escape, SHALL send nothing, keep the draft and return focus to the control pressed (the question's "More" menu button for Decline) (F-63, FR-22, NFR-12).
 
 #### Scenario: A delivered verdict revised
 - **WHEN** the agent has collected "approve" and the user selects "Reject" and presses "Answer"
-- **THEN** the confirmation opens and nothing is sent; "Cancel" closes it with "Reject" still selected, and confirming sends the revision, which names the answer it replaces
+- **THEN** the confirmation opens and nothing is sent; "Cancel" closes it with "Reject" still selected and focus on "Answer", and confirming sends the revision, which names the answer it replaces
+
+#### Scenario: Escape
+- **WHEN** the confirmation opened from "Answer" and the user presses Escape
+- **THEN** it closes, nothing is sent, the draft is as it was and focus is on "Answer"
+
+#### Scenario: Accept recommended on a delivered verdict
+- **WHEN** a question holding options with a recommended one and an Approval has a delivered answer, and the user presses "Accept recommended"
+- **THEN** the recommended option is selected and the confirmation opens with nothing sent; "Cancel" keeps the selection and returns focus to "Accept recommended"
 
 #### Scenario: Not yet delivered
 - **WHEN** the latest answer's receipt reads "sent" and the user revises it
 - **THEN** "Answer" sends the revision with no confirmation
+
+### Requirement: Submit asks before replacing a received verdict
+In submitted delivery, each press SHALL ask as in immediate delivery, and Submit SHALL ask once more when, at its press, a held answer or decline would replace a latest answer the agent has received on a question holding an item whose chunk asks for it, naming those questions; cancelling SHALL send nothing, keep every act held and return focus to Submit (F-63, FR-22, NFR-12).
+
+#### Scenario: Delivered between the mark and Submit
+- **WHEN** in submitted delivery the user marks a revision ready while the latest answer's receipt reads "sent", the receipt turns "delivered", and the user presses Submit
+- **THEN** a confirmation naming the question opens and nothing is sent; "Cancel" keeps the revision held with focus on Submit, and confirming sends the command
 
 ### Requirement: A revision keeps the widgets' results
 The first edit of an answered question SHALL put its latest answer's results into the draft for the items its current revision holds, as it puts the answer's choice and note, so that the revised answer carries them unless the user changes them (AD-20, FR-22).
@@ -149,11 +187,15 @@ Pragmatic drag and drop SHALL reach the Tree's and the Ranking's chunks from one
 - **THEN** they pass unchanged
 
 ### Requirement: A result that is not JSON
-A result a component reports that is not JSON within the depth bound, one that holds itself included, SHALL go to the item's error path and be held nowhere; the board SHALL keep working (AD-9, AD-10).
+A result a component reports that is not JSON within the depth bound, one that holds itself included, SHALL go to the item's error path and be held nowhere; the board SHALL keep working. `undefined`, a component's report that it holds no result, SHALL clear the held result and is no error (AD-9, AD-10).
 
 #### Scenario: A result that holds itself
 - **WHEN** a component reports an object whose field holds the object itself
 - **THEN** the call returns, the item shows its error state, the draft holds no result for it, and the other items still answer
+
+#### Scenario: Clearing a result
+- **WHEN** a component that held a result reports `undefined`, as an Approval does when its decision is pressed again
+- **THEN** the draft holds no result for it and the item shows no error
 
 ### Requirement: A widget result end to end
 A result given on the board SHALL reach the agent through `collect` and push delivery in the answer event's `results`, be returned by `fetch`, be kept in the draft mirror across a reload and be shown in a Snapshot, on the session process (FR-18, FR-20, AD-20).
@@ -172,6 +214,10 @@ Every string the Approval, the Scale and the Ranking show SHALL come from the vi
 #### Scenario: An Italian board
 - **WHEN** a board in it-IT holds the three widgets
 - **THEN** it shows "Approvazione", "Approva con modifiche", "Mantieni quest'ordine" and "Sposta su", and no English chrome
+
+#### Scenario: A switched value in Italian
+- **WHEN** on an it-IT board the user turns off a boolean field of a Tree beside an Approval
+- **THEN** the summary's line reads "attivo" struck through before "disattivo"
 
 ## MODIFIED Requirements
 

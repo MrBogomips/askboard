@@ -8,7 +8,7 @@
 - **THEN** it is logged, its event carrying the result, the note and the Tree's change
 
 #### Scenario: Approving with changes and no reason
-- **WHEN** an answer carries `{decision: "approve-with-changes"}` for the Approval and no note, or a note of white space only
+- **WHEN** an answer carries `{decision: "approve-with-changes"}` for the Approval and no note, or a note of white space only (U+0085 included)
 - **THEN** it is refused, naming `verdict` and the missing reason, and nothing is appended or published
 
 #### Scenario: Approving beside a change

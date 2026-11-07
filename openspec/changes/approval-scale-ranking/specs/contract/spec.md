@@ -35,7 +35,7 @@ The registry SHALL hold `scale`: `min` and `max` within ±1,000,000,000 with `ma
 - **THEN** the first passes, and the second fails, naming the item and saying a rating takes one value out of at most 11 and that this scale has 12 values
 
 ### Requirement: Scale results
-A Scale's result SHALL be `{value}` when its props have no `range`, else `{low, high}` with `low` not above `high`; each number SHALL lie within `min` and `max` exactly, and on a step: `min` plus a whole number of steps within a billionth of a step. The billionth-of-a-step tolerance applies to the step grid only, never to the bounds (FR-11, FR-18, AD-10).
+A Scale's result SHALL be `{value}` when its props have no `range`, else `{low, high}` with `low` not above `high`, the two compared as numbers; each number SHALL lie within `min` and `max` exactly, and on a step: `min` plus a whole number of steps within a billionth of a step. The billionth-of-a-step tolerance applies to the step grid only, never to the bounds (FR-11, FR-18, AD-10).
 
 #### Scenario: A value on a step
 - **WHEN** a result `{value: 35}` is checked for a Scale from 0 to 100 by 5
@@ -52,6 +52,10 @@ A Scale's result SHALL be `{value}` when its props have no `range`, else `{low, 
 #### Scenario: A hair outside the bounds
 - **WHEN** a result `{value: 10.0000000005}` (`max` plus 5e-10) or `{value: -0.0000000005}` (`min` minus 5e-10) is checked for a Scale from 0 to 10 by 1
 - **THEN** it fails, naming the item and the field, though each lies within a billionth of a step of a step
+
+#### Scenario: A range a hair inverted
+- **WHEN** a result `{low: 5.0000000001, high: 5}` or `{low: 5, high: 4.9999999999}` is checked for a Scale from 0 to 10 by 1 with `range`
+- **THEN** each fails at `/low`, saying `low` is above `high`, though both lie within a billionth of a step of the same step; `{low: 5, high: 5}` passes
 
 ### Requirement: Ranking items
 The registry SHALL hold `ranking`, whose props hold `items`: 2 to 50 elements `{id, label, description?}`, IDs matching the ID pattern and unique within the item, `label` 1 to 200 characters, `description` 1 to 500 (FR-11, AD-7).
@@ -80,11 +84,15 @@ A Ranking's result SHALL be `{order}`, the IDs of the item's elements as sent in
 - **THEN** it fails, naming the item and the element
 
 ### Requirement: What a result requires of its answer
-A registered type MAY declare checks of the answer its result travels in, given the answer's note and whether the answer changes any element; a refusal SHALL name the item. The Approval SHALL refuse `approve-with-changes` without a note holding a character other than white space, and `approve` in an answer that changes an element (FR-11, AD-10, F-63).
+A registered type MAY declare checks of the answer its result travels in, given the answer's note and whether the answer changes any element; a refusal SHALL name the item. The Approval SHALL refuse `approve-with-changes` without a note holding a character other than white space, white space being what ECMAScript's `\s` matches and U+0085 (NEXT LINE), one predicate shared by the Approval's checks and the board page, and `approve` in an answer that changes an element (FR-11, AD-10, F-63).
 
 #### Scenario: Approving with changes needs the reason
 - **WHEN** the Approval's checks run on `{decision: "approve-with-changes"}` with no note, or with a note of three spaces
 - **THEN** each fails, naming the item and saying approving with changes needs the reason in the note
+
+#### Scenario: A note of invisible white space
+- **WHEN** the Approval's checks run on `{decision: "approve-with-changes"}` with a note of `"\u0085"`, of `" \u0085\t"` or of `"\uFEFF"`
+- **THEN** each fails as a note with no reason does
 
 #### Scenario: Approving beside changes
 - **WHEN** the Approval's checks run on `{decision: "approve"}` in an answer that changes an element
