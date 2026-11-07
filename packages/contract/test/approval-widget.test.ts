@@ -1,6 +1,7 @@
 // The Approval's entry (approval-scale-ranking, task 1.3; contract spec: Approval items, What a
 // result requires of its answer, Teaching text of the three widgets), composed over the shipped
-// registry with `withWidgetTypes` while the type is not yet registered (design decision 10).
+// registry with `withWidgetTypes`, which gives the same registry before and after the type is
+// registered (design decision 10).
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";

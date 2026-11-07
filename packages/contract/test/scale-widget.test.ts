@@ -1,6 +1,6 @@
 // The Scale's entry (approval-scale-ranking, task 1.4; contract spec: Scale items, Scale results,
-// Teaching text of the three widgets), composed over the shipped registry with `withWidgetTypes`
-// while the type is not yet registered (design decision 10).
+// Teaching text of the three widgets), composed over the shipped registry with `withWidgetTypes`,
+// which gives the same registry before and after the type is registered (design decision 10).
 
 import { describe, expect, test } from "bun:test";
 import { SCALE_FIXTURE_ITEMS, SCALE_RESULTS, withWidgetTypes } from "../src/fixtures/index.ts";

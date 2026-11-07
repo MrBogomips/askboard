@@ -20,8 +20,9 @@ import { answerAct, checked, type Item, modelOf } from "./probe-fakes.ts";
 
 // Core spec: Results of the shipped result widgets (approval-scale-ranking, design decisions 1 and
 // 3): ask-core checks a Scale's and a Ranking's result against the item's props in the revision the
-// answer names, through the registry alone (no code of core names a type). The three types are not
-// registered yet, so every test passes the registry through `withWidgetTypes`.
+// answer names, through the registry alone (no code of core names a type). Every test passes the
+// registry through `withWidgetTypes`, which gives the same registry before and after the three types
+// are registered.
 
 const TYPES = withWidgetTypes(APPROVAL_WIDGET, SCALE_WIDGET, RANKING_WIDGET);
 const SHARE = SCALE_FIXTURE_ITEMS[0] as Item;
