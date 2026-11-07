@@ -275,7 +275,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Delivered, the question is answered and still open to a revision: the decisions work.
         await eventually(() => pressed(board, "Reject"), "the logged decision to show");
-        for (const name of ["Approve with changes", "Reject"]) {
+        for (const name of ["Approve", "Approve with changes", "Reject"]) {
           expect(await decision(board, name).isEnabled()).toBe(true);
         }
         expect(await summaryTitle(board).textContent()).toBe("No changes");

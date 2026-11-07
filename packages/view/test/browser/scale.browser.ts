@@ -237,6 +237,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // Delivered, the question is answered and still open to a revision: the thumb works.
         expect(await value(board).textContent()).toBe("100");
         expect(await thumbs(board).first().getAttribute("data-disabled")).toBeNull();
+        // Setting another value starts a revision: the thumb applies its key, the draft holds the
+        // new value, Answer is enabled again and no act is sent until it is pressed.
+        const actsBefore = sentActs(run).length;
+        await thumbs(board).first().focus();
+        await board.page.keyboard.press("ArrowLeft");
+        await eventually(async () => (await value(board).textContent()) === "95", "one step down");
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "share", { value: 95 }),
+          "the draft to hold 95",
+        );
+        await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
+        await Bun.sleep(QUIET_MS);
+        expect(sentActs(run).length).toBe(actsBefore);
+        // Back to the logged value, which is what the closed ask shows.
+        await board.page.keyboard.press("ArrowRight");
+        await eventually(async () => (await value(board).textContent()) === "100", "back to 100");
         // The agent closes the ask: the slider is read-only and the value stays.
         await run.session.update([{ action: "close" }]);
         await board
