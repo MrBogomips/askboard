@@ -45,6 +45,7 @@ A question (`question`) is `{type: "question", id, props: {text, header?, option
 - an Approval (`approval`): a decision on its question's content: approve, approve with changes or reject; put it last in the question it approves → [approval](references/widgets/approval.md)
 - a Scale (`scale`): a number on a slider, a range between two numbers, or a rating of up to 11 values → [scale](references/widgets/scale.md)
 - a Ranking (`ranking`): an order of 2 to 50 items the user sets by dragging or with Move up and Move down → [ranking](references/widgets/ranking.md)
+- a LaTeX (`latex`): one mathematical expression in LaTeX that the user reads and corrects, with a live preview → [latex](references/widgets/latex.md)
 - `gantt-plan`: a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed → [gantt-plan](references/molecules/gantt-plan.md)
 - `wbs-pert`: a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up → [wbs-pert](references/molecules/wbs-pert.md)
 

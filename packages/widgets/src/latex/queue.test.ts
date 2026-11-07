@@ -182,6 +182,70 @@ describe("drop and failure", () => {
   });
 });
 
+describe("a draw's own failure handler (task 5.1: the item's draw that throws fails the item)", () => {
+  test("a draw that throws is reported to the handler it was asked with, not to the queue's", () => {
+    const scheduler = manual();
+    const queueFailures: unknown[] = [];
+    const queue = createRenderQueue(scheduler.schedule, (error) => queueFailures.push(error));
+    const { order, draw } = draws();
+    const own: unknown[] = [];
+    const boom = new RangeError("boom");
+    queue.ask(
+      "a",
+      () => {
+        throw boom;
+      },
+      { onError: (error) => own.push(error) },
+    );
+    queue.ask("b", draw("b"));
+    scheduler.drain();
+    expect(own).toEqual([boom]);
+    expect(queueFailures).toEqual([]);
+    expect(order).toEqual(["b"]);
+  });
+
+  test("a draw asked again replaces the handler with its own", () => {
+    const scheduler = manual();
+    const queue = createRenderQueue(scheduler.schedule);
+    const first: unknown[] = [];
+    const second: unknown[] = [];
+    const throws = () => {
+      throw new Error("boom");
+    };
+    queue.ask("a", throws, { onError: (error) => first.push(error) });
+    queue.ask("a", throws, { onError: (error) => second.push(error) });
+    scheduler.drain();
+    expect(first).toEqual([]);
+    expect(second).toHaveLength(1);
+  });
+
+  test("a draw asked without a handler keeps the queue's, and a handler that throws stops nothing", () => {
+    const scheduler = manual();
+    const queueFailures: unknown[] = [];
+    const queue = createRenderQueue(scheduler.schedule, (error) => queueFailures.push(error));
+    const { order, draw } = draws();
+    const throws = () => {
+      throw new Error("boom");
+    };
+    queue.ask("a", throws);
+    queue.ask(
+      "b",
+      () => {
+        throw new Error("boom");
+      },
+      {
+        onError: () => {
+          throw new Error("the handler");
+        },
+      },
+    );
+    queue.ask("c", draw("c"));
+    expect(() => scheduler.drain()).not.toThrow();
+    expect(queueFailures).toHaveLength(1);
+    expect(order).toEqual(["c"]);
+  });
+});
+
 describe("scheduling", () => {
   test("nothing is scheduled while the queue is empty, and at most one task at a time", () => {
     const scheduler = manual();

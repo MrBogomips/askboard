@@ -4,7 +4,8 @@
 // takes a question's context items: excerpts, references and images (excerpts, design decision 2);
 // E8's takes it-IT as the ask's language and locale (settings-languages, design decision 2, B8);
 // widget-answers' lists the widget and molecule schemas of the three earlier changes (design decision 3);
-// approval-scale-ranking's admits the Approval, the Scale and the Ranking as widget items (design decision 11).
+// approval-scale-ranking's admits the Approval, the Scale and the Ranking as widget items (design decision 11);
+// latex-kanban-timeline's admits the LaTeX, the Kanban and the Timeline (design decision 13).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };

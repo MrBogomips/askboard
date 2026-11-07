@@ -14,8 +14,8 @@ import { resolveFromWidgets } from "./paths.ts";
 /** A chunk's name to the stylesheets it carries, as package paths resolved from the widgets. */
 export type ChunkStylesheets = Readonly<Record<string, readonly string[]>>;
 
-/** The package stylesheets by chunk. Task 5.1 of latex-kanban-timeline adds `latex`. */
-export const CHUNK_STYLESHEETS: ChunkStylesheets = {};
+/** The package stylesheets by chunk: KaTeX's, for the LaTeX (latex-kanban-timeline, task 5.1). */
+export const CHUNK_STYLESHEETS: ChunkStylesheets = { latex: ["katex/dist/katex.min.css"] };
 
 const FONT_FACE = /@font-face\s*\{[^}]*\}/gi;
 const SRC = /(\bsrc\s*:\s*)([^;}]*)/i;

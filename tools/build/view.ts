@@ -296,12 +296,6 @@ const verifyBuild = async (out: string, manifest: ViewManifest): Promise<void> =
 
 export type BuiltView = { readonly manifest: ViewManifest; readonly sizes: ChunkSizes };
 
-// Until a chunk lists a package stylesheet (task 5.1 of latex-kanban-timeline lists KaTeX's for
-// `latex`), the table's one entry has nothing to serve and would read as stale: the staleness
-// check waits for the first listing, and tests of it list one.
-const staleChecked = (stylesheets: ChunkStylesheets): boolean =>
-  Object.keys(stylesheets).length > 0;
-
 /** Builds the view into `out`, replacing what is there. */
 export const buildView = async (
   out: string,
@@ -321,7 +315,7 @@ export const buildView = async (
     failIf([
       ...fontEntryProblems(fontLicences),
       ...missingFontLicences(fontLicences, [page, ...chunks]),
-      ...(staleChecked(stylesheets) ? staleFontLicences(fontLicences, [page, ...chunks]) : []),
+      ...staleFontLicences(fontLicences, [page, ...chunks]),
     ]);
     // A licence text recorded for a package that no chunk took is stale (ask-lifecycle, 6.6).
     const used = [page, ...chunks].flatMap(({ notices }) =>

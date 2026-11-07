@@ -70,16 +70,17 @@ describe("a type that gives no result", () => {
     expect(problems[0]?.message).toContain("kanban");
   });
 
-  test("the Tree and the Gantt declare no result, every type approval-scale-ranking adds does, and so does the probe", () => {
+  test("the Tree, the Gantt and the LaTeX declare no result, every type approval-scale-ranking adds does, and so does the probe", () => {
     expect(
       WIDGET_TYPES.map(({ type, result }) => [type, result === undefined] as const).filter(
-        ([type]) => type === "tree" || type === "gantt",
+        ([type]) => type === "tree" || type === "gantt" || type === "latex",
       ),
     ).toEqual([
       ["tree", true],
       ["gantt", true],
+      ["latex", true],
     ]);
-    for (const { type, result } of WIDGET_TYPES.slice(2)) {
+    for (const { type, result } of WIDGET_TYPES.slice(2, 5)) {
       expect([type, result !== undefined]).toEqual([type, true]);
     }
     expect(PROBE_WIDGET.result).toBeDefined();

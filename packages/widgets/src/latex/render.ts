@@ -26,7 +26,7 @@ export type Refused =
   | { readonly depth: number; readonly limit: number };
 
 /**
- * What `renderInto` gives back: KaTeX's message (or a fixed text for anything but an `Error`) when
+ * What `renderInto` gives back: KaTeX's message (the empty string for anything but an `Error`) when
  * the expression does not render, the refusal when KaTeX never ran, or the size of an output past
  * the bounds, of which no node was made. An empty result is a drawn preview.
  */
@@ -43,9 +43,6 @@ const refusalOf = (expression: string): Refused | undefined => {
   if (refused !== undefined) return { command: refused };
   return depth > LATEX_NESTING_MAX_DEPTH ? { depth, limit: LATEX_NESTING_MAX_DEPTH } : undefined;
 };
-
-/** The text shown for a thrown value that is no `Error`. */
-const UNKNOWN_ERROR = "The expression could not be drawn.";
 
 /**
  * The options of one render, built anew for each call: `macros` is a table of its own, which KaTeX
@@ -64,8 +61,9 @@ export const renderOptions = (): KatexOptions => ({
 });
 
 // An error as a message: any thrown value is one, so that no failure of the preview reaches the page.
-const messageOf = (error: unknown): string =>
-  error instanceof Error ? error.message : UNKNOWN_ERROR;
+// A thrown value that is no `Error` has no text of its own: the empty message, for which the
+// component shows the string tables' fixed text (view-and-widgets spec: LaTeX parse errors).
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : "");
 
 // What KaTeX builds for `expression`, measured: the tree, or why there is none.
 type Built =

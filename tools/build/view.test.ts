@@ -14,6 +14,7 @@ import {
   contextBoardDocument,
   ganttBoardDocument,
   ganttPlanBoardDocument,
+  LATEX_FIXTURE_ITEM,
   lifecycleSnapshotData,
   plainChoiceBoardDocument,
   RANKING_FIXTURE_ITEM,
@@ -31,11 +32,12 @@ import {
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
 import { hostOnlyNeedProblems, styleUrlProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
-import type { FontLicence, FontLicences } from "./licences.ts";
+import { FONT_LICENCES, type FontLicence, type FontLicences } from "./licences.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
 import { ROOT, SIZES_FILE } from "./paths.ts";
 import { portExports, sharedModules, sharedModulesPlugin } from "./shared-modules.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
+import { CHUNK_STYLESHEETS } from "./stylesheets.ts";
 import { buildView, main } from "./view.ts";
 
 // One real build into a scratch folder, recording its sizes into a scratch file: the checks below
@@ -86,6 +88,7 @@ describe("bun run build:view (design decision 7)", () => {
       dnd: "library",
       "ext-apps": "library",
       gantt: "component",
+      latex: "component",
       radix: "library",
       ranking: "component",
       react: "library",
@@ -107,6 +110,10 @@ describe("bun run build:view (design decision 7)", () => {
     // no compute (approval-scale-ranking, design decision 9).
     expect(manifest.chunks.ranking?.components).toEqual(["ranking"]);
     expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "react", "shell"]);
+    // The LaTeX draws with KaTeX, which its chunk bundles with its stylesheet: it needs no Radix
+    // control, no drag, no board graph and no compute (latex-kanban-timeline, design decision 8).
+    expect(manifest.chunks.latex?.components).toEqual(["latex"]);
+    expect(manifest.chunks.latex?.needs).toEqual(["react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
     expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
@@ -297,6 +304,7 @@ describe("bun run build:view (design decision 7)", () => {
       "dnd",
       "ext-apps",
       "gantt",
+      "latex",
       "radix",
       "ranking",
       "react",
@@ -476,6 +484,24 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(built.chunks).not.toContain("tree");
     expect(built.srcdoc).toContain(await text(chunkNamed("ranking").script.path));
     expect(built.srcdoc).toContain(await text(chunkNamed("dnd").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+  });
+
+  test("a board whose only widget is a LaTeX inlines the LaTeX's chunk and no Tree, Ranking or drag chunk (latex-kanban-timeline, design decision 8)", async () => {
+    const [question] = treeBoardDocument.items;
+    const latexBoard = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [LATEX_FIXTURE_ITEM] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(latexBoard, manifest).map(({ name }) => name);
+    expect(names).toContain("latex");
+    for (const other of ["tree", "ranking", "dnd", "compute", "gantt"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(latexBoard);
+    expect(built.chunks).toContain("latex");
+    expect(built.chunks).not.toContain("tree");
+    expect(built.srcdoc).toContain(await text(chunkNamed("latex").script.path));
     expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
   });
 
@@ -816,6 +842,32 @@ describe("package stylesheets in a chunk (latex-kanban-timeline, design decision
     expect(String(error)).toContain('"other@2.0.0"');
     expect(String(error)).toContain("stale");
   }, 120_000);
+
+  test("with the real stylesheets, a font-licence entry no chunk uses fails the build as stale (task 5.1 removed the gate that skipped the check)", async () => {
+    const table = { ...FONT_LICENCES, "other@2.0.0": PACKAGE_FONTS() };
+    const error = await buildView(join(dir, "real-stale-build"), CHUNK_STYLESHEETS, table).catch(
+      (e) => e,
+    );
+    expect(String(error)).toContain('"other@2.0.0"');
+    expect(String(error)).toContain("stale");
+  }, 120_000);
+
+  test("the real build's latex chunk carries KaTeX's stylesheet and the `katex` 0.19.1 notice `MIT AND OFL-1.1` with the OFL text and the outlines' file named", async () => {
+    expect(CHUNK_STYLESHEETS).toEqual({ latex: ["katex/dist/katex.min.css"] });
+    const latex = chunkNamed("latex");
+    const notice = latex.licences.find((n) => n.package === "katex");
+    expect(notice).toMatchObject({ version: "0.19.1", licence: "MIT AND OFL-1.1" });
+    const holds = await text(notice?.path ?? "none");
+    expect(holds).toContain("Khan Academy and other contributors");
+    expect(holds).toContain("SIL OPEN FONT LICENSE");
+    expect(holds).toContain("Reserved Font Name");
+    expect(holds).toContain("dist/katex.mjs");
+    const styles = await text(latex.styles[0]?.path ?? "none");
+    expect(styles).toContain(".katex");
+    expect(styles.match(/url\(data:font\/woff2;base64,/g)).toHaveLength(20);
+    expect(styles).not.toMatch(/url\((?!data:font\/woff2)/);
+    expect(latex.styles).toHaveLength(1);
+  });
 
   test("an entry under a licence the rule does not admit fails the build", async () => {
     const path = await packageSheet();

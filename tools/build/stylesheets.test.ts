@@ -86,8 +86,8 @@ describe("the fonts of a package stylesheet (view spec, Package stylesheets in a
 describe("the chunks' package stylesheets (design decision 8)", () => {
   const chunks = new Set(["latex", "kanban"]);
 
-  test("the table starts empty: no chunk carries a package stylesheet until one registers", () => {
-    expect(CHUNK_STYLESHEETS).toEqual({});
+  test("the table lists KaTeX's stylesheet for the latex chunk, the one chunk that carries a package's (task 5.1)", () => {
+    expect(CHUNK_STYLESHEETS).toEqual({ latex: ["katex/dist/katex.min.css"] });
   });
 
   test("a listed chunk gets its stylesheets, rewritten, in the order listed", async () => {

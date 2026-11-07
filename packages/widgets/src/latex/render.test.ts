@@ -158,10 +158,10 @@ describe("parseProblem", () => {
     expect(markupOf("")).toContain("katex-display");
   });
 
-  test("gives a message for any error KaTeX throws, an Error or not", () => {
+  test("gives a message for any Error KaTeX throws, and no text for a value that is none (the component shows the string tables' fallback)", () => {
     for (const [thrown, message] of [
       [new RangeError("deep"), "deep"],
-      ["plain text", "The expression could not be drawn."],
+      ["plain text", ""],
     ] as const) {
       spy = spyOn(internals, "__renderToDomTree").mockImplementation(() => {
         throw thrown;
@@ -261,9 +261,9 @@ describe("renderInto", () => {
       "Maximum call stack size exceeded",
     ],
     ["a TypeError", new TypeError("odd"), "odd"],
-    ["a string", "boom", "The expression could not be drawn."],
-    ["undefined", undefined, "The expression could not be drawn."],
-    ["an object", { message: "not an Error" }, "The expression could not be drawn."],
+    ["a string", "boom", ""],
+    ["undefined", undefined, ""],
+    ["an object", { message: "not an Error" }, ""],
   ] as const)("catches %s thrown by KaTeX and keeps the last content", (_name, thrown, error) => {
     const host = hostHolding(["last preview"]);
     spies = [

@@ -1,17 +1,18 @@
 {
-  "approval": 18935,
-  "board-graph": 9664,
-  "board-page": 689806,
-  "choice": 15614,
+  "approval": 19521,
+  "board-graph": 9666,
+  "board-page": 695691,
+  "choice": 15619,
   "compute": 40011,
   "context": 14861,
   "dnd": 29795,
   "ext-apps": 310860,
-  "gantt": 79417,
+  "gantt": 79479,
+  "latex": 658511,
   "radix": 142757,
-  "ranking": 18600,
+  "ranking": 18604,
   "react": 223595,
-  "scale": 18319,
-  "shell": 156267,
-  "tree": 78647
+  "scale": 18334,
+  "shell": 158709,
+  "tree": 78655
 }

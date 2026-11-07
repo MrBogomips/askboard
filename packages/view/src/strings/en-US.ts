@@ -137,6 +137,7 @@ export const EN_US = {
   "change.widgetApproval": "Approval",
   "change.widgetScale": "Scale",
   "change.widgetRanking": "Ranking",
+  "change.widgetLatex": "LaTeX",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -322,4 +323,18 @@ export const EN_US = {
     one: "Your changes: {count} moved",
     other: "Your changes: {count} moved",
   },
+  "latex.source": "LaTeX source",
+  "latex.preview": "Preview",
+  "latex.parseError": "This expression does not render: {message}",
+  "latex.drawFailed": "The expression could not be drawn.",
+  "latex.macroDefinition":
+    "This expression defines a macro with {command}, which a LaTeX item does not allow. Remove it before you answer.",
+  "latex.internalCommand":
+    "This expression uses {command}, one of KaTeX's internal commands, which a LaTeX item does not allow. Remove it before you answer.",
+  "latex.refusedCommand":
+    "This expression uses {command}, which a LaTeX item does not allow. Remove it before you answer.",
+  "latex.tooDeep":
+    "This expression nests {depth} levels deep, more than the limit of {limit}. Simplify it before you answer.",
+  "latex.tooComplex": "This expression is too complex to preview. Simplify it to see it drawn.",
+  "latex.counterEdited": "Your changes: expression edited",
 } as const satisfies StringTable;

@@ -28,7 +28,8 @@ export const LATEX_WIDGET: WidgetType = {
     use: "one mathematical expression in LaTeX that the user reads and corrects, with a live preview",
     notes: [
       "The answer's change is one `set` of `<id>.expression`: the whole expression as the user wrote it, which may not parse.",
-      `KaTeX renders it: \`\\href\`, \`\\url\` and \`\\includegraphics\` show no link or image; a macro definition (\`\\def\`, \`\\newcommand\`, …), a KaTeX internal command (a name holding \`@\`) and a nest deeper than ${LATEX_NESTING_MAX_DEPTH} levels are refused.`,
+      "KaTeX draws it as data: `\\href`, `\\url` and `\\includegraphics` show no link or image.",
+      `The ask is refused for a macro definition (\`\\def\`, \`\\newcommand\`, …), a KaTeX internal command (a name holding \`@\`), \`\\show\`, \`\\char\` before a backquote, and a nest deeper than ${LATEX_NESTING_MAX_DEPTH} levels.`,
     ],
   },
 };

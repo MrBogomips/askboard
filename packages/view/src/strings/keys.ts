@@ -137,6 +137,7 @@ export const STRING_KEYS = [
   "change.widgetApproval",
   "change.widgetScale",
   "change.widgetRanking",
+  "change.widgetLatex",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -303,6 +304,17 @@ export const STRING_KEYS = [
   "ranking.handle",
   "ranking.counterKept",
   "ranking.counterMoved",
+  // The LaTeX (latex-kanban-timeline, task 5.1; ux-update-draft.md block 2; the Italian texts to review).
+  "latex.source",
+  "latex.preview",
+  "latex.parseError",
+  "latex.drawFailed",
+  "latex.macroDefinition",
+  "latex.internalCommand",
+  "latex.refusedCommand",
+  "latex.tooDeep",
+  "latex.tooComplex",
+  "latex.counterEdited",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

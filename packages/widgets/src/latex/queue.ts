@@ -9,17 +9,30 @@
 /** Runs `task` later, in a task of its own. */
 export type Schedule = (task: () => void) => void;
 
+/** What an ask may say besides the draw. */
+export type AskOptions = {
+  readonly edit?: boolean;
+  readonly onError?: (error: unknown) => void;
+};
+
 export type RenderQueue = {
   /**
    * Asks for `draw` under `key`. A draw already pending under the key is replaced, keeping its place
    * unless this ask is an edit (then it joins the edits). `edit` marks a draw the user's typing asked.
+   * `onError` receives what this draw throws, in place of the queue's own listener, so that an item
+   * can fail itself (task 5.1); a draw asked again replaces it with the new ask's.
    */
-  ask(key: string, draw: () => void, options?: { readonly edit?: boolean }): void;
+  ask(key: string, draw: () => void, options?: AskOptions): void;
   /** Removes the draw pending under `key`, if any. */
   drop(key: string): void;
 };
 
-type Entry = { readonly key: string; draw: () => void; edit: boolean };
+type Entry = {
+  readonly key: string;
+  draw: () => void;
+  edit: boolean;
+  onError: ((error: unknown) => void) | undefined;
+};
 
 /**
  * A queue that runs on `schedule`, one scheduled task at a time and none while it is empty. A draw
@@ -46,7 +59,7 @@ export const createRenderQueue = (
       entry?.draw();
     } catch (error) {
       try {
-        onError?.(error);
+        (entry?.onError ?? onError)?.(error);
       } catch {
         // A listener that fails is no reason to stop the draws behind it.
       }
@@ -67,15 +80,17 @@ export const createRenderQueue = (
   return {
     ask(key, draw, options) {
       const edit = options?.edit === true;
+      const failure = options?.onError;
       const at = pending.findIndex((entry) => entry.key === key);
       const held = at === -1 ? undefined : pending[at];
       if (held === undefined) {
-        place({ key, draw, edit });
+        place({ key, draw, edit, onError: failure });
       } else if (edit && !held.edit) {
         pending.splice(at, 1);
-        place({ key, draw, edit: true });
+        place({ key, draw, edit: true, onError: failure });
       } else {
         held.draw = draw;
+        held.onError = failure;
       }
       ensureScheduled();
     },

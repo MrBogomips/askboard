@@ -142,6 +142,7 @@ export const IT_IT = {
   "change.widgetApproval": "Approvazione",
   "change.widgetScale": "Scala",
   "change.widgetRanking": "Classifica",
+  "change.widgetLatex": "LaTeX",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -331,4 +332,20 @@ export const IT_IT = {
     one: "Le tue modifiche: {count} spostato",
     other: "Le tue modifiche: {count} spostati",
   },
+  // The LaTeX's texts are provisional, to review (latex-kanban-timeline, task 5.1).
+  "latex.source": "Sorgente LaTeX",
+  "latex.preview": "Anteprima",
+  "latex.parseError": "Questa espressione non si visualizza: {message}",
+  "latex.drawFailed": "Non è stato possibile disegnare l'espressione.",
+  "latex.macroDefinition":
+    "Questa espressione definisce una macro con {command}, che un elemento LaTeX non ammette. Rimuovila prima di rispondere.",
+  "latex.internalCommand":
+    "Questa espressione usa {command}, uno dei comandi interni di KaTeX, che un elemento LaTeX non ammette. Rimuovilo prima di rispondere.",
+  "latex.refusedCommand":
+    "Questa espressione usa {command}, che un elemento LaTeX non consente. Rimuovilo prima di rispondere.",
+  "latex.tooDeep":
+    "Questa espressione ha {depth} livelli di annidamento, oltre il limite di {limit}. Semplificala prima di rispondere.",
+  "latex.tooComplex":
+    "Questa espressione è troppo complessa per l'anteprima. Semplificala per vederla disegnata.",
+  "latex.counterEdited": "Le tue modifiche: espressione modificata",
 } as const satisfies StringTable;
