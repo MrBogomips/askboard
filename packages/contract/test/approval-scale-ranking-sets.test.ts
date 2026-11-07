@@ -1,8 +1,8 @@
 // The four sets approval-scale-ranking widens (contract spec, "This change's sets at their next
 // minor"; design decision 11): the input format, the output format, the tool envelopes and the
 // board document each take one minor past main's when the Approval joins the registry; the board
-// protocol, the Snapshot data and the view manifest keep main's. The numbers are those bound while
-// the change is built, here and in the constants only: the rebase task rebinds them.
+// protocol, the Snapshot data and the view manifest keep main's. The numbers are those bound at the
+// rebase on main 66fd51f3 (design decision 11), here and in the constants only.
 
 import { describe, expect, test } from "bun:test";
 import type { AnySchemaObject } from "ajv/dist/2020";
