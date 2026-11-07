@@ -232,6 +232,58 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
+      "a Chart labelled with names every object inherits pollutes no built-in, and the board still gets its answer reply",
+      async () => {
+        const props = {
+          kind: "bar",
+          categories: [
+            { id: "a", label: "__proto__" },
+            { id: "b", label: "constructor" },
+          ],
+          series: [{ id: "s", label: "toString", values: [4, 9] }],
+          valueLabel: "hasOwnProperty",
+          categoryLabel: "__proto__",
+        };
+        const run = await start(lifecycleScenario(chartAsk(props), dist));
+        const board = await openBoard(run, ["plan"]);
+        const frame = await board.viewFrame();
+        const polluted = () =>
+          frame.evaluate(
+            () =>
+              ["prev", "next"].some(
+                (key) => Object.hasOwn(Object.prototype, key) || Object.hasOwn(Object, key),
+              ) ||
+              Object.keys({ a: 1 }).length !== 1 ||
+              (() => {
+                const keys: string[] = [];
+                for (const key in { a: 1 }) keys.push(key);
+                return keys.length !== 1;
+              })(),
+          );
+        expect(await polluted()).toBe(false);
+        const box = await boxOf(chartOf(board));
+        const centre = barCentre({ categories: 2, series: 1, axisMax: 10 }, box, {
+          series: 0,
+          category: 1,
+          value: 9,
+        });
+        await clickAt(chartOf(board), centre);
+        await counterIs(board, "1 point highlighted");
+        expect(await polluted()).toBe(false);
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        // The reply to the answer act is the receipt: a board that dropped it would stay "not sent yet".
+        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const { events } = await run.session.collect();
+        expect(events[0]?.results).toEqual({
+          [CHART_ID]: { points: [{ series: "s", category: "b" }] },
+        });
+        expect(await polluted()).toBe(false);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "once the ask closes the chart keeps its rings and a click or key adds no draft record and no act",
       async () => {
         const run = await start(lifecycleScenario(chartAsk(BAR_PROPS), dist));

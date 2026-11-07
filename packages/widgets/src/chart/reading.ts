@@ -1,10 +1,10 @@
 // What a Chart says aloud and under the plot (design decision 4; view-and-widgets spec: A Chart's
 // points read aloud, Highlighting data points): pure text from the props, the ask's locale and the
-// strings. The agent's own words go through `chartText`, so a control character shows as its
-// escape and the chart library's markup is broken, as on the canvas.
+// strings. The agent's own words go through `escapedText`: a control character shows as its
+// escape, the rest as written, in the DOM, where text is no markup (the canvas takes `chartText`).
 
 import type { ChartPoint, ChartProps, Locale } from "@askboard/contract";
-import { chartText, formatChartValue } from "./text.ts";
+import { escapedText, formatReadingValue } from "./text.ts";
 
 /** What the strings are asked for: `say(key, slots)` of the catalogue. */
 export type ChartSay = (
@@ -33,7 +33,7 @@ export const pointReading = (
   const category = props.categories[index];
   const value = series?.values[index];
   if (series === undefined || category === undefined || typeof value !== "number") return "";
-  const reading = `${chartText(category.label)}, ${chartText(series.label)}: ${formatChartValue(value, locale, props.unit)}`;
+  const reading = `${escapedText(category.label)}, ${escapedText(series.label)}: ${formatReadingValue(value, locale, props.unit)}`;
   return highlighted ? `${reading}, ${say("chart.highlighted")}` : reading;
 };
 

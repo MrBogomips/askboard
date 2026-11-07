@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { importZrender, zrenderFile } from "../../test/zrender.ts";
-import { chartText, formatChartValue } from "./text.ts";
+import { chartText, escapedText, formatChartValue, formatReadingValue } from "./text.ts";
 
 // View-and-widgets spec: Agent text on a chart, Chart tooltips (chart-widget, design decision 3):
 // agent text reaches the canvas as data. The chart library reads `{name|text}` in any text with
@@ -71,26 +71,54 @@ describe("chartText", () => {
     for (const label of HOSTILE) {
       expect(chartText(label).replaceAll(WORD_JOINER, "")).toBe(label);
     }
-    expect(chartText("{b|Fix} {c}")).toBe(`{${WORD_JOINER}b|Fix} {c}`);
+    expect(chartText("{b|Fix} {c}")).toBe(`${WORD_JOINER}{${WORD_JOINER}b|Fix} {c}`);
   });
 
   test("shows a control or a bidirectional character as its visible escape", () => {
-    expect(chartText("a‮b")).toBe("a\\u202Eb");
-    expect(chartText("line\nbreak")).toBe("line\\u000Abreak");
-    expect(chartText("nul\u0000")).toBe("nul\\u0000");
-    expect(chartText("⁦x⁩؜‏")).toBe("\\u2066x\\u2069\\u061C\\u200F");
+    expect(chartText("a‮b")).toBe(`${WORD_JOINER}a\\u202Eb`);
+    expect(chartText("line\nbreak")).toBe(`${WORD_JOINER}line\\u000Abreak`);
+    expect(chartText("nul\u0000")).toBe(`${WORD_JOINER}nul\\u0000`);
+    expect(chartText("⁦x⁩؜‏")).toBe(`${WORD_JOINER}\\u2066x\\u2069\\u061C\\u200F`);
     expectPlain(chartText("{‮b|x}"));
   });
 
-  test("leaves a label without an opener as it is", () => {
+  test("adds only the joiner at the start of a label without an opener", () => {
     for (const label of ["Fix B", "café", "a|b}", "{ b|x}", "{a b|x}", "{}", "{|x}", "", "k€"]) {
-      expect(chartText(label)).toBe(label);
+      expect(chartText(label)).toBe(`${WORD_JOINER}${label}`);
+    }
+  });
+
+  // X-1 of the review of groups 1 to 4 (design decision 3): the chart library keys a cache of text
+  // widths by the text in a plain object, so no text it measures may be an inherited name, nor a
+  // prefix of the text cut down to one.
+  test("starts every string it returns with the joiner, once, whatever the text", () => {
+    const names = Object.getOwnPropertyNames(Object.prototype);
+    for (const label of [...names, ...HOSTILE, "", "Fix B", WORD_JOINER, `${WORD_JOINER}x`]) {
+      const text = chartText(label);
+      expect(text.startsWith(WORD_JOINER), label).toBe(true);
+      expect(text.startsWith(`${WORD_JOINER}${WORD_JOINER}`), label).toBe(false);
+    }
+  });
+
+  test("returns no inherited name, nor a prefix of one, for any inherited name or text starting with one", () => {
+    const names = new Set(Object.getOwnPropertyNames(Object.prototype));
+    for (const name of names) {
+      for (const label of [
+        name,
+        `${name}xyz`,
+        `${name}${"x".repeat(60 - name.length)}`.slice(0, 60),
+      ]) {
+        const text = chartText(label);
+        for (let length = 0; length <= text.length; length += 1) {
+          expect(names.has(text.slice(0, length)), `${label} cut at ${length}`).toBe(false);
+        }
+      }
     }
   });
 
   test("adds no joiner to a brace that opens nothing, and one to each that does", () => {
-    expect(chartText("{{a|x}")).toBe(`{{${WORD_JOINER}a|x}`);
-    expect(chartText("{a|{b|x}}").split(WORD_JOINER)).toHaveLength(3);
+    expect(chartText("{{a|x}")).toBe(`${WORD_JOINER}{{${WORD_JOINER}a|x}`);
+    expect(chartText("{a|{b|x}}").split(WORD_JOINER)).toHaveLength(4);
   });
 
   test("gives the same text when applied twice", () => {
@@ -106,8 +134,8 @@ describe("chartText", () => {
 
 describe("formatChartValue", () => {
   test("shows a value in the locale with the unit after it", () => {
-    expect(formatChartValue(1234.5, "en-US", "€")).toBe("1,234.5 €");
-    expect(formatChartValue(1234.5, "it-IT", "€")).toBe("1.234,5 €");
+    expect(formatChartValue(1234.5, "en-US", "€")).toBe(`1,234.5 ${WORD_JOINER}€`);
+    expect(formatChartValue(1234.5, "it-IT", "€")).toBe(`1.234,5 ${WORD_JOINER}€`);
   });
 
   test("shows a value without a unit as the number alone", () => {
@@ -117,11 +145,26 @@ describe("formatChartValue", () => {
 
   test("shows the unit as chart text: no markup, escapes visible", () => {
     expectPlain(formatChartValue(3, "en-US", "{b|runs}"));
-    expect(formatChartValue(3, "en-US", "r‮g")).toBe("3 r\\u202Eg");
+    expect(formatChartValue(3, "en-US", "r‮g")).toBe(`3 ${WORD_JOINER}r\\u202Eg`);
   });
 
   test("shows the contract's largest value whole", () => {
     expect(formatChartValue(1e15, "en-US")).toBe("1,000,000,000,000,000");
+  });
+});
+
+describe("escapedText and formatReadingValue (what the DOM shows)", () => {
+  test("escapedText shows controls and bidirectional characters as escapes and adds no joiner", () => {
+    expect(escapedText("a‮b\nc")).toBe("a\\u202Eb\\u000Ac");
+    expect(escapedText("{b|Fix} {c}")).toBe("{b|Fix} {c}");
+    expect(escapedText("")).toBe("");
+  });
+
+  test("formatReadingValue gives the value and the unit with no joiner, in the ask's locale", () => {
+    expect(formatReadingValue(1234.5, "en-US", "€")).toBe("1,234.5 €");
+    expect(formatReadingValue(1234.5, "it-IT", "€")).toBe("1.234,5 €");
+    expect(formatReadingValue(9, "en-US")).toBe("9");
+    expect(formatReadingValue(1, "en-US", "{b|x}\u202E")).toBe("1 {b|x}\\u202E");
   });
 });
 

@@ -25,6 +25,8 @@ const TOKENS: ChartTokens = {
   fontSans: "ui-sans-serif, system-ui",
   badgeSize: 11.5,
 };
+// Every string the option holds from the agent starts with the word joiner (review X-1).
+const J = "\u2060";
 const BOX = { width: 640, height: PLOT_HEIGHT };
 const at = (series: string, category: string): ChartPoint => ({ series, category });
 
@@ -111,7 +113,7 @@ describe("the axes and the grid", () => {
   });
 
   test("the category axis holds the categories' labels in order, as chart text", () => {
-    expect(loose(BAR).xAxis.data).toEqual(["Fix A", "Fix B", "Fix C"]);
+    expect(loose(BAR).xAxis.data).toEqual([`${J}Fix A`, `${J}Fix B`, `${J}Fix C`]);
   });
 
   test("the grid is the layout's plot, with the labels outside it", () => {
@@ -143,7 +145,7 @@ describe("the axes and the grid", () => {
   test("the axis names are the labels sent, as chart text, and none when none were sent", () => {
     const named = loose({ ...BAR, valueLabel: "{b|Runs}", categoryLabel: "Fix‮" });
     expect(named.yAxis.name).toBe(chartText("{b|Runs}"));
-    expect(named.xAxis.name).toBe("Fix\\u202E");
+    expect(named.xAxis.name).toBe(`${J}Fix\\u202E`);
     expect(loose(BAR).yAxis.name).toBeUndefined();
     expect(loose(BAR).xAxis.name).toBeUndefined();
   });
@@ -154,8 +156,10 @@ describe("the axes and the grid", () => {
       unit: "€",
       series: [{ id: "s", label: "S", values: [1234.5, 2, 3] }],
     };
-    expect(loose(money, { locale: "it-IT" }).yAxis.axisLabel.formatter(1234.5)).toBe("1.234,5 €");
-    expect(loose(money).yAxis.axisLabel.formatter(1234.5)).toBe("1,234.5 €");
+    expect(loose(money, { locale: "it-IT" }).yAxis.axisLabel.formatter(1234.5)).toBe(
+      `1.234,5 ${J}€`,
+    );
+    expect(loose(money).yAxis.axisLabel.formatter(1234.5)).toBe(`1,234.5 ${J}€`);
     expect(loose({ ...money, unit: undefined }).yAxis.axisLabel.formatter(2)).toBe("2");
   });
 });
@@ -164,7 +168,7 @@ describe("the series' kinds", () => {
   test("bars are drawn as bars, one series each, with a 2px gap and a fifth between categories", () => {
     const option = loose(BAR);
     expect(option.series.map((s: Loose) => s.type)).toEqual(["bar", "bar"]);
-    expect(option.series.map((s: Loose) => s.name)).toEqual(["Failures", "Reruns"]);
+    expect(option.series.map((s: Loose) => s.name)).toEqual([`${J}Failures`, `${J}Reruns`]);
     const { barWidth, gap } = barLayout(BAR, plotRect(BAR, BOX));
     for (const series of option.series) {
       expect(series.barCategoryGap).toBe("20%");
@@ -199,7 +203,7 @@ describe("the series' kinds", () => {
     expect(series.data.map((d: Loose) => d.value)).toEqual([60, 30, 10]);
     expect(series.itemStyle.borderColor).toBe(TOKENS.card);
     expect(series.itemStyle.borderWidth).toBe(2);
-    expect(series.label.formatter({ dataIndex: 1 })).toBe("API");
+    expect(series.label.formatter({ dataIndex: 1 })).toBe(`${J}API`);
     expect(series.label.color).toBe(TOKENS.mutedForeground);
   });
 
@@ -241,8 +245,8 @@ describe("the legend", () => {
       ],
     };
     const { legend, series } = loose(hostile);
-    expect(legend.data.map((d: Loose) => d.name)).toEqual(["A\\u202E", chartText("{b|B}")]);
-    expect(series.map((s: Loose) => s.name)).toEqual(["A\\u202E", chartText("{b|B}")]);
+    expect(legend.data.map((d: Loose) => d.name)).toEqual([`${J}A\\u202E`, chartText("{b|B}")]);
+    expect(series.map((s: Loose) => s.name)).toEqual([`${J}A\\u202E`, chartText("{b|B}")]);
   });
 });
 
@@ -360,7 +364,7 @@ describe("the tooltip", () => {
 
   test("names the category, the series and the value in the locale with the unit", () => {
     expect(tooltip(BAR).formatter({ seriesIndex: 0, dataIndex: 1 })).toBe(
-      "Fix B\nFailures: 9 runs",
+      `${J}Fix B\n${J}Failures: 9 ${J}runs`,
     );
     const money: ChartProps = {
       ...BAR,
@@ -368,12 +372,14 @@ describe("the tooltip", () => {
       series: [{ id: "s", label: "Cost", values: [1234.5, 1, 2] }],
     };
     expect(tooltip(money, { locale: "it-IT" }).formatter({ seriesIndex: 0, dataIndex: 0 })).toBe(
-      "Fix A\nCost: 1.234,5 €",
+      `${J}Fix A\n${J}Cost: 1.234,5 ${J}€`,
     );
   });
 
   test("names a pie's slice, its series and its value", () => {
-    expect(tooltip(PIE).formatter({ seriesIndex: 0, dataIndex: 2 })).toBe("Ops\nEffort: 10");
+    expect(tooltip(PIE).formatter({ seriesIndex: 0, dataIndex: 2 })).toBe(
+      `${J}Ops\n${J}Effort: 10`,
+    );
   });
 
   test("reads the props, not the event's text: markup and controls in the labels stay data", () => {
@@ -393,7 +399,9 @@ describe("the tooltip", () => {
       name: "{c}",
       value: 7,
     });
-    expect(text).toBe(`${chartText("{b|Fix} {c}")}\nS\\u202E: 1 ${chartText("{a|u}")}`);
+    expect(text).toBe(
+      `${chartText("{b|Fix} {c}")}\n${chartText("S\u202E")}: 1 ${chartText("{a|u}")}`,
+    );
   });
 
   test("is empty for a point the props do not hold or that has no value", () => {

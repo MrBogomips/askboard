@@ -15,21 +15,37 @@ const WORD_JOINER = "⁠";
 const OPENER = /\{(?=[a-zA-Z0-9_]+\|)/g;
 
 /**
- * Agent text as the canvas shows it: controls and bidirectional characters as visible `\uXXXX`
- * escapes (the board's rule for agent text), then a word joiner after every `{` that the chart
- * library's markup rule could open. Applying it twice gives what applying it once gives.
+ * Agent text with controls and bidirectional characters as visible `\uXXXX` escapes (the board's
+ * rule for agent text), and nothing else changed: what the DOM shows, which is no markup.
  */
-export const chartText = (text: string): string =>
+export const escapedText = (text: string): string =>
   agentTextRuns(text)
     .map((run) => run.text)
-    .join("")
-    .replace(OPENER, `{${WORD_JOINER}`);
+    .join("");
 
 /**
- * A value as the axis, the tooltip and the live region show it: the number in the ask's locale,
- * then the unit, if the chart has one, as chart text (the unit is the agent's).
+ * Agent text as the canvas shows it: the escapes of `escapedText`, a word joiner after every `{`
+ * that the chart library's markup rule could open, and a word joiner at the start. The first stops
+ * the markup; the second keeps the text, and every prefix of it, from being an inherited name
+ * (`__proto__`, `constructor`, ...), which the library's cache of text widths, a plain object keyed
+ * by the text, would take for an entry of its own (review of groups 1 to 4, X-1). The joiner draws
+ * nothing. Applying it twice gives what applying it once gives.
+ */
+export const chartText = (text: string): string => {
+  const joined = escapedText(text).replace(OPENER, `{${WORD_JOINER}`);
+  return joined.startsWith(WORD_JOINER) ? joined : `${WORD_JOINER}${joined}`;
+};
+
+const withUnit = (number: string, unit: string | undefined, say: (text: string) => string) =>
+  unit === undefined ? number : `${number} ${say(unit)}`;
+
+/**
+ * A value as the axis and the tooltip show it on the canvas: the number in the ask's locale, then
+ * the unit, if the chart has one, as chart text (the unit is the agent's).
  */
 export const formatChartValue = (value: number, locale: Locale, unit?: string): string =>
-  unit === undefined
-    ? formatNumber(value, locale)
-    : `${formatNumber(value, locale)} ${chartText(unit)}`;
+  withUnit(formatNumber(value, locale), unit, chartText);
+
+/** The same for the DOM, the live region's: the unit as `escapedText`, with no joiner. */
+export const formatReadingValue = (value: number, locale: Locale, unit?: string): string =>
+  withUnit(formatNumber(value, locale), unit, escapedText);

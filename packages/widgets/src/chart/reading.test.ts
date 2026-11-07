@@ -48,15 +48,16 @@ describe("pointReading", () => {
     expect(pointReading(props, point, { locale: "it-IT", say })).toBe("A, S: 1.234,5 €");
   });
 
-  test("shows a control character in a label as its escape, and breaks the library's markup", () => {
+  test("shows a control character in a label as its escape and the agent's words as written, with no joiner", () => {
     const props: ChartProps = {
       kind: "bar",
-      categories: [{ id: "a", label: "{b|Fix}‮" }],
+      categories: [{ id: "a", label: "{b|Fix}\u202E" }],
       series: [{ id: "s", label: "S", values: [2] }],
+      unit: "{c}",
     };
     const reading = pointReading(props, { series: "s", category: "a" }, { locale: "en-US", say });
-    expect(reading).toContain("\\u202E");
-    expect(reading).not.toContain("{b|");
+    expect(reading).toBe("{b|Fix}\\u202E, S: 2 {c}");
+    expect(reading).not.toContain("\u2060");
   });
 
   test("is empty for a point the props do not hold or that has no value", () => {
