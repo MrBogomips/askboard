@@ -49,6 +49,11 @@ const CONTRACT_READS: readonly Read[] = [
   },
   { file: "packages/contract/src/fixtures/lifecycle.ts", text: "props.items", reason: FIXTURE },
   {
+    file: "packages/contract/src/fixtures/lifecycle.ts",
+    text: "...regionProps } = region.props",
+    reason: FIXTURE,
+  },
+  {
     file: "packages/contract/src/fixtures/molecules.ts",
     text: "PLAN_QUESTION.props.items",
     reason: FIXTURE,
@@ -79,7 +84,55 @@ const CONTRACT_READS: readonly Read[] = [
   },
 ];
 
-const TABLES: Readonly<Record<string, readonly Read[]>> = { contract: CONTRACT_READS };
+const START = "the question's own list, the walker's start: the layouts in it are walked from here";
+const MOLECULES = "molecule references stay in the question's own items, never in a layout";
+const LATER = "walks the layouts in task 2.2 (updates, IDs and fetch over nested items)";
+
+/** The direct reads in `core`'s sources (layouts, task 2.1; task 2.2 retires the entries marked for it). */
+const CORE_READS: readonly Read[] = [
+  { file: "packages/core/src/graph-check.ts", text: "item.props.items", reason: START },
+  { file: "packages/core/src/core.ts", text: "first.props.items[0]", reason: AREA },
+  {
+    file: "packages/core/src/ask.ts",
+    text: "boardQuestion(question).props.items",
+    reason: "a context item's pointer source: context items stay in the question's own items",
+  },
+  { file: "packages/core/src/context/board-props.ts", text: "...rest } = props", reason: CONTEXT },
+  { file: "packages/core/src/context/fetch-item.ts", text: "item.props.items", reason: AREA },
+  { file: "packages/core/src/context/fetch-item.ts", text: "{ items } = props", reason: CONTEXT },
+  { file: "packages/core/src/context/resolve.ts", text: "props.items", reason: CONTEXT },
+  { file: "packages/core/src/context/warnings.ts", text: "props.items", reason: CONTEXT },
+  { file: "packages/core/src/lifecycle/model.ts", text: "item.props.items", reason: AREA },
+  { file: "packages/core/src/lifecycle/updates.ts", text: "item.props.items", reason: AREA },
+  { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "area.props.items", reason: AREA },
+  { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "{ items", reason: LATER },
+  { file: "packages/core/src/lifecycle/widget-update.ts", text: "{ items }", reason: LATER },
+  {
+    file: "packages/core/src/lifecycle/widget-values.ts",
+    text: "{ items } = props",
+    reason: START,
+  },
+  { file: "packages/core/src/molecules/addressing.ts", text: "question.props as", reason: START },
+  { file: "packages/core/src/molecules/expand.ts", text: "props.items", reason: MOLECULES },
+  { file: "packages/core/src/molecules/expand.ts", text: '"props", "items"', reason: MOLECULES },
+  { file: "packages/core/src/molecules/references.ts", text: "props.items", reason: MOLECULES },
+];
+
+/** `compute` reads no question's items: the graph source takes the flat list `core` hands it. */
+const COMPUTE_READS: readonly Read[] = [];
+
+/** The direct reads in `server`'s sources. */
+const SERVER_READS: readonly Read[] = [
+  { file: "packages/server/src/mcp-tools/wait.ts", text: "item.props.items", reason: AREA },
+  { file: "packages/server/src/mcp-tools/wait.ts", text: "question.props as", reason: START },
+];
+
+const TABLES: Readonly<Record<string, readonly Read[]>> = {
+  contract: CONTRACT_READS,
+  core: CORE_READS,
+  compute: COMPUTE_READS,
+  server: SERVER_READS,
+};
 
 /** The lines of a source that read a question's `items` directly: `props.items`, `{ items } = props`, or the key `"items"` of a path. */
 export const directReadsOf = (source: string): string[] => {
@@ -93,7 +146,7 @@ export const directReadsOf = (source: string): string[] => {
       .replace(/'(?:[^'\\]|\\.)*'/g, "''")
       .replace(/`(?:[^`\\]|\\.)*`/g, "``");
     const property = /\bprops\??\.items\b/.test(code) || /\bprops\b[^;]*\)\??\.items\b/.test(code);
-    const destructured = /\{[^}]*\bitems\b[^}]*\}\s*=\s*(\(?props\b|.*propsOf)/.test(code);
+    const destructured = /\{[^}]*\bitems\b[^}]*\}\s*=\s*[^;]*\b(props\b|propsOf)/.test(code);
     const key =
       /"props",\s*"items"/.test(quoted) ||
       /[=!]==\s*["']items["']/.test(quoted) ||
@@ -157,11 +210,23 @@ describe("the source guard of nested items", () => {
     ]);
   });
 
+  for (const name of ["core", "compute", "server"]) {
+    test(`fails on a planted direct read in a ${name} source`, async () => {
+      const sources = await sourcesOf(name);
+      const file = `packages/${name}/src/planted.ts`;
+      const text = "export const first = (q: Q) => q.props.items[0];\n";
+      expect(guardProblems([...sources, { file, text }], TABLES[name] ?? [])).toEqual([
+        `${file}: unlisted direct read of items: export const first = (q: Q) => q.props.items[0];`,
+      ]);
+    });
+  }
+
   test("reads a property, a destructuring and the key, and not comments, strings or wording", () => {
     const reads = directReadsOf(
       [
         "const a = question.props.items;",
         "const { items } = props as Props;",
+        "const { items } = question.props as Props;",
         'if (segments[0] === "items") return;',
         "// props.items in a comment",
         " * props.items in a doc comment",
@@ -173,6 +238,7 @@ describe("the source guard of nested items", () => {
     expect(reads).toEqual([
       "const a = question.props.items;",
       "const { items } = props as Props;",
+      "const { items } = question.props as Props;",
       'if (segments[0] === "items") return;',
     ]);
   });

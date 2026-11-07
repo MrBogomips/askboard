@@ -12,7 +12,10 @@ import {
   applyElementChanges,
   type Change,
   elementChanges,
+  isLayoutType,
   JSON_MAX_DEPTH,
+  mapNestedItems,
+  nestedItemsOf,
   type QuestionProps,
   resultHoldsNothing,
   WIDGET_TYPES,
@@ -47,14 +50,18 @@ const refused = (detail: string): ContentProblem => ({ refusal: "content", detai
 const isWidget = (item: unknown, types: readonly WidgetType[]): item is Item =>
   isRecord(item) && widgetTypeOf(item.type, types) !== undefined && typeof item.id === "string";
 
-/** The widget items of a revision's props, by ID. */
+/**
+ * The widget items of a revision's props, by ID, at every depth: the items inside the question's
+ * layouts as the question's own, the layouts included (layouts, design decision 5).
+ */
 const widgetsOf = (
   props: QuestionProps,
   types: readonly WidgetType[],
 ): ReadonlyMap<string, Item> => {
   const { items } = props as { readonly items?: readonly unknown[] };
   return new Map(
-    (items ?? [])
+    nestedItemsOf(items ?? [])
+      .map(({ item }) => item)
       .filter((item): item is Item => isWidget(item, types))
       .map((item) => [item.id, item]),
   );
@@ -104,7 +111,7 @@ const jsonRefusal = (value: unknown, what: string): ContentProblem | undefined =
   );
 };
 
-/** The question's props with each edited value in place of the item's props. */
+/** The question's props with each edited value in place of the item's props, at every depth. */
 const editedProps = (
   props: QuestionProps,
   values: Json,
@@ -114,7 +121,7 @@ const editedProps = (
   return {
     props: {
       ...props,
-      items: (items ?? []).map((item) =>
+      items: mapNestedItems(items ?? [], (item) =>
         isWidget(item, types) && Object.hasOwn(values, item.id)
           ? { ...item, props: values[item.id] }
           : item,
@@ -131,9 +138,12 @@ const valuesProblem = (
   types: readonly WidgetType[],
 ): ContentProblem | undefined => {
   for (const id of Object.keys(values)) {
-    if (!widgets.has(id)) {
+    const item = widgets.get(id);
+    if (item === undefined) {
       return refused(`values name "${id}", which is no ${namesOf(types)} item of the question`);
     }
+    // A layout holds items the agent arranged; the user gives no value for it.
+    if (isLayoutType(item.type)) return refused(`item "${id}" is a layout, which gives no value`);
   }
   // Only a type whose entry declares `edits` has an edited value; a value for any other would let
   // a result be checked against props the agent never sent (values-only-for-edits, AD-10, NFR-10).
