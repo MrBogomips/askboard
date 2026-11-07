@@ -39,6 +39,16 @@ import { type Configuration, configurationNamed } from "./options.ts";
 
 const ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
+// The Node the repository pins, as a real binary: the start script, which the mod's client fallback
+// runs, needs a `node` on PATH that is 24.22.1 or later and is not a version manager's shim (a shim
+// forks the real Node, so the session's parent PID would be the shim's, not the mod's), and the
+// session's home folder is a throwaway one, where a shim finds no tools.
+const NODE_FOLDER = dirname(
+  Bun.spawnSync(["node", "-p", "process.execPath"], { cwd: ROOT, stderr: "pipe" })
+    .stdout.toString()
+    .trim(),
+);
+
 /** The session process's runtime, as the runner resolved it; this Bun when run directly. */
 export const RUNTIME = process.env.ASKBOARD_CONFORMANCE_RUNTIME ?? process.execPath;
 
@@ -269,7 +279,7 @@ export const startSession = async (options: SessionOptions = {}): Promise<Sessio
   Bun.spawnSync(["git", "init", "--quiet", project]);
   Bun.spawnSync(["git", "-C", project, "config", "user.name", GIT_USER]);
   const env: Record<string, string> = {
-    PATH: `${notifier.folder}:${process.env.PATH ?? ""}`,
+    PATH: `${notifier.folder}:${NODE_FOLDER}:${process.env.PATH ?? ""}`,
     HOME: home,
     XDG_CONFIG_HOME: configHome,
     BROWSER: recorderIn(recorder),

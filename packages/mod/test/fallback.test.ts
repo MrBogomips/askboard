@@ -6,7 +6,7 @@ import { answerAt, entryOf, MAIN_ASK, pollOf, runningSession } from "./fake-loca
 import { type Fake, fakeModApi, fakeOn, settle } from "./fake-mod-api.ts";
 
 // When `$.http.fetch` is refused (tasks 7.5 and 13.2; mod spec, "When `$.http.fetch` is refused";
-// AD-5; finding criterion 11): a request whose fetch fails goes through the AskBoard bundle run as a
+// AD-5; finding criterion 11): a request whose fetch fails goes through the start script run as a
 // client by `$.process.run`; after three requests in a row to one session process whose fetch
 // failed while the client reached it, polls, delivery reports and the hello all go through the
 // client for the rest of the session. A fetch that succeeds resets the count, a new session process
@@ -53,8 +53,12 @@ const setUp = async () => {
 const clientRuns = (fake: Fake) => fake.calls.run.slice(1);
 
 describe("the client command", () => {
-  test("is one constant: the bundle under the plugin root, run by bun in client mode", () => {
-    expect(clientCommand("/p")).toEqual(["bun", "/p/dist/askboard.mjs", "client"]);
+  test("is one constant: the start script under the plugin root, run by sh in client mode", () => {
+    expect(clientCommand("/p")).toEqual(["sh", "/p/scripts/askboard", "client"]);
+  });
+
+  test("names neither bun nor the bundle", () => {
+    expect(clientCommand("/p").join(" ")).not.toMatch(/bun|askboard\.mjs/);
   });
 });
 
@@ -254,7 +258,7 @@ describe("a fetch that fails while the session process is unreachable", () => {
     const { fake } = await setUp();
     refuseFetch(fake);
     fake.handlers.run = async () => {
-      throw new Error("bun not found");
+      throw new Error("sh not found");
     };
     await fake.tick();
     await fake.tick();

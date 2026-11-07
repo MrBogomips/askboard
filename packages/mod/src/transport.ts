@@ -19,12 +19,14 @@ import type { Memory } from "./memory.ts";
 import type { HttpResponse, ModApi } from "./mod-api.ts";
 
 /**
- * The AskBoard bundle in client mode, under the plugin root: `client <path> [<JSON body>]` follows.
+ * The start script in client mode, under the plugin root: `client <path> [<JSON body>]` follows. It
+ * is the script the server entry and the hooks run (plugin-release, design decision 1), which runs
+ * the bundle on Node and refuses an unusable Node with exit 1, which `viaClient` reads as failed.
  * E11 replaces it with the launcher.
  */
 export const clientCommand = (pluginRoot: string): readonly string[] => [
-  "bun",
-  `${pluginRoot}/dist/askboard.mjs`,
+  "sh",
+  `${pluginRoot}/scripts/askboard`,
   "client",
 ];
 

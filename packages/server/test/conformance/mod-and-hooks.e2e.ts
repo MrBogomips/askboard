@@ -673,8 +673,8 @@ describe("when $.http.fetch is refused", () => {
     const clientRuns = runs.filter((run) => run.argv.includes("client"));
     for (const run of clientRuns) {
       expect(run.argv.slice(0, 3)).toEqual([
-        "bun",
-        join(PLUGIN_ROOT, "dist", "askboard.mjs"),
+        "sh",
+        join(PLUGIN_ROOT, "scripts", "askboard"),
         "client",
       ]);
     }
