@@ -30,6 +30,7 @@ export { type AxisZoom, LOCALES, type Locale } from "./tables.ts";
 
 export {
   AMOUNT_MAX_INTEGER_DIGITS,
+  AMOUNT_PATTERN,
   type AmountEntry,
   type AmountRefusalCode,
   amountEcho,

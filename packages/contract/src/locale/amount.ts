@@ -13,6 +13,13 @@ import { DEFAULT_MINOR_UNITS, type Locale, MINOR_UNITS, tableOf } from "./tables
 /** The most digits before the decimal mark an amount holds. */
 export const AMOUNT_MAX_INTEGER_DIGITS = 15;
 
+/**
+ * An amount as the schemas carry it (AD-7, Values): a decimal string of at most 15 integer digits
+ * and 4 decimals, with no exponent, no leading zero and no plus sign. The currency's minor units
+ * are a check, not the pattern's.
+ */
+export const AMOUNT_PATTERN = /^-?(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$/;
+
 export type { AmountRefusalCode } from "./entry-texts.ts";
 
 export type AmountEntry =

@@ -788,6 +788,7 @@ export {
 
 export {
   AMOUNT_MAX_INTEGER_DIGITS,
+  AMOUNT_PATTERN,
   type AmountEntry,
   type AmountRefusalCode,
   amountEcho,
@@ -795,3 +796,43 @@ export {
   minorUnitsOf,
   parseAmount,
 } from "./locale/index.ts";
+
+// The display atoms (atoms, design decision 1): the Text, the Value and the Divider, unregistered
+// until their chunks exist, and what the atoms share.
+
+export {
+  DIVIDER_SCHEMA_IDS,
+  DIVIDER_WIDGET,
+  type DividerItem,
+  type DividerProps,
+  dividerPropsProblems,
+} from "./widgets/divider/index.ts";
+export {
+  ATOM_DESCRIPTION_MAX_CHARS,
+  ATOM_LABEL_MAX_CHARS,
+  ATOM_NUMBER_BOUND,
+  ATOM_UNIT_MAX_CHARS,
+  codePointCount,
+} from "./widgets/shared/atoms.ts";
+export {
+  TEXT_FORMATS,
+  TEXT_MAX_CHARS,
+  TEXT_SCHEMA_IDS,
+  TEXT_WIDGET,
+  type TextItem,
+  type TextProps,
+  textPropsProblems,
+} from "./widgets/text/index.ts";
+export {
+  VALUE_FIELDS,
+  VALUE_KIND_FIELDS,
+  VALUE_KINDS,
+  VALUE_MAX_DAYS,
+  VALUE_REQUIRED_FIELDS,
+  VALUE_SCHEMA_IDS,
+  VALUE_WIDGET,
+  type ValueItem,
+  type ValueKind,
+  type ValueProps,
+  valuePropsProblems,
+} from "./widgets/value/index.ts";
