@@ -49,6 +49,17 @@ The registry SHALL hold `latex`, after the types `main` holds: an item `{type: "
 - **WHEN** a LaTeX item's props hold `displayMode`
 - **THEN** validation fails, naming the item and `displayMode`
 
+### Requirement: LaTeX macro definitions refused
+The LaTeX's check SHALL refuse an expression holding a macro-definition command, read as KaTeX's lexer reads control words: `\def`, `\gdef`, `\edef`, `\xdef`, `\global`, `\long`, `\let`, `\futurelet`, `\newcommand`, `\renewcommand` or `\providecommand`, its problem naming the command (AD-8, NFR-5).
+
+#### Scenario: A macro definition
+- **WHEN** a LaTeX item's `expression` is `\def\b{xxx}\def\a{\b\b}\a`, then `\newcommand{\c}{x}\c`
+- **THEN** each fails naming the item, the first naming `\def` and the second `\newcommand`
+
+#### Scenario: A control word that only looks like one
+- **WHEN** a LaTeX item's `expression` is `a \\ def`, then `\left( x \right)`, then `\def@x`
+- **THEN** each passes: a line break before the text `def`, `\left`, and a control word other than `\def`
+
 ### Requirement: LaTeX changes
 A LaTeX item's element shape SHALL name `expression` alone, so its changes SHALL be one `set` of `<item>.expression` to a text of at most 2,000 characters; its changes schema SHALL admit nothing else (AD-20, FR-20).
 

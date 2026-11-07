@@ -26,6 +26,10 @@
 - **WHEN** the user answers a question holding the LaTeX item `formula` with its expression edited
 - **THEN** the answer event's `changes` hold one `set` of `formula.expression`, and `fetch` of the item returns the edited expression
 
+#### Scenario: A corrected expression that defines a macro
+- **WHEN** an answer's value for the LaTeX item `formula` holds `\def\a{x}\a`
+- **THEN** it is refused, naming the item and `\def`, with the log unchanged and nothing kept or published
+
 #### Scenario: A moved card
 - **WHEN** the user answers with a Kanban card moved from `todo` to `done`
 - **THEN** the answer event's `changes` hold one `set` of the card's `column` to `done`

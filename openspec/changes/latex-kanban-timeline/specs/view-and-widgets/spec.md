@@ -45,12 +45,19 @@ The LaTeX preview SHALL render agent and user text as data: no command SHALL mak
 - **THEN** the preview holds no link and no image, and the board makes no request
 
 #### Scenario: A macro does not outlive its render
-- **WHEN** one LaTeX item's expression is `\gdef\foo{1}` and another's is `\foo`
-- **THEN** the second shows a parse error naming `\foo`
+- **WHEN** the user types `\gdef\foo{1}` in one LaTeX item and `\foo` in another
+- **THEN** the first shows the field error naming `\gdef` and renders nothing new, and the second shows a parse error naming `\foo`
 
-#### Scenario: Expansion without end
-- **WHEN** the expression defines a macro that expands itself
-- **THEN** the preview shows a parse error and the board keeps responding
+### Requirement: LaTeX bounded work
+An expression holding a macro definition SHALL NOT render: the field SHALL show a field error naming the command, and the preview SHALL keep its last render. Every expression of at most 2,000 code points SHALL render or show a field error within 2 seconds, the board responding (AD-8, NFR-5).
+
+#### Scenario: A macro definition
+- **WHEN** the user types `\def\a{\a}\a`, or `\def\b{` and 900 `x` then `}\def\a{` and `\b` 540 times then `}\a`
+- **THEN** the field error names `\def` within 2 seconds, KaTeX does not run, the preview keeps its last render, and the board keeps responding
+
+#### Scenario: Long expressions without definitions
+- **WHEN** the expression is a nest of 2,000 code points without definitions, such as `\sqrt{` repeated to the limit with its closing braces
+- **THEN** within 2 seconds the preview renders it or the field shows an error, in Chromium and WebKit, and the board keeps responding
 
 ### Requirement: Package stylesheets in a chunk
 A component chunk MAY carry a package's stylesheet. The build SHALL inline its woff2 fonts as `data:` URLs, drop its other font formats, and list the stylesheet's package among the chunk's licence notices. In every chunk's styles and the board page's, the build SHALL fail on any other `url(`, on an `@import` and on a quoted string in `image-set()` or `-webkit-image-set()`, reading CSS escapes as the browser does, so that no chunk loads a file from anywhere (AD-8, AD-9, NFR-6, NFR-9).
@@ -133,6 +140,10 @@ A Timeline SHALL show its lanes as rows, labelled at the left, under the Gantt's
 #### Scenario: A span of a year
 - **WHEN** a Timeline's entries span 2026-01-05 to 2026-12-18 in a frame 900 pixels wide
 - **THEN** it opens at month zoom
+
+#### Scenario: A milestone on the first day
+- **WHEN** a Timeline's earliest date is a milestone's, at month zoom
+- **THEN** its diamond draws whole, inside the chart's left edge
 
 ### Requirement: Timeline moves by drag
 An entry SHALL move by pointer drag, with no drag library. The horizontal travel SHALL snap to whole days, a range keeping its length and every date staying within the contract's days; the lane under the pointer at the drop SHALL be its lane. Escape SHALL cancel, and nothing SHALL reach the draft before the drop. Moved entries SHALL take the change outline; an entry moved back leaves no change (FR-11, AD-9, AD-10).
