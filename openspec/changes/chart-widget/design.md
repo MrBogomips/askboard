@@ -54,6 +54,7 @@ The result lists points in no required order; the component sends them in the se
 `packages/widgets/src/chart/text.ts`, pure:
 
 - `chartText(text)`: the contract's `agentTextRuns(text)` joined (controls and bidirectional characters as visible `\uXXXX` escapes, as the board header's paths), then U+2060 WORD JOINER inserted after every `{` that the rich-text rule could open, that is before `[A-Za-z0-9_]+\|`. The joiner is zero-width and not a line break; `{` U+2060 `b|x}` no longer matches `STYLE_REG`, so it draws as written. Every agent string the option holds (category and series labels, axis labels, `unit`) goes through it once, in `option.ts`, whether or not its place has `rich` styles.
+- Every string `chartText` returns starts with U+2060 (review of groups 1 to 4, X-1, H): zrender 6.1.0 caches text widths in a plain object keyed by the text (`lib/core/LRU.js`), so a label equal to an inherited name (`__proto__`, `constructor`, `toString`, ...), or a truncated prefix of one, pollutes `Object.prototype` or the built-ins with `prev` and `next` in the realm the shell shares, and the view's MCP client then drops every message as an unknown key. No inherited name or prefix starts with U+2060, and the joiner draws nothing. A guard draws `chartOption` with every inherited name in every text slot and asserts that no built-in gains an own property.
 - Every label and tooltip uses a formatter function that returns AskBoard's text; no string template (`{a}`, `{b}`, `{c}`) is ever set, since ECharts substitutes those in a loop and a value holding `{b}` would be substituted on a later pass.
 - Guards (task 4.1): a unit test runs zrender's own `parseRichText` (pure, no DOM) on hostile labels after `chartText` and finds one plain token each; a source guard reads the pinned `zrender/lib/graphic/helper/parseText.js` and fails if `STYLE_REG` differs from the regex above, so a version bump re-opens this decision.
 
@@ -99,7 +100,7 @@ Checked on 2026-11-07, against the addendum's rule:
 | `zrender` (its dependency, exact) | 6.1.0 | BSD-3-Clause | 6,310 | 2026-11-03 | 6.1.0 | no |
 | `tslib` (exact dependency of both) | 2.3.0 | 0BSD | — | — | — | — |
 
-`bun.lock` gains the three (a nested `tslib@2.3.0` beside the root's 2.8.1); `check:licences` passes them (`PERMISSIVE` holds the three licences); no font, image or other asset is bundled; Apache-2.0's NOTICE reaches the chunk's notices through `LICENCE_FILE`. No spine change: the Stack already pins `echarts` 6.1.0.
+`bun.lock` gains the three (Bun hoists `tslib@2.3.0` to the root and nests 2.8.1 beside its six earlier consumers, whose versions do not change); `check:licences` passes them (`PERMISSIVE` holds the three licences); no font, image or other asset is bundled; Apache-2.0's NOTICE reaches the chunk's notices through `LICENCE_FILE`. No spine change: the Stack already pins `echarts` 6.1.0.
 
 ### 10. Registration waits for the chunk
 
