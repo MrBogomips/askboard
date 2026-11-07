@@ -17,7 +17,14 @@ import {
   VIEW_MANIFEST_VERSION,
   WIDGET_TYPES,
 } from "../src/index.ts";
+import { widgetItemProblems } from "../src/validate.ts";
 import { unsupportedVersion } from "../src/versions.ts";
+import { APPROVAL_WIDGET } from "../src/widgets/approval/widget.ts";
+import { GANTT_WIDGET } from "../src/widgets/gantt/widget.ts";
+import { RANKING_WIDGET } from "../src/widgets/ranking/widget.ts";
+import { SCALE_WIDGET } from "../src/widgets/scale/widget.ts";
+import { TREE_WIDGET } from "../src/widgets/tree/widget.ts";
+import { askAccepted, question } from "./result-widgets-support.ts";
 
 const setOf = (name: string) => {
   const set = SCHEMA_SETS.find((candidate) => candidate.name === name);
@@ -101,4 +108,35 @@ describe("the Approval in the composed schemas", () => {
     const ids = (setOf("output").schemas as AnySchemaObject[]).map(({ $id }) => $id);
     expect(ids).toContain("urn:askboard:output:approval-result");
   });
+});
+
+// The previous minor holds the Tree and the Gantt and none of the three types (contract spec,
+// "The previous minor"): an ask holding one of them fails there, naming the item and its type.
+const PREVIOUS_MINOR = [TREE_WIDGET, GANTT_WIDGET];
+const THE_THREE = [APPROVAL_WIDGET, SCALE_WIDGET, RANKING_WIDGET];
+
+describe("the previous minor refuses the three types", () => {
+  test.each(THE_THREE.map((entry) => [entry.type, entry] as const))(
+    "an ask holding a %s item fails over the Tree and the Gantt, naming the item and its type",
+    (type, entry) => {
+      const { item } = entry.example;
+      expect(item.type).toBe(type);
+      expect(askAccepted(PREVIOUS_MINOR, item)).toBe(false);
+      expect(widgetItemProblems(item, question(item), "agent", PREVIOUS_MINOR)).toEqual([
+        {
+          path: "/",
+          message: `item ${item.id} has the type "${type}", which is no widget the contract defines`,
+        },
+      ]);
+    },
+  );
+
+  test.each(THE_THREE.map((entry) => [entry.type, entry] as const))(
+    "the same %s ask passes over the shipped registry",
+    (type, entry) => {
+      const { item } = entry.example;
+      expect(askAccepted(WIDGET_TYPES, item)).toBe(true);
+      expect(widgetItemProblems(item, question(item), "agent", WIDGET_TYPES)).toEqual([]);
+    },
+  );
 });
