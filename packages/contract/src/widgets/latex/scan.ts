@@ -137,9 +137,13 @@ const markRunEnd = (text: string, from: number, to: number): number => {
 
 // A run of `count` marks reaches `count + 1` levels below the level that holds it: one per accent,
 // and one for the script that the marked character may be the argument of. The run is a token.
+const reach = (state: State, count: number): void => {
+  if (count + 1 > (state.inners[top(state)] ?? 0)) state.inners[top(state)] = count + 1;
+};
+
 const takeMarks = (state: State, count: number): void => {
   take(state, "other");
-  if (count + 1 > (state.inners[top(state)] ?? 0)) state.inners[top(state)] = count + 1;
+  reach(state, count);
 };
 
 // The next position after blanks and comments, which are no token.
@@ -196,8 +200,9 @@ const scanQuiet = (text: string, from: number, to: number, state: State): void =
       if (OPENERS.has(word)) take(state, "open");
       at = end;
     } else if (isMark(text.charCodeAt(at))) {
+      // Reached, not taken: a comment is no token, so a script that waits keeps waiting.
       const end = markRunEnd(text, at, to);
-      takeMarks(state, end - at);
+      reach(state, end - at);
       at = end;
     } else {
       if (char === "{") take(state, "open");

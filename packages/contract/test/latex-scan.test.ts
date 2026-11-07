@@ -242,3 +242,45 @@ describe("stacked combining marks", () => {
     expect(depthOf(marks(2_000))).toBe(2_001);
   });
 });
+
+describe("a combining mark in a comment or a verb body (latex-public-api review X-1)", () => {
+  const MARK = "̂";
+  const withoutMarks = (text: string): string => text.replaceAll(MARK, "");
+
+  test("a mark in a comment does not close the script that waits for its argument", () => {
+    const comment = `{x^%a${MARK}\n`;
+    expect(depthOf(`${comment.repeat(130)}{y}${"}".repeat(130)}`)).toBeGreaterThanOrEqual(261);
+    expect(depthOf(`x^%a${MARK}\n${"{".repeat(11)}${"}".repeat(11)}`)).toBeGreaterThanOrEqual(12);
+  });
+
+  test("the scan never reads less with marks in a comment or a verb body than without them", () => {
+    const pieces = [
+      `x^%a${MARK}\n`,
+      `x_%a${MARK}${MARK}\n`,
+      `\\verb|a${MARK}{|`,
+      `\\verb|^${MARK}|`,
+      "{",
+      "}",
+      "^",
+      "_",
+      "y",
+      `${MARK}`,
+      `%${MARK}{\n`,
+      "\\frac",
+      "\\left(",
+      "\\right)",
+    ];
+    let seed = 7;
+    const next = (): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed;
+    };
+    for (let run = 0; run < 400; run += 1) {
+      let text = "";
+      for (let k = 0; k < 12; k += 1) text += pieces[next() % pieces.length];
+      expect(depthOf(text), JSON.stringify(text)).toBeGreaterThanOrEqual(
+        depthOf(withoutMarks(text)),
+      );
+    }
+  });
+});
