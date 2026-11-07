@@ -178,11 +178,30 @@ describe("an item's result (widget-registry, design decision 9)", () => {
   });
 
   test("none removes the entry, so an item with no result holds none", () => {
-    const { results, onResultChange } = withResults();
+    const { results, steps, sent, onResultChange } = withResults();
     onResultChange({ pick: "a" });
     onResultChange(undefined);
     expect(results.record().has("sketch")).toBe(false);
     expect(results.record().size).toBe(0);
+    // None is a component's report of no result, not an error (the port's `undefined` for none),
+    // and runs the step before a change as it did before the JSON check.
+    expect(sent).toHaveBeenCalledTimes(0);
+    expect(steps).toEqual(["before", "before"]);
+  });
+
+  test("none with nothing held leaves nothing held and calls no error", () => {
+    const { results, sent, onResultChange } = withResults();
+    onResultChange(undefined);
+    expect(results.record().size).toBe(0);
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  test("a field inside the result holding undefined is still refused, with one error", () => {
+    const { results, sent, onResultChange } = withResults();
+    onResultChange({ pick: "a" });
+    onResultChange({ a: undefined });
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(results.record().has("sketch")).toBe(false);
   });
 
   test.each([
