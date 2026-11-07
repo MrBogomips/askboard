@@ -1,6 +1,6 @@
 # UX update draft: Document review
 
-**Status: draft, to apply in task 0.1.** It rests on the proposal's open questions 3, 6, 7 and 9; an answer other than the default changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization).
+**Status: applied on 2026-11-08 (task 0.1).** It rests on the proposal's open questions 3, 6, 7 and 9; an answer other than the default changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization).
 
 How to apply: replace each quoted text in `docs/ux-askboard-2026-10-27/EXPERIENCE.md` or `DESIGN.md`, set `updated:` in each file's front matter to the apply date, then run `openspec validate --all --strict --no-interactive`. Task 0.1 checks that each current text stands once, word for word, just before the edit. No block touches a line that `layouts`' or `form-widget`'s drafts replace, nor a line next to one: block 1 adds its row after the Scale's, above the LaTeX row, away from the Atoms, Layouts and Form rows.
 

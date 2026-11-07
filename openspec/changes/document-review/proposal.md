@@ -41,14 +41,26 @@ None: the behaviours belong to capabilities E1 and `askboard-skills` created.
 Each carries a proposed default. Task 0.1 records each answer under its question before anything relies on it; under the PO's unattended handoff the answer reads "proposed default accepted under the PO's unattended handoff".
 
 1. **The document by value.** *Default:* the agent sends the Markdown in the props, at most 10,000 characters (the renderer's bound); a longer document goes as one item per section. *Alternative:* a pointer to a project file, resolved at send time like an excerpt (AD-12), cheaper in output tokens but a second resolution path in `ask-core`.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 2. **Markdown only.** *Default:* the document is Markdown; plain text that holds no Markdown marks reads the same. *Alternative:* a `format` of `plain` or `markdown`, as the Text has.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 3. **What a quote quotes.** *Default:* the text as the board shows it (Markdown marks removed), with `prefix` and `suffix`; the agent finds the passage in its source, and asks when it cannot. *Alternative:* quotes of the Markdown source, which markdown-it's documented interface cannot map from a selection without guessing.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 4. **Who checks a quote against the text.** *Default:* the board, which renders the document; `ask-core` checks shapes, IDs and bounds, as with the TextField's pattern in `form-widget`. *Alternative:* markdown-it in `contract`, so that `ask-core` derives the text too (AD-8 amended, a larger session process).
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 5. **Suggested edits as annotations.** *Default:* the shared annotation's body gains `replacement` (AD-7 amended in place). *Alternative:* a separate list of edits beside the annotations.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 6. **Detached annotations.** *Default:* listed under the document with their quote, text and "Delete"; they block "Answer" until deleted. *Alternative:* "Attach to selection" on each, or dropping them with a notice.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 7. **Overlaps.** *Default:* none: one annotation per passage, and the board refuses a selection that overlaps one. *Alternative:* overlapping comments, marked in layers.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 8. **Suggested edits and an Approval.** *Default:* they are a result, not changes, so a plain "Approve" stays available beside them (EXPERIENCE, Approval: another widget's result is no change). *Alternative:* count them as changes, so the Approval asks for "Approve with changes".
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 9. **The keyboard path.** *Default:* the arrow keys move between the document's blocks and their pins; "Comment" and "Suggest edit" act on the selected text, else on the current block. *Alternative:* a "Find passage" field that selects the text typed in it.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 10. **Bounds.** *Default:* 100 annotations per item; a quote of at most 2,000 characters (the annotation's); a comment of at most 2,000; a replacement of at most 4,000; context of 32 characters, widened to 200 only to make a quote occur once. *Alternative:* other figures.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 11. **The skill's budget.** *Default:* index lines shaped `- [`type`](reference): use` with uses of at most 70 characters; the budget stays 9,000 characters. *Alternative:* raise the budget, once the early benchmark gives figures (the documented ceilings are 500 lines and the 5,000 tokens a skill keeps after compaction); or an index file, one more read and a second level of references.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 12. **Where the renderer lives.** *Default:* a `markdown` library chunk shared as `@askboard/view/markdown`, the Document review in `packages/widgets` like every FR-11 widget, AD-1 and AD-9 amended in place. *Alternative:* the Document review as a catalog component in `view`, beside the atoms, with no import rule changed.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.

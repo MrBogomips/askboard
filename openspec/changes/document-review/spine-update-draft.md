@@ -1,6 +1,6 @@
 # Spine update draft: document-review
 
-**Status: draft, to apply in task 0.1.** It rests on the proposal's open questions 5 and 12; an answer other than the default changes its block first (`/opsx:update`). Each block quotes the current phrase exactly as it stands on `origin/main` e87841d5, then gives the replacement. AD-1, AD-7 and AD-9 are amended in place; no AD is added or renumbered. The PRD needs no change. `layouts`' draft (AD-7's Questions and IDs, AD-9's first Components bullet) and `form-widget`'s (AD-7's Widget types, the Stack) replace other phrases; none of theirs is quoted here.
+**Status: applied on 2026-11-08 (task 0.1).** It rests on the proposal's open questions 5 and 12; an answer other than the default changes its block first (`/opsx:update`). Each block quotes the current phrase exactly as it stands on `origin/main` e87841d5, then gives the replacement. AD-1, AD-7 and AD-9 are amended in place; no AD is added or renumbered. The PRD needs no change. `layouts`' draft (AD-7's Questions and IDs, AD-9's first Components bullet) and `form-widget`'s (AD-7's Widget types, the Stack) replace other phrases; none of theirs is quoted here.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
