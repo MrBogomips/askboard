@@ -1,7 +1,7 @@
 // What the board page opens for a link in Markdown (atoms, design decision 6; AD-8): the URL is agent
 // content the user chose to open, as a web reference's is, so the page opens it only when it is an
-// `http:` or `https:` URL of at most `OPEN_LINK_URL_MAX_CHARS` characters with no space or control
-// character, and the item the message names holds Markdown in the board document the page holds: a
+// `http:` or `https:` URL with no user name or password, of at most `OPEN_LINK_URL_MAX_CHARS`
+// characters with no space or control character, and the item the message names holds Markdown in the board document the page holds: a
 // Text whose `format` is `markdown`, or a question with an option whose preview is Markdown. The
 // message's own claim about the item counts for nothing.
 
@@ -49,12 +49,15 @@ const hasBlankOrControl = (text: string): boolean =>
     return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
   });
 
-/** Whether the URL is `http:` or `https:`, short enough and clean, as `new URL` reads it. */
+/**
+ * Whether the URL is `http:` or `https:` with no user name or password, short enough and clean, as
+ * `new URL` reads it.
+ */
 export const isOpenableUrl = (url: string): boolean => {
   if (url.length > OPEN_LINK_URL_MAX_CHARS || hasBlankOrControl(url)) return false;
   try {
-    const { protocol } = new URL(url);
-    return protocol === "https:" || protocol === "http:";
+    const { protocol, username, password } = new URL(url);
+    return (protocol === "https:" || protocol === "http:") && username === "" && password === "";
   } catch {
     return false;
   }

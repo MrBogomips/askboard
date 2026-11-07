@@ -33,6 +33,14 @@ describe("the anchor a click landed on", () => {
     );
   });
 
+  test("the href is the attribute as the sanitizer kept it, never the resolved `href` property", () => {
+    const anchor = { getAttribute: () => "https://example.com/docs", href: "http://board.test/" };
+    const target = { closest: () => anchor };
+    expect(anchorHref(target, inside)).toBe("https://example.com/docs");
+    const none = { getAttribute: () => null, href: "http://board.test/" };
+    expect(anchorHref({ closest: () => none }, inside)).toBeUndefined();
+  });
+
   test("an element outside an anchor, one with no href, a missing target and a foreign anchor give none", () => {
     expect(anchorHref(standIn({ name: "p" }), inside)).toBeUndefined();
     expect(anchorHref(standIn({ name: "a" }), inside)).toBeUndefined();

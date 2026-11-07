@@ -107,6 +107,14 @@ describe("a forged open-link message opens nothing", () => {
     "https://exa\tmple.com/",
     "https://example.com/\u0000",
     `https://example.com/${"a".repeat(2049 - 20)}`,
+    // A user name or password, in every spelling the URL parser reads (review 2.3 and 4.4, U-2).
+    "https://user:pass@example.com/",
+    "https://user@example.com/",
+    "https://:pass@example.com/",
+    "http://u:p@evil.test/",
+    "https:\\\\user:pass@example.com/",
+    "https:/\\user:pass@example.com/",
+    "HTTPS://USER:PASS@EXAMPLE.COM/",
   ];
 
   test("a URL that is not http or https, does not parse, or is over 2,048 characters", async () => {

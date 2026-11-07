@@ -172,6 +172,61 @@ describe("Markdown: only http and https make a link", () => {
     }
   });
 
+  test("an empty destination makes no link: [a](), [a](<>), ![x]() and ![]() show as text with no anchor", () => {
+    const shown = (source: string) => {
+      const out = html(source);
+      expect(anchors(out), source).toEqual([]);
+      expect(out, source).not.toContain("<a");
+      expect(out, source).not.toContain("href");
+      return out;
+    };
+    expect(shown("[a]()")).toContain("a");
+    expect(shown("[a](<>)")).toContain("a");
+    expect(shown("![x]()")).toContain("x");
+    expect(shown("![]()")).toBe("<p></p>\n");
+    expect(shown("[a]( )")).toBe("<p>a</p>\n");
+    expect(shown("**[b]()**")).toContain("<strong>b</strong>");
+    // The link's other forms keep their anchors beside an empty one.
+    expect(anchors(html("[a]() and [b](https://example.com/b)"))).toEqual([
+      '<a href="https://example.com/b">',
+    ]);
+  });
+
+  test("a user name or password makes no link: the text shows, never the anchor", () => {
+    for (const url of [
+      "https://user:pass@example.com/",
+      "https://user@example.com/",
+      "http://:pass@example.com/",
+      "https://u:p@evil.test/path?x=1",
+      "https:\\\\user:pass@example.com/",
+      "HTTPS://USER:PASS@EXAMPLE.COM/",
+    ]) {
+      for (const source of [`[c](${url})`, `[c][r]\n\n[r]: ${url}`, `![c](${url})`, `<${url}>`]) {
+        const out = html(source);
+        expect(anchors(out), source).toEqual([]);
+        expect(out, source).not.toContain("href");
+      }
+    }
+    // An @ after the host, in the path or the query, is no credential.
+    expect(anchors(html("[m](https://example.com/@user?a=b@c)"))).toHaveLength(1);
+  });
+
+  test("isMarkdownLinkUrl admits http and https with a host and no credentials, case-insensitively", () => {
+    expect(isMarkdownLinkUrl("https://a.test/@x")).toBe(true);
+    expect(isMarkdownLinkUrl("https://a.test:8443/x")).toBe(true);
+    for (const url of [
+      "https://u:p@a.test/",
+      "https://u@a.test/",
+      "http://:p@a.test/",
+      "https:\\\\u:p@a.test/",
+      "https://",
+      "http:",
+      "https://exa mple.com/",
+    ]) {
+      expect(isMarkdownLinkUrl(url), url).toBe(false);
+    }
+  });
+
   test("isMarkdownLinkUrl admits http and https only, case-insensitively", () => {
     for (const url of ["http://a.test/", "https://a.test/x?y=1#z", "HTTPS://A.TEST/"]) {
       expect(isMarkdownLinkUrl(url)).toBe(true);

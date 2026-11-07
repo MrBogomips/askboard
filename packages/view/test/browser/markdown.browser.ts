@@ -107,6 +107,31 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "an empty destination and a link with a user name or password are no anchors: the text shows",
+      async () => {
+        const source = [
+          "[empty]()",
+          "[brackets](<>)",
+          "![image]()",
+          "![]()",
+          "[cred](https://user:pass@example.com/)",
+          "[user](https://user@example.com/)",
+          "![pic](https://u:p@example.com/a.png)",
+          "[fine](https://example.com/fine)",
+        ].join("\n\n");
+        const shown = await render(source);
+        expect(hrefs(shown)).toEqual(["href=https://example.com/fine"]);
+        for (const text of ["empty", "brackets", "image", "cred", "user", "pic"]) {
+          expect(shown.text).toContain(text);
+        }
+        expect(shown.attributes.join("\n")).not.toContain("href=\n");
+        expect(shown.attributes.filter((line) => line === "a")).toEqual([]);
+        clean(frame, shown);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "an image is a link labelled with its alt text and is never loaded",
       async () => {
         const shown = await render("![logo](https://example.com/a.png)");
@@ -237,6 +262,26 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         const upper = await frame.sanitize('<a href="HTTPS://EXAMPLE.COM/">x</a>');
         expect(hrefs(upper)).toEqual(["href=HTTPS://EXAMPLE.COM/"]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a link whose href is empty or holds a user name or password loses its href, with no request",
+      async () => {
+        for (const href of [
+          "",
+          " ",
+          "https://user:pass@example.com/",
+          "https://user@example.com/",
+          "https:\\\\user:pass@example.com/",
+        ]) {
+          const shown = await frame.sanitize(`<a href="${href}">x</a>`);
+          expect(hrefs(shown), JSON.stringify(href)).toEqual([]);
+          expect(frame.requests).toEqual([]);
+        }
+        const kept = await frame.sanitize('<a href="https://example.com/@x">x</a>');
+        expect(hrefs(kept)).toEqual(["href=https://example.com/@x"]);
       },
       TEST_TIMEOUT_MS,
     );

@@ -67,8 +67,20 @@ export const MARKDOWN_ALLOWED_TAGS: readonly string[] = Object.freeze([
 /** The attributes the sanitizer keeps, exactly; `class` only with an alignment class. */
 export const MARKDOWN_ALLOWED_ATTR: readonly string[] = Object.freeze(["class", "href", "start"]);
 
-/** Whether a link or image URL may be a link: `http:` or `https:`, as the board page opens. */
-export const isMarkdownLinkUrl = (url: string): boolean => /^https?:/i.test(url);
+/**
+ * Whether a link or image URL may be a link: `http:` or `https:` with a host and no user name or
+ * password, as the board page opens (view-and-widgets spec: Markdown links in the view). Read by
+ * the URL parser, so that no spelling of a credential slips past a pattern (review 2.3 and 4.4, U-2).
+ */
+export const isMarkdownLinkUrl = (url: string): boolean => {
+  if (!/^https?:/i.test(url)) return false;
+  try {
+    const { host, username, password } = new URL(url);
+    return host !== "" && username === "" && password === "";
+  } catch {
+    return false;
+  }
+};
 
 /** Whether a list's `start` may stay: a whole number of at most nine digits. */
 export const keepStart = (value: string): boolean => /^[0-9]{1,9}$/.test(value);
@@ -106,6 +118,19 @@ const tidy = (token: Token): void => {
   token.attrs = kept.length === 0 ? null : kept;
 };
 
+// A link whose destination is empty (`[a]()`, `[a](<>)`): markdown-it never asks `validateLink`
+// for it, so its text stays and its link goes (review 2.3 and 4.4, S-2).
+const withoutEmptyLinks = (children: Token[]): Token[] => {
+  const kept: Token[] = [];
+  let dropping = false;
+  for (const child of children) {
+    if (child.type === "link_open" && String(child.attrGet("href") ?? "") === "") dropping = true;
+    else if (child.type === "link_close" && dropping) dropping = false;
+    else kept.push(child);
+  }
+  return kept;
+};
+
 const create = (): Parser => {
   const md = new MarkdownIt({
     html: false,
@@ -117,6 +142,7 @@ const create = (): Parser => {
   md.core.ruler.push("askboard_attributes", (state) => {
     for (const token of state.tokens) {
       tidy(token);
+      if (token.children !== null) token.children = withoutEmptyLinks(token.children);
       for (const child of token.children ?? []) tidy(child);
     }
   });
@@ -134,6 +160,7 @@ const create = (): Parser => {
     const token = tokens[at];
     const source = String(token?.attrGet("src") ?? "");
     const alt = visible(self.renderInlineAsText(token?.children ?? [], options, env));
+    if (source === "") return escapeHtml(alt);
     return `<a href="${escapeHtml(source)}">${escapeHtml(alt === "" ? source : alt)}</a>`;
   };
   return md;
@@ -181,6 +208,7 @@ export const sanitizerFor = (win: WindowLike): Purifier | undefined => {
     const { attrName, attrValue } = event;
     if (attrName === "class" && !keepClass(attrValue)) event.keepAttr = false;
     if (attrName === "start" && !keepStart(attrValue)) event.keepAttr = false;
+    if (attrName === "href" && !isMarkdownLinkUrl(attrValue)) event.keepAttr = false;
   });
   purifiers.set(win, purifier);
   return purifier;
