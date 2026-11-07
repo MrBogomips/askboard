@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -73,7 +74,16 @@ type Artifact = {
   readonly zipExtra?: Tree;
   /** Left out of the SHA256SUMS file. */
   readonly omitFromSums?: "zip" | "bundle";
+  /** The bundle asset's text, when it is not the zip's `dist/askboard.mjs` (the sums follow it). */
+  readonly bundle?: string;
+  /** The notes file's text, when it is not the zip's CHANGELOG section. */
+  readonly notes?: string;
+  /** Makes `release/notes.md` a link to a file with the right text. */
+  readonly notesAsLink?: boolean;
 };
+
+/** What the build job writes as notes: the body of the version's section, as a file. */
+const noteText = "Notes for the release.\n\n- an item\n";
 
 /** The `release/` folder the build job uploads, in a workspace; returns the workspace. */
 const makeWorkspace = (name: string, spec: Artifact): string => {
@@ -97,9 +107,16 @@ const makeWorkspace = (name: string, spec: Artifact): string => {
   });
   if (made.exitCode !== 0) throw new Error(`zip: ${made.stderr.toString()}`);
   writeTree(tree, spec.treeExtra ?? {});
-  const bundle = `console.log("bundle ${version}");\n`;
+  const inZip = spec.files["dist/askboard.mjs"];
+  const bundle = spec.bundle ?? (typeof inZip === "string" ? inZip : `// bundle ${version}\n`);
   writeFileSync(join(release, `askboard-${version}.mjs`), bundle);
-  writeFileSync(join(release, "notes.md"), "Notes.\n");
+  const notes = spec.notes ?? noteText;
+  if (spec.notesAsLink) {
+    writeFileSync(join(workspace, "real-notes.md"), notes);
+    symlinkSync(join(workspace, "real-notes.md"), join(release, "notes.md"));
+  } else {
+    writeFileSync(join(release, "notes.md"), notes);
+  }
   const sums = [
     spec.omitFromSums === "bundle" ? "" : `${sha(bundle)}  askboard-${version}.mjs\n`,
     spec.omitFromSums === "zip" ? "" : `${sha(readFileSync(zipped))}  askboard-${version}.zip\n`,
@@ -113,6 +130,7 @@ const releaseFiles = (version: string, extra: Tree = {}): Tree => ({
   "scripts/askboard": { content: "#!/bin/sh\nexit 0\n", mode: 0o755 },
   "dist/askboard.mjs": `// bundle ${version}\n`,
   "README.md": "readme\n",
+  "CHANGELOG.md": `# Changelog\n\n## ${version} - 2026-11-07\n\n${noteText}\n## 0.0.9\n\nold\n`,
   ...extra,
 });
 
@@ -420,6 +438,41 @@ describe.skipIf(missing.length > 0)("the publish job's steps, run against local 
       expect(outcome.githubEnv).toBe("");
       nothingPublished(remote);
     }
+  });
+
+  test("a bundle asset that is not the zip's dist/askboard.mjs is refused, even with matching sums", () => {
+    const remote = makeRemote();
+    const outcome = runPublish(
+      makeWorkspace("w", { files: releaseFiles("0.1.0"), bundle: "// another bundle\n" }),
+      remote,
+    );
+    expect(outcome.failed).toBeDefined();
+    expect(outcome.output).toMatch(/bundle/i);
+    nothingPublished(remote);
+  });
+
+  test("release notes that are not the zip's CHANGELOG section are refused", () => {
+    for (const notes of ["Other notes.\n", `${noteText}\nand one more line\n`]) {
+      const remote = makeRemote();
+      const outcome = runPublish(
+        makeWorkspace("w", { files: releaseFiles("0.1.0"), notes }),
+        remote,
+      );
+      expect(outcome.failed).toBeDefined();
+      expect(outcome.output).toMatch(/notes/i);
+      nothingPublished(remote);
+    }
+  });
+
+  test("a link anywhere under release/ is refused, not only inside the tree", () => {
+    const remote = makeRemote();
+    const outcome = runPublish(
+      makeWorkspace("w", { files: releaseFiles("0.1.0"), notesAsLink: true }),
+      remote,
+    );
+    expect(outcome.failed).toBeDefined();
+    expect(outcome.output).toMatch(/link or a special file/i);
+    nothingPublished(remote);
   });
 
   test("a version that is already tagged is refused, and nothing moves", () => {

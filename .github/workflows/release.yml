@@ -5,7 +5,8 @@ name: Release
 # release. Manual only, and only on `main`. Nothing runs on a pull request or a push: merging a change
 # never releases. `build` and `smoke-linux` only read; `publish` is the one job with a write token,
 # and it runs git and gh alone, trusting nothing in the artifact beyond the zip it verifies and
-# opens (see the comment in that job). No `github` context reaches a `run:` script except through `env:`.
+# opens: the bundle asset and the notes must equal the zip's own file and CHANGELOG section (see the
+# comment in that job). No `github` context reaches a `run:` script except through `env:`.
 on:
   workflow_dispatch:
 
@@ -100,8 +101,8 @@ jobs:
           path: release
       # The artifact is the build job's output, and that job runs dependency code: nothing in it is
       # trusted beyond the zip it names. The steps below read the version as one whole string, check the
-      # zip against its SHA-256, open the zip into a fresh folder, require the uploaded tree to be that
-      # folder, and commit the folder with a repository (GIT_DIR) that lives outside the artifact, so git
+      # zip against its SHA-256, open the zip into a fresh folder, require the uploaded tree, the bundle asset and the
+      # notes to be that folder's files and CHANGELOG section, and commit the folder with a repository (GIT_DIR) that lives outside the artifact, so git
       # reads no file of the artifact as configuration. The token goes only to the steps that reach
       # GitHub (tests: tools/release/publish.test.ts runs these scripts on local files).
       - name: Read the version and verify the files
@@ -131,12 +132,26 @@ jobs:
           fi
           mkdir "$RUNNER_TEMP/release-tree"
           unzip -q "askboard-${VERSION}.zip" -d "$RUNNER_TEMP/release-tree"
-          if [ -n "$(find "$RUNNER_TEMP/release-tree" tree ! -type f ! -type d)" ]; then
-            echo "::error::The zip or the tree holds a link or a special file."
+          if [ -n "$(find . "$RUNNER_TEMP/release-tree" ! -type f ! -type d)" ]; then
+            echo "::error::The release folder or the zip holds a link or a special file."
             exit 1
           fi
           if ! diff -r -q tree "$RUNNER_TEMP/release-tree"; then
             echo "::error::The uploaded tree differs from the verified zip."
+            exit 1
+          fi
+          if ! cmp "askboard-${VERSION}.mjs" "$RUNNER_TEMP/release-tree/dist/askboard.mjs"; then
+            echo "::error::The bundle asset is not the zip's dist/askboard.mjs."
+            exit 1
+          fi
+          # The notes are the body of the zip's CHANGELOG section for the version, as package.ts writes them.
+          awk -v h="## ${VERSION}" '
+            f && /^## / { exit }
+            f { if ($0 ~ /^[[:space:]]*$/) { if (started) pend = pend $0 "\n" } else { printf "%s%s\n", pend, $0; pend = ""; started = 1 } }
+            !f && ($0 == h || index($0, h " - ") == 1) { f = 1 }
+          ' "$RUNNER_TEMP/release-tree/CHANGELOG.md" > "$RUNNER_TEMP/release-notes.md"
+          if ! cmp notes.md "$RUNNER_TEMP/release-notes.md"; then
+            echo "::error::The release notes are not the zip's CHANGELOG section."
             exit 1
           fi
       - name: Refuse an existing tag and fetch the release branch
