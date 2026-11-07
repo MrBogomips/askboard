@@ -258,4 +258,20 @@ describe("a molecule reference's ID on update", () => {
     ]);
     expect(plan).toMatchObject({ kind: "updated" });
   });
+
+  test("the question holding a reference may not replace it with a plain item of its ID, and stays changeable", async () => {
+    const { core } = await setup();
+    const before = JSON.stringify(core.board(ASK_ID));
+    const outcome = await send(core, [
+      { action: "change", itemId: "plan", props: { items: [{ ...tree(), id: "wbs" }] } },
+    ]);
+    expect(outcome).toMatchObject({ kind: "refused", refusal: "in-use", itemId: "wbs" });
+    expect(JSON.stringify(core.board(ASK_ID))).toBe(before);
+    const again = await send(core, [
+      { action: "change", itemId: "plan", props: { text: "Again?" } },
+    ]);
+    expect(again).toMatchObject({ kind: "updated" });
+    const reference = await change(core, "wbs", { data: dataOf(0) });
+    expect(reference).toMatchObject({ kind: "updated" });
+  });
 });

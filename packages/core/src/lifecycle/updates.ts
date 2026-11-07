@@ -221,18 +221,11 @@ const idsHeldBy = (item: Action<"add">["item"]): string[] => {
   return [item.id, ...itemIdsOf(item.props)];
 };
 
-// Whether a molecule reference's ID is held against `id`: the update's references are never pruned,
-// so one stays held after its question is deleted, and its own question (`except`) may keep it. The
-// reference's own question holds the expanded items of its entries (layouts, review X-1).
-const referenceHeld = (context: UpdateContext, id: string, except: string | undefined): boolean => {
-  const { model, widgets } = context;
-  if (!widgets.references.has(id)) return false;
-  if (except === undefined) return true;
-  for (const [itemId, entry] of widgets.expansion) {
-    if (entry.reference === id && model.heldBy(itemId) === except) return false;
-  }
-  return true;
-};
+// Whether a molecule reference's ID is held: the update's references are never pruned, so one stays
+// held after its question is deleted, and no plain item takes it, its own question's included
+// (layouts, review X-1: a question that replaced its reference could neither change nor be fetched).
+const referenceHeld = ({ widgets }: UpdateContext, id: string): boolean =>
+  widgets.references.has(id);
 
 // The refusal of an ID the ask holds elsewhere or held: `except` names the question whose own items
 // do not count, for its change; `sending` names the references of the item being added, which its
@@ -245,7 +238,7 @@ const inUseRefusal = (
 ): Refusal | undefined => {
   const { model } = context;
   const used = ids.find(
-    (id) => model.inUse(id, except) || (!sending.has(id) && referenceHeld(context, id, except)),
+    (id) => model.inUse(id, except) || (!sending.has(id) && referenceHeld(context, id)),
   );
   if (used === undefined) return undefined;
   const holder = model.heldBy(used);
