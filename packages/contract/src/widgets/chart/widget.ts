@@ -1,7 +1,7 @@
-// The Chart's registry entry (chart-widget, design decision 1): its props schema, checks, wording
-// and example. It imports no runtime value of `validate.ts`, `sets.ts` or a schema set module (the
-// registry's import rule). A Chart edits nothing and derives nothing: it gives a result, the
-// highlighted points.
+// The Chart's registry entry (chart-widget, design decision 1): its props and result schemas,
+// checks, wording, example and teaching text. It imports no runtime value of `validate.ts`,
+// `sets.ts` or a schema set module (the registry's import rule). A Chart edits nothing and derives
+// nothing: it gives a result, the highlighted points.
 
 import type { WidgetType } from "../registry.ts";
 import chartProps from "./chart-props.json" with { type: "json" };
@@ -34,5 +34,12 @@ export const CHART_WIDGET: WidgetType = {
         unit: "runs",
       },
     },
+  },
+  skill: {
+    use: "a bar, line or pie chart the user reads and may highlight points on",
+    notes: [
+      "`values` holds one number or null per category, in the categories' order; at most 5 series, and a pie takes one series of at most 5 slices.",
+      '`highlights` is `many` (default), `one` or `none`. The result is `points`, each `{series, category}`; an untouched Chart gives no result, and with `highlights: "none"` there is no result at all, so give the question options or another item.',
+    ],
   },
 };

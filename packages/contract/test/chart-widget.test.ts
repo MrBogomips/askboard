@@ -750,3 +750,43 @@ describe("the Chart's result in the registry's own check", () => {
     expect(CHART_WIDGET.result?.answerProblems).toBeUndefined();
   });
 });
+
+// AskCore.ask reads the shipped registry alone, so it takes the example only once the Chart is
+// registered (task 5.1, with `skills-examples.test.ts`); until then the example goes through the
+// composed schemas and the entry's checks over `withWidgetTypes`, which is what `ask` runs.
+describe("the Chart's teaching text and example", () => {
+  const { skill, example } = CHART_WIDGET;
+  const notes = (skill?.notes ?? []).join(" ");
+
+  test("the text is within askboard-skills' bounds", () => {
+    expect(skill).toBeDefined();
+    expect(skill?.use.length).toBeGreaterThanOrEqual(1);
+    expect(skill?.use.length).toBeLessThanOrEqual(200);
+    expect((skill?.notes ?? []).length).toBeGreaterThan(0);
+    for (const note of skill?.notes ?? []) {
+      expect(note.length).toBeGreaterThanOrEqual(1);
+      expect(note.length).toBeLessThanOrEqual(300);
+    }
+    expect(widgetRegistryProblems(TYPES)).toEqual([]);
+  });
+
+  test("it says when to use a Chart and what its result and values are", () => {
+    expect(skill?.use).toContain("bar, line or pie chart");
+    expect(skill?.use).toContain("highlight");
+    expect(notes).toContain("points");
+    expect(notes).toContain("{series, category}");
+    expect(notes).toContain("values");
+    expect(notes).toContain("categories' order");
+    expect(notes).toContain('highlights: "none"');
+    expect(notes).toContain("no result");
+    expect(notes).toContain("options or another item");
+  });
+
+  test("the example is a Chart that an ask accepts, with a unit", () => {
+    expect(example.item.type).toBe("chart");
+    expect(askProblems(TYPES, example.item)).toEqual([]);
+    expect(askAccepted(TYPES, example.item)).toBe(true);
+    expect((example.item.props as { unit?: string }).unit).toBeDefined();
+    expect(CHART_WIDGET.propsProblems(example.item.props, "agent")).toEqual([]);
+  });
+});
