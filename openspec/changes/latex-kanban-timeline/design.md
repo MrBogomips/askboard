@@ -208,6 +208,7 @@ Seams this change creates, which later changes borrow once it merges: `FieldsSha
 - [Native drag fails by hand in Safari] → the keyboard moves answer; task 6.6 records the PO's check; a failure is a later change to pointer drag, as for the Ranking.
 - [A resized range passes the contract] → the board offers no resize, and the answer still reports exactly what the value holds (open question 9).
 - [The Approval summary shows column and lane IDs, not labels] → values are shown as sent; naming them by label is a later polish.
+- [After a reload past an agent's change, "Keep mine" drops a Kanban's or Timeline's moves (task 5b.2): the page holds only the new revision, so the user's moves cannot be told from the agent's] → accepted under the PO's unattended handoff: the answer always sends what the item shows (AD-10), the agent-change notice counts the moves, and without a reload they are kept; keeping them after a reload needs the host to supply the earlier revision's props, a follow-up.
 
 ## Migration Plan
 
