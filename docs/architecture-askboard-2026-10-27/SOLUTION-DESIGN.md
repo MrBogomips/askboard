@@ -456,7 +456,7 @@ Browsers send no `Origin` on navigations or same-origin GET and HEAD [F31], so r
 
 **Adoption rule** (addendum, NFR-6), in brief:
 
-- **Licence:** permissive by default (MIT, Apache-2.0, BSD, and the like: ISC, 0BSD, the Unlicense); MPL-2.0 or EPL-2.0 only unmodified, and OFL-1.1 only for unmodified font files; no GPL or AGPL in the bundle; no source-available, trial, licence-key or open-core feature AskBoard depends on.
+- **Licence:** permissive by default (MIT, Apache-2.0, BSD, and the like: ISC, 0BSD, the Unlicense); MPL-2.0 or EPL-2.0 only unmodified, and OFL-1.1 only for unmodified font files and for glyph outlines their upstream derived from them, with the licence text, copyright lines and Reserved Font Names; no GPL or AGPL in the bundle; no source-available, trial, licence-key or open-core feature AskBoard depends on.
 - **Stars:** at least 1,000, or a named exception for an established team; an exception waives only this criterion.
 - **Activity:** a push within 6 months and a release within 12, not archived; on 2026-10-27, a push since 2026-04-27 and a release since 2025-10-27.
 - CI fails on a licence outside the rule or an archived dependency (AD-19).
