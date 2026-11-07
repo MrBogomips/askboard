@@ -7,6 +7,27 @@ import type { FieldsShape } from "../element-diff.ts";
 /** The longest expression, in characters; an expression may be empty. */
 export const LATEX_EXPRESSION_MAX_CHARS = 2_000;
 
+/**
+ * The commands that define a macro, as KaTeX 0.19.1 names them (group 4 review S-1, design decision
+ * 7): its `def` functions `\def`, `\gdef`, `\edef`, `\xdef`, `\global`, `\long`, `\let` and
+ * `\futurelet`, and its macros `\newcommand`, `\renewcommand` and `\providecommand`. A LaTeX
+ * holds none: an expansion's limit counts expansions, not what they emit, so a macro repeating a
+ * long body froze the board. A KaTeX upgrade re-reads this list (the widgets' render test pins it).
+ */
+export const LATEX_DEFINING_COMMANDS: readonly string[] = /* @__PURE__ */ Object.freeze([
+  "\\def",
+  "\\gdef",
+  "\\edef",
+  "\\xdef",
+  "\\global",
+  "\\long",
+  "\\let",
+  "\\futurelet",
+  "\\newcommand",
+  "\\renewcommand",
+  "\\providecommand",
+]);
+
 export const LATEX_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
   props: "urn:askboard:input:latex-props",
   changes: "urn:askboard:output:latex-changes",

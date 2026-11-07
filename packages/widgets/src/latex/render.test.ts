@@ -4,6 +4,7 @@
 // command would put in the page; `renderInto` is run on stand-ins for the preview's element.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { LATEX_DEFINING_COMMANDS, latexDefiningCommand } from "@askboard/contract";
 import katex from "katex";
 import { parseProblem, renderInto, renderOptions } from "./render.ts";
 
@@ -100,6 +101,108 @@ describe("macros", () => {
       expect(problem).toContain("Too many expansions");
     },
   );
+});
+
+// Group 4 review S-1 (task 4.5): the contract refuses a macro definition (`LATEX_DEFINING_COMMANDS`),
+// so the render's bound on work is the source. These guards read KaTeX 0.19.1, which a bump re-reads:
+// the list holds every way KaTeX defines a macro, and no built-in command repeats what it is given.
+describe("the macro definitions the contract refuses, read in KaTeX itself", () => {
+  const withoutAnnotation = (markup: string) =>
+    markup.replace(/<annotation[\s\S]*?<\/annotation>/, "");
+  const drawn = (expression: string) => withoutAnnotation(markupOf(expression));
+
+  test("the installed katex is 0.19.1: a bump re-reads the list and the next test", async () => {
+    const manifest = JSON.parse(
+      await Bun.file(`${Bun.resolveSync("katex/package.json", import.meta.dir)}`).text(),
+    ) as { version: string };
+    expect(manifest.version).toBe("0.19.1");
+  });
+
+  // Each command in a form of its own; the definition makes the name known in the same call.
+  // `\renewcommand` needs a name that exists, so it redefines KaTeX's `\TeX`.
+  const FORMS = [
+    ["\\def", "\\def\\zq{x}\\zq", "\\zq"],
+    ["\\gdef", "\\gdef\\zq{x}\\zq", "\\zq"],
+    ["\\edef", "\\edef\\zq{x}\\zq", "\\zq"],
+    ["\\xdef", "\\xdef\\zq{x}\\zq", "\\zq"],
+    ["\\global", "\\global\\def\\zq{x}\\zq", "\\zq"],
+    ["\\long", "\\long\\def\\zq{x}\\zq", "\\zq"],
+    ["\\let", "\\let\\zq=x\\zq", "\\zq"],
+    ["\\futurelet", "\\futurelet\\zq x x\\zq", "\\zq"],
+    ["\\newcommand", "\\newcommand\\zq{x}\\zq", "\\zq"],
+    ["\\renewcommand", "\\renewcommand\\TeX{x}\\TeX", "\\TeX"],
+    ["\\providecommand", "\\providecommand\\zq{x}\\zq", "\\zq"],
+  ] as const;
+
+  test("every command of the list has a form here, and no other command does", () => {
+    expect(FORMS.map(([command]) => String(command)).sort()).toEqual(
+      [...LATEX_DEFINING_COMMANDS].sort(),
+    );
+  });
+
+  test.each(FORMS)(
+    "%s defines a name in the same render, which the name alone lacks",
+    (command, form, name) => {
+      expect(form).toContain(command);
+      expect(parseProblem(form)).toBeUndefined();
+      expect(latexDefiningCommand(form)).toBeDefined();
+      // The definition took effect: the form draws what its body draws.
+      const effect = drawn(form);
+      expect(effect).toContain(">x<");
+      if (name === "\\zq") {
+        expect(parseProblem(name)).toContain("Undefined control sequence: \\zq");
+      } else {
+        expect(drawn(name)).not.toBe(effect);
+      }
+    },
+  );
+
+  // The control words KaTeX names: its functions' `names` and its `defineMacro` names.
+  const katexNames = async (): Promise<readonly string[]> => {
+    const source = await Bun.file(Bun.resolveSync("katex", import.meta.dir)).text();
+    const literals = (text: string) =>
+      [...text.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map(
+        ([, body]) => JSON.parse(`"${body}"`) as string,
+      );
+    const found = new Set<string>();
+    for (const [, body] of source.matchAll(/names:\s*\[((?:[^\]"]|"(?:[^"\\\n]|\\.)*")*)\]/g)) {
+      for (const name of literals(body ?? "")) found.add(name);
+    }
+    for (const [, name] of source.matchAll(/defineMacro\(("(?:[^"\\\n]|\\.)*")/g)) {
+      found.add(JSON.parse(name ?? '""') as string);
+    }
+    return [...found].filter((name) => /^\\[A-Za-z@]+$/.test(name)).sort();
+  };
+
+  test("no control word KaTeX names repeats its argument: three deep, it draws at most 5 times", async () => {
+    const names = await katexNames();
+    // The names are read from the source: a few hundred, among them the ones the contract refuses.
+    expect(names.length).toBeGreaterThan(300);
+    for (const command of LATEX_DEFINING_COMMANDS) expect(names).toContain(command);
+    const base = markupOf("x".repeat(200)).length;
+    // `\show`, `\message` and `\errmessage` print to the console.
+    const printed = (["log", "warn", "error"] as const).map((method) =>
+      spyOn(console, method).mockImplementation(() => undefined),
+    );
+    let drew = 0;
+    let worst = 0;
+    for (const name of names) {
+      const body = "x".repeat(200);
+      const expression = `${name}{${name}{${name}{${body}}}}`;
+      let markup: string | undefined;
+      try {
+        markup = markupOf(expression);
+      } catch {
+        continue; // it fails: a bound as good as any
+      }
+      drew += 1;
+      worst = Math.max(worst, markup.length / base);
+      expect({ name, ratio: markup.length / base <= 5 }).toEqual({ name, ratio: true });
+    }
+    for (const spy of printed) spy.mockRestore();
+    expect(drew).toBeGreaterThan(0);
+    expect(worst).toBeLessThanOrEqual(5);
+  });
 });
 
 describe("parseProblem", () => {

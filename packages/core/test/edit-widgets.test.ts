@@ -85,6 +85,28 @@ describe("a LaTeX answer", () => {
   });
 });
 
+describe("a LaTeX answer that defines a macro", () => {
+  // Core spec: A corrected expression that defines a macro (group 4 review S-1).
+  test("is refused naming the item and the command, with the log unchanged and nothing kept", () => {
+    const problem = refusal([LATEX], { formula: { expression: "\\def\\a{x}\\a" } });
+    expect(problem.detail).toContain('"formula"');
+    expect(problem.detail).toContain("\\def");
+  });
+
+  test("the review's freezing probe as an answer is refused the same way", () => {
+    const expression = `\\def\\b{${"x".repeat(900)}}\\def\\a{${"\\b".repeat(540)}}\\a`;
+    const problem = refusal([LATEX], { formula: { expression } });
+    expect(problem.detail).toContain("\\def");
+  });
+
+  test("a \\newcommand is named as well, and a plain correction still passes", () => {
+    expect(
+      refusal([LATEX], { formula: { expression: "\\newcommand{\\c}{x}\\c" } }).detail,
+    ).toContain("\\newcommand");
+    expect(logged([LATEX], { formula: { expression: "\\frac{a}{b}" } }).events).toHaveLength(1);
+  });
+});
+
 describe("a Kanban answer", () => {
   test("a card moved from todo to done is one set of its column", () => {
     const { events } = logged(

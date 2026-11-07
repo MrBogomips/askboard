@@ -7,12 +7,13 @@
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
-import { LATEX_EXPRESSION_MAX_CHARS } from "./constants.ts";
+import { LATEX_DEFINING_COMMANDS, LATEX_EXPRESSION_MAX_CHARS } from "./constants.ts";
 
 /**
  * What is wrong with a LaTeX's props, the schema's rules restated: an object holding `expression`,
- * a text of at most `LATEX_EXPRESSION_MAX_CHARS` code points, and no other key. The registry runs it
- * after the schema, so it gives nothing for a value the schema passed.
+ * a text of at most `LATEX_EXPRESSION_MAX_CHARS` code points holding no macro definition, and no
+ * other key. The registry runs it after the schema, so it gives nothing for a value the schema
+ * passed that has no definition.
  */
 export const latexPropsProblems = (props: unknown): readonly Problem[] => {
   if (!isRecord(props)) {
@@ -31,6 +32,15 @@ export const latexPropsProblems = (props: unknown): readonly Problem[] => {
         path: "/expression",
         message: `the expression has ${count} characters, more than the limit of ${LATEX_EXPRESSION_MAX_CHARS}`,
       });
+    } else {
+      // Only within the limit, so that the scan reads a bounded text.
+      const command = latexDefiningCommand(expression);
+      if (command !== undefined) {
+        problems.push({
+          path: "/expression",
+          message: `the expression defines a macro with \`${command}\`, which a LaTeX item does not allow`,
+        });
+      }
     }
   }
   return problems;
@@ -48,3 +58,34 @@ export const cutLatexExpression = (text: string): string =>
   text.length <= LATEX_EXPRESSION_MAX_CHARS
     ? text
     : [...text].slice(0, LATEX_EXPRESSION_MAX_CHARS).join("");
+
+const DEFINING: ReadonlySet<string> = new Set(LATEX_DEFINING_COMMANDS);
+
+// A letter of a control word in KaTeX's lexer: `[A-Za-z@]`.
+const isControlLetter = (code: number): boolean =>
+  (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a) || code === 0x40;
+
+/**
+ * The first macro-defining command of `text`, or nothing. Control words are read as KaTeX 0.19.1's
+ * lexer reads them: a backslash then `[A-Za-z@]+` is a control word (`\default` and `\def@x` are
+ * words of their own, `\left` is not `\let`); any other backslash and the one character after it
+ * is a control symbol (`\\`, the line break, is one symbol, so `\\def` is a line break and the text
+ * `def`). One pass, each character read once, with no nested quantifier. A
+ * comment or a `\verb` is not skipped: a command named in one is refused as well, which only
+ * refuses more.
+ */
+export const latexDefiningCommand = (text: string): string | undefined => {
+  let at = text.indexOf("\\");
+  while (at !== -1) {
+    let end = at + 1;
+    while (end < text.length && isControlLetter(text.charCodeAt(end))) end += 1;
+    if (end === at + 1) {
+      at = text.indexOf("\\", at + 2);
+    } else {
+      const word = text.slice(at, end);
+      if (DEFINING.has(word)) return word;
+      at = text.indexOf("\\", end);
+    }
+  }
+  return undefined;
+};

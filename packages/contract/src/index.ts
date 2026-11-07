@@ -719,6 +719,7 @@ export {
 } from "./widgets/kanban/index.ts";
 export {
   cutLatexExpression,
+  LATEX_DEFINING_COMMANDS,
   LATEX_EXPRESSION_MAX_CHARS,
   LATEX_SCHEMA_IDS,
   LATEX_SHAPE,
@@ -726,6 +727,7 @@ export {
   type LatexChange,
   type LatexItem,
   type LatexProps,
+  latexDefiningCommand,
   latexPropsProblems,
 } from "./widgets/latex/index.ts";
 export {

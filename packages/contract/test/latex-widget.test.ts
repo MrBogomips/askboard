@@ -20,16 +20,19 @@ import {
   BOARD_PROTOCOL_VERSION,
   cutLatexExpression,
   elementChanges,
+  LATEX_DEFINING_COMMANDS,
   LATEX_EXPRESSION_MAX_CHARS,
   LATEX_SCHEMA_IDS,
   LATEX_SHAPE,
   LATEX_WIDGET,
+  latexDefiningCommand,
   latexPropsProblems,
   widgetChangesProblems,
   widgetRegistryProblems,
 } from "../src/index.ts";
 import { SCHEMA_IDS } from "../src/sets.ts";
 import { elementShapeOf, validateBoardMessage } from "../src/validate.ts";
+import { LATEX_EXPECTED } from "../src/widgets/latex/wording.ts";
 import { ajvOver, errorsOf } from "./probe-ajv.ts";
 import { askAccepted, askProblems } from "./result-widgets-support.ts";
 
@@ -145,6 +148,136 @@ describe("LaTeX items", () => {
     }
     // The entry runs the same check after the schema, so a schema-valid value gives none.
     expect(LATEX_WIDGET.propsProblems({ expression: "ok" }, "agent")).toEqual([]);
+  });
+});
+
+// Group 4 review S-1 (contract spec: LaTeX macro definitions refused; design decisions 3 and 7): a
+// macro definition is refused, named, read as KaTeX 0.19.1's lexer reads control words.
+const DEFINING = [
+  "\\def",
+  "\\gdef",
+  "\\edef",
+  "\\xdef",
+  "\\global",
+  "\\long",
+  "\\let",
+  "\\futurelet",
+  "\\newcommand",
+  "\\renewcommand",
+  "\\providecommand",
+] as const;
+
+// The review's probe: a body of 900 `x` repeated 540 times through `\a`, 1,998 code points that froze
+// the board for minutes, and the nested variant that repeats `\b` through two more levels.
+const FREEZING = `\\def\\b{${"x".repeat(900)}}\\def\\a{${"\\b".repeat(540)}}\\a`;
+const NESTED = `\\def\\b{${"x".repeat(300)}}\\def\\c{${"\\b".repeat(50)}}\\def\\d{${"\\c".repeat(50)}}\\d`;
+
+describe("LaTeX macro definitions refused", () => {
+  test("the review's freezing probe is within the limit and refused, naming \\def", () => {
+    expect([...FREEZING].length).toBe(1_998);
+    expect([...NESTED].length).toBeLessThanOrEqual(2_000);
+    for (const expression of [FREEZING, NESTED]) {
+      const refused = latexPropsProblems({ expression });
+      expect(refused.map(({ path }) => path)).toEqual(["/expression"]);
+      expect(refused[0]?.message).toBe(
+        "the expression defines a macro with `\\def`, which a LaTeX item does not allow",
+      );
+      const [problem, ...rest] = problems(withExpression(expression));
+      expect(rest).toEqual([]);
+      expect(problem?.itemId).toBe("formula");
+      expect(problem?.field).toBe("props.expression");
+      expect(problem?.message).toContain("\\def");
+    }
+  });
+
+  test.each(DEFINING)("%s is refused, named", (command) => {
+    const refused = latexPropsProblems({ expression: `${command}\\zq{x}\\zq` });
+    expect(refused).toHaveLength(1);
+    expect(refused[0]?.path).toBe("/expression");
+    expect(refused[0]?.message).toContain(`\`${command}\``);
+    expect(problems(withExpression(`a + ${command} b`))[0]?.message).toContain(command);
+  });
+
+  test("a prefix names the prefix, the first defining command in the text", () => {
+    expect(latexPropsProblems({ expression: "\\global\\def\\a{x}" })[0]?.message).toContain(
+      "`\\global`",
+    );
+    expect(latexPropsProblems({ expression: "x \\let\\a=b \\def\\c{d}" })[0]?.message).toContain(
+      "`\\let`",
+    );
+  });
+
+  test("the list holds the eleven commands, frozen, and the scan names the first of them", () => {
+    expect([...LATEX_DEFINING_COMMANDS].sort()).toEqual([...DEFINING].sort());
+    expect(Object.isFrozen(LATEX_DEFINING_COMMANDS)).toBe(true);
+    for (const command of DEFINING) {
+      expect(latexDefiningCommand(`a ${command}`)).toBe(command);
+      expect(latexDefiningCommand(`${command}x`)).toBeUndefined();
+    }
+    expect(latexDefiningCommand("")).toBeUndefined();
+    expect(latexDefiningCommand("\\global\\def")).toBe("\\global");
+    expect(latexDefiningCommand("\\frac \\let")).toBe("\\let");
+  });
+
+  test("the scan ends on 2,000 backslashes and on 2,000 code points of letters, with no command", () => {
+    // No timing assertion: task 4.7's security review probes the run time.
+    for (const text of [
+      "\\".repeat(1_000),
+      "\\".repeat(2_000),
+      `\\${"a".repeat(1_999)}`,
+      "\\a".repeat(666),
+      `${"\\".repeat(1_000)}def`,
+      "\\de".repeat(500),
+      "\\defa".repeat(333),
+    ]) {
+      expect(latexDefiningCommand(text)).toBeUndefined();
+    }
+  });
+
+  test("the request's wording and the teaching text say that no definition is allowed", () => {
+    expect(LATEX_EXPECTED["latex.props.expression"]).toContain("no macro definition");
+    expect(LATEX_WIDGET.skill?.notes?.join(" ")).toContain("a macro definition");
+    expect(LATEX_WIDGET.skill?.notes?.join(" ")).not.toContain("outlives");
+  });
+
+  test("an ask holding \\newcommand is refused by the request's check, naming it", () => {
+    const [problem, ...rest] = problems(withExpression("\\newcommand{\\c}{x}\\c"));
+    expect(rest).toEqual([]);
+    expect(problem?.itemId).toBe("formula");
+    expect(problem?.message).toContain('item "formula"');
+    expect(problem?.message).toContain("\\newcommand");
+  });
+
+  test("an edited value's check refuses it as well, so ask-core can", () => {
+    const refused = LATEX_WIDGET.propsProblems({ expression: "\\def\\a{x}\\a" }, "edited");
+    expect(refused.map(({ message }) => message)).toEqual([
+      "the expression defines a macro with `\\def`, which a LaTeX item does not allow",
+    ]);
+  });
+
+  test("control words that only look like one pass", () => {
+    for (const expression of [
+      "a \\\\ def",
+      "\\left( x \\right)",
+      "\\def@x",
+      "\\default",
+      "\\DEF",
+      "\\\\def",
+      "\\\\\\\\let",
+      "def newcommand",
+      "\\frac{a}{b}",
+      "\\ def",
+      "x\\",
+      "",
+    ]) {
+      expect(latexPropsProblems({ expression })).toEqual([]);
+    }
+  });
+
+  test("a control symbol does not hide the word after it, and `\\\\` is a symbol of its own", () => {
+    expect(latexPropsProblems({ expression: "\\,\\def\\a{x}" })).toHaveLength(1);
+    expect(latexPropsProblems({ expression: "\\%\\let" })).toHaveLength(1);
+    expect(latexPropsProblems({ expression: "\\\\\\def" })).toHaveLength(1);
   });
 });
 

@@ -4,7 +4,7 @@
 
 import { LATEX_EXPRESSION_MAX_CHARS } from "./constants.ts";
 
-export const LATEX_EXPRESSION_SHAPE = `text of 0 to ${LATEX_EXPRESSION_MAX_CHARS} characters, LaTeX source that may be empty`;
+export const LATEX_EXPRESSION_SHAPE = `text of 0 to ${LATEX_EXPRESSION_MAX_CHARS} characters, LaTeX source that may be empty, with no macro definition`;
 
 export const LATEX_EXPECTED: Readonly<Record<string, string>> = {
   "latex.props": "a LaTeX's props {expression}",
