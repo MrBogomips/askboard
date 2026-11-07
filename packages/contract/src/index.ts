@@ -979,3 +979,12 @@ export {
   type TabsProps,
   tabsPropsProblems,
 } from "./widgets/tabs/index.ts";
+
+// The safe subset of a TextField's pattern (form-widget, design decision 3): the one-pass check
+// `ask` and `update` run, and its limits.
+
+export {
+  PATTERN_MAX_CHARS,
+  PATTERN_TEXT_MAX_CHARS,
+  patternProblem,
+} from "./widgets/shared/pattern.ts";
