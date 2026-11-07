@@ -11,6 +11,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { TEXT_MAX_CHARS } from "@askboard/contract";
 import { MARKDOWN_HTML_MAX_CHARS } from "../../src/catalog/text/markdown.ts";
+import { DENSE_TABLE, EMPTY_ITEMS, paddedTable } from "./fixtures/dense-markdown.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { MarkdownFrame } from "./harness/markdown-frame.ts";
 
@@ -72,6 +73,10 @@ const FIXTURES: readonly (readonly [string, string])[] = [
   ],
   ["a table of 500 cells", table(10, 49)],
   ["a table of 10,000 characters of narrow cells", cut(table(40, 60))],
+  // Pre-PR review X-1 (atoms 5.12): short sources that render to about 19,000 elements.
+  ["a table of 100 columns and 190 short rows, padded", DENSE_TABLE],
+  ["a table of 200 columns and 95 short rows, padded", paddedTable(200, 95)],
+  ["a list of 4,999 empty items", EMPTY_ITEMS],
   ["10,000 plain characters on one line", "a".repeat(TEXT_MAX_CHARS)],
   ["entities `&amp;`", cut("&amp;".repeat(2_000))],
   ["angle brackets `<a `", cut("<a ".repeat(3_333))],
@@ -97,6 +102,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
         async () => {
           expect(Array.from(source).length).toBeLessThanOrEqual(TEXT_MAX_CHARS);
           const shown = await frame.render(source);
+          console.error(
+            `markdown-bounds ${engine}: ${name}: ${shown.ms.toFixed(0)} ms, ${shown.nodes} nodes, ${(shown.html ?? "").length} HTML characters`,
+          );
           expect(shown.ms, `${name} took ${shown.ms.toFixed(0)} ms`).toBeLessThan(BUDGET_MS);
           expect(shown.nodes).toBeLessThanOrEqual(NODES_MAX);
           expect((shown.html ?? "").length).toBeLessThanOrEqual(MARKDOWN_HTML_MAX_CHARS);

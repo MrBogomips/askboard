@@ -1,7 +1,8 @@
 // The total of an ask's Markdown, in Chromium and WebKit (atoms, task 5.11; review 5.6, unconfirmed):
 // the HTML cap of 200,000 characters binds one Text, and nothing in the contract counts the Texts of
-// an ask, so a board of 200 Texts each rendering to just under the cap is the worst board an agent
-// can send. The board must be ready within 2 seconds of the same board of plain Texts (the LaTeX's
+// an ask, so a board of 200 Texts each rendering to just under the cap is the largest board by characters.
+// Elements are the other axis (pre-PR review X-1, task 5.12): the same board of the 100-column,
+// 190-row padded table (about 19,000 elements each, under the cap) is timed as well. The board must be ready within 2 seconds of the same board of plain Texts (the LaTeX's
 // bound), every Text still drawn as Markdown, with the nodes bounded and no policy violation. Over
 // 2 seconds in either engine stops the task for the coordinator: a cap or a bound needs a design
 // decision.
@@ -11,6 +12,7 @@
 import { describe, expect, test } from "bun:test";
 import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/catalog/text/markdown.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
+import { DENSE_TABLE } from "./fixtures/dense-markdown.ts";
 import { TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { readyIn } from "./harness/tree-steps.ts";
@@ -34,11 +36,11 @@ const NEAR_CAP = (() => {
   throw new Error("no source renders to between 90% and 100% of the cap");
 })();
 
-const texts = (source: string) =>
+const texts = (source: string, markdown = false) =>
   Array.from({ length: TEXTS }, (_, at) => ({
     type: "text",
     id: `t${at}`,
-    props: { text: source, ...(source === NEAR_CAP ? { format: "markdown" } : {}) },
+    props: { text: source, ...(markdown ? { format: "markdown" } : {}) },
   }));
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
@@ -62,7 +64,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
         const plainMs = performance.now() - plainStarted;
 
         const started = performance.now();
-        const run = await host(dist, atomDocument(texts(NEAR_CAP)));
+        const run = await host(dist, atomDocument(texts(NEAR_CAP, true)));
         await readyIn(run);
         const heavyMs = performance.now() - started;
         const extra = heavyMs - plainMs;
@@ -71,6 +73,36 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
         );
         const drawn = await run.board.view.locator('[data-text-format="markdown"]').count();
         expect(drawn).toBe(TEXTS);
+        expect(extra, `${engine}: ${extra.toFixed(0)} ms over the plain board`).toBeLessThan(
+          BOUND_MS,
+        );
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a board of the densest table (100 columns by 190 short rows, about 19,000 elements each) is ready within 2 seconds of a plain board, every Text drawn as Markdown",
+      async () => {
+        const html = markdownHtml(DENSE_TABLE);
+        expect(html?.length ?? 0).toBeGreaterThan(0);
+        expect(html?.length ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+          MARKDOWN_HTML_MAX_CHARS,
+        );
+        const plainStarted = performance.now();
+        const plain = await host(dist, atomDocument(texts("plain text")));
+        await readyIn(plain);
+        const plainMs = performance.now() - plainStarted;
+
+        const started = performance.now();
+        const run = await host(dist, atomDocument(texts(DENSE_TABLE, true)));
+        await readyIn(run);
+        const heavyMs = performance.now() - started;
+        const extra = heavyMs - plainMs;
+        console.error(
+          `markdown-total ${engine}: ${TEXTS} dense tables of ${html?.length} HTML characters each: ready in ${heavyMs.toFixed(0)} ms, plain board ${plainMs.toFixed(0)} ms, difference ${extra.toFixed(0)} ms`,
+        );
+        expect(await run.board.view.locator('[data-text-format="markdown"]').count()).toBe(TEXTS);
         expect(extra, `${engine}: ${extra.toFixed(0)} ms over the plain board`).toBeLessThan(
           BOUND_MS,
         );
