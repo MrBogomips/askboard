@@ -10,6 +10,7 @@ import {
   type ScaleProps,
   type ScaleResult,
   scaleStepCount,
+  scaleStepIndex,
 } from "@askboard/contract";
 
 const stepOf = (props: ScaleProps): number => props.step ?? SCALE_DEFAULT_STEP;
@@ -29,12 +30,23 @@ const decimalsOf = (value: number): number => {
   return Math.max(0, (mantissa.split(".")[1] ?? "").length - Number(exponent));
 };
 
-// The value of step `index`, 0 to `steps`: the ends exactly, between them rounded to the decimals.
+// The value of step `index`, 0 to `steps`: the ends exactly, between them the sum `min + index *
+// step` rounded to the decimals of `min` and `step`, which cleans floating-point noise (0.1 three
+// times). Rounding stops at 100 places, so a number needing more would round off its step, to
+// another step or outside `min` to `max` (pre-PR security review X-2): then the sum itself, which
+// the contract's check reads within a billionth of a step, is the value.
 const valueOfStep = (props: ScaleProps, index: number, steps: number): number => {
   if (index <= 0) return props.min;
   if (index >= steps) return props.max;
-  const places = Math.min(100, Math.max(decimalsOf(props.min), decimalsOf(stepOf(props))));
-  return Number((props.min + index * stepOf(props)).toFixed(places));
+  const step = stepOf(props);
+  const sum = props.min + index * step;
+  const places = Math.min(100, Math.max(decimalsOf(props.min), decimalsOf(step)));
+  const rounded = Number(sum.toFixed(places));
+  const onStep =
+    rounded >= props.min &&
+    rounded <= props.max &&
+    scaleStepIndex(rounded, props.min, step) === index;
+  return onStep ? rounded : Math.min(props.max, Math.max(props.min, sum));
 };
 
 /** The value of the nearest step to `value`, clamped to `min` to `max`; `min` for a non-number. */

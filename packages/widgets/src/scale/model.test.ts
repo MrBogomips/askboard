@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { SCALE_WIDGET, type ScaleProps, scalePropsProblems } from "@askboard/contract";
+import {
+  SCALE_WIDGET,
+  type ScaleProps,
+  scalePropsProblems,
+  scaleStepIndex,
+} from "@askboard/contract";
 import {
   firstResult,
   firstValue,
@@ -206,5 +211,54 @@ describe("every result the model makes passes the contract's check", () => {
       }
     }
     expect(checked).toBeGreaterThan(400);
+  });
+});
+
+// Numbers that need more than 100 decimals (approval-scale-ranking, pre-PR security review X-2):
+// rounding to 100 places moved a step off its grid, to a value below `min` or to another step.
+describe("a Scale's tiny numbers", () => {
+  const tiny: readonly ScaleProps[] = [
+    { min: 1e-200, max: 2e-200, step: 1e-201 },
+    { min: 0, max: 1e-149, step: 1e-150, display: "rating" },
+    { min: 0, max: 1e-99, step: 1e-101 },
+    { min: 0, max: 1e-100, step: 1e-101 },
+  ];
+  const FRACTIONS = [0, 0.1, 0.26, 0.33, 0.51, 0.74, 0.9, 1];
+
+  test("the props are the contract's to accept", () => {
+    for (const props of tiny) expect(scalePropsProblems(props)).toEqual([]);
+  });
+
+  test("every value at a fraction of the track is accepted and lands on the step the fraction names", () => {
+    for (const props of tiny) {
+      const steps = stepsOf(props);
+      for (const fraction of FRACTIONS) {
+        const value = valueAt(props, fraction);
+        expect(accepted(props, { value })).toBe(true);
+        expect(scaleStepIndex(value, props.min, props.step ?? 1)).toBe(
+          Math.round(fraction * steps),
+        );
+      }
+    }
+  });
+
+  test("a rating's values are distinct, each accepted and on its own step in order", () => {
+    for (const props of tiny) {
+      const values = ratingValues({ ...props, display: "rating" });
+      expect(new Set(values).size).toBe(values.length);
+      for (const [index, value] of values.entries()) {
+        expect(accepted(props, { value })).toBe(true);
+        expect(scaleStepIndex(value, props.min, props.step ?? 1)).toBe(index);
+      }
+    }
+  });
+
+  test("snap to a value near a step lands on that step, and a range's ends are accepted", () => {
+    for (const props of tiny) {
+      const range = { ...props, range: true };
+      const low = snap(props, props.min + (props.step ?? 1) * 2.2);
+      expect(scaleStepIndex(low, props.min, props.step ?? 1)).toBe(2);
+      expect(accepted(range, resultOf(range, [low, snap(props, props.max)]))).toBe(true);
+    }
   });
 });
