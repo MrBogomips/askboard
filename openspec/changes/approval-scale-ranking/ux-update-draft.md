@@ -1,6 +1,6 @@
 # UX update draft: Approval, Scale and Ranking
 
-**Status: not applied.** Task 0.1 applies it, with the proposal's open questions 2, 3, 4, 7 and 8 carrying their answers; a question answered otherwise changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization, Italian microcopy).
+**Status: applied on 2026-11-07 by task 0.1 (blocks 1 to 10, each current text found once, replaced word for word).** Task 0.1 applies it, with the proposal's open questions 2, 3, 4, 7 and 8 carrying their answers; a question answered otherwise changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization, Italian microcopy).
 
 How to apply: replace each quoted text in `docs/ux-askboard-2026-10-27/EXPERIENCE.md` or `DESIGN.md`, set `updated:` in each file's front matter to the apply date, then run `openspec validate --all --strict --no-interactive`. Task 0.1 checks that each current text stands once, word for word, just before the edit.
 
