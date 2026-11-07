@@ -129,8 +129,9 @@ describe("Scale items", () => {
     expect(SCALE_WIDGET.wording?.expected["scale.props.display"]).toBe(
       '"slider" or "rating": a rating takes one value out of at most 11',
     );
+    // The Scale is the Slider atom (atoms, proposal open question 2): its teaching text says so.
     expect(SCALE_WIDGET.skill?.use).toBe(
-      "a number on a slider, a range between two numbers, or a rating of up to 11 values",
+      "a number on a slider (the Slider), a range between two numbers, or a rating of up to 11 values",
     );
   });
 

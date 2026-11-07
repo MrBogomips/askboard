@@ -43,7 +43,7 @@ A question (`question`) is `{type: "question", id, props: {text, header?, option
 - a Tree (`tree`): a work breakdown or any hierarchy the user edits: add, move, rename, remove nodes, adjust estimates → [tree](references/widgets/tree.md)
 - a Gantt (`gantt`): a schedule the user adjusts: tasks, durations, dependencies, with dates and the critical path computed → [gantt](references/widgets/gantt.md)
 - an Approval (`approval`): a decision on its question's content: approve, approve with changes or reject; put it last in the question it approves → [approval](references/widgets/approval.md)
-- a Scale (`scale`): a number on a slider, a range between two numbers, or a rating of up to 11 values → [scale](references/widgets/scale.md)
+- a Scale (`scale`): a number on a slider (the Slider), a range between two numbers, or a rating of up to 11 values → [scale](references/widgets/scale.md)
 - a Ranking (`ranking`): an order of 2 to 50 items the user sets by dragging or with Move up and Move down → [ranking](references/widgets/ranking.md)
 - a LaTeX (`latex`): one mathematical expression in LaTeX that the user reads and corrects, with a live preview → [latex](references/widgets/latex.md)
 - a Kanban (`kanban`): cards the user moves between 2 to 12 columns, such as statuses, priorities or owners → [kanban](references/widgets/kanban.md)

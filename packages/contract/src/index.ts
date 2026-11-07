@@ -884,3 +884,18 @@ export {
   numberFieldResultProblems,
   numberFieldResultShape,
 } from "./widgets/number-field/index.ts";
+
+// The MoneyField (atoms, design decisions 1 and 2), unregistered until its chunk exists.
+
+export {
+  MONEY_FIELD_MAX_CURRENCIES,
+  MONEY_FIELD_MIN_CURRENCIES,
+  MONEY_FIELD_SCHEMA_IDS,
+  MONEY_FIELD_WIDGET,
+  type MoneyFieldItem,
+  type MoneyFieldProps,
+  type MoneyFieldResult,
+  moneyFieldPropsProblems,
+  moneyFieldResultProblems,
+  moneyFieldResultShape,
+} from "./widgets/money-field/index.ts";

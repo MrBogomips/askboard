@@ -4,6 +4,7 @@
 
 import { DATE_FIELD_WIDGET } from "../widgets/date-field/widget.ts";
 import { DIVIDER_WIDGET } from "../widgets/divider/widget.ts";
+import { MONEY_FIELD_WIDGET } from "../widgets/money-field/widget.ts";
 import { NUMBER_FIELD_WIDGET } from "../widgets/number-field/widget.ts";
 import type { WidgetType } from "../widgets/registry.ts";
 import { TEXT_WIDGET } from "../widgets/text/widget.ts";
@@ -22,6 +23,7 @@ export const ATOM_TYPES: readonly WidgetType[] = [
   DIVIDER_WIDGET,
   TEXT_FIELD_WIDGET,
   NUMBER_FIELD_WIDGET,
+  MONEY_FIELD_WIDGET,
   DATE_FIELD_WIDGET,
   TOGGLE_WIDGET,
 ];
@@ -109,3 +111,19 @@ export const DATE_FIELD_FIXTURE_ITEMS = [
 
 /** A result of each DateField above, in order. */
 export const DATE_FIELD_RESULTS = ["2026-03-02", "2026-06-30"] as const;
+
+/** A MoneyField of one currency with a minimum, and one that offers two currencies. */
+export const MONEY_FIELD_FIXTURE_ITEMS = [
+  { type: "money-field", id: "budget", props: { label: "Budget", currency: "EUR", min: "0" } },
+  {
+    type: "money-field",
+    id: "price",
+    props: { label: "Price", currencies: ["EUR", "JPY"], description: "Per seat, before tax." },
+  },
+] as const;
+
+/** A result of each MoneyField above, in order. */
+export const MONEY_FIELD_RESULTS = [
+  { amount: "12480.50", currency: "EUR" },
+  { amount: "1500", currency: "JPY" },
+] as const;

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:money-field-result",
+  "title": "MoneyField result",
+  "description": "A MoneyField's result (FR-13, FR-18, atoms design decisions 1 and 2): the amount, a decimal string of at most 15 integer digits and 4 decimals, and its currency, an ISO 4217 code. That the amount has at most the currency's minor units in decimals, lies within the item's min and max and that the currency is the item's are checks of the type against the item's props. In the output format since atoms.",
+  "type": "object",
+  "properties": {
+    "amount": { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$" },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+  },
+  "required": ["amount", "currency"],
+  "additionalProperties": false
+}
