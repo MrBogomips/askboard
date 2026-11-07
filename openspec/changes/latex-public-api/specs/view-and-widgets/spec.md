@@ -22,9 +22,13 @@ An expression the contract's LaTeX check refuses SHALL NOT render: one holding a
 - **THEN** within 2 seconds the field error names the depth and the limit for the first and the command ``\char` `` for the second, KaTeX does not run, and Chromium's renderer does not crash
 
 
-#### Scenario: Stacked combining marks
-- **WHEN** the agent sends, or the user types, `x` followed by 130 combining circumflex accents (U+0302)
+#### Scenario: Stacked combining marks typed
+- **WHEN** the user types `x` followed by 130 combining circumflex accents (U+0302)
 - **THEN** the field error names the depth and the limit, KaTeX does not run, the preview keeps its last render or stays empty, and Chromium's renderer does not crash
+
+#### Scenario: Stacked combining marks sent
+- **WHEN** the agent sends `x` followed by 130 combining circumflex accents (U+0302) in an `ask` or an `update`
+- **THEN** the request is refused, naming the item, and nothing reaches the board
 
 ## ADDED Requirements
 
