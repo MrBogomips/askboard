@@ -20,7 +20,7 @@ export type SummaryItem = {
 
 /**
  * One change. `previous` and `next` are shown values, for a `set` only; `field` is the field set.
- * An element added shows its name from the shown value, a removed one from what was sent.
+ * An element is named from what was sent, an added one from the shown value.
  */
 export type SummaryLine = {
   readonly op: Change["op"];
@@ -90,8 +90,8 @@ const lineOf = (
       next: formatValue(change.value, locale, words),
     };
   }
-  const name = change.op === "remove" ? nameOf(was, elementId) : nameOf(now ?? was, elementId);
-  return { ...base, name };
+  // One name per element: from the element as sent, the shown one only for an added element.
+  return { ...base, name: nameOf(was ?? now, elementId) };
 };
 
 /**

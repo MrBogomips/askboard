@@ -81,6 +81,32 @@ describe("summarise", () => {
     expect(result.lines.map((line) => [line.op, line.elementId])).toEqual([["move", "b"]]);
   });
 
+  test("a node renamed and moved has one name on its move line and its set line", () => {
+    const shown = {
+      nodes: [
+        { id: "b", label: "Construction", effort: 5, children: sentTree.nodes[1]?.children },
+        sentTree.nodes[0],
+      ],
+    };
+    const lines = run([tree(shown)]).lines;
+    expect(lines.map((line) => [line.op, line.elementId, line.name])).toEqual(
+      expect.arrayContaining([
+        ["move", "b", "Build"],
+        ["set", "b", "Build"],
+      ]),
+    );
+    expect(new Set(lines.filter((line) => line.elementId === "b").map((l) => l.name))).toEqual(
+      new Set(["Build"]),
+    );
+  });
+
+  test("an added node is named from the shown element, there being no sent one", () => {
+    const shown = { nodes: [...sentTree.nodes, { id: "e", label: "Launch" }] };
+    expect(run([tree(shown)]).lines.map((line) => [line.op, line.elementId, line.name])).toEqual([
+      ["add", "e", "Launch"],
+    ]);
+  });
+
   test("a keyed Gantt plan entry is named by its ID", () => {
     const sent = { start: "2026-11-02", workPackages: "plan", tasks: { a: { duration: 3 } } };
     const shown = { start: "2026-11-02", workPackages: "plan", tasks: { a: { duration: 5 } } };
