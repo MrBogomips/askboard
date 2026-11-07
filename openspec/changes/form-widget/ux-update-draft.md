@@ -1,6 +1,6 @@
 # UX update draft: form-widget
 
-**Status: to be applied by task 0.1.** It rests on the proposal's open questions 1 to 7 and 12, answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on the base 886739d3 (`atoms` and `layouts` applied their own blocks there; none of these texts), then gives the replacement. Italian strings are provisional, "(to review)", as `settings-languages` wrote the others.
+**Status: applied by task 0.1 on 2026-11-07.** It rests on the proposal's open questions 1 to 7 and 12, answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on the base 886739d3 (`atoms` and `layouts` applied their own blocks there; none of these texts), then gives the replacement. Italian strings are provisional, "(to review)", as `settings-languages` wrote the others.
 
 Files: `docs/ux-askboard-2026-10-27/EXPERIENCE.md` (blocks 1 to 6) and `DESIGN.md` (blocks 7 and 8).
 

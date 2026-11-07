@@ -1,6 +1,6 @@
 # Spine update draft: form-widget
 
-**Status: to be applied by task 0.1.** It rests on the proposal's open questions 1, 3 and 4, answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on the base 886739d3 (`atoms` and `layouts` applied their own blocks there; none of these phrases), then gives the replacement. AD-7 is amended in place; no AD is added or renumbered. The PRD needs no change: FR-11's Form row stands as written.
+**Status: applied by task 0.1 on 2026-11-07.** It rests on the proposal's open questions 1, 3 and 4, answered on 2026-11-07 with their defaults under the PO's unattended handoff; the PO may revisit. Each block quotes the current text exactly as it stands on the base 886739d3 (`atoms` and `layouts` applied their own blocks there; none of these phrases), then gives the replacement. AD-7 is amended in place; no AD is added or renumbered. The PRD needs no change: FR-11's Form row stands as written.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 
