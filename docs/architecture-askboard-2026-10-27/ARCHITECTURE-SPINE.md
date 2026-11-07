@@ -36,6 +36,7 @@ sources:
   - 'OpenSpec change skill-no-delegated-asks, proposal.md: no subagent asks on another agent''s behalf; the support-agents evaluation''s candidate C (a background dialogue) rejected (PO decision, 2026-11-07)'
   - 'OpenSpec change plugin-release, design.md, decision 7 and open questions 1 to 7: the Node form of the plugin, the start script, the release branch and the first release (0.1.0), accepted under the PO''s unattended handoff (2026-11-07)'
   - 'OpenSpec change latex-kanban-timeline, proposal.md, open questions 2 and 8: a whole field changed by one set, changes checked against their type (accepted under the PO''s unattended handoff, 2026-11-07)'
+  - 'OpenSpec change latex-kanban-timeline, proposal.md, open question 14: lightningcss for the view build''s URL check (accepted under the PO''s unattended handoff, 2026-11-07)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -665,6 +666,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@pierre/diffs` (Diff review) | 1.6.2 |
 | `@rjsf/core`, `@rjsf/utils` (Form) | 6.11.0 |
 | `tailwindcss`, `@tailwindcss/cli` (build-time styles) | 4.3.3 |
+| `lightningcss` (build-time: the view build's check of URLs in styles; Tailwind's own CSS engine; MPL-2.0, unmodified) | 1.32.0 |
 | `@modelcontextprotocol/core`, `@modelcontextprotocol/client` (ext-apps' peers) | 2.4.0 |
 | `zod` (ext-apps' peer, with `jitless` set first) | 4.6.7 |
 | `@fontsource-variable/inter` or `@fontsource/inter`, `@fontsource/jetbrains-mono` (DESIGN.md's faces; Fontsource's stars exception) | 5.3.0 |

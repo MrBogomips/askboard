@@ -2,6 +2,8 @@
 // Every script and style is inlined: the board page holds its own, and `assemble` inlines the
 // chunks into the view's srcdoc, where the CSP admits each by the hash of its exact text.
 
+import { transform } from "lightningcss";
+
 /** A classic script that holds `import.meta` does not parse, in any engine. */
 export const importMetaProblem = (chunk: string, code: string): string | undefined =>
   /\bimport\s*\.\s*meta\b/.test(code)
@@ -77,189 +79,117 @@ export const hostOnlyNeedProblems = (chunks: readonly NeedingChunk[]): string[] 
     );
 };
 
-const URL_CALL = /url\(/gi;
-const IMPORT_RULE = /@import\b/gi;
 const SHOWN_CHARACTERS = 80;
-const MAX_ESCAPE_DIGITS = 6;
-const MAX_CODE_POINT = 0x10ffff;
+const SHOWN_MESSAGE_CHARACTERS = 200;
+const IMAGE_SET_FUNCTIONS = new Set(["image-set", "-webkit-image-set"]);
+// The one URL the font rewrite makes (`tools/build/stylesheets.ts`).
+const WOFF2_DATA_URL = /^data:font\/woff2[;,]/i;
 
-// The characters CSS Syntax gives a meaning outside identifiers: an escape that would read as one
-// stays an escape, so decoding never makes a string, a comment, a function or a blank that the
-// browser would not read.
-const STRUCTURAL = new Set(['"', "'", "(", ")", "\\", "/", "*", " ", "\t", "\n", "\r", "\f"]);
-const BLANKS = new Set([" ", "\t", "\n", "\r", "\f"]);
+type Node = Record<string, unknown>;
 
-const isHex = (char: string | undefined): boolean =>
-  char !== undefined && /^[0-9a-fA-F]$/.test(char);
+const isNode = (value: unknown): value is Node => typeof value === "object" && value !== null;
 
-// The code point an escape names; none, a surrogate or one past U+10FFFF read as U+FFFD.
-const codePointOf = (hex: number): number =>
-  hex === 0 || hex > MAX_CODE_POINT || (hex >= 0xd800 && hex <= 0xdfff) ? 0xfffd : hex;
+// A URL or a string as the parser decoded it, cut: never a whole stylesheet in a message.
+const shown = (text: string, limit = SHOWN_CHARACTERS): string =>
+  text.length > limit ? `${text.slice(0, limit)}...` : text;
 
-type Decoded = {
-  readonly text: string;
-  /** For each character of `text`, where it starts in the source. */
-  readonly at: readonly number[];
+// The `url` objects of a font face's `src` entries that hold a woff2 data: URL: the exception.
+const fontSourceUrls = (face: Node): Node[] => {
+  const properties = isNode(face.value) ? face.value.properties : undefined;
+  if (!Array.isArray(properties)) return [];
+  return properties
+    .filter((property) => isNode(property) && property.type === "source")
+    .flatMap((property) => (Array.isArray(property.value) ? property.value : []))
+    .flatMap((source) => {
+      const url =
+        isNode(source) && source.type === "url" && isNode(source.value) && source.value.url;
+      return isNode(url) && typeof url.url === "string" && WOFF2_DATA_URL.test(url.url)
+        ? [url]
+        : [];
+    });
 };
 
-// One escape at `from` (a backslash): the text it reads as and where it ends.
-const escapeAt = (css: string, from: number): { text: string; end: number } => {
-  let end = from + 1;
-  while (end - from - 1 < MAX_ESCAPE_DIGITS && isHex(css[end])) end += 1;
-  if (end > from + 1) {
-    const text = String.fromCodePoint(codePointOf(Number.parseInt(css.slice(from + 1, end), 16)));
-    if (css[end] === "\r" && css[end + 1] === "\n") end += 1;
-    if (BLANKS.has(css[end] ?? "")) end += 1;
-    return { text, end };
-  }
-  const char = String.fromCodePoint(css.codePointAt(from + 1) as number);
-  return { text: char, end: from + 1 + char.length };
-};
+const imageSetName = (node: Node): boolean =>
+  node.type === "function" &&
+  isNode(node.value) &&
+  typeof node.value.name === "string" &&
+  IMAGE_SET_FUNCTIONS.has(node.value.name.toLowerCase());
+
+type Reach = { readonly node: unknown; readonly inImageSet: boolean };
 
 /**
- * `css` as CSS Syntax reads names: each escape (a backslash and one to six hex digits with one
- * optional blank after them, or a backslash and any other character) replaced by the character it
- * names, except where that character has a syntactic meaning, which keeps its escape. One pass,
- * no backtracking, so a long run of backslashes and blanks stays linear.
+ * What a stylesheet's tree asks a browser to fetch, in document order: an `import` rule, every
+ * node holding a `url` string except a font face's woff2 data: URL, and every string token of an
+ * `image-set()` (which a browser reads as a URL). The walk is iterative, so a deep nest ends in the
+ * parser's verdict and not in a stack overflow here.
  */
-const decode = (css: string): Decoded => {
-  const chars: string[] = [];
-  const at: number[] = [];
-  let from = 0;
-  const put = (text: string, source: number) => {
-    for (const char of text) {
-      chars.push(char);
-      at.push(source);
-      if (char.length === 2) at.push(source);
-    }
-  };
-  while (from < css.length) {
-    if (css[from] !== "\\" || from + 1 >= css.length) {
-      put(css.charAt(from), from);
-      from += 1;
+const requests = (sheet: unknown, chunk: string): string[] => {
+  const problems: string[] = [];
+  const allowed = new Set<unknown>();
+  const stack: Reach[] = [{ node: sheet, inImageSet: false }];
+  const request = (what: string, text: string) =>
+    problems.push(`the chunk "${chunk}" styles ${what}: ${shown(text)}`);
+  for (let reach = stack.pop(); reach !== undefined; reach = stack.pop()) {
+    const { node, inImageSet } = reach;
+    if (Array.isArray(node)) {
+      for (let at = node.length - 1; at >= 0; at -= 1) stack.push({ node: node[at], inImageSet });
       continue;
     }
-    const { text, end } = escapeAt(css, from);
-    // Kept escapes map each of their characters to the escape's start.
-    put(STRUCTURAL.has(text) ? css.slice(from, end) : text, from);
-    from = end;
-  }
-  return { text: chars.join(""), at };
-};
-
-// The text at a match, cut: a URL or an import as the author wrote it, never a whole stylesheet.
-const shown = (css: string, from: number): string => {
-  const rest = css.slice(from, from + SHOWN_CHARACTERS + 1);
-  return rest.length > SHOWN_CHARACTERS ? `${rest.slice(0, SHOWN_CHARACTERS)}...` : rest;
-};
-
-// Whether `text` at `from`, after blanks and one quote and blanks, starts a data: URL.
-const startsData = (text: string, from: number): boolean => {
-  let at = from;
-  const skipBlanks = () => {
-    while (BLANKS.has(text[at] ?? "")) at += 1;
-  };
-  skipBlanks();
-  if (text[at] === '"' || text[at] === "'") at += 1;
-  skipBlanks();
-  return text.slice(at, at + 5).toLowerCase() === "data:";
-};
-
-// The end of the string that opens at `from`: its closing quote, a line end or the text's end.
-const stringEnd = (text: string, from: number): number => {
-  const quote = text[from];
-  for (let at = from + 1; at < text.length; at += 1) {
-    const char = text[at];
-    if (char === "\\") at += 1;
-    else if (char === quote || char === "\n" || char === "\r" || char === "\f") return at;
-  }
-  return text.length;
-};
-
-type Call = "url" | "image-set" | "other";
-
-const callBefore = (text: string, at: number): Call => {
-  const name = (length: number) => text.slice(Math.max(0, at - length), at).toLowerCase();
-  if (name(9) === "image-set") return "image-set";
-  return name(3) === "url" ? "url" : "other";
-};
-
-// Whether the first non-blank character from `from` is a quote.
-const quoteAfter = (text: string, from: number): boolean => {
-  let at = from;
-  while (BLANKS.has(text[at] ?? "")) at += 1;
-  return text[at] === '"' || text[at] === "'";
-};
-
-// The position of the `)` that ends an unquoted url token opened before `from`, or the text's end.
-const urlTokenEnd = (text: string, from: number): number => {
-  for (let at = from; at < text.length; at += 1) {
-    if (text[at] === "\\") at += 1;
-    else if (text[at] === ")") return at;
-  }
-  return text.length;
-};
-
-/**
- * The positions of quoted strings inside `image-set(` or `-webkit-image-set(`, which a browser
- * reads as URLs; a string inside a `url(` there is that URL's own and the URL check's. One pass
- * over `text` with a stack of the open calls; comments and strings are skipped as CSS skips them.
- */
-const imageSetStrings = (text: string): number[] => {
-  const found: number[] = [];
-  const open: Call[] = [];
-  let sets = 0;
-  for (let at = 0; at < text.length; at += 1) {
-    const char = text[at];
-    if (char === "\\") at += 1;
-    else if (char === "/" && text[at + 1] === "*") {
-      const close = text.indexOf("*/", at + 2);
-      at = close === -1 ? text.length : close + 1;
-    } else if (char === "(") {
-      const call = callBefore(text, at);
-      if (call === "url" && !quoteAfter(text, at + 1)) {
-        // CSS reads an unquoted url( body as one token, up to the first unescaped `)`.
-        at = urlTokenEnd(text, at + 1);
-        continue;
-      }
-      open.push(call);
-      if (call === "image-set") sets += 1;
-    } else if (char === ")") {
-      if (open.pop() === "image-set") sets -= 1;
-    } else if (char === '"' || char === "'") {
-      if (sets > 0 && open[open.length - 1] !== "url") found.push(at);
-      at = stringEnd(text, at);
+    if (!isNode(node)) continue;
+    if (node.type === "font-face") for (const url of fontSourceUrls(node)) allowed.add(url);
+    if (node.type === "import" && isNode(node.value) && typeof node.value.url === "string") {
+      request("hold an @import, which would request a file", node.value.url);
+      continue;
     }
-  }
-  return found;
-};
-
-/**
- * A chunk's styles that would request a file (AD-8, AD-9, NFR-9): any `url(` not followed by
- * `data:`, any `@import`, and any quoted string inside `image-set(` or `-webkit-image-set(`. The
- * names are read as CSS Syntax reads them, escapes decoded (`u\72l(`, `@\69mport`), and a message
- * shows the text as the author wrote it. A chunk's styles are inlined into the view, whose policy
- * admits no other font or style source, so the build fails here rather than the board in the
- * browser.
- */
-export const styleUrlProblems = (chunk: string, css: string): string[] => {
-  const { text, at } = decode(css);
-  const where = (index: number) => shown(css, at[index] ?? 0);
-  const problems: string[] = [];
-  for (const { index } of text.matchAll(URL_CALL)) {
-    if (!startsData(text, index + 4)) {
-      problems.push(`the chunk "${chunk}" styles name a file it would request: ${where(index)}`);
+    if (typeof node.url === "string" && !allowed.has(node)) {
+      request("name a file it would request", node.url);
     }
-  }
-  for (const { index } of text.matchAll(IMPORT_RULE)) {
-    problems.push(
-      `the chunk "${chunk}" styles hold an @import, which would request a file: ${where(index)}`,
-    );
-  }
-  for (const index of imageSetStrings(text)) {
-    problems.push(
-      `the chunk "${chunk}" styles hold a string in image-set(), which would request a file: ${where(index)}`,
-    );
+    if (
+      inImageSet &&
+      node.type === "token" &&
+      isNode(node.value) &&
+      node.value.type === "string" &&
+      typeof node.value.value === "string"
+    ) {
+      request("hold a string in image-set(), which would request a file", node.value.value);
+    }
+    const inside = inImageSet || imageSetName(node);
+    const keys = Object.keys(node);
+    for (let at = keys.length - 1; at >= 0; at -= 1) {
+      stack.push({ node: node[keys[at] as string], inImageSet: inside });
+    }
   }
   return problems;
+};
+
+/**
+ * A chunk's styles that would request a file (AD-8, AD-9, NFR-9). The styles are parsed with
+ * lightningcss, as CSS Syntax reads them (escapes decoded, `xurl(` a function and only `url(` a
+ * URL), and its tree is walked: an `@import`, any URL other than a woff2 `data:` URL in the source
+ * of a `@font-face`, and any string in `image-set()` or `-webkit-image-set()` is a problem, and so
+ * are styles that do not parse, so the check fails closed. A chunk's styles are inlined into the
+ * view, whose policy admits no other font or style source, so the build fails here rather than the
+ * board in the browser.
+ */
+export const styleUrlProblems = (chunk: string, css: string): string[] => {
+  let sheet: unknown;
+  try {
+    transform({
+      filename: chunk,
+      code: Buffer.from(css),
+      visitor: {
+        StyleSheet(given) {
+          sheet = given;
+        },
+      },
+    });
+  } catch (error) {
+    const { message, loc } = error as { message?: unknown; loc?: { line?: unknown } };
+    const at = typeof loc?.line === "number" ? ` (line ${loc.line})` : "";
+    return [
+      `the chunk "${chunk}" styles do not parse: ${shown(String(message ?? error), SHOWN_MESSAGE_CHARACTERS)}${at}`,
+    ];
+  }
+  if (sheet === undefined) return [`the chunk "${chunk}" styles gave no stylesheet to check`];
+  return requests(sheet, chunk);
 };
