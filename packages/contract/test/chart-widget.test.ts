@@ -485,15 +485,16 @@ describe("the Chart's props check", () => {
 });
 
 describe("the Chart's entry", () => {
-  test("is a type of its own: the registry holds it only once registered", () => {
+  test("is a type of its own, which the registry holds last since task 5.1", () => {
     expect(CHART_WIDGET.type).toBe("chart");
     expect(CHART_WIDGET.noun).toBe("a Chart");
     expect(CHART_WIDGET.props.$id).toBe(CHART_SCHEMA_IDS.props);
     expect(CHART_SCHEMA_IDS.props).toBe("urn:askboard:input:chart-props");
     expect(CHART_WIDGET.edits).toBeUndefined();
     expect(CHART_WIDGET.derived).toBeUndefined();
-    expect(WIDGET_TYPES.some(({ type }) => type === "chart")).toBe(false);
+    expect(WIDGET_TYPES.at(-1)).toBe(CHART_WIDGET);
     expect(TYPES.at(-1)).toBe(CHART_WIDGET);
+    expect(TYPES).toEqual(WIDGET_TYPES);
   });
 
   test("every wording key belongs to the chart", () => {

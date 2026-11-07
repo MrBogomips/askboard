@@ -20,6 +20,7 @@ import questionPropsBase from "../schemas/input/question-props.json" with { type
 import fetchResultBase from "../schemas/tool-envelopes/fetch-result.json" with { type: "json" };
 import type { Problem } from "../validate.ts";
 import { APPROVAL_WIDGET } from "./approval/widget.ts";
+import { CHART_WIDGET } from "./chart/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
 import { KANBAN_WIDGET } from "./kanban/widget.ts";
@@ -128,6 +129,7 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   LATEX_WIDGET,
   KANBAN_WIDGET,
   TIMELINE_WIDGET,
+  CHART_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

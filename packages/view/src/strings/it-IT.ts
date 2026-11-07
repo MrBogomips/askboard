@@ -145,6 +145,8 @@ export const IT_IT = {
   "change.widgetLatex": "LaTeX",
   "change.widgetKanban": "Kanban",
   "change.widgetTimeline": "Timeline",
+
+  "change.widgetChart": "Grafico",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -375,4 +377,11 @@ export const IT_IT = {
   "timeline.entryRangeYears": "{label}, dal {start} {startYear} al {end} {endYear}, {lane}",
   "timeline.entryMilestone": "{label}, traguardo, {date} {year}, {lane}",
   "timeline.entryUndated": "{label}, {lane}",
+
+  // The Chart (chart-widget, task 5.1): the texts below are to review with a native speaker.
+  "chart.noPoints": "Nessun punto evidenziato",
+  "chart.points": { one: "{count} punto evidenziato", other: "{count} punti evidenziati" },
+  "chart.highlighted": "evidenziato",
+  "chart.hint": "Le frecce spostano tra i punti. Spazio evidenzia.",
+  "chart.role": "grafico",
 } as const satisfies StringTable;

@@ -34,10 +34,10 @@ describe("the versions (design decision 2)", () => {
       // languages) took the protocol to 1.4; widget-answers took all three one minor further;
       // widget-editing-plus took the output format one minor, widget-registry the output format,
       // the envelopes and the protocol one more, approval-scale-ranking the output format and
-      // the envelopes one more, and latex-kanban-timeline the output format and the envelopes
-      // one more.
-    }).toEqual({ output: "1.7", envelopes: "1.7", protocol: "1.6" });
-    expect(RESULT_VERSIONS).toEqual({ result: "1.7", output: "1.7" });
+      // the envelopes one more, latex-kanban-timeline the output format and the envelopes one more,
+      // and chart-widget the output format and the envelopes one more again.
+    }).toEqual({ output: "1.8", envelopes: "1.8", protocol: "1.6" });
+    expect(RESULT_VERSIONS).toEqual({ result: "1.8", output: "1.8" });
   });
 });
 

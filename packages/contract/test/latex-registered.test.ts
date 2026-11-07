@@ -39,12 +39,15 @@ const refsOf = (schema: AnySchemaObject, union: string): string[] =>
 
 describe("the versions of the four sets latex-kanban-timeline widens", () => {
   test("each is one minor past main's, and the sets hold the constants", () => {
+    // A later change takes the next minor again (chart-widget's): these hold this change's minors
+    // or a later one, and chart-widget-sets.test.ts pins the numbers of the latest.
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      input: INPUT_FORMAT_VERSION,
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.7", output: "1.7", envelopes: "1.7", document: "1.6" });
+      input: minor(INPUT_FORMAT_VERSION) >= 7,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 7,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 7,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 6,
+    }).toEqual({ input: true, output: true, envelopes: true, document: true });
     expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);

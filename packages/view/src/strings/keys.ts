@@ -140,6 +140,8 @@ export const STRING_KEYS = [
   "change.widgetLatex",
   "change.widgetKanban",
   "change.widgetTimeline",
+
+  "change.widgetChart",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -333,6 +335,13 @@ export const STRING_KEYS = [
   "timeline.entryRangeYears",
   "timeline.entryMilestone",
   "timeline.entryUndated",
+
+  // The Chart (chart-widget, task 5.1; ux-update-draft.md block 1; the Italian texts to review).
+  "chart.noPoints",
+  "chart.points",
+  "chart.highlighted",
+  "chart.hint",
+  "chart.role",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

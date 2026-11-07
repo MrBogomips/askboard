@@ -84,6 +84,7 @@ describe("bun run build:view (design decision 7)", () => {
     expect(kinds).toEqual({
       approval: "component",
       "board-graph": "library",
+      chart: "component",
       choice: "component",
       context: "component",
       compute: "library",
@@ -106,6 +107,10 @@ describe("bun run build:view (design decision 7)", () => {
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
     expect(manifest.chunks.approval?.needs).toEqual(["radix", "react", "shell"]);
+    // The Chart's canvas renderer is in its own chunk, which needs React and the shell's port alone
+    // (chart-widget, design decision 8).
+    expect(manifest.chunks.chart?.components).toEqual(["chart"]);
+    expect(manifest.chunks.chart?.needs).toEqual(["react", "shell"]);
     // The Scale's slider and rating are Radix's Slider and Toggle Group, which the radix library
     // chunk has held since task 3.6 (design decision 9).
     expect(manifest.chunks.scale?.components).toEqual(["scale"]);
@@ -310,6 +315,7 @@ describe("bun run build:view (design decision 7)", () => {
       "approval",
       "board-graph",
       "board-page",
+      "chart",
       "choice",
       "compute",
       "context",

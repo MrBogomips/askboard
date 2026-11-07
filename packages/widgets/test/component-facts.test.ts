@@ -27,8 +27,32 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
   const ids = ((entry.example.item.props as { items?: { id: string }[] }).items ?? []).map(
     ({ id }) => id,
   );
+  const chart = entry.example.item.props as {
+    series?: { id: string }[];
+    categories?: { id: string }[];
+  };
+  const series = chart.series?.[0]?.id ?? "series";
+  const category = chart.categories?.[0]?.id ?? "category";
   return [
     ...APPROVAL_DECISIONS.map((decision) => ({ decision })),
+    // The Chart's: a point it holds, two, none, a point it does not hold, and a point twice.
+    { points: [{ series, category }] },
+    {
+      points: [
+        { series, category },
+        { series, category: chart.categories?.[1]?.id ?? category },
+      ],
+    },
+    { points: [] },
+    { points: [{ series: "other", category }] },
+    { points: [{ series, category: "other" }] },
+    {
+      points: [
+        { series, category },
+        { series, category },
+      ],
+    },
+    { points: [{ series }] },
     { value: 3 },
     { value: 9 },
     { value: 1e-200 },
@@ -144,6 +168,44 @@ describe("a chunk's fact `fits`", () => {
         expect(fits[index], `${entry.type}: ${JSON.stringify(result)}`).toBe(refused.length === 0);
       }
     }
+  });
+});
+
+describe("the Chart's chunk", () => {
+  test("names the notice for its type, edits nothing and asks for no reason or confirmation", async () => {
+    const facts = (await registered()).find(({ type }) => type === "chart");
+    expect(facts?.name).toBe("change.widgetChart");
+    expect(facts?.shape).toBeUndefined();
+    expect(facts?.confirmsRevision).toBeUndefined();
+    expect(facts?.probeReasons).toBeUndefined();
+  });
+
+  test("takes a result of the points its props hold and no other", async () => {
+    const facts = await registered();
+    const at = WIDGET_TYPES.findIndex(({ type }) => type === "chart");
+    const entry = WIDGET_TYPES[at];
+    if (entry === undefined) throw new Error("the registry holds no Chart");
+    const fits = facts[at]?.fits ?? [];
+    const probes = probesOf(entry);
+    const verdict = (result: unknown) =>
+      fits[probes.findIndex((probe) => Bun.deepEquals(probe, result))];
+    const { series, categories } = entry.example.item.props as {
+      series: { id: string }[];
+      categories: { id: string }[];
+    };
+    const [first, second] = [series[0]?.id, categories[1]?.id];
+    expect(verdict({ points: [{ series: first, category: categories[0]?.id }] })).toBe(true);
+    expect(
+      verdict({
+        points: [
+          { series: first, category: categories[0]?.id },
+          { series: first, category: second },
+        ],
+      }),
+    ).toBe(true);
+    expect(verdict({ points: [] })).toBe(false);
+    expect(verdict({ points: [{ series: "other", category: categories[0]?.id }] })).toBe(false);
+    expect(verdict({ points: [{ series: first }] })).toBe(false);
   });
 });
 
