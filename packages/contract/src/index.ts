@@ -695,3 +695,17 @@ export type { FieldsShape } from "./widgets/element-diff.ts";
 // Changes checked against their type (latex-kanban-timeline, design decision 6).
 
 export { widgetChangesProblems } from "./widgets/results.ts";
+
+// LaTeX, Kanban and Timeline (latex-kanban-timeline, design decisions 1 and 3 to 5): the entries,
+// not in `WIDGET_TYPES` until each joins it, with their constants and checks.
+
+export {
+  LATEX_EXPRESSION_MAX_CHARS,
+  LATEX_SCHEMA_IDS,
+  LATEX_SHAPE,
+  LATEX_WIDGET,
+  type LatexChange,
+  type LatexItem,
+  type LatexProps,
+  latexPropsProblems,
+} from "./widgets/latex/index.ts";

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:latex-changes",
+  "title": "LaTeX changes",
+  "description": "A LaTeX's changes (AD-20, FR-20, latex-kanban-timeline design decision 3): set operations of the one generic diff on the item's own field, addressed as item.expression (AD-13's reference syntax without brackets). One set carries the whole expression as the user wrote it, which may be empty and may not parse; a LaTeX never adds, removes or moves an element and never clears the field. In no schema set until latex-kanban-timeline registers it.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/set" },
+  "$defs": {
+    "set": {
+      "type": "object",
+      "properties": {
+        "op": { "const": "set" },
+        "target": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}\\.expression$" },
+        "value": { "type": "string", "minLength": 0, "maxLength": 2000 }
+      },
+      "required": ["op", "target", "value"],
+      "additionalProperties": false
+    }
+  }
+}
