@@ -42,3 +42,7 @@ export const reviewedAsk = (delivery: "immediate" | "submitted", reviewText?: st
     delivery,
     items: [planQuestion, reviewQuestion(reviewText)],
   }) as const;
+
+/** The same ask shown one question per view, in submitted delivery: the review is off screen at first. */
+export const reviewedOnePerViewAsk = () =>
+  ({ ...reviewedAsk("submitted"), presentation: "one-per-view" }) as const;

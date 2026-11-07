@@ -9,7 +9,7 @@
 // question text in the confirmation. Every scenario runs on the session process.
 
 import { describe, expect, test } from "bun:test";
-import { reviewedAsk, reviewQuestion } from "./fixtures/approval-asks.ts";
+import { reviewedAsk, reviewedOnePerViewAsk, reviewQuestion } from "./fixtures/approval-asks.ts";
 import { decisionOf, promptOf, REASON, REASON_MISSING } from "./harness/approval-board.ts";
 import {
   type BoardRun,
@@ -124,6 +124,45 @@ const expectAskedForReason = async (board: Board): Promise<void> => {
     () => isFocused(promptOf(board, REVIEW, REASON)),
     "focus in the review's prompt",
   );
+};
+
+// One question per view, the review held with its reason gone while the plan is the one shown: the
+// review's card is mounted but hidden (spec review U-1 of group 6).
+const seedLostReasonOffScreen = async (run: BoardRun, board: Board): Promise<void> => {
+  const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
+  const at = (position: number) =>
+    navigator
+      .getByText(`Question ${position} of 2`, { exact: true })
+      .waitFor({ timeout: STEP_TIMEOUT_MS });
+  await markReady(board, PLAN, "Approve");
+  await navigator.getByRole("button", { name: "Next", exact: true }).click();
+  await at(2);
+  await seedLostReason(run, board);
+  // The reload keeps the review shown: go back to the plan, leaving the review mounted but hidden.
+  await at(2);
+  await navigator.getByRole("button", { name: "Previous", exact: true }).click();
+  await at(1);
+  expect(await card(board, REVIEW).isVisible()).toBe(false);
+};
+
+// Both answers are still held, read from the draft record the page mirrors (the plan's card is
+// hidden, so the page's own buttons cannot be asked).
+const expectBothStillHeld = (run: BoardRun): Promise<unknown> =>
+  mirrored(
+    run,
+    (record) =>
+      record.questions[PLAN]?.held !== undefined && record.questions[REVIEW]?.held !== undefined,
+    "both answers held",
+  );
+
+// The review is the question shown, and its prompt holds the focus with the error.
+const expectReviewShownAndAsked = async (board: Board): Promise<void> => {
+  const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
+  await navigator
+    .getByText("Question 2 of 2", { exact: true })
+    .waitFor({ timeout: STEP_TIMEOUT_MS });
+  expect(await card(board, REVIEW).isVisible()).toBe(true);
+  await expectAskedForReason(board);
 };
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
@@ -243,6 +282,44 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
         expect(await held(board, PLAN)).toBe(true);
         expect(await held(board, REVIEW)).toBe(true);
+        await Bun.sleep(QUIET_MS);
+        expect(sentActs(run)).toEqual([]);
+        expect((await run.session.collect()).events).toEqual([]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one question per view: Submit with a held answer whose reason is gone, on a question not shown, brings it into view with the error and the focus in its prompt, and sends nothing",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedOnePerViewAsk(), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        await seedLostReasonOffScreen(run, board);
+        await submit(board).click();
+        await expectReviewShownAndAsked(board);
+        expect(await dialog(board).count()).toBe(0);
+        await expectBothStillHeld(run);
+        await Bun.sleep(QUIET_MS);
+        expect(sentActs(run)).toEqual([]);
+        expect((await run.session.collect()).events).toEqual([]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one question per view: Send and switch with a lost reason on a question not shown brings it into view with the error and the focus in its prompt, sends nothing and stays in submitted delivery",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedOnePerViewAsk(), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        await seedLostReasonOffScreen(run, board);
+        await barButton(board, "Immediate").click();
+        await dialogButton(board, "Send and switch").click();
+        await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await expectReviewShownAndAsked(board);
+        expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
+        await expectBothStillHeld(run);
         await Bun.sleep(QUIET_MS);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
