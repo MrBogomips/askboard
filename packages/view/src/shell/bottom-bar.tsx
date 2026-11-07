@@ -22,6 +22,7 @@ import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
+import { ReplacedQuestions } from "./replaced-questions.tsx";
 import { SnapshotButton, SnapshotFeedback } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import {
@@ -247,11 +248,7 @@ export const BottomBar = (props: BottomBarProps) => {
             <AlertDialog.Description className="text-body text-foreground-secondary">
               {text("revision.submitBody")}
             </AlertDialog.Description>
-            <ul className="list-disc pl-lg text-body text-foreground">
-              {(replacing?.questions ?? []).map((question) => (
-                <li key={question.id}>{question.props.text}</li>
-              ))}
-            </ul>
+            <ReplacedQuestions questions={replacing?.questions ?? []} />
             <div className="mt-sm flex justify-end gap-sm">
               <AlertDialog.Cancel className={BUTTON_SECONDARY}>
                 {text("bar.cancel")}
