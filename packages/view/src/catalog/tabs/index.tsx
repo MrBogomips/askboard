@@ -8,7 +8,7 @@
 // list is named by the question's text. The triggers stay enabled on an answered or locked question
 // and in a Snapshot. A tab whose items hold, at any depth, a field with an entry carries a
 // `{colors.destructive}` dot after its title and the text "needs a correction" for assistive
-// technology (NFR-10, AD-20). Titles are agent text, shown as text (AD-8). It reports itself ready
+// technology (NFR-10, AD-20). Titles are agent text, shown as text (AD-8), cut at 12rem with the full text on hover (`title`) and uncut while the tab has keyboard focus. It reports itself ready
 // after its first layout.
 
 import { Tabs as RadixTabs } from "radix-ui";
@@ -33,7 +33,7 @@ type UncheckedTabsItem = {
 };
 
 const TRIGGER =
-  "flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-md py-1.5 text-control text-muted-foreground " +
+  "group flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-md py-1.5 text-control text-muted-foreground " +
   "data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary-text " +
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 
@@ -57,7 +57,7 @@ const Tabs = ({ item, questionId, ready, board, renderItem }: ItemProps<Unchecke
       >
         {tabs.map((tab) => (
           <RadixTabs.Trigger key={tab.id} value={tab.id} className={TRIGGER}>
-            <span className="max-w-48 truncate" title={tab.title}>
+            <span className="max-w-48 truncate group-focus-visible:max-w-none" title={tab.title}>
               {tab.title}
             </span>
             {needsCorrection(tab, board.entries) ? (

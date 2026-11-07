@@ -16,6 +16,7 @@ import { atomAsk, atomDocument } from "./fixtures/atom-documents.ts";
 import { release } from "./fixtures/gantt-documents.ts";
 import { ganttOf } from "./fixtures/gantt-view.ts";
 import { plan } from "./fixtures/tree-documents.ts";
+import { checkedEvents } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -24,6 +25,7 @@ import {
   TEST_TIMEOUT_MS,
   useEngine,
 } from "./harness/board-test.ts";
+import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   actsDone,
@@ -126,7 +128,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         if (panelBox === null || rootBox === null || chartBox === null) throw new Error("no box");
         expect(Math.abs(rootBox.width - panelBox.width)).toBeLessThan(2);
         expect(chartBox.width).toBeGreaterThan(100);
-        expect(chartBox.x + chartBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width + 1);
+        // The chart's own box may run past the panel inside the Gantt's scroller; the scroller, the
+        // Gantt's root and the document stay inside the panel.
+        const scrollerBox = await parts.chart.evaluate((chart) => {
+          for (let up = chart.parentElement; up !== null; up = up.parentElement) {
+            const { overflowX } = getComputedStyle(up);
+            if (overflowX === "auto" || overflowX === "scroll") {
+              const { left, right } = up.getBoundingClientRect();
+              return { left, right };
+            }
+          }
+          return null;
+        });
+        if (scrollerBox === null) throw new Error("no scroller around the chart");
+        expect(scrollerBox.right).toBeLessThanOrEqual(panelBox.x + panelBox.width + 1);
+        expect(rootBox.x + rootBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width + 1);
+        const wider = await run.board.view
+          .locator("html")
+          .evaluate((root) => root.scrollWidth > root.clientWidth);
+        expect(wider).toBe(false);
         expect(await parts.bars.count()).toBeGreaterThan(0);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -140,7 +160,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyIn(run);
         const { view } = run.board;
         await tabNamed(view, "Effort").click();
-        await view.getByLabel("Days", { exact: true }).fill("abc");
+        await view.getByLabel("Days", { exact: true }).fill("12,5");
         await view.getByLabel("Days", { exact: true }).blur();
         await tabNamed(view, "People").click();
         const marked = tabNamed(view, "Effort needs a correction");
@@ -236,6 +256,42 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    // A cut tab title shows in full on keyboard focus as on hover (EXPERIENCE, Agent-written labels;
+    // review S-4), and a 200-character title widens neither the document nor its card.
+    test(
+      "a 200-character tab title is cut with its full text on hover, shown in full on keyboard focus, and widens nothing",
+      async () => {
+        const title = "T".repeat(200);
+        const tabs = tabsItem(
+          "sections",
+          panel("long", title, field("who", "Who")),
+          panel("short", "Short", field("note", "Note")),
+        );
+        const run = await host(dist, atomDocument([tabs]));
+        await readyIn(run);
+        const { view, page } = run.board;
+        await page.setViewportSize({ width: 1280, height: 800 });
+        const label = tabNamed(view, title).locator("span[title]");
+        const cut = () => label.evaluate((span) => span.scrollWidth > span.clientWidth);
+        expect(await label.getAttribute("title")).toBe(title);
+        await tabNamed(view, "Short").focus();
+        await eventually(cut, "the title cut while the tab has no focus");
+        const wider = () =>
+          view.locator("html").evaluate((root) => root.scrollWidth > root.clientWidth);
+        expect(await wider()).toBe(false);
+        await tabNamed(view, "Short").focus();
+        await page.keyboard.press("ArrowLeft");
+        await eventually(
+          async () => !(await cut()),
+          "the full title shown while the tab has keyboard focus",
+        );
+        expect(await wider()).toBe(false);
+        await page.keyboard.press("ArrowRight");
+        await eventually(cut, "the title cut again once the focus leaves");
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 
   describe(`${engine}: the Tabs layout on the session process`, () => {
@@ -255,9 +311,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           () => sentDrafts(run).some((record) => JSON.stringify(record).includes('"days":"abc"')),
           "the entry mirrored to the board page",
         );
-        await reloadBoard(board, run, () =>
-          view.getByRole("tab", { name: /People/ }).waitFor({ timeout: STEP_TIMEOUT_MS }),
-        );
+        const reload = () =>
+          reloadBoard(board, run, () =>
+            view.getByRole("tab", { name: /People/ }).waitFor({ timeout: STEP_TIMEOUT_MS }),
+          );
+        await reload();
         expect(await selected(tabNamed(view, /^People/))).toBe(true);
         expect(await view.getByLabel("Who", { exact: true }).inputValue()).toBe("Ada");
         await eventually(
@@ -269,9 +327,20 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const field = view.getByLabel("Days", { exact: true });
         await eventually(async () => (await field.inputValue()) === "abc", "the entry restored");
         await field.fill("5");
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "days", 5),
+          "the draft to hold 5 under days",
+        );
+        await reload();
+        await tabNamed(view, "Effort").click();
+        await eventually(async () => (await field.inputValue()) === "5", "the value 5 restored");
         await eventually(() => answerOf(board, "plan").isEnabled(), "Answer enabled");
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 1);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({ type: "answer", itemId: "plan" });
+        expect(events[0]?.results).toEqual({ who: "Ada", days: 5 });
         await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await tabNamed(view, "Rest").click();
         await eventually(
