@@ -323,3 +323,51 @@ describe("styles are parsed, not tokenized (latex-kanban-timeline, task 3.9, rev
     if (verdict !== undefined) expect(verdict.length).toBeGreaterThan(0);
   });
 });
+
+// The 4.12 re-review's X-4 (latex-kanban-timeline, task 4.18): a custom property's string is no URL
+// until `var()` puts it into `image-set()`, and a browser then requests it.
+describe("a value substituted into image-set() (task 4.18, review X-4)", () => {
+  const SUBSTITUTED = [
+    [
+      "var() of a custom property holding a URL",
+      '#a{--a:"http://127.0.0.1:9/var.png";background-image:image-set(var(--a) 1x)}',
+    ],
+    [
+      "the same with -webkit-image-set",
+      '#a{--a:"http://127.0.0.1:9/var.png";background-image:-webkit-image-set(var(--a) 1x)}',
+    ],
+    ["a cursor list", "a{cursor:image-set(var(--h) 1x),auto}"],
+    ["env()", "a{background-image:image-set(env(x) 1x)}"],
+    ["any case", "a{background-image:IMAGE-SET(VAR(--a) 1x)}"],
+    ["env() in capitals", "a{background-image:image-set(ENV(x) 1x)}"],
+    ["a custom property holding the whole function", "a{--q:image-set(var(--a) 1x)}"],
+    ["var() with a fallback", "a{background-image:image-set(var(--a, none) 1x)}"],
+    ["var() beside a plain source", "a{background-image:image-set(var(--a) 1x, none 2x)}"],
+  ] as const;
+
+  test.each(SUBSTITUTED)("%s is one problem naming the chunk", (_what, css) => {
+    const problems = styleUrlProblems("latex", css);
+    expect(problems, css).toHaveLength(1);
+    expect(problems[0]).toContain('"latex"');
+    expect(problems[0]).toContain("a value substituted into image-set() could request a file");
+  });
+
+  test("var() and env() outside image-set() are no problem", () => {
+    expect(styleUrlProblems("latex", "a{color:var(--c)}")).toEqual([]);
+    expect(styleUrlProblems("latex", "a{width:env(safe-area-inset-left,0)}")).toEqual([]);
+    expect(styleUrlProblems("latex", "a{--a:var(--b);color:VAR(--a)}")).toEqual([]);
+    expect(styleUrlProblems("latex", "a{background-image:linear-gradient(var(--a),red)}")).toEqual(
+      [],
+    );
+  });
+
+  test("an image-set() with no substitution and no string is no problem", () => {
+    expect(styleUrlProblems("latex", "a{background-image:image-set(none 1x)}")).toEqual([]);
+  });
+
+  test("a string and a substitution in one image-set() are two problems", () => {
+    expect(
+      styleUrlProblems("latex", 'a{background-image:image-set("http://h/x.png" 1x, var(--a) 2x)}'),
+    ).toHaveLength(2);
+  });
+});

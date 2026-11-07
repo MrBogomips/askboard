@@ -82,6 +82,9 @@ export const hostOnlyNeedProblems = (chunks: readonly NeedingChunk[]): string[] 
 const SHOWN_CHARACTERS = 80;
 const SHOWN_MESSAGE_CHARACTERS = 200;
 const IMAGE_SET_FUNCTIONS = new Set(["image-set", "-webkit-image-set"]);
+// A value that takes its content from elsewhere: a string put there by `var()` or `env()` is read as
+// a URL by `image-set()`.
+const SUBSTITUTING_FUNCTIONS = new Set(["var", "env"]);
 // The one URL the font rewrite makes (`tools/build/stylesheets.ts`).
 const WOFF2_DATA_URL = /^data:font\/woff2[;,]/i;
 
@@ -115,12 +118,23 @@ const imageSetName = (node: Node): boolean =>
   typeof node.value.name === "string" &&
   IMAGE_SET_FUNCTIONS.has(node.value.name.toLowerCase());
 
+// `var()` and `env()` as the parser gives them: its own node types, or a function by name (in any
+// case, when it does not recognise the spelling).
+const substitutes = (node: Node): boolean =>
+  node.type === "var" ||
+  node.type === "env" ||
+  (node.type === "function" &&
+    isNode(node.value) &&
+    typeof node.value.name === "string" &&
+    SUBSTITUTING_FUNCTIONS.has(node.value.name.toLowerCase()));
+
 type Reach = { readonly node: unknown; readonly inImageSet: boolean };
 
 /**
  * What a stylesheet's tree asks a browser to fetch, in document order: an `import` rule, every
- * node holding a `url` string except a font face's woff2 data: URL, and every string token of an
- * `image-set()` (which a browser reads as a URL). The walk is iterative, so a deep nest ends in the
+ * node holding a `url` string except a font face's woff2 data: URL, every string token of an
+ * `image-set()` (which a browser reads as a URL), and every `var()` or `env()` inside one (which
+ * could put a string there). The walk is iterative, so a deep nest ends in the
  * parser's verdict and not in a stack overflow here.
  */
 const requests = (sheet: unknown, chunk: string): string[] => {
@@ -153,6 +167,11 @@ const requests = (sheet: unknown, chunk: string): string[] => {
     ) {
       request("hold a string in image-set(), which would request a file", node.value.value);
     }
+    if (inImageSet && substitutes(node)) {
+      problems.push(
+        `the chunk "${chunk}" styles: a value substituted into image-set() could request a file`,
+      );
+    }
     const inside = inImageSet || imageSetName(node);
     const keys = Object.keys(node);
     for (let at = keys.length - 1; at >= 0; at -= 1) {
@@ -166,8 +185,8 @@ const requests = (sheet: unknown, chunk: string): string[] => {
  * A chunk's styles that would request a file (AD-8, AD-9, NFR-9). The styles are parsed with
  * lightningcss, as CSS Syntax reads them (escapes decoded, `xurl(` a function and only `url(` a
  * URL), and its tree is walked: an `@import`, any URL other than a woff2 `data:` URL in the source
- * of a `@font-face`, and any string in `image-set()` or `-webkit-image-set()` is a problem, and so
- * are styles that do not parse, so the check fails closed. A chunk's styles are inlined into the
+ * of a `@font-face`, any string in `image-set()` or `-webkit-image-set()`, and any `var()` or `env()`
+ * inside one are problems, and so are styles that do not parse, so the check fails closed. A chunk's styles are inlined into the
  * view, whose policy admits no other font or style source, so the build fails here rather than the
  * board in the browser.
  */
