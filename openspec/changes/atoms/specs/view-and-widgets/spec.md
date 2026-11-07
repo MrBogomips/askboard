@@ -77,7 +77,7 @@ A Text SHALL show its text in the body type, plain text keeping its line breaks;
 - **THEN** they read `1.234,5`, `18,5%`, `€ 12.480,00`, `mer 9 dic 2026` and `12 giorni`
 
 #### Scenario: A long label
-- **WHEN** a Value's label is 200 characters, in a window 320 pixels wide
+- **WHEN** a Value's label is 200 characters, with or without spaces, in a window at the board's 1280-pixel floor (DESIGN `viewport-floor`)
 - **THEN** the label wraps, the figure stays inside the card, and the page does not scroll sideways
 
 ### Requirement: Input atoms fill the draft only
