@@ -783,3 +783,15 @@ export {
   chartResultProblems,
   chartResultShape,
 } from "./widgets/chart/index.ts";
+
+// The amount entry (atoms, design decision 2): the MoneyField's parser, echo and comparison.
+
+export {
+  AMOUNT_MAX_INTEGER_DIGITS,
+  type AmountEntry,
+  type AmountRefusalCode,
+  amountEcho,
+  compareDecimal,
+  minorUnitsOf,
+  parseAmount,
+} from "./locale/index.ts";

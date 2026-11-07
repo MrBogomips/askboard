@@ -35,8 +35,9 @@ const OTHER = /[^0-9,.+-]/;
 const EXPONENT = /^[+-]?[0-9,.]+e[+-]?[0-9]+$/i;
 const ONE_LEADING_SIGN = /^[+-]?[^+-]*$/;
 
-// The first rule an entry breaks, with the character it is about when that is the rule.
-const numberProblem = (
+// The first rule an entry breaks, with the character it is about when that is the rule. Exported
+// for the amount entry (atoms, design decision 2), which applies the same rules to the text.
+export const numberProblem = (
   text: string,
   decimal: string,
   group: string,
@@ -57,7 +58,7 @@ const numberProblem = (
   return undefined;
 };
 
-const numberRefusal = (
+export const numberRefusal = (
   code: NumberRefusalCode,
   locale: Locale,
   language: Locale,
