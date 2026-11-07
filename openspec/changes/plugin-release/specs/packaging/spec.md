@@ -7,7 +7,7 @@ The repository SHALL load as a Claude Code plugin named `askboard` that declares
 
 #### Scenario: Loading the plugin from a checkout
 - **WHEN** Claude Code starts with `--plugin-dir` pointing at a built checkout, with Node 24.22.1 or later on `PATH`
-- **THEN** the server `askboard` connects, and its tools are `mcp__plugin_askboard_askboard__ask` and `mcp__plugin_askboard_askboard__collect`
+- **THEN** the server `askboard` connects, and its tools are `ask`, `update`, `collect`, `fetch` and `snapshot`, each named `mcp__plugin_askboard_askboard__<tool>`
 
 #### Scenario: The server entry names the start script
 - **WHEN** `.claude-plugin/plugin.json` is read
@@ -41,6 +41,17 @@ The start script SHALL be POSIX `sh`, find the plugin root from its own path, an
 - **WHEN** the start script runs as `hook PreToolUse` or as `client <path>`
 - **THEN** the bundle runs in that mode with the same arguments, stdin and stdout
 
+
+### Requirement: The start script runs outside the project
+Before any `node` runs, the start script SHALL export `CLAUDE_PROJECT_DIR`, keeping its value or taking the working directory when it is unset, and SHALL change to the plugin root, so that no file in the user's project can choose or run code through the runtime's start (NFR-5, AD-8, AD-19). The mod's client fallback SHALL run the same script, never `bun`.
+
+#### Scenario: A project's runtime hooks run nothing
+- **WHEN** the start script runs in hook mode from a project whose files configure the runtime's start (a Volta `hooks.json` naming a script, a `bunfig.toml` preload)
+- **THEN** no script of the project runs, and the session process and hooks still see the project through `CLAUDE_PROJECT_DIR` and the hook input's `cwd`
+
+#### Scenario: The mod's fallback names the start script
+- **WHEN** the mod's client fallback command is built for a plugin root
+- **THEN** it is `sh <root>/scripts/askboard client` and names neither `bun` nor the bundle
 ### Requirement: The session process refuses an unusable Node with a reason
 When `node` is missing from `PATH` or older than 24.22.1, the start script run with no argument SHALL answer the MCP handshake itself, with no tools and instructions naming the Node version required and the version found (or that none was found), and keep answering until stdin closes. It SHALL write one stderr line with the same reason and never exit with a failure Claude Code would cache (AD-22, NFR-8).
 
