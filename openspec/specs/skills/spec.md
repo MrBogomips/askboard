@@ -144,13 +144,6 @@ Writing the skill SHALL leave exactly the generated files under `skills/askboard
 - **WHEN** the generated `SKILL.md`'s "After you ask" section is read
 - **THEN** it holds the ownership line, stated as holding with AskBoard's hooks, and says that a subagent's ask closes when the subagent finishes and that an answer given later is lost
 
-### Requirement: Dialogues in a background subagent
-`SKILL.md` SHALL say that the agent's own asks never block it, so it asks itself and keeps working, and SHALL advise a background subagent that asks, waits and returns the answers only for a side dialogue whose answers are needed together when the subagent ends (FR-21, FR-25, UJ-2).
-
-#### Scenario: The background subagent kept to a side dialogue
-- **WHEN** the generated `SKILL.md`'s "After you ask" section is read
-- **THEN** it says the agent's own asks never block it, and it offers a background subagent only for a side dialogue whose answers are needed together at its end, never as the way to keep working while the user answers
-
 ### Requirement: When an ask cannot go on
 `SKILL.md` SHALL teach that when `ask` returns `unavailable` or AskBoard's tools are absent, the main conversation asks through AskUserQuestion and a subagent ends its turn and returns the question to the agent that started it; that a declined question is not asked again in the task; and that a discarded ask is asked again under a new ID if still needed (FR-4, FR-29, NFR-8, AD-18).
 
@@ -197,3 +190,18 @@ The benchmark report SHALL list the skills each arm's sessions started with and 
 #### Scenario: Another skill in the listing
 - **WHEN** a run's init event lists a skill other than `askboard:askboard`
 - **THEN** the report lists that skill for the run's arm and flags the run
+
+### Requirement: Asking from the agent that needs the answers
+`SKILL.md` SHALL tell the agent to ask from the agent that needs the answers, SHALL say that its own asks never block it, so it keeps working while the user answers, and SHALL tell it not to hand its questions to a subagent to ask for it, since that subagent's ask closes when it finishes and later answers are lost. No file of the skill SHALL offer a subagent, in the background or not, that asks on another agent's behalf (FR-21, FR-25, AD-5, UJ-2).
+
+#### Scenario: The advice line
+- **WHEN** the generated `SKILL.md`'s "After you ask" section is read
+- **THEN** it says to ask from the agent that needs the answers, that the agent's own asks never block it and it keeps working while the user answers, and not to hand its questions to a subagent to ask for it, because that ask closes when the subagent finishes and later answers are lost
+
+#### Scenario: No subagent asks on another agent's behalf
+- **WHEN** every file the skill generator writes is read
+- **THEN** none offers a background subagent or a side dialogue, and none advises a subagent that asks, waits and returns the answers to another agent
+
+#### Scenario: A subagent still asks its own task's questions
+- **WHEN** the generated `SKILL.md`'s routing section is read
+- **THEN** it still says that a subagent asks every question through AskBoard
