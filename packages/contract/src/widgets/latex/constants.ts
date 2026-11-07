@@ -54,6 +54,21 @@ export const LATEX_LEVEL_CLOSERS: readonly string[] = /* @__PURE__ */ Object.fre
 ]);
 
 /**
+ * The infix commands of KaTeX 0.19.1, its `infix: true` functions (design decision 3, 4.12 re-review
+ * X-1): each makes a fraction of everything before it in its group, so the numerator nests one
+ * level deeper with no brace, and the scan adds a level to the group that holds one. The widgets'
+ * render test checks that these are exactly the names of the `infix: true` functions in KaTeX's source.
+ */
+export const LATEX_INFIX_COMMANDS: readonly string[] = /* @__PURE__ */ Object.freeze([
+  "\\over",
+  "\\choose",
+  "\\atop",
+  "\\brace",
+  "\\brack",
+  "\\above",
+]);
+
+/**
  * The control words of KaTeX 0.19.1 that read the next token raw, with what they do to it: `consumes`
  * (`\char` and `\show` take it, so a brace after them closes nothing) or `pushesBack` (`\noexpand` and
  * `\expandafter` read it and put it back, so it keeps its meaning). The other readers of raw tokens

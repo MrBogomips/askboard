@@ -7,6 +7,7 @@ export { cutLatexExpression, latexPropsProblems } from "./checks.ts";
 export {
   LATEX_DEFINING_COMMANDS,
   LATEX_EXPRESSION_MAX_CHARS,
+  LATEX_INFIX_COMMANDS,
   LATEX_LEVEL_CLOSERS,
   LATEX_LEVEL_OPENERS,
   LATEX_NESTING_MAX_DEPTH,

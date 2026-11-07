@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import {
   LATEX_DEFINING_COMMANDS,
+  LATEX_INFIX_COMMANDS,
   LATEX_LEVEL_CLOSERS,
   LATEX_LEVEL_OPENERS,
   LATEX_NESTING_MAX_DEPTH,
@@ -431,6 +432,28 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
     }
   });
 
+  // The lines the `infix: true` functions of 0.19.1 stand on: a bump re-reads them.
+  const INFIX_LINES = [10741, 10841];
+
+  test("(i) the infix functions of KaTeX are exactly the scan's infix commands", async () => {
+    const lines = (await sourceText()).split("\n");
+    const names: string[] = [];
+    const found: number[] = [];
+    lines.forEach((line, at) => {
+      if (!/^\s+infix:\s*true,?\s*$/.test(line)) return;
+      found.push(at + 1);
+      let header = at;
+      while (header > 0 && lines[header] !== "defineFunction({") header -= 1;
+      expect(lines[header]).toBe("defineFunction({");
+      const list = /names:\s*\[([^\]]*)\]/.exec(lines.slice(header, at).join("\n"))?.[1];
+      for (const [, body] of (list ?? "").matchAll(STRING)) names.push(literal(body));
+    });
+    expect(found).toEqual(INFIX_LINES);
+    expect(names.length).toBeGreaterThan(0);
+    expect([...names].sort()).toEqual([...LATEX_INFIX_COMMANDS].sort());
+    for (const name of names) expect(scanLatex(`{a ${name} b}`).depth).toBe(2);
+  });
+
   // (h) The depth of the MathML KaTeX builds, against the scan's depth. The elements of
   // `output: "mathml"` are counted by their tags; the annotation holds the source as escaped text.
   const mathDepth = (markup: string): number => {
@@ -445,6 +468,43 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
     }
     return deepest;
   };
+
+  // The longest run of `mfrac` elements each the direct child of the one above: the chain that
+  // doubles WebKit's MathML layout with each link (4.12 re-review X-1).
+  const fracChain = (markup: string): number => {
+    const stack: { tag: string; chain: number }[] = [];
+    let longest = 0;
+    for (const [, closing, tag, selfClosing] of markup.matchAll(
+      /<(\/?)([a-zA-Z][\w-]*)[^>]*?(\/?)>/g,
+    )) {
+      if (selfClosing) continue;
+      if (closing) {
+        stack.pop();
+        continue;
+      }
+      const parent = stack[stack.length - 1];
+      const chain = tag === "mfrac" ? (parent?.tag === "mfrac" ? parent.chain + 1 : 1) : 0;
+      longest = Math.max(longest, chain);
+      stack.push({ tag: tag ?? "", chain });
+    }
+    return longest;
+  };
+
+  const mathOf = (expression: string): string =>
+    katex.renderToString(expression, { ...renderOptions(), output: "mathml" });
+
+  test("(h) the chain of directly nested mfrac is read as the review read it: 2n for n infix fractions", () => {
+    const infix = (n: number) => [...Array(n).keys()].reduce((i) => `\\frac{${i}\\over y}{x}`, "x");
+    const plain = (n: number) => [...Array(n).keys()].reduce((i) => `\\frac{${i}}{x}`, "x");
+    expect(fracChain(mathOf(infix(3)))).toBe(6);
+    expect(fracChain(mathOf(plain(3)))).toBe(3);
+    expect(fracChain(mathOf("x^{\\frac{a}{b}}"))).toBe(1);
+    expect(fracChain(mathOf("x"))).toBe(0);
+    for (const n of [1, 2, 3, 7]) {
+      expect(fracChain(mathOf(infix(n))), String(n)).toBeLessThanOrEqual(scanLatex(infix(n)).depth);
+      expect(fracChain(mathOf(plain(n))), String(n)).toBeLessThanOrEqual(scanLatex(plain(n)).depth);
+    }
+  });
 
   const mulberry32 = (seed: number) => {
     let state = seed >>> 0;
@@ -474,6 +534,11 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
     (e) => `\\bgroup ${e()}\\egroup`,
     (e) => `\\begingroup ${e()}\\endgroup`,
     (e) => `{${e()} \\over ${e()}}`,
+    (e) => `\\frac{${e()} \\over ${e()}}{${e()}}`,
+    (e) => `{${e()} \\atop ${e()}}`,
+    (e) => `\\char\` {${e()}}`,
+    (e) => `\\char\`\n{${e()}}`,
+    (e) => `\\show%\n {${e()}}`,
     (e) => `\\boxed{${e()}}`,
     (e) => `\\hat{${e()}}`,
     (e) => `\\overbrace{${e()}}^{${e()}}`,
@@ -482,11 +547,12 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
     (e) => `${e()} ${e()}`,
   ];
 
-  // The smallest a and b the seeded run allows: the MathML's depth is at most A * depth + B.
-  const A = 5;
+  // The smallest a and b the seeded run allows: the MathML's depth is at most A * depth + B. On
+  // 0.19.1 the 600 expressions allow (1, 17), (2, 9), (3, 7), (4, 5) and (5, 5).
+  const A = 4;
   const B = 5;
 
-  test("(h) the MathML's element depth is at most A x the scan's depth + B, over seeded expressions", () => {
+  test("(h) the MathML's element depth is at most A x the scan's depth + B and its mfrac chain at most the depth, over seeded expressions", () => {
     const random = mulberry32(20261107);
     const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
     const atom = () => pick(["x", "y", "1", "\\alpha", "a+b"]);
@@ -495,7 +561,7 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
     const printed = (["log", "warn", "error"] as const).map((method) =>
       spyOn(console, method).mockImplementation(() => undefined),
     );
-    const rows: { depth: number; math: number }[] = [];
+    const rows: { depth: number; math: number; chain: number }[] = [];
     for (let run = 0; run < 600; run += 1) {
       const expression = gen(1 + Math.floor(random() * 7));
       if (expression.length > 2_000) continue;
@@ -505,12 +571,20 @@ describe("the depth the scan counts, read in KaTeX (0.19.1)", () => {
       } catch {
         continue; // KaTeX does not parse it: nothing is drawn
       }
-      rows.push({ depth: scanLatex(expression).depth, math: mathDepth(markup) });
+      rows.push({
+        depth: scanLatex(expression).depth,
+        math: mathDepth(markup),
+        chain: fracChain(markup),
+      });
     }
     for (const spy of printed) spy.mockRestore();
     expect(rows.length).toBeGreaterThan(300);
     expect(Math.max(...rows.map(({ depth }) => depth))).toBeGreaterThanOrEqual(6);
-    for (const { depth, math } of rows) expect(math).toBeLessThanOrEqual(A * depth + B);
+    for (const { depth, math, chain } of rows) {
+      expect(math).toBeLessThanOrEqual(A * depth + B);
+      expect(chain).toBeLessThanOrEqual(depth);
+    }
+    expect(Math.max(...rows.map(({ chain }) => chain))).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -645,6 +719,16 @@ describe("renderInto and parseProblem refuse before KaTeX", () => {
     ["an internal command", "\\color{x}\\current@color", { command: "\\current@color" }],
     ["one level past the limit", nest(LIMIT + 1), { depth: LIMIT + 1, limit: LIMIT }],
     ["a deep nest", `${"x^{".repeat(130)}y${"}".repeat(130)}`, { depth: 260, limit: LIMIT }],
+    [
+      "an infix fraction nest, two levels each",
+      `${"\\frac{".repeat(8)}x${"\\over y}{x}".repeat(8)}`,
+      { depth: 16, limit: LIMIT },
+    ],
+    [
+      "the hidden form: a character code, a blank and an opener",
+      `${"\\char` {".repeat(130)}x${"\\over}".repeat(130)}`,
+      { depth: 260, limit: LIMIT },
+    ],
   ] as const;
   let spies: ReturnType<typeof spyOn>[] = [];
   afterEach(() => {

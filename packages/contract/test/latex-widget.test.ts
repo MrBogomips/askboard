@@ -378,7 +378,7 @@ describe("LaTeX internal commands refused", () => {
 // tests), each nested to a depth the scan reads: a script and its group are two levels.
 const CONSTRUCTS: readonly (readonly [string, string, string, 1 | 2])[] = [
   ["\\frac{", "}{x}", "frac", 1],
-  ["{", "\\over x}", "over", 1],
+  ["{", "\\over x}", "over", 2],
   ["x^{", "}", "sup", 2],
   ["x_{", "}", "sub", 2],
   ["x^\\frac{", "}{x}", "sup frac", 1],
@@ -450,6 +450,49 @@ describe("LaTeX nesting bounded", () => {
     expect(latexPropsProblems({ expression: hidden })[0]?.message).toContain(
       `${LIMIT + 1} levels deep`,
     );
+  });
+
+  // The 4.12 re-review's X-1 and X-2 (contract spec: LaTeX nesting counted as KaTeX reads it): an
+  // infix adds a level to its group, and an opener after a character code is counted.
+  test("an infix fraction nest past the limit is refused: two levels per nest", () => {
+    const frac = Math.floor(LIMIT / 2) + 1;
+    const fractions = `${"\\frac{".repeat(frac)}x${"\\over y}{x}".repeat(frac)}`;
+    const boxes = `${"\\boxed{".repeat(LIMIT)}x${"\\over y}".repeat(LIMIT)}`;
+    for (const [expression, depth] of [
+      [fractions, 2 * frac],
+      [boxes, 2 * LIMIT],
+    ] as const) {
+      expect(scanLatex(expression).depth).toBe(depth);
+      expect(
+        latexPropsProblems({ expression }).map(({ path, message }) => [path, message]),
+      ).toEqual([
+        [
+          "/expression",
+          `the expression nests ${depth} levels deep, more than the limit of ${LIMIT}`,
+        ],
+      ]);
+      const [problem, ...rest] = problems(withExpression(expression));
+      expect(rest).toEqual([]);
+      expect(problem?.itemId).toBe("formula");
+      expect(problem?.message).toContain(`${depth} levels deep`);
+      expect(problem?.message).toContain(`limit of ${LIMIT}`);
+    }
+    // Half as many nests, at the limit, pass.
+    const atLimit = `${"\\frac{".repeat(LIMIT / 2)}x${"\\over y}{x}".repeat(LIMIT / 2)}`;
+    expect(scanLatex(atLimit).depth).toBe(LIMIT);
+    expect(latexPropsProblems({ expression: atLimit })).toEqual([]);
+  });
+
+  test("the review's hidden form, \\char` { 130 times, x, \\over} 130 times, is refused naming its depth", () => {
+    const hidden = `${"\\char` {".repeat(130)}x${"\\over}".repeat(130)}`;
+    expect([...hidden]).toHaveLength(1_821);
+    expect(latexPropsProblems({ expression: hidden })[0]?.message).toBe(
+      `the expression nests 260 levels deep, more than the limit of ${LIMIT}`,
+    );
+    const [problem, ...rest] = problems(withExpression(hidden));
+    expect(rest).toEqual([]);
+    expect(problem?.itemId).toBe("formula");
+    expect(problem?.message).toContain("260 levels deep");
   });
 
   test("a command is named before the depth, and one problem is given", () => {

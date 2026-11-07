@@ -7,6 +7,7 @@
 
 import {
   LATEX_DEFINING_COMMANDS,
+  LATEX_INFIX_COMMANDS,
   LATEX_LEVEL_CLOSERS,
   LATEX_LEVEL_OPENERS,
   LATEX_RAW_TOKEN_COMMANDS,
@@ -23,6 +24,7 @@ export type LatexScan = {
 const DEFINING: ReadonlySet<string> = new Set(LATEX_DEFINING_COMMANDS);
 const OPENERS: ReadonlySet<string> = new Set(LATEX_LEVEL_OPENERS);
 const CLOSERS: ReadonlySet<string> = new Set(LATEX_LEVEL_CLOSERS);
+const INFIX: ReadonlySet<string> = new Set(LATEX_INFIX_COMMANDS);
 
 // What a level on the stack is: a group (a brace, an environment, a pair of delimiters), a script
 // still waiting for its argument, or a script whose argument is the group above it.
@@ -32,10 +34,46 @@ const BOUND = 2;
 
 type Kind = "open" | "close" | "script" | "other";
 
+// The open levels, as three stacks that move together: what each level is, the deepest point
+// reached inside it (in levels, 0 for an empty one) and whether it holds an infix. Index 0 is the
+// expression itself, a group that never closes. A level that closes hands its parent that point
+// plus its own level, and one more if it held an infix, which makes a fraction of the whole group.
 type State = {
-  readonly levels: number[];
-  deepest: number;
+  readonly kinds: number[];
+  readonly inners: number[];
+  readonly infixes: boolean[];
   refused: string | undefined;
+};
+
+const newState = (): State => ({
+  kinds: [GROUP],
+  inners: [0],
+  infixes: [false],
+  refused: undefined,
+});
+
+const top = (state: State): number => state.kinds.length - 1;
+
+const push = (state: State, kind: number): void => {
+  state.kinds.push(kind);
+  state.inners.push(0);
+  state.infixes.push(false);
+};
+
+// Closes the innermost level, which is never the expression itself.
+const pop = (state: State): void => {
+  const at = top(state);
+  const reached = 1 + (state.inners[at] ?? 0) + (state.infixes[at] ? 1 : 0);
+  state.kinds.pop();
+  state.inners.pop();
+  state.infixes.pop();
+  if (reached > (state.inners[at - 1] ?? 0)) state.inners[at - 1] = reached;
+};
+
+// The most levels open at once: every open level closed in turn, then the expression's own.
+const deepestOf = (state: State): number => {
+  while (top(state) > 0) pop(state);
+  return (state.inners[0] ?? 0) + (state.infixes[0] ? 1 : 0);
 };
 
 // A letter of a control word in KaTeX's lexer: `[A-Za-z@]`.
@@ -55,22 +93,26 @@ const isLineEnd = (char: string | undefined): boolean =>
 // One token of the expression, as it affects the levels. A script that is waiting for its argument
 // takes the next token, or the group that opens next; a closer with no level open closes nothing.
 const take = (state: State, kind: Kind): void => {
-  const { levels } = state;
-  if (levels[levels.length - 1] === AWAITING) {
+  if (state.kinds[top(state)] === AWAITING) {
     if (kind === "open") {
-      levels[levels.length - 1] = BOUND;
+      state.kinds[top(state)] = BOUND;
     } else {
-      levels.pop();
+      pop(state);
       if (kind === "close") return;
     }
   }
-  if (kind === "open") levels.push(GROUP);
-  else if (kind === "script") levels.push(AWAITING);
-  else if (kind === "close" && levels.length > 0) {
-    levels.pop();
-    if (levels[levels.length - 1] === BOUND) levels.pop();
+  if (kind === "open") push(state, GROUP);
+  else if (kind === "script") push(state, AWAITING);
+  else if (kind === "close" && top(state) > 0) {
+    pop(state);
+    if (state.kinds[top(state)] === BOUND) pop(state);
   }
-  if (levels.length > state.deepest) state.deepest = levels.length;
+};
+
+// An infix command, which stands as a token and makes a fraction of its group.
+const takeInfix = (state: State): void => {
+  take(state, "other");
+  state.infixes[top(state)] = true;
 };
 
 // The end of the control sequence at `at` (a backslash): a word, or the backslash and one character.
@@ -102,16 +144,29 @@ const rawTokenEnd = (text: string, at: number): number => {
   return at + (pair ? 2 : 1);
 };
 
+// Whether the token at `at` is one the scan must count rather than take: an opener of a level
+// (4.12 re-review X-2), or an infix command, which would otherwise lose its level.
+const isCounted = (token: string): boolean =>
+  token === "{" || OPENERS.has(token) || INFIX.has(token);
+
+// The token `\char` or `\show` reads raw, after blanks and comments: where it ends, and its text.
+// KaTeX's lexer drops blanks only after a control word, so after a quote or a comment a blank is
+// that token and what follows it is read as usual; the scan skips the blank instead, so it never
+// takes a token it must count, and where it differs from KaTeX it counts more.
+const rawToken = (text: string, from: number) => {
+  const at = skipBlanksAndComments(text, from);
+  const end = rawTokenEnd(text, at);
+  return { end, token: text.slice(at, end) };
+};
+
 // `\char` and `\show` read the next token raw: it closes nothing, a brace included; `\char` reads
-// another after a quote, a double quote or a backquote.
+// another after a quote, a double quote or a backquote. A token the scan counts is left alone.
 const consumeRaw = (text: string, from: number, command: string): number => {
-  let at = skipBlanksAndComments(text, from);
-  const first = at;
-  at = rawTokenEnd(text, at);
-  if (command === "\\char" && "'\"`".includes(text.slice(first, at)) && at > first) {
-    at = rawTokenEnd(text, skipBlanksAndComments(text, at));
-  }
-  return at;
+  const first = rawToken(text, from);
+  if (first.token === "" || isCounted(first.token)) return from;
+  if (command !== "\\char" || !"'\"`".includes(first.token)) return first.end;
+  const second = rawToken(text, first.end);
+  return second.token === "" || isCounted(second.token) ? first.end : second.end;
 };
 
 // After `\begin` or `\end`, the environment's name in braces is no level.
@@ -185,6 +240,10 @@ const scanControl = (text: string, at: number, state: State): number => {
     scanQuiet(text, from, to, state);
     return next;
   }
+  if (INFIX.has(word)) {
+    takeInfix(state);
+    return end;
+  }
   if (OPENERS.has(word)) {
     take(state, "open");
     return word === "\\begin" ? skipEnvironmentName(text, end) : end;
@@ -208,14 +267,17 @@ const scanControl = (text: string, at: number, state: State): number => {
  * word of its internal namespace is refused. `depth` is the most levels open at once, as KaTeX
  * nests them: a level opens at `{` and at the control words of `LATEX_LEVEL_OPENERS`, closes at `}`
  * and at those of `LATEX_LEVEL_CLOSERS`, and `^` and `_` open one for their argument, which closes
- * with the group that opens next, else after the next token. A brace KaTeX reads as text closes
- * nothing: in a comment, in a `\verb` body, after `\char`'s quote and after `\show`. One pass, each
- * character read once, with no nested quantifier and no backtracking. A comment or a `\verb` body
- * is read as well as skipped (its openers count and a command named in it is refused), which only
- * refuses more.
+ * with the group that opens next, else after the next token. An infix command (one of
+ * `LATEX_INFIX_COMMANDS`) makes a fraction of its group, so it adds a level to the group that holds
+ * it, the expression included. A brace KaTeX reads as text closes nothing: in a comment, in a
+ * `\verb` body, after `\char`'s quote and after `\show`; but the scan never takes an opener or an
+ * infix as such a token, since KaTeX's lexer reads a blank after a quote or a comment as the token.
+ * One pass, each character read once, with no nested quantifier and no backtracking. A comment or
+ * a `\verb` body is read as well as skipped (its openers count and a command named in it is
+ * refused), which only refuses more.
  */
 export const scanLatex = (text: string): LatexScan => {
-  const state: State = { levels: [], deepest: 0, refused: undefined };
+  const state = newState();
   let at = 0;
   while (at < text.length) {
     const char = text[at];
@@ -234,5 +296,5 @@ export const scanLatex = (text: string): LatexScan => {
       at += 1;
     }
   }
-  return { refused: state.refused, depth: state.deepest };
+  return { refused: state.refused, depth: deepestOf(state) };
 };

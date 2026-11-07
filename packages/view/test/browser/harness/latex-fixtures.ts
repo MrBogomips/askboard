@@ -26,7 +26,7 @@ const construct = (
 /** The constructs of task 4.10, each in the form the review named it. */
 export const LATEX_CONSTRUCTS: readonly Construct[] = [
   construct("\\frac{ }{x}", "\\frac{", "}{x}"),
-  construct("{ \\over x}", "{", "\\over x}"),
+  construct("{ \\over x}", "{", "\\over x}", 2),
   construct("x^{ }", "x^{", "}", 2),
   construct("x_{ }", "x_{", "}", 2),
   construct("x^\\frac{ }{x}", "x^\\frac{", "}{x}"),
