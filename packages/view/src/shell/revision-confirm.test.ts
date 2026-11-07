@@ -6,7 +6,15 @@ import { describe, expect, mock, test } from "bun:test";
 import type { LifecycleQuestionStatus } from "@askboard/contract";
 import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
-import { asksFirst, confirmsRevisionOf, press, settle } from "./revision-confirm.ts";
+import {
+  asksFirst,
+  type Confirmation,
+  confirmationOf,
+  confirmsRevisionOf,
+  press,
+  settle,
+  settleConfirmation,
+} from "./revision-confirm.ts";
 
 const FACTS: Readonly<Record<string, ComponentFacts>> = {
   verdict: { confirmsRevision: true },
@@ -144,5 +152,70 @@ describe("a press that waits for the confirmation", () => {
 
   test("settling nothing runs nothing", () => {
     expect(() => settle(undefined, true)).not.toThrow();
+  });
+});
+
+describe("a confirmation keeps the control pressed (design decision 6; NFR-12)", () => {
+  // Plain stand-ins for the elements: the card holds real ones.
+  const answerButton = { name: "Answer" };
+  const moreButton = { name: "More" };
+
+  const waitingOn = (
+    act: "answer" | "decline",
+    control: object | undefined,
+    run = mock(() => {}),
+  ): { confirmation: Confirmation<object> | undefined; run: typeof run } => ({
+    confirmation: confirmationOf(act, press(true, run), control),
+    run,
+  });
+
+  test("it holds the act, what waits and the control pressed", () => {
+    const { confirmation, run } = waitingOn("answer", answerButton);
+    expect(confirmation?.act).toBe("answer");
+    expect(confirmation?.control).toBe(answerButton);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  test("nothing waiting is no confirmation", () => {
+    expect(
+      confirmationOf(
+        "answer",
+        press(false, () => {}),
+        answerButton,
+      ),
+    ).toBeUndefined();
+  });
+
+  test("Cancel and Escape give the control pressed back as the focus target, and run nothing", () => {
+    for (const [act, control] of [
+      ["answer", answerButton],
+      ["decline", moreButton],
+    ] as const) {
+      const { confirmation, run } = waitingOn(act, control);
+      expect(settleConfirmation(confirmation, false)).toEqual({ to: "control", control });
+      expect(run).not.toHaveBeenCalled();
+    }
+  });
+
+  test("confirming an Answer runs it once and moves focus nowhere", () => {
+    const { confirmation, run } = waitingOn("answer", answerButton);
+    expect(settleConfirmation(confirmation, true)).toBeUndefined();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  test("confirming a Decline runs it once and gives the heading", () => {
+    const { confirmation, run } = waitingOn("decline", moreButton);
+    expect(settleConfirmation(confirmation, true)).toEqual({ to: "heading" });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  test("a press that had no control to remember gives no target on Cancel", () => {
+    const { confirmation } = waitingOn("answer", undefined);
+    expect(settleConfirmation(confirmation, false)).toBeUndefined();
+  });
+
+  test("settling no confirmation gives no target", () => {
+    expect(settleConfirmation(undefined, false)).toBeUndefined();
+    expect(settleConfirmation(undefined, true)).toBeUndefined();
   });
 });

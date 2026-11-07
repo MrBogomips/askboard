@@ -26,11 +26,15 @@ export type ActionsRowProps = {
   readonly locked: boolean;
   readonly single: boolean;
   readonly submitted: boolean;
-  readonly onAnswer: () => void;
+  /** Pressed on `control`, the button, which a confirmation gives focus back to. */
+  readonly onAnswer: (control: HTMLElement) => void;
   readonly onPostpone: () => void;
   readonly onExplain: () => void;
-  /** Whether the decline went through; false while a confirmation waits for the user. */
-  readonly onDecline: () => boolean;
+  /**
+   * Whether the decline went through; false while a confirmation waits for the user. `control` is
+   * the More menu's trigger, which a confirmation gives focus back to.
+   */
+  readonly onDecline: (control: HTMLElement | undefined) => boolean;
   /** Moves focus to the question's heading. */
   readonly focusHeading: () => void;
 };
@@ -50,6 +54,7 @@ export const ActionsRow = ({
 }: ActionsRowProps) => {
   // Decline moves focus to the heading once the menu has closed, instead of back to "More".
   const toHeading = useRef(false);
+  const more = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   if (opened) {
     return card.receipt === undefined ? null : (
@@ -72,7 +77,7 @@ export const ActionsRow = ({
         {text("question.postpone")}
       </button>
       <DropdownMenu.Root modal={false}>
-        <DropdownMenu.Trigger className={BUTTON_SECONDARY} disabled={locked}>
+        <DropdownMenu.Trigger ref={more} className={BUTTON_SECONDARY} disabled={locked}>
           {text("question.more")}
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
@@ -99,7 +104,7 @@ export const ActionsRow = ({
               checked={actions.declined}
               disabled={!actions.canDecline}
               onSelect={() => {
-                toHeading.current = onDecline();
+                toHeading.current = onDecline(more.current ?? undefined);
               }}
             >
               <span aria-hidden="true" className="flex size-3 items-center justify-center">
@@ -119,7 +124,7 @@ export const ActionsRow = ({
         <button
           type="button"
           disabled={!card.canAnswer}
-          onClick={onAnswer}
+          onClick={(event) => onAnswer(event.currentTarget)}
           aria-pressed={submitted ? card.ready : undefined}
           className={single ? BUTTON_ANSWER_PRIMARY : BUTTON_ANSWER}
         >

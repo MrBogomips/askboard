@@ -73,7 +73,14 @@ import {
 } from "./question-state.ts";
 import { reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
-import { asksFirst, press, settle, type Waiting } from "./revision-confirm.ts";
+import {
+  asksFirst,
+  type Confirmation,
+  confirmationOf,
+  type FocusTarget,
+  press,
+  settleConfirmation,
+} from "./revision-confirm.ts";
 import type { Store } from "./store.ts";
 import {
   BUTTON_LINK,
@@ -339,19 +346,29 @@ export const QuestionCard = (props: CardProps) => {
   const focusHeading = focusHeadingOf(question.id);
   // "Answer" and Decline on a verdict the agent has received wait for the user's confirmation, in
   // a modal dialog (design decision 6): confirming acts as the button does, Cancel changes nothing.
-  const [waiting, setWaiting] = useState<
-    { readonly act: "answer" | "decline"; readonly waiting: Waiting } | undefined
-  >();
-  const ask = (act: "answer" | "decline", run: () => void): boolean => {
+  // The dialog has no trigger, so Radix restores no focus: the confirmation keeps the control
+  // pressed, and `onCloseAutoFocus` gives focus to what the user's choice named.
+  const [waiting, setWaiting] = useState<Confirmation<HTMLElement> | undefined>();
+  const afterClose = useRef<FocusTarget<HTMLElement> | undefined>(undefined);
+  const chosen = useRef(false);
+  const ask = (act: "answer" | "decline", control: HTMLElement | undefined, run: () => void) => {
     const next = press(asksFirst(act, question, status, work?.held?.act), run);
-    setWaiting(next === undefined ? undefined : { act, waiting: next });
+    chosen.current = false;
+    setWaiting(confirmationOf(act, next, control));
     return next === undefined;
   };
-  const onAnswer = () => {
+  const onAnswer = (control: HTMLElement) => {
     if (answerNeedsReason(question, acting)) return asking("needs-reason");
-    ask("answer", () => asking(answer(question, acting)));
+    ask("answer", control, () => asking(answer(question, acting)));
   };
-  const onDecline = () => ask("decline", () => decline(question, status?.state, acting));
+  const onDecline = (control: HTMLElement | undefined) =>
+    ask("decline", control, () => decline(question, status?.state, acting));
+  const focusAfterClose = () => {
+    const target = afterClose.current;
+    afterClose.current = undefined;
+    if (target?.to === "heading") focusHeading();
+    else if (target?.control.isConnected === true) target.control.focus();
+  };
   // The first edit of an answered question starts the revision from its latest answer, once per
   // gesture: a gesture that clears the choice and then chooses "Other…" seeds only before the first.
   // It seeds no widget value: an item the revision leaves alone shows its answer's value through
@@ -523,13 +540,21 @@ export const QuestionCard = (props: CardProps) => {
         open={waiting !== undefined}
         onOpenChange={(open) => {
           if (open) return;
-          settle(waiting?.waiting, false);
+          // The confirming button has settled it already; Cancel and Escape arrive here.
+          if (chosen.current) chosen.current = false;
+          else afterClose.current = settleConfirmation(waiting, false);
           setWaiting(undefined);
         }}
       >
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
-          <AlertDialog.Content className={DIALOG}>
+          <AlertDialog.Content
+            className={DIALOG}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              focusAfterClose();
+            }}
+          >
             <AlertDialog.Title className="text-body-lg font-semibold">
               {text("revision.confirmTitle")}
             </AlertDialog.Title>
@@ -543,8 +568,8 @@ export const QuestionCard = (props: CardProps) => {
               <AlertDialog.Action
                 className={BUTTON_PRIMARY}
                 onClick={() => {
-                  settle(waiting?.waiting, true);
-                  if (waiting?.act === "decline") focusHeading();
+                  chosen.current = true;
+                  afterClose.current = settleConfirmation(waiting, true);
                   setWaiting(undefined);
                 }}
               >
