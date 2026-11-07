@@ -37,6 +37,10 @@ An `update`'s `add` and `change` SHALL refuse an item, at any depth, whose ID an
 - **WHEN** the agent changes a question's `items` to hold a Toggle with the ID of a Tree in another question
 - **THEN** the update is refused, naming the ID
 
+#### Scenario: A molecule reference's ID
+- **WHEN** an update adds or changes a plain item whose ID is a molecule reference's own ID (`wbs`), in another question, in the reference's own question, or after the reference's question is deleted
+- **THEN** the update is refused, naming the reference's ID as in use, and the ask is unchanged
+
 ### Requirement: Fetching nested items and layouts
 `fetch` of an item inside a layout SHALL return that item alone as the user left it, with its question's state. `fetch` of a layout SHALL return it with every item inside it as the user left it, and a fetched question SHALL hold its layouts the same way (FR-20, AD-9).
 
