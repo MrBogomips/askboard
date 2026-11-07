@@ -13,6 +13,29 @@ import { trackFraction } from "./change.ts";
 import { RANGE, ROOT, THUMB, TRACK, UNSET } from "./classes.ts";
 import { firstValue, valueAt } from "./model.ts";
 
+/**
+ * Focuses the first thumb of a Radix root once Radix shows it. Radix renders a thumb with
+ * `display: none` until it has registered the thumb among its items, which happens after the
+ * render that sets the first value, so a focus at that render finds nothing to focus. Returns what
+ * stops the wait.
+ */
+const focusWhenShown = (root: HTMLElement): (() => void) => {
+  const thumb = root.querySelector<HTMLElement>('[role="slider"]');
+  if (thumb === null) return () => {};
+  const shown = () => thumb.style.display !== "none";
+  if (shown()) {
+    thumb.focus();
+    return () => {};
+  }
+  const observer = new MutationObserver(() => {
+    if (!shown()) return;
+    observer.disconnect();
+    thumb.focus();
+  });
+  observer.observe(thumb, { attributes: true, attributeFilter: ["style"] });
+  return () => observer.disconnect();
+};
+
 const Unset = ({
   props,
   labelledBy,
@@ -83,9 +106,9 @@ export const ScaleSlider = ({
   const refocus = useRef(false);
   const set = values !== undefined;
   useEffect(() => {
-    if (!set || !refocus.current) return;
+    if (!set || !refocus.current || root.current === null) return;
     refocus.current = false;
-    root.current?.querySelector<HTMLElement>('[role="slider"]')?.focus();
+    return focusWhenShown(root.current);
   }, [set]);
   if (values === undefined) {
     return (

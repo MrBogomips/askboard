@@ -133,7 +133,7 @@ describe("the previous minor refuses the three types", () => {
 
   test.each(THE_THREE.map((entry) => [entry.type, entry] as const))(
     "the same %s ask passes over the shipped registry",
-    (type, entry) => {
+    (_type, entry) => {
       const { item } = entry.example;
       expect(askAccepted(WIDGET_TYPES, item)).toBe(true);
       expect(widgetItemProblems(item, question(item), "agent", WIDGET_TYPES)).toEqual([]);

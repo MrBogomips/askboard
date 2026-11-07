@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { scaleAsk, scaleDocument } from "./fixtures/scale-documents.ts";
+import { plan } from "./fixtures/tree-documents.ts";
 import {
   eventually,
   isFocused,
@@ -26,6 +27,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { tabIntoGroup, tabLeavesGroup } from "./harness/tab-stops.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -151,7 +153,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyIn(run);
         const { board } = run;
         const step = (name: string) => board.view.getByRole("radio", { name, exact: true });
-        expect(await board.view.getByRole("radio").count()).toBe(5);
+        // The Scale's own radios: the header's theme and density toggles are radios too.
+        const group = board.view.locator("[data-scale]").getByRole("radiogroup");
+        expect(await group.getByRole("radio").count()).toBe(5);
+        // One Tab stop: the first Tab hands the focus to the first step, the next one leaves.
+        expect(await tabIntoGroup(board, plan.props.text, group)).toBe("1");
+        expect(await tabLeavesGroup(board, group)).toBe(true);
         expect(await board.view.getByText("Low", { exact: true }).count()).toBe(1);
         expect(await board.view.getByText("High", { exact: true }).count()).toBe(1);
         for (const name of ["1", "2", "3", "4", "5"]) {
