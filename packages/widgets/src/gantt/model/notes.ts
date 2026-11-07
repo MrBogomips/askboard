@@ -3,7 +3,7 @@
 // no task, or it follows a task that has no dates, named by where `compute` says its error arose.
 // The wordings are this change's: EXPERIENCE records none. A formula error never blocks "Answer".
 
-import type { Say } from "./say.ts";
+import type { Say } from "../../shared/time/say.ts";
 import type { TaskSchedule } from "./schedule.ts";
 import type { GanttRow } from "./tasks.ts";
 

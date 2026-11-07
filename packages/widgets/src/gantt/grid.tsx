@@ -22,9 +22,9 @@ import type {
   Ref,
 } from "react";
 import { errorSpan } from "../shared/field-error.ts";
+import { spansYears } from "../shared/time/date.ts";
 import { CellEditor, noteId } from "./cell-editor.tsx";
 import type { CellEditing, Editing } from "./editing.ts";
-import { spansYears } from "./model/date.ts";
 import type { GridFocus } from "./model/focus.ts";
 import type { TaskMarks } from "./model/marks.ts";
 import type { TaskSchedule } from "./model/schedule.ts";

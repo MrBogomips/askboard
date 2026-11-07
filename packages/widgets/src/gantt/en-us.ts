@@ -3,8 +3,8 @@
 
 import type { Locale } from "@askboard/contract";
 import { say } from "@askboard/view/catalog";
-import type { DateFormat } from "./model/date.ts";
-import type { Say } from "./model/say.ts";
+import type { DateFormat } from "../shared/time/date.ts";
+import type { Say } from "../shared/time/say.ts";
 
 /** The catalogue's en-US strings. */
 export const EN_US_SAY: Say = (key, slots) => say("en-US", key, slots);

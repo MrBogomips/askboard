@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { GANTT_FIRST_DATE, GANTT_LAST_DATE } from "@askboard/contract";
-import { EN_US_FORMAT, formatFor } from "../en-us.ts";
+import { EN_US_FORMAT, formatFor } from "../../gantt/en-us.ts";
 import {
   calendarDay,
   dateOfDay,

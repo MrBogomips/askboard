@@ -1,7 +1,7 @@
 // What a refused entry says (settings-languages design decision 8): in the ask's language, with
 // the marks, the order and the example of the ask's locale, which may differ. The en-US sentences
 // in en-US are word for word the Tree's (tree-widget, `widgets/src/shared/number.ts`) and the
-// Gantt's (gantt-widget, `gantt/model/date.ts`). The Italian ones are provisional (UX draft block 1).
+// Gantt's (gantt-widget, `shared/time/date.ts`). The Italian ones are provisional (UX draft block 1).
 
 import type { Locale } from "./tables.ts";
 

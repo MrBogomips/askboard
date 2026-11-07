@@ -5,8 +5,8 @@
 // IDs; and the axis's span, from the plan's start to two weeks past the last finish, room to drag
 // a task later. Plain numbers, which the chart writes as SVG attributes.
 
-import { dateOfDay, dayNumber, LAST_DAY } from "./date.ts";
-import { PIXELS_PER_DAY, xOf, type Zoom } from "./scale.ts";
+import { dateOfDay, dayNumber, LAST_DAY } from "../../shared/time/date.ts";
+import { PIXELS_PER_DAY, xOf, type Zoom } from "../../shared/time/scale.ts";
 
 /** The compact density's `header-row` token, which a row and the axis take (DESIGN, density). */
 export const AXIS_HEIGHT = 32;

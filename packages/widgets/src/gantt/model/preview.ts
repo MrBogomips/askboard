@@ -4,9 +4,9 @@
 // day. Only the drop changes the draft: the graph is rebuilt then, never while the pointer moves,
 // so a moved bar keeps its width until the graph gives the new one. Plain numbers.
 
+import { PIXELS_PER_DAY, xOf, type Zoom } from "../../shared/time/scale.ts";
 import type { Move } from "./drag.ts";
 import type { BarBox } from "./layout.ts";
-import { PIXELS_PER_DAY, xOf, type Zoom } from "./scale.ts";
 
 /** The bar at the day it would land on; the same box while the press is still a click. */
 export const movedBox = (box: BarBox, landing: Move, origin: string, zoom: Zoom): BarBox =>

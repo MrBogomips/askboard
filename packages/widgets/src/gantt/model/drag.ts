@@ -7,8 +7,8 @@
 
 import { firstWorkingDateFrom, isWorkingDate, workingDaysBetween } from "@askboard/compute";
 import { GANTT_MAX_DURATION, GANTT_MIN_DURATION } from "@askboard/contract";
-import { dateOfDay, dayNumber, FIRST_DAY, LAST_DAY } from "./date.ts";
-import { PIXELS_PER_DAY, type Zoom } from "./scale.ts";
+import { dateOfDay, dayNumber, FIRST_DAY, LAST_DAY } from "../../shared/time/date.ts";
+import { PIXELS_PER_DAY, type Zoom } from "../../shared/time/scale.ts";
 
 /** Pixels the pointer travels before a press on a bar becomes a drag. */
 export const DRAG_THRESHOLD = 3;
