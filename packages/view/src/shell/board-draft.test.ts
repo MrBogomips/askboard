@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
+import { type DraftRecord, type LifecycleBoardState, widgetResultFits } from "@askboard/contract";
 import {
   lifecycleBoardDocument,
   lifecycleDraftRecord,
@@ -543,6 +543,99 @@ describe("results beside the draft record (widget-registry, design decision 9)",
     restoreDraft(stale, document, openState(document), values, board, results);
     expect(results.record().size).toBe(0);
     expect(board.get().questions.get("database")).toBeUndefined();
+  });
+
+  test("a restored result the item's type refuses against its props now is dropped, and so is the work it was", () => {
+    const ranked = {
+      ...document,
+      items: [
+        {
+          ...asked,
+          props: {
+            ...asked.props,
+            items: [
+              {
+                type: "ranking",
+                id: "priorities",
+                props: { items: ["speed", "comfort"].map((id) => ({ id, label: id })) },
+              },
+              { type: "probe", id: "sketch", props: {} },
+            ],
+          },
+        },
+      ],
+    } as unknown as ViewDocument;
+    const saved = (results: Record<string, unknown>): DraftRecord => ({
+      delivery: "immediate",
+      questions: { database: { rev: 1, results } } as never,
+    });
+    const refused = { order: ["cost", "speed", "comfort"] };
+    const fitting = (type: string) =>
+      type === "ranking"
+        ? {
+            fits: (result: unknown, props: unknown) =>
+              widgetResultFits({ type, id: "x" }, result, props),
+          }
+        : undefined;
+    const alone = withResults();
+    restoreDraft(
+      saved({ priorities: refused }),
+      ranked,
+      openState(ranked),
+      alone.values,
+      alone.board,
+      alone.results,
+      fitting,
+    );
+    expect(alone.results.record().size).toBe(0);
+    expect(alone.board.get().questions.get("database")).toBeUndefined();
+    const beside = withResults();
+    restoreDraft(
+      saved({ priorities: refused, sketch: result }),
+      ranked,
+      openState(ranked),
+      beside.values,
+      beside.board,
+      beside.results,
+      fitting,
+    );
+    expect([...beside.results.record().keys()]).toEqual(["sketch"]);
+    expect(beside.board.work("database")).toEqual({ rev: 1 });
+    const fits = withResults();
+    restoreDraft(
+      saved({ priorities: { order: ["comfort", "speed"] } }),
+      ranked,
+      openState(ranked),
+      fits.values,
+      fits.board,
+      fits.results,
+      fitting,
+    );
+    expect(fits.results.valueOf("priorities")).toEqual({ order: ["comfort", "speed"] });
+  });
+
+  test("a restored result made on an earlier revision stays, for the notice and Keep mine to settle", () => {
+    const rerevised = {
+      ...document,
+      items: [{ ...document.items[0], rev: 2 }],
+    } as unknown as ViewDocument;
+    const saved: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { sketch: result } } } as never,
+    };
+    const never = () => ({ fits: () => false });
+    const restored = withResults();
+    restoreDraft(
+      saved,
+      rerevised,
+      openState(rerevised),
+      restored.values,
+      restored.board,
+      restored.results,
+      never,
+    );
+    expect(restored.results.valueOf("sketch")).toEqual(result);
+    expect(restored.board.work("database")).toEqual({ rev: 1 });
   });
 
   test("a record holding results alone is work, and comes back as work", () => {

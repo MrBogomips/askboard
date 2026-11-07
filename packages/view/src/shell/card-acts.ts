@@ -39,6 +39,7 @@ import {
   itemIdsOf,
   type QuestionWork,
   releaseHeld,
+  resultFits,
   resultIdsOf,
 } from "./board-draft.ts";
 import type { ViewChannel } from "./channel.ts";
@@ -378,10 +379,26 @@ export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): 
   dropWork(question, context);
 };
 
-/** "Keep mine": an `ignore` keeping the revision the work was made on, at once (FR-6). */
-export const keepMine = (question: ViewQuestion, context: AnswerContext): void => {
+/**
+ * "Keep mine": an `ignore` keeping the revision the work was made on, at once (FR-6). `shown` is
+ * the revision the card shows, the one the work was made on when the page has seen it, else the
+ * current one: a result the draft holds that `shown` refuses, as when the page was reloaded after
+ * the agent's change and shows the new props, is dropped, and its item shows as untouched
+ * (approval-scale-ranking, pre-PR reviews, "A draft holds only results its items accept").
+ */
+export const keepMine = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  shown: ViewQuestion = question,
+): void => {
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
+  const { results, facts } = context;
+  for (const itemId of resultIdsOf(shown)) {
+    const held = results?.valueOf(itemId);
+    if (held !== undefined && !resultFits(shown, itemId, held, facts))
+      results?.set(itemId, undefined);
+  }
   sendActs(context, [
     {
       type: "edit-choice",
@@ -403,7 +420,7 @@ export const keepMine = (question: ViewQuestion, context: AnswerContext): void =
 export const fillFrom = (
   question: ViewQuestion,
   content: AnswerContent,
-  { draft, results, board }: Pick<AnswerContext, "draft" | "results" | "board">,
+  { draft, results, board, facts }: Pick<AnswerContext, "draft" | "results" | "board" | "facts">,
 ): void => {
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
   const choice = (content.choice ?? []).filter((label) => labels.has(label));
@@ -411,13 +428,12 @@ export const fillFrom = (
   const other = question.props.allowOther === true ? content.other : undefined;
   draft.set(question.id, choice.length === 0 ? undefined : choice);
   // Each widget item the revision holds takes the answer's result for it, as an own property, or
-  // none; an item the revision no longer holds, or a key that names none, seeds nothing.
+  // none; an item the revision no longer holds, a key that names none and a result the item's type
+  // refuses against its current props seed nothing, and the item shows as untouched.
   for (const itemId of resultIdsOf(question)) {
-    const result = content.results;
-    results?.set(
-      itemId,
-      result !== undefined && Object.hasOwn(result, itemId) ? result[itemId] : undefined,
-    );
+    const given = content.results;
+    const result = given !== undefined && Object.hasOwn(given, itemId) ? given[itemId] : undefined;
+    results?.set(itemId, resultFits(question, itemId, result, facts) ? result : undefined);
   }
   board.edit(question.id, question.rev, ({ other: _o, optionNotes: _n, note: _t, ...rest }) => ({
     ...rest,

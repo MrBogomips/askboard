@@ -9,6 +9,7 @@
 import { isRecord } from "../problems.ts";
 import type { Problem } from "../validate.ts";
 import { WIDGET_TYPES, type WidgetAnswer, type WidgetType, widgetTypeOf } from "./registry.ts";
+import { resultFitProblems } from "./result-fits.ts";
 import { schemaVerdict } from "./schema-verdict.ts";
 
 /**
@@ -39,7 +40,7 @@ export const widgetResultProblems = (
   });
   const checked = schemaVerdict(entry.result.schema, result);
   if (!checked.ok) return checked.problems.map(named);
-  return (entry.result.problems?.(result, props) ?? []).map(named);
+  return resultFitProblems(entry, result, props).map(named);
 };
 
 /**

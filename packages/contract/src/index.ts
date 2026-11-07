@@ -660,6 +660,7 @@ export {
   type RankingProps,
   type RankingResult,
   rankingPropsProblems,
+  rankingResultProblems,
 } from "./widgets/ranking/index.ts";
 export type { WidgetAnswer } from "./widgets/registry.ts";
 export { widgetAnswerProblems } from "./widgets/results.ts";
@@ -678,3 +679,8 @@ export {
   scaleStepCount,
   scaleStepIndex,
 } from "./widgets/scale/index.ts";
+
+// A result against the props it would be answered for (approval-scale-ranking, pre-PR reviews):
+// the type's own checks alone, with no schema, for the board page's draft.
+
+export { widgetResultFits } from "./widgets/result-fits.ts";

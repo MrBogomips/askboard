@@ -114,6 +114,14 @@ export type ComponentFacts = {
    * latest answer (approval-scale-ranking, design decision 5).
    */
   readonly confirmsRevision?: true;
+  /**
+   * Whether the type takes `result` for an item with `props`, by the type's own check of a result
+   * against props (approval-scale-ranking, pre-PR reviews): the shell holds or seeds a result only
+   * while this says true, so a draft never holds one `ask-core` would refuse. A type with no such
+   * check gives none, and any result it holds fits. The check is the contract's, the one the type's
+   * registry entry holds (`widgetResultFits`), which the shell cannot import with the registry.
+   */
+  readonly fits?: (result: unknown, props: unknown) => boolean;
 };
 
 /** The two strings a required reason uses: the open prompt's label and its field error. */

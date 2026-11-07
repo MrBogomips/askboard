@@ -8,9 +8,12 @@
 // runs on the session process.
 
 import { describe, expect, test } from "bun:test";
+import { RANKING_FIXTURE_ITEM } from "@askboard/contract/fixtures";
+import { VERDICT } from "./fixtures/approval-asks.ts";
 import { rankingAsk } from "./fixtures/ranking-documents.ts";
 import { scaleAsk } from "./fixtures/scale-documents.ts";
-import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
+import { plan } from "./fixtures/tree-documents.ts";
+import { checkedEvents, checkedFetchItem, decisionOf } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -48,6 +51,27 @@ import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
 const SLIDER = { min: 0, max: 100, step: 5 };
+
+// The question `plan` holding a Ranking, a Scale and an Approval, as the agent sends them.
+const threeAsk = {
+  askId: "portal-sow-plan-t2v6",
+  title: "Customer portal SOW plan",
+  items: [
+    {
+      type: "question",
+      id: "plan",
+      props: {
+        ...plan.props,
+        items: [RANKING_FIXTURE_ITEM, { type: "scale", id: "share", props: SLIDER }, VERDICT],
+      },
+    },
+  ],
+} as const;
+const RISK = { id: "risk", label: "Risk" };
+const ranked = (board: Board, name: string) =>
+  board.view
+    .getByRole("toolbar", { name: /Ranking tools/ })
+    .getByRole("button", { name, exact: true });
 const value = (board: Board) => board.view.locator("[data-scale-value]");
 
 // Sets the unset slider to its maximum with the keyboard and waits for the draft to hold it.
@@ -166,6 +190,118 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           type: "answer",
           itemId: "plan",
           rev: 2,
+          results: { share: { value: 100 } },
+        });
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the agent reopens an answered Ranking, Scale and Approval and changes the Ranking and the Scale: Start from my previous answer puts back the decision alone, and Answer sends nothing the board host refuses",
+      async () => {
+        const run = await start(lifecycleScenario(threeAsk, dist));
+        const board = await openBoard(run, ["plan"]);
+        await ranked(board, "Keep this order").click();
+        await setToMaximum(board);
+        await decisionOf(board, "plan", "Approve").click();
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await card(board, "plan").getByText("sent", { exact: true }).waitFor();
+        await actsDone(run, 1);
+        await run.session.update([
+          { action: "reopen", itemId: "plan" },
+          {
+            action: "change",
+            itemId: "priorities",
+            props: { items: [...RANKING_FIXTURE_ITEM.props.items, RISK] },
+          },
+          { action: "change", itemId: "share", props: { ...SLIDER, range: true } },
+        ]);
+        const reopened = card(board, "plan").locator('[data-askboard-notice="reopened"]');
+        await reopened.getByText("Reopened by the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reopened.getByRole("button", { name: "Start from my previous answer" }).click();
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "verdict", { decision: "approve" }),
+          "the draft to hold the decision",
+        );
+        expect(draftHolds(sentDrafts(run), "plan", "priorities", undefined)).toBe(true);
+        expect(draftHolds(sentDrafts(run), "plan", "share", undefined)).toBe(true);
+        expect(
+          ((await board.view.locator("[data-ranking-counter]").textContent()) ?? "").trim(),
+        ).toBe("No changes");
+        expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
+        expect(await value(board).first().textContent()).toBe("Not set");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events).toHaveLength(2);
+        expect(events[1]).toMatchObject({ type: "answer", itemId: "plan", rev: 4 });
+        expect(events[1]?.results).toEqual({ verdict: { decision: "approve" } });
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // A held Scale value, 100 of 100, and the agent's change of its `max` to 50.
+    const heldThenLowered = async (run: Awaited<ReturnType<typeof start>>) => {
+      const board = await openBoard(run, ["plan"]);
+      await setToMaximum(board);
+      await mirrored(
+        run,
+        (record) => draftHolds([record], "plan", "share", { value: 100 }),
+        "the Scale's value in the draft",
+      );
+      await run.session.update([
+        { action: "change", itemId: "share", props: { ...SLIDER, max: 50 } },
+      ]);
+      return board;
+    };
+    const changeNotice = (board: Board) =>
+      card(board, "plan").locator('[data-askboard-notice="agent-change"]');
+
+    test(
+      "a held Scale value across the agent lowering its max: after a reload Keep mine drops the value the page now refuses and the Scale shows unset",
+      async () => {
+        const run = await start(lifecycleScenario(scaleAsk(SLIDER), dist));
+        const board = await heldThenLowered(run);
+        await reloadBoard(board, run, () =>
+          board.view
+            .locator('[data-askboard-question="plan"]:not([aria-busy="true"])')
+            .waitFor({ state: "attached", timeout: STEP_TIMEOUT_MS }),
+        );
+        await changeNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await changeNotice(board).getByRole("button", { name: "Keep mine" }).click();
+        await changeNotice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await value(board).first().textContent()) === "Not set",
+          "the Scale to show nothing set",
+        );
+        await eventually(
+          () => draftHolds(sentDrafts(run).slice(-1), "plan", "share", undefined),
+          "the draft to hold no result",
+        );
+        expect(await answerOf(board, "plan").isDisabled()).toBe(true);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a held Scale value across the agent lowering its max, on the page that saw the earlier revision: Keep mine keeps the value, which the revision it was made on accepts, and the answer names that revision",
+      async () => {
+        const run = await start(lifecycleScenario(scaleAsk(SLIDER), dist));
+        const board = await heldThenLowered(run);
+        await changeNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await changeNotice(board).getByRole("button", { name: "Keep mine" }).click();
+        await changeNotice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await value(board).first().textContent()).toBe("100");
+        expect(draftHolds(sentDrafts(run), "plan", "share", { value: 100 })).toBe(true);
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events.at(-1)).toMatchObject({
+          type: "answer",
+          rev: 1,
           results: { share: { value: 100 } },
         });
         expectNoCspProblem(run);

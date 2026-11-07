@@ -17,6 +17,7 @@ import {
   resultHoldsNothing,
 } from "@askboard/contract";
 import { renderedOf } from "../catalog/components.ts";
+import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
@@ -189,6 +190,24 @@ export const itemIdsOf = (question: ViewQuestion): readonly string[] =>
  */
 export const resultIdsOf = (question: ViewQuestion): readonly string[] =>
   itemIdsOf(question).filter((itemId) => itemId !== question.id);
+
+/**
+ * Whether `result` may be held for the widget item `itemId` of `question`, as the question shows
+ * it: the item's type takes it against the item's props, by the `fits` its chunk registered
+ * (approval-scale-ranking, pre-PR reviews, "A draft holds only results its items accept"). The
+ * board page then never holds a result that `ask-core` would refuse, so "Answer" is never enabled
+ * by work the item shows as untouched (AD-10, AD-20). A type that registered no check takes any
+ * result its schema takes; an item the question lacks takes none.
+ */
+export const resultFits = (
+  question: ViewQuestion,
+  itemId: string,
+  result: unknown,
+  factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
+): boolean => {
+  const item = (question.props.items ?? []).find((each) => each.id === itemId);
+  return item !== undefined && (factsOf(item.type)?.fits?.(result, item.props) ?? true);
+};
 
 // No held results: the results store of a board that has none.
 const NO_RESULTS: ValueRecord = new Map();
@@ -433,6 +452,7 @@ export const restoreDraft = (
   values: DraftStore,
   board: BoardDraft,
   results?: DraftStore,
+  factsOf?: (type: string) => ComponentFacts | undefined,
 ): void => {
   const questions = questionsOf(document);
   const work = new Map<string, QuestionWork>();
@@ -445,14 +465,22 @@ export const restoreDraft = (
     if (context !== undefined) placements.set(question.id, context);
     const items = new Set(itemIdsOf(question));
     const widgets = new Set(resultIdsOf(question));
+    // A result is checked against the props it was made for: those of the question as it is, when
+    // the work was made on this revision. Work on an earlier revision keeps its results, which the
+    // card's "Keep mine" checks against what the card then shows, and "Reload" drops.
+    const takes = (itemId: string, result: unknown): boolean =>
+      rest.rev !== question.rev || resultFits(question, itemId, result, factsOf);
     if (!staleAnswer) {
       for (const [itemId, value] of Object.entries(kept)) {
         if (!items.has(itemId) || (itemId === question.id && !isLabels(value))) continue;
         values.set(itemId, value);
       }
-      // Each result where it names a widget item of the question, as a value does.
+      // Each result where it names a widget item of the question, as a value does, and only
+      // while the item's type takes it (a mirror holding one it refuses is no work of the user's).
       for (const [itemId, result] of Object.entries(keptResults)) {
-        if (widgets.has(itemId) && !resultHoldsNothing(result)) results?.set(itemId, result);
+        if (widgets.has(itemId) && !resultHoldsNothing(result) && takes(itemId, result)) {
+          results?.set(itemId, result);
+        }
       }
     }
     const held = staleAnswer
@@ -462,7 +490,9 @@ export const restoreDraft = (
     if (
       Object.keys(held).some((key) => key !== "rev") ||
       hasValuesIn(kept) ||
-      Object.values(keptResults).some((r) => !resultHoldsNothing(r))
+      Object.entries(keptResults).some(
+        ([itemId, r]) => !resultHoldsNothing(r) && !(widgets.has(itemId) && !takes(itemId, r)),
+      )
     )
       work.set(question.id, held);
   }

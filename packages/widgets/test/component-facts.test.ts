@@ -5,7 +5,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { APPROVAL_DECISIONS, WIDGET_TYPES, widgetAnswerProblems } from "@askboard/contract";
+import {
+  APPROVAL_DECISIONS,
+  WIDGET_TYPES,
+  type WidgetType,
+  widgetAnswerProblems,
+  widgetResultFits,
+} from "@askboard/contract";
 
 const SRC = join(import.meta.dir, "../src");
 
@@ -13,17 +19,42 @@ const SRC = join(import.meta.dir, "../src");
 // A chunk is `src/<type>/index.tsx`, built from the entry, so a type added to the registry is
 // checked with no edit here.
 const CHUNKS = WIDGET_TYPES.map((entry) => join(SRC, entry.type, "index.tsx"));
+
+// Results to put to every type's `fits`, a type's own and others': each type's check must agree
+// with the contract's whatever the shape, over the example props of its entry.
+const probesOf = (entry: WidgetType): readonly unknown[] => {
+  const ids = ((entry.example.item.props as { items?: { id: string }[] }).items ?? []).map(
+    ({ id }) => id,
+  );
+  return [
+    { decision: "approve" },
+    { value: 3 },
+    { value: 9 },
+    { value: 1e-200 },
+    { low: 1, high: 2 },
+    { order: [] },
+    { order: ids },
+    { order: [...ids].reverse() },
+    { order: ids.slice(1) },
+    { order: [...ids, "extra"] },
+  ];
+};
+
 const SCRIPT = `
 import { WIDGET_TYPES } from "@askboard/contract";
 import { componentFacts } from "@askboard/view/catalog";
 ${CHUNKS.map((chunk) => `await import(${JSON.stringify(chunk)});`).join("\n")}
-console.log(JSON.stringify(WIDGET_TYPES.map((entry) => {
+const probes = ${JSON.stringify(WIDGET_TYPES.map(probesOf))};
+console.log(JSON.stringify(WIDGET_TYPES.map((entry, at) => {
   const facts = componentFacts(entry.type);
   return {
     type: entry.type,
     name: facts?.name,
     shape: facts?.shape?.(entry.example.item.props),
     confirmsRevision: facts?.confirmsRevision,
+    fits: facts?.fits === undefined ? undefined : probes[at].map(
+      (result) => facts.fits(result, entry.example.item.props),
+    ),
     reasons: facts?.reason === undefined ? undefined : ${JSON.stringify(APPROVAL_DECISIONS)}.map(
       (decision) => facts.reason({ decision }) ?? null,
     ),
@@ -36,6 +67,7 @@ type Facts = {
   name?: string;
   shape?: unknown;
   confirmsRevision?: true;
+  fits?: readonly boolean[];
   reasons?: readonly ({ label: string; missing: string } | null)[];
 };
 
@@ -65,6 +97,24 @@ describe("each registered widget type's chunk", () => {
       if (entry.edits !== undefined) {
         expect(facts[at]?.shape).toEqual(entry.edits.shape(entry.example.item.props));
       }
+    }
+  });
+});
+
+describe("a chunk's fact `fits`", () => {
+  test("is registered exactly when the type's entry checks a result against props, and agrees with the contract's check", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      const fits = facts[at]?.fits;
+      expect(fits !== undefined).toBe(entry.result?.problems !== undefined);
+      if (fits === undefined) continue;
+      expect(fits).toEqual(
+        probesOf(entry).map((result) =>
+          widgetResultFits(entry.example.item, result, entry.example.item.props),
+        ),
+      );
+      // A check that said yes to everything or no to everything would pass the agreement trivially.
+      expect(new Set(fits).size).toBe(2);
     }
   });
 });

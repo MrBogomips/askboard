@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { LifecycleQuestionStatus } from "@askboard/contract";
+import { type LifecycleQuestionStatus, widgetResultFits } from "@askboard/contract";
 import {
   ganttBoardDocument,
   ganttEditedValue,
@@ -1017,6 +1017,107 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     fillFrom(question, proto, context);
     expect(results.valueOf("constructor")).toBe(1);
     expect(Object.getPrototypeOf(results.record())).toBe(Map.prototype);
+  });
+
+  // Items as the revision holds them: the earlier answer's results are checked against these.
+  const ranking = (...ids: string[]): WidgetItem => ({
+    type: "ranking",
+    id: "priorities",
+    props: { items: ids.map((id) => ({ id, label: id })) },
+  });
+  const scale = (props: object): WidgetItem => ({ type: "scale", id: "share", props });
+  const questionOf = (...items: WidgetItem[]): ViewQuestion => ({
+    ...database,
+    props: { text: "Which one?", items },
+  });
+  const order = { order: ["cost", "speed", "comfort"] };
+  // What the Scale and Ranking chunks register: each type's own check, through the contract's.
+  const facts = (type: string) =>
+    type === "scale" || type === "ranking"
+      ? {
+          fits: (result: unknown, props: unknown) =>
+            widgetResultFits({ type, id: "x" }, result, props),
+        }
+      : undefined;
+  const setUpFits = () => {
+    const set = setUp();
+    return { ...set, context: { ...set.context, facts } };
+  };
+
+  test("a Ranking whose revision added or dropped an element is seeded no order", () => {
+    for (const ids of [
+      ["speed", "cost", "comfort", "risk"],
+      ["speed", "comfort"],
+    ]) {
+      const { results, context } = setUpFits();
+      fillFrom(questionOf(ranking(...ids)), { results: { priorities: order } }, context);
+      expect(results.record().has("priorities")).toBe(false);
+    }
+  });
+
+  test("a Ranking that still holds the same elements is seeded its order, reordered or not", () => {
+    const { results, context } = setUpFits();
+    fillFrom(
+      questionOf(ranking("comfort", "speed", "cost")),
+      { results: { priorities: order } },
+      context,
+    );
+    expect(results.valueOf("priorities")).toEqual(order);
+  });
+
+  test("a Scale turned into a range, or whose max fell below the value, is seeded no value", () => {
+    for (const [props, value] of [
+      [{ min: 0, max: 100, step: 5, range: true }, 35],
+      [{ min: 0, max: 50, step: 5 }, 100],
+      [{ min: 0, max: 100, step: 10 }, 35],
+    ] as const) {
+      const { results, context } = setUpFits();
+      fillFrom(questionOf(scale(props)), { results: { share: { value } } }, context);
+      expect(results.record().has("share")).toBe(false);
+    }
+  });
+
+  test("a Scale value still on the grid is seeded", () => {
+    const { results, context } = setUpFits();
+    fillFrom(
+      questionOf(scale({ min: 0, max: 100, step: 5 })),
+      { results: { share: { value: 35 } } },
+      context,
+    );
+    expect(results.valueOf("share")).toEqual({ value: 35 });
+  });
+
+  test("a result the type refuses clears the one held in its place, and the others still seed", () => {
+    const { results, context } = setUpFits();
+    results.set("priorities", { order: ["speed", "comfort", "risk"] });
+    const question = questionOf(ranking("speed", "comfort"), verdict);
+    fillFrom(question, { results: { priorities: order, verdict: rejected } }, context);
+    expect(results.record().has("priorities")).toBe(false);
+    expect(results.valueOf("verdict")).toEqual(rejected);
+  });
+
+  test("Keep mine, on a card showing the current revision, drops a held result that revision refuses and keeps the others", () => {
+    const { sent, results, board, context } = setUpFits();
+    const current = { ...questionOf(ranking("speed", "comfort"), verdict), rev: 2 };
+    board.edit("database", 1, () => ({ rev: 1 }));
+    results.set("priorities", order);
+    results.set("verdict", rejected);
+    keepMine(current, context, current);
+    expect(results.record().has("priorities")).toBe(false);
+    expect(results.valueOf("verdict")).toEqual(rejected);
+    expect(sent).toEqual([
+      expect.objectContaining({ type: "act", acts: [expect.objectContaining({ keptRev: 1 })] }),
+    ]);
+  });
+
+  test("Keep mine, on a card showing the earlier revision the work was made on, keeps its results", () => {
+    const { results, board, context } = setUpFits();
+    const earlier = questionOf(ranking("speed", "cost", "comfort"));
+    const current = { ...questionOf(ranking("speed", "comfort")), rev: 2 };
+    board.edit("database", 1, () => ({ rev: 1 }));
+    results.set("priorities", order);
+    keepMine(current, context, earlier);
+    expect(results.valueOf("priorities")).toEqual(order);
   });
 
   test("the leave-page prompt is armed after seeding, as the draft record the page mirrors shows", () => {
