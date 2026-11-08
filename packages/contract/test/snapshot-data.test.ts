@@ -74,11 +74,11 @@ const problemPaths = (value: unknown): string[] => {
 };
 
 describe("the snapshot-data set", () => {
-  test("is listed at widget-registry's minor, owned by snapshot, as AD-7's table says", () => {
+  test("is listed at its current minor, owned by snapshot, as AD-7's table says", () => {
     expect(SCHEMA_SETS).toContain(snapshotDataSet);
     expect(snapshotDataSet).toMatchObject({
       name: "snapshot-data",
-      version: "1.1",
+      version: SNAPSHOT_DATA_VERSION,
       owner: "snapshot",
     });
     expect(SCHEMA_SET_OWNERS["snapshot-data"]).toBe("snapshot");
@@ -183,8 +183,7 @@ describe("what the Snapshot data names", () => {
     expect(checked.problems).toEqual([
       {
         path: "/versions/snapshot",
-        message:
-          "the message is Snapshot data version 2.0, which is not supported: this receiver supports version 1 (1.1)",
+        message: `the message is Snapshot data version 2.0, which is not supported: this receiver supports version 1 (${SNAPSHOT_DATA_VERSION})`,
       },
     ]);
   });

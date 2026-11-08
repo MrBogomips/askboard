@@ -16,6 +16,7 @@ import {
   type OutputEvent,
   type PresentationSetting,
   SNAPSHOT_FOLDER,
+  type SnapshotPresentation,
   type UnavailableReason,
   type UnresolvedPointerWarning,
   type WriteOutcome,
@@ -892,16 +893,30 @@ export class AskCore {
 
   // Snapshots (E7, snapshot design decision 3).
 
+  // The theme and density a Snapshot records (snapshot-toolbar, design decision 3): read before the
+  // one synchronous check and gathering, so the writes already requested count; a read that fails
+  // is reported and leaves the record without them, and never refuses the Snapshot.
+  async #presentationNow(): Promise<SnapshotPresentation | undefined> {
+    try {
+      return await this.#configuration.presentationNow();
+    } catch (error) {
+      this.#ports.report(error);
+      return undefined;
+    }
+  }
+
   /**
    * Takes a Snapshot of an open or closed ask (FR-26, AD-15), on the agent's request or the
    * board's: a discarded ask, or one this epoch does not hold, is `discarded`, and nothing reaches
    * the writer (AD-10, AD-21). The agent's request then passes the owner check `fetch` applies,
    * with the call's binding; the board's carries none, its token being its authority (AD-5,
-   * AD-11). The data is gathered in one synchronous step, so nothing appended after it is in it,
+   * AD-11). The settings a board would open with are read first (`#presentationNow`), then the
+   * data is gathered in one synchronous step, so nothing appended after it is in it,
    * then handed to the writer (E7's `CorePorts` field). It appends no event, publishes nothing and
    * moves no `received` (AD-3).
    */
   async snapshot(askId: string, request: SnapshotRequester): Promise<SnapshotOutcome> {
+    const presentation = await this.#presentationNow();
     const ask = this.#asks.get(askId);
     const board = this.lifecycleBoard(askId);
     if (ask === undefined || board === undefined || board.state === "discarded") {
@@ -924,6 +939,7 @@ export class AskCore {
       keptAnswerValues: this.keptAnswerValues(askId) ?? new Map(),
       keptAnswerResults: this.keptAnswerResults(askId) ?? new Map(),
       molecules: expansionEntries(ask.expansion),
+      ...(presentation === undefined ? {} : { presentation }),
     });
     return saveSnapshot(snapshots?.writer, data, this.ownerOf(askId) === undefined);
   }
