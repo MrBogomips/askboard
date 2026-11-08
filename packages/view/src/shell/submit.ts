@@ -394,7 +394,8 @@ export const submitPress = (
   const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf, shownOf);
   if (blocked !== undefined) return { kind: "field-block", questionId: blocked.id };
   const acts = submitActsOf(held, values, at, reported, results, shownOf);
-  const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
+  const questions =
+    state === undefined ? [] : questionsToConfirm(document, held, state, facts, shownOf);
   return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
 };
 

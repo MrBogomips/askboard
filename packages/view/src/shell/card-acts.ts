@@ -629,6 +629,20 @@ export const acceptRecommended = (
   return answer(question, context);
 };
 
+/**
+ * A press of Decline on a question whose latest answer or decline the agent has received: the
+ * confirmation first, when the question holds an item that asks for it, then `run`. Returns the
+ * waiting act, or nothing when `run` ran at once.
+ */
+export const pressDecline = (
+  question: ViewQuestion,
+  context: Pick<AnswerContext, "facts" | "shownOf">,
+  status: LifecycleQuestionStatus | undefined,
+  held: HeldAct["act"] | undefined,
+  run: () => void,
+): Waiting | undefined =>
+  press(asksFirst("decline", shownIn(question, context), status, held, context.facts), run);
+
 /** What a press of "Answer" made of itself, for the card to show. */
 export type AnswerPress =
   /** Nothing was sent or marked for want of the reason: the field error and the prompt. */
@@ -653,7 +667,9 @@ export const pressAnswer = (
   // The held act excuses the confirmation only where the press takes it back: in submitted delivery.
   const held =
     context.delivery === "submitted" ? context.board.work(question.id)?.held?.act : undefined;
-  const waiting = press(asksFirst("answer", question, status, held, context.facts), () =>
+  // The items that ask are those of the revision the card shows and the answer names (Issue #92).
+  const shown = shownIn(question, context);
+  const waiting = press(asksFirst("answer", shown, status, held, context.facts), () =>
     onOutcome(answer(question, context)),
   );
   return waiting === undefined ? { kind: "done" } : { kind: "waiting", waiting };

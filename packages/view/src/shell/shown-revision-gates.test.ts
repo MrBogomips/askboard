@@ -25,6 +25,7 @@ import {
   fillFrom,
   keepMine,
   pressAnswer,
+  pressDecline,
 } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
@@ -600,5 +601,123 @@ describe("Select recommended picks the option the card shows as recommended (tas
     const context = { ...stores.context, shownOf: stores.shownOf };
     selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false);
     expect(stores.draft.valueOf("plan")).toEqual(["Maybe"]);
+  });
+});
+
+describe("the revision confirmation is asked by the items the card shows (task 6.12, #92)", () => {
+  // The agent has received an answer holding an Approval's verdict (the probe type `approval` asks
+  // before a revision replaces it). Revision 1 holds the Approval, or revision 2 adds it; the work
+  // was kept on revision 1, which the card shows.
+  const facts = (type: string): ComponentFacts | undefined =>
+    type === "approval" ? { fits: () => true, confirmsRevision: true } : undefined;
+  const status = {
+    itemId: "plan",
+    rev: 2,
+    state: "answered",
+    answer: { receipt: "delivered" },
+  } as never;
+  const answeredState = (): LifecycleBoardState => ({ ask: "waiting", questions: [status] });
+  const WITH = questionOf([field("a", "A"), field("b", "B", "approval")], 1);
+  const WITHOUT = questionOf([field("a", "A")], 2);
+  const BEFORE = questionOf([field("a", "A")], 1);
+  const ADDED = questionOf([field("a", "A"), field("b", "B", "approval")], 2);
+  const setUp = (
+    current: ViewQuestion,
+    earlier: ViewQuestion,
+    delivery: "immediate" | "submitted" = "immediate",
+  ) => {
+    const stores = board(current, { seen: [earlier, current], facts, delivery });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    return stores;
+  };
+  const types = (stores: Stores) => stores.sent.map((message) => message.type);
+
+  test("a removed Approval still asks: Answer waits, and confirming sends the answer naming revision 1", () => {
+    const stores = setUp(WITHOUT, WITH);
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    const outcome = pressAnswer(WITHOUT, context, status, () => {});
+    expect(outcome.kind).toBe("waiting");
+    expect(stores.sent).toEqual([]);
+    if (outcome.kind === "waiting") outcome.waiting.confirm();
+    expect(stores.sent).toHaveLength(1);
+    expect(stores.sent[0]).toMatchObject({ type: "answer", rev: 1 });
+  });
+
+  test("an added Approval does not ask: Answer sends at once", () => {
+    const stores = setUp(ADDED, BEFORE);
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    expect(pressAnswer(ADDED, context, status, () => {}).kind).toBe("done");
+    expect(types(stores)).toEqual(["answer"]);
+  });
+
+  test("with the confirmation reading the current revision the removed Approval sends unasked, which is the fault", () => {
+    const stores = setUp(WITHOUT, WITH);
+    expect(pressAnswer(WITHOUT, stores.context, status, () => {}).kind).toBe("done");
+  });
+
+  test("with revision 1 unseen (a reload) the current revision's items ask", () => {
+    const stores = board(WITH, { seen: [WITH], facts, kept: false });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    expect(pressAnswer(WITH, context, status, () => {}).kind).toBe("waiting");
+  });
+
+  test("Decline asks by the shown revision's items too", () => {
+    const removed = setUp(WITHOUT, WITH);
+    const context = (stores: Stores) => ({ ...stores.context, shownOf: stores.shownOf });
+    const run = () => {};
+    expect(pressDecline(WITHOUT, context(removed), status, undefined, run)).toBeDefined();
+    const added = setUp(ADDED, BEFORE);
+    expect(pressDecline(ADDED, context(added), status, undefined, run)).toBeUndefined();
+    // Read against the current revision, each would answer the other way.
+    expect(pressDecline(ADDED, added.context, status, undefined, run)).toBeDefined();
+    expect(pressDecline(WITHOUT, removed.context, status, undefined, run)).toBeUndefined();
+  });
+
+  describe("Submit's confirmation", () => {
+    const pressWith = (stores: Stores, question: ViewQuestion, shownOf?: Stores["shownOf"]) =>
+      submitPress(
+        documentOf(question),
+        stores.board.get(),
+        stores.draft.record(),
+        new Date(),
+        () => undefined,
+        {
+          results: stores.results.record(),
+          entries: stores.entries.record(),
+          state: answeredState(),
+          facts,
+          ...(shownOf === undefined ? {} : { shownOf }),
+        },
+      );
+
+    test("a removed Approval is listed to confirm, nothing being sent", () => {
+      const stores = setUp(WITHOUT, WITH, "submitted");
+      held(stores, WITHOUT);
+      const pressed = pressWith(stores, WITHOUT, stores.shownOf);
+      expect(pressed.kind).toBe("confirm");
+      expect(pressed.kind === "confirm" ? pressed.questions.map((q) => q.id) : []).toEqual([
+        "plan",
+      ]);
+      expect(pressed.kind === "confirm" ? pressed.acts[0] : undefined).toMatchObject({
+        type: "answer",
+        rev: 1,
+      });
+    });
+
+    test("an added Approval is not listed, and Submit sends", () => {
+      const stores = setUp(ADDED, BEFORE, "submitted");
+      held(stores, ADDED);
+      expect(pressWith(stores, ADDED, stores.shownOf).kind).toBe("send");
+      expect(pressWith(stores, ADDED).kind).toBe("confirm");
+    });
+
+    test("with the confirmation reading the current revision the removed Approval sends unasked", () => {
+      const stores = setUp(WITHOUT, WITH, "submitted");
+      held(stores, WITHOUT);
+      expect(pressWith(stores, WITHOUT).kind).toBe("send");
+    });
   });
 });

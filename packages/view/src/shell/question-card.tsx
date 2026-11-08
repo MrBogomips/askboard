@@ -51,6 +51,7 @@ import {
   keepMine,
   postpone,
   pressAnswer,
+  pressDecline,
   reloadQuestion,
   selectRecommendedOption,
   sendFollowUp,
@@ -76,11 +77,9 @@ import {
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import {
-  asksFirst,
   type Confirmation,
   confirmationOf,
   type FocusTarget,
-  press,
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -416,7 +415,7 @@ export const QuestionCard = (props: CardProps) => {
   const afterClose = useRef<FocusTarget<HTMLElement> | undefined>(undefined);
   const chosen = useRef(false);
   const askDecline = (control: HTMLElement | undefined, run: () => void): boolean => {
-    const next = press(asksFirst("decline", question, status, work?.held?.act), run);
+    const next = pressDecline(question, acting, status, work?.held?.act, run);
     chosen.current = false;
     setWaiting(confirmationOf("decline", next, control));
     return next === undefined;
