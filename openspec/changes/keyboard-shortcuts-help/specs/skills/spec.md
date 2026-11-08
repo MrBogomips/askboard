@@ -1,0 +1,88 @@
+## MODIFIED Requirements
+
+### Requirement: The shipped skill
+The plugin SHALL ship two skills at the plugin root, `skills/askboard/SKILL.md` and `skills/askboard-help/SKILL.md`, whose frontmatter holds `name` and `description` and, for `askboard-help` only, MAY hold `disallowed-tools`. Each `name` SHALL match its directory and conform to the Agent Skills specification; `askboard`'s description SHALL say when to use AskBoard, and `askboard-help`'s when the user asks how to use the board (AD-18, NFR-11).
+
+#### Scenario: The skill's frontmatter
+- **WHEN** the shipped `SKILL.md` files are parsed
+- **THEN** `askboard`'s frontmatter has exactly `name` `askboard` and `description`, and `askboard-help`'s has `name` `askboard-help`, `description` and at most `disallowed-tools`
+
+#### Scenario: No tool permission granted
+- **WHEN** the shipped skills' files are read
+- **THEN** no frontmatter grants or pre-allows a tool
+
+### Requirement: Skill files are generated
+Every file under `skills/askboard/` and `skills/askboard-help/` SHALL be the output of the skill generator, run over `contract`, `molecules`, the board's English strings and the generator's templates. The skill check SHALL fail, naming each file, when a shipped file of either folder differs from its generated form, a generated file is missing, or a file the generator does not produce is present (AD-6).
+
+#### Scenario: A hand-edited reference
+- **WHEN** a shipped reference file is edited by hand and the skill check runs
+- **THEN** the check fails naming that file
+
+#### Scenario: A hand-edited help reference
+- **WHEN** a file under `skills/askboard-help/` is edited by hand and the skill check runs
+- **THEN** the check fails naming that file
+
+#### Scenario: A file nobody generates
+- **WHEN** an extra file is added under `skills/askboard/` or `skills/askboard-help/` and the skill check runs
+- **THEN** the check fails naming that file
+
+#### Scenario: A widget registered without regenerating
+- **WHEN** a widget type is added to the registry and the skill check runs before the generator
+- **THEN** the check fails naming the missing references and each `SKILL.md`
+
+### Requirement: The skill's token budget
+The skill check SHALL fail when `askboard`'s description exceeds 600 characters, its `SKILL.md` 9,000 characters or 250 lines, or a reference 6,000 characters; when `askboard-help`'s description exceeds 400 characters, its `SKILL.md` 6,000 characters or 150 lines, or a reference 4,000 characters; or when the always-loaded total, the compact tool definitions, the server instructions and both skills' names and descriptions, exceeds 8,400 characters (NFR-1, PRD R5).
+
+#### Scenario: A reference over budget
+- **WHEN** a generated reference of `askboard` exceeds 6,000 characters, or one of `askboard-help` exceeds 4,000
+- **THEN** the skill check fails naming the file, its size and the budget
+
+#### Scenario: The always-loaded total
+- **WHEN** the skill check runs on the shipped skills
+- **THEN** it prints the always-loaded total, counting both skills' names and descriptions, and passes only when it is at most 8,400 characters
+
+### Requirement: The benchmark reports the skills loaded
+The benchmark report SHALL list the skills each arm's sessions started with and flag a run whose listing holds a skill other than AskBoard's two, `askboard:askboard` and `askboard:askboard-help`, so that the context AskBoard's skills add is what the benchmark measures; the AskBoard arm SHALL still allow only `Skill(askboard:askboard)` (AD-17, PRD R5).
+
+#### Scenario: Another skill in the listing
+- **WHEN** a run's init event lists a skill other than AskBoard's two
+- **THEN** the report lists that skill for the run's arm and flags the run
+
+#### Scenario: The help skill in the listing
+- **WHEN** a run's init event lists `askboard:askboard` and `askboard:askboard-help`
+- **THEN** the report lists both and flags nothing
+
+## ADDED Requirements
+
+### Requirement: The help skill
+`askboard-help` SHALL answer the user's questions on using the board, in the user's language: for each widget type, what it is for, how it is edited with the mouse and the keys, and what the agent receives; and the board's concepts. It SHALL tell the agent to answer in the terminal from its files, never to call AskBoard's tools or open a board for it, and SHALL hold no ask example (FR-29, NFR-12).
+
+#### Scenario: Every widget type
+- **WHEN** the generator runs on the shipped registry
+- **THEN** `askboard-help` holds one reference per registered type and one per ready molecule, each linked from its `SKILL.md` and holding the type's help text
+
+#### Scenario: The board's concepts
+- **WHEN** `askboard-help`'s `SKILL.md` is read
+- **THEN** it explains postponing, declining, follow-up questions, "Keep mine" and "Reload", Snapshots, the board's language and live updates
+
+#### Scenario: Never through AskBoard
+- **WHEN** `askboard-help`'s files are read
+- **THEN** they tell the agent not to call `ask`, `update`, `collect`, `fetch` or `snapshot` and hold no item or ask example
+
+### Requirement: Keys from the key tables
+For each widget type with a key table, `askboard`'s widget reference and `askboard-help`'s SHALL list its keys from the table, each action by its English board string and each key as on Linux, with the macOS form beside it, so that a table changed without regenerating fails the skill check (NFR-12, AD-6).
+
+#### Scenario: The Ranking's keys
+- **WHEN** the generator runs on the shipped registry
+- **THEN** both Ranking references list "Move up" with Alt+Shift+↑ and ⌥⇧↑, and "To top" with Alt+Shift+Home and Ctrl+Shift+↑, ⌥⇧Home and ⌘⇧↑
+
+#### Scenario: A table changed without regenerating
+- **WHEN** a key table changes and the skill check runs before the generator
+- **THEN** the check fails naming the two references of that type
+
+### Requirement: The asking skill points to the help skill
+`askboard`'s `SKILL.md` SHALL tell the agent that a question from the user about using the board, its widgets or its keys goes to the `askboard-help` skill, never into an ask (FR-29).
+
+#### Scenario: A usage question
+- **WHEN** `askboard`'s `SKILL.md` is read
+- **THEN** it names `askboard-help` for questions on using the board
