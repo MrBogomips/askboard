@@ -34,10 +34,10 @@ import {
   type AgentStatus,
   type AnswerCommand,
   BOARD_CLOSE_CODES,
+  BOARD_MESSAGE_MAX_BYTES,
   CHOICE_LABELS_MAX_CHARS,
   type ConnectMessage,
   type DiscardReason,
-  DRAFT_RECORD_MAX_CHARS,
   type DraftMessage,
   type LifecycleHostMessage,
   type LifecyclePageMessage,
@@ -74,14 +74,11 @@ import type { BoardTokens } from "./tokens.ts";
 import { agentMessage, originMessage } from "./who-and-where.ts";
 
 /**
- * The largest message a board page may send: a draft record of the contract's draft limit, or
- * E1's answer naming every option of a question whose labels take the contract's most room,
- * whichever is larger, at three UTF-8 bytes per UTF-16 unit, plus the envelope. An act command
- * carries what a draft holds of the same questions. It bounds what the schema validator, which
- * reports every error, ever reads.
+ * The largest message a board page may send: the contract's `BOARD_MESSAGE_MAX_BYTES`, which the
+ * board page applies to every command before it sends one (oversized-acts), so the two layers
+ * cannot disagree. It bounds what the schema validator, which reports every error, ever reads.
  */
-export const MESSAGE_MAX_BYTES =
-  Math.max(CHOICE_LABELS_MAX_CHARS, DRAFT_RECORD_MAX_CHARS) * 3 + 4 * 1024;
+export const MESSAGE_MAX_BYTES = BOARD_MESSAGE_MAX_BYTES;
 
 /**
  * The most a socket may send before its `connect` is accepted, frames included: E1's bound on any

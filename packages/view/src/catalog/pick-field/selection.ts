@@ -24,6 +24,28 @@ export const filteredOptions = (
 export const showsFilter = (optionCount: number, readOnly: boolean): boolean =>
   !readOnly && optionCount > PICK_FILTER_OVER;
 
+/**
+ * The radio of a single pick that is checked: the picked option's place among the options `shown`,
+ * none while nothing is picked or the filter hides the pick (Tab then enters on the first radio
+ * shown). Option IDs are agent text, compared, never used as keys of an object.
+ */
+export const checkedAmong = (
+  shown: readonly PickOption[],
+  picked: string | undefined,
+): number | undefined => {
+  if (picked === undefined) return undefined;
+  const at = shown.findIndex(({ id }) => id === picked);
+  return at < 0 ? undefined : at;
+};
+
+/** What checking the radio at `index` among the options `shown` does: it picks that option's ID. */
+export const picking =
+  (shown: readonly PickOption[], put: (id: string) => void) =>
+  (index: number): void => {
+    const id = shown[index]?.id;
+    if (id !== undefined) put(id);
+  };
+
 /** Gives focus to the first radio under `root`, if there is one: where "Clear" leaves it. */
 export const focusFirstRadio = (root: ParentNode | null): void => {
   root?.querySelector<HTMLElement>('[role="radio"]')?.focus();

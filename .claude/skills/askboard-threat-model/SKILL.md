@@ -236,3 +236,5 @@ with where it is recorded. Bun's `maxPayloadLength` before `connect` (E11); E8's
 points and accepted risks; the Gantt's five LOWs and far-future chart width (#18). Open, not
 deferred: #32's two review comments; when the range touches `board-props.ts` or `widget-update.ts`,
 say whether it fixes them. Each change accepts risks of its own in its `design.md` and `tasks.md`.
+Since 2026-11-08 a deferred finding is also an Issue labelled `source:review`: search them before
+reporting (`askboard-review-protocol`, section 3).

@@ -14,6 +14,7 @@ import {
   newActionId,
   pendingOf,
   refusedCommand,
+  refusedTooLarge,
   SETTLED_KEPT,
   settleDone,
   withoutAll,
@@ -79,6 +80,34 @@ describe("the commands the board page holds until board-host settles them (AD-10
     expect(pendingOf(refused)).toEqual([]);
     expect(refused.settled).toEqual([{ actionId: A, outcome: "refused" }]);
     expect(refusedCommand(held, B)).toBe(held);
+  });
+
+  // oversized-acts, design decision 3: a socket closed as too large carried every command sent on
+  // it and not yet acknowledged; none of them is sent again.
+  test("a socket closed as too large settles every sent, unacknowledged command as refused and too large, and keeps the rest", () => {
+    let outbox = hold(EMPTY_OUTBOX, command(A), basis(), true);
+    outbox = hold(outbox, command(B, "cache"), basis("cache"), true);
+    const C = "CCCCCCCCCCCCCCCCCCCCCC";
+    outbox = hold(outbox, command(C), basis(), false);
+    const D = "DDDDDDDDDDDDDDDDDDDDDD";
+    outbox = acknowledged(hold(outbox, command(D), basis(), true), D);
+    const dropped = refusedTooLarge(outbox);
+    expect(dropped.settled).toEqual([
+      { actionId: A, outcome: "refused", tooLarge: true },
+      { actionId: B, outcome: "refused", tooLarge: true },
+    ]);
+    expect(dropped.held.map((held) => held.command.actionId)).toEqual([C, D]);
+    expect(pendingOf(dropped)).toEqual([
+      { actionId: C, outcome: "queued" },
+      { actionId: D, outcome: "sent" },
+    ]);
+  });
+
+  test("a socket closed as too large with nothing sent on it changes nothing", () => {
+    const empty = refusedTooLarge(EMPTY_OUTBOX);
+    expect(empty).toBe(EMPTY_OUTBOX);
+    const queued = hold(EMPTY_OUTBOX, command(A), basis(), false);
+    expect(refusedTooLarge(queued)).toBe(queued);
   });
 
   test("only the latest settled commands are kept", () => {
