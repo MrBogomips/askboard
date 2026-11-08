@@ -620,6 +620,36 @@ describe("the lifecycle's view messages (ask-lifecycle, design decision 6)", () 
     }
     expect(readAnswerReply({ outcome: "sent", actionId: ACTION_ID })).toEqual({ outcome: "sent" });
   });
+
+  // oversized-acts, design decision 2: a refusal may carry the size and the limit that caused it.
+  test("a refusal's size is kept when it is two positive safe integers, else dropped", () => {
+    const size = { bytes: 6_100_000, max: 6_004_096 };
+    expect(readActReply({ outcome: "refused", detail: "too big", size })).toEqual({
+      outcome: "refused",
+      detail: "too big",
+      size,
+    });
+    for (const bad of [
+      { bytes: 0, max: 6_004_096 },
+      { bytes: 6_100_000, max: -1 },
+      { bytes: 1.5, max: 2 },
+      { bytes: Number.MAX_SAFE_INTEGER + 1, max: 2 },
+      { bytes: "6100000", max: 6_004_096 },
+      { bytes: 6_100_000 },
+      [6_100_000, 6_004_096],
+      null,
+      "big",
+    ]) {
+      expect(readActReply({ outcome: "refused", detail: "x", size: bad })).toEqual({
+        outcome: "refused",
+        detail: "x",
+      });
+    }
+    expect(readActReply({ outcome: "sent", actionId: ACTION_ID, size })).toEqual({
+      outcome: "sent",
+      actionId: ACTION_ID,
+    });
+  });
 });
 
 describe("what the board page tells the view of the lifecycle (ask-lifecycle, design decision 6)", () => {
@@ -647,6 +677,7 @@ describe("what the board page tells the view of the lifecycle (ask-lifecycle, de
         { actionId: ACTION_ID, outcome: "done" },
         { actionId: "Zz3dE5gH7jK9mN1pQ3sT5v", outcome: "refused" },
         { actionId: "Yy3dE5gH7jK9mN1pQ3sT5v", outcome: "dropped" },
+        { actionId: "Xx3dE5gH7jK9mN1pQ3sT5v", outcome: "refused", tooLarge: true },
       ],
       restore: { id: 1, record: lifecycleDraftRecord },
     } as const;
@@ -677,6 +708,8 @@ describe("what the board page tells the view of the lifecycle (ask-lifecycle, de
       { document: null },
       { connection: "live" },
       { settled: [{ actionId: ACTION_ID, outcome: "maybe" }] },
+      { settled: [{ actionId: ACTION_ID, outcome: "refused", tooLarge: false }] },
+      { settled: [{ actionId: ACTION_ID, outcome: "refused", tooLarge: "yes" }] },
       { settled: "done" },
       { restore: { id: 0, record: lifecycleDraftRecord } },
       { restore: { id: 1 } },

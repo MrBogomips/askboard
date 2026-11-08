@@ -3,7 +3,7 @@
 // every other close, a drop (1006) and Track A's "try again later" (1013) included, is ordinary,
 // and the page reconnects with backoff.
 
-import { BOARD_CLOSE_CODES } from "@askboard/contract";
+import { BOARD_CLOSE_CODES, MESSAGE_TOO_BIG_CLOSE } from "@askboard/contract";
 
 export type CloseKind = "refused" | "moved" | "discarded" | "drop";
 
@@ -19,6 +19,13 @@ export const closeKindOf = (code: number): CloseKind => {
       return "drop";
   }
 };
+
+/**
+ * Whether a close is `board-host`'s "message too big" (oversized-acts, design decision 3). It stays
+ * an ordinary drop for the status and the banner, but the commands sent on that socket are never
+ * sent again.
+ */
+export const isTooBigClose = (code: number): boolean => code === MESSAGE_TOO_BIG_CLOSE;
 
 /**
  * The waits before each reconnect, then the last one again for as long as the board retries.

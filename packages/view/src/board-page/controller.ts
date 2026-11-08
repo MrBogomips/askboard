@@ -18,7 +18,9 @@
 
 import {
   type ActCommand,
+  BOARD_MESSAGE_MAX_BYTES,
   BOARD_PROTOCOL_VERSION,
+  boardMessageBytes,
   DRAFT_RECORD_MAX_CHARS,
   DRAFT_RECORD_MAX_DEPTH,
   type DraftRecord,
@@ -82,12 +84,13 @@ import {
   newActionId,
   pendingOf,
   refusedCommand,
+  refusedTooLarge,
   settleDone,
   withoutAll,
 } from "./outbox.ts";
 import type { ReadingPanel } from "./reading-panel.ts";
 import { pathOf } from "./reading-panel-state.ts";
-import { reconnectDelay } from "./reconnect.ts";
+import { isTooBigClose, reconnectDelay } from "./reconnect.ts";
 import { sourcePointerOf, webUrlOf } from "./references.ts";
 import { type PanelData, panelData } from "./settings-panel-data.ts";
 import {
@@ -536,11 +539,23 @@ class BoardPageController implements BoardPage {
     if (ended !== undefined) return refusal(ended) as ActReply;
     if (!acts.ok) return refusal(acts.detail) as ActReply;
     const command: ActCommand = { version, type: "act", actionId: this.#draw(), acts: acts.value };
+    const bytes = boardMessageBytes(command);
+    if (bytes > BOARD_MESSAGE_MAX_BYTES) return this.#tooLarge(bytes);
     const sent = this.#status.kind === "live" && this.#socket?.send(command) === true;
     this.#outbox = hold(this.#outbox, command, basisOf(this.#model, acts.value), sent);
     // The view hears it held before the reply.
     this.#updateView();
     return { outcome: sent ? "sent" : "queued", actionId: command.actionId };
+  }
+
+  // A command over the contract's message limit is never sent or held: board-host would close the
+  // socket and the same command would be sent again on every new one (oversized-acts, design
+  // decision 2). The reply carries the size and the limit for the card's line; the log has no text.
+  #tooLarge(bytes: number): ActReply {
+    const max = BOARD_MESSAGE_MAX_BYTES;
+    const detail = `the answer takes ${bytes} bytes, more than the ${max} the board can send at once`;
+    this.#deps.log(`an act command was not sent: ${detail}`);
+    return { outcome: "refused", detail, size: { bytes, max } };
   }
 
   // A Snapshot request, sent once on a socket board-host accepted, with whether the board holds
@@ -746,6 +761,18 @@ class BoardPageController implements BoardPage {
     });
   }
 
+  // The socket was closed as too large: what was sent on it is not sent again, and the view hears
+  // which commands those were (oversized-acts, design decision 3).
+  #dropCarried(): void {
+    const before = this.#outbox.held.length;
+    this.#outbox = refusedTooLarge(this.#outbox);
+    const dropped = before - this.#outbox.held.length;
+    if (dropped === 0) return;
+    this.#deps.log(
+      `board-host closed the socket as too large: ${dropped} command${dropped === 1 ? "" : "s"} sent on it will not be sent again`,
+    );
+  }
+
   #onClose(): void {
     this.#socket = undefined;
     this.#stateSeen = false;
@@ -766,7 +793,10 @@ class BoardPageController implements BoardPage {
       },
       onClose: (code) => {
         if (this.#socket !== current) return;
+        // Read before `#onClose` resets it: only a socket whose state came carried commands.
+        const carried = isTooBigClose(code) && this.#stateSeen;
         this.#onClose();
+        if (carried) this.#dropCarried();
         this.#transition({ type: "closed", code });
         this.#retry();
       },
