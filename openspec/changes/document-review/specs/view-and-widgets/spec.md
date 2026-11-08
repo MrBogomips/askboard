@@ -186,8 +186,19 @@ After "Keep mine", while the card shows the kept revision, "Answer", "Accept rec
 The confirmation asked before an answer replaces one the agent has received SHALL be asked, or not, by the items of the revision the card shows and the answer names: after "Keep mine", an Approval a later revision removed still asks, and one it added does not (NFR-10, AD-10).
 
 #### Scenario: Keep mine across a removed Approval
-- **WHEN** the agent has received an answer with an Approval's verdict, the agent's revision removes the Approval, and the user chooses "Keep mine" with no reload, changes the verdict and presses "Answer"
+- **WHEN** the user holds a verdict on an Approval, the agent's revision removes the Approval, the user chooses "Keep mine" with no reload, the agent then records an answer for the question (its `update` action `answer`), and the user changes the verdict and presses "Answer"
 - **THEN** the board asks to confirm the replacement before it sends the answer naming the earlier revision
+
+### Requirement: The draft follows the revision the card shows
+After "Keep mine", the draft SHALL compare, mirror and clear the user's work by the items of the revision that work was made on: work held only on an item a later revision removed stays held, is mirrored, counts as unsent work, and keeps the card on its revision; an edit of it releases the question's ready mark like an edit of any other item (NFR-10, AD-20, AD-21).
+
+#### Scenario: Work only on a removed item
+- **WHEN** the user's only work on a question is on item `b`, the agent's revision removes `b`, and the user chooses "Keep mine" with no reload and edits `b`
+- **THEN** the card still shows the earlier revision with the edit, the draft mirrors it, and the leave-page prompt and "Copy my unsent work" count it
+
+#### Scenario: A ready mark after Keep mine
+- **WHEN** in submitted delivery the user's answer is marked ready, the agent's revision removes item `b`, the user chooses "Keep mine" with no reload and edits `b`
+- **THEN** the ready mark is released, as for an edit of any other item
 
 ### Requirement: Document review strings
 Every string a Document review shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the cards, the detached list, the refusals and the hint (FR-34; EXPERIENCE, Voice and Tone).
