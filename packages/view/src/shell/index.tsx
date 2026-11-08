@@ -69,6 +69,7 @@ import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
+import { prefillReopened } from "./reopen-prefill.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
@@ -102,10 +103,11 @@ const connectToBoardPage = (): ViewChannel => {
 };
 
 // The work an act carried, which goes from the draft once the board page settles it as done: an
-// answer, a decline or a note takes with it the undo it was held over.
+// answer, a decline or a note takes with it the undo it was held over; an answer or a decline
+// also takes the mark of a prefill (reopen-start-from-answer, design decision 4).
 const CARRIED: Readonly<Partial<Record<string, readonly (keyof QuestionWork)[]>>> = {
-  answer: ["other", "optionNotes", "note", "held", "undo"],
-  decline: ["other", "optionNotes", "note", "held", "undo"],
+  answer: ["other", "optionNotes", "note", "held", "undo", "prefilled"],
+  decline: ["other", "optionNotes", "note", "held", "undo", "prefilled"],
   postpone: ["held"],
   reopen: ["held"],
   note: ["note", "held", "undo"],
@@ -302,6 +304,10 @@ const boot = (): void => {
     for (const flight of settle(acts, update.pending ?? [], update.settled ?? [], notices)) {
       clearCarried(flight, document, draft, results, entries, cellEntries, board, kept);
     }
+    // A reopened question the agent left unchanged starts from the user's previous answer, once, and
+    // only after this update's restore: the first update after a reload or a takeover carries the
+    // restore whenever `board-host` held a record (design decisions 3 and 9). Never on the boot data.
+    prefillReopened(document, update.state, { draft, results, entries, cellEntries, board });
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
   let mirroring = false;

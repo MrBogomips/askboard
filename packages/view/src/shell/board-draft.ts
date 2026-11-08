@@ -421,6 +421,7 @@ const questionEntry = (
     ...(filled(work?.note) ? { note: work.note } : {}),
     ...(filled(work?.composer) ? { composer: work.composer } : {}),
     ...(work?.held === undefined ? {} : { held: work.held }),
+    ...(work?.prefilled === true ? { prefilled: true as const } : {}),
     ...(placement === undefined ? {} : { context: placement }),
   };
   return Object.keys(fields).length === 0
@@ -626,9 +627,13 @@ export const restoreDraft = (
       for (const [itemId, text] of typed) entries?.set(itemId, text);
       for (const [itemId, held] of typedCells) cellEntries?.set(itemId, held);
     }
+    // The prefill mark belongs to the revision it names: on any other it is dropped with the rest
+    // of what the stale revision filled (reopen-start-from-answer, design decision 4).
+    const { prefilled: mark, ...others } = rest;
+    const marked = mark === true && rest.rev === question.rev ? { prefilled: true as const } : {};
     const held = staleAnswer
       ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
-      : rest;
+      : { ...others, ...marked };
     // An entry holding only a placement is no work.
     if (
       Object.keys(held).some((key) => key !== "rev") ||

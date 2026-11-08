@@ -1,0 +1,311 @@
+import { describe, expect, test } from "bun:test";
+import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
+import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
+import { connectDrafts, createBoardDraft, draftRecordOf, restoreDraft } from "./board-draft.ts";
+import { createDraftStore } from "./draft-store.ts";
+import { prefillReopened, reopenPrefills } from "./reopen-prefill.ts";
+
+// View-and-widgets: A reopened question starts from the previous answer; The prefill is remembered
+// (reopen-start-from-answer, design decisions 3 and 4). The pure function says which questions to
+// fill; `prefillReopened` fills them, once, and marks the work.
+
+const timeline: WidgetItem = { type: "timeline", id: "roadmap", props: { lanes: [] } };
+const kanban: WidgetItem = { type: "kanban", id: "board", props: { cards: [] } };
+const [base] = plainChoiceBoardDocument.items;
+const REV = 2;
+const question: ViewQuestion = {
+  ...(base as unknown as ViewQuestion),
+  rev: REV,
+  props: { ...(base as unknown as ViewQuestion).props, items: [timeline, kanban] },
+};
+const document = { ...plainChoiceBoardDocument, items: [question] } as unknown as ViewDocument;
+
+const moved = { moved: "checkout" };
+const cards = { cards: ["a"] };
+const previous = {
+  choice: ["SQLite"],
+  values: { roadmap: moved, board: cards },
+  unchanged: ["database", "roadmap", "board"],
+  when: "2026-11-08T10:00:00Z",
+  receipt: "delivered" as const,
+};
+
+const stateOf = (
+  status: Record<string, unknown> = { state: "open", previous },
+): LifecycleBoardState =>
+  ({
+    ask: "waiting",
+    questions: [{ itemId: "database", rev: REV, ...status }],
+  }) as unknown as LifecycleBoardState;
+
+const facts = () => ({
+  fits: () => true,
+  valueFits: (value: unknown) => (value as { refuse?: boolean }).refuse !== true,
+});
+
+const setUp = () => {
+  const draft = createDraftStore();
+  const results = createDraftStore();
+  const entries = createDraftStore();
+  const cellEntries = createDraftStore();
+  const board = createBoardDraft("immediate");
+  connectDrafts(document, draft, board, results, entries, cellEntries);
+  const stores = { draft, results, entries, cellEntries, board, facts };
+  const record = () =>
+    draftRecordOf(
+      document,
+      draft.record(),
+      board.get(),
+      results.record(),
+      entries.record(),
+      cellEntries.record(),
+    );
+  const pure = (state: LifecycleBoardState = stateOf()) =>
+    reopenPrefills(
+      document,
+      state,
+      { values: draft.record(), results: results.record(), entries: entries.record() },
+      (id) => board.work(id),
+    );
+  return { ...stores, record, pure };
+};
+
+describe("which questions a reopen prefills (the pure function)", () => {
+  test("an open reopened question whose previous answer holds it unchanged, with no work", () => {
+    expect(setUp().pure()).toEqual([question]);
+  });
+
+  test("a postponed one qualifies too", () => {
+    expect(setUp().pure(stateOf({ state: "postponed", previous }))).toEqual([question]);
+  });
+
+  test("not a question the previous answer does not list as unchanged", () => {
+    const { pure } = setUp();
+    const others = { ...previous, unchanged: ["roadmap", "board"] };
+    expect(pure(stateOf({ state: "open", previous: others }))).toEqual([]);
+  });
+
+  test("not a previous answer without the list, or with an empty one", () => {
+    const { pure } = setUp();
+    const { unchanged: _list, ...without } = previous;
+    expect(pure(stateOf({ state: "open", previous: without }))).toEqual([]);
+    expect(pure(stateOf({ state: "open", previous: { ...previous, unchanged: [] } }))).toEqual([]);
+  });
+
+  test("not a question holding work on its current revision, or on any other", () => {
+    const { board, pure } = setUp();
+    board.edit("database", REV, (work) => ({ ...work, note: "typed" }));
+    expect(pure()).toEqual([]);
+    board.forget("database");
+    board.edit("database", REV - 1, (work) => ({ ...work, note: "older" }));
+    expect(pure()).toEqual([]);
+  });
+
+  test("not a question holding a value or a result in the stores, whatever its work says", () => {
+    const none = new Map<string, unknown>();
+    const some = new Map<string, unknown>([["roadmap", moved]]);
+    const read = (values: Map<string, unknown>, results: Map<string, unknown>) =>
+      reopenPrefills(document, stateOf(), { values, results, entries: none }, () => undefined);
+    expect(read(none, none)).toEqual([question]);
+    expect(read(some, none)).toEqual([]);
+    expect(read(none, some)).toEqual([]);
+  });
+
+  test("not a question whose work holds the mark", () => {
+    const { board, pure } = setUp();
+    board.edit("database", REV, (work) => ({ ...work, prefilled: true }));
+    expect(pure()).toEqual([]);
+  });
+
+  test("not a declined previous answer", () => {
+    const { pure } = setUp();
+    const declined = { ...previous, declined: true };
+    expect(pure(stateOf({ state: "open", previous: declined }))).toEqual([]);
+  });
+
+  test("not an answered question, nor one with no previous answer", () => {
+    const { pure } = setUp();
+    expect(pure(stateOf({ state: "answered", answer: previous, previous }))).toEqual([]);
+    expect(pure(stateOf({ state: "open" }))).toEqual([]);
+  });
+
+  test("a previous answer is read as the previous one: the current role never applies", () => {
+    const { pure } = setUp();
+    const { unchanged: _list, ...without } = previous;
+    expect(pure(stateOf({ state: "postponed", previous: without }))).toEqual([]);
+  });
+});
+
+describe("filling a reopened question once", () => {
+  test("the choice and both values enter the draft, the work is marked, and the record mirrors the mark", () => {
+    const run = setUp();
+    prefillReopened(document, stateOf(), run);
+    expect(run.draft.valueOf("database")).toEqual(["SQLite"]);
+    expect(run.draft.valueOf("roadmap")).toEqual(moved);
+    expect(run.draft.valueOf("board")).toEqual(cards);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+    expect(run.record().questions.database).toEqual({
+      rev: REV,
+      prefilled: true,
+      values: { database: ["SQLite"], roadmap: moved, board: cards },
+    });
+  });
+
+  test("a second state fills nothing more, whatever the user did with the first fill", () => {
+    const run = setUp();
+    prefillReopened(document, stateOf(), run);
+    run.draft.set("roadmap", undefined);
+    run.draft.set("board", undefined);
+    run.draft.set("database", undefined);
+    const record = run.record();
+    prefillReopened(document, stateOf(), run);
+    expect(run.record()).toEqual(record);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+  });
+
+  test("a part that does not fit fills nothing and sets no mark, the same on the next state", () => {
+    const run = setUp();
+    const refused = { ...previous, values: { roadmap: { refuse: true }, board: cards } };
+    const state = stateOf({ state: "open", previous: refused });
+    prefillReopened(document, state, run);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toBeUndefined();
+    prefillReopened(document, state, run);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toBeUndefined();
+  });
+
+  test("a value of an item the question no longer holds fills nothing", () => {
+    const run = setUp();
+    const gone = { ...previous, values: { roadmap: moved, gone: cards } };
+    prefillReopened(document, stateOf({ state: "open", previous: gone }), run);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toBeUndefined();
+  });
+
+  test("a question not in the list is left as the agent sent it", () => {
+    const run = setUp();
+    const others = { ...previous, unchanged: ["roadmap", "board"] };
+    prefillReopened(document, stateOf({ state: "open", previous: others }), run);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toBeUndefined();
+  });
+
+  test("the dry run changes nothing when it refuses: the stores and the work stay as they were", () => {
+    const run = setUp();
+    run.results.set("roadmap", { kept: true });
+    const refused = { ...previous, values: { roadmap: { refuse: true } } };
+    prefillReopened(document, stateOf({ state: "open", previous: refused }), run);
+    expect(run.results.valueOf("roadmap")).toEqual({ kept: true });
+  });
+});
+
+// The order the shell runs them in: its restore, then the prefill (design decisions 3 and 9).
+describe("after a restore, as the shell runs them", () => {
+  const restored = (record: DraftRecord) => {
+    const run = setUp();
+    restoreDraft(
+      record,
+      document,
+      stateOf(),
+      run.draft,
+      run.board,
+      run.results,
+      undefined,
+      run.entries,
+      run.cellEntries,
+    );
+    return run;
+  };
+
+  test("a restore holding work on the current revision: nothing is filled, the restored work stands", () => {
+    const run = restored({
+      delivery: "immediate",
+      questions: { database: { rev: REV, values: { database: ["PostgreSQL"] } } },
+    });
+    prefillReopened(document, stateOf(), run);
+    expect(run.draft.valueOf("database")).toEqual(["PostgreSQL"]);
+    expect(run.draft.record().size).toBe(1);
+    expect(run.board.work("database")?.prefilled).toBeUndefined();
+  });
+
+  test("a restore holding the mark alone: nothing is filled, the mark stands", () => {
+    const run = restored({
+      delivery: "immediate",
+      questions: { database: { rev: REV, prefilled: true } },
+    });
+    prefillReopened(document, stateOf(), run);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+  });
+
+  test("a restore holding a stale mark: the question is filled again", () => {
+    const run = restored({
+      delivery: "immediate",
+      questions: { database: { rev: REV - 1, prefilled: true } },
+    });
+    prefillReopened(document, stateOf(), run);
+    expect(run.draft.valueOf("roadmap")).toEqual(moved);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+  });
+
+  test("a restore holding work on other questions only: the question is filled, after the restore", () => {
+    const second = { ...question, id: "cache", rev: 1, props: { text: "Cache?" } };
+    const both = { ...document, items: [question, second] } as unknown as ViewDocument;
+    const run = setUp();
+    connectDrafts(both, run.draft, run.board, run.results, run.entries, run.cellEntries);
+    const state = {
+      ask: "waiting",
+      questions: [
+        { itemId: "database", rev: REV, state: "open", previous },
+        { itemId: "cache", rev: 1, state: "open" },
+      ],
+    } as unknown as LifecycleBoardState;
+    restoreDraft(
+      { delivery: "submitted", questions: { cache: { rev: 1, note: "typed" } } },
+      both,
+      state,
+      run.draft,
+      run.board,
+      run.results,
+      undefined,
+      run.entries,
+      run.cellEntries,
+    );
+    prefillReopened(both, state, run);
+    expect(run.board.work("cache")).toEqual({ rev: 1, note: "typed" });
+    expect(run.draft.valueOf("roadmap")).toEqual(moved);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+  });
+});
+
+// The shell's wiring is read from its source: `index.tsx` boots on import, so no unit test runs it.
+describe("the shell's calls (design decisions 3, 4 and 9)", () => {
+  const source = async (name: string): Promise<string> =>
+    Bun.file(new URL(name, import.meta.url)).text();
+
+  test("the prefill runs inside the update handler, after the restore, and nowhere else", async () => {
+    const text = await source("./index.tsx");
+    const handler = text.indexOf("channel.onUpdate(");
+    const restore = text.indexOf("restoreDraft(", handler);
+    const prefill = text.indexOf("prefillReopened(");
+    expect(handler).toBeGreaterThan(0);
+    expect(restore).toBeGreaterThan(handler);
+    expect(prefill).toBeGreaterThan(restore);
+    expect(text.indexOf("prefillReopened(", prefill + 1)).toBe(-1);
+    // No call before the handler, so the boot data alone fills nothing (a Snapshot has only that).
+    expect(text.slice(0, handler)).not.toContain("prefillReopened(");
+    expect(text.slice(0, handler)).not.toContain("reopenPrefills(");
+  });
+
+  test("an answer or a decline that settles takes the mark with the rest of its work", async () => {
+    const text = await source("./index.tsx");
+    const carried = text.slice(text.indexOf("const CARRIED"), text.indexOf("const clearCarried"));
+    for (const act of ["answer", "decline"]) {
+      const line = carried.split("\n").find((each) => each.trim().startsWith(`${act}:`)) ?? "";
+      expect(line).toContain('"prefilled"');
+    }
+  });
+});
