@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { LifecycleAskInput } from "@askboard/contract";
+import type { LifecycleAskInput, QuestionProps } from "@askboard/contract";
 import {
   KANBAN_FIXTURE_ITEM,
   TIMELINE_EDITED_PROPS,
@@ -397,5 +397,96 @@ describe("context read again at the reopen", () => {
     const { reopen } = await setup(unread);
     const question = await reopen(reading("Never retry."));
     expect(question?.previous?.unchanged).toEqual([]);
+  });
+});
+
+// Re-review 1.9 X-1: a read that timed out or was too large cannot be compared, so it counts as
+// changed; any other unresolved reason compares as itself (core spec: Unresolved pointers in the
+// comparison).
+describe("a read that could not be made", () => {
+  const reading = (text: string): ExcerptResolution => ({
+    status: "resolved",
+    text,
+    mediaType: "text/markdown",
+    lines: { start: 7, end: 9 },
+  });
+  const failed = (reason: UnresolvedPointer["reason"]): UnresolvedPointer => ({
+    status: "unresolved",
+    reason,
+  });
+
+  const reopened = async (first: UnresolvedPointer, next: UnresolvedPointer) => {
+    const answers: Record<string, { resolveExcerpt: ExcerptResolution | UnresolvedPointer }> = {
+      [ADR_POINTER]: { resolveExcerpt: first },
+    };
+    const { core, sources } = contextCoreWith({ answers: answers as never });
+    const pending = core.ask(contextAsk([excerpt("retry-adr", ADR_POINTER)]));
+    await turns();
+    sources.release();
+    await pending;
+    expect(
+      core.act(
+        CONTEXT_ASK_ID,
+        command([{ type: "answer", itemId: "fix", rev: 1, choice: ["Fix A"], when: WHEN }]),
+      ).ok,
+    ).toBe(true);
+    answers[ADR_POINTER] = { resolveExcerpt: next };
+    await core.update({
+      askId: CONTEXT_ASK_ID,
+      actions: [{ action: "reopen", itemId: "fix" }],
+    } as never);
+    return boardOf(core, CONTEXT_ASK_ID).questions[0]?.previous?.unchanged;
+  };
+
+  test("a timeout at the answer's revision and again at the reopen: neither the item nor the question", async () => {
+    expect(await reopened(failed("timeout"), failed("timeout"))).toEqual([]);
+  });
+
+  test("a read too large at both revisions: neither the item nor the question", async () => {
+    expect(await reopened(failed("too-large"), failed("too-large"))).toEqual([]);
+  });
+
+  test("a file not found at both revisions keeps both in the list", async () => {
+    expect(await reopened(failed("not-found"), failed("not-found"))).toEqual(["fix", "retry-adr"]);
+  });
+
+  test("a pointer outside the root at both revisions keeps both in the list", async () => {
+    expect(await reopened(failed("outside-root"), failed("outside-root"))).toEqual([
+      "fix",
+      "retry-adr",
+    ]);
+  });
+
+  const nested = (): QuestionProps =>
+    ({
+      text: "Q",
+      items: [
+        { type: "group", id: "side", props: { title: "Side", items: [] } },
+        { type: "excerpt", id: "adr", props: { pointer: "docs/adr.md" } },
+        { type: "excerpt", id: "other", props: { pointer: "docs/other.md" } },
+      ],
+    }) as never;
+
+  test("only the item whose read failed is left out; its neighbours stay", () => {
+    const context = new Map<string, unknown>([
+      ["adr", failed("timeout")],
+      ["other", reading("same")],
+    ]) as never;
+    const revision = { props: nested(), context };
+    expect(unchangedItems("q", revision, revision)).toEqual(["side", "other"]);
+  });
+
+  test("a widget whose props look like an unresolved read is compared as any widget", () => {
+    const props = {
+      text: "Q",
+      items: [{ type: "timeline", id: "tl", props: { status: "unresolved", reason: "timeout" } }],
+    } as never;
+    const revision = { props, context: undefined };
+    expect(unchangedItems("q", revision, revision)).toEqual(["q", "tl"]);
+  });
+
+  test("a revision whose context is not held reads as timed out, so it has changed", () => {
+    const revision = { props: nested(), context: undefined };
+    expect(unchangedItems("q", revision, revision)).toEqual(["side"]);
   });
 });
