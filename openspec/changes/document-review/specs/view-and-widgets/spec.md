@@ -1,11 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: The shared Markdown renderer
-The view SHALL render Markdown through one renderer module, shipped in a library chunk that a board or a Snapshot inlines only when an item it holds renders Markdown. The Text, the option previews and the Document review SHALL render through it, and no component chunk SHALL bundle markdown-it or DOMPurify (AD-9).
+The view SHALL render Markdown through one renderer module, shipped in a library chunk that a board or a Snapshot inlines only when an item it holds may render Markdown: a Text, whatever its format, an option with a Markdown preview, or a Document review. The Text, the option previews and the Document review SHALL render through it, and no component chunk SHALL bundle markdown-it or DOMPurify (AD-9).
 
 #### Scenario: A board without Markdown
 - **WHEN** a board holds only a Choice question and a Chart
 - **THEN** its view inlines no Markdown library chunk
+
+#### Scenario: A board with a plain Text
+- **WHEN** a board holds only a Text whose `format` is `plain` and a Text with no `format`
+- **THEN** its view inlines the Markdown library chunk once
 
 #### Scenario: A board with a Text and a Document review
 - **WHEN** a board holds a Markdown Text and a Document review
