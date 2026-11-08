@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Table items
-The registry SHALL hold the type `table`, after `image-annotation`, whose props are `columns` (1 to 10), `rows` (0 to 200), an optional `label` (1 to 200 code points) and an optional `fixedRows: true`, and nothing else. Its problems SHALL name the item and the field through the type's wording (FR-11, AD-7).
+The registry SHALL hold the type `table`, appended after `pick-field`, the last type of the base it is built on, whose props are `columns` (1 to 10), `rows` (0 to 200), an optional `label` (1 to 200 code points) and an optional `fixedRows: true`, and nothing else. Its problems SHALL name the item and the field through the type's wording (FR-11, AD-7).
 
 #### Scenario: A Table of roles
 - **WHEN** an ask holds a `table` item `costs` labelled "Roles", whose columns are `role` (text), `days` (number, `min` 0, `total: "sum"`), `rate` (money, `currency` "USD") and `amount` (money, `currency` "USD", `formula` "[@days] * [@rate]", `total: "sum"`), and whose rows are `pm` (Project manager, 18, "1040.00") and `dev` (Developer, 72, "720.00")
