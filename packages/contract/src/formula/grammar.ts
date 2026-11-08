@@ -16,6 +16,14 @@ export const SHEET_MAX_ROW = 1_048_576;
 /** In a reference, a `*` stands for the children of the node before it, in document order. */
 export const REFERENCE_WILDCARD = "*";
 
+/**
+ * In a formula on a child's field, a reference `[@field]` reads that field of the same child, as
+ * Excel's this-row reference (table-widget, design decision 4). The prefix is no character of an
+ * ID, a field name or a cell, so the form is never read as another; `compute`'s lexer reads it and
+ * `referenceText` writes it back as `@field`.
+ */
+export const ROW_REFERENCE_PREFIX = "@";
+
 export type BinaryOperator = "+" | "-" | "*" | "/" | "^" | "=" | "<>" | "<" | "<=" | ">" | ">=";
 
 /**

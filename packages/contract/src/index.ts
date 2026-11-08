@@ -1079,3 +1079,8 @@ export {
 // entries hold.
 
 export { CELL_ENTRIES_MAX } from "./lifecycle-constants.ts";
+
+// The row reference's terminal (table-widget, design decision 4): the prefix of `[@field]`, which
+// reads a field of the formula's own row.
+
+export { ROW_REFERENCE_PREFIX } from "./formula/index.ts";
