@@ -34,6 +34,15 @@ export const widgetValidator = <T>(
   return (value) => {
     validate ??= compile(schemas, id);
     if (validate(value)) return { ok: true, value: value as T };
-    return { ok: false, reason: "schema", problems: (validate.errors ?? []).map(problemOf) };
+    // An `if` error beside others only says that the branch it chose failed, whose own errors say
+    // why: left out, as the schema sets' validators leave it, so the problems read the same either
+    // way. When it is all there is, it is kept, so a refused value is never errorless.
+    const errors = validate.errors ?? [];
+    const kept = errors.filter((error) => error.keyword !== "if");
+    return {
+      ok: false,
+      reason: "schema",
+      problems: (kept.length > 0 ? kept : errors).map(problemOf),
+    };
   };
 };

@@ -1046,3 +1046,27 @@ export {
   type NumberFieldBound,
   numberFieldBound,
 } from "./widgets/number-field/index.ts";
+
+// The Table (table-widget, design decisions 2 and 14), unregistered until its chunk exists: its
+// entry, limits and checks.
+
+export {
+  TABLE_COLUMN_TYPES,
+  TABLE_FIELD_PATTERN,
+  TABLE_FORMULA_MAX_CHARS,
+  TABLE_MAX_COLUMNS,
+  TABLE_MAX_ROWS,
+  TABLE_MIN_COLUMNS,
+  TABLE_SCHEMA_IDS,
+  TABLE_TEXT_MAX_CHARS,
+  TABLE_WIDGET,
+  type TableCellValue,
+  type TableColumn,
+  type TableColumnType,
+  type TableItem,
+  type TableOrigin,
+  type TableProps,
+  type TableRow,
+  tableColumnsProblems,
+  tablePropsProblems,
+} from "./widgets/table/index.ts";
