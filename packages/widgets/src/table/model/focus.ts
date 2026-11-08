@@ -8,7 +8,7 @@
 // Every function is pure and gives the same value when nothing changes; a row or field named
 // `__proto__` or `constructor` is only data.
 
-import type { TableProps } from "@askboard/contract";
+import type { TableColumn, TableProps } from "@askboard/contract";
 import { inputColumns, isInputColumn, nextToggle } from "./columns.ts";
 
 /** A cell of the grid: a row's ID and a column's field. */
@@ -71,6 +71,44 @@ export const settleFocus = (
   if (props.columns.some((column) => column.field === focus.field)) return focus;
   const first = props.columns[0];
   return first === undefined ? undefined : focusOf(row.id, first.field);
+};
+
+/** An open editor: the cell, and the column as it was when the editor opened. */
+export type EditingCell = {
+  readonly rowId: string;
+  readonly field: string;
+  readonly column: TableColumn;
+};
+
+const sameValue = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) {
+    return false;
+  }
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every(
+    (name) =>
+      Object.hasOwn(right, name) &&
+      sameValue((left as Record<string, unknown>)[name], (right as Record<string, unknown>)[name]),
+  );
+};
+
+/**
+ * Whether an open editor still stands on `props` (review X-1 of review-table-g6): its row exists
+ * and its column equals the column it opened on, which is an input column other than an on/off
+ * one. An agent's change that turns the column into a formula or an on/off column, or alters it,
+ * closes the editor without a commit.
+ */
+export const editingStands = (props: TableProps, editing: EditingCell): boolean => {
+  if (!props.rows.some((row) => row.id === editing.rowId)) return false;
+  const column = props.columns.find((candidate) => candidate.field === editing.field);
+  return (
+    column !== undefined &&
+    isInputColumn(editing.column) &&
+    editing.column.type !== "toggle" &&
+    sameValue(column, editing.column)
+  );
 };
 
 /** The current cell after a row is added: the row's first input cell, else its first cell. */

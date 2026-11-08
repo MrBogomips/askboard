@@ -11,6 +11,7 @@
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/table.browser.ts
 
 import { describe, expect, test } from "bun:test";
+import type { TableProps } from "@askboard/contract";
 import type { ViewDocument } from "../../src/view-document.ts";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
@@ -36,6 +37,7 @@ import {
   editorOf,
   gridStops,
   openEditor,
+  type TableGrid,
   tableGridOf,
   toolOf,
   totalText,
@@ -43,7 +45,7 @@ import {
 } from "./harness/table-grid.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost } from "./harness/widget-host-test.ts";
+import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 
@@ -592,6 +594,73 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await cellText(table, "dev", "days")).toBe("oops");
         expect(draftCellEntries(run)?.["dev.days"]).toBe("oops");
         expect(await counterText(table)).toBe("Your changes: 1");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // An editor left open while the agent's change arrives (review X-1 of review-table-g6): the
+    // change applies at once, the editor closes without a commit and no entry is held.
+    const afterOpenEditorChange = async (
+      field: string,
+      name: string,
+      props: TableProps,
+    ): Promise<{ run: WidgetHostRun; table: TableGrid }> => {
+      const document = tableDocument();
+      const run = await host(dist, document);
+      await readyIn(run);
+      const table = tableGridOf(run.board);
+      const editor = await openEditor(run.board, table, "pm", field, name);
+      await editor.fill("oops");
+      await run.update(revise(document, props));
+      await editor.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+      await run.board.page.keyboard.press("Enter");
+      return { run, table };
+    };
+    const released = async (run: WidgetHostRun, table: TableGrid): Promise<void> => {
+      expect(await table.frame.getByRole("textbox").count()).toBe(0);
+      expect(await table.frame.locator("[data-entry]").count()).toBe(0);
+      expect(draftCellEntries(run) ?? {}).toEqual({});
+      expect(await counterText(table)).toBe("No changes");
+      const describedBy = await run.board.answer.getAttribute("aria-describedby");
+      const words =
+        describedBy === null
+          ? ""
+          : ((await run.board.view.locator(`[id="${describedBy}"]`).textContent()) ?? "");
+      expect(words).not.toContain("Correct");
+    };
+
+    test(
+      "an editor open on a column the agent turns into a formula column closes without a commit: no entry on the computed cell, the agent's value shown, no change counted",
+      async () => {
+        const rows = ROLES.rows.map(({ rate: _rate, ...rest }) => rest);
+        const columns = ROLES.columns.map((column) =>
+          column.field === "rate" ? { ...column, formula: "[@days] * 2" } : column,
+        );
+        const { run, table } = await afterOpenEditorChange(
+          "rate",
+          RATE_PM,
+          rolesWith({ columns, rows } as never),
+        );
+        await released(run, table);
+        expect(await cellText(table, "pm", "rate")).toBe("$36.00");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an editor open on a column the agent turns into an on/off column closes without a commit: Enter clears nothing the agent set",
+      async () => {
+        const columns = ROLES.columns.map((column) =>
+          column.field === "role" ? { ...column, type: "toggle" } : column,
+        );
+        const rows = ROLES.rows.map((row) => ({ ...row, role: true }));
+        const { run, table } = await afterOpenEditorChange(
+          "role",
+          "Role, row 1",
+          rolesWith({ columns, rows } as never),
+        );
+        await released(run, table);
+        expect(await cellOf(table, "pm", "role").getAttribute("aria-checked")).toBe("true");
       },
       TEST_TIMEOUT_MS,
     );

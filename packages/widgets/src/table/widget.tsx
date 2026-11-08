@@ -1,5 +1,5 @@
 // The Table's state and frame (design decisions 9 to 12; view-and-widgets spec: the Table
-// requirements): a toolbar row above the grid. The value is the draft, or the sent answer, else the
+// requirements): the grid, then a toolbar row. The value is the draft, or the sent answer, else the
 // agent's props; the current cell, the open editor, the refusal and the announcement are the
 // component's own and never go in the draft, so moving about changes nothing an answer carries. Every
 // change of the value goes in the draft, or `undefined` once the rows are the agent's again. The
@@ -37,6 +37,8 @@ import { editText, isInputColumn, nextToggle } from "./model/columns.ts";
 import { columnProblems, derivedMarks, formulaErrors, problemText } from "./model/derived.ts";
 import { addRow, deleteRow, fixedRows, setCell } from "./model/edits.ts";
 import {
+  type EditingCell,
+  editingStands,
   focusAfterAdd,
   openFocus,
   settleFocus,
@@ -49,7 +51,7 @@ import { readCell } from "./model/read.ts";
 import type { RowLine } from "./row.tsx";
 import { TableToolbar } from "./toolbar.tsx";
 
-type Editing = { readonly rowId: string; readonly field: string; readonly error?: string };
+type Editing = EditingCell & { readonly error?: string };
 
 type Entries = ReadonlyMap<string, string>;
 
@@ -153,11 +155,10 @@ export const TableWidget = ({
   const focus = settleFocus(value, stored);
   // The current row, which the row tools act on, is one the user has been in: none at open.
   const current = stored === undefined ? undefined : focus;
+  // An editor outlives the agent's change only while its column is the one it opened on and is
+  // still an input column (review X-1 of review-table-g6); its removal commits nothing.
   const editing =
-    disabled ||
-    editingState === undefined ||
-    columnOf(value, editingState.field) === undefined ||
-    !value.rows.some((row) => row.id === editingState.rowId)
+    disabled || editingState === undefined || !editingStands(value, editingState)
       ? undefined
       : editingState;
 
@@ -197,7 +198,23 @@ export const TableWidget = ({
   const write = (next: TableProps): void => {
     onValueChange(marksOf(sent, next).count === 0 ? undefined : next);
   };
-  const setEntries = (entries: Entries): void => onCellEntriesChange(entries);
+  // Only the entries of input cells the Table shows are reported: a computed or on/off cell holds none.
+  const setEntries = (entries: Entries): void => {
+    const input = new Map<string, string>();
+    for (const [key, entry] of entries) {
+      const [rowId, field] = splitKey(key);
+      const column = columnOf(value, field);
+      if (
+        column !== undefined &&
+        isInputColumn(column) &&
+        column.type !== "toggle" &&
+        value.rows.some((row) => row.id === rowId)
+      ) {
+        input.set(key, entry);
+      }
+    }
+    onCellEntriesChange(input);
+  };
   const show = (to: TableFocus | undefined, moveDom: boolean): void => {
     setStored(to);
     if (moveDom) moveTo.current = to;
@@ -261,7 +278,7 @@ export const TableWidget = ({
     if (disabled || column === undefined || !isInputColumn(column) || column.type === "toggle") {
       return;
     }
-    setEditing({ rowId: at.rowId, field: at.field });
+    setEditing({ rowId: at.rowId, field: at.field, column });
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTableElement>): void => {
@@ -410,7 +427,7 @@ export const TableWidget = ({
         onCancel={() => close(true)}
         onEdit={() => {
           if (editing.error !== undefined)
-            setEditing({ rowId: editing.rowId, field: editing.field });
+            setEditing({ rowId: editing.rowId, field: editing.field, column: editing.column });
         }}
       />
     );

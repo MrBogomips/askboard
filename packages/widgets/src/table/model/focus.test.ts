@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { TableProps } from "@askboard/contract";
+import type { TableColumn, TableProps } from "@askboard/contract";
 import { TABLE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
 import {
+  editingStands,
   focusAfterAdd,
   type KeyContext,
   openFocus,
@@ -245,5 +246,43 @@ describe("keys that are not the Table's", () => {
       kind: "focus",
       focus: at("constructor", "days"),
     });
+  });
+});
+
+describe("editingStands", () => {
+  const rate = ROLES.columns.find((column) => column.field === "rate") as TableColumn;
+  const opened = { rowId: "pm", field: "rate", column: rate };
+
+  test("holds while the row exists and the column is the one the editor opened on", () => {
+    expect(editingStands(ROLES, opened)).toBe(true);
+    expect(editingStands(ROLES, { ...opened, column: { ...rate } })).toBe(true);
+  });
+
+  test("falls when the row or the column is gone", () => {
+    expect(editingStands(ROLES, { ...opened, rowId: "nobody" })).toBe(false);
+    const columns = ROLES.columns.filter((column) => column.field !== "rate");
+    expect(editingStands({ ...ROLES, columns }, opened)).toBe(false);
+  });
+
+  test("falls when the column became a formula column or an on/off one", () => {
+    const swap = (column: TableColumn): TableProps => ({
+      ...ROLES,
+      columns: ROLES.columns.map((was) => (was.field === "rate" ? column : was)),
+    });
+    expect(editingStands(swap({ ...rate, formula: "[@days] * 2" }), opened)).toBe(false);
+    expect(editingStands(swap({ ...rate, type: "toggle" }), opened)).toBe(false);
+  });
+
+  test("falls when the column's type, label or bounds changed, and never for an on/off or computed column opened on", () => {
+    const swap = (column: TableColumn): TableProps => ({
+      ...ROLES,
+      columns: ROLES.columns.map((was) => (was.field === "rate" ? column : was)),
+    });
+    expect(editingStands(swap({ ...rate, type: "text" }), opened)).toBe(false);
+    expect(editingStands(swap({ ...rate, label: "Other" }), opened)).toBe(false);
+    const amount = ROLES.columns.find((column) => column.field === "amount") as TableColumn;
+    expect(editingStands(ROLES, { rowId: "pm", field: "amount", column: amount })).toBe(false);
+    const billable = ROLES.columns.find((column) => column.field === "billable") as TableColumn;
+    expect(editingStands(ROLES, { rowId: "pm", field: "billable", column: billable })).toBe(false);
   });
 });
