@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: What an answer's revision shares with the current one
-The board state SHALL give a question's current and previous answer the item IDs unchanged since the revision the answer names, when it is earlier than the current one: a logged answer's, or the one current when a recorded answer was reopened. The IDs SHALL be the question's own when its props are equal whole, and each item's at any depth whose type and props are equal, compared canonically; the list MAY be empty (AD-20).
+The board state SHALL give a question's current and previous answer the item IDs unchanged since the revision the answer names, when it is earlier than the current one: a logged answer's, or the one current when a recorded answer was reopened. The IDs SHALL be the question's own when its props are equal whole, and each item's at any depth that is equal, as "How unchanged items are compared" says; the list MAY be empty (AD-20).
 
 #### Scenario: Reopened with no other change
 - **WHEN** the agent reopens question `plan`, answered at `rev` 1, holding a Timeline `roadmap` inside a Group `side`
@@ -26,6 +26,17 @@ The board state SHALL give a question's current and previous answer the item IDs
 #### Scenario: Not in the log or the tools
 - **WHEN** the agent reads `fetch` of the reopened question and `collect` returns its events
 - **THEN** neither holds the unchanged IDs
+
+### Requirement: How unchanged items are compared
+Props SHALL be compared canonically as the board shows them: each revision's props with the context they point to (excerpts, images, file references) resolved for that revision, an unresolved pointer comparing as itself. A layout SHALL be compared with each item inside it replaced by its ID, so a change inside a Group lists the Group and a new member does not. Memoised comparisons SHALL be kept only for the question's current revision (NFR-10, AD-9, AD-20).
+
+#### Scenario: Context changed under the same props
+- **WHEN** a reopened question's item points to an excerpt whose text changed between the answer's revision and the current one, its props unchanged
+- **THEN** that item's ID and the question's are not in the list
+
+#### Scenario: A new member of a Group
+- **WHEN** the agent's revision adds an item inside a Group and changes nothing else
+- **THEN** the Group's ID and the other members' IDs are in the list, and the new item's is not
 
 ### Requirement: When an answer carries its unchanged items
 An answer that names the question's current revision SHALL carry no unchanged list, so the board state of an answered question stays as it was. When `ask-core` cannot compare the answer's revision with the current one, it SHALL give an empty list, never none (NFR-10). A Snapshot's board state SHALL carry the same lists as the live board's (AD-15, AD-20).

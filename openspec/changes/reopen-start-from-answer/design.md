@@ -35,10 +35,10 @@ ADs relied on: AD-7, AD-10, AD-13, AD-20, AD-21. UX: EXPERIENCE Component Patter
 After a reload or a takeover the page holds only the current revision (keep-mine-shown-revision decision 2). So it cannot tell whether the agent changed an item after the answer. `answerView` gains `unchanged` for the current and the previous answer (core spec):
 
 - the question's ID, when its props in the current revision equal, whole, those of the revision the answer names;
-- each item's ID, at any depth (`nestedItemsOf`), whose type and props are equal in both;
-- compared with `canonicalize` (`core/src/canonical.ts:20`), over expanded items.
+- each item's ID, at any depth (`nestedItemsOf`), whose type and props are equal in both, a layout compared with each item inside it replaced by its ID (a change inside a Group lists the Group; a new member does not);
+- compared with `canonicalize` (`core/src/canonical.ts:20`), over expanded items, on the props as the board shows them: `boardPropsOf(props, question.context.get(rev))` for each revision, so an excerpt, image or file reference read again at the reopen counts (review 1.3 X-1; `#prune` keeps a revision's context with its props).
 
-The revision an answer names is the logged event's `rev`. For a recorded answer it is the revision current when it was recorded, which a recorded question keeps until it is reopened. `QuestionRecord` gains `previousRev`, set by `reopen`. The model keeps that revision's props while `previous` names it, beside the revisions events name. The result is memoised per question and pair of revisions.
+The revision an answer names is the logged event's `rev`. For a recorded answer it is the revision current when it was recorded, which a recorded question keeps until it is reopened. `QuestionRecord` gains `previousRev`, set by `reopen`. The model keeps that revision's props while `previous` names it, beside the revisions events name. The result is memoised per question and pair of revisions, keeping only the pairs whose current revision is the question's current one (review 1.3 X-2).
 
 **When the field is present** (amended by `/opsx:update` on 2026-11-08, after group 1 found that sending it on every answer rewrites E1's frozen transcripts; proposed default accepted under the PO's unattended handoff of 2026-11-08):
 
