@@ -21,7 +21,7 @@ None.
 
 ### Modified Capabilities
 
-- `view-and-widgets`: new requirement "Radios with manual activation"; "The PickField" (from `form-widget`, not yet archived) takes it in place of Radix's documented radio keyboard.
+- `view-and-widgets`: new requirement "Radios with manual activation"; "The PickField" (from `form-widget`, archived in #67) takes it in place of Radix's documented radio keyboard.
 
 ## Impact
 

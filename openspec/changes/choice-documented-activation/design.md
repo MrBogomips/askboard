@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md, Why. The code on `main` 433b4d29 (base of this change; `form-widget` merged there as #64, not yet archived):
+See proposal.md, Why. The code on `main` 433b4d29 (the base this change was designed on; `form-widget` merged there as #64 and was archived in #67; the change is rebased onto d6c67d87, task 0.2):
 
 - `catalog/choice/single-choice.tsx`: Radix `RadioGroup.Root` and `Item` (`radix-ui` 1.8.1, through the `radix` library chunk). Each radio's `onFocus` sets a flag for one microtask and its `onClick` cancels a click while the flag is set (lines 31-39): that is the click Radix dispatches from its focus handler while an arrow key is down, which Radix does not document. Its `onKeyDown` makes Enter select (lines 51-55), since Radix's radio swallows Enter. Choosing an option clears the "Other…" text and choosing "Other…" clears the option (FR-3).
 - `catalog/choice/multiple-choice.tsx`: Radix `Checkbox.Root` per option with AskBoard's own roving focus (`nextFocus`, `choice/selection.ts:29`), arrows moving the focus only; documented API only.
@@ -63,14 +63,14 @@ Read on 2026-11-08 at the heads named. If one of them merges first, this change'
 
 | Change | Head | Overlap | What it takes |
 |---|---|---|---|
-| `form-widget` (#64) | merged on `main` 433b4d29, not archived | Its delta's requirement "The PickField", which this change modifies; `openspec validate` says the archive would refuse the delta until that requirement is in `openspec/specs/` | Archive `form-widget` before this change (Workflow follow-up). Its design decision 4 and open question 12 describe the state this change replaces; they stay as history. |
+| `form-widget` (#64) | merged on `main` 433b4d29 and archived (#67, on `main` d6c67d87) | Its requirement "The PickField", now in `openspec/specs/view-and-widgets/spec.md`, which this change's delta modifies | Nothing left: the archive merged before this change's rebase. Its design decision 4 and open question 12 describe the state this change replaces; they stay as history. |
 | `document-review` | `worktree-feature-document-review` 778c3fe7 | Appends `markdown` to `LIBRARY_CHUNKS` and `MARKDOWN_RENDERER` to `BY_PATH` in `tools/build/shared-modules.ts`, edits its test, `chunk-sizes.json`, EXPERIENCE, the spine | Keep both: this change edits only `radix`'s names. Re-record chunk sizes after the rebase. |
 | `table-widget` | `worktree-feature-table` 14f19ad4 | Edits `catalog/choice/preview.tsx` (two `ItemProps` members), `chunk-sizes.json`, EXPERIENCE, the spine | No shared line; `preview.tsx` is untouched here. Re-record sizes. |
 | `keep-mine-shown-revision` (#66) | merged on `origin/main` d6f5e453 after this change's base, read at 32c804b0 | `chunk-sizes.json`, EXPERIENCE, the spine | Keep both; re-record sizes. |
 | `oversized-acts` | `worktree-fix-oversized-acts` (proposal, this session) | EXPERIENCE (other rows), `chunk-sizes.json` | Keep both. |
 | `image-annotation`, `graph-widget`, `diff-review`, `diagram-widget`, `spreadsheet-widget` | 5bf4d85b, 482223d0, dfb0e6cb, ed783fe5, 972b9622 (proposals) | Use Radix Toggle Group or Dropdown Menu from `radix`; `diagram-widget` appends to `LIBRARY_CHUNKS` | None uses Radio Group. A widget in `widgets` that needs a single choice cannot import `view/catalog/fields` (AD-1): it uses Toggle Group (open question 3) or asks for the group to move to a shared module. |
 
-Names borrowed, all on `main` 433b4d29 (task 0.2 records file and line): `nextFocus`, `toggled`, `optionAria`, `ROW` and `MARK` (choice and pick-field), `OptionText`, `OptionDetails`, `OtherField`, `otherLabelId`, `questionTextId`, `focusFirstRadio`, `clearing`, `filteredOptions`, `Field`, `fieldIds`, `register`, `useReadyAfterLayout`, `LIBRARY_CHUNKS`, `shimSource`, and the browser harness's `tabIntoGroup` (`test/browser/harness/tab-stops.ts`), `lifecycleScenario`, `openBoard`, `optionOf`. Seams this change creates: `radioAt`, `radioTabStop`, `useRadios`, and `nextFocus`'s new home `catalog/fields/roving.ts`.
+Names borrowed, all on `main` 433b4d29 and on d6c67d87 (task 0.2 records file and line): `nextFocus`, `toggled`, `optionAria`, `ROW` and `MARK` (choice and pick-field), `OptionText`, `OptionDetails`, `OtherField`, `otherLabelId`, `questionTextId`, `focusFirstRadio`, `clearing`, `filteredOptions`, `Field`, `fieldIds`, `register`, `useReadyAfterLayout`, `LIBRARY_CHUNKS`, `shimSource`, and the browser harness's `tabIntoGroup` (`test/browser/harness/tab-stops.ts`), `lifecycleScenario`, `openBoard`, `optionOf`. Seams this change creates: `radioAt`, `radioTabStop`, `useRadios`, and `nextFocus`'s new home `catalog/fields/roving.ts`.
 
 ## Risks / Trade-offs
 
