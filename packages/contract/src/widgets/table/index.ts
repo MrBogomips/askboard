@@ -5,6 +5,7 @@
 export { tableCellProblems, tableRowsProblems } from "./cells.ts";
 export { tableColumnsProblems, tablePropsProblems } from "./checks.ts";
 export {
+  TABLE_ANSWER_DERIVED,
   TABLE_COLUMN_TYPES,
   TABLE_FIELD_PATTERN,
   TABLE_FORMULA_MAX_CHARS,
@@ -12,6 +13,7 @@ export {
   TABLE_MAX_ROWS,
   TABLE_MIN_COLUMNS,
   TABLE_SCHEMA_IDS,
+  TABLE_SHAPE,
   TABLE_TEXT_MAX_CHARS,
   type TableCellValue,
   type TableColumn,
@@ -21,4 +23,5 @@ export {
   type TableProps,
   type TableRow,
 } from "./constants.ts";
+export { tableDerivedProblem } from "./derived.ts";
 export { TABLE_WIDGET } from "./widget.ts";

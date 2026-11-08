@@ -66,8 +66,8 @@ describe("Table items", () => {
     expect(widgetRegistryProblems(TYPES)).toEqual([]);
     expect(TABLE_WIDGET.type).toBe("table");
     expect(TABLE_WIDGET.props.$id).toBe(TABLE_SCHEMA_IDS.props);
-    expect(TABLE_WIDGET.edits).toBeUndefined();
-    expect(TABLE_WIDGET.derived).toBeUndefined();
+    expect(TABLE_WIDGET.edits?.changes.$id).toBe(TABLE_SCHEMA_IDS.changes);
+    expect(TABLE_WIDGET.result).toBeUndefined();
     expect(TABLE_WIDGET.example.item.type).toBe("table");
     expect(problems(TABLE_WIDGET.example.item)).toEqual([]);
   });

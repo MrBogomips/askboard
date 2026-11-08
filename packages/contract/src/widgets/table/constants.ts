@@ -3,6 +3,8 @@
 // ECMAScript with no JSON import, so that the Table's chunk can bundle what it reads from here.
 // Each frozen constant is marked pure, so that a view chunk drops those it does not use.
 
+import type { ElementShape } from "../element-diff.ts";
+
 /** A Table holds at most this many rows (design decision 13: lowered only through `/opsx:update`). */
 export const TABLE_MAX_ROWS = 200;
 /** A Table holds at least this many columns, and at most `TABLE_MAX_COLUMNS`. */
@@ -35,6 +37,25 @@ export type TableOrigin = "agent" | "edited";
 export const TABLE_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
   props: "urn:askboard:input:table-props",
   changes: "urn:askboard:output:table-changes",
+} as const);
+
+/**
+ * The Table's shape for the one generic diff (AD-20, design decision 6): its rows as a flat list,
+ * so that a cell is one `set` of `item.row.field`, a row added after another is one `add` and a
+ * deleted row one `remove`. Every key of a row but `id` is a field.
+ */
+export const TABLE_SHAPE: ElementShape = /* @__PURE__ */ Object.freeze({ elements: "rows" });
+
+/**
+ * Which derived values a Table's answer carries (design decision 7): every total (`itemTotals`),
+ * and the formula cells of the rows added and of the rows whose value differs from the board as
+ * sent (`onlyChanged`), each rounded half away from zero to `decimals` (a money value at its
+ * currency's minor units instead); a value in error never. The rounding is compute's `ROUND`.
+ */
+export const TABLE_ANSWER_DERIVED = /* @__PURE__ */ Object.freeze({
+  decimals: 6,
+  itemTotals: true,
+  onlyChanged: true,
 } as const);
 
 /** A column of any type: its field, its label, its type, and the keys its type takes. */
