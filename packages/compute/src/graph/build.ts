@@ -77,7 +77,7 @@ const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft
   }
   const references: ResolvedReference[] = [];
   for (const syntax of checked.references) {
-    const resolution = resolveReference(index, syntax);
+    const resolution = resolveReference(index, syntax, entry.address);
     if ("missing" in resolution) {
       const error: FormulaError = {
         error: "missing-reference",

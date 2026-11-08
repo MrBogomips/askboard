@@ -1,9 +1,15 @@
 // The formula lexer: one linear pass, no recursion and no regular expression over the whole
 // formula, so hostile input stays cheap. It reads AskBoard's flat references (AD-13): the item
 // ID, at most one child ID, a `*` for each further child level, then the field; or an item's
-// cell or range. A character outside the grammar or a malformed reference is a syntax error.
+// cell or range, or `[@field]` for a field of the formula's own child. A character outside the grammar or a malformed reference is a syntax error.
 
-import { ID_PATTERN, isFieldName, parseCell, REFERENCE_WILDCARD } from "@askboard/contract";
+import {
+  ID_PATTERN,
+  isFieldName,
+  parseCell,
+  REFERENCE_WILDCARD,
+  ROW_REFERENCE_PREFIX,
+} from "@askboard/contract";
 
 export type Cell = { readonly column: number; readonly row: number };
 
@@ -18,6 +24,8 @@ export type ReferenceSyntax =
       readonly field: string;
     }
   | { readonly form: "cell"; readonly item: string; readonly cell: string }
+  /** `[@field]`: that field of the same child as the formula's own node (table-widget). */
+  | { readonly form: "row"; readonly field: string }
   | {
       readonly form: "range";
       readonly item: string;
@@ -85,6 +93,12 @@ const lastSegment = (
 
 /** Reads the inside of `[...]`: the reference, or why it is not one. */
 export const parseReference = (body: string): ReferenceSyntax | string => {
+  if (body.startsWith(ROW_REFERENCE_PREFIX)) {
+    const field = body.slice(ROW_REFERENCE_PREFIX.length);
+    return isFieldName(field)
+      ? { form: "row", field }
+      : `reference [${body}]: "${field}" is not a field name`;
+  }
   const segments = body.split(".");
   if (segments.length < 2) return `reference [${body}] needs an item and a field`;
   const item = segments[0] ?? "";
