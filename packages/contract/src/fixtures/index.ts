@@ -283,3 +283,8 @@ export {
   TABLE_TYPES,
   tableWorstForm,
 } from "./table.ts";
+
+// A type name no widget may take, for the tests of an item of an undefined type (table-widget, review
+// S-3 of review-table-g6).
+
+export { UNREGISTERED_TYPE } from "./unregistered-type.ts";
