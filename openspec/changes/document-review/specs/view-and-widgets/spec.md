@@ -190,7 +190,7 @@ The confirmation asked before an answer replaces one the agent has received SHAL
 - **THEN** the board asks to confirm the replacement before it sends the answer naming the earlier revision
 
 ### Requirement: The draft follows the revision the card shows
-After "Keep mine", the draft SHALL compare, mirror and clear the user's work by the items of the revision that work was made on: work held only on an item a later revision removed stays held, is mirrored, counts as unsent work, and keeps the card on its revision; an edit of it releases the question's ready mark like an edit of any other item (NFR-10, AD-20, AD-21).
+After "Keep mine", while the card shows the revision the work was made on and the page has not reloaded, the draft SHALL keep, write, compare, mirror and clear the user's work by that revision's items as well as the current one's: work held only on an item a later revision removed, an entry or a cell entry included, stays held across updates, is mirrored, counts as unsent work, blocks as on that revision and keeps the card on it; an edit of it releases the ready mark (NFR-10, AD-20, AD-21).
 
 #### Scenario: Work only on a removed item
 - **WHEN** the user's only work on a question is on item `b`, the agent's revision removes `b`, and the user chooses "Keep mine" with no reload and edits `b`
@@ -199,6 +199,37 @@ After "Keep mine", the draft SHALL compare, mirror and clear the user's work by 
 #### Scenario: A ready mark after Keep mine
 - **WHEN** in submitted delivery the user's answer is marked ready, the agent's revision removes item `b`, the user chooses "Keep mine" with no reload and edits `b`
 - **THEN** the ready mark is released, as for an edit of any other item
+
+#### Scenario: An entry on a removed item
+- **WHEN** the user holds a result on item `a` and the text "12x" in the NumberField `c`, the agent's revision removes `c`, and the user chooses "Keep mine" with no reload
+- **THEN** `c` still shows "12x", the draft mirrors it under the earlier revision, and "Answer" stays disabled until the user corrects or clears it
+
+#### Scenario: The too-large line after an edit of a removed item
+- **WHEN** after "Keep mine" an answer naming the earlier revision was not sent as too large, and the user edits the item the agent's revision removed
+- **THEN** the line saying the answer was too large goes
+
+#### Scenario: A reload drops work only a removed item held
+- **WHEN** the user's only work on a question is a result on item `b`, the agent's revision removes `b`, and the page reloads
+- **THEN** the card shows the current revision, no work is restored on `b`, and the draft record keeps no entry for the question
+
+### Requirement: The items follow the revision the card shows
+While a card shows an earlier revision after "Keep mine", with no reload, the board each of its items reads (the items, each question's items, the values and answers they show, the compute graph and linked plans) and the ready state of its question SHALL follow that revision: an item only it holds renders, reports ready or fails the question, a linked edit writes only items it holds, and an item only the current revision holds is not awaited (AD-9, AD-10, AD-20).
+
+#### Scenario: A work breakdown the agent removed
+- **WHEN** the user has edited a Tree and its linked Gantt, the agent's revision removes both, and the user chooses "Keep mine" with no reload and adds a package by name
+- **THEN** both items render, the package and its task are held and mirrored under the earlier revision, and "Answer" sends both values naming it
+
+#### Scenario: A Gantt the agent linked
+- **WHEN** the agent's revision links a new Gantt to a Tree the user has edited, and the user chooses "Keep mine" with no reload and adds a package by name
+- **THEN** neither the draft nor its record holds a value for the new Gantt
+
+#### Scenario: An item the agent added
+- **WHEN** the user holds work on a question and the agent's revision adds a TextField to it
+- **THEN** the question does not stay loading: "Keep mine" and "Reload, losing my work" can be chosen, and after "Keep mine" "Answer" sends the earlier revision
+
+#### Scenario: An Approval beside a removed edit
+- **WHEN** the user has edited a Tree beside an Approval, the agent's revision removes the Tree, and the user chooses "Keep mine" with no reload
+- **THEN** the Approval's summary counts the Tree's edits and "Approve" cannot be chosen
 
 ### Requirement: Document review strings
 Every string a Document review shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the cards, the detached list, the refusals and the hint (FR-34; EXPERIENCE, Voice and Tone).
