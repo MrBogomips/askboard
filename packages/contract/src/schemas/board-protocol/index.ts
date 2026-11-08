@@ -10,7 +10,7 @@
 // E7's the Snapshot request and its two replies (snapshot design decision 2). Widget-registry's
 // minor adds the widget results to the answer act, the draft record and the board state (design
 // decision 6); atoms' minor adds the entries of the input atoms to the draft record (design
-// decision 3).
+// decision 3); table-widget's minor adds the cell entries of a Table to it (design decision 8).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -46,7 +46,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.7";
+export const BOARD_PROTOCOL_VERSION = "1.8";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -316,6 +316,12 @@ export type DraftQuestion = {
    * `ENTRY_MAX_CHARS` characters; never part of an answer.
    */
   readonly entries?: Readonly<Record<string, string>>;
+  /**
+   * Since table-widget: the text each cell of a Table holds that gives no value, by item ID and
+   * then by cell (`row.field`), 1 to `ENTRY_MAX_CHARS` characters, at most `CELL_ENTRIES_MAX` per
+   * item; never part of an answer.
+   */
+  readonly cellEntries?: Readonly<Record<string, Readonly<Record<string, string>>>>;
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   /** The open prompt's text. */

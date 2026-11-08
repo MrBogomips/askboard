@@ -56,7 +56,7 @@ describe("the versions of the four widened sets", () => {
       protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({ protocol: "1.7", snapshot: "1.1", manifest: "1.1" });
+    }).toEqual({ protocol: "1.8", snapshot: "1.1", manifest: "1.1" });
   });
 
   test("the sets hold those constants", () => {

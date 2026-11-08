@@ -1074,3 +1074,8 @@ export {
   tablePropsProblems,
   tableRowsProblems,
 } from "./widgets/table/index.ts";
+
+// The draft record's cell entries (table-widget, design decision 8): the most cells one Table's
+// entries hold.
+
+export { CELL_ENTRIES_MAX } from "./lifecycle-constants.ts";

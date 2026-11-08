@@ -167,6 +167,41 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
+  test("agree with the contract on a draft record that holds cell entries (table-widget, task 1.5)", () => {
+    const record = (cellEntries: unknown) => ({
+      version: BOARD_PROTOCOL_VERSION,
+      type: "draft",
+      record: { delivery: "immediate", questions: { q: { rev: 1, cellEntries } } },
+    });
+    const cells = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, at) => [`r${at}.f`, "x"]));
+    const accepted = [
+      record({ costs: { "pm.rate": "12,5" } }),
+      record({ costs: { "pm.rate": "😀".repeat(200) } }),
+      record(JSON.parse('{"__proto__":{"__proto__.rate":"x","constructor.toString":"y"}}')),
+      record({ costs: cells(2_000) }),
+      record({}),
+    ];
+    const refused = [
+      record({ costs: { "pm.rate": "" } }),
+      record({ costs: { "pm.rate": "x".repeat(201) } }),
+      record({ costs: { "pm.rate": 5 } }),
+      record({ costs: { "pm.rate.x": "x" } }),
+      record({ costs: { pm: "x" } }),
+      record({ "a b": { "pm.rate": "x" } }),
+      record({ costs: cells(2_001) }),
+      record(["x"]),
+    ];
+    for (const message of accepted) {
+      expect(generated.draft?.(message)).toBe(true);
+      expect(validateBoardMessage("toPage", message).ok).toBe(true);
+    }
+    for (const message of refused) {
+      expect(generated.draft?.(message)).toBe(false);
+      expect(validateBoardMessage("toPage", message).ok).toBe(false);
+    }
+  });
+
   test("agree with the contract on what board protocol 1.2 adds (settings-languages, task 2.6)", () => {
     const check = generated.settings;
     const [every] = settingsProtocolExamples.toPage;
