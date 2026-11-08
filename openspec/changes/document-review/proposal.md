@@ -13,7 +13,7 @@ FR-11's Document review row ("Comments on passages and suggests edits") is the c
 - **The Markdown renderer as a library chunk** (AD-1 and AD-9, amended in place; atoms design decision 4): markdown-it, DOMPurify and AskBoard's renderer module move from the `text` chunk to a `markdown` library chunk, shared as `@askboard/view/markdown`, which the Text and the Document review both import, so no chunk carries a second copy.
 - **The skill**: the Document review's teaching text joins the generated skill as `skill-index` (#61) lays it out: its use in `references/items.md`, within `SKILL_USE_MAX`, and one link in `SKILL.md`, whose 9,000-character budget stays.
 - **Versions** (askboard-contract-versioning): the input format, the output format, the tool envelopes and the board document each take the next minor after `main`'s, bound at the rebase.
-- No new dependency: markdown-it 15.0.3 and DOMPurify 3.4.17 are already pinned in `view`. The solution design's `@tiptap/core` row is a candidate the final UX did not choose ("Own, on the Markdown renderer").
+- No new dependency: markdown-it 15.0.3 and DOMPurify 3.4.17 are already pinned in `view`, and so is `react-dom` 19.3.1, which `widgets` now declares at the same pin for the pins' portals. The solution design's `@tiptap/core` row is a candidate the final UX did not choose ("Own, on the Markdown renderer").
 - **Not in this change**: a document by pointer to a project file; plain-text documents; re-attaching a detached annotation; overlapping annotations; suggested edits counted as changes by an Approval; annotations recorded by the agent with `update`; a Document review in a molecule.
 
 ## Capabilities

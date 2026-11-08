@@ -38,7 +38,7 @@ With a passage of the document selected, "Comment" SHALL open an empty comment c
 - **THEN** the draft holds no annotation for it and the mark is gone
 
 ### Requirement: Suggesting an edit
-"Suggest edit" SHALL open a card whose replacement field starts with the passage's text, with an optional note. While the replacement differs from the passage, or a note is written, the draft SHALL hold a suggested edit, shown as the passage struck through followed by the replacement; an empty replacement SHALL suggest deleting the passage (FR-11; DESIGN, Document review).
+"Suggest edit" SHALL open a card whose replacement field starts with the passage's text, with an optional note. While the replacement differs from the passage, the draft SHALL hold a suggested edit with the note, if any, shown as the passage struck through followed by the replacement; an empty replacement SHALL suggest deleting the passage. While it equals the passage, a written note SHALL be held as a comment (FR-11, AD-10; DESIGN, Document review).
 
 #### Scenario: A word replaced
 - **WHEN** the user selects "drafts", presses "Suggest edit" and changes the field to "unsent answers"
@@ -52,8 +52,12 @@ With a passage of the document selected, "Comment" SHALL open an empty comment c
 - **WHEN** the replacement equals the passage and no note is written
 - **THEN** the draft holds no annotation for it
 
+#### Scenario: Only a note written
+- **WHEN** the user selects "drafts", presses "Suggest edit", leaves the field as "drafts" and writes the note "Say which drafts."
+- **THEN** the draft holds a comment on "drafts" with that text and no replacement, marked as a comment, and "Answer" sends it
+
 ### Requirement: Passages the board does not anchor
-The board SHALL anchor an annotation only to the passage the user selected. It SHALL refuse a passage that is blank, longer than 2,000 characters, outside the document, one of several selected ranges, overlapping an annotation, or repeated in the document with 200 characters of context, and SHALL say why beside the toolbar, never only in the console (NFR-10, AD-10).
+The board SHALL anchor an annotation only to the passage the user selected. It SHALL refuse a passage that is blank, longer than 2,000 characters, outside the document, one of several selected ranges, overlapping an annotation, or repeated in the document with 200 characters of context, and any passage while the item holds 100 annotations, and SHALL say why beside the toolbar, never only in the console (NFR-10, AD-10).
 
 #### Scenario: An overlapping passage
 - **WHEN** the user selects text that overlaps comment 2 and presses "Comment"
@@ -62,6 +66,10 @@ The board SHALL anchor an annotation only to the passage the user selected. It S
 #### Scenario: A repeated passage
 - **WHEN** the user selects a sentence the document repeats with the same context and presses "Suggest edit"
 - **THEN** no card opens, and the message asks for a longer passage
+
+#### Scenario: The 101st annotation
+- **WHEN** a Document review holds 100 annotations and the user selects another passage and presses "Comment"
+- **THEN** no card opens, the draft is unchanged, and the toolbar's message says the document holds the most comments it takes
 
 ### Requirement: Editing and deleting annotations
 A pin SHALL open its annotation's card by click, or by Enter on the current pin. On the live board the card SHALL offer "Edit" and "Delete"; "Delete" SHALL remove the annotation, its mark and its pin. When a card closes, focus SHALL return to its pin, or to the document when the pin is gone (FR-11; EXPERIENCE, Comment card, Focus).
