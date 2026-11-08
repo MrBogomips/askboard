@@ -619,6 +619,8 @@ describe("the Document review's teaching text and example", () => {
     expect(skill?.use).toContain("comment");
     expect(notes).toContain("markdown");
     expect(notes).toContain("10,000");
+    expect(notes).toContain("no control character or direction mark");
+    for (const mark of ["U+200E", "U+200F", "U+061C"]) expect(notes).toContain(mark);
     expect(notes).toContain("one item per section");
     expect(notes).toContain("annotations");
     expect(notes).toContain("exact");
