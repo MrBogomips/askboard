@@ -38,6 +38,7 @@ describe("the generated files", () => {
     expect([...files.keys()]).toEqual([
       "SKILL.md",
       "references/answers.md",
+      "references/updates.md",
       "references/items.md",
       "references/context.md",
       ...WIDGET_TYPES.map(({ type }) => `references/widgets/${type}.md`),
@@ -60,9 +61,12 @@ describe("the generated files", () => {
     expect(again.examples).toEqual(examples);
   });
 
+  // The language section names the project's instructions files, CLAUDE.md and AGENTS.md (the
+  // skills spec, "The ask's language taught"): a file name the agent reads, not an AI named as
+  // author, so that one name is set aside before the check.
   test("name no AI tool or vendor", () => {
     for (const [name, text] of files)
-      expect(text, name).not.toMatch(/claude|anthropic|co-authored/i);
+      expect(text.replaceAll("CLAUDE.md", ""), name).not.toMatch(/claude|anthropic|co-authored/i);
   });
 
   test("hold every tagged block as one of the examples, in order", () => {

@@ -9,6 +9,7 @@
 - An answer whose `rev` is earlier than the question's current one (the user kept their work over your update, as the edit choice before it says) carries no derived values: the board computes them on the current revision only; to have them, ask again on your current revision; `fetch` has none either.
 - A revision names the answer it replaces. Take the latest.
 - A `discarded` ask is gone and its answers will not come.
+- `fetch` of an item you deleted returns the outcome `deleted`: a question, an area, an item inside one, or a molecule reference of a question you deleted. `fetch` of an ask that is gone returns `discarded`. An item a `change` dropped, or one the ask never held, is an error.
 
 ```json result
 {

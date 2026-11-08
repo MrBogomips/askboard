@@ -94,14 +94,17 @@ Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separa
 
 ## 3. Skill: changing an ask, the language, `deleted`
 
-- [ ] 3.1 `references/updates.md` and `update` examples (skills spec, "The reference for changing an ask", "Adding an item to a question taught" and "Update examples that validate"; design decision 3).
+- [x] 3.1 `references/updates.md` and `update` examples (skills spec, "The reference for changing an ask", "Adding an item to a question taught" and "Update examples that validate"; design decision 3).
   - Tests first:
     - in a new `tools/build/skills/updates-skill.test.ts`: the `reply` line names `itemId`, `followUp` and `text` as required; a schema with one more action adds one line and leaves the others unchanged; an action without a gloss fails, naming it; the file says that `add` refuses a widget and that an item left out of a change's `items` is removed; `SKILL.md`'s "After you ask" links the file;
     - in `references.test.ts`: the new file is linked once from `SKILL.md` and links nothing;
     - in `packages/server/test/skills-examples.test.ts`: `json update` blocks are found and validated. The `change` example applies through `AskCore` after the reference's ask example. The `reply` example passes `validateUpdateRequest`, and its `itemId` names a question of that ask example. Breaking the `change` example's item fails the test, naming the file and the block.
   - Then: `updates.ts`, `templates/updates.md`, `Templates.updates` with `DISK_TEMPLATES`, `EXAMPLE_KINDS` with `update` appended, the test's block pattern with `update`, and the link line in `templates/SKILL.md`. Run `bun run build:skills`.
   - Verify: the tests fail before and pass after; `bun run check:skills` passes, its figures recorded; coverage; the check passes.
-- [ ] 3.2 The language section and the `deleted` line (skills spec, "The ask's language taught", "Locale and another language taught" and "A deleted item in the answers reference"; design decision 6).
+  - Note (Refs #73, #75; commit below): `tools/build/skills/updates.ts` (`ACTION_GLOSSES`, `actionLines(updateSchema, glosses)`, `UPDATE_EXAMPLES`) renders one line per action of `update.json`'s `$defs/action`, in order, with `required:` and `optional:` read from the schema; a missing gloss or `action` constant throws naming the action. `templates/updates.md`, `Templates.updates` (read by `DISK_TEMPLATES`), `EXAMPLE_KINDS` and the block pattern with `update`, `SkillInputs.updateSchema` and `actionGlosses`, and SKILL.md's link line; the reply line of "After you ask" names `itemId` and `followUp`. Generated `skills/askboard/references/updates.md` (2,687 of 6,000), `SKILL.md`, `answers.md`.
+  - Red first: `updates-skill.test.ts` (14 tests) and the references and file-list tests failed on the missing module and file; `skills-examples.test.ts` found no `update` block. Then green; `skills-examples` 39 pass, and a mutated `updates.md` (an unknown prop in the change item, a reply naming `nowhere`) fails 2 tests naming the file and block. `bun test tools/build/skills`: 172 pass. Check (with `check:licences`): 12274 pass 3 skip 0 fail; `updates.ts` 100% lines, 98.95% functions. Figures: SKILL.md 7,022 of 9,000 characters and 74 of 250 lines; always-loaded total 6,410 of 8,400 (the skill files are not in it).
+  - Outside the group's packages: `packages/server/test/skills-examples.test.ts` holds the `update` examples' checks, as the task says.
+- [x] 3.2 The language section and the `deleted` line (skills spec, "The ask's language taught", "Locale and another language taught" and "A deleted item in the answers reference"; design decision 6).
   - Tests first, in a new `tools/build/skills/language-skill.test.ts`:
     - `SKILL.md` names `language`, `locale`, each enum value of the input format, the three sources in order, leaving an unlisted language out, and closing and asking again;
     - an input format with a third language value adds it to `SKILL.md`;
@@ -109,6 +112,10 @@ Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separa
     - `references/answers.md` names the outcomes `deleted` and `discarded`.
   - Then: the section and its two slots in `templates/SKILL.md`, the slot values in `generateSkill`, and the bullet in `templates/answers.md`. Run `bun run build:skills`.
   - Verify: the tests fail before and pass after; `SKILL.md` stays within 9,000 characters and 250 lines, recorded in the note; coverage; the check passes.
+  - Note (Refs #75, #73; commit below): `templates/SKILL.md` gains "## Language" (after "Keep asks cheap") with the slots `{{languages}}` and `{{locales}}`, read by `generateSkill` from the ask schema's `language` and `locale` enums (`SkillInputs.askSchema`; a missing enum throws naming the field; three values read "`a`, `b` and `c`"); the design's text, unchanged. `templates/answers.md` gains the `fetch` outcomes bullet: `deleted` for a question, an area, an item inside one or a molecule reference of a question the agent deleted, `discarded` for an ask that is gone, an error for an item a `change` dropped or one never held; no expanded ID is named, matching task 2.3.
+  - Red first: `language-skill.test.ts` (12 tests) 11 failed on the head, then 12 pass.
+  - Deviation: the section names `CLAUDE.md` as the spec says, and `generate.test.ts`'s "name no AI tool or vendor" matched it; the test now sets that one file name aside before its unchanged pattern (a file the agent reads, not an AI named as author). Nothing else in it is relaxed.
+  - Budgets: SKILL.md 7,022 of 9,000 characters (6,257 before) and 74 of 250 lines; answers.md 2,323; always-loaded total 6,410 of 8,400 (unchanged).
 - [ ] 3.3 Review checkpoint, group 3, with task 2.3: one combined spec and security pass of their range (askboard-review-protocol; security: `ask-core`'s deleted IDs and fail closed), which also reads the generated files as an agent would. Tests: none. Verify: the findings are recorded under this task; each is fixed tests first or deferred with the PO's reason.
 
 ## 4. Records, rebase and pull request
