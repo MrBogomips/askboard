@@ -20,15 +20,8 @@ import { entriesWithCells } from "./cell-entries.ts";
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
-import {
-  answerHint,
-  ENTRY_ITEM_TYPES,
-  entryBlock,
-  entryIdsOf,
-  fieldEntryIdsOf,
-  holdsEntry,
-  isEntryType,
-} from "./entries.ts";
+import { ENTRY_ITEM_TYPES, entryIdsOf, fieldEntryIdsOf, isEntryType } from "./entries.ts";
+import { answerHint, fieldBlock, holdsBlock } from "./field-block.ts";
 import { cardState } from "./question-state.ts";
 import { selectRecommended, submitPress, submitStateOf } from "./submit.ts";
 
@@ -138,34 +131,39 @@ describe("entriesWithCells", () => {
 });
 
 describe("the hint names the Table", () => {
+  const NO_RESULTS = new Map<string, unknown>();
   const merged = entriesWithCells(new Map(), new Map([["costs", CELLS]]));
 
   test("by its label, or by its ID without one; in Italian too", () => {
-    expect(entryBlock(question, merged)).toEqual({ itemId: "costs", label: "Roles" });
-    expect(answerHint(question, merged, "en-US")).toBe("Correct Roles first.");
-    expect(answerHint(question, merged, "it-IT")).toBe("Correggi prima Roles.");
+    expect(fieldBlock(question, merged, NO_RESULTS)).toEqual({
+      itemId: "costs",
+      label: "Roles",
+      kind: "entry",
+    });
+    expect(answerHint(question, merged, NO_RESULTS, "en-US")).toBe("Correct Roles first.");
+    expect(answerHint(question, merged, NO_RESULTS, "it-IT")).toBe("Correggi prima Roles.");
     const bare = documentOf([nested()]);
     const [bareQuestion] = questionsOf(bare) as [ViewQuestion];
-    expect(answerHint(bareQuestion, merged, "en-US")).toBe("Correct costs first.");
+    expect(answerHint(bareQuestion, merged, NO_RESULTS, "en-US")).toBe("Correct costs first.");
   });
 
   test("a held cell entry is a block; without one there is none", () => {
-    expect(holdsEntry(question, merged)).toBe(true);
-    expect(holdsEntry(question, entriesWithCells(new Map(), new Map()))).toBe(false);
-    expect(answerHint(question, new Map(), "en-US")).toBeUndefined();
+    expect(holdsBlock(question, merged, NO_RESULTS)).toBe(true);
+    expect(holdsBlock(question, entriesWithCells(new Map(), new Map()), NO_RESULTS)).toBe(false);
+    expect(answerHint(question, new Map(), NO_RESULTS, "en-US")).toBeUndefined();
   });
 
   test("the card cannot answer while a cell entry is held, and can once it is cleared", () => {
-    const card = (entry: boolean) =>
+    const card = (blocked: boolean) =>
       cardState({
         status: { itemId: QUESTION, rev: 1, state: "open" },
         draft: { values: { [QUESTION]: ["Small"] } },
         load: "visible",
         ready: false,
-        entry,
+        fieldBlock: blocked,
       });
-    expect(card(holdsEntry(question, merged)).canAnswer).toBe(false);
-    expect(card(holdsEntry(question, new Map())).canAnswer).toBe(true);
+    expect(card(holdsBlock(question, merged, NO_RESULTS)).canAnswer).toBe(false);
+    expect(card(holdsBlock(question, new Map(), NO_RESULTS)).canAnswer).toBe(true);
   });
 });
 
@@ -292,7 +290,7 @@ describe("submitted delivery with a cell entry held", () => {
         entries: merged(),
         state: stateOf(),
       });
-    expect(press()).toEqual({ kind: "has-entry", questionId: QUESTION });
+    expect(press()).toEqual({ kind: "field-block", questionId: QUESTION });
     cells.set("costs", undefined);
     mark(board);
     expect(submitStateOf(inputs()).disabled).toBe(false);

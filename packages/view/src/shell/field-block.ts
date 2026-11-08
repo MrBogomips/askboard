@@ -69,7 +69,8 @@ export const fieldBlock = (
       label: labelOf(question, item.id),
       kind,
     });
-    if (ENTRY_ITEM_TYPES.includes(item.type) && entries.get(item.id) !== undefined) return block("entry");
+    if (ENTRY_ITEM_TYPES.includes(item.type) && entries.get(item.id) !== undefined)
+      return block("entry");
     const result = results.get(item.id);
     const failure = itemCheckFailure(item, result, factsOf);
     if (failure === undefined) continue;

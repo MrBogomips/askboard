@@ -117,11 +117,11 @@ A question of the draft record MAY hold `cellEntries`: by item ID, by cell (`row
 - **THEN** the record is refused, naming the path
 
 ### Requirement: The Table's teaching text
-The Table's entry SHALL carry a use of at most 70 characters and notes of at most 300 each, naming the column types and their bounds, `[@field]`, single reads in a column formula, totals read as `[item.field]`, `fixedRows`, and that the answer gives the changes and the derived values. Its example SHALL validate (FR-29, AD-6).
+The Table's entry SHALL carry a use within the skill's budget for a use (200 characters) and notes of at most 300 each, naming the column types and their bounds, `[@field]`, single reads in a column formula, totals read as `[item.field]`, `fixedRows`, and that the answer gives the changes and the derived values. Its example SHALL validate (FR-29, AD-6).
 
 #### Scenario: The generated skill
 - **WHEN** `bun run build:skills` runs with the Table registered
-- **THEN** `SKILL.md` lists the Table in the index line format and stays within 9,000 characters, and the Table's reference holds an example that validates
+- **THEN** the item catalogue `references/items.md` holds the Table's line, `SKILL.md` links the Table's reference and stays within 9,000 characters, and the Table's reference holds an example that validates
 
 ### Requirement: The Table in the sets' next minors
 The input format, the output format, the tool envelopes and the board document SHALL admit the Table at their next minor after `main`'s, a question's items and a layout's included; the board protocol SHALL admit cell entries at its next minor. Documents of each previous minor SHALL still validate (AD-7).

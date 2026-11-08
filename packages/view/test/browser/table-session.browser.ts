@@ -53,6 +53,12 @@ import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
 
+const tableTextField = () => ({
+  type: "text-field",
+  id: "kept",
+  props: { label: "Existing draft" },
+});
+
 const notice = (board: Board) =>
   card(board, "plan").locator('[data-askboard-notice="agent-change"]');
 
@@ -338,6 +344,51 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await problems.textContent()).toContain("Amount");
         expect(await table.frame.locator("[data-row-error]").count()).toBe(0);
         expect(await cellText(table, "pm", "amount")).toBe("—");
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a Table added by a live update loads its chunk, becomes ready in a new question and takes an edit",
+      async () => {
+        const start0 = lifecycleScenario(
+          {
+            askId: "table-live",
+            items: [
+              {
+                type: "question",
+                id: "keep",
+                props: { text: "Keep this draft", items: [tableTextField()] },
+              },
+            ],
+          },
+          dist,
+        );
+        const run = await start(start0);
+        const board = await openBoard(run, ["keep"]);
+        expect(await board.view.locator('[data-askboard-item="costs"]').count()).toBe(0);
+        await run.session.update([
+          {
+            action: "add",
+            item: {
+              type: "question",
+              id: "plan",
+              props: { text: "Plan the costs", items: [tableItem()] },
+            },
+          },
+        ]);
+        await board
+          .question("plan")
+          .locator('[role="grid"]')
+          .waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+        await board.view
+          .locator('[data-askboard-question="plan"]:not([aria-busy="true"])')
+          .waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
+        const table = tableGridOf(board);
+        await typeInCell(board, table, "pm", "rate", "Rate, row 1", "960.00");
+        expect(await cellText(table, "pm", "rate")).toBe("$960.00");
+        expect(await board.view.getByRole("alert").count()).toBe(0);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

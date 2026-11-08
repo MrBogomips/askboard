@@ -36,7 +36,7 @@ import update from "./update.json" with { type: "json" };
 // The question props with each registered type's item composed in.
 const questionProps = composeQuestionProps(questionPropsBase);
 
-export const INPUT_FORMAT_VERSION = "1.11";
+export const INPUT_FORMAT_VERSION = "1.12";
 
 export const inputFormat: SchemaSet = {
   name: "input",

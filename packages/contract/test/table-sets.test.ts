@@ -1,6 +1,6 @@
 // The Table in the sets' next minors (table-widget, task 6.3; contract spec: The Table in the sets'
 // next minors; design decisions 14 and 16): the input format, the output format, the tool envelopes
-// and the board document each take one minor past layouts' when the Table joins `WIDGET_TYPES`, over
+// and the board document each take one minor past form-widget's when the Table joins `WIDGET_TYPES`, over
 // the shipped registry alone, with no `withWidgetTypes`; the board protocol keeps the minor task 1.5
 // gave it, and every other set keeps `main`'s. The numbers are bound here and in the constants only
 // (askboard-contract-versioning, Rule 1); the next change that widens a set moves the pins below.
@@ -50,14 +50,14 @@ describe("the Table in the registry", () => {
 });
 
 describe("the minors the Table binds", () => {
-  test("the four widened sets are one minor past layouts', and the sets carry the constants", () => {
-    // Layouts' were input 1.10, output 1.9, tool envelopes 1.10 and board document 1.9.
+  test("the four widened sets are one minor past form-widget's, and the sets carry the constants", () => {
+    // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10.
     expect({
       input: INPUT_FORMAT_VERSION,
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.11", output: "1.10", envelopes: "1.11", document: "1.10" });
+    }).toEqual({ input: "1.12", output: "1.11", envelopes: "1.12", document: "1.11" });
     for (const [name, version] of [
       ["input", INPUT_FORMAT_VERSION],
       ["output", OUTPUT_FORMAT_VERSION],
@@ -68,7 +68,7 @@ describe("the minors the Table binds", () => {
     }
   });
 
-  test("every other set keeps its minor: the board protocol task 1.5 gave it, the rest main's", () => {
+  test("every other set keeps its minor: the board protocol task 1.5 gave it (one past the base's 1.7), the rest main's", () => {
     expect(BOARD_PROTOCOL_VERSION).toBe("1.8");
     expect({
       snapshot: SNAPSHOT_DATA_VERSION,
@@ -88,10 +88,10 @@ describe("the minors the Table binds", () => {
 
   test("a receiver at the new minor accepts the previous minor, a two-digit minor, and refuses another major", () => {
     for (const [name, previous] of [
-      ["input", "1.10"],
-      ["output", "1.9"],
-      ["tool-envelopes", "1.10"],
-      ["board-document", "1.9"],
+      ["input", "1.11"],
+      ["output", "1.10"],
+      ["tool-envelopes", "1.11"],
+      ["board-document", "1.10"],
     ] as const) {
       expect(unsupportedVersion(setOf(name), previous), name).toBeUndefined();
       expect(unsupportedVersion(setOf(name), "2.0"), name).toBeDefined();

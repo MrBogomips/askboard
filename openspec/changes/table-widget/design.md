@@ -9,7 +9,7 @@ See proposal.md for why. Read on `origin/main` e87841d5 (`atoms` merged as #57, 
 - **Own grids.** The Tree (`widgets/src/tree/`, a `treegrid` with roving `tabIndex`, `CellEditor`, `entry.ts`) and the Gantt's grid are AskBoard's own: `tree-widget` and `gantt-widget` installed neither TanStack Table nor a virtualiser, though the spine's Stack and EXPERIENCE still name TanStack for them and for the Table. Their editors refuse unreadable text on Enter and drop it on leaving (EXPERIENCE, Input atoms).
 - **The atoms** (`atoms`): the parsers and echoes are `contract`'s (`parseNumber`, `parseAmount`, `parseDate`, `numberEcho`, `amountEcho`, `dateEcho`, `minorUnitsOf`, `MINOR_UNITS`); each input atom's `checks.ts` has `…PropsProblems` and `…ResultProblems`, plain ECMAScript; the view's readers (`catalog/{number,money,date}-field/read.ts`) add the bound wording, choosing the bound broken by restating the order (whole, minimum, maximum, step). An item's entry is one string (`ItemProps.entry`, the draft record's `entries` by item ID, `shell/entries.ts`); the view's readers are reachable from a widget only through the port (AD-9).
 - **The board graph in the view** (`widgets/src/board-graph/`): `liveGraph` rebuilds unless `recalc.ts`' `inputChanges` finds only numeric input changes of a Gantt, which go through `set` and `recalc`.
-- **The skill**: `SKILL.md` is 8,106 characters on `main`; `layouts` and `form-widget` add lines, `document-review` rewrites the index line as `` - [`type`](reference): use `` with uses of at most 70 characters (its decision 12).
+- **The skill**: `SKILL.md` is 8,106 characters on `main`; `skill-index` (#61) moved the lines that describe each type out of `SKILL.md` into the catalogue `references/items.md`, so the Table adds a catalogue line (a use within `main`'s 200 characters) and one link in `SKILL.md`; `document-review`'s 70-character index line is superseded.
 
 ADs relied on: AD-1 (imports: `widgets` imports `contract`, `compute` and the port only; `compute` stays plain ECMAScript), AD-6 (worded problems, warnings, generated teaching), AD-7 (the registry, child IDs, view-made IDs, money with a currency), AD-8 (agent content as text), AD-9 (one chunk per component, no edit state in components, facts through the port), AD-10 (fail closed), AD-13 (the graph; amended in place by `spine-update-draft.md` block 1), AD-15 (Snapshots), AD-19 (no new dependency; the Stack row, block 3), AD-20 (changes, derived values, drafts; block 2). Nothing here depends on Claude Code's run-time behaviour: no item needs a probe there; the browser and timing assumptions are probed in tasks 0.4 and 0.5.
 
@@ -128,11 +128,13 @@ As in `atoms` decision 10: `TABLE_WIDGET` joins `WIDGET_TYPES` only in task 6.3;
 
 ### 15. The skill
 
-The entry's `skill`: a use of at most 70 characters ("a grid of typed columns to edit, with totals and formula columns"), notes within 300 each: the column types and their atoms' bounds, `[@field]` and single reads, totals as `[id.field]`, `fixedRows`, the answer (changes and derived values). Its index line takes `document-review`'s form. Task 6.3 generates the skill with every budget; an overrun stops it for `/opsx:update`.
+The entry's `skill`: a use within `main`'s 200 characters ("a grid of typed columns to edit, with totals and formula columns"), notes within 300 each: the column types and their atoms' bounds, `[@field]` and single reads, totals as `[id.field]`, `fixedRows`, the answer (changes and derived values). Its catalogue line and its link in `SKILL.md` are generated, as `skill-index` made them. Task 6.3 generates the skill with every budget; an overrun stops it for `/opsx:update`.
 
 ### 16. Versions
 
-The input format (the props, the compositions), the output format (`table-changes`), the tool envelopes (`fetch`'s composition) and the board document (its composition) take the next minor after `main`'s in task 6.3, the registration; the board protocol (the draft record's `cellEntries`) in task 1.5, the first change to its schema. The Snapshot data, the view manifest and the rest keep `main`'s. Comments, schema descriptions and test titles say "since table-widget". Task 8.2 binds each at `main`'s minor plus one, after `layouts`, `form-widget`, `document-review` and `image-annotation` have bound theirs.
+The input format (the props, the compositions), the output format (`table-changes`), the tool envelopes (`fetch`'s composition) and the board document (its composition) take the next minor after `main`'s in task 6.3, the registration; the board protocol (the draft record's `cellEntries`) in task 1.5, the first change to its schema. The Snapshot data, the view manifest and the rest keep `main`'s. Comments, schema descriptions and test titles say "since table-widget". Task 8.2 binds each at the base's minor plus one, after `layouts`, `form-widget`, `document-review` and `image-annotation` have bound theirs.
+
+Bound on 2026-11-08, rebased with `git rebase --onto 352664fb edf6e802` onto `form-widget`'s head 352664fb (PR #64, on `origin/main` 90b7009f, which holds `layouts` #60, `skill-index` #61, their archive #62 and the live board updates #63), then with `git rebase --onto origin/main 352664fb` onto `origin/main` 433b4d29 (PR #64 merged; its tree equals 352664fb), which holds the base's minors: input format 1.12 (base 1.11), output format 1.11 (1.10), tool envelopes 1.12 (1.11), board document 1.11 (1.10) and board protocol 1.8 (1.7, `main`'s too); the Snapshot data (1.1) and the view manifest (1.1) are unchanged. The numbers are re-read on `main` just before the merge and rebound if another change has merged first.
 
 ### 17. The end-to-end proof
 
@@ -151,7 +153,7 @@ Borrowed from `layouts`, not on `main` (branch head edf6e802): `nestedItemsOf` a
 
 Borrowed from `form-widget`, not on `main` (branch head 71e4ff16; its view group not built yet): `fieldBlock` (`shell/field-block.ts`) and its readers, which decision 8's `entriesWithCells` feeds; the atoms' props as it extends them (`required`, `minLength`, `pattern`), which decision 2's projections leave out; `PICK_FIELD_WIDGET` (the order of `WIDGET_TYPES`).
 
-Borrowed from `document-review`, not on `main` (design at 24656505): `SKILL_USE_MAX` 70 and the index line's form (decision 15); `DOCUMENT_REVIEW_WIDGET` (the order).
+Borrowed from `document-review`, not on `main` (design at 24656505): `DOCUMENT_REVIEW_WIDGET` (the order). Its `SKILL_USE_MAX` 70 and index-line form are superseded by `skill-index` (the catalogue `references/items.md`; `SKILL_USE_MAX` stays 200), so this change borrows neither.
 
 Borrowed from `image-annotation`, not on `main` (design at 0ac511ec): `IMAGE_ANNOTATION_WIDGET` (the Table follows it); `ComponentFacts` and the port as it appends to them (this change appends `cellEntries` and `onCellEntriesChange` after its members).
 
@@ -182,7 +184,7 @@ Seams this change creates, which later changes borrow once it merges: `ROW_REFER
 - [Money derived values drift by binary rounding] → `roundNumber` (Excel's ROUND at 15 significant digits) then the currency's minor units; tests at the half cent and in JPY and BHD; past 15 integer digits a money value is no value, never an exponent form (decision 7).
 - [`fixedRows` taught but an agent sends rows the user should not touch] → the teaching says a Table reviews data the user may edit; read-only data goes in a Value or a Text.
 - [A column formula naming its own item (`[costs.amount]`) breaks once a molecule prefixes the item's ID] → no Table molecule is in this change, and AD-9's expansion rewrites only parameters today; the sales estimate review's change decides between a rewrite and a self reference.
-- [The skill passes its budget] → a use of at most 70 characters; an overrun stops task 6.3 for `/opsx:update`.
+- [The skill passes its budget] → a use within `main`'s 200 characters; an overrun stops task 6.3 for `/opsx:update`.
 - [An in-flight seam merges with another name or shape] → task 0.2 stops for `/opsx:update`.
 
 ## Migration Plan

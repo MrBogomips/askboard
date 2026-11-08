@@ -36,7 +36,7 @@ import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.10";
+export const OUTPUT_FORMAT_VERSION = "1.11";
 
 export const outputFormat: SchemaSet = {
   name: "output",
