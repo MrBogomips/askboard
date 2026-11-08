@@ -71,6 +71,10 @@ A `table` item SHALL map to a `fields` item: every input column of every row an 
 - **WHEN** a Table's rows are `__proto__` and `constructor` and its fields `constructor` and `toString`
 - **THEN** each row's nodes and the totals read as for any other names
 
+#### Scenario: A Table with no rows
+- **WHEN** a Table with total columns has no rows
+- **THEN** each total reads 0, as an empty sum does in Excel, and no warning is given
+
 ### Requirement: A Table at its bounds
 The worst Table the bounds admit (200 rows, 10 columns, column formulas of 500 characters each reading its row's other fields) SHALL be built and evaluated, and recalculated after one cell's change, within the gates of design decision 13 on Bun and on Node 24 (AD-13, NFR-12).
 
