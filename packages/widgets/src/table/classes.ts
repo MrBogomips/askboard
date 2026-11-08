@@ -17,7 +17,6 @@ import {
   FRAME,
   NOT_SELECTABLE,
   TOOL,
-  TOOLBAR,
   TOOLS,
 } from "../tree/classes.ts";
 
@@ -32,9 +31,12 @@ export {
   FRAME,
   NOT_SELECTABLE,
   TOOL,
-  TOOLBAR,
   TOOLS,
 };
+
+/** The toolbar row on `muted`, below the grid: Tab leaves the grid for it (spec: The Table at the keyboard). */
+export const TOOLBAR =
+  "flex h-[32px] items-center gap-2 rounded-b-md border-t border-border bg-muted px-2";
 
 /** A word of any length wraps inside its box. */
 export const WRAP = "[overflow-wrap:anywhere]";

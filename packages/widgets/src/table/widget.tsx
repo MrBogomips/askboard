@@ -287,7 +287,11 @@ export const TableWidget = ({
   };
   const onFocus = (event: React.FocusEvent<HTMLTableElement>): void => {
     const at = cellOf(event.target);
-    if (at !== undefined && (at.rowId !== focus?.rowId || at.field !== focus.field)) {
+    // The grid's first focus makes its current cell current even when it is the cell it opens on.
+    if (
+      at !== undefined &&
+      (stored === undefined || at.rowId !== focus?.rowId || at.field !== focus.field)
+    ) {
       show(settleFocus(value, at), false);
     }
   };
@@ -458,16 +462,6 @@ export const TableWidget = ({
 
   return (
     <div className={FRAME}>
-      <TableToolbar
-        tools={tools}
-        editing={editing !== undefined}
-        canDelete={current !== undefined}
-        changes={marks.count}
-        counter={changeCounter(marks, language)}
-        refusal={refusal}
-        onAdd={onAdd}
-        onDelete={onDelete}
-      />
       <TableGrid
         ref={grid}
         itemId={itemId}
@@ -485,6 +479,16 @@ export const TableWidget = ({
         onMouseDown={onMouseDown}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
+      />
+      <TableToolbar
+        tools={tools}
+        editing={editing !== undefined}
+        canDelete={current !== undefined}
+        changes={marks.count}
+        counter={changeCounter(marks, language)}
+        refusal={refusal}
+        onAdd={onAdd}
+        onDelete={onDelete}
       />
       <p role="status" aria-live="polite" className="sr-only">
         {announced}
