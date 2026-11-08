@@ -40,7 +40,7 @@ export const TotalRow = ({
           const total = column.total === "sum";
           const result =
             total && !refused.has(column.field)
-              ? totalResult(graph, itemId, column.field)
+              ? totalResult(graph, itemId, column.field, column)
               : undefined;
           const none = result === undefined || isFormulaError(result);
           return (

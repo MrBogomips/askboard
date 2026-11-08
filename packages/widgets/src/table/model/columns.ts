@@ -6,6 +6,7 @@
 
 import { roundNumber } from "@askboard/compute";
 import {
+  AMOUNT_MAX_INTEGER_DIGITS,
   formatDate,
   formatMoney,
   formatNumber,
@@ -60,11 +61,14 @@ const TOGGLE_KEYS = {
 /**
  * A money value the graph holds as a number, as the decimal string money travels as: rounded half
  * away from zero to the currency's minor units, written with that many decimals. Undefined for a
- * number that is no amount.
+ * number that is no amount: not finite, or past `AMOUNT_MAX_INTEGER_DIGITS` integer digits, the bound
+ * of every amount the contract carries (design decision 7), so never an exponent form.
  */
 export const moneyDecimal = (amount: number, currency: string): string | undefined => {
   const rounded = roundNumber(amount, minorUnitsOf(currency));
-  return Number.isFinite(rounded) ? rounded.toFixed(minorUnitsOf(currency)) : undefined;
+  return Number.isFinite(rounded) && Math.abs(rounded) < 10 ** AMOUNT_MAX_INTEGER_DIGITS
+    ? rounded.toFixed(minorUnitsOf(currency))
+    : undefined;
 };
 
 /**

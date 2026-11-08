@@ -19,20 +19,45 @@ import type { BoardGraph } from "../../board-graph/board-graph.ts";
 import { moneyDecimal } from "./columns.ts";
 import { cellKey } from "./marks.ts";
 
-/** A formula cell or an input cell as the graph holds it; undefined when the board has no graph. */
+// A money value past the amount bound is no value: a `value` error at the node's own address (design
+// decision 7). Given the node's column; a node read without its column is read as the graph holds it.
+const withinBound = (
+  result: NodeResult | undefined,
+  column: TableColumn | undefined,
+  address: string,
+): NodeResult | undefined =>
+  column?.type === "money" &&
+  typeof result === "number" &&
+  column.currency !== undefined &&
+  moneyDecimal(result, column.currency) === undefined
+    ? { error: "value", address }
+    : result;
+
+/**
+ * A formula cell or an input cell as the graph holds it; undefined when the board has no graph. Given
+ * its column, a money value past the amount bound reads as a `value` error.
+ */
 export const cellResult = (
   graph: BoardGraph | undefined,
   itemId: string,
   rowId: string,
   field: string,
-): NodeResult | undefined => graph?.read(`${itemId}.${rowId}.${field}`);
+  column?: TableColumn,
+): NodeResult | undefined => {
+  const address = `${itemId}.${rowId}.${field}`;
+  return withinBound(graph?.read(address), column, address);
+};
 
-/** A column's total as the graph holds it. */
+/** A column's total as the graph holds it, read as `cellResult` reads a cell. */
 export const totalResult = (
   graph: BoardGraph | undefined,
   itemId: string,
   field: string,
-): NodeResult | undefined => graph?.read(`${itemId}.${field}`);
+  column?: TableColumn,
+): NodeResult | undefined => {
+  const address = `${itemId}.${field}`;
+  return withinBound(graph?.read(address), column, address);
+};
 
 const formulaColumns = (columns: readonly TableColumn[]): readonly TableColumn[] =>
   columns.filter((column) => column.formula !== undefined);
@@ -66,9 +91,23 @@ export type RowError = {
 
 export type TotalError = { readonly field: string; readonly error: FormulaError };
 
+// Whether an error arose in a cell or a total of a refused column: its origin address is
+// `item.<row>.<field>` or `item.<field>` with `field` refused (design decision 11).
+const arisesInRefused = (
+  error: FormulaError,
+  itemId: string,
+  refused: ReadonlyMap<string, FormulaError>,
+): boolean => {
+  const prefix = `${itemId}.`;
+  if (!error.address.startsWith(prefix)) return false;
+  const field = error.address.slice(prefix.length).split(".").pop() as string;
+  return refused.has(field);
+};
+
 /**
  * The errors that depend on values, which show under their row (and a total's under the Total row),
- * apart from the columns whose formula the build refused: those show once, over the grid.
+ * apart from the columns whose formula the build refused, and from errors that arose in one: those
+ * show once, over the grid (design decision 11).
  */
 export const formulaErrors = (
   graph: BoardGraph | undefined,
@@ -83,13 +122,25 @@ export const formulaErrors = (
     if (refused.has(column.field)) continue;
     if (column.formula !== undefined) {
       for (const { id } of props.rows) {
-        const result = graph.read(`${itemId}.${id}.${column.field}`);
-        if (isFormulaError(result)) rows.push({ rowId: id, field: column.field, error: result });
+        const result = cellResult(graph, itemId, id, column.field, column);
+        if (
+          result !== undefined &&
+          isFormulaError(result) &&
+          !arisesInRefused(result, itemId, refused)
+        ) {
+          rows.push({ rowId: id, field: column.field, error: result });
+        }
       }
     }
     if (column.total === "sum") {
-      const result = graph.read(`${itemId}.${column.field}`);
-      if (isFormulaError(result)) totals.push({ field: column.field, error: result });
+      const result = totalResult(graph, itemId, column.field, column);
+      if (
+        result !== undefined &&
+        isFormulaError(result) &&
+        !arisesInRefused(result, itemId, refused)
+      ) {
+        totals.push({ field: column.field, error: result });
+      }
     }
   }
   return { rows, totals };

@@ -64,7 +64,7 @@ const ComputedText = ({
   const locale = useLocale();
   const language = useLanguage();
   const text = useStrings();
-  const result = refused ? undefined : cellResult(graph, itemId, rowId, column.field);
+  const result = refused ? undefined : cellResult(graph, itemId, rowId, column.field, column);
   if (result === undefined || isFormulaError(result)) {
     return <span className={NO_VALUE}>{text("table.noValue")}</span>;
   }

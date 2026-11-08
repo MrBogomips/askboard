@@ -6,6 +6,7 @@ import {
   ariaChecked,
   inputColumns,
   isInputColumn,
+  moneyDecimal,
   nextToggle,
   shownCell,
   toggleState,
@@ -108,5 +109,46 @@ describe("a toggle's states", () => {
     const second = nextToggle(first);
     const third = nextToggle(second);
     expect([first, second, third]).toEqual([true, false, true]);
+  });
+});
+
+describe("a money value the graph gives, as a decimal string", () => {
+  test("rounds half away from zero at the currency's units", () => {
+    expect(moneyDecimal(1.005, "USD")).toBe("1.01");
+    expect(moneyDecimal(-1.005, "USD")).toBe("-1.01");
+    expect(moneyDecimal(2.5, "JPY")).toBe("3");
+    expect(moneyDecimal(0.0005, "BHD")).toBe("0.001");
+  });
+
+  test("the largest amount the contract carries is kept, with fifteen integer digits", () => {
+    expect(moneyDecimal(999999999999998.5, "USD")).toBe("999999999999999.00");
+    expect(moneyDecimal(-999999999999998.5, "USD")).toBe("-999999999999999.00");
+  });
+
+  test("past the amount bound it is no value, and never a string holding an exponent", () => {
+    for (const [amount, currency] of [
+      [1e15, "USD"],
+      [1e21, "USD"],
+      [1e30, "USD"],
+      [-1e15, "USD"],
+      [-1e30, "BHD"],
+      [Number.POSITIVE_INFINITY, "USD"],
+      [Number.NaN, "USD"],
+    ] as const) {
+      expect(moneyDecimal(amount, currency)).toBeUndefined();
+    }
+  });
+});
+
+describe("a formatter's own faults are not swallowed", () => {
+  test("an error other than a RangeError rethrows", () => {
+    // A currency that cannot even be read as text is a programming fault, not text a format cannot read.
+    const currency = {
+      toString: () => {
+        throw new TypeError("not a range fault");
+      },
+    };
+    const column = { field: "a", label: "A", type: "money", currency } as unknown as TableColumn;
+    expect(() => shownCell(column, "1.00", "en-US", "en-US")).toThrow(TypeError);
   });
 });

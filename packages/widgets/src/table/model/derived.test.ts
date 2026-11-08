@@ -82,6 +82,37 @@ describe("what the graph says of a Table", () => {
     expect(errors.totals).toEqual([]);
   });
 
+  test("a column that reads a refused column shows no error of its own: the problem shows once", () => {
+    const columns: TableColumn[] = [
+      ...SENT.columns.map((column) =>
+        column.field === "amount" ? { ...column, formula: "[@rte]" } : column,
+      ),
+      { ...PER_DAY, formula: "[@amount] / [@days]", total: "sum" },
+    ];
+    const props = { ...SENT, columns };
+    const graph = graphOf(props);
+    expect([...columnProblems(graph, ID, props.columns).keys()]).toEqual(["amount"]);
+    const errors = formulaErrors(graph, ID, props);
+    expect(errors.rows).toEqual([]);
+    expect(errors.totals).toEqual([]);
+    expect(cellResult(graph, ID, "pm", "perDay")).toMatchObject({ error: "missing-reference" });
+  });
+
+  test("an error of a column's own still shows beside a refused one", () => {
+    const columns: TableColumn[] = [
+      ...SENT.columns.map((column) =>
+        column.field === "amount" ? { ...column, formula: "[@rte]" } : column,
+      ),
+      { ...PER_DAY, formula: "[@rate] / ([@days] - [@days])" },
+    ];
+    const props = { ...SENT, columns };
+    const { rows } = formulaErrors(graphOf(props), ID, props);
+    expect(rows.map(({ rowId, field }) => `${rowId}.${field}`)).toEqual([
+      "pm.perDay",
+      "dev.perDay",
+    ]);
+  });
+
   test("a division by zero in one row is that row's error, and the other row shows", () => {
     const props = withColumn(SENT, PER_DAY, [
       { id: "pm", role: "a", days: 0, rate: "1.00" },
@@ -254,6 +285,27 @@ describe("the answer's derived values", () => {
     expect(derived("BHD", "[@a] / 3")["costs.b"]).toBe("0.333");
   });
 
+  test("a money formula result read for a column with no currency, or a date formula's non-string result, is no value", () => {
+    const props: TableProps = {
+      columns: [
+        { field: "a", label: "A", type: "number" },
+        { field: "m", label: "M", type: "money", formula: "[@a] * 2", total: "sum" },
+        { field: "d", label: "D", type: "date", formula: "[@a] * 2" },
+      ],
+      rows: [{ id: "r", a: 3 }],
+    } as unknown as TableProps;
+    const derived = answerDerived({
+      itemId: ID,
+      props,
+      sentProps: props,
+      live: graphOf(props),
+      sent: graphOf(props),
+    });
+    expect(Object.keys(derived).filter((key) => key.endsWith(".m") || key.endsWith(".d"))).toEqual(
+      [],
+    );
+  });
+
   test("a number rounds to 6 decimals and a date goes as given", () => {
     const props: TableProps = {
       columns: [
@@ -326,3 +378,85 @@ function graphOfId(itemId: string, props: TableProps): BoardGraph {
     shown: new Map(),
   }) as BoardGraph;
 }
+
+describe("money past the amount bound", () => {
+  const PROBE: TableProps = {
+    label: "Probe",
+    columns: [
+      { field: "rate", label: "Rate", type: "money", currency: "USD" },
+      { field: "days", label: "Days", type: "number" },
+      {
+        field: "amount",
+        label: "Amount",
+        type: "money",
+        currency: "USD",
+        formula: "[@rate] * [@days]",
+        total: "sum",
+      },
+      {
+        field: "perDay",
+        label: "Per day",
+        type: "money",
+        currency: "USD",
+        formula: "[@amount] / [@amount]",
+      },
+    ],
+    rows: [{ id: "r", rate: "999999999999999.99", days: 1000000000000000 }],
+  };
+  const probe = (props: TableProps) => ({
+    itemId: ID,
+    props,
+    sentProps: props,
+    live: graphOf(props),
+    sent: graphOf(props),
+  });
+
+  test("a cell or a total past it is no value in the answer, and no value is written with an exponent", () => {
+    const derived = answerDerived({
+      ...probe(PROBE),
+      sentProps: { ...PROBE, rows: [] },
+      sent: graphOf({ ...PROBE, rows: [] }),
+    });
+    expect("costs.r.amount" in derived).toBe(false);
+    expect("costs.amount" in derived).toBe(false);
+    for (const value of Object.values(derived)) expect(String(value)).not.toMatch(/e/i);
+    expect(derived["costs.r.perDay"]).toBe("1.00");
+  });
+
+  test("the row shows a value error at its cell and the Total row one at the total", () => {
+    const graph = graphOf(PROBE);
+    const amount = PROBE.columns[2] as TableColumn;
+    expect(cellResult(graph, ID, "r", "amount", amount)).toEqual({
+      error: "value",
+      address: "costs.r.amount",
+    });
+    expect(totalResult(graph, ID, "amount", amount)).toEqual({
+      error: "value",
+      address: "costs.amount",
+    });
+    const { rows, totals } = formulaErrors(graph, ID, PROBE);
+    expect(rows.map(({ rowId, field, error }) => [rowId, field, error.error])).toEqual([
+      ["r", "amount", "value"],
+    ]);
+    expect(totals.map(({ field, error }) => [field, error.error])).toEqual([["amount", "value"]]);
+  });
+
+  test("the graph is unchanged: a column that reads the cell reads the graph's number", () => {
+    const graph = graphOf(PROBE);
+    expect(cellResult(graph, ID, "r", "amount")).toBe(1e30);
+    expect(cellResult(graph, ID, "r", "perDay")).toBe(1);
+  });
+
+  test("a cell in error is not marked, and an amount within the bound is read as before", () => {
+    const marks = derivedMarks({
+      ...probe(PROBE),
+      sentProps: PROBE,
+      sent: graphOf({ ...PROBE, rows: [] }),
+    });
+    expect(marks.cells.has("r.amount")).toBe(false);
+    expect(marks.totals.has("amount")).toBe(false);
+    const graph = graphOf({ ...PROBE, rows: [{ id: "r", rate: "1.50", days: 2 }] });
+    const amount = PROBE.columns[2] as TableColumn;
+    expect(cellResult(graph, ID, "r", "amount", amount)).toBe(3);
+  });
+});
