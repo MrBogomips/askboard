@@ -62,6 +62,10 @@ The server instructions SHALL be the approved model contract's instructions, as 
 - **WHEN** the agent deletes question `plan`, which holds a Group `owner-group` holding the TextField `owner`, then fetches `owner`
 - **THEN** the result is the outcome `deleted` naming `owner`
 
+#### Scenario: A molecule reference inside a deleted question
+- **WHEN** the agent deletes the UJ-2 question `plan`, which holds the molecule references `wbs` and `schedule`, then fetches `wbs`, and then `wbs__tree`
+- **THEN** `wbs` gives the outcome `deleted` naming `wbs`, and `wbs__tree`, an expanded ID the agent never sent, gives the error for an item the ask never held
+
 #### Scenario: A deleted item of an unchecked ask
 - **WHEN** an ask sent with no agent record has a question deleted, and the agent fetches it
 - **THEN** the outcome `deleted` carries `unchecked: true`

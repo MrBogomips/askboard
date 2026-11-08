@@ -49,6 +49,8 @@ ADs relied on: AD-6 (tool texts, generated teaching, typed warnings versus `isEr
 
 `notHeld` returns, for `kind: "deleted"`, `{versions: RESULT_VERSIONS, epoch, askId, itemId, outcome: "deleted"}`, with `uncheckedMark(core, askId)` spread in. The ask exists, so the mcp-adapter rule that every `fetch` result of an unchecked ask carries the mark applies. `missing` keeps its error. An item a `change` dropped is `missing`, since the model frees its ID. `fullValue` already answers `discarded` before it looks at items, so a discarded ask still answers `discarded`.
 
+`ask-core` reads deleted IDs in reference addressing, as every agent-facing read does (AD-9): a molecule reference inside a deleted question or area is `deleted`, and an expanded ID (`wbs__tree`) is `missing`, as it is while the question lives. Its `#deleted` set held the expanded IDs of a forgotten question's stored props and never the reference IDs; `inUse` stays as it is, so expanded IDs stay unusable (review 2.2 X-1, task 2.3).
+
 *Alternative:* keep the error and correct the documents (open question 3). Rejected as the default: the agent cannot fix the request, and AD-10 makes such states typed, as `discarded` and `closed` are. The error text already names the cause, so the gap is the shape, not the meaning.
 
 ### 2. The outcome's schema
