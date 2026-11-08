@@ -122,7 +122,7 @@ Each atom's entry SHALL carry its teaching text within the registry's bounds, an
 ## MODIFIED Requirements
 
 ### Requirement: Draft record message
-The draft record SHALL be a board-protocol schema: the delivery mode, the question in view, and per question its `rev`, the values keyed by item ID as the view holds them, the "Other…" text, option notes, open-prompt text, follow-up composer text, any held act with its order, and, since `atoms`, the entries keyed by item ID: the text an input atom holds that gives no value, each 1 to 200 characters. An entry key that names no item of its question SHALL be refused like a value key. A record over the contract's draft limit SHALL be refused.
+The draft record SHALL be a board-protocol schema: the delivery mode, the question in view, and per question its `rev`, its values (as the view holds them) and entries keyed by item ID, the "Other…" text, option notes, open-prompt text, follow-up composer text and any held act with its order; an entry is the text (1 to 200 characters) an input atom holds that gives no value. A value or entry key naming no item of its question, and a record over the contract's draft limit, SHALL be refused.
 
 #### Scenario: An oversized record
 - **WHEN** the board page sends a draft record longer than the draft limit
