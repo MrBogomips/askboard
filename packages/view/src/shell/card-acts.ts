@@ -589,6 +589,18 @@ export const fillFrom = (
   return whole;
 };
 
+/**
+ * The first edit of an answered question starts the revision from its latest answer, the one
+ * `current` answer: its choice, notes, results and, since reopen-start-from-answer (design decision
+ * 2), the widget values it holds unchanged and their types still show, so that a revised answer
+ * carries the edits the user left untouched as the card shows them (AD-10, AD-20). Sends nothing.
+ */
+export const startRevision = (
+  question: ViewQuestion,
+  answer: CarriedAnswer,
+  context: Parameters<typeof fillFrom>[3],
+): boolean => fillFrom(question, answer, "current", context);
+
 /** The question's recommended option, if the agent marked one (FR-3). */
 export const recommendedOf = (question: ViewQuestion): ChoiceOption | undefined =>
   question.props.options?.find((option) => option.recommended === true);

@@ -144,7 +144,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await isPressed(decisionOf(board, PLAN, "Reject"))).toBe(true);
         await Bun.sleep(QUIET_MS);
         expect(sentActs(run)).toHaveLength(1);
-        // Confirming sends the revision: the Tree was left alone, so it carries the result only.
+        // Confirming sends the revision: the Tree was left alone, so its answered edit is carried as
+        // the card shows it, and the event holds the result and the Tree's earlier rename, which a
+        // revision used to lose (reopen-start-from-answer, A revision keeps the widgets' edits).
         await answerOf(board, PLAN).click();
         await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
         await actsDone(run, 2);
@@ -154,12 +156,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           itemId: PLAN,
           results: { verdict: { decision: "reject" } },
         });
-        expect(second?.acts[0]).not.toHaveProperty("values");
+        const carried = second?.acts[0] as unknown as {
+          readonly values: {
+            readonly wbs: { readonly nodes: readonly { children: readonly { label: string }[] }[] };
+          };
+        };
+        expect(carried.values.wbs.nodes[0]?.children[0]?.label).toBe(UX);
         const revised = checkedEvents(await run.session.collectJson());
         expect(revised).toHaveLength(1);
         expect(revised[0]?.replaces).toBe(first?.cursor);
         expect(revised[0]?.results).toEqual({ verdict: { decision: "reject" } });
-        expect(revised[0]).not.toHaveProperty("changes");
+        expect(revised[0]?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
         await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
         // Revising a Tree beside the Approval: the revision carries the Tree's change and the
         // seeded result.

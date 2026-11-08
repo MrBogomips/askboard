@@ -3,8 +3,10 @@ import { type LifecycleQuestionStatus, widgetResultFits } from "@askboard/contra
 import {
   ganttBoardDocument,
   ganttEditedValue,
+  ganttPlanEditedValue,
   lifecycleBoardDocument,
   plainChoiceBoardDocument,
+  treeEditedValue,
 } from "@askboard/contract/fixtures";
 import { hasUnsentWork } from "../board-page/unsent-work.ts";
 import type { ViewArea, ViewQuestion, WidgetItem } from "../view-document.ts";
@@ -28,6 +30,7 @@ import {
   reloadQuestion,
   selectRecommendedOption,
   sendFollowUp,
+  startRevision,
   withDerived,
 } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
@@ -675,6 +678,113 @@ describe("an answer carried into the draft brings back widget values (reopen-sta
   test("an answer with no values, results or choice carries all of nothing", () => {
     const { context } = setUp();
     expect(fillFrom(question(timeline), {}, "previous", given(context))).toBe(true);
+  });
+});
+
+// View-and-widgets: A revision keeps the widgets' edits (reopen-start-from-answer, design decision
+// 2): the first edit of an answered question seeds the answer's widget values, by the rule for an
+// answer carried into the draft, so the revised answer carries what the card shows.
+describe("the start of a revision seeds the answer's widget values (reopen-start-from-answer, design decision 2)", () => {
+  const timeline: WidgetItem = { type: "timeline", id: "roadmap", props: {} };
+  const kanban: WidgetItem = { type: "kanban", id: "board", props: {} };
+  const asked: ViewQuestion = {
+    ...database,
+    id: "plan",
+    props: { text: "Plan?", items: [timeline, kanban] },
+  };
+  const moved = { moved: "checkout" };
+  const first = { cards: ["a"] };
+  const second = { cards: ["a", "c"] };
+  const facts = () => ({ fits: () => true, valueFits: () => true });
+
+  test("an answer with no list (the current revision) seeds both, and one more move sends both values", () => {
+    const { sent, draft, context } = setUp();
+    const all = { ...context, facts };
+    startRevision(asked, { values: { roadmap: moved, board: first } }, all);
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.valueOf("board")).toEqual(first);
+    draft.set("board", second);
+    answer(asked, all);
+    expect(sent).toEqual([
+      {
+        type: "answer",
+        itemId: "plan",
+        rev: 1,
+        values: { roadmap: moved, board: second },
+        when: expect.any(String),
+      },
+    ]);
+  });
+
+  test("an answer kept on an earlier revision whose list leaves out the Kanban seeds the Timeline only", () => {
+    const { draft, context } = setUp();
+    startRevision(
+      asked,
+      { values: { roadmap: moved, board: first }, unchanged: ["roadmap"] },
+      { ...context, facts },
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.record().has("board")).toBe(false);
+  });
+
+  test("the UJ-2 revision, a Tree and a Gantt linked, seeds both edited values, the Tree's earlier edits kept", () => {
+    const { sent, draft, context } = setUp();
+    const plan: ViewQuestion = {
+      ...database,
+      id: "plan",
+      props: {
+        text: "Plan?",
+        items: [
+          { type: "tree", id: "wbs", props: {} },
+          { type: "gantt", id: "release", props: {} },
+        ],
+      },
+    };
+    startRevision(
+      plan,
+      { values: { wbs: treeEditedValue, release: ganttPlanEditedValue } },
+      { ...context, facts },
+    );
+    expect(draft.valueOf("wbs")).toEqual(treeEditedValue);
+    expect(draft.valueOf("release")).toEqual(ganttPlanEditedValue);
+    answer(plan, { ...context, facts });
+    expect(sent).toMatchObject([
+      { type: "answer", values: { wbs: treeEditedValue, release: ganttPlanEditedValue } },
+    ]);
+  });
+
+  test("a value the item's type no longer shows is not seeded, and the item shows as the agent sent it", () => {
+    const { draft, context } = setUp();
+    startRevision(
+      asked,
+      { values: { roadmap: moved, board: { refuse: true } } },
+      {
+        ...context,
+        facts: () => ({
+          fits: () => true,
+          valueFits: (value: unknown) => (value as { refuse?: boolean }).refuse !== true,
+        }),
+      },
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.record().has("board")).toBe(false);
+  });
+
+  test("it seeds the results, the choice and the note as before, and sends nothing", () => {
+    const { sent, results, board, context } = setUp();
+    const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
+    const withVerdict: ViewQuestion = {
+      ...database,
+      props: { text: "Q?", items: [verdict], options: [{ label: "SQLite" }] },
+    } as ViewQuestion;
+    startRevision(
+      withVerdict,
+      { choice: ["SQLite"], results: { verdict: { decision: "reject" } }, note: "No." },
+      { ...context, facts },
+    );
+    expect(results.valueOf("verdict")).toEqual({ decision: "reject" });
+    expect(board.work("database")?.note).toBe("No.");
+    expect(sent).toEqual([]);
   });
 });
 

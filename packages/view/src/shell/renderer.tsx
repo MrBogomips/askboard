@@ -6,7 +6,8 @@
 // 7); the renderer holds no other state. Since the ask lifecycle, a component may also get
 // `extras` beside the port's props: the Choice atom's "Other…" text and option notes, which the
 // lifecycle draft keeps (ask-lifecycle, design decision 6), and the shell may run a step before
-// each value goes into the draft record, such as the start of a revision (task 6.7). Components
+// each value goes into the draft record, such as the start of a revision (task 6.7), which seeds the
+// answer's widget values since reopen-start-from-answer (design decision 2). Components
 // also read the board, its items as sent and the draft record, and report their derived values
 // (gantt-widget design decision 10). Since the molecules change (design decision 11), a component
 // may put several items of its question into the draft record in one update, and an item shows the

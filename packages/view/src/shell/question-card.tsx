@@ -54,6 +54,7 @@ import {
   reloadQuestion,
   selectRecommendedOption,
   sendFollowUp,
+  startRevision,
 } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
@@ -432,9 +433,10 @@ export const QuestionCard = (props: CardProps) => {
   };
   // The first edit of an answered question starts the revision from its latest answer, once per
   // gesture: a gesture that clears the choice and then chooses "Other…" seeds only before the first.
-  // It seeds no widget value: an item the revision leaves alone shows its answer's value through
-  // the board (molecules, design decision 11); it seeds the widgets' results, which an answer
-  // carries only while the draft holds them (approval-scale-ranking, design decision 6).
+  // It seeds the widgets' values, which an answer carries only while the draft holds them, and
+  // their results (approval-scale-ranking, design decision 6): a revision carries the edits the user
+  // left untouched as the card shows them (reopen-start-from-answer, design decision 2, which
+  // reverses molecules decision 11's "no value is seeded").
   const seeding = useRef(false);
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
@@ -449,9 +451,7 @@ export const QuestionCard = (props: CardProps) => {
     queueMicrotask(() => {
       seeding.current = false;
     });
-    // Still seeds no widget value: task 2.2 of reopen-start-from-answer gives it the answer's.
-    const { values: _values, ...answered } = status.answer;
-    fillFrom(shown, answered, "current", context);
+    startRevision(shown, status.answer, context);
   };
   const extras = extrasOf(shown, card, work, context.board, revise);
   const opened = context.opened !== undefined;
