@@ -1,11 +1,11 @@
 // The PickField in each engine (form-widget, task 3.3; view-and-widgets spec: The PickField, The
 // PickField's filter, Forms read-only and in Snapshots, Form strings; design decision 4): a single
-// pick on radios with Radix's documented keyboard and a "Clear", a multiple pick on checkboxes with
-// Space, the counts' field errors, the filter over a long list that hides options and never a pick
-// and never reaches the draft, a required pick blocking "Answer", an Italian board, nothing in the
-// DOM with a `style` attribute, and, on the session process, an answer returning option IDs by
-// item ID and a field read-only once the ask closes. At DESIGN's 1,280-pixel floor, each act by
-// keyboard.
+// pick on AskBoard's own radio group (choice-documented-activation: the arrow keys move the focus
+// only, Space or a click picks) and a "Clear", a multiple pick on checkboxes with Space, the counts'
+// field errors, the filter over a long list that hides options and never a pick and never reaches
+// the draft, a required pick blocking "Answer", an Italian board, nothing in the DOM with a `style`
+// attribute, and, on the session process, an answer returning option IDs by item ID and a field
+// read-only once the ask closes. At DESIGN's 1,280-pixel floor, each act by keyboard.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/pick-field.browser.ts
 
@@ -131,7 +131,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { host } = useWidgetHost(engine);
 
     test(
-      "Tab picks nothing, the down arrow picks the option it moves to, Clear returns it to unset and focus to the group, and Space picks the focused one",
+      "Tab picks nothing, the down arrow moves the focus only, Space picks the focused option, Clear returns it to unset and focus to the first option",
       async () => {
         const run = await host(dist, atomDocument([REGION]));
         await readyIn(run);
@@ -147,14 +147,19 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(draftHolds(run.drafts, "plan", "region", undefined)).toBe(true);
         expect(await view.getByRole("button", { name: "Clear", exact: true }).count()).toBe(0);
         await page.keyboard.press("ArrowDown");
-        await holding(run, "region", "us", "the draft to hold the option the arrow moved to");
+        await eventually(() => focused(radio(view, "North America")), "focus on North America");
+        await Bun.sleep(QUIET_MS);
+        expect(draftHolds(run.drafts, "plan", "region", undefined)).toBe(true);
+        expect(await radio(view, "North America").getAttribute("aria-checked")).toBe("false");
+        await page.keyboard.press("Space");
+        await holding(run, "region", "us", "Space to pick the option the arrow moved to");
         expect(await radio(view, "North America").getAttribute("aria-checked")).toBe("true");
         await page.keyboard.press("Tab");
         const clear = view.getByRole("button", { name: "Clear", exact: true });
         await eventually(() => focused(clear), "focus on Clear");
         await page.keyboard.press("Enter");
         await holding(run, "region", undefined, "the draft to hold no result");
-        await eventually(() => focused(radio(view, "Europe")), "focus back on the group");
+        await eventually(() => focused(radio(view, "Europe")), "focus back on the first option");
         expect(await clear.count()).toBe(0);
         await page.keyboard.press("Space");
         await holding(run, "region", "eu", "Space to pick the focused option");
@@ -305,6 +310,64 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "a pick the filter hides keeps the draft: Tab into the options lands on the first one shown, which is not picked",
+      async () => {
+        const run = await host(dist, atomDocument([COUNTRIES]));
+        await readyIn(run);
+        const { view, page } = run.board;
+        await radio(view, "Italy").click();
+        await holding(run, "country", ITALY, "the draft to hold Italy's ID");
+        await view.getByLabel("Filter the options").focus();
+        await page.keyboard.type("FRAN");
+        await eventually(
+          async () => (await fieldOf(view, "country").getByRole("radio").count()) === 1,
+          "one option",
+        );
+        await page.keyboard.press("Tab");
+        await eventually(() => focused(radio(view, "France")), "focus on the first option shown");
+        expect(await radio(view, "France").getAttribute("aria-checked")).toBe("false");
+        await Bun.sleep(QUIET_MS);
+        expect(draftHolds(run.drafts, "plan", "country", ITALY)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "under a filter the arrow keys, Home and End move among the options shown and wrap, and the draft stays",
+      async () => {
+        const run = await host(dist, atomDocument([COUNTRIES]));
+        await readyIn(run);
+        const { view, page } = run.board;
+        await radio(view, "Italy").click();
+        await holding(run, "country", ITALY, "the draft to hold Italy's ID");
+        await view.getByLabel("Filter the options").focus();
+        await page.keyboard.type("land");
+        await eventually(
+          async () => (await fieldOf(view, "country").getByRole("radio").count()) === 3,
+          "three options",
+        );
+        await page.keyboard.press("Tab");
+        await eventually(() => focused(radio(view, "Finland")), "focus on the first shown");
+        await page.keyboard.press("End");
+        await eventually(() => focused(radio(view, "Poland")), "End to the last shown");
+        await page.keyboard.press("ArrowDown");
+        await eventually(() => focused(radio(view, "Finland")), "ArrowDown wraps to the first");
+        await page.keyboard.press("ArrowUp");
+        await eventually(() => focused(radio(view, "Poland")), "ArrowUp wraps to the last");
+        await page.keyboard.press("ArrowUp");
+        await eventually(() => focused(radio(view, "Ireland")), "ArrowUp to the one before");
+        await page.keyboard.press("Home");
+        await eventually(() => focused(radio(view, "Finland")), "Home to the first shown");
+        for (const name of ["Finland", "Ireland", "Poland"]) {
+          expect(await radio(view, name).getAttribute("aria-checked")).toBe("false");
+        }
+        await Bun.sleep(QUIET_MS);
+        expect(draftHolds(run.drafts, "plan", "country", ITALY)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a multiple pick filters too, and picking under a filter keeps the hidden picks in the options' order",
       async () => {
         const many = {
@@ -366,20 +429,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await host(dist, atomDocument([wide, tags()]));
         await readyIn(run);
         const { view } = run.board;
-        // The PickField sets none. Radix's roving-focus group sets `outline: none` on its own root
-        // through the CSSOM, as the Choice's and the Approval's do, which the CSP does not report.
-        const styled = await view
-          .locator('[data-askboard-field="region"] [style]')
-          .evaluateAll((elements) =>
-            elements.map((element) => [
-              element.getAttribute("role"),
-              element.getAttribute("style"),
-            ]),
-          );
-        expect(styled).toHaveLength(1);
-        expect(styled[0]?.[0]).toBe("radiogroup");
-        // WebKit serializes the same declaration as `outline: medium`.
-        expect(styled[0]?.[1]).toMatch(/^outline: (none|medium);$/);
+        const styled = await view.locator('[data-askboard-field="region"] [style]').count();
+        expect(styled).toBe(0);
         expect(await view.locator('[data-askboard-field="tags"] [style]').count()).toBe(0);
         const box = await view.locator('[data-askboard-field="region"]').evaluate((element) => ({
           scroll: element.scrollWidth,

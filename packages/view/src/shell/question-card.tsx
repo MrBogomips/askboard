@@ -83,6 +83,7 @@ import {
   press,
   settleConfirmation,
 } from "./revision-confirm.ts";
+import type { SizeNotices } from "./size-notices.ts";
 import type { Store } from "./store.ts";
 import {
   BUTTON_LINK,
@@ -112,6 +113,8 @@ export type CardContext = RenderContext & {
   readonly threads: ThreadRequests;
   /** Requests for a card to ask for its reason, which Submit makes (design decision 6). */
   readonly reasons: ReasonRequests;
+  /** The lines for a message too large: an answer or a Submit not sent, a draft left out. */
+  readonly notices?: SizeNotices;
   /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
   readonly opened?: OpenedSnapshot | undefined;
 };
@@ -141,7 +144,8 @@ const focusHeadingOf = (questionId: string) => () =>
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
 const useCard = ({ question, state, lock, context }: CardProps) => {
-  const { tracker, draft, results, entries, cellEntries, acts, board, kept, revisions } = context;
+  const { tracker, draft, results, entries, cellEntries, acts, board, kept, revisions, notices } =
+    context;
   const language = useLanguage();
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const values = useSyncExternalStore(draft.subscribe, draft.record);
@@ -168,6 +172,13 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   );
   const placement = useSyncExternalStore(board.subscribe, () =>
     board.effectivePlacement(question.id),
+  );
+  const sizeNotice = useSyncExternalStore(notices?.subscribe ?? NO_SUBSCRIPTION, () =>
+    notices?.noticeOf(question.id),
+  );
+  const draftLeftOut = useSyncExternalStore(
+    notices?.subscribe ?? NO_SUBSCRIPTION,
+    () => notices?.leftOut(question.id) ?? false,
   );
   const status = statusOf(state, question.id);
   const pending = changePending(question, work, keptChoices);
@@ -215,6 +226,8 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     followUp,
     choosing,
     placement,
+    sizeNotice,
+    draftLeftOut,
   };
 };
 
@@ -352,6 +365,8 @@ export const QuestionCard = (props: CardProps) => {
     followUp,
     choosing,
     placement,
+    sizeNotice,
+    draftLeftOut,
   } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
@@ -567,6 +582,8 @@ export const QuestionCard = (props: CardProps) => {
             card={card}
             actions={actions}
             answerHint={hint}
+            sizeNotice={sizeNotice}
+            draftLeftOut={draftLeftOut}
             locked={lock !== undefined}
             single={single}
             submitted={!single && delivery === "submitted"}

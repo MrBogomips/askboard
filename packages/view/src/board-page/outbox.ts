@@ -90,6 +90,28 @@ export const refusedCommand = (outbox: Outbox, actionId: string): Outbox => {
   };
 };
 
+/**
+ * The socket was closed as too large: every command sent on it and not acknowledged is dropped and
+ * settled as refused and too large, never sent again (oversized-acts, design decision 3; AD-10).
+ * After a socket's state, every unacknowledged held command was sent on it, so these are the ones
+ * it carried; queued commands (never sent) and acknowledged ones stay.
+ */
+export const refusedTooLarge = (outbox: Outbox): Outbox => {
+  const carried = outbox.held.filter((held) => held.sent && !held.done);
+  if (carried.length === 0) return outbox;
+  return {
+    held: outbox.held.filter((held) => !held.sent || held.done),
+    settled: withSettled(
+      outbox,
+      carried.map((held) => ({
+        actionId: held.command.actionId,
+        outcome: "refused" as const,
+        tooLarge: true as const,
+      })),
+    ),
+  };
+};
+
 /** The ask ended: every held command is dropped. */
 export const withoutAll = (outbox: Outbox): Outbox =>
   outbox.held.length === 0

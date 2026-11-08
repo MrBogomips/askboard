@@ -584,6 +584,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom, or a Table's cell by row and field, holds that gives no value, which keeps its question from being answered until the user corrects or clears it. For the board it holds the delivery mode and the open tab or the question in view.
     - The board page mirrors the draft record to `ask-core` over the board protocol. `ask-core` holds it apart from the log and never exposes it to `collect`, `fetch`, Snapshots, the mod or the local API.
     - A reconnecting or taking-over board restores it from `ask-core`. No AskBoard page uses Web Storage, IndexedDB or cookies.
+    - A record over the draft limit is mirrored without the work of whole questions, largest first, and the board says which; the board page keeps the whole record for the user's copy and the leave-page prompt.
 
 ### AD-21 — Board connection and discard [ADOPTED]
 
@@ -594,6 +595,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Each ask has at most one live board connection. A new connection for the same ask takes over, restoring the draft record. The older tab shows that the board moved, and closing it discards nothing.
     - `board-host` reports connections and disconnections to `ask-core`, which alone runs the grace timer, and only after a first connection.
     - An ask that has never connected stays `waiting` until the agent closes it or the session process exits.
+    - The board page never sends a message over the contract's message limit; a socket `board-host` closes as too large has its unacknowledged commands dropped, never resent; a tab the board moved from keeps the leave-page prompt while it holds work left out of the draft.
   - **Discard:**
     - An ask is discarded when its live board disconnects and does not reconnect within the grace period, or when the session process exits. A reload reconnects within the grace period and keeps the ask and its draft. Closed asks are never discarded.
     - On discard, `ask-core` appends a final `discarded` event, with reason `board-closed` or `session-exit`, and wakes every waiting `collect` on the ask. It then drops the ask's board documents and draft record.
@@ -657,7 +659,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@modelcontextprotocol/ext-apps` (view message set, `App`, `AppBridge`) | 2.0.4 |
 | React (view and widgets) | 19.3.1 |
 | `@dagrejs/dagre` (Graph widget initial layout and auto-layout; elkjs stays excluded) | 3.1.3 |
-| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
+| `radix-ui` (view primitives: Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
 | `react-day-picker` (the Date Picker's calendar) | 10.0.2 |
 | `markdown-it` (Markdown, `html: false`) | 15.0.3 |
 | `dompurify` (the Markdown sanitizer) | 3.4.17 |

@@ -410,6 +410,12 @@ export const STRING_KEYS = [
   "table.problem.divisionByZero",
   // The Table's name in the agent-change notice (table-widget, task 4.4; the Italian text to review).
   "change.widgetTable",
+
+  // A message too large (oversized-acts, task 1.4; the Italian texts to review).
+  "send.tooLarge",
+  "send.tooLargeSubmit",
+  "send.tooLargeClosed",
+  "draft.tooLarge",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];
