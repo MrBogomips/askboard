@@ -4,10 +4,6 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ## Unreleased
 
-### Known limits
-
-- Size: an answer, or one Submit, goes to the board as one message of at most about 6 MB, and a board's unsent work is kept across a reload up to about 2 million characters. Past the first, the card says "Not sent: this answer is too large" with its size and the limit, sends nothing and keeps your work (a Submit says so on each question in it and points to immediate delivery, one question at a time); past the second, the card of the question holding the largest work says that a reload would lose it, the leave-page prompt stays armed and "Copy my unsent work" still holds it. The agent receives only what you sent.
-
 ## 0.1.0 - 2026-11-07
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.
@@ -46,3 +42,4 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 - Table, K-3: rows and columns cannot be reordered, and a Table cannot be sorted or filtered.
 - Table, K-4: a 200-row Table whose every formula reads a total can take just over 100 ms to show an edit in WebKit (98 to 105 ms measured, of which 4 to 5 ms in the graph, the rest the paint of 200 rows); its gate there is 150 ms. An edit of a Table whose formulas read their own row takes 88 to 93 ms in WebKit.
 - Table, K-5: the figures of the worst Table (200 rows, 10 columns, nine formula columns of 500 characters, all totalled) that came near their gates of design decision 13. In a scratch probe with no parse cache, build and first evaluation took 134 to 141 ms on Node 24 (gate 150 ms; 110 to 116 ms on Bun) and a rebuild with a 201st row 113 to 122 ms on Node; the built code takes 73 to 80 ms on Node and 50 to 56 ms on Bun. Under heavy load on the machine the built code's build took 142.1 ms on Bun and 152.9 ms on Node in the first runs, the latter 2.9 ms over the gate. A cell edit painted in WebKit in 88 to 93 ms for the worst form (gate 100 ms); the board with it visible took 271 to 294 ms (gate 1,500 ms) and a row added 61 to 70 ms (gate 250 ms).
+- Size: an answer, or one Submit, goes to the board as one message of at most about 6 MB, and a board's unsent work is kept across a reload up to about 2 million characters. Past the first, the card says "Not sent: this answer is too large" with its size and the limit, sends nothing and keeps your work (a Submit says so on each question in it and points to immediate delivery, one question at a time); past the second, the card of the question holding the largest work says that a reload would lose it, the leave-page prompt stays armed and "Copy my unsent work" still holds it. The agent receives only what you sent.
