@@ -4,19 +4,29 @@
 // readers (what compares, mirrors and clears the work) walk that revision's items too. Every case
 // holds the user's work ONLY on items revision 2 removed (`b`, a TextField, and `c`, a NumberField
 // that holds an entry), so a reader that walks the current revision's items alone sees no work.
+// The agent's update runs through `applyDocumentUpdate`, the step `index.tsx` runs, so the cases
+// run production's order (task 6.18; design.md, Appendix: the matrix's Entry and Cell entry columns).
 
 import { describe, expect, test } from "bun:test";
+import type { LifecycleBoardState } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { hasUnsentWork, unsentWorkText } from "../board-page/unsent-work.ts";
 import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import { createRevisions, shownOfBoard } from "./agent-change.ts";
 import type { Flight } from "./answer-acts.ts";
+import { createAttention } from "./attention.ts";
 import { connectDrafts, createBoardDraft, draftRecordOf } from "./board-draft.ts";
-import { dropWork } from "./card-acts.ts";
+import { blockedBy, dropWork } from "./card-acts.ts";
 import { clearCarried } from "./carried.ts";
-import { createDraftStore } from "./draft-store.ts";
+import { entriesWithCells } from "./cell-entries.ts";
+import { applyDocumentUpdate } from "./document-update.ts";
+import { createDraftStore, type DraftStore } from "./draft-store.ts";
+import { answerHint, fieldBlock, holdsBlock } from "./field-block.ts";
+import type { HeadingRequest } from "./heading-request.ts";
+import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { createStore } from "./store.ts";
+import { heldWithBlock } from "./submit.ts";
 
 const [first] = plainChoiceBoardDocument.items;
 const item = (id: string, type: string): WidgetItem =>
@@ -38,25 +48,64 @@ const REV1 = questionOf(
 );
 const REV2 = questionOf([item("a", "text-field")], 2);
 
-// The stores of a board whose document is on revision 2 and whose user worked, on revision 1,
-// only on `b` and `c`; the view has seen both revisions when `seen` ("Keep mine" with no reload),
-// else only revision 2 (a reload).
-const setUp = (seen = true, delivery: "immediate" | "submitted" = "immediate") => {
-  let current = REV1;
+type Options = {
+  // Whether the view has seen revision 1 ("Keep mine" with no reload), else only revision 2.
+  readonly seen?: boolean;
+  readonly delivery?: "immediate" | "submitted";
+  readonly rev1?: ViewQuestion;
+  readonly rev2?: ViewQuestion;
+  readonly work?: (stores: {
+    results: DraftStore;
+    entries: DraftStore;
+    cellEntries: DraftStore;
+  }) => void;
+};
+
+// The stores of a board whose user worked, on revision 1 (`work`: by default only on `b` and `c`),
+// and whose document the agent's update then replaced with revision 2, through the update step.
+const build = ({
+  seen = true,
+  delivery = "immediate",
+  rev1 = REV1,
+  rev2 = REV2,
+  work = ({ results, entries }) => {
+    results.set("b", "first");
+    entries.set("c", "12x");
+  },
+}: Options = {}) => {
+  let current = rev1;
   const draft = createDraftStore();
   const results = createDraftStore();
   const entries = createDraftStore();
+  const cellEntries = createDraftStore();
   const board = createBoardDraft(delivery);
   const revisions = createRevisions();
-  if (seen) revisions.record(documentOf(REV1));
+  if (seen) revisions.record(documentOf(rev1));
   const shownOf = shownOfBoard(board, revisions);
-  connectDrafts(() => documentOf(current), draft, board, results, entries, undefined, shownOf);
-  // The work, made on revision 1.
-  results.set("b", "first");
-  entries.set("c", "12x");
-  // The agent's update, then "Keep mine" (which changes none of the draft).
-  current = REV2;
-  revisions.record(documentOf(REV2));
+  connectDrafts(() => documentOf(current), draft, board, results, entries, cellEntries, shownOf);
+  work({ results, entries, cellEntries });
+  // The agent's update, then "Keep mine" (which changes none of the draft): the view's own step.
+  applyDocumentUpdate(documentOf(rev1), documentOf(rev2), {
+    revisions,
+    draft,
+    results,
+    entries,
+    cellEntries,
+    board,
+    shownOf,
+    tracker: createReadyTracker(questionItemsOf(documentOf(rev1)), {
+      onVisible: () => {},
+      onFailed: () => {},
+    }),
+    attention: createAttention(documentOf(rev1), {
+      ask: "waiting",
+      questions: [{ itemId: "plan", rev: rev1.rev, state: "open" }],
+    } as unknown as LifecycleBoardState),
+    focus: createStore<HeadingRequest | undefined>(undefined),
+    removed: createStore(false),
+    focused: () => undefined,
+  });
+  current = rev2;
   const record = () =>
     draftRecordOf(
       documentOf(current),
@@ -64,11 +113,24 @@ const setUp = (seen = true, delivery: "immediate" | "submitted" = "immediate") =
       board.get(),
       results.record(),
       entries.record(),
-      undefined,
+      cellEntries.record(),
       shownOf,
     );
-  return { draft, results, entries, board, revisions, shownOf, record, document: documentOf(REV2) };
+  return {
+    draft,
+    results,
+    entries,
+    cellEntries,
+    board,
+    revisions,
+    shownOf,
+    record,
+    document: documentOf(rev2),
+  };
 };
+
+const setUp = (seen = true, delivery: "immediate" | "submitted" = "immediate") =>
+  build({ seen, delivery });
 
 describe("work held only on an item a later revision removed (task 6.15, #93)", () => {
   test("the work stays on revision 1 and the card keeps showing it after an edit", () => {
@@ -147,6 +209,7 @@ describe("work held only on an item a later revision removed (task 6.15, #93)", 
     const stores = setUp(false);
     expect(stores.shownOf(REV2)).toBe(REV2);
     expect(stores.record().questions).toEqual({});
+    expect(stores.entries.valueOf("c")).toBeUndefined();
     stores.board.setDelivery("submitted");
     expect(stores.board.work("plan")).toBeUndefined();
   });
@@ -168,7 +231,7 @@ describe("what a settled act or a drop clears follows the revision too", () => {
       stores.draft,
       stores.results,
       stores.entries,
-      createDraftStore(),
+      stores.cellEntries,
       stores.board,
       createStore(new Map()),
       stores.revisions,
@@ -211,7 +274,7 @@ describe("what a settled act or a drop clears follows the revision too", () => {
       draft: stores.draft,
       results: stores.results,
       entries: stores.entries,
-      cellEntries: createDraftStore(),
+      cellEntries: stores.cellEntries,
       board: stores.board,
       shownOf: stores.shownOf,
     });
@@ -219,5 +282,164 @@ describe("what a settled act or a drop clears follows the revision too", () => {
     expect(stores.draft.valueOf("b")).toBeUndefined();
     expect(stores.entries.valueOf("c")).toBeUndefined();
     expect(stores.board.work("plan")).toBeUndefined();
+  });
+});
+
+// Entries and cell entries (task 6.18; the matrix's Entry and Cell entry columns, rows R and P).
+// Revision 1 holds a NumberField `c` and a Table `t`; the user's work is only the entry "12x" on
+// `c` and the cell entry "abc" on the Table's number cell `r1.rate`.
+const table = (columnType: string): WidgetItem =>
+  ({
+    type: "table",
+    id: "t",
+    props: {
+      label: "t",
+      columns: [{ field: "rate", type: columnType, label: "Rate" }],
+      rows: [{ id: "r1", rate: 1 }],
+    },
+  }) as unknown as WidgetItem;
+const ENTRY_REV1 = questionOf(
+  [item("a", "text-field"), item("c", "number-field"), table("number")],
+  1,
+);
+const typedWork = ({ entries, cellEntries }: { entries: DraftStore; cellEntries: DraftStore }) => {
+  entries.set("c", "12x");
+  cellEntries.set("t", new Map([["r1.rate", "abc"]]));
+};
+const typedStores = (rev2: ViewQuestion = REV2, seen = true, delivery?: "submitted") =>
+  build({ rev1: ENTRY_REV1, rev2, work: typedWork, seen, ...(delivery ? { delivery } : {}) });
+const typedOf = (stores: ReturnType<typeof build>) =>
+  entriesWithCells(stores.entries.record(), stores.cellEntries.record());
+const NONE = new Map<string, unknown>();
+
+describe("an entry on an item revision 2 removed (task 6.18, rows 7, 8, 4 and 5)", () => {
+  test("a field entry and a cell entry stay held across the update", () => {
+    const stores = typedStores();
+    expect(stores.entries.valueOf("c")).toBe("12x");
+    expect(stores.cellEntries.valueOf("t")).toEqual(new Map([["r1.rate", "abc"]]));
+    expect(stores.board.work("plan")).toEqual({ rev: 1 });
+    expect(stores.shownOf(REV2)).toBe(ENTRY_REV1);
+  });
+
+  test("they are mirrored under revision 1, with the cell entries of the Table", () => {
+    const stores = typedStores();
+    expect(stores.record().questions).toEqual({
+      plan: { rev: 1, entries: { c: "12x" }, cellEntries: { t: { "r1.rate": "abc" } } },
+    });
+  });
+
+  test("they block Answer, the hint, the press and Submit by revision 1's items, until corrected", () => {
+    const stores = typedStores(REV2, true, "submitted");
+    const shown = stores.shownOf(REV2);
+    const held = [
+      { question: REV2, work: { rev: 1, held: { act: "answer" as const, order: 0 } } },
+    ] as unknown as Parameters<typeof heldWithBlock>[1];
+    expect(fieldBlock(shown, typedOf(stores), NONE)?.itemId).toBe("c");
+    expect(holdsBlock(shown, typedOf(stores), NONE)).toBe(true);
+    expect(answerHint(shown, typedOf(stores), NONE, "en-US")).toBe("Correct c first.");
+    const context = {
+      results: stores.results,
+      entries: stores.entries,
+      cellEntries: stores.cellEntries,
+      shownOf: stores.shownOf,
+    };
+    expect(blockedBy(REV2, context)).toBe(true);
+    expect(
+      heldWithBlock(
+        stores.document,
+        held,
+        typedOf(stores),
+        NONE,
+        undefined,
+        undefined,
+        stores.shownOf,
+      ),
+    ).toBe(REV2);
+    // The field is corrected: the Table's cell blocks next, by its own label.
+    stores.entries.set("c", undefined);
+    expect(answerHint(shown, typedOf(stores), NONE, "en-US")).toBe("Correct t first.");
+    expect(blockedBy(REV2, context)).toBe(true);
+    stores.cellEntries.set("t", undefined);
+    expect(holdsBlock(shown, typedOf(stores), NONE)).toBe(false);
+    expect(blockedBy(REV2, context)).toBe(false);
+    expect(
+      heldWithBlock(
+        stores.document,
+        held,
+        typedOf(stores),
+        NONE,
+        undefined,
+        undefined,
+        stores.shownOf,
+      ),
+    ).toBeUndefined();
+  });
+
+  test("a NumberField revision 2 turns into a TextField under the same ID keeps its entry", () => {
+    const stores = typedStores(
+      questionOf([item("a", "text-field"), item("c", "text-field"), table("number")], 2),
+    );
+    expect(stores.entries.valueOf("c")).toBe("12x");
+    expect(answerHint(stores.shownOf(REV2), typedOf(stores), NONE, "en-US")).toBe(
+      "Correct c first.",
+    );
+  });
+
+  test("a Table whose column revision 2 changes keeps its cell entries", () => {
+    const stores = typedStores(
+      questionOf([item("a", "text-field"), item("c", "number-field"), table("text")], 2),
+    );
+    expect(stores.cellEntries.valueOf("t")).toEqual(new Map([["r1.rate", "abc"]]));
+    expect(stores.record().questions.plan?.cellEntries).toEqual({ t: { "r1.rate": "abc" } });
+  });
+
+  test("'Reload' drops them", () => {
+    const stores = typedStores();
+    dropWork(REV2, { ...stores, shownOf: stores.shownOf });
+    expect(stores.entries.valueOf("c")).toBeUndefined();
+    expect(stores.cellEntries.valueOf("t")).toBeUndefined();
+    expect(stores.board.work("plan")).toBeUndefined();
+  });
+
+  test("a settled answer naming revision 1 clears them (M4: the cell entries of the shown question)", () => {
+    const stores = typedStores();
+    clearCarried(
+      {
+        key: 1,
+        acts: [
+          { type: "answer", itemId: "plan", rev: 1, when: "2026-11-08T10:00:00Z" },
+        ] as unknown as readonly ViewAct[],
+      },
+      stores.document,
+      stores.draft,
+      stores.results,
+      stores.entries,
+      stores.cellEntries,
+      stores.board,
+      createStore(new Map()),
+      stores.revisions,
+    );
+    expect(stores.entries.valueOf("c")).toBeUndefined();
+    expect(stores.cellEntries.valueOf("t")).toBeUndefined();
+    expect(stores.record().questions).toEqual({});
+  });
+
+  test("with revision 1 unseen (a page reload) the update drops them and leaves no work", () => {
+    const stores = typedStores(REV2, false);
+    expect(stores.entries.valueOf("c")).toBeUndefined();
+    expect(stores.cellEntries.valueOf("t")).toBeUndefined();
+    expect(stores.board.work("plan")).toBeUndefined();
+    expect(stores.record().questions).toEqual({});
+  });
+
+  test("an entry on an item both revisions hold is kept by either rule", () => {
+    const stores = build({
+      rev1: ENTRY_REV1,
+      rev2: questionOf([item("a", "text-field"), item("c", "number-field"), table("number")], 2),
+      work: typedWork,
+      seen: false,
+    });
+    expect(stores.entries.valueOf("c")).toBe("12x");
+    expect(stores.cellEntries.valueOf("t")).toEqual(new Map([["r1.rate", "abc"]]));
   });
 });

@@ -1,9 +1,12 @@
 // The draft and the confirmation follow the revision the card shows, on the real board page and the
-// session process, in each engine (document-review, tasks 6.15 and 6.16; Issues #92 and #93; spec
+// session process, in each engine (document-review, tasks 6.15, 6.16 and 6.18; Issues #92 and #93; spec
 // view-and-widgets: The draft follows the revision the card shows, The revision confirmation reads
 // the revision the card shows; design decision 15). After "Keep mine" with no reload:
 // - work held only on an item the agent's revision removed is kept, mirrored and counted as unsent
 //   work, survives a change on the board, and "Answer" sends it naming revision 1;
+// - an entry held only on an item the agent's revision removed (a NumberField's "12x") stays, shows,
+//   is mirrored under revision 1 and keeps "Answer" disabled, naming the field, until it reads a
+//   number, and then "Answer" sends both values naming revision 1 (task 6.18);
 // - after the agent records an answer for the question (its `update` action `answer`), "Answer"
 //   asks to confirm the replacement by the Approval the card shows, though revision 2 removed it;
 // - "Accept recommended" picks the option revision 1 recommends, though revision 2 recommends
@@ -57,6 +60,14 @@ const askOf = (id: string, ...items: readonly unknown[]) => ({
   title: "Order service storage",
   items,
 });
+
+// The text that describes "Answer" while a field blocks it (an sr-only element the button names).
+const hintOf = async (board: Board): Promise<string | undefined> => {
+  const id = await answerOf(board, "plan").getAttribute("aria-describedby");
+  return id === null
+    ? undefined
+    : ((await board.view.locator(`[id="${id}"]`).textContent()) ?? undefined);
+};
 
 const notice = (board: Board) =>
   card(board, "plan").locator('[data-askboard-notice="agent-change"]');
@@ -114,6 +125,48 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "answer:1",
         ]);
         expect(events[1]?.results).toEqual({ b: "Grace Hopper" });
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an entry only the removed NumberField held: Keep mine keeps it, Answer waits and names the field until it reads a number, then sends both values naming revision 1",
+      async () => {
+        const count = { type: "number-field", id: "c", props: { label: "Count" } };
+        const ask = askOf("entry", planWith([field("a", "First"), count]));
+        const run = await start(lifecycleScenario(ask, dist));
+        const board = await openBoard(run, ["plan"]);
+        const { view } = board;
+        await view.getByLabel("First", { exact: true }).fill("Ada");
+        await view.getByLabel("Count", { exact: true }).fill("12x");
+        await mirrored(
+          run,
+          (record) => record.questions.plan?.entries?.c === "12x",
+          "the entry 12x on c",
+        );
+        expect(await answerOf(board, "plan").isDisabled()).toBe(true);
+        await revise(run, [field("a", "First")]);
+        await keepMine(board);
+        expect(await view.getByLabel("Count", { exact: true }).inputValue()).toBe("12x");
+        expect(await answerOf(board, "plan").isDisabled()).toBe(true);
+        expect(await hintOf(board)).toBe("Correct Count first.");
+        await Bun.sleep(QUIET_MS);
+        const record = sentDrafts(run).at(-1);
+        expect(record?.questions.plan).toMatchObject({ rev: 1, entries: { c: "12x" } });
+        expect(sentActs(run).flatMap((command) => command.acts.map((act) => act.type))).toEqual([
+          "edit-choice",
+        ]);
+        await view.getByLabel("Count", { exact: true }).fill("12");
+        await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events.map((event) => `${event.type}:${event.rev}`)).toEqual([
+          "edit-choice:2",
+          "answer:1",
+        ]);
+        expect(events[1]?.results).toEqual({ a: "Ada", c: 12 });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

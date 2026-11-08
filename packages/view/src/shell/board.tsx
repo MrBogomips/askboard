@@ -47,6 +47,7 @@ import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import type { HeaderData } from "./header-data.ts";
+import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
@@ -74,8 +75,6 @@ type Shared = {
 };
 
 /** A request to move focus to a question's heading, numbered so that each runs once. */
-export type HeadingRequest = { readonly id: string; readonly n: number };
-
 /** What the board needs beyond the cards: focus moves and the removed-question line. */
 export type BoardContext = CardContext & {
   readonly focus: Store<HeadingRequest | undefined>;
@@ -240,10 +239,6 @@ const OneQuestionBody = ({
     })}
   </div>
 );
-
-/** Asks for focus on a question's heading, once the board has rendered. */
-export const requestHeading = (focus: Store<HeadingRequest | undefined>, id: string): void =>
-  focus.set({ id, n: (focus.get()?.n ?? 0) + 1 });
 
 // Focus moves to a question's heading once the navigation has rendered (Accessibility Floor).
 const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
@@ -432,7 +427,7 @@ export const Board = ({
           delivery={delivery}
           warning={postponedWarningOf(document, state, draft.questions, language)}
           submit={submit}
-          recommendations={hasRecommendation(document)}
+          recommendations={hasRecommendation(document, shownOf)}
           readOnlyOf={readOnlyOf}
           shownOf={shownOf}
           locked={lock !== undefined}

@@ -11,6 +11,7 @@
 import { ENTRY_MAX_CHARS } from "@askboard/contract";
 import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
+import type { ShownOf } from "./agent-change.ts";
 import type { DraftStore } from "./draft-store.ts";
 
 /** The widget types whose items hold a plain entry, the text of one field (decision 3). */
@@ -60,12 +61,36 @@ export const cutEntry = (text: unknown): string | undefined => {
 };
 
 /**
- * Drops each entry whose item the document no longer holds as an item of an entry type: an update
- * that removed the item, or changed its type under the same ID, leaves no entry that nothing can
- * correct.
+ * The IDs `read` gives for the question and, where the card shows another revision of it (`shown`,
+ * after "Keep mine" with no reload), for that revision too: the work kept across an update names the
+ * items of either, in the order of the question's then the shown revision's (document-review, design
+ * decision 15). The question's own list when the card shows the question itself.
  */
-export const dropStaleEntries = (document: ViewDocument, entries: DraftStore): void => {
-  const held = new Set(questionsOf(document).flatMap((question) => fieldEntryIdsOf(question)));
+export const idsOver = (
+  read: (question: ViewQuestion) => readonly string[],
+  question: ViewQuestion,
+  shown: ViewQuestion,
+): readonly string[] =>
+  shown === question ? read(question) : [...new Set([...read(question), ...read(shown)])];
+
+/**
+ * Drops each entry whose item neither the document's question nor the question as the card shows it
+ * (`shownOf`) holds as an item of an entry type: an update that removed the item, or changed its
+ * type under the same ID, leaves no entry that nothing can correct. An entry on an item only the
+ * shown revision holds stays: the card shows that revision after "Keep mine", where the user can
+ * correct it, and the answer names it (document-review, design decision 15; review S-1 of 6.17).
+ * With no `shownOf`, or once a reload left the page no earlier revision to show, the current one.
+ */
+export const dropStaleEntries = (
+  document: ViewDocument,
+  entries: DraftStore,
+  shownOf?: ShownOf,
+): void => {
+  const held = new Set(
+    questionsOf(document).flatMap((question) =>
+      idsOver(fieldEntryIdsOf, question, shownOf?.(question) ?? question),
+    ),
+  );
   const stale = [...entries.record().keys()].filter((itemId) => !held.has(itemId));
   if (stale.length === 0) return;
   entries.update(Object.fromEntries(stale.map((itemId) => [itemId, undefined])));

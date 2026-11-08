@@ -35,7 +35,6 @@ import {
   revisionFor,
   withDerived,
 } from "./card-acts.ts";
-import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { holdsBlock } from "./field-block.ts";
@@ -237,9 +236,16 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
 export const updatesLabel = (count: number, language: Locale = "en-US"): string =>
   t(language, "bar.updates", { count });
 
-/** Whether any question has a recommended option: "Select recommended" shows only then. */
-export const hasRecommendation = (document: ViewDocument): boolean =>
-  questionsOf(document).some((question) => recommendedOf(question) !== undefined);
+/**
+ * Whether any question has a recommended option: "Select recommended" shows only then. A question
+ * counts by the revision the card shows (`shownOf`), the one `selectRecommended` reads, so the
+ * button shows exactly when pressing it can select something (document-review, design decision 15;
+ * Issue #93).
+ */
+export const hasRecommendation = (document: ViewDocument, shownOf?: ShownOf): boolean =>
+  questionsOf(document).some(
+    (question) => recommendedOf(shownOf?.(question) ?? question) !== undefined,
+  );
 
 // Whether the user has chosen something on the question: an option, or "Other…".
 const hasChoice = (question: ViewQuestion, values: DraftRecord, work: QuestionWork | undefined) => {

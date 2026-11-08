@@ -587,6 +587,18 @@ export const fillFrom = (
   }));
 };
 
+/**
+ * "Start from my previous answer" on a reopened question: `fillFrom` for the question the card
+ * shows (`shownOf`), the revision the work was made on after "Keep mine", so each result is seeded
+ * for an item that revision holds and checked against that revision's props, and none for an item
+ * only the current revision holds (document-review, design decision 15; Issue #93).
+ */
+export const startFromPrevious = (
+  question: ViewQuestion,
+  content: AnswerContent,
+  context: Parameters<typeof fillFrom>[2] & Pick<AnswerContext, "shownOf">,
+): void => fillFrom(shownIn(question, context), content, context);
+
 /** The question's recommended option, if the agent marked one (FR-3). */
 export const recommendedOf = (question: ViewQuestion): ChoiceOption | undefined =>
   question.props.options?.find((option) => option.recommended === true);

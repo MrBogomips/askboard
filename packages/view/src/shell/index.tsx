@@ -31,36 +31,23 @@ import {
   systemTheme,
   type Theme,
 } from "../theme.ts";
-import { questionsOf, type ViewDocument } from "../view-document.ts";
+import { questionsOf } from "../view-document.ts";
 import { readDraftReply, type ViewMessage } from "../view-protocol.ts";
-import { createRevisions, type KeptChoices, type ShownOf, shownOfBoard } from "./agent-change.ts";
+import { createRevisions, type KeptChoices, shownOfBoard } from "./agent-change.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
-import {
-  Board,
-  type BoardExtras,
-  type BoardView,
-  type HeadingRequest,
-  requestHeading,
-} from "./board.tsx";
+import { Board, type BoardExtras, type BoardView } from "./board.tsx";
 import { createAnsweredResults, createBoardContent } from "./board-content.ts";
-import {
-  type BoardDraft,
-  connectDrafts,
-  createBoardDraft,
-  draftRecordOf,
-  restoreDraft,
-} from "./board-draft.ts";
+import { connectDrafts, createBoardDraft, draftRecordOf, restoreDraft } from "./board-draft.ts";
 import { BoardLanguage } from "./board-language.tsx";
-import { nextAfterRemoval, presentationOf } from "./board-view.ts";
-import { dropWork } from "./card-acts.ts";
+import { presentationOf } from "./board-view.ts";
 import { clearCarried } from "./carried.ts";
-import { dropStaleCellEntries } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
-import { createDraftStore, type DraftStore } from "./draft-store.ts";
-import { dropStaleEntries } from "./entries.ts";
+import { applyDocumentUpdate } from "./document-update.ts";
+import { createDraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
+import type { HeadingRequest } from "./heading-request.ts";
 import { measureInset } from "./measure-inset.ts";
 import { snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPresentation } from "./presentation-extras.ts";
@@ -69,7 +56,7 @@ import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
-import { createStore, type Store } from "./store.ts";
+import { createStore } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThemeChoice } from "./theme-control.tsx";
 import type { ThreadRequest } from "./thread.tsx";
@@ -104,41 +91,6 @@ const focusedQuestion = (): string | undefined =>
   document.activeElement
     ?.closest("[data-askboard-question]")
     ?.getAttribute("data-askboard-question") ?? undefined;
-
-type Removal = {
-  readonly draft: DraftStore;
-  readonly results: DraftStore;
-  readonly entries: DraftStore;
-  readonly cellEntries: DraftStore;
-  readonly board: BoardDraft;
-  // The question as the card shows it: a deleted question's work goes with the items of the
-  // revision it was made on (document-review, design decision 15).
-  readonly shownOf: ShownOf;
-  readonly focus: Store<HeadingRequest | undefined>;
-  readonly removed: Store<boolean>;
-};
-
-// The agent deleted questions (FR-6; task 6.7): each leaves with its draft; the question in view
-// moves on to the next one, saying so, and so does the focus if one of them held it.
-const onRemoval = (before: ViewDocument, after: ViewDocument, stores: Removal): void => {
-  const earlier = questionsOf(before);
-  const now = questionsOf(after).map((question) => question.id);
-  const gone = earlier.filter((question) => !now.includes(question.id));
-  if (gone.length === 0) return;
-  const focused = focusedQuestion();
-  for (const question of gone) dropWork(question, stores);
-  const ids = earlier.map((question) => question.id);
-  const isGone = (id: string | undefined) => gone.some((question) => question.id === id);
-  const inView = stores.board.get().inView;
-  if (inView !== undefined && isGone(inView)) {
-    stores.board.setInView(nextAfterRemoval(ids, now, inView));
-    stores.removed.set(true);
-  }
-  if (focused !== undefined && isGone(focused)) {
-    const next = nextAfterRemoval(ids, now, focused);
-    if (next !== undefined) requestHeading(stores.focus, next);
-  }
-};
 
 const boot = (): void => {
   shimStyleElements();
@@ -191,7 +143,9 @@ const boot = (): void => {
   // line goes when its question's work changes (oversized-acts, design decisions 2 to 4).
   const notices = createSizeNotices((questionId) => {
     const question = questionsOf(view.get().document).find((each) => each.id === questionId);
-    return question === undefined ? [] : workRefsOf(question, { draft, results, entries, board });
+    return question === undefined
+      ? []
+      : workRefsOf(question, { draft, results, entries, board, shownOf });
   });
   for (const store of [draft, results, entries, board]) store.subscribe(notices.sync);
   // The board page's reply to a draft names the questions it left out of the record it mirrors.
@@ -219,21 +173,20 @@ const boot = (): void => {
     const before = view.get().document;
     const document = update.document ?? before;
     if (update.document !== undefined) {
-      revisions.record(document);
-      onRemoval(before, document, {
+      applyDocumentUpdate(before, document, {
+        revisions,
         draft,
         results,
         entries,
         cellEntries,
         board,
         shownOf,
+        tracker,
+        attention,
         focus,
         removed,
+        focused: focusedQuestion,
       });
-      dropStaleEntries(document, entries);
-      dropStaleCellEntries(document, cellEntries);
-      tracker.include(questionItemsOf(document));
-      attention.documentChanged(document);
     }
     view.set({ document, state: update.state, lock: update.lock, connection: update.connection });
     attention.stateChanged(update.state);
@@ -253,6 +206,7 @@ const boot = (): void => {
         undefined,
         entries,
         cellEntries,
+        revisions,
       );
     }
     // Commands the board page dropped because their socket was closed as too large: said before

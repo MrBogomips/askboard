@@ -55,6 +55,7 @@ import {
   reloadQuestion,
   selectRecommendedOption,
   sendFollowUp,
+  startFromPrevious,
 } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
@@ -543,7 +544,7 @@ export const QuestionCard = (props: CardProps) => {
           disabled={readOnly || pending}
           onStart={() => {
             const previous = reopened.previous;
-            if (previous !== undefined) fillFrom(question, contentOf(previous), context);
+            if (previous !== undefined) startFromPrevious(question, contentOf(previous), acting);
           }}
         />
       )}

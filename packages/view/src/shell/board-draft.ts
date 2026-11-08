@@ -20,7 +20,7 @@ import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
 import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
-import type { ShownOf } from "./agent-change.ts";
+import type { Revisions, ShownOf } from "./agent-change.ts";
 import {
   cellEntryIdsOf,
   cutCellEntries,
@@ -28,7 +28,7 @@ import {
   fitCellEntries,
 } from "./cell-entries.ts";
 import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
-import { cutEntry, entryIdsOf, fieldEntryIdsOf } from "./entries.ts";
+import { cutEntry, entryIdsOf, fieldEntryIdsOf, idsOver } from "./entries.ts";
 import { draftAnswerOf } from "./question-state.ts";
 
 /** A question's work besides its items' values, on the revision it was made on. */
@@ -262,20 +262,6 @@ export const valueDropped = (
 
 // No held results: the results store of a board that has none.
 const NO_RESULTS: ValueRecord = new Map();
-
-/**
- * The item IDs a draft reader walks for a question: those of the question the board holds and, when
- * the card shows another revision (after "Keep mine" the one the work was made on), those of that
- * revision too, so that work held only on an item a later revision removed is neither forgotten,
- * nor left unmirrored, nor kept ready when it is edited (document-review, design decision 15;
- * review S-2 of 6.14). The same question gives the one list.
- */
-const idsOver = (
-  read: (question: ViewQuestion) => readonly string[],
-  question: ViewQuestion,
-  shown: ViewQuestion,
-): readonly string[] =>
-  shown === question ? read(question) : [...new Set([...read(question), ...read(shown)])];
 
 const hasValues = (
   question: ViewQuestion,
@@ -517,9 +503,6 @@ const sameTextRecord = (
   );
 };
 
-const hasValuesIn = (values: Readonly<Record<string, unknown>>): boolean =>
-  Object.keys(values).length > 0;
-
 const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null;
 
@@ -573,6 +556,11 @@ const isRestoredAnswer = (
  * value only as option labels), the delivery mode (immediate on a single-question board) and the
  * question in view. A mirrored answer identical to the board's current answer is stale, not a
  * revision; work on another revision or with different content stays. The work keeps its revision.
+ * Each question is read at its record's revision too when the view has seen it (`revisions`, as
+ * `workingQuestion` reads it): the card then shows that revision, so a value, result, entry or cell
+ * entry on an item only it holds is restored, and the work is none when the view never saw it, as
+ * after a reload, where the items the page does not show are no work (document-review, design
+ * decision 15; review S-4 of 6.14 and 6.17).
  */
 export const restoreDraft = (
   record: DraftRecord,
@@ -584,6 +572,7 @@ export const restoreDraft = (
   factsOf?: (type: string) => ComponentFacts | undefined,
   entries?: DraftStore,
   cellEntries?: DraftStore,
+  revisions?: Revisions,
 ): void => {
   const questions = questionsOf(document);
   const work = new Map<string, QuestionWork>();
@@ -601,11 +590,17 @@ export const restoreDraft = (
       ...rest
     } = entry;
     if (context !== undefined) placements.set(question.id, context);
-    const items = new Set(itemIdsOf(question));
-    const widgets = new Set(resultIdsOf(question));
+    // The question as the card shows the work, by `workingQuestion`'s rule (not imported: that
+    // module reads this one): the record's revision when it is earlier and the view has seen it.
+    const shown =
+      revisions !== undefined && rest.rev < question.rev
+        ? (revisions.question(question.id, rest.rev) ?? question)
+        : question;
+    const items = new Set(idsOver(itemIdsOf, question, shown));
+    const widgets = new Set(idsOver(resultIdsOf, question, shown));
     // An entry is held only for an item of an entry type, as a cut text; an item that holds one
     // gives no result, so a record naming both keeps the entry (the text the user sees).
-    const typedIds = new Set(fieldEntryIdsOf(question));
+    const typedIds = new Set(idsOver(fieldEntryIdsOf, question, shown));
     const typed = Object.entries(keptEntries).flatMap(([itemId, text]) => {
       const cut = typedIds.has(itemId) ? cutEntry(text) : undefined;
       return cut === undefined ? [] : [[itemId, cut] as const];
@@ -630,13 +625,16 @@ export const restoreDraft = (
     );
     // The cell entries of a Table, each cut, then kept only for an input cell of the value the
     // Table holds: the restored value where it keeps one, else the props as the question shows them.
-    const tables = new Set(cellEntryIdsOf(question));
+    const tables = new Set(idsOver(cellEntryIdsOf, question, shown));
     const typedCells = Object.entries(keptCells).flatMap(([itemId, texts]) => {
       // A value dropped here takes its cell entries with it (table-widget review S-1).
       if (!tables.has(itemId) || refused.has(itemId)) return [];
       const cut = cutCellEntries(new Map(Object.entries(texts ?? {})));
       const held = Object.hasOwn(keptValues, itemId) ? keptValues[itemId] : undefined;
-      const props = held ?? nestedItemById(question.props.items, itemId)?.props;
+      const props =
+        held ??
+        (nestedItemById(shown.props.items, itemId) ?? nestedItemById(question.props.items, itemId))
+          ?.props;
       const fitting = cut === undefined ? undefined : fitCellEntries(cut, props);
       return fitting === undefined ? [] : [[itemId, fitting] as const];
     });
@@ -663,17 +661,19 @@ export const restoreDraft = (
     const held = staleAnswer
       ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
       : rest;
-    // An entry holding only a placement is no work.
+    // An entry holding only a placement is no work, and neither is a value or a result that names
+    // no item the card shows: after a reload the items a later revision removed are not shown.
     if (
       Object.keys(held).some((key) => key !== "rev") ||
-      hasValuesIn(keptValues) ||
+      Object.keys(keptValues).some((itemId) => items.has(itemId)) ||
       typed.length > 0 ||
       typedCells.length > 0 ||
       Object.entries(keptResults).some(
         ([itemId, r]) =>
+          widgets.has(itemId) &&
           !typedNow.has(itemId) &&
           !resultHoldsNothing(r) &&
-          !(widgets.has(itemId) && !takes(itemId, r)),
+          takes(itemId, r),
       )
     )
       work.set(question.id, held);
