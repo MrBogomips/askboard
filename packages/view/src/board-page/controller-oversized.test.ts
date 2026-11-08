@@ -304,6 +304,29 @@ describe("a draft record over the draft limit is mirrored without whole question
     expect(run.page.leavePromptArmed()).toBe(false);
   });
 
+  test("a takeover after a later fit that leaves nothing out disarms the prompt: the work left out is gone", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: both });
+    expect(run.page.leavePromptArmed()).toBe(true);
+    const shortened: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { database: "short" } }, cache: small },
+    };
+    expect(await run.view({ type: "draft", record: shortened })).toEqual({});
+    run.socket(1).receive({ version, type: "moved" });
+    expect(run.page.leavePromptArmed()).toBe(false);
+  });
+
+  test("a takeover after the work left out was sent or cleared (an empty record) disarms the prompt", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: both });
+    expect(
+      await run.view({ type: "draft", record: { delivery: "immediate", questions: {} } }),
+    ).toEqual({});
+    run.socket(1).receive({ version, type: "moved" });
+    expect(run.page.leavePromptArmed()).toBe(false);
+  });
+
   test("a later record that fits is mirrored whole, with no question left out", async () => {
     const run = await openedTwo();
     await run.view({ type: "draft", record: both });
