@@ -116,7 +116,7 @@ Replacement:
 
 ## Revision of 2026-11-08 (review-table-g5)
 
-Blocks 1, 3 and 6 above hold the revised text. EXPERIENCE holds the text task 0.1 applied; tasks 5.7 and 5.8 make these replacements in it, each current phrase standing once before (`grep -c -F`) and its replacement once after:
+Blocks 1, 3 and 6 above hold the revised text. EXPERIENCE holds the text task 0.1 applied; tasks 5.7 and 5.8 made these replacements in it, each current phrase standing once before (`grep -c -F`) and its replacement once after:
 
 1. Block 1, English column: `the refusal "A table holds at most 200 rows.";` becomes `the refusal "A table holds at most 200 rows."; a text cell over its limit "A text cell holds at most 500 characters.";`. Italian column: `"Una tabella contiene al massimo 200 righe.";` becomes `"Una tabella contiene al massimo 200 righe."; "Una cella di testo contiene al massimo 500 caratteri.";`.
 2. Block 3: `Space switches an on/off cell, unset to on, then off and on.` becomes `An on/off cell has no editor: Space, Enter, F2 or a click switches it, not set or off to on and on to off, and Delete or Backspace returns it to not set.`; `a column formula's problem shows once over the grid, an error` becomes `a column formula's problem shows once over the grid, the columns that read it showing "—" with no error of their own from it, an error`.
