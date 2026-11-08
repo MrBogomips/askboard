@@ -281,7 +281,8 @@ export const selectRecommended = (
 ): number => {
   let count = 0;
   for (const question of questionsOf(document)) {
-    const recommended = recommendedOf(question);
+    // The option the card shows as recommended, on the revision the card shows (Issue #93).
+    const recommended = recommendedOf(shownOf?.(question) ?? question);
     const status = state.questions.find((each) => each.itemId === question.id)?.state;
     const work = board.work(question.id);
     const held = work?.held?.act;

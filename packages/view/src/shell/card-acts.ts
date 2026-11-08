@@ -623,8 +623,9 @@ export const acceptRecommended = (
   question: ViewQuestion,
   context: AnswerContext,
 ): AnswerOutcome => {
-  if (recommendedOf(question) === undefined || blockedBy(question, context)) return undefined;
-  selectRecommendedOption(question, context);
+  const shown = shownIn(question, context);
+  if (recommendedOf(shown) === undefined || blockedBy(question, context)) return undefined;
+  selectRecommendedOption(shown, context);
   return answer(question, context);
 };
 

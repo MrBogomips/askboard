@@ -64,12 +64,16 @@ const OPTIONS = [{ label: "Yes", recommended: true }, { label: "No" }];
 const field = (id: string, label: string, type = "text-field"): WidgetItem =>
   ({ type, id, props: { label } }) as unknown as WidgetItem;
 
-const questionOf = (items: readonly WidgetItem[], rev: number): ViewQuestion =>
+const questionOf = (
+  items: readonly WidgetItem[],
+  rev: number,
+  options: readonly { label: string; recommended?: boolean }[] = OPTIONS,
+): ViewQuestion =>
   ({
     ...first,
     id: "plan",
     rev,
-    props: { ...first.props, text: "Plan?", options: OPTIONS, items },
+    props: { ...first.props, text: "Plan?", options, items },
   }) as unknown as ViewQuestion;
 const documentOf = (question: ViewQuestion): ViewDocument =>
   ({ ...plainChoiceBoardDocument, items: [question] }) as unknown as ViewDocument;
@@ -520,5 +524,81 @@ describe("an act sends what the card shows, an item a later revision removed inc
     answer(WITHOUT_B, { ...stores.context, shownOf: stores.shownOf });
     expect(stores.sent[0]).toMatchObject({ results: { a: "A" } });
     expect((stores.sent[0] as { results: object }).results).not.toHaveProperty("b");
+  });
+});
+
+describe("Select recommended picks the option the card shows as recommended (task 6.11, #93)", () => {
+  // Revision 1 recommends "Yes"; revision 2 recommends a new option "Maybe". The user held a result,
+  // chose nothing, and kept their work: the card shows revision 1, which has no "Maybe".
+  const ITEMS = [field("a", "A")];
+  const FIRST = questionOf(ITEMS, 1);
+  const SECOND = questionOf(ITEMS, 2, [
+    { label: "Yes" },
+    { label: "No" },
+    { label: "Maybe", recommended: true },
+  ]);
+  const facts = factsFailing("");
+  const setUp = (delivery: "immediate" | "submitted" = "submitted") => {
+    const stores = board(SECOND, { seen: [FIRST, SECOND], facts, delivery });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    stores.draft.set("plan", undefined);
+    return stores;
+  };
+
+  test("the board's Select recommended selects revision 1's option, and Submit sends it naming revision 1", () => {
+    const stores = setUp();
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    expect(selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false)).toBe(1);
+    expect(stores.draft.valueOf("plan")).toEqual(["Yes"]);
+    expect(stores.board.work("plan")?.held).toMatchObject({ act: "answer", byRecommended: true });
+    const pressed = pressOf(stores, SECOND, facts, stores.shownOf);
+    expect(pressed.kind).toBe("send");
+    expect(pressed.kind === "send" ? pressed.acts[0] : undefined).toMatchObject({
+      type: "answer",
+      rev: 1,
+      choice: ["Yes"],
+    });
+  });
+
+  test("Accept recommended picks it too, and the answer names revision 1", () => {
+    const stores = setUp("immediate");
+    acceptRecommended(SECOND, { ...stores.context, shownOf: stores.shownOf });
+    expect(stores.draft.valueOf("plan")).toEqual(["Yes"]);
+    expect(stores.sent).toHaveLength(1);
+    expect(stores.sent[0]).toMatchObject({ type: "answer", rev: 1, choice: ["Yes"] });
+  });
+
+  test("a recommendation moved to another label revision 1 also offers does not move the pick", () => {
+    const moved = questionOf(ITEMS, 2, [{ label: "Yes" }, { label: "No", recommended: true }]);
+    const stores = board(moved, { seen: [FIRST, moved], facts, delivery: "submitted" });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    stores.draft.set("plan", undefined);
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    selectRecommended(documentOf(moved), openState(moved), context, () => false);
+    expect(stores.draft.valueOf("plan")).toEqual(["Yes"]);
+  });
+
+  test("a revision the card shows without a recommendation selects nothing and marks nothing", () => {
+    const plain = questionOf(ITEMS, 1, [{ label: "Yes" }, { label: "No" }]);
+    const stores = board(SECOND, { seen: [plain, SECOND], facts, delivery: "submitted" });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    stores.draft.set("plan", undefined);
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    expect(selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false)).toBe(0);
+    expect(stores.draft.valueOf("plan")).toBeUndefined();
+    expect(stores.board.work("plan")?.held).toBeUndefined();
+    expect(acceptRecommended(SECOND, context)).toBeUndefined();
+    expect(stores.sent).toEqual([]);
+  });
+
+  test("with revision 1 unseen (a reload) the current revision's option is the pick", () => {
+    const stores = board(SECOND, { seen: [SECOND], facts, kept: false, delivery: "submitted" });
+    stores.draft.set("plan", undefined);
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false);
+    expect(stores.draft.valueOf("plan")).toEqual(["Maybe"]);
   });
 });
