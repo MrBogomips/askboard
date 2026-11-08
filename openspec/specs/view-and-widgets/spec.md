@@ -740,11 +740,19 @@ The board page SHALL mirror the draft record to `board-host` after each change a
 - **THEN** the board comes back in submitted delivery with the ready answer and the note, and nothing was sent
 
 ### Requirement: Leave-page prompt
-The board page SHALL arm the browser's leave-page prompt while the draft holds unsent work or postponed questions are open, and the bottom action bar SHALL then show "You have 1 postponed question: closing loses this ask", with the count (FR-25).
+The board page SHALL arm the browser's leave-page prompt while the draft holds unsent work, work too large to keep across a reload included, or postponed questions are open, and the bottom action bar SHALL then show "You have 1 postponed question: closing loses this ask", with the count (FR-25).
 
 #### Scenario: Closing with a postponed question
 - **WHEN** a question is postponed and the user closes the tab
 - **THEN** the browser's prompt to leave the page appears first
+
+#### Scenario: Closing with work too large to keep
+- **WHEN** the only unsent work is a question's work left out of the mirrored record and the user closes the tab
+- **THEN** the browser's prompt to leave the page appears first
+
+#### Scenario: Taken over with work too large to keep
+- **WHEN** another tab takes the board over while this tab's draft holds a question's work left out of the mirrored record, and the user closes this tab
+- **THEN** the browser's prompt to leave the page appears first, since the takeover handed over only the mirrored record
 
 ### Requirement: The board's working signal
 The board page SHALL send `board-host` a presence message whenever its working signal changes, and once after each connect: working while the page has focus and has had a key or pointer input, on the board page or in its view, within the last 60 s. The message SHALL carry only that flag, never content (AD-2, AD-7).
@@ -2810,11 +2818,11 @@ A TextField whose text fails its `minLength` or `pattern` SHALL show the field e
 - **THEN** nothing is sent and the draft keeps the text
 
 ### Requirement: The PickField
-A single PickField SHALL show its options as radios with Radix's documented radio keyboard and a "Clear" while one is picked; a multiple PickField SHALL show checkboxes. Nothing SHALL be picked until the user picks (AD-10). A multiple pick outside `minItems` or `maxItems` SHALL show its field error. The value SHALL go to the draft only (FR-11, FR-13).
+A single PickField SHALL show its options as radios with manual activation (Radios with manual activation) and a "Clear" while one is picked; a multiple PickField SHALL show checkboxes. Nothing SHALL be picked until the user picks (AD-10). A multiple pick outside `minItems` or `maxItems` SHALL show its field error. The value SHALL go to the draft only (FR-11, FR-13).
 
 #### Scenario: A single pick by keyboard
-- **WHEN** the user moves into a single PickField with Tab, presses the down arrow, then activates "Clear"
-- **THEN** nothing is picked on Tab, the draft holds the ID of the option the arrow moved to, then no result
+- **WHEN** the user moves into a single PickField with Tab, presses the down arrow, then Space, then activates "Clear"
+- **THEN** nothing is picked on Tab or on the arrow, the draft holds the ID of the option the arrow moved the focus to once Space is pressed, then no result
 
 #### Scenario: Too few picks
 - **WHEN** the user picks one option of a multiple PickField whose `minItems` is 2
@@ -3094,3 +3102,52 @@ A Table at its bounds SHALL become visible, and take a cell edit and a row added
 #### Scenario: The fan-out form in WebKit
 - **WHEN** a board holding a 200-row Table whose every formula reads a total opens in a fresh WebKit page and the user edits one input cell
 - **THEN** the edit is painted within the fan-out form's gate, and the figures are recorded
+
+### Requirement: Radios with manual activation
+A single choice, among a question's options or in a single PickField, SHALL be a group of radios that exposes each radio's checked state. Tab SHALL enter on the checked radio, else the first one shown. The arrow keys SHALL move the focus, wrapping, and Home and End to the ends, checking nothing. Space, Enter or a click SHALL check an unchecked radio and SHALL change nothing on a checked one (NFR-12, AD-10; EXPERIENCE Option, Keyboard core).
+
+#### Scenario: Tab returns to the selected option
+- **WHEN** the user has selected "SQLite", moves the focus out of the options with Tab and back with Shift+Tab
+- **THEN** the focus is on "SQLite", which is still the only selected option
+
+#### Scenario: The arrow keys wrap
+- **WHEN** the focus is on the last option and the user presses the down arrow, then End
+- **THEN** the focus moves to the first option, then to the last, and nothing is selected
+
+#### Scenario: "Other…" text kept while moving
+- **WHEN** the user has selected "Other…" and typed text in it, then presses the up arrow twice
+- **THEN** "Other…" stays selected with its text and the draft is unchanged
+
+#### Scenario: The selected option pressed again
+- **WHEN** in submitted delivery the user presses Space, then Enter, on the selected option of a question whose answer is ready
+- **THEN** the draft is unchanged and the answer stays ready
+
+#### Scenario: A pick the filter hides
+- **WHEN** a single PickField's picked option is hidden by its filter and the user tabs into its options
+- **THEN** the focus is on the first option shown and the pick is unchanged
+
+### Requirement: An answer too large to send
+The board page SHALL refuse an act command whose message would pass the contract's message limit: it SHALL send and hold nothing, stay live and keep sending later commands. Each question the command carried SHALL show that it was not sent, with its size and the limit, until its work changes or it is sent; the user's work SHALL stay in the draft, and held acts SHALL stay held. A socket closed as too large SHALL not have its commands sent again (NFR-10, AD-10, AD-21).
+
+#### Scenario: One answer too large
+- **WHEN** in immediate delivery the user presses "Answer" on a question whose answer measures over the limit
+- **THEN** nothing reaches `board-host`, the card says the answer was not sent with its size and the limit, the work stays, and an answer to another question then goes and is logged
+
+#### Scenario: Submit too large
+- **WHEN** in submitted delivery the user presses Submit and its command would pass the limit
+- **THEN** nothing is sent, every held act stays held, and each question in it says Submit was too large
+
+#### Scenario: The socket closed as too large
+- **WHEN** `board-host` closes the board's socket with 1009 after commands were sent on it
+- **THEN** the board page reconnects, sends none of those commands again, and their questions say they were not sent; a later answer goes and is logged
+
+### Requirement: Work too large to keep across a reload
+When the draft record would pass the draft limit, the board page SHALL mirror it without the work of whole questions, the largest first, until it fits, and SHALL never mirror part of a question's work. Each question left out SHALL say that a reload would lose its work; that work SHALL stay on the board and in "Copy my unsent work" (AD-20, FR-25).
+
+#### Scenario: One question too large to keep
+- **WHEN** one question's work passes the draft limit while another question holds a note
+- **THEN** the mirrored record holds the note's question and none of the large one's work, and the large one's card says a reload would lose its work
+
+#### Scenario: Back within the limit
+- **WHEN** the user shortens that work until the record fits
+- **THEN** the next mirrored record holds it and the line goes
