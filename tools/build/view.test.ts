@@ -99,6 +99,7 @@ describe("bun run build:view (design decision 7)", () => {
       "date-field": "component",
       divider: "component",
       dnd: "library",
+      "document-review": "component",
       "ext-apps": "library",
       gantt: "component",
       group: "component",
@@ -368,6 +369,7 @@ describe("bun run build:view (design decision 7)", () => {
       "date-field",
       "divider",
       "dnd",
+      "document-review",
       "ext-apps",
       "gantt",
       "group",
@@ -1118,6 +1120,89 @@ describe("the Markdown renderer's chunk (document-review, design decision 6; vie
     expect(order.filter((name) => name === "markdown")).toHaveLength(1);
     const built = await assembled(board);
     expect(occurrences(built.srcdoc, await text(chunkNamed("markdown").script.path))).toBe(1);
+  });
+});
+
+describe("the Document review's chunk (document-review, task 6.3; view spec, The shared Markdown renderer)", () => {
+  const review = { type: "document-review", id: "review", props: { markdown: "Some **text**." } };
+  const markdownText = { type: "text", id: "notes", props: { text: "**x**", format: "markdown" } };
+  const boardOf = (...items: readonly unknown[]): ViewDocument => {
+    const [question] = plainChoiceBoardDocument.items;
+    return {
+      ...plainChoiceBoardDocument,
+      items: [{ ...question, props: { ...question.props, items } }],
+    } as unknown as ViewDocument;
+  };
+  const names = (document: ViewDocument) =>
+    selectChunks(document, manifest).map(({ name }) => name);
+  const occurrences = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+  test("it registers document-review as a component chunk needing the Markdown renderer, Radix, React and the shell", () => {
+    const chunk = chunkNamed("document-review");
+    expect(chunk.kind).toBe("component");
+    expect(chunk.components).toEqual(["document-review"]);
+    expect(chunk.needs).toEqual(["markdown", "radix", "react", "shell"]);
+  });
+
+  test("it bundles no react-dom code of its own: its notices name none, and it reads React DOM from the react library chunk", async () => {
+    const chunk = chunkNamed("document-review");
+    const own = await text(chunk.script.path);
+    const library = await text(chunkNamed("react").script.path);
+    const packages = packagesIn(chunk.licences);
+    for (const name of ["react-dom", "react", "scheduler", "markdown-it", "dompurify"]) {
+      expect(packages, name).not.toContain(name);
+    }
+    // The chunk asks the shared-module registry for `react-dom` by name, as the text chunk does for
+    // the renderer, and holds none of the library: a fraction of the react chunk's size.
+    expect(own).toContain('"react-dom"');
+    expect(own.length).toBeLessThan(library.length / 4);
+  });
+
+  test("no component chunk holds markdown-it or DOMPurify code or a notice for them, so only the markdown library does (no ALLOWED_TAGS)", async () => {
+    const components = Object.entries(manifest.chunks).filter(
+      ([, chunk]) => chunk.kind === "component",
+    );
+    expect(components.map(([name]) => name)).toContain("document-review");
+    for (const [name, chunk] of components) {
+      const packages = packagesIn(chunk.licences);
+      expect(packages, name).not.toContain("markdown-it");
+      expect(packages, name).not.toContain("dompurify");
+      expect(await text(chunk.script.path), name).not.toContain("ALLOWED_TAGS");
+    }
+    expect(await text(chunkNamed("markdown").script.path)).toContain("ALLOWED_TAGS");
+  });
+
+  test("a board whose only widget is a Document review inlines its chunk and the markdown chunk once, and no Text chunk", async () => {
+    const board = boardOf(review);
+    const order = names(board);
+    expect(order).toContain("document-review");
+    expect(order.filter((name) => name === "markdown")).toHaveLength(1);
+    expect(order.indexOf("markdown")).toBeLessThan(order.indexOf("document-review"));
+    expect(order).not.toContain("text");
+    const built = await assembled(board);
+    expect(occurrences(built.srcdoc, await text(chunkNamed("markdown").script.path))).toBe(1);
+    expect(built.policy).toContain(cspHashSource(chunkNamed("document-review").script.sha256));
+  });
+
+  test("a board holding a Markdown Text and a Document review inlines the markdown chunk once, and both render through it", async () => {
+    const board = boardOf(markdownText, review);
+    const order = names(board);
+    expect(order.filter((name) => name === "markdown")).toHaveLength(1);
+    expect(order).toContain("text");
+    expect(order).toContain("document-review");
+    expect(order.indexOf("markdown")).toBeLessThan(order.indexOf("text"));
+    expect(order.indexOf("markdown")).toBeLessThan(order.indexOf("document-review"));
+    const built = await assembled(board);
+    expect(occurrences(built.srcdoc, await text(chunkNamed("markdown").script.path))).toBe(1);
+    expect(occurrences(built.srcdoc, await text(chunkNamed("document-review").script.path))).toBe(
+      1,
+    );
+  });
+
+  test("a board without one inlines neither of its chunks", async () => {
+    const built = await assembled(plainChoiceBoardDocument);
+    expect(built.chunks).not.toContain("document-review");
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("document-review").script.path));
   });
 });
 

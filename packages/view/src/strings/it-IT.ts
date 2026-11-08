@@ -157,6 +157,7 @@ export const IT_IT = {
   "change.widgetDateField": "Campo data",
   // The PickField's name is provisional, to review (form-widget, task 3.3).
   "change.widgetPickField": "Campo di scelta",
+  "change.widgetDocumentReview": "Revisione del documento",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   // The read-only line after a reload is to review (keep-mine-shown-revision, task 1.2).

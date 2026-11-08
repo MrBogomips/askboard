@@ -151,6 +151,7 @@ export const STRING_KEYS = [
   "change.widgetMoneyField",
   "change.widgetDateField",
   "change.widgetPickField",
+  "change.widgetDocumentReview",
   "change.reload",
   "change.keep",
   "change.readOnlyAfterReload",

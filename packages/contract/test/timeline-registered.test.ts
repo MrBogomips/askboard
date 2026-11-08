@@ -33,7 +33,7 @@ describe("the Timeline in the composed schemas", () => {
     // The atoms come after the Chart, which a later change registered after the Timeline, then the
     // layouts and the PickField.
     const atoms = ATOM_TYPES.map(({ type }) => type);
-    const layouts = ["stack", "row", "group", "tabs", "pick-field"];
+    const layouts = ["stack", "row", "group", "tabs", "pick-field", "document-review"];
     for (const type of types.slice(types.indexOf("chart") + 1)) {
       expect([...atoms, ...layouts]).toContain(type);
     }

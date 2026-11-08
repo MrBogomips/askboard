@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { STRINGS, t } from "./index.ts";
 
 // The Document review's strings (view-and-widgets spec: Document review strings; ux-update-draft.md
-// block 1): in both tables, an Italian board showing them in Italian. The registered name of its
-// notice (`change.widgetDocumentReview`) is task 6.3's.
+// block 1): in both tables, an Italian board showing them in Italian, with the name of its notice.
 const KEYS = [
+  "change.widgetDocumentReview",
   "documentReview.tools",
   "documentReview.comment",
   "documentReview.suggest",
@@ -37,6 +37,7 @@ describe("the Document review's strings", () => {
   });
 
   test("read in English", () => {
+    expect(t("en-US", "change.widgetDocumentReview")).toBe("Document review");
     expect(t("en-US", "documentReview.comment")).toBe("Comment");
     expect(t("en-US", "documentReview.suggest")).toBe("Suggest edit");
     expect(t("en-US", "documentReview.counterNone")).toBe("No comments yet");
@@ -61,6 +62,7 @@ describe("the Document review's strings", () => {
   });
 
   test("read in Italian", () => {
+    expect(t("it-IT", "change.widgetDocumentReview")).toBe("Revisione del documento");
     expect(t("it-IT", "documentReview.comment")).toBe("Commenta");
     expect(t("it-IT", "documentReview.suggest")).toBe("Suggerisci modifica");
     expect(t("it-IT", "documentReview.counterNone")).toBe("Nessun commento");

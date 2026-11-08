@@ -23,6 +23,7 @@ import { APPROVAL_WIDGET } from "./approval/widget.ts";
 import { CHART_WIDGET } from "./chart/widget.ts";
 import { DATE_FIELD_WIDGET } from "./date-field/widget.ts";
 import { DIVIDER_WIDGET } from "./divider/widget.ts";
+import { DOCUMENT_REVIEW_WIDGET } from "./document-review/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import type { FieldCheckFailure } from "./field-checks.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
@@ -169,6 +170,8 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   TABS_WIDGET,
   // The PickField, as its chunk lands (form-widget, design decision 8).
   PICK_FIELD_WIDGET,
+  // The Document review, as its chunk lands (document-review, design decision 11).
+  DOCUMENT_REVIEW_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

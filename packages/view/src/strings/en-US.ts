@@ -150,6 +150,7 @@ export const EN_US = {
   "change.widgetMoneyField": "MoneyField",
   "change.widgetDateField": "DateField",
   "change.widgetPickField": "PickField",
+  "change.widgetDocumentReview": "Document review",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "change.readOnlyAfterReload":

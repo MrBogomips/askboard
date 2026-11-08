@@ -78,8 +78,10 @@ const fromJson = (json: string): unknown => JSON.parse(json);
 
 describe("the layouts in the registry", () => {
   test("follow the shipped types, in the order stack, row, group, tabs, before the PickField", () => {
-    expect(TYPES.slice(-5, -1).map(({ type }) => type)).toEqual(["stack", "row", "group", "tabs"]);
-    expect(TYPES.at(-1)?.type).toBe("pick-field");
+    const types = TYPES.map(({ type }) => type);
+    expect(types.slice(-6, -2)).toEqual(["stack", "row", "group", "tabs"]);
+    // The PickField, then the Document review (document-review's registration).
+    expect(types.slice(-2)).toEqual(["pick-field", "document-review"]);
     expect(TYPES).toEqual([...WIDGET_TYPES]);
   });
 

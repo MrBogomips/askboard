@@ -24,12 +24,14 @@ const setOf = (name: string) => {
 
 describe("the minors form-widget binds in group 1", () => {
   test("the three widened sets are one minor past layouts', and the sets carry the constants", () => {
-    // Layouts' were input 1.10, tool envelopes 1.10 and board document 1.9.
+    // Layouts' were input 1.10, tool envelopes 1.10 and board document 1.9; form-widget's minors,
+    // 1.11, 1.11 and 1.10, or a later change's (document-review's), which pin the latest.
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      input: INPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.11", envelopes: "1.11", document: "1.10" });
+      input: minor(INPUT_FORMAT_VERSION) >= 11,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 11,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 10,
+    }).toEqual({ input: true, envelopes: true, document: true });
     expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
     expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);

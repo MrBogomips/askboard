@@ -187,13 +187,26 @@ describe("the one list of escaped characters", () => {
   });
 });
 
+describe("the teaching note", () => {
+  test("says what the props check refuses as the wording does: no control or bidirectional formatting character", () => {
+    const notes = DOCUMENT_REVIEW_WIDGET.skill?.notes?.join("\n") ?? "";
+    expect(notes).toContain(
+      "no control or bidirectional formatting character (such as U+200E, U+200F, U+061C)",
+    );
+    expect(notes).not.toContain("direction mark");
+    // The one character the wording and the note both let through besides text.
+    expect(notes).toContain("line feeds and tabs");
+  });
+});
+
 describe("what the contract keeps apart", () => {
   test("no module of src/widgets/ outside document-review/ names the Document review", async () => {
     const named: string[] = [];
     for await (const file of new Glob("**/*.{ts,json}").scan(
       new URL("../src/widgets", import.meta.url).pathname,
     )) {
-      if (file.startsWith("document-review/")) continue;
+      // The registry lists every type, the Document review's entry among them (task 6.3).
+      if (file.startsWith("document-review/") || file === "registry.ts") continue;
       const text = await Bun.file(new URL(`../src/widgets/${file}`, import.meta.url)).text();
       if (/document-review|DOCUMENT_REVIEW/.test(text)) named.push(file);
     }
@@ -587,9 +600,8 @@ describe("the Document review's result in the registry's own check", () => {
     expect(DOCUMENT_REVIEW_WIDGET.fieldCheck).toBeUndefined();
   });
 
-  // Task 6.3 registers the entry and flips the first assertion.
-  test("the entry is not registered before task 6.3, and the fixtures hold it", () => {
-    expect(WIDGET_TYPES).not.toContain(DOCUMENT_REVIEW_WIDGET);
+  test("the entry is registered with its chunk (task 6.3), and the fixtures hold it", () => {
+    expect(WIDGET_TYPES).toContain(DOCUMENT_REVIEW_WIDGET);
     expect(TYPES).toContain(DOCUMENT_REVIEW_WIDGET);
     expect(DOCUMENT_REVIEW_TYPES).toEqual([DOCUMENT_REVIEW_WIDGET]);
   });
@@ -619,7 +631,7 @@ describe("the Document review's teaching text and example", () => {
     expect(skill?.use).toContain("comment");
     expect(notes).toContain("markdown");
     expect(notes).toContain("10,000");
-    expect(notes).toContain("no control character or direction mark");
+    expect(notes).toContain("no control or bidirectional formatting character");
     for (const mark of ["U+200E", "U+200F", "U+061C"]) expect(notes).toContain(mark);
     expect(notes).toContain("one item per section");
     expect(notes).toContain("annotations");

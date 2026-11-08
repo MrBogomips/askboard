@@ -8,7 +8,8 @@
 // the Timeline (design decision 13); chart-widget's carries the Chart's item (design decision 11);
 // atoms' carries an option's `previewFormat` (design decision 11); layouts' carries the items of the
 // Stack, the Row, the Group and the Tabs layout, and the items they hold (design decision 8); form-widget's carries the field checks' props
-// and the PickField's item (design decisions 2 and 4).
+// and the PickField's item (design decisions 2 and 4); document-review's carries the Document review's
+// item (design decisions 1 and 13).
 
 import type { ImageMediaType, TextMediaType, UnresolvedReason } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -24,7 +25,7 @@ import referenceProps from "./reference-props.json" with { type: "json" };
 // The board document with each registered type's item composed in.
 const boardDocument = composeBoardDocument(boardDocumentBase);
 
-export const BOARD_DOCUMENT_VERSION = "1.10";
+export const BOARD_DOCUMENT_VERSION = "1.11";
 
 export const boardDocumentSet: SchemaSet = {
   name: "board-document",

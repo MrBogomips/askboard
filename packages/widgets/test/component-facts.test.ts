@@ -16,6 +16,27 @@ import {
 } from "@askboard/contract";
 
 const SRC = join(import.meta.dir, "../src");
+
+const note = (id: string, selector: unknown, body: unknown) => ({
+  id,
+  target: { selector },
+  body,
+});
+const quote = (exact: string) => ({ type: "quote", exact });
+const DOCUMENT_REVIEW_PROBES: readonly unknown[] = [
+  { annotations: [note("u-1", quote("remembers"), { text: "How long?" })] },
+  {
+    annotations: [
+      note("u-1", quote("remembers"), { text: "How long?" }),
+      note("u-2", quote("drafts"), { replacement: "unsent answers" }),
+    ],
+  },
+  { annotations: [note("u-1", quote("remembers"), { replacement: "" })] },
+  { annotations: [note("c1", quote("remembers"), { text: "No u- ID" })] },
+  { annotations: [note("u-1", { type: "position", start: 0, end: 3 }, { text: "x" })] },
+  { annotations: [note("u-1", quote("remembers"), { replacement: "remembers" })] },
+  { annotations: [] },
+];
 // The atoms' chunks are catalog components of the view (atoms, design decision 4), not widgets'.
 const CATALOG = join(import.meta.dir, "../../view/src/catalog");
 
@@ -86,6 +107,10 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     ...(picks.length < 2
       ? []
       : [picks[0], [picks[0], picks[1]], [picks[1], picks[0]], [picks[0], "extra"], "extra"]),
+    // The Document review's: a comment, a suggested edit and a deletion of passages its example
+    // document holds, an ID the view does not make, a selector it does not take, and a passage it
+    // does not hold at all.
+    ...DOCUMENT_REVIEW_PROBES,
     // Shapes no type takes, and one of each type's own with a field it lacks or a value off its kind.
     { value: "5" },
     { low: 1 },
@@ -110,6 +135,8 @@ console.log(JSON.stringify(WIDGET_TYPES.map((entry, at) => {
     name: facts?.name,
     shape: facts?.shape?.(entry.example.item.props),
     confirmsRevision: facts?.confirmsRevision,
+    revisionBound: facts?.revisionBound,
+    hasCheck: facts?.check !== undefined,
     fits: facts?.fits === undefined ? undefined : probes[at].map(
       (result) => facts.fits(result, entry.example.item.props),
     ),
@@ -128,6 +155,8 @@ type Facts = {
   name?: string;
   shape?: unknown;
   confirmsRevision?: true;
+  revisionBound?: true;
+  hasCheck?: boolean;
   fits?: readonly boolean[];
   probeReasons?: readonly ({ label: string; missing: string } | null)[];
   reasons?: readonly ({ label: string; missing: string } | null)[];
@@ -318,6 +347,60 @@ describe("the facts `reason` and `confirmsRevision` of any registered type", () 
     for (const [at, entry] of WIDGET_TYPES.entries()) {
       if (facts[at]?.confirmsRevision === undefined) continue;
       expect(entry.result, `${entry.type} confirms a revision and gives no result`).toBeDefined();
+    }
+  });
+});
+
+// The Document review's chunk (document-review, design decisions 7, 8 and 15): it names the notice
+// for its type, edits nothing (no `shape`), asks for no reason or confirmation, and registers the
+// fact the shell reads to make its results read-only on a revision the board cannot show. The
+// field check is registered with task 6.4.
+describe("the Document review's chunk", () => {
+  test("registers fits, a name and revisionBound, and no shape, reason or confirmation", async () => {
+    const facts = (await registered()).find(({ type }) => type === "document-review");
+    expect(facts?.name).toBe("change.widgetDocumentReview");
+    expect(facts?.revisionBound).toBe(true);
+    expect(facts?.shape).toBeUndefined();
+    expect(facts?.confirmsRevision).toBeUndefined();
+    expect(facts?.probeReasons).toBeUndefined();
+    expect(facts?.fits).toBeDefined();
+    expect(facts?.hasCheck).toBe(false);
+  });
+
+  test("takes a result of quotes its props can hold, with a replacement or without, and no other", async () => {
+    const facts = await registered();
+    const at = WIDGET_TYPES.findIndex(({ type }) => type === "document-review");
+    const entry = WIDGET_TYPES[at];
+    if (entry === undefined) throw new Error("the registry holds no Document review");
+    const fits = facts[at]?.fits ?? [];
+    const probes = probesOf(entry);
+    const verdict = (result: unknown) =>
+      fits[probes.findIndex((probe) => Bun.deepEquals(probe, result))];
+    expect(verdict(DOCUMENT_REVIEW_PROBES[0])).toBe(true);
+    expect(verdict(DOCUMENT_REVIEW_PROBES[1])).toBe(true);
+    expect(verdict(DOCUMENT_REVIEW_PROBES[2])).toBe(true);
+    for (const refused of DOCUMENT_REVIEW_PROBES.slice(3)) expect(verdict(refused)).toBe(false);
+  });
+});
+
+// The shell makes an item read-only on a revision the board cannot show when its type registers
+// `shape` or `revisionBound` (design decision 15): the types that register the second are listed,
+// so that a type joining them is a decision made here, and a Document review's quotes are the kind
+// of result it names.
+describe("a chunk's fact `revisionBound`", () => {
+  test("is registered by the Document review only, which gives a result and edits nothing", async () => {
+    const facts = await registered();
+    const bound = WIDGET_TYPES.filter((_, at) => facts[at]?.revisionBound === true).map(
+      ({ type }) => type,
+    );
+    expect(bound).toEqual(["document-review"]);
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      if (facts[at]?.revisionBound !== true) continue;
+      expect(entry.result, `${entry.type} is revision-bound and gives no result`).toBeDefined();
+      expect(
+        entry.edits,
+        `${entry.type} edits, so its shape already makes it read-only`,
+      ).toBeUndefined();
     }
   });
 });

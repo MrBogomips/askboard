@@ -34,7 +34,7 @@ export const DOCUMENT_REVIEW_WIDGET: WidgetType = {
   skill: {
     use: "a Markdown document the user comments on and suggests edits to",
     notes: [
-      "`markdown` is the document, at most 10,000 characters with no control character or direction mark (U+200E, U+200F, U+061C) but line feeds and tabs; send a longer one as one item per section. `title` is optional.",
+      "`markdown` is the document, at most 10,000 characters with no control or bidirectional formatting character (such as U+200E, U+200F, U+061C) but line feeds and tabs; send a longer one as one item per section. `title` is optional.",
       "The result is `annotations`, each a `quote` selector (`exact`, `prefix`, `suffix`) and a body with `text` (a comment), `replacement` (a suggested edit) or both. A quote is the text as the board shows it, Markdown marks removed.",
       "`replacement` replaces `exact`, and an empty one deletes it. If you cannot find a quote in your Markdown, ask the user; never guess.",
       "An untouched item gives no result, so give the question options or another widget that answers.",
