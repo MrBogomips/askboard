@@ -1,8 +1,9 @@
 // The PickField's chunk (form-widget, design decision 4; view-and-widgets spec: The PickField, The
 // PickField's filter, Forms read-only and in Snapshots, Form strings): a pick from a list of the
-// agent's options. A single pick is Radix Radio Group with its documented keyboard (Tab into the
-// group, the arrows move and pick, Space picks) and a "Clear" `button-link` while one is picked; a
-// multiple pick is one Checkbox per option, Space toggling. Nothing is picked until the user picks
+// agent's options. A single pick is AskBoard's own radio group (choice-documented-activation: Tab
+// into the group, the arrow keys move the focus only, Space, Enter or a click picks) and a "Clear"
+// `button-link` while one is picked; a multiple pick is one Radix Checkbox per option, Space
+// toggling. Nothing is picked until the user picks
 // (AD-10), and a pick only fills the draft: the result is the option's ID, or the IDs in the
 // options' order (FR-11, FR-13). Above more than `PICK_FILTER_OVER` options a filter input shows the
 // options whose label holds its text, ignoring case: its text is this component's own view state,
@@ -20,12 +21,13 @@ import {
   pickFieldResultProblems,
   pickFieldResultShape,
 } from "@askboard/contract";
-import { Checkbox, RadioGroup } from "radix-ui";
+import { Checkbox } from "radix-ui";
 import { type ReactNode, useRef, useState } from "react";
 import { fieldErrorOf } from "../fields/check-text.ts";
 import { BUTTON_LINK, FIELD_ERROR, INPUT } from "../fields/classes.ts";
 import { Field, fieldIds } from "../fields/field.tsx";
 import { checkedProps } from "../fields/props.ts";
+import { useRadios } from "../fields/radios.ts";
 import { typed } from "../fields/text.ts";
 import { type ItemProps, register, useReadyAfterLayout, useStrings } from "../port.ts";
 import {
@@ -38,7 +40,15 @@ import {
   OPTIONS,
   ROW,
 } from "./classes.ts";
-import { clearing, filteredOptions, focusFirstRadio, showsFilter, toggling } from "./selection.ts";
+import {
+  checkedAmong,
+  clearing,
+  filteredOptions,
+  focusFirstRadio,
+  picking,
+  showsFilter,
+  toggling,
+} from "./selection.ts";
 
 /** The catalog name, which is the PickField item's type. */
 const PICK_FIELD = "pick-field";
@@ -48,6 +58,9 @@ type UncheckedPickFieldItem = {
   readonly id: string;
   readonly props: unknown;
 };
+
+/** The checked radio's dot. */
+const DOT = "size-2 rounded-full bg-primary";
 
 const labelId = (itemId: string, index: number) => `${itemId}:option:${index}:label`;
 const descriptionId = (itemId: string, index: number) => `${itemId}:option:${index}:description`;
@@ -117,7 +130,14 @@ const PickField = ({
   ].join(" ");
   // The button leaves with the pick: focus goes to the group's first radio, not to the page.
   const clear = clearing(onResultChange, () => focusFirstRadio(group.current));
-  const rows: ReactNode = shown.map((option) => {
+  const checked = checkedAmong(shown, single);
+  const radio = useRadios({
+    count: multiple ? 0 : shown.length,
+    checked,
+    disabled,
+    onCheck: picking(shown, onResultChange),
+  });
+  const rows: ReactNode = shown.map((option, position) => {
     const index = options.indexOf(option);
     const text = optionText(item.id, index, option);
     const shared = { ...aria(item.id, index, option.description), className: ROW };
@@ -135,12 +155,12 @@ const PickField = ({
         {text}
       </Checkbox.Root>
     ) : (
-      <RadioGroup.Item key={option.id} value={option.id} {...shared}>
+      <button key={option.id} {...radio(position)} {...shared}>
         <span className={`${MARK} rounded-full`}>
-          <RadioGroup.Indicator className="size-2 rounded-full bg-primary" />
+          {position === checked ? <span className={DOT} /> : null}
         </span>
         {text}
-      </RadioGroup.Item>
+      </button>
     );
   });
   const empty =
@@ -175,17 +195,10 @@ const PickField = ({
           {empty}
         </fieldset>
       ) : (
-        <RadioGroup.Root
-          {...common}
-          ref={group}
-          value={single ?? ""}
-          required={required}
-          disabled={disabled}
-          onValueChange={onResultChange}
-        >
+        <div role="radiogroup" {...common} ref={group} aria-required={required ? true : undefined}>
           {rows}
           {empty}
-        </RadioGroup.Root>
+        </div>
       )}
       {single === undefined || disabled ? null : (
         <button type="button" className={`${BUTTON_LINK} ${CLEAR}`} onClick={clear}>
