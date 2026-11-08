@@ -12,10 +12,11 @@ import { DOCUMENT_REVIEW_MAX_CHARS, DOCUMENT_REVIEW_TITLE_MAX_CHARS } from "./co
 const LINE_FEED = 0x0a;
 const TAB = 0x09;
 
-// The first character the renderer would show as an escape, as its escape, or none. A line feed and
+// The first character the renderer would show as an escape, as its escape, or none; a quote's text
+// is held to the same rule as the document. A line feed and
 // a tab are the document's own layout; every other one would show as six characters that a quote
 // would then hold and the agent's source would not (design decision 1).
-const refusedEscape = (markdown: string): string | undefined => {
+export const refusedCharacter = (markdown: string): string | undefined => {
   for (const point of markdown) {
     const code = point.codePointAt(0) ?? 0;
     if (code !== LINE_FEED && code !== TAB && isEscapedCodePoint(code)) {
@@ -38,7 +39,7 @@ const markdownProblems = (markdown: unknown): readonly Problem[] => {
       },
     ];
   }
-  const refused = refusedEscape(markdown);
+  const refused = refusedCharacter(markdown);
   return refused === undefined
     ? []
     : [

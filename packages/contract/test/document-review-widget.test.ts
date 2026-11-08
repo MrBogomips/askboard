@@ -1,4 +1,5 @@
-// The Document review's props (document-review, task 1.2; contract spec: Document review items),
+// The Document review's props (document-review, tasks 1.2 and 1.3; contract spec: Document review items, Document review
+// results),
 // composed over the shipped registry with `withWidgetTypes`, which gives the same registry before
 // and after the type is registered (design decision 11): the document's bounds counted in code
 // points, the characters it refuses, the title, the fields the type does not take, and the one list
@@ -6,22 +7,37 @@
 
 import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
-import { withWidgetTypes } from "../src/fixtures/index.ts";
+import {
+  DOCUMENT_REVIEW_FIXTURE_ITEM,
+  DOCUMENT_REVIEW_RESULTS,
+  DOCUMENT_REVIEW_TYPES,
+  documentReviewAct,
+  documentReviewAnswerEvent,
+  documentReviewFetchItemResult,
+  withWidgetTypes,
+} from "../src/fixtures/index.ts";
 import {
   agentTextRuns,
+  DOCUMENT_REVIEW_ANNOTATIONS_MAX,
   DOCUMENT_REVIEW_MAX_CHARS,
   DOCUMENT_REVIEW_SCHEMA_IDS,
   DOCUMENT_REVIEW_TITLE_MAX_CHARS,
   DOCUMENT_REVIEW_WIDGET,
   documentReviewPropsProblems,
+  documentReviewResultProblems,
+  documentReviewResultShape,
   isEscapedCodePoint,
   TEXT_MAX_CHARS,
+  WIDGET_TYPES,
   widgetRegistryProblems,
 } from "../src/index.ts";
 import { SCHEMA_IDS } from "../src/sets.ts";
-import { askAccepted, askProblems } from "./result-widgets-support.ts";
+import { validateBoardMessage } from "../src/validate.ts";
+import { EMPTY_RESULTS } from "../src/widgets/registry-check.ts";
+import { ajvOver, errorsOf } from "./probe-ajv.ts";
+import { askAccepted, askProblems, resultProblemsOf } from "./result-widgets-support.ts";
 
-const TYPES = withWidgetTypes(DOCUMENT_REVIEW_WIDGET);
+const TYPES = withWidgetTypes(...DOCUMENT_REVIEW_TYPES);
 const review = (props: Record<string, unknown>, id = "notes") => ({
   type: "document-review",
   id,
@@ -182,5 +198,336 @@ describe("what the contract keeps apart", () => {
       if (/document-review|DOCUMENT_REVIEW/.test(text)) named.push(file);
     }
     expect(named).toEqual([]);
+  });
+});
+
+describe("Document review results", () => {
+  const ITEM = DOCUMENT_REVIEW_FIXTURE_ITEM;
+  const check = (result: unknown, item: { type: string; id: string; props: unknown } = ITEM) =>
+    resultProblemsOf(TYPES, item, result);
+  const text = (result: unknown, item: { type: string; id: string; props: unknown } = ITEM) =>
+    check(result, item)
+      .map(({ message }) => message)
+      .join("\n");
+  const quote = (exact: string, extra: Record<string, unknown> = {}) => ({
+    type: "quote",
+    exact,
+    ...extra,
+  });
+  const comment = (id: string, exact = "remembers", body: unknown = { text: "Say how long." }) => ({
+    id,
+    target: { selector: quote(exact) },
+    body,
+  });
+  const result = (...annotations: unknown[]) => ({ annotations });
+  const small = (markdown: string) => ({ ...ITEM, props: { markdown } });
+
+  test("a comment and a suggested edit pass for the item", () => {
+    const both = result(
+      {
+        id: "u-1",
+        target: { selector: quote("remembers", { prefix: "The board ", suffix: " drafts." }) },
+        body: { text: "Say how long." },
+      },
+      { id: "u-2", target: { selector: quote("drafts") }, body: { replacement: "unsent answers" } },
+    );
+    expect(check(both)).toEqual([]);
+    expect(documentReviewResultShape(both)).toBe(true);
+    expect(documentReviewResultProblems(both, ITEM.props)).toEqual([]);
+  });
+
+  test("a deletion, an empty replacement, passes, and so does a note beside a replacement", () => {
+    expect(check(result(comment("u-1", "drafts", { replacement: "" })))).toEqual([]);
+    expect(check(result(comment("u-1", "drafts", { replacement: "x", text: "Clearer." })))).toEqual(
+      [],
+    );
+  });
+
+  test("another selector fails, naming the item and the annotation by its place", () => {
+    for (const selector of [
+      { type: "position", start: 0, end: 3 },
+      { type: "region", value: "xywh=percent:1,1,10,10" },
+      { type: "element", id: "n1" },
+    ]) {
+      const bad = result({ id: "u-1", target: { selector }, body: { text: "x" } });
+      const found = check(bad);
+      expect(found.length, selector.type).toBeGreaterThan(0);
+      expect(found.every(({ path }) => path.startsWith("/annotations/0/target/selector"))).toBe(
+        true,
+      );
+      expect(text(bad), selector.type).toContain(`item ${ITEM.id}`);
+      expect(documentReviewResultShape(bad), selector.type).toBe(false);
+      // Called alone, the checks say what the type takes.
+      const alone = documentReviewResultProblems(bad, ITEM.props);
+      expect(alone[0]?.path).toBe("/annotations/0/target/selector");
+      expect(alone[0]?.message).toContain('annotation "u-1"');
+      expect(alone[0]?.message).toContain("takes quotes");
+    }
+  });
+
+  test.each([["c1"], ["__proto__"], ["constructor"], ["U-1"], ["u"]])(
+    "the ID %s is refused for its missing prefix, naming the annotation",
+    (id) => {
+      const found = check(result(comment(id)));
+      expect(found).toHaveLength(1);
+      expect(found[0]?.path).toBe("/annotations/0/id");
+      expect(found[0]?.message).toContain(`annotation "${id}"`);
+      expect(found[0]?.message).toContain("u-");
+      expect(found[0]?.message).toContain(`item ${ITEM.id}`);
+    },
+  );
+
+  test("an ID held twice is refused at the second, naming it", () => {
+    const found = check(result(comment("u-1"), comment("u-2"), comment("u-1", "drafts")));
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/annotations/2/id");
+    expect(found[0]?.message).toContain('annotation "u-1"');
+    expect(found[0]?.message).toContain("twice");
+  });
+
+  test("an ID that is no ID fails by the schema", () => {
+    expect(check(result(comment("u 1")))).not.toEqual([]);
+    expect(check(result(comment("u-".padEnd(65, "x"))))).not.toEqual([]);
+    expect(documentReviewResultShape(result(comment("u 1")))).toBe(false);
+  });
+
+  test("names every object inherits are IDs and passages like any other", () => {
+    const found = check(
+      result(
+        comment("u-1", "__proto__"),
+        comment("u-2", "constructor"),
+        comment("u-1", "toString"),
+      ),
+      small("__proto__ constructor toString"),
+    );
+    expect(found.map(({ path }) => path)).toEqual(["/annotations/2/id"]);
+    expect(Object.keys(Object.prototype)).toEqual([]);
+  });
+
+  test.each([
+    ["a space", " "],
+    ["a line feed", "\n"],
+    ["an ideographic space", "\u3000"],
+    ["a tab and a no-break space", "\t\u00a0"],
+  ])("an exact of %s only is refused, naming the annotation", (_name, exact) => {
+    const found = check(result(comment("u-1", exact)));
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/annotations/0/target/selector/exact");
+    expect(found[0]?.message).toContain('annotation "u-1"');
+    expect(found[0]?.message).toContain("white space");
+  });
+
+  test("an exact one character longer than the document is refused, and one as long passes", () => {
+    const doc = small("abc");
+    expect(check(result(comment("u-1", "abc")), doc)).toEqual([]);
+    const found = check(result(comment("u-1", "abcd")), doc);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/annotations/0/target/selector/exact");
+    expect(found[0]?.message).toContain("longer than the document");
+    // Code points, not UTF-16 units: two emoji are as long as two letters.
+    expect(check(result(comment("u-1", "😀😀")), small("😀😀"))).toEqual([]);
+    expect(check(result(comment("u-1", "😀😀😀")), small("😀😀"))).not.toEqual([]);
+  });
+
+  test("U+202E in the exact, the prefix or the suffix is refused, naming the field", () => {
+    for (const field of ["exact", "prefix", "suffix"]) {
+      const selector = quote("remembers", { [field]: "a\u202eb" });
+      const found = check(result({ id: "u-1", target: { selector }, body: { text: "x" } }));
+      expect(found, field).toHaveLength(1);
+      expect(found[0]?.path).toBe(`/annotations/0/target/selector/${field}`);
+      expect(found[0]?.message).toContain("\\u202E");
+      expect(found[0]?.message).toContain('annotation "u-1"');
+    }
+  });
+
+  test("a line feed and a tab inside a quote are the document's own and pass", () => {
+    const selector = quote("a\nb\tc", { prefix: "x\n", suffix: "\ty" });
+    const ok = result({ id: "u-1", target: { selector }, body: { text: "x" } });
+    expect(check(ok, small("x\na\nb\tc\ty"))).toEqual([]);
+  });
+
+  test("a replacement equal to its exact is refused, naming the annotation", () => {
+    const found = check(result(comment("u-1", "drafts", { replacement: "drafts" })));
+    expect(found).toHaveLength(1);
+    expect(found[0]?.path).toBe("/annotations/0/body/replacement");
+    expect(found[0]?.message).toContain('annotation "u-1"');
+    expect(found[0]?.message).toContain("changes nothing");
+    // A comment equal to the passage is a comment like another.
+    expect(check(result(comment("u-1", "drafts", { text: "drafts" })))).toEqual([]);
+  });
+
+  test("nothing annotated fails at /annotations", () => {
+    const found = check({ annotations: [] });
+    expect(found.map(({ path }) => path)).toContain("/annotations");
+    expect(documentReviewResultShape({ annotations: [] })).toBe(false);
+  });
+
+  test("100 annotations pass and 101 fail at the schema", () => {
+    const many = (count: number) =>
+      result(...Array.from({ length: count }, (_, at) => comment(`u-${at + 1}`)));
+    expect(DOCUMENT_REVIEW_ANNOTATIONS_MAX).toBe(100);
+    expect(check(many(100))).toEqual([]);
+    expect(documentReviewResultShape(many(100))).toBe(true);
+    const over = check(many(101));
+    expect(over.map(({ path }) => path)).toContain("/annotations");
+    expect(documentReviewResultShape(many(101))).toBe(false);
+  });
+
+  test("a result of the wrong shape fails by the schema", () => {
+    for (const bad of [
+      {},
+      null,
+      [],
+      "a",
+      { annotations: "a" },
+      { annotations: [null] },
+      { annotations: [{ id: "u-1" }] },
+      { annotations: [{ id: "u-1", target: { selector: quote("a") } }] },
+      { annotations: [{ id: "u-1", target: {}, body: { text: "x" } }] },
+      { annotations: [{ id: "u-1", target: { selector: quote("a") }, body: {} }] },
+      {
+        annotations: [
+          { id: "u-1", target: { selector: quote("a") }, body: { text: "x", motivation: "y" } },
+        ],
+      },
+      { annotations: [{ ...comment("u-1"), extra: 1 }] },
+      { annotations: [comment("u-1")], extra: 1 },
+    ]) {
+      expect(check(bad), JSON.stringify(bad)).not.toEqual([]);
+      expect(documentReviewResultShape(bad), JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  test("a result is refused, never thrown on, against props it cannot read", () => {
+    for (const props of [null, undefined, {}, { markdown: 3 }, []]) {
+      const item = { ...ITEM, props };
+      expect(() => check(result(comment("u-1")), item)).not.toThrow();
+      expect(check(result(comment("u-1")), item).length).toBeGreaterThan(0);
+    }
+    const garbled = result(null, 3, { id: 4 }, { id: "u-1", target: 3, body: [] });
+    expect(() => documentReviewResultProblems(garbled, ITEM.props)).not.toThrow();
+    expect(() => documentReviewResultProblems(null, ITEM.props)).not.toThrow();
+  });
+
+  test("the fixtures' results pass their item, and the act and the event are valid", () => {
+    for (const [name, one] of Object.entries(DOCUMENT_REVIEW_RESULTS)) {
+      expect(check(one), name).toEqual([]);
+      expect(documentReviewResultShape(one), name).toBe(true);
+    }
+    expect(askProblems(TYPES, ITEM)).toEqual([]);
+    expect(validateBoardMessage("toHost", documentReviewAct).ok).toBe(true);
+    expect(errorsOf(ajvOver(TYPES), SCHEMA_IDS.answerEvent, documentReviewAnswerEvent)).toEqual([]);
+  });
+
+  test("a Document review fetched alone validates with its result, and fails with a Chart's", () => {
+    const ajv = ajvOver(TYPES);
+    expect(errorsOf(ajv, SCHEMA_IDS.fetchResult, documentReviewFetchItemResult)).toEqual([]);
+    const item = (documentReviewFetchItemResult as { item: object }).item;
+    const withResult = (value: unknown) => ({
+      ...documentReviewFetchItemResult,
+      item: { ...item, result: value },
+    });
+    const errors = errorsOf(ajv, SCHEMA_IDS.fetchResult, withResult({ points: [] }));
+    expect(errors.map((error) => error.instancePath)).toContain("/item/result");
+  });
+});
+
+describe("the shape check agrees with the schema", () => {
+  const validate = (value: unknown) =>
+    errorsOf(ajvOver(TYPES), DOCUMENT_REVIEW_SCHEMA_IDS.result, value).length === 0;
+  const q = (exact: string) => ({ type: "quote", exact });
+  const one = (target: unknown, body: unknown = { text: "x" }, id: unknown = "u-1") => ({
+    annotations: [{ id, target, body }],
+  });
+  const SAMPLES: readonly unknown[] = [
+    ...Object.values(DOCUMENT_REVIEW_RESULTS),
+    one({ selector: q("a") }),
+    one({
+      selector: { type: "quote", exact: "a", prefix: "p".repeat(200), suffix: "s".repeat(200) },
+    }),
+    one({ selector: { type: "quote", exact: "a", prefix: "p".repeat(201) } }),
+    one({ selector: { type: "quote", exact: "a", suffix: "s".repeat(201) } }),
+    one({ selector: { type: "quote", exact: "x".repeat(2000) } }),
+    one({ selector: { type: "quote", exact: "x".repeat(2001) } }),
+    one({ selector: { type: "quote", exact: "😀".repeat(2000) } }),
+    one({ selector: { type: "quote", exact: "😀".repeat(2001) } }),
+    one({ selector: { type: "quote", exact: "" } }),
+    one({ selector: { type: "quote" } }),
+    one({ selector: { type: "quote", exact: "a", extra: 1 } }),
+    one({ selector: { type: "quote", exact: 3 } }),
+    one({ selector: { type: "position", start: 0, end: 1 } }),
+    one({ selector: { type: "css" } }),
+    one({ selector: {} }),
+    one({ selector: q("a"), extra: 1 }),
+    one({}),
+    one(null),
+    one({ selector: q("a") }, { replacement: "" }),
+    one({ selector: q("a") }, { replacement: "r".repeat(4000) }),
+    one({ selector: q("a") }, { replacement: "r".repeat(4001) }),
+    one({ selector: q("a") }, { replacement: "😀".repeat(4000) }),
+    one({ selector: q("a") }, { replacement: "😀".repeat(4001) }),
+    one({ selector: q("a") }, { replacement: 3 }),
+    one({ selector: q("a") }, { text: "" }),
+    one({ selector: q("a") }, { text: "t".repeat(2000), replacement: "r" }),
+    one({ selector: q("a") }, { text: "t".repeat(2001) }),
+    one({ selector: q("a") }, {}),
+    one({ selector: q("a") }, []),
+    one({ selector: q("a") }, null),
+    one({ selector: q("a") }, { text: "x", motivation: "m" }),
+    one({ selector: q("a") }, { text: "x" }, "c1"),
+    one({ selector: q("a") }, { text: "x" }, "u-1 2"),
+    one({ selector: q("a") }, { text: "x" }, `u-${"x".repeat(62)}`),
+    one({ selector: q("a") }, { text: "x" }, `u-${"x".repeat(63)}`),
+    one({ selector: q("a") }, { text: "x" }, ""),
+    one({ selector: q("a") }, { text: "x" }, 3),
+    { annotations: [] },
+    { annotations: "a" },
+    { annotations: [null] },
+    { annotations: [[]] },
+    { other: 1 },
+    {},
+    [],
+    null,
+    "annotations",
+    3,
+    ...EMPTY_RESULTS.map(([, value]) => value),
+  ];
+
+  test("on the scenarios' results, the limits and the empty values", () => {
+    for (const sample of SAMPLES) {
+      expect(documentReviewResultShape(sample), JSON.stringify(sample)).toBe(validate(sample));
+    }
+  });
+
+  test("on a result of 100 and of 101 annotations", () => {
+    const many = (count: number) => ({
+      annotations: Array.from({ length: count }, (_, at) => ({
+        id: `u-${at + 1}`,
+        target: { selector: q("a") },
+        body: { text: "x" },
+      })),
+    });
+    for (const count of [1, 99, 100, 101]) {
+      expect(documentReviewResultShape(many(count)), `${count}`).toBe(validate(many(count)));
+    }
+  });
+});
+
+describe("the Document review's result in the registry's own check", () => {
+  test("passes over the registry holding it, result-empty included", () => {
+    expect(widgetRegistryProblems(TYPES)).toEqual([]);
+    expect(DOCUMENT_REVIEW_WIDGET.result?.schema.$id).toBe(DOCUMENT_REVIEW_SCHEMA_IDS.result);
+    expect(DOCUMENT_REVIEW_SCHEMA_IDS.result).toBe("urn:askboard:output:document-review-result");
+    expect(DOCUMENT_REVIEW_WIDGET.result?.shape).toBe(documentReviewResultShape);
+    expect(DOCUMENT_REVIEW_WIDGET.result?.problems).toBe(documentReviewResultProblems);
+    expect(DOCUMENT_REVIEW_WIDGET.result?.answerProblems).toBeUndefined();
+    expect(DOCUMENT_REVIEW_WIDGET.fieldCheck).toBeUndefined();
+  });
+
+  // Task 6.3 registers the entry and flips the first assertion.
+  test("the entry is not registered before task 6.3, and the fixtures hold it", () => {
+    expect(WIDGET_TYPES).not.toContain(DOCUMENT_REVIEW_WIDGET);
+    expect(TYPES).toContain(DOCUMENT_REVIEW_WIDGET);
+    expect(DOCUMENT_REVIEW_TYPES).toEqual([DOCUMENT_REVIEW_WIDGET]);
   });
 });

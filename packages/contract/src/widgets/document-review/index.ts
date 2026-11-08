@@ -4,10 +4,15 @@
 
 export { documentReviewPropsProblems } from "./checks.ts";
 export {
+  DOCUMENT_REVIEW_ANNOTATIONS_MAX,
   DOCUMENT_REVIEW_MAX_CHARS,
   DOCUMENT_REVIEW_SCHEMA_IDS,
   DOCUMENT_REVIEW_TITLE_MAX_CHARS,
+  type DocumentReviewAnnotation,
   type DocumentReviewItem,
   type DocumentReviewProps,
+  type DocumentReviewQuote,
+  type DocumentReviewResult,
 } from "./constants.ts";
+export { documentReviewResultProblems, documentReviewResultShape } from "./result-checks.ts";
 export { DOCUMENT_REVIEW_WIDGET } from "./widget.ts";

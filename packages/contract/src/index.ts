@@ -1041,11 +1041,17 @@ export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";
 
 export { isEscapedCodePoint } from "./push/notice-text.ts";
 export {
+  DOCUMENT_REVIEW_ANNOTATIONS_MAX,
   DOCUMENT_REVIEW_MAX_CHARS,
   DOCUMENT_REVIEW_SCHEMA_IDS,
   DOCUMENT_REVIEW_TITLE_MAX_CHARS,
   DOCUMENT_REVIEW_WIDGET,
+  type DocumentReviewAnnotation,
   type DocumentReviewItem,
   type DocumentReviewProps,
+  type DocumentReviewQuote,
+  type DocumentReviewResult,
   documentReviewPropsProblems,
+  documentReviewResultProblems,
+  documentReviewResultShape,
 } from "./widgets/document-review/index.ts";
