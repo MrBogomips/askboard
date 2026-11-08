@@ -422,6 +422,8 @@ export const dropWork = (
   board.forget(question.id);
 };
 
+const NO_READ_ONLY: ReadonlySet<string> = new Set();
+
 /** "Reload, losing my work": the choice at once, and the question's draft goes (FR-6). */
 export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): void => {
   sendActs(context, [
@@ -436,11 +438,15 @@ export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): 
  * current one: a result the draft holds that `shown` refuses, as when the page was reloaded after
  * the agent's change and shows the new props, is dropped, and its item shows as untouched
  * (approval-scale-ranking, pre-PR reviews, "A draft holds only results its items accept").
+ * `readOnlyItems` are the items the card makes read-only (`readOnlyItemsOf`): the cell entries a
+ * Table among them holds are dropped, since the user can no longer correct them and a held entry
+ * blocks "Answer" (table-widget, review 8.3c; keep-mine-shown-revision, decision 3).
  */
 export const keepMine = (
   question: ViewQuestion,
   context: AnswerContext,
   shown: ViewQuestion = question,
+  readOnlyItems: ReadonlySet<string> = NO_READ_ONLY,
 ): void => {
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
@@ -464,7 +470,7 @@ export const keepMine = (
   for (const itemId of cellEntryIdsOf(shown)) {
     const held = cellEntries?.valueOf(itemId);
     if (!(held instanceof Map)) continue;
-    if (dropped.has(itemId)) {
+    if (dropped.has(itemId) || readOnlyItems.has(itemId)) {
       cellEntries?.set(itemId, undefined);
       continue;
     }

@@ -197,7 +197,11 @@ export const RenderItem = ({
   const record = useSyncExternalStore(draft.subscribe, draft.record, draft.record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record, results.record);
   const heldEntries = useSyncExternalStore(entries.subscribe, entries.record, entries.record);
-  const heldCells = useSyncExternalStore(cellEntries.subscribe, cellEntries.record);
+  const heldCells = useSyncExternalStore(
+    cellEntries.subscribe,
+    cellEntries.record,
+    cellEntries.record,
+  );
   const board = withEntries(
     boardContent(record),
     entriesWithCells(heldEntries, heldCells),

@@ -143,6 +143,12 @@ export const itemCallbacks = ({
     results?.set(itemId, undefined);
   },
   onCellEntriesChange: (entries) => {
+    // A Table the card makes read-only takes no cell entry either: nothing could correct it, and a
+    // held entry blocks "Answer" (table-widget, review 8.3c; keep-mine-shown-revision, decision 3).
+    if (readOnlyItems?.has(itemId) === true) {
+      refuseWrite(itemId, [itemId]);
+      return;
+    }
     if (cellEntries === undefined) return;
     if (!(entries instanceof Map) || !cellEntriesAllowed) {
       onError(

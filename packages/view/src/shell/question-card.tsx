@@ -512,7 +512,7 @@ export const QuestionCard = (props: CardProps) => {
           stake={changesLabel(changeCountOf(shown, values, work, results), language)}
           busy={!usable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
-          onKeep={() => keepMine(question, acting, shown)}
+          onKeep={() => keepMine(question, acting, shown, readOnlyItems)}
         />
       ) : null}
       {reopened?.previous === undefined ? null : (

@@ -3,10 +3,11 @@
 // entries block "Answer", An agent's change to a Table): the Table of roles asked, a rate lowered,
 // a row added and filled and one deleted, answered and read through `collect` with its changes and
 // derived values and through `fetch`; a cell entry blocking "Answer" across a reload; the agent's
-// `update` with "Keep mine" (the answer names revision 1) and with "Reload"; a Table nested in a
-// Group answered; a caption, a header and a text cell of 200 characters wrapped at 1,280 pixels
-// (task 7.3); a misspelt column formula warned once in the `ask` result and shown once over the
-// grid. Each real `collect` and `fetch` result passes its schema.
+// `update` with "Keep mine" (the answer names revision 1) and with "Reload"; a Table holding an
+// entry after a reload, read-only with the line, its entry dropped by "Keep mine"
+// (keep-mine-shown-revision); a Table nested in a Group answered; a caption, a header and a text cell of 200 characters wrapped
+// at 1,280 pixels (task 7.3); a misspelt column formula warned once in the `ask` result and shown
+// once over the grid. Each real `collect` and `fetch` result passes its schema.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/table-session.browser.ts
 
@@ -253,6 +254,70 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // The choice is the only event: nothing of the Table is answered.
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["edit-choice"]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "after a reload a Table holding a cell entry is read-only with the line, takes no edit and no entry, and Keep mine drops the entry: Answer sends the TextField alone, naming revision 1, with no derived value",
+      async () => {
+        const run = await start(
+          lifecycleScenario(
+            atomAsk([tableItem(), tableTextField()], { askId: "table-keep-r5w3" }),
+            dist,
+          ),
+        );
+        const board = await openBoard(run, ["plan"]);
+        const table = tableGridOf(board);
+        await typeInCell(board, table, "dev", "days", "Days, row 2", "oops");
+        await cellOf(table, "pm", "role").click();
+        await board.view.getByLabel("Existing draft", { exact: true }).fill("Ada");
+        await eventually(
+          () =>
+            draftHolds(run).entries !== undefined &&
+            JSON.stringify(lastRecord(run)).includes("Ada"),
+          "the Table's work and the field mirrored",
+        );
+        await run.session.update(changeCosts(engineerProps()));
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reloaded(board, run);
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const again = tableGridOf(board);
+        const line = board.view.locator('[data-askboard-read-only="costs"]');
+        await line.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await line.textContent()).toContain("Read-only: your work");
+        // No edit is taken: no editor opens, whichever key asks for one, and no cell changes.
+        const shown = await cellText(again, "pm", "rate");
+        await cellOf(again, "pm", "rate").click();
+        for (const key of ["Enter", "F2"]) {
+          await board.page.keyboard.press(key);
+          await board.page.keyboard.type("1");
+          await board.page.keyboard.press("Enter");
+        }
+        expect(await again.frame.getByRole("textbox").count()).toBe(0);
+        expect(await cellText(again, "pm", "rate")).toBe(shown);
+        await notice(board).getByRole("button", { name: "Keep mine" }).click();
+        await notice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        // The line stays, the held entry is gone, and nothing blocks Answer.
+        expect(await line.count()).toBe(1);
+        expect(await again.frame.locator("[data-entry]").count()).toBe(0);
+        await eventually(
+          async () => draftHolds(run).value === undefined && draftHolds(run).entries === undefined,
+          "the Table's draft and its entries gone",
+        );
+        await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events.map((event) => `${event.type}:${event.rev}`)).toEqual([
+          "edit-choice:2",
+          "answer:1",
+        ]);
+        expect(events[0]).toMatchObject({ edit: "ignore", keptRev: 1 });
+        expect(events[1]?.results).toEqual({ kept: "Ada" });
+        expect(events[1]?.changes ?? []).toEqual([]);
+        expect(Object.hasOwn(events[1] ?? {}, "derived")).toBe(false);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

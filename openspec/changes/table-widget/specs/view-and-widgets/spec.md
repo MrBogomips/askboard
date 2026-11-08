@@ -128,11 +128,15 @@ A changed cell SHALL take the change highlight, an added row too; a formula cell
 - **THEN** that cell takes the change highlight, `pm`'s amount and the amount total take the derived mark, and the counter reads "Your changes: 1"
 
 ### Requirement: The Table's answer from the board
-"Answer" SHALL send the Table's full edited value when it differs from the agent's, and the Table's derived values by the contract's rule, changed or not; an untouched Table sends no value. A board-made answer SHALL never hold a cell entry (AD-10, AD-20, FR-12).
+"Answer" SHALL send the Table's full edited value when it differs from the agent's and, when the answer names the question's current revision, the Table's derived values by the contract's rule, changed or not; an untouched Table sends no value. A board-made answer SHALL never hold a cell entry (AD-10, AD-20, FR-12).
 
 #### Scenario: Answered after an edit
 - **WHEN** the user lowers `pm`'s rate to "960.00" and presses "Answer"
 - **THEN** the answer message holds the edited rows and the derived values `costs.days`, `costs.amount` and `costs.pm.amount`, and the Table turns read-only
+
+#### Scenario: Answered on a kept earlier revision
+- **WHEN** the user kept work on an earlier revision through "Keep mine" and presses "Answer"
+- **THEN** the answer message names that revision and holds no derived value of the Table
 
 ### Requirement: The Table at the keyboard
 In the grid, the arrow keys SHALL move the current cell, Home and End to its row's first and last cell; on an on/off cell Space, Enter or F2 SHALL switch it and Delete or Backspace return it to not set; the current cell SHALL be marked and focused visibly. The toolbar SHALL be its own Tab stop. Every edit, row added or deleted SHALL be reachable from the keyboard (NFR-12).
@@ -158,6 +162,13 @@ On "Keep mine", the shell SHALL keep a Table's draft and its cell entries on the
 #### Scenario: The agent drops a column
 - **WHEN** the user has lowered `pm`'s rate, the agent's update removes the `rate` column, the tab reloads, and the user chooses "Keep mine"
 - **THEN** the Table shows the agent's new revision, untouched, and its draft and cell entries are gone; without a reload, the lowered rate is kept on the revision it was made on
+
+### Requirement: A Table on a revision the board cannot show
+A Table the card shows on a revision other than the one its work was made on, as after a reload, SHALL be read-only with the line (keep-mine-shown-revision): it takes no cell write and no cell entry, and "Keep mine" SHALL drop the cell entries it holds even where it holds no value, so that none blocks "Answer" on a Table the user cannot edit (FR-6, AD-10, NFR-10).
+
+#### Scenario: A cell entry held across a reload
+- **WHEN** the user has typed text a cell cannot read in `dev`'s days, the agent's update changes the question, the tab reloads and the user chooses "Keep mine"
+- **THEN** the Table is read-only with the line and takes no cell write and no cell entry, the held entry is gone, "Answer" is not blocked by it, and the answer names the kept revision with no derived value
 
 ### Requirement: Agent and user text wraps in a Table
 The caption, every header and every text cell SHALL wrap a word of 200 characters with no space inside the widget frame at DESIGN's 1,280-pixel floor; a grid wider than the frame SHALL scroll inside it, never widening the board (DESIGN Wide widgets, NFR-12).

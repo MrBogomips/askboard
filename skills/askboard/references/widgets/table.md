@@ -26,7 +26,7 @@ Item type `table`: props are a Table's props {columns, rows, label?, fixedRows?}
 ## In the answer
 
 - Edits: `changes` lists what the user changed, one operation for each, naming an element by its ID in `target` (`<item>.<element>` or `<item>.<element>.<field>`). Only what changed is sent; `fetch` returns the whole item.
-- Derived: `derived` carries each total, `item.field`, and each formula column's field of a row, `item.row.field`, by address; never compute them.
+- Derived: `derived` carries each total, `item.field`, and each formula column's field of a row, `item.row.field`, by address, none in an answer naming an earlier revision (see answers); never compute them.
 
 ## Example
 
