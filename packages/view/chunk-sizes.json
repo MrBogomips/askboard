@@ -4,7 +4,7 @@
   "board-page": 979729,
   "chart": 595019,
   "choice": 18035,
-  "compute": 43620,
+  "compute": 43928,
   "context": 14926,
   "date-field": 95436,
   "divider": 3176,
@@ -24,12 +24,12 @@
   "scale": 18440,
   "shell": 188069,
   "stack": 2561,
-  "table": 79016,
+  "table": 79122,
   "tabs": 7961,
   "text": 150006,
   "text-field": 17332,
   "timeline": 34588,
   "toggle": 10402,
-  "tree": 81641,
+  "tree": 82065,
   "value": 11721
 }

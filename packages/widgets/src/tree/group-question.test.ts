@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement, type KeyboardEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { QUESTION_ROW } from "./classes.ts";
+import { GROUP_QUESTION_ROW } from "./classes.ts";
 import { focusOnMount, GroupQuestion, questionKeyDown } from "./group-question.tsx";
 import type { GroupQuestion as Question } from "./grouping.ts";
 
@@ -27,7 +27,7 @@ describe("the group question", () => {
     const html = draw(PORTAL);
     const id = /<p id="([^"]+)"/.exec(html)?.[1];
     expect(id).toBeDefined();
-    expect(html).toContain(`<fieldset aria-labelledby="${id}" class="${QUESTION_ROW}">`);
+    expect(html).toContain(`<fieldset aria-labelledby="${id}" class="${GROUP_QUESTION_ROW}">`);
     const words = html.replace(/<[^>]+>/g, "");
     expect(words).toContain(
       "“Customer portal” becomes a group: its estimates leave the totals while it has children, and its task leaves the plan. 1 task in the plan depends on it.",

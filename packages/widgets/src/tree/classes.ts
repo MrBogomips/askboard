@@ -9,9 +9,16 @@ import type { TreeColumnType } from "@askboard/contract";
 /** The bordered frame around the toolbar row and the grid. */
 export const FRAME = "flex flex-col rounded-md border border-border bg-card";
 
-/** The toolbar row on `muted`, `spacing.toolbar-row` high, above the grid. */
+/**
+ * The toolbar row on `muted`, at least `spacing.toolbar-row` high, above the grid: it grows for a
+ * question that wraps and returns to its floor once the question closes.
+ */
 export const TOOLBAR =
-  "flex h-[32px] items-center gap-2 rounded-t-md border-b border-border bg-muted px-2";
+  "flex min-h-[32px] items-center gap-2 rounded-t-md border-b border-border bg-muted px-2";
+
+/** The same row while the group question shows: its lines start at the top, with the counter on the first. */
+export const TOOLBAR_GROUP =
+  "flex min-h-[32px] items-start gap-2 rounded-t-md border-b border-border bg-muted px-2 py-1";
 
 /** The tools, on the toolbar row's left. */
 export const TOOLS = "flex shrink-0 items-center gap-[4px]";
@@ -30,6 +37,19 @@ export const TOOL =
 export const QUESTION = "flex min-w-0 items-center gap-[4px] text-control text-foreground";
 
 export const QUESTION_NAME = "min-w-0 truncate";
+
+/**
+ * The group question, a long catalog sentence, in the toolbar row: its `fieldset` a column that
+ * takes the row's width, the sentence a paragraph that wraps (the leaf's name first and whole, then
+ * the words, nothing `shrink-0` or truncated), and the buttons on a line of their own under it
+ * (wbs-gantt-consistency, review 3.3 S-1).
+ */
+export const GROUP_QUESTION_ROW = "flex min-w-0 flex-1 flex-col gap-1";
+
+export const GROUP_QUESTION =
+  "min-w-0 text-control whitespace-normal text-foreground [overflow-wrap:anywhere]";
+
+export const GROUP_QUESTION_BUTTONS = "flex items-center gap-2";
 
 /** The question's `fieldset`, in the tools' place, which would otherwise keep its content's width. */
 export const QUESTION_ROW = "flex min-w-0 items-center gap-2";

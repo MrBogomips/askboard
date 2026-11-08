@@ -3,11 +3,13 @@
 // in the toolbar row in place of the tools, never a modal dialog, a group as a `fieldset` named by
 // its words. It names the leaf, says what leaves with it and how many tasks depend on it, and opens
 // with the focus on "Cancel"; Escape is "Cancel". It stays until the user answers it, and nothing
-// changes before "Continue". The leaf's name is text, never markup (AD-8).
+// changes before "Continue". Its sentence is long, so it wraps in a column with the leaf's name
+// first and whole and the buttons on a line under it (decision 2, Layout; review 3.3 S-1). The
+// leaf's name is text, never markup (AD-8).
 
 import { useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useId } from "react";
-import { QUESTION, QUESTION_NAME, QUESTION_REST, QUESTION_ROW, TOOL } from "./classes.ts";
+import { GROUP_QUESTION, GROUP_QUESTION_BUTTONS, GROUP_QUESTION_ROW, TOOL } from "./classes.ts";
 import { groupedWith, type GroupQuestion as Question } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { keyAction } from "./model/keys.ts";
@@ -40,17 +42,22 @@ export const GroupQuestion = ({
   const id = useId();
 
   return (
-    <fieldset aria-labelledby={id} className={QUESTION_ROW} onKeyDown={questionKeyDown(onCancel)}>
-      <p id={id} className={QUESTION}>
-        <span className={QUESTION_NAME}>“{question.label}”</span>{" "}
-        <span className={QUESTION_REST}>{groupedWith(question, text)}</span>
+    <fieldset
+      aria-labelledby={id}
+      className={GROUP_QUESTION_ROW}
+      onKeyDown={questionKeyDown(onCancel)}
+    >
+      <p id={id} className={GROUP_QUESTION}>
+        <span>“{question.label}”</span> <span>{groupedWith(question, text)}</span>
       </p>
-      <button ref={focusOnMount} type="button" className={TOOL} onClick={onCancel}>
-        {text("tree.group.cancel")}
-      </button>
-      <button type="button" className={TOOL} onClick={onConfirm}>
-        {text("tree.group.continue")}
-      </button>
+      <div className={GROUP_QUESTION_BUTTONS}>
+        <button ref={focusOnMount} type="button" className={TOOL} onClick={onCancel}>
+          {text("tree.group.cancel")}
+        </button>
+        <button type="button" className={TOOL} onClick={onConfirm}>
+          {text("tree.group.continue")}
+        </button>
+      </div>
     </fieldset>
   );
 };

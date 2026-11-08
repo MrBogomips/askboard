@@ -13,7 +13,7 @@ import {
   type TreeNode,
   type TreePertProps,
 } from "@askboard/contract";
-import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
+import { plainChoiceBoardDocument, uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import type { Locator } from "playwright";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import type { AnswerContent, ViewDraft } from "../../../src/view-protocol.ts";
@@ -178,4 +178,49 @@ export const answeredStateOf = (values: Readonly<Record<string, unknown>>): Life
 export const draftValues = (run: WidgetHostRun): Readonly<Record<string, unknown>> => {
   const last = run.drafts.at(-1) as ViewDraft | undefined;
   return last?.record.questions[wbsQuestion.id]?.values ?? {};
+};
+
+// The documents of the group question's layout (wbs-gantt-consistency, review 3.3 S-1): the UJ-2
+// Tree and plan in one Row, which narrows the Tree's toolbar to about half the card; the UJ-2
+// question beside a second one, which shows the outline rail; and the portal with a long name.
+
+/** The UJ-2 Tree and plan in a Row of one question: each takes about half of the card. */
+export const rowDocument: ViewDocument = {
+  ...uj2ExpandedBoardDocument,
+  items: [
+    {
+      ...wbsQuestion,
+      props: {
+        ...wbsQuestion.props,
+        items: [{ type: "row", id: "wbs-row", props: { items: [wbsTree, wbsPlan] } }],
+      },
+    },
+  ],
+} as unknown as ViewDocument;
+
+/** The UJ-2 question and a second question, in sections: the board shows its outline rail. */
+export const railDocument: ViewDocument = {
+  ...uj2ExpandedBoardDocument,
+  items: [...uj2ExpandedBoardDocument.items, { ...plainChoiceBoardDocument.items[0], rev: 1 }],
+} as unknown as ViewDocument;
+
+/** The Row document with the portal's label `label` (at most 200 characters). */
+export const rowPortalNamedDocument = (label: string): ViewDocument => {
+  const [row] = (rowDocument.items[0] as unknown as { props: { items: unknown[] } }).props.items;
+  const named = {
+    ...(row as Record<string, unknown>),
+    props: {
+      items: [
+        {
+          ...wbsTree,
+          props: { ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "portal", label) },
+        },
+        wbsPlan,
+      ],
+    },
+  };
+  return {
+    ...rowDocument,
+    items: [{ ...wbsQuestion, props: { ...wbsQuestion.props, items: [named] } }],
+  } as unknown as ViewDocument;
 };

@@ -27,6 +27,7 @@ import {
   STATUS,
   TOOL,
   TOOLBAR,
+  TOOLBAR_GROUP,
   TOOLS,
 } from "./classes.ts";
 import { DeleteQuestion } from "./delete-question.tsx";
@@ -342,7 +343,7 @@ export const TreeToolbar = ({
     </div>
   );
   return (
-    <div ref={ref} className={TOOLBAR}>
+    <div ref={ref} className={asking?.kind === "group" ? TOOLBAR_GROUP : TOOLBAR}>
       {asking === undefined ? tools : <AskedQuestion key={asking.key} asking={asking} />}
       <div className={STATUS}>
         {count === 0 ? null : (

@@ -24,6 +24,9 @@ import {
   planWith,
   portalUnderBillingDocument,
   portalWithChildDocument,
+  railDocument,
+  rowDocument,
+  rowPortalNamedDocument,
   totalRow,
   wbsPlan,
   wbsTree,
@@ -36,6 +39,7 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { expectWrapped, groupLayout } from "./harness/group-layout.ts";
 import { dragDrop, ZONE } from "./harness/tree-drag.ts";
 import {
   deleteQuestion,
@@ -633,6 +637,63 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await run.board.page.keyboard.press("Escape");
         await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  // View spec, "The group question's layout" ("At the viewport floor"; review 3.3 S-1): at 1,280 px
+  // the sentence wraps with the leaf's name whole, "Cancel" and "Continue" under it, and the toolbar
+  // row grows to hold it. The window is the harness's 1,280 x 800.
+  describe(`${engine}: the group question's layout at the viewport floor`, () => {
+    const { host } = useWidgetHost(engine);
+
+    /** Drops billing into the portal on `document` and measures the question that opens. */
+    const askedOn = async (document: ViewDocument, message?: string) => {
+      const run = await host(dist, document);
+      await readyIn(run);
+      const tree = treeGridOf(run.board);
+      await dragDrop(run.board, tree, "billing", "portal", ZONE.into);
+      await askedGroup(run, message);
+      return { run, layout: await groupLayout(run.board) };
+    };
+
+    test(
+      "the Tree and plan in a Row: the name is whole, no words run under a button or past the toolbar row",
+      async () => {
+        const { layout } = await askedOn(rowDocument, PORTAL_GROUP);
+        expectWrapped(layout);
+        expect(layout.lines).toBeGreaterThan(1);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the question beside a second one, with the outline rail: the same",
+      async () => {
+        const { run, layout } = await askedOn(railDocument, PORTAL_GROUP);
+        expect(await run.board.view.getByRole("navigation", { name: "Outline" }).count()).toBe(1);
+        expectWrapped(layout);
+        expect(layout.toolbarWidth).toBeGreaterThan(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "in Italian, in a Row: the same",
+      async () => {
+        const italian = { ...rowDocument, language: "it-IT" } as unknown as ViewDocument;
+        const { layout } = await askedOn(italian, ITALIAN_GROUP);
+        expectWrapped(layout);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a leaf named with 200 characters and no space: the name wraps inside its paragraph",
+      async () => {
+        const { layout } = await askedOn(rowPortalNamedDocument("P".repeat(200)));
+        expectWrapped(layout);
       },
       TEST_TIMEOUT_MS,
     );
