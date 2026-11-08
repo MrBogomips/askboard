@@ -146,11 +146,11 @@ An answered, locked or Snapshot Table SHALL show its rows, totals and formula ce
 - **THEN** it shows `pm`'s rate "$960.00" with the change highlight, the totals of the edited rows, and makes no request
 
 ### Requirement: An agent's change to a Table
-On "Keep mine", the shell SHALL keep a Table's draft only while its columns, `label` and `fixedRows` equal the new revision's and every cell passes its check there, else drop it with its cell entries; "Reload" drops both (AD-10, AD-20).
+On "Keep mine", the shell SHALL keep a Table's draft and its cell entries on the revision the work was made on, and SHALL drop both when the card shows a revision other than that one, as after a reload, or one that cannot show the draft; the Table then shows the agent's props untouched. "Reload" drops both (FR-6, AD-10, AD-20).
 
 #### Scenario: The agent drops a column
-- **WHEN** the user has lowered `pm`'s rate, the agent's update removes the `rate` column, and the user chooses "Keep mine"
-- **THEN** the Table shows the agent's new revision, untouched, and its draft is gone
+- **WHEN** the user has lowered `pm`'s rate, the agent's update removes the `rate` column, the tab reloads, and the user chooses "Keep mine"
+- **THEN** the Table shows the agent's new revision, untouched, and its draft and cell entries are gone; without a reload, the lowered rate is kept on the revision it was made on
 
 ### Requirement: Agent and user text wraps in a Table
 The caption, every header and every text cell SHALL wrap a word of 200 characters with no space inside the widget frame at DESIGN's 1,280-pixel floor; a grid wider than the frame SHALL scroll inside it, never widening the board (DESIGN Wide widgets, NFR-12).
