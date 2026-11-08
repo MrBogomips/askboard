@@ -112,7 +112,7 @@ describe("a Table asked through the shipped AskCore", () => {
           rev: 1,
           when: WHEN,
           values: { costs: lowered },
-          derived: { "costs.pm.amount": 17280, "costs.amount": 69120, "costs.days": 90 },
+          derived: { "costs.pm.amount": "17280.00", "costs.amount": "69120.00", "costs.days": 90 },
         },
       ],
     } as unknown as Act);
@@ -122,6 +122,7 @@ describe("a Table asked through the shipped AskCore", () => {
     expect(event).toMatchObject({
       type: "answer",
       changes: [{ op: "set", target: "costs.pm.rate", value: "960.00" }],
+      derived: { "costs.pm.amount": "17280.00", "costs.amount": "69120.00", "costs.days": 90 },
     });
   });
 });
