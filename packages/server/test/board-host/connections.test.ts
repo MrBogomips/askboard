@@ -122,6 +122,37 @@ describe("connections reported to the core", () => {
   });
 });
 
+// Board-host spec, Board protocol over a WebSocket (reopen-start-from-answer, design decision 9):
+// the held draft record goes after the board document and before the state, so the board page
+// hands the view the restore with the first state.
+describe("the opening's order", () => {
+  test("a held draft record goes between the board document and the state", async () => {
+    const fake = fakeHostCore({ draft: draftOf("held before") });
+    const { host, open } = await hostOf(fake);
+    try {
+      const tab = await open();
+      expect(await tab.next()).toMatchObject({ type: "board" });
+      expect(await tab.next()).toEqual(draftMessage(draftOf("held before")));
+      expect(await tab.next()).toMatchObject({ type: "state" });
+    } finally {
+      await host.close();
+    }
+  });
+
+  test("a board with no record gets the board document and the state, and no draft message", async () => {
+    const fake = fakeHostCore();
+    const { host, open } = await hostOf(fake);
+    try {
+      const tab = await open();
+      expect(await types(tab, 2)).toEqual(["board", "state"]);
+      await Bun.sleep(30);
+      expect(tab.pending).toEqual([]);
+    } finally {
+      await host.close();
+    }
+  });
+});
+
 describe("the takeover flush", () => {
   test("the older tab's draft within the wait is held, ends the wait, and reaches the new tab", async () => {
     const fake = fakeHostCore();
@@ -136,8 +167,9 @@ describe("the takeover flush", () => {
       first.send(draftMessage(draftOf("its last draft")));
       expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
       expect(Date.now() - started).toBeLessThan(TAKEOVER_FLUSH_WAIT_MS);
-      expect(await types(second, 2)).toEqual(["board", "state"]);
+      expect(await second.next()).toMatchObject({ type: "board" });
       expect(await second.next()).toEqual(draftMessage(draftOf("its last draft")));
+      expect(await second.next()).toMatchObject({ type: "state" });
       expect(fake.draft).toEqual(draftOf("its last draft"));
     } finally {
       await host.close();
@@ -155,7 +187,7 @@ describe("the takeover flush", () => {
       await Bun.sleep(30);
       expect(second.pending).toEqual([]);
       expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
-      expect(await types(second, 3)).toEqual(["board", "state", "draft"]);
+      expect(await types(second, 3)).toEqual(["board", "draft", "state"]);
     } finally {
       await host.close();
     }
@@ -224,7 +256,7 @@ describe("the takeover flush", () => {
       first.send(draftMessage({ ...draftOf("x"), questions: { "no-such-question": { rev: 1 } } }));
       expect(await first.next()).toMatchObject({ type: "refused", reason: "message" });
       expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
-      expect(await types(second, 3)).toEqual(["board", "state", "draft"]);
+      expect(await types(second, 3)).toEqual(["board", "draft", "state"]);
       expect(fake.draft).toEqual(draftOf("held before"));
     } finally {
       await host.close();
@@ -435,7 +467,7 @@ describe("a board gone past the grace period", () => {
       time.advance(GRACE_PERIOD_MS - 1);
       const back = await openSocket(port, LIFECYCLE.askId);
       back.send({ version, type: "connect", token });
-      expect(await types(back, 3)).toEqual(["board", "state", "draft"]);
+      expect(await types(back, 3)).toEqual(["board", "draft", "state"]);
       time.advance(GRACE_PERIOD_MS);
       expect(time.pending()).toBe(0);
       expect(fixture.core.lifecycleBoard(LIFECYCLE.askId)?.state).toBe("waiting");

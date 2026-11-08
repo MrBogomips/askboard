@@ -770,12 +770,15 @@ class BoardPageController implements BoardPage {
   }
 
   // board-host's draft record restores the board when the page has none of its own: after a
-  // reload, or in the tab that took the board over (AD-20, FR-25).
+  // reload, or in the tab that took the board over (AD-20, FR-25). board-host sends it before the
+  // state, so the view hears it only once the socket's state has come, with that state, never with
+  // a previous socket's (reopen-start-from-answer, design decision 9); a record after the state goes
+  // at once.
   #onDraft(record: DraftRecord): void {
     if (this.#viewDraft !== undefined) return;
     this.#restores += 1;
     this.#restore = { id: this.#restores, record };
-    this.#updateView();
+    if (this.#stateSeen) this.#updateView();
   }
 
   #retry(): void {

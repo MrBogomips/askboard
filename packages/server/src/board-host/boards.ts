@@ -580,19 +580,21 @@ export class Boards {
   }
 
   // The board's opening, in order, each part sent when it applies: the settings in effect, before
-  // the board they present (settings-languages, design decision 6); its document and state, then its
-  // unsent work when ask-core holds it, and the close when the ask is closed (ask-lifecycle); then
-  // who asked and where, and the agent status (push delivery, design decision 12).
+  // the board they present (settings-languages, design decision 6); its document, its unsent work
+  // when ask-core holds it, then its state, so the board page hands the view the restore with the
+  // first state (reopen-start-from-answer, design decision 9), and the close when the ask is closed
+  // (ask-lifecycle); then who asked and where, and the agent status (push delivery, design decision
+  // 12).
   readonly #openers: readonly Opener[] = [
     (connection, _board, settings) => {
       if (settings !== undefined) this.#send(connection, settingsMessage(settings));
     },
     (connection, board) => this.#send(connection, boardMessage(board)),
-    (connection) => this.#sendState(connection),
     (connection) => {
       const draft = this.#core.draftToRestore(connection.askId);
       if (draft !== undefined) this.#send(connection, draftMessage(draft));
     },
+    (connection) => this.#sendState(connection),
     (connection, board) => {
       if (board.closed !== undefined) this.#send(connection, closedMessage(board.closed));
     },
