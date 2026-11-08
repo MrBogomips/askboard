@@ -189,19 +189,23 @@ export const textFieldFieldCheck = (
 };
 
 // The patterns compiled so far, by text, at most `COMPILED_MAX`: the oldest goes first. A pattern
-// that does not compile is held as `null` and fails every text.
+// that does not compile is held as `null` and fails every text. A field's own props object keeps its
+// compiled pattern as well (`FIELD_LAST`), so this map only serves props objects it has not seen.
 const COMPILED_MAX = 64;
 const compiled = new Map<string, RegExp | null>();
+
+const compile = (pattern: string): RegExp | null => {
+  try {
+    return new RegExp(pattern, "u");
+  } catch {
+    return null;
+  }
+};
 
 const compiledPattern = (pattern: string): RegExp | null => {
   const known = compiled.get(pattern);
   if (known !== undefined) return known;
-  let regex: RegExp | null;
-  try {
-    regex = new RegExp(pattern, "u");
-  } catch {
-    regex = null;
-  }
+  const regex = compile(pattern);
   if (compiled.size >= COMPILED_MAX) {
     const oldest = compiled.keys().next();
     if (!oldest.done) compiled.delete(oldest.value);
@@ -211,22 +215,36 @@ const compiledPattern = (pattern: string): RegExp | null => {
 };
 
 // The outcome of each run, by pattern and text, at most `PATTERN_OUTCOMES_MAX`: the least recently
-// used goes first (form-widget, design decision 3: one pattern run per keystroke at most, since the
-// board's readers all ask the same question of the same text). A `Map`, never an object's keys, so
-// no text or pattern is a member name; the key is length-prefixed, so no two pairs share one.
+// used goes first. It serves a caller that holds no props object of its own to key on. A `Map`,
+// never an object's keys, so no text or pattern is a member name; the key is length-prefixed, so no
+// two pairs share one.
 export const PATTERN_OUTCOMES_MAX = 64;
 const outcomes = new Map<string, boolean>();
 let runs = 0;
 
+// The last pattern, compiled pattern, text and outcome of each field, by the field's props object
+// (form-widget, design decision 3; review X-1): the board hands every reader the document's own
+// objects, so the entry of each field stays however many fields the ask holds, and one keystroke
+// costs one run, for the field whose text changed. A `WeakMap` is bounded by the live document, so
+// it holds no more than the document does; the object is the key, never a text or a pattern. The
+// entry is used only while its pattern and text equal the call's.
+type FieldLast = {
+  readonly pattern: string;
+  readonly regex: RegExp | null;
+  text?: string;
+  holds?: boolean;
+};
+const FIELD_LAST = new WeakMap<object, FieldLast>();
+
 /** The pattern runs so far: a seam for tests, which count the runs without touching `RegExp`. */
 export const patternRunCount = (): number => runs;
 
-/** Forgets every kept outcome, for tests. */
+/** Forgets every kept outcome of the bounded memo, for tests. */
 export const clearPatternOutcomes = (): void => {
   outcomes.clear();
 };
 
-const patternHolds = (pattern: string, regex: RegExp, text: string): boolean => {
+const runPattern = (pattern: string, regex: RegExp, text: string): boolean => {
   const key = `${pattern.length}:${pattern}${text}`;
   const known = outcomes.get(key);
   if (known !== undefined) {
@@ -241,6 +259,25 @@ const patternHolds = (pattern: string, regex: RegExp, text: string): boolean => 
     if (!oldest.done) outcomes.delete(oldest.value);
   }
   outcomes.set(key, holds);
+  return holds;
+};
+
+// The field's entry for `pattern`, made when it holds none or holds another pattern's.
+const lastOf = (props: object, pattern: string): FieldLast => {
+  const known = FIELD_LAST.get(props);
+  if (known !== undefined && known.pattern === pattern) return known;
+  const made: FieldLast = { pattern, regex: compiledPattern(pattern) };
+  FIELD_LAST.set(props, made);
+  return made;
+};
+
+const patternHolds = (props: object, pattern: string, text: string): boolean => {
+  const last = lastOf(props, pattern);
+  if (last.regex === null) return false;
+  if (last.text === text && last.holds !== undefined) return last.holds;
+  const holds = runPattern(pattern, last.regex, text);
+  last.text = text;
+  last.holds = holds;
   return holds;
 };
 
@@ -263,7 +300,5 @@ export const textFieldPatternFailure = (
   // The cap is enforced here, where the pattern would pay for the text: a text over the field's
   // limit fails without running it, whatever the caller held (review X-1).
   if (codePointCount(result) > textFieldLimit(props)) return { code: "pattern" };
-  const regex = compiledPattern(pattern);
-  if (regex === null) return { code: "pattern" };
-  return patternHolds(pattern, regex, result) ? undefined : { code: "pattern" };
+  return patternHolds(props, pattern, result) ? undefined : { code: "pattern" };
 };

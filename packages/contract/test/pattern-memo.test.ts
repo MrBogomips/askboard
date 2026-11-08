@@ -115,3 +115,68 @@ describe("the memo is bounded", () => {
     }
   });
 });
+
+describe("the last outcome of each field is kept with its props object (review X-1)", () => {
+  // Past the memo's capacity, with a count the agent chooses: 200 fields, each with a pattern and
+  // a text of its own, read in the same order again and again (a cyclic scan misses every time in
+  // a memo one entry too small).
+  const FIELDS = 200;
+  const fields = Array.from({ length: FIELDS }, (_, at) => props(`^f${at}-\\d+$`));
+  const textOf = (at: number) => `f${at}-1`;
+  const readAll = () => {
+    for (let at = 0; at < FIELDS; at += 1) {
+      expect(textFieldPatternFailure(textOf(at), fields[at])).toBeUndefined();
+    }
+  };
+
+  test("200 fields read four times run each pattern once", () => {
+    const before = patternRunCount();
+    readAll();
+    expect(patternRunCount() - before).toBe(FIELDS);
+    for (let pass = 0; pass < 3; pass += 1) readAll();
+    expect(patternRunCount() - before).toBe(FIELDS);
+  });
+
+  test("a keystroke in one of 200 fields runs one pattern, and the next read of all runs none", () => {
+    readAll();
+    const before = patternRunCount();
+    expect(textFieldPatternFailure("f7-x", fields[7])).toEqual({ code: "pattern" });
+    for (let at = 0; at < FIELDS; at += 1) {
+      const text = at === 7 ? "f7-x" : textOf(at);
+      textFieldPatternFailure(text, fields[at]);
+    }
+    expect(patternRunCount() - before).toBe(1);
+  });
+
+  test("a props object whose pattern changed under the same identity is run again", () => {
+    const field = props("^a$");
+    expect(textFieldPatternFailure("a", field)).toBeUndefined();
+    field.pattern = "^b$";
+    expect(textFieldPatternFailure("a", field)).toEqual({ code: "pattern" });
+  });
+
+  test("a pattern that does not compile is kept with its object and never run", () => {
+    const field = props("(");
+    const before = patternRunCount();
+    for (let pass = 0; pass < 3; pass += 1) {
+      expect(textFieldPatternFailure("abc", field)).toEqual({ code: "pattern" });
+    }
+    expect(patternRunCount() - before).toBe(0);
+  });
+
+  test("a text over the limit still fails without a run, whatever the object kept", () => {
+    const field = props("^a+$");
+    expect(textFieldPatternFailure("aaa", field)).toBeUndefined();
+    const before = patternRunCount();
+    expect(textFieldPatternFailure("a".repeat(101), field)).toEqual({ code: "pattern" });
+    expect(patternRunCount() - before).toBe(0);
+    expect(textFieldPatternFailure("aaa", field)).toBeUndefined();
+  });
+
+  test("equal props in another object still share the bounded memo", () => {
+    const before = patternRunCount();
+    expect(textFieldPatternFailure("a", props("^a$"))).toBeUndefined();
+    expect(textFieldPatternFailure("a", props("^a$"))).toBeUndefined();
+    expect(patternRunCount() - before).toBe(1);
+  });
+});

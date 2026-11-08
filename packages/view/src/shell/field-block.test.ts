@@ -550,3 +550,59 @@ describe("a keystroke runs a field's pattern once (form-widget, task 3.5; design
     expect(patternRunCount() - before).toBe(0);
   });
 });
+
+describe("a keystroke in a form of 200 patterned fields runs one pattern (review X-1)", () => {
+  // The agent chooses the count: 200 filled TextFields, each with a pattern of its own, past the
+  // capacity of any bounded memo of (pattern, text), read by every reader of the shell.
+  const FIELDS = 200;
+  const ids = Array.from({ length: FIELDS }, (_, at) => `f${at}`);
+  const textOf = (at: number) => `f${at}-1`;
+  const items = ids.map(
+    (id, at) =>
+      ({
+        type: "text-field",
+        id,
+        props: { label: `Field ${at}`, pattern: `^f${at}-\\d+$`, required: true },
+      }) as unknown as WidgetItem,
+  );
+  const question = {
+    ...first,
+    id: "plan",
+    rev: 1,
+    props: { ...first.props, text: "Plan?", options: OPTIONS, items },
+  } as unknown as ViewQuestion;
+  const board = createBoardContent(() => ({
+    document: documentOf(question),
+    state: { ask: "waiting", questions: [] } as never,
+  }))(new Map());
+  const readers = (results: Map<string, unknown>) => {
+    withEntries(board, new Map(), results, factsOf);
+    holdsBlock(question, NONE, results, factsOf);
+    answerHint(question, NONE, results, "en-US", factsOf);
+    fieldBlock(question, NONE, results, factsOf);
+    for (const item of items) factsOf(item.type)?.check?.(results.get(item.id), item.props);
+  };
+  const filled = (changed?: [string, string]) =>
+    new Map<string, unknown>(
+      ids.map((id, at) => [id, changed?.[0] === id ? changed[1] : textOf(at)]),
+    );
+
+  test("the first read runs each pattern once; four readers and a second read run none", () => {
+    const before = patternRunCount();
+    readers(filled());
+    expect(patternRunCount() - before).toBe(FIELDS);
+    readers(filled());
+    readers(filled());
+    expect(patternRunCount() - before).toBe(FIELDS);
+  });
+
+  test("one keystroke in one field runs that field's pattern once, whatever else the shell reads", () => {
+    readers(filled());
+    const before = patternRunCount();
+    readers(filled(["f150", "f150-12"]));
+    readers(filled(["f150", "f150-12"]));
+    expect(patternRunCount() - before).toBe(1);
+    readers(filled(["f150", "f150-x"]));
+    expect(patternRunCount() - before).toBe(2);
+  });
+});
