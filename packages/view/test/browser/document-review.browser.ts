@@ -10,9 +10,16 @@
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/document-review.browser.ts
 
 import { describe, expect, test } from "bun:test";
+import type { FrameLocator } from "playwright";
 import type { ViewDocument } from "../../src/view-document.ts";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
-import { HUNDRED_WORDS, NOTES, reviewDocument } from "./fixtures/document-review-documents.ts";
+import { atomDocument } from "./fixtures/atom-documents.ts";
+import {
+  HUNDRED_WORDS,
+  NOTES,
+  reviewDocument,
+  reviewItem,
+} from "./fixtures/document-review-documents.ts";
 import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
@@ -859,6 +866,267 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
       },
       TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: detached annotations block the answer`, () => {
+    const { host } = useWidgetHost(engine);
+
+    const hintOf = async (run: WidgetHostRun): Promise<string | undefined> => {
+      const id = await run.board.answer.getAttribute("aria-describedby");
+      return id === null
+        ? undefined
+        : ((await run.board.view.locator(`[id="${id}"]`).textContent()) ?? undefined);
+    };
+    const list = (view: FrameLocator) => view.getByRole("region", { name: "Detached comments" });
+    const KEPT = commentOn("u-1", "remembers", "How long?");
+    const DETACHED = commentOn("u-2", "a sentence the revision rewrote", "Gone.");
+
+    test(
+      "a comment whose passage the document no longer holds is listed as detached with Delete, Answer is disabled and the hint says to delete it; after Delete the hint is gone and Answer sends the rest",
+      async () => {
+        const document = reviewDocument(NOTES, "Release notes");
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [KEPT, DETACHED]);
+        const { view } = run.board;
+        await eventually(async () => (await list(view).count()) === 1, "the detached list");
+        expect(await marks(view).allTextContents()).toEqual(["remembers"]);
+        expect(await list(view).textContent()).toContain("a sentence the revision rewrote");
+        expect(await list(view).textContent()).toContain("Gone.");
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(await hintOf(run)).toBe("Delete the detached comments in Release notes first.");
+        await list(view)
+          .getByRole("button", { name: /^Delete/ })
+          .click();
+        await eventually(async () => (await list(view).count()) === 0, "the list gone");
+        await eventually(() => run.board.answer.isEnabled(), "Answer enabled");
+        expect(await hintOf(run)).toBeUndefined();
+        expect(await marks(view).count()).toBe(1);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "with no title the hint names the document",
+      async () => {
+        const document = reviewDocument();
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [DETACHED]);
+        await eventually(async () => (await list(run.board.view).count()) === 1, "the list");
+        expect(await hintOf(run)).toBe("Delete the detached comments in the document first.");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a passage the revision kept keeps its place, mark and pin, and nothing is listed",
+      async () => {
+        const revised = NOTES.replace(
+          "See the [docs](https://example.com/docs) for more.",
+          "Another paragraph.",
+        );
+        const document = reviewDocument(revised);
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [KEPT]);
+        const { view } = run.board;
+        await eventually(async () => (await marks(view).count()) === 1, "the mark");
+        expect(await pin(view, "Comment 1").count()).toBe(1);
+        expect(await list(view).count()).toBe(0);
+        expect(await run.board.answer.isEnabled()).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a repeated passage and an overlapping one are detached too, the later one, and a reload keeps the detached annotation and the block",
+      async () => {
+        const document = reviewDocument("ab ".repeat(100) + "end");
+        const run = await host(dist, document);
+        await readyIn(run);
+        const { view } = run.board;
+        await restoreAnnotations(run, document, [commentOn("u-1", "ab", "Which ab?")], 1);
+        await eventually(async () => (await list(view).count()) === 1, "the repeated one detached");
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        // A second restore, as a reload would give: the annotation and the block are still there.
+        await restoreAnnotations(run, document, [commentOn("u-1", "ab", "Which ab?")], 2);
+        await Bun.sleep(QUIET_MS);
+        expect(await list(view).count()).toBe(1);
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(await hintOf(run)).toBe("Delete the detached comments in the document first.");
+        // Nothing was sent to the agent.
+        expect(run.messages.filter((message) => message.type !== "ready")).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "inside a Tabs layout's tab that is not selected, a detached annotation marks its tab, and deleting it clears the mark",
+      async () => {
+        const tabs = {
+          type: "tabs",
+          id: "sections",
+          props: {
+            tabs: [
+              {
+                id: "first",
+                title: "First",
+                items: [{ type: "text-field", id: "who", props: { label: "Who" } }],
+              },
+              { id: "second", title: "Review", items: [reviewItem(NOTES)] },
+            ],
+          },
+        };
+        const document = atomDocument([tabs]);
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [DETACHED]);
+        const { view } = run.board;
+        const marked = view.getByRole("tab", { name: "Review needs a correction" });
+        await eventually(async () => (await marked.count()) === 1, "the mark on the second tab");
+        expect(await view.getByRole("tab", { name: "First" }).getAttribute("aria-selected")).toBe(
+          "true",
+        );
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        await marked.click();
+        await list(view)
+          .getByRole("button", { name: /^Delete/ })
+          .click();
+        await eventually(
+          async () =>
+            (await view.getByRole("tab", { name: "Review needs a correction" }).count()) === 0,
+          "the mark cleared",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+}
+
+// The cost of placing (document-review, task 6.4; review verdict 3 and task 5.8): 100 near-miss
+// quotes of 2,000 characters over one repeated character are placed once, and typing in a card
+// places nothing again, also with 32 Document reviews on the board. Chromium only, for the figures
+// the note gives task 8.1; the logic is engine-independent and tested in Bun.
+if (enginesFrom(process.env.ASKBOARD_E2E_ENGINES).includes("chromium")) {
+  describe("chromium: the cost of placing", () => {
+    const { host } = useWidgetHost("chromium");
+
+    // A document of one repeated character with a unique word first, and quotes that nearly occur.
+    const SOURCE = `word ${"x".repeat(5000)}`;
+    const nearMiss = (count: number, from = 2) =>
+      Array.from({ length: count }, (_, at) =>
+        commentOn(`u-${at + from}`, `${"x".repeat(1999)}y`, `Miss ${at}.`),
+      );
+    const typing = async (
+      run: WidgetHostRun,
+      reviewId: string,
+      first: boolean,
+    ): Promise<number> => {
+      const { view, page } = run.board;
+      const item = view.locator(`[data-askboard-item="${reviewId}"]`);
+      await item.getByRole("button", { name: "Comment 1", exact: true }).click();
+      await card(view).getByRole("button", { name: "Edit" }).click();
+      const field = card(view).getByLabel("Your comment");
+      await field.focus();
+      const began = Date.now();
+      await page.keyboard.type("0123456789".repeat(first ? 3 : 2), { delay: 0 });
+      return (Date.now() - began) / (first ? 30 : 20);
+    };
+
+    test(
+      "100 near-miss quotes are placed at once, and typing in a card beside 99 of them places nothing again",
+      async () => {
+        const document = reviewDocument(SOURCE);
+        const control = await host(dist, document);
+        await readyIn(control);
+        await restoreAnnotations(control, document, [commentOn("u-1", "word", "Mine.")]);
+        await eventually(
+          async () => (await marks(control.board.view).count()) === 1,
+          "control mark",
+        );
+        const alone = await typing(control, "review", true);
+        const detachedList = (run: WidgetHostRun) =>
+          run.board.view.getByRole("region", { name: "Detached comments" });
+        // 100 quotes that nearly occur, over one repeated character: placed in one pass.
+        const only = await host(dist, document);
+        await readyIn(only);
+        const began = Date.now();
+        await restoreAnnotations(only, document, nearMiss(100, 1));
+        await eventually(
+          async () => (await detachedList(only).count()) === 1,
+          "100 detached",
+          30_000,
+        );
+        const placed = Date.now() - began;
+        // 99 of them beside one held annotation: a key in its card costs what it does alone.
+        const many = await host(dist, document);
+        await readyIn(many);
+        await restoreAnnotations(many, document, [
+          commentOn("u-1", "word", "Mine."),
+          ...nearMiss(99),
+        ]);
+        await eventually(
+          async () => (await detachedList(many).count()) === 1,
+          "99 detached",
+          30_000,
+        );
+        const busy = await typing(many, "review", true);
+        console.log(
+          `document-review timing: 100 near-miss quotes of 2,000 characters over one repeated character shown in ${placed} ms; typing ${busy.toFixed(1)} ms per key beside 99 of them, ${alone.toFixed(1)} ms alone`,
+        );
+        expect(busy).toBeLessThan(alone * 4 + 60);
+        expect(placed).toBeLessThan(15_000);
+      },
+      TEST_TIMEOUT_MS * 2,
+    );
+
+    test(
+      "typing in one card with 32 Document reviews on the board costs a key about what it does alone",
+      async () => {
+        const items = Array.from({ length: 32 }, (_, at) =>
+          reviewItem(SOURCE, undefined, `r${at}`),
+        );
+        const document = atomDocument(items);
+        const run = await host(dist, document);
+        await readyIn(run);
+        const record = {
+          delivery: "immediate",
+          questions: {
+            plan: {
+              rev: 1,
+              results: Object.fromEntries(
+                items.map(({ id }) => [
+                  id,
+                  { annotations: [commentOn("u-1", "word", "Mine."), ...nearMiss(3)] },
+                ]),
+              ),
+            },
+          },
+        };
+        const began = Date.now();
+        await run.update({
+          type: "state",
+          state: openStateOf(document),
+          restore: { id: 1, record: record as never },
+        });
+        await eventually(
+          async () => (await run.board.view.locator("[data-review-mark]").count()) === 32,
+          "32 marks",
+          30_000,
+        );
+        const shown = Date.now() - began;
+        const perKey = await typing(run, "r7", false);
+        console.log(
+          `document-review timing: 32 Document reviews with 3 near-miss quotes each shown in ${shown} ms; typing ${perKey.toFixed(1)} ms per key in one`,
+        );
+        expect(perKey).toBeLessThan(150);
+        expect(shown).toBeLessThan(20_000);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS * 2,
     );
   });
 }

@@ -353,10 +353,10 @@ describe("the facts `reason` and `confirmsRevision` of any registered type", () 
 
 // The Document review's chunk (document-review, design decisions 7, 8 and 15): it names the notice
 // for its type, edits nothing (no `shape`), asks for no reason or confirmation, and registers the
-// fact the shell reads to make its results read-only on a revision the board cannot show. The
-// field check is registered with task 6.4.
+// fact the shell reads to make its results read-only on a revision the board cannot show; its
+// field check, that detached annotations block the answer, is registered beside them (task 6.4).
 describe("the Document review's chunk", () => {
-  test("registers fits, a name and revisionBound, and no shape, reason or confirmation", async () => {
+  test("registers fits, a name, revisionBound and check, and no shape, reason or confirmation", async () => {
     const facts = (await registered()).find(({ type }) => type === "document-review");
     expect(facts?.name).toBe("change.widgetDocumentReview");
     expect(facts?.revisionBound).toBe(true);
@@ -364,7 +364,7 @@ describe("the Document review's chunk", () => {
     expect(facts?.confirmsRevision).toBeUndefined();
     expect(facts?.probeReasons).toBeUndefined();
     expect(facts?.fits).toBeDefined();
-    expect(facts?.hasCheck).toBe(false);
+    expect(facts?.hasCheck).toBe(true);
   });
 
   test("takes a result of quotes its props can hold, with a replacement or without, and no other", async () => {

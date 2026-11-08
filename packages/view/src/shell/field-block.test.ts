@@ -103,6 +103,7 @@ describe("the first blocking field", () => {
       itemId: "plan-owner",
       label: "Owner",
       kind: "check",
+      failure: { code: "pattern" },
     });
   });
 
@@ -744,5 +745,155 @@ describe("a read-only item's field check blocks nothing (document-review, design
       );
     expect(press().kind).toBe("field-block");
     expect(press(readOnlyOf).kind).toBe("send");
+  });
+});
+
+// A detached annotation blocks the answer (document-review, task 6.4; view-and-widgets spec:
+// Detached annotations; design decision 8; NFR-10, AD-10): the chunk's check gives `{code: "detached",
+// count}` while a held annotation has no place, and the field block stops "Answer", "Accept
+// recommended", "Select recommended", Submit and the ready mark, marks a hidden tab, and says "Delete
+// the detached comments in {title, else the document} first." until the user deletes them. A probe
+// type stands for the Document review: a held result "gone" is a detached annotation, no result is
+// none, and the item's `title` prop is the review's.
+describe("a detached annotation blocks the answer (document-review, design decision 8)", () => {
+  const DETACHED = { code: "detached", count: 1 } as const;
+  const REVIEW: Readonly<Record<string, ComponentFacts>> = {
+    ...FACTS,
+    "text-field": {
+      ...FACTS["text-field"],
+      check: (result) => (result === "gone" ? DETACHED : undefined),
+    },
+  };
+  const reviewOf = (type: string): ComponentFacts | undefined => REVIEW[type];
+  const titled = questionOf(arranged({ title: "Release notes" }));
+  const untitled = questionOf(arranged({}));
+  const gone = held(["plan-owner", "gone"]);
+
+  test("blocks as a check naming the item, and not once the result is deleted", () => {
+    expect(fieldBlock(titled, NONE, gone, reviewOf)).toEqual({
+      itemId: "plan-owner",
+      label: "Owner",
+      kind: "check",
+      failure: DETACHED,
+    });
+    expect(holdsBlock(titled, NONE, gone, reviewOf)).toBe(true);
+    expect(fieldBlock(titled, NONE, NONE, reviewOf)).toBeUndefined();
+    expect(holdsBlock(titled, NONE, held(["plan-owner", "kept"]), reviewOf)).toBe(false);
+  });
+
+  test("the hint names the title, else the document, in both languages", () => {
+    expect(answerHint(titled, NONE, gone, "en-US", reviewOf)).toBe(
+      "Delete the detached comments in Release notes first.",
+    );
+    expect(answerHint(untitled, NONE, gone, "en-US", reviewOf)).toBe(
+      "Delete the detached comments in the document first.",
+    );
+    expect(answerHint(titled, NONE, gone, "it-IT", reviewOf)).toBe(
+      "Elimina prima i commenti staccati in Release notes.",
+    );
+    expect(answerHint(untitled, NONE, gone, "it-IT", reviewOf)).toBe(
+      "Elimina prima i commenti staccati nel documento.",
+    );
+    // The title is text: a slot in it is no template, and a blank title is no title.
+    const odd = questionOf(arranged({ title: "{label} <b>x</b>" }));
+    expect(answerHint(odd, NONE, gone, "en-US", reviewOf)).toBe(
+      "Delete the detached comments in {label} <b>x</b> first.",
+    );
+    const blank = questionOf(arranged({ title: "" }));
+    expect(answerHint(blank, NONE, gone, "en-US", reviewOf)).toBe(
+      "Delete the detached comments in the document first.",
+    );
+    expect(answerHint(titled, NONE, NONE, "en-US", reviewOf)).toBeUndefined();
+  });
+
+  test("Answer and Accept recommended send nothing while it stays, and send once it is deleted", () => {
+    const stores = setUp(titled);
+    const context = { ...stores.context, facts: reviewOf };
+    stores.values.set("plan", ["Yes"]);
+    stores.results.set("plan-owner", "gone");
+    expect(answer(titled, context)).toBeUndefined();
+    expect(acceptRecommended(titled, context)).toBeUndefined();
+    expect(stores.sent).toEqual([]);
+    stores.results.set("plan-owner", undefined);
+    answer(titled, context);
+    expect(stores.sent).toHaveLength(1);
+    expect(stores.sent[0]).toMatchObject({ type: "answer" });
+  });
+
+  test("Select recommended marks nothing ready while it stays, and marks once it is deleted", () => {
+    const select = (result: string | undefined) => {
+      const stores = setUp(titled, "submitted");
+      stores.results.set("plan-owner", result);
+      selectRecommended(
+        documentOf(titled),
+        openState(titled),
+        { ...stores.context, facts: reviewOf },
+        () => false,
+      );
+      return stores.board.work("plan")?.held;
+    };
+    expect(select("gone")).toBeUndefined();
+    expect(select(undefined)).toMatchObject({ act: "answer", byRecommended: true });
+  });
+
+  test("Submit is disabled and refuses to send while it stays, and sends once it is deleted", () => {
+    const stores = setUp(titled, "submitted");
+    stores.results.set("plan-owner", "gone");
+    stores.values.set("plan", ["Yes"]);
+    stores.board.edit("plan", 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    const inputs = () => ({
+      document: documentOf(titled),
+      board: stores.board.get(),
+      delivery: "submitted" as const,
+      connection: undefined,
+      lock: undefined,
+      pending: () => false,
+      sending: () => false,
+      entries: stores.entries.record(),
+      results: stores.results.record(),
+      facts: reviewOf,
+    });
+    expect(submitStateOf(inputs()).disabled).toBe(true);
+    expect(
+      heldWithBlock(
+        documentOf(titled),
+        heldWorkOf(documentOf(titled), stores.board.get()),
+        NONE,
+        stores.results.record(),
+        reviewOf,
+      ),
+    ).toBeDefined();
+    const press = () =>
+      submitPress(
+        documentOf(titled),
+        stores.board.get(),
+        stores.values.record(),
+        new Date(),
+        () => undefined,
+        {
+          results: stores.results.record(),
+          entries: stores.entries.record(),
+          state: openState(titled),
+          facts: reviewOf,
+        },
+      );
+    expect(press().kind).toBe("field-block");
+    expect(stores.sent).toEqual([]);
+    // Deleting the annotation is an edit, which lifts the held mark: the user holds the answer again.
+    stores.results.set("plan-owner", undefined);
+    stores.board.edit("plan", 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    expect(submitStateOf(inputs()).disabled).toBe(false);
+    expect(press().kind).toBe("send");
+  });
+
+  test("a hidden tab holding it is marked, and unmarked once it is deleted", () => {
+    const board = createBoardContent(() => ({
+      document: documentOf(titled),
+      state: { ask: "waiting", questions: [] } as never,
+    }))(new Map());
+    expect([...(withEntries(board, new Map(), gone, reviewOf).entries ?? [])]).toEqual([
+      "plan-owner",
+    ]);
+    expect(withEntries(board, new Map(), NONE, reviewOf)).toBe(board);
   });
 });

@@ -31,17 +31,24 @@ export type FieldBlock = {
   readonly itemId: string;
   readonly label: string;
   readonly kind: FieldBlockKind;
+  /** Why a `check` block fails, when the check said (the hint of a detached annotation reads it). */
+  readonly failure?: FieldCheckFailure;
+};
+
+// The text prop `name` of the item `itemId`, wherever it nests, or none when it holds no non-empty
+// text there.
+const textPropOf = (question: ViewQuestion, itemId: string, name: string): string | undefined => {
+  const props = nestedItemById(question.props.items, itemId)?.props;
+  const value =
+    typeof props === "object" && props !== null && Object.hasOwn(props, name)
+      ? (props as Readonly<Record<string, unknown>>)[name]
+      : undefined;
+  return typeof value === "string" && value !== "" ? value : undefined;
 };
 
 /** The label an item shows: its `label` prop as text, else its ID. */
-export const labelOf = (question: ViewQuestion, itemId: string): string => {
-  const props = nestedItemById(question.props.items, itemId)?.props;
-  const label =
-    typeof props === "object" && props !== null && Object.hasOwn(props, "label")
-      ? (props as { readonly label?: unknown }).label
-      : undefined;
-  return typeof label === "string" && label !== "" ? label : itemId;
-};
+export const labelOf = (question: ViewQuestion, itemId: string): string =>
+  textPropOf(question, itemId, "label") ?? itemId;
 
 /**
  * The failure of one item's check against the result held for it, if its type registered one and
@@ -70,16 +77,17 @@ export const fieldBlock = (
 ): FieldBlock | undefined => {
   for (const item of valueItemsOf(question.props.items)) {
     if (readOnly?.has(item.id) === true) continue;
-    const block = (kind: FieldBlockKind): FieldBlock => ({
+    const block = (kind: FieldBlockKind, failure?: FieldCheckFailure): FieldBlock => ({
       itemId: item.id,
       label: labelOf(question, item.id),
       kind,
+      ...(failure === undefined ? {} : { failure }),
     });
     if (isEntryType(item.type) && entries.get(item.id) !== undefined) return block("entry");
     const result = results.get(item.id);
     const failure = itemCheckFailure(item, result, factsOf);
     if (failure === undefined) continue;
-    return block(result === undefined ? "required" : "check");
+    return result === undefined ? block("required") : block("check", failure);
   }
   return undefined;
 };
@@ -92,6 +100,15 @@ export const holdsBlock = (
   factsOf: CheckFactsOf = componentFacts,
   readOnly?: ReadonlySet<string>,
 ): boolean => fieldBlock(question, entries, results, factsOf, readOnly) !== undefined;
+
+// The hint of a detached annotation (document-review, design decision 8): "Delete the detached
+// comments in {title} first.", the title being the item's `title` as text, else "the document".
+const detachedHint = (question: ViewQuestion, itemId: string, language: Locale): string => {
+  const title = textPropOf(question, itemId, "title");
+  return title === undefined
+    ? t(language, "documentReview.hintUntitled")
+    : t(language, "documentReview.hint", { label: title });
+};
 
 /**
  * What the disabled "Answer" is described by while a field blocks: "Correct {label} first." for an
@@ -108,6 +125,7 @@ export const answerHint = (
 ): string | undefined => {
   const block = fieldBlock(question, entries, results, factsOf, readOnly);
   if (block === undefined) return undefined;
+  if (block.failure?.code === "detached") return detachedHint(question, block.itemId, language);
   return t(language, block.kind === "required" ? "question.requiredHint" : "question.entryHint", {
     label: block.label,
   });

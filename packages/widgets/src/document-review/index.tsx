@@ -8,6 +8,7 @@
 
 import { documentReviewResultProblems, documentReviewResultShape } from "@askboard/contract";
 import { register } from "@askboard/view/catalog";
+import { detachedCheck } from "./detached-check.ts";
 import { DocumentReview } from "./item.tsx";
 
 /** The catalog name, which is the Document review item's type. */
@@ -18,10 +19,12 @@ const DOCUMENT_REVIEW = "document-review";
 // shape and props checks (`fits`, the two `widgetResultFits` runs), and that its quotes point into
 // the document of the revision they were made on (`revisionBound`), so the item is read-only on a
 // revision the board cannot show. It edits nothing, so it registers no `shape`, and it asks for no
-// reason or confirmation. The field check that detached annotations block the answer is task 6.4's.
+// reason or confirmation. Its field check, that a held annotation the document no longer places
+// blocks the answer (`detached`), is `detachedCheck`, which shares the component's reading and places.
 register(DOCUMENT_REVIEW, DocumentReview, {
   name: "change.widgetDocumentReview",
   fits: (result, props) =>
     documentReviewResultShape(result) && documentReviewResultProblems(result, props).length === 0,
   revisionBound: true,
+  check: detachedCheck,
 });

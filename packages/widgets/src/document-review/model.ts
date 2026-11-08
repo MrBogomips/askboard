@@ -13,6 +13,7 @@ import {
   type DocumentReviewAnnotation,
   type DocumentReviewQuote,
   type DocumentReviewResult,
+  type FieldCheckFailure,
   placeAnnotations,
   placeQuote,
   quotePassage,
@@ -281,9 +282,6 @@ export const createPlaces = (
 /** The one memo the component and the chunk's `check` share, so that both place once. */
 export const placesOf: Place = createPlaces();
 
-/** Why the item's result fails its field check: annotations the document no longer places. */
-export type DetachedFailure = { readonly code: "detached"; readonly count: number };
-
 /**
  * The Document review's field check (decision 8): `{code: "detached", count}` while a held
  * annotation has no place in the reading `readingFor(props)` (the item's own, kept per props
@@ -296,7 +294,7 @@ export const check = (
   props: unknown,
   readingFor: (props: object) => { readonly text: string },
   places: Place = placesOf,
-): DetachedFailure | undefined => {
+): Extract<FieldCheckFailure, { readonly code: "detached" }> | undefined => {
   if (typeof result !== "object" || result === null) return undefined;
   const annotations = (result as { annotations?: unknown }).annotations;
   const markdown =

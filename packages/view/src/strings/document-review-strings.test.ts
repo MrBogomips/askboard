@@ -26,6 +26,8 @@ const KEYS = [
   "documentReview.refuseRepeated",
   "documentReview.refuseBlock",
   "documentReview.refuseLimit",
+  "documentReview.hint",
+  "documentReview.hintUntitled",
 ];
 
 describe("the Document review's strings", () => {
@@ -56,6 +58,12 @@ describe("the Document review's strings", () => {
     expect(t("en-US", "documentReview.refuseOverlaps", { number: 2 })).toBe(
       "This passage overlaps comment 2.",
     );
+    expect(t("en-US", "documentReview.hint", { label: "Release notes" })).toBe(
+      "Delete the detached comments in Release notes first.",
+    );
+    expect(t("en-US", "documentReview.hintUntitled")).toBe(
+      "Delete the detached comments in the document first.",
+    );
     expect(t("en-US", "documentReview.refuseLimit")).toBe(
       "This document holds 100 comments and suggested edits, the most it takes. Delete one first.",
     );
@@ -74,6 +82,12 @@ describe("the Document review's strings", () => {
     expect(t("it-IT", "documentReview.detachedHeading")).toBe("Commenti staccati");
     expect(t("it-IT", "documentReview.refuseOverlaps", { number: 2 })).toBe(
       "Questo passaggio si sovrappone al commento 2.",
+    );
+    expect(t("it-IT", "documentReview.hint", { label: "Note di rilascio" })).toBe(
+      "Elimina prima i commenti staccati in Note di rilascio.",
+    );
+    expect(t("it-IT", "documentReview.hintUntitled")).toBe(
+      "Elimina prima i commenti staccati nel documento.",
     );
     expect(t("it-IT", "documentReview.refuseLimit")).toBe(
       "Questo documento contiene già 100 commenti e modifiche suggerite, il massimo. Eliminane uno prima.",

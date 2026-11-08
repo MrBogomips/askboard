@@ -464,4 +464,6 @@ export const IT_IT = {
     "Questo blocco supera i 2.000 caratteri. Selezionane una parte con il puntatore.",
   "documentReview.refuseLimit":
     "Questo documento contiene già 100 commenti e modifiche suggerite, il massimo. Eliminane uno prima.",
+  "documentReview.hint": "Elimina prima i commenti staccati in {label}.",
+  "documentReview.hintUntitled": "Elimina prima i commenti staccati nel documento.",
 } as const satisfies StringTable;

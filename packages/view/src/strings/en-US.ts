@@ -444,4 +444,6 @@ export const EN_US = {
     "This block is longer than 2,000 characters. Select part of it with the pointer.",
   "documentReview.refuseLimit":
     "This document holds 100 comments and suggested edits, the most it takes. Delete one first.",
+  "documentReview.hint": "Delete the detached comments in {label} first.",
+  "documentReview.hintUntitled": "Delete the detached comments in the document first.",
 } as const satisfies StringTable;

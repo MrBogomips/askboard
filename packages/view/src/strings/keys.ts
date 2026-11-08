@@ -420,6 +420,8 @@ export const STRING_KEYS = [
   "documentReview.refuseRepeated",
   "documentReview.refuseBlock",
   "documentReview.refuseLimit",
+  "documentReview.hint",
+  "documentReview.hintUntitled",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];
