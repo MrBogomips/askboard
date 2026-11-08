@@ -595,7 +595,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Each ask has at most one live board connection. A new connection for the same ask takes over, restoring the draft record. The older tab shows that the board moved, and closing it discards nothing.
     - `board-host` reports connections and disconnections to `ask-core`, which alone runs the grace timer, and only after a first connection.
     - An ask that has never connected stays `waiting` until the agent closes it or the session process exits.
-    - The board page never sends a message over the contract's message limit; a socket `board-host` closes as too large has its unacknowledged commands dropped, never resent.
+    - The board page never sends a message over the contract's message limit; a socket `board-host` closes as too large has its unacknowledged commands dropped, never resent; a tab the board moved from keeps the leave-page prompt while it holds work left out of the draft.
   - **Discard:**
     - An ask is discarded when its live board disconnects and does not reconnect within the grace period, or when the session process exits. A reload reconnects within the grace period and keeps the ask and its draft. Closed asks are never discarded.
     - On discard, `ask-core` appends a final `discarded` event, with reason `board-closed` or `session-exit`, and wakes every waiting `collect` on the ask. It then drops the ask's board documents and draft record.
