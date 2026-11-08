@@ -30,7 +30,7 @@ export const annotationsHeld = (
  * added), as a range of one text node, and waits for the `selectionchange` it fires; returns whether
  * the text was found.
  */
-export const select = (view: FrameLocator, needle: string, skip = 0): Promise<boolean> =>
+export const select = (view: FrameLocator | Locator, needle: string, skip = 0): Promise<boolean> =>
   view.locator(DOCUMENT).evaluate(
     (root, [text, skipped]) =>
       new Promise<boolean>((resolve) => {
@@ -95,7 +95,7 @@ export const selectAcross = (view: FrameLocator, from: string, to: string): Prom
     [from, to] as const,
   );
 
-export const tool = (view: FrameLocator, name: "Comment" | "Suggest edit"): Locator =>
+export const tool = (view: FrameLocator | Locator, name: "Comment" | "Suggest edit"): Locator =>
   view.getByRole("toolbar").getByRole("button", { name, exact: true });
 
 export const card = (view: FrameLocator): Locator => view.getByRole("dialog");

@@ -16,19 +16,33 @@
 //   ("Select recommended" marks the question ready, and a tab that is not selected shows no
 //   correction dot, review S-2 of 5.6); "Reload, losing my work" makes it editable again, also
 //   inside a Group;
-// - a link opened through the board page, and a Document review nested in a Group inside Tabs.
+// - a link opened through the board page, and a Document review nested in a Group inside Tabs;
+// - an answer too large (oversized-acts, merged; task 8.2, review X-1 of 4.3): Document reviews of
+//   one question filled to the bounds with suggested edits in emoji, so that the draft record and
+//   the answer act both pass the board's limits: "Answer" shows the act line with the size and the
+//   limit, sends nothing, opens no new socket and keeps the work, and an answer to another question
+//   of the ask then goes and is collected.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/document-review-session.browser.ts
 
 import { describe, expect, test } from "bun:test";
+import {
+  ANNOTATION_MAX_CHARS,
+  ANNOTATION_REPLACEMENT_MAX_CHARS,
+  BOARD_MESSAGE_MAX_BYTES,
+  DOCUMENT_REVIEW_ANNOTATIONS_MAX,
+  DRAFT_RECORD_MAX_CHARS,
+  TEXT_FIELD_MAX_CHARS,
+} from "@askboard/contract";
 import type { FrameLocator } from "playwright";
 import { atomAsk } from "./fixtures/atom-documents.ts";
-import { NOTES, reviewItem } from "./fixtures/document-review-documents.ts";
+import { HUNDRED_WORDS, NOTES, reviewItem } from "./fixtures/document-review-documents.ts";
 import { database, plain } from "./fixtures/lifecycle-asks.ts";
 import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
+  expectNoReconnect,
   LOAD_TIMEOUT_MS,
   QUIET_MS,
   reloadBoard,
@@ -46,6 +60,7 @@ import {
   lifecycleScenario,
   mirrored,
   openBoard,
+  optionOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -660,5 +675,106 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+  });
+}
+
+// Documents filled to the bounds: two reviews, each of the hundred words w001 to w100, each of which
+// takes a suggested edit whose replacement and note are filled to their bounds in a character of
+// three bytes and one UTF-16 unit, the most bytes of an answer a text box admits (its `maxLength`
+// counts units, so four-byte characters would fit half as many bytes). Two reviews pass the draft
+// limit but not the message limit (a third would take as long again to fill), so TextFields filled
+// the same way carry the answer past it.
+const WORDS = HUNDRED_WORDS.slice(0, DOCUMENT_REVIEW_ANNOTATIONS_MAX);
+const FILL_TEXT = "\u20AC".repeat(ANNOTATION_MAX_CHARS);
+const FILL_REPLACEMENT = "\u20AC".repeat(ANNOTATION_REPLACEMENT_MAX_CHARS);
+const FILL_FIELD = "\u20AC".repeat(TEXT_FIELD_MAX_CHARS);
+const BYTES_PER_EDIT = 3 * (ANNOTATION_MAX_CHARS + ANNOTATION_REPLACEMENT_MAX_CHARS);
+const UNITS_PER_EDIT = ANNOTATION_MAX_CHARS + ANNOTATION_REPLACEMENT_MAX_CHARS;
+const REVIEWS = 2;
+const REVIEW_BYTES = REVIEWS * WORDS.length * BYTES_PER_EDIT;
+// Twenty fields more than the least, so that the JSON around the texts cannot bring either limit back.
+const FIELD_MARGIN = 21;
+const FIELDS =
+  Math.floor((BOARD_MESSAGE_MAX_BYTES - REVIEW_BYTES) / (3 * TEXT_FIELD_MAX_CHARS)) + FIELD_MARGIN;
+const reviewId = (n: number) => `review-${n + 1}`;
+const fieldId = (n: number) => `f${String(n + 1).padStart(3, "0")}`;
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: Document reviews filled to their bounds, on the session process`, () => {
+    const { start } = useEngine(engine);
+
+    test("Answer shows the act line with the size and the limit, sends nothing, opens no socket and keeps the work; an answer to another question then goes and is collected", async () => {
+      // The fixtures pass the limits they are meant to pass, whatever the contract's values.
+      expect(REVIEW_BYTES).toBeLessThan(BOARD_MESSAGE_MAX_BYTES);
+      expect(REVIEW_BYTES + FIELDS * 3 * TEXT_FIELD_MAX_CHARS).toBeGreaterThan(
+        BOARD_MESSAGE_MAX_BYTES,
+      );
+      expect(
+        REVIEWS * WORDS.length * UNITS_PER_EDIT + FIELDS * TEXT_FIELD_MAX_CHARS,
+      ).toBeGreaterThan(DRAFT_RECORD_MAX_CHARS);
+      const items = [
+        ...Array.from({ length: REVIEWS }, (_, n) =>
+          reviewItem(WORDS.join(" "), `Review ${n + 1}`, reviewId(n)),
+        ),
+        ...Array.from({ length: FIELDS }, (_, n) => ({
+          type: "text-field",
+          id: fieldId(n),
+          props: { label: `Field ${n + 1}` },
+        })),
+      ];
+      const base = atomAsk(items, { askId: "review-oversized-t8k4" });
+      const ask = { ...base, items: [...base.items, plain("other", "Should orders be audited?")] };
+      const run = await start(lifecycleScenario(ask, dist));
+      const board = await openBoard(run, ["plan", "other"]);
+      const dialog = board.view.getByRole("dialog");
+      const frameOf = (n: number) => board.view.locator("[data-document-review]").nth(n);
+      for (let n = 0; n < REVIEWS; n += 1) {
+        for (const word of WORDS) {
+          expect(await select(frameOf(n), word), `${word} in review ${n + 1}`).toBe(true);
+          await tool(frameOf(n), "Suggest edit").click();
+          await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+          await dialog.getByLabel("Replace with").fill(FILL_REPLACEMENT);
+          await dialog.getByLabel("Note (optional)").fill(FILL_TEXT);
+          // Escape closes the card, as "Done" does: with several reviews on the board, a card can
+          // stand outside the frame's viewport, where no pointer reaches its button.
+          await board.page.keyboard.press("Escape");
+          await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        }
+      }
+      for (let n = 0; n < FIELDS; n += 1) {
+        await card(board, "plan")
+          .getByLabel(`Field ${n + 1}`, { exact: true })
+          .fill(FILL_FIELD);
+      }
+      for (let n = 0; n < REVIEWS; n += 1) {
+        expect(await frameOf(n).textContent()).toContain(`${WORDS.length} suggested edits`);
+      }
+      // The work is past what a reload keeps: the card says so.
+      await card(board, "plan")
+        .getByText(/^Too large to keep across a reload/)
+        .waitFor({ timeout: STEP_TIMEOUT_MS * 4 });
+      await optionOf(board, "other", "Yes").click({ timeout: STEP_TIMEOUT_MS });
+      const socketsBefore = run.browser.sockets.length;
+      await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+      const refusal = card(board, "plan").getByText(/^Not sent: this answer is too large/);
+      await refusal.waitFor({ timeout: STEP_TIMEOUT_MS });
+      expect((await refusal.textContent()) ?? "").toMatch(/\(\d+\.\d MB, at most 6 MB\)/);
+      expect(sentActs(run)).toEqual([]);
+      await expectNoReconnect(run);
+      expect(run.browser.sockets.length).toBe(socketsBefore);
+      expect(await board.banner("Connection lost, retrying").count()).toBe(0);
+      // The user's work is still there, in every review.
+      for (let n = 0; n < REVIEWS; n += 1) {
+        expect(await frameOf(n).textContent()).toContain(`${WORDS.length} suggested edits`);
+      }
+
+      await answerOf(board, "other").click({ timeout: STEP_TIMEOUT_MS });
+      await actsDone(run, 1);
+      const events = answersOf(await run.session.collectJson());
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ type: "answer", itemId: "other", choice: ["Yes"] });
+      expect(sentActs(run)).toHaveLength(1);
+      expectNoCspProblem(run);
+    }, 240_000);
   });
 }
