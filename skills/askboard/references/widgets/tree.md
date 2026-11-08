@@ -20,7 +20,7 @@ Item type `tree`: props are a Tree's props {columns?, nodes, pert?, openDepth?}.
 ## In the answer
 
 - Edits: `changes` lists what the user changed, one operation for each, naming an element by its ID in `target` (`<item>.<element>` or `<item>.<element>.<field>`). Only what changed is sent; `fetch` returns the whole item.
-- Derived: `derived` carries the item totals and each node's expected and spread, with pert, by address; never compute them.
+- Derived: `derived` carries the item totals and each node's expected and spread, with pert, by address, none in an answer naming an earlier revision (see answers); never compute them.
 
 ## Example
 

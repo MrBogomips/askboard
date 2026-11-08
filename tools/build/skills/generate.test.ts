@@ -313,6 +313,12 @@ describe("the answers reference", () => {
     );
   });
 
+  test("says to ask again on the current revision for derived values, and that fetch has none either", () => {
+    expect(answers).toContain(
+      "to have them, ask again on your current revision; `fetch` has none either",
+    );
+  });
+
   test("holds one collect result example", () => {
     const results = taggedBlocks(answers).filter(({ kind }) => kind === "result");
     expect(results).toHaveLength(1);
