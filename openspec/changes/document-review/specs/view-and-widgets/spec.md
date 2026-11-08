@@ -172,11 +172,22 @@ While a card shows a revision other than the one its answer names, as after a re
 - **THEN** Submit sends the held answer naming the earlier revision
 
 ### Requirement: An answer carries what the card shows
-After "Keep mine", while the card shows the kept revision, "Answer", "Accept recommended", "Select recommended" and Submit SHALL send the values, results and entries of the items that revision holds, as the card shows them, even for an item a later revision removed; the answer names the kept revision, against which `ask-core` checks it (NFR-10, AD-10, AD-20).
+After "Keep mine", while the card shows the kept revision, "Answer", "Accept recommended", "Select recommended" and Submit SHALL send the values and results of the items that revision holds and the options it recommends, as the card shows them, even for an item a later revision removed; the answer names the kept revision, against which `ask-core` checks it (NFR-10, AD-10, AD-20).
 
 #### Scenario: A result on an item the agent removed
 - **WHEN** the user has set results on items `a` and `b`, the agent's revision removes `b`, and the user chooses "Keep mine" with no reload and presses "Answer"
 - **THEN** the answer names the earlier revision and carries the results of `a` and `b`
+
+#### Scenario: Select recommended after Keep mine
+- **WHEN** revision 1 recommends "Yes", the agent's revision 2 recommends a new option "Maybe", and the user chooses "Keep mine" with no reload, presses "Select recommended", then Submit
+- **THEN** the answer names revision 1 and chooses "Yes", as the card shows
+
+### Requirement: The revision confirmation reads the revision the card shows
+The confirmation asked before an answer replaces one the agent has received SHALL be asked, or not, by the items of the revision the card shows and the answer names: after "Keep mine", an Approval a later revision removed still asks, and one it added does not (NFR-10, AD-10).
+
+#### Scenario: Keep mine across a removed Approval
+- **WHEN** the agent has received an answer with an Approval's verdict, the agent's revision removes the Approval, and the user chooses "Keep mine" with no reload, changes the verdict and presses "Answer"
+- **THEN** the board asks to confirm the replacement before it sends the answer naming the earlier revision
 
 ### Requirement: Document review strings
 Every string a Document review shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the cards, the detached list, the refusals and the hint (FR-34; EXPERIENCE, Voice and Tone).
