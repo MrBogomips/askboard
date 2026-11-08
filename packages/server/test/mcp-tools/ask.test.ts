@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { ERROR_TEXT_MAX_CHARS, RESULT_VERSIONS, SCHEMA_IDS } from "@askboard/contract";
+import {
+  ERROR_TEXT_MAX_CHARS,
+  GANTT_MAX_PREDECESSORS,
+  GANTT_MAX_TASKS,
+  RESULT_MAX_CHARS,
+  RESULT_VERSIONS,
+  SCHEMA_IDS,
+} from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { type RequestProblem, validateAgainst } from "@askboard/contract/validate";
 import { AskCore, BoardSetupError } from "@askboard/core";
@@ -324,5 +331,82 @@ describe("unresolved pointers", () => {
   test("an owned ask with every pointer resolved has no warnings", async () => {
     const core = fakeCore({ owners: { [ASK_ID]: { ownerKey: "owner-1" } } });
     expect(jsonOf((await call(core, plainChoice)).result)).not.toHaveProperty("warnings");
+  });
+});
+
+// The core spec's "The worst plan the contract admits", through the tool: the whole result text,
+// the `no-hooks` warning with the formula warnings, stays under the result limit (AD-6).
+describe("the worst plan the contract admits", () => {
+  const id = (kind: string, n: number) => `${kind}${String(n).padStart(64 - kind.length, "0")}`;
+  const columns = ["optimistic", "mostLikely", "pessimistic"].map((field) => ({
+    field,
+    label: field,
+    type: "number",
+  }));
+  const leaves = Array.from({ length: GANTT_MAX_TASKS }, (_, n) => id("l", n));
+  const worst = {
+    askId: ASK_ID,
+    items: [
+      {
+        type: "question",
+        id: "plan",
+        props: {
+          text: "Does this fit?",
+          items: [
+            {
+              type: "tree",
+              id: "wbs",
+              props: {
+                pert: true,
+                columns,
+                nodes: leaves.map((leaf) => ({
+                  id: leaf,
+                  label: "Leaf",
+                  optimistic: 1,
+                  mostLikely: 2,
+                  pessimistic: 3,
+                })),
+              },
+            },
+            {
+              type: "gantt",
+              id: "schedule",
+              props: {
+                workPackages: "wbs",
+                start: "2026-11-02",
+                tasks: Object.fromEntries(
+                  leaves.map((leaf, n) => [
+                    leaf,
+                    {
+                      dependencies: Array.from({ length: GANTT_MAX_PREDECESSORS }, (_, k) =>
+                        id("p", n * GANTT_MAX_PREDECESSORS + k),
+                      ),
+                    },
+                  ]),
+                ),
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+
+  test("the ask tool's result text is under the result limit, with its no-hooks warning", async () => {
+    const core = new AskCore({
+      randomness: { bytes: (count) => crypto.getRandomValues(new Uint8Array(count)) },
+      showing: { check: async () => ({ showable: true }), open: () => undefined },
+      address: { link: async () => LINK },
+      identity: { gitUserName: async () => undefined, loginName: async () => "paola" },
+      report: () => undefined,
+      clock: runtimeClock,
+    });
+    const { result } = await call(core, worst);
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result).length).toBeLessThan(RESULT_MAX_CHARS);
+    const json = jsonOf(result) as { warnings: { code: string; message: string }[] };
+    expect(json.warnings[0]?.code).toBe("no-hooks");
+    expect(json.warnings.at(-1)?.message).toMatch(/more formula warnings are left out\.$/);
+    expect(validateAgainst(SCHEMA_IDS.askResult, json).ok).toBe(true);
   });
 });

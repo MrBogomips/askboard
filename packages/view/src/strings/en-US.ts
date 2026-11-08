@@ -278,6 +278,13 @@ export const EN_US = {
     other: "Adjusted {count} values by {percent}. Undo",
   },
   "tree.adjust.undone": "Adjustment undone.",
+  "tree.group.becomes": "becomes a group:",
+  "tree.group.estimates": "its estimates leave the totals while it has children.",
+  "tree.group.task": "its task leaves the plan.",
+  "tree.group.estimatesAndTask":
+    "its estimates leave the totals while it has children, and its task leaves the plan.",
+  "tree.group.cancel": "Cancel",
+  "tree.group.continue": "Continue",
   "gantt.column.task": "Task",
   "gantt.column.start": "Start",
   "gantt.column.duration": "Duration",

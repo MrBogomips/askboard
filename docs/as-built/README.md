@@ -8,8 +8,8 @@ touch (`grep -l '<name>' docs/as-built/*.md`).
 ## Rules
 
 - **Written by the change itself,** in its own branch, by its documents task, so two changes in
-  flight never edit the same file. The notes from `setup-workspace` to `snapshot-toolbar` were
-  moved here from the "In code since" paragraphs of `CLAUDE.md` unchanged.
+  flight never edit the same file. The notes from `setup-workspace` to `wbs-gantt-consistency`
+  were moved here from the "In code since" paragraphs of `CLAUDE.md` unchanged.
 - **No status.** No "merged", "awaiting", "in flight" or merge dates: that is in git, the pull
   requests, `openspec list` and the Issues. What a change leaves to the PO is an Issue labelled
   `needs-po`, not a line here.
