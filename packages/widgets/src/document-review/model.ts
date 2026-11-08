@@ -117,7 +117,8 @@ const cut = (text: string, max: number): string => {
 };
 
 // The annotation a card holds, or none: a comment from its first non-blank character, a suggestion
-// while its replacement differs from the passage or its note holds text.
+// while its replacement differs from the passage; with the replacement left as the passage, a
+// written note is held as a comment (the contract refuses a replacement equal to its `exact`).
 const annotationOf = (card: Card): DocumentReviewAnnotation | undefined => {
   const target = { selector: card.quote };
   const noted = card.text.trim() !== "";
@@ -126,13 +127,17 @@ const annotationOf = (card: Card): DocumentReviewAnnotation | undefined => {
       ? { id: card.id, target, body: { text: cut(card.text, ANNOTATION_MAX_CHARS) } }
       : undefined;
   }
-  if (card.replacement === card.quote.exact && !noted) return undefined;
+  const text = noted ? { text: cut(card.text, ANNOTATION_MAX_CHARS) } : {};
+  // The contract refuses a replacement equal to its passage: a note beside it is a comment's.
+  if (card.replacement === card.quote.exact) {
+    return noted ? { id: card.id, target, body: text } : undefined;
+  }
   return {
     id: card.id,
     target,
     body: {
       replacement: cut(card.replacement, ANNOTATION_REPLACEMENT_MAX_CHARS),
-      ...(noted ? { text: cut(card.text, ANNOTATION_MAX_CHARS) } : {}),
+      ...text,
     },
   };
 };

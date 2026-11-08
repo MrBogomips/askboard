@@ -6,7 +6,9 @@ import {
   type DocumentReviewAnnotation,
   placeAnnotations,
   QUOTE_EXACT_MAX_CHARS,
+  widgetResultFits,
 } from "@askboard/contract";
+import { DOCUMENT_REVIEW_TYPES, withWidgetTypes } from "@askboard/contract/fixtures";
 import {
   anchorPassage,
   cardOf,
@@ -98,9 +100,18 @@ describe("a suggestion's card", () => {
     expect(withCard([], input("unsent answers"))[0]?.body).toEqual({
       replacement: "unsent answers",
     });
-    expect(withCard([], input("drafts", "keep"))[0]?.body).toEqual({
-      replacement: "drafts",
-      text: "keep",
+  });
+
+  test("a note beside an unchanged replacement is held as a comment, reopened as one", () => {
+    const held = withCard([], input("drafts", "keep"));
+    expect(held[0]?.body).toEqual({ text: "keep" });
+    const reopened = cardOf(held[0] as DocumentReviewAnnotation);
+    expect(reopened).toMatchObject({ kind: "comment", text: "keep" });
+    const edited = withCard(held, input("unsent answers", "keep"));
+    expect(edited).toHaveLength(1);
+    expect(edited[0]).toMatchObject({
+      id: "u-1",
+      body: { replacement: "unsent answers", text: "keep" },
     });
   });
 
@@ -352,5 +363,72 @@ describe("a prototype name is text like any other", () => {
     ).toBeUndefined();
     expect(placesOf(text, held)[0]).toMatchObject({ status: "placed", start, end });
     expect(resultOf(held)).toEqual({ annotations: held });
+  });
+});
+
+describe("every result the model builds fits the contract", () => {
+  // A seeded generator (mulberry32), so that a failure repeats.
+  const seeded = (seed: number) => () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const random = seeded(20261108);
+  const pick = <T>(list: readonly T[]): T => list[Math.floor(random() * list.length)] as T;
+  const WORDS = ["alpha", "beta", "gamma", "plan", "__proto__", "drafts", "a", "of", "x", "y"];
+  const TEXTS = [
+    "",
+    " ",
+    "\u0085",
+    "　",
+    "note",
+    "__proto__",
+    "x".repeat(2100),
+    "\u{1F600}".repeat(2001),
+  ];
+  const documentOf = (): string =>
+    Array.from({ length: 6 + Math.floor(random() * 30) }, () => pick(WORDS)).join(" ");
+  const types = withWidgetTypes(...DOCUMENT_REVIEW_TYPES);
+
+  test("3,000 results pass widgetResultFits for their props", () => {
+    let results = 0;
+    let failures = 0;
+    let attempts = 0;
+    while (results < 3000 && attempts < 200000) {
+      attempts += 1;
+      const text = documentOf();
+      let held: readonly DocumentReviewAnnotation[] = [];
+      for (let step = 0; step < 1 + Math.floor(random() * 4); step += 1) {
+        const start = Math.floor(random() * text.length);
+        const end = Math.min(text.length, start + 1 + Math.floor(random() * 12));
+        const made = anchorPassage(text, held, placeAnnotations(text, held), start, end);
+        if (!made.ok) continue;
+        const base = { id: nextId(held), quote: made.quote, text: pick(TEXTS) };
+        const replacement = pick([
+          made.quote.exact,
+          "",
+          "changed",
+          "r".repeat(ANNOTATION_REPLACEMENT_MAX_CHARS + 50),
+          pick(TEXTS),
+        ]);
+        held = withCard(
+          held,
+          random() < 0.5
+            ? { ...base, kind: "comment" }
+            : { ...base, kind: "suggestion", replacement },
+        );
+        const result = resultOf(held);
+        if (result === undefined) continue;
+        results += 1;
+        if (
+          !widgetResultFits({ type: "document-review", id: "d" }, result, { markdown: text }, types)
+        ) {
+          failures += 1;
+        }
+      }
+    }
+    expect(results).toBeGreaterThanOrEqual(3000);
+    expect(failures).toBe(0);
   });
 });
