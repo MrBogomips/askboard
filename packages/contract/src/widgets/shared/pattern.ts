@@ -5,15 +5,18 @@
 // The subset leaves no backreference, no lookahead or lookbehind, no group form but `(?:` and
 // `(?<name>` (a name used once), and no group repeated by `*`, `+` or a braced quantifier other than
 // `{0}` and `{1}` that holds a quantifier or an alternation, the shapes whose matching time grows
-// exponentially with the text. It also holds a cost budget, `PATTERN_MAX_REPEATS`: the matching time
-// grows with the number of variable quantifiers and alternations written in a row, so each
-// quantifier with a range (`?`, `*`, `+`, `{n,}`, `{n,m}` with m over n), each group holding a `|`
-// (the whole pattern counts as one when it holds a top-level `|`) and a pattern with no leading `^`
-// count one each. A fixed
+// exponentially with the text, and no property escape but a General_Category value or an ECMAScript
+// 2018 binary property (`property-names.ts`): a script newer than the user's browser would not
+// compile. It also holds a cost budget, `PATTERN_MAX_REPEATS`: the matching time grows with the
+// number of variable quantifiers and alternations written in a row, so each quantifier with a range
+// (`?`, `*`, `+`, `{n,}`, `{n,m}` with m over n), each group holding a `|` (the whole pattern counts
+// as one when it holds a top-level `|`) and a pattern with no leading `^` count one each. A fixed
 // tail after the quantifiers multiplies each attempt, so a field with a pattern holds at most
 // `PATTERN_TEXT_MAX_CHARS` characters. The one pass is linear in the pattern: it tracks escapes,
 // classes and a stack of groups, and builds no regular expression but the compile that proves the
 // pattern is one. Plain ECMAScript, no DOM, Node or Bun API.
+
+import { propertyNameAllowed } from "./property-names.ts";
 
 /** A pattern is at most this many code points. */
 export const PATTERN_MAX_CHARS = 200;
@@ -89,11 +92,34 @@ const escapeEnd = (chars: readonly string[], at: number): number => {
   return at + 2;
 };
 
-/** Where the class that opens at `at` ends. */
-const classEnd = (chars: readonly string[], at: number): number => {
+/**
+ * Why the property escape that starts at `at` (a backslash) is outside the subset, or `undefined`:
+ * `\p{…}` and `\P{…}` name a General_Category value or an ECMAScript 2018 binary property only.
+ */
+const propertyRefusal = (chars: readonly string[], at: number): string | undefined => {
+  const kind = chars[at + 1];
+  if ((kind !== "p" && kind !== "P") || chars[at + 2] !== "{") return undefined;
+  const end = escapeEnd(chars, at);
+  const name = chars.slice(at + 3, end - 1).join("");
+  return propertyNameAllowed(name)
+    ? undefined
+    : `names the property ${name}, which is neither a General_Category value nor an ECMAScript 2018 binary property, so not every browser reads it`;
+};
+
+/** Where the class that opens at `at` ends, and the first property refusal inside it. */
+const classEnd = (
+  chars: readonly string[],
+  at: number,
+): { readonly end: number; readonly refusal?: string } => {
   let each = at + 1;
-  while (each < chars.length && chars[each] !== "]") each += chars[each] === "\\" ? 2 : 1;
-  return each + 1;
+  let refusal: string | undefined;
+  while (each < chars.length && chars[each] !== "]") {
+    if (chars[each] === "\\") {
+      refusal ??= propertyRefusal(chars, each);
+      each = escapeEnd(chars, each);
+    } else each += 1;
+  }
+  return refusal === undefined ? { end: each + 1 } : { end: each + 1, refusal };
 };
 
 /**
@@ -154,9 +180,14 @@ export const patternProblem = (pattern: string): string | undefined => {
       if (next === "k" || (next !== undefined && next >= "1" && next <= "9")) {
         return `holds a backreference (\\${next})`;
       }
+      const refusal = propertyRefusal(chars, at);
+      if (refusal !== undefined) return refusal;
       at = escapeEnd(chars, at);
-    } else if (char === "[") at = classEnd(chars, at);
-    else if (char === "(") {
+    } else if (char === "[") {
+      const inClass = classEnd(chars, at);
+      if (inClass.refusal !== undefined) return inClass.refusal;
+      at = inClass.end;
+    } else if (char === "(") {
       const header = groupHeader(chars, at, names);
       if (header.refusal !== undefined) return header.refusal;
       groups.push({ quantifier: false, alternation: false, piped: false });

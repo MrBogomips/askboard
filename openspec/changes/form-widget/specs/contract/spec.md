@@ -27,19 +27,23 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 - **THEN** `ask` refuses it at `minLength`, naming the item
 
 ### Requirement: Safe patterns
-`ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile, holds a backreference, a lookaround, a `(?` form but `(?:` and `(?<name>`, a name twice, a repeated group holding a quantifier or `|`, or costs over 3 repetitions (variable quantifiers and `|` groups; one more with no leading `^`), or with `maxLength` over 100 (100 when absent). Each refusal SHALL name the item and rule (NFR-5, AD-8).
+`ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile, holds a backreference, a lookaround, a `(?` form but `(?:` and `(?<name>`, a name twice, a repeated group holding a quantifier or `|`, a `\p{…}` but a General_Category or ES2018 binary property, or costs over 3 repetitions (variable quantifiers and `|` groups; one more with no leading `^`), or with `maxLength` over 100 (100 when absent). Each refusal SHALL name the item and rule (NFR-5, AD-8).
 
 #### Scenario: Patterns inside the subset
 - **WHEN** an ask holds TextFields with the patterns `^[A-Z][a-z]+$`, `^\+?\d{6,15}$`, `^[^@\s]+@[^@\s]+\.[a-z]{2,}$`, `^(?:[a-z0-9-]+\.)?example\.com$`, `^(?<key>[A-Z]+)-\d+$`, `^(?:dev|test|prod)$` and `[(+*)]`
 - **THEN** `ask` accepts them
 
 #### Scenario: Patterns outside the subset
-- **WHEN** an ask holds a TextField with the pattern `(a)\1`, `\k<x>`, `a(?=b)`, `a(?!b)`, `(?<=a)b`, `(?<!a)b`, `^(a+)+$`, `^(\d{2,})+$`, `^((ab)*c)+$`, `^(a|aa)*$`, `^(?:x|y){2,}$`, `(?i:a)`, `(?<a>x)|(?<a>y)` or `(`
+- **WHEN** an ask holds a TextField with the pattern `(a)\1`, `\k<x>`, `a(?=b)`, `a(?!b)`, `(?<=a)b`, `(?<!a)b`, `^(a+)+$`, `^(\d{2,})+$`, `^((ab)*c)+$`, `^(a|aa)*$`, `^(?:x|y){2,}$`, `(?i:a)`, `(?<a>x)|(?<a>y)`, `(`, `\p{Script=Garay}`, `\p{sc=Latin}`, `\P{scx=Greek}` or `[\p{Script=Latin}]`
 - **THEN** `ask` refuses it, naming the item and what the pattern holds
 
 #### Scenario: A pattern with too many repetitions
 - **WHEN** an ask holds a TextField with the pattern `^\d*\d*\d*\d*$`, `\d+\d+\d+x`, `^(?:a|a)(?:a|a)(?:a|a)(?:a|a)$` or `a?a?a?a?`, and another with `^\d*\d*\d*$`, `\d+\d+x` or `^(?:a|b)(?:c|d)(?:e|f)$`
 - **THEN** `ask` refuses the first four, naming the item, the count (4 or more) and the limit of 3, and accepts the others
+
+#### Scenario: A property escape a board may not know
+- **WHEN** an ask holds TextFields with the patterns `^\p{L}+$`, `^\p{Lu}\p{Ll}+$`, `^\p{General_Category=Letter}+$` and `^\p{Alphabetic}+$`, and others with `\p{Script=Garay}` or `\p{sc=Latin}`
+- **THEN** `ask` accepts the first four and refuses the others, naming the item and the property, so that no pattern the server accepts can fail to compile on an older board
 
 #### Scenario: A pattern field's text is short
 - **WHEN** an ask holds a TextField `{label: "Code", pattern: "^[A-Z]+$", minLength: 101}`, or one with `maxLength: 101`, and another with `{pattern: "^[A-Z]+$", maxLength: 100}`

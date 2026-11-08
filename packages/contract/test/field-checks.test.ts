@@ -382,10 +382,11 @@ describe("what update says of the merged props of a text field", () => {
 describe("what the skill says of the TextField's pattern", () => {
   const notes = TEXT_FIELD_WIDGET.skill?.notes ?? [];
 
-  test("each note is at most 300 characters and the pattern notes name the cap", () => {
+  test("each note is at most 300 characters and the pattern notes name the cap and the scripts", () => {
     expect(notes.length).toBeGreaterThan(0);
     for (const note of notes) expect(note.length, note).toBeLessThanOrEqual(300);
     const text = notes.join(" ");
     expect(text).toContain(`at most ${PATTERN_TEXT_MAX_CHARS} characters`);
+    expect(text).toContain("not a script");
   });
 });

@@ -283,6 +283,42 @@ describe("the cost budget", () => {
   });
 });
 
+describe("property escapes", () => {
+  test.each([
+    "^\\p{L}+$",
+    "^\\p{Lu}\\p{Ll}+$",
+    "^\\p{General_Category=Letter}+$",
+    "^\\p{gc=Lu}+$",
+    "^\\p{Letter}+$",
+    "^\\p{Alphabetic}+$",
+    "^\\P{Alpha}+$",
+    "^\\p{Emoji}+$",
+    "^\\p{ASCII_Hex_Digit}+$",
+    "^[\\p{L}\\d]{1,20}$",
+    "^\\p{Lowercase_Letter}\\p{Lowercase}$",
+  ])("accepts %s: a General_Category value or an ECMAScript 2018 binary property", (pattern) =>
+    accepted(pattern),
+  );
+
+  test.each([
+    "\\p{Script=Garay}",
+    "\\p{sc=Latin}",
+    "\\P{scx=Greek}",
+    "\\p{Script_Extensions=Greek}",
+    "^[\\p{Script=Latin}\\d]+$",
+    "^[^\\P{sc=Han}]+$",
+    "\\p{Extended_Pictographic}",
+  ])("refuses %s: a property a board may not know", (pattern) => {
+    expect(() => new RegExp(pattern, "u")).not.toThrow();
+    refusedFor(pattern, "property");
+  });
+
+  test("a Script property that this engine compiles is refused by name", () => {
+    refusedFor("\\p{Script=Garay}", "Script=Garay");
+    refusedFor("\\p{sc=Latin}", "property");
+  });
+});
+
 describe("the bounds on the pattern", () => {
   test("a pattern of 200 code points is accepted, 201 is refused", () => {
     accepted("a".repeat(PATTERN_MAX_CHARS));

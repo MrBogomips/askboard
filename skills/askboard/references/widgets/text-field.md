@@ -17,7 +17,7 @@ Item type `text-field`: props are a TextField's props {label, description?, requ
 
 - `multiline` allows line breaks; `maxLength` (up to 10,000 characters) caps the text. The result is the text itself, and an empty field gives none.
 - `minLength` sets the fewest characters; `required` makes an answer wait for a value. `pattern` must be matched by the text, unanchored; a field with a `pattern` holds at most 100 characters.
-- A `pattern` is a regular expression with no backreference, lookaround or repeated group holding a quantifier or a `|`, and at most 3 repetitions: each `?`, `*`, `+`, `{n,}`, `{n,m}`, group holding a `|` and a missing leading `^` counts one.
+- A `pattern` is a regular expression with no backreference, lookaround or repeated group holding a quantifier or a `|`, and at most 3 repetitions: each `?`, `*`, `+`, `{n,}`, `{n,m}`, group holding a `|` and a missing leading `^` counts one. `\p{…}` names a category (`L`), not a script.
 
 ## In the answer
 

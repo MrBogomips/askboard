@@ -47,7 +47,7 @@ export const TEXT_FIELD_WIDGET: WidgetType = {
         " characters.",
       "A `pattern` is a regular expression with no backreference, lookaround or repeated group holding a quantifier or a `|`, and at most " +
         String(PATTERN_MAX_REPEATS) +
-        " repetitions: each `?`, `*`, `+`, `{n,}`, `{n,m}`, group holding a `|` and a missing leading `^` counts one.",
+        " repetitions: each `?`, `*`, `+`, `{n,}`, `{n,m}`, group holding a `|` and a missing leading `^` counts one. `\\p{…}` names a category (`L`), not a script.",
     ],
   },
 };
