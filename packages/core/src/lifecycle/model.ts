@@ -138,8 +138,10 @@ export class BoardModel {
   // The ID of each item the questions' current revisions hold, at every depth, by the ID of the
   // question that holds it; kept on add, revise and delete (layouts, design decision 5).
   readonly #held: Map<string, string>;
-  // What each pair of revisions of a question shares, by question and the two revisions.
-  readonly #unchanged: Map<string, readonly string[]>;
+  // What the question's earlier revisions share with its current one, by question and the earlier
+  // revision; only the pairs at the question's current revision are kept, so a revision, a send's
+  // resolution or a delete drops them (review 1.3 X-2).
+  readonly #unchanged: Map<string, Map<number, readonly string[]>>;
   #recordedEver: boolean;
 
   private constructor(
@@ -150,7 +152,7 @@ export class BoardModel {
       areas: Map<string, AreaRecord>;
       deleted: Set<string>;
       held: Map<string, string>;
-      unchanged: Map<string, readonly string[]>;
+      unchanged: Map<string, Map<number, readonly string[]>>;
       recordedEver: boolean;
     },
   ) {
@@ -203,7 +205,7 @@ export class BoardModel {
       areas: new Map(areas as [string, AreaRecord][]),
       deleted: new Set(this.#deleted),
       held: new Map(this.#held),
-      unchanged: new Map(this.#unchanged),
+      unchanged: new Map([...this.#unchanged].map(([id, pairs]) => [id, new Map(pairs)])),
       recordedEver: this.#recordedEver,
     });
   }
@@ -338,6 +340,7 @@ export class BoardModel {
   revise(question: QuestionRecord, props: QuestionProps): number {
     this.#release(question.id, this.propsOf(question));
     question.rev += 1;
+    this.#unchanged.delete(question.id);
     question.revs.set(question.rev, frozenCopy(props));
     this.#hold(question.id, props);
     question.generation += 1;
@@ -349,7 +352,9 @@ export class BoardModel {
   /** Holds what a send resolved of a question's current revision (excerpts, design decision 4). */
   resolved(id: string, context: QuestionContext): void {
     const question = this.#questions.get(id);
-    if (question !== undefined) question.context.set(question.rev, context);
+    if (question === undefined) return;
+    question.context.set(question.rev, context);
+    this.#unchanged.delete(id);
   }
 
   /** Changes an area's title. */
@@ -422,6 +427,7 @@ export class BoardModel {
       for (const held of ids) this.#deleted.add(held);
     }
     this.#questions.delete(id);
+    this.#unchanged.delete(id);
     this.#deleted.add(id);
   }
 
@@ -464,20 +470,28 @@ export class BoardModel {
    * those of the current one (reopen-start-from-answer, design decision 1). The current revision
    * shares everything with itself. `[]` when `rev` is not kept or cannot be compared, never none:
    * absence reads as "all unchanged" on a current answer (NFR-10). Each pair of revisions is
-   * compared once: the props of a revision never change.
+   * compared once while the question stays at its current revision: a revision, a send's resolution
+   * or a delete drops the pairs (review 1.3 X-2).
    */
   unchangedSince(question: QuestionRecord, rev: number): readonly string[] {
     const now = this.propsOf(question);
     if (rev === question.rev) return itemIdsOfQuestion(question.id, now);
     const then = question.revs.get(rev);
     if (then === undefined) return [];
-    const key = `${question.id}\u0000${rev}\u0000${question.rev}`;
-    if (!this.#unchanged.has(key)) {
-      const after = { props: now, context: question.context.get(question.rev) };
-      const before = { props: then, context: question.context.get(rev) };
-      this.#unchanged.set(key, unchangedItems(question.id, before, after));
-    }
-    return this.#unchanged.get(key) ?? [];
+    const pairs = this.#unchanged.get(question.id) ?? new Map<number, readonly string[]>();
+    this.#unchanged.set(question.id, pairs);
+    const known = pairs.get(rev);
+    if (known !== undefined) return known;
+    const after = { props: now, context: question.context.get(question.rev) };
+    const before = { props: then, context: question.context.get(rev) };
+    const shared = unchangedItems(question.id, before, after);
+    pairs.set(rev, shared);
+    return shared;
+  }
+
+  /** How many pairs of revisions of a question the model holds a comparison of; for the tests. */
+  unchangedMemoSize(questionId: string): number {
+    return this.#unchanged.get(questionId)?.size ?? 0;
   }
 
   // An area's value holds its questions' revisions and props: it changes with them.
