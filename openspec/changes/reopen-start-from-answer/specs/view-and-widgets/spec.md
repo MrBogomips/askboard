@@ -14,7 +14,7 @@ A question the agent reopens SHALL show "Reopened by the agent", the previous an
 ## ADDED Requirements
 
 ### Requirement: A reopened question starts from the previous answer
-When the agent reopens a question and the board state lists the question itself as unchanged since its previous answer's revision, the board SHALL fill the question's draft from that answer once per revision. It SHALL do so only while the question holds no work on its current revision and every part of the answer fits, by the rule for an answer carried into the draft. Nothing SHALL be sent until the user answers (AD-10, AD-20, FR-22).
+When the agent reopens a question and the board state lists the question itself as unchanged since its previous answer's revision, the board SHALL fill the question's draft from that answer once per revision. It SHALL do so only while the ask is not closed, the board is not closed, discarded or moved, the question holds no work on any revision, and every part of the answer fits, by the rule for an answer carried into the draft. Nothing SHALL be sent until the user answers (AD-10, AD-20, FR-22).
 
 #### Scenario: A reopened Timeline after a reload
 - **WHEN** the user moves a Timeline entry and answers, the agent reopens the question, and the user reloads the board
@@ -39,6 +39,10 @@ When the agent reopens a question and the board state lists the question itself 
 #### Scenario: Reopened while the user holds work
 - **WHEN** the agent reopens an answered question that the user is revising
 - **THEN** the draft is not refilled, and the notice reads the line for a question that starts from the agent's version
+
+#### Scenario: A closed ask after a reload
+- **WHEN** the user reloads a board whose ask is closed, holding a question the agent reopened and listed as unchanged since its previous answer
+- **THEN** the draft is not filled, and leaving the page asks nothing
 
 ### Requirement: A reopened question the agent changed starts from the agent's version
 When the board state does not list a reopened question itself as unchanged, or a part of its previous answer no longer fits, the board SHALL fill nothing. The question SHALL show the agent's revision, and the notice SHALL read "This question starts from the agent's version, not from your previous answer. "Start from my previous answer" brings back what still fits." (AD-10, FR-6).
@@ -71,6 +75,10 @@ The board SHALL hold an item unchanged since an answer's revision when the answe
 
 ### Requirement: A revision keeps the widgets' edits
 The first edit of an answered question SHALL put its latest answer's widget values into the draft, by the rule for an answer carried into the draft, as it puts the answer's results, choice and note. A revised answer SHALL carry the edits the user left untouched, as the card shows them (AD-10, AD-20).
+
+#### Scenario: A revision after an answer on an earlier revision
+- **WHEN** the user renames a Tree node, the agent changes the Tree, the user chooses "Keep mine" and answers, then edits another item of the question
+- **THEN** the Tree shows the agent's revision, not the rename, and the revised answer carries no value for it
 
 #### Scenario: Revising one of two edited widgets
 - **WHEN** a question answered with edits to a Timeline and a Kanban is revised by moving one more Kanban card, and "Answer" is pressed

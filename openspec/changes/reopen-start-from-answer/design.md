@@ -63,7 +63,7 @@ Every other value item gets `undefined`, so it shows as sent. Results, the choic
 - `revise` (open question 2, which closes divergence 2), with the `current` answer;
 - the reopen prefill (decision 3), with the `previous` answer.
 
-`revise` now seeds the answer's values, which reverses that part of molecules decision 11. The draft then holds what the next answer sends. The change marks already compare with the agent's revision. The counters count edits the answer will carry, which is what they should count. `BoardContent.shown` stays as it is for items before the first edit.
+`revise` now seeds the answer's values, which reverses that part of molecules decision 11. The draft then holds what the next answer sends. The change marks already compare with the agent's revision. The counters count edits the answer will carry, which is what they should count. `BoardContent.shown` stays as it is for items before the first edit, with one gate: `answeredOf` (`board-content.ts`) fills a draft key the draft leaves undefined from the current answer only for an item `unchangedOf(answer, "current")` holds. An item the answer does not hold unchanged, after an answer that named an earlier revision, then shows as the agent sent it both before and after the first edit, which is what the revised answer sends (review 2.5 X-1).
 
 `fillFrom` also returns whether every part of the answer it was given was carried: each value, each result, and each chosen label. The prefill reads that.
 
@@ -75,7 +75,8 @@ A pure function in a new `shell/reopen-prefill.ts` takes the document, the board
 
 - the state is `open` or `postponed`, with a `previous` answer that is not a decline;
 - `unchangedOf(previous, "previous")` holds the question's own ID (open question 3), so a previous answer without the field fills nothing;
-- the question holds no work on its current revision;
+- the ask is not closed and the update carries no lock (`closed`, `discarded` or `moved`), so a closed board never fills a card or arms the leave-page prompt for work the user cannot send (review 2.5 X-2);
+- the question holds no work, on any revision (`work === undefined`; review 2.5 S-1);
 - its work holds no `prefilled` mark for that revision.
 
 The shell (`shell/index.tsx`, `channel.onUpdate` at `:258`) runs the function at the end of every update the board page sends, after that update's `restore` is applied, and never on the boot data alone. Decision 9 makes the first update after a reload or a takeover carry the restore whenever `board-host` held a record, so an update with no restore before it means there is none. For each question returned, it dry-runs the carry:
