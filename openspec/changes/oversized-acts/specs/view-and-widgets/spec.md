@@ -38,3 +38,7 @@ The board page SHALL arm the browser's leave-page prompt while the draft holds u
 #### Scenario: Closing with work too large to keep
 - **WHEN** the only unsent work is a question's work left out of the mirrored record and the user closes the tab
 - **THEN** the browser's prompt to leave the page appears first
+
+#### Scenario: Taken over with work too large to keep
+- **WHEN** another tab takes the board over while this tab's draft holds a question's work left out of the mirrored record, and the user closes this tab
+- **THEN** the browser's prompt to leave the page appears first, since the takeover handed over only the mirrored record
