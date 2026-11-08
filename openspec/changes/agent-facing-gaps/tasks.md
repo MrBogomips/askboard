@@ -129,12 +129,9 @@ Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separa
 ## 4. Records, rebase and pull request
 
 - [ ] 4.1 Documents as built (design decision 7). Tests: none (documents).
-  - CLAUDE.md:
-    - a Status sentence naming `agent-facing-gaps`;
-    - an "In code since `agent-facing-gaps`" paragraph: the outcome, `references/updates.md` and the `update` example kind, the language section, `APPROVED_TEXT_AMENDMENTS`, and the bound version;
-    - in the layouts paragraph, "`fetch` of one answers `deleted`" checked as true.
+  - The change's record `docs/as-built/agent-facing-gaps.md` (PR #109 moves every change's record out of CLAUDE.md; this change leaves CLAUDE.md as on `main`): the outcome, `references/updates.md` and the `update` example kind, the language section, `APPROVED_TEXT_AMENDMENTS`, the expanded IDs held against items (`WidgetUpdate.expanded`), and the bound version;
+    - `docs/as-built/layouts.md`'s "`fetch` of one answers `deleted`" checked as true, and corrected in place if #109 has merged, saying so in this change's note.
   - `CHANGELOG.md`: Unreleased entries, `fetch`'s `deleted` outcome under Changed, and the teaching under Added.
-  - If #89 has merged, these lines go where `main` keeps them.
   - Verify: `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive` passes. Each deviation in a task note is in the documents, or is listed in this note with its reason.
 - [ ] 4.2 Rebase onto `origin/main` and bind the version label (askboard-contract-versioning, Rebase procedure).
   - The tool envelopes at main's minor plus one, with the earlier exact pins moved and the binding line written in design.md decision 5.
