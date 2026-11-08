@@ -659,7 +659,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@modelcontextprotocol/ext-apps` (view message set, `App`, `AppBridge`) | 2.0.4 |
 | React (view and widgets) | 19.3.1 |
 | `@dagrejs/dagre` (Graph widget initial layout and auto-layout; elkjs stays excluded) | 3.1.3 |
-| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
+| `radix-ui` (view primitives: Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
 | `react-day-picker` (the Date Picker's calendar) | 10.0.2 |
 | `markdown-it` (Markdown, `html: false`) | 15.0.3 |
 | `dompurify` (the Markdown sanitizer) | 3.4.17 |
