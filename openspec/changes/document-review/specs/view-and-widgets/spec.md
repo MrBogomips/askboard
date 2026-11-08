@@ -229,7 +229,7 @@ While a card shows an earlier revision after "Keep mine", with no reload, the bo
 
 #### Scenario: An item that fails stops every act of its question
 - **WHEN** a widget item of a question throws while it renders, the question having counted as visible, and the user holds answers for it and for another question in submitted delivery
-- **THEN** the board page refuses an act for the question, its held acts are no longer held while its work stays in the draft, Submit sends the other question's answer, and the card's agent-change notice still offers "Reload, losing my work"
+- **THEN** the board page refuses every act for the question but the choice "Reload, losing my work", its held acts are no longer held while its work stays in the draft, Submit sends the other question's answer, and the card's agent-change notice still offers that choice, which reaches the agent
 
 #### Scenario: An Approval beside a removed edit
 - **WHEN** the user has edited a Tree beside an Approval, the agent's revision removes the Tree, and the user chooses "Keep mine" with no reload
