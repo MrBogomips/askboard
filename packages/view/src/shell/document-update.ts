@@ -83,8 +83,10 @@ export const applyDocumentUpdate = (
  * Keeps the ready tracker on the items the cards show while the board's work changes which
  * revision a card shows ("Keep mine", "Reload, losing my work", a settled answer): on each board
  * change that gives another shown document (compared by identity, so a change that moves no card
- * includes nothing, and a keystroke, which changes no board state, walks nothing) the tracker includes the
- * items of the shown document. A question awaits the items of the revision its card renders, so an
+ * includes nothing) the tracker includes the items of the shown document. Every board change runs
+ * `shownDocumentOf`, a keystroke that starts or ends work, the note, "Other…", an option's note and
+ * the composer among them; it walks the questions, never the items, and gives the same object while
+ * no card changed revision. A question awaits the items of the revision its card renders, so an
  * item only the kept revision holds reports ready or fails its question, and an item only the
  * current revision holds is awaited from the moment the card shows it (document-review, design
  * decision 15). `documentOf` reads the document the view holds. Returns the way to stop.

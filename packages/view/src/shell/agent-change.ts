@@ -210,7 +210,10 @@ export const shownDocumentOf = (document: ViewDocument, shownOf: ShownOf): ViewD
 /**
  * `shownDocumentOf` for the document the view holds now, walked again only when that document or
  * the state of the board's work (`workOf`, compared by identity) is another, so that the many
- * reads of one render, and the keystrokes, which change neither, walk no question.
+ * reads of one render, and a keystroke that changes neither, walk no question. A board edit (a
+ * keystroke that starts or ends work, the note, "Other…", an option's note, the composer) is another
+ * state of the work: it walks the questions once, never the items, and gives the same document while
+ * no card changed revision.
  */
 export const shownDocumentFor = (
   documentOf: () => ViewDocument,

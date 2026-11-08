@@ -457,6 +457,41 @@ describe("the board over the shown document: each question at the revision its c
     expect(again(draft.record()).items).toBe(before.items);
   });
 
+  // The matrix's P row (design decision 15, Appendix): an item both revisions hold, with other props.
+  // Revision 2 links the plan `schedule` to another Tree and asks other durations; the board over
+  // the shown document holds revision 1's item, the whole question's, never a mix (re-review 6.20, S-3).
+  test("an item both revisions hold with other props reads revision 1's: the plan's link and schedule, and the Tree it links", () => {
+    const relinked = {
+      ...plan,
+      props: { ...plan.props, workPackages: "other-tree", start: "2027-01-04" },
+    } as WidgetItem;
+    const otherTree = { ...wbs, id: "other-tree" } as WidgetItem;
+    const revised = {
+      ...first,
+      rev: 2,
+      props: { ...first.props, items: [otherTree, relinked, field] },
+    } as unknown as ViewQuestion;
+    const document: ViewDocument = {
+      ...ganttPlanBoardDocument,
+      items: [revised],
+    } as unknown as ViewDocument;
+    const draft = createDraftStore();
+    const shown = createBoardContent(() => ({
+      document: shownDocumentOf(document, () => first as ViewQuestion),
+      state: stateOf(document),
+    }))(draft.record());
+    const held = shown.items.find((item) => item.id === plan.id);
+    expect(held).toBe(plan);
+    expect(held?.props).toBe(plan.props);
+    expect((held?.props as { workPackages?: string } | undefined)?.workPackages).toBe("wbs");
+    expect(shown.items.map((item) => item.id)).toEqual([wbs.id, plan.id, "who"]);
+    // The board over the current document holds revision 2's link and Tree.
+    const over = createBoardContent(() => ({ document, state: stateOf(document) }))(draft.record());
+    expect(over.items.find((item) => item.id === plan.id)).toBe(relinked);
+    expect(over.items.map((item) => item.id)).toEqual(["other-tree", plan.id, "who"]);
+    expect(shown.questionItems?.get(first.id)).toEqual([wbs.id, plan.id, "who"]);
+  });
+
   test("every other question reads its own revision, and the answers and the record are as before", () => {
     const other = { ...schedule, id: "other-question", rev: 1 } as unknown as ViewQuestion;
     const two: ViewDocument = {
