@@ -289,6 +289,21 @@ describe("a draft record over the draft limit is mirrored without whole question
     });
   });
 
+  test("a takeover (moved) keeps the leave-page prompt armed while the last fit left work out", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: both });
+    run.socket(1).receive({ version, type: "moved" });
+    expect(run.page.leavePromptArmed()).toBe(true);
+  });
+
+  test("a takeover with nothing left out disarms the prompt as before", async () => {
+    const run = await openedTwo();
+    const fits: DraftRecord = { delivery: "immediate", questions: { cache: small } };
+    expect(await run.view({ type: "draft", record: fits })).toEqual({});
+    run.socket(1).receive({ version, type: "moved" });
+    expect(run.page.leavePromptArmed()).toBe(false);
+  });
+
   test("a later record that fits is mirrored whole, with no question left out", async () => {
     const run = await openedTwo();
     await run.view({ type: "draft", record: both });

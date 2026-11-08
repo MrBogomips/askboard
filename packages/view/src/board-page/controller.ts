@@ -243,6 +243,8 @@ class BoardPageController implements BoardPage {
   #viewDraft: DraftRecord | undefined;
   // The questions left out as last logged, so a long edit logs a change, not every keystroke.
   #leftOutLogged = "";
+  // The questions the last fit left out of the mirrored draft: a takeover does not hand them over.
+  #leftOutNow: readonly string[] = [];
   #model = EMPTY_MODEL;
   #outbox = EMPTY_OUTBOX;
   #status: BoardStatus = INITIAL_STATUS;
@@ -341,7 +343,8 @@ class BoardPageController implements BoardPage {
   }
 
   leavePromptArmed(): boolean {
-    if (this.#status.kind === "moved") return false;
+    // A tab the board moved from keeps the prompt only for work the takeover did not carry.
+    if (this.#status.kind === "moved") return this.#leftOutNow.length > 0;
     if (hasUnsentWork(this.#viewDraft) || this.#outbox.held.length > 0) return true;
     const ended = this.#status.kind === "closed" || this.#status.kind === "discarded";
     const state = this.#model.state;
@@ -621,6 +624,7 @@ class BoardPageController implements BoardPage {
       }
     }
     this.#viewDraft = record;
+    this.#leftOutNow = fitted.leftOut;
     this.#mirror.take(fitted.record);
     if (this.#restore !== undefined) {
       this.#restore = undefined;
