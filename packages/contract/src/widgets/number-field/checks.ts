@@ -178,3 +178,26 @@ export const numberFieldFieldCheck = (
   result: unknown,
   props: unknown,
 ): FieldCheckFailure | undefined => requiredFailure(props, result);
+
+/** The bound a NumberField's result breaks (table-widget, design decision 3). */
+export type NumberFieldBound = "whole" | "min" | "max" | "step";
+
+/**
+ * The bound a number breaks against a NumberField's props, or `undefined` when it breaks none: the
+ * words of a refusal are the view's, the choice of bound is this one, in the order a user can act
+ * on them: a fraction where only whole numbers go, below the minimum, past the maximum, off the
+ * step. A bound the item does not set is the contract's own, `ATOM_NUMBER_BOUND` either way, so a
+ * number past it, which the result's shape refuses, reads as below or above. It gives a bound if and
+ * only if the shape check or `numberFieldResultProblems` refuses the number; a value that is no
+ * finite number, or props that are no NumberField's, break none (the result check refuses those on
+ * their own account).
+ */
+export const numberFieldBound = (value: unknown, props: unknown): NumberFieldBound | undefined => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  if (!isRecord(props) || numberFieldPropsProblems(props).length > 0) return undefined;
+  const { min, max, step } = props as { min?: number; max?: number; step?: number };
+  if (props.integer === true && !Number.isInteger(value)) return "whole";
+  if (value < (min ?? -ATOM_NUMBER_BOUND)) return "min";
+  if (value > (max ?? ATOM_NUMBER_BOUND)) return "max";
+  return step !== undefined && stepIndex(value, min ?? 0, step) === undefined ? "step" : undefined;
+};

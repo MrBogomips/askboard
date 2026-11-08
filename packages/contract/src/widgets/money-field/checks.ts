@@ -189,3 +189,19 @@ export const moneyFieldFieldCheck = (
   result: unknown,
   props: unknown,
 ): FieldCheckFailure | undefined => requiredFailure(props, result);
+
+/** The bound a MoneyField's amount breaks (table-widget, design decision 3). */
+export type MoneyFieldBound = "min" | "max";
+
+/**
+ * The bound an amount breaks against a MoneyField's props, or `undefined` when it breaks none: below
+ * `min` or above `max`, compared as decimals, in `moneyFieldResultProblems`' own order. The
+ * currency and the currency's minor units are no bounds of the item. An amount that is no decimal
+ * string, or props that are no MoneyField's, break none.
+ */
+export const moneyFieldBound = (amount: unknown, props: unknown): MoneyFieldBound | undefined => {
+  if (!isAmount(amount)) return undefined;
+  if (!isRecord(props) || moneyFieldPropsProblems(props).length > 0) return undefined;
+  if (isAmount(props.min) && compareDecimal(amount, props.min) < 0) return "min";
+  return isAmount(props.max) && compareDecimal(amount, props.max) > 0 ? "max" : undefined;
+};

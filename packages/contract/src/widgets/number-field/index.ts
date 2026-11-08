@@ -3,6 +3,8 @@
 // registered (design decision 10), and nothing compiles them when this module loads.
 
 export {
+  type NumberFieldBound,
+  numberFieldBound,
   numberFieldPropsProblems,
   numberFieldResultProblems,
   numberFieldResultShape,

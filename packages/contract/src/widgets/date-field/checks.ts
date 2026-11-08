@@ -101,3 +101,20 @@ export const dateFieldFieldCheck = (
   result: unknown,
   props: unknown,
 ): FieldCheckFailure | undefined => requiredFailure(props, result);
+
+/** The bound a DateField's day breaks (table-widget, design decision 3). */
+export type DateFieldBound = "min" | "max";
+
+/**
+ * The bound a day breaks against a DateField's props, or `undefined` when it breaks none: before
+ * `min` or after `max`, in `dateFieldResultProblems`' own order. A day that does not exist or lies
+ * outside the Gantt's days breaks no bound of the item; nor does a value that is no day, or props
+ * that are no DateField's.
+ */
+export const dateFieldBound = (date: unknown, props: unknown): DateFieldBound | undefined => {
+  if (!isGanttDate(date)) return undefined;
+  if (!isRecord(props) || dateFieldPropsProblems(props).length > 0) return undefined;
+  const { min, max } = props as { min?: string; max?: string };
+  if (min !== undefined && date < min) return "min";
+  return max !== undefined && date > max ? "max" : undefined;
+};

@@ -1030,3 +1030,19 @@ export {
   pickFieldResultProblems,
   pickFieldResultShape,
 } from "./widgets/pick-field/index.ts";
+
+// The atoms' bound codes (table-widget, design decision 3): which bound a value breaks, beside each
+// atom's result check, for the view's readers and the Table's cell reader.
+
+export {
+  type DateFieldBound,
+  dateFieldBound,
+} from "./widgets/date-field/index.ts";
+export {
+  type MoneyFieldBound,
+  moneyFieldBound,
+} from "./widgets/money-field/index.ts";
+export {
+  type NumberFieldBound,
+  numberFieldBound,
+} from "./widgets/number-field/index.ts";
