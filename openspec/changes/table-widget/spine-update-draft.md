@@ -1,6 +1,6 @@
 # Spine update draft: table-widget
 
-**Status: draft, to apply in task 0.1.** It rests on the proposal's open questions 1, 3, 4 and 6; an answer other than the default changes its block first (`/opsx:update`). Each block quotes the current phrase exactly as it stands on `origin/main` e87841d5; none of the drafts of `layouts`, `form-widget`, `document-review` or `image-annotation` quotes these phrases. AD-13 and AD-20 are amended in place; no AD is added or renumbered. The PRD needs no change.
+**Status: applied on 2026-11-08 in task 0.1.** It rests on the proposal's open questions 1, 3, 4 and 6; an answer other than the default changes its block first (`/opsx:update`). Each block quotes the current phrase exactly as it stands on `origin/main` e87841d5; none of the drafts of `layouts`, `form-widget`, `document-review` or `image-annotation` quotes these phrases. AD-13 and AD-20 are amended in place; no AD is added or renumbered. The PRD needs no change.
 
 File: `docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md`.
 

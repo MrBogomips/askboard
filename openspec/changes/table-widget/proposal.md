@@ -42,14 +42,26 @@ None: the behaviours belong to capabilities that E1, `compute-engine` and `widge
 Each carries a proposed default. Task 0.1 records each answer under its question before anything relies on it; under the PO's unattended handoff the answer reads "proposed default accepted under the PO's unattended handoff".
 
 1. **Grid component.** *Default:* AskBoard's own grid in `widgets/src/table/`, as the Tree's and the Gantt's are; no dependency. TanStack Table's headless row models, sorting, filtering and column sizing serve nothing in the Table's minimum, while the editing, the keyboard, the entries and the graph values are AskBoard's own either way. *Alternative:* TanStack Table 9.3.1 as EXPERIENCE names it, a new library chunk.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 2. **Column types.** *Default:* `text`, `number`, `money`, `date` and `toggle`, each taking the bounds of its input atom (`min`, `max`, `step`, `integer`, `unit`; a money column's required `currency`, `min`, `max`; a date's `min`, `max`; a text's `maxLength`). *Alternative:* add a pick column, `required`, a text `pattern` or a per-column read-only flag.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 3. **Formula columns.** *Default:* `[@field]` reads the row's own field; a column formula reads single fields only (its row's, another item's, or a total), holds at most 500 characters and gives a number, money or a date. *Alternative:* wildcards and ranges in column formulas, with a cost bound on rows times references.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 4. **Totals.** *Default:* `total: "sum"` on a number or money column, addressable as `[item.field]`, shown in a Total row. *Alternative:* other aggregates, or a total written as a formula.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 5. **Rows.** *Default:* "Add row" (after the current row) and "Delete row", no confirmation; a deleted row leaves the grid and is counted; `fixedRows: true` keeps the agent's rows; no reordering. *Alternative:* deleted agent rows kept struck through with "Restore row"; reordering.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 6. **Unreadable cell text.** *Default:* a cell entry, as the atoms' entries: kept in the cell with its field error, restored after a reload, blocking "Answer"; the editor echoes the parsed value as the atoms do. *Alternative:* the Tree's grid rule (refused on Enter, dropped on leaving), with no board-protocol change.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 7. **Bounds.** *Default:* 200 rows, 10 columns, a text cell of 500 code points, labels of 200, a column formula of 500 characters; lowered before the component if the timings of tasks 0.4, 0.5 or 2.5 exceed their gates. *Alternative:* other figures.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 8. **The answer's derived values.** *Default:* every total, and the formula cells of added rows and of rows whose value differs from the board as sent; numbers rounded half away from zero to 6 decimals, money as a decimal string at its currency's minor units, dates as `full-date`; a value in error never. *Alternative:* every formula cell, or none but the totals.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 9. **Date cells.** *Default:* typed and read by the DateField's parser, with no calendar. *Alternative:* the DateField's calendar popover in the cell editor.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 10. **Single-widget scope** (EXPERIENCE Open Items 24). *Default:* the Table stays at its FR-11 minimum, which is its ceiling; optional lines and the minimum margin belong to the sales estimate review. *Alternative:* the molecule's scope on a lone Table.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 11. **Formula errors on the board.** *Default:* a column formula's problem shows once, over the grid, naming the column, and its cells read "—"; an error that depends on a row's values (a value of the wrong kind, a division by zero) shows under that row; a total's under the Total row; none blocks "Answer". *Alternative:* every error under its row.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.
 12. **Label.** *Default:* an optional `label` (1 to 200 code points) captions the grid and names it in the "Answer" hint; without it the hint names the item ID. *Alternative:* a required label.
+   Answer (2026-11-08): proposed default accepted under the PO's unattended handoff; the PO may revisit.

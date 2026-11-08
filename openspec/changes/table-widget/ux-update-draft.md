@@ -1,6 +1,6 @@
 # UX update draft: Table
 
-**Status: draft, to apply in task 0.1.** It rests on the proposal's open questions 1, 5, 6, 10 and 11; an answer other than the default changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization).
+**Status: applied on 2026-11-08 in task 0.1.** It rests on the proposal's open questions 1, 5, 6, 10 and 11; an answer other than the default changes its blocks first (`/opsx:update`). New strings are marked "(to review)" with the rest of the microcopy (EXPERIENCE, Localization).
 
 How to apply: replace each quoted text in `docs/ux-askboard-2026-10-27/EXPERIENCE.md` or `DESIGN.md`, set `updated:` in each file's front matter to the apply date, then run `openspec validate --all --strict --no-interactive`. Each current text is quoted as it stands on `origin/main` e87841d5; none of the drafts of `layouts`, `form-widget`, `document-review` or `image-annotation` quotes it, except where blocks 1 and 6 append after their rows. Task 0.1 checks that each stands once, word for word, just before the edit.
 
