@@ -103,7 +103,7 @@ ADs relied on: AD-6 (tool texts, generated teaching, typed warnings versus `isEr
 - Known exact pin: `packages/contract/test/table-sets.test.ts:60` (`envelopes: "1.12"`).
 - The answers reference's `collect` example prints the envelopes version, so the skill is regenerated at every binding.
 
-Binding: (filled at task 4.2) "Bound on <date>, rebased onto origin/main <sha>: tool envelopes <n> (main <m>)."
+Bound on 2026-11-09, merged origin/main ac9f891f: tool envelopes 1.13 (main 1.12). Every other set equals main's.
 
 ### 6. The language section
 
@@ -131,7 +131,7 @@ Read on 2026-11-08. Whichever merges first, the rebase keeps both sides and re-c
 | `oversized-acts` (#88) | `worktree-fix-oversized-acts` 25bfc33c | `CHANGELOG.md`, `CLAUDE.md`; no set widened, no skill or tool text | Keep both entries. |
 | `choice-documented-activation` (#87) | `worktree-fix-choice-activation` 57618b67 | `CLAUDE.md` only | Keep both. |
 | backlog (#89) | `worktree-feature-backlog-issues` 7046d8a6 | `CLAUDE.md` moves to `AGENTS.md` | The Status and "In code since" lines go wherever `main` keeps them then. The language teaching names both files anyway. |
-| `document-review` | `worktree-feature-document-review` c5383fbe (based on d6c67d87) | Widens the input format, output format, tool envelopes and board document. Appends a widget (one link line in `SKILL.md`, one catalogue line). Regenerates `references/answers.md` (the `collect` example's versions). Appends export blocks in `contract/src/index.ts` and `fixtures/index.ts`. | Tool envelopes: whichever merges first takes the next minor, and the other rebinds. Keep both export blocks, `main`'s first. Regenerate the skill. Its `document-review-fetch.test.ts` fetches items, not deleted ones: no clash. |
+| `document-review` | `worktree-feature-document-review` c5383fbe (based on d6c67d87) | Widens the input format, output format, tool envelopes and board document. Appends a widget (one link line in `SKILL.md`, one catalogue line). Regenerates `references/answers.md` (the `collect` example's versions). Appends export blocks in `contract/src/index.ts` and `fixtures/index.ts`. | Tool envelopes: whichever merges first takes the next minor, and the other rebinds. Both bind 1.13 against main's 1.12 (2026-11-09): the second to merge rebinds to 1.14, moving its version test, its binding line and its as-built note, and regenerates `skills/askboard/references/answers.md`; that is the rule at work, not a conflict of design. Keep both export blocks, `main`'s first. Regenerate the skill. Its `document-review-fetch.test.ts` fetches items, not deleted ones: no clash. |
 | `snapshot-toolbar` | `worktree-fix-snapshot-toolbar` 1c235e20 | Snapshot data only; no tool or skill text | None. |
 | `reopen-start-from-answer` | `worktree-fix-reopen-start-from-answer` b8a8308c | Board protocol and Snapshot data; "no tool or skill text" (its proposal) | None. |
 | `wbs-gantt-consistency` | `worktree-fix-wbs-gantt-consistency` at 8e2e1247, no artifacts yet | Unknown. A molecule or widget teaching change would regenerate the skill. | Task 0.1 reads its design if one exists by then. Regenerate the skill at the rebase. |
