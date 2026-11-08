@@ -1034,3 +1034,18 @@ export {
 // The annotation's suggested edit (document-review, design decision 2): the longest replacement.
 
 export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";
+
+// The Document review (document-review, design decision 1), unregistered until its component's
+// chunk exists: its entry with its limits and checks, and the one list of escaped characters its
+// document is checked by.
+
+export { isEscapedCodePoint } from "./push/notice-text.ts";
+export {
+  DOCUMENT_REVIEW_MAX_CHARS,
+  DOCUMENT_REVIEW_SCHEMA_IDS,
+  DOCUMENT_REVIEW_TITLE_MAX_CHARS,
+  DOCUMENT_REVIEW_WIDGET,
+  type DocumentReviewItem,
+  type DocumentReviewProps,
+  documentReviewPropsProblems,
+} from "./widgets/document-review/index.ts";
