@@ -53,6 +53,10 @@ const checked = (schema: keyof typeof SCHEMA_IDS, outcome: ToolOutcome): Json =>
   return outcome.json as Json;
 };
 
+/** A `fetch` outcome or result, checked against its schema like `checked`, as a plain record. */
+const checkedFetch = (schema: "fetchOutcome" | "fetchResult", outcome: ToolOutcome) =>
+  checked(schema, outcome) as unknown as Record<string, unknown>;
+
 const plain = (id: string, text: string, labels: readonly string[] = ["Yes", "No"]) => ({
   type: "question",
   id,
@@ -390,17 +394,150 @@ describe("update with every action", () => {
       "postponed",
       "follow-up",
     ]);
-    const region = checked("fetchResult", await session.call("fetch", { askId, itemId: "region" }));
+    const region = checkedFetch(
+      "fetchResult",
+      await session.call("fetch", { askId, itemId: "region" }),
+    );
     expect(region).toMatchObject({
       state: "closed",
       item: { rev: 2, state: "open", previous: { cursor: at(1), choice: ["EU", "US"] } },
     });
     expect((region.item as Record<string, unknown>).answer).toBeUndefined();
+    // An item the agent deleted is a typed outcome, not an error (agent-facing-gaps).
     const deleted = await session.call("fetch", { askId, itemId: "analytics" });
-    expect(deleted.isError).toBe(true);
-    expect(deleted.text).toContain("deleted");
+    expect(deleted.isError).toBe(false);
+    expect(checkedFetch("fetchOutcome", deleted)).toMatchObject({
+      epoch,
+      askId,
+      itemId: "analytics",
+      outcome: "deleted",
+    });
     const again = checked("updateOutcome", await session.call("update", updateOf(at(4))));
     expect<unknown>(again).toEqual({ versions: updated.versions, epoch, askId, outcome: "closed" });
+    expect(await session.end()).toBe(0);
+  });
+});
+
+// `fetch` of an item the agent deleted answers the typed outcome `deleted`, at any depth, and of an
+// item the ask never held, or one a `change` dropped, an error (agent-facing-gaps; mcp-adapter spec,
+// A deleted item in fetch). The ask here has no agent record, so the outcome is marked unchecked.
+describe("fetch of a deleted item, through the session process", () => {
+  const nested = (id: string, label: string) => ({ type: "text-field", id, props: { label } });
+  const planAsk = (askId: string) => ({
+    askId,
+    items: [
+      {
+        type: "question",
+        id: "plan",
+        props: {
+          text: "What is the plan?",
+          items: [
+            {
+              type: "group",
+              id: "owner-group",
+              props: { title: "Who", items: [nested("owner", "Owner")] },
+            },
+            nested("note", "Note"),
+          ],
+        },
+      },
+      plain("keep", "Should this one stay?"),
+    ],
+  });
+
+  const deletedOf = (askId: string, itemId: string) => ({
+    versions: expect.anything(),
+    epoch: expect.any(String),
+    askId,
+    itemId,
+    outcome: "deleted",
+    unchecked: true,
+  });
+
+  test("a question deleted, then fetched, answers deleted; the questions the ask still holds answer their value", async () => {
+    const session = await startSession();
+    const askId = "fetch-deleted-q-m4n7";
+    checked("askResult", await session.call("ask", planAsk(askId)));
+    checked(
+      "updateResult",
+      await session.call("update", { askId, actions: [{ action: "delete", itemId: "keep" }] }),
+    );
+    const gone = await session.call("fetch", { askId, itemId: "keep" });
+    expect(gone.isError).toBe(false);
+    expect(checkedFetch("fetchOutcome", gone)).toEqual(deletedOf(askId, "keep"));
+    for (const itemId of ["plan", "owner-group", "owner", "note"]) {
+      const held = await session.call("fetch", { askId, itemId });
+      expect(held.isError).toBe(false);
+      expect(checkedFetch("fetchResult", held).outcome).toBeUndefined();
+    }
+    expect(await session.end()).toBe(0);
+  });
+
+  test("a TextField inside a Group inside a deleted question answers deleted, at every depth", async () => {
+    const session = await startSession();
+    const askId = "fetch-deleted-g-m4n7";
+    checked("askResult", await session.call("ask", planAsk(askId)));
+    expect(
+      checkedFetch("fetchResult", await session.call("fetch", { askId, itemId: "owner" })).item,
+    ).toMatchObject({
+      type: "text-field",
+      id: "owner",
+    });
+    checked(
+      "updateResult",
+      await session.call("update", { askId, actions: [{ action: "delete", itemId: "plan" }] }),
+    );
+    for (const itemId of ["plan", "owner-group", "owner", "note"]) {
+      const gone = await session.call("fetch", { askId, itemId });
+      expect(gone.isError, itemId).toBe(false);
+      expect(checkedFetch("fetchOutcome", gone), itemId).toEqual(deletedOf(askId, itemId));
+    }
+    expect(
+      checkedFetch("fetchResult", await session.call("fetch", { askId, itemId: "keep" })).item,
+    ).toMatchObject({
+      id: "keep",
+    });
+    expect(await session.end()).toBe(0);
+  });
+
+  test("an area deleted: it and each of its questions answer deleted, the other area's do not", async () => {
+    const session = await startSession();
+    const { askId } = AREAS;
+    checked("askResult", await session.call("ask", AREAS));
+    checked(
+      "updateResult",
+      await session.call("update", { askId, actions: [{ action: "delete", itemId: "storage" }] }),
+    );
+    for (const itemId of ["storage", "database", "cache"]) {
+      const gone = await session.call("fetch", { askId, itemId });
+      expect(gone.isError, itemId).toBe(false);
+      expect(checkedFetch("fetchOutcome", gone), itemId).toEqual(deletedOf(askId, itemId));
+    }
+    for (const itemId of ["operations", "audit", "rollout"]) {
+      const held = await session.call("fetch", { askId, itemId });
+      expect(held.isError, itemId).toBe(false);
+      expect(checkedFetch("fetchResult", held).outcome, itemId).toBeUndefined();
+    }
+    expect(await session.end()).toBe(0);
+  });
+
+  test("an item a change dropped, or one the ask never held, is an error, never deleted", async () => {
+    const session = await startSession();
+    const askId = "fetch-dropped-m4n7";
+    checked("askResult", await session.call("ask", planAsk(askId)));
+    checked(
+      "updateResult",
+      await session.call("update", {
+        askId,
+        actions: [{ action: "change", itemId: "plan", props: { items: [nested("note", "Note")] } }],
+      }),
+    );
+    for (const itemId of ["owner", "owner-group", "never-held"]) {
+      const result = await session.call("fetch", { askId, itemId });
+      expect(result.isError, itemId).toBe(true);
+      expect(result.text).toContain(`has no item "${itemId}"`);
+      expect(result.text).not.toContain("outcome");
+    }
     expect(await session.end()).toBe(0);
   });
 });

@@ -66,7 +66,7 @@ Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separa
 
 ## 2. Server: `fetch` answers `deleted`
 
-- [ ] 2.1 The typed outcome in `mcp-tools` (mcp-adapter spec, "Fetching an item" and "A deleted item in fetch"; design decision 1).
+- [x] 2.1 The typed outcome in `mcp-tools` (mcp-adapter spec, "Fetching an item" and "A deleted item in fetch"; design decision 1).
   - Tests first, in `packages/server/test/mcp-tools/fetch.test.ts`:
     - the test at `:116` turned into: a deleted item returns the outcome `deleted` naming the ask and the item, not an error, validating against `fetch-outcome`;
     - the same for an unchecked ask, carrying `unchecked: true`;
@@ -82,6 +82,10 @@ Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separa
   - Then: `notHeld` in `fetch.ts` returns the typed result. The comment at the top of `fetch.ts` names `deleted` beside `discarded`.
   - If the area case shows that `ask-core` does not hold a deleted area's questions as deleted, stop: that is a core defect outside this design, and it goes to `/opsx:update`.
   - Verify: the tests fail before and pass after; conformance passes on Bun and Node in its three configurations; coverage; the check passes.
+  - Note (Refs #73; commit below): `notHeld` in `fetch.ts` returns `{versions, epoch, askId, itemId, outcome: "deleted"}`, with `unchecked: true` while the ask has no owner (`uncheckedMark`, now read before `notHeld`); `missing` keeps its error; the header comment names `deleted`. `core` held every case as `deleted`, the deleted area's questions included, so nothing stopped for `/opsx:update`.
+  - Red first: `fetch.test.ts` 2 fail (deleted gave `isError`), the two guards (an item the ask holds, a live Group item; another agent's ask refused before `deleted`, `fullValue` never called) pass before and after, 21 pass; `lifecycle.e2e.ts` on Bun, mod-disabled: 64 pass 1 skip 4 fail (the analytics fetch and the question, Group and area cases), then green. New conformance cases: question, TextField in a Group in a deleted question (every depth), area and its questions (the other area's still answer their value), an item a `change` dropped and one never held (errors).
+  - Deviation: the "deleted question of an ask later discarded" case is not in conformance: a live session discards an ask only at its exit or after 120 s of grace. It is in `session-process.test.ts` (in-process session, manual clock): `deleted` before, `discarded` (no `itemId`) for the deleted and a held question after the grace ends.
+  - Conformance (`run.ts`, all three configurations): Bun mod-and-hooks 35 pass; mod-disabled 68 pass 1 skip; hooks-disabled 56 pass 5 skip; Node the same counts; 0 fail. `bun run build` then `bun run check` (with `check:licences`): 12229 pass 3 skip 0 fail on the third run; the first two each failed one unrelated load-timing test (`main.test.ts` session file; `bench` stub run), each passing alone. `fetch.ts` 100% lines and functions.
 - [ ] 2.2 Review checkpoint, group 2, with task 1.4: one combined spec and security pass of their range (askboard-review-protocol; security: the `deleted` producer, fail closed, owner checks). Tests: none. Verify: the findings are recorded under this task; each is fixed tests first or deferred with the PO's reason.
 
 ## 3. Skill: changing an ask, the language, `deleted`
