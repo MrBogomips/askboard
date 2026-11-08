@@ -18,7 +18,7 @@ import { useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
-import { type Senders, sendActs } from "./card-acts.ts";
+import { type Senders, sendSubmit } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
@@ -117,8 +117,7 @@ export const BottomBar = (props: BottomBarProps) => {
   // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
   // immediate delivery does.
   const sendActsOf = (acts: readonly ViewAct[], then?: () => void): void => {
-    const [first, ...rest] = acts;
-    if (first !== undefined) sendActs(context, [first, ...rest], "submit");
+    sendSubmit(context, acts);
     then?.();
   };
   const send = (then?: () => void): void => {

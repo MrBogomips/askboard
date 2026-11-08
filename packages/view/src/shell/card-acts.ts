@@ -108,6 +108,12 @@ export const sendActs = (
   via: SentVia = "answer",
 ): void => dispatch(senders, acts, { type: "act", acts }, via);
 
+/** Submit's one command: every act it holds, marked as Submit's so that a refusal says so. */
+export const sendSubmit = (senders: Senders, acts: readonly ViewAct[]): void => {
+  const [first, ...rest] = acts;
+  if (first !== undefined) sendActs(senders, [first, ...rest], "submit");
+};
+
 /** The order a newly held act takes: after every act held so far, undos beneath included (AD-20). */
 export const nextHeldOrder = (board: BoardDraft): number =>
   [...board.get().questions.values()].reduce(

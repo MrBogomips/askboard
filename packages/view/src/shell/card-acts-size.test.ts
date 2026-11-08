@@ -3,7 +3,7 @@ import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 import { createBoardDraft } from "./board-draft.ts";
-import { answer, sendActs } from "./card-acts.ts";
+import { answer, sendActs, sendSubmit } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
@@ -67,6 +67,20 @@ describe("a command the board page refused as too large", () => {
     await Bun.sleep(0);
     expect(notices.noticeOf("database")).toEqual({ kind: "submit", size });
     expect(notices.noticeOf("cache")).toEqual({ kind: "submit", size });
+  });
+
+  test("sendSubmit, the bottom bar's one command, sets a submit notice on each question", async () => {
+    const { context, notices } = setUp(refusedWithSize);
+    sendSubmit(context, [noteOf("database"), noteOf("cache")]);
+    await Bun.sleep(0);
+    expect(notices.noticeOf("database")).toEqual({ kind: "submit", size });
+    expect(notices.noticeOf("cache")).toEqual({ kind: "submit", size });
+  });
+
+  test("sendSubmit with no acts sends nothing", () => {
+    const { context, sent } = setUp(refusedWithSize);
+    sendSubmit(context, []);
+    expect(sent).toHaveLength(0);
   });
 
   test("a card's own Answer sets the notice, and the draft and the held acts stay", async () => {

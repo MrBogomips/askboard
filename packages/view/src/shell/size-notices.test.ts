@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createSizeNotices, noticeText } from "./size-notices.ts";
+import { createAnswerActs } from "./answer-acts.ts";
+import { createSizeNotices, noticeText, noticeTooLarge } from "./size-notices.ts";
 
 // The lines on the question cards for a message too large (oversized-acts, design decisions 2, 3
 // and 4; view spec, An answer too large to send, Work too large to keep across a reload).
@@ -166,5 +167,35 @@ describe("the text of a notice", () => {
     expect(text({ kind: "answer", size }, "it-IT")).toContain("(6,8 MB, al massimo 6 MB)");
     expect(text({ kind: "submit", size }, "it-IT")).toContain("(6,8 MB, al massimo 6 MB)");
     expect(text({ kind: "closed" }, "it-IT")).toContain("troppo grande");
+  });
+});
+
+describe("noticeTooLarge: the commands a socket closed as too large dropped", () => {
+  const when = "2026-10-30T10:00:00.250Z";
+  const noteOf = (itemId: string) => ({ type: "note", itemId, rev: 1, note: "n", when }) as const;
+  const ID = "AAAAAAAAAAAAAAAAAAAAAA";
+
+  test("a settled too-large command sets a closed notice on each question of its flight", () => {
+    const acts = createAnswerActs();
+    const notices = createSizeNotices(() => []);
+    const key = acts.start([noteOf("a"), noteOf("b"), noteOf("a")]);
+    acts.replied(key, { outcome: "sent", actionId: ID });
+    noticeTooLarge(acts, [{ actionId: ID, outcome: "refused", tooLarge: true }], notices);
+    expect(notices.noticeOf("a")).toEqual({ kind: "closed" });
+    expect(notices.noticeOf("b")).toEqual({ kind: "closed" });
+  });
+
+  test("a command settled for another reason, or another flight, sets nothing", () => {
+    const acts = createAnswerActs();
+    const notices = createSizeNotices(() => []);
+    const key = acts.start([noteOf("a")]);
+    acts.replied(key, { outcome: "sent", actionId: ID });
+    noticeTooLarge(acts, [{ actionId: ID, outcome: "refused" }], notices);
+    noticeTooLarge(
+      acts,
+      [{ actionId: "BBBBBBBBBBBBBBBBBBBBBB", outcome: "refused", tooLarge: true }],
+      notices,
+    );
+    expect(notices.noticeOf("a")).toBeUndefined();
   });
 });

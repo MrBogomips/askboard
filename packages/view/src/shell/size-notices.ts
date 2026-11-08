@@ -8,7 +8,8 @@
 
 import { formatNumber, type Locale } from "@askboard/contract";
 import { t } from "../strings/index.ts";
-import type { MessageSize } from "../view-protocol.ts";
+import type { MessageSize, SettledAct } from "../view-protocol.ts";
+import type { AnswerActs } from "./answer-acts.ts";
 import { sameRefs } from "./work-refs.ts";
 
 /** What a card says of a command that did not go. */
@@ -104,4 +105,18 @@ export const noticeText = (notice: SizeNotice, language: Locale, locale: Locale)
     max: megabytes(notice.size.max, "down", locale),
   };
   return t(language, notice.kind === "submit" ? "send.tooLargeSubmit" : "send.tooLarge", slots);
+};
+
+/**
+ * Commands the board page dropped because their socket was closed as too large: each question of
+ * their flights says so. Run before `reconcile` settles the flights, which keeps the work.
+ */
+export const noticeTooLarge = (
+  acts: AnswerActs,
+  settled: readonly SettledAct[],
+  notices: SizeNotices,
+): void => {
+  for (const flight of acts.tooLarge(settled)) {
+    notices.closed([...new Set(flight.acts.map((act) => act.itemId))]);
+  }
 };
