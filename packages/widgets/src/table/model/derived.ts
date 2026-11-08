@@ -187,10 +187,9 @@ const roundedValue = (
       return typeof result === "number" && column.currency !== undefined
         ? moneyDecimal(result, column.currency)
         : undefined;
-    case "date":
-      return typeof result === "string" ? result : undefined;
     default:
-      return undefined;
+      // A date as given; a text or a toggle has no formula, so no derived value.
+      return column.type === "date" && typeof result === "string" ? result : undefined;
   }
 };
 

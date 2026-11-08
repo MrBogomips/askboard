@@ -186,6 +186,12 @@ describe("Enter, F2 and Space", () => {
     },
   );
 
+  test("any other key on an on/off cell is nothing", () => {
+    for (const name of ["a", "Tab", "Escape", "1"]) {
+      expect(tableKey(key(name), context(at("pm", "billable")))).toEqual({ kind: "none" });
+    }
+  });
+
   test("a read-only grid clears nothing", () => {
     expect(tableKey(key("Delete"), context(at("pm", "billable"), { readOnly: true }))).toEqual({
       kind: "none",
