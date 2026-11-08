@@ -149,7 +149,11 @@ export const TableWidget = ({
   const parity = useRef(false);
 
   // Dropped during this render, so the Table never shows an edit once read-only.
-  if (disabled && editingState !== undefined) setEditing(undefined);
+  // An editor the agent's change stops (its column or cell value changed, its row gone) is dropped
+  // too, so it never reopens when a later change restores them (review X-3 of review-table-g7).
+  if (editingState !== undefined && (disabled || !editingStands(value, editingState))) {
+    setEditing(undefined);
+  }
   const focus = settleFocus(value, stored);
   // The current row, which the row tools act on, is one the user has been in: none at open.
   const current = stored === undefined ? undefined : focus;

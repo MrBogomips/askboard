@@ -806,6 +806,32 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "an editor the agent's change closed does not reopen when the agent restores the column: the focus stays where the user put it",
+      async () => {
+        const { run, table, editor, document } = await openAndChange();
+        await editor.fill("77");
+        const relabelled = rolesWith({
+          columns: ROLES.columns.map((column) =>
+            column.field === "rate" ? { ...column, label: "Hourly" } : column,
+          ),
+        } as never);
+        await run.update(revise(document, relabelled));
+        await editor.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await cellOf(table, "dev", "role").click();
+        await run.update(revise(document, rolesWith({}), 3));
+        await eventually(
+          async () =>
+            (await table.grid.locator("thead th").allTextContents()).join().includes("Rate"),
+          "the column restored",
+        );
+        expect(await table.frame.getByRole("textbox").count()).toBe(0);
+        await eventually(() => isFocused(cellOf(table, "dev", "role")), "the focus to stay");
+        expect(await counterText(table)).toBe("No changes");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "Reload, losing my work drops the draft and its cell entries and the Table shows the agent's rows",
       async () => {
         const document = tableDocument();
