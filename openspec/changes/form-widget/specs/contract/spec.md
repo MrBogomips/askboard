@@ -26,6 +26,10 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 - **WHEN** an ask holds a TextField `{label: "Code", minLength: 50, maxLength: 40}`
 - **THEN** `ask` refuses it at `minLength`, naming the item
 
+#### Scenario: A text over the limit never reaches the pattern
+- **WHEN** the pattern check of a TextField `{label: "Code", pattern: "^\\d*\\d*\\d*\\d{250}$"}` is run on a text of 1,000 characters
+- **THEN** it fails naming the pattern at once, without running the pattern, and on 100 characters it runs the pattern
+
 ### Requirement: Safe patterns
 `ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile, holds a backreference, a lookaround, a `(?` form but `(?:` and `(?<name>`, a name twice, a repeated group holding a quantifier or `|`, a `\p{…}` but a General_Category or ES2018 binary property, or costs over 3 repetitions (variable quantifiers and `|` groups; one more with no leading `^`), or with `maxLength` over 100 (100 when absent). Each refusal SHALL name the item and rule (NFR-5, AD-8).
 

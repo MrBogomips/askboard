@@ -158,6 +158,43 @@ describe("a TextField's pattern, which only the board runs", () => {
     expect(check(named, "x")).toBeUndefined();
   });
 
+  test("a text over the limit fails without the pattern running (the cap is the function's own)", () => {
+    const heavy = { pattern: "^\\d*\\d*\\d*\\d{250}$" };
+    const started = performance.now();
+    expect(patternFailure(heavy, `${"1".repeat(999)}x`)).toEqual({ code: "pattern" });
+    expect(performance.now() - started).toBeLessThan(5);
+  });
+
+  test("100 code points run the pattern and 101 do not, with or without maxLength", () => {
+    const run = RegExp.prototype.test;
+    let runs = 0;
+    RegExp.prototype.test = function (this: RegExp, text: string) {
+      runs += 1;
+      return run.call(this, text);
+    };
+    try {
+      expect(
+        patternFailure({ pattern: "^a+$" }, "a".repeat(PATTERN_TEXT_MAX_CHARS)),
+      ).toBeUndefined();
+      expect(runs).toBe(1);
+      expect(patternFailure({ pattern: "^a+$" }, "a".repeat(PATTERN_TEXT_MAX_CHARS + 1))).toEqual({
+        code: "pattern",
+      });
+      expect(runs).toBe(1);
+      expect(patternFailure({ pattern: "^a+$", maxLength: 10 }, "a".repeat(10))).toBeUndefined();
+      expect(patternFailure({ pattern: "^a+$", maxLength: 10 }, "a".repeat(11))).toEqual({
+        code: "pattern",
+      });
+      expect(runs).toBe(2);
+      expect(
+        patternFailure({ pattern: "^.+$" }, "😀".repeat(PATTERN_TEXT_MAX_CHARS)),
+      ).toBeUndefined();
+      expect(runs).toBe(3);
+    } finally {
+      RegExp.prototype.test = run;
+    }
+  });
+
   test("many distinct patterns each keep their own verdict", () => {
     for (let at = 0; at < 150; at += 1) {
       const props = { pattern: `^x${at}$` };

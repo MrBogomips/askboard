@@ -213,8 +213,9 @@ const compiledPattern = (pattern: string): RegExp | null => {
 /**
  * The TextField's pattern check, which only the board runs, on the user's text (form-widget, design
  * decision 3): the pattern read with the `u` flag and unanchored, as JSON Schema reads `pattern`.
- * A pattern that does not compile fails; a field with no pattern, no text or props that are no
- * TextField's never does. The session process never calls it (NFR-5, AD-8).
+ * A pattern that does not compile fails, and so does a text over the field's limit
+ * (`textFieldLimit`), which never reaches the pattern; a field with no pattern, no text or props that
+ * are no TextField's never does. The session process never calls it (NFR-5, AD-8).
  */
 export const textFieldPatternFailure = (
   result: unknown,
@@ -225,6 +226,9 @@ export const textFieldPatternFailure = (
   }
   const { pattern } = props;
   if (typeof pattern !== "string") return undefined;
+  // The cap is enforced here, where the pattern would pay for the text: a text over the field's
+  // limit fails without running it, whatever the caller held (review X-1).
+  if (codePointCount(result) > textFieldLimit(props)) return { code: "pattern" };
   const regex = compiledPattern(pattern);
   return regex === null || !regex.test(result) ? { code: "pattern" } : undefined;
 };
