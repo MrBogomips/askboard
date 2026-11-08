@@ -266,10 +266,10 @@ const expandedHeldRefusal = (
   context: UpdateContext,
   ids: readonly string[],
 ): Refusal | undefined => {
-  const { expansion } = context.widgets;
-  const id = ids.find((candidate) => expansion.has(candidate));
+  const { expanded } = context.widgets;
+  const id = ids.find((candidate) => expanded.has(candidate));
   if (id === undefined) return undefined;
-  const reference = expansion.get(id)?.reference;
+  const reference = expanded.get(id);
   const detail = `the ID "${id}" is in use in the ask, held by the expansion of the molecule reference "${reference}"; item IDs are never reused`;
   return refuse("in-use", detail, id);
 };
@@ -332,7 +332,14 @@ const changeWidget = (context: UpdateContext, itemId: string, props: Record<stri
   if (stands !== undefined) return { ...stands, itemId };
   const changed = widgetProps(context, holder, props);
   if (!changed.ok) return refuse("props", changed.detail, changed.itemId ?? itemId);
-  const taken = inUseRefusal(context, itemIdsOf(changed.props), question.id);
+  // A layout's change brings items in as a question's does: only the IDs it brings in are checked
+  // against the expanded IDs the ask held, since the stored props hold the question's own live ones.
+  const stored = new Set(itemIdsOf(model.propsOf(question)));
+  const brought = holder.reference === undefined;
+  const incoming = itemIdsOf(changed.props).filter((id) => !stored.has(id));
+  const taken =
+    inUseRefusal(context, itemIdsOf(changed.props), question.id) ??
+    (brought ? expandedHeldRefusal(context, incoming) : undefined);
   if (taken !== undefined) return taken;
   const rev = model.revise(question, changed.props);
   return { action: "change", itemId, rev } as const;
