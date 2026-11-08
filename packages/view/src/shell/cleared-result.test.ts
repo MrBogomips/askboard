@@ -13,7 +13,7 @@ import { createDraftStore } from "./draft-store.ts";
 import { itemCallbacks, itemResultOf } from "./item-callbacks.ts";
 
 // A result the user clears during a revision of an answered question (reopen-start-from-answer,
-// design decision 5; view-and-widgets: "A result cleared during a revision"): the first edit starts
+// design decision 2; view-and-widgets: "A result cleared during a revision"): the first edit starts
 // the revision and copies the answer's results into the draft, the clear then deletes the item's
 // held result, and from then on the card shows the draft alone. The answered lookup is a fallback
 // only while no revision has started, so a cleared result is never shown again from the answer
@@ -110,7 +110,7 @@ const setUp = () => {
   return { sent, results, context, callbacksOf, shownOf };
 };
 
-describe("a result the user clears during a revision (decision 5; Issue #107)", () => {
+describe("a result the user clears during a revision (decision 2; Issue #107)", () => {
   const keptWithout = (cleared: string): Record<string, unknown> =>
     Object.fromEntries(Object.entries(ANSWERED).filter(([id]) => id !== cleared));
 

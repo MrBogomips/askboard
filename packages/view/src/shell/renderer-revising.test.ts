@@ -13,7 +13,7 @@ import { createReadyTracker } from "./ready-tracker.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 
 // The result an item is drawn with, through the renderer (reopen-start-from-answer, design
-// decision 5; Issue #107): the latest answer's result while no revision has started, the held
+// decision 2; Issue #107): the latest answer's result while no revision has started, the held
 // results alone once one has, at any depth of the layouts.
 
 Object.assign(globalThis, { requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} });

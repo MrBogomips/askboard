@@ -246,6 +246,32 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "an edit the revision returns to the agent's label shows the agent's label, and the revised answer carries no value for it: the card does not show the answered rename again (Issue #107, values)",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        const [first] = await answerWithChanges(run, board);
+        expect(first?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
+        // The revision starts from the answer: the Tree keeps the rename, the verdict and the note.
+        await renameNode(board, "ux", "UX design");
+        await Bun.sleep(QUIET_MS);
+        const cell = treeGridOf(board).cell("ux", 0);
+        expect(await cell.textContent()).toContain("UX design");
+        expect(await cell.textContent()).not.toContain(UX);
+        expect(await isPressed(decisionOf(board, PLAN, "Approve with changes"))).toBe(true);
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
+        await actsDone(run, 2);
+        const [revised] = checkedEvents(await run.session.collectJson());
+        expect(revised?.replaces).toBe(first?.cursor);
+        expect(revised?.results).toEqual({ verdict: { decision: "approve-with-changes" } });
+        expect(revised?.changes).toBeUndefined();
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "Decline chosen again on a delivered decline asks first: cancelled it sends nothing with the focus on the question's More menu button; confirmed it sends the reopen and moves the focus to the heading",
       async () => {
         const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));

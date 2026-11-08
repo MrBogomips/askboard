@@ -201,7 +201,7 @@ export const itemValueOf = (cardShown: unknown, board: BoardContent, itemId: str
  * sent or the logged one, else the result the user holds, else its question's latest answer's
  * while no revision has started; none when it has none. A revision's start copies every result
  * that fits into the draft, so once `revising` the card shows the held results alone, and a
- * result the user cleared stays cleared (reopen-start-from-answer, design decision 5).
+ * result the user cleared stays cleared (reopen-start-from-answer, design decision 2).
  */
 export const itemResultOf = (
   cardShown: unknown,

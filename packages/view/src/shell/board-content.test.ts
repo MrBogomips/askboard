@@ -341,7 +341,7 @@ describe("the results the board's answers hold (widget-registry, design decision
     expect(resultOf("constructor")).toBeUndefined();
   });
 
-  test("a result its item no longer takes on the item's current props is not shown (decision 5)", () => {
+  test("a result its item no longer takes on the item's current props is not shown (decision 2)", () => {
     const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
     const doc = {
       ...plainChoiceBoardDocument,
