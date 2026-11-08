@@ -4,6 +4,10 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ## Unreleased
 
+### Known limits
+
+- Size: an answer, or one Submit, goes to the board as one message of at most about 6 MB, and a board's unsent work is kept across a reload up to about 2 million characters. Past the first, the card says "Not sent: this answer is too large" with its size and the limit, sends nothing and keeps your work (a Submit says so on each question in it and points to immediate delivery, one question at a time); past the second, the card of the question holding the largest work says that a reload would lose it, the leave-page prompt stays armed and "Copy my unsent work" still holds it. The agent receives only what you sent.
+
 ## 0.1.0 - 2026-11-07
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.
