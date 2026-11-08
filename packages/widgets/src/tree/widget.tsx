@@ -16,7 +16,12 @@
 // (molecules design decision 14). A node added and named goes in the draft with the edits it makes
 // to the plans over the Tree (`linked.ts`; design decisions 11 and 12), and so does a node deleted,
 // which asks first when tasks of those plans depend on its branch; a delete they refuse writes
-// nothing and keeps the question open with the refusal. The selection of rows, the percentage
+// nothing and keeps the question open with the refusal. An edit that gives a leaf its first child,
+// a drop into it, an indent under it or "Add child" on it, asks first when the leaf holds an
+// estimate that counts or is a task of a plan (`grouping.ts`, view spec "Making a work package a
+// group asks first"): the pending edit is view state, never draft, and "Continue" makes the edit
+// the unasked path would make, on the value as it is then, so an edit no longer possible changes
+// nothing; "Cancel" and Escape change nothing and return the focus. The selection of rows, the percentage
 // adjustment of the selected leaves and its one undo slot are view state (widget-editing-plus
 // design decisions 1, 3 and 4): the selection clears when the Tree turns read-only and drops what
 // a delete took away; the slot holds the value before the last adjustment and is emptied by any
@@ -49,13 +54,21 @@ import {
 import { NO_ROW_EVENTS, type RowDragEvents, type TreeDrag } from "./drag.ts";
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
+import { type GroupEdit, groupQuestionOf } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { applyAdjustment } from "./model/adjust.ts";
 import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
 import { type DragState, leaveTarget, overTarget, startDrag, tipOf } from "./model/dragging.ts";
 import { dropOn } from "./model/drop.ts";
 import type { TreeEdit } from "./model/edits.ts";
-import { focusOn, navigate, openView, type TreeView, toggle } from "./model/focus.ts";
+import {
+  focusOn,
+  navigate,
+  openView,
+  type TreeFocus,
+  type TreeView,
+  toggle,
+} from "./model/focus.ts";
 import { keyAction, TREE_TOOLS } from "./model/keys.ts";
 import { ADDED, marksOf, sameNodes } from "./model/marks.ts";
 import { locate } from "./model/nodes.ts";
@@ -79,18 +92,36 @@ import {
   rowNodeOf,
   selectTargetOf,
 } from "./targets.ts";
-import { TreeToolbar } from "./toolbar.tsx";
+import { type Asking, TreeToolbar } from "./toolbar.tsx";
 import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
 const NO_COLUMNS: readonly TreeColumn[] = [];
 
 /** A delete whose question is asked: its node, the part it was asked from, and its refusal. */
-type Asked = { readonly nodeId: string; readonly from: TreePart; readonly refusal?: string };
+type AskedDelete = {
+  readonly kind: "delete";
+  readonly nodeId: string;
+  readonly from: TreePart;
+  readonly refusal?: string;
+};
+
+/** An edit that would give a leaf its first child, asked first, and the part it came from. */
+type AskedGroup = { readonly kind: "group"; readonly edit: GroupEdit; readonly from: TreePart };
+
+/** The question the toolbar row shows, if any: one at a time. */
+type Asked = AskedDelete | AskedGroup;
+
+// The middle of a row, where a drop into it lands (`zoneOf`).
+const INTO = 0.5;
+
+// The edit of a tool or key that may give a leaf its first child, with the node it acts on.
+const groupEditOf = (edit: TreeEdit, nodeId: string): GroupEdit | undefined =>
+  edit === "indent" || edit === "addChild" ? { kind: edit, nodeId } : undefined;
 
 // The question of the delete `asked`, from the value as it is, with the refusal it met.
 const askedQuestion = (
   value: TreeProps,
-  asked: Asked,
+  asked: AskedDelete,
   countDependents: CountDependents,
 ): DeleteQuestion | undefined => {
   const { nodeId, refusal } = asked;
@@ -121,6 +152,7 @@ export const TreeWidget = ({
   onLinkedAdd,
   countDependents,
   onLinkedDelete,
+  planned,
 }: {
   readonly itemId: string;
   /** The agent's props, checked. */
@@ -149,10 +181,13 @@ export const TreeWidget = ({
    * or returns the field error that refuses it (`linked.ts`).
    */
   readonly onLinkedDelete: (next: TreeProps, deleted: readonly string[]) => string | undefined;
+  /** A Gantt plan of the question names the Tree: its leaves are tasks of it (`grouping.ts`). */
+  readonly planned: boolean;
 }) => {
   const text = useStrings();
   const [stored, setView] = useState(() => openView(value));
-  // The delete whose question is asked, the part it was asked from, and its refusal once refused.
+  // The question asked: a delete, with the part it was asked from and its refusal once refused, or
+  // a leaf becoming a group.
   const [asked, setAsked] = useState<Asked>();
   // The current row, which the row tools act on: set by a click or an arrow key, none at open.
   const [currentId, setCurrent] = useState<Current>();
@@ -263,8 +298,8 @@ export const TreeWidget = ({
   };
 
   // The new node's name is entered in its row, whose editor takes the focus.
-  const add = (edit: AddEdit): void => {
-    const pending = pendingAdd(edit, value, anchorOf(view, current));
+  const add = (edit: AddEdit, from: TreeFocus | undefined): void => {
+    const pending = pendingAdd(edit, value, from);
     if (disabled || pending === undefined) return;
     const next = viewOfAdd(view, value, pending);
     setView(next);
@@ -287,11 +322,11 @@ export const TreeWidget = ({
   // its refusal.
   const startDelete = (nodeId: string, from: TreePart): void => {
     if (deleteQuestionOf(value, nodeId, countDependents) !== undefined) {
-      setAsked({ nodeId, from });
+      setAsked({ kind: "delete", nodeId, from });
       return;
     }
     const refusal = remove(nodeId, from === "grid" ? "grid" : undefined);
-    if (refusal !== undefined) setAsked({ nodeId, from, refusal });
+    if (refusal !== undefined) setAsked({ kind: "delete", nodeId, from, refusal });
   };
   // The node moves with its branch, the focus following it (`moving.ts`).
   const move = (edit: MoveEdit, nodeId: string, focusTo: TreePart | undefined): void => {
@@ -300,21 +335,43 @@ export const TreeWidget = ({
     setView(moved.view);
     change(moved.value);
   };
-  // An edit of the focused node, from a key or a tool, where it is possible.
-  const act = (edit: TreeEdit, from: TreePart): void => {
-    const nodeId = current;
+  // An edit of the node `nodeId`, where it is possible, made at once.
+  const perform = (edit: TreeEdit, nodeId: string | undefined, from: TreePart): void => {
     const focusTo = from === "grid" ? "grid" : undefined;
     if (disabled || !canAct(edit, value, nodeId)) return;
-    if (isAdd(edit)) add(edit);
+    if (isAdd(edit)) add(edit, anchorOf(view, nodeId));
     else if (nodeId === undefined) return;
     else if (isMove(edit)) move(edit, nodeId, focusTo);
     else startDelete(nodeId, from);
   };
+  // The question that gives a leaf its first child asks first, and changes nothing until "Continue";
+  // false when the edit is not one that asks.
+  const askGroup = (edit: GroupEdit, from: TreePart): boolean => {
+    if (groupQuestionOf(value, edit, { planned, countDependents }) === undefined) return false;
+    setAsked({ kind: "group", edit, from });
+    return true;
+  };
+  // An edit of the focused node, from a key or a tool, where it is possible.
+  const act = (edit: TreeEdit, from: TreePart): void => {
+    const nodeId = current;
+    if (!disabled && nodeId !== undefined && canAct(edit, value, nodeId)) {
+      const group = groupEditOf(edit, nodeId);
+      if (group !== undefined && askGroup(group, from)) return;
+    }
+    perform(edit, nodeId, from);
+  };
   // A drop makes the move the buttons make, the focus following the node (`moving.ts`); a refused
   // drop and one where the node already is change nothing.
-  const dropRow = (nodeId: string, targetId: string, fraction: number): void => {
+  const dropRow = (nodeId: string, targetId: string, fraction: number, confirmed = false): void => {
     const moved = afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId);
     if (disabled || moved.value === value) return;
+    const drop = dropOn(value, nodeId, targetId, fraction);
+    if (!confirmed && askGroup({ kind: "drop", nodeId, drop }, "grid")) {
+      // Nothing moves: the dragged row stays the grid's Tab stop, where "Cancel" returns the focus.
+      setCurrent(nodeId);
+      show(focusOn(view, value, nodeId), false);
+      return;
+    }
     focus.moveFocusTo("grid");
     setCurrent(nodeId);
     setView(moved.view);
@@ -344,7 +401,8 @@ export const TreeWidget = ({
     },
     end: () => {
       setDragging(undefined);
-      focus.moveFocusTo("grid");
+      // The question a drop asks holds the focus, on "Cancel".
+      if (asked?.kind !== "group") focus.moveFocusTo("grid");
     },
   };
   const dragged = dragging !== undefined;
@@ -366,12 +424,49 @@ export const TreeWidget = ({
   );
   const tip = tipOf(dragging);
   const enabled = TREE_TOOLS.map((tool) => !disabled && canAct(tool.edit, value, current));
-  // The question shows while its node has children or dependents, from the value as it is, or
-  // its delete was refused, and while the Tree is editable; once it no longer applies it is
-  // dropped, never to show again unasked.
-  const question =
-    disabled || asked === undefined ? undefined : askedQuestion(value, asked, countDependents);
-  if (asked !== undefined && question === undefined) {
+  // The delete question shows while its node has children or dependents, from the value as it is,
+  // or its delete was refused, and the group question while its leaf still has no child and loses
+  // something; both while the Tree is editable. Once a question no longer applies it is dropped,
+  // never to show again unasked.
+  const cancelAsked = (from: TreePart): void => {
+    focus.moveFocusTo(from);
+    setAsked(undefined);
+  };
+  // "Continue": the edit the unasked path makes, on the value as it is, for the node it was asked of.
+  const confirmGroup = ({ edit, from }: AskedGroup): void => {
+    setAsked(undefined);
+    if (edit.kind !== "drop") perform(edit.kind, edit.nodeId, from);
+    else if (edit.drop.kind !== "refused") dropRow(edit.nodeId, edit.drop.targetId, INTO, true);
+  };
+  const askingOf = (open: Asked): Asking | undefined => {
+    if (open.kind === "group") {
+      const question = groupQuestionOf(value, open.edit, { planned, countDependents });
+      return question === undefined
+        ? undefined
+        : {
+            kind: "group",
+            key: `group:${open.edit.kind}:${open.edit.nodeId}`,
+            question,
+            onConfirm: () => confirmGroup(open),
+            onCancel: () => cancelAsked(open.from),
+          };
+    }
+    const question = askedQuestion(value, open, countDependents);
+    return question === undefined
+      ? undefined
+      : {
+          kind: "delete",
+          key: `delete:${open.nodeId}`,
+          question,
+          onConfirm: () => {
+            const refusal = remove(open.nodeId, open.from);
+            setAsked(refusal === undefined ? undefined : { ...open, refusal });
+          },
+          onCancel: () => cancelAsked(open.from),
+        };
+  };
+  const asking = disabled || asked === undefined ? undefined : askingOf(asked);
+  if (asked !== undefined && asking === undefined) {
     // A lock takes the question while its "Cancel" holds the focus: the focus goes to the tree, not
     // to the selection tools that stay in a read-only toolbar.
     const row = focus.toolbarRow.current;
@@ -380,21 +475,6 @@ export const TreeWidget = ({
     }
     setAsked(undefined);
   }
-  const asking =
-    question === undefined || asked === undefined
-      ? undefined
-      : {
-          nodeId: asked.nodeId,
-          question,
-          onConfirm: () => {
-            const refusal = remove(asked.nodeId, asked.from);
-            setAsked(refusal === undefined ? undefined : { ...asked, refusal });
-          },
-          onCancel: () => {
-            focus.moveFocusTo(asked.from);
-            setAsked(undefined);
-          },
-        };
 
   // Every key the Tree binds has its default prevented, even when it changes nothing. While a
   // cell is edited, its editor handles the keys.
