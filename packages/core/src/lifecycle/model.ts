@@ -472,7 +472,11 @@ export class BoardModel {
     const then = question.revs.get(rev);
     if (then === undefined) return [];
     const key = `${question.id}\u0000${rev}\u0000${question.rev}`;
-    if (!this.#unchanged.has(key)) this.#unchanged.set(key, unchangedItems(question.id, then, now));
+    if (!this.#unchanged.has(key)) {
+      const after = { props: now, context: question.context.get(question.rev) };
+      const before = { props: then, context: question.context.get(rev) };
+      this.#unchanged.set(key, unchangedItems(question.id, before, after));
+    }
     return this.#unchanged.get(key) ?? [];
   }
 

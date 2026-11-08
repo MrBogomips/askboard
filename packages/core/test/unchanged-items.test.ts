@@ -5,9 +5,18 @@ import {
   TIMELINE_EDITED_PROPS,
   TIMELINE_FIXTURE_ITEM,
 } from "@askboard/contract/fixtures";
+import type { ExcerptResolution, UnresolvedPointer } from "../src/index.ts";
 import type { QuestionRecord } from "../src/lifecycle/model.ts";
 import { unchangedComparisons, unchangedItems } from "../src/lifecycle/unchanged.ts";
 import { questionView } from "../src/lifecycle/views.ts";
+import {
+  ADR_POINTER,
+  CONTEXT_ASK_ID,
+  contextAsk,
+  contextCoreWith,
+  excerpt,
+  turns,
+} from "./context-fakes.ts";
 import { boardOf, command, created, FLAT_ID, flatAsk, logOf, WHEN } from "./lifecycle-fakes.ts";
 import { type Item, modelOf } from "./probe-fakes.ts";
 
@@ -315,7 +324,78 @@ describe("the comparison is made once", () => {
   test("props that canonicalize refuses are not compared: an empty list", () => {
     const props = (n: number) =>
       ({ text: "Q", items: [{ type: "timeline", id: "a", props: { n } }] }) as never;
-    expect(unchangedItems("q", props(1), props(1))).toEqual(["q", "a"]);
-    expect(unchangedItems("q", props(Number.NaN), props(Number.NaN))).toEqual([]);
+    const revision = (n: number) => ({ props: props(n), context: undefined });
+    expect(unchangedItems("q", revision(1), revision(1))).toEqual(["q", "a"]);
+    expect(unchangedItems("q", revision(Number.NaN), revision(Number.NaN))).toEqual([]);
+  });
+});
+
+// Review 1.3 X-1: the revisions are compared as the board shows them, with the context each one's
+// send resolved (core spec: How unchanged items are compared).
+describe("context read again at the reopen", () => {
+  const reading = (text: string): ExcerptResolution => ({
+    status: "resolved",
+    text,
+    mediaType: "text/markdown",
+    lines: { start: 7, end: 9 },
+  });
+  const unread: UnresolvedPointer = { status: "unresolved", reason: "not-found" };
+
+  // A one-question ask holding the excerpt `retry-adr`; `answers` is read at each call, so a test
+  // changes what the pointer resolves to between the answer and the reopen.
+  const setup = async (first: ExcerptResolution | UnresolvedPointer) => {
+    const answers: Record<string, { resolveExcerpt: ExcerptResolution | UnresolvedPointer }> = {
+      [ADR_POINTER]: { resolveExcerpt: first },
+    };
+    const { core, sources } = contextCoreWith({ answers: answers as never });
+    const pending = core.ask(contextAsk([excerpt("retry-adr", ADR_POINTER)]));
+    await turns();
+    sources.release();
+    await pending;
+    const answered = core.act(
+      CONTEXT_ASK_ID,
+      command([{ type: "answer", itemId: "fix", rev: 1, choice: ["Fix A"], when: WHEN }]),
+    );
+    expect(answered.ok).toBe(true);
+    const reopen = async (next: ExcerptResolution | UnresolvedPointer) => {
+      answers[ADR_POINTER] = { resolveExcerpt: next };
+      await core.update({
+        askId: CONTEXT_ASK_ID,
+        actions: [{ action: "reopen", itemId: "fix" }],
+      } as never);
+      return boardOf(core, CONTEXT_ASK_ID).questions[0];
+    };
+    return { core, reopen };
+  };
+
+  test("an excerpt whose text changed, its props unchanged: neither the item nor the question", async () => {
+    const { reopen } = await setup(reading("Retry 3 times, then fail."));
+    const question = await reopen(reading("Never retry: payments are not idempotent."));
+    expect(question).toMatchObject({ rev: 2, state: "open" });
+    expect(question?.previous?.unchanged).toEqual([]);
+  });
+
+  test("the same resolution keeps both in the list", async () => {
+    const { reopen } = await setup(reading("Retry 3 times, then fail."));
+    const question = await reopen(reading("Retry 3 times, then fail."));
+    expect(question?.previous?.unchanged).toEqual(["fix", "retry-adr"]);
+  });
+
+  test("a pointer unresolved at both revisions compares as itself", async () => {
+    const { reopen } = await setup(unread);
+    const question = await reopen(unread);
+    expect(question?.previous?.unchanged).toEqual(["fix", "retry-adr"]);
+  });
+
+  test("a pointer resolved at one revision and unresolved at the other has changed", async () => {
+    const { reopen } = await setup(reading("Retry 3 times, then fail."));
+    const question = await reopen(unread);
+    expect(question?.previous?.unchanged).toEqual([]);
+  });
+
+  test("a pointer that resolves at the reopen after it did not has changed", async () => {
+    const { reopen } = await setup(unread);
+    const question = await reopen(reading("Never retry."));
+    expect(question?.previous?.unchanged).toEqual([]);
   });
 });

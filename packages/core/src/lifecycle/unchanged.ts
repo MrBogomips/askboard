@@ -1,10 +1,13 @@
 // What a question's revision shares with another (reopen-start-from-answer, design decision 1): the
 // IDs of the question and of its items, at any depth, whose props are equal, so a board that holds
 // only the current revision can tell what the agent changed since an answer. Pure: the revisions are
-// the model's frozen props, which a molecule's expansion has already settled.
+// the model's frozen props, which a molecule's expansion has already settled, each read with the
+// context its own send resolved, as the board document shows them (review 1.3 X-1).
 
 import { mapNestedItems, nestedItemsOf, type QuestionProps } from "@askboard/contract";
 import { canonicalize } from "../canonical.ts";
+import { boardPropsOf } from "../context/board-props.ts";
+import type { QuestionContext } from "../context/resolve.ts";
 
 let comparisons = 0;
 
@@ -44,27 +47,33 @@ const fingerprints = (props: QuestionProps): Map<string, string> => {
   return found;
 };
 
+/** One revision of a question: its props as the agent sent them, and what its send resolved. */
+export type Revision = {
+  readonly props: QuestionProps;
+  readonly context: QuestionContext | undefined;
+};
+
 /**
  * The IDs unchanged between two revisions of one question: its own when the props are equal whole,
- * and each item's whose type and props are equal in both (compared canonically). `[]` when the
- * props cannot be compared: absence reads as "all unchanged" on a current answer, so a comparison
- * that fails must say nothing is (NFR-10).
+ * and each item's whose type and props are equal in both, compared canonically as the board shows
+ * them, each revision's pointers resolved as its own send read them (an unresolved pointer
+ * compares as itself). `[]` when the props cannot be compared: absence reads as "all unchanged" on
+ * a current answer, so a comparison that fails must say nothing is (NFR-10).
  */
-export const unchangedItems = (
-  questionId: string,
-  before: QuestionProps,
-  after: QuestionProps,
-): string[] => {
+export const unchangedItems = (questionId: string, before: Revision, after: Revision): string[] => {
   comparisons += 1;
   try {
-    const was = fingerprints(before);
-    const now = fingerprints(after);
-    const [, ...held] = itemIdsOfQuestion(questionId, after);
+    const shownBefore = boardPropsOf(before.props, before.context) as QuestionProps;
+    const shownAfter = boardPropsOf(after.props, after.context) as QuestionProps;
+    const was = fingerprints(shownBefore);
+    const now = fingerprints(shownAfter);
+    const [, ...held] = itemIdsOfQuestion(questionId, after.props);
     const items = held.filter((id) => now.has(id) && was.get(id) === now.get(id));
-    const own = canonicalize(before) === canonicalize(after) ? [questionId] : [];
+    const own = canonicalize(shownBefore) === canonicalize(shownAfter) ? [questionId] : [];
     return [...own, ...items];
   } catch {
-    // Props are JSON, which `canonicalize` takes; a value it refuses is not compared.
+    // Props are JSON, which `canonicalize` takes, and a molecule reference never reaches a stored
+    // revision; what either refuses is not compared.
     return [];
   }
 };
