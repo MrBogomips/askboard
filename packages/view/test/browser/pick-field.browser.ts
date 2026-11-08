@@ -333,6 +333,41 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "under a filter the arrow keys, Home and End move among the options shown and wrap, and the draft stays",
+      async () => {
+        const run = await host(dist, atomDocument([COUNTRIES]));
+        await readyIn(run);
+        const { view, page } = run.board;
+        await radio(view, "Italy").click();
+        await holding(run, "country", ITALY, "the draft to hold Italy's ID");
+        await view.getByLabel("Filter the options").focus();
+        await page.keyboard.type("land");
+        await eventually(
+          async () => (await fieldOf(view, "country").getByRole("radio").count()) === 3,
+          "three options",
+        );
+        await page.keyboard.press("Tab");
+        await eventually(() => focused(radio(view, "Finland")), "focus on the first shown");
+        await page.keyboard.press("End");
+        await eventually(() => focused(radio(view, "Poland")), "End to the last shown");
+        await page.keyboard.press("ArrowDown");
+        await eventually(() => focused(radio(view, "Finland")), "ArrowDown wraps to the first");
+        await page.keyboard.press("ArrowUp");
+        await eventually(() => focused(radio(view, "Poland")), "ArrowUp wraps to the last");
+        await page.keyboard.press("ArrowUp");
+        await eventually(() => focused(radio(view, "Ireland")), "ArrowUp to the one before");
+        await page.keyboard.press("Home");
+        await eventually(() => focused(radio(view, "Finland")), "Home to the first shown");
+        for (const name of ["Finland", "Ireland", "Poland"]) {
+          expect(await radio(view, name).getAttribute("aria-checked")).toBe("false");
+        }
+        await Bun.sleep(QUIET_MS);
+        expect(draftHolds(run.drafts, "plan", "country", ITALY)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a multiple pick filters too, and picking under a filter keeps the hidden picks in the options' order",
       async () => {
         const many = {
