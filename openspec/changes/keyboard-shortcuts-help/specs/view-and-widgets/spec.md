@@ -1,0 +1,138 @@
+## ADDED Requirements
+
+### Requirement: A common key vocabulary
+A widget with keys of its own SHALL take the same keys for the same action: the arrows, Home and End move the cursor; Space selects and Shift with ArrowUp or ArrowDown extends; Alt+Shift with an arrow moves along the widget's axis; Alt+Shift+Home or End, or Cmd or Ctrl+Shift with ArrowUp or ArrowDown, moves to the top or the bottom; Enter or F2 edits, Enter commits and Escape cancels; Delete or Backspace deletes; Cmd or Ctrl+Z undoes (NFR-12).
+
+#### Scenario: One move key in two widgets
+- **WHEN** the user presses Alt+Shift+ArrowUp on a Ranking's current row and on a Tree's focused node
+- **THEN** each moves up one place and keeps the focus
+
+#### Scenario: To the top without Home
+- **WHEN** the user presses Cmd+Shift+ArrowUp on macOS, or Ctrl+Shift+ArrowUp on Linux, on a Ranking's current row
+- **THEN** the row moves to the top, as Alt+Shift+Home moves it
+
+### Requirement: Keys left to the browser
+A widget SHALL take only the keys its key table names, with exactly the modifiers it names, and SHALL leave to the browser every other key, a key pressed while an input method composes, and Alt+Shift with an arrow inside a text field. A key it takes SHALL trigger no browser action. A toolbar's arrows, Home and End SHALL act only with no modifier held (NFR-12).
+
+#### Scenario: Alt with an arrow on a Kanban card
+- **WHEN** the focus is on a Kanban card and the user presses Alt+ArrowLeft
+- **THEN** the current card does not change and the key's default action is not prevented
+
+#### Scenario: Alt with an arrow on a toolbar
+- **WHEN** the focus is on a Ranking's "Move up" and the user presses Alt+ArrowRight
+- **THEN** the focus stays on "Move up" and the key's default action is not prevented
+
+#### Scenario: Alt with an arrow on a Chart
+- **WHEN** a Chart has the focus and the user presses Alt+ArrowRight
+- **THEN** the current point does not change
+
+#### Scenario: No navigation, no scroll
+- **WHEN** the user presses every key of a Ranking's key table on its list, in Chromium, Firefox and WebKit
+- **THEN** the page has neither navigated nor scrolled
+
+### Requirement: Key tables match the handlers
+The keys a widget's handler takes SHALL be those of its key table: for each part of the widget, a key the table binds SHALL do its action and a key it does not bind SHALL do nothing, so that the tooltips, the keys panel and the skills describe what the board does (NFR-12).
+
+#### Scenario: Today's keys of the Kanban
+- **WHEN** each key of the Kanban's key table, and each arrow with Alt, Ctrl, Cmd or Shift held, is given to the Kanban's key handler
+- **THEN** the table's keys move the current card as their entries say and the others do nothing
+
+### Requirement: Keyboard shortcuts are discoverable
+In a widget with a key table, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those of the widget's key table, which its key handler takes (NFR-12).
+
+#### Scenario: A tooltip on focus
+- **WHEN** the user tabs to a Ranking's toolbar and moves to "Move up" with the arrow keys
+- **THEN** a tooltip shows "Move up" with its keys, and the button's `aria-keyshortcuts` is `Alt+Shift+ArrowUp`
+
+#### Scenario: A tooltip on hover
+- **WHEN** the pointer rests on a Ranking's "To top"
+- **THEN** a tooltip shows "To top" with Alt+Shift+Home and Cmd or Ctrl+Shift+ArrowUp as the platform writes them
+
+#### Scenario: Every visible action in the table
+- **WHEN** a Ranking's toolbar and key table are compared
+- **THEN** each tool has an entry, and each entry other than a cursor move or the panel's has a tool, a check box or a click that does the same
+
+### Requirement: The keys panel
+The Keys button, and `?` pressed while the focus is in the widget but not in a text field or an editor, SHALL open a panel listing the widget's keys by group, each with its action's name, from board strings only. A read-only widget's panel SHALL list only the keys that still act. Escape SHALL close it and return the focus where it was. In a text field `?` SHALL type a question mark (NFR-12, AD-8).
+
+#### Scenario: Opening with the question mark
+- **WHEN** the focus is on a Ranking's row and the user presses `?`, then Escape
+- **THEN** the panel opens listing the Ranking's keys by group, and closes with the focus back on that row
+
+#### Scenario: Opening with the Keys button
+- **WHEN** the user clicks the Keys button of a Ranking
+- **THEN** the panel opens, titled with the widget's name, and holds no text the agent sent
+
+#### Scenario: A question mark typed in a field
+- **WHEN** the focus is in a text field inside a widget that has a keys panel and the user types `?`
+- **THEN** the field holds `?` and no panel opens
+
+#### Scenario: A read-only Ranking
+- **WHEN** the question holding a Ranking is locked and the user opens its panel
+- **THEN** the panel lists the cursor keys and no move
+
+### Requirement: Key labels by platform
+Tooltips and the keys panel SHALL write keys as the platform names them, in the board's language: on macOS with ⌃, ⌥, ⇧, ⌘, ↩, ⌫ and ⌦, elsewhere with Ctrl, Alt, Shift and the key's name, and arrows as ↑, ↓, ← and → everywhere. `aria-keyshortcuts` SHALL use the WAI-ARIA names on every platform, naming both Control and Meta for Cmd or Ctrl (NFR-12, FR-34).
+
+#### Scenario: macOS and Linux
+- **WHEN** the tooltip of a Ranking's "Move up" shows on macOS, then on Linux
+- **THEN** it reads ⌥⇧↑ on macOS and Alt+Shift+↑ on Linux, and `aria-keyshortcuts` is `Alt+Shift+ArrowUp` on both
+
+#### Scenario: Cmd or Ctrl
+- **WHEN** the panel lists "To top" on Linux
+- **THEN** it reads Alt+Shift+Home and Ctrl+Shift+↑, and the tool's `aria-keyshortcuts` names `Control+Shift+ArrowUp` and `Meta+Shift+ArrowUp`
+
+### Requirement: Ranking row selection
+The user SHALL select a Ranking's rows with a check box in a leading column, out of the Tab order, that a click toggles and Shift+click extends from the last row clicked; with Space on the current row and Shift with ArrowUp or ArrowDown from it; and clear them with the toolbar's "Select none". The toolbar SHALL read how many rows are selected. The selection SHALL be view state, in no draft and no answer (FR-11, AD-9, AD-10).
+
+#### Scenario: A range by keyboard
+- **WHEN** the user makes the second row current, presses Space, then Shift+ArrowDown twice
+- **THEN** the second to fourth rows are selected, the fourth is current, and the toolbar reads "3 selected"
+
+#### Scenario: A range by mouse
+- **WHEN** the user clicks the first row's check box, then Shift+clicks the third's
+- **THEN** the first three rows are selected
+
+#### Scenario: Not in the answer
+- **WHEN** the user selects two rows, answers, and reloads the board
+- **THEN** the answer's order is the one shown, nothing in it names the selection, and no row is selected after the reload
+
+### Requirement: Moving a Ranking's selection
+"Move up", "Move down", "To top" and "To bottom", by tool or key, SHALL move the selected rows, else the current row. Up SHALL take each selected row one place past its nearest unselected row above, keeping their order and leaving rows packed at the top; "To top" SHALL gather them at the top in their order; down and "To bottom" alike. A tool that would move nothing SHALL be disabled, and the current row SHALL stay current (FR-11).
+
+#### Scenario: Rows apart moving up
+- **WHEN** the order is `a`, `b`, `c`, `d`, `e`, the user selects `b` and `d` and presses "Move up"
+- **THEN** the order is `b`, `a`, `d`, `c`, `e` and both stay selected
+
+#### Scenario: A row already at the top
+- **WHEN** the order is `a`, `b`, `c`, `d`, the user selects `a` and `c` and presses Alt+Shift+ArrowUp
+- **THEN** the order is `a`, `c`, `b`, `d`
+
+#### Scenario: To the top
+- **WHEN** the order is `a`, `b`, `c`, `d`, `e`, the user selects `b` and `d` and presses "To top"
+- **THEN** the order is `b`, `d`, `a`, `c`, `e`, and "Move up" and "To top" are disabled
+
+#### Scenario: No selection
+- **WHEN** no row is selected, the third row is current, and the user presses Alt+Shift+End
+- **THEN** that row is last and still current
+
+## MODIFIED Requirements
+
+### Requirement: Ranking at the keyboard
+A Ranking's list SHALL be one Tab stop whose ArrowUp, ArrowDown, Home and End move the current row and whose Alt+Shift keys move rows; its toolbar, "Move up", "Move down", "To top", "To bottom", "Keep this order", "Select none" and the Keys button, another, with a "More" menu when crowded. A move SHALL keep the current row current, and a tool that cannot act SHALL be disabled without losing focus. The toolbar SHALL count the moved rows (FR-11, NFR-12).
+
+#### Scenario: Moving a row down twice
+- **WHEN** the user makes the first row current and presses "Move down" twice from the keyboard
+- **THEN** that item is third, it is still the current row, and the counter reads "Your changes: 3 moved"
+
+#### Scenario: The last row
+- **WHEN** the current row is the last one
+- **THEN** "Move down" is disabled and keeps the focus if it had it
+
+#### Scenario: Moving with keys only
+- **WHEN** the user makes the third row current and presses Alt+Shift+ArrowUp, then Alt+Shift+End
+- **THEN** the row is second, then last, it is still current, and the page has not navigated
+
+#### Scenario: A crowded toolbar
+- **WHEN** the Ranking's frame is too narrow for all its tools
+- **THEN** "To top", "To bottom" and "Select none" are in a "More" menu, and the Keys button stays the toolbar's last stop
