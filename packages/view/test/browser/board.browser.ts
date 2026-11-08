@@ -277,5 +277,65 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    // Radios with manual activation (choice-documented-activation, view-and-widgets spec).
+    test(
+      "Tab out of the options and Shift+Tab back lands on the selected option, still the only one selected",
+      async () => {
+        const run = await start({ transcript: opening, view: dist });
+        const board = await run.open();
+        await board.option("SQLite").focus();
+        await board.page.keyboard.press("Space");
+        await eventually(() => board.option("SQLite").isChecked(), "SQLite selected");
+        await board.page.keyboard.press("Tab");
+        expect(await isFocused(board.option("SQLite"))).toBe(false);
+        await board.page.keyboard.press("Shift+Tab");
+        await eventually(() => isFocused(board.option("SQLite")), "Shift+Tab back to SQLite");
+        expect(await checkedCount(board)).toBe(1);
+        expect(await board.option("SQLite").isChecked()).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the down arrow on the last option wraps to the first, End goes to the last, and nothing is selected",
+      async () => {
+        const run = await start({ transcript: opening, view: dist });
+        const board = await run.open();
+        const first = labels[0] ?? "";
+        const last = labels.at(-1) ?? "";
+        await board.option(last).focus();
+        await board.page.keyboard.press("ArrowDown");
+        await eventually(() => isFocused(board.option(first)), "ArrowDown wrapped to the first");
+        await board.page.keyboard.press("End");
+        await eventually(() => isFocused(board.option(last)), "End to the last");
+        await board.page.keyboard.press("Home");
+        await eventually(() => isFocused(board.option(first)), "Home to the first");
+        expect(await checkedCount(board)).toBe(0);
+        expect(await board.answer.isDisabled()).toBe(true);
+        await expectOnlyConnect(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the option list carries no style attribute (AD-8)",
+      async () => {
+        const run = await start({ transcript: opening, view: dist });
+        const board = await run.open();
+        await board.option(labels[0] ?? "").focus();
+        await board.page.keyboard.press("ArrowDown");
+        const view = await board.viewFrame();
+        const styled = await view.evaluate(() =>
+          [...document.querySelectorAll('[role="radiogroup"]')]
+            .filter((group) => group.closest("[data-askboard-question]") !== null)
+            .flatMap((group) => [group, ...group.querySelectorAll("*")])
+            .filter((element) => element.hasAttribute("style"))
+            .map((element) => element.tagName),
+        );
+        expect(styled).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 }
