@@ -3,7 +3,7 @@
 // for the session (AD-2, AD-14); a board reads the user file's presentation keys again, and writes
 // one; the first accepted ask creates the project folders.
 
-import type { PresentationSetting, WriteOutcome } from "@askboard/contract";
+import type { PresentationSetting, SnapshotPresentation, WriteOutcome } from "@askboard/contract";
 import type { Report } from "../ports.ts";
 import type { Diagnose } from "../push/ports.ts";
 import { configurationDiagnostics, foldersFailed } from "./diagnostics.ts";
@@ -57,6 +57,20 @@ export class Configuration {
     const user = await this.#file(() => config.userFile());
     const fresh = mergeSettings({ user, project: first.project, paths: config.paths });
     return boardSettings(first.settings, fresh);
+  }
+
+  /**
+   * The theme and density a board would open with now, for a Snapshot's record (snapshot-toolbar,
+   * design decision 3): read after every write already requested, each key's default (the settings
+   * in effect hold it) when no file sets it. It is undefined when the session has no
+   * configuration port (no settings to read), and rejects as `forBoard` does; the caller decides
+   * what a failed read means.
+   */
+  async presentationNow(): Promise<SnapshotPresentation | undefined> {
+    await this.#writes;
+    if (this.#ports.config === undefined) return undefined;
+    const { values } = await this.forBoard();
+    return { theme: values.theme, density: values.density };
   }
 
   /** Writes one presentation key into the user file, unless the project file sets it. */

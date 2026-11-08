@@ -1096,6 +1096,11 @@ export {
   MESSAGE_TOO_BIG_CLOSE,
   utf8Length,
 } from "./message-size.ts";
+
+// The presentation a Snapshot's record carries (snapshot-toolbar, design decision 2).
+
+export type { SnapshotPresentation } from "./schemas/snapshot-data/index.ts";
+
 // The annotation's suggested edit (document-review, design decision 2): the longest replacement.
 
 export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";

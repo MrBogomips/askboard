@@ -4,6 +4,10 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ## Unreleased
 
+### Fixed
+
+- A Snapshot opens in the theme and density the board had when it was taken (recorded in its data), has one Theme control that works, and shows the density switch (Issue #72).
+
 ## 0.1.0 - 2026-11-07
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.

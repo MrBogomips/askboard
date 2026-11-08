@@ -16,7 +16,6 @@ import type { PresentationControls } from "./presentation-controls.ts";
 import { QuickToggles } from "./quick-toggles.tsx";
 import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, INFO_BADGE, SEPARATOR } from "./styles.ts";
-import { type ThemeChoice, ThemeControl } from "./theme-control.tsx";
 import { WhoAndWhere } from "./who-and-where.tsx";
 
 /** What row 2 shows beyond the pill; absent on a single-question board. */
@@ -67,7 +66,6 @@ export const BoardHeader = ({
   counts,
   header,
   controls,
-  theme,
   ended = false,
 }: {
   readonly title: string;
@@ -77,8 +75,6 @@ export const BoardHeader = ({
   readonly header: Store<HeaderData>;
   /** The quick toggles at the right end of row 2 (settings-languages). */
   readonly controls: PresentationControls;
-  /** An opened Snapshot's Theme control (snapshot task 8.3). */
-  readonly theme?: Store<ThemeChoice> | undefined;
   /** The ask is closed or discarded: no agent pill, which would be stale (review F-18). */
   readonly ended?: boolean;
 }) => {
@@ -98,7 +94,6 @@ export const BoardHeader = ({
         {ended ? null : <AgentPill header={header} />}
         {counts === undefined ? null : <Counts counts={counts} />}
         <QuickToggles controls={controls} />
-        {theme === undefined ? null : <ThemeControl choice={theme} />}
       </div>
     </header>
   );

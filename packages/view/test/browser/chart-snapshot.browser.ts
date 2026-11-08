@@ -128,7 +128,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await (await barAt(page, 2)).ring()).toBe(true);
           expect(await (await barAt(page, 1)).ring()).toBe(false);
           // A switch of the theme draws the light palette and keeps the rings.
-          await page.getByRole("button", { name: "Light", exact: true }).click();
+          await page
+            .getByRole("radiogroup", { name: "Theme" })
+            .getByRole("radio", { name: "Light", exact: true })
+            .click();
           expect(await isDark(page)).toBe(false);
           await eventually(async () => {
             const { chart, centre } = await barAt(page, 1);

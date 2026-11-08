@@ -60,14 +60,15 @@ describe("the versions of the four widened sets", () => {
   test("every other set equals main's, the protocol at it or a later change's minor", () => {
     expect({
       protocol: Number(BOARD_PROTOCOL_VERSION.split(".")[1]) >= 6,
-      snapshot: SNAPSHOT_DATA_VERSION,
+      // The Snapshot data: widget-registry's minor or a later one; snapshot-toolbar.test.ts pins the latest.
+      snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
       protocol: true,
-      snapshot: "1.1",
+      snapshot: true,
       manifest: "1.1",
       configuration: "1.0",
       localApi: "1.0",
