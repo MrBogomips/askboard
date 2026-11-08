@@ -41,7 +41,7 @@ When the agent reopens a question and the board state lists the question itself 
 - **THEN** the draft is not refilled, and the notice reads the line for a question that starts from the agent's version
 
 #### Scenario: A closed ask after a reload
-- **WHEN** the user reloads a board whose ask is closed, holding a question the agent reopened and listed as unchanged since its previous answer
+- **WHEN** the user reloads a board whose ask is closed, holding a question the agent reopened and listed as unchanged since its previous answer, and `board-host` holds no draft record from before the close
 - **THEN** the draft is not filled, and leaving the page asks nothing
 
 ### Requirement: A reopened question the agent changed starts from the agent's version
@@ -79,6 +79,10 @@ The first edit of an answered question SHALL put its latest answer's widget valu
 #### Scenario: A revision after an answer on an earlier revision
 - **WHEN** the user renames a Tree node, the agent changes the Tree, the user chooses "Keep mine" and answers, then edits another item of the question
 - **THEN** the Tree shows the agent's revision, not the rename, and the revised answer carries no value for it
+
+#### Scenario: A result the agent's revision no longer takes
+- **WHEN** the user answers 7 in a NumberField, the agent sets its maximum to 5, the user chooses "Keep mine" and answers, then edits another field of the question
+- **THEN** the NumberField shows no value, and the revised answer carries no result for it
 
 #### Scenario: Revising one of two edited widgets
 - **WHEN** a question answered with edits to a Timeline and a Kanban is revised by moving one more Kanban card, and "Answer" is pressed
