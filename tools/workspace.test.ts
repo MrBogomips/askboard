@@ -78,9 +78,14 @@ describe("workspace layout", () => {
     },
   );
 
-  test("view exports ./assemble and ./catalog besides its root entry", async () => {
+  test("view exports ./assemble, ./catalog and ./markdown besides its root entry", async () => {
     const manifest = await readJson(join(packageDir("view"), "package.json"));
-    expect(Object.keys(manifest.exports).sort()).toEqual([".", "./assemble", "./catalog"]);
+    expect(Object.keys(manifest.exports).sort()).toEqual([
+      ".",
+      "./assemble",
+      "./catalog",
+      "./markdown",
+    ]);
   });
 
   test("server holds the six server unit folders", () => {

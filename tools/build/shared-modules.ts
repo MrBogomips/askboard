@@ -12,6 +12,7 @@ import { dirname, resolve } from "node:path";
 import type { BunPlugin } from "bun";
 import {
   GRAPH_FILE,
+  MARKDOWN_FILE,
   PORT_FILE,
   resolveFromView,
   SHARED_MODULES_FILE,
@@ -26,13 +27,20 @@ export const CATALOG_PORT = "@askboard/view/catalog";
 export const BOARD_GRAPH = "@askboard/widgets/board-graph";
 
 /**
+ * The name the shared Markdown renderer is shared under, which is also its package export: the
+ * Text inside `view` imports it by the path to its index, the widgets by this name.
+ */
+export const MARKDOWN_RENDERER = "@askboard/view/markdown";
+
+/**
  * The shared modules imported by a relative path to their file, with the end of the paths that
- * can name it: components inside `view` import the port by its file name, the widgets the board
- * graph by its folder and file name.
+ * can name it: components inside `view` import the port by its file name and the Markdown
+ * renderer by its folder and file name, the widgets the board graph by its folder and file name.
  */
 const BY_PATH: Readonly<Record<string, { readonly file: string; readonly tail: RegExp }>> = {
   [CATALOG_PORT]: { file: PORT_FILE, tail: /(^|\/)port\.ts$/ },
   [BOARD_GRAPH]: { file: GRAPH_FILE, tail: /(^|\/)board-graph\/index\.ts$/ },
+  [MARKDOWN_RENDERER]: { file: MARKDOWN_FILE, tail: /(^|\/)markdown\/index\.ts$/ },
 };
 
 /** `*`: the whole module, as one object; a list: exactly those exports, so another fails the build. */
@@ -124,6 +132,15 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
     modules: {
       "@atlaskit/pragmatic-drag-and-drop/combine": ["combine"],
       "@atlaskit/pragmatic-drag-and-drop/element/adapter": ["draggable", "dropTargetForElements"],
+    },
+  },
+  // The Markdown renderer, one module instance for the Text and the Document review: markdown-it,
+  // DOMPurify, the link handling and the Markdown classes, loaded only by boards and Snapshots
+  // whose items render Markdown (document-review, design decision 6). An item that needs another
+  // export adds it here.
+  markdown: {
+    modules: {
+      [MARKDOWN_RENDERER]: ["MARKDOWN", "PLAIN", "markExternal", "mountMarkdown", "renderMarkdown"],
     },
   },
 };

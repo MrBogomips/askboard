@@ -104,6 +104,9 @@ describe("bun run build:view (design decision 7)", () => {
       group: "component",
       kanban: "component",
       latex: "component",
+      // The shared Markdown renderer: markdown-it, DOMPurify and the Markdown classes, in a library
+      // chunk the Text and the Document review share (document-review, design decision 6).
+      markdown: "library",
       "money-field": "component",
       "number-field": "component",
       // The PickField: Radix's Radio Group and Checkbox, in the radix chunk (form-widget, design decision 4).
@@ -126,9 +129,10 @@ describe("bun run build:view (design decision 7)", () => {
     });
     expect(manifest.chunks.choice?.components).toEqual(["choice"]);
     expect(manifest.chunks.tree?.components).toEqual(["tree"]);
-    // The Text atom needs no Radix: markdown-it and DOMPurify are its own (atoms, design decision 4).
+    // The Text atom needs no Radix: it renders through the markdown library chunk, which holds
+    // markdown-it and DOMPurify (document-review, design decision 6).
     expect(manifest.chunks.text?.components).toEqual(["text"]);
-    expect(manifest.chunks.text?.needs).toEqual(["react", "shell"]);
+    expect(manifest.chunks.text?.needs).toEqual(["markdown", "react", "shell"]);
     // The display atoms and the TextField are chunks of their own, each needing only React and the shell
     // (tasks 5.2 and 5.3); the Toggle also needs Radix's Switch, which the radix library chunk holds.
     for (const atom of ["value", "divider", "text-field", "number-field"]) {
@@ -369,6 +373,7 @@ describe("bun run build:view (design decision 7)", () => {
       "group",
       "kanban",
       "latex",
+      "markdown",
       "money-field",
       "number-field",
       "pick-field",
@@ -724,7 +729,7 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
     );
   });
 
-  test("the library chunks are the six there were: the chart's library goes in its own chunk", () => {
+  test("the library chunks are the six there were and the Markdown renderer: the chart's library goes in its own chunk", () => {
     expect(
       Object.fromEntries(
         Object.entries(LIBRARY_CHUNKS).map(([name, { modules }]) => [name, Object.keys(modules)]),
@@ -739,6 +744,7 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
         "@atlaskit/pragmatic-drag-and-drop/combine",
         "@atlaskit/pragmatic-drag-and-drop/element/adapter",
       ],
+      markdown: ["@askboard/view/markdown"],
     });
     expect(Object.keys(manifest.chunks).filter((name) => name.includes("echarts"))).toEqual([]);
     expect(Object.keys(manifest.chunks)).not.toContain("zrender");
@@ -997,6 +1003,109 @@ describe("the context chunk (excerpts, design decision 6; view spec, Context ite
     expect(plain.chunks).not.toContain("context");
     expect(plain.srcdoc).not.toContain(code);
     expect(plain.policy).toContain(cspHashSource(script.sha256));
+  });
+});
+
+describe("the Markdown renderer's chunk (document-review, design decision 6; view spec, The shared Markdown renderer)", () => {
+  // The plain-choice board with the question's items replaced by `items`, or its first option's
+  // preview given as Markdown.
+  const withItems = (items: readonly unknown[]): ViewDocument => {
+    const [question] = plainChoiceBoardDocument.items;
+    return {
+      ...plainChoiceBoardDocument,
+      items: [{ ...question, props: { ...question.props, items } }],
+    } as unknown as ViewDocument;
+  };
+  const withPreview = (previewFormat: "plain" | "markdown"): ViewDocument => {
+    const [question] = plainChoiceBoardDocument.items;
+    const [first, ...rest] = question.props.options ?? [];
+    return {
+      ...plainChoiceBoardDocument,
+      items: [
+        {
+          ...question,
+          props: {
+            ...question.props,
+            options: [{ ...first, preview: "**bold** preview", previewFormat }, ...rest],
+          },
+        },
+      ],
+    } as unknown as ViewDocument;
+  };
+  const names = (document: ViewDocument) =>
+    selectChunks(document, manifest).map(({ name }) => name);
+  const occurrences = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+  test("it is a library chunk that needs nothing", () => {
+    expect(chunkNamed("markdown").kind).toBe("library");
+    expect(chunkNamed("markdown").needs).toEqual([]);
+  });
+
+  test("its notices name markdown-it and DOMPurify, and the text chunk's do not", () => {
+    const library = packagesIn(chunkNamed("markdown").licences);
+    expect(library).toContain("markdown-it");
+    expect(library).toContain("dompurify");
+    const text = packagesIn(chunkNamed("text").licences);
+    expect(text).not.toContain("markdown-it");
+    expect(text).not.toContain("dompurify");
+  });
+
+  test("the text chunk holds none of the renderer's code, and the markdown chunk does", async () => {
+    const library = await text(chunkNamed("markdown").script.path);
+    const own = await text(chunkNamed("text").script.path);
+    // The sanitizer's list of tags and markdown-it's table rule are the renderer's.
+    expect(library).toContain("blockquote");
+    expect(library).toContain("ALLOWED_TAGS");
+    expect(own).not.toContain("ALLOWED_TAGS");
+    expect(own.length).toBeLessThan(library.length / 4);
+    expect(own).toContain('"@askboard/view/markdown"');
+  });
+
+  test("its styles carry the Markdown element classes, and the text chunk's do not", async () => {
+    const css = async (name: string) =>
+      (await Promise.all(chunkNamed(name).styles.map((file) => text(file.path)))).join("\n");
+    expect(await css("markdown")).toContain("blockquote");
+    expect(await css("text")).not.toContain("blockquote");
+  });
+
+  test("a board of a Choice and a Chart inlines no markdown chunk", async () => {
+    const chart = CHART_FIXTURE_ITEMS[0];
+    const board = withItems([chart]);
+    expect(names(board)).not.toContain("markdown");
+    const built = await assembled(board);
+    expect(built.chunks).not.toContain("markdown");
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("markdown").script.path));
+  });
+
+  test("a Choice with a plain preview inlines no markdown chunk either", () => {
+    expect(names(withPreview("plain"))).not.toContain("markdown");
+    expect(names(plainChoiceBoardDocument)).not.toContain("markdown");
+  });
+
+  test("a board holding a Markdown Text inlines the markdown chunk once, before the text chunk", async () => {
+    const markdownText = {
+      type: "text",
+      id: "notes",
+      props: { text: "**x**", format: "markdown" },
+    };
+    const board = withItems([markdownText, { ...markdownText, id: "more" }]);
+    const order = names(board);
+    expect(order).toContain("markdown");
+    expect(order.filter((name) => name === "markdown")).toHaveLength(1);
+    expect(order.indexOf("markdown")).toBeLessThan(order.indexOf("text"));
+    const built = await assembled(board);
+    const script = await text(chunkNamed("markdown").script.path);
+    expect(occurrences(built.srcdoc, script)).toBe(1);
+    expect(built.policy).toContain(cspHashSource(chunkNamed("markdown").script.sha256));
+  });
+
+  test("a board holding a Markdown preview inlines the markdown chunk once, through the text chunk", async () => {
+    const board = withPreview("markdown");
+    const order = names(board);
+    expect(order).toContain("text");
+    expect(order.filter((name) => name === "markdown")).toHaveLength(1);
+    const built = await assembled(board);
+    expect(occurrences(built.srcdoc, await text(chunkNamed("markdown").script.path))).toBe(1);
   });
 });
 

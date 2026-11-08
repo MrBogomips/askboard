@@ -10,7 +10,7 @@
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/markdown-total.browser.ts
 
 import { describe, expect, test } from "bun:test";
-import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/catalog/text/markdown.ts";
+import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/markdown/markdown.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { DENSE_TABLE } from "./fixtures/dense-markdown.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";

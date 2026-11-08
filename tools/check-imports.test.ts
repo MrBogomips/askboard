@@ -36,6 +36,7 @@ const ALLOWED: [string, string][] = [
   ["widgets", "@askboard/contract"],
   ["widgets", "@askboard/compute"],
   ["widgets", "@askboard/view/catalog"],
+  ["widgets", "@askboard/view/markdown"],
   ["mod", "@askboard/contract"],
   ["hooks", "@askboard/contract"],
   ["bench", "@askboard/contract"],
@@ -56,6 +57,8 @@ const DISALLOWED: [string, string][] = [
   ["notifier", "@askboard/molecules"],
   ["snapshot", "@askboard/view"],
   ["snapshot", "@askboard/view/catalog"],
+  ["snapshot", "@askboard/view/markdown"],
+  ["core", "@askboard/view/markdown"],
   ["molecules", "@askboard/core"],
   ["view", "@askboard/core"],
   ["view", "@askboard/widgets"],
@@ -87,6 +90,9 @@ describe("unit boundaries (AD-1)", () => {
     expect(checkSource("packages/view/src/shell.ts", importOf("@askboard/view/catalog"))).toEqual(
       [],
     );
+    expect(checkSource("packages/view/src/shell.ts", importOf("@askboard/view/markdown"))).toEqual(
+      [],
+    );
     expect(checkSource("packages/server/src/board-host/a.ts", importOf("./listener/b.ts"))).toEqual(
       [],
     );
@@ -105,12 +111,34 @@ describe("unit boundaries (AD-1)", () => {
     ["packages/core/src/a.ts", "../../contract/src/index.ts", "contract"],
     ["packages/server/src/snapshot/a.ts", "../../../view/src/assemble/index.ts", "view/assemble"],
     ["packages/widgets/src/a.ts", "../../view/src/catalog/internal/x.ts", "view/catalog"],
+    ["packages/widgets/src/a.ts", "../../view/src/markdown/index.ts", "view/markdown"],
     ["packages/core/test/a.test.ts", "../../compute/src/index.ts", "compute"],
   ])("%s may not reach an allowed unit by the relative path %s", (file, specifier, unit) => {
     const violations = checkSource(file, importOf(specifier));
     expect(violations).toHaveLength(1);
     expect(violations[0]?.target).toBe(unit);
     expect(violations[0]?.rule).toContain(`import @askboard/${unit}`);
+  });
+
+  test("a widgets file may import the Markdown renderer's entry, and no other file of view (document-review, design decision 6)", () => {
+    expect(checkSource("packages/widgets/src/a.ts", importOf("@askboard/view/markdown"))).toEqual(
+      [],
+    );
+    for (const specifier of [
+      "../../view/src/catalog/text/index.tsx",
+      "../../view/src/catalog/text/markdown.ts",
+      "@askboard/view/src/markdown/markdown.ts",
+      "@askboard/view/markdown/markdown",
+    ]) {
+      const violations = checkSource("packages/widgets/src/a.ts", importOf(specifier));
+      expect(violations, specifier).toHaveLength(1);
+    }
+  });
+
+  test("a view file imports the renderer by a relative path to its folder", () => {
+    expect(
+      checkSource("packages/view/src/catalog/text/index.tsx", importOf("../../markdown/index.ts")),
+    ).toEqual([]);
   });
 
   test("a relative path into a unit the rules forbid breaks the unit rule", () => {
@@ -256,7 +284,9 @@ describe("unit boundaries (AD-1)", () => {
 
   test("the rule names the importing unit and what it may import", () => {
     const [violation] = checkSource(fileOf("widgets"), importOf("@askboard/view"));
-    expect(violation?.rule).toContain("widgets may import only contract, compute, view/catalog");
+    expect(violation?.rule).toContain(
+      "widgets may import only contract, compute, view/catalog, view/markdown",
+    );
     expect(violation?.rule).toContain("AD-1");
   });
 });
