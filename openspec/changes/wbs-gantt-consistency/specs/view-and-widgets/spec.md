@@ -46,11 +46,15 @@ The question's sentence SHALL wrap, the leaf's name first and whole, with "Cance
 - **THEN** "Customer portal" shows whole, the words wrap without crossing "Cancel" or "Continue", and nothing passes the toolbar row's right edge
 
 ### Requirement: The group question fixes its leaf
-The question SHALL fix the leaf it names when it opens. A change of the Tree after which the edit would make another leaf, or none, a group SHALL close the question with nothing applied, and the question SHALL never be re-worded in place (NFR-10).
+The question SHALL fix the leaf it names when it opens. A change of the Tree after which the edit would make another leaf, or none, a group, or after which the question's words would change, SHALL close the question with nothing applied; the question SHALL never be re-worded in place (NFR-10).
 
 #### Scenario: The agent changes which leaf an indent would group
 - **WHEN** the user presses Alt+Shift+ArrowRight on `billing`, whose question names "Customer portal", and the agent's update then moves `reporting` before `billing`
 - **THEN** the question closes with nothing applied, no question names "Reporting", `billing` is still under `build` and `reporting` is still a leaf, and the focus is in the Tree's grid or toolbar
+
+#### Scenario: The agent renames the leaf under an open question
+- **WHEN** the group question is open for `portal` and the agent's update renames `portal`, or changes its estimates or the tasks that depend on it
+- **THEN** the question closes with nothing applied, and the Tree is as the update left it
 
 ### Requirement: Answering the group question
 "Continue" SHALL make the edit the question was asked for, on the Tree as it is then, with the focus following the node, and SHALL leave the plans unchanged. The leaf's estimates SHALL stay on it and count again once it is a leaf again. "Cancel" or Escape SHALL change nothing and return the focus to the row or control the edit came from; an edit no longer possible SHALL change nothing.
