@@ -4,7 +4,7 @@
 // change that widens the tool envelopes moves it.
 
 import { describe, expect, test } from "bun:test";
-import { SCHEMA_SETS, TOOL_ENVELOPES_VERSION } from "../src/index.ts";
+import { OUTPUT_FORMAT_VERSION, SCHEMA_SETS, TOOL_ENVELOPES_VERSION } from "../src/index.ts";
 import { SCHEMA_IDS } from "../src/sets.ts";
 import { ajvOver, errorsOf } from "./probe-ajv.ts";
 
@@ -12,7 +12,7 @@ const ajv = ajvOver([]);
 const check = (value: unknown) => errorsOf(ajv, SCHEMA_IDS.fetchOutcome, value);
 
 const base = {
-  versions: { result: TOOL_ENVELOPES_VERSION, output: "1.11" },
+  versions: { result: TOOL_ENVELOPES_VERSION, output: OUTPUT_FORMAT_VERSION },
   epoch: "ep1234",
   askId: "ask-1",
 };
@@ -54,7 +54,7 @@ describe("the fetch outcome deleted", () => {
 });
 
 describe("the tool envelopes' minor", () => {
-  test("is one past main's 1.12, and the set carries the constant", () => {
+  test("is the minor agent-facing-gaps binds, and the set carries the constant", () => {
     expect(TOOL_ENVELOPES_VERSION).toBe("1.13");
     expect(SCHEMA_SETS.find(({ name }) => name === "tool-envelopes")?.version).toBe(
       TOOL_ENVELOPES_VERSION,

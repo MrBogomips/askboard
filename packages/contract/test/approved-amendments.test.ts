@@ -47,20 +47,47 @@ describe("the served texts follow the record", () => {
     );
   });
 
-  test("the record is not empty, and each entry names its change, a date, a target and a change of text", () => {
+  test("the record is not empty, and each entry names its change, a date and a change of text", () => {
     expect(APPROVED_TEXT_AMENDMENTS.length).toBeGreaterThan(0);
     for (const amendment of APPROVED_TEXT_AMENDMENTS) {
-      expect(amendment.change).toBe("agent-facing-gaps");
+      expect(amendment.change).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
       expect(amendment.approved).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(amendment.target).toMatch(
-        /^(server-instructions\.md|tools\.json#[a-z]+\.description)$/,
-      );
       expect(amendment.to).not.toBe(amendment.from);
     }
   });
 
+  test("each entry's target is the instructions or the description of a tool in the archive", () => {
+    const targets = new Set([
+      "server-instructions.md",
+      ...archivedTools.tools.map(({ name }) => `tools.json#${name}.description`),
+    ]);
+    for (const { change, target } of APPROVED_TEXT_AMENDMENTS) {
+      expect(targets.has(target), `${change}: ${target}`).toBe(true);
+    }
+  });
+
+  test("each entry changes the archived text of its target, none is left with nothing to do", () => {
+    const archivedText = (target: string): string | undefined =>
+      target === "server-instructions.md"
+        ? archivedInstructions
+        : archivedTools.tools.find(({ name }) => `tools.json#${name}.description` === target)
+            ?.description;
+    for (const amendment of APPROVED_TEXT_AMENDMENTS) {
+      const text = archivedText(amendment.target);
+      expect(text, `${amendment.change}: ${amendment.target} names no archived text`).toBeDefined();
+      expect(
+        amendedApprovedText(amendment.target, text ?? "", [amendment]),
+        `${amendment.change}: ${amendment.target} changes nothing`,
+      ).not.toBe(text);
+    }
+  });
+
   test("a target no amendment names comes back as it was", () => {
-    expect(amendedApprovedText("tools.json#fetch.description", "as approved")).toBe("as approved");
+    expect(
+      amendedApprovedText("tools.json#fetch.description", "as approved", [
+        entry({ target: "tools.json#update.description" }),
+      ]),
+    ).toBe("as approved");
   });
 
   test("the amendments of a target apply in order, the second reading the first's text", () => {
