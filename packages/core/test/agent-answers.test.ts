@@ -55,6 +55,7 @@ describe("recording an answer", () => {
       when: "2026-10-31T14:20:03Z",
       recorded: true,
       delivered: true,
+      unchanged: ["erp-export"],
     });
     expect(logOf(core, LIFECYCLE_ID)).toHaveLength(1);
     expect(core.read(LIFECYCLE_ID, `${core.epoch}.1`)).toMatchObject({ events: [] });

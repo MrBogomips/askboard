@@ -367,7 +367,9 @@ const reopen = (context: UpdateContext, action: Action<"reopen">): Step => {
     return refuse("not-answered", detail, question.id);
   }
   const previous = fullAnswer(question, status.answer);
-  const rev = context.model.reopen(question, previous, context.log.latestSeq);
+  // The revision the answer names: its event's, or the current one for a recorded answer.
+  const answerRev = status.answer.kind === "logged" ? status.answer.entry.event.rev : question.rev;
+  const rev = context.model.reopen(question, previous, context.log.latestSeq, answerRev);
   return { action: "reopen", itemId: question.id, rev };
 };
 

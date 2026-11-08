@@ -20,6 +20,7 @@ import { boardPropsOf } from "../context/board-props.ts";
 import type { QuestionContext } from "../context/resolve.ts";
 import { type Entry, frozenCopy } from "./log.ts";
 import type { AnswerMark } from "./states.ts";
+import { itemIdsOfQuestion, unchangedItems } from "./unchanged.ts";
 
 /** An answer's content, as the board or the agent gives it. */
 export type AnswerContent = {
@@ -47,6 +48,11 @@ export type QuestionRecord = {
   recorded: RecordedAnswer | undefined;
   /** The answer it held before the agent last reopened it. */
   previous: FetchAnswer | undefined;
+  /**
+   * The revision `previous` names: its event's, or the one current when a recorded answer was
+   * reopened. Kept while `previous` names it (reopen-start-from-answer, design decision 1).
+   */
+  previousRev: number | undefined;
   /** The agent's replies, by the cursor of the follow-up they answer (FR-10). */
   readonly replies: Map<string, ThreadReply[]>;
   /** Raised whenever its full value changes, for `fetch`'s continuations. */
@@ -80,6 +86,7 @@ const newQuestion = (item: QuestionItem, area: string | undefined): QuestionReco
   mark: undefined,
   recorded: undefined,
   previous: undefined,
+  previousRev: undefined,
   replies: new Map(),
   generation: 1,
   named: new Set(),
@@ -131,6 +138,8 @@ export class BoardModel {
   // The ID of each item the questions' current revisions hold, at every depth, by the ID of the
   // question that holds it; kept on add, revise and delete (layouts, design decision 5).
   readonly #held: Map<string, string>;
+  // What each pair of revisions of a question shares, by question and the two revisions.
+  readonly #unchanged: Map<string, readonly string[] | undefined>;
   #recordedEver: boolean;
 
   private constructor(
@@ -141,6 +150,7 @@ export class BoardModel {
       areas: Map<string, AreaRecord>;
       deleted: Set<string>;
       held: Map<string, string>;
+      unchanged: Map<string, readonly string[] | undefined>;
       recordedEver: boolean;
     },
   ) {
@@ -150,6 +160,7 @@ export class BoardModel {
     this.#areas = parts.areas;
     this.#deleted = parts.deleted;
     this.#held = parts.held;
+    this.#unchanged = parts.unchanged;
     this.#recordedEver = parts.recordedEver;
   }
 
@@ -168,6 +179,7 @@ export class BoardModel {
       areas: new Map(),
       deleted: new Set(),
       held: new Map(),
+      unchanged: new Map(),
       recordedEver: false,
     });
     let after: string | undefined;
@@ -191,6 +203,7 @@ export class BoardModel {
       areas: new Map(areas as [string, AreaRecord][]),
       deleted: new Set(this.#deleted),
       held: new Map(this.#held),
+      unchanged: new Map(this.#unchanged),
       recordedEver: this.#recordedEver,
     });
   }
@@ -353,9 +366,18 @@ export class BoardModel {
     this.#recordedEver = true;
   }
 
-  /** The agent reopens a question: a new revision with no answer, the old one kept as previous. */
-  reopen(question: QuestionRecord, previous: FetchAnswer | undefined, at: number): number {
+  /**
+   * The agent reopens a question: a new revision with no answer, the old one kept as previous, with
+   * the revision it names (`answerRev`: its event's, or the current one for a recorded answer).
+   */
+  reopen(
+    question: QuestionRecord,
+    previous: FetchAnswer | undefined,
+    at: number,
+    answerRev: number = question.rev,
+  ): number {
     question.previous = previous === undefined ? undefined : frozenCopy(previous);
+    question.previousRev = previous === undefined ? undefined : answerRev;
     question.mark = { at, kind: "reopened" };
     return this.revise(question, this.propsOf(question));
   }
@@ -437,6 +459,22 @@ export class BoardModel {
     }
   }
 
+  /**
+   * The IDs, the question's own and its items' at any depth, whose props at the revision `rev` equal
+   * those of the current one (reopen-start-from-answer, design decision 1). The current revision
+   * shares everything with itself. `undefined` when `rev` is not kept or cannot be compared. Each
+   * pair of revisions is compared once: the props of a revision never change.
+   */
+  unchangedSince(question: QuestionRecord, rev: number): readonly string[] | undefined {
+    const now = this.propsOf(question);
+    if (rev === question.rev) return itemIdsOfQuestion(question.id, now);
+    const then = question.revs.get(rev);
+    if (then === undefined) return undefined;
+    const key = `${question.id}\u0000${rev}\u0000${question.rev}`;
+    if (!this.#unchanged.has(key)) this.#unchanged.set(key, unchangedItems(question.id, then, now));
+    return this.#unchanged.get(key);
+  }
+
   // An area's value holds its questions' revisions and props: it changes with them.
   #touchArea(question: QuestionRecord): void {
     const area = question.area === undefined ? undefined : this.#areas.get(question.area);
@@ -447,7 +485,11 @@ export class BoardModel {
   // user's last decision, on which the board may still hold unsent work (FR-6, AD-20).
   #prune(question: QuestionRecord): void {
     for (const rev of question.revs.keys()) {
-      const kept = rev === question.rev || question.named.has(rev) || rev > question.decided;
+      const kept =
+        rev === question.rev ||
+        rev === question.previousRev ||
+        question.named.has(rev) ||
+        rev > question.decided;
       if (kept) continue;
       question.revs.delete(rev);
       question.context.delete(rev);
