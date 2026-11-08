@@ -36,6 +36,7 @@ import { presentationOf } from "./presentation.ts";
 // closing; and the Snapshot's: how the view's latest request ended, which the controller tracks
 // itself (snapshot design decision 8, task 6.2).
 type ControllerField =
+  | "chunks"
   | "document"
   | "lock"
   | "connection"

@@ -8,6 +8,7 @@
 import { AppBridge } from "@modelcontextprotocol/ext-apps/app-bridge";
 import { type FramePeer, FrameTransport, type MessageEvents } from "../frame-transport.ts";
 import type { Theme } from "../theme.ts";
+import type { ViewChunk } from "../view-chunks.ts";
 import {
   readViewMessage,
   type ViewMessage,
@@ -43,9 +44,14 @@ export const hostView = async (
   const bridge = new AppBridge(null, HOST_INFO, { serverTools: {} }, { hostContext: { theme } });
   let initialized = false;
   let latest: ViewUpdate | undefined;
+  const pendingChunks = new Map<string, ViewChunk>();
   const send = () => {
     if (!initialized || latest === undefined) return;
-    void bridge.sendToolResult(viewUpdateResult(latest));
+    const chunks = [...pendingChunks.values()];
+    pendingChunks.clear();
+    void bridge.sendToolResult(
+      viewUpdateResult({ ...latest, ...(chunks.length === 0 ? {} : { chunks }) }),
+    );
   };
   bridge.oninitialized = () => {
     initialized = true;
@@ -61,6 +67,7 @@ export const hostView = async (
   await bridge.connect(new FrameTransport(peer, events));
   return {
     update: (update) => {
+      for (const chunk of update.chunks ?? []) pendingChunks.set(chunk.name, chunk);
       latest = update;
       send();
     },

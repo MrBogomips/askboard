@@ -7,6 +7,7 @@ import {
   type AppliedAction,
   type AskState,
   type FormulaWarning,
+  type QuestionProps,
   type UnresolvedPointerWarning,
   type UpdateAction,
   WIDGET_TYPES,
@@ -25,6 +26,7 @@ import {
   expandAdded,
   holderOf,
   mergedWidget,
+  replaceQuestionItems,
   type WidgetHolder,
   type WidgetUpdate,
 } from "./widget-update.ts";
@@ -286,9 +288,16 @@ const change = (context: UpdateContext, action: Action<"change">): Step => {
   const merged = { ...context.model.propsOf(question), ...props };
   const problems = itemProblems(context, { type: "question", id: itemId, props: merged });
   if (problems !== undefined) return refuse("props", problems, itemId);
-  const taken = inUseRefusal(context, itemIdsOf(merged), itemId);
+  const sending = new Set(referencesIn([{ type: "question", id: itemId, props: merged }]).keys());
+  const taken = inUseRefusal(context, itemIdsOf(merged), itemId, sending);
   if (taken !== undefined) return taken;
-  const rev = context.model.revise(question, merged as never);
+  const replacement = !Object.hasOwn(props, "items")
+    ? { ok: true as const, props: merged as QuestionProps }
+    : replaceQuestionItems(context.model, context.widgets, question, merged as QuestionProps);
+  if (!replacement.ok) return refuse("props", replacement.detail, replacement.itemId ?? itemId);
+  const expandedTaken = inUseRefusal(context, itemIdsOf(replacement.props), itemId);
+  if (expandedTaken !== undefined) return expandedTaken;
+  const rev = context.model.revise(question, replacement.props);
   return { action: "change", itemId, rev };
 };
 

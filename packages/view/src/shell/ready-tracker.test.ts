@@ -125,6 +125,51 @@ describe("a question's items, as the ready tracker counts them (design decision 
 });
 
 describe("a board of several questions or of areas (ask-lifecycle, design decision 6)", () => {
+  test("an ID released by a change must become ready again when another question introduces it", () => {
+    const { tracker } = setUp([{ questionId: "a", itemIds: ["a", "shared"] }]);
+    tracker.readyFor("a")();
+    tracker.readyFor("shared")();
+    tracker.include([
+      { questionId: "a", itemIds: ["a"] },
+      { questionId: "b", itemIds: ["shared"] },
+    ]);
+    expect(tracker.questionStatus("b")).toBe("loading");
+    tracker.readyFor("shared")();
+    expect(tracker.questionStatus("b")).toBe("visible");
+  });
+  test("items introduced inside a layout keep their question loading until every nested item is ready", () => {
+    const initial = plainChoiceBoardDocument;
+    const question = initial.items[0];
+    const document = {
+      ...initial,
+      items: [
+        {
+          ...question,
+          props: {
+            ...question.props,
+            items: [
+              {
+                type: "group",
+                id: "group",
+                props: {
+                  title: "Fields",
+                  items: [{ type: "text-field", id: "nested", props: { label: "New field" } }],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    } as unknown as ViewDocument;
+    const { tracker } = setUp(questionItemsOf(initial));
+    tracker.readyFor(question.id)();
+    tracker.include(questionItemsOf(document));
+    tracker.readyFor("group")();
+    expect(tracker.questionStatus(question.id)).toBe("loading");
+    tracker.readyFor("nested")();
+    expect(tracker.itemStatus("nested")).toBe("ready");
+    expect(tracker.questionStatus(question.id)).toBe("visible");
+  });
   test("every question, areas' included, in board order", () => {
     expect(questionItemsOf(lifecycleBoardDocument)).toEqual(
       ["region", "payment", "analytics", "rollout", "erp-export"].map((id) => ({
@@ -134,7 +179,7 @@ describe("a board of several questions or of areas (ask-lifecycle, design decisi
     );
   });
 
-  test("a question the agent adds later is tracked once included; one already tracked stays as it is", () => {
+  test("a question the agent adds later is tracked and new items hold an existing question loading", () => {
     const visible = mock((_: string) => {});
     const tracker = createReadyTracker([{ questionId: "a", itemIds: ["a"] }], {
       onVisible: visible,
@@ -147,10 +192,24 @@ describe("a board of several questions or of areas (ask-lifecycle, design decisi
       { questionId: "a", itemIds: ["a", "late"] },
       { questionId: "b", itemIds: ["b"] },
     ]);
+    expect(tracker.questionStatus("a")).toBe("loading");
+    tracker.readyFor("late")();
+    expect(tracker.itemStatus("late")).toBe("ready");
     expect(tracker.questionStatus("a")).toBe("visible");
     tracker.readyFor("b")();
     expect(tracker.questionStatus("b")).toBe("visible");
-    expect(visible.mock.calls).toEqual([["a"], ["b"]]);
+    expect(visible.mock.calls).toEqual([["a"], ["a"], ["b"]]);
+  });
+
+  test("a new item can fail its existing question, and removing it lets the question recover", () => {
+    const { tracker, onFailed } = setUp([{ questionId: "a", itemIds: ["old"] }]);
+    tracker.readyFor("old")();
+    tracker.include([{ questionId: "a", itemIds: ["old", "new"] }]);
+    tracker.fail("new", "broken");
+    expect(tracker.questionStatus("a")).toBe("failed");
+    expect(onFailed.mock.calls).toEqual([["a", "new", "broken"]]);
+    tracker.include([{ questionId: "a", itemIds: ["old"] }]);
+    expect(tracker.questionStatus("a")).toBe("visible");
   });
 });
 

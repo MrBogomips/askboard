@@ -155,7 +155,14 @@ export function assemble(
 ): Assembled {
   const selection = selectChunks(data.document, manifest, targetOf(data));
   const fetched = isSnapshotSources(sources) ? sources.chunks : sources;
-  const policy = viewPolicy(selection);
+  // A live board may gain any shipped component through update. Authorize its exact hash now,
+  // while fetching and executing only what it needs. A Snapshot remains closed over its selection.
+  const selected = new Set(selection.map(({ name }) => name));
+  const later = Object.entries(manifest.chunks)
+    .filter(([name]) => !selected.has(name))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([name, chunk]) => ({ name, chunk }));
+  const policy = viewPolicy(isSnapshot(data) ? selection : [...selection, ...later]);
   const styles = selection.flatMap(({ name, chunk }) =>
     chunk.styles.map((style) => `<style>${textOf(name, style, fetched)}</style>`),
   );

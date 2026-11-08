@@ -652,7 +652,7 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(withTree.policy).toContain(cspHashSource(script.sha256));
     expect(plain.chunks).not.toContain("tree");
     expect(plain.srcdoc).not.toContain(tree);
-    expect(plain.policy).not.toContain(cspHashSource(script.sha256));
+    expect(plain.policy).toContain(cspHashSource(script.sha256));
   });
 });
 
@@ -679,7 +679,7 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
     const withScale = await assembled(scaleBoard);
     expect(withScale.chunks).not.toContain("chart");
     expect(withScale.srcdoc).not.toContain(code);
-    expect(withScale.policy).not.toContain(cspHashSource(script.sha256));
+    expect(withScale.policy).toContain(cspHashSource(script.sha256));
     const withChart = await assembled(chartBoard);
     expect(withChart.chunks).toContain("chart");
     expect(withChart.srcdoc).toContain(code);
@@ -890,7 +890,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
       expect(withGantt.policy).toContain(cspHashSource(script.sha256));
       expect(plain.chunks).not.toContain(name);
       expect(plain.srcdoc).not.toContain(code);
-      expect(plain.policy).not.toContain(cspHashSource(script.sha256));
+      expect(plain.policy).toContain(cspHashSource(script.sha256));
     }
   });
 });
@@ -991,7 +991,7 @@ describe("the context chunk (excerpts, design decision 6; view spec, Context ite
     expect(withContext.policy).toContain(cspHashSource(script.sha256));
     expect(plain.chunks).not.toContain("context");
     expect(plain.srcdoc).not.toContain(code);
-    expect(plain.policy).not.toContain(cspHashSource(script.sha256));
+    expect(plain.policy).toContain(cspHashSource(script.sha256));
   });
 });
 

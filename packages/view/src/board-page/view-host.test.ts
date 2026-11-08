@@ -77,6 +77,22 @@ const setUp = async (
 const settled = () => Bun.sleep(20);
 
 describe("the board page hosting the view (design decision 8)", () => {
+  test("keeps chunks across states coalesced before the view handshake", async () => {
+    const { host, connectView } = await setUp();
+    const chunk = {
+      name: "new",
+      script: { text: "newWidget();", sha256: "a".repeat(64) },
+      styles: [],
+    };
+    host.update({ type: "state", state: waiting, chunks: [chunk] });
+    host.update({ type: "state", state: answered });
+    const { updates } = connectView();
+    await settled();
+    expect(updates).toEqual([{ type: "state", state: answered, chunks: [chunk] }]);
+    host.update({ type: "state", state: waiting });
+    await settled();
+    expect(updates.at(-1)?.chunks).toBeUndefined();
+  });
   test("a view message reaches the board page, checked, and its reply comes back", async () => {
     const handle = mock(async (_message: ViewMessage) => ({ seen: true }));
     const { connectView } = await setUp(handle);

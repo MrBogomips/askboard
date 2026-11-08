@@ -17,7 +17,7 @@ import type { ExpansionEntry } from "../molecules/map.ts";
 import { expandSentItems } from "../molecules/on-ask.ts";
 import { referencesIn } from "../molecules/references.ts";
 import type { MoleculeSource } from "../molecules/source.ts";
-import type { BoardModel, QuestionRecord } from "./model.ts";
+import { type BoardModel, itemIdsOf, type QuestionRecord } from "./model.ts";
 
 type Json = Readonly<Record<string, unknown>>;
 type SentItem = { readonly type: string; readonly id: string; readonly props: Json };
@@ -101,6 +101,37 @@ const inWords = (problems: readonly { readonly message: string }[]): string =>
     .slice(0, SAY_PROBLEMS)
     .map(({ message }) => message)
     .join("; ");
+
+/** Expands a replacement items list before it can become a board revision. */
+export const replaceQuestionItems = (
+  model: BoardModel,
+  widgets: WidgetUpdate,
+  question: QuestionRecord,
+  props: QuestionProps,
+): WidgetStep => {
+  const item = { type: "question" as const, id: question.id, props };
+  const sent = expandSentItems([item], widgets.source);
+  if (!sent.ok)
+    return { ok: false, detail: inWords(sent.problems), itemId: sent.problems[0]?.itemId };
+  const own = new Set(itemIdsOf(model.propsOf(question)));
+  const ownReferences = new Set(
+    [...own].flatMap((id) => {
+      const entry = widgets.expansion.get(id);
+      return entry === undefined ? [] : [entry.reference];
+    }),
+  );
+  const references = referencesIn([item]);
+  const [expanded] = sent.items as [{ readonly props: QuestionProps }];
+  const collision = [...references.keys()].find(
+    (id) => widgets.references.has(id) && !ownReferences.has(id),
+  );
+  if (collision !== undefined)
+    return { ok: false, itemId: collision, detail: `the ID "${collision}" is in use in the ask` };
+  // Older entries still address answers on kept revisions; the new entries describe this one.
+  widgets.expansion = new Map([...widgets.expansion, ...sent.map]);
+  for (const [id, reference] of references) widgets.references.set(id, reference);
+  return { ok: true, props: expanded.props };
+};
 
 /**
  * An added item with its references expanded, its entries joined to the update's map. An ID that
