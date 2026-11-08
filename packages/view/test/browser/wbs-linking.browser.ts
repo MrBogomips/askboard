@@ -786,6 +786,27 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
+    // Review 3.13 X-1: a U+2069 in the label ends the isolate early, so a following override
+    // reverses AskBoard's words again; the isolate needs its own box.
+    for (const [form, tail] of [
+      ["a pop-directional-isolate and an override", "\u2069\u202E"],
+      ["a pop-directional-isolate and a right-to-left embedding", "\u2069\u202B"],
+      ["two pop-directional-isolates and an override", "\u2069\u2069\u202E"],
+      ["a right-to-left isolate", "\u2067"],
+    ] as const) {
+      test(
+        `a leaf named with ${form}: AskBoard's words read in order`,
+        async () => {
+          const run = await host(dist, rowPortalNamedDocument(`Customer portal${tail}`));
+          await readyIn(run);
+          await dragDrop(run.board, treeGridOf(run.board), "billing", "portal", ZONE.into);
+          await askedGroup(run);
+          expect(await wordsReadLeftToRight(run.board)).toBe(true);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+
     test(
       "a leaf named with 200 characters and no space: the name wraps inside its paragraph",
       async () => {

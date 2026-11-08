@@ -104,11 +104,11 @@ describe("the bound on the send-time warnings", () => {
     );
   });
 
-  test("a single warning too large for the budget is the closing one, with none left out", () => {
+  test("a single warning too large for the budget is the closing one, with no count after it", () => {
     const result = boundedFormulaWarnings([warning(0, "z".repeat(MAX))], MAX);
     expect(result).toHaveLength(1);
     expect(result[0]?.message).toBe(
-      "The formula at schedule.x0 is in error (missing-reference), and 0 more formula warnings are left out.",
+      "The formula at schedule.x0 is in error (missing-reference); its detail is left out.",
     );
   });
 

@@ -86,7 +86,11 @@ export const boundedFormulaWarnings = (
   const first = warnings[kept] as FormulaWarning;
   const left = warnings.length - kept - 1;
   const { itemId, address, error } = first as FormulaWarning & { error: string };
-  const message = `The formula at ${address} is in error (${error}), and ${left} more formula ${left === 1 ? "warning is" : "warnings are"} left out.`;
+  // Nothing after the closing warning: no count, only that its own detail is left out.
+  const message =
+    left === 0
+      ? `The formula at ${address} is in error (${error}); its detail is left out.`
+      : `The formula at ${address} is in error (${error}), and ${left} more formula ${left === 1 ? "warning is" : "warnings are"} left out.`;
   return [...warnings.slice(0, kept), { code: "formula", itemId, address, error, message }];
 };
 

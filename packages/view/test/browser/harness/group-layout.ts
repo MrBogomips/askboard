@@ -94,25 +94,38 @@ export const expectWrapped = (layout: GroupLayout): void => {
   expect(layout.insideToolbar).toBe(true);
 };
 
-/** Runs in the view: whether the question's words after the name run left to right on the page. */
+/**
+ * Runs in the view: whether the question reads in order on the page: the closing quote of the
+ * name, then every character of AskBoard's words, and the period last. A character comes after
+ * another when it is on a later line, or on the same line and further right.
+ */
 const readOrder = (): boolean | undefined => {
   const fieldset = [...document.querySelectorAll("fieldset[aria-labelledby]")].find((candidate) =>
     /becomes a group:|diventa un gruppo:/.test(candidate.textContent ?? ""),
   );
   const paragraph = document.getElementById(fieldset?.getAttribute("aria-labelledby") ?? "");
-  const words = paragraph?.lastElementChild;
-  const node = words?.firstChild;
-  if (node?.nodeType !== Node.TEXT_NODE) return undefined;
-  const at = (index: number): DOMRect => {
+  const name = paragraph?.firstElementChild?.firstChild;
+  const words = paragraph?.lastElementChild?.firstChild;
+  if (name?.nodeType !== Node.TEXT_NODE || words?.nodeType !== Node.TEXT_NODE) return undefined;
+  const rectOf = (node: Node, index: number): DOMRect => {
     const range = document.createRange();
     range.setStart(node, index);
     range.setEnd(node, index + 1);
     return range.getBoundingClientRect();
   };
-  // The first and fourth characters of the words, on one line: "bec" in "becomes".
-  const first = at(0);
-  const fourth = at(3);
-  return Math.abs(first.top - fourth.top) < 2 && first.left < fourth.left;
+  const text = words.textContent ?? "";
+  // The closing quote first, then each visible character of the words in turn.
+  const rects = [rectOf(name, (name.textContent ?? "").length - 1)];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index]?.trim() !== "") rects.push(rectOf(words, index));
+  }
+  if (text.at(-1) !== ".") return false;
+  return rects.every((rect, index) => {
+    const before = rects[index - 1];
+    if (before === undefined) return true;
+    const sameLine = Math.abs(before.top - rect.top) < 2;
+    return sameLine ? before.left <= rect.left : before.top < rect.top;
+  });
 };
 
 /** Whether the group question's own words read left to right, whatever the leaf's name holds. */

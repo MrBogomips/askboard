@@ -10,7 +10,13 @@
 
 import { useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useId } from "react";
-import { GROUP_QUESTION, GROUP_QUESTION_BUTTONS, GROUP_QUESTION_ROW, TOOL } from "./classes.ts";
+import {
+  GROUP_QUESTION,
+  GROUP_QUESTION_BUTTONS,
+  GROUP_QUESTION_NAME,
+  GROUP_QUESTION_ROW,
+  TOOL,
+} from "./classes.ts";
 import { groupedWith, type GroupQuestion as Question } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { keyAction } from "./model/keys.ts";
@@ -49,7 +55,8 @@ export const GroupQuestion = ({
       onKeyDown={questionKeyDown(onCancel)}
     >
       <p id={id} className={GROUP_QUESTION}>
-        <bdi>“{question.label}”</bdi> <span>{groupedWith(question, text)}</span>
+        <bdi className={GROUP_QUESTION_NAME}>“{question.label}”</bdi>{" "}
+        <span>{groupedWith(question, text)}</span>
       </p>
       <div className={GROUP_QUESTION_BUTTONS}>
         <button ref={focusOnMount} type="button" className={TOOL} onClick={onCancel}>

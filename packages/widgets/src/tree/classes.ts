@@ -49,6 +49,13 @@ export const GROUP_QUESTION_ROW = "flex min-w-0 flex-1 flex-col gap-1";
 export const GROUP_QUESTION =
   "min-w-0 text-control whitespace-normal text-foreground [overflow-wrap:anywhere]";
 
+/**
+ * The agent's name in the group question, isolated for bidirectional text in a box of its own: a
+ * U+2069 in the name ends a plain `<bdi>` early and a following override would reverse AskBoard's
+ * words (wbs-gantt-consistency, re-review 3.13 X-1).
+ */
+export const GROUP_QUESTION_NAME = "inline-block max-w-full";
+
 export const GROUP_QUESTION_BUTTONS = "flex items-center gap-2";
 
 /** The question's `fieldset`, in the tools' place, which would otherwise keep its content's width. */
