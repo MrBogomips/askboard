@@ -40,7 +40,7 @@ describe("the Tree in Italian", () => {
     );
   });
 
-  test("the group question, in the ask's language (task 2.2; the Italian approved by the PO)", () => {
+  test("the group question, in the ask's language (task 2.2; the Italian the PO reviews in the pull request)", () => {
     const portal = { label: "Customer portal", estimates: true, task: true, dependents: 1 };
     expect(groupedWith(portal, IT)).toStartWith(
       "diventa un gruppo: le sue stime escono dai totali",
