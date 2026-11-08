@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TABLE_EDITED_PROPS, TABLE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
-import { tableValueFits } from "./fits.ts";
+import { shownTable, tableValueFits } from "./fits.ts";
 
 const SENT = TABLE_FIXTURE_ITEM.props;
 
@@ -36,5 +36,22 @@ describe("an edited value fits the Table the revision shows", () => {
     for (const none of [undefined, null, 5, "s", [], {}])
       expect(tableValueFits(none, none)).toBe(false);
     expect(tableValueFits({ ...SENT, columns: 5 }, { ...SENT, columns: [5] })).toBe(false);
+  });
+});
+
+describe("the Table to show", () => {
+  test("the held value while it fits", () => {
+    expect(shownTable(SENT, TABLE_EDITED_PROPS)).toBe(TABLE_EDITED_PROPS);
+  });
+
+  test("the agent's props when the value does not fit, and never a throw", () => {
+    const dropped = { ...SENT, columns: SENT.columns.slice(0, 3) };
+    expect(shownTable(SENT, dropped)).toBe(SENT);
+    expect(shownTable(SENT, "no table")).toBe(SENT);
+    expect(shownTable(SENT, null)).toBe(SENT);
+  });
+
+  test("the agent's props when there is no value", () => {
+    expect(shownTable(SENT, undefined)).toBe(SENT);
   });
 });

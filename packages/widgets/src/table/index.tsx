@@ -2,8 +2,8 @@
 // port, the one part of `view` a widget imports (AD-1, AD-9). The view hands a widget item's props
 // over as data, unchecked, so the Table checks them as an agent's with the contract's plain check
 // and throws on a problem: the item's error boundary then fails it, and its question never counts as
-// visible (AD-10). It shows its value, the draft or the sent answer, else the agent's props; a value
-// that does not fit the Table fails the item too, so an answer sends what the Table shows. It reads
+// visible (AD-10). It shows its value, the draft or the sent answer, while it fits the props, else
+// the agent's props untouched (`shownTable`), so an answer sends what the Table shows. It reads
 // the board's live graph and the graph as sent through the `board-graph` chunk for its computed
 // cells and totals, reports the derived values its answer carries on every change of the graph
 // (`TABLE_ANSWER_DERIVED`), and reports ready once laid out. A Table gives no result.
@@ -23,7 +23,7 @@ import {
 import { useEffect, useMemo } from "react";
 import { liveGraph, sentGraph } from "../board-graph/index.ts";
 import { answerDerived } from "./model/derived.ts";
-import { tableValueFits } from "./model/fits.ts";
+import { shownTable, tableValueFits } from "./model/fits.ts";
 import { TableWidget } from "./widget.tsx";
 
 /** The catalog name, which is the Table item's type. */
@@ -54,12 +54,10 @@ const Table = ({
   cellEntries,
   onCellEntriesChange,
 }: TableComponentProps) => {
-  // The checks throw before the item can report ready: its props, its value, its board's graph.
+  // The checks throw before the item can report ready: its props, its board's graph. A held value
+  // that does not fit shows the agent's props, never a failure.
   const sent = useMemo(() => checkedProps(item.id, item.props), [item.id, item.props]);
-  if (value !== undefined && !tableValueFits(value, sent)) {
-    throw new Error(`the Table "${item.id}" holds a value its props do not fit`);
-  }
-  const shown = value ?? sent;
+  const shown = shownTable(sent, value);
   const live = liveGraph(board);
   const sentBoard = sentGraph(board);
   const computes = sent.columns.some(

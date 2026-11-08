@@ -80,6 +80,13 @@ const engineerProps = (): TableProps =>
     rows: ROLES.rows.map((row) => (row.id === "dev" ? { ...row, role: "Engineer" } : row)),
   });
 
+// The agent's change that drops the `rate` column, and the `amount` computed from it.
+const withoutRate = (): TableProps =>
+  rolesWith({
+    columns: ROLES.columns.filter(({ field }) => field !== "rate" && field !== "amount"),
+    rows: ROLES.rows.map(({ rate: _rate, ...row }) => row),
+  });
+
 const changeCosts = (props: TableProps) => [{ action: "change", itemId: "costs", props }];
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
@@ -209,6 +216,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await cellText(table, "pm", "rate")).toBe("$1,040.00");
         expect(await table.frame.locator("[data-entry]").count()).toBe(0);
         expect(await counterText(table)).toBe("No changes");
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "after the agent drops the rate column and a reload, Keep mine shows the agent's Table, without the draft and its entries, and Answer sends nothing",
+      async () => {
+        const run = await start(lifecycleScenario(tableAsk(), dist));
+        const board = await openBoard(run, ["plan"]);
+        const table = tableGridOf(board);
+        await typeInCell(board, table, "pm", "rate", "Rate, row 1", "960.00");
+        await typeInCell(board, table, "dev", "days", "Days, row 2", "oops");
+        await cellOf(table, "pm", "role").click();
+        await eventually(() => draftHolds(run).entries !== undefined, "the draft mirrored");
+        await run.session.update(changeCosts(withoutRate()));
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reloaded(board, run);
+        const again = tableGridOf(board);
+        await notice(board).getByRole("button", { name: "Keep mine" }).click();
+        await notice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await cellText(again, "pm", "days")).toBe("18");
+        expect(await again.frame.locator("[data-entry]").count()).toBe(0);
+        expect(await counterText(again)).toBe("No changes");
+        await eventually(
+          async () => draftHolds(run).value === undefined && draftHolds(run).entries === undefined,
+          "the draft and its entries gone",
+        );
+        // The choice is the only event: nothing of the Table is answered.
+        const { events } = await run.session.collect();
+        expect(events.map((event) => event.type)).toEqual(["edit-choice"]);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

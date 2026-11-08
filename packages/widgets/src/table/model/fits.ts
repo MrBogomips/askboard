@@ -33,3 +33,10 @@ export const tableValueFits = (value: unknown, props: unknown): boolean =>
   ["columns", "label", "fixedRows"].every((key) =>
     sameJson(member(value, key), member(props, key)),
   ) && tablePropsProblems(value as TableProps, "edited").length === 0;
+
+/**
+ * The Table to show: the held value while it fits the props (`tableValueFits`), else the agent's
+ * props, untouched; it never fails on a held value, as the Kanban's `shownProps` (design decision 9).
+ */
+export const shownTable = (sent: TableProps, value: unknown): TableProps =>
+  value !== undefined && tableValueFits(value, sent) ? (value as TableProps) : sent;
