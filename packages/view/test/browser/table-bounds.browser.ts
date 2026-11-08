@@ -2,7 +2,7 @@
 // view-and-widgets: A Table at its bounds on the board; design decision 13): a fresh page for each
 // run of the worst form the bounds admit (200 rows, 10 columns, a number column and nine computed
 // from it by formulas of 499 characters, every column totalled) shows the Table, takes one cell
-// edit committed and painted, then one row added and painted, each within its gate: the Table
+// edit committed and painted, then one row deleted and one added back and painted, each within its gate: the Table
 // visible 1,500 ms from the view's creation, an edit painted 100 ms after its Enter, a row added
 // 250 ms after its click. The fan-out form (each formula reads `[worst.a]`, the total of the input
 // column, so one edit recalculates 1,810 nodes) takes the same edit gate. "Painted" is the second
@@ -133,10 +133,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             });
             await page.board.page.keyboard.press("Enter");
             const edit = await editing();
-            // One row added after the current row.
+            // The worst form holds the most rows a Table may: one is deleted (the current row, r100)
+            // so that "Add row" has a place, then one row is added after the current row.
+            await toolOf(table, "Delete row").click();
+            await eventually(
+              async () => (await table.rows.count()) === form.rows.length - 1,
+              "the row to be deleted",
+              LOAD_TIMEOUT_MS,
+            );
             const adding = await watch(frame, {
               selector: root,
-              count: form.rows.length + 1,
+              count: form.rows.length,
               event: "click",
             });
             await toolOf(table, "Add row").click();
