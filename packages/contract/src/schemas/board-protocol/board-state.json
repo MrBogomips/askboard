@@ -130,6 +130,15 @@
           },
           "additionalProperties": true
         },
+        "unchanged": {
+          "description": "Since reopen-start-from-answer: the IDs of the question and of its items, at any depth, whose props equal those of the revision this answer names, so a board that holds only the current revision can tell what the agent changed since (AD-20); never logged and never sent to the agent.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:askboard:input:id"
+          }
+        },
         "declined": {
           "const": true
         },

@@ -28,7 +28,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2: 2.1, then 2.6, the
 
 ## 1. Contract and core: what an answer's revision shares
 
-- [ ] 1.1 The two schema fields (contract spec, both requirements; design decisions 4 and 7).
+- [x] 1.1 The two schema fields (contract spec, both requirements; design decisions 4 and 7).
   - Tests first, in `packages/contract/test/board-protocol.test.ts` and `snapshot-data.test.ts`:
     - a board state whose previous answer, and one whose current answer, names `unchanged: ["plan", "roadmap"]` validates;
     - `unchanged: []`, a repeated ID, or an ID the input format's `id` refuses fails, naming the field;
@@ -43,6 +43,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2: 2.1, then 2.6, the
     - the change's version test in a new `packages/contract/test/reopen-start-sets.test.ts`;
     - every earlier exact pin of the two sets moved (the skill's grep; `table-sets.test.ts:72` is one).
   - Verify: the tests fail before the schemas change and pass after; `schemaSetProblems` passes; coverage; the check passes.
+  - Note (Refs #70): `unchanged` (`board-state.json` `$defs/answer`: `minItems` 1, `uniqueItems`, items `urn:askboard:input:id`) and `prefilled` (`const: true`, `draft-record.json`) with their types; board protocol 1.9 (main 1.8) and Snapshot data 1.2 (main 1.1), header comments, `reopen-start-sets.test.ts` pins both. Red first: 4 new tests failed (valid cases and the version test); the refusal cases passed before, since the schemas already refused an unknown field, so 4 mutants prove them (minItems, uniqueItems and the id `$ref` removed, `prefilled` as boolean): each fails 1 or 2 tests. Earlier exact pins moved to at-least checks (`snapshot-data.test.ts`, `table-sets`, `chart-widget-sets`, `layouts-sets`, `approval-scale-ranking-sets`, `widget-registry-sets`). contract 3564 pass, 0 fail; full `bun test` 12168 pass, the one fail (`the real bundle`) needs `bun run build`, green after it. COLLISION: Snapshot data 1.2 is also `snapshot-toolbar`'s (PR #94); whichever merges second rebinds at 4.2. Deviation: none.
 - [ ] 1.2 `unchanged` in the board state (core spec, all four scenarios; design decision 1).
   - Tests first, in `packages/core/test/revisions.test.ts`, each over the board state `lifecycleView` gives:
     - a question with a Timeline inside a Group, answered and reopened with no change, lists the question, the Group and the Timeline in `previous.unchanged`;

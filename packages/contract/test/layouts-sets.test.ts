@@ -47,13 +47,13 @@ describe("the minors layouts binds", () => {
     // The board protocol took 1.7 with atoms and moves on with the Table's cell entries.
     expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(7);
     expect({
-      snapshot: SNAPSHOT_DATA_VERSION,
+      snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
-      snapshot: "1.1",
+      snapshot: true,
       manifest: "1.1",
       configuration: "1.0",
       localApi: "1.0",

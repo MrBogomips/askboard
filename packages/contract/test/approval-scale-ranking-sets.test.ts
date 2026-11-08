@@ -56,9 +56,9 @@ describe("the versions of the four widened sets", () => {
     // latest in table-sets.test.ts).
     expect(minor(BOARD_PROTOCOL_VERSION)).toBeGreaterThanOrEqual(6);
     expect({
-      snapshot: SNAPSHOT_DATA_VERSION,
+      snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({ snapshot: "1.1", manifest: "1.1" });
+    }).toEqual({ snapshot: true, manifest: "1.1" });
   });
 
   test("the sets hold those constants", () => {

@@ -34,15 +34,15 @@ describe("the versions of the sets", () => {
       output: minor(OUTPUT_FORMAT_VERSION) >= 8,
       envelopes: minor(TOOL_ENVELOPES_VERSION) >= 8,
       protocol: minor(BOARD_PROTOCOL_VERSION) >= 6,
-      snapshot: SNAPSHOT_DATA_VERSION,
-    }).toEqual({ output: true, envelopes: true, protocol: true, snapshot: "1.1" });
+      snapshot: minor(SNAPSHOT_DATA_VERSION) >= 1,
+    }).toEqual({ output: true, envelopes: true, protocol: true, snapshot: true });
   });
 
   test("the sets hold those constants", () => {
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
     expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
-    expect(setOf("snapshot-data").version).toBe("1.1");
+    expect(setOf("snapshot-data").version).toBe(SNAPSHOT_DATA_VERSION);
   });
 
   test("the sets this change does not widen hold the minors bound so far", () => {

@@ -78,7 +78,7 @@ describe("the snapshot-data set", () => {
     expect(SCHEMA_SETS).toContain(snapshotDataSet);
     expect(snapshotDataSet).toMatchObject({
       name: "snapshot-data",
-      version: "1.1",
+      version: SNAPSHOT_DATA_VERSION,
       owner: "snapshot",
     });
     expect(SCHEMA_SET_OWNERS["snapshot-data"]).toBe("snapshot");
@@ -183,8 +183,7 @@ describe("what the Snapshot data names", () => {
     expect(checked.problems).toEqual([
       {
         path: "/versions/snapshot",
-        message:
-          "the message is Snapshot data version 2.0, which is not supported: this receiver supports version 1 (1.1)",
+        message: `the message is Snapshot data version 2.0, which is not supported: this receiver supports version 1 (${SNAPSHOT_DATA_VERSION})`,
       },
     ]);
   });
@@ -313,5 +312,29 @@ describe("what the Snapshot data holds", () => {
       const added = changed((data) => Object.assign(data, { [field]: "x" }));
       expect(problemPaths(added)).toContain(`/${field}`);
     }
+  });
+});
+
+describe("the unchanged items of an answer in the Snapshot data (reopen-start-from-answer)", () => {
+  const withUnchanged = (unchanged: unknown) =>
+    changed((data) => {
+      const state = data.state as { questions: { answer: Json }[] };
+      Object.assign((state.questions[0] as { answer: Json }).answer, { unchanged });
+    });
+
+  test("a board state naming unchanged IDs in its answer validates", () => {
+    expect(problemPaths(withUnchanged([question.id, "roadmap"]))).toEqual([]);
+  });
+
+  test("an empty list or a repeated ID fails, naming the field", () => {
+    for (const bad of [[], [question.id, question.id]]) {
+      expect(problemPaths(withUnchanged(bad)).some((p) => p.endsWith("/answer/unchanged"))).toBe(
+        true,
+      );
+    }
+  });
+
+  test("the data of the previous minor, with no unchanged, still validates", () => {
+    expect(problemPaths(agentSnapshot())).toEqual([]);
   });
 });
