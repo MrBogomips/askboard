@@ -38,6 +38,7 @@ import {
 } from "./styles.ts";
 import {
   confirmedPress,
+  immediateBlocked,
   type LoadOf,
   type SubmitState,
   submitPress,
@@ -179,7 +180,7 @@ export const BottomBar = (props: BottomBarProps) => {
     } else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
-  const blockedSwitch = submit.held > 0 && delivery === "submitted" && submit.disabled;
+  const blockedSwitch = immediateBlocked(submit, delivery);
   const toImmediate = () => {
     if (delivery === "immediate") return;
     if (submit.held > 0) setConfirming(true);

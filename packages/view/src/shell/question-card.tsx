@@ -464,6 +464,9 @@ export const QuestionCard = (props: CardProps) => {
   const opened = context.opened !== undefined;
   const readOnly = opened || card.readOnly;
   const usable = !opened && status !== undefined && load === "visible" && lock === undefined;
+  // "Reload, losing my work" stays on a card whose item failed: the agent's revision may replace it.
+  const reloadable =
+    !opened && status !== undefined && lock === undefined && (usable || load === "failed");
   const reopened = status?.state === "open" || status?.state === "postponed" ? status : undefined;
   const layout = layoutOf(renderedOf(shown));
   const placeable = couldSplit(layout.context);
@@ -534,6 +537,7 @@ export const QuestionCard = (props: CardProps) => {
           }
           stake={changesLabel(changeCountOf(shown, values, work, results), language)}
           busy={!usable || choosing !== undefined}
+          reloadBusy={!reloadable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
           onKeep={() => keepMine(question, acting, shown, readOnlyItems)}
         />

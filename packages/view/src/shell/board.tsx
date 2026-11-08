@@ -55,7 +55,7 @@ import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
-import { hasRecommendation, selectRecommended, submitStateOf } from "./submit.ts";
+import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
 import type { ThemeChoice } from "./theme-control.tsx";
 
 /** What the board page last told the view, with the latest board document. */
@@ -289,9 +289,15 @@ export const Board = ({
   const questions = questionsOf(document);
   // Submit waits for a held act's question that is loading or failed (Issue #103): the board
   // redraws when any question's status changes, whatever else it reads of the tracker.
-  useSyncExternalStore(context.tracker.subscribe, () =>
+  const statuses = useSyncExternalStore(context.tracker.subscribe, () =>
     questions.map((question) => context.tracker.questionStatus(question.id)).join(),
   );
+  // A question whose item failed takes no part in Submit: its held acts are released and its work
+  // stays in the draft, also when a restore or a later act holds one again (Appendix row 44).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `statuses` and `draft` are the triggers
+  useEffect(() => {
+    releaseFailed(document, context.board, context.tracker.questionStatus);
+  }, [statuses, draft, document, context]);
   const groups = groupsOf(document);
   const changed = changedOf(document, draft, kept);
   const known = questions.some((question) => question.id === draft.inView);

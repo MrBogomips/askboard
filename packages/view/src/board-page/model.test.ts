@@ -296,6 +296,71 @@ describe("an item that fails stops every act of its question (document-review, d
   });
 });
 
+describe("an item inside a layout that fails stops every act of its question (document-review, re-review 6.23 S-2; Issue #103)", () => {
+  const when = "2026-11-08T09:41:27.123Z";
+  const [question] = plainChoiceBoardDocument.items;
+  const field = (id: string) => ({ type: "text-field", id, props: { label: id } });
+  // The question `database` holding a TextField in a Group and one in the second panel of Tabs.
+  const nested = {
+    ...plainChoiceBoardDocument,
+    items: [
+      {
+        ...question,
+        props: {
+          ...question.props,
+          items: [
+            { type: "group", id: "details", props: { title: "Details", items: [field("name")] } },
+            {
+              type: "tabs",
+              id: "panels",
+              props: {
+                tabs: [
+                  { id: "one", title: "One", items: [field("first")] },
+                  { id: "two", title: "Two", items: [field("second")] },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ],
+  } as unknown as BoardDocument;
+  const visible = (): BoardModel =>
+    withViewMessage(
+      withHostMessage(withHostMessage(EMPTY_MODEL, { version, type: "board", document: nested }), {
+        version,
+        type: "state",
+        state: waiting,
+      }),
+      { type: "ready", itemId: question.id },
+    );
+  const failing = (itemId: string): BoardModel =>
+    withViewMessage(visible(), { type: "item-error", itemId, error: "boom" });
+  const acts: readonly ViewAct[] = [
+    { type: "postpone", itemId: question.id, rev: 1 },
+    { type: "note", itemId: question.id, rev: 1, note: "x", when },
+  ];
+
+  test("at the head, the question's acts go", () => {
+    for (const act of acts) expect(actsFor(visible(), [act]).ok).toBe(true);
+  });
+
+  test("a TextField inside a Group or a Tabs panel that failed refuses each act", () => {
+    for (const itemId of ["name", "first", "second"]) {
+      for (const act of acts) {
+        expect(actsFor(failing(itemId), [act])).toEqual({
+          ok: false,
+          detail: "the question's item failed in the view",
+        });
+      }
+    }
+  });
+
+  test("an item the document does not hold refuses nothing", () => {
+    expect(actsFor(failing("elsewhere"), [acts[0] as ViewAct]).ok).toBe(true);
+  });
+});
+
 describe("the user's acts become one act command only if each can be (ask-lifecycle, AD-10)", () => {
   const when = "2026-10-31T09:41:27.123Z";
   const lifecycleState: LifecycleBoardState = {

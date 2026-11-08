@@ -24,6 +24,7 @@ import {
   type Delivery,
   itemIdsOf,
   type QuestionWork,
+  releaseAllHeld,
 } from "./board-draft.ts";
 import {
   type AnswerContext,
@@ -166,7 +167,7 @@ export type SubmitInputs = {
   readonly readOnlyOf?: ReadOnlyOf | undefined;
   /** The question as its card shows it: the field block reads that revision (Issue #92). */
   readonly shownOf?: ShownOf | undefined;
-  /** The ready tracker's status of each question: a held act on one not `visible` waits (Issue #103). */
+  /** The ready tracker's status of each question: a held act on one still loading waits, one that failed is left out (Issue #103). */
   readonly load?: LoadOf | undefined;
 };
 
@@ -213,10 +214,18 @@ export const heldWithBlock = (
       );
 
 /**
- * The first question, in board order, with an act held for Submit that is not `visible`: still
- * loading, or one of its items failed (AD-9, AD-10). The card gates its own acts on the same status
- * (`usable`), and nothing is answered on a partial board, so Submit waits for it too (Issue #103).
- * With no `load`, nothing is read.
+ * The held acts that take part in Submit: those of a question whose item failed do not (AD-9,
+ * AD-10; EXPERIENCE.md, Submit). Such a question's card cannot answer, and the board page refuses
+ * its acts, so its held acts are released (`releaseFailed`) and Submit sends the others. With no
+ * `load`, every one takes part.
+ */
+const sendable = (held: readonly HeldWork[], load: LoadOf | undefined): readonly HeldWork[] =>
+  load === undefined ? held : held.filter(({ question }) => load(question.id) !== "failed");
+
+/**
+ * The first question, in board order, with an act held for Submit that is still loading (AD-9,
+ * AD-10): nothing is answered on a partial board, so Submit waits for it (Issue #103). A failed
+ * question never waits: its acts are not Submit's (`sendable`). With no `load`, nothing is read.
  */
 export const heldUnusable = (
   document: ViewDocument,
@@ -227,12 +236,31 @@ export const heldUnusable = (
     ? undefined
     : questionsOf(document).find(
         (question) =>
-          held.some((each) => each.question.id === question.id) && load(question.id) !== "visible",
+          held.some((each) => each.question.id === question.id) && load(question.id) === "loading",
       );
+
+/**
+ * Takes back the held acts of every question whose item failed, an undo held beneath one included,
+ * and keeps its work in the draft: a failed card offers no way to take them back itself, and a
+ * restored draft would hold them again (document-review, design decision 15, Appendix row 44; the
+ * ready mark an edit releases is the same `releaseHeld` of the board draft).
+ */
+export const releaseFailed = (
+  document: ViewDocument,
+  board: BoardDraft,
+  load: LoadOf | undefined,
+): void => {
+  if (load === undefined) return;
+  for (const question of questionsOf(document)) {
+    const work = board.work(question.id);
+    if (work?.held === undefined || load(question.id) !== "failed") continue;
+    board.edit(question.id, work.rev, releaseAllHeld);
+  }
+};
 
 /** Whether Submit can go, and what stops it (EXPERIENCE.md, Submit). */
 export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
-  const held = heldWorkOf(inputs.document, inputs.board);
+  const held = sendable(heldWorkOf(inputs.document, inputs.board), inputs.load);
   const ids = held.map(({ question }) => question.id);
   const blocked = questionsOf(inputs.document)
     .map((question) => question.id)
@@ -256,6 +284,13 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
     ) !== undefined;
   return { held: held.length, blocked, disabled };
 };
+
+/**
+ * Whether "Immediate" waits: leaving submitted delivery with held work asks first, and waits
+ * whenever Submit waits (EXPERIENCE.md, Mode-switch confirmation).
+ */
+export const immediateBlocked = (submit: SubmitState, delivery: Delivery): boolean =>
+  submit.held > 0 && delivery === "submitted" && submit.disabled;
 
 /** The bar's count of agent-change notices on held work, which jumps to the first. */
 export const updatesLabel = (count: number, language: Locale = "en-US"): string =>
@@ -380,7 +415,7 @@ export const heldMissingReason = (
 
 /** What a press of Submit comes to: a question whose reason is missing, the acts to send, or the acts and the questions to ask about first. */
 export type SubmitPress =
-  /** A held act's question is loading or failed: nothing is sent, and the board goes to the question. */
+  /** A held act's question is still loading: nothing is sent, and the board goes to the question. */
   | { readonly kind: "unusable"; readonly questionId: string }
   | { readonly kind: "needs-reason"; readonly questionId: string }
   /** A held answer's question holds a blocking field: nothing is sent, and the board goes to the question. */
@@ -394,7 +429,7 @@ export type SubmitPress =
     };
 
 /**
- * A press of Submit (design decision 6): a held act on a question that is loading or failed comes
+ * A press of Submit (design decision 6): a held act on a question that is still loading comes
  * first and sends nothing, naming the question (Issue #103); the last reason check over every held
  * answer comes before anything else; one that fails sends nothing and leaves every act held, naming the
  * question the board goes to; a held answer whose question holds a blocking field sends nothing either.
@@ -419,12 +454,12 @@ export const submitPress = (
     readonly readOnlyOf?: ReadOnlyOf | undefined;
     /** The question as its card shows it: the gates read that revision (Issue #92). */
     readonly shownOf?: ShownOf | undefined;
-    /** The ready tracker's status of each question: a held act on one not `visible` is not sent. */
+    /** The ready tracker's status of each question: a held act on one still loading waits, one that failed is left out. */
     readonly load?: LoadOf | undefined;
   },
 ): SubmitPress => {
   const { results, facts, state, entries, readOnlyOf, shownOf, load } = options;
-  const held = heldWorkOf(document, board);
+  const held = sendable(heldWorkOf(document, board), load);
   const unusable = heldUnusable(document, held, load);
   if (unusable !== undefined) return { kind: "unusable", questionId: unusable.id };
   const missing = heldMissingReason(document, held, values, results, facts, shownOf);

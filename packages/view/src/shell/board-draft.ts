@@ -114,6 +114,9 @@ const isAnswerHeld = (held: HeldAct | undefined): boolean =>
 export const releaseHeld = ({ held: _, undo, ...work }: QuestionWork): QuestionWork =>
   undo === undefined ? work : { ...work, held: undo };
 
+/** Takes back every held act, an undo beneath it too; the question's work stays. */
+export const releaseAllHeld = ({ held: _, undo: __, ...work }: QuestionWork): QuestionWork => work;
+
 /** The lifecycle draft, starting with no work in the delivery mode given. */
 export const createBoardDraft = (delivery: Delivery): BoardDraft => {
   let state: BoardDraftState = { delivery, questions: new Map() };
