@@ -22,7 +22,7 @@ When an ask or an update leaves a Gantt plan naming an ID that is no leaf of its
 ## MODIFIED Requirements
 
 ### Requirement: The send-time graph check
-When an ask or an update with widget items is accepted, `ask-core` SHALL build the board's graph from the items as stored and return each graph problem as a `formula` warning in reference addressing, in the graph's order, while the JSON text of the warnings it returns stays within `FORMULA_WARNINGS_MAX_CHARS` (10,000 characters). When any problem is left out, the last warning SHALL be the first problem left out, with its item, address and error and a message that counts the problems after it, and the JSON text of all the warnings, the closing one included, SHALL stay within the bound. The bound SHALL hold over every `formula` warning of the result, a Table's included. A graph problem SHALL never refuse the request (AD-6, AD-13, FR-14).
+When an ask or an update with widget items is accepted, `ask-core` SHALL build the board's graph from the items as stored and return each graph problem as a `formula` warning in reference addressing, in the graph's order, while the JSON text of the warnings it returns stays within `FORMULA_WARNINGS_MAX_CHARS` (10,000 characters). When any problem is left out, the last warning SHALL be the first problem left out, with its item, address and error and a message that counts the problems after it, or says that its own detail is left out when none follows it, and the JSON text of all the warnings, the closing one included, SHALL stay within the bound. The bound SHALL hold over every `formula` warning of the result, a Table's included. A graph problem SHALL never refuse the request (AD-6, AD-13, FR-14).
 
 #### Scenario: A predecessor that names no task
 - **WHEN** an ask's `schedule` data gives `billing` the predecessor `review`, which is no work package
@@ -31,6 +31,10 @@ When an ask or an update with widget items is accepted, `ask-core` SHALL build t
 #### Scenario: Warnings past the bound
 - **WHEN** an ask's plan gives each of 60 leaves five predecessors that name no task, so that 60 earliest starts are in error
 - **THEN** the ask is created, the JSON text of its warnings is at most 10,000 characters, the last warning's message says how many more are left out, and the warnings kept, the closing one and the count make up every problem the graph found
+
+#### Scenario: One problem past the bound
+- **WHEN** an ask's Table holds two formula columns whose errors fill the bound, so that only the second is left out
+- **THEN** the ask is created, and the last warning names the second column's address and error and says that its detail is left out, with no count
 
 #### Scenario: The worst plan the contract admits
 - **WHEN** an ask holds a Tree of 500 leaves and a plan whose every task names 50 distinct 64-character predecessors that are no task, and an update then sends the same plan again
