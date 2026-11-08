@@ -15,7 +15,7 @@ ADs relied on: AD-7 (one minor), AD-8 (no browser storage in the view), AD-9 (`a
 
 **Goals:** one working Theme control in a Snapshot, in the ask's language; a Snapshot opens in the theme and density the board had; a density switch in a Snapshot; Snapshots written before open as today.
 
-**Non-Goals:** recording `contextPlacement` (open question 5); recording the theme the board resolved (open question 2); any change to the hosted board's toggles, the settings panel or the board protocol; a theme for a Snapshot taken while the user file cannot be read.
+**Non-Goals:** recording `contextPlacement` (open question 5); recording the theme the board resolved (open question 2); any change to the hosted board's toggles, the settings panel or the board protocol; a theme other than the board's for a Snapshot taken while the user file cannot be read (the board's defaults and the project file's keys are recorded, review 2.3 S-1).
 
 ## Decisions
 
@@ -33,7 +33,7 @@ The record gains `presentation: {theme, density}`, both required inside it, clos
 
 ### 3. `ask-core` reads the settings a board would open with
 
-`Configuration` gains `presentationNow(): Promise<{theme, density}>`: it awaits the queued writes (`#writes`), then `forBoard()`, and maps `values.theme` and `values.density` with `CONFIGURATION_DEFAULTS`. `AskCore.snapshot` awaits it first, catching a rejection into `report` and `undefined`, then runs the existing synchronous check and gather unchanged; `SnapshotSources` gains `presentation?` (appended last), and `recordOf` puts it in the record when present. Reading first keeps the one synchronous step (core spec, Taking a Snapshot); awaiting the writes makes a toggle pressed just before "Snapshot" count. The same path serves the agent's `snapshot` tool and the board's request, so no board-protocol field is needed (open question 4).
+`Configuration` gains `presentationNow(): Promise<{theme, density} | undefined>`: it awaits the queued writes (`#writes`), then `forBoard()`, and gives `values.theme` and `values.density` as they are, since the settings in effect already hold each default; it gives `undefined` when the core has no configuration port (only tests build one without; the session process always passes it). A user file that cannot be read or fails its check is absorbed by `Configuration#file` as when a board opens (it contributes no key), so it never rejects here. `AskCore.snapshot` awaits it first, catching a rejection (the configuration cannot give the settings at all) into `report` and `undefined`, then runs the existing synchronous check and gather unchanged; `SnapshotSources` gains `presentation?` (appended last), and `recordOf` puts it in the record when present. Reading first keeps the one synchronous step (core spec, Taking a Snapshot); awaiting the writes makes a toggle pressed just before "Snapshot" count. The same path serves the agent's `snapshot` tool and the board's request, so no board-protocol field is needed (open question 4).
 
 *Alternative:* the board's Snapshot command carries the board page's presentation. Rejected: a board-protocol minor, and the agent's Snapshots would still need this path.
 
