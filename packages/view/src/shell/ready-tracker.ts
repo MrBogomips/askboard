@@ -35,8 +35,8 @@ export type ReadyTracker = {
   readyFor(itemId: string): () => void;
   fail(itemId: string, error: string): void;
   /**
-   * Tracks the questions it does not track yet, such as one the agent added (ask-lifecycle); a
-   * question it tracks keeps its items and status.
+   * Reconciles the items of every included question after an agent update. Existing items keep
+   * their status; new items must become ready before their question is visible again.
    */
   include(questions: readonly QuestionItems[]): void;
   itemStatus(itemId: string): ItemStatus;
@@ -55,7 +55,8 @@ const indexItems = (questions: readonly QuestionItems[]) => {
   return { questionOf, itemsOf };
 };
 
-type Statuses = Pick<ReadyTracker, "itemStatus" | "questionStatus" | "include"> & {
+type Statuses = Pick<ReadyTracker, "itemStatus" | "questionStatus"> & {
+  include(questions: readonly QuestionItems[]): boolean;
   /** Marks a pending item ready; false when that changes nothing. */
   ready(itemId: string): boolean;
   /** Marks an item failed; false when that changes nothing. */
@@ -74,12 +75,29 @@ const createStatuses = (questions: readonly QuestionItems[], events: ReadyEvents
     itemStatus,
     questionStatus,
     include: (more) => {
+      let changed = false;
       for (const { questionId, itemIds } of more) {
-        if (itemsOf.has(questionId)) continue;
+        const before = itemsOf.get(questionId);
+        if (before?.length === itemIds.length && before.every((id, at) => id === itemIds[at]))
+          continue;
+        changed = true;
+        for (const id of before ?? []) {
+          if (!itemIds.includes(id) && questionOf.get(id) === questionId) questionOf.delete(id);
+        }
         itemsOf.set(questionId, itemIds);
-        for (const itemId of itemIds)
-          if (!questionOf.has(itemId)) questionOf.set(itemId, questionId);
+        for (const itemId of itemIds) {
+          if (questionOf.get(itemId) === questionId) continue;
+          items.delete(itemId);
+          questionOf.set(itemId, questionId);
+        }
+        const previous = questionStatus(questionId);
+        if (itemIds.some((id) => itemStatus(id) === "failed")) settled.set(questionId, "failed");
+        else if (itemIds.every((id) => itemStatus(id) === "ready")) {
+          settled.set(questionId, "visible");
+          if (previous !== "visible") events.onVisible(questionId);
+        } else settled.delete(questionId);
       }
+      return changed;
     },
     ready: (itemId) => {
       const questionId = questionOf.get(itemId);
@@ -127,7 +145,7 @@ export const createReadyTracker = (
       return callback;
     },
     fail: (itemId, error) => notify(statuses.fail(itemId, error)),
-    include: statuses.include,
+    include: (questions) => notify(statuses.include(questions)),
     itemStatus: statuses.itemStatus,
     questionStatus: statuses.questionStatus,
     subscribe: (listener) => {

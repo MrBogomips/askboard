@@ -17,9 +17,11 @@
 // settings panel (`settings-panel.ts`) opens over the page when the view's "Settings" asks.
 
 import { WORKING_WINDOW_MS } from "@askboard/contract";
+import { languageOf, t } from "../strings/index.ts";
 import { applyDensity, applyTheme, DARK_QUERY, followTheme } from "../theme.ts";
+import type { ViewUpdate } from "../view-protocol.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
-import { loadView } from "./load-view.ts";
+import { createViewLoader } from "./load-view.ts";
 import { createPageChrome } from "./page-chrome.ts";
 import { withPresence } from "./presence.ts";
 import { createReadingPanel } from "./reading-panel.ts";
@@ -91,12 +93,32 @@ export const startBoardPage = (window: Window): void => {
   page = runBoardPage({
     connect: withPresence((events) => connectBoard(location, link, events), signal),
     openView: async (data, handle) => {
-      const assembled = await loadView(data, link.token);
+      const loader = createViewLoader(link.token);
+      const assembled = await loader.load(data);
       const peer = chrome.frame.contentWindow;
       if (peer === null) throw new Error("the view's frame is not in the document");
       host = await hostView(peer, window, handle, theme.current());
+      const opened = host;
       chrome.frame.srcdoc = assembled.srcdoc;
-      return host;
+      let shownDocument = data.document;
+      let updates = Promise.resolve();
+      return {
+        update: (update: ViewUpdate) => {
+          const nextDocument = update.document ?? shownDocument;
+          shownDocument = nextDocument;
+          updates = updates
+            .then(async () => {
+              const chunks = await loader.additions(nextDocument);
+              opened.update({ ...update, ...(chunks.length === 0 ? {} : { chunks }) });
+              chrome.showLoadError(undefined);
+            })
+            .catch((error: unknown) => {
+              const reason = error instanceof Error ? error.message : String(error);
+              chrome.showLoadError(t(languageOf(nextDocument), "board.loadError", { reason }));
+              console.error("askboard: loading updated components failed:", error);
+            });
+        },
+      };
     },
     schedule,
     showBanner: chrome.showBanner,

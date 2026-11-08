@@ -48,6 +48,38 @@ const scheduleData = () => ({
   start: "2026-12-01",
 });
 
+describe("replacing a question's items with references", () => {
+  test("expands references and keeps them addressable for later changes", async () => {
+    const { core } = await setup({
+      askId: ASK_ID,
+      items: [
+        { type: "question", id: "plan", props: { text: "Plan?", options: [{ label: "Yes" }] } },
+      ],
+    });
+    expect(
+      await change(core, "plan", { items: copyOf(uj2Ask.items[0]?.props.items) }),
+    ).toMatchObject({ kind: "updated" });
+    expect(planOf(core).props.items.map(({ id }) => id)).toEqual(["wbs__tree", "schedule__plan"]);
+    expect(await change(core, "schedule", { data: scheduleData() })).toMatchObject({
+      kind: "updated",
+    });
+    expect(planOf(core).props.items[1]?.props.start).toBe("2026-12-01");
+    expect(JSON.stringify(core.fullValue(ASK_ID, "wbs"))).toContain('"id":"wbs"');
+  });
+
+  test("an unknown reference refuses the entire update without changing the board", async () => {
+    const { core } = await setup();
+    const before = core.lifecycleBoard(ASK_ID);
+    const items = copyOf(uj2Ask.items[0]?.props.items) as Json[];
+    (items[0]?.props as Json).molecule = "unknown";
+    expect(await change(core, "plan", { items })).toMatchObject({
+      kind: "refused",
+      refusal: "props",
+    });
+    expect(core.lifecycleBoard(ASK_ID)).toEqual(before);
+  });
+});
+
 describe("changing a reference", () => {
   test("new data expands again, raises the rev and publishes the board once", async () => {
     const { core, heard } = await setup();

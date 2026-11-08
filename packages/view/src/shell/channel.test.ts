@@ -34,6 +34,30 @@ const fakeApp = (
 };
 
 describe("the view's channel to the board page (design decision 8)", () => {
+  test("component installation finishes before its update and every later update reaches the view", async () => {
+    const { app, notify } = fakeApp();
+    let finish = () => {};
+    const first = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let prepared = 0;
+    const channel = openChannel(
+      app,
+      async () => {},
+      async () => {
+        if (prepared++ === 0) await first;
+      },
+    );
+    const seen: ViewUpdate[] = [];
+    channel.onUpdate((update) => seen.push(update));
+    notify({ type: "state", state: waiting });
+    notify({ type: "state", state: waiting, lock: "closed" });
+    await Bun.sleep(0);
+    expect(seen).toEqual([]);
+    finish();
+    await Bun.sleep(0);
+    expect(seen.map((update) => update.lock)).toEqual([undefined, "closed"]);
+  });
   test("listens for updates and the theme before it connects, so none is missed", () => {
     const { app } = fakeApp();
     const order: string[] = [];

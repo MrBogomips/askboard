@@ -254,10 +254,14 @@ describe("assemble (AD-9)", () => {
     expect(assemble(data, withUnused, reordered).srcdoc).toBe(first.srcdoc);
   });
 
-  test("the CSP meta tag is exactly AD-8's view policy", () => {
+  test("the live CSP authorizes manifest hashes for components an update can introduce", () => {
     const { srcdoc, policy } = assemble(data, withUnused, withUnusedSources);
     const names = ["ext-apps", "react", "radix", "shell", "choice"];
-    const scripts = names.map((name) => cspHashSource(chunk(name).script.sha256)).join(" ");
+    const scripts = [
+      ...names.map((name) => cspHashSource(chunk(name).script.sha256)),
+      cspHashSource("b".repeat(64)),
+      cspHashSource("a".repeat(64)),
+    ].join(" ");
     const styles = ["shell", "choice"]
       .flatMap((name) => chunk(name).styles.map((style) => cspHashSource(style.sha256)))
       .join(" ");

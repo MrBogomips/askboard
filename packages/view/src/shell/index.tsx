@@ -73,6 +73,7 @@ import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThemeChoice } from "./theme-control.tsx";
 import type { ThreadRequest } from "./thread.tsx";
+import { createChunkInstaller } from "./view-chunks.ts";
 
 /** The name component chunks import the port by; the view build maps it to this chunk's copy. */
 const CATALOG_PORT = "@askboard/view/catalog";
@@ -86,7 +87,15 @@ const VIEW_INFO = { name: "askboard-view", version: "0.0.0" };
 const connectToBoardPage = (): ViewChannel => {
   const { App } = shared("@modelcontextprotocol/ext-apps") as Pick<typeof ExtApps, "App">;
   const app = new App(VIEW_INFO, {}, { autoResize: false });
-  return openChannel(app, () => app.connect(new FrameTransport(window.parent, window)));
+  const policy =
+    document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content") ??
+    "";
+  const install = createChunkInstaller(document, policy);
+  return openChannel(
+    app,
+    () => app.connect(new FrameTransport(window.parent, window)),
+    (update) => install(update.chunks ?? []),
+  );
 };
 
 // The work an act carried, which goes from the draft once the board page settles it as done: an

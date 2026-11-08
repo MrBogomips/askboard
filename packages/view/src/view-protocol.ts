@@ -40,6 +40,7 @@ import {
   type SnapshotFeedback,
   type ViewSnapshot,
 } from "./snapshot-feedback.ts";
+import { isViewChunks, type ViewChunk } from "./view-chunks.ts";
 import type { ViewDocument } from "./view-document.ts";
 
 /** The tool-name prefix of every view message. */
@@ -280,6 +281,8 @@ export type ViewPresentation = {
 export type ViewUpdate = {
   readonly type: "state";
   readonly state: LifecycleBoardState;
+  /** Trusted manifest sources to install before rendering this update. */
+  readonly chunks?: readonly ViewChunk[];
   readonly document?: ViewDocument;
   readonly lock?: ViewLock;
   readonly connection?: "lost";
@@ -824,6 +827,7 @@ const isLock = (value: unknown): value is ViewLock => LOCKS.includes(value);
  * the type requires, and edits none of them (review M4).
  */
 export const UPDATE_FIELDS = {
+  chunks: { check: isViewChunks },
   document: { check: isDocument },
   lock: { check: isLock },
   connection: { check: (value: unknown): value is "lost" => value === "lost" },

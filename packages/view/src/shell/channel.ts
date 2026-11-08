@@ -53,12 +53,27 @@ const refusalOf = (result: ToolResult): string =>
     .join("\n") || "the board page refused the view message";
 
 /** The channel over `app`; `connect` runs the handshake once the listener is in place. */
-export const openChannel = (app: ViewApp, connect: () => Promise<void>): ViewChannel => {
+export const openChannel = (
+  app: ViewApp,
+  connect: () => Promise<void>,
+  prepare?: (update: ViewUpdate) => Promise<void>,
+): ViewChannel => {
   const listeners = new Set<(update: ViewUpdate) => void>();
+  let updates = Promise.resolve();
   app.addEventListener("toolresult", (params) => {
     const update = readViewUpdate(params.structuredContent);
     if (update === undefined) return;
-    for (const listener of listeners) listener(update);
+    const tell = () => {
+      for (const listener of listeners) listener(update);
+    };
+    if (prepare === undefined) tell();
+    else
+      updates = updates
+        .then(() => prepare(update))
+        .then(tell)
+        .catch((error: unknown) => {
+          console.error("askboard: the view update could not be loaded:", error);
+        });
   });
   const themes = new Set<(theme: Theme) => void>();
   const tellTheme = (value: unknown) => {
