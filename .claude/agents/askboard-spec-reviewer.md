@@ -30,7 +30,9 @@ your job is to find it at the group that caused it.
 5. Check what the import check cannot see: AD-1 dependencies by injection rather than import, and
    no dependency on AXFX (FR-31).
 6. Before a pull request, check the documents: the PRD and spine updates the change states, the UX
-   sections it cites, and the CLAUDE.md Status and "In code since" lines.
+   sections it cites, and the change's as-built note `docs/as-built/<change-id>.md` (CLAUDE.md,
+   Working documents). A change that edits CLAUDE.md for its own record, rather than for a rule the
+   file states, is a finding.
 
 ## Working principles
 
