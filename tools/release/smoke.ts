@@ -198,6 +198,9 @@ const sessionSteps = async (
 ): Promise<SmokeStep[]> => {
   const steps: SmokeStep[] = [];
   const session = start("sh", [join(tree, "scripts", "askboard")], run);
+  // A step that returns early, or throws, never reaches the wait for the end below: the server is
+  // killed then, so a failed smoke leaves no process running.
+  let reachedEnd = false;
   try {
     const initialized = await ask(session, 1, "initialize", {
       protocolVersion: "2025-06-18",
@@ -266,8 +269,10 @@ const sessionSteps = async (
             : `missing ${JSON.stringify(missing)}, not expected ${JSON.stringify(extra)}`,
       });
     }
+    reachedEnd = true;
   } finally {
     session.end();
+    if (!reachedEnd) session.kill();
   }
   const code = await session.exit();
   steps.push({
