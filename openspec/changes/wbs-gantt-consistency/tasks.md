@@ -53,13 +53,14 @@ Inside a group, tasks run in their order.
 
   Verify: the new tests fail first on the missing warnings, then pass; `bun test packages/compute` passes; coverage; the check passes.
   - Note (Refs #74): `GanttPlanItem.strays` (omitted when empty, frozen), `planTasks` records each non-leaf key unread, and `warnAboutStrays` in `cpm.ts` warns for strays then for predecessors of scheduled tasks, once per ID, only when the Tree is found. Seven new tests in `board-plan.test.ts` (six red first, the UJ-2 no-warning guard already green); `bun test packages/compute` 522 pass, 0 fail; `board.ts`, `cpm.ts`, `source.ts` 100% covered. Deviation: two existing compute tests (`board-wbs.test.ts` predecessor test, `cpm.test.ts` "warns about a predecessor or a dependency") also gain the cause warning at `<plan>.<ID>`, as decision 4 says; the task did not list them. The full check runs after 1.2.
-- [ ] 1.2 Warn on `ask` and `update` (core spec: A plan that names no work package is warned on ask and update, every scenario; compute's warning reaching the agent). Tests first, in `packages/core/test/widget-graph.test.ts`:
+- [x] 1.2 Warn on `ask` and `update` (core spec: A plan that names no work package is warned on ask and update, every scenario; compute's warning reaching the agent). Tests first, in `packages/core/test/widget-graph.test.ts`:
   - An update after the UJ-2 ask whose `change` of `wbs` sends its data without `billing`: the update is applied, and its result holds a `formula` warning with `itemId` `schedule`, `address` `schedule.billing` and `error` `missing-reference`, whose text names `wbs` and never `schedule__plan` or `wbs__tree`. `fetch` of `schedule` still holds `billing`'s entry.
   - The same update with a second `change` of `schedule`, whose `dependencies` no longer name `billing`: no warning names `billing`.
   - An ask with an entry for `review`: created, warning names `schedule` and `review`.
   - Move "a predecessor that names no task warns…" (`:33`) from one formula warning to two, the plan's at `schedule.review` and the dependent's at `schedule.billing.es`.
 
   Then: nothing in `core/src` should need to change (design decision 4). If it does, record why. Verify: the tests pass, after failing first where group 1.1 is not yet in; `bun test packages/core` passes; coverage; the check passes.
+  - Note (Refs #74): three new tests in `widget-graph.test.ts` (an entry for `review` on ask; a Tree without `billing` on update, with the plan's entry kept; a second change that drops the entry, no warning) and `:33` moved from one warning to two; `widget-update.test.ts` "a formula error in the board as changed" moves from one to two likewise (not listed in the task). Run against compute without 1.1: 4 red, the second-change test is a green guard; with it, `bun test packages/core` 1100 pass, 0 fail. No change to `core/src` was needed.
 - [ ] 1.3 Review checkpoint for group 1. Tests: none (review). A spec review by askboard-spec-reviewer that checks:
   - every compute and core scenario has a test;
   - decision 4 holds: one warning per plan and ID, the stored props untouched, no refusal;
