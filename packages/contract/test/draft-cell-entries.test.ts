@@ -241,8 +241,8 @@ describe("the board protocol since table-widget", () => {
   const setOf = SCHEMA_SETS.find((candidate) => candidate.name === "board-protocol");
   const previous = `1.${Number(BOARD_PROTOCOL_VERSION.split(".")[1]) - 1}`;
 
-  test("the minor is bound at this change's number", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.8");
+  test("the minor is this change's or a later one (table-sets.test.ts holds the one exact pin)", () => {
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(8);
     expect(setOf?.version).toBe(BOARD_PROTOCOL_VERSION);
   });
 
