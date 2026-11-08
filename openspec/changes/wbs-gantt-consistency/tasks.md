@@ -72,7 +72,7 @@ Inside a group, tasks run in their order.
 
 ## 2. The Tree asks before making a leaf a group (Issue #71)
 
-- [ ] 2.1 Write the rule (view spec: Making a work package a group asks first, "Nothing to lose" and "A drop that is refused"; The group question's words; design decision 1). Tests first, in a new `packages/widgets/src/tree/grouping.test.ts`, over the UJ-2 Tree with `pert`, the plain Tree fixture (`treeBoardDocument`) and the tall-branch Tree:
+- [x] 2.1 Write the rule (view spec: Making a work package a group asks first, "Nothing to lose" and "A drop that is refused"; The group question's words; design decision 1). Tests first, in a new `packages/widgets/src/tree/grouping.test.ts`, over the UJ-2 Tree with `pert`, the plain Tree fixture (`treeBoardDocument`) and the tall-branch Tree:
   - `grouped` gives `portal` for a drop `into` it, for an indent of `billing` and for "Add child" on it;
   - it gives `undefined` for a drop before or after, for a drop into a parent, for an indent under a parent, for a refused drop (`depth`, `own-branch`) and for an unknown node;
   - `groupQuestionOf` gives `{label: "Customer portal", estimates: true, task: true, dependents: 1}` with `planned` true;
@@ -81,6 +81,7 @@ Inside a group, tasks run in their order.
   - it gives `task: true, estimates: false` for a leaf with no estimate under a plan.
 
   Then `grouping.ts`, with no React, importing only `@askboard/contract` and `./model/`. Verify: the tests fail first, then pass; coverage; the check passes.
+  - Note (Refs #71): `grouping.ts` holds `grouped`, `groupQuestionOf`, `GroupEdit`, `GroupQuestion` and `GroupContext`, no React, importing `@askboard/contract` and `./model/` only; an indent is read through `can("indent")` and the previous sibling, so a refused indent never asks. 14 tests in `grouping.test.ts` (red first on the missing module), 100% covered; a partly estimated leaf counts as holding estimates. Beyond the list: the indent past the depth limit, a drop on an unknown node or target, and a plain Tree a plan names (task only). The check runs after 2.2.
 - [ ] 2.2 Add the question's strings (view spec: The group question's words, every scenario; proposal, open question 5). Tests first:
   - in `widgets/src/tree/italian.test.ts` and a new `grouping-words.test.ts`, `groupedWith(question, text)` gives the en-US sentence of the portal scenario, the WBS-with-no-plan sentence, the plan-only sentence and the Italian ones;
   - the catalog completeness test fails on the missing keys.
