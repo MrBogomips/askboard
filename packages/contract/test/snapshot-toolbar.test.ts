@@ -72,16 +72,14 @@ describe("the record's presentation", () => {
     const data = changed((d) => {
       delete presentationOf(d).density;
     });
-    const paths = problemPaths(data);
-    expect(paths.length).toBeGreaterThan(0);
-    expect(paths.some((path) => path.startsWith("/snapshot/presentation"))).toBe(true);
+    expect(problemPaths(data)).toEqual(["/snapshot/presentation/density"]);
   });
 
-  test("a presentation without a theme fails", () => {
+  test("a presentation without a theme fails, naming the field", () => {
     const data = changed((d) => {
       delete presentationOf(d).theme;
     });
-    expect(check(data).ok).toBe(false);
+    expect(problemPaths(data)).toEqual(["/snapshot/presentation/theme"]);
   });
 
   test("a presentation with contextPlacement fails, naming the field", () => {
