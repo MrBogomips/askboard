@@ -171,6 +171,13 @@ While a card shows a revision other than the one its answer names, as after a re
 - **WHEN** in submitted delivery the user marks such an answer ready, the agent's revision makes the empty field required, the user chooses "Keep mine" with no reload and presses Submit
 - **THEN** Submit sends the held answer naming the earlier revision
 
+### Requirement: An answer carries what the card shows
+After "Keep mine", while the card shows the kept revision, "Answer", "Accept recommended", "Select recommended" and Submit SHALL send the values, results and entries of the items that revision holds, as the card shows them, even for an item a later revision removed; the answer names the kept revision, against which `ask-core` checks it (NFR-10, AD-10, AD-20).
+
+#### Scenario: A result on an item the agent removed
+- **WHEN** the user has set results on items `a` and `b`, the agent's revision removes `b`, and the user chooses "Keep mine" with no reload and presses "Answer"
+- **THEN** the answer names the earlier revision and carries the results of `a` and `b`
+
 ### Requirement: Document review strings
 Every string a Document review shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the cards, the detached list, the refusals and the hint (FR-34; EXPERIENCE, Voice and Tone).
 

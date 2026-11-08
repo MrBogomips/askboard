@@ -7,6 +7,7 @@ FR-11's Document review row ("Comments on passages and suggests edits") is the c
 Its detached check is the first field check whose outcome follows the agent's content, so its main flow reaches a mismatch on `main` since `form-widget`: after "Keep mine" the card's blocks read the revision it shows, and the presses the current one, so "Answer" can send nothing without a word. This change fixes it for every field check.
 
 Issue: #92
+Issue: #93
 
 ## What Changes
 
