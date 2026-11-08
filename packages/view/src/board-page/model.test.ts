@@ -287,25 +287,79 @@ describe("an item that fails stops every act of its question (document-review, d
     }
   });
 
-  test("but the reload choice goes, and no other edit choice, decline or note (document-review 6.26)", () => {
-    const reload: ViewAct = { type: "edit-choice", itemId: question, rev: 1, edit: "reload" };
-    const ignore: ViewAct = {
-      type: "edit-choice",
-      itemId: question,
-      rev: 1,
-      edit: "ignore",
-      keptRev: 1,
-    };
+  // The same board at revision 2, where "Keep mine" (`ignore`, `keptRev: 1`) is a well-formed act, so
+  // only the failure can refuse it (a malformed act would hide a widened exemption: re-review 6.27 X-1).
+  const atRevisionTwo = (model: BoardModel): BoardModel => ({
+    ...model,
+    document: {
+      ...ganttPlanBoardDocument,
+      items: ganttPlanBoardDocument.items.map((item) => ({ ...item, rev: 2 })),
+    } as unknown as BoardDocument,
+    state: {
+      ask: "waiting",
+      questions: [{ itemId: question, rev: 2, state: "open" }],
+    } as LifecycleBoardState,
+  });
+  const failedMessage = "the question's item failed in the view";
+  const reloadAct = (rev: number): ViewAct => ({
+    type: "edit-choice",
+    itemId: question,
+    rev,
+    edit: "reload",
+  });
+  const keepMine: ViewAct = {
+    type: "edit-choice",
+    itemId: question,
+    rev: 2,
+    edit: "ignore",
+    keptRev: 1,
+  };
+  const others = (rev: number): readonly ViewAct[] => [
+    ...acts.map((act) => ({ ...act, rev }) as ViewAct),
+    { type: "decline", itemId: question, rev } as ViewAct,
+  ];
+
+  test("but the reload choice goes, and no other edit choice, decline or note (document-review 6.26, 6.28)", () => {
     for (const itemId of ["schedule", "wbs"]) {
-      expect(actsFor(failing(itemId), [reload]).ok).toBe(true);
-      for (const act of [
-        ...acts,
-        ignore,
-        { type: "decline", itemId: question, rev: 1 } as ViewAct,
-      ]) {
-        expect(actsFor(failing(itemId), [act]).ok).toBe(false);
+      const model = atRevisionTwo(failing(itemId));
+      expect(actsFor(model, [reloadAct(2)]).ok).toBe(true);
+      for (const act of [...others(2), keepMine]) {
+        expect(actsFor(model, [act])).toEqual({ ok: false, detail: failedMessage });
       }
     }
+  });
+
+  test("a question that failed before any ready takes the reload choice and nothing else (document-review 6.28)", () => {
+    // A reload or a takeover onto a revision whose item throws at mount: failed, never visible.
+    const never = (itemId: string): BoardModel =>
+      withViewMessage(
+        { ...atRevisionTwo(visible()), visible: new Set<string>() },
+        { type: "item-error", itemId, error: "boom" },
+      );
+    for (const itemId of ["schedule", "wbs"]) {
+      const model = never(itemId);
+      expect(model.visible.size).toBe(0);
+      expect(actsFor(model, [reloadAct(2)]).ok).toBe(true);
+      for (const act of [...others(2), keepMine]) {
+        expect(actsFor(model, [act])).toEqual({ ok: false, detail: failedMessage });
+      }
+    }
+  });
+
+  test("the reload choice of a question that never counted as visible and did not fail is still refused (AD-10)", () => {
+    const model = { ...atRevisionTwo(visible()), visible: new Set<string>() };
+    expect(actsFor(model, [reloadAct(2)])).toEqual({
+      ok: false,
+      detail: "the question never counted as visible",
+    });
+  });
+
+  test("the reload choice names the current revision only (document-review 6.28)", () => {
+    const model = atRevisionTwo(failing("schedule"));
+    expect(actsFor(model, [reloadAct(1)])).toEqual({
+      ok: false,
+      detail: "the question is at revision 2, not 1",
+    });
   });
 
   test("and refuses the whole command that holds acts for it, naming the first", () => {
