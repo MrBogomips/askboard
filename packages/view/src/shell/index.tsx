@@ -33,7 +33,12 @@ import {
 } from "../theme.ts";
 import { questionsOf } from "../view-document.ts";
 import { readDraftReply, type ViewMessage } from "../view-protocol.ts";
-import { createRevisions, type KeptChoices, shownOfBoard } from "./agent-change.ts";
+import {
+  createRevisions,
+  type KeptChoices,
+  shownDocumentFor,
+  shownOfBoard,
+} from "./agent-change.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
 import { Board, type BoardExtras, type BoardView } from "./board.tsx";
@@ -44,7 +49,7 @@ import { presentationOf } from "./board-view.ts";
 import { clearCarried } from "./carried.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
-import { applyDocumentUpdate } from "./document-update.ts";
+import { applyDocumentUpdate, connectTracker } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import type { HeadingRequest } from "./heading-request.ts";
@@ -132,6 +137,10 @@ const boot = (): void => {
   // work was made on too, after "Keep mine" (document-review, design decision 15).
   const shownOf = shownOfBoard(board, revisions);
   connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries, shownOf);
+  // The board document as the cards show it, which every item reads the board from: each question at
+  // the revision its card shows, walked again only when the document or the board's work changes.
+  const shownDocument = shownDocumentFor(() => view.get().document, board.get, shownOf);
+  const shownSource = () => ({ document: shownDocument(), state: view.get().state });
   const acts = createAnswerActs();
   const attention = createAttention(data.document, data.state);
   const kept = createStore<KeptChoices>(new Map());
@@ -164,6 +173,9 @@ const boot = (): void => {
     onVisible: (questionId) => report({ type: "ready", itemId: questionId }),
     onFailed: (_questionId, itemId, error) => report({ type: "item-error", itemId, error }),
   });
+  // The tracker waits for the items the cards show: those of the shown document, again whenever the
+  // board's work gives a card another revision (document-review, design decision 15).
+  connectTracker(() => view.get().document, board, shownOf, tracker);
   let restored = 0;
   let closedPanel = 0;
   channel.onUpdate((update) => {
@@ -258,10 +270,11 @@ const boot = (): void => {
     reasons,
     focus,
     removed,
-    // The board components read follows the latest document, which an agent update replaces, and
-    // the answers of the latest board state (molecules, design decision 11).
-    boardContent: createBoardContent(() => view.get()),
-    answeredResult: createAnsweredResults(() => view.get()),
+    // The board components read follows the latest document, which an agent update replaces, with
+    // each question at the revision its card shows, and the answers of the latest board state
+    // (molecules, design decision 11; document-review, design decision 15).
+    boardContent: createBoardContent(shownSource),
+    answeredResult: createAnsweredResults(shownSource),
     derived: createDerivedStore(),
     opened,
   };

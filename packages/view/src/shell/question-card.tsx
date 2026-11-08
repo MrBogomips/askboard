@@ -495,7 +495,7 @@ export const QuestionCard = (props: CardProps) => {
           item={item}
           component={component}
           questionId={question.id}
-          itemIds={itemIdsOf(question)}
+          itemIds={itemIdsOf(shown)}
           context={context}
           disabled={readOnly}
           readOnlyItems={readOnlyItems}

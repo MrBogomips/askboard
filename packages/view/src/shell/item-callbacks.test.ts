@@ -1,6 +1,8 @@
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import { JSON_MAX_DEPTH } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
+import type { ViewQuestion } from "../view-document.ts";
+import { itemIdsOf } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 
@@ -458,5 +460,54 @@ describe("an item the card makes read-only reports a result", () => {
     expect(onBeforeChange).toHaveBeenCalledTimes(2);
     expect(complaint).not.toHaveBeenCalled();
     complaint.mockRestore();
+  });
+});
+
+// The writer gate takes the IDs of the revision the card shows (document-review, task 6.19; design
+// decision 15): the card passes `itemIdsOf(shown)`, and a linked edit may write exactly those.
+describe("the linked-edit writer gate, with the item IDs the card passes", () => {
+  const questionHolding = (rev: number, ...ids: readonly string[]): ViewQuestion =>
+    ({
+      id: "plan",
+      rev,
+      type: "question",
+      props: { text: "Plan", items: ids.map((id) => ({ type: "probe", id, props: {} })) },
+    }) as unknown as ViewQuestion;
+  // Revision 1 holds the Tree `t` and the Gantt `g`; revision 2 holds `g` and a new item `d`.
+  const first = questionHolding(1, "t", "g");
+  const second = questionHolding(2, "g", "d");
+  const said = (onError: { mock: { calls: unknown[][] } }): string =>
+    String(onError.mock.calls[0]?.[0]);
+  const over = (shown: ViewQuestion) => {
+    const draft = createDraftStore();
+    const onError = mock((_error: unknown) => {});
+    const callbacks = itemCallbacks({
+      draft,
+      itemId: "t",
+      questionId: "plan",
+      itemIds: itemIdsOf(shown),
+      onError,
+    });
+    return { draft, onError, ...callbacks };
+  };
+
+  test("writes the Tree and its plan when the shown revision holds both", () => {
+    const { draft, onError, onValuesChange } = over(first);
+    onValuesChange({ t: probe(1), g: probe(2) });
+    expect(draft.valueOf("t")).toEqual({ size: 1 });
+    expect(draft.valueOf("g")).toEqual({ size: 2 });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  test("an item only the other revision holds goes to the item's error path and writes nothing", () => {
+    const { draft, onError, onValuesChange } = over(second);
+    onValuesChange({ t: probe(1), g: probe(2) });
+    expect(draft.record().size).toBe(0);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(said(onError)).toContain('"t"');
+    const kept = over(first);
+    kept.onValuesChange({ g: probe(2), d: probe(3) });
+    expect(kept.draft.record().size).toBe(0);
+    expect(said(kept.onError)).toContain('"d"');
   });
 });

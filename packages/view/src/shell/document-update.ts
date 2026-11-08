@@ -6,7 +6,7 @@
 // across the update being held on the revision it was made on. Plain functions, tested without a DOM.
 
 import { questionsOf, type ViewDocument } from "../view-document.ts";
-import type { Revisions, ShownOf } from "./agent-change.ts";
+import { type Revisions, type ShownOf, shownDocumentOf } from "./agent-change.ts";
 import type { Attention } from "./attention.ts";
 import type { BoardDraft } from "./board-draft.ts";
 import { nextAfterRemoval } from "./board-view.ts";
@@ -63,7 +63,7 @@ const onRemoval = (before: ViewDocument, after: ViewDocument, stores: DocumentUp
 /**
  * A new board document replaces `before`: remembers each revision, drops what the deleted questions
  * held, drops the entries and cell entries that no item of the question's current or shown revision
- * can correct, reconciles the ready tracker over the new items and tells the attention of the
+ * can correct, reconciles the ready tracker over the items the cards show and tells the attention of the
  * document. The caller sets the view's document after it.
  */
 export const applyDocumentUpdate = (
@@ -75,6 +75,31 @@ export const applyDocumentUpdate = (
   onRemoval(before, document, stores);
   dropStaleEntries(document, stores.entries, stores.shownOf);
   dropStaleCellEntries(document, stores.cellEntries, stores.shownOf);
-  stores.tracker.include(questionItemsOf(document));
+  stores.tracker.include(questionItemsOf(shownDocumentOf(document, stores.shownOf)));
   stores.attention.documentChanged(document);
+};
+
+/**
+ * Keeps the ready tracker on the items the cards show while the board's work changes which
+ * revision a card shows ("Keep mine", "Reload, losing my work", a settled answer): on each board
+ * change that gives another shown document (compared by identity, so a change that moves no card
+ * includes nothing, and a keystroke, which changes no board state, walks nothing) the tracker includes the
+ * items of the shown document. A question awaits the items of the revision its card renders, so an
+ * item only the kept revision holds reports ready or fails its question, and an item only the
+ * current revision holds is awaited from the moment the card shows it (document-review, design
+ * decision 15). `documentOf` reads the document the view holds. Returns the way to stop.
+ */
+export const connectTracker = (
+  documentOf: () => ViewDocument,
+  board: Pick<BoardDraft, "subscribe">,
+  shownOf: ShownOf,
+  tracker: Pick<ReadyTracker, "include">,
+): (() => void) => {
+  let last = shownDocumentOf(documentOf(), shownOf);
+  return board.subscribe(() => {
+    const shown = shownDocumentOf(documentOf(), shownOf);
+    if (shown === last) return;
+    last = shown;
+    tracker.include(questionItemsOf(shown));
+  });
 };

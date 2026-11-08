@@ -238,6 +238,12 @@ const VIEW_READS: readonly Read[] = [
     reason: HANDED,
   },
   {
+    file: "packages/view/src/shell/agent-change.ts",
+    text: "area.props.items",
+    reason: VIEW_AREA,
+    count: 2,
+  },
+  {
     file: "packages/view/src/shell/board-content.ts",
     text: "nestedWidgetItemsOf(props.items)",
     reason: HANDED,
