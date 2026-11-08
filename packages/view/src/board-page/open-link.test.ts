@@ -174,3 +174,91 @@ describe("a forged open-link message opens nothing", () => {
     expect(run.opened).toEqual(["https://example.com/before"]);
   });
 });
+
+// A Document review is Markdown the user reads (document-review, task 4.2, design decision 10):
+// the same check holds for it as for a Text, at any depth of the layouts, by the board document.
+describe("the board page opens a link of a Document review", () => {
+  const REVIEW = {
+    type: "document-review",
+    id: "review",
+    props: { markdown: "See [the spec](https://x.test/spec).", title: "Spec" },
+  };
+  const CHART = {
+    type: "chart",
+    id: "failures",
+    props: {
+      kind: "bar",
+      categories: [{ id: "a", label: "A" }],
+      series: [{ id: "s", label: "S", values: [1] }],
+    },
+  };
+  const NESTED = [
+    {
+      type: "group",
+      id: "outer",
+      props: {
+        title: "Outer",
+        items: [{ type: "group", id: "inner", props: { title: "Inner", items: [REVIEW] } }],
+      },
+    },
+  ];
+
+  test("a Document review at the top level opens the link its document shows", async () => {
+    const run = await opened(withItems([REVIEW, ...ITEMS]));
+    expect(await open(run, "review", "https://example.com/spec")).toEqual({});
+    expect(run.opened).toEqual(["https://example.com/spec"]);
+    expect(run.logs).toEqual([]);
+  });
+
+  test("one two layouts deep opens it too, and the layouts themselves hold no Markdown", async () => {
+    const run = await opened(withItems([...NESTED, ...ITEMS]));
+    await open(run, "review", "https://example.com/deep");
+    expect(run.opened).toEqual(["https://example.com/deep"]);
+    for (const layout of ["outer", "inner"]) {
+      await open(run, layout, "https://example.com/layout");
+    }
+    expect(run.opened).toEqual(["https://example.com/deep"]);
+    expect(run.logs).toHaveLength(2);
+  });
+
+  test("a Chart, a plain Text and an unknown ID are refused, with a log line that holds no agent text", async () => {
+    const run = await opened(withItems([REVIEW, CHART, ...ITEMS]));
+    for (const itemId of ["failures", "intro", "no-such-item"]) {
+      expect(await open(run, itemId, "https://example.com/secret-path"), itemId).toEqual({});
+    }
+    expect(run.opened).toEqual([]);
+    expect(run.logs).toHaveLength(3);
+    for (const line of run.logs) {
+      expect(line).toContain("open-link");
+      expect(line).not.toContain("secret-path");
+      expect(line).not.toContain("the spec");
+      expect(line).not.toContain("failures");
+    }
+  });
+
+  test("__proto__ and constructor as item IDs are refused", async () => {
+    const run = await opened(withItems([REVIEW, ...ITEMS]));
+    for (const itemId of ["__proto__", "constructor", "toString"]) {
+      expect(await open(run, itemId, "https://example.com/"), itemId).toEqual({});
+    }
+    expect(run.opened).toEqual([]);
+    expect(run.logs).toHaveLength(3);
+  });
+
+  test("the URL check is unchanged: a Document review's item still refuses what a Text's refuses", async () => {
+    const run = await opened(withItems([REVIEW, ...ITEMS]));
+    for (const url of ["javascript:alert(1)", "https://user:pass@example.com/", "file:///x", ""]) {
+      expect(await open(run, "review", url), url).toEqual({});
+    }
+    expect(run.opened).toEqual([]);
+    expect(run.logs).toHaveLength(4);
+  });
+
+  test("a revision that leaves no Document review under the ID stops it opening", async () => {
+    const run = await opened(withItems([REVIEW, ...ITEMS]));
+    await open(run, "review", "https://example.com/before");
+    run.socket(1).receive(withItems([{ ...REVIEW, type: "text", props: { text: "plain now" } }]));
+    await open(run, "review", "https://example.com/after");
+    expect(run.opened).toEqual(["https://example.com/before"]);
+  });
+});
