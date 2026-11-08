@@ -395,6 +395,7 @@ export const IT_IT = {
   "toggle.on": "Attivo",
   "toggle.off": "Disattivo",
   "toggle.clear": "Cancella",
+  "tabs.needsCorrection": "da correggere",
   "field.atLeast": "Almeno {min}.",
   "field.atMost": "Al massimo {max}.",
   "field.whole": "Un numero intero.",

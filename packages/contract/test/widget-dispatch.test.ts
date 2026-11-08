@@ -14,6 +14,7 @@ import {
   placedItems,
 } from "../src/ask-items.ts";
 import { NOT_A_WIDGET, PROBE_TYPES, PROBE_WIDGET } from "../src/fixtures/index.ts";
+import { isLayoutType } from "../src/nested-items.ts";
 import type { RequestProblem, Wording } from "../src/problems.ts";
 import { elementShapeOf, widgetItemProblems } from "../src/validate.ts";
 import { GANTT_WIDGET } from "../src/widgets/gantt/widget.ts";
@@ -167,9 +168,14 @@ describe("the wording tables", () => {
     expect(ITEM_EXPECTED["question.props.items[]"]).toBe(
       `an item {type, id, props} whose type is ${orList}`,
     );
-    const nouns = [...WIDGET_TYPES.map(({ noun }) => noun), "a molecule reference"].join(", ");
+    // The layouts are worded apart from the widgets once the registry holds one (layouts, task 3.2).
+    const layouts = WIDGET_TYPES.filter(({ type }) => isLayoutType(type));
+    const nouns = [
+      ...WIDGET_TYPES.filter(({ type }) => !isLayoutType(type)).map(({ noun }) => noun),
+      "a molecule reference",
+    ].join(", ");
     expect(ITEM_EXPECTED["question.props.items"]).toBe(
-      `a non-empty list of the question's items: context (excerpts, references, images) and widgets (${nouns})`,
+      `a non-empty list of the question's items: context (excerpts, references, images) and widgets (${nouns}), and layouts (${layouts.map(({ noun }) => noun).join(", ")})`,
     );
     for (const type of [...types, "molecule"]) {
       expect(ITEM_EXPECTED[`${type}.id`]).toBe(ITEM_EXPECTED["excerpt.id"] as string);
@@ -205,7 +211,9 @@ describe("the wording tables", () => {
       `${quoted.slice(0, -1).join(", ")} or ${quoted.at(-1)}`,
     );
     expect(expected["question.props.items[].type"]).toEndWith('"probe" or "molecule"');
-    expect(expected["question.props.items"]).toEndWith("a Probe, a molecule reference)");
+    expect(expected["question.props.items"]).toContain(
+      "a Probe, a molecule reference), and layouts (",
+    );
     expect(expected["probe.id"]).toBe(expected["excerpt.id"] as string);
   });
 

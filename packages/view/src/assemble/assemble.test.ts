@@ -391,6 +391,7 @@ describe("assemble is pure ECMAScript (AD-9: the board page and snapshot both ca
       "select.ts",
       "../boot-data.ts",
       "../catalog/components.ts",
+      "../nested-items.ts",
       "../view-document.ts",
     ];
     for (const path of modules) {

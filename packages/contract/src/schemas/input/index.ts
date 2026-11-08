@@ -7,7 +7,9 @@
 // approval-scale-ranking's admits the Approval, the Scale and the Ranking as widget items (design decision 11);
 // latex-kanban-timeline's admits the LaTeX, the Kanban and the Timeline (design decision 13);
 // chart-widget's admits the Chart as a widget item (design decision 11);
-// atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11).
+// atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11);
+// layouts' admits the Stack, the Row, the Group and the Tabs layout as items, and the items they hold in a question's
+// items (design decisions 1, 3 and 8).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
@@ -31,7 +33,7 @@ import update from "./update.json" with { type: "json" };
 // The question props with each registered type's item composed in.
 const questionProps = composeQuestionProps(questionPropsBase);
 
-export const INPUT_FORMAT_VERSION = "1.9";
+export const INPUT_FORMAT_VERSION = "1.10";
 
 export const inputFormat: SchemaSet = {
   name: "input",

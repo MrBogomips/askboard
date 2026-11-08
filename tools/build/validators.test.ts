@@ -187,6 +187,48 @@ describe("the board page's standalone validators (AD-7, design decision 7)", () 
     }
   });
 
+  test("agree with the contract on a board document that holds layouts, nested (layouts, task 3.2)", () => {
+    const field = (id: string) => ({ type: "text-field", id, props: { label: id } });
+    const nest = (item: unknown, id: string) => ({
+      type: "group",
+      id,
+      props: { title: id, items: [item] },
+    });
+    const row = {
+      type: "row",
+      id: "r",
+      props: { items: [field("a"), field("b")], widths: { a: 2 } },
+    };
+    const deep = nest(nest(nest(nest(row, "g1"), "g2"), "g3"), "g4");
+    const [first] = plainChoiceBoardDocument.items;
+    const { options: _, ...props } = first.props;
+    const documentOf = (item: unknown) => ({
+      ...plainChoiceBoardDocument,
+      items: [{ ...first, props: { ...props, items: [item] } }],
+    });
+    const message = (item: unknown) => ({
+      version: BOARD_PROTOCOL_VERSION,
+      type: "board",
+      document: documentOf(item),
+    });
+    const accepted = [message(deep), message({ type: "stack", id: "s", props: { items: [row] } })];
+    const refused = [
+      message(nest({ type: "row", id: "r", props: { items: [field("a")] } }, "g")),
+      message(nest({ type: "text-field", id: "t", props: {} }, "g")),
+      message(nest({ type: "reference", id: "x", props: { pointer: "a" } }, "g")),
+      message(nest({ type: "molecule", id: "m", props: {} }, "g")),
+      message({ type: "group", id: "g", props: { title: "g", items: [] } }),
+    ];
+    for (const each of accepted) {
+      expect(generated.board?.(each)).toBe(true);
+      expect(validateBoardMessage("toPage", each).ok).toBe(true);
+    }
+    for (const each of refused) {
+      expect(generated.board?.(each)).toBe(false);
+      expect(validateBoardMessage("toPage", each).ok).toBe(false);
+    }
+  });
+
   // Board documents whose questions hold context items (excerpts, design decision 2): the fixture
   // with every status of every type, and each item broken, so every validator the items add runs.
   const board = (document: unknown) => ({

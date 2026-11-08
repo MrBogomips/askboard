@@ -381,6 +381,7 @@ export const EN_US = {
   "toggle.on": "On",
   "toggle.off": "Off",
   "toggle.clear": "Clear",
+  "tabs.needsCorrection": "needs a correction",
   "field.atLeast": "At least {min}.",
   "field.atMost": "At most {max}.",
   "field.whole": "A whole number.",

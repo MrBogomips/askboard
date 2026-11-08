@@ -101,6 +101,7 @@ describe("bun run build:view (design decision 7)", () => {
       dnd: "library",
       "ext-apps": "library",
       gantt: "component",
+      group: "component",
       kanban: "component",
       latex: "component",
       "money-field": "component",
@@ -108,8 +109,11 @@ describe("bun run build:view (design decision 7)", () => {
       radix: "library",
       ranking: "component",
       react: "library",
+      row: "component",
       scale: "component",
       shell: "shell",
+      stack: "component",
+      tabs: "component",
       // The Text atom: markdown-it and DOMPurify in a chunk of its own (atoms, design decision 4).
       text: "component",
       "text-field": "component",
@@ -358,6 +362,7 @@ describe("bun run build:view (design decision 7)", () => {
       "dnd",
       "ext-apps",
       "gantt",
+      "group",
       "kanban",
       "latex",
       "money-field",
@@ -365,8 +370,11 @@ describe("bun run build:view (design decision 7)", () => {
       "radix",
       "ranking",
       "react",
+      "row",
       "scale",
       "shell",
+      "stack",
+      "tabs",
       "text",
       "text-field",
       "timeline",
@@ -565,6 +573,32 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
     expect(built.chunks).not.toContain("tree");
     expect(built.srcdoc).toContain(await text(chunkNamed("latex").script.path));
     expect(built.srcdoc).not.toContain(await text(chunkNamed("tree").script.path));
+  });
+
+  test("a board whose only TextField sits in a Group holds the group and text-field chunks (layouts, task 3.2)", async () => {
+    const [question] = treeBoardDocument.items;
+    const grouped = {
+      type: "group",
+      id: "contact",
+      props: {
+        title: "Contact",
+        items: [{ type: "text-field", id: "phone", props: { label: "Phone" } }],
+      },
+    };
+    const board = {
+      ...treeBoardDocument,
+      items: [{ ...question, props: { ...question.props, items: [grouped] } }],
+    } as unknown as ViewDocument;
+    const names = selectChunks(board, manifest).map(({ name }) => name);
+    expect(names).toContain("group");
+    expect(names).toContain("text-field");
+    for (const other of ["tree", "ranking", "row", "stack", "gantt"]) {
+      expect(names).not.toContain(other);
+    }
+    const built = await assembled(board);
+    expect(built.srcdoc).toContain(await text(chunkNamed("group").script.path));
+    expect(built.srcdoc).toContain(await text(chunkNamed("text-field").script.path));
+    expect(built.srcdoc).not.toContain(await text(chunkNamed("row").script.path));
   });
 
   test("a board whose only widget is a Kanban inlines the Kanban's chunk and the drag library's, and no Tree or Ranking chunk (latex-kanban-timeline, design decision 9)", async () => {

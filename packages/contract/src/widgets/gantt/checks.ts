@@ -7,6 +7,7 @@
 // operation of AD-20's other kinds, which the schema refuses without naming it. Plain ECMAScript.
 
 import { VIEW_ID_PREFIX } from "../../constants.ts";
+import { nestedItemsOf } from "../../nested-items.ts";
 import type { Problem } from "../../validate.ts";
 import {
   GANTT_FIRST_DATE,
@@ -186,7 +187,10 @@ export const ganttPlanLinkProblems = (gantt: unknown, question: unknown): readon
   ];
   const props = isRecord(question) && isRecord(question.props) ? question.props : {};
   const items: readonly unknown[] = Array.isArray(props.items) ? props.items : [];
-  const item = items.find((candidate) => isRecord(candidate) && candidate.id === name);
+  // The question's items at every depth of its layouts: a plan in one tab finds its Tree in another.
+  const item = nestedItemsOf(items).find(
+    ({ item: candidate }) => isRecord(candidate) && candidate.id === name,
+  )?.item;
   if (!isRecord(item)) return refused(`its work packages ${name} name no item of its question`);
   if (item.type !== "tree") {
     return refused(`its work packages ${name} name a ${String(item.type)}, not a Tree`);

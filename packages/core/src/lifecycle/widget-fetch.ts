@@ -7,6 +7,9 @@
 import {
   type FetchAnswer,
   type FetchItem,
+  isLayoutType,
+  mapNestedItems,
+  nestedItemsOf,
   type QuestionState,
   WIDGET_TYPES,
   type WidgetType,
@@ -95,8 +98,9 @@ export const areaInReference = (area: Area, fetch: WidgetFetch): Area => {
 /** A widget item's identity: which question holds it, and how the agent names it. */
 type Found = { readonly question: QuestionRecord; readonly item: SentItem };
 
-// The widget item or reference the agent names `itemId` among the questions' current items: an
-// item no reference expanded, or a reference's expanded item; never an expanded ID.
+// The widget item, layout or reference the agent names `itemId` among the questions' current items,
+// at any depth of their layouts (layouts, design decision 5): an item no reference expanded, or a
+// reference's expanded item; never an expanded ID.
 const findWidget = (
   model: BoardModel,
   itemId: string,
@@ -105,7 +109,8 @@ const findWidget = (
 ): Found | undefined => {
   for (const question of model.questions()) {
     const { items = [] } = model.propsOf(question) as { readonly items?: readonly SentItem[] };
-    for (const item of items) {
+    for (const { item: nested } of nestedItemsOf(items)) {
+      const item = nested as SentItem;
       if (widgetTypeOf(item.type, types) === undefined) continue;
       const entry = map.get(item.id);
       if (entry === undefined ? item.id === itemId : entry.reference === itemId) {
@@ -116,12 +121,19 @@ const findWidget = (
   return undefined;
 };
 
-// The value the latest answer left for the item, else the value as sent.
+// The value the latest answer left for the item, else the value as sent. A layout's value is the
+// layout with each item inside it, at every depth, as the answer left it.
 const valueLeft = (found: Found, status: QuestionStatus, fetch: WidgetFetch): unknown => {
   const answer = status.answer;
   const kept = answer?.kind === "logged" ? fetch.kept.get(answer.entry.event.cursor) : undefined;
   const edited: Json = kept?.values ?? {};
-  return Object.hasOwn(edited, found.item.id) ? edited[found.item.id] : found.item.props;
+  const left = (item: SentItem): SentItem =>
+    Object.hasOwn(edited, item.id) ? { ...item, props: edited[item.id] } : item;
+  if (!isLayoutType(found.item.type)) return left(found.item).props;
+  const [layout] = mapNestedItems([found.item], (item) =>
+    isLayoutType((item as SentItem).type) ? item : left(item as SentItem),
+  );
+  return (layout as SentItem).props;
 };
 
 // The result the latest answer gave for the item, when its type declares a result: what is kept

@@ -57,8 +57,14 @@ A question (`question`) is `{type: "question", id, props: {text, header?, option
 - a MoneyField (`money-field`): an amount of money the user types, in one currency or one picked from a list → [money-field](references/widgets/money-field.md)
 - a DateField (`date-field`): a calendar day the user types or picks, optionally within a range → [date-field](references/widgets/date-field.md)
 - a Toggle (`toggle`): an on or off choice the user sets, such as a switch or a yes or no → [toggle](references/widgets/toggle.md)
+- a Stack (`stack`): items one under another in a column, as one block of a question → [stack](references/widgets/stack.md)
+- a Row (`row`): 2 to 4 items side by side; a narrow board stacks them → [row](references/widgets/row.md)
+- a Group (`group`): a titled box around related items, read as one group → [group](references/widgets/group.md)
+- a Tabs layout (`tabs`): 2 to 8 titled tabs, each holding items → [tabs](references/widgets/tabs.md)
 - `gantt-plan`: a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed → [gantt-plan](references/molecules/gantt-plan.md)
 - `wbs-pert`: a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up → [wbs-pert](references/molecules/wbs-pert.md)
+
+A question's `items` may sit in layouts (`stack`, `row`, `group`, `tabs`) that hold atoms, widgets and other layouts, four deep at most; context items and molecule references stay in the question's own `items`. Item IDs are unique at every depth.
 
 At the top level an ask's `items` may be areas (`area`) instead of questions: `{type: "area", id, props: {title, items}}`, a titled group of questions. Once one top-level item is an area, every one is.
 

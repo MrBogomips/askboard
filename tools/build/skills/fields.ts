@@ -5,7 +5,7 @@
 // ends recursion (the Tree's children). Depth stops at four levels. Descriptions lose the
 // parentheses that cite a requirement or a design decision, which mean nothing to an agent.
 
-import { SCHEMA_SETS, WIDGET_TYPES } from "@askboard/contract";
+import { questionPropsOver, SCHEMA_SETS, WIDGET_TYPES, type WidgetType } from "@askboard/contract";
 
 export type Schema = Readonly<Record<string, unknown>>;
 
@@ -30,16 +30,20 @@ const schemasOf = (value: unknown): Schema[] =>
   Array.isArray(value) ? value.filter(isSchema) : [];
 
 /**
- * A resolver over every schema of the contract's sets and every registered widget type, and any
- * `extra` document (a molecule's parameters).
+ * A resolver over every schema of the contract's sets and every widget type of `widgets`, with
+ * the question props composed over them, and any `extra` document (a molecule's parameters).
  */
-export const contractSchemaResolver = (extra: readonly Schema[] = []): Resolve => {
+export const contractSchemaResolver = (
+  extra: readonly Schema[] = [],
+  widgets: readonly WidgetType[] = WIDGET_TYPES,
+): Resolve => {
   const byId = new Map<string, Schema>();
   const add = (schema: unknown) => {
     if (isSchema(schema) && typeof schema.$id === "string") byId.set(schema.$id, schema);
   };
   for (const set of SCHEMA_SETS) for (const schema of set.schemas) add(schema);
-  for (const entry of WIDGET_TYPES) {
+  if (widgets !== WIDGET_TYPES) add(questionPropsOver(widgets));
+  for (const entry of widgets) {
     add(entry.props);
     add(entry.edits?.changes);
     add(entry.result?.schema);

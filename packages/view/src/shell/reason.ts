@@ -4,6 +4,7 @@
 
 import { noteHoldsReason } from "@askboard/contract";
 import { type ComponentFacts, componentFacts, type ReasonStrings } from "../catalog/port.ts";
+import { valueItemsOf } from "../nested-items.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import { shownResultFor } from "./question-state.ts";
@@ -24,7 +25,7 @@ export const reasonOf = (
   shown: AnswerContent | undefined,
   factsOf: FactsOf = componentFacts,
 ): ReasonStrings | undefined => {
-  const items = question.props.items ?? [];
+  const items = valueItemsOf(question.props.items);
   const firstPair = (resultOf: (itemId: string) => unknown): ReasonStrings | undefined => {
     for (const { type, id } of items) {
       const result = resultOf(id);

@@ -19,12 +19,14 @@ import { Component, type ReactNode, useCallback, useMemo, useSyncExternalStore }
 import type { Rendered } from "../catalog/components.ts";
 import {
   type BoardContent,
+  type BoardWidgetItem,
   type CatalogComponent,
   componentFor,
   type DerivedValues,
   type ItemProps,
   useStrings,
 } from "../catalog/port.ts";
+import { withEntries } from "./board-content.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-store.ts";
 import { isEntryType } from "./entries.ts";
@@ -129,6 +131,13 @@ type RenderItemProps = Rendered & {
   readonly shown?: unknown;
   /** The result the item shows in place of the one it holds, such as the answer's being sent. */
   readonly shownResult?: unknown;
+  /**
+   * What an item inside this item's layout shows in place of its draft value and of its result,
+   * by item ID, as the card's answer gives them (layouts, design decision 6); none: it shows its
+   * own.
+   */
+  readonly shownOf?: (itemId: string) => unknown;
+  readonly shownResultOf?: (itemId: string) => unknown;
   /** What the shell hands the component beside the port's props, such as Choice's extras. */
   readonly extras?: unknown;
   /** Runs before each value the component puts back, such as the start of a revision. */
@@ -154,6 +163,8 @@ export const RenderItem = ({
   shown,
   shownResult,
   extras,
+  shownOf,
+  shownResultOf,
   onBeforeChange,
 }: RenderItemProps) => {
   const {
@@ -167,9 +178,9 @@ export const RenderItem = ({
   } = context;
   // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record);
-  const board = boardContent(record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record);
   const heldEntries = useSyncExternalStore(entries.subscribe, entries.record);
+  const board = withEntries(boardContent(record), heldEntries);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
     [derived, item.id],
@@ -205,6 +216,23 @@ export const RenderItem = ({
       onError,
     ],
   );
+  // One item the layout holds, through this same renderer: its own frame, boundary and draft.
+  const renderItem = (child: BoardWidgetItem): ReactNode => (
+    <RenderItem
+      key={child.id}
+      item={child}
+      component={child.type}
+      questionId={questionId}
+      itemIds={itemIds}
+      context={context}
+      disabled={disabled}
+      shown={shownOf?.(child.id)}
+      shownResult={shownResultOf?.(child.id)}
+      {...(shownOf === undefined ? {} : { shownOf })}
+      {...(shownResultOf === undefined ? {} : { shownResultOf })}
+      {...(onBeforeChange === undefined ? {} : { onBeforeChange })}
+    />
+  );
   const Item = (componentFor(component) ?? Unregistered) as Rendering;
   return (
     <ItemFrame itemId={item.id} tracker={tracker}>
@@ -223,6 +251,7 @@ export const RenderItem = ({
           onDerived={onDerived}
           entry={entryShown(shown, shownResult, heldEntries.get(item.id))}
           onEntryChange={onEntryChange}
+          renderItem={renderItem}
           {...(extras === undefined ? {} : { extras })}
         />
       </ItemErrorBoundary>

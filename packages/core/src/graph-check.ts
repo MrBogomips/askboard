@@ -11,6 +11,7 @@ import {
 } from "@askboard/compute";
 import {
   type FormulaWarning,
+  nestedItemsOf,
   WIDGET_TYPES,
   type WidgetType,
   widgetTypeOf,
@@ -29,12 +30,18 @@ const childrenOf = (item: unknown, type: string): readonly unknown[] => {
   return Array.isArray(item.props.items) ? item.props.items : [];
 };
 
-/** The widget and context items of every question of the board's items, in board order. */
+/**
+ * The widget and context items of every question of the board's items, in board order, at every
+ * depth of the question's layouts (layouts, design decision 5); the layouts are among them, and
+ * the graph takes nothing from a type it has no source for.
+ */
 const questionItems = (items: readonly unknown[]): readonly BoardSourceItem[] => {
   const questions = items.flatMap((item) =>
     isObject(item) && item.type === "area" ? childrenOf(item, "area") : [item],
   );
-  return questions.flatMap((question) => childrenOf(question, "question")) as BoardSourceItem[];
+  return questions.flatMap((question) =>
+    nestedItemsOf(childrenOf(question, "question")).map(({ item }) => item),
+  ) as BoardSourceItem[];
 };
 
 /** The part of an address before the first `.`: the item's ID. */

@@ -262,3 +262,8 @@ export {
 // page's link checks are both tested against.
 
 export { LINK_URL_TABLE, LONGEST_LINK_URL } from "./link-urls.ts";
+
+// The layouts' entries and a question arranged with them (layouts, task 1.2): what a test gives the
+// shipped registry through `withWidgetTypes` while the layouts are not registered.
+
+export { ARRANGED_ITEM, LAYOUT_WIDGETS } from "./layouts.ts";

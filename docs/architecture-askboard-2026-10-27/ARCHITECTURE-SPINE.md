@@ -38,6 +38,7 @@ sources:
   - 'OpenSpec change latex-kanban-timeline, proposal.md, open questions 2 and 8: a whole field changed by one set, changes checked against their type (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change latex-kanban-timeline, proposal.md, open question 14: lightningcss for the view build''s URL check (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change atoms, proposal.md, open questions 5 and 8: the FR-13 atoms in the registry, Markdown links through the board page, unreadable field text kept as entries (accepted under the PO''s unattended handoff, 2026-11-07)'
+  - 'OpenSpec change layouts, proposal.md, open questions 1 to 3 and 6: Stack, Row, Group and Tabs as registered types holding atoms, widgets and layouts four deep, item IDs unique at every depth (accepted under the PO''s unattended handoff, 2026-11-07)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -268,7 +269,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - durations are integer days against the item's working calendar, which is optional and defaults to Monday to Friday with no holidays;
       - money is a decimal string plus an ISO 4217 code, which an item may declare once for all its amounts; an amount an item gives or the user enters holds no more decimals than its currency's minor units, in ISO 4217's table kept in `contract`;
       - no unit converts a date through a zoned date-time.
-    - **Questions:** a question's props hold its `text`, an optional `header`, its `options` and `multiSelect`; its widgets, excerpts and molecules go in its `items`, each an item as in AD-6. The agent sends no layout: an excerpt goes beside its question because of its type (FR-13).
+    - **Questions:** a question's props hold its `text`, an optional `header`, its `options` and `multiSelect`; its widgets, excerpts and molecules go in its `items`, each an item as in AD-6. Its atoms and widgets may sit in layouts, the registered types Stack, Row, Group and Tabs, whose props hold items, at most four layouts deep; a Row's relative widths are weights, never lengths. Excerpts, references, images and molecule references stay in the question's own `items`, and the agent sends no layout for its context: an excerpt goes beside its question because of its type (FR-13).
     - **Areas:** an area is an item `{type: "area", id, props: {title, items}}` at the top level of an ask, whose `items` hold its questions. Areas do not nest, and either every top-level item of an ask is an area or none is; an ask without areas shows its questions as one group (FR-2). `update` adds a question to an area by naming the area as its parent.
     - **Widgets and the open prompt:** a widget either sits in a question, and so has the open prompt (FR-7), or is display-only and returns no answer.
     - **Widget types:** `contract` holds one registry of widget types, the FR-13 atoms' included. Per type it gives the props schema and checks, the element shape and `changes` schema when the user edits the agent's content, the result schema and checks when the widget gives a result, the derived declarations of AD-13, the agent-facing wording and an example item. Every unit that handles a widget item dispatches on the registry, so a widget is added by registering it; a widget's chunk gives the view what the shell needs of its type through the `CatalogRenderer` port (AD-9), so the shell does not grow with the catalogue.
@@ -276,7 +277,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **IDs:**
     - Ask IDs, item IDs and the IDs of child elements (tree nodes, table rows, Gantt tasks) are chosen by the agent and match `[A-Za-z0-9_-]{1,64}`.
     - Elements the user adds in a widget (a work package in a split, a tree node, a Graph state) get IDs the view makes, with a prefix reserved in `contract` that agent-chosen IDs may not use. View-made IDs, prefix included, still match `[A-Za-z0-9_-]{1,64}`.
-    - Item IDs are unique within their ask, child IDs within their item.
+    - Item IDs are unique within their ask, at every depth of a question's layouts, and child IDs, a Tabs' tab IDs included, within their item.
     - Every collection the user can add to, reorder or delete from holds elements with a required ID.
 
 ### AD-8 — Agent content is data, shown in an isolated view [ADOPTED]
@@ -320,7 +321,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Prevents:** widgets coupled to one renderer library; widgets that fetch data, need a server, keep private state or can't be measured; board and Snapshot built differently; molecules expanded in two places or colliding on IDs.
 - **Rule:**
   - **Components:**
-    - Atoms, layouts and widgets are catalog components registered through one `CatalogRenderer` port. No widget imports the renderer behind the port, which is AskBoard's own.
+    - Atoms, layouts and widgets are catalog components registered through one `CatalogRenderer` port; a layout places the items it holds, which the shell renders through the port, each in its own frame and error boundary. No widget imports the renderer behind the port, which is AskBoard's own.
     - A component renders from the board document, the draft record (AD-20) and the compute graph alone, with no network and no server call. It keeps no edit state of its own: every edit goes into the draft record. An edit that the board's links carry into another item of the same question, such as a work package added in a WBS that a Gantt plan schedules, goes into the draft record for both items in one update.
     - User actions leave a component only as typed view messages, which the board page turns into board-protocol commands.
     - A component is ready when its asynchronous work has settled and its content has been laid out once. A question counts as visible when all its items are ready. A container that hides items, such as Tabs, still mounts them, hidden, so they report ready.

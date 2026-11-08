@@ -5,6 +5,7 @@
 
 import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
+import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 
 /**
@@ -19,7 +20,7 @@ export const confirmsRevisionOf = (
 ): boolean =>
   (status?.state === "answered" || status?.state === "declined") &&
   status.answer.receipt === "delivered" &&
-  (question.props.items ?? []).some(({ type }) => factsOf(type)?.confirmsRevision === true);
+  valueItemsOf(question.props.items).some(({ type }) => factsOf(type)?.confirmsRevision === true);
 
 /**
  * Whether a press of "Answer" or Decline asks first: a confirmation is needed, and the press does

@@ -7,7 +7,9 @@
 // changed. Nothing here compiles a schema; the set modules call them when they load.
 
 import type { AnySchemaObject } from "ajv/dist/2020";
+import { isLayoutType } from "../nested-items.ts";
 import { WIDGET_TYPES, type WidgetType } from "./registry.ts";
+import { LAYOUT_ITEM_DEFINITION } from "./shared/layouts.ts";
 
 const ID = { $ref: "urn:askboard:input:id" } as const;
 
@@ -59,11 +61,32 @@ const withItems = (
   return { ...schema, $defs: defs };
 };
 
-/** The input format's question props: each type's item before the molecule reference's. */
+// The union a layout's props hold (layouts, design decision 3): every registered type's item,
+// layouts included, picked by `type`. Context, molecule, question and area items are outside it,
+// so each fails at its type inside a layout.
+const layoutItemOf = (types: readonly WidgetType[]): AnySchemaObject => ({
+  description:
+    "An item a layout holds, picked by its type: an atom, a widget or another layout. Context items and molecule references belong in the question's own items.",
+  type: "object",
+  discriminator: { propertyName: "type" },
+  oneOf: types.map(({ type }) => refTo(type)),
+});
+
+/**
+ * The input format's question props: each type's item before the molecule reference's, and, when
+ * the registry holds a layout, the union its props refer to (`layoutItem`).
+ */
 export const composeQuestionProps = (
   base: AnySchemaObject,
   types: readonly WidgetType[] = WIDGET_TYPES,
-): AnySchemaObject => withItems(base, "item", types, () => undefined, "molecule");
+): AnySchemaObject => {
+  const composed = withItems(base, "item", types, () => undefined, "molecule");
+  if (!types.some(({ type }) => isLayoutType(type))) return composed;
+  return {
+    ...composed,
+    $defs: { ...composed.$defs, [LAYOUT_ITEM_DEFINITION]: layoutItemOf(types) },
+  };
+};
 
 /** The board document: each type's item after the resolved context items. */
 export const composeBoardDocument = (

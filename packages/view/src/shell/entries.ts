@@ -7,6 +7,7 @@
 // to correct. Plain functions, tested without a DOM.
 
 import { ENTRY_MAX_CHARS, type Locale } from "@askboard/contract";
+import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { DraftStore } from "./draft-store.ts";
@@ -26,7 +27,9 @@ export const isEntryType = (type: string): boolean => ENTRY_ITEM_TYPES.includes(
  * or one an update removed, is no entry of the question.
  */
 export const entryIdsOf = (question: ViewQuestion): readonly string[] =>
-  (question.props.items ?? []).filter((item) => isEntryType(item.type)).map((item) => item.id);
+  valueItemsOf(question.props.items)
+    .filter((item) => isEntryType(item.type))
+    .map((item) => item.id);
 
 /**
  * The entry a text makes: the text cut at `ENTRY_MAX_CHARS` code points, or none when it is no text
@@ -42,7 +45,7 @@ export const cutEntry = (text: unknown): string | undefined => {
 export type EntryBlock = { readonly itemId: string; readonly label: string };
 
 const labelOf = (question: ViewQuestion, itemId: string): string => {
-  const props = (question.props.items ?? []).find((item) => item.id === itemId)?.props;
+  const props = nestedItemById(question.props.items, itemId)?.props;
   const label =
     typeof props === "object" && props !== null && Object.hasOwn(props, "label")
       ? (props as { readonly label?: unknown }).label

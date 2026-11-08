@@ -8,12 +8,13 @@
 import {
   areaRuleProblems,
   ID_SHAPE,
-  ITEM_EXPECTED,
   ITEM_FIELDS,
   innerItemOf,
   isId,
+  itemExpected,
   itemKey,
   labelProblems,
+  layoutDepthRequestProblem,
   nestingProblems,
   placedIds,
   placedItems,
@@ -21,7 +22,7 @@ import {
   reservedPrefixProblems,
   text,
 } from "./ask-items.ts";
-import { schemaErrors } from "./compiled.ts";
+import { errorsIn, schemaErrors } from "./compiled.ts";
 import { ASK_TITLE_MAX_CHARS } from "./constants.ts";
 import { contextProblems } from "./context/items.ts";
 import { COLLECT_ASKS_MAX, CURSOR_PATTERN, NAME_MAX_CHARS } from "./limits.ts";
@@ -41,8 +42,10 @@ import type { LifecycleAskInput } from "./schemas/input/index.ts";
 import type { CollectRequest, ToolDefinition } from "./schemas/tool-envelopes/index.ts";
 import { SCHEMA_IDS } from "./sets.ts";
 import { elementOf } from "./widgets/paths.ts";
+import { WIDGET_TYPES, type WidgetType } from "./widgets/registry.ts";
+import { registryAjv } from "./widgets/registry-ajv.ts";
 import { widgetProblems, widgetSchemaErrors } from "./widgets/request-problems.ts";
-import { WIDGET_EXPECTED, WIDGET_FIELDS } from "./widgets/wording.ts";
+import { widgetExpected, widgetFields } from "./widgets/wording.ts";
 
 export type { RequestProblem } from "./problems.ts";
 
@@ -62,7 +65,8 @@ const CURSOR = new RegExp(CURSOR_PATTERN);
 const itemsOf = (ask: unknown): readonly unknown[] =>
   isRecord(ask) && Array.isArray(ask.items) ? ask.items : [];
 
-const ASK: Wording = {
+// The ask's wording over a registry: its types' items and the props of each.
+const askWording = (types: readonly WidgetType[]): Wording => ({
   root: "(the ask)",
   expected: {
     "": "an ask: an object {askId, items} with the optional title, agentName, expectedUser, presentation, delivery, language and locale",
@@ -75,29 +79,32 @@ const ASK: Wording = {
     language: '"en-US" or "it-IT"',
     locale: '"en-US" or "it-IT"',
     items: "a non-empty list of questions, or of areas each holding questions",
-    ...ITEM_EXPECTED,
-    ...WIDGET_EXPECTED,
+    ...itemExpected(types),
+    ...widgetExpected(types),
   },
   fields: {
     "": "an ask holds only askId, title, agentName, expectedUser, presentation, delivery, language, locale and items",
     ...ITEM_FIELDS,
-    ...WIDGET_FIELDS,
+    ...widgetFields(types),
   },
   // An item's fields by the item's type: `question.props.text`, `area.props.title`.
   keyOf: (ask, segments) =>
     segments[0] === "items" && segments.length > 1
-      ? itemKey(itemsOf(ask)[Number(segments[1])], segments.slice(2))
+      ? itemKey(itemsOf(ask)[Number(segments[1])], segments.slice(2), types)
       : keyOf(segments),
-  // The innermost item with a usable ID: an area's question, else the top-level item.
+  // The innermost item with a usable ID: an area's question, a question's item or an item of a
+  // layout, at any depth.
   itemOf: (ask, segments) => {
     if (segments[0] !== "items" || segments.length < 3) return undefined;
     const inner = innerItemOf(itemsOf(ask)[Number(segments[1])], segments.slice(2));
     const id = isRecord(inner.item) ? inner.item.id : undefined;
     if (!isId(id)) return undefined;
-    const element = elementOf(inner.item, inner.rest);
+    const element = elementOf(inner.item, inner.rest, types);
     return { itemId: id, rest: inner.rest, ...(element === undefined ? {} : { element }) };
   },
-};
+});
+
+const ASK: Wording = askWording(WIDGET_TYPES);
 
 /**
  * Validates an `ask` request against the input format: the schema, then, over every item, the
@@ -105,29 +112,48 @@ const ASK: Wording = {
  * it accepts passes that schema too. An ask that passes is input format 1.1's, which ask-core reads
  * since ask-lifecycle's task 2.1.
  */
-export const validateAskRequest = (value: unknown): CheckedRequest<LifecycleAskInput> => {
+export const validateAskRequest = (value: unknown): CheckedRequest<LifecycleAskInput> =>
+  validateAskRequestOver(value, WIDGET_TYPES);
+
+/**
+ * `validateAskRequest` over a registry (widget-registry, design decision 2): the same checks with
+ * the item types, wording and schema of `types`, so that a test checks the layouts before they
+ * are registered. The layouts' depth is checked first, and alone: a request that nests past the
+ * bound is refused before the schema or any item is walked (layouts, design decision 3).
+ */
+export const validateAskRequestOver = (
+  value: unknown,
+  types: readonly WidgetType[],
+): CheckedRequest<LifecycleAskInput> => {
+  const wording = types === WIDGET_TYPES ? ASK : askWording(types);
   const items = itemsOf(value);
+  const tooDeep = layoutDepthRequestProblem(wording, value, items, ["items"]);
+  if (tooDeep !== undefined) return { ok: false, reason: "schema", problems: [tooDeep] };
   const placed = placedItems(items, ["items"]);
   // An area inside an area is named once, as an area, not as the question the schema expects.
-  const nested = nestingProblems(ASK, value, placed);
+  const nested = nestingProblems(wording, value, placed);
   const replaced = new Set(nested.map(({ path }) => path));
   const askId: readonly [Segments, unknown] = [
     ["askId"],
     isRecord(value) ? value.askId : undefined,
   ];
-  const schema = widgetSchemaErrors(schemaErrors(SCHEMA_IDS.ask, value), value)
+  const errors =
+    types === WIDGET_TYPES
+      ? schemaErrors(SCHEMA_IDS.ask, value)
+      : errorsIn(registryAjv(types), SCHEMA_IDS.ask, value);
+  const schema = widgetSchemaErrors(errors, value, types)
     .map(located)
-    .map((entry) => schemaProblem(ASK, value, entry))
+    .map((entry) => schemaProblem(wording, value, entry))
     .filter(({ path }) => !replaced.has(path));
   const problems = [
     ...schema,
     ...nested,
     ...areaRuleProblems(items, ["items"]),
-    ...repeatedIdProblems(ASK, value, placed),
-    ...reservedPrefixProblems(ASK, value, [askId, ...placedIds(placed)]),
-    ...labelProblems(ASK, value, placed),
-    ...contextProblems(ASK, value, placed),
-    ...widgetProblems(ASK, value, placed, schema),
+    ...repeatedIdProblems(wording, value, placed),
+    ...reservedPrefixProblems(wording, value, [askId, ...placedIds(placed)]),
+    ...labelProblems(wording, value, placed),
+    ...contextProblems(wording, value, placed),
+    ...widgetProblems(wording, value, placed, schema, types),
   ];
   if (problems.length === 0) return { ok: true, value: value as LifecycleAskInput };
   return { ok: false, reason: "schema", problems: inDocumentOrder(value, problems) };

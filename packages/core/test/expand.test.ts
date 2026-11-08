@@ -387,6 +387,43 @@ describe("expanded IDs", () => {
     }
   });
 
+  test("a clash with an item inside a layout, at depth one and four, is refused, naming the reference (review X-1)", () => {
+    const clash = { type: "number-field", id: "wbs__tree", props: { label: "Days" } };
+    const group = (id: string, ...items: unknown[]): Item => ({
+      type: "group",
+      id,
+      props: { title: id, items },
+    });
+    const tabs = (id: string, ...items: unknown[]): Item => ({
+      type: "tabs",
+      id,
+      props: {
+        tabs: [
+          { id: `${id}-a`, title: "A", items },
+          { id: `${id}-b`, title: "B", items: [clash] },
+        ],
+      },
+    });
+    const four = group("g1", group("g2", group("g3", group("g4", clash))));
+    for (const nested of [group("g", clash), four, tabs("t", { ...clash, id: "other" })]) {
+      const items = [question("plan", [wbs(), nested])];
+      expect(problemsOf(expandMolecules(items, source))).toEqual([
+        {
+          itemId: "wbs",
+          path: "/0/props/items/0/id",
+          message:
+            'the molecule reference "wbs" expands to the item "wbs__tree", and another item of the ask has that ID',
+        },
+      ]);
+    }
+  });
+
+  test("a layout holding no clash expands the reference beside it", () => {
+    const quiet = { type: "number-field", id: "days", props: { label: "Days" } };
+    const nested = { type: "group", id: "g", props: { title: "g", items: [quiet] } };
+    expect(expandMolecules([question("plan", [wbs(), nested])], source).ok).toBe(true);
+  });
+
   test("a clash with another reference's ID is refused too", () => {
     const items = [question("plan", [wbs(), reference("wbs__tree", "wbs-pert", copyOf(wbsData))])];
     expect(problemsOf(expandMolecules(items, source)).map(({ itemId }) => itemId)).toEqual(["wbs"]);

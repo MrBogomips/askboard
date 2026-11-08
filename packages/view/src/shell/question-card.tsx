@@ -457,6 +457,8 @@ export const QuestionCard = (props: CardProps) => {
           disabled={readOnly}
           shown={shownFor(card.shown, question.id, item.id)}
           shownResult={shownResultFor(card.shown, question.id, item.id)}
+          shownOf={(itemId) => shownFor(card.shown, question.id, itemId)}
+          shownResultOf={(itemId) => shownResultFor(card.shown, question.id, itemId)}
           onBeforeChange={revise}
           {...(item === shown ? { extras } : {})}
         />

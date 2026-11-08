@@ -25,12 +25,17 @@ import { DATE_FIELD_WIDGET } from "./date-field/widget.ts";
 import { DIVIDER_WIDGET } from "./divider/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
+import { GROUP_WIDGET } from "./group/widget.ts";
 import { KANBAN_WIDGET } from "./kanban/widget.ts";
 import { LATEX_WIDGET } from "./latex/widget.ts";
 import { MONEY_FIELD_WIDGET } from "./money-field/widget.ts";
 import { NUMBER_FIELD_WIDGET } from "./number-field/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
+import { ROW_WIDGET } from "./row/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
+import { LAYOUT_ITEM_DEFINITION } from "./shared/layouts.ts";
+import { STACK_WIDGET } from "./stack/widget.ts";
+import { TABS_WIDGET } from "./tabs/widget.ts";
 import { TEXT_WIDGET } from "./text/widget.ts";
 import { TEXT_FIELD_WIDGET } from "./text-field/widget.ts";
 import { TIMELINE_WIDGET } from "./timeline/widget.ts";
@@ -147,6 +152,11 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   MONEY_FIELD_WIDGET,
   DATE_FIELD_WIDGET,
   TOGGLE_WIDGET,
+  // The layouts, as their chunks land (layouts, design decision 8).
+  STACK_WIDGET,
+  ROW_WIDGET,
+  GROUP_WIDGET,
+  TABS_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */
@@ -189,11 +199,13 @@ const ID = new RegExp(ID_PATTERN);
 
 // The `$defs` keys of the three base files a type's item is added beside: a type of that name
 // would replace the definition. Read from the files, so the list stays in step with them.
-const BASE_DEFINITIONS: ReadonlySet<string> = new Set(
-  [questionPropsBase, boardDocumentBase, fetchResultBase].flatMap((base) =>
+const BASE_DEFINITIONS: ReadonlySet<string> = new Set([
+  ...[questionPropsBase, boardDocumentBase, fetchResultBase].flatMap((base) =>
     Object.keys((base as { $defs: object }).$defs),
   ),
-);
+  // The union the layouts' props hold, composed beside the types' items (layouts, design decision 3).
+  LAYOUT_ITEM_DEFINITION,
+]);
 
 // A type that is a definition of a base schema, or a name every object inherits (`__proto__`,
 // `constructor`), which the composers could not hold as an own key of `$defs`.
