@@ -82,5 +82,46 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    test(
+      "Light and Comfortable picked on the board, with a dark system, are what the file opens in",
+      async () => {
+        const run = await start(
+          { ...lifecycleScenario(twoAsk, dist), asker: ASKER },
+          { colorScheme: "dark" },
+        );
+        const board = await openBoard(run, ["database", "cache"]);
+        await board.view
+          .getByRole("radiogroup", { name: "Theme" })
+          .getByRole("radio", { name: "Light" })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await board.view
+          .getByRole("radiogroup", { name: "Density" })
+          .getByRole("radio", { name: "Comfortable" })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await board.view.locator("html.comfortable").waitFor({ state: "attached" });
+        const taken = await run.session.snapshot();
+        await run.session.exit();
+        const browser: Browser = await launchEngine(engine);
+        try {
+          const context = await browser.newContext({ colorScheme: "dark", offline: true });
+          const page = await context.newPage();
+          await page.goto(`file://${taken.path}`);
+          await page.getByText(/^Snapshot · taken/).waitFor({ timeout: STEP_TIMEOUT_MS });
+          const classes = ((await page.locator("html").getAttribute("class")) ?? "").split(/\s+/);
+          expect(classes).toContain("comfortable");
+          expect(classes).not.toContain("dark");
+          const group = page.getByRole("radiogroup", { name: "Theme" });
+          expect(await group.count()).toBe(1);
+          expect(
+            await group.getByRole("radio", { name: "Light" }).getAttribute("aria-checked"),
+          ).toBe("true");
+          await context.close();
+        } finally {
+          await browser.close();
+        }
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 }
