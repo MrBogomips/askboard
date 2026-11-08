@@ -20,6 +20,12 @@ const probe = (type: string, use: string): WidgetType => ({
   skill: { use },
 });
 
+/** Every link target but an http(s) URL or a `#` anchor. */
+const targets = (text: string): string[] =>
+  [...text.matchAll(/\]\(([^)\s]+)\)/g)]
+    .map((match) => match[1] ?? "")
+    .filter((target) => !/^(https?:|#)/.test(target));
+
 const lines = (text: string): string[] => text.split("\n");
 
 describe("the item catalogue", () => {
@@ -89,8 +95,6 @@ describe("SKILL.md's links", () => {
   });
 
   test("target every generated file but SKILL.md, and no other file links one", () => {
-    const targets = (text: string) =>
-      [...text.matchAll(/\]\((references\/[^)]+)\)/g)].map((match) => match[1] ?? "");
     const linked = new Set(targets(skill));
     for (const path of files.keys()) {
       if (path !== "SKILL.md") expect(linked.has(path), path).toBe(true);
@@ -98,6 +102,26 @@ describe("SKILL.md's links", () => {
     for (const [path, text] of files) {
       if (path !== "SKILL.md") expect(targets(text), path).toEqual([]);
     }
+  });
+});
+
+describe("the one-level link helper", () => {
+  test("flags relative links, and passes URLs and anchors", () => {
+    expect(
+      targets("[a](gantt.md) [b](../SKILL.md) [c](references/x.md) [d](https://x.io) [e](#top)"),
+    ).toEqual(["gantt.md", "../SKILL.md", "references/x.md"]);
+  });
+
+  test("finds a relative link in a generated reference", () => {
+    const withLink: WidgetType = {
+      ...probe("linker", "a pick"),
+      skill: { use: "a pick", notes: ["See [the Gantt](gantt.md) and [the skill](../SKILL.md)."] },
+    };
+    const { files: made } = generateSkill({ widgets: [...WIDGET_TYPES, withLink] });
+    expect(targets(made.get("references/widgets/linker.md") ?? "")).toEqual([
+      "gantt.md",
+      "../SKILL.md",
+    ]);
   });
 });
 
