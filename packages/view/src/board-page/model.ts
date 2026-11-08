@@ -286,7 +286,10 @@ const failedIn = (model: BoardModel, question: ViewQuestion): boolean =>
 
 const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | undefined => {
   const { question } = known;
-  if (failedIn(model, question)) return "the question's item failed in the view";
+  // The one act a failed question still sends is the choice to reload: it carries no content of any
+  // item, so it invents nothing (NFR-10), and the agent is told the user dropped the work.
+  const reloads = act.type === "edit-choice" && act.edit === "reload";
+  if (!reloads && failedIn(model, question)) return "the question's item failed in the view";
   if (!model.visible.has(question.id)) return "the question never counted as visible";
   const revision = revisionProblem(act, question);
   if (revision !== undefined) return revision;

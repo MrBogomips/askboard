@@ -287,6 +287,27 @@ describe("an item that fails stops every act of its question (document-review, d
     }
   });
 
+  test("but the reload choice goes, and no other edit choice, decline or note (document-review 6.26)", () => {
+    const reload: ViewAct = { type: "edit-choice", itemId: question, rev: 1, edit: "reload" };
+    const ignore: ViewAct = {
+      type: "edit-choice",
+      itemId: question,
+      rev: 1,
+      edit: "ignore",
+      keptRev: 1,
+    };
+    for (const itemId of ["schedule", "wbs"]) {
+      expect(actsFor(failing(itemId), [reload]).ok).toBe(true);
+      for (const act of [
+        ...acts,
+        ignore,
+        { type: "decline", itemId: question, rev: 1 } as ViewAct,
+      ]) {
+        expect(actsFor(failing(itemId), [act]).ok).toBe(false);
+      }
+    }
+  });
+
   test("and refuses the whole command that holds acts for it, naming the first", () => {
     const checked = actsFor(failing("schedule"), [acts[1] as ViewAct, acts[2] as ViewAct]);
     expect(checked).toEqual({

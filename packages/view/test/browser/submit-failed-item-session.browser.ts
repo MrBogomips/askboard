@@ -6,7 +6,9 @@
 // counted as visible (a test-only TextField chunk, a button that throws once pressed): the card
 // disables its "Answer", the failed question's held answer is released and its work stays in the
 // draft, Submit sends the other question's answer alone, and, once the agent changes the failed
-// question, its notice offers "Reload, losing my work", which shows the agent's revision.
+// question, its notice offers "Reload, losing my work": the press shows the agent's revision and the
+// board page sends the `edit-choice` act with `edit: "reload"`, which the agent receives (task 6.26;
+// every other act of a failed question is refused).
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/submit-failed-item-session.browser.ts
 
@@ -120,9 +122,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await card(board, "database")
           .getByText("Which database, after all?", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(sentActs(run).flatMap((each) => each.acts.map((act) => act.itemId))).toEqual([
-          "cache",
-        ]);
+        await eventually(
+          () =>
+            sentActs(run).some((each) =>
+              each.acts.some(
+                (act) =>
+                  act.type === "edit-choice" &&
+                  act.itemId === "database" &&
+                  (act as { edit?: string }).edit === "reload",
+              ),
+            ),
+          "the reload choice to be sent",
+        );
+        expect(
+          sentActs(run).flatMap((each) => each.acts.map((act) => `${act.type}:${act.itemId}`)),
+        ).toEqual(["answer:cache", "edit-choice:database"]);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
