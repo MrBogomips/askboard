@@ -88,6 +88,10 @@ The first edit of an answered question SHALL put its latest answer's widget valu
 - **WHEN** a question answered with a TextField's text and a NumberField's value is revised by emptying the TextField, and "Answer" is pressed
 - **THEN** the TextField shows empty while the revision lasts, and the revised answer carries the NumberField's value and no result for the TextField
 
+#### Scenario: An edit returned to the agent's version during a revision
+- **WHEN** a question answered with a Tree rename is revised by renaming the node back to the agent's label, and "Answer" is pressed
+- **THEN** the Tree shows the agent's label, and the revised answer carries no value and no change for the Tree
+
 #### Scenario: Revising one of two edited widgets
 - **WHEN** a question answered with edits to a Timeline and a Kanban is revised by moving one more Kanban card, and "Answer" is pressed
 - **THEN** the revision carries both widgets' values, and its `changes` hold the earlier Timeline edit and both Kanban moves
