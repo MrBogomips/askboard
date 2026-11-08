@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import { JSON_MAX_DEPTH } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
 import { createDraftStore } from "./draft-store.ts";
@@ -319,5 +319,65 @@ describe("an item's result (widget-registry, design decision 9)", () => {
     expect(itemResultOf(undefined, "held", "answered")).toBe("held");
     expect(itemResultOf(undefined, undefined, "answered")).toBe("answered");
     expect(itemResultOf(undefined, undefined, undefined)).toBeUndefined();
+  });
+});
+
+// An item the card makes read-only, on a revision the board cannot show (keep-mine-shown-revision,
+// design decision 3): no write reaches the draft, and the console names the item.
+describe("an item the card makes read-only", () => {
+  const readOnlySetUp = (readOnlyItems: ReadonlySet<string>, itemId = "sketch") => {
+    const draft = createDraftStore();
+    const onBeforeChange = mock(() => {});
+    const onError = mock((_error: unknown) => {});
+    const complaint = spyOn(console, "error").mockImplementation(() => {});
+    const callbacks = itemCallbacks({
+      draft,
+      itemId,
+      questionId: "plan",
+      itemIds: ITEM_IDS,
+      readOnlyItems,
+      onBeforeChange,
+      onError,
+    });
+    return { draft, onBeforeChange, onError, complaint, ...callbacks };
+  };
+
+  test("writes no value, runs no step before a change, fails nothing, and the console names the item", () => {
+    const { draft, onBeforeChange, onError, complaint, onValueChange } = readOnlySetUp(
+      new Set(["sketch"]),
+    );
+    onValueChange(probe(4));
+    expect(draft.record().size).toBe(0);
+    expect(onBeforeChange).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(complaint).toHaveBeenCalledTimes(1);
+    expect(String(complaint.mock.calls[0]?.join(" "))).toContain('"sketch"');
+    complaint.mockRestore();
+  });
+
+  test("a values update naming it writes nothing, the other items it names in the same call included", () => {
+    const { draft, onBeforeChange, onError, complaint, onValuesChange } = readOnlySetUp(
+      new Set(["sketch"]),
+      "second",
+    );
+    onValuesChange({ second: probe(1), sketch: probe(2) });
+    expect(draft.record().size).toBe(0);
+    expect(onBeforeChange).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(String(complaint.mock.calls[0]?.join(" "))).toContain('"sketch"');
+    complaint.mockRestore();
+  });
+
+  test("an item outside the set writes as before, with the set given", () => {
+    const { draft, onBeforeChange, complaint, onValueChange, onValuesChange } = readOnlySetUp(
+      new Set(["second"]),
+    );
+    onValueChange(probe(4));
+    onValuesChange({ plan: probe(1) });
+    expect(draft.valueOf("sketch")).toEqual({ size: 4 });
+    expect(draft.valueOf("plan")).toEqual({ size: 1 });
+    expect(onBeforeChange).toHaveBeenCalledTimes(2);
+    expect(complaint).not.toHaveBeenCalled();
+    complaint.mockRestore();
   });
 });

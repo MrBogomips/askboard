@@ -103,6 +103,8 @@ describe("the English table is the view's text on main, word for word", () => {
       "receipt.delivered": "delivered to the agent",
       "item.error": "This item could not be shown.",
       "item.loading": "Loading",
+      "change.readOnlyAfterReload":
+        "Read-only: your work on this question keeps an earlier version, which this tab can no longer show.",
     });
   });
 });
@@ -126,6 +128,8 @@ describe("the Italian table", () => {
       "receipt.notSentYet": "non ancora inviata",
       "receipt.sent": "inviata",
       "receipt.delivered": "consegnata all'agente",
+      "change.readOnlyAfterReload":
+        "In sola lettura: il tuo lavoro su questa domanda mantiene una versione precedente, che questa scheda non può più mostrare.",
     });
   });
 });

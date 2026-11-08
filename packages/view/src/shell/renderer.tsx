@@ -13,7 +13,9 @@
 // board's shown value, its answer's on a question being revised, until the user changes it. A
 // component also reports a result beside its value, into the results store beside the draft
 // record, and reads the result it holds, else its latest answer's (widget-registry, design
-// decision 9).
+// decision 9). An item the card cannot take edits of, on a revision the board cannot show, is
+// drawn disabled with a line under it, and writes nothing into the draft (keep-mine-shown-revision,
+// design decisions 3 and 4).
 
 import { Component, type ReactNode, useCallback, useMemo, useSyncExternalStore } from "react";
 import type { Rendered } from "../catalog/components.ts";
@@ -50,6 +52,7 @@ export type RenderContext = {
 // What an item follows while the board has no results store: nothing is ever put into it.
 const NO_RESULTS = createDraftStore();
 const NO_ENTRIES = createDraftStore();
+const NO_READ_ONLY: ReadonlySet<string> = new Set();
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -104,7 +107,9 @@ const ItemFrame = ({
   readonly tracker: ReadyTracker;
   readonly children: ReactNode;
 }) => {
-  const status = useSyncExternalStore(tracker.subscribe, () => tracker.itemStatus(itemId));
+  // The snapshot is also the server one, which only the tests' server renderer reads.
+  const itemStatusOf = () => tracker.itemStatus(itemId);
+  const status = useSyncExternalStore(tracker.subscribe, itemStatusOf, itemStatusOf);
   const pending = status === "pending";
   const text = useStrings();
   return (
@@ -127,6 +132,12 @@ type RenderItemProps = Rendered & {
   readonly context: RenderContext;
   /** The item may not change. */
   readonly disabled: boolean;
+  /**
+   * The items that take no edit while the card shows a revision other than the one its answer
+   * names (`readOnlyItemsOf`), at every depth: drawn disabled, with the line under each, and
+   * writing nothing; none: every item takes edits.
+   */
+  readonly readOnlyItems?: ReadonlySet<string>;
   /** What the item shows in place of its draft value, such as the answer the log holds. */
   readonly shown?: unknown;
   /** The result the item shows in place of the one it holds, such as the answer's being sent. */
@@ -160,6 +171,7 @@ export const RenderItem = ({
   itemIds,
   context,
   disabled,
+  readOnlyItems = NO_READ_ONLY,
   shown,
   shownResult,
   extras,
@@ -177,9 +189,9 @@ export const RenderItem = ({
     answeredResult,
   } = context;
   // The whole record, since the board holds it: the item's value is what the board shows for it.
-  const record = useSyncExternalStore(draft.subscribe, draft.record);
-  const heldResults = useSyncExternalStore(results.subscribe, results.record);
-  const heldEntries = useSyncExternalStore(entries.subscribe, entries.record);
+  const record = useSyncExternalStore(draft.subscribe, draft.record, draft.record);
+  const heldResults = useSyncExternalStore(results.subscribe, results.record, results.record);
+  const heldEntries = useSyncExternalStore(entries.subscribe, entries.record, entries.record);
   const board = withEntries(boardContent(record), heldEntries, heldResults);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
@@ -189,6 +201,8 @@ export const RenderItem = ({
     (error: unknown) => tracker.fail(item.id, messageOf(error)),
     [tracker, item.id],
   );
+  const text = useStrings();
+  const readOnly = readOnlyItems.has(item.id);
   const heldStore = context.results;
   const entryStore = context.entries;
   const { onValueChange, onValuesChange, onResultChange, onEntryChange } = useMemo(
@@ -201,6 +215,7 @@ export const RenderItem = ({
         itemId: item.id,
         questionId,
         itemIds,
+        readOnlyItems,
         onBeforeChange,
         onError,
       }),
@@ -212,6 +227,7 @@ export const RenderItem = ({
       item.id,
       questionId,
       itemIds,
+      readOnlyItems,
       onBeforeChange,
       onError,
     ],
@@ -226,6 +242,7 @@ export const RenderItem = ({
       itemIds={itemIds}
       context={context}
       disabled={disabled}
+      readOnlyItems={readOnlyItems}
       shown={shownOf?.(child.id)}
       shownResult={shownResultOf?.(child.id)}
       {...(shownOf === undefined ? {} : { shownOf })}
@@ -245,7 +262,7 @@ export const RenderItem = ({
           onValuesChange={onValuesChange}
           result={itemResultOf(shownResult, heldResults.get(item.id), answeredResult?.(item.id))}
           onResultChange={onResultChange}
-          disabled={disabled}
+          disabled={disabled || readOnly}
           ready={tracker.readyFor(item.id)}
           board={board}
           onDerived={onDerived}
@@ -254,6 +271,11 @@ export const RenderItem = ({
           renderItem={renderItem}
           {...(extras === undefined ? {} : { extras })}
         />
+        {readOnly ? (
+          <p data-askboard-read-only={item.id} className="mt-sm text-body text-muted-foreground">
+            {text("change.readOnlyAfterReload")}
+          </p>
+        ) : null}
       </ItemErrorBoundary>
     </ItemFrame>
   );

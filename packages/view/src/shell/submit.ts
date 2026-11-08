@@ -28,6 +28,7 @@ import {
   type AnswerContext,
   answerNeedsReason,
   blockedBy,
+  namesEarlierRevision,
   nextHeldOrder,
   recommendedOf,
   revisionFor,
@@ -72,11 +73,10 @@ const actOf = (
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
-      const content = withDerived(
-        answerContentOf(question, values, work, results),
-        reported,
-        itemIdsOf(question),
-      );
+      const held = answerContentOf(question, values, work, results);
+      const content = namesEarlierRevision(question, work)
+        ? held
+        : withDerived(held, reported, itemIdsOf(question));
       if (
         content.choice === undefined &&
         content.values === undefined &&

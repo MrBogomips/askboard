@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-07'
+updated: '2026-11-08'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -40,6 +40,7 @@ sources:
   - 'OpenSpec change atoms, proposal.md, open questions 5 and 8: the FR-13 atoms in the registry, Markdown links through the board page, unreadable field text kept as entries (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change layouts, proposal.md, open questions 1 to 3 and 6: Stack, Row, Group and Tabs as registered types holding atoms, widgets and layouts four deep, item IDs unique at every depth (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change form-widget, proposal.md, open questions 1, 3 and 4: the Form built from the input atoms and a PickField with no form library, field checks in the registry, the pattern run only in the view (accepted under the PO''s unattended handoff, 2026-11-07)'
+  - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -427,7 +428,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Determinism:**
     - Derived values ignore locale and timezone; money is rounded only for display, to the currency's minor unit. The graph checks currencies before any engine runs: a formula over amounts in more than one currency is a formula error, and so is a formula that reads it.
     - CI runs the `compute` and `view` fixtures under `TZ=Pacific/Kiritimati` and `TZ=America/Adak`, and under the locales `en-US` and `de-DE`, and compares the results.
-    - Answers carry derived values as they stood (FR-12).
+    - Answers carry derived values as they stood (FR-12), except an answer naming an earlier revision than its question's current one, which carries none: the view's graph follows the current board document.
   - **In-house computations:** critical path and rescheduling are AskBoard's own code.
 
 ### AD-14 — Persistence and configuration [ADOPTED]

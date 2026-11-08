@@ -99,7 +99,7 @@ const answerLines = (entry: WidgetType, resolve: Resolve): string[] => {
   }
   if (entry.derived !== undefined) {
     lines.push(
-      `- Derived: \`derived\` carries ${entry.derived.describe}, by address; never compute them.`,
+      `- Derived: \`derived\` carries ${entry.derived.describe}, by address, none in an answer naming an earlier revision (see answers); never compute them.`,
     );
   }
   return lines.length > 0

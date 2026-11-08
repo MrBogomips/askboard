@@ -8,7 +8,10 @@
 // the same step (widget-registry, design decision 9), and refuses one that is not JSON. `onEntryChange`
 // puts the text a field cannot read into the entries store, cut at the limit, none removing it, and
 // clears the item's result, as a result clears its entry: an item holds one or the other, never both
-// (atoms, design decision 3). Also the value and the result an item shows.
+// (atoms, design decision 3). An item in `readOnlyItems`, which the card cannot show the revision of
+// its work for, writes no value through `onValueChange` and none through `onValuesChange`, which
+// refuses the whole update naming it: the console names the item, nothing is failed and no step
+// runs (keep-mine-shown-revision, design decision 3). Also the value and the result an item shows.
 // Plain functions, tested without a DOM.
 
 import { JSON_MAX_DEPTH, resultHoldsNothing } from "@askboard/contract";
@@ -30,6 +33,8 @@ export type ItemCallbackInputs = {
   readonly questionId: string;
   /** The items the question's draft values may name (`itemIdsOf`): the only ones it may write. */
   readonly itemIds: readonly string[];
+  /** The items that take no edit, by ID (`readOnlyItemsOf`); none: every item takes edits. */
+  readonly readOnlyItems?: ReadonlySet<string> | undefined;
   /** Runs before each change the component puts back, such as the start of a revision. */
   readonly onBeforeChange?: (() => void) | undefined;
   /** The item's error path. */
@@ -50,6 +55,14 @@ const quoted = (ids: readonly string[]): string => {
     : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}, items`;
 };
 
+// A disabled component that still writes is a component defect, not a reason to block the question:
+// the write is dropped and said on the console, naming the item.
+const refuseWrite = (itemId: string, named: readonly string[]): void => {
+  console.error(
+    `askboard: the item${named.length === 1 ? "" : "s"} ${named.map((id) => `"${id}"`).join(", ")} takes no edit on a revision the board cannot show, so the change of the item "${itemId}" was not taken`,
+  );
+};
+
 export const itemCallbacks = ({
   draft,
   results,
@@ -58,10 +71,15 @@ export const itemCallbacks = ({
   itemId,
   questionId,
   itemIds,
+  readOnlyItems,
   onBeforeChange,
   onError,
 }: ItemCallbackInputs): ItemCallbacks => ({
   onValueChange: (value) => {
+    if (readOnlyItems?.has(itemId) === true) {
+      refuseWrite(itemId, [itemId]);
+      return;
+    }
     onBeforeChange?.();
     draft.set(itemId, value);
   },
@@ -122,6 +140,11 @@ export const itemCallbacks = ({
           `the item "${itemId}" may not change ${quoted(outside)} its question "${questionId}" does not hold`,
         ),
       );
+      return;
+    }
+    const held = Object.keys(values).filter((id) => readOnlyItems?.has(id) === true);
+    if (held.length > 0) {
+      refuseWrite(itemId, held);
       return;
     }
     onBeforeChange?.();

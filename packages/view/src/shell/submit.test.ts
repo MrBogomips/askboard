@@ -197,6 +197,39 @@ describe("what Submit's answers carry of the derived values (widget-answers desi
     expect(Object.hasOwn(act ?? {}, "values")).toBe(false);
   });
 
+  test("one Submit: a held answer on the kept revision carries none, one on the current revision carries them (keep-mine-shown-revision, design decision 7; NFR-10)", () => {
+    const [first] = ganttBoardDocument.items;
+    const second = { ...first, id: "schedule-2", rev: 2 };
+    const doc = {
+      ...gantt,
+      items: [{ ...first, rev: 2 }, second],
+    } as unknown as ViewDocument;
+    const { values, board } = setUp("submitted", doc);
+    // The first question's work was made on revision 1, kept over the agent's revision 2.
+    board.edit(first.id, 1, (work) => ({
+      ...work,
+      other: "Earlier",
+      held: { act: "answer", order: 0 },
+    }));
+    board.edit(second.id, 2, (work) => ({
+      ...work,
+      other: "Later",
+      held: { act: "answer", order: 1 },
+    }));
+    const acts = submitActsOf(heldWorkOf(doc, board.get()), values.record(), AT, reported);
+    expect(acts).toEqual([
+      {
+        type: "answer",
+        itemId: first.id,
+        rev: 1,
+        other: "Earlier",
+        when: WHEN,
+      },
+      { type: "answer", itemId: second.id, rev: 2, other: "Later", derived: finish, when: WHEN },
+    ]);
+    expect(Object.hasOwn(acts[0] ?? {}, "derived")).toBe(false);
+  });
+
   test("a held answer with no widget value carries none", () => {
     const { values, board } = setUp();
     values.set("region", ["EU"]);

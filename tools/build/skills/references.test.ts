@@ -60,6 +60,10 @@ describe("renderWidgetReference", () => {
     expect(answer).not.toContain("`results`");
   });
 
+  test("says its derived values are none in an answer naming an earlier revision", () => {
+    expect(text).toContain("none in an answer naming an earlier revision (see answers)");
+  });
+
   test("holds the example item in a `json item` block, and returns it", () => {
     expect(taggedBlocks(text)).toEqual([{ kind: "item", value: tree.example.item }]);
     expect(examples).toEqual([{ kind: "item", value: tree.example.item }]);

@@ -168,6 +168,24 @@ describe("each registered widget type's chunk", () => {
   });
 });
 
+// The shell makes an item read-only on a revision the board cannot show exactly when its type
+// registers `shape` (keep-mine-shown-revision, design decision 1), which equals "the answer's
+// `changes` are computed from this item's value" only while no chunk registers one without `edits`.
+describe("a chunk's fact `shape`", () => {
+  test("is registered exactly when the type's entry gives `edits`", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      expect(
+        facts[at]?.shape !== undefined,
+        `${entry.type}: shape registered exactly with edits`,
+      ).toBe(entry.edits !== undefined);
+    }
+    // The check is not vacuous: some types edit, others do not.
+    expect(WIDGET_TYPES.some(({ edits }) => edits !== undefined)).toBe(true);
+    expect(WIDGET_TYPES.some(({ edits }) => edits === undefined)).toBe(true);
+  });
+});
+
 describe("a chunk's fact `fits`", () => {
   test("is registered exactly when the type's entry gives a result, and agrees with the contract's check", async () => {
     const facts = await registered();

@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # PRD: AskBoard
@@ -276,7 +276,7 @@ AskBoard computes every derived value on the board and updates it as the user ed
 - When the user changes an estimate in a Tree or a Table, every total and roll-up that depends on it updates on the board within the same interaction, with no request to the agent.
 - When the user moves a task in a Gantt chart, the dates of dependent tasks and the critical path update on the board.
 - A Gantt plan shows the agent's original plan as a baseline under the user's edited plan, with no paid component feature.
-- The answer carries the derived values as they stood when the user answered, so the agent never recomputes them.
+- The answer carries the derived values as they stood when the user answered, so the agent never recomputes them. An answer to an earlier revision of its question, which the user kept over the agent's change (FR-6), carries none: the board computes them on the current revision only.
 
 ### 4.4 Primitives and molecules
 

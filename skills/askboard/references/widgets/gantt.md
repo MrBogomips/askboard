@@ -25,7 +25,7 @@ Item type `gantt`: props are a Gantt's props {start, tasks, workPackages?}.
 ## In the answer
 
 - Edits: `changes` lists what the user changed, one operation for each, naming an element by its ID in `target` (`<item>.<element>` or `<item>.<element>.<field>`). Only what changed is sent; `fetch` returns the whole item.
-- Derived: `derived` carries the plan's finish and criticalPath, by address; never compute them.
+- Derived: `derived` carries the plan's finish and criticalPath, by address, none in an answer naming an earlier revision (see answers); never compute them.
 
 ## Example
 

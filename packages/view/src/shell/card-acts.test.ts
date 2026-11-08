@@ -20,6 +20,7 @@ import {
   explain,
   fillFrom,
   keepMine,
+  namesEarlierRevision,
   nextHeldOrder,
   postpone,
   pressAnswer,
@@ -576,6 +577,48 @@ describe("the derived values an answer carries (gantt-widget design decision 10;
     draft.set("database", ["SQLite"]);
     answer(database, context);
     expect(Object.hasOwn(sent[0] ?? {}, "derived")).toBe(false);
+  });
+
+  // The board computes derived values on the current revision only (keep-mine-shown-revision,
+  // design decision 7; NFR-10): an answer naming an earlier one carries none.
+  describe("an answer naming an earlier revision than the question's current one", () => {
+    const current = { ...both, rev: 2 } as ViewQuestion;
+
+    test("the predicate holds for work on an earlier revision only", () => {
+      const { board } = setUp();
+      board.edit(current.id, 1, (work) => work);
+      expect(namesEarlierRevision(current, board.work(current.id))).toBe(true);
+      expect(namesEarlierRevision(current, undefined)).toBe(false);
+      expect(namesEarlierRevision(both, board.work(current.id))).toBe(false);
+    });
+
+    test("Answer names the kept revision and sends no derived value", () => {
+      const { sent, draft, board, derived, context } = setUp();
+      derived.report("release", finish);
+      derived.report("sketch", { "sketch.area": 16 });
+      draft.set("sketch", { size: 4 });
+      board.edit(current.id, 1, (work) => work);
+      answer(current, context);
+      expect(sent).toEqual([
+        {
+          type: "answer",
+          itemId: "schedule-review",
+          rev: 1,
+          values: { sketch: { size: 4 } },
+          when: expect.stringMatching(/Z$/),
+        },
+      ]);
+      expect(Object.hasOwn(sent[0] ?? {}, "derived")).toBe(false);
+    });
+
+    test("with the work on the current revision the answer carries the reported values as before", () => {
+      const { sent, draft, board, derived, context } = setUp();
+      derived.report("release", finish);
+      draft.set("sketch", { size: 4 });
+      board.edit(current.id, 2, (work) => work);
+      answer(current, context);
+      expect(sent[0]).toMatchObject({ rev: 2, derived: finish });
+    });
   });
 });
 
