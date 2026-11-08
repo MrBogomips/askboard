@@ -1096,3 +1096,7 @@ export {
   MESSAGE_TOO_BIG_CLOSE,
   utf8Length,
 } from "./message-size.ts";
+
+// The presentation a Snapshot's record carries (snapshot-toolbar, design decision 2).
+
+export type { SnapshotPresentation } from "./schemas/snapshot-data/index.ts";

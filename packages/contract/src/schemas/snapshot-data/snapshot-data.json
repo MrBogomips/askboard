@@ -104,6 +104,20 @@
         },
         "unsentWork": {
           "const": true
+        },
+        "presentation": {
+          "description": "Added since snapshot-toolbar: the presentation a board would open with when the Snapshot was taken, the user file's presentation keys under the project's (AD-14). Both keys, with the values the configuration schema allows for them (a contract test keeps the enums equal), and nothing else: a Snapshot opens in this theme and density.",
+          "type": "object",
+          "properties": {
+            "theme": {
+              "enum": ["system", "light", "dark"]
+            },
+            "density": {
+              "enum": ["compact", "comfortable"]
+            }
+          },
+          "required": ["theme", "density"],
+          "additionalProperties": false
         }
       },
       "required": ["takenAt", "takenBy"],
