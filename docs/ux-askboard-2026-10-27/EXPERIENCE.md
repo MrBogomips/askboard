@@ -710,10 +710,10 @@ An opened Snapshot: [mock](mockups/key-snapshot-view.html), Marco's UJ-3 board i
 - **Agent-readable data.** The board's data is embedded in the file, and an agent can read it without rendering the page (FR-27). That is how an agent builds an offer, a deck or a document from a Snapshot's data and visuals, as in UJ-2 and UJ-3.
 - **Snapshot view.** It opens with no network and with AskBoard not running (FR-27). It is interactive for viewing (expand branches, zoom the Gantt, switch views) and never answerable (L83, F-69):
   - a line at the top says what it is, when it was taken and by whom (L207);
-  - the answer, delivery and settings controls are hidden, and so are the bottom action bar, the density switch and "Ask a follow-up"; the view controls and the delivery receipt stay (L211);
+  - the answer, delivery and settings controls are hidden, and so are the bottom action bar and "Ask a follow-up"; the view controls and the delivery receipt stay (L211);
   - inputs, switches, decision buttons and the open prompt show read-only, with the look of a reopened question's previous answer; of the decision buttons, only the chosen one shows, highlighted (L208);
   - the header shows the ask state as captured, but not the agent state, which would be stale once the file is saved (L211);
-  - it opens in the viewer's system theme, with a theme toggle that saves nothing, and its diagrams carry a light and a dark render (F-14);
+  - it opens in the theme and density the board had when it was taken, System following the viewer's system theme, and a Snapshot from before that record opens in the viewer's system theme and compact; its one Theme control and its density switch are the quick toggles, which change the page and save nothing, and its diagrams carry a light and a dark render (F-14);
   - a project-file reference shows its path and anchor as text, marked "not available in a Snapshot", and a web reference opens only on an explicit click.
 - **Security.** The file holds no board token (L84, AD-8).
 - **Where.** In the Snapshot folder, set in the configuration. AskBoard names the file, never overwrites one, and the folder is ignored by git by default (FR-27, L40, AD-14, AD-15).
@@ -776,7 +776,7 @@ AD-8 and AD-9 split the board between the board page, which holds the token and 
 | Leave-page prompt | The board page: the view has no `allow-modals` and cannot raise it | The board page arms it from the draft it mirrors and from the postponed questions | AD-8, L57, L172 |
 | Settings panel | The board page, as a non-modal side sheet on the right over the view's context column, like the reading panel | Its values come from the session process, and its writes go through the board page to `board-host` (pending ACR-02); "Settings" in the view's context header opens it with a message | AD-8, AD-14, L204 |
 | Invalid-link page | A page `board-host` serves, with no view and no board content | — | AD-21 |
-| Theme | The board page sends the theme to the view, which sets the `.dark` class (Dark theme). With no parent host, as in a Snapshot, the view follows `prefers-color-scheme` | The theme preference | AD-9, F-14 |
+| Theme | The board page sends the theme to the view, which sets the `.dark` class (Dark theme). With no parent host, as in a Snapshot, the view takes the theme the Snapshot recorded, System following `prefers-color-scheme`, and its Theme toggle switches the page and saves nothing | The theme preference | AD-9, F-14 |
 
 ### Atoms
 
@@ -875,7 +875,7 @@ Ranking, Kanban and Tree use Pragmatic drag and drop 4.0.0. It has no keyboard d
 
 ### Dark theme
 
-No theme library. The DESIGN.md tokens, light and `-dark`, are CSS variables, and a `.dark` class on the view root switches them. Tailwind's `dark:` variant is set to follow that class (`@custom-variant dark (&:where(.dark, .dark *))`), since by default it follows `prefers-color-scheme` (renderer spike). The class follows the theme preference, System, Light or Dark, sent from the board page to the view; with no parent host, as in a Snapshot, the view follows `prefers-color-scheme` (Board page or view). next-themes is excluded: it uses browser storage, which throws in the opaque view (S-5). Canvas components such as the Chart rebuild their theme from the resolved variables on a switch. Diagrams re-render with the dark diagram theme: the `{components.diagram}` tokens resolved in dark, mapped to Mermaid `themeVariables` and PlantUML skinparams (L160, TC §2.2, F-06). No component the renderer spike ran reads browser storage or starts a worker (S-5).
+No theme library. The DESIGN.md tokens, light and `-dark`, are CSS variables, and a `.dark` class on the view root switches them. Tailwind's `dark:` variant is set to follow that class (`@custom-variant dark (&:where(.dark, .dark *))`), since by default it follows `prefers-color-scheme` (renderer spike). The class follows the theme preference, System, Light or Dark, sent from the board page to the view; with no parent host, as in a Snapshot, the view follows the theme the Snapshot recorded, System following `prefers-color-scheme` (Board page or view). next-themes is excluded: it uses browser storage, which throws in the opaque view (S-5). Canvas components such as the Chart rebuild their theme from the resolved variables on a switch. Diagrams re-render with the dark diagram theme: the `{components.diagram}` tokens resolved in dark, mapped to Mermaid `themeVariables` and PlantUML skinparams (L160, TC §2.2, F-06). No component the renderer spike ran reads browser storage or starts a worker (S-5).
 
 ## Depends on pending change requests
 
