@@ -97,6 +97,12 @@ import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
 const NO_COLUMNS: readonly TreeColumn[] = [];
 
+/** The question's key: its edit, its node and, for a drop, its target, so a new drop asks anew. */
+const groupKey = (edit: GroupEdit): string =>
+  edit.kind === "drop" && edit.drop.kind !== "refused"
+    ? `group:drop:${edit.nodeId}:${edit.drop.targetId}`
+    : `group:${edit.kind}:${edit.nodeId}`;
+
 /** A delete whose question is asked: its node, the part it was asked from, and its refusal. */
 type AskedDelete = {
   readonly kind: "delete";
@@ -369,7 +375,12 @@ export const TreeWidget = ({
   // drop and one where the node already is change nothing.
   const dropRow = (nodeId: string, targetId: string, fraction: number, confirmed = false): void => {
     const moved = afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId);
-    if (disabled || moved.value === value) return;
+    if (disabled || moved.value === value) {
+      // A confirmed drop that is no longer possible changes nothing, and the focus, which was on
+      // "Continue", goes back to the grid, never to the page body.
+      if (confirmed) focus.moveFocusTo("grid");
+      return;
+    }
     const drop = dropOn(value, nodeId, targetId, fraction);
     if (!confirmed && askGroup({ kind: "drop", nodeId, drop }, "grid")) {
       // Nothing moves: the dragged row stays the grid's Tab stop, where "Cancel" returns the focus.
@@ -442,8 +453,10 @@ export const TreeWidget = ({
   // "Continue": the edit the unasked path makes, on the value as it is, for the node it was asked of.
   const confirmGroup = ({ edit, from }: AskedGroup): void => {
     setAsked(undefined);
-    if (edit.kind !== "drop") perform(edit.kind, edit.nodeId, from);
-    else if (edit.drop.kind !== "refused") dropRow(edit.nodeId, edit.drop.targetId, INTO, true);
+    if (edit.kind !== "drop") {
+      if (disabled || !canAct(edit.kind, value, edit.nodeId)) focus.moveFocusTo(from);
+      perform(edit.kind, edit.nodeId, from);
+    } else if (edit.drop.kind !== "refused") dropRow(edit.nodeId, edit.drop.targetId, INTO, true);
   };
   const askingOf = (open: Asked): Asking | undefined => {
     if (open.kind === "group") {
@@ -452,7 +465,7 @@ export const TreeWidget = ({
         ? undefined
         : {
             kind: "group",
-            key: `group:${open.edit.kind}:${open.edit.nodeId}`,
+            key: groupKey(open.edit),
             question,
             onConfirm: () => confirmGroup(open),
             onCancel: () => cancelAsked(open.from),

@@ -55,6 +55,55 @@ const renamed = (nodes: readonly TreeNode[], id: string, label: string): TreeNod
 export const uxNamedDocument = (label: string): ViewDocument =>
   wbsDocumentWith({ ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "ux", label) });
 
+const NEW_CHILD: TreeNode = {
+  id: "gateway",
+  label: "Gateway",
+  optimistic: 1,
+  mostLikely: 1,
+  pessimistic: 1,
+};
+
+const withChild = (nodes: readonly TreeNode[], id: string, child: TreeNode): TreeNode[] =>
+  nodes.map((node) => ({
+    ...node,
+    ...(node.id === id ? { children: [...(node.children ?? []), child] } : {}),
+    ...(node.children !== undefined && node.id !== id
+      ? { children: withChild(node.children, id, child) }
+      : {}),
+  }));
+
+const without = (nodes: readonly TreeNode[], id: string): TreeNode[] =>
+  nodes
+    .filter((node) => node.id !== id)
+    .map((node) =>
+      node.children === undefined ? node : { ...node, children: without(node.children, id) },
+    );
+
+const find = (nodes: readonly TreeNode[], id: string): TreeNode | undefined => {
+  for (const node of nodes) {
+    const hit = node.id === id ? node : find(node.children ?? [], id);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+};
+
+/** The UJ-2 work breakdown after the agent gave the portal a child. */
+export const portalWithChildDocument = (): ViewDocument =>
+  wbsDocumentWith({
+    ...wbsTree.props,
+    nodes: withChild(wbsTree.props.nodes, "portal", NEW_CHILD),
+  });
+
+/** The UJ-2 work breakdown after the agent moved the portal under billing. */
+export const portalUnderBillingDocument = (): ViewDocument => {
+  const portal = find(wbsTree.props.nodes, "portal");
+  if (portal === undefined) throw new Error("the fixture has no portal");
+  return wbsDocumentWith({
+    ...wbsTree.props,
+    nodes: withChild(without(wbsTree.props.nodes, "portal"), "billing", portal),
+  });
+};
+
 /** The header row's column names (provisional labels: EXPERIENCE, Copy, WBS with PERT). */
 export const WBS_HEADERS = [
   "Work package",

@@ -21,6 +21,8 @@ import {
   crowdedDocument,
   draftValues,
   planWith,
+  portalUnderBillingDocument,
+  portalWithChildDocument,
   totalRow,
   wbsPlan,
   wbsTree,
@@ -58,7 +60,7 @@ import {
   shownIds,
   typeIn,
 } from "./harness/tree-steps.ts";
-import { readViewBuild } from "./harness/view-build.ts";
+import { openStateOf, readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
@@ -398,6 +400,60 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectUnchanged(run);
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    /** Whether the focus is inside the treegrid or its toolbar, never on the page body. */
+    const focusInTree = async (run: WidgetHostRun) =>
+      (await run.board.viewFrame()).evaluate(
+        () => document.activeElement !== null && document.activeElement !== document.body,
+      );
+
+    test(
+      "the agent giving the portal a child while the question is open closes it with nothing applied, and the focus stays in the Tree",
+      async () => {
+        const { run, tree } = await opened();
+        await dropBillingIntoPortal(run, tree);
+        const next = portalWithChildDocument();
+        await run.update({ type: "state", state: openStateOf(next), document: next });
+        await groupQuestion(run.board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await shownIds(tree)).toContain("gateway");
+        expect((await placeOf(tree, "billing"))[0]).toBe("2");
+        expect(draftValues(run)).toEqual({});
+        expect(await focusInTree(run)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the agent moving the portal under billing, then Continue, changes nothing, closes the question and keeps the focus in the Tree",
+      async () => {
+        const { run, tree } = await opened();
+        await dropBillingIntoPortal(run, tree);
+        const next = portalUnderBillingDocument();
+        await run.update({ type: "state", state: openStateOf(next), document: next });
+        const question = groupQuestion(run.board);
+        await question.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const before = await allPlaces(tree);
+        await question.getByRole("button", { name: "Continue", exact: true }).click({
+          timeout: STEP_TIMEOUT_MS,
+        });
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await allPlaces(tree)).toEqual(before);
+        expect(draftValues(run)).toEqual({});
+        expect(await focusInTree(run)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a second drop of billing onto reporting while the question is open asks anew, with the focus on Cancel",
+      async () => {
+        const { run, tree } = await opened();
+        await dropBillingIntoPortal(run, tree);
+        await dragDrop(run.board, tree, "billing", "reporting", ZONE.into);
+        await askedGroup(run, REPORTING_GROUP);
       },
       TEST_TIMEOUT_MS,
     );
