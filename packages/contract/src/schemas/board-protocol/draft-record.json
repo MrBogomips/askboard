@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:draft-record",
   "title": "Draft record",
-  "description": "The board's unsent work (AD-20), held apart from the log and never sent to the agent: the delivery mode, the question in view, and per question, by its item ID, the revision the work was made on, the values of its items by item ID as the view holds them, and, since widget-registry, the results of its widget items by item ID, since atoms the entries of its input atoms by item ID, the \"Other…\" text, the option notes, the open prompt's text (note), the follow-up composer's text, and any act held for Submit (an answer, a decline, a postpone, a note alone, or the undo of a sent postpone or decline as reopen) with its order and whether \"Select recommended\" made it. Its keys are checked as IDs here, and as own properties naming the ask's questions where the board document is known (draftRecordProblems). A record longer than the contract's draft limit, as JSON, is refused.",
+  "description": "The board's unsent work (AD-20), held apart from the log and never sent to the agent: the delivery mode, the question in view, and per question, by its item ID, the revision the work was made on, the values of its items by item ID as the view holds them, and, since widget-registry, the results of its widget items by item ID, since atoms the entries of its input atoms by item ID, since table-widget the entries of a Table's cells by item ID and cell, the \"Other…\" text, the option notes, the open prompt's text (note), the follow-up composer's text, and any act held for Submit (an answer, a decline, a postpone, a note alone, or the undo of a sent postpone or decline as reopen) with its order and whether \"Select recommended\" made it. Its keys are checked as IDs here, and as own properties naming the ask's questions where the board document is known (draftRecordProblems). A record longer than the contract's draft limit, as JSON, is refused.",
   "type": "object",
   "properties": {
     "delivery": {
@@ -55,6 +55,26 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          }
+        },
+        "cellEntries": {
+          "description": "Since table-widget: the text each cell of a Table of the question holds that gives no value (unreadable, or outside its column's bounds), by item ID and then by cell, `row.field` (a row ID, a dot and a column's field), 1 to 200 characters each and at most 2,000 cells per item. Unsent work like the entries; a cell entry keeps the question from being answered until the user corrects or clears it, and is never part of an answer.",
+          "type": "object",
+          "propertyNames": {
+            "$ref": "urn:askboard:input:id"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.[a-z][A-Za-z0-9]{0,63}$"
+            },
+            "maxProperties": 2000,
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
           }
         },
         "other": {

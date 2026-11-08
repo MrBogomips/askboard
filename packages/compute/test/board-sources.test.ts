@@ -1,5 +1,5 @@
 // The graph sources by widget type (widget-registry, task 1.4; compute spec, "Graph sources by
-// widget type"): a table a computing widget extends, empty today, which maps a board item of a
+// widget type"): a table a computing widget extends (the Table's entry since table-widget), which maps a board item of a
 // type other than the Tree and the Gantt; an item whose type has no source adds nothing.
 
 import { describe, expect, test } from "bun:test";
@@ -25,8 +25,8 @@ const PROBE_SOURCE: BoardSource = (item) => [
 ];
 
 describe("BOARD_SOURCES", () => {
-  test("is empty today, frozen, and holds no inherited name", () => {
-    expect(Object.keys(BOARD_SOURCES)).toEqual([]);
+  test("holds the Table's source alone today (table-widget), frozen, and no inherited name", () => {
+    expect(Object.keys(BOARD_SOURCES)).toEqual(["table"]);
     expect(Object.isFrozen(BOARD_SOURCES)).toBe(true);
   });
 
@@ -34,7 +34,7 @@ describe("BOARD_SOURCES", () => {
     const computing = PROBE_TYPES.filter(({ derived }) => derived !== undefined).map(
       ({ type }) => type,
     );
-    expect(computing).toEqual(["tree", "gantt", "probe"]);
+    expect(computing).toEqual(["tree", "gantt", "table", "probe"]);
     // The shipped registry: each computing type is a Tree, a Gantt or has a source.
     for (const { type, derived } of WIDGET_TYPES) {
       if (derived !== undefined) {

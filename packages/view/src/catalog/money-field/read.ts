@@ -1,18 +1,18 @@
 // A MoneyField's amount read in the ask's locale for a currency (atoms, design decisions 2, 3 and 7;
 // view-and-widgets spec: Number, amount and date entry in the fields, An entry blocks Answer): the
-// contract's amount parser reads it as text, never through a float, `compareDecimal` holds it to
-// `min` and `max`, and the contract's check against the item's props has the last word. A readable
+// contract's amount parser reads it as text, never through a float, `moneyFieldBound` names the
+// bound it breaks, and the contract's check against the item's props has the last word. A readable
 // amount before a currency is picked is an entry with "Pick a currency."; an amount in a currency is
 // the item's result; an empty text is none. Plain functions, tested without a DOM.
 
 import {
   amountEcho,
-  compareDecimal,
   ENTRY_MAX_CHARS,
   formatMoney,
   type Locale,
   type MoneyFieldProps,
   type MoneyFieldResult,
+  moneyFieldBound,
   moneyFieldResultProblems,
   parseAmount,
   parseNumber,
@@ -52,15 +52,16 @@ export const readMoney = (
   if (parsed.kind === "refused") return entry(parsed.reason);
   const { amount } = parsed;
   const echo = amountEcho(amount, currency, locale);
-  if (props.min !== undefined && compareDecimal(amount, props.min) < 0) {
+  const bound = moneyFieldBound(amount, props);
+  if (bound === "min") {
     return entry(
-      say(language, "field.atLeast", { min: formatMoney(props.min, currency, locale) }),
+      say(language, "field.atLeast", { min: formatMoney(props.min ?? amount, currency, locale) }),
       echo,
     );
   }
-  if (props.max !== undefined && compareDecimal(amount, props.max) > 0) {
+  if (bound === "max") {
     return entry(
-      say(language, "field.atMost", { max: formatMoney(props.max, currency, locale) }),
+      say(language, "field.atMost", { max: formatMoney(props.max ?? amount, currency, locale) }),
       echo,
     );
   }

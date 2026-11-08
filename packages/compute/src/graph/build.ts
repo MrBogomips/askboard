@@ -4,8 +4,9 @@
 // then currencies (design decision 3). A node that fails keeps its first error, reads as it, and
 // is a warning naming it; nodes that read it inherit the error without a warning.
 
-import { checkFormula, isProblem } from "../formula/check.ts";
-import type { Expression } from "../formula/expression.ts";
+import { type CheckedFormula, checkFormula, isProblem } from "../formula/check.ts";
+import type { Expression, FormulaProblem } from "../formula/expression.ts";
+import type { ReferenceSyntax } from "../formula/lexer.ts";
 import { convertInput } from "../inputs.ts";
 import { orderNodes } from "../order.ts";
 import type { GraphSource } from "../source.ts";
@@ -66,8 +67,27 @@ export const compiledOf = (graph: Graph): CompiledGraph => {
   return compiled;
 };
 
-const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft => {
-  const checked = checkFormula(text);
+/** The detail of a column formula that reads a list (table-widget, design decision 4). */
+const COLUMN_SINGLE_READS = "a column formula reads single fields";
+
+/** Whether a reference reads a list of nodes: a range, or a wildcard. */
+const readsMany = (reference: ReferenceSyntax): boolean =>
+  reference.form === "range" || (reference.form === "field" && reference.levels > 0);
+
+/** The formula checks of one build, by text: a text held by many nodes is parsed once. */
+type Checks = Map<string, CheckedFormula | FormulaProblem>;
+
+const compileFormula = (
+  index: NodeIndex,
+  entry: NodeEntry,
+  text: string,
+  checks: Checks,
+): Draft => {
+  let checked = checks.get(text);
+  if (checked === undefined) {
+    checked = checkFormula(text);
+    checks.set(text, checked);
+  }
   if (isProblem(checked)) {
     return {
       entry,
@@ -75,9 +95,17 @@ const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft
       reads: [],
     };
   }
+  if (entry.column !== undefined && checked.references.some(readsMany)) {
+    const error: FormulaError = {
+      error: "over-limit",
+      address: entry.address,
+      detail: COLUMN_SINGLE_READS,
+    };
+    return { entry, error, reads: [] };
+  }
   const references: ResolvedReference[] = [];
   for (const syntax of checked.references) {
-    const resolution = resolveReference(index, syntax);
+    const resolution = resolveReference(index, syntax, entry.address);
     if ("missing" in resolution) {
       const error: FormulaError = {
         error: "missing-reference",
@@ -99,8 +127,8 @@ const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft
   return { entry, formula: { expression: checked.expression, references }, reads: [...reads] };
 };
 
-const draftNode = (index: NodeIndex, entry: NodeEntry): Draft => {
-  if (entry.formula !== undefined) return compileFormula(index, entry, entry.formula);
+const draftNode = (index: NodeIndex, entry: NodeEntry, checks: Checks): Draft => {
+  if (entry.formula !== undefined) return compileFormula(index, entry, entry.formula, checks);
   const converted = convertInput(entry.type, entry.value);
   if ("reason" in converted) {
     return {
@@ -158,11 +186,40 @@ const compiledNode = ({ entry, formula, error }: Draft): CompiledNode =>
     ...(error === undefined ? {} : { error }),
   });
 
+/**
+ * The problems found at a column formula's nodes that share their kind and detail are one warning
+ * addressed `item.*.field` (design decision 4); the nodes keep their own errors. Warnings of any
+ * other node pass unchanged, and the order is the first occurrence's.
+ */
+const groupColumnWarnings = (
+  warnings: readonly FormulaError[],
+  entries: readonly NodeEntry[],
+): readonly FormulaError[] => {
+  const columns = new Map<Address, string>();
+  for (const { address, column } of entries) if (column !== undefined) columns.set(address, column);
+  const seen = new Set<string>();
+  const grouped: FormulaError[] = [];
+  for (const warning of warnings) {
+    const column = columns.get(warning.address);
+    if (column === undefined) {
+      grouped.push(warning);
+      continue;
+    }
+    const address = `${warning.address.slice(0, warning.address.indexOf("."))}.*.${column}`;
+    const key = JSON.stringify([address, warning.error, warning.detail ?? null]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    grouped.push({ ...warning, address });
+  }
+  return grouped;
+};
+
 export const buildGraph = (source: GraphSource): Graph => {
   const expanded = expandItems(checkItems(source));
   const index = indexSource(expanded.items);
   const warnings: FormulaError[] = [...expanded.warnings];
-  const drafts = index.entries.map((entry) => draftNode(index, entry));
+  const checks: Checks = new Map();
+  const drafts = index.entries.map((entry) => draftNode(index, entry, checks));
   for (const draft of drafts) if (draft.error !== undefined) warnings.push(draft.error);
   const { order, onCycle } = orderNodes(drafts.map((draft) => draft.reads));
   drafts.forEach((draft, i) => {
@@ -186,7 +243,7 @@ export const buildGraph = (source: GraphSource): Graph => {
   propagate(drafts, order, warnings);
   const graph: Graph = Object.freeze({
     nodes: Object.freeze(drafts.map((draft, i) => publicNode(draft, currencies[i]))),
-    warnings: Object.freeze(warnings),
+    warnings: Object.freeze(groupColumnWarnings(warnings, index.entries)),
   });
   COMPILED.set(graph, Object.freeze({ nodes: Object.freeze(drafts.map(compiledNode)) }));
   return graph;

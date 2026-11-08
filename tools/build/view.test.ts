@@ -110,7 +110,7 @@ describe("bun run build:view (design decision 7)", () => {
       markdown: "library",
       "money-field": "component",
       "number-field": "component",
-      // The PickField: Radix's Radio Group and Checkbox, in the radix chunk (form-widget, design decision 4).
+      // The PickField: Radix's Checkbox, in the radix chunk (form-widget, design decision 4).
       "pick-field": "component",
       radix: "library",
       ranking: "component",
@@ -119,6 +119,7 @@ describe("bun run build:view (design decision 7)", () => {
       scale: "component",
       shell: "shell",
       stack: "component",
+      table: "component",
       tabs: "component",
       // The Text atom: markdown-it and DOMPurify in a chunk of its own (atoms, design decision 4).
       text: "component",
@@ -246,7 +247,9 @@ describe("bun run build:view (design decision 7)", () => {
       "scheduler",
     ]);
     expect(packages(chunks.radix?.licences ?? [])).toContain("radix-ui");
-    expect(packages(chunks.radix?.licences ?? [])).toContain("@radix-ui/react-radio-group");
+    expect(packages(chunks.radix?.licences ?? [])).toContain("@radix-ui/react-checkbox");
+    // Radio Group left the chunk with choice-documented-activation, and its notice with it.
+    expect(packages(chunks.radix?.licences ?? [])).not.toContain("@radix-ui/react-radio-group");
     expect(packages(chunks["ext-apps"]?.licences ?? [])).toEqual(
       expect.arrayContaining([
         "@modelcontextprotocol/client",
@@ -386,6 +389,7 @@ describe("bun run build:view (design decision 7)", () => {
       "scale",
       "shell",
       "stack",
+      "table",
       "tabs",
       "text",
       "text-field",

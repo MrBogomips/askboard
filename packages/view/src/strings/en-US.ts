@@ -407,6 +407,41 @@ export const EN_US = {
   "pick.clear": "Clear",
   "pick.filter": "Filter the options",
   "pick.noMatch": "No option matches.",
+
+  "table.toolbar": "Table tools",
+  "table.addRow": "Add row",
+  "table.deleteRow": "Delete row",
+  "table.noChanges": "No changes",
+  "table.changes": { one: "Your changes: {count}", other: "Your changes: {count}" },
+  "table.total": "Total",
+  "table.computed": "Computed",
+  "table.on": "On",
+  "table.off": "Off",
+  "table.notSet": "Not set",
+  "table.cellName": "{column}, row {row}",
+  "table.maxRows": "A table holds at most {max} rows.",
+  "table.entry.textTooLong": "A text cell holds at most {max} characters.",
+  "table.noValue": "—",
+  "table.problem.syntax": "{column}: the formula cannot be read.",
+  "table.problem.overLimit":
+    "{column}: the formula is too long or reads more than one field at a time.",
+  "table.problem.notWhitelisted": "{column}: the formula uses a function AskBoard does not offer.",
+  "table.problem.missingReference":
+    "{column}: the formula reads a field or an item that does not exist.",
+  "table.problem.cycle": "{column}: the formula depends on itself.",
+  "table.problem.mixedCurrencies": "{column}: the formula mixes currencies.",
+  "table.problem.value": "{column}: a value of the wrong kind.",
+  "table.problem.divisionByZero": "{column}: division by zero.",
+  "change.widgetTable": "Table",
+
+  "send.tooLarge":
+    "Not sent: this answer is too large ({size} MB, at most {max} MB). Shorten your work on this question, then answer again.",
+  "send.tooLargeSubmit":
+    "Not sent: Submit is too large to send at once ({size} MB, at most {max} MB). Switch to Immediate and answer the questions one at a time, or shorten your work.",
+  "send.tooLargeClosed":
+    "Not sent: the board refused this answer as too large. Shorten your work on this question, then answer again.",
+  "draft.tooLarge":
+    "Too large to keep across a reload: answer this question before you reload, or shorten your work.",
   // The shared annotation pieces (document-review, task 5.4), to review.
   "annotations.pin": "Pin {number}",
   "annotations.comment": "Your comment",

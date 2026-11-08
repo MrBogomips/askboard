@@ -55,6 +55,7 @@ import {
   selectRecommendedOption,
   sendFollowUp,
 } from "./card-acts.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
@@ -82,6 +83,7 @@ import {
   press,
   settleConfirmation,
 } from "./revision-confirm.ts";
+import type { SizeNotices } from "./size-notices.ts";
 import type { Store } from "./store.ts";
 import {
   BUTTON_LINK,
@@ -111,6 +113,8 @@ export type CardContext = RenderContext & {
   readonly threads: ThreadRequests;
   /** Requests for a card to ask for its reason, which Submit makes (design decision 6). */
   readonly reasons: ReasonRequests;
+  /** The lines for a message too large: an answer or a Submit not sent, a draft left out. */
+  readonly notices?: SizeNotices;
   /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
   readonly opened?: OpenedSnapshot | undefined;
 };
@@ -140,7 +144,8 @@ const focusHeadingOf = (questionId: string) => () =>
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
 const useCard = ({ question, state, lock, context }: CardProps) => {
-  const { tracker, draft, results, entries, acts, board, kept, revisions } = context;
+  const { tracker, draft, results, entries, cellEntries, acts, board, kept, revisions, notices } =
+    context;
   const language = useLanguage();
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const values = useSyncExternalStore(draft.subscribe, draft.record);
@@ -148,10 +153,16 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     results?.subscribe ?? NO_SUBSCRIPTION,
     () => results?.record() ?? NO_RECORD,
   );
-  const heldEntries = useSyncExternalStore(
+  const fieldEntries = useSyncExternalStore(
     entries?.subscribe ?? NO_SUBSCRIPTION,
     () => entries?.record() ?? NO_RECORD,
   );
+  const heldCells = useSyncExternalStore(
+    cellEntries?.subscribe ?? NO_SUBSCRIPTION,
+    () => cellEntries?.record() ?? NO_RECORD,
+  );
+  // Every entry the card holds, the fields' and the Tables' cells', through the one function.
+  const heldEntries = entriesWithCells(fieldEntries, heldCells);
   const work = useSyncExternalStore(board.subscribe, () => board.work(question.id));
   const keptChoices = useSyncExternalStore(kept.subscribe, kept.get);
   const flight = useSyncExternalStore(acts.subscribe, () => acts.of(question.id, CARD_ACTS));
@@ -161,6 +172,13 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   );
   const placement = useSyncExternalStore(board.subscribe, () =>
     board.effectivePlacement(question.id),
+  );
+  const sizeNotice = useSyncExternalStore(notices?.subscribe ?? NO_SUBSCRIPTION, () =>
+    notices?.noticeOf(question.id),
+  );
+  const draftLeftOut = useSyncExternalStore(
+    notices?.subscribe ?? NO_SUBSCRIPTION,
+    () => notices?.leftOut(question.id) ?? false,
   );
   const status = statusOf(state, question.id);
   const pending = changePending(question, work, keptChoices);
@@ -210,6 +228,8 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     followUp,
     choosing,
     placement,
+    sizeNotice,
+    draftLeftOut,
   };
 };
 
@@ -347,6 +367,8 @@ export const QuestionCard = (props: CardProps) => {
     followUp,
     choosing,
     placement,
+    sizeNotice,
+    draftLeftOut,
   } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
@@ -420,7 +442,12 @@ export const QuestionCard = (props: CardProps) => {
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
     const held = context.results?.record();
-    if (hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held)) return;
+    const typed = entriesWithCells(context.entries?.record(), context.cellEntries?.record());
+    if (
+      hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held, typed)
+    ) {
+      return;
+    }
     seeding.current = true;
     queueMicrotask(() => {
       seeding.current = false;
@@ -502,7 +529,7 @@ export const QuestionCard = (props: CardProps) => {
           stake={changesLabel(changeCountOf(shown, values, work, results), language)}
           busy={!usable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
-          onKeep={() => keepMine(question, acting, shown)}
+          onKeep={() => keepMine(question, acting, shown, readOnlyItems)}
         />
       ) : null}
       {reopened?.previous === undefined ? null : (
@@ -557,6 +584,8 @@ export const QuestionCard = (props: CardProps) => {
             card={card}
             actions={actions}
             answerHint={hint}
+            sizeNotice={sizeNotice}
+            draftLeftOut={draftLeftOut}
             locked={lock !== undefined}
             single={single}
             submitted={!single && delivery === "submitted"}

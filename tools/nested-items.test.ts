@@ -258,11 +258,21 @@ const VIEW_READS: readonly Read[] = [
     file: "packages/view/src/shell/board-draft.ts",
     text: "nestedItemById(question.props.items",
     reason: HANDED,
-    count: 2,
+    count: 3,
   },
   {
     file: "packages/view/src/shell/board-draft.ts",
     text: "nestedItemById(shown.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/card-acts.ts",
+    text: "nestedItemById(shown.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/cell-entries.ts",
+    text: "valueItemsOf(question.props.items)",
     reason: HANDED,
   },
   {
@@ -285,6 +295,7 @@ const VIEW_READS: readonly Read[] = [
     file: "packages/view/src/shell/entries.ts",
     text: "valueItemsOf(question.props.items)",
     reason: HANDED,
+    count: 2,
   },
   {
     file: "packages/view/src/shell/question-state.ts",

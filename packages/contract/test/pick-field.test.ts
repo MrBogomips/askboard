@@ -78,10 +78,10 @@ describe("the PickField in the registry", () => {
 
   test("is in the shipped registry after the layouts, once its component's chunk has landed", () => {
     const types = WIDGET_TYPES.map(({ type }) => type);
-    expect(types.slice(-6, -1)).toEqual(["stack", "row", "group", "tabs", "pick-field"]);
-    // The Document review follows it (document-review's registration).
-    expect(TYPES.map(({ type }) => type).at(-2)).toBe("pick-field");
-    expect(TYPES).toHaveLength(WIDGET_TYPES.length);
+    // The Table and the Document review, which later changes registered, follow it.
+    expect(types.slice(-7, -2)).toEqual(["stack", "row", "group", "tabs", "pick-field"]);
+    expect(types.slice(-2)).toEqual(["table", "document-review"]);
+    expect(TYPES.map(({ type }) => type)).toEqual(types);
     expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
   });
 

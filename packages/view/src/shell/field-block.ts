@@ -15,7 +15,7 @@ import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
 import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
-import { isEntryType } from "./entries.ts";
+import { ENTRY_ITEM_TYPES } from "./entries.ts";
 
 /** The facts a widget type's chunk registered, if any (the shell's one lookup). */
 export type CheckFactsOf = (type: string) => ComponentFacts | undefined;
@@ -83,7 +83,8 @@ export const fieldBlock = (
       kind,
       ...(failure === undefined ? {} : { failure }),
     });
-    if (isEntryType(item.type) && entries.get(item.id) !== undefined) return block("entry");
+    if (ENTRY_ITEM_TYPES.includes(item.type) && entries.get(item.id) !== undefined)
+      return block("entry");
     const result = results.get(item.id);
     const failure = itemCheckFailure(item, result, factsOf);
     if (failure === undefined) continue;

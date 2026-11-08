@@ -11,7 +11,7 @@ import {
   type WidgetItem,
 } from "../view-document.ts";
 
-/** The Choice atom: Radix Radio Group for one choice, Checkbox for several (design decision 8). */
+/** The Choice atom: AskBoard's own radio group for one choice, Radix Checkbox for several. */
 export const CHOICE = "choice";
 
 /** An item the renderer shows through the port, with the component that renders it. */

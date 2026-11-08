@@ -1031,6 +1031,71 @@ export {
   pickFieldResultShape,
 } from "./widgets/pick-field/index.ts";
 
+// The atoms' bound codes (table-widget, design decision 3): which bound a value breaks, beside each
+// atom's result check, for the view's readers and the Table's cell reader.
+
+export {
+  type DateFieldBound,
+  dateFieldBound,
+} from "./widgets/date-field/index.ts";
+export {
+  type MoneyFieldBound,
+  moneyFieldBound,
+} from "./widgets/money-field/index.ts";
+export {
+  type NumberFieldBound,
+  numberFieldBound,
+} from "./widgets/number-field/index.ts";
+
+// The Table (table-widget, design decisions 2 and 14), unregistered until its chunk exists: its
+// entry, limits and checks.
+
+export {
+  TABLE_ANSWER_DERIVED,
+  TABLE_COLUMN_TYPES,
+  TABLE_FIELD_PATTERN,
+  TABLE_FORMULA_MAX_CHARS,
+  TABLE_MAX_COLUMNS,
+  TABLE_MAX_ROWS,
+  TABLE_MIN_COLUMNS,
+  TABLE_SCHEMA_IDS,
+  TABLE_SHAPE,
+  TABLE_TEXT_MAX_CHARS,
+  TABLE_WIDGET,
+  type TableCellValue,
+  type TableColumn,
+  type TableColumnType,
+  type TableItem,
+  type TableOrigin,
+  type TableProps,
+  type TableRow,
+  tableCellProblems,
+  tableColumnsProblems,
+  tablePropsProblems,
+  tableRowsProblems,
+} from "./widgets/table/index.ts";
+
+// The draft record's cell entries (table-widget, design decision 8): the most cells one Table's
+// entries hold.
+
+export { CELL_ENTRIES_MAX } from "./lifecycle-constants.ts";
+
+// The row reference's terminal (table-widget, design decision 4): the prefix of `[@field]`, which
+// reads a field of the formula's own row.
+
+export { ROW_REFERENCE_PREFIX } from "./formula/index.ts";
+
+// The board's message limit and its measure (oversized-acts, design decision 1): the limit
+// board-host and the board page share, the close code for a message too big, and the byte and
+// character counts.
+
+export {
+  BOARD_MESSAGE_MAX_BYTES,
+  boardMessageBytes,
+  draftRecordChars,
+  MESSAGE_TOO_BIG_CLOSE,
+  utf8Length,
+} from "./message-size.ts";
 // The annotation's suggested edit (document-review, design decision 2): the longest replacement.
 
 export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";

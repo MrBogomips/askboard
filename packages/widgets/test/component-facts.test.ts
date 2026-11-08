@@ -8,12 +8,14 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   APPROVAL_DECISIONS,
+  TABLE_SHAPE,
   WIDGET_TYPES,
   type WidgetType,
   widgetAnswerProblems,
   widgetResultFits,
   widgetResultProblems,
 } from "@askboard/contract";
+import { TABLE_EDITED_PROPS, TABLE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
 
 const SRC = join(import.meta.dir, "../src");
 
@@ -123,6 +125,19 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
   ];
 };
 
+// Values to put to every `valueFits` a chunk registers, over the example props of its entry: the
+// props themselves, the Table of roles as the user leaves it, and values that do not fit.
+const VALUES: readonly unknown[] = [
+  TABLE_FIXTURE_ITEM.props,
+  TABLE_EDITED_PROPS,
+  { ...TABLE_FIXTURE_ITEM.props, columns: TABLE_FIXTURE_ITEM.props.columns.slice(0, 3) },
+  { ...TABLE_FIXTURE_ITEM.props, label: "Other" },
+  { ...TABLE_FIXTURE_ITEM.props, fixedRows: true },
+  { ...TABLE_FIXTURE_ITEM.props, rows: [{ id: "pm", days: -1 }] },
+  null,
+  5,
+];
+
 const SCRIPT = `
 import { WIDGET_TYPES } from "@askboard/contract";
 import { componentFacts } from "@askboard/view/catalog";
@@ -143,6 +158,9 @@ console.log(JSON.stringify(WIDGET_TYPES.map((entry, at) => {
     probeReasons: facts?.reason === undefined ? undefined : probes[at].map(
       (result) => facts.reason(result) ?? null,
     ),
+    valueFits: facts?.valueFits === undefined ? undefined : ${JSON.stringify(VALUES)}.map(
+      (value) => facts.valueFits(value, entry.example.item.props),
+    ),
     reasons: facts?.reason === undefined ? undefined : ${JSON.stringify(APPROVAL_DECISIONS)}.map(
       (decision) => facts.reason({ decision }) ?? null,
     ),
@@ -158,6 +176,7 @@ type Facts = {
   revisionBound?: true;
   hasCheck?: boolean;
   fits?: readonly boolean[];
+  valueFits?: readonly boolean[];
   probeReasons?: readonly ({ label: string; missing: string } | null)[];
   reasons?: readonly ({ label: string; missing: string } | null)[];
 };
@@ -348,6 +367,23 @@ describe("the facts `reason` and `confirmsRevision` of any registered type", () 
       if (facts[at]?.confirmsRevision === undefined) continue;
       expect(entry.result, `${entry.type} confirms a revision and gives no result`).toBeDefined();
     }
+  });
+});
+
+describe("the Table's chunk", () => {
+  test("names the notice for its type, gives the rows' shape and a valueFits, and asks for no result, reason or confirmation", async () => {
+    const all = await registered();
+    const facts = all.find(({ type }) => type === "table");
+    expect(facts?.name).toBe("change.widgetTable");
+    expect(facts?.shape).toEqual(TABLE_SHAPE);
+    expect(facts?.fits).toBeUndefined();
+    expect(facts?.confirmsRevision).toBeUndefined();
+    expect(facts?.reasons).toBeUndefined();
+  });
+
+  test("registers a valueFits that takes the props and the user's edit and refuses a changed column, label or fixedRows, a bad cell and a non-object", async () => {
+    const facts = (await registered()).find(({ type }) => type === "table");
+    expect(facts?.valueFits).toEqual([true, true, false, false, false, false, false, false]);
   });
 });
 

@@ -386,6 +386,37 @@ export const STRING_KEYS = [
   "pick.clear",
   "pick.filter",
   "pick.noMatch",
+  // The Table (table-widget, task 4.4; ux-update-draft.md block 1; the Italian texts to review).
+  "table.toolbar",
+  "table.addRow",
+  "table.deleteRow",
+  "table.noChanges",
+  "table.changes",
+  "table.total",
+  "table.computed",
+  "table.on",
+  "table.off",
+  "table.notSet",
+  "table.cellName",
+  "table.maxRows",
+  "table.entry.textTooLong",
+  "table.noValue",
+  "table.problem.syntax",
+  "table.problem.overLimit",
+  "table.problem.notWhitelisted",
+  "table.problem.missingReference",
+  "table.problem.cycle",
+  "table.problem.mixedCurrencies",
+  "table.problem.value",
+  "table.problem.divisionByZero",
+  // The Table's name in the agent-change notice (table-widget, task 4.4; the Italian text to review).
+  "change.widgetTable",
+
+  // A message too large (oversized-acts, task 1.4; the Italian texts to review).
+  "send.tooLarge",
+  "send.tooLargeSubmit",
+  "send.tooLargeClosed",
+  "draft.tooLarge",
   // The shared annotation pieces (document-review, task 5.4; ux-update-draft.md block 1; the Italian
   // texts to review): the pin, the card and the list, which each annotating widget reuses.
   "annotations.pin",

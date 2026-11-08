@@ -19,3 +19,9 @@ export const TAKEOVER_FLUSH_WAIT_MS = 1_000;
  * input atom holds that gives no value. An atom caps its field at this, so an entry always fits.
  */
 export const ENTRY_MAX_CHARS = 200;
+
+/**
+ * The most cell entries a draft record holds for one Table (table-widget, design decision 8): the
+ * cells of a Table at its bounds, 200 rows of 10 columns, so a Table's entries always fit.
+ */
+export const CELL_ENTRIES_MAX = 2_000;

@@ -76,7 +76,12 @@ const snapshotGraph = (
   snapshot: ReadonlyMap<string, NodeResult>,
   warnings: readonly FormulaError[],
 ): BoardGraph =>
-  Object.freeze({ read: (address: string) => snapshot.get(address) ?? missing(address), warnings });
+  Object.freeze({
+    // An empty input is a node holding null: only an address the graph lacks is missing.
+    read: (address: string) =>
+      (snapshot.has(address) ? snapshot.get(address) : missing(address)) as NodeResult,
+    warnings,
+  });
 
 /** A live graph built from nothing; undefined when the items hold nothing to compute. */
 const buildLive = (items: readonly BoardWidgetItem[]): Live | undefined => {

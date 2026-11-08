@@ -35,6 +35,7 @@ import {
   revisionFor,
   withDerived,
 } from "./card-acts.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { holdsBlock } from "./field-block.ts";
@@ -254,6 +255,7 @@ export const selectRecommended = (
     draft,
     results,
     entries,
+    cellEntries,
     board,
     facts,
     readOnlyOf,
@@ -261,6 +263,7 @@ export const selectRecommended = (
     readonly draft: DraftStore;
     readonly results?: DraftStore | undefined;
     readonly entries?: DraftStore | undefined;
+    readonly cellEntries?: DraftStore | undefined;
     readonly board: BoardDraft;
     readonly facts?: AnswerContext["facts"];
     readonly readOnlyOf?: ReadOnlyOf | undefined;
@@ -285,7 +288,7 @@ export const selectRecommended = (
       facts,
       delivery: board.get().delivery,
     });
-    const blocked = blockedBy(question, { results, entries, facts, readOnlyOf });
+    const blocked = blockedBy(question, { results, entries, cellEntries, facts, readOnlyOf });
     if (board.get().delivery === "submitted" && !lacksReason && !blocked) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({

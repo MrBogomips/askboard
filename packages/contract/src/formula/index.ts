@@ -9,6 +9,7 @@ export {
   isFieldName,
   parseCell,
   REFERENCE_WILDCARD,
+  ROW_REFERENCE_PREFIX,
   SHEET_MAX_COLUMN,
   SHEET_MAX_ROW,
 } from "./grammar.ts";

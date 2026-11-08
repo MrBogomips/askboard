@@ -33,6 +33,12 @@ export type FieldsItem = {
   /** Spreadsheet cells by A1 address. */
   readonly cells?: Fields;
   readonly children?: readonly GraphChild[];
+  /**
+   * Column formulas (table-widget, design decision 4): formula inputs only, one node
+   * `item.child.field` for each top-level child, after the child's own fields. A child may not
+   * hold a column's field itself.
+   */
+  readonly columns?: Fields;
 };
 
 /** A WBS node with three-point estimates, as the approved UJ-2 example writes it; other keys are ignored. */

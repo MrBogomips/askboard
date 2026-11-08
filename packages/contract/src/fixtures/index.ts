@@ -274,6 +274,20 @@ export { ARRANGED_ITEM, LAYOUT_WIDGETS } from "./layouts.ts";
 
 export { FORM_QUESTION, FORM_RESULTS, FORM_TYPES } from "./form.ts";
 
+// The Table's entries, the Table of roles, an edited value of it and the worst form's generator
+// (table-widget, design decisions 13 and 14).
+
+export {
+  TABLE_EDITED_PROPS,
+  TABLE_FIXTURE_ITEM,
+  TABLE_TYPES,
+  tableWorstForm,
+} from "./table.ts";
+
+// A type name no widget may take, for the tests of an item of an undefined type (table-widget, review
+// S-3 of review-table-g6).
+
+export { UNREGISTERED_TYPE } from "./unregistered-type.ts";
 // The Document review's entry, an item, results, an act, an answer event and a fetch result
 // (document-review, task 1.3): what a test gives the shipped registry through `withWidgetTypes`
 // while the type is not registered.

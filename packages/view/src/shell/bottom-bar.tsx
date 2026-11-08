@@ -19,7 +19,8 @@ import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { ReadOnlyOf } from "./agent-change.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
-import { type Senders, sendActs } from "./card-acts.ts";
+import { type Senders, sendSubmit } from "./card-acts.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
@@ -59,6 +60,7 @@ export type BottomBarProps = {
     readonly draft: DraftStore;
     readonly results?: DraftStore;
     readonly entries?: DraftStore;
+    readonly cellEntries?: DraftStore;
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
@@ -117,7 +119,7 @@ export const BottomBar = (props: BottomBarProps) => {
       context.derived.reported,
       {
         results: context.results?.record(),
-        entries: context.entries?.record(),
+        entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
         state,
         ...(readOnlyOf === undefined ? {} : { readOnlyOf }),
       },
@@ -129,8 +131,7 @@ export const BottomBar = (props: BottomBarProps) => {
   // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
   // immediate delivery does.
   const sendActsOf = (acts: readonly ViewAct[], then?: () => void): void => {
-    const [first, ...rest] = acts;
-    if (first !== undefined) sendActs(context, [first, ...rest]);
+    sendSubmit(context, acts);
     then?.();
   };
   const send = (then?: () => void): void => {

@@ -32,6 +32,7 @@ This is what each item type is for, to choose among them; `SKILL.md` links the r
 - a Group (`group`): a titled box around related items, read as one group
 - a Tabs layout (`tabs`): 2 to 8 titled tabs, each holding items
 - a PickField (`pick-field`): one or several options picked from a list, as in a form
+- a Table (`table`): a grid of typed columns to edit, with totals and formula columns
 - a Document review (`document-review`): a Markdown document the user comments on and suggests edits to
 
 ## Molecules

@@ -21,6 +21,7 @@ import { kanbanDocument } from "./fixtures/kanban-documents.ts";
 import { latexDocument } from "./fixtures/latex-documents.ts";
 import { rankingDocument } from "./fixtures/ranking-documents.ts";
 import { scaleDocument } from "./fixtures/scale-documents.ts";
+import { tableDocument } from "./fixtures/table-documents.ts";
 import { timelineDocument } from "./fixtures/timeline-documents.ts";
 import { plan } from "./fixtures/tree-documents.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
@@ -29,6 +30,7 @@ import { enginesFrom } from "./harness/engines.ts";
 import { cardOf } from "./harness/kanban-drag.ts";
 import { card, commentOn, marks, pin, restoreAnnotations, tool } from "./harness/review-steps.ts";
 import { tabIntoGroup } from "./harness/tab-stops.ts";
+import { cellOf, tableGridOf, toolOf } from "./harness/table-grid.ts";
 import { entryOf, shapeOf } from "./harness/timeline-drag.ts";
 import { handleOf } from "./harness/tree-drag.ts";
 import { enabledTools, pressIn, treeGridOf } from "./harness/tree-grid.ts";
@@ -633,6 +635,54 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await expectInert(run, row);
           await expectInert(run, checkbox);
           expect(await view.getByLabel("Filter the options").count()).toBe(0);
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+}
+
+// The Table (table-widget, task 6.2): its tools respond once a row is current and are inert before;
+// an input cell takes the text cursor and the strong outline, a computed cell none; the keyboard
+// focus on a cell shows the ring; a locked board's Table shows nothing that responds.
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the Table`, () => {
+    const { host } = useWidgetHost(engine);
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, Delete row is inert until a row is current, then responds; an input cell takes the text cursor and outline, a computed cell does not, the keyboard shows the ring, and a locked Table's cells show no edit cursor`,
+        async () => {
+          const document = tableDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { board } = run;
+          const table = tableGridOf(board);
+          const remove = toolOf(table, "Delete row");
+          await expectInert(run, remove);
+          await expectResponds(toolOf(table, "Add row"), scheme);
+          await board.page.mouse.move(0, 0);
+          const editable = await hovered(cellOf(table, "dev", "days"));
+          expect(editable.cursor).toBe("text");
+          expect(editable.outline).toBe(`1px solid ${tokenColor("border-strong", scheme)}`);
+          const computed = await hovered(cellOf(table, "dev", "amount"));
+          expect(computed.cursor).not.toBe("text");
+          expect(computed.outline).not.toContain("1px solid");
+          await cellOf(table, "dev", "days").click();
+          await eventually(
+            async () => (await remove.getAttribute("aria-disabled")) === null,
+            "Delete row to turn on",
+          );
+          await board.page.mouse.move(0, 0);
+          await expectResponds(remove, scheme);
+          await board.page.mouse.move(0, 0);
+          await cellOf(table, "pm", "role").focus();
+          await board.page.keyboard.press("ArrowDown");
+          await expectRing(cellOf(table, "dev", "role"));
+          await lock(run, document);
+          await eventually(async () => (await table.tools.count()) === 0, "the tools to go");
+          expect((await hovered(cellOf(table, "dev", "days"))).cursor).not.toBe("text");
           expect(run.browser.errors).toEqual([]);
         },
         TEST_TIMEOUT_MS,

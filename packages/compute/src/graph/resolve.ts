@@ -2,7 +2,7 @@
 // wherever the child sits, a `*` for the children of the node before it in document order, an
 // item's cell, or a range row by row. A cell of a known item with no node reads as empty.
 
-import { REFERENCE_WILDCARD } from "@askboard/contract";
+import { REFERENCE_WILDCARD, ROW_REFERENCE_PREFIX } from "@askboard/contract";
 import type { Cell, ReferenceSyntax } from "../formula/lexer.ts";
 import type { Address } from "../types.ts";
 import { type ItemIndex, type NodeIndex, ROOT } from "./nodes.ts";
@@ -35,6 +35,8 @@ const cellName = ({ column, row }: Cell): string => `${columnName(column)}${row}
 /** The reference as written, without brackets. */
 export const referenceText = (reference: ReferenceSyntax): string => {
   switch (reference.form) {
+    case "row":
+      return `${ROW_REFERENCE_PREFIX}${reference.field}`;
     case "cell":
       return `${reference.item}.${reference.cell}`;
     case "range":
@@ -80,7 +82,27 @@ const wildcard = (
   };
 };
 
-export const resolveReference = (index: NodeIndex, reference: ReferenceSyntax): Resolution => {
+/**
+ * `[@field]` on the node `own`: where `own` is `item.child.field`, the field of the same child.
+ * No ID or field name holds a dot, so the address's three segments are an item, a child and a
+ * field; a node of any other shape (an item's field, a cell) has no row.
+ */
+const rowReference = (index: NodeIndex, field: string, own: Address | undefined): Resolution => {
+  const text = `reference [${ROW_REFERENCE_PREFIX}${field}]`;
+  const segments = own?.split(".") ?? [];
+  if (segments.length !== 3) return { missing: `${text} is read outside a row` };
+  const address = `${segments[0]}.${segments[1]}.${field}`;
+  if (!index.positions.has(address)) return { missing: `${text} names no node` };
+  return { list: false, address };
+};
+
+/** Resolves a reference; `own` is the address of the node whose formula holds it (for `[@field]`). */
+export const resolveReference = (
+  index: NodeIndex,
+  reference: ReferenceSyntax,
+  own?: Address,
+): Resolution => {
+  if (reference.form === "row") return rowReference(index, reference.field, own);
   const text = `reference [${referenceText(reference)}]`;
   const item = index.items.get(reference.item);
   if (item === undefined) return { missing: `${text} names no item ${reference.item}` };

@@ -1,82 +1,58 @@
-// One choice on Radix Radio Group (design decision 8, renderer row 6), with manual activation
-// (EXPERIENCE.md, Option; F-02): the arrow keys move focus only, and Space, Enter or a click
-// selects, which only fills the draft. Radix's roving focus stays as it is; what changes is that
-// Radix checks the radio the arrow keys move to by clicking it from its focus handler, and that
-// click is cancelled here. It is the only click dispatched in the same task as a focus: a pointer
-// click and Space's click come in tasks of their own. Radix leaves Enter unhandled on a radio, so
-// Enter selects here. Since the ask lifecycle (ask-lifecycle, design decision 6): the "Other…" row
-// last, when the question offers it, with its own text field; choosing it clears the selected
-// option and choosing an option clears it (FR-3). Radios are told apart by position, never by an
-// agent label, so no label can pose as "Other…".
+// One choice on AskBoard's own radio group (choice-documented-activation, design decisions 1 and
+// 3; renderer row 6), with manual activation (EXPERIENCE.md, Option; F-02): the arrow keys, Home
+// and End move focus only, and Space, Enter or a click checks, which only fills the draft. The
+// radios are buttons with the `radio` role, a roving tab stop and the keys of `fields/roving.ts`,
+// so no library behaviour decides what is checked, and a radio already checked changes nothing.
+// Since the ask lifecycle (ask-lifecycle, design decision 6): the "Other…" row last, when the
+// question offers it, with its own text field; choosing it clears the selected option and choosing
+// an option clears it (FR-3). Radios are told apart by position, never by an agent label, so no
+// label can pose as "Other…".
 
-import { RadioGroup } from "radix-ui";
-import { type KeyboardEvent, type MouseEvent, useRef, useState } from "react";
+import { useState } from "react";
+import { useRadios } from "../fields/radios.ts";
 import { questionTextId, useStrings } from "../port.ts";
 import { OptionDetails, OtherField } from "./option-details.tsx";
 import { MARK, OptionText, optionAria, ROW } from "./option-text.tsx";
 import type { ChoiceProps } from "./props.ts";
-import { otherLabelId } from "./selection.ts";
+import { choosingSingle, otherLabelId, previewToggling } from "./selection.ts";
 
-const OTHER = "other";
-const radioOf = (index: number) => `o${index}`;
+const DOT = "size-2 rounded-full bg-primary";
 
 export const SingleChoice = ({ item, value, onValueChange, disabled, extras }: ChoiceProps) => {
   const { options } = item.props;
   const text = useStrings();
-  const offersOther = item.props.allowOther === true && extras !== undefined;
-  const other = offersOther ? extras?.other : undefined;
+  const offered = item.props.allowOther === true ? extras : undefined;
+  const offersOther = offered !== undefined;
+  const other = offered?.other;
   const [preview, setPreview] = useState<number | undefined>(undefined);
   const chosen = options.findIndex((option) => option.label === value?.[0]);
-  const selected = other !== undefined ? OTHER : chosen < 0 ? "" : radioOf(chosen);
-  const focusing = useRef(false);
-  const onFocus = () => {
-    focusing.current = true;
-    queueMicrotask(() => {
-      focusing.current = false;
-    });
-  };
-  const onClick = (event: MouseEvent) => {
-    if (focusing.current) event.preventDefault();
-  };
-  const choose = (radio: string) => {
-    if (radio === OTHER) {
-      onValueChange(undefined);
-      extras?.onOtherChange(other ?? "");
-      return;
-    }
-    const label = options[Number(radio.slice(1))]?.label;
-    if (label === undefined) return;
-    onValueChange([label]);
-    if (other !== undefined) extras?.onOtherChange(undefined);
-  };
-  const onEnter = (radio: string) => (event: KeyboardEvent) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    choose(radio);
-  };
+  const checked = other !== undefined ? options.length : chosen < 0 ? undefined : chosen;
+  const radio = useRadios({
+    count: options.length + (offersOther ? 1 : 0),
+    checked,
+    disabled,
+    onCheck: choosingSingle({
+      options,
+      other,
+      onValueChange,
+      onOtherChange: offered?.onOtherChange,
+    }),
+  });
+  const togglePreview = previewToggling(preview, setPreview);
   return (
-    <RadioGroup.Root
+    <div
+      role="radiogroup"
       aria-labelledby={questionTextId(item.id)}
-      value={selected}
-      onValueChange={choose}
-      disabled={disabled}
       className="flex flex-col gap-sm"
     >
       {options.map((option, index) => (
         <div key={option.label} className="group/option flex flex-col gap-1">
-          <RadioGroup.Item
-            value={radioOf(index)}
-            {...optionAria(item.id, index, option)}
-            onFocus={onFocus}
-            onClick={onClick}
-            onKeyDown={onEnter(radioOf(index))}
-            className={ROW}
-          >
+          <button {...radio(index)} {...optionAria(item.id, index, option)} className={ROW}>
             <span className={`${MARK} rounded-full`}>
-              <RadioGroup.Indicator className="size-2 rounded-full bg-primary" />
+              {checked === index ? <span className={DOT} /> : null}
             </span>
             <OptionText itemId={item.id} index={index} option={option} />
-          </RadioGroup.Item>
+          </button>
           <OptionDetails
             itemId={item.id}
             index={index}
@@ -85,36 +61,29 @@ export const SingleChoice = ({ item, value, onValueChange, disabled, extras }: C
             disabled={disabled}
             extras={extras}
             previewOpen={preview === index}
-            onPreview={() => setPreview(preview === index ? undefined : index)}
+            onPreview={togglePreview(index)}
           />
         </div>
       ))}
       {offersOther ? (
         <div className="flex flex-col gap-1">
-          <RadioGroup.Item
-            value={OTHER}
+          <button
+            {...radio(options.length)}
             aria-labelledby={otherLabelId(item.id)}
-            onFocus={onFocus}
-            onClick={onClick}
-            onKeyDown={onEnter(OTHER)}
             className={ROW}
           >
             <span className={`${MARK} rounded-full`}>
-              <RadioGroup.Indicator className="size-2 rounded-full bg-primary" />
+              {checked === options.length ? <span className={DOT} /> : null}
             </span>
             <span id={otherLabelId(item.id)} className="text-body-lg text-foreground">
               {text("option.other")}
             </span>
-          </RadioGroup.Item>
+          </button>
           {other === undefined ? null : (
-            <OtherField
-              other={other}
-              disabled={disabled}
-              onChange={(text) => extras?.onOtherChange(text)}
-            />
+            <OtherField other={other} disabled={disabled} onChange={offered.onOtherChange} />
           )}
         </div>
       ) : null}
-    </RadioGroup.Root>
+    </div>
   );
 };

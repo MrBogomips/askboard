@@ -41,6 +41,7 @@ sources:
   - 'OpenSpec change layouts, proposal.md, open questions 1 to 3 and 6: Stack, Row, Group and Tabs as registered types holding atoms, widgets and layouts four deep, item IDs unique at every depth (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change form-widget, proposal.md, open questions 1, 3 and 4: the Form built from the input atoms and a PickField with no form library, field checks in the registry, the pattern run only in the view (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change document-review, proposal.md, open questions 5 and 12: suggested edits in the annotation body, the Markdown renderer shared with the widgets (accepted under the PO''s unattended handoff, 2026-11-08)'
 companions: ['SOLUTION-DESIGN.md']
 ---
@@ -416,7 +417,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - how its children are addressed;
     - each built-in derived field, as an expression over whitelisted functions. The whitelist is the operators `+ - * /`, unary minus, `^` and `= <> < <= > >=`, and the functions `SUM`, `MIN`, `MAX`, `IF`, `ROUND`, `AND`, `SQRT`, `SUMSQ`, `SUMPRODUCT`, `ROUNDUP` and `WORKDAY`, with Excel's semantics. `contract` holds the list, and `compute` holds fixtures for each entry. PERT, roll-ups, CPM scheduling and scores are written with them; `compute` writes the expressions of PERT and CPM scheduling, whose number of terms depends on the tree and the dependencies, and checks them against the whitelist like any other formula.
   - **References:**
-    - A reference is the item ID, then at most one child ID, which is unique within its item (AD-7), then a `*` for each further child level, then the field: `[wbs.ux.optimistic]`, `[wbs.design.*.expected]`, `[wbs.*.expected]`. A `*` stands for the children of the node before it, in document order. A Tree move does not change a reference. Spreadsheet cells are `[item-id.A1]`, which no field name may match. A range of cells is `[item-id.A1:B3]`: it reads row by row and holds at most 65,536 cells. The grammar lives in `contract`.
+    - A reference is the item ID, then at most one child ID, which is unique within its item (AD-7), then a `*` for each further child level, then the field: `[wbs.ux.optimistic]`, `[wbs.design.*.expected]`, `[wbs.*.expected]`. A `*` stands for the children of the node before it, in document order. A Tree move does not change a reference. Spreadsheet cells are `[item-id.A1]`, which no field name may match. A range of cells is `[item-id.A1:B3]`: it reads row by row and holds at most 65,536 cells. In a formula on a child's field, `[@field]` reads that field of the same child, as Excel's this-row reference. A Table's column formula, which every row holds, reads its own row so and other nodes one at a time, never through a wildcard or a range, so that a row's work is bounded by its formula's length; its problems are one warning per column and kind, addressed `[item.*.field]`. A Table's totals are fields of the item, `[item.field]`, each the SUM of its column over the rows. The grammar lives in `contract`.
   - **The graph:**
     - `compute` builds a board's whole graph from the board document alone: `boardGraphSource` maps the board's items onto a graph source, which `buildGraph` reads. The view builds it from the board document with the draft record's values in place of the items the user edited, and after each edit builds it again or, where the edit changes only input values the graph already holds, recalculates it in place. The Gantt plan's baseline is the same graph built from the board document as sent.
     - Widgets read and write graph values and define no node. A node exists whether or not its widget is mounted.
@@ -581,9 +582,10 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Every board command carries an action ID that the board page makes. `ask-core` applies each action ID once per ask, so a command resent after a dropped connection, a submit or a revision included, is never appended twice.
     - Switching to immediate delivery sends what is held, the same way.
   - **Drafts:**
-    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom holds that gives no value, which keeps its question from being answered until the user corrects or clears it. For the board it holds the delivery mode and the open tab or the question in view.
+    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom, or a Table's cell by row and field, holds that gives no value, which keeps its question from being answered until the user corrects or clears it. For the board it holds the delivery mode and the open tab or the question in view.
     - The board page mirrors the draft record to `ask-core` over the board protocol. `ask-core` holds it apart from the log and never exposes it to `collect`, `fetch`, Snapshots, the mod or the local API.
     - A reconnecting or taking-over board restores it from `ask-core`. No AskBoard page uses Web Storage, IndexedDB or cookies.
+    - A record over the draft limit is mirrored without the work of whole questions, largest first, and the board says which; the board page keeps the whole record for the user's copy and the leave-page prompt.
 
 ### AD-21 — Board connection and discard [ADOPTED]
 
@@ -594,6 +596,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Each ask has at most one live board connection. A new connection for the same ask takes over, restoring the draft record. The older tab shows that the board moved, and closing it discards nothing.
     - `board-host` reports connections and disconnections to `ask-core`, which alone runs the grace timer, and only after a first connection.
     - An ask that has never connected stays `waiting` until the agent closes it or the session process exits.
+    - The board page never sends a message over the contract's message limit; a socket `board-host` closes as too large has its unacknowledged commands dropped, never resent; a tab the board moved from keeps the leave-page prompt while it holds work left out of the draft.
   - **Discard:**
     - An ask is discarded when its live board disconnects and does not reconnect within the grace period, or when the session process exits. A reload reconnects within the grace period and keeps the ask and its draft. Closed asks are never discarded.
     - On discard, `ask-core` appends a final `discarded` event, with reason `board-closed` or `session-exit`, and wakes every waiting `collect` on the ask. It then drops the ask's board documents and draft record.
@@ -657,12 +660,11 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `@modelcontextprotocol/ext-apps` (view message set, `App`, `AppBridge`) | 2.0.4 |
 | React (view and widgets) | 19.3.1 |
 | `@dagrejs/dagre` (Graph widget initial layout and auto-layout; elkjs stays excluded) | 3.1.3 |
-| `radix-ui` (view primitives: Radio Group, Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
+| `radix-ui` (view primitives: Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
 | `react-day-picker` (the Date Picker's calendar) | 10.0.2 |
 | `markdown-it` (Markdown, `html: false`) | 15.0.3 |
 | `dompurify` (the Markdown sanitizer) | 3.4.17 |
 | `katex` (LaTeX) | 0.19.1 |
-| `@tanstack/react-table` (Table, Tree, Spreadsheet, the Gantt's grid) | 9.3.1 |
 | `@atlaskit/pragmatic-drag-and-drop` (Ranking, Kanban, Tree) | 4.0.0 |
 | `echarts` (Chart, canvas renderer) | 6.1.0 |
 | `@xyflow/react` (Graph) | 12.12.0 |
