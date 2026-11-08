@@ -381,6 +381,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+    test(
+      "an on/off cell has no editor: Enter, a click and Delete read On, Off, Not set, the draft's row ends with no billable and no cell entry is held",
+      async () => {
+        const toggled = rolesWith({
+          columns: [...ROLES.columns, { field: "billable", label: "Billable", type: "toggle" }],
+        });
+        const run = await host(dist, tableDocument(toggled));
+        await readyIn(run);
+        const { board } = run;
+        const table = tableGridOf(board);
+        const cell = cellOf(table, "pm", "billable");
+        const reads = async (text: string) =>
+          eventually(
+            async () => (await cellText(table, "pm", "billable")) === text,
+            `the cell to read ${text}`,
+          );
+        await cell.focus();
+        await board.page.keyboard.press("Enter");
+        await reads("On");
+        expect(await table.frame.getByRole("textbox").count()).toBe(0);
+        await cell.click();
+        await reads("Off");
+        await board.page.keyboard.press("Delete");
+        await reads("Not set");
+        expect(await table.frame.getByRole("textbox").count()).toBe(0);
+        await eventually(() => draftTable(run) === undefined, "the draft to hold no change");
+        expect(draftCellEntries(run)).toBeUndefined();
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 
   describe(`${engine}: the Table's rows, read-only state, agent changes and long words`, () => {
@@ -488,6 +519,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("F2");
         await cellOf(table, "pm", "billable").click();
         await board.page.keyboard.press("Space");
+        await board.page.keyboard.press("Delete");
         expect(await table.frame.getByRole("textbox").count()).toBe(0);
         expect(await cellOf(table, "pm", "billable").getAttribute("aria-checked")).toBe("mixed");
         expect(await cellText(table, "pm", "rate")).toBe("$960.00");

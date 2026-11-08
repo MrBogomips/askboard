@@ -108,6 +108,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "an on/off cell without a pointer: F2, Space and Backspace read On, Off, Not set, and no editor opens",
+      async () => {
+        const toggled = rolesWith({
+          columns: [...ROLES.columns, { field: "billable", label: "Billable", type: "toggle" }],
+        });
+        const run = await host(dist, tableDocument(toggled));
+        await readyIn(run);
+        const { board } = run;
+        const table = tableGridOf(board);
+        const cell = cellOf(table, "dev", "billable");
+        const reads = (text: string) =>
+          eventually(
+            async () => (await cell.textContent())?.trim() === text,
+            `the cell to read ${text}`,
+          );
+        await cellOf(table, "dev", "role").focus();
+        await board.page.keyboard.press("End");
+        await eventually(() => isFocused(cell), "the focus on dev's billable");
+        await board.page.keyboard.press("F2");
+        await reads("On");
+        await board.page.keyboard.press("Space");
+        await reads("Off");
+        await board.page.keyboard.press("Backspace");
+        await reads("Not set");
+        expect(await table.frame.getByRole("textbox").count()).toBe(0);
+        expect(await cell.getAttribute("aria-checked")).toBe("mixed");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a row is added and filled, and another deleted, with the keyboard alone, the focus never lost",
       async () => {
         const run = await host(dist, tableDocument());

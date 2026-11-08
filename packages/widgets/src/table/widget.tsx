@@ -246,11 +246,19 @@ export const TableWidget = ({
     const next = setCell(value, at.rowId, at.field, nextToggle(held(value, at.rowId, at.field)));
     if (next !== value) write(next);
   };
+  const clearCell = (at: TableFocus): void => {
+    refuse(undefined);
+    const next = setCell(value, at.rowId, at.field, undefined);
+    if (next !== value) write(next);
+  };
+  // An on/off cell has no editor: it is switched (a click, Space, Enter, F2) or cleared, never typed in.
+  const isToggle = (at: TableFocus): boolean => {
+    const column = columnOf(value, at.field);
+    return column !== undefined && isInputColumn(column) && column.type === "toggle";
+  };
   const startEdit = (at: TableFocus): void => {
     const column = columnOf(value, at.field);
-    if (disabled || column === undefined || !isInputColumn(column)) return;
-    if (column.type === "toggle") {
-      toggleCell(at);
+    if (disabled || column === undefined || !isInputColumn(column) || column.type === "toggle") {
       return;
     }
     setEditing({ rowId: at.rowId, field: at.field });
@@ -270,6 +278,12 @@ export const TableWidget = ({
     if (action.kind === "focus") show(action.focus, true);
     else if (action.kind === "edit" && focus !== undefined) startEdit(focus);
     else if (action.kind === "toggle" && focus !== undefined) toggleCell(focus);
+    else if (action.kind === "clear" && focus !== undefined) clearCell(focus);
+  };
+  const onClick = (event: MouseEvent<HTMLTableElement>): void => {
+    const at = cellOf(event.target);
+    if (disabled || editing !== undefined || at === undefined || !isToggle(at)) return;
+    toggleCell(at);
   };
   const onFocus = (event: React.FocusEvent<HTMLTableElement>): void => {
     const at = cellOf(event.target);
@@ -466,6 +480,7 @@ export const TableWidget = ({
         onKeyDown={onKeyDown}
         onFocus={onFocus}
         onMouseDown={onMouseDown}
+        onClick={onClick}
         onDoubleClick={onDoubleClick}
       />
       <p role="status" aria-live="polite" className="sr-only">

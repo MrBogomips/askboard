@@ -133,8 +133,12 @@ describe("a cell's text read in the ask's locale", () => {
     expect(entry.kind === "entry" && Array.from(entry.text).length).toBe(ENTRY_MAX_CHARS);
   });
 
-  test("a toggle takes no text", () => {
-    expect(read("on", TOGGLE).kind).toBe("entry");
+  test("a toggle takes no text: no reading of one is an entry", () => {
+    for (const text of ["", "  ", "on", "yes", "x".repeat(300)]) {
+      for (const locale of ["en-US", "it-IT"] as const) {
+        expect(read(text, TOGGLE, locale).kind).not.toBe("entry");
+      }
+    }
   });
 
   test("a value is a value exactly when the contract's cell check takes it", () => {

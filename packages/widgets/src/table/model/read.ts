@@ -160,8 +160,8 @@ const readText = (text: string, column: TableColumn, language: Locale): CellRead
 /**
  * What the text reads as in the column, in the ask's locale: its value, none (an empty text empties
  * the cell), or an entry. A number, money or date is read from the first `ENTRY_MAX_CHARS` code
- * points; a text is read whole, up to the column's limit. A toggle takes no text: a blank text is
- * none and any other is an entry.
+ * points; a text is read whole, up to the column's limit. A toggle takes no text, has no editor
+ * and holds no entry: whatever text reaches it reads as none (design decision 10).
  */
 export const readCell = (
   typed: string,
@@ -179,9 +179,7 @@ export const readCell = (
     case "date":
       return readDate(cutCodePoints(typed, ENTRY_MAX_CHARS), column, locale, language);
     case "toggle":
-      return typed.trim() === ""
-        ? { kind: "empty" }
-        : entry(typed, say(language, "table.problem.value", { column: column.label }));
+      return { kind: "empty" };
   }
 };
 

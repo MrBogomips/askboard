@@ -4,7 +4,7 @@
 // value. An entry is at most `ENTRY_MAX_CHARS` code points, at most `CELL_ENTRIES_MAX` to an item,
 // and belongs only to a Table; it is mirrored under the draft record's `cellEntries`, restored after
 // a reload, dropped with the item and never part of an answer. An entry whose key names no input cell
-// of the value the item holds is dropped on restore and on "Keep mine", so none is left that no cell
+// of the value the item holds, or that names an on/off cell, is dropped on restore and on "Keep mine", so none is left that no cell
 // shows (review U-1). Plain functions, tested without a DOM.
 
 import { CELL_ENTRIES_MAX } from "@askboard/contract";
@@ -63,8 +63,9 @@ const own = (record: Readonly<Record<string, unknown>>, key: string): unknown =>
   Object.hasOwn(record, key) ? record[key] : undefined;
 
 /**
- * The input cells of a Table's props or edited value, `row.field`: each row with each column that
- * has no formula, never the row's `id`. A value that is no Table gives none.
+ * The input cells of a Table's props or edited value that can hold an entry, `row.field`: each row
+ * with each column that has no formula and is no on/off column (which takes no text), never the
+ * row's `id`. A value that is no Table gives none.
  */
 export const inputCellsOf = (props: unknown): ReadonlySet<string> => {
   const cells = new Set<string>();
@@ -75,7 +76,8 @@ export const inputCellsOf = (props: unknown): ReadonlySet<string> => {
   const fields = columns.flatMap((column) => {
     const field = isRecord(column) ? own(column, "field") : undefined;
     const computed = isRecord(column) && own(column, "formula") !== undefined;
-    return typeof field === "string" && field !== "id" && !computed ? [field] : [];
+    const onOff = isRecord(column) && own(column, "type") === "toggle";
+    return typeof field === "string" && field !== "id" && !computed && !onOff ? [field] : [];
   });
   for (const row of rows) {
     const id = isRecord(row) ? own(row, "id") : undefined;

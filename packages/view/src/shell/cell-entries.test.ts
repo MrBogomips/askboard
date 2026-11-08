@@ -404,6 +404,38 @@ describe("restoring cell entries after a reload (FR-25)", () => {
     expect([...(set.cells.valueOf("costs") as Map<string, string>)]).toEqual([["pm.rate", "keep"]]);
   });
 
+  test("a key naming a toggle cell is dropped on restore, as one naming no input cell (review S-3 of review-table-g5)", () => {
+    const toggled = documentOf([
+      {
+        type: "table",
+        id: "costs",
+        props: {
+          label: "Roles",
+          columns: [
+            { field: "role", label: "Role", type: "text" },
+            { field: "billable", label: "Billable", type: "toggle" },
+          ],
+          rows: [{ id: "pm", role: "PM" }],
+        },
+      },
+    ]);
+    const set = stores(toggled);
+    restoreInto(
+      set,
+      {
+        delivery: "immediate",
+        questions: {
+          [QUESTION]: {
+            rev: 1,
+            cellEntries: { costs: { "pm.role": "keep", "pm.billable": "yes" } },
+          },
+        },
+      },
+      toggled,
+    );
+    expect([...(set.cells.valueOf("costs") as Map<string, string>)]).toEqual([["pm.role", "keep"]]);
+  });
+
   test("a row the held value adds counts: its cells are input cells of the value, not of the props", () => {
     const set = stores();
     restoreInto(set, {
@@ -725,6 +757,18 @@ describe("the callbacks an item gets for its cell entries (AD-9)", () => {
 });
 
 describe("fitting entries to a value", () => {
+  test("a toggle cell is no input cell for an entry", () => {
+    const props = {
+      columns: [
+        { field: "role", label: "Role", type: "text" },
+        { field: "billable", label: "Billable", type: "toggle" },
+      ],
+      rows: [{ id: "pm" }],
+    };
+    expect([...inputCellsOf(props)]).toEqual(["pm.role"]);
+    expect(fitCellEntries(cells({ "pm.billable": "yes" }), props)).toBeUndefined();
+  });
+
   test("keeps the cells the props hold and returns none when none is left", () => {
     expect([
       ...(fitCellEntries(cells({ "pm.rate": "x", "ghost.rate": "y" }), COSTS.props) ?? []),

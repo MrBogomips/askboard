@@ -1,8 +1,9 @@
 // The grid's current cell and keys (table-widget, design decisions 9 and 10; view-and-widgets spec:
 // The Table at the keyboard): view state the component holds beside the draft, never in it. The
 // ARIA grid pattern: the arrow keys move the current cell, Home and End go to the row's first and
-// last cell, Enter or F2 opens the editor on an input cell, Space switches a toggle cell, Escape
-// cancels an open editor. A key with a modifier is not the Table's (Alt and Cmd with an arrow
+// last cell, Enter or F2 opens the editor on an input cell, Space, Enter or F2 switch an on/off
+// cell (which has no editor) and Delete or Backspace return it to not set, Escape cancels an open
+// editor. A key with a modifier is not the Table's (Alt and Cmd with an arrow
 // navigate the browser's history), and neither is one pressed while an input method composes.
 // Every function is pure and gives the same value when nothing changes; a row or field named
 // `__proto__` or `constructor` is only data.
@@ -35,12 +36,13 @@ export type KeyContext = {
 
 /**
  * What a key does: move the current cell, open the editor on it, switch the toggle cell to a
- * value, cancel the open editor, or nothing (the key is the browser's or the editor's).
+ * value or to not set, cancel the open editor, or nothing (the key is the browser's or the editor's).
  */
 export type KeyAction =
   | { readonly kind: "focus"; readonly focus: TableFocus }
   | { readonly kind: "edit" }
   | { readonly kind: "toggle"; readonly value: boolean }
+  | { readonly kind: "clear" }
   | { readonly kind: "cancel" }
   | { readonly kind: "none" };
 
@@ -124,11 +126,21 @@ export const tableKey = (key: TableKey, context: KeyContext): KeyAction => {
   if (readOnly || focus === undefined) return NONE;
   const column = props.columns.find((candidate) => candidate.field === focus.field);
   if (column === undefined || !isInputColumn(column)) return NONE;
-  if (key.key === "Enter" || key.key === "F2") return { kind: "edit" };
-  if (key.key === " " && column.type === "toggle") {
+  if (column.type === "toggle") return toggleKey(key.key, props, focus, column.field);
+  return key.key === "Enter" || key.key === "F2" ? { kind: "edit" } : NONE;
+};
+
+// An on/off cell has no editor: Space, Enter and F2 switch it, Delete and Backspace clear it.
+const toggleKey = (
+  name: string,
+  props: TableProps,
+  focus: TableFocus,
+  field: string,
+): KeyAction => {
+  if (name === "Delete" || name === "Backspace") return { kind: "clear" };
+  if (name === " " || name === "Enter" || name === "F2") {
     const row = props.rows.find((candidate) => candidate.id === focus.rowId);
-    const held =
-      row !== undefined && Object.hasOwn(row, column.field) ? row[column.field] : undefined;
+    const held = row !== undefined && Object.hasOwn(row, field) ? row[field] : undefined;
     return { kind: "toggle", value: nextToggle(held) };
   }
   return NONE;

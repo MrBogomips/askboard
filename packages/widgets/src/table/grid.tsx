@@ -74,6 +74,7 @@ export const TableGrid = ({
   onKeyDown,
   onFocus,
   onMouseDown,
+  onClick,
   onDoubleClick,
 }: {
   readonly ref: Ref<HTMLTableElement>;
@@ -98,6 +99,7 @@ export const TableGrid = ({
   readonly onKeyDown: KeyboardEventHandler<HTMLTableElement>;
   readonly onFocus: FocusEventHandler<HTMLTableElement>;
   readonly onMouseDown: MouseEventHandler<HTMLTableElement>;
+  readonly onClick: MouseEventHandler<HTMLTableElement>;
   readonly onDoubleClick: MouseEventHandler<HTMLTableElement>;
 }) => {
   const { columns } = value;
@@ -122,6 +124,7 @@ export const TableGrid = ({
           onKeyDown={onKeyDown}
           onFocus={onFocus}
           onMouseDown={onMouseDown}
+          onClick={onClick}
           onDoubleClick={onDoubleClick}
         >
           {value.label === undefined ? null : (

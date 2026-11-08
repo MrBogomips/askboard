@@ -148,6 +148,50 @@ describe("Enter, F2 and Space", () => {
     expect([first, second, third]).toEqual([true, false, true]);
   });
 
+  test.each(["Space", "Enter", "F2"])(
+    "%s on an on/off cell switches it and opens no editor",
+    (name) => {
+      const keyed = key(name === "Space" ? " " : name);
+      const press = (cell: boolean | undefined) =>
+        tableKey(
+          keyed,
+          context(at("pm", "billable"), {
+            props: {
+              ...ROLES,
+              rows: [cell === undefined ? { id: "pm" } : { id: "pm", billable: cell }],
+            },
+          }),
+        );
+      expect(press(undefined)).toEqual({ kind: "toggle", value: true });
+      expect(press(false)).toEqual({ kind: "toggle", value: true });
+      expect(press(true)).toEqual({ kind: "toggle", value: false });
+    },
+  );
+
+  test.each(["Delete", "Backspace"])("%s on an on/off cell returns it to not set", (name) => {
+    for (const cell of [true, false]) {
+      const props = { ...ROLES, rows: [{ id: "pm", billable: cell }] };
+      expect(tableKey(key(name), context(at("pm", "billable"), { props }))).toEqual({
+        kind: "clear",
+      });
+    }
+  });
+
+  test.each(["Delete", "Backspace"])(
+    "%s on an input or formula cell is nothing, as before",
+    (name) => {
+      for (const field of ["role", "days", "rate", "amount"]) {
+        expect(tableKey(key(name), context(at("pm", field)))).toEqual({ kind: "none" });
+      }
+    },
+  );
+
+  test("a read-only grid clears nothing", () => {
+    expect(tableKey(key("Delete"), context(at("pm", "billable"), { readOnly: true }))).toEqual({
+      kind: "none",
+    });
+  });
+
   test("Space on any other cell does nothing", () => {
     expect(tableKey(key(" "), context(at("pm", "rate")))).toEqual({ kind: "none" });
     expect(tableKey(key(" "), context(at("pm", "amount")))).toEqual({ kind: "none" });
