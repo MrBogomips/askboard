@@ -3,7 +3,7 @@ import { GRACE_PERIOD_MS } from "@askboard/contract";
 import { lifecycleDraftRecord, lifecycleSnapshotData } from "@askboard/contract/fixtures";
 import { validateSnapshotData } from "@askboard/contract/validate";
 import { SnapshotWriteError } from "../src/index.ts";
-import { plainChoiceAsk } from "./fakes.ts";
+import { type FakeConfigOptions, fakeConfig, plainChoiceAsk } from "./fakes.ts";
 import { areasAsk, command, LIFECYCLE_ID } from "./lifecycle-fakes.ts";
 import {
   asFixtureEpoch,
@@ -137,6 +137,9 @@ describe("taking a Snapshot", () => {
   test("an answer appended while the file is written is not in it", async () => {
     const { core, written, release } = await lifecycleWith(fakeWriter({ held: true }));
     const taking = core.snapshot(LIFECYCLE_ID, AGENT);
+    // The data is gathered after the settings are read (snapshot-toolbar): wait until the writer
+    // holds it, then append.
+    while (written.length === 0) await new Promise((resolve) => setTimeout(resolve, 1));
     const answer = {
       type: "answer",
       itemId: "region",
@@ -210,5 +213,128 @@ describe("when the writer refuses", () => {
     const fails = new TypeError("the writer is broken");
     const { core } = await lifecycleWith(fakeWriter({ fails }));
     await expect(core.snapshot(LIFECYCLE_ID, AGENT)).rejects.toBe(fails);
+  });
+});
+
+// snapshot-toolbar (core spec: The presentation a Snapshot records; design decision 3): the theme
+// and density a board would open with at the moment of the Snapshot, from the same settings the
+// board reads, for the agent's Snapshot and the board's.
+describe("the presentation a Snapshot records", () => {
+  const v = "1.0";
+
+  const withSettings = async (settings: FakeConfigOptions = {}, writer = fakeWriter()) => {
+    const fakes = fakeConfig(settings);
+    return lifecycleWith(writer, { config: fakes.config });
+  };
+
+  test("light chosen on the board: the writer gets it, after the board's writes", async () => {
+    const { core, written } = await withSettings({ user: { version: v } });
+    await core.writeSetting({ key: "theme", value: "light" });
+    await core.writeSetting({ key: "density", value: "comfortable" });
+    await core.snapshot(LIFECYCLE_ID, BOARD);
+    expect(written[0]?.snapshot).toMatchObject({
+      takenBy: "user",
+      presentation: { theme: "light", density: "comfortable" },
+    });
+    valid(written[0]);
+  });
+
+  test("a write requested and not awaited is in the record", async () => {
+    const { core, written } = await withSettings({ user: { version: v } });
+    const writing = core.writeSetting({ key: "theme", value: "light" });
+    await core.snapshot(LIFECYCLE_ID, BOARD);
+    await writing;
+    expect(written[0]?.snapshot).toMatchObject({ presentation: { theme: "light" } });
+  });
+
+  test("the agent's Snapshot: the user file's dark, density compact by default", async () => {
+    const { core, written } = await withSettings({ user: { version: v, theme: "dark" } });
+    await core.snapshot(LIFECYCLE_ID, AGENT);
+    expect(written[0]?.snapshot).toEqual({
+      takenAt: expect.any(String),
+      takenBy: "agent",
+      presentation: { theme: "dark", density: "compact" },
+    });
+    valid(written[0]);
+  });
+
+  test("the project file's light stands over the user file's dark", async () => {
+    const { core, written } = await withSettings({
+      user: { version: v, theme: "dark" },
+      project: { version: v, theme: "light" },
+    });
+    await core.snapshot(LIFECYCLE_ID, AGENT);
+    expect(written[0]?.snapshot).toMatchObject({ presentation: { theme: "light" } });
+  });
+
+  test("settings that cannot be read: the Snapshot is written with no presentation, and the failure is reported once", async () => {
+    const fakes = fakeConfig({ user: { version: v, theme: "dark" } });
+    let broken = false;
+    const failure = new Error("the settings cannot be read");
+    const config = {
+      ...fakes.config,
+      get paths(): never {
+        if (broken) throw failure;
+        return fakes.config.paths as never;
+      },
+    };
+    const writer = fakeWriter();
+    const { core, written, reported } = await lifecycleWith(writer, { config });
+    broken = true;
+    expect(await core.snapshot(LIFECYCLE_ID, AGENT)).toMatchObject({ outcome: "saved" });
+    expect(written).toHaveLength(1);
+    expect(written[0]?.snapshot).toEqual({ takenAt: expect.any(String), takenBy: "agent" });
+    expect(reported).toEqual([failure]);
+    valid(written[0]);
+  });
+
+  test("a session with no configuration port records none, with nothing reported", async () => {
+    const { core, written, reported } = await lifecycleWith();
+    await core.snapshot(LIFECYCLE_ID, AGENT);
+    expect(written[0]?.snapshot).not.toHaveProperty("presentation");
+    expect(reported).toEqual([]);
+  });
+
+  test("a discarded ask hands nothing to the writer, whatever the settings", async () => {
+    const { core, written } = await withSettings({ user: { version: v, theme: "dark" } });
+    core.discardAll("session-exit");
+    expect(await core.snapshot(LIFECYCLE_ID, AGENT)).toEqual({ outcome: "discarded" });
+    expect(written).toEqual([]);
+  });
+
+  test("an answer appended while the settings are read is in the data, one appended after the gathering is not", async () => {
+    const fakes = fakeConfig({ user: { version: v, theme: "dark" } });
+    let hold: (() => void) | undefined;
+    let held = false;
+    const config = {
+      ...fakes.config,
+      userFile: async () => {
+        if (held) await new Promise<void>((resolve) => (hold = resolve));
+        return fakes.config.userFile();
+      },
+    };
+    const { core, written, release } = await lifecycleWith(fakeWriter({ held: true }), { config });
+    const act = (itemId: string) =>
+      core.act(
+        LIFECYCLE_ID,
+        command([{ type: "answer", itemId, rev: 1, choice: ["EU"], when: WHEN }]),
+      );
+    held = true;
+    const taking = core.snapshot(LIFECYCLE_ID, AGENT);
+    await Promise.resolve();
+    expect(written).toEqual([]);
+    expect(act("region").ok).toBe(true);
+    held = false;
+    hold?.();
+    while (written.length === 0) await new Promise((resolve) => setTimeout(resolve, 1));
+    expect(
+      core.act(LIFECYCLE_ID, command([{ type: "decline", itemId: "payment", rev: 1, when: WHEN }]))
+        .ok,
+    ).toBe(true);
+    release();
+    await taking;
+    expect(written[0]?.events.map(({ event }) => event.type)).toEqual(["answer"]);
+    expect(written[0]?.events[0]?.event).toMatchObject({ itemId: "region" });
+    expect(written[0]?.state.ask).toBe("partly-answered");
   });
 });
