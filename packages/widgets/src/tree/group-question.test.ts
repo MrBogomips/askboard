@@ -2,10 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement, type KeyboardEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QUESTION_ROW } from "./classes.ts";
-import { DeleteQuestion } from "./delete-question.tsx";
-import { GroupQuestion, questionKeyDown } from "./group-question.tsx";
+import { focusOnMount, GroupQuestion, questionKeyDown } from "./group-question.tsx";
 import type { GroupQuestion as Question } from "./grouping.ts";
-import { TreeToolbar } from "./toolbar.tsx";
 
 // The question before a leaf becomes a group (view spec, Making a work package a group asks first,
 // The group question's words, Answering the group question; design decision 2). The server renderer
@@ -106,66 +104,28 @@ describe("Escape on the group question", () => {
   });
 });
 
-const toolbar = (asking: Parameters<typeof TreeToolbar>[0]["asking"]) =>
-  within(
-    createElement(TreeToolbar, {
-      ref: null,
-      enabled: [true, true, true, true, true, true, true],
-      onTool: NONE,
-      asking,
-      changes: 0,
-      selecting: {
-        selection: new Set<string>(),
-        value: { nodes: [{ id: "a", label: "A" }] },
-        disabled: false,
-        onSelectAll: NONE,
-        onSelectNone: NONE,
-        onApply: NONE,
-        onUndo: undefined,
-      },
-    }),
-  );
-
-describe("the Tree's toolbar row while a question is asked", () => {
-  test("shows the tools when none is", () => {
-    const html = toolbar(undefined);
-    expect(html).toContain('role="toolbar"');
-    expect(html).not.toContain("<fieldset");
-  });
-
-  test("shows the group question in place of the tools", () => {
-    const html = toolbar({
-      kind: "group",
-      key: "group:portal",
-      question: PORTAL,
-      onConfirm: NONE,
-      onCancel: NONE,
-    });
-    expect(html).toContain("becomes a group:");
-    expect(html).not.toContain('role="toolbar"');
-    expect(html.match(/<fieldset/g)).toHaveLength(1);
-  });
-
-  test("shows the delete question alone, never both", () => {
-    const html = toolbar({
-      kind: "delete",
-      key: "delete:build",
-      question: { label: "Build", under: 3, dependents: 0 },
-      onConfirm: NONE,
-      onCancel: NONE,
-    });
-    expect(html).toContain("will be deleted");
-    expect(html).not.toContain("becomes a group");
-    expect(html).not.toContain('role="toolbar"');
-    expect(html.match(/<fieldset/g)).toHaveLength(1);
-    expect(DeleteQuestion).toBeDefined();
-  });
-});
-
+// The toolbar row shows the question in place of the tools, one at a time, and the focus on "Cancel"
+// are in the browser too (wbs-linking.browser.ts): the toolbar's own file is not loaded here, since
+// the repository's coverage threshold counts each file a unit test loads.
 // The widget's pending edit is view state with no DOM here; the drop, indent, "Add child", Cancel
 // and Escape run in the browser (wbs-linking.browser.ts). What a unit can pin is where the question
 // sits in the paths the edits take, as the drag's own tests do.
 const source = (path: string): Promise<string> => Bun.file(new URL(path, import.meta.url)).text();
+
+describe("the question's focus", () => {
+  test("goes to Cancel as the button mounts, and nowhere when it unmounts", () => {
+    const focused: string[] = [];
+    focusOnMount({ focus: () => focused.push("cancel") } as unknown as HTMLButtonElement);
+    focusOnMount(null);
+    expect(focused).toEqual(["cancel"]);
+  });
+
+  test("the toolbar shows one question at a time, keyed by what it is about", async () => {
+    const toolbar = await source("./toolbar.tsx");
+    expect(toolbar).toContain("<AskedQuestion key={asking.key} asking={asking} />");
+    expect(toolbar).toContain('asking.kind === "delete"');
+  });
+});
 
 describe("the widget's pending edit", () => {
   test("a drop asks before it moves anything, and a confirmed one re-decides the drop on the value as it is", async () => {
@@ -197,7 +157,10 @@ describe("the widget's pending edit", () => {
 
   test("a drag's end leaves the focus on a group question's Cancel", async () => {
     const widget = await source("./widget.tsx");
-    expect(widget).toContain('if (asked?.kind !== "group") focus.moveFocusTo("grid")');
+    // Set as the question is asked: a drop's `end` follows its `drop` before the render shows it.
+    expect(widget).toContain("groupAsked.current = true;");
+    expect(widget).toContain("focus.moveFocusTo(undefined);\n      setCurrent(nodeId);");
+    expect(widget).toContain('if (!groupAsked.current) focus.moveFocusTo("grid")');
   });
 
   test("the Tree tells the widget whether a plan names it", async () => {

@@ -8,6 +8,7 @@ import { eventually, isFocused, LOAD_TIMEOUT_MS, QUIET_MS, STEP_TIMEOUT_MS } fro
 import type { Board } from "./dom.ts";
 import {
   type FocusAt,
+  groupQuestion,
   pressIn,
   pressTool,
   type TreeGrid,
@@ -182,3 +183,24 @@ export const pageOf = async (run: WidgetHostRun) => ({
   url: run.board.page.url(),
   history: await run.board.page.evaluate(() => window.history.length),
 });
+
+/** The question once it shows, with the focus on "Cancel", and its buttons. */
+export const askedGroup = async (run: WidgetHostRun, message?: string) => {
+  const question = groupQuestion(run.board, message);
+  await question.waitFor({ timeout: STEP_TIMEOUT_MS });
+  const buttons = await question.getByRole("button").allTextContents();
+  expect(buttons).toEqual(
+    buttons[0] === "Annulla" ? ["Annulla", "Continua"] : ["Cancel", "Continue"],
+  );
+  expect(await isFocused(question.getByRole("button").first())).toBe(true);
+  return question;
+};
+
+/** Chooses "Continue" in the group question that is showing. */
+export const continueGroup = async (run: WidgetHostRun) => {
+  const question = await askedGroup(run);
+  await question.getByRole("button", { name: "Continue", exact: true }).click({
+    timeout: STEP_TIMEOUT_MS,
+  });
+  await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+};

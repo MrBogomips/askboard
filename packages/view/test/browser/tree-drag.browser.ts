@@ -19,7 +19,7 @@ import {
   release,
   ZONE,
 } from "./harness/tree-drag.ts";
-import { enabledTools, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
+import { enabledTools, groupQuestion, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import {
   allPlaces,
   expectUnchanged,
@@ -103,6 +103,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             async () => (await placeOf(tree, "billing"))[0] === "3",
             "billing to move into portal",
           );
+          // The plain Tree has no estimates that count and no plan: the drop acts at once, asking
+          // nothing (wbs-gantt-consistency, "Nothing to lose").
+          expect(await groupQuestion(board).count()).toBe(0);
+          expect(await tree.toolbar.count()).toBe(1);
           expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
           expect(await tree.row("portal").getAttribute("aria-expanded")).toBe("true");
           expect(await tree.counter.textContent()).toBe("Your changes: 1");

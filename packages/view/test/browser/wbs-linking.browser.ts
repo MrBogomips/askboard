@@ -5,17 +5,23 @@
 // draft update, nothing leaving the view; an addition taken back writes nothing; a linked edit past
 // a plan's limit is refused at the name, writing nothing; on an answered question the plan's draft
 // value starts from its answer; and a package other tasks depend on is deleted only once the user
-// confirms, its dependents then depending on its predecessors.
+// confirms, its dependents then depending on its predecessors; and a leaf that holds an estimate or
+// is a task of the plan becomes a group (a drop into it, an indent under it, "Add child" on it) only
+// once the user answers the group question, "Cancel" and Escape changing nothing (wbs-gantt-
+// consistency; view spec, "Making a work package a group asks first", "Answering the group question").
 
 import { describe, expect, test } from "bun:test";
 import { elementChanges, GANTT_PLAN_SHAPE } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
+import type { ViewDocument } from "../../src/view-document.ts";
 import { ganttOf, rowTexts } from "./fixtures/gantt-view.ts";
 import {
   answeredStateOf,
+  cellTexts,
   crowdedDocument,
   draftValues,
   planWith,
+  totalRow,
   wbsPlan,
   wbsTree,
 } from "./fixtures/wbs-documents.ts";
@@ -27,19 +33,27 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { dragDrop, ZONE } from "./harness/tree-drag.ts";
 import {
   deleteQuestion,
+  groupQuestion,
   pressIn,
   pressTool,
   shiftTabToAddNode,
   type TreeGrid,
+  toolFocus,
+  treeFocus,
   treeGridOf,
 } from "./harness/tree-grid.ts";
 import {
+  allPlaces,
+  askedGroup,
+  continueGroup,
   expectNewNode,
   expectSteps,
   expectUnchanged,
   focusPortal,
+  placeOf,
   readyIn,
   shownIds,
   typeIn,
@@ -58,6 +72,18 @@ const PAST_DEPENDENTS =
 /** The predecessors the portal has, which a package named after it gets. */
 const PORTAL_PREDECESSORS = ["architecture", "prototype"];
 
+/** The question before the portal, an estimated task one other task depends on, becomes a group. */
+const PORTAL_GROUP =
+  "“Customer portal” becomes a group: its estimates leave the totals while it has children, and its task leaves the plan. 1 task in the plan depends on it.";
+
+/** The question before reporting, on which no task depends, becomes a group. */
+const REPORTING_GROUP =
+  "“Reporting” becomes a group: its estimates leave the totals while it has children, and its task leaves the plan.";
+
+/** The same question in Italian, for the portal. */
+const ITALIAN_GROUP =
+  "“Customer portal” diventa un gruppo: le sue stime escono dai totali finché ha figli, e la sua attività esce dal piano. 1 attività del piano dipende da esso.";
+
 /** The question before deleting the portal, on which reporting depends. */
 const PORTAL_QUESTION = "“Customer portal” will be deleted. 1 task in the plan depends on it.";
 
@@ -70,6 +96,8 @@ const addAndName = async (run: WidgetHostRun, tree: TreeGrid, tool: "Add node" |
   expect(await shiftTabToAddNode(run.board)).toBe("Add node");
   if (tool === "Add child") expect(await pressTool(run.board, "ArrowRight")).toBe("Add child");
   await run.board.page.keyboard.press("Enter");
+  // "Add child" on an estimated leaf of the plan's Tree asks first; "Continue" starts the name.
+  if (tool === "Add child") await continueGroup(run);
   await expectNewNode(tree, "u-1");
 };
 
@@ -331,6 +359,219 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await run.board.answer.isDisabled()).toBe(true);
         await Bun.sleep(QUIET_MS);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+  describe(`${engine}: making a work package a group asks first`, () => {
+    const { host } = useWidgetHost(engine);
+
+    /** Opens the UJ-2 board, with the places of its rows and the Total's cells before any edit. */
+    const opened = async (document: ViewDocument = uj2ExpandedBoardDocument as ViewDocument) => {
+      const run = await host(dist, document);
+      await readyIn(run);
+      const tree = treeGridOf(run.board);
+      return { run, tree, places: await allPlaces(tree), totals: await cellTexts(totalRow(tree)) };
+    };
+
+    /** Drops `billing` on the middle of the portal: the question, with nothing moved. */
+    const dropBillingIntoPortal = async (
+      run: WidgetHostRun,
+      tree: TreeGrid,
+      message = PORTAL_GROUP,
+    ) => {
+      await dragDrop(run.board, tree, "billing", "portal", ZONE.into);
+      return askedGroup(run, message);
+    };
+
+    test(
+      "billing dropped on the middle of the portal asks first, in the toolbar row in place of the tools, with the focus on Cancel and nothing moved, drafted or sent",
+      async () => {
+        const { run, tree, places, totals } = await opened();
+        await dropBillingIntoPortal(run, tree);
+        expect(await tree.toolbar.count()).toBe(0);
+        expect(await deleteQuestion(run.board).count()).toBe(0);
+        expect(await allPlaces(tree)).toEqual(places);
+        expect(await cellTexts(totalRow(tree))).toEqual(totals);
+        expect((await rowOf(run, "portal"))?.[0]).toBe("portal");
+        expect(draftValues(run)).toEqual({});
+        await expectUnchanged(run);
+        expect(run.browser.errors).toEqual([]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Continue puts billing under the portal: the totals lose the portal's expected effort, the plan has no row for the portal, reporting shows the field error and only the Tree is drafted; dragged back, the draft is gone",
+      async () => {
+        const { run, tree, places, totals } = await opened();
+        const question = await dropBillingIntoPortal(run, tree);
+        await question.getByRole("button", { name: "Continue", exact: true }).click();
+        await eventually(
+          async () => (await placeOf(tree, "billing"))[0] === "3",
+          "billing to move",
+        );
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
+        expect(await tree.row("portal").getAttribute("aria-expanded")).toBe("true");
+        expect(await treeFocus(run.board)).toEqual({ nodeId: "billing" });
+        await expectDraftOf(run, [wbsTree.id]);
+        // The portal, a parent, no longer counts: the Total loses its expected effort.
+        const after = await cellTexts(totalRow(tree));
+        expect(after.slice(0, 4)).toEqual(totals.slice(0, 4));
+        expect(after.slice(4)).not.toEqual(totals.slice(4));
+        expect(Number.parseFloat(after[4] ?? "")).toBeCloseTo(
+          Number.parseFloat(totals[4] ?? "") - 12.7,
+          1,
+        );
+        await eventually(
+          async () => (await rowOf(run, "portal")) === undefined,
+          "the portal to leave the plan",
+        );
+        const gantt = ganttOf(run.board, wbsPlan.id);
+        await gantt.note("reporting").waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(((await gantt.note("reporting").textContent()) ?? "").trim()).toBe(
+          "No dates: its predecessor portal names no task.",
+        );
+        // Dragged back under Build, right after the portal, the Tree is the agent's again.
+        await dragDrop(run.board, tree, "billing", "portal", ZONE.after);
+        await eventually(
+          async () => (await placeOf(tree, "billing"))[0] === "2",
+          "billing to leave",
+        );
+        expect(await allPlaces(tree)).toEqual(places);
+        expect(await cellTexts(totalRow(tree))).toEqual(totals);
+        await expectDraftOf(run, []);
+        await eventually(
+          async () => (await rowOf(run, "portal")) !== undefined,
+          "the portal's row",
+        );
+        expect(await gantt.note("reporting").count()).toBe(0);
+        expect(await run.board.answer.isDisabled()).toBe(true);
+        expect(await groupQuestion(run.board).count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    for (const [how, cancel] of [
+      ["Cancel", "Enter"],
+      ["Escape", "Escape"],
+    ] as const) {
+      test(
+        `${how} on the question changes nothing and returns the focus to billing's row`,
+        async () => {
+          const { run, tree, places, totals } = await opened();
+          const question = await dropBillingIntoPortal(run, tree);
+          await run.board.page.keyboard.press(cancel);
+          await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+          expect(await tree.toolbar.count()).toBe(1);
+          await eventually(
+            async () => (await treeFocus(run.board))?.nodeId === "billing",
+            "the focus to return to billing's row",
+          );
+          expect(await treeFocus(run.board)).toEqual({ nodeId: "billing" });
+          expect(await allPlaces(tree)).toEqual(places);
+          expect(await cellTexts(totalRow(tree))).toEqual(totals);
+          expect(draftValues(run)).toEqual({});
+          await expectUnchanged(run);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+
+    test(
+      "Alt+Shift+ArrowRight on billing asks the same question with nothing moved; Escape cancels it, and again with Continue it indents billing",
+      async () => {
+        const { run, tree, places } = await opened();
+        await focusPortal(run, tree);
+        expect(await pressIn(run.board, "ArrowDown")).toEqual({ nodeId: "billing" });
+        await run.board.page.keyboard.press("Alt+Shift+ArrowRight");
+        const question = await askedGroup(run, PORTAL_GROUP);
+        expect(await allPlaces(tree)).toEqual(places);
+        expect(draftValues(run)).toEqual({});
+        await run.board.page.keyboard.press("Escape");
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await treeFocus(run.board))?.nodeId === "billing",
+          "the focus to return",
+        );
+        expect(await allPlaces(tree)).toEqual(places);
+        await expectUnchanged(run);
+        await run.board.page.keyboard.press("Alt+Shift+ArrowRight");
+        await continueGroup(run);
+        await eventually(
+          async () => (await placeOf(tree, "billing"))[0] === "3",
+          "billing to indent",
+        );
+        expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
+        expect(await treeFocus(run.board)).toEqual({ nodeId: "billing" });
+        await expectDraftOf(run, [wbsTree.id]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      '"Add child" on reporting asks before any name editor; Cancel returns to the tool; Continue starts the name, and Escape there adds no node and no draft value',
+      async () => {
+        const { run, tree } = await opened();
+        await focusPortal(run, tree);
+        await expectSteps(run, tree, [
+          ["ArrowDown", { nodeId: "billing" }],
+          ["ArrowDown", { nodeId: "reporting" }],
+        ]);
+        expect(await shiftTabToAddNode(run.board)).toBe("Add node");
+        expect(await pressTool(run.board, "ArrowRight")).toBe("Add child");
+        await run.board.page.keyboard.press("Enter");
+        const question = await askedGroup(run, REPORTING_GROUP);
+        expect(await tree.editor.count()).toBe(0);
+        expect(await shownIds(tree)).not.toContain("u-1");
+        expect(draftValues(run)).toEqual({});
+        // Cancel: the focus is back on the tool.
+        await run.board.page.keyboard.press("Escape");
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await toolFocus(run.board)) === "Add child",
+          "the focus on the tool",
+        );
+        await run.board.page.keyboard.press("Enter");
+        await continueGroup(run);
+        await expectNewNode(tree, "u-1");
+        expect(await pressIn(run.board, "Escape")).toEqual({ nodeId: "reporting" });
+        expect(await shownIds(tree)).not.toContain("u-1");
+        expect(draftValues(run)).toEqual({});
+        await expectUnchanged(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      '"Add node" on an estimated leaf never asks',
+      async () => {
+        const { run, tree } = await opened();
+        await focusPortal(run, tree);
+        await addAndName(run, tree, "Add node");
+        expect(await groupQuestion(run.board).count()).toBe(0);
+        expect(await pressIn(run.board, "Escape")).toEqual({ nodeId: "portal" });
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an it-IT board asks in Italian, with Annulla and Continua",
+      async () => {
+        const { run, tree } = await opened({
+          ...uj2ExpandedBoardDocument,
+          language: "it-IT",
+        } as unknown as ViewDocument);
+        await dragDrop(run.board, tree, "billing", "portal", ZONE.into);
+        const question = await askedGroup(run, ITALIAN_GROUP);
+        expect(await question.getByRole("button").allTextContents()).toEqual([
+          "Annulla",
+          "Continua",
+        ]);
+        await run.board.page.keyboard.press("Escape");
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
       },
       TEST_TIMEOUT_MS,
     );

@@ -189,6 +189,10 @@ export const TreeWidget = ({
   // The question asked: a delete, with the part it was asked from and its refusal once refused, or
   // a leaf becoming a group.
   const [asked, setAsked] = useState<Asked>();
+  // Whether a group question is asked, set as it is asked, before the render that shows it: a drop's
+  // `end` follows its `drop` at once, and must leave the focus to the question's "Cancel".
+  const groupAsked = useRef(false);
+  groupAsked.current = asked?.kind === "group";
   // The current row, which the row tools act on: set by a click or an arrow key, none at open.
   const [currentId, setCurrent] = useState<Current>();
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
@@ -348,6 +352,7 @@ export const TreeWidget = ({
   // false when the edit is not one that asks.
   const askGroup = (edit: GroupEdit, from: TreePart): boolean => {
     if (groupQuestionOf(value, edit, { planned, countDependents }) === undefined) return false;
+    groupAsked.current = true;
     setAsked({ kind: "group", edit, from });
     return true;
   };
@@ -368,6 +373,8 @@ export const TreeWidget = ({
     const drop = dropOn(value, nodeId, targetId, fraction);
     if (!confirmed && askGroup({ kind: "drop", nodeId, drop }, "grid")) {
       // Nothing moves: the dragged row stays the grid's Tab stop, where "Cancel" returns the focus.
+      // The drag's end, whether it came first or comes next, leaves the focus to the question.
+      focus.moveFocusTo(undefined);
       setCurrent(nodeId);
       show(focusOn(view, value, nodeId), false);
       return;
@@ -402,7 +409,7 @@ export const TreeWidget = ({
     end: () => {
       setDragging(undefined);
       // The question a drop asks holds the focus, on "Cancel".
-      if (asked?.kind !== "group") focus.moveFocusTo("grid");
+      if (!groupAsked.current) focus.moveFocusTo("grid");
     },
   };
   const dragged = dragging !== undefined;

@@ -6,7 +6,7 @@
 // changes before "Continue". The leaf's name is text, never markup (AD-8).
 
 import { useStrings } from "@askboard/view/catalog";
-import { type KeyboardEvent, useId, useLayoutEffect, useRef } from "react";
+import { type KeyboardEvent, useId } from "react";
 import { QUESTION, QUESTION_NAME, QUESTION_REST, QUESTION_ROW, TOOL } from "./classes.ts";
 import { groupedWith, type GroupQuestion as Question } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
@@ -24,6 +24,9 @@ export const questionKeyDown =
     onCancel();
   };
 
+/** Puts the focus on "Cancel" as it mounts: the safe answer, as the delete question does. */
+export const focusOnMount = (button: HTMLButtonElement | null): void => button?.focus();
+
 export const GroupQuestion = ({
   question,
   onConfirm,
@@ -35,10 +38,6 @@ export const GroupQuestion = ({
 }) => {
   const text = useStrings();
   const id = useId();
-  const cancel = useRef<HTMLButtonElement>(null);
-  useLayoutEffect(() => {
-    cancel.current?.focus();
-  }, []);
 
   return (
     <fieldset aria-labelledby={id} className={QUESTION_ROW} onKeyDown={questionKeyDown(onCancel)}>
@@ -46,7 +45,7 @@ export const GroupQuestion = ({
         <span className={QUESTION_NAME}>“{question.label}”</span>{" "}
         <span className={QUESTION_REST}>{groupedWith(question, text)}</span>
       </p>
-      <button ref={cancel} type="button" className={TOOL} onClick={onCancel}>
+      <button ref={focusOnMount} type="button" className={TOOL} onClick={onCancel}>
         {text("tree.group.cancel")}
       </button>
       <button type="button" className={TOOL} onClick={onConfirm}>
