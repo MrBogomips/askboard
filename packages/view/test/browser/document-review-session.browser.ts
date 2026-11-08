@@ -63,6 +63,9 @@ import { readViewBuild } from "./harness/view-build.ts";
 const dist = await readViewBuild();
 
 const TITLE = "Release notes";
+const LONG = "w".repeat(200);
+// A title holds at most 120 characters.
+const TITLE_LONG = "t".repeat(120);
 const LINE_START = "Read-only: your work";
 // The agent's revisions of the document: the commented word rewritten, and another paragraph.
 const REWRITTEN = NOTES.replace("remembers", "recalls");
@@ -600,6 +603,59 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await view.getByRole("tab", { name: "Review needs a correction" }).count()).toBe(0);
         await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
         expect(await hintOf(board)).toBeUndefined();
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: long unspaced words, on the session process`, () => {
+    const { start } = useEngine(engine);
+
+    test(
+      "a title of 120 characters and a document word, a comment and a replacement of 200 with no space wrap inside the frame at 1,280 pixels, and the board scrolls no wider",
+      async () => {
+        const item = reviewItem(`Start ${LONG} middle word end.`, TITLE_LONG);
+        const run = await start(lifecycleScenario(atomAsk([item]), dist));
+        const board = await openBoard(run, ["plan"]);
+        const { view } = board;
+        expect(await board.page.evaluate(() => window.innerWidth)).toBe(1280);
+        await documentShown(board);
+        await comment(view, "middle", LONG);
+        await suggest(view, "word", LONG);
+        await held(run, 2);
+        const fits = (selector: string) =>
+          view
+            .locator(selector)
+            .first()
+            .evaluate((el) => el.scrollWidth <= el.clientWidth);
+        expect(await fits("[data-document-review]")).toBe(true);
+        expect(await fits("[data-document-review] > p")).toBe(true);
+        expect(await fits(DOCUMENT)).toBe(true);
+        expect(await view.locator("html").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+          true,
+        );
+        expect(await board.page.evaluate(() => document.documentElement.scrollWidth <= 1280)).toBe(
+          true,
+        );
+        const title = view.getByText(TITLE_LONG, { exact: true });
+        expect(await title.count()).toBeGreaterThan(0);
+        expect(await title.first().evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+        const inside = (locator: ReturnType<typeof view.getByRole>) =>
+          locator.evaluate((el) => {
+            const box = el.getBoundingClientRect();
+            return el.scrollWidth <= el.clientWidth && box.right <= innerWidth + 1;
+          });
+        await pin(view, "Comment 1").click();
+        const dialog = view.getByRole("dialog");
+        await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await dialog.textContent()).toContain(LONG);
+        expect(await inside(dialog)).toBe(true);
+        await dialog.getByRole("button", { name: "Close" }).click();
+        await pin(view, "Suggested edit 2").click();
+        await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await dialog.textContent()).toContain(LONG);
+        expect(await inside(dialog)).toBe(true);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
