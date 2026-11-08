@@ -4,8 +4,8 @@
 // then currencies (design decision 3). A node that fails keeps its first error, reads as it, and
 // is a warning naming it; nodes that read it inherit the error without a warning.
 
-import { checkFormula, isProblem } from "../formula/check.ts";
-import type { Expression } from "../formula/expression.ts";
+import { type CheckedFormula, checkFormula, isProblem } from "../formula/check.ts";
+import type { Expression, FormulaProblem } from "../formula/expression.ts";
 import { convertInput } from "../inputs.ts";
 import { orderNodes } from "../order.ts";
 import type { GraphSource } from "../source.ts";
@@ -66,8 +66,20 @@ export const compiledOf = (graph: Graph): CompiledGraph => {
   return compiled;
 };
 
-const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft => {
-  const checked = checkFormula(text);
+/** The formula checks of one build, by text: a text held by many nodes is parsed once. */
+type Checks = Map<string, CheckedFormula | FormulaProblem>;
+
+const compileFormula = (
+  index: NodeIndex,
+  entry: NodeEntry,
+  text: string,
+  checks: Checks,
+): Draft => {
+  let checked = checks.get(text);
+  if (checked === undefined) {
+    checked = checkFormula(text);
+    checks.set(text, checked);
+  }
   if (isProblem(checked)) {
     return {
       entry,
@@ -99,8 +111,8 @@ const compileFormula = (index: NodeIndex, entry: NodeEntry, text: string): Draft
   return { entry, formula: { expression: checked.expression, references }, reads: [...reads] };
 };
 
-const draftNode = (index: NodeIndex, entry: NodeEntry): Draft => {
-  if (entry.formula !== undefined) return compileFormula(index, entry, entry.formula);
+const draftNode = (index: NodeIndex, entry: NodeEntry, checks: Checks): Draft => {
+  if (entry.formula !== undefined) return compileFormula(index, entry, entry.formula, checks);
   const converted = convertInput(entry.type, entry.value);
   if ("reason" in converted) {
     return {
@@ -162,7 +174,8 @@ export const buildGraph = (source: GraphSource): Graph => {
   const expanded = expandItems(checkItems(source));
   const index = indexSource(expanded.items);
   const warnings: FormulaError[] = [...expanded.warnings];
-  const drafts = index.entries.map((entry) => draftNode(index, entry));
+  const checks: Checks = new Map();
+  const drafts = index.entries.map((entry) => draftNode(index, entry, checks));
   for (const draft of drafts) if (draft.error !== undefined) warnings.push(draft.error);
   const { order, onCycle } = orderNodes(drafts.map((draft) => draft.reads));
   drafts.forEach((draft, i) => {
