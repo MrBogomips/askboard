@@ -4,9 +4,10 @@
 // while it has children. The rule is pure, over the value as it is, and takes only an edit the
 // model's checks already allow, so a refused drop never asks. The edits themselves stay pure
 // (`model/edits.ts`): the question is view state, as the delete question is (`widget.tsx`). No
-// React, no DOM.
+// React, no DOM; only the words take the catalog's `Say`, as a type.
 
 import { GANTT_PLAN_ESTIMATES, type TreeProps } from "@askboard/contract";
+import type { Say } from "@askboard/view/catalog";
 import type { Drop } from "./model/drop.ts";
 import { can } from "./model/edits.ts";
 import { isPert, locate } from "./model/nodes.ts";
@@ -86,4 +87,26 @@ export const groupQuestionOf = (
   const estimates = isPert(value) && holdsEstimate(value, id);
   if (!estimates && !planned) return undefined;
   return Object.freeze({ label, estimates, task: planned, dependents: countDependents([id]) });
+};
+
+// What leaves with the leaf: its estimates, its task, or both.
+const losing = ({ estimates, task }: GroupQuestion, text: Say): string =>
+  text(
+    estimates && task
+      ? "tree.group.estimatesAndTask"
+      : estimates
+        ? "tree.group.estimates"
+        : "tree.group.task",
+  );
+
+/**
+ * The question's words after the leaf's name, as `deletedWith` gives the delete question's: that it
+ * becomes a group, what leaves with it, and how many tasks of the plans depend on it, in the ask's
+ * language through `text`.
+ */
+export const groupedWith = (question: GroupQuestion, text: Say): string => {
+  const rest = `${text("tree.group.becomes")} ${losing(question, text)}`;
+  return question.dependents < 1
+    ? rest
+    : `${rest} ${text("tree.delete.dependsOnIt", { count: question.dependents })}`;
 };
