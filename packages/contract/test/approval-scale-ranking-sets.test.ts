@@ -53,7 +53,7 @@ describe("the versions of the four widened sets", () => {
       document: minor(BOARD_DOCUMENT_VERSION) >= 5,
     }).toEqual({ input: true, output: true, envelopes: true, document: true });
     // The board protocol: this change's minor or a later one (table-widget's cell entries pin the
-    // latest in draft-cell-entries.test.ts).
+    // latest in table-sets.test.ts).
     expect(minor(BOARD_PROTOCOL_VERSION)).toBeGreaterThanOrEqual(6);
     expect({
       snapshot: SNAPSHOT_DATA_VERSION,
