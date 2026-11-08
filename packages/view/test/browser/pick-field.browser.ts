@@ -1,11 +1,11 @@
 // The PickField in each engine (form-widget, task 3.3; view-and-widgets spec: The PickField, The
 // PickField's filter, Forms read-only and in Snapshots, Form strings; design decision 4): a single
-// pick on AskBoard's own radio group (the arrow keys move the focus only, Space or a click picks) and a "Clear", a multiple pick on checkboxes with
-// Space, the counts' field errors, the filter over a long list that hides options and never a pick
-// and never reaches the draft, a required pick blocking "Answer", an Italian board, nothing in the
-// DOM with a `style` attribute, and, on the session process, an answer returning option IDs by
-// item ID and a field read-only once the ask closes. At DESIGN's 1,280-pixel floor, each act by
-// keyboard.
+// pick on AskBoard's own radio group (choice-documented-activation: the arrow keys move the focus
+// only, Space or a click picks) and a "Clear", a multiple pick on checkboxes with Space, the counts'
+// field errors, the filter over a long list that hides options and never a pick and never reaches
+// the draft, a required pick blocking "Answer", an Italian board, nothing in the DOM with a `style`
+// attribute, and, on the session process, an answer returning option IDs by item ID and a field
+// read-only once the ask closes. At DESIGN's 1,280-pixel floor, each act by keyboard.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/pick-field.browser.ts
 
