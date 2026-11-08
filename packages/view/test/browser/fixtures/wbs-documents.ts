@@ -13,7 +13,7 @@ import {
   type TreeNode,
   type TreePertProps,
 } from "@askboard/contract";
-import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
+import { plainChoiceBoardDocument, uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import type { Locator } from "playwright";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import type { AnswerContent, ViewDraft } from "../../../src/view-protocol.ts";
@@ -54,6 +54,72 @@ const renamed = (nodes: readonly TreeNode[], id: string, label: string): TreeNod
 /** The UJ-2 work breakdown whose UX design package is named `label`. */
 export const uxNamedDocument = (label: string): ViewDocument =>
   wbsDocumentWith({ ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "ux", label) });
+
+/** The UJ-2 work breakdown whose Customer portal package is named `label`. */
+export const portalNamedDocument = (label: string): ViewDocument =>
+  wbsDocumentWith({ ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "portal", label) });
+
+const NEW_CHILD: TreeNode = {
+  id: "gateway",
+  label: "Gateway",
+  optimistic: 1,
+  mostLikely: 1,
+  pessimistic: 1,
+};
+
+const withChild = (nodes: readonly TreeNode[], id: string, child: TreeNode): TreeNode[] =>
+  nodes.map((node) => ({
+    ...node,
+    ...(node.id === id ? { children: [...(node.children ?? []), child] } : {}),
+    ...(node.children !== undefined && node.id !== id
+      ? { children: withChild(node.children, id, child) }
+      : {}),
+  }));
+
+const without = (nodes: readonly TreeNode[], id: string): TreeNode[] =>
+  nodes
+    .filter((node) => node.id !== id)
+    .map((node) =>
+      node.children === undefined ? node : { ...node, children: without(node.children, id) },
+    );
+
+const find = (nodes: readonly TreeNode[], id: string): TreeNode | undefined => {
+  for (const node of nodes) {
+    const hit = node.id === id ? node : find(node.children ?? [], id);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+};
+
+/** The UJ-2 work breakdown after the agent gave the portal a child. */
+export const portalWithChildDocument = (): ViewDocument =>
+  wbsDocumentWith({
+    ...wbsTree.props,
+    nodes: withChild(wbsTree.props.nodes, "portal", NEW_CHILD),
+  });
+
+/** The UJ-2 work breakdown after the agent moved reporting before billing, both under build. */
+export const reportingBeforeBillingDocument = (): ViewDocument => {
+  const reporting = find(wbsTree.props.nodes, "reporting");
+  if (reporting === undefined) throw new Error("the fixture has no reporting");
+  const moved = (nodes: readonly TreeNode[]): TreeNode[] =>
+    nodes.flatMap((node) => {
+      if (node.id === "reporting") return [];
+      if (node.id === "billing") return [reporting, node];
+      return [node.children === undefined ? node : { ...node, children: moved(node.children) }];
+    });
+  return wbsDocumentWith({ ...wbsTree.props, nodes: moved(wbsTree.props.nodes) });
+};
+
+/** The UJ-2 work breakdown after the agent moved the portal under billing. */
+export const portalUnderBillingDocument = (): ViewDocument => {
+  const portal = find(wbsTree.props.nodes, "portal");
+  if (portal === undefined) throw new Error("the fixture has no portal");
+  return wbsDocumentWith({
+    ...wbsTree.props,
+    nodes: withChild(without(wbsTree.props.nodes, "portal"), "billing", portal),
+  });
+};
 
 /** The header row's column names (provisional labels: EXPERIENCE, Copy, WBS with PERT). */
 export const WBS_HEADERS = [
@@ -129,4 +195,49 @@ export const answeredStateOf = (values: Readonly<Record<string, unknown>>): Life
 export const draftValues = (run: WidgetHostRun): Readonly<Record<string, unknown>> => {
   const last = run.drafts.at(-1) as ViewDraft | undefined;
   return last?.record.questions[wbsQuestion.id]?.values ?? {};
+};
+
+// The documents of the group question's layout (wbs-gantt-consistency, review 3.3 S-1): the UJ-2
+// Tree and plan in one Row, which narrows the Tree's toolbar to about half the card; the UJ-2
+// question beside a second one, which shows the outline rail; and the portal with a long name.
+
+/** The UJ-2 Tree and plan in a Row of one question: each takes about half of the card. */
+export const rowDocument: ViewDocument = {
+  ...uj2ExpandedBoardDocument,
+  items: [
+    {
+      ...wbsQuestion,
+      props: {
+        ...wbsQuestion.props,
+        items: [{ type: "row", id: "wbs-row", props: { items: [wbsTree, wbsPlan] } }],
+      },
+    },
+  ],
+} as unknown as ViewDocument;
+
+/** The UJ-2 question and a second question, in sections: the board shows its outline rail. */
+export const railDocument: ViewDocument = {
+  ...uj2ExpandedBoardDocument,
+  items: [...uj2ExpandedBoardDocument.items, { ...plainChoiceBoardDocument.items[0], rev: 1 }],
+} as unknown as ViewDocument;
+
+/** The Row document with the portal's label `label` (at most 200 characters). */
+export const rowPortalNamedDocument = (label: string): ViewDocument => {
+  const [row] = (rowDocument.items[0] as unknown as { props: { items: unknown[] } }).props.items;
+  const named = {
+    ...(row as Record<string, unknown>),
+    props: {
+      items: [
+        {
+          ...wbsTree,
+          props: { ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "portal", label) },
+        },
+        wbsPlan,
+      ],
+    },
+  };
+  return {
+    ...rowDocument,
+    items: [{ ...wbsQuestion, props: { ...wbsQuestion.props, items: [named] } }],
+  } as unknown as ViewDocument;
 };

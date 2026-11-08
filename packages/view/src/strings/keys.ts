@@ -261,6 +261,13 @@ export const STRING_KEYS = [
   "tree.adjust.refusedRow",
   "tree.adjust.done",
   "tree.adjust.undone",
+  // The question before a leaf becomes a group (wbs-gantt-consistency, group 2; the Italian texts, which the PO reviews in the pull request).
+  "tree.group.becomes",
+  "tree.group.estimates",
+  "tree.group.task",
+  "tree.group.estimatesAndTask",
+  "tree.group.cancel",
+  "tree.group.continue",
   "gantt.column.task",
   "gantt.column.start",
   "gantt.column.duration",

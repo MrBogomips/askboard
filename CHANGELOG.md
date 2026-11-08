@@ -6,6 +6,8 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ### Fixed
 
+- The Tree asks before a work package with estimates, or one a Gantt plan names as a task, becomes a group: a drop into it, an indent under it and "Add child" on it each show a question in the toolbar row first, naming the package and what leaves the totals and the plan, with "Cancel" and "Continue"; nothing changes until "Continue" (Issue #71).
+- `ask` and `update` warn when a Gantt plan names an ID that is no work package of its Tree, as a plan entry, or as a predecessor in the entry of a work package: one warning per plan, addressed to the plan, naming at most five of the IDs and counting the rest, and the formula warnings of an `ask` or `update` stay within 10,000 characters, a closing warning counting any left out; the plan stays as the agent sent it (Issue #74).
 - A Snapshot opens in the theme and density the board had when it was taken (recorded in its data), has one Theme control that works, and shows the density switch (Issue #72).
 
 ## 0.1.0 - 2026-11-07

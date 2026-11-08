@@ -109,10 +109,15 @@ describe("the UJ-2 board's scenarios on the expanded question", () => {
 
   // The core spec's "Warnings in reference addressing": `ask-core`'s test maps this warning to
   // `schedule` and `review` (`packages/core/test/addressing.test.ts`).
-  test("a predecessor that names no task warns at its task, naming the plan and the predecessor", () => {
+  test("a predecessor that names no task warns at the plan and at its dependent, naming the plan and the predecessor", () => {
     const tasks = { ...(PLAN.props.tasks as Json), billing: { dependencies: ["review"] } };
     const plan = { ...PLAN, props: { ...PLAN.props, tasks } };
     expect(buildGraph(boardGraphSource([TREE, plan])).warnings).toEqual([
+      {
+        error: "missing-reference",
+        address: "schedule__plan.review",
+        detail: "the plan names review, which is no work package of wbs__tree",
+      },
       {
         error: "missing-reference",
         address: "schedule__plan.billing.es",

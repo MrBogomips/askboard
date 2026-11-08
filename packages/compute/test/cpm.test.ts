@@ -126,6 +126,11 @@ describe("CPM scheduling", () => {
     expect(graph.warnings).toEqual([
       {
         error: "missing-reference",
+        address: "plan.nope",
+        detail: "the plan names nope, which is no work package of wbs",
+      },
+      {
+        error: "missing-reference",
         address: "plan.typo",
         detail: "the dependencies name typo, which is no task of the plan",
       },
