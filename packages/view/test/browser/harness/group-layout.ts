@@ -95,18 +95,30 @@ export const expectWrapped = (layout: GroupLayout): void => {
 };
 
 /**
- * Runs in the view: whether the question reads in order on the page: the closing quote of the
- * name, then every character of AskBoard's words, and the period last. A character comes after
- * another when it is on a later line, or on the same line and further right.
+ * Runs in the view: whether the question reads in order on the page: the opening quote and the
+ * closing quote of the name, each before every character of AskBoard's words, which follow in
+ * order with the period last. A character comes after another when it is on a later line, or on
+ * the same line and further right. React renders `“{label}”` as three text nodes, so the opening
+ * quote is the last character of the name's first text node (its only one) and the closing quote
+ * is the last character of its last text node; a name whose last text node does not end in the
+ * closing quote reads wrong. A quote that is not the character it should be is reported, not read.
  */
 const readOrder = (): boolean | undefined => {
   const fieldset = [...document.querySelectorAll("fieldset[aria-labelledby]")].find((candidate) =>
     /becomes a group:|diventa un gruppo:/.test(candidate.textContent ?? ""),
   );
   const paragraph = document.getElementById(fieldset?.getAttribute("aria-labelledby") ?? "");
-  const name = paragraph?.firstElementChild?.firstChild;
+  const nameBox = paragraph?.firstElementChild;
+  const opening = nameBox?.firstChild;
+  const closing = nameBox?.lastChild;
   const words = paragraph?.lastElementChild?.firstChild;
-  if (name?.nodeType !== Node.TEXT_NODE || words?.nodeType !== Node.TEXT_NODE) return undefined;
+  if (
+    opening?.nodeType !== Node.TEXT_NODE ||
+    closing?.nodeType !== Node.TEXT_NODE ||
+    words?.nodeType !== Node.TEXT_NODE
+  ) {
+    return undefined;
+  }
   const rectOf = (node: Node, index: number): DOMRect => {
     const range = document.createRange();
     range.setStart(node, index);
@@ -114,19 +126,46 @@ const readOrder = (): boolean | undefined => {
     return range.getBoundingClientRect();
   };
   const text = words.textContent ?? "";
-  // The closing quote first, then each visible character of the words in turn.
-  const rects = [rectOf(name, (name.textContent ?? "").length - 1)];
-  for (let index = 0; index < text.length; index += 1) {
-    if (text[index]?.trim() !== "") rects.push(rectOf(words, index));
-  }
   if (text.at(-1) !== ".") return false;
-  return rects.every((rect, index) => {
-    const before = rects[index - 1];
-    if (before === undefined) return true;
-    const sameLine = Math.abs(before.top - rect.top) < 2;
-    return sameLine ? before.left <= rect.left : before.top < rect.top;
-  });
+  if (!(opening.textContent ?? "").startsWith("\u201C")) return false;
+  const closingText = closing.textContent ?? "";
+  if (opening === closing || !closingText.endsWith("\u201D")) return false;
+  const spoken: DOMRect[] = [];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index]?.trim() !== "") spoken.push(rectOf(words, index));
+  }
+  const after = (before: DOMRect, rect: DOMRect): boolean =>
+    Math.abs(before.top - rect.top) < 2 ? before.left <= rect.left : before.top < rect.top;
+  const inOrder = (rects: readonly DOMRect[]): boolean =>
+    rects.every((rect, index) => {
+      const before = rects[index - 1];
+      return before === undefined || after(before, rect);
+    });
+  // Each quote first, then each visible character of the words in turn.
+  return (
+    inOrder([rectOf(opening, 0), ...spoken]) &&
+    inOrder([rectOf(closing, closingText.length - 1), ...spoken])
+  );
 };
+
+/**
+ * Moves the closing quote out of the name and after AskBoard's words: the markup change that
+ * puts only that quote after them (review 3.15 S-1). Runs in the view; returns false when the
+ * question's markup is not as expected.
+ */
+export const moveClosingQuoteAfterWords = async (board: Board): Promise<boolean> =>
+  (await board.viewFrame()).evaluate(() => {
+    const fieldset = [...document.querySelectorAll("fieldset[aria-labelledby]")].find((candidate) =>
+      /becomes a group:|diventa un gruppo:/.test(candidate.textContent ?? ""),
+    );
+    const paragraph = document.getElementById(fieldset?.getAttribute("aria-labelledby") ?? "");
+    const quote = paragraph?.firstElementChild?.lastChild;
+    if (!paragraph || quote?.nodeType !== Node.TEXT_NODE || quote.textContent !== "\u201D") {
+      return false;
+    }
+    paragraph.append(quote);
+    return true;
+  });
 
 /** Whether the group question's own words read left to right, whatever the leaf's name holds. */
 export const wordsReadLeftToRight = async (board: Board): Promise<boolean> => {

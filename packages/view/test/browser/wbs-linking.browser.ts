@@ -42,7 +42,12 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { expectWrapped, groupLayout, wordsReadLeftToRight } from "./harness/group-layout.ts";
+import {
+  expectWrapped,
+  groupLayout,
+  moveClosingQuoteAfterWords,
+  wordsReadLeftToRight,
+} from "./harness/group-layout.ts";
 import { dragDrop, ZONE } from "./harness/tree-drag.ts";
 import {
   deleteQuestion,
@@ -806,6 +811,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         TEST_TIMEOUT_MS,
       );
     }
+
+    // Review 3.15 S-1: the check measures the closing quote itself. Markup that puts only that
+    // quote after AskBoard's words must be reported, which a check of the opening quote misses.
+    test(
+      "markup that puts only the closing quote after AskBoard's words: the check reports it",
+      async () => {
+        const run = await host(dist, rowPortalNamedDocument("Customer portal"));
+        await readyIn(run);
+        await dragDrop(run.board, treeGridOf(run.board), "billing", "portal", ZONE.into);
+        await askedGroup(run);
+        expect(await wordsReadLeftToRight(run.board)).toBe(true);
+        expect(await moveClosingQuoteAfterWords(run.board)).toBe(true);
+        expect(await wordsReadLeftToRight(run.board)).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
 
     test(
       "a leaf named with 200 characters and no space: the name wraps inside its paragraph",
