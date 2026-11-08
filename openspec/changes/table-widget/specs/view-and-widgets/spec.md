@@ -23,7 +23,7 @@ A cell SHALL show its value in the ask's locale: a number with its unit and mone
 - **THEN** it shows unset, apart from off
 
 ### Requirement: Editing a cell
-Enter, F2 or a double-click SHALL open an editor on the current input cell other than an on/off cell; the text SHALL be read by the input atom's parser in the ask's locale, its parsed value echoed while the editor is open; Enter or leaving SHALL commit a value into the draft, an empty text emptying the cell; Escape SHALL restore the cell (AD-9, AD-10).
+Enter, F2 or a double-click SHALL open an editor on the current input cell other than an on/off cell; the text SHALL be read by the input atom's parser in the ask's locale, its parsed value echoed while the editor is open; Enter or leaving SHALL commit a value into the draft, an empty text emptying the cell, and an unchanged text nothing; Escape SHALL restore the cell; an open editor SHALL close without committing when the agent's change alters its cell's column, row or value (AD-9, AD-10, NFR-10).
 
 #### Scenario: A rate typed in Italian
 - **WHEN** on an it-IT ask the user opens `pm`'s rate, types "960,00" and presses Enter
@@ -36,6 +36,10 @@ Enter, F2 or a double-click SHALL open an editor on the current input cell other
 #### Scenario: A formula cell
 - **WHEN** the user presses Enter on `pm`'s amount
 - **THEN** no editor opens
+
+#### Scenario: The agent changes the cell being edited
+- **WHEN** the user has opened the editor on `pm`'s rate without typing, and the agent's update sets that rate to 1,200
+- **THEN** the editor closes without committing, the cell reads the agent's rate, and the counter reads no change
 
 ### Requirement: On/off cells
 An on/off cell SHALL have no editor and hold no cell entry: Space, Enter, F2 or a click SHALL switch it, not set or off to on and on to off, and Delete or Backspace SHALL return it to not set (AD-9, AD-10).
