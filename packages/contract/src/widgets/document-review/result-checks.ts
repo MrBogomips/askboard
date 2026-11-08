@@ -97,8 +97,9 @@ export const documentReviewResultShape = (result: unknown): boolean => {
 const named = (id: unknown): string =>
   `annotation ${JSON.stringify(String(id).slice(0, ID_MAX_CHARS))}`;
 
-// The problems of one annotation, `seen` holding the IDs before it; a value the shape refuses
-// gives nothing here (the schema's problem stands).
+// The problems of one annotation, `seen` holding the IDs before it; a value the shape refuses,
+// a selector that is not a quote included, gives nothing here (the schema's problem stands: the
+// annotation's selector is narrowed to a quote there, and it runs first).
 const annotationProblems = (
   annotation: unknown,
   index: number,
@@ -123,15 +124,7 @@ const annotationProblems = (
   seen.add(id);
   const selector = isRecord(annotation.target) ? annotation.target.selector : undefined;
   if (!isRecord(selector)) return problems;
-  if (selector.type !== "quote") {
-    problems.push(
-      at(
-        "/target/selector",
-        `has a ${JSON.stringify(String(selector.type).slice(0, 20))} selector, and a Document review takes quotes`,
-      ),
-    );
-    return problems;
-  }
+  if (selector.type !== "quote") return problems;
   for (const field of ["exact", "prefix", "suffix"] as const) {
     const value = selector[field];
     const refused = typeof value === "string" ? refusedCharacter(value) : undefined;
@@ -177,10 +170,10 @@ const documentLength = (props: unknown): number => {
 
 /**
  * What a schema-valid Document review result still gets wrong against the item's props: an ID
- * that does not start with `u-` or is held twice, a selector that is not a quote, an `exact` of
- * white space only, longer than the document or holding a character the document refuses (as do
- * `prefix` and `suffix`), and a replacement equal to its `exact`. Props that hold no document
- * refuse the result, since nothing can check it.
+ * that does not start with `u-` or is held twice, an `exact` of white space only, longer than the
+ * document or holding a character the document refuses (as do `prefix` and `suffix`), and a
+ * replacement equal to its `exact`. The schema has already refused a selector that is not a quote.
+ * Props that hold no document refuse the result, since nothing can check it.
  */
 export const documentReviewResultProblems = (
   result: unknown,

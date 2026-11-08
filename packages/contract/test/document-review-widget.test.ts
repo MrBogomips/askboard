@@ -243,7 +243,7 @@ describe("Document review results", () => {
     );
   });
 
-  test("another selector fails, naming the item and the annotation by its place", () => {
+  test("another selector fails at the selector's type, naming the item", () => {
     for (const selector of [
       { type: "position", start: 0, end: 3 },
       { type: "region", value: "xywh=percent:1,1,10,10" },
@@ -255,13 +255,12 @@ describe("Document review results", () => {
       expect(found.every(({ path }) => path.startsWith("/annotations/0/target/selector"))).toBe(
         true,
       );
+      expect(
+        found.map(({ path }) => path),
+        selector.type,
+      ).toContain("/annotations/0/target/selector/type");
       expect(text(bad), selector.type).toContain(`item ${ITEM.id}`);
       expect(documentReviewResultShape(bad), selector.type).toBe(false);
-      // Called alone, the checks say what the type takes.
-      const alone = documentReviewResultProblems(bad, ITEM.props);
-      expect(alone[0]?.path).toBe("/annotations/0/target/selector");
-      expect(alone[0]?.message).toContain('annotation "u-1"');
-      expect(alone[0]?.message).toContain("takes quotes");
     }
   });
 
@@ -407,6 +406,70 @@ describe("Document review results", () => {
     const garbled = result(null, 3, { id: 4 }, { id: "u-1", target: 3, body: [] });
     expect(() => documentReviewResultProblems(garbled, ITEM.props)).not.toThrow();
     expect(() => documentReviewResultProblems(null, ITEM.props)).not.toThrow();
+  });
+
+  test("the shape and the problems never throw, on any JSON value at any level", () => {
+    const values = [
+      null,
+      0,
+      3.5,
+      "text",
+      true,
+      [],
+      [null, 1, "a"],
+      {},
+      { toString: 1 },
+      { type: { toString: 1 } },
+      JSON.parse('{"__proto__": 1, "constructor": {"prototype": 2}}'),
+    ];
+    const selectors = [
+      ...values,
+      JSON.parse('{"type":{"toString":1}}'),
+      JSON.parse('{"type":{"toString":1},"exact":{"toString":1}}'),
+      JSON.parse('{"type":"position","start":{"toString":1}}'),
+      JSON.parse('{"type":["quote"],"exact":"a"}'),
+      JSON.parse('{"type":"quote","exact":{"toString":1},"prefix":[],"suffix":{}}'),
+    ];
+    const annotation = (field: string, value: unknown) => ({
+      annotations: [
+        {
+          id: "u-1",
+          target: { selector: quote("remembers") },
+          body: { text: "x" },
+          [field]: value,
+        },
+      ],
+    });
+    const results: unknown[] = [...values];
+    for (const value of values) {
+      results.push({ annotations: value });
+      results.push({ annotations: [value] });
+      for (const field of ["id", "target", "body"]) results.push(annotation(field, value));
+      results.push({
+        annotations: [{ id: value, target: { selector: quote("a") }, body: { text: "x" } }],
+      });
+      results.push({
+        annotations: [{ id: "u-1", target: { selector: quote("a") }, body: value }],
+      });
+    }
+    for (const selector of selectors) {
+      results.push({ annotations: [{ id: "u-1", target: { selector }, body: { text: "x" } }] });
+      results.push({ annotations: [{ id: "u-1", target: { selector } }] });
+    }
+    for (const one of results) {
+      expect(() => documentReviewResultShape(one), JSON.stringify(one)).not.toThrow();
+      expect(
+        () => documentReviewResultProblems(one, ITEM.props),
+        JSON.stringify(one),
+      ).not.toThrow();
+      expect(() => check(one), JSON.stringify(one)).not.toThrow();
+    }
+    const direct = JSON.parse(
+      '{"annotations":[{"id":"u-1","target":{"selector":{"type":{"toString":1}}},"body":{"text":"x"}}]}',
+    );
+    expect(documentReviewResultShape(direct)).toBe(false);
+    expect(documentReviewResultProblems(direct, ITEM.props)).toEqual([]);
+    expect(check(direct).length).toBeGreaterThan(0);
   });
 
   test("the fixtures' results pass their item, and the act and the event are valid", () => {
