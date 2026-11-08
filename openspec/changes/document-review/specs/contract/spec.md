@@ -9,7 +9,7 @@ The registry SHALL hold `document-review`, whose props hold `markdown`, the docu
 
 #### Scenario: A control character
 - **WHEN** a Document review's `markdown` holds a carriage return, U+0000 or U+202E
-- **THEN** validation fails, naming the item and `markdown`, and the character as an escape such as `‮`
+- **THEN** validation fails, naming the item and `markdown`, and the character as an escape such as `\u202E`
 
 #### Scenario: A document too long
 - **WHEN** a Document review's `markdown` holds 10,001 characters
@@ -28,7 +28,7 @@ A Document review's result SHALL be `{annotations}`: 1 to 100 annotations, each 
 
 #### Scenario: Another selector
 - **WHEN** an annotation's selector is a `position` or a `region`
-- **THEN** it fails, naming the item, the annotation and saying that a Document review takes quotes
+- **THEN** it fails at the annotation's selector, naming the item
 
 #### Scenario: IDs the view did not make
 - **WHEN** an annotation's ID is `c1`, `__proto__` or `constructor`, or two annotations share an ID
@@ -85,7 +85,7 @@ The Document review's registry entry SHALL carry its teaching text: when to use 
 
 #### Scenario: The generated reference
 - **WHEN** the skill is generated
-- **THEN** it holds a Document review reference naming `markdown`, `title`, the result's `annotations`, `replacement` and the example, which `AskCore.ask` accepts
+- **THEN** `references/items.md` holds its use, `SKILL.md` links its reference, and the reference names `markdown`, `title`, the direction marks it refuses, the result's `annotations`, `replacement` and the example, which `AskCore.ask` accepts
 
 ### Requirement: The annotation body
 An annotation's body SHALL hold `text`, a comment of 1 to 2,000 characters, `replacement`, a suggested edit of 0 to 4,000 characters that replaces the target's text (an empty one deleting it), or both, and nothing else. A widget type MAY take fewer of them in its result (AD-7).
