@@ -32,6 +32,7 @@ import {
   messageOf,
   openCardOn,
   pin,
+  quoteOf,
   restoreAnnotations,
   select,
   selectAcross,
@@ -864,6 +865,110 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the open-link message",
           STEP_TIMEOUT_MS,
         );
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  // A pin and a suggested replacement stand outside the agent's link (review X-1 of 6.5, task 6.7;
+  // view-and-widgets spec: Links in a Document review, A pin at the end of a link; AD-8, NFR-5): a
+  // click or Enter on them never opens it, and the link keeps its own name.
+  describe(`${engine}: a pin or a replacement at the end of a link`, () => {
+    const { host } = useWidgetHost(engine);
+
+    const GUIDE = "Read [the guide](https://example.com/guide)";
+    const opened = (run: WidgetHostRun) =>
+      run.messages.filter((message) => message.type === "open-link");
+    const insideLink = (locator: ReturnType<typeof pin>) =>
+      locator.evaluate((el) => el.closest("a") !== null);
+
+    test(
+      "a pin on a link's text is no part of the link: its click and Enter open the card and no link, the link's name is exactly its text, and a click on the link still opens it",
+      async () => {
+        const document = reviewDocument();
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [commentOn("u-1", "docs", "A link.")]);
+        const { view, page } = run.board;
+        await eventually(async () => (await marks(view).count()) === 1, "the mark");
+        expect(await pin(view, "Comment 1").count()).toBe(1);
+        expect(await insideLink(pin(view, "Comment 1"))).toBe(false);
+        expect(await view.getByRole("link", { name: "docs", exact: true }).count()).toBe(1);
+        await pin(view, "Comment 1").click();
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await Bun.sleep(QUIET_MS);
+        expect(opened(run)).toEqual([]);
+        await card(view).getByRole("button", { name: "Close" }).click();
+        await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        await pin(view, "Comment 1").focus();
+        await page.keyboard.press("Enter");
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await Bun.sleep(QUIET_MS);
+        expect(opened(run)).toEqual([]);
+        await page.keyboard.press("Escape");
+        await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        await view.getByRole("link", { name: "docs", exact: true }).click();
+        await eventually(() => opened(run).length === 1, "the link's own open-link message");
+        expect(opened(run)).toEqual([
+          { type: "open-link", itemId: "review", url: "https://example.com/docs" },
+        ]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a comment made from the keyboard on a block that ends in a link puts its pin after the link: Enter on the pin opens the card and no link",
+      async () => {
+        const run = await host(dist, reviewDocument(GUIDE));
+        await readyIn(run);
+        const { view, page } = run.board;
+        await tabUntil(
+          run.board,
+          () =>
+            view.locator(DOCUMENT).evaluate((el) => el.contains(el.ownerDocument.activeElement)),
+          "the document",
+        );
+        await tool(view, "Comment").focus();
+        await page.keyboard.press("Enter");
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await page.keyboard.type("Why?");
+        await eventually(
+          () => annotationsHeld(run.drafts)[0]?.body.text === "Why?",
+          "the comment in the draft",
+        );
+        await page.keyboard.press("Escape");
+        await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        expect(await insideLink(pin(view, "Comment 1"))).toBe(false);
+        expect(await view.getByRole("link", { name: "the guide", exact: true }).count()).toBe(1);
+        await pin(view, "Comment 1").focus();
+        await page.keyboard.press("Enter");
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await Bun.sleep(QUIET_MS);
+        expect(opened(run)).toEqual([]);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a suggested replacement after link text stands outside the link, and a click on it opens nothing",
+      async () => {
+        const document = reviewDocument(GUIDE);
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [
+          { id: "u-1", target: { selector: quoteOf("guide") }, body: { replacement: "manual" } },
+        ]);
+        const { view } = run.board;
+        await eventually(async () => (await marks(view).count()) === 1, "the mark");
+        const replacement = view.locator("[data-review-document] .rounded-sm[data-review-ui]");
+        expect(await replacement.count()).toBe(1);
+        expect(await replacement.evaluate((el) => el.closest("a") !== null)).toBe(false);
+        expect(await view.getByRole("link", { name: "the guide", exact: true }).count()).toBe(1);
+        await replacement.click({ position: { x: 2, y: 2 } });
+        await Bun.sleep(QUIET_MS);
+        expect(opened(run)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );

@@ -148,6 +148,16 @@ const wrap = (segment: Segment, spec: MarkSpec, doc: MarkDocument): MarkElement 
   return span;
 };
 
+// The node a passage's last mark is followed by: the mark itself, or the outermost `a` above it
+// inside `root` (the agent's own link, never the widget's).
+const outsideAnchors = (mark: MarkElement, root: ReadingNode): MarkElement => {
+  let end: ReadingNode = mark;
+  for (let at = mark.parentNode; at !== null && at !== root; at = at.parentNode) {
+    if (at.nodeName.toUpperCase() === "A") end = at;
+  }
+  return end as MarkElement;
+};
+
 /**
  * Applies the plan to `root`, a fresh clone of the document (the plan is for the clone's reading
  * text, which a clone shares with the original): the segments of each passage in marks, and after
@@ -170,8 +180,12 @@ export const applyMarks = (
       const span = wrap(segment, spec, doc);
       last ??= span;
     }
-    const parent = last?.parentNode as unknown as Parent | null | undefined;
-    if (last === undefined || parent === null || parent === undefined) continue;
+    if (last === undefined) continue;
+    // After the passage, and after the outermost anchor it ends in, never inside one: the agent's
+    // link must keep its own text and name, and a click or Enter on a pin must not open it.
+    const end = outsideAnchors(last, root);
+    const parent = end.parentNode as unknown as Parent | null;
+    if (parent === null) continue;
     const after = withAttributes(doc.createElement("span"), {
       class: spec.suggested ? `${AFTER} ${REPLACEMENT}` : AFTER,
       [UI_ATTRIBUTE]: "",
@@ -187,7 +201,7 @@ export const applyMarks = (
     });
     after.appendChild(slot as never);
     pins.set(spec.id, slot);
-    parent.insertBefore(after as never, (last as unknown as { nextSibling: never }).nextSibling);
+    parent.insertBefore(after as never, (end as unknown as { nextSibling: never }).nextSibling);
   }
   return { pins: orderOf(pins, specs), replacements };
 };

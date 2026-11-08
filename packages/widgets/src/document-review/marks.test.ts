@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { type DocumentReviewAnnotation, placeAnnotations } from "@askboard/contract";
 import { el, type FakeNode, fakeDocument, fragment, show } from "../../test/fake-dom.ts";
 import { applyMarks, markSpecs, reuseSlots, samePlan, setReplacements } from "./marks.ts";
-import { layoutOf, type ReadingNode, readingTextOf } from "./reading.ts";
+import { layoutOf, type ReadingNode, readingTextOf, UI_ATTRIBUTE } from "./reading.ts";
 
 // The marks (document-review, design decision 7): the plan of the placed annotations and its
 // application to a clone of the document, in fake nodes whose `innerHTML` and `style` attribute
@@ -177,6 +177,110 @@ describe("applying the plan", () => {
     const marked = applyMarks(root, [], fakeDocument());
     expect(show(root)).toBe(before);
     expect(marked.pins.size).toBe(0);
+  });
+});
+
+// A pin and a suggested replacement stand outside every anchor of the agent's Markdown, so that a
+// click or Enter on them can never be a click on the agent's link, and the link keeps its own text
+// and accessible name (review X-1 of 6.5; AD-8, NFR-5; design decisions 7 and 10).
+describe("a passage that ends inside an agent's link (review X-1 of 6.5)", () => {
+  const LINK = "https://example.com/guide";
+  const linked = (inner: FakeNode | string = "the guide") =>
+    fragment(el("p", {}, "Read ", el("a", { href: LINK }, inner), " now."));
+  const apply = (root: FakeNode, annotations: readonly DocumentReviewAnnotation[]) => {
+    const text = readingTextOf(root);
+    const marked = applyMarks(root, specsOf(text, annotations), fakeDocument());
+    return { marked, text };
+  };
+  const within = (node: FakeNode | null, name: string, root: FakeNode): boolean => {
+    for (let at = node; at !== null && at !== root; at = at.parentNode) {
+      if (at.nodeName === name) return true;
+    }
+    return false;
+  };
+  // Every node of the tree that carries `data-review-ui`.
+  const uiOf = (node: FakeNode): FakeNode[] => [
+    ...(node.hasAttribute("data-review-ui") ? [node] : []),
+    ...node.childNodes.flatMap(uiOf),
+  ];
+
+  test("a passage ending in the link's text puts its pin after the link, never inside it", () => {
+    const root = linked();
+    const { marked, text } = apply(root, [note("u-1", "Read the guide")]);
+    const html = show(root);
+    expect(html).toContain("</a><span");
+    expect(within(marked.pins.get("u-1") as FakeNode, "A", root)).toBe(false);
+    expect(html).toContain("data-review-mark=u-1>the guide</span>");
+    expect(readingTextOf(root)).toBe(text);
+    expect(root.textContent).toBe("Read the guide now.");
+  });
+
+  test("a passage wholly inside the link does the same, and the link's own text is unchanged", () => {
+    const root = linked();
+    const { marked } = apply(root, [note("u-1", "guide")]);
+    const anchor = root.childNodes[0]?.childNodes[1] as FakeNode;
+    expect(anchor.nodeName).toBe("A");
+    expect(within(marked.pins.get("u-1") as FakeNode, "A", root)).toBe(false);
+    expect(anchor.textContent).toBe("the guide");
+  });
+
+  test("the outermost anchor is the one passed, through an emphasis inside the link", () => {
+    const root = linked(el("strong", {}, "the guide"));
+    const { marked } = apply(root, [note("u-1", "guide")]);
+    expect(within(marked.pins.get("u-1") as FakeNode, "A", root)).toBe(false);
+    expect(show(root)).toContain("</strong></a><span");
+  });
+
+  test("a suggestion's replacement text stands outside the link too", () => {
+    const root = linked();
+    const { marked } = apply(root, [note("u-1", "guide", { replacement: "manual" })]);
+    const replacement = marked.replacements.get("u-1") as FakeNode;
+    expect(replacement.nodeValue).toBe("manual");
+    expect(within(replacement, "A", root)).toBe(false);
+    expect(root.childNodes[0]?.childNodes[1]?.textContent).toBe("the guide");
+  });
+
+  test("a passage that starts inside the link and ends after it keeps its pin where it ended", () => {
+    const root = linked();
+    const { marked } = apply(root, [note("u-1", "guide now")]);
+    expect(within(marked.pins.get("u-1") as FakeNode, "A", root)).toBe(false);
+    const html = show(root);
+    expect(html.indexOf("</a>")).toBeLessThan(html.indexOf("data-review-ui"));
+  });
+
+  test("two annotations ending in the same link both put their pins after it", () => {
+    const root = linked();
+    const { marked } = apply(root, [
+      note("u-1", "the"),
+      note("u-2", "guide", { replacement: "x" }),
+    ]);
+    for (const id of ["u-1", "u-2"]) {
+      expect(within(marked.pins.get(id) as FakeNode, "A", root), id).toBe(false);
+    }
+    expect(uiOf(root).some((node) => within(node, "A", root))).toBe(false);
+  });
+
+  test("the attribute the elements carry is the one the view's link guard reads", () => {
+    // `anchorHref` in `view/src/markdown/links.ts` looks for `[data-review-ui]`.
+    expect(UI_ATTRIBUTE).toBe("data-review-ui");
+    const root = linked();
+    const { marked } = apply(root, [note("u-1", "guide")]);
+    expect((marked.pins.get("u-1") as FakeNode).parentNode?.hasAttribute(UI_ATTRIBUTE)).toBe(true);
+  });
+
+  test("over a document of every shape, no element the widget adds has an anchor above it", () => {
+    const root = fragment(
+      el("p", {}, "a ", el("a", { href: LINK }, "one"), " b ", el("a", { href: LINK }, "two")),
+      el("ul", {}, el("li", {}, el("a", { href: LINK }, el("em", {}, "three")))),
+    );
+    const text = readingTextOf(root);
+    const annotations = ["one", "two", "three", "a one", "two"].map((exact, index) =>
+      note(`u-${index + 1}`, exact, index % 2 === 0 ? { replacement: "r" } : { text: "t" }),
+    );
+    applyMarks(root, specsOf(text, annotations), fakeDocument());
+    expect(uiOf(root).length).toBeGreaterThan(0);
+    expect(uiOf(root).filter((node) => within(node, "A", root))).toEqual([]);
+    expect(readingTextOf(root)).toBe(text);
   });
 });
 
