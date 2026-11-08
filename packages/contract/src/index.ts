@@ -1030,3 +1030,7 @@ export {
   pickFieldResultProblems,
   pickFieldResultShape,
 } from "./widgets/pick-field/index.ts";
+
+// The annotation's suggested edit (document-review, design decision 2): the longest replacement.
+
+export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";

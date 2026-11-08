@@ -62,8 +62,9 @@ describe("the minors form-widget binds in group 1", () => {
 });
 
 describe("the output format's minor, with the PickField's registration (task 3.3)", () => {
-  test("it is one minor past layouts' 1.9, and the set carries the constant", () => {
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.10");
+  test("it is at form-widget's minor, 1.10, or a later one, and the set carries the constant", () => {
+    // document-review's annotation body moved the output format one minor past this change's.
+    expect(Number(OUTPUT_FORMAT_VERSION.split(".")[1])).toBeGreaterThanOrEqual(10);
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
   });
 
