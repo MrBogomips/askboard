@@ -4,6 +4,7 @@ schema: spec-driven
 context: |
   Write all artifacts in English.
   Requirements: docs/prd-askboard-2026-10-25/prd.md (FR, NFR, SM, R IDs) and its addendum.md. Each proposal cites the IDs it serves.
+  Backlog: GitHub Issues of MrBogomips/askboard (AGENTS.md). Each proposal's Why cites the Issues it resolves, one line each: "Issue: #n".
   Architecture: AD-1 to AD-22 in docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md bind every change; each design cites the AD IDs it relies on. SOLUTION-DESIGN.md explains them; where the two differ, the spine wins.
   UX: docs/ux-askboard-2026-10-27/DESIGN.md (how it looks) and EXPERIENCE.md (how it works). A change with a user-facing surface follows them and cites the sections it implements; both win over the mockups in mockups/.
   A change that alters a requirement or an architecture decision updates the PRD or the spine in the same change. AD IDs stay stable: amend in place, add the next AD-n, never renumber.
