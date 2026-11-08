@@ -535,6 +535,7 @@ export const QuestionCard = (props: CardProps) => {
         <ReopenedNotice
           previous={reopened.previous}
           disabled={readOnly || pending}
+          carried={work?.prefilled === true && work.rev === question.rev}
           onStart={() => {
             const previous = reopened.previous;
             if (previous !== undefined) fillFrom(question, previous, "previous", context);

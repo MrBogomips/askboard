@@ -158,6 +158,8 @@ export const STRING_KEYS = [
   "reopened.previous",
   "reopened.start",
   "reopened.other",
+  "reopened.carried",
+  "reopened.notCarried",
   "thread.title",
   "thread.noMessages",
   "thread.messages",

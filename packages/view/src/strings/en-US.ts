@@ -158,6 +158,9 @@ export const EN_US = {
   "reopened.previous": "Previous answer",
   "reopened.start": "Start from my previous answer",
   "reopened.other": "Other… {text}",
+  "reopened.carried": "Your previous answer is filled in. Change it or answer again.",
+  "reopened.notCarried":
+    'This question starts from the agent\'s version, not from your previous answer. "Start from my previous answer" brings back what still fits.',
   "thread.title": "Follow-up",
   "thread.noMessages": "no messages yet",
   "thread.messages": { one: "{count} message", other: "{count} messages" },

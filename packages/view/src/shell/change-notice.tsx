@@ -81,7 +81,7 @@ const WidgetLine = ({ change }: { readonly change: WidgetChange }) => {
 };
 
 /** The new revision, read-only, marked against the earlier one where the view knows it. */
-const AgentChange = ({
+export const AgentChange = ({
   question,
   earlier,
 }: {
@@ -191,20 +191,28 @@ const AnswerText = ({ answer }: { readonly answer: CurrentAnswer }) => {
   );
 };
 
-/** "Reopened by the agent", with the previous answer read-only and the way to start from it. */
+/**
+ * "Reopened by the agent", with the previous answer read-only and the way to start from it, and one
+ * line saying where the question started: from that answer (`carried`, the work on its current
+ * revision holds the prefill mark) or from the agent's version (reopen-start-from-answer, design
+ * decision 5).
+ */
 export const ReopenedNotice = ({
   previous,
   disabled,
+  carried,
   onStart,
 }: {
   readonly previous: CurrentAnswer;
   readonly disabled: boolean;
+  readonly carried: boolean;
   readonly onStart: () => void;
 }) => {
   const text = useStrings();
   return (
     <div data-askboard-notice="reopened" className={NOTICE}>
       <p className={NOTICE_TITLE}>{text("reopened.title")}</p>
+      <p>{text(carried ? "reopened.carried" : "reopened.notCarried")}</p>
       <div className="flex flex-wrap items-start gap-md">
         <div className="flex min-w-48 flex-1 flex-col gap-1 rounded-md bg-muted p-sm">
           <p className={SECTION_LABEL}>{text("reopened.previous")}</p>
