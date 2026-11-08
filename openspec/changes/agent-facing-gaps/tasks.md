@@ -1,0 +1,109 @@
+# Tasks
+
+Each task writes its tests first and sees them fail for the right reason before it implements (the repository's TDD rule).
+
+Terms used below:
+
+- "The check": `GITHUB_TOKEN=$(gh auth token) bun run check`.
+- "Coverage": at least 80% of lines and functions for every source file the task changes, read from `bun test --coverage`'s per-file table.
+- "Conformance": `bun packages/server/test/conformance/run.ts` on Bun and with `--runtime node`, after `bun run build`.
+
+Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separate sessions: their files are disjoint, apart from `CHANGELOG.md`, which only group 4 edits. Group 4 runs last.
+
+## 0. Base
+
+- [ ] 0.1 Names, versions and baseline (askboard-contract-versioning, Rule 3; design.md, Merge points and decision 5). Tests: none.
+  - Check with `git grep -n` on `origin/main` every name in design.md's "Borrowed" list, and record each with its file and line.
+  - Record every `*_VERSION` and `*_FORMAT` constant of `packages/contract/src`. The tool envelopes start at main's minor plus one in task 1.1; every other set stays at main's.
+  - Record the head of each branch in Merge points, and whether it moved; whether `document-review` or `keyboard-shortcuts-help` has merged; and, if `wbs-gantt-consistency` has a design by then, whether it touches the skill generator, the tool texts or the tool envelopes.
+  - Record `bun run check:skills`' figures (SKILL.md, answers.md, the always-loaded total) and the pass counts of `bun test` for `packages/contract`, `packages/server` and `tools/build/skills`.
+  - Verify: the note lists every name, version, head and figure. If a name, signature or shape differs, or a name is not on `main`, stop and run `/opsx:update` before group 1.
+- [ ] 0.2 PO decisions (proposal.md, open questions 1 to 5). Tests: none.
+  - Record each answer under this task, with its date. The date of each approved text is the `approved` field of its amendment (task 1.2).
+  - Verify: five answers recorded. An answer other than the default stops the work for `/opsx:update` before group 1. If questions 1 and 2 are both declined, task 1.2 and the two mcp-adapter scenarios that name the wording are dropped there.
+
+## 1. Contract: the outcome, the amendments, the version
+
+- [ ] 1.1 The `fetch` outcome `deleted` and the tool envelopes' minor (contract spec, "The fetch outcome deleted"; design decisions 2 and 5).
+  - Tests first, in a new `packages/contract/test/agent-facing-gaps-sets.test.ts`:
+    - each scenario of the requirement: `deleted` with `itemId`, with and without `unchecked`; `deleted` without `itemId`, failing on `itemId`; `discarded` of the previous minor passing; `discarded` with `itemId` or `unchecked` failing;
+    - the version test, pinning main's minor plus one.
+  - Then:
+    - `fetch-outcome.json` as decision 2 says, its `description` naming this change;
+    - `FetchOutcomeResult` as the union of the two shapes;
+    - `TOOL_ENVELOPES_VERSION` at main's minor plus one, the module's header comment gaining one sentence naming this change;
+    - the earlier exact pins moved (`table-sets.test.ts:60`, and every other hit of the skill's grep that equals main's value).
+  - Verify: the tests fail before the schema changes and pass after; `schemaSetProblems` passes; coverage; the check passes. The check's `check:skills` failure on the regenerated version is expected only if `skills/askboard/` is not regenerated: run `bun run build:skills` and commit it.
+- [ ] 1.2 The amendments record and the amended texts (contract spec, "Amendments to the approved texts" and "The approved examples stay as archived"; mcp-adapter spec, "Tool list" and "Server instructions for the tools listed"; design decision 4). Only for the questions task 0.2 accepted.
+  - Tests first:
+    - in a new `packages/contract/test/approved-amendments.test.ts`: the archived texts with the record applied equal `TOOL_DEFINITIONS` and `SERVER_INSTRUCTIONS`; an amendment whose `from` occurs zero times or twice throws, naming its change and target; the fixture copies still equal the archive (the existing byte-for-byte test, unchanged);
+    - in `tool-envelopes.test.ts:169`, `snapshot-envelopes.test.ts:58` and `packages/server/test/mcp-tools/list.test.ts:84`: the expected text read through `amendedApprovedText`;
+    - one test each that the `update` description names `itemId` and `followUp` and that the follow-up line names `itemId`.
+  - Then:
+    - `packages/contract/src/fixtures/approved-amendments.ts` with `APPROVED_TEXT_AMENDMENTS` and `amendedApprovedText`, exported through one appended block at the end of `src/fixtures/index.ts` (askboard-implementation's rule for appended blocks);
+    - the approved wording in `tools.json`'s `update` description and in `server-instructions.ts`.
+  - Verify: the new tests fail before the texts change and pass after; `bun run check:skills` prints the always-loaded total under 8,400, recorded in the note; coverage; the check passes.
+- [ ] 1.3 Review checkpoint, group 1: spec review (askboard-spec-reviewer) and security review (askboard-security-reviewer: the contract's schemas and validators) of the group's range (askboard-review-protocol). Tests: none. Verify: the findings are recorded under this task; each is fixed tests first or deferred with the PO's reason, and a fix range is re-reviewed.
+
+## 2. Server: `fetch` answers `deleted`
+
+- [ ] 2.1 The typed outcome in `mcp-tools` (mcp-adapter spec, "Fetching an item" and "A deleted item in fetch"; design decision 1).
+  - Tests first, in `packages/server/test/mcp-tools/fetch.test.ts`:
+    - the test at `:116` turned into: a deleted item returns the outcome `deleted` naming the ask and the item, not an error, validating against `fetch-outcome`;
+    - the same for an unchecked ask, carrying `unchecked: true`;
+    - a `missing` item still an error naming it.
+  - Tests first, in `packages/server/test/conformance/lifecycle.e2e.ts:399-401`: the outcome `deleted`. Add, through the session process:
+    - a question deleted, then fetched;
+    - a TextField inside a Group inside a deleted question, fetched;
+    - an area deleted, one of its questions fetched;
+    - an item a `change` dropped, fetched, giving an error;
+    - a deleted question of an ask later discarded, giving `discarded`.
+  - Then: `notHeld` in `fetch.ts` returns the typed result. The comment at the top of `fetch.ts` names `deleted` beside `discarded`.
+  - If the area case shows that `ask-core` does not hold a deleted area's questions as deleted, stop: that is a core defect outside this design, and it goes to `/opsx:update`.
+  - Verify: the tests fail before and pass after; conformance passes on Bun and Node in its three configurations; coverage; the check passes.
+- [ ] 2.2 Review checkpoint, group 2: spec review of the group's range (askboard-review-protocol). Tests: none. Verify: the findings are recorded under this task; each is fixed tests first or deferred with the PO's reason.
+
+## 3. Skill: changing an ask, the language, `deleted`
+
+- [ ] 3.1 `references/updates.md` and `update` examples (skills spec, "The reference for changing an ask", "Adding an item to a question taught" and "Update examples that validate"; design decision 3).
+  - Tests first:
+    - in a new `tools/build/skills/updates-skill.test.ts`: the `reply` line names `itemId`, `followUp` and `text` as required; a schema with one more action adds one line and leaves the others unchanged; an action without a gloss fails, naming it; the file says that `add` refuses a widget and that an item left out of a change's `items` is removed; `SKILL.md`'s "After you ask" links the file;
+    - in `references.test.ts`: the new file is linked once from `SKILL.md` and links nothing;
+    - in `packages/server/test/skills-examples.test.ts`: `json update` blocks are found and validated. The `change` example applies through `AskCore` after the reference's ask example. The `reply` example passes `validateUpdateRequest`, and its `itemId` names a question of that ask example. Breaking the `change` example's item fails the test, naming the file and the block.
+  - Then: `updates.ts`, `templates/updates.md`, `Templates.updates` with `DISK_TEMPLATES`, `EXAMPLE_KINDS` with `update` appended, the test's block pattern with `update`, and the link line in `templates/SKILL.md`. Run `bun run build:skills`.
+  - Verify: the tests fail before and pass after; `bun run check:skills` passes, its figures recorded; coverage; the check passes.
+- [ ] 3.2 The language section and the `deleted` line (skills spec, "The ask's language taught", "Locale and another language taught" and "A deleted item in the answers reference"; design decision 6).
+  - Tests first, in a new `tools/build/skills/language-skill.test.ts`:
+    - `SKILL.md` names `language`, `locale`, each enum value of the input format, the three sources in order, leaving an unlisted language out, and closing and asking again;
+    - an input format with a third language value adds it to `SKILL.md`;
+    - an input format without the `language` enum fails the generator, naming it;
+    - `references/answers.md` names the outcomes `deleted` and `discarded`.
+  - Then: the section and its two slots in `templates/SKILL.md`, the slot values in `generateSkill`, and the bullet in `templates/answers.md`. Run `bun run build:skills`.
+  - Verify: the tests fail before and pass after; `SKILL.md` stays within 9,000 characters and 250 lines, recorded in the note; coverage; the check passes.
+- [ ] 3.3 Review checkpoint, group 3: spec review of the group's range (askboard-review-protocol), which also reads the generated files as an agent would. Tests: none. Verify: the findings are recorded under this task; each is fixed tests first or deferred with the PO's reason.
+
+## 4. Records, rebase and pull request
+
+- [ ] 4.1 Documents as built (design decision 7). Tests: none (documents).
+  - CLAUDE.md:
+    - a Status sentence naming `agent-facing-gaps`;
+    - an "In code since `agent-facing-gaps`" paragraph: the outcome, `references/updates.md` and the `update` example kind, the language section, `APPROVED_TEXT_AMENDMENTS`, and the bound version;
+    - in the layouts paragraph, "`fetch` of one answers `deleted`" checked as true.
+  - `CHANGELOG.md`: Unreleased entries, `fetch`'s `deleted` outcome under Changed, and the teaching under Added.
+  - If #89 has merged, these lines go where `main` keeps them.
+  - Verify: `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive` passes. Each deviation in a task note is in the documents, or is listed in this note with its reason.
+- [ ] 4.2 Rebase onto `origin/main` and bind the version label (askboard-contract-versioning, Rebase procedure).
+  - The tool envelopes at main's minor plus one, with the earlier exact pins moved and the binding line written in design.md decision 5.
+  - Every borrowed name re-checked.
+  - `skills/askboard/` regenerated with `bun run build:skills`, never merged by hand.
+  - Verify:
+    - `git grep` finds each borrowed name on the rebased head;
+    - the diff carries no stale number;
+    - `bun run check`, `bun run build`, conformance and `openspec validate --all --strict --no-interactive` pass.
+  - Record main's SHA, the bound version and the counts in the note.
+- [ ] 4.3 Pre-PR review: spec review and security review of the whole range (askboard-review-protocol). Tests: none. Verify: the findings are recorded under this task and fixed tests first, or deferred with the PO's reason; then the PR body is written with the binding line and no attribution.
+
+## Workflow follow-up
+
+- Archive after the pull request merges, through `/opsx:archive`, with the CLAUDE.md lines describing the change as built.
+- Close Issues #73 and #75 from the pull request.
