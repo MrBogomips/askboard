@@ -40,7 +40,13 @@ export type WidgetHolder = {
 
 export type WidgetStep =
   | { readonly ok: true; readonly props: QuestionProps }
-  | { readonly ok: false; readonly detail: string; readonly itemId?: string };
+  | {
+      readonly ok: false;
+      readonly detail: string;
+      readonly itemId?: string;
+      /** The refusal is an ID in use (`in-use`), not a fault of the props. */
+      readonly inUse?: true;
+    };
 
 // The question's own list: the walker's start, and the list a molecule reference lives in.
 const itemsOf = (props: unknown): readonly SentItem[] => {
@@ -150,9 +156,17 @@ export const expandAdded = (
   if (!sent.ok)
     return { ok: false, detail: inWords(sent.problems), itemId: sent.problems[0]?.itemId };
   const held = widgetIdsOf(model, widgets, types);
-  const taken = [...references.keys(), ...sent.map.keys()].find((id) => held.has(id));
+  // An expanded ID of the added reference is one no item or earlier expansion holds, held or deleted
+  // (review 3.3, X-1): `change` refuses the same through `expandedTaken`.
+  const taken = [...references.keys(), ...sent.map.keys()].find(
+    (id) => held.has(id) || model.inUse(id) || widgets.expansion.has(id),
+  );
   if (taken !== undefined) {
-    return { ok: false, detail: `the ID "${taken}" is in use in the ask`, itemId: taken };
+    const detail = `the ID "${taken}" is in use in the ask`;
+    // A fault of the props where a widget or reference holds the ID, as before; an expanded ID the
+    // model or an earlier expansion holds is an ID in use.
+    const inUse = sent.map.has(taken) && !held.has(taken);
+    return { ok: false, detail, itemId: taken, ...(inUse ? { inUse: true as const } : {}) };
   }
   widgets.expansion = new Map([...widgets.expansion, ...sent.map]);
   for (const [id, props] of references) widgets.references.set(id, props);

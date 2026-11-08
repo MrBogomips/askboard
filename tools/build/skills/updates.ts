@@ -10,8 +10,9 @@ import type { Schema } from "./fields.ts";
 export const ACTION_GLOSSES: Readonly<Record<string, string>> = {
   add: "Adds a question, into an area by `parentId` and after the sibling `after` names, or an area at the top level.",
   change:
-    "Changes an item's props by its ID; each key you send replaces its value whole. A question with an answer is reopened first.",
-  delete: "Removes a question or an area, and everything in it.",
+    "Changes an item's props by its ID; each key you send replaces its value whole. Refused on a question with an answer: `reopen` it first.",
+  delete:
+    "Removes a question or an area, and everything in it. Refused on a question with an answer: `reopen` it first.",
   reopen: "Reopens a question that has an answer: a new revision starts.",
   answer: "Records an answer the user gave you outside the board.",
   reply:

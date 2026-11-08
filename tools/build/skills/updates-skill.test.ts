@@ -120,10 +120,20 @@ describe("the updates reference's prose", () => {
     expect(updates).toContain("an item you leave out is removed from the question");
   });
 
-  test("says a question with an answer is reopened first, and an item's props change by its own ID", () => {
-    expect(updates).toContain("reopen");
-    expect(updates).toContain("A question that has an answer is reopened first");
+  test("says `reopen` must come before a change or a delete of an answered question", () => {
+    const change = lineOf(updates, "change");
+    const remove = lineOf(updates, "delete");
+    for (const line of [change, remove]) {
+      expect(line.toLowerCase()).toContain("refused");
+      expect(line).toContain("`reopen` it first");
+    }
+    expect(updates).not.toContain("is reopened first");
+  });
+
+  test("says a widget's props change by its own ID and a context item through its question's items", () => {
     expect(updates).toContain("by its own ID");
+    expect(updates).toContain("a context item only through its question's `items`");
+    expect(updates).toContain("an area only its `title`");
   });
 
   test("holds an ask, a change of its items and a reply as tagged blocks, in that order", () => {
