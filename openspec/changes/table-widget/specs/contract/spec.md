@@ -88,7 +88,7 @@ A Table SHALL be edited as a flat list of rows keyed by ID: its `changes` SHALL 
 - **THEN** the `move` falls outside the Table's changes and the value fails the rows' check, and the answer is refused, appending nothing
 
 ### Requirement: Table derived values
-A Table SHALL declare as derived each total, `item.field`, and each formula column's field of every row of the value, `item.row.field`. An answer naming its question's current revision SHALL carry as derived values every total and the formula cells of added rows and of rows whose value differs from the board as sent, never one in error, each at the type's precision (FR-12, FR-20); one naming an earlier revision carries none (keep-mine-shown-revision).
+A Table SHALL declare as derived each total, `item.field`, and each formula column's field of every row of the value, `item.row.field`. An answer naming its question's current revision SHALL carry as derived values every total and the formula cells of added rows and of rows whose value differs from the board as sent, never one in error, each in the form of the requirement "Table derived value form" (FR-12, FR-20); one naming an earlier revision carries none (keep-mine-shown-revision).
 
 #### Scenario: Declared addresses
 - **WHEN** an answer's derived values name `costs.amount`, `costs.pm.amount` and `costs.u-1.amount` for an edited value holding `u-1`
@@ -101,6 +101,13 @@ A Table SHALL declare as derived each total, `item.field`, and each formula colu
 #### Scenario: An answer naming an earlier revision
 - **WHEN** the user keeps work on a Table through "Keep mine" after the agent changed the question, and answers, the answer naming the kept revision
 - **THEN** the answer carries no derived value of the Table
+
+### Requirement: Table derived value form
+A Table's derived value SHALL be a number rounded half away from zero to 6 decimals, money a decimal string at its currency's minor units, or a date a `full-date` (FR-12, FR-20).
+
+#### Scenario: Rounded at the type's precision
+- **WHEN** money formula columns compute 1 divided by 200 in USD, 1 divided by 2 in JPY and 1 divided by 3 in BHD, and a number formula column computes 1 divided by 3
+- **THEN** the derived values are "0.01", "1", "0.333" and 0.333333, and -1 divided by 200 in USD gives "-0.01"
 
 ### Requirement: Money derived values within the amount bound
 A money value a Table's formula gives, a formula cell or a total, whose rounded value has more than 15 integer digits SHALL be no value: an answer's derived values SHALL leave it out, as one in error, and no derived value SHALL be written with an exponent (AD-7, AD-10, NFR-10).
