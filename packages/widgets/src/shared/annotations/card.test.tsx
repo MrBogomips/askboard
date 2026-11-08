@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CardBody, type CardBodyProps } from "./card.tsx";
+import { Card, CardBody, type CardBodyProps } from "./card.tsx";
+import { Pin } from "./pin.tsx";
 
 // The shared annotation card (document-review, design decisions 7 and 9): a header label from the
 // caller, the comment field, an optional suggested-edit field, optional "Edit" and "Delete", a
@@ -117,5 +118,30 @@ describe("a long unspaced word", () => {
     expect(html.match(/break-words/g)?.length).toBeGreaterThanOrEqual(3);
     const edit = body({ comment: { value: word, onChange: NONE } });
     expect(edit).toContain("break-words");
+  });
+});
+
+describe("the card as a popover on its pin", () => {
+  const popover = (open: boolean): string =>
+    renderToStaticMarkup(
+      <Card
+        anchor={<Pin number={2} />}
+        open={open}
+        onOpenChange={NONE}
+        returnFocus={() => null}
+        label="Pin 2"
+        comment={{ value: "", onChange: NONE }}
+        startEditing={true}
+        onClose={NONE}
+      />,
+    );
+
+  test("draws the pin it anchors to, closed and open, and nothing of the card on the server", () => {
+    for (const open of [false, true]) {
+      const html = popover(open);
+      expect(html).toContain('aria-label="Pin 2"');
+      expect(html).toContain(">2</button>");
+      expect(html).not.toContain("<textarea");
+    }
   });
 });

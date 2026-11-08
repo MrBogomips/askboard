@@ -13,6 +13,14 @@ import { useStrings } from "@askboard/view/catalog";
 import { Popover } from "radix-ui";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import {
+  closeFocus,
+  editPress,
+  fieldInput,
+  focusAfterEdit,
+  openFocus,
+  recordNode,
+} from "./card-handlers.ts";
+import {
   ACTIONS,
   BUTTON_LINK,
   CARD,
@@ -84,7 +92,7 @@ const Editable = ({
         className={TEXTAREA}
         value={field.value}
         maxLength={field.max}
-        onChange={(event) => field.onChange(event.currentTarget.value)}
+        onChange={fieldInput(field)}
       />
     </div>
   );
@@ -107,23 +115,15 @@ export const CardBody = ({
   const first = useRef<HTMLTextAreaElement | null>(null);
   const editing = writing && !readOnly;
   // Pressing "Edit" puts focus in the first field, since the button that held it is gone.
-  useEffect(() => {
-    if (editing && switched.current) first.current?.focus();
-  }, [editing]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the effect runs when `editing` turns true; the refs are read at that time.
+  useEffect(focusAfterEdit(editing, switched, first), [editing]);
   return (
     <>
       <div className={HEADER}>
         <span className={HEADER_LABEL}>{label}</span>
         <div className={ACTIONS}>
           {!readOnly && !editing && editable ? (
-            <button
-              type="button"
-              className={BUTTON_LINK}
-              onClick={() => {
-                switched.current = true;
-                setWriting(true);
-              }}
-            >
+            <button type="button" className={BUTTON_LINK} onClick={editPress(switched, setWriting)}>
               {text("annotations.edit")}
             </button>
           ) : null}
@@ -149,22 +149,14 @@ export const CardBody = ({
               field={suggestion}
               label={text("annotations.replaceWith")}
               focus={true}
-              fieldRef={(node) => {
-                first.current = node;
-              }}
+              fieldRef={recordNode(first)}
             />
           )}
           <Editable
             field={comment}
             label={text(suggestion === undefined ? "annotations.comment" : "annotations.note")}
             focus={suggestion === undefined}
-            fieldRef={
-              suggestion === undefined
-                ? (node) => {
-                    first.current = node;
-                  }
-                : undefined
-            }
+            fieldRef={suggestion === undefined ? recordNode(first) : undefined}
           />
           <button type="button" className={DONE} onClick={onClose}>
             {text("annotations.done")}
@@ -210,15 +202,8 @@ export const Card = ({ anchor, open, onOpenChange, returnFocus, onClose, ...body
           collisionPadding={8}
           aria-label={body.label}
           className={CARD}
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            const field = content.current?.querySelector<HTMLElement>("[data-annotation-focus]");
-            (field ?? content.current)?.focus();
-          }}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            returnFocus()?.focus();
-          }}
+          onOpenAutoFocus={openFocus(content)}
+          onCloseAutoFocus={closeFocus(returnFocus)}
         >
           <CardBody {...body} onClose={onClose} />
         </Popover.Content>
