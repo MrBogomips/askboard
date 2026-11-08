@@ -37,6 +37,7 @@ import { ROW_WIDGET } from "./row/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
 import { LAYOUT_ITEM_DEFINITION } from "./shared/layouts.ts";
 import { STACK_WIDGET } from "./stack/widget.ts";
+import { TABLE_WIDGET } from "./table/widget.ts";
 import { TABS_WIDGET } from "./tabs/widget.ts";
 import { TEXT_WIDGET } from "./text/widget.ts";
 import { TEXT_FIELD_WIDGET } from "./text-field/widget.ts";
@@ -169,6 +170,9 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   TABS_WIDGET,
   // The PickField, as its chunk lands (form-widget, design decision 8).
   PICK_FIELD_WIDGET,
+  // The Table, as its chunk lands (table-widget, design decision 14): after the PickField, the last
+  // entry of the base it is rebased onto.
+  TABLE_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

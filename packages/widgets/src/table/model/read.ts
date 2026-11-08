@@ -184,3 +184,29 @@ export const readCell = (
         : entry(typed, say(language, "table.problem.value", { column: column.label }));
   }
 };
+
+/**
+ * The echo of what the typed text reads as, while the editor is open ("= 960,00 USD"): the value's
+ * own echo, or the one an entry carries; none for a text, a toggle or a text no value is read from.
+ */
+export const cellEcho = (
+  reading: CellReading,
+  column: TableColumn,
+  locale: Locale,
+): string | undefined => {
+  if (reading.kind === "entry") return reading.echo;
+  if (reading.kind !== "value") return undefined;
+  const { value } = reading;
+  switch (column.type) {
+    case "number":
+      return typeof value === "number" ? numberEcho(value, locale) : undefined;
+    case "money":
+      return typeof value === "string" && column.currency !== undefined
+        ? amountEcho(value, column.currency, locale)
+        : undefined;
+    case "date":
+      return typeof value === "string" ? dateEcho(value, locale) : undefined;
+    default:
+      return undefined;
+  }
+};

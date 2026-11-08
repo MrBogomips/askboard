@@ -72,8 +72,9 @@ describe("Table items", () => {
     expect(problems(TABLE_WIDGET.example.item)).toEqual([]);
   });
 
-  test("it is not in the shipped registry yet", () => {
-    expect(WIDGET_TYPES.some(({ type }) => type === "table")).toBe(false);
+  test("it is in the shipped registry once, as its last entry (task 6.3)", () => {
+    expect(WIDGET_TYPES.filter(({ type }) => type === "table")).toEqual([TABLE_WIDGET]);
+    expect(WIDGET_TYPES.at(-1)).toBe(TABLE_WIDGET);
   });
 
   test("11 columns or 201 rows fail, naming the item and the field; 10 and 200 pass", () => {

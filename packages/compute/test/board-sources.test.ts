@@ -34,7 +34,7 @@ describe("BOARD_SOURCES", () => {
     const computing = PROBE_TYPES.filter(({ derived }) => derived !== undefined).map(
       ({ type }) => type,
     );
-    expect(computing).toEqual(["tree", "gantt", "probe"]);
+    expect(computing).toEqual(["tree", "gantt", "table", "probe"]);
     // The shipped registry: each computing type is a Tree, a Gantt or has a source.
     for (const { type, derived } of WIDGET_TYPES) {
       if (derived !== undefined) {

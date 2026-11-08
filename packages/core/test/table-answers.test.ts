@@ -4,6 +4,7 @@ import {
   FETCH_PAGE_MAX_CHARS,
   type LifecycleAskInput,
   TABLE_WIDGET,
+  WIDGET_TYPES,
   type WidgetType,
 } from "@askboard/contract";
 import {
@@ -344,7 +345,8 @@ describe("a Table at its bounds answered", () => {
 describe("the Table's own check is what refuses", () => {
   // The refusal tests above must fail when the Table's `propsProblems` returns none.
   const deaf: WidgetType = { ...TABLE_WIDGET, propsProblems: () => [] };
-  const DEAF_TYPES = withWidgetTypes(deaf);
+  // The shipped registry with the Table's entry replaced.
+  const DEAF_TYPES = WIDGET_TYPES.map((entry) => (entry.type === "table" ? deaf : entry));
 
   test("with the check replaced by one that finds nothing, a cell out of bounds is accepted", () => {
     const value = edited((rows) => rows.map((row) => ({ ...row, days: -1 })));

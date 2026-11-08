@@ -30,8 +30,8 @@ const setOf = (name: string) => {
 describe("the minors layouts binds", () => {
   test("the three widened sets are at layouts' minor or a later one, and the sets carry the constants", () => {
     // Layouts took input 1.10, tool envelopes 1.10 and board document 1.9, one past atoms' 1.9, 1.9
-    // and 1.8; a later change takes the next minor again (form-widget's version test holds the
-    // exact numbers now).
+    // and 1.8; a later change takes the next minor again (the latest change's version test holds the
+    // exact numbers).
     const minorOf = (version: string) => Number(version.split(".")[1]);
     expect(minorOf(INPUT_FORMAT_VERSION)).toBeGreaterThanOrEqual(10);
     expect(minorOf(TOOL_ENVELOPES_VERSION)).toBeGreaterThanOrEqual(10);

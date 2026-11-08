@@ -112,3 +112,34 @@ const safely = (format: () => string, otherwise: string): string => {
     throw error;
   }
 };
+
+// An amount written as the locale writes it, without the currency symbol (the editor's input group
+// names the currency in its echo): the formatted money from its first digit to its last.
+const amountText = (amount: string, currency: string, locale: Locale): string => {
+  const formatted = safely(() => formatMoney(amount, currency, locale), "");
+  const digits = formatted.replace(/^[^0-9]+/, "").replace(/[^0-9]+$/, "");
+  return digits !== "" && amount.startsWith("-") ? `-${digits}` : digits;
+};
+
+/**
+ * The text an editor starts with for `value`: the number, the amount without its currency or the date
+ * as the ask's locale writes them, which the contract's parsers read back; a text as it is, and
+ * nothing for an empty cell or a toggle (which takes no text).
+ */
+export const editText = (column: TableColumn, value: unknown, locale: Locale): string => {
+  if (value === undefined || value === null) return "";
+  switch (column.type) {
+    case "text":
+      return typeof value === "string" ? value : "";
+    case "number":
+      return typeof value === "number" && Number.isFinite(value) ? formatNumber(value, locale) : "";
+    case "money":
+      return typeof value === "string" && column.currency !== undefined
+        ? amountText(value, column.currency, locale)
+        : "";
+    case "date":
+      return typeof value === "string" ? safely(() => formatDate(value, locale), "") : "";
+    default:
+      return "";
+  }
+};

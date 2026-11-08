@@ -11,8 +11,8 @@
 // chart-widget's minor adds the Chart's result schema (design decision 11); atoms' minor adds the
 // result schemas of the TextField, the NumberField, the MoneyField, the DateField and the Toggle as
 // their chunks land (design decision 11); form-widget's minor adds the PickField's result schema,
-// an option ID or a list of them, as its chunk lands (design decision 4). It holds no AXFX term
-// (FR-18).
+// an option ID or a list of them, as its chunk lands (design decision 4); table-widget's minor adds
+// the Table's changes schema (design decisions 6 and 16). It holds no AXFX term (FR-18).
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { FormulaErrorKind } from "../../formula/errors.ts";

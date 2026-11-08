@@ -83,7 +83,7 @@ describe("widget items in a question's items", () => {
   });
 
   test("a widget type the input format does not define is refused at its type", () => {
-    const table: Item = { type: "table", id: "rates", props: { rows: [] } };
+    const table: Item = { type: "spreadsheet", id: "rates", props: { rows: [] } };
     const [problem, ...rest] = problemsOf(ask(question("q", [table], true)));
     expect(rest).toEqual([]);
     expect(problem).toMatchObject({ itemId: "rates", field: "type" });

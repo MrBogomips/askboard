@@ -279,7 +279,7 @@ describe("items in a question", () => {
   });
 
   test("a type the input format does not define is refused for its type alone", () => {
-    const problem = only(withContext(item("table", "rates", { rows: [] })));
+    const problem = only(withContext(item("spreadsheet", "rates", { rows: [] })));
     expect(problem).toMatchObject({
       path: "/items/0/props/items/0/type",
       itemId: "rates",
