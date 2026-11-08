@@ -28,7 +28,7 @@ The board state SHALL give a question's current and previous answer the item IDs
 - **THEN** neither holds the unchanged IDs
 
 ### Requirement: How unchanged items are compared
-Props SHALL be compared canonically as the board shows them: each revision's props with the context they point to (excerpts, images, file references) resolved for that revision, a pointer whose read timed out or was too large at either revision counting as changed, and one unresolved for another reason comparing as itself. A layout SHALL be compared with each item inside it replaced by its ID, so a Group whose members changed only inside is listed, and one that gained or lost a member is not. Memoised comparisons SHALL be kept only for the question's current revision (NFR-10, AD-9, AD-20).
+Props SHALL be compared canonically as the board shows them: each revision's props with the context they point to (excerpts, images, file references) resolved for that revision. A layout SHALL be compared with each item inside it replaced by its ID, so a Group whose members changed only inside is listed, and one that gained or lost a member is not. Memoised comparisons SHALL be kept only for the question's current revision (NFR-10, AD-9, AD-20).
 
 #### Scenario: Context changed under the same props
 - **WHEN** a reopened question's item points to an excerpt whose text changed between the answer's revision and the current one, its props unchanged
@@ -37,6 +37,17 @@ Props SHALL be compared canonically as the board shows them: each revision's pro
 #### Scenario: A new member of a Group
 - **WHEN** the agent's revision adds an item inside a Group and changes nothing else
 - **THEN** the other members' IDs are in the list, and the Group's and the new item's are not, since the Group's list of members changed
+
+### Requirement: Unresolved pointers in the comparison
+A pointer whose read timed out or was too large at either revision SHALL count as changed, since the comparison cannot tell; a pointer unresolved for another reason (not found, no root, outside the root) SHALL compare as itself (NFR-10, AD-10).
+
+#### Scenario: A read that timed out
+- **WHEN** an item's excerpt read timed out at the answer's revision and again at the reopen
+- **THEN** that item's ID and the question's are not in the list
+
+#### Scenario: A file that is still missing
+- **WHEN** an item's file reference was not found at the answer's revision and is still not found at the reopen, nothing else changed
+- **THEN** that item's ID is in the list
 
 ### Requirement: When an answer carries its unchanged items
 An answer that names the question's current revision SHALL carry no unchanged list, so the board state of an answered question stays as it was. When `ask-core` cannot compare the answer's revision with the current one, it SHALL give an empty list, never none (NFR-10). A Snapshot's board state SHALL carry the same lists as the live board's (AD-15, AD-20).
