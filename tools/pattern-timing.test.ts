@@ -87,6 +87,21 @@ describe("the worst shapes at the text cap", () => {
     for (const { pattern, label } of WORST_SHAPES) expect(label, pattern).toBeString();
   });
 
+  test("a class uniting property escapes heads shapes over an astral run, anchored and not (review X-2)", () => {
+    const klass = "[\\p{L}\\p{N}\\p{S}\\p{P}\\p{M}\\p{Cf}\\p{Co}]";
+    const shapes = WORST_SHAPES.filter(({ pattern }) => pattern.includes(klass));
+    const anchored = shapes.filter(({ pattern }) =>
+      pattern.startsWith(`^${klass}*${klass}*${klass}*`),
+    );
+    const open = shapes.filter(({ pattern }) => pattern.startsWith(`${klass}*${klass}*`));
+    expect(anchored.length).toBeGreaterThanOrEqual(5);
+    expect(open.length).toBeGreaterThanOrEqual(5);
+    expect(
+      anchored.some(({ pattern }) => pattern === `^${klass}*${klass}*${klass}*${klass}{50}$`),
+    ).toBe(true);
+    for (const { run } of shapes) expect(run).toBe(String.fromCodePoint(0x20000));
+  });
+
   test("the run is of the class the shape's quantifiers read, so it fails only at its end", () => {
     for (const { pattern, run } of WORST_SHAPES) {
       const text = run.repeat(PATTERN_MAX_CHARS + TEXT_CAP);
@@ -180,6 +195,6 @@ describe("the script", () => {
       expect(run.exitCode, run.stderr.toString()).toBe(0);
       expect(out).toContain("pattern");
       for (const { pattern } of FIXTURES) expect(out).toContain(pattern);
-    });
+    }, 60_000);
   }
 });

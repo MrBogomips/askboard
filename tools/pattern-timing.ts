@@ -6,8 +6,8 @@
 // (`RegExp.test`, the `u` flag) against a run of its class followed by one ending that makes it fail
 // late: `x`, `!` and U+2028. `FIXTURES` run at 100, 300 and 1,000 characters (a size only while the
 // one before took under `GATE_MS`: what the budget alone would admit); `WORST_SHAPES` run at the cap
-// only: `.` and `\d` heads, anchored and not, with no tail, a `{k}` tail and a literal tail up to the
-// 200-code-point pattern limit.
+// only: `.` and `\d` heads and a class uniting property escapes over astral text (the slowest), anchored
+// and not, with no tail, a `{k}` tail and a literal tail up to the 200-code-point pattern limit.
 //
 //   bun tools/pattern-timing.ts [--sizes 100,300,1000]
 //   node tools/pattern-timing.ts [--sizes 100,300,1000]
@@ -53,7 +53,20 @@ export const TEXT_CAP = 100;
 /** The longest pattern, in code points (`PATTERN_MAX_CHARS` in `contract`). */
 const PATTERN_LIMIT = 200;
 
-type Head = { readonly head: string; readonly atom: string; readonly run: string };
+type Head = {
+  readonly head: string;
+  readonly atom: string;
+  readonly run: string;
+  /** Whether a literal tail of atoms is timed too: not for an atom too long for the pattern limit. */
+  readonly literal?: boolean;
+};
+
+/**
+ * A class uniting several property escapes, over an astral run (U+20000, a CJK letter): each step
+ * is slower on V8 than `.` on ASCII (review X-2 of task 1.14: 325 ms at 100 code points).
+ */
+const PROPERTY_CLASS = "[\\p{L}\\p{N}\\p{S}\\p{P}\\p{M}\\p{Cf}\\p{Co}]";
+const ASTRAL_RUN = String.fromCodePoint(0x20000);
 
 // The budget's most expensive heads (3 repetitions: `^` plus three quantifiers, or two with no `^`),
 // on `.` (about five times slower than a class under the `u` flag, and failing at U+2028) and on `\d`.
@@ -62,12 +75,24 @@ const HEADS: readonly Head[] = [
   { head: ".*.*", atom: ".", run: "a" },
   { head: "^\\d*\\d*\\d*", atom: "\\d", run: "1" },
   { head: "\\d*\\d*", atom: "\\d", run: "1" },
+  {
+    head: `^${PROPERTY_CLASS}*${PROPERTY_CLASS}*${PROPERTY_CLASS}*`,
+    atom: PROPERTY_CLASS,
+    run: ASTRAL_RUN,
+    literal: false,
+  },
+  {
+    head: `${PROPERTY_CLASS}*${PROPERTY_CLASS}*`,
+    atom: PROPERTY_CLASS,
+    run: ASTRAL_RUN,
+    literal: false,
+  },
 ];
 /** The `{k}` tails timed: short, middle and long ones, the longest that a run of `TEXT_CAP - 1` can fill. */
 const TAIL_COUNTS: readonly number[] = [24, 50, 75, TEXT_CAP - 1];
 
 const worstShapes = (): TimingFixture[] =>
-  HEADS.flatMap(({ head, atom, run }) => {
+  HEADS.flatMap(({ head, atom, run, literal = true }) => {
     const width = Array.from(atom).length;
     const longest = Math.floor((PATTERN_LIMIT - Array.from(head).length - 1) / width);
     return [
@@ -79,10 +104,10 @@ const worstShapes = (): TimingFixture[] =>
       })),
       // A literal tail of atoms, one that a run of `TEXT_CAP - 1` can fill and the longest the
       // pattern limit holds (which no text of the cap can match: an engine may refuse it at once).
-      ...[TEXT_CAP - 25, longest].map((literal) => ({
-        pattern: `${head}${atom.repeat(literal)}$`,
+      ...(literal ? [TEXT_CAP - 25, longest] : []).map((count) => ({
+        pattern: `${head}${atom.repeat(count)}$`,
         run,
-        label: `${head} + ${literal} x ${atom} + $`,
+        label: `${head} + ${count} x ${atom} + $`,
       })),
     ];
   });
