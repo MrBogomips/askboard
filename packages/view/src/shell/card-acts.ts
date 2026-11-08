@@ -456,21 +456,24 @@ export const sendFollowUp = (question: ViewQuestion, context: AnswerContext): vo
   sendActs(context, [followUp(question, text)]);
 };
 
-/** Drops the question's draft: its items' values and results and its work, its revision included. */
+/**
+ * Drops the question's draft: its items' values and results and its work, its revision included.
+ * The items are those of the question and of the revision the card shows (`shownOf`), which after
+ * "Keep mine" holds the work: an item a later revision removed goes with the rest.
+ */
 export const dropWork = (
   question: ViewQuestion,
-  {
-    draft,
-    results,
-    entries,
-    cellEntries,
-    board,
-  }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board">,
+  context: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board"> &
+    Partial<Pick<AnswerContext, "shownOf">>,
 ): void => {
-  for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
-  for (const itemId of resultIdsOf(question)) results?.set(itemId, undefined);
-  for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
-  clearCellEntries(question, cellEntries);
+  const { draft, results, entries, cellEntries, board } = context;
+  const shown = shownIn(question, context);
+  for (const each of shown === question ? [question] : [question, shown]) {
+    for (const itemId of itemIdsOf(each)) draft.set(itemId, undefined);
+    for (const itemId of resultIdsOf(each)) results?.set(itemId, undefined);
+    for (const itemId of entryIdsOf(each)) entries?.set(itemId, undefined);
+    clearCellEntries(each, cellEntries);
+  }
   board.forget(question.id);
 };
 

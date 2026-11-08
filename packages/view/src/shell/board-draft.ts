@@ -20,6 +20,7 @@ import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
 import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
+import type { ShownOf } from "./agent-change.ts";
 import {
   cellEntryIdsOf,
   cutCellEntries,
@@ -262,15 +263,30 @@ export const valueDropped = (
 // No held results: the results store of a board that has none.
 const NO_RESULTS: ValueRecord = new Map();
 
+/**
+ * The item IDs a draft reader walks for a question: those of the question the board holds and, when
+ * the card shows another revision (after "Keep mine" the one the work was made on), those of that
+ * revision too, so that work held only on an item a later revision removed is neither forgotten,
+ * nor left unmirrored, nor kept ready when it is edited (document-review, design decision 15;
+ * review S-2 of 6.14). The same question gives the one list.
+ */
+const idsOver = (
+  read: (question: ViewQuestion) => readonly string[],
+  question: ViewQuestion,
+  shown: ViewQuestion,
+): readonly string[] =>
+  shown === question ? read(question) : [...new Set([...read(question), ...read(shown)])];
+
 const hasValues = (
   question: ViewQuestion,
   values: ValueRecord,
   results: ValueRecord = NO_RESULTS,
   entries: ValueRecord = NO_RESULTS,
+  shown: ViewQuestion = question,
 ): boolean =>
-  itemIdsOf(question).some((itemId) => values.get(itemId) !== undefined) ||
-  resultIdsOf(question).some((itemId) => results.get(itemId) !== undefined) ||
-  entryIdsOf(question).some((itemId) => entries.get(itemId) !== undefined);
+  idsOver(itemIdsOf, question, shown).some((itemId) => values.get(itemId) !== undefined) ||
+  idsOver(resultIdsOf, question, shown).some((itemId) => results.get(itemId) !== undefined) ||
+  idsOver(entryIdsOf, question, shown).some((itemId) => entries.get(itemId) !== undefined);
 
 const sameValues = (
   question: ViewQuestion,
@@ -280,10 +296,15 @@ const sameValues = (
   resultsB: ValueRecord = NO_RESULTS,
   entriesA: ValueRecord = NO_RESULTS,
   entriesB: ValueRecord = NO_RESULTS,
+  shown: ViewQuestion = question,
 ): boolean =>
-  itemIdsOf(question).every((itemId) => Object.is(a.get(itemId), b.get(itemId))) &&
-  resultIdsOf(question).every((itemId) => Object.is(resultsA.get(itemId), resultsB.get(itemId))) &&
-  entryIdsOf(question).every((itemId) => Object.is(entriesA.get(itemId), entriesB.get(itemId)));
+  idsOver(itemIdsOf, question, shown).every((itemId) => Object.is(a.get(itemId), b.get(itemId))) &&
+  idsOver(resultIdsOf, question, shown).every((itemId) =>
+    Object.is(resultsA.get(itemId), resultsB.get(itemId)),
+  ) &&
+  idsOver(entryIdsOf, question, shown).every((itemId) =>
+    Object.is(entriesA.get(itemId), entriesB.get(itemId)),
+  );
 
 /**
  * Whether the question's draft holds answer work: an item's value, result or entry, "Other…"
@@ -308,7 +329,8 @@ const isBare = (work: QuestionWork): boolean => Object.keys(work).every((key) =>
 /**
  * Keeps the two stores together: a value the user puts in starts the question's work at its
  * revision, an edit to a ready answer's values makes it not ready, and work that holds nothing
- * any more is dropped with its revision. Returns what stops it.
+ * any more is dropped with its revision. Returns what stops it. `shownOf` gives the question as the
+ * card shows it: the readers walk the items of that revision too, as the work was made on it.
  */
 export const connectDrafts = (
   document: ViewDocument | (() => ViewDocument),
@@ -317,7 +339,9 @@ export const connectDrafts = (
   results?: DraftStore,
   entries?: DraftStore,
   cellEntries?: DraftStore,
+  shownOf?: ShownOf,
 ): (() => void) => {
+  const shownIn = (question: ViewQuestion): ViewQuestion => shownOf?.(question) ?? question;
   const documentOf = typeof document === "function" ? document : () => document;
   const resultsNow = () => results?.record() ?? NO_RESULTS;
   // Every entry the board holds, the fields' and the Tables' cells', through the one function.
@@ -330,7 +354,10 @@ export const connectDrafts = (
     const held = resultsNow();
     const typed = entriesNow();
     for (const question of questionsOf(documentOf())) {
-      if (sameValues(question, previous, record, previousResults, held, previousEntries, typed)) {
+      const shown = shownIn(question);
+      if (
+        sameValues(question, previous, record, previousResults, held, previousEntries, typed, shown)
+      ) {
         continue;
       }
       const work = board.work(question.id);
@@ -352,7 +379,7 @@ export const connectDrafts = (
       if (
         work !== undefined &&
         isBare(work) &&
-        !hasValues(question, record, resultsNow(), entriesNow())
+        !hasValues(question, record, resultsNow(), entriesNow(), shownIn(question))
       ) {
         board.forget(question.id);
       }
@@ -390,23 +417,24 @@ const questionEntry = (
   cells: ValueRecord,
   work: QuestionWork | undefined,
   placement: ContextPlacement | undefined,
+  shown: ViewQuestion,
 ): DraftQuestion | undefined => {
-  const held = itemIdsOf(question).flatMap((itemId) => {
+  const held = idsOver(itemIdsOf, question, shown).flatMap((itemId) => {
     const value = values.get(itemId);
     return value === undefined ? [] : [[itemId, value] as const];
   });
-  const resulting = resultIdsOf(question).flatMap((itemId) => {
+  const resulting = idsOver(resultIdsOf, question, shown).flatMap((itemId) => {
     const value = results.get(itemId);
     return value === undefined ? [] : [[itemId, value] as const];
   });
   // The text of each item that holds an entry, cut at the limit, never of an item that holds none.
-  const typed = fieldEntryIdsOf(question).flatMap((itemId) => {
+  const typed = idsOver(fieldEntryIdsOf, question, shown).flatMap((itemId) => {
     const text = cutEntry(entries.get(itemId));
     return text === undefined ? [] : [[itemId, text] as const];
   });
   // The cell entries of each Table that holds some, cut at the limits, never of an item that is no
   // Table of the question: a map of `row.field` to text, own keys, so `__proto__.rate` is data.
-  const typedCells = cellEntryIdsOf(question).flatMap((itemId) => {
+  const typedCells = idsOver(cellEntryIdsOf, question, shown).flatMap((itemId) => {
     const cut = cutCellEntries(cells.get(itemId));
     return cut === undefined ? [] : [[itemId, Object.fromEntries(cut)] as const];
   });
@@ -428,7 +456,11 @@ const questionEntry = (
     : { rev: work?.rev ?? question.rev, ...fields };
 };
 
-/** The draft record the board page mirrors: both stores, for the questions the board holds. */
+/**
+ * The draft record the board page mirrors: both stores, for the questions the board holds. A
+ * question's entry names the items of the revision the card shows too (`shownOf`), as the work was
+ * made on it.
+ */
 export const draftRecordOf = (
   document: ViewDocument,
   values: ValueRecord,
@@ -436,6 +468,7 @@ export const draftRecordOf = (
   results: ValueRecord = NO_RESULTS,
   typed: ValueRecord = NO_RESULTS,
   cells: ValueRecord = NO_RESULTS,
+  shownOf?: ShownOf,
 ): DraftRecord => {
   const questions = questionsOf(document);
   const entries = questions.flatMap((question) => {
@@ -447,6 +480,7 @@ export const draftRecordOf = (
       cells,
       board.questions.get(question.id),
       board.placements?.get(question.id),
+      shownOf?.(question) ?? question,
     );
     return entry === undefined ? [] : [[question.id, entry] as const];
   });

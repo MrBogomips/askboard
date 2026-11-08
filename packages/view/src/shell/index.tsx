@@ -33,8 +33,8 @@ import {
 } from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import { readDraftReply, type ViewMessage } from "../view-protocol.ts";
-import { createRevisions, type KeptChoices } from "./agent-change.ts";
-import { createAnswerActs, type Flight } from "./answer-acts.ts";
+import { createRevisions, type KeptChoices, type ShownOf, shownOfBoard } from "./agent-change.ts";
+import { createAnswerActs } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
 import {
   Board,
@@ -49,19 +49,17 @@ import {
   connectDrafts,
   createBoardDraft,
   draftRecordOf,
-  itemIdsOf,
-  type QuestionWork,
   restoreDraft,
-  resultIdsOf,
 } from "./board-draft.ts";
 import { BoardLanguage } from "./board-language.tsx";
 import { nextAfterRemoval, presentationOf } from "./board-view.ts";
 import { dropWork } from "./card-acts.ts";
-import { clearCellEntries, dropStaleCellEntries } from "./cell-entries.ts";
+import { clearCarried } from "./carried.ts";
+import { dropStaleCellEntries } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
-import { dropStaleEntries, entryIdsOf } from "./entries.ts";
+import { dropStaleEntries } from "./entries.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
 import { snapshotTitleOf } from "./opened-snapshot.ts";
@@ -101,53 +99,6 @@ const connectToBoardPage = (): ViewChannel => {
   );
 };
 
-// The work an act carried, which goes from the draft once the board page settles it as done: an
-// answer, a decline or a note takes with it the undo it was held over.
-const CARRIED: Readonly<Partial<Record<string, readonly (keyof QuestionWork)[]>>> = {
-  answer: ["other", "optionNotes", "note", "held", "undo"],
-  decline: ["other", "optionNotes", "note", "held", "undo"],
-  postpone: ["held"],
-  reopen: ["held"],
-  note: ["note", "held", "undo"],
-};
-
-const clearCarried = (
-  flight: Flight,
-  document: ViewDocument,
-  draft: DraftStore,
-  results: DraftStore,
-  entries: DraftStore,
-  cellEntries: DraftStore,
-  board: BoardDraft,
-  kept: Store<KeptChoices>,
-): void => {
-  for (const act of flight.acts) {
-    const question = questionsOf(document).find((each) => each.id === act.itemId);
-    if (question === undefined) continue;
-    if (act.type === "edit-choice") {
-      // "Keep mine" settles the notice for the revision it was about (task 6.7).
-      if (act.edit === "ignore") {
-        kept.set(new Map(kept.get()).set(act.itemId, { rev: act.rev, keptRev: act.keptRev }));
-      }
-      continue;
-    }
-    if (act.type === "follow-up") {
-      // The composer's text went; Explain's follow-up leaves it.
-      if (board.work(question.id)?.composer === act.text) board.clear(question.id, ["composer"]);
-      continue;
-    }
-    const fields = CARRIED[act.type];
-    if (fields === undefined) continue;
-    if (act.type === "answer" || act.type === "decline") {
-      for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
-      for (const itemId of resultIdsOf(question)) results.set(itemId, undefined);
-      for (const itemId of entryIdsOf(question)) entries.set(itemId, undefined);
-      clearCellEntries(question, cellEntries);
-    }
-    board.clear(question.id, fields);
-  }
-};
-
 // The question whose card holds the focus, if any.
 const focusedQuestion = (): string | undefined =>
   document.activeElement
@@ -160,6 +111,9 @@ type Removal = {
   readonly entries: DraftStore;
   readonly cellEntries: DraftStore;
   readonly board: BoardDraft;
+  // The question as the card shows it: a deleted question's work goes with the items of the
+  // revision it was made on (document-review, design decision 15).
+  readonly shownOf: ShownOf;
   readonly focus: Store<HeadingRequest | undefined>;
   readonly removed: Store<boolean>;
 };
@@ -220,11 +174,14 @@ const boot = (): void => {
   const cellEntries = createDraftStore();
   const single = presentationOf(data.document) === "single";
   const board = createBoardDraft(single ? "immediate" : (data.document.delivery ?? "immediate"));
-  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries);
-  const acts = createAnswerActs();
-  const attention = createAttention(data.document, data.state);
   const revisions = createRevisions();
   revisions.record(data.document);
+  // The question as the card shows it: the draft's readers walk the items of the revision the
+  // work was made on too, after "Keep mine" (document-review, design decision 15).
+  const shownOf = shownOfBoard(board, revisions);
+  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries, shownOf);
+  const acts = createAnswerActs();
+  const attention = createAttention(data.document, data.state);
   const kept = createStore<KeptChoices>(new Map());
   const threads = createStore<ThreadRequest | undefined>(undefined);
   const reasons = createStore<ReasonRequest | undefined>(undefined);
@@ -269,6 +226,7 @@ const boot = (): void => {
         entries,
         cellEntries,
         board,
+        shownOf,
         focus,
         removed,
       });
@@ -300,7 +258,7 @@ const boot = (): void => {
     // Commands the board page dropped because their socket was closed as too large: said before
     // `reconcile` settles them, which keeps the work in the draft as for any refusal.
     for (const flight of settle(acts, update.pending ?? [], update.settled ?? [], notices)) {
-      clearCarried(flight, document, draft, results, entries, cellEntries, board, kept);
+      clearCarried(flight, document, draft, results, entries, cellEntries, board, kept, revisions);
     }
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
@@ -319,6 +277,7 @@ const boot = (): void => {
           results.record(),
           entries.record(),
           cellEntries.record(),
+          shownOf,
         ),
       });
     });
