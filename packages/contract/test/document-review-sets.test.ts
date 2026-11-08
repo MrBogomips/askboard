@@ -1,8 +1,8 @@
 // The four sets document-review widens (contract spec: The Document review in the sets' next minors;
 // design decisions 11 and 13): the input format, the tool envelopes and the board document each take
 // the next minor after main's when the type joins the registry in task 6.3, the output format having
-// taken its minor in task 1.1; every other set keeps main's. The numbers are labels bound here and
-// in the constants only (askboard-contract-versioning, Rule 1); task 8.2 binds them again.
+// taken its minor in task 1.1; every other set keeps main's. The numbers are bound here and in the
+// constants only (askboard-contract-versioning, Rule 1), by task 8.2.
 
 import { describe, expect, test } from "bun:test";
 import type { AnySchemaObject } from "ajv/dist/2020";
@@ -45,8 +45,9 @@ const refsOf = (schema: AnySchemaObject, union: string): string[] =>
   schema.$defs[union].oneOf.map(({ $ref }: { $ref: string }) => $ref.split("/").at(-1));
 
 describe("the versions of the four widened sets", () => {
-  test("each is one minor past main's, which holds input 1.12, output 1.11, envelopes 1.12 and board document 1.11 since the Table", () => {
-    // Labels until task 8.2 binds them; a later change takes the next minor again, and moves these pins.
+  test("each is bound one minor past main's, which this test pins and a later change moves", () => {
+    // Bound on 2026-11-08 on main be308421, which held input 1.12, output 1.11, envelopes 1.12 and
+    // board document 1.11 (task 8.2; design.md, Versions).
     expect({
       input: INPUT_FORMAT_VERSION,
       output: OUTPUT_FORMAT_VERSION,
@@ -55,21 +56,24 @@ describe("the versions of the four widened sets", () => {
     }).toEqual({ input: "1.13", output: "1.12", envelopes: "1.13", document: "1.12" });
   });
 
-  test("every other set equals main's", () => {
+  test("every other set holds at least the minor main bound when this change was bound", () => {
+    // At least, since another change widens these sets and merges on its own schedule (the Snapshot
+    // data moved with snapshot-toolbar after this change's first base).
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      protocol: BOARD_PROTOCOL_VERSION,
-      snapshot: SNAPSHOT_DATA_VERSION,
-      manifest: VIEW_MANIFEST_VERSION,
-      configuration: CONFIGURATION_VERSION,
-      localApi: LOCAL_API_VERSION,
-      sessionFile: SESSION_FILE_FORMAT,
+      protocol: minor(BOARD_PROTOCOL_VERSION) >= 8,
+      snapshot: minor(SNAPSHOT_DATA_VERSION) >= 2,
+      manifest: minor(VIEW_MANIFEST_VERSION) >= 1,
+      configuration: minor(CONFIGURATION_VERSION) >= 0,
+      localApi: minor(LOCAL_API_VERSION) >= 0,
+      sessionFile: minor(SESSION_FILE_FORMAT) >= 0,
     }).toEqual({
-      protocol: "1.8",
-      snapshot: "1.1",
-      manifest: "1.1",
-      configuration: "1.0",
-      localApi: "1.0",
-      sessionFile: "1.0",
+      protocol: true,
+      snapshot: true,
+      manifest: true,
+      configuration: true,
+      localApi: true,
+      sessionFile: true,
     });
   });
 

@@ -70,8 +70,9 @@ describe("the annotation body", () => {
 describe("the output format's minor", () => {
   const output = SCHEMA_SETS.find((set) => set.name === "output");
 
-  test("the constant is the set's version, one minor past main's (a label until the rebase)", () => {
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.12");
+  test("the constant is the set's version, at least the minor this change bound", () => {
+    // The exact binding is pinned once, in document-review-sets.test.ts; a later change moves it.
+    expect(Number(OUTPUT_FORMAT_VERSION.split(".")[1])).toBeGreaterThanOrEqual(12);
     expect(output?.version).toBe(OUTPUT_FORMAT_VERSION);
   });
 
