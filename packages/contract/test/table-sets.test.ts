@@ -51,13 +51,14 @@ describe("the Table in the registry", () => {
 
 describe("the minors the Table binds", () => {
   test("the four widened sets are one minor past form-widget's, and the sets carry the constants", () => {
-    // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10.
+    // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10; the
+    // tool envelopes have since moved one minor for agent-facing-gaps (agent-facing-gaps-sets.test.ts).
     expect({
       input: INPUT_FORMAT_VERSION,
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.12", output: "1.11", envelopes: "1.12", document: "1.11" });
+    }).toEqual({ input: "1.12", output: "1.11", envelopes: "1.13", document: "1.11" });
     for (const [name, version] of [
       ["input", INPUT_FORMAT_VERSION],
       ["output", OUTPUT_FORMAT_VERSION],
