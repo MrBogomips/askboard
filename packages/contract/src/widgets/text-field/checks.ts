@@ -210,6 +210,40 @@ const compiledPattern = (pattern: string): RegExp | null => {
   return regex;
 };
 
+// The outcome of each run, by pattern and text, at most `PATTERN_OUTCOMES_MAX`: the least recently
+// used goes first (form-widget, design decision 3: one pattern run per keystroke at most, since the
+// board's readers all ask the same question of the same text). A `Map`, never an object's keys, so
+// no text or pattern is a member name; the key is length-prefixed, so no two pairs share one.
+export const PATTERN_OUTCOMES_MAX = 64;
+const outcomes = new Map<string, boolean>();
+let runs = 0;
+
+/** The pattern runs so far: a seam for tests, which count the runs without touching `RegExp`. */
+export const patternRunCount = (): number => runs;
+
+/** Forgets every kept outcome, for tests. */
+export const clearPatternOutcomes = (): void => {
+  outcomes.clear();
+};
+
+const patternHolds = (pattern: string, regex: RegExp, text: string): boolean => {
+  const key = `${pattern.length}:${pattern}${text}`;
+  const known = outcomes.get(key);
+  if (known !== undefined) {
+    outcomes.delete(key);
+    outcomes.set(key, known);
+    return known;
+  }
+  runs += 1;
+  const holds = regex.test(text);
+  if (outcomes.size >= PATTERN_OUTCOMES_MAX) {
+    const oldest = outcomes.keys().next();
+    if (!oldest.done) outcomes.delete(oldest.value);
+  }
+  outcomes.set(key, holds);
+  return holds;
+};
+
 /**
  * The TextField's pattern check, which only the board runs, on the user's text (form-widget, design
  * decision 3): the pattern read with the `u` flag and unanchored, as JSON Schema reads `pattern`.
@@ -230,5 +264,6 @@ export const textFieldPatternFailure = (
   // limit fails without running it, whatever the caller held (review X-1).
   if (codePointCount(result) > textFieldLimit(props)) return { code: "pattern" };
   const regex = compiledPattern(pattern);
-  return regex === null || !regex.test(result) ? { code: "pattern" } : undefined;
+  if (regex === null) return { code: "pattern" };
+  return patternHolds(pattern, regex, result) ? undefined : { code: "pattern" };
 };

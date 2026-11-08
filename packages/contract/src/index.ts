@@ -1004,6 +1004,7 @@ export {
 export { moneyFieldFieldCheck } from "./widgets/money-field/checks.ts";
 export { numberFieldFieldCheck } from "./widgets/number-field/checks.ts";
 export {
+  patternRunCount,
   textFieldFieldCheck,
   textFieldLimit,
   textFieldPatternFailure,

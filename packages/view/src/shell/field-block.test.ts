@@ -9,6 +9,7 @@ import { describe, expect, test } from "bun:test";
 import {
   type LifecycleBoardState,
   numberFieldFieldCheck,
+  patternRunCount,
   textFieldFieldCheck,
   textFieldPatternFailure,
   textFieldResultProblems,
@@ -505,5 +506,47 @@ describe("an agent's update to a field with a draft value (design decision 5; re
       entries.record(),
     );
     expect(record.questions.plan?.results?.["plan-owner"]).toBe("abc");
+  });
+});
+
+describe("a keystroke runs a field's pattern once (form-widget, task 3.5; design decision 3)", () => {
+  // Every reader of one results record: the board's failing IDs, the card's block and hint, the
+  // TextField's own render, and Submit's state (the pattern is the contract's memoized one).
+  const question = questionOf(arranged({ pattern: "^C*C*C*C{50}$", required: true }));
+  const boardOf = () =>
+    createBoardContent(() => ({
+      document: documentOf(question),
+      state: { ask: "waiting", questions: [] } as never,
+    }))(new Map());
+  const readers = (text: string) => {
+    const results = held(["plan-owner", text]);
+    const board = boardOf();
+    withEntries(board, new Map(), results, factsOf);
+    holdsBlock(question, NONE, results, factsOf);
+    answerHint(question, NONE, results, "en-US", factsOf);
+    fieldBlock(question, NONE, results, factsOf);
+    factsOf("text-field")?.check?.(text, {
+      label: "Owner",
+      pattern: "^C*C*C*C{50}$",
+      required: true,
+    });
+  };
+
+  test("four readers of one record and text run it once; a changed text, once more", () => {
+    const before = patternRunCount();
+    readers("C".repeat(99));
+    readers("C".repeat(99));
+    expect(patternRunCount() - before).toBe(1);
+    readers(`${"C".repeat(99)}!`);
+    expect(patternRunCount() - before).toBe(2);
+  });
+
+  test("a keystroke in another field runs no pattern again", () => {
+    readers("C".repeat(98));
+    const before = patternRunCount();
+    const results = held(["plan-owner", "C".repeat(98)], ["plan-hours", 3]);
+    withEntries(boardOf(), new Map(), results, factsOf);
+    holdsBlock(question, NONE, results, factsOf);
+    expect(patternRunCount() - before).toBe(0);
   });
 });
