@@ -1067,6 +1067,8 @@ export {
   type TableOrigin,
   type TableProps,
   type TableRow,
+  tableCellProblems,
   tableColumnsProblems,
   tablePropsProblems,
+  tableRowsProblems,
 } from "./widgets/table/index.ts";

@@ -45,7 +45,7 @@ const ROLES = {
   ],
 };
 const table = (props: unknown, id = "costs") => ({ type: "table", id, props });
-const withColumns = (columns: unknown) => table({ ...ROLES, columns });
+const withColumns = (columns: unknown) => table({ label: ROLES.label, columns, rows: [] });
 const withColumn = (column: object) => withColumns([{ field: "c", label: "C", ...column }]);
 const problems = (item: unknown) => askProblems(TYPES, item as ReturnType<typeof table>);
 const fieldsOf = (item: unknown) => problems(item).map(({ field }) => field);
@@ -124,7 +124,7 @@ describe("Table columns", () => {
     expect(rest).toEqual([]);
     expect(problem?.itemId).toBe("costs");
     expect(problem?.field).toBe("props.columns[0].currency");
-    const direct = checked({ ...ROLES, columns: [{ field: "c", label: "C", type: "money" }] });
+    const direct = checked({ rows: [], columns: [{ field: "c", label: "C", type: "money" }] });
     expect(direct).toHaveLength(1);
     expect(direct[0]?.path).toBe("/columns/0/currency");
   });
@@ -154,7 +154,7 @@ describe("Table columns", () => {
 
   test("the checks refuse the same keys without the schema, as the board's own check must", () => {
     const column = (extra: object) => ({ field: "c", label: "C", ...extra });
-    const paths = (columns: object[]) => checked({ ...ROLES, columns }).map(({ path }) => path);
+    const paths = (columns: object[]) => checked({ rows: [], columns }).map(({ path }) => path);
     expect(paths([column({ type: "text", step: 1 })])).toEqual(["/columns/0/step"]);
     expect(paths([column({ type: "money", currency: "USD", currencies: ["USD", "EUR"] })])).toEqual(
       ["/columns/0/currencies"],
@@ -169,18 +169,18 @@ describe("Table columns", () => {
     const number = { field: "n", label: "N", type: "number", min: 10, max: 5 };
     const atomNumber = numberFieldPropsProblems({ label: "N", min: 10, max: 5 });
     expect(atomNumber).toHaveLength(1);
-    expect(checked({ ...ROLES, columns: [number] })).toEqual(atRoot(atomNumber));
+    expect(checked({ rows: [], columns: [number] })).toEqual(atRoot(atomNumber));
     const money = { field: "m", label: "M", type: "money", currency: "JPY", min: "0.5" };
     const atomMoney = moneyFieldPropsProblems({ label: "M", currency: "JPY", min: "0.5" });
     expect(atomMoney).toHaveLength(1);
-    expect(checked({ ...ROLES, columns: [money] })).toEqual(atRoot(atomMoney));
+    expect(checked({ rows: [], columns: [money] })).toEqual(atRoot(atomMoney));
     const date = { field: "d", label: "D", type: "date", min: "2026-03-01", max: "2026-02-01" };
     const atomDate = dateFieldPropsProblems({ label: "D", min: "2026-03-01", max: "2026-02-01" });
     expect(atomDate).toHaveLength(1);
-    expect(checked({ ...ROLES, columns: [date] })).toEqual(atRoot(atomDate));
+    expect(checked({ rows: [], columns: [date] })).toEqual(atRoot(atomDate));
     const text = { field: "t", label: "T", type: "text", maxLength: 100 };
     expect(textFieldPropsProblems({ label: "T", maxLength: 100 })).toEqual([]);
-    expect(checked({ ...ROLES, columns: [text] })).toEqual([]);
+    expect(checked({ rows: [], columns: [text] })).toEqual([]);
     for (const column of [number, money, date]) {
       const [found, ...rest] = problems(withColumns([column]));
       expect(rest).toEqual([]);
@@ -193,12 +193,12 @@ describe("Table columns", () => {
   test("a text column's maxLength is at most the Table's own limit, 500", () => {
     const text = (maxLength: number) => ({ field: "t", label: "T", type: "text", maxLength });
     expect(problems(withColumns([text(TABLE_TEXT_MAX_CHARS)]))).toEqual([]);
-    expect(checked({ ...ROLES, columns: [text(TABLE_TEXT_MAX_CHARS)] })).toEqual([]);
+    expect(checked({ rows: [], columns: [text(TABLE_TEXT_MAX_CHARS)] })).toEqual([]);
     expect(fieldsOf(withColumns([text(TABLE_TEXT_MAX_CHARS + 1)]))).toEqual([
       "props.columns[0].maxLength",
     ]);
     expect(
-      checked({ ...ROLES, columns: [text(TABLE_TEXT_MAX_CHARS + 1)] }).map(({ path }) => path),
+      checked({ rows: [], columns: [text(TABLE_TEXT_MAX_CHARS + 1)] }).map(({ path }) => path),
     ).toEqual(["/columns/0/maxLength"]);
     expect(fieldsOf(withColumns([text(0)]))).toEqual(["props.columns[0].maxLength"]);
   });
@@ -268,7 +268,7 @@ describe("Formula and total columns", () => {
     for (const type of ["text", "toggle"]) {
       expect(fieldsOf(withColumn({ type, formula: "[@a]" }))).toEqual(["props.columns[0].formula"]);
       expect(
-        checked({ ...ROLES, columns: [{ field: "c", label: "C", type, formula: "[@a]" }] }).map(
+        checked({ rows: [], columns: [{ field: "c", label: "C", type, formula: "[@a]" }] }).map(
           ({ path }) => path,
         ),
       ).toEqual(["/columns/0/formula"]);
@@ -289,7 +289,7 @@ describe("Formula and total columns", () => {
     );
     expect(
       checked({
-        ...ROLES,
+        rows: [],
         columns: [
           { field: "c", label: "C", type: "money", currency: "USD", formula: "[@a]", total: "sum" },
         ],
@@ -301,7 +301,7 @@ describe("Formula and total columns", () => {
     for (const type of ["date", "text", "toggle"]) {
       expect(fieldsOf(withColumn({ type, total: "sum" }))).toEqual(["props.columns[0].total"]);
       expect(
-        checked({ ...ROLES, columns: [{ field: "c", label: "C", type, total: "sum" }] }).map(
+        checked({ rows: [], columns: [{ field: "c", label: "C", type, total: "sum" }] }).map(
           ({ path }) => path,
         ),
       ).toEqual(["/columns/0/total"]);
@@ -311,7 +311,7 @@ describe("Formula and total columns", () => {
     ]);
     expect(
       checked({
-        ...ROLES,
+        rows: [],
         columns: [{ field: "c", label: "C", type: "number", total: "avg" }],
       }).map(({ path }) => path),
     ).toEqual(["/columns/0/total"]);
@@ -324,7 +324,7 @@ describe("Formula and total columns", () => {
     expect(problems(withColumn({ type: "number", formula: formula(500) }))).toEqual([]);
     expect(
       checked({
-        ...ROLES,
+        rows: [],
         columns: [{ field: "c", label: "C", type: "number", formula: formula(500) }],
       }),
     ).toEqual([]);
@@ -333,7 +333,7 @@ describe("Formula and total columns", () => {
     ]);
     expect(
       checked({
-        ...ROLES,
+        rows: [],
         columns: [{ field: "c", label: "C", type: "number", formula: formula(501) }],
       }).map(({ path }) => path),
     ).toEqual(["/columns/0/formula"]);
@@ -346,7 +346,7 @@ describe("Formula and total columns", () => {
     expect(problems(withColumn({ type: "number", formula: "[@days] *" }))).toEqual([]);
     expect(
       checked({
-        ...ROLES,
+        rows: [],
         columns: [{ field: "c", label: "C", type: "number", formula: "[@days] *" }],
       }),
     ).toEqual([]);

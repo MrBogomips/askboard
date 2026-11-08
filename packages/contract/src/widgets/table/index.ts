@@ -2,6 +2,7 @@
 // declared as formulas. Its schemas are standalone: they belong to no schema set until the entry is
 // registered (design decision 14), and nothing compiles them when this module loads.
 
+export { tableCellProblems, tableRowsProblems } from "./cells.ts";
 export { tableColumnsProblems, tablePropsProblems } from "./checks.ts";
 export {
   TABLE_COLUMN_TYPES,
