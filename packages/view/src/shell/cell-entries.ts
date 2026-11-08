@@ -10,7 +10,7 @@
 import { CELL_ENTRIES_MAX } from "@askboard/contract";
 import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
-import type { DraftStore } from "./draft-store.ts";
+import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { cutEntry } from "./entries.ts";
 
 /** One Table's cell entries: `row.field` to the text typed, in the order they were first held. */
@@ -122,4 +122,37 @@ export const dropStaleCellEntries = (document: ViewDocument, store: DraftStore):
 /** Clears the cell entries of every Table of the question; without a store, nothing. */
 export const clearCellEntries = (question: ViewQuestion, store: DraftStore | undefined): void => {
   for (const itemId of cellEntryIdsOf(question)) store?.set(itemId, undefined);
+};
+
+// The merged records, one per pair of entries and cell entries records, so that `withEntries`'s own
+// cache and a component's memo see one record while the stores hold the same ones.
+const NONE: DraftRecord = new Map();
+const MERGED = new WeakMap<DraftRecord, WeakMap<DraftRecord, DraftRecord>>();
+
+/**
+ * The one function every entry reader reads through (table-widget, design decision 8): the entries
+ * the fields hold, and an entry under a Table's item ID while any of its cells holds one, whose value
+ * is the Table's map of cell entries (so a change of the cells is a change of the entry). The block
+ * on "Answer", the hint, the board's `entries`, held work and Submit all take their entries from
+ * here, so no reader can miss a Table's cell. The same record while neither store's record changes;
+ * the entries' own record when no cells are held.
+ */
+export const entriesWithCells = (
+  entries: DraftRecord | undefined,
+  cells: DraftRecord | undefined,
+): DraftRecord => {
+  const base = entries ?? NONE;
+  const held = [...(cells ?? NONE)].filter(
+    (entry): entry is [string, CellEntries] => entry[1] instanceof Map && entry[1].size > 0,
+  );
+  if (held.length === 0) return base;
+  const known = cells === undefined ? undefined : MERGED.get(base)?.get(cells);
+  if (known !== undefined) return known;
+  const merged: DraftRecord = new Map([...base, ...held]);
+  if (cells !== undefined) {
+    const byCells = MERGED.get(base) ?? new WeakMap<DraftRecord, DraftRecord>();
+    byCells.set(cells, merged);
+    MERGED.set(base, byCells);
+  }
+  return merged;
 };

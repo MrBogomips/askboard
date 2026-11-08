@@ -13,6 +13,7 @@ const questionHasWork = (work: DraftQuestion): boolean =>
   Object.values(work.values ?? {}).some((value) => value !== undefined) ||
   Object.values(work.results ?? {}).some((value) => value !== undefined) ||
   Object.values(work.entries ?? {}).some(filled) ||
+  Object.values(work.cellEntries ?? {}).some((cells) => Object.values(cells).some(filled)) ||
   filled(work.other) ||
   Object.values(work.optionNotes ?? {}).some(filled) ||
   filled(work.note) ||
@@ -50,10 +51,24 @@ const entryLines = (work: DraftQuestion): string[] =>
     filled(text) ? [`${itemId}: ${JSON.stringify(text)}`] : [],
   );
 
+// The text a Table's cell could not read, as typed, under its item, row and column: a cell key is a
+// row ID, a dot and a column's field, which hold no dot themselves; a key of another shape is copied
+// whole after the item.
+const cellEntryLines = (work: DraftQuestion): string[] =>
+  Object.entries(work.cellEntries ?? {}).flatMap(([itemId, cells]) =>
+    Object.entries(cells).flatMap(([cell, text]) => {
+      if (!filled(text)) return [];
+      const dot = cell.indexOf(".");
+      const place = dot === -1 ? cell : `${cell.slice(0, dot)} · ${cell.slice(dot + 1)}`;
+      return [`${itemId} · ${place}: ${JSON.stringify(text)}`];
+    }),
+  );
+
 const workLines = (questionId: string, work: DraftQuestion, language: Locale): string[] => [
   ...valueLines(questionId, work, language),
   ...resultLines(work),
   ...entryLines(work),
+  ...cellEntryLines(work),
   ...(filled(work.other) ? [t(language, "unsent.other", { text: work.other })] : []),
   ...Object.entries(work.optionNotes ?? {})
     .filter(([, note]) => filled(note))

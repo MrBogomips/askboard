@@ -44,7 +44,12 @@ import {
   resultIdsOf,
   valueDropped,
 } from "./board-draft.ts";
-import { cellEntryIdsOf, clearCellEntries, fitCellEntries } from "./cell-entries.ts";
+import {
+  cellEntryIdsOf,
+  clearCellEntries,
+  entriesWithCells,
+  fitCellEntries,
+} from "./cell-entries.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
@@ -245,11 +250,11 @@ export const answerNeedsReason = (
  */
 export const blockedBy = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "results" | "entries" | "facts">,
+  context: Pick<AnswerContext, "results" | "entries" | "cellEntries" | "facts">,
 ): boolean =>
   holdsBlock(
     question,
-    context.entries?.record() ?? new Map(),
+    entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
     context.results?.record() ?? new Map(),
     context.facts,
   );

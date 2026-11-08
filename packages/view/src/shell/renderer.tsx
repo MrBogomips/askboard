@@ -29,7 +29,7 @@ import {
   useStrings,
 } from "../catalog/port.ts";
 import { withEntries } from "./board-content.ts";
-import { CELL_ENTRY_ITEM_TYPE, cellEntriesShown } from "./cell-entries.ts";
+import { CELL_ENTRY_ITEM_TYPE, cellEntriesShown, entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-store.ts";
 import { isEntryType } from "./entries.ts";
@@ -198,7 +198,11 @@ export const RenderItem = ({
   const heldResults = useSyncExternalStore(results.subscribe, results.record, results.record);
   const heldEntries = useSyncExternalStore(entries.subscribe, entries.record, entries.record);
   const heldCells = useSyncExternalStore(cellEntries.subscribe, cellEntries.record);
-  const board = withEntries(boardContent(record), heldEntries, heldResults);
+  const board = withEntries(
+    boardContent(record),
+    entriesWithCells(heldEntries, heldCells),
+    heldResults,
+  );
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
     [derived, item.id],

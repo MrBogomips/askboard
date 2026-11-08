@@ -45,6 +45,7 @@ import {
 } from "./board-view.ts";
 import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
@@ -398,7 +399,7 @@ export const Board = ({
     lock,
     pending: (id) => changed.has(id),
     sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
-    entries: context.entries?.record(),
+    entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
     results: context.results?.record(),
   });
   return (

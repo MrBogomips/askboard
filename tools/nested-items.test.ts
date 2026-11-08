@@ -295,6 +295,7 @@ const VIEW_READS: readonly Read[] = [
     file: "packages/view/src/shell/entries.ts",
     text: "valueItemsOf(question.props.items)",
     reason: HANDED,
+    count: 2,
   },
   {
     file: "packages/view/src/shell/question-state.ts",
