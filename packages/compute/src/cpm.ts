@@ -6,7 +6,8 @@
 // Backward: latest finish is the earliest latest start of the successors, or the plan's finish. A
 // task is critical at zero slack. Dates count working days from the first working day on or after
 // the start. A plan that names an ID which is no work package of its Tree, as an entry or as a
-// predecessor, gives one `missing-reference` warning at `<plan>.<ID>` (wbs-gantt-consistency).
+// predecessor in the entry of a work package, gives one `missing-reference` warning at
+// `<plan>.<first ID>`, naming at most `PLAN_STRAYS_NAMED` of them (wbs-gantt-consistency).
 
 import { ID_PATTERN } from "@askboard/contract";
 import { countWorkingDays, firstWorkingDay, serialOf } from "./dates.ts";
@@ -210,8 +211,30 @@ const scheduleItem = ({
   return { item: { kind: "fields", id, fields, children }, warnings };
 };
 
-// One warning for each ID the plan names that is no leaf: first the entries' own keys, then the
-// predecessors of the scheduled tasks, each ID once. The dependent's own formula error stays.
+/** The most IDs one plan warning names; the rest are counted (wbs-gantt-consistency, X-1). */
+export const PLAN_STRAYS_NAMED = 5;
+
+/** "a", "a and b", "a, b and c": the IDs a plan warning names. */
+const listed = (ids: readonly string[]): string =>
+  ids.length < 2 ? ids.join("") : `${ids.slice(0, -1).join(", ")} and ${ids[ids.length - 1]}`;
+
+// The detail of the plan's one warning: one ID as always, two to five by name, then five and a
+// count. IDs match `ID_PATTERN`, so the detail is at most 500 characters whatever the plan holds.
+const strayDetail = (ids: readonly string[], workPackages: string): string => {
+  if (ids.length === 1) {
+    return `the plan names ${ids[0]}, which is no work package of ${workPackages}`;
+  }
+  const rest = ids.length - PLAN_STRAYS_NAMED;
+  const names =
+    rest <= 0
+      ? listed(ids)
+      : `${ids.slice(0, PLAN_STRAYS_NAMED).join(", ")} and ${rest} more ID${rest === 1 ? "" : "s"}`;
+  return `the plan names ${names}, which are no work packages of ${workPackages}`;
+};
+
+// One warning for the IDs the plan names that are no leaf, addressed by the first of them: first the
+// entries' own keys, then the predecessors of the scheduled tasks, each ID once. A stray entry's
+// own predecessors are never read. The dependent's own formula error stays.
 const warnAboutStrays = (
   plan: GanttPlanItem,
   dependencies: ReadonlyMap<string, readonly string[]>,
@@ -219,15 +242,17 @@ const warnAboutStrays = (
   warnings: FormulaError[],
 ): void => {
   const known = new Set(leaves);
-  const warned = new Set<string>();
+  const strays = new Set<string>();
   const warn = (id: string): void => {
-    if (known.has(id) || warned.has(id)) return;
-    warned.add(id);
-    const detail = `the plan names ${id}, which is no work package of ${plan.workPackages}`;
-    warnings.push({ error: "missing-reference", address: `${plan.id}.${id}`, detail });
+    if (!known.has(id)) strays.add(id);
   };
   for (const stray of plan.strays ?? []) warn(stray);
   for (const [task, before] of dependencies) if (known.has(task)) before.forEach(warn);
+  const ids = [...strays];
+  const [first] = ids;
+  if (first === undefined) return;
+  const detail = strayDetail(ids, plan.workPackages);
+  warnings.push({ error: "missing-reference", address: `${plan.id}.${first}`, detail });
 };
 
 /**

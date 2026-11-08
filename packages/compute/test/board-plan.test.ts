@@ -3,7 +3,7 @@
 // predecessors taken for the Tree's leaves only, and that Tree a WBS-with-PERT source, once.
 
 import { describe, expect, test } from "bun:test";
-import { GANTT_ANSWER_DERIVED } from "@askboard/contract";
+import { GANTT_ANSWER_DERIVED, GANTT_MAX_PREDECESSORS, GANTT_MAX_TASKS } from "@askboard/contract";
 import {
   ganttPlanDerived,
   ganttPlanRequestedDerived,
@@ -151,7 +151,7 @@ describe("the board's graph source, on a Gantt plan", () => {
     expect(values.read("schedule.finishDate")).toBe("2026-12-16");
   });
 
-  test("adds nothing to the schedule for an entry that names no leaf, and warns of each", () => {
+  test("adds nothing to the schedule for an entry that names no leaf, and warns once", () => {
     const tasks = {
       ...TASKS,
       design: { dependencies: ["ux"], start: "2026-11-20" },
@@ -164,8 +164,128 @@ describe("the board's graph source, on a Gantt plan", () => {
     const [boardWbs, boardSchedule] = boardGraphSource(UJ2_BOARD).items;
     expect(wbs).toEqual(boardWbs);
     expect({ ...schedule, strays: undefined }).toEqual({ ...boardSchedule, strays: undefined });
-    expect(strayWarnings(source)).toEqual(["schedule.design", "schedule.nope", "schedule.build"]);
-    expect(buildGraph(source).warnings).toHaveLength(3);
+    expect(strayWarnings(source)).toEqual(["schedule.design"]);
+    expect(buildGraph(source).warnings).toEqual([
+      {
+        error: "missing-reference",
+        address: "schedule.design",
+        detail: "the plan names design, nope and build, which are no work packages of wbs",
+      },
+    ]);
+  });
+
+  // The compute spec's "One warning per plan".
+  test("gives one warning for several IDs, naming the strays and then a predecessor", () => {
+    const tasks = {
+      ...TASKS,
+      design: {},
+      nope: {},
+      reporting: { dependencies: ["portal", "ghost"] },
+    };
+    const { warnings } = buildGraph(boardGraphSource([WBS, plan(tasks)]));
+    expect(
+      warnings.filter(
+        ({ address }) => address.startsWith("schedule.") && !address.includes(".reporting"),
+      ),
+    ).toEqual([
+      {
+        error: "missing-reference",
+        address: "schedule.design",
+        detail: "the plan names design, nope and ghost, which are no work packages of wbs",
+      },
+    ]);
+    // The dependent's own error stays, as an effect at its own address.
+    expect(warnings.map(({ address }) => address)).toEqual([
+      "schedule.design",
+      "schedule.reporting.es",
+    ]);
+  });
+
+  test("names two IDs with 'and', and five with a comma list", () => {
+    const named = (ids: readonly string[]): string | undefined =>
+      buildGraph(
+        boardGraphSource([
+          WBS,
+          plan({ ...TASKS, ...Object.fromEntries(ids.map((id) => [id, {}])) }),
+        ]),
+      ).warnings[0]?.detail;
+    expect(named(["a", "b"])).toBe("the plan names a and b, which are no work packages of wbs");
+    expect(named(["a", "b", "c", "d", "e"])).toBe(
+      "the plan names a, b, c, d and e, which are no work packages of wbs",
+    );
+    expect(named(["a", "b", "c", "d", "e", "f"])).toBe(
+      "the plan names a, b, c, d, e and 1 more ID, which are no work packages of wbs",
+    );
+  });
+
+  test("gives one warning for a stale plan of 150 old IDs, naming five and counting the rest", () => {
+    const old = Array.from({ length: 150 }, (_, i) => `old-${i}`);
+    const fresh = Array.from({ length: 150 }, (_, i) => `new-${i}`);
+    const leaf = (id: string): Json => ({
+      id,
+      label: id,
+      optimistic: 1,
+      mostLikely: 2,
+      pessimistic: 3,
+    });
+    const tasks = Object.fromEntries(old.map((id) => [id, { dependencies: ["ux"] }]));
+    const source = boardGraphSource([tree(fresh.map(leaf)), plan(tasks)]);
+    const { warnings, nodes } = buildGraph(source);
+    expect(warnings).toEqual([
+      {
+        error: "missing-reference",
+        address: "schedule.old-0",
+        detail:
+          "the plan names old-0, old-1, old-2, old-3, old-4 and 145 more IDs, which are no work packages of wbs",
+      },
+    ]);
+    // No old entry is scheduled: the plan's children are the new leaves alone.
+    expect(nodes.filter(({ address }) => /^schedule\.old-/.test(address))).toEqual([]);
+  });
+
+  test("reads no predecessor of a stray entry: its own predecessors give no warning", () => {
+    const tasks = { ...TASKS, old: { dependencies: ["ghost"] } };
+    const { warnings } = buildGraph(boardGraphSource([WBS, plan(tasks)]));
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.detail).toContain("old");
+    expect(warnings[0]?.detail).not.toContain("ghost");
+    expect(warnings.some(({ address }) => address === "schedule.ghost")).toBe(false);
+  });
+
+  test("keeps a detail at most 500 characters for the largest plan the schema admits", () => {
+    const id = (kind: string, n: number): string =>
+      `${kind}${String(n).padStart(64 - kind.length, "0")}`;
+    const leaves = Array.from({ length: GANTT_MAX_TASKS / 2 }, (_, i) => id("l", i));
+    const nodes = leaves.map((leafId) => ({
+      id: leafId,
+      label: "Leaf",
+      optimistic: 1,
+      mostLikely: 2,
+      pessimistic: 3,
+    }));
+    const entries: [string, Json][] = [
+      ...leaves.map((leafId, i): [string, Json] => [
+        leafId,
+        {
+          dependencies: Array.from({ length: GANTT_MAX_PREDECESSORS }, (_, k) =>
+            id("p", i * GANTT_MAX_PREDECESSORS + k),
+          ),
+        },
+      ]),
+      ...Array.from({ length: GANTT_MAX_TASKS / 2 }, (_, i): [string, Json] => [id("s", i), {}]),
+    ];
+    const wbs = id("w", 0);
+    const source = boardGraphSource([
+      tree(nodes, wbs),
+      plan(Object.fromEntries(entries), { workPackages: wbs }),
+    ]);
+    const first = `schedule.${id("s", 0)}`;
+    const warnings = buildGraph(source).warnings.filter(({ address }) => address === first);
+    expect(warnings).toHaveLength(1);
+    const detail = warnings[0]?.detail as string;
+    expect(detail.length).toBeLessThanOrEqual(500);
+    const distinct = GANTT_MAX_TASKS / 2 + (GANTT_MAX_TASKS / 2) * GANTT_MAX_PREDECESSORS;
+    expect(detail).toContain(`and ${distinct - 5} more IDs`);
   });
 
   test("warns once at the plan's entry for a Tree without billing, and changes nothing else", () => {
