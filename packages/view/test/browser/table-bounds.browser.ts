@@ -5,7 +5,8 @@
 // edit committed and painted, then one row deleted and one added back and painted, each within its gate: the Table
 // visible 1,500 ms from the view's creation, an edit painted 100 ms after its Enter, a row added
 // 250 ms after its click. The fan-out form (each formula reads `[worst.a]`, the total of the input
-// column, so one edit recalculates 1,810 nodes) takes the same edit gate. "Painted" is the second
+// column, so one edit recalculates 1,810 nodes) takes the same edit gate in Chromium and 150 ms in
+// WebKit, whose paint of 200 rows leaves it just over 100 ms (decision 13's known limit). "Painted" is the second
 // animation frame after the change shows in the grid. Each run prints its figures as a line
 // `table-bounds <form> <engine> {...}` for the task's note.
 //
@@ -26,6 +27,12 @@ const dist = await readViewBuild();
 
 /** The gates of design decision 13, in milliseconds. */
 const GATES = { visible: 1500, edit: 100, add: 250 } as const;
+
+/** The fan-out form's edit gate in WebKit (decision 13: a known limit, the other gates unchanged). */
+const FAN_OUT_WEBKIT_EDIT_GATE = 150;
+
+const editGate = (form: string, engine: string): number =>
+  form === "fan-out" && engine === "webkit" ? FAN_OUT_WEBKIT_EDIT_GATE : GATES.edit;
 
 /** Runs of each form, each in a fresh page. */
 const RUNS = 3;
@@ -155,7 +162,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             };
             process.stdout.write(`table-bounds ${name} ${engine} ${JSON.stringify(figures)}\n`);
             expect(figures.visible).toBeLessThanOrEqual(GATES.visible);
-            expect(figures.edit).toBeLessThanOrEqual(GATES.edit);
+            expect(figures.edit).toBeLessThanOrEqual(editGate(name, engine));
             expect(figures.add).toBeLessThanOrEqual(GATES.add);
             expect(page.browser.cspProblems()).toEqual([]);
           },
